@@ -41,6 +41,9 @@ const CROUCH_AXIS_Y_THRESHOLD: f32 = 0.4;
 pub fn update_body_mode(
     world: Res<crate::GameWorld>,
     gravity_field: Option<Res<crate::physics::GravityField>>,
+    // Optional: headless / unit-test apps may omit the settings resource. Absent →
+    // Hybrid (the historical behavior).
+    user_settings: Option<Res<crate::persistence::settings::UserSettings>>,
     mut player_q: Query<
         (
             &mut crate::player::BodyKinematics,
@@ -95,12 +98,19 @@ pub fn update_body_mode(
             continue;
         }
 
-        // Gravity-relative "descend" gate: crouch is "press toward your feet", which
-        // flips to screen-up under inverted gravity.
+        // "Descend" gate: crouch is "press toward your feet". Gravity- AND
+        // input-mode-relative via the resolved player-frame stick `y`, so it honors
+        // the Screen/Hybrid setting exactly like the engine movement core (under
+        // Hybrid this is the old `gravity_descend(axis_y)`).
         let gravity_dir = gravity_field
             .as_deref()
             .map_or(ae::Vec2::new(0.0, 1.0), |g| g.dir);
-        let descend = ae::movement::gravity_descend(controls.axis_y, gravity_dir);
+        let input_mode = user_settings
+            .as_deref()
+            .map_or(ae::InputFrameMode::Hybrid, |s| s.gameplay.input_frame_mode);
+        let descend = ae::AccelerationFrame::new(gravity_dir)
+            .resolve_input(input_mode, controls.axis_x, controls.axis_y)
+            .y;
         let down_held = descend > CROUCH_AXIS_Y_THRESHOLD;
         let up_held = descend < -CROUCH_AXIS_Y_THRESHOLD;
         let on_ground = ground.on_ground;

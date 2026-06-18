@@ -504,6 +504,20 @@ pub fn settings_menu_model(settings: &UserSettings) -> SettingsMenuModel {
                 g.portal_reverses_facing,
                 "Reverse the player's facing when a portal turns them back along the same wall.",
             ),
+            {
+                let (i, n) = g.input_frame_mode_index();
+                cycle(
+                    SettingsOptionId::InputFrameMode,
+                    "Input Frame",
+                    crate::persistence::settings::gameplay::GameplaySettings::input_frame_mode_label(
+                        g.input_frame_mode,
+                    ),
+                    i,
+                    n,
+                    "How movement maps under rotated gravity: gravity-relative \
+                     (current) or screen-relative.",
+                )
+            },
         ],
     };
 

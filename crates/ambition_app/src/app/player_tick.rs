@@ -76,6 +76,7 @@ pub fn player_control_system(
     time: Res<Time>,
     world: Res<GameWorld>,
     editable_tuning: Res<EditableMovementTuning>,
+    user_settings: Res<ambition_gameplay_core::persistence::settings::UserSettings>,
     feel_tuning: Res<SandboxFeelTuning>,
     gravity_field: Option<Res<ambition_gameplay_core::physics::GravityField>>,
     mut reset_this_frame: ResMut<SandboxResetThisFrame>,
@@ -105,6 +106,11 @@ pub fn player_control_system(
     // bounced into gravity under a flip.
     let gdir = ambition_gameplay_core::physics::gravity_dir_or_default(gravity_field.as_deref());
     ambition_gameplay_core::physics::apply_gravity_dir(&mut tuning, gdir);
+    // The input-frame control preference is a per-frame application alongside the
+    // gravity direction (the engine's `as_engine()` baseline is Hybrid; the live
+    // gameplay setting wins here). Drives run + descend gate mapping under rotated
+    // gravity. Default Hybrid == the historical feel, so normal play is unchanged.
+    tuning.input_frame_mode = user_settings.gameplay.input_frame_mode;
     let feel = *feel_tuning;
     let frame_dt = time.delta_secs();
 
@@ -170,6 +176,7 @@ pub fn player_simulation_system(
     time: Res<Time>,
     world: Res<GameWorld>,
     editable_tuning: Res<EditableMovementTuning>,
+    user_settings: Res<ambition_gameplay_core::persistence::settings::UserSettings>,
     feel_tuning: Res<SandboxFeelTuning>,
     mut reset_this_frame: ResMut<SandboxResetThisFrame>,
     mut event_writers: SandboxEventWriters,
@@ -203,6 +210,11 @@ pub fn player_simulation_system(
     // sync for the down/up case (the legacy Y-only scalar).
     let gdir = ambition_gameplay_core::physics::gravity_dir_or_default(gravity_field.as_deref());
     ambition_gameplay_core::physics::apply_gravity_dir(&mut tuning, gdir);
+    // The input-frame control preference is a per-frame application alongside the
+    // gravity direction (the engine's `as_engine()` baseline is Hybrid; the live
+    // gameplay setting wins here). Drives run + descend gate mapping under rotated
+    // gravity. Default Hybrid == the historical feel, so normal play is unchanged.
+    tuning.input_frame_mode = user_settings.gameplay.input_frame_mode;
     let feel = *feel_tuning;
     let frame_dt = time.delta_secs();
 

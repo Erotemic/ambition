@@ -134,6 +134,10 @@ pub enum SettingsOptionId {
     /// Reverse the player's facing when transiting a same-wall portal pair.
     /// Default OFF; mirrored into `PortalTuning::reorient_facing`.
     PortalReverseFacing,
+    /// How the movement stick maps onto the gravity-relative frame
+    /// (gravity-relative `Hybrid` vs `Screen`). Flows into
+    /// `MovementTuning::input_frame_mode`.
+    InputFrameMode,
     // Menu-level action (not under any category).
     Close,
 }

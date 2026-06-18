@@ -48,16 +48,12 @@ pub fn gravity_descend(axis_y: f32, gravity_dir: crate::Vec2) -> f32 {
 }
 
 /// The "drop through a one-way platform" gesture: press the descend gate (toward
-/// gravity) + jump. Gravity-relative via [`gravity_descend`], so under inverted
-/// gravity it reads screen-UP + jump. Computed here at the consumer (where
-/// `gravity_dir` is known) rather than precomputed gravity-blind at the input
-/// boundary.
-pub(super) fn wants_drop_through(
-    axis_y: f32,
-    jump_pressed: bool,
-    gravity_dir: crate::Vec2,
-) -> bool {
-    gravity_descend(axis_y, gravity_dir) > 0.35 && jump_pressed
+/// the feet) + jump. The `descend` scalar is the resolved player-frame `y` from
+/// [`MovementTuning::stick`], so it is gravity- AND input-mode-relative (under
+/// inverted gravity, Hybrid reads screen-UP + jump). Computed at the consumer
+/// rather than precomputed gravity-blind at the input boundary.
+pub(super) fn wants_drop_through(descend: f32, jump_pressed: bool) -> bool {
+    descend > 0.35 && jump_pressed
 }
 
 use super::dec;
@@ -173,7 +169,7 @@ pub(super) fn integrate_velocity_clusters(
         // grounds the player. Under sideways gravity the probe below owns it.
         clusters.ground.on_ground = false;
     }
-    let drop_through = wants_drop_through(input.axis_y, input.jump_pressed, tuning.gravity_dir)
+    let drop_through = wants_drop_through(tuning.stick(&input).y, input.jump_pressed)
         || clusters.ground.drop_through_timer > 0.0;
     let dt_y = clusters.kinematics.vel.y * dt;
     super::collision::sweep_player_y_clusters(
@@ -383,20 +379,22 @@ pub fn integrate_normal_spine(
         } else {
             tuning.air_accel
         };
-        // Run/friction act along the control frame's `side` axis so `axis_x = +1`
-        // walks the body toward THEIR right at any gravity orientation.
-        let m = crate::AccelerationFrame::new(g)
-            .control_frame(tuning.input_frame_mode)
-            .side;
+        // Run/friction act along the PHYSICAL run axis (`side`, perpendicular to
+        // gravity). The input-frame mode chooses how the stick projects onto it:
+        // `stick(...).x` is the run component (Hybrid: just `axis_x`; Screen: the
+        // screen stick's run-along-the-ground component). So `+run` walks the body
+        // toward THEIR right at any gravity orientation, screen-relative or not.
+        let m = crate::AccelerationFrame::new(g).side;
+        let run = tuning.stick(&input).x;
         let along = kin_vel.dot(m);
-        let target = input.axis_x * tuning.max_run_speed;
+        let target = run * tuning.max_run_speed;
         let mut new_along = approach(along, target, accel * dt);
         let friction = if ctx.on_ground {
             tuning.ground_friction
         } else {
             tuning.air_friction
         };
-        if input.axis_x.abs() <= 0.1 {
+        if run.abs() <= 0.1 {
             new_along = approach(new_along, 0.0, friction * dt);
         }
         *kin_vel += (new_along - along) * m;
@@ -442,10 +440,11 @@ pub(super) fn integrate_climb_clusters(
         return;
     };
     let spec = contact.spec;
-    // The boost GATE ("press away from gravity") is gravity-relative; the climb
-    // SPEED stays raw `axis_y` (screen-vertical along the ladder, already
-    // gravity-symmetric since it's a direct screen-space velocity).
-    let pressing_away_from_gravity = gravity_descend(input.axis_y, tuning.gravity_dir) < -0.1;
+    // The boost GATE ("press away from the feet") is gravity- + input-mode-relative
+    // via the resolved descend; the climb SPEED stays raw `axis_y` (screen-vertical
+    // along the ladder, already gravity-symmetric since it's a direct screen-space
+    // velocity).
+    let pressing_away_from_gravity = tuning.stick(&input).y < -0.1;
     let target_vy = if jump.ladder_jump_boost > 0.0 && pressing_away_from_gravity {
         -tuning.jump_speed * tuning.gravity_sign
     } else {

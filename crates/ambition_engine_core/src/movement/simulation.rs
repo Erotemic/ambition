@@ -45,7 +45,7 @@ pub fn handle_jump_buffer_clusters(
 
     let on_ladder = env_contact.climbable.is_some();
 
-    if super::integration::wants_drop_through(input.axis_y, input.jump_pressed, tuning.gravity_dir)
+    if super::integration::wants_drop_through(tuning.stick(&input).y, input.jump_pressed)
         && on_ladder
     {
         jump_state.ladder_drop_through_timer = ONE_WAY_DROP_THROUGH_GRACE;
@@ -58,10 +58,9 @@ pub fn handle_jump_buffer_clusters(
     }
 
     if body_mode == BodyMode::Climbing && on_ladder {
-        // "Press away from gravity (up) + jump" boosts off the ladder.
-        if abilities.abilities.jump
-            && super::integration::gravity_descend(input.axis_y, tuning.gravity_dir) < -0.1
-        {
+        // "Press away from the feet + jump" boosts off the ladder (gravity- +
+        // input-mode-relative via the resolved descend).
+        if abilities.abilities.jump && tuning.stick(&input).y < -0.1 {
             jump_state.ladder_jump_boost = LADDER_JUMP_BOOST_TIME;
             events.op_clusters(combo_trace, MovementOp::Jump);
         }
@@ -71,7 +70,7 @@ pub fn handle_jump_buffer_clusters(
     }
 
     let can_ladder_jump = on_ladder && !ground.on_ground;
-    if super::integration::wants_drop_through(input.axis_y, input.jump_pressed, tuning.gravity_dir)
+    if super::integration::wants_drop_through(tuning.stick(&input).y, input.jump_pressed)
         && ground.on_ground
         && crate::movement::collision::standing_on_one_way_aabb(
             world,

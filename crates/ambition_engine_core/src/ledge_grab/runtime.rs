@@ -187,9 +187,10 @@ pub fn tick_active_ledge_grab_clusters(
         return true;
     }
 
-    // Gravity-relative: "up" = away from gravity (climb up the ledge), "down" =
-    // toward gravity (drop). Flips under inverted gravity.
-    let descend = crate::movement::gravity_descend(input.axis_y, tuning.gravity_dir);
+    // Player-frame "descend": "up" = away from the feet (climb up the ledge),
+    // "down" = toward the feet (drop). Gravity- + input-mode-relative via the
+    // resolved stick `y`.
+    let descend = tuning.stick(&input).y;
     let input_up = descend < -0.4;
     let input_down = descend > 0.4;
     let input_into_platform = input.axis_x * into_platform_axis(state.contact) > 0.4;

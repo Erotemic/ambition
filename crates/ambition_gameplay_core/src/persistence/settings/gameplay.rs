@@ -7,6 +7,8 @@
 
 use serde::{Deserialize, Serialize};
 
+pub use crate::engine_core::InputFrameMode;
+
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub enum Difficulty {
     Easy,
@@ -128,6 +130,13 @@ pub struct GameplaySettings {
     /// toggled live from the gameplay settings page.
     #[serde(default)]
     pub portal_reverses_facing: bool,
+    /// How the movement stick maps onto the player's gravity-relative frame.
+    /// `Hybrid` (default) is the current feel — player-relative up to ±90° from
+    /// screen-down, then screen-aligned past 90°. `Screen` keeps the stick fully
+    /// screen-relative at every orientation (push screen-right → move
+    /// screen-right). Flows into `MovementTuning::input_frame_mode`.
+    #[serde(default)]
+    pub input_frame_mode: InputFrameMode,
 }
 
 fn default_debug_hud_visible() -> bool {
@@ -149,12 +158,52 @@ impl Default for GameplaySettings {
             trace_auto_dump: true,
             pause_input_when_unfocused: false,
             portal_reverses_facing: false,
+            input_frame_mode: InputFrameMode::Hybrid,
         }
     }
 }
 
 impl GameplaySettings {
     pub const DAMAGE_STEP: f32 = 0.10;
+
+    /// The input-frame modes surfaced to players — the two Jon asked for. The
+    /// engine's third mode (`InputFrameMode::Player`, fully player-relative with no
+    /// accommodation) stays dev-only and is reachable through the F3 tuning editor.
+    pub const INPUT_FRAME_MODES: [InputFrameMode; 2] =
+        [InputFrameMode::Hybrid, InputFrameMode::Screen];
+
+    /// Short, user-facing label for an input-frame mode.
+    pub fn input_frame_mode_label(mode: InputFrameMode) -> &'static str {
+        match mode {
+            InputFrameMode::Hybrid => "gravity-relative",
+            InputFrameMode::Screen => "screen-relative",
+            InputFrameMode::Player => "player-relative",
+        }
+    }
+
+    /// Position of the current mode within [`Self::INPUT_FRAME_MODES`] and the
+    /// surfaced count, for the cycle UI. Falls back to index 0 if the live mode is
+    /// the dev-only one.
+    pub fn input_frame_mode_index(&self) -> (usize, usize) {
+        let i = Self::INPUT_FRAME_MODES
+            .iter()
+            .position(|&m| m == self.input_frame_mode)
+            .unwrap_or(0);
+        (i, Self::INPUT_FRAME_MODES.len())
+    }
+
+    /// Cycle the input-frame mode across the surfaced set; `dir < 0` goes back,
+    /// otherwise forward (confirm advances like next, matching the other cycles).
+    pub fn cycle_input_frame_mode(&mut self, dir: i32) {
+        let modes = Self::INPUT_FRAME_MODES;
+        let n = modes.len() as i32;
+        let cur = modes
+            .iter()
+            .position(|&m| m == self.input_frame_mode)
+            .unwrap_or(0) as i32;
+        let step = if dir < 0 { -1 } else { 1 };
+        self.input_frame_mode = modes[(((cur + step) % n + n) % n) as usize];
+    }
 
     pub fn nudge_player_damage(&mut self, delta: f32) {
         self.player_damage_multiplier = (self.player_damage_multiplier + delta).clamp(0.25, 4.0);

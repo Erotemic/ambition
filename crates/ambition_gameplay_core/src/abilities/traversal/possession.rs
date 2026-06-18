@@ -72,6 +72,9 @@ pub const POSSESSED_MOVE_SPEED: f32 = 180.0;
 pub fn possession_trigger_system(
     control: Res<ControlFrame>,
     gravity_field: Option<Res<crate::physics::GravityField>>,
+    // Optional: headless / unit-test apps may omit the settings resource. Absent →
+    // Hybrid (the historical behavior).
+    user_settings: Option<Res<crate::persistence::settings::UserSettings>>,
     world_time: Res<crate::WorldTime>,
     mut hold_timer: Local<f32>,
     mut prev_down_interact: Local<bool>,
@@ -96,9 +99,14 @@ pub fn possession_trigger_system(
     let gravity_dir = gravity_field
         .as_deref()
         .map_or(crate::engine_core::Vec2::new(0.0, 1.0), |g| g.dir);
-    let down_interact = crate::engine_core::movement::gravity_descend(control.axis_y, gravity_dir)
-        > 0.35
-        && control.interact_pressed;
+    let input_mode = user_settings.as_deref().map_or(
+        crate::engine_core::InputFrameMode::Hybrid,
+        |s| s.gameplay.input_frame_mode,
+    );
+    let descend = crate::engine_core::AccelerationFrame::new(gravity_dir)
+        .resolve_input(input_mode, control.axis_x, control.axis_y)
+        .y;
+    let down_interact = descend > 0.35 && control.interact_pressed;
     let release_edge = down_interact && !*prev_down_interact;
     *prev_down_interact = down_interact;
 

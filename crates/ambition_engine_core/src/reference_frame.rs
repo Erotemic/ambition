@@ -99,8 +99,45 @@ impl AccelerationFrame {
     /// fast-fall. The accommodation: the gate stays on the up/down keys and only
     /// flips sign once gravity rotates PAST ±90° from screen-down (i.e. gravity
     /// points up-ish). Identity under normal gravity.
+    ///
+    /// This is exactly the `y` of [`Self::resolve_input`] in [`InputFrameMode::Hybrid`];
+    /// prefer `resolve_input` at the input seam so the run axis and the descend
+    /// gate honor the SAME mode together.
     pub fn descend(self, input_axis_y: f32) -> f32 {
         input_axis_y * if self.down.y < 0.0 { -1.0 } else { 1.0 }
+    }
+
+    /// INPUT → PLAYER, both axes. Resolve the raw INPUT-frame stick
+    /// `(axis_x, axis_y)` (right-positive / screen-down-positive) into a
+    /// PLAYER-frame stick — `x` = run (along [`Self::side`]), `y` = descend
+    /// (toward the feet, along [`Self::down`]) — per the player's
+    /// [`InputFrameMode`]. [`Self::to_world`] on the result gives the world-space
+    /// movement direction; the `x`/`y` scalars drive the run axis and the
+    /// descend gates respectively.
+    ///
+    /// - [`InputFrameMode::Player`] — the stick already IS the player frame:
+    ///   `(axis_x, axis_y)`, fully rotated with gravity.
+    /// - [`InputFrameMode::Screen`] — the stick is screen-aligned; project it onto
+    ///   the player basis so the body moves the way the stick points ON SCREEN at
+    ///   any gravity (push screen-right → move screen-right). Under sideways
+    ///   gravity the run/descend roles swap, exactly as a screen-relative player
+    ///   expects.
+    /// - [`InputFrameMode::Hybrid`] — the default. BYTE-IDENTICAL at every
+    ///   orientation to the old `axis_x` run + [`Self::descend`] gate: it equals
+    ///   `Player` up to ±90° from screen-down, then inverts BOTH axes past 90°
+    ///   (gravity up-ish) so the hard-to-track flip reverts to a screen-like feel.
+    pub fn resolve_input(self, mode: InputFrameMode, axis_x: f32, axis_y: f32) -> Vec2 {
+        match mode {
+            InputFrameMode::Player => Vec2::new(axis_x, axis_y),
+            InputFrameMode::Screen => {
+                let input = Vec2::new(axis_x, axis_y);
+                Vec2::new(input.dot(self.side), input.dot(self.down))
+            }
+            InputFrameMode::Hybrid => {
+                let s = if self.down.y < 0.0 { -1.0 } else { 1.0 };
+                Vec2::new(axis_x * s, axis_y * s)
+            }
+        }
     }
 
     /// PLAYER → WORLD. Rotate a player-frame vector (authored with `+y` toward the
@@ -217,6 +254,83 @@ mod tests {
             up.control_frame(InputFrameMode::Screen).down,
             Vec2::new(0.0, 1.0)
         );
+    }
+
+    // The four cardinal gravities, as (name, down) pairs.
+    const CARDINALS: [(&str, Vec2); 4] = [
+        ("down", Vec2::new(0.0, 1.0)),
+        ("right", Vec2::new(1.0, 0.0)),
+        ("up", Vec2::new(0.0, -1.0)),
+        ("left", Vec2::new(-1.0, 0.0)),
+    ];
+
+    #[test]
+    fn hybrid_resolve_input_matches_the_legacy_run_and_descend_at_every_orientation() {
+        // Hybrid MUST stay byte-identical to the old seam (the replay guard only
+        // covers normal gravity, so pin all four here). Old run: drive
+        // `control_frame(Hybrid).side` by `axis_x`. Old descend: `descend(axis_y)`.
+        for (name, down) in CARDINALS {
+            let f = AccelerationFrame::new(down);
+            for &(ax, ay) in &[(1.0, 0.0), (-0.4, 0.0), (0.0, 0.7), (0.0, -1.0), (0.6, -0.3)] {
+                let r = f.resolve_input(InputFrameMode::Hybrid, ax, ay);
+                // Run: world velocity direction must match the legacy basis * axis_x.
+                let legacy_run = f.control_frame(InputFrameMode::Hybrid).side * ax;
+                let new_run = f.side * r.x;
+                assert!(
+                    (legacy_run - new_run).length() < 1e-6,
+                    "{name}: run mismatch ax={ax} -> legacy {legacy_run:?} new {new_run:?}"
+                );
+                // Descend gate scalar must match `descend(axis_y)` exactly.
+                assert!(
+                    (f.descend(ay) - r.y).abs() < 1e-6,
+                    "{name}: descend mismatch ay={ay}"
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn screen_mode_is_screen_relative_at_every_orientation() {
+        // In Screen mode the body moves the way the stick points ON SCREEN: the
+        // world movement direction equals the raw input vector regardless of
+        // gravity (to_world ∘ resolve_input == identity on the screen vector).
+        for (name, down) in CARDINALS {
+            let f = AccelerationFrame::new(down);
+            for &(ax, ay) in &[(1.0, 0.0), (0.0, 1.0), (-1.0, 0.0), (0.0, -1.0), (0.5, -0.5)] {
+                let world = f.to_world(f.resolve_input(InputFrameMode::Screen, ax, ay));
+                assert!(
+                    (world - Vec2::new(ax, ay)).length() < 1e-6,
+                    "{name}: screen input ({ax},{ay}) should move screen-relative, got {world:?}"
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn screen_mode_matches_the_authored_quadrant_spec() {
+        // The exact mapping Jon specified. Gravity RIGHT (player's feet point
+        // screen-right): run = +side (screen-up), descend = +down (screen-right).
+        let right = AccelerationFrame::new(Vec2::new(1.0, 0.0));
+        let r = |ax, ay| right.resolve_input(InputFrameMode::Screen, ax, ay);
+        assert_eq!(r(1.0, 0.0), Vec2::new(0.0, 1.0), "input-right -> player-down");
+        assert_eq!(r(0.0, -1.0), Vec2::new(1.0, 0.0), "input-up -> player-right");
+        assert_eq!(r(-1.0, 0.0), Vec2::new(0.0, -1.0), "input-left -> player-up");
+        assert_eq!(r(0.0, 1.0), Vec2::new(-1.0, 0.0), "input-down -> player-left");
+
+        // Gravity LEFT (feet point screen-left).
+        let left = AccelerationFrame::new(Vec2::new(-1.0, 0.0));
+        let l = |ax, ay| left.resolve_input(InputFrameMode::Screen, ax, ay);
+        assert_eq!(l(-1.0, 0.0), Vec2::new(0.0, 1.0), "input-left -> player-down");
+        assert_eq!(l(0.0, 1.0), Vec2::new(1.0, 0.0), "input-down -> player-right");
+        assert_eq!(l(0.0, -1.0), Vec2::new(-1.0, 0.0), "input-up -> player-left");
+        assert_eq!(l(1.0, 0.0), Vec2::new(0.0, -1.0), "input-right -> player-up");
+    }
+
+    #[test]
+    fn player_mode_is_the_raw_stick_in_the_player_frame() {
+        // Player mode never accommodates: the stick IS the player frame.
+        let up = AccelerationFrame::new(Vec2::new(0.0, -1.0));
+        assert_eq!(up.resolve_input(InputFrameMode::Player, 0.3, -0.7), Vec2::new(0.3, -0.7));
     }
 
     #[test]

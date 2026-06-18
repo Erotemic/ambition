@@ -269,6 +269,23 @@ impl Default for MovementTuning {
     }
 }
 
+impl MovementTuning {
+    /// Resolve raw input `(axis_x, axis_y)` into the PLAYER-frame stick
+    /// (`x` = run, `y` = descend) for this tuning's gravity + [`input_frame_mode`].
+    /// The one seam the run axis and the descend gates share, so they always
+    /// honor the same control preference. Under `Hybrid` (the default) this is
+    /// byte-identical to the legacy `axis_x` run + `gravity_descend` gate.
+    ///
+    /// [`input_frame_mode`]: Self::input_frame_mode
+    pub fn stick(&self, input: &super::InputState) -> Vec2 {
+        crate::reference_frame::AccelerationFrame::new(self.gravity_dir).resolve_input(
+            self.input_frame_mode,
+            input.axis_x,
+            input.axis_y,
+        )
+    }
+}
+
 pub const DEFAULT_TUNING: MovementTuning = MovementTuning {
     gravity: GRAVITY,
     gravity_sign: 1.0,

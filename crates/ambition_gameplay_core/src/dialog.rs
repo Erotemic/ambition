@@ -76,6 +76,7 @@ pub fn yarn_spinner_plugin() -> YarnSpinnerPlugin {
         YarnFileSource::file("dialogue/sandbox/factions.yarn"),
         YarnFileSource::file("dialogue/sandbox/cove.yarn"),
         YarnFileSource::file("dialogue/sandbox/dojo.yarn"),
+        YarnFileSource::file("dialogue/sandbox/symmetry.yarn"),
     ])
 }
 

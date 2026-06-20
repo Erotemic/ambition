@@ -1,0 +1,1075 @@
+{
+ "name": "noether",
+ "frame": {
+  "width": 128,
+  "height": 128,
+  "supersample": 4,
+  "ground_y": 101.0,
+  "center_x": 64.0,
+  "ankle_h": 2.6
+ },
+ "palette": {
+  "skin": "#E7B391",
+  "skin_hi": "#F4D2B6",
+  "skin_shade": "#3A1F1366",
+  "hair": "#3A2B26",
+  "hair_hi": "#5A4038",
+  "robe": "#2F6168",
+  "robe_top": "#3E838B",
+  "robe_dark": "#214A50",
+  "robe_shade": "#11343A99",
+  "gold": "#D7A33C",
+  "gold_dark": "#A87A26",
+  "glass": "#BCE6E8AA",
+  "chalk": "#F4F1E8",
+  "boot": "#42352D",
+  "boot_dark": "#2C231D",
+  "outline": "#1A1410"
+ },
+ "bones": [
+  {
+   "name": "pelvis",
+   "parent": null,
+   "offset": [
+    0.0,
+    -20.5
+   ],
+   "length": 0.0,
+   "rest_angle": 0.0
+  },
+  {
+   "name": "torso",
+   "parent": "pelvis",
+   "offset": [
+    0.0,
+    -4.0
+   ],
+   "length": 0.0,
+   "rest_angle": 0.0
+  },
+  {
+   "name": "head",
+   "parent": "torso",
+   "offset": [
+    1.0,
+    -26.0
+   ],
+   "length": 0.0,
+   "rest_angle": 0.0
+  },
+  {
+   "name": "antenna",
+   "parent": "head",
+   "offset": [
+    -9.0,
+    -14.5
+   ],
+   "length": 10.0,
+   "rest_angle": -90.0
+  },
+  {
+   "name": "far_arm_u",
+   "parent": "torso",
+   "offset": [
+    -1.5,
+    -9.5
+   ],
+   "length": 9.5,
+   "rest_angle": 90.0
+  },
+  {
+   "name": "far_arm_l",
+   "parent": "far_arm_u",
+   "offset": [
+    9.5,
+    0.0
+   ],
+   "length": 8.0,
+   "rest_angle": 0.0
+  },
+  {
+   "name": "near_arm_u",
+   "parent": "torso",
+   "offset": [
+    3.0,
+    -9.5
+   ],
+   "length": 9.5,
+   "rest_angle": 90.0
+  },
+  {
+   "name": "near_arm_l",
+   "parent": "near_arm_u",
+   "offset": [
+    9.5,
+    0.0
+   ],
+   "length": 8.0,
+   "rest_angle": 0.0
+  },
+  {
+   "name": "blade",
+   "parent": "near_arm_l",
+   "offset": [
+    8.0,
+    0.0
+   ],
+   "length": 26.0,
+   "rest_angle": 0.0
+  },
+  {
+   "name": "far_leg_u",
+   "parent": "pelvis",
+   "offset": [
+    -2.0,
+    2.0
+   ],
+   "length": 10.0,
+   "rest_angle": 90.0
+  },
+  {
+   "name": "far_leg_l",
+   "parent": "far_leg_u",
+   "offset": [
+    10.0,
+    0.0
+   ],
+   "length": 8.5,
+   "rest_angle": 0.0
+  },
+  {
+   "name": "far_foot",
+   "parent": "far_leg_l",
+   "offset": [
+    8.5,
+    0.0
+   ],
+   "length": 6.0,
+   "rest_angle": -90.0
+  },
+  {
+   "name": "near_leg_u",
+   "parent": "pelvis",
+   "offset": [
+    2.5,
+    2.0
+   ],
+   "length": 10.0,
+   "rest_angle": 90.0
+  },
+  {
+   "name": "near_leg_l",
+   "parent": "near_leg_u",
+   "offset": [
+    10.0,
+    0.0
+   ],
+   "length": 8.5,
+   "rest_angle": 0.0
+  },
+  {
+   "name": "near_foot",
+   "parent": "near_leg_l",
+   "offset": [
+    8.5,
+    0.0
+   ],
+   "length": 6.0,
+   "rest_angle": -90.0
+  }
+ ],
+ "parts": [
+  {
+   "name": "far_arm_upper",
+   "bone": "far_arm_u",
+   "z": 10,
+   "kind": "capsule",
+   "a": [
+    0.0,
+    0.0
+   ],
+   "b": null,
+   "radius": 2.3,
+   "fill": "robe_dark",
+   "outline": "outline",
+   "outline_w": 1.1
+  },
+  {
+   "name": "far_arm_lower",
+   "bone": "far_arm_l",
+   "z": 11,
+   "kind": "capsule",
+   "a": [
+    0.0,
+    0.0
+   ],
+   "b": null,
+   "radius": 2.0,
+   "fill": "robe_dark",
+   "outline": "outline",
+   "outline_w": 1.1
+  },
+  {
+   "name": "far_hand",
+   "bone": "far_arm_l",
+   "z": 13,
+   "kind": "circle",
+   "center": [
+    8.0,
+    0.0
+   ],
+   "radius": 2.6,
+   "fill": "skin_shade",
+   "outline": "outline",
+   "outline_w": 0.5
+  },
+  {
+   "name": "far_leg_upper",
+   "bone": "far_leg_u",
+   "z": 20,
+   "kind": "capsule",
+   "a": [
+    0.0,
+    0.0
+   ],
+   "b": null,
+   "radius": 2.5,
+   "fill": "robe_dark",
+   "outline": "outline",
+   "outline_w": 1.1
+  },
+  {
+   "name": "far_leg_lower",
+   "bone": "far_leg_l",
+   "z": 21,
+   "kind": "capsule",
+   "a": [
+    0.0,
+    0.0
+   ],
+   "b": null,
+   "radius": 2.3,
+   "fill": "robe_dark",
+   "outline": "outline",
+   "outline_w": 1.1
+  },
+  {
+   "name": "far_foot",
+   "bone": "far_foot",
+   "z": 23,
+   "kind": "polygon",
+   "points": [
+    [
+     -2.6,
+     -1.0
+    ],
+    [
+     4.2,
+     -1.0
+    ],
+    [
+     6.0,
+     0.9
+    ],
+    [
+     5.6,
+     2.6
+    ],
+    [
+     -2.2,
+     2.6
+    ]
+   ],
+   "radius": 1.1,
+   "fill": "boot_dark",
+   "outline": "outline",
+   "outline_w": 0.92
+  },
+  {
+   "name": "skirt",
+   "bone": "pelvis",
+   "z": 30,
+   "kind": "polygon",
+   "points": [
+    [
+     -11.0,
+     -3.5
+    ],
+    [
+     11.0,
+     -3.5
+    ],
+    [
+     16.0,
+     9.5
+    ],
+    [
+     -15.0,
+     9.5
+    ]
+   ],
+   "radius": 3.0,
+   "fill": "robe",
+   "outline": "outline",
+   "outline_w": 1.1
+  },
+  {
+   "name": "skirt_shade",
+   "bone": "pelvis",
+   "z": 31,
+   "kind": "polygon",
+   "points": [
+    [
+     -11.0,
+     -3.0
+    ],
+    [
+     -4.0,
+     -3.0
+    ],
+    [
+     -7.0,
+     9.0
+    ],
+    [
+     -15.0,
+     9.0
+    ]
+   ],
+   "radius": 2.0,
+   "fill": "robe_shade"
+  },
+  {
+   "name": "coat",
+   "bone": "torso",
+   "z": 40,
+   "kind": "polygon",
+   "points": [
+    [
+     -10.0,
+     -13.5
+    ],
+    [
+     10.5,
+     -13.5
+    ],
+    [
+     11.5,
+     -3.0
+    ],
+    [
+     12.5,
+     2.0
+    ],
+    [
+     -12.0,
+     2.0
+    ]
+   ],
+   "radius": 3.4,
+   "fill": "robe",
+   "outline": "outline",
+   "outline_w": 1.1
+  },
+  {
+   "name": "coat_shade",
+   "bone": "torso",
+   "z": 41,
+   "kind": "polygon",
+   "points": [
+    [
+     -10.0,
+     -12.6
+    ],
+    [
+     -5.0,
+     -12.8
+    ],
+    [
+     -6.0,
+     1.5
+    ],
+    [
+     -10.5,
+     1.5
+    ]
+   ],
+   "radius": 2.2,
+   "fill": "robe_shade"
+  },
+  {
+   "name": "coat_hi",
+   "bone": "torso",
+   "z": 42,
+   "kind": "polygon",
+   "points": [
+    [
+     5.0,
+     -12.6
+    ],
+    [
+     10.0,
+     -12.6
+    ],
+    [
+     11.0,
+     -4.0
+    ],
+    [
+     9.5,
+     1.0
+    ],
+    [
+     5.5,
+     1.0
+    ]
+   ],
+   "radius": 2.2,
+   "fill": "robe_top"
+  },
+  {
+   "name": "lapel",
+   "bone": "torso",
+   "z": 43,
+   "kind": "polygon",
+   "points": [
+    [
+     3.4,
+     -12.5
+    ],
+    [
+     7.0,
+     -12.5
+    ],
+    [
+     5.2,
+     1.6
+    ],
+    [
+     3.2,
+     1.6
+    ]
+   ],
+   "radius": 1.0,
+   "fill": "gold",
+   "outline": "outline",
+   "outline_w": 0.5
+  },
+  {
+   "name": "sigil_ring",
+   "bone": "torso",
+   "z": 44,
+   "kind": "circle",
+   "center": [
+    5.0,
+    -6.5
+   ],
+   "radius": 2.6,
+   "fill": "robe_top",
+   "outline": "chalk",
+   "outline_w": 0.9
+  },
+  {
+   "name": "sigil_dot",
+   "bone": "torso",
+   "z": 45,
+   "kind": "circle",
+   "center": [
+    5.0,
+    -6.5
+   ],
+   "radius": 0.7,
+   "fill": "chalk"
+  },
+  {
+   "name": "near_leg_upper",
+   "bone": "near_leg_u",
+   "z": 50,
+   "kind": "capsule",
+   "a": [
+    0.0,
+    0.0
+   ],
+   "b": null,
+   "radius": 2.5,
+   "fill": "robe_dark",
+   "outline": "outline",
+   "outline_w": 1.1
+  },
+  {
+   "name": "near_leg_lower",
+   "bone": "near_leg_l",
+   "z": 51,
+   "kind": "capsule",
+   "a": [
+    0.0,
+    0.0
+   ],
+   "b": null,
+   "radius": 2.3,
+   "fill": "robe_dark",
+   "outline": "outline",
+   "outline_w": 1.1
+  },
+  {
+   "name": "near_foot",
+   "bone": "near_foot",
+   "z": 53,
+   "kind": "polygon",
+   "points": [
+    [
+     -2.6,
+     -1.0
+    ],
+    [
+     4.2,
+     -1.0
+    ],
+    [
+     6.0,
+     0.9
+    ],
+    [
+     5.6,
+     2.6
+    ],
+    [
+     -2.2,
+     2.6
+    ]
+   ],
+   "radius": 1.1,
+   "fill": "boot",
+   "outline": "outline",
+   "outline_w": 0.92
+  },
+  {
+   "name": "hair_back",
+   "bone": "head",
+   "z": 58,
+   "kind": "polygon",
+   "points": [
+    [
+     -14.0,
+     -15.0
+    ],
+    [
+     9.0,
+     -15.0
+    ],
+    [
+     11.0,
+     -2.0
+    ],
+    [
+     6.0,
+     13.0
+    ],
+    [
+     -14.0,
+     12.0
+    ]
+   ],
+   "radius": 8.0,
+   "fill": "hair",
+   "outline": "outline",
+   "outline_w": 1.1
+  },
+  {
+   "name": "head",
+   "bone": "head",
+   "z": 60,
+   "kind": "polygon",
+   "points": [
+    [
+     -12.0,
+     -13.0
+    ],
+    [
+     12.5,
+     -13.0
+    ],
+    [
+     12.5,
+     8.0
+    ],
+    [
+     8.0,
+     13.5
+    ],
+    [
+     -11.0,
+     12.0
+    ]
+   ],
+   "radius": 7.5,
+   "fill": "skin",
+   "outline": "outline",
+   "outline_w": 1.1
+  },
+  {
+   "name": "face_shade",
+   "bone": "head",
+   "z": 60.5,
+   "kind": "polygon",
+   "points": [
+    [
+     -11.0,
+     -12.0
+    ],
+    [
+     -5.0,
+     -12.0
+    ],
+    [
+     -5.0,
+     11.0
+    ],
+    [
+     -10.5,
+     10.5
+    ]
+   ],
+   "radius": 4.0,
+   "fill": "skin_shade"
+  },
+  {
+   "name": "fringe",
+   "bone": "head",
+   "z": 61,
+   "kind": "polygon",
+   "points": [
+    [
+     -12.0,
+     -13.5
+    ],
+    [
+     12.5,
+     -13.5
+    ],
+    [
+     12.5,
+     -7.0
+    ],
+    [
+     4.0,
+     -4.5
+    ],
+    [
+     -7.0,
+     -5.5
+    ],
+    [
+     -12.0,
+     -7.5
+    ]
+   ],
+   "radius": 3.0,
+   "fill": "hair",
+   "outline": "outline",
+   "outline_w": 1.1
+  },
+  {
+   "name": "eye_far",
+   "bone": "head",
+   "z": 62,
+   "kind": "circle",
+   "center": [
+    3.0,
+    -1.0
+   ],
+   "radius": 1.3,
+   "fill": "outline"
+  },
+  {
+   "name": "eye_near",
+   "bone": "head",
+   "z": 62,
+   "kind": "circle",
+   "center": [
+    9.6,
+    -1.0
+   ],
+   "radius": 1.4,
+   "fill": "outline"
+  },
+  {
+   "name": "lens_far",
+   "bone": "head",
+   "z": 63,
+   "kind": "circle",
+   "center": [
+    3.0,
+    -1.0
+   ],
+   "radius": 3.0,
+   "fill": "glass",
+   "outline": "gold",
+   "outline_w": 0.9
+  },
+  {
+   "name": "lens_near",
+   "bone": "head",
+   "z": 63,
+   "kind": "circle",
+   "center": [
+    9.6,
+    -1.0
+   ],
+   "radius": 3.1,
+   "fill": "glass",
+   "outline": "gold",
+   "outline_w": 0.9
+  },
+  {
+   "name": "bridge",
+   "bone": "head",
+   "z": 63,
+   "kind": "polygon",
+   "points": [
+    [
+     5.8,
+     -1.6
+    ],
+    [
+     7.0,
+     -1.6
+    ],
+    [
+     7.0,
+     -0.6
+    ],
+    [
+     5.8,
+     -0.6
+    ]
+   ],
+   "radius": 0.3,
+   "fill": "gold"
+  },
+  {
+   "name": "bun",
+   "bone": "head",
+   "z": 64,
+   "kind": "circle",
+   "center": [
+    -2.0,
+    -15.5
+   ],
+   "radius": 6.6,
+   "fill": "hair",
+   "outline": "outline",
+   "outline_w": 1.0
+  },
+  {
+   "name": "bun_hi",
+   "bone": "head",
+   "z": 65,
+   "kind": "circle",
+   "center": [
+    -4.0,
+    -17.0
+   ],
+   "radius": 2.2,
+   "fill": "hair_hi"
+  },
+  {
+   "name": "pin_stem",
+   "bone": "antenna",
+   "z": 66,
+   "kind": "capsule",
+   "a": [
+    0.0,
+    0.0
+   ],
+   "b": null,
+   "radius": 0.7,
+   "fill": "gold_dark",
+   "outline": "outline",
+   "outline_w": 0.4
+  },
+  {
+   "name": "pin_tip",
+   "bone": "antenna",
+   "z": 67,
+   "kind": "circle",
+   "center": [
+    10.0,
+    0.0
+   ],
+   "radius": 2.0,
+   "fill": "chalk",
+   "outline": "gold",
+   "outline_w": 0.5
+  },
+  {
+   "name": "near_arm_upper",
+   "bone": "near_arm_u",
+   "z": 70,
+   "kind": "capsule",
+   "a": [
+    0.0,
+    0.0
+   ],
+   "b": null,
+   "radius": 2.3,
+   "fill": "robe_top",
+   "outline": "outline",
+   "outline_w": 1.1
+  },
+  {
+   "name": "near_arm_lower",
+   "bone": "near_arm_l",
+   "z": 71,
+   "kind": "capsule",
+   "a": [
+    0.0,
+    0.0
+   ],
+   "b": null,
+   "radius": 2.0,
+   "fill": "robe_top",
+   "outline": "outline",
+   "outline_w": 1.1
+  },
+  {
+   "name": "near_hand",
+   "bone": "near_arm_l",
+   "z": 73,
+   "kind": "circle",
+   "center": [
+    8.0,
+    0.0
+   ],
+   "radius": 2.8,
+   "fill": "skin",
+   "outline": "outline",
+   "outline_w": 0.5
+  }
+ ],
+ "ik_legs": [
+  {
+   "upper": "near_leg_u",
+   "lower": "near_leg_l",
+   "foot": "near_foot",
+   "channel_prefix": "near_foot",
+   "rest_x": 5.0,
+   "bend": 1.0
+  },
+  {
+   "upper": "far_leg_u",
+   "lower": "far_leg_l",
+   "foot": "far_foot",
+   "channel_prefix": "far_foot",
+   "rest_x": -4.5,
+   "bend": 1.0
+  }
+ ],
+ "clips": {
+  "idle": {
+   "loop": true,
+   "frames": 8,
+   "duration_ms": 120,
+   "channels": {
+    "root_y": {
+     "expr": "1.3*sin(tau*t)"
+    },
+    "root_x": {
+     "expr": "0.9*sin(tau*t+0.7)"
+    },
+    "pelvis": {
+     "expr": "1.3*sin(tau*t)"
+    },
+    "torso": {
+     "expr": "2.8*sin(tau*t)"
+    },
+    "head": {
+     "expr": "-3.4*sin(tau*(t-0.10))"
+    },
+    "antenna": {
+     "expr": "-15*sin(tau*(t-0.20))"
+    },
+    "near_arm_u": {
+     "expr": "6*sin(tau*t)"
+    },
+    "near_arm_l": {
+     "expr": "-15-4.5*sin(tau*(t-0.08))"
+    },
+    "far_arm_u": {
+     "expr": "-5*sin(tau*t)"
+    },
+    "far_arm_l": {
+     "expr": "-15-4*sin(tau*(t-0.12))"
+    }
+   }
+  },
+  "walk": {
+   "loop": true,
+   "frames": 8,
+   "duration_ms": 95,
+   "channels": {
+    "root_y": {
+     "expr": "1.5*cos(2*tau*t)-0.3"
+    },
+    "pelvis": {
+     "expr": "3.2*sin(tau*t)"
+    },
+    "torso": {
+     "expr": "5-2.8*sin(tau*t)"
+    },
+    "head": {
+     "expr": "-4+2*sin(tau*(t-0.10))"
+    },
+    "antenna": {
+     "expr": "-13*sin(2*tau*(t-0.09))"
+    },
+    "near_arm_u": {
+     "expr": "27*cos(tau*t)"
+    },
+    "near_arm_l": {
+     "expr": "-(16-11*cos(tau*(t-0.04)))"
+    },
+    "far_arm_u": {
+     "expr": "-27*cos(tau*t)"
+    },
+    "far_arm_l": {
+     "expr": "-(16+11*cos(tau*(t-0.04)))"
+    },
+    "near_foot_x": {
+     "keys": [
+      [
+       0.0,
+       8.0,
+       "sine"
+      ],
+      [
+       0.55,
+       -3.0,
+       "linear"
+      ]
+     ]
+    },
+    "near_foot_lift": {
+     "keys": [
+      [
+       0.0,
+       0.0,
+       "linear"
+      ],
+      [
+       0.4,
+       0.0,
+       "linear"
+      ],
+      [
+       0.55,
+       1.8,
+       "linear"
+      ],
+      [
+       0.775,
+       5.5,
+       "sine"
+      ]
+     ]
+    },
+    "near_foot_pitch": {
+     "keys": [
+      [
+       0.0,
+       -14.0,
+       "linear"
+      ],
+      [
+       0.1,
+       0.0,
+       "linear"
+      ],
+      [
+       0.4,
+       0.0,
+       "linear"
+      ],
+      [
+       0.55,
+       24.0,
+       "linear"
+      ],
+      [
+       0.9,
+       -14.0,
+       "smooth"
+      ]
+     ]
+    },
+    "far_foot_x": {
+     "keys": [
+      [
+       0.05,
+       -7.5,
+       "linear"
+      ],
+      [
+       0.5,
+       3.5,
+       "sine"
+      ]
+     ]
+    },
+    "far_foot_lift": {
+     "keys": [
+      [
+       0.05,
+       1.8,
+       "linear"
+      ],
+      [
+       0.275,
+       5.5,
+       "sine"
+      ],
+      [
+       0.5,
+       0.0,
+       "linear"
+      ],
+      [
+       0.9,
+       0.0,
+       "linear"
+      ]
+     ]
+    },
+    "far_foot_pitch": {
+     "keys": [
+      [
+       0.05,
+       24.0,
+       "linear"
+      ],
+      [
+       0.4,
+       -14.0,
+       "smooth"
+      ],
+      [
+       0.5,
+       -14.0,
+       "linear"
+      ],
+      [
+       0.6,
+       0.0,
+       "linear"
+      ],
+      [
+       0.9,
+       0.0,
+       "linear"
+      ]
+     ]
+    }
+   }
+  }
+ }
+}

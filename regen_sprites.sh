@@ -263,6 +263,9 @@ expected_files=(
     robot_miner_spritesheet.png robot_miner_spritesheet.ron
     sandbag_armored_review_spritesheet.png sandbag_armored_review_spritesheet.ron
     sandbag_full_review_spritesheet.png sandbag_full_review_spritesheet.ron
+    # Rigged (bone-toolkit) characters auto-discovered under
+    # targets/characters/rigged/*.rig.json.
+    noether_spritesheet.png noether_spritesheet.ron
     # Boss subdirectories (custom install paths).
     gnu_ton_boss/gnu_ton_boss_spritesheet.png
     gnu_ton_boss/gnu_ton_boss_body_spritesheet.png

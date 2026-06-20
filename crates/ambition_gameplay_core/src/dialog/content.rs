@@ -89,6 +89,8 @@ pub const KNOWN_DIALOGUE_IDS: &[&str] = &[
     // dojo.yarn
     "ninja_duelist",
     "ninja_leader",
+    // symmetry.yarn
+    "emmy_noether",
 ];
 
 /// Validator surface (LDtk content_validation reads this).

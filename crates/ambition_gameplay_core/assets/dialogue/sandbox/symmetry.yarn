@@ -1,0 +1,39 @@
+title: emmy_noether
+---
+Emmy No-Ether: Careful where you tread — this chamber has a quarter-turn symmetry, and I went to a great deal of trouble to make it so. Turn the whole room ninety degrees and nothing changes. Well. Except the door. The door is a vandal.
+Emmy No-Ether: My one theorem, if you'll indulge me: every symmetry hides a conservation law. A thing that refuses to change buys you a thing that cannot be spent.
+-> So what does THIS symmetry conserve?
+    <<jump emmy_noether__1>>
+-> Why is it called "No-Ether"?
+    <<jump emmy_noether__2>>
+-> How do I actually cross the room?
+    <<jump emmy_noether__3>>
+-> I'll just fall and find out.
+===
+
+title: emmy_noether__1
+---
+Emmy No-Ether: The crossing itself. Each arm of this room points its own way down — left, right, up, the honest old down by the door. Step into a field and that direction becomes your floor.
+Emmy No-Ether: Because the four arms are the same shape rotated, the work to cross one is the work to cross any of them. Learn one arm and you have, by symmetry, learned all four. THAT is what's conserved. You're welcome.
+-> Ask another question.
+    <<jump emmy_noether>>
+-> Go and try it.
+===
+
+title: emmy_noether__2
+---
+Emmy No-Ether: Because there is no special way up. Old physics wanted an "ether" — one true, motionless frame that everything else was measured against. There isn't one. There never was.
+Emmy No-Ether: Your stick points the way YOU mean, and the world rotates underneath it. Down is just whichever wall is currently winning. Don't get sentimental about it.
+-> Ask another question.
+    <<jump emmy_noether>>
+-> Go and try it.
+===
+
+title: emmy_noether__3
+---
+Emmy No-Ether: Walk into an arm. The field there takes over and you fall toward its wall — your running stays sideways, perpendicular to whatever down has become. It will feel wrong for exactly one second, then correct.
+Emmy No-Ether: The bounce-orbs throw you AGAINST the local gravity, never against the screen. So a bounce that lifts you here lifts you there too, rotated. Same trick, four frames. Conservation, made walkable.
+-> Ask another question.
+    <<jump emmy_noether>>
+-> Go and try it.
+===

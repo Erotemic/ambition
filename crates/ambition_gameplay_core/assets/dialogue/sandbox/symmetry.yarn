@@ -1,23 +1,18 @@
-// The Noether Chamber has four Emmys — one per face of the kernel, placed
-// symmetrically. Each is the "same" Emmy seen from a different frame, so each
-// says something different but consistent. (Future: hook them up to mirror each
-// other's motion, and bark when the player breaks their symmetry.)
-
 title: emmy_noether
 ---
-Emmy No-Ether: Down here by the door is the honest frame — the one you arrived believing in. There are three more of me around the kernel, you know. Don't be alarmed. The room has a quarter-turn symmetry, so naturally it has four of me.
+Emmy No-Ether: Down here by the door is the honest frame — the one you arrived believing in. There are three more of me around the kernel, you know. The room has a quarter-turn symmetry, so naturally it has four of me.
 Emmy No-Ether: My theorem in one breath: every symmetry hides a conservation law. A thing that refuses to change buys you a thing that cannot be spent.
 -> So which of you is the real one?
-    Emmy No-Ether: Wrong question. Under the room's symmetry we are interchangeable — that's rather the point. Pick a different "down" at the kernel and watch which of us suddenly has her feet on the ground.
+    Emmy No-Ether: Wrong question. Under the room's symmetry we are interchangeable — that's rather the point.
 -> How do I change which way is down?
     <<jump emmy_noether__how>>
 -> Four of you is a lot of opinions.
-    Emmy No-Ether: And yet we agree perfectly — as long as you leave the symmetry intact. Break it and I expect we'll have words.
+    Emmy No-Ether: And yet we agree perfectly, as long as you leave the symmetry intact. Break it and I expect we'll have words.
 ===
 
 title: emmy_noether__how
 ---
-Emmy No-Ether: The kernel in the centre has a switch on each face. Press one and gravity points that way — that face becomes the floor. The portal gun by the door places up to four colour pairs, if you'd rather fold the distance instead of falling through it.
+Emmy No-Ether: The kernel in the centre has a switch on each face. Press one and gravity points that way — that face becomes the floor. The portal gun by the door places up to four colour pairs, if you'd rather fold the distance than fall through it.
 -> Good to know.
 ===
 
@@ -27,12 +22,12 @@ Emmy No-Ether: From the left frame, "down" is whichever wall I'm leaning on. You
 -> Why "No-Ether"?
     Emmy No-Ether: Old physics wanted an ether — one true motionless stage everything else was measured against. There isn't one. Down is just whichever face of the kernel is currently winning.
 -> Conservation, again?
-    Emmy No-Ether: Always. Spin the room and the laws don't flinch — angular momentum is the receipt for that. Spin ME and my three sisters and, well, try it and see.
+    Emmy No-Ether: Always. Spin the room and the laws don't flinch — angular momentum is the receipt for that.
 ===
 
 title: emmy_noether_up
 ---
-Emmy No-Ether: Up here I'm upside down to you, which means you're upside down to me, which means neither of us is. The ceiling is a floor that hasn't been voted in yet. Flip the kernel and I'll be the one standing.
+Emmy No-Ether: Up here I'm upside down to you, which means you're upside down to me, which means neither of us is. The ceiling is just a floor that hasn't been voted in yet.
 -> Doesn't the blood rush to your head?
     Emmy No-Ether: Only if you insist on calling this "up". I don't. Translation symmetry conserves momentum; time symmetry conserves energy; and my refusal to be embarrassed conserves dignity.
 -> Teach me the trick.
@@ -41,9 +36,9 @@ Emmy No-Ether: Up here I'm upside down to you, which means you're upside down to
 
 title: emmy_noether_right
 ---
-Emmy No-Ether: Right frame, reporting. We four are a conserved quantity, you realise — as long as the chamber stays symmetric there will always be exactly four of me, no more, no less. Tidy, isn't it?
+Emmy No-Ether: Right frame, reporting. We four are a conserved quantity, you realise — as long as the chamber stays symmetric there will always be exactly four of me, no more, no less.
 -> What happens if I break the symmetry?
-    Emmy No-Ether: Then the bookkeeping fails and I imagine all four of us will have something sharp to say about it. For now we're in perfect agreement. Mind the kernel.
+    Emmy No-Ether: Then the bookkeeping fails, and I imagine all four of us will have something sharp to say about it. For now we're in perfect agreement. Mind the kernel.
 -> Any advice?
-    Emmy No-Ether: Pogo off the kernel's corners to cross a gap against gravity; the bounce always throws you opposite to "down", whichever down you've chosen. Symmetry, made walkable.
+    Emmy No-Ether: Pogo off the kernel's corners to cross a gap against gravity; the bounce always throws you opposite to "down", whichever down you've chosen.
 ===

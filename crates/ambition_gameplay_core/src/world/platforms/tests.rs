@@ -1,6 +1,7 @@
 //! Unit tests for moving-platform sweep/path motion, riding, and ledge-carry.
 
 use super::*;
+use crate::engine_core::AabbExt;
 
 fn test_world() -> ae::World {
     ae::World::new(
@@ -241,4 +242,138 @@ fn moving_platform_spec_resolves_path_id_against_room_paths() {
     .resolve(&[spec])
     .expect("path resolves");
     assert_eq!(platform.pos, ae::Vec2::new(20.0, 30.0));
+}
+
+#[test]
+fn moving_platform_support_detection_is_gravity_relative() {
+    let platform = MovingPlatformState::from_sweep(
+        "support_platform",
+        "Support Platform",
+        ae::Vec2::new(100.0, 100.0),
+        ae::Vec2::new(80.0, 20.0),
+        120.0,
+        60.0,
+    );
+    let body_size = ae::Vec2::new(30.0, 48.0);
+    for gravity_dir in [
+        ae::Vec2::new(0.0, 1.0),
+        ae::Vec2::new(1.0, 0.0),
+        ae::Vec2::new(0.0, -1.0),
+        ae::Vec2::new(-1.0, 0.0),
+    ] {
+        let body = body_supported_by(platform.aabb(), body_size, gravity_dir, 0.0);
+        assert!(
+            platform.is_supporting_body(body, true, gravity_dir),
+            "platform should support body under gravity {gravity_dir:?}"
+        );
+        let frame = ae::AccelerationFrame::new(gravity_dir);
+        let shifted = body.translated(frame.side * 200.0);
+        assert!(
+            !platform.is_supporting_body(shifted, true, gravity_dir),
+            "side-separated body should not be reported as riding under gravity {gravity_dir:?}"
+        );
+    }
+}
+
+#[test]
+fn moving_platform_ledge_contact_matching_is_gravity_relative() {
+    let platform = MovingPlatformState::from_sweep(
+        "ledge_platform",
+        "Ledge Platform",
+        ae::Vec2::new(100.0, 100.0),
+        ae::Vec2::new(80.0, 20.0),
+        120.0,
+        60.0,
+    );
+    let player_size = ae::Vec2::new(28.0, 46.0);
+    for gravity_dir in [
+        ae::Vec2::new(0.0, 1.0),
+        ae::Vec2::new(1.0, 0.0),
+        ae::Vec2::new(0.0, -1.0),
+        ae::Vec2::new(-1.0, 0.0),
+    ] {
+        for side_normal in [-1.0, 1.0] {
+            let contact = ledge_contact_for_platform(
+                platform.aabb(),
+                player_size,
+                gravity_dir,
+                side_normal,
+            );
+            assert!(
+                platform.matches_ledge_contact_in_frame(contact, player_size, gravity_dir),
+                "ledge contact should match under gravity {gravity_dir:?} side {side_normal}"
+            );
+        }
+    }
+}
+
+#[test]
+fn moving_platform_ledge_contact_matches_previous_aabb_after_advance() {
+    let mut platform = MovingPlatformState::from_sweep(
+        "ledge_platform",
+        "Ledge Platform",
+        ae::Vec2::new(100.0, 100.0),
+        ae::Vec2::new(80.0, 20.0),
+        120.0,
+        60.0,
+    );
+    let player_size = ae::Vec2::new(28.0, 46.0);
+    let gravity_dir = ae::Vec2::new(-1.0, 0.0);
+    let contact = ledge_contact_for_platform(platform.aabb(), player_size, gravity_dir, -1.0);
+    let delta = platform.update(1.0 / 30.0);
+    assert!(delta.length() > 0.0, "precondition: platform advanced");
+    assert!(
+        platform.matches_ledge_contact_in_frame(contact, player_size, gravity_dir),
+        "a ledge contact stored before platform advance should still match so the hang can be carried"
+    );
+}
+
+fn body_supported_by(
+    support: ae::Aabb,
+    body_size: ae::Vec2,
+    gravity_dir: ae::Vec2,
+    side_offset: f32,
+) -> ae::Aabb {
+    let frame = ae::AccelerationFrame::new(gravity_dir);
+    let body_half = body_size * 0.5;
+    let support_center = support.center();
+    let support_half = support.half_size();
+    let support_side = support_center.dot(frame.side);
+    let support_down = support_center.dot(frame.down);
+    let support_down_half = projected_half_for_test(support_half, frame.down);
+    let body_down_half = projected_half_for_test(body_half, frame.down);
+    let support_head = support_down - support_down_half;
+    let body_center_side = support_side + side_offset;
+    let body_center_down = support_head - body_down_half;
+    let body_center = frame.side * body_center_side + frame.down * body_center_down;
+    ae::Aabb::new(body_center, body_half)
+}
+
+fn ledge_contact_for_platform(
+    platform_box: ae::Aabb,
+    player_size: ae::Vec2,
+    gravity_dir: ae::Vec2,
+    side_normal: f32,
+) -> ae::LedgeContact {
+    let frame = ae::AccelerationFrame::new(gravity_dir);
+    let half = player_size * 0.5;
+    let platform_center = platform_box.center();
+    let platform_half = platform_box.half_size();
+    let platform_side = platform_center.dot(frame.side);
+    let platform_down = platform_center.dot(frame.down);
+    let platform_side_half = projected_half_for_test(platform_half, frame.side);
+    let platform_down_half = projected_half_for_test(platform_half, frame.down);
+    let lip_down = platform_down - platform_down_half;
+    let wall_side = platform_side + side_normal * platform_side_half;
+    ae::LedgeContact {
+        wall_normal_x: side_normal,
+        anchor: frame.side * (wall_side + side_normal * (half.x - 1.0))
+            + frame.down * (lip_down + half.y - 4.0),
+        climb_target: frame.side * (wall_side - side_normal * (half.x + 4.0))
+            + frame.down * (lip_down - half.y - 1.0),
+    }
+}
+
+fn projected_half_for_test(half: ae::Vec2, axis: ae::Vec2) -> f32 {
+    half.x * axis.x.abs() + half.y * axis.y.abs()
 }

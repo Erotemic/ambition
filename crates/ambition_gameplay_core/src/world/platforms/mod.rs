@@ -248,60 +248,145 @@ impl MovingPlatformState {
         }
     }
 
-    /// Detect whether the player was riding this platform at the start of a
-    /// frame. We carry the player by the platform delta before collision
-    /// resolution so standing on it feels stable.
+    /// The platform AABB before the latest [`Self::update`] displacement.
     ///
-    /// Callers pass the player AABB + on_ground directly so this
-    /// helper stays free of any specific player aggregate shape.
-    pub fn is_riding(&self, player_box: ae::Aabb, on_ground: bool) -> bool {
+    /// Moving platforms advance once near the beginning of the frame, before the
+    /// per-body simulation phase. A ledge grab contact stored from the previous
+    /// tick therefore matches this previous AABB until the carry step translates
+    /// the contact by [`Self::last_delta`].
+    pub fn previous_aabb(&self) -> ae::Aabb {
+        self.aabb().translated(-self.last_delta)
+    }
+
+    /// Detect whether a body is supported by this platform under the active
+    /// acceleration frame.
+    ///
+    /// `on_ground` remains a relative term: the caller has already decided that
+    /// the body's feet are supported this frame. This helper answers whether this
+    /// moving platform is the support by comparing the body's feet face to the
+    /// platform's anti-feet/head face in side/down coordinates.
+    pub fn is_supporting_body(
+        &self,
+        body: ae::Aabb,
+        on_ground: bool,
+        gravity_dir: ae::Vec2,
+    ) -> bool {
         if !on_ground {
             return false;
         }
-        let platform_box = self.aabb();
-        let horizontally_overlapping = player_box.right() > platform_box.left() + 3.0
-            && player_box.left() < platform_box.right() - 3.0;
-        let feet_near_top = (player_box.bottom() - platform_box.top()).abs() <= 6.0;
-        horizontally_overlapping && feet_near_top
+        support_contact_matches(body, self.aabb(), gravity_dir)
+            || support_contact_matches(body, self.previous_aabb(), gravity_dir)
+    }
+
+    /// Down-gravity compatibility wrapper for legacy trace callers. Prefer
+    /// [`Self::is_supporting_body`] when the active acceleration frame is known.
+    pub fn is_riding(&self, player_box: ae::Aabb, on_ground: bool) -> bool {
+        self.is_supporting_body(player_box, on_ground, ae::Vec2::new(0.0, 1.0))
     }
 
     /// Detect whether an active ledge-grab contact is latched to this platform.
     ///
     /// Moving platforms are inserted into the collision world as ordinary solid
     /// blocks, so the engine's ledge probe records only geometric contact data.
-    /// The sandbox uses this helper before advancing platforms; when the matched
-    /// platform moves, it translates both the player and the stored
-    /// `LedgeGrabState::contact` by the same delta so hang / climb / roll motions
-    /// stay glued to the platform instead of lagging behind it.
-    pub fn matches_ledge_contact(&self, contact: ae::LedgeContact, player_size: ae::Vec2) -> bool {
-        let half = player_size * 0.5;
-        let platform_box = self.aabb();
-        let top = platform_box.top();
-
-        // Invert the anchor/climb target formulas from
-        // engine_core::ledge_grab::probe_ledge_grab.
-        let contact_top_from_anchor = contact.anchor.y - half.y + 4.0;
-        let contact_top_from_climb = contact.climb_target.y + half.y + 1.0;
-        if (contact_top_from_anchor - top).abs() > 8.0 || (contact_top_from_climb - top).abs() > 8.0
-        {
-            return false;
-        }
-
-        let wall_x = contact.anchor.x - contact.wall_normal_x * (half.x - 1.0);
-        let expected_wall_x = if contact.wall_normal_x < 0.0 {
-            platform_box.left()
-        } else {
-            platform_box.right()
-        };
-        if (wall_x - expected_wall_x).abs() > 8.0 {
-            return false;
-        }
-
-        // The climb target should be inboard of this platform, not on an unrelated
-        // block sharing the same top/edge coordinate.
-        contact.climb_target.x >= platform_box.left() - half.x - 12.0
-            && contact.climb_target.x <= platform_box.right() + half.x + 12.0
+    /// The sandbox uses this helper after platforms have advanced for the frame;
+    /// matching both the current AABB and the previous AABB keeps an existing
+    /// hang glued to the edge that moved this tick instead of losing the match
+    /// before the carry step translates the stored `LedgeGrabState::contact`.
+    pub fn matches_ledge_contact_in_frame(
+        &self,
+        contact: ae::LedgeContact,
+        player_size: ae::Vec2,
+        gravity_dir: ae::Vec2,
+    ) -> bool {
+        ledge_contact_matches_platform(contact, player_size, self.aabb(), gravity_dir)
+            || ledge_contact_matches_platform(
+                contact,
+                player_size,
+                self.previous_aabb(),
+                gravity_dir,
+            )
     }
+
+    /// Down-gravity compatibility wrapper for tests / legacy callers that still
+    /// construct ledge contacts in the old normal-gravity frame.
+    pub fn matches_ledge_contact(&self, contact: ae::LedgeContact, player_size: ae::Vec2) -> bool {
+        self.matches_ledge_contact_in_frame(contact, player_size, ae::Vec2::new(0.0, 1.0))
+    }
+}
+
+fn projected_half(half: ae::Vec2, axis: ae::Vec2) -> f32 {
+    half.x * axis.x.abs() + half.y * axis.y.abs()
+}
+
+fn side_overlap_len(a: ae::Aabb, b: ae::Aabb, frame: ae::AccelerationFrame) -> f32 {
+    let a_center = a.center().dot(frame.side);
+    let b_center = b.center().dot(frame.side);
+    let a_half = projected_half(a.half_size(), frame.side);
+    let b_half = projected_half(b.half_size(), frame.side);
+    (a_center + a_half).min(b_center + b_half) - (a_center - a_half).max(b_center - b_half)
+}
+
+fn support_contact_matches(body: ae::Aabb, support: ae::Aabb, gravity_dir: ae::Vec2) -> bool {
+    let frame = ae::AccelerationFrame::new(gravity_dir);
+    let overlap = side_overlap_len(body, support, frame);
+    if overlap <= 3.0 {
+        return false;
+    }
+    let body_down = body.center().dot(frame.down);
+    let support_down = support.center().dot(frame.down);
+    let body_feet = body_down + projected_half(body.half_size(), frame.down);
+    let support_head = support_down - projected_half(support.half_size(), frame.down);
+    (body_feet - support_head).abs() <= 6.0
+}
+
+fn ledge_contact_matches_platform(
+    contact: ae::LedgeContact,
+    player_size: ae::Vec2,
+    platform_box: ae::Aabb,
+    gravity_dir: ae::Vec2,
+) -> bool {
+    if contact.wall_normal_x.abs() < 0.5 {
+        return false;
+    }
+    let frame = ae::AccelerationFrame::new(gravity_dir);
+    let half = player_size * 0.5;
+    let side_normal = contact.wall_normal_x.signum();
+    let platform_half = platform_box.half_size();
+    let platform_center = platform_box.center();
+    let platform_side = platform_center.dot(frame.side);
+    let platform_down = platform_center.dot(frame.down);
+    let platform_side_half = projected_half(platform_half, frame.side);
+    let platform_down_half = projected_half(platform_half, frame.down);
+    let lip_down = platform_down - platform_down_half;
+    let wall_side = platform_side + side_normal * platform_side_half;
+
+    // Invert the local-frame formulas from
+    // engine_core::ledge_grab::probe_ledge_grab_in_frame. These are expressed in
+    // side/down coordinates so the same check works for down, up, left, and right
+    // gravity wells.
+    let expected_anchor_side = wall_side + side_normal * (half.x - 1.0);
+    let expected_anchor_down = lip_down + half.y - 4.0;
+    let expected_climb_side = wall_side - side_normal * (half.x + 4.0);
+    let expected_climb_down = lip_down - half.y - 1.0;
+
+    let anchor_side = contact.anchor.dot(frame.side);
+    let anchor_down = contact.anchor.dot(frame.down);
+    let climb_side = contact.climb_target.dot(frame.side);
+    let climb_down = contact.climb_target.dot(frame.down);
+
+    const TOL: f32 = 8.0;
+    if (anchor_side - expected_anchor_side).abs() > TOL
+        || (anchor_down - expected_anchor_down).abs() > TOL
+        || (climb_side - expected_climb_side).abs() > TOL
+        || (climb_down - expected_climb_down).abs() > TOL
+    {
+        return false;
+    }
+
+    // The climb target should be inboard of this platform, not on an unrelated
+    // block sharing the same lip/edge coordinate.
+    climb_side >= platform_side - platform_side_half - half.x - 12.0
+        && climb_side <= platform_side + platform_side_half + half.x + 12.0
 }
 
 fn advance_path_position(

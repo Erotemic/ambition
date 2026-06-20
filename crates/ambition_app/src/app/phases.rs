@@ -207,7 +207,13 @@ pub(super) fn player_simulation_phase(
     let active_ledge_platform = clusters.ledge.grab.and_then(|grab| {
         moving_platforms
             .iter()
-            .position(|platform| platform.matches_ledge_contact(grab.contact, player_size_pre))
+            .position(|platform| {
+                platform.matches_ledge_contact_in_frame(
+                    grab.contact,
+                    player_size_pre,
+                    tuning.gravity_dir,
+                )
+            })
     });
     // Standing-on-platform RIDING is no longer here — it is EMERGENT in the movement
     // sweep (`integrate_velocity_clusters` carries any grounded body by the supporting

@@ -10,9 +10,10 @@ shelves hug the kernel faces for footing; pogo orbs sit at the kernel corners; a
 4-colour portal gun waits at the entrance. Pogo orbs sit at the kernel corners.
 The only asymmetry is the entrance.
 
-Each gravity zone stops ZONE_INSET short of the wall it pulls toward, leaving a
-one-tile gap at that wall (kept at 16px so a *standing* actor's centre is still
-inside the zone and stays grounded in that frame).
+Each gravity zone is inset ZONE_INSET at both ends — one tile off the kernel
+(inner) and one tile off the wall it pulls toward (outer) — so the well floats
+clear of both. Kept at 16px so a *standing* actor's centre is still inside the
+zone and stays grounded in that frame.
 
 Authored by rotating ONE canonical side 90 degrees x3, so symmetry is exact.
 
@@ -61,10 +62,12 @@ def entity(etype, x, y, w, h, fields):
 
 
 # ---- Canonical DOWN-side features; rotated x90 to fill all four arms. ----
-# Gravity zone: fills the down arm but stops ZONE_INSET above the bottom wall.
-CANON_ZONE = (448, 832, 384, (SIZE - WALL - 832) - ZONE_INSET)   # (448,832,384,400)
-CANON_SWITCH = (606, K1, 68, 24)                                  # on the kernel bottom face
-CANON_RING = (600, 736, 80, 18)                                   # small footing shelf below the face
+# Gravity zone: fills the down arm but is inset ZONE_INSET at BOTH ends — one
+# tile off the kernel/centre (inner) and one tile off the outer wall it pulls
+# toward — so the well floats clear of both the kernel and the wall.
+CANON_ZONE = (448, 832 + ZONE_INSET, 384, (SIZE - WALL - 832) - 2 * ZONE_INSET)  # (448,848,384,384)
+CANON_SWITCH = (606, K1 + 16, 68, 24)                             # 1 tile off the kernel bottom face
+CANON_RING = (600, K1 + 48, 80, 18)                               # small footing shelf, 1 tile further out
 CANON_POGO = (704, 704, 36, 36)                                   # at the kernel's bottom-right corner
 CANON_STEPS = [                                                   # zig-zag climb: floor -> centre
     (470, 1120, 132, 24, "step_a"),

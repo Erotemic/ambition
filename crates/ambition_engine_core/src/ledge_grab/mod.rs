@@ -255,55 +255,80 @@ fn quadratic_bezier(start: Vec2, control: Vec2, end: Vec2, t: f32) -> Vec2 {
     start * (one_t * one_t) + control * (2.0 * one_t * t) + end * (t * t)
 }
 
-fn climb_position(contact: LedgeContact, progress: f32) -> Vec2 {
-    // Smash-style curved climb: the player rises up the wall FIRST
-    // and arcs over onto the platform second, instead of moving in
-    // a straight diagonal from anchor → climb_target. Implemented
-    // as a quadratic Bezier with control point at (anchor.x,
-    // climb_target.y) — same x as the anchor (so the early curve
-    // is purely vertical along the wall), same y as the target (so
-    // the late curve is purely horizontal across the platform top).
+fn into_platform_world_axis_in_frame(contact: LedgeContact, gravity_dir: Vec2) -> Vec2 {
+    let frame = crate::AccelerationFrame::new(gravity_dir);
+    frame.side * into_platform_axis(contact)
+}
+
+fn climb_control_point_in_frame(contact: LedgeContact, target: Vec2, gravity_dir: Vec2) -> Vec2 {
+    // Smash-style curved climb: first move away from the feet along the ledge
+    // wall, then arc inboard onto the platform. This must be authored in the
+    // controlled body's acceleration frame: the inboard component is local side,
+    // while the lift component is local up/away-from-feet. Do not infer the
+    // inboard axis from the larger world-space delta; for a normal ledge the
+    // vertical lift can be longer than the horizontal step, and for sideways
+    // gravity either component may dominate.
+    let into = into_platform_world_axis_in_frame(contact, gravity_dir);
+    let delta = target - contact.anchor;
+    let inboard = into * delta.dot(into);
+    contact.anchor + (delta - inboard)
+}
+
+fn climb_position_in_frame(contact: LedgeContact, progress: f32, gravity_dir: Vec2) -> Vec2 {
     let t = smoothstep(progress);
-    let control = Vec2::new(contact.anchor.x, contact.climb_target.y);
+    let control = climb_control_point_in_frame(contact, contact.climb_target, gravity_dir);
     quadratic_bezier(contact.anchor, control, contact.climb_target, t)
+}
+
+#[cfg(test)]
+fn climb_position(contact: LedgeContact, progress: f32) -> Vec2 {
+    climb_position_in_frame(contact, progress, Vec2::new(0.0, 1.0))
 }
 
 /// Roll target: ``climb_target`` plus an extra ``LEDGE_ROLL_OVERSHOOT``
 /// along the into-platform axis, so the player lands a body-width
 /// past the lip rather than right at the edge.
-fn roll_target(contact: LedgeContact) -> Vec2 {
-    Vec2::new(
-        contact.climb_target.x + into_platform_axis(contact) * LEDGE_ROLL_OVERSHOOT,
-        contact.climb_target.y,
-    )
+fn roll_target_in_frame(contact: LedgeContact, gravity_dir: Vec2) -> Vec2 {
+    contact.climb_target
+        + into_platform_world_axis_in_frame(contact, gravity_dir) * LEDGE_ROLL_OVERSHOOT
 }
 
-fn roll_position(contact: LedgeContact, progress: f32) -> Vec2 {
+#[cfg(test)]
+fn roll_target(contact: LedgeContact) -> Vec2 {
+    roll_target_in_frame(contact, Vec2::new(0.0, 1.0))
+}
+
+fn roll_position_in_frame(contact: LedgeContact, progress: f32, gravity_dir: Vec2) -> Vec2 {
     // Roll should not read as a diagonal drift. Use the same
     // "rise onto the platform, then sweep inboard" arc as climb, but
     // keep the roll's fast-commit timing by mirroring the easing so
     // the horizontal commitment starts immediately and settles
     // smoothly into the landing.
     let t = 1.0 - smoothstep(1.0 - progress.clamp(0.0, 1.0));
-    let target = roll_target(contact);
-    let control = Vec2::new(contact.anchor.x, target.y);
+    let target = roll_target_in_frame(contact, gravity_dir);
+    let control = climb_control_point_in_frame(contact, target, gravity_dir);
     quadratic_bezier(contact.anchor, control, target, t)
 }
 
-fn getup_position(state: LedgeGrabState, progress: f32) -> Vec2 {
+#[cfg(test)]
+fn roll_position(contact: LedgeContact, progress: f32) -> Vec2 {
+    roll_position_in_frame(contact, progress, Vec2::new(0.0, 1.0))
+}
+
+fn getup_position(state: LedgeGrabState, progress: f32, gravity_dir: Vec2) -> Vec2 {
     match state.getup_kind {
-        LedgeGetupKind::Climb => climb_position(state.contact, progress),
-        LedgeGetupKind::Roll => roll_position(state.contact, progress),
+        LedgeGetupKind::Climb => climb_position_in_frame(state.contact, progress, gravity_dir),
+        LedgeGetupKind::Roll => roll_position_in_frame(state.contact, progress, gravity_dir),
         // Attack uses the same arc as Climb — only the timing,
         // invuln, and triggered slash differ.
-        LedgeGetupKind::Attack => climb_position(state.contact, progress),
+        LedgeGetupKind::Attack => climb_position_in_frame(state.contact, progress, gravity_dir),
     }
 }
 
-fn getup_end_position(state: LedgeGrabState) -> Vec2 {
+fn getup_end_position(state: LedgeGrabState, gravity_dir: Vec2) -> Vec2 {
     match state.getup_kind {
         LedgeGetupKind::Climb => state.contact.climb_target,
-        LedgeGetupKind::Roll => roll_target(state.contact),
+        LedgeGetupKind::Roll => roll_target_in_frame(state.contact, gravity_dir),
         LedgeGetupKind::Attack => state.contact.climb_target,
     }
 }

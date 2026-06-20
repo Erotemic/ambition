@@ -133,9 +133,13 @@ pub(super) fn apply_jump_release(
     kinematics: &mut BodyKinematics,
     abilities: &PlayerAbilities,
     input: InputState,
+    tuning: MovementTuning,
 ) {
-    if abilities.abilities.variable_jump && input.jump_released && kinematics.vel.y < -120.0 {
-        kinematics.vel.y *= 0.54;
+    let frame = crate::AccelerationFrame::new(tuning.gravity_dir);
+    let ascend_speed = -kinematics.vel.dot(frame.down);
+    if abilities.abilities.variable_jump && input.jump_released && ascend_speed > 120.0 {
+        let along_down = kinematics.vel.dot(frame.down);
+        kinematics.vel += frame.down * (along_down * 0.54 - along_down);
     }
 }
 

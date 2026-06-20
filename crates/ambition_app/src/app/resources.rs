@@ -43,6 +43,17 @@ pub struct StartRoomOverride(pub String);
 #[derive(Resource, Clone, Copy, Debug, Default)]
 pub struct SandboxResetThisFrame(pub bool);
 
+
+#[cfg(test)]
+fn sandbox_init_failed() -> ! {
+    panic!("sandbox resource initialization failed; see diagnostics above");
+}
+
+#[cfg(not(test))]
+fn sandbox_init_failed() -> ! {
+    sandbox_init_failed();
+}
+
 pub fn init_sandbox_resources(app: &mut App) {
     // Install the named boss roster into the machinery lib's holder before
     // anything in this function (or any later system) resolves a boss profile
@@ -64,23 +75,22 @@ pub fn init_sandbox_resources(app: &mut App) {
         .get_resource::<ambition_gameplay_core::assets::game_assets::GameAssetConfig>()
         .cloned()
         .unwrap_or_default();
-    let sandbox_catalog =
-        ambition_gameplay_core::assets::sandbox_assets::build_sandbox_catalog_with(
-            &asset_config,
-            &sandbox_data.audio,
-            |manifest| {
-                ambition_content::intro::sprites::extend_with_intro_sprite_entries(
-                    manifest,
-                    &asset_config.sprite_folder,
-                );
-            },
-        );
+    let sandbox_catalog = ambition_gameplay_core::assets::sandbox_assets::build_sandbox_catalog_with(
+        &asset_config,
+        &sandbox_data.audio,
+        |manifest| {
+            ambition_content::intro::sprites::extend_with_intro_sprite_entries(
+                manifest,
+                &asset_config.sprite_folder,
+            );
+        },
+    );
 
     let ldtk_project = match ldtk_world::LdtkProject::load_default(&sandbox_catalog) {
         Ok(project) => project,
         Err(error) => {
             eprintln!("failed to load sandbox LDtk map: {error}");
-            std::process::exit(2);
+            sandbox_init_failed();
         }
     };
     let content_report = content_validation::validate_content_graph(&sandbox_data, &ldtk_project);
@@ -92,7 +102,7 @@ pub fn init_sandbox_resources(app: &mut App) {
         for error in &content_report.errors {
             eprintln!("  - {error}");
         }
-        std::process::exit(2);
+        sandbox_init_failed();
     }
     let editable_abilities = EditableAbilitySet::from(sandbox_data.abilities);
     let editable_tuning = EditableMovementTuning::from(sandbox_data.tuning);
@@ -105,7 +115,7 @@ pub fn init_sandbox_resources(app: &mut App) {
             for error in &errors {
                 eprintln!("  - {error}");
             }
-            std::process::exit(2);
+            sandbox_init_failed();
         }
     };
     // Programmatic override (SandboxSim / library callers) takes

@@ -185,6 +185,25 @@ fn audio_library_skips_music_tracks_without_asset_path() {
 }
 
 #[test]
+fn embedded_audio_catalog_includes_tech_bro_banger_tracks() {
+    let spec = SandboxDataSpec::load_embedded();
+    for id in [
+        "pivot_protocol",
+        "minimum_viable_apocalypse",
+        "terms_and_conditions",
+        "burn_rate_bossa",
+        "shareholder_ritual",
+    ] {
+        let track = spec
+            .audio
+            .track(id)
+            .unwrap_or_else(|| panic!("missing music track {id}"));
+        let expected_path = format!("audio/music/generated/{id}/full.ogg");
+        assert_eq!(track.asset_path.as_deref(), Some(expected_path.as_str()));
+    }
+}
+
+#[test]
 fn music_track_order_cycles() {
     let spec = SandboxDataSpec::load_embedded();
     let mut assets = Assets::<KiraAudioSource>::default();

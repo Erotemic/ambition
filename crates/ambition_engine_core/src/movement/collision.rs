@@ -1,18 +1,185 @@
 use crate::geometry::{Aabb, AabbExt};
-use crate::world::{BlockKind, World};
+use crate::world::{Block, BlockKind, World};
 use crate::Vec2;
 
-#[derive(Clone, Copy)]
+const CONTACT_SLOP: f32 = 4.0;
+const ONE_WAY_CROSSING_SLOP: f32 = 8.0;
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 enum Axis {
     X,
     Y,
 }
 
-fn is_solid_for_axis(kind: BlockKind, axis: Axis) -> bool {
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum AxisRole {
+    Gravity,
+    Side,
+}
+
+fn gravity_axis(gravity_dir: Vec2) -> Axis {
+    if gravity_dir.x.abs() > gravity_dir.y.abs() {
+        Axis::X
+    } else {
+        Axis::Y
+    }
+}
+
+fn axis_role(axis: Axis, gravity_dir: Vec2) -> AxisRole {
+    if axis == gravity_axis(gravity_dir) {
+        AxisRole::Gravity
+    } else {
+        AxisRole::Side
+    }
+}
+
+fn moving_toward_feet(delta: Vec2, gravity_dir: Vec2) -> bool {
+    delta.dot(gravity_dir) > 1.0e-5
+}
+
+fn is_support_surface(kind: BlockKind) -> bool {
+    matches!(
+        kind,
+        BlockKind::Solid | BlockKind::BlinkWall { .. } | BlockKind::OneWay
+    )
+}
+
+fn is_full_collision_surface(kind: BlockKind) -> bool {
+    matches!(kind, BlockKind::Solid | BlockKind::BlinkWall { .. })
+}
+
+fn is_solid_for_axis(kind: BlockKind, axis: Axis, gravity_dir: Vec2) -> bool {
     match kind {
         BlockKind::Solid | BlockKind::BlinkWall { .. } => true,
-        BlockKind::OneWay => matches!(axis, Axis::Y),
+        // One-way surfaces are collision surfaces only on the current gravity
+        // axis. Their passability is then decided by `one_way_landing_from_*`:
+        // a body may land on the surface's anti-gravity face, or pass through it
+        // from every other direction. This makes one-way platforms respect the
+        // controlled body's acceleration frame instead of hard-coding world Y.
+        BlockKind::OneWay => axis_role(axis, gravity_dir) == AxisRole::Gravity,
         BlockKind::Hazard | BlockKind::PogoOrb | BlockKind::Rebound { .. } => false,
+    }
+}
+
+fn one_way_landing_from_previous_feet(
+    body: Aabb,
+    block: Aabb,
+    delta: Vec2,
+    gravity_dir: Vec2,
+    drop_through: bool,
+    prev_feet_coord: f32,
+) -> bool {
+    if drop_through || gravity_dir == Vec2::ZERO {
+        return false;
+    }
+    // The body can only collide with a one-way while moving toward its feet.
+    if !moving_toward_feet(delta, gravity_dir) {
+        return false;
+    }
+    // It must have started on the passable side, outside or just touching the
+    // authored anti-gravity face. The tolerance matches the historical landing
+    // gate and handles discrete timesteps near the surface.
+    prev_feet_coord <= block.head_coord(gravity_dir) + ONE_WAY_CROSSING_SLOP
+        && perpendicular_overlap(body, block, gravity_dir)
+}
+
+fn one_way_landing_from_feet(
+    body: Aabb,
+    block: Aabb,
+    delta: Vec2,
+    gravity_dir: Vec2,
+    drop_through: bool,
+) -> bool {
+    one_way_landing_from_previous_feet(
+        body,
+        block,
+        delta,
+        gravity_dir,
+        drop_through,
+        body.feet_coord(gravity_dir),
+    )
+}
+
+fn support_face_separation(body: Aabb, surface: Aabb, gravity_dir: Vec2) -> f32 {
+    body.feet_coord(gravity_dir) - surface.head_coord(gravity_dir)
+}
+
+fn body_on_support_side(body: Aabb, surface: Aabb, gravity_dir: Vec2) -> bool {
+    body.center().dot(gravity_dir) <= surface.center().dot(gravity_dir)
+}
+
+fn surface_supports_body_at_rest(
+    kind: BlockKind,
+    body: Aabb,
+    surface: Aabb,
+    gravity_dir: Vec2,
+    drop_through: bool,
+) -> bool {
+    if !is_support_surface(kind) || !perpendicular_overlap(body, surface, gravity_dir) {
+        return false;
+    }
+    if matches!(kind, BlockKind::OneWay) && drop_through {
+        return false;
+    }
+    support_face_separation(body, surface, gravity_dir).abs() <= CONTACT_SLOP
+}
+
+pub(super) fn supporting_block<'a>(
+    world: &'a World,
+    body: Aabb,
+    gravity_dir: Vec2,
+    drop_through: bool,
+) -> Option<&'a Block> {
+    world.blocks.iter().find(|block| {
+        surface_supports_body_at_rest(block.kind, body, block.aabb, gravity_dir, drop_through)
+    })
+}
+
+fn snap_feet_to_surface(body: Aabb, surface: Aabb, gravity_dir: Vec2) -> Vec2 {
+    gravity_dir * (surface.head_coord(gravity_dir) - body.feet_coord(gravity_dir))
+}
+
+fn axis_face_resolution(body: Aabb, block: Aabb, axis: Axis) -> (Vec2, Vec2) {
+    match axis {
+        Axis::X => {
+            if body.center().x <= block.center().x {
+                (
+                    Vec2::new(block.left() - body.right(), 0.0),
+                    Vec2::new(-1.0, 0.0),
+                )
+            } else {
+                (
+                    Vec2::new(block.right() - body.left(), 0.0),
+                    Vec2::new(1.0, 0.0),
+                )
+            }
+        }
+        Axis::Y => {
+            if body.center().y <= block.center().y {
+                (
+                    Vec2::new(0.0, block.top() - body.bottom()),
+                    Vec2::new(0.0, -1.0),
+                )
+            } else {
+                (
+                    Vec2::new(0.0, block.bottom() - body.top()),
+                    Vec2::new(0.0, 1.0),
+                )
+            }
+        }
+    }
+}
+
+fn apply_side_contact(
+    wall: &mut crate::player_clusters::PlayerWallState,
+    world_normal: Vec2,
+    gravity_dir: Vec2,
+) {
+    let frame = crate::AccelerationFrame::new(gravity_dir);
+    let local_side_normal = world_normal.dot(frame.side);
+    if local_side_normal.abs() >= 0.5 {
+        wall.on_wall = true;
+        wall.wall_normal_x = local_side_normal.signum();
     }
 }
 
@@ -54,8 +221,11 @@ pub(super) fn sweep_player_x_clusters(
     body_mode: &crate::player_clusters::PlayerBodyModeState,
     env_contact: &crate::player_clusters::PlayerEnvironmentContact,
     delta_x: f32,
+    drop_through: bool,
     gravity_dir: Vec2,
 ) {
+    let axis = Axis::X;
+    let role = axis_role(axis, gravity_dir);
     let delta = Vec2::new(delta_x, 0.0);
     if delta.x.abs() <= 1.0e-5 {
         resolve_axis_clusters(
@@ -64,48 +234,75 @@ pub(super) fn sweep_player_x_clusters(
             wall,
             body_mode,
             env_contact,
-            Axis::X,
+            axis,
             gravity_dir,
         );
         return;
     }
 
-    if let Some(hit) =
-        world.first_body_sweep(kinematics.aabb_oriented(gravity_dir), delta, |block| {
-            is_solid_for_axis(block.kind, Axis::X)
-                && !matches!(block.kind, BlockKind::OneWay)
-                && !block_passable_during_climb_clusters(body_mode, env_contact, block)
-        })
-    {
+    let start_body = kinematics.aabb_oriented(gravity_dir);
+    if let Some(hit) = world.first_body_sweep(start_body, delta, |block| {
+        if !is_solid_for_axis(block.kind, axis, gravity_dir) {
+            return false;
+        }
+        if block_passable_during_climb_clusters(body_mode, env_contact, block) {
+            return false;
+        }
+        if matches!(block.kind, BlockKind::OneWay) {
+            return one_way_landing_from_feet(
+                start_body,
+                block.aabb,
+                delta,
+                gravity_dir,
+                drop_through,
+            );
+        }
+        if start_body.strict_intersects(block.aabb) {
+            return false;
+        }
+        true
+    }) {
         let toi_fraction = sweep_fraction(hit.time_of_impact);
         kinematics.pos.x += delta.x * toi_fraction;
         let body = kinematics.aabb_oriented(gravity_dir);
-        let immediate_contact = hit.time_of_impact <= 1.0e-5;
-        let overlap_x = (body.right().min(hit.block.aabb.right())
-            - body.left().max(hit.block.aabb.left()))
-        .max(0.0);
-        let body_to_right_of_block = body.center().x > hit.block.aabb.center().x;
-        let moving_away_from_block =
-            (body_to_right_of_block && delta.x > 0.0) || (!body_to_right_of_block && delta.x < 0.0);
-        let horizontal_overlap_moving_away =
-            immediate_contact && overlap_x > 0.0 && moving_away_from_block;
-        // Resolve the X penetration robustly via the shared helper: defer to the
-        // Y pass when the vertical exit is shorter -- crucially REGARDLESS of
-        // `immediate_contact`. A body sliding PARALLEL just under the wide thin
-        // ceiling (its top grazing the ceiling's bottom edge) makes the swept
-        // cast return a spurious *non-immediate* grazing hit; the old
-        // immediate-only guard let that fall through to a far-X-edge push,
-        // teleporting the body ~900px out of the room. `None` => not an X
-        // contact to resolve here, so keep the swept motion going.
-        let depen = resolve_x_penetration(body, hit.block.aabb, world.size.x);
-        if horizontal_overlap_moving_away || depen.is_none() {
-            kinematics.pos.x += delta.x * (1.0 - toi_fraction);
-        } else {
-            let (dx, normal) = depen.expect("checked is_none above");
-            kinematics.pos.x += dx;
-            wall.wall_normal_x = normal;
+        if matches!(hit.block.kind, BlockKind::OneWay)
+            || (role == AxisRole::Gravity && moving_toward_feet(delta, gravity_dir))
+        {
+            kinematics.pos += snap_feet_to_surface(body, hit.block.aabb, gravity_dir);
             kinematics.vel.x = 0.0;
-            wall.on_wall = true;
+        } else if role == AxisRole::Gravity {
+            let (push, _) = axis_face_resolution(body, hit.block.aabb, axis);
+            kinematics.pos += push;
+            kinematics.vel.x = 0.0;
+        } else {
+            let body = kinematics.aabb_oriented(gravity_dir);
+            let immediate_contact = hit.time_of_impact <= 1.0e-5;
+            let overlap_x = (body.right().min(hit.block.aabb.right())
+                - body.left().max(hit.block.aabb.left()))
+            .max(0.0);
+            let body_to_right_of_block = body.center().x > hit.block.aabb.center().x;
+            let moving_away_from_block = (body_to_right_of_block && delta.x > 0.0)
+                || (!body_to_right_of_block && delta.x < 0.0);
+            let horizontal_overlap_moving_away =
+                immediate_contact && overlap_x > 0.0 && moving_away_from_block;
+            // Resolve the X penetration robustly via the shared helper: defer to the
+            // Y pass when the vertical exit is shorter -- crucially REGARDLESS of
+            // `immediate_contact`. A body sliding PARALLEL just under the wide thin
+            // ceiling (its top grazing the ceiling's bottom edge) makes the swept
+            // cast return a spurious *non-immediate* grazing hit; the old
+            // immediate-only guard let that fall through to a far-X-edge push,
+            // teleporting the body ~900px out of the room. `None` => not an X
+            // contact to resolve here, so keep the swept motion going.
+            let depen = resolve_x_penetration(body, hit.block.aabb, world.size.x);
+            if horizontal_overlap_moving_away || depen.is_none() {
+                kinematics.pos.x += delta.x * (1.0 - toi_fraction);
+            } else {
+                let (dx, normal) = depen.expect("checked is_none above");
+                kinematics.pos.x += dx;
+                wall.wall_normal_x = normal;
+                kinematics.vel.x = 0.0;
+                wall.on_wall = true;
+            }
         }
     } else {
         kinematics.pos.x += delta.x;
@@ -117,7 +314,7 @@ pub(super) fn sweep_player_x_clusters(
         wall,
         body_mode,
         env_contact,
-        Axis::X,
+        axis,
         gravity_dir,
     );
 }
@@ -131,27 +328,26 @@ pub(super) fn sweep_player_y_clusters(
     world: &World,
     kinematics: &mut crate::player_clusters::BodyKinematics,
     ground: &mut crate::player_clusters::PlayerGroundState,
+    wall: &mut crate::player_clusters::PlayerWallState,
     body_mode: &crate::player_clusters::PlayerBodyModeState,
     env_contact: &crate::player_clusters::PlayerEnvironmentContact,
     delta_y: f32,
-    prev_bottom: f32,
+    prev_feet_coord: f32,
     drop_through: bool,
     gravity_dir: Vec2,
 ) {
-    // Y is the GRAVITY axis only under vertical gravity. Under sideways gravity
-    // (wall-walking) Y is the MOVEMENT axis: this sweep still stops the body at
-    // obstacles but does NOT ground it (the gravity-axis sweep / probe does), and
-    // one-way platforms (a gravity-relative affordance) pass straight through.
-    let y_is_gravity = gravity_dir.y != 0.0;
+    let axis = Axis::Y;
+    let role = axis_role(axis, gravity_dir);
     let delta = Vec2::new(0.0, delta_y);
     if delta.y.abs() <= 1.0e-5 {
         resolve_vertical_clusters(
             world,
             kinematics,
             ground,
+            wall,
             body_mode,
             env_contact,
-            prev_bottom,
+            prev_feet_coord,
             drop_through,
             gravity_dir,
         );
@@ -159,56 +355,48 @@ pub(super) fn sweep_player_y_clusters(
     }
 
     let start_body = kinematics.aabb_oriented(gravity_dir);
-    // Prev leading edge for one-way landing — bottom under normal gravity, top
-    // under flipped (derived, so no extra param threads through the sweeps).
-    let prev_top = prev_bottom - kinematics.size.y;
-    if let Some(hit) =
-        world.first_body_sweep(kinematics.aabb_oriented(gravity_dir), delta, |block| {
-            if !is_solid_for_axis(block.kind, Axis::Y) {
-                return false;
-            }
-            if block_passable_during_climb_clusters(body_mode, env_contact, block) {
-                return false;
-            }
-            if matches!(block.kind, BlockKind::OneWay) {
-                if !y_is_gravity {
-                    return false;
-                }
-                // Land on the one-way's gravity-up face — its TOP under normal
-                // gravity, its BOTTOM under flipped — solid from the side you fall
-                // from, passable from the other (#55).
-                let landing = if gravity_dir.y >= 0.0 {
-                    delta.y >= 0.0 && prev_bottom <= block.aabb.top() + 8.0
-                } else {
-                    delta.y <= 0.0 && prev_top >= block.aabb.bottom() - 8.0
-                };
-                return landing && !drop_through;
-            }
-            if body_is_side_contact(start_body, block.aabb) {
-                return false;
-            }
-            if start_body.strict_intersects(block.aabb) {
-                return false;
-            }
-            true
-        })
-    {
+    if let Some(hit) = world.first_body_sweep(start_body, delta, |block| {
+        if !is_solid_for_axis(block.kind, axis, gravity_dir) {
+            return false;
+        }
+        if block_passable_during_climb_clusters(body_mode, env_contact, block) {
+            return false;
+        }
+        if matches!(block.kind, BlockKind::OneWay) {
+            return one_way_landing_from_feet(
+                start_body,
+                block.aabb,
+                delta,
+                gravity_dir,
+                drop_through,
+            );
+        }
+        if role == AxisRole::Gravity && body_is_side_contact(start_body, block.aabb) {
+            return false;
+        }
+        if start_body.strict_intersects(block.aabb) {
+            return false;
+        }
+        true
+    }) {
         kinematics.pos.y += delta.y * sweep_fraction(hit.time_of_impact);
         let body = kinematics.aabb_oriented(gravity_dir);
-        let approaching_from_above = delta.y > 0.0 && prev_bottom <= hit.block.aabb.top() + 4.0;
-        let snap_to_top = approaching_from_above || body.center().y < hit.block.aabb.center().y;
-        if snap_to_top {
-            kinematics.pos.y += hit.block.aabb.top() - body.bottom();
+        if matches!(hit.block.kind, BlockKind::OneWay)
+            || (role == AxisRole::Gravity && moving_toward_feet(delta, gravity_dir))
+        {
+            kinematics.pos += snap_feet_to_surface(body, hit.block.aabb, gravity_dir);
+            kinematics.vel.y = 0.0;
+            if role == AxisRole::Gravity {
+                ground.on_ground = true;
+            }
         } else {
-            kinematics.pos.y += hit.block.aabb.bottom() - body.top();
+            let (push, world_normal) = axis_face_resolution(body, hit.block.aabb, axis);
+            kinematics.pos += push;
+            kinematics.vel.y = 0.0;
+            if role == AxisRole::Side {
+                apply_side_contact(wall, world_normal, gravity_dir);
+            }
         }
-        // Grounded only when Y is the gravity axis AND the contact is on the side
-        // gravity pulls toward (block top under normal gravity, block bottom under
-        // flipped). Under sideways gravity this is just an obstacle to the walk.
-        if y_is_gravity && contact_is_gravity_side(snap_to_top, gravity_dir.y) {
-            ground.on_ground = true;
-        }
-        kinematics.vel.y = 0.0;
     } else {
         kinematics.pos.y += delta.y;
     }
@@ -217,61 +405,25 @@ pub(super) fn sweep_player_y_clusters(
         world,
         kinematics,
         ground,
+        wall,
         body_mode,
         env_contact,
-        prev_bottom,
+        prev_feet_coord,
         drop_through,
         gravity_dir,
     );
 }
 
-/// Is a vertical contact on the side gravity pulls toward (so it's "ground")?
-/// `snap_to_top` = the body snapped to a block's TOP (it's above the block).
-/// Under normal gravity (`+`) a top contact is ground; under flipped gravity
-/// (`-`) a bottom contact (standing on a ceiling) is ground.
-fn contact_is_gravity_side(snap_to_top: bool, gravity_sign: f32) -> bool {
-    if gravity_sign >= 0.0 {
-        snap_to_top
-    } else {
-        !snap_to_top
-    }
-}
-
-/// Is the body resting on a surface on the side gravity pulls toward? Probes a
-/// thin strip just past the body's gravity-side face for a Solid/OneWay block.
-/// This is the wall-walking ground check used when the gravity axis is X (the
-/// X-sweep stops the body at the wall, but the gravity-side contact is "ground",
-/// not a "wall"). Cardinal `gravity_dir`.
-pub(super) fn grounded_against_gravity(world: &World, body: Aabb, gravity_dir: Vec2) -> bool {
-    const PROBE: f32 = 2.0;
-    let cx = body.center().x;
-    let cy = body.center().y;
-    let half_x = (body.right() - body.left()) * 0.5;
-    let half_y = (body.bottom() - body.top()) * 0.5;
-    let probe = if gravity_dir.x > 0.0 {
-        Aabb::new(
-            Vec2::new(body.right() + PROBE * 0.5, cy),
-            Vec2::new(PROBE * 0.5, half_y),
-        )
-    } else if gravity_dir.x < 0.0 {
-        Aabb::new(
-            Vec2::new(body.left() - PROBE * 0.5, cy),
-            Vec2::new(PROBE * 0.5, half_y),
-        )
-    } else if gravity_dir.y < 0.0 {
-        Aabb::new(
-            Vec2::new(cx, body.top() - PROBE * 0.5),
-            Vec2::new(half_x, PROBE * 0.5),
-        )
-    } else {
-        Aabb::new(
-            Vec2::new(cx, body.bottom() + PROBE * 0.5),
-            Vec2::new(half_x, PROBE * 0.5),
-        )
-    };
-    world.blocks.iter().any(|b| {
-        matches!(b.kind, BlockKind::Solid | BlockKind::OneWay) && probe.strict_intersects(b.aabb)
-    })
+/// Is the body resting on a surface on the side gravity pulls toward? Probes the
+/// controlled body's feet face against any support surface (Solid, BlinkWall, or
+/// OneWay) using the same support-face rule as the sweeps. Cardinal `gravity_dir`.
+pub(super) fn grounded_against_gravity(
+    world: &World,
+    body: Aabb,
+    gravity_dir: Vec2,
+    drop_through: bool,
+) -> bool {
+    supporting_block(world, body, gravity_dir, drop_through).is_some()
 }
 
 /// Resolve an X-axis penetration of `body` into `block`, returning the
@@ -305,10 +457,10 @@ fn resolve_x_penetration(body: Aabb, block: Aabb, world_w: f32) -> Option<(f32, 
     }
 }
 
-/// Penetration repair for the X axis. Pushes the body out of any block it
-/// strictly intersects after the shape sweep via [`resolve_x_penetration`]
-/// (shortest non-ejecting exit, or defer to the Y pass for floor/ceiling
-/// contacts).
+/// Penetration repair for one axis. X/Y remain the low-level sweep axes because
+/// the world is axis-aligned, but support and wall decisions are expressed in
+/// controlled-body terms: feet/head along the gravity axis, side normals along
+/// the local side axis.
 fn resolve_axis_clusters(
     world: &World,
     kinematics: &mut crate::player_clusters::BodyKinematics,
@@ -318,114 +470,134 @@ fn resolve_axis_clusters(
     axis: Axis,
     gravity_dir: Vec2,
 ) {
+    let role = axis_role(axis, gravity_dir);
     let mut aabb = kinematics.aabb_oriented(gravity_dir);
     for block in &world.blocks {
-        if !is_solid_for_axis(block.kind, axis) || !aabb.strict_intersects(block.aabb) {
+        if !is_solid_for_axis(block.kind, axis, gravity_dir) || !aabb.strict_intersects(block.aabb)
+        {
             continue;
         }
         if matches!(block.kind, BlockKind::OneWay) {
             continue;
         }
-        match axis {
-            Axis::X => {
-                if let Some((dx, normal)) = resolve_x_penetration(aabb, block.aabb, world.size.x) {
-                    kinematics.pos.x += dx;
-                    wall.wall_normal_x = normal;
-                    kinematics.vel.x = 0.0;
-                    wall.on_wall = true;
+        match role {
+            AxisRole::Gravity => {
+                if body_on_support_side(aabb, block.aabb, gravity_dir) {
+                    kinematics.pos += snap_feet_to_surface(aabb, block.aabb, gravity_dir);
+                } else {
+                    let (push, _) = axis_face_resolution(aabb, block.aabb, axis);
+                    kinematics.pos += push;
+                }
+                match axis {
+                    Axis::X => kinematics.vel.x = 0.0,
+                    Axis::Y => kinematics.vel.y = 0.0,
                 }
             }
-            Axis::Y => {}
+            AxisRole::Side => {
+                if axis == Axis::X {
+                    if let Some((dx, normal)) =
+                        resolve_x_penetration(aabb, block.aabb, world.size.x)
+                    {
+                        kinematics.pos.x += dx;
+                        wall.wall_normal_x = normal;
+                        kinematics.vel.x = 0.0;
+                        wall.on_wall = true;
+                    }
+                } else {
+                    let (push, world_normal) = axis_face_resolution(aabb, block.aabb, axis);
+                    kinematics.pos += push;
+                    kinematics.vel.y = 0.0;
+                    apply_side_contact(wall, world_normal, gravity_dir);
+                }
+            }
         }
         aabb = kinematics.aabb_oriented(gravity_dir);
     }
 }
 
 /// Penetration repair for the Y axis. Mirrors `resolve_axis_clusters`
-/// but for vertical contacts: handles one-way landing-from-above gating
-/// and skips the wall-cling-side contact class so vertical snaps don't
-/// teleport a clinging body to a wall's far edge.
+/// but also owns grounding because the Y sweep receives `ground`.
 fn resolve_vertical_clusters(
     world: &World,
     kinematics: &mut crate::player_clusters::BodyKinematics,
     ground: &mut crate::player_clusters::PlayerGroundState,
+    wall: &mut crate::player_clusters::PlayerWallState,
     _body_mode: &crate::player_clusters::PlayerBodyModeState,
     _env_contact: &crate::player_clusters::PlayerEnvironmentContact,
-    prev_bottom: f32,
+    prev_feet_coord: f32,
     drop_through: bool,
     gravity_dir: Vec2,
 ) {
-    let y_is_gravity = gravity_dir.y != 0.0;
+    let axis = Axis::Y;
+    let role = axis_role(axis, gravity_dir);
     let mut aabb = kinematics.aabb_oriented(gravity_dir);
     for block in &world.blocks {
-        if !is_solid_for_axis(block.kind, Axis::Y) || !aabb.strict_intersects(block.aabb) {
+        if !is_solid_for_axis(block.kind, axis, gravity_dir) || !aabb.strict_intersects(block.aabb)
+        {
             continue;
         }
         if matches!(block.kind, BlockKind::OneWay) {
-            // One-way is gravity-relative; under sideways gravity it doesn't
-            // resolve along the (movement) Y axis.
-            if !y_is_gravity {
+            if role != AxisRole::Gravity {
                 continue;
             }
-            // Land on the gravity-up face (top under normal gravity, bottom under
-            // flipped) — #55.
-            let prev_top = prev_bottom - kinematics.size.y;
-            let landing = if gravity_dir.y >= 0.0 {
-                kinematics.vel.y >= 0.0 && prev_bottom <= block.aabb.top() + 8.0
-            } else {
-                kinematics.vel.y <= 0.0 && prev_top >= block.aabb.bottom() - 8.0
-            };
-            if !landing || drop_through {
+            let delta = kinematics.vel * 1.0e-3;
+            if !one_way_landing_from_previous_feet(
+                aabb,
+                block.aabb,
+                delta,
+                gravity_dir,
+                drop_through,
+                prev_feet_coord,
+            ) {
                 continue;
             }
         }
-        if !matches!(block.kind, BlockKind::OneWay) && body_is_side_contact(aabb, block.aabb) {
+        if role == AxisRole::Gravity
+            && is_full_collision_surface(block.kind)
+            && body_is_side_contact(aabb, block.aabb)
+        {
             continue;
         }
-        let snap_to_top = aabb.center().y < block.aabb.center().y;
-        if snap_to_top {
-            let push = block.aabb.top() - aabb.bottom();
-            kinematics.pos.y += push;
-        } else {
-            let push = block.aabb.bottom() - aabb.top();
-            kinematics.pos.y += push;
+        match role {
+            AxisRole::Gravity => {
+                if matches!(block.kind, BlockKind::OneWay)
+                    || body_on_support_side(aabb, block.aabb, gravity_dir)
+                {
+                    kinematics.pos += snap_feet_to_surface(aabb, block.aabb, gravity_dir);
+                    ground.on_ground = true;
+                } else {
+                    let (push, _) = axis_face_resolution(aabb, block.aabb, axis);
+                    kinematics.pos += push;
+                }
+                kinematics.vel.y = 0.0;
+            }
+            AxisRole::Side => {
+                let (push, world_normal) = axis_face_resolution(aabb, block.aabb, axis);
+                kinematics.pos += push;
+                kinematics.vel.y = 0.0;
+                apply_side_contact(wall, world_normal, gravity_dir);
+            }
         }
-        if y_is_gravity && contact_is_gravity_side(snap_to_top, gravity_dir.y) {
-            ground.on_ground = true;
-        }
-        kinematics.vel.y = 0.0;
         aabb = kinematics.aabb_oriented(gravity_dir);
     }
 }
 
 /// AABB-only variant of [`standing_on_one_way`]. Cluster-aware
-/// callers pass `BodyKinematics::aabb()` directly. Gravity-relative: the player
-/// rests on the one-way's ANTI-gravity face (its top under normal gravity, its
-/// bottom under inverted), so drop-through detection flips with gravity like the
-/// landing sweep already does.
+/// callers pass the oriented body AABB directly. Gravity-relative: the body
+/// rests on the one-way's anti-gravity support face, so drop-through detection
+/// flips with gravity like the landing sweep already does.
 pub fn standing_on_one_way_aabb(world: &World, body: Aabb, gravity_dir: Vec2) -> bool {
-    for block in &world.blocks {
-        if !matches!(block.kind, BlockKind::OneWay) {
-            continue;
-        }
-        let b = block.aabb;
-        // Resting contact (the ONE source of truth): the body's FEET edge meets the
-        // platform's HEAD (anti-gravity) face, projected onto the gravity axis, with
-        // overlap on the perpendicular axis. Flips for free under any cardinal gravity.
-        if perpendicular_overlap(body, b, gravity_dir)
-            && (body.feet_coord(gravity_dir) - b.head_coord(gravity_dir)).abs() <= 4.0
-        {
-            return true;
-        }
-    }
-    false
+    world.blocks.iter().any(|block| {
+        matches!(block.kind, BlockKind::OneWay)
+            && surface_supports_body_at_rest(block.kind, body, block.aabb, gravity_dir, false)
+    })
 }
 
 /// Overlap on the axis PERPENDICULAR to gravity (the "width" the body must share
 /// with a surface to rest on it): the X span under vertical gravity, the Y span
 /// under wall-walking. 1px slack matches the historical strict-touch contract.
 pub(super) fn perpendicular_overlap(body: Aabb, b: Aabb, gravity_dir: Vec2) -> bool {
-    if gravity_dir.y != 0.0 {
+    if gravity_dir.y.abs() >= gravity_dir.x.abs() {
         body.right() > b.left() + 1.0 && body.left() < b.right() - 1.0
     } else {
         body.bottom() > b.top() + 1.0 && body.top() < b.bottom() - 1.0
@@ -453,3 +625,58 @@ pub fn touching_rebound_aabb(world: &World, aabb: crate::Aabb) -> Option<Vec2> {
 // `try_pogo_clusters` (the probe-based engine pogo) was removed 2026-06-16 — it
 // was a redundant duplicate of the sandbox hitbox pogo (`advance_attack`), which
 // detects the target with the real attack hitbox and bounces gravity-relatively.
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::geometry::aabb_from_min_size;
+
+    fn body(center: Vec2, half: Vec2) -> Aabb {
+        Aabb::new(center, half)
+    }
+
+    #[test]
+    fn support_faces_are_gravity_relative_for_full_solids() {
+        let floor = aabb_from_min_size(Vec2::new(0.0, 100.0), Vec2::new(100.0, 20.0));
+        let b = body(Vec2::new(40.0, 80.0), Vec2::new(10.0, 20.0));
+        assert!(surface_supports_body_at_rest(
+            BlockKind::Solid,
+            b,
+            floor,
+            Vec2::new(0.0, 1.0),
+            false,
+        ));
+
+        let wall = aabb_from_min_size(Vec2::new(100.0, 0.0), Vec2::new(20.0, 100.0));
+        let sideways = body(Vec2::new(80.0, 40.0), Vec2::new(20.0, 10.0));
+        assert!(surface_supports_body_at_rest(
+            BlockKind::BlinkWall {
+                tier: crate::world::BlinkWallTier::Soft
+            },
+            sideways,
+            wall,
+            Vec2::new(1.0, 0.0),
+            false,
+        ));
+    }
+
+    #[test]
+    fn one_way_support_faces_are_gravity_relative() {
+        let platform = aabb_from_min_size(Vec2::new(100.0, 0.0), Vec2::new(20.0, 100.0));
+        let b = body(Vec2::new(80.0, 40.0), Vec2::new(20.0, 10.0));
+        assert!(surface_supports_body_at_rest(
+            BlockKind::OneWay,
+            b,
+            platform,
+            Vec2::new(1.0, 0.0),
+            false,
+        ));
+        assert!(!surface_supports_body_at_rest(
+            BlockKind::OneWay,
+            b,
+            platform,
+            Vec2::new(1.0, 0.0),
+            true,
+        ));
+    }
+}

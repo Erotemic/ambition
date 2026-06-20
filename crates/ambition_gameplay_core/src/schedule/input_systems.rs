@@ -120,9 +120,11 @@ pub fn populate_control_frame_from_actions(
     mut dash_state: ResMut<PlayerDashTriggerState>,
     cutscene: Res<ambition_cutscene::ActiveCutscene>,
     mut cutscene_request: ResMut<ambition_cutscene::CutsceneAdvanceRequest>,
-    world_time: Res<crate::WorldTime>,
+    world_time: Option<Res<crate::WorldTime>>,
     windows: Query<&Window>,
 ) {
+    let wall_dt = world_time.as_deref().map_or(0.0, |time| time.wall_dt());
+
     // Optional unfocus guard: clear gameplay input while the window is unfocused
     // (and the setting is on). Reset the dash edge too so the post-refocus re-press
     // starts clean, mirroring the pause path.
@@ -156,7 +158,7 @@ pub fn populate_control_frame_from_actions(
                 cutscene_request.dismiss_dialogue = true;
             }
             if action_state.pressed(&SandboxAction::Reset) {
-                cutscene_request.skip_hold_seconds += world_time.wall_dt();
+                cutscene_request.skip_hold_seconds += wall_dt;
                 if cutscene_request.skip_hold_seconds >= ambition_cutscene::SKIP_HOLD_THRESHOLD_SECS
                 {
                     cutscene_request.skip_cutscene = true;
@@ -202,7 +204,7 @@ pub fn populate_control_frame_from_actions(
 /// scrolling share one semantic seam.
 #[cfg(feature = "input")]
 pub fn populate_menu_control_frame_from_actions(
-    world_time: Res<crate::WorldTime>,
+    world_time: Option<Res<crate::WorldTime>>,
     player_input: Query<&ActionState<SandboxAction>, With<PlayerVisual>>,
     mut menu_frame: ResMut<MenuControlFrame>,
     mut menu_input_state: ResMut<MenuInputState>,
@@ -210,6 +212,7 @@ pub fn populate_menu_control_frame_from_actions(
     mut mouse_wheel: MessageReader<MouseWheel>,
     windows: Query<&Window>,
 ) {
+    let wall_dt = world_time.as_deref().map_or(0.0, |time| time.wall_dt());
     let mut next = MenuControlFrame::default();
 
     // Optional unfocus guard: leave the menu frame cleared while the window is
@@ -244,7 +247,7 @@ pub fn populate_menu_control_frame_from_actions(
             actions.just_pressed(&SandboxAction::MenuSelect),
             actions.just_pressed(&SandboxAction::MenuBack),
             actions.just_pressed(&SandboxAction::Start),
-            world_time.wall_dt(),
+            wall_dt,
             user_settings.controls.menu_repeat_initial_delay,
             user_settings.controls.menu_repeat_interval,
         );
@@ -275,11 +278,12 @@ pub fn populate_menu_control_frame_from_actions(
 /// gestures.
 #[cfg(feature = "input")]
 pub fn apply_menu_frame_to_cutscene_request(
-    world_time: Res<crate::WorldTime>,
+    world_time: Option<Res<crate::WorldTime>>,
     menu_frame: Res<MenuControlFrame>,
     cutscene: Res<ambition_cutscene::ActiveCutscene>,
     mut cutscene_request: ResMut<ambition_cutscene::CutsceneAdvanceRequest>,
 ) {
+    let wall_dt = world_time.as_deref().map_or(0.0, |time| time.wall_dt());
     if !cutscene.is_playing() {
         return;
     }
@@ -287,7 +291,7 @@ pub fn apply_menu_frame_to_cutscene_request(
         cutscene_request.dismiss_dialogue = true;
     }
     if menu_frame.back_held {
-        cutscene_request.skip_hold_seconds += world_time.wall_dt();
+        cutscene_request.skip_hold_seconds += wall_dt;
         if cutscene_request.skip_hold_seconds >= ambition_cutscene::SKIP_HOLD_THRESHOLD_SECS {
             cutscene_request.skip_cutscene = true;
             cutscene_request.skip_hold_seconds = 0.0;

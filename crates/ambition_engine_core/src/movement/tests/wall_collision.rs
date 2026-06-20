@@ -144,6 +144,55 @@ fn wall_jump_does_not_catapult_through_left_wall() {
     );
 }
 
+#[test]
+fn wall_jump_uses_local_side_axis_under_sideways_gravity() {
+    let world = test_world();
+    let mut scratch = scratch_with(AbilitySet::sandbox_all(), world.spawn);
+    let mut tuning = DEFAULT_TUNING;
+    tuning.gravity_dir = Vec2::new(1.0, 0.0);
+
+    scratch.ground.on_ground = false;
+    scratch.ground.coyote_timer = 0.0;
+    scratch.wall.on_wall = true;
+    scratch.wall.wall_normal_x = 1.0;
+    scratch.action_buffer.jump = tuning.jump_buffer;
+    scratch.kinematics.vel = Vec2::ZERO;
+
+    let mut events = FrameEvents::default();
+    {
+        let mut clusters = scratch.as_mut();
+        super::super::simulation::handle_jump_buffer_clusters(
+            &world,
+            clusters.action_buffer,
+            clusters.env_contact,
+            clusters.abilities,
+            clusters.body_mode.body_mode,
+            clusters.kinematics,
+            clusters.ground,
+            clusters.wall,
+            clusters.jump,
+            clusters.combo_trace,
+            InputState::default(),
+            tuning,
+            &mut events,
+        );
+    }
+
+    let frame = crate::AccelerationFrame::new(tuning.gravity_dir);
+    assert!(
+        scratch.kinematics.vel.dot(frame.side) > tuning.wall_jump_x * 0.9,
+        "wall jump should kick along local side; vel={:?} side={:?}",
+        scratch.kinematics.vel,
+        frame.side,
+    );
+    assert!(
+        scratch.kinematics.vel.dot(frame.down) < -tuning.jump_speed * 0.8,
+        "wall jump should launch away from feet; vel={:?} down={:?}",
+        scratch.kinematics.vel,
+        frame.down,
+    );
+}
+
 /// Closer match to the actual reported bug: the player has a tiny
 /// residual penetration into the left wall (sub-pixel rounding from
 /// the previous frame's snap) and is moving away from it on
@@ -575,6 +624,7 @@ fn ceiling_graze_x_sweep_does_not_teleport_body_to_the_far_edge() {
         &scratch.body_mode,
         &scratch.env_contact,
         delta_x,
+        false,
         crate::Vec2::new(0.0, 1.0),
     );
     let after = scratch.kinematics.pos;
@@ -588,8 +638,9 @@ fn ceiling_graze_x_sweep_does_not_teleport_body_to_the_far_edge() {
 fn one_way_drop_through_works_under_inverted_gravity() {
     // The reported bug: with gravity inverted (pointing up), you couldn't drop
     // through a one-way platform. Deterministic mirror of the down-gravity test:
-    // the player rests on the platform's BOTTOM face and "descend + jump" (which
-    // is screen-UP under inverted gravity) drops them through, toward gravity (-Y).
+    // the player rests on the platform's BOTTOM face and local "down + jump"
+    // drops them through, toward gravity (-Y). Raw screen-UP is mapped into this
+    // local intent before the movement engine sees `InputState`.
     use crate::movement::tuning::DEFAULT_TUNING;
     let g = Vec2::new(0.0, -1.0);
     let tuning = MovementTuning {
@@ -625,13 +676,14 @@ fn one_way_drop_through_works_under_inverted_gravity() {
         "player should rest on the one-way's bottom face under inverted gravity"
     );
 
-    // "down alone" (toward gravity = screen-up, axis_y = -1) must NOT drop through.
+    // In engine `InputState`, axis_y is already controlled-body-local.
+    // Local down alone (toward gravity) must NOT drop through.
     for _ in 0..6 {
         step(
             &world,
             &mut scratch,
             InputState {
-                axis_y: -1.0,
+                axis_y: 1.0,
                 ..Default::default()
             },
         );
@@ -642,12 +694,12 @@ fn one_way_drop_through_works_under_inverted_gravity() {
         scratch.kinematics.pos.y - resting_y
     );
 
-    // descend + jump drops through, toward gravity (-Y, so pos.y decreases).
+    // Local down + jump drops through, toward gravity (-Y, so pos.y decreases).
     step(
         &world,
         &mut scratch,
         InputState {
-            axis_y: -1.0,
+            axis_y: 1.0,
             jump_pressed: true,
             ..Default::default()
         },
@@ -657,7 +709,7 @@ fn one_way_drop_through_works_under_inverted_gravity() {
             &world,
             &mut scratch,
             InputState {
-                axis_y: -1.0,
+                axis_y: 1.0,
                 ..Default::default()
             },
         );
@@ -666,5 +718,156 @@ fn one_way_drop_through_works_under_inverted_gravity() {
         scratch.kinematics.pos.y < resting_y - 12.0,
         "descend+jump should drop the player through toward gravity under inverted gravity (delta {})",
         scratch.kinematics.pos.y - resting_y
+    );
+}
+
+#[test]
+fn sideways_gravity_blink_wall_is_ground_support() {
+    // Blink walls are still authored surfaces for contact: blink pathing may pass
+    // through them with upgrades, but a controlled body standing on their
+    // gravity-facing face should be grounded just like on Solid.
+    use crate::movement::tuning::DEFAULT_TUNING;
+    use crate::world::{BlinkWallTier, Block, World};
+
+    let world = World {
+        name: "side blink support".to_string(),
+        size: Vec2::new(800.0, 600.0),
+        spawn: Vec2::new(500.0, 300.0),
+        blocks: vec![Block::blink_wall(
+            "blink support",
+            Vec2::new(300.0, 120.0),
+            Vec2::new(16.0, 360.0),
+            BlinkWallTier::Soft,
+        )],
+        water_regions: Vec::new(),
+        climbable_regions: Vec::new(),
+    };
+    let mut scratch = scratch_with(AbilitySet::sandbox_all(), world.spawn);
+    scratch.kinematics.vel = Vec2::ZERO;
+    scratch.ground.on_ground = false;
+
+    let g = Vec2::new(-1.0, 0.0); // feet point screen-left
+    let tuning = MovementTuning {
+        gravity_dir: g,
+        gravity_sign: 1.0,
+        ..DEFAULT_TUNING
+    };
+    for _ in 0..90 {
+        update_player_with_tuning_scratch(
+            &world,
+            &mut scratch,
+            InputState::default(),
+            1.0 / 60.0,
+            tuning,
+        );
+    }
+
+    let body = scratch.kinematics.aabb_oriented(g);
+    assert!(
+        scratch.ground.on_ground,
+        "blink-wall side support must ground"
+    );
+    assert!(
+        (body.left() - 316.0).abs() < 6.0,
+        "feet edge should rest on the blink wall's right face; left={}",
+        body.left()
+    );
+}
+
+#[test]
+fn one_way_platform_works_under_sideways_gravity() {
+    // One-way passability is authored against the acceleration frame: under
+    // gravity-left the platform's right face is its anti-gravity/top face.
+    use crate::movement::tuning::DEFAULT_TUNING;
+    use crate::world::{Block, World};
+
+    let world = World {
+        name: "side one-way".to_string(),
+        size: Vec2::new(800.0, 600.0),
+        spawn: Vec2::new(500.0, 300.0),
+        blocks: vec![Block::one_way(
+            "side oneway",
+            Vec2::new(300.0, 120.0),
+            Vec2::new(16.0, 360.0),
+        )],
+        water_regions: Vec::new(),
+        climbable_regions: Vec::new(),
+    };
+    let mut scratch = scratch_with(AbilitySet::sandbox_all(), world.spawn);
+    scratch.kinematics.vel = Vec2::ZERO;
+    scratch.ground.on_ground = false;
+
+    let g = Vec2::new(-1.0, 0.0);
+    let tuning = MovementTuning {
+        gravity_dir: g,
+        gravity_sign: 1.0,
+        ..DEFAULT_TUNING
+    };
+    for _ in 0..90 {
+        update_player_with_tuning_scratch(
+            &world,
+            &mut scratch,
+            InputState::default(),
+            1.0 / 60.0,
+            tuning,
+        );
+    }
+    let resting_x = scratch.kinematics.pos.x;
+    let body = scratch.kinematics.aabb_oriented(g);
+    assert!(
+        scratch.ground.on_ground,
+        "sideways one-way must be standable"
+    );
+    assert!(
+        (body.left() - 316.0).abs() < 6.0,
+        "feet edge should rest on the one-way's right face; left={}",
+        body.left()
+    );
+
+    // Local down alone does not drop through.
+    for _ in 0..6 {
+        update_player_with_tuning_scratch(
+            &world,
+            &mut scratch,
+            InputState {
+                axis_y: 1.0,
+                ..Default::default()
+            },
+            1.0 / 60.0,
+            tuning,
+        );
+    }
+    assert!(
+        (scratch.kinematics.pos.x - resting_x).abs() < 1.0,
+        "descend-alone must not drop through sideways one-way"
+    );
+
+    update_player_with_tuning_scratch(
+        &world,
+        &mut scratch,
+        InputState {
+            axis_y: 1.0,
+            jump_pressed: true,
+            ..Default::default()
+        },
+        1.0 / 60.0,
+        tuning,
+    );
+    for _ in 0..12 {
+        update_player_with_tuning_scratch(
+            &world,
+            &mut scratch,
+            InputState {
+                axis_y: 1.0,
+                ..Default::default()
+            },
+            1.0 / 60.0,
+            tuning,
+        );
+    }
+    assert!(
+        scratch.kinematics.pos.x < resting_x - 12.0,
+        "descend+jump should drop through toward local down/gravity; delta {}",
+        scratch.kinematics.pos.x - resting_x
     );
 }

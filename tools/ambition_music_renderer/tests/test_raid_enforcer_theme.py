@@ -17,3 +17,19 @@ def test_raid_enforcer_theme_is_active_radio_cue():
     assert spec["render"]["backend"] == "fallback"
     assert spec["sections"][0]["id"] == "enforcer_loop"
     assert "hook_brass" in spec["sections"][0]["layers"]
+
+def test_tech_bro_banger_cues_are_active_radio_cues():
+    expected = {
+        "pivot_protocol",
+        "minimum_viable_apocalypse",
+        "terms_and_conditions",
+        "burn_rate_bossa",
+        "shareholder_ritual",
+    }
+    radio = set(radio_cues())
+    missing = expected - radio
+    assert not missing, f"missing radio cue registrations: {sorted(missing)}"
+    for cue in expected:
+        score_path = find_score(cue)
+        assert score_path is not None
+        assert score_path.name == f"{cue}.music.yaml"

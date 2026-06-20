@@ -46,22 +46,24 @@ pub struct ActorFireRequest {
 /// `Default`) so adding a new field doesn't churn every caller.
 #[derive(Clone, Copy, Debug, Default, PartialEq)]
 pub struct ActorControlFrame {
-    /// Desired movement intent. **Two encodings share this field** (P10), and the
-    /// consumer picks by movement mode — the encodings agree in DIRECTION, differ
-    /// in MAGNITUDE:
-    /// - **Floating movers** (aerial enemies/NPCs, bosses) read it directly as a
-    ///   target VELOCITY in px/s (`features::step_floating_body`).
-    /// - **Grounded movers** read `desired_vel.x` as a run intent and let gravity
-    ///   own the fall axis. The PLAYER brain emits a normalized axis (`x ∈ [-1,1]`),
-    ///   scaled by `MovementTuning::max_run_speed`; enemy/NPC brains emit a px/s
-    ///   velocity, which `integrate_standard_enemy_body` bridges onto the shared
-    ///   spine by setting `max_run_speed = |desired_vel.x|`, `axis_x = sign`. So
-    ///   both reach `integrate_normal_spine` and agree; the velocity-encoding is
-    ///   the bridge, not a second physics path.
+    /// Desired movement intent. For controlled-character locomotion, unqualified
+    /// direction is local to that character's acceleration frame: `x` is local
+    /// side/right and `y` is local down/toward-feet. Human input, possession,
+    /// replay, and any other controller-like source should resolve raw device
+    /// axes before writing this field.
     ///
-    /// The clean end-state (deferred): every brain emits a normalized axis and
-    /// carries its run speed in tuning, so this field is unambiguously an AXIS for
-    /// grounded movers. Until then, the bridge keeps it consistent.
+    /// Two magnitudes still share the field while the actor stack migrates:
+    /// - **Floating movers** (aerial enemies/NPCs, bosses) read it directly as a
+    ///   target velocity in px/s (`features::step_floating_body`).
+    /// - **Grounded movers** read its direction in the local body frame. The
+    ///   player/possessed path emits a normalized axis (`[-1, 1]`); enemy/NPC
+    ///   brains may emit a velocity-valued side component, and their integration
+    ///   bridge converts that to `axis_x * max_run_speed` before entering the
+    ///   shared spine.
+    ///
+    /// The deferred cleanup is to split normalized local axis from velocity-valued
+    /// target speed. The reference-frame contract is already settled: this is not
+    /// raw/screen input.
     pub desired_vel: Vec2,
     /// Suppress the OneWay vertical block this tick so the body
     /// falls through the platform it is standing on. Mirrors the

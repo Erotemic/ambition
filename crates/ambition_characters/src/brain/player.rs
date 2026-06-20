@@ -62,14 +62,8 @@ pub fn tick_player_brain_from_control(
 ) {
     *out = crate::actor::control::ActorControlFrame::neutral();
 
-    // Movement axis → desired velocity (body speed is fixed by the integration;
-    // brain just signals direction × magnitude). Keep this raw/input-frame for
-    // now because the engine movement core still owns the raw→local projection.
-    let raw_axis = ae::Vec2::new(c.axis_x, c.axis_y);
-    out.desired_vel = raw_axis;
-
-    // Directional verbs interpret the same raw input in the controlled body's
-    // local frame. This is the important seam for facing, attacks, crouch-like
+    // Directional verbs interpret raw input in the controlled body's local
+    // frame. This is the important seam for facing, attacks, crouch-like
     // edges, and future possessed actors: unqualified left/right/up/down means
     // local to the controlled body, not privileged screen/player space.
     let resolved = ae::AccelerationFrame::new(snapshot.control_down).resolve_control(
@@ -78,6 +72,12 @@ pub fn tick_player_brain_from_control(
         c.axis_y,
     );
     let local_axis = resolved.local_axis;
+
+    // Movement axis → desired velocity. At the ActorControl seam, unqualified
+    // direction is controlled-body-local: x = local side/right, y = local
+    // down/toward-feet. Downstream movement code should not re-resolve this
+    // through the raw input frame.
+    out.desired_vel = local_axis;
 
     // Facing: prefer local side intent; fall back to snapshot facing when stick
     // is neutral so the actor doesn't snap to (0).
@@ -240,7 +240,7 @@ mod tests {
         });
         let mut out = crate::actor::control::ActorControlFrame::default();
         tick_player_brain_from_control(&input, &s, &mut out);
-        assert_eq!(out.desired_vel, ae::Vec2::new(0.0, 1.0));
+        assert_eq!(out.desired_vel, ae::Vec2::new(-1.0, 0.0));
         assert_eq!(out.facing, -1.0);
         assert_eq!(out.attack_axis, ae::Vec2::new(-1.0, 0.0));
 
@@ -252,6 +252,7 @@ mod tests {
             c.attack_pressed = true;
         });
         tick_player_brain_from_control(&input, &s, &mut out);
+        assert_eq!(out.desired_vel, ae::Vec2::new(0.0, 1.0));
         assert_eq!(out.attack_axis, ae::Vec2::new(0.0, 1.0));
     }
 

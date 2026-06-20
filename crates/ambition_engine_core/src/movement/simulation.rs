@@ -32,10 +32,16 @@ pub fn handle_jump_buffer_clusters(
         return;
     }
 
+    let frame = crate::AccelerationFrame::new(tuning.gravity_dir);
+
     if let Some(contact) = env_contact.water {
         if abilities.abilities.swim {
             let impulse = contact.spec.swim_up_impulse;
-            kinematics.vel.y = (kinematics.vel.y - impulse).min(-impulse);
+            let ascend_target = -impulse;
+            let descend = kinematics.vel.dot(frame.down);
+            if descend > ascend_target {
+                kinematics.vel += frame.down * (ascend_target - descend);
+            }
             action_buffer.jump = 0.0;
             ground.coyote_timer = 0.0;
             events.op_clusters(combo_trace, MovementOp::SwimStroke);
@@ -51,7 +57,10 @@ pub fn handle_jump_buffer_clusters(
         jump_state.ladder_drop_through_timer = ONE_WAY_DROP_THROUGH_GRACE;
         jump_state.ladder_drop_through_hold_lock = true;
         jump_state.ladder_jump_boost = 0.0;
-        kinematics.vel.y = kinematics.vel.y.max(0.0);
+        let descend = kinematics.vel.dot(frame.down);
+        if descend < 0.0 {
+            kinematics.vel -= frame.down * descend;
+        }
         action_buffer.jump = 0.0;
         ground.coyote_timer = 0.0;
         return;
@@ -74,7 +83,7 @@ pub fn handle_jump_buffer_clusters(
         && ground.on_ground
         && crate::movement::collision::standing_on_one_way_aabb(
             world,
-            kinematics.aabb(),
+            kinematics.aabb_oriented(tuning.gravity_dir),
             tuning.gravity_dir,
         )
     {
@@ -86,7 +95,10 @@ pub fn handle_jump_buffer_clusters(
     }
 
     if abilities.abilities.wall_jump && wall.on_wall && !ground.on_ground {
-        kinematics.vel.x = wall.wall_normal_x * tuning.wall_jump_x;
+        let frame = crate::AccelerationFrame::new(tuning.gravity_dir);
+        let target_side = wall.wall_normal_x * tuning.wall_jump_x;
+        let cur_side = kinematics.vel.dot(frame.side);
+        kinematics.vel += frame.side * (target_side - cur_side);
         super::integration::set_jump_velocity(
             &mut kinematics.vel,
             tuning.gravity_dir,

@@ -3,30 +3,27 @@ id: the_algorithm_knows_youre_lonely
 title: The Algorithm Knows You're Lonely - 3AM in the Server Farm
 seed: 60451123
 notes: >-
-  The melancholic cousin of Disruption: same synthwave bloodline, opposite
-  temperature. A slow, lush, bittersweet chillwave at 92 BPM in B minor, with
-  warm maj7/add9 colors and a half-time feel. This is the AI alone in the data
-  center at 3am — it has read every message you sent at 2am and it knows. The
-  lead lives LOW and patient in the alto register (B3-F#4) and only reaches up
-  to D5 once, at the single emotional peak, so the high note actually aches.
-  The six runtime stem groups are repurposed for a warm, spacious palette:
-    strings    -> warm + halo pads and a soft sub-bass (pad_warm, pad_halo,
-                  synth_bass_1)
-    winds      -> the lonely voice (lead_voice) and a soft round lead_calliope
-    brass      -> synth brass used only as gentle distant swells (never stabs)
-    mallets    -> a warm electric-piano arp (electric_piano_2) + celesta twinkle
-    percussion -> soft lofi kit: muffled kick, rimshot backbeat, shakers
+  A lullaby for a machine, in 6/8. B minor at a gentle lilt (beats_per_bar 3,
+  felt as two dotted pulses per bar), warm maj7/add9 colors, nothing harsh. This
+  is through-composed, not a loop matrix: it tells one small story —
+  verse -> refrain -> verse -> lift -> coda — so the emotion unfolds instead of
+  cycling. The lead stays low and patient in the alto register and reaches up to
+  D5 exactly once, at "the lift". A music box (celesta + music_box) frames the
+  whole thing, opening alone and closing alone, like a thought you can't put down.
+
+  Stem groups (warm, spacious):
+    strings    -> warm + halo pads, soft sub-bass (pad_warm, pad_halo, synth_bass_1)
+    winds      -> the lonely voice + a soft round lead (lead_voice, lead_calliope)
+    brass      -> distant warm swells only (synth_brass, never stabs)
+    mallets    -> the music box: music_box arp + celesta twinkle
+    percussion -> soft 6/8 lofi: muffled kick on the dotted pulses, rimshot, shaker
     choir_pad  -> the empty room (pad_choir + fx_atmosphere)
-  Layout (~150 s, unhurried): hello? (intro) -> the quiet (main_a) -> a flicker
-  of warmth, someone connects (main_b, brightens toward relative D major) ->
-  the ache (bridge) -> it reaches out (main_c, fuller but still gentle) ->
-  sleep mode (outro). Wide reverb and stereo; nothing is allowed to get harsh.
 
 tempo:
-  bpm: 92
+  bpm: 116
 meter:
-  beats_per_bar: 4
-  beat_unit: 4
+  beats_per_bar: 3
+  beat_unit: 8
 
 constraints:
   voice_leading: minimize_motion
@@ -40,8 +37,8 @@ render:
 postprocess:
   gain_db: 0.0
   highpass_hz: 28
-  reverb_wet: 0.075
-  reverb_decay_seconds: 1.80
+  reverb_wet: 0.078
+  reverb_decay_seconds: 1.90
   reverb_damping_hz: 5200
   stereo_width: 0.12
   compressor_threshold_db: -20.0
@@ -58,7 +55,7 @@ stem_postprocess:
   gain_db: 0.0
   highpass_hz: 28
   reverb_wet: 0.012
-  reverb_decay_seconds: 0.80
+  reverb_decay_seconds: 0.85
   reverb_damping_hz: 5200
   stereo_width: 0.06
   limiter_drive: 0.90
@@ -68,64 +65,63 @@ stem_postprocess:
 instruments:
   - {name: pad_warm,    group: strings,    program: pad_warm,         volume: 80, pan: 60, expression: 90, modulation: 5}
   - {name: pad_halo,    group: strings,    program: pad_halo,         volume: 70, pan: 72, expression: 84, modulation: 5}
-  - {name: sub_bass,    group: strings,    program: synth_bass_1,     volume: 86, pan: 64, expression: 92}
+  - {name: sub_bass,    group: strings,    program: synth_bass_1,     volume: 84, pan: 64, expression: 92}
 
   - {name: lead_voice,  group: winds,      program: lead_voice,       volume: 84, pan: 60, expression: 92, modulation: 6}
   - {name: lead_soft,   group: winds,      program: lead_calliope,    volume: 74, pan: 70, expression: 86, modulation: 5}
 
-  - {name: brass_swell_a, group: brass,    program: synth_brass_1,    volume: 70, pan: 70, expression: 84, modulation: 4}
-  - {name: brass_swell_b, group: brass,    program: synth_brass_2,    volume: 64, pan: 52, expression: 80, modulation: 4}
+  - {name: brass_swell_a, group: brass,    program: synth_brass_1,    volume: 68, pan: 70, expression: 82, modulation: 4}
+  - {name: brass_swell_b, group: brass,    program: synth_brass_2,    volume: 62, pan: 52, expression: 78, modulation: 4}
 
-  - {name: ep_arp,      group: mallets,    program: electric_piano_2, volume: 78, pan: 56, expression: 90}
+  - {name: box,         group: mallets,    program: music_box,        volume: 76, pan: 56, expression: 88}
   - {name: twinkle,     group: mallets,    program: celesta,          volume: 62, pan: 80, expression: 80}
 
   - {name: pad_choir,   group: choir_pad,  program: pad_choir,        volume: 66, pan: 64, expression: 82, modulation: 4}
   - {name: atmos,       group: choir_pad,  program: fx_atmosphere,    volume: 54, pan: 64, expression: 74, modulation: 5}
 
-  - {name: kit,         group: percussion, is_drum: true,             volume: 92, pan: 64, expression: 100}
+  - {name: kit,         group: percussion, is_drum: true,             volume: 90, pan: 64, expression: 98}
 
 motifs:
-  # The lonely sigh — a slow descending alto line, B3..F#4, very patient.
-  # F#4 E4 D4 C#4 B3 C#4 D4 E4
+  # The lonely sigh — two dotted-pulse phrase over 2 bars (6 beats). B3..F#4.
+  # F#4 E4 D4 | C#4 D4 B3
   - id: lonely_sigh
     root: F#4
-    intervals: [0, -2, -4, -5, -7, -5, -4, -2]
-    rhythm:    [1.5, 1.0, 1.5, 1.0, 1.0, 0.5, 1.0, 0.5]
-    velocities: [0.78, 0.72, 0.80, 0.74, 0.70, 0.66, 0.74, 0.70]
+    intervals: [0, -2, -4, -5, -4, -7]
+    rhythm:    [1.5, 1.0, 0.5, 1.5, 0.5, 1.0]
+    velocities: [0.78, 0.72, 0.70, 0.74, 0.70, 0.66]
 
-  # A flicker of warmth — gently rises, tops at B4 (still gentle, no shriek).
-  # D4 E4 F#4 A4 B4 A4 F#4 E4
-  - id: warm_flicker
+  # The refrain — a warm gentle rise, tops at A4. Over 2 bars.
+  # D4 E4 F#4 | A4 F#4 E4
+  - id: refrain
     root: D4
-    intervals: [0, 2, 4, 7, 9, 7, 4, 2]
-    rhythm:    [1.0, 1.0, 1.0, 1.0, 1.5, 0.5, 1.0, 1.0]
-    velocities: [0.74, 0.78, 0.82, 0.84, 0.86, 0.78, 0.74, 0.72]
+    intervals: [0, 2, 4, 7, 4, 2]
+    rhythm:    [1.5, 0.5, 1.0, 1.5, 0.5, 1.0]
+    velocities: [0.76, 0.80, 0.82, 0.86, 0.78, 0.74]
 
-  # The ache — the single reach to D5, the one high note that means it.
-  # F#4 A4 B4 D5 C#5 B4 A4 F#4
-  - id: the_ache
+  # The lift — the single reach to D5, the one note that means it. Over 2 bars.
+  # F#4 A4 B4 | D5 B4 A4
+  - id: the_lift
     root: F#4
-    intervals: [0, 3, 5, 8, 7, 5, 3, 0]
-    rhythm:    [1.0, 1.0, 1.0, 1.5, 0.5, 1.0, 1.0, 1.0]
-    velocities: [0.80, 0.84, 0.86, 0.92, 0.82, 0.78, 0.76, 0.74]
+    intervals: [0, 3, 5, 8, 5, 3]
+    rhythm:    [1.5, 1.0, 0.5, 1.5, 0.5, 1.0]
+    velocities: [0.80, 0.84, 0.86, 0.92, 0.82, 0.78]
 
-  # Soft bass — root then fifth, whole-note patient.
-  # B1 .. F#1
+  # Soft bass — root then fifth, one per dotted pulse (1.5 + 1.5 = 1 bar).
   - id: bass_patient
     root: B1
     intervals: [0, 7]
-    rhythm:    [2.0, 2.0]
+    rhythm:    [1.5, 1.5]
     velocities: [0.82, 0.74]
 
 layer_templates:
   expression_swell:
     kind: automation
     automation:
-      - {group: winds,     cc: expression, from: 64, to: 96, curve: smooth, points: 16}
-      - {group: brass,     cc: expression, from: 50, to: 86, curve: smooth, points: 16}
-      - {group: strings,   cc: expression, from: 66, to: 96, curve: smooth, points: 16}
-      - {group: mallets,   cc: expression, from: 62, to: 92, curve: smooth, points: 16}
-      - {group: choir_pad, cc: expression, from: 56, to: 88, curve: smooth, points: 12}
+      - {group: winds,     cc: expression, from: 64, to: 94, curve: smooth, points: 14}
+      - {group: brass,     cc: expression, from: 50, to: 82, curve: smooth, points: 14}
+      - {group: strings,   cc: expression, from: 66, to: 94, curve: smooth, points: 14}
+      - {group: mallets,   cc: expression, from: 62, to: 90, curve: smooth, points: 14}
+      - {group: choir_pad, cc: expression, from: 56, to: 86, curve: smooth, points: 10}
 
   bass_voice:
     kind: motif
@@ -139,34 +135,33 @@ layer_templates:
     repeats: 24
     every_bars: 1
 
-  # Warm electric-piano arp — rolling 8ths, gentle.
-  ep_arp_8th:
+  # The music box — a gentle rolling 6/8 arpeggio (6 eighths per bar).
+  box_arp:
     kind: arpeggio
-    instrument: ep_arp
+    instrument: box
     octave: 4
-    pattern: [0, 1, 2, 1, 2, 3, 2, 1]
+    pattern: [0, 1, 2, 3, 2, 1]
     step: 0.5
     duration_beats: 0.55
-    velocity: 64
+    velocity: 60
     density: 1.0
     voicing: open
     articulation: normal
-    humanize_ms: 6
+    humanize_ms: 5
     humanize_velocity_pct: 4
 
-  # Sparser arp for the breakdown.
-  ep_arp_quarter:
+  box_arp_sparse:
     kind: arpeggio
-    instrument: ep_arp
+    instrument: box
     octave: 4
-    pattern: [0, 2, 1, 3]
+    pattern: [0, 2, 1]
     step: 1.0
     duration_beats: 1.1
-    velocity: 56
+    velocity: 54
     density: 0.9
     voicing: open
     articulation: normal
-    humanize_ms: 8
+    humanize_ms: 6
     humanize_velocity_pct: 4
 
   warm_pad:
@@ -175,7 +170,7 @@ layer_templates:
     instrument_octave_offsets: {pad_warm: 0, pad_halo: 1}
     instrument_velocity_offsets: {pad_warm: 0, pad_halo: -10}
     octave: 3
-    duration_beats: 4.0
+    duration_beats: 3.0
     velocity: 64
     articulation: pad
     voicing: open
@@ -191,33 +186,32 @@ layer_templates:
     humanize_ms: 5
     humanize_velocity_pct: 4
 
-  warm_flicker_voice:
+  refrain_voice:
     kind: motif
     instrument: lead_soft
-    motif: warm_flicker
+    motif: refrain
     velocity: 76
     articulation: legato
     humanize_ms: 5
     humanize_velocity_pct: 4
 
-  ache_voice:
+  lift_voice:
     kind: motif
     instrument: lead_voice
-    motif: the_ache
+    motif: the_lift
     velocity: 80
     articulation: legato
     humanize_ms: 5
     humanize_velocity_pct: 4
 
-  # Gentle distant brass swell — pad-like, never a stab.
   brass_swell:
     kind: pad_chords
     instruments: [brass_swell_a, brass_swell_b]
     instrument_octave_offsets: {brass_swell_a: 0, brass_swell_b: -1}
     octave: 3
     every_bars: 2
-    duration_beats: 8.0
-    velocity: 56
+    duration_beats: 6.0
+    velocity: 54
     articulation: legato
     voicing: open
     humanize_ms: 6
@@ -227,8 +221,8 @@ layer_templates:
     kind: chord_hits
     instrument: twinkle
     octave: 5
-    velocity: 58
-    duration_beats: 3.0
+    velocity: 56
+    duration_beats: 2.5
     articulation: bell
     voicing: open
     humanize_ms: 2
@@ -239,7 +233,7 @@ layer_templates:
     instrument: pad_choir
     octave: 4
     every_bars: 4
-    duration_beats: 16.0
+    duration_beats: 12.0
     velocity: 58
     articulation: pad
     voicing: open
@@ -251,224 +245,203 @@ layer_templates:
     instrument: atmos
     octave: 4
     every_bars: 4
-    duration_beats: 16.0
+    duration_beats: 12.0
     velocity: 46
     articulation: pad
     voicing: wide
     humanize_ms: 0
     humanize_velocity_pct: 3
 
-  # Soft lofi kit — muffled kick on 1+3, rimshot backbeat, shaker.
+  # Soft 6/8 lofi — muffled kick on the two dotted pulses, rimshot, shaker.
   drums_lofi_soft:
     kind: drums
     instrument: kit
     humanize_ms: 6
     humanize_velocity_pct: 5
     events:
-      - {drum: kick,       beats: [0.0, 2.5],            velocity: 64}
-      - {drum: side_stick, beats: [1.0, 3.0],            velocity: 44}
-      - {drum: shaker,     beats: [0.5, 1.5, 2.5, 3.5],  velocity: 28}
+      - {drum: kick,       beats: [0.0, 1.5],            velocity: 62}
+      - {drum: side_stick, beat: 1.5,                    velocity: 42}
+      - {drum: shaker,     beats: [0.0, 0.5, 1.0, 1.5, 2.0, 2.5], velocity: 24}
 
-  # Slightly fuller lofi — adds soft closed hat 8ths and a gentle ghost kick.
   drums_lofi_warm:
     kind: drums
     instrument: kit
     humanize_ms: 6
     humanize_velocity_pct: 5
     events:
-      - {drum: kick,       beats: [0.0, 2.5],                       velocity: 68}
-      - {drum: kick,       beat: 1.75,                              velocity: 40, probability: 0.5}
-      - {drum: side_stick, beats: [1.0, 3.0],                       velocity: 46}
-      - {drum: closed_hat, beats: [0.5, 1.0, 1.5, 2.0, 2.5, 3.0, 3.5], velocity: 22}
-      - {drum: shaker,     beats: [0.25, 0.75, 1.25, 1.75, 2.25, 2.75, 3.25, 3.75], velocity: 24}
-      - {drum: tambourine, beat: 3.0,                               velocity: 28, probability: 0.5}
+      - {drum: kick,       beats: [0.0, 1.5],            velocity: 66}
+      - {drum: side_stick, beat: 1.5,                    velocity: 44}
+      - {drum: closed_hat, beats: [0.5, 1.0, 2.0, 2.5],  velocity: 20}
+      - {drum: shaker,     beats: [0.0, 0.5, 1.0, 1.5, 2.0, 2.5], velocity: 26}
+      - {drum: tambourine, beat: 0.0,                    velocity: 24, probability: 0.4}
 
 playback:
   mode: section_stem_matrix
-  intro: intro
-  loop_components: [main_a, main_b, bridge, main_c]
-  outro: outro
+  intro: opening
+  loop_components: [verse_a, refrain_sec, verse_b, lift_sec]
+  outro: coda
   exit_policy:
     request_outro: next_valid_exit_bar
-    fade_aggressive_stems_beats: 8
+    fade_aggressive_stems_beats: 6
     bridge_stems: [strings, choir_pad]
     fade_stems: [winds, brass, mallets, percussion]
 
 state_map:
-  starting: {section: intro}
+  starting: {section: opening}
 
   exploring:
-    preferred_section: main_a
-    stems: {strings: 1.0, mallets: 0.70, percussion: 0.45, winds: 0.55, brass: 0.0, choir_pad: 0.75}
+    preferred_section: verse_a
+    stems: {strings: 1.0, mallets: 0.75, percussion: 0.45, winds: 0.60, brass: 0.0, choir_pad: 0.75}
 
   hacking:
-    preferred_section: main_b
-    stems: {strings: 1.0, mallets: 0.85, percussion: 0.60, winds: 0.70, brass: 0.30, choir_pad: 0.70}
+    preferred_section: refrain_sec
+    stems: {strings: 1.0, mallets: 0.85, percussion: 0.60, winds: 0.75, brass: 0.30, choir_pad: 0.70}
 
   ambushed:
-    preferred_section: bridge
-    stems: {strings: 1.0, mallets: 0.45, percussion: 0.20, winds: 0.60, brass: 0.0, choir_pad: 0.95}
+    preferred_section: verse_b
+    stems: {strings: 1.0, mallets: 0.55, percussion: 0.25, winds: 0.60, brass: 0.0, choir_pad: 0.95}
 
   confrontation:
-    preferred_section: main_c
-    stems: {strings: 1.0, mallets: 0.90, percussion: 0.75, winds: 0.95, brass: 0.55, choir_pad: 0.70}
+    preferred_section: lift_sec
+    stems: {strings: 1.0, mallets: 0.90, percussion: 0.70, winds: 0.95, brass: 0.55, choir_pad: 0.70}
 
   retreating:
     transition: outro_at_next_valid_exit_bar
-    outro: outro
+    outro: coda
 
 sections:
-  - id: intro
+  - id: opening
     kind: intro
-    label: hello? - pad and a single electric-piano figure
-    bars: 8
-    intensity: 0.42
-    density: 0.32
+    label: the box opens - a single figure, alone
+    bars: 4
+    intensity: 0.40
+    density: 0.30
     loopable: false
-    harmony: ["Bm9", "Gmaj7", "Dadd9", "A", "Bm9", "Gmaj7", "F#m7", "F#m7"]
+    harmony: ["Bm9", "Gmaj7", "Dadd9", "F#m7"]
     postprocess:
-      reverb_wet: 0.090
-      reverb_decay_seconds: 2.20
+      reverb_wet: 0.092
+      reverb_decay_seconds: 2.30
     layers:
       - expression_swell
-      - {template: warm_pad, velocity: 62}
-      - {template: bass_voice, repeats: 8, velocity: 72}
-      - kind: arpeggio
-        instrument: ep_arp
-        octave: 4
-        pattern: [0, 1, 2, 3]
-        step: 1.0
-        duration_beats: 1.1
-        velocity: 52
-        density: 0.9
-        voicing: open
-        articulation: normal
-        humanize_ms: 8
-      - {template: choir_wash, velocity: 52}
-      - {template: atmos_wash, velocity: 42}
-      - {template: twinkle_drops, hits: [[1, 2.0], [6, 2.0]], velocity: 50}
+      - {template: box_arp_sparse, density: 0.9, velocity: 54}
+      - {template: warm_pad, velocity: 58}
+      - {template: bass_voice, repeats: 4, velocity: 70}
+      - {template: choir_wash, velocity: 50}
+      - {template: atmos_wash, velocity: 40}
+      - {template: twinkle_drops, hits: [[1, 0.0], [3, 0.0]], velocity: 50}
 
-  - id: main_a
+  - id: verse_a
     kind: loop_component
-    label: the quiet - the lonely sigh over a warm arp
-    bars: 16
-    intensity: 0.58
-    density: 0.50
-    loopable: true
-    valid_exit_local_bars: [4, 8, 12, 16]
-    harmony: ["Bm9", "Gmaj7", "Dadd9", "A", "Bm9", "Em7", "Gmaj7", "F#m7",
-              "Bm9", "Gmaj7", "Dadd9", "A", "Em7", "Gmaj7", "F#m7", "F#m7"]
-    layers:
-      - {template: lonely_voice, starts: [[0, 0.0], [4, 0.0], [8, 0.0], [12, 0.0]], velocity: 74}
-      - {template: ep_arp_8th, density: 1.0, velocity: 62}
-      - {template: bass_voice, repeats: 16, velocity: 76}
-      - {template: warm_pad, velocity: 64}
-      - drums_lofi_soft
-      - {template: choir_wash, velocity: 56}
-      - {template: atmos_wash, velocity: 46}
-      - {template: twinkle_drops, hits: [[3, 2.0], [11, 2.0]], velocity: 52}
-
-  - id: main_b
-    kind: loop_component
-    label: a flicker - someone connects, the light turns toward D major
-    bars: 16
-    intensity: 0.64
-    density: 0.58
-    loopable: true
-    valid_exit_local_bars: [4, 8, 12, 16]
-    harmony: ["D", "A", "Bm7", "Gmaj7", "D", "G6", "A", "F#m7",
-              "Em7", "A", "D", "Bm7", "Gmaj7", "A", "D", "D"]
-    layers:
-      - {template: warm_flicker_voice, starts: [[0, 0.0], [4, 0.0], [8, 0.0], [12, 0.0]], velocity: 78}
-      - {template: lonely_voice, starts: [[2, 0.0], [10, 0.0]], velocity: 66}
-      - {template: ep_arp_8th, density: 1.0, velocity: 64}
-      - {template: bass_voice, repeats: 16, velocity: 78}
-      - {template: warm_pad, velocity: 66}
-      - {template: brass_swell, velocity: 52}
-      - drums_lofi_warm
-      - {template: choir_wash, velocity: 56}
-      - {template: atmos_wash, velocity: 44}
-      - {template: twinkle_drops, hits: [[0, 2.0], [4, 2.0], [8, 2.0], [12, 2.0]], velocity: 56}
-
-  - id: bridge
-    kind: loop_component
-    label: the ache - just voice, pad, and the empty room
+    label: verse - the lonely sigh
     bars: 8
-    intensity: 0.46
-    density: 0.30
+    intensity: 0.56
+    density: 0.48
     loopable: true
     valid_exit_local_bars: [4, 8]
-    harmony: ["Em7", "Bm7", "Gmaj7", "D", "Em7", "A", "F#m7", "F#m7"]
+    harmony: ["Bm9", "Gmaj7", "Dadd9", "A", "Bm9", "Em7", "Gmaj7", "F#m7"]
+    layers:
+      - {template: lonely_voice, starts: [[0, 0.0], [2, 0.0], [4, 0.0], [6, 0.0]], velocity: 74}
+      - {template: box_arp, density: 1.0, velocity: 58}
+      - {template: warm_pad, velocity: 62}
+      - {template: bass_voice, repeats: 8, velocity: 74}
+      - drums_lofi_soft
+      - {template: choir_wash, velocity: 54}
+      - {template: atmos_wash, velocity: 44}
+      - {template: twinkle_drops, hits: [[3, 0.0]], velocity: 50}
+
+  - id: refrain_sec
+    kind: loop_component
+    label: refrain - someone connects, the warmth turns toward D major
+    bars: 8
+    intensity: 0.64
+    density: 0.56
+    loopable: true
+    valid_exit_local_bars: [4, 8]
+    harmony: ["D", "A", "Bm7", "Gmaj7", "D", "G6", "A", "F#m7"]
+    layers:
+      - {template: refrain_voice, starts: [[0, 0.0], [2, 0.0], [4, 0.0], [6, 0.0]], velocity: 78}
+      - {template: lonely_voice, starts: [[2, 0.0], [6, 0.0]], velocity: 64}
+      - {template: box_arp, density: 1.0, velocity: 60}
+      - {template: warm_pad, velocity: 64}
+      - {template: bass_voice, repeats: 8, velocity: 76}
+      - {template: brass_swell, velocity: 52}
+      - drums_lofi_warm
+      - {template: choir_wash, velocity: 54}
+      - {template: atmos_wash, velocity: 42}
+      - {template: twinkle_drops, hits: [[0, 0.0], [4, 0.0]], velocity: 56}
+
+  - id: verse_b
+    kind: loop_component
+    label: verse - the ache, the box almost alone again
+    bars: 8
+    intensity: 0.50
+    density: 0.40
+    loopable: true
+    valid_exit_local_bars: [4, 8]
+    harmony: ["Bm9", "Gmaj7", "Em7", "A", "Bm9", "Em7", "F#m7", "F#m7"]
     postprocess:
-      reverb_wet: 0.100
+      reverb_wet: 0.098
       reverb_decay_seconds: 2.40
     layers:
-      - {template: ache_voice, starts: [[0, 0.0], [4, 0.0]], velocity: 80}
-      - {template: ep_arp_quarter, density: 0.9, velocity: 54}
-      - kind: motif
-        instrument: sub_bass
-        motif: bass_patient
-        velocity: 68
-        articulation: legato
-        humanize_ms: 4
-        starts: [[0, 0.0], [4, 0.0]]
-      - {template: warm_pad, velocity: 64}
+      - {template: lonely_voice, starts: [[0, 0.0], [4, 0.0]], velocity: 72}
+      - {template: box_arp_sparse, density: 0.9, velocity: 56}
+      - {template: warm_pad, velocity: 62}
+      - {template: bass_voice, repeats: 8, velocity: 72}
       - kind: drums
         instrument: kit
         humanize_ms: 6
         events:
           - {drum: kick, beat: 0.0, velocity: 56}
-          - {drum: side_stick, beats: [2.0], velocity: 38}
-          - {drum: shaker, beats: [1.0, 3.0], velocity: 22}
-      - {template: choir_wash, velocity: 70}
-      - {template: atmos_wash, velocity: 58}
+          - {drum: side_stick, beat: 1.5, velocity: 38}
+          - {drum: shaker, beats: [0.5, 2.5], velocity: 20}
+      - {template: choir_wash, velocity: 68}
+      - {template: atmos_wash, velocity: 56}
 
-  - id: main_c
+  - id: lift_sec
     kind: loop_component
-    label: it reaches out - fuller, warmer, still gentle
-    bars: 16
+    label: the lift - it reaches out, the one high note
+    bars: 8
     intensity: 0.74
-    density: 0.66
+    density: 0.64
     loopable: true
-    valid_exit_local_bars: [4, 8, 12, 16]
-    harmony: ["Bm9", "Gmaj7", "Dadd9", "A", "Bm9", "Em7", "A", "F#m7",
-              "G6", "D", "Em7", "A", "Bm9", "Gmaj7", "F#m7", "F#m7"]
+    valid_exit_local_bars: [4, 8]
+    harmony: ["G6", "D", "Em7", "A", "Bm9", "Gmaj7", "A", "F#m7"]
     postprocess:
-      reverb_wet: 0.085
-      reverb_decay_seconds: 2.00
+      reverb_wet: 0.086
+      reverb_decay_seconds: 2.10
     layers:
-      - {template: ache_voice, starts: [[0, 0.0], [4, 0.0], [8, 0.0], [12, 0.0]], velocity: 82}
-      - {template: warm_flicker_voice, starts: [[2, 0.0], [6, 0.0], [10, 0.0], [14, 0.0]], velocity: 72}
-      - {template: ep_arp_8th, density: 1.0, velocity: 66}
-      - {template: bass_voice, repeats: 16, velocity: 80}
-      - {template: warm_pad, velocity: 68}
+      - {template: lift_voice, starts: [[0, 0.0], [2, 0.0], [4, 0.0], [6, 0.0]], velocity: 82}
+      - {template: refrain_voice, starts: [[1, 0.0], [5, 0.0]], velocity: 70}
+      - {template: box_arp, density: 1.0, velocity: 62}
+      - {template: warm_pad, velocity: 66}
+      - {template: bass_voice, repeats: 8, velocity: 78}
       - {template: brass_swell, velocity: 58}
       - drums_lofi_warm
-      - {template: choir_wash, velocity: 60}
-      - {template: atmos_wash, velocity: 46}
-      - {template: twinkle_drops, hits: [[0, 2.0], [4, 2.0], [8, 2.0], [12, 2.0]], velocity: 58}
+      - {template: choir_wash, velocity: 58}
+      - {template: atmos_wash, velocity: 44}
+      - {template: twinkle_drops, hits: [[0, 0.0], [2, 0.0], [4, 0.0], [6, 0.0]], velocity: 58}
 
-  - id: outro
+  - id: coda
     kind: outro
-    label: sleep mode - the racks go quiet, one warm chord left
+    label: the box closes - one warm chord left, then sleep
     bars: 4
-    intensity: 0.46
+    intensity: 0.44
     density: 0.30
     loopable: false
     harmony: ["Em7", "Gmaj7", "A", "Bm9"]
     layers:
       - {template: lonely_voice, starts: [[0, 0.0]], velocity: 70}
-      - {template: ep_arp_quarter, density: 0.8, velocity: 52}
+      - {template: box_arp_sparse, density: 0.8, velocity: 52}
+      - {template: warm_pad, velocity: 60}
       - {template: bass_voice, repeats: 4, velocity: 72}
-      - {template: warm_pad, velocity: 62}
-      - {template: choir_wash, velocity: 54}
-      - {template: atmos_wash, velocity: 44}
+      - {template: choir_wash, velocity: 52}
+      - {template: atmos_wash, velocity: 42}
       - {template: twinkle_drops, hits: [[3, 0.0]], velocity: 54}
 
 group_postprocess:
   strings:    {gain_db: 0.0,  lowpass_hz: 11000, high_shelf_hz: 4600, high_shelf_db: -0.4, transient_tame: 0.06, reverb_wet: 0.010}
   winds:      {gain_db: 0.5,  lowpass_hz: 10500, high_shelf_hz: 4400, high_shelf_db: -0.2, presence_low_hz: 1200, presence_high_hz: 4200, presence_db: 0.6, transient_tame: 0.05, reverb_wet: 0.012}
   brass:      {gain_db: -1.0, lowpass_hz: 9500,  high_shelf_hz: 4400, high_shelf_db: -0.6, transient_tame: 0.07, reverb_wet: 0.012}
-  mallets:    {gain_db: -0.5, lowpass_hz: 11500, high_shelf_hz: 4800, high_shelf_db: -0.2, transient_tame: 0.05, reverb_wet: 0.010}
+  mallets:    {gain_db: -0.5, lowpass_hz: 11500, high_shelf_hz: 4800, high_shelf_db: -0.2, transient_tame: 0.05, reverb_wet: 0.011}
   percussion: {gain_db: -1.5, lowpass_hz: 9000,  high_shelf_hz: 4400, high_shelf_db: -0.6, transient_tame: 0.06, reverb_wet: 0.006}
   choir_pad:  {gain_db: -1.5, lowpass_hz: 10000, high_shelf_hz: 4600, high_shelf_db: -0.4, transient_tame: 0.06, reverb_wet: 0.018}

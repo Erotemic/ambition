@@ -168,7 +168,7 @@ pub fn update_player_control_with_clusters(
         &mut events,
     );
 
-    abilities::apply_jump_release(clusters.kinematics, clusters.abilities, input);
+    abilities::apply_jump_release(clusters.kinematics, clusters.abilities, input, tuning);
 
     events
 }
@@ -280,7 +280,7 @@ pub fn update_player_simulation_with_clusters(
     // Probe for a fresh ledge grab now that the integration step
     // settled the new position. Required for the auto-snap-on-fall
     // recovery path (slow drifts ignore this; fast falls latch).
-    crate::ledge_grab::try_start_ledge_grab_clusters(world, clusters, input, &mut events);
+    crate::ledge_grab::try_start_ledge_grab_clusters(world, clusters, input, tuning, &mut events);
 
     // Hazard reset — cluster-native.
     if collision::touching_hazard_aabb(world, clusters.kinematics.aabb())

@@ -251,11 +251,11 @@ impl BodyShape {
 
 /// Attempt to change `player.body_mode` to `new_mode`.
 ///
-/// Computes the new shape via `BodyMode::shape(player.base_size)`,
-/// adjusts `pos.y` so the player's feet stay planted, then checks
-/// `BodyShape::fits_at` with the caller's predicate. On success the
-/// player's `pos`, `size`, and `body_mode` are updated and the function
-/// returns `true`. On failure all three are left untouched.
+/// Computes the new local-body shape via `BodyMode::shape(player.base_size)`,
+/// adjusts the center along the acceleration frame so the body's feet stay
+/// planted, then checks the oriented world-space AABB with the caller's
+/// predicate. On success the player's `pos`, `size`, and `body_mode` are updated
+/// and the function returns `true`. On failure all three are left untouched.
 ///
 /// Sandbox crouch / morph wiring should call this every frame: each
 /// transition is naturally idempotent because requesting the current
@@ -264,11 +264,12 @@ impl BodyShape {
 /// trace event without re-deriving the geometry.
 ///
 /// AABB convention: `pos` is the AABB center and Ambition uses +Y down.
-/// The body's FEET are the gravity-facing edge — `pos.y + size.y*0.5` under
-/// normal gravity, `pos.y - size.y*0.5` under inverted gravity — so shrinking
-/// the body keeps the feet planted by shifting `pos.y` along `gravity_dir`
-/// (`+dy` down, `-dy` up). A height resize is perpendicular to SIDEWAYS gravity,
-/// so it stays centred there (`gravity_dir.y.signum() == 0`).
+/// The body's FEET are the AABB face in the acceleration direction. Under normal
+/// gravity this is the bottom edge; under inverted gravity it is the top edge;
+/// under sideways gravity it is the left/right edge. Shape changes therefore
+/// shift the body along `AccelerationFrame::down`, not hard-coded world Y. This
+/// keeps crouch/morph transitions grounded for wall-walking just like for
+/// floor/ceiling walking.
 /// Transition the body mode while keeping the feet planted. Mutates
 /// only the kinematics (pos, size) and body-mode cluster components;
 /// the rest of the player state is untouched. Returns `false` (and
@@ -289,13 +290,20 @@ where
     if body_mode_state.body_mode == new_mode {
         return true;
     }
+    let frame = crate::AccelerationFrame::new(gravity_dir);
     let new_shape = new_mode.shape(base_size.base_size);
-    let dy = (kinematics.size.y - new_shape.size.y) * 0.5;
-    let new_center = Vec2::new(
-        kinematics.pos.x,
-        kinematics.pos.y + gravity_dir.y.signum() * dy,
-    );
-    if !new_shape.fits_at(new_center, world, predicate) {
+
+    let old_world_half = frame.to_world_half(kinematics.size * 0.5);
+    let new_world_half = frame.to_world_half(new_shape.size * 0.5);
+    let gravity_axis = frame.down;
+    let old_feet_half =
+        old_world_half.x * gravity_axis.x.abs() + old_world_half.y * gravity_axis.y.abs();
+    let new_feet_half =
+        new_world_half.x * gravity_axis.x.abs() + new_world_half.y * gravity_axis.y.abs();
+    let new_center = kinematics.pos + gravity_axis * (old_feet_half - new_feet_half);
+
+    let new_aabb = crate::geometry::Aabb::new(new_center, new_world_half);
+    if world.body_overlaps_any(new_aabb, predicate) {
         return false;
     }
     kinematics.pos = new_center;
@@ -460,6 +468,7 @@ impl ResourceMeter {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::geometry::AabbExt;
     use crate::movement::default_player_body_size;
     use crate::world::{Block, BlockKind, World};
 
@@ -600,6 +609,45 @@ mod tests {
         assert_eq!(s.kinematics.size.x, original_size.x);
         let new_feet = s.kinematics.pos.y + s.kinematics.size.y * 0.5;
         assert!((new_feet - original_feet).abs() < 1e-3);
+    }
+
+    #[test]
+    fn try_change_body_mode_to_crouching_keeps_feet_planted_under_sideways_gravity() {
+        // Under wall-walking gravity the FEET are the AABB's gravity-facing side
+        // edge. Crouching must keep that side edge planted; otherwise the body
+        // pulls away from the wall, loses ground contact, and flickers between
+        // standing/crouching on successive frames.
+        let world = World::new(
+            "test",
+            Vec2::new(400.0, 400.0),
+            Vec2::new(200.0, 200.0),
+            Vec::new(),
+        );
+        let gravity = Vec2::new(1.0, 0.0);
+        let mut s = scratch_at(Vec2::new(100.0, 100.0));
+        let original_size = s.kinematics.size;
+        let original_feet = s.kinematics.aabb_oriented(gravity).feet_coord(gravity);
+
+        let ok = try_change_body_mode_clusters(
+            &mut s.kinematics,
+            &s.base_size,
+            &mut s.body_mode,
+            BodyMode::Crouching,
+            &world,
+            gravity,
+            |_| true,
+        );
+        assert!(ok);
+        assert!(
+            s.kinematics.size.y < original_size.y,
+            "local height should shrink"
+        );
+        let new_feet = s.kinematics.aabb_oriented(gravity).feet_coord(gravity);
+        assert!(
+            (new_feet - original_feet).abs() < 1e-3,
+            "side-edge feet must stay planted under sideways gravity (moved {})",
+            new_feet - original_feet
+        );
     }
 
     #[test]

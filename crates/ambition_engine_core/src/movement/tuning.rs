@@ -270,19 +270,14 @@ impl Default for MovementTuning {
 }
 
 impl MovementTuning {
-    /// Resolve raw input `(axis_x, axis_y)` into the controlled body's local stick
-    /// (`x` = run, `y` = descend) for this tuning's gravity + [`input_frame_mode`].
-    /// The one seam the run axis and the descend gates share, so they always
-    /// honor the same control preference. Under `Hybrid` (the default) this is
-    /// byte-identical to the legacy `axis_x` run + `gravity_descend` gate.
+    /// Return the movement stick in the controlled body's local frame.
     ///
-    /// [`input_frame_mode`]: Self::input_frame_mode
+    /// Raw device/screen input is resolved before the engine sees an
+    /// [`InputState`]. Keeping this as the named accessor avoids reopening the old
+    /// bug class where some consumers silently re-resolved already-local input.
     pub fn stick(&self, input: &super::InputState) -> Vec2 {
-        crate::reference_frame::AccelerationFrame::new(self.gravity_dir).resolve_input(
-            self.input_frame_mode,
-            input.axis_x,
-            input.axis_y,
-        )
+        let _ = self.input_frame_mode;
+        Vec2::new(input.axis_x, input.axis_y)
     }
 }
 

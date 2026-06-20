@@ -402,11 +402,16 @@ def add_instrument(ctx: RenderContext, spec: dict[str, Any]) -> None:
         inst = pretty_midi.Instrument(program=0, is_drum=True, name=name)
     else:
         program_name = spec.get("program", "string_ensemble_1")
-        program = (
-            int(program_name)
-            if isinstance(program_name, int)
-            else GM_PROGRAMS[program_name]
-        )
+        if isinstance(program_name, int):
+            program = int(program_name)
+        elif program_name in GM_PROGRAMS:
+            program = GM_PROGRAMS[program_name]
+        else:
+            raise ValueError(
+                f"instrument {name!r}: unknown program {program_name!r}. "
+                f"Use a GM program name (e.g. lead_saw, pad_warm, synth_brass_1) "
+                f"or an int 0-127. Valid names: {', '.join(sorted(GM_PROGRAMS))}"
+            )
         inst = pretty_midi.Instrument(program=program, is_drum=False, name=name)
     ctx.pm.instruments.append(inst)
     ctx.instruments[name] = inst
@@ -653,6 +658,11 @@ def add_drum(
     dur_beats: float = 0.30,
     humanize_ms: float = 0.0,
 ) -> None:
+    if drum_name not in DRUMS:
+        raise ValueError(
+            f"unknown drum {drum_name!r} on kit {kit!r}. "
+            f"Valid drums: {', '.join(sorted(DRUMS))}"
+        )
     pitch = DRUMS[drum_name]
     add_note(
         ctx,

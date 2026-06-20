@@ -164,6 +164,50 @@ fn jump_press_from_morph_ball_transitions_to_standing() {
     );
 }
 
+#[test]
+fn local_up_press_from_morph_ball_transitions_to_standing_under_sideways_screen_directed() {
+    let (mut app, player) = build_body_mode_test_app();
+    app.insert_resource(crate::physics::GravityField {
+        dir: Vec2::new(1.0, 0.0),
+    });
+    let mut settings = crate::persistence::settings::UserSettings::default();
+    settings.gameplay.input_frame_mode = ae::InputFrameMode::Screen;
+    app.insert_resource(settings);
+    {
+        let mut body_mode = app
+            .world_mut()
+            .get_mut::<PlayerBodyModeState>(player)
+            .unwrap();
+        body_mode.body_mode = ae::BodyMode::MorphBall;
+    }
+    {
+        let mut kin = app.world_mut().get_mut::<BodyKinematics>(player).unwrap();
+        kin.size = Vec2::new(14.0, 14.0);
+    }
+    {
+        let mut input = app.world_mut().get_mut::<PlayerInputFrame>(player).unwrap();
+        // Gravity points screen-right, so in screen-directed mode local up maps
+        // to raw/screen-left. This should unmorph just like raw Up does under
+        // normal gravity.
+        input.frame = ControlFrame {
+            axis_x: -1.0,
+            left_pressed: true,
+            ..Default::default()
+        };
+    }
+    app.update();
+    let mode = app
+        .world()
+        .get::<PlayerBodyModeState>(player)
+        .unwrap()
+        .body_mode;
+    assert_eq!(
+        mode,
+        ae::BodyMode::Standing,
+        "local-up press should transition MorphBall -> Standing under sideways gravity",
+    );
+}
+
 /// Climbing should not trap the player: dash is an explicit push
 /// off just like jump, so one `update` call should flip the body
 /// mode back to Standing and let the dash consume cleanly in the

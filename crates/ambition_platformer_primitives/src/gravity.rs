@@ -358,26 +358,17 @@ pub fn gravity_upright_angle(gravity_dir: Vec2) -> f32 {
     render_up.y.atan2(render_up.x) - std::f32::consts::FRAC_PI_2
 }
 
-/// Horizontal `flip_x` for a sprite that the gravity roll
-/// ([`gravity_upright_angle`]) may rotate. The roll re-aims the rolled sprite
-/// along the move-axis; whether that still matches `facing` inverts with the
-/// gravity direction. UP gravity inverts (the ~180° roll mirrors horizontally) and
-/// RIGHT gravity inverts (the 90° roll points the sprite opposite the down=right
-/// move-axis) — without this the body "moves left but faces right" (the #33 bug,
-/// first seen upside-down, then under sideways gravity). DOWN and LEFT keep the
-/// normal `facing < 0` flip.
+/// Horizontal `flip_x` for a sprite that may also be rotated by
+/// [`gravity_upright_angle`].
 ///
-/// UPDATE (run now follows the control-frame `side`): the rolled sprite's natural
-/// (unflipped) facing in screen space is `(g.y, -g.x)` — which is EXACTLY the
-/// player-frame `side` axis the run moves along (`AccelerationFrame::side`). So
-/// under any gravity where the `Hybrid` control frame keeps the player frame
-/// (down / left / right, `g.y >= 0`), the rolled sprite already faces the run
-/// direction and needs no inversion. Only UP gravity (`g.y < 0`), where `Hybrid`
-/// screen-aligns the run past 90°, makes the move-axis oppose the rolled facing —
-/// there `facing` inverts. The old `g.x > 0` term was an artifact of the previous
-/// screen-down `move_axis` and is gone now. (Tracks `InputFrameMode::Hybrid`.)
-pub fn gravity_aware_flip_x(facing: f32, gravity_dir: Vec2) -> bool {
-    (facing < 0.0) ^ (gravity_dir.y < 0.0)
+/// `facing` is now a controlled-body-local sign: `+1` means local right and `-1`
+/// means local left. Because the gravity roll rotates the sprite's whole local
+/// body frame into world space, the horizontal mirror is independent of gravity.
+/// Older code inverted this again under up-gravity because `facing` still carried
+/// a screen/world-space interpretation there; once facing is local, that extra
+/// inversion is the bug.
+pub fn gravity_aware_flip_x(facing: f32, _gravity_dir: Vec2) -> bool {
+    facing < 0.0
 }
 
 #[cfg(test)]
@@ -385,37 +376,23 @@ mod tests {
     use super::*;
 
     #[test]
-    fn gravity_aware_flip_inverts_only_upside_down() {
-        let down = Vec2::new(0.0, 1.0);
-        let up = Vec2::new(0.0, -1.0);
-        let right = Vec2::new(1.0, 0.0);
-        // Down: normal facing flip.
-        assert!(
-            gravity_aware_flip_x(-1.0, down),
-            "facing left flips under down gravity"
-        );
-        assert!(!gravity_aware_flip_x(1.0, down));
-        // Up: inverted (the #33 bug — moving left must not face right upside down).
-        assert!(
-            !gravity_aware_flip_x(-1.0, up),
-            "facing left must NOT flip upside down"
-        );
-        assert!(gravity_aware_flip_x(1.0, up));
-        // Sideways: now that the run follows the control-frame `side`, the rolled
-        // sprite's natural facing IS the move direction, so BOTH walls keep the
-        // normal `facing < 0` flip (no inversion). RIGHT gravity used to invert to
-        // match the old screen-down move-axis; that artifact is gone.
-        let left = Vec2::new(-1.0, 0.0);
-        assert!(
-            gravity_aware_flip_x(-1.0, right),
-            "facing left under RIGHT gravity flips (normal) — run follows the rolled facing now"
-        );
-        assert!(!gravity_aware_flip_x(1.0, right));
-        assert!(
-            gravity_aware_flip_x(-1.0, left),
-            "facing left under LEFT gravity flips (normal)"
-        );
-        assert!(!gravity_aware_flip_x(1.0, left));
+    fn gravity_aware_flip_tracks_local_facing_under_every_gravity() {
+        let gravities = [
+            Vec2::new(0.0, 1.0),
+            Vec2::new(0.0, -1.0),
+            Vec2::new(1.0, 0.0),
+            Vec2::new(-1.0, 0.0),
+        ];
+        for gravity in gravities {
+            assert!(
+                gravity_aware_flip_x(-1.0, gravity),
+                "local-left facing flips under gravity {gravity:?}"
+            );
+            assert!(
+                !gravity_aware_flip_x(1.0, gravity),
+                "local-right facing does not flip under gravity {gravity:?}"
+            );
+        }
     }
 
     #[test]

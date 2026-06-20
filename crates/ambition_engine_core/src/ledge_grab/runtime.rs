@@ -5,126 +5,141 @@
 //! position/curve helpers stay in the parent and are reached via `use super::*`.
 
 use super::*;
+use crate::geometry::{Aabb, AabbExt};
 
-/// `OneWay`) whose top edge is within a shoulder-height band of the player and
-/// whose vertical edge matches the side the player is reaching toward. If
-/// found, returns the snap anchor and the climb target.
-pub fn probe_ledge_grab(
+fn launch_away_from_feet(
+    tuning: MovementTuning,
+    platform_side_axis: f32,
+    platform_speed: f32,
+) -> Vec2 {
+    let frame = crate::AccelerationFrame::new(tuning.gravity_dir);
+    frame.side * (platform_side_axis * platform_speed) - frame.down * tuning.jump_speed
+}
+
+fn point_from_frame_coords(frame: crate::AccelerationFrame, side: f32, down: f32) -> Vec2 {
+    frame.side * side + frame.down * down
+}
+
+fn half_along_axis(half: Vec2, axis: Vec2) -> f32 {
+    half.x * axis.x.abs() + half.y * axis.y.abs()
+}
+
+fn inside_world_bounds(center: Vec2, half: Vec2, world: &World) -> bool {
+    center.x - half.x >= 0.0
+        && center.y - half.y >= 0.0
+        && center.x + half.x <= world.size.x
+        && center.y + half.y <= world.size.y
+}
+
+/// `OneWay`) whose anti-gravity face is within a shoulder-height band of the
+/// controlled body and whose side face matches the side the body is reaching
+/// toward. If found, returns the snap anchor and the climb target.
+///
+/// `wall_normal_x` is historical naming: it is now the side-face normal expressed
+/// in the controlled body's local side axis (`+1` = platform on local-left,
+/// `-1` = platform on local-right). The public wrapper below keeps the old
+/// down-gravity signature for tests and legacy callers.
+pub fn probe_ledge_grab_in_frame(
     player_pos: Vec2,
     player_size: Vec2,
     wall_normal_x: f32,
     world: &World,
+    gravity_dir: Vec2,
 ) -> Option<LedgeContact> {
     if wall_normal_x.abs() < 0.5 {
         return None;
     }
-    let half = player_size * 0.5;
-    // Window where the ledge top must sit. Keep this intentionally
-    // forgiving: a near-miss slightly below the lip should still grab
-    // instead of requiring the player's head to be in a tight chin band.
-    let head_y = player_pos.y - half.y;
-    let reach_min_y = head_y - LEDGE_REACH_UP;
-    let reach_max_y = head_y + LEDGE_REACH_DOWN;
-    // The player is "facing into" the wall whose normal points away
-    // from the player. wall_normal_x = +1 means the wall is on the
-    // player's left (the wall normal points right toward the player),
-    // so the wall edge we want to hook is just left of the player.
-    let cling_x = if wall_normal_x > 0.0 {
-        player_pos.x - half.x
-    } else {
-        player_pos.x + half.x
-    };
+    let side_normal = wall_normal_x.signum();
+    let frame = crate::AccelerationFrame::new(gravity_dir);
+    let player_half_local = player_size * 0.5;
+    let player_half_world = frame.to_world_half(player_half_local);
+    let player_side_half = player_half_local.x;
+    let player_down_half = player_half_local.y;
+
+    let player_side = player_pos.dot(frame.side);
+    let player_down = player_pos.dot(frame.down);
+
+    // Window where the ledge anti-gravity face must sit. Under normal gravity
+    // this is the old world-Y top-face / head-Y band.
+    let head_down = player_down - player_down_half;
+    let reach_min_down = head_down - LEDGE_REACH_UP;
+    let reach_max_down = head_down + LEDGE_REACH_DOWN;
+
+    // The controlled body's side that is reaching toward the wall, expressed in
+    // local side coordinates. side_normal = +1 means the block face normal points
+    // toward local-right, so the actor reaches with its local-left side.
+    let cling_side = player_side - side_normal * player_side_half;
+
     let mut best: Option<LedgeContact> = None;
     for block in &world.blocks {
         if !ledge_surface_kind(block.kind) {
             continue;
         }
-        let top = block.aabb.top();
-        if top < reach_min_y || top > reach_max_y {
+        let block_half = block.aabb.half_size();
+        let block_center = block.aabb.center();
+        let block_side_half = half_along_axis(block_half, frame.side);
+        let block_down_half = half_along_axis(block_half, frame.down);
+        let block_side = block_center.dot(frame.side);
+        let block_down = block_center.dot(frame.down);
+        let lip_down = block_down - block_down_half;
+        if lip_down < reach_min_down || lip_down > reach_max_down {
             continue;
         }
-        // Pick the wall edge of this block matching the cling side.
-        let block_wall_x = if wall_normal_x > 0.0 {
-            block.aabb.right()
-        } else {
-            block.aabb.left()
-        };
-        // The player's reaching side must be close to that face. This
-        // is deliberately a small magnet range, not exact contact: by
-        // the time the ledge probe runs, horizontal collision or one
-        // frame of falling can leave the player a few pixels off the
-        // wall even though the input/read is clearly a ledge grab.
-        if (block_wall_x - cling_x).abs() > LEDGE_HORIZONTAL_REACH {
+
+        // Pick the platform side face matching the controlled body's reach side.
+        let block_wall_side = block_side + side_normal * block_side_half;
+        if (block_wall_side - cling_side).abs() > LEDGE_HORIZONTAL_REACH {
             continue;
         }
-        // The space directly above the block must be clear, otherwise
-        // there's no platform to climb onto. Probe a half-size body
-        // sitting on top of the block to test for clearance.
-        let probe_center = Vec2::new(
-            block_wall_x - wall_normal_x * (half.x - 1.0),
-            top - half.y - 1.0,
+
+        // The space directly above the platform (away from the feet) must be
+        // clear. These local-frame formulas are the old probe/hang/climb centers
+        // with x/y replaced by side/down coordinates.
+        let probe_center = point_from_frame_coords(
+            frame,
+            block_wall_side - side_normal * (player_side_half - 1.0),
+            lip_down - player_down_half - 1.0,
         );
-        let probe_aabb = Aabb::new(probe_center, half - Vec2::new(2.0, 2.0));
-        // World-bounds check: the player body sitting on top of this
-        // ledge must stay inside the playable rect. Engine uses
-        // top-left coords with the world spanning [0, size]. Without
-        // this guard, a block whose top is at y≈0 (e.g. a ceiling
-        // tile) yields a climb_target above the world, the climb-up
-        // teleports the player OOB, and the engine's
-        // collision-correction yanks them back — producing the
-        // teleport loop seen in the May 2026 mob_lab F8 trace.
-        if probe_center.y - half.y < 0.0
-            || probe_center.x - half.x < 0.0
-            || probe_center.x + half.x > world.size.x
-        {
+        if !inside_world_bounds(probe_center, player_half_world, world) {
             continue;
         }
+        let probe_aabb = Aabb::new(probe_center, player_half_world - Vec2::new(2.0, 2.0));
         let blocked = world.body_overlaps_any(probe_aabb, |b| {
             ledge_clearance_blocker_kind(b.kind) && !std::ptr::eq(b, block)
         });
         if blocked {
             continue;
         }
-        // The hanging body must also have open space on the outside of the
-        // ledge. Without this check, the climb target can be clear while the
-        // initial hang snap overlaps a neighboring wall in front of the ledge;
-        // from there the getup interpolation can tunnel the player through that
-        // wall. Exclude the grabbed block itself because the anchor intentionally
-        // overlaps it by ~1 px to keep the visual cling tight.
-        let hang_center = Vec2::new(
-            block_wall_x + wall_normal_x * (half.x - 1.0),
-            top + half.y - 4.0,
+
+        let hang_center = point_from_frame_coords(
+            frame,
+            block_wall_side + side_normal * (player_side_half - 1.0),
+            lip_down + player_down_half - 4.0,
         );
-        let hang_aabb = Aabb::new(hang_center, half - Vec2::new(2.0, 2.0));
+        let hang_aabb = Aabb::new(hang_center, player_half_world - Vec2::new(2.0, 2.0));
         let hang_blocked = world.body_overlaps_any(hang_aabb, |b| {
             ledge_clearance_blocker_kind(b.kind) && !std::ptr::eq(b, block)
         });
         if hang_blocked {
             continue;
         }
-        // Anchor: player center hugs the wall on the same side the
-        // player was clinging from, with the chest at the ledge top.
-        // wall_normal_x = -1 (wall on player's right) → anchor.x is
-        // just left of the wall's left face.
-        let anchor = hang_center;
-        // Climb target: top of the block, just inboard of the edge.
-        // (Inboard = the side away from the cling — opposite sign to
-        // the anchor.)
-        let climb_target = Vec2::new(
-            block_wall_x - wall_normal_x * (half.x + 4.0),
-            top - half.y - 1.0,
+
+        let climb_target = point_from_frame_coords(
+            frame,
+            block_wall_side - side_normal * (player_side_half + 4.0),
+            lip_down - player_down_half - 1.0,
         );
         let candidate = LedgeContact {
-            wall_normal_x,
-            anchor,
+            wall_normal_x: side_normal,
+            anchor: hang_center,
             climb_target,
         };
-        // Prefer the ledge whose top is closest to the player's head.
-        let new_distance = (top - head_y).abs();
+        let new_distance = (lip_down - head_down).abs();
         let keep = match best {
             None => true,
             Some(prev) => {
-                let prev_distance = (prev.anchor.y - half.y - head_y).abs();
+                let prev_lip_down = prev.anchor.dot(frame.down) - player_down_half + 4.0;
+                let prev_distance = (prev_lip_down - head_down).abs();
                 new_distance < prev_distance
             }
         };
@@ -133,6 +148,23 @@ pub fn probe_ledge_grab(
         }
     }
     best
+}
+
+/// Down-gravity compatibility wrapper for tests / call sites that still probe
+/// legacy vertical ledges explicitly.
+pub fn probe_ledge_grab(
+    player_pos: Vec2,
+    player_size: Vec2,
+    wall_normal_x: f32,
+    world: &World,
+) -> Option<LedgeContact> {
+    probe_ledge_grab_in_frame(
+        player_pos,
+        player_size,
+        wall_normal_x,
+        world,
+        Vec2::new(0.0, 1.0),
+    )
 }
 
 /// If the player is currently hanging/climbing, advance that state and return
@@ -161,7 +193,7 @@ pub fn tick_active_ledge_grab_clusters(
         let duration_scale = ledge_getup_duration_scale(state, &tuning);
         let duration = state.getup_duration() * duration_scale;
         let progress = (state.climb_elapsed / duration).clamp(0.0, 1.0);
-        clusters.kinematics.pos = getup_position(state, progress);
+        clusters.kinematics.pos = getup_position(state, progress, tuning.gravity_dir);
         clusters.kinematics.vel = Vec2::ZERO;
         clusters.ground.on_ground = false;
         clusters.wall.wall_clinging = false;
@@ -169,12 +201,13 @@ pub fn tick_active_ledge_grab_clusters(
         clusters.wall.on_wall = false;
 
         if progress >= 1.0 {
-            clusters.kinematics.pos = getup_end_position(state);
+            clusters.kinematics.pos = getup_end_position(state, tuning.gravity_dir);
             // Carry HORIZONTAL momentum into exit; drop the Y so the
             // player doesn't relaunch off the platform they just stood
             // on. (Ledge-jump path keeps Y because that's a hop.)
             let boost = ledge_boost_for_state(state, &tuning);
-            clusters.kinematics.vel = Vec2::new(boost.x, 0.0);
+            let frame = crate::AccelerationFrame::new(tuning.gravity_dir);
+            clusters.kinematics.vel = boost - frame.down * boost.dot(frame.down);
             clusters.ground.on_ground = true;
             clusters.wall.wall_clinging = false;
             clusters.wall.wall_climbing = false;
@@ -190,11 +223,11 @@ pub fn tick_active_ledge_grab_clusters(
     // Player-frame "descend": "up" = away from the feet (climb up the ledge),
     // "down" = toward the feet (drop). Gravity- + input-mode-relative via the
     // resolved stick `y`.
-    let descend = tuning.stick(&input).y;
-    let input_up = descend < -0.4;
-    let input_down = descend > 0.4;
-    let input_into_platform = input.axis_x * into_platform_axis(state.contact) > 0.4;
-    let input_away_from_platform = input.axis_x * away_from_platform_axis(state.contact) > 0.4;
+    let local_stick = tuning.stick(&input);
+    let input_up = local_stick.y < -0.4;
+    let input_down = local_stick.y > 0.4;
+    let input_into_platform = local_stick.x * into_platform_axis(state.contact) > 0.4;
+    let input_away_from_platform = local_stick.x * away_from_platform_axis(state.contact) > 0.4;
     let climb_unlocked = state.elapsed >= LEDGE_MIN_CLIMB_DELAY;
 
     let want_roll = climb_unlocked && input.shield_held && clusters.abilities.abilities.shield;
@@ -242,7 +275,7 @@ pub fn tick_active_ledge_grab_clusters(
         clusters.ground.on_ground = false;
         clusters.ledge.grab = None;
         clusters.ledge.release_cooldown = LEDGE_REGRAB_COOLDOWN;
-        clusters.kinematics.vel = Vec2::new(away_x * tuning.wall_jump_x, -tuning.jump_speed);
+        clusters.kinematics.vel = launch_away_from_feet(tuning, away_x, tuning.wall_jump_x);
         crate::player_clusters::refresh_movement_resources_clusters(
             clusters.abilities,
             &mut *clusters.dash,
@@ -260,7 +293,7 @@ pub fn tick_active_ledge_grab_clusters(
         clusters.ground.on_ground = false;
         clusters.ledge.grab = None;
         clusters.ledge.release_cooldown = LEDGE_REGRAB_COOLDOWN;
-        let mut launch = Vec2::new(into_x * tuning.jump_speed * 0.35, -tuning.jump_speed);
+        let mut launch = launch_away_from_feet(tuning, into_x, tuning.jump_speed * 0.35);
         launch += ledge_boost_for_state(state, &tuning);
         clusters.kinematics.vel = launch;
         crate::player_clusters::refresh_movement_resources_clusters(
@@ -324,37 +357,49 @@ pub fn tick_active_ledge_grab_clusters(
 }
 
 /// Classify whether the grab geometry also satisfies the original,
-/// tighter probe window. Widened ledge grabs are still valid catches,
-/// but they intentionally do not earn ledge-momentum boost rewards.
-pub fn classify_ledge_grab(
+/// tighter probe window in the controlled body's local frame. Widened ledge
+/// grabs are still valid catches, but they intentionally do not earn
+/// ledge-momentum boost rewards.
+pub fn classify_ledge_grab_in_frame(
     player_pos: Vec2,
     player_size: Vec2,
     contact: LedgeContact,
+    gravity_dir: Vec2,
 ) -> LedgeGrabQuality {
+    let frame = crate::AccelerationFrame::new(gravity_dir);
     let half = player_size * 0.5;
-    let head_y = player_pos.y - half.y;
-    let precise_min_y = head_y - LEDGE_PRECISE_REACH_UP;
-    let precise_max_y = head_y + LEDGE_PRECISE_REACH_DOWN;
+    let player_side = player_pos.dot(frame.side);
+    let player_down = player_pos.dot(frame.down);
+    let head_down = player_down - half.y;
+    let precise_min_down = head_down - LEDGE_PRECISE_REACH_UP;
+    let precise_max_down = head_down + LEDGE_PRECISE_REACH_DOWN;
 
-    // Invert the anchor formula from `probe_ledge_grab`:
-    // anchor.x = block_wall_x + wall_normal_x * (half.x - 1.0)
-    // anchor.y = top + half.y - 4.0
-    let block_wall_x = contact.anchor.x - contact.wall_normal_x * (half.x - 1.0);
-    let top = contact.anchor.y - half.y + 4.0;
-    let cling_x = if contact.wall_normal_x > 0.0 {
-        player_pos.x - half.x
-    } else {
-        player_pos.x + half.x
-    };
+    // Invert the local-frame anchor formula from `probe_ledge_grab_in_frame`:
+    // anchor.side = block_wall_side + wall_normal * (half.x - 1)
+    // anchor.down = lip_down + half.y - 4
+    let anchor_side = contact.anchor.dot(frame.side);
+    let anchor_down = contact.anchor.dot(frame.down);
+    let block_wall_side = anchor_side - contact.wall_normal_x * (half.x - 1.0);
+    let lip_down = anchor_down - half.y + 4.0;
+    let cling_side = player_side - contact.wall_normal_x * half.x;
 
-    if top >= precise_min_y
-        && top <= precise_max_y
-        && (block_wall_x - cling_x).abs() <= LEDGE_PRECISE_HORIZONTAL_REACH
+    if lip_down >= precise_min_down
+        && lip_down <= precise_max_down
+        && (block_wall_side - cling_side).abs() <= LEDGE_PRECISE_HORIZONTAL_REACH
     {
         LedgeGrabQuality::Precise
     } else {
         LedgeGrabQuality::Forgiving
     }
+}
+
+/// Down-gravity compatibility wrapper for tests / legacy callers.
+pub fn classify_ledge_grab(
+    player_pos: Vec2,
+    player_size: Vec2,
+    contact: LedgeContact,
+) -> LedgeGrabQuality {
+    classify_ledge_grab_in_frame(player_pos, player_size, contact, Vec2::new(0.0, 1.0))
 }
 
 /// Convenience predicate for call sites/tests that only care about the
@@ -363,18 +408,20 @@ pub fn is_precise_ledge_grab(player_pos: Vec2, player_size: Vec2, contact: Ledge
     classify_ledge_grab(player_pos, player_size, contact).is_precise()
 }
 
-/// Pick a wall normal to probe for a ledge: the active wall-cling
-/// normal first, else a horizontal axis-press while airborne.
+/// Pick a side-face normal to probe for a ledge: the active wall-cling normal
+/// first, else a local side-axis press while airborne.
 fn requested_wall_normal_clusters(
     wall: &crate::player_clusters::PlayerWallState,
     ground: &crate::player_clusters::PlayerGroundState,
     input: InputState,
+    tuning: MovementTuning,
 ) -> Option<f32> {
     if wall.wall_clinging && wall.wall_normal_x.abs() >= 0.5 {
         return Some(wall.wall_normal_x);
     }
-    if !ground.on_ground && input.axis_x.abs() > LEDGE_GRAB_INTENT_DEADZONE {
-        return Some(-input.axis_x.signum());
+    let local_stick = tuning.stick(&input);
+    if !ground.on_ground && local_stick.x.abs() > LEDGE_GRAB_INTENT_DEADZONE {
+        return Some(-local_stick.x.signum());
     }
     None
 }
@@ -409,27 +456,29 @@ pub fn ledge_boost(
     // t=window. Easier to reason about while tuning than smoothstep.
     let weight = 1.0 - (elapsed_at_initiation / cfg.window).clamp(0.0, 1.0);
     let m = momentum_at_grab;
-    // Only count horizontal momentum that points INTO the platform.
-    // Reverse momentum at grab time meant the player wasn't carrying
-    // forward speed — they were sliding off the lip — no reward.
+    let frame = crate::AccelerationFrame::new(tuning.gravity_dir);
+    // Only count side-axis momentum that points INTO the platform. Reverse
+    // momentum at grab time meant the actor was sliding off the lip — no reward.
+    let side_speed = m.dot(frame.side);
     let into = into_platform_axis(contact);
-    let forward_into = m.x * into; // > 0 if pointing toward platform
-    let carried_x = if forward_into > 0.0 {
-        m.x * cfg.x_gain * weight
+    let forward_into = side_speed * into;
+    let carried_side = if forward_into > 0.0 {
+        frame.side * (side_speed * cfg.x_gain * weight).clamp(-cfg.x_cap, cfg.x_cap)
     } else {
-        0.0
+        Vec2::ZERO
     };
-    // Sim convention: +Y is down. Upward momentum is negative; only
-    // count that. Downward momentum was "falling," no boost.
-    let carried_y = if m.y < 0.0 {
-        m.y * cfg.y_gain * weight
-    } else {
-        0.0
+    // Carry only momentum that is away from the feet. Under normal gravity this
+    // is the old `m.y < 0` upward check; under flipped/sideways gravity it is the
+    // same rule in the controlled body's acceleration frame.
+    let carried_away = {
+        let along_down = m.dot(frame.down);
+        if along_down < 0.0 {
+            frame.down * (along_down * cfg.y_gain * weight).clamp(-cfg.y_cap, cfg.y_cap)
+        } else {
+            Vec2::ZERO
+        }
     };
-    Vec2::new(
-        carried_x.clamp(-cfg.x_cap, cfg.x_cap),
-        carried_y.clamp(-cfg.y_cap, cfg.y_cap),
-    )
+    carried_side + carried_away
 }
 
 /// Convenience: compute the boost from a [`LedgeGrabState`]. For
@@ -485,7 +534,7 @@ const FALL_SNAP_MIN_VY: f32 = 45.0;
 /// Two snap paths:
 ///
 /// - **Intentional snap**: the player is wall-clinging or actively
-///   moving toward a wall (input.axis_x non-zero while airborne).
+///   moving toward a wall (local side input non-zero while airborne).
 ///   `requested_wall_normal` returns the side to probe.
 /// - **Falling-into-ledge snap**: the player is falling fast and a
 ///   grabbable ledge sits within reach on either side. Mirrors
@@ -502,6 +551,7 @@ pub fn try_start_ledge_grab_clusters(
     world: &World,
     clusters: &mut crate::player_clusters::PlayerClustersMut<'_>,
     input: InputState,
+    tuning: MovementTuning,
     events: &mut crate::movement::FrameEvents,
 ) -> bool {
     if !clusters.abilities.abilities.ledge_grab
@@ -515,25 +565,29 @@ pub fn try_start_ledge_grab_clusters(
     }
 
     let mut contact: Option<LedgeContact> = None;
-    if let Some(wall_normal) = requested_wall_normal_clusters(clusters.wall, clusters.ground, input)
+    if let Some(wall_normal) =
+        requested_wall_normal_clusters(clusters.wall, clusters.ground, input, tuning)
     {
-        contact = probe_ledge_grab(
+        contact = probe_ledge_grab_in_frame(
             clusters.kinematics.pos,
             clusters.kinematics.size,
             wall_normal,
             world,
+            tuning.gravity_dir,
         );
     }
-    if contact.is_none() && clusters.kinematics.vel.y > FALL_SNAP_MIN_VY {
+    let frame = crate::AccelerationFrame::new(tuning.gravity_dir);
+    if contact.is_none() && clusters.kinematics.vel.dot(frame.down) > FALL_SNAP_MIN_VY {
         // Smash-style auto-snap during a falling recovery: try BOTH
         // sides and snap to whichever has a grabbable lip in the chin
         // band.
         for trial_normal in [-1.0_f32, 1.0_f32] {
-            if let Some(found) = probe_ledge_grab(
+            if let Some(found) = probe_ledge_grab_in_frame(
                 clusters.kinematics.pos,
                 clusters.kinematics.size,
                 trial_normal,
                 world,
+                tuning.gravity_dir,
             ) {
                 contact = Some(found);
                 break;
@@ -544,8 +598,12 @@ pub fn try_start_ledge_grab_clusters(
         return false;
     };
 
-    let grab_quality =
-        classify_ledge_grab(clusters.kinematics.pos, clusters.kinematics.size, contact);
+    let grab_quality = classify_ledge_grab_in_frame(
+        clusters.kinematics.pos,
+        clusters.kinematics.size,
+        contact,
+        tuning.gravity_dir,
+    );
 
     let pre_wall_fresh = clusters.wall.pre_wall_vel_age <= LEDGE_REGRAB_COOLDOWN;
     let momentum_at_grab = if pre_wall_fresh
@@ -599,5 +657,11 @@ pub fn try_start_ledge_grab_scratch(
     events: &mut crate::movement::FrameEvents,
 ) -> bool {
     let mut clusters = scratch.as_mut();
-    try_start_ledge_grab_clusters(world, &mut clusters, input, events)
+    try_start_ledge_grab_clusters(
+        world,
+        &mut clusters,
+        input,
+        MovementTuning::default(),
+        events,
+    )
 }

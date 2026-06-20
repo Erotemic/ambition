@@ -65,13 +65,12 @@ impl Aim {
     }
 }
 
-/// Build an [`Aim`] from raw stick axes + the player's facing sign.
+/// Build an [`Aim`] from controlled-body-local stick axes + the actor's facing sign.
 ///
-/// `facing` follows the engine convention: `+1.0` = right, `-1.0` =
-/// left. `axis_x` / `axis_y` follow the sim convention (Y positive =
-/// downward). The threshold matches the existing drop-through trigger
-/// (`axis_y > 0.35`) so the HUD switches at the same moment the
-/// gameplay behavior does.
+/// `facing` follows the engine convention in the controlled body frame: `+1.0`
+/// = local right, `-1.0` = local left. `axis_x` / `axis_y` are local side/down
+/// intent. The threshold matches the existing drop-through trigger (`axis_y >
+/// 0.35`) so the HUD switches at the same moment the gameplay behavior does.
 pub fn compute_aim(axis_x: f32, axis_y: f32, facing: f32) -> Aim {
     /// Matches the existing drop-through threshold so the HUD and
     /// gameplay flip simultaneously. Tuning this knob affects HUD
@@ -91,8 +90,7 @@ pub fn compute_aim(axis_x: f32, axis_y: f32, facing: f32) -> Aim {
     } else {
         0
     };
-    // Y axis: sim convention is +Y down, so positive `axis_y` is
-    // aim-down, negative is aim-up.
+    // Local Y axis: positive `axis_y` is controlled-body down, negative is up.
     let y_dir: i8 = if axis_y > T {
         1 // down
     } else if axis_y < -T {
@@ -139,6 +137,8 @@ pub struct PlayerIntent {
 /// facing value within one frame.
 pub fn compute_player_intent(
     control_frame: Res<ControlFrame>,
+    gravity_field: Option<Res<crate::physics::GravityField>>,
+    user_settings: Option<Res<crate::persistence::settings::UserSettings>>,
     player_q: Query<
         &crate::player::BodyKinematics,
         (
@@ -154,12 +154,21 @@ pub fn compute_player_intent(
         // correct conservative behavior pre-spawn.
         return;
     };
+    let gravity_dir = gravity_field
+        .as_deref()
+        .map_or(Vec2::new(0.0, 1.0), |g| g.dir);
+    let input_mode = user_settings
+        .as_deref()
+        .map_or(crate::engine_core::InputFrameMode::Hybrid, |s| {
+            s.gameplay.input_frame_mode
+        });
+    let local_axis = crate::engine_core::AccelerationFrame::new(gravity_dir).resolve_input(
+        input_mode,
+        control_frame.axis_x,
+        control_frame.axis_y,
+    );
     let next = PlayerIntent {
-        aim: compute_aim(
-            control_frame.axis_x,
-            control_frame.axis_y,
-            kinematics.facing,
-        ),
+        aim: compute_aim(local_axis.x, local_axis.y, kinematics.facing),
     };
     if *intent != next {
         *intent = next;
@@ -192,8 +201,8 @@ mod tests {
     }
 
     #[test]
-    fn up_and_down_resolve_from_axis_y_sign() {
-        // Sim Y is +down, so axis_y > T is Down.
+    fn up_and_down_resolve_from_local_axis_y_sign() {
+        // Local Y is +down, so axis_y > T is Down.
         assert_eq!(compute_aim(0.0, 1.0, 1.0), Aim::Down);
         assert_eq!(compute_aim(0.0, -1.0, 1.0), Aim::Up);
     }

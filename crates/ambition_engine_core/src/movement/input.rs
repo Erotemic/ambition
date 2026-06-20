@@ -2,11 +2,15 @@
 ///
 /// Keyboard/gamepad remapping belongs in the presentation layer. Once those
 /// devices are interpreted, the engine only needs a small set of actions.
+///
+/// Directional axes are controlled-body-local by the time they reach the
+/// movement engine: `axis_x` is local side/right and `axis_y` is local
+/// down/toward-feet unless a field explicitly says it is screen/raw input.
 #[derive(Clone, Copy, Debug, Default)]
 pub struct InputState {
-    /// -1 left, +1 right.
+    /// -1 local-left, +1 local-right.
     pub axis_x: f32,
-    /// -1 up, +1 down.
+    /// -1 local-up / away-from-feet, +1 local-down / toward-feet.
     pub axis_y: f32,
     pub jump_pressed: bool,
     pub jump_held: bool,

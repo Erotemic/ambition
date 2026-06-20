@@ -409,6 +409,53 @@ def cmd_radio(args: argparse.Namespace) -> int:
     return _run_bulk(args, cues)
 
 
+def cmd_bundle(args: argparse.Namespace) -> int:
+    from .cue_bundle import create_bundle
+
+    report = create_bundle(
+        args.cue,
+        backend=args.backend,
+        outdir=args.outdir,
+        bundle_root=args.bundle_root,
+        force=args.force,
+        publish=args.publish,
+        dest_root=args.dest_root,
+        zip_bundle=args.zip_bundle,
+        jobs=args.jobs,
+        include_scratch_stems=args.include_scratch_stems,
+        skip_render=args.skip_render,
+        skip_spectrograms=args.skip_spectrograms,
+    )
+    import json as _json
+
+    print(_json.dumps(report, indent=2, default=str))
+    return 0 if report.get("ok", True) else 1
+
+
+def add_bundle_args(p: argparse.ArgumentParser) -> None:
+    p.add_argument("cue", help="cue id or .music.yaml path")
+    p.add_argument(
+        "--backend",
+        default="pretty-midi",
+        choices=["pretty-midi", "fluidsynth-cli", "fallback", "auto"],
+        help="renderer backend (default: pretty-midi; fallback is explicit opt-in)",
+    )
+    p.add_argument("--outdir", type=Path, default=None)
+    p.add_argument("--bundle-root", type=Path, default=None)
+    p.add_argument("--force", action="store_true", help="force render regeneration")
+    p.add_argument("--publish", action="store_true", help="publish full.ogg to game assets")
+    p.add_argument("--dest-root", type=Path, default=None, help="game music generated asset root")
+    p.add_argument("--zip", dest="zip_bundle", action="store_true", help="write an uploadable bundle zip")
+    p.add_argument("--jobs", "-j", type=int, default=1, help="render worker count")
+    p.add_argument(
+        "--include-scratch-stems",
+        action="store_true",
+        help="include raw scratch_stems/*.npy in the bundle zip; useful but large",
+    )
+    p.add_argument("--skip-render", action="store_true", help="bundle/analyze existing outdir")
+    p.add_argument("--skip-spectrograms", action="store_true", help="skip PNG spectrogram generation")
+
+
 def add_render_args(p: argparse.ArgumentParser) -> None:
     p.add_argument(
         "--backend",
@@ -465,6 +512,16 @@ def build_parser() -> argparse.ArgumentParser:
     add_publish_args(p_rp)
     p_rp.add_argument("--force-render", action="store_true")
     p_rp.set_defaults(func=cmd_render_publish)
+
+    p_bundle = sub.add_parser("bundle", help="Render, debug, and package a cue bundle")
+    add_bundle_args(p_bundle)
+    p_bundle.set_defaults(func=cmd_bundle)
+
+    p_cue = sub.add_parser("cue", help="Cue-oriented workflows")
+    cue_sub = p_cue.add_subparsers(dest="cue_action", required=True)
+    p_cue_bundle = cue_sub.add_parser("bundle", help="Render, debug, and package one cue")
+    add_bundle_args(p_cue_bundle)
+    p_cue_bundle.set_defaults(func=cmd_bundle)
 
     p_sb = sub.add_parser(
         "sandbox",

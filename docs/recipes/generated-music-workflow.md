@@ -16,6 +16,7 @@ From the repo root:
 
 ```bash
 PYTHONPATH=tools/ambition_music_renderer python -m ambition_music_renderer --help
+PYTHONPATH=tools/ambition_music_renderer python -m ambition_music_renderer cue bundle <cue_id> --backend pretty-midi --force --zip
 ./generate_audio_assets.sh --force
 ```
 
@@ -30,7 +31,9 @@ python audit_cue_balance.py --help    # sections WITHIN one adaptive cue (intro 
 python level_report.py --help         # ACROSS the runtime cue catalog (inter-cue leveling)
 ```
 
-Three audio-analysis tools, three scopes:
+For one-cue composition/debug handoff, prefer `cue bundle` first. It wraps rendering, scratch-stem retention, level reports, spectral localization, optional spectrograms, and a shareable bundle manifest around the current renderer without changing runtime publish policy.
+
+Three lower-level audio-analysis tools, three scopes:
 - `transition_audit.py` — two specific section files; visual transition-seam plots.
 - `audit_cue_balance.py` — every section/stem inside one cue's output dir.
 - `level_report.py` — every `<cue>/full.ogg` under the runtime music root; a
@@ -46,8 +49,32 @@ Prefer the tool README and CLI help over old recipe fragments when command flags
 2. Search `dev/journals/` and `dev/benchmark-candidates/` for music director/refactor lessons.
 3. Render locally into the tool's generated output path.
 4. Audit balance/transitions if a cue set changes.
-5. Publish/install only when the generated assets are meant to become runtime inputs.
-6. Update `docs/tools/generated-audio-tools.md` and `tools/ambition_music_renderer/README.md` if the workflow changes.
+5. Use `cue bundle <cue_id> --zip` when a cue needs review, handoff, or spectral/debug evidence.
+6. Publish/install only when the generated assets are meant to become runtime inputs.
+7. Update `docs/tools/generated-audio-tools.md` and `tools/ambition_music_renderer/README.md` if the workflow changes.
+
+
+## One-cue debug and handoff bundles
+
+Use this when regenerating a song and collecting useful diagnostics for review:
+
+```bash
+PYTHONPATH=tools/ambition_music_renderer \
+python -m ambition_music_renderer cue bundle for_emmy_forever_ago \
+  --backend pretty-midi \
+  --force \
+  --zip
+```
+
+The bundle command writes reports and plots under the cue's generated output and
+then copies the useful artifacts into `tools/ambition_music_renderer/bundles/`.
+Add `--publish` only when the cue should also update the runtime
+`assets/audio/music/generated/<cue_id>/full.ogg`. Add `--include-scratch-stems`
+only for local handoffs because raw NumPy stem buffers can be large.
+
+Fallback rendering is explicit opt-in: use `--backend fallback` only when you
+really want that diagnostic backend. Normal authoring/debug defaults should use
+`pretty-midi`.
 
 ## Diagnosing an audible transition seam
 

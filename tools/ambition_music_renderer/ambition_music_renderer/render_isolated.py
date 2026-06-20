@@ -133,7 +133,7 @@ def is_render_current(
     return True, manifest_path, "current"
 
 
-def main(argv=None) -> int:
+def build_parser() -> argparse.ArgumentParser:
     ap = argparse.ArgumentParser(
         description="Render Ambition MusicIR via isolated stem workers"
     )
@@ -141,8 +141,12 @@ def main(argv=None) -> int:
     ap.add_argument("--outdir", default="output")
     ap.add_argument(
         "--backend",
-        default="fallback",
+        default="pretty-midi",
         choices=["fallback", "auto", "fluidsynth-cli", "pretty-midi"],
+        help=(
+            "renderer backend (default: pretty-midi). The fallback backend is "
+            "diagnostic/sketch-only and must be requested explicitly."
+        ),
     )
     ap.add_argument(
         "--simple-mix",
@@ -196,6 +200,11 @@ def main(argv=None) -> int:
             "Pass 1 for sequential rendering."
         ),
     )
+    return ap
+
+
+def main(argv=None) -> int:
+    ap = build_parser()
     ns = ap.parse_args(argv)
     if ns.simple_mix and ns.full_mix_only:
         ap.error("--simple-mix and --full-mix-only are mutually exclusive")

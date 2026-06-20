@@ -5,15 +5,18 @@
 
 Location: `tools/ambition_music_renderer/`
 
-Purpose: render and audit generated/adaptive music cues and transition labs.
+Purpose: render, publish, audit, and package generated/adaptive music cues and transition labs.
 
 Common entry points:
 
 ```bash
 cd tools/ambition_music_renderer
 python -m ambition_music_renderer --help
+python -m ambition_music_renderer cue bundle <cue_id> --backend pretty-midi --force --zip
 python -m pytest tests
 ```
+
+The `cue bundle` subcommand is the preferred one-cue handoff path: it runs the renderer with retained debug stems, executes useful diagnostics, writes reports/plots, and optionally zips a chat/upload-friendly bundle. Generated bundles and runtime audio remain ignored by git.
 
 See [`../recipes/generated-music-workflow.md`](../recipes/generated-music-workflow.md) for the current recipe.
 

@@ -10,6 +10,7 @@ Run from the repo root unless noted:
 
 ```bash
 PYTHONPATH=tools/ambition_music_renderer python -m ambition_music_renderer --help
+PYTHONPATH=tools/ambition_music_renderer python -m ambition_music_renderer cue bundle for_emmy_forever_ago --backend pretty-midi --force --zip
 ./generate_audio_assets.sh --force
 ```
 
@@ -30,6 +31,7 @@ Use the package CLI and scripts in this directory for current music-renderer wor
 
 - `ambition_music_renderer/cli.py` - package CLI.
 - `ambition_music_renderer/musicir_renderer.py` - main MusicIR renderer and renderer version.
+- `ambition_music_renderer/cue_bundle.py` - one-command cue regeneration, diagnostics, reports, plots, and uploadable bundles.
 - `scores/active/` - cues actively used or being prepared for runtime.
 - `scores/examples/` - reference/example cues.
 - `scores/archive/` - historical cues kept for reference.
@@ -37,6 +39,7 @@ Use the package CLI and scripts in this directory for current music-renderer wor
 - `install_first_goblin_tune_v2.py` - installer for the first-goblin tune asset path.
 - `audit_cue_balance.py`, `transition_audit.py`, `level_report.py`, `spectral_compare.py`, `spectral_localize.py` - analysis helpers (`level_report.py` is the diff-friendly cross-catalog loudness/clipping report; `--check` gates clipping).
 - `goals.md` - design/planning notes for renderer direction.
+- `MUSIC_RENDERER_REFACTOR_ROADMAP.md` - durable roadmap/checklist for the renderer cleanup.
 
 ## Dependencies and backends
 
@@ -46,10 +49,30 @@ The renderer can use multiple backends depending on local setup:
 |---|---|---|
 | `pretty-midi` | pyFluidSynth + SoundFont, internal reverb/chorus disabled | Preferred for production-quality local renders when available. |
 | `fluidsynth-cli` | the `fluidsynth` binary + SoundFont | Useful when Python FluidSynth bindings misbehave. |
-| `fallback` | additive synth fallback | Portable/CI-ish fallback; sounds synthetic. |
-| `auto` | backend selection/fallback policy | Good for scripts that should run on many machines. |
+| `fallback` | additive synth fallback | Diagnostic/sketch fallback only; request explicitly with `--backend fallback`. Can contain synthetic bow/breath/noise artifacts. |
+| `auto` | backend selection/fallback policy | Use only when fallback behavior is acceptable and explicitly reported. |
 
-SoundFont preference is defined in the renderer code. Prefer high-quality MuseScore/FluidR3 style General MIDI SoundFonts when available. Override per-cue with `render.soundfont` in YAML or per invocation with a backend-specific CLI flag when supported.
+SoundFont preference is defined in the renderer code. Prefer high-quality MuseScore/FluidR3 style General MIDI SoundFonts when available. Override per-cue with `render.soundfont` in YAML or per invocation with a backend-specific CLI flag when supported. Normal authoring defaults should prefer `pretty-midi`; fallback should never appear because a prompt or lower-level script quietly picked it.
+
+
+## One-command cue debug bundles
+
+Use `cue bundle` when regenerating a song for review or for handoff to another
+agent. It renders with retained debug stems, runs the useful reports, writes
+spectrogram PNGs when matplotlib is available, and packages a small uploadable
+bundle on request. Generated bundles remain ignored by git.
+
+```bash
+PYTHONPATH=tools/ambition_music_renderer \
+python -m ambition_music_renderer cue bundle <cue_id> \
+  --backend pretty-midi \
+  --force \
+  --zip
+```
+
+Add `--publish` only when the generated `full.ogg` should be copied into the
+game asset tree. Add `--include-scratch-stems` only for local handoff bundles;
+raw `.npy` stems are useful but usually too large for chat upload.
 
 ## Output and publish model
 

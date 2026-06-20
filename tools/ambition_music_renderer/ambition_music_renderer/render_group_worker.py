@@ -13,12 +13,12 @@ import yaml
 from . import musicir_renderer as r
 
 
-def main(argv=None) -> int:
+def build_parser() -> argparse.ArgumentParser:
     ap = argparse.ArgumentParser()
     ap.add_argument("spec")
     ap.add_argument("--outdir", required=True)
     ap.add_argument("--group", required=True)
-    ap.add_argument("--backend", default="fallback")
+    ap.add_argument("--backend", default="pretty-midi")
     ap.add_argument(
         "--skip-section-ogg",
         action="store_true",
@@ -30,6 +30,11 @@ def main(argv=None) -> int:
             "unused encoded outputs from the render budget."
         ),
     )
+    return ap
+
+
+def main(argv=None) -> int:
+    ap = build_parser()
     ns = ap.parse_args(argv)
     spec_path = Path(ns.spec)
     spec = yaml.safe_load(spec_path.read_text())

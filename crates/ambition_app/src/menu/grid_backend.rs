@@ -1110,7 +1110,8 @@ pub fn install_grid_unified_menu(app: &mut App) {
     );
     app.add_systems(
         Update,
-        grid_menu_republish_view.after(ambition_gameplay_core::schedule::SandboxSet::CoreSimulation),
+        grid_menu_republish_view
+            .after(ambition_gameplay_core::schedule::SandboxSet::CoreSimulation),
     );
     // Carry the active page across a backend switch BEFORE the Grid republishes its
     // body, so you land on the same screen you were on (not Inventory). Ordered AFTER

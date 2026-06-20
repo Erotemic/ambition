@@ -99,7 +99,10 @@ fn spawn_victory_npc_entity(commands: &mut Commands, pos: ae::Vec2) -> Entity {
     let cluster_bundle = npc.into_components();
     let facing = cluster_bundle.0.facing;
     let (identity, disposition, health, combat, intent, cooldowns) =
-        ambition_gameplay_core::features::npc_component_snapshot(&cluster_bundle.3, &cluster_bundle.4);
+        ambition_gameplay_core::features::npc_component_snapshot(
+            &cluster_bundle.3,
+            &cluster_bundle.4,
+        );
     commands
         .spawn((
             Name::new("Post-boss NPC: Smirking Behemoth victory"),

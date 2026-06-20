@@ -39,8 +39,10 @@ fn agent_action_from_json_controls(c: &serde_json::Value) -> AgentAction {
     AgentAction {
         move_x: f32_field(c, "axis_x"),
         move_y: f32_field(c, "axis_y"),
-        up_pressed: false,
-        down_pressed: false,
+        left_pressed: bool_field(c, "left_pressed"),
+        right_pressed: bool_field(c, "right_pressed"),
+        up_pressed: bool_field(c, "up_pressed"),
+        down_pressed: bool_field(c, "down_pressed"),
         jump: bool_field(c, "jump_pressed"),
         jump_held: bool_field(c, "jump_held"),
         jump_released: bool_field(c, "jump_released"),

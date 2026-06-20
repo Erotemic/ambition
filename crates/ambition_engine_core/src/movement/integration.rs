@@ -440,18 +440,22 @@ pub(super) fn integrate_climb_clusters(
         return;
     };
     let spec = contact.spec;
-    // The boost GATE ("press away from the feet") is gravity- + input-mode-relative
-    // via the resolved descend; the climb SPEED stays raw `axis_y` (screen-vertical
-    // along the ladder, already gravity-symmetric since it's a direct screen-space
-    // velocity).
-    let pressing_away_from_gravity = tuning.stick(&input).y < -0.1;
+    // Resolve raw input into the controlled body's local frame, then project that
+    // local intent through the body frame onto the climbable's authored world
+    // axes. Today's climbable regions are vertical world-space spans with a
+    // small horizontal strafe lane; when climbables grow an explicit authored
+    // axis, this projection is the seam that should consume it.
+    let local_stick = tuning.stick(&input);
+    let body_frame = crate::reference_frame::AccelerationFrame::new(tuning.gravity_dir);
+    let world_stick = body_frame.to_world(local_stick);
+    let pressing_away_from_gravity = local_stick.y < -0.1;
     let target_vy = if jump.ladder_jump_boost > 0.0 && pressing_away_from_gravity {
         -tuning.jump_speed * tuning.gravity_sign
     } else {
-        input.axis_y * spec.climb_speed
+        world_stick.y * spec.climb_speed
     };
     kinematics.vel.y = target_vy;
-    let target_vx = input.axis_x * spec.climb_speed * spec.strafe_factor;
+    let target_vx = world_stick.x * spec.climb_speed * spec.strafe_factor;
     kinematics.vel.x = target_vx;
     flight.fast_falling = false;
     flight.gliding = false;

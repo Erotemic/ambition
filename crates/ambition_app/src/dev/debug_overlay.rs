@@ -11,9 +11,6 @@ use bevy::ecs::system::SystemParam;
 use bevy::math::Vec2 as BVec2;
 use bevy::prelude::*;
 
-#[cfg(feature = "input")]
-use ambition_render::rendering::PlayerVisual;
-use ambition_render::rendering::{CameraViewState, SceneEntities};
 use ambition_gameplay_core::config::world_to_bevy;
 use ambition_gameplay_core::dev::dev_tools::DeveloperTools;
 use ambition_gameplay_core::input::ControlFrame;
@@ -22,6 +19,9 @@ use ambition_gameplay_core::input::SandboxAction;
 use ambition_gameplay_core::rooms::{LoadingZone, LoadingZoneActivation, RoomSet};
 use ambition_gameplay_core::world::platforms;
 use ambition_gameplay_core::{GameMode, GameWorld, SandboxDevState};
+#[cfg(feature = "input")]
+use ambition_render::rendering::PlayerVisual;
+use ambition_render::rendering::{CameraViewState, SceneEntities};
 #[cfg(feature = "input")]
 use leafwing_input_manager::prelude::ActionState;
 

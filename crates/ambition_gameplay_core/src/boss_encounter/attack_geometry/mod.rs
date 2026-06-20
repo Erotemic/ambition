@@ -281,9 +281,9 @@ pub fn boss_attack_damage(
     player_entity: bevy::prelude::Entity,
     player_body: ae::Aabb,
 ) -> Option<crate::features::HitEvent> {
-    use crate::engine_core::AabbExt;
     use crate::combat::events::{HitEvent, HitKnockback, HitMode, HitSource, HitTarget};
     use crate::combat::util::midpoint;
+    use crate::engine_core::AabbExt;
 
     let signum_or = |x: f32, fallback: f32| {
         if x.abs() < f32::EPSILON {

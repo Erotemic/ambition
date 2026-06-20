@@ -869,8 +869,8 @@ fn pointer_motion_selects_a_kaleidoscope_control() {
 /// `menu.start` and `menu.back`).
 #[test]
 fn esc_backs_out_then_closes_the_kaleidoscope_via_real_input() {
-    use ambition_render::rendering::PlayerVisual;
     use ambition_gameplay_core::input::SandboxAction;
+    use ambition_render::rendering::PlayerVisual;
     use leafwing_input_manager::prelude::*;
 
     let mut app = App::new();
@@ -1256,7 +1256,9 @@ fn scroll_total_rows(app: &App) -> usize {
     let dev = app
         .world()
         .resource::<ambition_gameplay_core::dev::dev_tools::DeveloperTools>();
-    let dev_state = app.world().resource::<ambition_gameplay_core::SandboxDevState>();
+    let dev_state = app
+        .world()
+        .resource::<ambition_gameplay_core::SandboxDevState>();
     let ldtk_reload = app
         .world()
         .resource::<ambition_gameplay_core::ldtk_world::LdtkHotReloadState>();

@@ -125,16 +125,17 @@ pub struct GameplaySettings {
     #[serde(default)]
     pub pause_input_when_unfocused: bool,
     /// Whether passing through a portal on a same-wall turn-around reverses the
-    /// player's facing direction. Default OFF; mirrored into
+    /// controlled body's facing direction. Default OFF; mirrored into
     /// `PortalTuning::reorient_facing` by the content portal adapter so it can be
     /// toggled live from the gameplay settings page.
     #[serde(default)]
     pub portal_reverses_facing: bool,
-    /// How the movement stick maps onto the player's gravity-relative frame.
-    /// `Hybrid` (default) is the current feel — player-relative up to ±90° from
-    /// screen-down, then screen-aligned past 90°. `Screen` keeps the stick fully
-    /// screen-relative at every orientation (push screen-right → move
-    /// screen-right). Flows into `MovementTuning::input_frame_mode`.
+    /// How raw movement input maps onto the controlled body's local frame.
+    /// `Hybrid` is surfaced as body-relative assist: follow the body frame except
+    /// when upside-down, where the mapping accommodates screen orientation.
+    /// `Screen` is surfaced as screen-directed: press a screen direction to move
+    /// in that screen direction through the controlled body's local frame. Flows
+    /// into `MovementTuning::input_frame_mode`.
     #[serde(default)]
     pub input_frame_mode: InputFrameMode,
 }
@@ -166,8 +167,8 @@ impl Default for GameplaySettings {
 impl GameplaySettings {
     pub const DAMAGE_STEP: f32 = 0.10;
 
-    /// The input-frame modes surfaced to players — the two Jon asked for. The
-    /// engine's third mode (`InputFrameMode::Player`, fully player-relative with no
+    /// The input-frame modes surfaced to the user — the two Jon asked for. The
+    /// engine's third mode (`InputFrameMode::Player`, fully body-relative with no
     /// accommodation) stays dev-only and is reachable through the F3 tuning editor.
     pub const INPUT_FRAME_MODES: [InputFrameMode; 2] =
         [InputFrameMode::Hybrid, InputFrameMode::Screen];
@@ -175,9 +176,9 @@ impl GameplaySettings {
     /// Short, user-facing label for an input-frame mode.
     pub fn input_frame_mode_label(mode: InputFrameMode) -> &'static str {
         match mode {
-            InputFrameMode::Hybrid => "gravity-relative",
-            InputFrameMode::Screen => "screen-relative",
-            InputFrameMode::Player => "player-relative",
+            InputFrameMode::Hybrid => "body-relative assist",
+            InputFrameMode::Screen => "screen-directed",
+            InputFrameMode::Player => "body-relative strict",
         }
     }
 

@@ -502,7 +502,7 @@ pub fn settings_menu_model(settings: &UserSettings) -> SettingsMenuModel {
                 SettingsOptionId::PortalReverseFacing,
                 "Portal Reverses Facing",
                 g.portal_reverses_facing,
-                "Reverse the player's facing when a portal turns them back along the same wall.",
+                "Reverse facing when a portal turns the controlled body back along the same wall.",
             ),
             {
                 let (i, n) = g.input_frame_mode_index();
@@ -514,8 +514,8 @@ pub fn settings_menu_model(settings: &UserSettings) -> SettingsMenuModel {
                     ),
                     i,
                     n,
-                    "How movement maps under rotated gravity: gravity-relative \
-                     (current) or screen-relative.",
+                    "How raw movement input maps onto the controlled body under \
+                     rotated gravity: body-relative assist or screen-directed.",
                 )
             },
         ],

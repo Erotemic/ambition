@@ -14,6 +14,13 @@ use ambition_gameplay_core::input::ControlFrame;
 pub struct AgentAction {
     pub move_x: f32,
     pub move_y: f32,
+    /// Edge-triggered "just pressed left this frame" in the raw input/screen
+    /// frame. Most agents can leave this false; it exists for gesture tests
+    /// under rotated control mappings.
+    pub left_pressed: bool,
+    /// Edge-triggered "just pressed right this frame" in the raw input/screen
+    /// frame.
+    pub right_pressed: bool,
     /// Edge-triggered "just pressed up this frame". The desktop
     /// input pipeline sets this from `actions.just_pressed(MoveUp)`;
     /// agents that want to fire an Up gesture (door tap, ladder
@@ -100,6 +107,8 @@ impl From<AgentAction> for ControlFrame {
             // converter forwards them. The continuous axis still
             // drives `axis_y` so gameplay reads (crouch, fast-fall,
             // ladder-climb) keep working.
+            left_pressed: a.left_pressed,
+            right_pressed: a.right_pressed,
             up_pressed: a.up_pressed,
             down_pressed: a.down_pressed,
             fast_fall_pressed: false,
@@ -137,6 +146,8 @@ mod action_tests {
         assert_eq!(cf.axis_x, 0.0);
         assert_eq!(cf.axis_y, 0.0);
         assert!(!cf.jump_pressed);
+        assert!(!cf.left_pressed);
+        assert!(!cf.right_pressed);
         assert!(!cf.down_pressed);
         assert!(!cf.up_pressed);
         assert!(!cf.attack_pressed);
@@ -181,11 +192,15 @@ mod action_tests {
     #[test]
     fn explicit_edge_flags_are_forwarded() {
         let cf: ControlFrame = AgentAction {
+            left_pressed: true,
+            right_pressed: true,
             up_pressed: true,
             down_pressed: true,
             ..Default::default()
         }
         .into();
+        assert!(cf.left_pressed);
+        assert!(cf.right_pressed);
         assert!(cf.up_pressed);
         assert!(cf.down_pressed);
     }

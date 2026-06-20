@@ -9,47 +9,133 @@
 //!
 //! - **Input frame** — the controller: `axis_x` right-positive, `axis_y`
 //!   screen-down-positive. Raw, never rotated.
-//! - **Player frame** — relative to the player: `+x` is the run / side axis,
-//!   `+y` is *toward the feet* (the player's own "down"). Combat geometry,
+//! - **Local body frame** — relative to the controlled body: `+x` is the run / side
+//!   axis, `+y` is *toward the feet* (the body's own "down"). Combat geometry,
 //!   impulses, and gates are authored here, in the upright (normal-gravity) pose.
 //! - **World frame** — engine coordinates (`+y` screen-down).
 //!
-//! Under normal gravity the player frame *equals* the world frame, so every
+//! Under normal gravity the local body frame *equals* the world frame, so every
 //! transform below is the identity and play is byte-identical.
 
 use crate::Vec2;
 
-/// How the INPUT frame maps onto the player frame — "which way is right when
-/// gravity is sideways or upside-down". A control preference, configurable per
-/// player (see [`AccelerationFrame::control_frame`]).
+/// How the raw INPUT frame maps onto the controlled body's local frame — "which
+/// way is right when gravity is sideways or upside-down". A human-control
+/// preference (see [`AccelerationFrame::control_frame`]).
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Default, serde::Serialize, serde::Deserialize)]
 pub enum InputFrameMode {
     /// Input is always SCREEN-aligned: right is screen-right regardless of
-    /// gravity (the player mentally rotates).
+    /// gravity (the human mentally tracks the controlled body).
     Screen,
-    /// Input always follows the PLAYER frame: right is the player's own right,
-    /// fully rotated with gravity (no accommodation).
+    /// Input always follows the controlled body's local frame: right is the
+    /// body's own right, fully rotated with gravity (no accommodation).
     Player,
-    /// Default HYBRID (Jon's gut-feel): follow the player frame up to ±90° from
-    /// screen-down — gravity down / left / right, where a human tracks the
-    /// rotation fine — then revert to screen-aligned past 90° (gravity up-ish),
-    /// where the flip is hard to map. The vertical "descend" gate (pogo / crouch)
-    /// is independent and always flips with the player frame ([`Self::descend`]).
+    /// Default HYBRID / body-relative assist: follow the controlled body frame
+    /// up to ±90° from screen-down — gravity down / left / right, where a human
+    /// tracks the rotation fine — then revert to screen-aligned past 90° (gravity
+    /// up-ish), where the flip is hard to map. The vertical "descend" gate
+    /// (pogo / crouch) is independent and always flips with the body frame
+    /// ([`Self::descend`]).
     #[default]
     Hybrid,
 }
 
-/// The player's reference frame under a net "down"-defining acceleration.
+/// Raw digital direction edges in the input/screen frame.
+///
+/// These are intentionally separate from the analog axis: an axis can be held
+/// for many frames, while double-tap / interact gestures need the single frame
+/// on which a cardinal direction became newly active.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct RawDirectionEdges {
+    pub left: bool,
+    pub right: bool,
+    pub up: bool,
+    pub down: bool,
+}
+
+impl RawDirectionEdges {
+    pub const fn new(left: bool, right: bool, up: bool, down: bool) -> Self {
+        Self {
+            left,
+            right,
+            up,
+            down,
+        }
+    }
+
+    fn pressed_for_raw_axis(self, raw_axis: Vec2) -> bool {
+        if raw_axis.length_squared() <= 1e-6 {
+            return false;
+        }
+        let axis = raw_axis.normalize();
+        let candidates = [
+            (self.right, Vec2::new(1.0, 0.0)),
+            (self.down, Vec2::new(0.0, 1.0)),
+            (self.left, Vec2::new(-1.0, 0.0)),
+            (self.up, Vec2::new(0.0, -1.0)),
+        ];
+        let mut best = candidates[0];
+        let mut best_dot = axis.dot(candidates[0].1);
+        for candidate in candidates.iter().copied().skip(1) {
+            let dot = axis.dot(candidate.1);
+            if dot > best_dot {
+                best = candidate;
+                best_dot = dot;
+            }
+        }
+        best.0
+    }
+}
+
+/// The controlled body's local interpretation of one raw input frame.
+///
+/// This is the reference-frame seam: presentation/input systems supply raw axes
+/// in screen/input coordinates; gameplay verbs should consume `local_axis` when
+/// they mean unqualified left/right/up/down for the controlled body.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct ResolvedControlFrame {
+    /// Raw input/screen-frame stick: `+x` screen-right, `+y` screen-down.
+    pub raw_axis: Vec2,
+    /// Controlled-body-local stick: `+x` local side/right, `+y` local down
+    /// / toward-feet.
+    pub local_axis: Vec2,
+    pub mode: InputFrameMode,
+    pub frame: AccelerationFrame,
+}
+
+impl ResolvedControlFrame {
+    pub fn local_down_pressed(self, edges: RawDirectionEdges) -> bool {
+        self.frame
+            .local_direction_pressed(self.mode, Vec2::new(0.0, 1.0), edges)
+    }
+
+    pub fn local_up_pressed(self, edges: RawDirectionEdges) -> bool {
+        self.frame
+            .local_direction_pressed(self.mode, Vec2::new(0.0, -1.0), edges)
+    }
+
+    pub fn local_right_pressed(self, edges: RawDirectionEdges) -> bool {
+        self.frame
+            .local_direction_pressed(self.mode, Vec2::new(1.0, 0.0), edges)
+    }
+
+    pub fn local_left_pressed(self, edges: RawDirectionEdges) -> bool {
+        self.frame
+            .local_direction_pressed(self.mode, Vec2::new(-1.0, 0.0), edges)
+    }
+}
+
+/// The controlled body's local reference frame under a net "down"-defining acceleration.
 ///
 /// The common source of `down` is gravity, but the frame is deliberately not
 /// gravity-specific (hence the name): any net proper acceleration — a force
-/// field, thrust, a spinning room — defines the player's local "down", and the
+/// field, thrust, a spinning room — defines the body's local "down", and the
 /// frame transforms the same way. The direction is also NOT snapped to a
 /// cardinal, so an off-axis / rotating "down" works (the transforms are general
 /// rotations); the gravity system happens to feed cardinal directions today.
 ///
 /// `down` (toward the feet, a unit vector) and `side` (the perpendicular run
-/// axis) are the player frame's basis expressed in world coordinates.
+/// axis) are the local body frame's basis expressed in world coordinates.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct AccelerationFrame {
     /// Toward the feet (unit) — the player's own "down". `(0,1)` under normal
@@ -71,6 +157,38 @@ impl AccelerationFrame {
             down,
             side: Vec2::new(down.y, -down.x),
         }
+    }
+
+    /// Build the frame from the nearest cardinal down direction to an arbitrary
+    /// acceleration vector.
+    ///
+    /// Physics may eventually keep arbitrary-angle acceleration, but digital
+    /// controls and glyph labels intentionally snap into the four principal
+    /// screen directions. Keeping that snap here makes the “four cones” rule a
+    /// shared reference-frame policy instead of a per-mechanic special case.
+    pub fn cardinalized(acceleration: Vec2) -> Self {
+        Self::new(Self::nearest_cardinal_down(acceleration))
+    }
+
+    /// Nearest principal `down` direction to `acceleration`.
+    pub fn nearest_cardinal_down(acceleration: Vec2) -> Vec2 {
+        let down = acceleration.try_normalize().unwrap_or(Vec2::new(0.0, 1.0));
+        let candidates = [
+            Vec2::new(0.0, 1.0),
+            Vec2::new(1.0, 0.0),
+            Vec2::new(0.0, -1.0),
+            Vec2::new(-1.0, 0.0),
+        ];
+        let mut best = candidates[0];
+        let mut best_dot = down.dot(best);
+        for candidate in candidates.iter().copied().skip(1) {
+            let dot = down.dot(candidate);
+            if dot > best_dot {
+                best = candidate;
+                best_dot = dot;
+            }
+        }
+        best
     }
 
     /// The frame the INPUT stick maps through, per the player's [`InputFrameMode`].
@@ -109,18 +227,18 @@ impl AccelerationFrame {
 
     /// INPUT → PLAYER, both axes. Resolve the raw INPUT-frame stick
     /// `(axis_x, axis_y)` (right-positive / screen-down-positive) into a
-    /// PLAYER-frame stick — `x` = run (along [`Self::side`]), `y` = descend
+    /// local-body-frame stick — `x` = run (along [`Self::side`]), `y` = descend
     /// (toward the feet, along [`Self::down`]) — per the player's
     /// [`InputFrameMode`]. [`Self::to_world`] on the result gives the world-space
     /// movement direction; the `x`/`y` scalars drive the run axis and the
     /// descend gates respectively.
     ///
-    /// - [`InputFrameMode::Player`] — the stick already IS the player frame:
+    /// - [`InputFrameMode::Player`] — the stick already IS the local body frame:
     ///   `(axis_x, axis_y)`, fully rotated with gravity.
     /// - [`InputFrameMode::Screen`] — the stick is screen-aligned; project it onto
     ///   the player basis so the body moves the way the stick points ON SCREEN at
     ///   any gravity (push screen-right → move screen-right). Under sideways
-    ///   gravity the run/descend roles swap, exactly as a screen-relative player
+    ///   gravity the run/descend roles swap, exactly as screen-directed control
     ///   expects.
     /// - [`InputFrameMode::Hybrid`] — the default. BYTE-IDENTICAL at every
     ///   orientation to the old `axis_x` run + [`Self::descend`] gate: it equals
@@ -140,13 +258,57 @@ impl AccelerationFrame {
         }
     }
 
-    /// PLAYER → WORLD. Rotate a player-frame vector (authored with `+y` toward the
+    /// Resolve a raw input/screen-frame stick into the controlled body's local
+    /// frame and keep both representations together for consumers that need to
+    /// be explicit about which frame they are using.
+    pub fn resolve_control(
+        self,
+        mode: InputFrameMode,
+        axis_x: f32,
+        axis_y: f32,
+    ) -> ResolvedControlFrame {
+        ResolvedControlFrame {
+            raw_axis: Vec2::new(axis_x, axis_y),
+            local_axis: self.resolve_input(mode, axis_x, axis_y),
+            mode,
+            frame: self,
+        }
+    }
+
+    /// Inverse of [`Self::resolve_input`] for a local/body-frame axis.
+    ///
+    /// This is primarily used for touch-glyph placement: given the semantic
+    /// local command (`D`, `U`, `L`, `R`), find the raw joystick direction that
+    /// should be labeled with that command under the active mapping policy.
+    pub fn raw_axis_for_resolved_input(self, mode: InputFrameMode, local_axis: Vec2) -> Vec2 {
+        match mode {
+            InputFrameMode::Player => local_axis,
+            InputFrameMode::Screen => self.to_world(local_axis),
+            InputFrameMode::Hybrid => {
+                let s = if self.down.y < 0.0 { -1.0 } else { 1.0 };
+                local_axis * s
+            }
+        }
+    }
+
+    /// Test whether a raw cardinal edge corresponds to the given local/body
+    /// direction under this input mapping.
+    pub fn local_direction_pressed(
+        self,
+        mode: InputFrameMode,
+        local_axis: Vec2,
+        edges: RawDirectionEdges,
+    ) -> bool {
+        edges.pressed_for_raw_axis(self.raw_axis_for_resolved_input(mode, local_axis))
+    }
+
+    /// LOCAL BODY → WORLD. Rotate a local-body vector (authored with `+y` toward the
     /// feet) into world coordinates. Identity under normal gravity.
     pub fn to_world(self, player: Vec2) -> Vec2 {
         self.side * player.x + self.down * player.y
     }
 
-    /// PLAYER → WORLD for an axis-aligned half-extent. Returns the world-space
+    /// LOCAL BODY → WORLD for an axis-aligned half-extent. Returns the world-space
     /// AABB half-extent that BOUNDS the rotated box: exact for cardinal frames
     /// (90° just swaps width/height), an over-approximation for off-axis frames
     /// (the bound of the tilted rectangle). Identity under normal / inverted
@@ -202,7 +364,7 @@ mod tests {
         let f = AccelerationFrame::new(Vec2::new(0.0, -1.0));
         // Holding screen-up (axis_y = -1) is "descend" (toward the up-feet).
         assert_eq!(f.descend(-1.0), 1.0);
-        // A player-frame "toward feet" offset (+y) maps to screen-up.
+        // A local-body "toward feet" offset (+y) maps to screen-up.
         assert_eq!(f.to_world(Vec2::new(0.0, 32.0)), Vec2::new(0.0, -32.0));
         // Vertical half-extent unchanged (still a 180° frame, no axis swap).
         assert_eq!(
@@ -271,7 +433,13 @@ mod tests {
         // `control_frame(Hybrid).side` by `axis_x`. Old descend: `descend(axis_y)`.
         for (name, down) in CARDINALS {
             let f = AccelerationFrame::new(down);
-            for &(ax, ay) in &[(1.0, 0.0), (-0.4, 0.0), (0.0, 0.7), (0.0, -1.0), (0.6, -0.3)] {
+            for &(ax, ay) in &[
+                (1.0, 0.0),
+                (-0.4, 0.0),
+                (0.0, 0.7),
+                (0.0, -1.0),
+                (0.6, -0.3),
+            ] {
                 let r = f.resolve_input(InputFrameMode::Hybrid, ax, ay);
                 // Run: world velocity direction must match the legacy basis * axis_x.
                 let legacy_run = f.control_frame(InputFrameMode::Hybrid).side * ax;
@@ -296,7 +464,13 @@ mod tests {
         // gravity (to_world ∘ resolve_input == identity on the screen vector).
         for (name, down) in CARDINALS {
             let f = AccelerationFrame::new(down);
-            for &(ax, ay) in &[(1.0, 0.0), (0.0, 1.0), (-1.0, 0.0), (0.0, -1.0), (0.5, -0.5)] {
+            for &(ax, ay) in &[
+                (1.0, 0.0),
+                (0.0, 1.0),
+                (-1.0, 0.0),
+                (0.0, -1.0),
+                (0.5, -0.5),
+            ] {
                 let world = f.to_world(f.resolve_input(InputFrameMode::Screen, ax, ay));
                 assert!(
                     (world - Vec2::new(ax, ay)).length() < 1e-6,
@@ -312,25 +486,110 @@ mod tests {
         // screen-right): run = +side (screen-up), descend = +down (screen-right).
         let right = AccelerationFrame::new(Vec2::new(1.0, 0.0));
         let r = |ax, ay| right.resolve_input(InputFrameMode::Screen, ax, ay);
-        assert_eq!(r(1.0, 0.0), Vec2::new(0.0, 1.0), "input-right -> player-down");
-        assert_eq!(r(0.0, -1.0), Vec2::new(1.0, 0.0), "input-up -> player-right");
-        assert_eq!(r(-1.0, 0.0), Vec2::new(0.0, -1.0), "input-left -> player-up");
-        assert_eq!(r(0.0, 1.0), Vec2::new(-1.0, 0.0), "input-down -> player-left");
+        assert_eq!(
+            r(1.0, 0.0),
+            Vec2::new(0.0, 1.0),
+            "input-right -> player-down"
+        );
+        assert_eq!(
+            r(0.0, -1.0),
+            Vec2::new(1.0, 0.0),
+            "input-up -> player-right"
+        );
+        assert_eq!(
+            r(-1.0, 0.0),
+            Vec2::new(0.0, -1.0),
+            "input-left -> player-up"
+        );
+        assert_eq!(
+            r(0.0, 1.0),
+            Vec2::new(-1.0, 0.0),
+            "input-down -> player-left"
+        );
 
         // Gravity LEFT (feet point screen-left).
         let left = AccelerationFrame::new(Vec2::new(-1.0, 0.0));
         let l = |ax, ay| left.resolve_input(InputFrameMode::Screen, ax, ay);
-        assert_eq!(l(-1.0, 0.0), Vec2::new(0.0, 1.0), "input-left -> player-down");
-        assert_eq!(l(0.0, 1.0), Vec2::new(1.0, 0.0), "input-down -> player-right");
-        assert_eq!(l(0.0, -1.0), Vec2::new(-1.0, 0.0), "input-up -> player-left");
-        assert_eq!(l(1.0, 0.0), Vec2::new(0.0, -1.0), "input-right -> player-up");
+        assert_eq!(
+            l(-1.0, 0.0),
+            Vec2::new(0.0, 1.0),
+            "input-left -> player-down"
+        );
+        assert_eq!(
+            l(0.0, 1.0),
+            Vec2::new(1.0, 0.0),
+            "input-down -> player-right"
+        );
+        assert_eq!(
+            l(0.0, -1.0),
+            Vec2::new(-1.0, 0.0),
+            "input-up -> player-left"
+        );
+        assert_eq!(
+            l(1.0, 0.0),
+            Vec2::new(0.0, -1.0),
+            "input-right -> player-up"
+        );
+    }
+
+    #[test]
+    fn inverse_mapping_places_local_labels_on_raw_joystick_directions() {
+        let right = AccelerationFrame::new(Vec2::new(1.0, 0.0));
+        assert_eq!(
+            right.raw_axis_for_resolved_input(InputFrameMode::Screen, Vec2::new(0.0, 1.0)),
+            Vec2::new(1.0, 0.0),
+            "screen-directed: local down labels raw right when feet point screen-right"
+        );
+        assert_eq!(
+            right.raw_axis_for_resolved_input(InputFrameMode::Hybrid, Vec2::new(0.0, 1.0)),
+            Vec2::new(0.0, 1.0),
+            "body-relative assist: local down stays on raw down for side gravity"
+        );
+
+        let up = AccelerationFrame::new(Vec2::new(0.0, -1.0));
+        assert_eq!(
+            up.raw_axis_for_resolved_input(InputFrameMode::Hybrid, Vec2::new(0.0, 1.0)),
+            Vec2::new(0.0, -1.0),
+            "body-relative assist flips only when inverted"
+        );
+    }
+
+    #[test]
+    fn local_edge_mapping_uses_the_same_inverse_mapping() {
+        let right = AccelerationFrame::new(Vec2::new(1.0, 0.0));
+        let edges = RawDirectionEdges::new(false, true, false, false); // raw right edge
+        let resolved = right.resolve_control(InputFrameMode::Screen, 1.0, 0.0);
+        assert!(resolved.local_down_pressed(edges));
+        assert!(!resolved.local_up_pressed(edges));
+
+        let hybrid = right.resolve_control(InputFrameMode::Hybrid, 1.0, 0.0);
+        assert!(!hybrid.local_down_pressed(edges));
+    }
+
+    #[test]
+    fn cardinalized_acceleration_uses_four_control_cones() {
+        assert_eq!(
+            AccelerationFrame::nearest_cardinal_down(Vec2::new(0.2, 0.9)),
+            Vec2::new(0.0, 1.0)
+        );
+        assert_eq!(
+            AccelerationFrame::nearest_cardinal_down(Vec2::new(0.9, 0.2)),
+            Vec2::new(1.0, 0.0)
+        );
+        assert_eq!(
+            AccelerationFrame::nearest_cardinal_down(Vec2::new(-0.8, 0.1)),
+            Vec2::new(-1.0, 0.0)
+        );
     }
 
     #[test]
     fn player_mode_is_the_raw_stick_in_the_player_frame() {
-        // Player mode never accommodates: the stick IS the player frame.
+        // Player mode never accommodates: the stick IS the local body frame.
         let up = AccelerationFrame::new(Vec2::new(0.0, -1.0));
-        assert_eq!(up.resolve_input(InputFrameMode::Player, 0.3, -0.7), Vec2::new(0.3, -0.7));
+        assert_eq!(
+            up.resolve_input(InputFrameMode::Player, 0.3, -0.7),
+            Vec2::new(0.3, -0.7)
+        );
     }
 
     #[test]

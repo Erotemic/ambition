@@ -15,6 +15,8 @@ pub fn base() -> AgentAction {
     AgentAction {
         move_x: 0.0,
         move_y: 0.0,
+        left_pressed: false,
+        right_pressed: false,
         up_pressed: false,
         down_pressed: false,
         jump: false,

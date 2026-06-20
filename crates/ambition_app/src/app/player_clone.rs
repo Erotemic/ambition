@@ -18,7 +18,6 @@
 
 use bevy::prelude::*;
 
-use ambition_render::rendering::{PlayerSpriteBaseline, PlayerVisual};
 use ambition_gameplay_core::assets::game_assets::GameAssets;
 use ambition_gameplay_core::brain::{ActorControl, Brain, BrainSnapshot, StateMachineCfg};
 use ambition_gameplay_core::character_sprites::{
@@ -27,6 +26,7 @@ use ambition_gameplay_core::character_sprites::{
 };
 use ambition_gameplay_core::engine_core as ae;
 use ambition_gameplay_core::GameWorld;
+use ambition_render::rendering::{PlayerSpriteBaseline, PlayerVisual};
 
 /// Marks a brain-driven player-body clone (NOT the human player).
 #[derive(Component)]
@@ -154,7 +154,10 @@ pub fn spawn_requested_player_clone(
     // Real textured player sprite + animator, mirroring `scene_setup`'s primary
     // visual, so the clone looks like the player instead of a placeholder box.
     // Falls back to a tinted rectangle if the character sheet didn't load.
-    let collision = Vec2::new(ae::DEFAULT_PLAYER_BODY_WIDTH, ae::DEFAULT_PLAYER_BODY_HEIGHT);
+    let collision = Vec2::new(
+        ae::DEFAULT_PLAYER_BODY_WIDTH,
+        ae::DEFAULT_PLAYER_BODY_HEIGHT,
+    );
     let asset = game_assets
         .as_ref()
         .and_then(|g| g.characters.player.as_ref().or(g.characters.robot.as_ref()));
@@ -247,7 +250,10 @@ pub fn despawn_player_clones_on_reset(
 pub fn sync_player_clone_transform(
     world: Res<GameWorld>,
     mut clones: Query<
-        (&ambition_gameplay_core::player::BodyKinematics, &mut Transform),
+        (
+            &ambition_gameplay_core::player::BodyKinematics,
+            &mut Transform,
+        ),
         With<PlayerClone>,
     >,
 ) {

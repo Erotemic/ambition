@@ -23,8 +23,8 @@
 use bevy::diagnostic::{DiagnosticsStore, FrameTimeDiagnosticsPlugin};
 use bevy::prelude::*;
 
-use ambition_render::ui_fonts::{UiFontWeight, UiFonts};
 use ambition_gameplay_core::persistence::settings::UserSettings;
+use ambition_render::ui_fonts::{UiFontWeight, UiFonts};
 
 const FPS_OVERLAY_REFRESH_SECONDS: f32 = 0.25;
 

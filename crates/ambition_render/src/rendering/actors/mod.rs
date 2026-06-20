@@ -19,12 +19,12 @@ use ambition_gameplay_core::boss_encounter::sprites::{self, BossAnimState, BossA
 use ambition_gameplay_core::character_sprites::{
     build_character_sprite, feet_anchor_for, CharacterAnimator,
 };
+use ambition_gameplay_core::combat::BoundFeatureKind;
 use ambition_gameplay_core::config::{world_to_bevy, WORLD_Z_PLAYER};
 use ambition_gameplay_core::features::{
     BossClusterRef, BreakableFeature, ChestFeature, FeatureId, FeatureViewIndex, FeatureVisualKind,
     Opened,
 };
-use ambition_gameplay_core::combat::BoundFeatureKind;
 
 mod animation;
 mod boss;
@@ -170,8 +170,10 @@ fn state_aware_entity_sprite(
             ambition_gameplay_core::features::ecs_breakable_state(id, ecs_breakables)
                 .map(game_assets::breakable_state_sprite)
         }
-        FeatureVisualKind::Chest => ambition_gameplay_core::features::ecs_chest_opened(id, ecs_chests)
-            .map(game_assets::chest_state_sprite),
+        FeatureVisualKind::Chest => {
+            ambition_gameplay_core::features::ecs_chest_opened(id, ecs_chests)
+                .map(game_assets::chest_state_sprite)
+        }
         // Switch shows its on/off button sprite (armed = on, disabled = off)
         // instead of a flat colored block (#57).
         FeatureVisualKind::Switch => Some(if switch_on {
@@ -338,7 +340,8 @@ pub fn upgrade_npc_sprites(
         if bound.is_some_and(|b| b.matches(view.kind, view.size)) {
             continue;
         }
-        let Some(name) = ambition_gameplay_core::features::ecs_npc_name(&visual.id, &ecs_actors) else {
+        let Some(name) = ambition_gameplay_core::features::ecs_npc_name(&visual.id, &ecs_actors)
+        else {
             continue;
         };
         let Some(character_asset) = assets.characters.npc_asset_for_name(&name) else {

@@ -84,9 +84,10 @@ pub fn fold_to_control_frame(
     if touch_move_mag > 0.05 {
         frame.axis_x = touch_frame.axis_x;
         frame.axis_y = touch_frame.axis_y;
-        // Also forward the up/down edge flags from touch, since
-        // an axis source switch can be the gesture that fires
-        // a Door tap or ladder entry.
+        // Also forward the cardinal edge flags from touch, since an axis source
+        // switch can be the gesture that fires a local-direction tap.
+        frame.left_pressed = frame.left_pressed || touch_frame.left_pressed;
+        frame.right_pressed = frame.right_pressed || touch_frame.right_pressed;
         frame.up_pressed = frame.up_pressed || touch_frame.up_pressed;
         frame.down_pressed = frame.down_pressed || touch_frame.down_pressed;
     }
@@ -242,11 +243,12 @@ pub fn touch_move_to_menu_dir(
     touch: TouchInputState,
     deadzone: f32,
 ) -> Option<ambition_gameplay_core::input::MenuDir> {
-    let (x, y_down) = ambition_gameplay_core::persistence::settings::ControlSettings::apply_deadzone(
-        touch.move_x,
-        touch.move_y,
-        deadzone,
-    );
+    let (x, y_down) =
+        ambition_gameplay_core::persistence::settings::ControlSettings::apply_deadzone(
+            touch.move_x,
+            touch.move_y,
+            deadzone,
+        );
     ambition_gameplay_core::input::analog_to_dir(x, -y_down, 0.5)
 }
 

@@ -14,9 +14,9 @@ use super::layout::{
 };
 use super::menu_bridge::{fold_to_control_frame, fold_to_menu_control_frame};
 use super::state::TouchInputState;
-use ambition_render::ui_fonts::{UiFontWeight, UiFonts};
 use ambition_gameplay_core::input::{ControlFrame, KeyboardPreset, MenuInputState, SandboxAction};
 use ambition_gameplay_core::ui_nav::DragScrollState;
+use ambition_render::ui_fonts::{UiFontWeight, UiFonts};
 
 /// Global z-band for the on-screen touch HUD (joystick + action /
 /// menu buttons + bezel).
@@ -319,14 +319,13 @@ fn spawn_touch_joysticks(mut cmd: Commands, mut images: ResMut<Assets<Image>>) {
 }
 
 /// A U/D/L/R glyph overlaid on the move joystick, marking one axis of the
-/// PLAYER's reference frame in screen space. `player_axis` is the unit direction
-/// in the player frame (down `(0,1)`, up `(0,-1)`, right `(1,0)`, left `(-1,0)`);
-/// `position_frame_axis_glyphs` rotates it into screen space each frame via the
-/// live [`AccelerationFrame`], so the labels spin as gravity rotates — a live
-/// readout of the player's reference frame vs the control (joystick) frame.
+/// controlled character's local reference frame. `local_axis` is the local unit
+/// direction (down `(0,1)`, up `(0,-1)`, right `(1,0)`, left `(-1,0)`).
+/// `position_frame_axis_glyphs` places each label at the raw joystick direction
+/// that resolves to that local command under the active input mapping mode.
 #[derive(Component, Clone, Copy)]
 pub struct FrameAxisGlyph {
-    pub player_axis: Vec2,
+    pub local_axis: Vec2,
 }
 
 /// Spawn the four reference-frame glyphs as a non-interactive overlay sharing the
@@ -366,38 +365,34 @@ fn spawn_frame_axis_glyphs(mut cmd: Commands, ui_fonts: Option<Res<UiFonts>>) {
                 font.clone(),
                 TextColor(Color::srgba(0.80, 0.90, 1.0, 0.85)),
                 bevy::picking::Pickable::IGNORE,
-                FrameAxisGlyph { player_axis: axis },
+                FrameAxisGlyph { local_axis: axis },
             ));
         }
     });
 }
 
-/// Place each glyph at the INPUT-frame direction that maps to its player axis —
-/// i.e. how the joystick maps to the player frame, with NO screen relationship.
-/// Because the input (control) frame equals the player frame for ≤90° gravity
-/// (down / left / right), the glyphs DON'T move there (U stays on top); only the
-/// >90° accommodation (gravity up) — where the input reverts to screen-aligned but
-/// the player is flipped — swings them (U to the bottom). The math is the player
-/// axis re-expressed in the control frame's basis; world coords cancel out.
+/// Place each glyph at the raw INPUT-frame direction that maps to its local
+/// controlled-character command. Gameplay and the touch labels share the same
+/// inverse mapping, so labels move only when the active mapping policy says that
+/// a different raw joystick direction now means local U/D/L/R.
 fn position_frame_axis_glyphs(
     gravity: Option<Res<ambition_gameplay_core::physics::GravityField>>,
+    user_settings: Option<Res<ambition_gameplay_core::persistence::settings::UserSettings>>,
     mut glyphs: Query<(&FrameAxisGlyph, &mut Node)>,
 ) {
     use ambition_gameplay_core::engine_core::{AccelerationFrame, InputFrameMode};
     let gdir = gravity
         .as_deref()
         .map_or(Vec2::new(0.0, 1.0), |g| Vec2::new(g.dir.x, g.dir.y));
-    let player = AccelerationFrame::new(gdir);
-    // The joystick maps input through the control frame (default mapping).
-    let control = player.control_frame(InputFrameMode::Hybrid);
+    let mode = user_settings
+        .as_deref()
+        .map_or(InputFrameMode::Hybrid, |s| s.gameplay.input_frame_mode);
+    let frame = AccelerationFrame::new(gdir);
     let layout = movement_joystick_layout();
     let center = layout.base_size * 0.5;
     let radius = layout.base_size * 0.36;
     for (glyph, mut node) in &mut glyphs {
-        // player axis -> (intermediate world) -> input frame. For ≤90° gravity
-        // `control == player`, so this collapses to the player axis itself.
-        let world = player.to_world(glyph.player_axis);
-        let on_input = Vec2::new(world.dot(control.side), world.dot(control.down));
+        let on_input = frame.raw_axis_for_resolved_input(mode, glyph.local_axis);
         node.left = Val::Px(center + on_input.x * radius - 7.0);
         node.top = Val::Px(center + on_input.y * radius - 13.0);
     }
@@ -1295,6 +1290,7 @@ fn drive_joystick_knob_from_axis(
 fn read_joystick_messages(
     mut reader: MessageReader<VirtualJoystickMessage<MobileStick>>,
     mut state: ResMut<MobileTouchState>,
+    mut prev_move_x: Local<f32>,
     mut prev_move_y: Local<f32>,
 ) {
     for msg in reader.read() {
@@ -1323,14 +1319,18 @@ fn read_joystick_messages(
             }
         }
     }
-    // Compute Up/Down edge crossings from move_y diff. The pure
-    // folder reads these; setting them only on the threshold-
-    // crossing frame keeps the double-tap-down detector honest
-    // (held Down doesn't repeatedly fire MorphBall).
+    // Compute cardinal edge crossings from move-axis diffs. The pure folder
+    // reads these; setting them only on the threshold-crossing frame keeps the
+    // double-tap detectors honest (a held direction is not repeated presses).
     const THRESHOLD: f32 = 0.5;
+    let crossed_left = *prev_move_x >= -THRESHOLD && state.0.move_x < -THRESHOLD;
+    let crossed_right = *prev_move_x <= THRESHOLD && state.0.move_x > THRESHOLD;
     let crossed_up = *prev_move_y >= -THRESHOLD && state.0.move_y < -THRESHOLD;
     let crossed_down = *prev_move_y <= THRESHOLD && state.0.move_y > THRESHOLD;
+    state.0.move_x_just_crossed_left = crossed_left;
+    state.0.move_x_just_crossed_right = crossed_right;
     state.0.move_y_just_crossed_up = crossed_up;
     state.0.move_y_just_crossed_down = crossed_down;
+    *prev_move_x = state.0.move_x;
     *prev_move_y = state.0.move_y;
 }

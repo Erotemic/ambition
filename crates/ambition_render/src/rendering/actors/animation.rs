@@ -121,8 +121,9 @@ pub fn animate_player(
         // ADR 0011 — `entity_dt` collapses to `sim_dt` when no ProperTimeScale is
         // set (SP default), so bullet-time / hitstop / pause still slow the
         // animation in lockstep.
-        let dt = world_time
-            .entity_dt(ambition_gameplay_core::time::time_control::ProperTimeScale::or_default(scale));
+        let dt = world_time.entity_dt(
+            ambition_gameplay_core::time::time_control::ProperTimeScale::or_default(scale),
+        );
         // Hit feedback is drawn by the white-silhouette overlay in
         // `presentation::rendering::hit_flash` — a sibling mesh that samples this
         // atlas frame and outputs pure white modulated by `PlayerCombatState::
@@ -176,8 +177,9 @@ pub fn animate_characters(
     // boss freezes the world but leaves the player un-frozen, or
     // future MP boosts one player's proper time.
     for (visual, mut sprite, mut animator, scale) in &mut query {
-        let dt = world_time
-            .entity_dt(ambition_gameplay_core::time::time_control::ProperTimeScale::or_default(scale));
+        let dt = world_time.entity_dt(
+            ambition_gameplay_core::time::time_control::ProperTimeScale::or_default(scale),
+        );
         let (anim, facing, pos, hit_flash, attacking) = if let Some(state) =
             ambition_gameplay_core::features::ecs_enemy_anim_state(&visual.id, &ecs_actors)
         {
@@ -275,8 +277,9 @@ pub fn animate_props(
             }
             continue;
         }
-        let dt = world_time
-            .entity_dt(ambition_gameplay_core::time::time_control::ProperTimeScale::or_default(scale));
+        let dt = world_time.entity_dt(
+            ambition_gameplay_core::time::time_control::ProperTimeScale::or_default(scale),
+        );
         animator.request(ambition_gameplay_core::character_sprites::CharacterAnim::Idle);
         let index = animator.tick(dt);
         if let Some(atlas) = sprite.texture_atlas.as_mut() {

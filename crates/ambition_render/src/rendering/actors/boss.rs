@@ -256,10 +256,14 @@ pub fn animate_bosses(
     // own animation while the world is frozen by its SimClock
     // request.
     for (visual, mut sprite, mut animator, scale) in &mut query {
-        let dt = world_time
-            .entity_dt(ambition_gameplay_core::time::time_control::ProperTimeScale::or_default(scale));
+        let dt = world_time.entity_dt(
+            ambition_gameplay_core::time::time_control::ProperTimeScale::or_default(scale),
+        );
         let Some((boss_entity, state)): Option<(Entity, BossAnimState)> =
-            ambition_gameplay_core::features::ecs_boss_anim_state_and_entity(&visual.id, &ecs_bosses)
+            ambition_gameplay_core::features::ecs_boss_anim_state_and_entity(
+                &visual.id,
+                &ecs_bosses,
+            )
         else {
             continue;
         };

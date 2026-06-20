@@ -118,7 +118,11 @@ pub fn spawn_morph_ball_visual(
             custom_size: Some(bevy::math::Vec2::new(16.0, 16.0)),
             ..default()
         },
-        Transform::from_xyz(0.0, 0.0, ambition_gameplay_core::config::WORLD_Z_PLAYER + 0.05),
+        Transform::from_xyz(
+            0.0,
+            0.0,
+            ambition_gameplay_core::config::WORLD_Z_PLAYER + 0.05,
+        ),
         Visibility::Hidden,
         MorphBallVisual,
         Name::new("Morph Ball Visual"),

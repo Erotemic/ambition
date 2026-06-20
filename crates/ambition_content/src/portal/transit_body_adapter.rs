@@ -15,9 +15,7 @@
 use bevy::prelude::*;
 
 use ambition_gameplay_core::features::{BodyKinematics, BossConfig};
-use ambition_gameplay_core::player::{
-    trail::TrailContinuityBreak, PlayerEntity, PrimaryPlayer,
-};
+use ambition_gameplay_core::player::{trail::TrailContinuityBreak, PlayerEntity, PrimaryPlayer};
 use ambition_gameplay_core::portal::{
     BodyTeleported, PlayerMovementIntent, PortalBody, PortalBodyTransited, PortalEmission,
     PortalInputWarp, PortalPolicy, PortalTuning,
@@ -213,7 +211,9 @@ mod projectile_transit_tests {
     use ambition_gameplay_core::portal::{
         portal_half_extent, portal_transit, PlacedPortal, PortalBody, PortalChannel, PortalGunColor,
     };
-    use ambition_gameplay_core::projectile::{ProjectileFaction, ProjectileGameplay, ProjectileKind};
+    use ambition_gameplay_core::projectile::{
+        ProjectileFaction, ProjectileGameplay, ProjectileKind,
+    };
 
     use super::ensure_projectile_portal_bodies;
 

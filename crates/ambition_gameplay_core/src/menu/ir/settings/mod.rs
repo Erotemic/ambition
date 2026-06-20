@@ -131,11 +131,11 @@ pub enum SettingsOptionId {
     /// Suppress gameplay + menu input while the OS window is unfocused (opt-in
     /// guard against background input bleed). Default OFF.
     PauseInputUnfocused,
-    /// Reverse the player's facing when transiting a same-wall portal pair.
+    /// Reverse facing when transiting a same-wall portal pair.
     /// Default OFF; mirrored into `PortalTuning::reorient_facing`.
     PortalReverseFacing,
-    /// How the movement stick maps onto the gravity-relative frame
-    /// (gravity-relative `Hybrid` vs `Screen`). Flows into
+    /// How raw movement input maps onto the controlled body's local frame
+    /// (`Hybrid` body-relative assist vs `Screen` screen-directed). Flows into
     /// `MovementTuning::input_frame_mode`.
     InputFrameMode,
     // Menu-level action (not under any category).

@@ -58,13 +58,13 @@ pub struct TouchInputState {
     /// Left stick raw value `[-1, 1]` (pre-deadzone).
     pub move_x: f32,
     pub move_y: f32,
-    /// Edge flags: true on the frame the move stick crossed the
-    /// up/down threshold (in either direction). The Bevy plugin
-    /// computes these by diffing against the previous frame's
-    /// `move_y`; tests / RL agents can set them directly. Auto-
-    /// deriving from `move_y > 0.5` per frame is incorrect because
-    /// `register_down_tap` would count every held frame as a
-    /// fresh tap and trigger MorphBall on the second frame.
+    /// Edge flags: true on the frame the move stick crossed a cardinal
+    /// threshold. The Bevy plugin computes these by diffing against the
+    /// previous frame's `move_x`/`move_y`; tests / RL agents can set them
+    /// directly. Auto-deriving from a held axis every frame is incorrect
+    /// because double-tap detectors would count every held frame as a fresh tap.
+    pub move_x_just_crossed_left: bool,
+    pub move_x_just_crossed_right: bool,
     pub move_y_just_crossed_up: bool,
     pub move_y_just_crossed_down: bool,
     /// Right stick raw value `[-1, 1]` (pre-deadzone).
@@ -131,6 +131,8 @@ pub fn fold_touch_into_control_frame(
     // true as a fresh tap and double-taps into MorphBall after one
     // held frame -- the same bug class as the AgentAction
     // converter; same fix.
+    let left_pressed = state.move_x_just_crossed_left;
+    let right_pressed = state.move_x_just_crossed_right;
     let up_pressed = state.move_y_just_crossed_up;
     let down_pressed = state.move_y_just_crossed_down;
 
@@ -141,6 +143,8 @@ pub fn fold_touch_into_control_frame(
         jump_held: state.jump.held,
         jump_released: state.jump.released_this_frame,
         dash_pressed: state.dash.pressed_this_frame,
+        left_pressed,
+        right_pressed,
         up_pressed,
         down_pressed,
         fast_fall_pressed: false,
@@ -198,6 +202,8 @@ pub(crate) fn touch_state_is_active(state: &TouchInputState) -> bool {
         || state.shield.pressed_this_frame
         || state.start.pressed_this_frame
         || state.reset.pressed_this_frame
+        || state.move_x_just_crossed_left
+        || state.move_x_just_crossed_right
         || state.move_y_just_crossed_up
         || state.move_y_just_crossed_down;
     let any_release = state.jump.released_this_frame

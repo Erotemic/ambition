@@ -851,8 +851,8 @@ fn architecture_boundaries_gravity_zone_mechanic_left_portal() {
         &["gravity_visuals.rs"],
         "gravity visuals live in the render crate",
     );
-    let gravity_plugin = fs::read_to_string(src_root.join("gravity/plugin.rs"))
-        .expect("read gravity plugin");
+    let gravity_plugin =
+        fs::read_to_string(src_root.join("gravity/plugin.rs")).expect("read gravity plugin");
     assert!(
         gravity_plugin.contains("pub struct GravityPlugin"),
         "gravity mechanic should own a GravityPlugin"

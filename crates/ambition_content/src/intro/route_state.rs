@@ -125,7 +125,8 @@ pub fn compute_intro_flag_gated_lock_walls(
             if entity.identifier != "LockWall" {
                 continue;
             }
-            let Some(id) = ambition_gameplay_core::world::ldtk_world::field_string(entity, "id") else {
+            let Some(id) = ambition_gameplay_core::world::ldtk_world::field_string(entity, "id")
+            else {
                 continue;
             };
             let id_trim = id.trim();
@@ -138,10 +139,14 @@ pub fn compute_intro_flag_gated_lock_walls(
             if save.flag(flag) {
                 continue;
             }
-            let min =
-                ambition_gameplay_core::engine_core::Vec2::new(entity.px[0] as f32, entity.px[1] as f32);
-            let size =
-                ambition_gameplay_core::engine_core::Vec2::new(entity.width as f32, entity.height as f32);
+            let min = ambition_gameplay_core::engine_core::Vec2::new(
+                entity.px[0] as f32,
+                entity.px[1] as f32,
+            );
+            let size = ambition_gameplay_core::engine_core::Vec2::new(
+                entity.width as f32,
+                entity.height as f32,
+            );
             out.push((id_trim.to_string(), min, size));
         }
     }
@@ -183,7 +188,9 @@ pub fn sync_intro_flag_gated_lock_walls(
             world
                 .0
                 .blocks
-                .push(ambition_gameplay_core::engine_core::Block::solid(name, min, size));
+                .push(ambition_gameplay_core::engine_core::Block::solid(
+                    name, min, size,
+                ));
         }
     }
 }
@@ -280,8 +287,14 @@ mod tests {
         assert_eq!(walls.len(), 1, "expected one lock wall");
         let (id, min, size) = &walls[0];
         assert_eq!(id, "alice_private_return_lock");
-        assert_eq!(*min, ambition_gameplay_core::engine_core::Vec2::new(800.0, 624.0));
-        assert_eq!(*size, ambition_gameplay_core::engine_core::Vec2::new(96.0, 112.0));
+        assert_eq!(
+            *min,
+            ambition_gameplay_core::engine_core::Vec2::new(800.0, 624.0)
+        );
+        assert_eq!(
+            *size,
+            ambition_gameplay_core::engine_core::Vec2::new(96.0, 112.0)
+        );
     }
 
     /// Once the unlock flag flips, compute should drop the LockWall
@@ -451,7 +464,9 @@ mod tests {
             .data_mut()
             .set_flag("alice_route_note_carried", true);
         app.world_mut().resource_mut::<QuestRegistry>().push_event(
-            ambition_gameplay_core::quest::QuestAdvanceEvent::FlagSet("alice_route_note_carried".into()),
+            ambition_gameplay_core::quest::QuestAdvanceEvent::FlagSet(
+                "alice_route_note_carried".into(),
+            ),
         );
         app.update();
         assert_eq!(
@@ -466,7 +481,9 @@ mod tests {
             .data_mut()
             .set_flag("bob_field_survey_received", true);
         app.world_mut().resource_mut::<QuestRegistry>().push_event(
-            ambition_gameplay_core::quest::QuestAdvanceEvent::FlagSet("bob_field_survey_received".into()),
+            ambition_gameplay_core::quest::QuestAdvanceEvent::FlagSet(
+                "bob_field_survey_received".into(),
+            ),
         );
         app.update();
         assert_eq!(step(&app), 2, "after bob survey, quest should be at step 2");

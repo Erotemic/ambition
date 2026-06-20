@@ -57,6 +57,8 @@ impl<'a> NpcMut<'a> {
             actor_pos: self.kin.pos,
             actor_vel: self.kin.vel,
             actor_facing: self.kin.facing,
+            control_down: gravity_dir,
+            input_frame_mode: ae::InputFrameMode::Hybrid,
             actor_on_ground: self.surface.on_ground,
             alive: true,
             target_pos,

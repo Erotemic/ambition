@@ -196,14 +196,14 @@ pub struct MovementTuning {
     /// baked before it existed deserialize as normal gravity.
     #[serde(default = "default_gravity_sign")]
     pub gravity_sign: f32,
-    /// Cardinal gravity DIRECTION for the player (unit vector; `(0,1)` = down,
-    /// `(0,-1)` = up, `(±1,0)` = wall-walking). The player movement model is
+    /// Cardinal gravity DIRECTION for the controlled body (unit vector; `(0,1)` = down,
+    /// `(0,-1)` = up, `(±1,0)` = wall-walking). The movement model is
     /// gravity-direction-relative; the `gravity_sign` scalar above is the legacy
     /// Y-only form kept for the vertical-only actor controllers (enemies/NPCs).
     /// Set per-frame from the world `GravityField` (cardinal-snapped).
     #[serde(default = "default_gravity_dir")]
     pub gravity_dir: Vec2,
-    /// How raw stick input maps onto the player's gravity-relative frame for free
+    /// How raw stick input maps onto the controlled body's gravity-relative frame for free
     /// movement (run / flight). The toward-feet gate (pogo/crouch) is independent.
     #[serde(default)]
     pub input_frame_mode: crate::reference_frame::InputFrameMode,
@@ -270,7 +270,7 @@ impl Default for MovementTuning {
 }
 
 impl MovementTuning {
-    /// Resolve raw input `(axis_x, axis_y)` into the PLAYER-frame stick
+    /// Resolve raw input `(axis_x, axis_y)` into the controlled body's local stick
     /// (`x` = run, `y` = descend) for this tuning's gravity + [`input_frame_mode`].
     /// The one seam the run axis and the descend gates share, so they always
     /// honor the same control preference. Under `Hybrid` (the default) this is

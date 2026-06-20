@@ -9,7 +9,6 @@ use super::components::{
 use super::events::PlayerHealRequested;
 use super::movement_components::{BodyKinematics, PlayerGroundState};
 use crate::brain::{ActorControl, Brain, BrainSnapshot};
-#[cfg(test)]
 use crate::engine_core as ae;
 use crate::features::ActorPose;
 use crate::input::ControlFrame;
@@ -52,6 +51,8 @@ pub fn sync_player_actor_poses(
 /// system shape is multi-player ready even though only one player
 /// exists today.
 pub fn tick_player_brains(
+    gravity_field: Option<Res<crate::physics::GravityField>>,
+    user_settings: Option<Res<crate::persistence::settings::UserSettings>>,
     mut players: Query<(
         &PlayerSlot,
         &PlayerInputFrame,
@@ -61,6 +62,13 @@ pub fn tick_player_brains(
         &mut ActorControl,
     )>,
 ) {
+    let control_down = gravity_field
+        .as_deref()
+        .map_or(ae::Vec2::new(0.0, 1.0), |g| g.dir);
+    let input_frame_mode = user_settings
+        .as_deref()
+        .map_or(ae::InputFrameMode::Hybrid, |s| s.gameplay.input_frame_mode);
+
     for (slot, input, kin, ground, mut brain, mut control) in &mut players {
         // Build the snapshot from the player's cluster components plus
         // the per-tick input frame. The input is what makes
@@ -70,6 +78,8 @@ pub fn tick_player_brains(
             actor_pos: kin.pos,
             actor_vel: kin.vel,
             actor_facing: kin.facing,
+            control_down,
+            input_frame_mode,
             actor_on_ground: ground.on_ground,
             alive: true,
             target_pos: kin.pos,

@@ -8,6 +8,9 @@
 //! during play. Routing nav/selection input to it is the next step — see
 //! `dev/journals/oot-cube-integration-plan.md`.
 
+use ambition_gameplay_core::menu::backend::{
+    InventoryUiBackend, KALEIDOSCOPE_MENU_BACKEND_ENABLED,
+};
 use ambition_menu::kaleidoscope::{
     rebuild_cube_faces, KaleidoscopeActiveFaceControl, KaleidoscopeFocusVisuals,
     KaleidoscopeMenuConfig, KaleidoscopeMenuPlugin, KaleidoscopeRender, KaleidoscopeRenderPre,
@@ -16,7 +19,6 @@ use ambition_menu::{
     ActiveMenuPages, AmbitionInventoryUiPlugin, AmbitionMenuControl, MenuDynamicText,
     MenuDynamicTextContent, MenuVisualState,
 };
-use ambition_gameplay_core::menu::backend::{InventoryUiBackend, KALEIDOSCOPE_MENU_BACKEND_ENABLED};
 use bevy::prelude::*;
 
 use crate::menu::effects::{MenuEffectManaQuery, MenuEffectPlayers};
@@ -393,7 +395,10 @@ pub(crate) struct SystemMenuParams<'w> {
     radio: Option<ResMut<'w, ambition_gameplay_core::audio::RadioStationState>>,
     #[cfg(feature = "audio")]
     music_channel: Option<
-        Res<'w, bevy_kira_audio::prelude::AudioChannel<ambition_gameplay_core::audio::MusicChannel>>,
+        Res<
+            'w,
+            bevy_kira_audio::prelude::AudioChannel<ambition_gameplay_core::audio::MusicChannel>,
+        >,
     >,
 }
 
@@ -1092,9 +1097,9 @@ pub(crate) fn system_row_action_for(
 ) -> Option<MenuPageAction> {
     match row {
         SystemRow::Entry(id) => match model.entry(id).map(|e| &e.target) {
-            Some(ambition_gameplay_core::persistence::settings::SystemMenuTarget::Action(action)) => {
-                Some(MenuPageAction::SystemAction(*action))
-            }
+            Some(ambition_gameplay_core::persistence::settings::SystemMenuTarget::Action(
+                action,
+            )) => Some(MenuPageAction::SystemAction(*action)),
             _ => Some(MenuPageAction::OpenSystemEntry(id)),
         },
         SystemRow::Setting(o) => Some(MenuPageAction::System(o)),

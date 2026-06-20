@@ -99,10 +99,11 @@ pub fn possession_trigger_system(
     let gravity_dir = gravity_field
         .as_deref()
         .map_or(crate::engine_core::Vec2::new(0.0, 1.0), |g| g.dir);
-    let input_mode = user_settings.as_deref().map_or(
-        crate::engine_core::InputFrameMode::Hybrid,
-        |s| s.gameplay.input_frame_mode,
-    );
+    let input_mode = user_settings
+        .as_deref()
+        .map_or(crate::engine_core::InputFrameMode::Hybrid, |s| {
+            s.gameplay.input_frame_mode
+        });
     let descend = crate::engine_core::AccelerationFrame::new(gravity_dir)
         .resolve_input(input_mode, control.axis_x, control.axis_y)
         .y;

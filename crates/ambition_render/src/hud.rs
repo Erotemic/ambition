@@ -186,7 +186,10 @@ pub fn update_player_hud(
         node.width = Val::Percent(mp_frac * 100.0);
     }
     if let Ok(mut text) = labels.p0().single_mut() {
-        set_text_if_changed(&mut text, format!("HP {}/{}", health.current(), health.max()));
+        set_text_if_changed(
+            &mut text,
+            format!("HP {}/{}", health.current(), health.max()),
+        );
     }
     if let Ok(mut text) = labels.p1().single_mut() {
         set_text_if_changed(&mut text, format!("MP {}", mana.meter.current as i32));

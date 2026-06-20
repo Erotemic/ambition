@@ -24,7 +24,9 @@ use std::path::PathBuf;
 
 use ambition_app::rl_sim::{SandboxSim, SandboxSimOptions, TimestepMode};
 use ambition_gameplay_core::input::ControlFrame;
-use ambition_gameplay_core::trace::{self, record_simulation_frame, DumpReason, GameplayTraceBuffer};
+use ambition_gameplay_core::trace::{
+    self, record_simulation_frame, DumpReason, GameplayTraceBuffer,
+};
 
 fn parse_max_ticks(args: &[String]) -> u32 {
     // First positional non-flag arg is the tick count.
@@ -94,7 +96,8 @@ fn run_with_trace_dump(max_ticks: u32, dump_dir: PathBuf, start_room: Option<Str
             let control_frame = *world_ref.resource::<ControlFrame>();
             let room_set = world_ref.resource::<RoomSet>();
             let game_mode = world_ref.resource::<State<GameModeState>>();
-            let moving_platforms = world_ref.resource::<ambition_gameplay_core::MovingPlatformSet>();
+            let moving_platforms =
+                world_ref.resource::<ambition_gameplay_core::MovingPlatformSet>();
             let game_world = world_ref.resource::<GameWorld>();
             let active_area = room_set.active_spec().id.clone();
             let mode_label = format!("{:?}", game_mode.get());

@@ -631,9 +631,11 @@ pub(crate) fn draw_feature_debug(
         if !boss.status.alive {
             continue;
         }
-        let ctx =
-            ambition_gameplay_core::features::BossVolumeContext::from_ref(bf.as_boss_ref(), attack_state)
-                .with_animation_frame(animation_frame);
+        let ctx = ambition_gameplay_core::features::BossVolumeContext::from_ref(
+            bf.as_boss_ref(),
+            attack_state,
+        )
+        .with_animation_frame(animation_frame);
         draw_aabb_styled(gizmos, world, boss.aabb(), boss_color, developer_tools);
         // Body-contact damage zone — drawn ONLY when the boss
         // actually deals contact damage so a `body_damage = 0`

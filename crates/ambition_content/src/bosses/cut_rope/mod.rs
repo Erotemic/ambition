@@ -11,10 +11,6 @@
 use bevy::prelude::*;
 use bevy::sprite::Anchor;
 
-use ambition_render::fx::{
-    ExplosionKind, ExplosionRequest, FireworksRequest, ParticleKind, VfxMessage,
-};
-use ambition_render::rendering::PropVisual;
 use ambition_gameplay_core::assets::game_assets::GameAssets;
 use ambition_gameplay_core::audio::SfxMessage;
 use ambition_gameplay_core::boss_encounter::{force_boss_death, BossEncounterRegistry};
@@ -33,6 +29,10 @@ use ambition_gameplay_core::features::{
 };
 use ambition_gameplay_core::rooms::{PropSpec, RoomSet};
 use ambition_gameplay_core::world::physics::{DebrisBurstMessage, PhysicsDebrisCue};
+use ambition_render::fx::{
+    ExplosionKind, ExplosionRequest, FireworksRequest, ParticleKind, VfxMessage,
+};
+use ambition_render::rendering::PropVisual;
 
 pub const CUT_ROPE_BOSS_ID: &str = "smirking_behemoth_boss";
 pub const CUT_ROPE_VICTORY_NPC_ID: &str = "smirking_behemoth_victory_npc";

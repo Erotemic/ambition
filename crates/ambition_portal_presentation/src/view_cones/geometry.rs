@@ -221,8 +221,7 @@ pub(crate) fn aperture_los_ray(
     enter: &PortalFrame,
     occluders: &[ae::Aabb],
 ) -> ApertureLosRay {
-    let target = aperture_los_targets(enter, PortalApertureLosQuality::Low)
-        .as_slice()[0];
+    let target = aperture_los_targets(enter, PortalApertureLosQuality::Low).as_slice()[0];
     aperture_los_ray_to(eye, target, occluders)
 }
 
@@ -254,11 +253,7 @@ pub(crate) fn aperture_visibility_fraction(
     let clear = samples
         .iter()
         .copied()
-        .filter(|target| {
-            aperture_los_ray_to(eye, *target, occluders)
-                .hit
-                .is_none()
-        })
+        .filter(|target| aperture_los_ray_to(eye, *target, occluders).hit.is_none())
         .count();
     clear as f32 / samples.len() as f32
 }
@@ -281,12 +276,7 @@ pub(crate) fn inset_viewer_corners(eye: Vec2, half_size: Vec2) -> [Vec2; 4] {
 /// and the cast still stops short of the lifted point. Uses the original
 /// low-quality center ray for compatibility with existing tests/callers.
 pub(crate) fn aperture_occluded(eye: Vec2, enter: &PortalFrame, occluders: &[ae::Aabb]) -> bool {
-    aperture_visibility_fraction(
-        eye,
-        enter,
-        occluders,
-        PortalApertureLosQuality::Low,
-    ) <= 0.0
+    aperture_visibility_fraction(eye, enter, occluders, PortalApertureLosQuality::Low) <= 0.0
 }
 
 /// One frame's window plan for a pair: the minimum cone, the (full) visible
@@ -370,12 +360,7 @@ pub(crate) fn compute_cone(
         corners
             .iter()
             .map(|c| {
-                aperture_visibility_fraction(
-                    *c,
-                    faced,
-                    &v.occluders,
-                    config.aperture_los_quality,
-                )
+                aperture_visibility_fraction(*c, faced, &v.occluders, config.aperture_los_quality)
             })
             .sum::<f32>()
             / corners.len() as f32
@@ -550,10 +535,7 @@ mod tests {
             half_extent: Vec2::new(46.0, 9.0),
         };
         let eye = Vec2::new(100.0, 100.0);
-        let center_blocker = ae::Aabb::new(
-            Vec2::new(100.0, 200.0),
-            Vec2::new(6.0, 8.0),
-        );
+        let center_blocker = ae::Aabb::new(Vec2::new(100.0, 200.0), Vec2::new(6.0, 8.0));
 
         assert_eq!(
             aperture_visibility_fraction(
@@ -585,14 +567,8 @@ mod tests {
         let eye = Vec2::new(100.0, 100.0);
         // Block the left/right endpoint rays near y=200 while leaving the center
         // line open. Endpoint-only LOS would fail this case.
-        let left_blocker = ae::Aabb::new(
-            Vec2::new(75.5, 200.0),
-            Vec2::new(5.0, 8.0),
-        );
-        let right_blocker = ae::Aabb::new(
-            Vec2::new(124.5, 200.0),
-            Vec2::new(5.0, 8.0),
-        );
+        let left_blocker = ae::Aabb::new(Vec2::new(75.5, 200.0), Vec2::new(5.0, 8.0));
+        let right_blocker = ae::Aabb::new(Vec2::new(124.5, 200.0), Vec2::new(5.0, 8.0));
 
         let visibility = aperture_visibility_fraction(
             eye,

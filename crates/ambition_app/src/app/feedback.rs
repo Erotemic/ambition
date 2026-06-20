@@ -96,7 +96,8 @@ pub struct SandboxQueues<'w> {
     /// slash, player projectile, pogo bounce). Replaced the prior
     /// split `DamageEvent` + `PogoBounceEvent` writers.
     pub hit_events: MessageWriter<'w, ambition_gameplay_core::features::HitEvent>,
-    pub reset_room_features: MessageWriter<'w, ambition_gameplay_core::features::ResetRoomFeaturesEvent>,
+    pub reset_room_features:
+        MessageWriter<'w, ambition_gameplay_core::features::ResetRoomFeaturesEvent>,
     pub feature_ecs_overlay: Res<'w, ambition_gameplay_core::features::FeatureEcsWorldOverlay>,
     pub dialogue: ResMut<'w, ambition_gameplay_core::dialog::DialogState>,
     pub physics_settings: Res<'w, ambition_gameplay_core::world::physics::PhysicsSandboxSettings>,

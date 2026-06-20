@@ -8,7 +8,6 @@
 use ambition_gameplay_core::engine_core as ae;
 use bevy::prelude::*;
 
-use ambition_render::fx::VfxMessage;
 use ambition_gameplay_core::audio::SfxMessage;
 use ambition_gameplay_core::dev::dev_tools::{self, EditableAbilitySet, EditableMovementTuning};
 use ambition_gameplay_core::features::{
@@ -22,6 +21,7 @@ use ambition_gameplay_core::time::feel::SandboxFeelTuning;
 use ambition_gameplay_core::{
     GameWorld, MovingPlatformSet, PlayerDiedMessage, SafePositionContext, SandboxSimState,
 };
+use ambition_render::fx::VfxMessage;
 
 /// Push live dev-tools ability/tuning edits onto the authoritative player.
 /// Runs even while gameplay is suspended so the F3 inspector remains responsive.
@@ -77,6 +77,7 @@ pub fn input_timer_system(
     time: Res<Time>,
     feel_tuning: Res<SandboxFeelTuning>,
     gravity_field: Option<Res<ambition_gameplay_core::physics::GravityField>>,
+    user_settings: Option<Res<ambition_gameplay_core::persistence::settings::UserSettings>>,
     mut sim_state: ResMut<ambition_gameplay_core::SandboxSimState>,
     mut control_frame: ResMut<ControlFrame>,
     mut player_q: Query<
@@ -95,26 +96,32 @@ pub fn input_timer_system(
     sim_state.room_transition_cooldown = (sim_state.room_transition_cooldown - frame_dt).max(0.0);
     combat.damage_invuln_timer = (combat.damage_invuln_timer - frame_dt).max(0.0);
     combat.hitstun_timer = (combat.hitstun_timer - frame_dt).max(0.0);
-    // Fast-fall = double-tap toward gravity. The descend EDGE is the screen-down
-    // press normally, but the screen-up press under inverted gravity (past ±90°),
-    // so the gesture flips with gravity like the other gates.
-    let gravity_up = gravity_field.as_deref().is_some_and(|g| g.dir.y < 0.0);
-    let descend_pressed = if gravity_up {
-        control_frame.up_pressed
-    } else {
-        control_frame.down_pressed
-    };
+    // Fast-fall = double-tap local-down for the controlled body. Raw cardinal
+    // edges are resolved through the same input mapping policy as locomotion,
+    // so ScreenDirected sideways gravity can map raw-right/raw-left into local
+    // down/up without bespoke cases here.
+    let gravity_dir = gravity_field
+        .as_deref()
+        .map_or(ae::Vec2::new(0.0, 1.0), |g| g.dir);
+    let input_mode = user_settings
+        .as_deref()
+        .map_or(ae::InputFrameMode::Hybrid, |s| s.gameplay.input_frame_mode);
+    let resolved = ae::AccelerationFrame::new(gravity_dir).resolve_control(
+        input_mode,
+        control_frame.axis_x,
+        control_frame.axis_y,
+    );
+    let raw_edges = control_frame.raw_direction_edges();
+    let descend_pressed = resolved.local_down_pressed(raw_edges);
+    let ascend_pressed = resolved.local_up_pressed(raw_edges);
     let double_tap_down =
         interaction.register_down_tap(descend_pressed, frame_dt, feel.down_double_tap_window);
     control_frame.fast_fall_pressed = double_tap_down;
     if double_tap_down {
         interaction.double_tap_down_pending = true;
     }
-    let door_double_tap_up = interaction.register_up_tap(
-        control_frame.up_pressed,
-        frame_dt,
-        feel.up_double_tap_window,
-    );
+    let door_double_tap_up =
+        interaction.register_up_tap(ascend_pressed, frame_dt, feel.up_double_tap_window);
     if door_double_tap_up {
         interaction.double_tap_up_pending = true;
     }
@@ -619,7 +626,12 @@ pub fn apply_player_hit_events(
             blink_grace_active: clusters.blink.grace_timer > 0.0,
             room_transitioning: sim_state.room_transition_cooldown > 0.0,
         };
-        ambition_gameplay_core::remember_safe_player_position(&mut safety, &clusters, &safe_world, ctx);
+        ambition_gameplay_core::remember_safe_player_position(
+            &mut safety,
+            &clusters,
+            &safe_world,
+            ctx,
+        );
     }
 }
 
@@ -750,7 +762,9 @@ mod suspended_time_tests {
         let mut app = App::new();
         app.add_plugins(StatesPlugin);
         app.insert_state(GameMode::Paused);
-        app.insert_resource(ambition_gameplay_core::time::clock_state::ClockState { time_scale: 1.0 });
+        app.insert_resource(ambition_gameplay_core::time::clock_state::ClockState {
+            time_scale: 1.0,
+        });
         app.insert_resource(RequestedClockScale {
             sim_clock: 1.0,
             ..Default::default()

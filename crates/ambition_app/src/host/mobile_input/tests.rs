@@ -85,6 +85,8 @@ fn fold_zero_state_produces_neutral_control_frame() {
     assert_eq!(frame.axis_y, 0.0);
     assert!(!frame.jump_pressed);
     assert!(!frame.jump_held);
+    assert!(!frame.left_pressed);
+    assert!(!frame.right_pressed);
     assert!(!frame.up_pressed);
     assert!(!frame.down_pressed);
 }
@@ -109,6 +111,23 @@ fn fold_translates_aim_stick() {
     // negative y. Don't pin exact values; pin sign + magnitude.
     assert!(frame.aim_x > 0.5);
     assert!(frame.aim_y < -0.3);
+}
+
+#[test]
+fn fold_propagates_explicit_left_right_pressed_edges() {
+    let mut state = TouchInputState::default();
+    state.move_x = -1.0;
+    state.move_x_just_crossed_left = true;
+    let frame = fold_touch_into_control_frame(state, 0.05, 0.05);
+    assert!(frame.left_pressed);
+    assert!(!frame.right_pressed);
+
+    state.move_x = 1.0;
+    state.move_x_just_crossed_left = false;
+    state.move_x_just_crossed_right = true;
+    let frame = fold_touch_into_control_frame(state, 0.05, 0.05);
+    assert!(!frame.left_pressed);
+    assert!(frame.right_pressed);
 }
 
 #[test]

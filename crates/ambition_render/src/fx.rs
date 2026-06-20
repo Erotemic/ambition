@@ -472,7 +472,12 @@ pub fn update_speech_bubbles(
     mut commands: Commands,
     time: Res<Time>,
     world: Res<ambition_gameplay_core::GameWorld>,
-    mut query: Query<(Entity, &mut SpeechBubbleVisual, &mut Transform, &mut TextColor)>,
+    mut query: Query<(
+        Entity,
+        &mut SpeechBubbleVisual,
+        &mut Transform,
+        &mut TextColor,
+    )>,
 ) {
     let dt = time.delta_secs();
     for (entity, mut bubble, mut transform, mut color) in &mut query {
@@ -906,8 +911,10 @@ pub fn update_blink_preview(
     // Match the debug overlay's destination resolution exactly. The
     // moving-platform-aware temporary world is what the actual blink
     // resolves against, so the preview must use it too.
-    let blink_world =
-        ambition_gameplay_core::world::platforms::world_with_moving_platforms(&world.0, &platform_set.0);
+    let blink_world = ambition_gameplay_core::world::platforms::world_with_moving_platforms(
+        &world.0,
+        &platform_set.0,
+    );
     let target = if blink_state.aiming {
         ae::blink_destination_to_point_clusters(
             &blink_world,

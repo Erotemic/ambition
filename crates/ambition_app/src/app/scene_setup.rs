@@ -15,10 +15,6 @@ use bevy_kira_audio::prelude::AudioSource as KiraAudioSource;
 
 use ambition_gameplay_core::engine_core as ae;
 
-use ambition_render::rendering::{
-    spawn_parallax_layers, spawn_room_visuals, HudText, PlayerSpriteBaseline, QuestPanelText,
-};
-use ambition_render::ui_fonts::{UiFontWeight, UiFonts};
 use ambition_gameplay_core::assets::game_assets::GameAssets;
 #[cfg(feature = "audio")]
 use ambition_gameplay_core::assets::sandbox_assets::{ids, SandboxAssetCatalog};
@@ -34,6 +30,10 @@ use ambition_gameplay_core::session::data::SandboxDataSpec;
 use ambition_gameplay_core::world::physics::PhysicsSandboxSettings;
 use ambition_gameplay_core::world::platforms;
 use ambition_gameplay_core::GameWorld;
+use ambition_render::rendering::{
+    spawn_parallax_layers, spawn_room_visuals, HudText, PlayerSpriteBaseline, QuestPanelText,
+};
+use ambition_render::ui_fonts::{UiFontWeight, UiFonts};
 #[cfg(feature = "audio")]
 use ambition_sfx::BankProvider;
 
@@ -72,9 +72,7 @@ pub fn presentation_world(
     // library stores catalog-blessed paths (the generic library takes a
     // resolver closure instead of naming the catalog type).
     let resolve_track_path = |id: &str| {
-        catalog.path_for(&ambition_gameplay_core::assets::sandbox_assets::ids::music_track(
-            id,
-        ))
+        catalog.path_for(&ambition_gameplay_core::assets::sandbox_assets::ids::music_track(id))
     };
     let audio_library = AudioLibrary::new(
         audio_sources,
@@ -268,9 +266,9 @@ fn presentation_world_inner(
         Name::new("Front HUD Camera"),
     ));
 
-    commands.insert_resource(ambition_gameplay_core::session::camera_layers::MainCameraEntity(
-        main_camera,
-    ));
+    commands.insert_resource(
+        ambition_gameplay_core::session::camera_layers::MainCameraEntity(main_camera),
+    );
 
     // `Instant::now()` is unsupported under `wasm32-unknown-unknown`
     // (panics with "time not implemented on this platform"). Gate the

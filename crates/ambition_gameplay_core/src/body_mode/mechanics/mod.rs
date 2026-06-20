@@ -98,8 +98,8 @@ pub fn update_body_mode(
             continue;
         }
 
-        // "Descend" gate: crouch is "press toward your feet". Gravity- AND
-        // input-mode-relative via the resolved player-frame stick `y`, so it honors
+        // "Descend" gate: crouch is "press toward the controlled body's feet".
+        // Gravity- AND input-mode-relative via the resolved local stick `y`, so it honors
         // the Screen/Hybrid setting exactly like the engine movement core (under
         // Hybrid this is the old `gravity_descend(axis_y)`).
         let gravity_dir = gravity_field
@@ -108,11 +108,16 @@ pub fn update_body_mode(
         let input_mode = user_settings
             .as_deref()
             .map_or(ae::InputFrameMode::Hybrid, |s| s.gameplay.input_frame_mode);
-        let descend = ae::AccelerationFrame::new(gravity_dir)
-            .resolve_input(input_mode, controls.axis_x, controls.axis_y)
-            .y;
+        let frame = ae::AccelerationFrame::new(gravity_dir);
+        let resolved = frame.resolve_control(input_mode, controls.axis_x, controls.axis_y);
+        let local_axis = resolved.local_axis;
+        let descend = local_axis.y;
         let down_held = descend > CROUCH_AXIS_Y_THRESHOLD;
         let up_held = descend < -CROUCH_AXIS_Y_THRESHOLD;
+        let climb_axis = frame.to_world(local_axis).y;
+        let climb_axis_held = climb_axis.abs() > CROUCH_AXIS_Y_THRESHOLD;
+        let climb_axis_down = climb_axis > CROUCH_AXIS_Y_THRESHOLD;
+        let local_up_pressed = resolved.local_up_pressed(controls.raw_direction_edges());
         let on_ground = ground.on_ground;
         let mode = body_mode_state.body_mode;
         let solid = |b: &ae::Block| matches!(b.kind, ae::BlockKind::Solid);
@@ -167,15 +172,18 @@ pub fn update_body_mode(
             continue;
         }
 
-        // Climbing entry: holding Up or Down inside a climbable contact
-        // engages the ladder. Down is gated to NOT trigger climbing while
-        // grounded (so a Down-press on a floor stays a crouch). Up, by
-        // contrast, can engage from grounded as a "step onto the ladder
-        // from below" gesture.
-        // While flying, holding Up is "fly up", not "grab the ladder" — flight
-        // suppresses ladder auto-climb so you can fly past / over a ladder without
-        // snapping onto it. (Land or disable flight to climb.)
-        let climb_initiator = up_held || (down_held && !on_ground && !controls.jump_pressed);
+        // Climbing entry: resolve input to the controlled body's local frame,
+        // then project that local intent onto the climbable's authored axis. The
+        // engine's current climbables are vertical world-space spans, so the
+        // authored climb axis is world Y for now. A downward climb input is gated
+        // to NOT trigger climbing while grounded (so a floor-down press stays a
+        // crouch); an upward climb input can engage from grounded as a "step onto
+        // the ladder from below" gesture.
+        // While flying, holding a climb direction is "fly", not "grab the ladder"
+        // — flight suppresses ladder auto-climb so you can fly past / over a
+        // ladder without snapping onto it. (Land or disable flight to climb.)
+        let climb_initiator =
+            climb_axis_held && !(climb_axis_down && on_ground && !controls.jump_pressed);
         if climbable_contact_present
             && climb_initiator
             && !flight.fly_enabled
@@ -203,7 +211,7 @@ pub fn update_body_mode(
         // physical key can still escape the ball without committing to a
         // jump arc.
         if mode == ae::BodyMode::MorphBall {
-            if controls.jump_pressed || controls.up_pressed {
+            if controls.jump_pressed || local_up_pressed {
                 let _ = ae::try_change_body_mode_clusters(
                     &mut kinematics,
                     base_size,

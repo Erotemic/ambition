@@ -78,10 +78,7 @@ impl EnemyActorSpawnPlan {
         self
     }
 
-    pub(super) fn with_combat_kit(
-        mut self,
-        combat_kit: crate::combat::CombatKit,
-    ) -> Self {
+    pub(super) fn with_combat_kit(mut self, combat_kit: crate::combat::CombatKit) -> Self {
         self.combat_kit = combat_kit;
         self
     }

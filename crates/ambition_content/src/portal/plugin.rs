@@ -313,10 +313,10 @@ mod schedule_tests {
     //! pure round-trip).
     use bevy::prelude::*;
 
-    use ambition_gameplay_core::schedule::{configure_sandbox_sets, SandboxSet};
     use ambition_gameplay_core::input::ControlFrame;
     use ambition_gameplay_core::player::{PlayerEntity, PrimaryPlayer};
     use ambition_gameplay_core::portal::PlayerMovementIntent;
+    use ambition_gameplay_core::schedule::{configure_sandbox_sets, SandboxSet};
 
     use super::super::ability_adapter::warp_portal_input;
     use super::super::transit_adapter::{

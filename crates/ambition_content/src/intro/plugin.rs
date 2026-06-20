@@ -22,10 +22,10 @@ use bevy::prelude::*;
 // `redirect_post_intro_dialog` ordering — the unified dialog redirect
 // system in the sandbox `dialog` module owns its own scheduling.
 use crate::banter::CombatBanterRegistry;
-use ambition_render::cutscene::{CutsceneLibrary, RoomCutsceneBindings};
 use ambition_gameplay_core::assets::game_assets::{GameAssetConfig, GameAssets};
 use ambition_gameplay_core::character_sprites::{build_npc_sprite_asset, build_prop_sprite_asset};
 use ambition_gameplay_core::rooms::GatePortalRegistry;
+use ambition_render::cutscene::{CutsceneLibrary, RoomCutsceneBindings};
 
 use super::banter::install_intro_banter;
 use super::cutscene::{install_intro_cutscenes, intro_room_cutscene_bindings};

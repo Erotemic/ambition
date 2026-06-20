@@ -103,7 +103,9 @@ impl Plugin for AmbitionBossContentPlugin {
         // the lib embeds no boss data in production. Mirrors the enemy roster.
         install_boss_roster();
 
-        app.insert_resource(ambition_gameplay_core::boss_encounter::BossEncounterRegistry::default());
+        app.insert_resource(
+            ambition_gameplay_core::boss_encounter::BossEncounterRegistry::default(),
+        );
 
         // Boss special Techniques own their per-boss temporal state. Attach each
         // to every boss (the `BossConfig` marker) via required components, so the
@@ -160,7 +162,8 @@ impl Plugin for AmbitionBossContentPlugin {
         // inside the WorldPrep boss chain).
         app.add_systems(
             Update,
-            cut_rope::steer_cut_rope_boss_under_anvil.in_set(ambition_gameplay_core::schedule::BossSteerSlot),
+            cut_rope::steer_cut_rope_boss_under_anvil
+                .in_set(ambition_gameplay_core::schedule::BossSteerSlot),
         );
 
         // Cut-rope Yarn vocabulary: installed on the DialogueRunner via the
@@ -171,13 +174,15 @@ impl Plugin for AmbitionBossContentPlugin {
         {
             app.init_resource::<ambition_gameplay_core::dialog::yarn_bindings::YarnContentBindings>();
             app.world_mut()
-                .resource_mut::<ambition_gameplay_core::dialog::yarn_bindings::YarnContentBindings>()
+                .resource_mut::<ambition_gameplay_core::dialog::yarn_bindings::YarnContentBindings>(
+                )
                 .installers
                 .push(yarn::install_cut_rope_yarn_bindings);
             app.add_systems(
                 Update,
-                yarn::mirror_cut_rope_heavy_object
-                    .after(ambition_gameplay_core::dialog::yarn_bindings::refresh_yarn_state_mirror),
+                yarn::mirror_cut_rope_heavy_object.after(
+                    ambition_gameplay_core::dialog::yarn_bindings::refresh_yarn_state_mirror,
+                ),
             );
         }
     }

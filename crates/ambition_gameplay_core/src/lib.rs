@@ -41,10 +41,10 @@
 // into these modules. Everything else stays `pub(crate)` so the compiler
 // can tell us what's actually depended on from outside.
 pub use ambition_characters::actor;
-pub mod schedule;
 pub mod audio;
 pub mod character_roster;
 pub mod debug_label;
+pub mod schedule;
 // Re-export the pure-logic core under the sandbox's stable `crate::engine_core` path.
 pub use ambition_engine_core as engine_core;
 // Re-export input types under the sandbox's stable `crate::input` path.

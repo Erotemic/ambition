@@ -222,11 +222,7 @@ impl PlayerTrail {
     /// classifier. A loop that encloses a `World::blocks` AABB is treated as
     /// nontrivial enough to preserve; empty Euclidean self-loops still shrink
     /// away.
-    pub fn emit_to_with_world_surfaces(
-        &mut self,
-        anchor: ae::Vec2,
-        world: Option<&ae::World>,
-    ) {
+    pub fn emit_to_with_world_surfaces(&mut self, anchor: ae::Vec2, world: Option<&ae::World>) {
         if !matches!(self.status, TrailStatus::Emitting) {
             return;
         }
@@ -260,7 +256,9 @@ impl PlayerTrail {
         self.push_endpoint_if_distinct(final_anchor);
 
         if self.can_close(final_anchor) {
-            let start = self.start_point().expect("can_close requires a start point");
+            let start = self
+                .start_point()
+                .expect("can_close requires a start point");
             let last_pos = self
                 .chunks
                 .last()
@@ -368,7 +366,11 @@ impl PlayerTrail {
             self.live_end = anchor;
             return;
         }
-        if self.chunks.last().is_some_and(|chunk| chunk.points.is_empty()) {
+        if self
+            .chunks
+            .last()
+            .is_some_and(|chunk| chunk.points.is_empty())
+        {
             self.current_chunk_mut()
                 .expect("current chunk exists")
                 .points
@@ -727,12 +729,15 @@ fn polygon_touches_or_contains_aabb(poly: &[ae::Vec2], aabb: ae::Aabb) -> bool {
 
 fn polygon_bounds(points: &[ae::Vec2]) -> Option<ae::Aabb> {
     let first = *points.first()?;
-    let (min, max) = points.iter().copied().fold((first, first), |(min, max), p| {
-        (
-            ae::Vec2::new(min.x.min(p.x), min.y.min(p.y)),
-            ae::Vec2::new(max.x.max(p.x), max.y.max(p.y)),
-        )
-    });
+    let (min, max) = points
+        .iter()
+        .copied()
+        .fold((first, first), |(min, max), p| {
+            (
+                ae::Vec2::new(min.x.min(p.x), min.y.min(p.y)),
+                ae::Vec2::new(max.x.max(p.x), max.y.max(p.y)),
+            )
+        });
     Some(ae::Aabb::new((min + max) * 0.5, (max - min) * 0.5))
 }
 
@@ -797,12 +802,7 @@ fn polygon_contains_point(poly: &[ae::Vec2], point: ae::Vec2) -> bool {
     inside
 }
 
-fn segments_intersect_inclusive(
-    a: ae::Vec2,
-    b: ae::Vec2,
-    c: ae::Vec2,
-    d: ae::Vec2,
-) -> bool {
+fn segments_intersect_inclusive(a: ae::Vec2, b: ae::Vec2, c: ae::Vec2, d: ae::Vec2) -> bool {
     let o1 = cross(b - a, c - a);
     let o2 = cross(b - a, d - a);
     let o3 = cross(d - c, a - c);
@@ -863,8 +863,7 @@ fn segment_intersection(
     let c_minus_a = c - a;
     let along_existing = cross(c_minus_a, s) / denom;
     let along_candidate = cross(c_minus_a, r) / denom;
-    if !(TRAIL_INTERSECTION_EPSILON..=(1.0 - TRAIL_INTERSECTION_EPSILON))
-        .contains(&along_existing)
+    if !(TRAIL_INTERSECTION_EPSILON..=(1.0 - TRAIL_INTERSECTION_EPSILON)).contains(&along_existing)
     {
         return None;
     }
@@ -967,7 +966,11 @@ mod tests {
         trail.emit_to(v(230.0, 100.0));
 
         let polylines = trail.render_polylines();
-        assert_eq!(polylines.len(), 2, "portal-like breaks must not draw one line");
+        assert_eq!(
+            polylines.len(),
+            2,
+            "portal-like breaks must not draw one line"
+        );
         assert_eq!(polylines[0].last().copied().unwrap(), v(40.0, 0.0));
         assert_eq!(polylines[1].first().copied().unwrap(), v(200.0, 100.0));
     }
@@ -1027,11 +1030,7 @@ mod tests {
             "test",
             v(200.0, 200.0),
             v(0.0, 0.0),
-            vec![ae::Block::solid(
-                "crossing",
-                v(45.0, 20.0),
-                v(20.0, 20.0),
-            )],
+            vec![ae::Block::solid("crossing", v(45.0, 20.0), v(20.0, 20.0))],
         );
         let loop_positions = vec![
             v(0.0, 0.0),

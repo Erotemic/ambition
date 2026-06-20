@@ -51,6 +51,7 @@ pub fn update_ecs_actors(
     world_time: Res<WorldTime>,
     world: Res<crate::GameWorld>,
     gravity: crate::physics::GravityCtx,
+    user_settings: Option<Res<crate::persistence::settings::UserSettings>>,
     platform_set: Res<crate::MovingPlatformSet>,
     feel_tuning: Res<crate::time::feel::SandboxFeelTuning>,
     overlay: Res<FeatureEcsWorldOverlay>,
@@ -135,6 +136,9 @@ pub fn update_ecs_actors(
     // alongside the player. ADR 0010 + reference_lessons_learned.
     let dt = world_time.sim_dt();
     let feature_world = world_with_sandbox_solids(&world.0, &platform_set.0, &overlay);
+    let input_frame_mode = user_settings
+        .as_deref()
+        .map_or(ae::InputFrameMode::Hybrid, |s| s.gameplay.input_frame_mode);
     // Pick the slot-board anchor: the primary player by default, or
     // fall back to the first available player so combat slot
     // assignment still works on a multi-player non-primary build.
@@ -269,7 +273,9 @@ pub fn update_ecs_actors(
                     // its OWN ActorControlFrame — the same translation the player
                     // brain uses — so it moves/attacks via its own update path.
                     let crowding = crowding_by_id.get(&em.config.id).copied();
-                    let snapshot = build_enemy_brain_snapshot(&em, target_pos, crowding, dt);
+                    let mut snapshot = build_enemy_brain_snapshot(&em, target_pos, crowding, dt);
+                    snapshot.control_down = enemy_gravity_dir;
+                    snapshot.input_frame_mode = input_frame_mode;
                     let mut bf = crate::actor::control::ActorControlFrame::neutral();
                     crate::brain::player::tick_player_brain_from_control(
                         &p.control, &snapshot, &mut bf,
@@ -473,6 +479,7 @@ pub fn update_ecs_npcs(
     world_time: Res<WorldTime>,
     world: Res<crate::GameWorld>,
     gravity: crate::physics::GravityCtx,
+    user_settings: Option<Res<crate::persistence::settings::UserSettings>>,
     platform_set: Res<crate::MovingPlatformSet>,
     overlay: Res<FeatureEcsWorldOverlay>,
     mut npcs: Query<
@@ -503,6 +510,9 @@ pub fn update_ecs_npcs(
 ) {
     let dt = world_time.sim_dt();
     let feature_world = world_with_sandbox_solids(&world.0, &platform_set.0, &overlay);
+    let input_frame_mode = user_settings
+        .as_deref()
+        .map_or(ae::InputFrameMode::Hybrid, |s| s.gameplay.input_frame_mode);
     *sim_clock += dt;
     let sim_time = *sim_clock;
     for (
@@ -535,6 +545,8 @@ pub fn update_ecs_npcs(
             // is a harmless no-op on it.
             let mut snapshot = crate::brain::BrainSnapshot::idle();
             snapshot.actor_facing = npc.kin.facing;
+            snapshot.control_down = gravity_dir;
+            snapshot.input_frame_mode = input_frame_mode;
             let mut bf = crate::actor::control::ActorControlFrame::neutral();
             crate::brain::player::tick_player_brain_from_control(&p.control, &snapshot, &mut bf);
             if bf.facing.abs() > 0.001 {
@@ -548,14 +560,7 @@ pub fn update_ecs_npcs(
             );
             bf
         } else if let Some(brain) = brain.as_deref_mut() {
-            npc.tick_via_brain(
-                brain,
-                &feature_world,
-                target_pos,
-                sim_time,
-                dt,
-                gravity_dir,
-            )
+            npc.tick_via_brain(brain, &feature_world, target_pos, sim_time, dt, gravity_dir)
         } else {
             // Brainless peaceful actor — should not happen post-Chunk 3
             // (spawn attaches a brain), but build one inline so the tick
@@ -739,6 +744,8 @@ fn build_enemy_brain_snapshot(
         actor_pos: em.kin.pos,
         actor_vel: em.kin.vel,
         actor_facing: em.kin.facing,
+        control_down: ae::Vec2::new(0.0, 1.0),
+        input_frame_mode: ae::InputFrameMode::Hybrid,
         actor_on_ground: em.surface.on_ground,
         alive: em.status.alive,
         target_pos,

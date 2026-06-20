@@ -32,8 +32,9 @@ pub(super) fn apply_intent(
     tuning: MovementTuning,
 ) {
     let can_turn = ground.on_ground || flight.fly_enabled;
-    if can_turn && input.axis_x.abs() > 0.1 {
-        kinematics.facing = input.axis_x.signum();
+    let local_stick = tuning.stick(&input);
+    if can_turn && local_stick.x.abs() > 0.1 {
+        kinematics.facing = local_stick.x.signum();
     }
     if input.jump_pressed && abilities.abilities.jump {
         action_buffer.jump = tuning.jump_buffer;
@@ -86,13 +87,15 @@ pub(super) fn apply_dodge(
         && ground.on_ground
         && dodge.cooldown <= 0.0
     {
-        let dir = if input.axis_x.abs() > 0.1 {
-            input.axis_x.signum()
+        let local_stick = tuning.stick(&input);
+        let dir = if local_stick.x.abs() > 0.1 {
+            local_stick.x.signum()
         } else {
             kinematics.facing
         };
-        kinematics.vel.x = dir * tuning.dodge_roll_speed;
-        kinematics.vel.y = kinematics.vel.y.min(0.0);
+        let frame = crate::AccelerationFrame::new(tuning.gravity_dir);
+        let descend = kinematics.vel.dot(frame.down).min(0.0);
+        kinematics.vel = frame.side * (dir * tuning.dodge_roll_speed) + frame.down * descend;
         dodge.roll_timer = tuning.dodge_roll_time;
         dodge.cooldown = tuning.dodge_roll_cooldown;
         action_buffer.dash = 0.0;
@@ -131,10 +134,7 @@ pub(super) fn apply_jump_release(
     abilities: &PlayerAbilities,
     input: InputState,
 ) {
-    if abilities.abilities.variable_jump
-        && input.jump_released
-        && kinematics.vel.y < -120.0
-    {
+    if abilities.abilities.variable_jump && input.jump_released && kinematics.vel.y < -120.0 {
         kinematics.vel.y *= 0.54;
     }
 }
@@ -164,9 +164,10 @@ pub(super) fn apply_dash(
         && dash.charges_available > 0
         && dash.cooldown <= 0.0
     {
+        let frame = crate::AccelerationFrame::new(tuning.gravity_dir);
         let fallback = bevy_math::Vec2::new(kinematics.facing, 0.0);
-        let aim = bevy_math::Vec2::new(input.axis_x, input.axis_y).normalize_or(fallback);
-        kinematics.vel = aim * tuning.dash_speed;
+        let aim = tuning.stick(&input).normalize_or(fallback);
+        kinematics.vel = frame.to_world(aim) * tuning.dash_speed;
         dash.timer = tuning.dash_time;
         dash.cooldown = tuning.dash_cooldown;
         action_buffer.dash = 0.0;

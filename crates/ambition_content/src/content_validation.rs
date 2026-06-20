@@ -476,9 +476,7 @@ fn authored_boss_encounter_ids(project: &LdtkProject) -> BTreeSet<String> {
                     .map(|name| name.trim().to_string())
                     .filter(|name| !name.is_empty())
                     .unwrap_or_else(|| entity.iid.clone());
-                ids.insert(ambition_gameplay_core::boss_encounter::encounter_id_from_name(
-                    &name,
-                ));
+                ids.insert(ambition_gameplay_core::boss_encounter::encounter_id_from_name(&name));
             }
         }
     }
@@ -527,9 +525,9 @@ fn authored_flag_ids(project: &LdtkProject) -> BTreeSet<String> {
                     .filter(|id| !id.is_empty())
                     .unwrap_or_else(|| level.active_area());
                 flags.insert(format!("encounter_{encounter_id}_reward_dropped"));
-                flags.insert(ambition_gameplay_core::encounter::encounter_reward_looted_flag(
-                    &encounter_id,
-                ));
+                flags.insert(
+                    ambition_gameplay_core::encounter::encounter_reward_looted_flag(&encounter_id),
+                );
             }
             if entity.identifier == "Switch" {
                 if let Some(id) = field_string(entity, "id") {
@@ -557,9 +555,7 @@ fn authored_flag_ids(project: &LdtkProject) -> BTreeSet<String> {
     }
     for boss in authored_boss_encounter_ids(project) {
         flags.insert(format!("encounter_{boss}_reward_dropped"));
-        flags.insert(ambition_gameplay_core::encounter::encounter_reward_looted_flag(
-            &boss,
-        ));
+        flags.insert(ambition_gameplay_core::encounter::encounter_reward_looted_flag(&boss));
     }
     flags
 }

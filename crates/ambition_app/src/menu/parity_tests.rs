@@ -430,7 +430,9 @@ mod dispatch_parity {
     use ambition_gameplay_core::inventory_ui::InventoryUiState;
     use ambition_gameplay_core::menu::backend::InventoryUiBackend;
     use ambition_gameplay_core::persistence::settings::{SystemMenuEntryId, UserSettings};
-    use ambition_gameplay_core::player::{PlayerEntity, PlayerHealRequested, PlayerMana, PrimaryPlayer};
+    use ambition_gameplay_core::player::{
+        PlayerEntity, PlayerHealRequested, PlayerMana, PrimaryPlayer,
+    };
     use ambition_gameplay_core::session::game_mode::GameMode;
 
     /// Build a menu app for one backend, with every resource/observer the shared

@@ -143,7 +143,8 @@ impl bevy::prelude::Plugin for PlayerVisualSchedulePlugin {
                     (
                         ambition_gameplay_core::portal::sync_portal_world_frame
                             .before(PortalPresentationSet),
-                        ambition_gameplay_core::portal::sync_portal_viewer.before(PortalPresentationSet),
+                        ambition_gameplay_core::portal::sync_portal_viewer
+                            .before(PortalPresentationSet),
                         ambition_gameplay_core::portal::sync_portal_debug_overlay_to_f1
                             .before(PortalPresentationSet),
                         ambition_gameplay_core::portal::tag_portal_scene_bodies

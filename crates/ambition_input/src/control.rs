@@ -29,13 +29,20 @@ pub struct ControlFrame {
     pub jump_held: bool,
     pub jump_released: bool,
     pub dash_pressed: bool,
-    /// Movement-up input was newly pressed this frame. The sandbox uses this
-    /// to require a double-tap-up door activation while flying, so upward
-    /// flight does not accidentally enter doors.
+    /// Movement-left input was newly pressed this frame in the raw input/screen
+    /// frame. Directional gameplay gestures resolve this through
+    /// `AccelerationFrame` before treating it as local left/right/up/down.
+    pub left_pressed: bool,
+    /// Movement-right input was newly pressed this frame in the raw input/screen
+    /// frame.
+    pub right_pressed: bool,
+    /// Movement-up input was newly pressed this frame in the raw input/screen
+    /// frame. The sandbox resolves this with the current controlled-body frame
+    /// before using it for local-up gestures.
     pub up_pressed: bool,
-    /// Movement-down input was newly pressed this frame. The sandbox uses this
-    /// to recognize double-tap-down for fast-fall without making down+attack
-    /// automatically fast-fall.
+    /// Movement-down input was newly pressed this frame in the raw input/screen
+    /// frame. The sandbox resolves this with the current controlled-body frame
+    /// before using it for local-down gestures.
     pub down_pressed: bool,
     /// Double-tap-down recognized by the sandbox input gesture detector.
     pub fast_fall_pressed: bool,
@@ -111,6 +118,8 @@ impl ControlFrame {
                 axis *= WALK_FACTOR / magnitude;
             }
         }
+        let left_pressed = actions.just_pressed(&SandboxAction::MoveLeft);
+        let right_pressed = actions.just_pressed(&SandboxAction::MoveRight);
         let up_pressed = actions.just_pressed(&SandboxAction::MoveUp);
         let down_pressed = actions.just_pressed(&SandboxAction::MoveDown);
 
@@ -165,6 +174,8 @@ impl ControlFrame {
             jump_held: actions.pressed(&SandboxAction::Jump),
             jump_released: actions.just_released(&SandboxAction::Jump),
             dash_pressed,
+            left_pressed,
+            right_pressed,
             up_pressed,
             down_pressed,
             fast_fall_pressed: false,
@@ -209,6 +220,15 @@ impl ControlFrame {
             start_pressed: actions.just_pressed(&SandboxAction::Start),
             ..default()
         }
+    }
+
+    pub fn raw_direction_edges(self) -> ae::RawDirectionEdges {
+        ae::RawDirectionEdges::new(
+            self.left_pressed,
+            self.right_pressed,
+            self.up_pressed,
+            self.down_pressed,
+        )
     }
 
     pub fn engine_input(self, control_dt: f32) -> ae::InputState {

@@ -62,23 +62,36 @@ pub fn tick_player_brain_from_control(
 ) {
     *out = crate::actor::control::ActorControlFrame::neutral();
 
-    // Movement axis → desired velocity (player speed is fixed by the
-    // integration; brain just signals direction × magnitude).
-    out.desired_vel = ae::Vec2::new(c.axis_x, c.axis_y);
+    // Movement axis → desired velocity (body speed is fixed by the integration;
+    // brain just signals direction × magnitude). Keep this raw/input-frame for
+    // now because the engine movement core still owns the raw→local projection.
+    let raw_axis = ae::Vec2::new(c.axis_x, c.axis_y);
+    out.desired_vel = raw_axis;
 
-    // Facing: prefer the input axis; fall back to snapshot facing
-    // when stick is neutral so the player doesn't snap to (0).
-    out.facing = if c.axis_x.abs() > 0.01 {
-        c.axis_x.signum()
+    // Directional verbs interpret the same raw input in the controlled body's
+    // local frame. This is the important seam for facing, attacks, crouch-like
+    // edges, and future possessed actors: unqualified left/right/up/down means
+    // local to the controlled body, not privileged screen/player space.
+    let resolved = ae::AccelerationFrame::new(snapshot.control_down).resolve_control(
+        snapshot.input_frame_mode,
+        c.axis_x,
+        c.axis_y,
+    );
+    let local_axis = resolved.local_axis;
+
+    // Facing: prefer local side intent; fall back to snapshot facing when stick
+    // is neutral so the actor doesn't snap to (0).
+    out.facing = if local_axis.x.abs() > 0.01 {
+        local_axis.x.signum()
     } else {
         snapshot.actor_facing
     };
 
     // Combat verbs.
     out.melee_pressed = c.attack_pressed;
-    // Per-tilt direction for the attack — read off the input axes
-    // when one is held; defaults to ZERO ("use facing") otherwise.
-    out.attack_axis = ae::Vec2::new(c.axis_x, c.axis_y);
+    // Per-tilt direction for the attack, in the controlled body's local frame.
+    // Zero still means "use facing".
+    out.attack_axis = local_axis;
 
     // Projectile: held + released path stays in the player's
     // existing charge state machine for now. The brain just
@@ -209,6 +222,37 @@ mod tests {
         tick_player_brain_from_control(&input, &s, &mut out);
         assert_eq!(out.desired_vel, ae::Vec2::new(-1.0, 0.3));
         assert_eq!(out.facing, -1.0);
+    }
+
+    #[test]
+    fn screen_directed_sideways_gravity_maps_directional_verbs_to_local_frame() {
+        let mut s = BrainSnapshot::idle();
+        // Gravity / acceleration points screen-right, so the controlled body's
+        // local-right direction is screen-up. In screen-directed mode, raw
+        // screen-down should therefore mean local-left.
+        s.control_down = ae::Vec2::new(1.0, 0.0);
+        s.input_frame_mode = ae::InputFrameMode::Screen;
+        s.actor_facing = 1.0;
+        let input = input_with(|c| {
+            c.axis_x = 0.0;
+            c.axis_y = 1.0;
+            c.attack_pressed = true;
+        });
+        let mut out = crate::actor::control::ActorControlFrame::default();
+        tick_player_brain_from_control(&input, &s, &mut out);
+        assert_eq!(out.desired_vel, ae::Vec2::new(0.0, 1.0));
+        assert_eq!(out.facing, -1.0);
+        assert_eq!(out.attack_axis, ae::Vec2::new(-1.0, 0.0));
+
+        // Raw screen-right maps to local-down under the same frame/mode, which
+        // is the crouch / down-attack / morph-ball direction.
+        let input = input_with(|c| {
+            c.axis_x = 1.0;
+            c.axis_y = 0.0;
+            c.attack_pressed = true;
+        });
+        tick_player_brain_from_control(&input, &s, &mut out);
+        assert_eq!(out.attack_axis, ae::Vec2::new(0.0, 1.0));
     }
 
     #[test]

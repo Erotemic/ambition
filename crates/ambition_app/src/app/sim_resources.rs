@@ -24,12 +24,12 @@ use bevy::prelude::*;
 use bevy_common_assets::ron::RonAssetPlugin;
 
 use super::setup_systems::setup_simulation_system;
-use ambition_render::fx::{ExplosionRequest, FireworksRequest, VfxMessage};
 use ambition_gameplay_core::audio::SfxMessage;
 use ambition_gameplay_core::game_mode::GameMode;
 use ambition_gameplay_core::session::data;
 use ambition_gameplay_core::world::physics::DebrisBurstMessage;
 use ambition_gameplay_core::PlayerDiedMessage;
+use ambition_render::fx::{ExplosionRequest, FireworksRequest, VfxMessage};
 
 pub struct SandboxSimulationResourcesPlugin;
 
@@ -64,7 +64,9 @@ impl Plugin for SandboxSimulationResourcesPlugin {
             // 0010 §Vocabulary for the model.
             .add_message::<ambition_gameplay_core::time::time_control::ClockScaleRequest>()
             .insert_resource(ambition_gameplay_core::time::time_control::RegimePolicy::default())
-            .insert_resource(ambition_gameplay_core::time::time_control::RequestedClockScale::default())
+            .insert_resource(
+                ambition_gameplay_core::time::time_control::RequestedClockScale::default(),
+            )
             .insert_resource(ambition_gameplay_core::time::clock_state::ClockState::default())
             .register_type::<GameMode>()
             // StartupProfiler captures wall-clock at each marked phase so a
@@ -122,7 +124,9 @@ impl Plugin for SandboxSimulationResourcesPlugin {
             .init_resource::<ambition_gameplay_core::projectile::ProjectileSeqCounter>()
             // Enemy projectiles (pirate volleys etc) — separate from
             // player projectiles so faction routing stays explicit.
-            .insert_resource(ambition_gameplay_core::enemy_projectile::EnemyProjectileState::default())
+            .insert_resource(
+                ambition_gameplay_core::enemy_projectile::EnemyProjectileState::default(),
+            )
             // Anti-clump attack slot arbitration. Default layout: 3
             // melee ring slots + 3 aerial arc slots around the player.
             .insert_resource(ambition_gameplay_core::combat::slots::CombatSlotsRes::default())
@@ -140,7 +144,9 @@ impl Plugin for SandboxSimulationResourcesPlugin {
             // None` every frame there's no in-flight encounter)
             // can't clobber the boss's MusicRequested events. The
             // audio backend reads both, boss wins.
-            .insert_resource(ambition_gameplay_core::encounter::BossEncounterMusicRequest::default())
+            .insert_resource(
+                ambition_gameplay_core::encounter::BossEncounterMusicRequest::default(),
+            )
             .insert_resource(ambition_gameplay_core::rooms::RoomMusicRequest::default())
             // Sandbox save game (encounter defeat + switch state).
             // Loaded from disk by `load_save_at_startup` in the
@@ -187,6 +193,8 @@ impl Plugin for SandboxSimulationResourcesPlugin {
             .insert_resource(ambition_gameplay_core::CameraEaseTuning::default())
             .insert_resource(ambition_gameplay_core::time::camera_ease::CameraShakeState::default())
             .insert_resource(ambition_render::rendering::CameraViewState::default())
-            .insert_resource(ambition_gameplay_core::session::reset::SandboxResetRequested::default());
+            .insert_resource(
+                ambition_gameplay_core::session::reset::SandboxResetRequested::default(),
+            );
     }
 }

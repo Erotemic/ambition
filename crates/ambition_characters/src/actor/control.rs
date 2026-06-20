@@ -77,10 +77,11 @@ pub struct ActorControlFrame {
     /// Brain wants to fire a projectile this tick. `Some` carries the
     /// launch direction + speed; `None` is "no shot".
     pub fire: Option<ActorFireRequest>,
-    /// Direction-of-attack for melee. Zero = "use the actor's current
-    /// facing". A non-zero vector lets the ActionSet pick between
-    /// directional variants (up-tilt, down-air, back-air, …). Brains
-    /// that don't care about directional melee leave this zero.
+    /// Direction-of-attack for melee in the controlled actor's local frame.
+    /// Zero = "use the actor's current facing". A non-zero vector lets the
+    /// ActionSet pick between directional variants (up-tilt, down-air,
+    /// back-air, …). Brains that don't care about directional melee leave this
+    /// zero.
     pub attack_axis: Vec2,
     /// Rising edge: brain wants to jump this tick.
     pub jump_pressed: bool,

@@ -36,8 +36,14 @@ pub struct BrainSnapshot {
     pub actor_pos: ae::Vec2,
     /// Actor's current velocity (px/s).
     pub actor_vel: ae::Vec2,
-    /// Actor's current facing: +1 right, -1 left.
+    /// Actor's current facing: +1 local-right, -1 local-left.
     pub actor_facing: f32,
+    /// Direction that defines the controlled actor's local down for human-input
+    /// interpretation this tick. Defaults to ordinary screen-down so AI/test
+    /// snapshots that do not care about human control remain inert.
+    pub control_down: ae::Vec2,
+    /// Policy for mapping raw human input into this actor's local frame.
+    pub input_frame_mode: ae::InputFrameMode,
     /// Whether the actor is grounded (touching a `Solid` / `OneWay`
     /// floor this tick).
     pub actor_on_ground: bool,
@@ -127,6 +133,8 @@ impl BrainSnapshot {
             actor_pos: ae::Vec2::ZERO,
             actor_vel: ae::Vec2::ZERO,
             actor_facing: 1.0,
+            control_down: ae::Vec2::new(0.0, 1.0),
+            input_frame_mode: ae::InputFrameMode::Hybrid,
             actor_on_ground: true,
             alive: true,
             target_pos: ae::Vec2::ZERO,
@@ -188,6 +196,8 @@ mod tests {
         assert!(s.wall_contact.is_none());
         assert!(s.alive);
         assert!(s.player_input.is_none(), "idle snapshot has no input");
+        assert_eq!(s.control_down, ae::Vec2::new(0.0, 1.0));
+        assert_eq!(s.input_frame_mode, ae::InputFrameMode::Hybrid);
     }
 
     #[test]

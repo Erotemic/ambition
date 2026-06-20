@@ -5,8 +5,8 @@ use bevy::prelude::*;
 
 use super::components::{
     ActivePlayerAttack, LocalPlayer, PlayerAnimState, PlayerBlinkCameraState, PlayerCombatState,
-    PlayerEntity, PlayerHealth, PlayerInputFrame, PlayerInteractionState,
-    PlayerSafetyState, PlayerSlot, PlayerWallet, PrimaryPlayer,
+    PlayerEntity, PlayerHealth, PlayerInputFrame, PlayerInteractionState, PlayerSafetyState,
+    PlayerSlot, PlayerWallet, PrimaryPlayer,
 };
 use super::movement_components::{
     BodyKinematics, PlayerAbilities, PlayerActionBuffer, PlayerBaseSize, PlayerBlinkState,

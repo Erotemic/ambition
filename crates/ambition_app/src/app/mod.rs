@@ -45,13 +45,6 @@ use leafwing_input_manager::prelude::{ActionState, InputManagerPlugin, InputMap}
 use crate::dev::debug_overlay;
 use crate::host::windowing;
 use ambition_content::content_validation;
-use ambition_render::fx::{self, vfx_spawn_messages, ParticleKind, VfxMessage};
-use ambition_render::rendering::{
-    animate_bosses, animate_characters, animate_player, camera_follow, spawn_room_visuals,
-    sync_visuals, upgrade_boss_sprites, upgrade_enemy_sprites, upgrade_npc_sprites, HudText,
-    PlayerVisual, SceneEntities,
-};
-use ambition_render::ui_fonts;
 use ambition_gameplay_core::assets::game_assets::{self, GameAssetConfig};
 use ambition_gameplay_core::assets::loading;
 use ambition_gameplay_core::audio::SfxMessage;
@@ -86,6 +79,13 @@ use ambition_gameplay_core::world::physics::physics_spawn_debris_messages;
 use ambition_gameplay_core::world::physics::{self, DebrisBurstMessage};
 use ambition_gameplay_core::world::platforms;
 use ambition_gameplay_core::{GameWorld, PlayerDiedMessage, SandboxDevState};
+use ambition_render::fx::{self, vfx_spawn_messages, ParticleKind, VfxMessage};
+use ambition_render::rendering::{
+    animate_bosses, animate_characters, animate_player, camera_follow, spawn_room_visuals,
+    sync_visuals, upgrade_boss_sprites, upgrade_enemy_sprites, upgrade_npc_sprites, HudText,
+    PlayerVisual, SceneEntities,
+};
+use ambition_render::ui_fonts;
 
 mod cli;
 mod combat_schedule;

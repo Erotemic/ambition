@@ -54,7 +54,9 @@ pub fn default_quest_specs() -> Vec<ambition_gameplay_core::quest::QuestSpec> {
             vec![
                 ambition_gameplay_core::quest::QuestStepSpec::new(
                     "Speak with someone in the hub.",
-                    ambition_gameplay_core::quest::QuestStepCondition::FlagSet("met_any_hub_npc".into()),
+                    ambition_gameplay_core::quest::QuestStepCondition::FlagSet(
+                        "met_any_hub_npc".into(),
+                    ),
                 ),
                 ambition_gameplay_core::quest::QuestStepSpec::new(
                     "Clear the goblin encounter.",
@@ -76,7 +78,9 @@ pub fn default_quest_specs() -> Vec<ambition_gameplay_core::quest::QuestSpec> {
             "Verify that the world remembers what you do.",
             vec![ambition_gameplay_core::quest::QuestStepSpec::new(
                 "Toggle the persistence test switch.",
-                ambition_gameplay_core::quest::QuestStepCondition::FlagSet("test_switch_toggled".into()),
+                ambition_gameplay_core::quest::QuestStepCondition::FlagSet(
+                    "test_switch_toggled".into(),
+                ),
             )],
         ),
         // Quest lab proof: minimal RoomEntered-driven quest. Auto-
@@ -90,7 +94,9 @@ pub fn default_quest_specs() -> Vec<ambition_gameplay_core::quest::QuestSpec> {
             vec![
                 ambition_gameplay_core::quest::QuestStepSpec::new(
                     "Enter the quest lab from the basement door.",
-                    ambition_gameplay_core::quest::QuestStepCondition::RoomEntered("quest_lab".into()),
+                    ambition_gameplay_core::quest::QuestStepCondition::RoomEntered(
+                        "quest_lab".into(),
+                    ),
                 ),
                 ambition_gameplay_core::quest::QuestStepSpec::new(
                     "Return to the basement.",
@@ -117,7 +123,9 @@ pub fn default_quest_specs() -> Vec<ambition_gameplay_core::quest::QuestSpec> {
             vec![
                 ambition_gameplay_core::quest::QuestStepSpec::new(
                     "Hunt the mockingbird and reclaim the chest.",
-                    ambition_gameplay_core::quest::QuestStepCondition::BossDefeated("mockingbird".into()),
+                    ambition_gameplay_core::quest::QuestStepCondition::BossDefeated(
+                        "mockingbird".into(),
+                    ),
                 ),
                 ambition_gameplay_core::quest::QuestStepSpec::new(
                     "Return the treasure to the pirate admiral.",
@@ -280,11 +288,9 @@ mod tests {
     fn pirate_treasure_completes_when_bird_defeated_then_admiral_talked() {
         let mut state = pirate_treasure_state();
         assert!(state.is_active());
-        assert!(
-            state.try_advance(&ambition_gameplay_core::quest::QuestAdvanceEvent::BossDefeated(
-                "mockingbird".into()
-            ))
-        );
+        assert!(state.try_advance(
+            &ambition_gameplay_core::quest::QuestAdvanceEvent::BossDefeated("mockingbird".into())
+        ));
         assert!(state.is_active());
         assert!(
             state.try_advance(&ambition_gameplay_core::quest::QuestAdvanceEvent::FlagSet(
@@ -312,11 +318,9 @@ mod tests {
         assert_eq!(state.step, 0);
         assert!(state.is_active());
         // Kill the bird → step advances.
-        assert!(
-            state.try_advance(&ambition_gameplay_core::quest::QuestAdvanceEvent::BossDefeated(
-                "mockingbird".into()
-            ))
-        );
+        assert!(state.try_advance(
+            &ambition_gameplay_core::quest::QuestAdvanceEvent::BossDefeated("mockingbird".into())
+        ));
         assert_eq!(state.step, 1);
         // Walk back and talk again → completes.
         assert!(

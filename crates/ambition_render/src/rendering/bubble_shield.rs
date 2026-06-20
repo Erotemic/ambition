@@ -98,7 +98,11 @@ pub fn spawn_bubble_shield_visual(
         },
         // Render behind the player sprite so the ring feels like a field
         // around the body rather than a foreground overlay.
-        Transform::from_xyz(0.0, 0.0, ambition_gameplay_core::config::WORLD_Z_PLAYER - 0.05),
+        Transform::from_xyz(
+            0.0,
+            0.0,
+            ambition_gameplay_core::config::WORLD_Z_PLAYER - 0.05,
+        ),
         Visibility::Hidden,
         BubbleShieldVisual,
         Name::new("Bubble Shield Visual"),

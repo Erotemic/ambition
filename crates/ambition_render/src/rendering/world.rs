@@ -111,7 +111,8 @@ pub fn spawn_room_visuals(
         // so each side has its own FeatureVisual entity — without
         // this both sims point at ids that don't match any room
         // visual, and `sync_visuals` hides them.
-        if let Some(plan) = ambition_gameplay_core::features::composite_visual_plan(&enemy.payload) {
+        if let Some(plan) = ambition_gameplay_core::features::composite_visual_plan(&enemy.payload)
+        {
             spawn_composite_visuals(commands, world, enemy, kind, assets, &plan);
             continue;
         }
@@ -560,7 +561,9 @@ fn spawn_composite_visuals(
 fn spawn_authored_hazard(
     commands: &mut Commands,
     world: &ae::World,
-    authored: &ambition_gameplay_core::rooms::Authored<ambition_gameplay_core::combat::DamageVolume>,
+    authored: &ambition_gameplay_core::rooms::Authored<
+        ambition_gameplay_core::combat::DamageVolume,
+    >,
     assets: Option<&GameAssets>,
 ) {
     spawn_authored_basic(
@@ -605,7 +608,9 @@ fn spawn_authored_chest(
 fn spawn_authored_interactable(
     commands: &mut Commands,
     world: &ae::World,
-    authored: &ambition_gameplay_core::rooms::Authored<ambition_gameplay_core::interaction::Interactable>,
+    authored: &ambition_gameplay_core::rooms::Authored<
+        ambition_gameplay_core::interaction::Interactable,
+    >,
     assets: Option<&GameAssets>,
 ) {
     let interactable = &authored.payload;

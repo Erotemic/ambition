@@ -45,6 +45,32 @@ PYTHONPATH=tools/ambition_ldtk_tools python -m ambition_ldtk_tools entity add \
 - Treat loading zones, collision IntGrid values, active areas, and coordinate transforms as spatial review areas.
 - Do not reintroduce retired top-level scripts such as the retired validate_ambition_ldtk.py script or the retired author_ldtk_area.py script.
 
+
+## World auto-layout
+
+For non-GridVania sandbox worlds, use `world auto-layout` to reduce editor
+sprawl. The command builds a graph from `LoadingZone.target_room` /
+`target_zone`, preserves all levels sharing an `activeArea` as a rigid group,
+anchors a chosen start level or active area at an origin, and greedily places
+connected groups near the door/edge that reaches them while avoiding overlapping
+level rectangles.
+
+```bash
+# Report-only pass. Does not mutate the LDtk file.
+PYTHONPATH=tools/ambition_ldtk_tools python -m ambition_ldtk_tools world auto-layout \
+  crates/ambition_gameplay_core/assets/ambition/worlds/sandbox.ldtk \
+  --start central_hub_main --origin 0,0 --dry-run
+
+# Write the layout after reviewing the dry-run report.
+PYTHONPATH=tools/ambition_ldtk_tools python -m ambition_ldtk_tools world auto-layout \
+  crates/ambition_gameplay_core/assets/ambition/worlds/sandbox.ldtk \
+  --start central_hub_main --origin 0,0 --report /tmp/sandbox-layout.txt --in-place
+```
+
+This is an editor-formatting pass only: it updates `level.worldX/worldY` and
+cached entity `__worldX/__worldY`; it does not change room contents, LoadingZone
+targets, collision, or authored gameplay data.
+
 ## Room inspection/render/debug bundles
 
 For chat-sandbox level design, prefer the room-level helpers before opening or
@@ -73,4 +99,3 @@ PYTHONPATH=tools/ambition_ldtk_tools python -m ambition_ldtk_tools room bundle-d
 This is intended to make LLM-assisted room design less brittle: the assistant can
 reason from a compact text summary, a single visual artifact, and relevant trace
 failures instead of asking for the whole repo or guessing LDtk coordinates.
-

@@ -63,6 +63,18 @@ PYTHONPATH=tools/ambition_ldtk_tools python -m ambition_ldtk_tools portal pair \
   --a 300 891 up --b 600 700 left \
   --id demo --name "demo gate" --size 120 18 --in-place
 
+
+# Auto-format Free-layout worlds by LoadingZone graph. This preserves activeArea
+# groups as rigid clusters, anchors central_hub_main at 0,0, and places linked
+# rooms near the door/edge that reaches them. Start with --dry-run and inspect
+# the report before writing.
+PYTHONPATH=tools/ambition_ldtk_tools python -m ambition_ldtk_tools world auto-layout \
+  crates/ambition_gameplay_core/assets/ambition/worlds/sandbox.ldtk \
+  --start central_hub_main --origin 0,0 --dry-run
+PYTHONPATH=tools/ambition_ldtk_tools python -m ambition_ldtk_tools world auto-layout \
+  crates/ambition_gameplay_core/assets/ambition/worlds/sandbox.ldtk \
+  --start central_hub_main --origin 0,0 --report /tmp/sandbox-layout.txt --in-place
+
 # Room-level sandbox helpers: summarize, render, and bundle room context without LDtk/the game.
 PYTHONPATH=tools/ambition_ldtk_tools python -m ambition_ldtk_tools room describe \
   --level symmetry_room

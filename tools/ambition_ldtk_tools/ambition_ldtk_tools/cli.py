@@ -15,6 +15,7 @@ Subcommands (those marked [TODO] are not yet wired and will print a hint):
     door free-spots <room>         List free 48x96 door slots in a level.
 
     world init <target.ldtk>       Scaffold a new .ldtk file by cloning sandbox.ldtk defs.
+    world auto-layout <ldtk>      Arrange Free-layout levels by LoadingZone graph.
 
     level set-field [--level ID --set key=value | <spec.yaml>]
                                    Update level-scoped metadata (biome /
@@ -129,6 +130,10 @@ def cmd_world(args, rest):
     if args.world_action == "repack":
         return _delegate(
             "ambition_ldtk_tools.edit.world_repack", [args.world_action, *rest]
+        )
+    if args.world_action == "auto-layout":
+        return _delegate(
+            "ambition_ldtk_tools.edit.world_layout", [args.world_action, *rest]
         )
     return _todo(f"world {args.world_action}")
 
@@ -339,6 +344,15 @@ def build_parser() -> argparse.ArgumentParser:
             "(GridVania-friendly). Usage: world repack <ldtk> "
             "[--start-x N] [--start-y N] [--order L1,L2,...] "
             "(--in-place | --output PATH)"
+        ),
+    )
+    world_sub.add_parser(
+        "auto-layout",
+        help=(
+            "Arrange Free-layout levels by LoadingZone graph while preserving "
+            "activeArea groups. Usage: world auto-layout <ldtk> "
+            "[--start central_hub_main] [--origin 0,0] [--gap 256] "
+            "(--dry-run | --in-place | --output PATH)"
         ),
     )
     sp_world.set_defaults(func=cmd_world)

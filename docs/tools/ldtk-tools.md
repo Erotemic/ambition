@@ -44,3 +44,33 @@ PYTHONPATH=tools/ambition_ldtk_tools python -m ambition_ldtk_tools entity add \
 - Update `docs/recipes/ldtk-authoring.md` if the workflow changes.
 - Treat loading zones, collision IntGrid values, active areas, and coordinate transforms as spatial review areas.
 - Do not reintroduce retired top-level scripts such as the retired validate_ambition_ldtk.py script or the retired author_ldtk_area.py script.
+
+## Room inspection/render/debug bundles
+
+For chat-sandbox level design, prefer the room-level helpers before opening or
+mutating LDtk JSON. They are read-only and pure Python, so they can run in agent
+sandboxes without LDtk or the game runtime.
+
+```bash
+# Human-readable summary: size, IntGrid values, entities, gravity zones,
+# loading zones, moving platforms, cameras, and static review notes.
+PYTHONPATH=tools/ambition_ldtk_tools python -m ambition_ldtk_tools room describe \
+  --level symmetry_room
+
+# Visual room preview. SVG includes labels; PNG is dependency-free and useful
+# when the chat UI previews raster images more reliably.
+PYTHONPATH=tools/ambition_ldtk_tools python -m ambition_ldtk_tools room render \
+  --level symmetry_room --out /tmp/symmetry_room.svg
+PYTHONPATH=tools/ambition_ldtk_tools python -m ambition_ldtk_tools room render \
+  --level symmetry_room --out /tmp/symmetry_room.png
+
+# Bundle the summary, JSON summary, render, matching specs, and relevant
+# debug_traces JSON files into one uploadable artifact.
+PYTHONPATH=tools/ambition_ldtk_tools python -m ambition_ldtk_tools room bundle-debug \
+  --level symmetry_room --out /tmp/symmetry_room_debug.tar.gz
+```
+
+This is intended to make LLM-assisted room design less brittle: the assistant can
+reason from a compact text summary, a single visual artifact, and relevant trace
+failures instead of asking for the whole repo or guessing LDtk coordinates.
+

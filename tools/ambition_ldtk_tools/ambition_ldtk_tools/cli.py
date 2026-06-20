@@ -42,6 +42,10 @@ Subcommands (those marked [TODO] are not yet wired and will print a hint):
     intgrid paint    <rect>       Set cells overlapping the rect to --value (1=Solid).
     gates audit       <level>      Read-only: switches/lock walls/triggers/breakables + targets.
 
+    room describe     --level X    Read-only: summarize a room for chat/sandbox design.
+    room render       --level X    Render a room to SVG/PNG without launching LDtk/game.
+    room bundle-debug --level X    Bundle summary + render + traces/specs for upload.
+
 The TODO subcommands are placeholders — the package was migrated from
 several standalone scripts and these slots are reserved so the surface
 stays stable while we backfill them.
@@ -245,6 +249,31 @@ def cmd_portal(args, rest):
     if args.portal_action == "pair":
         return _delegate("ambition_ldtk_tools.edit.portals", rest)
     return _todo(f"portal {args.portal_action}")
+
+
+def cmd_room(args, rest):
+    if args.room_action in {"describe", "render", "bundle-debug"}:
+        # `room.py` owns its argparse surface. The modal parser only captures
+        # the action, so normalize `room describe --ldtk FILE ...` into the
+        # delegated parser's expected `--ldtk FILE describe ...` shape.
+        before_action: list[str] = []
+        after_action: list[str] = []
+        it = iter(rest)
+        for item in it:
+            if item == "--ldtk":
+                try:
+                    value = next(it)
+                except StopIteration:
+                    print("room: --ldtk requires a path", file=sys.stderr)
+                    return 64
+                before_action.extend(["--ldtk", value])
+            else:
+                after_action.append(item)
+        return _delegate(
+            "ambition_ldtk_tools.room",
+            [*before_action, args.room_action, *after_action],
+        )
+    return _todo(f"room {args.room_action}")
 
 
 # ---- Parser construction ------------------------------------------------------
@@ -513,6 +542,35 @@ def build_parser() -> argparse.ArgumentParser:
         "triggers / breakables and what each switch targets",
     )
     sp_gates.set_defaults(func=cmd_gates)
+
+    # room {describe,render,bundle-debug}
+    sp_room = sub.add_parser("room", help="Room inspection/render/debug-bundle helpers")
+    room_sub = sp_room.add_subparsers(dest="room_action", required=True)
+    room_sub.add_parser(
+        "describe",
+        help=(
+            "Read-only: summarize a level's size, IntGrid values, entities, "
+            "gravity zones, loading zones, moving platforms, cameras, and "
+            "static review notes. Usage: room describe --level <id> "
+            "[--ldtk FILE] [--format text|json] [--entities]"
+        ),
+    )
+    room_sub.add_parser(
+        "render",
+        help=(
+            "Read-only: render a level to .svg or .png without launching LDtk "
+            "or the game. Usage: room render --level <id> --out /tmp/room.svg"
+        ),
+    )
+    room_sub.add_parser(
+        "bundle-debug",
+        help=(
+            "Read-only: create a .tar.gz containing room_describe.txt/json, "
+            "a room render, matching specs, and debug trace JSONs. Usage: "
+            "room bundle-debug --level <id> --out /tmp/room_debug.tar.gz"
+        ),
+    )
+    sp_room.set_defaults(func=cmd_room)
 
     return ap
 

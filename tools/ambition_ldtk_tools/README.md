@@ -63,6 +63,14 @@ PYTHONPATH=tools/ambition_ldtk_tools python -m ambition_ldtk_tools portal pair \
   --a 300 891 up --b 600 700 left \
   --id demo --name "demo gate" --size 120 18 --in-place
 
+# Room-level sandbox helpers: summarize, render, and bundle room context without LDtk/the game.
+PYTHONPATH=tools/ambition_ldtk_tools python -m ambition_ldtk_tools room describe \
+  --level symmetry_room
+PYTHONPATH=tools/ambition_ldtk_tools python -m ambition_ldtk_tools room render \
+  --level symmetry_room --out /tmp/symmetry_room.svg
+PYTHONPATH=tools/ambition_ldtk_tools python -m ambition_ldtk_tools room bundle-debug \
+  --level symmetry_room --out /tmp/symmetry_room_debug.tar.gz
+
 # Read-only spatial queries (answer placement questions before editing;
 # see docs/concepts/llm-spatial-authoring-discipline.md).
 PYTHONPATH=tools/ambition_ldtk_tools python -m ambition_ldtk_tools intgrid query \

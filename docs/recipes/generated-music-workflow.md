@@ -17,6 +17,7 @@ From the repo root:
 ```bash
 PYTHONPATH=tools/ambition_music_renderer python -m ambition_music_renderer --help
 PYTHONPATH=tools/ambition_music_renderer python -m ambition_music_renderer cue bundle <cue_id> --backend pretty-midi --force --zip
+PYTHONPATH=tools/ambition_music_renderer python -m ambition_music_renderer cue bundle <cue_id> --backend pretty-midi --runtime-stem-gain-mode shared --force --zip
 ./generate_audio_assets.sh --force
 ```
 
@@ -67,10 +68,17 @@ python -m ambition_music_renderer cue bundle for_emmy_forever_ago \
 ```
 
 The bundle command writes reports and plots under the cue's generated output and
-then copies the useful artifacts into `tools/ambition_music_renderer/bundles/`.
-Add `--publish` only when the cue should also update the runtime
-`assets/audio/music/generated/<cue_id>/full.ogg`. Add `--include-scratch-stems`
-only for local handoffs because raw NumPy stem buffers can be large.
+then copies the manifest-referenced artifacts into
+`tools/ambition_music_renderer/bundles/`. The bundle deliberately ignores stale
+preview/adaptive files from older hashes. Add `--publish` only when the cue
+should also update the runtime `assets/audio/music/generated/<cue_id>/full.ogg`.
+Add `--include-scratch-stems` only for local handoffs because raw NumPy stem
+buffers can be large.
+
+Use `--runtime-stem-gain-mode shared` when checking layered dynamic music. It
+applies one shared reference gain to all runtime stems, preserving their balance
+while making the exported stem set audible. The default `native` mode preserves
+historical raw-stem levels for compatibility.
 
 Fallback rendering is explicit opt-in: use `--backend fallback` only when you
 really want that diagnostic backend. Normal authoring/debug defaults should use
@@ -96,7 +104,7 @@ Questions to answer:
 
 ## Runtime vs generation diagnosis
 
-If logs show the next section starts at target gain but the seam remains, do not keep tuning fade-up-from-zero behavior. The likely problem is generated audio quality: section mastering, density, arrangement, reverb/noise floor, or phrase shape.
+If logs show the next section starts at target gain but the seam remains, do not keep tuning fade-up-from-zero behavior. The likely problem is generated audio quality: section mastering, density, arrangement, reverb/noise floor, phrase shape, or native runtime stems that are too quiet relative to the mastered full mix.
 
 If logs show an unintended fade from silence, inspect the runtime music director and transition policy. TODO items track equal-power crossfade and live gain HUD improvements.
 

@@ -11,6 +11,7 @@ Run from the repo root unless noted:
 ```bash
 PYTHONPATH=tools/ambition_music_renderer python -m ambition_music_renderer --help
 PYTHONPATH=tools/ambition_music_renderer python -m ambition_music_renderer cue bundle for_emmy_forever_ago --backend pretty-midi --force --zip
+PYTHONPATH=tools/ambition_music_renderer python -m ambition_music_renderer cue bundle for_emmy_forever_ago --backend pretty-midi --runtime-stem-gain-mode shared --force --zip
 ./generate_audio_assets.sh --force
 ```
 
@@ -70,6 +71,12 @@ python -m ambition_music_renderer cue bundle <cue_id> \
   --zip
 ```
 
+For layered runtime-stem audits, add `--runtime-stem-gain-mode shared`. The
+default `native` mode preserves historical raw stem levels; `shared` computes one
+reference gain from the all-stem mix and applies it to every runtime stem so the
+layered export is audible without destroying the stem balance via independent
+normalization.
+
 Add `--publish` only when the generated `full.ogg` should be copied into the
 game asset tree. Add `--include-scratch-stems` only for local handoff bundles;
 raw `.npy` stems are useful but usually too large for chat upload.
@@ -87,11 +94,22 @@ generated/<cue>/
     <section>.<stem>.ogg
   preview/
     full_soundtrack_preview.ogg
-    in_game_minimal.ogg
-    in_game_maximal.ogg
-    in_game_state_<name>.ogg
+    runtime_minimal.ogg
+    runtime_maximal.ogg
+    runtime_state_<name>.ogg
+    audition_minimal.ogg
+    audition_maximal.ogg
+    audition_state_<name>.ogg
+  reports/
+    stem_export_report.tsv
+    manifest_audio_levels.tsv
+    mix_diagnostics.txt
   <cue>.adaptive_manifest.json
 ```
+
+`runtime_*` previews are true weighted stem sums with no upward audition
+normalization. `audition_*` previews are the same mixes normalized for easier
+composition review. Do not use audition files as evidence of in-game loudness.
 
 Runtime assets live under:
 

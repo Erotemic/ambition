@@ -15,6 +15,7 @@ import os
 import shutil
 import subprocess
 import sys
+import tempfile
 import time
 import zipfile
 from dataclasses import dataclass
@@ -28,6 +29,7 @@ from . import musicir_renderer as r
 
 DEFAULT_BACKEND = "pretty-midi"
 BACKEND_CHOICES = ("pretty-midi", "fluidsynth-cli", "fallback", "auto")
+RUNTIME_STEM_GAIN_MODES = ("native", "shared")
 
 
 @dataclass(frozen=True)
@@ -158,6 +160,193 @@ def manifest_duration(manifest: dict) -> float:
     return max(ends) if ends else 0.0
 
 
+def manifest_audio_entries(manifest: dict) -> list[dict[str, str]]:
+    """Return audio files explicitly referenced by an adaptive manifest.
+
+    This intentionally ignores any extra files sitting in preview/ or adaptive/.
+    Bundles and reports must be hash/manifest scoped so stale renders do not
+    contaminate diagnostics.
+    """
+    entries: list[dict[str, str]] = []
+    files = manifest.get("files") or {}
+    preview = files.get("preview") or {}
+    if isinstance(preview, dict):
+        for name, rel in sorted(preview.items()):
+            if isinstance(rel, str):
+                entries.append(
+                    {
+                        "kind": "preview_audio",
+                        "section": "*",
+                        "group": name,
+                        "path": rel,
+                    }
+                )
+    adaptive = files.get("adaptive") or {}
+    if isinstance(adaptive, dict):
+        for section_id, section_files in sorted(adaptive.items()):
+            if not isinstance(section_files, dict):
+                continue
+            for group, rel in sorted(section_files.items()):
+                if isinstance(rel, str):
+                    entries.append(
+                        {
+                            "kind": "adaptive_audio",
+                            "section": section_id,
+                            "group": group,
+                            "path": rel,
+                        }
+                    )
+    return entries
+
+
+def current_scratch_stem_paths(outdir: Path, manifest: dict) -> list[Path]:
+    """Return scratch stem buffers for this manifest hash only."""
+    scratch_dir = outdir / "scratch_stems"
+    if not scratch_dir.is_dir():
+        return []
+    cue_id = str(manifest.get("id", ""))
+    render_hash = str(manifest.get("hash", ""))
+    if cue_id and render_hash:
+        return sorted(scratch_dir.glob(f"{cue_id}_{render_hash}.*.npy"))
+    return sorted(scratch_dir.glob("*.npy"))
+
+
+def copy_current_scratch_stems(outdir: Path, manifest: dict, dest_root: Path) -> list[str]:
+    copied: list[str] = []
+    for src in current_scratch_stem_paths(outdir, manifest):
+        rel = Path("scratch_stems") / src.name
+        dst = dest_root / rel
+        dst.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(src, dst)
+        copied.append(str(rel))
+    return copied
+
+
+def copy_manifest_referenced_files(outdir: Path, manifest: dict, bundle_dir: Path) -> list[str]:
+    copied: list[str] = []
+    for entry in manifest_audio_entries(manifest):
+        rel = Path(entry["path"])
+        src = outdir / rel
+        if not src.exists():
+            continue
+        dst = bundle_dir / rel
+        dst.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(src, dst)
+        copied.append(str(rel))
+    return copied
+
+
+def prepare_manifest_analysis_root(outdir: Path, manifest: dict, analysis_root: Path) -> Path:
+    """Create a clean manifest-scoped tree for external diagnostic scripts.
+
+    Several legacy analysis helpers scan entire ``preview/``, ``adaptive/`` or
+    ``scratch_stems/`` directories. Running them directly on a long-lived output
+    directory lets stale render hashes pollute reports. This helper builds the
+    small tree those tools expect, but containing only files referenced by the
+    current manifest plus scratch stems matching the current render hash.
+    """
+    if analysis_root.exists():
+        shutil.rmtree(analysis_root)
+    analysis_root.mkdir(parents=True, exist_ok=True)
+    copy_manifest_referenced_files(outdir, manifest, analysis_root)
+    copy_current_scratch_stems(outdir, manifest, analysis_root)
+    return analysis_root
+
+
+def write_manifest_audio_level_report(outdir: Path, manifest: dict, reports_dir: Path) -> Path:
+    """Write level stats for manifest-referenced audio only."""
+    reports_dir.mkdir(parents=True, exist_ok=True)
+    columns = [
+        "kind",
+        "section",
+        "group",
+        "duration_s",
+        "rms_dbfs",
+        "peak_dbfs",
+        "sample_rate",
+        "path",
+        "error",
+    ]
+    rows: list[dict[str, object]] = []
+    for entry in manifest_audio_entries(manifest):
+        path = outdir / entry["path"]
+        stats, error = _read_audio_stats(path)
+        rows.append({**entry, **(stats or {}), "error": error or ""})
+
+    out = reports_dir / "manifest_audio_levels.tsv"
+    lines = ["\t".join(columns)]
+    for row in rows:
+        cells: list[str] = []
+        for col in columns:
+            value = row.get(col, "")
+            cells.append(f"{value:.3f}" if isinstance(value, float) else str(value))
+        lines.append("\t".join(cells))
+    out.write_text("\n".join(lines) + "\n", encoding="utf8")
+    (reports_dir / "manifest_audio_levels.json").write_text(
+        json.dumps({"rows": rows}, indent=2), encoding="utf8"
+    )
+    return out
+
+
+def summarize_mix_diagnostics(manifest: dict, reports_dir: Path) -> tuple[Path, list[str]]:
+    """Write human-readable mix diagnostics from manifest renderer stats."""
+    reports_dir.mkdir(parents=True, exist_ok=True)
+    diagnostics = manifest.get("diagnostics") or {}
+    warnings = list(diagnostics.get("warnings") or []) if isinstance(diagnostics, dict) else []
+    lines: list[str] = []
+    lines.append(f"cue: {manifest.get('id', 'unknown')}")
+    lines.append(f"hash: {manifest.get('hash', 'unknown')}")
+    lines.append(f"runtime_stem_gain_mode: {manifest.get('runtime_stem_gain_mode', 'native')}")
+    if isinstance(diagnostics, dict):
+        raw = diagnostics.get("raw_full") or {}
+        mastered = diagnostics.get("mastered_full") or {}
+        lines.append("")
+        lines.append("raw all-stem reference:")
+        lines.append(f"  rms_dbfs: {raw.get('rms_dbfs', 'n/a')}")
+        lines.append(f"  peak_dbfs: {raw.get('peak_dbfs', 'n/a')}")
+        lines.append("mastered full preview:")
+        lines.append(f"  rms_dbfs: {mastered.get('rms_dbfs', 'n/a')}")
+        lines.append(f"  peak_dbfs: {mastered.get('peak_dbfs', 'n/a')}")
+        lines.append(f"master_rms_lift_db: {diagnostics.get('master_rms_lift_db', 'n/a')}")
+        lines.append(f"runtime_gain_db: {diagnostics.get('runtime_gain_db', 'n/a')}")
+        lines.append(f"runtime_gain_reason: {diagnostics.get('runtime_gain_reason', 'n/a')}")
+        native = diagnostics.get("native_stems") or {}
+        runtime = diagnostics.get("runtime_stems") or {}
+        if isinstance(native, dict) and native:
+            lines.append("")
+            lines.append("native stem rms/peak:")
+            for group, stats in sorted(native.items()):
+                if isinstance(stats, dict):
+                    lines.append(
+                        f"  {group}: rms {stats.get('rms_dbfs', 'n/a')} dBFS, "
+                        f"peak {stats.get('peak_dbfs', 'n/a')} dBFS"
+                    )
+        if isinstance(runtime, dict) and runtime and runtime != native:
+            lines.append("")
+            lines.append("runtime export stem rms/peak:")
+            for group, stats in sorted(runtime.items()):
+                if isinstance(stats, dict):
+                    lines.append(
+                        f"  {group}: rms {stats.get('rms_dbfs', 'n/a')} dBFS, "
+                        f"peak {stats.get('peak_dbfs', 'n/a')} dBFS"
+                    )
+    if warnings:
+        lines.append("")
+        lines.append("warnings:")
+        for warning in warnings:
+            lines.append(f"  - {warning}")
+    else:
+        lines.append("")
+        lines.append("warnings: none")
+    out = reports_dir / "mix_diagnostics.txt"
+    out.write_text("\n".join(lines) + "\n", encoding="utf8")
+    (reports_dir / "mix_diagnostics.json").write_text(
+        json.dumps({"diagnostics": diagnostics, "warnings": warnings}, indent=2),
+        encoding="utf8",
+    )
+    return out, warnings
+
+
 def write_stem_export_report(outdir: Path, manifest: dict, reports_dir: Path) -> Path:
     """Compare retained .npy stem buffers with exported per-stem audio files.
 
@@ -170,8 +359,7 @@ def write_stem_export_report(outdir: Path, manifest: dict, reports_dir: Path) ->
     cue_id = manifest.get("id", "unknown")
     rows: list[dict[str, object]] = []
 
-    scratch_dir = outdir / "scratch_stems"
-    for npy in sorted(scratch_dir.glob("*.npy")):
+    for npy in current_scratch_stem_paths(outdir, manifest):
         group = npy.stem.split(".")[-1]
         try:
             arr = np.load(npy).astype("float32", copy=False)
@@ -191,45 +379,10 @@ def write_stem_export_report(outdir: Path, manifest: dict, reports_dir: Path) ->
             }
         )
 
-    files = manifest.get("files") or {}
-    adaptive = files.get("adaptive") or {}
-    if isinstance(adaptive, dict):
-        for section_id, section_files in sorted(adaptive.items()):
-            if not isinstance(section_files, dict):
-                continue
-            for group, rel in sorted(section_files.items()):
-                if not isinstance(rel, str):
-                    continue
-                path = outdir / rel
-                stats, error = _read_audio_stats(path)
-                rows.append(
-                    {
-                        "kind": "adaptive_audio",
-                        "section": section_id,
-                        "group": group,
-                        "path": rel,
-                        **(stats or {}),
-                        "error": error or "",
-                    }
-                )
-
-    preview = files.get("preview") or {}
-    if isinstance(preview, dict):
-        for name, rel in sorted(preview.items()):
-            if not isinstance(rel, str):
-                continue
-            path = outdir / rel
-            stats, error = _read_audio_stats(path)
-            rows.append(
-                {
-                    "kind": "preview_audio",
-                    "section": "*",
-                    "group": name,
-                    "path": rel,
-                    **(stats or {}),
-                    "error": error or "",
-                }
-            )
+    for entry in manifest_audio_entries(manifest):
+        path = outdir / entry["path"]
+        stats, error = _read_audio_stats(path)
+        rows.append({**entry, **(stats or {}), "error": error or ""})
 
     columns = [
         "kind",
@@ -317,7 +470,7 @@ def write_spectrograms(outdir: Path, manifest: dict, plots_dir: Path, *, limit: 
         plt.close()
 
     candidates: list[tuple[str, Path, str]] = []
-    for npy in sorted((outdir / "scratch_stems").glob("*.npy")):
+    for npy in current_scratch_stem_paths(outdir, manifest):
         candidates.append(("npy", npy, npy.stem.split(".")[-1]))
     files = manifest.get("files") or {}
     preview = files.get("preview") or {}
@@ -370,7 +523,7 @@ def make_zip(src_dir: Path, zip_path: Path) -> Path:
     return zip_path
 
 
-def build_rerun_script(bundle_dir: Path, cue: str, backend: str, outdir: Path, publish: bool) -> Path:
+def build_rerun_script(bundle_dir: Path, cue: str, backend: str, outdir: Path, publish: bool, runtime_stem_gain_mode: str) -> Path:
     script = bundle_dir / "rerun_bundle.sh"
     publish_flag = " --publish" if publish else ""
     script.write_text(
@@ -380,6 +533,7 @@ def build_rerun_script(bundle_dir: Path, cue: str, backend: str, outdir: Path, p
         "PYTHONPATH=tools/ambition_music_renderer \\\n"
         f"python -m ambition_music_renderer cue bundle {cue} \\\n"
         f"  --backend {backend} \\\n"
+        f"  --runtime-stem-gain-mode {runtime_stem_gain_mode} \\\n"
         f"  --outdir {outdir} \\\n"
         f"  --force{publish_flag} --zip\n",
         encoding="utf8",
@@ -392,6 +546,7 @@ def create_bundle(
     cue: str,
     *,
     backend: str = DEFAULT_BACKEND,
+    runtime_stem_gain_mode: str = "native",
     outdir: Path | None = None,
     bundle_root: Path | None = None,
     force: bool = False,
@@ -429,6 +584,13 @@ def create_bundle(
 
     reports_dir = outdir / "reports"
     plots_dir = outdir / "plots"
+    # Reports and plots are derived products for the current bundle. Clear them
+    # up front so stale diagnostics from older hashes cannot contaminate a new
+    # upload bundle. Audio output dirs are left alone; bundle copying is
+    # manifest-scoped below.
+    for derived_dir in (reports_dir, plots_dir):
+        if derived_dir.exists():
+            shutil.rmtree(derived_dir)
     reports_dir.mkdir(parents=True, exist_ok=True)
     commands: list[CommandResult] = []
 
@@ -442,6 +604,8 @@ def create_bundle(
             str(outdir),
             "--backend",
             backend,
+            "--runtime-stem-gain-mode",
+            runtime_stem_gain_mode,
             "--keep-debug-stems",
             "--jobs",
             str(jobs),
@@ -465,74 +629,62 @@ def create_bundle(
     render_hash = str(manifest.get("hash", "unknown"))
     duration = manifest_duration(manifest)
 
-    # Diagnostics. These tools are report-only; a failure should not destroy the bundle.
+    # Diagnostics. These tools are report-only; a failure should not destroy the
+    # bundle. Run directory-scanning legacy helpers against a clean manifest-
+    # scoped analysis root so stale hashes in the real output dir cannot leak
+    # into the reports.
     tools_dir = package_dir()
-    commands.append(
-        run_logged(
-            "audit_cue_balance",
-            [sys.executable, str(tools_dir / "audit_cue_balance.py"), str(outdir)],
-            reports_dir,
-            cwd=tools_dir,
-        )
-    )
-    commands.append(
-        run_logged(
-            "level_report_preview",
-            [
-                sys.executable,
-                str(tools_dir / "level_report.py"),
-                "--root",
-                str(outdir),
-                "--glob",
-                "preview/*.ogg",
-                "--format",
-                "tsv",
-                "--target-rms-db",
-                "-24",
-            ],
-            reports_dir,
-            cwd=tools_dir,
-        )
-    )
-    if (outdir / "scratch_stems").is_dir():
-        hi = f"{duration:.3f}" if duration > 0 else "-1"
+    with tempfile.TemporaryDirectory(prefix=f"{cue_id}_{render_hash}_analysis_") as td:
+        analysis_root = prepare_manifest_analysis_root(outdir, manifest, Path(td))
         commands.append(
             run_logged(
-                "spectral_compare",
-                [
-                    sys.executable,
-                    str(tools_dir / "spectral_compare.py"),
-                    str(outdir),
-                    "--window",
-                    "0",
-                    hi,
-                    "--label",
-                    cue_id,
-                ],
+                "audit_cue_balance",
+                [sys.executable, str(tools_dir / "audit_cue_balance.py"), str(analysis_root)],
                 reports_dir,
                 cwd=tools_dir,
             )
         )
-        commands.append(
-            run_logged(
-                "spectral_localize",
-                [
-                    sys.executable,
-                    str(tools_dir / "spectral_localize.py"),
-                    str(outdir),
-                    "--window",
-                    "0",
-                    "-1",
-                    "--bucket",
-                    "0.25",
-                ],
-                reports_dir,
-                cwd=tools_dir,
+        if (analysis_root / "scratch_stems").is_dir():
+            hi = f"{duration:.3f}" if duration > 0 else "-1"
+            commands.append(
+                run_logged(
+                    "spectral_compare",
+                    [
+                        sys.executable,
+                        str(tools_dir / "spectral_compare.py"),
+                        str(analysis_root),
+                        "--window",
+                        "0",
+                        hi,
+                        "--label",
+                        cue_id,
+                    ],
+                    reports_dir,
+                    cwd=tools_dir,
+                )
             )
-        )
-    write_stem_export_report(outdir, manifest, reports_dir)
-    if not skip_spectrograms:
-        write_spectrograms(outdir, manifest, plots_dir)
+            commands.append(
+                run_logged(
+                    "spectral_localize",
+                    [
+                        sys.executable,
+                        str(tools_dir / "spectral_localize.py"),
+                        str(analysis_root),
+                        "--window",
+                        "0",
+                        "-1",
+                        "--bucket",
+                        "0.25",
+                    ],
+                    reports_dir,
+                    cwd=tools_dir,
+                )
+            )
+        write_stem_export_report(analysis_root, manifest, reports_dir)
+        write_manifest_audio_level_report(analysis_root, manifest, reports_dir)
+        mix_diag_path, mix_warnings = summarize_mix_diagnostics(manifest, reports_dir)
+        if not skip_spectrograms:
+            write_spectrograms(analysis_root, manifest, plots_dir)
 
     published: str | None = None
     if publish:
@@ -555,15 +707,14 @@ def create_bundle(
     source_dir.mkdir(parents=True, exist_ok=True)
     shutil.copy2(score_path, source_dir / score_path.name)
     (source_dir / "normalized_spec.json").write_text(json.dumps(spec, indent=2), encoding="utf8")
-    copy_tree_if_exists(outdir / "preview", bundle_dir / "preview")
-    copy_tree_if_exists(outdir / "adaptive", bundle_dir / "adaptive")
+    copied_audio = copy_manifest_referenced_files(outdir, manifest, bundle_dir)
     copy_tree_if_exists(reports_dir, bundle_dir / "reports")
     copy_tree_if_exists(plots_dir, bundle_dir / "plots")
     shutil.copy2(manifest_path, bundle_dir / manifest_path.name)
     if include_scratch_stems:
-        copy_tree_if_exists(outdir / "scratch_stems", bundle_dir / "scratch_stems")
+        copy_current_scratch_stems(outdir, manifest, bundle_dir)
 
-    rerun_script = build_rerun_script(bundle_dir, cue_id, backend, outdir, publish)
+    rerun_script = build_rerun_script(bundle_dir, cue_id, backend, outdir, publish, runtime_stem_gain_mode)
 
     command_rows = [
         {
@@ -580,6 +731,7 @@ def create_bundle(
         "cue": cue_id,
         "score": safe_rel(score_path),
         "backend": backend,
+        "runtime_stem_gain_mode": runtime_stem_gain_mode,
         "render_hash": render_hash,
         "outdir": str(outdir),
         "bundle_dir": str(bundle_dir),
@@ -587,7 +739,9 @@ def create_bundle(
         "duration_s": duration,
         "published": published,
         "include_scratch_stems": include_scratch_stems,
-        "warnings": [w for w in [id_warning] if w],
+        "copied_audio_files": copied_audio,
+        "mix_diagnostics": str(mix_diag_path),
+        "warnings": [w for w in [id_warning, *mix_warnings] if w],
         "commands": command_rows,
         "rerun_script": str(rerun_script),
     }
@@ -606,6 +760,15 @@ def build_parser() -> argparse.ArgumentParser:
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("cue", help="cue id or .music.yaml path")
     ap.add_argument("--backend", default=DEFAULT_BACKEND, choices=BACKEND_CHOICES)
+    ap.add_argument(
+        "--runtime-stem-gain-mode",
+        choices=RUNTIME_STEM_GAIN_MODES,
+        default="native",
+        help=(
+            "runtime adaptive stem export mode: native preserves current raw levels; "
+            "shared applies one shared reference gain across all stems"
+        ),
+    )
     ap.add_argument("--outdir", type=Path, default=None)
     ap.add_argument("--bundle-root", type=Path, default=None)
     ap.add_argument("--force", action="store_true", help="force render regeneration")
@@ -628,6 +791,7 @@ def main(argv: list[str] | None = None) -> int:
     report = create_bundle(
         args.cue,
         backend=args.backend,
+        runtime_stem_gain_mode=args.runtime_stem_gain_mode,
         outdir=args.outdir,
         bundle_root=args.bundle_root,
         force=args.force,

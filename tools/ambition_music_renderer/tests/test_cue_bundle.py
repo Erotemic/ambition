@@ -8,7 +8,15 @@ import numpy as np
 import soundfile as sf
 
 from ambition_music_renderer.cli import build_parser
-from ambition_music_renderer.cue_bundle import make_zip, write_stem_export_report
+from ambition_music_renderer.cue_bundle import (
+    copy_manifest_referenced_files,
+    make_zip,
+    manifest_audio_entries,
+    summarize_mix_diagnostics,
+    prepare_manifest_analysis_root,
+    write_manifest_audio_level_report,
+    write_stem_export_report,
+)
 from ambition_music_renderer.render_group_worker import build_parser as build_worker_parser
 from ambition_music_renderer.render_isolated import build_parser as build_isolated_parser
 
@@ -20,11 +28,26 @@ def test_backend_defaults_prefer_pretty_midi():
     ).backend == "pretty-midi"
     assert build_parser().parse_args(["render", "lofi_study_loop"]).backend == "pretty-midi"
     assert build_parser().parse_args(["cue", "bundle", "lofi_study_loop"]).backend == "pretty-midi"
+    assert build_isolated_parser().parse_args([
+        "cue.music.yaml",
+        "--runtime-stem-gain-mode",
+        "shared",
+    ]).runtime_stem_gain_mode == "shared"
 
 
 def test_bundle_parser_exposes_publish_and_zip_flags():
     args = build_parser().parse_args(
-        ["cue", "bundle", "for_emmy_forever_ago", "--publish", "--zip", "--jobs", "2"]
+        [
+            "cue",
+            "bundle",
+            "for_emmy_forever_ago",
+            "--publish",
+            "--zip",
+            "--jobs",
+            "2",
+            "--runtime-stem-gain-mode",
+            "shared",
+        ]
     )
     assert args.command == "cue"
     assert args.cue_action == "bundle"
@@ -32,6 +55,7 @@ def test_bundle_parser_exposes_publish_and_zip_flags():
     assert args.publish is True
     assert args.zip_bundle is True
     assert args.jobs == 2
+    assert args.runtime_stem_gain_mode == "shared"
 
 
 def test_stem_export_report_compares_scratch_adaptive_and_preview_audio():
@@ -95,3 +119,113 @@ def test_make_zip_contains_bundle_files():
         with zipfile.ZipFile(zip_path) as zf:
             names = set(zf.namelist())
         assert "mycue_hash_bundle/reports/report.txt" in names
+
+
+
+def test_manifest_audio_entries_and_bundle_copy_are_manifest_scoped():
+    with tempfile.TemporaryDirectory() as td:
+        root = Path(td)
+        current = root / "preview" / "cue_hash.full_soundtrack_preview.ogg"
+        stale = root / "preview" / "cue_old.full_soundtrack_preview.ogg"
+        adaptive = root / "adaptive" / "loop" / "cue_hash.loop.full.ogg"
+        current.parent.mkdir(parents=True)
+        adaptive.parent.mkdir(parents=True)
+        current.write_bytes(b"current")
+        stale.write_bytes(b"stale")
+        adaptive.write_bytes(b"adaptive")
+        manifest = {
+            "files": {
+                "preview": {"full_soundtrack": "preview/cue_hash.full_soundtrack_preview.ogg"},
+                "adaptive": {"loop": {"full": "adaptive/loop/cue_hash.loop.full.ogg"}},
+            }
+        }
+        entries = manifest_audio_entries(manifest)
+        assert {e["path"] for e in entries} == {
+            "preview/cue_hash.full_soundtrack_preview.ogg",
+            "adaptive/loop/cue_hash.loop.full.ogg",
+        }
+        bundle = root / "bundle"
+        copied = copy_manifest_referenced_files(root, manifest, bundle)
+        assert sorted(copied) == [
+            "adaptive/loop/cue_hash.loop.full.ogg",
+            "preview/cue_hash.full_soundtrack_preview.ogg",
+        ]
+        assert (bundle / "preview" / current.name).exists()
+        assert not (bundle / "preview" / stale.name).exists()
+
+
+def test_manifest_audio_level_report_ignores_stale_audio():
+    with tempfile.TemporaryDirectory() as td:
+        root = Path(td)
+        sr = 48_000
+        t = np.arange(sr // 20, dtype="float32") / sr
+        tone = 0.05 * np.sin(2 * np.pi * 220.0 * t)
+        stereo = np.stack([tone, tone], axis=1).astype("float32")
+        preview = root / "preview"
+        preview.mkdir()
+        sf.write(preview / "cue_hash.full_soundtrack_preview.wav", stereo, sr)
+        sf.write(preview / "cue_old.full_soundtrack_preview.wav", stereo, sr)
+        manifest = {
+            "files": {
+                "preview": {"full_soundtrack": "preview/cue_hash.full_soundtrack_preview.wav"},
+                "adaptive": {},
+            }
+        }
+        report = write_manifest_audio_level_report(root, manifest, root / "reports")
+        text = report.read_text()
+        assert "cue_hash.full_soundtrack_preview.wav" in text
+        assert "cue_old.full_soundtrack_preview.wav" not in text
+
+
+def test_mix_diagnostics_surfaces_renderer_warnings():
+    with tempfile.TemporaryDirectory() as td:
+        root = Path(td)
+        manifest = {
+            "id": "cue",
+            "hash": "abc123",
+            "runtime_stem_gain_mode": "native",
+            "diagnostics": {
+                "raw_full": {"rms_dbfs": -75.0, "peak_dbfs": -55.0},
+                "mastered_full": {"rms_dbfs": -24.0, "peak_dbfs": -8.0},
+                "master_rms_lift_db": 51.0,
+                "runtime_gain_db": 0.0,
+                "runtime_gain_reason": "native",
+                "native_stems": {"keys": {"rms_dbfs": -75.0, "peak_dbfs": -55.0}},
+                "runtime_stems": {"keys": {"rms_dbfs": -75.0, "peak_dbfs": -55.0}},
+                "warnings": ["native runtime stems are very quiet"],
+            },
+        }
+        report, warnings = summarize_mix_diagnostics(manifest, root / "reports")
+        text = report.read_text()
+        assert "master_rms_lift_db" in text
+        assert "native runtime stems are very quiet" in text
+        assert warnings == ["native runtime stems are very quiet"]
+
+
+
+def test_analysis_root_copies_only_current_hash_scratch_stems():
+    with tempfile.TemporaryDirectory() as td:
+        root = Path(td)
+        sr = 48_000
+        audio = np.zeros((128, 2), dtype="float32")
+        scratch = root / "scratch_stems"
+        scratch.mkdir()
+        np.save(scratch / "cue_current.keys.npy", audio)
+        np.save(scratch / "cue_old.keys.npy", audio)
+        preview = root / "preview"
+        preview.mkdir()
+        sf.write(preview / "cue_current.full_soundtrack_preview.wav", audio, sr)
+        sf.write(preview / "cue_old.full_soundtrack_preview.wav", audio, sr)
+        manifest = {
+            "id": "cue",
+            "hash": "current",
+            "files": {
+                "preview": {"full_soundtrack": "preview/cue_current.full_soundtrack_preview.wav"},
+                "adaptive": {},
+            },
+        }
+        analysis = prepare_manifest_analysis_root(root, manifest, root / "analysis")
+        assert (analysis / "scratch_stems" / "cue_current.keys.npy").exists()
+        assert not (analysis / "scratch_stems" / "cue_old.keys.npy").exists()
+        assert (analysis / "preview" / "cue_current.full_soundtrack_preview.wav").exists()
+        assert not (analysis / "preview" / "cue_old.full_soundtrack_preview.wav").exists()

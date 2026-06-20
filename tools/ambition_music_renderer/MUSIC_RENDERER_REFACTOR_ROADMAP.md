@@ -16,10 +16,15 @@ A healthy end-state workflow looks like this:
 PYTHONPATH=tools/ambition_music_renderer \
 python -m ambition_music_renderer cue bundle for_emmy_forever_ago \
   --backend pretty-midi \
+  --runtime-stem-gain-mode shared \
   --force \
   --publish \
   --zip
 ```
+
+For compatibility, `--runtime-stem-gain-mode native` remains the default. Use
+`shared` when auditing or preparing layered runtime stems; it applies one shared
+reference gain across all stems instead of independently normalizing them.
 
 That command should answer:
 
@@ -94,8 +99,10 @@ During debugging, it must be obvious whether a problem is in:
 - publish/install logic, or
 - Rust runtime mixing.
 
-The first bundle implementation adds `stem_export_report.tsv/json` to compare
-scratch stems, adaptive audio, and preview audio levels/durations.
+The bundle implementation adds `stem_export_report.tsv/json` to compare scratch
+stems, adaptive audio, and preview audio levels/durations. It also writes
+manifest-scoped audio levels and mix diagnostics so stale files from older render
+hashes do not contaminate a handoff bundle.
 
 ### Game registration and Python generation are weakly coupled
 
@@ -141,6 +148,21 @@ python -m ambition_music_renderer catalog validate
 python -m ambition_music_renderer catalog sync-sandbox
 python -m ambition_music_renderer catalog publish-radio
 ```
+
+### Preview semantics
+
+Every adaptive render should distinguish:
+
+- `runtime_<state>.ogg`: weighted state-map stem sum with no upward audition
+  normalization. This is the truthful preview for layered runtime playback.
+- `audition_<state>.ogg`: the same state-map stem sum normalized for comfortable
+  listening and A/B comparison. This is useful for composition review but should
+  not be used as evidence of runtime loudness.
+- `full_soundtrack_preview.ogg`: the mastered full-cue authoring preview.
+
+This split exists because the old `in_game_*` preview files were authoring
+normalized and could hide the fact that native runtime stems were effectively
+silent.
 
 ### Output layout
 
@@ -207,11 +229,18 @@ Do this only after bundle/provenance tests are in place.
 - [x] Bundle existing renderer outputs without moving runtime paths.
 - [x] Keep `fallback` available by explicit `--backend fallback`.
 - [x] Generate `stem_export_report.tsv/json` for scratch/adaptive/preview level comparison.
+- [x] Generate manifest-scoped audio level reports that ignore stale preview/adaptive files.
+- [x] Bundle only manifest-referenced audio files, not whole stale output directories.
+- [x] Split state previews into runtime-native and audition-normalized families.
+- [x] Add renderer mix diagnostics for raw all-stem sum vs mastered full preview.
+- [x] Add explicit shared-gain runtime stem export mode behind `--runtime-stem-gain-mode shared`.
 - [x] Run existing debug helpers from the bundle command and store logs.
 - [x] Generate optional spectrogram PNGs when matplotlib is available.
 - [x] Write `bundle_manifest.json` and `rerun_bundle.sh`.
 - [x] Zip bundles on request with `--zip`.
 - [ ] Exercise the bundle command on a real cue with `pretty-midi` in a fully provisioned audio environment.
+- [ ] Re-run Emmy with `--runtime-stem-gain-mode shared` and compare runtime vs audition previews.
+- [ ] Take a pass over active tunes whose diagnostics show huge master lift or quiet native stems.
 - [ ] Decide whether raw scratch stems should ever be included by default; current default excludes them to keep chat bundles small.
 
 ### Phase 2: validation and provenance hardening
@@ -231,8 +260,9 @@ Do this only after bundle/provenance tests are in place.
 - [ ] Pick one canonical render graph for stems/full/preview generation.
 - [ ] Demote `musicir_renderer.render_all()` or isolated rendering to a compatibility wrapper; avoid divergent semantics.
 - [ ] Move backend code behind a clean backend interface.
-- [ ] Make preview mastering and runtime-style preview mastering explicit policy choices.
-- [ ] Gate preview normalization so near-silent buffers are not normalized into misleading noise.
+- [x] Make preview mastering and runtime-style preview mastering explicit policy choices for isolated renders.
+- [x] Stop representing normalized authoring previews as runtime-faithful `in_game_*` files.
+- [ ] Gate or redesign full-preview normalization so near-silent raw mixes are reported before they become noisy masters.
 - [ ] Add golden-structure tests for output manifests, not fragile golden waveform tests.
 
 ### Phase 4: catalog and game publishing

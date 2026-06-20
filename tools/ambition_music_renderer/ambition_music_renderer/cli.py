@@ -415,6 +415,7 @@ def cmd_bundle(args: argparse.Namespace) -> int:
     report = create_bundle(
         args.cue,
         backend=args.backend,
+        runtime_stem_gain_mode=args.runtime_stem_gain_mode,
         outdir=args.outdir,
         bundle_root=args.bundle_root,
         force=args.force,
@@ -439,6 +440,15 @@ def add_bundle_args(p: argparse.ArgumentParser) -> None:
         default="pretty-midi",
         choices=["pretty-midi", "fluidsynth-cli", "fallback", "auto"],
         help="renderer backend (default: pretty-midi; fallback is explicit opt-in)",
+    )
+    p.add_argument(
+        "--runtime-stem-gain-mode",
+        choices=["native", "shared"],
+        default="native",
+        help=(
+            "runtime adaptive stem export mode: native preserves current raw levels; "
+            "shared applies one shared reference gain across all stems"
+        ),
     )
     p.add_argument("--outdir", type=Path, default=None)
     p.add_argument("--bundle-root", type=Path, default=None)

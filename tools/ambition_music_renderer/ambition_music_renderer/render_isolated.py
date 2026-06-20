@@ -5,8 +5,8 @@ This is the production-oriented entry point for long adaptive cues. It writes:
 - adaptive/<section>/<section>.<stem>.ogg
 - adaptive/<section>/<section>.full.ogg
 - preview/<cue>.full_soundtrack_preview.ogg     (mastered full mix)
-- preview/<cue>.in_game_full_active.ogg         (all stems summed, no master)
-- preview/<cue>.in_game_state_<name>.ogg        (minimal/maximal state mixes, optional)
+- preview/<cue>.runtime_<name>.ogg              (runtime stem mix, no audition normalization)
+- preview/<cue>.audition_<name>.ogg             (same state mix normalized for comfortable A/B)
 - <cue>.adaptive_manifest.json
 
 For the current in-game goblin cue, the runtime consumes per-section full mixes
@@ -22,23 +22,54 @@ import yaml
 from . import musicir_renderer as r
 
 
+RUNTIME_STEM_GAIN_MODES = ("native", "shared")
+
+
+def _db(value: float) -> float:
+    value = max(float(value), 1e-12)
+    return 20.0 * math.log10(value)
+
+
+def _audio_stats(audio: np.ndarray, sample_rate: int) -> dict[str, float]:
+    audio = r._coerce_stereo(audio)  # internal renderer helper; keeps stats consistent.
+    if audio.size == 0:
+        return {
+            "duration_s": 0.0,
+            "peak_dbfs": _db(0.0),
+            "rms_dbfs": _db(0.0),
+            "peak_linear": 0.0,
+            "rms_linear": 0.0,
+        }
+    peak = float(np.max(np.abs(audio)))
+    rms = float(np.sqrt(np.mean(np.square(audio), dtype=np.float64)))
+    return {
+        "duration_s": float(audio.shape[0] / sample_rate) if sample_rate else 0.0,
+        "peak_dbfs": _db(peak),
+        "rms_dbfs": _db(rms),
+        "peak_linear": peak,
+        "rms_linear": rms,
+    }
+
+
+def _scale_audio(audio: np.ndarray, gain_db: float) -> np.ndarray:
+    if abs(gain_db) < 1e-9:
+        return audio.astype("float32", copy=False)
+    return (audio * (10.0 ** (gain_db / 20.0))).astype("float32", copy=False)
+
+
 def in_game_preview_mixes(
     spec: dict, group_names: list[str]
 ) -> dict[str, dict[str, float]]:
-    """Define preview mixes that approximate runtime playback at different
-    dynamic intensities.
+    """Define named state mixes for runtime and audition previews.
 
-    - `minimal`: just the cue's bridge stems (the layers the runtime keeps
-      audible during low-action gameplay) at full gain. Gives a sense of
-      the cue's sustained foundation.
-    - `maximal`: every stem at gain 1.0, simulating the loudest moment
-      where every layer is fully active.
-    - `state_<name>`: one preview per state_map entry that has explicit
-      `stems` weights, using the runtime weights as authored. Useful for
-      A/B-ing how the cue actually sounds during specific gameplay states.
+    The returned weights are runtime/authored stem gains. The renderer writes
+    two files for each mix:
 
-    All previews use the same per-stem post-processed audio that the runtime
-    loads, so the mixes are honest about runtime balance.
+    - ``runtime_<name>.ogg``: weighted stem sum with no upward normalization.
+      This is the truthful preview for layered runtime playback.
+    - ``audition_<name>.ogg``: the same weighted sum normalized for comfortable
+      listening and A/B comparison. This is useful for composition review but
+      must not be mistaken for actual runtime loudness.
     """
     out: dict[str, dict[str, float]] = {}
 
@@ -98,6 +129,7 @@ def is_render_current(
     *,
     simple_mix: bool,
     full_mix_only: bool,
+    runtime_stem_gain_mode: str,
 ) -> tuple[bool, Path | None, str]:
     """Return whether rendered music is current for this spec + renderer version.
 
@@ -118,6 +150,8 @@ def is_render_current(
         return False, manifest_path, "manifest simple_mix mode does not match"
     if bool(manifest.get("full_mix_only", False)) != full_mix_only:
         return False, manifest_path, "manifest full_mix_only mode does not match"
+    if manifest.get("runtime_stem_gain_mode", "native") != runtime_stem_gain_mode:
+        return False, manifest_path, "manifest runtime stem gain mode does not match"
     outputs = _manifest_paths(manifest, outdir)
     if not outputs:
         return False, manifest_path, "manifest lists no output files"
@@ -168,6 +202,18 @@ def build_parser() -> argparse.ArgumentParser:
             "per-section per-stem OGGs and in-game preview mixes. This is the "
             "fast path for adaptive cues whose Rust spec plays full mixes "
             "directly, such as first_goblin_tune_v2."
+        ),
+    )
+    ap.add_argument(
+        "--runtime-stem-gain-mode",
+        choices=RUNTIME_STEM_GAIN_MODES,
+        default="native",
+        help=(
+            "How to export adaptive per-stem OGGs and runtime previews. "
+            "'native' preserves the current raw stem levels. 'shared' applies "
+            "one shared gain, derived from the raw all-stem reference mix, to "
+            "all runtime stems so layered playback is audible without "
+            "independently normalizing stems and destroying the mix."
         ),
     )
     ap.add_argument(
@@ -226,6 +272,7 @@ def main(argv=None) -> int:
             cue_hash,
             simple_mix=ns.simple_mix,
             full_mix_only=ns.full_mix_only,
+            runtime_stem_gain_mode=ns.runtime_stem_gain_mode,
         )
         if current and manifest_path is not None:
             manifest = json.loads(manifest_path.read_text(encoding="utf8"))
@@ -315,7 +362,10 @@ def main(argv=None) -> int:
 
     output_files: dict = {"preview": {}, "adaptive": {}}
 
-    # Load all stems into memory once for the various preview mixes.
+    # Load all stems into memory once.  These scratch stems are the native
+    # post-stem-bus buffers written by the worker.  The mastered full mix should
+    # continue to use these native buffers; runtime per-stem exports may either
+    # preserve them exactly or receive one shared gain below.
     stem_audio: dict[str, np.ndarray] = {}
     for group in group_names:
         npy = outdir / "scratch_stems" / f"{spec['id']}_{cue_hash}.{group}.npy"
@@ -333,18 +383,67 @@ def main(argv=None) -> int:
                 )
 
     # ---- Full mastered preview (matches the YAML postprocess intent) ----
-    full = np.zeros((target, 2), dtype="float32")
+    raw_full = np.zeros((target, 2), dtype="float32")
     for arr in stem_audio.values():
-        full += arr
+        raw_full += arr
     master_settings = dict(spec.get("postprocess", {}) or {})
     master_settings.setdefault("normalize", True)
     master_settings.setdefault("target_peak_db", -1.2)
-    master = r.post_process(full, sr, master_settings)
+    master = r.post_process(raw_full, sr, master_settings)
     preview = (
         outdir / "preview" / f"{spec['id']}_{cue_hash}.full_soundtrack_preview.ogg"
     )
     r.write_ogg_from_audio(master, sr, preview, quality=quality, keep_wav=False)
     output_files["preview"]["full_soundtrack"] = str(preview.relative_to(outdir))
+
+    stem_stats_native = {
+        group: _audio_stats(audio, sr) for group, audio in sorted(stem_audio.items())
+    }
+    raw_full_stats = _audio_stats(raw_full, sr)
+    master_stats = _audio_stats(master, sr)
+    master_rms_lift_db = master_stats["rms_dbfs"] - raw_full_stats["rms_dbfs"]
+    master_peak_lift_db = master_stats["peak_dbfs"] - raw_full_stats["peak_dbfs"]
+
+    runtime_settings = dict(render_cfg.get("runtime_stems", {}) or {})
+    runtime_target_peak_db = float(runtime_settings.get("target_peak_db", -8.0))
+    runtime_gain_db = 0.0
+    runtime_gain_reason = "native"
+    if ns.runtime_stem_gain_mode == "shared":
+        raw_peak = float(raw_full_stats["peak_linear"])
+        target_peak = 10.0 ** (runtime_target_peak_db / 20.0)
+        if raw_peak > 1e-12:
+            runtime_gain_db = 20.0 * math.log10(target_peak / raw_peak)
+            runtime_gain_reason = (
+                f"shared gain from raw all-stem peak {raw_full_stats['peak_dbfs']:.1f} "
+                f"dBFS to target {runtime_target_peak_db:.1f} dBFS"
+            )
+        else:
+            runtime_gain_reason = "raw all-stem reference was silent; shared gain disabled"
+
+    runtime_stem_audio = {
+        group: _scale_audio(audio, runtime_gain_db)
+        for group, audio in stem_audio.items()
+    }
+    stem_stats_runtime = {
+        group: _audio_stats(audio, sr)
+        for group, audio in sorted(runtime_stem_audio.items())
+    }
+
+    # If shared runtime gain is requested, rewrite the adaptive per-stem OGGs
+    # after all native buffers are known.  The worker writes native stems before
+    # the parent can know the shared reference gain; overwriting here preserves
+    # the current worker isolation model while making runtime stem export useful.
+    if ns.runtime_stem_gain_mode == "shared" and not (ns.simple_mix or ns.full_mix_only):
+        for group, audio in runtime_stem_audio.items():
+            for sec in meta:
+                piece = r.slice_audio(audio, sr, sec["start_seconds"], sec["end_seconds"])
+                path = (
+                    outdir
+                    / "adaptive"
+                    / sec["id"]
+                    / f"{spec['id']}_{cue_hash}.{sec['id']}.{group}.ogg"
+                )
+                r.write_ogg_from_audio(piece, sr, path, quality=quality, keep_wav=False)
 
     # Per-section full slices. If a section defines its own `postprocess`
     # block (per-section ambience override), apply *that* chain to the
@@ -361,7 +460,7 @@ def main(argv=None) -> int:
                 # Slice the raw stem sum (pre-master), apply the section's
                 # postprocess chain to that slice.
                 raw_piece = r.slice_audio(
-                    full, sr, sec["start_seconds"], sec["end_seconds"]
+                    raw_full, sr, sec["start_seconds"], sec["end_seconds"]
                 )
                 section_settings = dict(master_settings)
                 section_settings.update(section_pp)
@@ -381,33 +480,73 @@ def main(argv=None) -> int:
                 path.relative_to(outdir)
             )
 
-    # ---- In-game-style previews (no master chain, soft limit only) ----
-    # The runtime layers stems on the fly and never runs the master postprocess.
-    # These previews approximate that mixing path so it's possible to listen
-    # to what each gameplay state actually sounds like in-engine. Skipped in
-    # --simple-mix / --full-mix-only modes because those paths do not install
-    # per-stem runtime assets and the extra OGG encodes dominate render time.
+    # ---- Runtime and audition previews ----
+    # Runtime previews are the weighted sum of the exported runtime stems with no
+    # upward normalization. Audition previews are the same weighted sums boosted
+    # for comfortable A/B listening. Keeping both prevents normalized authoring
+    # previews from masquerading as true in-engine loudness.
+    runtime_preview_stats: dict[str, dict[str, dict[str, float]]] = {}
     if not (ns.simple_mix or ns.full_mix_only):
-        in_game_mixes = in_game_preview_mixes(spec, group_names)
+        state_mixes = in_game_preview_mixes(spec, group_names)
 
-        for label, weights in in_game_mixes.items():
+        for label, weights in state_mixes.items():
             mix = np.zeros((target, 2), dtype="float32")
             for group, weight in weights.items():
-                if group in stem_audio and weight > 0.0:
-                    mix += stem_audio[group] * float(weight)
-            # Normalize each preview to a similar peak as the mastered preview
-            # so listening A/B between them is about timbre and balance rather
-            # than absolute level. The runtime would still play stems at their
-            # native level — these previews are an authoring aid.
-            mix = r.soft_limit(mix, target_peak_db=-2.5, drive=1.0, normalize=True)
-            path = outdir / "preview" / f"{spec['id']}_{cue_hash}.in_game_{label}.ogg"
-            r.write_ogg_from_audio(mix, sr, path, quality=quality, keep_wav=False)
-            output_files["preview"][f"in_game_{label}"] = str(path.relative_to(outdir))
+                if group in runtime_stem_audio and weight > 0.0:
+                    mix += runtime_stem_audio[group] * float(weight)
+            runtime_path = outdir / "preview" / f"{spec['id']}_{cue_hash}.runtime_{label}.ogg"
+            r.write_ogg_from_audio(mix, sr, runtime_path, quality=quality, keep_wav=False)
+            output_files["preview"][f"runtime_{label}"] = str(runtime_path.relative_to(outdir))
+
+            audition = r.soft_limit(mix, target_peak_db=-2.5, drive=1.0, normalize=True)
+            audition_path = outdir / "preview" / f"{spec['id']}_{cue_hash}.audition_{label}.ogg"
+            r.write_ogg_from_audio(audition, sr, audition_path, quality=quality, keep_wav=False)
+            output_files["preview"][f"audition_{label}"] = str(audition_path.relative_to(outdir))
+            runtime_preview_stats[label] = {
+                "runtime": _audio_stats(mix, sr),
+                "audition": _audio_stats(audition, sr),
+            }
+
+    diagnostics_warnings: list[str] = []
+    if stem_stats_native:
+        strongest_native = max(
+            stem_stats_native.items(), key=lambda item: item[1]["rms_dbfs"]
+        )
+        if strongest_native[1]["rms_dbfs"] < -55.0:
+            diagnostics_warnings.append(
+                "native runtime stems are very quiet; per-stem OGGs may sound empty "
+                f"without shared runtime gain (strongest {strongest_native[0]} "
+                f"RMS {strongest_native[1]['rms_dbfs']:.1f} dBFS)"
+            )
+    if master_rms_lift_db > 24.0:
+        diagnostics_warnings.append(
+            "mastered full preview is much louder than the raw all-stem sum "
+            f"(+{master_rms_lift_db:.1f} dB RMS); noise floors may be lifted"
+        )
+    if ns.runtime_stem_gain_mode == "shared" and runtime_gain_db > 36.0:
+        diagnostics_warnings.append(
+            "shared runtime gain is very large "
+            f"(+{runtime_gain_db:.1f} dB); source/layer velocities likely need a pass"
+        )
 
     manifest = r.build_manifest(spec, cue_hash, meta, group_names, output_files, sr)
     manifest["render_mode"] = "isolated_process_stem_warmmix"
     manifest["simple_mix"] = bool(ns.simple_mix)
     manifest["full_mix_only"] = bool(ns.full_mix_only)
+    manifest["runtime_stem_gain_mode"] = ns.runtime_stem_gain_mode
+    manifest["diagnostics"] = {
+        "raw_full": raw_full_stats,
+        "mastered_full": master_stats,
+        "master_rms_lift_db": master_rms_lift_db,
+        "master_peak_lift_db": master_peak_lift_db,
+        "native_stems": stem_stats_native,
+        "runtime_stems": stem_stats_runtime,
+        "runtime_gain_db": runtime_gain_db,
+        "runtime_gain_reason": runtime_gain_reason,
+        "runtime_target_peak_db": runtime_target_peak_db,
+        "runtime_previews": runtime_preview_stats,
+        "warnings": diagnostics_warnings,
+    }
     manifest_path = outdir / f"{spec['id']}_{cue_hash}.adaptive_manifest.json"
     manifest_path.write_text(json.dumps(manifest, indent=2), encoding="utf8")
 
@@ -430,10 +569,11 @@ def main(argv=None) -> int:
         f"backend={shlex.quote(ns.backend)}\n"
         f"full_mix_only={1 if ns.full_mix_only else 0}\n"
         f"keep_debug_stems={1 if ns.keep_debug_stems else 0}\n"
+        f"runtime_stem_gain_mode={shlex.quote(ns.runtime_stem_gain_mode)}\n"
         'cd "$renderer_dir"\n'
         "if [ -d .venv ]; then source .venv/bin/activate; fi\n"
         'rm -rf "$outdir"\n'
-        'args=("${spec}" --outdir "${outdir}" --backend "${backend}" --force)\n'
+        'args=("${spec}" --outdir "${outdir}" --backend "${backend}" --force --runtime-stem-gain-mode "${runtime_stem_gain_mode}")\n'
         'if [ "${full_mix_only}" -eq 1 ]; then args+=(--full-mix-only); fi\n'
         'if [ "${keep_debug_stems}" -eq 1 ]; then args+=(--keep-debug-stems); fi\n'
         'python -m ambition_music_renderer.render_isolated "${args[@]}"\n',
@@ -455,11 +595,17 @@ def main(argv=None) -> int:
                 "skipped": False,
                 "manifest": str(manifest_path),
                 "preview": str(preview),
-                "in_game_previews": [
+                "runtime_previews": [
                     v
                     for k, v in output_files["preview"].items()
-                    if k.startswith("in_game_")
+                    if k.startswith("runtime_")
                 ],
+                "audition_previews": [
+                    v
+                    for k, v in output_files["preview"].items()
+                    if k.startswith("audition_")
+                ],
+                "runtime_stem_gain_mode": ns.runtime_stem_gain_mode,
                 "full_mix_only": bool(ns.full_mix_only),
                 "kept_debug_stems": bool(ns.keep_debug_stems),
                 "hash": cue_hash,

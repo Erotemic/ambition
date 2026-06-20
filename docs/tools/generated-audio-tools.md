@@ -13,10 +13,11 @@ Common entry points:
 cd tools/ambition_music_renderer
 python -m ambition_music_renderer --help
 python -m ambition_music_renderer cue bundle <cue_id> --backend pretty-midi --force --zip
+python -m ambition_music_renderer cue bundle <cue_id> --backend pretty-midi --runtime-stem-gain-mode shared --force --zip
 python -m pytest tests
 ```
 
-The `cue bundle` subcommand is the preferred one-cue handoff path: it runs the renderer with retained debug stems, executes useful diagnostics, writes reports/plots, and optionally zips a chat/upload-friendly bundle. Generated bundles and runtime audio remain ignored by git.
+The `cue bundle` subcommand is the preferred one-cue handoff path: it runs the renderer with retained debug stems, executes useful diagnostics, writes manifest-scoped reports/plots, and optionally zips a chat/upload-friendly bundle. Use `--runtime-stem-gain-mode shared` when auditing layered dynamic music. Generated bundles and runtime audio remain ignored by git.
 
 See [`../recipes/generated-music-workflow.md`](../recipes/generated-music-workflow.md) for the current recipe.
 

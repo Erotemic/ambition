@@ -4,10 +4,11 @@
 // edit the generator (it guarantees the quarter-turn symmetry) and re-run, then
 //   area create specs/symmetry_room_area.ron --replace-existing
 //
-// Four arms, each with a fixed OUTWARD gravity zone (the reference frames) and
-// one grounded Emmy clone. The central KERNEL has a gravity switch per face that
-// sets the ambient (centre) gravity. Pogo orbs + an entrance portal gun are the
-// traversal tools. Only the entrance breaks the symmetry.
+// Four arms, each: a fixed OUTWARD gravity zone (inset one tile from its wall),
+// a zig-zag climb, and one grounded Emmy clone. A small central KERNEL has a
+// gravity switch per face (sets ambient gravity), small footing shelves, and a
+// pogo orb at each corner. An entrance portal gun completes the kit. Only the
+// entrance breaks the symmetry.
 (
     id: "symmetry_room",
     level_id: "symmetry_room",
@@ -30,39 +31,51 @@
         ( type: "Solid", px: [832, 32], size: [416, 416], fields: ( name: "corner_tr" ) ),
         ( type: "Solid", px: [32, 832], size: [416, 416], fields: ( name: "corner_bl" ) ),
         ( type: "Solid", px: [832, 832], size: [416, 416], fields: ( name: "corner_br" ) ),
-        // The kernel: a gravity switch on each face sets the ambient gravity.
-        ( type: "Solid", px: [512, 512], size: [256, 256], fields: ( name: "kernel" ) ),
-        // ---- DOWN arm: fixed down-gravity frame + kernel-down switch. ----
-        ( type: "GravityZone", px: [448, 832], size: [384, 416], fields: ( id: "grav_down", name: "gravity down", dir: "down" ) ),
-        ( type: "Switch", px: [608, 772], size: [64, 28], fields: ( id: "kernel_switch_down", name: "kernel gravity down", prompt: "Set ambient gravity DOWN", action: "SetGravityDown", target_encounter: "" ) ),
-        ( type: "Solid", px: [512, 800], size: [256, 24], fields: ( name: "ring_down" ) ),
-        ( type: "PogoOrb", px: [700, 1150], size: [36, 36], fields: ( name: "pogo_down" ) ),
+        // The small kernel: a gravity switch on each face sets ambient gravity.
+        ( type: "Solid", px: [576, 576], size: [128, 128], fields: ( name: "kernel" ) ),
+        // ---- DOWN arm: fixed down-gravity frame + climb + kernel-down switch. ----
+        ( type: "GravityZone", px: [448, 832], size: [384, 400], fields: ( id: "grav_down", name: "gravity down", dir: "down" ) ),
+        ( type: "Switch", px: [606, 704], size: [68, 24], fields: ( id: "kernel_switch_down", name: "kernel gravity down", prompt: "Set ambient gravity DOWN", action: "SetGravityDown", target_encounter: "" ) ),
+        ( type: "Solid", px: [600, 736], size: [80, 18], fields: ( name: "ring_down" ) ),
+        ( type: "PogoOrb", px: [704, 704], size: [36, 36], fields: ( name: "pogo_down" ) ),
+        ( type: "Solid", px: [470, 1120], size: [132, 24], fields: ( name: "down_step_a" ) ),
+        ( type: "Solid", px: [650, 1000], size: [132, 24], fields: ( name: "down_step_b" ) ),
+        ( type: "Solid", px: [470, 880], size: [132, 24], fields: ( name: "down_step_c" ) ),
         ( type: "NpcSpawn", px: [560, 1206], size: [42, 42], fields: ( prompt: "Talk to Emmy No-Ether (down)", dialogue_id: "emmy_noether", character_id: "npc_noether", patrol_radius: 0 ) ),
-        // ---- LEFT arm: fixed left-gravity frame + kernel-left switch. ----
-        ( type: "GravityZone", px: [32, 448], size: [416, 384], fields: ( id: "grav_left", name: "gravity left", dir: "left" ) ),
-        ( type: "Switch", px: [480, 608], size: [28, 64], fields: ( id: "kernel_switch_left", name: "kernel gravity left", prompt: "Set ambient gravity LEFT", action: "SetGravityLeft", target_encounter: "" ) ),
-        ( type: "Solid", px: [456, 512], size: [24, 256], fields: ( name: "ring_left" ) ),
-        ( type: "PogoOrb", px: [94, 700], size: [36, 36], fields: ( name: "pogo_left" ) ),
+        // ---- LEFT arm: fixed left-gravity frame + climb + kernel-left switch. ----
+        ( type: "GravityZone", px: [48, 448], size: [400, 384], fields: ( id: "grav_left", name: "gravity left", dir: "left" ) ),
+        ( type: "Switch", px: [552, 606], size: [24, 68], fields: ( id: "kernel_switch_left", name: "kernel gravity left", prompt: "Set ambient gravity LEFT", action: "SetGravityLeft", target_encounter: "" ) ),
+        ( type: "Solid", px: [526, 600], size: [18, 80], fields: ( name: "ring_left" ) ),
+        ( type: "PogoOrb", px: [540, 704], size: [36, 36], fields: ( name: "pogo_left" ) ),
+        ( type: "Solid", px: [136, 470], size: [24, 132], fields: ( name: "left_step_a" ) ),
+        ( type: "Solid", px: [256, 650], size: [24, 132], fields: ( name: "left_step_b" ) ),
+        ( type: "Solid", px: [376, 470], size: [24, 132], fields: ( name: "left_step_c" ) ),
         ( type: "NpcSpawn", px: [32, 560], size: [42, 42], fields: ( prompt: "Talk to Emmy No-Ether (left)", dialogue_id: "emmy_noether_left", character_id: "npc_noether", patrol_radius: 0 ) ),
-        // ---- UP arm: fixed up-gravity frame + kernel-up switch. ----
-        ( type: "GravityZone", px: [448, 32], size: [384, 416], fields: ( id: "grav_up", name: "gravity up", dir: "up" ) ),
-        ( type: "Switch", px: [608, 480], size: [64, 28], fields: ( id: "kernel_switch_up", name: "kernel gravity up", prompt: "Set ambient gravity UP", action: "SetGravityUp", target_encounter: "" ) ),
-        ( type: "Solid", px: [512, 456], size: [256, 24], fields: ( name: "ring_up" ) ),
-        ( type: "PogoOrb", px: [544, 94], size: [36, 36], fields: ( name: "pogo_up" ) ),
+        // ---- UP arm: fixed up-gravity frame + climb + kernel-up switch. ----
+        ( type: "GravityZone", px: [448, 48], size: [384, 400], fields: ( id: "grav_up", name: "gravity up", dir: "up" ) ),
+        ( type: "Switch", px: [606, 552], size: [68, 24], fields: ( id: "kernel_switch_up", name: "kernel gravity up", prompt: "Set ambient gravity UP", action: "SetGravityUp", target_encounter: "" ) ),
+        ( type: "Solid", px: [600, 526], size: [80, 18], fields: ( name: "ring_up" ) ),
+        ( type: "PogoOrb", px: [540, 540], size: [36, 36], fields: ( name: "pogo_up" ) ),
+        ( type: "Solid", px: [678, 136], size: [132, 24], fields: ( name: "up_step_a" ) ),
+        ( type: "Solid", px: [498, 256], size: [132, 24], fields: ( name: "up_step_b" ) ),
+        ( type: "Solid", px: [678, 376], size: [132, 24], fields: ( name: "up_step_c" ) ),
         ( type: "NpcSpawn", px: [678, 32], size: [42, 42], fields: ( prompt: "Talk to Emmy No-Ether (up)", dialogue_id: "emmy_noether_up", character_id: "npc_noether", patrol_radius: 0 ) ),
-        // ---- RIGHT arm: fixed right-gravity frame + kernel-right switch. ----
-        ( type: "GravityZone", px: [832, 448], size: [416, 384], fields: ( id: "grav_right", name: "gravity right", dir: "right" ) ),
-        ( type: "Switch", px: [772, 608], size: [28, 64], fields: ( id: "kernel_switch_right", name: "kernel gravity right", prompt: "Set ambient gravity RIGHT", action: "SetGravityRight", target_encounter: "" ) ),
-        ( type: "Solid", px: [800, 512], size: [24, 256], fields: ( name: "ring_right" ) ),
-        ( type: "PogoOrb", px: [1150, 544], size: [36, 36], fields: ( name: "pogo_right" ) ),
+        // ---- RIGHT arm: fixed right-gravity frame + climb + kernel-right switch. ----
+        ( type: "GravityZone", px: [832, 448], size: [400, 384], fields: ( id: "grav_right", name: "gravity right", dir: "right" ) ),
+        ( type: "Switch", px: [704, 606], size: [24, 68], fields: ( id: "kernel_switch_right", name: "kernel gravity right", prompt: "Set ambient gravity RIGHT", action: "SetGravityRight", target_encounter: "" ) ),
+        ( type: "Solid", px: [736, 600], size: [18, 80], fields: ( name: "ring_right" ) ),
+        ( type: "PogoOrb", px: [704, 540], size: [36, 36], fields: ( name: "pogo_right" ) ),
+        ( type: "Solid", px: [1120, 678], size: [24, 132], fields: ( name: "right_step_a" ) ),
+        ( type: "Solid", px: [1000, 498], size: [24, 132], fields: ( name: "right_step_b" ) ),
+        ( type: "Solid", px: [880, 678], size: [24, 132], fields: ( name: "right_step_c" ) ),
         ( type: "NpcSpawn", px: [1206, 678], size: [42, 42], fields: ( prompt: "Talk to Emmy No-Ether (right)", dialogue_id: "emmy_noether_right", character_id: "npc_noether", patrol_radius: 0 ) ),
         // ---- Entrance (the only asymmetry): spawn, door, portal gun. ----
         ( type: "PlayerStart", px: [470, 1202], size: [28, 46], fields: ( name: "symmetry_spawn" ) ),
         ( type: "PortalGunSpawn", px: [648, 1208], size: [40, 40], fields: ( id: "symmetry_portal_gun", name: "Portal Gun (4 colours)" ) ),
         ( type: "LoadingZone", px: [752, 1152], size: [64, 96], fields: ( id: "symmetry_entry", name: "symmetry_entry", activation: "Door", target_room: "central_hub_complex", target_zone: "basement_to_symmetry_room_door", bidirectional: true ) ),
         // Signage.
-        ( type: "DebugLabel", px: [472, 560], size: [352, 24], fields: ( name: "kernel_label", text: "Kernel: a switch on each face sets which way is down.", category: "Custom" ) ),
-        ( type: "DebugLabel", px: [460, 1096], size: [372, 24], fields: ( name: "entry_label", text: "Grab the portal gun. Each arm is a different down. Talk to all four Emmys.", category: "Custom" ) ),
+        ( type: "DebugLabel", px: [466, 520], size: [360, 24], fields: ( name: "kernel_label", text: "Kernel: a switch on each face sets which way is down.", category: "Custom" ) ),
+        ( type: "DebugLabel", px: [460, 1090], size: [372, 24], fields: ( name: "entry_label", text: "Grab the portal gun. Each arm is a different down. Talk to all four Emmys.", category: "Custom" ) ),
         ( type: "CameraZone", px: [0, 0], size: [1280, 1280], fields: ( id: "symmetry_camera", name: "symmetry_camera", mode: "Default" ) ),
     ],
 )

@@ -15,12 +15,14 @@
 //! semantics:
 //!
 //! - `Solid` and `BlinkWall` always block both axes.
-//! - `OneWay` never blocks horizontal motion. Vertically, it blocks
-//!   only when the body is *landing from above* (downward velocity AND
-//!   the previous-frame bottom was at or above the platform top).
-//! - `drop_through` set on a tick suppresses the OneWay vertical block
-//!   so a chasing enemy can follow a player who dropped through the
-//!   same platform a frame earlier.
+//! - `OneWay` blocks only on the current gravity/support axis, and only
+//!   when the body's previous feet coordinate crossed the platform's
+//!   anti-gravity face. Under normal gravity this is the historical
+//!   "landing from above" rule; under side/up gravity it rotates with
+//!   the controlled body's frame.
+//! - `drop_through` set on a tick suppresses the OneWay support block
+//!   so a chasing enemy can follow a controlled body who dropped through
+//!   the same platform a frame earlier.
 //! - `Hazard`, `PogoOrb`, and `Rebound` are visited by gameplay logic
 //!   (damage, bounce, impulse) elsewhere; they are not collision blockers
 //!   for kinematic bodies.
@@ -31,7 +33,7 @@
 
 use ambition_engine_core::Vec2;
 use ambition_engine_core::{Aabb, AabbExt};
-use ambition_engine_core::{BlockKind, World};
+use ambition_engine_core::{Block, BlockKind, World};
 
 /// Per-tick configuration for [`step_kinematic`].
 #[derive(Clone, Copy, Debug)]
@@ -103,18 +105,11 @@ pub fn step_kinematic(
     inputs: KinematicInputs,
     dt: f32,
 ) {
-    // 1. Gravity along the world's `gravity_dir` (down / up / sideways), capped
-    //    so a long fall doesn't tunnel. `sign` = the vertical component, the old
-    //    `gravity_sign`, used by the Y-axis one-way + ground logic; it's 0 under
-    //    sideways gravity (so the Y sweep is pure collision and the X sweep owns
-    //    landing instead).
-    let g = tuning.gravity_dir;
-    let sign = g.y;
-    // Terminal velocity is an equilibrium gravity accelerates UP TO, not a brake
-    // that decelerates a body already moving faster (e.g. one flung out of a
-    // portal). Raise the effective cap to at least the body's pre-gravity
-    // fall-direction speed: a normal fall (below the cap) is unchanged, while
-    // an over-cap fling is preserved instead of clipped back on the next tick.
+    let g = cardinal_gravity(tuning.gravity_dir);
+
+    // 1. Gravity along the body's local down direction, capped along that same
+    //    gravity axis. This is the free-body invariant the rest of the sweep
+    //    consumes: the world axes are an implementation detail.
     let fall_before = body.vel.dot(g).max(0.0);
     let cap = tuning.max_fall_speed.max(fall_before);
     body.vel += tuning.gravity * g * dt;
@@ -123,158 +118,351 @@ pub fn step_kinematic(
         body.vel -= (along - cap) * g;
     }
 
-    // Capture the bottom edge BEFORE we move so the OneWay direction
-    // check (was the body above the platform?) reads the previous-tick
-    // position, not the post-step one. Same reference frame the
-    // player's `sweep_player_y` uses.
-    let prev_bottom = body.aabb().bottom();
+    // Capture the FEET edge before motion. One-way eligibility is a crossing
+    // test from the previous feet coordinate to the support face; using bottom
+    // only works under normal gravity.
+    let prev_feet_coord = body.aabb().feet_coord(g);
 
-    let mut grounded = false;
+    body.on_ground = false;
 
-    // 2. X sweep. Solid + BlinkWall block; OneWay never blocks horizontally.
-    //    Under SIDEWAYS gravity the wall the body falls into IS its floor, so a
-    //    block while moving along gravity counts as landing.
-    let old_x = body.pos.x;
-    let falling_along_x = body.vel.x * g.x > 0.0;
-    body.pos.x += body.vel.x * dt;
-    if body_blocked_x(body.aabb(), world) {
-        body.pos.x = old_x;
-        body.vel.x = 0.0;
-        if g.x != 0.0 && falling_along_x {
-            grounded = true;
+    // 2. Sweep in controlled-body-local order: local side first, local down
+    //    second. For normal gravity this remains world X then world Y; for
+    //    sideways gravity it becomes world Y then world X. This matches the
+    //    controlled actor path and removes order-dependent C4 asymmetry.
+    let gravity_axis = gravity_axis(g);
+    let side_axis = gravity_axis.perpendicular();
+    sweep_axis(body, world, side_axis, g, inputs.drop_through, prev_feet_coord, dt);
+    sweep_axis(body, world, gravity_axis, g, inputs.drop_through, prev_feet_coord, dt);
+
+    // 3. Resting support stabilization. Swept motion handles crossings; this
+    //    handles bodies spawned, carried, or nudged into contact with a support.
+    if let Some(support) = supporting_block(world, body.aabb(), g, inputs.drop_through) {
+        let snap = snap_feet_to_surface(body.aabb(), support.aabb, g);
+        if snap.length_squared() > 0.0 {
+            body.pos += snap;
         }
+        clear_velocity_toward_feet(&mut body.vel, g);
+        body.on_ground = true;
+
+        // Emergent platform riding: any body resting on a moving support rides
+        // the component perpendicular to gravity. The gravity-axis component is
+        // already represented by support/contact resolution.
+        let v = support.velocity;
+        body.pos += v - v.dot(g) * g;
     }
 
-    // 3. Y sweep. Solid + BlinkWall always block. OneWay blocks only
-    //    when (a) the body is moving downward and was above the
-    //    platform top last frame, AND (b) drop_through is not set.
-    let old_y = body.pos.y;
-    body.pos.y += body.vel.y * dt;
-    // "Falling" = moving along gravity, so a flipped-gravity body that rises
-    // into a ceiling still registers as landing (on_ground).
-    let was_falling = body.vel.y * sign >= 0.0;
-    if body_blocked_y(
-        body.aabb(),
-        world,
-        prev_bottom,
-        was_falling,
-        inputs.drop_through,
-        sign,
-    ) {
-        body.pos.y = old_y;
-        body.vel.y = 0.0;
-        if g.y != 0.0 && was_falling {
-            grounded = true;
+    resolve_penetration(body, world, g);
+}
+
+const CONTACT_SLOP: f32 = 4.0;
+const ONE_WAY_CROSSING_SLOP: f32 = 8.0;
+const MOTION_EPS: f32 = 1.0e-5;
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum Axis {
+    X,
+    Y,
+}
+
+impl Axis {
+    fn perpendicular(self) -> Self {
+        match self {
+            Axis::X => Axis::Y,
+            Axis::Y => Axis::X,
         }
     }
-    body.on_ground = grounded;
+}
 
-    // Emergent platform riding: a body resting on a MOVING solid is carried by that
-    // solid's per-frame `velocity`. Only the gravity-PERPENDICULAR component is added
-    // — the gravity-axis ride is already handled by gravity + the landing collision,
-    // so adding it would double-count a vertical lift. Static solids carry `ZERO`, so
-    // this is a no-op off moving platforms. No rider list, no per-actor flag: any body
-    // that lands on a moving platform rides it because it is a body resting on a moving
-    // solid. (Probe the body's own footprint nudged into the gravity side to read the
-    // supporting block; orientation-correct, so wall-walking rides sideways platforms.)
-    if grounded {
-        let support_probe = Aabb::new(body.pos + g * 2.0, body.size * 0.5);
-        if let Some(support) = world.first_overlapping_block(support_probe, |block| {
-            matches!(
-                block.kind,
-                BlockKind::Solid | BlockKind::BlinkWall { .. } | BlockKind::OneWay
-            )
-        }) {
-            let v = support.velocity;
-            body.pos += v - v.dot(g) * g;
-        }
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum AxisRole {
+    Gravity,
+    Side,
+}
+
+fn cardinal_gravity(gravity_dir: Vec2) -> Vec2 {
+    if gravity_dir.x.abs() > gravity_dir.y.abs() {
+        Vec2::new(gravity_dir.x.signum(), 0.0)
+    } else if gravity_dir.y != 0.0 {
+        Vec2::new(0.0, gravity_dir.y.signum())
+    } else {
+        Vec2::new(0.0, 1.0)
     }
+}
 
-    // Gravity-axis depenetration runs on the VERTICAL axis (down/up gravity); the
-    // sideways case relies on the X sweep above. Skip it under sideways gravity so
-    // it never fights the horizontal landing.
-    if g.y == 0.0 {
+fn gravity_axis(gravity_dir: Vec2) -> Axis {
+    if gravity_dir.x.abs() > gravity_dir.y.abs() {
+        Axis::X
+    } else {
+        Axis::Y
+    }
+}
+
+fn axis_role(axis: Axis, gravity_dir: Vec2) -> AxisRole {
+    if axis == gravity_axis(gravity_dir) {
+        AxisRole::Gravity
+    } else {
+        AxisRole::Side
+    }
+}
+
+fn axis_delta(axis: Axis, amount: f32) -> Vec2 {
+    match axis {
+        Axis::X => Vec2::new(amount, 0.0),
+        Axis::Y => Vec2::new(0.0, amount),
+    }
+}
+
+fn axis_component(v: Vec2, axis: Axis) -> f32 {
+    match axis {
+        Axis::X => v.x,
+        Axis::Y => v.y,
+    }
+}
+
+fn add_axis(pos: &mut Vec2, axis: Axis, amount: f32) {
+    match axis {
+        Axis::X => pos.x += amount,
+        Axis::Y => pos.y += amount,
+    }
+}
+
+fn clear_axis_velocity(vel: &mut Vec2, axis: Axis) {
+    match axis {
+        Axis::X => vel.x = 0.0,
+        Axis::Y => vel.y = 0.0,
+    }
+}
+
+fn clear_velocity_toward_feet(vel: &mut Vec2, gravity_dir: Vec2) {
+    let toward_feet = vel.dot(gravity_dir);
+    if toward_feet > 0.0 {
+        *vel -= toward_feet * gravity_dir;
+    }
+}
+
+fn moving_toward_feet(delta: Vec2, gravity_dir: Vec2) -> bool {
+    delta.dot(gravity_dir) > MOTION_EPS
+}
+
+fn is_support_surface(kind: BlockKind) -> bool {
+    matches!(kind, BlockKind::Solid | BlockKind::BlinkWall { .. } | BlockKind::OneWay)
+}
+
+fn is_full_collision_surface(kind: BlockKind) -> bool {
+    matches!(kind, BlockKind::Solid | BlockKind::BlinkWall { .. })
+}
+
+fn is_solid_for_axis(kind: BlockKind, axis: Axis, gravity_dir: Vec2) -> bool {
+    match kind {
+        BlockKind::Solid | BlockKind::BlinkWall { .. } => true,
+        BlockKind::OneWay => axis_role(axis, gravity_dir) == AxisRole::Gravity,
+        BlockKind::Hazard | BlockKind::PogoOrb | BlockKind::Rebound { .. } => false,
+    }
+}
+
+fn perpendicular_overlap(body: Aabb, surface: Aabb, gravity_dir: Vec2) -> bool {
+    if gravity_dir.x.abs() > gravity_dir.y.abs() {
+        body.bottom() > surface.top() && body.top() < surface.bottom()
+    } else {
+        body.right() > surface.left() && body.left() < surface.right()
+    }
+}
+
+fn one_way_landing_from_previous_feet(
+    body: Aabb,
+    block: Aabb,
+    delta: Vec2,
+    gravity_dir: Vec2,
+    drop_through: bool,
+    prev_feet_coord: f32,
+) -> bool {
+    if drop_through {
+        return false;
+    }
+    moving_toward_feet(delta, gravity_dir)
+        && prev_feet_coord <= block.head_coord(gravity_dir) + ONE_WAY_CROSSING_SLOP
+        && perpendicular_overlap(body, block, gravity_dir)
+}
+
+fn support_face_separation(body: Aabb, surface: Aabb, gravity_dir: Vec2) -> f32 {
+    body.feet_coord(gravity_dir) - surface.head_coord(gravity_dir)
+}
+
+fn body_on_support_side(body: Aabb, surface: Aabb, gravity_dir: Vec2) -> bool {
+    body.center().dot(gravity_dir) <= surface.center().dot(gravity_dir)
+}
+
+fn surface_supports_body_at_rest(
+    kind: BlockKind,
+    body: Aabb,
+    surface: Aabb,
+    gravity_dir: Vec2,
+    drop_through: bool,
+) -> bool {
+    if !is_support_surface(kind) || !perpendicular_overlap(body, surface, gravity_dir) {
+        return false;
+    }
+    if matches!(kind, BlockKind::OneWay) && drop_through {
+        return false;
+    }
+    body_on_support_side(body, surface, gravity_dir)
+        && support_face_separation(body, surface, gravity_dir).abs() <= CONTACT_SLOP
+}
+
+fn supporting_block<'a>(
+    world: &'a World,
+    body: Aabb,
+    gravity_dir: Vec2,
+    drop_through: bool,
+) -> Option<&'a Block> {
+    world.blocks.iter().find(|block| {
+        surface_supports_body_at_rest(block.kind, body, block.aabb, gravity_dir, drop_through)
+    })
+}
+
+fn snap_feet_to_surface(body: Aabb, surface: Aabb, gravity_dir: Vec2) -> Vec2 {
+    gravity_dir * (surface.head_coord(gravity_dir) - body.feet_coord(gravity_dir))
+}
+
+fn sweep_axis(
+    body: &mut KinematicBody,
+    world: &World,
+    axis: Axis,
+    gravity_dir: Vec2,
+    drop_through: bool,
+    prev_feet_coord: f32,
+    dt: f32,
+) {
+    let delta_amount = axis_component(body.vel, axis) * dt;
+    if delta_amount.abs() <= MOTION_EPS {
+        resolve_axis(body, world, axis, gravity_dir, drop_through);
         return;
     }
 
-    // Gravity-axis depenetration: if the body ENDS the tick overlapping a solid
-    // (the revert above only undoes the current move, not a pre-existing overlap —
-    // e.g. gravity flipped while it rested inside a platform, or it got nudged in by
-    // the X sweep), push it out toward -gravity so its feet rest flush. Guarded to
-    // the gravity side + the shallower (landing-type) axis so it never fights the X
-    // (wall) resolver. Byte-identical when there is no overlap.
-    let b = body.aabb();
-    for block in &world.blocks {
-        if !matches!(block.kind, BlockKind::Solid | BlockKind::BlinkWall { .. }) {
-            continue;
+    let delta = axis_delta(axis, delta_amount);
+    let start_body = body.aabb();
+    if let Some(hit) = world.first_body_sweep(start_body, delta, |block| {
+        if !is_solid_for_axis(block.kind, axis, gravity_dir) {
+            return false;
         }
-        let blk = block.aabb;
-        if !b.strict_intersects(blk) {
-            continue;
+        if matches!(block.kind, BlockKind::OneWay) {
+            return one_way_landing_from_previous_feet(
+                start_body,
+                block.aabb,
+                delta,
+                gravity_dir,
+                drop_through,
+                prev_feet_coord,
+            );
         }
-        let y_overlap = (b.bottom().min(blk.bottom()) - b.top().max(blk.top())).max(0.0);
-        let x_overlap = (b.right().min(blk.right()) - b.left().max(blk.left())).max(0.0);
-        if y_overlap <= 0.0 || y_overlap > x_overlap {
-            continue; // a wall hit (or no Y overlap) — leave it to the X resolver
-        }
-        let body_on_head_side = if sign >= 0.0 {
-            b.center().y < blk.center().y
+        // Pre-existing penetration is repaired by resolve_axis / resolve_penetration.
+        !start_body.strict_intersects(block.aabb)
+    }) {
+        let toi = hit.time_of_impact.clamp(0.0, 1.0);
+        add_axis(&mut body.pos, axis, delta_amount * toi);
+        if matches!(hit.block.kind, BlockKind::OneWay)
+            || (axis_role(axis, gravity_dir) == AxisRole::Gravity
+                && moving_toward_feet(delta, gravity_dir))
+        {
+            let snap = snap_feet_to_surface(body.aabb(), hit.block.aabb, gravity_dir);
+            body.pos += snap;
+            body.on_ground = true;
+            clear_axis_velocity(&mut body.vel, axis);
+            clear_velocity_toward_feet(&mut body.vel, gravity_dir);
         } else {
-            b.center().y > blk.center().y
-        };
-        if !body_on_head_side {
-            continue;
+            clear_axis_velocity(&mut body.vel, axis);
         }
-        body.pos.y += if sign >= 0.0 { -y_overlap } else { y_overlap };
-        body.on_ground = true;
-        body.vel.y = 0.0;
-        break;
+    } else {
+        add_axis(&mut body.pos, axis, delta_amount);
+    }
+
+    resolve_axis(body, world, axis, gravity_dir, drop_through);
+}
+
+fn axis_resolution(body: Aabb, block: Aabb, axis: Axis) -> Vec2 {
+    match axis {
+        Axis::X => {
+            if body.center().x <= block.center().x {
+                Vec2::new(block.left() - body.right(), 0.0)
+            } else {
+                Vec2::new(block.right() - body.left(), 0.0)
+            }
+        }
+        Axis::Y => {
+            if body.center().y <= block.center().y {
+                Vec2::new(0.0, block.top() - body.bottom())
+            } else {
+                Vec2::new(0.0, block.bottom() - body.top())
+            }
+        }
     }
 }
 
-fn body_blocked_x(aabb: Aabb, world: &World) -> bool {
-    world.body_overlaps_any(aabb, |block| {
-        matches!(block.kind, BlockKind::Solid | BlockKind::BlinkWall { .. })
-    })
-}
-
-fn body_blocked_y(
-    aabb: Aabb,
+fn resolve_axis(
+    body: &mut KinematicBody,
     world: &World,
-    prev_bottom: f32,
-    falling: bool,
+    axis: Axis,
+    gravity_dir: Vec2,
     drop_through: bool,
-    gravity_sign: f32,
-) -> bool {
-    let prev_top = prev_bottom - (aabb.bottom() - aabb.top());
-    world.body_overlaps_any(aabb, |block| match block.kind {
-        BlockKind::Solid | BlockKind::BlinkWall { .. } => true,
-        BlockKind::OneWay => {
-            // Drop-through: skip OneWay this tick entirely.
-            if drop_through {
-                return false;
+) {
+    for block in &world.blocks {
+        if !is_solid_for_axis(block.kind, axis, gravity_dir) {
+            continue;
+        }
+        let aabb = body.aabb();
+        if !aabb.strict_intersects(block.aabb) {
+            continue;
+        }
+        if matches!(block.kind, BlockKind::OneWay) {
+            if !surface_supports_body_at_rest(block.kind, aabb, block.aabb, gravity_dir, drop_through) {
+                continue;
             }
-            // Land on the one-way's gravity-up face — its TOP under normal
-            // gravity, its BOTTOM under flipped — matching the player's
-            // `sweep_player_y` (gravity-relative), so enemies/NPCs land on the
-            // correct side of a one-way under inverted gravity.
-            if gravity_sign >= 0.0 {
-                falling && prev_bottom <= block.aabb.top() + 8.0
-            } else {
-                falling && prev_top >= block.aabb.bottom() - 8.0
+            body.pos += snap_feet_to_surface(aabb, block.aabb, gravity_dir);
+            body.on_ground = true;
+            clear_axis_velocity(&mut body.vel, axis);
+            clear_velocity_toward_feet(&mut body.vel, gravity_dir);
+        } else {
+            let push = axis_resolution(aabb, block.aabb, axis);
+            body.pos += push;
+            clear_axis_velocity(&mut body.vel, axis);
+            if axis_role(axis, gravity_dir) == AxisRole::Gravity
+                && body_on_support_side(aabb, block.aabb, gravity_dir)
+            {
+                body.on_ground = true;
+                clear_velocity_toward_feet(&mut body.vel, gravity_dir);
             }
         }
-        // Hazards / pogo orbs / rebound surfaces are not collision
-        // blockers for the kinematic sweep — gameplay layers handle
-        // them as triggers (damage / bounce / impulse).
-        _ => false,
-    })
+    }
+}
+
+fn resolve_penetration(body: &mut KinematicBody, world: &World, gravity_dir: Vec2) {
+    // Last-resort support-side depenetration. This is deliberately phrased in
+    // feet/head coordinates rather than vertical top/bottom so it handles bodies
+    // spawned into a support under any cardinal gravity.
+    for block in &world.blocks {
+        if !is_full_collision_surface(block.kind) {
+            continue;
+        }
+        let aabb = body.aabb();
+        if !aabb.strict_intersects(block.aabb) || !body_on_support_side(aabb, block.aabb, gravity_dir) {
+            continue;
+        }
+        if !perpendicular_overlap(aabb, block.aabb, gravity_dir) {
+            continue;
+        }
+        let snap = snap_feet_to_surface(aabb, block.aabb, gravity_dir);
+        if snap.length() <= aabb.half_size().length() {
+            body.pos += snap;
+            body.on_ground = true;
+            clear_velocity_toward_feet(&mut body.vel, gravity_dir);
+            break;
+        }
+    }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use ambition_engine_core::Block;
 
     fn world_with(blocks: Vec<Block>) -> World {
         World {
@@ -297,6 +485,254 @@ mod tests {
             max_fall_speed: 760.0,
             gravity_dir: Vec2::new(0.0, 1.0),
         }
+    }
+
+
+    #[derive(Clone, Copy, Debug)]
+    struct ConformanceArm {
+        name: &'static str,
+        dir: Vec2,
+    }
+
+    #[derive(Clone, Copy, Debug, PartialEq)]
+    struct KinematicSample {
+        pos: Vec2,
+        vel: Vec2,
+        on_ground: bool,
+    }
+
+    const CONFORMANCE_CENTER: Vec2 = Vec2::new(400.0, 300.0);
+    const CONFORMANCE_ARMS: [ConformanceArm; 4] = [
+        ConformanceArm {
+            name: "down",
+            dir: Vec2::new(0.0, 1.0),
+        },
+        ConformanceArm {
+            name: "right",
+            dir: Vec2::new(1.0, 0.0),
+        },
+        ConformanceArm {
+            name: "up",
+            dir: Vec2::new(0.0, -1.0),
+        },
+        ConformanceArm {
+            name: "left",
+            dir: Vec2::new(-1.0, 0.0),
+        },
+    ];
+
+    fn conf_frame(dir: Vec2) -> ambition_engine_core::AccelerationFrame {
+        ambition_engine_core::AccelerationFrame::new(dir)
+    }
+
+    fn conf_world_from_local(dir: Vec2, local: Vec2) -> Vec2 {
+        let f = conf_frame(dir);
+        CONFORMANCE_CENTER + f.side * local.x + f.down * local.y
+    }
+
+    fn conf_local_vec(dir: Vec2, world: Vec2) -> Vec2 {
+        let f = conf_frame(dir);
+        Vec2::new(world.dot(f.side), world.dot(f.down))
+    }
+
+    fn conf_local_pos(dir: Vec2, world: Vec2) -> Vec2 {
+        conf_local_vec(dir, world - CONFORMANCE_CENTER)
+    }
+
+    fn conf_tuning(dir: Vec2) -> KinematicTuning {
+        KinematicTuning {
+            gravity: 1450.0,
+            max_fall_speed: 760.0,
+            gravity_dir: dir,
+        }
+    }
+
+    fn conf_block_solid(name: &'static str, dir: Vec2, local_min: Vec2, local_size: Vec2) -> Block {
+        let f = conf_frame(dir);
+        let world_center = conf_world_from_local(dir, local_min + local_size * 0.5);
+        let world_half = f.to_world_half(local_size * 0.5);
+        Block::solid(name, world_center - world_half, world_half * 2.0)
+    }
+
+    fn conf_block_one_way(name: &'static str, dir: Vec2, local_min: Vec2, local_size: Vec2) -> Block {
+        let f = conf_frame(dir);
+        let world_center = conf_world_from_local(dir, local_min + local_size * 0.5);
+        let world_half = f.to_world_half(local_size * 0.5);
+        Block::one_way(name, world_center - world_half, world_half * 2.0)
+    }
+
+    fn square_body_at_local(dir: Vec2, local_pos: Vec2) -> KinematicBody {
+        KinematicBody::new(conf_world_from_local(dir, local_pos), Vec2::splat(32.0))
+    }
+
+    fn conf_sample(dir: Vec2, body: &KinematicBody) -> KinematicSample {
+        KinematicSample {
+            pos: conf_local_pos(dir, body.pos),
+            vel: conf_local_vec(dir, body.vel),
+            on_ground: body.on_ground,
+        }
+    }
+
+    fn assert_sample_close(label: &str, expected: KinematicSample, actual: KinematicSample) {
+        let pos_diff = actual.pos - expected.pos;
+        let vel_diff = actual.vel - expected.vel;
+        assert!(
+            pos_diff.x.abs() <= 2.0 && pos_diff.y.abs() <= 2.0,
+            "{label} local pos: got {:?}, expected {:?}, diff {:?}",
+            actual.pos,
+            expected.pos,
+            pos_diff
+        );
+        assert!(
+            vel_diff.x.abs() <= 4.0 && vel_diff.y.abs() <= 4.0,
+            "{label} local vel: got {:?}, expected {:?}, diff {:?}",
+            actual.vel,
+            expected.vel,
+            vel_diff
+        );
+        assert_eq!(
+            actual.on_ground, expected.on_ground,
+            "{label} on_ground should be gravity-relative"
+        );
+    }
+
+    fn assert_trace_c4_symmetric(
+        name: &str,
+        make_world: impl Fn(Vec2) -> World,
+        make_body: impl Fn(Vec2) -> KinematicBody,
+        drive: impl Fn(&mut KinematicBody, &World, KinematicTuning, usize),
+        ticks: usize,
+    ) {
+        let mut reference = Vec::new();
+        for (idx, arm) in CONFORMANCE_ARMS.iter().enumerate() {
+            let world = make_world(arm.dir);
+            let mut body = make_body(arm.dir);
+            let tuning = conf_tuning(arm.dir);
+            let mut trace = Vec::new();
+            for tick in 0..ticks {
+                drive(&mut body, &world, tuning, tick);
+                trace.push(conf_sample(arm.dir, &body));
+            }
+            if idx == 0 {
+                reference = trace;
+            } else {
+                for (tick, (expected, actual)) in reference.iter().zip(trace.iter()).enumerate() {
+                    assert_sample_close(
+                        &format!("{name} / {} arm tick {tick}", arm.name),
+                        *expected,
+                        *actual,
+                    );
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn frame_conformance_solid_support_is_c4_symmetric() {
+        // A body falling onto a solid support should produce the same local trace
+        // no matter which world axis gravity currently occupies.
+        assert_trace_c4_symmetric(
+            "solid support",
+            |dir| {
+                world_with(vec![conf_block_solid(
+                    "support",
+                    dir,
+                    Vec2::new(-160.0, 160.0),
+                    Vec2::new(320.0, 32.0),
+                )])
+            },
+            |dir| square_body_at_local(dir, Vec2::new(0.0, 40.0)),
+            |body, world, tuning, _tick| {
+                step_kinematic(body, world, tuning, KinematicInputs::default(), 1.0 / 60.0)
+            },
+            48,
+        );
+    }
+
+    #[test]
+    fn frame_conformance_side_wall_is_not_ground() {
+        // Moving into the local side face is a wall in every frame, not support.
+        assert_trace_c4_symmetric(
+            "side wall",
+            |dir| {
+                world_with(vec![conf_block_solid(
+                    "wall",
+                    dir,
+                    Vec2::new(120.0, -80.0),
+                    Vec2::new(32.0, 240.0),
+                )])
+            },
+            |dir| {
+                let mut b = square_body_at_local(dir, Vec2::new(0.0, 0.0));
+                b.vel = conf_frame(dir).to_world(Vec2::new(260.0, 0.0));
+                b
+            },
+            |body, world, tuning, _tick| {
+                step_kinematic(
+                    body,
+                    world,
+                    KinematicTuning { gravity: 0.0, ..tuning },
+                    KinematicInputs::default(),
+                    1.0 / 60.0,
+                )
+            },
+            32,
+        );
+    }
+
+    #[test]
+    fn frame_conformance_one_way_drop_through_is_c4_symmetric() {
+        assert_trace_c4_symmetric(
+            "one-way drop-through",
+            |dir| {
+                world_with(vec![
+                    conf_block_one_way(
+                        "one_way",
+                        dir,
+                        Vec2::new(-120.0, 120.0),
+                        Vec2::new(240.0, 14.0),
+                    ),
+                    conf_block_solid(
+                        "catcher",
+                        dir,
+                        Vec2::new(-160.0, 300.0),
+                        Vec2::new(320.0, 32.0),
+                    ),
+                ])
+            },
+            |dir| square_body_at_local(dir, Vec2::new(0.0, 40.0)),
+            |body, world, tuning, tick| {
+                let inputs = if tick >= 30 {
+                    KinematicInputs { drop_through: true }
+                } else {
+                    KinematicInputs::default()
+                };
+                step_kinematic(body, world, tuning, inputs, 1.0 / 60.0)
+            },
+            80,
+        );
+    }
+
+    #[test]
+    fn frame_conformance_moving_support_carries_along_local_side() {
+        assert_trace_c4_symmetric(
+            "moving support",
+            |dir| {
+                let mut support = conf_block_solid(
+                    "moving_support",
+                    dir,
+                    Vec2::new(-160.0, 120.0),
+                    Vec2::new(320.0, 32.0),
+                );
+                support.velocity = conf_frame(dir).to_world(Vec2::new(3.0, 0.0));
+                world_with(vec![support])
+            },
+            |dir| square_body_at_local(dir, Vec2::new(0.0, 40.0)),
+            |body, world, tuning, _tick| {
+                step_kinematic(body, world, tuning, KinematicInputs::default(), 1.0 / 60.0)
+            },
+            54,
+        );
     }
 
     #[test]

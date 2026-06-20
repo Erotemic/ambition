@@ -512,21 +512,59 @@ def one_way_platform(d: ImageDraw.ImageDraw, s: float) -> None:
 
 
 def door_zone(d: ImageDraw.ImageDraw, s: float) -> None:
+    # A clear, upright paneled door that fills its footprint top to
+    # bottom. The artwork is auto-cropped to its alpha bbox and then
+    # stretched to fill the loading-zone collision box (typically a
+    # tall 48x96), so the BOTTOM of the art must be the bottom of the
+    # door — that way the door reads as standing on the ground rather
+    # than floating. (The old version drew a small panel mid-canvas
+    # plus a decorative arc, so after cropping the panel floated with
+    # the arc curling around it like a stray circle.)
+    gold = rgba("#F1B33B")
+    gold_soft = rgba("#F1B33B", 170)
+    # Outer door frame / jamb — a clean rounded rectangle reaching the
+    # very bottom of the canvas so the crop bottom == door foot.
     d.rounded_rectangle(
-        (42 * s, 25 * s, 86 * s, 100 * s),
-        radius=12 * s,
-        fill=rgba("#2A324C", 210),
-        outline=rgba("#F1B33B"),
+        (36 * s, 6 * s, 92 * s, 122 * s),
+        radius=6 * s,
+        fill=rgba("#1F2638", 235),
+        outline=gold,
         width=max(1, int(3 * s)),
     )
-    d.ellipse(bbox(77 * s, 64 * s, 5 * s, 5 * s), fill=rgba("#F1B33B"))
-    d.arc(
-        (32 * s, 12 * s, 96 * s, 113 * s),
-        80,
-        280,
-        fill=rgba("#F1B33B", 130),
+    # Bright sill/step at the foot of the door so it visually plants on
+    # the floor instead of hanging in the air.
+    d.rectangle(
+        (39 * s, 110 * s, 89 * s, 119 * s),
+        fill=rgba("#F1B33B", 200),
+        outline=rgba("#7A5410", 200),
+        width=max(1, int(1 * s)),
+    )
+    # Door leaf (the slab itself), sitting on the sill.
+    d.rounded_rectangle(
+        (42 * s, 12 * s, 86 * s, 110 * s),
+        radius=4 * s,
+        fill=rgba("#2A324C", 232),
+        outline=gold_soft,
         width=max(1, int(2 * s)),
     )
+    # Two recessed panels for a classic paneled-door read.
+    for top, bot in ((20, 58), (66, 104)):
+        d.rounded_rectangle(
+            (48 * s, top * s, 80 * s, bot * s),
+            radius=3 * s,
+            fill=rgba("#232B42", 180),
+            outline=gold_soft,
+            width=max(1, int(2 * s)),
+        )
+    # Cross rail between the panels, with the doorknob on the latch
+    # (right) side of the leaf.
+    d.line(
+        [(43 * s, 62 * s), (85 * s, 62 * s)],
+        fill=gold_soft,
+        width=max(1, int(2 * s)),
+    )
+    d.ellipse(bbox(78 * s, 62 * s, 6 * s, 6 * s), fill=gold)
+    d.ellipse(bbox(76 * s, 60 * s, 2 * s, 2 * s), fill=rgba("#FFF4D2", 220))
 
 
 def edge_exit(d: ImageDraw.ImageDraw, s: float) -> None:

@@ -1,0 +1,560 @@
+schema: ambition.musicir.v1
+id: series_a_bloodbath
+title: Series A Bloodbath - The Term Sheet Has Teeth
+seed: 71330027
+notes: >-
+  Sister cue to tech_bros_disruption, pushed in a darker, predatory direction:
+  this is the venture-capital boss fight. C minor at 130 BPM, 4/4, harmonic-minor
+  bite (G major V) for menace. Same all-electronic palette and six repurposed
+  runtime stem groups, but the lead lives LOWER (D4-G5, coiling descents) so it
+  growls instead of shrieks — deliberately fewer high notes than Disruption.
+    strings    -> warm pad bed + sub-bass foundation (pad_warm, pad_poly,
+                  synth_bass_1)
+    winds      -> the predator leads (lead_saw + a grittier lead_charang, plus
+                  lead_voice for the octave-doubled climax growl)
+    brass      -> synth brass stabs (synth_brass_1/2) — the circling horns and
+                  the closing-the-deal fanfare
+    mallets    -> 16th sequencer (synth_bass_2) + cold fx_crystal sparkle
+    percussion -> heavy electronic kit, half-time backbeat with floor-tom menace
+                  resolving to a four-on-the-floor bloodbath in main_c
+    choir_pad  -> dread bed (fx_atmosphere + pad_metallic)
+  Long-form layout (~140 s): they circle (main_a), squeeze (main_b), slide the
+  term sheet across the table (bridge), then take the company (main_c).
+
+tempo:
+  bpm: 130
+meter:
+  beats_per_bar: 4
+  beat_unit: 4
+
+constraints:
+  voice_leading: minimize_motion
+  no_clusters: true
+
+render:
+  sample_rate: 48000
+  ogg_quality: 6
+  backend: pretty-midi
+
+postprocess:
+  gain_db: 0.0
+  highpass_hz: 32
+  reverb_wet: 0.024
+  reverb_decay_seconds: 0.70
+  reverb_damping_hz: 6200
+  stereo_width: 0.05
+  compressor_threshold_db: -17.0
+  compressor_ratio: 3.4
+  compressor_attack_ms: 8.0
+  compressor_release_ms: 90.0
+  compressor_makeup_db: 1.5
+  compressor_knee_db: 6.0
+  limiter_drive: 0.95
+  normalize: true
+  target_peak_db: -2.0
+
+stem_postprocess:
+  gain_db: 0.0
+  highpass_hz: 32
+  reverb_wet: 0.004
+  reverb_decay_seconds: 0.36
+  reverb_damping_hz: 6200
+  stereo_width: 0.035
+  limiter_drive: 0.93
+  normalize: false
+  target_peak_db: -3.0
+
+instruments:
+  - {name: pad_warm,     group: strings,    program: pad_warm,      volume: 78, pan: 70, expression: 90, modulation: 4}
+  - {name: pad_poly,     group: strings,    program: pad_poly,      volume: 72, pan: 56, expression: 84, modulation: 4}
+  - {name: sub_bass,     group: strings,    program: synth_bass_1,  volume: 100, pan: 64, expression: 102}
+
+  - {name: lead_saw,     group: winds,      program: lead_saw,      volume: 94, pan: 68, expression: 100, modulation: 6}
+  - {name: lead_grit,    group: winds,      program: lead_charang,  volume: 88, pan: 52, expression: 96,  modulation: 5}
+  - {name: lead_voice,   group: winds,      program: lead_voice,    volume: 82, pan: 64, expression: 90,  modulation: 5}
+
+  - {name: synth_brass_a, group: brass,     program: synth_brass_1, volume: 92, pan: 72, expression: 100, modulation: 3}
+  - {name: synth_brass_b, group: brass,     program: synth_brass_2, volume: 86, pan: 48, expression: 96,  modulation: 3}
+
+  - {name: arp_synth,    group: mallets,    program: synth_bass_2,  volume: 86, pan: 60, expression: 96}
+  - {name: bell_synth,   group: mallets,    program: fx_crystal,    volume: 64, pan: 82, expression: 80}
+
+  - {name: atmos,        group: choir_pad,  program: fx_atmosphere, volume: 62, pan: 64, expression: 78, modulation: 4}
+  - {name: pad_metallic, group: choir_pad,  program: pad_metallic,  volume: 54, pan: 64, expression: 74, modulation: 3}
+
+  - {name: kit,          group: percussion, is_drum: true,          volume: 104, pan: 64, expression: 110}
+
+motifs:
+  # Predator coil — a menacing mid-register descent that loops back on itself.
+  # C5 G4 Ab4 G4 F4 Eb4 D4 Eb4
+  - id: predator_coil
+    root: C5
+    intervals: [0, -5, -4, -5, -7, -9, -10, -9]
+    rhythm:    [0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5]
+    velocities: [1.00, 0.82, 0.90, 0.84, 0.92, 0.86, 0.96, 0.88]
+
+  # The lunge — a stab-climb to Eb5 then a fall. Stays under F5.
+  # G4 C5 Eb5 D5 C5 Bb4 Ab4 G4
+  - id: predator_lunge
+    root: C5
+    intervals: [-5, 0, 3, 2, 0, -2, -4, -5]
+    rhythm:    [0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5]
+    velocities: [0.92, 1.00, 0.94, 0.88, 0.90, 0.84, 0.86, 0.94]
+
+  # Bloodbath climax — reaches G5 once, then drops back into the growl range.
+  # C5 Eb5 G5 F5 Eb5 D5 C5 G4 Ab4 Bb4 C5 G4
+  - id: predator_climax
+    root: C5
+    intervals: [0, 3, 7, 5, 3, 2, 0, -5, -4, -2, 0, -5]
+    rhythm:    [0.5, 0.25, 0.25, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.25, 0.25, 0.5]
+    velocities: [0.94, 0.86, 0.98, 0.92, 0.90, 0.88, 0.92, 0.84, 0.86, 0.84, 0.90, 0.88]
+
+  # Sub-bass: tonic pulse with the fifth. C1 C1 G1 C1
+  - id: sub_bass_pulse
+    root: C1
+    intervals: [0, 0, 7, 0]
+    rhythm:    [1.0, 1.0, 1.0, 1.0]
+    velocities: [1.00, 0.82, 0.90, 0.86]
+
+  # Sub-bass motion — Cm -> Ab -> G shape (adds b6 then leading tone).
+  # C1 C1 Ab1 G1
+  - id: sub_bass_motion
+    root: C1
+    intervals: [0, 0, 8, 7]
+    rhythm:    [1.0, 1.0, 1.0, 1.0]
+    velocities: [1.00, 0.84, 0.94, 0.96]
+
+layer_templates:
+  expression_swell:
+    kind: automation
+    automation:
+      - {group: winds,     cc: expression, from: 64, to: 108, curve: smooth, points: 16}
+      - {group: brass,     cc: expression, from: 56, to: 104, curve: smooth, points: 16}
+      - {group: strings,   cc: expression, from: 68, to: 100, curve: smooth, points: 16}
+      - {group: mallets,   cc: expression, from: 64, to: 102, curve: smooth, points: 16}
+      - {group: choir_pad, cc: expression, from: 48, to: 84,  curve: smooth, points: 12}
+
+  sub_bass_voice:
+    kind: motif
+    instrument: sub_bass
+    motif: sub_bass_pulse
+    velocity: 92
+    articulation: tenuto
+    humanize_ms: 1
+    humanize_velocity_pct: 3
+    starts: [[0, 0.0]]
+    repeats: 24
+    every_bars: 1
+
+  sub_bass_motion_voice:
+    kind: motif
+    instrument: sub_bass
+    motif: sub_bass_motion
+    velocity: 92
+    articulation: tenuto
+    humanize_ms: 1
+    humanize_velocity_pct: 3
+    starts: [[0, 0.0]]
+    repeats: 24
+    every_bars: 1
+
+  # 16th-note sequencer — darker contour than Disruption's.
+  arp_16th:
+    kind: arpeggio
+    instrument: arp_synth
+    octave: 3
+    pattern: [0, 1, 2, 1, 0, 2, 1, 0]
+    step: 0.25
+    duration_beats: 0.20
+    velocity: 76
+    density: 1.0
+    voicing: closed
+    articulation: pluck
+    humanize_ms: 0
+    humanize_velocity_pct: 3
+
+  arp_8th:
+    kind: arpeggio
+    instrument: arp_synth
+    octave: 3
+    pattern: [0, 2, 1, 2]
+    step: 0.5
+    duration_beats: 0.40
+    velocity: 66
+    density: 1.0
+    voicing: closed
+    articulation: pluck
+    humanize_ms: 0
+    humanize_velocity_pct: 3
+
+  synth_pad:
+    kind: pad_chords
+    instruments: [pad_warm, pad_poly]
+    instrument_octave_offsets: {pad_warm: 0, pad_poly: 1}
+    instrument_velocity_offsets: {pad_warm: 0, pad_poly: -8}
+    octave: 3
+    duration_beats: 4.0
+    velocity: 66
+    articulation: pad
+    voicing: open
+    humanize_ms: 4
+    humanize_velocity_pct: 3
+
+  lead_saw_voice:
+    kind: motif
+    instrument: lead_saw
+    motif: predator_coil
+    velocity: 90
+    articulation: tenuto
+    humanize_ms: 2
+    humanize_velocity_pct: 3
+
+  lead_grit_voice:
+    kind: motif
+    instrument: lead_grit
+    motif: predator_lunge
+    velocity: 86
+    articulation: marcato
+    humanize_ms: 2
+    humanize_velocity_pct: 3
+
+  lead_climax_voice:
+    kind: motif
+    instrument: lead_saw
+    motif: predator_climax
+    velocity: 94
+    articulation: tenuto
+    humanize_ms: 2
+    humanize_velocity_pct: 3
+
+  lead_voice_double:
+    kind: motif
+    instrument: lead_voice
+    motif: predator_climax
+    transpose: -12
+    velocity: 78
+    articulation: tenuto
+    humanize_ms: 3
+    humanize_velocity_pct: 3
+
+  synth_brass_stab:
+    kind: chord_hits
+    instruments: [synth_brass_a, synth_brass_b]
+    instrument_octave_offsets: {synth_brass_a: 0, synth_brass_b: -1}
+    octave: 3
+    velocity: 90
+    duration_beats: 1.25
+    articulation: marcato
+    voicing: closed
+    humanize_ms: 2
+    humanize_velocity_pct: 3
+
+  synth_brass_pad:
+    kind: pad_chords
+    instruments: [synth_brass_a, synth_brass_b]
+    instrument_octave_offsets: {synth_brass_a: 0, synth_brass_b: -1}
+    octave: 3
+    duration_beats: 4.0
+    velocity: 74
+    articulation: legato
+    voicing: closed
+    humanize_ms: 3
+    humanize_velocity_pct: 3
+
+  bell_sparkle:
+    kind: chord_hits
+    instrument: bell_synth
+    octave: 5
+    velocity: 72
+    duration_beats: 4.0
+    articulation: bell
+    voicing: closed
+    humanize_ms: 0
+    humanize_velocity_pct: 3
+
+  atmos_wash:
+    kind: pad_chords
+    instrument: atmos
+    octave: 4
+    every_bars: 4
+    duration_beats: 16.0
+    velocity: 58
+    articulation: pad
+    voicing: open
+    humanize_ms: 0
+    humanize_velocity_pct: 3
+
+  metallic_layer:
+    kind: pad_chords
+    instrument: pad_metallic
+    octave: 3
+    every_bars: 4
+    duration_beats: 16.0
+    velocity: 44
+    articulation: pad
+    voicing: wide
+    humanize_ms: 0
+    humanize_velocity_pct: 3
+
+  # Half-time predator groove — kick on 1+3, snare on 2+4, floor-tom pickups.
+  drums_predator_basic:
+    kind: drums
+    instrument: kit
+    humanize_ms: 0
+    humanize_velocity_pct: 3
+    events:
+      - {drum: kick,           beats: [0.0, 2.0],            velocity: 92}
+      - {drum: electric_snare, beats: [1.0, 3.0],            velocity: 80}
+      - {drum: closed_hat,     beats: [0.5, 1.5, 2.5, 3.5],  velocity: 30}
+      - {drum: floor_tom,      beat: 3.5,                    velocity: 44, probability: 0.5}
+
+  # Busier squeeze groove — 16th hats, side-stick syncopation, tom fills.
+  drums_predator_busy:
+    kind: drums
+    instrument: kit
+    humanize_ms: 0
+    humanize_velocity_pct: 3
+    events:
+      - {drum: kick,           beats: [0.0, 2.0, 2.75],                          velocity: 92}
+      - {drum: electric_snare, beats: [1.0, 3.0],                                velocity: 82}
+      - {drum: closed_hat,     beats: [0.0, 0.5, 1.0, 1.5, 2.0, 2.5, 3.0, 3.5],  velocity: 26}
+      - {drum: open_hat,       beats: [1.5, 3.5],                                velocity: 30}
+      - {drum: low_tom,        beat: 3.25,                                       velocity: 40, probability: 0.5}
+      - {drum: floor_tom,      beat: 3.75,                                       velocity: 44, probability: 0.6}
+
+  # Four-on-the-floor bloodbath (main_c).
+  drums_bloodbath:
+    kind: drums
+    instrument: kit
+    humanize_ms: 0
+    humanize_velocity_pct: 3
+    events:
+      - {drum: kick,           beats: [0.0, 1.0, 2.0, 3.0],   velocity: 98}
+      - {drum: electric_snare, beats: [1.0, 3.0],             velocity: 86}
+      - {drum: hand_clap,      beats: [1.0, 3.0],             velocity: 52}
+      - {drum: closed_hat,     beats: [0.5, 1.5, 2.5, 3.5],   velocity: 40}
+      - {drum: open_hat,       beats: [0.25, 1.25, 2.25, 3.25], velocity: 26}
+      - {drum: floor_tom,      beats: [3.5, 3.75],            velocity: 46, probability: 0.7}
+      - {drum: crash,          beat: 0.0, velocity: 86, bars: [0, 4, 8, 12]}
+
+playback:
+  mode: section_stem_matrix
+  intro: intro
+  loop_components: [main_a, main_b, bridge, main_c]
+  outro: outro
+  exit_policy:
+    request_outro: next_valid_exit_bar
+    fade_aggressive_stems_beats: 4
+    bridge_stems: [strings, choir_pad]
+    fade_stems: [winds, brass, mallets, percussion]
+
+state_map:
+  starting: {section: intro}
+
+  exploring:
+    preferred_section: main_a
+    stems: {strings: 1.0, mallets: 0.80, percussion: 0.60, winds: 0.40, brass: 0.0, choir_pad: 0.55}
+
+  hacking:
+    preferred_section: main_b
+    stems: {strings: 1.0, mallets: 1.0, percussion: 0.80, winds: 0.65, brass: 0.30, choir_pad: 0.55}
+
+  ambushed:
+    preferred_section: bridge
+    stems: {strings: 1.0, mallets: 0.35, percussion: 0.20, winds: 0.45, brass: 0.0, choir_pad: 0.90}
+
+  confrontation:
+    preferred_section: main_c
+    stems: {strings: 1.0, mallets: 1.0, percussion: 1.0, winds: 1.0, brass: 1.0, choir_pad: 0.50}
+
+  retreating:
+    transition: outro_at_next_valid_exit_bar
+    outro: outro
+
+sections:
+  - id: intro
+    kind: intro
+    label: they read your deck - sub-bass and a cold arp circle in
+    bars: 8
+    intensity: 0.50
+    density: 0.40
+    loopable: false
+    harmony: ["Cm", "Ab", "Bb", "Gm", "Cm", "Ab", "Bb", "G"]
+    postprocess:
+      reverb_wet: 0.060
+      reverb_decay_seconds: 1.10
+    layers:
+      - expression_swell
+      - {template: sub_bass_voice, repeats: 8, velocity: 82}
+      - kind: arpeggio
+        instrument: arp_synth
+        octave: 3
+        pattern: [0, 1, 2, 1]
+        step: 0.5
+        duration_beats: 0.40
+        velocity: 56
+        density: 1.0
+        voicing: closed
+        articulation: pluck
+      - {template: atmos_wash, velocity: 48}
+      - {template: metallic_layer, velocity: 36}
+      - kind: chord_hits
+        instrument: bell_synth
+        octave: 5
+        velocity: 60
+        duration_beats: 4.0
+        articulation: bell
+        humanize_ms: 0
+        hits: [[0, 0.0], [7, 0.0]]
+      - kind: drums
+        instrument: kit
+        humanize_ms: 0
+        events:
+          - {drum: kick,       beat: 0.0, velocity: 72, bars: [4, 5, 6, 7]}
+          - {drum: closed_hat, beats: [0.5, 1.5, 2.5, 3.5], velocity: 24, bars: [6, 7]}
+          - {drum: floor_tom,  beat: 3.5, velocity: 40, bars: [7]}
+
+  - id: main_a
+    kind: loop_component
+    label: the hunt - predator coil over the sequencer
+    bars: 16
+    intensity: 0.74
+    density: 0.65
+    loopable: true
+    valid_exit_local_bars: [4, 8, 12, 16]
+    harmony: ["Cm", "Ab", "Bb", "Gm", "Cm", "Fm", "Ab", "G",
+              "Cm", "Ab", "Bb", "Eb", "Fm", "Ab", "G", "Cm"]
+    layers:
+      - {template: lead_saw_voice, starts: [[0, 0.0], [4, 0.0], [8, 0.0], [12, 0.0]], velocity: 88}
+      - {template: arp_16th, density: 1.0, velocity: 76}
+      - {template: sub_bass_voice, repeats: 16, velocity: 90}
+      - {template: synth_pad, velocity: 64}
+      - drums_predator_basic
+      - {template: atmos_wash, velocity: 54}
+      - {template: metallic_layer, velocity: 40}
+
+  - id: main_b
+    kind: loop_component
+    label: the squeeze - grit-lead lunge, Neapolitan tension, busier kit
+    bars: 16
+    intensity: 0.80
+    density: 0.72
+    loopable: true
+    valid_exit_local_bars: [4, 8, 12, 16]
+    harmony: ["Cm", "Bb", "Ab", "G", "Cm", "Db", "Bb", "G",
+              "Cm", "Bb", "Ab", "Fm", "Db", "Ab", "G", "G"]
+    layers:
+      - {template: lead_grit_voice, starts: [[0, 0.0], [4, 0.0], [8, 0.0], [12, 0.0]], velocity: 90}
+      - {template: lead_saw_voice,  starts: [[2, 0.0], [6, 0.0], [10, 0.0], [14, 0.0]], velocity: 80}
+      - {template: arp_16th, density: 1.0, velocity: 80}
+      - {template: sub_bass_motion_voice, repeats: 16, velocity: 92}
+      - {template: synth_pad, velocity: 66}
+      - {template: synth_brass_stab, hits: [[0, 0.0], [4, 0.0], [8, 0.0], [12, 0.0]], velocity: 82}
+      - drums_predator_busy
+      - {template: bell_sparkle, hits: [[0, 0.0], [8, 0.0]], velocity: 60}
+      - {template: atmos_wash, velocity: 58}
+      - {template: metallic_layer, velocity: 42}
+
+  - id: bridge
+    kind: loop_component
+    label: the term sheet - it slides across the table, quiet and final
+    bars: 8
+    intensity: 0.48
+    density: 0.34
+    loopable: true
+    valid_exit_local_bars: [4, 8]
+    harmony: ["Fm", "Db", "Eb", "Cm", "Fm", "Ab", "G", "G"]
+    postprocess:
+      reverb_wet: 0.022
+      reverb_decay_seconds: 0.60
+    layers:
+      - kind: motif
+        instrument: lead_voice
+        motif: predator_lunge
+        velocity: 74
+        articulation: legato
+        humanize_ms: 4
+        starts: [[0, 0.0], [4, 0.0]]
+      - {template: arp_8th, density: 0.80, velocity: 56}
+      - kind: motif
+        instrument: sub_bass
+        motif: sub_bass_pulse
+        velocity: 72
+        articulation: tenuto
+        humanize_ms: 0
+        starts: [[0, 0.0], [4, 0.0]]
+      - {template: synth_pad, velocity: 68}
+      - kind: drums
+        instrument: kit
+        humanize_ms: 0
+        events:
+          - {drum: kick, beats: [0.0, 2.0], velocity: 58}
+          - {drum: side_stick, beats: [1.0, 3.0], velocity: 30}
+      - {template: atmos_wash, velocity: 72}
+      - {template: metallic_layer, velocity: 52}
+
+  - id: main_c
+    kind: loop_component
+    label: the bloodbath - four-on-the-floor, full ensemble, they take it all
+    bars: 16
+    intensity: 0.95
+    density: 0.86
+    loopable: true
+    valid_exit_local_bars: [4, 8, 12, 16]
+    harmony: ["Cm", "Ab", "Bb", "G", "Cm", "Fm", "Db", "G",
+              "Cm", "Ab", "Bb", "Eb", "Fm", "G", "Cm", "Cm"]
+    postprocess:
+      reverb_wet: 0.058
+      reverb_decay_seconds: 1.15
+    layers:
+      - {template: lead_climax_voice, starts: [[0, 0.0], [4, 0.0], [8, 0.0], [12, 0.0]], velocity: 94}
+      - {template: lead_voice_double, starts: [[0, 0.0], [4, 0.0], [8, 0.0], [12, 0.0]], velocity: 78}
+      - {template: lead_grit_voice, starts: [[2, 0.0], [6, 0.0], [10, 0.0], [14, 0.0]], velocity: 84}
+      - {template: arp_16th, density: 1.0, velocity: 84}
+      - {template: sub_bass_voice, repeats: 16, velocity: 96}
+      - {template: synth_pad, velocity: 72}
+      - {template: synth_brass_pad, velocity: 76}
+      - {template: synth_brass_stab, hits: [[0, 0.0], [4, 0.0], [8, 0.0], [12, 0.0]], velocity: 92}
+      - drums_bloodbath
+      - {template: bell_sparkle, hits: [[0, 0.0], [4, 0.0], [8, 0.0], [12, 0.0]], velocity: 72}
+      - {template: atmos_wash, velocity: 56}
+      - {template: metallic_layer, velocity: 42}
+
+  - id: outro
+    kind: outro
+    label: acquired - the lights go out one rack at a time
+    bars: 4
+    intensity: 0.52
+    density: 0.38
+    loopable: false
+    harmony: ["Cm", "Fm", "G", "Cm"]
+    layers:
+      - {template: lead_saw_voice, starts: [[0, 0.0]], velocity: 78}
+      - {template: arp_16th, density: 0.7, velocity: 56}
+      - {template: sub_bass_voice, repeats: 4, velocity: 78}
+      - {template: synth_pad, velocity: 62}
+      - kind: drums
+        instrument: kit
+        humanize_ms: 0
+        events:
+          - {drum: kick, beat: 0.0, velocity: 94, bars: [3]}
+          - {drum: crash, beat: 0.0, velocity: 86, bars: [3]}
+          - {drum: floor_tom, beats: [0.0, 0.5, 1.0, 1.5, 2.0, 2.5, 3.0, 3.5], velocity: 40, bars: [2]}
+      - kind: chord_hits
+        instrument: bell_synth
+        octave: 5
+        velocity: 66
+        duration_beats: 4.0
+        articulation: bell
+        humanize_ms: 0
+        hits: [[3, 0.0]]
+      - {template: atmos_wash, velocity: 48}
+      - {template: metallic_layer, velocity: 36}
+
+group_postprocess:
+  strings:    {gain_db: 0.0,  lowpass_hz: 13000, high_shelf_hz: 5200, high_shelf_db: 0.2, transient_tame: 0.05, reverb_wet: 0.005}
+  winds:      {gain_db: 1.0,  lowpass_hz: 12500, high_shelf_hz: 4800, high_shelf_db: 0.6, presence_low_hz: 1400, presence_high_hz: 5000, presence_db: 1.2, transient_tame: 0.03, reverb_wet: 0.005}
+  brass:      {gain_db: 0.0,  lowpass_hz: 11500, high_shelf_hz: 5000, high_shelf_db: 0.2, transient_tame: 0.05, reverb_wet: 0.005}
+  mallets:    {gain_db: -0.5, lowpass_hz: 12500, high_shelf_hz: 5200, high_shelf_db: 0.2, transient_tame: 0.05, reverb_wet: 0.006}
+  percussion: {gain_db: -0.5, lowpass_hz: 11000, high_shelf_hz: 5200, high_shelf_db: 0.0, transient_tame: 0.04, reverb_wet: 0.003}
+  choir_pad:  {gain_db: -2.0, lowpass_hz: 10500, high_shelf_hz: 5200, high_shelf_db: -0.4, transient_tame: 0.05, reverb_wet: 0.013}

@@ -130,6 +130,7 @@ def is_render_current(
     simple_mix: bool,
     full_mix_only: bool,
     runtime_stem_gain_mode: str,
+    runtime_stem_max_gain_db: float | None,
 ) -> tuple[bool, Path | None, str]:
     """Return whether rendered music is current for this spec + renderer version.
 
@@ -152,6 +153,12 @@ def is_render_current(
         return False, manifest_path, "manifest full_mix_only mode does not match"
     if manifest.get("runtime_stem_gain_mode", "native") != runtime_stem_gain_mode:
         return False, manifest_path, "manifest runtime stem gain mode does not match"
+    if runtime_stem_gain_mode == "shared":
+        manifest_cap = manifest.get("runtime_stem_max_gain_db")
+        if manifest_cap is None:
+            return False, manifest_path, "manifest runtime stem gain cap missing"
+        if runtime_stem_max_gain_db is not None and abs(float(manifest_cap) - float(runtime_stem_max_gain_db)) > 1e-6:
+            return False, manifest_path, "manifest runtime stem gain cap does not match"
     outputs = _manifest_paths(manifest, outdir)
     if not outputs:
         return False, manifest_path, "manifest lists no output files"
@@ -217,6 +224,17 @@ def build_parser() -> argparse.ArgumentParser:
         ),
     )
     ap.add_argument(
+        "--runtime-stem-max-gain-db",
+        type=float,
+        default=None,
+        help=(
+            "Safety cap for --runtime-stem-gain-mode shared. Defaults to "
+            "render.runtime_stems.max_gain_db or 24 dB. If a cue needs more "
+            "gain than this, the stems are probably too quiet at the source; "
+            "raise instrument/layer levels instead of exporting noise-lifted stems."
+        ),
+    )
+    ap.add_argument(
         "--keep-debug-stems",
         action="store_true",
         help=(
@@ -273,6 +291,7 @@ def main(argv=None) -> int:
             simple_mix=ns.simple_mix,
             full_mix_only=ns.full_mix_only,
             runtime_stem_gain_mode=ns.runtime_stem_gain_mode,
+            runtime_stem_max_gain_db=ns.runtime_stem_max_gain_db,
         )
         if current and manifest_path is not None:
             manifest = json.loads(manifest_path.read_text(encoding="utf8"))
@@ -406,17 +425,31 @@ def main(argv=None) -> int:
 
     runtime_settings = dict(render_cfg.get("runtime_stems", {}) or {})
     runtime_target_peak_db = float(runtime_settings.get("target_peak_db", -8.0))
+    runtime_max_gain_db = ns.runtime_stem_max_gain_db
+    if runtime_max_gain_db is None:
+        runtime_max_gain_db = float(runtime_settings.get("max_gain_db", 24.0))
     runtime_gain_db = 0.0
+    runtime_gain_requested_db = 0.0
+    runtime_gain_was_capped = False
     runtime_gain_reason = "native"
     if ns.runtime_stem_gain_mode == "shared":
         raw_peak = float(raw_full_stats["peak_linear"])
         target_peak = 10.0 ** (runtime_target_peak_db / 20.0)
         if raw_peak > 1e-12:
-            runtime_gain_db = 20.0 * math.log10(target_peak / raw_peak)
-            runtime_gain_reason = (
-                f"shared gain from raw all-stem peak {raw_full_stats['peak_dbfs']:.1f} "
-                f"dBFS to target {runtime_target_peak_db:.1f} dBFS"
-            )
+            runtime_gain_requested_db = 20.0 * math.log10(target_peak / raw_peak)
+            runtime_gain_db = min(runtime_gain_requested_db, runtime_max_gain_db)
+            runtime_gain_was_capped = runtime_gain_db < runtime_gain_requested_db - 1e-6
+            if runtime_gain_was_capped:
+                runtime_gain_reason = (
+                    f"shared gain requested +{runtime_gain_requested_db:.1f} dB from raw "
+                    f"all-stem peak {raw_full_stats['peak_dbfs']:.1f} dBFS to target "
+                    f"{runtime_target_peak_db:.1f} dBFS, capped at +{runtime_max_gain_db:.1f} dB"
+                )
+            else:
+                runtime_gain_reason = (
+                    f"shared gain from raw all-stem peak {raw_full_stats['peak_dbfs']:.1f} "
+                    f"dBFS to target {runtime_target_peak_db:.1f} dBFS"
+                )
         else:
             runtime_gain_reason = "raw all-stem reference was silent; shared gain disabled"
 
@@ -523,10 +556,16 @@ def main(argv=None) -> int:
             "mastered full preview is much louder than the raw all-stem sum "
             f"(+{master_rms_lift_db:.1f} dB RMS); noise floors may be lifted"
         )
-    if ns.runtime_stem_gain_mode == "shared" and runtime_gain_db > 36.0:
+    if ns.runtime_stem_gain_mode == "shared" and runtime_gain_requested_db > 36.0:
         diagnostics_warnings.append(
-            "shared runtime gain is very large "
-            f"(+{runtime_gain_db:.1f} dB); source/layer velocities likely need a pass"
+            "shared runtime gain request is very large "
+            f"(+{runtime_gain_requested_db:.1f} dB); source/layer velocities likely need a pass"
+        )
+    if runtime_gain_was_capped:
+        diagnostics_warnings.append(
+            "shared runtime gain was capped "
+            f"(+{runtime_gain_db:.1f} dB applied, +{runtime_gain_requested_db:.1f} dB requested); "
+            "runtime stems remain quieter by design to avoid exporting amplified noise floors"
         )
 
     manifest = r.build_manifest(spec, cue_hash, meta, group_names, output_files, sr)
@@ -534,6 +573,7 @@ def main(argv=None) -> int:
     manifest["simple_mix"] = bool(ns.simple_mix)
     manifest["full_mix_only"] = bool(ns.full_mix_only)
     manifest["runtime_stem_gain_mode"] = ns.runtime_stem_gain_mode
+    manifest["runtime_stem_max_gain_db"] = runtime_max_gain_db if ns.runtime_stem_gain_mode == "shared" else None
     manifest["diagnostics"] = {
         "raw_full": raw_full_stats,
         "mastered_full": master_stats,
@@ -542,8 +582,11 @@ def main(argv=None) -> int:
         "native_stems": stem_stats_native,
         "runtime_stems": stem_stats_runtime,
         "runtime_gain_db": runtime_gain_db,
+        "runtime_gain_requested_db": runtime_gain_requested_db,
+        "runtime_gain_was_capped": runtime_gain_was_capped,
         "runtime_gain_reason": runtime_gain_reason,
         "runtime_target_peak_db": runtime_target_peak_db,
+        "runtime_max_gain_db": runtime_max_gain_db,
         "runtime_previews": runtime_preview_stats,
         "warnings": diagnostics_warnings,
     }
@@ -570,6 +613,7 @@ def main(argv=None) -> int:
         f"full_mix_only={1 if ns.full_mix_only else 0}\n"
         f"keep_debug_stems={1 if ns.keep_debug_stems else 0}\n"
         f"runtime_stem_gain_mode={shlex.quote(ns.runtime_stem_gain_mode)}\n"
+        f"runtime_stem_max_gain_db={shlex.quote(str(runtime_max_gain_db))}\n"
         'cd "$renderer_dir"\n'
         "if [ -d .venv ]; then source .venv/bin/activate; fi\n"
         'rm -rf "$outdir"\n'
@@ -606,6 +650,7 @@ def main(argv=None) -> int:
                     if k.startswith("audition_")
                 ],
                 "runtime_stem_gain_mode": ns.runtime_stem_gain_mode,
+                "runtime_stem_max_gain_db": runtime_max_gain_db if ns.runtime_stem_gain_mode == "shared" else None,
                 "full_mix_only": bool(ns.full_mix_only),
                 "kept_debug_stems": bool(ns.keep_debug_stems),
                 "hash": cue_hash,

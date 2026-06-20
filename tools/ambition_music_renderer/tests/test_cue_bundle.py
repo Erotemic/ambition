@@ -15,6 +15,7 @@ from ambition_music_renderer.cue_bundle import (
     summarize_mix_diagnostics,
     prepare_manifest_analysis_root,
     write_manifest_audio_level_report,
+    write_spectral_fingerprint,
     write_stem_export_report,
 )
 from ambition_music_renderer.render_group_worker import build_parser as build_worker_parser
@@ -28,11 +29,15 @@ def test_backend_defaults_prefer_pretty_midi():
     ).backend == "pretty-midi"
     assert build_parser().parse_args(["render", "lofi_study_loop"]).backend == "pretty-midi"
     assert build_parser().parse_args(["cue", "bundle", "lofi_study_loop"]).backend == "pretty-midi"
-    assert build_isolated_parser().parse_args([
+    shared_args = build_isolated_parser().parse_args([
         "cue.music.yaml",
         "--runtime-stem-gain-mode",
         "shared",
-    ]).runtime_stem_gain_mode == "shared"
+        "--runtime-stem-max-gain-db",
+        "18",
+    ])
+    assert shared_args.runtime_stem_gain_mode == "shared"
+    assert shared_args.runtime_stem_max_gain_db == 18.0
 
 
 def test_bundle_parser_exposes_publish_and_zip_flags():
@@ -47,6 +52,11 @@ def test_bundle_parser_exposes_publish_and_zip_flags():
             "2",
             "--runtime-stem-gain-mode",
             "shared",
+            "--runtime-stem-max-gain-db",
+            "18",
+            "--report-only",
+            "--plot-format",
+            "jpg",
         ]
     )
     assert args.command == "cue"
@@ -56,6 +66,9 @@ def test_bundle_parser_exposes_publish_and_zip_flags():
     assert args.zip_bundle is True
     assert args.jobs == 2
     assert args.runtime_stem_gain_mode == "shared"
+    assert args.runtime_stem_max_gain_db == 18.0
+    assert args.report_only is True
+    assert args.plot_format == "jpg"
 
 
 def test_stem_export_report_compares_scratch_adaptive_and_preview_audio():
@@ -229,3 +242,31 @@ def test_analysis_root_copies_only_current_hash_scratch_stems():
         assert not (analysis / "scratch_stems" / "cue_old.keys.npy").exists()
         assert (analysis / "preview" / "cue_current.full_soundtrack_preview.wav").exists()
         assert not (analysis / "preview" / "cue_old.full_soundtrack_preview.wav").exists()
+
+
+
+def test_spectral_fingerprint_is_llm_friendly_json_and_tsv():
+    with tempfile.TemporaryDirectory() as td:
+        root = Path(td)
+        sr = 48_000
+        duration = 0.25
+        t = np.arange(int(sr * duration), dtype="float32") / sr
+        low = 0.1 * np.sin(2 * np.pi * 120.0 * t)
+        high = 0.1 * np.sin(2 * np.pi * 4200.0 * t)
+        scratch = root / "scratch_stems"
+        scratch.mkdir()
+        np.save(scratch / "cue_hash.low_keys.npy", np.stack([low, low], axis=1).astype("float32"))
+        np.save(scratch / "cue_hash.pluck.npy", np.stack([high, high], axis=1).astype("float32"))
+        manifest = {
+            "id": "cue",
+            "hash": "hash",
+            "sample_rate": sr,
+            "sections": [{"end_seconds": duration}],
+        }
+        report = write_spectral_fingerprint(root, manifest, root / "reports", bucket_seconds=0.25)
+        payload = json.loads(report.read_text())
+        assert payload["schema"] == "ambition.music_spectral_fingerprint.v1"
+        assert payload["mean_band_fraction_by_group"]["low"]["low_keys"] > 0.9
+        assert payload["mean_band_fraction_by_group"]["vhigh"]["pluck"] > 0.9
+        assert (root / "reports" / "spectral_fingerprint.tsv").exists()
+        assert (root / "reports" / "spectral_fingerprint_summary.txt").exists()

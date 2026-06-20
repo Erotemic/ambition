@@ -18,6 +18,7 @@ From the repo root:
 PYTHONPATH=tools/ambition_music_renderer python -m ambition_music_renderer --help
 PYTHONPATH=tools/ambition_music_renderer python -m ambition_music_renderer cue bundle <cue_id> --backend pretty-midi --force --zip
 PYTHONPATH=tools/ambition_music_renderer python -m ambition_music_renderer cue bundle <cue_id> --backend pretty-midi --runtime-stem-gain-mode shared --force --zip
+PYTHONPATH=tools/ambition_music_renderer python -m ambition_music_renderer cue bundle <cue_id> --backend pretty-midi --runtime-stem-gain-mode shared --report-only --force --zip
 ./generate_audio_assets.sh --force
 ```
 
@@ -50,7 +51,7 @@ Prefer the tool README and CLI help over old recipe fragments when command flags
 2. Search `dev/journals/` and `dev/benchmark-candidates/` for music director/refactor lessons.
 3. Render locally into the tool's generated output path.
 4. Audit balance/transitions if a cue set changes.
-5. Use `cue bundle <cue_id> --zip` when a cue needs review, handoff, or spectral/debug evidence.
+5. Use `cue bundle <cue_id> --report-only --zip` when a cue needs lightweight review, handoff, or spectral/debug evidence. Use a full bundle only when the recipient needs audio.
 6. Publish/install only when the generated assets are meant to become runtime inputs.
 7. Update `docs/tools/generated-audio-tools.md` and `tools/ambition_music_renderer/README.md` if the workflow changes.
 
@@ -68,16 +69,23 @@ python -m ambition_music_renderer cue bundle for_emmy_forever_ago \
 ```
 
 The bundle command writes reports and plots under the cue's generated output and
-then copies the manifest-referenced artifacts into
+then copies manifest-referenced artifacts into
 `tools/ambition_music_renderer/bundles/`. The bundle deliberately ignores stale
-preview/adaptive files from older hashes. Add `--publish` only when the cue
+preview/adaptive files from older hashes.
+
+Use `--report-only --zip` for chat/agent upload. Report-only bundles exclude
+large audio/scratch binaries while keeping source YAML, manifests, logs, TSV/JSON
+reports, `spectral_fingerprint.json`, and JPEG spectrograms. Use full bundles
+when the recipient needs to audition OGGs. Add `--publish` only when the cue
 should also update the runtime `assets/audio/music/generated/<cue_id>/full.ogg`.
 Add `--include-scratch-stems` only for local handoffs because raw NumPy stem
 buffers can be large.
 
 Use `--runtime-stem-gain-mode shared` when checking layered dynamic music. It
 applies one shared reference gain to all runtime stems, preserving their balance
-while making the exported stem set audible. The default `native` mode preserves
+while making the exported stem set audible. Shared gain is capped by default; if
+reports show capped or very large gain, raise source/layer levels in the score
+instead of exporting amplified noise. The default `native` mode preserves
 historical raw-stem levels for compatibility.
 
 Fallback rendering is explicit opt-in: use `--backend fallback` only when you

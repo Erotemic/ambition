@@ -416,6 +416,7 @@ def cmd_bundle(args: argparse.Namespace) -> int:
         args.cue,
         backend=args.backend,
         runtime_stem_gain_mode=args.runtime_stem_gain_mode,
+        runtime_stem_max_gain_db=args.runtime_stem_max_gain_db,
         outdir=args.outdir,
         bundle_root=args.bundle_root,
         force=args.force,
@@ -423,9 +424,12 @@ def cmd_bundle(args: argparse.Namespace) -> int:
         dest_root=args.dest_root,
         zip_bundle=args.zip_bundle,
         jobs=args.jobs,
+        bundle_mode="report" if args.report_only else args.bundle_mode,
         include_scratch_stems=args.include_scratch_stems,
         skip_render=args.skip_render,
         skip_spectrograms=args.skip_spectrograms,
+        plot_format=args.plot_format,
+        jpeg_quality=args.jpeg_quality,
     )
     import json as _json
 
@@ -450,12 +454,36 @@ def add_bundle_args(p: argparse.ArgumentParser) -> None:
             "shared applies one shared reference gain across all stems"
         ),
     )
+    p.add_argument(
+        "--runtime-stem-max-gain-db",
+        type=float,
+        default=None,
+        help="cap shared runtime stem gain; default is renderer policy or YAML render.runtime_stems.max_gain_db",
+    )
     p.add_argument("--outdir", type=Path, default=None)
     p.add_argument("--bundle-root", type=Path, default=None)
     p.add_argument("--force", action="store_true", help="force render regeneration")
     p.add_argument("--publish", action="store_true", help="publish full.ogg to game assets")
     p.add_argument("--dest-root", type=Path, default=None, help="game music generated asset root")
     p.add_argument("--zip", dest="zip_bundle", action="store_true", help="write an uploadable bundle zip")
+    p.add_argument(
+        "--bundle-mode",
+        choices=["full", "report"],
+        default="full",
+        help="full includes manifest-referenced OGGs; report excludes audio and keeps source, reports, and plots",
+    )
+    p.add_argument(
+        "--report-only",
+        action="store_true",
+        help="alias for --bundle-mode report; useful for small chat/agent uploads",
+    )
+    p.add_argument(
+        "--plot-format",
+        choices=["jpg", "png"],
+        default="jpg",
+        help="spectrogram image format for bundles; jpg is smaller and numeric reports preserve detail",
+    )
+    p.add_argument("--jpeg-quality", type=int, default=84, help="JPEG quality for spectrogram plots")
     p.add_argument("--jobs", "-j", type=int, default=1, help="render worker count")
     p.add_argument(
         "--include-scratch-stems",
@@ -463,7 +491,7 @@ def add_bundle_args(p: argparse.ArgumentParser) -> None:
         help="include raw scratch_stems/*.npy in the bundle zip; useful but large",
     )
     p.add_argument("--skip-render", action="store_true", help="bundle/analyze existing outdir")
-    p.add_argument("--skip-spectrograms", action="store_true", help="skip PNG spectrogram generation")
+    p.add_argument("--skip-spectrograms", action="store_true", help="skip spectrogram image generation")
 
 
 def add_render_args(p: argparse.ArgumentParser) -> None:

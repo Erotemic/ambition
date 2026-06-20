@@ -30,6 +30,8 @@ from . import musicir_renderer as r
 DEFAULT_BACKEND = "pretty-midi"
 BACKEND_CHOICES = ("pretty-midi", "fluidsynth-cli", "fallback", "auto")
 RUNTIME_STEM_GAIN_MODES = ("native", "shared")
+BUNDLE_MODES = ("full", "report")
+PLOT_FORMATS = ("jpg", "png")
 
 
 @dataclass(frozen=True)
@@ -419,7 +421,155 @@ def write_stem_export_report(outdir: Path, manifest: dict, reports_dir: Path) ->
     return out
 
 
-def write_spectrograms(outdir: Path, manifest: dict, plots_dir: Path, *, limit: int = 16) -> list[Path]:
+
+def write_spectral_fingerprint(
+    outdir: Path,
+    manifest: dict,
+    reports_dir: Path,
+    *,
+    bucket_seconds: float = 1.0,
+    max_events_per_band: int = 24,
+) -> Path:
+    """Write compact, LLM-friendly spectral summaries from scratch stems.
+
+    The PNG/JPEG spectrograms are useful for human/vision review, but a chat
+    agent can reason much more reliably from small JSON/TSV summaries. This
+    report mirrors the broad bands used by ``spectral_localize.py`` and records
+    per-band group fractions plus the strongest dominant time buckets.
+    """
+    reports_dir.mkdir(parents=True, exist_ok=True)
+    sample_rate = int(manifest.get("sample_rate", 48000))
+    bands = [
+        ("low", 0.0, 300.0),
+        ("mid", 300.0, 1000.0),
+        ("high", 1000.0, 3000.0),
+        ("vhigh", 3000.0, 6000.0),
+        ("air", 6000.0, 12000.0),
+    ]
+    paths = current_scratch_stem_paths(outdir, manifest)
+    groups: list[str] = []
+    audios: dict[str, np.ndarray] = {}
+    max_frames = 0
+    for path in paths:
+        group = path.stem.split(".")[-1]
+        try:
+            arr = np.load(path).astype("float32", copy=False)
+            arr = r._coerce_stereo(arr)
+        except Exception:
+            continue
+        groups.append(group)
+        audios[group] = arr.mean(axis=1).astype("float32", copy=False)
+        max_frames = max(max_frames, len(audios[group]))
+
+    frames_per_bucket = max(1, int(round(bucket_seconds * sample_rate)))
+    bucket_count = max(1, int(math.ceil(max_frames / frames_per_bucket))) if max_frames else 0
+    energy = {
+        group: {band[0]: [0.0 for _ in range(bucket_count)] for band in bands}
+        for group in groups
+    }
+    for group, mono in audios.items():
+        for idx in range(bucket_count):
+            start = idx * frames_per_bucket
+            stop = min(len(mono), start + frames_per_bucket)
+            chunk = mono[start:stop]
+            if len(chunk) < 16:
+                continue
+            window = np.hanning(len(chunk)).astype("float32")
+            spectrum = np.fft.rfft(chunk * window)
+            freqs = np.fft.rfftfreq(len(chunk), d=1.0 / sample_rate)
+            power = np.square(np.abs(spectrum)).astype("float64")
+            for name, lo, hi in bands:
+                mask = (freqs >= lo) & (freqs < hi)
+                energy[group][name][idx] = float(power[mask].sum()) if np.any(mask) else 0.0
+
+    mean_fractions: dict[str, dict[str, float]] = {}
+    for name, _lo, _hi in bands:
+        totals = {group: float(np.sum(energy[group][name])) for group in groups}
+        denom = sum(totals.values())
+        mean_fractions[name] = {
+            group: (totals[group] / denom if denom > 0.0 else 0.0)
+            for group in groups
+        }
+
+    dominant_events: dict[str, list[dict[str, object]]] = {}
+    for name, _lo, _hi in bands:
+        events: list[dict[str, object]] = []
+        for idx in range(bucket_count):
+            bucket_values = {group: energy[group][name][idx] for group in groups}
+            total = sum(bucket_values.values())
+            if total <= 0.0:
+                continue
+            top_group, top_energy = max(bucket_values.items(), key=lambda item: item[1])
+            share = top_energy / total
+            events.append(
+                {
+                    "time_start_s": round(idx * bucket_seconds, 3),
+                    "time_end_s": round(min((idx + 1) * bucket_seconds, manifest_duration(manifest)), 3),
+                    "group": top_group,
+                    "share": share,
+                    "band_energy": top_energy,
+                }
+            )
+        events.sort(key=lambda row: (float(row["share"]), float(row["band_energy"])), reverse=True)
+        dominant_events[name] = events[:max_events_per_band]
+
+    payload = {
+        "schema": "ambition.music_spectral_fingerprint.v1",
+        "cue": manifest.get("id"),
+        "hash": manifest.get("hash"),
+        "sample_rate": sample_rate,
+        "bucket_seconds": bucket_seconds,
+        "groups": groups,
+        "bands": [
+            {"name": name, "low_hz": lo, "high_hz": hi} for name, lo, hi in bands
+        ],
+        "mean_band_fraction_by_group": mean_fractions,
+        "dominant_events": dominant_events,
+    }
+    json_path = reports_dir / "spectral_fingerprint.json"
+    json_path.write_text(json.dumps(payload, indent=2), encoding="utf8")
+
+    tsv = reports_dir / "spectral_fingerprint.tsv"
+    lines = ["band\tgroup\tmean_fraction"]
+    for band_name, fractions in mean_fractions.items():
+        for group, fraction in sorted(fractions.items(), key=lambda item: item[1], reverse=True):
+            lines.append(f"{band_name}\t{group}\t{fraction:.6f}")
+    tsv.write_text("\n".join(lines) + "\n", encoding="utf8")
+
+    summary = reports_dir / "spectral_fingerprint_summary.txt"
+    text_lines: list[str] = [
+        f"cue: {manifest.get('id')}",
+        f"hash: {manifest.get('hash')}",
+        f"bucket_seconds: {bucket_seconds}",
+        "",
+        "mean band fraction by group:",
+    ]
+    for band_name, fractions in mean_fractions.items():
+        ordered = sorted(fractions.items(), key=lambda item: item[1], reverse=True)
+        pieces = [f"{group} {fraction * 100:.1f}%" for group, fraction in ordered]
+        text_lines.append(f"  {band_name}: " + ", ".join(pieces))
+    text_lines.append("")
+    text_lines.append("top dominant events:")
+    for band_name, events in dominant_events.items():
+        text_lines.append(f"  {band_name}:")
+        for event in events[:8]:
+            text_lines.append(
+                f"    {event['time_start_s']:>6.2f}-{event['time_end_s']:>6.2f}s "
+                f"{event['group']} {float(event['share']) * 100:.1f}%"
+            )
+    summary.write_text("\n".join(text_lines) + "\n", encoding="utf8")
+    return json_path
+
+
+def write_spectrograms(
+    outdir: Path,
+    manifest: dict,
+    plots_dir: Path,
+    *,
+    limit: int = 16,
+    plot_format: str = "jpg",
+    jpeg_quality: int = 84,
+) -> list[Path]:
     """Write compact spectrogram PNGs for retained scratch stems and key previews.
 
     Matplotlib is intentionally optional. If it is not installed, write a clear
@@ -440,7 +590,7 @@ def write_spectrograms(outdir: Path, manifest: dict, plots_dir: Path, *, limit: 
     sample_rate = int(manifest.get("sample_rate", 48000))
     written: list[Path] = []
 
-    def save_audio_png(audio: np.ndarray, title: str, dest: Path) -> None:
+    def save_audio_plot(audio: np.ndarray, title: str, dest: Path) -> None:
         mono = audio.mean(axis=1) if audio.ndim == 2 else audio.astype("float32")
         if mono.size == 0:
             return
@@ -466,7 +616,11 @@ def write_spectrograms(outdir: Path, manifest: dict, plots_dir: Path, *, limit: 
         plt.ylabel("frequency (Hz)")
         plt.colorbar(label="dB")
         plt.tight_layout()
-        plt.savefig(dest, dpi=140)
+        save_kwargs = {"dpi": 120}
+        if dest.suffix.lower() in {".jpg", ".jpeg"}:
+            save_kwargs["format"] = "jpeg"
+            save_kwargs["pil_kwargs"] = {"quality": int(jpeg_quality), "optimize": True}
+        plt.savefig(dest, **save_kwargs)
         plt.close()
 
     candidates: list[tuple[str, Path, str]] = []
@@ -487,8 +641,9 @@ def write_spectrograms(outdir: Path, manifest: dict, plots_dir: Path, *, limit: 
                 import soundfile as sf
 
                 audio, _sample_rate = sf.read(path, always_2d=True, dtype="float32")
-            dest = plots_dir / f"{label}.spectrogram.png"
-            save_audio_png(audio, label, dest)
+            suffix = "jpg" if plot_format in {"jpg", "jpeg"} else "png"
+            dest = plots_dir / f"{label}.spectrogram.{suffix}"
+            save_audio_plot(audio, label, dest)
             if dest.exists():
                 written.append(dest)
         except Exception as ex:  # noqa: BLE001
@@ -523,21 +678,42 @@ def make_zip(src_dir: Path, zip_path: Path) -> Path:
     return zip_path
 
 
-def build_rerun_script(bundle_dir: Path, cue: str, backend: str, outdir: Path, publish: bool, runtime_stem_gain_mode: str) -> Path:
+def build_rerun_script(
+    bundle_dir: Path,
+    cue: str,
+    backend: str,
+    outdir: Path,
+    publish: bool,
+    runtime_stem_gain_mode: str,
+    bundle_mode: str,
+    plot_format: str,
+    runtime_stem_max_gain_db: float | None,
+) -> Path:
     script = bundle_dir / "rerun_bundle.sh"
     publish_flag = " --publish" if publish else ""
-    script.write_text(
+    cmd = [
+        "PYTHONPATH=tools/ambition_music_renderer python -m ambition_music_renderer cue bundle",
+        str(cue),
+        "--backend",
+        str(backend),
+        "--runtime-stem-gain-mode",
+        str(runtime_stem_gain_mode),
+    ]
+    if runtime_stem_max_gain_db is not None:
+        cmd.extend(["--runtime-stem-max-gain-db", str(runtime_stem_max_gain_db)])
+    cmd.extend(["--bundle-mode", str(bundle_mode), "--plot-format", str(plot_format)])
+    cmd.extend(["--outdir", str(outdir), "--force"])
+    if publish:
+        cmd.append("--publish")
+    cmd.append("--zip")
+    wrapped = " \\\n  ".join(cmd)
+    body = (
         "#!/usr/bin/env bash\n"
         "set -euo pipefail\n"
         "cd \"$(git rev-parse --show-toplevel)\"\n"
-        "PYTHONPATH=tools/ambition_music_renderer \\\n"
-        f"python -m ambition_music_renderer cue bundle {cue} \\\n"
-        f"  --backend {backend} \\\n"
-        f"  --runtime-stem-gain-mode {runtime_stem_gain_mode} \\\n"
-        f"  --outdir {outdir} \\\n"
-        f"  --force{publish_flag} --zip\n",
-        encoding="utf8",
+        f"{wrapped}\n"
     )
+    script.write_text(body, encoding="utf8")
     script.chmod(0o755)
     return script
 
@@ -554,9 +730,13 @@ def create_bundle(
     dest_root: Path | None = None,
     zip_bundle: bool = False,
     jobs: int = 1,
+    bundle_mode: str = "full",
     include_scratch_stems: bool = False,
     skip_render: bool = False,
     skip_spectrograms: bool = False,
+    plot_format: str = "jpg",
+    jpeg_quality: int = 84,
+    runtime_stem_max_gain_db: float | None = None,
 ) -> dict[str, object]:
     score_path = find_score(cue)
     if score_path is None:
@@ -610,6 +790,8 @@ def create_bundle(
             "--jobs",
             str(jobs),
         ]
+        if runtime_stem_max_gain_db is not None:
+            render_cmd.extend(["--runtime-stem-max-gain-db", str(runtime_stem_max_gain_db)])
         if force:
             render_cmd.append("--force")
         commands.append(run_logged("render_isolated", render_cmd, reports_dir, cwd=package_dir()))
@@ -682,9 +864,16 @@ def create_bundle(
             )
         write_stem_export_report(analysis_root, manifest, reports_dir)
         write_manifest_audio_level_report(analysis_root, manifest, reports_dir)
+        write_spectral_fingerprint(analysis_root, manifest, reports_dir)
         mix_diag_path, mix_warnings = summarize_mix_diagnostics(manifest, reports_dir)
         if not skip_spectrograms:
-            write_spectrograms(analysis_root, manifest, plots_dir)
+            write_spectrograms(
+                analysis_root,
+                manifest,
+                plots_dir,
+                plot_format=plot_format,
+                jpeg_quality=jpeg_quality,
+            )
 
     published: str | None = None
     if publish:
@@ -707,14 +896,29 @@ def create_bundle(
     source_dir.mkdir(parents=True, exist_ok=True)
     shutil.copy2(score_path, source_dir / score_path.name)
     (source_dir / "normalized_spec.json").write_text(json.dumps(spec, indent=2), encoding="utf8")
-    copied_audio = copy_manifest_referenced_files(outdir, manifest, bundle_dir)
+    if bundle_mode == "full":
+        copied_audio = copy_manifest_referenced_files(outdir, manifest, bundle_dir)
+    elif bundle_mode == "report":
+        copied_audio = []
+    else:
+        raise ValueError(f"unknown bundle_mode: {bundle_mode}")
     copy_tree_if_exists(reports_dir, bundle_dir / "reports")
     copy_tree_if_exists(plots_dir, bundle_dir / "plots")
     shutil.copy2(manifest_path, bundle_dir / manifest_path.name)
     if include_scratch_stems:
         copy_current_scratch_stems(outdir, manifest, bundle_dir)
 
-    rerun_script = build_rerun_script(bundle_dir, cue_id, backend, outdir, publish, runtime_stem_gain_mode)
+    rerun_script = build_rerun_script(
+        bundle_dir,
+        cue_id,
+        backend,
+        outdir,
+        publish,
+        runtime_stem_gain_mode,
+        bundle_mode,
+        plot_format,
+        runtime_stem_max_gain_db,
+    )
 
     command_rows = [
         {
@@ -732,6 +936,9 @@ def create_bundle(
         "score": safe_rel(score_path),
         "backend": backend,
         "runtime_stem_gain_mode": runtime_stem_gain_mode,
+        "runtime_stem_max_gain_db": runtime_stem_max_gain_db,
+        "bundle_mode": bundle_mode,
+        "plot_format": plot_format,
         "render_hash": render_hash,
         "outdir": str(outdir),
         "bundle_dir": str(bundle_dir),
@@ -769,12 +976,36 @@ def build_parser() -> argparse.ArgumentParser:
             "shared applies one shared reference gain across all stems"
         ),
     )
+    ap.add_argument(
+        "--runtime-stem-max-gain-db",
+        type=float,
+        default=None,
+        help="cap shared runtime stem gain; default is renderer policy or YAML render.runtime_stems.max_gain_db",
+    )
     ap.add_argument("--outdir", type=Path, default=None)
     ap.add_argument("--bundle-root", type=Path, default=None)
     ap.add_argument("--force", action="store_true", help="force render regeneration")
     ap.add_argument("--publish", action="store_true", help="publish full.ogg to game assets after rendering")
     ap.add_argument("--dest-root", type=Path, default=None, help="game music generated asset root")
     ap.add_argument("--zip", dest="zip_bundle", action="store_true", help="write an uploadable bundle zip")
+    ap.add_argument(
+        "--bundle-mode",
+        choices=BUNDLE_MODES,
+        default="full",
+        help="full includes manifest-referenced OGGs; report excludes audio and keeps source, reports, and plots",
+    )
+    ap.add_argument(
+        "--report-only",
+        action="store_true",
+        help="alias for --bundle-mode report; useful for small chat/agent uploads",
+    )
+    ap.add_argument(
+        "--plot-format",
+        choices=PLOT_FORMATS,
+        default="jpg",
+        help="spectrogram image format for bundles; jpg is much smaller and reports keep numeric values",
+    )
+    ap.add_argument("--jpeg-quality", type=int, default=84, help="JPEG quality for spectrogram plots")
     ap.add_argument("--jobs", "-j", type=int, default=1, help="render worker count")
     ap.add_argument(
         "--include-scratch-stems",
@@ -782,7 +1013,7 @@ def build_parser() -> argparse.ArgumentParser:
         help="include raw scratch_stems/*.npy in the bundle zip; useful but can be large",
     )
     ap.add_argument("--skip-render", action="store_true", help="bundle/analyze existing outdir")
-    ap.add_argument("--skip-spectrograms", action="store_true", help="skip PNG spectrogram generation")
+    ap.add_argument("--skip-spectrograms", action="store_true", help="skip spectrogram image generation")
     return ap
 
 
@@ -799,9 +1030,13 @@ def main(argv: list[str] | None = None) -> int:
         dest_root=args.dest_root,
         zip_bundle=args.zip_bundle,
         jobs=args.jobs,
+        bundle_mode="report" if args.report_only else args.bundle_mode,
         include_scratch_stems=args.include_scratch_stems,
         skip_render=args.skip_render,
         skip_spectrograms=args.skip_spectrograms,
+        plot_format=args.plot_format,
+        jpeg_quality=args.jpeg_quality,
+        runtime_stem_max_gain_db=args.runtime_stem_max_gain_db,
     )
     print(json.dumps(report, indent=2, default=str))
     return 0 if report.get("ok", True) else 1

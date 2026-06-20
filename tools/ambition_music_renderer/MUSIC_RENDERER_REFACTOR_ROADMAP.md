@@ -24,7 +24,10 @@ python -m ambition_music_renderer cue bundle for_emmy_forever_ago \
 
 For compatibility, `--runtime-stem-gain-mode native` remains the default. Use
 `shared` when auditing or preparing layered runtime stems; it applies one shared
-reference gain across all stems instead of independently normalizing them.
+reference gain across all stems instead of independently normalizing them. Shared
+runtime gain is capped by default so the exporter does not turn a quiet/noisy
+source into loud noisy stems; if diagnostics report a capped or very large gain,
+fix the score source levels rather than raising the cap.
 
 That command should answer:
 
@@ -186,20 +189,22 @@ tools/ambition_music_renderer/generated/<cue_id>/
   regen.sh
 ```
 
-Use ignored bundles for upload/share artifacts:
+Use ignored bundles for upload/share artifacts. Full bundles include manifest-referenced audio; report bundles are designed for chat/agent upload and exclude OGG/WAV/NPY binaries while retaining source, manifests, numeric reports, logs, and spectrogram images:
 
 ```text
 tools/ambition_music_renderer/bundles/<cue_id>_<hash>_bundle/
   source/
-  adaptive/
-  preview/
+  adaptive/                 # full bundle only
+  preview/                  # full bundle only
   reports/
-  plots/
+  plots/                    # JPEG by default for small report bundles
   bundle_manifest.json
   rerun_bundle.sh
 ```
 
-Bundle zips should be ignored by git and uploaded manually when needed.
+Bundle zips should be ignored by git and uploaded manually when needed. Prefer
+`--report-only --zip` for bulk catalog handoff bundles and use `--bundle-mode
+full --zip` only when the recipient needs to audition audio directly.
 
 ### Future package organization
 
@@ -235,13 +240,18 @@ Do this only after bundle/provenance tests are in place.
 - [x] Add renderer mix diagnostics for raw all-stem sum vs mastered full preview.
 - [x] Add explicit shared-gain runtime stem export mode behind `--runtime-stem-gain-mode shared`.
 - [x] Run existing debug helpers from the bundle command and store logs.
-- [x] Generate optional spectrogram PNGs when matplotlib is available.
+- [x] Generate optional spectrogram images when matplotlib is available.
+- [x] Prefer JPEG spectrogram plots for small handoff bundles; retain numeric spectral data in reports.
+- [x] Generate an LLM-friendly `spectral_fingerprint.json/tsv` summary from scratch stems.
 - [x] Write `bundle_manifest.json` and `rerun_bundle.sh`.
 - [x] Zip bundles on request with `--zip`.
+- [x] Add report-only bundles that exclude OGG/WAV/NPY binaries for chat/agent upload.
+- [x] Cap shared runtime stem gain by default so diagnostics cannot accidentally publish noise-lifted stems.
+- [x] Rework Emmy after diagnostics showed a +47 dB shared gain requirement.
 - [ ] Exercise the bundle command on a real cue with `pretty-midi` in a fully provisioned audio environment.
 - [ ] Re-run Emmy with `--runtime-stem-gain-mode shared` and compare runtime vs audition previews.
-- [ ] Take a pass over active tunes whose diagnostics show huge master lift or quiet native stems.
-- [ ] Decide whether raw scratch stems should ever be included by default; current default excludes them to keep chat bundles small.
+- [ ] Take a pass over active tunes whose diagnostics show huge master lift, capped shared gain, or quiet native stems.
+- [ ] Decide whether to add a catalog-wide `bundle-reports` command after the per-cue report-only bundle proves stable.
 
 ### Phase 2: validation and provenance hardening
 
@@ -253,7 +263,7 @@ Do this only after bundle/provenance tests are in place.
 - [ ] Include SoundFont path/hash in the bundle manifest when available.
 - [ ] Include renderer version and git revision in the bundle manifest.
 - [ ] Add note-event provenance: section, layer, motif, instrument, group, bar/beat, pitch, velocity.
-- [ ] Add a machine-readable spectral summary in addition to text logs.
+- [x] Add a machine-readable spectral summary in addition to text logs.
 
 ### Phase 3: render graph consolidation
 

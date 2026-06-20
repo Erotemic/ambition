@@ -1,211 +1,292 @@
 schema: ambition.musicir.v1
 id: for_emmy_forever_ago
 title: For Emmy, Forever Ago
-seed: 2026062001
+seed: 2026062005
 notes: >-
-  Emmy No-Ether's theme for the Noether Chamber. A hushed, Bon Iver-leaning
-  folk reverie — slow 4/4, warm open maj7/sus voicings, fingerpicked nylon and
-  soft piano under a falsetto-ish lead doubled by an aahs choir, all bathed in a
-  long reverb tail. The lead phrase is a melodic PALINDROME (it reads the same
-  forwards and backwards): a symmetry whose conserved quantity is the melody
-  itself — Noether's theorem, sung. Title nods to "For Emma, Forever Ago".
+  Emmy Noether's Noether Chamber theme, rebuilt after the runtime-stem debug
+  pass. This version keeps the Bon Iver-adjacent nylon/piano intimacy and the
+  early-20th-century dance impulse, but avoids relying on a 40+ dB master or
+  shared-stem rescue gain. The palette is intentionally cleaner: nylon guitar,
+  acoustic piano, a Rhodes-like ghost lead, low piano, and sparse celesta/harp
+  glints. The main melody remains a strict two-bar palindrome, so the cue's
+  conserved quantity is still the tune itself.
+
 tempo:
-  bpm: 68
+  bpm: 108
+
 meter:
-  beats_per_bar: 4
+  beats_per_bar: 3
   beat_unit: 4
+
 render:
   sample_rate: 48000
   ogg_quality: 5
-  backend: fallback
+  runtime_stems:
+    target_peak_db: -9.0
+    max_gain_db: 18.0
+
 constraints:
   voice_leading: minimize_motion
   no_clusters: true
+
 postprocess:
-  gain_db: -1.0
-  highpass_hz: 32
-  lowpass_hz: 11000
-  presence_low_hz: 1700
-  presence_high_hz: 4000
-  presence_db: 0.2
-  reverb_wet: 0.27
-  reverb_decay_seconds: 2.6
-  reverb_damping_hz: 4800
-  stereo_width: 0.2
-  compressor_threshold_db: -18.0
-  compressor_ratio: 2.4
-  compressor_attack_ms: 16.0
-  compressor_release_ms: 130.0
-  compressor_makeup_db: 1.0
-  compressor_knee_db: 6.5
-  limiter_drive: 0.96
+  gain_db: 0.0
+  highpass_hz: 34
+  lowpass_hz: 9800
+  high_shelf_hz: 5600
+  high_shelf_db: -1.2
+  presence_low_hz: 1400
+  presence_high_hz: 3400
+  presence_db: -0.1
+  transient_tame: 0.08
+  transient_lowpass_hz: 6800
+  reverb_wet: 0.115
+  reverb_decay_seconds: 1.35
+  reverb_damping_hz: 4300
+  post_reverb_high_shelf_hz: 5200
+  post_reverb_high_shelf_db: -1.4
+  stereo_width: 0.10
+  compressor_threshold_db: -15.0
+  compressor_ratio: 1.35
+  compressor_attack_ms: 24.0
+  compressor_release_ms: 160.0
+  compressor_makeup_db: 0.0
+  compressor_knee_db: 8.0
+  limiter_drive: 0.86
   normalize: true
-  target_peak_db: -7.6
+  target_peak_db: -9.0
+
 stem_postprocess:
-  highpass_hz: 30
-  reverb_wet: 0.09
-  reverb_decay_seconds: 1.4
-  reverb_damping_hz: 5000
-  stereo_width: 0.1
+  highpass_hz: 32
+  lowpass_hz: 9800
+  transient_tame: 0.06
+  transient_lowpass_hz: 7200
+  reverb_wet: 0.014
+  reverb_decay_seconds: 0.72
+  reverb_damping_hz: 4600
+  stereo_width: 0.035
   normalize: false
   target_peak_db: -3.0
+
+group_postprocess:
+  pluck:
+    gain_db: 0.0
+    lowpass_hz: 8600
+    high_shelf_hz: 5400
+    high_shelf_db: -1.8
+    transient_tame: 0.18
+  keys:
+    gain_db: 0.0
+    lowpass_hz: 9200
+    high_shelf_hz: 5600
+    high_shelf_db: -1.2
+    transient_tame: 0.08
+  low_keys:
+    gain_db: -0.8
+    lowpass_hz: 6000
+    transient_tame: 0.05
+  ghost:
+    gain_db: -1.6
+    lowpass_hz: 7600
+    high_shelf_hz: 4700
+    high_shelf_db: -2.4
+    transient_tame: 0.10
+    reverb_wet: 0.018
+  glimmer:
+    gain_db: -3.0
+    lowpass_hz: 7800
+    high_shelf_hz: 5200
+    high_shelf_db: -3.0
+    transient_tame: 0.22
+    reverb_wet: 0.010
+
 instruments:
-  - {name: nylon, group: pluck, program: nylon_guitar, volume: 60, pan: 56, expression: 78}
-  - {name: piano, group: keys, program: acoustic_grand_piano, volume: 54, pan: 48, expression: 74}
-  - {name: falsetto, group: voice, program: lead_voice, volume: 58, pan: 66, expression: 80, modulation: 12}
-  - {name: choir, group: choir_pad, program: choir_aahs, volume: 44, pan: 60, expression: 66, modulation: 5}
-  - {name: warm_strings, group: strings, program: string_ensemble_1, volume: 46, pan: 52, expression: 68, modulation: 4}
-  - {name: cello, group: low_strings, program: cello, volume: 52, pan: 40, expression: 70}
-  - {name: harp, group: glimmer, program: orchestral_harp, volume: 44, pan: 76, expression: 64}
+  - {name: nylon, group: pluck, program: nylon_guitar, volume: 104, pan: 55, expression: 110}
+  - {name: piano, group: keys, program: acoustic_grand_piano, volume: 98, pan: 48, expression: 106}
+  - {name: low_piano, group: low_keys, program: acoustic_grand_piano, volume: 96, pan: 42, expression: 104}
+  - {name: rhodes_ghost, group: ghost, program: electric_piano_1, volume: 86, pan: 63, expression: 92}
+  - {name: celesta, group: glimmer, program: celesta, volume: 78, pan: 73, expression: 84}
+
 motifs:
-  # A melodic palindrome: intervals read identically forwards and backwards, so
-  # the phrase is invariant under time-reversal — its own conserved quantity.
-  - id: emmy_palindrome
+  - id: emmy_palindrome_waltz
     root: D5
     intervals: [0, 2, 5, 7, 9, 7, 5, 2, 0]
-    rhythm: [0.75, 0.5, 0.75, 1.0, 1.0, 1.0, 0.75, 0.5, 1.75]
-    velocities: [0.46, 0.5, 0.56, 0.64, 0.7, 0.62, 0.54, 0.48, 0.4]
-  - id: answer
+    rhythm: [0.5, 0.5, 0.75, 0.75, 1.0, 0.75, 0.75, 0.5, 0.5]
+    velocities: [0.44, 0.50, 0.58, 0.66, 0.72, 0.66, 0.58, 0.50, 0.44]
+  - id: waltz_answer
     root: A4
-    intervals: [0, 3, 5, 3, 0]
-    rhythm: [1.0, 1.0, 1.5, 1.0, 1.5]
-    velocities: [0.48, 0.54, 0.6, 0.5, 0.42]
+    intervals: [0, 3, 5, 7, 5, 3, 0]
+    rhythm: [0.5, 0.5, 1.0, 0.75, 0.75, 0.5, 2.0]
+    velocities: [0.42, 0.48, 0.56, 0.62, 0.54, 0.46, 0.36]
+  - id: salon_turn
+    root: F#4
+    intervals: [0, 2, 4, 5, 4, 2, 0]
+    rhythm: [0.5, 0.5, 0.75, 0.75, 0.75, 0.75, 2.0]
+    velocities: [0.38, 0.44, 0.52, 0.56, 0.50, 0.42, 0.34]
+
 layer_templates:
-  reverie_pad:
-    kind: pad_chords
-    instruments: [warm_strings]
-    octave: 3
-    every_bars: 2
-    duration_beats: 8.0
-    velocity: 28
-    articulation: pad
-    voicing: open
-    humanize_ms: 18
-    humanize_velocity_pct: 3
-  cello_root:
+  left_hand_waltz:
     kind: bassline
-    instrument: cello
+    instrument: low_piano
     octave: 2
-    pattern: [[0, 0.0, 1.0], [7, 2.5, 0.5]]
-    velocity: 44
+    pattern: [[0, 0.0, 0.86], [7, 1.0, 0.42], [12, 2.0, 0.40]]
+    velocity: 72
     articulation: tenuto
-    humanize_ms: 10
-    humanize_velocity_pct: 4
-  fingerpick:
+    humanize_ms: 2
+    humanize_velocity_pct: 2
+
+  fingerpick_waltz:
     kind: arpeggio
     instrument: nylon
     octave: 3
-    pattern: [0, 2, 3, 4, 3, 2]
+    pattern: [0, 2, 3, 2, 4, 2]
     step: 0.5
-    duration_beats: 0.6
-    velocity: 38
-    density: 0.66
+    duration_beats: 0.34
+    velocity: 70
+    density: 1.0
     articulation: pluck
     voicing: open
-    humanize_ms: 10
-    humanize_velocity_pct: 6
-  piano_drops:
+    humanize_ms: 3
+    humanize_velocity_pct: 3
+
+  piano_lilt:
     kind: arpeggio
     instrument: piano
     octave: 4
-    pattern: [0, 4, 2]
+    pattern: [0, 3, 2]
     step: 1.0
-    duration_beats: 0.9
-    velocity: 32
-    density: 0.5
+    duration_beats: 0.68
+    velocity: 62
+    density: 1.0
+    every: 2
+    offset: 1
     articulation: tenuto
-    humanize_ms: 14
-    humanize_velocity_pct: 7
-  emmy_lead:
+    voicing: open
+    humanize_ms: 3
+    humanize_velocity_pct: 3
+
+  emmy_piano_palindrome:
     kind: motif
-    instruments: [falsetto, choir]
-    motif: emmy_palindrome
-    root: D5
+    instruments: [piano, rhodes_ghost]
+    motif: emmy_palindrome_waltz
+    roots: [D5, A4, B4, G4]
     every_bars: 8
     repeats: 4
     starts: [[0, 0.0]]
-    velocity: 52
+    velocity: 70
     articulation: legato
-    instrument_velocity_offsets: {falsetto: 0, choir: -14}
-    instrument_octave_offsets: {falsetto: 0, choir: -1}
-    humanize_ms: 16
-    humanize_velocity_pct: 5
+    gate: 0.93
+    instrument_velocity_offsets: {piano: 0, rhodes_ghost: -8}
+    instrument_octave_offsets: {piano: 0, rhodes_ghost: -1}
+    humanize_ms: 4
+    humanize_velocity_pct: 3
+
   answer_phrase:
     kind: motif
-    instrument: falsetto
-    motif: answer
-    root: A4
+    instruments: [piano, rhodes_ghost]
+    motif: waltz_answer
+    roots: [A4, F#4, D5, A4]
     every_bars: 8
     repeats: 4
     starts: [[4, 0.0]]
-    velocity: 44
+    velocity: 64
     articulation: legato
-    humanize_ms: 14
-    humanize_velocity_pct: 5
-  harp_shimmer:
+    gate: 0.92
+    instrument_velocity_offsets: {piano: -4, rhodes_ghost: -10}
+    instrument_octave_offsets: {piano: 0, rhodes_ghost: -1}
+    humanize_ms: 4
+    humanize_velocity_pct: 3
+
+  celesta_turn:
+    kind: motif
+    instrument: celesta
+    motif: salon_turn
+    roots: [F#5, E5, G5, F#5]
+    every_bars: 8
+    repeats: 4
+    starts: [[6, 0.0]]
+    velocity: 50
+    articulation: bell
+    gate: 0.82
+    humanize_ms: 3
+    humanize_velocity_pct: 3
+
+  celesta_cadence:
     kind: arpeggio
-    instrument: harp
+    instrument: celesta
     octave: 5
     pattern: [0, 1, 2, 3, 2, 1]
-    step: 0.75
-    duration_beats: 0.5
-    velocity: 26
-    density: 0.5
+    step: 0.5
+    duration_beats: 0.28
+    velocity: 42
+    density: 1.0
+    every: 4
+    offset: 3
     articulation: bell
-    humanize_ms: 10
-    humanize_velocity_pct: 6
+    voicing: open
+    humanize_ms: 3
+    humanize_velocity_pct: 3
+
 playback:
   mode: section_stem_matrix
   loop_components: [emmy_loop]
   exit_policy:
     request_outro: next_valid_exit_bar
-    fade_aggressive_stems_beats: 8
-    bridge_stems: [keys, strings, low_strings, pluck]
-    fade_stems: [voice, glimmer, choir_pad]
+    fade_aggressive_stems_beats: 6
+    bridge_stems: [pluck, keys, low_keys]
+    fade_stems: [ghost, glimmer]
+
 state_map:
   default:
     section: emmy_loop
-    stems: {pluck: 0.7, keys: 0.6, voice: 0.66, choir_pad: 0.5, strings: 0.58, low_strings: 0.6, glimmer: 0.46}
+    stems: {pluck: 0.72, keys: 0.66, low_keys: 0.58, ghost: 0.34, glimmer: 0.18}
+  quiet:
+    section: emmy_loop
+    stems: {pluck: 0.52, keys: 0.48, low_keys: 0.36, ghost: 0.20, glimmer: 0.08}
+  dance:
+    section: emmy_loop
+    stems: {pluck: 0.82, keys: 0.72, low_keys: 0.68, ghost: 0.28, glimmer: 0.24}
+
 sections:
   - id: emmy_loop
     kind: loop_component
-    label: noether chamber reverie
+    label: noether chamber waltz
     bars: 32
-    intensity: 0.42
-    density: 0.5
+    intensity: 0.72
+    density: 0.64
     loopable: true
     valid_exit_local_bars: [8, 16, 24, 32]
     harmony:
       - Dmaj9
       - A/C#
       - Bm9
-      - Gmaj9
-      - Dmaj9
       - Gmaj7
+      - D/F#
+      - Em9
       - A7sus4
       - Dmaj9
       - Bm9
       - F#m7
       - Gmaj7
+      - D/F#
       - Em9
       - A7sus4
       - Dmaj9
-      - Gmaj7
       - A7sus4
       - Dmaj9
       - A/C#
       - Bm9
-      - Gmaj9
+      - Gmaj7
+      - D/F#
       - Em9
       - A7sus4
       - Dmaj9
+      - Gmaj7
+      - D/F#
+      - Em9
       - Bm9
       - Gmaj7
       - Em9
       - A7sus4
       - Dmaj9
-      - Gmaj7
-      - Bm9
-      - A7sus4
-      - Dmaj9
-    layers: [reverie_pad, cello_root, fingerpick, piano_drops, emmy_lead, answer_phrase, harp_shimmer]
+    layers: [left_hand_waltz, fingerpick_waltz, piano_lilt, emmy_piano_palindrome, answer_phrase, celesta_turn, celesta_cadence]

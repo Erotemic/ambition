@@ -12,6 +12,7 @@ Run from the repo root unless noted:
 PYTHONPATH=tools/ambition_music_renderer python -m ambition_music_renderer --help
 PYTHONPATH=tools/ambition_music_renderer python -m ambition_music_renderer cue bundle for_emmy_forever_ago --backend pretty-midi --force --zip
 PYTHONPATH=tools/ambition_music_renderer python -m ambition_music_renderer cue bundle for_emmy_forever_ago --backend pretty-midi --runtime-stem-gain-mode shared --force --zip
+PYTHONPATH=tools/ambition_music_renderer python -m ambition_music_renderer cue bundle for_emmy_forever_ago --backend pretty-midi --runtime-stem-gain-mode shared --report-only --force --zip
 ./generate_audio_assets.sh --force
 ```
 
@@ -60,7 +61,7 @@ SoundFont preference is defined in the renderer code. Prefer high-quality MuseSc
 
 Use `cue bundle` when regenerating a song for review or for handoff to another
 agent. It renders with retained debug stems, runs the useful reports, writes
-spectrogram PNGs when matplotlib is available, and packages a small uploadable
+spectrogram images when matplotlib is available, and packages an uploadable
 bundle on request. Generated bundles remain ignored by git.
 
 ```bash
@@ -75,11 +76,17 @@ For layered runtime-stem audits, add `--runtime-stem-gain-mode shared`. The
 default `native` mode preserves historical raw stem levels; `shared` computes one
 reference gain from the all-stem mix and applies it to every runtime stem so the
 layered export is audible without destroying the stem balance via independent
-normalization.
+normalization. Shared gain is capped by default (`render.runtime_stems.max_gain_db`
+or `--runtime-stem-max-gain-db`) because a cue that needs 40+ dB of rescue gain
+usually needs louder source instruments/layers, not louder exported noise.
 
-Add `--publish` only when the generated `full.ogg` should be copied into the
-game asset tree. Add `--include-scratch-stems` only for local handoff bundles;
-raw `.npy` stems are useful but usually too large for chat upload.
+Use `--report-only --zip` for chat/agent handoff bundles. Report bundles exclude
+large OGG/WAV/NPY binaries but keep source YAML, manifests, logs, TSV/JSON level
+reports, `spectral_fingerprint.json`, and JPEG spectrograms. Use full bundles
+only when the recipient must audition audio directly. Add `--publish` only when
+the generated `full.ogg` should be copied into the game asset tree. Add
+`--include-scratch-stems` only for local handoff bundles; raw `.npy` stems are
+useful but usually too large for chat upload.
 
 ## Output and publish model
 
@@ -104,6 +111,8 @@ generated/<cue>/
     stem_export_report.tsv
     manifest_audio_levels.tsv
     mix_diagnostics.txt
+    spectral_fingerprint.json
+    spectral_fingerprint.tsv
   <cue>.adaptive_manifest.json
 ```
 

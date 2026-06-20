@@ -38,7 +38,10 @@ fn moving_toward_feet(delta: Vec2, gravity_dir: Vec2) -> bool {
 }
 
 fn is_support_surface(kind: BlockKind) -> bool {
-    matches!(kind, BlockKind::Solid | BlockKind::BlinkWall { .. } | BlockKind::OneWay)
+    matches!(
+        kind,
+        BlockKind::Solid | BlockKind::BlinkWall { .. } | BlockKind::OneWay
+    )
 }
 
 fn is_full_collision_surface(kind: BlockKind) -> bool {
@@ -278,8 +281,8 @@ pub(super) fn sweep_player_x_clusters(
                 - body.left().max(hit.block.aabb.left()))
             .max(0.0);
             let body_to_right_of_block = body.center().x > hit.block.aabb.center().x;
-            let moving_away_from_block =
-                (body_to_right_of_block && delta.x > 0.0) || (!body_to_right_of_block && delta.x < 0.0);
+            let moving_away_from_block = (body_to_right_of_block && delta.x > 0.0)
+                || (!body_to_right_of_block && delta.x < 0.0);
             let horizontal_overlap_moving_away =
                 immediate_contact && overlap_x > 0.0 && moving_away_from_block;
             // Resolve the X penetration robustly via the shared helper: defer to the
@@ -495,7 +498,8 @@ fn resolve_axis_clusters(
     let role = axis_role(axis, gravity_dir);
     let mut aabb = kinematics.aabb_oriented(gravity_dir);
     for block in &world.blocks {
-        if !is_solid_for_axis(block.kind, axis, gravity_dir) || !aabb.strict_intersects(block.aabb) {
+        if !is_solid_for_axis(block.kind, axis, gravity_dir) || !aabb.strict_intersects(block.aabb)
+        {
             continue;
         }
         if matches!(block.kind, BlockKind::OneWay) {
@@ -516,7 +520,9 @@ fn resolve_axis_clusters(
             }
             AxisRole::Side => {
                 if axis == Axis::X {
-                    if let Some((dx, normal)) = resolve_x_penetration(aabb, block.aabb, world.size.x) {
+                    if let Some((dx, normal)) =
+                        resolve_x_penetration(aabb, block.aabb, world.size.x)
+                    {
                         kinematics.pos.x += dx;
                         wall.wall_normal_x = normal;
                         kinematics.vel.x = 0.0;
@@ -551,7 +557,8 @@ fn resolve_vertical_clusters(
     let role = axis_role(axis, gravity_dir);
     let mut aabb = kinematics.aabb_oriented(gravity_dir);
     for block in &world.blocks {
-        if !is_solid_for_axis(block.kind, axis, gravity_dir) || !aabb.strict_intersects(block.aabb) {
+        if !is_solid_for_axis(block.kind, axis, gravity_dir) || !aabb.strict_intersects(block.aabb)
+        {
             continue;
         }
         if matches!(block.kind, BlockKind::OneWay) {
@@ -668,7 +675,9 @@ mod tests {
         let wall = aabb_from_min_size(Vec2::new(100.0, 0.0), Vec2::new(20.0, 100.0));
         let sideways = body(Vec2::new(80.0, 40.0), Vec2::new(20.0, 10.0));
         assert!(surface_supports_body_at_rest(
-            BlockKind::BlinkWall { tier: crate::world::BlinkWallTier::Soft },
+            BlockKind::BlinkWall {
+                tier: crate::world::BlinkWallTier::Soft
+            },
             sideways,
             wall,
             Vec2::new(1.0, 0.0),

@@ -379,10 +379,10 @@ impl SandboxSim {
     /// side/down directly. Other tests can select the user-facing modes and
     /// convert local intent through `AccelerationFrame::raw_axis_for_resolved_input`.
     pub fn set_input_frame_mode(&mut self, mode: ae::InputFrameMode) {
-        let mut settings = self
-            .app
-            .world_mut()
-            .resource_mut::<ambition_gameplay_core::persistence::settings::UserSettings>();
+        let mut settings =
+            self.app
+                .world_mut()
+                .resource_mut::<ambition_gameplay_core::persistence::settings::UserSettings>();
         settings.gameplay.input_frame_mode = mode;
     }
 

@@ -43,7 +43,6 @@ pub struct StartRoomOverride(pub String);
 #[derive(Resource, Clone, Copy, Debug, Default)]
 pub struct SandboxResetThisFrame(pub bool);
 
-
 #[cfg(test)]
 fn sandbox_init_failed() -> ! {
     panic!("sandbox resource initialization failed; see diagnostics above");
@@ -75,16 +74,17 @@ pub fn init_sandbox_resources(app: &mut App) {
         .get_resource::<ambition_gameplay_core::assets::game_assets::GameAssetConfig>()
         .cloned()
         .unwrap_or_default();
-    let sandbox_catalog = ambition_gameplay_core::assets::sandbox_assets::build_sandbox_catalog_with(
-        &asset_config,
-        &sandbox_data.audio,
-        |manifest| {
-            ambition_content::intro::sprites::extend_with_intro_sprite_entries(
-                manifest,
-                &asset_config.sprite_folder,
-            );
-        },
-    );
+    let sandbox_catalog =
+        ambition_gameplay_core::assets::sandbox_assets::build_sandbox_catalog_with(
+            &asset_config,
+            &sandbox_data.audio,
+            |manifest| {
+                ambition_content::intro::sprites::extend_with_intro_sprite_entries(
+                    manifest,
+                    &asset_config.sprite_folder,
+                );
+            },
+        );
 
     let ldtk_project = match ldtk_world::LdtkProject::load_default(&sandbox_catalog) {
         Ok(project) => project,

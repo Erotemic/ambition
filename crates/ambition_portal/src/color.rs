@@ -19,21 +19,47 @@
 
 use bevy::prelude::Color;
 
-/// The gun's two-slot pair. The portal gun fires **Blue↔Orange**; toggling the
-/// gun swaps which one the next shot places. This is the only pair the gun
-/// owns / despawns when the gun is gone.
+/// A gun-owned portal end. The gun owns up to [`PAIRS`](Self::PAIRS) pairs at
+/// once; each pair has two complementary ends. `slot` packs them: `pair =
+/// slot / 2`, end = `slot & 1` (0 = the "blue"/A end, 1 = the "orange"/B end).
+/// Two ends of the SAME pair are [`other`](Self::other) partners (they link);
+/// [`advance`](Self::advance) walks the gun through every end of every pair so a
+/// single toggle cycles the full palette. All gun ends are gun-owned, so they
+/// despawn together when the gun is gone.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
-pub enum PortalGunColor {
-    Blue,
-    Orange,
+pub struct PortalGunColor {
+    pub slot: u8,
 }
 
 impl PortalGunColor {
-    /// The other slot of the gun's pair (its toggle target / pair partner).
+    /// How many independent pairs the gun can keep placed at once.
+    pub const PAIRS: u8 = 4;
+    /// Total selectable ends = `PAIRS * 2`.
+    pub const SLOTS: u8 = Self::PAIRS * 2;
+    /// Pair 0, end A — the classic "blue" entrance and the gun's default.
+    pub const BLUE: Self = Self { slot: 0 };
+    /// Pair 0, end B — the classic "orange" exit.
+    pub const ORANGE: Self = Self { slot: 1 };
+
+    /// Which pair (0..`PAIRS`) this end belongs to.
+    pub fn pair(self) -> u8 {
+        (self.slot / 2) % Self::PAIRS
+    }
+
+    /// The other END of the SAME pair — its link partner. Firing both ends of a
+    /// pair opens a working portal between them.
     pub fn other(self) -> Self {
-        match self {
-            PortalGunColor::Blue => PortalGunColor::Orange,
-            PortalGunColor::Orange => PortalGunColor::Blue,
+        Self {
+            slot: self.slot ^ 1,
+        }
+    }
+
+    /// The next end in the full cycle across every pair (wraps). A single
+    /// toggle input walks blue₀ → orange₀ → blue₁ → orange₁ → … so the player
+    /// can reach all four pairs without extra controls.
+    pub fn advance(self) -> Self {
+        Self {
+            slot: (self.slot + 1) % Self::SLOTS,
         }
     }
 
@@ -199,15 +225,16 @@ impl PortalChannel {
     }
 
     /// `(rim, core)` display colors for the portal bar — partners are visibly
-    /// complementary so a linked pair reads as a pair.
+    /// complementary so a linked pair reads as a pair. Each gun PAIR gets its
+    /// own hue family (45° apart) and the two ends of a pair sit 180° apart, so
+    /// pair 0 stays the classic blue↔orange while pairs 1-3 read as distinct
+    /// colors.
     pub fn display(self) -> (Color, Color) {
-        use PortalGunColor::*;
         match self {
-            PortalChannel::Gun(Blue) => {
-                (Color::srgb(0.30, 0.62, 1.0), Color::srgb(0.74, 0.92, 1.0))
-            }
-            PortalChannel::Gun(Orange) => {
-                (Color::srgb(1.0, 0.55, 0.20), Color::srgb(1.0, 0.86, 0.55))
+            PortalChannel::Gun(c) => {
+                let hue = 210.0 + (c.pair() as f32) * 45.0 + ((c.slot & 1) as f32) * 180.0;
+                let hue = hue.rem_euclid(360.0);
+                (Color::hsl(hue, 0.78, 0.58), Color::hsl(hue, 0.90, 0.82))
             }
             PortalChannel::Authored(c) => c.rim_core(),
         }
@@ -216,8 +243,15 @@ impl PortalChannel {
     /// Lowercase name, used in logs and entity naming.
     pub fn name(self) -> String {
         match self {
-            PortalChannel::Gun(PortalGunColor::Blue) => "blue".into(),
-            PortalChannel::Gun(PortalGunColor::Orange) => "orange".into(),
+            PortalChannel::Gun(c) => match c.slot {
+                0 => "blue".into(),
+                1 => "orange".into(),
+                _ => format!(
+                    "gun_p{}{}",
+                    c.pair(),
+                    if c.slot & 1 == 0 { "a" } else { "b" }
+                ),
+            },
             PortalChannel::Authored(c) => c.name(),
         }
     }

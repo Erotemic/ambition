@@ -173,7 +173,7 @@ mod tests {
 
     use super::{suppress_ledge_grab_during_transit, warp_portal_input};
 
-    const BLUE: PortalChannel = PortalChannel::Gun(PortalGunColor::Blue);
+    const BLUE: PortalChannel = PortalChannel::Gun(PortalGunColor::BLUE);
 
     #[test]
     fn portal_input_warp_transforms_held_input_then_clears() {

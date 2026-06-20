@@ -224,11 +224,13 @@ pub fn sync_portal_mode_indicator(
     let Some(art) = art else {
         return;
     };
-    // The gun only ever fires its blue↔orange pair; orange art for orange, blue
-    // for everything else.
-    let image = match gun.next_color {
-        PortalGunColor::Orange => art.orange.clone(),
-        PortalGunColor::Blue => art.blue.clone(),
+    // The gun cycles through several pairs; we only have two held-gun arts, so
+    // the B end of every pair shows the "orange" art and the A end the "blue"
+    // art. The placed portals carry the per-pair display colour themselves.
+    let image = if gun.next_color.slot & 1 == 1 {
+        art.orange.clone()
+    } else {
+        art.blue.clone()
     };
     let facing = if kin.facing >= 0.0 { 1.0 } else { -1.0 };
     // In the player's hand: just in front of the body at roughly hand height

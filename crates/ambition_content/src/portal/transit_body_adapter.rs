@@ -217,8 +217,8 @@ mod projectile_transit_tests {
 
     use super::ensure_projectile_portal_bodies;
 
-    const BLUE: PortalChannel = PortalChannel::Gun(PortalGunColor::Blue);
-    const ORANGE: PortalChannel = PortalChannel::Gun(PortalGunColor::Orange);
+    const BLUE: PortalChannel = PortalChannel::Gun(PortalGunColor::BLUE);
+    const ORANGE: PortalChannel = PortalChannel::Gun(PortalGunColor::ORANGE);
 
     use ambition_gameplay_core::platformer_runtime::body::BodyKinematics;
 

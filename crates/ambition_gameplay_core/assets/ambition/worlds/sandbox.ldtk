@@ -11,7 +11,7 @@
 	"iid": "ambition-sandbox-world",
 	"jsonVersion": "1.5.3",
 	"appBuildId": 473703,
-	"nextUid": 6413,
+	"nextUid": 6435,
 	"identifierStyle": "Free",
 	"toc": [],
 	"worldLayout": "Free",
@@ -55562,8 +55562,8 @@
 		},
 		{
 			"identifier": "symmetry_room",
-			"iid": "symmetry_room-6391",
-			"uid": 6391,
+			"iid": "symmetry_room-6413",
+			"uid": 6413,
 			"worldX": 120000,
 			"worldY": 0,
 			"worldDepth": 0,
@@ -55587,13 +55587,17 @@
 				{ "__identifier": "biome", "__type": "String", "__value": "lab", "__tile": null, "defUid": 4172, "realEditorValues": [{
 					"id": "V_String",
 					"params": ["lab"]
+				}] },
+				{ "__identifier": "music_track", "__type": "String", "__value": "for_emmy_forever_ago", "__tile": null, "defUid": 4173, "realEditorValues": [{
+					"id": "V_String",
+					"params": ["for_emmy_forever_ago"]
 				}] }
 			],
 			"layerInstances": [
 				{
 					"__identifier": "Collision",
 					"__type": "IntGrid",
-					"iid": "Collision-6392",
+					"iid": "Collision-6414",
 					"layerDefUid": 5024,
 					"intGridCsv": [
 						1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,
@@ -55649,83 +55653,83 @@
 						1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,
 						1,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,1,1,1,1,1,1,
 						1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,
-						1,1,1,1,1,1,1,1,1,1,1,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,1,1,1,1,1,1,
-						1,0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,
+						1,1,1,1,1,1,1,1,1,1,1,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+						0,0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,
 						1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,0,0,0,0,0,0,0,0,0,0,0,
 						0,0,1,1,1,1,1,1,1,1,1,0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,
 						1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,0,
-						0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,1,1,1,1,1,1,1,1,1,1,1,
+						0,0,0,0,0,0,0,0,0,0,0,0,1,1,1,1,1,1,1,1,1,0,1,1,1,1,1,1,1,1,1,1,1,1,1,
 						1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,
 						1,1,1,1,1,1,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,1,
 						1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,
 						1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
 						0,0,0,0,0,0,0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,
-						1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
-						0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
-						0,0,0,0,0,0,0,0,1,1,1,1,0,0,0,0,0,0,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,
-						0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+						1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,
+						1,1,1,1,1,1,1,1,1,1,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+						0,0,0,0,0,0,0,0,1,1,1,1,0,0,0,0,0,0,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,
+						1,0,0,0,0,0,0,0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,
 						0,0,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,1,1,0,0,0,0,0,0,1,1,0,0,0,0,0,
-						0,0,0,0,0,0,0,0,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+						0,0,0,0,0,0,0,0,0,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
 						0,0,0,0,0,0,0,0,0,0,0,0,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,1,1,0,0,0,
-						0,0,0,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+						0,0,0,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
 						0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,0,0,0,0,0,0,0,0,0,0,0,
-						0,0,0,1,1,1,1,0,0,0,0,0,0,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,0,0,0,0,0,
-						0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,0,
+						0,0,0,1,1,1,1,0,0,0,0,0,0,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,0,0,0,0,
+						0,0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,0,
 						0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,1,1,0,0,0,0,0,0,1,1,0,0,0,0,0,0,0,0,0,0,
-						0,0,0,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+						0,0,0,0,1,1,0,0,1,1,0,0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,0,1,1,0,0,0,
 						0,0,0,0,0,0,0,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,1,1,0,0,0,0,0,0,1,1,
-						0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
-						0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,
-						1,1,0,0,0,0,0,0,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,0,0,0,0,0,0,0,0,0,0,
-						0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,0,0,0,0,0,0,
-						0,0,0,0,0,0,0,0,1,1,1,1,0,0,0,0,0,0,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,
-						0,0,0,0,0,0,0,0,0,0,0,1,1,1,1,1,1,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+						0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,0,0,1,1,0,0,1,1,1,1,1,1,1,1,1,1,1,1,1,
+						1,1,1,0,0,1,1,0,0,0,0,0,0,0,0,0,0,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,
+						1,1,0,0,0,0,0,0,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,0,0,1,1,0,0,1,1,1,
+						1,1,1,1,1,1,1,1,1,1,1,1,1,0,0,1,1,0,0,0,0,0,0,0,0,0,0,1,1,0,0,0,0,0,0,
+						0,0,0,0,0,0,0,0,1,1,1,1,0,0,0,0,0,0,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,
+						1,0,0,1,1,0,0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,0,1,1,0,0,0,0,0,0,0,0,
 						0,0,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,1,1,0,0,0,0,0,0,1,1,0,0,0,0,0,
-						0,0,0,0,0,0,0,0,1,1,0,0,0,0,0,0,0,0,0,0,0,1,1,1,1,1,1,1,1,0,0,0,0,0,0,
-						0,0,0,0,0,0,0,0,0,0,0,0,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,1,1,0,0,0,
-						0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,1,1,
-						1,1,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
-						0,0,0,1,1,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
-						0,0,0,0,0,0,1,1,1,1,1,1,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+						0,0,0,0,0,0,0,0,0,1,1,0,0,1,1,0,0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,0,
+						1,1,0,0,0,0,0,0,0,0,0,0,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,1,1,0,0,0,
+						0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,0,0,1,1,1,1,1,1,1,1,
+						1,1,1,1,1,1,1,1,0,0,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+						0,0,0,1,1,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,
+						0,0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,0,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,
 						0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
-						0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,1,1,1,1,1,1,0,0,0,0,0,0,0,0,0,0,0,
+						0,0,0,0,0,0,0,0,1,1,0,0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,0,1,1,0,0,0,
 						0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,1,1,0,0,0,0,0,0,0,0,
-						0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,1,1,1,1,1,1,0,
-						0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,
-						1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
-						0,1,1,1,1,1,1,1,1,0,0,0,0,0,0,0,0,0,0,0,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,
+						0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,0,0,1,1,1,1,1,1,1,1,1,1,1,1,1,
+						1,1,1,0,0,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,
+						1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,0,0,0,0,0,0,0,0,0,0,1,1,0,0,1,1,1,
+						1,1,1,1,1,1,1,1,1,1,1,1,1,0,0,1,1,0,0,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
 						1,1,0,0,0,0,0,0,1,1,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,0,0,0,0,0,0,0,
-						0,0,0,0,0,0,0,0,0,0,0,1,1,1,1,1,1,1,1,0,0,0,0,0,0,0,0,0,0,0,1,1,0,0,0,
+						0,0,0,1,1,0,0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,0,1,1,0,0,1,1,0,0,0,0,
 						0,0,0,0,0,0,0,0,0,0,1,1,0,0,0,0,0,0,1,1,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,
-						0,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
-						0,0,0,0,0,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,0,0,0,0,0,0,1,1,1,1,0,0,0,
-						0,0,0,0,0,0,0,0,0,0,0,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
-						0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,0,0,0,
-						0,0,0,1,1,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,0,0,0,0,0,0,0,0,0,0,0,0,
-						0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,0,0,0,0,0,0,0,0,
+						0,1,1,0,0,0,0,0,0,0,0,0,0,1,1,0,0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,0,
+						1,1,0,0,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,0,0,0,0,0,0,1,1,1,1,0,0,0,
+						0,0,0,0,0,0,0,0,0,0,0,1,1,0,0,0,0,0,0,0,0,0,0,1,1,0,0,1,1,1,1,1,1,1,1,
+						1,1,1,1,1,1,1,1,0,0,1,1,0,0,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,0,0,0,
+						0,0,0,1,1,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,0,0,0,0,0,0,0,0,0,0,1,1,
+						0,0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,0,1,1,0,0,1,1,0,0,0,0,0,0,0,0,0,
 						0,0,0,0,0,1,1,0,0,0,0,0,0,1,1,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,0,0,
-						0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
-						1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,0,0,0,0,0,0,1,1,1,1,0,0,0,0,0,0,0,0,
+						0,0,0,0,0,0,0,0,0,0,0,0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,0,0,0,0,0,1,
+						1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,0,0,0,0,0,0,1,1,1,1,0,0,0,0,0,0,0,0,
 						0,0,0,0,0,0,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
-						0,0,0,0,0,0,0,0,0,0,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,0,0,0,0,0,0,1,1,
+						0,0,0,0,0,0,0,0,0,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,0,0,0,0,0,0,1,1,
 						1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
-						0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,
+						0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
 						1,1,0,0,0,0,0,0,1,1,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,0,0,0,0,0,0,0,
-						0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,0,0,0,
+						0,0,0,0,0,0,0,0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,0,0,0,0,0,0,1,1,0,0,0,0,
 						0,0,0,0,0,0,0,0,0,0,1,1,0,0,0,0,0,0,1,1,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,
-						0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+						0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,0,0,
 						0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,1,1,1,1,1,
 						1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,0,0,0,0,0,0,0,0,0,0,0,
 						0,0,0,0,0,0,0,0,0,0,0,0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,
 						1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,0,
 						0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,1,1,1,1,1,1,1,1,1,1,1,
 						1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,
-						1,1,1,1,1,1,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,1,
+						1,1,1,1,1,1,1,1,0,1,1,1,1,1,1,1,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,1,
 						1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,
 						1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,1,1,1,1,1,1,1,1,1,0,0,0,0,0,0,0,
 						0,0,0,0,0,0,0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,
-						1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,1,1,1,1,1,1,
-						1,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,
+						1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,0,0,0,0,0,0,
+						0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,
 						1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,
 						1,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,1,1,1,1,1,1,
 						1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,
@@ -55788,13 +55792,13 @@
 					"__pxTotalOffsetY": 0,
 					"__tilesetDefUid": null,
 					"__tilesetRelPath": null,
-					"levelId": 6391,
+					"levelId": 6413,
 					"pxOffsetX": 0,
 					"pxOffsetY": 0,
 					"visible": true,
 					"optionalRules": [],
 					"autoLayerTiles": [],
-					"seed": 6391,
+					"seed": 6413,
 					"overrideTilesetUid": null,
 					"gridTiles": [],
 					"entityInstances": []
@@ -55802,7 +55806,7 @@
 				{
 					"__identifier": "Ambition",
 					"__type": "Entities",
-					"iid": "Ambition-6393",
+					"iid": "Ambition-6415",
 					"layerDefUid": 1070,
 					"intGridCsv": [],
 					"__cWid": 80,
@@ -55813,204 +55817,347 @@
 					"__pxTotalOffsetY": 0,
 					"__tilesetDefUid": null,
 					"__tilesetRelPath": null,
-					"levelId": 6391,
+					"levelId": 6413,
 					"pxOffsetX": 0,
 					"pxOffsetY": 0,
 					"visible": true,
 					"optionalRules": [],
 					"autoLayerTiles": [],
-					"seed": 6391,
+					"seed": 6413,
 					"overrideTilesetUid": null,
 					"gridTiles": [],
 					"entityInstances": [
 						{
-							"__identifier": "GravityZone",
-							"__grid": [28,52],
+							"__identifier": "Switch",
+							"__grid": [39,48],
 							"__pivot": [0,0],
 							"__tags": [],
 							"__tile": null,
-							"__smartColor": "#B98CFF",
-							"__worldX": 120448,
-							"__worldY": 832,
-							"iid": "GravityZone-6394",
-							"width": 384,
-							"height": 416,
-							"defUid": 5998,
-							"px": [448,832],
+							"__smartColor": "#FFC857",
+							"__worldX": 120624,
+							"__worldY": 768,
+							"iid": "Switch-6416",
+							"width": 32,
+							"height": 32,
+							"defUid": 4051,
+							"px": [624,768],
 							"fieldInstances": [
-								{ "__identifier": "id", "__type": "String", "__value": "grav_down", "__tile": null, "defUid": 5993, "realEditorValues": [{
+								{ "__identifier": "id", "__type": "String", "__value": "kernel_switch_down", "__tile": null, "defUid": 4046, "realEditorValues": [{
 									"id": "V_String",
-									"params": ["grav_down"]
+									"params": ["kernel_switch_down"]
 								}] },
-								{ "__identifier": "name", "__type": "String", "__value": "gravity DOWN", "__tile": null, "defUid": 5994, "realEditorValues": [{
+								{ "__identifier": "name", "__type": "String", "__value": "gravity down", "__tile": null, "defUid": 4047, "realEditorValues": [{
 									"id": "V_String",
-									"params": ["gravity DOWN"]
+									"params": ["gravity down"]
 								}] },
-								{ "__identifier": "dir", "__type": "String", "__value": "down", "__tile": null, "defUid": 5995, "realEditorValues": [{
+								{ "__identifier": "prompt", "__type": "String", "__value": "Set gravity DOWN", "__tile": null, "defUid": 4048, "realEditorValues": [{
 									"id": "V_String",
-									"params": ["down"]
+									"params": ["Set gravity DOWN"]
+								}] },
+								{ "__identifier": "target_encounter", "__type": "String", "__value": "", "__tile": null, "defUid": 4049, "realEditorValues": [] },
+								{ "__identifier": "action", "__type": "String", "__value": "SetGravity:down", "__tile": null, "defUid": 4050, "realEditorValues": [{
+									"id": "V_String",
+									"params": ["SetGravity:down"]
 								}] }
 							]
 						},
 						{
 							"__identifier": "PogoOrb",
-							"__grid": [38,73],
+							"__grid": [46,46],
 							"__pivot": [0,0],
 							"__tags": [],
 							"__tile": null,
 							"__smartColor": "#00D4FF",
-							"__worldX": 120622,
-							"__worldY": 1168,
-							"iid": "PogoOrb-6395",
+							"__worldX": 120744,
+							"__worldY": 744,
+							"iid": "PogoOrb-6417",
 							"width": 36,
 							"height": 36,
 							"defUid": 2005,
-							"px": [622,1168],
+							"px": [744,744],
 							"fieldInstances": [{ "__identifier": "name", "__type": "String", "__value": "pogo_down", "__tile": null, "defUid": 3011, "realEditorValues": [{
 								"id": "V_String",
 								"params": ["pogo_down"]
 							}] }]
 						},
 						{
-							"__identifier": "GravityZone",
-							"__grid": [2,28],
+							"__identifier": "NpcSpawn",
+							"__grid": [29,75],
 							"__pivot": [0,0],
 							"__tags": [],
 							"__tile": null,
-							"__smartColor": "#B98CFF",
-							"__worldX": 120032,
-							"__worldY": 448,
-							"iid": "GravityZone-6396",
-							"width": 416,
-							"height": 384,
-							"defUid": 5998,
-							"px": [32,448],
+							"__smartColor": "#FF9EEA",
+							"__worldX": 120470,
+							"__worldY": 1200,
+							"iid": "NpcSpawn-6418",
+							"width": 42,
+							"height": 42,
+							"defUid": 2006,
+							"px": [470,1200],
 							"fieldInstances": [
-								{ "__identifier": "id", "__type": "String", "__value": "grav_left", "__tile": null, "defUid": 5993, "realEditorValues": [{
+								{ "__identifier": "character_id", "__type": "String", "__value": "npc_noether", "__tile": null, "defUid": 3012, "realEditorValues": [{
 									"id": "V_String",
-									"params": ["grav_left"]
+									"params": ["npc_noether"]
 								}] },
-								{ "__identifier": "name", "__type": "String", "__value": "gravity LEFT", "__tile": null, "defUid": 5994, "realEditorValues": [{
+								{ "__identifier": "prompt", "__type": "String", "__value": "Talk to Emmy No-Ether (down)", "__tile": null, "defUid": 3013, "realEditorValues": [{
 									"id": "V_String",
-									"params": ["gravity LEFT"]
+									"params": ["Talk to Emmy No-Ether (down)"]
 								}] },
-								{ "__identifier": "dir", "__type": "String", "__value": "left", "__tile": null, "defUid": 5995, "realEditorValues": [{
+								{ "__identifier": "dialogue_id", "__type": "String", "__value": "emmy_noether", "__tile": null, "defUid": 3014, "realEditorValues": [{
 									"id": "V_String",
-									"params": ["left"]
+									"params": ["emmy_noether"]
+								}] },
+								{ "__identifier": "patrol_radius", "__type": "Float", "__value": 0.0, "__tile": null, "defUid": 4123, "realEditorValues": [] }
+							]
+						},
+						{
+							"__identifier": "Switch",
+							"__grid": [30,39],
+							"__pivot": [0,0],
+							"__tags": [],
+							"__tile": null,
+							"__smartColor": "#FFC857",
+							"__worldX": 120480,
+							"__worldY": 624,
+							"iid": "Switch-6419",
+							"width": 32,
+							"height": 32,
+							"defUid": 4051,
+							"px": [480,624],
+							"fieldInstances": [
+								{ "__identifier": "id", "__type": "String", "__value": "kernel_switch_left", "__tile": null, "defUid": 4046, "realEditorValues": [{
+									"id": "V_String",
+									"params": ["kernel_switch_left"]
+								}] },
+								{ "__identifier": "name", "__type": "String", "__value": "gravity left", "__tile": null, "defUid": 4047, "realEditorValues": [{
+									"id": "V_String",
+									"params": ["gravity left"]
+								}] },
+								{ "__identifier": "prompt", "__type": "String", "__value": "Set gravity LEFT", "__tile": null, "defUid": 4048, "realEditorValues": [{
+									"id": "V_String",
+									"params": ["Set gravity LEFT"]
+								}] },
+								{ "__identifier": "target_encounter", "__type": "String", "__value": "", "__tile": null, "defUid": 4049, "realEditorValues": [] },
+								{ "__identifier": "action", "__type": "String", "__value": "SetGravity:left", "__tile": null, "defUid": 4050, "realEditorValues": [{
+									"id": "V_String",
+									"params": ["SetGravity:left"]
 								}] }
 							]
 						},
 						{
 							"__identifier": "PogoOrb",
-							"__grid": [4,38],
+							"__grid": [31,46],
 							"__pivot": [0,0],
 							"__tags": [],
 							"__tile": null,
 							"__smartColor": "#00D4FF",
-							"__worldX": 120076,
-							"__worldY": 622,
-							"iid": "PogoOrb-6397",
+							"__worldX": 120500,
+							"__worldY": 744,
+							"iid": "PogoOrb-6420",
 							"width": 36,
 							"height": 36,
 							"defUid": 2005,
-							"px": [76,622],
+							"px": [500,744],
 							"fieldInstances": [{ "__identifier": "name", "__type": "String", "__value": "pogo_left", "__tile": null, "defUid": 3011, "realEditorValues": [{
 								"id": "V_String",
 								"params": ["pogo_left"]
 							}] }]
 						},
 						{
-							"__identifier": "GravityZone",
-							"__grid": [28,2],
+							"__identifier": "NpcSpawn",
+							"__grid": [2,29],
 							"__pivot": [0,0],
 							"__tags": [],
 							"__tile": null,
-							"__smartColor": "#B98CFF",
-							"__worldX": 120448,
-							"__worldY": 32,
-							"iid": "GravityZone-6398",
-							"width": 384,
-							"height": 416,
-							"defUid": 5998,
-							"px": [448,32],
+							"__smartColor": "#FF9EEA",
+							"__worldX": 120038,
+							"__worldY": 470,
+							"iid": "NpcSpawn-6421",
+							"width": 42,
+							"height": 42,
+							"defUid": 2006,
+							"px": [38,470],
 							"fieldInstances": [
-								{ "__identifier": "id", "__type": "String", "__value": "grav_up", "__tile": null, "defUid": 5993, "realEditorValues": [{
+								{ "__identifier": "character_id", "__type": "String", "__value": "npc_noether", "__tile": null, "defUid": 3012, "realEditorValues": [{
 									"id": "V_String",
-									"params": ["grav_up"]
+									"params": ["npc_noether"]
 								}] },
-								{ "__identifier": "name", "__type": "String", "__value": "gravity UP", "__tile": null, "defUid": 5994, "realEditorValues": [{
+								{ "__identifier": "prompt", "__type": "String", "__value": "Talk to Emmy No-Ether (left)", "__tile": null, "defUid": 3013, "realEditorValues": [{
 									"id": "V_String",
-									"params": ["gravity UP"]
+									"params": ["Talk to Emmy No-Ether (left)"]
 								}] },
-								{ "__identifier": "dir", "__type": "String", "__value": "up", "__tile": null, "defUid": 5995, "realEditorValues": [] }
+								{ "__identifier": "dialogue_id", "__type": "String", "__value": "emmy_noether_left", "__tile": null, "defUid": 3014, "realEditorValues": [{
+									"id": "V_String",
+									"params": ["emmy_noether_left"]
+								}] },
+								{ "__identifier": "patrol_radius", "__type": "Float", "__value": 0.0, "__tile": null, "defUid": 4123, "realEditorValues": [] }
+							]
+						},
+						{
+							"__identifier": "Switch",
+							"__grid": [39,30],
+							"__pivot": [0,0],
+							"__tags": [],
+							"__tile": null,
+							"__smartColor": "#FFC857",
+							"__worldX": 120624,
+							"__worldY": 480,
+							"iid": "Switch-6422",
+							"width": 32,
+							"height": 32,
+							"defUid": 4051,
+							"px": [624,480],
+							"fieldInstances": [
+								{ "__identifier": "id", "__type": "String", "__value": "kernel_switch_up", "__tile": null, "defUid": 4046, "realEditorValues": [{
+									"id": "V_String",
+									"params": ["kernel_switch_up"]
+								}] },
+								{ "__identifier": "name", "__type": "String", "__value": "gravity up", "__tile": null, "defUid": 4047, "realEditorValues": [{
+									"id": "V_String",
+									"params": ["gravity up"]
+								}] },
+								{ "__identifier": "prompt", "__type": "String", "__value": "Set gravity UP", "__tile": null, "defUid": 4048, "realEditorValues": [{
+									"id": "V_String",
+									"params": ["Set gravity UP"]
+								}] },
+								{ "__identifier": "target_encounter", "__type": "String", "__value": "", "__tile": null, "defUid": 4049, "realEditorValues": [] },
+								{ "__identifier": "action", "__type": "String", "__value": "SetGravity:up", "__tile": null, "defUid": 4050, "realEditorValues": [{
+									"id": "V_String",
+									"params": ["SetGravity:up"]
+								}] }
 							]
 						},
 						{
 							"__identifier": "PogoOrb",
-							"__grid": [38,4],
+							"__grid": [31,31],
 							"__pivot": [0,0],
 							"__tags": [],
 							"__tile": null,
 							"__smartColor": "#00D4FF",
-							"__worldX": 120622,
-							"__worldY": 76,
-							"iid": "PogoOrb-6399",
+							"__worldX": 120500,
+							"__worldY": 500,
+							"iid": "PogoOrb-6423",
 							"width": 36,
 							"height": 36,
 							"defUid": 2005,
-							"px": [622,76],
+							"px": [500,500],
 							"fieldInstances": [{ "__identifier": "name", "__type": "String", "__value": "pogo_up", "__tile": null, "defUid": 3011, "realEditorValues": [{
 								"id": "V_String",
 								"params": ["pogo_up"]
 							}] }]
 						},
 						{
-							"__identifier": "GravityZone",
-							"__grid": [52,28],
+							"__identifier": "NpcSpawn",
+							"__grid": [48,2],
 							"__pivot": [0,0],
 							"__tags": [],
 							"__tile": null,
-							"__smartColor": "#B98CFF",
-							"__worldX": 120832,
-							"__worldY": 448,
-							"iid": "GravityZone-6400",
-							"width": 416,
-							"height": 384,
-							"defUid": 5998,
-							"px": [832,448],
+							"__smartColor": "#FF9EEA",
+							"__worldX": 120768,
+							"__worldY": 38,
+							"iid": "NpcSpawn-6424",
+							"width": 42,
+							"height": 42,
+							"defUid": 2006,
+							"px": [768,38],
 							"fieldInstances": [
-								{ "__identifier": "id", "__type": "String", "__value": "grav_right", "__tile": null, "defUid": 5993, "realEditorValues": [{
+								{ "__identifier": "character_id", "__type": "String", "__value": "npc_noether", "__tile": null, "defUid": 3012, "realEditorValues": [{
 									"id": "V_String",
-									"params": ["grav_right"]
+									"params": ["npc_noether"]
 								}] },
-								{ "__identifier": "name", "__type": "String", "__value": "gravity RIGHT", "__tile": null, "defUid": 5994, "realEditorValues": [{
+								{ "__identifier": "prompt", "__type": "String", "__value": "Talk to Emmy No-Ether (up)", "__tile": null, "defUid": 3013, "realEditorValues": [{
 									"id": "V_String",
-									"params": ["gravity RIGHT"]
+									"params": ["Talk to Emmy No-Ether (up)"]
 								}] },
-								{ "__identifier": "dir", "__type": "String", "__value": "right", "__tile": null, "defUid": 5995, "realEditorValues": [{
+								{ "__identifier": "dialogue_id", "__type": "String", "__value": "emmy_noether_up", "__tile": null, "defUid": 3014, "realEditorValues": [{
 									"id": "V_String",
-									"params": ["right"]
+									"params": ["emmy_noether_up"]
+								}] },
+								{ "__identifier": "patrol_radius", "__type": "Float", "__value": 0.0, "__tile": null, "defUid": 4123, "realEditorValues": [] }
+							]
+						},
+						{
+							"__identifier": "Switch",
+							"__grid": [48,39],
+							"__pivot": [0,0],
+							"__tags": [],
+							"__tile": null,
+							"__smartColor": "#FFC857",
+							"__worldX": 120768,
+							"__worldY": 624,
+							"iid": "Switch-6425",
+							"width": 32,
+							"height": 32,
+							"defUid": 4051,
+							"px": [768,624],
+							"fieldInstances": [
+								{ "__identifier": "id", "__type": "String", "__value": "kernel_switch_right", "__tile": null, "defUid": 4046, "realEditorValues": [{
+									"id": "V_String",
+									"params": ["kernel_switch_right"]
+								}] },
+								{ "__identifier": "name", "__type": "String", "__value": "gravity right", "__tile": null, "defUid": 4047, "realEditorValues": [{
+									"id": "V_String",
+									"params": ["gravity right"]
+								}] },
+								{ "__identifier": "prompt", "__type": "String", "__value": "Set gravity RIGHT", "__tile": null, "defUid": 4048, "realEditorValues": [{
+									"id": "V_String",
+									"params": ["Set gravity RIGHT"]
+								}] },
+								{ "__identifier": "target_encounter", "__type": "String", "__value": "", "__tile": null, "defUid": 4049, "realEditorValues": [] },
+								{ "__identifier": "action", "__type": "String", "__value": "SetGravity:right", "__tile": null, "defUid": 4050, "realEditorValues": [{
+									"id": "V_String",
+									"params": ["SetGravity:right"]
 								}] }
 							]
 						},
 						{
 							"__identifier": "PogoOrb",
-							"__grid": [73,38],
+							"__grid": [46,31],
 							"__pivot": [0,0],
 							"__tags": [],
 							"__tile": null,
 							"__smartColor": "#00D4FF",
-							"__worldX": 121168,
-							"__worldY": 622,
-							"iid": "PogoOrb-6401",
+							"__worldX": 120744,
+							"__worldY": 500,
+							"iid": "PogoOrb-6426",
 							"width": 36,
 							"height": 36,
 							"defUid": 2005,
-							"px": [1168,622],
+							"px": [744,500],
 							"fieldInstances": [{ "__identifier": "name", "__type": "String", "__value": "pogo_right", "__tile": null, "defUid": 3011, "realEditorValues": [{
 								"id": "V_String",
 								"params": ["pogo_right"]
 							}] }]
+						},
+						{
+							"__identifier": "NpcSpawn",
+							"__grid": [75,48],
+							"__pivot": [0,0],
+							"__tags": [],
+							"__tile": null,
+							"__smartColor": "#FF9EEA",
+							"__worldX": 121200,
+							"__worldY": 768,
+							"iid": "NpcSpawn-6427",
+							"width": 42,
+							"height": 42,
+							"defUid": 2006,
+							"px": [1200,768],
+							"fieldInstances": [
+								{ "__identifier": "character_id", "__type": "String", "__value": "npc_noether", "__tile": null, "defUid": 3012, "realEditorValues": [{
+									"id": "V_String",
+									"params": ["npc_noether"]
+								}] },
+								{ "__identifier": "prompt", "__type": "String", "__value": "Talk to Emmy No-Ether (right)", "__tile": null, "defUid": 3013, "realEditorValues": [{
+									"id": "V_String",
+									"params": ["Talk to Emmy No-Ether (right)"]
+								}] },
+								{ "__identifier": "dialogue_id", "__type": "String", "__value": "emmy_noether_right", "__tile": null, "defUid": 3014, "realEditorValues": [{
+									"id": "V_String",
+									"params": ["emmy_noether_right"]
+								}] },
+								{ "__identifier": "patrol_radius", "__type": "Float", "__value": 0.0, "__tile": null, "defUid": 4123, "realEditorValues": [] }
+							]
 						},
 						{
 							"__identifier": "PlayerStart",
@@ -56021,7 +56168,7 @@
 							"__smartColor": "#41D1FF",
 							"__worldX": 120700,
 							"__worldY": 1202,
-							"iid": "PlayerStart-6402",
+							"iid": "PlayerStart-6428",
 							"width": 28,
 							"height": 46,
 							"defUid": 2000,
@@ -56038,13 +56185,13 @@
 							"__tags": [],
 							"__tile": null,
 							"__smartColor": "#FFD166",
-							"__worldX": 120600,
+							"__worldX": 120596,
 							"__worldY": 1152,
-							"iid": "LoadingZone-6403",
+							"iid": "LoadingZone-6429",
 							"width": 80,
 							"height": 96,
 							"defUid": 2002,
-							"px": [600,1152],
+							"px": [596,1152],
 							"fieldInstances": [
 								{ "__identifier": "id", "__type": "String", "__value": "symmetry_entry", "__tile": null, "defUid": 3002, "realEditorValues": [{
 									"id": "V_String",
@@ -56067,187 +56214,80 @@
 							]
 						},
 						{
-							"__identifier": "NpcSpawn",
-							"__grid": [32,75],
+							"__identifier": "PortalGunSpawn",
+							"__grid": [47,75],
 							"__pivot": [0,0],
 							"__tags": [],
 							"__tile": null,
-							"__smartColor": "#FF9EEA",
-							"__worldX": 120520,
-							"__worldY": 1206,
-							"iid": "NpcSpawn-6404",
-							"width": 42,
-							"height": 42,
-							"defUid": 2006,
-							"px": [520,1206],
+							"__smartColor": "#5BD1FF",
+							"__worldX": 120764,
+							"__worldY": 1208,
+							"iid": "PortalGunSpawn-6430",
+							"width": 40,
+							"height": 40,
+							"defUid": 5988,
+							"px": [764,1208],
 							"fieldInstances": [
-								{ "__identifier": "character_id", "__type": "String", "__value": "npc_noether", "__tile": null, "defUid": 3012, "realEditorValues": [{
+								{ "__identifier": "id", "__type": "String", "__value": "symmetry_portal_gun", "__tile": null, "defUid": 5986, "realEditorValues": [{
 									"id": "V_String",
-									"params": ["npc_noether"]
+									"params": ["symmetry_portal_gun"]
 								}] },
-								{ "__identifier": "prompt", "__type": "String", "__value": "Talk to Emmy No-Ether", "__tile": null, "defUid": 3013, "realEditorValues": [{
+								{ "__identifier": "name", "__type": "String", "__value": "Portal Gun (4 colours)", "__tile": null, "defUid": 5987, "realEditorValues": [{
 									"id": "V_String",
-									"params": ["Talk to Emmy No-Ether"]
-								}] },
-								{ "__identifier": "dialogue_id", "__type": "String", "__value": "emmy_noether", "__tile": null, "defUid": 3014, "realEditorValues": [{
-									"id": "V_String",
-									"params": ["emmy_noether"]
-								}] },
-								{ "__identifier": "patrol_radius", "__type": "Float", "__value": 0.0, "__tile": null, "defUid": 4123, "realEditorValues": [] }
+									"params": ["Portal Gun (4 colours)"]
+								}] }
 							]
 						},
 						{
 							"__identifier": "DebugLabel",
-							"__grid": [30,33],
+							"__grid": [22,29],
 							"__pivot": [0,0],
 							"__tags": [],
 							"__tile": null,
 							"__smartColor": "#FFFFFF",
-							"__worldX": 120490,
-							"__worldY": 536,
-							"iid": "DebugLabel-6405",
+							"__worldX": 120360,
+							"__worldY": 470,
+							"iid": "DebugLabel-6431",
 							"width": 560,
 							"height": 24,
 							"defUid": 2007,
-							"px": [490,536],
+							"px": [360,470],
 							"fieldInstances": [
 								{ "__identifier": "name", "__type": "String", "__value": "title", "__tile": null, "defUid": 3015, "realEditorValues": [{
 									"id": "V_String",
 									"params": ["title"]
 								}] },
-								{ "__identifier": "text", "__type": "String", "__value": "The Noether Chamber: turn the room a quarter-turn and nothing changes but the door.", "__tile": null, "defUid": 3016, "realEditorValues": [{
+								{ "__identifier": "text", "__type": "String", "__value": "The Noether Chamber: a quarter-turn changes nothing. The kernel lets you choose which way is down.", "__tile": null, "defUid": 3016, "realEditorValues": [{
 									"id": "V_String",
-									"params": ["The Noether Chamber: turn the room a quarter-turn and nothing changes but the door."]
+									"params": [
+										"The Noether Chamber: a quarter-turn changes nothing. The kernel lets you choose which way is down."
+									]
 								}] },
 								{ "__identifier": "category", "__type": "String", "__value": "Custom", "__tile": null, "defUid": 3017, "realEditorValues": [] }
 							]
 						},
 						{
 							"__identifier": "DebugLabel",
-							"__grid": [32,39],
-							"__pivot": [0,0],
-							"__tags": [],
-							"__tile": null,
-							"__smartColor": "#FFFFFF",
-							"__worldX": 120512,
-							"__worldY": 628,
-							"iid": "DebugLabel-6406",
-							"width": 256,
-							"height": 24,
-							"defUid": 2007,
-							"px": [512,628],
-							"fieldInstances": [
-								{ "__identifier": "name", "__type": "String", "__value": "fixed_point_label", "__tile": null, "defUid": 3015, "realEditorValues": [{
-									"id": "V_String",
-									"params": ["fixed_point_label"]
-								}] },
-								{ "__identifier": "text", "__type": "String", "__value": "Fixed point of the symmetry.", "__tile": null, "defUid": 3016, "realEditorValues": [{
-									"id": "V_String",
-									"params": ["Fixed point of the symmetry."]
-								}] },
-								{ "__identifier": "category", "__type": "String", "__value": "Custom", "__tile": null, "defUid": 3017, "realEditorValues": [] }
-							]
-						},
-						{
-							"__identifier": "DebugLabel",
-							"__grid": [29,70],
+							"__grid": [29,68],
 							"__pivot": [0,0],
 							"__tags": [],
 							"__tile": null,
 							"__smartColor": "#FFFFFF",
 							"__worldX": 120470,
-							"__worldY": 1130,
-							"iid": "DebugLabel-6407",
+							"__worldY": 1090,
+							"iid": "DebugLabel-6432",
 							"width": 360,
 							"height": 24,
 							"defUid": 2007,
-							"px": [470,1130],
+							"px": [470,1090],
 							"fieldInstances": [
-								{ "__identifier": "name", "__type": "String", "__value": "down_label", "__tile": null, "defUid": 3015, "realEditorValues": [{
+								{ "__identifier": "name", "__type": "String", "__value": "entry_label", "__tile": null, "defUid": 3015, "realEditorValues": [{
 									"id": "V_String",
-									"params": ["down_label"]
+									"params": ["entry_label"]
 								}] },
-								{ "__identifier": "text", "__type": "String", "__value": "Down frame: the honest entrance.", "__tile": null, "defUid": 3016, "realEditorValues": [{
+								{ "__identifier": "text", "__type": "String", "__value": "Grab the portal gun. Talk to Emmy. Flip gravity at the kernel.", "__tile": null, "defUid": 3016, "realEditorValues": [{
 									"id": "V_String",
-									"params": ["Down frame: the honest entrance."]
-								}] },
-								{ "__identifier": "category", "__type": "String", "__value": "Custom", "__tile": null, "defUid": 3017, "realEditorValues": [] }
-							]
-						},
-						{
-							"__identifier": "DebugLabel",
-							"__grid": [3,38],
-							"__pivot": [0,0],
-							"__tags": [],
-							"__tile": null,
-							"__smartColor": "#FFFFFF",
-							"__worldX": 120060,
-							"__worldY": 610,
-							"iid": "DebugLabel-6408",
-							"width": 320,
-							"height": 24,
-							"defUid": 2007,
-							"px": [60,610],
-							"fieldInstances": [
-								{ "__identifier": "name", "__type": "String", "__value": "left_label", "__tile": null, "defUid": 3015, "realEditorValues": [{
-									"id": "V_String",
-									"params": ["left_label"]
-								}] },
-								{ "__identifier": "text", "__type": "String", "__value": "Left frame: fall toward the left wall.", "__tile": null, "defUid": 3016, "realEditorValues": [{
-									"id": "V_String",
-									"params": ["Left frame: fall toward the left wall."]
-								}] },
-								{ "__identifier": "category", "__type": "String", "__value": "Custom", "__tile": null, "defUid": 3017, "realEditorValues": [] }
-							]
-						},
-						{
-							"__identifier": "DebugLabel",
-							"__grid": [29,7],
-							"__pivot": [0,0],
-							"__tags": [],
-							"__tile": null,
-							"__smartColor": "#FFFFFF",
-							"__worldX": 120470,
-							"__worldY": 120,
-							"iid": "DebugLabel-6409",
-							"width": 360,
-							"height": 24,
-							"defUid": 2007,
-							"px": [470,120],
-							"fieldInstances": [
-								{ "__identifier": "name", "__type": "String", "__value": "up_label", "__tile": null, "defUid": 3015, "realEditorValues": [{
-									"id": "V_String",
-									"params": ["up_label"]
-								}] },
-								{ "__identifier": "text", "__type": "String", "__value": "Up frame: fall toward the ceiling.", "__tile": null, "defUid": 3016, "realEditorValues": [{
-									"id": "V_String",
-									"params": ["Up frame: fall toward the ceiling."]
-								}] },
-								{ "__identifier": "category", "__type": "String", "__value": "Custom", "__tile": null, "defUid": 3017, "realEditorValues": [] }
-							]
-						},
-						{
-							"__identifier": "DebugLabel",
-							"__grid": [55,38],
-							"__pivot": [0,0],
-							"__tags": [],
-							"__tile": null,
-							"__smartColor": "#FFFFFF",
-							"__worldX": 120880,
-							"__worldY": 610,
-							"iid": "DebugLabel-6410",
-							"width": 340,
-							"height": 24,
-							"defUid": 2007,
-							"px": [880,610],
-							"fieldInstances": [
-								{ "__identifier": "name", "__type": "String", "__value": "right_label", "__tile": null, "defUid": 3015, "realEditorValues": [{
-									"id": "V_String",
-									"params": ["right_label"]
-								}] },
-								{ "__identifier": "text", "__type": "String", "__value": "Right frame: fall toward the right wall.", "__tile": null, "defUid": 3016, "realEditorValues": [{
-									"id": "V_String",
-									"params": ["Right frame: fall toward the right wall."]
+									"params": ["Grab the portal gun. Talk to Emmy. Flip gravity at the kernel."]
 								}] },
 								{ "__identifier": "category", "__type": "String", "__value": "Custom", "__tile": null, "defUid": 3017, "realEditorValues": [] }
 							]
@@ -56261,7 +56301,7 @@
 							"__smartColor": "#86A8E7",
 							"__worldX": 120000,
 							"__worldY": 0,
-							"iid": "CameraZone-6411",
+							"iid": "CameraZone-6433",
 							"width": 1280,
 							"height": 1280,
 							"defUid": 4002,
@@ -56286,7 +56326,7 @@
 				{
 					"__identifier": "Climbable",
 					"__type": "IntGrid",
-					"iid": "Climbable-6412",
+					"iid": "Climbable-6434",
 					"layerDefUid": 4201,
 					"intGridCsv": [
 						0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
@@ -56481,13 +56521,13 @@
 					"__pxTotalOffsetY": 0,
 					"__tilesetDefUid": null,
 					"__tilesetRelPath": null,
-					"levelId": 6391,
+					"levelId": 6413,
 					"pxOffsetX": 0,
 					"pxOffsetY": 0,
 					"visible": true,
 					"optionalRules": [],
 					"autoLayerTiles": [],
-					"seed": 6391,
+					"seed": 6413,
 					"overrideTilesetUid": null,
 					"gridTiles": [],
 					"entityInstances": []

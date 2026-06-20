@@ -96,9 +96,9 @@ mod reset_tests {
         app.add_systems(Update, clear_portals_on_reset);
 
         app.world_mut()
-            .spawn(portal(PortalChannel::Gun(PortalGunColor::Blue)));
+            .spawn(portal(PortalChannel::Gun(PortalGunColor::BLUE)));
         app.world_mut()
-            .spawn(portal(PortalChannel::Gun(PortalGunColor::Orange)));
+            .spawn(portal(PortalChannel::Gun(PortalGunColor::ORANGE)));
         let authored = app
             .world_mut()
             .spawn(portal(PortalChannel::Authored(PortalChannelColor::Purple)))

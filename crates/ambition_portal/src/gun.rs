@@ -23,18 +23,18 @@ impl Default for PortalGun {
     fn default() -> Self {
         Self {
             active: true,
-            next_color: PortalGunColor::Blue,
+            next_color: PortalGunColor::BLUE,
         }
     }
 }
 
-/// Flip which color the next shot will place, on a [`TogglePortalGun`] intent.
-/// The adapter decides *whether* a press is a portal toggle (vs. a door / NPC
-/// interaction); core just applies the flip. Operates on the [`PortalGun`]
-/// component generically (the gun mechanic) — it never names the player, so it
-/// stays in the crate. `PortalGun` only ever lives on the primary player today,
-/// so the generic single-gun query resolves to exactly the same gun the old
-/// `(PlayerEntity, PrimaryPlayer)`-filtered query did (identical-sim).
+/// Advance the gun to the next color, on a [`TogglePortalGun`] intent. One
+/// press walks through every end of every pair (blue₀ → orange₀ → blue₁ → …),
+/// so the player can place up to [`PortalGunColor::PAIRS`] independent pairs
+/// with a single toggle control. The adapter decides *whether* a press is a
+/// portal toggle (vs. a door / NPC interaction); core just applies the step.
+/// Operates on the [`PortalGun`] component generically (the gun mechanic) — it
+/// never names the player, so it stays in the crate.
 pub fn portal_toggle_system(
     mut toggles: MessageReader<TogglePortalGun>,
     mut guns: Query<&mut PortalGun>,
@@ -46,7 +46,7 @@ pub fn portal_toggle_system(
         return;
     };
     if gun.active {
-        gun.next_color = gun.next_color.other();
+        gun.next_color = gun.next_color.advance();
     }
 }
 

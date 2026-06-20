@@ -142,7 +142,7 @@ mod tests {
             .id()
     }
 
-    const BLUE: PortalChannel = PortalChannel::Gun(PortalGunColor::Blue);
+    const BLUE: PortalChannel = PortalChannel::Gun(PortalGunColor::BLUE);
     const PURPLE: PortalChannel = PortalChannel::Authored(PortalChannelColor::Purple);
 
     #[test]

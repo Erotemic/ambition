@@ -1,19 +1,20 @@
 """Generate the `symmetry_room` area spec with provable 4-fold (C4) symmetry.
 
 The Noether Chamber: a big square room whose interior is invariant under a
-quarter-turn. We author ONE canonical arm (the bottom arm, gravity DOWN, the
-"honest" entrance frame) and rotate its features 90 degrees three times to fill
-the left / top / right arms — so the geometry is symmetric *by construction*,
-not by hand-placement. Each arm has its own outward gravity field, an identical
-zig-zag climb toward the centre, and a pogo orb; by Noether's theorem the work
-to cross one arm is the work to cross any of them — that conserved crossing IS
-the lesson. The only symmetry-breaker is the entrance (door + spawn + Emmy),
-which the design intentionally exempts.
+quarter-turn. We author ONE canonical side and rotate its features 90 degrees
+three times, so the geometry is symmetric *by construction*.
+
+At the centre sits the KERNEL — a block with a gravity switch on each of its four
+faces. Each switch sets the room's ambient gravity toward that face, so any face
+can become "down" (handler: `SetGravity:<dir>` in encounter/systems.rs). Because
+the chamber is C4-symmetric, whatever climb reaches a switch under one gravity
+reaches the rotated switch under the rotated gravity — so the player is never
+stranded (the kernel "breaks" the symmetry the player restores). Pogo orbs sit at
+the kernel's corners; a portal gun at the entrance lets the player place up to
+four colour pairs. The only asymmetry is the entrance (door + spawn + Emmy).
 
     cd tools/ambition_ldtk_tools
     uv run --no-project --python 3.12 python gen_symmetry_room.py
-
-Then author it into the world:
     uv run --python 3.12 python -m ambition_ldtk_tools area create \
         specs/symmetry_room_area.ron --replace-existing
 """
@@ -22,67 +23,26 @@ from __future__ import annotations
 
 from pathlib import Path
 
-SIZE = 1280            # square room, multiple of the 16px grid
-C = SIZE / 2.0         # rotation centre (640, 640) — the fixed point
+SIZE = 1280
+C = SIZE / 2.0          # rotation centre (640, 640)
 WALL = 32
-ARM = 448              # corner blocks span [WALL..ARM] and [SIZE-ARM..SIZE-WALL]
+ARM = 448               # corner blocks span [WALL..ARM] / [SIZE-ARM..SIZE-WALL]
+K0, K1 = 512, 768       # kernel extent (256x256, centred)
 
 # down -> left -> up -> right under the rotation (dx,dy) -> (-dy, dx).
 DIR_ROT = {"down": "left", "left": "up", "up": "right", "right": "down"}
-DIR_NAME = {"down": "gravity DOWN", "up": "gravity UP",
-            "left": "gravity LEFT", "right": "gravity RIGHT"}
 
 
 def rot_rect(x, y, w, h):
     """Rotate a rectangle 90 degrees about the room centre (screen y-down)."""
     bx, by = x + w / 2.0, y + h / 2.0
     dx, dy = bx - C, by - C
-    ndx, ndy = -dy, dx
-    nw, nh = h, w
-    nx, ny = (C + ndx) - nw / 2.0, (C + ndy) - nh / 2.0
-    return int(round(nx)), int(round(ny)), int(round(nw)), int(round(nh))
-
-
-# ---- Canonical arm (BOTTOM, gravity down). Floor = bottom wall (y=1248). ----
-# A zig-zag staircase climbing from the floor up toward the centre, plus a pogo
-# orb on the floor. Coordinates are multiples of 16 so rotations stay on-grid.
-CANON_GRAVITY = (448, 832, 384, 416, "down")          # x, y, w, h, dir
-CANON_SOLIDS = [                                        # zig-zag climb ledges
-    (464, 1120, 144, 24, "step_a"),
-    (672, 1000, 144, 24, "step_b"),
-    (464, 880, 144, 24, "step_c"),
-]
-CANON_POGO = (622, 1168, 36, 36)                        # x, y (square)
-
-
-def emit_arm(rot):
-    """Return (solids, zones, pogos) for one arm = canonical rotated `rot` x90."""
-    def apply(x, y, w, h):
-        for _ in range(rot):
-            x, y, w, h = rot_rect(x, y, w, h)
-        return x, y, w, h
-
-    d = "down"
-    for _ in range(rot):
-        d = DIR_ROT[d]
-
-    gx, gy, gw, gh, _ = CANON_GRAVITY
-    gx, gy, gw, gh = apply(gx, gy, gw, gh)
-    zones = [(gx, gy, gw, gh, d)]
-
-    solids = []
-    for (x, y, w, h, name) in CANON_SOLIDS:
-        x, y, w, h = apply(x, y, w, h)
-        solids.append((x, y, w, h, f"{d}_{name}"))
-
-    px, py, pw, ph = CANON_POGO
-    px, py, pw, ph = apply(px, py, pw, ph)
-    pogos = [(px, py, d)]
-    return solids, zones, pogos
+    nx, ny = (C + (-dy)) - h / 2.0, (C + dx) - w / 2.0
+    return int(round(nx)), int(round(ny)), int(round(h)), int(round(w))
 
 
 def fnum(v):
-    return str(int(v))
+    return str(int(round(v)))
 
 
 def entity(etype, x, y, w, h, fields):
@@ -91,19 +51,43 @@ def entity(etype, x, y, w, h, fields):
             f'size: [{fnum(w)}, {fnum(h)}], fields: ( {parts} ) ),')
 
 
+# ---- Canonical features for the DOWN side; rotated x90 to fill all four. ----
+# Kernel-face gravity switch (bottom face): just below the kernel, centred.
+CANON_SWITCH = (624, K1, 32, 32, "down")
+# Ring shelf hugging the bottom face — footing to reach the side faces.
+CANON_RING = (528, 800, 224, 24)
+# A pogo orb tucked at the kernel's bottom-right corner.
+CANON_POGO = (744, 744, 36, 36)
+# An Emmy clone grounded in the down arm; rotations place one per face so the
+# quartet is C4-symmetric (each is "the Emmy who lives in that frame").
+CANON_EMMY = (470, 1200, 42, 42)
+# Zig-zag climb in the down arm: floor -> centre.
+CANON_STEPS = [
+    (470, 1120, 132, 24, "step_a"),
+    (678, 992, 132, 24, "step_b"),
+    (470, 864, 132, 24, "step_c"),
+]
+
+
+def rotn(rect, n):
+    x, y, w, h = rect
+    for _ in range(n):
+        x, y, w, h = rot_rect(x, y, w, h)
+    return x, y, w, h
+
+
 lines = []
 A = lines.append
 A('// symmetry_room — "The Noether Chamber": a C4-symmetric gravity tutorial.')
 A('//')
-A('// Generated by tools/ambition_ldtk_tools/gen_symmetry_room.py. Do NOT hand-edit;')
+A('// GENERATED by tools/ambition_ldtk_tools/gen_symmetry_room.py — do NOT hand-edit;')
 A('// edit the generator (it guarantees the quarter-turn symmetry) and re-run, then')
 A('//   area create specs/symmetry_room_area.ron --replace-existing')
 A('//')
-A('// A plus-shaped interior: four corner blocks frame four arms. Each arm carries')
-A('// an OUTWARD gravity field (down/left/up/right) and an identical zig-zag climb')
-A('// toward the centre, so crossing any arm is the same work rotated — Noether\'s')
-A('// theorem made walkable (symmetry of the room <-> conserved crossing). The only')
-A('// asymmetry is the entrance (door + spawn + Emmy No-Ether) in the bottom arm.')
+A('// A plus-shaped interior framed by four corner blocks. At the centre, the')
+A('// KERNEL carries a gravity switch on each face (SetGravity:<dir>) so any side')
+A('// can become "down". Pogo orbs ring the kernel corners; a 4-colour portal gun')
+A('// waits at the entrance. The only asymmetry is the entrance (door/spawn/Emmy).')
 A('(')
 A('    id: "symmetry_room",')
 A('    level_id: "symmetry_room",')
@@ -114,69 +98,72 @@ A(f'    px_hei: {SIZE},')
 A('    fill_collision: "empty",')
 A('    bg_color: "#12161F",')
 A('    biome: "lab",')
+A('    music_track: "for_emmy_forever_ago",')
 A('    entities: [')
 
-# ---- Border walls (C4-symmetric). ----
-A('        // Outer border (the four walls double as the four arms\' floors).')
+# ---- Border walls (C4) ----
+A('        // Outer border (each wall is a "floor" under the matching gravity).')
 A(entity("Solid", 0, 0, SIZE, WALL, {"name": '"wall_top"'}))
 A(entity("Solid", 0, SIZE - WALL, SIZE, WALL, {"name": '"wall_bottom"'}))
 A(entity("Solid", 0, 0, WALL, SIZE, {"name": '"wall_left"'}))
 A(entity("Solid", SIZE - WALL, 0, WALL, SIZE, {"name": '"wall_right"'}))
 
-# ---- Corner blocks (make the plus). ----
+# ---- Corner blocks (plus shape) ----
 A('        // Four corner blocks carve the open space into a symmetric plus.')
 A(entity("Solid", WALL, WALL, ARM - WALL, ARM - WALL, {"name": '"corner_tl"'}))
 A(entity("Solid", SIZE - ARM, WALL, ARM - WALL, ARM - WALL, {"name": '"corner_tr"'}))
 A(entity("Solid", WALL, SIZE - ARM, ARM - WALL, ARM - WALL, {"name": '"corner_bl"'}))
 A(entity("Solid", SIZE - ARM, SIZE - ARM, ARM - WALL, ARM - WALL, {"name": '"corner_br"'}))
 
-# ---- Central fixed-point pedestal (centred -> C4-symmetric). ----
-A('        // The fixed point: the one spot a quarter-turn leaves unmoved.')
-A(entity("Solid", 576, 576, 128, 128, {"name": '"fixed_point_pedestal"'}))
+# ---- The kernel ----
+A('        // The kernel: a gravity switch on each face sets that side as "down".')
+A(entity("Solid", K0, K0, K1 - K0, K1 - K0, {"name": '"kernel"'}))
 
-# ---- Per-arm gravity zones, climbs, pogo orbs (rotations of the canonical arm). ----
-for rot in range(4):
-    solids, zones, pogos = emit_arm(rot)
-    d = ["down", "left", "up", "right"][rot]
-    A(f'        // ---- {d.upper()} arm ({DIR_NAME[d]}). ----')
-    for (x, y, w, h, dirn) in zones:
-        A(entity("GravityZone", x, y, w, h, {
-            "id": f'"grav_{dirn}"', "name": f'"{DIR_NAME[dirn]}"', "dir": f'"{dirn}"'}))
-    for (x, y, w, h, name) in solids:
-        A(entity("Solid", x, y, w, h, {"name": f'"{name}"'}))
-    for (x, y, dirn) in pogos:
-        A(entity("PogoOrb", x, y, 36, 36, {"name": f'"pogo_{dirn}"'}))
+# ---- Rotated per-side features ----
+for n in range(4):
+    d = ["down", "left", "up", "right"][n]
+    A(f'        // ---- {d.upper()} face / approach. ----')
+    sx, sy, sw, sh = rotn(CANON_SWITCH[:4], n)
+    A(entity("Switch", sx, sy, sw, sh, {
+        "id": f'"kernel_switch_{d}"', "name": f'"gravity {d}"',
+        "prompt": f'"Set gravity {d.upper()}"', "action": f'"SetGravity:{d}"',
+        "target_encounter": '""'}))
+    rx, ry, rw, rh = rotn(CANON_RING, n)
+    A(entity("Solid", rx, ry, rw, rh, {"name": f'"ring_{d}"'}))
+    px, py, pw, ph = rotn(CANON_POGO, n)
+    A(entity("PogoOrb", px, py, pw, ph, {"name": f'"pogo_{d}"'}))
+    for step in CANON_STEPS:
+        stx, sty, stw, sth = rotn(step[:4], n)
+        A(entity("Solid", stx, sty, stw, sth, {"name": f'"{d}_{step[4]}"'}))
+    # One Emmy clone per face — symmetric quartet, distinct dialogue each.
+    ex, ey, ew, eh = rotn(CANON_EMMY, n)
+    dialogue = "emmy_noether" if d == "down" else f"emmy_noether_{d}"
+    A(entity("NpcSpawn", ex, ey, ew, eh, {
+        "prompt": f'"Talk to Emmy No-Ether ({d})"', "dialogue_id": f'"{dialogue}"',
+        "character_id": '"npc_noether"', "patrol_radius": "0"}))
 
-# ---- Entrance furniture (the intentional asymmetry, bottom arm). ----
-A('        // ---- Entrance (the one symmetry-breaker): door, spawn, and guide. ----')
+# ---- Entrance furniture (the intentional asymmetry, bottom arm) ----
+A('        // ---- Entrance (the one symmetry-breaker): door, spawn, gun. ----')
 A(entity("PlayerStart", 700, 1202, 28, 46, {"name": '"symmetry_spawn"'}))
-A(entity("LoadingZone", 600, 1152, 80, 96, {
+A(entity("LoadingZone", 596, 1152, 80, 96, {
     "id": '"symmetry_entry"', "name": '"symmetry_entry"', "activation": '"Door"',
     "target_room": '"central_hub_complex"', "target_zone": '"basement_to_symmetry_room_door"',
     "bidirectional": "true"}))
-A(entity("NpcSpawn", 520, 1206, 42, 42, {
-    "prompt": '"Talk to Emmy No-Ether"', "dialogue_id": '"emmy_noether"',
-    "character_id": '"npc_noether"', "patrol_radius": "0"}))
+A(entity("PortalGunSpawn", 764, 1208, 40, 40, {
+    "id": '"symmetry_portal_gun"', "name": '"Portal Gun (4 colours)"'}))
 
-# ---- Labels (spaced so none overlap in the debug overlay). ----
+# ---- Signage (spaced so none overlap) ----
 A('        // Signage.')
-A(entity("DebugLabel", 490, 536, 560, 24, {
+A(entity("DebugLabel", 360, 470, 560, 24, {
     "name": '"title"',
-    "text": '"The Noether Chamber: turn the room a quarter-turn and nothing changes but the door."',
+    "text": '"The Noether Chamber: a quarter-turn changes nothing. The kernel lets you choose which way is down."',
     "category": '"Custom"'}))
-A(entity("DebugLabel", 512, 628, 256, 24, {
-    "name": '"fixed_point_label"',
-    "text": '"Fixed point of the symmetry."', "category": '"Custom"'}))
-A(entity("DebugLabel", 470, 1130, 360, 24, {
-    "name": '"down_label"', "text": '"Down frame: the honest entrance."', "category": '"Custom"'}))
-A(entity("DebugLabel", 60, 610, 320, 24, {
-    "name": '"left_label"', "text": '"Left frame: fall toward the left wall."', "category": '"Custom"'}))
-A(entity("DebugLabel", 470, 120, 360, 24, {
-    "name": '"up_label"', "text": '"Up frame: fall toward the ceiling."', "category": '"Custom"'}))
-A(entity("DebugLabel", 880, 610, 340, 24, {
-    "name": '"right_label"', "text": '"Right frame: fall toward the right wall."', "category": '"Custom"'}))
+A(entity("DebugLabel", 470, 1090, 360, 24, {
+    "name": '"entry_label"',
+    "text": '"Grab the portal gun. Talk to Emmy. Flip gravity at the kernel."',
+    "category": '"Custom"'}))
 
-# ---- Camera. ----
+# ---- Camera ----
 A(entity("CameraZone", 0, 0, SIZE, SIZE, {
     "id": '"symmetry_camera"', "name": '"symmetry_camera"', "mode": '"Default"'}))
 

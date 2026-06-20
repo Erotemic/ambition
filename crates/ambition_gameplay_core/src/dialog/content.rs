@@ -89,8 +89,11 @@ pub const KNOWN_DIALOGUE_IDS: &[&str] = &[
     // dojo.yarn
     "ninja_duelist",
     "ninja_leader",
-    // symmetry.yarn
+    // symmetry.yarn — four C4-symmetric Emmy clones, one per kernel face.
     "emmy_noether",
+    "emmy_noether_left",
+    "emmy_noether_up",
+    "emmy_noether_right",
 ];
 
 /// Validator surface (LDtk content_validation reads this).

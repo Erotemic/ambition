@@ -1,39 +1,49 @@
+// The Noether Chamber has four Emmys — one per face of the kernel, placed
+// symmetrically. Each is the "same" Emmy seen from a different frame, so each
+// says something different but consistent. (Future: hook them up to mirror each
+// other's motion, and bark when the player breaks their symmetry.)
+
 title: emmy_noether
 ---
-Emmy No-Ether: Careful where you tread — this chamber has a quarter-turn symmetry, and I went to a great deal of trouble to make it so. Turn the whole room ninety degrees and nothing changes. Well. Except the door. The door is a vandal.
-Emmy No-Ether: My one theorem, if you'll indulge me: every symmetry hides a conservation law. A thing that refuses to change buys you a thing that cannot be spent.
--> So what does THIS symmetry conserve?
-    <<jump emmy_noether__1>>
--> Why is it called "No-Ether"?
-    <<jump emmy_noether__2>>
--> How do I actually cross the room?
-    <<jump emmy_noether__3>>
--> I'll just fall and find out.
+Emmy No-Ether: Down here by the door is the honest frame — the one you arrived believing in. There are three more of me around the kernel, you know. Don't be alarmed. The room has a quarter-turn symmetry, so naturally it has four of me.
+Emmy No-Ether: My theorem in one breath: every symmetry hides a conservation law. A thing that refuses to change buys you a thing that cannot be spent.
+-> So which of you is the real one?
+    Emmy No-Ether: Wrong question. Under the room's symmetry we are interchangeable — that's rather the point. Pick a different "down" at the kernel and watch which of us suddenly has her feet on the ground.
+-> How do I change which way is down?
+    <<jump emmy_noether__how>>
+-> Four of you is a lot of opinions.
+    Emmy No-Ether: And yet we agree perfectly — as long as you leave the symmetry intact. Break it and I expect we'll have words.
 ===
 
-title: emmy_noether__1
+title: emmy_noether__how
 ---
-Emmy No-Ether: The crossing itself. Each arm of this room points its own way down — left, right, up, the honest old down by the door. Step into a field and that direction becomes your floor.
-Emmy No-Ether: Because the four arms are the same shape rotated, the work to cross one is the work to cross any of them. Learn one arm and you have, by symmetry, learned all four. THAT is what's conserved. You're welcome.
--> Ask another question.
-    <<jump emmy_noether>>
--> Go and try it.
+Emmy No-Ether: The kernel in the centre has a switch on each face. Press one and gravity points that way — that face becomes the floor. The portal gun by the door places up to four colour pairs, if you'd rather fold the distance instead of falling through it.
+-> Good to know.
 ===
 
-title: emmy_noether__2
+title: emmy_noether_left
 ---
-Emmy No-Ether: Because there is no special way up. Old physics wanted an "ether" — one true, motionless frame that everything else was measured against. There isn't one. There never was.
-Emmy No-Ether: Your stick points the way YOU mean, and the world rotates underneath it. Down is just whichever wall is currently winning. Don't get sentimental about it.
--> Ask another question.
-    <<jump emmy_noether>>
--> Go and try it.
+Emmy No-Ether: From the left frame, "down" is whichever wall I'm leaning on. You think you fell sideways; I think you finally stood up straight. Neither of us is wrong — there's no privileged frame. That's the whole "No-Ether" of it.
+-> Why "No-Ether"?
+    Emmy No-Ether: Old physics wanted an ether — one true motionless stage everything else was measured against. There isn't one. Down is just whichever face of the kernel is currently winning.
+-> Conservation, again?
+    Emmy No-Ether: Always. Spin the room and the laws don't flinch — angular momentum is the receipt for that. Spin ME and my three sisters and, well, try it and see.
 ===
 
-title: emmy_noether__3
+title: emmy_noether_up
 ---
-Emmy No-Ether: Walk into an arm. The field there takes over and you fall toward its wall — your running stays sideways, perpendicular to whatever down has become. It will feel wrong for exactly one second, then correct.
-Emmy No-Ether: The bounce-orbs throw you AGAINST the local gravity, never against the screen. So a bounce that lifts you here lifts you there too, rotated. Same trick, four frames. Conservation, made walkable.
--> Ask another question.
-    <<jump emmy_noether>>
--> Go and try it.
+Emmy No-Ether: Up here I'm upside down to you, which means you're upside down to me, which means neither of us is. The ceiling is a floor that hasn't been voted in yet. Flip the kernel and I'll be the one standing.
+-> Doesn't the blood rush to your head?
+    Emmy No-Ether: Only if you insist on calling this "up". I don't. Translation symmetry conserves momentum; time symmetry conserves energy; and my refusal to be embarrassed conserves dignity.
+-> Teach me the trick.
+    Emmy No-Ether: Movement stays sideways no matter which way gravity points — your run axis is always perpendicular to your fall. Learn one crossing and the symmetry hands you the other three for free.
+===
+
+title: emmy_noether_right
+---
+Emmy No-Ether: Right frame, reporting. We four are a conserved quantity, you realise — as long as the chamber stays symmetric there will always be exactly four of me, no more, no less. Tidy, isn't it?
+-> What happens if I break the symmetry?
+    Emmy No-Ether: Then the bookkeeping fails and I imagine all four of us will have something sharp to say about it. For now we're in perfect agreement. Mind the kernel.
+-> Any advice?
+    Emmy No-Ether: Pogo off the kernel's corners to cross a gap against gravity; the bounce always throws you opposite to "down", whichever down you've chosen. Symmetry, made walkable.
 ===

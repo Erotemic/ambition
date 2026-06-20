@@ -20,8 +20,8 @@ use ambition_gameplay_core::portal::*;
 // Channel shorthands for the tests: the gun's pair (Blue/Orange) and two authored
 // pairs (Purple/Yellow). These map the old `PortalColor::X` literals onto the new
 // `PortalChannel` so the tests still pin byte-identical pairing/transit behavior.
-const BLUE: PortalChannel = PortalChannel::Gun(PortalGunColor::Blue);
-const ORANGE: PortalChannel = PortalChannel::Gun(PortalGunColor::Orange);
+const BLUE: PortalChannel = PortalChannel::Gun(PortalGunColor::BLUE);
+const ORANGE: PortalChannel = PortalChannel::Gun(PortalGunColor::ORANGE);
 const PURPLE: PortalChannel = PortalChannel::Authored(PortalChannelColor::Purple);
 const YELLOW: PortalChannel = PortalChannel::Authored(PortalChannelColor::Yellow);
 

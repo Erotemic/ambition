@@ -282,6 +282,24 @@ pub fn update_encounters_from_world(
             save.data_mut().set_switch(&activation.id, new_on);
             continue;
         }
+        // Cardinal gravity switch (Noether Chamber kernel faces): a `Switch`
+        // whose `action` is "SetGravity:<down|up|left|right>" sets the room's
+        // ambient gravity ([`crate::physics::BaseGravity`]) to that direction so
+        // that side becomes the new "down". Deferred world command (16-param
+        // tuple limit). Persist the switch as on so its sprite reads engaged.
+        if let Some(dir_token) = activation.action.as_str().strip_prefix("SetGravity:") {
+            let dir = match dir_token {
+                "up" => bevy::prelude::Vec2::new(0.0, -1.0),
+                "left" => bevy::prelude::Vec2::new(-1.0, 0.0),
+                "right" => bevy::prelude::Vec2::new(1.0, 0.0),
+                _ => bevy::prelude::Vec2::new(0.0, 1.0), // "down" / fallback
+            };
+            commands.queue(move |world: &mut bevy::prelude::World| {
+                world.resource_mut::<crate::physics::BaseGravity>().dir = dir;
+            });
+            save.data_mut().set_switch(&activation.id, true);
+            continue;
+        }
         if !matches!(activation.action.as_str(), "ResetEncounter") {
             continue;
         }

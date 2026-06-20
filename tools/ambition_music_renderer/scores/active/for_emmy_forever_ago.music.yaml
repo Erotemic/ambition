@@ -1,0 +1,211 @@
+schema: ambition.musicir.v1
+id: for_emmy_forever_ago
+title: For Emmy, Forever Ago
+seed: 2026062001
+notes: >-
+  Emmy No-Ether's theme for the Noether Chamber. A hushed, Bon Iver-leaning
+  folk reverie — slow 4/4, warm open maj7/sus voicings, fingerpicked nylon and
+  soft piano under a falsetto-ish lead doubled by an aahs choir, all bathed in a
+  long reverb tail. The lead phrase is a melodic PALINDROME (it reads the same
+  forwards and backwards): a symmetry whose conserved quantity is the melody
+  itself — Noether's theorem, sung. Title nods to "For Emma, Forever Ago".
+tempo:
+  bpm: 68
+meter:
+  beats_per_bar: 4
+  beat_unit: 4
+render:
+  sample_rate: 48000
+  ogg_quality: 5
+  backend: fallback
+constraints:
+  voice_leading: minimize_motion
+  no_clusters: true
+postprocess:
+  gain_db: -1.0
+  highpass_hz: 32
+  lowpass_hz: 11000
+  presence_low_hz: 1700
+  presence_high_hz: 4000
+  presence_db: 0.2
+  reverb_wet: 0.27
+  reverb_decay_seconds: 2.6
+  reverb_damping_hz: 4800
+  stereo_width: 0.2
+  compressor_threshold_db: -18.0
+  compressor_ratio: 2.4
+  compressor_attack_ms: 16.0
+  compressor_release_ms: 130.0
+  compressor_makeup_db: 1.0
+  compressor_knee_db: 6.5
+  limiter_drive: 0.96
+  normalize: true
+  target_peak_db: -7.6
+stem_postprocess:
+  highpass_hz: 30
+  reverb_wet: 0.09
+  reverb_decay_seconds: 1.4
+  reverb_damping_hz: 5000
+  stereo_width: 0.1
+  normalize: false
+  target_peak_db: -3.0
+instruments:
+  - {name: nylon, group: pluck, program: nylon_guitar, volume: 60, pan: 56, expression: 78}
+  - {name: piano, group: keys, program: acoustic_grand_piano, volume: 54, pan: 48, expression: 74}
+  - {name: falsetto, group: voice, program: lead_voice, volume: 58, pan: 66, expression: 80, modulation: 12}
+  - {name: choir, group: choir_pad, program: choir_aahs, volume: 44, pan: 60, expression: 66, modulation: 5}
+  - {name: warm_strings, group: strings, program: string_ensemble_1, volume: 46, pan: 52, expression: 68, modulation: 4}
+  - {name: cello, group: low_strings, program: cello, volume: 52, pan: 40, expression: 70}
+  - {name: harp, group: glimmer, program: orchestral_harp, volume: 44, pan: 76, expression: 64}
+motifs:
+  # A melodic palindrome: intervals read identically forwards and backwards, so
+  # the phrase is invariant under time-reversal — its own conserved quantity.
+  - id: emmy_palindrome
+    root: D5
+    intervals: [0, 2, 5, 7, 9, 7, 5, 2, 0]
+    rhythm: [0.75, 0.5, 0.75, 1.0, 1.0, 1.0, 0.75, 0.5, 1.75]
+    velocities: [0.46, 0.5, 0.56, 0.64, 0.7, 0.62, 0.54, 0.48, 0.4]
+  - id: answer
+    root: A4
+    intervals: [0, 3, 5, 3, 0]
+    rhythm: [1.0, 1.0, 1.5, 1.0, 1.5]
+    velocities: [0.48, 0.54, 0.6, 0.5, 0.42]
+layer_templates:
+  reverie_pad:
+    kind: pad_chords
+    instruments: [warm_strings]
+    octave: 3
+    every_bars: 2
+    duration_beats: 8.0
+    velocity: 28
+    articulation: pad
+    voicing: open
+    humanize_ms: 18
+    humanize_velocity_pct: 3
+  cello_root:
+    kind: bassline
+    instrument: cello
+    octave: 2
+    pattern: [[0, 0.0, 1.0], [7, 2.5, 0.5]]
+    velocity: 44
+    articulation: tenuto
+    humanize_ms: 10
+    humanize_velocity_pct: 4
+  fingerpick:
+    kind: arpeggio
+    instrument: nylon
+    octave: 3
+    pattern: [0, 2, 3, 4, 3, 2]
+    step: 0.5
+    duration_beats: 0.6
+    velocity: 38
+    density: 0.66
+    articulation: pluck
+    voicing: open
+    humanize_ms: 10
+    humanize_velocity_pct: 6
+  piano_drops:
+    kind: arpeggio
+    instrument: piano
+    octave: 4
+    pattern: [0, 4, 2]
+    step: 1.0
+    duration_beats: 0.9
+    velocity: 32
+    density: 0.5
+    articulation: tenuto
+    humanize_ms: 14
+    humanize_velocity_pct: 7
+  emmy_lead:
+    kind: motif
+    instruments: [falsetto, choir]
+    motif: emmy_palindrome
+    root: D5
+    every_bars: 8
+    repeats: 4
+    starts: [[0, 0.0]]
+    velocity: 52
+    articulation: legato
+    instrument_velocity_offsets: {falsetto: 0, choir: -14}
+    instrument_octave_offsets: {falsetto: 0, choir: -1}
+    humanize_ms: 16
+    humanize_velocity_pct: 5
+  answer_phrase:
+    kind: motif
+    instrument: falsetto
+    motif: answer
+    root: A4
+    every_bars: 8
+    repeats: 4
+    starts: [[4, 0.0]]
+    velocity: 44
+    articulation: legato
+    humanize_ms: 14
+    humanize_velocity_pct: 5
+  harp_shimmer:
+    kind: arpeggio
+    instrument: harp
+    octave: 5
+    pattern: [0, 1, 2, 3, 2, 1]
+    step: 0.75
+    duration_beats: 0.5
+    velocity: 26
+    density: 0.5
+    articulation: bell
+    humanize_ms: 10
+    humanize_velocity_pct: 6
+playback:
+  mode: section_stem_matrix
+  loop_components: [emmy_loop]
+  exit_policy:
+    request_outro: next_valid_exit_bar
+    fade_aggressive_stems_beats: 8
+    bridge_stems: [keys, strings, low_strings, pluck]
+    fade_stems: [voice, glimmer, choir_pad]
+state_map:
+  default:
+    section: emmy_loop
+    stems: {pluck: 0.7, keys: 0.6, voice: 0.66, choir_pad: 0.5, strings: 0.58, low_strings: 0.6, glimmer: 0.46}
+sections:
+  - id: emmy_loop
+    kind: loop_component
+    label: noether chamber reverie
+    bars: 32
+    intensity: 0.42
+    density: 0.5
+    loopable: true
+    valid_exit_local_bars: [8, 16, 24, 32]
+    harmony:
+      - Dmaj9
+      - A/C#
+      - Bm9
+      - Gmaj9
+      - Dmaj9
+      - Gmaj7
+      - A7sus4
+      - Dmaj9
+      - Bm9
+      - F#m7
+      - Gmaj7
+      - Em9
+      - A7sus4
+      - Dmaj9
+      - Gmaj7
+      - A7sus4
+      - Dmaj9
+      - A/C#
+      - Bm9
+      - Gmaj9
+      - Em9
+      - A7sus4
+      - Dmaj9
+      - Bm9
+      - Gmaj7
+      - Em9
+      - A7sus4
+      - Dmaj9
+      - Gmaj7
+      - Bm9
+      - A7sus4
+      - Dmaj9
+    layers: [reverie_pad, cello_root, fingerpick, piano_drops, emmy_lead, answer_phrase, harp_shimmer]

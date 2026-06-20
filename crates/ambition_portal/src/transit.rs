@@ -397,11 +397,11 @@ pub fn portal_teleport_ground_items(
     use super::color::PortalGunColor;
     let blue = portals
         .iter()
-        .find(|p| p.channel == PortalGunColor::Blue.channel())
+        .find(|p| p.channel == PortalGunColor::BLUE.channel())
         .copied();
     let orange = portals
         .iter()
-        .find(|p| p.channel == PortalGunColor::Orange.channel())
+        .find(|p| p.channel == PortalGunColor::ORANGE.channel())
         .copied();
     let (Some(blue), Some(orange)) = (blue, orange) else {
         return;

@@ -88,14 +88,14 @@ mod tests {
     // facing +x (Orange) so the shot pops back out flying +x.
     fn blue_facing_left() -> PlacedPortal {
         portal(
-            PortalGunColor::Blue.channel(),
+            PortalGunColor::BLUE.channel(),
             ae::Vec2::new(100.0, 0.0),
             ae::Vec2::new(-1.0, 0.0),
         )
     }
     fn orange_facing_right() -> PlacedPortal {
         portal(
-            PortalGunColor::Orange.channel(),
+            PortalGunColor::ORANGE.channel(),
             ae::Vec2::new(500.0, 0.0),
             ae::Vec2::new(1.0, 0.0),
         )

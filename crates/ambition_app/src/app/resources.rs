@@ -51,7 +51,7 @@ fn sandbox_init_failed() -> ! {
 
 #[cfg(not(test))]
 fn sandbox_init_failed() -> ! {
-    sandbox_init_failed();
+    std::process::exit(2);
 }
 
 pub fn init_sandbox_resources(app: &mut App) {

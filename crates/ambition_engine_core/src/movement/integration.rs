@@ -120,7 +120,7 @@ pub(super) fn integrate_velocity_clusters(
         );
     }
 
-    // Pre-X-sweep state.
+    // Pre-sweep state.
     clusters.wall.on_wall = false;
     let pre_wall_snapshot = clusters.kinematics.vel;
     clusters.wall.wall_normal_x = 0.0;
@@ -128,85 +128,61 @@ pub(super) fn integrate_velocity_clusters(
     let was_clinging = clusters.wall.wall_clinging;
     clusters.wall.wall_clinging = false;
 
-    // Under sideways gravity X is the GRAVITY axis (wall-walking): the X sweep is
-    // the gravity sweep, so on_ground is set by a probe after the sweeps and the
-    // vertical-only wall abilities (cling / wall-jump) are skipped for this slice.
+    // The sweeps are still X/Y because the world is axis-aligned, but the ORDER
+    // is local-frame semantic: sweep the controlled body's side axis first, then
+    // the gravity/support axis. That mirrors normal gravity (X run, then Y fall)
+    // for every cardinal gravity direction. In particular, a sideways body that
+    // runs off a ledge must lose support before the gravity-axis sweep for this
+    // frame, not one frame later because X happened to run before Y.
     let gravity_on_x = tuning.gravity_dir.x != 0.0;
 
     let drop_through = wants_drop_through(tuning.stick(&input).y, input.jump_pressed)
         || clusters.ground.drop_through_timer > 0.0;
 
-    // X-sweep — fully cluster-native. Under sideways gravity this is also the
-    // gravity-axis sweep, so one-way surfaces are gated here by the same
-    // controlled-body-local drop-through gesture the Y sweep uses under vertical
-    // gravity.
-    let dt_x = clusters.kinematics.vel.x * dt;
-    super::collision::sweep_player_x_clusters(
-        world,
-        clusters.kinematics,
-        clusters.wall,
-        clusters.body_mode,
-        clusters.env_contact,
-        dt_x,
-        drop_through,
-        tuning.gravity_dir,
-    );
+    let mut sweep_x = |clusters: &mut crate::player_clusters::PlayerClustersMut<'_>| {
+        let dt_x = clusters.kinematics.vel.x * dt;
+        super::collision::sweep_player_x_clusters(
+            world,
+            clusters.kinematics,
+            clusters.wall,
+            clusters.body_mode,
+            clusters.env_contact,
+            dt_x,
+            drop_through,
+            tuning.gravity_dir,
+        );
+    };
 
-    if !gravity_on_x {
-        apply_wall_abilities_clusters(
+    let mut sweep_y = |clusters: &mut crate::player_clusters::PlayerClustersMut<'_>| {
+        let prev_feet_coord = clusters
+            .kinematics
+            .aabb_oriented(tuning.gravity_dir)
+            .feet_coord(tuning.gravity_dir);
+        let dt_y = clusters.kinematics.vel.y * dt;
+        super::collision::sweep_player_y_clusters(
+            world,
             clusters.kinematics,
             clusters.ground,
             clusters.wall,
-            clusters.abilities,
-            clusters.combo_trace,
-            input,
-            tuning,
-            was_clinging,
-            events,
+            clusters.body_mode,
+            clusters.env_contact,
+            dt_y,
+            prev_feet_coord,
+            drop_through,
+            tuning.gravity_dir,
         );
-    }
+    };
 
-    // Pre-Y-sweep state. Store the body feet coordinate in the controlled
-    // body's acceleration frame; one-way/drop-through logic must not assume
-    // that the relevant support face is world-bottom.
-    let prev_feet_coord = clusters
-        .kinematics
-        .aabb_oriented(tuning.gravity_dir)
-        .feet_coord(tuning.gravity_dir);
-    if !gravity_on_x {
-        // Y is the gravity axis (down/up): reset on_ground before the Y sweep
-        // grounds the player. Under sideways gravity the probe below owns it.
+    if gravity_on_x {
+        // X is the support/gravity axis and Y is the local side axis. Move along
+        // the side axis first so ledge exits, one-way pass-through, and wall
+        // contacts see the same local ordering as normal gravity.
+        sweep_y(clusters);
         clusters.ground.on_ground = false;
-    }
-    let dt_y = clusters.kinematics.vel.y * dt;
-    if gravity_on_x {
-        // X is the gravity axis here, so any contact recorded by the X sweep is
-        // ground-like, not a side wall. Clear it before the Y sweep, which owns
-        // local side-axis wall contacts under sideways gravity.
-        clusters.wall.on_wall = false;
-        clusters.wall.wall_normal_x = 0.0;
-    }
-    super::collision::sweep_player_y_clusters(
-        world,
-        clusters.kinematics,
-        clusters.ground,
-        clusters.wall,
-        clusters.body_mode,
-        clusters.env_contact,
-        dt_y,
-        prev_feet_coord,
-        drop_through,
-        tuning.gravity_dir,
-    );
-
-    // Wall-walking ground probe: under sideways gravity the X (gravity-axis)
-    // sweep has stopped the body against the wall; ground it when a surface sits
-    // right there on the gravity side. Side walls are detected by the Y sweep and
-    // kept as wall contacts in the controlled body's local side frame.
-    if gravity_on_x {
-        clusters.ground.on_ground = super::collision::grounded_against_gravity(
+        sweep_x(clusters);
+        clusters.ground.on_ground = super::collision::stabilize_on_support(
             world,
-            clusters.kinematics.aabb_oriented(tuning.gravity_dir),
+            clusters.kinematics,
             tuning.gravity_dir,
             drop_through,
         );
@@ -221,6 +197,23 @@ pub(super) fn integrate_velocity_clusters(
             was_clinging,
             events,
         );
+    } else {
+        // Normal/up gravity: X is local side and Y is support/gravity. Keep the
+        // historical side-then-gravity order.
+        sweep_x(clusters);
+        apply_wall_abilities_clusters(
+            clusters.kinematics,
+            clusters.ground,
+            clusters.wall,
+            clusters.abilities,
+            clusters.combo_trace,
+            input,
+            tuning,
+            was_clinging,
+            events,
+        );
+        clusters.ground.on_ground = false;
+        sweep_y(clusters);
     }
 
     // Emergent platform riding — the SAME rule the shared `step_kinematic` sweep

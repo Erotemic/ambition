@@ -51,17 +51,25 @@ PYTHONPATH=tools/ambition_ldtk_tools python -m ambition_ldtk_tools entity add \
 For non-GridVania sandbox worlds, use `world auto-layout` to reduce editor
 sprawl. The command builds a graph from `LoadingZone.target_room` /
 `target_zone`, preserves all levels sharing an `activeArea` as a rigid group,
-anchors a chosen start level or active area at an origin, and greedily places
-connected groups near the door/edge that reaches them while avoiding overlapping
-level rectangles.
+anchors a chosen start level or active area at an origin, and places connected
+groups while avoiding overlapping level rectangles.
+
+Three layout strategies are available:
+
+- `greedy`: deterministic door-near placement, good as a stable default.
+- `layered`: Sugiyama-style rank placement inferred from LoadingZone directions,
+  useful for hub/basement/layered sandbox organization.
+- `clustered`: first merges low-degree, tightly linked room chains into islands,
+  then packs those islands, useful for sequential local room runs.
 
 ```bash
-# Report-only pass. Does not mutate the LDtk file. Add --svg-report to see
-# the proposed editor layout visually before writing.
-PYTHONPATH=tools/ambition_ldtk_tools python -m ambition_ldtk_tools world auto-layout \
-  crates/ambition_gameplay_core/assets/ambition/worlds/sandbox.ldtk \
-  --start central_hub_main --origin 0,0 --dry-run \
-  --svg-report /tmp/sandbox-layout.svg
+# Compare strategies visually. These passes do not mutate the LDtk file.
+for strategy in greedy layered clustered; do
+  PYTHONPATH=tools/ambition_ldtk_tools python -m ambition_ldtk_tools world auto-layout \
+    crates/ambition_gameplay_core/assets/ambition/worlds/sandbox.ldtk \
+    --start central_hub_main --origin 0,0 --dry-run \
+    --strategy "$strategy" --svg-report "/tmp/sandbox-layout-$strategy.svg"
+done
 
 # Write the layout after reviewing the dry-run report/SVG. Use --padding to
 # control minimum clearance between packed groups, and --lock to keep a level
@@ -69,7 +77,7 @@ PYTHONPATH=tools/ambition_ldtk_tools python -m ambition_ldtk_tools world auto-la
 PYTHONPATH=tools/ambition_ldtk_tools python -m ambition_ldtk_tools world auto-layout \
   crates/ambition_gameplay_core/assets/ambition/worlds/sandbox.ldtk \
   --start central_hub_main --origin 0,0 \
-  --padding 128 --lock central_hub_complex \
+  --strategy layered --padding 128 --lock central_hub_complex \
   --report /tmp/sandbox-layout.txt --svg-report /tmp/sandbox-layout.svg \
   --in-place
 ```
@@ -114,3 +122,52 @@ PYTHONPATH=tools/ambition_ldtk_tools python -m ambition_ldtk_tools room bundle-d
 This is intended to make LLM-assisted room design less brittle: the assistant can
 reason from a compact text summary, a single visual artifact, and relevant trace
 failures instead of asking for the whole repo or guessing LDtk coordinates.
+
+## Entity layer hygiene
+
+Large editor-only volumes such as `CameraZone` should live on a dedicated
+Entities layer instead of the catch-all `Ambition` layer. This makes the layer
+lockable/hideable in LDtk and keeps future agent-authored content from placing
+camera volumes on the gameplay interaction layer.
+
+```bash
+# Inspect the current camera zone placement in a room.
+PYTHONPATH=tools/ambition_ldtk_tools python -m ambition_ldtk_tools entity query \
+  --ldtk crates/ambition_gameplay_core/assets/ambition/worlds/sandbox.ldtk \
+  --level symmetry_room --identifier CameraZone
+
+# Move one room's CameraZone instances from Ambition to AmbitionCameras.
+PYTHONPATH=tools/ambition_ldtk_tools python -m ambition_ldtk_tools entity change-layer \
+  crates/ambition_gameplay_core/assets/ambition/worlds/sandbox.ldtk \
+  --level symmetry_room --identifier CameraZone \
+  --from-layer Ambition --to-layer AmbitionCameras \
+  --in-place
+
+# Or migrate all CameraZones currently on Ambition in the file.
+PYTHONPATH=tools/ambition_ldtk_tools python -m ambition_ldtk_tools layer split-entities \
+  crates/ambition_gameplay_core/assets/ambition/worlds/sandbox.ldtk \
+  --type CameraZone --from-layer Ambition --to-layer AmbitionCameras \
+  --in-place
+```
+
+LDtk supports entity tags plus layer `requiredTags` / `excludedTags`. The tool
+can set those filters so the editor itself only offers camera zones on the
+camera layer and hides them from the normal Ambition layer:
+
+```bash
+PYTHONPATH=tools/ambition_ldtk_tools python -m ambition_ldtk_tools layer apply-entity-rules \
+  crates/ambition_gameplay_core/assets/ambition/worlds/sandbox.ldtk \
+  --type CameraZone --to-layer AmbitionCameras --from-layer Ambition \
+  --tag Camera --in-place
+```
+
+For CI or agent preflight, validate the convention without mutating the file:
+
+```bash
+PYTHONPATH=tools/ambition_ldtk_tools python -m ambition_ldtk_tools layer check-entity-rules \
+  crates/ambition_gameplay_core/assets/ambition/worlds/sandbox.ldtk
+```
+
+The default rule is `CameraZone=AmbitionCameras`; add more with repeated
+`--rule EntityIdentifier=LayerIdentifier` flags or pass `--no-defaults` to use
+only explicit rules.

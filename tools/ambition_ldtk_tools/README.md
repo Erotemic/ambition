@@ -66,16 +66,20 @@ PYTHONPATH=tools/ambition_ldtk_tools python -m ambition_ldtk_tools portal pair \
 
 # Auto-format Free-layout worlds by LoadingZone graph. This preserves activeArea
 # groups as rigid clusters, anchors central_hub_main at 0,0, and places linked
-# rooms near the door/edge that reaches them. Start with --dry-run and inspect
-# the report before writing.
+# rooms near the door/edge that reaches them. Compare strategies with dry-run
+# SVG reports before writing.
+for strategy in greedy layered clustered; do
+  PYTHONPATH=tools/ambition_ldtk_tools python -m ambition_ldtk_tools world auto-layout \
+    crates/ambition_gameplay_core/assets/ambition/worlds/sandbox.ldtk \
+    --start central_hub_main --origin 0,0 --dry-run \
+    --strategy "$strategy" --svg-report "/tmp/sandbox-layout-$strategy.svg"
+done
 PYTHONPATH=tools/ambition_ldtk_tools python -m ambition_ldtk_tools world auto-layout \
   crates/ambition_gameplay_core/assets/ambition/worlds/sandbox.ldtk \
-  --start central_hub_main --origin 0,0 --dry-run \
-  --svg-report /tmp/sandbox-layout.svg
-PYTHONPATH=tools/ambition_ldtk_tools python -m ambition_ldtk_tools world auto-layout \
-  crates/ambition_gameplay_core/assets/ambition/worlds/sandbox.ldtk \
-  --start central_hub_main --origin 0,0 --padding 128 \
+  --start central_hub_main --origin 0,0 --strategy layered --padding 128 \
   --report /tmp/sandbox-layout.txt --svg-report /tmp/sandbox-layout.svg --in-place
+# Strategies: greedy = legacy door-near packing, layered = Sugiyama-style ranks,
+# clustered = low-degree linkage merging, then packing the merged room islands.
 # Use --lock LEVEL_OR_AREA for one-off pinned placements. Persistent locks are
 # duck-typed from a truthy level field named layoutLocked if the project defines it.
 
@@ -111,3 +115,28 @@ Older docs may mention top-level scripts such as the retired validate_ambition_l
 - Run `doctor` before committing LDtk changes.
 - Use `repair --in-place` and inspect the diff when the editor/tooling format changes.
 - Keep `docs/recipes/ldtk-authoring.md` and `docs/tools/ldtk-tools.md` aligned with this README.
+
+### Entity layer hygiene
+
+Use dedicated Entities layers for large editor-only volumes such as camera
+zones. The runtime loader reads every Entities layer, so moving `CameraZone`
+instances out of `Ambition` and into `AmbitionCameras` keeps gameplay behavior
+unchanged while making LDtk editing saner.
+
+```bash
+# Move CameraZones in one room.
+PYTHONPATH=tools/ambition_ldtk_tools python -m ambition_ldtk_tools entity change-layer \
+  crates/ambition_gameplay_core/assets/ambition/worlds/sandbox.ldtk \
+  --level symmetry_room --identifier CameraZone \
+  --from-layer Ambition --to-layer AmbitionCameras --in-place
+
+# Make LDtk enforce the convention via entity tags and layer filters.
+PYTHONPATH=tools/ambition_ldtk_tools python -m ambition_ldtk_tools layer apply-entity-rules \
+  crates/ambition_gameplay_core/assets/ambition/worlds/sandbox.ldtk \
+  --type CameraZone --to-layer AmbitionCameras --from-layer Ambition \
+  --tag Camera --in-place
+
+# Check placement convention in CI/agent preflight.
+PYTHONPATH=tools/ambition_ldtk_tools python -m ambition_ldtk_tools layer check-entity-rules \
+  crates/ambition_gameplay_core/assets/ambition/worlds/sandbox.ldtk
+```

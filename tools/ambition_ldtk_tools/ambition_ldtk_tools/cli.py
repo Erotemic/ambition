@@ -15,7 +15,8 @@ Subcommands (those marked [TODO] are not yet wired and will print a hint):
     door free-spots <room>         List free 48x96 door slots in a level.
 
     world init <target.ldtk>       Scaffold a new .ldtk file by cloning sandbox.ldtk defs.
-    world auto-layout <ldtk>      Arrange Free-layout levels by LoadingZone graph.
+    world auto-layout <ldtk>      Arrange Free-layout levels by LoadingZone graph
+                                   (--strategy greedy/layered/clustered).
 
     level set-field [--level ID --set key=value | <spec.yaml>]
                                    Update level-scoped metadata (biome /
@@ -24,9 +25,12 @@ Subcommands (those marked [TODO] are not yet wired and will print a hint):
     entity add <spec.yaml>         Add entity instance(s) into a level.
     entity set-field <spec.yaml>   Set field instances on existing entities.
     entity move      <spec.yaml>   Move an existing entity to new px/size.
+    entity change-layer <ldtk>     Move selected entities to another Entities layer.
     entity delete    <spec.yaml>   Delete entity instance(s) from a level.
     entity query     [filters]     Read-only: list/query entities by level/type/field.
     entity check     [rect]        Read-only: report overlaps + nearest neighbor for a placement.
+    layer check-entity-rules       Read-only: validate entity/layer placement policy.
+    layer apply-entity-rules       Set LDtk tag filters so entities are only placeable on intended layers.
 
     def register-entity <spec>     Register a new entity definition.
     def update-entity <id> <ldtk>  Add new fields to an existing entity def.
@@ -167,6 +171,8 @@ def cmd_entity(args, rest):
         return _delegate("ambition_ldtk_tools.edit.set_field", rest)
     if args.entity_action == "move":
         return _delegate("ambition_ldtk_tools.edit.move", rest)
+    if args.entity_action == "change-layer":
+        return _delegate("ambition_ldtk_tools.edit.entity_layer_rules", [args.entity_action, *rest])
     if args.entity_action == "delete":
         return _delegate("ambition_ldtk_tools.edit.delete", rest)
     if args.entity_action == "query":
@@ -204,6 +210,11 @@ def cmd_layer(args, rest):
     if args.layer_action == "split-entities":
         return _delegate(
             "ambition_ldtk_tools.edit.layer_split_entities",
+            [args.layer_action, *rest],
+        )
+    if args.layer_action in {"check-entity-rules", "apply-entity-rules"}:
+        return _delegate(
+            "ambition_ldtk_tools.edit.entity_layer_rules",
             [args.layer_action, *rest],
         )
     return _todo(f"layer {args.layer_action}")
@@ -410,6 +421,15 @@ def build_parser() -> argparse.ArgumentParser:
     entity_sub.add_parser("add", help="Add entity instance(s)")
     entity_sub.add_parser("set-field", help="Set field instances on existing entities")
     entity_sub.add_parser("move", help="Move an existing entity")
+    entity_sub.add_parser(
+        "change-layer",
+        help=(
+            "Move selected entity instances to another Entities layer. "
+            "Usage: entity change-layer <ldtk> --identifier CameraZone "
+            "--to-layer AmbitionCameras [--from-layer Ambition] "
+            "(--dry-run | --in-place | --output PATH)"
+        ),
+    )
     entity_sub.add_parser("delete", help="Delete entity instance(s) from a level")
     entity_sub.add_parser(
         "query",
@@ -509,7 +529,7 @@ def build_parser() -> argparse.ArgumentParser:
     link_sub.add_parser("check")
     sp_link.set_defaults(func=cmd_link)
 
-    # layer {split-entities}
+    # layer {split-entities,check-entity-rules,apply-entity-rules}
     sp_layer = sub.add_parser("layer", help="Layer-level edits")
     layer_sub = sp_layer.add_subparsers(dest="layer_action", required=True)
     layer_sub.add_parser(
@@ -520,6 +540,24 @@ def build_parser() -> argparse.ArgumentParser:
             "independently. Usage: layer split-entities <ldtk> "
             "--type CameraZone --to-layer AmbitionCameras "
             "[--from-layer Ambition] (--in-place | --output PATH)"
+        ),
+    )
+    layer_sub.add_parser(
+        "check-entity-rules",
+        help=(
+            "Read-only: validate that restricted entity types live on their "
+            "intended layer. Defaults include CameraZone=AmbitionCameras; "
+            "override/repeat with --rule Entity=Layer."
+        ),
+    )
+    layer_sub.add_parser(
+        "apply-entity-rules",
+        help=(
+            "Update LDtk entity tags + layer required/excluded tags so the "
+            "editor only offers restricted entity types on intended layers. "
+            "Usage: layer apply-entity-rules <ldtk> --type CameraZone "
+            "--to-layer AmbitionCameras [--from-layer Ambition] "
+            "(--dry-run | --in-place | --output PATH)"
         ),
     )
     sp_layer.set_defaults(func=cmd_layer)

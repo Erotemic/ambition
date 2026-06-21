@@ -31,7 +31,6 @@ from __future__ import annotations
 import argparse
 import json
 import shutil
-import subprocess
 import sys
 from dataclasses import dataclass
 from pathlib import Path
@@ -71,13 +70,22 @@ def load_project(path: Path) -> dict:
 
 
 def write_project(path: Path, project: dict) -> None:
-    path.write_text(json.dumps(project, indent=2))
+    try:
+        from ambition_ldtk_tools.editor_format import dump_editor_style
+        from ambition_ldtk_tools.validate import normalize_project_for_editor
+
+        normalize_project_for_editor(project)
+        path.write_text(dump_editor_style(project))
+    except Exception:  # pragma: no cover - fallback for partial tool installs
+        path.write_text(json.dumps(project, indent=2))
 
 
 def run_repair(path: Path) -> int:
-    cmd = [sys.executable, "-m", "ambition_ldtk_tools.repair", str(path), "--in-place"]
-    print("$ " + " ".join(cmd))
-    return subprocess.run(cmd).returncode
+    # Compatibility shim: write_project already canonicalizes editor metadata.
+    # Do not shell out to repair here because repair also validates LoadingZone
+    # targets, and sandbox worlds may intentionally link to other LDtk files.
+    print(f"note: wrote canonical editor-style JSON; skipped full repair validation for {path}")
+    return 0
 
 
 def find_layer_def(project: dict, identifier: str) -> dict | None:
@@ -258,7 +266,6 @@ def change_layer(
     if iid is None and identifier is None:
         raise SystemExit("select entities with --iid or --identifier")
 
-    dest_def = ensure_entities_layer_def(project, to_layer, clone_from=from_layer)
     selected: list[EntityLocation] = []
     for loc in iter_entities(project, level_filter=level_filter, layer_filter=from_layer):
         if loc.layer.get("__identifier") == to_layer:
@@ -277,9 +284,12 @@ def change_layer(
         layer_id = str(loc.layer.get("__identifier"))
         by_level_layer.setdefault((level_id, layer_id), []).append(loc.entity)
 
+    dest_def = None
     for (level_id, layer_id), entities in by_level_layer.items():
         level = next(level for level in project.get("levels", []) if level.get("identifier") == level_id)
         source = find_layer_instance(level, layer_id)
+        if dest_def is None:
+            dest_def = ensure_entities_layer_def(project, to_layer, clone_from=from_layer or layer_id)
         dest = ensure_entities_layer_instance(
             project,
             level,
@@ -440,7 +450,7 @@ def cmd_change_layer(argv: list[str]) -> int:
     ap.add_argument("--in-place", action="store_true")
     ap.add_argument("--output", type=Path, default=None)
     ap.add_argument("--backup", action="store_true")
-    ap.add_argument("--no-repair", action="store_true")
+    ap.add_argument("--no-repair", action="store_true", help="compatibility flag; writes already skip full repair validation")
     args = ap.parse_args(argv)
     if args.dry_run and (args.in_place or args.output):
         ap.error("--dry-run cannot be combined with --in-place/--output")
@@ -465,6 +475,9 @@ def cmd_change_layer(argv: list[str]) -> int:
         for line in moved:
             print(f"  {line}")
     if args.dry_run:
+        return 0
+    if not moved:
+        print("change-layer: left file unchanged")
         return 0
     return maybe_write(
         project=project,
@@ -503,7 +516,7 @@ def cmd_apply_rules(argv: list[str]) -> int:
     ap.add_argument("--in-place", action="store_true")
     ap.add_argument("--output", type=Path, default=None)
     ap.add_argument("--backup", action="store_true")
-    ap.add_argument("--no-repair", action="store_true")
+    ap.add_argument("--no-repair", action="store_true", help="compatibility flag; writes already skip full repair validation")
     args = ap.parse_args(argv)
     if args.dry_run and (args.in_place or args.output):
         ap.error("--dry-run cannot be combined with --in-place/--output")

@@ -140,3 +140,8 @@ PYTHONPATH=tools/ambition_ldtk_tools python -m ambition_ldtk_tools layer apply-e
 PYTHONPATH=tools/ambition_ldtk_tools python -m ambition_ldtk_tools layer check-entity-rules \
   crates/ambition_gameplay_core/assets/ambition/worlds/sandbox.ldtk
 ```
+
+Layer relocation writes editor-style JSON directly and does not run full
+LoadingZone validation as a post-pass. This keeps the commands safe for sandbox
+worlds that intentionally link to rooms in other LDtk files. Use
+`repair --in-place` separately when you specifically want full validation.

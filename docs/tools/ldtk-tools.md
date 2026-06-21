@@ -150,6 +150,11 @@ PYTHONPATH=tools/ambition_ldtk_tools python -m ambition_ldtk_tools layer split-e
   --in-place
 ```
 
+If no entities match, the command is a no-op and leaves the file unchanged. The
+command writes editor-style JSON directly and intentionally skips full
+LoadingZone validation so cross-LDtk links do not break unrelated layer hygiene
+changes.
+
 LDtk supports entity tags plus layer `requiredTags` / `excludedTags`. The tool
 can set those filters so the editor itself only offers camera zones on the
 camera layer and hides them from the normal Ambition layer:
@@ -167,6 +172,11 @@ For CI or agent preflight, validate the convention without mutating the file:
 PYTHONPATH=tools/ambition_ldtk_tools python -m ambition_ldtk_tools layer check-entity-rules \
   crates/ambition_gameplay_core/assets/ambition/worlds/sandbox.ldtk
 ```
+
+Layer relocation writes editor-style JSON directly and does not run full
+LoadingZone validation as a post-pass. This keeps the commands safe for sandbox
+worlds that intentionally link to rooms in other LDtk files. Use
+`repair --in-place` separately when you specifically want full validation.
 
 The default rule is `CameraZone=AmbitionCameras`; add more with repeated
 `--rule EntityIdentifier=LayerIdentifier` flags or pass `--no-defaults` to use

@@ -35,8 +35,9 @@ Idempotent: re-running after the entities have moved is a no-op
 (nothing matches in `from-layer` anymore). Safe to commit + re-run
 in CI.
 
-Runs `repair --in-place` on the result by default; pass `--no-repair`
-to skip.
+Writes LDtk editor-style JSON directly. It no longer shells out to `repair`
+by default because `repair` also runs full project validation, and sandbox files
+may intentionally contain LoadingZone links to rooms in other LDtk files.
 """
 
 from __future__ import annotations
@@ -44,11 +45,27 @@ from __future__ import annotations
 import argparse
 import json
 import shutil
-import subprocess
 import sys
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[4]
+
+
+def write_project(path: Path, project: dict) -> None:
+    """Write editor-style JSON without running full semantic validation.
+
+    `repair` is still useful as a standalone command, but it also validates
+    LoadingZone targets. That is too strong for entity relocation because some
+    sandbox worlds intentionally link to rooms that live in other LDtk files.
+    """
+    try:
+        from ambition_ldtk_tools.editor_format import dump_editor_style
+        from ambition_ldtk_tools.validate import normalize_project_for_editor
+
+        normalize_project_for_editor(project)
+        path.write_text(dump_editor_style(project))
+    except Exception:  # pragma: no cover - fallback for partial tool installs
+        path.write_text(json.dumps(project, indent=2))
 
 
 def find_layer_def(project: dict, identifier: str) -> dict | None:
@@ -153,19 +170,13 @@ def relocate_entities(
 
 
 def run_repair(ldtk_path: Path) -> None:
-    """Apply the standard `repair --in-place` post-pass so editor
-    metadata stays canonical (matches set_field / area-authoring's
-    convention)."""
-    python_exe = sys.executable
-    cmd = [
-        python_exe,
-        "-m",
-        "ambition_ldtk_tools.repair",
-        str(ldtk_path),
-        "--in-place",
-    ]
-    print(f"$ {' '.join(cmd)}")
-    subprocess.run(cmd, check=True)
+    """Deprecated compatibility shim.
+
+    Entity-layer moves now write canonical editor-style JSON directly. Running
+    full `repair` here made harmless cross-LDtk LoadingZone links fail unrelated
+    layer moves.
+    """
+    print(f"note: wrote canonical editor-style JSON; skipped full repair validation for {ldtk_path}")
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -200,13 +211,16 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--in-place", action="store_true")
     ap.add_argument("--output", type=Path, default=None)
     ap.add_argument("--backup", action="store_true")
-    ap.add_argument("--no-repair", action="store_true")
+    ap.add_argument("--dry-run", action="store_true")
+    ap.add_argument("--no-repair", action="store_true", help="compatibility flag; writes already skip full repair validation")
     args = ap.parse_args(argv)
 
     if args.in_place and args.output:
         ap.error("choose --in-place or --output <path>")
-    if not args.in_place and not args.output:
-        ap.error("choose --in-place or --output <path>")
+    if args.dry_run and (args.in_place or args.output):
+        ap.error("--dry-run cannot be combined with --in-place/--output")
+    if not args.dry_run and not args.in_place and not args.output:
+        ap.error("choose --dry-run, --in-place, or --output <path>")
 
     project = json.loads(args.ldtk.read_text())
 
@@ -215,9 +229,7 @@ def main(argv: list[str] | None = None) -> int:
         return _fail(
             f"source layer '{args.from_layer}' not found or not an Entities layer"
         )
-    dest_def = ensure_dest_layer_def(
-        project, from_def=from_def, dest_identifier=args.to_layer
-    )
+    dest_def = find_layer_def(project, args.to_layer)
 
     total_moved = 0
     levels_touched = 0
@@ -231,18 +243,11 @@ def main(argv: list[str] | None = None) -> int:
             e.get("__identifier") == args.entity_type
             for e in from_inst.get("entityInstances", [])
         ):
-            # Nothing to move on this level — still ensure the dest
-            # layer instance exists so the LDtk schema stays consistent
-            # across levels (LDtk expects every level to carry every
-            # layer instance).
-            ensure_dest_layer_instance(
-                project,
-                level,
-                from_instance=from_inst,
-                dest_def=dest_def,
-                dest_identifier=args.to_layer,
-            )
             continue
+        if dest_def is None:
+            dest_def = ensure_dest_layer_def(
+                project, from_def=from_def, dest_identifier=args.to_layer
+            )
         dest_inst = ensure_dest_layer_instance(
             project,
             level,
@@ -263,20 +268,22 @@ def main(argv: list[str] | None = None) -> int:
                 f"{args.entity_type} entities"
             )
 
-    # Also ensure every level that LACKS the source layer still
-    # carries the dest layer instance — though in practice levels
-    # without the source layer are unusual.
+    print(
+        f"split-entities: {'would move' if args.dry_run else 'moved'} {total_moved} {args.entity_type} entities "
+        f"across {levels_touched} level(s) "
+        f"(skipped {levels_skipped} level(s) without `{args.from_layer}`)"
+    )
+    if args.dry_run:
+        return 0
+    if total_moved == 0:
+        print("split-entities: no matching entities; left file unchanged")
+        return 0
     target_path = args.output or args.ldtk
     if args.backup and args.in_place:
         backup_path = target_path.with_suffix(target_path.suffix + ".bak")
         shutil.copy2(target_path, backup_path)
         print(f"backup written: {backup_path}")
-    target_path.write_text(json.dumps(project, indent=2))
-    print(
-        f"split-entities: moved {total_moved} {args.entity_type} entities "
-        f"across {levels_touched} level(s) "
-        f"(skipped {levels_skipped} level(s) without `{args.from_layer}`)"
-    )
+    write_project(target_path, project)
     if not args.no_repair:
         run_repair(target_path)
     return 0

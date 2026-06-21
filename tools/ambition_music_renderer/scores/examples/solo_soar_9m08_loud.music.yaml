@@ -43,11 +43,15 @@ render:
   sample_rate: 48000
   ogg_quality: 6
   backend: pretty-midi
+  adaptive_section_mastering:
+    mode: global_master_slices
 
 # Spec-level constraints — apply to every chord layer unless overridden.
 constraints:
   voice_leading: minimize_motion
   no_clusters: true
+  min_pitch: 36
+  max_pitch: 96
 
 postprocess:
   gain_db: 0.0
@@ -159,6 +163,24 @@ motifs:
     rhythm:    [2.0, 2.0, 1.0, 1.0, 1.0, 1.0, 2.0, 2.0, 4.0]
     velocities: [0.84, 0.82, 0.84, 0.86, 0.88, 0.86, 0.84, 0.82, 0.78]
 
+  # Solo A replacement: an 8-bar chord-aware story phrase. This keeps the
+  # lead inside a playable guitar register, lines up with D-A-G-D / Bm-A-G-A,
+  # and ends every phrase with a short shred flourish instead of looping the
+  # old awkward four-bar cells over unrelated chords.
+  - id: solo_a_story
+    root: D5
+    intervals: [7, 4, 2, 11, 9, 7, 9, 7, 5, 0, 4, 7, 12, 11,
+                9, 7, 4, 2, 11, 9, 7, 5, 9, 12, 9,
+                0, 2, 4, 7, 9, 7, 4, 2]
+    rhythm:    [2.0, 1.0, 1.0, 1.0, 1.0, 2.0, 1.0, 1.0, 1.0, 1.0,
+                1.0, 1.0, 1.0, 1.0, 2.0, 1.0, 1.0, 1.0, 1.0,
+                1.0, 1.0, 1.0, 1.0, 1.0, 1.0,
+                0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5]
+    velocities: [0.92, 0.86, 0.82, 0.96, 0.88, 0.86, 0.90, 0.84, 0.82, 0.78,
+                 0.86, 0.92, 0.98, 0.84, 0.94, 0.88, 0.84, 0.82, 0.96,
+                 0.88, 0.84, 0.82, 0.90, 0.96, 0.88,
+                 0.82, 0.84, 0.88, 0.94, 1.00, 0.94, 0.88, 0.84]
+
   # Solo opening — sparse, sustained, with bend gestures. 4 bars.
   # Bar 1: A5 (whole — held with vibrato, this is THE "soar" anchor)
   # Bar 2: G5 (h) - F#5 (h)  — descending sigh
@@ -189,7 +211,7 @@ motifs:
   # G5 (h) - F#5 (h)
   - id: twin_upper
     root: D5
-    intervals: [0, 4, 7, 4, 0, -5, 4, 7, 9, 7, 5, 4]
+    intervals: [0, 4, 7, 4, 0, -5, 4, 7, 9, 7, 5, 2]
     rhythm:    [2.0, 2.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 2.0, 2.0]
     velocities: [0.90, 0.94, 0.96, 0.92, 0.88, 0.84, 0.92, 0.96, 1.00, 0.96, 0.92, 0.88]
 
@@ -316,8 +338,8 @@ layer_templates:
     humanize_ms: 3
     humanize_velocity_pct: 4
 
-  # Bass: half-note plus passing notes (root, fifth, root, root) to give
-  # forward motion without competing with the rhythm guitar.
+  # Bass: half-note plus octave reinforcement. Avoid fifths against slash
+  # chords: A/C# + +7 produced G# bass stabs that read as sour notes.
   bass_walk:
     kind: bassline
     instrument: bass
@@ -328,7 +350,7 @@ layer_templates:
     humanize_velocity_pct: 3
     pattern:
       - [0, 0.0, 1.8]
-      - [7, 2.0, 1.0]
+      - [12, 2.0, 0.9]
       - [0, 3.0, 0.9]
 
   # Bass: 8th-note drive for chorus/solo.
@@ -356,10 +378,11 @@ layer_templates:
     kind: pad_chords
     instrument: string_pad
     octave: 3
-    duration_beats: 4.0
-    velocity: 56
+    duration_beats: 3.65
+    velocity: 54
     articulation: pad
     voicing: open
+    constraints: {max_pitch: 79, min_pitch: 38}
     humanize_ms: 8
     humanize_velocity_pct: 2
 
@@ -368,10 +391,11 @@ layer_templates:
     kind: pad_chords
     instrument: organ
     octave: 3
-    duration_beats: 4.0
-    velocity: 70
+    duration_beats: 3.75
+    velocity: 68
     articulation: pad
     voicing: open
+    constraints: {max_pitch: 84, min_pitch: 36}
     humanize_ms: 4
     humanize_velocity_pct: 2
 
@@ -380,10 +404,11 @@ layer_templates:
     kind: chord_hits
     instrument: organ
     octave: 3
-    velocity: 84
-    duration_beats: 1.5
+    velocity: 82
+    duration_beats: 1.25
     articulation: marcato
     voicing: open
+    constraints: {max_pitch: 84, min_pitch: 36}
     humanize_ms: 2
     humanize_velocity_pct: 3
 
@@ -391,11 +416,12 @@ layer_templates:
   piano_voicing:
     kind: chord_hits
     instrument: piano
-    octave: 4
-    velocity: 70
-    duration_beats: 4.0
+    octave: 3
+    velocity: 66
+    duration_beats: 2.75
     articulation: tenuto
     voicing: open
+    constraints: {max_pitch: 84, min_pitch: 36}
     humanize_ms: 3
     humanize_velocity_pct: 3
 
@@ -403,12 +429,13 @@ layer_templates:
   warm_pad_layer:
     kind: pad_chords
     instrument: warm_pad
-    octave: 3
+    octave: 2
     every_bars: 4
-    duration_beats: 16.0
-    velocity: 36
+    duration_beats: 3.5
+    velocity: 26
     articulation: pad
-    voicing: wide
+    voicing: open
+    constraints: {max_pitch: 72, min_pitch: 36}
     humanize_ms: 0
 
   # French horn pad — chorus + climax weight only.
@@ -416,10 +443,11 @@ layer_templates:
     kind: pad_chords
     instrument: horn
     octave: 3
-    duration_beats: 4.0
-    velocity: 64
+    duration_beats: 3.6
+    velocity: 60
     articulation: legato
     voicing: closed
+    constraints: {max_pitch: 76, min_pitch: 43}
     humanize_ms: 6
     humanize_velocity_pct: 2
 
@@ -510,6 +538,17 @@ layer_templates:
     humanize_ms: 4
     humanize_velocity_pct: 3
 
+  solo_a_story_voice:
+    kind: motif
+    instrument: solo_gtr
+    motif: solo_a_story
+    velocity: 92
+    articulation: tenuto
+    pitch_bend_curve: [[0.0, 20], [0.16, 55], [0.65, 35], [1.0, 0]]
+    instrument_pitch_scoop_cents: {solo_gtr: 8.0}
+    humanize_ms: 4
+    humanize_velocity_pct: 4
+
   twin_lead_voice:
     kind: motif
     instruments: [lead_gtr, solo_gtr]
@@ -541,9 +580,9 @@ layer_templates:
     kind: motif
     instrument: solo_gtr
     motif: solo_upper
-    velocity: 92
+    velocity: 90
     articulation: tenuto
-    instrument_pitch_scoop_cents: {solo_gtr: 14.0}
+    instrument_pitch_scoop_cents: {solo_gtr: 10.0}
     humanize_ms: 4
     humanize_velocity_pct: 3
 
@@ -949,21 +988,16 @@ sections:
     valid_exit_local_bars: [4, 8, 12, 16, 20, 24]
     harmony: ["D", "A", "G", "D", "Bm", "A", "G", "A",
               "D", "A", "G", "D", "Bm", "A", "G", "A",
-              "D", "A", "G", "D", "Bm", "G", "A", "A"]
+              "D", "A", "G", "D", "Bm", "A", "G", "A"]
     layers:
       - guitar_vibrato
-      # solo_open (4-bar held A5 + descending sigh) on bars 0/8/16,
-      # solo_build (4-bar mid-active phrase) on bars 4/12/20. Bursts land
-      # on the BEAT-3 of each phrase's last bar so they read as the lead
-      # answering the phrase rather than starting a new one.
-      - {template: solo_open_voice, starts: [[0, 0.0], [8, 0.0], [16, 0.0]], velocity: 88}
-      - {template: solo_build_voice, starts: [[4, 0.0], [12, 0.0], [20, 0.0]], velocity: 90}
-      # Single ascending burst at the end of bar 7 — the cap on phrase 1.
-      - {template: flair_ascend_voice, starts: [[7, 0.0]], velocity: 92}
-      # Descending burst at the end of bar 15 — phrase 2 cap.
-      - {template: flair_descend_voice, starts: [[15, 0.0]], velocity: 92}
-      # No flair on phrase 3 — leave the listener wanting more, the bigger
-      # bursts come in solo_b / solo_c.
+      # Reworked 8-bar chord-aware solo story. This replaces the old alternating
+      # open/build cells, which made the 5:18-ish solo_a passage feel like a
+      # wrong sequence rather than a developing solo.
+      - {template: solo_a_story_voice, starts: [[0, 0.0], [8, 0.0], [16, 0.0]], velocity: 94}
+      # Extra phrase caps: brief shred, not continuous noodling.
+      - {template: flair_ascend_voice, starts: [[7, 0.0], [23, 0.0]], velocity: 94}
+      - {template: flair_descend_voice, starts: [[15, 0.0]], velocity: 94}
       - {template: rhythm_arpeggio, density: 1.0, velocity: 70}
       - {template: bass_drive, velocity: 84}
       - {template: organ_pad, velocity: 72}
@@ -1005,8 +1039,8 @@ sections:
         humanize_ms: 4
         humanize_velocity_pct: 3
         starts: [[0, 0.0], [4, 0.0], [8, 0.0], [12, 0.0], [16, 0.0], [20, 0.0]]
-      # First virtuoso run at bars 6-7 (between twin-lead phrases).
-      - {template: virtuoso_run_voice, starts: [[6, 0.0]], velocity: 94}
+      # Virtuoso runs between twin-lead phrases.
+      - {template: virtuoso_run_voice, starts: [[6, 0.0], [18, 0.0]], velocity: 96}
       # Bursts cap phrases 3 (bar 15) and 5 (bar 23).
       - {template: flair_descend_voice, starts: [[15, 0.0]], velocity: 92}
       - {template: flair_ascend_voice, starts: [[23, 0.0]], velocity: 94}
@@ -1035,8 +1069,8 @@ sections:
       - guitar_vibrato
       - {template: solo_upper_voice, starts: [[0, 0.0], [8, 0.0], [16, 0.0]], velocity: 92}
       - {template: solo_build_voice, starts: [[4, 0.0], [12, 0.0], [20, 0.0]], velocity: 90}
-      # Second virtuoso run at bars 14-15 — peak shred moment of the cue.
-      - {template: virtuoso_run_voice, starts: [[14, 0.0]], velocity: 96}
+      # Peak shred moments, spaced so they read as hooks rather than wallpaper.
+      - {template: virtuoso_run_voice, starts: [[6, 0.0], [14, 0.0]], velocity: 98}
       # Quick burst caps on bars 7 and 23.
       - {template: flair_ascend_voice, starts: [[7, 0.0]], velocity: 94}
       - {template: flair_descend_voice, starts: [[23, 0.0]], velocity: 94}
@@ -1070,6 +1104,7 @@ sections:
     layers:
       - guitar_vibrato
       - {template: solo_climax_voice, starts: [[0, 0.0], [4, 0.0], [8, 0.0], [12, 0.0]], velocity: 96}
+      - {template: virtuoso_run_voice, starts: [[6, 0.0], [14, 0.0]], velocity: 98}
       # Lead doubles the climax phrase one octave below for thickness.
       - kind: motif
         instrument: lead_gtr
@@ -1080,8 +1115,8 @@ sections:
         humanize_ms: 4
         humanize_velocity_pct: 3
         starts: [[0, 0.0], [4, 0.0], [8, 0.0], [12, 0.0]]
-      # Fiddle soars on top.
-      - {template: fiddle_soar, starts: [[0, 0.0], [8, 0.0]], velocity: 84}
+      # Keep climax focused on the twin guitars; earlier fiddle doubling made
+      # the peak feel sour against the organ pad.
       - {template: rhythm_arpeggio, density: 1.0, velocity: 82}
       - {template: bass_drive, velocity: 90}
       - {template: organ_stab, hits: [[0, 0.0], [4, 0.0], [8, 0.0], [12, 0.0]], velocity: 92}

@@ -13,11 +13,19 @@ meter:
   beats_per_bar: 4
   beat_unit: 4
 
+constraints:
+  voice_leading: minimize_motion
+  no_clusters: true
+  min_pitch: 36
+  max_pitch: 96
+
 render:
   sample_rate: 48000
   ogg_quality: 6
   backend: fast
   soundfont: /usr/share/sounds/sf2/TimGM6mb.sf2
+  adaptive_section_mastering:
+    mode: global_master_slices
 
 postprocess:
   gain_db: -0.8
@@ -141,20 +149,22 @@ layer_templates:
     instrument_velocity_offsets: {drawbar_organ: 0, warm_pad: -12}
     octave: 3
     every_bars: 1
-    duration_beats: 4.0
-    velocity: 34
+    duration_beats: 2.0
+    velocity: 28
     articulation: pad
-    voicing: wide
+    voicing: closed
+    constraints: {voice_leading: none, no_clusters: true, max_pitch: 76, min_pitch: 36}
     humanize_ms: 10
 
   piano_lift:
     kind: chord_hits
     instrument: piano
     octave: 3
-    velocity: 46
-    duration_beats: 1.15
+    velocity: 44
+    duration_beats: 1.0
     articulation: tenuto
     voicing: open
+    constraints: {max_pitch: 84, min_pitch: 36}
     humanize_ms: 8
     hits: [[0, 0.0], [1, 0.0], [2, 0.0], [3, 0.0], [4, 0.0], [5, 0.0], [6, 0.0], [7, 0.0]]
 
@@ -167,7 +177,7 @@ layer_templates:
     humanize_ms: 7
     pattern:
       - [0, 0.0, 1.20]
-      - [7, 2.5, 0.55]
+      - [12, 2.5, 0.55]
 
   bass_drive_roots:
     kind: bassline
@@ -267,10 +277,11 @@ layer_templates:
     kind: chord_hits
     instrument: brass_sheen
     octave: 3
-    velocity: 34
+    velocity: 32
     duration_beats: 0.70
     articulation: tenuto
-    voicing: open
+    voicing: closed
+    constraints: {max_pitch: 76, min_pitch: 43}
     humanize_ms: 8
     hits: [[0, 0.0], [4, 0.0]]
 

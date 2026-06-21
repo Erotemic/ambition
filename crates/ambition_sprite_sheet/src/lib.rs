@@ -351,6 +351,33 @@ impl SheetRegistry {
         }
         registry
     }
+
+    /// Like [`from_baked_table`], but keys each sheet by its **file root**
+    /// (the table's first tuple element) instead of `record.target`.
+    ///
+    /// Several sheets legitimately share one `target` — e.g. `robot` and
+    /// `player_robot` are both authored against the `"robot"` adapter, so
+    /// `record.target == "robot"` for both and they collide in the
+    /// target-keyed registry. File roots are unique (one per
+    /// `*_spritesheet.ron`), so this keeps them distinct. Use it when you
+    /// need a specific sheet variant (the player's `player_robot`, not the
+    /// enemy `robot`). Multi-record files keep only the first record.
+    pub fn from_baked_table_by_file_root(table: &[(&str, &str)]) -> Self {
+        let mut registry = Self::default();
+        for (file_root, text) in table {
+            match ron::from_str::<Vec<SheetRecord>>(text) {
+                Ok(records) => {
+                    if let Some(record) = records.into_iter().next() {
+                        registry.sheets.insert((*file_root).to_owned(), record);
+                    }
+                }
+                Err(err) => {
+                    warn!("SheetRegistry: failed to parse baked {file_root}: {err}");
+                }
+            }
+        }
+        registry
+    }
 }
 
 #[cfg(test)]

@@ -28,6 +28,7 @@
 mod anim;
 mod animator;
 mod assets;
+mod attack_hitbox;
 mod baked_sheet_rons;
 pub mod registry;
 mod sheets;
@@ -39,6 +40,11 @@ pub use anim::{
     pick_enemy_anim, pick_npc_anim, pick_player_anim, CharacterAnim, EnemyAnimState, NpcAnimState,
 };
 pub use animator::CharacterAnimator;
+#[allow(
+    unused_imports,
+    reason = "manifest_attack_hitbox_world is the reusable core; player_attack_hitbox_world is the live consumer (ambition_app advance_attack)."
+)]
+pub use attack_hitbox::{manifest_attack_hitbox_world, player_attack_hitbox_world};
 pub use registry::{baked_sheet_registry, SheetRegistryPlugin};
 // SheetRecord and SheetRegistry are kept in the module's public surface
 // for future consumers that want per-frame anchors / body bbox queries;

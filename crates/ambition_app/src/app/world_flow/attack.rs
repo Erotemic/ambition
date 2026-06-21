@@ -155,8 +155,48 @@ pub(crate) fn start_attack(
     anim.slash_anim_timer = spec.total_seconds().max(0.20);
     *attack = Some(ambition_gameplay_core::PlayerAttackState::new(spec));
     vfx.write(VfxMessage::SlashPreview {
-        hitbox: ambition_gameplay_core::combat::attack_hitbox_from_view(&view, spec),
+        hitbox: player_attack_hitbox(&view, spec.intent)
+            .unwrap_or_else(|| ambition_gameplay_core::combat::attack_hitbox_from_view(&view, spec)),
     });
+}
+
+/// Source the player's melee hitbox from the sprite manifest — the box authored
+/// and shown by `debug-hitboxes` — so the gameplay damage volume matches the
+/// visible blade, the same data-driven path bosses use
+/// (`character_sprites::player_attack_hitbox_world`). Returns `None` when the
+/// current swing's animation has no authored hitbox, so callers fall back to the
+/// hardcoded `AttackSpec` volume.
+fn player_attack_hitbox(
+    view: &ambition_gameplay_core::combat::AttackView,
+    intent: ambition_gameplay_core::combat::AttackIntent,
+) -> Option<ae::Aabb> {
+    let animation = attack_intent_animation(intent);
+    ambition_gameplay_core::character_sprites::player_attack_hitbox_world(
+        animation,
+        view.pos,
+        view.size,
+        view.facing,
+    )
+}
+
+/// Map the attack intent to its sprite animation row (mirrors the renderer's
+/// `directional_attack_anim`). Only rows with an authored manifest hitbox
+/// resolve to a box; the rest fall back to the spec volume. Today only
+/// `attack_side` is authored — the others are placeholders for when their
+/// per-row hitboxes land.
+fn attack_intent_animation(
+    intent: ambition_gameplay_core::combat::AttackIntent,
+) -> &'static str {
+    use ambition_gameplay_core::combat::AttackIntent as I;
+    match intent {
+        I::Up => "attack_up",
+        I::Down => "attack_down",
+        I::AirUp => "air_up",
+        I::AirDown => "air_down",
+        I::AirForward => "air_forward",
+        I::AirBack => "air_back",
+        _ => "attack_side",
+    }
 }
 
 pub(crate) fn advance_attack(
@@ -195,8 +235,9 @@ pub(crate) fn advance_attack(
             dash_timer: clusters.dash.timer,
             abilities_directional_primary: clusters.abilities.abilities.directional_primary,
         };
-        let attack =
-            ambition_gameplay_core::combat::attack_hitbox_from_view(&view, attack_state.spec);
+        let attack = player_attack_hitbox(&view, attack_state.spec.intent).unwrap_or_else(|| {
+            ambition_gameplay_core::combat::attack_hitbox_from_view(&view, attack_state.spec)
+        });
         let first_active_frame = !attack_state.active_started;
         if first_active_frame {
             attack_state.active_started = true;

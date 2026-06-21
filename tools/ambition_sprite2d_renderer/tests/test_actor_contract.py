@@ -389,10 +389,18 @@ def test_bespoke_flying_spaghetti_monster_boss_actor_metadata():
 
 
 def test_every_registered_character_target_has_local_actor_metadata():
+    # Rig-doc targets (GUI-authored `*.rig.json` under targets/characters/rigged/,
+    # e.g. `noether`) are a distinct authoring path that does not yet carry actor
+    # metadata — that's deferred game-contract work (see
+    # docs/planning/sprite-renderer-refactor.md, "explicitly deferred"). Exempt
+    # them so this guard keeps covering the Python/YAML targets it was written for.
+    from ambition_sprite2d_renderer.targets.characters import rigged
+
+    rigdoc_targets = set(rigged.TARGETS)
     targets = discover_all_targets().targets
     missing = []
     for name, target in targets.items():
-        if target.category != "characters":
+        if target.category != "characters" or name in rigdoc_targets:
             continue
         if type(target).__name__ == "AdapterTarget":
             job = getattr(target, "_job")

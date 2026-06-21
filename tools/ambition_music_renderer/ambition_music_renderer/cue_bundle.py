@@ -26,6 +26,8 @@ import numpy as np
 import yaml
 
 from . import musicir_renderer as r
+from .dissonance_audit import audit_file as audit_dissonance_file
+from .dissonance_audit import write_reports as write_dissonance_reports
 
 DEFAULT_BACKEND = "pretty-midi"
 BACKEND_CHOICES = ("pretty-midi", "fluidsynth-cli", "fallback", "auto")
@@ -347,6 +349,115 @@ def summarize_mix_diagnostics(manifest: dict, reports_dir: Path) -> tuple[Path, 
         encoding="utf8",
     )
     return out, warnings
+
+
+def write_state_mix_report(spec: dict, manifest: dict, reports_dir: Path) -> Path:
+    """Describe how different preview states differ.
+
+    State previews can sound nearly identical when they use the same section and
+    only scale the same stems by small amounts. This report makes that explicit
+    so normalized audition previews are not mistaken for distinct adaptive music.
+    """
+    reports_dir.mkdir(parents=True, exist_ok=True)
+    state_map = spec.get("state_map") or {}
+    groups = sorted({inst.get("group", inst.get("name")) for inst in spec.get("instruments", [])})
+    rows: list[dict[str, object]] = []
+    for name, cfg in sorted(state_map.items()):
+        if not isinstance(cfg, dict):
+            continue
+        stems = cfg.get("stems") or {}
+        if not isinstance(stems, dict):
+            continue
+        vector = {g: float(stems.get(g, 0.0)) for g in groups}
+        rows.append(
+            {
+                "state": name,
+                "section": cfg.get("section"),
+                "weights": vector,
+                "active_stems": [g for g, v in vector.items() if v > 0.0],
+                "weight_sum": sum(vector.values()),
+            }
+        )
+
+    by_state = {str(row["state"]): row for row in rows}
+    default = by_state.get("default") or (rows[0] if rows else None)
+    distances: list[dict[str, object]] = []
+    if default is not None:
+        base = default["weights"]
+        assert isinstance(base, dict)
+        base_norm = math.sqrt(sum(float(v) * float(v) for v in base.values()))
+        for row in rows:
+            vec = row["weights"]
+            assert isinstance(vec, dict)
+            diff = {g: float(vec.get(g, 0.0)) - float(base.get(g, 0.0)) for g in groups}
+            l2 = math.sqrt(sum(v * v for v in diff.values()))
+            denom = max(base_norm, 1e-9)
+            distances.append(
+                {
+                    "state": row["state"],
+                    "section": row["section"],
+                    "distance_from_default": l2,
+                    "relative_distance_from_default": l2 / denom,
+                    "changed_stems": {g: round(v, 4) for g, v in diff.items() if abs(v) > 1e-9},
+                }
+            )
+
+    preview_stats = (((manifest.get("diagnostics") or {}).get("runtime_previews") or {}))
+    payload = {
+        "schema": "ambition.music_state_mix_report.v1",
+        "cue": spec.get("id"),
+        "states": rows,
+        "distances_from_default": distances,
+        "runtime_preview_stats": preview_stats,
+        "note": (
+            "runtime_* previews are weighted stem sums without upward audition normalization; "
+            "audition_* previews are normalized for comfortable listening and may collapse loudness differences."
+        ),
+    }
+    json_path = reports_dir / "state_mix_report.json"
+    json_path.write_text(json.dumps(payload, indent=2), encoding="utf8")
+
+    tsv_path = reports_dir / "state_mix_report.tsv"
+    columns = ["state", "section", "weight_sum", "distance_from_default", "relative_distance_from_default", "weights"]
+    distance_by_state = {str(row["state"]): row for row in distances}
+    lines = ["\t".join(columns)]
+    for row in rows:
+        dist = distance_by_state.get(str(row["state"]), {})
+        weights = row.get("weights", {})
+        weight_text = ",".join(f"{g}:{float(v):.3f}" for g, v in sorted(weights.items())) if isinstance(weights, dict) else ""
+        lines.append(
+            "\t".join(
+                [
+                    str(row.get("state", "")),
+                    str(row.get("section", "")),
+                    f"{float(row.get('weight_sum', 0.0)):.3f}",
+                    f"{float(dist.get('distance_from_default', 0.0)):.3f}",
+                    f"{float(dist.get('relative_distance_from_default', 0.0)):.3f}",
+                    weight_text,
+                ]
+            )
+        )
+    tsv_path.write_text("\n".join(lines) + "\n", encoding="utf8")
+
+    summary = reports_dir / "state_mix_report_summary.txt"
+    text: list[str] = [
+        f"cue: {spec.get('id')}",
+        "runtime previews are native weighted sums; audition previews are normalized.",
+        "",
+        "state distances from default:",
+    ]
+    for dist in distances:
+        text.append(
+            f"  {dist.get('state')}: rel {float(dist.get('relative_distance_from_default', 0.0)):.2f} "
+            f"section {dist.get('section')} changed {dist.get('changed_stems')}"
+        )
+    if distances:
+        non_default = [d for d in distances if d.get("state") != "default"]
+        if non_default and max(float(d.get("relative_distance_from_default", 0.0)) for d in non_default) < 0.35:
+            text.append("")
+            text.append("warning: state maps are close together; previews may sound mostly like level variants.")
+    summary.write_text("\n".join(text) + "\n", encoding="utf8")
+    return json_path
 
 
 def write_stem_export_report(outdir: Path, manifest: dict, reports_dir: Path) -> Path:
@@ -924,7 +1035,11 @@ def create_bundle(
         write_stem_export_report(analysis_root, manifest, reports_dir)
         write_manifest_audio_level_report(analysis_root, manifest, reports_dir)
         write_spectral_fingerprint(analysis_root, manifest, reports_dir)
+        write_state_mix_report(spec, manifest, reports_dir)
+        dissonance_payload = audit_dissonance_file(score_path)
+        write_dissonance_reports(dissonance_payload, reports_dir)
         mix_diag_path, mix_warnings = summarize_mix_diagnostics(manifest, reports_dir)
+        dissonance_warnings = list(dissonance_payload.get("warnings") or [])
         if not skip_spectrograms:
             write_spectrograms(
                 analysis_root,
@@ -1002,7 +1117,7 @@ def create_bundle(
         "include_scratch_stems": include_scratch_stems,
         "copied_audio_files": copied_audio,
         "mix_diagnostics": str(mix_diag_path),
-        "warnings": [w for w in [id_warning, *mix_warnings] if w],
+        "warnings": [w for w in [id_warning, *mix_warnings, *dissonance_warnings] if w],
         "commands": command_rows,
         "rerun_script": str(rerun_script),
     }

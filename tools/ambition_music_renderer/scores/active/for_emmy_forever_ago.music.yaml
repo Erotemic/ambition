@@ -1,12 +1,12 @@
 schema: ambition.musicir.v1
 id: for_emmy_forever_ago
 title: For Emmy, Forever Ago
-seed: 2026062006
-notes: Emmy Noether's Noether Chamber theme, de-hissed after the first report-bundle pass. The 8e091 spectral
-  evidence showed the continuous nylon pluck owned most high/vhigh/air energy, so this revision makes
-  piano the runtime core and turns guitar back into a sparse, dark folk pulse. It keeps the Bon Iver-adjacent
-  intimacy, faster early-20th-century chamber-waltz motion, and strict two-bar palindrome motif, but avoids
-  depending on bright pluck transients or large shared-stem gain.
+seed: 2026062007
+notes: Emmy Noether's Noether Chamber theme, re-spaced after dissonance-hotspot auditing. The previous
+  no-noise pass proved the renderer could be quiet, but the audit showed the continuous piano lilt and
+  guitar pulse collided with the palindrome/answer phrases. This revision keeps the Bon Iver-adjacent
+  chamber-waltz identity while making accompaniment leave deliberate windows for the foreground symmetry
+  material.
 tempo:
   bpm: 108
 meter:
@@ -68,26 +68,19 @@ group_postprocess:
     transient_lowpass_hz: 3300
     reverb_wet: 0.004
   keys:
-    gain_db: 2.5
+    gain_db: 1.8
     lowpass_hz: 7600
     high_shelf_hz: 5200
-    high_shelf_db: -1.8
+    high_shelf_db: -2.2
     transient_tame: 0.08
   low_keys:
-    gain_db: 1.6
+    gain_db: 1.0
     lowpass_hz: 5200
     high_shelf_hz: 3600
     high_shelf_db: -2.0
     transient_tame: 0.06
-  ghost:
-    gain_db: -2.8
-    lowpass_hz: 6200
-    high_shelf_hz: 3900
-    high_shelf_db: -3.6
-    transient_tame: 0.12
-    reverb_wet: 0.01
   glimmer:
-    gain_db: -9.0
+    gain_db: -10.5
     lowpass_hz: 5200
     high_shelf_hz: 3600
     high_shelf_db: -8.0
@@ -113,12 +106,6 @@ instruments:
   volume: 108
   pan: 42
   expression: 112
-- name: rhodes_ghost
-  group: ghost
-  program: electric_piano_1
-  volume: 78
-  pan: 63
-  expression: 86
 - name: celesta
   group: glimmer
   program: celesta
@@ -162,11 +149,11 @@ motifs:
   root: A4
   intervals:
   - 0
-  - 3
+  - 2
+  - 4
   - 5
-  - 7
-  - 5
-  - 3
+  - 4
+  - 2
   - 0
   rhythm:
   - 0.5
@@ -177,22 +164,22 @@ motifs:
   - 0.5
   - 2.0
   velocities:
-  - 0.42
-  - 0.48
-  - 0.56
-  - 0.62
-  - 0.54
+  - 0.4
   - 0.46
-  - 0.36
+  - 0.54
+  - 0.58
+  - 0.5
+  - 0.42
+  - 0.34
 - id: salon_turn
   root: F#4
   intervals:
   - 0
-  - 2
-  - 4
+  - 1
+  - 3
   - 5
-  - 4
-  - 2
+  - 3
+  - 1
   - 0
   rhythm:
   - 0.5
@@ -218,56 +205,51 @@ layer_templates:
     pattern:
     - - 0
       - 0.0
-      - 0.86
+      - 0.82
     - - 7
-      - 1.0
-      - 0.42
-    - - 12
-      - 2.0
-      - 0.4
-    velocity: 76
+      - 1.5
+      - 0.38
+    velocity: 66
     articulation: tenuto
     humanize_ms: 2
     humanize_velocity_pct: 2
   fingerpick_waltz:
     kind: arpeggio
     instrument: nylon
-    octave: 3
+    octave: 2
     pattern:
     - 0
-    - 2
-    - 3
+    - 1
+    - 0
     step: 1.0
     duration_beats: 0.42
-    velocity: 42
+    velocity: 34
     density: 1.0
     articulation: pluck
     voicing: open
     humanize_ms: 2
     humanize_velocity_pct: 2
+    every: 8
+    offset: 2
   piano_lilt:
     kind: arpeggio
     instrument: piano
     octave: 4
-    pattern:
+    pattern: &id001
     - 0
-    - 3
     - 2
-    step: 1.0
-    duration_beats: 0.72
-    velocity: 72
+    step: 1.5
+    duration_beats: 0.56
+    velocity: 58
     density: 1.0
-    every: 1
-    offset: 0
+    every: 8
+    offset: 2
     articulation: tenuto
     voicing: open
     humanize_ms: 3
     humanize_velocity_pct: 3
   emmy_piano_palindrome:
     kind: motif
-    instruments:
-    - piano
-    - rhodes_ghost
     motif: emmy_palindrome_waltz
     roots:
     - D5
@@ -279,59 +261,46 @@ layer_templates:
     starts:
     - - 0
       - 0.0
-    velocity: 76
+    velocity: 68
     articulation: legato
     gate: 0.93
-    instrument_velocity_offsets:
-      piano: 0
-      rhodes_ghost: -8
-    instrument_octave_offsets:
-      piano: 0
-      rhodes_ghost: -1
     humanize_ms: 4
     humanize_velocity_pct: 3
+    instrument: piano
   answer_phrase:
     kind: motif
-    instruments:
-    - piano
-    - rhodes_ghost
     motif: waltz_answer
     roots:
     - A4
-    - F#4
-    - D5
+    - A4
+    - A4
     - A4
     every_bars: 8
     repeats: 4
     starts:
     - - 4
       - 0.0
-    velocity: 70
+    velocity: 62
     articulation: legato
     gate: 0.92
-    instrument_velocity_offsets:
-      piano: -4
-      rhodes_ghost: -10
-    instrument_octave_offsets:
-      piano: 0
-      rhodes_ghost: -1
     humanize_ms: 4
     humanize_velocity_pct: 3
+    instrument: piano
   celesta_turn:
     kind: motif
     instrument: celesta
     motif: salon_turn
     roots:
     - F#5
-    - E5
-    - G5
+    - F#5
+    - F#5
     - F#5
     every_bars: 8
     repeats: 4
     starts:
     - - 6
       - 0.0
-    velocity: 36
+    velocity: 24
     articulation: bell
     gate: 0.82
     humanize_ms: 3
@@ -349,11 +318,26 @@ layer_templates:
     - 1
     step: 0.5
     duration_beats: 0.28
-    velocity: 28
-    density: 0.75
+    velocity: 18
+    density: 0.5
     every: 8
     offset: 7
     articulation: bell
+    voicing: open
+    humanize_ms: 3
+    humanize_velocity_pct: 3
+  piano_lilt_b:
+    kind: arpeggio
+    instrument: piano
+    octave: 4
+    pattern: *id001
+    step: 1.5
+    duration_beats: 0.56
+    velocity: 54
+    density: 1.0
+    every: 8
+    offset: 3
+    articulation: tenuto
     voicing: open
     humanize_ms: 3
     humanize_velocity_pct: 3
@@ -378,7 +362,6 @@ state_map:
       pluck: 0.38
       keys: 0.8
       low_keys: 0.7
-      ghost: 0.28
       glimmer: 0.06
   quiet:
     section: emmy_loop
@@ -386,7 +369,6 @@ state_map:
       pluck: 0.24
       keys: 0.58
       low_keys: 0.42
-      ghost: 0.18
       glimmer: 0.03
   dance:
     section: emmy_loop
@@ -394,7 +376,6 @@ state_map:
       pluck: 0.48
       keys: 0.88
       low_keys: 0.78
-      ghost: 0.22
       glimmer: 0.08
 sections:
 - id: emmy_loop
@@ -446,7 +427,7 @@ sections:
   - left_hand_waltz
   - fingerpick_waltz
   - piano_lilt
+  - piano_lilt_b
   - emmy_piano_palindrome
   - answer_phrase
   - celesta_turn
-  - celesta_cadence

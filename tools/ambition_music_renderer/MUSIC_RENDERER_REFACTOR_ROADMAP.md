@@ -189,20 +189,26 @@ tools/ambition_music_renderer/generated/<cue_id>/
   regen.sh
 ```
 
-Use ignored bundle directories for local review/share artifacts. The on-disk bundle directory is always fully featured and includes manifest-referenced audio so a human can ctrl-click into the output tree and audition the render locally. Zip selection controls upload weight: `--zip` writes a full zip with audio, while `--zip-report` writes a compact chat/agent zip that excludes OGG/WAV/NPY/MIDI binaries while retaining source, manifests, numeric reports, logs, and spectrogram images:
+Use ignored bundles for upload/share artifacts. The on-disk bundle directory is
+always fully featured. `--zip` creates a full zip with manifest-referenced audio;
+`--zip-report` creates a compact chat/agent zip that excludes OGG/WAV/NPY/MIDI
+binaries while retaining source, manifests, numeric reports, logs, and
+spectrogram images:
 
 ```text
 tools/ambition_music_renderer/bundles/<cue_id>_<hash>_bundle/
   source/
-  adaptive/                 # present on disk; omitted from --zip-report
-  preview/                  # present on disk; omitted from --zip-report
+  adaptive/                 # present on disk and in full zip
+  preview/                  # present on disk and in full zip
   reports/
-  plots/                    # JPEG by default for compact report zips
+  plots/                    # JPEG by default for small report bundles
   bundle_manifest.json
   rerun_bundle.sh
 ```
 
-Bundle zips should be ignored by git and uploaded manually when needed. Prefer `--zip-report` for bulk catalog handoff zips and use `--zip` only when the recipient needs audio inside the zip.
+Bundle zips should be ignored by git and uploaded manually when needed. Prefer
+`--zip-report` for bulk catalog handoff bundles and use `--zip` only when the
+recipient needs to audition audio directly from the archive.
 
 ### Future package organization
 
@@ -241,16 +247,18 @@ Do this only after bundle/provenance tests are in place.
 - [x] Generate optional spectrogram images when matplotlib is available.
 - [x] Prefer JPEG spectrogram plots for small handoff bundles; retain numeric spectral data in reports.
 - [x] Generate an LLM-friendly `spectral_fingerprint.json/tsv` summary from scratch stems.
+- [x] Generate `state_mix_report.json/tsv/txt` so similar adaptive states are explicit.
+- [x] Generate `dissonance_hotspots.json/tsv/txt` from expanded note events.
 - [x] Write `bundle_manifest.json` and `rerun_bundle.sh`.
 - [x] Zip bundles on request with `--zip`.
-- [x] Replace report-only bundle mode with `--zip-report`; the generated bundle directory stays fully featured and report zips exclude OGG/WAV/NPY/MIDI binaries.
+- [x] Add `--zip-report` bundles that exclude OGG/WAV/NPY/MIDI binaries for chat/agent upload while leaving local audio generated.
 - [x] Cap shared runtime stem gain by default so diagnostics cannot accidentally publish noise-lifted stems.
-- [x] Emit rich clickable path summaries for generated outdir, bundle dir, manifest, zips, and publish destination.
 - [x] Rework Emmy after diagnostics showed a +47 dB shared gain requirement.
 - [ ] Exercise the bundle command on a real cue with `pretty-midi` in a fully provisioned audio environment.
-- [ ] Re-run Emmy de-hiss revision with `--runtime-stem-gain-mode shared` and compare runtime vs audition previews.
+- [x] Re-run Emmy with `--runtime-stem-gain-mode shared` and compare runtime vs audition previews.
+- [x] Re-space Emmy after dissonance audit showed accompaniment/lead clashes.
 - [ ] Take a pass over active tunes whose diagnostics show huge master lift, capped shared gain, or quiet native stems.
-- [ ] Decide whether to add a catalog-wide `bundle-reports` command after per-cue `--zip-report` proves stable.
+- [ ] Decide whether to add a catalog-wide `bundle-reports` command after the per-cue `--zip-report` bundle proves stable.
 
 ### Phase 2: validation and provenance hardening
 
@@ -261,7 +269,8 @@ Do this only after bundle/provenance tests are in place.
 - [ ] Warn when a score pins `render.backend: fallback` without an explicit CLI override.
 - [ ] Include SoundFont path/hash in the bundle manifest when available.
 - [ ] Include renderer version and git revision in the bundle manifest.
-- [ ] Add note-event provenance: section, layer, motif, instrument, group, bar/beat, pitch, velocity.
+- [x] Add note-event provenance: section, layer, instrument, group, bar/beat, pitch, velocity.
+- [ ] Extend note-event provenance with motif ids and source chord/scale context.
 - [x] Add a machine-readable spectral summary in addition to text logs.
 
 ### Phase 3: render graph consolidation
@@ -305,7 +314,7 @@ venv.
 
 ## Current first-iteration command examples
 
-Render, debug, and zip a full upload bundle:
+Render, debug, and zip an upload bundle:
 
 ```bash
 PYTHONPATH=tools/ambition_music_renderer \
@@ -322,18 +331,7 @@ PYTHONPATH=tools/ambition_music_renderer \
 python -m ambition_music_renderer cue bundle for_emmy_forever_ago \
   --skip-render \
   --outdir tools/ambition_music_renderer/generated/for_emmy_forever_ago \
-  --zip-report
-```
-
-Create a compact report zip while leaving the full local bundle and audio output on disk:
-
-```bash
-PYTHONPATH=tools/ambition_music_renderer \
-python -m ambition_music_renderer cue bundle for_emmy_forever_ago \
-  --backend pretty-midi \
-  --runtime-stem-gain-mode shared \
-  --force \
-  --zip-report
+  --zip
 ```
 
 Publish after rendering:

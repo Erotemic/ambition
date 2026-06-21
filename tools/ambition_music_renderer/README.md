@@ -39,7 +39,7 @@ Use the package CLI and scripts in this directory for current music-renderer wor
 - `scores/archive/` - historical cues kept for reference.
 - `render_first_goblin_transition_lab.sh` - local transition-lab helper.
 - `install_first_goblin_tune_v2.py` - installer for the first-goblin tune asset path.
-- `audit_cue_balance.py`, `transition_audit.py`, `level_report.py`, `spectral_compare.py`, `spectral_localize.py` - analysis helpers (`level_report.py` is the diff-friendly cross-catalog loudness/clipping report; `--check` gates clipping).
+- `audit_cue_balance.py`, `transition_audit.py`, `level_report.py`, `spectral_compare.py`, `spectral_localize.py`, `dissonance_audit.py` - analysis helpers (`level_report.py` is the diff-friendly cross-catalog loudness/clipping report; `dissonance_audit.py` finds score-level note clashes before audio is rendered).
 - `goals.md` - design/planning notes for renderer direction.
 - `MUSIC_RENDERER_REFACTOR_ROADMAP.md` - durable roadmap/checklist for the renderer cleanup.
 
@@ -86,6 +86,18 @@ reports, `spectral_fingerprint.json`, and JPEG spectrograms. Use `--zip` only wh
 the generated `full.ogg` should be copied into the game asset tree. Add
 `--include-scratch-stems` only for local handoff bundles; raw `.npy` stems are
 useful but usually too large for chat upload.
+
+The bundle also emits theory/debug reports that are easier for agents to reason
+about than raw audio:
+
+- `dissonance_hotspots_summary.txt/json/tsv` identifies bars/beats where
+  overlapping note events create strong seconds, sevenths, tritones, or close
+  register clusters, attributed back to layers/groups/instruments.
+- `state_mix_report_summary.txt/json/tsv` explains why adaptive previews may
+  sound similar: `runtime_*` states are true weighted sums, while `audition_*`
+  states are normalized for review and may collapse loudness differences.
+- `spectral_fingerprint_summary.txt/json/tsv` summarizes low/mid/high/vhigh/air
+  energy by stem without requiring an audio player.
 
 ## Output and publish model
 

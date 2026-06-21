@@ -263,6 +263,13 @@ class RenderContext:
     # Tracks the most recent chord voicing per instrument for the
     # `voice_leading: minimize_motion` constraint.
     last_voicing: dict[str, list[int]] = dc.field(default_factory=dict)
+    # Lightweight provenance captured while MusicIR expands into MIDI notes.
+    # Debug tooling uses this to attribute harmonic clashes back to section /
+    # layer / group without changing the PrettyMIDI output format.
+    note_events: list[dict[str, Any]] = dc.field(default_factory=list)
+    active_section_id: str | None = None
+    active_layer_id: str | None = None
+    active_layer_kind: str | None = None
 
     def beat_to_time(self, beat: float) -> float:
         return beat * 60.0 / self.bpm
@@ -478,6 +485,25 @@ def add_note(
     velocity = int(clamp(round(vel), 1, 127))
     inst.notes.append(
         pretty_midi.Note(velocity=velocity, pitch=pitch_num, start=start, end=end)
+    )
+    ctx.note_events.append(
+        {
+            "instrument": inst_name,
+            "group": ctx.groups.get(inst_name, inst_name),
+            "section": ctx.active_section_id,
+            "layer": ctx.active_layer_id,
+            "layer_kind": ctx.active_layer_kind,
+            "pitch": int(pitch_num),
+            "note": midi_to_note(pitch_num),
+            "velocity": int(velocity),
+            "nominal_bar": float(bar),
+            "nominal_beat": float(beat),
+            "nominal_duration_beats": float(dur_beats),
+            "start_time": float(start),
+            "end_time": float(end),
+            "start_beat": float(start / 60.0 * ctx.bpm),
+            "end_beat": float(end / 60.0 * ctx.bpm),
+        }
     )
     if pitch_bend_curve:
         # Interpolate the curve in time and write as a sequence of pitch bends.
@@ -1216,11 +1242,14 @@ def merged_layers(
     for item in section.get("layers", []):
         if isinstance(item, str):
             layer = copy.deepcopy(templates[item])
+            layer.setdefault("_source_layer", item)
         elif "template" in item:
             layer = copy.deepcopy(templates[item["template"]])
             layer.update({k: v for k, v in item.items() if k != "template"})
+            layer.setdefault("_source_layer", str(item["template"]))
         else:
             layer = copy.deepcopy(item)
+            layer.setdefault("_source_layer", str(layer.get("id", layer.get("kind", "inline"))))
         out.append(layer)
     return out
 
@@ -1250,7 +1279,11 @@ def build_score(
     section_meta = section_metadata_from_spec(spec)
     for section in spec["sections"]:
         for layer in merged_layers(spec, section):
+            ctx.active_section_id = str(section.get("id", ""))
+            ctx.active_layer_id = str(layer.get("_source_layer", layer.get("kind", "layer")))
+            ctx.active_layer_kind = str(layer.get("kind", ""))
             render_layer(ctx, section, layer)
+    pm._ambition_note_events = list(ctx.note_events)  # type: ignore[attr-defined]
     return pm, ctx.groups, section_meta
 
 

@@ -31,6 +31,7 @@ python -m ambition_music_renderer --help
 python transition_audit.py --help     # two-file transition seam (RMS/peak over time, plots)
 python audit_cue_balance.py --help    # sections WITHIN one adaptive cue (intro vs wave1...)
 python level_report.py --help         # ACROSS the runtime cue catalog (inter-cue leveling)
+python dissonance_audit.py --help     # score-level note/layer clash hotspots
 ```
 
 For one-cue composition/debug handoff, prefer `cue bundle` first. It wraps rendering, scratch-stem retention, level reports, spectral localization, optional spectrograms, and a shareable bundle manifest around the current renderer without changing runtime publish policy.
@@ -42,6 +43,10 @@ Three lower-level audio-analysis tools, three scopes:
   sorted, diff-friendly table (duration, RMS dBFS, true peak dBTP, crest,
   target-RMS delta, optional LUFS) + a spread summary with CLIP/LOUD/QUIET
   flags. Use it to catch inter-cue loudness jumps and clipping across re-renders.
+- `dissonance_audit.py` — expanded MusicIR notes before audio render; reports
+  bars/beats/layers/groups with strong close seconds, sevenths, tritones, and
+  register clusters. Use it when a cue sounds like notes are clashing rather
+  than when it has spectral noise.
 
 Prefer the tool README and CLI help over old recipe fragments when command flags drift.
 
@@ -80,6 +85,16 @@ when the recipient needs to audition OGGs. Add `--publish` only when the cue
 should also update the runtime `assets/audio/music/generated/<cue_id>/full.ogg`.
 Add `--include-scratch-stems` only for local handoffs because raw NumPy stem
 buffers can be large.
+
+Useful report files in a bundle:
+
+- `reports/dissonance_hotspots_summary.txt` — where note choices/layers clash.
+- `reports/state_mix_report_summary.txt` — why adaptive previews sound similar
+  or different and whether states only change loudness.
+- `reports/spectral_fingerprint_summary.txt` — which stem groups dominate broad
+  frequency bands.
+- `reports/mix_diagnostics.txt` — raw stem levels vs mastered full and runtime
+  stem gain policy.
 
 Use `--runtime-stem-gain-mode shared` when checking layered dynamic music. It
 applies one shared reference gain to all runtime stems, preserving their balance

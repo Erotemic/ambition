@@ -17,8 +17,10 @@ from ambition_music_renderer.cue_bundle import (
     prepare_manifest_analysis_root,
     write_manifest_audio_level_report,
     write_spectral_fingerprint,
+    write_state_mix_report,
     write_stem_export_report,
 )
+from ambition_music_renderer.dissonance_audit import audit_spec, write_reports as write_dissonance_reports
 from ambition_music_renderer.render_group_worker import build_parser as build_worker_parser
 from ambition_music_renderer.render_isolated import build_parser as build_isolated_parser
 
@@ -300,3 +302,75 @@ def test_spectral_fingerprint_is_llm_friendly_json_and_tsv():
         assert payload["mean_band_fraction_by_group"]["vhigh"]["pluck"] > 0.9
         assert (root / "reports" / "spectral_fingerprint.tsv").exists()
         assert (root / "reports" / "spectral_fingerprint_summary.txt").exists()
+
+
+def test_state_mix_report_flags_similar_states():
+    with tempfile.TemporaryDirectory() as td:
+        root = Path(td)
+        spec = {
+            "id": "cue",
+            "instruments": [
+                {"name": "piano", "group": "keys"},
+                {"name": "bass", "group": "bass"},
+            ],
+            "state_map": {
+                "default": {"section": "loop", "stems": {"keys": 0.8, "bass": 0.6}},
+                "quiet": {"section": "loop", "stems": {"keys": 0.7, "bass": 0.5}},
+            },
+        }
+        manifest = {"diagnostics": {"runtime_previews": {}}}
+        report = write_state_mix_report(spec, manifest, root / "reports")
+        payload = json.loads(report.read_text())
+        assert payload["schema"] == "ambition.music_state_mix_report.v1"
+        text = (root / "reports" / "state_mix_report_summary.txt").read_text()
+        assert "state distances from default" in text
+        assert "warning: state maps are close together" in text
+
+
+def test_dissonance_audit_identifies_close_layer_clash():
+    spec = {
+        "schema": "ambition.musicir.v1",
+        "id": "clash_test",
+        "tempo": {"bpm": 120},
+        "meter": {"beats_per_bar": 4, "beat_unit": 4},
+        "instruments": [
+            {"name": "a", "group": "keys", "program": "acoustic_grand_piano"},
+            {"name": "b", "group": "lead", "program": "acoustic_grand_piano"},
+        ],
+        "layer_templates": {
+            "a_note": {
+                "kind": "motif",
+                "instrument": "a",
+                "motif": "a_motif",
+                "root": "C4",
+                "starts": [[0, 0.0]],
+                "repeats": 1,
+                "velocity": 90,
+            },
+            "b_note": {
+                "kind": "motif",
+                "instrument": "b",
+                "motif": "b_motif",
+                "root": "C#4",
+                "starts": [[0, 0.0]],
+                "repeats": 1,
+                "velocity": 90,
+            },
+        },
+        "motifs": [
+            {"id": "a_motif", "root": "C4", "intervals": [0], "rhythm": [1.0], "velocities": [1.0]},
+            {"id": "b_motif", "root": "C#4", "intervals": [0], "rhythm": [1.0], "velocities": [1.0]},
+        ],
+        "sections": [
+            {"id": "loop", "bars": 1, "harmony": ["C"], "layers": ["a_note", "b_note"]}
+        ],
+    }
+    payload = audit_spec(spec)
+    assert payload["hotspots"]
+    top = payload["hotspots"][0]
+    assert top["worst_pairs"][0]["interval_class"] == 1
+    assert top["worst_pairs"][0]["layers"] == ["a_note", "b_note"]
+    with tempfile.TemporaryDirectory() as td:
+        paths = write_dissonance_reports(payload, Path(td))
+        assert Path(paths["summary"]).exists()
+        assert "minor second" in Path(paths["summary"]).read_text()

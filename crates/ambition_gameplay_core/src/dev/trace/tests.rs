@@ -171,6 +171,7 @@ fn timestamp_label_changes_with_time() {
 #[test]
 fn record_frame_with_oob_pushes_event_and_requests_dump() {
     let mut buf = GameplayTraceBuffer::with_capacity(8, 8);
+    buf.min_context_frames = 0; // exercise dump logic without the warm-up gate
     let world = dummy_world();
     let mut player = dummy_player(ae::Vec2::new(50.0, 50.0));
     player.kinematics.pos = ae::Vec2::new(2000.0, 50.0); // outside envelope.x
@@ -320,6 +321,7 @@ fn synthesizes_input_edge_event_on_button_press() {
 #[test]
 fn synthesizes_collision_correction_on_unexplained_teleport() {
     let mut buf = GameplayTraceBuffer::with_capacity(16, 16);
+    buf.min_context_frames = 0; // exercise dump logic without the warm-up gate
     let _world = dummy_world();
     let player_prev = dummy_player(ae::Vec2::new(62.0, 1564.0));
     {
@@ -379,6 +381,7 @@ fn synthesizes_collision_correction_on_unexplained_teleport() {
 #[test]
 fn portal_transit_window_suppresses_teleport_autodump() {
     let mut buf = GameplayTraceBuffer::with_capacity(16, 16);
+    buf.min_context_frames = 0; // isolate the suppression-window behavior from the warm-up gate
     let player_prev = dummy_player(ae::Vec2::new(62.0, 1564.0));
     {
         let mut scratch_prev = scratch_from(&player_prev);

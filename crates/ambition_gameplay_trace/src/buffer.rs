@@ -36,6 +36,14 @@ pub struct GameplayTraceBuffer {
     /// position-delta and the OOB auto-dumps are suppressed, so a normal transit
     /// never spams a trace dump. Decremented once per frame in `record_frame`.
     pub teleport_suppress_ticks: u32,
+    /// Auto-dumps (OOB + teleport) are suppressed until the buffer holds at
+    /// least this many frames. Skips spawn-settling transients — the player is
+    /// authored with its feet a hair inside the floor, so it reads `inside
+    /// solid` for a tick or two before the first collision resolve lifts it
+    /// out — and guarantees a dump carries pre-anomaly lead-up instead of a
+    /// useless 1-frame snapshot. Manual (F8) dumps are never gated. Mirrors the
+    /// actor trace's gate (see `DEFAULT_MIN_CONTEXT_FRAMES`).
+    pub min_context_frames: usize,
 }
 
 /// How many frames a portal transit suppresses trace auto-dumps for: long enough
@@ -65,7 +73,14 @@ impl GameplayTraceBuffer {
             has_recorded_any: false,
             previous: None,
             teleport_suppress_ticks: 0,
+            min_context_frames: crate::DEFAULT_MIN_CONTEXT_FRAMES,
         }
+    }
+
+    /// True once the buffer holds enough lead-up frames for an auto-dump to be
+    /// worth taking (see [`Self::min_context_frames`]).
+    pub fn has_min_context(&self) -> bool {
+        self.frames.len() >= self.min_context_frames
     }
 
     pub fn frame_count(&self) -> usize {

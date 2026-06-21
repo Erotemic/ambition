@@ -352,7 +352,11 @@ pub(crate) fn synthesize_events_from_diff(
         // by the time a human dumps manually the ring holds only the stuck
         // aftermath. `request_dump` no-ops if a dump is already pending, so
         // a ping-pong yields one dump per flush cycle, not per frame.
-        buffer.request_dump(DumpReason::TeleportAuto { reason });
+        // The CollisionCorrection event above is always recorded; only the
+        // auto-DUMP waits for warm-up context (spawn-settling shouldn't dump).
+        if buffer.has_min_context() {
+            buffer.request_dump(DumpReason::TeleportAuto { reason });
+        }
     }
 
     if prev.locomotion != locomotion {
@@ -491,6 +495,7 @@ pub fn record_frame(
         if buffer.auto_dump_armed
             && buffer.dump_request.is_none()
             && buffer.teleport_suppress_ticks == 0
+            && buffer.has_min_context()
         {
             buffer.dump_request = Some(DumpReason::OobAuto { reason: label });
             buffer.auto_dump_armed = false;

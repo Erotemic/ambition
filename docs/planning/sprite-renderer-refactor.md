@@ -38,11 +38,17 @@ bbox/font helpers are reimplemented **~21×**; there are **40+ hand-listed
 exists in 3 shapes. `common_draw.py` is 129 LOC when it should be the shared
 core.
 
-**Dependencies are tangled into the render path** (blocks goal 2):
-- **`rigdoc.py` imports PySide6** → the data-driven rig *render* path is coupled
-  to the GUI dependency. A chatbot agent can't render a `.rig.json` without Qt.
+**Dependencies at the edges** (goal 2):
+- ~~`rigdoc.py` imports PySide6~~ — **CORRECTED 2026-06-21**: false alarm (only a
+  docstring mention). PySide6 is already confined to `gui/` + the one
+  `part_editor.py`; the rig render path renders fine with PySide6 *and* `rich`
+  blocked. No coupling bug. (`core/` is verified Pillow+stdlib.)
 - `yaml` is imported in **15 files** — both config *reading* and manifest
-  *writing* (`yaml.dump`). Writing doesn't need the lib; reading is a true edge.
+  *writing* (`yaml.dump`). The manifest write is now unified RON (yaml-free); the
+  remaining `*_spritesheet.yaml` sidecar is **load-bearing tooling** (discovery /
+  install / actor-sidecar generation / CLI freshness / ~10 tests key off it), so
+  its full removal is a separate rewire, not a sidecar delete. `core/` is yaml-free,
+  so the portability intent is already met.
 - `rich` (declared dep) is only CLI prettiness; `numpy` appears in
   `target_registry.py`. Neither should sit under "render a sprite."
 
@@ -84,11 +90,12 @@ authoring (plural)                     core (small, PIL + stdlib only)
    `Sheet`/`Manifest` model, and **one** manifest emitter into `core/`. Point all
    ~3 spine copies and ~21 helper copies at it. Pure dedup; harness proves no
    pixel change.
-2. **Decouple the deps (goal 2).** Break `rigdoc.py`'s PySide6 coupling (rig
-   *render* = PIL only; Qt lives solely in `gui/`). Confine `yaml` to a config-
-   reading edge module; make manifest writing stdlib-only. Make `rich` optional
-   (plain-print fallback); remove/justify `numpy`. Net: `pip install Pillow`
-   renders any drawer or rig doc.
+2. **Decouple the deps (goal 2).** PySide6 is already gui-only (the rigdoc
+   coupling was a false alarm). Manifest writing is now stdlib RON (done).
+   Remaining: make `rich` optional (plain-print fallback), remove/justify
+   `numpy`, and (separately, larger) move the load-bearing `*_spritesheet.yaml`
+   sidecar's consumers (discovery/install/actor) off yaml so the sidecar can go.
+   `core/` already renders with `pip install Pillow` alone.
 3. **Make each paradigm a thin adapter to core.** Drawers, imperative gens, YAML
    adapters, and rig docs all just build a `FrameSet`. Collapse the 40+
    `ANIMATIONS` dicts onto the shared animation vocabulary. De-dupe contact-sheet/

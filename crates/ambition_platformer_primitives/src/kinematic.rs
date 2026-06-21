@@ -154,17 +154,24 @@ pub fn step_kinematic(
     //    handles bodies spawned, carried, or nudged into contact with a support.
     if let Some(support) = supporting_block(world, body.aabb(), g, inputs.drop_through) {
         let snap = snap_feet_to_surface(body.aabb(), support.aabb, g);
-        if snap.length_squared() > 0.0 {
-            body.pos += snap;
-        }
-        clear_velocity_toward_feet(&mut body.vel, g);
-        body.on_ground = true;
+        // Only stabilize on a genuine resting-contact snap. A catastrophic
+        // snap (deep penetration / far block matched in error) is left for
+        // `resolve_penetration` to depenetrate the bounded way — snapping it
+        // here would pushout-teleport the body out of the world. See
+        // `is_contact_range_snap`.
+        if is_contact_range_snap(snap, body.aabb()) {
+            if snap.length_squared() > 0.0 {
+                body.pos += snap;
+            }
+            clear_velocity_toward_feet(&mut body.vel, g);
+            body.on_ground = true;
 
-        // Emergent platform riding: any body resting on a moving support rides
-        // the component perpendicular to gravity. The gravity-axis component is
-        // already represented by support/contact resolution.
-        let v = support.velocity;
-        body.pos += v - v.dot(g) * g;
+            // Emergent platform riding: any body resting on a moving support
+            // rides the component perpendicular to gravity. The gravity-axis
+            // component is already represented by support/contact resolution.
+            let v = support.velocity;
+            body.pos += v - v.dot(g) * g;
+        }
     }
 
     resolve_penetration(body, world, g);
@@ -343,6 +350,24 @@ fn snap_feet_to_surface(body: Aabb, surface: Aabb, gravity_dir: Vec2) -> Vec2 {
     gravity_dir * (surface.head_coord(gravity_dir) - body.feet_coord(gravity_dir))
 }
 
+/// True when a feet-to-surface resting snap is a genuine small contact
+/// correction rather than a pushout-teleport. A legitimate "resting on a
+/// support" snap moves the body at most a contact-slop distance; a snap
+/// larger than the body's own half-extent means the matched "support" is a
+/// block the body is deeply penetrating (or matched in error), and snapping
+/// feet to its far surface would fling the body clear across — or out of —
+/// the world.
+///
+/// This is the mockingbird "flies above the arena" bug: a gravity-free,
+/// oversized boss jammed into a tall wall block was treated as resting on it
+/// and snapped its feet (bottom edge) up to the block's top surface at y=0,
+/// teleporting it to y=-half in a single tick. Deep overlap is
+/// `resolve_penetration`'s bounded job; resting snaps must never pushout
+/// (per the engine's no-artificial-pushout invariant).
+fn is_contact_range_snap(snap: Vec2, body: Aabb) -> bool {
+    snap.length() <= body.half_size().length()
+}
+
 fn sweep_axis(
     body: &mut KinematicBody,
     world: &World,
@@ -442,12 +467,25 @@ fn resolve_axis(
             ) {
                 continue;
             }
-            body.pos += snap_feet_to_surface(aabb, block.aabb, gravity_dir);
+            let snap = snap_feet_to_surface(aabb, block.aabb, gravity_dir);
+            if !is_contact_range_snap(snap, aabb) {
+                continue;
+            }
+            body.pos += snap;
             body.on_ground = true;
             clear_axis_velocity(&mut body.vel, axis);
             clear_velocity_toward_feet(&mut body.vel, gravity_dir);
         } else {
             let push = axis_resolution(aabb, block.aabb, axis);
+            // A penetration push larger than the body's own half-extent is a
+            // pushout-teleport, not a contact resolve: a body overlapping a
+            // tall wall whose nearest in-axis exit is the wall's FAR face
+            // (e.g. its top) gets flung out of the world. The perpendicular
+            // axis's resolve handles the real, near exit (a side wall is
+            // exited sideways, not over the top); never pushout-teleport.
+            if !is_contact_range_snap(push, aabb) {
+                continue;
+            }
             body.pos += push;
             clear_axis_velocity(&mut body.vel, axis);
             if axis_role(axis, gravity_dir) == AxisRole::Gravity
@@ -478,7 +516,7 @@ fn resolve_penetration(body: &mut KinematicBody, world: &World, gravity_dir: Vec
             continue;
         }
         let snap = snap_feet_to_surface(aabb, block.aabb, gravity_dir);
-        if snap.length() <= aabb.half_size().length() {
+        if is_contact_range_snap(snap, aabb) {
             body.pos += snap;
             body.on_ground = true;
             clear_velocity_toward_feet(&mut body.vel, gravity_dir);
@@ -512,6 +550,52 @@ mod tests {
             max_fall_speed: 760.0,
             gravity_dir: Vec2::new(0.0, 1.0),
         }
+    }
+
+    /// Regression for the mockingbird "flies above the arena" OOB
+    /// (2026-06-21, caught by the actor OOB trace): a gravity-free body
+    /// deeply overlapping a solid whose nearest in-axis exit face is far
+    /// away must NOT be pushout-teleported across / out of the world by a
+    /// single resolution step. Depenetration stays bounded (≤ the body's
+    /// half-extent); the body's own velocity carries it out at the near
+    /// face over subsequent frames. The bug snapped the boss's feet to a
+    /// block face at the world's top edge, flinging it to y = -half in one
+    /// tick.
+    #[test]
+    fn deeply_embedded_body_is_not_pushout_teleported() {
+        let world = World {
+            name: "embed".into(),
+            size: Vec2::new(800.0, 600.0),
+            spawn: Vec2::ZERO,
+            blocks: vec![Block::solid(
+                "slab",
+                Vec2::new(200.0, 100.0),
+                Vec2::new(400.0, 400.0),
+            )],
+            water_regions: Vec::new(),
+            climbable_regions: Vec::new(),
+        };
+        let start = Vec2::new(400.0, 300.0);
+        let mut body = KinematicBody::new(start, Vec2::new(100.0, 100.0));
+        let tuning = KinematicTuning {
+            gravity: 0.0,
+            max_fall_speed: 0.0,
+            gravity_dir: Vec2::new(0.0, 1.0),
+        };
+        step_kinematic(&mut body, &world, tuning, KinematicInputs::default(), 1.0 / 60.0);
+
+        let moved = (body.pos - start).length();
+        let cap = body.aabb().half_size().length();
+        assert!(
+            moved <= cap + 1.0,
+            "embedded body was pushout-teleported {moved:.1}px (cap {cap:.1}px); \
+             a single resolution step must stay bounded"
+        );
+        assert!(
+            body.pos.y > 0.0 && body.pos.y < world.size.y,
+            "body must stay inside the world; got y={}",
+            body.pos.y
+        );
     }
 
     #[derive(Clone, Copy, Debug)]

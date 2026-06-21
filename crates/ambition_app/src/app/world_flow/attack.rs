@@ -154,27 +154,33 @@ pub(crate) fn start_attack(
     sfx.write(SfxMessage::Slash { pos: player_pos });
     anim.slash_anim_timer = spec.total_seconds().max(0.20);
     *attack = Some(ambition_gameplay_core::PlayerAttackState::new(spec));
-    // Slash effect at the swing's hitbox: the directional `robot_slash` arc
-    // (Side/Up) or down-poke, picked from the attack intent and flipped by
-    // facing. The starting-point shared effect — each attack can graduate to a
-    // bespoke one later.
+    // Slash effect at the swing's hitbox. The hitbox is the gameplay
+    // authority (computed gravity-relatively), so the effect ORIENTS to it:
+    // `dir` is the world player→hitbox vector and the renderer rotates the art
+    // along it — which keeps the effect in the player's reference frame under
+    // any gravity (C4 room), and makes it match the hitbox automatically. Only
+    // the art KIND comes from the intent (down-tilt pokes, everything else
+    // arcs). A shared starting point; each attack can graduate to a bespoke
+    // effect later.
     let slash_hitbox = player_attack_hitbox(&view, spec.intent)
         .unwrap_or_else(|| ambition_gameplay_core::combat::attack_hitbox_from_view(&view, spec));
     vfx.write(VfxMessage::Slash {
         center: slash_hitbox.center(),
         size: slash_effect_size(slash_hitbox),
-        dir: slash_dir(spec.intent),
-        facing: clusters.kinematics.facing,
+        kind: slash_kind(spec.intent),
+        dir: slash_hitbox.center() - player_pos,
     });
 }
 
-/// Map an attack intent onto the `robot_slash` sheet's directional rows.
-fn slash_dir(intent: ambition_gameplay_core::combat::AttackIntent) -> SlashDir {
+/// Pick the slash ART for an attack: down-tilt is a grounded horizontal poke;
+/// every other swing (forward, up, and the down-AIR sweep) is the arc.
+/// Direction is handled separately from the hitbox, so these point correctly
+/// under any gravity.
+fn slash_kind(intent: ambition_gameplay_core::combat::AttackIntent) -> SlashKind {
     use ambition_gameplay_core::combat::AttackIntent as I;
     match intent {
-        I::Up | I::AirUp => SlashDir::Up,
-        I::Down | I::AirDown => SlashDir::Down,
-        _ => SlashDir::Side,
+        I::Down => SlashKind::Poke,
+        _ => SlashKind::Arc,
     }
 }
 

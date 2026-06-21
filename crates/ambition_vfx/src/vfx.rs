@@ -36,15 +36,15 @@ pub enum ExplosionKind {
     Starburst,
 }
 
-/// Which slash-effect row to play. Maps to the `robot_slash` sheet's
-/// directional rows: `Side`/`Up` are energy-arc crescents (most attacks),
-/// `Down` is a tapered lance/poke (down-tilt / pogo). The attacker picks one
-/// from its `AttackIntent`; eventually each attack can carry a bespoke effect.
+/// Which slash-effect ART to play, independent of which way it points.
+/// `Arc` is the sweeping energy crescent (most swings); `Poke` is the tapered
+/// lance/thrust (down-tilt). Orientation is carried separately as a world
+/// `dir`, so one art serves every direction under any gravity — the effect is
+/// oriented in the attacker's reference frame, not screen space.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum SlashDir {
-    Side,
-    Up,
-    Down,
+pub enum SlashKind {
+    Arc,
+    Poke,
 }
 
 /// Typed visual-effects message (Bevy 0.18 buffered Message API). Emitted by
@@ -77,12 +77,15 @@ pub enum VfxMessage {
         precision: bool,
     },
     /// A melee slash effect (the `robot_slash` sheet) at `center`, drawn
-    /// `size` wide/tall, flipped by `facing`, playing the `dir` row once.
+    /// `size` square, playing `kind` once. `dir` is the WORLD direction from
+    /// the attacker to the strike (player→hitbox) — already gravity-relative —
+    /// so the renderer orients the art toward it, keeping the effect in the
+    /// attacker's reference frame under any gravity.
     Slash {
         center: ae::Vec2,
         size: f32,
-        dir: SlashDir,
-        facing: f32,
+        kind: SlashKind,
+        dir: ae::Vec2,
     },
     ResetEffects {
         from: ae::Vec2,

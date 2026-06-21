@@ -21,7 +21,7 @@ use ambition_gameplay_core::config::{rgba, world_to_bevy, WORLD_Z_FX};
 // `FireworksRequest`) + the `explosion_sfx` id mapping moved down with the message
 // types; only the spritesheet-row mapping (`explosion_anim`) is render-specific.
 pub use ambition_vfx::vfx::{
-    explosion_sfx, ExplosionKind, ExplosionRequest, FireworksRequest, ParticleKind, SlashDir,
+    explosion_sfx, ExplosionKind, ExplosionRequest, FireworksRequest, ParticleKind, SlashKind,
     VfxMessage,
 };
 

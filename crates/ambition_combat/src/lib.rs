@@ -538,4 +538,43 @@ mod tests {
             assert!((knock_local - local.knockback).length() < 1e-3);
         }
     }
+
+    /// C4 symmetry: the slash effect orients to the world `hitbox_offset`
+    /// (player→hitbox), so under each of the symmetry-room's four gravities a
+    /// down-tilt stays a ~horizontal forward poke, a down-air points toward the
+    /// feet, and an up-attack points toward the head — i.e. the effect lives in
+    /// the player's reference frame, not screen space.
+    #[test]
+    fn slash_strike_direction_is_gravity_relative_under_c4() {
+        let view = view_at(Vec2::ZERO, 1.0);
+        for gravity_dir in [
+            Vec2::new(0.0, 1.0),
+            Vec2::new(1.0, 0.0),
+            Vec2::new(0.0, -1.0),
+            Vec2::new(-1.0, 0.0),
+        ] {
+            let frame = ambition_engine_core::AccelerationFrame::new(gravity_dir);
+            let dir = |intent| {
+                attack_spec_from_view(&view, intent)
+                    .into_world_frame(frame)
+                    .hitbox_offset
+                    .normalize_or_zero()
+            };
+            // down-tilt: mostly perpendicular to gravity (a forward/horizontal poke).
+            assert!(
+                dir(AttackIntent::Down).dot(gravity_dir).abs() < 0.5,
+                "down-tilt should read ~horizontal under gravity {gravity_dir:?}"
+            );
+            // down-air: toward the feet (along gravity).
+            assert!(
+                dir(AttackIntent::AirDown).dot(gravity_dir) > 0.7,
+                "down-air should point toward feet under gravity {gravity_dir:?}"
+            );
+            // up: toward the head (opposite gravity).
+            assert!(
+                dir(AttackIntent::Up).dot(gravity_dir) < -0.7,
+                "up should point toward head under gravity {gravity_dir:?}"
+            );
+        }
+    }
 }

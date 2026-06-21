@@ -19,14 +19,14 @@ use bevy::prelude::*;
 
 use ambition_gameplay_core::config::{world_to_bevy, WORLD_Z_FX};
 use ambition_gameplay_core::engine_core as ae;
-use ambition_vfx::vfx::{SlashDir, VfxMessage};
+use ambition_vfx::vfx::{SlashKind, VfxMessage};
 
 use super::sheet_atlas::{atlas_layout_from_record, row_duration, row_frame_count, row_start_index};
 
 /// The `robot_slash` sheet name in the baked [`SheetRegistry`].
 const SLASH_SHEET: &str = "robot_slash";
 
-/// One directional row of the slash sheet, flattened into atlas indices.
+/// One row of the slash sheet, flattened into atlas indices.
 #[derive(Clone, Copy, Debug)]
 struct SlashRow {
     start: usize,
@@ -34,25 +34,43 @@ struct SlashRow {
     frame_duration: f32,
 }
 
-/// Loaded-once handles + per-row indexing for the slash sheet. Cached in a
-/// `Local` so the layout asset is built a single time, mirroring
-/// `shrine_visuals`' source cache.
+/// Loaded-once handles + per-art-kind indexing for the slash sheet. The `arc`
+/// art is the sheet's `side` row (a forward crescent); the `poke` art is the
+/// `down` row (a tapered lance). Both are oriented at runtime by rotation, so
+/// the sheet's separate `up` row is unused.
 #[derive(Clone)]
 pub(crate) struct SlashSource {
     image: Handle<Image>,
     layout: Handle<TextureAtlasLayout>,
-    side: SlashRow,
-    up: SlashRow,
-    down: SlashRow,
+    arc: SlashRow,
+    poke: SlashRow,
 }
 
 impl SlashSource {
-    fn row(&self, dir: SlashDir) -> SlashRow {
-        match dir {
-            SlashDir::Side => self.side,
-            SlashDir::Up => self.up,
-            SlashDir::Down => self.down,
+    fn row(&self, kind: SlashKind) -> SlashRow {
+        match kind {
+            SlashKind::Arc => self.arc,
+            SlashKind::Poke => self.poke,
         }
+    }
+}
+
+/// Z-rotation (Bevy radians) to point a slash art along the world direction
+/// `dir` (the attacker→hitbox vector, already gravity-relative). World y is
+/// down and Bevy y is up (`world_to_bevy` inverts y), so the target Bevy angle
+/// is `atan2(-dir.y, dir.x)`. The `arc` art opens toward +x at rest; the
+/// `poke` art points toward image-down (Bevy -y), so it needs a +90° offset.
+/// Pure + frame-agnostic: feeding the four C4 gravity directions yields the
+/// four correctly-rotated effects.
+pub(crate) fn slash_rotation(dir: ae::Vec2, kind: SlashKind) -> f32 {
+    let base = if dir.length_squared() > 1e-6 {
+        (-dir.y).atan2(dir.x)
+    } else {
+        0.0
+    };
+    match kind {
+        SlashKind::Arc => base,
+        SlashKind::Poke => base + std::f32::consts::FRAC_PI_2,
     }
 }
 
@@ -85,9 +103,8 @@ fn slash_source(
     let source = SlashSource {
         image: asset_server.load(format!("sprites/{SLASH_SHEET}_spritesheet.png")),
         layout,
-        side: row("side"),
-        up: row("up"),
-        down: row("down"),
+        arc: row("side"),
+        poke: row("down"),
     };
     *cache = Some(source.clone());
     Some(source)
@@ -112,8 +129,8 @@ pub(crate) fn spawn_slash_effects(
         let VfxMessage::Slash {
             center,
             size,
+            kind,
             dir,
-            facing,
         } = message
         else {
             continue;
@@ -129,22 +146,22 @@ pub(crate) fn spawn_slash_effects(
         let Some(source) = source.as_ref() else {
             continue;
         };
-        spawn_one(&mut commands, &world.0, source, *center, *size, *dir, *facing);
+        spawn_one(&mut commands, &world.0, source, *center, *size, *kind, *dir);
     }
 }
 
-/// Spawn a one-shot slash effect at `center`, `size` px square, flipped by
-/// `facing`, playing the `dir` row.
+/// Spawn a one-shot slash effect at `center`, `size` px square, playing `kind`
+/// rotated to point along the world `dir` (attacker→hitbox, gravity-relative).
 fn spawn_one(
     commands: &mut Commands,
     world: &ae::World,
     source: &SlashSource,
     center: ae::Vec2,
     size: f32,
-    dir: SlashDir,
-    facing: f32,
+    kind: SlashKind,
+    dir: ae::Vec2,
 ) {
-    let row = source.row(dir);
+    let row = source.row(kind);
     let mut sprite = Sprite::from_atlas_image(
         source.image.clone(),
         TextureAtlas {
@@ -153,12 +170,12 @@ fn spawn_one(
         },
     );
     sprite.custom_size = Some(BVec2::splat(size.max(1.0)));
-    // The `side` arc is drawn opening toward +x; mirror it for a left swing.
-    sprite.flip_x = facing < 0.0;
+    let mut transform = Transform::from_translation(world_to_bevy(world, center, WORLD_Z_FX + 2.0));
+    transform.rotation = Quat::from_rotation_z(slash_rotation(dir, kind));
     commands.spawn((
         Name::new("VFX slash"),
         sprite,
-        Transform::from_translation(world_to_bevy(world, center, WORLD_Z_FX + 2.0)),
+        transform,
         SlashVisual {
             age: 0.0,
             row_start: row.start,
@@ -197,16 +214,49 @@ mod tests {
     #[test]
     fn robot_slash_sheet_is_baked_with_directional_rows() {
         // Proves the effect is actually hooked up: the sheet is in the baked
-        // registry and exposes the side/up/down rows the attack maps onto.
+        // registry and exposes the arc (side) + poke (down) rows the attack
+        // maps onto.
         let registry = ambition_gameplay_core::character_sprites::baked_sheet_registry();
         let record = registry
             .get(SLASH_SHEET)
             .expect("robot_slash sheet must be baked into the registry");
-        assert_eq!(row_start_index(record, "side"), Some(0));
-        assert_eq!(row_start_index(record, "up"), Some(5));
-        assert_eq!(row_start_index(record, "down"), Some(10));
-        for row in ["side", "up", "down"] {
+        assert_eq!(row_start_index(record, "side"), Some(0)); // Arc
+        assert_eq!(row_start_index(record, "down"), Some(10)); // Poke
+        for row in ["side", "down"] {
             assert_eq!(row_frame_count(record, row), Some(5), "{row} frames");
         }
+    }
+
+    /// The slash effect must orient in the attacker's reference frame: under
+    /// each of the C4 symmetry-room gravities, the same attack's world
+    /// `dir` (player→hitbox) rotates the art to point at the strike. Feeding
+    /// the four cardinal directions (what the four gravities produce for a
+    /// given local attack) must yield four distinct, correct rotations.
+    #[test]
+    fn slash_rotation_follows_the_strike_direction_under_c4() {
+        use ae::Vec2;
+        use std::f32::consts::{FRAC_PI_2, PI};
+        let approx = |a: f32, b: f32| {
+            let d = (a - b).rem_euclid(2.0 * PI);
+            d < 1e-3 || (2.0 * PI - d) < 1e-3
+        };
+        // Arc art opens +x at rest; rotation = atan2(-dir.y, dir.x).
+        // World y is DOWN, so "down" gravity = +y, "up" = -y.
+        assert!(approx(slash_rotation(Vec2::new(1.0, 0.0), SlashKind::Arc), 0.0)); // forward
+        assert!(approx(
+            slash_rotation(Vec2::new(0.0, 1.0), SlashKind::Arc),
+            -FRAC_PI_2
+        )); // toward feet (down-air)
+        assert!(approx(
+            slash_rotation(Vec2::new(0.0, -1.0), SlashKind::Arc),
+            FRAC_PI_2
+        )); // toward head (up)
+        assert!(approx(slash_rotation(Vec2::new(-1.0, 0.0), SlashKind::Arc), PI)); // backward
+        // Poke art points image-down at rest (+90° offset): a forward strike
+        // (down-tilt) becomes a horizontal forward poke, not a vertical lance.
+        assert!(approx(
+            slash_rotation(Vec2::new(1.0, 0.0), SlashKind::Poke),
+            FRAC_PI_2
+        ));
     }
 }

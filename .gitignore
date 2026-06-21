@@ -70,6 +70,7 @@ target/generated-audio/
 tools/ambition_music_renderer/output/
 tools/ambition_music_renderer/generated/
 tools/ambition_sprite2d_renderer/generated/
+tools/ambition_sprite2d_renderer/.parity-baseline/
 tools/experimental/**/generated/
 tools/experimental/**/assets/
 tools/experimental/**/output/

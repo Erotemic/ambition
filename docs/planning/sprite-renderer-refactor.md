@@ -112,16 +112,51 @@ authoring (plural)                     core (small, PIL + stdlib only)
 - Any boss-attack *data* contract. Bespoke specials stay as content code.
 - Retiring Rust sprite constants / boss-spec drift (game-side; later).
 
-## Decisions for Jon
-1. **Minimal-dep strictness:** make the core `Pillow + stdlib` only and go
-   **RON/JSON manifests** (drops `yaml` from the *write* path; `yaml` stays only
-   to read existing configs) — or keep a YAML sidecar? *(Lean: RON/JSON core +
-   generated human-readable report.)*
-2. **Configs:** keep YAML configs, or migrate config to Python/JSON so the
-   `yaml` dependency shrinks toward zero? *(Lean: keep YAML reading as an
-   optional edge; new authoring uses Python/rig-JSON, no yaml needed.)*
-3. **Reorg aggressiveness:** full directory restructure (more churn, much better
-   navigability) vs. in-place dedup only (less churn)? *(Lean: restructure —
-   navigability is the whole point, and the parity harness makes it safe.)*
-4. **Melee tooling now or after reorg:** sequence the hitbox-agreement tooling
-   (phase 5) before or after the structural work lands?
+## Decisions (resolved 2026-06-21)
+1. **Manifests: RON/JSON, no YAML in the write path.** Core = Pillow + stdlib;
+   the single emitter writes RON (game-native) via stdlib. A human-readable
+   report can be generated separately. ✅ decided.
+2. **YAML configs stay** as a read-only edge. New authoring (drawers, rig JSON)
+   needs no yaml. ✅ decided.
+3. **Drift policy:** pixel drift is **not** a hard failure — small drift is fine,
+   especially where correct behaviour becomes emergent. The parity harness dumps
+   before/after (+ a side-by-side compare) into `<repo>/tmp/sprite-drift/` for
+   Jon to bless or reject; `--strict` fails for CI. ✅ decided.
+
+Still open: reorg aggressiveness (full restructure vs in-place dedup — leaning
+restructure since the harness makes it safe) and whether melee tooling comes
+before or after the structural work.
+
+## Ideal end-state (the target)
+One small **Pillow+stdlib core** every authoring style flows through via a
+`FrameSet` (named animations → frames on a logical canvas). The core does
+`supersample → crop → measure → assemble → emit` once, with a `scale` param so
+every target renders at 64×64 in ms (fast tests by default). Authoring stays
+plural — drawers, imperative generators, YAML adapters, rig docs are thin
+adapters to `FrameSet`. `pip install Pillow` renders any drawer or rig doc.
+Melee hitboxes ride a rig part/socket so the box and the animation can't drift
+("agreement by construction"); the renderer emits per-frame boxes the game
+already consumes. Layout: `core/` (no heavy deps) · `authoring/` · `targets/` ·
+`configs/` (yaml edge) · `gui/` (Qt edge).
+
+## Build order (minimize rework)
+Build shared infra before its consumers; bake each decision in once; touch each
+file once; tidy directories last; the harness pins pixels so consolidation isn't
+throwaway. Order: (1) pin pixels + write the seam as types → (2) core bottom-up:
+draw toolkit → pipeline (scale) → one RON emitter → (3) route the two big shared
+spines (`sheet.py`, `tackon_sheet.py`) onto core → (4) migrate remaining
+paradigms touching each file once (break rigdoc↔PySide6 in the same visit) →
+(5) confine leftover deps → (6) reorganize dirs + delete legacy/dead →
+(7) additive: melee tooling, rig front-door, taste-gated family collapses.
+
+## Progress
+- **2026-06-21 — Step 1 landed.** `parity_harness.py` (capture/check, drift →
+  `tmp/sprite-drift/` per the policy). Pre-refactor baseline captured: **117
+  registry targets, 0 errors** (`.parity-baseline/`, gitignored). Seam written
+  as types: `core/frameset.py` (`FrameSet`) + `core/manifest.py` (RON read-
+  contract mirror). Portability guard: `tests/test_core_minimal_deps.py` (core
+  imports with heavy deps blocked). *Known gaps:* harness doesn't yet cover the
+  non-registry pipelines (mockingbird multi-file boss, pirate standalone,
+  item_icons, factions) — extend before touching those. *Pre-existing, unrelated
+  failure:* `test_actor_contract::…has_local_actor_metadata` — `noether` rig doc
+  carries no actor metadata.

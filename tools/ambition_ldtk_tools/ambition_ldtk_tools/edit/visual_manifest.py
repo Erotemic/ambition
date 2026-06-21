@@ -19,6 +19,7 @@ from pathlib import Path
 from typing import Any
 
 from ambition_ldtk_tools.ldtk import (
+    LdtkTransaction,
     alloc_uid,
     entity_defs,
     find_entity_def,
@@ -29,7 +30,6 @@ from ambition_ldtk_tools.ldtk import (
     rel_to_ldtk,
     repo_root_from_ldtk,
     tileset_defs,
-    write_project,
 )
 
 DEFAULT_ENTITY_ICON_ORDER = [
@@ -513,15 +513,13 @@ def main(argv=None) -> int:
             issues = validate_manifest(project, args.ldtk, manifest)
             print(json.dumps([i.__dict__ for i in issues], indent=2, sort_keys=True) if args.format == "json" else format_issues(issues), end="" if args.format == "text" else "\n")
             return 1 if any(i.severity == "error" for i in issues) else 0
-        msgs = apply_manifest(project, args.ldtk, manifest)
-        if args.in_place:
-            write_project(args.ldtk, project)
-            out = args.ldtk
-        elif args.output:
-            write_project(args.output, project)
-            out = args.output
-        else:
+        if not args.in_place and not args.output:
             raise SystemExit("apply-manifest requires --in-place or --output")
+        tx = LdtkTransaction(args.ldtk, in_place=args.in_place, output=args.output)
+        msgs = apply_manifest(tx.project, args.ldtk, manifest)
+        if msgs:
+            tx.note_changed(msgs)
+        out = tx.write_if_changed()
         for msg in msgs:
             print(msg)
         print(f"wrote {out}")

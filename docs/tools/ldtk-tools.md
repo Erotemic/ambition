@@ -255,3 +255,27 @@ Avoid adding new ad-hoc helpers named `load_project`, `write_project`,
 `png_dimensions` inside command modules. Add shared behavior to the LDtk core
 package instead. This keeps correctness emergent from one implementation of the
 LDtk file mechanics and makes no-op/dry-run/writeback behavior easier to audit.
+
+### Transaction and patch boundary
+
+The LDtk tool now has a small transaction/patch foundation under
+`ambition_ldtk_tools.ldtk`:
+
+- `patch.py`: composable dict-backed patch operations, currently including
+  entity layer moves and tag-based layer rule metadata.
+- `transaction.py`: one shared writeback path for dry-run/no-op/output/backup and
+  editor-style LDtk JSON writes.
+
+New mutating commands should not decide writeback semantics locally. Prefer:
+
+```python
+from ambition_ldtk_tools.ldtk import LdtkTransaction, MoveEntitiesToLayer
+
+tx = LdtkTransaction(path, dry_run=args.dry_run, in_place=args.in_place, output=args.output)
+tx.apply(MoveEntitiesToLayer(...))
+tx.finish(noop_message="no matching entities; left file unchanged")
+```
+
+This is the migration seam for future cleanups: area specs, camera edits,
+visual manifest writes, IntGrid paint commands, and layout writeback should all
+compile down to shared patch/transaction operations over time.

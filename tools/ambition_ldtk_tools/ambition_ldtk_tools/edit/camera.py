@@ -11,6 +11,7 @@ from typing import Any
 
 from ambition_ldtk_tools.edit.entity_layer_rules import DEFAULT_LDTK
 from ambition_ldtk_tools.ldtk import (
+    LdtkTransaction,
     alloc_uid,
     default_field_value,
     ensure_entities_layer_def,
@@ -19,7 +20,6 @@ from ambition_ldtk_tools.ldtk import (
     find_layer_instance,
     find_level as _find_level_or_none,
     load_project,
-    write_project,
 )
 
 CAMERA_LAYER = "AmbitionCameras"
@@ -207,20 +207,19 @@ def main(argv=None) -> int:
     ap.add_argument("--output", type=Path)
     args = ap.parse_args(argv)
 
-    project = load_project(args.ldtk)
     if args.action == "auto-cover":
         if not args.level:
             raise SystemExit("camera auto-cover requires --level")
-        msg = autocover_camera(project, args.level, args.margin, args.create)
-        if args.in_place:
-            write_project(args.ldtk, project)
-            out = args.ldtk
-        elif args.output:
-            write_project(args.output, project)
-            out = args.output
-        else:
+        if not args.in_place and not args.output:
             raise SystemExit("camera auto-cover requires --in-place or --output")
+        tx = LdtkTransaction(args.ldtk, in_place=args.in_place, output=args.output)
+        msg = autocover_camera(tx.project, args.level, args.margin, args.create)
+        tx.note_changed([msg])
+        out = tx.write_if_changed()
         print(f"{msg}; wrote {out}")
+        project = tx.project
+    else:
+        project = load_project(args.ldtk)
     issues = collect_camera_issues(project, args.level, args.margin)
     if args.format == "json":
         print(json.dumps([issue.__dict__ for issue in issues], indent=2, sort_keys=True))

@@ -43,17 +43,16 @@ may intentionally contain LoadingZone links to rooms in other LDtk files.
 from __future__ import annotations
 
 import argparse
-import shutil
 import sys
 from pathlib import Path
 
 from ambition_ldtk_tools.ldtk import (
+    LdtkTransaction,
+    MoveEntitiesToLayer,
     ensure_entities_layer_def,
     ensure_entities_layer_instance,
     find_layer_def,
     find_layer_instance,
-    load_project,
-    write_project,
 )
 
 
@@ -159,70 +158,47 @@ def main(argv: list[str] | None = None) -> int:
     if not args.dry_run and not args.in_place and not args.output:
         ap.error("choose --dry-run, --in-place, or --output <path>")
 
-    project = load_project(args.ldtk)
+    tx = LdtkTransaction(
+        args.ldtk,
+        dry_run=args.dry_run,
+        in_place=args.in_place,
+        output=args.output,
+        backup=args.backup,
+    )
 
-    from_def = find_layer_def(project, args.from_layer)
+    from_def = find_layer_def(tx.project, args.from_layer)
     if from_def is None or from_def.get("__type") != "Entities":
         return _fail(
             f"source layer '{args.from_layer}' not found or not an Entities layer"
         )
-    dest_def = find_layer_def(project, args.to_layer)
 
-    total_moved = 0
-    levels_touched = 0
-    levels_skipped = 0
-    for level in project.get("levels", []):
-        from_inst = find_layer_instance(level, args.from_layer)
-        if from_inst is None:
-            levels_skipped += 1
-            continue
-        if not any(
-            e.get("__identifier") == args.entity_type
-            for e in from_inst.get("entityInstances", [])
-        ):
-            continue
-        if dest_def is None:
-            dest_def = ensure_dest_layer_def(
-                project, from_def=from_def, dest_identifier=args.to_layer
-            )
-        dest_inst = ensure_dest_layer_instance(
-            project,
-            level,
-            from_instance=from_inst,
-            dest_def=dest_def,
-            dest_identifier=args.to_layer,
+    levels_skipped = sum(
+        1
+        for level in tx.project.get("levels", []) or []
+        if find_layer_instance(level, args.from_layer) is None
+    )
+    result = tx.apply(
+        MoveEntitiesToLayer(
+            to_layer=args.to_layer,
+            from_layer=args.from_layer,
+            identifier=args.entity_type,
         )
-        moved = relocate_entities(
-            from_instance=from_inst,
-            dest_instance=dest_inst,
-            entity_identifier=args.entity_type,
-        )
-        total_moved += moved
-        if moved > 0:
-            levels_touched += 1
-            print(
-                f"  level '{level['identifier']}': moved {moved} "
-                f"{args.entity_type} entities"
-            )
+    )
+    levels_touched = len({line.split(":", 1)[0] for line in result.messages})
+    for level_id in sorted({line.split(":", 1)[0] for line in result.messages}):
+        count = sum(1 for line in result.messages if line.startswith(level_id + ":"))
+        action = "would move" if args.dry_run else "moved"
+        print(f"  level '{level_id}': {action} {count} {args.entity_type} entities")
 
+    action = "would move" if args.dry_run else "moved"
     print(
-        f"split-entities: {'would move' if args.dry_run else 'moved'} {total_moved} {args.entity_type} entities "
+        f"split-entities: {action} {len(result.messages)} {args.entity_type} entities "
         f"across {levels_touched} level(s) "
         f"(skipped {levels_skipped} level(s) without `{args.from_layer}`)"
     )
-    if args.dry_run:
-        return 0
-    if total_moved == 0:
-        print("split-entities: no matching entities; left file unchanged")
-        return 0
-    target_path = args.output or args.ldtk
-    if args.backup and args.in_place:
-        backup_path = target_path.with_suffix(target_path.suffix + ".bak")
-        shutil.copy2(target_path, backup_path)
-        print(f"backup written: {backup_path}")
-    write_project(target_path, project)
-    if not args.no_repair:
-        run_repair(target_path)
+    tx.finish(noop_message="split-entities: no matching entities; left file unchanged")
+    if tx.changed and not args.no_repair:
+        run_repair(tx.target or args.ldtk)
     return 0
 
 

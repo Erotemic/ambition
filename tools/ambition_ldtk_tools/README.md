@@ -286,3 +286,19 @@ New commands should use those helpers instead of creating local copies of
 `load_project`, `write_project`, `alloc_uid`, `find_*`, or `png_dimensions`.
 The CLI should remain a thin parser/dispatcher; command modules should express
 intent and delegate raw LDtk mechanics to the shared core.
+
+### Transaction and patch helpers
+
+Mutating commands should use `ambition_ldtk_tools.ldtk.LdtkTransaction` plus
+small patch operations from `ambition_ldtk_tools.ldtk.patch` instead of open-coding
+writeback.  This keeps dry-run, no-op, backup, output, and editor-style JSON
+behavior consistent across commands.
+
+Current shared patch operations cover entity layer moves and LDtk tag-based
+entity/layer placement rules.  Future refactors should move area authoring,
+visual refs, IntGrid painting, and world layout writeback behind the same patch
+boundary so commands become:
+
+```text
+parse CLI intent -> build patch ops -> transaction applies/writes
+```

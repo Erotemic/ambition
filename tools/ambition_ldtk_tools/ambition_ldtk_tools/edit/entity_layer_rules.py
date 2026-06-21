@@ -30,21 +30,19 @@ from __future__ import annotations
 
 import argparse
 import json
-import shutil
 import sys
 from dataclasses import dataclass
 from pathlib import Path
 
 from ambition_ldtk_tools.ldtk import (
+    ApplyEntityLayerTagRule,
     EntityLocation,
-    alloc_uid,
+    LdtkTransaction,
+    MoveEntitiesToLayer,
     default_sandbox_ldtk,
     ensure_entities_layer_def,
     ensure_entities_layer_instance,
     entity_field_value,
-    find_entity_def,
-    find_layer_def,
-    find_layer_instance,
     iter_entities,
     load_project,
     write_project,
@@ -148,54 +146,19 @@ def change_layer(
     identifier: str | None,
     field_filters: list[tuple[str, str]],
 ) -> list[str]:
-    if iid is None and identifier is None:
-        raise SystemExit("select entities with --iid or --identifier")
+    """Move selected entities through the shared LDtk patch op.
 
-    selected: list[EntityLocation] = []
-    for loc in iter_entities(project, level_filter=level_filter, layer_filter=from_layer):
-        if loc.layer.get("__identifier") == to_layer:
-            continue
-        if matches_filters(
-            loc.entity,
-            iid=iid,
-            identifier=identifier,
-            field_filters=field_filters,
-        ):
-            selected.append(loc)
-
-    by_level_layer: dict[tuple[str, str], list[dict]] = {}
-    for loc in selected:
-        level_id = str(loc.level.get("identifier"))
-        layer_id = str(loc.layer.get("__identifier"))
-        by_level_layer.setdefault((level_id, layer_id), []).append(loc.entity)
-
-    dest_def = None
-    for (level_id, layer_id), entities in by_level_layer.items():
-        level = next(level for level in project.get("levels", []) if level.get("identifier") == level_id)
-        source = find_layer_instance(level, layer_id)
-        if dest_def is None:
-            dest_def = ensure_entities_layer_def(project, to_layer, clone_from=from_layer or layer_id)
-        dest = ensure_entities_layer_instance(
-            project,
-            level,
-            to_layer,
-            dest_def=dest_def,
-            clone_from=from_layer or layer_id,
-        )
-        remaining = []
-        move_ids = {id(entity) for entity in entities}
-        for entity in source.get("entityInstances", []) or []:
-            if id(entity) in move_ids:
-                dest.setdefault("entityInstances", []).append(entity)
-            else:
-                remaining.append(entity)
-        source["entityInstances"] = remaining
-
-    return [
-        f"{loc.level.get('identifier')}:{loc.layer.get('__identifier')} -> {to_layer} "
-        f"{loc.entity.get('__identifier')} ({loc.entity.get('iid')})"
-        for loc in selected
-    ]
+    Kept as a public helper for existing tests and callers; new commands should
+    build `MoveEntitiesToLayer` directly or use `LdtkTransaction.apply`.
+    """
+    return MoveEntitiesToLayer(
+        to_layer=to_layer,
+        level_filter=level_filter,
+        from_layer=from_layer,
+        iid=iid,
+        identifier=identifier,
+        field_filters=field_filters,
+    ).apply(project).messages
 
 
 def collect_rule_violations(project: dict, rules: dict[str, str]) -> list[RuleViolation]:
@@ -219,16 +182,6 @@ def collect_rule_violations(project: dict, rules: dict[str, str]) -> list[RuleVi
     return violations
 
 
-def add_unique(values: list, value) -> None:
-    if value not in values:
-        values.append(value)
-
-
-def remove_value(values: list, value) -> None:
-    while value in values:
-        values.remove(value)
-
-
 def apply_editor_layer_rule(
     project: dict,
     *,
@@ -237,38 +190,13 @@ def apply_editor_layer_rule(
     from_layer: str | None,
     tag: str,
 ) -> list[str]:
-    entity_def = find_entity_def(project, entity_type)
-    if entity_def is None:
-        raise SystemExit(f"entity definition {entity_type!r} not found")
-    dest_def = ensure_entities_layer_def(project, to_layer, clone_from=from_layer)
-    source_def = find_layer_def(project, from_layer) if from_layer else None
-
-    changes: list[str] = []
-    tags = entity_def.setdefault("tags", [])
-    if tag not in tags:
-        tags.append(tag)
-        changes.append(f"entity {entity_type}: added tag {tag!r}")
-
-    required = dest_def.setdefault("requiredTags", [])
-    if tag not in required:
-        required.append(tag)
-        changes.append(f"layer {to_layer}: requiredTags += {tag!r}")
-
-    excluded = dest_def.setdefault("excludedTags", [])
-    if tag in excluded:
-        remove_value(excluded, tag)
-        changes.append(f"layer {to_layer}: excludedTags -= {tag!r}")
-
-    if source_def is not None:
-        excluded = source_def.setdefault("excludedTags", [])
-        if tag not in excluded:
-            excluded.append(tag)
-            changes.append(f"layer {from_layer}: excludedTags += {tag!r}")
-        required = source_def.setdefault("requiredTags", [])
-        if tag in required:
-            remove_value(required, tag)
-            changes.append(f"layer {from_layer}: requiredTags -= {tag!r}")
-    return changes
+    """Apply editor placement metadata through the shared patch op."""
+    return ApplyEntityLayerTagRule(
+        entity_type=entity_type,
+        to_layer=to_layer,
+        from_layer=from_layer,
+        tag=tag,
+    ).apply(project).messages
 
 
 def emit_rule_report(violations: list[RuleViolation], *, json_output: bool) -> None:
@@ -300,26 +228,14 @@ def emit_rule_report(violations: list[RuleViolation], *, json_output: bool) -> N
         )
 
 
-def maybe_write(
-    *,
-    project: dict,
-    source: Path,
-    output: Path | None,
-    in_place: bool,
-    backup: bool,
-    no_repair: bool,
-) -> int:
-    target = source if in_place else output
-    if target is None:
-        raise SystemExit("choose --in-place or --output <path>, or use --dry-run")
-    if backup and in_place:
-        backup_path = source.with_suffix(source.suffix + ".bak")
-        shutil.copy2(source, backup_path)
-        print(f"backup written: {backup_path}")
-    write_project(target, project)
-    if no_repair:
-        return 0
-    return run_repair(target)
+def _make_transaction(args) -> LdtkTransaction:
+    return LdtkTransaction(
+        args.ldtk,
+        dry_run=args.dry_run,
+        in_place=args.in_place,
+        output=args.output,
+        backup=args.backup,
+    )
 
 
 def cmd_change_layer(argv: list[str]) -> int:
@@ -342,36 +258,27 @@ def cmd_change_layer(argv: list[str]) -> int:
     if not args.dry_run and not args.in_place and args.output is None:
         ap.error("choose --dry-run, --in-place, or --output <path>")
 
-    project = load_project(args.ldtk)
+    tx = _make_transaction(args)
     filters = [parse_field_filter(raw) for raw in args.field]
-    moved = change_layer(
-        project,
-        level_filter=args.level,
-        from_layer=args.from_layer,
-        to_layer=args.to_layer,
-        iid=args.iid,
-        identifier=args.identifier,
-        field_filters=filters,
+    result = tx.apply(
+        MoveEntitiesToLayer(
+            to_layer=args.to_layer,
+            level_filter=args.level,
+            from_layer=args.from_layer,
+            iid=args.iid,
+            identifier=args.identifier,
+            field_filters=filters,
+        )
     )
-    if not moved:
+    if not result.messages:
         print("change-layer: no matching entities")
     else:
-        print(f"change-layer: would move {len(moved)} entit(y/ies)" if args.dry_run else f"change-layer: moved {len(moved)} entit(y/ies)")
-        for line in moved:
+        action = "would move" if args.dry_run else "moved"
+        print(f"change-layer: {action} {len(result.messages)} entit(y/ies)")
+        for line in result.messages:
             print(f"  {line}")
-    if args.dry_run:
-        return 0
-    if not moved:
-        print("change-layer: left file unchanged")
-        return 0
-    return maybe_write(
-        project=project,
-        source=args.ldtk,
-        output=args.output,
-        in_place=args.in_place,
-        backup=args.backup,
-        no_repair=args.no_repair,
-    )
+    tx.finish(noop_message="change-layer: left file unchanged")
+    return 0
 
 
 def cmd_check(argv: list[str]) -> int:
@@ -407,31 +314,23 @@ def cmd_apply_rules(argv: list[str]) -> int:
         ap.error("--dry-run cannot be combined with --in-place/--output")
     if not args.dry_run and not args.in_place and args.output is None:
         ap.error("choose --dry-run, --in-place, or --output <path>")
-    project = load_project(args.ldtk)
-    tag = args.tag or args.entity_type
-    changes = apply_editor_layer_rule(
-        project,
-        entity_type=args.entity_type,
-        to_layer=args.to_layer,
-        from_layer=args.from_layer,
-        tag=tag,
+    tx = _make_transaction(args)
+    result = tx.apply(
+        ApplyEntityLayerTagRule(
+            entity_type=args.entity_type,
+            to_layer=args.to_layer,
+            from_layer=args.from_layer,
+            tag=args.tag or args.entity_type,
+        )
     )
-    if changes:
+    if result.messages:
         print("apply-entity-rules: " + ("would change:" if args.dry_run else "changed:"))
-        for line in changes:
+        for line in result.messages:
             print(f"  {line}")
     else:
         print("apply-entity-rules: no changes needed")
-    if args.dry_run:
-        return 0
-    return maybe_write(
-        project=project,
-        source=args.ldtk,
-        output=args.output,
-        in_place=args.in_place,
-        backup=args.backup,
-        no_repair=args.no_repair,
-    )
+    tx.finish()
+    return 0
 
 
 def main(argv: list[str] | None = None) -> int:

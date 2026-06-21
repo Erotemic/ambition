@@ -61,6 +61,44 @@ class TestFeatureToggles:
         out = [p["name"] for p in visible_parts(parts, {"hairpin": False})]
         assert out == ["a", "b"]  # pin dropped; remaining sorted by z
 
+    def test_sprite_tuning_flows_to_ron(self, tmp_path):
+        """A rig's sprite_tuning is emitted to the RON's tuning field so the
+        runtime uses it for in-game size instead of the DEFAULT fallback."""
+        doc = RigDocument.new_empty("tuned")
+        doc.data["sprite_tuning"] = {"collision_scale": 2.0, "frame_sample_inset": 1}
+        render_sheet_for_doc(doc, tmp_path)
+        ron = (tmp_path / "tuned_spritesheet.ron").read_text()
+        assert "tuning: Some((" in ron
+        assert "collision_scale: 2.0" in ron
+
+    def test_render_scale_increases_resolution_not_in_game_size(self, tmp_path):
+        """render_scale multiplies the texture's pixels (crisper, no upscaling)
+        while the aspect ratio — all the in-game size derives from — is held."""
+        doc = RigDocument.new_empty("res")
+
+        import yaml as _yaml
+
+        def frame_dims(scale):
+            doc.frame["render_scale"] = scale
+            sub = tmp_path / f"s{scale}"
+            sub.mkdir()
+            render_sheet_for_doc(doc, sub)
+            data = _yaml.safe_load((sub / "res_spritesheet.yaml").read_text())
+            return data["frame_width"], data["frame_height"]
+
+        w1, h1 = frame_dims(1)
+        w2, h2 = frame_dims(2)
+        assert w2 > w1 and h2 > h1, "2x render_scale yields more native pixels"
+        # Aspect (what in-game size uses) is preserved within rounding.
+        assert abs((w2 / h2) - (w1 / h1)) < 0.06
+
+    def test_noether_is_tall_and_hi_res(self):
+        """Emmy ships taller (collision_scale > the 1.5 fallback) and at 2x
+        render resolution so she isn't pixelated in game."""
+        emmy = RigDocument.load(NOETHER)
+        assert emmy.sprite_tuning.get("collision_scale", 1.5) > 1.5
+        assert emmy.frame.get("render_scale", 1) >= 2
+
     def test_noether_hairpin_is_present_and_rigid(self):
         """Emmy's hairpin reads as a hairpin (on) and is RIGID: bound to the
         `head` bone, never the bobbing `antenna` channel that made it wave."""

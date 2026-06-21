@@ -251,6 +251,7 @@ def build_sheet(
     crop_margin: int = 2,
     actor_metadata=None,
     body_metrics_fn=None,
+    sheet_tuning=None,
 ):
     """Build a labeled spritesheet + companion YAML manifest.
 
@@ -438,6 +439,11 @@ def build_sheet(
         "rows": rows_meta,
         "body_metrics": body_metrics,
     }
+    if sheet_tuning:
+        # Emitted to the RON `tuning` field (ron_tuning reads `sheet_tuning`);
+        # the runtime SheetRegistry uses it for in-game display size /
+        # sampling instead of the DEFAULT_TUNING fallback.
+        manifest["sheet_tuning"] = dict(sheet_tuning)
     yaml_path.write_text(yaml.safe_dump(manifest, sort_keys=False, width=120))
     # Sidecar RON manifest consumed at runtime by the sandbox's
     # SheetRegistry. The YAML is the human-readable sidecar; RON is

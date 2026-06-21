@@ -253,6 +253,21 @@ class RigDocument:
         absent — features default to on)."""
         return self.data.setdefault("features", {})
 
+    @property
+    def sprite_tuning(self) -> Dict[str, float]:
+        """Optional in-game sheet tuning, emitted to the RON's ``tuning`` field
+        and read by the runtime ``SheetRegistry``:
+
+        - ``collision_scale`` — the in-game display SIZE driver
+          (height = collision * collision_scale). Raise it to make a character
+          render bigger/taller without touching its gameplay collision box.
+        - ``frame_sample_inset`` — pixels trimmed off each atlas cell edge.
+        - ``feet_anchor_y_override`` — explicit feet anchor.
+
+        Absent → the runtime's ``DEFAULT_TUNING`` (collision_scale 1.5). This is
+        how a rig specifies its own defaults instead of inheriting the fallback."""
+        return self.data.setdefault("sprite_tuning", {})
+
     def bone(self, name: str) -> Optional[dict]:
         for b in self.bones:
             if b["name"] == name:
@@ -473,6 +488,7 @@ def render_sheet_for_doc(doc: RigDocument, out_dir: Path) -> List[Path]:
         render_fn=doc.render_frame,
         out_dir=Path(out_dir),
         frame_size=(int(fr["width"]) * rs, int(fr["height"]) * rs),
+        sheet_tuning=doc.sprite_tuning or None,
     )
     keys = ("spritesheet", "yaml", "ron", "actor", "canonical", "canonical_transparent", "preview")
     return [Path(outputs[k]) for k in keys if outputs.get(k)]

@@ -131,3 +131,44 @@ affecting all rooms via `--start-room`/respawn, not a one-room LDtk tweak. The
 trace warm-up gate already silences the harmless 1-frame dump it caused.
 Low urgency; worth a proper fix once you can eyeball it. Say the word and I'll
 take it as its own pass.
+
+---
+
+## 4. Sprite resolution / in-game size knobs (rig path done; fleet rollout pending) 🔭
+
+**Why partly machine-bound:** the *crispness* and *Emmy's height vs the player*
+only read true in the running game.
+
+**Done (2026-06-21):** rigged characters can now specify their own in-game
+tuning + render resolution, instead of inheriting the `DEFAULT_TUNING`
+(collision_scale 1.5) fallback:
+- A rig doc may carry `"sprite_tuning": {"collision_scale": …, …}` — emitted to
+  the sheet RON and used by the runtime for **in-game display size**
+  (height = `collision * collision_scale`). This is the knob for "make X
+  taller/bigger" without touching gameplay collision.
+- `"frame": {"render_scale": N}` multiplies the texture's pixel resolution
+  (geometry stays in base-frame units). The in-game **size is unchanged** —
+  `sprite_render_size` derives height from collision and only takes *aspect*
+  from the frame — so this is pure anti-pixelation: more native pixels under
+  the same display quad.
+- Emmy (`noether`) uses both: `collision_scale 2.0` (taller than the short
+  robot) + `render_scale 2` (crisp).
+
+**Verify at the main machine:** is Emmy now clearly taller than the player, and
+not pixelated? `collision_scale` is a single number in `gen_noether_rig.py`
+(`sprite_tuning`) — nudge if she reads too tall/short. (I calibrated 2.0
+blind; the player is ~`48 * its collision_scale * 1.16` tall.)
+
+**Fleet rollout (the "larger refactor" you flagged — needs a decision):** most
+NPCs are *toon* sheets rendered through `authoring/sheet.py` (the gen2d adapter
+pipeline), which has **no `render_scale` knob yet** — that's why "lots of
+sprites are scaled up and pixelated." Options, cheapest first:
+1. Add a `render_scale` (and a global default, e.g. 2) to `sheet.py` /
+   the job render config, mirroring what `tackon_sheet`/rigdoc now do, then
+   `regen_sprites.sh` re-renders the fleet at 2×. Non-breaking (display size is
+   collision-driven). **Biggest bang for the buck.**
+2. Per-character `sprite_tuning` for the toon path too (so each NPC's in-game
+   size is data-driven, like rigs now are), retiring hardcoded Rust
+   `SheetTuning` consts over time.
+Say which and I'll execute; #1 is a contained change I can verify by PNG sizes,
+but the "is it crisp now" confirmation is yours in-game.

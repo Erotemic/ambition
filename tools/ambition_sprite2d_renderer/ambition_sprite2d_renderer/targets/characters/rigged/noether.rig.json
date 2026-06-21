@@ -6,7 +6,8 @@
   "supersample": 4,
   "ground_y": 101.0,
   "center_x": 64.0,
-  "ankle_h": 2.6
+  "ankle_h": 2.6,
+  "render_scale": 2
  },
  "palette": {
   "skin": "#E7B391",
@@ -25,6 +26,10 @@
   "boot": "#42352D",
   "boot_dark": "#2C231D",
   "outline": "#1A1410"
+ },
+ "sprite_tuning": {
+  "collision_scale": 2.0,
+  "frame_sample_inset": 1
  },
  "features": {
   "hairpin": true,

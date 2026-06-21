@@ -146,10 +146,24 @@ parts = [
     circ("near_hand", "near_arm_l", 73, [8.0, 0.0], 2.8, "skin", outline="outline", ow=0.5),
 ]
 
+# Emmy reads as a TALL scholar — a deliberate contrast to the short robot
+# player. In-game height is `collision * collision_scale`, so a rigged NPC's
+# stature is set by its sheet tuning, not its pixel art: bump collision_scale
+# above the 1.5 fallback (the short robot's neighbourhood) so she stands taller.
+# render_scale=2 doubles the rendered pixel resolution (geometry stays in
+# base-frame units) so she isn't upscaled-and-pixelated in game — the display
+# SIZE is unchanged (set by collision_scale), only the texture is crisper.
+frame = dict(robot["frame"])
+frame["render_scale"] = 2
+
 doc = {
     "name": "noether",
-    "frame": robot["frame"],
+    "frame": frame,
     "palette": PALETTE,
+    # In-game sheet tuning emitted to the RON. collision_scale 2.0 (vs the 1.5
+    # fallback) makes Emmy noticeably taller than the short robot player; nudge
+    # it if she reads too tall/short against the player in game.
+    "sprite_tuning": {"collision_scale": 2.0, "frame_sample_inset": 1},
     # Optional-accessory toggles. Flip any to re-customize Emmy without
     # touching the parts list. The hairpin now reads as a rigid pin set into
     # the bun (was an antenna), so it's on.

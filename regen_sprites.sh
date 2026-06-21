@@ -721,6 +721,25 @@ else
     echo "  (skipped — ambition_ldtk_tools not importable from $python_bin)"
 fi
 
+# --- LDtk editor-icon atlas ----------------------------------------------
+# Regenerate the gitignored editor-icon atlas that the worlds' EditorIcons
+# tileset references, so the LDtk editor shows a distinct icon per entity
+# type on a fresh clone. PNG only — the per-entity tileRect wiring is
+# committed in the .ldtk; only re-run `asset register-entity-icons` when the
+# entity set changes (it rewrites the .ldtk).
+echo "==> LDtk editor-icon atlas:"
+if command -v "$python_bin" >/dev/null 2>&1 && \
+    PYTHONPATH="$repo_root/tools/ambition_ldtk_tools" "$python_bin" \
+        -c "import ambition_ldtk_tools" 2>/dev/null
+then
+    PYTHONPATH="$repo_root/tools/ambition_ldtk_tools" "$python_bin" \
+        -m ambition_ldtk_tools asset generate-editor-icons \
+        --icons "$sprites_dir/editor_icons.png" --tile-size 32 \
+        2>&1 | sed 's/^/  /' || true
+else
+    echo "  (skipped — ambition_ldtk_tools not importable from $python_bin)"
+fi
+
 # --- Write fingerprint on success ----------------------------------------
 mkdir -p "$cache_dir"
 echo "$current_fingerprint" > "$fingerprint_file"

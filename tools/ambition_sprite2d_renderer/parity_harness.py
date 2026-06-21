@@ -42,7 +42,7 @@ DRIFT_DIR = REPO_ROOT / "tmp" / "sprite-drift"
 
 
 def _discover() -> Dict[str, object]:
-    from ambition_sprite2d_renderer.target_registry import discover_all_targets
+    from ambition_sprite2d_renderer.registry import discover_all_targets
 
     return discover_all_targets().targets
 

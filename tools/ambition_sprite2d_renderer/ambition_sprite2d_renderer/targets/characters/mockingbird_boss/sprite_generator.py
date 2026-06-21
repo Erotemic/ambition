@@ -27,7 +27,7 @@ from typing import Dict, Iterable, List, Tuple
 
 from PIL import Image, ImageChops, ImageDraw, ImageFilter, ImageFont
 
-from ambition_sprite2d_renderer.console import print_paths
+from ambition_sprite2d_renderer.cli.console import print_paths
 
 try:
     import yaml

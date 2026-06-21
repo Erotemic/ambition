@@ -1,8 +1,8 @@
 from pathlib import Path
 
-from ambition_sprite2d_renderer.config import CharacterJob
+from ambition_sprite2d_renderer.registry import CharacterJob
 from ambition_sprite2d_renderer.authoring.sheet import write_spritesheet
-from ambition_sprite2d_renderer.target_registry import discover_all_targets
+from ambition_sprite2d_renderer.registry import discover_all_targets
 
 
 CONFIGS = Path(__file__).resolve().parents[1] / "ambition_sprite2d_renderer" / "configs"
@@ -158,7 +158,7 @@ def test_catalog_defaults_enrich_actor_contract_when_available(tmp_path: Path):
 
 
 def test_json_manifest_targets_can_emit_actor_sidecar(tmp_path: Path):
-    from ambition_sprite2d_renderer.target_registry import _ensure_actor_sidecars
+    from ambition_sprite2d_renderer.registry import _ensure_actor_sidecars
 
     manifest_path = tmp_path / "mockingbird_boss_spritesheet_manifest.json"
     manifest_path.write_text(
@@ -421,7 +421,7 @@ def test_every_registered_character_target_has_local_actor_metadata():
 
 
 def test_adapter_actor_metadata_is_authored_in_yaml_not_central_profile():
-    from ambition_sprite2d_renderer.target_registry import discover_all_targets
+    from ambition_sprite2d_renderer.registry import discover_all_targets
 
     target = discover_all_targets().targets["robot_runner"]
     job = getattr(target, "_job")

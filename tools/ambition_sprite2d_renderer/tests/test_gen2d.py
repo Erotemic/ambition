@@ -10,7 +10,7 @@ from ambition_sprite2d_renderer.authoring.animation_vocab import (
     EXTENDED_PLAYER_ANIMATION_ORDER,
 )
 from ambition_sprite2d_renderer.cli import draw_all, draw_canonicals
-from ambition_sprite2d_renderer.config import CharacterJob
+from ambition_sprite2d_renderer.registry import CharacterJob
 from ambition_sprite2d_renderer.targets.props.entities import (
     ENTITY_SPECS,
     write_entity_sprites,

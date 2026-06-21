@@ -14,7 +14,7 @@ from typing import Any, Dict, Iterable, List, Optional, Tuple
 import yaml
 from PIL import Image, ImageDraw
 
-from ..config import CharacterJob, RenderConfig
+from ..registry import CharacterJob, RenderConfig
 from .rendering import load_font
 from .sheet import write_spritesheet
 from .canonical import render_canonical

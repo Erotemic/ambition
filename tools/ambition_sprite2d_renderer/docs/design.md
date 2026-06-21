@@ -109,7 +109,7 @@ See `walk_cycle_baseline.md` for the practical recipe, the target list, and the 
 - Keep target code under `ambition_sprite2d_renderer/targets/<category>/`
   where category is one of `characters/`, `props/`, `tiles/`, `icons/`.
   The registry walks these dirs at import time; see
-  [`target_registry.py`](../ambition_sprite2d_renderer/target_registry.py)
+  [`registry/discovery.py`](../ambition_sprite2d_renderer/registry/discovery.py)
   for the discovery contract and the README's "Adding a new sprite"
   section for the practical walkthrough.
 - Generic helpers (drawing primitives, the `build_sheet` pipeline,

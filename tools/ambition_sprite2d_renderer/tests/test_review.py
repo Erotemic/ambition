@@ -7,7 +7,7 @@ from pathlib import Path
 
 from ambition_sprite2d_renderer.authoring.adapters import get_adapter
 from ambition_sprite2d_renderer.cli import draw_review
-from ambition_sprite2d_renderer.config import CharacterJob
+from ambition_sprite2d_renderer.registry import CharacterJob
 
 
 REVIEW_DIR = (

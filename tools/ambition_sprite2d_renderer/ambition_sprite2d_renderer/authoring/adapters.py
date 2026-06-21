@@ -6,7 +6,7 @@ from typing import Any, Dict, List, Tuple
 from PIL import Image
 
 from .animation_vocab import FULL_PLAYER_ANIMATION_ORDER, ordered_subset
-from ..config import CharacterJob
+from ..registry import CharacterJob
 from ..targets.characters.boss_side import (
     AISlopZetaGenerator,
     parse_background as boss_parse_background,

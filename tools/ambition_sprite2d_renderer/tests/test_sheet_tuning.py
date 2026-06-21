@@ -10,7 +10,7 @@ the actual sprite rendering pipeline."""
 
 from __future__ import annotations
 
-from ambition_sprite2d_renderer.config import CharacterJob
+from ambition_sprite2d_renderer.registry import CharacterJob
 from ambition_sprite2d_renderer.authoring.sheet import (
     _adapter_manifest_to_ron,
     _adapter_tuning_to_ron,

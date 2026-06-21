@@ -22,6 +22,22 @@ Tack-on targets are split across four category subdirs:
 | [`targets/tiles/`](ambition_sprite2d_renderer/targets/tiles/) | LDtk tileset atlases | `intro_lab_tileset`, `town_tileset` |
 | [`targets/icons/`](ambition_sprite2d_renderer/targets/icons/) | UI ability/item icons | `item_icons` |
 
+## Package layout
+
+The package is organized by role; the import boundary `core` ← `authoring`
+← `targets` keeps the render heart dependency-light.
+
+| Dir | Role | Deps |
+|---|---|---|
+| [`core/`](ambition_sprite2d_renderer/core/) | Rendering primitives — draw, pipeline, measure, frameset, the single RON emitter | **Pillow + stdlib only** |
+| [`authoring/`](ambition_sprite2d_renderer/authoring/) | Render spines + per-paradigm helpers (`sheet`, `tackon_sheet`, `adapters`, `skeleton`, `rigdoc`, …) | +PIL |
+| [`targets/`](ambition_sprite2d_renderer/targets/) | The actual sprite content (characters/props/tiles/icons) | +authoring |
+| [`registry/`](ambition_sprite2d_renderer/registry/) | Target discovery (`discovery`) + adapter render config (`config`) | — |
+| [`cli/`](ambition_sprite2d_renderer/cli/) | Command-line surface — `commands` (logic), `parser` (argparse + `main`), `console` | — |
+| [`gui/`](ambition_sprite2d_renderer/gui/) | PySide6 rig editor | +PySide6 |
+| [`devtools/`](ambition_sprite2d_renderer/devtools/) | Author-facing inspection (`debug_hitboxes`) | — |
+| `configs/` · `data/` | YAML adapter jobs · rig templates | data |
+
 ## Modal CLI
 
 **Unified Target commands** (take an optional `<TARGET>` from `list`; no arg = bulk):
@@ -62,7 +78,7 @@ already registered before adding a new one.
 
 The **canonical spec for the tack-on API** lives in the module
 docstring of
-[`ambition_sprite2d_renderer/target_registry.py`](ambition_sprite2d_renderer/target_registry.py).
+[`ambition_sprite2d_renderer/registry/discovery.py`](ambition_sprite2d_renderer/registry/discovery.py).
 That's the source of truth — this section is the practical walkthrough.
 
 ### 1. Pick a category
@@ -195,8 +211,8 @@ rig with many archetype variants), the adapter path is preferred:
 3. Add `configs/<name>.yaml` (or a review config under
    `configs/review/`) describing the render parameters.
 4. Add the file's stem to
-   [`ADAPTER_HELPER_STEMS`](ambition_sprite2d_renderer/target_registry.py)
-   in `target_registry.py` so discovery skips it.
+   [`ADAPTER_HELPER_STEMS`](ambition_sprite2d_renderer/registry/discovery.py)
+   in `registry/discovery.py` so discovery skips it.
 
 [`targets/characters/robot_side.py`](ambition_sprite2d_renderer/targets/characters/robot_side.py)
 + [`configs/robot.yaml`](ambition_sprite2d_renderer/configs/robot.yaml) is

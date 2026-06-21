@@ -9,6 +9,45 @@ _Last updated: 2026-06-21 (Opus 4.8)_
 
 ---
 
+## 0. Latest pass (2026-06-21 cont.) — RUN `./regen_sprites.sh` FIRST
+
+Three things landed; the first explains why your sprite changes "looked the
+same":
+
+- **Publishing bug fixed (the big one).** Rigged characters (Emmy/`noether` and
+  any rig-editor `.rig.json`) were listed in regen's expected-files but **never
+  actually published** by it, and the caches ignored `.rig.json` — so rig edits
+  silently never reached the crate (Emmy's sheet was weeks stale). Fixed: regen
+  now discovers + publishes every rigged doc and hashes `.rig.json` in both
+  caches. **Action: run `./regen_sprites.sh`** — Emmy should then be taller
+  (collision_scale 2.0), hi-res, and her hairpin rigid (no bobbing). Verified
+  the publish produces those; you just never had it.
+  - *Publishing-elegance Q:* the contained fix is done. A bigger win would be a
+    `cargo`/watch hook that auto-republishes changed content, but that's a
+    separate refactor — say the word.
+
+- **LDtk confusing sprites removed.** Every entity except `PlayerStart` is now a
+  plain colored **region box** (renderMode Rectangle) instead of a gizmo/sprite
+  stretched over its bounds — that stretching is what made zones look like
+  geometry, and Tile mode hid the box outline (why the Solid square was
+  invisible; the outline is back now). New tool: `visual-manifest
+  clear-entity-icons`. The generic spawners (boss/enemy/npc) got no sprite (they
+  couldn't say *which* one). **Verify:** regions readable, Solid visible. If
+  Solid's fill is still faint, I'll bump its opacity (one tweak). Door→door
+  sprite + per-enemy art are the noted follow-ups.
+
+- **Slash effect now respects the reference frame.** It orients to the hitbox
+  (gameplay authority, already gravity-relative): down-tilt = horizontal forward
+  poke, down-air = downward sweeping arc, all rotating with C4 gravity. Pinned
+  by tests (render rotation under 4 dirs; combat strike-direction under 4
+  gravities). **Verify in-game / symmetry room.** Handedness (crescent curl on
+  a left-facing swing) and size are the likely tweaks — flag and I'll adjust.
+  Decision made per your "can't decide": **hitbox stays the authority, effect
+  orients to it** (no hitbox change was needed — the offsets already pointed
+  right).
+
+---
+
 ## 1. Mockingbird attack swing-gate — capture an F8 trace ⏳ (do this)
 
 **Why it's machine-bound:** needs you to reproduce the bug live and press F8.

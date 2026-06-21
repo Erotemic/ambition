@@ -50,6 +50,23 @@ ROWS: List[Tuple[str, int, int]] = [
     ("death", 8, 112),
 ]
 
+# Publish authoritative per-animation hurtboxes keyed by the GENERIC gameplay
+# keys the boss combat looks animations up by (NOT these row names) — mirrors the
+# Rust `FLYING_SPAGHETTI_MONSTER_SHEET` BossAnim mapping (idle→Rest,
+# drift→DashEcho, noodle_whip→SideSweep, meatball_volley→FloorSlam,
+# eye_beam→SpikeHalo, hurt→Hit, death→Death). Without this the boss falls back to
+# the coarse idle alpha bbox (the whole noodle spread) for every pose; with it,
+# the player's attacks register on the per-pose body.
+ANIMATION_KEY_MAP = {
+    "idle": "rest",
+    "drift": "dash_echo",
+    "noodle_whip": "side_sweep",
+    "meatball_volley": "floor_slam",
+    "eye_beam": "spike_halo",
+    "hurt": "hit",
+    "death": "death",
+}
+
 ACTOR_METADATA = {
     "actor": {
         "character_id": "npc_flying_spaghetti_monster_boss",
@@ -773,6 +790,7 @@ def render(out_dir: str | Path, **opts) -> List[Path]:
         crop_margin=18,
         auto_crop=True,
         actor_metadata=ACTOR_METADATA,
+        animation_key_map=ANIMATION_KEY_MAP,
     )
     return [
         outputs[k]

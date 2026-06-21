@@ -252,6 +252,8 @@ def build_sheet(
     actor_metadata=None,
     body_metrics_fn=None,
     sheet_tuning=None,
+    animation_key_map=None,
+    attack_hitboxes=None,
 ):
     """Build a labeled spritesheet + companion YAML manifest.
 
@@ -268,6 +270,19 @@ def build_sheet(
     ``frame_meta_fn`` reported under a top-level ``"anchors"`` key
     are automatically translated by the crop offset so the
     coordinates stay correct in the cropped frame.
+
+    ``animation_key_map`` (optional) opts a sheet into publishing
+    AUTHORITATIVE per-animation hurtboxes. Bosses look these up by a
+    GENERIC gameplay key (``rest`` / ``side_sweep`` / ``floor_slam`` /
+    ``spike_halo`` / ``dash_echo`` / ``eye_beam`` / ``hit`` / ``death``),
+    NOT the sheet's own row names — so pass ``{row_name: gameplay_key}``.
+    Each mapped row emits ``body_metrics.animations[gameplay_key].hurtbox``
+    = the row's union alpha bbox (cropped-frame coords), so the player's
+    attacks register on the per-pose body instead of the coarse idle bbox.
+    Rows with no mapping are skipped. ``attack_hitboxes`` (optional,
+    keyed by the same gameplay keys) supplies authored attack-damage
+    rects, merged in as ``animations[key].hitbox`` — for boss attacks
+    whose damage geometry the sprite author wants to pin.
     """
     fw, fh = frame_size
 
@@ -429,6 +444,50 @@ def build_sheet(
         # can keep gameplay hurtboxes tight to the true character body while the
         # rendered frame still includes decorations.
         body_metrics = body_metrics_fn(fw, fh)
+
+    # Authoritative per-animation hurtboxes (+ optional authored hitboxes), so a
+    # boss can register hits on the per-pose body instead of the coarse idle
+    # bbox. Keyed by GENERIC gameplay keys (see `animation_key_map` in the
+    # docstring) because the boss combat looks animations up that way, not by the
+    # sheet's row names. A row's hurtbox is the union alpha bbox across its
+    # frames, in cropped-frame coords (same space as `body_pixel_bbox`).
+    if animation_key_map:
+        anim_metrics = {}
+        for anim, _nframes, _duration_ms, frames_data in rendered_rows:
+            key = animation_key_map.get(anim)
+            if key is None:
+                continue
+            union = None
+            for frame, _meta in frames_data:
+                bbox = frame.getchannel("A").getbbox()
+                if bbox is None:
+                    continue
+                union = (
+                    list(bbox)
+                    if union is None
+                    else [
+                        min(union[0], bbox[0]),
+                        min(union[1], bbox[1]),
+                        max(union[2], bbox[2]),
+                        max(union[3], bbox[3]),
+                    ]
+                )
+            entry = anim_metrics.setdefault(key, {})
+            if union is not None:
+                entry["hurtbox"] = {
+                    "bbox": {
+                        "x": int(union[0]),
+                        "y": int(union[1]),
+                        "w": int(union[2] - union[0]),
+                        "h": int(union[3] - union[1]),
+                    }
+                }
+            if attack_hitboxes and key in attack_hitboxes:
+                entry["hitbox"] = attack_hitboxes[key]
+        # Drop rows that produced no boxes (fully transparent + no hitbox).
+        anim_metrics = {k: v for k, v in anim_metrics.items() if v}
+        if anim_metrics:
+            body_metrics = {**body_metrics, "animations": anim_metrics}
 
     manifest = {
         "target": target,

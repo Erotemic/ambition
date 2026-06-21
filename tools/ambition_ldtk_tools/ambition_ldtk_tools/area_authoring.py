@@ -137,25 +137,7 @@ from pathlib import Path
 
 PKG_DIR = Path(__file__).resolve().parent
 
-
-def load_spec(path: Path) -> dict:
-    """Read an area spec from disk. RON is the canonical format
-    (per Phase 4 of the character-catalog refactor); JSON is also
-    accepted for ad-hoc tooling that emits JSON-shaped specs. YAML
-    support was dropped in Phase 6 — convert any leftover .yaml
-    specs with `dev/migration-scripts/migrate_specs_to_ron.py`."""
-    text = path.read_text()
-    if path.suffix.lower() == ".ron":
-        from .ron_parse import load as ron_load
-
-        return ron_load(text)
-    if path.suffix.lower() in {".yaml", ".yml"}:
-        raise SystemExit(
-            f"YAML area specs are no longer supported (Phase 6). "
-            f"Migrate '{path}' to RON with "
-            f"dev/migration-scripts/migrate_specs_to_ron.py"
-        )
-    return json.loads(text)
+from ambition_ldtk_tools.area.spec import load_spec
 
 
 def load_project(path: Path) -> dict:

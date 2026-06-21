@@ -27,6 +27,8 @@ from typing import Iterable, Iterator
 from ambition_ldtk_tools.area_authoring import load_project
 from ambition_ldtk_tools.edit.intgrid import LAYER_VALUE_NAMES, find_intgrid_layer
 from ambition_ldtk_tools.edit.set_field import find_level
+from ambition_ldtk_tools.ldtk.issues import Issue
+from ambition_ldtk_tools.room_support.issues import room_issues
 
 def _find_repo_root() -> Path:
     cwd = Path.cwd().resolve()
@@ -231,38 +233,9 @@ def room_summary(project: dict, level_id: str) -> dict[str, object]:
         "moving_platforms": moving_platforms,
         "camera_zones": camera_zones,
         "entities": entities,
-        "issues": _room_issues(level, intgrid, entities),
+        "issues": [issue.as_dict() for issue in room_issues(level, intgrid, entities)],
     }
 
-
-def _room_issues(level: dict, intgrid: dict[str, object], entities: list[dict[str, object]]) -> list[str]:
-    issues: list[str] = []
-    starts = [e for e in entities if e["identifier"] == "PlayerStart"]
-    if not starts:
-        issues.append("no PlayerStart entity")
-    if len(starts) > 1:
-        issues.append(f"multiple PlayerStart entities ({len(starts)})")
-
-    for e in entities:
-        x, y = e["px"]  # type: ignore[misc]
-        w, h = e["size"]  # type: ignore[misc]
-        if x < 0 or y < 0 or x + w > level.get("pxWid", 0) or y + h > level.get("pxHei", 0):
-            issues.append(f"{e['identifier']} at {e['px']} size {e['size']} extends outside room")
-        if e["identifier"] == "CameraZone" and e.get("layer") != "AmbitionCameras":
-            issues.append(f"CameraZone {e.get('iid')} is on {e.get('layer')}, expected AmbitionCameras")
-
-    gravity_dirs = Counter()
-    for e in entities:
-        if e["identifier"] == "GravityZone":
-            fields = e.get("fields") or {}
-            gravity_dirs[str(fields.get("dir"))] += 1  # type: ignore[union-attr]
-    if len(gravity_dirs) > 1:
-        dirs = ", ".join(f"{k}:{v}" for k, v in sorted(gravity_dirs.items()))
-        issues.append(f"multiple gravity directions present ({dirs}); inspect frame seams")
-
-    if not (intgrid.get("Collision") or {}).get("values"):  # type: ignore[union-attr]
-        issues.append("Collision IntGrid has no non-empty cells")
-    return issues
 
 
 def format_summary_text(summary: dict[str, object], *, include_entities: bool = False) -> str:
@@ -331,7 +304,13 @@ def format_summary_text(summary: dict[str, object], *, include_entities: bool = 
         lines.append("  (none detected by static room summary)")
     else:
         for issue in issues:  # type: ignore[assignment]
-            lines.append(f"  - {issue}")
+            if isinstance(issue, dict):
+                code = issue.get("code", "room.issue")
+                message = issue.get("message", issue)
+                severity = issue.get("severity", "warning")
+                lines.append(f"  - {severity}: {code}: {message}")
+            else:
+                lines.append(f"  - {issue}")
 
     if include_entities:
         lines.append("")

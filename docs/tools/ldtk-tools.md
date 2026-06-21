@@ -288,3 +288,15 @@ findings. JSON CLI output should use `Issue.as_dict()`; text output should use
 `format_issue_lines(...)`. This gives agents stable fields such as `severity`,
 `code`, `level`, `layer`, `entity`, `entity_iid`, `fixable`, and `fix_hint`
 instead of forcing them to parse one-off prose.
+
+### Current refactor roadmap snapshot
+
+- Done: shared LDtk core helpers own JSON load/write, lookup, path, field, UID, and layer mechanics.
+- Done: transaction/patch helpers own dry-run/no-op/writeback semantics for migrated mutating commands.
+- Done: shared `Issue` diagnostics now cover policy, camera, visual refs, validation adapter, and room notes.
+- Done: layout model, room issue checks, and area spec loading have package seams behind stable CLI entrypoints.
+- Next: split `validate.py` internals into rule modules that emit first-class `Issue` codes directly.
+- Next: move the remaining `world_layout.py` graph, strategy, SVG, and writeback functions into `edit/layout/*`.
+- Next: move room inspection/render/bundle code into `room_support/*` and keep `room.py` as a CLI adapter.
+- Next: compile area authoring specs to patch ops before mutating LDtk directly.
+- Later: relocate game content specs out of the reusable Python package tree.

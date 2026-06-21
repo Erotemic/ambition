@@ -18,6 +18,8 @@ import sys
 from collections import Counter, defaultdict
 from pathlib import Path
 
+from ambition_ldtk_tools.ldtk.issues import Issue, format_issue_lines, has_errors
+
 PKG_DIR = Path(__file__).resolve().parent
 DEFAULT_SCHEMA_PATH = PKG_DIR.parent / "schemas" / "ldtk" / "JSON_SCHEMA.json"
 OFFICIAL_SCHEMA_URL = "https://ldtk.io/files/JSON_SCHEMA.json"
@@ -1487,6 +1489,44 @@ def _check_intro_authoring_hygiene(project, warnings):
                     )
 
 
+def validate_issues(
+    path: Path,
+    schema_path: Path | None = None,
+    require_schema: bool = False,
+    secondary_worlds: list[Path] | None = None,
+) -> list[Issue]:
+    """Return Ambition LDtk validation diagnostics as shared Issue objects.
+
+    This is intentionally a compatibility adapter over the long-standing
+    ``validate`` implementation. It gives CLIs and future validators one stable
+    issue shape while the rule bodies are split up incrementally.
+    """
+    errors, warnings = validate(
+        path,
+        schema_path,
+        require_schema,
+        secondary_worlds=secondary_worlds,
+    )
+    issues: list[Issue] = []
+    for warning in warnings:
+        issues.append(
+            Issue(
+                severity="warning",
+                code="validate.warning",
+                message=str(warning),
+            )
+        )
+    for error in errors:
+        issues.append(
+            Issue(
+                severity="error",
+                code="validate.error",
+                message=str(error),
+            )
+        )
+    return issues
+
+
 def main(argv=None):
     parser = argparse.ArgumentParser()
     parser.add_argument(
@@ -1526,6 +1566,12 @@ def main(argv=None):
             "May be passed multiple times."
         ),
     )
+    parser.add_argument(
+        "--format",
+        choices=("text", "json"),
+        default="text",
+        help="Output diagnostics as human text or shared Issue JSON.",
+    )
     args = parser.parse_args(argv)
     if args.normalize_editor_values or args.repair_editor_roundtrip:
         try:
@@ -1549,20 +1595,28 @@ def main(argv=None):
                 file=sys.stderr,
             )
             return 1
-    errors, warnings = validate(
+    issues = validate_issues(
         args.path,
         args.schema,
         args.require_schema,
         secondary_worlds=args.secondary_world,
     )
-    for warning in warnings:
-        print(f"warning: {warning}", file=sys.stderr)
-    for error in errors:
-        print(f"error: {error}", file=sys.stderr)
-    if errors:
-        return 1
-    print(f"OK: {args.path} passes Ambition LDtk validation ({len(warnings)} warnings)")
-    return 0
+    if args.format == "json":
+        print(json.dumps([issue.as_dict() for issue in issues], indent=2, sort_keys=True))
+    else:
+        if issues:
+            print(
+                format_issue_lines(
+                    issues,
+                    title="Ambition LDtk validation diagnostics",
+                    empty="",
+                ).rstrip(),
+                file=sys.stderr,
+            )
+        if not has_errors(issues):
+            warning_count = sum(1 for issue in issues if issue.severity == "warning")
+            print(f"OK: {args.path} passes Ambition LDtk validation ({warning_count} warnings)")
+    return 1 if has_errors(issues) else 0
 
 
 if __name__ == "__main__":

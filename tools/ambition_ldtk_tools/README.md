@@ -313,3 +313,24 @@ location, fixability, and fix hints stay consistent across commands.
 Commands already using the shared issue model include policy checks, camera
 audits, and visual-manifest validation. Future validation, room-inspection, and
 asset commands should emit the same shape instead of prose-only messages.
+
+### Refactor seams added in v12-v15
+
+The historical public modules remain importable and keep the CLI stable, but new
+code should prefer these package seams:
+
+- `ambition_ldtk_tools.validate.validate_issues(...)`: compatibility adapter that
+  returns shared `Issue` objects while the long validator is split into rule
+  modules.
+- `ambition_ldtk_tools.room_support.issues.room_issues(...)`: structured room
+  review notes used by `room describe` summaries.
+- `ambition_ldtk_tools.edit.layout.model`: layout dataclasses shared by future
+  graph, strategy, SVG, and writeback modules.
+- `ambition_ldtk_tools.area.spec.load_spec(...)`: area spec loading extracted
+  from the monolithic authoring command.
+- `ambition_ldtk_tools.area.plan.AreaPatchPlan`: placeholder seam for the future
+  `AreaSpec -> patch ops -> LdtkTransaction` compiler.
+
+Because overlay ZIPs do not delete stale files, avoid converting existing
+`room.py`-style modules directly into same-named packages unless the final
+instructions include an explicit cleanup command.

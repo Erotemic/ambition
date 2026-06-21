@@ -9,6 +9,39 @@ _Last updated: 2026-06-21 (Opus 4.8)_
 
 ---
 
+## 0b. FSM rerender fixed + authoritative hurtboxes (2026-06-21)
+
+The flying-spaghetti-monster "crazy cropped mess that flashes" was a **boss
+atlas dims desync**, now fixed two ways:
+
+- **Flashing (root cause):** the boss sprite path recomputed a uniform atlas
+  grid from the const `BossSheetSpec`'s authored-at-first-pass `frame_width`
+  (169). After the `FRAME_SIZE` bump the regenerated sheet had 393×344 cells, so
+  the boss indexed the wrong pixels and flickered. Fixed: the boss now builds its
+  atlas + render aspect from the **published RON's per-frame rects** (via
+  `record_for_target`), not the const — the same data-driven path characters use
+  (and packing-ready). A row-alignment guard falls back to the const grid for
+  sheets with no baked record. Also fixes the generic `boss` sheet, which the
+  `render_scale=2` rollout had silently desynced (128 const vs 256 sheet).
+  **No more Rust edit needed when a boss sheet's resolution changes.**
+
+- **Authoritative hurtboxes (your point):** the FSM published only a single
+  `body_pixel_bbox`, so combat used the coarse idle alpha bbox (the whole noodle
+  spread) for every pose. The tack-on `build_sheet` now publishes **per-animation
+  hurtboxes** keyed to the GENERIC keys the boss combat looks up
+  (`rest`/`side_sweep`/`floor_slam`/`spike_halo`/`dash_echo`/`hit`/`death`) — the
+  FSM remaps its rows (`noodle_whip`→`side_sweep`, …) so they're consumed. The
+  published RON now carries all 7. **Rebuild + run to verify** (I published the
+  FSM into the asset dir; the Rust fix needs a rebuild).
+  - *Still using the generic fallback:* attack **hitbox** geometry (where the
+    FSM's attacks damage the player) is still `BossAttackProfile`-driven. Authoring
+    sprite-exact hitboxes is a follow-up that wants your in-game debug overlay
+    (and they plug into the same `attack_hitboxes` hook I just added). The
+    per-pose hurtboxes are the full visible body — if you want a *tight core*
+    (only the eye is vulnerable) say so and I'll author `body_pixel_parts`.
+
+---
+
 ## 0. Latest pass (2026-06-21 cont.) — RUN `./regen_sprites.sh` FIRST
 
 Three things landed; the first explains why your sprite changes "looked the

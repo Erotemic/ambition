@@ -407,32 +407,37 @@ class RobotAdapter(BaseAdapter):
         )
 
     def attack_hitboxes(self, size: Tuple[int, int]) -> Dict[str, Dict[str, Any]]:
-        """Player primary-melee hitbox (`attack_side`).
+        """Per-attack hitboxes for the player's 2-frame swings.
 
-        A forward blade box at the strike reach. The robot faces right,
-        so the box sits forward of body-center at mid-body height. It's
-        live on frame 0 only (`active_frames=[0]`) — the 2-frame swing's
-        hit comes out immediately; frame 1 is pure wind-down. Coords are
-        source-canvas pixels; eyeball alignment with
-        ``debug-hitboxes player_robot`` and nudge to taste.
+        Hollow-Knight-style: each box is thrust out IN the swing's
+        direction, disjoint from the body, and live on frame 0 only
+        (`active_frames=[0]`) — the 2-frame swings hit immediately, frame 1
+        is wind-down. Boxes are authored for the right-facing robot; the
+        runtime mirrors x by facing. Attack hitboxes are NOT frame-clamped
+        (see sheet.py), so they reach past the sprite edge. Coords are
+        source-canvas pixels — eyeball with ``debug-hitboxes player_robot``
+        and nudge to taste (these are a first pass, feel-tunable).
         """
         w, h = size
         cx = w // 2
-        # Hollow-Knight-style: a damage box thrust out IN FRONT of the
-        # body, disjoint from it. The torso front edge is ~0.74w; the box
-        # starts past it (gap) and reaches forward beyond the sprite frame
-        # (attack hitboxes are not frame-clamped — see sheet.py). Robot
-        # faces +x. Eyeball against `debug-hitboxes player_robot`.
-        front = cx + int(w * 0.26)  # ~0.76w — just past the torso, with a gap
+
+        def box(x: float, y: float, ww: float, hh: float) -> Dict[str, Any]:
+            return {"bbox": (int(x), int(y), int(ww), int(hh)), "active_frames": [0]}
+
         return {
-            "attack_side": {
-                # A full-height slash plane: at least as tall as the body
-                # (which spans ~0.13h..0.80h) so the swing covers above and
-                # below the player, HK-style. Starts past the torso front
-                # and reaches forward beyond the sprite frame.
-                "bbox": (front, int(h * 0.12), int(w * 0.60), int(h * 0.72)),
-                "active_frames": [0],
-            },
+            # Forward forehand (the primary side attack).
+            "attack_side": box(cx + w * 0.26, h * 0.12, w * 0.60, h * 0.72),
+            # Overhead (up-tilt / aerial up): above the body.
+            "attack_up": box(cx - w * 0.12, -h * 0.08, w * 0.58, h * 0.62),
+            "air_up": box(cx - w * 0.22, -h * 0.10, w * 0.55, h * 0.62),
+            # Down: ground down-poke is forward-low; aerial down spikes below.
+            "attack_down": box(cx + w * 0.16, h * 0.50, w * 0.58, h * 0.46),
+            "air_down": box(cx - w * 0.28, h * 0.52, w * 0.62, h * 0.58),
+            # Aerial forward / back (back reaches behind = left of center).
+            "air_forward": box(cx + w * 0.22, h * 0.22, w * 0.60, h * 0.58),
+            "air_back": box(cx - w * 0.72, h * 0.22, w * 0.62, h * 0.58),
+            # Aerial neutral: a wide spin around the whole body.
+            "air_neutral": box(cx - w * 0.42, h * 0.18, w * 0.92, h * 0.68),
         }
 
 

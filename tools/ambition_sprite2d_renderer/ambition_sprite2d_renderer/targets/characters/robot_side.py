@@ -79,6 +79,16 @@ class SideRobotGenerator:
         # debug-hitboxes player_robot`. Enemies use `slash` (8f) via
         # pick_enemy_anim, so this only changes the player's read.
         "attack_side": {"frames": 2, "duration_ms": 60},
+        # The rest of the directional/aerial attacks share the snappy 2-frame
+        # feel: frame 0 is the committed strike, frame 1 the lone wind-down.
+        # Their poses use the same immediate strike=1-t / recover=t shaping.
+        "attack_up": {"frames": 2, "duration_ms": 60},
+        "attack_down": {"frames": 2, "duration_ms": 60},
+        "air_neutral": {"frames": 2, "duration_ms": 60},
+        "air_forward": {"frames": 2, "duration_ms": 60},
+        "air_back": {"frames": 2, "duration_ms": 60},
+        "air_down": {"frames": 2, "duration_ms": 60},
+        "air_up": {"frames": 2, "duration_ms": 60},
     }
 
     PALETTE = {
@@ -1013,10 +1023,11 @@ class SideRobotGenerator:
             p.eye_squint = 0.22 + strike * 0.22
         elif animation == "attack_up":
             # Up-tilt: blade arcs from low forward up over the head to back-up.
-            # Body straightens up, near shoulder rolls back to swing overhead.
-            wind = 1.0 - smoothstep(clamp(t / 0.22, 0.0, 1.0))
-            strike = smoothstep(clamp((t - 0.18) / 0.40, 0.0, 1.0))
-            recover = smoothstep(clamp((t - 0.70) / 0.30, 0.0, 1.0))
+            # 2-frame immediate (see ANIMATIONS): f0 = full overhead strike,
+            # f1 = wind-down. No windup; pose body unchanged.
+            wind = 0.0
+            strike = 1.0 - t
+            recover = t
             p.root_y = -3.0 * strike + 1.0 * recover
             p.body_tilt = 4.0 * wind - 8.0 * strike + 2.0 * recover
             p.head_tilt = 4.0 * wind - 10.0 * strike + 2.0 * recover
@@ -1037,9 +1048,10 @@ class SideRobotGenerator:
             # under as the kneeling support, near leg plants forward
             # bent; near arm extends low and horizontal with the blade
             # for a short thrust. Distinct from the aerial Down spike.
-            crouch = smoothstep(clamp(t / 0.30, 0.0, 1.0))
-            thrust = smoothstep(clamp((t - 0.22) / 0.36, 0.0, 1.0))
-            recover = smoothstep(clamp((t - 0.66) / 0.34, 0.0, 1.0))
+            # 2-frame immediate: f0 = committed kneeling poke, f1 = rise/recover.
+            crouch = 1.0
+            thrust = 1.0 - t
+            recover = t
             sink = max(0.65 * crouch, thrust, 0.55 * (1.0 - recover) * crouch)
             p.root_y = 9.0 * sink
             p.body_bob = 4.0 * sink
@@ -1067,8 +1079,9 @@ class SideRobotGenerator:
         elif animation == "air_neutral":
             # Aerial neutral: short spin-slash with the blade making a near
             # full revolution around the body. Body floats; legs tuck.
-            spin = smoothstep(clamp((t - 0.10) / 0.80, 0.0, 1.0))
-            float_t = math.sin(t * math.pi)
+            # 2-frame immediate: f0 = mid-spin slash, f1 = settle.
+            spin = 1.0 - t
+            float_t = 1.0 - t
             p.root_y = -6.0 + float_t * 2.0
             p.body_tilt = -6.0 + spin * 24.0
             p.head_tilt = -2.0 + spin * 12.0
@@ -1087,9 +1100,10 @@ class SideRobotGenerator:
         elif animation == "air_forward":
             # Fair: forward-down committed swing. Body leans into the swing,
             # near arm whips forward, far leg trails behind for balance.
-            wind = 1.0 - smoothstep(clamp(t / 0.22, 0.0, 1.0))
-            strike = smoothstep(clamp((t - 0.18) / 0.42, 0.0, 1.0))
-            float_t = math.sin(t * math.pi)
+            # 2-frame immediate: f0 = committed aerial swing, f1 = settle.
+            wind = 0.0
+            strike = 1.0 - t
+            float_t = 1.0 - t
             p.root_x = -2.0 * wind + 5.0 * strike
             p.root_y = -7.0 + float_t * 1.6
             p.body_tilt = -6.0 * wind + 18.0 * strike
@@ -1110,9 +1124,10 @@ class SideRobotGenerator:
             # Bair: backward sword swing. Body turns/leans backward, near arm
             # whips behind, blade traces back-up to back-down arc. Front shows
             # a clear shoulder check / over-shoulder cut read.
-            wind = 1.0 - smoothstep(clamp(t / 0.22, 0.0, 1.0))
-            strike = smoothstep(clamp((t - 0.18) / 0.42, 0.0, 1.0))
-            float_t = math.sin(t * math.pi)
+            # 2-frame immediate: f0 = committed aerial swing, f1 = settle.
+            wind = 0.0
+            strike = 1.0 - t
+            float_t = 1.0 - t
             p.root_x = 2.0 * wind - 4.0 * strike
             p.root_y = -7.0 + float_t * 1.6
             p.body_tilt = 6.0 * wind - 14.0 * strike
@@ -1133,8 +1148,9 @@ class SideRobotGenerator:
         elif animation == "air_down":
             # Dair: straight-down stab/spike. Body inverts slightly head-down,
             # blade points down with a brief downward thrust pulse.
-            wind = 1.0 - smoothstep(clamp(t / 0.30, 0.0, 1.0))
-            thrust = smoothstep(clamp((t - 0.28) / 0.36, 0.0, 1.0))
+            # 2-frame immediate: f0 = downward spike, f1 = settle.
+            wind = 0.0
+            thrust = 1.0 - t
             p.root_y = -8.0 + 4.0 * thrust
             p.body_tilt = 4.0 * wind + 12.0 * thrust
             p.head_tilt = 2.0 * wind + 8.0 * thrust
@@ -1153,8 +1169,9 @@ class SideRobotGenerator:
         elif animation == "air_up":
             # Uair: straight-up thrust. Body straightens, near arm reaches
             # overhead, blade points up with a quick upward thrust pulse.
-            wind = 1.0 - smoothstep(clamp(t / 0.28, 0.0, 1.0))
-            thrust = smoothstep(clamp((t - 0.24) / 0.38, 0.0, 1.0))
+            # 2-frame immediate: f0 = overhead thrust, f1 = settle.
+            wind = 0.0
+            thrust = 1.0 - t
             p.root_y = -10.0 - 2.0 * thrust
             p.body_tilt = -4.0 * wind - 10.0 * thrust
             p.head_tilt = -3.0 * wind - 8.0 * thrust

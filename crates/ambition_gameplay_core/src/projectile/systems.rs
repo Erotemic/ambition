@@ -97,6 +97,7 @@ pub fn player_projectile_input(
     >,
     mut brain_actions: MessageReader<crate::brain::ActorActionMessage>,
     user_settings: Res<crate::persistence::settings::UserSettings>,
+    gravity: crate::physics::GravityCtx,
     mut trace: ResMut<GameplayTraceBuffer>,
     // Firing emits `SpawnProjectile`; the player-pool consumer runs after this
     // system so newly-fired projectiles first tick next frame.
@@ -158,11 +159,10 @@ pub fn player_projectile_input(
         } else {
             kin.facing.signum()
         };
-        let origin = ae::Vec2::new(
-            kin.pos.x + facing * (kin.size.x * 0.5 + 4.0),
-            kin.pos.y - kin.size.y * 0.20,
-        );
-        let direction = ae::Vec2::new(facing, 0.0);
+        let frame = ae::AccelerationFrame::new(gravity.dir_at(kin.pos));
+        let origin = kin.pos
+            + frame.to_world(ae::Vec2::new(facing * (kin.size.x * 0.5 + 4.0), -kin.size.y * 0.20));
+        let direction = frame.to_world(ae::Vec2::new(facing, 0.0));
 
         // Count fires locally because spawn messages are consumed after this
         // system, but shoot animation still pulses on the firing frame.
@@ -443,8 +443,8 @@ pub fn step_projectiles(
 
         // Tick + lifetime. A dead lasersword detonates; everything else logs an
         // Expired trace event.
-        let gravity_sign = gravity.sign_at(kin.pos);
-        if !game.tick(&mut kin, dt, gravity_sign) {
+        let gravity_dir = gravity.dir_at(kin.pos);
+        if !game.tick(&mut kin, dt, gravity_dir) {
             if let Some(boom) = lasersword_detonation(&owner_id_str, kin.pos) {
                 vfx.write(boom);
                 sfx.write(SfxMessage::Play {
@@ -572,7 +572,7 @@ pub fn step_projectiles(
             ProjectileFaction::Player => WorldHitPolicy::PlayerBouncing,
             ProjectileFaction::Enemy => WorldHitPolicy::EnemyExpireOnAnyContact,
         };
-        match resolve_world_collision(&mut kin, &mut game, &collision_world, policy) {
+        match resolve_world_collision(&mut kin, &mut game, &collision_world, policy, gravity_dir) {
             WorldHitOutcome::Bounced { pos } => {
                 sfx.write(SfxMessage::Hit { pos });
             }

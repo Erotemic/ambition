@@ -455,6 +455,39 @@ pub(super) fn safe_respawn_player(
     vfx.write(VfxMessage::ResetEffects { from, to });
 }
 
+fn resolved_player_knockback_velocity(
+    victim_pos: ae::Vec2,
+    victim_facing: f32,
+    gravity_dir: ae::Vec2,
+    boss_hit: bool,
+    knockback: Option<&features::HitKnockback>,
+    feel: SandboxFeelTuning,
+) -> ae::Vec2 {
+    let frame = ae::AccelerationFrame::new(gravity_dir);
+    let side_from_source = knockback.map(|k| (victim_pos - k.source_pos).dot(frame.side));
+    let knockback_dir = side_from_source
+        .filter(|d| d.abs() > 0.001)
+        .or_else(|| knockback.map(|k| k.dir))
+        .unwrap_or(0.0);
+    let dir = if knockback_dir.abs() <= 0.001 {
+        -victim_facing
+    } else {
+        knockback_dir.signum()
+    };
+    let strength = knockback.map(|k| k.strength.max(0.0)).unwrap_or(0.0);
+    let knock_x = if boss_hit {
+        feel.boss_knockback_x
+    } else {
+        feel.enemy_knockback_x
+    };
+    let knock_y = if boss_hit {
+        feel.boss_knockback_y
+    } else {
+        feel.enemy_knockback_y
+    };
+    frame.to_world(ae::Vec2::new(dir * knock_x * strength, -knock_y * strength))
+}
+
 pub(super) fn apply_player_knockback(
     sfx: &mut MessageWriter<SfxMessage>,
     vfx: &mut MessageWriter<VfxMessage>,
@@ -472,25 +505,15 @@ pub(super) fn apply_player_knockback(
     let impact_pos = knockback
         .map(|k| k.impact_pos)
         .unwrap_or_else(|| damage.volume.center());
-    let knockback_dir = knockback.map(|k| k.dir).unwrap_or(0.0);
-    let dir = if knockback_dir.abs() <= 0.001 {
-        -clusters.kinematics.facing
-    } else {
-        knockback_dir.signum()
-    };
     let strength = knockback.map(|k| k.strength.max(0.0)).unwrap_or(0.0);
-    let knock_x = if boss_hit {
-        feel.boss_knockback_x
-    } else {
-        feel.enemy_knockback_x
-    };
-    let knock_y = if boss_hit {
-        feel.boss_knockback_y
-    } else {
-        feel.enemy_knockback_y
-    };
-    clusters.kinematics.vel.x = dir * knock_x * strength;
-    clusters.kinematics.vel.y = -knock_y * strength;
+    clusters.kinematics.vel = resolved_player_knockback_velocity(
+        clusters.kinematics.pos,
+        clusters.kinematics.facing,
+        tuning.gravity_dir,
+        boss_hit,
+        knockback,
+        feel,
+    );
     ae::refresh_movement_resources_clusters(
         clusters.abilities,
         &mut *clusters.dash,
@@ -545,6 +568,41 @@ mod tests {
             shield_blocks_hit(true, 0.0, 100.0, 50.0),
             "neutral facing guards either side"
         );
+    }
+
+    #[test]
+    fn knockback_impulse_is_frame_equivalent() {
+        let feel = SandboxFeelTuning::default();
+        let local_expected = ae::Vec2::new(feel.enemy_knockback_x, -feel.enemy_knockback_y);
+        let victim_pos = ae::Vec2::new(100.0, 200.0);
+        for gravity_dir in [
+            ae::Vec2::new(0.0, 1.0),
+            ae::Vec2::new(1.0, 0.0),
+            ae::Vec2::new(0.0, -1.0),
+            ae::Vec2::new(-1.0, 0.0),
+        ] {
+            let frame = ae::AccelerationFrame::new(gravity_dir);
+            let source_pos = victim_pos - frame.side * 40.0;
+            let knockback = features::HitKnockback {
+                dir: 0.0,
+                strength: 1.0,
+                source_pos,
+                impact_pos: victim_pos,
+            };
+            let vel = resolved_player_knockback_velocity(
+                victim_pos,
+                1.0,
+                gravity_dir,
+                false,
+                Some(&knockback),
+                feel,
+            );
+            let local_vel = ae::Vec2::new(vel.dot(frame.side), vel.dot(frame.down));
+            assert!(
+                (local_vel - local_expected).length() < 1e-3,
+                "knockback should resolve in local side/down for {gravity_dir:?}: {local_vel:?}"
+            );
+        }
     }
 
     fn test_attack_box() -> ae::Aabb {

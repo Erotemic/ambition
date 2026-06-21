@@ -65,6 +65,25 @@ pub struct ProjectileGameplay {
     pub bounces_remaining: u8,
 }
 
+
+fn projectile_down(gravity_dir: Vec2) -> Vec2 {
+    if gravity_dir.x.abs() > gravity_dir.y.abs() {
+        Vec2::new(gravity_dir.x.signum(), 0.0)
+    } else if gravity_dir.y.abs() > 0.0 {
+        Vec2::new(0.0, gravity_dir.y.signum())
+    } else {
+        Vec2::new(0.0, 1.0)
+    }
+}
+
+fn perpendicular_overlap(body: Aabb, surface: Aabb, gravity_dir: Vec2) -> bool {
+    if gravity_dir.x.abs() > gravity_dir.y.abs() {
+        body.bottom() > surface.top() && body.top() < surface.bottom()
+    } else {
+        body.right() > surface.left() && body.left() < surface.right()
+    }
+}
+
 impl ProjectileGameplay {
     /// Build the gameplay half from `spec` with an explicit faction.
     fn from_spec_with_faction(spec: ProjectileSpec, faction: ProjectileFaction) -> Self {
@@ -90,59 +109,68 @@ impl ProjectileGameplay {
     /// tick. Collision against solids / breakables is the caller's
     /// responsibility (sandbox).
     ///
-    /// `gravity_sign` is the world gravity direction along Y (`+1` down,
-    /// `-1` flipped) from `GravityField`, so a gravity flip sends
-    /// gravity-bearing projectiles (bombs, apple-rain) up too. Pass
-    /// `1.0` for normal gravity.
-    pub fn tick(&mut self, body: &mut BodyKinematics, dt: f32, gravity_sign: f32) -> bool {
+    /// `gravity_dir` is the projectile's local acceleration-frame down. Gravity
+    /// bearing projectiles (fireballs, bombs, apple-rain) accelerate toward that
+    /// direction instead of assuming world +Y. Normal gravity remains byte-
+    /// identical because `gravity_dir == (0, 1)`.
+    pub fn tick(&mut self, body: &mut BodyKinematics, dt: f32, gravity_dir: Vec2) -> bool {
         self.age += dt;
         if self.age >= self.max_lifetime {
             return false;
         }
-        // Apply gravity along the world's down (positive = downward by default).
-        body.vel.y += self.gravity * gravity_sign * dt;
+        let down = projectile_down(gravity_dir);
+        body.vel += down * (self.gravity * dt);
         body.pos += body.vel * dt;
         true
     }
 
-    /// True when the contact geometry qualifies as a top-of-block
-    /// landing: projectile coming from above, moving downward, not
-    /// merely grazing the side. Shared by solid- and one-way- hit
-    /// resolution so both surfaces use identical bounce geometry.
-    fn is_top_landing(&self, body: &BodyKinematics, block_aabb: Aabb) -> bool {
-        let body_aabb = body.aabb();
-        // Side / ceiling-contact filter: if the projectile's y-range
-        // fits inside the block's y-range, the contact is on the
-        // block's *side*, not its top. (Mirrors the
-        // `body_is_side_contact` predicate that movement.rs uses to
-        // skip side walls during the y-sweep.) A 1e-3 epsilon allows
-        // an exact-edge-touching projectile that just grazes the
-        // floor face.
-        const SIDE_EPS: f32 = 1e-3;
-        let side_contact = body_aabb.top() >= block_aabb.top() - SIDE_EPS
-            && body_aabb.bottom() <= block_aabb.bottom() + SIDE_EPS;
-        if side_contact {
-            return false;
-        }
-        // Floor vs ceiling contact: projectile center above the block
-        // center AND moving downward → top-of-block hit.
-        let from_above = body_aabb.center().y < block_aabb.center().y;
-        let going_down = body.vel.y > 0.0;
-        from_above && going_down
+    /// Compatibility seam for legacy call sites/tests that only model vertical
+    /// gravity. New code should call [`Self::tick`] with a full direction.
+    pub fn tick_with_gravity_sign(
+        &mut self,
+        body: &mut BodyKinematics,
+        dt: f32,
+        gravity_sign: f32,
+    ) -> bool {
+        self.tick(body, dt, Vec2::new(0.0, gravity_sign.signum()))
     }
 
-    /// Reposition the body so its bottom rests on the block's top
-    /// edge plus a 1px lift, reflect vy with restitution, and
-    /// decrement the bounce budget. Caller has already checked that
-    /// `bounces_remaining > 0`.
-    fn apply_top_bounce(&mut self, body: &mut BodyKinematics, block_aabb: Aabb) {
-        // The 1px lift prevents an immediate re-hit on the next tick
-        // when gravity hasn't yet reaccelerated downward.
+    /// True when the contact geometry qualifies as a support-face landing:
+    /// projectile moving toward its feet, with overlap on the perpendicular axis,
+    /// and with the body straddling the candidate surface's support face. The
+    /// face-straddle check is important: a tall side wall also has a top/head
+    /// face, but a projectile overlapping the wall halfway down should expire
+    /// instead of treating that distant top face as a floor.
+    fn is_support_landing(&self, body: &BodyKinematics, block_aabb: Aabb, gravity_dir: Vec2) -> bool {
+        const CONTACT_SLOP: f32 = 1.0;
+        let down = projectile_down(gravity_dir);
+        let body_aabb = body.aabb();
+        let moving_toward_feet = body.vel.dot(down) > 0.0;
+        let support_face = block_aabb.head_coord(down);
+        let body_head = body_aabb.head_coord(down);
+        let body_feet = body_aabb.feet_coord(down);
+        moving_toward_feet
+            && body_head <= support_face + CONTACT_SLOP
+            && body_feet >= support_face - CONTACT_SLOP
+            && perpendicular_overlap(body_aabb, block_aabb, down)
+    }
+
+    /// Reposition the body so its feet rest just outside the support face,
+    /// reflect velocity along local down with restitution, and decrement the
+    /// bounce budget. Caller has already checked that `bounces_remaining > 0`.
+    fn apply_support_bounce(&mut self, body: &mut BodyKinematics, block_aabb: Aabb, gravity_dir: Vec2) {
+        // The 1px lift prevents an immediate re-hit on the next tick when gravity
+        // has not yet reaccelerated toward the support.
         const RESTITUTION: f32 = 0.65;
         const SETTLE_LIFT: f32 = 1.0;
-        let half_extent_y = body.size.y * 0.5;
-        body.pos.y = block_aabb.top() - half_extent_y - SETTLE_LIFT;
-        body.vel.y = -body.vel.y.abs() * RESTITUTION;
+        let down = projectile_down(gravity_dir);
+        let body_aabb = body.aabb();
+        body.pos += down * (block_aabb.head_coord(down) - SETTLE_LIFT - body_aabb.feet_coord(down));
+        let toward_feet = body.vel.dot(down);
+        if toward_feet > 0.0 {
+            let side = body.vel - down * toward_feet;
+            body.vel = side - down * (toward_feet * RESTITUTION);
+        }
         self.bounces_remaining -= 1;
     }
 
@@ -151,19 +179,26 @@ impl ProjectileGameplay {
     /// body and continue the next tick; expire paths despawn the
     /// projectile (and optionally trigger a hit VFX).
     ///
-    /// `Bounced` is reserved for *floor* contacts (top edge of the
-    /// block, fireball coming down): the only configuration where a
-    /// classic platformer fireball reverses direction. Side and
-    /// ceiling contacts always expire so the gameplay is predictable
-    /// — a flying horizontal projectile doesn't suddenly retrace its
-    /// path back through the player.
+    /// `Bounced` is reserved for support-face contacts: the projectile is
+    /// arriving from the anti-gravity side and moving toward its feet. Side
+    /// and ceiling contacts always expire so the gameplay is predictable — a
+    /// flying horizontal projectile does not suddenly retrace its path.
     pub fn resolve_solid_hit(
         &mut self,
         body: &mut BodyKinematics,
         block_aabb: Aabb,
     ) -> ProjectileSolidHit {
-        if self.is_top_landing(body, block_aabb) && self.bounces_remaining > 0 {
-            self.apply_top_bounce(body, block_aabb);
+        self.resolve_solid_hit_in_frame(body, block_aabb, Vec2::new(0.0, 1.0))
+    }
+
+    pub fn resolve_solid_hit_in_frame(
+        &mut self,
+        body: &mut BodyKinematics,
+        block_aabb: Aabb,
+        gravity_dir: Vec2,
+    ) -> ProjectileSolidHit {
+        if self.is_support_landing(body, block_aabb, gravity_dir) && self.bounces_remaining > 0 {
+            self.apply_support_bounce(body, block_aabb, gravity_dir);
             ProjectileSolidHit::Bounced
         } else {
             ProjectileSolidHit::Expired
@@ -171,19 +206,27 @@ impl ProjectileGameplay {
     }
 
     /// Resolution outcome when this projectile overlaps a one-way
-    /// platform. A top-of-block landing bounces the same way a solid
-    /// floor would — the player expects fireballs to skip across
-    /// thin platforms identically to thick floors. Every other
-    /// contact (sides, below, top with no bounce budget) returns
-    /// `Passthrough` so the projectile keeps flying — the platform
-    /// is non-solid from those directions.
+    /// platform. A support-face landing bounces the same way a solid
+    /// support would — fireballs skip across thin platforms identically to
+    /// thick supports. Every other contact (sides, feet-side, support-side
+    /// with no bounce budget) returns `Passthrough` so the projectile keeps
+    /// flying — the platform is non-solid from those directions.
     pub fn resolve_one_way_hit(
         &mut self,
         body: &mut BodyKinematics,
         block_aabb: Aabb,
     ) -> ProjectileSolidHit {
-        if self.is_top_landing(body, block_aabb) && self.bounces_remaining > 0 {
-            self.apply_top_bounce(body, block_aabb);
+        self.resolve_one_way_hit_in_frame(body, block_aabb, Vec2::new(0.0, 1.0))
+    }
+
+    pub fn resolve_one_way_hit_in_frame(
+        &mut self,
+        body: &mut BodyKinematics,
+        block_aabb: Aabb,
+        gravity_dir: Vec2,
+    ) -> ProjectileSolidHit {
+        if self.is_support_landing(body, block_aabb, gravity_dir) && self.bounces_remaining > 0 {
+            self.apply_support_bounce(body, block_aabb, gravity_dir);
             ProjectileSolidHit::Bounced
         } else {
             ProjectileSolidHit::Passthrough
@@ -243,8 +286,12 @@ impl ProjectileBody {
     /// Step the projectile forward by `dt`. Returns `true` if the
     /// projectile is still alive after the tick. Delegates to
     /// [`ProjectileGameplay::tick`] on the split halves.
-    pub fn tick(&mut self, dt: f32, gravity_sign: f32) -> bool {
-        self.game.tick(&mut self.kin, dt, gravity_sign)
+    pub fn tick(&mut self, dt: f32, gravity_dir: Vec2) -> bool {
+        self.game.tick(&mut self.kin, dt, gravity_dir)
+    }
+
+    pub fn tick_with_gravity_sign(&mut self, dt: f32, gravity_sign: f32) -> bool {
+        self.game.tick_with_gravity_sign(&mut self.kin, dt, gravity_sign)
     }
 
     pub fn is_expired(&self) -> bool {
@@ -291,11 +338,11 @@ impl ProjectileBody {
 /// [`ProjectileGameplay::resolve_one_way_hit`].
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum ProjectileSolidHit {
-    /// Projectile bounced off the block top; `bounces_remaining`
-    /// decremented and `vel.y` reflected. Caller keeps the body alive.
+    /// Projectile bounced off the support face; `bounces_remaining`
+    /// decremented and local-down velocity reflected. Caller keeps the body alive.
     Bounced,
     /// Projectile should be removed (no bounces left on a solid hit,
-    /// or contact wasn't a top-of-block landing on a solid).
+    /// or contact was not a support-face landing on a solid).
     Expired,
     /// Projectile flies through the block unaffected. Only returned
     /// from one-way resolution: the body keeps its position and
@@ -332,7 +379,7 @@ mod tests {
     fn tick_advances_position_and_applies_gravity() {
         let mut p = fireball(Vec2::new(0.0, 0.0), Vec2::new(100.0, 0.0), 0);
         p.game.gravity = 200.0;
-        let alive = p.tick(0.1, 1.0);
+        let alive = p.tick(0.1, Vec2::new(0.0, 1.0));
         assert!(alive, "still alive well within lifetime");
         // vy gains gravity*dt first, then pos integrates the new velocity.
         assert!((p.kin.vel.y - 20.0).abs() < 1e-3);
@@ -343,7 +390,7 @@ mod tests {
     fn tick_returns_false_and_holds_position_when_expired() {
         let mut p = fireball(Vec2::new(5.0, 5.0), Vec2::new(100.0, 0.0), 0);
         p.game.max_lifetime = 0.1;
-        let alive = p.tick(0.2, 1.0);
+        let alive = p.tick(0.2, Vec2::new(0.0, 1.0));
         assert!(!alive, "a tick past the lifetime reports dead");
         assert!(p.is_expired());
         assert_eq!(
@@ -351,6 +398,37 @@ mod tests {
             Vec2::new(5.0, 5.0),
             "expiring tick does not move the body"
         );
+    }
+
+    #[test]
+    fn tick_accelerates_along_local_down_for_all_cardinal_frames() {
+        let gravity_dirs = [
+            Vec2::new(0.0, 1.0),
+            Vec2::new(1.0, 0.0),
+            Vec2::new(0.0, -1.0),
+            Vec2::new(-1.0, 0.0),
+        ];
+        let center = Vec2::new(200.0, 200.0);
+        for gravity_dir in gravity_dirs {
+            let frame = ambition_engine_core::AccelerationFrame::new(gravity_dir);
+            let mut p = fireball(
+                center,
+                frame.to_world(Vec2::new(10.0, 5.0)),
+                0,
+            );
+            p.game.gravity = 200.0;
+            assert!(p.tick(0.1, gravity_dir));
+            let local_vel = Vec2::new(p.kin.vel.dot(frame.side), p.kin.vel.dot(frame.down));
+            let local_delta = Vec2::new((p.kin.pos - center).dot(frame.side), (p.kin.pos - center).dot(frame.down));
+            assert!(
+                (local_vel.x - 10.0).abs() < 1e-3 && (local_vel.y - 25.0).abs() < 1e-3,
+                "projectile velocity should be frame-equivalent for gravity {gravity_dir:?}: {local_vel:?}"
+            );
+            assert!(
+                (local_delta.x - 1.0).abs() < 1e-3 && (local_delta.y - 2.5).abs() < 1e-3,
+                "projectile motion should be frame-equivalent for gravity {gravity_dir:?}: {local_delta:?}"
+            );
+        }
     }
 
     #[test]

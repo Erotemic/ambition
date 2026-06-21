@@ -48,6 +48,7 @@ pub fn resolve_world_collision(
     game: &mut ProjectileGameplay,
     world: &ae::World,
     policy: WorldHitPolicy,
+    gravity_dir: ae::Vec2,
 ) -> WorldHitOutcome {
     let aabb = kin.aabb();
     match policy {
@@ -62,7 +63,7 @@ pub fn resolve_world_collision(
                 ) && block.aabb.strict_intersects(aabb)
             });
             if let Some(block) = solid_hit {
-                return match game.resolve_solid_hit(kin, block.aabb) {
+                return match game.resolve_solid_hit_in_frame(kin, block.aabb, gravity_dir) {
                     crate::projectile::ProjectileSolidHit::Bounced => {
                         WorldHitOutcome::Bounced { pos: kin.pos }
                     }
@@ -79,7 +80,7 @@ pub fn resolve_world_collision(
                 if !block.aabb.strict_intersects(aabb) {
                     continue;
                 }
-                let result = game.resolve_one_way_hit(kin, block.aabb);
+                let result = game.resolve_one_way_hit_in_frame(kin, block.aabb, gravity_dir);
                 if matches!(result, crate::projectile::ProjectileSolidHit::Bounced) {
                     return WorldHitOutcome::Bounced { pos: kin.pos };
                 }
@@ -156,6 +157,7 @@ mod tests {
             &mut body.game,
             &world,
             WorldHitPolicy::EnemyExpireOnAnyContact,
+            ae::Vec2::new(0.0, 1.0),
         );
         assert!(matches!(outcome, WorldHitOutcome::Expired { .. }));
     }
@@ -179,6 +181,7 @@ mod tests {
             &mut body.game,
             &world,
             WorldHitPolicy::EnemyExpireOnAnyContact,
+            ae::Vec2::new(0.0, 1.0),
         );
         assert!(matches!(outcome, WorldHitOutcome::Expired { .. }));
     }
@@ -200,6 +203,7 @@ mod tests {
             &mut body.game,
             &world,
             WorldHitPolicy::PlayerBouncing,
+            ae::Vec2::new(0.0, 1.0),
         );
         assert!(matches!(outcome, WorldHitOutcome::Expired { .. }));
     }
@@ -223,20 +227,155 @@ mod tests {
             &mut body.game,
             &world,
             WorldHitPolicy::PlayerBouncing,
+            ae::Vec2::new(0.0, 1.0),
         );
         assert!(matches!(outcome, WorldHitOutcome::Continue));
     }
 
-    /// A player projectile with bounce budget that lands on the TOP of a
-    /// thin one-way platform should skip off it exactly like a solid
-    /// floor — the "fireball skips across thin platforms" behavior the
-    /// `resolve_one_way_hit` doc promises. (TODO #123 bounce case.)
+    /// A player projectile with bounce budget that lands on the support face of
+    /// a one-way platform should skip off it exactly like a solid support.
     fn falling_player_projectile(pos: ae::Vec2, bounces: u8) -> crate::projectile::ProjectileBody {
         let mut body = straight_projectile(crate::projectile::ProjectileFaction::Player, pos);
         body.kin.pos = pos;
-        body.kin.vel = ae::Vec2::new(0.0, 80.0); // downward (world y-down)
+        body.kin.vel = ae::Vec2::new(0.0, 80.0); // toward world +Y, normal down-gravity case
         body.game.bounces_remaining = bounces;
         body
+    }
+
+    fn cardinal_gravity_dirs() -> [ae::Vec2; 4] {
+        [
+            ae::Vec2::new(0.0, 1.0),
+            ae::Vec2::new(1.0, 0.0),
+            ae::Vec2::new(0.0, -1.0),
+            ae::Vec2::new(-1.0, 0.0),
+        ]
+    }
+
+    fn local_to_world(frame: ae::AccelerationFrame, local: ae::Vec2) -> ae::Vec2 {
+        frame.to_world(local)
+    }
+
+    fn world_to_local(frame: ae::AccelerationFrame, world: ae::Vec2) -> ae::Vec2 {
+        ae::Vec2::new(world.dot(frame.side), world.dot(frame.down))
+    }
+
+    fn frame_world_with_block(
+        gravity_dir: ae::Vec2,
+        kind: ae::BlockKind,
+        local_center: ae::Vec2,
+        local_half: ae::Vec2,
+    ) -> (ae::World, ae::AccelerationFrame) {
+        let frame = ae::AccelerationFrame::new(gravity_dir);
+        let origin = ae::Vec2::new(300.0, 300.0);
+        let world_center = origin + local_to_world(frame, local_center);
+        let world_half = frame.to_world_half(local_half);
+        (world_with_block(kind, world_center, world_half), frame)
+    }
+
+    #[test]
+    fn player_projectile_bounce_is_frame_equivalent_on_solid_supports() {
+        for gravity_dir in cardinal_gravity_dirs() {
+            let (world, frame) = frame_world_with_block(
+                gravity_dir,
+                ae::BlockKind::Solid,
+                ae::Vec2::new(0.0, 100.0),
+                ae::Vec2::new(50.0, 50.0),
+            );
+            let origin = ae::Vec2::new(300.0, 300.0);
+            let mut body = straight_projectile(
+                crate::projectile::ProjectileFaction::Player,
+                origin + local_to_world(frame, ae::Vec2::new(0.0, 48.0)),
+            );
+            body.kin.vel = local_to_world(frame, ae::Vec2::new(-15.0, 80.0));
+            body.game.bounces_remaining = 2;
+
+            let outcome = resolve_world_collision(
+                &mut body.kin,
+                &mut body.game,
+                &world,
+                WorldHitPolicy::PlayerBouncing,
+                gravity_dir,
+            );
+            assert!(
+                matches!(outcome, WorldHitOutcome::Bounced { .. }),
+                "solid support should bounce in frame {gravity_dir:?}: {outcome:?}"
+            );
+            let local_vel = world_to_local(frame, body.kin.vel);
+            assert!((local_vel.x + 15.0).abs() < 1e-3);
+            assert!(local_vel.y < 0.0);
+        }
+    }
+
+    #[test]
+    fn player_projectile_bounce_is_frame_equivalent_on_one_way_supports() {
+        for gravity_dir in cardinal_gravity_dirs() {
+            let (world, frame) = frame_world_with_block(
+                gravity_dir,
+                ae::BlockKind::OneWay,
+                ae::Vec2::new(0.0, 100.0),
+                ae::Vec2::new(50.0, 4.0),
+            );
+            let origin = ae::Vec2::new(300.0, 300.0);
+            let mut body = straight_projectile(
+                crate::projectile::ProjectileFaction::Player,
+                origin + local_to_world(frame, ae::Vec2::new(0.0, 94.0)),
+            );
+            body.kin.vel = local_to_world(frame, ae::Vec2::new(20.0, 80.0));
+            body.game.bounces_remaining = 2;
+
+            let outcome = resolve_world_collision(
+                &mut body.kin,
+                &mut body.game,
+                &world,
+                WorldHitPolicy::PlayerBouncing,
+                gravity_dir,
+            );
+            assert!(
+                matches!(outcome, WorldHitOutcome::Bounced { .. }),
+                "one-way support should bounce in frame {gravity_dir:?}: {outcome:?}"
+            );
+            let local_vel = world_to_local(frame, body.kin.vel);
+            assert!(
+                (local_vel.x - 20.0).abs() < 1e-3,
+                "side velocity preserved: {local_vel:?}"
+            );
+            assert!(
+                local_vel.y < 0.0,
+                "local-down component should reflect away from support: {local_vel:?}"
+            );
+        }
+    }
+
+    #[test]
+    fn player_projectile_one_way_passthrough_is_frame_equivalent_from_feet_side() {
+        for gravity_dir in cardinal_gravity_dirs() {
+            let (world, frame) = frame_world_with_block(
+                gravity_dir,
+                ae::BlockKind::OneWay,
+                ae::Vec2::new(0.0, 100.0),
+                ae::Vec2::new(50.0, 4.0),
+            );
+            let origin = ae::Vec2::new(300.0, 300.0);
+            let mut body = straight_projectile(
+                crate::projectile::ProjectileFaction::Player,
+                origin + local_to_world(frame, ae::Vec2::new(0.0, 106.0)),
+            );
+            body.kin.vel = local_to_world(frame, ae::Vec2::new(0.0, -80.0));
+            body.game.bounces_remaining = 2;
+
+            let outcome = resolve_world_collision(
+                &mut body.kin,
+                &mut body.game,
+                &world,
+                WorldHitPolicy::PlayerBouncing,
+                gravity_dir,
+            );
+            assert!(
+                matches!(outcome, WorldHitOutcome::Continue),
+                "one-way should pass through from feet side in frame {gravity_dir:?}: {outcome:?}"
+            );
+            assert_eq!(body.game.bounces_remaining, 2);
+        }
     }
 
     #[test]
@@ -254,6 +393,7 @@ mod tests {
             &mut body.game,
             &world,
             WorldHitPolicy::PlayerBouncing,
+            ae::Vec2::new(0.0, 1.0),
         );
         assert!(
             matches!(outcome, WorldHitOutcome::Bounced { .. }),
@@ -290,6 +430,7 @@ mod tests {
             &mut body.game,
             &world,
             WorldHitPolicy::PlayerBouncing,
+            ae::Vec2::new(0.0, 1.0),
         );
         assert!(
             matches!(outcome, WorldHitOutcome::Continue),
@@ -316,6 +457,7 @@ mod tests {
             &mut body.game,
             &world,
             WorldHitPolicy::PlayerBouncing,
+            ae::Vec2::new(0.0, 1.0),
         );
         assert!(
             matches!(outcome, WorldHitOutcome::Bounced { .. }),
@@ -340,6 +482,7 @@ mod tests {
             &mut body.game,
             &world,
             WorldHitPolicy::PlayerBouncing,
+            ae::Vec2::new(0.0, 1.0),
         );
         assert!(matches!(outcome, WorldHitOutcome::Continue));
     }

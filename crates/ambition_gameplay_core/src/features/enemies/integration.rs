@@ -248,7 +248,7 @@ impl<'a> EnemyMut<'a> {
         let is_surface_walker = self.config.tuning.surface_walker;
 
         if is_surface_walker {
-            self.step_surface_walker(world, nearest_neighbor, dt);
+            self.step_surface_walker(world, nearest_neighbor, dt, gravity_dir);
         } else {
             integrate_standard_enemy_body(
                 world,
@@ -279,9 +279,10 @@ impl<'a> EnemyMut<'a> {
         world: &ae::World,
         nearest_neighbor: Option<ae::Vec2>,
         dt: f32,
+        gravity_dir: ae::Vec2,
     ) {
         if !self.surface.on_ground {
-            self.fall_until_landed(world, dt);
+            self.fall_until_landed(world, dt, gravity_dir);
             return;
         }
 
@@ -355,7 +356,7 @@ impl<'a> EnemyMut<'a> {
         self.surface.surface_normal = n;
         self.kin.pos = original_pos;
         self.surface.on_ground = false;
-        self.fall_until_landed(world, dt);
+        self.fall_until_landed(world, dt, gravity_dir);
     }
 
     fn wall_ahead(
@@ -397,7 +398,7 @@ impl<'a> EnemyMut<'a> {
         false
     }
 
-    fn fall_until_landed(&mut self, world: &ae::World, dt: f32) {
+    fn fall_until_landed(&mut self, world: &ae::World, dt: f32, gravity_dir: ae::Vec2) {
         let mut body = crate::kinematic::KinematicBody {
             pos: self.kin.pos,
             vel: self.kin.vel,
@@ -411,8 +412,9 @@ impl<'a> EnemyMut<'a> {
             crate::kinematic::KinematicTuning {
                 gravity: ENEMY_GRAVITY,
                 max_fall_speed: ENEMY_MAX_FALL,
-                // Spawn-time snap-to-ground assumes normal gravity.
-                gravity_dir: ae::Vec2::new(0.0, 1.0),
+                // Detached surface-walkers fall toward the active acceleration frame,
+                // then reattach with their surface normal opposite local down.
+                gravity_dir,
             },
             crate::kinematic::KinematicInputs {
                 drop_through: false,
@@ -423,7 +425,7 @@ impl<'a> EnemyMut<'a> {
         self.kin.vel = body.vel;
         self.surface.on_ground = body.on_ground;
         if body.on_ground {
-            self.surface.surface_normal = ae::Vec2::new(0.0, -1.0);
+            self.surface.surface_normal = -gravity_dir.normalize_or(ae::Vec2::new(0.0, 1.0));
         }
     }
 

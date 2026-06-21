@@ -143,13 +143,12 @@ pub(crate) fn apply_actor_hit(
             // its surface — it peels away along the surface normal and falls with
             // gravity until it lands and re-attaches (handled by the surface-walk
             // integration's `fall_until_landed`). Archetypes authored with
-            // `cling_breaks_on_hit: false` hold on when hit. Surface_normal is reset
-            // to gravity-up `(0,-1)` so the body renders upright while it falls,
-            // matching `fall_until_landed`'s down-gravity assumption.
+            // `cling_breaks_on_hit: false` hold on when hit. Keep the last surface
+            // normal while airborne; `fall_until_landed` reorients it relative to
+            // the active acceleration frame on the next support contact.
             if !killed && em.config.tuning.surface_walker && em.config.tuning.cling_breaks_on_hit {
                 let peel = em.surface.surface_normal * CLING_DETACH_POP_SPEED;
                 em.surface.on_ground = false;
-                em.surface.surface_normal = ae::Vec2::new(0.0, -1.0);
                 em.kin.vel += peel;
             }
             if killed {

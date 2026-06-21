@@ -154,6 +154,26 @@ impl BrainSnapshot {
         }
     }
 
+    /// Acceleration frame that defines this actor's local side/down axes.
+    pub fn acceleration_frame(self) -> ae::AccelerationFrame {
+        ae::AccelerationFrame::new(self.control_down)
+    }
+
+    /// Vector from the actor to its current target in actor-local coordinates.
+    /// `x` is local side/right; `y` is toward the actor's feet/down.
+    pub fn target_delta_local(self) -> ae::Vec2 {
+        let frame = self.acceleration_frame();
+        let delta = self.target_pos - self.actor_pos;
+        ae::Vec2::new(delta.dot(frame.side), delta.dot(frame.down))
+    }
+
+    /// Actor velocity in actor-local coordinates. Brains that make body-relative
+    /// movement decisions should prefer this over reading world `x/y` directly.
+    pub fn actor_vel_local(self) -> ae::Vec2 {
+        let frame = self.acceleration_frame();
+        ae::Vec2::new(self.actor_vel.dot(frame.side), self.actor_vel.dot(frame.down))
+    }
+
     /// Build the engine-side AI snapshot from this brain snapshot
     /// plus per-template aggro/attack ranges. The state-machine
     /// brain templates use the existing
@@ -240,5 +260,26 @@ mod tests {
         assert_eq!(ai.aggro_radius, 100.0);
         assert_eq!(ai.attack_range, 24.0);
         assert!(ai.patrol_enabled);
+    }
+
+    #[test]
+    fn local_snapshot_vectors_are_c4_equivalent() {
+        let local_target = ae::Vec2::new(80.0, -24.0);
+        let local_vel = ae::Vec2::new(-12.0, 33.0);
+        for down in [
+            ae::Vec2::new(0.0, 1.0),
+            ae::Vec2::new(1.0, 0.0),
+            ae::Vec2::new(0.0, -1.0),
+            ae::Vec2::new(-1.0, 0.0),
+        ] {
+            let frame = ae::AccelerationFrame::new(down);
+            let mut s = BrainSnapshot::idle();
+            s.control_down = down;
+            s.actor_pos = ae::Vec2::new(100.0, 200.0);
+            s.target_pos = s.actor_pos + frame.to_world(local_target);
+            s.actor_vel = frame.to_world(local_vel);
+            assert_eq!(s.target_delta_local(), local_target);
+            assert_eq!(s.actor_vel_local(), local_vel);
+        }
     }
 }

@@ -87,26 +87,26 @@ group_postprocess:
     lowpass_hz: 5200
     transient_tame: 0.05
   horns:
-    gain_db: 1.6
+    gain_db: -4.4
     lowpass_hz: 6100
     high_shelf_hz: 4300
     high_shelf_db: -1.6
     transient_tame: 0.035
     reverb_wet: 0.030
   glimmer:
-    gain_db: -4.0
-    lowpass_hz: 7200
-    high_shelf_hz: 5000
-    high_shelf_db: -3.5
-    transient_tame: 0.22
-    reverb_wet: 0.010
+    gain_db: 12.0
+    lowpass_hz: 7400
+    high_shelf_hz: 5600
+    high_shelf_db: -1.8
+    transient_tame: 0.18
+    reverb_wet: 0.016
 
 instruments:
   - {name: nylon, group: pluck, program: nylon_guitar, volume: 94, pan: 55, expression: 100}
   - {name: piano, group: keys, program: acoustic_grand_piano, volume: 108, pan: 48, expression: 112}
   - {name: low_piano, group: low_keys, program: acoustic_grand_piano, volume: 100, pan: 42, expression: 108}
-  - {name: horn, group: horns, program: french_horn, volume: 118, pan: 58, expression: 118}
-  - {name: celesta, group: glimmer, program: celesta, volume: 68, pan: 73, expression: 74}
+  - {name: horn, group: horns, program: french_horn, volume: 108, pan: 58, expression: 108}
+  - {name: celesta, group: glimmer, program: celesta, volume: 102, pan: 73, expression: 104}
 
 motifs:
   - id: emmy_palindrome_waltz
@@ -114,6 +114,11 @@ motifs:
     intervals: [0, 2, 5, 7, 9, 7, 5, 2, 0]
     rhythm: [0.5, 0.5, 0.75, 0.75, 1.0, 0.75, 0.75, 0.5, 0.5]
     velocities: [0.44, 0.50, 0.58, 0.66, 0.72, 0.66, 0.58, 0.50, 0.44]
+  - id: emmy_palindrome_em_turn
+    root: G4
+    intervals: [0, 2, 4, 7, 9, 7, 4, 2, 0]
+    rhythm: [0.5, 0.5, 0.75, 0.75, 1.0, 0.75, 0.75, 0.5, 0.5]
+    velocities: [0.44, 0.50, 0.58, 0.64, 0.68, 0.64, 0.58, 0.50, 0.44]
   - id: waltz_answer
     root: A4
     intervals: [0, 3, 5, 7, 5, 3, 0]
@@ -126,9 +131,9 @@ motifs:
     velocities: [0.36, 0.44, 0.52, 0.46, 0.40, 0.34]
   - id: salon_turn
     root: F#4
-    intervals: [0, 2, 4, 5, 4, 2, 0]
+    intervals: [0, 3, 5, 8, 5, 3, 0]
     rhythm: [0.5, 0.5, 0.75, 0.75, 0.75, 0.75, 2.0]
-    velocities: [0.30, 0.36, 0.44, 0.46, 0.40, 0.34, 0.28]
+    velocities: [0.34, 0.42, 0.50, 0.54, 0.48, 0.40, 0.32]
 
 layer_templates:
   low_waltz_floor:
@@ -187,11 +192,30 @@ layer_templates:
     kind: motif
     instrument: piano
     motif: emmy_palindrome_waltz
-    roots: [D5, A4, B4, G4]
+    # These roots are per 8-bar repeat, not per chord.  The third repeat
+    # lands around 0:27 / local bar 17 over D, so keep it D-centered.
+    roots: [D5, A4, D5]
     every_bars: 8
-    repeats: 4
+    repeats: 3
     starts: [[0, 0.0]]
     velocity: 64
+    articulation: legato
+    gate: 0.90
+    humanize_ms: 6
+    humanize_velocity_pct: 4
+
+  emmy_piano_palindrome_em_turn:
+    kind: motif
+    instrument: piano
+    motif: emmy_palindrome_em_turn
+    # Dedicated 0:40 Em turn.  It keeps the palindrome contour but avoids
+    # the previous G-rooted C-natural and the other roots' exposed half-step
+    # pressure against the sustained Em piano body.
+    roots: [G4]
+    every_bars: 8
+    repeats: 1
+    starts: [[24, 0.0]]
+    velocity: 60
     articulation: legato
     gate: 0.90
     humanize_ms: 6
@@ -201,7 +225,9 @@ layer_templates:
     kind: motif
     instrument: piano
     motif: waltz_answer
-    roots: [A4, F#4, D5, A4]
+    # Answer roots are chosen for the start chords at local bars 5, 13,
+    # 21, and 29: Bm, A, Bm, and G.
+    roots: [B4, F#4, B4, E5]
     every_bars: 8
     repeats: 4
     starts: [[4, 0.0]]
@@ -226,7 +252,10 @@ layer_templates:
     kind: motif
     instrument: horn
     motif: horn_breath
-    roots: [D3, A2, B2, G2]
+    # These roots follow the harmony under the repeat starts: A, Em, A, A.
+    # Avoid the old B/G roots here; they produced exposed D#/G horn tones
+    # against A around 0:32 and 0:43.
+    roots: [A2, G2, A2, A2]
     every_bars: 8
     repeats: 4
     starts: [[2, 0.0]]
@@ -240,11 +269,12 @@ layer_templates:
     kind: motif
     instrument: celesta
     motif: salon_turn
-    roots: [F#5, E5, G5, F#5]
+    # Diatonic sparkle roots for start chords G, D, G, D.
+    roots: [B5, F#5, B5, F#5]
     every_bars: 8
     repeats: 4
     starts: [[6, 0.0]]
-    velocity: 24
+    velocity: 44
     articulation: bell
     gate: 0.72
     humanize_ms: 4
@@ -262,13 +292,13 @@ playback:
 state_map:
   default:
     section: emmy_loop
-    stems: {pluck: 0.62, keys: 0.78, low_keys: 0.75, horns: 0.75, glimmer: 0.06}
+    stems: {pluck: 0.62, keys: 0.78, low_keys: 0.75, horns: 0.58, glimmer: 0.28}
   quiet:
     section: emmy_loop
-    stems: {pluck: 0.34, keys: 0.58, low_keys: 0.42, horns: 0.34, glimmer: 0.00}
+    stems: {pluck: 0.34, keys: 0.58, low_keys: 0.42, horns: 0.24, glimmer: 0.05}
   dance:
     section: emmy_loop
-    stems: {pluck: 0.72, keys: 0.92, low_keys: 0.82, horns: 0.84, glimmer: 0.12}
+    stems: {pluck: 0.72, keys: 0.92, low_keys: 0.82, horns: 0.66, glimmer: 0.36}
 
 sections:
   - id: emmy_loop
@@ -312,4 +342,4 @@ sections:
       - G
       - D
       - D
-    layers: [low_waltz_floor, fingerpick_waltz, piano_haze, emmy_piano_palindrome, answer_phrase, horn_pad, horn_breath_answer, celesta_turn]
+    layers: [low_waltz_floor, fingerpick_waltz, piano_haze, emmy_piano_palindrome, emmy_piano_palindrome_em_turn, answer_phrase, horn_pad, horn_breath_answer, celesta_turn]

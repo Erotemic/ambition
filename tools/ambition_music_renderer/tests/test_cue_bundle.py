@@ -27,6 +27,8 @@ from ambition_music_renderer.dissonance_audit import audit_spec, write_reports a
 from ambition_music_renderer.render_group_worker import build_parser as build_worker_parser
 from ambition_music_renderer.render_isolated import build_parser as build_isolated_parser
 from ambition_music_renderer.reference_audio_audit import analyze_audio as analyze_reference_audio, write_reports as write_reference_audio_reports
+from ambition_music_renderer.sour_note_audit import audit_spec as audit_sour_note_spec
+from ambition_music_renderer.sour_note_audit import write_reports as write_sour_note_reports
 
 
 def test_backend_defaults_prefer_pretty_midi():
@@ -443,6 +445,48 @@ def test_arrangement_audit_reports_group_prominence_and_bass_collisions():
         assert Path(paths["summary"]).exists()
         assert Path(paths["markdown"]).exists()
         assert "Default-state group presence" in Path(paths["markdown"]).read_text()
+
+
+
+def test_sour_note_audit_points_to_motif_root_sources():
+    spec = {
+        "schema": "ambition.musicir.v1",
+        "id": "sour_note_test",
+        "tempo": {"bpm": 120},
+        "meter": {"beats_per_bar": 4, "beat_unit": 4},
+        "instruments": [
+            {"name": "piano", "group": "keys", "program": "acoustic_grand_piano"},
+        ],
+        "state_map": {"default": {"section": "loop", "stems": {"keys": 1.0}}},
+        "motifs": [
+            {"id": "bad_turn", "root": "C4", "intervals": [0], "rhythm": [1.5], "velocities": [1.0]},
+        ],
+        "layer_templates": {
+            "bad_motif": {
+                "kind": "motif",
+                "instrument": "piano",
+                "motif": "bad_turn",
+                "roots": ["F#4"],
+                "starts": [[0, 0.0]],
+                "repeats": 1,
+                "velocity": 90,
+            },
+        },
+        "sections": [{"id": "loop", "bars": 1, "harmony": ["C"], "layers": ["bad_motif"]}],
+    }
+    payload = audit_sour_note_spec(spec, min_score=0.1)
+    assert payload["schema"] == "ambition.music_sour_note_audit.v1"
+    assert payload["candidates"]
+    top = payload["candidates"][0]
+    assert top["note"] == "F#4"
+    assert "layer_templates.bad_motif.roots[0]" in top["source_hint"]
+    assert "motifs.bad_turn.intervals[0]" in top["source_hint"]
+    with tempfile.TemporaryDirectory() as td:
+        root = Path(td)
+        paths = write_sour_note_reports(payload, root / "reports", plots_dir=root / "plots", plot_format="jpg")
+        assert Path(paths["summary"]).exists()
+        assert Path(paths["markdown"]).exists()
+        assert "Top Candidates" in Path(paths["markdown"]).read_text()
 
 
 

@@ -30,6 +30,8 @@ from .arrangement_audit import audit_file as audit_arrangement_file
 from .arrangement_audit import write_reports as write_arrangement_reports
 from .dissonance_audit import audit_file as audit_dissonance_file
 from .dissonance_audit import write_reports as write_dissonance_reports
+from .sour_note_audit import audit_file as audit_sour_note_file
+from .sour_note_audit import write_reports as write_sour_note_reports
 
 DEFAULT_BACKEND = "pretty-midi"
 BACKEND_CHOICES = ("pretty-midi", "fluidsynth-cli", "fallback", "auto")
@@ -1272,8 +1274,17 @@ def create_bundle(
             plot_format=plot_format,
             jpeg_quality=jpeg_quality,
         )
+        sour_note_payload = audit_sour_note_file(score_path)
+        write_sour_note_reports(
+            sour_note_payload,
+            reports_dir,
+            plots_dir=plots_dir,
+            plot_format=plot_format,
+            jpeg_quality=jpeg_quality,
+        )
         mix_diag_path, mix_warnings = summarize_mix_diagnostics(manifest, reports_dir)
         dissonance_warnings = list(dissonance_payload.get("warnings") or [])
+        sour_note_warnings = list(sour_note_payload.get("warnings") or [])
         if not skip_spectrograms:
             write_spectrograms(
                 analysis_root,
@@ -1353,7 +1364,7 @@ def create_bundle(
         "include_scratch_stems": include_scratch_stems,
         "copied_audio_files": copied_audio,
         "mix_diagnostics": str(mix_diag_path),
-        "warnings": [w for w in [id_warning, *mix_warnings, *dissonance_warnings] if w],
+        "warnings": [w for w in [id_warning, *mix_warnings, *dissonance_warnings, *sour_note_warnings] if w],
         "commands": command_rows,
         "rerun_script": str(rerun_script),
     }

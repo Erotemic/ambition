@@ -11,7 +11,7 @@
 	"iid": "ambition-you-have-to-cut-the-rope-world",
 	"jsonVersion": "1.5.3",
 	"appBuildId": 473703,
-	"nextUid": 105812,
+	"nextUid": 105813,
 	"identifierStyle": "Free",
 	"toc": [],
 	"worldLayout": "Free",
@@ -251,12 +251,12 @@
 			"lineOpacity": 1,
 			"hollow": false,
 			"color": "#41D1FF",
-			"renderMode": "Rectangle",
+			"renderMode": "Tile",
 			"showName": true,
-			"tilesetId": null,
+			"tilesetId": 105812,
 			"tileRenderMode": "Cover",
-			"tileRect": null,
-			"uiTileRect": null,
+			"tileRect": { "tilesetUid": 105812, "x": 64, "y": 0, "w": 32, "h": 32 },
+			"uiTileRect": { "tilesetUid": 105812, "x": 64, "y": 0, "w": 32, "h": 32 },
 			"nineSliceBorders": [],
 			"maxCount": 0,
 			"limitScope": "PerLayer",
@@ -327,12 +327,12 @@
 			"lineOpacity": 1,
 			"hollow": false,
 			"color": "#6B7280",
-			"renderMode": "Rectangle",
+			"renderMode": "Tile",
 			"showName": true,
-			"tilesetId": null,
+			"tilesetId": 105812,
 			"tileRenderMode": "Cover",
-			"tileRect": null,
-			"uiTileRect": null,
+			"tileRect": { "tilesetUid": 105812, "x": 0, "y": 64, "w": 32, "h": 32 },
+			"uiTileRect": { "tilesetUid": 105812, "x": 0, "y": 64, "w": 32, "h": 32 },
 			"nineSliceBorders": [],
 			"maxCount": 0,
 			"limitScope": "PerLayer",
@@ -403,12 +403,12 @@
 			"lineOpacity": 1,
 			"hollow": false,
 			"color": "#FFD166",
-			"renderMode": "Rectangle",
+			"renderMode": "Tile",
 			"showName": true,
-			"tilesetId": null,
+			"tilesetId": 105812,
 			"tileRenderMode": "Cover",
-			"tileRect": null,
-			"uiTileRect": null,
+			"tileRect": { "tilesetUid": 105812, "x": 32, "y": 0, "w": 32, "h": 32 },
+			"uiTileRect": { "tilesetUid": 105812, "x": 32, "y": 0, "w": 32, "h": 32 },
 			"nineSliceBorders": [],
 			"maxCount": 0,
 			"limitScope": "PerLayer",
@@ -645,7 +645,7 @@
 					"acceptFileTypes": null,
 					"defaultOverride": {
 						"id": "V_Bool",
-						"params": [true]
+						"params": [ true ]
 					},
 					"textLanguageMode": null,
 					"symmetricalRef": false,
@@ -679,12 +679,12 @@
 			"lineOpacity": 1,
 			"hollow": false,
 			"color": "#A4D65E",
-			"renderMode": "Rectangle",
+			"renderMode": "Tile",
 			"showName": true,
-			"tilesetId": null,
+			"tilesetId": 105812,
 			"tileRenderMode": "Cover",
-			"tileRect": null,
-			"uiTileRect": null,
+			"tileRect": { "tilesetUid": 105812, "x": 32, "y": 64, "w": 32, "h": 32 },
+			"uiTileRect": { "tilesetUid": 105812, "x": 32, "y": 64, "w": 32, "h": 32 },
 			"nineSliceBorders": [],
 			"maxCount": 0,
 			"limitScope": "PerLayer",
@@ -755,12 +755,12 @@
 			"lineOpacity": 1,
 			"hollow": false,
 			"color": "#B388FF",
-			"renderMode": "Rectangle",
+			"renderMode": "Tile",
 			"showName": true,
-			"tilesetId": null,
+			"tilesetId": 105812,
 			"tileRenderMode": "Cover",
-			"tileRect": null,
-			"uiTileRect": null,
+			"tileRect": { "tilesetUid": 105812, "x": 64, "y": 64, "w": 32, "h": 32 },
+			"uiTileRect": { "tilesetUid": 105812, "x": 64, "y": 64, "w": 32, "h": 32 },
 			"nineSliceBorders": [],
 			"maxCount": 0,
 			"limitScope": "PerLayer",
@@ -871,12 +871,12 @@
 			"lineOpacity": 1,
 			"hollow": false,
 			"color": "#00D4FF",
-			"renderMode": "Rectangle",
+			"renderMode": "Tile",
 			"showName": true,
-			"tilesetId": null,
+			"tilesetId": 105812,
 			"tileRenderMode": "Cover",
-			"tileRect": null,
-			"uiTileRect": null,
+			"tileRect": { "tilesetUid": 105812, "x": 192, "y": 32, "w": 32, "h": 32 },
+			"uiTileRect": { "tilesetUid": 105812, "x": 192, "y": 32, "w": 32, "h": 32 },
 			"nineSliceBorders": [],
 			"maxCount": 0,
 			"limitScope": "PerLayer",
@@ -947,12 +947,12 @@
 			"lineOpacity": 1,
 			"hollow": false,
 			"color": "#FF9EEA",
-			"renderMode": "Rectangle",
+			"renderMode": "Tile",
 			"showName": true,
-			"tilesetId": null,
+			"tilesetId": 105812,
 			"tileRenderMode": "Cover",
-			"tileRect": null,
-			"uiTileRect": null,
+			"tileRect": { "tilesetUid": 105812, "x": 0, "y": 32, "w": 32, "h": 32 },
+			"uiTileRect": { "tilesetUid": 105812, "x": 0, "y": 32, "w": 32, "h": 32 },
 			"nineSliceBorders": [],
 			"maxCount": 0,
 			"limitScope": "PerLayer",
@@ -1107,10 +1107,7 @@
 					"max": null,
 					"regex": null,
 					"acceptFileTypes": null,
-					"defaultOverride": {
-						"id": "V_Float",
-						"params": [0]
-					},
+					"defaultOverride": { "id": "V_Float", "params": [0] },
 					"textLanguageMode": null,
 					"symmetricalRef": false,
 					"autoChainRef": true,
@@ -1180,12 +1177,12 @@
 			"lineOpacity": 1,
 			"hollow": false,
 			"color": "#FFFFFF",
-			"renderMode": "Rectangle",
+			"renderMode": "Tile",
 			"showName": true,
-			"tilesetId": null,
+			"tilesetId": 105812,
 			"tileRenderMode": "Cover",
-			"tileRect": null,
-			"uiTileRect": null,
+			"tileRect": { "tilesetUid": 105812, "x": 96, "y": 64, "w": 32, "h": 32 },
+			"uiTileRect": { "tilesetUid": 105812, "x": 96, "y": 64, "w": 32, "h": 32 },
 			"nineSliceBorders": [],
 			"maxCount": 0,
 			"limitScope": "PerLayer",
@@ -1336,12 +1333,12 @@
 			"lineOpacity": 1,
 			"hollow": false,
 			"color": "#FF6B6B",
-			"renderMode": "Rectangle",
+			"renderMode": "Tile",
 			"showName": true,
-			"tilesetId": null,
+			"tilesetId": 105812,
 			"tileRenderMode": "Cover",
-			"tileRect": null,
-			"uiTileRect": null,
+			"tileRect": { "tilesetUid": 105812, "x": 32, "y": 32, "w": 32, "h": 32 },
+			"uiTileRect": { "tilesetUid": 105812, "x": 32, "y": 32, "w": 32, "h": 32 },
 			"nineSliceBorders": [],
 			"maxCount": 0,
 			"limitScope": "PerLayer",
@@ -1489,12 +1486,12 @@
 			"lineOpacity": 1,
 			"hollow": false,
 			"color": "#FF3B30",
-			"renderMode": "Rectangle",
+			"renderMode": "Tile",
 			"showName": true,
-			"tilesetId": null,
+			"tilesetId": 105812,
 			"tileRenderMode": "Cover",
-			"tileRect": null,
-			"uiTileRect": null,
+			"tileRect": { "tilesetUid": 105812, "x": 128, "y": 64, "w": 32, "h": 32 },
+			"uiTileRect": { "tilesetUid": 105812, "x": 128, "y": 64, "w": 32, "h": 32 },
 			"nineSliceBorders": [],
 			"maxCount": 0,
 			"limitScope": "PerLayer",
@@ -1565,12 +1562,12 @@
 			"lineOpacity": 1,
 			"hollow": false,
 			"color": "#7BDFF2",
-			"renderMode": "Rectangle",
+			"renderMode": "Tile",
 			"showName": true,
-			"tilesetId": null,
+			"tilesetId": 105812,
 			"tileRenderMode": "Cover",
-			"tileRect": null,
-			"uiTileRect": null,
+			"tileRect": { "tilesetUid": 105812, "x": 224, "y": 32, "w": 32, "h": 32 },
+			"uiTileRect": { "tilesetUid": 105812, "x": 224, "y": 32, "w": 32, "h": 32 },
 			"nineSliceBorders": [],
 			"maxCount": 0,
 			"limitScope": "PerLayer",
@@ -1645,10 +1642,7 @@
 					"max": null,
 					"regex": null,
 					"acceptFileTypes": null,
-					"defaultOverride": {
-						"id": "V_Float",
-						"params": [0]
-					},
+					"defaultOverride": { "id": "V_Float", "params": [0] },
 					"textLanguageMode": null,
 					"symmetricalRef": false,
 					"autoChainRef": true,
@@ -1685,10 +1679,7 @@
 					"max": null,
 					"regex": null,
 					"acceptFileTypes": null,
-					"defaultOverride": {
-						"id": "V_Float",
-						"params": [900]
-					},
+					"defaultOverride": { "id": "V_Float", "params": [900] },
 					"textLanguageMode": null,
 					"symmetricalRef": false,
 					"autoChainRef": true,
@@ -1721,12 +1712,12 @@
 			"lineOpacity": 1,
 			"hollow": false,
 			"color": "#FF5C8A",
-			"renderMode": "Rectangle",
+			"renderMode": "Tile",
 			"showName": true,
-			"tilesetId": null,
+			"tilesetId": 105812,
 			"tileRenderMode": "Cover",
-			"tileRect": null,
-			"uiTileRect": null,
+			"tileRect": { "tilesetUid": 105812, "x": 224, "y": 0, "w": 32, "h": 32 },
+			"uiTileRect": { "tilesetUid": 105812, "x": 224, "y": 0, "w": 32, "h": 32 },
 			"nineSliceBorders": [],
 			"maxCount": 0,
 			"limitScope": "PerLayer",
@@ -1801,10 +1792,7 @@
 					"max": null,
 					"regex": null,
 					"acceptFileTypes": null,
-					"defaultOverride": {
-						"id": "V_Float",
-						"params": [1]
-					},
+					"defaultOverride": { "id": "V_Float", "params": [1] },
 					"textLanguageMode": null,
 					"symmetricalRef": false,
 					"autoChainRef": true,
@@ -1881,10 +1869,7 @@
 					"max": null,
 					"regex": null,
 					"acceptFileTypes": null,
-					"defaultOverride": {
-						"id": "V_Float",
-						"params": [100]
-					},
+					"defaultOverride": { "id": "V_Float", "params": [100] },
 					"textLanguageMode": null,
 					"symmetricalRef": false,
 					"autoChainRef": true,
@@ -1994,12 +1979,12 @@
 			"lineOpacity": 1,
 			"hollow": false,
 			"color": "#4ECDC4",
-			"renderMode": "Rectangle",
+			"renderMode": "Tile",
 			"showName": true,
-			"tilesetId": null,
+			"tilesetId": 105812,
 			"tileRenderMode": "Cover",
-			"tileRect": null,
-			"uiTileRect": null,
+			"tileRect": { "tilesetUid": 105812, "x": 160, "y": 0, "w": 32, "h": 32 },
+			"uiTileRect": { "tilesetUid": 105812, "x": 160, "y": 0, "w": 32, "h": 32 },
 			"nineSliceBorders": [],
 			"maxCount": 0,
 			"limitScope": "PerLayer",
@@ -2114,10 +2099,7 @@
 					"max": null,
 					"regex": null,
 					"acceptFileTypes": null,
-					"defaultOverride": {
-						"id": "V_Float",
-						"params": [100]
-					},
+					"defaultOverride": { "id": "V_Float", "params": [100] },
 					"textLanguageMode": null,
 					"symmetricalRef": false,
 					"autoChainRef": true,
@@ -2227,12 +2209,12 @@
 			"lineOpacity": 1,
 			"hollow": false,
 			"color": "#C77DFF",
-			"renderMode": "Rectangle",
+			"renderMode": "Tile",
 			"showName": true,
-			"tilesetId": null,
+			"tilesetId": 105812,
 			"tileRenderMode": "Cover",
-			"tileRect": null,
-			"uiTileRect": null,
+			"tileRect": { "tilesetUid": 105812, "x": 160, "y": 64, "w": 32, "h": 32 },
+			"uiTileRect": { "tilesetUid": 105812, "x": 160, "y": 64, "w": 32, "h": 32 },
 			"nineSliceBorders": [],
 			"maxCount": 0,
 			"limitScope": "PerLayer",
@@ -2343,12 +2325,12 @@
 			"lineOpacity": 1,
 			"hollow": false,
 			"color": "#D8A15D",
-			"renderMode": "Rectangle",
+			"renderMode": "Tile",
 			"showName": true,
-			"tilesetId": null,
+			"tilesetId": 105812,
 			"tileRenderMode": "Cover",
-			"tileRect": null,
-			"uiTileRect": null,
+			"tileRect": { "tilesetUid": 105812, "x": 192, "y": 64, "w": 32, "h": 32 },
+			"uiTileRect": { "tilesetUid": 105812, "x": 192, "y": 64, "w": 32, "h": 32 },
 			"nineSliceBorders": [],
 			"maxCount": 0,
 			"limitScope": "PerLayer",
@@ -2423,10 +2405,7 @@
 					"max": null,
 					"regex": null,
 					"acceptFileTypes": null,
-					"defaultOverride": {
-						"id": "V_Float",
-						"params": [3]
-					},
+					"defaultOverride": { "id": "V_Float", "params": [3] },
 					"textLanguageMode": null,
 					"symmetricalRef": false,
 					"autoChainRef": true,
@@ -2503,10 +2482,7 @@
 					"max": null,
 					"regex": null,
 					"acceptFileTypes": null,
-					"defaultOverride": {
-						"id": "V_Float",
-						"params": [0]
-					},
+					"defaultOverride": { "id": "V_Float", "params": [0] },
 					"textLanguageMode": null,
 					"symmetricalRef": false,
 					"autoChainRef": true,
@@ -2619,12 +2595,12 @@
 			"lineOpacity": 1,
 			"hollow": false,
 			"color": "#FF7AC6",
-			"renderMode": "Rectangle",
+			"renderMode": "Tile",
 			"showName": true,
-			"tilesetId": null,
+			"tilesetId": 105812,
 			"tileRenderMode": "Cover",
-			"tileRect": null,
-			"uiTileRect": null,
+			"tileRect": { "tilesetUid": 105812, "x": 224, "y": 64, "w": 32, "h": 32 },
+			"uiTileRect": { "tilesetUid": 105812, "x": 224, "y": 64, "w": 32, "h": 32 },
 			"nineSliceBorders": [],
 			"maxCount": 0,
 			"limitScope": "PerLayer",
@@ -2699,10 +2675,7 @@
 					"max": null,
 					"regex": null,
 					"acceptFileTypes": null,
-					"defaultOverride": {
-						"id": "V_Float",
-						"params": [3]
-					},
+					"defaultOverride": { "id": "V_Float", "params": [3] },
 					"textLanguageMode": null,
 					"symmetricalRef": false,
 					"autoChainRef": true,
@@ -2779,10 +2752,7 @@
 					"max": null,
 					"regex": null,
 					"acceptFileTypes": null,
-					"defaultOverride": {
-						"id": "V_Float",
-						"params": [0]
-					},
+					"defaultOverride": { "id": "V_Float", "params": [0] },
 					"textLanguageMode": null,
 					"symmetricalRef": false,
 					"autoChainRef": true,
@@ -2815,12 +2785,12 @@
 			"lineOpacity": 1,
 			"hollow": false,
 			"color": "#8AFF80",
-			"renderMode": "Rectangle",
+			"renderMode": "Tile",
 			"showName": true,
-			"tilesetId": null,
+			"tilesetId": 105812,
 			"tileRenderMode": "Cover",
-			"tileRect": null,
-			"uiTileRect": null,
+			"tileRect": { "tilesetUid": 105812, "x": 64, "y": 32, "w": 32, "h": 32 },
+			"uiTileRect": { "tilesetUid": 105812, "x": 64, "y": 32, "w": 32, "h": 32 },
 			"nineSliceBorders": [],
 			"maxCount": 0,
 			"limitScope": "PerLayer",
@@ -2931,12 +2901,12 @@
 			"lineOpacity": 1,
 			"hollow": false,
 			"color": "#F6C85F",
-			"renderMode": "Rectangle",
+			"renderMode": "Tile",
 			"showName": true,
-			"tilesetId": null,
+			"tilesetId": 105812,
 			"tileRenderMode": "Cover",
-			"tileRect": null,
-			"uiTileRect": null,
+			"tileRect": { "tilesetUid": 105812, "x": 0, "y": 96, "w": 32, "h": 32 },
+			"uiTileRect": { "tilesetUid": 105812, "x": 0, "y": 96, "w": 32, "h": 32 },
 			"nineSliceBorders": [],
 			"maxCount": 0,
 			"limitScope": "PerLayer",
@@ -3047,12 +3017,12 @@
 			"lineOpacity": 1,
 			"hollow": false,
 			"color": "#86A8E7",
-			"renderMode": "Rectangle",
+			"renderMode": "Tile",
 			"showName": true,
-			"tilesetId": null,
+			"tilesetId": 105812,
 			"tileRenderMode": "Cover",
-			"tileRect": null,
-			"uiTileRect": null,
+			"tileRect": { "tilesetUid": 105812, "x": 0, "y": 0, "w": 32, "h": 32 },
+			"uiTileRect": { "tilesetUid": 105812, "x": 0, "y": 0, "w": 32, "h": 32 },
 			"nineSliceBorders": [],
 			"maxCount": 0,
 			"limitScope": "PerLayer",
@@ -3207,10 +3177,7 @@
 					"max": null,
 					"regex": null,
 					"acceptFileTypes": null,
-					"defaultOverride": {
-						"id": "V_Int",
-						"params": [0]
-					},
+					"defaultOverride": { "id": "V_Int", "params": [0] },
 					"textLanguageMode": null,
 					"symmetricalRef": false,
 					"autoChainRef": true,
@@ -3284,10 +3251,7 @@
 					"max": null,
 					"regex": null,
 					"acceptFileTypes": null,
-					"defaultOverride": {
-						"id": "V_Float",
-						"params": [0]
-					},
+					"defaultOverride": { "id": "V_Float", "params": [0] },
 					"textLanguageMode": null,
 					"symmetricalRef": false,
 					"autoChainRef": true,
@@ -3324,10 +3288,7 @@
 					"max": null,
 					"regex": null,
 					"acceptFileTypes": null,
-					"defaultOverride": {
-						"id": "V_Float",
-						"params": [0]
-					},
+					"defaultOverride": { "id": "V_Float", "params": [0] },
 					"textLanguageMode": null,
 					"symmetricalRef": false,
 					"autoChainRef": true,
@@ -3403,7 +3364,7 @@
 					"acceptFileTypes": null,
 					"defaultOverride": {
 						"id": "V_Bool",
-						"params": [false]
+						"params": [ false ]
 					},
 					"textLanguageMode": null,
 					"symmetricalRef": false,
@@ -3477,12 +3438,12 @@
 			"lineOpacity": 1,
 			"hollow": false,
 			"color": "#B8F2E6",
-			"renderMode": "Rectangle",
+			"renderMode": "Tile",
 			"showName": true,
-			"tilesetId": null,
+			"tilesetId": 105812,
 			"tileRenderMode": "Cover",
-			"tileRect": null,
-			"uiTileRect": null,
+			"tileRect": { "tilesetUid": 105812, "x": 32, "y": 96, "w": 32, "h": 32 },
+			"uiTileRect": { "tilesetUid": 105812, "x": 32, "y": 96, "w": 32, "h": 32 },
 			"nineSliceBorders": [],
 			"maxCount": 0,
 			"limitScope": "PerLayer",
@@ -3618,7 +3579,7 @@
 			"tags": [],
 			"exportToToc": false,
 			"allowOutOfBounds": true,
-			"doc": "Activates the parent active area's encounter when the player\nenters the rectangle. The encounter id matches the level's\n`activeArea` field; the camera_zoom field controls the zoom-out\napplied while the encounter is Active.\n",
+			"doc": "Activates the parent active area's encounter when the player enters the rectangle. The encounter id matches the level's `activeArea` field; the camera_zoom field controls the zoom-out applied while the encounter is Active. ",
 			"width": 64,
 			"height": 64,
 			"resizableX": true,
@@ -3633,12 +3594,12 @@
 			"lineOpacity": 1,
 			"hollow": false,
 			"color": "#FF7AB6",
-			"renderMode": "Rectangle",
+			"renderMode": "Tile",
 			"showName": true,
-			"tilesetId": null,
-			"tileRenderMode": "FitInside",
-			"tileRect": null,
-			"uiTileRect": null,
+			"tilesetId": 105812,
+			"tileRenderMode": "Cover",
+			"tileRect": { "tilesetUid": 105812, "x": 64, "y": 96, "w": 32, "h": 32 },
+			"uiTileRect": { "tilesetUid": 105812, "x": 64, "y": 96, "w": 32, "h": 32 },
 			"nineSliceBorders": [],
 			"maxCount": 0,
 			"limitScope": "PerLevel",
@@ -3753,10 +3714,7 @@
 					"max": null,
 					"regex": null,
 					"acceptFileTypes": null,
-					"defaultOverride": {
-						"id": "V_Float",
-						"params": [1.5]
-					},
+					"defaultOverride": { "id": "V_Float", "params": [1.5] },
 					"textLanguageMode": null,
 					"symmetricalRef": false,
 					"autoChainRef": true,
@@ -3774,7 +3732,7 @@
 			"tags": [],
 			"exportToToc": false,
 			"allowOutOfBounds": true,
-			"doc": "Latched player-facing switch. Persists in the sandbox save by\n`id`. The `target_encounter` + `action` fields tell the runtime\nwhat to do on activation; the only `action` recognized today is\n`ResetEncounter`, which clears the matching encounter's defeat\nstate and returns it to a fresh-attempt state.\n",
+			"doc": "Latched player-facing switch. Persists in the sandbox save by `id`. The `target_encounter` + `action` fields tell the runtime what to do on activation; the only `action` recognized today is `ResetEncounter`, which clears the matching encounter's defeat state and returns it to a fresh-attempt state. ",
 			"width": 24,
 			"height": 32,
 			"resizableX": true,
@@ -3789,12 +3747,12 @@
 			"lineOpacity": 1,
 			"hollow": false,
 			"color": "#FFC857",
-			"renderMode": "Rectangle",
+			"renderMode": "Tile",
 			"showName": true,
-			"tilesetId": null,
-			"tileRenderMode": "FitInside",
-			"tileRect": null,
-			"uiTileRect": null,
+			"tilesetId": 105812,
+			"tileRenderMode": "Cover",
+			"tileRect": { "tilesetUid": 105812, "x": 128, "y": 32, "w": 32, "h": 32 },
+			"uiTileRect": { "tilesetUid": 105812, "x": 128, "y": 32, "w": 32, "h": 32 },
 			"nineSliceBorders": [],
 			"maxCount": 0,
 			"limitScope": "PerLevel",
@@ -4010,7 +3968,7 @@
 			"tags": [],
 			"exportToToc": false,
 			"allowOutOfBounds": true,
-			"doc": "Marker for an encounter-spawned Solid block. The encounter\nsystem reads the LockWall's px/size and inserts a matching\n`ae::Block::solid` into the active world while the encounter is\nActive. The LDtk entity itself contributes no static collision.\n",
+			"doc": "Marker for an encounter-spawned Solid block. The encounter system reads the LockWall's px/size and inserts a matching `ae::Block::solid` into the active world while the encounter is Active. The LDtk entity itself contributes no static collision. ",
 			"width": 32,
 			"height": 200,
 			"resizableX": true,
@@ -4025,12 +3983,12 @@
 			"lineOpacity": 1,
 			"hollow": false,
 			"color": "#9E9E9E",
-			"renderMode": "Rectangle",
+			"renderMode": "Tile",
 			"showName": true,
-			"tilesetId": null,
-			"tileRenderMode": "FitInside",
-			"tileRect": null,
-			"uiTileRect": null,
+			"tilesetId": 105812,
+			"tileRenderMode": "Cover",
+			"tileRect": { "tilesetUid": 105812, "x": 160, "y": 32, "w": 32, "h": 32 },
+			"uiTileRect": { "tilesetUid": 105812, "x": 160, "y": 32, "w": 32, "h": 32 },
 			"nineSliceBorders": [],
 			"maxCount": 0,
 			"limitScope": "PerLevel",
@@ -4141,12 +4099,12 @@
 			"lineOpacity": 1,
 			"hollow": false,
 			"color": "#3DB8E0",
-			"renderMode": "Rectangle",
+			"renderMode": "Tile",
 			"showName": true,
-			"tilesetId": null,
-			"tileRenderMode": "FitInside",
-			"tileRect": null,
-			"uiTileRect": null,
+			"tilesetId": 105812,
+			"tileRenderMode": "Cover",
+			"tileRect": { "tilesetUid": 105812, "x": 192, "y": 0, "w": 32, "h": 32 },
+			"uiTileRect": { "tilesetUid": 105812, "x": 192, "y": 0, "w": 32, "h": 32 },
 			"nineSliceBorders": [],
 			"maxCount": 0,
 			"limitScope": "PerLevel",
@@ -4261,10 +4219,7 @@
 					"max": null,
 					"regex": null,
 					"acceptFileTypes": null,
-					"defaultOverride": {
-						"id": "V_Float",
-						"params": [0.3]
-					},
+					"defaultOverride": { "id": "V_Float", "params": [0.3] },
 					"textLanguageMode": null,
 					"symmetricalRef": false,
 					"autoChainRef": true,
@@ -4301,10 +4256,7 @@
 					"max": null,
 					"regex": null,
 					"acceptFileTypes": null,
-					"defaultOverride": {
-						"id": "V_Float",
-						"params": [0.08]
-					},
+					"defaultOverride": { "id": "V_Float", "params": [0.08] },
 					"textLanguageMode": null,
 					"symmetricalRef": false,
 					"autoChainRef": true,
@@ -4341,10 +4293,7 @@
 					"max": null,
 					"regex": null,
 					"acceptFileTypes": null,
-					"defaultOverride": {
-						"id": "V_Float",
-						"params": [220]
-					},
+					"defaultOverride": { "id": "V_Float", "params": [220] },
 					"textLanguageMode": null,
 					"symmetricalRef": false,
 					"autoChainRef": true,
@@ -4381,10 +4330,7 @@
 					"max": null,
 					"regex": null,
 					"acceptFileTypes": null,
-					"defaultOverride": {
-						"id": "V_Float",
-						"params": [760]
-					},
+					"defaultOverride": { "id": "V_Float", "params": [760] },
 					"textLanguageMode": null,
 					"symmetricalRef": false,
 					"autoChainRef": true,
@@ -4417,12 +4363,12 @@
 			"lineOpacity": 1,
 			"hollow": false,
 			"color": "#5BA1FF",
-			"renderMode": "Rectangle",
+			"renderMode": "Tile",
 			"showName": true,
-			"tilesetId": null,
-			"tileRenderMode": "FitInside",
-			"tileRect": null,
-			"uiTileRect": null,
+			"tilesetId": 105812,
+			"tileRenderMode": "Cover",
+			"tileRect": { "tilesetUid": 105812, "x": 128, "y": 0, "w": 32, "h": 32 },
+			"uiTileRect": { "tilesetUid": 105812, "x": 128, "y": 0, "w": 32, "h": 32 },
 			"nineSliceBorders": [],
 			"maxCount": 0,
 			"limitScope": "PerLevel",
@@ -4497,10 +4443,7 @@
 					"max": null,
 					"regex": null,
 					"acceptFileTypes": null,
-					"defaultOverride": {
-						"id": "V_Float",
-						"params": [240]
-					},
+					"defaultOverride": { "id": "V_Float", "params": [240] },
 					"textLanguageMode": null,
 					"symmetricalRef": false,
 					"autoChainRef": true,
@@ -4537,10 +4480,7 @@
 					"max": null,
 					"regex": null,
 					"acceptFileTypes": null,
-					"defaultOverride": {
-						"id": "V_Float",
-						"params": [130]
-					},
+					"defaultOverride": { "id": "V_Float", "params": [130] },
 					"textLanguageMode": null,
 					"symmetricalRef": false,
 					"autoChainRef": true,
@@ -4610,12 +4550,12 @@
 			"lineOpacity": 1,
 			"hollow": false,
 			"color": "#9966CC",
-			"renderMode": "Rectangle",
+			"renderMode": "Tile",
 			"showName": true,
-			"tilesetId": null,
-			"tileRenderMode": "FitInside",
-			"tileRect": null,
-			"uiTileRect": null,
+			"tilesetId": 105812,
+			"tileRenderMode": "Cover",
+			"tileRect": { "tilesetUid": 105812, "x": 96, "y": 96, "w": 32, "h": 32 },
+			"uiTileRect": { "tilesetUid": 105812, "x": 96, "y": 96, "w": 32, "h": 32 },
 			"nineSliceBorders": [],
 			"maxCount": 0,
 			"limitScope": "PerLevel",
@@ -4705,20 +4645,27 @@
 				}
 			]
 		}
-	], "tilesets": [], "enums": [
+	], "tilesets": [
 		{
-			"identifier": "BreakablePlatformCollision",
-			"uid": 5002,
-			"values": [
-				{ "id": "Solid", "tileRect": null, "color": 14180189 },
-				{ "id": "OneWayUp", "tileRect": null, "color": 10802479 }
-			],
-			"iconTilesetUid": null,
-			"externalRelPath": null,
-			"externalFileChecksum": null,
-			"tags": []
+			"__cHei": 4,
+			"__cWid": 8,
+			"cachedPixelData": null,
+			"customData": [],
+			"embedAtlas": null,
+			"enumTags": [],
+			"identifier": "EditorIcons",
+			"padding": 0,
+			"pxHei": 128,
+			"pxWid": 256,
+			"relPath": "../../sprites/editor_icons.png",
+			"savedSelections": [],
+			"spacing": 0,
+			"tags": [],
+			"tagsSourceEnumUid": null,
+			"tileGridSize": 32,
+			"uid": 105812
 		}
-	], "externalEnums": [], "levelFields": [
+	], "enums": [{ "identifier": "BreakablePlatformCollision", "uid": 5002, "values": [ { "id": "Solid", "tileRect": null, "color": 14180189 }, { "id": "OneWayUp", "tileRect": null, "color": 10802479 } ], "iconTilesetUid": null, "externalRelPath": null, "externalFileChecksum": null, "tags": [] }], "externalEnums": [], "levelFields": [
 		{
 			"identifier": "activeArea",
 			"doc": "Ambition active-area id. LDtk levels with the same activeArea are stitched into one runtime room.",
@@ -5092,8 +5039,7 @@
 			"allowedRefTags": [],
 			"tilesetUid": null
 		}
-	]
-	},
+	] },
 	"levels": [
 		{
 			"identifier": "you_have_to_cut_the_rope",
@@ -5115,13 +5061,31 @@
 			"__bgPos": null,
 			"externalRelPath": null,
 			"fieldInstances": [
-				{ "__identifier": "activeArea", "__type": "String", "__value": "you_have_to_cut_the_rope", "__tile": null, "defUid": 4000, "realEditorValues": [ { "id": "V_String", "params": ["you_have_to_cut_the_rope"] } ] },
-				{ "__identifier": "biome", "__type": "String", "__value": "cave", "__tile": null, "defUid": 4172, "realEditorValues": [ { "id": "V_String", "params": ["cave"] } ] },
-				{ "__identifier": "music_track", "__type": "String", "__value": "", "__tile": null, "defUid": 4173, "realEditorValues": [ { "id": "V_String", "params": [""] } ] },
-				{ "__identifier": "ambient_profile", "__type": "String", "__value": "hum", "__tile": null, "defUid": 4174, "realEditorValues": [ { "id": "V_String", "params": ["hum"] } ] },
-				{ "__identifier": "visual_theme", "__type": "String", "__value": "cave", "__tile": null, "defUid": 4175, "realEditorValues": [ { "id": "V_String", "params": ["cave"] } ] },
+				{ "__identifier": "activeArea", "__type": "String", "__value": "you_have_to_cut_the_rope", "__tile": null, "defUid": 4000, "realEditorValues": [{
+					"id": "V_String",
+					"params": ["you_have_to_cut_the_rope"]
+				}] },
+				{ "__identifier": "biome", "__type": "String", "__value": "cave", "__tile": null, "defUid": 4172, "realEditorValues": [{
+					"id": "V_String",
+					"params": ["cave"]
+				}] },
+				{ "__identifier": "music_track", "__type": "String", "__value": "", "__tile": null, "defUid": 4173, "realEditorValues": [{
+					"id": "V_String",
+					"params": [""]
+				}] },
+				{ "__identifier": "ambient_profile", "__type": "String", "__value": "hum", "__tile": null, "defUid": 4174, "realEditorValues": [{
+					"id": "V_String",
+					"params": ["hum"]
+				}] },
+				{ "__identifier": "visual_theme", "__type": "String", "__value": "cave", "__tile": null, "defUid": 4175, "realEditorValues": [{
+					"id": "V_String",
+					"params": ["cave"]
+				}] },
 				{ "__identifier": "visual_profile", "__type": "String", "__value": null, "__tile": null, "defUid": 4336, "realEditorValues": [] },
-				{ "__identifier": "parallax_theme", "__type": "String", "__value": "cave", "__tile": null, "defUid": 4337, "realEditorValues": [ { "id": "V_String", "params": ["cave"] } ] },
+				{ "__identifier": "parallax_theme", "__type": "String", "__value": "cave", "__tile": null, "defUid": 4337, "realEditorValues": [{
+					"id": "V_String",
+					"params": ["cave"]
+				}] },
 				{ "__identifier": "palette", "__type": "String", "__value": null, "__tile": null, "defUid": 4338, "realEditorValues": [] },
 				{ "__identifier": "lighting_hint", "__type": "String", "__value": null, "__tile": null, "defUid": 4339, "realEditorValues": [] },
 				{ "__identifier": "foreground_treatment", "__type": "String", "__value": null, "__tile": null, "defUid": 4340, "realEditorValues": [] }
@@ -5299,7 +5263,10 @@
 							"height": 46,
 							"defUid": 2000,
 							"px": [96,688],
-							"fieldInstances": [ { "__identifier": "name", "__type": "String", "__value": "cut_rope_player_start", "__tile": null, "defUid": 3000, "realEditorValues": [ { "id": "V_String", "params": ["cut_rope_player_start"] } ] } ],
+							"fieldInstances": [{ "__identifier": "name", "__type": "String", "__value": "cut_rope_player_start", "__tile": null, "defUid": 3000, "realEditorValues": [{
+								"id": "V_String",
+								"params": ["cut_rope_player_start"]
+							}] }],
 							"__worldX": 96,
 							"__worldY": 688
 						},
@@ -5316,11 +5283,23 @@
 							"defUid": 2002,
 							"px": [48,640],
 							"fieldInstances": [
-								{ "__identifier": "id", "__type": "String", "__value": "cut_rope_arena_entry", "__tile": null, "defUid": 3002, "realEditorValues": [ { "id": "V_String", "params": ["cut_rope_arena_entry"] } ] },
-								{ "__identifier": "name", "__type": "String", "__value": "cut_rope_arena_entry", "__tile": null, "defUid": 3003, "realEditorValues": [ { "id": "V_String", "params": ["cut_rope_arena_entry"] } ] },
+								{ "__identifier": "id", "__type": "String", "__value": "cut_rope_arena_entry", "__tile": null, "defUid": 3002, "realEditorValues": [{
+									"id": "V_String",
+									"params": ["cut_rope_arena_entry"]
+								}] },
+								{ "__identifier": "name", "__type": "String", "__value": "cut_rope_arena_entry", "__tile": null, "defUid": 3003, "realEditorValues": [{
+									"id": "V_String",
+									"params": ["cut_rope_arena_entry"]
+								}] },
 								{ "__identifier": "activation", "__type": "String", "__value": "Door", "__tile": null, "defUid": 3004, "realEditorValues": [] },
-								{ "__identifier": "target_room", "__type": "String", "__value": "hall_of_bosses", "__tile": null, "defUid": 3005, "realEditorValues": [ { "id": "V_String", "params": ["hall_of_bosses"] } ] },
-								{ "__identifier": "target_zone", "__type": "String", "__value": "hall_to_cut_rope_portal", "__tile": null, "defUid": 3006, "realEditorValues": [ { "id": "V_String", "params": ["hall_to_cut_rope_portal"] } ] },
+								{ "__identifier": "target_room", "__type": "String", "__value": "hall_of_bosses", "__tile": null, "defUid": 3005, "realEditorValues": [{
+									"id": "V_String",
+									"params": ["hall_of_bosses"]
+								}] },
+								{ "__identifier": "target_zone", "__type": "String", "__value": "hall_to_cut_rope_portal", "__tile": null, "defUid": 3006, "realEditorValues": [{
+									"id": "V_String",
+									"params": ["hall_to_cut_rope_portal"]
+								}] },
 								{ "__identifier": "bidirectional", "__type": "Bool", "__value": true, "__tile": null, "defUid": 3007, "realEditorValues": [] }
 							],
 							"__worldX": 48,
@@ -5339,8 +5318,14 @@
 							"defUid": 2013,
 							"px": [768,448],
 							"fieldInstances": [
-								{ "__identifier": "name", "__type": "String", "__value": "Smirking Behemoth", "__tile": null, "defUid": 3033, "realEditorValues": [ { "id": "V_String", "params": ["Smirking Behemoth"] } ] },
-								{ "__identifier": "brain", "__type": "String", "__value": "PhaseScript:smirking_behemoth_boss", "__tile": null, "defUid": 3034, "realEditorValues": [ { "id": "V_String", "params": ["PhaseScript:smirking_behemoth_boss"] } ] }
+								{ "__identifier": "name", "__type": "String", "__value": "Smirking Behemoth", "__tile": null, "defUid": 3033, "realEditorValues": [{
+									"id": "V_String",
+									"params": ["Smirking Behemoth"]
+								}] },
+								{ "__identifier": "brain", "__type": "String", "__value": "PhaseScript:smirking_behemoth_boss", "__tile": null, "defUid": 3034, "realEditorValues": [{
+									"id": "V_String",
+									"params": ["PhaseScript:smirking_behemoth_boss"]
+								}] }
 							],
 							"__worldX": 768,
 							"__worldY": 448
@@ -5358,8 +5343,14 @@
 							"defUid": 4351,
 							"px": [904,16],
 							"fieldInstances": [
-								{ "__identifier": "name", "__type": "String", "__value": "cut_rope_rope", "__tile": null, "defUid": 4349, "realEditorValues": [ { "id": "V_String", "params": ["cut_rope_rope"] } ] },
-								{ "__identifier": "kind", "__type": "String", "__value": "cut_rope_rope", "__tile": null, "defUid": 4350, "realEditorValues": [ { "id": "V_String", "params": ["cut_rope_rope"] } ] }
+								{ "__identifier": "name", "__type": "String", "__value": "cut_rope_rope", "__tile": null, "defUid": 4349, "realEditorValues": [{
+									"id": "V_String",
+									"params": ["cut_rope_rope"]
+								}] },
+								{ "__identifier": "kind", "__type": "String", "__value": "cut_rope_rope", "__tile": null, "defUid": 4350, "realEditorValues": [{
+									"id": "V_String",
+									"params": ["cut_rope_rope"]
+								}] }
 							],
 							"__worldX": 904,
 							"__worldY": 16
@@ -5377,8 +5368,14 @@
 							"defUid": 4351,
 							"px": [848,176],
 							"fieldInstances": [
-								{ "__identifier": "name", "__type": "String", "__value": "cut_rope_anvil", "__tile": null, "defUid": 4349, "realEditorValues": [ { "id": "V_String", "params": ["cut_rope_anvil"] } ] },
-								{ "__identifier": "kind", "__type": "String", "__value": "cut_rope_anvil", "__tile": null, "defUid": 4350, "realEditorValues": [ { "id": "V_String", "params": ["cut_rope_anvil"] } ] }
+								{ "__identifier": "name", "__type": "String", "__value": "cut_rope_anvil", "__tile": null, "defUid": 4349, "realEditorValues": [{
+									"id": "V_String",
+									"params": ["cut_rope_anvil"]
+								}] },
+								{ "__identifier": "kind", "__type": "String", "__value": "cut_rope_anvil", "__tile": null, "defUid": 4350, "realEditorValues": [{
+									"id": "V_String",
+									"params": ["cut_rope_anvil"]
+								}] }
 							],
 							"__worldX": 848,
 							"__worldY": 176
@@ -5396,9 +5393,18 @@
 							"defUid": 2007,
 							"px": [32,464],
 							"fieldInstances": [
-								{ "__identifier": "name", "__type": "String", "__value": "cut_rope_title_label", "__tile": null, "defUid": 3015, "realEditorValues": [ { "id": "V_String", "params": ["cut_rope_title_label"] } ] },
-								{ "__identifier": "text", "__type": "String", "__value": "You Have To Cut The Rope", "__tile": null, "defUid": 3016, "realEditorValues": [ { "id": "V_String", "params": ["You Have To Cut The Rope"] } ] },
-								{ "__identifier": "category", "__type": "String", "__value": "Boss", "__tile": null, "defUid": 3017, "realEditorValues": [ { "id": "V_String", "params": ["Boss"] } ] }
+								{ "__identifier": "name", "__type": "String", "__value": "cut_rope_title_label", "__tile": null, "defUid": 3015, "realEditorValues": [{
+									"id": "V_String",
+									"params": ["cut_rope_title_label"]
+								}] },
+								{ "__identifier": "text", "__type": "String", "__value": "You Have To Cut The Rope", "__tile": null, "defUid": 3016, "realEditorValues": [{
+									"id": "V_String",
+									"params": ["You Have To Cut The Rope"]
+								}] },
+								{ "__identifier": "category", "__type": "String", "__value": "Boss", "__tile": null, "defUid": 3017, "realEditorValues": [{
+									"id": "V_String",
+									"params": ["Boss"]
+								}] }
 							],
 							"__worldX": 32,
 							"__worldY": 464
@@ -5416,16 +5422,18 @@
 							"defUid": 2007,
 							"px": [304,256],
 							"fieldInstances": [
-								{ "__identifier": "name", "__type": "String", "__value": "cut_rope_hint_label", "__tile": null, "defUid": 3015, "realEditorValues": [ { "id": "V_String", "params": ["cut_rope_hint_label"] } ] },
-								{
-									"__identifier": "text",
-									"__type": "String",
-									"__value": "Cut the rope above the boss to drop the anvil.",
-									"__tile": null,
-									"defUid": 3016,
-									"realEditorValues": [ { "id": "V_String", "params": ["Cut the rope above the boss to drop the anvil."] } ]
-								},
-								{ "__identifier": "category", "__type": "String", "__value": "Boss", "__tile": null, "defUid": 3017, "realEditorValues": [ { "id": "V_String", "params": ["Boss"] } ] }
+								{ "__identifier": "name", "__type": "String", "__value": "cut_rope_hint_label", "__tile": null, "defUid": 3015, "realEditorValues": [{
+									"id": "V_String",
+									"params": ["cut_rope_hint_label"]
+								}] },
+								{ "__identifier": "text", "__type": "String", "__value": "Cut the rope above the boss to drop the anvil.", "__tile": null, "defUid": 3016, "realEditorValues": [{
+									"id": "V_String",
+									"params": ["Cut the rope above the boss to drop the anvil."]
+								}] },
+								{ "__identifier": "category", "__type": "String", "__value": "Boss", "__tile": null, "defUid": 3017, "realEditorValues": [{
+									"id": "V_String",
+									"params": ["Boss"]
+								}] }
 							],
 							"__worldX": 304,
 							"__worldY": 256
@@ -5442,7 +5450,7 @@
 							"height": 36,
 							"defUid": 2005,
 							"px": [1072,224],
-							"fieldInstances": [ { "__identifier": "name", "__type": "String", "__value": "Pogo Orb", "__tile": null, "defUid": 3011, "realEditorValues": [] } ],
+							"fieldInstances": [{ "__identifier": "name", "__type": "String", "__value": "Pogo Orb", "__tile": null, "defUid": 3011, "realEditorValues": [] }],
 							"__worldX": 1072,
 							"__worldY": 224
 						},
@@ -5458,7 +5466,7 @@
 							"height": 36,
 							"defUid": 2005,
 							"px": [992,160],
-							"fieldInstances": [ { "__identifier": "name", "__type": "String", "__value": "Pogo Orb", "__tile": null, "defUid": 3011, "realEditorValues": [] } ],
+							"fieldInstances": [{ "__identifier": "name", "__type": "String", "__value": "Pogo Orb", "__tile": null, "defUid": 3011, "realEditorValues": [] }],
 							"__worldX": 992,
 							"__worldY": 160
 						},
@@ -5474,7 +5482,7 @@
 							"height": 36,
 							"defUid": 2005,
 							"px": [640,384],
-							"fieldInstances": [ { "__identifier": "name", "__type": "String", "__value": "Pogo Orb", "__tile": null, "defUid": 3011, "realEditorValues": [] } ],
+							"fieldInstances": [{ "__identifier": "name", "__type": "String", "__value": "Pogo Orb", "__tile": null, "defUid": 3011, "realEditorValues": [] }],
 							"__worldX": 640,
 							"__worldY": 384
 						},
@@ -5490,7 +5498,7 @@
 							"height": 36,
 							"defUid": 2005,
 							"px": [256,448],
-							"fieldInstances": [ { "__identifier": "name", "__type": "String", "__value": "Pogo Orb", "__tile": null, "defUid": 3011, "realEditorValues": [] } ],
+							"fieldInstances": [{ "__identifier": "name", "__type": "String", "__value": "Pogo Orb", "__tile": null, "defUid": 3011, "realEditorValues": [] }],
 							"__worldX": 256,
 							"__worldY": 448
 						}

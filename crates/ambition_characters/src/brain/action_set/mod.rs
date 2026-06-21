@@ -654,7 +654,7 @@ pub enum ActionRequest {
         /// every tick so QCF / half-circle detection survives the
         /// migration.
         axis: ae::Vec2,
-        /// Aim direction (twin-stick / mouse). Zero = use facing.
+        /// Aim direction in the controlled actor's local frame. Zero = use facing.
         aim: ae::Vec2,
         /// Rising edge: projectile button pressed this tick.
         press: bool,

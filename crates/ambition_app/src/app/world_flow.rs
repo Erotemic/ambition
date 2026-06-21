@@ -312,18 +312,27 @@ pub(super) fn death_respawn_player(
     died.write(PlayerDiedMessage { pos: from });
 }
 
-/// Whether a held shield blocks a hit coming from `hit_x`: you can only guard the
-/// side you face (a hit from behind still lands). A facing of exactly 0 (neutral)
-/// guards either side. Pure so the directional rule is unit-tested directly.
-pub fn shield_blocks_hit(shield_held: bool, facing: f32, player_x: f32, hit_x: f32) -> bool {
+/// Whether a held shield blocks a hit coming from `hit_pos`: you can only guard
+/// the local side you face (a hit from behind still lands). A facing of exactly
+/// 0 (neutral) guards either side. Pure so the directional rule is unit-tested
+/// directly.
+pub fn shield_blocks_hit(
+    shield_held: bool,
+    facing: f32,
+    player_pos: ae::Vec2,
+    hit_pos: ae::Vec2,
+    gravity_dir: ae::Vec2,
+) -> bool {
     if !shield_held {
         return false;
     }
     if facing == 0.0 {
         return true;
     }
-    // Same sign => the hit is on the side the player is facing.
-    (hit_x - player_x).signum() == facing.signum()
+    let frame = ae::AccelerationFrame::new(gravity_dir);
+    let local_side_delta = frame.to_local(hit_pos - player_pos).x;
+    // Same local-side sign => the hit is on the side the controlled body faces.
+    local_side_delta.signum() == facing.signum()
 }
 
 pub(super) fn handle_player_damage_events(
@@ -365,8 +374,9 @@ pub(super) fn handle_player_damage_events(
     if shield_blocks_hit(
         shield_held,
         clusters.kinematics.facing,
-        clusters.kinematics.pos.x,
-        guard_impact.x,
+        clusters.kinematics.pos,
+        guard_impact,
+        tuning.gravity_dir,
     ) {
         sfx.write(SfxMessage::Play {
             id: ambition_sfx::ids::WORLD_ROCK_HIT,
@@ -541,32 +551,61 @@ mod tests {
 
     #[test]
     fn shield_blocks_only_hits_from_the_faced_side() {
-        // Player at x=100 facing right (+1).
+        let player = ae::Vec2::new(100.0, 200.0);
+        let down = ae::Vec2::new(0.0, 1.0);
+        // Controlled body facing local-right (+1) under normal gravity.
         assert!(
-            shield_blocks_hit(true, 1.0, 100.0, 150.0),
-            "guards a hit from the right"
+            shield_blocks_hit(true, 1.0, player, player + ae::Vec2::new(50.0, 0.0), down),
+            "guards a hit from local right"
         );
         assert!(
-            !shield_blocks_hit(true, 1.0, 100.0, 50.0),
-            "a hit from behind (left) lands"
+            !shield_blocks_hit(true, 1.0, player, player + ae::Vec2::new(-50.0, 0.0), down),
+            "a hit from behind (local left) lands"
         );
-        // Facing left (-1) flips it.
+        // Facing local-left (-1) flips it.
         assert!(
-            shield_blocks_hit(true, -1.0, 100.0, 50.0),
-            "guards a hit from the left"
+            shield_blocks_hit(true, -1.0, player, player + ae::Vec2::new(-50.0, 0.0), down),
+            "guards a hit from local left"
         );
         assert!(
-            !shield_blocks_hit(true, -1.0, 100.0, 150.0),
-            "a hit from behind (right) lands"
+            !shield_blocks_hit(true, -1.0, player, player + ae::Vec2::new(50.0, 0.0), down),
+            "a hit from behind (local right) lands"
         );
         // No shield held -> never blocks; neutral facing -> guards either side.
         assert!(
-            !shield_blocks_hit(false, 1.0, 100.0, 150.0),
+            !shield_blocks_hit(false, 1.0, player, player + ae::Vec2::new(50.0, 0.0), down),
             "no shield, no block"
         );
         assert!(
-            shield_blocks_hit(true, 0.0, 100.0, 50.0),
+            shield_blocks_hit(true, 0.0, player, player + ae::Vec2::new(-50.0, 0.0), down),
             "neutral facing guards either side"
+        );
+    }
+
+    #[test]
+    fn shield_side_test_uses_the_controlled_body_frame() {
+        let player = ae::Vec2::new(100.0, 200.0);
+        let right_gravity = ae::Vec2::new(1.0, 0.0);
+        // With right gravity, local-right is world-up.
+        assert!(
+            shield_blocks_hit(
+                true,
+                1.0,
+                player,
+                player + ae::Vec2::new(0.0, -50.0),
+                right_gravity,
+            ),
+            "facing local-right should guard the world-up side under right gravity"
+        );
+        assert!(
+            !shield_blocks_hit(
+                true,
+                1.0,
+                player,
+                player + ae::Vec2::new(0.0, 50.0),
+                right_gravity,
+            ),
+            "world-down is behind a body facing local-right under right gravity"
         );
     }
 

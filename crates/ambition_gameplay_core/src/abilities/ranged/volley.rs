@@ -34,6 +34,25 @@ const VOLLEY_DAMAGE: i32 = 2;
 const VOLLEY_LIFETIME: f32 = 1.6;
 const VOLLEY_HALF: ae::Vec2 = ae::Vec2::new(8.0, 8.0);
 
+fn volley_origin_local_offset(aim_local: ae::Vec2, body_size: ae::Vec2) -> ae::Vec2 {
+    let dir = aim_local.normalize_or_zero();
+    if dir == ae::Vec2::ZERO {
+        return ae::Vec2::ZERO;
+    }
+    let half = body_size * 0.5;
+    let body_extent_along_aim = half.x * dir.x.abs() + half.y * dir.y.abs();
+    dir * (body_extent_along_aim + 8.0)
+}
+
+fn volley_origin_world(
+    player_pos: ae::Vec2,
+    body_size: ae::Vec2,
+    aim_local: ae::Vec2,
+    frame: ae::AccelerationFrame,
+) -> ae::Vec2 {
+    player_pos + frame.to_world(volley_origin_local_offset(aim_local, body_size))
+}
+
 /// `Attack` while holding the volley gauntlet fires a fan of **player-faction**
 /// bolts along the aim direction (right-stick / movement axis / facing, via the
 /// shared `held_shot_aim`). Plain Attack only — `Shield + Attack` drops the item
@@ -74,7 +93,7 @@ pub fn fire_volley_system(
         return;
     }
     let base_angle = aim.y.atan2(aim.x);
-    let origin = kin.pos + aim * (kin.size.x * 0.5 + 8.0);
+    let origin = volley_origin_world(kin.pos, kin.size, aim_local, frame);
     let spread = VOLLEY_SPREAD_DEG.to_radians();
     for i in 0..VOLLEY_SHOT_COUNT {
         // Centered fan: t in [-0.5, 0.5].
@@ -172,5 +191,36 @@ mod tests {
         spawn_primary_player_holding(&mut app, VOLLEY_ID);
         app.update();
         assert_eq!(enemy_projectile_bodies(&mut app).len(), 0);
+    }
+
+    #[test]
+    fn volley_origin_uses_extent_along_the_local_aim_axis() {
+        let size = ae::Vec2::new(24.0, 40.0);
+        let side = volley_origin_local_offset(ae::Vec2::new(1.0, 0.0), size);
+        let head = volley_origin_local_offset(ae::Vec2::new(0.0, -1.0), size);
+        assert_eq!(side, ae::Vec2::new(20.0, 0.0));
+        assert_eq!(head, ae::Vec2::new(0.0, -28.0));
+    }
+
+    #[test]
+    fn volley_origin_is_c4_equivariant_for_local_aim() {
+        let pos = ae::Vec2::new(100.0, 100.0);
+        let size = ae::Vec2::new(24.0, 40.0);
+        let local_aim = ae::Vec2::new(0.0, -1.0);
+        let expected_local = volley_origin_local_offset(local_aim, size);
+        for gravity_dir in [
+            ae::Vec2::new(0.0, 1.0),
+            ae::Vec2::new(1.0, 0.0),
+            ae::Vec2::new(0.0, -1.0),
+            ae::Vec2::new(-1.0, 0.0),
+        ] {
+            let frame = ae::AccelerationFrame::new(gravity_dir);
+            let world_origin = volley_origin_world(pos, size, local_aim, frame);
+            let local_origin = frame.to_local(world_origin - pos);
+            assert!(
+                (local_origin - expected_local).length() < 0.001,
+                "volley origin should preserve local geometry under gravity {gravity_dir:?}; got {local_origin:?}"
+            );
+        }
     }
 }

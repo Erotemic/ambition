@@ -150,9 +150,9 @@ pub struct ActorControlFrame {
     pub blink_held: bool,
     /// Falling edge: blink released — commit the blink target.
     pub blink_released: bool,
-    /// Aim direction for charged ranged attacks. `(0,0)` = use
-    /// actor's facing; non-zero = explicit twin-stick / mouse aim
-    /// vector. Mirror of the player's `(aim_x, aim_y)`.
+    /// Aim direction for charged ranged attacks in the controlled actor's local
+    /// frame. `(0,0)` = use actor facing; non-zero = explicit twin-stick / mouse
+    /// aim after crossing the input seam.
     pub aim: Vec2,
 }
 

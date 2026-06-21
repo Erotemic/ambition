@@ -29,6 +29,41 @@ use ambition_vfx::vfx::VfxMessage;
 const PROJECTILE_REFLECT_SPEED_SCALE: f32 = 1.3;
 /// Health a successful parry restores (a reason to parry rather than dodge).
 const PARRY_HEAL: i32 = 1;
+const PLAYER_PROJECTILE_MUZZLE_CLEARANCE: f32 = 4.0;
+
+fn player_projectile_local_fire_dir(aim_local: ae::Vec2, facing: f32) -> ae::Vec2 {
+    if aim_local.length() > 0.1 {
+        aim_local.normalize_or_zero()
+    } else {
+        ae::Vec2::new(facing, 0.0)
+    }
+}
+
+fn player_projectile_muzzle_local_offset(
+    local_dir: ae::Vec2,
+    facing: f32,
+    size: ae::Vec2,
+) -> ae::Vec2 {
+    let half = size * 0.5;
+    if local_dir.x.abs() >= local_dir.y.abs() {
+        let side = if local_dir.x.abs() > 0.001 {
+            local_dir.x.signum()
+        } else {
+            facing.signum()
+        };
+        ae::Vec2::new(
+            side * (half.x + PLAYER_PROJECTILE_MUZZLE_CLEARANCE),
+            -size.y * 0.20,
+        )
+    } else {
+        let feet_axis = local_dir.y.signum();
+        ae::Vec2::new(
+            facing.signum() * half.x * 0.4,
+            feet_axis * (half.y + PLAYER_PROJECTILE_MUZZLE_CLEARANCE),
+        )
+    }
+}
+
 
 /// A timed-out or wall-killed **lasersword** detonates with a rendered
 /// explosion (keyed on the `lasersword:`-prefixed owner id). Returns `None` for
@@ -160,12 +195,10 @@ pub fn player_projectile_input(
             kin.facing.signum()
         };
         let frame = ae::AccelerationFrame::new(gravity.dir_at(kin.pos));
-        let origin = kin.pos
-            + frame.to_world(ae::Vec2::new(
-                facing * (kin.size.x * 0.5 + 4.0),
-                -kin.size.y * 0.20,
-            ));
-        let direction = frame.to_world(ae::Vec2::new(facing, 0.0));
+        let local_dir = player_projectile_local_fire_dir(tick_info.aim, facing);
+        let local_muzzle = player_projectile_muzzle_local_offset(local_dir, facing, kin.size);
+        let origin = kin.pos + frame.to_world(local_muzzle);
+        let direction = frame.to_world(local_dir).normalize_or_zero();
 
         // Count fires locally because spawn messages are consumed after this
         // system, but shoot animation still pulses on the firing frame.
@@ -340,7 +373,6 @@ pub fn apply_player_spawn_projectile_messages(
 #[derive(Clone, Copy, Debug, Default)]
 struct PlayerProjectileTickInfo {
     axis: ae::Vec2,
-    #[allow(dead_code, reason = "carried for future aim-driven fire direction")]
     aim: ae::Vec2,
     press: bool,
     held: bool,

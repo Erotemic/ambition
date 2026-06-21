@@ -5,7 +5,7 @@
 use crate::projectile::MotionDirection;
 use crate::projectile::ProjectileKind;
 
-use super::{advance_time, min_app, tap_projectile, ControlFrame};
+use super::{advance_time, dummy_world, min_app, projectile_test_app, tap_projectile, ControlFrame};
 
 #[test]
 fn tap_release_fires_one_fireball() {
@@ -194,4 +194,51 @@ fn out_of_resource_blocks_fire() {
     tap_projectile(&mut app);
     let bodies = crate::projectile::tests::projectile_bodies(&mut app);
     assert!(bodies.is_empty());
+}
+
+
+#[test]
+fn released_fireball_uses_controlled_body_local_aim_under_sideways_gravity() {
+    let player_pos = crate::engine_core::Vec2::new(300.0, 300.0);
+    let mut app = projectile_test_app(dummy_world(), player_pos, 1.0);
+    app.insert_resource(crate::physics::GravityField {
+        dir: crate::engine_core::Vec2::new(1.0, 0.0),
+    });
+
+    {
+        let mut frame = app.world_mut().resource_mut::<ControlFrame>();
+        frame.projectile_pressed = true;
+        frame.projectile_held = true;
+    }
+    advance_time(&mut app, 0.016);
+    app.update();
+
+    {
+        let mut frame = app.world_mut().resource_mut::<ControlFrame>();
+        frame.projectile_pressed = false;
+        frame.projectile_held = false;
+        frame.projectile_released = true;
+        // In the controlled-body frame, this is local head/away-from-feet.
+        frame.aim_x = 0.0;
+        frame.aim_y = -1.0;
+    }
+    advance_time(&mut app, 0.016);
+    app.update();
+
+    let bodies = crate::projectile::tests::projectile_bodies(&mut app);
+    assert_eq!(bodies.len(), 1);
+    let shot = &bodies[0].kin;
+    assert!(
+        shot.vel.x < 0.0 && shot.vel.y.abs() < 0.01,
+        "right-gravity local-head aim should launch world-left; got {:?}",
+        shot.vel
+    );
+
+    let frame = crate::engine_core::AccelerationFrame::new(crate::engine_core::Vec2::new(1.0, 0.0));
+    let local_offset = frame.to_local(shot.pos - player_pos);
+    assert!(
+        local_offset.y < -20.0,
+        "local-head shots should spawn beyond the controlled body's head; got {:?}",
+        local_offset
+    );
 }

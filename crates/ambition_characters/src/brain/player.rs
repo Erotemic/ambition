@@ -66,12 +66,17 @@ pub fn tick_player_brain_from_control(
     // frame. This is the important seam for facing, attacks, crouch-like
     // edges, and future possessed actors: unqualified left/right/up/down means
     // local to the controlled body, not privileged screen/player space.
-    let resolved = ae::AccelerationFrame::new(snapshot.control_down).resolve_control(
-        snapshot.input_frame_mode,
-        c.axis_x,
-        c.axis_y,
-    );
+    let frame = ae::AccelerationFrame::new(snapshot.control_down);
+    let resolved = frame.resolve_control(snapshot.input_frame_mode, c.axis_x, c.axis_y);
     let local_axis = resolved.local_axis;
+    let raw_aim = ae::Vec2::new(c.aim_x, c.aim_y);
+    let local_aim = if raw_aim.length() > 0.1 {
+        frame
+            .resolve_input(snapshot.input_frame_mode, c.aim_x, c.aim_y)
+            .normalize_or_zero()
+    } else {
+        ae::Vec2::ZERO
+    };
 
     // Movement axis → desired velocity. At the ActorControl seam, unqualified
     // direction is controlled-body-local: x = local side/right, y = local
@@ -97,13 +102,15 @@ pub fn tick_player_brain_from_control(
     // existing charge state machine for now. The brain just
     // surfaces "pressed" via fire on the release edge.
     if c.projectile_released {
-        // Direction: aim stick if present, else facing horizontal.
-        let aim = ae::Vec2::new(c.aim_x, c.aim_y);
-        let dir = if aim.length() > 0.1 {
-            aim.normalize_or_zero()
+        // Direction: resolve through the local frame once. `out.aim` remains
+        // local for the charge-projectile consumer; this legacy ActionSet fire
+        // request carries the world launch vector expected by Ranged consumers.
+        let local_dir = if local_aim.length() > 0.1 {
+            local_aim
         } else {
             ae::Vec2::new(snapshot.actor_facing, 0.0)
         };
+        let dir = frame.to_world(local_dir).normalize_or_zero();
         out.fire = Some(crate::actor::control::ActorFireRequest { dir, speed: 0.0 });
     }
 
@@ -145,7 +152,7 @@ pub fn tick_player_brain_from_control(
     out.blink_pressed = c.blink_pressed;
     out.blink_held = c.blink_held;
     out.blink_released = c.blink_released;
-    out.aim = ae::Vec2::new(c.aim_x, c.aim_y);
+    out.aim = local_aim;
 }
 
 #[cfg(test)]
@@ -286,8 +293,9 @@ mod tests {
     }
 
     #[test]
-    fn projectile_released_emits_fire_with_aim_or_facing() {
-        // Aim stick → fire uses aim.
+    fn projectile_released_emits_fire_with_resolved_aim_or_facing() {
+        // Aim stick → local aim is preserved for charge projectiles, while the
+        // legacy fire request exposes a world launch vector.
         let input = input_with(|c| {
             c.projectile_released = true;
             c.aim_x = 0.0;
@@ -300,6 +308,7 @@ mod tests {
         let fire = out.fire.expect("fire request expected");
         // Aim wins over facing.
         assert!((fire.dir.y - (-1.0)).abs() < 0.001);
+        assert_eq!(out.aim, ae::Vec2::new(0.0, -1.0));
         // No aim → fire uses facing.
         let input2 = input_with(|c| {
             c.projectile_released = true;
@@ -308,6 +317,25 @@ mod tests {
         tick_player_brain_from_control(&input2, &s, &mut out2);
         let fire2 = out2.fire.expect("fire request expected");
         assert!((fire2.dir.x - (-1.0)).abs() < 0.001);
+        assert_eq!(out2.aim, ae::Vec2::ZERO);
+    }
+
+    #[test]
+    fn projectile_aim_crosses_screen_input_seam_once() {
+        let input = input_with(|c| {
+            c.projectile_released = true;
+            c.aim_x = 0.0;
+            c.aim_y = -1.0; // screen-up on the right stick
+        });
+        let mut s = BrainSnapshot::idle();
+        s.control_down = ae::Vec2::new(1.0, 0.0);
+        s.input_frame_mode = ae::InputFrameMode::Screen;
+        s.actor_facing = 1.0;
+        let mut out = crate::actor::control::ActorControlFrame::default();
+        tick_player_brain_from_control(&input, &s, &mut out);
+        assert_eq!(out.aim, ae::Vec2::new(1.0, 0.0));
+        let fire = out.fire.expect("fire request expected");
+        assert_eq!(fire.dir, ae::Vec2::new(0.0, -1.0));
     }
 
     #[test]

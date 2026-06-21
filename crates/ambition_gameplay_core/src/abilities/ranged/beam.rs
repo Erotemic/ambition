@@ -233,4 +233,35 @@ mod tests {
         );
         assert!(offset.y < 0.0, "an up-aimed beam reaches above the player");
     }
+
+    #[test]
+    fn beam_geometry_is_c4_equivariant_for_local_aim() {
+        let local_aim = ae::Vec2::new(0.0, -1.0);
+        let (offset_local, half_local) = beam_geometry(local_aim, 1.0);
+        for gravity_dir in [
+            ae::Vec2::new(0.0, 1.0),
+            ae::Vec2::new(1.0, 0.0),
+            ae::Vec2::new(0.0, -1.0),
+            ae::Vec2::new(-1.0, 0.0),
+        ] {
+            let frame = ae::AccelerationFrame::new(gravity_dir);
+            let offset_world = frame.to_world(offset_local);
+            let half_world = frame.to_world_half(half_local);
+            assert!(
+                (frame.to_local(offset_world) - offset_local).length() < 0.001,
+                "beam offset should round-trip through gravity {gravity_dir:?}"
+            );
+            if gravity_dir.x.abs() > gravity_dir.y.abs() {
+                assert!(
+                    half_world.x > half_world.y,
+                    "local vertical beam should become world-horizontal under sideways gravity; got {half_world:?}"
+                );
+            } else {
+                assert!(
+                    half_world.y > half_world.x,
+                    "local vertical beam should stay world-vertical under vertical gravity; got {half_world:?}"
+                );
+            }
+        }
+    }
 }

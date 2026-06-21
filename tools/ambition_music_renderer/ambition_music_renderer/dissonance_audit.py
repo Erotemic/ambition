@@ -105,7 +105,23 @@ def _fallback_events(pm: pretty_midi.PrettyMIDI, groups: dict[str, str], bpm: fl
     return events
 
 
-def _pair_score(a: dict[str, Any], b: dict[str, Any]) -> tuple[float, dict[str, Any] | None]:
+def _chord_pitch_classes(chord: str) -> set[int]:
+    try:
+        root, intervals, slash_bass = r.chord_intervals(chord)
+        root_pc = r.note_to_midi(f"{root}4") % 12
+        pcs = {(root_pc + int(i)) % 12 for i in intervals}
+        if slash_bass:
+            bass_root = slash_bass.strip().split()[0]
+            import re
+            match = re.match(r"^([A-G](?:#|b)?)", bass_root)
+            if match:
+                pcs.add(r.note_to_midi(f"{match.group(1)}4") % 12)
+        return pcs
+    except Exception:
+        return set()
+
+
+def _pair_score(a: dict[str, Any], b: dict[str, Any], chord: str | None = None) -> tuple[float, dict[str, Any] | None]:
     pa = int(a["pitch"])
     pb = int(b["pitch"])
     if pa == pb:
@@ -135,6 +151,29 @@ def _pair_score(a: dict[str, Any], b: dict[str, Any]) -> tuple[float, dict[str, 
     cross_layer = a.get("layer") != b.get("layer")
     cross_weight = 1.15 if cross_layer else 0.82
     score = base * register_weight * vel_weight * cross_weight
+
+    # Consonance-aware discount: a dense pad containing legitimate chord tones
+    # should not dominate the hotspot report merely because sustained chord
+    # tones form seconds/sevenths across octaves. Keep close-register seconds
+    # and tritones visible, but discount broad chord-tone color.
+    if chord:
+        pcs = _chord_pitch_classes(chord)
+        if pcs:
+            a_in = (pa % 12) in pcs
+            b_in = (pb % 12) in pcs
+            if a_in and b_in:
+                if diff >= 12:
+                    score *= 0.28
+                elif diff >= 7:
+                    score *= 0.45
+                else:
+                    score *= 0.75
+            elif a_in or b_in:
+                if diff >= 12:
+                    score *= 0.70
+                else:
+                    score *= 0.85
+
     detail = {
         "score": score,
         "interval_semitones": diff,
@@ -182,11 +221,15 @@ def audit_spec(spec: dict[str, Any], *, bucket_beats: float = 0.25, max_hotspots
         active = _active_events(events, center)
         if len(active) < 2:
             continue
+        abs_bar0 = int(center // beats_per_bar)
+        beat_in_bar = center - abs_bar0 * beats_per_bar
+        section, local_bar0 = _section_for_bar(spec, abs_bar0)
+        chord = _chord_for_abs_bar(spec, abs_bar0)
         pair_details: list[dict[str, Any]] = []
         total_score = 0.0
         for i in range(len(active)):
             for j in range(i + 1, len(active)):
-                score, detail = _pair_score(active[i], active[j])
+                score, detail = _pair_score(active[i], active[j], chord)
                 if not detail:
                     continue
                 total_score += score
@@ -199,10 +242,6 @@ def audit_spec(spec: dict[str, Any], *, bucket_beats: float = 0.25, max_hotspots
         if total_score <= 0.0:
             continue
         pair_details.sort(key=lambda row: float(row["score"]), reverse=True)
-        abs_bar0 = int(center // beats_per_bar)
-        beat_in_bar = center - abs_bar0 * beats_per_bar
-        section, local_bar0 = _section_for_bar(spec, abs_bar0)
-        chord = _chord_for_abs_bar(spec, abs_bar0)
         hotspot = {
             "start_beat": _round3(start_beat),
             "end_beat": _round3(end),

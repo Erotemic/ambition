@@ -103,6 +103,28 @@ about than raw audio:
   states are normalized for review and may collapse loudness differences.
 - `spectral_fingerprint_summary.txt/json/tsv` summarizes low/mid/high/vhigh/air
   energy by stem without requiring an audio player.
+- `stem_amplitude_summary.txt/json/tsv` and `stem_amplitude_envelope.tsv`
+  show raw and state-weighted runtime stem levels, so mix balance can be read
+  directly rather than inferred from spectrogram color.
+- `plots/stem_amplitude_balance.<fmt>`, `plots/stem_amplitude_timeline.<fmt>`,
+  and `plots/stem_amplitude_stack.<fmt>` visualize relative stem amplitude and
+  how the stems layer through the cue.
+
+## Reference-audio surface analysis
+
+Use this when you have a reference MP3/OGG/WAV and want to mimic broad sonic
+qualities such as loudness envelope, dynamic range, brightness, and onset
+density. It does **not** do source separation or infer instrumentation. MP3
+decode depends on the local `soundfile` / `ffmpeg` setup.
+
+```bash
+PYTHONPATH=tools/ambition_music_renderer \
+python -m ambition_music_renderer.reference_audio_audit path/to/reference.mp3 \
+  --outdir /tmp/reference_audio_audit
+```
+
+Outputs include `reference_audio_summary.txt`, `reference_audio_audit.json`,
+`reference_audio_envelope.tsv`, and optional loudness / brightness plots.
 
 ## Output and publish model
 

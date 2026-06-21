@@ -1,14 +1,15 @@
 schema: ambition.musicir.v1
 id: for_emmy_forever_ago
 title: For Emmy, Forever Ago
-seed: 2026062007
+seed: 2026062009
 notes: >-
-  Emmy Noether's Noether Chamber theme, refined after the dissonance and
-  runtime-stem passes. This version keeps the Bon Iver-adjacent intimacy and the
-  early-20th-century waltz pulse, but makes the piano more ambient and gives the
-  horns a clear supporting role. The low register is deliberately sparse so the
-  bass does not fight the melody. The main melody remains a strict two-bar
-  palindrome, so the cue's conserved quantity is still the tune itself.
+  Emmy Noether's Noether Chamber theme. This pass restores a warmer chamber-folk
+  body after the horn/balance experiments: ambient piano chords carry the room,
+  low piano gives a gentle waltz floor, and French horn pads sit as prominent
+  backing rather than a lead. The Bon Iver-adjacent intimacy remains, but the
+  arrangement should breathe more organically and avoid exposed dissonance. The
+  main melody remains a strict two-bar palindrome, so the cue's conserved
+  quantity is still the tune itself.
 
 tempo:
   bpm: 108
@@ -33,20 +34,20 @@ postprocess:
   highpass_hz: 34
   lowpass_hz: 9400
   high_shelf_hz: 5400
-  high_shelf_db: -1.5
+  high_shelf_db: -1.45
   presence_low_hz: 1400
   presence_high_hz: 3400
-  presence_db: -0.1
-  transient_tame: 0.08
+  presence_db: -0.05
+  transient_tame: 0.075
   transient_lowpass_hz: 6800
-  reverb_wet: 0.14
+  reverb_wet: 0.145
   reverb_decay_seconds: 1.55
   reverb_damping_hz: 4300
   post_reverb_high_shelf_hz: 5200
-  post_reverb_high_shelf_db: -1.4
-  stereo_width: 0.11
+  post_reverb_high_shelf_db: -1.35
+  stereo_width: 0.12
   compressor_threshold_db: -15.0
-  compressor_ratio: 1.35
+  compressor_ratio: 1.32
   compressor_attack_ms: 24.0
   compressor_release_ms: 160.0
   compressor_makeup_db: 0.0
@@ -58,7 +59,7 @@ postprocess:
 stem_postprocess:
   highpass_hz: 32
   lowpass_hz: 9400
-  transient_tame: 0.06
+  transient_tame: 0.055
   transient_lowpass_hz: 7200
   reverb_wet: 0.018
   reverb_decay_seconds: 0.80
@@ -69,29 +70,29 @@ stem_postprocess:
 
 group_postprocess:
   pluck:
-    gain_db: -1.4
+    gain_db: -0.8
     lowpass_hz: 8200
     high_shelf_hz: 5200
-    high_shelf_db: -2.0
-    transient_tame: 0.18
+    high_shelf_db: -1.8
+    transient_tame: 0.16
   keys:
-    gain_db: -0.2
-    lowpass_hz: 9000
+    gain_db: 1.2
+    lowpass_hz: 9200
     high_shelf_hz: 5600
-    high_shelf_db: -1.2
-    transient_tame: 0.08
-    reverb_wet: 0.020
+    high_shelf_db: -1.0
+    transient_tame: 0.055
+    reverb_wet: 0.028
   low_keys:
-    gain_db: -3.0
-    lowpass_hz: 4800
+    gain_db: 0.0
+    lowpass_hz: 5200
     transient_tame: 0.05
   horns:
-    gain_db: 1.8
-    lowpass_hz: 6400
+    gain_db: 1.6
+    lowpass_hz: 6100
     high_shelf_hz: 4300
     high_shelf_db: -1.6
-    transient_tame: 0.04
-    reverb_wet: 0.026
+    transient_tame: 0.035
+    reverb_wet: 0.030
   glimmer:
     gain_db: -4.0
     lowpass_hz: 7200
@@ -101,12 +102,11 @@ group_postprocess:
     reverb_wet: 0.010
 
 instruments:
-  - {name: nylon, group: pluck, program: nylon_guitar, volume: 92, pan: 55, expression: 98}
-  - {name: piano, group: keys, program: acoustic_grand_piano, volume: 98, pan: 48, expression: 106}
-  - {name: low_piano, group: low_keys, program: acoustic_grand_piano, volume: 82, pan: 42, expression: 90}
-  - {name: horn, group: horns, program: french_horn, volume: 108, pan: 58, expression: 112}
-  - {name: horn_low, group: horns, program: french_horn, volume: 98, pan: 42, expression: 104}
-  - {name: celesta, group: glimmer, program: celesta, volume: 70, pan: 73, expression: 76}
+  - {name: nylon, group: pluck, program: nylon_guitar, volume: 94, pan: 55, expression: 100}
+  - {name: piano, group: keys, program: acoustic_grand_piano, volume: 108, pan: 48, expression: 112}
+  - {name: low_piano, group: low_keys, program: acoustic_grand_piano, volume: 100, pan: 42, expression: 108}
+  - {name: horn, group: horns, program: french_horn, volume: 118, pan: 58, expression: 118}
+  - {name: celesta, group: glimmer, program: celesta, volume: 68, pan: 73, expression: 74}
 
 motifs:
   - id: emmy_palindrome_waltz
@@ -119,87 +119,69 @@ motifs:
     intervals: [0, 3, 5, 7, 5, 3, 0]
     rhythm: [0.5, 0.5, 1.0, 0.75, 0.75, 0.5, 2.0]
     velocities: [0.42, 0.48, 0.56, 0.62, 0.54, 0.46, 0.36]
-  - id: horn_counterline
-    root: D4
-    intervals: [0, 4, 7, 9, 7, 4, 2, 0]
-    rhythm: [1.0, 1.0, 1.0, 1.5, 0.75, 0.75, 0.5, 0.5]
-    velocities: [0.42, 0.50, 0.58, 0.62, 0.56, 0.48, 0.42, 0.34]
+  - id: horn_breath
+    root: D3
+    intervals: [0, 4, 7, 4, 2, 0]
+    rhythm: [1.25, 1.0, 1.25, 0.75, 0.75, 1.0]
+    velocities: [0.36, 0.44, 0.52, 0.46, 0.40, 0.34]
   - id: salon_turn
     root: F#4
     intervals: [0, 2, 4, 5, 4, 2, 0]
     rhythm: [0.5, 0.5, 0.75, 0.75, 0.75, 0.75, 2.0]
-    velocities: [0.34, 0.40, 0.48, 0.50, 0.44, 0.38, 0.30]
+    velocities: [0.30, 0.36, 0.44, 0.46, 0.40, 0.34, 0.28]
 
 layer_templates:
-  low_anchor:
-    kind: root_hits
+  low_waltz_floor:
+    kind: bassline
     instrument: low_piano
     octave: 1
-    hits:
-      - [0, 0.0, 0, 0.34]
-      - [1, 0.0, 0, 0.34]
-      - [2, 0.0, 0, 0.34]
-      - [3, 0.0, 0, 0.34]
-      - [4, 0.0, 0, 0.34]
-      - [5, 0.0, 0, 0.34]
-      - [6, 0.0, 0, 0.34]
-      - [7, 0.0, 0, 0.34]
-      - [8, 0.0, 0, 0.34]
-      - [9, 0.0, 0, 0.34]
-      - [10, 0.0, 0, 0.34]
-      - [11, 0.0, 0, 0.34]
-      - [12, 0.0, 0, 0.34]
-      - [13, 0.0, 0, 0.34]
-      - [14, 0.0, 0, 0.34]
-      - [15, 0.0, 0, 0.34]
-      - [16, 0.0, 0, 0.34]
-      - [17, 0.0, 0, 0.34]
-      - [18, 0.0, 0, 0.34]
-      - [19, 0.0, 0, 0.34]
-      - [20, 0.0, 0, 0.34]
-      - [21, 0.0, 0, 0.34]
-      - [22, 0.0, 0, 0.34]
-      - [23, 0.0, 0, 0.34]
-      - [24, 0.0, 0, 0.34]
-      - [25, 0.0, 0, 0.34]
-      - [26, 0.0, 0, 0.34]
-      - [27, 0.0, 0, 0.34]
-      - [28, 0.0, 0, 0.34]
-      - [29, 0.0, 0, 0.34]
-      - [30, 0.0, 0, 0.34]
-      - [31, 0.0, 0, 0.34]
-    velocity: 38
+    pattern: [[0, 0.0, 0.62], [7, 2.0, 0.32]]
+    velocity: 60
     articulation: tenuto
-    humanize_ms: 2
-    humanize_velocity_pct: 2
+    humanize_ms: 3
+    humanize_velocity_pct: 3
 
   fingerpick_waltz:
     kind: arpeggio
     instrument: nylon
-    octave: 2
+    octave: 3
     pattern: [0, 2, 3, 2, 4, 2]
     step: 0.5
-    duration_beats: 0.28
-    velocity: 44
-    density: 0.32
-    every: 2
-    offset: 0
+    duration_beats: 0.30
+    velocity: 52
+    density: 0.68
     articulation: pluck
     voicing: open
-    humanize_ms: 3
-    humanize_velocity_pct: 3
+    humanize_ms: 6
+    humanize_velocity_pct: 6
 
-  piano_halo_chords:
-    kind: chord_hits
+  piano_haze:
+    kind: pad_chords
     instrument: piano
     octave: 3
-    hits: [[2, 0.0], [10, 0.0], [18, 0.0], [26, 0.0]]
-    duration_beats: 2.15
-    velocity: 34
+    every_bars: 1
+    duration_beats: 2.62
+    velocity: 42
     articulation: pad
     voicing: open
-    humanize_ms: 6
-    humanize_velocity_pct: 2
+    humanize_ms: 14
+    humanize_velocity_pct: 4
+
+  piano_breath:
+    kind: arpeggio
+    instrument: piano
+    octave: 4
+    pattern: [0, 2, 1]
+    step: 1.5
+    duration_beats: 0.92
+    velocity: 32
+    density: 0.42
+    every: 2
+    offset: 1
+    articulation: tenuto
+    voicing: open
+    humanize_ms: 12
+    humanize_velocity_pct: 5
 
   emmy_piano_palindrome:
     kind: motif
@@ -209,11 +191,11 @@ layer_templates:
     every_bars: 8
     repeats: 4
     starts: [[0, 0.0]]
-    velocity: 62
+    velocity: 64
     articulation: legato
-    gate: 0.91
-    humanize_ms: 4
-    humanize_velocity_pct: 3
+    gate: 0.90
+    humanize_ms: 6
+    humanize_velocity_pct: 4
 
   answer_phrase:
     kind: motif
@@ -223,95 +205,36 @@ layer_templates:
     every_bars: 8
     repeats: 4
     starts: [[4, 0.0]]
-    velocity: 54
+    velocity: 56
     articulation: legato
     gate: 0.90
-    humanize_ms: 4
-    humanize_velocity_pct: 3
+    humanize_ms: 6
+    humanize_velocity_pct: 4
 
-  horn_root_swell:
-    kind: root_hits
-    instrument: horn_low
-    octave: 2
-    hits:
-      - [0, 0.0, 12, 1.45]
-      - [1, 0.0, 12, 1.45]
-      - [2, 0.0, 12, 1.45]
-      - [3, 0.0, 12, 1.45]
-      - [4, 0.0, 12, 1.45]
-      - [5, 0.0, 12, 1.45]
-      - [6, 0.0, 12, 1.45]
-      - [7, 0.0, 12, 1.45]
-      - [8, 0.0, 12, 1.45]
-      - [9, 0.0, 12, 1.45]
-      - [10, 0.0, 12, 1.45]
-      - [11, 0.0, 12, 1.45]
-      - [12, 0.0, 12, 1.45]
-      - [13, 0.0, 12, 1.45]
-      - [14, 0.0, 12, 1.45]
-      - [15, 0.0, 12, 1.45]
-      - [16, 0.0, 12, 1.45]
-      - [17, 0.0, 12, 1.45]
-      - [18, 0.0, 12, 1.45]
-      - [19, 0.0, 12, 1.45]
-      - [20, 0.0, 12, 1.45]
-      - [21, 0.0, 12, 1.45]
-      - [22, 0.0, 12, 1.45]
-      - [23, 0.0, 12, 1.45]
-      - [24, 0.0, 12, 1.45]
-      - [25, 0.0, 12, 1.45]
-      - [26, 0.0, 12, 1.45]
-      - [27, 0.0, 12, 1.45]
-      - [28, 0.0, 12, 1.45]
-      - [29, 0.0, 12, 1.45]
-      - [30, 0.0, 12, 1.45]
-      - [31, 0.0, 12, 1.45]
-    velocity: 46
-    articulation: tenuto
-    humanize_ms: 5
-    humanize_velocity_pct: 3
-
-  horn_fifth_swell:
-    kind: root_hits
+  horn_pad:
+    kind: chord_hits
     instrument: horn
-    octave: 2
-    hits:
-      - [0, 0.0, 19, 1.35]
-      - [1, 0.0, 19, 1.35]
-      - [2, 0.0, 19, 1.35]
-      - [3, 0.0, 19, 1.35]
-      - [4, 0.0, 19, 1.35]
-      - [5, 0.0, 19, 1.35]
-      - [6, 0.0, 19, 1.35]
-      - [7, 0.0, 19, 1.35]
-      - [8, 0.0, 19, 1.35]
-      - [9, 0.0, 19, 1.35]
-      - [10, 0.0, 19, 1.35]
-      - [11, 0.0, 19, 1.35]
-      - [12, 0.0, 19, 1.35]
-      - [13, 0.0, 19, 1.35]
-      - [14, 0.0, 19, 1.35]
-      - [15, 0.0, 19, 1.35]
-      - [16, 0.0, 19, 1.35]
-      - [17, 0.0, 19, 1.35]
-      - [18, 0.0, 19, 1.35]
-      - [19, 0.0, 19, 1.35]
-      - [20, 0.0, 19, 1.35]
-      - [21, 0.0, 19, 1.35]
-      - [22, 0.0, 19, 1.35]
-      - [23, 0.0, 19, 1.35]
-      - [24, 0.0, 19, 1.35]
-      - [25, 0.0, 19, 1.35]
-      - [26, 0.0, 19, 1.35]
-      - [27, 0.0, 19, 1.35]
-      - [28, 0.0, 19, 1.35]
-      - [29, 0.0, 19, 1.35]
-      - [30, 0.0, 19, 1.35]
-      - [31, 0.0, 19, 1.35]
-    velocity: 40
+    octave: 3
+    hits: [[2, 0.0], [6, 0.0], [10, 0.0], [14, 0.0], [18, 0.0], [22, 0.0], [26, 0.0], [30, 0.0]]
+    duration_beats: 2.35
+    velocity: 52
     articulation: tenuto
-    humanize_ms: 5
-    humanize_velocity_pct: 3
+    voicing: open
+    humanize_ms: 10
+    humanize_velocity_pct: 4
+  horn_breath_answer:
+    kind: motif
+    instrument: horn
+    motif: horn_breath
+    roots: [D3, A2, B2, G2]
+    every_bars: 8
+    repeats: 4
+    starts: [[2, 0.0]]
+    velocity: 38
+    articulation: legato
+    gate: 0.84
+    humanize_ms: 9
+    humanize_velocity_pct: 4
 
   celesta_turn:
     kind: motif
@@ -321,11 +244,11 @@ layer_templates:
     every_bars: 8
     repeats: 4
     starts: [[6, 0.0]]
-    velocity: 26
+    velocity: 24
     articulation: bell
-    gate: 0.76
-    humanize_ms: 3
-    humanize_velocity_pct: 3
+    gate: 0.72
+    humanize_ms: 4
+    humanize_velocity_pct: 4
 
 playback:
   mode: section_stem_matrix
@@ -339,54 +262,54 @@ playback:
 state_map:
   default:
     section: emmy_loop
-    stems: {pluck: 0.38, keys: 0.70, low_keys: 0.28, horns: 0.62, glimmer: 0.08}
+    stems: {pluck: 0.62, keys: 0.78, low_keys: 0.75, horns: 0.75, glimmer: 0.06}
   quiet:
     section: emmy_loop
-    stems: {pluck: 0.22, keys: 0.48, low_keys: 0.18, horns: 0.26, glimmer: 0.00}
+    stems: {pluck: 0.34, keys: 0.58, low_keys: 0.42, horns: 0.34, glimmer: 0.00}
   dance:
     section: emmy_loop
-    stems: {pluck: 0.54, keys: 0.78, low_keys: 0.42, horns: 0.78, glimmer: 0.16}
+    stems: {pluck: 0.72, keys: 0.92, low_keys: 0.82, horns: 0.84, glimmer: 0.12}
 
 sections:
   - id: emmy_loop
     kind: loop_component
     label: noether chamber waltz
     bars: 32
-    intensity: 0.72
-    density: 0.56
+    intensity: 0.68
+    density: 0.60
     loopable: true
     valid_exit_local_bars: [8, 16, 24, 32]
     harmony:
       - D
+      - D
+      - A
       - A
       - Bm
-      - G
-      - D
-      - Em
-      - A
-      - D
-      - Bm
-      - F#m
-      - G
-      - D
-      - Em
-      - A
-      - D
-      - A
-      - D
-      - A
       - Bm
       - G
-      - D
-      - Em
-      - A
-      - D
       - G
       - D
+      - D
       - Em
+      - Em
+      - A
+      - A
+      - D
+      - D
+      - D
+      - D
+      - A
+      - A
+      - Bm
       - Bm
       - G
+      - G
+      - Em
       - Em
       - A
+      - A
+      - G
+      - G
       - D
-    layers: [low_anchor, fingerpick_waltz, piano_halo_chords, emmy_piano_palindrome, answer_phrase, horn_root_swell, horn_fifth_swell, celesta_turn]
+      - D
+    layers: [low_waltz_floor, fingerpick_waltz, piano_haze, emmy_piano_palindrome, answer_phrase, horn_pad, horn_breath_answer, celesta_turn]

@@ -52,6 +52,8 @@ Three lower-level audio-analysis tools, three scopes:
   register clusters. Use it when a cue sounds like notes are clashing rather
   than when it has spectral noise.
 
+Use `python -m ambition_music_renderer.reference_audio_audit <audio> --outdir <dir>` for broad reference-track surface features. It is useful for loudness/brightness/density targets, but it does not separate stems or recover instrumentation.
+
 Prefer the tool README and CLI help over old recipe fragments when command flags drift.
 
 ## Edit protocol
@@ -100,6 +102,8 @@ Useful report files in a bundle:
   or different and whether states only change loudness.
 - `reports/spectral_fingerprint_summary.txt` — which stem groups dominate broad
   frequency bands.
+- `reports/stem_amplitude_summary.txt` plus `plots/stem_amplitude_*.<fmt>` —
+  direct runtime stem balance / envelope views.
 - `reports/mix_diagnostics.txt` — raw stem levels vs mastered full and runtime
   stem gain policy.
 

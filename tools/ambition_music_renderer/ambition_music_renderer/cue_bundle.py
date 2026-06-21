@@ -674,6 +674,201 @@ def write_spectral_fingerprint(
     return json_path
 
 
+def _rms_envelope(audio: np.ndarray, sample_rate: int, bucket_seconds: float) -> list[dict[str, float]]:
+    """Return a short-time RMS envelope for plotting and report tables."""
+    mono = audio.mean(axis=1).astype("float32", copy=False) if audio.ndim == 2 else audio.astype("float32", copy=False)
+    hop = max(1, int(round(sample_rate * bucket_seconds)))
+    rows: list[dict[str, float]] = []
+    for start in range(0, len(mono), hop):
+        stop = min(len(mono), start + hop)
+        chunk = mono[start:stop]
+        rms = float(np.sqrt(np.mean(np.square(chunk), dtype=np.float64))) if chunk.size else 0.0
+        peak = float(np.max(np.abs(chunk))) if chunk.size else 0.0
+        rows.append({
+            "time_start_s": float(start / sample_rate),
+            "time_end_s": float(stop / sample_rate),
+            "rms_dbfs": _db(rms),
+            "peak_dbfs": _db(peak),
+            "rms_linear": rms,
+            "peak_linear": peak,
+        })
+    return rows
+
+
+def write_stem_amplitude_report(
+    outdir: Path,
+    spec: dict,
+    manifest: dict,
+    reports_dir: Path,
+    plots_dir: Path | None = None,
+    *,
+    bucket_seconds: float = 0.5,
+    plot_format: str = "jpg",
+    jpeg_quality: int = 84,
+) -> Path:
+    """Write stem-level amplitude reports and optional mix-balance plots."""
+    reports_dir.mkdir(parents=True, exist_ok=True)
+    if plots_dir is not None:
+        plots_dir.mkdir(parents=True, exist_ok=True)
+    state_map = spec.get("state_map") or {}
+    state_weights: dict[str, dict[str, float]] = {}
+    if isinstance(state_map, dict):
+        for state, cfg in state_map.items():
+            if isinstance(cfg, dict) and isinstance(cfg.get("stems"), dict):
+                state_weights[str(state)] = {str(k): float(v) for k, v in cfg["stems"].items()}
+
+    groups: dict[str, dict[str, object]] = {}
+    envelope_rows: list[dict[str, object]] = []
+    sample_rate = int(manifest.get("sample_rate", 48000))
+    for entry in manifest_audio_entries(manifest):
+        if entry.get("kind") != "adaptive_audio":
+            continue
+        group = str(entry.get("group", ""))
+        if not group or group == "full":
+            continue
+        path = outdir / str(entry["path"])
+        try:
+            import soundfile as sf
+            audio, sr = sf.read(path, always_2d=True, dtype="float32")
+            sample_rate = int(sr)
+        except Exception as ex:  # noqa: BLE001
+            groups[group] = {"group": group, "section": entry.get("section"), "path": entry.get("path"), "error": f"{type(ex).__name__}: {ex}"}
+            continue
+        stats = _audio_stats(audio.astype("float32", copy=False), sample_rate)
+        default_weight = float(state_weights.get("default", {}).get(group, 1.0))
+        row: dict[str, object] = {
+            "group": group,
+            "section": entry.get("section"),
+            "path": entry.get("path"),
+            "state_default_weight": default_weight,
+            "rms_dbfs": stats["rms_dbfs"],
+            "peak_dbfs": stats["peak_dbfs"],
+            "duration_s": stats["duration_s"],
+            "weighted_default_rms_dbfs": stats["rms_dbfs"] + _db(default_weight) if default_weight > 0 else -120.0,
+            "weighted_default_peak_dbfs": stats["peak_dbfs"] + _db(default_weight) if default_weight > 0 else -120.0,
+            "error": "",
+        }
+        for state, weights in sorted(state_weights.items()):
+            weight = float(weights.get(group, 0.0))
+            row[f"state_{state}_weight"] = weight
+            row[f"state_{state}_rms_dbfs"] = stats["rms_dbfs"] + _db(weight) if weight > 0 else -120.0
+        groups[group] = row
+        for env in _rms_envelope(audio, sample_rate, bucket_seconds):
+            env_row: dict[str, object] = {"group": group, "section": entry.get("section"), **env}
+            default_linear = float(env["rms_linear"] * default_weight)
+            env_row["state_default_rms_linear"] = default_linear
+            env_row["state_default_rms_dbfs"] = _db(default_linear)
+            envelope_rows.append(env_row)
+
+    ordered_groups = sorted(groups.values(), key=lambda row: float(row.get("weighted_default_rms_dbfs", -120.0)), reverse=True)
+    payload = {
+        "schema": "ambition.music_stem_amplitude.v1",
+        "cue": manifest.get("id"),
+        "hash": manifest.get("hash"),
+        "bucket_seconds": bucket_seconds,
+        "groups": ordered_groups,
+        "envelope_rows": envelope_rows,
+        "state_weights": state_weights,
+        "note": "Adaptive stem OGGs are overlayable with state weights; weighted_default_* estimates the default runtime stack.",
+    }
+    json_path = reports_dir / "stem_amplitude.json"
+    json_path.write_text(json.dumps(payload, indent=2), encoding="utf8")
+
+    columns = ["group", "section", "state_default_weight", "rms_dbfs", "weighted_default_rms_dbfs", "peak_dbfs", "weighted_default_peak_dbfs", "duration_s", "path", "error"]
+    tsv_path = reports_dir / "stem_amplitude.tsv"
+    lines = ["\t".join(columns)]
+    for row in ordered_groups:
+        lines.append("\t".join(f"{row.get(c, ''):.3f}" if isinstance(row.get(c, ""), float) else str(row.get(c, "")) for c in columns))
+    tsv_path.write_text("\n".join(lines) + "\n", encoding="utf8")
+
+    env_columns = ["group", "section", "time_start_s", "time_end_s", "rms_dbfs", "peak_dbfs", "state_default_rms_dbfs"]
+    env_tsv = reports_dir / "stem_amplitude_envelope.tsv"
+    env_lines = ["\t".join(env_columns)]
+    for row in envelope_rows:
+        env_lines.append("\t".join(f"{row.get(c, ''):.3f}" if isinstance(row.get(c, ""), float) else str(row.get(c, "")) for c in env_columns))
+    env_tsv.write_text("\n".join(env_lines) + "\n", encoding="utf8")
+
+    summary = reports_dir / "stem_amplitude_summary.txt"
+    text_lines = [f"cue: {manifest.get('id')}", f"hash: {manifest.get('hash')}", f"bucket_seconds: {bucket_seconds}", "", "default-state weighted stem levels:"]
+    for row in ordered_groups:
+        if row.get("error"):
+            text_lines.append(f"  {row.get('group')}: ERROR {row.get('error')}")
+        else:
+            text_lines.append(
+                f"  {row.get('group')}: raw rms {float(row.get('rms_dbfs', -120.0)):.1f} dBFS, "
+                f"default-weighted rms {float(row.get('weighted_default_rms_dbfs', -120.0)):.1f} dBFS, "
+                f"weight {float(row.get('state_default_weight', 0.0)):.2f}"
+            )
+    if len(ordered_groups) >= 2:
+        top = float(ordered_groups[0].get("weighted_default_rms_dbfs", -120.0))
+        text_lines.extend(["", "relative to loudest default-weighted stem:"])
+        for row in ordered_groups:
+            text_lines.append(f"  {row.get('group')}: {float(row.get('weighted_default_rms_dbfs', -120.0)) - top:.1f} dB")
+    summary.write_text("\n".join(text_lines) + "\n", encoding="utf8")
+
+    if plots_dir is not None and ordered_groups:
+        try:
+            import matplotlib.pyplot as plt
+            suffix = "jpg" if plot_format in {"jpg", "jpeg"} else "png"
+            save_kwargs: dict[str, object] = {"dpi": 130, "bbox_inches": "tight"}
+            if suffix == "jpg":
+                save_kwargs["format"] = "jpeg"
+                save_kwargs["pil_kwargs"] = {"quality": int(jpeg_quality), "optimize": True}
+            labels = [str(row["group"]) for row in ordered_groups if not row.get("error")]
+            values = [float(row.get("weighted_default_rms_dbfs", -120.0)) for row in ordered_groups if not row.get("error")]
+            if labels:
+                fig, ax = plt.subplots(figsize=(8, max(3.0, 0.45 * len(labels) + 1.5)))
+                positions = np.arange(len(labels))
+                ax.barh(positions, values)
+                ax.set_yticks(positions, labels=labels)
+                ax.invert_yaxis()
+                ax.set_xlabel("default-weighted RMS (dBFS)")
+                ax.set_title("Stem amplitude balance")
+                ax.grid(True, axis="x", alpha=0.3)
+                fig.savefig(plots_dir / f"stem_amplitude_balance.{suffix}", **save_kwargs)
+                plt.close(fig)
+            by_group: dict[str, list[dict[str, object]]] = {}
+            for row in envelope_rows:
+                by_group.setdefault(str(row["group"]), []).append(row)
+            if by_group:
+                fig, ax = plt.subplots(figsize=(11, 4.5))
+                for group in sorted(by_group):
+                    rows = sorted(by_group[group], key=lambda r0: float(r0["time_start_s"]))
+                    xs = [(float(r0["time_start_s"]) + float(r0["time_end_s"])) * 0.5 for r0 in rows]
+                    ys = [float(r0.get("state_default_rms_dbfs", -120.0)) for r0 in rows]
+                    ax.plot(xs, ys, label=group)
+                ax.set_xlabel("time (s)")
+                ax.set_ylabel("default-weighted RMS (dBFS)")
+                ax.set_title("Stem amplitude over time")
+                ax.grid(True, alpha=0.3)
+                ax.legend(loc="best", fontsize=8)
+                fig.savefig(plots_dir / f"stem_amplitude_timeline.{suffix}", **save_kwargs)
+                plt.close(fig)
+                first_group = sorted(by_group)[0]
+                first_rows = sorted(by_group[first_group], key=lambda r0: float(r0["time_start_s"]))
+                xs = [(float(r0["time_start_s"]) + float(r0["time_end_s"])) * 0.5 for r0 in first_rows]
+                stack_values = []
+                stack_labels = []
+                for group in sorted(by_group):
+                    rows = sorted(by_group[group], key=lambda r0: float(r0["time_start_s"]))
+                    vals = [float(r0.get("state_default_rms_linear", 0.0)) for r0 in rows]
+                    vals = vals[: len(xs)] + [0.0] * max(0, len(xs) - len(vals))
+                    stack_values.append(vals)
+                    stack_labels.append(group)
+                fig, ax = plt.subplots(figsize=(11, 4.5))
+                ax.stackplot(xs, stack_values, labels=stack_labels)
+                ax.set_xlabel("time (s)")
+                ax.set_ylabel("default-weighted RMS magnitude")
+                ax.set_title("Stem amplitude stack")
+                ax.legend(loc="best", fontsize=8)
+                fig.savefig(plots_dir / f"stem_amplitude_stack.{suffix}", **save_kwargs)
+                plt.close(fig)
+        except Exception as ex:  # noqa: BLE001
+            (plots_dir / "stem_amplitude_plots_skipped.txt").write_text(f"stem amplitude plot generation skipped: {type(ex).__name__}: {ex}\n", encoding="utf8")
+    return json_path
+
+
+
 def write_spectrograms(
     outdir: Path,
     manifest: dict,
@@ -1055,6 +1250,15 @@ def create_bundle(
             )
         write_stem_export_report(analysis_root, manifest, reports_dir)
         write_manifest_audio_level_report(analysis_root, manifest, reports_dir)
+        write_stem_amplitude_report(
+            analysis_root,
+            spec,
+            manifest,
+            reports_dir,
+            plots_dir=plots_dir,
+            plot_format=plot_format,
+            jpeg_quality=jpeg_quality,
+        )
         write_spectral_fingerprint(analysis_root, manifest, reports_dir)
         write_state_mix_report(spec, manifest, reports_dir)
         # Re-run arrangement preflight after render report cleanup so it is present in the final bundle.

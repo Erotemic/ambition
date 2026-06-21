@@ -17,6 +17,7 @@ from ambition_music_renderer.cue_bundle import (
     prepare_manifest_analysis_root,
     write_manifest_audio_level_report,
     write_spectral_fingerprint,
+    write_stem_amplitude_report,
     write_state_mix_report,
     write_stem_export_report,
 )
@@ -25,6 +26,7 @@ from ambition_music_renderer.arrangement_audit import write_reports as write_arr
 from ambition_music_renderer.dissonance_audit import audit_spec, write_reports as write_dissonance_reports
 from ambition_music_renderer.render_group_worker import build_parser as build_worker_parser
 from ambition_music_renderer.render_isolated import build_parser as build_isolated_parser
+from ambition_music_renderer.reference_audio_audit import analyze_audio as analyze_reference_audio, write_reports as write_reference_audio_reports
 
 
 def test_backend_defaults_prefer_pretty_midi():
@@ -441,3 +443,62 @@ def test_arrangement_audit_reports_group_prominence_and_bass_collisions():
         assert Path(paths["summary"]).exists()
         assert Path(paths["markdown"]).exists()
         assert "Default-state group presence" in Path(paths["markdown"]).read_text()
+
+
+
+def test_stem_amplitude_report_shows_default_weighted_balance():
+    with tempfile.TemporaryDirectory() as td:
+        root = Path(td)
+        sr = 48_000
+        t = np.arange(sr // 4, dtype="float32") / sr
+        loud = 0.10 * np.sin(2 * np.pi * 220.0 * t)
+        soft = 0.025 * np.sin(2 * np.pi * 440.0 * t)
+        adaptive = root / "adaptive" / "loop"
+        adaptive.mkdir(parents=True)
+        sf.write(adaptive / "cue_hash.loop.keys.wav", np.stack([loud, loud], axis=1), sr)
+        sf.write(adaptive / "cue_hash.loop.horns.wav", np.stack([soft, soft], axis=1), sr)
+        manifest = {
+            "id": "cue",
+            "hash": "hash",
+            "sample_rate": sr,
+            "files": {
+                "adaptive": {
+                    "loop": {
+                        "keys": "adaptive/loop/cue_hash.loop.keys.wav",
+                        "horns": "adaptive/loop/cue_hash.loop.horns.wav",
+                    }
+                },
+                "preview": {},
+            },
+        }
+        spec = {
+            "id": "cue",
+            "state_map": {"default": {"section": "loop", "stems": {"keys": 0.5, "horns": 1.0}}},
+        }
+        report = write_stem_amplitude_report(root, spec, manifest, root / "reports", plots_dir=root / "plots", plot_format="jpg")
+        payload = json.loads(report.read_text())
+        assert payload["schema"] == "ambition.music_stem_amplitude.v1"
+        by_group = {row["group"]: row for row in payload["groups"]}
+        assert "keys" in by_group and "horns" in by_group
+        assert by_group["keys"]["weighted_default_rms_dbfs"] > by_group["horns"]["weighted_default_rms_dbfs"]
+        assert (root / "reports" / "stem_amplitude_summary.txt").exists()
+        assert (root / "reports" / "stem_amplitude_envelope.tsv").exists()
+        if (root / "plots" / "stem_amplitude_balance.jpg").exists():
+            assert (root / "plots" / "stem_amplitude_timeline.jpg").exists()
+
+
+def test_reference_audio_audit_reports_surface_features():
+    with tempfile.TemporaryDirectory() as td:
+        root = Path(td)
+        sr = 48_000
+        t = np.arange(sr // 2, dtype="float32") / sr
+        audio = 0.1 * np.sin(2 * np.pi * 440.0 * t)
+        wav = root / "reference.wav"
+        sf.write(wav, np.stack([audio, audio], axis=1), sr)
+        payload = analyze_reference_audio(wav, frame_seconds=0.1)
+        assert payload["schema"] == "ambition.reference_audio_audit.v1"
+        assert payload["duration_s"] > 0.49
+        assert payload["overall"]["spectral_centroid_mean_hz"] > 100
+        paths = write_reference_audio_reports(payload, root / "reports")
+        assert Path(paths["summary"]).exists()
+        assert Path(paths["envelope"]).exists()

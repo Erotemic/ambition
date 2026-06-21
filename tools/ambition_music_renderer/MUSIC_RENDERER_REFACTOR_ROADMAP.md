@@ -245,8 +245,10 @@ Do this only after bundle/provenance tests are in place.
 - [x] Add explicit shared-gain runtime stem export mode behind `--runtime-stem-gain-mode shared`.
 - [x] Run existing debug helpers from the bundle command and store logs.
 - [x] Generate optional spectrogram images when matplotlib is available.
+- [x] Generate stem-amplitude balance, timeline, and stack plots so mix levels are visible without interpreting spectrogram colorbars.
 - [x] Prefer JPEG spectrogram plots for small handoff bundles; retain numeric spectral data in reports.
 - [x] Generate an LLM-friendly `spectral_fingerprint.json/tsv` summary from scratch stems.
+- [x] Add reference-audio surface analysis for loudness envelope, spectral balance, brightness, and onset-density targets.
 - [x] Generate `state_mix_report.json/tsv/txt` so similar adaptive states are explicit.
 - [x] Generate `dissonance_hotspots.json/tsv/txt` from expanded note events.
 - [x] Add `dissonance_hotspots.md` plus timeline / layer-pair plots for human review.

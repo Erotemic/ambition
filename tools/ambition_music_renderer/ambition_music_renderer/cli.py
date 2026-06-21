@@ -24,6 +24,7 @@ cue's mastered preview lives under a manual filename.
 from __future__ import annotations
 
 import argparse
+import json
 import shutil
 import subprocess
 import sys
@@ -59,6 +60,11 @@ SANDBOX_CUES = ("lofi_study_loop", "long_lofi_drift", "pulse_drift_voyage")
 # This module deliberately skips them in the bulk `radio` pass; their
 # multi-stem layout is owned elsewhere.
 ADAPTIVE_CUES = ("first_goblin_tune_v2",)
+
+
+def is_adaptive_cue(cue: str) -> bool:
+    return cue in ADAPTIVE_CUES
+
 
 # Curated extras drawn from scores/examples that we expose on the radio.
 # We keep this explicit (rather than scanning examples wholesale) because
@@ -181,11 +187,29 @@ def radio_cues() -> tuple[str, ...]:
     return tuple(ordered)
 
 
+def manifest_has_adaptive_full_sections(manifest_path: Path) -> bool:
+    try:
+        manifest = json.loads(manifest_path.read_text(encoding="utf8"))
+    except Exception:
+        return False
+    adaptive = ((manifest.get("files") or {}).get("adaptive") or {})
+    if not isinstance(adaptive, dict):
+        return False
+    return any(
+        isinstance(section_files, dict) and bool(section_files.get("full"))
+        for section_files in adaptive.values()
+    )
+
+
 def needs_render(cue: str, yaml_path: Path, outdir: Path) -> bool:
     preview_dir = outdir / "preview"
     latest = find_full_mix(preview_dir, cue)
     if latest is None:
         return True
+    if is_adaptive_cue(cue):
+        manifest = find_latest_manifest(outdir, cue)
+        if manifest is None or not manifest_has_adaptive_full_sections(manifest):
+            return True
     return yaml_path.stat().st_mtime > latest.stat().st_mtime
 
 
@@ -204,6 +228,7 @@ def render_cue(
     *,
     backend: str = "pretty-midi",
     simple_mix: bool = True,
+    full_mix_only: bool = False,
     extra_args: list[str] | None = None,
 ) -> bool:
     cmd = [
@@ -216,13 +241,37 @@ def render_cue(
         "--backend",
         backend,
     ]
-    if simple_mix:
+    if full_mix_only:
+        cmd.append("--full-mix-only")
+    elif simple_mix:
         cmd.append("--simple-mix")
     if extra_args:
         cmd.extend(extra_args)
     print(f"render {cue}: {' '.join(cmd)}")
     result = subprocess.run(cmd, cwd=package_dir())
     return result.returncode == 0
+
+
+def render_mode_for_cue(cue: str, args: argparse.Namespace) -> tuple[bool, bool]:
+    """Return (simple_mix, full_mix_only) for top-level render commands.
+
+    Goblin-style adaptive encounter cues ship as per-section full mixes. The
+    historical top-level CLI defaulted every cue to --simple-mix, which renders
+    only preview/full.ogg and leaves stale adaptive section files in the game
+    asset tree. Treat known adaptive cues as full-mix-only unless the caller
+    explicitly disables simple mixing with --no-simple-mix, in which case they
+    get the full per-stem adaptive export.
+    """
+    simple_mix = bool(getattr(args, "simple_mix", True))
+    full_mix_only = bool(getattr(args, "full_mix_only", False))
+    if full_mix_only:
+        return False, True
+    if is_adaptive_cue(cue) and simple_mix:
+        print(
+            f"render {cue}: adaptive cue detected; using --full-mix-only so section assets are regenerated"
+        )
+        return False, True
+    return simple_mix, False
 
 
 def default_publish_dest_root() -> Path:
@@ -237,6 +286,79 @@ def default_publish_dest_root() -> Path:
     )
 
 
+def _display_path(path: Path) -> Path:
+    try:
+        return path.relative_to(repo_root())
+    except ValueError:
+        return path
+
+
+def find_latest_manifest(outdir: Path, cue: str) -> Path | None:
+    candidates = sorted(
+        outdir.glob(f"{cue}_*.adaptive_manifest.json"),
+        key=lambda p: p.stat().st_mtime,
+        reverse=True,
+    )
+    return candidates[0] if candidates else None
+
+
+def publish_adaptive_full_sections(cue: str, outdir: Path, dest_dir: Path) -> list[Path]:
+    """Publish hashed adaptive full-section renders to stable runtime paths.
+
+    The renderer keeps content-addressed filenames like
+    ``adaptive/wave1/<cue>_<hash>.wave1.full.ogg`` so bundles are
+    manifest-scoped and stale renders are easy to identify. The Rust music
+    catalog intentionally uses stable asset paths:
+    ``adaptive/<section>/<section>.full.ogg``. Publishing is the seam that
+    converts the manifest-scoped render into those stable game assets.
+    """
+    manifest_path = find_latest_manifest(outdir, cue)
+    if manifest_path is None:
+        return []
+    try:
+        manifest = json.loads(manifest_path.read_text(encoding="utf8"))
+    except Exception as ex:
+        print(f"skip adaptive publish {cue}: failed to read {manifest_path}: {ex}", file=sys.stderr)
+        return []
+
+    copied: list[Path] = []
+    adaptive = ((manifest.get("files") or {}).get("adaptive") or {})
+    if not isinstance(adaptive, dict):
+        return copied
+
+    to_copy: list[tuple[Path, Path]] = []
+    missing: list[str] = []
+    for section_id, section_files in sorted(adaptive.items()):
+        if not isinstance(section_files, dict):
+            continue
+        rel = section_files.get("full")
+        if not rel:
+            continue
+        src = outdir / str(rel)
+        dest = dest_dir / "adaptive" / str(section_id) / f"{section_id}.full.ogg"
+        if src.exists():
+            to_copy.append((src, dest))
+        else:
+            missing.append(f"{section_id}: {src}")
+
+    if missing:
+        for item in missing:
+            print(f"skip adaptive section publish {cue}: missing {item}", file=sys.stderr)
+        return []
+
+    for src, dest in to_copy:
+        dest.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(src, dest)
+        copied.append(dest)
+
+    # Keep the manifest next to the runtime files as a debugging breadcrumb.
+    # The game does not load it today, but it makes it obvious which render hash
+    # produced the shipped adaptive sections.
+    if copied:
+        shutil.copy2(manifest_path, dest_dir / f"{cue}.adaptive_manifest.json")
+    return copied
+
+
 def publish_cue(cue: str, outdir: Path, dest_root: Path) -> bool:
     preview_dir = outdir / "preview"
     src = find_full_mix(preview_dir, cue)
@@ -248,17 +370,24 @@ def publish_cue(cue: str, outdir: Path, dest_root: Path) -> bool:
         return False
     dest_dir = dest_root / cue
     dest_dir.mkdir(parents=True, exist_ok=True)
+
+    adaptive_copied = publish_adaptive_full_sections(cue, outdir, dest_dir)
+    if is_adaptive_cue(cue) and not adaptive_copied:
+        print(
+            f"error: publish {cue}: no adaptive full-section assets were copied from {outdir}. "
+            "The encounter runtime loads adaptive/<section>/<section>.full.ogg, not full.ogg. "
+            "Render with `cue bundle --publish` or render_isolated --full-mix-only before publishing.",
+            file=sys.stderr,
+        )
+        return False
+
     dest = dest_dir / "full.ogg"
     shutil.copy2(src, dest)
-    try:
-        src_rel = src.relative_to(repo_root())
-    except ValueError:
-        src_rel = src
-    try:
-        dest_rel = dest.relative_to(repo_root())
-    except ValueError:
-        dest_rel = dest
-    print(f"publish {cue}: {src_rel} -> {dest_rel}")
+    print(f"publish {cue}: {_display_path(src)} -> {_display_path(dest)}")
+    for adaptive_dest in adaptive_copied:
+        print(f"publish {cue}: adaptive section -> {_display_path(adaptive_dest)}")
+    if adaptive_copied:
+        print(f"publish {cue}: {len(adaptive_copied)} adaptive full-section assets")
     return True
 
 
@@ -271,12 +400,14 @@ def cmd_render(args: argparse.Namespace) -> int:
     if not args.simple_mix and outdir == generated_root() / args.cue:
         # nothing special; just leaving the simple-mix off
         pass
+    simple_mix, full_mix_only = render_mode_for_cue(args.cue, args)
     ok = render_cue(
         args.cue,
         yaml_path,
         outdir,
         backend=args.backend,
-        simple_mix=args.simple_mix,
+        simple_mix=simple_mix,
+        full_mix_only=full_mix_only,
     )
     return 0 if ok else 1
 
@@ -299,12 +430,14 @@ def cmd_render_publish(args: argparse.Namespace) -> int:
         return 2
     outdir = generated_root() / args.cue
     if args.force_render or needs_render(args.cue, yaml_path, outdir):
+        simple_mix, full_mix_only = render_mode_for_cue(args.cue, args)
         if not render_cue(
             args.cue,
             yaml_path,
             outdir,
             backend=args.backend,
-            simple_mix=args.simple_mix,
+            simple_mix=simple_mix,
+            full_mix_only=full_mix_only,
         ):
             return 1
     else:
@@ -503,6 +636,11 @@ def add_render_args(p: argparse.ArgumentParser) -> None:
         dest="simple_mix",
         action="store_false",
         help="emit the full adaptive stem set (per-section per-group OGGs)",
+    )
+    p.add_argument(
+        "--full-mix-only",
+        action="store_true",
+        help="emit mastered preview plus per-section full mixes, but skip per-section per-stem OGGs",
     )
 
 

@@ -531,7 +531,7 @@ layer_templates:
       - 1.0
       - 2.0
       - 3.0
-      velocity: 52
+      velocity: 48
     - drum: closed_hat
       beats:
       - 0.5
@@ -541,10 +541,10 @@ layer_templates:
       velocity: 4
     - drum: low_tom
       beat: 3.5
-      velocity: 42
+      velocity: 38
     - drum: mid_tom
       beat: 3.75
-      velocity: 40
+      velocity: 36
     - drum: floor_tom
       beat: 0.0
       velocity: 44
@@ -553,7 +553,7 @@ layer_templates:
       - 4
     - drum: crash
       beat: 0.0
-      velocity: 24
+      velocity: 18
       bars:
       - 0
       - 4
@@ -688,7 +688,7 @@ sections:
       celli: -8
     octave: 3
     duration_beats: 3.75
-    velocity: 52
+    velocity: 60
     articulation: legato
     voicing: open
     humanize_ms: 0
@@ -697,10 +697,10 @@ sections:
     starts:
     - - 1
       - 0.5
-    velocity: 20
+    velocity: 28
   - template: harp_murmur
-    density: 0.05
-    velocity: 14
+    density: 0.06
+    velocity: 18
   - kind: drums
     instrument: war_drums
     humanize_ms: 1.0
@@ -710,11 +710,11 @@ sections:
       - 0
       - 2
       beat: 0.0
-      velocity: 18
+      velocity: 22
   - kind: root_hits
     instrument: contrabass
     octave: 2
-    velocity: 48
+    velocity: 56
     articulation: tenuto
     humanize_ms: 0.0
     humanize_velocity_pct: 0.0
@@ -722,15 +722,15 @@ sections:
     - - 0
       - 0.0
       - -12
-      - 1.35
+      - 1.65
     - - 3
       - 2.25
       - -12
-      - 2.05
+      - 2.20
   - kind: root_hits
     instrument: celli
     octave: 2
-    velocity: 42
+    velocity: 50
     articulation: tenuto
     humanize_ms: 0.0
     humanize_velocity_pct: 0.0
@@ -738,11 +738,11 @@ sections:
     - - 0
       - 0.0
       - 0
-      - 1.30
+      - 1.60
     - - 3
       - 2.25
       - 0
-      - 2.05
+      - 2.20
 - id: wave1
   kind: loop_component
   label: transition lab - wave 1 pickup handoff
@@ -963,25 +963,25 @@ sections:
       - 0.0
     - - 6
       - 0.0
-    velocity: 50
+    velocity: 46
   - template: hero_horns
     starts:
     - - 0
       - 0.0
     - - 4
       - 0.0
-    velocity: 48
+    velocity: 44
   - template: brass_soft_hits
     hits:
     - - 0
       - 0.0
     - - 4
       - 0.0
-    velocity: 52
-  - template: tuba_roots_light
-    velocity: 50
-  - template: timpani_roots
     velocity: 48
+  - template: tuba_roots_light
+    velocity: 46
+  - template: timpani_roots
+    velocity: 44
   - template: harp_murmur
     density: 0.22
     velocity: 28

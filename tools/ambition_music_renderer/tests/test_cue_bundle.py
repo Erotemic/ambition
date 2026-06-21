@@ -40,6 +40,8 @@ def test_backend_defaults_prefer_pretty_midi():
     ).backend == "pretty-midi"
     assert build_parser().parse_args(["render", "lofi_study_loop"]).backend == "pretty-midi"
     assert build_parser().parse_args(["cue", "bundle", "lofi_study_loop"]).backend == "pretty-midi"
+    adaptive_args = build_parser().parse_args(["render-publish", "first_goblin_tune_v2", "--full-mix-only"])
+    assert adaptive_args.full_mix_only is True
     shared_args = build_isolated_parser().parse_args([
         "cue.music.yaml",
         "--runtime-stem-gain-mode",
@@ -575,6 +577,92 @@ def test_adaptive_section_report_draws_per_section_noise_views():
         if (root / "plots" / "adaptive_section_full_levels.jpg").exists():
             assert (root / "plots" / "adaptive_section_full_highband.jpg").exists()
             assert (root / "plots" / "adaptive_section_stack_intro.jpg").exists()
+
+
+def test_publish_cue_copies_adaptive_full_sections_to_stable_runtime_paths():
+    from ambition_music_renderer.cli import publish_cue
+
+    with tempfile.TemporaryDirectory() as td:
+        root = Path(td)
+        outdir = root / "generated" / "cue"
+        preview = outdir / "preview"
+        intro = outdir / "adaptive" / "intro"
+        wave1 = outdir / "adaptive" / "wave1"
+        preview.mkdir(parents=True)
+        intro.mkdir(parents=True)
+        wave1.mkdir(parents=True)
+        (preview / "cue_hash.full_soundtrack_preview.ogg").write_bytes(b"full")
+        (intro / "cue_hash.intro.full.ogg").write_bytes(b"intro")
+        (wave1 / "cue_hash.wave1.full.ogg").write_bytes(b"wave1")
+        (outdir / "cue_hash.adaptive_manifest.json").write_text(
+            json.dumps(
+                {
+                    "id": "cue",
+                    "hash": "hash",
+                    "files": {
+                        "preview": {
+                            "full_soundtrack": "preview/cue_hash.full_soundtrack_preview.ogg"
+                        },
+                        "adaptive": {
+                            "intro": {"full": "adaptive/intro/cue_hash.intro.full.ogg"},
+                            "wave1": {"full": "adaptive/wave1/cue_hash.wave1.full.ogg"},
+                        },
+                    },
+                }
+            ),
+            encoding="utf8",
+        )
+        dest = root / "assets" / "audio" / "music" / "generated"
+
+        assert publish_cue("cue", outdir, dest)
+        assert (dest / "cue" / "full.ogg").read_bytes() == b"full"
+        assert (dest / "cue" / "adaptive" / "intro" / "intro.full.ogg").read_bytes() == b"intro"
+        assert (dest / "cue" / "adaptive" / "wave1" / "wave1.full.ogg").read_bytes() == b"wave1"
+        assert (dest / "cue" / "cue.adaptive_manifest.json").exists()
+
+
+def test_publish_adaptive_cue_fails_without_section_fulls():
+    from ambition_music_renderer.cli import publish_cue
+
+    with tempfile.TemporaryDirectory() as td:
+        root = Path(td)
+        outdir = root / "generated" / "first_goblin_tune_v2"
+        preview = outdir / "preview"
+        preview.mkdir(parents=True)
+        (preview / "first_goblin_tune_v2_hash.full_soundtrack_preview.ogg").write_bytes(b"full")
+        (outdir / "first_goblin_tune_v2_hash.adaptive_manifest.json").write_text(
+            json.dumps(
+                {
+                    "id": "first_goblin_tune_v2",
+                    "hash": "hash",
+                    "files": {
+                        "preview": {
+                            "full_soundtrack": "preview/first_goblin_tune_v2_hash.full_soundtrack_preview.ogg"
+                        },
+                        "adaptive": {},
+                    },
+                }
+            ),
+            encoding="utf8",
+        )
+        dest = root / "assets" / "audio" / "music" / "generated"
+
+        assert not publish_cue("first_goblin_tune_v2", outdir, dest)
+        assert not (dest / "first_goblin_tune_v2" / "full.ogg").exists()
+        assert not (dest / "first_goblin_tune_v2" / "adaptive").exists()
+
+
+def test_top_level_adaptive_render_defaults_to_full_mix_sections():
+    from ambition_music_renderer.cli import render_mode_for_cue
+
+    args = build_parser().parse_args(["render", "first_goblin_tune_v2"])
+    assert render_mode_for_cue("first_goblin_tune_v2", args) == (False, True)
+
+    args = build_parser().parse_args(["render", "first_goblin_tune_v2", "--no-simple-mix"])
+    assert render_mode_for_cue("first_goblin_tune_v2", args) == (False, False)
+
+    args = build_parser().parse_args(["render", "lofi_study_loop"])
+    assert render_mode_for_cue("lofi_study_loop", args) == (True, False)
 
 
 def test_reference_audio_audit_reports_surface_features():

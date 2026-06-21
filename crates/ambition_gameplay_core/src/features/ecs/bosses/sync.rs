@@ -129,6 +129,12 @@ pub fn sprite_target_for_boss(behavior_id: &str) -> &str {
         // `derive_boss_sprite_metrics` picks up the per-animation
         // hitboxes / hurtboxes.
         "gnu_ton" => "gnu_ton_boss",
+        // The mockingbird's sprite RON declares `target: "mockingbird_boss"`
+        // (matching its `mockingbird_boss_spritesheet.png` / file root), so
+        // map the behavior id to that sheet target — otherwise the
+        // `body_metrics` lookup in `boss_sprite_metrics_from_registry` misses
+        // and the boss falls back to the bare combat_size hurtbox.
+        "mockingbird" => "mockingbird_boss",
         other => other,
     }
 }
@@ -151,7 +157,7 @@ pub fn sprite_render_size_for(target: &str, boss_size: ae::Vec2) -> ae::Vec2 {
     use crate::boss_encounter::sprites;
     let spec = match target {
         "boss" => Some(sprites::BOSS_SHEET),
-        "mockingbird" => Some(sprites::MOCKINGBIRD_SHEET),
+        "mockingbird" | "mockingbird_boss" => Some(sprites::MOCKINGBIRD_SHEET),
         "smirking_behemoth_boss" => Some(sprites::SMIRKING_BEHEMOTH_SHEET),
         // `gnu_ton_boss` is the actual sheet target ID emitted by the
         // gnu_ton spritesheet RON. `gnu_ton_body` / `gnu_ton_hands` /

@@ -74,6 +74,53 @@ fn gnu_ton_metrics_come_from_per_animation_hurtboxes() {
     );
 }
 
+/// End-to-end guard for Jon's "attacks on the mockingbird whiff" bug
+/// (2026-06-21). The mockingbird's sprite RON now carries `body_metrics`
+/// (a static alpha-bbox hurtbox), and `sprite_target_for_boss` maps the
+/// "mockingbird" behavior to its `"mockingbird_boss"` sheet target — so
+/// the full chain (behavior id → sheet target → baked registry →
+/// body_metrics → derived combat geometry) resolves the body box instead
+/// of falling back to the bare, frame-unaligned `combat_size` box. Both
+/// pieces are required: drop the RON body_metrics OR the target mapping
+/// and the lookup misses again.
+#[test]
+fn mockingbird_resolves_a_body_hurtbox_from_the_baked_registry() {
+    use crate::features::bosses::BossBehaviorProfile;
+
+    // The behavior id must map to the sheet target the RON declares,
+    // otherwise the registry lookup misses (the masked half of the bug).
+    assert_eq!(
+        sprite_target_for_boss("mockingbird"),
+        "mockingbird_boss",
+        "mockingbird behavior must map to its 'mockingbird_boss' sheet target",
+    );
+
+    let registry = crate::character_sprites::baked_sheet_registry();
+    let behavior = BossBehaviorProfile::mockingbird();
+    let combat_size = behavior.combat_size.unwrap_or(ae::Vec2::new(500.0, 185.0));
+    let pos = ae::Vec2::new(500.0, 400.0);
+    let mut boss = super::super::boss_clusters::BossClusterScratch::new(
+        "boss_mockingbird",
+        "Mockingbird",
+        ae::Aabb::new(pos, combat_size * 0.5),
+        crate::actor::BossBrain::Dormant,
+    );
+    boss.config.behavior = behavior;
+
+    let (metrics, derived_size) = boss_sprite_metrics_from_registry(boss.as_ref(), &registry)
+        .expect("mockingbird sheet target should have body metrics in the baked registry");
+    // Unlike GNU-ton (per-animation hurtboxes), the mockingbird's body
+    // comes from a single static alpha bbox.
+    assert!(
+        metrics.body_pixel_bbox.is_some(),
+        "mockingbird should carry a static body_pixel_bbox hurtbox",
+    );
+    assert!(
+        derived_size.is_some(),
+        "a static body bbox should derive a combat_size from the visible body",
+    );
+}
+
 #[test]
 fn front_wall_clearance_ignores_floor_below_body_lane() {
     let body = ae::Aabb::new(ae::Vec2::new(100.0, 100.0), ae::Vec2::new(40.0, 80.0));

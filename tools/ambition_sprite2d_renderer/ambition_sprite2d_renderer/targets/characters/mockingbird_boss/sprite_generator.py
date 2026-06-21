@@ -28,6 +28,7 @@ from typing import Dict, Iterable, List, Tuple
 from PIL import Image, ImageChops, ImageDraw, ImageFilter, ImageFont
 
 from ambition_sprite2d_renderer.cli.console import print_paths
+from ambition_sprite2d_renderer.core.manifest_ron import records_to_ron
 
 try:
     import yaml
@@ -41,6 +42,7 @@ TARGET_NAME = "mockingbird_boss"
 DEFAULT_SCENE = DATA_DIR / "mockingbird_boss_scene.yaml"
 OUTPUT_FILES = [
     f"{TARGET_NAME}_spritesheet.png",
+    f"{TARGET_NAME}_spritesheet.ron",
     f"{TARGET_NAME}_spritesheet_manifest.json",
     f"{TARGET_NAME}_canonical.png",
     f"{TARGET_NAME}_canonical_transparent.png",
@@ -1062,6 +1064,97 @@ def make_parts_debug(scene, bg_color=None):
     return bg
 
 
+def _union_alpha_bbox(frames):
+    """Union of every frame's alpha bbox (frame-local px) → one body box.
+
+    ``frames`` is a list of ``alpha_metrics`` dicts (``{"bbox": {x,y,w,h}}``).
+    Returns ``None`` if no frame has opaque pixels."""
+    x0 = y0 = x1 = y1 = None
+    for fr in frames:
+        bb = fr.get("bbox") if isinstance(fr, dict) else None
+        if not bb:
+            continue
+        fx0, fy0 = bb["x"], bb["y"]
+        fx1, fy1 = bb["x"] + bb["w"], bb["y"] + bb["h"]
+        x0 = fx0 if x0 is None else min(x0, fx0)
+        y0 = fy0 if y0 is None else min(y0, fy0)
+        x1 = fx1 if x1 is None else max(x1, fx1)
+        y1 = fy1 if y1 is None else max(y1, fy1)
+    if x0 is None:
+        return None
+    return {"x": int(x0), "y": int(y0), "w": int(x1 - x0), "h": int(y1 - y0)}
+
+
+# The runtime animation vocabulary (`character_sprites::anim::from_name`)
+# names a boss's resting pose "rest" → `CharacterAnim::Idle`, "so the
+# catalog can pull every character in." This generator's idle pose is
+# internally "hover" (its gentle hover-bob motion), but in the runtime
+# vocabulary "hover" means the *airborne* Fly pose (the robot's jump
+# apex, etc.) — so the catalog would find no Idle row and render the
+# boss as a placeholder. Translate the render-side idle label to the
+# runtime "rest" convention when emitting the RON. Faithful to the same
+# frames; only the row label is normalized.
+_RUNTIME_ANIM_NAMES = {"hover": "rest"}
+
+
+def _runtime_sheet_record(manifest):
+    """Build the runtime ``SheetRecord`` dict the game's `SheetRegistry`
+    deserializes, from this generator's render ``manifest``.
+
+    The key field is ``body_metrics.body_pixel_bbox``: the union alpha
+    bbox across every animation frame, so the boss's *damageable* volume
+    (`BossSpriteMetrics::body_pixel_bbox`, the priority-3 hurtbox source
+    in `damageable_volumes`) tracks the visible bird instead of falling
+    back to the bare, frame-unaligned `combat_size` box — which is what
+    let attacks on the visible body whiff. The mockingbird flies, so the
+    feet anchor is informational only (the body bbox center drives the
+    boss `combat_offset`)."""
+    fw = int(manifest["frame_size"]["w"])
+    fh = int(manifest["frame_size"]["h"])
+    rows = manifest.get("rows", [])
+    alpha = manifest.get("alpha_summary", {})
+    bbox = _union_alpha_bbox(fr for frames in alpha.values() for fr in frames)
+    if bbox is None:
+        bbox = {"x": 0, "y": 0, "w": fw, "h": fh}
+    feet_x = bbox["x"] + bbox["w"] / 2.0
+    feet_y = bbox["y"] + bbox["h"]
+    body_metrics = {
+        "body_pixel_bbox": bbox,
+        "feet_pixel": {"x": float(feet_x), "y": float(feet_y)},
+        "feet_anchor_norm": {
+            "x": float(feet_x / fw - 0.5),
+            "y": float(0.5 - feet_y / fh),
+        },
+    }
+    norm_rows = []
+    for r in rows:
+        rects = [
+            {"x": int(rc["x"]), "y": int(rc["y"]), "w": int(rc["w"]), "h": int(rc["h"])}
+            for rc in r.get("rects", [])
+        ]
+        duration_ms = int(r.get("duration_ms", 100))
+        anim = _RUNTIME_ANIM_NAMES.get(r["animation"], r["animation"])
+        norm_rows.append(
+            {
+                "animation": anim,
+                "row_index": int(r.get("row_index", 0)),
+                "frame_count": int(r.get("frame_count", r.get("frames", len(rects)))),
+                "duration_ms": duration_ms,
+                "duration_secs": round(duration_ms / 1000.0, 6),
+                "rects": rects,
+            }
+        )
+    return {
+        "target": TARGET_NAME,
+        "image": f"{TARGET_NAME}_spritesheet.png",
+        "label_width": 0,
+        "frame_width": fw,
+        "frame_height": fh,
+        "rows": norm_rows,
+        "body_metrics": body_metrics,
+    }
+
+
 def render_outputs(
     scene_path=DEFAULT_SCENE, outdir=None, frame_size=None, quick=False, force=False
 ):
@@ -1154,6 +1247,17 @@ def render_outputs(
         json.dumps(manifest, indent=2)
     )
     outputs.append(outdir / f"{TARGET_NAME}_spritesheet_manifest.json")
+    if not quick:
+        # Runtime sidecar the sandbox's SheetRegistry deserializes. Carries
+        # body_metrics (alpha-bbox hurtbox) so the boss is damageable on its
+        # visible body — without it, derive_boss_sprite_metrics finds no
+        # metrics and the boss falls back to a frame-unaligned combat_size box.
+        ron_path = outdir / f"{TARGET_NAME}_spritesheet.ron"
+        ron_path.write_text(
+            records_to_ron(TARGET_NAME, [_runtime_sheet_record(manifest)]),
+            encoding="utf8",
+        )
+        outputs.append(ron_path)
     lines = ["# Mockingbird boss sprite inspirations", "", "Archival source links:", ""]
     lines += [f"- {u}" for u in scene.meta.get("source_urls", [])]
     lines += [

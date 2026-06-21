@@ -273,6 +273,7 @@ expected_files=(
     gnu_ton_boss/gnu_ton_boss_spritesheet.ron
     gnu_ton_boss/gnu_ton_boss_actor.ron
     mockingbird_boss/mockingbird_boss_spritesheet.png
+    mockingbird_boss/mockingbird_boss_spritesheet.ron
 )
 
 cache_dir="$renderer_dir/.cache"

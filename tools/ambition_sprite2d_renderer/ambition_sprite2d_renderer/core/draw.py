@@ -83,11 +83,16 @@ def overlay_draw(img: Image.Image):
 
     This is the one canonical home for the scratch-layer pattern that was
     re-implemented in ``skeleton.composite_polygon``,
-    ``generic_explosions._composite_polygon``, and the rigdoc painter — those
-    should adopt this.
+    ``generic_explosions._composite_polygon``, and the rigdoc painter. Those
+    have subtly different scratch modes (plain vs ``"RGBA"``), so unifying them
+    onto this is a deliberate, parity-checked change — not a blind swap.
+
+    The scratch uses ``"RGBA"`` blend mode so overlapping translucent shapes
+    drawn *within* one overlay also composite correctly (not just the final
+    blend onto ``img``).
     """
     layer = Image.new("RGBA", img.size, (0, 0, 0, 0))
-    return layer, ImageDraw.Draw(layer)
+    return layer, ImageDraw.Draw(layer, "RGBA")
 
 
 def composite_polygon(img, pts, fill, outline=None, width=0):

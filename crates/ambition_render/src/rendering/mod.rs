@@ -41,7 +41,9 @@ mod parallax;
 mod pirate_weapon;
 mod primitives;
 pub mod projectile_visuals;
+pub(crate) mod sheet_atlas;
 pub mod shrine_visuals;
+pub(crate) mod slash_visuals;
 mod world;
 
 pub use actors::{
@@ -118,6 +120,8 @@ impl bevy::prelude::Plugin for PlayerVisualSchedulePlugin {
                     item_visuals::sync_held_projectile_visuals.after(actors::sync_visuals),
                     shrine_visuals::sync_shrine_visual.after(actors::sync_visuals),
                     shrine_visuals::animate_shrine_visuals.after(actors::animate_props),
+                    slash_visuals::spawn_slash_effects,
+                    slash_visuals::animate_slash,
                     mark_beacon::sync_mark_beacon_visual.after(actors::sync_visuals),
                 ),
             );

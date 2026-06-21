@@ -4,7 +4,6 @@
 //! compact module gives us a later migration seam to GPU particles or Hanabi.
 
 use ambition_gameplay_core::engine_core as ae;
-use ambition_gameplay_core::engine_core::AabbExt;
 use bevy::math::Vec2 as BVec2;
 use bevy::prelude::*;
 use std::f32::consts::TAU;
@@ -22,7 +21,8 @@ use ambition_gameplay_core::config::{rgba, world_to_bevy, WORLD_Z_FX};
 // `FireworksRequest`) + the `explosion_sfx` id mapping moved down with the message
 // types; only the spritesheet-row mapping (`explosion_anim`) is render-specific.
 pub use ambition_vfx::vfx::{
-    explosion_sfx, ExplosionKind, ExplosionRequest, FireworksRequest, ParticleKind, VfxMessage,
+    explosion_sfx, ExplosionKind, ExplosionRequest, FireworksRequest, ParticleKind, SlashDir,
+    VfxMessage,
 };
 
 /// Spritesheet row an [`ExplosionKind`] renders as (presentation-only mapping).
@@ -78,12 +78,6 @@ pub struct FireworkBurstSpec {
     offset: ae::Vec2,
     kind: ExplosionKind,
     scale: f32,
-}
-
-#[derive(Component)]
-pub struct SlashPreviewVisual {
-    age: f32,
-    duration: f32,
 }
 
 #[derive(Component)]
@@ -281,9 +275,11 @@ pub fn vfx_spawn_messages(
             } => {
                 spawn_blink_effects(&mut commands, world, from, to, precision);
             }
-            VfxMessage::SlashPreview { hitbox } => {
-                spawn_slash_preview(&mut commands, world, hitbox);
-            }
+            // The melee slash effect is a sheet-driven visual handled by its own
+            // self-contained system, `rendering::slash_visuals::spawn_slash_effects`
+            // (co-located with the shrine visual). No-op here so this particle
+            // dispatcher's match stays exhaustive.
+            VfxMessage::Slash { .. } => {}
             VfxMessage::ResetEffects { from, to } => {
                 spawn_reset_effects(&mut commands, world, from, to);
             }
@@ -597,23 +593,6 @@ pub fn update_impacts(
     }
 }
 
-pub fn update_slash_previews(
-    mut commands: Commands,
-    time: Res<Time>,
-    mut query: Query<(Entity, &mut SlashPreviewVisual, &mut Sprite)>,
-) {
-    let dt = time.delta_secs();
-    for (entity, mut preview, mut sprite) in &mut query {
-        preview.age += dt;
-        if preview.age >= preview.duration {
-            commands.entity(entity).despawn();
-            continue;
-        }
-        let alpha = 0.80 * (1.0 - preview.age / preview.duration);
-        sprite.color = Color::srgba(1.0, 1.0, 0.35, alpha);
-    }
-}
-
 pub fn spawn_speech_bubble(
     commands: &mut Commands,
     world: &ae::World,
@@ -680,21 +659,6 @@ pub fn spawn_speech_bubble(
                 ));
             }
         });
-}
-
-pub fn spawn_slash_preview(commands: &mut Commands, world: &ae::World, hitbox: ae::Aabb) {
-    let size = hitbox.half_size() * 2.0;
-    commands.spawn((
-        Sprite::from_color(
-            Color::srgba(1.0, 1.0, 0.35, 0.80),
-            BVec2::new(size.x, size.y),
-        ),
-        Transform::from_translation(world_to_bevy(world, hitbox.center(), WORLD_Z_FX + 2.0)),
-        SlashPreviewVisual {
-            age: 0.0,
-            duration: 0.10,
-        },
-    ));
 }
 
 pub fn spawn_impact(commands: &mut Commands, world: &ae::World, pos: ae::Vec2) {

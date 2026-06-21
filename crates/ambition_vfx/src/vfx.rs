@@ -36,6 +36,17 @@ pub enum ExplosionKind {
     Starburst,
 }
 
+/// Which slash-effect row to play. Maps to the `robot_slash` sheet's
+/// directional rows: `Side`/`Up` are energy-arc crescents (most attacks),
+/// `Down` is a tapered lance/poke (down-tilt / pogo). The attacker picks one
+/// from its `AttackIntent`; eventually each attack can carry a bespoke effect.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum SlashDir {
+    Side,
+    Up,
+    Down,
+}
+
 /// Typed visual-effects message (Bevy 0.18 buffered Message API). Emitted by
 /// simulation systems; the presentation-side subscriber spawns the actual
 /// particle / impact / slash entities. See the module docs.
@@ -65,8 +76,13 @@ pub enum VfxMessage {
         to: ae::Vec2,
         precision: bool,
     },
-    SlashPreview {
-        hitbox: ae::Aabb,
+    /// A melee slash effect (the `robot_slash` sheet) at `center`, drawn
+    /// `size` wide/tall, flipped by `facing`, playing the `dir` row once.
+    Slash {
+        center: ae::Vec2,
+        size: f32,
+        dir: SlashDir,
+        facing: f32,
     },
     ResetEffects {
         from: ae::Vec2,

@@ -154,10 +154,35 @@ pub(crate) fn start_attack(
     sfx.write(SfxMessage::Slash { pos: player_pos });
     anim.slash_anim_timer = spec.total_seconds().max(0.20);
     *attack = Some(ambition_gameplay_core::PlayerAttackState::new(spec));
-    vfx.write(VfxMessage::SlashPreview {
-        hitbox: player_attack_hitbox(&view, spec.intent)
-            .unwrap_or_else(|| ambition_gameplay_core::combat::attack_hitbox_from_view(&view, spec)),
+    // Slash effect at the swing's hitbox: the directional `robot_slash` arc
+    // (Side/Up) or down-poke, picked from the attack intent and flipped by
+    // facing. The starting-point shared effect — each attack can graduate to a
+    // bespoke one later.
+    let slash_hitbox = player_attack_hitbox(&view, spec.intent)
+        .unwrap_or_else(|| ambition_gameplay_core::combat::attack_hitbox_from_view(&view, spec));
+    vfx.write(VfxMessage::Slash {
+        center: slash_hitbox.center(),
+        size: slash_effect_size(slash_hitbox),
+        dir: slash_dir(spec.intent),
+        facing: clusters.kinematics.facing,
     });
+}
+
+/// Map an attack intent onto the `robot_slash` sheet's directional rows.
+fn slash_dir(intent: ambition_gameplay_core::combat::AttackIntent) -> SlashDir {
+    use ambition_gameplay_core::combat::AttackIntent as I;
+    match intent {
+        I::Up | I::AirUp => SlashDir::Up,
+        I::Down | I::AirDown => SlashDir::Down,
+        _ => SlashDir::Side,
+    }
+}
+
+/// On-screen size for the slash effect: a flourish a bit larger than the
+/// hitbox so the swing reads beyond the exact damage box. Tunable.
+fn slash_effect_size(hitbox: ae::Aabb) -> f32 {
+    const SLASH_EFFECT_SCALE: f32 = 2.0;
+    ((hitbox.half_size() * 2.0).max_element() * SLASH_EFFECT_SCALE).max(24.0)
 }
 
 /// Source the player's melee hitbox from the sprite manifest — the box authored
@@ -241,7 +266,8 @@ pub(crate) fn advance_attack(
         let first_active_frame = !attack_state.active_started;
         if first_active_frame {
             attack_state.active_started = true;
-            vfx.write(VfxMessage::SlashPreview { hitbox: attack });
+            // The slash effect is spawned once at swing start (start_attack);
+            // the active phase only drives the damage hitbox below.
         }
 
         let player_pos = clusters.kinematics.pos;

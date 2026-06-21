@@ -2,10 +2,13 @@
 //! sprite sync + activation-pulse animation. Reads the sim shrine state
 //! (HealShrine, ShrineActivationPulse) from ambition_gameplay_core.
 
+use super::sheet_atlas::{
+    atlas_layout_from_record, row_duration, row_frame_count, row_start_index,
+};
 use ambition_gameplay_core::shrine::{HealShrine, ShrineActivationPulse};
 use ambition_sprite_sheet::{SheetRecord, SheetRegistry};
 use bevy::prelude::*;
-use bevy::{image::TextureAtlas, image::TextureAtlasLayout, math::UVec2};
+use bevy::{image::TextureAtlas, image::TextureAtlasLayout};
 use std::collections::hash_map::DefaultHasher;
 use std::collections::{HashMap, HashSet};
 use std::hash::{Hash, Hasher};
@@ -255,17 +258,17 @@ fn shrine_visual_source_from_record(
     atlas_layouts: &mut Assets<TextureAtlasLayout>,
     record: &SheetRecord,
 ) -> ShrineVisualSource {
-    let layout = atlas_layouts.add(shrine_atlas_layout(record));
+    let layout = atlas_layouts.add(atlas_layout_from_record(record));
     let image = asset_server.load("sprites/shrine_spritesheet.png");
     ShrineVisualSource::Atlas {
         image,
         layout,
-        idle_start: shrine_row_start_index(record, "idle").unwrap_or(0),
-        idle_frame_count: shrine_row_frame_count(record, "idle").unwrap_or(1),
-        idle_duration: shrine_row_duration(record, "idle").unwrap_or(0.15),
-        activate_start: shrine_row_start_index(record, "activate").unwrap_or(0),
-        activate_frame_count: shrine_row_frame_count(record, "activate").unwrap_or(1),
-        activate_duration: shrine_row_duration(record, "activate").unwrap_or(0.09),
+        idle_start: row_start_index(record, "idle").unwrap_or(0),
+        idle_frame_count: row_frame_count(record, "idle").unwrap_or(1),
+        idle_duration: row_duration(record, "idle").unwrap_or(0.15),
+        activate_start: row_start_index(record, "activate").unwrap_or(0),
+        activate_frame_count: row_frame_count(record, "activate").unwrap_or(1),
+        activate_duration: row_duration(record, "activate").unwrap_or(0.09),
     }
 }
 
@@ -298,75 +301,6 @@ fn shrine_visual_atlas(source: &ShrineVisualSource) -> ShrineVisualAtlas {
     }
 }
 
-fn shrine_atlas_layout(record: &SheetRecord) -> TextureAtlasLayout {
-    let inset = 1u32;
-    let mut textures = Vec::new();
-    let mut total_w = 1u32;
-    let mut total_h = 1u32;
-
-    for row in &record.rows {
-        for rect in row.rects.iter().take(row.frame_count as usize) {
-            let rect = frame_rect_to_urect(rect).expect("shrine frame rect must be non-negative");
-            let rect = inset_rect(rect, inset);
-            total_w = total_w.max(rect.max.x);
-            total_h = total_h.max(rect.max.y);
-            textures.push(rect);
-        }
-    }
-
-    let mut layout = TextureAtlasLayout::new_empty(UVec2::new(total_w, total_h));
-    for rect in textures {
-        layout.add_texture(rect);
-    }
-    layout
-}
-
-fn frame_rect_to_urect(rect: &ambition_sprite_sheet::FrameRect) -> Option<bevy::math::URect> {
-    let x = u32::try_from(rect.x).ok()?;
-    let y = u32::try_from(rect.y).ok()?;
-    let w = u32::try_from(rect.w).ok()?;
-    let h = u32::try_from(rect.h).ok()?;
-    Some(bevy::math::URect {
-        min: UVec2::new(x, y),
-        max: UVec2::new(x + w, y + h),
-    })
-}
-
-fn inset_rect(rect: bevy::math::URect, inset: u32) -> bevy::math::URect {
-    let inset = inset.min(rect.width().min(rect.height()) / 4);
-    bevy::math::URect {
-        min: UVec2::new(rect.min.x + inset, rect.min.y + inset),
-        max: UVec2::new(rect.max.x - inset, rect.max.y - inset),
-    }
-}
-
-fn shrine_row_start_index(record: &SheetRecord, animation: &str) -> Option<usize> {
-    let mut flat = 0usize;
-    for row in &record.rows {
-        if row.animation == animation {
-            return Some(flat);
-        }
-        flat += row.frame_count as usize;
-    }
-    None
-}
-
-fn shrine_row_frame_count(record: &SheetRecord, animation: &str) -> Option<usize> {
-    record
-        .rows
-        .iter()
-        .find(|row| row.animation == animation)
-        .map(|row| row.frame_count as usize)
-}
-
-fn shrine_row_duration(record: &SheetRecord, animation: &str) -> Option<f32> {
-    record
-        .rows
-        .iter()
-        .find(|row| row.animation == animation)
-        .map(|row| row.duration_secs)
-}
-
 fn shrine_visual_key(shrine: &HealShrine) -> u64 {
     let mut hasher = DefaultHasher::new();
     shrine.pos.x.to_bits().hash(&mut hasher);
@@ -384,9 +318,9 @@ mod tests {
         let registry = ambition_gameplay_core::character_sprites::baked_sheet_registry();
         let record = registry.get("shrine").expect("shrine sheet record");
         assert_eq!(record.rows.len(), 2);
-        assert_eq!(shrine_row_start_index(record, "idle"), Some(0));
-        assert_eq!(shrine_row_start_index(record, "activate"), Some(6));
-        assert_eq!(shrine_row_frame_count(record, "idle"), Some(6));
-        assert_eq!(shrine_row_frame_count(record, "activate"), Some(8));
+        assert_eq!(row_start_index(record, "idle"), Some(0));
+        assert_eq!(row_start_index(record, "activate"), Some(6));
+        assert_eq!(row_frame_count(record, "idle"), Some(6));
+        assert_eq!(row_frame_count(record, "activate"), Some(8));
     }
 }

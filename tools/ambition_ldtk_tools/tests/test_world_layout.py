@@ -237,3 +237,62 @@ def test_world_layout_cli_dry_run_writes_svg_report(tmp_path: Path, capsys) -> N
     assert "hub_complex" in svg.read_text()
     # Dry run still must not mutate the file.
     assert json.loads(path.read_text())["levels"][0]["worldX"] == 1000
+
+
+def test_auto_layout_layered_strategy_reports_backend() -> None:
+    project = mini_project()
+    result = auto_layout(
+        project,
+        start="hub_main",
+        origin=Point(0, 0),
+        grid=64,
+        gap=128,
+        strategy="layered",
+    )
+    assert result.strategy == "layered"
+    assert "strategy=layered" in result.report
+    assert (by_id(project, "hub_main")["worldX"], by_id(project, "hub_main")["worldY"]) == (0, 0)
+    assert by_id(project, "child_a")["worldY"] >= 1000
+
+
+def test_auto_layout_clustered_strategy_reports_linkage_clusters() -> None:
+    project = mini_project()
+    result = auto_layout(
+        project,
+        start="hub_main",
+        origin=Point(0, 0),
+        grid=64,
+        gap=128,
+        strategy="clustered",
+        cluster_min_links=2,
+        cluster_degree_limit=4,
+    )
+    assert result.strategy == "clustered"
+    assert "strategy=clustered" in result.report
+    assert any(len(cluster) > 1 for cluster in result.clusters)
+    assert "linkage clusters" in result.report
+
+
+def test_world_layout_cli_strategy_and_svg(tmp_path: Path, capsys) -> None:
+    path = tmp_path / "mini.ldtk"
+    svg = tmp_path / "layered.svg"
+    path.write_text(json.dumps(mini_project()))
+
+    from ambition_ldtk_tools.edit import world_layout
+
+    rc = world_layout.main([
+        "auto-layout",
+        str(path),
+        "--start",
+        "hub_main",
+        "--dry-run",
+        "--strategy",
+        "layered",
+        "--svg-report",
+        str(svg),
+    ])
+    captured = capsys.readouterr()
+    assert rc == 0
+    assert "strategy=layered" in captured.out
+    assert svg.exists()
+    assert "strategy=layered" in svg.read_text()

@@ -7,6 +7,7 @@ this module imports nothing from there (one-way: parser -> commands).
 from __future__ import annotations
 
 import argparse
+import json
 import sys
 from pathlib import Path
 from typing import List
@@ -334,6 +335,33 @@ def _cmd_draw_character(args: argparse.Namespace) -> int:
 
 def _cmd_draw_factions(args: argparse.Namespace) -> int:
     print_paths(draw_factions(args.config, args.out_dir))
+    return 0
+
+
+def _cmd_ldtk_manifest(args: argparse.Namespace) -> int:
+    """Emit the LDtk visual manifest for the published sprite sheets.
+
+    Producer half of the sprite -> LDtk-editor bridge; the manifest is
+    consumed by `ambition_ldtk_tools` `visual-manifest apply-manifest`.
+    """
+    from ..ldtk_manifest import build_manifest, write_manifest
+
+    sprites_dir = Path(args.sprites_dir) if args.sprites_dir else sandbox_sprites_dir()
+    out_path = Path(args.out) if args.out else sprites_dir / "ldtk_sprite_manifest.json"
+    manifest = build_manifest(
+        sprites_dir,
+        repo_root=repo_root(),
+        all_sheets=args.all_sheets,
+    )
+    write_manifest(manifest, out_path)
+    if args.format == "json":
+        print(json.dumps(manifest, indent=2, sort_keys=True))
+    else:
+        print(
+            f"wrote {out_path} "
+            f"({len(manifest['tilesets'])} tilesets, "
+            f"{len(manifest['entity_icons'])} entity icons)"
+        )
     return 0
 
 

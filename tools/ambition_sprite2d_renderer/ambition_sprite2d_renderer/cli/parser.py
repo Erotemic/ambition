@@ -50,6 +50,7 @@ from .commands import (
     _cmd_draw_runtime_npcs,
     _cmd_gifs,
     _cmd_install,
+    _cmd_ldtk_manifest,
     _cmd_list_targets,
     _cmd_publish,
     _cmd_regenerate_all,
@@ -203,6 +204,32 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--config", default=str(DEFAULT_FACTION_CONFIG))
     p.add_argument("--out-dir", default=str(DEFAULT_ASSET_DIR / "factions"))
     p.set_defaults(func=_cmd_draw_factions)
+
+    p = sub.add_parser(
+        "ldtk-manifest",
+        help="Emit an LDtk-consumable visual manifest (tilesets + entity icons) "
+        "for the published sprite sheets. Consumed by ambition_ldtk_tools "
+        "`visual-manifest apply-manifest`.",
+    )
+    p.add_argument(
+        "--sprites-dir",
+        default=None,
+        help="Directory of published sheets (default: the sandbox sprites dir).",
+    )
+    p.add_argument(
+        "--out",
+        default=None,
+        help="Output JSON path (default: <sprites-dir>/ldtk_sprite_manifest.json).",
+    )
+    p.add_argument(
+        "--all-sheets",
+        action="store_true",
+        help="Register every discovered sheet as a tileset (the full, "
+        "editor-browsable set). Default: only sheets referenced by the "
+        "curated entity map, for a minimal .ldtk apply diff.",
+    )
+    p.add_argument("--format", choices=["text", "json"], default="text")
+    p.set_defaults(func=_cmd_ldtk_manifest)
 
     p = sub.add_parser("spritesheet", help="Render one config's sheet to a specific path.")
     p.add_argument("config")

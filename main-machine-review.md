@@ -43,6 +43,30 @@ the start gate. (Instrumentation landed in commits `a6460e3b`, `42e58ee6`.)
 **Why it's machine-bound:** needs the LDtk editor GUI to see what's actually
 wrong and to verify a fix.
 
+**STATUS — Phase 1 shipped (2026-06-21).** The sprite renderer now emits an
+LDtk-consumable visual manifest. New command:
+`python -m ambition_sprite2d_renderer ldtk-manifest [--all-sheets]`
+→ writes `crates/.../assets/sprites/ldtk_sprite_manifest.json`
+(`{tilesets, entity_icons}`), consumed by the existing
+`ambition_ldtk_tools … visual-manifest apply-manifest`. `regen_sprites.sh`
+now emits + re-applies it. Default is a **curated** map (PlayerStart → the
+real `player_robot` sprite, wired into all three worlds — open the editor and
+PlayerStart should show the actual player instead of a green gizmo).
+`--all-sheets` registers **all 120** sprite sheets as tilesets so any of them
+can be assigned in the editor (not committed by default — large `.ldtk`
+diff + every sheet PNG is gitignored, so run it locally when you want them).
+
+**To verify at the main machine:** open `sandbox.ldtk` — PlayerStart should
+render the real player sprite. If it looks right, decide whether to commit the
+`--all-sheets` set too.
+
+**Phase 2 (the real richness — needs an LDtk-schema decision):** the generic
+spawners (`EnemySpawn` / `NpcSpawn` / `BossSpawn`) are 1:many, so a single
+representative would mislead. Proper per-instance editor visuals mean adding a
+field (an enum whose values carry each character's `tileRect`, or a Tile/enum
+ref) so each *placed* spawn shows its actual character. That's a schema +
+tooling task to design in the editor — left for review.
+
 **Symptom (your words):** tiles and sprites don't render nicely in the LDtk
 editor; we may need to emit JSON at generation time that LDtk can consume.
 

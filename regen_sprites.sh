@@ -741,6 +741,35 @@ else
     echo "  (skipped — ambition_ldtk_tools not importable from $python_bin)"
 fi
 
+# --- LDtk sprite tilesets (real sprites as editor visuals) ----------------
+# Emit the LDtk-consumable visual manifest from the published sheets, then
+# re-apply it so the worlds' sprite tilesets + entity tileRects stay in sync
+# with the regenerated (gitignored) sheet PNGs. Unlike the fixed-grid
+# editor-icon atlas, sprite frame sizes can change when a sheet is
+# re-rendered, so this re-applies every run (LdtkTransaction only rewrites a
+# .ldtk when something actually changed). Default is the curated entity map
+# (a minimal diff); pass --all-sheets by hand to register every sheet for
+# browsing in the editor.
+echo "==> LDtk sprite tilesets:"
+sprite_manifest="$sprites_dir/ldtk_sprite_manifest.json"
+if command -v "$python_bin" >/dev/null 2>&1 && \
+    "$python_bin" -c 'import ambition_sprite2d_renderer' >/dev/null 2>&1 && \
+    PYTHONPATH="$repo_root/tools/ambition_ldtk_tools" "$python_bin" \
+        -c "import ambition_ldtk_tools" 2>/dev/null
+then
+    (cd "$renderer_dir" && "$python_bin" -m ambition_sprite2d_renderer \
+        ldtk-manifest --out "$sprite_manifest") 2>&1 | sed 's/^/  /' || true
+    for world in sandbox intro you_have_to_cut_the_rope; do
+        ldtk_path="$repo_root/crates/ambition_gameplay_core/assets/ambition/worlds/$world.ldtk"
+        [ -f "$ldtk_path" ] || continue
+        PYTHONPATH="$repo_root/tools/ambition_ldtk_tools" "$python_bin" \
+            -m ambition_ldtk_tools.edit.visual_manifest apply-manifest \
+            "$ldtk_path" "$sprite_manifest" --in-place 2>&1 | sed 's/^/  /' || true
+    done
+else
+    echo "  (skipped — sprite renderer or ambition_ldtk_tools not importable)"
+fi
+
 # --- Write fingerprint on success ----------------------------------------
 mkdir -p "$cache_dir"
 echo "$current_fingerprint" > "$fingerprint_file"

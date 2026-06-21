@@ -176,6 +176,20 @@ paradigms touching each file once (break rigdoc↔PySide6 in the same visit) →
   (`body_pixel_bbox` unchanged on all 58 sheets) — `feet_pixel` shifts ~1px to the
   last drawn pixel. Before/after diffs in `tmp/sprite-drift/`. Baseline re-captured
   to the corrected state.
+- **2026-06-21 — Step 2d landed: draw-helper dedup.** 13 files pointed at
+  `core/draw`; ~18 of ~21 duplicate copies removed (`rgba` 13→1, `with_alpha`
+  9→2, `_bbox` 7→0). Behaviour-identical leaf funcs — harness 117 clean.
+- **2026-06-21 — alpha-clobber guard added (Jon's flag).** Drawing a translucent
+  fill straight onto an RGBA image with `ImageDraw.Draw(img)` *replaces* the
+  destination alpha (clobbers what's underneath) instead of blending; the fix is
+  a scratch layer + `Image.alpha_composite` (the "gnu_ton rule"). Added
+  `core/draw.overlay_draw` (+ `composite_polygon`) as the one canonical primitive
+  (pinned by `tests/test_core_overlay.py`). **Cross-cutting TODO** (logged in
+  `dev/journals/code_smells.md`): unify the 3 existing scratch-composite copies
+  onto it, and audit the ~139 plain `ImageDraw.Draw(img)` sites for
+  translucent-over-content clobbers. ⚠️ The pixel harness **cannot** catch these
+  (they render consistently wrong → no drift); needs eyeball/heuristic. Any
+  compositing the core grows (e.g. sheet assembly) MUST use `alpha_composite`.
 - **Next — the single RON emitter.** Consolidate the two RON writers
   (`sheet.py` + `tackon_sheet.py`) into one (`core/manifest.py` schema → stdlib
   RON), dropping the `*_spritesheet.yaml` sidecar (no YAML in the write path).

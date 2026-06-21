@@ -15,7 +15,7 @@ from __future__ import annotations
 
 from typing import Iterable, List, Tuple
 
-from PIL import Image, ImageColor, ImageFont
+from PIL import Image, ImageColor, ImageDraw, ImageFont
 
 Color = Tuple[int, int, int, int]
 Point = Tuple[float, float]
@@ -66,3 +66,34 @@ def font(size: int):
         except OSError:
             pass
     return ImageFont.load_default()
+
+
+def overlay_draw(img: Image.Image):
+    """Return ``(scratch_layer, ImageDraw)`` for safe translucent compositing.
+
+    THE alpha-clobber guard. Drawing a translucent fill straight onto an RGBA
+    image with ``ImageDraw.Draw(img)`` *replaces* the destination pixel —
+    including its alpha — instead of blending over it, so anything already drawn
+    underneath is clobbered. The fix (the "gnu_ton rule") is to paint the
+    translucent shapes onto a fresh transparent layer and then blend::
+
+        layer, d = overlay_draw(img)
+        d.polygon(pts, fill=(200, 40, 40, 90))   # translucent
+        img.alpha_composite(layer)               # real blend, no clobber
+
+    This is the one canonical home for the scratch-layer pattern that was
+    re-implemented in ``skeleton.composite_polygon``,
+    ``generic_explosions._composite_polygon``, and the rigdoc painter — those
+    should adopt this.
+    """
+    layer = Image.new("RGBA", img.size, (0, 0, 0, 0))
+    return layer, ImageDraw.Draw(layer)
+
+
+def composite_polygon(img, pts, fill, outline=None, width=0):
+    """Translucent polygon via real alpha compositing (see :func:`overlay_draw`)."""
+    layer, d = overlay_draw(img)
+    d.polygon(list(pts), fill=fill, outline=outline)
+    if outline is not None and width and len(pts) > 1:
+        d.line(list(pts) + [pts[0]], fill=outline, width=int(width), joint="curve")
+    img.alpha_composite(layer)

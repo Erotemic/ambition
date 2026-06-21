@@ -24,6 +24,38 @@ from . import musicir_renderer as r
 
 RUNTIME_STEM_GAIN_MODES = ("native", "shared")
 
+SECTION_FULL_MASTERING_MODES = ("section_postprocess", "global_master_slices")
+
+
+def adaptive_section_mastering_config(spec: dict) -> dict[str, object]:
+    """Return section-full export policy for adaptive cues.
+
+    ``section_postprocess`` is legacy behavior: each section can run its own
+    postprocess chain against its raw slice. That can be an intentional special
+    effect, but it can also normalize quiet/noisy sections independently.
+
+    ``global_master_slices`` masters the complete composition once and slices
+    that master into full-section game assets. This is the preferred policy for
+    horizontal adaptive music when the engine crossfades whole sections.
+    """
+    render_cfg = spec.get("render", {}) or {}
+    cfg = render_cfg.get("adaptive_section_mastering") or render_cfg.get("adaptive_sections") or {}
+    if not isinstance(cfg, dict):
+        cfg = {}
+    mode = str(cfg.get("mode", cfg.get("full_mix_mode", "section_postprocess")))
+    if mode not in SECTION_FULL_MASTERING_MODES:
+        raise ValueError(
+            f"render.adaptive_section_mastering.mode must be one of {SECTION_FULL_MASTERING_MODES}, got {mode!r}"
+        )
+    return {
+        "mode": mode,
+        "ignore_section_postprocess_for_full_mix": bool(
+            cfg.get("ignore_section_postprocess_for_full_mix", mode == "global_master_slices")
+        ),
+        "notes": str(cfg.get("notes", "")),
+    }
+
+
 
 def _db(value: float) -> float:
     value = max(float(value), 1e-12)
@@ -478,20 +510,35 @@ def main(argv=None) -> int:
                 )
                 r.write_ogg_from_audio(piece, sr, path, quality=quality, keep_wav=False)
 
-    # Per-section full slices. If a section defines its own `postprocess`
-    # block (per-section ambience override), apply *that* chain to the
-    # raw stem-sum slice instead of using the master-mixed version. This
-    # lets a section sound markedly different from the rest of the cue
-    # (e.g. an intimate intro while the climax sounds cathedral) without
-    # remixing every stem.
+    # Per-section full slices for horizontal adaptive playback.
+    #
+    # Legacy mode (section_postprocess) lets a section run its own mastering
+    # chain against a raw slice. That can be an intentional special effect, but
+    # it is dangerous for game sections that crossfade as one score: a quiet
+    # intro can be normalized independently, lifting its SoundFont/reverb noise
+    # floor and breaking composition-level balance.
+    #
+    # Preferred mode (global_master_slices) masters the whole composition once
+    # and slices that result. This keeps intro/loops/outro in one loudness
+    # system, which is what the Rust music director expects when it crossfades
+    # full-section assets at near-unity runtime gains.
+    section_mastering = adaptive_section_mastering_config(spec)
+    section_full_mode = str(section_mastering["mode"])
+    ignored_section_postprocess: list[str] = []
     sections_in_spec = {s["id"]: s for s in spec.get("sections", [])}
     if not ns.simple_mix:
         for sec in meta:
             sec_spec = sections_in_spec.get(sec["id"], {})
             section_pp = sec_spec.get("postprocess")
-            if section_pp:
-                # Slice the raw stem sum (pre-master), apply the section's
-                # postprocess chain to that slice.
+            if section_full_mode == "global_master_slices":
+                if section_pp:
+                    ignored_section_postprocess.append(str(sec["id"]))
+                piece = r.slice_audio(
+                    master, sr, sec["start_seconds"], sec["end_seconds"]
+                )
+            elif section_pp:
+                # Legacy behavior: slice the raw stem sum (pre-master), apply
+                # the section's postprocess chain to that slice.
                 raw_piece = r.slice_audio(
                     raw_full, sr, sec["start_seconds"], sec["end_seconds"]
                 )
@@ -541,6 +588,11 @@ def main(argv=None) -> int:
             }
 
     diagnostics_warnings: list[str] = []
+    if ignored_section_postprocess:
+        diagnostics_warnings.append(
+            "global adaptive section mastering sliced the composition master and ignored section-local postprocess for full mixes: "
+            + ", ".join(ignored_section_postprocess)
+        )
     if stem_stats_native:
         strongest_native = max(
             stem_stats_native.items(), key=lambda item: item[1]["rms_dbfs"]
@@ -588,6 +640,10 @@ def main(argv=None) -> int:
         "runtime_target_peak_db": runtime_target_peak_db,
         "runtime_max_gain_db": runtime_max_gain_db,
         "runtime_previews": runtime_preview_stats,
+        "adaptive_section_mastering": {
+            **section_mastering,
+            "ignored_section_postprocess_sections": ignored_section_postprocess,
+        },
         "warnings": diagnostics_warnings,
     }
     manifest_path = outdir / f"{spec['id']}_{cue_hash}.adaptive_manifest.json"

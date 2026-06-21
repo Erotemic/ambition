@@ -18,6 +18,8 @@ from ambition_music_renderer.cue_bundle import (
     write_manifest_audio_level_report,
     write_spectral_fingerprint,
     write_stem_amplitude_report,
+    write_adaptive_section_report,
+    write_adaptive_composition_mastering_report,
     write_state_mix_report,
     write_stem_export_report,
 )
@@ -531,6 +533,50 @@ def test_stem_amplitude_report_shows_default_weighted_balance():
             assert (root / "plots" / "stem_amplitude_timeline.jpg").exists()
 
 
+
+def test_adaptive_section_report_draws_per_section_noise_views():
+    with tempfile.TemporaryDirectory() as td:
+        root = Path(td)
+        sr = 48_000
+        t = np.arange(sr // 2, dtype="float32") / sr
+        low = 0.12 * np.sin(2 * np.pi * 110.0 * t)
+        hissy = 0.04 * np.sin(2 * np.pi * 7000.0 * t)
+        stereo_low = np.stack([low, low], axis=1).astype("float32")
+        stereo_hissy = np.stack([hissy, hissy], axis=1).astype("float32")
+        for section, audio in [("intro", stereo_hissy), ("wave1", stereo_low)]:
+            d = root / "adaptive" / section
+            d.mkdir(parents=True)
+            sf.write(d / f"cue_hash.{section}.full.wav", audio, sr)
+            sf.write(d / f"cue_hash.{section}.strings.wav", audio, sr)
+        manifest = {
+            "id": "cue",
+            "hash": "hash",
+            "sample_rate": sr,
+            "sections": [
+                {"id": "intro", "start_seconds": 0.0, "end_seconds": 0.5, "duration_seconds": 0.5},
+                {"id": "wave1", "start_seconds": 0.5, "end_seconds": 1.0, "duration_seconds": 0.5},
+            ],
+            "files": {
+                "adaptive": {
+                    "intro": {"full": "adaptive/intro/cue_hash.intro.full.wav", "strings": "adaptive/intro/cue_hash.intro.strings.wav"},
+                    "wave1": {"full": "adaptive/wave1/cue_hash.wave1.full.wav", "strings": "adaptive/wave1/cue_hash.wave1.strings.wav"},
+                },
+                "preview": {},
+            },
+        }
+        spec = {"id": "cue", "state_map": {"intro": {"section": "intro"}, "wave1": {"preferred_section": "wave1", "stems": {"strings": 1.0}}}}
+        report = write_adaptive_section_report(root, spec, manifest, root / "reports", plots_dir=root / "plots", plot_format="jpg")
+        payload = json.loads(report.read_text())
+        assert payload["schema"] == "ambition.adaptive_section_audit.v1"
+        by_section = {row["section"]: row for row in payload["rows"] if row["kind"] == "full"}
+        assert by_section["intro"]["high_band_ratio"] > by_section["wave1"]["high_band_ratio"]
+        assert (root / "reports" / "adaptive_section_audit_summary.txt").exists()
+        assert (root / "reports" / "adaptive_section_audit.tsv").exists()
+        if (root / "plots" / "adaptive_section_full_levels.jpg").exists():
+            assert (root / "plots" / "adaptive_section_full_highband.jpg").exists()
+            assert (root / "plots" / "adaptive_section_stack_intro.jpg").exists()
+
+
 def test_reference_audio_audit_reports_surface_features():
     with tempfile.TemporaryDirectory() as td:
         root = Path(td)
@@ -546,3 +592,49 @@ def test_reference_audio_audit_reports_surface_features():
         paths = write_reference_audio_reports(payload, root / "reports")
         assert Path(paths["summary"]).exists()
         assert Path(paths["envelope"]).exists()
+
+
+def test_adaptive_composition_mastering_report_prefers_global_slices():
+    with tempfile.TemporaryDirectory() as td:
+        root = Path(td)
+        sr = 48_000
+        t = np.arange(sr // 2, dtype="float32") / sr
+        quiet_hiss = 0.01 * np.sin(2 * np.pi * 9000.0 * t)
+        loud_low = 0.12 * np.sin(2 * np.pi * 110.0 * t)
+        for section, audio in [("intro", quiet_hiss), ("wave1", loud_low)]:
+            d = root / "adaptive" / section
+            d.mkdir(parents=True)
+            sf.write(d / f"cue_hash.{section}.full.wav", np.stack([audio, audio], axis=1), sr)
+        manifest = {
+            "id": "cue",
+            "hash": "hash",
+            "sample_rate": sr,
+            "sections": [
+                {"id": "intro", "start_seconds": 0.0, "end_seconds": 0.5, "duration_seconds": 0.5},
+                {"id": "wave1", "start_seconds": 0.5, "end_seconds": 1.0, "duration_seconds": 0.5},
+            ],
+            "files": {
+                "adaptive": {
+                    "intro": {"full": "adaptive/intro/cue_hash.intro.full.wav"},
+                    "wave1": {"full": "adaptive/wave1/cue_hash.wave1.full.wav"},
+                },
+                "preview": {},
+            },
+        }
+        spec = {
+            "id": "cue",
+            "render": {"adaptive_section_mastering": {"mode": "global_master_slices"}},
+            "sections": [
+                {"id": "intro", "kind": "intro", "intensity": 0.35, "density": 0.1},
+                {"id": "wave1", "kind": "loop_component", "intensity": 0.6, "density": 0.4},
+            ],
+        }
+        report = write_adaptive_composition_mastering_report(root, spec, manifest, root / "reports", plots_dir=root / "plots", plot_format="jpg")
+        payload = json.loads(report.read_text())
+        assert payload["schema"] == "ambition.adaptive_composition_mastering.v1"
+        assert payload["mastering"]["mode"] == "global_master_slices"
+        text = (root / "reports" / "adaptive_composition_mastering_summary.txt").read_text()
+        assert "mastering mode: global_master_slices" in text
+        assert (root / "reports" / "adaptive_composition_mastering.tsv").exists()
+        if (root / "plots" / "adaptive_composition_mastering_levels.jpg").exists():
+            assert (root / "plots" / "adaptive_composition_noise_floor.jpg").exists()

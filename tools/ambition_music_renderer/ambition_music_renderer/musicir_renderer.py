@@ -35,7 +35,7 @@ import soundfile as sf
 import yaml
 from scipy import signal
 
-RENDERER_VERSION = "ambition-musicir-renderer-v0.8.1-render-cache-v1"
+RENDERER_VERSION = "ambition-musicir-renderer-v0.8.2-adaptive-global-section-master-v1"
 DEFAULT_SOUNDFONTS = [
     "/usr/share/sounds/sf3/MuseScore_General_Full.sf3",
     "/usr/share/sounds/sf3/MuseScore_General.sf3",
@@ -2056,6 +2056,30 @@ def build_manifest(
     }
 
 
+
+
+SECTION_FULL_MASTERING_MODES = ("section_postprocess", "global_master_slices")
+
+
+def adaptive_section_mastering_config(spec: dict[str, Any]) -> dict[str, Any]:
+    render_cfg = spec.get("render", {}) or {}
+    cfg = render_cfg.get("adaptive_section_mastering") or render_cfg.get("adaptive_sections") or {}
+    if not isinstance(cfg, dict):
+        cfg = {}
+    mode = str(cfg.get("mode", cfg.get("full_mix_mode", "section_postprocess")))
+    if mode not in SECTION_FULL_MASTERING_MODES:
+        raise ValueError(
+            f"render.adaptive_section_mastering.mode must be one of {SECTION_FULL_MASTERING_MODES}, got {mode!r}"
+        )
+    return {
+        "mode": mode,
+        "ignore_section_postprocess_for_full_mix": bool(
+            cfg.get("ignore_section_postprocess_for_full_mix", mode == "global_master_slices")
+        ),
+        "notes": str(cfg.get("notes", "")),
+    }
+
+
 def render_all(args: argparse.Namespace) -> dict[str, Any]:
     spec_path = Path(args.spec).resolve()
     spec = load_yaml(spec_path)
@@ -2176,7 +2200,19 @@ def render_all(args: argparse.Namespace) -> dict[str, Any]:
             preview_path.relative_to(output_root)
         )
 
-        # Full section renders are slices of the mastered stem sum.
+        # Full section renders. Prefer global-master slices for adaptive full
+        # sections when requested; legacy render_all has no section-local full
+        # postprocess path, so both modes slice the mastered stem sum.
+        section_mastering = adaptive_section_mastering_config(spec)
+        ignored_section_postprocess = []
+        if section_mastering["mode"] == "global_master_slices":
+            sections_by_id = {s0.get("id"): s0 for s0 in spec.get("sections", [])}
+            ignored_section_postprocess = [
+                str(meta["id"])
+                for meta in section_meta
+                if isinstance(sections_by_id.get(meta["id"], {}), dict)
+                and sections_by_id.get(meta["id"], {}).get("postprocess")
+            ]
         for meta in section_meta:
             section_dir = output_root / "adaptive" / meta["id"]
             section_dir.mkdir(parents=True, exist_ok=True)
@@ -2202,6 +2238,10 @@ def render_all(args: argparse.Namespace) -> dict[str, Any]:
     manifest = build_manifest(
         spec, cue_hash, section_meta, group_names, output_files, sample_rate
     )
+    manifest.setdefault("diagnostics", {})["adaptive_section_mastering"] = {
+        **adaptive_section_mastering_config(spec),
+        "ignored_section_postprocess_sections": locals().get("ignored_section_postprocess", []),
+    }
     manifest_path = output_root / f"{spec['id']}_{cue_hash}.adaptive_manifest.json"
     manifest_path.write_text(json.dumps(manifest, indent=2), encoding="utf8")
     return {

@@ -803,3 +803,107 @@ fn world_space_body_aabbs_scales_with_world_size() {
     assert!((ratio_x - 150.0 / 64.0).abs() < 1e-3);
     assert!((ratio_y - 185.0 / 80.0).abs() < 1e-3);
 }
+
+// ============================================================
+// "Attack inside the boss doesn't connect" investigation
+// (Jon's mockingbird report, 2026-06-21).
+// ============================================================
+
+/// Hypothesis check: "when the attack hitbox is completely inside the
+/// enemy hurtbox the intersection isn't flagged." It IS flagged — the hit
+/// path uses `strict_intersects`, which accepts full containment (see also
+/// `geometry::strict_intersects_accepts_full_containment`). So containment
+/// is NOT where the bug lives; this pins that at the damageable-volume level.
+#[test]
+fn attack_fully_inside_boss_volume_still_registers() {
+    use crate::boss_encounter::behavior::BossBehaviorProfile;
+    use crate::brain::BossAttackState;
+
+    let behavior = BossBehaviorProfile::clockwork_warden();
+    let attack_state = BossAttackState::default();
+    let ctx = BossVolumeContext {
+        pos: ae::Vec2::ZERO,
+        size: ae::Vec2::new(500.0, 185.0),
+        combat_size: ae::Vec2::new(500.0, 185.0),
+        behavior: &behavior,
+        attack_state: &attack_state,
+        sprite_metrics: None, // mockingbird has no authored body_metrics -> fallback box
+        animation_frame: None,
+    };
+    let damageable = damageable_volumes(&ctx);
+    // A tiny attack fully inside the boss volume — "I'm in the middle and swing".
+    let attack = ae::Aabb::new(ae::Vec2::ZERO, ae::Vec2::new(20.0, 20.0));
+    assert!(
+        damageable.iter().any(|p| attack.strict_intersects(*p)),
+        "an attack fully inside the boss volume must register (containment works)",
+    );
+}
+
+/// The actual bug: a boss with NO authored `body_metrics` (the mockingbird)
+/// falls back to the bare `combat_size` box. That box is SMALLER than the
+/// visible sprite and carries no alignment offset, so attacks that visually
+/// connect with the sprite but land outside the smaller combat box miss.
+/// Mockingbird: `combat_size (500x185)` but the sprite frame is `576x216`.
+/// An authored hurtbox covering the visible sprite (as GNU-ton has) fixes it.
+#[test]
+fn mockingbird_combat_size_fallback_undershoots_the_visible_sprite() {
+    use crate::boss_encounter::behavior::{BossBehaviorProfile, BossSpriteMetrics};
+    use crate::brain::BossAttackState;
+    use std::collections::HashMap;
+
+    let behavior = BossBehaviorProfile::clockwork_warden();
+    let attack_state = BossAttackState::default();
+
+    // An attack on the visible upper body: inside the 216-tall sprite
+    // (±108) but ABOVE the fallback combat box (±92.5).
+    let attack = ae::Aabb::new(ae::Vec2::new(0.0, -103.0), ae::Vec2::new(4.0, 4.0));
+
+    // Current state: no authored hurtbox -> combat_size fallback (±92.5 tall).
+    let ctx_fallback = BossVolumeContext {
+        pos: ae::Vec2::ZERO,
+        size: ae::Vec2::new(500.0, 185.0),
+        combat_size: ae::Vec2::new(500.0, 185.0),
+        behavior: &behavior,
+        attack_state: &attack_state,
+        sprite_metrics: None,
+        animation_frame: None,
+    };
+    assert!(
+        !damageable_volumes(&ctx_fallback)
+            .iter()
+            .any(|p| attack.strict_intersects(*p)),
+        "BUG: the bare combat_size box undershoots the visible sprite, so a hit on \
+         the visible upper body misses",
+    );
+
+    // Fix: an authored body hurtbox covering the visible 576x216 sprite.
+    let metrics = BossSpriteMetrics {
+        frame_width: 576,
+        frame_height: 216,
+        body_pixel_bbox: Some(PixelRect {
+            x: 0,
+            y: 0,
+            w: 576,
+            h: 216,
+        }),
+        body_pixel_parts: Vec::new(),
+        sprite_render_size: ae::Vec2::new(576.0, 216.0),
+        combat_offset: ae::Vec2::ZERO,
+        animations: HashMap::new(),
+    };
+    let ctx_authored = BossVolumeContext {
+        pos: ae::Vec2::ZERO,
+        size: ae::Vec2::new(500.0, 185.0),
+        combat_size: ae::Vec2::new(500.0, 185.0),
+        behavior: &behavior,
+        attack_state: &attack_state,
+        sprite_metrics: Some(&metrics),
+        animation_frame: None,
+    };
+    assert!(
+        damageable_volumes(&ctx_authored)
+            .iter()
+            .any(|p| attack.strict_intersects(*p)),
+        "with an authored body hurtbox covering the visible sprite, the same hit lands",
+    );
+}

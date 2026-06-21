@@ -343,7 +343,7 @@ pub fn update_ecs_bosses(
         }
         feature
             .as_boss_mut()
-            .integrate_body(&feature_world, control.0.desired_vel, dt);
+            .integrate_body(&feature_world, control.0.velocity_target, dt);
         aabb.center = feature.kin.pos;
         // Orient the footprint to the boss's reference frame so the box matches
         // the gravity-righted sprite. `to_world_half` swaps width<->height only

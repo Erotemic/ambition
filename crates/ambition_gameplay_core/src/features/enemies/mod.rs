@@ -504,6 +504,9 @@ impl EnemyArchetypeSpec {
             max_health: self.max_health,
             patrol_speed: self.patrol_speed,
             chase_speed: self.chase_speed,
+            // Ground-run capability = the fastest this body locomotes; the brain
+            // expresses patrol/chase (with jitter) as a throttle of it.
+            max_run_speed: self.patrol_speed.max(self.chase_speed),
             aggro_radius: self.aggro_radius,
             attack_range: self.attack_range,
             contact_strength: self.contact_strength,

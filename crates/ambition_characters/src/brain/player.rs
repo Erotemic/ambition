@@ -82,7 +82,7 @@ pub fn tick_player_brain_from_control(
     // direction is controlled-body-local: x = local side/right, y = local
     // down/toward-feet. Downstream movement code should not re-resolve this
     // through the raw input frame.
-    out.desired_vel = local_axis;
+    out.locomotion = local_axis;
 
     // Facing: prefer local side intent; fall back to snapshot facing when stick
     // is neutral so the actor doesn't snap to (0).
@@ -178,7 +178,7 @@ mod tests {
         out.melee_pressed = true; // pre-poisoned
         tick_player_brain_from_control(&input, &s, &mut out);
         assert!(!out.melee_pressed);
-        assert_eq!(out.desired_vel, ae::Vec2::ZERO);
+        assert_eq!(out.locomotion, ae::Vec2::ZERO);
         // Facing falls back to snapshot when stick neutral.
         assert_eq!(out.facing, 1.0);
     }
@@ -222,7 +222,7 @@ mod tests {
     }
 
     #[test]
-    fn movement_axis_routes_to_desired_vel_and_facing() {
+    fn movement_axis_routes_to_locomotion_and_facing() {
         let input = input_with(|c| {
             c.axis_x = -1.0;
             c.axis_y = 0.3;
@@ -230,7 +230,7 @@ mod tests {
         let s = BrainSnapshot::idle();
         let mut out = crate::actor::control::ActorControlFrame::default();
         tick_player_brain_from_control(&input, &s, &mut out);
-        assert_eq!(out.desired_vel, ae::Vec2::new(-1.0, 0.3));
+        assert_eq!(out.locomotion, ae::Vec2::new(-1.0, 0.3));
         assert_eq!(out.facing, -1.0);
     }
 
@@ -250,7 +250,7 @@ mod tests {
         });
         let mut out = crate::actor::control::ActorControlFrame::default();
         tick_player_brain_from_control(&input, &s, &mut out);
-        assert_eq!(out.desired_vel, ae::Vec2::new(-1.0, 0.0));
+        assert_eq!(out.locomotion, ae::Vec2::new(-1.0, 0.0));
         assert_eq!(out.facing, -1.0);
         assert_eq!(out.attack_axis, ae::Vec2::new(-1.0, 0.0));
 
@@ -262,7 +262,7 @@ mod tests {
             c.attack_pressed = true;
         });
         tick_player_brain_from_control(&input, &s, &mut out);
-        assert_eq!(out.desired_vel, ae::Vec2::new(0.0, 1.0));
+        assert_eq!(out.locomotion, ae::Vec2::new(0.0, 1.0));
         assert_eq!(out.attack_axis, ae::Vec2::new(0.0, 1.0));
     }
 

@@ -573,7 +573,7 @@ mod conversion_tests {
         // verifies the integration step blocks the body against
         // the wall, not just the steering code that picks velocity.
         let mut frame = crate::actor::control::ActorControlFrame::neutral();
-        frame.desired_vel = ae::Vec2::new(enemy.config.tuning.chase_speed, 0.0);
+        frame.velocity_target = ae::Vec2::new(enemy.config.tuning.chase_speed, 0.0);
         for _ in 0..120 {
             enemy.update_for_test(
                 &world,
@@ -643,7 +643,8 @@ mod conversion_tests {
         // rightward patrol motion — the test verifies the
         // integration step blocks the body against the wall.
         let mut frame = crate::actor::control::ActorControlFrame::neutral();
-        frame.desired_vel = ae::Vec2::new(enemy.config.tuning.patrol_speed, 0.0);
+        // Full-throttle rightward run intent; the enemy's tuning owns the px/s scale.
+        frame.locomotion = ae::Vec2::new(1.0, 0.0);
         for _ in 0..120 {
             enemy.update_for_test(
                 &world,
@@ -722,9 +723,9 @@ mod conversion_tests {
         let player_pos_far = ae::Vec2::new(2000.0, 300.0);
         // Constant run intent along the perpendicular axis (sign maps to ±vertical);
         // the enemy travels until a cap stops it, then the detection flips facing.
-        let speed = enemy.config.tuning.patrol_speed.max(120.0);
         let mut frame = crate::actor::control::ActorControlFrame::neutral();
-        frame.desired_vel = ae::Vec2::new(speed, 0.0);
+        // Full-throttle run intent along the local side axis; tuning owns px/s.
+        frame.locomotion = ae::Vec2::new(1.0, 0.0);
         // Count facing reversals: with the OLD screen-x detection, `vel.x` is the
         // (zeroed, grounded) gravity axis so the wall-stop NEVER triggers → zero
         // flips and the enemy grinds into the wall forever. With the gravity-

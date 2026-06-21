@@ -587,7 +587,7 @@ fn emit_desired_vel(
     };
     let speed = movement.speed() * macro_scale * strike_scale;
     let max_step = speed * ctx.dt;
-    out.desired_vel = if delta.length() > max_step && max_step > 0.0 {
+    out.velocity_target = if delta.length() > max_step && max_step > 0.0 {
         delta.normalize_or_zero() * speed
     } else if ctx.dt > 0.0 {
         delta / ctx.dt

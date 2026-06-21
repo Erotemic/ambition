@@ -101,25 +101,29 @@ impl ActorFireRequest {
 /// `Default`) so adding a new field doesn't churn every caller.
 #[derive(Clone, Copy, Debug, Default, PartialEq)]
 pub struct ActorControlFrame {
-    /// Desired movement intent. For controlled-character locomotion, unqualified
-    /// direction is local to that character's acceleration frame: `x` is local
-    /// side/right and `y` is local down/toward-feet. Human input, possession,
-    /// replay, and any other controller-like source should resolve raw device
-    /// axes before writing this field.
+    /// Normalized locomotion intent in the controlled body's local frame: `x` is
+    /// local side/right, `y` is local down/toward-feet. Magnitude is a throttle in
+    /// `[0, 1]` — "how hard, of what this body is capable" — *not* a velocity. Any
+    /// per-actor variation (e.g. an enemy's per-spawn speed jitter) is baked into
+    /// this throttle as intent; the body's px/s scale lives in its movement tuning
+    /// (`max_run_speed`).
     ///
-    /// Two magnitudes still share the field while the actor stack migrates:
-    /// - **Floating movers** (aerial enemies/NPCs, bosses) read it directly as a
-    ///   target velocity in px/s (`features::step_floating_body`).
-    /// - **Grounded movers** read its direction in the local body frame. The
-    ///   player/possessed path emits a normalized axis (`[-1, 1]`); enemy/NPC
-    ///   brains may emit a velocity-valued side component, and their integration
-    ///   bridge converts that to `axis_x * max_run_speed` before entering the
-    ///   shared spine.
-    ///
-    /// The deferred cleanup is to split normalized local axis from velocity-valued
-    /// target speed. The reference-frame contract is already settled: this is not
-    /// raw/screen input.
-    pub desired_vel: Vec2,
+    /// One field, one meaning, for every self-locomoting actor — player input,
+    /// possession, replay, hand-authored AI, learned policies. The integration
+    /// half resolves velocity uniformly as `locomotion * max_run_speed`, with no
+    /// per-actor-type branch. AI brains that reason in absolute speeds convert via
+    /// [`crate::brain::BrainSnapshot::locomotion_for`]. Human input must resolve
+    /// raw device axes before writing this.
+    pub locomotion: Vec2,
+    /// Exact world-space velocity command in px/s, for the *free-mover /
+    /// choreography* modality: boss patterns that snap to a scripted velocity, and
+    /// AI flyers that steer a 2D velocity directly. The free-mover integrator
+    /// ([`crate`]'s `step_floating_body`) reads this; grounded integration reads
+    /// [`Self::locomotion`] instead — each consumer picks the field for its
+    /// movement mode, so the default `ZERO` simply means "no free-mover command".
+    /// Deliberately distinct from locomotion (a different control modality, not a
+    /// different actor type), so it does not reintroduce a player/enemy split.
+    pub velocity_target: Vec2,
     /// Suppress the OneWay vertical block this tick so the body
     /// falls through the platform it is standing on. Mirrors the
     /// player's `drop_through_pressed`.
@@ -257,7 +261,8 @@ mod tests {
     #[test]
     fn default_frame_is_neutral() {
         let frame = ActorControlFrame::default();
-        assert_eq!(frame.desired_vel, Vec2::ZERO);
+        assert_eq!(frame.locomotion, Vec2::ZERO);
+        assert_eq!(frame.velocity_target, Vec2::ZERO);
         assert!(!frame.drop_through);
         assert_eq!(frame.facing, 0.0);
         assert!(!frame.melee_pressed);

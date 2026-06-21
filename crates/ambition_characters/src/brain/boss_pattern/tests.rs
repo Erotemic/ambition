@@ -369,17 +369,17 @@ fn world_arena_lateral_boss_preserves_world_y_during_approach() {
         &mut attack_state,
     );
     assert!(
-        out.desired_vel.x > 0.0,
+        out.velocity_target.x > 0.0,
         "boss should still close along authored arena X"
     );
     assert_eq!(
-        out.desired_vel.y, 0.0,
+        out.velocity_target.y, 0.0,
         "world-arena-lateral movement must not chase target world Y"
     );
 }
 
 /// During an active special strike, `strike_speed_scale` should
-/// shrink the emitted desired_vel so World-anchored hitboxes
+/// shrink the emitted velocity_target so World-anchored hitboxes
 /// (saddle cross, minima pit) stay centered on the boss.
 #[test]
 fn strike_speed_scale_reduces_velocity_during_active_special() {
@@ -403,7 +403,7 @@ fn strike_speed_scale_reduces_velocity_during_active_special() {
     ctx.target_pos = ae::Vec2::new(500.0, 0.0); // pull toward +x
     ctx.actor_pos = ae::Vec2::ZERO;
     tick_boss_pattern(&cfg, &mut state, &ctx, &mut out, &mut attack_state);
-    let vel_no_strike = out.desired_vel.length();
+    let vel_no_strike = out.velocity_target.length();
 
     // Sample 2: active special strike — expect ~10% of the speed.
     // Manually set attack_state.active_profile to a special.
@@ -428,7 +428,7 @@ fn strike_speed_scale_reduces_velocity_during_active_special() {
         Some(BossAttackProfile::Special("overfit_volley".into())),
         "should be in active overfit_volley strike for the test",
     );
-    let vel_in_strike = out2.desired_vel.length();
+    let vel_in_strike = out2.velocity_target.length();
     assert!(
         vel_in_strike < vel_no_strike * 0.5,
         "expected speed during active special strike to be much lower than no-strike speed: {vel_in_strike} vs {vel_no_strike}",
@@ -484,7 +484,7 @@ fn strike_speed_scale_reduces_velocity_during_active_melee_too() {
         &mut out1,
         &mut attack_state1,
     );
-    let vel_no_strike = out1.desired_vel.length();
+    let vel_no_strike = out1.velocity_target.length();
 
     // Sample 2: active MELEE strike — expect heavy slowdown.
     let mut state2 = BossPatternState::default();
@@ -504,7 +504,7 @@ fn strike_speed_scale_reduces_velocity_during_active_melee_too() {
         !attack_state2.active_profile.as_ref().unwrap().is_special(),
         "FloorSlam must not register as a special — this test guards against `is_special()` accidentally widening to melee profiles"
     );
-    let vel_in_strike = out2.desired_vel.length();
+    let vel_in_strike = out2.velocity_target.length();
     assert!(
         vel_in_strike < vel_no_strike * 0.5,
         "expected speed during active MELEE strike to be much lower than no-strike speed: {vel_in_strike} vs {vel_no_strike}",
@@ -578,11 +578,11 @@ fn macro_state_transitions_to_approach_when_player_too_far() {
         "expected Approach with player far; got {:?}",
         state.macro_state,
     );
-    // desired_vel should head toward the player (+x direction).
+    // velocity_target should head toward the player (+x direction).
     assert!(
-        out.desired_vel.x > 0.0,
+        out.velocity_target.x > 0.0,
         "Approach should chase toward player (positive x); got {:?}",
-        out.desired_vel,
+        out.velocity_target,
     );
 }
 
@@ -608,11 +608,11 @@ fn macro_state_transitions_to_retreat_when_player_too_close() {
         "expected Retreat with player too close; got {:?}",
         state.macro_state,
     );
-    // desired_vel should head AWAY from the player (-x direction).
+    // velocity_target should head AWAY from the player (-x direction).
     assert!(
-        out.desired_vel.x <= 0.0,
+        out.velocity_target.x <= 0.0,
         "Retreat should move away from player (non-positive x); got {:?}",
-        out.desired_vel,
+        out.velocity_target,
     );
 }
 
@@ -695,9 +695,9 @@ fn macro_state_can_approach_even_when_player_is_close_if_retreat_disabled() {
         state.macro_state,
     );
     assert!(
-        out.desired_vel.x > 0.0,
+        out.velocity_target.x > 0.0,
         "expected chase toward player; got {:?}",
-        out.desired_vel
+        out.velocity_target
     );
 }
 
@@ -729,9 +729,9 @@ fn contact_chase_mode_does_not_need_too_far_trigger() {
         state.macro_state,
     );
     assert!(
-        out.desired_vel.x > 0.0,
+        out.velocity_target.x > 0.0,
         "expected positive chase velocity; got {:?}",
-        out.desired_vel
+        out.velocity_target
     );
 }
 
@@ -755,7 +755,7 @@ fn macro_state_holds_when_front_wall_is_inside_standoff() {
     ctx.front_wall_clearance = Some(32.0);
     tick_boss_pattern(&cfg, &mut state, &ctx, &mut out, &mut attack_state);
     assert_eq!(state.macro_state, BossMacroState::Engage);
-    assert_eq!(out.desired_vel, ae::Vec2::ZERO);
+    assert_eq!(out.velocity_target, ae::Vec2::ZERO);
 }
 
 #[test]
@@ -784,13 +784,13 @@ fn approach_clamps_to_front_wall_standoff_before_collision() {
         state.macro_state,
     );
     assert!(
-        out.desired_vel.x > 0.0,
+        out.velocity_target.x > 0.0,
         "should still close toward the player"
     );
     assert!(
-        out.desired_vel.x <= 120.1,
+        out.velocity_target.x <= 120.1,
         "60px clearance with 48px standoff allows only a 12px/0.1s step; got {:?}",
-        out.desired_vel,
+        out.velocity_target,
     );
 }
 

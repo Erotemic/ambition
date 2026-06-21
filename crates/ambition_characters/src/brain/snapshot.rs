@@ -67,6 +67,15 @@ pub struct BrainSnapshot {
     /// Scaled dt for this tick (seconds).
     pub dt: f32,
 
+    /// The controlled body's ground-run capability in px/s — "the fastest this
+    /// character can run". AI brains that think in absolute speeds turn that into
+    /// normalized intent with [`Self::locomotion_for`], so any per-spawn speed
+    /// jitter rides along *as intent* rather than as a varying capability. The
+    /// integration half scales back by the same capability, so velocity is exact
+    /// without the simulation ever branching on actor type. Player-style brains
+    /// write an already-normalized stick and ignore this.
+    pub max_run_speed: f32,
+
     // --- Combat timers ---
     /// Cooldown remaining before this actor may begin another attack.
     pub attack_cooldown_remaining: f32,
@@ -141,6 +150,7 @@ impl BrainSnapshot {
             target_alive: true,
             sim_time: 0.0,
             dt: 1.0 / 60.0,
+            max_run_speed: 120.0,
             attack_cooldown_remaining: 0.0,
             attack_windup_remaining: 0.0,
             attack_active_remaining: 0.0,
@@ -157,6 +167,20 @@ impl BrainSnapshot {
     /// Acceleration frame that defines this actor's local side/down axes.
     pub fn acceleration_frame(self) -> ae::AccelerationFrame {
         ae::AccelerationFrame::new(self.control_down)
+    }
+
+    /// Turn a desired *local* velocity (px/s, body-local axes) into normalized
+    /// locomotion intent for [`crate::actor::control::ActorControlFrame::locomotion`]:
+    /// `desired / max_run_speed`, clamped-safe against a zero capability. This is
+    /// how a brain that reasons in absolute speeds (patrol/chase, with per-spawn
+    /// jitter) expresses intent so the integrator can scale it back by the same
+    /// capability — no actor-type branch downstream.
+    pub fn locomotion_for(self, desired_local_velocity: ae::Vec2) -> ae::Vec2 {
+        if self.max_run_speed > 1e-3 {
+            desired_local_velocity / self.max_run_speed
+        } else {
+            ae::Vec2::ZERO
+        }
     }
 
     /// Vector from the actor to its current target in actor-local coordinates.

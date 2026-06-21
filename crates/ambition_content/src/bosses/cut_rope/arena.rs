@@ -273,7 +273,7 @@ pub fn steer_cut_rope_boss_under_anvil(
         } else {
             boss.kin.facing
         };
-        control.0.desired_vel = if dx.abs() <= boss_alignment_tolerance(&boss) {
+        control.0.velocity_target = if dx.abs() <= boss_alignment_tolerance(&boss) {
             ae::Vec2::ZERO
         } else {
             ae::Vec2::new(dx.signum() * ROPE_LURE_SPEED, 0.0)

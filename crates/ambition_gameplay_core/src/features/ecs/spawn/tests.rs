@@ -418,6 +418,7 @@ fn pirate_heavy_action_set_swings_when_brain_is_forced_hostile() {
         target_alive: true,
         sim_time: 0.0,
         dt: 1.0 / 60.0,
+        max_run_speed: 120.0,
         attack_cooldown_remaining: 0.0,
         attack_windup_remaining: 0.0,
         attack_active_remaining: 0.0,

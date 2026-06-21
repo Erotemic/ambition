@@ -364,7 +364,7 @@ pub fn emit_player_projectile_tick_messages(
         writer.write(ActorActionMessage {
             actor: entity,
             request: action_set::ActionRequest::PlayerProjectileTick {
-                axis: frame.desired_vel,
+                axis: frame.locomotion,
                 aim: frame.aim,
                 press: frame.projectile_pressed,
                 held: frame.projectile_held,
@@ -642,8 +642,8 @@ mod tests {
                 let mut frame = crate::actor::control::ActorControlFrame::neutral();
                 brain.tick(&snap, &mut frame);
                 // No NaN propagation.
-                assert!(frame.desired_vel.x.is_finite());
-                assert!(frame.desired_vel.y.is_finite());
+                assert!(frame.locomotion.x.is_finite());
+                assert!(frame.locomotion.y.is_finite());
                 assert!(frame.facing.is_finite());
             }
         }

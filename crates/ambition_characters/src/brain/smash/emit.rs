@@ -47,18 +47,20 @@ pub fn emit_inputs(
 
     match action {
         SpecificAction::Idle => {
-            out.desired_vel = ae::Vec2::ZERO;
+            out.locomotion = ae::Vec2::ZERO;
         }
         SpecificAction::Walk { dir } => {
             let signed_dir = signum_or(dir, 0.0);
-            out.desired_vel = ae::Vec2::new(signed_dir * WALK_SPEED_PX_S, 0.0);
+            // Walk = a throttle of the brawler's dash-grade top speed; the body's
+            // tuning owns the px/s scale. (jitter-free here; intent is the throttle)
+            out.locomotion = ae::Vec2::new(signed_dir * (WALK_SPEED_PX_S / DASH_SPEED_PX_S), 0.0);
             if signed_dir.abs() > 0.001 {
                 out.facing = signed_dir;
             }
         }
         SpecificAction::Dash { dir } => {
             let signed_dir = signum_or(dir, 0.0);
-            out.desired_vel = ae::Vec2::new(signed_dir * DASH_SPEED_PX_S, 0.0);
+            out.locomotion = ae::Vec2::new(signed_dir, 0.0);
             if signed_dir.abs() > 0.001 {
                 out.facing = signed_dir;
             }
@@ -98,7 +100,7 @@ pub fn emit_inputs(
             // Reserved — no engine-side input bit yet. Drop to Idle
             // so the actor doesn't visibly freeze in a "trying to
             // shield" pose.
-            out.desired_vel = ae::Vec2::ZERO;
+            out.locomotion = ae::Vec2::ZERO;
         }
     }
 }
@@ -132,15 +134,15 @@ mod tests {
     }
 
     #[test]
-    fn walk_emits_desired_vel_along_dir() {
+    fn walk_emits_locomotion_along_dir() {
         let mut frame = crate::actor::control::ActorControlFrame::neutral();
         emit_inputs(
             SpecificAction::Walk { dir: 1.0 },
             &obs_at(300.0),
             &mut frame,
         );
-        assert!(frame.desired_vel.x > 0.0);
-        assert_eq!(frame.desired_vel.y, 0.0);
+        assert!(frame.locomotion.x > 0.0);
+        assert_eq!(frame.locomotion.y, 0.0);
         assert!(frame.facing > 0.0);
         let mut frame = crate::actor::control::ActorControlFrame::neutral();
         emit_inputs(
@@ -148,7 +150,7 @@ mod tests {
             &obs_at(300.0),
             &mut frame,
         );
-        assert!(frame.desired_vel.x < 0.0);
+        assert!(frame.locomotion.x < 0.0);
         assert!(frame.facing < 0.0);
     }
 
@@ -197,11 +199,11 @@ mod tests {
     }
 
     #[test]
-    fn idle_zeros_desired_vel_but_keeps_facing() {
+    fn idle_zeros_locomotion_but_keeps_facing() {
         let mut frame = crate::actor::control::ActorControlFrame::neutral();
         // Target on the left → expect actor to face left.
         emit_inputs(SpecificAction::Idle, &obs_at(-200.0), &mut frame);
-        assert_eq!(frame.desired_vel, ae::Vec2::ZERO);
+        assert_eq!(frame.locomotion, ae::Vec2::ZERO);
         assert!(frame.facing < 0.0, "facing should point at target");
     }
 }

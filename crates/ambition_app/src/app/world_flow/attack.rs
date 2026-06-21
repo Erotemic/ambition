@@ -24,8 +24,8 @@ pub(crate) fn engine_input_from_actor_control(
     control_dt: f32,
 ) -> ae::InputState {
     let mut input = ae::InputState {
-        axis_x: actor.desired_vel.x,
-        axis_y: actor.desired_vel.y,
+        axis_x: actor.locomotion.x,
+        axis_y: actor.locomotion.y,
         jump_pressed: actor.jump_pressed,
         jump_held: actor.jump_held,
         jump_released: actor.jump_released,

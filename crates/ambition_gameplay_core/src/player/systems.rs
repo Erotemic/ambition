@@ -86,6 +86,9 @@ pub fn tick_player_brains(
             target_alive: true,
             sim_time: 0.0,
             dt: 0.0,
+            // Player brain emits an already-normalized stick; capability is
+            // applied on the player integration side, so this is don't-care here.
+            max_run_speed: 0.0,
             attack_cooldown_remaining: 0.0,
             attack_windup_remaining: 0.0,
             attack_active_remaining: 0.0,
@@ -420,7 +423,7 @@ mod tests {
             .next()
             .expect("player entity should have ActorControl");
         // axis_x → desired_vel.x, jump_pressed → jump_pressed, etc.
-        assert_eq!(control.0.desired_vel.x, 1.0);
+        assert_eq!(control.0.locomotion.x, 1.0);
         assert!(control.0.jump_pressed);
         assert!(control.0.melee_pressed);
         assert!(control.0.shield_held);

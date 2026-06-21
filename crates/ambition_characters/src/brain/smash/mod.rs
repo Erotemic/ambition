@@ -284,7 +284,7 @@ mod tests {
         let mut frame = crate::actor::control::ActorControlFrame::neutral();
         tick_smash(&cfg, &mut state, &actions, &snap, &mut frame);
         assert_eq!(
-            frame.desired_vel.x, 0.0,
+            frame.locomotion.x, 0.0,
             "actor outside aggro_radius should not move"
         );
         assert!(!frame.melee_pressed);
@@ -300,9 +300,9 @@ mod tests {
         let mut frame = crate::actor::control::ActorControlFrame::neutral();
         tick_smash(&cfg, &mut state, &actions, &snap, &mut frame);
         assert!(
-            frame.desired_vel.x > 0.0,
+            frame.locomotion.x > 0.0,
             "actor should approach a target to its right; got vel={:?}",
-            frame.desired_vel,
+            frame.locomotion,
         );
     }
 
@@ -411,7 +411,7 @@ mod tests {
         tick_smash(&cfg, &mut state, &actions, &snap, &mut frame2);
         assert!(frame2.fire.is_none(), "still on cooldown → no second shot");
         assert!(
-            frame2.desired_vel.x > 0.0,
+            frame2.locomotion.x > 0.0,
             "closes toward target while the ranged verb reloads"
         );
 
@@ -447,9 +447,9 @@ mod tests {
         let mut frame = crate::actor::control::ActorControlFrame::neutral();
         tick_smash(&cfg, &mut state, &actions, &snap, &mut frame);
         assert!(
-            frame.desired_vel.x > 200.0,
+            frame.locomotion.x > 0.8,
             "dash burst should exceed walk speed; got {}",
-            frame.desired_vel.x
+            frame.locomotion.x
         );
         assert!(
             state.dash_cooldown_remaining > 0.0,
@@ -467,9 +467,9 @@ mod tests {
         let mut frame = crate::actor::control::ActorControlFrame::neutral();
         tick_smash(&cfg, &mut state, &actions, &snap, &mut frame);
         assert!(
-            frame.desired_vel.x > 0.0 && frame.desired_vel.x < 200.0,
+            frame.locomotion.x > 0.0 && frame.locomotion.x < 0.8,
             "a small gap walks, not dashes; got {}",
-            frame.desired_vel.x
+            frame.locomotion.x
         );
         assert_eq!(
             state.dash_cooldown_remaining, 0.0,
@@ -488,9 +488,9 @@ mod tests {
         let mut frame = crate::actor::control::ActorControlFrame::neutral();
         tick_smash(&cfg, &mut state, &actions, &snap, &mut frame);
         assert!(
-            frame.desired_vel.x > 0.0 && frame.desired_vel.x < 200.0,
+            frame.locomotion.x > 0.0 && frame.locomotion.x < 0.8,
             "no dash capability → a walk; got {}",
-            frame.desired_vel.x
+            frame.locomotion.x
         );
     }
 
@@ -506,9 +506,9 @@ mod tests {
         // the assertion below would catch a leak from the caller's
         // pre-existing frame state.
         frame.melee_pressed = true;
-        frame.desired_vel = ae::Vec2::new(999.0, 999.0);
+        frame.locomotion = ae::Vec2::new(999.0, 999.0);
         tick_smash(&cfg, &mut state, &actions, &snap, &mut frame);
         assert!(!frame.melee_pressed, "dead actor must not emit melee");
-        assert_eq!(frame.desired_vel, ae::Vec2::ZERO);
+        assert_eq!(frame.locomotion, ae::Vec2::ZERO);
     }
 }

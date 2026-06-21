@@ -102,6 +102,10 @@ pub struct EnemyTuning {
     pub patrol_speed: f32,
     /// Chase/steering speed (px/s).
     pub chase_speed: f32,
+    /// Ground-run capability (px/s) — the fastest this body locomotes. Grounded
+    /// brains emit a normalized throttle of it; the integrator scales velocity
+    /// back as `locomotion * max_run_speed`, uniformly with the player.
+    pub max_run_speed: f32,
     /// Distance (px) at which the actor notices the player.
     pub aggro_radius: f32,
     /// Distance (px) at which the actor commits to an attack.
@@ -144,6 +148,7 @@ impl Default for EnemyTuning {
             max_health: 0,
             patrol_speed: 0.0,
             chase_speed: 0.0,
+            max_run_speed: 0.0,
             aggro_radius: 0.0,
             attack_range: 0.0,
             contact_strength: 0.0,

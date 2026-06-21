@@ -65,6 +65,7 @@ impl<'a> NpcMut<'a> {
             target_alive: true,
             sim_time,
             dt,
+            max_run_speed: crate::brain::NPC_PATROL_SPEED,
             attack_cooldown_remaining: 0.0,
             attack_windup_remaining: 0.0,
             attack_active_remaining: 0.0,
@@ -103,7 +104,7 @@ impl<'a> NpcMut<'a> {
         // player — so integrate the whole `desired_vel` with no gravity, mirroring
         // the aerial-enemy path. Keyed off `gravity_scale` like the enemy side.
         if self.surface.gravity_scale <= 0.001 {
-            self.integrate_velocity_aerial(frame.desired_vel, world, dt);
+            self.integrate_velocity_aerial(frame.velocity_target, world, dt);
             return frame;
         }
 
@@ -123,7 +124,7 @@ impl<'a> NpcMut<'a> {
             }
         }
 
-        let stalled_on_wall = self.integrate_velocity(frame.desired_vel.x, world, dt, gravity_dir);
+        let stalled_on_wall = self.integrate_velocity(frame.locomotion.x, world, dt, gravity_dir);
 
         if matches!(
             self.status.ai_mode,
@@ -159,17 +160,15 @@ impl<'a> NpcMut<'a> {
     /// patrol caller reverses facing on a stall.
     pub fn integrate_velocity(
         &mut self,
-        desired_vel_x: f32,
+        locomotion_x: f32,
         world: &ae::World,
         dt: f32,
         gravity_dir: ae::Vec2,
     ) -> bool {
         // Grounded NPCs run the SHARED player physics spine (gravity + run +
         // fall-cap, gravity-direction-relative) — the same core enemies and the
-        // player use. The AI's velocity-valued `desired_vel_x` maps onto the
-        // spine's `axis_x * max_run_speed` model (max_run_speed = |desired|,
-        // axis_x = sign), accel = ENEMY_RUN_ACCEL, friction = 0, so it's
-        // byte-identical under vertical gravity to the old hand-rolled run.
+        // player use, in the SAME shape: normalized `locomotion_x` in, the body's
+        // `NPC_PATROL_SPEED` capability as the scale. No velocity→axis hack.
         let mut body = crate::kinematic::KinematicBody {
             pos: self.kin.pos,
             vel: self.kin.vel,
@@ -181,11 +180,7 @@ impl<'a> NpcMut<'a> {
         // so `side == ±vel.x` (byte-identical to the old screen-x read).
         let perp = ae::Vec2::new(-gravity_dir.y, gravity_dir.x);
         let prev_side_speed = body.vel.dot(perp);
-        let axis_x = if desired_vel_x.abs() > 1e-3 {
-            desired_vel_x.signum()
-        } else {
-            0.0
-        };
+        let axis_x = locomotion_x;
         let spine_tuning = ae::MovementTuning {
             gravity: ENEMY_GRAVITY,
             gravity_dir,
@@ -193,7 +188,7 @@ impl<'a> NpcMut<'a> {
             air_accel: ENEMY_RUN_ACCEL,
             ground_friction: 0.0,
             air_friction: 0.0,
-            max_run_speed: desired_vel_x.abs(),
+            max_run_speed: crate::brain::NPC_PATROL_SPEED,
             max_fall_speed: ENEMY_MAX_FALL,
             ..ae::MovementTuning::default()
         };

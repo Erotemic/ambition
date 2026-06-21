@@ -30,8 +30,8 @@ use ae::Vec2;
 /// movement axis. No hitstun in this probe.
 fn input_from_frame(f: &ActorControlFrame) -> InputState {
     InputState {
-        axis_x: f.desired_vel.x,
-        axis_y: f.desired_vel.y,
+        axis_x: f.locomotion.x,
+        axis_y: f.locomotion.y,
         jump_pressed: f.jump_pressed,
         jump_held: f.jump_held,
         jump_released: f.jump_released,

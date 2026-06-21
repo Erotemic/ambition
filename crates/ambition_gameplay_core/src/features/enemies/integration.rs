@@ -109,14 +109,14 @@ fn integrate_standard_enemy_body(
     let perp = ae::Vec2::new(-gravity_dir.y, gravity_dir.x);
     let prev_side_speed = body.vel.dot(perp);
     if is_aerial {
-        let target_speed = frame.desired_vel.length();
+        let target_speed = frame.velocity_target.length();
         let archetype_chase = tuning.chase_speed;
         let accel = (target_speed.max(archetype_chase) * 3.0).max(900.0) * dt;
         // Aerial enemies are floating free-movers (shared with NPC flyers + bosses).
         super::super::step_floating_body(
             &mut body,
             world,
-            frame.desired_vel,
+            frame.velocity_target,
             Some(accel),
             ENEMY_MAX_FALL,
             dt,
@@ -125,17 +125,11 @@ fn integrate_standard_enemy_body(
         // Grounded walkers run the SHARED player physics spine: gravity + run +
         // fall-cap, gravity-direction-relative. The spine projects `axis_x` onto
         // the gravity-perpendicular "side" axis (so a wall-standing enemy walks
-        // ALONG the wall) and applies gravity along `gravity_dir`. We map the AI's
-        // velocity-valued `desired_vel.x` onto the spine's `axis_x * max_run_speed`
-        // model by setting `max_run_speed = |desired|` and `axis_x = sign(desired)`,
-        // with run/air accel = ENEMY_RUN_ACCEL and friction = 0, so this is
-        // byte-identical under vertical gravity to the old hand-rolled run.
-        let desired = frame.desired_vel.x;
-        let axis_x = if desired.abs() > 1e-3 {
-            desired.signum()
-        } else {
-            0.0
-        };
+        // ALONG the wall) and applies gravity along `gravity_dir`. Identical shape
+        // to the player run path: normalized local intent in `axis_x`, the body's
+        // own `max_run_speed` capability as the scale — no velocity→axis
+        // decomposition, no per-actor-type branch.
+        let axis_x = frame.locomotion.x;
         let spine_tuning = ae::MovementTuning {
             gravity: ENEMY_GRAVITY * surface.gravity_scale,
             gravity_dir,
@@ -143,7 +137,7 @@ fn integrate_standard_enemy_body(
             air_accel: ENEMY_RUN_ACCEL,
             ground_friction: 0.0,
             air_friction: 0.0,
-            max_run_speed: desired.abs(),
+            max_run_speed: tuning.max_run_speed,
             max_fall_speed: ENEMY_MAX_FALL,
             ..ae::MovementTuning::default()
         };

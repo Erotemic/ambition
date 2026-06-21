@@ -38,7 +38,7 @@ fn same_faction_crowding(away_dir: ae::Vec2) -> crate::brain::smash::CrowdingSig
 fn stand_still_emits_neutral_frame() {
     let mut sm = StateMachineCfg::StandStill;
     let mut out = crate::actor::control::ActorControlFrame::default();
-    out.desired_vel = ae::Vec2::new(99.0, 99.0); // pre-poisoned
+    out.locomotion = ae::Vec2::new(99.0, 99.0); // pre-poisoned
     out.melee_pressed = true;
     tick_state_machine(&mut sm, &BrainSnapshot::idle(), &mut out);
     assert_eq!(out, crate::actor::control::ActorControlFrame::neutral());
@@ -57,14 +57,14 @@ fn dead_actor_brain_emits_neutral_regardless_of_template() {
     // into a dead-actor tick).
     let mut out = crate::actor::control::ActorControlFrame::neutral();
     out.melee_pressed = true;
-    out.desired_vel = ae::Vec2::new(99.0, 99.0);
+    out.locomotion = ae::Vec2::new(99.0, 99.0);
     out.fire = Some(crate::actor::control::ActorFireRequest::world_space(
         ae::Vec2::new(1.0, 0.0),
         100.0,
     ));
     tick_state_machine(&mut sm, &s, &mut out);
     assert!(!out.melee_pressed);
-    assert_eq!(out.desired_vel, ae::Vec2::ZERO);
+    assert_eq!(out.locomotion, ae::Vec2::ZERO);
     assert!(out.fire.is_none());
 }
 
@@ -82,14 +82,14 @@ fn patrol_paces_horizontally_around_spawn() {
     let mut out = crate::actor::control::ActorControlFrame::neutral();
     tick_state_machine(&mut sm, &s, &mut out);
     // Within patrol bounds: keeps facing, moves forward.
-    assert!(out.desired_vel.x > 0.0);
+    assert!(out.locomotion.x > 0.0);
     assert_eq!(out.facing, 1.0);
 
     // Push past the right bound → facing flips.
     let mut s2 = snap_at(90.0, 5000.0);
     s2.actor_facing = 1.0;
     tick_state_machine(&mut sm, &s2, &mut out);
-    assert!(out.desired_vel.x < 0.0);
+    assert!(out.locomotion.x < 0.0);
     assert_eq!(out.facing, -1.0);
 }
 
@@ -161,7 +161,7 @@ fn hostile_patrol_chases_target_in_aggro() {
     let mut out = crate::actor::control::ActorControlFrame::neutral();
     tick_state_machine(&mut sm, &s, &mut out);
     // Chase: closes the gap toward target_x.
-    assert!(out.desired_vel.x > 0.0, "hostile patrol should chase right");
+    assert!(out.locomotion.x > 0.0, "hostile patrol should chase right");
     assert_eq!(out.facing, 1.0);
     assert!(!out.melee_pressed);
 }
@@ -224,7 +224,7 @@ fn peaceful_patrol_in_talk_range_holds_and_faces_target() {
     let s = snap_at(0.0, 30.0);
     let mut out = crate::actor::control::ActorControlFrame::neutral();
     tick_state_machine(&mut sm, &s, &mut out);
-    assert_eq!(out.desired_vel, ae::Vec2::ZERO);
+    assert_eq!(out.locomotion, ae::Vec2::ZERO);
     assert_eq!(out.facing, 1.0);
     assert!(!out.melee_pressed);
 }
@@ -240,7 +240,7 @@ fn wanderer_moves_forward_with_no_wall_contact() {
     s.actor_facing = 1.0;
     let mut out = crate::actor::control::ActorControlFrame::neutral();
     tick_state_machine(&mut sm, &s, &mut out);
-    assert!(out.desired_vel.x > 0.0);
+    assert!(out.locomotion.x > 0.0);
     assert_eq!(out.facing, 1.0);
 }
 
@@ -262,7 +262,7 @@ fn wanderer_reverses_on_non_climbable_wall() {
     tick_state_machine(&mut sm, &s, &mut out);
     // Facing flipped from +1 to -1; velocity goes left.
     assert_eq!(out.facing, -1.0);
-    assert!(out.desired_vel.x < 0.0);
+    assert!(out.locomotion.x < 0.0);
 }
 
 #[test]
@@ -291,7 +291,7 @@ fn wanderer_climbs_when_able() {
     // Frame in climb mode emits zero motion (the actor walks
     // along the surface via the integration's surface-walk path
     // rather than the brain).
-    assert_eq!(out.desired_vel, ae::Vec2::ZERO);
+    assert_eq!(out.locomotion, ae::Vec2::ZERO);
 }
 
 #[test]
@@ -313,7 +313,7 @@ fn wanderer_climbing_to_walking_transition_via_wall_clear() {
     let mut out = crate::actor::control::ActorControlFrame::neutral();
     tick_state_machine(&mut sm, &s, &mut out);
     // Engaged climb mode → zero motion.
-    assert_eq!(out.desired_vel, ae::Vec2::ZERO);
+    assert_eq!(out.locomotion, ae::Vec2::ZERO);
     if let StateMachineCfg::Wanderer { state, .. } = &sm {
         assert!(state.climbing);
     }
@@ -325,7 +325,7 @@ fn wanderer_climbing_to_walking_transition_via_wall_clear() {
     // contact resolves; what we test is that with NO wall
     // the brain emits forward walk (per the early-return
     // logic in tick_wanderer).
-    assert!(out2.desired_vel.x > 0.0);
+    assert!(out2.locomotion.x > 0.0);
 }
 
 #[test]
@@ -362,7 +362,7 @@ fn wanderer_resumes_walking_after_pause_expires() {
     tick_state_machine(&mut sm, &s, &mut out2);
     // Forward motion resumed.
     assert!(
-        out2.desired_vel.x != 0.0,
+        out2.locomotion.x != 0.0,
         "wanderer should walk after pause expires"
     );
 }
@@ -404,9 +404,9 @@ fn wanderer_pauses_on_rapid_chatter() {
     // Next tick during pause window → no motion.
     s.sim_time = 0.5;
     let mut out2 = crate::actor::control::ActorControlFrame::neutral();
-    out2.desired_vel = ae::Vec2::new(99.0, 99.0);
+    out2.locomotion = ae::Vec2::new(99.0, 99.0);
     tick_state_machine(&mut sm, &s, &mut out2);
-    assert_eq!(out2.desired_vel, ae::Vec2::ZERO);
+    assert_eq!(out2.locomotion, ae::Vec2::ZERO);
 }
 
 #[test]
@@ -420,7 +420,7 @@ fn melee_brute_chases_then_attacks_when_in_range() {
     let s = snap_at(0.0, 100.0);
     let mut out = crate::actor::control::ActorControlFrame::neutral();
     tick_state_machine(&mut sm, &s, &mut out);
-    assert!(out.desired_vel.x > 0.0);
+    assert!(out.locomotion.x > 0.0);
     assert!(!out.melee_pressed);
     // Target within attack range.
     let s2 = snap_at(0.0, 20.0);
@@ -452,7 +452,7 @@ fn melee_brute_chase_direction_is_controlled_actor_side_not_world_x() {
     tick_state_machine(&mut sm, &s, &mut out);
 
     assert!(
-        out.desired_vel.x > 0.0,
+        out.locomotion.x > 0.0,
         "chase direction should be +local-side even when raw world x is unchanged",
     );
     assert_eq!(out.facing, 1.0);
@@ -524,7 +524,7 @@ fn skirmisher_holds_standoff_then_fires() {
     s.sim_time = 0.0;
     let mut out = crate::actor::control::ActorControlFrame::neutral();
     tick_state_machine(&mut sm, &s, &mut out);
-    assert!(out.fire.is_some() || out.desired_vel.x != 0.0);
+    assert!(out.fire.is_some() || out.velocity_target.x != 0.0);
     // After firing, last_fire_t is now 0.0; within cooldown
     // window another tick should not fire again immediately.
     s.sim_time = 0.1;
@@ -596,7 +596,7 @@ fn skirmisher_holds_quiet_when_target_dead() {
     let mut out = crate::actor::control::ActorControlFrame::neutral();
     tick_state_machine(&mut sm, &s, &mut out);
     assert!(out.fire.is_none());
-    assert_eq!(out.desired_vel, ae::Vec2::ZERO);
+    assert_eq!(out.velocity_target, ae::Vec2::ZERO);
 }
 
 #[test]
@@ -619,7 +619,7 @@ fn skirmisher_steers_away_from_aerial_crowding() {
     tick_state_machine(&mut crowded_brain, &crowded, &mut crowded_out);
 
     assert!(
-        crowded_out.desired_vel.x < clear_out.desired_vel.x,
+        crowded_out.velocity_target.x < clear_out.velocity_target.x,
         "same-faction crowding should pull the skirmisher away from neighbors",
     );
 }
@@ -638,7 +638,7 @@ fn sniper_holds_and_fires_within_aggro() {
     let mut out = crate::actor::control::ActorControlFrame::neutral();
     tick_state_machine(&mut sm, &s, &mut out);
     // Sniper never moves (no desired_vel).
-    assert_eq!(out.desired_vel, ae::Vec2::ZERO);
+    assert_eq!(out.locomotion, ae::Vec2::ZERO);
     // Fired (sim_time past cooldown threshold).
     assert!(out.fire.is_some());
     // After firing, cooldown gates re-fire.
@@ -659,7 +659,7 @@ fn sniper_holds_quiet_outside_aggro() {
     let mut out = crate::actor::control::ActorControlFrame::neutral();
     tick_state_machine(&mut sm, &s, &mut out);
     assert!(out.fire.is_none(), "Sniper out of aggro should not fire");
-    assert_eq!(out.desired_vel, ae::Vec2::ZERO);
+    assert_eq!(out.locomotion, ae::Vec2::ZERO);
 }
 
 #[test]
@@ -679,7 +679,7 @@ fn sniper_holds_quiet_when_target_dead() {
     let mut out = crate::actor::control::ActorControlFrame::neutral();
     tick_state_machine(&mut sm, &s, &mut out);
     assert!(out.fire.is_none(), "Sniper must not fire at dead target");
-    assert_eq!(out.desired_vel, ae::Vec2::ZERO);
+    assert_eq!(out.locomotion, ae::Vec2::ZERO);
 }
 
 #[test]
@@ -736,7 +736,7 @@ fn shark_steers_away_from_aerial_crowding() {
     tick_state_machine(&mut crowded_brain, &crowded, &mut crowded_out);
 
     assert!(
-        crowded_out.desired_vel.x < clear_out.desired_vel.x,
+        crowded_out.velocity_target.x < clear_out.velocity_target.x,
         "same-faction crowding should pull the shark away from nearby flyers",
     );
 }
@@ -861,8 +861,8 @@ fn brain_templates_survive_zero_dt() {
         snap.dt = 0.0;
         let mut frame = crate::actor::control::ActorControlFrame::neutral();
         tick_state_machine(&mut brain, &snap, &mut frame);
-        assert!(frame.desired_vel.x.is_finite());
-        assert!(frame.desired_vel.y.is_finite());
+        assert!(frame.locomotion.x.is_finite() && frame.velocity_target.x.is_finite());
+        assert!(frame.locomotion.y.is_finite() && frame.velocity_target.y.is_finite());
     }
 }
 
@@ -881,10 +881,10 @@ fn boss_pattern_via_state_machine_emits_neutral_frame() {
     let s = snap_at(0.0, 100.0);
     let mut out = crate::actor::control::ActorControlFrame::neutral();
     out.melee_pressed = true; // pre-poisoned
-    out.desired_vel = ae::Vec2::new(99.0, 99.0);
+    out.velocity_target = ae::Vec2::new(99.0, 99.0);
     tick_state_machine(&mut sm, &s, &mut out);
     assert!(!out.melee_pressed);
-    assert_eq!(out.desired_vel, ae::Vec2::ZERO);
+    assert_eq!(out.velocity_target, ae::Vec2::ZERO);
 }
 
 #[test]
@@ -984,8 +984,8 @@ fn aerial_peaceful_flits_between_perches_near_its_anchor() {
         s.sim_time = i as f32 * dt;
         s.dt = dt;
         tick_state_machine(&mut sm, &s, &mut out);
-        pos += out.desired_vel * dt;
-        let speed = out.desired_vel.length();
+        pos += out.velocity_target * dt;
+        let speed = out.velocity_target.length();
         flew |= speed > 30.0;
         perched |= speed < 1.0;
         max_dist = max_dist.max((pos - anchor).length());
@@ -1024,7 +1024,7 @@ fn aerial_peaceful_drops_beside_the_player_to_be_talked_to() {
         s.sim_time = i as f32 * dt;
         s.dt = dt;
         tick_state_machine(&mut sm, &s, &mut out);
-        pos += out.desired_vel * dt;
+        pos += out.velocity_target * dt;
         if let StateMachineCfg::Aerial { state, .. } = &sm {
             last_mode = state.mode;
         }
@@ -1068,7 +1068,7 @@ fn aerial_hostile_stalks_dives_pecks_then_recovers() {
             }
         }
         pecked |= out.melee_pressed;
-        pos += out.desired_vel * dt;
+        pos += out.velocity_target * dt;
     }
     assert!(saw_dive, "the dive-bomber must commit to a Dive");
     assert!(

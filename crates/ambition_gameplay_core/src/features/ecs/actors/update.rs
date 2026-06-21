@@ -286,10 +286,15 @@ pub fn update_ecs_actors(
                     crate::brain::player::tick_player_brain_from_control(
                         &p.control, &snapshot, &mut bf,
                     );
-                    // `desired_vel` is a direction (the player's input axis); the
-                    // enemy integration approaches it directly, so scale it to a
-                    // real speed or the possessed body crawls at ~1 px/s.
-                    bf.desired_vel *= crate::abilities::traversal::possession::POSSESSED_MOVE_SPEED;
+                    // The player brain emits normalized `locomotion`. A possessed
+                    // body should move at POSSESSED_MOVE_SPEED regardless of its
+                    // native capability: encode that as intent for the grounded
+                    // path (a throttle of the body's own max), and as a direct
+                    // world velocity for the aerial / free-mover path.
+                    let possess_speed =
+                        crate::abilities::traversal::possession::POSSESSED_MOVE_SPEED;
+                    bf.velocity_target = bf.locomotion * possess_speed;
+                    bf.locomotion *= possess_speed / em.config.tuning.max_run_speed.max(1.0);
                     bf
                 } else if let Some(brain_ref) = brain.as_deref_mut() {
                     let crowding = crowding_by_id.get(&em.config.id).copied();
@@ -316,7 +321,7 @@ pub fn update_ecs_actors(
                         && em.config.tuning.body_contact_damage;
                 let mut brain_frame = brain_frame;
                 brain_frame.body_contact_damage_enabled = body_contact_damage_enabled;
-                let shark_charge_vec = brain_frame.desired_vel;
+                let shark_charge_vec = brain_frame.velocity_target;
 
                 let frame = em.update(
                     &feature_world,
@@ -565,7 +570,10 @@ pub fn update_ecs_npcs(
                 npc.kin.facing = bf.facing;
             }
             npc.integrate_velocity(
-                bf.desired_vel.x * crate::abilities::traversal::possession::POSSESSED_MOVE_SPEED,
+                // Possess at POSSESSED_MOVE_SPEED, expressed as a throttle of the
+                // NPC run capability the consumer scales by.
+                bf.locomotion.x * crate::abilities::traversal::possession::POSSESSED_MOVE_SPEED
+                    / crate::brain::NPC_PATROL_SPEED,
                 &feature_world,
                 dt,
                 gravity_dir,
@@ -765,6 +773,7 @@ fn build_enemy_brain_snapshot(
         target_alive: true,
         sim_time: 0.0,
         dt,
+        max_run_speed: em.config.tuning.max_run_speed,
         attack_cooldown_remaining: em.attack.cooldown,
         attack_windup_remaining: em.attack.windup_timer,
         attack_active_remaining: em.attack.active_timer,

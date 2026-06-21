@@ -286,7 +286,7 @@ fn tick_patrol(
                 .lane
                 .facing_after_bounds(snapshot.actor_pos, snapshot.actor_facing);
             out.facing = facing;
-            out.desired_vel = ae::Vec2::new(facing * cfg.speed, 0.0);
+            out.locomotion = snapshot.locomotion_for(ae::Vec2::new(facing * cfg.speed, 0.0));
         }
         crate::actor::ai::CharacterAiIntent::Chase { direction_side } => {
             // Only triggers when `aggressiveness > 0` — peaceful
@@ -294,7 +294,7 @@ fn tick_patrol(
             // evaluator returns as Hold for `attack_range = 0`.
             // For aggressive patrol we close the distance.
             if cfg.aggressiveness > 0.0 {
-                out.desired_vel = ae::Vec2::new(direction_side * cfg.speed, 0.0);
+                out.locomotion = snapshot.locomotion_for(ae::Vec2::new(direction_side * cfg.speed, 0.0));
                 out.facing = direction_side.signum_or(snapshot.actor_facing);
             } else {
                 // Peaceful patroller in "Chase" mode = HOLD. The
@@ -410,14 +410,14 @@ fn tick_wanderer(
             return;
         }
         // Move in the new facing direction this tick.
-        out.desired_vel = ae::Vec2::new(new_facing * cfg.speed, 0.0);
+        out.locomotion = snapshot.locomotion_for(ae::Vec2::new(new_facing * cfg.speed, 0.0));
         return;
     }
 
     // No wall contact: emit straight-ahead motion. (The `climbing`
     // sub-state persists until the next wall contact resolves it.)
     out.facing = snapshot.actor_facing.signum_or(1.0);
-    out.desired_vel = ae::Vec2::new(out.facing * cfg.speed, 0.0);
+    out.locomotion = snapshot.locomotion_for(ae::Vec2::new(out.facing * cfg.speed, 0.0));
 }
 
 // ===== MeleeBrute =====
@@ -472,7 +472,7 @@ fn tick_melee_brute(
             // Not used by MeleeBrute today (patrol_enabled=false).
         }
         crate::actor::ai::CharacterAiIntent::Chase { direction_side } => {
-            out.desired_vel = ae::Vec2::new(direction_side * cfg.chase_speed, 0.0);
+            out.locomotion = snapshot.locomotion_for(ae::Vec2::new(direction_side * cfg.chase_speed, 0.0));
             out.facing = direction_side.signum_or(snapshot.actor_facing);
         }
         crate::actor::ai::CharacterAiIntent::Attack { direction_side } => {
@@ -609,8 +609,8 @@ fn tick_skirmisher(
     // Scale down speed when within a small radius of the desired
     // position so the actor doesn't oscillate around it.
     let speed_scale = (approach_dist / 24.0).min(1.0);
-    out.desired_vel = approach_dir * cfg.strafe_speed * speed_scale;
-    out.desired_vel = apply_flying_separation(out.desired_vel, cfg.strafe_speed, snapshot);
+    out.velocity_target = approach_dir * cfg.strafe_speed * speed_scale;
+    out.velocity_target = apply_flying_separation(out.velocity_target, cfg.strafe_speed, snapshot);
     // Fire at the actual target when the cooldown timer is clear.
     // ActionSet supplies the concrete projectile (speed, damage);
     // brain just emits dir.
@@ -756,7 +756,7 @@ fn tick_shark(
 
     if state.charge_remaining > 0.0 {
         state.mode = crate::actor::ai::CharacterAiMode::Attack;
-        out.desired_vel =
+        out.velocity_target =
             apply_flying_separation(orbit_dir * cfg.charge_speed, cfg.charge_speed, snapshot);
         return;
     }
@@ -771,13 +771,13 @@ fn tick_shark(
         state.mode = crate::actor::ai::CharacterAiMode::Telegraph;
         state.charge_remaining = cfg.charge_duration_s.max(snapshot.dt);
         state.charge_cooldown_remaining = cfg.charge_cooldown_s;
-        out.desired_vel =
+        out.velocity_target =
             apply_flying_separation(orbit_dir * cfg.charge_speed, cfg.charge_speed, snapshot);
         return;
     }
 
     state.mode = crate::actor::ai::CharacterAiMode::Chase;
-    out.desired_vel =
+    out.velocity_target =
         apply_flying_separation(orbit_dir * cfg.cruise_speed, cfg.cruise_speed, snapshot);
 }
 
@@ -816,7 +816,7 @@ fn apply_flying_separation(
 // Pure + DETERMINISTIC: every "random" choice is hashed from `sim_time` + the
 // spawn anchor, so the whole performance reproduces in a headless test (no RNG,
 // no frame-timing dependence beyond `dt`). The actor must be gravity-free
-// (enemy `is_aerial`, or a `Floating` NPC) so `desired_vel` controls 2D flight.
+// (enemy `is_aerial`, or a `Floating` NPC) so `velocity_target` drives 2D flight.
 
 /// Deterministic pseudo-random in `[0, 1)` from a float seed (the classic
 /// fract-of-a-big-sine hash). Keeps the brain reproducible without an RNG.
@@ -915,7 +915,7 @@ fn tick_aerial(
     let face_side = if snapshot.target_alive {
         frame_to_local(snapshot, snapshot.target_pos - pos).x
     } else {
-        frame_to_local(snapshot, out.desired_vel).x
+        frame_to_local(snapshot, out.velocity_target).x
     };
     if face_side.abs() > 4.0 {
         out.facing = face_side.signum();
@@ -945,7 +945,7 @@ fn tick_aerial_lively(
             let perch =
                 snapshot.target_pos + frame_to_world(snapshot, ae::Vec2::new(side * 30.0, 0.0));
             let delta = perch - pos;
-            out.desired_vel = if delta.length() > 6.0 {
+            out.velocity_target = if delta.length() > 6.0 {
                 delta.normalize_or_zero() * cfg.cruise_speed
             } else {
                 ae::Vec2::ZERO
@@ -975,16 +975,16 @@ fn tick_aerial_lively(
                 };
                 let dwell = 1.1 + aerial_hash01(now + state.anchor.x) * 1.7;
                 state.phase_until = now + dwell;
-                out.desired_vel = ae::Vec2::ZERO;
+                out.velocity_target = ae::Vec2::ZERO;
             } else {
-                out.desired_vel = delta.normalize_or_zero() * cfg.cruise_speed;
+                out.velocity_target = delta.normalize_or_zero() * cfg.cruise_speed;
             }
         }
         AerialPhase::Walk => {
             state.mode = CharacterAiMode::Patrol;
             // Little ground hops: a slow back-and-forth drift.
             let hop = (now * 2.4).sin() * cfg.cruise_speed * 0.3;
-            out.desired_vel = frame_to_world(snapshot, ae::Vec2::new(hop, 0.0));
+            out.velocity_target = frame_to_world(snapshot, ae::Vec2::new(hop, 0.0));
             if now >= state.phase_until {
                 aerial_pick_waypoint(cfg, state, now, snapshot.acceleration_frame());
                 state.phase = AerialPhase::Fly;
@@ -992,7 +992,7 @@ fn tick_aerial_lively(
         }
         AerialPhase::Perch => {
             state.mode = CharacterAiMode::Patrol;
-            out.desired_vel = ae::Vec2::ZERO;
+            out.velocity_target = ae::Vec2::ZERO;
             if now >= state.phase_until {
                 aerial_pick_waypoint(cfg, state, now, snapshot.acceleration_frame());
                 state.phase = AerialPhase::Fly;
@@ -1023,7 +1023,7 @@ fn tick_aerial_hostile(
         // No prey: loiter near the captured anchor.
         state.mode = CharacterAiMode::Patrol;
         let delta = state.anchor - pos;
-        out.desired_vel = if delta.length() > 12.0 {
+        out.velocity_target = if delta.length() > 12.0 {
             delta.normalize_or_zero() * cfg.cruise_speed
         } else {
             ae::Vec2::ZERO
@@ -1042,7 +1042,7 @@ fn tick_aerial_hostile(
             // Climb to a point above the target, then commit to a dive.
             let anchor = target + frame_to_world(snapshot, ae::Vec2::new(0.0, -altitude));
             let delta = anchor - pos;
-            out.desired_vel = apply_flying_separation(
+            out.velocity_target = apply_flying_separation(
                 delta.normalize_or_zero() * cfg.cruise_speed,
                 cfg.cruise_speed,
                 snapshot,
@@ -1057,7 +1057,7 @@ fn tick_aerial_hostile(
         }
         AerialPhase::Dive => {
             state.mode = CharacterAiMode::Attack;
-            out.desired_vel = to_t.normalize_or_zero() * cfg.dive_speed;
+            out.velocity_target = to_t.normalize_or_zero() * cfg.dive_speed;
             if dist <= cfg.attack_range && snapshot.attack_cooldown_remaining <= 0.0 {
                 out.melee_pressed = true;
             }
@@ -1075,7 +1075,7 @@ fn tick_aerial_hostile(
             )
             .normalize_or_zero();
             let away = frame_to_world(snapshot, away_local);
-            out.desired_vel =
+            out.velocity_target =
                 apply_flying_separation(away * cfg.cruise_speed, cfg.cruise_speed, snapshot);
             if now >= state.phase_until {
                 state.phase = AerialPhase::Stalk;
@@ -1098,11 +1098,11 @@ fn tick_aerial_hostile(
 
 #[derive(Clone, Copy, Debug)]
 pub struct PlayerDemoCfg {
-    /// Horizontal run AXIS intent in `[-1, 1]` (NOT px/s). The player movement
-    /// path reads `desired_vel` as a normalized stick axis (the human brain
-    /// feeds it that way) and scales by `max_run_speed` itself — unlike enemy
-    /// brains, which put a px/s velocity in `desired_vel`. (That dual meaning of
-    /// `desired_vel` is a documented wrinkle in the player-clone probe.)
+    /// Horizontal run AXIS intent in `[-1, 1]` (NOT px/s), written straight to
+    /// `locomotion`. Every self-locomoting brain — player and enemy alike — now
+    /// emits normalized `locomotion` intent and the integrator scales by the
+    /// body's `max_run_speed`; the old px/s-velocity-vs-axis dual meaning of
+    /// `desired_vel` is gone.
     pub run_axis: f32,
     /// Seconds spent in each verb phase before cycling to the next.
     pub phase_secs: f32,
@@ -1177,18 +1177,18 @@ fn tick_player_demo(
     match state.phase {
         PlayerDemoPhase::Run => {
             out.facing = 1.0;
-            out.desired_vel = ae::Vec2::new(run, 0.0);
+            out.locomotion = ae::Vec2::new(run, 0.0);
         }
         PlayerDemoPhase::Jump => {
             out.facing = 1.0;
-            out.desired_vel = ae::Vec2::new(run, 0.0);
+            out.locomotion = ae::Vec2::new(run, 0.0);
             // Rising edge on entry; sustain the hold for a variable-height jump.
             out.jump_pressed = just_entered;
             out.jump_held = true;
         }
         PlayerDemoPhase::Dash => {
             out.facing = 1.0;
-            out.desired_vel = ae::Vec2::new(run, 0.0);
+            out.locomotion = ae::Vec2::new(run, 0.0);
             out.dash_pressed = just_entered;
         }
         PlayerDemoPhase::Fly => {
@@ -1199,7 +1199,7 @@ fn tick_player_demo(
                 state.fly_on = true;
             }
             out.facing = 1.0;
-            out.desired_vel = ae::Vec2::new(run * 0.4, -1.0);
+            out.locomotion = ae::Vec2::new(run * 0.4, -1.0);
         }
     }
 

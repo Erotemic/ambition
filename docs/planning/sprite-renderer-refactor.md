@@ -157,6 +157,22 @@ paradigms touching each file once (break rigdoc↔PySide6 in the same visit) →
   contract mirror). Portability guard: `tests/test_core_minimal_deps.py` (core
   imports with heavy deps blocked). *Known gaps:* harness doesn't yet cover the
   non-registry pipelines (mockingbird multi-file boss, pirate standalone,
-  item_icons, factions) — extend before touching those. *Pre-existing, unrelated
-  failure:* `test_actor_contract::…has_local_actor_metadata` — `noether` rig doc
-  carries no actor metadata.
+  item_icons, factions) — extend before touching those.
+- **2026-06-21 — Step 2a/2b landed.** `core/draw.py` (the ~21-times-copied
+  primitives) — `entities.py` rewired onto it, parity-clean. `core/pipeline.py`
+  (`render_frame`: scale-parametric rasterize→crop, modes tight/ground/none) —
+  `entities._render_supersampled` routed through it, parity-clean; `scale` proven
+  (0.5 → 64×64 in ms). Fixed the spurious `noether` actor-metadata test
+  (rig-doc targets exempted). Helper swaps for the other ~16 files are deferred
+  into each file's paradigm migration (touch-once).
+- **2026-06-21 — harness upgraded to cover manifests.** It now hashes/diffs
+  `*.ron` + `*.yaml` alongside PNGs (manifest drift → unified text diff in
+  `tmp/`), so measurement/emitter changes are verifiable. Baseline re-captured.
+- **Next phase — measurement + emitter consolidation (will produce blessed
+  drift).** The two spines compute feet *differently*: `sheet._measure_body_extent`
+  uses `feet_y = y_max-1` (inclusive last opaque row — matches the door fix's
+  "lowest opaque pixel"); `tackon_sheet.alpha_bbox_metrics` uses `feet_y = y2`
+  (one-past) + rounds. Unify on the inclusive version into `core/measure.py`
+  (a genuine correctness fix), then one RON emitter (`core/manifest.py` schema),
+  guarded by a Rust parse test. This shifts feet metadata ~1px on the tackon
+  path → review the `tmp/` manifest diffs and bless.

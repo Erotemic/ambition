@@ -24,6 +24,7 @@ starting a behaviour-preserving change, then `check` as you refactor.
 from __future__ import annotations
 
 import argparse
+import difflib
 import hashlib
 import json
 import shutil
@@ -46,8 +47,13 @@ def _discover() -> Dict[str, object]:
     return discover_all_targets().targets
 
 
-def render_target_pngs(target) -> Dict[str, bytes]:
-    """Render one target's sheet(s) to a temp dir; return {relpath: png bytes}.
+# Output kinds we pin: PNG pixels AND the RON/YAML manifests (so changes to
+# measured metadata or the emitter are caught, not just pixel changes).
+OUTPUT_GLOBS = ("*.png", "*.ron", "*.yaml")
+
+
+def render_target_files(target) -> Dict[str, bytes]:
+    """Render one target's sheet(s) to a temp dir; return {relpath: bytes}.
 
     Keyed by path relative to the render dir so multi-file targets (bosses)
     compare file-by-file. Raises on render failure (caller records it).
@@ -56,8 +62,9 @@ def render_target_pngs(target) -> Dict[str, bytes]:
     try:
         target.render_sheet(out)
         result: Dict[str, bytes] = {}
-        for png in sorted(out.rglob("*.png")):
-            result[str(png.relative_to(out))] = png.read_bytes()
+        for pat in OUTPUT_GLOBS:
+            for f in sorted(out.rglob(pat)):
+                result[str(f.relative_to(out))] = f.read_bytes()
         return result
     finally:
         shutil.rmtree(out, ignore_errors=True)
@@ -83,7 +90,7 @@ def cmd_capture(args) -> int:
     t0 = time.time()
     for i, name in enumerate(names, 1):
         try:
-            pngs = render_target_pngs(targets[name])
+            files = render_target_files(targets[name])
         except Exception:
             err += 1
             print(f"[{i}/{len(names)}] ERROR {name}")
@@ -93,7 +100,7 @@ def cmd_capture(args) -> int:
         tdir = BASELINE_DIR / name
         tdir.mkdir(parents=True, exist_ok=True)
         hashes = {}
-        for rel, data in pngs.items():
+        for rel, data in files.items():
             dest = tdir / rel
             dest.parent.mkdir(parents=True, exist_ok=True)
             dest.write_bytes(data)
@@ -138,6 +145,44 @@ def _side_by_side(before: Optional[Path], after: Optional[Path], dest: Path) -> 
     canvas.convert("RGBA").save(dest)
 
 
+def _dump_drift(
+    name: str, rel: str, before_path: Optional[Path], after_bytes: Optional[bytes]
+) -> None:
+    """Write before/after artifacts for one drifted file into tmp/sprite-drift.
+
+    PNGs get a side-by-side compare image; RON/YAML manifests get a unified
+    text diff — whichever is easiest to eyeball for that kind.
+    """
+    dest_dir = DRIFT_DIR / name
+    dest_dir.mkdir(parents=True, exist_ok=True)
+    ext = Path(rel).suffix
+    flat = rel.replace("/", "__")
+    before_dest = after_dest = None
+    if before_path is not None and before_path.exists():
+        before_dest = dest_dir / (flat + ".before" + ext)
+        shutil.copyfile(before_path, before_dest)
+    if after_bytes is not None:
+        after_dest = dest_dir / (flat + ".after" + ext)
+        after_dest.write_bytes(after_bytes)
+    if ext == ".png":
+        _side_by_side(before_dest, after_dest, dest_dir / (flat + ".compare.png"))
+        return
+    before_text = (
+        before_path.read_text().splitlines()
+        if before_path is not None and before_path.exists()
+        else []
+    )
+    after_text = (
+        after_bytes.decode("utf-8", "replace").splitlines()
+        if after_bytes is not None
+        else []
+    )
+    diff = difflib.unified_diff(
+        before_text, after_text, fromfile=f"before/{rel}", tofile=f"after/{rel}", lineterm=""
+    )
+    (dest_dir / (flat + ".diff")).write_text("\n".join(diff))
+
+
 def cmd_check(args) -> int:
     if not BASELINE_DIR.exists():
         print("no baseline — run `capture` first", file=sys.stderr)
@@ -156,7 +201,7 @@ def cmd_check(args) -> int:
             missing_baseline.append(name)
             continue
         try:
-            cur = render_target_pngs(targets[name])
+            cur = render_target_files(targets[name])
         except Exception:
             errored.append(name)
             continue
@@ -170,17 +215,8 @@ def cmd_check(args) -> int:
         for rel in rels:
             if base_hashes.get(rel) == cur_hashes.get(rel):
                 continue
-            before = bdir / rel if rel in base_hashes else None
-            after_path = None
-            if rel in cur:
-                after_path = DRIFT_DIR / name / (rel + ".after.png")
-                after_path.parent.mkdir(parents=True, exist_ok=True)
-                after_path.write_bytes(cur[rel])
-            if before is not None:
-                bdest = DRIFT_DIR / name / (rel + ".before.png")
-                bdest.parent.mkdir(parents=True, exist_ok=True)
-                shutil.copyfile(before, bdest)
-            _side_by_side(before, after_path, DRIFT_DIR / name / (rel + ".compare.png"))
+            _dump_drift(name, rel, bdir / rel if rel in base_hashes else None,
+                        cur.get(rel))
 
     print(f"\nparity check: {clean} clean, {len(drifted)} drifted, "
           f"{len(errored)} errors, {len(missing_baseline)} missing-baseline")

@@ -36,15 +36,31 @@ same":
   Solid's fill is still faint, I'll bump its opacity (one tweak). Door→door
   sprite + per-enemy art are the noted follow-ups.
 
-- **Slash effect now respects the reference frame.** It orients to the hitbox
-  (gameplay authority, already gravity-relative): down-tilt = horizontal forward
-  poke, down-air = downward sweeping arc, all rotating with C4 gravity. Pinned
-  by tests (render rotation under 4 dirs; combat strike-direction under 4
-  gravities). **Verify in-game / symmetry room.** Handedness (crescent curl on
-  a left-facing swing) and size are the likely tweaks — flag and I'll adjust.
-  Decision made per your "can't decide": **hitbox stays the authority, effect
-  orients to it** (no hitbox change was needed — the offsets already pointed
-  right).
+- **Slash effect reference frame — fixed twice.** First pass oriented it but
+  pulled `dir` from the *manifest* hitbox (`manifest_attack_hitbox_world`),
+  which positions with SCREEN-axis offsets and never rotates into gravity — so
+  in the rotated C4 arms a forward jab pointed screen-left/right (up/down were
+  fine). Now it drives off `spec.hitbox_offset`, which is `into_world_frame`d
+  (gravity-rotated), so the effect lives in the player frame under all four C4
+  gravities. Pinned by the combat C4 test (strike dir) + render rotation test.
+  **Re-verify in the symmetry room.** Handedness (left-facing crescent curl) +
+  size are the remaining likely tweaks.
+  - *Hitbox-vs-effect decision (your "can't decide"):* hitbox stays the
+    authority, effect orients to it.
+
+- **NEXT — hitbox from sprite metadata (your "bigger general" point).** Emmy's
+  collision doesn't match her sprite because NPC/character/prop spawns size
+  collision from the archetype/ldtk `default_size`, NOT the sprite RON
+  `body_metrics`. The **boss path already does the right thing** (reads
+  `registry.body_metrics` → collision), so this is "extend the boss pattern to
+  characters/props." My recommended model (matches your emergent-correctness +
+  the portal example, no new flag needed): **a sprite's published `body_metrics`
+  bbox is authoritative for that entity's collision when present; absent → fall
+  back to the ldtk bounds** (which then legitimately drive scale, e.g. portals
+  have no character bbox so the ldtk box wins). Add an explicit
+  `bounds_authoritative=false` override only if a future case needs ldtk despite
+  having a sprite (YAGNI). It's a real gameplay-collision change across the
+  spawn path — say go and I'll implement it as its own pass.
 
 ---
 

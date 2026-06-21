@@ -198,7 +198,25 @@ paradigms touching each file once (break rigdoc↔PySide6 in the same visit) →
   translucent-over-content clobbers. ⚠️ The pixel harness **cannot** catch these
   (they render consistently wrong → no drift); needs eyeball/heuristic. Any
   compositing the core grows (e.g. sheet assembly) MUST use `alpha_composite`.
-- **Next — the single RON emitter.** Consolidate the two RON writers
+- **2026-06-21 — Step 2e/2f landed: single RON emitter + composite-guard unify.**
+  `core/manifest_ron.py` is the one RON writer (both spines delegate; ~340 dup
+  lines gone); 117 clean incl. multi-record lab props. `core/draw.overlay_draw`
+  is the canonical alpha-clobber guard (`"RGBA"` scratch mode);
+  `generic_explosions` adopted it (parity-clean). Dep edges clean (numpy unused,
+  rich dev-CLI-only, PySide6 gui-only).
+- **2026-06-21 — SPINE-DEDUP PHASE COMPLETE.** The cleanly-shared spine parts
+  are all unified onto `core/`: draw helpers, the per-frame rasterize/crop
+  primitive, body/feet measurement, and RON emission. The remaining duplication
+  — the two `build_*` sheet *assemblers* — is **essential, not accidental**:
+  adapters union-crop across frames; tack-ons recenter each frame individually.
+  Forcing a merge would be drift-prone for little gain (the shared part is just
+  grid-packing, entangled with differing label/preview/contact rendering). Left
+  separate by analysis (cf. the won't-unify entries in code_smells).
+- **Next — directory reorg (navigability) or FrameSet per-paradigm migration.**
+  Both are large; the reorg's module-grouping (`authoring/` vs root infra) is a
+  layout choice worth a quick steer before a 100+ import-site churn.
+
+- *(historical)* **The single RON emitter.** Consolidate the two RON writers
   (`sheet.py` + `tackon_sheet.py`) into one (`core/manifest.py` schema → stdlib
   RON), dropping the `*_spritesheet.yaml` sidecar (no YAML in the write path).
   Guard it with a Rust-side parse test (Python RON writers are looser than Rust's

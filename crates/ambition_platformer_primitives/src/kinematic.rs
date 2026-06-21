@@ -408,8 +408,14 @@ fn sweep_axis(
             || (axis_role(axis, gravity_dir) == AxisRole::Gravity
                 && moving_toward_feet(delta, gravity_dir))
         {
+            // Already moved to the time-of-impact above, so the landing snap
+            // is a small alignment; guard it anyway for uniformity (never
+            // pushout-teleport on a feet-to-surface snap). See
+            // `is_contact_range_snap`.
             let snap = snap_feet_to_surface(body.aabb(), hit.block.aabb, gravity_dir);
-            body.pos += snap;
+            if is_contact_range_snap(snap, body.aabb()) {
+                body.pos += snap;
+            }
             body.on_ground = true;
             clear_axis_velocity(&mut body.vel, axis);
             clear_velocity_toward_feet(&mut body.vel, gravity_dir);

@@ -300,3 +300,19 @@ instead of forcing them to parse one-off prose.
 - Next: move room inspection/render/bundle code into `room_support/*` and keep `room.py` as a CLI adapter.
 - Next: compile area authoring specs to patch ops before mutating LDtk directly.
 - Later: relocate game content specs out of the reusable Python package tree.
+
+### Refactor architecture notes
+
+The LDtk tools are being split so correctness comes from shared seams instead of
+per-command JSON mutation logic:
+
+- `ambition_ldtk_tools.ldtk.*` owns low-level LDtk IO, queries, fields, patch ops, transactions, and shared issue objects.
+- `ambition_ldtk_tools.validate_rules.*` owns validation rule helpers and maps legacy messages to first-class issue codes.
+- `ambition_ldtk_tools.edit.layout.*` owns world layout graph building, strategies, SVG previews, and writeback/reporting.
+- `ambition_ldtk_tools.room_support.*` owns room inspection, rendering, and debug bundle construction.
+- `ambition_ldtk_tools.area.*` owns area spec loading and the new patch-plan seam used before mutating LDtk projects.
+
+The public CLI entrypoints remain stable while implementation files move behind
+these packages. If a later overlay turns a legacy `.py` entrypoint into a package
+or removes dead wrappers, include explicit `git rm` cleanup commands because ZIP
+overlays cannot delete files.

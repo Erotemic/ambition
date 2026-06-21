@@ -138,6 +138,7 @@ from pathlib import Path
 PKG_DIR = Path(__file__).resolve().parent
 
 from ambition_ldtk_tools.area.spec import load_spec
+from ambition_ldtk_tools.area.plan import AreaPatchPlan, CallableAreaPatchOp
 
 
 def load_project(path: Path) -> dict:
@@ -1460,6 +1461,83 @@ def list_free_spots(project: dict, target_room: str) -> int:
     return 0
 
 
+def compile_area_create_plan(
+    project: dict,
+    spec: dict,
+    *,
+    replace_existing: bool = False,
+) -> tuple[AreaPatchPlan, dict, list[str]]:
+    """Compile an area spec into explicit patch operations.
+
+    This is the first step away from direct mutation in ``main``.  The existing
+    builders still construct the level/reciprocal zones, but the command now
+    stages those mutations as named operations before applying them.  Future
+    refactors can replace the callable ops with first-class LDtk patch ops
+    without changing the CLI behavior.
+    """
+
+    level_id = str(spec["level_id"])
+    plan = AreaPatchPlan(area_id=str(spec.get("id") or ""), level_identifier=level_id)
+
+    existing_index = next(
+        (
+            idx
+            for idx, level in enumerate(project.get("levels", []))
+            if level.get("identifier") == level_id
+        ),
+        None,
+    )
+    if existing_index is not None and not replace_existing:
+        raise SystemExit(f"level identifier '{level_id}' already exists")
+
+    level = build_level(project, spec)
+    reciprocal_summaries: list[str] = []
+
+    def replace_existing_level_op(target_project: dict) -> list[str]:
+        if existing_index is None:
+            return []
+        removed = target_project["levels"].pop(existing_index)
+        return [
+            f"replacing existing level '{removed['identifier']}' "
+            f"({removed['pxWid']}x{removed['pxHei']} at "
+            f"{removed['worldX']},{removed['worldY']})"
+        ]
+
+    def append_level_op(target_project: dict) -> list[str]:
+        target_project.setdefault("levels", []).append(level)
+        target_project.setdefault("toc", [])
+        return [
+            f"add level '{level['identifier']}' (area '{spec['id']}', "
+            f"{level['pxWid']}x{level['pxHei']} at {level['worldX']},{level['worldY']})"
+        ]
+
+    def reciprocal_zones_op(target_project: dict) -> list[str]:
+        summaries: list[str] = []
+        for connection in spec.get("connect_to") or []:
+            instance = add_reciprocal_loading_zone(target_project, connection, level_id)
+            fields = {
+                f["__identifier"]: f.get("__value")
+                for f in instance.get("fieldInstances", [])
+            }
+            line = (
+                f"reciprocal LoadingZone in '{connection['target_room']}' at "
+                f"px={instance['px']} size=({instance['width']}x{instance['height']}) "
+                f"→ {fields.get('target_room')}/{fields.get('target_zone')}"
+            )
+            summaries.append(line)
+            reciprocal_summaries.append(line)
+        return summaries
+
+    if existing_index is not None:
+        plan.add_op(CallableAreaPatchOp("replace existing level", replace_existing_level_op))
+    plan.add_op(CallableAreaPatchOp("append generated level", append_level_op))
+    if spec.get("connect_to"):
+        plan.add_op(CallableAreaPatchOp("add reciprocal loading zones", reciprocal_zones_op))
+
+    plan.preview_lines.append(summarize_level(level))
+    return plan, level, reciprocal_summaries
+
+
 def main(argv=None) -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument(
@@ -1694,50 +1772,20 @@ def main(argv=None) -> int:
             return _fail(f"spec is missing required key '{required}'")
 
     project = load_project(args.ldtk)
-
-    existing_index = next(
-        (
-            idx
-            for idx, level in enumerate(project.get("levels", []))
-            if level.get("identifier") == spec["level_id"]
-        ),
-        None,
-    )
-    if existing_index is not None:
-        if not args.replace_existing:
-            return _fail(f"level identifier '{spec['level_id']}' already exists")
-        removed = project["levels"].pop(existing_index)
-        print(
-            f"replacing existing level '{removed['identifier']}' "
-            f"({removed['pxWid']}x{removed['pxHei']} at "
-            f"{removed['worldX']},{removed['worldY']})"
+    try:
+        plan, level, _reciprocal_summaries = compile_area_create_plan(
+            project,
+            spec,
+            replace_existing=args.replace_existing,
         )
-
-    level = build_level(project, spec)
-    project.setdefault("levels", []).append(level)
-    # `toc` is required by the LDtk JSON schema; LDtk regenerates per-level
-    # TOC entries on save, so leaving the existing top-level TOC list intact
-    # is the safe choice. (Adding an empty entry for the new level is also
-    # acceptable; LDtk rebuilds either way.)
-    project.setdefault("toc", [])
-
-    # Optional: append reciprocal LoadingZones into existing target levels.
-    reciprocal_summaries: list[str] = []
-    for connection in spec.get("connect_to") or []:
-        instance = add_reciprocal_loading_zone(project, connection, spec["level_id"])
-        fields = {
-            f["__identifier"]: f.get("__value")
-            for f in instance.get("fieldInstances", [])
-        }
-        reciprocal_summaries.append(
-            f"reciprocal LoadingZone in '{connection['target_room']}' at "
-            f"px={instance['px']} size=({instance['width']}x{instance['height']}) "
-            f"→ {fields.get('target_room')}/{fields.get('target_zone')}"
-        )
+    except SystemExit as ex:
+        return _fail(str(ex))
 
     print("--- preview ---")
-    print(summarize_level(level))
-    for line in reciprocal_summaries:
+    for line in plan.preview_lines:
+        print(line)
+    apply_summaries = plan.apply(project)
+    for line in apply_summaries:
         print(line)
     print("--- end preview ---")
 

@@ -334,3 +334,16 @@ code should prefer these package seams:
 Because overlay ZIPs do not delete stale files, avoid converting existing
 `room.py`-style modules directly into same-named packages unless the final
 instructions include an explicit cleanup command.
+
+## Internal refactor seams
+
+The tool package is intentionally moving toward thin CLIs over shared internals:
+
+- `ldtk/` for IO, queries, fields, patch ops, transactions, and shared issues.
+- `validate_rules/` for validation rule helpers and first-class issue codes.
+- `edit/layout/` for graph construction, layout strategies, SVG previews, and writeback.
+- `room_support/` for room inspect/render/bundle helpers.
+- `area/` for area spec loading and patch-plan compilation.
+
+Keep new commands on these seams instead of re-implementing raw LDtk JSON access,
+writeback, no-op handling, or diagnostic formatting locally.

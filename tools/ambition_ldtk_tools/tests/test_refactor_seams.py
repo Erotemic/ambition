@@ -13,7 +13,7 @@ def test_validate_issues_wraps_parse_errors(tmp_path: Path):
     issues = validate_issues(path)
     assert len(issues) == 1
     assert issues[0].severity == "error"
-    assert issues[0].code == "validate.error"
+    assert issues[0].code == "validate.json.parse"
     assert "failed to parse JSON" in issues[0].message
 
 
@@ -61,3 +61,18 @@ def test_area_spec_loader_rejects_yaml(tmp_path: Path):
         assert "YAML area specs are no longer supported" in str(ex)
     else:
         raise AssertionError("expected yaml specs to be rejected")
+
+
+def test_area_patch_plan_applies_named_ops():
+    from ambition_ldtk_tools.area.plan import AreaPatchPlan, CallableAreaPatchOp
+
+    project = {"levels": []}
+    plan = AreaPatchPlan(area_id="demo", level_identifier="demo_level")
+    plan.add_op(
+        CallableAreaPatchOp(
+            "append demo level",
+            lambda p: p["levels"].append({"identifier": "demo_level"}) or ["added demo_level"],
+        )
+    )
+    assert plan.apply(project) == ["added demo_level"]
+    assert project["levels"][0]["identifier"] == "demo_level"

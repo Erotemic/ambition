@@ -1,166 +1,191 @@
-# Sprite renderer refactor — holistic plan
+# Sprite/actor intent contract — holistic plan
 
-*Author: Claude Opus 4.8 (1M) · 2026-06-21 · status: PROPOSAL (not started)*
+*Author: Claude Opus 4.8 (1M) · 2026-06-21 · status: PROPOSAL (thinking, not started)*
 
-`tools/ambition_sprite2d_renderer` is ~72k LOC of Python that draws every
-sprite/tile/prop the game consumes. It is one of the weakest parts of the
-game and the hardest to author into (LLMs manipulate algebra far better than
-pixels). This doc proposes a holistic refactor. It extends the renderer's own
-[`GOALS.md`](../../tools/ambition_sprite2d_renderer/GOALS.md) (rig convergence,
-a `scale` param, the unified `Target` abstraction) rather than replacing it.
+This started as "make the door sprite stand on the ground" and grew into a
+direction for `tools/ambition_sprite2d_renderer` (~72k LOC, the weakest part of
+the game). After a round of Jon feedback the center of gravity moved, so this
+doc is rewritten around the real prize.
 
-It was motivated by a small task — making a door sprite stand on the ground
-instead of floating with a stray circle — which turned out to be the whole
-refactor in miniature (see *The door as template* below).
+## What this is actually about (revised after Jon's feedback)
 
-## The one idea: measure by default, declare only the exceptions
+Not LOC reduction. Not forcing every sprite onto bone rigs. The prize is:
 
-The door floated because its *visual* was welded to its *trigger box* and its
-contact point was an artifact of where the artist happened to draw pixels. The
-fix was to let geometry **emerge from the pixels**: a grounded sprite's "feet"
-are its lowest opaque row, and the runtime plants that row on the box's floor
-face. No per-placement nudging, no per-sprite Rust constant.
+> **Correct, rich RON output so the game can react to the *intent* of a sprite.**
 
-That is the whole refactor's organizing principle:
+Authoring stays **plural** — drawers, imperative PIL, YAML adapters, and bone
+rigs are all legitimate ways to make pixels, each with its own charm. Bone rigs
+are *one* nice, maintainable method, never mandatory. **No authoring path is
+made legacy/dead until a replacement exists that produces a sprite Jon likes
+*more* than the original.** Code shrinkage is only ever a side effect of de-
+duping the shared spine.
 
-> **Whatever can be measured from the rendered pixels is measured by the
-> renderer and written into one manifest. Authoring only *declares* what
-> pixels cannot express (sockets, an explicit collision box, hit-active
-> frame windows, the ground flag). The game reads the manifest and holds
-> zero per-target sprite constants.**
+The point of the rich contract is **expressiveness**: when sprites declare their
+intent as data, generic game systems can do interesting things with them that
+are impractical to hand-code per entity. The marquee example — the thing Jon
+explicitly wants and doesn't yet know how to improve — is **boss attack
+patterns.**
 
-Correctness becomes emergent (the renderer can't forget to update a Rust
-constant because there is no Rust constant), and authoring shrinks to the
-irreducible creative choices.
+## The organizing principle
 
-## Current state (from three deep-dives, 2026-06-21)
+The door floated because its geometry was an accident of where pixels landed and
+a constant welded it to its trigger box. The fix let geometry **emerge from the
+pixels** (feet = lowest opaque row; the runtime plants it). Generalize:
 
-**Four overlapping authoring paradigms**, ~10% reusable core / ~90% periphery:
+> **Declare intent as data; let generic systems react. Measure what the pixels
+> can express; author only what they can't.**
 
-| Paradigm | Where | ~LOC | Note |
-|---|---|---|---|
-| Imperative per-character PIL | `targets/characters/*.py` | ~38k | each a bespoke 0.7–2.4k-LOC generator re-deriving anatomy/pose/silhouette |
-| YAML-config adapters | `configs/*.yaml` + `adapters.py` | ~3.7k | 8 runtime + ~40 review configs over the same generators |
-| Bone/skeleton rigs | `skeleton.py` + `rigdoc.py` + `gui/` | ~2.9k | **only 3 of ~50 targets use it**; the promising path |
-| Drawer props/tiles/icons | `targets/{props,tiles,icons}/*.py` | ~12k | door lives here; 2 tilesets are 2.2–2.7k each |
+This applies at **two layers that meet**:
 
-**The metadata is split three ways and drifts:**
+1. **Sprite/actor intent** *(renderer → game)* — measured: feet/contact row,
+   body extent, per-frame hurt/hit windows, ground flag. Declared (pixels can't
+   express): **sockets** (muzzle / hand_l / hand_r / weapon_tip / mouth), an
+   explicit collision box distinct from the silhouette, hit-active frame
+   windows, semantic kind/role.
+2. **Behavior/attack intent** *(content RON → game)* — declared: projectile
+   emitter patterns, telegraph/commit/recovery beats, attack-selection policy.
 
-- *Measured & consumed* — `body_metrics` (body bbox, `feet_anchor_norm`,
-  per-anim hurt/hitboxes) in `*_spritesheet.ron`, read by `SheetRecord`. Good;
-  single source of truth.
-- *Measured-able but hard-coded in Rust* — `collision_scale`/render size lives
-  in `character_catalog.ron` + a Rust `DEFAULT_TUNING`, even though the renderer
-  already measures the body fraction it's derived from. The
-  `TODO(gen2d-collision-aware)` in `character_sprites/sheets/geometry.rs:11`
-  asks for exactly this.
-- *Authored but orphaned* — `*_actor.ron` carries the richest model that
-  exists (explicit collision, hurtbox, **sockets** feet/muzzle/weapon_tip,
-  anim event bindings) and **nothing reads it**.
-- *Duplicated and drift-prone* — **bosses** hard-code `BossSheetSpec` (rows,
-  durations, anchor, scale) as `&'static` Rust constants that the RON also
-  carries; a regen can silently disagree. (Cf. the parser-drift lesson —
-  Python RON writers are looser than Rust's `ron`.)
+They meet at **sockets + frame windows**: the renderer says *where* (hand_r at
+this pixel each frame) and *when* (active frames 4–7); the behavior layer says
+*what fires from there* (a 7-shot aimed fan). Today the renderer **already
+emits sockets — into `*_actor.ron`, which nothing reads.** Un-orphaning that
+file is the single change that unlocks data-driven attacks.
 
-**Duplication hotspots:** the `supersample → downsample → crop → assemble →
-emit` spine exists in ~3 places (two separate RON emitters), `rgba`/`bbox`/
-`font` helpers are reimplemented ~21×, 40+ hand-listed `ANIMATIONS` dicts,
-palettes scattered, contact-sheet/canonical builders in 3 shapes.
+## Current state (verified by deep-dives, 2026-06-21)
 
-**The bone system is sound but nascent.** `skeleton.py` (FK + two-bone IK with
-foot-trajectory authoring + keyframes + z-ordered painters) is clean; `rigdoc`
-(`.rig.json`) + the GUI + the `rigdoc → Python` codegen bridge all publish
-through the *same* `build_sheet` pipeline. Emmy/Noether is ~148 lines reusing
-the robot's skeleton+IK+clips — proof of the "100-line character." Blockers to
-broad adoption: the data shape vocabulary (polygon/capsule/circle) is narrower
-than Python painter closures; it's strictly 2D side-view (parrot turnarounds
-fall back to ~350 LOC); humanoid-biped assumptions are baked into `solve`.
+**Sprite metadata is split and drifts.** `body_metrics` (body bbox,
+`feet_anchor_norm`, per-anim hit/hurtboxes) is measured and read — good. But
+`collision_scale`/render-size is a Rust constant despite a standing
+`TODO(gen2d-collision-aware)` (it's derivable from the measured body fraction);
+the richest model (`*_actor.ron`: explicit collision, hurtbox, **sockets**,
+anim event bindings) is **authored but orphaned**; and **bosses hard-code
+`BossSheetSpec`** rows/anchor/scale that the RON also carries — silent drift on
+regen.
 
-## The unifying design — four pillars
+**Boss attacks are ~half data-driven, and that's the ceiling.** The good half:
+`boss_profiles.ron` authors per-phase telegraph→strike→rest timelines, movement
+personality, damage scalars; per-frame melee hit/hurtboxes come generically from
+sprite metadata. The wall:
+- **Every projectile/spatial pattern is bespoke Rust** — 11 systems in
+  `crates/ambition_content/src/bosses/specials/*.rs`, all params as `const`
+  (`MC_RING_COUNT=12`, `SHOT_SPEED=780`, …). **Not one projectile number lives
+  in data.** Adding a bullet ring/fan/wall/spiral/aimed-volley = a new Rust
+  system + state component + plugin registration.
+- `BossAttackProfile` is a closed enum and `volumes_for_profile` a closed match
+  (melee shapes are hard-coded).
+- Attack **selection never reads the player** — it's a fixed scripted loop; only
+  movement reacts. No reactive choice, no multi-stage/conditional chaining.
 
-### Pillar A — One contract, measured by default *(this is the "full metadata model")*
-- Collapse `*_spritesheet.ron` + `*_actor.ron` into **one manifest schema** per
-  sprite/sheet. Fold in the useful `actor.ron` fields: explicit collision box,
-  hurtbox, **sockets**, anim event windows. Add `ground`/`feet` and the
-  `tuning` block (already deserialized Rust-side, never emitted).
-- Renderer **measures**: feet/contact row, body extent, alpha hurtbox, and
-  **derives `collision_scale`/render size from the body fraction** (implements
-  `TODO(gen2d-collision-aware)`). Authoring **declares** only sockets, explicit
-  collision, hit-active frames, ground.
-- Game **reads** the one manifest; **delete** catalog `sprite_tuning`, Rust
-  `DEFAULT_TUNING`, and the hard-coded `BossSheetSpec` row/anchor/scale
-  constants. Bosses load rows+anchor+scale like characters do.
-- Generalize the door fix: entity/prop sprites carry `ground`/`feet`/anchor in
-  the manifest, so the world renderer's grounded-sprite path is **data-driven**
-  rather than a hard-coded `matches!(Door)`. This also fixes the door
-  follow-up cleanly (the door slab's foot, not its decorative sill, is the
-  measured contact row; the stoop/frame become declared parts).
+The runtime that *executes* attacks is already generic and reusable: the
+`Effect::Projectiles` executor, `EnemyProjectileSpawn`, the per-frame sprite-
+hitbox sampler, and the `BossPatternStep` schedule. The gap is purely a **data
+vocabulary** + one interpreter to replace the 11 bespoke systems.
 
-### Pillar B — One rendering spine *(kill the duplication, no behavior change)*
-- Extract a single pipeline: `produce frames → supersample → downsample →
-  crop{tight|ground|tiled} → measure → assemble sheet → emit manifest →
-  install`. One `Frame`/`FrameSet` seam that *all* paradigms feed.
-- One manifest emitter (retire the second RON writer), one sheet assembler, one
-  contact-sheet/canonical builder. Consolidate the ~21 helper copies into
-  `common_draw.py` + one palette module.
-- This is pure dedup behind a parity harness: large LOC drop, ~zero risk.
+**Authoring sprawl** (context, not the target): 4 paradigms, the
+supersample→crop→assemble→emit spine duplicated ~3× (two RON emitters), helpers
+reimplemented ~21×. The bone/rig system (`skeleton.py` FK+IK+keyframes+painters,
+`rigdoc` + GUI + codegen bridge) is sound but used by only 3 of ~50 targets;
+Emmy/Noether is a ~148-line character. It's a good front door for *new* work,
+not a mandate for old work.
 
-### Pillar C — Authoring converges on the rig/data model *(pragmatically)*
-- Make `rigdoc` the documented **front door for new** characters *and* props
-  (a prop is a one-bone rig). It already publishes uniformly.
-- Close the rig gaps so it can absorb the imperative periphery: expand the data
-  part vocabulary to what painter closures do today (shaded/gradient sub-parts,
-  multi-bone parts, lines/decals/joint-caps) so codegen round-trips and Python
-  closures become unnecessary; de-hardcode the biped assumptions (IK chains +
-  contact points as data); add multi-view (authored pose-sets) so turn frames
-  stop forcing an imperative fallback.
-- **Do not big-bang the 38k LOC.** Migrate opportunistically behind the parity
-  harness; turn-heavy/exotic targets keep rendering through Pillar B's spine
-  until the rig can express them — no regression either way.
+## A concrete attack-intent vocabulary (the expressiveness payoff)
 
-### Pillar D — Prune
-- Delete `legacy/`, dead `generated/` experiments, and the `actor.ron` emitter
-  once its fields move into the one manifest. Collapse the pirate/lasersword
-  "common + thin-stub" families into rig specs.
+Make a boss attack a **data block**, interpreted by one generic system. Sketch
+(RON-ish, names illustrative):
 
-## Sequencing — safety net first, then collapse, then converge
+```
+Attack(
+  id: "gnu_aimed_fan",
+  anim: "hand_slam",                 // telegraph + active frames come from sprite metadata
+  windows: [
+    Emit( at: ActiveStart, socket: "hand_r",
+          emitter: Fan(count: 7, spread_deg: 60, speed: 600, gravity: 0.0,
+                       half_extent: (6,6), damage: 10),
+          aim: AtPlayer ),           // Fixed(dir) | AtPlayer | Lead | Sweep(a,b)
+    Melee( window: Frames(4..7), shape: FromSprite ),
+  ],
+  recovery: Secs(0.4),
+)
+```
 
-0. **Parity harness + drift guard.** A low-res (`scale`) render-hash per target
-   (unblocks GOALS #1/#3 fast tests) **and** a Rust-side parse test for the
-   unified manifest. Nothing else proceeds without this. *(Highest leverage;
-   makes every later phase safe — cf. "build the differential harness first,
-   then port boldly".)*
-1. **Pillar B — one spine + shared helpers.** Behavior-preserving dedup proven
-   by the harness. Biggest LOC win, lowest risk.
-2. **Pillar A — measured metadata + retire Rust constants.** Emit `tuning`/
-   collision from the body fraction; unify the manifest; make the game read it;
-   delete catalog tuning + `BossSheetSpec` constants; data-drive the grounded
-   sprite path (closes the door follow-up).
-3. **Pillar C — rig vocabulary + generalization.** Expand parts, de-hardcode
-   biped, multi-view; make rigdoc the front door.
-4. **Pillar D + opportunistic migration.** Port bespoke targets one PR at a
-   time behind the harness; collapse families; delete dead code.
+Emitter shapes compose: `Single | Fan{count,spread} | Ring{count} |
+Wall{count,spacing,axis} | Spiral{count,turn} | Burst{count,interval}`, each ×
+an aim mode. This single vocabulary expresses every one of the 11 bespoke
+specials as data, plus combinations they can't currently do (a *sweeping ring*,
+an *aimed wall*, a two-window telegraph→punish).
 
-## Rough impact
-- LOC: ~72k → realistically ~45–50k after Pillars B+D and partial C, with
-  *more* expressiveness (new character/prop ≈ a ~100-line rig spec or a GUI
-  doc, not a 1k-LOC generator).
-- Drift bugs (renderer↔Rust) structurally eliminated: zero per-target sprite
-  constants in Rust.
-- Tests go from minutes (skipped by default) to milliseconds (run every
-  commit).
+And the selection policy — the "every boss a failed objective function" hook —
+becomes data the brain evaluates over game state:
 
-## Decisions for Jon
-1. **Scope of v1:** all four pillars sequenced as above, or land Pillars 0→2
-   (harness + spine + metadata model) first and treat rig convergence (3–4) as
-   a follow-on? *(Recommend 0→2 first — it delivers the metadata model you
-   asked for and the drift fix with the least new design surface.)*
-2. **One manifest format:** keep RON (game-native, strict parser = free drift
-   guard) and drop the YAML/`actor.ron` siblings, or keep a human-audit YAML
-   alongside? *(Recommend RON-only + a generated human-readable report.)*
-3. **Bosses now or later:** fold bosses into the data-driven path in Pillar A
-   (kills the worst drift source) vs. deferring? *(Recommend now — it's the
-   highest-value de-duplication.)*
-4. **GUI investment:** is on-canvas polygon editing worth building, or is
-   table + codegen-to-Python enough for agent authoring? *(Affects how far
-   Pillar C goes.)*
+```
+Selection(weighted: [
+  (attack: "aimed_fan",  when: PlayerRange(Far),   weight: 2),
+  (attack: "floor_slam", when: PlayerRange(Near),  weight: 3),
+  (attack: "ring_nova",  when: Phase(Enrage),      weight: 1),
+])
+```
+
+The renderer supplies `socket "hand_r"` per frame and the `ActiveStart` window;
+the content RON supplies the emitter + aim + selection. New, interesting attacks
+become a RON edit, not a Rust system.
+
+## Pillars
+
+- **A — The intent contract (the heart).** One sprite/actor manifest:
+  measure-by-default, declare the exceptions, **un-orphan the sockets +
+  collision + anim-event fields** so the game reads them. Derive
+  `collision_scale` from the body fraction (`TODO(gen2d-collision-aware)`).
+  Retire the Rust sprite constants and the `BossSheetSpec` drift. Generalize the
+  door's grounded-render path to be **data-driven** (a `ground`/`feet` intent in
+  the manifest), not a hard-coded `matches!(Door)`.
+- **B — One rendering spine.** De-dupe the supersample→crop→assemble→emit
+  pipeline and the ~21 helper copies behind a parity harness. Low-risk support
+  work; *not* the headline, *not* about LOC.
+- **C — Authoring stays plural.** Every method (drawer / imperative / YAML /
+  rig) emits the full contract. Bone rigs are the recommended front door for new
+  characters/props and the place to invest (richer part vocabulary, de-hardcode
+  biped, multi-view) — but **migration is opt-in and taste-gated**, never forced.
+- **D — Expressive boss attacks (the marquee consumer).** The data-driven
+  emitter + aim + selection vocabulary above; one generic interpreter collapsing
+  the 11 bespoke specials; open the melee enum to data shapes. This is what
+  makes the contract *worth it*.
+- **E — Prune, taste-gated.** Delete a path only after a replacement Jon likes
+  more exists. Charm is preserved by default.
+
+## Sequencing — safety net, then a thin vertical slice, then broaden
+
+0. **Harness + drift guard.** Low-res (`scale`) render-hash per target (also
+   unblocks fast tests) + a Rust-side parse test for the unified manifest
+   (Python RON writers are looser than Rust's `ron`). Nothing else proceeds
+   first.
+1. **Vertical slice — one richer boss attack, authored as data.** Un-orphan
+   sockets for *one* boss (Pillar A, minimal), add the emitter/aim schema +
+   interpreter for *one* pattern (Pillar D, minimal), and author a new attack
+   (e.g. an aimed fan with a real telegraph) replacing one bespoke special.
+   Proves both contracts end-to-end and gives an immediate "attacks are more
+   interesting" win **before** committing to breadth. (Vertical-slice-first +
+   harness-first matches how this repo de-risks big work.)
+2. **Broaden the contract (A) + spine (B).** Unify the manifest, derive
+   collision, kill boss-spec drift, data-drive grounded sprites (closes the door
+   follow-up: the slab's *measured* foot is the contact row; stoop/frame become
+   declared parts, not a gold sill sitting on the floor).
+3. **Broaden attacks (D).** Collapse the remaining specials into the vocabulary;
+   add reactive/selection policy and multi-window attacks.
+4. **Invest in authoring (C) + prune (E)** opportunistically, taste-gated.
+
+## What is explicitly NOT a goal
+- Not deleting imperative/charming sprites for being old.
+- Not forcing bone rigs everywhere.
+- Not LOC golf. Expressiveness and a drift-proof contract are the goals; less
+  code is a welcome side effect of de-duping the spine.
+
+## Open questions for Jon
+1. **Vertical slice target:** which boss/attack should the slice prove on? (A
+   projectile boss with clear sockets — gnu_ton hand_slam → aimed fan? FSM ring?)
+2. **Where does attack-intent data live:** extend `boss_profiles.ron`, or a new
+   per-attack RON library shared across enemies (not just bosses)? *(Lean:
+   shared library — regular enemies want emitters too.)*
+3. **Manifest format:** RON-only (game-native, strict parser = free drift guard)
+   + a generated human-readable report, dropping the YAML/`actor.ron` siblings?
+4. **How far to push selection-as-objective-function** now vs. later (weighted/
+   reactive is easy; true "failed objective function" framing is a bigger idea).

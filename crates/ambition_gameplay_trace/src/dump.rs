@@ -214,8 +214,12 @@ fn render_markdown(payload: &DumpPayload<'_>) -> String {
         .len()
         .saturating_sub(MARKDOWN_FRAME_SUMMARY_TAIL);
     for f in &payload.frames[frames_tail_start..] {
+        // Attack-gate annotation: `atk[p=.. s=.. hs=..]` where p = attack
+        // button pressed this frame, s = a swing is live (attacking). A frame
+        // with p=true that never produces an s=true means the swing was
+        // requested but GATED — hs (hitstun) / abil (attack ability) say why.
         out.push_str(&format!(
-            "- t={:>5} pos=({:>7.1},{:>7.1}) vel=({:>7.1},{:>7.1}) gnd={} loco={} body={} dt={:.4} ts={:.2}\n",
+            "- t={:>5} pos=({:>7.1},{:>7.1}) vel=({:>7.1},{:>7.1}) gnd={} loco={} body={} atk[p={} s={} abil={} hs={:.2} inv={:.2}] dt={:.4} ts={:.2}\n",
             f.tick,
             f.player.pos.x,
             f.player.pos.y,
@@ -224,6 +228,11 @@ fn render_markdown(payload: &DumpPayload<'_>) -> String {
             f.player.on_ground,
             f.player.locomotion,
             f.player.body_mode,
+            f.controls.attack_pressed,
+            f.player.attacking,
+            f.player.attack_ability_enabled,
+            f.player.hitstun_timer,
+            f.player.damage_invuln_timer,
             f.real_dt,
             f.time_scale,
         ));

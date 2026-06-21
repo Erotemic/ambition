@@ -346,9 +346,8 @@ class AdapterTarget:
     """
 
     def __init__(self, *, config_path: Path, category: str) -> None:
-        # Local imports — adapter pipeline pulls in Pillow + numpy on
-        # some paths; we keep target_registry.py importable without
-        # those by deferring.
+        # Local import — the adapter pipeline pulls in Pillow; we keep
+        # target_registry.py importable without it by deferring.
         from .config import CharacterJob
 
         self._config_path = Path(config_path)

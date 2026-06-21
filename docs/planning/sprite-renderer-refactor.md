@@ -90,12 +90,13 @@ authoring (plural)                     core (small, PIL + stdlib only)
    `Sheet`/`Manifest` model, and **one** manifest emitter into `core/`. Point all
    ~3 spine copies and ~21 helper copies at it. Pure dedup; harness proves no
    pixel change.
-2. **Decouple the deps (goal 2).** PySide6 is already gui-only (the rigdoc
-   coupling was a false alarm). Manifest writing is now stdlib RON (done).
-   Remaining: make `rich` optional (plain-print fallback), remove/justify
-   `numpy`, and (separately, larger) move the load-bearing `*_spritesheet.yaml`
+2. **Decouple the deps (goal 2) — essentially done.** `core/` renders with
+   `pip install Pillow` alone (verified, guarded). PySide6 is gui/editor-only
+   (the rigdoc coupling was a false alarm). Manifest writing is now stdlib RON.
+   `numpy` is unused (was only a stale comment). `rich` is dev-CLI-only (core is
+   rich-free), so a chatbot using `core` never needs it — leaving it as-is.
+   Remaining (separate, larger): move the load-bearing `*_spritesheet.yaml`
    sidecar's consumers (discovery/install/actor) off yaml so the sidecar can go.
-   `core/` already renders with `pip install Pillow` alone.
 3. **Make each paradigm a thin adapter to core.** Drawers, imperative gens, YAML
    adapters, and rig docs all just build a `FrameSet`. Collapse the 40+
    `ANIMATIONS` dicts onto the shared animation vocabulary. De-dupe contact-sheet/

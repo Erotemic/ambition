@@ -33,6 +33,7 @@ import numpy as np
 import pretty_midi
 import soundfile as sf
 import yaml
+from .profiler import profile
 from scipy import signal
 
 RENDERER_VERSION = "ambition-musicir-renderer-v0.8.2-adaptive-global-section-master-v1"
@@ -332,7 +333,13 @@ def fit_midi_pitch(num: int | float) -> int:
 def chord_intervals(chord_symbol: str) -> tuple[str, list[int], str | None]:
     raw = chord_symbol.strip()
     if "/" in raw:
-        main, slash_bass = raw.split("/", 1)
+        main_candidate, slash_candidate = raw.rsplit("/", 1)
+        # Treat C/E and G/B as slash-bass chords, but keep extensions such as
+        # D6/9 as part of the chord suffix instead of pretending "9" is a bass note.
+        if re.match(r"^[A-G](?:#|b)?$", slash_candidate.strip()):
+            main, slash_bass = main_candidate, slash_candidate.strip()
+        else:
+            main, slash_bass = raw, None
     else:
         main, slash_bass = raw, None
     m = re.match(r"^([A-G](?:#|b)?)(.*)$", main)
@@ -869,6 +876,7 @@ def _layer_constraints(
     return merged or None
 
 
+@profile
 def render_layer_pad_chords(
     ctx: RenderContext, section: dict[str, Any], layer: dict[str, Any]
 ) -> None:
@@ -900,6 +908,7 @@ def render_layer_pad_chords(
             )
 
 
+@profile
 def render_layer_arpeggio(
     ctx: RenderContext, section: dict[str, Any], layer: dict[str, Any]
 ) -> None:
@@ -945,6 +954,7 @@ def render_layer_arpeggio(
                 )
 
 
+@profile
 def render_layer_ostinato(
     ctx: RenderContext, section: dict[str, Any], layer: dict[str, Any]
 ) -> None:
@@ -979,6 +989,7 @@ def render_layer_ostinato(
             idx += 1
 
 
+@profile
 def render_layer_bassline(
     ctx: RenderContext, section: dict[str, Any], layer: dict[str, Any]
 ) -> None:
@@ -1007,6 +1018,7 @@ def render_layer_bassline(
             )
 
 
+@profile
 def render_layer_motif(
     ctx: RenderContext, section: dict[str, Any], layer: dict[str, Any]
 ) -> None:
@@ -1075,6 +1087,7 @@ def render_layer_motif(
                 beat += dur
 
 
+@profile
 def render_layer_chord_hits(
     ctx: RenderContext, section: dict[str, Any], layer: dict[str, Any]
 ) -> None:
@@ -1238,6 +1251,7 @@ def render_layer_automation(
     apply_automation(ctx, section, layer)
 
 
+@profile
 def render_layer(
     ctx: RenderContext, section: dict[str, Any], layer: dict[str, Any]
 ) -> None:
@@ -1290,6 +1304,7 @@ def merged_layers(
     return out
 
 
+@profile
 def build_score(
     spec: dict[str, Any],
 ) -> tuple[pretty_midi.PrettyMIDI, dict[str, str], list[dict[str, Any]]]:
@@ -1368,6 +1383,7 @@ def sanitize_same_pitch_overlaps(
                 prev = note
 
 
+@profile
 def render_pretty_midi(
     pm: pretty_midi.PrettyMIDI, soundfont: str, sample_rate: int
 ) -> np.ndarray:
@@ -1489,6 +1505,7 @@ def _lowpass_mono(signal_in: np.ndarray, amount: float) -> np.ndarray:
     )
 
 
+@profile
 def render_with_fluidsynth_cli(
     midi_path: Path, soundfont: str, sample_rate: int, dry_wav_path: Path
 ) -> np.ndarray:
@@ -1519,6 +1536,7 @@ def render_with_fluidsynth_cli(
     return _coerce_stereo(audio)
 
 
+@profile
 def render_synth_audio(
     pm: pretty_midi.PrettyMIDI,
     backend: str,
@@ -1829,6 +1847,7 @@ def soft_limit(
     return driven.astype(np.float32)
 
 
+@profile
 def post_process(
     audio: np.ndarray, sample_rate: int, settings: dict[str, Any]
 ) -> np.ndarray:
@@ -1929,6 +1948,86 @@ def ogg_metadata_args(metadata: dict[str, object] | None) -> list[str]:
     return args
 
 
+def write_metadata_sidecar(ogg_path: Path, metadata: dict[str, object] | None) -> Path | None:
+    """Write a small sidecar recording the metadata we attempted to embed.
+
+    OGG/Vorbis chapter display varies by player.  The audio file gets Vorbis
+    comments when ffmpeg supports them; this sidecar makes the render report
+    auditable even when a player hides those comments.
+    """
+    if not metadata:
+        return None
+    try:
+        sidecar = ogg_path.with_name(ogg_path.name + ".metadata.json")
+        sidecar.write_text(json.dumps(metadata, indent=2, sort_keys=True), encoding="utf8")
+        return sidecar
+    except Exception:
+        return None
+
+
+def timeline_markers_from_spec(
+    spec: dict[str, Any],
+    sections: list[dict[str, Any]] | None = None,
+) -> list[dict[str, Any]]:
+    """Return section/form markers suitable for OGG chapter comments.
+
+    The default markers are section starts.  Cues may also define
+    ``render.metadata_markers`` / ``render.markers`` entries with ``bar`` or
+    ``seconds`` and an ``id``/``label``.  This lets long one-section pieces
+    such as Emmy Extended expose A/B/return form markers even though the game
+    still treats them as one loop component.
+    """
+    bpm = float(spec.get("tempo", {}).get("bpm", spec.get("bpm", 120)))
+    beats_per_bar = float(spec.get("meter", {}).get("beats_per_bar", 4))
+    seconds_per_bar = beats_per_bar * 60.0 / bpm
+    markers: list[dict[str, Any]] = []
+    for section in sections or []:
+        sid = str(section.get("id", f"section_{len(markers)+1}"))
+        label = str(section.get("label", sid))
+        markers.append({
+            "id": sid,
+            "label": label,
+            "start_seconds": float(section.get("start_seconds", 0.0) or 0.0),
+            "kind": str(section.get("kind", "section")),
+        })
+    render_cfg = spec.get("render", {}) or {}
+    explicit = render_cfg.get("metadata_markers", render_cfg.get("markers", []))
+    if isinstance(explicit, list):
+        for idx, item in enumerate(explicit, start=1):
+            if not isinstance(item, dict):
+                continue
+            if "seconds" in item:
+                start_s = float(item.get("seconds") or 0.0)
+            elif "time_seconds" in item:
+                start_s = float(item.get("time_seconds") or 0.0)
+            elif "bar" in item:
+                # Bar values are 1-based for human readability in YAML.
+                start_s = max(0.0, (float(item.get("bar") or 1.0) - 1.0) * seconds_per_bar)
+            elif "start_bar" in item:
+                # start_bar remains 0-based for code-generated markers.
+                start_s = max(0.0, float(item.get("start_bar") or 0.0) * seconds_per_bar)
+            else:
+                continue
+            marker_id = str(item.get("id", item.get("name", f"marker_{idx}")))
+            label = str(item.get("label", marker_id))
+            markers.append({
+                "id": marker_id,
+                "label": label,
+                "start_seconds": start_s,
+                "kind": str(item.get("kind", "form_marker")),
+            })
+    # De-duplicate exact same id/time pairs and sort by time.
+    seen: set[tuple[str, float]] = set()
+    deduped: list[dict[str, Any]] = []
+    for marker in sorted(markers, key=lambda m: (float(m.get("start_seconds", 0.0)), str(m.get("id", "")))):
+        key = (str(marker.get("id", "")), round(float(marker.get("start_seconds", 0.0)), 3))
+        if key in seen:
+            continue
+        seen.add(key)
+        deduped.append(marker)
+    return deduped
+
+
 def section_chapter_metadata(
     *,
     cue_id: str,
@@ -1960,9 +2059,14 @@ def section_chapter_metadata(
         meta["SECTION_END"] = format_ogg_timestamp(float(section_end_s))
     for idx, section in enumerate(sections or [], start=1):
         sid = str(section.get("id", f"section_{idx}"))
+        label = str(section.get("label", sid))
+        kind = str(section.get("kind", "section"))
         start_s = float(section.get("start_seconds", 0.0) or 0.0)
         meta[f"CHAPTER{idx:03d}"] = format_ogg_timestamp(start_s)
-        meta[f"CHAPTER{idx:03d}NAME"] = sid
+        meta[f"CHAPTER{idx:03d}NAME"] = label if label != sid else sid
+        meta[f"CHAPTER{idx:03d}ID"] = sid
+        meta[f"CHAPTER{idx:03d}KIND"] = kind
+    meta["AMBITION_MARKER_COUNT"] = len(sections or [])
     return meta
 
 
@@ -1988,8 +2092,10 @@ def encode_ogg(wav_path: Path, ogg_path: Path, quality: float = 5.0, metadata: d
         str(ogg_path),
     ]
     subprocess.run(cmd, check=True)
+    write_metadata_sidecar(ogg_path, metadata)
 
 
+@profile
 def write_ogg_from_audio(
     audio: np.ndarray,
     sample_rate: int,
@@ -2008,6 +2114,7 @@ def write_ogg_from_audio(
         # Fallback for minimal environments. Some libsndfile builds are slow on
         # many OGG writes, but this keeps the renderer usable if ffmpeg is absent.
         sf.write(ogg_path, pcm, sample_rate, format="OGG", subtype="VORBIS")
+        write_metadata_sidecar(ogg_path, metadata)
         if keep_wav:
             write_wav(ogg_path.with_suffix(".wav"), audio, sample_rate)
         return ogg_path
@@ -2101,6 +2208,7 @@ def section_metadata_from_spec(spec: dict[str, Any]) -> list[dict[str, Any]]:
     return out
 
 
+@profile
 def render_group_audio(
     pm: pretty_midi.PrettyMIDI,
     groups: dict[str, str],

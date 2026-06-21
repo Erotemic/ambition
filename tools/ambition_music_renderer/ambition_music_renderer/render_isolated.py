@@ -20,6 +20,7 @@ from pathlib import Path
 import numpy as np
 import yaml
 from . import musicir_renderer as r
+from .profiler import PhaseTimer, run_with_cprofile
 
 
 RUNTIME_STEM_GAIN_MODES = ("native", "shared")
@@ -296,23 +297,38 @@ def build_parser() -> argparse.ArgumentParser:
             "Pass 1 for sequential rendering."
         ),
     )
+    ap.add_argument(
+        "--timings-out",
+        type=Path,
+        default=None,
+        help="write coarse render phase timings to this JSON path; sibling .tsv/.txt files are also written",
+    )
+    ap.add_argument(
+        "--profile-out",
+        type=Path,
+        default=None,
+        help="run the parent render process under cProfile and write stats to this file",
+    )
+    ap.add_argument(
+        "--profile-workers",
+        action="store_true",
+        help="also cProfile each per-group worker subprocess under outdir/profiles/",
+    )
     return ap
 
 
-def main(argv=None) -> int:
-    ap = build_parser()
-    ns = ap.parse_args(argv)
-    if ns.simple_mix and ns.full_mix_only:
-        ap.error("--simple-mix and --full-mix-only are mutually exclusive")
+def _render_main(ns: argparse.Namespace) -> int:
+    timings = PhaseTimer()
     spec_path = Path(ns.spec)
-    spec = yaml.safe_load(spec_path.read_text())
-    render_cfg = spec.get("render", {})
-    sr = int(render_cfg.get("sample_rate", 48000))
-    soundfont = r.choose_soundfont(render_cfg.get("soundfont"))
-    cue_hash = r.spec_hash(spec_path, soundfont, ns.backend)
-    quality = float(render_cfg.get("ogg_quality", 5.0))
-    outdir = Path(ns.outdir)
-    outdir.mkdir(parents=True, exist_ok=True)
+    with timings.phase("load_spec_and_hash"):
+        spec = yaml.safe_load(spec_path.read_text())
+        render_cfg = spec.get("render", {})
+        sr = int(render_cfg.get("sample_rate", 48000))
+        soundfont = r.choose_soundfont(render_cfg.get("soundfont"))
+        cue_hash = r.spec_hash(spec_path, soundfont, ns.backend)
+        quality = float(render_cfg.get("ogg_quality", 5.0))
+        outdir = Path(ns.outdir)
+        outdir.mkdir(parents=True, exist_ok=True)
 
     if not ns.force:
         current, manifest_path, reason = is_render_current(
@@ -350,11 +366,13 @@ def main(argv=None) -> int:
                 f"render_isolated: regenerating {spec['id']}: {reason}", file=sys.stderr
             )
 
-    pm, groups, meta = r.build_score(spec)
+    with timings.phase("build_score"):
+        pm, groups, meta = r.build_score(spec)
+    cue_markers = r.timeline_markers_from_spec(spec, meta)
     cue_metadata = r.section_chapter_metadata(
         cue_id=str(spec.get("id", spec_path.stem)),
         title=str(spec.get("title", spec.get("id", spec_path.stem))),
-        sections=meta,
+        sections=cue_markers,
     )
     total = meta[-1]["end_seconds"]
     target = int(math.ceil(total * sr))
@@ -379,42 +397,49 @@ def main(argv=None) -> int:
         ]
         if ns.simple_mix or ns.full_mix_only:
             cmd.append("--skip-section-ogg")
+        if ns.profile_workers:
+            profile_dir = Path(ns.outdir) / "profiles"
+            cmd.extend(["--profile-out", str(profile_dir / f"render_group_worker.{group}.cprofile")])
+            cmd.extend(["--timings-out", str(profile_dir / f"render_group_worker.{group}.timings.json")])
         return cmd
 
     jobs = max(1, min(ns.jobs, len(group_names)))
-    if jobs == 1:
-        for group in group_names:
-            subprocess.run(worker_cmd(group), check=True)
-    else:
-        # Schedule with a sliding window: launch up to `jobs` at once,
-        # await any completion, then launch the next. Polls in a small
-        # sleep loop because `Popen.wait(timeout=...)` raises on timeout
-        # which makes the "wait for any" idiom awkward.
-        import time as _time
-
-        pending: list[tuple[str, subprocess.Popen]] = []
-        remaining = list(group_names)
-        while remaining or pending:
-            while remaining and len(pending) < jobs:
-                grp = remaining.pop(0)
-                pending.append((grp, subprocess.Popen(worker_cmd(grp))))
-            done_idx = None
-            while done_idx is None:
-                for i, (_, proc) in enumerate(pending):
-                    if proc.poll() is not None:
-                        done_idx = i
-                        break
-                if done_idx is None:
-                    _time.sleep(0.1)
-            grp, proc = pending.pop(done_idx)
-            if proc.returncode != 0:
-                # Tear down the rest before propagating so we don't leak
-                # fluidsynth subprocesses if one worker crashes.
-                for _, other in pending:
-                    other.terminate()
-                for _, other in pending:
-                    other.wait()
-                raise subprocess.CalledProcessError(proc.returncode, worker_cmd(grp))
+    with timings.phase("render_group_workers", groups=len(group_names), jobs=jobs):
+        if jobs == 1:
+            for group in group_names:
+                start_group = __import__("time").perf_counter()
+                subprocess.run(worker_cmd(group), check=True)
+                timings.add("render_group_worker", __import__("time").perf_counter() - start_group, group=group)
+        else:
+            # Schedule with a sliding window: launch up to `jobs` at once,
+            # await any completion, then launch the next. Polls in a small
+            # sleep loop because `Popen.wait(timeout=...)` raises on timeout
+            # which makes the "wait for any" idiom awkward.
+            import time as _time
+    
+            pending: list[tuple[str, subprocess.Popen]] = []
+            remaining = list(group_names)
+            while remaining or pending:
+                while remaining and len(pending) < jobs:
+                    grp = remaining.pop(0)
+                    pending.append((grp, subprocess.Popen(worker_cmd(grp))))
+                done_idx = None
+                while done_idx is None:
+                    for i, (_, proc) in enumerate(pending):
+                        if proc.poll() is not None:
+                            done_idx = i
+                            break
+                    if done_idx is None:
+                        _time.sleep(0.1)
+                grp, proc = pending.pop(done_idx)
+                if proc.returncode != 0:
+                    # Tear down the rest before propagating so we don't leak
+                    # fluidsynth subprocesses if one worker crashes.
+                    for _, other in pending:
+                        other.terminate()
+                    for _, other in pending:
+                        other.wait()
+                    raise subprocess.CalledProcessError(proc.returncode, worker_cmd(grp))
 
     output_files: dict = {"preview": {}, "adaptive": {}}
 
@@ -423,41 +448,43 @@ def main(argv=None) -> int:
     # continue to use these native buffers; runtime per-stem exports may either
     # preserve them exactly or receive one shared gain below.
     stem_audio: dict[str, np.ndarray] = {}
-    for group in group_names:
-        npy = outdir / "scratch_stems" / f"{spec['id']}_{cue_hash}.{group}.npy"
-        stem_audio[group] = r.ensure_audio_length(np.load(npy), target)
-        for sec in meta:
-            if not (ns.simple_mix or ns.full_mix_only):
-                path = (
-                    outdir
-                    / "adaptive"
-                    / sec["id"]
-                    / f"{spec['id']}_{cue_hash}.{sec['id']}.{group}.ogg"
-                )
-                output_files["adaptive"].setdefault(sec["id"], {})[group] = str(
-                    path.relative_to(outdir)
-                )
+    with timings.phase("load_scratch_stems", groups=len(group_names)):
+        for group in group_names:
+            npy = outdir / "scratch_stems" / f"{spec['id']}_{cue_hash}.{group}.npy"
+            stem_audio[group] = r.ensure_audio_length(np.load(npy), target)
+            for sec in meta:
+                if not (ns.simple_mix or ns.full_mix_only):
+                    path = (
+                        outdir
+                        / "adaptive"
+                        / sec["id"]
+                        / f"{spec['id']}_{cue_hash}.{sec['id']}.{group}.ogg"
+                    )
+                    output_files["adaptive"].setdefault(sec["id"], {})[group] = str(
+                        path.relative_to(outdir)
+                    )
 
     # ---- Full mastered preview (matches the YAML postprocess intent) ----
-    raw_full = np.zeros((target, 2), dtype="float32")
-    for arr in stem_audio.values():
-        raw_full += arr
-    master_settings = dict(spec.get("postprocess", {}) or {})
-    master_settings.setdefault("normalize", True)
-    master_settings.setdefault("target_peak_db", -1.2)
-    master = r.post_process(raw_full, sr, master_settings)
-    preview = (
-        outdir / "preview" / f"{spec['id']}_{cue_hash}.full_soundtrack_preview.ogg"
-    )
-    r.write_ogg_from_audio(
-        master,
-        sr,
-        preview,
-        quality=quality,
-        keep_wav=False,
-        metadata=cue_metadata,
-    )
-    output_files["preview"]["full_soundtrack"] = str(preview.relative_to(outdir))
+    with timings.phase("mix_master_preview"):
+        raw_full = np.zeros((target, 2), dtype="float32")
+        for arr in stem_audio.values():
+            raw_full += arr
+        master_settings = dict(spec.get("postprocess", {}) or {})
+        master_settings.setdefault("normalize", True)
+        master_settings.setdefault("target_peak_db", -1.2)
+        master = r.post_process(raw_full, sr, master_settings)
+        preview = (
+            outdir / "preview" / f"{spec['id']}_{cue_hash}.full_soundtrack_preview.ogg"
+        )
+        r.write_ogg_from_audio(
+            master,
+            sr,
+            preview,
+            quality=quality,
+            keep_wav=False,
+            metadata=cue_metadata,
+        )
+        output_files["preview"]["full_soundtrack"] = str(preview.relative_to(outdir))
 
     stem_stats_native = {
         group: _audio_stats(audio, sr) for group, audio in sorted(stem_audio.items())
@@ -717,12 +744,18 @@ def main(argv=None) -> int:
     regen.chmod(0o755)
 
     if not ns.keep_debug_stems:
-        for npy in (outdir / "scratch_stems").glob("*.npy"):
-            npy.unlink()
-        try:
-            (outdir / "scratch_stems").rmdir()
-        except OSError:
-            pass
+        with timings.phase("cleanup_scratch_stems"):
+            for npy in (outdir / "scratch_stems").glob("*.npy"):
+                npy.unlink()
+            try:
+                (outdir / "scratch_stems").rmdir()
+            except OSError:
+                pass
+
+    if ns.timings_out is not None:
+        timings.write_json(ns.timings_out)
+        timings.write_tsv(ns.timings_out.with_suffix(".tsv"))
+        timings.write_summary(ns.timings_out.with_suffix(".txt"))
 
     print(
         json.dumps(
@@ -750,6 +783,16 @@ def main(argv=None) -> int:
         )
     )
     return 0
+
+
+def main(argv=None) -> int:
+    ap = build_parser()
+    ns = ap.parse_args(argv)
+    if ns.simple_mix and ns.full_mix_only:
+        ap.error("--simple-mix and --full-mix-only are mutually exclusive")
+    if ns.profile_out is not None:
+        return run_with_cprofile(lambda: _render_main(ns), ns.profile_out)
+    return _render_main(ns)
 
 
 if __name__ == "__main__":

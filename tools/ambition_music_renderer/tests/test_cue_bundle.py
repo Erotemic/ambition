@@ -33,6 +33,7 @@ from ambition_music_renderer.sour_note_audit import audit_spec as audit_sour_not
 from ambition_music_renderer.sour_note_audit import write_reports as write_sour_note_reports
 from ambition_music_renderer.shrill_note_audit import audit_spec as audit_shrill_note_spec
 from ambition_music_renderer.shrill_note_audit import write_reports as write_shrill_note_reports
+from ambition_music_renderer.musicir_renderer import chord_intervals, timeline_markers_from_spec
 
 
 def test_backend_defaults_prefer_pretty_midi():
@@ -190,6 +191,7 @@ def test_manifest_audio_entries_and_bundle_copy_are_manifest_scoped():
         current.write_bytes(b"current")
         stale.write_bytes(b"stale")
         adaptive.write_bytes(b"adaptive")
+        (current.with_name(current.name + ".metadata.json")).write_text("{}", encoding="utf8")
         manifest = {
             "files": {
                 "preview": {"full_soundtrack": "preview/cue_hash.full_soundtrack_preview.ogg"},
@@ -206,8 +208,10 @@ def test_manifest_audio_entries_and_bundle_copy_are_manifest_scoped():
         assert sorted(copied) == [
             "adaptive/loop/cue_hash.loop.full.ogg",
             "preview/cue_hash.full_soundtrack_preview.ogg",
+            "preview/cue_hash.full_soundtrack_preview.ogg.metadata.json",
         ]
         assert (bundle / "preview" / current.name).exists()
+        assert (bundle / "preview" / (current.name + ".metadata.json")).exists()
         assert not (bundle / "preview" / stale.name).exists()
 
 
@@ -793,3 +797,23 @@ def test_bundle_many_parser_accepts_parallel_flags():
     assert args.workers == 3
     assert args.render_jobs == 1
     assert args.cues == ["lofi_study_loop", "tech_bros_disruption"]
+
+
+def test_chord_intervals_does_not_treat_d6_over_9_as_slash_bass():
+    root, intervals, slash = chord_intervals("D6/9")
+    assert root == "D"
+    assert slash is None
+    assert 9 in intervals
+    assert 14 in intervals
+
+
+def test_timeline_markers_include_explicit_form_markers():
+    spec = {
+        "tempo": {"bpm": 120},
+        "meter": {"beats_per_bar": 4},
+        "render": {"metadata_markers": [{"id": "bloom", "label": "Bloom", "bar": 9}]},
+    }
+    sections = [{"id": "loop", "label": "Loop", "kind": "loop_component", "start_seconds": 0.0}]
+    markers = timeline_markers_from_spec(spec, sections)
+    assert [m["id"] for m in markers] == ["loop", "bloom"]
+    assert markers[1]["start_seconds"] == 16.0

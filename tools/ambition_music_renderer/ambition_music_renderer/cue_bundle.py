@@ -39,7 +39,29 @@ DEFAULT_BACKEND = "pretty-midi"
 BACKEND_CHOICES = ("pretty-midi", "fluidsynth-cli", "fallback", "auto")
 RUNTIME_STEM_GAIN_MODES = ("native", "shared")
 PLOT_FORMATS = ("jpg", "png")
+RENDER_AUDIO_MODES = ("full", "full-mix-only", "simple-mix")
 REPORT_ZIP_EXCLUDED_SUFFIXES = {".ogg", ".oga", ".wav", ".flac", ".mp3", ".npy", ".mid", ".midi"}
+DBFS_SILENCE_FLOOR = -120.0
+DBFS_PLOT_FLOOR = -100.0
+
+
+def _plot_db(value: float) -> float:
+    """Clamp dBFS values for plots so near-silence does not dominate axes."""
+    try:
+        return max(float(value), DBFS_PLOT_FLOOR)
+    except Exception:
+        return DBFS_PLOT_FLOOR
+
+
+def _format_dbfs(value: object) -> str:
+    """Human-friendly dBFS formatting with an inaudible floor marker."""
+    try:
+        v = float(value)
+    except Exception:
+        return "n/a"
+    if v <= DBFS_PLOT_FLOOR:
+        return f"< {DBFS_PLOT_FLOOR:.0f}"
+    return f"{v:.1f}"
 
 
 @dataclass(frozen=True)
@@ -131,7 +153,11 @@ def run_logged(name: str, command: list[str], reports_dir: Path, *, cwd: Path) -
 
 
 def _db(value: float) -> float:
-    value = max(float(value), 1e-12)
+    # dBFS is referenced to the digital full-scale ceiling: 0 dBFS is max
+    # representable level, not silence. Silence trends toward -inf. We keep
+    # analysis finite at -120 dBFS, and plots separately clamp at -100 dBFS
+    # because lower values are almost always noise-floor/roundoff artifacts.
+    value = max(float(value), 1e-6)
     return 20.0 * math.log10(value)
 
 
@@ -261,6 +287,11 @@ def copy_current_scratch_stems(outdir: Path, manifest: dict, dest_root: Path) ->
         dst.parent.mkdir(parents=True, exist_ok=True)
         shutil.copy2(src, dst)
         copied.append(str(rel))
+        meta_src = src.with_name(src.name + ".metadata.json")
+        if meta_src.exists():
+            meta_dst = dst.with_name(dst.name + ".metadata.json")
+            shutil.copy2(meta_src, meta_dst)
+            copied.append(str(rel) + ".metadata.json")
     return copied
 
 
@@ -275,6 +306,11 @@ def copy_manifest_referenced_files(outdir: Path, manifest: dict, bundle_dir: Pat
         dst.parent.mkdir(parents=True, exist_ok=True)
         shutil.copy2(src, dst)
         copied.append(str(rel))
+        meta_src = src.with_name(src.name + ".metadata.json")
+        if meta_src.exists():
+            meta_dst = dst.with_name(dst.name + ".metadata.json")
+            shutil.copy2(meta_src, meta_dst)
+            copied.append(str(rel) + ".metadata.json")
     return copied
 
 
@@ -293,6 +329,67 @@ def prepare_manifest_analysis_root(outdir: Path, manifest: dict, analysis_root: 
     copy_manifest_referenced_files(outdir, manifest, analysis_root)
     copy_current_scratch_stems(outdir, manifest, analysis_root)
     return analysis_root
+
+
+def write_audio_metadata_report(outdir: Path, manifest: dict, reports_dir: Path) -> Path:
+    """Record which audio metadata/chapter tags were written for manifest files."""
+    reports_dir.mkdir(parents=True, exist_ok=True)
+    rows: list[dict[str, object]] = []
+    for entry in manifest_audio_entries(manifest):
+        rel = Path(entry["path"])
+        sidecar = outdir / rel.with_name(rel.name + ".metadata.json")
+        row: dict[str, object] = {
+            "kind": entry.get("kind", ""),
+            "section": entry.get("section", ""),
+            "group": entry.get("group", ""),
+            "audio_path": str(rel),
+            "metadata_sidecar": str(sidecar.relative_to(outdir)) if sidecar.exists() else "",
+            "marker_count": 0,
+            "title": "",
+            "cue_id": "",
+            "section_id": "",
+            "markers": "",
+            "error": "",
+        }
+        if sidecar.exists():
+            try:
+                meta = json.loads(sidecar.read_text(encoding="utf8"))
+                row["title"] = str(meta.get("TITLE", ""))
+                row["marker_count"] = int(meta.get("AMBITION_MARKER_COUNT", 0) or 0)
+                row["cue_id"] = str(meta.get("CUE_ID", ""))
+                row["section_id"] = str(meta.get("SECTION_ID", ""))
+                row["markers"] = ",".join(
+                    str(meta.get(f"CHAPTER{idx:03d}NAME", meta.get(f"CHAPTER{idx:03d}ID", "")))
+                    for idx in range(1, int(row["marker_count"]) + 1)
+                )
+            except Exception as ex:  # noqa: BLE001
+                row["error"] = f"{type(ex).__name__}: {ex}"
+        else:
+            row["error"] = "metadata sidecar missing; audio player may not show cue/section breadcrumbs"
+        rows.append(row)
+
+    json_path = reports_dir / "audio_metadata.json"
+    json_path.write_text(
+        json.dumps({"schema": "ambition.audio_metadata_report.v1", "rows": rows}, indent=2),
+        encoding="utf8",
+    )
+    columns = [
+        "kind", "section", "group", "audio_path", "metadata_sidecar", "marker_count",
+        "title", "cue_id", "section_id", "markers", "error",
+    ]
+    tsv = reports_dir / "audio_metadata.tsv"
+    lines = ["\t".join(columns)]
+    for row in rows:
+        lines.append("\t".join(str(row.get(c, "")).replace("\t", " ").replace("\n", " ") for c in columns))
+    tsv.write_text("\n".join(lines) + "\n", encoding="utf8")
+    summary = reports_dir / "audio_metadata_summary.txt"
+    text = [f"manifest audio files: {len(rows)}", "", "metadata/chapter sidecars:"]
+    for row in rows:
+        marker_count = int(row.get("marker_count", 0) or 0)
+        status = f"{marker_count} marker(s)" if marker_count else str(row.get("error", "no markers"))
+        text.append(f"  {row.get('audio_path')}: {status}")
+    summary.write_text("\n".join(text) + "\n", encoding="utf8")
+    return json_path
 
 
 def write_manifest_audio_level_report(outdir: Path, manifest: dict, reports_dir: Path) -> Path:
@@ -853,14 +950,14 @@ def write_stem_amplitude_report(
             "rms_dbfs": stats["rms_dbfs"],
             "peak_dbfs": stats["peak_dbfs"],
             "duration_s": stats["duration_s"],
-            "weighted_default_rms_dbfs": stats["rms_dbfs"] + _db(default_weight) if default_weight > 0 else -120.0,
-            "weighted_default_peak_dbfs": stats["peak_dbfs"] + _db(default_weight) if default_weight > 0 else -120.0,
+            "weighted_default_rms_dbfs": stats["rms_dbfs"] + _db(default_weight) if default_weight > 0 else DBFS_SILENCE_FLOOR,
+            "weighted_default_peak_dbfs": stats["peak_dbfs"] + _db(default_weight) if default_weight > 0 else DBFS_SILENCE_FLOOR,
             "error": "",
         }
         for state, weights in sorted(state_weights.items()):
             weight = float(weights.get(group, 0.0))
             row[f"state_{state}_weight"] = weight
-            row[f"state_{state}_rms_dbfs"] = stats["rms_dbfs"] + _db(weight) if weight > 0 else -120.0
+            row[f"state_{state}_rms_dbfs"] = stats["rms_dbfs"] + _db(weight) if weight > 0 else DBFS_SILENCE_FLOOR
         rows_by_section_group[(section, group)] = row
         section_offset = float(offsets.get(section, 0.0))
         for env in _rms_envelope(audio, sample_rate, bucket_seconds):
@@ -886,7 +983,7 @@ def write_stem_amplitude_report(
         rows_by_section_group.values(),
         key=lambda row: (
             str(row.get("section", "")),
-            -float(row.get("weighted_default_rms_dbfs", -120.0)),
+            -float(row.get("weighted_default_rms_dbfs", DBFS_SILENCE_FLOOR)),
             str(row.get("group", "")),
         ),
     )
@@ -961,21 +1058,21 @@ def write_stem_amplitude_report(
     for section in ordered_section_ids(manifest) or sorted(by_section):
         rows = sorted(
             by_section.get(section, []),
-            key=lambda row: float(row.get("weighted_default_rms_dbfs", -120.0)),
+            key=lambda row: float(row.get("weighted_default_rms_dbfs", DBFS_SILENCE_FLOOR)),
             reverse=True,
         )
         if not rows:
             continue
         text_lines.append(f"  {section}:")
-        top = float(rows[0].get("weighted_default_rms_dbfs", -120.0))
+        top = float(rows[0].get("weighted_default_rms_dbfs", DBFS_SILENCE_FLOOR))
         for row in rows:
             if row.get("error"):
                 text_lines.append(f"    {row.get('group')}: ERROR {row.get('error')}")
             else:
-                rel = float(row.get("weighted_default_rms_dbfs", -120.0)) - top
+                rel = float(row.get("weighted_default_rms_dbfs", DBFS_SILENCE_FLOOR)) - top
                 text_lines.append(
-                    f"    {row.get('group')}: raw {float(row.get('rms_dbfs', -120.0)):.1f} dBFS, "
-                    f"weighted {float(row.get('weighted_default_rms_dbfs', -120.0)):.1f} dBFS, "
+                    f"    {row.get('group')}: raw {_format_dbfs(row.get('rms_dbfs', DBFS_SILENCE_FLOOR))} dBFS, "
+                    f"weighted {_format_dbfs(row.get('weighted_default_rms_dbfs', DBFS_SILENCE_FLOOR))} dBFS, "
                     f"rel {rel:+.1f} dB, weight {float(row.get('state_default_weight', 0.0)):.2f}"
                 )
     summary.write_text("\n".join(text_lines) + "\n", encoding="utf8")
@@ -989,7 +1086,7 @@ def write_stem_amplitude_report(
                 save_kwargs["format"] = "jpeg"
                 save_kwargs["pil_kwargs"] = {"quality": int(jpeg_quality), "optimize": True}
             labels = [f"{row['section']}/{row['group']}" for row in ordered_groups if not row.get("error")]
-            values = [float(row.get("weighted_default_rms_dbfs", -120.0)) for row in ordered_groups if not row.get("error")]
+            values = [_plot_db(float(row.get("weighted_default_rms_dbfs", DBFS_SILENCE_FLOOR))) for row in ordered_groups if not row.get("error")]
             if labels:
                 fig, ax = plt.subplots(figsize=(9, max(3.5, 0.28 * len(labels) + 1.5)))
                 positions = np.arange(len(labels))
@@ -1009,7 +1106,7 @@ def write_stem_amplitude_report(
                 for group in sorted(by_group):
                     rows = sorted(by_group[group], key=lambda r0: float(r0["time_start_s_absolute"]))
                     xs = [(float(r0["time_start_s_absolute"]) + float(r0["time_end_s_absolute"])) * 0.5 for r0 in rows]
-                    ys = [float(r0.get("state_default_rms_dbfs", -120.0)) for r0 in rows]
+                    ys = [_plot_db(float(r0.get("state_default_rms_dbfs", DBFS_SILENCE_FLOOR))) for r0 in rows]
                     ax.plot(xs, ys, label=group)
                 for section, start in sorted(offsets.items(), key=lambda item: item[1]):
                     if start > 0.0:
@@ -1296,8 +1393,8 @@ def write_adaptive_section_report(
                     f"section {r0.get('section')} full mix has high-band ratio {high * 100:.2f}% "
                     f"(median {median_high * 100:.2f}%, flatness {flat:.2f}); inspect per-section stem plots for hiss/noise"
                 )
-            head = float(r0.get("head_rms_dbfs", -120.0))
-            tail = float(r0.get("tail_rms_dbfs", -120.0))
+            head = float(r0.get("head_rms_dbfs", DBFS_SILENCE_FLOOR))
+            tail = float(r0.get("tail_rms_dbfs", DBFS_SILENCE_FLOOR))
             if tail - head > 5.0:
                 warnings.append(
                     f"section {r0.get('section')} grows by {tail - head:.1f} dB from head to tail; starts may feel too soft"
@@ -1307,7 +1404,7 @@ def write_adaptive_section_report(
             b = full_by_section.get(second)
             if not a or not b:
                 continue
-            delta = float(b.get("head_rms_dbfs", -120.0)) - float(a.get("tail_rms_dbfs", -120.0))
+            delta = float(b.get("head_rms_dbfs", DBFS_SILENCE_FLOOR)) - float(a.get("tail_rms_dbfs", DBFS_SILENCE_FLOOR))
             if abs(delta) > 5.0:
                 warnings.append(
                     f"adjacent full-section handoff {first}->{second} has {delta:+.1f} dB head/tail RMS jump before runtime crossfade"
@@ -1384,9 +1481,9 @@ def write_adaptive_section_report(
         if not row:
             continue
         text.append(
-            f"  {section}: rms {float(row.get('rms_dbfs', -120.0)):.1f} dBFS, "
-            f"peak {float(row.get('peak_dbfs', -120.0)):.1f} dBFS, "
-            f"head {float(row.get('head_rms_dbfs', -120.0)):.1f}, tail {float(row.get('tail_rms_dbfs', -120.0)):.1f}, "
+            f"  {section}: rms {_format_dbfs(row.get('rms_dbfs', DBFS_SILENCE_FLOOR))} dBFS, "
+            f"peak {_format_dbfs(row.get('peak_dbfs', DBFS_SILENCE_FLOOR))} dBFS, "
+            f"head {_format_dbfs(row.get('head_rms_dbfs', DBFS_SILENCE_FLOOR))}, tail {_format_dbfs(row.get('tail_rms_dbfs', DBFS_SILENCE_FLOOR))}, "
             f"high {float(row.get('high_band_ratio', 0.0)) * 100:.2f}%, "
             f"air {float(row.get('air_band_ratio', 0.0)) * 100:.2f}%, flat {float(row.get('high_band_flatness', 0.0)):.2f}"
         )
@@ -1429,9 +1526,9 @@ def write_adaptive_section_report(
                 x = np.arange(len(labels))
                 width = 0.25
                 fig, ax = plt.subplots(figsize=(max(8.0, len(labels) * 1.2), 4.4))
-                ax.bar(x - width, [float(r0.get("head_rms_dbfs", -120.0)) for r0 in full_rows], width, label="head RMS")
-                ax.bar(x, [float(r0.get("rms_dbfs", -120.0)) for r0 in full_rows], width, label="full RMS")
-                ax.bar(x + width, [float(r0.get("tail_rms_dbfs", -120.0)) for r0 in full_rows], width, label="tail RMS")
+                ax.bar(x - width, [_plot_db(float(r0.get("head_rms_dbfs", DBFS_SILENCE_FLOOR))) for r0 in full_rows], width, label="head RMS")
+                ax.bar(x, [_plot_db(float(r0.get("rms_dbfs", DBFS_SILENCE_FLOOR))) for r0 in full_rows], width, label="full RMS")
+                ax.bar(x + width, [_plot_db(float(r0.get("tail_rms_dbfs", DBFS_SILENCE_FLOOR))) for r0 in full_rows], width, label="tail RMS")
                 ax.set_xticks(x, labels=labels, rotation=25, ha="right")
                 ax.set_ylabel("dBFS")
                 ax.set_title("Adaptive full-section loudness")
@@ -1605,11 +1702,11 @@ def write_adaptive_composition_mastering_report(
             + ", ".join(section_post)
         )
     if good:
-        rms_values = [float(r0.get("rms_dbfs", -120.0)) for r0 in good]
+        rms_values = [float(r0.get("rms_dbfs", DBFS_SILENCE_FLOOR)) for r0 in good]
         med_rms = float(np.median(rms_values))
         for r0 in good:
             section = str(r0.get("section"))
-            rms_delta = float(r0.get("rms_dbfs", -120.0)) - med_rms
+            rms_delta = float(r0.get("rms_dbfs", DBFS_SILENCE_FLOOR)) - med_rms
             high = float(r0.get("high_band_ratio", 0.0))
             flat = float(r0.get("high_band_flatness", 0.0))
             row_intensity = float(r0.get("intensity", 0.0))
@@ -1626,8 +1723,8 @@ def write_adaptive_composition_mastering_report(
             b = next((r0 for r0 in good if r0.get("section") == second), None)
             if not a or not b:
                 continue
-            tail_to_head = float(b.get("head_rms_dbfs", -120.0)) - float(a.get("tail_rms_dbfs", -120.0))
-            full_delta = float(b.get("rms_dbfs", -120.0)) - float(a.get("rms_dbfs", -120.0))
+            tail_to_head = float(b.get("head_rms_dbfs", DBFS_SILENCE_FLOOR)) - float(a.get("tail_rms_dbfs", DBFS_SILENCE_FLOOR))
+            full_delta = float(b.get("rms_dbfs", DBFS_SILENCE_FLOOR)) - float(a.get("rms_dbfs", DBFS_SILENCE_FLOOR))
             if abs(tail_to_head) > 5.0:
                 warnings.append(
                     f"handoff {first}->{second} has {tail_to_head:+.1f} dB tail-to-head jump before runtime crossfade"
@@ -1682,9 +1779,9 @@ def write_adaptive_composition_mastering_report(
         else:
             text.append(
                 f"  {row.get('section')}: intensity {float(row.get('intensity', 0.0)):.2f}, "
-                f"rms {float(row.get('rms_dbfs', -120.0)):.1f} dBFS, "
-                f"head {float(row.get('head_rms_dbfs', -120.0)):.1f}, "
-                f"tail {float(row.get('tail_rms_dbfs', -120.0)):.1f}, "
+                f"rms {_format_dbfs(row.get('rms_dbfs', DBFS_SILENCE_FLOOR))} dBFS, "
+                f"head {_format_dbfs(row.get('head_rms_dbfs', DBFS_SILENCE_FLOOR))}, "
+                f"tail {_format_dbfs(row.get('tail_rms_dbfs', DBFS_SILENCE_FLOOR))}, "
                 f"high {float(row.get('high_band_ratio', 0.0)) * 100:.2f}%, "
                 f"flat {float(row.get('high_band_flatness', 0.0)):.2f}"
             )
@@ -1707,9 +1804,9 @@ def write_adaptive_composition_mastering_report(
             labels = [str(r0.get("section")) for r0 in good]
             x = np.arange(len(labels))
             fig, ax1 = plt.subplots(figsize=(max(9.0, len(labels) * 1.25), 4.8))
-            ax1.plot(x, [float(r0.get("rms_dbfs", -120.0)) for r0 in good], marker="o", label="full RMS")
-            ax1.plot(x, [float(r0.get("head_rms_dbfs", -120.0)) for r0 in good], marker="o", label="head RMS")
-            ax1.plot(x, [float(r0.get("tail_rms_dbfs", -120.0)) for r0 in good], marker="o", label="tail RMS")
+            ax1.plot(x, [_plot_db(float(r0.get("rms_dbfs", DBFS_SILENCE_FLOOR))) for r0 in good], marker="o", label="full RMS")
+            ax1.plot(x, [_plot_db(float(r0.get("head_rms_dbfs", DBFS_SILENCE_FLOOR))) for r0 in good], marker="o", label="head RMS")
+            ax1.plot(x, [_plot_db(float(r0.get("tail_rms_dbfs", DBFS_SILENCE_FLOOR))) for r0 in good], marker="o", label="tail RMS")
             ax1.set_xticks(x, labels=labels, rotation=25, ha="right")
             ax1.set_ylabel("dBFS")
             ax1.set_title("Adaptive composition section loudness continuity")
@@ -1720,7 +1817,7 @@ def write_adaptive_composition_mastering_report(
 
             fig, ax = plt.subplots(figsize=(max(9.0, len(labels) * 1.25), 4.8))
             ax.plot(x, [float(r0.get("intensity", 0.0)) for r0 in good], marker="o", label="authored intensity")
-            rms = np.asarray([float(r0.get("rms_dbfs", -120.0)) for r0 in good], dtype="float32")
+            rms = np.asarray([_plot_db(float(r0.get("rms_dbfs", DBFS_SILENCE_FLOOR))) for r0 in good], dtype="float32")
             if np.max(rms) > np.min(rms):
                 normalized_rms = (rms - np.min(rms)) / max(1e-6, float(np.max(rms) - np.min(rms)))
             else:
@@ -1749,6 +1846,217 @@ def write_adaptive_composition_mastering_report(
                 f"adaptive composition mastering plot generation skipped: {type(ex).__name__}: {ex}\n",
                 encoding="utf8",
             )
+
+    return json_path
+
+
+def write_spectral_shrillness_report(
+    outdir: Path,
+    manifest: dict,
+    reports_dir: Path,
+    *,
+    bucket_seconds: float = 0.5,
+    max_candidates: int = 120,
+) -> Path:
+    """Write audio-derived shrillness candidates from rendered stems/previews.
+
+    ``shrill_note_audit`` is score-level and only sees MIDI fundamentals. That
+    deliberately avoids flagging normal distorted-guitar timbre, but it can miss
+    the failure mode where a mid-register guitar note renders with a narrow,
+    very audible 6-12 kHz harmonic/whistle. This report looks at rendered audio
+    directly and flags isolated high-band spectral lines by time, source, and
+    frequency. Treat rows as review candidates, not automatic delete commands.
+    """
+    reports_dir.mkdir(parents=True, exist_ok=True)
+    sample_rate = int(manifest.get("sample_rate", 48000))
+    rows: list[dict[str, object]] = []
+    warnings: list[str] = []
+
+    try:
+        from scipy import signal
+    except Exception as ex:  # noqa: BLE001
+        payload = {
+            "schema": "ambition.audio_shrillness_audit.v1",
+            "cue": manifest.get("id"),
+            "hash": manifest.get("hash"),
+            "error": f"scipy unavailable: {type(ex).__name__}: {ex}",
+            "warnings": ["audio shrillness audit skipped; scipy unavailable"],
+            "candidates": [],
+        }
+        path = reports_dir / "audio_shrillness_candidates.json"
+        path.write_text(json.dumps(payload, indent=2), encoding="utf8")
+        return path
+
+    def _audio_candidates(label: str, kind: str, audio: np.ndarray) -> None:
+        arr = r._coerce_stereo(audio).astype("float32", copy=False)
+        mono = arr.mean(axis=1)
+        if mono.size < 1024:
+            return
+        nperseg = min(8192, max(1024, int(2 ** math.floor(math.log2(max(1024, min(len(mono), 8192)))))))
+        noverlap = int(nperseg * 0.75)
+        freqs, times, spec = signal.spectrogram(
+            mono,
+            fs=sample_rate,
+            nperseg=nperseg,
+            noverlap=noverlap,
+            scaling="spectrum",
+            mode="magnitude",
+        )
+        spec_db = 20.0 * np.log10(spec + 1e-10)
+        band_mask = (freqs >= 4000.0) & (freqs <= 12500.0)
+        if not np.any(band_mask):
+            return
+        bucket = max(0.05, float(bucket_seconds))
+        bucket_count = max(1, int(math.ceil(float(times[-1] if times.size else 0.0) / bucket)))
+        focus_freqs = freqs[band_mask]
+        focus = spec_db[band_mask, :]
+        for bucket_idx in range(bucket_count):
+            t0 = bucket_idx * bucket
+            t1 = t0 + bucket
+            tmask = (times >= t0) & (times < t1)
+            if not np.any(tmask):
+                continue
+            chunk = focus[:, tmask]
+            if chunk.size == 0:
+                continue
+            # Collapse time inside the bucket by max so short whistles are not
+            # averaged away. Compare against the bucket's local high-band floor
+            # to distinguish narrow standalone lines from broadband timbre.
+            freq_profile = np.max(chunk, axis=1)
+            finite = freq_profile[np.isfinite(freq_profile)]
+            if finite.size == 0:
+                continue
+            idx = int(np.argmax(freq_profile))
+            peak_db = float(freq_profile[idx])
+            peak_hz = float(focus_freqs[idx])
+            floor_db = float(np.percentile(finite, 35.0))
+            p90_db = float(np.percentile(finite, 90.0))
+            narrowness_db = peak_db - floor_db
+            prominence_db = peak_db - p90_db
+            severity = "review_4k_plus"
+            if peak_hz >= 10000.0:
+                severity = "extreme_10k_plus"
+            elif peak_hz >= 8000.0:
+                severity = "whistle_8k_plus"
+            elif peak_hz >= 6000.0:
+                severity = "piercing_6k_plus"
+            # These thresholds intentionally catch rendered high harmonics, not
+            # just literal high MIDI notes. Require both audibility and a narrow
+            # spectral line so cymbal/noise-like brightness is less likely to
+            # dominate the report.
+            if peak_db < -68.0:
+                continue
+            if narrowness_db < 16.0 and prominence_db < 5.0:
+                continue
+            freq_weight = 1.0
+            if peak_hz >= 6000.0:
+                freq_weight += 0.45
+            if peak_hz >= 8000.0:
+                freq_weight += 0.55
+            if peak_hz >= 10000.0:
+                freq_weight += 0.40
+            loud_weight = max(0.0, (peak_db + 68.0) / 22.0)
+            narrow_weight = max(0.0, narrowness_db / 20.0)
+            prom_weight = max(0.0, prominence_db / 8.0)
+            score = freq_weight * (0.55 * loud_weight + 0.45 * narrow_weight + 0.25 * prom_weight)
+            if score < 0.75:
+                continue
+            rows.append(
+                {
+                    "score": round(float(score), 3),
+                    "severity": severity,
+                    "kind": kind,
+                    "source": label,
+                    "time_start_s": round(float(t0), 3),
+                    "time_end_s": round(float(t1), 3),
+                    "peak_frequency_hz": round(float(peak_hz), 1),
+                    "peak_db": round(float(peak_db), 2),
+                    "floor_db": round(float(floor_db), 2),
+                    "narrowness_db": round(float(narrowness_db), 2),
+                    "prominence_db": round(float(prominence_db), 2),
+                }
+            )
+
+    for npy in current_scratch_stem_paths(outdir, manifest):
+        try:
+            audio = np.load(npy).astype("float32", copy=False)
+            _audio_candidates(npy.stem.split(".")[-1], "stem", audio)
+        except Exception:
+            continue
+
+    files = manifest.get("files") or {}
+    preview = files.get("preview") or {}
+    if isinstance(preview, dict):
+        for name, rel in sorted(preview.items()):
+            if not isinstance(rel, str):
+                continue
+            try:
+                import soundfile as sf
+
+                audio, _sr = sf.read(outdir / rel, always_2d=True, dtype="float32")
+                _audio_candidates(f"preview_{name}", "preview", audio)
+            except Exception:
+                continue
+
+    rows.sort(key=lambda r0: (float(r0["score"]), float(r0["peak_frequency_hz"])), reverse=True)
+    rows = rows[:max_candidates]
+    if rows:
+        worst = rows[0]
+        warnings.append(
+            f"audio shrillness candidates found; top {worst['source']} at {worst['time_start_s']}-{worst['time_end_s']}s "
+            f"near {worst['peak_frequency_hz']} Hz ({worst['severity']})"
+        )
+    if sum(1 for r0 in rows if str(r0.get("source")) == "strings") >= 4:
+        warnings.append("strings/guitar stem has repeated narrow high-band peaks; inspect guitar register or postprocess")
+
+    payload = {
+        "schema": "ambition.audio_shrillness_audit.v1",
+        "cue": manifest.get("id"),
+        "hash": manifest.get("hash"),
+        "bucket_seconds": bucket_seconds,
+        "thresholds": {
+            "min_frequency_hz": 4000.0,
+            "piercing_hz": 6000.0,
+            "whistle_hz": 8000.0,
+            "extreme_hz": 10000.0,
+            "min_peak_db": -68.0,
+            "min_narrowness_db": 16.0,
+        },
+        "candidate_count": len(rows),
+        "warnings": warnings,
+        "candidates": rows,
+    }
+    json_path = reports_dir / "audio_shrillness_candidates.json"
+    json_path.write_text(json.dumps(payload, indent=2), encoding="utf8")
+
+    tsv_path = reports_dir / "audio_shrillness_candidates.tsv"
+    cols = [
+        "score", "severity", "kind", "source", "time_start_s", "time_end_s",
+        "peak_frequency_hz", "peak_db", "floor_db", "narrowness_db", "prominence_db",
+    ]
+    lines = ["\t".join(cols)]
+    for row in rows:
+        lines.append("\t".join(str(row.get(col, "")) for col in cols))
+    tsv_path.write_text("\n".join(lines) + "\n", encoding="utf8")
+
+    summary = reports_dir / "audio_shrillness_candidates_summary.txt"
+    text = [
+        f"cue: {manifest.get('id')}",
+        f"hash: {manifest.get('hash')}",
+        f"candidate_count: {len(rows)}",
+        "purpose: audio-derived review candidates for narrow, standalone 4-12.5 kHz peaks",
+        "",
+        "warnings:",
+    ]
+    text.extend([f"  - {w}" for w in warnings] if warnings else ["  none"])
+    text.extend(["", "top candidates:"])
+    for row in rows[:16]:
+        text.append(
+            f"  {row['time_start_s']:>6}-{row['time_end_s']:<6}s {row['source']:<24} "
+            f"{row['peak_frequency_hz']:>7} Hz {row['severity']} score {row['score']} "
+            f"peak {row['peak_db']} dB narrow {row['narrowness_db']} dB"
+        )
+    summary.write_text("\n".join(text) + "\n", encoding="utf8")
     return json_path
 
 
@@ -2074,6 +2382,8 @@ def build_rerun_script(
     runtime_stem_max_gain_db: float | None,
     zip_bundle: bool,
     zip_report_bundle: bool,
+    render_audio_mode: str = "full",
+    profile_render: bool = False,
 ) -> Path:
     script = bundle_dir / "rerun_bundle.sh"
     publish_flag = " --publish" if publish else ""
@@ -2088,7 +2398,9 @@ def build_rerun_script(
     if runtime_stem_max_gain_db is not None:
         cmd.extend(["--runtime-stem-max-gain-db", str(runtime_stem_max_gain_db)])
     cmd.extend(["--plot-format", str(plot_format)])
-    cmd.extend(["--outdir", str(outdir), "--force"])
+    cmd.extend(["--outdir", str(outdir), "--force", "--render-audio-mode", str(render_audio_mode)])
+    if profile_render:
+        cmd.append("--profile-render")
     if publish:
         cmd.append("--publish")
     if zip_bundle:
@@ -2126,6 +2438,8 @@ def create_bundle(
     plot_format: str = "jpg",
     jpeg_quality: int = 84,
     runtime_stem_max_gain_db: float | None = None,
+    render_audio_mode: str = "full",
+    profile_render: bool = False,
 ) -> dict[str, object]:
     progress_line(f"locating score for {cue!r}")
     score_path = find_score(cue)
@@ -2139,6 +2453,8 @@ def create_bundle(
         id_warning = f"score id {cue_id!r} does not match filename {score_path.name!r}"
     else:
         id_warning = ""
+    if render_audio_mode not in RENDER_AUDIO_MODES:
+        raise ValueError(f"render_audio_mode must be one of {RENDER_AUDIO_MODES}, got {render_audio_mode!r}")
 
     if outdir is None:
         outdir = default_generated_root() / cue_id
@@ -2188,7 +2504,15 @@ def create_bundle(
             "--keep-debug-stems",
             "--jobs",
             str(jobs),
+            "--timings-out",
+            str(reports_dir / "render_isolated_timings.json"),
         ]
+        if render_audio_mode == "full-mix-only":
+            render_cmd.append("--full-mix-only")
+        elif render_audio_mode == "simple-mix":
+            render_cmd.append("--simple-mix")
+        if profile_render:
+            render_cmd.extend(["--profile-out", str(reports_dir / "render_isolated.cprofile"), "--profile-workers"])
         if runtime_stem_max_gain_db is not None:
             render_cmd.extend(["--runtime-stem-max-gain-db", str(runtime_stem_max_gain_db)])
         if force:
@@ -2202,6 +2526,9 @@ def create_bundle(
                 "commands": [c.__dict__ for c in commands],
                 "outdir": str(outdir),
             }
+
+    if profile_render:
+        copy_tree_if_exists(outdir / "profiles", reports_dir / "profiles")
 
     progress_line("loading adaptive manifest")
     manifest_path = latest_manifest(outdir, cue_id)
@@ -2265,6 +2592,7 @@ def create_bundle(
             )
         write_stem_export_report(analysis_root, manifest, reports_dir)
         write_manifest_audio_level_report(analysis_root, manifest, reports_dir)
+        write_audio_metadata_report(analysis_root, manifest, reports_dir)
         write_stem_amplitude_report(
             analysis_root,
             spec,
@@ -2283,7 +2611,7 @@ def create_bundle(
             plot_format=plot_format,
             jpeg_quality=jpeg_quality,
         )
-        write_adaptive_composition_mastering_report(
+        adaptive_composition_path = write_adaptive_composition_mastering_report(
             analysis_root,
             spec,
             manifest,
@@ -2293,6 +2621,7 @@ def create_bundle(
             jpeg_quality=jpeg_quality,
         )
         write_spectral_fingerprint(analysis_root, manifest, reports_dir)
+        audio_shrillness_path = write_spectral_shrillness_report(analysis_root, manifest, reports_dir)
         write_state_mix_report(spec, manifest, reports_dir)
         progress_line("running adjacent-section transition audits")
         commands.extend(run_transition_audits(analysis_root, manifest, reports_dir, tools_dir))
@@ -2327,6 +2656,16 @@ def create_bundle(
         dissonance_warnings = list(dissonance_payload.get("warnings") or [])
         sour_note_warnings = list(sour_note_payload.get("warnings") or [])
         shrill_note_warnings = list(shrill_note_payload.get("warnings") or [])
+        adaptive_composition_warnings: list[str] = []
+        audio_shrillness_warnings: list[str] = []
+        try:
+            adaptive_composition_warnings = list(json.loads(Path(adaptive_composition_path).read_text(encoding="utf8")).get("warnings") or [])
+        except Exception:
+            adaptive_composition_warnings = []
+        try:
+            audio_shrillness_warnings = list(json.loads(Path(audio_shrillness_path).read_text(encoding="utf8")).get("warnings") or [])
+        except Exception:
+            audio_shrillness_warnings = []
         if not skip_spectrograms:
             write_spectrograms(
                 analysis_root,
@@ -2377,6 +2716,8 @@ def create_bundle(
         runtime_stem_max_gain_db,
         zip_bundle,
         zip_report_bundle,
+        render_audio_mode,
+        profile_render,
     )
 
     command_rows = [
@@ -2397,6 +2738,8 @@ def create_bundle(
         "runtime_stem_gain_mode": runtime_stem_gain_mode,
         "runtime_stem_max_gain_db": runtime_stem_max_gain_db,
         "plot_format": plot_format,
+        "render_audio_mode": render_audio_mode,
+        "profile_render": profile_render,
         "render_hash": render_hash,
         "outdir": str(outdir),
         "bundle_dir": str(bundle_dir),
@@ -2406,7 +2749,19 @@ def create_bundle(
         "include_scratch_stems": include_scratch_stems,
         "copied_audio_files": copied_audio,
         "mix_diagnostics": str(mix_diag_path),
-        "warnings": [w for w in [id_warning, *mix_warnings, *dissonance_warnings, *sour_note_warnings, *shrill_note_warnings] if w],
+        "warnings": [
+            w
+            for w in [
+                id_warning,
+                *mix_warnings,
+                *adaptive_composition_warnings,
+                *audio_shrillness_warnings,
+                *dissonance_warnings,
+                *sour_note_warnings,
+                *shrill_note_warnings,
+            ]
+            if w
+        ],
         "commands": command_rows,
         "rerun_script": str(rerun_script),
     }
@@ -2469,6 +2824,18 @@ def build_parser() -> argparse.ArgumentParser:
     )
     ap.add_argument("--skip-render", action="store_true", help="bundle/analyze existing outdir")
     ap.add_argument("--skip-spectrograms", action="store_true", help="skip PNG spectrogram generation")
+    ap.add_argument(
+        "--render-audio-mode",
+        choices=RENDER_AUDIO_MODES,
+        default="full",
+        help=(
+            "audio export scope for render_isolated. full preserves all adaptive stem/state preview OGGs; "
+            "full-mix-only keeps scratch stems plus mastered preview and section full mixes; "
+            "simple-mix writes only the mastered preview. Use full-mix-only for fast report bundles "
+            "when you do not need per-stem runtime OGG exports."
+        ),
+    )
+    ap.add_argument("--profile-render", action="store_true", help="cProfile render_isolated and per-group workers into reports/")
     return ap
 
 
@@ -2492,6 +2859,8 @@ def main(argv: list[str] | None = None) -> int:
         plot_format=args.plot_format,
         jpeg_quality=args.jpeg_quality,
         runtime_stem_max_gain_db=args.runtime_stem_max_gain_db,
+        render_audio_mode=args.render_audio_mode,
+        profile_render=args.profile_render,
     )
     print_bundle_summary(report)
     print(json.dumps(report, indent=2, default=str))

@@ -9,6 +9,7 @@ from PIL import Image, ImageColor, ImageDraw
 from .adapters import get_adapter
 from .actor_contract import write_actor_contract_for_adapter
 from .config import CharacterJob
+from .core.measure import measure_body_metrics
 from .rendering import load_font
 
 
@@ -20,44 +21,10 @@ def _parse_bg(value: str):
 
 
 def _measure_body_extent(frame: Image.Image) -> Dict[str, Any] | None:
-    """Compute the bounding box of opaque pixels in one frame, plus the
-    derived feet/center anchor in Bevy-anchor convention.
-
-    Bevy anchors are normalized in `[-0.5, +0.5]` with `0` at the sprite
-    centre and `+0.5` at the top edge. Rust callers want the anchor of
-    the rendered character's feet so that `transform.y` ≈ the bottom of
-    the collision box. We compute that here so the runtime doesn't need
-    to hand-tune `feet_anchor_y` per target.
-    """
-    bbox = frame.getbbox()
-    if bbox is None:
-        return None
-    fw, fh = frame.size
-    x_min, y_min, x_max, y_max = bbox
-    # `getbbox` is half-open on the high side; subtract 1 for an inclusive
-    # last row so the feet anchor sits on the last opaque pixel.
-    feet_y = y_max - 1
-    feet_x = (x_min + x_max - 1) / 2.0
-    body_w = x_max - x_min
-    body_h = y_max - y_min
-    return {
-        "frame_width": fw,
-        "frame_height": fh,
-        "body_pixel_bbox": {
-            "x": int(x_min),
-            "y": int(y_min),
-            "w": int(body_w),
-            "h": int(body_h),
-        },
-        "feet_pixel": {"x": float(feet_x), "y": float(feet_y)},
-        # Bevy anchor convention: (0,0) = center, +0.5y = top edge.
-        # Image-y grows downward; image_y=feet_y maps to anchor_y =
-        # 0.5 - feet_y / fh. Rust uses this directly as `feet_anchor_y`.
-        "feet_anchor_norm": {
-            "x": float(feet_x / fw - 0.5),
-            "y": float(0.5 - feet_y / fh),
-        },
-    }
+    """Body bbox + feet anchor for one frame. Thin shim over the canonical
+    measurement in :mod:`ambition_sprite2d_renderer.core.measure` (the one
+    home for "measure by default")."""
+    return measure_body_metrics(frame)
 
 
 # Pixels of safety padding kept around the union bbox before cropping. Anti-

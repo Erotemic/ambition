@@ -10,7 +10,8 @@ field as a rigid group. A central group is anchored at the requested origin;
 neighbor groups are placed near the LoadingZone door/edge that connects them,
 with simple rectangle-overlap avoidance. The goal is not a mathematically exact
 minimum-crossing graph drawing. The goal is stable, deterministic editor layout
-that keeps rooms near the door that reaches them.
+that keeps rooms near the door that reaches them. Dry runs can also emit an SVG
+preview so chat sandboxes can inspect the proposed editor layout visually.
 """
 
 from __future__ import annotations
@@ -121,6 +122,8 @@ class LayoutResult:
     moved_levels: int
     updated_entities: int
     report: str
+    locked_groups: set[str] = field(default_factory=set)
+    packing_padding: int = 0
 
 
 def field_map(obj: dict) -> dict[str, object]:
@@ -133,6 +136,58 @@ def active_area_for_level(level: dict) -> str:
     if isinstance(active, str) and active:
         return active
     return str(level.get("identifier"))
+
+
+def _truthy_field_value(value: object) -> bool:
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, (int, float)):
+        return value != 0
+    if isinstance(value, str):
+        return value.strip().lower() in {"1", "true", "yes", "y", "on", "locked", "lock"}
+    return False
+
+
+def locked_groups_from_level_fields(
+    groups: dict[str, GroupInfo],
+    *,
+    lock_field: str = "layoutLocked",
+) -> set[str]:
+    """Return activeArea group ids locked by an optional level field.
+
+    LDtk level fields are project-defined, so this helper is deliberately
+    duck-typed. If a project has a boolean/string field named `layoutLocked`
+    (or the CLI-selected --lock-field), any truthy value locks the whole
+    activeArea group. If the field is absent, nothing happens.
+    """
+
+    locked: set[str] = set()
+    for group_id, group in groups.items():
+        for level in group.levels:
+            if _truthy_field_value(field_map(level.level).get(lock_field)):
+                locked.add(group_id)
+                break
+    return locked
+
+
+def resolve_group_ids(
+    names: Iterable[str],
+    groups: dict[str, GroupInfo],
+    levels_by_id: dict[str, LevelInfo],
+    *,
+    label: str,
+) -> set[str]:
+    resolved: set[str] = set()
+    for name in names:
+        if not name:
+            continue
+        if name in groups:
+            resolved.add(name)
+        elif name in levels_by_id:
+            resolved.add(levels_by_id[name].active_area)
+        else:
+            raise SystemExit(f"{label} '{name}' is not a level identifier or activeArea")
+    return resolved
 
 
 def entity_rect(entity: dict) -> Rect:
@@ -422,6 +477,10 @@ def auto_layout(
     origin: Point = Point(0, 0),
     grid: int | None = None,
     gap: int = 256,
+    padding: int | None = None,
+    lock: Iterable[str] = (),
+    lock_field: str = "layoutLocked",
+    respect_field_locks: bool = True,
 ) -> LayoutResult:
     groups, levels_by_id = build_groups(project)
     if not groups:
@@ -430,6 +489,10 @@ def auto_layout(
         grid = int(project.get("worldGridWidth") or 256)
     start_group_id = choose_start_group(start, groups, levels_by_id)
     start_group = groups[start_group_id]
+    packing_padding = gap // 4 if padding is None else max(0, int(padding))
+    locked_groups = resolve_group_ids(lock, groups, levels_by_id, label="--lock")
+    if respect_field_locks:
+        locked_groups |= locked_groups_from_level_fields(groups, lock_field=lock_field)
 
     # Anchor so the requested start level/active area lands at origin. If start
     # names a level inside a multi-level group, preserve the intra-group offset
@@ -440,6 +503,11 @@ def auto_layout(
     else:
         start_anchor = origin
     start_anchor = snap_point(start_anchor, grid)
+
+    if start_group_id in locked_groups:
+        # Explicit locks should be stable. If the caller wants the start group at
+        # origin, unlock it for this pass or move it once before locking it.
+        start_anchor = start_group.anchor
 
     edges = build_edges(project, groups, levels_by_id)
     unresolved_edges = [e for e in edges if e.target is None or e.target_group_id not in groups]
@@ -456,8 +524,17 @@ def auto_layout(
         adjacency[edge.target_group_id].append(edge)
 
     placements: dict[str, Point] = {start_group_id: start_anchor}
-    placed_rects: list[tuple[str, Rect]] = [(start_group_id, start_group.rect.translated(start_anchor))]
-    q: deque[str] = deque([start_group_id])
+    # Locked groups seed the packing obstacles at their current editor positions.
+    # This lets an author pin landmarks and ask the optimizer to place the rest
+    # around them. The start group can still be anchored at --origin unless it is
+    # itself locked.
+    for group_id in sorted(locked_groups):
+        placements.setdefault(group_id, groups[group_id].anchor)
+
+    placed_rects: list[tuple[str, Rect]] = []
+    for group_id in sorted(placements):
+        placed_rects.append((group_id, groups[group_id].rect.translated(placements[group_id])))
+    q: deque[str] = deque([start_group_id, *sorted(g for g in locked_groups if g != start_group_id)])
 
     while q:
         current = q.popleft()
@@ -497,7 +574,7 @@ def auto_layout(
                         desired,
                         placed_rects,
                         grid=grid,
-                        gap=gap // 4,
+                        gap=packing_padding,
                         direction="right",
                     )
                     placements[neighbor] = placed
@@ -515,7 +592,7 @@ def auto_layout(
                 desired,
                 placed_rects,
                 grid=grid,
-                gap=gap // 4,
+                gap=packing_padding,
                 direction=edge.direction,
             )
             placements[neighbor] = placed
@@ -538,7 +615,7 @@ def auto_layout(
                 shelf_y = snap(shelf_y + shelf_h + gap, grid)
                 shelf_h = 0
             desired = Point(shelf_x, shelf_y)
-            placed = place_without_overlap(group, desired, placed_rects, grid=grid, gap=gap // 4)
+            placed = place_without_overlap(group, desired, placed_rects, grid=grid, gap=packing_padding)
             placements[group_id] = placed
             placed_rects.append((group_id, group.rect.translated(placed)))
             shelf_x = snap(placed.x + group.rect.w + gap, grid)
@@ -560,7 +637,17 @@ def auto_layout(
             level.level["worldY"] = new_y
             updated_entities += update_entity_world_coords(level.level)
 
-    report = format_report(groups, placements, edges, unresolved_edges, start_group_id, grid=grid, gap=gap)
+    report = format_report(
+        groups,
+        placements,
+        edges,
+        unresolved_edges,
+        start_group_id,
+        grid=grid,
+        gap=gap,
+        packing_padding=packing_padding,
+        locked_groups=locked_groups,
+    )
     return LayoutResult(
         placements=placements,
         groups=groups,
@@ -569,6 +656,8 @@ def auto_layout(
         moved_levels=moved_levels,
         updated_entities=updated_entities,
         report=report,
+        locked_groups=locked_groups,
+        packing_padding=packing_padding,
     )
 
 
@@ -594,20 +683,25 @@ def format_report(
     *,
     grid: int,
     gap: int,
+    packing_padding: int,
+    locked_groups: set[str],
 ) -> str:
     lines: list[str] = []
     lines.append("LDtk world auto-layout report")
     lines.append(f"start group: {start_group_id}")
-    lines.append(f"grid={grid} gap={gap}")
+    lines.append(f"grid={grid} gap={gap} padding={packing_padding}")
+    if locked_groups:
+        lines.append("locked groups: " + ", ".join(sorted(locked_groups)))
     lines.append("")
     lines.append(f"Groups ({len(groups)}):")
     for group_id in sorted(groups):
         group = groups[group_id]
         p = placements[group_id]
         level_ids = ", ".join(level.identifier for level in group.levels)
+        lock_mark = " locked" if group_id in locked_groups else ""
         lines.append(
             f"  {group_id:28s} at ({p.x:>6}, {p.y:>6}) "
-            f"size={group.rect.w}x{group.rect.h} levels=[{level_ids}]"
+            f"size={group.rect.w}x{group.rect.h}{lock_mark} levels=[{level_ids}]"
         )
     lines.append("")
     resolved = [e for e in edges if e.target is not None and e.target_group_id in groups]
@@ -633,6 +727,118 @@ def format_report(
     return "\n".join(lines) + "\n"
 
 
+def _svg_escape(value: object) -> str:
+    return (
+        str(value)
+        .replace("&", "&amp;")
+        .replace("<", "&lt;")
+        .replace(">", "&gt;")
+        .replace('"', "&quot;")
+    )
+
+
+def _layout_bounds(result: LayoutResult, *, margin: int = 512) -> Rect:
+    rects = [group.rect.translated(result.placements[group_id]) for group_id, group in result.groups.items()]
+    if not rects:
+        return Rect(-margin, -margin, margin * 2, margin * 2)
+    x0 = min(r.x for r in rects) - margin
+    y0 = min(r.y for r in rects) - margin
+    x1 = max(r.x2 for r in rects) + margin
+    y1 = max(r.y2 for r in rects) + margin
+    return Rect(x0, y0, x1 - x0, y1 - y0)
+
+
+def _level_rect_at_placement(level: LevelInfo, group: GroupInfo, placement: Point) -> Rect:
+    rel = level_top_left_relative_to_group(level, group)
+    return Rect(placement.x + rel.x, placement.y + rel.y, level.rect.w, level.rect.h)
+
+
+def render_layout_svg(result: LayoutResult, *, max_width: int = 1800) -> str:
+    """Render a proposed world auto-layout as a standalone SVG."""
+
+    bounds = _layout_bounds(result)
+    scale = min(1.0, max_width / max(bounds.w, 1))
+    width = max(1, int(math.ceil(bounds.w * scale)))
+    height = max(1, int(math.ceil(bounds.h * scale)))
+
+    def sx(x: int | float) -> float:
+        return (float(x) - bounds.x) * scale
+
+    def sy(y: int | float) -> float:
+        return (float(y) - bounds.y) * scale
+
+    def sw(w: int | float) -> float:
+        return max(1.0, float(w) * scale)
+
+    font = max(9, min(14, int(12 * max(0.75, scale))))
+    parts: list[str] = [
+        f'<svg xmlns="http://www.w3.org/2000/svg" width="{width}" height="{height}" viewBox="0 0 {width} {height}">',
+        '<rect x="0" y="0" width="100%" height="100%" fill="#0f172a"/>',
+        '<style>text{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}</style>',
+    ]
+
+    # Draw resolved links first so rooms sit on top of them.
+    for edge in result.edges:
+        if edge.target is None or edge.target_group_id not in result.groups:
+            continue
+        if edge.source.group_id not in result.placements or edge.target_group_id not in result.placements:
+            continue
+        src = result.placements[edge.source.group_id] + edge.source.center_rel_group
+        dst = result.placements[edge.target_group_id] + edge.target.center_rel_group
+        color = "#64748b" if edge.source.group_id != edge.target_group_id else "#334155"
+        dash = "" if edge.weight >= 1.0 else ' stroke-dasharray="8 6"'
+        parts.append(
+            f'<line x1="{sx(src.x):.1f}" y1="{sy(src.y):.1f}" '
+            f'x2="{sx(dst.x):.1f}" y2="{sy(dst.y):.1f}" '
+            f'stroke="{color}" stroke-width="{max(1.0, 2.0 * scale):.1f}" opacity="0.55"{dash}/>'
+        )
+
+    for group_id in sorted(result.groups):
+        group = result.groups[group_id]
+        placement = result.placements[group_id]
+        grect = group.rect.translated(placement)
+        locked = group_id in result.locked_groups
+        fill = "#1e293b" if not locked else "#3b2f1e"
+        stroke = "#38bdf8" if not locked else "#f59e0b"
+        parts.append(
+            f'<rect x="{sx(grect.x):.1f}" y="{sy(grect.y):.1f}" '
+            f'width="{sw(grect.w):.1f}" height="{sw(grect.h):.1f}" '
+            f'fill="{fill}" stroke="{stroke}" stroke-width="2" opacity="0.94" rx="6"/>'
+        )
+        parts.append(
+            f'<text x="{sx(grect.x) + 6:.1f}" y="{sy(grect.y) + font + 4:.1f}" '
+            f'fill="{stroke}" font-size="{font}" paint-order="stroke" stroke="#0f172a" stroke-width="4">'
+            f'{_svg_escape(group_id)}{" 🔒" if locked else ""}</text>'
+        )
+        for level in sorted(group.levels, key=lambda li: li.identifier):
+            rect = _level_rect_at_placement(level, group, placement)
+            parts.append(
+                f'<rect x="{sx(rect.x):.1f}" y="{sy(rect.y):.1f}" '
+                f'width="{sw(rect.w):.1f}" height="{sw(rect.h):.1f}" '
+                f'fill="#0f172a" stroke="#94a3b8" stroke-width="1" opacity="0.32"/>'
+            )
+            if rect.w * scale >= 90 and rect.h * scale >= 24:
+                parts.append(
+                    f'<text x="{sx(rect.x) + 5:.1f}" y="{sy(rect.y) + font * 2 + 8:.1f}" '
+                    f'fill="#cbd5e1" font-size="{max(8, font - 1)}">{_svg_escape(level.identifier)}</text>'
+                )
+
+    if result.unresolved_edges:
+        y = 22
+        parts.append(f'<text x="16" y="{y}" fill="#fca5a5" font-size="14">unresolved links: {len(result.unresolved_edges)}</text>')
+    parts.append(
+        f'<text x="16" y="{height - 16}" fill="#94a3b8" font-size="12">'
+        f'grid report preview · gap/padding {result.packing_padding}px minimum padding</text>'
+    )
+    parts.append("</svg>\n")
+    return "\n".join(parts)
+
+
+def write_svg_report(path: Path, result: LayoutResult, *, max_width: int = 1800) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(render_layout_svg(result, max_width=max_width))
+
+
 def write_report(path: Path, text: str) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(text)
@@ -652,7 +858,8 @@ def main(argv=None) -> int:
         default="0,0",
         help="World coordinate for the requested start level/area top-left (default 0,0).",
     )
-    parser.add_argument("--gap", type=int, default=256, help="Preferred px gap between packed groups.")
+    parser.add_argument("--gap", type=int, default=256, help="Preferred px distance from a source group to newly placed linked groups.")
+    parser.add_argument("--padding", type=int, default=None, help="Minimum px padding between packed group rectangles. Defaults to --gap / 4 for compact legacy behavior.")
     parser.add_argument(
         "--grid",
         type=int,
@@ -660,7 +867,12 @@ def main(argv=None) -> int:
         help="Snap group anchors to this grid. Defaults to project worldGridWidth.",
     )
     parser.add_argument("--dry-run", action="store_true", help="Print the proposed layout without writing.")
-    parser.add_argument("--report", type=Path, default=None, help="Optional report output path.")
+    parser.add_argument("--report", type=Path, default=None, help="Optional text report output path.")
+    parser.add_argument("--svg-report", type=Path, default=None, help="Optional SVG preview of the proposed editor layout. Works with --dry-run.")
+    parser.add_argument("--svg-max-width", type=int, default=1800, help="Maximum SVG viewport width in pixels for --svg-report.")
+    parser.add_argument("--lock", action="append", default=[], metavar="LEVEL_OR_AREA", help="Keep this level/activeArea group at its current editor position; may be repeated.")
+    parser.add_argument("--lock-field", default="layoutLocked", help="Optional LDtk level field name used as a persistent layout lock (default layoutLocked).")
+    parser.add_argument("--ignore-field-locks", action="store_true", help="Ignore persistent level lock fields and use only --lock.")
     parser.add_argument("--in-place", action="store_true", help="Write back to the input .ldtk path.")
     parser.add_argument("--output", type=Path, default=None, help="Output path (alternative to --in-place).")
     parser.add_argument("--backup", action="store_true", help="When using --in-place, copy original to <ldtk>.bak first.")
@@ -688,7 +900,17 @@ def main(argv=None) -> int:
         return _fail("--origin must be X,Y")
 
     project = json.loads(args.ldtk.read_text())
-    result = auto_layout(project, start=args.start, origin=origin, grid=args.grid, gap=args.gap)
+    result = auto_layout(
+        project,
+        start=args.start,
+        origin=origin,
+        grid=args.grid,
+        gap=args.gap,
+        padding=args.padding,
+        lock=args.lock,
+        lock_field=args.lock_field,
+        respect_field_locks=not args.ignore_field_locks,
+    )
     print(result.report, end="")
     print(
         f"planned/moved {result.moved_levels} level(s); "
@@ -697,6 +919,9 @@ def main(argv=None) -> int:
     if args.report:
         write_report(args.report, result.report)
         print(f"wrote report: {args.report}")
+    if args.svg_report:
+        write_svg_report(args.svg_report, result, max_width=args.svg_max_width)
+        print(f"wrote svg report: {args.svg_report}")
     if args.dry_run:
         return 0
 

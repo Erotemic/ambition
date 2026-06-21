@@ -351,7 +351,7 @@ def build_parser() -> argparse.ArgumentParser:
         help=(
             "Arrange Free-layout levels by LoadingZone graph while preserving "
             "activeArea groups. Usage: world auto-layout <ldtk> "
-            "[--start central_hub_main] [--origin 0,0] [--gap 256] "
+            "[--start central_hub_main] [--origin 0,0] [--gap 256] [--padding N] [--svg-report PATH] "
             "(--dry-run | --in-place | --output PATH)"
         ),
     )

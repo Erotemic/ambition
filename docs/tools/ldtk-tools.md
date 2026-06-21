@@ -56,20 +56,35 @@ connected groups near the door/edge that reaches them while avoiding overlapping
 level rectangles.
 
 ```bash
-# Report-only pass. Does not mutate the LDtk file.
+# Report-only pass. Does not mutate the LDtk file. Add --svg-report to see
+# the proposed editor layout visually before writing.
 PYTHONPATH=tools/ambition_ldtk_tools python -m ambition_ldtk_tools world auto-layout \
   crates/ambition_gameplay_core/assets/ambition/worlds/sandbox.ldtk \
-  --start central_hub_main --origin 0,0 --dry-run
+  --start central_hub_main --origin 0,0 --dry-run \
+  --svg-report /tmp/sandbox-layout.svg
 
-# Write the layout after reviewing the dry-run report.
+# Write the layout after reviewing the dry-run report/SVG. Use --padding to
+# control minimum clearance between packed groups, and --lock to keep a level
+# or activeArea at its current editor coordinates while packing around it.
 PYTHONPATH=tools/ambition_ldtk_tools python -m ambition_ldtk_tools world auto-layout \
   crates/ambition_gameplay_core/assets/ambition/worlds/sandbox.ldtk \
-  --start central_hub_main --origin 0,0 --report /tmp/sandbox-layout.txt --in-place
+  --start central_hub_main --origin 0,0 \
+  --padding 128 --lock central_hub_complex \
+  --report /tmp/sandbox-layout.txt --svg-report /tmp/sandbox-layout.svg \
+  --in-place
 ```
 
 This is an editor-formatting pass only: it updates `level.worldX/worldY` and
 cached entity `__worldX/__worldY`; it does not change room contents, LoadingZone
-targets, collision, or authored gameplay data.
+targets, collision, or authored gameplay data. Links to target rooms outside the
+current LDtk file are reported as unresolved/partial links and are not used for
+packing inside the current file.
+
+Layout locks are optional. `--lock LEVEL_OR_AREA` pins a level/activeArea at its
+current editor position for one command. For persistent locks, add a boolean or
+truthy string level field named `layoutLocked` (or pass `--lock-field NAME`).
+The field is duck-typed: if it is absent from the project nothing happens. Use
+`--ignore-field-locks` for a one-off pass that ignores persistent locks.
 
 ## Room inspection/render/debug bundles
 

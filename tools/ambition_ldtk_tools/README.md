@@ -70,10 +70,14 @@ PYTHONPATH=tools/ambition_ldtk_tools python -m ambition_ldtk_tools portal pair \
 # the report before writing.
 PYTHONPATH=tools/ambition_ldtk_tools python -m ambition_ldtk_tools world auto-layout \
   crates/ambition_gameplay_core/assets/ambition/worlds/sandbox.ldtk \
-  --start central_hub_main --origin 0,0 --dry-run
+  --start central_hub_main --origin 0,0 --dry-run \
+  --svg-report /tmp/sandbox-layout.svg
 PYTHONPATH=tools/ambition_ldtk_tools python -m ambition_ldtk_tools world auto-layout \
   crates/ambition_gameplay_core/assets/ambition/worlds/sandbox.ldtk \
-  --start central_hub_main --origin 0,0 --report /tmp/sandbox-layout.txt --in-place
+  --start central_hub_main --origin 0,0 --padding 128 \
+  --report /tmp/sandbox-layout.txt --svg-report /tmp/sandbox-layout.svg --in-place
+# Use --lock LEVEL_OR_AREA for one-off pinned placements. Persistent locks are
+# duck-typed from a truthy level field named layoutLocked if the project defines it.
 
 # Room-level sandbox helpers: summarize, render, and bundle room context without LDtk/the game.
 PYTHONPATH=tools/ambition_ldtk_tools python -m ambition_ldtk_tools room describe \

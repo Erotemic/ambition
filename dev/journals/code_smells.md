@@ -47,6 +47,12 @@ are now gravity-relative. These four remain world-Y-locked — each is a DESIGN 
 - **Thrown ground-item physics** — `ambition_gameplay_core/src/items/pickup/mod.rs:169` (`GROUND_ITEM_GRAVITY`): thrown items fall world-down regardless of the gravity field.
 - **Player knockback** — `apply_player_hit_events` builds `editable_tuning.as_engine()` without `apply_gravity_dir`; UNTESTED under a flip.
 
+## 2026-06-21 Sprite-renderer path helpers duplicated + generated dir scattered
+- **Where:** `tools/ambition_sprite2d_renderer/ambition_sprite2d_renderer/cli.py` (`package_dir`/`repo_root`/`sandbox_sprites_dir`/`generated_dir`) vs the now-deleted `paths.py`.
+- `paths.py` (`package_root`/`tool_root`/`repo_root`/`generated_root`/`sandbox_sprites_dir`) was the *better-factored* version — repo_root searches upward for `crates/`+`tools/` instead of hardcoding `parents[3]` — but it was **orphaned** (zero importers). Deleted it as dead code 2026-06-21; cli.py keeps its working copies.
+- **TODO:** extract cli.py's path helpers into `registry/paths.py` (one home, the upward-search impl) and have cli import them. NOT done in the org pass because `cli.generated_dir(name)` = `DEFAULT_ASSET_DIR / name` is *semantically different* from `paths.generated_root()` = `tool_root()/generated` — they're not 1:1, so the dedup needs care, and the pixel parity harness does not assert output *paths* (pytest's draw_all/install tests do, partially).
+- Related: generated output lands in **three** dirs — `generated/`, `targets/generated/`, and the tool-root `generated/` (all gitignored now, so a consistency smell, not a git-hygiene problem). Pick one canonical generated root when doing the path dedup.
+
 ## Resolved
 
 - **2026-06-17 Patrol wall-stop read screen-vel.x** — under sideways gravity the patrol "reverse facing" detection watched the zeroed gravity axis and never fired (enemy ground into the wall). Now watches the gravity-perpendicular side velocity in both grounded integrators. `5c29c4a9`; pinned by `patrol_enemy_reverses_facing_at_a_wall_under_sideways_gravity`.

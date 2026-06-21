@@ -9,11 +9,16 @@ from PIL import Image, ImageDraw
 
 from ambition_sprite2d_renderer.core.draw import (
     bbox,
-    downsample,
     font,
     poly_scaled,
     rgba,
     with_alpha,
+)
+from ambition_sprite2d_renderer.core.pipeline import (
+    CROP_GROUND,
+    CROP_NONE,
+    CROP_TIGHT,
+    render_frame,
 )
 
 Color = Tuple[int, int, int, int]
@@ -67,25 +72,10 @@ def _render_supersampled(
     pass `tight_crop=False` to preserve their full canvas — those
     sprites tile via `Sprite::image_mode` instead of stretching.
     """
-    s = max(1, int(supersample))
-    img = Image.new("RGBA", (size[0] * s, size[1] * s), (0, 0, 0, 0))
-    draw_fn(ImageDraw.Draw(img), float(s))
-    img = downsample(img, size)
-    if not tight_crop:
-        return img
-    bbox = img.getchannel("A").getbbox()
-    if bbox is None:
-        return img
-    pad = max(0, int(crop_padding))
-    l, t, r, b = bbox
-    l = max(0, l - pad)
-    t = max(0, t - pad)
-    r = min(size[0], r + pad)
-    # Grounded sprites keep their bottom edge flush (no padding) so the
-    # texture's bottom == the sprite's feet; the runtime plants that edge
-    # on the floor.
-    b = b if ground else min(size[1], b + pad)
-    return img.crop((l, t, r, b))
+    crop = CROP_NONE if not tight_crop else (CROP_GROUND if ground else CROP_TIGHT)
+    return render_frame(
+        draw_fn, size, supersample=supersample, crop=crop, crop_padding=crop_padding
+    )
 
 
 def draw_gem(

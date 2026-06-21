@@ -139,7 +139,7 @@ pub(super) fn integrate_velocity_clusters(
     let drop_through = wants_drop_through(tuning.stick(&input).y, input.jump_pressed)
         || clusters.ground.drop_through_timer > 0.0;
 
-    let mut sweep_x = |clusters: &mut crate::player_clusters::PlayerClustersMut<'_>| {
+    let sweep_x = |clusters: &mut crate::player_clusters::PlayerClustersMut<'_>| {
         let dt_x = clusters.kinematics.vel.x * dt;
         super::collision::sweep_player_x_clusters(
             world,
@@ -153,7 +153,7 @@ pub(super) fn integrate_velocity_clusters(
         );
     };
 
-    let mut sweep_y = |clusters: &mut crate::player_clusters::PlayerClustersMut<'_>| {
+    let sweep_y = |clusters: &mut crate::player_clusters::PlayerClustersMut<'_>| {
         let prev_feet_coord = clusters
             .kinematics
             .aabb_oriented(tuning.gravity_dir)

@@ -12,6 +12,7 @@ use super::*;
 pub fn record_simulation_frame(
     buffer: &mut GameplayTraceBuffer,
     clusters: &ae::PlayerClustersMut<'_>,
+    combat: &crate::player::PlayerCombatState,
     clock: &crate::time::clock_state::ClockState,
     safety: &crate::player::PlayerSafetyState,
     world: &ae::World,
@@ -33,6 +34,7 @@ pub fn record_simulation_frame(
     );
     let frame = build_frame(
         clusters,
+        combat,
         clock,
         safety,
         world,
@@ -131,6 +133,7 @@ pub fn record_frame_system(
             Option<&crate::player::PlayerHealth>,
             &crate::player::PlayerSafetyState,
             &crate::player::PlayerInputFrame,
+            &crate::player::PlayerCombatState,
         ),
         crate::player::PrimaryPlayerOnly,
     >,
@@ -146,7 +149,7 @@ pub fn record_frame_system(
     if teleported.read().next().is_some() {
         buffer.teleport_suppress_ticks = super::PORTAL_TELEPORT_SUPPRESS_FRAMES;
     }
-    let Ok((mut cluster_item, player_health, safety, input)) = player_q.single_mut() else {
+    let Ok((mut cluster_item, player_health, safety, input, combat)) = player_q.single_mut() else {
         return;
     };
     // Trace recording is read-only. Walks the cluster components
@@ -191,6 +194,7 @@ pub fn record_frame_system(
     record_simulation_frame(
         &mut buffer,
         &clusters,
+        combat,
         &clock,
         safety,
         &augmented_world,

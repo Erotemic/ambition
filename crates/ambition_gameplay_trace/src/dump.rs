@@ -161,6 +161,14 @@ fn render_markdown(payload: &DumpPayload<'_>) -> String {
         out.push_str(&format!("- on_ground: {}\n", latest.player.on_ground));
         out.push_str(&format!("- on_wall: {}\n", latest.player.on_wall));
         out.push_str(&format!(
+            "- attack: attacking={} ability_enabled={} hitstun={:.3} invuln={:.3} (pressed={})\n",
+            latest.player.attacking,
+            latest.player.attack_ability_enabled,
+            latest.player.hitstun_timer,
+            latest.player.damage_invuln_timer,
+            latest.controls.attack_pressed,
+        ));
+        out.push_str(&format!(
             "- World size: ({:.0}, {:.0})\n",
             latest.world_size.x, latest.world_size.y
         ));

@@ -118,6 +118,16 @@ fn run_with_trace_dump(max_ticks: u32, dump_dir: PathBuf, start_room: Option<Str
             safety_q.single(sim.world()).copied().unwrap_or_default()
         };
 
+        // Combat-gate state (hitstun / invuln / active-attack) lives on a
+        // separate component from the cluster query, so fetch a clone before
+        // the cluster borrow takes the world.
+        let combat = {
+            let mut combat_q = sim
+                .world_mut()
+                .query_filtered::<&ambition_gameplay_core::player::PlayerCombatState, ambition_gameplay_core::player::PrimaryPlayerOnly>();
+            combat_q.single(sim.world()).cloned().unwrap_or_default()
+        };
+
         // Query the player's 18 cluster components in one shot via
         // `PlayerClusterQueryData::as_clusters_mut()` so the trace
         // recorder can read them through a `PlayerClustersMut` view.
@@ -141,6 +151,7 @@ fn run_with_trace_dump(max_ticks: u32, dump_dir: PathBuf, start_room: Option<Str
         record_simulation_frame(
             &mut buffer,
             &clusters,
+            &combat,
             &clock,
             &safety,
             &game_world,

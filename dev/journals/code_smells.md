@@ -22,6 +22,12 @@ Entry format:
 
 ## Open
 
+## 2026-06-21 Dead `landed`/`killed` scaffold in `advance_attack` (+ possibly-broken pogo-off-enemy)
+- **Where:** crates/ambition_app/src/app/world_flow/attack.rs ~316-347 (`advance_attack`)
+- **Smell:** `let landed = false; let killed = false;` are hardcoded (synchronous hit resolution moved to the ECS damage queue), so every block gated on them is dead: the connect-sound `SfxMessage::Hit` (line ~321) AND — more worryingly — the pogo-impulse-on-landing block (`if landed && abilities.pogo && spec.can_pogo ...`, ~329-347). Pogo off the *orb* is a separate live path (~260-285); pogo off a *landed enemy hit* via this block can never fire. Either it's genuinely broken (needs migrating to the ECS damage queue like the connect sound was) or it's residue to delete. Found while answering "is there an attack-connect sound?" — answer: yes, the generic `SfxMessage::Hit` from `features/ecs/damage/mod.rs:307`, NOT this dead site; there is no *distinct* hit-confirm cue.
+- **Noticed while:** investigating the mockingbird "swing doesn't fire / doesn't register while overlapping the boss" bug.
+- **Suggested fix / size:** S to delete the dead connect-sound lines; M to decide+fix the pogo-off-enemy path (verify in-game whether enemy pogo-bounce currently works, then either migrate to the ECS queue or remove). Don't blind-delete — the pogo block may be a latent bug, not just dead code.
+
 ## 2026-06-13 Docs reference deleted RON-based levels
 - **Where:** docs that predate the LDtk-only world source (ADR 0009's "Consequences" implies RON-world-authoring docs remain unswept). NOTE: `check_doc_links.py` passes (links resolve); this is about stale *prose* describing removed RON room/world authoring, not broken links.
 - **Smell:** RON-shaped room/world levels were fully removed (LDtk is the only world source), but some docs still describe them as if extant. Jon's standing rule: a doc describing something that no longer exists is a smell.

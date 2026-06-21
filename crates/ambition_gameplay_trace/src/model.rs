@@ -125,6 +125,26 @@ pub struct PlayerTraceState {
     /// `CollisionCorrection` tick coincides with a `false → true`
     /// transition of this flag.
     pub ledge_grabbing: bool,
+    /// True iff a melee swing is currently active (`ActivePlayerAttack`
+    /// is `Some`). Cross-referenced with the `attack_pressed` input edge
+    /// this is the canonical "did the swing actually START" signal: a
+    /// frame with `attack_pressed = true` that never flips `attacking`
+    /// to `true` means an attack was REQUESTED but GATED — the next
+    /// three fields say why.
+    pub attacking: bool,
+    /// Hitstun timer (`PlayerCombatState::hitstun_timer`). The attack
+    /// start gate is `hitstun_timer <= 0.0`; any positive value here on
+    /// a frame the swing didn't start explains the gate.
+    pub hitstun_timer: f32,
+    /// Damage i-frame timer (`PlayerCombatState::damage_invuln_timer`).
+    /// A positive value means a recent hit; useful for confirming
+    /// whether contact damage fired (the thing that SETS hitstun).
+    pub damage_invuln_timer: f32,
+    /// Whether the `attack` ability is enabled in the player's
+    /// `AbilitySet`. `start_attack` early-returns when this is false, so
+    /// a disabled attack ability is another way the swing can silently
+    /// not fire.
+    pub attack_ability_enabled: bool,
 }
 
 #[derive(Serialize, Clone, Debug)]

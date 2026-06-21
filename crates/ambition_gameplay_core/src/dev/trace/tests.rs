@@ -74,6 +74,10 @@ fn ring_buffer_caps_at_capacity() {
                 resets: 0,
                 wall_normal_x: 0.0,
                 ledge_grabbing: false,
+                attacking: false,
+                hitstun_timer: 0.0,
+                damage_invuln_timer: 0.0,
+                attack_ability_enabled: true,
             },
             controls: ControlFrameTrace::default(),
             nearby_collision: Vec::new(),
@@ -179,6 +183,7 @@ fn record_frame_with_oob_pushes_event_and_requests_dump() {
     let clusters = scratch.as_mut();
     let frame = build_frame(
         &clusters,
+        &crate::player::PlayerCombatState::default(),
         &crate::time::clock_state::ClockState::default(),
         &crate::player::PlayerSafetyState::default(),
         &world,
@@ -209,6 +214,7 @@ fn write_dump_writes_two_files() {
     let clusters = scratch.as_mut();
     let frame = build_frame(
         &clusters,
+        &crate::player::PlayerCombatState::default(),
         &crate::time::clock_state::ClockState::default(),
         &crate::player::PlayerSafetyState::default(),
         &world,
@@ -483,6 +489,7 @@ fn frame_includes_moving_platform_state() {
     let clusters = scratch.as_mut();
     let frame = build_frame(
         &clusters,
+        &crate::player::PlayerCombatState::default(),
         &crate::time::clock_state::ClockState::default(),
         &crate::player::PlayerSafetyState::default(),
         &world,

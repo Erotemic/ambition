@@ -182,6 +182,7 @@ fn nearby_collision(world: &ae::World, player_pos: ae::Vec2) -> Vec<CollisionTra
 #[allow(clippy::too_many_arguments)]
 pub fn build_frame(
     clusters: &ae::PlayerClustersMut<'_>,
+    combat: &crate::player::PlayerCombatState,
     clock: &crate::time::clock_state::ClockState,
     safety: &crate::player::PlayerSafetyState,
     world: &ae::World,
@@ -229,6 +230,10 @@ pub fn build_frame(
             resets: clusters.lifetime.resets,
             wall_normal_x: clusters.wall.wall_normal_x,
             ledge_grabbing: clusters.ledge.grab.is_some(),
+            attacking: combat.attacking,
+            hitstun_timer: combat.hitstun_timer,
+            damage_invuln_timer: combat.damage_invuln_timer,
+            attack_ability_enabled: clusters.abilities.abilities.attack,
         },
         controls: controls.into(),
         nearby_collision: nearby_collision(world, clusters.kinematics.pos),

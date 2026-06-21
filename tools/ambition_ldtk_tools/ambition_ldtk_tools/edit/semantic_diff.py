@@ -95,6 +95,20 @@ def tileset_snapshot(project: dict) -> dict[str, dict]:
     }
 
 
+def entity_visual_snapshot(project: dict) -> dict[str, dict]:
+    return {
+        str(row.get("identifier")): {
+            "renderMode": row.get("renderMode"),
+            "tileRenderMode": row.get("tileRenderMode"),
+            "tilesetId": row.get("tilesetId"),
+            "tileRect": row.get("tileRect"),
+            "uiTileRect": row.get("uiTileRect"),
+        }
+        for row in project.get("defs", {}).get("entities", []) or []
+        if row.get("renderMode") == "Tile" or row.get("tilesetId") is not None or row.get("tileRect") is not None or row.get("uiTileRect") is not None
+    }
+
+
 def semantic_changes(before: dict, after: dict) -> list[Change]:
     changes: list[Change] = []
     a_levels = level_map(before)
@@ -163,6 +177,18 @@ def semantic_changes(before: dict, after: dict) -> list[Change]:
     for ident in sorted(set(a_ts) | set(b_ts)):
         if a_ts.get(ident) != b_ts.get(ident):
             changes.append(Change("tileset", ident, a_ts.get(ident), b_ts.get(ident), f"tileset {ident} changed"))
+
+    a_visual = entity_visual_snapshot(before)
+    b_visual = entity_visual_snapshot(after)
+    for ident in sorted(set(a_visual) | set(b_visual)):
+        if a_visual.get(ident) != b_visual.get(ident):
+            changes.append(Change(
+                "entity_def_visual",
+                ident,
+                a_visual.get(ident),
+                b_visual.get(ident),
+                f"entity def {ident} editor visual changed",
+            ))
     return changes
 
 

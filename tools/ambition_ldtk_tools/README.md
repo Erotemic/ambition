@@ -214,3 +214,59 @@ PYTHONPATH=tools/ambition_ldtk_tools python -m ambition_ldtk_tools room compile-
 
 JSON specs can paint IntGrid rectangles, add common entities, and request camera
 auto-cover. RON specs are supported when `python-ron` is installed.
+
+### Visual manifest scaffolding
+
+The sprite/tileset refactor owns runtime art metadata. The LDtk tools only own
+editor integration: registering LDtk tilesets, assigning entity editor icons,
+validating those refs, and making visual changes reviewable. Use a small visual
+manifest as an adapter boundary until the final generator metadata lands.
+
+```bash
+# Generate a placeholder editor icon sheet that is independent of production art.
+PYTHONPATH=tools/ambition_ldtk_tools python -m ambition_ldtk_tools asset generate-editor-icons \
+  --out crates/ambition_gameplay_core/assets/sprites/editor_icons.png \
+  --tile-size 32
+
+# Draft a manifest that maps common editor entities to that sheet.
+PYTHONPATH=tools/ambition_ldtk_tools python -m ambition_ldtk_tools asset suggest-manifest \
+  crates/ambition_gameplay_core/assets/ambition/worlds/sandbox.ldtk \
+  --icons crates/ambition_gameplay_core/assets/sprites/editor_icons.png \
+  --out tools/ambition_ldtk_tools/manifests/sandbox_visuals.json
+
+# Apply or validate LDtk-side visual refs. This mutates only LDtk defs: tilesets
+# and entity editor tileRect/uiTileRect references.
+PYTHONPATH=tools/ambition_ldtk_tools python -m ambition_ldtk_tools asset apply-manifest \
+  crates/ambition_gameplay_core/assets/ambition/worlds/sandbox.ldtk \
+  tools/ambition_ldtk_tools/manifests/sandbox_visuals.json \
+  --in-place
+PYTHONPATH=tools/ambition_ldtk_tools python -m ambition_ldtk_tools asset validate-manifest \
+  crates/ambition_gameplay_core/assets/ambition/worlds/sandbox.ldtk \
+  tools/ambition_ldtk_tools/manifests/sandbox_visuals.json
+
+# Generate a compact HTML preview for human review.
+PYTHONPATH=tools/ambition_ldtk_tools python -m ambition_ldtk_tools asset preview-manifest \
+  crates/ambition_gameplay_core/assets/ambition/worlds/sandbox.ldtk \
+  tools/ambition_ldtk_tools/manifests/sandbox_visuals.json \
+  --out /tmp/sandbox_visuals.html
+```
+
+The manifest is intentionally simple and generator-agnostic:
+
+```json
+{
+  "editor_icons": {
+    "identifier": "EditorIcons",
+    "path": "crates/ambition_gameplay_core/assets/sprites/editor_icons.png",
+    "tile_width": 32,
+    "tile_height": 32
+  },
+  "entity_icons": {
+    "CameraZone": {"tileset": "EditorIcons", "index": 0},
+    "LoadingZone": {"tileset": "EditorIcons", "index": 1}
+  }
+}
+```
+
+When the sprite refactor settles, add an adapter that generates this manifest
+from the canonical RON/YAML sprite metadata. Do not hand-maintain LDtk JSON rects.

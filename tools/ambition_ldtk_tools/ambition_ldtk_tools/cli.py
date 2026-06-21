@@ -22,6 +22,9 @@ Subcommands (those marked [TODO] are not yet wired and will print a hint):
     camera audit|auto-cover <ldtk> CameraZone placement and coverage helpers.
     asset catalog <ldtk>          List registered tilesets, entity sprites, and PNGs.
     asset link-entity-tile <ldtk> Point an entity def at a registered tileset tile.
+    asset generate-editor-icons   Create placeholder editor icon PNGs.
+    asset suggest/apply/validate-manifest
+                                  Scaffold and apply visual manifests.
 
     level set-field [--level ID --set key=value | <spec.yaml>]
                                    Update level-scoped metadata (biome /
@@ -166,7 +169,15 @@ def cmd_camera(args, rest):
 
 
 def cmd_asset(args, rest):
-    if args.asset_action in {"catalog", "link-entity-tile"}:
+    if args.asset_action in {
+        "catalog",
+        "link-entity-tile",
+        "generate-editor-icons",
+        "suggest-manifest",
+        "apply-manifest",
+        "validate-manifest",
+        "preview-manifest",
+    }:
         return _delegate("ambition_ldtk_tools.edit.assets", [args.asset_action, *rest])
     return _todo(f"asset {args.asset_action}")
 
@@ -419,11 +430,16 @@ def build_parser() -> argparse.ArgumentParser:
     camera_sub.add_parser("auto-cover", help="Create/update a CameraZone covering a level play rect")
     sp_camera.set_defaults(func=cmd_camera)
 
-    # asset {catalog,link-entity-tile}
+    # asset helpers
     sp_asset = sub.add_parser("asset", help="Asset/tileset/entity-sprite helpers")
     asset_sub = sp_asset.add_subparsers(dest="asset_action", required=True)
     asset_sub.add_parser("catalog", help="List registered tilesets, editor sprites, and PNG assets")
     asset_sub.add_parser("link-entity-tile", help="Point an entity def at a registered tileset tileRect")
+    asset_sub.add_parser("generate-editor-icons", help="Create placeholder editor icon PNGs")
+    asset_sub.add_parser("suggest-manifest", help="Print or write a draft visual manifest")
+    asset_sub.add_parser("apply-manifest", help="Register tilesets and entity editor icons from a visual manifest")
+    asset_sub.add_parser("validate-manifest", help="Validate LDtk visual refs against a manifest")
+    asset_sub.add_parser("preview-manifest", help="Render a visual manifest HTML preview")
     sp_asset.set_defaults(func=cmd_asset)
 
     # door free-spots / door snap

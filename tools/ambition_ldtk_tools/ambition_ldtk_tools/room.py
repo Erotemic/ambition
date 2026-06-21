@@ -248,6 +248,8 @@ def _room_issues(level: dict, intgrid: dict[str, object], entities: list[dict[st
         w, h = e["size"]  # type: ignore[misc]
         if x < 0 or y < 0 or x + w > level.get("pxWid", 0) or y + h > level.get("pxHei", 0):
             issues.append(f"{e['identifier']} at {e['px']} size {e['size']} extends outside room")
+        if e["identifier"] == "CameraZone" and e.get("layer") != "AmbitionCameras":
+            issues.append(f"CameraZone {e.get('iid')} is on {e.get('layer')}, expected AmbitionCameras")
 
     gravity_dirs = Counter()
     for e in entities:

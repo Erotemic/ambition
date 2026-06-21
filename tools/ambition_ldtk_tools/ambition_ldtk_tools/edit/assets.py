@@ -16,6 +16,16 @@ from pathlib import Path
 from typing import Any
 
 from ambition_ldtk_tools.edit.entity_layer_rules import DEFAULT_LDTK, write_project
+from ambition_ldtk_tools.edit.visual_manifest import (
+    apply_manifest,
+    default_icon_manifest,
+    format_issues as format_manifest_issues,
+    generate_editor_icons,
+    load_manifest,
+    preview_manifest_html,
+    save_manifest,
+    validate_manifest,
+)
 
 
 def load_project(path: Path) -> dict:
@@ -60,6 +70,19 @@ def find_entity_def(project: dict, ident: str) -> dict:
     raise SystemExit(f"entity def {ident!r} not found")
 
 
+def classify_png(rel: str) -> str:
+    lower = rel.lower()
+    if "/backgrounds/" in lower or lower.startswith("../../backgrounds/"):
+        return "background"
+    if "tileset" in lower or "/tiles/" in lower or "/tilesets/" in lower:
+        return "tilesheet"
+    if "spritesheet" in lower or "/sprites/" in lower:
+        return "spritesheet"
+    if "editor" in lower and "icon" in lower:
+        return "editor_icon"
+    return "png"
+
+
 def asset_catalog(project: dict, ldtk: Path, assets_root: Path | None = None) -> dict[str, Any]:
     repo = repo_root_from_ldtk(ldtk)
     root = assets_root or (repo / "crates" / "ambition_gameplay_core" / "assets")
@@ -67,10 +90,12 @@ def asset_catalog(project: dict, ldtk: Path, assets_root: Path | None = None) ->
     if root.exists():
         for path in sorted(root.rglob("*.png")):
             dims = png_dimensions(path)
+            rel = rel_to_ldtk(ldtk, path)
             pngs.append({
                 "path": str(path),
-                "rel_to_ldtk": rel_to_ldtk(ldtk, path),
+                "rel_to_ldtk": rel,
                 "size": list(dims) if dims else None,
+                "kind": classify_png(rel),
             })
     registered_paths = {str(ts.get("relPath")) for ts in project.get("defs", {}).get("tilesets", []) or []}
     entity_sprites = []
@@ -82,6 +107,9 @@ def asset_catalog(project: dict, ldtk: Path, assets_root: Path | None = None) ->
                 "tileRect": ent.get("tileRect"),
                 "renderMode": ent.get("renderMode"),
             })
+    by_kind: dict[str, int] = {}
+    for row in pngs:
+        by_kind[row["kind"]] = by_kind.get(row["kind"], 0) + 1
     return {
         "ldtk": str(ldtk),
         "assets_root": str(root),
@@ -97,6 +125,7 @@ def asset_catalog(project: dict, ldtk: Path, assets_root: Path | None = None) ->
         ],
         "entity_sprites": entity_sprites,
         "pngs": pngs,
+        "png_kind_counts": dict(sorted(by_kind.items())),
         "unregistered_pngs": [p for p in pngs if p["rel_to_ldtk"] not in registered_paths],
     }
 
@@ -115,9 +144,14 @@ def format_catalog(cat: dict[str, Any]) -> str:
     for ent in cat["entity_sprites"]:
         lines.append(f"  {ent['identifier']} tileset={ent['tilesetId']} rect={ent['tileRect']}")
     lines.append("")
+    if cat.get("png_kind_counts"):
+        lines.append("PNG kind counts:")
+        for kind, count in cat["png_kind_counts"].items():
+            lines.append(f"  {kind}: {count}")
+        lines.append("")
     lines.append(f"Unregistered PNGs under assets root ({len(cat['unregistered_pngs'])}):")
     for row in cat["unregistered_pngs"][:80]:
-        lines.append(f"  {row['rel_to_ldtk']} size={row['size']}")
+        lines.append(f"  [{row.get('kind', 'png')}] {row['rel_to_ldtk']} size={row['size']}")
     if len(cat["unregistered_pngs"]) > 80:
         lines.append(f"  ... {len(cat['unregistered_pngs']) - 80} more")
     return "\n".join(lines) + "\n"
@@ -137,7 +171,7 @@ def link_entity_tile(project: dict, entity_id: str, tileset_id: str, rect: tuple
 
 def main(argv=None) -> int:
     ap = argparse.ArgumentParser(description="LDtk asset and editor-sprite helpers.")
-    ap.add_argument("action", choices=["catalog", "link-entity-tile"])
+    ap.add_argument("action", choices=["catalog", "link-entity-tile", "generate-editor-icons", "suggest-manifest", "apply-manifest", "validate-manifest", "preview-manifest"])
     ap.add_argument("ldtk", type=Path, nargs="?", default=DEFAULT_LDTK)
     ap.add_argument("--assets-root", type=Path)
     ap.add_argument("--format", choices=["text", "json"], default="text")
@@ -146,6 +180,11 @@ def main(argv=None) -> int:
     ap.add_argument("--tile", help="x,y,w,h tile rect in source PNG pixels")
     ap.add_argument("--in-place", action="store_true")
     ap.add_argument("--output", type=Path)
+    ap.add_argument("manifest", type=Path, nargs="?")
+    ap.add_argument("--out", type=Path)
+    ap.add_argument("--icons", type=Path)
+    ap.add_argument("--tile-size", type=int, default=32)
+    ap.add_argument("--include-entity", action="append", default=[], help="Entity identifier to include in generated/suggested icon manifest; repeatable")
     args = ap.parse_args(argv)
 
     project = load_project(args.ldtk)
@@ -155,6 +194,61 @@ def main(argv=None) -> int:
             print(json.dumps(cat, indent=2, sort_keys=True))
         else:
             print(format_catalog(cat), end="")
+        return 0
+
+    if args.action == "generate-editor-icons":
+        target = args.icons or args.out
+        if not target:
+            raise SystemExit("generate-editor-icons requires --icons or --out")
+        info = generate_editor_icons(target, tile_size=args.tile_size, entities=args.include_entity or None)
+        print(json.dumps(info, indent=2, sort_keys=True) if args.format == "json" else f"wrote editor icons {target} size={info['size']}")
+        return 0
+
+    if args.action == "suggest-manifest":
+        icon_path = args.icons or (repo_root_from_ldtk(args.ldtk) / "crates" / "ambition_gameplay_core" / "assets" / "sprites" / "editor_icons.png")
+        data = default_icon_manifest(args.ldtk, icon_path, args.tile_size, args.include_entity or None)
+        if args.out:
+            save_manifest(args.out, data)
+            print(f"wrote {args.out}")
+        else:
+            print(json.dumps(data, indent=2, sort_keys=True))
+        return 0
+
+    if args.action == "preview-manifest":
+        if not args.manifest:
+            raise SystemExit("preview-manifest requires <manifest>")
+        html = preview_manifest_html(args.ldtk, load_manifest(args.manifest))
+        if args.out:
+            args.out.parent.mkdir(parents=True, exist_ok=True)
+            args.out.write_text(html)
+            print(f"wrote {args.out}")
+        else:
+            print(html, end="")
+        return 0
+
+    if args.action in {"apply-manifest", "validate-manifest"}:
+        if not args.manifest:
+            raise SystemExit(f"{args.action} requires <manifest>")
+        manifest = load_manifest(args.manifest)
+        if args.action == "validate-manifest":
+            issues = validate_manifest(project, args.ldtk, manifest)
+            if args.format == "json":
+                print(json.dumps([i.__dict__ for i in issues], indent=2, sort_keys=True))
+            else:
+                print(format_manifest_issues(issues), end="")
+            return 1 if any(i.severity == "error" for i in issues) else 0
+        messages = apply_manifest(project, args.ldtk, manifest)
+        if args.in_place:
+            write_project(args.ldtk, project)
+            out = args.ldtk
+        elif args.output:
+            write_project(args.output, project)
+            out = args.output
+        else:
+            raise SystemExit("apply-manifest requires --in-place or --output")
+        for msg in messages:
+            print(msg)
+        print(f"wrote {out}")
         return 0
 
     if args.action == "link-entity-tile":

@@ -204,3 +204,32 @@ PYTHONPATH=tools/ambition_ldtk_tools python -m ambition_ldtk_tools diff semantic
 
 Use `asset catalog` and `asset link-entity-tile` when generated sprites or
 visual tiles are ready to be exposed to LDtk for nicer human editing.
+
+## Visual manifests and editor icons
+
+Runtime sprite metadata should remain owned by the sprite generator. LDtk should
+consume concrete tileset/entity-icon refs compiled from a manifest. This keeps
+LDtk useful for human editing without binding the tools to the transitional
+sprite metadata schema.
+
+```bash
+PYTHONPATH=tools/ambition_ldtk_tools python -m ambition_ldtk_tools asset generate-editor-icons \
+  --out crates/ambition_gameplay_core/assets/sprites/editor_icons.png --tile-size 32
+
+PYTHONPATH=tools/ambition_ldtk_tools python -m ambition_ldtk_tools asset suggest-manifest \
+  crates/ambition_gameplay_core/assets/ambition/worlds/sandbox.ldtk \
+  --icons crates/ambition_gameplay_core/assets/sprites/editor_icons.png \
+  --out tools/ambition_ldtk_tools/manifests/sandbox_visuals.json
+
+PYTHONPATH=tools/ambition_ldtk_tools python -m ambition_ldtk_tools asset apply-manifest \
+  crates/ambition_gameplay_core/assets/ambition/worlds/sandbox.ldtk \
+  tools/ambition_ldtk_tools/manifests/sandbox_visuals.json --in-place
+
+PYTHONPATH=tools/ambition_ldtk_tools python -m ambition_ldtk_tools asset validate-manifest \
+  crates/ambition_gameplay_core/assets/ambition/worlds/sandbox.ldtk \
+  tools/ambition_ldtk_tools/manifests/sandbox_visuals.json
+```
+
+`policy check` also validates stale or out-of-bounds entity editor tile refs, and
+`diff semantic` reports `entity_def_visual` changes so generated visual updates
+are reviewable without raw JSON diffs.

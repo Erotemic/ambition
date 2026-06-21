@@ -15,6 +15,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
+from ambition_ldtk_tools.edit.visual_manifest import collect_visual_ref_issues
+
 from ambition_ldtk_tools.edit.entity_layer_rules import (
     DEFAULT_LDTK,
     change_layer,
@@ -92,6 +94,15 @@ def collect_policy_issues(project: dict, rules: dict[str, str]) -> list[PolicyIs
                 level.get("identifier"),
                 f"{level.get('identifier')}: {entity.get('__identifier')} {entity.get('iid')} is on {layer.get('__identifier')}",
             ))
+
+    for issue in collect_visual_ref_issues(project):
+        issues.append(PolicyIssue(
+            issue.severity,
+            issue.code,
+            None,
+            issue.message,
+            fixable=False,
+        ))
 
     # Verify LDtk editor tag restrictions agree with the default entity-layer rules
     # when tags have been applied. Missing tags are warnings, not errors, because

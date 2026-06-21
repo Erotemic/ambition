@@ -131,8 +131,24 @@ pub fn step_kinematic(
     //    controlled actor path and removes order-dependent C4 asymmetry.
     let gravity_axis = gravity_axis(g);
     let side_axis = gravity_axis.perpendicular();
-    sweep_axis(body, world, side_axis, g, inputs.drop_through, prev_feet_coord, dt);
-    sweep_axis(body, world, gravity_axis, g, inputs.drop_through, prev_feet_coord, dt);
+    sweep_axis(
+        body,
+        world,
+        side_axis,
+        g,
+        inputs.drop_through,
+        prev_feet_coord,
+        dt,
+    );
+    sweep_axis(
+        body,
+        world,
+        gravity_axis,
+        g,
+        inputs.drop_through,
+        prev_feet_coord,
+        dt,
+    );
 
     // 3. Resting support stabilization. Swept motion handles crossings; this
     //    handles bodies spawned, carried, or nudged into contact with a support.
@@ -245,7 +261,10 @@ fn moving_toward_feet(delta: Vec2, gravity_dir: Vec2) -> bool {
 }
 
 fn is_support_surface(kind: BlockKind) -> bool {
-    matches!(kind, BlockKind::Solid | BlockKind::BlinkWall { .. } | BlockKind::OneWay)
+    matches!(
+        kind,
+        BlockKind::Solid | BlockKind::BlinkWall { .. } | BlockKind::OneWay
+    )
 }
 
 fn is_full_collision_surface(kind: BlockKind) -> bool {
@@ -414,7 +433,13 @@ fn resolve_axis(
             continue;
         }
         if matches!(block.kind, BlockKind::OneWay) {
-            if !surface_supports_body_at_rest(block.kind, aabb, block.aabb, gravity_dir, drop_through) {
+            if !surface_supports_body_at_rest(
+                block.kind,
+                aabb,
+                block.aabb,
+                gravity_dir,
+                drop_through,
+            ) {
                 continue;
             }
             body.pos += snap_feet_to_surface(aabb, block.aabb, gravity_dir);
@@ -444,7 +469,9 @@ fn resolve_penetration(body: &mut KinematicBody, world: &World, gravity_dir: Vec
             continue;
         }
         let aabb = body.aabb();
-        if !aabb.strict_intersects(block.aabb) || !body_on_support_side(aabb, block.aabb, gravity_dir) {
+        if !aabb.strict_intersects(block.aabb)
+            || !body_on_support_side(aabb, block.aabb, gravity_dir)
+        {
             continue;
         }
         if !perpendicular_overlap(aabb, block.aabb, gravity_dir) {
@@ -486,7 +513,6 @@ mod tests {
             gravity_dir: Vec2::new(0.0, 1.0),
         }
     }
-
 
     #[derive(Clone, Copy, Debug)]
     struct ConformanceArm {
@@ -554,7 +580,12 @@ mod tests {
         Block::solid(name, world_center - world_half, world_half * 2.0)
     }
 
-    fn conf_block_one_way(name: &'static str, dir: Vec2, local_min: Vec2, local_size: Vec2) -> Block {
+    fn conf_block_one_way(
+        name: &'static str,
+        dir: Vec2,
+        local_min: Vec2,
+        local_size: Vec2,
+    ) -> Block {
         let f = conf_frame(dir);
         let world_center = conf_world_from_local(dir, local_min + local_size * 0.5);
         let world_half = f.to_world_half(local_size * 0.5);
@@ -671,7 +702,10 @@ mod tests {
                 step_kinematic(
                     body,
                     world,
-                    KinematicTuning { gravity: 0.0, ..tuning },
+                    KinematicTuning {
+                        gravity: 0.0,
+                        ..tuning
+                    },
                     KinematicInputs::default(),
                     1.0 / 60.0,
                 )

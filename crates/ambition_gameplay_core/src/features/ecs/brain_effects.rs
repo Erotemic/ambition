@@ -57,8 +57,7 @@ pub fn spawn_enemy_projectiles_from_brain_actions(
     possessed: Query<(), bevy::prelude::With<crate::abilities::traversal::possession::Possessed>>,
 ) {
     for msg in messages.read() {
-        let ActionRequest::Ranged { spec, origin, dir } = msg.request
-        else {
+        let ActionRequest::Ranged { spec, origin, dir } = msg.request else {
             continue;
         };
         let Ok((actor, clusters)) = actors.get_mut(msg.actor) else {
@@ -84,7 +83,10 @@ pub fn spawn_enemy_projectiles_from_brain_actions(
         // Future items can extend this routing by id without changing the brain.
         let held_item_id = held_items.get(msg.actor).ok().map(|item| item.id());
         let uses_gun_sword = held_item_id == Some("gun_sword");
-        let gravity_dir = -enemy.surface.surface_normal.normalize_or(ae::Vec2::new(0.0, -1.0));
+        let gravity_dir = -enemy
+            .surface
+            .surface_normal
+            .normalize_or(ae::Vec2::new(0.0, -1.0));
         let frame = ae::AccelerationFrame::new(gravity_dir);
         let (spawn_origin, owner_id) = if uses_gun_sword {
             let hand = crate::features::rider_hand_world_pos_in_frame(

@@ -293,12 +293,8 @@ fn moving_platform_ledge_contact_matching_is_gravity_relative() {
         ae::Vec2::new(-1.0, 0.0),
     ] {
         for side_normal in [-1.0, 1.0] {
-            let contact = ledge_contact_for_platform(
-                platform.aabb(),
-                player_size,
-                gravity_dir,
-                side_normal,
-            );
+            let contact =
+                ledge_contact_for_platform(platform.aabb(), player_size, gravity_dir, side_normal);
             assert!(
                 platform.matches_ledge_contact_in_frame(contact, player_size, gravity_dir),
                 "ledge contact should match under gravity {gravity_dir:?} side {side_normal}"

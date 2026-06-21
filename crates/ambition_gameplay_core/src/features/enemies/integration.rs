@@ -37,15 +37,15 @@ pub(crate) fn enemy_attack_aabb_dir(
         )
     } else if axis.y < 0.0 {
         let half = ae::Vec2::new(16.0, 36.0);
-        (
-            ae::Vec2::new(0.0, -(size.y * 0.5 + half.y + 4.0)),
-            half,
-        )
+        (ae::Vec2::new(0.0, -(size.y * 0.5 + half.y + 4.0)), half)
     } else {
         let half = ae::Vec2::new(36.0, 20.0);
         (ae::Vec2::new(0.0, size.y * 0.5 + half.y - 2.0), half)
     };
-    ae::Aabb::new(pos + frame.to_world(center_local), frame.to_world_half(half_local))
+    ae::Aabb::new(
+        pos + frame.to_world(center_local),
+        frame.to_world_half(half_local),
+    )
 }
 
 fn evaluate_enemy_ai_output(
@@ -481,7 +481,10 @@ impl<'a> EnemyMut<'a> {
     }
 
     pub fn attack_aabb_dir(&self, axis: ae::Vec2) -> ae::Aabb {
-        let gravity_dir = -self.surface.surface_normal.normalize_or(ae::Vec2::new(0.0, -1.0));
+        let gravity_dir = -self
+            .surface
+            .surface_normal
+            .normalize_or(ae::Vec2::new(0.0, -1.0));
         enemy_attack_aabb_dir(
             self.kin.pos,
             self.kin.size,

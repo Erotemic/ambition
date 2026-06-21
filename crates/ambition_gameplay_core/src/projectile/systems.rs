@@ -161,7 +161,10 @@ pub fn player_projectile_input(
         };
         let frame = ae::AccelerationFrame::new(gravity.dir_at(kin.pos));
         let origin = kin.pos
-            + frame.to_world(ae::Vec2::new(facing * (kin.size.x * 0.5 + 4.0), -kin.size.y * 0.20));
+            + frame.to_world(ae::Vec2::new(
+                facing * (kin.size.x * 0.5 + 4.0),
+                -kin.size.y * 0.20,
+            ));
         let direction = frame.to_world(ae::Vec2::new(facing, 0.0));
 
         // Count fires locally because spawn messages are consumed after this

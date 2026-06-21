@@ -65,7 +65,6 @@ pub struct ProjectileGameplay {
     pub bounces_remaining: u8,
 }
 
-
 fn projectile_down(gravity_dir: Vec2) -> Vec2 {
     if gravity_dir.x.abs() > gravity_dir.y.abs() {
         Vec2::new(gravity_dir.x.signum(), 0.0)
@@ -141,7 +140,12 @@ impl ProjectileGameplay {
     /// face-straddle check is important: a tall side wall also has a top/head
     /// face, but a projectile overlapping the wall halfway down should expire
     /// instead of treating that distant top face as a floor.
-    fn is_support_landing(&self, body: &BodyKinematics, block_aabb: Aabb, gravity_dir: Vec2) -> bool {
+    fn is_support_landing(
+        &self,
+        body: &BodyKinematics,
+        block_aabb: Aabb,
+        gravity_dir: Vec2,
+    ) -> bool {
         const CONTACT_SLOP: f32 = 1.0;
         let down = projectile_down(gravity_dir);
         let body_aabb = body.aabb();
@@ -158,7 +162,12 @@ impl ProjectileGameplay {
     /// Reposition the body so its feet rest just outside the support face,
     /// reflect velocity along local down with restitution, and decrement the
     /// bounce budget. Caller has already checked that `bounces_remaining > 0`.
-    fn apply_support_bounce(&mut self, body: &mut BodyKinematics, block_aabb: Aabb, gravity_dir: Vec2) {
+    fn apply_support_bounce(
+        &mut self,
+        body: &mut BodyKinematics,
+        block_aabb: Aabb,
+        gravity_dir: Vec2,
+    ) {
         // The 1px lift prevents an immediate re-hit on the next tick when gravity
         // has not yet reaccelerated toward the support.
         const RESTITUTION: f32 = 0.65;
@@ -291,7 +300,8 @@ impl ProjectileBody {
     }
 
     pub fn tick_with_gravity_sign(&mut self, dt: f32, gravity_sign: f32) -> bool {
-        self.game.tick_with_gravity_sign(&mut self.kin, dt, gravity_sign)
+        self.game
+            .tick_with_gravity_sign(&mut self.kin, dt, gravity_sign)
     }
 
     pub fn is_expired(&self) -> bool {
@@ -411,15 +421,14 @@ mod tests {
         let center = Vec2::new(200.0, 200.0);
         for gravity_dir in gravity_dirs {
             let frame = ambition_engine_core::AccelerationFrame::new(gravity_dir);
-            let mut p = fireball(
-                center,
-                frame.to_world(Vec2::new(10.0, 5.0)),
-                0,
-            );
+            let mut p = fireball(center, frame.to_world(Vec2::new(10.0, 5.0)), 0);
             p.game.gravity = 200.0;
             assert!(p.tick(0.1, gravity_dir));
             let local_vel = Vec2::new(p.kin.vel.dot(frame.side), p.kin.vel.dot(frame.down));
-            let local_delta = Vec2::new((p.kin.pos - center).dot(frame.side), (p.kin.pos - center).dot(frame.down));
+            let local_delta = Vec2::new(
+                (p.kin.pos - center).dot(frame.side),
+                (p.kin.pos - center).dot(frame.down),
+            );
             assert!(
                 (local_vel.x - 10.0).abs() < 1e-3 && (local_vel.y - 25.0).abs() < 1e-3,
                 "projectile velocity should be frame-equivalent for gravity {gravity_dir:?}: {local_vel:?}"

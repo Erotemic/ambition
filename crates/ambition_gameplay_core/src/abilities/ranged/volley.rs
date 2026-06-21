@@ -67,7 +67,8 @@ pub fn fire_volley_system(
         .as_deref()
         .map_or(ae::InputFrameMode::Hybrid, |s| s.gameplay.input_frame_mode);
     let frame = ae::AccelerationFrame::new(gravity_dir);
-    let aim_local = crate::items::pickup::held_shot_aim_local(&control, kin.facing, frame, input_mode);
+    let aim_local =
+        crate::items::pickup::held_shot_aim_local(&control, kin.facing, frame, input_mode);
     let aim = frame.to_world(aim_local).normalize_or_zero();
     if aim == ae::Vec2::ZERO {
         return;

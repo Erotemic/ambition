@@ -912,7 +912,8 @@ fn tick_aerial_lively(
             state.mode = CharacterAiMode::Idle;
             state.initialized = false; // re-roll a fresh leg once the player leaves
             let side = if to_target_local.x >= 0.0 { -1.0 } else { 1.0 };
-            let perch = snapshot.target_pos + frame_to_world(snapshot, ae::Vec2::new(side * 30.0, 0.0));
+            let perch =
+                snapshot.target_pos + frame_to_world(snapshot, ae::Vec2::new(side * 30.0, 0.0));
             let delta = perch - pos;
             out.desired_vel = if delta.length() > 6.0 {
                 delta.normalize_or_zero() * cfg.cruise_speed
@@ -1038,8 +1039,11 @@ fn tick_aerial_hostile(
         }
         AerialPhase::Recover => {
             state.mode = CharacterAiMode::Chase;
-            let away_local = ae::Vec2::new(frame_to_local(snapshot, pos - target).x.signum_or(1.0), -1.0)
-                .normalize_or_zero();
+            let away_local = ae::Vec2::new(
+                frame_to_local(snapshot, pos - target).x.signum_or(1.0),
+                -1.0,
+            )
+            .normalize_or_zero();
             let away = frame_to_world(snapshot, away_local);
             out.desired_vel =
                 apply_flying_separation(away * cfg.cruise_speed, cfg.cruise_speed, snapshot);

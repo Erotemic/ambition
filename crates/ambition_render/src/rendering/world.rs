@@ -458,7 +458,11 @@ pub fn spawn_loading_zone(
         let foot = zone.aabb.center() + ae::Vec2::new(0.0, zone.aabb.half_size().y);
         (BVec2::new(width, height), foot, Anchor::BOTTOM_CENTER)
     } else {
-        (BVec2::new(size.x, size.y), zone.aabb.center(), Anchor::CENTER)
+        (
+            BVec2::new(size.x, size.y),
+            zone.aabb.center(),
+            Anchor::CENTER,
+        )
     };
     let sprite = match assets {
         Some(a) => entity_sprite(

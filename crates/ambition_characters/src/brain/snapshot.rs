@@ -162,7 +162,8 @@ impl BrainSnapshot {
     /// Vector from the actor to its current target in actor-local coordinates.
     /// `x` is local side/right; `y` is toward the actor's feet/down.
     pub fn target_delta_local(self) -> ae::Vec2 {
-        self.acceleration_frame().to_local(self.target_pos - self.actor_pos)
+        self.acceleration_frame()
+            .to_local(self.target_pos - self.actor_pos)
     }
 
     /// Actor velocity in actor-local coordinates. Brains that make body-relative

@@ -127,7 +127,10 @@ pub(crate) fn apply_actor_hit(
                 }
             }
             if let HitSource::PlayerSlash { knock_x } = &event.source {
-                let gravity_dir = -em.surface.surface_normal.normalize_or(ae::Vec2::new(0.0, -1.0));
+                let gravity_dir = -em
+                    .surface
+                    .surface_normal
+                    .normalize_or(ae::Vec2::new(0.0, -1.0));
                 let frame = ae::AccelerationFrame::new(gravity_dir);
                 let mut local_vel = frame.to_local(em.kin.vel);
                 local_vel.x += *knock_x;

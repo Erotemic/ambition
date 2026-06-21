@@ -227,7 +227,12 @@ mod tests {
     #[test]
     fn meteors_spawn_above_the_player_and_spread_horizontally() {
         let player_pos = ae::Vec2::new(100.0, 100.0);
-        let origins = meteor_strike_origins(player_pos, ae::Vec2::new(1.0, 0.0), 1.0, ae::Vec2::new(0.0, 1.0));
+        let origins = meteor_strike_origins(
+            player_pos,
+            ae::Vec2::new(1.0, 0.0),
+            1.0,
+            ae::Vec2::new(0.0, 1.0),
+        );
         // All spawn above the player (smaller y, engine y-down).
         assert!(
             origins.iter().all(|o| o.y < player_pos.y),
@@ -272,7 +277,12 @@ mod tests {
     #[test]
     fn meteor_aims_with_the_left_stick_facing_on_a_null_aim() {
         // Aiming left (negative facing, no directional hold) puts the zone to the left.
-        let left = meteor_strike_origins(ae::Vec2::new(100.0, 100.0), ae::Vec2::ZERO, -1.0, ae::Vec2::new(0.0, 1.0));
+        let left = meteor_strike_origins(
+            ae::Vec2::new(100.0, 100.0),
+            ae::Vec2::ZERO,
+            -1.0,
+            ae::Vec2::new(0.0, 1.0),
+        );
         let mean_x = left.iter().map(|o| o.x).sum::<f32>() / METEOR_COUNT as f32;
         assert!(
             mean_x < 100.0,

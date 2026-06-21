@@ -108,7 +108,10 @@ pub(crate) fn start_attack(
     // A held melee weapon re-tunes the swing to its own feel (axe = slow,
     // long-reach, heavier). Pogo (AirDown) keeps its spike timing.
     if let Some(melee) = held_melee {
-        if !matches!(intent, ambition_gameplay_core::combat::AttackIntent::AirDown) {
+        if !matches!(
+            intent,
+            ambition_gameplay_core::combat::AttackIntent::AirDown
+        ) {
             spec = spec.with_held_melee(melee);
         }
     }
@@ -128,7 +131,8 @@ pub(crate) fn start_attack(
     let descend = frame.descend_speed(clusters.kinematics.vel);
     if matches!(
         intent,
-        ambition_gameplay_core::combat::AttackIntent::AirUp | ambition_gameplay_core::combat::AttackIntent::Up
+        ambition_gameplay_core::combat::AttackIntent::AirUp
+            | ambition_gameplay_core::combat::AttackIntent::Up
     ) && descend > -40.0
     {
         clusters.kinematics.vel += frame.down * (-40.0 - descend);
@@ -191,7 +195,8 @@ pub(crate) fn advance_attack(
             dash_timer: clusters.dash.timer,
             abilities_directional_primary: clusters.abilities.abilities.directional_primary,
         };
-        let attack = ambition_gameplay_core::combat::attack_hitbox_from_view(&view, attack_state.spec);
+        let attack =
+            ambition_gameplay_core::combat::attack_hitbox_from_view(&view, attack_state.spec);
         let first_active_frame = !attack_state.active_started;
         if first_active_frame {
             attack_state.active_started = true;

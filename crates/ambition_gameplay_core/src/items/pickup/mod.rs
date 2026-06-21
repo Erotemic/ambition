@@ -587,7 +587,12 @@ pub fn held_shot_aim_world(
     input_frame_mode: ae::InputFrameMode,
 ) -> Vec2 {
     let frame = ae::AccelerationFrame::new(gravity_dir);
-    frame.to_world(held_shot_aim_local(control, facing, frame, input_frame_mode))
+    frame.to_world(held_shot_aim_local(
+        control,
+        facing,
+        frame,
+        input_frame_mode,
+    ))
 }
 
 fn input_frame_mode_from_settings(
@@ -596,10 +601,7 @@ fn input_frame_mode_from_settings(
     settings.map_or(ae::InputFrameMode::Hybrid, |s| s.gameplay.input_frame_mode)
 }
 
-fn gravity_dir_at(
-    gravity: &crate::physics::GravityCtx,
-    pos: Vec2,
-) -> Vec2 {
+fn gravity_dir_at(gravity: &crate::physics::GravityCtx, pos: Vec2) -> Vec2 {
     gravity.dir_at(pos)
 }
 

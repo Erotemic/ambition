@@ -125,7 +125,6 @@ fn local_jump(axis: Vec2) -> AgentAction {
     }
 }
 
-
 #[derive(Clone, Copy, Debug)]
 struct StartSpot {
     /// Canonical local side coordinate of the body's center.
@@ -317,11 +316,7 @@ fn vec_close(actual: Vec2, expected: Vec2, tol: f32) -> bool {
     check_vec_close(actual, expected, tol).is_none()
 }
 
-fn one_tick_landing_boundary(
-    idx: usize,
-    expected: &[LocalSample],
-    actual: &[LocalSample],
-) -> bool {
+fn one_tick_landing_boundary(idx: usize, expected: &[LocalSample], actual: &[LocalSample]) -> bool {
     let Some((a, b)) = expected.get(idx).zip(actual.get(idx)) else {
         return false;
     };
@@ -361,8 +356,7 @@ fn assert_trace_matches_with_options(
         );
     }
     for (i, (a, b)) in expected.iter().zip(actual).enumerate() {
-        if options.allow_one_tick_landing_boundary
-            && one_tick_landing_boundary(i, expected, actual)
+        if options.allow_one_tick_landing_boundary && one_tick_landing_boundary(i, expected, actual)
         {
             continue;
         }
@@ -433,11 +427,7 @@ fn assert_trace_matches(label: &str, expected: &[LocalSample], actual: &[LocalSa
     assert_trace_matches_with_options(label, expected, actual, TraceCompareOptions::default());
 }
 
-fn assert_c4_symmetric_trace(
-    name: &str,
-    spot: StartSpot,
-    actions: impl Fn() -> Vec<AgentAction>,
-) {
+fn assert_c4_symmetric_trace(name: &str, spot: StartSpot, actions: impl Fn() -> Vec<AgentAction>) {
     let arms = arms();
     let reference = trace_from(arms[0], spot, actions());
     for arm in arms.iter().copied().skip(1) {
@@ -460,9 +450,7 @@ fn symmetry_room_local_run_trace_is_c4_symmetric() {
         support_y: 1120.0 - ROOM_CENTER.y,
     };
     assert_c4_symmetric_trace("run right on step A", spot, || {
-        (0..28)
-            .map(|_| local_action(Vec2::new(1.0, 0.0)))
-            .collect()
+        (0..28).map(|_| local_action(Vec2::new(1.0, 0.0))).collect()
     });
 }
 
@@ -515,9 +503,7 @@ fn symmetry_room_local_crouch_trace_is_c4_symmetric() {
         support_y: 1120.0 - ROOM_CENTER.y,
     };
     assert_c4_symmetric_trace("hold local down on step A", spot, || {
-        (0..18)
-            .map(|_| local_action(Vec2::new(0.0, 1.0)))
-            .collect()
+        (0..18).map(|_| local_action(Vec2::new(0.0, 1.0))).collect()
     });
 }
 

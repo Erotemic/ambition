@@ -145,7 +145,7 @@ mod tests {
 
     #[test]
     fn brain_preset_patrol_offsets_spawn_world_x() {
-        // The patrol cfg's `spawn_x` is `spawn_world_x + spawn_local_x`.
+        // The patrol lane center is `spawn_world_x + spawn_local_x`.
         // Pin the offset arithmetic so a refactor that drops the add
         // breaks here rather than at first-spawn.
         let preset = BrainPreset::Patrol {
@@ -159,8 +159,8 @@ mod tests {
         let brain = brain_from_preset(&preset, 100.0);
         match brain {
             Brain::StateMachine(StateMachineCfg::Patrol { cfg, .. }) => {
-                assert_eq!(cfg.spawn_x, 105.0);
-                assert_eq!(cfg.radius, 64.0);
+                assert_eq!(cfg.lane.center_x, 105.0);
+                assert_eq!(cfg.lane.radius_px, 64.0);
             }
             other => panic!("expected Patrol, got {other:?}"),
         }

@@ -292,7 +292,7 @@ mod conversion_tests {
                 cfg,
                 ..
             }) => {
-                assert_eq!(cfg.radius, 64.0);
+                assert_eq!(cfg.lane.radius_px, 64.0);
                 // Peaceful NPC: aggressiveness zero.
                 assert_eq!(cfg.aggressiveness, 0.0);
                 // talk_radius mirrors into aggro_radius so the

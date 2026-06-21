@@ -287,11 +287,16 @@ mod tests {
             ActionRequest::Ranged {
                 spec: RangedActionSpec::Bolt { speed, .. },
                 dir,
+                dir_policy,
                 ..
             } => {
                 assert!(speed > 0.0, "Bolt has positive speed");
-                // dir is the aim vector normalized
+                // dir is the controlled-body-local aim vector normalized.
                 assert!(dir.x > 0.0 && dir.y < 0.0, "aim diagonally up-right");
+                assert_eq!(
+                    dir_policy,
+                    ae::GameplayFramePolicy::ControlledBodyLocal
+                );
             }
             other => panic!("expected Ranged::Bolt, got {:?}", other),
         }

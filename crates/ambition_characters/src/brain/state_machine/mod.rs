@@ -165,15 +165,51 @@ fn tick_stand_still(out: &mut crate::actor::control::ActorControlFrame) {
 /// for authoring-side reference.
 pub const NPC_PATROL_SPEED: f32 = 60.0;
 
-/// Fixed left-right paddle around a spawn point. Hostility is
+/// Authored world-lane route for a simple patroller.
+///
+/// This is intentionally world/environment space: peaceful NPCs pace along an
+/// authored hallway lane, not the controlled actor's current local side axis.
+/// Combat decisions can still be controlled-actor-local; the route anchor is a
+/// separate authored-world concept.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct AuthoredWorldPatrolLane {
+    /// Center of the lane on world X.
+    pub center_x: f32,
+    /// Half-width of the lane (px). 0.0 = pinned to center.
+    pub radius_px: f32,
+}
+
+impl AuthoredWorldPatrolLane {
+    pub const fn new(center_x: f32, radius_px: f32) -> Self {
+        Self {
+            center_x,
+            radius_px,
+        }
+    }
+
+    pub fn signed_offset(self, world_pos: ae::Vec2) -> f32 {
+        world_pos.x - self.center_x
+    }
+
+    pub fn facing_after_bounds(self, world_pos: ae::Vec2, current_facing: f32) -> f32 {
+        let from_center = self.signed_offset(world_pos);
+        if from_center > self.radius_px {
+            -1.0
+        } else if from_center < -self.radius_px {
+            1.0
+        } else {
+            current_facing
+        }
+    }
+}
+
+/// Fixed authored-world paddle around a lane center. Hostility is
 /// controlled separately — a hostile Patrol brain still emits
 /// melee_pressed when in range and can flip facing to chase.
 #[derive(Clone, Copy, Debug)]
 pub struct PatrolCfg {
-    /// Center of the paddle.
-    pub spawn_x: f32,
-    /// Half-width of the paddle (px). 0.0 = pinned to spawn.
-    pub radius: f32,
+    /// World/environment route lane. This is route-space, not local side.
+    pub lane: AuthoredWorldPatrolLane,
     /// Walk speed (px/s).
     pub speed: f32,
     /// `0.0` = peaceful patroller (NPC), `>0.0` = engages target
@@ -191,8 +227,7 @@ impl PatrolCfg {
     /// brain-driven Patrol gait matches what the pre-brain
     /// `NpcRuntime::update` used.
     pub const NPC_DEFAULT: Self = Self {
-        spawn_x: 0.0,
-        radius: 64.0,
+        lane: AuthoredWorldPatrolLane::new(0.0, 64.0),
         speed: NPC_PATROL_SPEED,
         aggressiveness: 0.0,
         aggro_radius: 80.0, // talk radius for peaceful patrol
@@ -245,17 +280,11 @@ fn tick_patrol(
             }
         }
         crate::actor::ai::CharacterAiIntent::Patrol => {
-            // Bounce within `[spawn_x ± radius]`. Caller is
-            // expected to flip `facing` on wall contact; brain
-            // also flips at the geometric bound.
-            let from_spawn = snapshot.actor_pos.x - cfg.spawn_x;
-            let facing = if from_spawn > cfg.radius {
-                -1.0
-            } else if from_spawn < -cfg.radius {
-                1.0
-            } else {
-                snapshot.actor_facing
-            };
+            // Bounce within the authored world lane. Caller is expected to flip
+            // `facing` on wall contact; brain also flips at the geometric bound.
+            let facing = cfg
+                .lane
+                .facing_after_bounds(snapshot.actor_pos, snapshot.actor_facing);
             out.facing = facing;
             out.desired_vel = ae::Vec2::new(facing * cfg.speed, 0.0);
         }
@@ -589,10 +618,9 @@ fn tick_skirmisher(
         // Speed = 0.0 here is a sentinel; the action_set resolver
         // pulls speed from the actor's RangedActionSpec when it
         // builds the projectile spawn.
-        out.fire = Some(crate::actor::control::ActorFireRequest {
-            dir: aim_dir,
-            speed: 0.0,
-        });
+        out.fire = Some(crate::actor::control::ActorFireRequest::world_space(
+            aim_dir, 0.0,
+        ));
         state.cooldown_remaining = cfg.fire_cooldown_s;
         state.mode = crate::actor::ai::CharacterAiMode::Attack;
     }
@@ -645,7 +673,9 @@ fn tick_sniper(
     let dir = to_target.normalize_or_zero();
     out.facing = to_target_local.x.signum_or(snapshot.actor_facing);
     if state.cooldown_remaining <= 0.0 {
-        out.fire = Some(crate::actor::control::ActorFireRequest { dir, speed: 0.0 });
+        out.fire = Some(crate::actor::control::ActorFireRequest::world_space(
+            dir, 0.0,
+        ));
         state.cooldown_remaining = cfg.fire_cooldown_s;
     }
 }

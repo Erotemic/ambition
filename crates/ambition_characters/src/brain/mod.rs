@@ -33,8 +33,8 @@ pub use action_set::{
 #[allow(unused_imports)]
 pub use boss_pattern::{
     tick_boss_pattern, BossAttackPattern, BossAttackProfile, BossAttackState, BossEncounterPhase,
-    BossMacroState, BossMacroTuning, BossMovementProfile, BossPattern, BossPatternCfg,
-    BossPatternContext, BossPatternState, BossPatternStep, CyclePhase,
+    BossMacroState, BossMacroTuning, BossMovementFramePolicy, BossMovementProfile, BossPattern,
+    BossPatternCfg, BossPatternContext, BossPatternState, BossPatternStep, CyclePhase,
 };
 #[allow(unused_imports)]
 pub use player::tick_player_brain;
@@ -47,9 +47,9 @@ pub use smash::{
 pub use snapshot::{BrainSnapshot, WallContact};
 #[allow(unused_imports)]
 pub use state_machine::{
-    tick_state_machine, MeleeBruteCfg, MeleeBruteState, PatrolCfg, PatrolState, SharkCfg,
-    SharkState, SkirmisherCfg, SkirmisherState, SniperCfg, SniperState, StateMachineCfg,
-    WandererCfg, WandererState, NPC_PATROL_SPEED,
+    tick_state_machine, AuthoredWorldPatrolLane, MeleeBruteCfg, MeleeBruteState, PatrolCfg,
+    PatrolState, SharkCfg, SharkState, SkirmisherCfg, SkirmisherState, SniperCfg, SniperState,
+    StateMachineCfg, WandererCfg, WandererState, NPC_PATROL_SPEED,
 };
 
 #[cfg(test)]
@@ -108,8 +108,7 @@ impl Brain {
     /// position. Convenience wrapper for the spawn-time mapping.
     pub fn npc_patrol(spawn_x: f32, radius: f32) -> Self {
         let mut cfg = PatrolCfg::NPC_DEFAULT;
-        cfg.spawn_x = spawn_x;
-        cfg.radius = radius;
+        cfg.lane = AuthoredWorldPatrolLane::new(spawn_x, radius);
         Self::StateMachine(StateMachineCfg::Patrol {
             cfg,
             state: PatrolState::default(),
@@ -705,8 +704,8 @@ mod tests {
         let b = Brain::npc_patrol(120.0, 40.0);
         match &b {
             Brain::StateMachine(StateMachineCfg::Patrol { cfg, .. }) => {
-                assert_eq!(cfg.spawn_x, 120.0);
-                assert_eq!(cfg.radius, 40.0);
+                assert_eq!(cfg.lane.center_x, 120.0);
+                assert_eq!(cfg.lane.radius_px, 40.0);
                 assert_eq!(cfg.aggressiveness, 0.0);
             }
             other => panic!("expected Patrol, got {:?}", other),
@@ -940,12 +939,22 @@ mod tests {
         let req = resolve_action_requests(&kit, &frame, snap.actor_pos);
         assert_eq!(req.len(), 1, "exactly one ranged request");
         match req[0].clone() {
-            ActionRequest::Ranged { spec, dir, .. } => {
+            ActionRequest::Ranged {
+                spec,
+                dir,
+                dir_policy,
+                ..
+            } => {
                 assert!(
                     matches!(spec, RangedActionSpec::Bolt { .. }),
                     "spec should come from the Bolt kit",
                 );
                 assert!(dir.x > 0.0, "fire direction should point at target");
+                assert_eq!(
+                    dir_policy,
+                    ae::GameplayFramePolicy::WorldSpace,
+                    "Skirmisher fires at a direct world-space target vector"
+                );
             }
             other => panic!("expected ActionRequest::Ranged, got {:?}", other),
         }

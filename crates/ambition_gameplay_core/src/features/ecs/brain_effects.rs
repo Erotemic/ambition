@@ -57,7 +57,13 @@ pub fn spawn_enemy_projectiles_from_brain_actions(
     possessed: Query<(), bevy::prelude::With<crate::abilities::traversal::possession::Possessed>>,
 ) {
     for msg in messages.read() {
-        let ActionRequest::Ranged { spec, origin, dir } = msg.request else {
+        let ActionRequest::Ranged {
+            spec,
+            origin,
+            dir,
+            dir_policy,
+        } = msg.request
+        else {
             continue;
         };
         let Ok((actor, clusters)) = actors.get_mut(msg.actor) else {
@@ -88,6 +94,12 @@ pub fn spawn_enemy_projectiles_from_brain_actions(
             .surface_normal
             .normalize_or(ae::Vec2::new(0.0, -1.0));
         let frame = ae::AccelerationFrame::new(gravity_dir);
+        let request = crate::actor::control::ActorFireRequest {
+            dir,
+            dir_policy,
+            speed: spec.speed(),
+        };
+        let world_dir = request.dir_to_world(frame).normalize_or_zero();
         let (spawn_origin, owner_id) = if uses_gun_sword {
             let hand = crate::features::rider_hand_world_pos_in_frame(
                 enemy.kin.pos,
@@ -95,7 +107,7 @@ pub fn spawn_enemy_projectiles_from_brain_actions(
                 enemy.kin.size.y,
                 gravity_dir,
             );
-            let muzzle = hand + dir.normalize_or_zero() * 18.0;
+            let muzzle = hand + world_dir * 18.0;
             (muzzle, format!("lasersword:{}", enemy.config.id))
         } else {
             (
@@ -105,7 +117,7 @@ pub fn spawn_enemy_projectiles_from_brain_actions(
         };
         let spawn = EnemyProjectileSpawn {
             origin: spawn_origin,
-            dir,
+            dir: world_dir,
             speed: spec.speed(),
             damage: spec.damage(),
             max_lifetime: PROJECTILE_MAX_LIFETIME,
@@ -138,7 +150,7 @@ pub fn spawn_enemy_projectiles_from_brain_actions(
         } else {
             RANGED_RECOIL_DEFAULT
         };
-        let kick = dir.normalize_or_zero() * -recoil_strength;
+        let kick = world_dir * -recoil_strength;
         enemy.kin.vel += kick;
     }
 }
@@ -287,6 +299,7 @@ mod tests {
                     },
                     origin: actor_pos,
                     dir: ae::Vec2::new(1.0, 0.0),
+                    dir_policy: ae::GameplayFramePolicy::WorldSpace,
                 },
             });
         app.update();
@@ -296,6 +309,48 @@ mod tests {
         assert!(
             !owner.starts_with("lasersword:"),
             "non-pirate archetype must not get lasersword owner_id; got {owner:?}",
+        );
+    }
+
+    #[test]
+    fn ranged_message_converts_local_direction_at_consumer_frame() {
+        let mut app = build_app();
+        let actor_pos = ae::Vec2::new(300.0, 300.0);
+        let aabb = ae::Aabb::new(actor_pos, ae::Vec2::new(14.0, 23.0));
+        let enemy = EnemyClusterSeed::new(
+            "side_gravity_shooter",
+            "Skitter",
+            aabb,
+            crate::actor::EnemyBrain::Custom("small_skitter".into()),
+            &[],
+        );
+        let mut actor_bundle = enemy_actor(enemy);
+        // surface_normal points away from the support; gravity_dir is its
+        // negative. Here local down is world +X, so local side/right maps to
+        // world -Y under the arbitrary AccelerationFrame transform.
+        actor_bundle.1 .4.surface_normal = ae::Vec2::new(-1.0, 0.0);
+        let actor = app.world_mut().spawn(actor_bundle).id();
+        app.world_mut()
+            .resource_mut::<bevy::ecs::message::Messages<ActorActionMessage>>()
+            .write(ActorActionMessage {
+                actor,
+                request: ActionRequest::Ranged {
+                    spec: RangedActionSpec::Rock {
+                        speed: 300.0,
+                        damage: 1,
+                    },
+                    origin: actor_pos,
+                    dir: ae::Vec2::new(1.0, 0.0),
+                    dir_policy: ae::GameplayFramePolicy::ControlledBodyLocal,
+                },
+            });
+        app.update();
+        let projectiles = enemy_projectile_bodies(&mut app);
+        assert_eq!(projectiles.len(), 1);
+        let dir = projectiles[0].body.kin.vel.normalize_or_zero();
+        assert!(
+            dir.y < -0.99 && dir.x.abs() < 0.01,
+            "local side/right under +X down should fire world -Y, got {dir:?}"
         );
     }
 
@@ -318,6 +373,7 @@ mod tests {
                     },
                     origin: actor_pos,
                     dir: ae::Vec2::new(1.0, 0.0),
+                    dir_policy: ae::GameplayFramePolicy::WorldSpace,
                 },
             });
         app.update();

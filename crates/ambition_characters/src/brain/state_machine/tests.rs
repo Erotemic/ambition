@@ -58,10 +58,10 @@ fn dead_actor_brain_emits_neutral_regardless_of_template() {
     let mut out = crate::actor::control::ActorControlFrame::neutral();
     out.melee_pressed = true;
     out.desired_vel = ae::Vec2::new(99.0, 99.0);
-    out.fire = Some(crate::actor::control::ActorFireRequest {
-        dir: ae::Vec2::new(1.0, 0.0),
-        speed: 100.0,
-    });
+    out.fire = Some(crate::actor::control::ActorFireRequest::world_space(
+        ae::Vec2::new(1.0, 0.0),
+        100.0,
+    ));
     tick_state_machine(&mut sm, &s, &mut out);
     assert!(!out.melee_pressed);
     assert_eq!(out.desired_vel, ae::Vec2::ZERO);
@@ -71,8 +71,7 @@ fn dead_actor_brain_emits_neutral_regardless_of_template() {
 #[test]
 fn patrol_paces_horizontally_around_spawn() {
     let mut cfg = PatrolCfg::NPC_DEFAULT;
-    cfg.spawn_x = 50.0;
-    cfg.radius = 30.0;
+    cfg.lane = AuthoredWorldPatrolLane::new(50.0, 30.0);
     let mut sm = StateMachineCfg::Patrol {
         cfg,
         state: PatrolState::default(),
@@ -92,6 +91,21 @@ fn patrol_paces_horizontally_around_spawn() {
     tick_state_machine(&mut sm, &s2, &mut out);
     assert!(out.desired_vel.x < 0.0);
     assert_eq!(out.facing, -1.0);
+}
+
+#[test]
+fn patrol_lane_is_authored_world_route_not_local_side() {
+    // This deliberately ignores the actor's acceleration frame: the lane is a
+    // world/environment route, while combat decisions still use local target
+    // deltas. A sideways-gravity actor beyond the world-X right bound should
+    // flip just like a normal-gravity actor at the same world position.
+    let lane = AuthoredWorldPatrolLane::new(50.0, 30.0);
+    let mut s = BrainSnapshot::idle();
+    s.actor_pos = ae::Vec2::new(90.0, -200.0);
+    s.actor_facing = 1.0;
+    s.control_down = ae::Vec2::new(1.0, 0.0);
+    assert_eq!(lane.signed_offset(s.actor_pos), 40.0);
+    assert_eq!(lane.facing_after_bounds(s.actor_pos, s.actor_facing), -1.0);
 }
 
 #[test]
@@ -134,8 +148,7 @@ fn hostile_patrol_chases_target_in_aggro() {
     // Pins the Chase branch's movement vs the peaceful "hold +
     // face target" branch.
     let mut cfg = PatrolCfg::NPC_DEFAULT;
-    cfg.spawn_x = 0.0;
-    cfg.radius = 200.0;
+    cfg.lane = AuthoredWorldPatrolLane::new(0.0, 200.0);
     cfg.aggressiveness = 1.0;
     cfg.aggro_radius = 120.0;
     cfg.attack_range = 24.0;
@@ -158,8 +171,7 @@ fn hostile_patrol_attacks_target_in_melee_range() {
     // Patrol inside attack_range with cooldown clear → emit
     // melee intent. Pins the Attack branch.
     let mut cfg = PatrolCfg::NPC_DEFAULT;
-    cfg.spawn_x = 0.0;
-    cfg.radius = 200.0;
+    cfg.lane = AuthoredWorldPatrolLane::new(0.0, 200.0);
     cfg.aggressiveness = 1.0;
     cfg.aggro_radius = 120.0;
     cfg.attack_range = 24.0;
@@ -201,8 +213,7 @@ fn hostile_patrol_holds_attack_during_cooldown() {
 #[test]
 fn peaceful_patrol_in_talk_range_holds_and_faces_target() {
     let mut cfg = PatrolCfg::NPC_DEFAULT;
-    cfg.spawn_x = 0.0;
-    cfg.radius = 64.0;
+    cfg.lane = AuthoredWorldPatrolLane::new(0.0, 64.0);
     let mut sm = StateMachineCfg::Patrol {
         cfg,
         state: PatrolState::default(),
@@ -681,10 +692,10 @@ fn brain_tick_overwrites_prior_frame_intent() {
     let mut sm = StateMachineCfg::StandStill;
     let mut frame = crate::actor::control::ActorControlFrame::neutral();
     frame.melee_pressed = true;
-    frame.fire = Some(crate::actor::control::ActorFireRequest {
-        dir: ae::Vec2::new(1.0, 0.0),
-        speed: 200.0,
-    });
+    frame.fire = Some(crate::actor::control::ActorFireRequest::world_space(
+        ae::Vec2::new(1.0, 0.0),
+        200.0,
+    ));
     frame.jump_pressed = true;
     let snap = crate::brain::snapshot::BrainSnapshot::idle();
     tick_state_machine(&mut sm, &snap, &mut frame);

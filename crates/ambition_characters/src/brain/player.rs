@@ -102,16 +102,19 @@ pub fn tick_player_brain_from_control(
     // existing charge state machine for now. The brain just
     // surfaces "pressed" via fire on the release edge.
     if c.projectile_released {
-        // Direction: resolve through the local frame once. `out.aim` remains
-        // local for the charge-projectile consumer; this legacy ActionSet fire
-        // request carries the world launch vector expected by Ranged consumers.
+        // Direction: preserve the controlled-body-local aim through the
+        // ActorFireRequest seam. The ranged consumer converts at the spawn seam,
+        // so arbitrary acceleration-frame orientation remains a consumer policy
+        // instead of a hidden world-axis assumption here.
         let local_dir = if local_aim.length() > 0.1 {
             local_aim
         } else {
             ae::Vec2::new(snapshot.actor_facing, 0.0)
         };
-        let dir = frame.to_world(local_dir).normalize_or_zero();
-        out.fire = Some(crate::actor::control::ActorFireRequest { dir, speed: 0.0 });
+        let dir = local_dir.normalize_or_zero();
+        out.fire = Some(crate::actor::control::ActorFireRequest::controlled_body_local(
+            dir, 0.0,
+        ));
     }
 
     // Jump edges + sustain.
@@ -192,10 +195,10 @@ mod tests {
         s.player_input = None;
         let mut out = crate::actor::control::ActorControlFrame::default();
         out.melee_pressed = true; // pre-poisoned
-        out.fire = Some(crate::actor::control::ActorFireRequest {
-            dir: ae::Vec2::new(1.0, 0.0),
-            speed: 200.0,
-        });
+        out.fire = Some(crate::actor::control::ActorFireRequest::world_space(
+            ae::Vec2::new(1.0, 0.0),
+            200.0,
+        ));
         tick_player_brain(PlayerSlot(0), &s, &mut out);
         assert!(!out.melee_pressed);
         assert!(out.fire.is_none());

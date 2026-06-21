@@ -288,8 +288,10 @@ impl<'a> NpcMut<'a> {
         }
         if self.config.patrol_radius > 0.0 || self.motion.0.is_some() {
             let mut cfg = crate::brain::PatrolCfg::NPC_DEFAULT;
-            cfg.spawn_x = self.config.spawn.x;
-            cfg.radius = self.config.patrol_radius;
+            cfg.lane = crate::brain::AuthoredWorldPatrolLane::new(
+                self.config.spawn.x,
+                self.config.patrol_radius,
+            );
             cfg.aggro_radius = self.config.talk_radius;
             crate::brain::Brain::StateMachine(crate::brain::StateMachineCfg::Patrol {
                 cfg,

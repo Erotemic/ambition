@@ -13,8 +13,9 @@ use crate::brain::action_set::{
     SlamSpec, SpecialActionSpec, SwipeSpec,
 };
 use crate::brain::state_machine::{
-    MeleeBruteCfg, MeleeBruteState, PatrolCfg, PatrolState, SkirmisherCfg, SkirmisherState,
-    SniperCfg, SniperState, StateMachineCfg, WandererCfg, WandererState,
+    AuthoredWorldPatrolLane, MeleeBruteCfg, MeleeBruteState, PatrolCfg, PatrolState,
+    SkirmisherCfg, SkirmisherState, SniperCfg, SniperState, StateMachineCfg, WandererCfg,
+    WandererState,
 };
 use crate::brain::Brain;
 use crate::brain::{BossPatternCfg, BossPatternState};
@@ -43,8 +44,7 @@ pub fn brain_from_preset(preset: &BrainPreset, spawn_world_x: f32) -> Brain {
             attack_range,
         } => StateMachineCfg::Patrol {
             cfg: PatrolCfg {
-                spawn_x: spawn_world_x + spawn_local_x,
-                radius: *radius,
+                lane: AuthoredWorldPatrolLane::new(spawn_world_x + spawn_local_x, *radius),
                 speed: *speed,
                 aggressiveness: *aggressiveness,
                 aggro_radius: *aggro_radius,

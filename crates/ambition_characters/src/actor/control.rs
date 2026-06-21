@@ -13,7 +13,7 @@
 //! - brains are pure functions of a snapshot plus their local state;
 //! - integration code reads only the frame, not the brain implementation.
 
-use ambition_engine_core::Vec2;
+use ambition_engine_core::{AccelerationFrame, GameplayFramePolicy, Vec2};
 
 /// A request from a brain to fire a projectile this tick. Mirrors the
 /// existing `ChoreographyAction::FireProjectile { dir, speed }` but
@@ -22,6 +22,14 @@ use ambition_engine_core::Vec2;
 /// remote player) can emit one without going through the
 /// choreography path.
 ///
+/// The launch direction carries an explicit frame policy. Do not infer
+/// "local" from `x/y` names or "world" from the current implementation's
+/// cardinal gravity cases: callers should choose a constructor that says what
+/// frame authored the vector, and the consumer should convert at its own
+/// simulation seam. That keeps arbitrary-angle acceleration frames (and future
+/// non-Euclidean/Lorentz-like motion policies) from inheriting a hidden
+/// axis-aligned assumption.
+///
 /// **Current convention:** ActionSet-driven consumers read projectile
 /// speed from the resolved `RangedActionSpec`; player/projectile legacy
 /// paths may still carry `speed` here while migration is in progress.
@@ -29,11 +37,58 @@ use ambition_engine_core::Vec2;
 /// capability choose the launch speed.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct ActorFireRequest {
-    /// Launch direction (unit vector recommended; the sandbox
-    /// projectile spawner normalizes anyway).
+    /// Launch direction in the frame named by [`Self::dir_policy`] (unit vector
+    /// recommended; the sandbox projectile spawner normalizes anyway).
     pub dir: Vec2,
+    /// Frame in which [`Self::dir`] was authored/interpreted.
+    pub dir_policy: GameplayFramePolicy,
     /// Launch speed in px/s.
     pub speed: f32,
+}
+
+impl ActorFireRequest {
+    /// Fire along a controlled-body-local direction (`+x` side/right,
+    /// `+y` toward feet). Use for actor-combat verbs such as Smash-style
+    /// ranged attacks where "forward/up/down" should follow the actor.
+    pub fn controlled_body_local(dir: Vec2, speed: f32) -> Self {
+        Self {
+            dir,
+            dir_policy: GameplayFramePolicy::ControlledBodyLocal,
+            speed,
+        }
+    }
+
+    /// Fire along a world/environment-space direction. Use for direct target
+    /// vectors, arena hazards, and other effects that deliberately ignore the
+    /// controlled body's local side/feet axes.
+    pub fn world_space(dir: Vec2, speed: f32) -> Self {
+        Self {
+            dir,
+            dir_policy: GameplayFramePolicy::WorldSpace,
+            speed,
+        }
+    }
+
+    /// Convert the request direction to world space at the consumer seam.
+    ///
+    /// `AccelerationFrame` and `ControlledBodyLocal` use the same basis today,
+    /// but keeping both policies visible lets future motion/frame models split
+    /// them without changing every call site.
+    pub fn dir_to_world(self, frame: AccelerationFrame) -> Vec2 {
+        match self.dir_policy {
+            GameplayFramePolicy::ControlledBodyLocal | GameplayFramePolicy::AccelerationFrame => {
+                frame.to_world(self.dir)
+            }
+            GameplayFramePolicy::WorldSpace => self.dir,
+            GameplayFramePolicy::ScreenSpace => {
+                debug_assert!(
+                    false,
+                    "screen-space fire directions must be resolved before gameplay"
+                );
+                self.dir
+            }
+        }
+    }
 }
 
 /// Per-tick movement + action intent from an actor brain. The same
@@ -273,10 +328,7 @@ mod tests {
         frame.special_pressed = true;
         frame.melee_pressed = true;
         frame.shield_held = true;
-        frame.fire = Some(ActorFireRequest {
-            dir: Vec2::new(1.0, 0.0),
-            speed: 0.0,
-        });
+        frame.fire = Some(ActorFireRequest::world_space(Vec2::new(1.0, 0.0), 0.0));
         // Also set a sustain that should NOT clear: jump_held + shield_held.
         frame.clear_edges();
         assert!(!frame.jump_pressed);
@@ -292,6 +344,19 @@ mod tests {
     }
 
     #[test]
+    fn fire_request_direction_policy_converts_through_arbitrary_acceleration_frame() {
+        let frame = AccelerationFrame::new(Vec2::new(1.0, 1.0));
+        let local = ActorFireRequest::controlled_body_local(Vec2::new(1.0, 0.0), 0.0);
+        assert_eq!(local.dir_policy, GameplayFramePolicy::ControlledBodyLocal);
+        assert_eq!(local.dir_to_world(frame), frame.side);
+
+        let world_dir = Vec2::new(0.25, -0.75);
+        let world = ActorFireRequest::world_space(world_dir, 0.0);
+        assert_eq!(world.dir_policy, GameplayFramePolicy::WorldSpace);
+        assert_eq!(world.dir_to_world(frame), world_dir);
+    }
+
+    #[test]
     fn wants_any_action_reports_true_when_any_verb_is_set() {
         let mut frame = ActorControlFrame::neutral();
         frame.melee_pressed = true;
@@ -303,10 +368,7 @@ mod tests {
         frame.jump_held = true;
         assert!(frame.wants_any_action());
         let mut frame = ActorControlFrame::neutral();
-        frame.fire = Some(ActorFireRequest {
-            dir: Vec2::new(1.0, 0.0),
-            speed: 0.0,
-        });
+        frame.fire = Some(ActorFireRequest::world_space(Vec2::new(1.0, 0.0), 0.0));
         assert!(frame.wants_any_action());
         let mut frame = ActorControlFrame::neutral();
         frame.dash_pressed = true;

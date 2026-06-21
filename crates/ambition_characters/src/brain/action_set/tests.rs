@@ -123,10 +123,10 @@ fn resolve_returns_predictable_request_count_per_intent_subset() {
         let mut frame = crate::actor::control::ActorControlFrame::neutral();
         frame.melee_pressed = melee;
         frame.fire = if fire {
-            Some(crate::actor::control::ActorFireRequest {
-                dir: ae::Vec2::new(1.0, 0.0),
-                speed: 0.0,
-            })
+            Some(crate::actor::control::ActorFireRequest::world_space(
+                ae::Vec2::new(1.0, 0.0),
+                0.0,
+            ))
         } else {
             None
         };
@@ -178,10 +178,10 @@ fn resolve_with_only_ranged_capability_ignores_melee_intent() {
     };
     let mut frame = crate::actor::control::ActorControlFrame::neutral();
     frame.melee_pressed = true;
-    frame.fire = Some(crate::actor::control::ActorFireRequest {
-        dir: ae::Vec2::new(1.0, 0.0),
-        speed: 0.0,
-    });
+    frame.fire = Some(crate::actor::control::ActorFireRequest::world_space(
+        ae::Vec2::new(1.0, 0.0),
+        0.0,
+    ));
     let reqs = resolve(&actions, &frame, ae::Vec2::ZERO);
     assert_eq!(reqs.len(), 1);
     assert!(matches!(reqs[0], ActionRequest::Ranged { .. }));
@@ -220,10 +220,10 @@ fn resolve_peaceful_action_set_emits_nothing_for_full_intent() {
     let actions = ActionSet::peaceful();
     let mut frame = crate::actor::control::ActorControlFrame::neutral();
     frame.melee_pressed = true;
-    frame.fire = Some(crate::actor::control::ActorFireRequest {
-        dir: ae::Vec2::new(1.0, 0.0),
-        speed: 0.0,
-    });
+    frame.fire = Some(crate::actor::control::ActorFireRequest::world_space(
+        ae::Vec2::new(1.0, 0.0),
+        0.0,
+    ));
     frame.special_pressed = true;
     let reqs = resolve(&actions, &frame, ae::Vec2::ZERO);
     assert!(
@@ -356,16 +356,48 @@ fn resolve_fire_pressed_emits_ranged_request() {
         ..Default::default()
     };
     let mut frame = crate::actor::control::ActorControlFrame::neutral();
-    frame.fire = Some(crate::actor::control::ActorFireRequest {
-        dir: ae::Vec2::new(1.0, 0.0),
-        speed: 0.0, // placeholder; speed comes from ActionSet
-    });
+    frame.fire = Some(crate::actor::control::ActorFireRequest::world_space(
+        ae::Vec2::new(1.0, 0.0),
+        0.0, // placeholder; speed comes from ActionSet
+    ));
     let reqs = resolve(&actions, &frame, ae::Vec2::ZERO);
     assert_eq!(reqs.len(), 1);
     match reqs[0] {
-        ActionRequest::Ranged { spec, dir, .. } => {
+        ActionRequest::Ranged {
+            spec,
+            dir,
+            dir_policy,
+            ..
+        } => {
             assert_eq!(spec.speed(), 400.0);
             assert_eq!(dir, ae::Vec2::new(1.0, 0.0));
+            assert_eq!(dir_policy, ae::GameplayFramePolicy::WorldSpace);
+        }
+        _ => panic!("expected Ranged"),
+    }
+}
+
+#[test]
+fn resolve_preserves_controlled_body_local_fire_policy() {
+    let actions = ActionSet {
+        ranged: Some(RangedActionSpec::Bolt {
+            speed: 500.0,
+            damage: 1,
+        }),
+        ..Default::default()
+    };
+    let mut frame = crate::actor::control::ActorControlFrame::neutral();
+    frame.fire = Some(crate::actor::control::ActorFireRequest::controlled_body_local(
+        ae::Vec2::new(0.0, -1.0),
+        0.0,
+    ));
+    let reqs = resolve(&actions, &frame, ae::Vec2::ZERO);
+    match reqs[0] {
+        ActionRequest::Ranged {
+            dir, dir_policy, ..
+        } => {
+            assert_eq!(dir, ae::Vec2::new(0.0, -1.0));
+            assert_eq!(dir_policy, ae::GameplayFramePolicy::ControlledBodyLocal);
         }
         _ => panic!("expected Ranged"),
     }
@@ -479,6 +511,7 @@ fn action_request_label_returns_per_variant_string() {
         },
         origin: ae::Vec2::ZERO,
         dir: ae::Vec2::new(1.0, 0.0),
+        dir_policy: ae::GameplayFramePolicy::WorldSpace,
     };
     assert_eq!(ranged.label(), "ranged_bolt");
 
@@ -617,10 +650,10 @@ fn resolve_multi_intent_emits_multi_request() {
     };
     let mut frame = crate::actor::control::ActorControlFrame::neutral();
     frame.melee_pressed = true;
-    frame.fire = Some(crate::actor::control::ActorFireRequest {
-        dir: ae::Vec2::new(0.0, -1.0),
-        speed: 0.0,
-    });
+    frame.fire = Some(crate::actor::control::ActorFireRequest::world_space(
+        ae::Vec2::new(0.0, -1.0),
+        0.0,
+    ));
     frame.special_pressed = true;
     let reqs = resolve(&actions, &frame, ae::Vec2::ZERO);
     assert_eq!(reqs.len(), 3);

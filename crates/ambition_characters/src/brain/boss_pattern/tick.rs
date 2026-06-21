@@ -238,7 +238,7 @@ fn hash_boss_pattern_seed(id: &str) -> u64 {
     hash.max(1)
 }
 
-fn clamp_horizontal_approach_to_front_wall(
+fn clamp_world_lateral_approach_to_front_wall(
     cfg: &BossPatternCfg,
     ctx: &BossPatternContext,
     target: ae::Vec2,
@@ -358,11 +358,11 @@ fn advance_macro_state(
     ctx: &BossPatternContext,
 ) {
     let movement = cfg.movement_for_phase(ctx.encounter_phase);
-    // Ground-locked bosses reason about standoff on the horizontal axis only.
+    // World-arena-lateral bosses reason about standoff on the authored arena lane only.
     // Otherwise a player jumping over/under the boss would look "far away"
     // and make the boss slide into them, even though the desired behavior is
     // YHTBTR-style left/right spacing with collision handling the walls.
-    let distance = if movement.horizontal_only() {
+    let distance = if movement.world_arena_lateral_only() {
         (ctx.target_pos.x - ctx.actor_pos.x).abs()
     } else {
         (ctx.target_pos - ctx.actor_pos).length()
@@ -423,11 +423,11 @@ fn advance_macro_state(
 /// `emit_desired_vel`.
 fn compute_retreat_pos(cfg: &BossPatternCfg, ctx: &BossPatternContext) -> ae::Vec2 {
     let movement = cfg.movement_for_phase(ctx.encounter_phase);
-    if movement.horizontal_only() {
+    if movement.world_arena_lateral_only() {
         let dx = ctx.actor_pos.x - ctx.target_pos.x;
         let dir_x = if dx.abs() < 1e-3 { 1.0 } else { dx.signum() };
-        // For grounded/player-controllable-style bosses, retreat is a
-        // horizontal desired velocity only. `BossRuntime::integrate_body`
+        // For world-arena-lateral bosses, retreat is a
+        // fixed-arena-lane desired velocity only. `BossRuntime::integrate_body`
         // still runs through `step_kinematic`, so solid walls and platforms
         // are the authority that stops the body if this target lies beyond
         // reachable floor.
@@ -487,7 +487,7 @@ fn emit_desired_vel(
             } else {
                 cfg.macro_tuning.engage_distance.max(0.0)
             };
-            if movement.horizontal_only() {
+            if movement.world_arena_lateral_only() {
                 let dx = ctx.actor_pos.x - ctx.target_pos.x;
                 let dir_x = if dx.abs() < 1e-3 { 1.0 } else { dx.signum() };
                 ae::Vec2::new(ctx.target_pos.x + dir_x * standoff, ctx.actor_pos.y)
@@ -533,8 +533,8 @@ fn emit_desired_vel(
         target.x.clamp(half.x + margin, max_x),
         target.y.clamp(half.y + margin, max_y),
     );
-    if movement.horizontal_only() {
-        // The profile declares no vertical travel, so do not let the
+    if movement.world_arena_lateral_only() {
+        // The profile declares no authored world-arena vertical travel, so do not let the
         // macro standoff/retreat steering add one. Preserve the
         // current integrated y so collision remains authoritative if
         // the boss was previously nudged by the world.
@@ -543,10 +543,10 @@ fn emit_desired_vel(
     target = clamped_target;
 
     if matches!(state.macro_state, BossMacroState::Approach { .. })
-        && movement.horizontal_only()
+        && movement.world_arena_lateral_only()
         && cfg.macro_tuning.front_wall_standoff > 0.0
     {
-        target = clamp_horizontal_approach_to_front_wall(cfg, ctx, target);
+        target = clamp_world_lateral_approach_to_front_wall(cfg, ctx, target);
     }
 
     let delta = target - ctx.actor_pos;

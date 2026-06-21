@@ -626,7 +626,11 @@ pub enum ActionRequest {
     Ranged {
         spec: RangedActionSpec,
         origin: ae::Vec2,
+        /// Direction in the frame named by `dir_policy`.
         dir: ae::Vec2,
+        /// Frame policy for `dir`; consumers convert at their own simulation
+        /// seam, where the actor's current acceleration frame is known.
+        dir_policy: ae::GameplayFramePolicy,
     },
     /// Trigger the actor's special. Resolved by the per-actor
     /// special handler (player ability system, boss encounter
@@ -671,8 +675,20 @@ impl std::fmt::Display for ActionRequest {
             Self::Melee { origin, facing, .. } => {
                 write!(f, "{}(at {:?} facing {:+.0})", self.label(), origin, facing,)
             }
-            Self::Ranged { origin, dir, .. } => {
-                write!(f, "{}(from {:?} dir {:?})", self.label(), origin, dir,)
+            Self::Ranged {
+                origin,
+                dir,
+                dir_policy,
+                ..
+            } => {
+                write!(
+                    f,
+                    "{}(from {:?} dir {:?} {:?})",
+                    self.label(),
+                    origin,
+                    dir,
+                    dir_policy,
+                )
             }
             Self::Special { .. } => write!(f, "{}", self.label()),
             Self::PlayerProjectileTick {
@@ -762,6 +778,7 @@ pub fn resolve(
                 spec,
                 origin,
                 dir: req.dir,
+                dir_policy: req.dir_policy,
             });
         }
     }

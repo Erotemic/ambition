@@ -304,6 +304,79 @@ fn movement_for_phase_picks_enrage_override_when_set() {
     );
 }
 
+#[test]
+fn movement_profile_exposes_world_arena_lateral_policy() {
+    let lateral = BossMovementProfile::AnchorSway {
+        x_radius: 120.0,
+        y_bob: 0.0,
+        x_frequency: 1.0,
+        y_frequency: 0.0,
+        chase_scale: 0.5,
+        chase_limit: 64.0,
+        speed: 200.0,
+    };
+    assert_eq!(
+        lateral.frame_policy(),
+        BossMovementFramePolicy::WorldArenaLateral
+    );
+    assert!(lateral.world_arena_lateral_only());
+
+    let planar = BossMovementProfile::AirSwoop {
+        x_radius: 120.0,
+        y_radius: 40.0,
+        x_frequency: 1.0,
+        y_frequency: 1.0,
+        chase_scale: 0.5,
+        chase_limit: 64.0,
+        speed: 200.0,
+    };
+    assert_eq!(
+        planar.frame_policy(),
+        BossMovementFramePolicy::WorldArenaPlanar
+    );
+    assert!(!planar.world_arena_lateral_only());
+}
+
+#[test]
+fn world_arena_lateral_boss_preserves_world_y_during_approach() {
+    let mut cfg = macro_cfg();
+    cfg.macro_tuning.too_close_distance = 0.0;
+    cfg.macro_tuning.engage_distance = 0.0;
+    cfg.macro_tuning.approach_duration_s = 8.0;
+    cfg.movement = BossMovementProfile::AnchorSway {
+        x_radius: 100.0,
+        y_bob: 0.0,
+        x_frequency: 0.0,
+        y_frequency: 0.0,
+        chase_scale: 0.0,
+        chase_limit: 0.0,
+        speed: 200.0,
+    };
+    let mut state = BossPatternState::default();
+    state.macro_state = BossMacroState::Approach { remaining_s: 3.0 };
+    let mut attack_state = BossAttackState::default();
+    let mut out = crate::actor::control::ActorControlFrame::neutral();
+    tick_boss_pattern(
+        &cfg,
+        &mut state,
+        &macro_ctx(
+            ae::Vec2::new(640.0, 500.0),
+            ae::Vec2::new(900.0, 200.0),
+            0.05,
+        ),
+        &mut out,
+        &mut attack_state,
+    );
+    assert!(
+        out.desired_vel.x > 0.0,
+        "boss should still close along authored arena X"
+    );
+    assert_eq!(
+        out.desired_vel.y, 0.0,
+        "world-arena-lateral movement must not chase target world Y"
+    );
+}
+
 /// During an active special strike, `strike_speed_scale` should
 /// shrink the emitted desired_vel so World-anchored hitboxes
 /// (saddle cross, minima pit) stay centered on the boss.

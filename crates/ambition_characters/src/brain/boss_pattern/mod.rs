@@ -57,6 +57,17 @@ pub enum BossMovementProfile {
     },
 }
 
+/// Frame/route policy used by a boss movement profile.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum BossMovementFramePolicy {
+    /// Move on an authored world-arena lateral lane. This deliberately uses
+    /// world X / fixed arena floor semantics; it should not rotate with the
+    /// controlled actor or a local acceleration frame.
+    WorldArenaLateral,
+    /// Move freely in authored world-arena XY space.
+    WorldArenaPlanar,
+}
+
 impl BossMovementProfile {
     /// Where the movement profile wants the boss to be this tick, in
     /// world space. Pure function of (profile, spawn anchor,
@@ -118,21 +129,31 @@ impl BossMovementProfile {
         }
     }
 
-    /// True when this movement profile is explicitly ground-locked
-    /// to horizontal motion. Macro Approach / Retreat can otherwise
-    /// introduce a vertical component by steering toward the player's
-    /// center or a retreat anchor. Smirking Behemoth authors this as
-    /// `AnchorSway(y_bob: 0, y_frequency: 0)`: it should slide left /
-    /// right like the YHTBTR boss, never rise or sink toward the
-    /// player.
-    pub fn horizontal_only(&self) -> bool {
+    /// Movement policy for the profile's authored route.
+    pub fn frame_policy(&self) -> BossMovementFramePolicy {
         match *self {
             Self::AnchorSway {
                 y_bob, y_frequency, ..
-            } => y_bob.abs() <= f32::EPSILON && y_frequency.abs() <= f32::EPSILON,
-            Self::StationaryGiant { .. } => true,
-            Self::AirSwoop { .. } => false,
+            } => {
+                if y_bob.abs() <= f32::EPSILON && y_frequency.abs() <= f32::EPSILON {
+                    BossMovementFramePolicy::WorldArenaLateral
+                } else {
+                    BossMovementFramePolicy::WorldArenaPlanar
+                }
+            }
+            Self::StationaryGiant { .. } => BossMovementFramePolicy::WorldArenaLateral,
+            Self::AirSwoop { .. } => BossMovementFramePolicy::WorldArenaPlanar,
         }
+    }
+
+    /// True when this movement profile is explicitly locked to an authored
+    /// world-arena lateral lane. Macro Approach / Retreat can otherwise
+    /// introduce a vertical component by steering toward the player's center or
+    /// a retreat anchor. Smirking Behemoth authors this as
+    /// `AnchorSway(y_bob: 0, y_frequency: 0)`: it should slide along fixed
+    /// arena X like the YHTBTR boss, never rise or sink toward the player.
+    pub fn world_arena_lateral_only(&self) -> bool {
+        self.frame_policy() == BossMovementFramePolicy::WorldArenaLateral
     }
 }
 

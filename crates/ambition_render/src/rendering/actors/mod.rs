@@ -17,7 +17,8 @@ use super::primitives::{
 use ambition_gameplay_core::assets::game_assets::{self, EntitySprite, GameAssets};
 use ambition_gameplay_core::boss_encounter::sprites::{self, BossAnimState, BossAnimator};
 use ambition_gameplay_core::character_sprites::{
-    build_character_sprite, feet_anchor_for, CharacterAnimator,
+    build_character_sprite, build_character_sprite_with_render_size, feet_anchor_for,
+    feet_anchor_for_render_size, CharacterAnimator,
 };
 use ambition_gameplay_core::combat::BoundFeatureKind;
 use ambition_gameplay_core::config::{world_to_bevy, WORLD_Z_PLAYER};
@@ -354,10 +355,29 @@ pub fn upgrade_npc_sprites(
         if images.get(&character_asset.texture).is_none() {
             continue;
         }
-        let sprite = build_character_sprite(character_asset, collision);
+        // When the NPC's collision was derived from published sprite
+        // `body_metrics`, `collision` IS the visible body — so the sprite must
+        // render at the stored quad size, not `collision * collision_scale`
+        // (which would double-scale). NPCs without body metrics fall through to
+        // the legacy collision-driven render.
+        let render_size = ambition_gameplay_core::features::ecs_npc_render_size(
+            &visual.id,
+            &ecs_actors,
+        )
+        .map(|r| BVec2::new(r.x, r.y));
+        let (sprite, anchor) = match render_size {
+            Some(render_size) => (
+                build_character_sprite_with_render_size(character_asset, render_size),
+                feet_anchor_for_render_size(&character_asset.spec, collision, render_size),
+            ),
+            None => (
+                build_character_sprite(character_asset, collision),
+                feet_anchor_for(&character_asset.spec, collision),
+            ),
+        };
         commands.entity(entity).insert((
             sprite,
-            feet_anchor_for(&character_asset.spec, collision),
+            anchor,
             CharacterAnimator::new(&character_asset.spec),
             BoundFeatureKind::new(view.kind, collision),
         ));

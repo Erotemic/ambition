@@ -157,6 +157,15 @@ fn record_index() -> &'static HashMap<String, SheetRecord> {
     })
 }
 
+/// Look up the baked [`SheetRecord`] for a manifest target key — the same
+/// key [`try_load_spec_for_target`] resolves a spec from, so a caller that
+/// has a catalog `manifest_target()` can read the record's generator-emitted
+/// `body_metrics` / frame dims without going through the Bevy
+/// [`SheetRegistry`] resource (works headless / pre-asset-load).
+pub fn record_for_target(target: &str) -> Option<&'static SheetRecord> {
+    record_index().get(target)
+}
+
 /// Load a sheet spec for an explicit manifest record key with the given tuning.
 /// Returns `None` when the manifest target is absent so catalog-driven sprite
 /// loading can fall back to colored rectangles.

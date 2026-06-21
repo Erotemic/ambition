@@ -48,19 +48,22 @@ same":
   - *Hitbox-vs-effect decision (your "can't decide"):* hitbox stays the
     authority, effect orients to it.
 
-- **NEXT — hitbox from sprite metadata (your "bigger general" point).** Emmy's
-  collision doesn't match her sprite because NPC/character/prop spawns size
-  collision from the archetype/ldtk `default_size`, NOT the sprite RON
-  `body_metrics`. The **boss path already does the right thing** (reads
-  `registry.body_metrics` → collision), so this is "extend the boss pattern to
-  characters/props." My recommended model (matches your emergent-correctness +
-  the portal example, no new flag needed): **a sprite's published `body_metrics`
-  bbox is authoritative for that entity's collision when present; absent → fall
-  back to the ldtk bounds** (which then legitimately drive scale, e.g. portals
-  have no character bbox so the ldtk box wins). Add an explicit
-  `bounds_authoritative=false` override only if a future case needs ldtk despite
-  having a sprite (YAGNI). It's a real gameplay-collision change across the
-  spawn path — say go and I'll implement it as its own pass.
+- **DONE — hitbox from sprite metadata (your "bigger general" point).** NPC
+  collision is now derived from published sprite `body_metrics`: a `body_pixel_bbox`
+  (or multi-part bounding box) **supersedes** the LDtk spawn box, so an NPC's
+  hitbox is a box around the *visible* body. No new flag — presence of metadata =
+  authoritative; **absent → falls back to the LDtk bounds** (portals etc. keep
+  their box, exactly your example). The sprite still draws at its current size:
+  the derivation also stores the render-quad size and the renderer uses it, so the
+  collision shrinks to the body without the sprite double-scaling. New helper
+  `sprite_body_collision_for_character_id` (mirrors the boss `body_metrics`
+  pipeline, generalized to catalog characters). **Verify in-game:** Emmy's debug
+  hitbox should now wrap her silhouette; her sprite should look unchanged. Feet
+  planting under the new (body-sized) collision is the one thing worth a glance.
+  - *Scope:* applied to **NPCs** (the Emmy case) — narrow-first. The helper is
+    reusable; enemies still use their hand-tuned archetype `default_size`
+    (changing those affects platforming/combat fit, so opt-in later if wanted).
+    Props don't go through the character-sheet path, so they keep LDtk bounds.
 
 ---
 

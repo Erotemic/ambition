@@ -33,6 +33,15 @@ pub struct NpcConfig {
     /// the parrot). Distinct from merely being airborne: a jump or knockback is
     /// NOT flight. Drives the `Fly` animation (vs `Idle`/`Walk`) when moving.
     pub aerial: bool,
+    /// Explicit sprite render-quad size, set when the NPC's collision box was
+    /// derived from published sprite `body_metrics` (so `kin.size` is the
+    /// visible-body hitbox, not the LDtk box). The renderer draws the sprite
+    /// at THIS size rather than re-deriving `collision * collision_scale`,
+    /// which would double-scale once the collision already equals the body.
+    /// `None` for NPCs without published body metrics — they keep the legacy
+    /// `collision_scale` render path. See
+    /// [`crate::character_sprites::sprite_body_collision_for_character_id`].
+    pub render_size: Option<ae::Vec2>,
 }
 
 /// Per-tick NPC status: last-evaluated AI mode, hit-flash timer,
@@ -121,28 +130,45 @@ impl NpcClusterScratch {
             .as_ref()
             .and_then(PathMotion::start_pos)
             .unwrap_or(authored_pos);
+        let character_id = match &interactable.kind {
+            crate::interaction::InteractionKind::Npc {
+                character_id: Some(cid),
+                ..
+            } => Some(cid.as_str()),
+            _ => None,
+        };
         // A `Floating` catalog body_kind = a gravity-free flyer (the stochastic
         // parrot). Zero its gravity so the brain's full 2D `desired_vel` drives
         // flight (see `NpcRuntime::integrate_velocity_aerial`). Data-driven via
         // the NPC's catalog `character_id`.
-        let gravity_scale = match &interactable.kind {
-            crate::interaction::InteractionKind::Npc {
-                character_id: Some(cid),
-                ..
-            } if matches!(
-                crate::character_roster::body_kind_for_character_id(cid),
-                Some(crate::actor::character_catalog::CharacterBodyKind::Floating)
-            ) =>
+        let gravity_scale = match character_id {
+            Some(cid)
+                if matches!(
+                    crate::character_roster::body_kind_for_character_id(cid),
+                    Some(crate::actor::character_catalog::CharacterBodyKind::Floating)
+                ) =>
             {
                 0.0
             }
             _ => 1.0,
         };
+        // Sprite metadata supersedes the LDtk spawn box: when the NPC's
+        // character has published `body_metrics`, size the collision to the
+        // visible body and remember the render-quad size so the sprite still
+        // draws at its authored scale. Missing metadata → keep the LDtk box.
+        let ldtk_collision = aabb.half_size() * 2.0;
+        let body = character_id.and_then(|cid| {
+            crate::character_sprites::sprite_body_collision_for_character_id(cid, ldtk_collision)
+        });
+        let (collision_size, render_size) = match body {
+            Some(b) => (b.collision, Some(b.render_size)),
+            None => (ldtk_collision, None),
+        };
         Self {
             kin: BodyKinematics {
                 pos,
                 vel: ae::Vec2::ZERO,
-                size: aabb.half_size() * 2.0,
+                size: collision_size,
                 facing: 1.0,
             },
             surface: ActorSurfaceState {
@@ -160,6 +186,7 @@ impl NpcClusterScratch {
                 patrol_radius,
                 talk_radius: super::super::npcs::NPC_TALK_RADIUS,
                 aerial: gravity_scale <= 0.001,
+                render_size,
             },
             status: NpcStatus {
                 ai_mode: crate::actor::ai::CharacterAiMode::Idle,

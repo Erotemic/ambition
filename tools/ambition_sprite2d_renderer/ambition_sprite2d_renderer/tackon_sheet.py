@@ -40,6 +40,7 @@ import yaml
 from PIL import Image, ImageDraw, ImageFont
 
 from .actor_contract import write_actor_contract_for_tackon
+from .core.measure import measure_body_metrics
 
 RGBA = Tuple[int, int, int, int]
 
@@ -215,28 +216,24 @@ def downsample(img: Image.Image, final_size=BASE_FRAME):
 
 
 def alpha_bbox_metrics(frame: Image.Image):
-    alpha = frame.getchannel("A")
-    bbox = alpha.getbbox()
-    if bbox is None:
+    # Canonical "measure by default" (core.measure): inclusive last-opaque-row
+    # feet + all-channel bbox, shared with the adapter spine. Preserve this
+    # path's output shape — rounded values, no frame_width/height, and a
+    # degenerate fallback for a fully transparent frame.
+    metrics = measure_body_metrics(frame)
+    if metrics is None:
         return {
             "body_pixel_bbox": {"x": 0, "y": 0, "w": 0, "h": 0},
             "feet_pixel": {"x": frame.width / 2.0, "y": frame.height},
             "feet_anchor_norm": {"x": 0.0, "y": -0.5},
         }
-    x1, y1, x2, y2 = bbox
-    feet_x = (x1 + x2) / 2.0
-    feet_y = float(y2)
+    feet, anchor = metrics["feet_pixel"], metrics["feet_anchor_norm"]
     return {
-        "body_pixel_bbox": {
-            "x": int(x1),
-            "y": int(y1),
-            "w": int(x2 - x1),
-            "h": int(y2 - y1),
-        },
-        "feet_pixel": {"x": round(feet_x, 3), "y": round(feet_y, 3)},
+        "body_pixel_bbox": metrics["body_pixel_bbox"],
+        "feet_pixel": {"x": round(feet["x"], 3), "y": round(feet["y"], 3)},
         "feet_anchor_norm": {
-            "x": round(feet_x / frame.width - 0.5, 6),
-            "y": round(0.5 - feet_y / frame.height, 6),
+            "x": round(anchor["x"], 6),
+            "y": round(anchor["y"], 6),
         },
     }
 

@@ -184,3 +184,31 @@ Per-character in-game *size* tuning for the toon path already exists too
 (`sheet_tuning` in a character's YAML → RON), so retiring the hardcoded Rust
 `SheetTuning` consts in favor of data-driven tuning is available whenever you
 want it.
+
+---
+
+## 5. Player slash effect — hooked up; tune look/size/placement in game 🗡️
+
+**Why machine-bound:** the effect's on-screen size, position vs the strike,
+and timing only read true in the running game.
+
+**Done (2026-06-21):** the generated `robot_slash` sheet (was never referenced
+in Rust — the player only ever spawned a yellow debug hitbox box) is now wired
+to player attacks. `start_attack` emits `VfxMessage::Slash`, picking the row
+from the attack intent: **Side/Up** energy-arc crescents for most swings, the
+tapered **Down** lance/poke for down-tilt & pogo (the "different one" — already
+generated). One shared effect; each attack can graduate to a bespoke one later.
+
+**Verify at the main machine:** do attacks now show the arc/poke (not a yellow
+box)? Is it the right size/position? Knobs:
+- size: `slash_effect_size` in `attack.rs` (currently 2× the hitbox's max dim).
+- position: spawned at the hitbox center — could anchor at the sheet's `origin`
+  (hand/pivot) anchor instead for a more rooted swing.
+- timing: fires once at swing start; uses scaled time (slows in bullet-time).
+
+**Refactor that came with it (your call paid off):** the shrine's private
+record→atlas / row-lookup helpers were lifted into a shared
+`rendering::sheet_atlas`; the slash lives in its own `rendering::slash_visuals`
+next to `shrine_visuals`, both built on it. The old `SlashPreview` debug box is
+retired (if you want a toggleable hitbox overlay back, that's a small debug
+gizmo, separate from the effect).

@@ -1,6 +1,12 @@
 # Ambition
 
-**Ambition** is a Rust/Bevy 2D metroidvania/platformer sandbox plus reusable mechanics engine. The current direction is **Bevy-native, data-driven, and ECS-first**: LDtk and other authored/generated data produce Bevy entities and components, while reusable mechanics live in engine crates that remain easy to test.
+**Ambition** is an experimental vibe coded Rust/Bevy 2D platformer mechanics
+  engine with the goal of supporting 2D side scrollers, metroidvanias, precision
+  platformers, and platform fighters.
+We are interested in answering the question: how ambitious of a game can we make
+  with 2026+ level LLMs?
+
+The current direction is **Bevy-native, data-driven, and ECS-first**: LDtk and other authored/generated data produce Bevy entities and components, while reusable mechanics live in engine crates that remain easy to test.
 
 The stable design law is:
 

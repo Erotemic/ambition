@@ -30,6 +30,7 @@ const OOB_MARGIN: f32 = 96.0;
 /// no input change.
 const TELEPORT_DETECTION_SLACK_PX: f32 = 16.0;
 
+mod actor_oob;
 mod detect;
 mod plugin;
 mod systems;
@@ -44,6 +45,7 @@ mod tests;
 // world state they sample.
 pub use ambition_gameplay_trace::*;
 
+pub use actor_oob::{body_snapshot, flush_actor_dump, record_actor_oob_frame_system};
 pub use detect::{build_frame, detect_oob_from_kinematics, detect_oob_scratch, record_frame};
 pub(crate) use detect::{synthesize_events_from_diff, update_previous_snapshot};
 pub use plugin::TraceSchedulePlugin;

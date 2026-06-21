@@ -14,13 +14,18 @@ pub struct TraceSchedulePlugin;
 
 impl Plugin for TraceSchedulePlugin {
     fn build(&self, app: &mut App) {
-        app.add_systems(
-            Update,
-            (
-                super::record_frame_system,
-                super::flush_pending_dump.after(super::record_frame_system),
-            )
-                .in_set(SandboxSet::Trace),
-        );
+        app.init_resource::<ambition_gameplay_trace::ActorTraceBuffer>()
+            .add_systems(
+                Update,
+                (
+                    super::record_frame_system,
+                    super::flush_pending_dump.after(super::record_frame_system),
+                    // Non-player-centric OOB recorder: samples every body and
+                    // dumps the offender when any character leaves the world.
+                    super::record_actor_oob_frame_system,
+                    super::flush_actor_dump.after(super::record_actor_oob_frame_system),
+                )
+                    .in_set(SandboxSet::Trace),
+            );
     }
 }

@@ -12,10 +12,12 @@
 //! (`detect` / `systems` / `plugin`) stay in the game next to the sim state they
 //! sample.
 
+mod actor_trace;
 mod buffer;
 mod dump;
 mod model;
 
+pub use actor_trace::*;
 pub use buffer::*;
 pub use dump::*;
 pub use model::*;

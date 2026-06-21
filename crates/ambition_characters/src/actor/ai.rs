@@ -79,11 +79,11 @@ pub enum CharacterAiIntent {
     Hold,
     /// Move along an authored/path-local patrol or fallback pacing lane.
     Patrol,
-    /// Close on the player in the provided horizontal direction.
-    Chase { direction_x: f32 },
-    /// Caller should start an attack windup facing `direction_x` when its
+    /// Close on the target along the provided local side direction.
+    Chase { direction_side: f32 },
+    /// Caller should start an attack windup facing `direction_side` when its
     /// cooldown/archetype rules allow it.
-    Attack { direction_x: f32 },
+    Attack { direction_side: f32 },
 }
 
 /// Engine-owned AI decision consumed by sandbox enemies/NPCs.
@@ -105,7 +105,15 @@ impl CharacterAiOutput {
 /// snapshot small and `Copy` makes the evaluator trivially testable.
 #[derive(Clone, Copy, Debug)]
 pub struct CharacterAiSnapshot {
+    /// Actor origin in the evaluator's policy space.
+    ///
+    /// Direct unit tests often use world-like coordinates. Live actor brains
+    /// feed this evaluator through `BrainSnapshot::to_character_ai_snapshot`,
+    /// which first converts target deltas into the actor's acceleration frame.
+    /// Therefore the evaluator treats the x component as the policy **side**
+    /// axis, not necessarily raw world X.
     pub actor_pos: Vec2,
+    /// Target/player origin in the same policy space as [`Self::actor_pos`].
     pub player_pos: Vec2,
     pub aggro_radius: f32,
     pub attack_range: f32,
@@ -165,7 +173,7 @@ pub fn evaluate_character_ai_output(snap: CharacterAiSnapshot) -> CharacterAiOut
     }
     let delta = snap.player_pos - snap.actor_pos;
     let dist = delta.length();
-    let direction_x = if delta.x.abs() <= 0.001 {
+    let direction_side = if delta.x.abs() <= 0.001 {
         0.0
     } else {
         delta.x.signum()
@@ -173,12 +181,12 @@ pub fn evaluate_character_ai_output(snap: CharacterAiSnapshot) -> CharacterAiOut
     if dist <= snap.attack_range.max(0.0) {
         CharacterAiOutput {
             mode: CharacterAiMode::Chase,
-            intent: CharacterAiIntent::Attack { direction_x },
+            intent: CharacterAiIntent::Attack { direction_side },
         }
     } else if dist <= snap.aggro_radius.max(0.0) {
         CharacterAiOutput {
             mode: CharacterAiMode::Chase,
-            intent: CharacterAiIntent::Chase { direction_x },
+            intent: CharacterAiIntent::Chase { direction_side },
         }
     } else if snap.patrol_enabled {
         CharacterAiOutput {
@@ -250,6 +258,20 @@ mod tests {
     fn aggro_radius_resolves_to_chase() {
         let s = snap_with(150.0, true);
         assert_eq!(evaluate_character_ai(s), CharacterAiMode::Chase);
+    }
+
+    #[test]
+    fn chase_intent_reports_policy_side_not_world_axis() {
+        let s = snap_with(-150.0, true);
+        let out = evaluate_character_ai_output(s);
+        assert_eq!(out.mode, CharacterAiMode::Chase);
+        assert_eq!(
+            out.intent,
+            CharacterAiIntent::Chase {
+                direction_side: -1.0,
+            },
+            "the x component of CharacterAiSnapshot is policy side-space"
+        );
     }
 
     #[test]

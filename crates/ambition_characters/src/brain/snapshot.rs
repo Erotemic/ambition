@@ -185,7 +185,7 @@ impl BrainSnapshot {
         patrol_enabled: bool,
     ) -> crate::actor::ai::CharacterAiSnapshot {
         // The low-level evaluator only needs distance and `x` sign. Feed it the
-        // actor-relative target vector so `direction_x` means local side/right,
+        // actor-relative target vector so `direction_side` means local side/right,
         // not raw world X. Direct tests of `CharacterAiSnapshot` can still pass
         // world-like coordinates; the brain seam normalizes live actors here.
         crate::actor::ai::CharacterAiSnapshot {

@@ -420,6 +420,35 @@ fn melee_brute_chases_then_attacks_when_in_range() {
 }
 
 #[test]
+fn melee_brute_chase_direction_is_controlled_actor_side_not_world_x() {
+    let cfg = MeleeBruteCfg::STRIKER_DEFAULT;
+    let mut sm = StateMachineCfg::MeleeBrute {
+        cfg,
+        state: MeleeBruteState::default(),
+    };
+
+    // Under rightward gravity, local +side is world-up. Place the target at the
+    // same world x as the actor so a raw-world-X chase test would be neutral;
+    // the brain seam must still emit +local-side chase/facing.
+    let down = ae::Vec2::new(1.0, 0.0);
+    let frame = ae::AccelerationFrame::new(down);
+    let mut s = BrainSnapshot::idle();
+    s.control_down = down;
+    s.actor_pos = ae::Vec2::new(300.0, 300.0);
+    s.target_pos = s.actor_pos + frame.to_world(ae::Vec2::new(80.0, 0.0));
+    s.target_alive = true;
+    let mut out = crate::actor::control::ActorControlFrame::neutral();
+    tick_state_machine(&mut sm, &s, &mut out);
+
+    assert!(
+        out.desired_vel.x > 0.0,
+        "chase direction should be +local-side even when raw world x is unchanged",
+    );
+    assert_eq!(out.facing, 1.0);
+    assert!(!out.melee_pressed);
+}
+
+#[test]
 fn melee_brute_does_not_attack_during_active_windup() {
     let cfg = MeleeBruteCfg::STRIKER_DEFAULT;
     let mut sm = StateMachineCfg::MeleeBrute {

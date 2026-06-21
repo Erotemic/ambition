@@ -5,7 +5,7 @@
 
 use super::*;
 
-// ---- T-Rex's seismic stomp (content-only, open-seam; ground-hazard mechanic) ----
+// ---- T-Rex's seismic stomp (content-only, open-seam; world-space arena hazard) ----
 
 /// Content key for the T-Rex seismic stomp — matches the `Special("seismic_stomp")`
 /// beats in `boss_profiles.ron`.
@@ -18,23 +18,43 @@ const SEISMIC_DAMAGE: i32 = 2;
 const SEISMIC_KNOCKBACK: f32 = 1.8;
 const SEISMIC_LIFETIME: f32 = 0.55;
 
-/// Per-boss gate for the seismic stomp. One ground shockwave per strike.
+/// Per-boss gate for the seismic stomp. One world-floor shockwave per strike.
 #[derive(Component, Clone, Copy, Debug, Default)]
 pub struct SeismicStompState {
     pub fired_this_strike: bool,
 }
 
-/// Pure: the x-offsets (relative to the boss) of the shock segments — a symmetric
-/// line of ground boxes spreading both ways from the stomp, including the boss's
-/// own tile (offset 0). Deterministic — the testable core of the Technique.
+/// Pure: the world-x offsets (relative to the boss) of the shock segments — a
+/// symmetric line of arena-floor boxes spreading both ways from the stomp,
+/// including the boss's own tile (offset 0). Deterministic — the testable core
+/// of the Technique.
 fn seismic_offsets(per_side: i32, spacing: f32) -> Vec<f32> {
     let per_side = per_side.max(0);
     (-per_side..=per_side).map(|i| i as f32 * spacing).collect()
 }
 
-/// Technique: T-Rex seismic stomp — a floor shockwave of short-lived damage boxes
-/// spreading from the boss (content-only; open-seam special; ground hazard, not
-/// projectiles). Jump the wave.
+/// Pure world-space arena geometry for the seismic stomp.
+///
+/// This is intentionally **not** a support-relative / acceleration-frame
+/// mechanic. The T-Rex stomp is authored as a boss-room hazard that runs along
+/// the arena's world floor line, so the geometry names that frame explicitly
+/// instead of smuggling a gameplay "floor" label into block content.
+fn seismic_world_floor_centers(
+    boss_anchor_x: f32,
+    boss_aabb: ae::Aabb,
+    per_side: i32,
+    spacing: f32,
+) -> Vec<ae::Vec2> {
+    let foot_y = boss_aabb.max.y - SEISMIC_HALF_EXTENT.y;
+    seismic_offsets(per_side, spacing)
+        .into_iter()
+        .map(|dx| ae::Vec2::new(boss_anchor_x + dx, foot_y))
+        .collect()
+}
+
+/// Technique: T-Rex seismic stomp — a world-space arena-floor shockwave of
+/// short-lived damage boxes spreading from the boss (content-only; open-seam
+/// special; room hazard, not projectiles). Jump the wave.
 pub fn spawn_seismic_stomp_from_special_messages(
     mut effects: MessageWriter<EffectRequest>,
     mut messages: MessageReader<ActorActionMessage>,
@@ -60,13 +80,16 @@ pub fn spawn_seismic_stomp_from_special_messages(
         if !boss.status.alive || state.fired_this_strike {
             continue;
         }
-        // Anchor the shock at the boss's foot line so it reads as a ground wave.
-        let foot_y = boss.aabb().max.y - SEISMIC_HALF_EXTENT.y;
-        for dx in seismic_offsets(SEISMIC_SEGMENTS_PER_SIDE, SEISMIC_SPACING) {
+        for center in seismic_world_floor_centers(
+            boss.kin.pos.x,
+            boss.aabb(),
+            SEISMIC_SEGMENTS_PER_SIDE,
+            SEISMIC_SPACING,
+        ) {
             effects.write(EffectRequest {
                 owner: entity,
                 effect: Effect::DamageBox(ambition_gameplay_core::effects::DamageBoxEffect {
-                    center: ae::Vec2::new(boss.kin.pos.x + dx, foot_y),
+                    center,
                     faction: ActorFaction::Boss,
                     half_extent: SEISMIC_HALF_EXTENT,
                     damage: SEISMIC_DAMAGE,
@@ -104,5 +127,24 @@ mod tests {
             vec![0.0],
             "degenerate is just the tile"
         );
+    }
+
+    #[test]
+    fn seismic_centers_are_explicit_world_floor_arena_geometry() {
+        let boss_anchor_x = 300.0;
+        let boss_aabb = ae::Aabb::new(ae::Vec2::new(300.0, 400.0), ae::Vec2::new(48.0, 72.0));
+        let centers = seismic_world_floor_centers(boss_anchor_x, boss_aabb, 1, 84.0);
+        assert_eq!(centers.len(), 3);
+
+        let expected_y = boss_aabb.max.y - SEISMIC_HALF_EXTENT.y;
+        assert_eq!(centers[0].x, boss_anchor_x - 84.0);
+        assert_eq!(centers[1].x, boss_anchor_x);
+        assert_eq!(centers[2].x, boss_anchor_x + 84.0);
+        assert!(centers.iter().all(|p| (p.y - expected_y).abs() < 1e-3));
+
+        // The stomp is a room-authored world-floor wave, not a derived support
+        // relation from the boss's or target's acceleration frame. Keeping the
+        // pure helper free of gravity/control-frame inputs is part of the
+        // contract: if this changes, the hazard needs a different name and tests.
     }
 }

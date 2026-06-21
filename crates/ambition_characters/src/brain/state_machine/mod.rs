@@ -259,14 +259,14 @@ fn tick_patrol(
             out.facing = facing;
             out.desired_vel = ae::Vec2::new(facing * cfg.speed, 0.0);
         }
-        crate::actor::ai::CharacterAiIntent::Chase { direction_x } => {
+        crate::actor::ai::CharacterAiIntent::Chase { direction_side } => {
             // Only triggers when `aggressiveness > 0` — peaceful
             // patrollers' aggro_radius gates as "talk", which the
             // evaluator returns as Hold for `attack_range = 0`.
             // For aggressive patrol we close the distance.
             if cfg.aggressiveness > 0.0 {
-                out.desired_vel = ae::Vec2::new(direction_x * cfg.speed, 0.0);
-                out.facing = direction_x.signum_or(snapshot.actor_facing);
+                out.desired_vel = ae::Vec2::new(direction_side * cfg.speed, 0.0);
+                out.facing = direction_side.signum_or(snapshot.actor_facing);
             } else {
                 // Peaceful patroller in "Chase" mode = HOLD. The
                 // npc semantics: "player is close, face them".
@@ -276,9 +276,9 @@ fn tick_patrol(
                 }
             }
         }
-        crate::actor::ai::CharacterAiIntent::Attack { direction_x } => {
+        crate::actor::ai::CharacterAiIntent::Attack { direction_side } => {
             if cfg.aggressiveness > 0.0 {
-                out.facing = direction_x.signum_or(snapshot.actor_facing);
+                out.facing = direction_side.signum_or(snapshot.actor_facing);
                 out.melee_pressed = snapshot.attack_cooldown_remaining <= 0.0;
             }
         }
@@ -442,12 +442,12 @@ fn tick_melee_brute(
         crate::actor::ai::CharacterAiIntent::Patrol => {
             // Not used by MeleeBrute today (patrol_enabled=false).
         }
-        crate::actor::ai::CharacterAiIntent::Chase { direction_x } => {
-            out.desired_vel = ae::Vec2::new(direction_x * cfg.chase_speed, 0.0);
-            out.facing = direction_x.signum_or(snapshot.actor_facing);
+        crate::actor::ai::CharacterAiIntent::Chase { direction_side } => {
+            out.desired_vel = ae::Vec2::new(direction_side * cfg.chase_speed, 0.0);
+            out.facing = direction_side.signum_or(snapshot.actor_facing);
         }
-        crate::actor::ai::CharacterAiIntent::Attack { direction_x } => {
-            out.facing = direction_x.signum_or(snapshot.actor_facing);
+        crate::actor::ai::CharacterAiIntent::Attack { direction_side } => {
+            out.facing = direction_side.signum_or(snapshot.actor_facing);
             // Brain wants to start an attack windup if the cooldown
             // is clear. The ActionSet's attack spec timing then
             // determines the concrete windup → active → recover

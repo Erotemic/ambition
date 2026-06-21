@@ -20,6 +20,7 @@ from typing import Dict, List, Tuple
 
 from PIL import Image, ImageDraw
 
+from ...core.draw import overlay_draw as _overlay_draw
 from ...tackon_sheet import build_sheet, write_canonical
 
 RGBA = Tuple[int, int, int, int]
@@ -117,9 +118,9 @@ def _ease(t: float) -> float:
     return t * t * (3.0 - 2.0 * t)
 
 
-def _overlay_draw(img: Image.Image) -> tuple[Image.Image, ImageDraw.ImageDraw]:
-    layer = Image.new("RGBA", img.size, (0, 0, 0, 0))
-    return layer, ImageDraw.Draw(layer, "RGBA")
+# `_overlay_draw` now comes from core.draw (imported above) — the one canonical
+# alpha-clobber-safe scratch-layer helper. Kept as a local alias so the existing
+# call sites are untouched.
 
 
 def _composite_ellipse(

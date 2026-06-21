@@ -35,25 +35,24 @@ import sys
 from dataclasses import dataclass
 from pathlib import Path
 
-REPO_ROOT = Path(__file__).resolve().parents[4]
-DEFAULT_LDTK = (
-    REPO_ROOT
-    / "crates"
-    / "ambition_gameplay_core"
-    / "assets"
-    / "ambition"
-    / "worlds"
-    / "sandbox.ldtk"
+from ambition_ldtk_tools.ldtk import (
+    EntityLocation,
+    alloc_uid,
+    default_sandbox_ldtk,
+    ensure_entities_layer_def,
+    ensure_entities_layer_instance,
+    entity_field_value,
+    find_entity_def,
+    find_layer_def,
+    find_layer_instance,
+    iter_entities,
+    load_project,
+    write_project,
 )
 
+DEFAULT_LDTK = default_sandbox_ldtk()
+
 DEFAULT_RULES = {"CameraZone": "AmbitionCameras"}
-
-
-@dataclass(frozen=True)
-class EntityLocation:
-    level: dict
-    layer: dict
-    entity: dict
 
 
 @dataclass(frozen=True)
@@ -65,20 +64,6 @@ class RuleViolation:
     expected_layer: str
 
 
-def load_project(path: Path) -> dict:
-    return json.loads(path.read_text())
-
-
-def write_project(path: Path, project: dict) -> None:
-    try:
-        from ambition_ldtk_tools.editor_format import dump_editor_style
-        from ambition_ldtk_tools.validate import normalize_project_for_editor
-
-        normalize_project_for_editor(project)
-        path.write_text(dump_editor_style(project))
-    except Exception:  # pragma: no cover - fallback for partial tool installs
-        path.write_text(json.dumps(project, indent=2))
-
 
 def run_repair(path: Path) -> int:
     # Compatibility shim: write_project already canonicalizes editor metadata.
@@ -86,106 +71,6 @@ def run_repair(path: Path) -> int:
     # targets, and sandbox worlds may intentionally link to other LDtk files.
     print(f"note: wrote canonical editor-style JSON; skipped full repair validation for {path}")
     return 0
-
-
-def find_layer_def(project: dict, identifier: str) -> dict | None:
-    for layer_def in project.get("defs", {}).get("layers", []) or []:
-        if layer_def.get("identifier") == identifier:
-            return layer_def
-    return None
-
-
-def find_entity_def(project: dict, identifier: str) -> dict | None:
-    for entity_def in project.get("defs", {}).get("entities", []) or []:
-        if entity_def.get("identifier") == identifier:
-            return entity_def
-    return None
-
-
-def alloc_uid(project: dict) -> int:
-    next_uid = int(project.get("nextUid", 1))
-    project["nextUid"] = next_uid + 1
-    return next_uid
-
-
-def ensure_entities_layer_def(project: dict, identifier: str, clone_from: str | None = None) -> dict:
-    existing = find_layer_def(project, identifier)
-    if existing is not None:
-        if existing.get("__type") != "Entities" and existing.get("type") != "Entities":
-            raise SystemExit(
-                f"layer {identifier!r} exists but is not an Entities layer; "
-                "refusing to use it as an entity destination"
-            )
-        return existing
-
-    template = find_layer_def(project, clone_from or "Ambition")
-    if template is None:
-        for layer_def in project.get("defs", {}).get("layers", []) or []:
-            if layer_def.get("__type") == "Entities" or layer_def.get("type") == "Entities":
-                template = layer_def
-                break
-    if template is None:
-        raise SystemExit("project has no Entities layer definition to clone")
-
-    new_def = dict(template)
-    new_def["identifier"] = identifier
-    new_def["uid"] = alloc_uid(project)
-    new_def.setdefault("requiredTags", [])
-    new_def.setdefault("excludedTags", [])
-    project.setdefault("defs", {}).setdefault("layers", []).append(new_def)
-    return new_def
-
-
-def find_layer_instance(level: dict, identifier: str) -> dict | None:
-    for layer in level.get("layerInstances", []) or []:
-        if layer.get("__identifier") == identifier:
-            return layer
-    return None
-
-
-def ensure_entities_layer_instance(
-    project: dict,
-    level: dict,
-    identifier: str,
-    *,
-    dest_def: dict,
-    clone_from: str | None = None,
-) -> dict:
-    existing = find_layer_instance(level, identifier)
-    if existing is not None:
-        return existing
-
-    template = find_layer_instance(level, clone_from or "Ambition")
-    if template is None:
-        for layer in level.get("layerInstances", []) or []:
-            if layer.get("__type") == "Entities" or layer.get("__identifier"):
-                if "entityInstances" in layer:
-                    template = layer
-                    break
-    if template is None:
-        raise SystemExit(
-            f"level {level.get('identifier')!r} has no Entities layer instance to clone"
-        )
-
-    new_layer = dict(template)
-    new_layer["__identifier"] = identifier
-    new_layer["layerDefUid"] = dest_def.get("uid")
-    new_layer["iid"] = f"{identifier}-{alloc_uid(project)}"
-    new_layer["entityInstances"] = []
-    layers = level.setdefault("layerInstances", [])
-    try:
-        idx = layers.index(template)
-        layers.insert(idx, new_layer)
-    except ValueError:
-        layers.append(new_layer)
-    return new_layer
-
-
-def entity_field_value(entity: dict, name: str):
-    for field in entity.get("fieldInstances", []) or []:
-        if field.get("__identifier") == name:
-            return field.get("__value")
-    return None
 
 
 def parse_field_filter(raw: str) -> tuple[str, str]:

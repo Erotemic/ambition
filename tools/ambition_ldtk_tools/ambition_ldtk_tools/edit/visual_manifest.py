@@ -11,7 +11,6 @@ from __future__ import annotations
 
 import argparse
 import json
-import os
 import struct
 import zlib
 from dataclasses import dataclass
@@ -19,7 +18,19 @@ from html import escape
 from pathlib import Path
 from typing import Any
 
-from ambition_ldtk_tools.editor_format import dump_editor_style
+from ambition_ldtk_tools.ldtk import (
+    alloc_uid,
+    entity_defs,
+    find_entity_def,
+    find_tileset,
+    load_project,
+    path_from_ldtk,
+    png_dimensions,
+    rel_to_ldtk,
+    repo_root_from_ldtk,
+    tileset_defs,
+    write_project,
+)
 
 DEFAULT_ENTITY_ICON_ORDER = [
     "CameraZone",
@@ -66,47 +77,6 @@ class ManifestIssue:
     code: str
     message: str
 
-
-def load_project(path: Path) -> dict:
-    return json.loads(path.read_text())
-
-
-def write_project(path: Path, project: dict) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(dump_editor_style(project))
-
-
-def repo_root_from_ldtk(ldtk: Path) -> Path:
-    p = ldtk.resolve()
-    for parent in [p.parent, *p.parents]:
-        if (parent / "crates").exists() and (parent / "tools").exists():
-            return parent
-    return Path.cwd().resolve()
-
-
-def rel_to_ldtk(ldtk: Path, path: Path) -> str:
-    return str(Path(os.path.relpath(path.resolve(), ldtk.resolve().parent))).replace("\\", "/")
-
-
-def path_from_ldtk(ldtk: Path, rel: str) -> Path:
-    return (ldtk.resolve().parent / rel).resolve()
-
-
-def png_dimensions(path: Path) -> tuple[int, int] | None:
-    try:
-        with path.open("rb") as fh:
-            if fh.read(8) != b"\x89PNG\r\n\x1a\n":
-                return None
-            fh.read(8)
-            return tuple(map(int, struct.unpack(">II", fh.read(8))))  # type: ignore[return-value]
-    except OSError:
-        return None
-
-
-def alloc_uid(project: dict) -> int:
-    next_uid = int(project.get("nextUid", 1))
-    project["nextUid"] = next_uid + 1
-    return next_uid
 
 
 def load_manifest(path: Path) -> dict[str, Any]:

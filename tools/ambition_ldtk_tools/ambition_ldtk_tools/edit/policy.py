@@ -16,12 +16,17 @@ from pathlib import Path
 from typing import Any
 
 from ambition_ldtk_tools.edit.visual_manifest import collect_visual_ref_issues
-
 from ambition_ldtk_tools.edit.entity_layer_rules import (
     DEFAULT_LDTK,
     change_layer,
     collect_rule_violations,
     parse_rule,
+)
+from ambition_ldtk_tools.ldtk import (
+    entity_defs as _entity_defs,
+    iter_entities,
+    layer_defs as _layer_defs,
+    load_project,
     write_project,
 )
 
@@ -38,25 +43,20 @@ class PolicyIssue:
     fixable: bool = False
 
 
-def load_project(path: Path) -> dict:
-    return json.loads(path.read_text())
-
 
 def layer_defs(project: dict) -> dict[str, dict]:
-    return {str(layer.get("identifier")): layer for layer in project.get("defs", {}).get("layers", []) or []}
+    return {str(layer.get("identifier")): layer for layer in _layer_defs(project)}
 
 
 def entity_defs(project: dict) -> dict[str, dict]:
-    return {str(entity.get("identifier")): entity for entity in project.get("defs", {}).get("entities", []) or []}
+    return {str(entity.get("identifier")): entity for entity in _entity_defs(project)}
 
 
 def iter_entity_instances(project: dict):
-    for level in project.get("levels", []) or []:
-        for layer in level.get("layerInstances", []) or []:
-            if layer.get("__type") != "Entities":
-                continue
-            for entity in layer.get("entityInstances") or []:
-                yield level, layer, entity
+    for loc in iter_entities(project):
+        if loc.layer.get("__type") != "Entities":
+            continue
+        yield loc.level, loc.layer, loc.entity
 
 
 def parse_rules(raw_rules: list[str], include_defaults: bool = True) -> dict[str, str]:

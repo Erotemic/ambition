@@ -43,74 +43,27 @@ may intentionally contain LoadingZone links to rooms in other LDtk files.
 from __future__ import annotations
 
 import argparse
-import json
 import shutil
 import sys
 from pathlib import Path
 
-REPO_ROOT = Path(__file__).resolve().parents[4]
-
-
-def write_project(path: Path, project: dict) -> None:
-    """Write editor-style JSON without running full semantic validation.
-
-    `repair` is still useful as a standalone command, but it also validates
-    LoadingZone targets. That is too strong for entity relocation because some
-    sandbox worlds intentionally link to rooms that live in other LDtk files.
-    """
-    try:
-        from ambition_ldtk_tools.editor_format import dump_editor_style
-        from ambition_ldtk_tools.validate import normalize_project_for_editor
-
-        normalize_project_for_editor(project)
-        path.write_text(dump_editor_style(project))
-    except Exception:  # pragma: no cover - fallback for partial tool installs
-        path.write_text(json.dumps(project, indent=2))
-
-
-def find_layer_def(project: dict, identifier: str) -> dict | None:
-    for layer in project.get("defs", {}).get("layers", []):
-        if layer.get("identifier") == identifier:
-            return layer
-    return None
-
-
-def alloc_uid(project: dict) -> int:
-    """Allocate a new `nextUid` from the project counter."""
-    next_uid = int(project.get("nextUid", 1))
-    project["nextUid"] = next_uid + 1
-    return next_uid
+from ambition_ldtk_tools.ldtk import (
+    ensure_entities_layer_def,
+    ensure_entities_layer_instance,
+    find_layer_def,
+    find_layer_instance,
+    load_project,
+    write_project,
+)
 
 
 def ensure_dest_layer_def(
     project: dict, *, from_def: dict, dest_identifier: str
 ) -> dict:
-    """Return the layer-def for `dest_identifier`, creating it as a
-    sibling Entities layer of `from_def` if it doesn't exist.
-    """
-    existing = find_layer_def(project, dest_identifier)
-    if existing is not None:
-        if existing.get("__type") != "Entities":
-            raise SystemExit(
-                f"layer '{dest_identifier}' already exists with __type="
-                f"{existing.get('__type')}; refusing to use a non-Entities "
-                f"layer as the destination."
-            )
-        return existing
-    # Clone the source's structural fields. `uid` MUST be unique;
-    # take it from `nextUid` so the project's counter stays in sync.
-    new_def = dict(from_def)
-    new_def["identifier"] = dest_identifier
-    new_def["uid"] = alloc_uid(project)
-    project.setdefault("defs", {}).setdefault("layers", []).append(new_def)
-    return new_def
-
-
-def find_layer_instance(level: dict, identifier: str) -> dict | None:
-    for li in level.get("layerInstances", []):
-        if li.get("__identifier") == identifier:
-            return li
-    return None
+    """Compatibility wrapper around the shared Entities-layer helper."""
+    return ensure_entities_layer_def(
+        project, dest_identifier, clone_from=str(from_def.get("identifier") or "Ambition")
+    )
 
 
 def ensure_dest_layer_instance(
@@ -121,31 +74,15 @@ def ensure_dest_layer_instance(
     dest_def: dict,
     dest_identifier: str,
 ) -> dict:
-    """Return the layer-instance for `dest_identifier` on `level`,
-    creating it as a sibling of `from_instance` if it doesn't exist.
-    """
-    existing = find_layer_instance(level, dest_identifier)
-    if existing is not None:
-        return existing
-    # Clone from_instance's structural fields. Empty out
-    # entityInstances so the new instance is a fresh container.
-    new_inst = dict(from_instance)
-    new_inst["__identifier"] = dest_identifier
-    new_inst["layerDefUid"] = dest_def["uid"]
-    new_inst["iid"] = f"{dest_identifier}-{alloc_uid(project)}"
-    new_inst["entityInstances"] = []
-    # Insert after the source layer so the editor's draw order
-    # places the new layer on top of the source (LDtk renders
-    # layerInstances in array order, top of list = bottom in the
-    # rendered z stack — but visibility in the editor follows the
-    # same order).
-    layer_instances = level.setdefault("layerInstances", [])
-    try:
-        idx = layer_instances.index(from_instance)
-        layer_instances.insert(idx, new_inst)
-    except ValueError:
-        layer_instances.append(new_inst)
-    return new_inst
+    """Compatibility wrapper around the shared Entities-layer helper."""
+    return ensure_entities_layer_instance(
+        project,
+        level,
+        dest_identifier,
+        dest_def=dest_def,
+        clone_from=str(from_instance.get("__identifier") or "Ambition"),
+        insert_before_source=True,
+    )
 
 
 def relocate_entities(
@@ -222,7 +159,7 @@ def main(argv: list[str] | None = None) -> int:
     if not args.dry_run and not args.in_place and not args.output:
         ap.error("choose --dry-run, --in-place, or --output <path>")
 
-    project = json.loads(args.ldtk.read_text())
+    project = load_project(args.ldtk)
 
     from_def = find_layer_def(project, args.from_layer)
     if from_def is None or from_def.get("__type") != "Entities":

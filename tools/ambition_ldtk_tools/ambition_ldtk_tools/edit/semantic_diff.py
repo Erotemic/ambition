@@ -15,6 +15,8 @@ from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Any, Iterable
 
+from ambition_ldtk_tools.ldtk import load_project
+
 
 @dataclass(frozen=True)
 class Change:
@@ -24,9 +26,6 @@ class Change:
     after: Any
     detail: str
 
-
-def load_project(path: Path) -> dict:
-    return json.loads(path.read_text())
 
 
 def level_map(project: dict) -> dict[str, dict]:

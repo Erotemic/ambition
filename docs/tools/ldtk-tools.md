@@ -233,3 +233,25 @@ PYTHONPATH=tools/ambition_ldtk_tools python -m ambition_ldtk_tools asset validat
 `policy check` also validates stale or out-of-bounds entity editor tile refs, and
 `diff semantic` reports `entity_def_visual` changes so generated visual updates
 are reviewable without raw JSON diffs.
+
+## Internal architecture notes
+
+The LDtk editor JSON stays as plain Python dictionaries, but low-level mechanics
+should go through `ambition_ldtk_tools.ldtk` rather than being reimplemented in
+feature modules. That package owns shared project load/write, UID allocation,
+path normalization, PNG dimension probing, definition lookup, entity iteration,
+field helpers, and Entities-layer creation.
+
+Feature modules should follow this shape:
+
+```text
+CLI parser
+  -> intent-specific service logic
+  -> shared LDtk core helpers for lookup/writeback
+```
+
+Avoid adding new ad-hoc helpers named `load_project`, `write_project`,
+`alloc_uid`, `find_layer_def`, `find_entity_def`, `find_layer_instance`, or
+`png_dimensions` inside command modules. Add shared behavior to the LDtk core
+package instead. This keeps correctness emergent from one implementation of the
+LDtk file mechanics and makes no-op/dry-run/writeback behavior easier to audit.

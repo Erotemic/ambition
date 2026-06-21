@@ -9,11 +9,16 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-from ambition_ldtk_tools.edit.entity_layer_rules import (
-    DEFAULT_LDTK,
+from ambition_ldtk_tools.edit.entity_layer_rules import DEFAULT_LDTK
+from ambition_ldtk_tools.ldtk import (
+    alloc_uid,
+    default_field_value,
     ensure_entities_layer_def,
     ensure_entities_layer_instance,
+    find_entity_def as _find_entity_def_or_none,
     find_layer_instance,
+    find_level as _find_level_or_none,
+    load_project,
     write_project,
 )
 
@@ -29,15 +34,19 @@ class CameraIssue:
     fixable: bool = False
 
 
-def load_project(path: Path) -> dict:
-    return json.loads(path.read_text())
-
 
 def find_level(project: dict, level_id: str) -> dict:
-    for level in project.get("levels", []) or []:
-        if level.get("identifier") == level_id:
-            return level
-    raise SystemExit(f"level {level_id!r} not found")
+    level = _find_level_or_none(project, level_id)
+    if level is None:
+        raise SystemExit(f"level {level_id!r} not found")
+    return level
+
+
+def find_entity_def(project: dict, identifier: str) -> dict:
+    ent = _find_entity_def_or_none(project, identifier)
+    if ent is None:
+        raise SystemExit(f"entity def {identifier!r} not found")
+    return ent
 
 
 def iter_camera_zones(level: dict):
@@ -111,36 +120,6 @@ def collect_camera_issues(project: dict, level_filter: str | None = None, margin
             issues.append(CameraIssue("warning", str(level.get("identifier")), f"no CameraZone covers target play rect {target}", fixable=True))
     return issues
 
-
-def alloc_uid(project: dict) -> int:
-    next_uid = int(project.get("nextUid", 1))
-    project["nextUid"] = next_uid + 1
-    return next_uid
-
-
-def find_entity_def(project: dict, identifier: str) -> dict:
-    for ent in project.get("defs", {}).get("entities", []) or []:
-        if ent.get("identifier") == identifier:
-            return ent
-    raise SystemExit(f"entity def {identifier!r} not found")
-
-
-def default_field_value(field_def: dict):
-    default = field_def.get("defaultOverride")
-    if isinstance(default, dict) and default.get("params"):
-        return default.get("params", [None])[0]
-    if field_def.get("canBeNull"):
-        return None
-    typ = field_def.get("__type") or field_def.get("type")
-    if typ in {"String", "F_String"}:
-        return ""
-    if typ in {"Int", "F_Int"}:
-        return 0
-    if typ in {"Float", "F_Float"}:
-        return 0.0
-    if typ in {"Bool", "F_Bool"}:
-        return False
-    return None
 
 
 def field_instances_for_camera(entity_def: dict, level_id: str):

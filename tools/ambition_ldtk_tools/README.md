@@ -270,3 +270,19 @@ The manifest is intentionally simple and generator-agnostic:
 
 When the sprite refactor settles, add an adapter that generates this manifest
 from the canonical RON/YAML sprite metadata. Do not hand-maintain LDtk JSON rects.
+
+## Internal helper layout
+
+Low-level LDtk JSON mechanics live under `ambition_ldtk_tools.ldtk`:
+
+- `io.py`: load/write editor-style projects.
+- `ids.py`: `nextUid` allocation.
+- `paths.py`: repo-relative and LDtk-relative paths plus PNG dimensions.
+- `query.py`: definitions, levels, layers, tilesets, and entity iteration.
+- `fields.py`: entity/default field helpers.
+- `layers.py`: shared Entities-layer definition/instance creation.
+
+New commands should use those helpers instead of creating local copies of
+`load_project`, `write_project`, `alloc_uid`, `find_*`, or `png_dimensions`.
+The CLI should remain a thin parser/dispatcher; command modules should express
+intent and delegate raw LDtk mechanics to the shared core.

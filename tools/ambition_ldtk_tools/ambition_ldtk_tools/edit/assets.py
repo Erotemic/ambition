@@ -11,11 +11,19 @@ from __future__ import annotations
 
 import argparse
 import json
-import os
 from pathlib import Path
 from typing import Any
 
-from ambition_ldtk_tools.edit.entity_layer_rules import DEFAULT_LDTK, write_project
+from ambition_ldtk_tools.edit.entity_layer_rules import DEFAULT_LDTK
+from ambition_ldtk_tools.ldtk import (
+    find_entity_def as _find_entity_def_or_none,
+    find_tileset as _find_tileset_or_none,
+    load_project,
+    png_dimensions,
+    rel_to_ldtk,
+    repo_root_from_ldtk,
+    write_project,
+)
 from ambition_ldtk_tools.edit.visual_manifest import (
     apply_manifest,
     default_icon_manifest,
@@ -28,46 +36,19 @@ from ambition_ldtk_tools.edit.visual_manifest import (
 )
 
 
-def load_project(path: Path) -> dict:
-    return json.loads(path.read_text())
-
-
-def repo_root_from_ldtk(ldtk: Path) -> Path:
-    p = ldtk.resolve()
-    for parent in [p.parent, *p.parents]:
-        if (parent / "crates").exists() and (parent / "tools").exists():
-            return parent
-    return Path.cwd().resolve()
-
-
-def rel_to_ldtk(ldtk: Path, path: Path) -> str:
-    return str(Path(os.path.relpath(path.resolve(), ldtk.resolve().parent))).replace("\\", "/")
-
-
-def png_dimensions(path: Path) -> tuple[int, int] | None:
-    try:
-        with path.open("rb") as fh:
-            if fh.read(8) != b"\x89PNG\r\n\x1a\n":
-                return None
-            fh.read(8)
-            import struct
-            return tuple(map(int, struct.unpack(">II", fh.read(8))))  # type: ignore[return-value]
-    except OSError:
-        return None
-
 
 def find_tileset(project: dict, ident: str) -> dict:
-    for ts in project.get("defs", {}).get("tilesets", []) or []:
-        if ts.get("identifier") == ident:
-            return ts
-    raise SystemExit(f"tileset {ident!r} not found")
+    ts = _find_tileset_or_none(project, ident)
+    if ts is None:
+        raise SystemExit(f"tileset {ident!r} not found")
+    return ts
 
 
 def find_entity_def(project: dict, ident: str) -> dict:
-    for ent in project.get("defs", {}).get("entities", []) or []:
-        if ent.get("identifier") == ident:
-            return ent
-    raise SystemExit(f"entity def {ident!r} not found")
+    ent = _find_entity_def_or_none(project, ident)
+    if ent is None:
+        raise SystemExit(f"entity def {ident!r} not found")
+    return ent
 
 
 def classify_png(rel: str) -> str:

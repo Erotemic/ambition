@@ -154,21 +154,20 @@ pub(crate) fn start_attack(
     sfx.write(SfxMessage::Slash { pos: player_pos });
     anim.slash_anim_timer = spec.total_seconds().max(0.20);
     *attack = Some(ambition_gameplay_core::PlayerAttackState::new(spec));
-    // Slash effect at the swing's hitbox. The hitbox is the gameplay
-    // authority (computed gravity-relatively), so the effect ORIENTS to it:
-    // `dir` is the world player→hitbox vector and the renderer rotates the art
-    // along it — which keeps the effect in the player's reference frame under
-    // any gravity (C4 room), and makes it match the hitbox automatically. Only
-    // the art KIND comes from the intent (down-tilt pokes, everything else
-    // arcs). A shared starting point; each attack can graduate to a bespoke
-    // effect later.
-    let slash_hitbox = player_attack_hitbox(&view, spec.intent)
-        .unwrap_or_else(|| ambition_gameplay_core::combat::attack_hitbox_from_view(&view, spec));
+    // Slash effect, oriented + placed in the PLAYER'S reference frame. `spec`
+    // is already `into_world_frame`d, so `spec.hitbox_offset` is the
+    // gravity-rotated player→strike vector — feed THAT to the effect (NOT the
+    // manifest `player_attack_hitbox`, which is screen-axis and so points the
+    // wrong way under rotated C4 gravity). The renderer rotates the art along
+    // `dir`; only the art KIND comes from the intent (down-tilt pokes,
+    // everything else arcs). A shared starting point; each attack can graduate
+    // to a bespoke effect later.
+    let slash_dir = spec.hitbox_offset;
     vfx.write(VfxMessage::Slash {
-        center: slash_hitbox.center(),
-        size: slash_effect_size(slash_hitbox),
+        center: view.pos + slash_dir,
+        size: slash_effect_size(spec.hitbox_half_size),
         kind: slash_kind(spec.intent),
-        dir: slash_hitbox.center() - player_pos,
+        dir: slash_dir,
     });
 }
 
@@ -185,10 +184,11 @@ fn slash_kind(intent: ambition_gameplay_core::combat::AttackIntent) -> SlashKind
 }
 
 /// On-screen size for the slash effect: a flourish a bit larger than the
-/// hitbox so the swing reads beyond the exact damage box. Tunable.
-fn slash_effect_size(hitbox: ae::Aabb) -> f32 {
+/// hitbox so the swing reads beyond the exact damage box. Takes the world
+/// hitbox half-extent. Tunable.
+fn slash_effect_size(hitbox_half_size: ae::Vec2) -> f32 {
     const SLASH_EFFECT_SCALE: f32 = 2.0;
-    ((hitbox.half_size() * 2.0).max_element() * SLASH_EFFECT_SCALE).max(24.0)
+    ((hitbox_half_size * 2.0).max_element() * SLASH_EFFECT_SCALE).max(24.0)
 }
 
 /// Source the player's melee hitbox from the sprite manifest — the box authored

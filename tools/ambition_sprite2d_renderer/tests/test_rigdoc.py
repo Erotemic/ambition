@@ -10,8 +10,10 @@ import pytest
 from ambition_sprite2d_renderer.authoring.rigdoc import (
     RigDocument,
     parse_color,
+    part_visible,
     render_sheet_for_doc,
     sample_channel_spec,
+    visible_parts,
 )
 
 TEMPLATE = (
@@ -26,6 +28,48 @@ TEMPLATE = (
 @pytest.fixture()
 def doc() -> RigDocument:
     return RigDocument.load(TEMPLATE)
+
+
+NOETHER = (
+    Path(__file__).resolve().parent.parent
+    / "ambition_sprite2d_renderer"
+    / "targets"
+    / "characters"
+    / "rigged"
+    / "noether.rig.json"
+)
+
+
+class TestFeatureToggles:
+    """Optional-part customization: a part tagged with a `feature` only
+    renders when the doc's `features` map allows it (default on)."""
+
+    def test_part_visible_defaults_and_toggles(self):
+        plain = {"name": "torso"}
+        pin = {"name": "pin", "feature": "hairpin"}
+        assert part_visible(plain, {}) is True              # untagged: always on
+        assert part_visible(pin, {}) is True                # unlisted feature: on
+        assert part_visible(pin, {"hairpin": True}) is True
+        assert part_visible(pin, {"hairpin": False}) is False
+
+    def test_visible_parts_drops_disabled_and_keeps_z_order(self):
+        parts = [
+            {"name": "b", "z": 2},
+            {"name": "pin", "z": 5, "feature": "hairpin"},
+            {"name": "a", "z": 1},
+        ]
+        out = [p["name"] for p in visible_parts(parts, {"hairpin": False})]
+        assert out == ["a", "b"]  # pin dropped; remaining sorted by z
+
+    def test_noether_has_no_antenna_hairpin(self):
+        """Emmy's hairpin (the old antenna) is shipped off by default."""
+        emmy = RigDocument.load(NOETHER)
+        assert emmy.features.get("hairpin") is False
+        visible = {p["name"] for p in visible_parts(emmy.parts, emmy.features)}
+        assert "pin_stem" not in visible and "pin_tip" not in visible
+        # The other tagged accessories stay on, proving the toggle is per-feature.
+        assert "lens_far" in visible  # glasses
+        assert "sigil_ring" in visible
 
 
 class TestChannelSpecs:

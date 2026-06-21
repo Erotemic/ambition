@@ -18,7 +18,7 @@ imported from a scratch directory in tests).
 
 from __future__ import annotations
 
-from .rigdoc import RigDocument
+from .rigdoc import RigDocument, visible_parts
 
 
 def _fmt_value(v) -> str:
@@ -115,9 +115,10 @@ def doc_to_python(doc: RigDocument) -> str:
     a("")
     a("# Parts are painted back-to-front by z via rigdoc.paint_part — the same")
     a("# vocabulary the GUI edits (polygon/capsule/circle, palette refs,")
-    a("# optional opacity_channel).")
+    a("# optional opacity_channel). Parts whose `feature` is toggled off in the")
+    a("# document's `features` map are dropped at eject time.")
     a("PARTS: List[dict] = [")
-    for part in sorted(doc.parts, key=lambda p: float(p.get("z", 0.0))):
+    for part in visible_parts(doc.parts, doc.features):
         a(_fmt_part(part))
     a("]")
     a("")

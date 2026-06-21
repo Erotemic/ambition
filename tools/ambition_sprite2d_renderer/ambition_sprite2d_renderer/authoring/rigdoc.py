@@ -31,7 +31,10 @@ Document shape (all geometry in base-frame pixels, y down, facing +x)::
         {"kind": "capsule", "a": [0, 0], "b": null, "radius": 2.3, ...},
         {"kind": "circle", "center": [8, 0], "radius": 3.2, ...},
         ... optional "opacity_channel": "slash_vis" on any part ...
+        ... optional "feature": "hairpin" tags a part as an optional accessory ...
       ],
+      "features": {"hairpin": false, "glasses": true},  # toggle optional parts
+
       "ik_legs": [{"upper": "near_leg_u", "lower": "near_leg_l",
                    "foot": "near_foot", "channel_prefix": "near_foot",
                    "rest_x": 5.0, "bend": 1.0}],
@@ -121,6 +124,27 @@ def sample_channel_spec(spec: dict, t: float, loop: bool) -> float:
         return 0.0
     ch = Channel(*[tuple(k) for k in keys])
     return ch.sample(t, loop)
+
+
+def part_visible(part: dict, features: Dict[str, bool]) -> bool:
+    """Whether a part renders under the document's ``features`` toggles.
+
+    A part with no ``feature`` tag always renders. A part tagged
+    ``"feature": "hairpin"`` renders unless ``features["hairpin"]`` is set
+    false — so a character can carry optional accessories (hairpin, glasses,
+    hat, …) and toggle each one on/off without editing the parts list. An
+    unlisted feature defaults to visible, so existing rigs are unaffected.
+    """
+    feature = part.get("feature")
+    if feature is None:
+        return True
+    return bool(features.get(feature, True))
+
+
+def visible_parts(parts: List[dict], features: Dict[str, bool]) -> List[dict]:
+    """Parts to paint, back-to-front by ``z``, with disabled features dropped."""
+    ordered = sorted(parts, key=lambda p: float(p.get("z", 0.0)))
+    return [p for p in ordered if part_visible(p, features)]
 
 
 def parse_color(value, palette: Dict[str, str], opacity: float = 1.0) -> Optional[Color]:
@@ -221,6 +245,13 @@ class RigDocument:
     @property
     def ik_legs(self) -> List[dict]:
         return self.data.setdefault("ik_legs", [])
+
+    @property
+    def features(self) -> Dict[str, bool]:
+        """Optional-part toggles: ``{feature_name: enabled}``. A part tagged
+        with a ``feature`` only renders when its entry here is truthy (or
+        absent — features default to on)."""
+        return self.data.setdefault("features", {})
 
     def bone(self, name: str) -> Optional[dict]:
         for b in self.bones:
@@ -326,7 +357,7 @@ class RigDocument:
         img = Image.new("RGBA", (int(w * S), int(h * S)), (0, 0, 0, 0))
         draw = ImageDraw.Draw(img)
         world, params = self.solve(clip_name, t)
-        for part in sorted(self.parts, key=lambda p: float(p.get("z", 0.0))):
+        for part in visible_parts(self.parts, self.features):
             paint_part(img, draw, part, world, S, params, self.palette)
         if ss == 1:
             return img

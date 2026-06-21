@@ -26,6 +26,11 @@
   "boot_dark": "#2C231D",
   "outline": "#1A1410"
  },
+ "features": {
+  "hairpin": false,
+  "glasses": true,
+  "sigil": true
+ },
  "bones": [
   {
    "name": "pelvis",
@@ -467,7 +472,8 @@
    "radius": 2.6,
    "fill": "robe_top",
    "outline": "chalk",
-   "outline_w": 0.9
+   "outline_w": 0.9,
+   "feature": "sigil"
   },
   {
    "name": "sigil_dot",
@@ -479,7 +485,8 @@
     -6.5
    ],
    "radius": 0.7,
-   "fill": "chalk"
+   "fill": "chalk",
+   "feature": "sigil"
   },
   {
    "name": "near_leg_upper",
@@ -705,7 +712,8 @@
    "radius": 3.0,
    "fill": "glass",
    "outline": "gold",
-   "outline_w": 0.9
+   "outline_w": 0.9,
+   "feature": "glasses"
   },
   {
    "name": "lens_near",
@@ -719,7 +727,8 @@
    "radius": 3.1,
    "fill": "glass",
    "outline": "gold",
-   "outline_w": 0.9
+   "outline_w": 0.9,
+   "feature": "glasses"
   },
   {
    "name": "bridge",
@@ -745,7 +754,8 @@
     ]
    ],
    "radius": 0.3,
-   "fill": "gold"
+   "fill": "gold",
+   "feature": "glasses"
   },
   {
    "name": "bun",
@@ -786,7 +796,8 @@
    "radius": 0.7,
    "fill": "gold_dark",
    "outline": "outline",
-   "outline_w": 0.4
+   "outline_w": 0.4,
+   "feature": "hairpin"
   },
   {
    "name": "pin_tip",
@@ -800,7 +811,8 @@
    "radius": 2.0,
    "fill": "chalk",
    "outline": "gold",
-   "outline_w": 0.5
+   "outline_w": 0.5,
+   "feature": "hairpin"
   },
   {
    "name": "near_arm_upper",

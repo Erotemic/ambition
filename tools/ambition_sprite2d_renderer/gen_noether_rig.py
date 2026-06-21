@@ -4,8 +4,10 @@ Reuses the proven `player_robot_fable` skeleton + two-bone-IK legs + idle/walk
 clips (so feet plant and the bob/sway read correctly) and replaces only the
 palette and the part painters so the silhouette reads as a scholar in an
 academic robe: hair bun, round glasses, a long teal coat with a gold lapel and
-a white rotational-symmetry sigil, and a bobbing hairpin (driven by the old
-`antenna` channel). Output is committed JSON; the PNG sheet is regenerated.
+a white rotational-symmetry sigil. Optional accessories (glasses, sigil, and a
+bobbing hairpin) are tagged as toggleable `feature`s; the hairpin is OFF by
+default — it read as an antenna sticking off her head. Output is committed
+JSON; the PNG sheet is regenerated.
 
     cd tools/ambition_sprite2d_renderer
     uv run --python 3.12 python gen_noether_rig.py
@@ -70,6 +72,12 @@ def poly(name, bone, z, points, radius, fill, outline="outline", ow=1.1):
     return p
 
 
+def feature(part, name):
+    """Tag a part as an optional accessory toggled by the doc's `features` map."""
+    part["feature"] = name
+    return part
+
+
 parts = [
     # ---- Far (back) arm + leg: behind the body. ----
     cap("far_arm_upper", "far_arm_u", 10, 2.3, "robe_dark"),
@@ -94,8 +102,8 @@ parts = [
     poly("lapel", "torso", 43,
          [[3.4, -12.5], [7.0, -12.5], [5.2, 1.6], [3.2, 1.6]], 1.0, "gold", ow=0.5),
     # White rotational-symmetry sigil (a ring) — Noether's signature.
-    circ("sigil_ring", "torso", 44, [5.0, -6.5], 2.6, "robe_top", outline="chalk", ow=0.9),
-    circ("sigil_dot", "torso", 45, [5.0, -6.5], 0.7, "chalk", outline=None),
+    feature(circ("sigil_ring", "torso", 44, [5.0, -6.5], 2.6, "robe_top", outline="chalk", ow=0.9), "sigil"),
+    feature(circ("sigil_dot", "torso", 45, [5.0, -6.5], 0.7, "chalk", outline=None), "sigil"),
     # ---- Near (front) leg. ----
     cap("near_leg_upper", "near_leg_u", 50, 2.5, "robe_dark"),
     cap("near_leg_lower", "near_leg_l", 51, 2.3, "robe_dark"),
@@ -116,16 +124,19 @@ parts = [
     circ("eye_far", "head", 62, [3.0, -1.0], 1.3, "outline", outline=None),
     circ("eye_near", "head", 62, [9.6, -1.0], 1.4, "outline", outline=None),
     # Round glasses: gold rims with translucent lenses, joined by a bridge.
-    circ("lens_far", "head", 63, [3.0, -1.0], 3.0, "glass", outline="gold", ow=0.9),
-    circ("lens_near", "head", 63, [9.6, -1.0], 3.1, "glass", outline="gold", ow=0.9),
-    poly("bridge", "head", 63,
-         [[5.8, -1.6], [7.0, -1.6], [7.0, -0.6], [5.8, -0.6]], 0.3, "gold", outline=None),
+    feature(circ("lens_far", "head", 63, [3.0, -1.0], 3.0, "glass", outline="gold", ow=0.9), "glasses"),
+    feature(circ("lens_near", "head", 63, [9.6, -1.0], 3.1, "glass", outline="gold", ow=0.9), "glasses"),
+    feature(poly("bridge", "head", 63,
+                 [[5.8, -1.6], [7.0, -1.6], [7.0, -0.6], [5.8, -0.6]], 0.3, "gold", outline=None), "glasses"),
     # Hair bun on top, with a soft highlight.
     circ("bun", "head", 64, [-2.0, -15.5], 6.6, "hair", outline="outline", ow=1.0),
     circ("bun_hi", "head", 65, [-4.0, -17.0], 2.2, "hair_hi", outline=None),
     # ---- Hairpin (driven by the old `antenna` channel for a gentle bob). ----
-    cap("pin_stem", "antenna", 66, 0.7, "gold_dark", ow=0.4),
-    circ("pin_tip", "antenna", 67, [10.0, 0.0], 2.0, "chalk", outline="gold", ow=0.5),
+    # Tagged as the optional `hairpin` feature and turned OFF by default below:
+    # it read as an antenna sticking off her head. Flip features.hairpin to true
+    # to bring it back.
+    feature(cap("pin_stem", "antenna", 66, 0.7, "gold_dark", ow=0.4), "hairpin"),
+    feature(circ("pin_tip", "antenna", 67, [10.0, 0.0], 2.0, "chalk", outline="gold", ow=0.5), "hairpin"),
     # ---- Near (front) arm: drawn last so it reads in front of the coat. ----
     cap("near_arm_upper", "near_arm_u", 70, 2.3, "robe_top"),
     cap("near_arm_lower", "near_arm_l", 71, 2.0, "robe_top"),
@@ -136,6 +147,10 @@ doc = {
     "name": "noether",
     "frame": robot["frame"],
     "palette": PALETTE,
+    # Optional-accessory toggles. The hairpin is OFF (it read as an antenna);
+    # glasses + sigil are on. Flip any of these to re-customize Emmy without
+    # touching the parts list.
+    "features": {"hairpin": False, "glasses": True, "sigil": True},
     "bones": robot["bones"],          # reuse skeleton verbatim (IK depends on it)
     "parts": parts,
     "ik_legs": robot["ik_legs"],

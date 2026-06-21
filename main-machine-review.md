@@ -159,16 +159,28 @@ not pixelated? `collision_scale` is a single number in `gen_noether_rig.py`
 (`sprite_tuning`) — nudge if she reads too tall/short. (I calibrated 2.0
 blind; the player is ~`48 * its collision_scale * 1.16` tall.)
 
-**Fleet rollout (the "larger refactor" you flagged — needs a decision):** most
-NPCs are *toon* sheets rendered through `authoring/sheet.py` (the gen2d adapter
-pipeline), which has **no `render_scale` knob yet** — that's why "lots of
-sprites are scaled up and pixelated." Options, cheapest first:
-1. Add a `render_scale` (and a global default, e.g. 2) to `sheet.py` /
-   the job render config, mirroring what `tackon_sheet`/rigdoc now do, then
-   `regen_sprites.sh` re-renders the fleet at 2×. Non-breaking (display size is
-   collision-driven). **Biggest bang for the buck.**
-2. Per-character `sprite_tuning` for the toon path too (so each NPC's in-game
-   size is data-driven, like rigs now are), retiring hardcoded Rust
-   `SheetTuning` consts over time.
-Say which and I'll execute; #1 is a contained change I can verify by PNG sizes,
-but the "is it crisp now" confirmation is yours in-game.
+**Fleet rollout — DONE (2026-06-21).** `RenderConfig.render_scale` (default
+**2**) now flows through `authoring/sheet.py` (`build_spritesheet`), so every
+toon/adapter sheet renders at 2× native resolution. The "128-base" generators
+(`robot_side`/`goblin_side`/`boss_side`) were drawing at an absolute scale
+that ignored the canvas size — fixed to scale-to-frame-width like the toon
+generator (`S = float(scale) * size[0] / 128`), identical at the 128 default,
+only activating at render_scale>1. Verified headless: player_robot 128→256,
+goblin 121→239, boss 128→256, absurd_general 90→176 — all ~2× with aspect
+preserved; 21 slow-render pipeline tests pass at the new default.
+
+Non-breaking: in-game display size is collision-driven and takes only aspect
+from the frame, so this is pure anti-pixelation. Sheets are gitignored, so this
+landed as a **code-only change** — the fleet re-renders crisp on the next
+`./regen_sprites.sh`.
+
+**Verify at the main machine:** run `./regen_sprites.sh`, then confirm in game
+that NPCs/enemies/player are noticeably sharper. If something is *still* soft,
+it's being displayed even larger than 2× covers — bump the default to 3 in
+`RenderConfig`, or set `render_scale: 3` on that character's config. (Cost:
+disk + render time scale with the square of render_scale.)
+
+Per-character in-game *size* tuning for the toon path already exists too
+(`sheet_tuning` in a character's YAML → RON), so retiring the hardcoded Rust
+`SheetTuning` consts in favor of data-driven tuning is available whenever you
+want it.

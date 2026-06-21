@@ -731,7 +731,11 @@ class SideGoblinGenerator:
         W, H = size[0] * scale, size[1] * scale
         bg = (0, 0, 0, 0) if background is None else background
         img = Image.new("RGBA", (W, H), bg)
-        S = float(scale)
+        # Scale the 128-base character to the requested frame width so a
+        # render_scale>1 canvas draws the SAME character with more native
+        # pixels (matches the toon generator's S=(W/128)*ss). Identical at the
+        # 128 default; only render_scale>1 changes it.
+        S = float(scale) * (size[0] / 128.0)
         pal = self.PALETTES.get(spec.palette_name, self.PALETTES["classic"])
         p = self.pose_for_animation(animation, frame_index, frame_count)
         ground_y = (101.0 + p.root_y) * S

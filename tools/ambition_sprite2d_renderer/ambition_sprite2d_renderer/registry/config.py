@@ -29,6 +29,14 @@ class RenderConfig:
     single_height: int = 128
     supersample: int = 4
     downsample: str = "lanczos"
+    # Native texture-resolution multiplier for the published spritesheet.
+    # The toon generator designs in a 128-base space scaled to the frame
+    # width, so rendering at `render_scale * frame_width` draws the SAME
+    # character with more pixels. In-game display size is collision-driven
+    # and takes only ASPECT from the frame, so this is pure anti-pixelation:
+    # higher resolution under the same on-screen quad, no gameplay change.
+    # Default 2 because most sheets are upscaled in game and read soft at 1x.
+    render_scale: int = 2
     background: str = "transparent"
     sheet_background: str = "transparent"
     border: int = 0

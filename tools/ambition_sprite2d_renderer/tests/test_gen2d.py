@@ -249,6 +249,9 @@ def test_spritesheet_emits_body_metrics():
 @pytest.mark.slow_render
 def test_sandbag_adapter_participates_in_character_pipeline(tmp_path):
     job = CharacterJob.load(CONFIGS / "sandbag.yaml")
+    # This test pins base geometry + crop behavior, not texture resolution, so
+    # render at 1x (the fleet default is 2x, which would scale these dims).
+    job.render.render_scale = 1
     adapter = get_adapter("sandbag")
     animations = adapter.animations()
     for name in [

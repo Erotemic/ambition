@@ -61,7 +61,14 @@ def build_spritesheet(job: CharacterJob) -> Tuple[Image.Image, Dict[str, Any]]:
         raise KeyError(
             f"unsupported animations for {job.target}: {missing}; available={sorted(animations)}"
         )
-    src_fw, src_fh = job.render.frame_width, job.render.frame_height
+    # Render at `render_scale` x the authored canvas so the published texture
+    # has more native pixels (the toon generator scales its 128-base design to
+    # the frame width, so a bigger canvas = a bigger-drawn, higher-res
+    # character). Display size in game is collision-driven and aspect-only, so
+    # this only sharpens — it never changes how big the sprite appears.
+    render_scale = max(1, int(getattr(job.render, "render_scale", 1)))
+    src_fw = job.render.frame_width * render_scale
+    src_fh = job.render.frame_height * render_scale
     label_w = max(0, job.render.label_width)
     border = max(0, job.render.border)
     max_frames = max(animations[a]["frames"] for a in selected)
@@ -92,7 +99,7 @@ def build_spritesheet(job: CharacterJob) -> Tuple[Image.Image, Dict[str, Any]]:
 
     crop_padding = max(
         0, int(getattr(job.render, "crop_padding", _DEFAULT_CROP_PADDING))
-    )
+    ) * render_scale
     if not getattr(job.render, "crop", True):
         crop_min_x, crop_min_y = 0, 0
         crop_max_x, crop_max_y = src_fw, src_fh

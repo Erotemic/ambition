@@ -168,11 +168,17 @@ paradigms touching each file once (break rigdoc↔PySide6 in the same visit) →
 - **2026-06-21 — harness upgraded to cover manifests.** It now hashes/diffs
   `*.ron` + `*.yaml` alongside PNGs (manifest drift → unified text diff in
   `tmp/`), so measurement/emitter changes are verifiable. Baseline re-captured.
-- **Next phase — measurement + emitter consolidation (will produce blessed
-  drift).** The two spines compute feet *differently*: `sheet._measure_body_extent`
-  uses `feet_y = y_max-1` (inclusive last opaque row — matches the door fix's
-  "lowest opaque pixel"); `tackon_sheet.alpha_bbox_metrics` uses `feet_y = y2`
-  (one-past) + rounds. Unify on the inclusive version into `core/measure.py`
-  (a genuine correctness fix), then one RON emitter (`core/manifest.py` schema),
-  guarded by a Rust parse test. This shifts feet metadata ~1px on the tackon
-  path → review the `tmp/` manifest diffs and bless.
+- **2026-06-21 — Step 2c landed: measurement unified onto `core/measure.py`.**
+  Both spines now use one canonical body/feet measurement (inclusive last opaque
+  row — matches the door fix). `sheet.py` adoption was zero-drift; `tackon_sheet.py`
+  adoption is **blessed drift** (Jon: "unify on the correct rules"): 56 tack-on
+  targets, verified **manifest-only (zero pixel drift)** and **feet-only**
+  (`body_pixel_bbox` unchanged on all 58 sheets) — `feet_pixel` shifts ~1px to the
+  last drawn pixel. Before/after diffs in `tmp/sprite-drift/`. Baseline re-captured
+  to the corrected state.
+- **Next — the single RON emitter.** Consolidate the two RON writers
+  (`sheet.py` + `tackon_sheet.py`) into one (`core/manifest.py` schema → stdlib
+  RON), dropping the `*_spritesheet.yaml` sidecar (no YAML in the write path).
+  Guard it with a Rust-side parse test (Python RON writers are looser than Rust's
+  `ron`). Then the per-paradigm migrations (helper swaps folded in, touch-once;
+  break `rigdoc`↔PySide6).

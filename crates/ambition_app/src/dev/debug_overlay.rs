@@ -30,6 +30,39 @@ mod prims;
 pub use gizmos::*;
 pub use prims::*;
 
+/// Marker for the pooled `Text2d` entities that render debug-box labels.
+#[derive(Component)]
+pub struct DebugOverlayLabel;
+
+/// Materialize the per-frame [`DebugOverlayLabels`] buffer (filled by the
+/// overlay draw calls) as world-space `Text2d`. Despawns last frame's labels
+/// and respawns this frame's — debug-only and a handful of labels, so the spawn
+/// churn is negligible and avoids pool bookkeeping. Empties the buffer every
+/// frame, so toggling the overlay off (no pushes) clears the labels next frame.
+pub fn render_debug_overlay_labels(
+    mut commands: Commands,
+    world: Res<GameWorld>,
+    mut labels: ResMut<DebugOverlayLabels>,
+    existing: Query<Entity, With<DebugOverlayLabel>>,
+) {
+    for entity in &existing {
+        commands.entity(entity).despawn();
+    }
+    for label in labels.0.drain(..) {
+        commands.spawn((
+            Text2d::new(label.text),
+            TextFont {
+                font_size: DEBUG_LABEL_FONT_PX,
+                ..default()
+            },
+            TextColor(label.color),
+            Transform::from_translation(world_to_bevy(&world.0, label.world_pos, DEBUG_LABEL_Z)),
+            DebugOverlayLabel,
+            Name::new("Debug box label"),
+        ));
+    }
+}
+
 /// No-op stub for builds without the `input` feature. The full overlay
 /// reads leafwing's `ActionState` to render combat/blink previews; without
 /// leafwing in scope, gizmos for those would have no input source. Sim
@@ -50,28 +83,10 @@ pub fn draw_debug_overlay(
     camera_view: Res<CameraViewState>,
     mode: Res<State<GameMode>>,
     entities: Res<SceneEntities>,
-    // In-flight player projectiles are ECS entities now (Phase 3c-ii) —
-    // draw each one's AABB from its kinematic body. `Without<PlayerEntity>`
-    // spells out that a projectile is never the player, so Bevy can prove
-    // this read of `BodyKinematics` is disjoint from the `&mut` player query
-    // below (B0001).
-    player_projectiles: Query<
-        &ambition_gameplay_core::player::BodyKinematics,
-        (
-            With<ambition_gameplay_core::projectile::PlayerProjectile>,
-            Without<ambition_gameplay_core::player::PlayerEntity>,
-        ),
-    >,
-    // In-flight enemy projectiles are ECS entities now (Phase 3c-iii) — draw
-    // each one's AABB from its kinematic body. Same `Without<PlayerEntity>`
-    // disjointness as the player projectiles above.
-    enemy_projectiles: Query<
-        &ambition_gameplay_core::player::BodyKinematics,
-        (
-            With<ambition_gameplay_core::enemy_projectile::EnemyProjectile>,
-            Without<ambition_gameplay_core::player::PlayerEntity>,
-        ),
-    >,
+    // Per-frame buffer of debug-box labels; filled below, rendered as Text2d by
+    // `render_debug_overlay_labels`. (In-flight projectile queries moved into
+    // `FeatureDebugQueries` to keep this system under Bevy's 16-param ceiling.)
+    mut overlay_labels: ResMut<DebugOverlayLabels>,
     action_query: Query<&ActionState<SandboxAction>, With<PlayerVisual>>,
     mut player_q: Query<
         (
@@ -96,6 +111,9 @@ pub fn draw_debug_overlay(
     if !dev_state.debug_enabled() || !developer_tools.gizmos_enabled {
         return;
     }
+    // Start each frame's label buffer fresh; `render_debug_overlay_labels`
+    // drains it after this system runs.
+    overlay_labels.0.clear();
 
     let world = &world.0;
     // Mirror the gameplay input gate used by the player tick. Raw Leafwing
@@ -157,6 +175,7 @@ pub fn draw_debug_overlay(
         gameplay_active,
         &developer_tools,
         player_gravity,
+        &mut overlay_labels,
     );
     if developer_tools.show_health_bars {
         draw_health_bars(
@@ -167,12 +186,18 @@ pub fn draw_debug_overlay(
         );
     }
     if developer_tools.show_feature_hitboxes {
-        draw_feature_debug(&mut gizmos, world, &feature_q, &developer_tools);
+        draw_feature_debug(
+            &mut gizmos,
+            world,
+            &feature_q,
+            &developer_tools,
+            &mut overlay_labels,
+        );
         draw_projectile_debug(
             &mut gizmos,
             world,
-            player_projectiles.iter(),
-            enemy_projectiles.iter(),
+            feature_q.player_projectiles.iter(),
+            feature_q.enemy_projectiles.iter(),
             &developer_tools,
         );
         draw_held_projectiles(

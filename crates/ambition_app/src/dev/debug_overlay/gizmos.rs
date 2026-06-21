@@ -159,6 +159,29 @@ pub struct FeatureDebugQueries<'w, 's> {
     /// bundle (not a top-level param) to keep `draw_debug_overlay` under Bevy's
     /// 16-system-param ceiling.
     pub gravity: Option<Res<'w, ambition_gameplay_core::physics::GravityField>>,
+    /// In-flight player projectiles (ECS entities). Bundled here (rather than a
+    /// top-level param) so `draw_debug_overlay` has a slot free for the
+    /// debug-label buffer while staying under the 16-param ceiling.
+    /// `Without<PlayerEntity>` proves disjointness from the `&mut` player query.
+    pub player_projectiles: Query<
+        'w,
+        's,
+        &'static ambition_gameplay_core::player::BodyKinematics,
+        (
+            With<ambition_gameplay_core::projectile::PlayerProjectile>,
+            Without<ambition_gameplay_core::player::PlayerEntity>,
+        ),
+    >,
+    /// In-flight enemy projectiles (ECS entities); see `player_projectiles`.
+    pub enemy_projectiles: Query<
+        'w,
+        's,
+        &'static ambition_gameplay_core::player::BodyKinematics,
+        (
+            With<ambition_gameplay_core::enemy_projectile::EnemyProjectile>,
+            Without<ambition_gameplay_core::player::PlayerEntity>,
+        ),
+    >,
 }
 
 pub(crate) fn draw_room_bounds(gizmos: &mut Gizmos, world: &ae::World) {
@@ -315,6 +338,7 @@ pub(crate) fn draw_player_debug(
     gameplay_active: bool,
     developer_tools: &DeveloperTools,
     gravity_dir: ae::Vec2,
+    labels: &mut DebugOverlayLabels,
 ) {
     let pos = clusters.kinematics.pos;
     let vel = clusters.kinematics.vel;
@@ -328,6 +352,7 @@ pub(crate) fn draw_player_debug(
     let body = clusters.kinematics.aabb_oriented(gravity_dir);
     if developer_tools.show_player_hitbox {
         draw_aabb_styled(gizmos, world, body, cyan(), developer_tools);
+        label_box(labels, body, "player", cyan(), LabelSpot::TopLeft);
     }
 
     let center = w2(world, pos);
@@ -390,6 +415,7 @@ pub(crate) fn draw_player_debug(
                 None => gray(),
             };
             draw_aabb(gizmos, world, hitbox, color);
+            label_box(labels, hitbox, "atk", color, LabelSpot::TopRight);
         } else if attack_held || dedicated_pogo_held {
             let intent = ambition_gameplay_core::combat::resolve_attack_intent_from_view(
                 &view,
@@ -552,6 +578,7 @@ pub(crate) fn draw_feature_debug(
     world: &ae::World,
     feature_q: &FeatureDebugQueries,
     developer_tools: &DeveloperTools,
+    labels: &mut DebugOverlayLabels,
 ) {
     // Colors per role — strong enough to read against most backgrounds.
     let npc_color = Color::srgba(0.30, 1.00, 0.45, 0.85); // green
@@ -572,6 +599,11 @@ pub(crate) fn draw_feature_debug(
         // surface-walker swaps width<->height onto a wall — see
         // `update_enemy_actors`), so the drawn box matches the rotated sprite.
         draw_aabb_styled(gizmos, world, aabb.aabb(), color, developer_tools);
+        let actor_label = match actor {
+            ambition_gameplay_core::features::ActorRuntime::Npc => "npc",
+            ambition_gameplay_core::features::ActorRuntime::Enemy => "enemy",
+        };
+        label_box(labels, aabb.aabb(), actor_label, color, LabelSpot::TopLeft);
         // Hostile actors (and turned-hostile NPCs like the Kernel Guide)
         // own an attack volume that becomes active during a swing — draw
         // it whenever windup or strike timer is live so the player can
@@ -592,8 +624,10 @@ pub(crate) fn draw_feature_debug(
                 );
                 if attack.is_active() {
                     draw_aabb_styled(gizmos, world, attack_box, active_color, developer_tools);
+                    label_box(labels, attack_box, "atk", active_color, LabelSpot::Center);
                 } else if attack.is_winding_up() {
                     draw_aabb_styled(gizmos, world, attack_box, telegraph_color, developer_tools);
+                    label_box(labels, attack_box, "atk", telegraph_color, LabelSpot::Center);
                 }
             }
         }
@@ -637,6 +671,7 @@ pub(crate) fn draw_feature_debug(
         )
         .with_animation_frame(animation_frame);
         draw_aabb_styled(gizmos, world, boss.aabb(), boss_color, developer_tools);
+        label_box(labels, boss.aabb(), "collision", boss_color, LabelSpot::BottomLeft);
         // Body-contact damage zone — drawn ONLY when the boss
         // actually deals contact damage so a `body_damage = 0`
         // boss (like GNU-ton) doesn't show a misleading magenta
@@ -653,22 +688,34 @@ pub(crate) fn draw_feature_debug(
                 body_contact_color,
                 developer_tools,
             );
+            label_box(
+                labels,
+                boss.aabb(),
+                "contact",
+                body_contact_color,
+                LabelSpot::BottomRight,
+            );
         }
         for hurtbox in ambition_gameplay_core::features::damageable_volumes(&ctx) {
             draw_aabb_styled(gizmos, world, hurtbox, hurtbox_color, developer_tools);
+            label_box(labels, hurtbox, "hurtbox", hurtbox_color, LabelSpot::TopLeft);
         }
         for vol in ambition_gameplay_core::features::telegraph_volumes(&ctx) {
             draw_aabb_styled(gizmos, world, vol, telegraph_color, developer_tools);
+            label_box(labels, vol, "telegraph", telegraph_color, LabelSpot::TopRight);
         }
         for vol in ambition_gameplay_core::features::active_attack_volumes(&ctx) {
             draw_aabb_styled(gizmos, world, vol, active_color, developer_tools);
+            label_box(labels, vol, "active", active_color, LabelSpot::Center);
         }
     }
     for aabb in feature_q.breakables.iter() {
         draw_aabb_styled(gizmos, world, aabb.aabb(), breakable_color, developer_tools);
+        label_box(labels, aabb.aabb(), "breakable", breakable_color, LabelSpot::TopLeft);
     }
     for aabb in feature_q.chests.iter() {
         draw_aabb_styled(gizmos, world, aabb.aabb(), chest_color, developer_tools);
+        label_box(labels, aabb.aabb(), "chest", chest_color, LabelSpot::TopLeft);
     }
     for hf in feature_q.hazards.iter() {
         draw_aabb_styled(
@@ -678,6 +725,7 @@ pub(crate) fn draw_feature_debug(
             hazard_color,
             developer_tools,
         );
+        label_box(labels, hf.hazard.aabb(), "hazard", hazard_color, LabelSpot::TopLeft);
     }
 
     // Live Hitbox entities — melee swings (FollowOwner) + World-
@@ -701,14 +749,19 @@ pub(crate) fn draw_feature_debug(
             Err(_) => ae::Vec2::ZERO,
         };
         let aabb = hitbox.world_aabb(owner_pos);
-        let color = match hitbox.source {
-            ambition_gameplay_core::features::ActorFaction::Player => player_hitbox_color,
-            ambition_gameplay_core::features::ActorFaction::Enemy => enemy_hitbox_color,
-            ambition_gameplay_core::features::ActorFaction::Boss => boss_hitbox_color,
+        let (color, tag) = match hitbox.source {
+            ambition_gameplay_core::features::ActorFaction::Player => {
+                (player_hitbox_color, "hit:player")
+            }
+            ambition_gameplay_core::features::ActorFaction::Enemy => (enemy_hitbox_color, "hit:enemy"),
+            ambition_gameplay_core::features::ActorFaction::Boss => (boss_hitbox_color, "hit:boss"),
             ambition_gameplay_core::features::ActorFaction::Npc
-            | ambition_gameplay_core::features::ActorFaction::Neutral => npc_hitbox_color,
+            | ambition_gameplay_core::features::ActorFaction::Neutral => {
+                (npc_hitbox_color, "hit:npc")
+            }
         };
         draw_aabb_styled(gizmos, world, aabb, color, developer_tools);
+        label_box(labels, aabb, tag, color, LabelSpot::TopRight);
     }
 }
 

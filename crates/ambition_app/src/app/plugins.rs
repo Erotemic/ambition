@@ -625,12 +625,16 @@ fn install_menu_setup_and_hotkeys(app: &mut App) {
 }
 
 fn install_camera_and_debug_overlay_systems(app: &mut App) {
+    app.init_resource::<debug_overlay::DebugOverlayLabels>();
     app.add_systems(
         Update,
         (
             ambition_gameplay_core::time::camera_ease::tick_camera_shake,
             camera_follow,
             debug_overlay::draw_debug_overlay,
+            // Materialize the labels the overlay just queued (Text2d). Runs
+            // right after so the labels track this frame's boxes.
+            debug_overlay::render_debug_overlay_labels,
         )
             .chain()
             .after(animate_bosses),

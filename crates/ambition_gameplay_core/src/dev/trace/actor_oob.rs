@@ -111,6 +111,22 @@ pub fn record_actor_oob_frame_system(
         ));
     }
 
+    // The augmented world's solid geometry, so a dump is self-contained:
+    // cross-referenced with a body's pre-anomaly trajectory it shows the exact
+    // wall/floor it was jammed into before leaving bounds.
+    let solids: Vec<CollisionTraceShape> = augmented_world
+        .blocks
+        .iter()
+        .filter(|b| matches!(b.kind, ae::BlockKind::Solid))
+        .take(64)
+        .map(|b| CollisionTraceShape {
+            kind: format!("{:?}", b.kind),
+            name: b.name.clone(),
+            aabb: b.aabb.into(),
+            distance: 0.0,
+        })
+        .collect();
+
     let frame = ActorTraceFrame {
         seq: buffer.sequence,
         tick: buffer.tick,
@@ -122,6 +138,7 @@ pub fn record_actor_oob_frame_system(
         world_size: augmented_world.size.into(),
         world_spawn: augmented_world.spawn.into(),
         bodies,
+        solids,
     };
     buffer.record(frame);
 }

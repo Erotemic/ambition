@@ -16,7 +16,7 @@
 //! snapshot of ALL tracked bodies on one shared timeline, so a dump shows
 //! what every character (and the world) was doing around the anomaly.
 
-use crate::{timestamp_label, TraceAabb, TracePoint};
+use crate::{timestamp_label, CollisionTraceShape, TraceAabb, TracePoint};
 use bevy::prelude::Resource;
 use serde::Serialize;
 use std::collections::{HashSet, VecDeque};
@@ -63,6 +63,14 @@ pub struct ActorTraceFrame {
     pub world_size: TracePoint,
     pub world_spawn: TracePoint,
     pub bodies: Vec<BodyTraceSnapshot>,
+    /// The augmented world's solid blocks this frame (static geometry +
+    /// feature/overlay solids). Captured so a dump is self-contained for
+    /// geometry analysis: cross-referenced with a body's pre-anomaly
+    /// trajectory it shows exactly which wall/floor a body was jammed into
+    /// before it left bounds. The same set every frame for a static room, so
+    /// the markdown only renders the latest.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub solids: Vec<CollisionTraceShape>,
 }
 
 impl ActorTraceFrame {
@@ -289,6 +297,17 @@ fn render_actor_markdown(payload: &ActorDumpPayload<'_>, reason: &ActorDumpReaso
             ));
         }
         out.push('\n');
+
+        if !latest.solids.is_empty() {
+            out.push_str("### World solids (geometry the bodies collide with)\n\n");
+            for s in latest.solids.iter().take(40) {
+                out.push_str(&format!(
+                    "- `{}` `{}` ({:.0}, {:.0}) → ({:.0}, {:.0})\n",
+                    s.kind, s.name, s.aabb.min.x, s.aabb.min.y, s.aabb.max.x, s.aabb.max.y,
+                ));
+            }
+            out.push('\n');
+        }
     }
 
     // The offending body's trajectory into the anomaly is the key diagnostic:
@@ -360,6 +379,7 @@ mod tests {
             world_size: TracePoint { x: 960.0, y: 768.0 },
             world_spawn: TracePoint::default(),
             bodies,
+            solids: Vec::new(),
         }
     }
 

@@ -2,6 +2,21 @@
 
 This journal records unexpected errors encountered while iterating on the Ambition sandbox, especially places where an overlay or generated build script looked reasonable but failed in a real local/device test. The goal is to make future LLM-generated patches less likely to repeat the same mistakes.
 
+## 2026-06-21: Mockingbird boss "flew out of bounds and hovered above the arena" — an unbounded collision pushout-teleport
+
+Symptom: intermittently (no player interaction needed) the flying mockingbird boss vanished; zooming the camera out revealed it hovering above the arena. "Never happened before, easy-ish to reproduce."
+
+How it was caught (fast, by purpose-built tooling): the existing trace recorder was player-centric, so a non-player-centric **actor OOB flight recorder** was added first (`crates/ambition_gameplay_trace/src/actor_trace.rs` + `dev/trace/actor_oob.rs` — one `Query<&BodyKinematics>` over EVERY body, dumps the offender's trajectory on OOB). It nailed the symptom in one dump: in a single tick the boss jumped `pos (266, 265.3) → (266, -92.5)`, x unchanged. `y = -92.5 = -half_height` ⇒ the boss's bottom edge snapped to a block face at the world top (y=0), flinging the whole body above the room. A single-frame, x-preserving jump to ±half is a **pushout/teleport signature, not movement** (the boss's brain `velocity_target` is capped at its move speed and can't produce a 357px step).
+
+Root cause: `step_kinematic`'s resting/penetration resolves snap feet-to-surface, and most were **unbounded**. A gravity-free, oversized boss (combat 500px wide in a 960px arena) sits pinned at the soft-clamp's left edge overlapping a tall full-height wall; the resolve snapped its feet to that block's FAR face (the top) instead of exiting via the near (side) face, teleporting it clear out of the world. Only `resolve_penetration` had a `snap.length() <= half_extent` guard; the support-stabilization snap and `resolve_axis`'s one-way + full-solid pushes did not.
+
+Fix: factor `is_contact_range_snap` (a legitimate resting/contact resolve moves the body at most its own half-extent) and apply it to EVERY feet-to-surface / penetration resolve. A rejected snap leaves the body overlapping; its own velocity carries it out at the NEAR face next frame (transit emerges at the face — never artificially pushout, per the engine invariant).
+
+Takeaways:
+- **A single-frame, axis-pure jump to ±half-size is a pushout/teleport, not physics.** When a body "teleports out of the world," grep `step_kinematic` for every `body.pos += snap/push` and check each is bounded; the offender is usually an *un*guarded resolve sitting next to a guarded sibling.
+- **Oversized + gravity-free bodies are pushout magnets.** A body wider/taller than its play space is always overlapping geometry, so any unbounded depenetration aims it at a far face. Bound the resolve; separately, right-size the body to the arena.
+- **When the existing debugger is player-centric, generalize it before chasing the bug.** The shared `BodyKinematics` component made a relativity-respecting recorder a one-query system, and it paid off on the first capture. (See `reference_oob_trace_tooling`.)
+
 ## 2026-06-04: A second camera (3D cube pause menu) rendered black because the game's `With<Camera>` follow dragged it off-target
 
 Symptom (a full session of blind iteration with the user, ~6 rebuild/test rounds): the new #31 OoT-style 3D inventory cube — a `Camera3d` overlaid on the 2D game — rendered as black, then purple, then gizmo-lines-only, with run-to-run variance, never showing the faces, even though the bevy_lunex meshes were demonstrably built.

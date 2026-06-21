@@ -84,8 +84,8 @@ instruments:
   - {name: bell_synth,  group: mallets,    program: fx_crystal,        volume: 70, pan: 80, expression: 84}
 
   # "Choir_pad" group = atmospheric textures + dread.
-  - {name: atmos,       group: choir_pad,  program: fx_atmosphere,     volume: 64, pan: 64, expression: 80, modulation: 4}
-  - {name: pad_metallic,group: choir_pad,  program: pad_metallic,      volume: 56, pan: 64, expression: 76, modulation: 3}
+  - {name: atmos,       group: choir_pad,  program: fx_atmosphere,     volume: 70, pan: 64, expression: 84, modulation: 4}
+  - {name: pad_metallic,group: choir_pad,  program: pad_metallic,      volume: 60, pan: 64, expression: 80, modulation: 3}
 
   # Percussion = electronic kit.
   - {name: kit,         group: percussion, is_drum: true,              volume: 102, pan: 64, expression: 110}
@@ -200,7 +200,7 @@ layer_templates:
   synth_pad:
     kind: pad_chords
     instruments: [pad_warm, pad_poly]
-    instrument_octave_offsets: {pad_warm: 0, pad_poly: 1}
+    instrument_octave_offsets: {pad_warm: 0, pad_poly: 0}
     instrument_velocity_offsets: {pad_warm: 0, pad_poly: -8}
     octave: 3
     duration_beats: 4.0
@@ -590,4 +590,4 @@ group_postprocess:
   brass:      {gain_db: 0.0,  lowpass_hz: 12000, high_shelf_hz: 5200, high_shelf_db: 0.4, transient_tame: 0.04, reverb_wet: 0.005}
   mallets:    {gain_db: 0.0,  lowpass_hz: 13000, high_shelf_hz: 5500, high_shelf_db: 0.4, transient_tame: 0.04, reverb_wet: 0.006}
   percussion: {gain_db: -1.0, lowpass_hz: 11500, high_shelf_hz: 5500, high_shelf_db: 0.0, transient_tame: 0.04, reverb_wet: 0.003}
-  choir_pad:  {gain_db: -2.0, lowpass_hz: 11000, high_shelf_hz: 5500, high_shelf_db: -0.2, transient_tame: 0.04, reverb_wet: 0.012}
+  choir_pad:  {gain_db: 2.0, lowpass_hz: 9000, high_shelf_hz: 4800, high_shelf_db: -0.8, transient_tame: 0.04, reverb_wet: 0.010}

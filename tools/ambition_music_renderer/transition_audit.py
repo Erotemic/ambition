@@ -88,11 +88,14 @@ def section_file(root: Path, section: str) -> Path:
     section_dir = root / "adaptive" / section
     if not section_dir.exists():
         raise FileNotFoundError(f"missing section directory: {section_dir}")
-    candidates = sorted(section_dir.glob(f"*{section}.full.ogg"))
+    candidates: list[Path] = []
+    for suffix in ("ogg", "oga", "wav", "flac", "mp3"):
+        candidates.extend(sorted(section_dir.glob(f"*{section}.full.{suffix}")))
     if not candidates:
-        candidates = sorted(section_dir.glob("*.full.ogg"))
+        for suffix in ("ogg", "oga", "wav", "flac", "mp3"):
+            candidates.extend(sorted(section_dir.glob(f"*.full.{suffix}")))
     if not candidates:
-        raise FileNotFoundError(f"no full-mix OGG under {section_dir}")
+        raise FileNotFoundError(f"no full-mix audio under {section_dir}")
     # Prefer stable installed names when present; otherwise use hashed renderer output.
     candidates.sort(
         key=lambda p: (p.name != f"{section}.full.ogg", len(p.name), p.name)

@@ -57,23 +57,23 @@ instruments:
 - name: violins_i
   group: strings
   program: string_ensemble_1
-  volume: 78
+  volume: 74
   pan: 78
-  expression: 82
+  expression: 80
   modulation: 10
 - name: violas
   group: strings
   program: viola
-  volume: 74
+  volume: 70
   pan: 50
-  expression: 80
+  expression: 78
   modulation: 8
 - name: celli
   group: strings
   program: cello
-  volume: 76
+  volume: 72
   pan: 38
-  expression: 80
+  expression: 78
   modulation: 7
 - name: contrabass
   group: strings
@@ -163,9 +163,9 @@ instruments:
 - name: war_drums
   group: percussion
   is_drum: true
-  volume: 104
+  volume: 96
   pan: 64
-  expression: 108
+  expression: 102
 motifs:
 - id: goblin_short
   root: D4
@@ -290,7 +290,7 @@ layer_templates:
     - violas
     - celli
     instrument_octave_offsets:
-      violins_i: 1
+      violins_i: 0
       violas: 0
       celli: -1
     instrument_velocity_offsets:
@@ -298,8 +298,8 @@ layer_templates:
       violas: -16
       celli: -18
     octave: 3
-    duration_beats: 4.0
-    velocity: 34
+    duration_beats: 3.55
+    velocity: 30
     articulation: legato
     voicing: open
     humanize_ms: 0
@@ -327,8 +327,8 @@ layer_templates:
     instrument: pad_subtle
     octave: 3
     every_bars: 4
-    duration_beats: 16.0
-    velocity: 22
+    duration_beats: 8.0
+    velocity: 20
     articulation: pad
     voicing: wide
     humanize_ms: 0
@@ -338,8 +338,8 @@ layer_templates:
     instrument: choir
     octave: 4
     every_bars: 2
-    duration_beats: 8.0
-    velocity: 30
+    duration_beats: 4.5
+    velocity: 26
     articulation: pad
     voicing: open
     humanize_ms: 0
@@ -352,7 +352,7 @@ layer_templates:
     - clarinet
     motif: goblin_short
     root: D4
-    velocity: 66
+    velocity: 70
     articulation: staccato
     instrument_velocity_offsets:
       flute: 4
@@ -383,7 +383,7 @@ layer_templates:
     - violins_i
     motif: hero_answer
     root: D4
-    velocity: 42
+    velocity: 46
     articulation: tenuto
     instrument_octave_offsets:
       horns: 0
@@ -402,8 +402,8 @@ layer_templates:
     - 3
     step: 0.5
     duration_beats: 0.38
-    velocity: 26
-    density: 0.2
+    velocity: 32
+    density: 0.24
     articulation: normal
     humanize_ms: 0
     humanize_velocity_pct: 3
@@ -418,8 +418,8 @@ layer_templates:
     - 1
     step: 1.0
     duration_beats: 0.28
-    velocity: 22
-    density: 0.14
+    velocity: 30
+    density: 0.20
     articulation: staccato
     humanize_ms: 0
     humanize_velocity_pct: 3
@@ -493,7 +493,7 @@ layer_templates:
       beats:
       - 0.0
       - 2.0
-      velocity: 56
+      velocity: 48
     - drum: closed_hat
       beats:
       - 0.5
@@ -524,7 +524,7 @@ layer_templates:
       - 1.0
       - 2.0
       - 3.0
-      velocity: 62
+      velocity: 52
     - drum: closed_hat
       beats:
       - 0.5
@@ -540,13 +540,13 @@ layer_templates:
       velocity: 40
     - drum: floor_tom
       beat: 0.0
-      velocity: 54
+      velocity: 44
       bars:
       - 0
       - 4
     - drum: crash
       beat: 0.0
-      velocity: 33
+      velocity: 24
       bars:
       - 0
       - 4
@@ -1084,7 +1084,7 @@ group_postprocess:
     transient_tame: 0.02
     reverb_wet: 0.001
   winds:
-    gain_db: 2.0
+    gain_db: 3.5
     lowpass_hz: 7800
     high_shelf_hz: 3600
     high_shelf_db: -1.0
@@ -1094,14 +1094,14 @@ group_postprocess:
     transient_tame: 0.04
     reverb_wet: 0.001
   mallets:
-    gain_db: -4.0
+    gain_db: -1.5
     lowpass_hz: 6800
     high_shelf_hz: 5200
     high_shelf_db: -1.4
     transient_tame: 0.12
     reverb_wet: 0.001
   percussion:
-    gain_db: -2.5
+    gain_db: -5.0
     lowpass_hz: 6500
     high_shelf_hz: 3600
     high_shelf_db: -1.6
@@ -1109,14 +1109,14 @@ group_postprocess:
     reverb_wet: 0.004
     reverb_decay_seconds: 0.28
   brass:
-    gain_db: -1.4
+    gain_db: 0.5
     lowpass_hz: 7800
     high_shelf_hz: 5200
     high_shelf_db: -0.8
     transient_tame: 0.04
     reverb_wet: 0.001
   choir_pad:
-    gain_db: -5.0
+    gain_db: -6.0
     lowpass_hz: 5600
     high_shelf_hz: 3600
     high_shelf_db: -2.0

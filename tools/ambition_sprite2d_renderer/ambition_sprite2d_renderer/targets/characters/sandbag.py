@@ -20,8 +20,8 @@ from __future__ import annotations
 import math
 from dataclasses import asdict, dataclass
 
-from ...actor_contract import write_actor_contract_for_tackon
-from ...animation_vocab import DEFAULT_ADVANCED_TIMINGS
+from ...authoring.actor_contract import write_actor_contract_for_tackon
+from ...authoring.animation_vocab import DEFAULT_ADVANCED_TIMINGS
 from pathlib import Path
 from typing import Dict, List, Tuple
 
@@ -1050,7 +1050,7 @@ def write_outputs(out_dir: Path) -> Tuple[Path, Path, Path]:
     # manifest already has the `animations: {...}` shape that
     # `_adapter_manifest_to_ron` consumes — same path the adapter
     # `draw-all` pipeline uses for the row-ordered RON.
-    from ...sheet import (
+    from ...authoring.sheet import (
         _adapter_manifest_to_ron,
     )  # local import: tooling-only dependency
 

@@ -6,39 +6,39 @@ from typing import Any, Dict, List, Tuple
 from PIL import Image
 
 from .animation_vocab import FULL_PLAYER_ANIMATION_ORDER, ordered_subset
-from .config import CharacterJob
-from .targets.characters.boss_side import (
+from ..config import CharacterJob
+from ..targets.characters.boss_side import (
     AISlopZetaGenerator,
     parse_background as boss_parse_background,
 )
-from .targets.characters.goblin_side import (
+from ..targets.characters.goblin_side import (
     SideGoblinGenerator,
     parse_background as goblin_parse_background,
 )
-from .targets.characters.ninja_side import (
+from ..targets.characters.ninja_side import (
     NinjaSideGenerator,
     parse_background as ninja_parse_background,
 )
-from .targets.characters.robot_side import SideRobotGenerator
-from .targets.characters.sandbag import (
+from ..targets.characters.robot_side import SideRobotGenerator
+from ..targets.characters.sandbag import (
     ADAPTER_ANIMATIONS as SANDBAG_ANIMATIONS,
     SandbagSpec,
     render_frame as render_sandbag_frame,
 )
-from .targets.characters.robot25d import parse_background as robot_parse_background
-from .targets.characters.toon_side import (
+from ..targets.characters.robot25d import parse_background as robot_parse_background
+from ..targets.characters.toon_side import (
     ToonSideGenerator,
     parse_background as toon_parse_background,
 )
-from .targets.characters.trent_elder import (
+from ..targets.characters.trent_elder import (
     TrentElderGenerator,
     parse_background as trent_parse_background,
 )
-from .targets.characters.bob_engineer import (
+from ..targets.characters.bob_engineer import (
     BobEngineerGenerator,
     parse_background as bob_parse_background,
 )
-from .targets.characters.alice_cryptographer import (
+from ..targets.characters.alice_cryptographer import (
     AliceCryptographerGenerator,
     parse_background as alice_parse_background,
 )

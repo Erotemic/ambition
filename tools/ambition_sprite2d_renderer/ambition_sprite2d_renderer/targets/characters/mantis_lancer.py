@@ -567,7 +567,7 @@ def render(out_dir: str | Path, **opts):
     `tackon_sheet.build_sheet` pipeline (auto-cropped, with the
     runtime-compatible YAML+RON shape). See `bear_mauler.render` for
     the full rationale — same conversion."""
-    from ...tackon_sheet import build_sheet
+    from ...authoring.tackon_sheet import build_sheet
     out_dir = Path(out_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
     renderer = MantisLancerRenderer()

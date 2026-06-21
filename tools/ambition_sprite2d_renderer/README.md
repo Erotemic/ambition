@@ -168,11 +168,14 @@ Iterable[Path]` and it'll be used instead.
 
 ### Helpers (drawing primitives, shared rigs)
 
-- **Generic drawing + spritesheet building** — already lives at the
-  package root: [`tackon_sheet.py`](ambition_sprite2d_renderer/tackon_sheet.py)
-  (`build_sheet` + math + draw primitives + RON emitters) and
-  [`common_draw.py`](ambition_sprite2d_renderer/common_draw.py)
-  (adapter-helper drawing primitives). Use these from any target.
+- **Generic drawing + spritesheet building** — lives under
+  [`authoring/`](ambition_sprite2d_renderer/authoring/):
+  [`tackon_sheet.py`](ambition_sprite2d_renderer/authoring/tackon_sheet.py)
+  (`build_sheet` + math + draw primitives) and
+  [`common_draw.py`](ambition_sprite2d_renderer/authoring/common_draw.py)
+  (adapter-helper drawing primitives). The RON emitter and core draw/measure
+  primitives now live in [`core/`](ambition_sprite2d_renderer/core/). Use these
+  from any target.
 - **Character-family helpers** (shared by several characters in a
   family) live under `targets/characters/` with a leading underscore
   so discovery skips them — see

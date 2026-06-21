@@ -5,7 +5,7 @@ from typing import Optional, Tuple
 
 from PIL import ImageColor
 
-from ...rig import clamp, ease_in_out_sine, ease_out_cubic, lerp, smoothstep
+from ...authoring.rig import clamp, ease_in_out_sine, ease_out_cubic, lerp, smoothstep
 
 Color = Tuple[int, int, int, int]
 

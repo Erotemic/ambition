@@ -33,7 +33,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from ..rigdoc import PART_KINDS, parse_color
+from ..authoring.rigdoc import PART_KINDS, parse_color
 from .state import EditorState
 
 

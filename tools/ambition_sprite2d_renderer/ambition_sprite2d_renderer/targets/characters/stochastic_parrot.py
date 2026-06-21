@@ -1,6 +1,6 @@
 """Bone-toolkit sprite target for a Stochastic Parrot enemy.
 
-A noisy mimic-bird built on ``ambition_sprite2d_renderer.skeleton``.
+A noisy mimic-bird built on ``ambition_sprite2d_renderer.authoring.skeleton``.
 The goal is a first-pass enemy sheet that demonstrates the new bone tools on
 something smaller and more expressive than the player robot.
 
@@ -24,9 +24,9 @@ from typing import Dict, List, Tuple
 
 from PIL import Image, ImageColor, ImageDraw, ImageOps
 
-from ...common_draw import draw_capsule
-from ...rig import add, clamp, ease_in_out_sine, vec
-from ...skeleton import (
+from ...authoring.common_draw import draw_capsule
+from ...authoring.rig import add, clamp, ease_in_out_sine, vec
+from ...authoring.skeleton import (
     Channel,
     Clip,
     PartCtx,
@@ -37,7 +37,7 @@ from ...skeleton import (
     rounded_polygon,
     two_bone_ik,
 )
-from ...tackon_sheet import build_sheet, write_canonical
+from ...authoring.tackon_sheet import build_sheet, write_canonical
 
 Color = Tuple[int, int, int, int]
 Point = Tuple[float, float]

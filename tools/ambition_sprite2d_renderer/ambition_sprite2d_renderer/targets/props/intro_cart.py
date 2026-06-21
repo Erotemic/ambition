@@ -14,7 +14,7 @@ from typing import List, Tuple
 
 from PIL import Image, ImageColor, ImageDraw, ImageFilter
 
-from ...tackon_sheet import build_sheet
+from ...authoring.tackon_sheet import build_sheet
 
 RGBA = Tuple[int, int, int, int]
 

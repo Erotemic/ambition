@@ -31,7 +31,7 @@ from typing import Dict, Tuple
 
 from PIL import Image, ImageDraw
 
-from ...tackon_sheet import (
+from ...authoring.tackon_sheet import (
     ANIMATIONS,
     BASE_FRAME,
     RGBA,

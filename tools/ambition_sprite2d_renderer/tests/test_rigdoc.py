@@ -7,7 +7,7 @@ from pathlib import Path
 
 import pytest
 
-from ambition_sprite2d_renderer.rigdoc import (
+from ambition_sprite2d_renderer.authoring.rigdoc import (
     RigDocument,
     parse_color,
     render_sheet_for_doc,

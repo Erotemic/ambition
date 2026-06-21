@@ -7,9 +7,9 @@ from pathlib import Path
 
 from PIL import Image
 
-from ambition_sprite2d_renderer.canonical import render_canonical
+from ambition_sprite2d_renderer.authoring.canonical import render_canonical
 from ambition_sprite2d_renderer.config import CharacterJob
-from ambition_sprite2d_renderer.sheet import write_spritesheet
+from ambition_sprite2d_renderer.authoring.sheet import write_spritesheet
 
 CONFIGS = (
     Path(__file__).resolve().parent.parent / "ambition_sprite2d_renderer" / "configs"

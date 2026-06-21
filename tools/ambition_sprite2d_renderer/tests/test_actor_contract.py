@@ -1,7 +1,7 @@
 from pathlib import Path
 
 from ambition_sprite2d_renderer.config import CharacterJob
-from ambition_sprite2d_renderer.sheet import write_spritesheet
+from ambition_sprite2d_renderer.authoring.sheet import write_spritesheet
 from ambition_sprite2d_renderer.target_registry import discover_all_targets
 
 
@@ -54,7 +54,7 @@ def test_character_job_accepts_sparse_actor_contract_fields():
 
 
 def test_contract_derives_runtime_fields_from_body_metrics_without_requiring_hands():
-    from ambition_sprite2d_renderer.actor_contract import build_actor_contract, to_ron
+    from ambition_sprite2d_renderer.authoring.actor_contract import build_actor_contract, to_ron
 
     manifest = {
         "target": "toon",
@@ -118,7 +118,7 @@ def test_tackon_target_render_sheet_includes_actor_sidecar(tmp_path: Path):
 
 
 def test_catalog_defaults_enrich_actor_contract_when_available(tmp_path: Path):
-    from ambition_sprite2d_renderer.actor_contract import build_actor_contract, to_ron
+    from ambition_sprite2d_renderer.authoring.actor_contract import build_actor_contract, to_ron
 
     manifest = {
         "target": "toon",
@@ -196,7 +196,7 @@ def test_every_registered_character_target_advertises_actor_sidecar():
 def _contract_text_for_metadata(
     stem: str, target: str, rows: list[str], metadata: dict
 ) -> str:
-    from ambition_sprite2d_renderer.actor_contract import build_actor_contract, to_ron
+    from ambition_sprite2d_renderer.authoring.actor_contract import build_actor_contract, to_ron
 
     manifest = {
         "target": target,

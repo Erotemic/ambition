@@ -1,6 +1,6 @@
 """Candidate player robot rebuilt on the bone/keyframe toolkit.
 
-First demonstration of ``ambition_sprite2d_renderer.skeleton``: the chibi
+First demonstration of ``ambition_sprite2d_renderer.authoring.skeleton``: the chibi
 robot's parts (head, torso, pelvis, limbs, feet) are rounded polygons and
 capsules attached to an FK bone tree; idle/walk/slash are authored as
 keyframe clips, and the legs are driven by *foot trajectories* solved
@@ -23,9 +23,9 @@ from typing import Dict, List, Tuple
 
 from PIL import Image, ImageDraw, ImageColor
 
-from ...common_draw import draw_capsule
-from ...rig import add, clamp, lerp, smoothstep, vec
-from ...skeleton import (
+from ...authoring.common_draw import draw_capsule
+from ...authoring.rig import add, clamp, lerp, smoothstep, vec
+from ...authoring.skeleton import (
     Channel,
     Clip,
     PartCtx,
@@ -36,7 +36,7 @@ from ...skeleton import (
     rounded_polygon,
     two_bone_ik,
 )
-from ...tackon_sheet import build_sheet, write_canonical
+from ...authoring.tackon_sheet import build_sheet, write_canonical
 
 Color = Tuple[int, int, int, int]
 Point = Tuple[float, float]

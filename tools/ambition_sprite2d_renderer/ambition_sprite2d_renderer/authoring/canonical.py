@@ -20,9 +20,9 @@ from typing import Iterable, List, Optional, Tuple
 from PIL import Image, ImageDraw
 
 from .adapters import get_adapter
-from .config import CharacterJob
+from ..config import CharacterJob
 from .rendering import load_font
-from .target_registry import Target
+from ..target_registry import Target
 
 
 # (target-id, display-label, transparent-RGBA-image)
@@ -195,7 +195,7 @@ def write_canonicals(config_dir: str | Path, out_dir: str | Path) -> List[Path]:
     want to scope the canonical pass to a specific config dir without
     pulling in the unified target registry.
     """
-    from .config import load_jobs
+    from ..config import load_jobs
 
     out_dir = Path(out_dir)
     out_dir.mkdir(parents=True, exist_ok=True)

@@ -473,7 +473,7 @@ def render(out_dir: str | Path, **opts):
     `_write_yaml` + `_write_ron` helpers stay below for standalone-CLI
     use, but discovery routes through here.
     """
-    from ...tackon_sheet import build_sheet
+    from ...authoring.tackon_sheet import build_sheet
     out_dir = Path(out_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
     renderer = BearMaulerRenderer()

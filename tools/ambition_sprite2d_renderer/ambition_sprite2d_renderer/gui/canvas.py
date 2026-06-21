@@ -23,7 +23,7 @@ from PySide6.QtCore import QPoint, QPointF, Qt, Signal
 from PySide6.QtGui import QColor, QImage, QPainter, QPen
 from PySide6.QtWidgets import QWidget
 
-from ..skeleton import BoneWorld
+from ..authoring.skeleton import BoneWorld
 from .state import EditorState
 
 Point = Tuple[float, float]

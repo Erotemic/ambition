@@ -14,7 +14,7 @@ import math
 import pytest
 import yaml
 
-from ambition_sprite2d_renderer.skeleton import (
+from ambition_sprite2d_renderer.authoring.skeleton import (
     Channel,
     Skeleton,
     two_bone_ik,

@@ -47,7 +47,7 @@ from typing import (
     runtime_checkable,
 )
 
-from .actor_profiles import merge_actor_metadata
+from .authoring.actor_profiles import merge_actor_metadata
 
 CATEGORIES: Tuple[str, ...] = (
     # Tack-on categories — Python authoring under `targets/<category>/`.
@@ -189,7 +189,7 @@ def _ensure_actor_sidecars(
     handles multi-file boss targets that emit ``*_spritesheet_manifest.json``
     instead of the standard YAML/RON sheet manifest.
     """
-    from .actor_contract import write_actor_contract_for_tackon
+    from .authoring.actor_contract import write_actor_contract_for_tackon
     import json
     import yaml
 
@@ -363,7 +363,7 @@ class AdapterTarget:
         )
 
     def render_canonical(self, out_dir: Path, **opts) -> Path:
-        from .adapters import get_adapter
+        from .authoring.adapters import get_adapter
 
         del opts  # adapter pipeline ignores tack-on **opts
         out_dir = Path(out_dir)
@@ -378,7 +378,7 @@ class AdapterTarget:
         return out
 
     def render_sheet(self, out_dir: Path, **opts) -> List[Path]:
-        from .sheet import write_spritesheet
+        from .authoring.sheet import write_spritesheet
 
         del opts
         out_dir = Path(out_dir)

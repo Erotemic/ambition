@@ -26,7 +26,7 @@ from PySide6.QtWidgets import (
     QTabWidget,
 )
 
-from ..rigdoc import RigDocument, render_gifs_for_doc, render_sheet_for_doc
+from ..authoring.rigdoc import RigDocument, render_gifs_for_doc, render_sheet_for_doc
 from .canvas import CanvasWidget
 from .panels import BonesPanel, PalettePanel, PartsPanel
 from .state import EditorState
@@ -215,7 +215,7 @@ class MainWindow(QMainWindow):
 
     def export_python(self) -> None:
         """Generate a readable Python target module from the document."""
-        from ..rigdoc_codegen import doc_to_python
+        from ..authoring.rigdoc_codegen import doc_to_python
 
         targets_dir = RIGGED_DIR.parent
         suggested = str(targets_dir / f"{self.state.doc.name}.py")

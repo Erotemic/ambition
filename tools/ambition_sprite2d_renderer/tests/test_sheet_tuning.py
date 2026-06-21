@@ -11,11 +11,11 @@ the actual sprite rendering pipeline."""
 from __future__ import annotations
 
 from ambition_sprite2d_renderer.config import CharacterJob
-from ambition_sprite2d_renderer.sheet import (
+from ambition_sprite2d_renderer.authoring.sheet import (
     _adapter_manifest_to_ron,
     _adapter_tuning_to_ron,
 )
-from ambition_sprite2d_renderer.tackon_sheet import _ron_tuning
+from ambition_sprite2d_renderer.authoring.tackon_sheet import _ron_tuning
 
 
 def test_character_job_from_dict_picks_up_sheet_tuning():

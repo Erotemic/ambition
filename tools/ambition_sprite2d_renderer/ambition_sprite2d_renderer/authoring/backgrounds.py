@@ -499,7 +499,7 @@ def write_background_layers(out_dir: str | Path, supersample: int = 2) -> List[P
     outputs.append(contact_path)
 
     manifest = {
-        "generated_by": "ambition_sprite2d_renderer.backgrounds",
+        "generated_by": "ambition_sprite2d_renderer.authoring.backgrounds",
         "notes": [
             "Generated PNGs are runtime artifacts and should not be checked in.",
             "Foreground layers are sparse, transparent edge framing for camera-relative parallax.",

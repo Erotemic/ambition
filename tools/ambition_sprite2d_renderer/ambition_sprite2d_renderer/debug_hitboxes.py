@@ -24,7 +24,7 @@ from typing import Any, Dict, Iterable, List, Optional, Tuple
 import yaml
 from PIL import Image, ImageDraw
 
-from .canonical import load_font
+from .authoring.canonical import load_font
 
 HURTBOX_OUTLINE = (0, 230, 255, 230)  # cyan
 HURTBOX_FILL = (0, 230, 255, 40)

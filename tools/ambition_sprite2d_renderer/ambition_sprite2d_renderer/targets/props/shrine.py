@@ -21,7 +21,7 @@ from typing import List, Tuple
 from PIL import Image, ImageDraw, ImageFilter
 from ambition_sprite2d_renderer.core.draw import with_alpha
 
-from ...tackon_sheet import build_sheet
+from ...authoring.tackon_sheet import build_sheet
 
 RGBA = Tuple[int, int, int, int]
 

@@ -1954,7 +1954,7 @@ def build_hitbox_debug(
 
 
 def _write_actor_contract(outdir: Path, manifest: dict, ron_path: Path) -> Path:
-    from ambition_sprite2d_renderer.actor_contract import (
+    from ambition_sprite2d_renderer.authoring.actor_contract import (
         write_actor_contract_for_tackon,
     )
 

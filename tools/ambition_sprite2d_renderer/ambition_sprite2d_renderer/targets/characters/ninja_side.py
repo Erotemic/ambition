@@ -22,9 +22,9 @@ from typing import Dict, Optional, Tuple
 from PIL import Image, ImageColor, ImageDraw
 from ambition_sprite2d_renderer.core.draw import rgba, with_alpha
 
-from ...animation_vocab import CORE_CHARACTER_ANIMATION_ORDER, DEFAULT_CORE_TIMINGS, ordered_subset
-from ...rig import add, clamp, vec
-from ...common_draw import RESAMPLING, draw_capsule, draw_rotated_ellipse, draw_rotated_rounded_rect
+from ...authoring.animation_vocab import CORE_CHARACTER_ANIMATION_ORDER, DEFAULT_CORE_TIMINGS, ordered_subset
+from ...authoring.rig import add, clamp, vec
+from ...authoring.common_draw import RESAMPLING, draw_capsule, draw_rotated_ellipse, draw_rotated_rounded_rect
 
 Color = Tuple[int, int, int, int]
 Point = Tuple[float, float]

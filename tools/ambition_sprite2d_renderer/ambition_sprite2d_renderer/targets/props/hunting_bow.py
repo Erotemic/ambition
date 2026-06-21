@@ -26,7 +26,7 @@ from typing import List, Tuple
 
 from PIL import Image, ImageDraw
 
-from ...tackon_sheet import build_sheet, ease_in_out
+from ...authoring.tackon_sheet import build_sheet, ease_in_out
 from . import _held_prop_common as hp
 
 TARGET_NAME = "hunting_bow"

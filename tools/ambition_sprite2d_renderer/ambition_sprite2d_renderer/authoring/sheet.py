@@ -8,9 +8,9 @@ from PIL import Image, ImageColor, ImageDraw
 
 from .adapters import get_adapter
 from .actor_contract import write_actor_contract_for_adapter
-from .config import CharacterJob
-from .core.measure import measure_body_metrics
-from .core.manifest_ron import render_adapter, ron_tuning
+from ..config import CharacterJob
+from ..core.measure import measure_body_metrics
+from ..core.manifest_ron import render_adapter, ron_tuning
 from .rendering import load_font
 
 

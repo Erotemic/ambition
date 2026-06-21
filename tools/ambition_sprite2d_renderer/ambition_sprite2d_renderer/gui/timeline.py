@@ -29,7 +29,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from ..rigdoc import EASE_NAMES
+from ..authoring.rigdoc import EASE_NAMES
 from .state import EditorState
 
 
@@ -362,7 +362,7 @@ class TimelinePanel(QWidget):
         self.state.push_undo()
         channels = self.state.clip().setdefault("channels", {})
         loop = bool(self.state.clip().get("loop", True))
-        from ..rigdoc import sample_channel_spec
+        from ..authoring.rigdoc import sample_channel_spec
 
         v0 = sample_channel_spec(spec, 0.0, loop)
         if kind == "keys":
@@ -392,7 +392,7 @@ class TimelinePanel(QWidget):
         text = self.expr_edit.text().strip()
         if not text or text == spec.get("expr"):
             return
-        from ..rigdoc import eval_expr
+        from ..authoring.rigdoc import eval_expr
 
         try:
             eval_expr(text, 0.0)  # validate before committing
@@ -447,7 +447,7 @@ class TimelinePanel(QWidget):
             return
         spec = self._spec()
         loop = bool(self.state.clip().get("loop", True))
-        from ..rigdoc import sample_channel_spec
+        from ..authoring.rigdoc import sample_channel_spec
 
         value = sample_channel_spec(spec, self.state.t(), loop) if spec else 0.0
         self.state.push_undo()

@@ -21,7 +21,7 @@ from typing import Dict, List, Tuple
 from PIL import Image, ImageDraw
 
 from ...core.draw import overlay_draw as _overlay_draw
-from ...tackon_sheet import build_sheet, write_canonical
+from ...authoring.tackon_sheet import build_sheet, write_canonical
 
 RGBA = Tuple[int, int, int, int]
 Point = Tuple[float, float]

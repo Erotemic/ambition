@@ -14,7 +14,7 @@ from typing import Iterable, List
 
 from PIL import Image, ImageDraw, ImageFilter
 
-from ...tackon_sheet import build_sheet
+from ...authoring.tackon_sheet import build_sheet
 
 TARGET_NAME = "gnu_ton_apple"
 SHEET_FILES = (

@@ -23,15 +23,15 @@ RIGGED_DIR = Path(__file__).resolve().parent / "rigged"
 def _make_entry(path: Path) -> dict:
     def render(out_dir: Path, **opts) -> List[Path]:
         del opts
-        from ...rigdoc import RigDocument, render_sheet_for_doc
+        from ...authoring.rigdoc import RigDocument, render_sheet_for_doc
 
         # Reload per render so edits between CLI invocations are picked up.
         return render_sheet_for_doc(RigDocument.load(path), Path(out_dir))
 
     def render_canonical(out_dir: Path, **opts) -> Path:
         del opts
-        from ...rigdoc import RigDocument
-        from ...tackon_sheet import write_canonical
+        from ...authoring.rigdoc import RigDocument
+        from ...authoring.tackon_sheet import write_canonical
 
         doc = RigDocument.load(path)
         return write_canonical(doc.name, doc.rows(), doc.render_frame, Path(out_dir))

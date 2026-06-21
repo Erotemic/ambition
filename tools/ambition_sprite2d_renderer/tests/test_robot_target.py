@@ -5,8 +5,8 @@ player mechanics. Tests reflect the current adapter vocabulary rather than the
 runtime row subset.
 """
 
-from ambition_sprite2d_renderer.adapters import get_adapter
-from ambition_sprite2d_renderer.animation_vocab import FULL_PLAYER_ANIMATION_ORDER
+from ambition_sprite2d_renderer.authoring.adapters import get_adapter
+from ambition_sprite2d_renderer.authoring.animation_vocab import FULL_PLAYER_ANIMATION_ORDER
 
 
 EXPECTED_ROBOT_ANIMS = list(FULL_PLAYER_ANIMATION_ORDER)

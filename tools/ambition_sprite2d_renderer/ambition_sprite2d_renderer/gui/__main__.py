@@ -14,7 +14,7 @@ def main(argv=None) -> int:
 
     from PySide6.QtWidgets import QApplication
 
-    from ..rigdoc import RigDocument
+    from ..authoring.rigdoc import RigDocument
     from .app import TEMPLATE_DIR, MainWindow
     from .state import EditorState
 

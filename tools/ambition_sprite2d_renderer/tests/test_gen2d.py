@@ -4,8 +4,8 @@ import pytest
 from PIL import Image, ImageChops
 import yaml
 
-from ambition_sprite2d_renderer.adapters import get_adapter
-from ambition_sprite2d_renderer.animation_vocab import (
+from ambition_sprite2d_renderer.authoring.adapters import get_adapter
+from ambition_sprite2d_renderer.authoring.animation_vocab import (
     ADVANCED_PLAYER_ANIMATION_ORDER,
     EXTENDED_PLAYER_ANIMATION_ORDER,
 )
@@ -15,7 +15,7 @@ from ambition_sprite2d_renderer.targets.props.entities import (
     ENTITY_SPECS,
     write_entity_sprites,
 )
-from ambition_sprite2d_renderer.sheet import build_spritesheet
+from ambition_sprite2d_renderer.authoring.sheet import build_spritesheet
 
 
 # Resolve configs relative to the package, not the cwd.
@@ -426,7 +426,7 @@ def test_review_npc_variants_have_distinct_specs_and_render(tmp_path):
 
 @pytest.mark.slow_render
 def test_music_faction_lineup_renders_selective_animation_sets(tmp_path):
-    from ambition_sprite2d_renderer.faction_lineup import (
+    from ambition_sprite2d_renderer.authoring.faction_lineup import (
         FactionLineup,
         write_faction_lineup,
     )
@@ -457,7 +457,7 @@ def test_music_faction_lineup_renders_selective_animation_sets(tmp_path):
 
 
 def test_music_faction_leader_specs_have_visual_identity_tokens():
-    from ambition_sprite2d_renderer.faction_lineup import FactionLineup
+    from ambition_sprite2d_renderer.authoring.faction_lineup import FactionLineup
 
     lineup = FactionLineup.load(CONFIGS / "factions" / "music_factions.yaml")
     identities = {

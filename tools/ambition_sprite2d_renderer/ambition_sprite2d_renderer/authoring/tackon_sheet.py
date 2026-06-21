@@ -40,8 +40,8 @@ import yaml
 from PIL import Image, ImageDraw, ImageFont
 
 from .actor_contract import write_actor_contract_for_tackon
-from .core.measure import measure_body_metrics
-from .core.manifest_ron import record_to_ron, records_to_ron, ron_tuning
+from ..core.measure import measure_body_metrics
+from ..core.manifest_ron import record_to_ron, records_to_ron, ron_tuning
 
 RGBA = Tuple[int, int, int, int]
 

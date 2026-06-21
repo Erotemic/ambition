@@ -15,7 +15,7 @@ import pytest
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 PySide6 = pytest.importorskip("PySide6")
 
-from ambition_sprite2d_renderer.rigdoc import RigDocument
+from ambition_sprite2d_renderer.authoring.rigdoc import RigDocument
 
 TEMPLATE = (
     Path(__file__).resolve().parent.parent

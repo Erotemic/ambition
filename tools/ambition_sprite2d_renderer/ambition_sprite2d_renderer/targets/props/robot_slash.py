@@ -29,7 +29,7 @@ from typing import List, Tuple
 
 from PIL import Image, ImageDraw, ImageFilter
 
-from ...tackon_sheet import build_sheet
+from ...authoring.tackon_sheet import build_sheet
 
 TARGET_NAME = "robot_slash"
 SHEET_FILES = (

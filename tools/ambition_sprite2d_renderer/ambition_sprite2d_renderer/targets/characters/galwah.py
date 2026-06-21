@@ -1533,7 +1533,7 @@ def render(out_dir: str | Path, **opts) -> list[Path]:
       across every frame.
     * ``aa`` (default 4) — supersample factor for the renderer.
     """
-    from ...tackon_sheet import build_sheet  # local import: heavy deps
+    from ...authoring.tackon_sheet import build_sheet  # local import: heavy deps
 
     out_dir = Path(out_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
@@ -1565,7 +1565,7 @@ def render_canonical(out_dir: str | Path, **opts) -> Path:
     alpha bbox, and saves it. Shares `_build_setup` with `render()`
     so the canonical pose matches what the full sheet would produce.
     """
-    from ...tackon_sheet import write_canonical
+    from ...authoring.tackon_sheet import write_canonical
 
     sheet_rows, render_fn, frame_size = _build_setup(**opts)
     return write_canonical(

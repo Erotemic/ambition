@@ -14,7 +14,7 @@ from typing import List, Optional
 
 from PySide6.QtCore import QObject, Signal
 
-from ..rigdoc import RigDocument, sample_channel_spec
+from ..authoring.rigdoc import RigDocument, sample_channel_spec
 
 MAX_UNDO = 200
 

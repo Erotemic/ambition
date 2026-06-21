@@ -114,8 +114,8 @@ See `walk_cycle_baseline.md` for the practical recipe, the target list, and the 
   section for the practical walkthrough.
 - Generic helpers (drawing primitives, the `build_sheet` pipeline,
   RON emitters) live at the package root —
-  [`tackon_sheet.py`](../ambition_sprite2d_renderer/tackon_sheet.py) and
-  [`common_draw.py`](../ambition_sprite2d_renderer/common_draw.py).
+  [`tackon_sheet.py`](../ambition_sprite2d_renderer/authoring/tackon_sheet.py) and
+  [`common_draw.py`](../ambition_sprite2d_renderer/authoring/common_draw.py).
 - Character-family helpers (shared by several characters in a family,
   e.g. pirates) live under `targets/characters/` with a leading
   underscore so discovery skips them — see `_pirate_common.py`.

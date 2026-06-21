@@ -22,7 +22,7 @@ from typing import Dict, List, Sequence, Tuple
 
 from PIL import Image, ImageDraw
 
-from ...tackon_sheet import build_sheet
+from ...authoring.tackon_sheet import build_sheet
 
 ACTOR_METADATA = {
     "actor": {"character_id": "npc_pirate_heavy", "display_name": "Pirate Heavy"},

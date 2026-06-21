@@ -8,7 +8,7 @@ colored-rectangle placeholder; this surfaces it at publish time."""
 
 from __future__ import annotations
 
-from ambition_sprite2d_renderer.tackon_sheet import diagnose_idle_coverage
+from ambition_sprite2d_renderer.authoring.tackon_sheet import diagnose_idle_coverage
 
 
 def test_idle_row_present_returns_none():

@@ -20,15 +20,15 @@ from typing import Dict, Optional, Tuple
 from PIL import Image, ImageDraw
 from ambition_sprite2d_renderer.core.draw import bbox_from_center as _bbox
 
-from ...common_draw import RESAMPLING, draw_capsule, draw_rotated_rounded_rect
+from ...authoring.common_draw import RESAMPLING, draw_capsule, draw_rotated_rounded_rect
 from .robot25d import BotSpec, Pose, parse_background
-from ...animation_vocab import (
+from ...authoring.animation_vocab import (
     DEFAULT_ADVANCED_TIMINGS,
     DEFAULT_DIRECTIONAL_ATTACK_TIMINGS,
     DEFAULT_EXTENDED_TIMINGS,
     DEFAULT_TRAVERSAL_POLISH_TIMINGS,
 )
-from ...rig import add, clamp, ease_in_out_sine, ease_out_cubic, lerp, smoothstep, vec
+from ...authoring.rig import add, clamp, ease_in_out_sine, ease_out_cubic, lerp, smoothstep, vec
 
 Color = Tuple[int, int, int, int]
 Point = Tuple[float, float]

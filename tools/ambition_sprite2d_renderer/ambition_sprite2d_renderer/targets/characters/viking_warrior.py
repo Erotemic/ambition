@@ -18,7 +18,7 @@ from typing import List, Sequence, Tuple
 
 from PIL import Image, ImageDraw
 
-from ...tackon_sheet import build_sheet
+from ...authoring.tackon_sheet import build_sheet
 
 ACTOR_METADATA = {
     "actor": {"character_id": "npc_viking_warrior", "display_name": "Viking Warrior"},

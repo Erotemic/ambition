@@ -21,7 +21,7 @@ from typing import List, Tuple
 
 from PIL import Image, ImageDraw
 
-from ...tackon_sheet import build_sheet
+from ...authoring.tackon_sheet import build_sheet
 from . import _held_prop_common as hp
 
 RGBA = Tuple[int, int, int, int]

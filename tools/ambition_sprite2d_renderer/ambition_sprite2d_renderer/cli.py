@@ -37,8 +37,8 @@ import sys
 from pathlib import Path
 from typing import List
 
-from .adapters import TARGETS, get_adapter
-from .canonical import (
+from .authoring.adapters import TARGETS, get_adapter
+from .authoring.canonical import (
     draw_canonical_of,
     render_canonical,
     write_canonicals,
@@ -47,9 +47,9 @@ from .canonical import (
 from .console import print_canonical_outputs, print_path, print_paths
 from rich import print as rich_print
 from .config import CharacterJob, load_jobs
-from .faction_lineup import write_faction_lineup
+from .authoring.faction_lineup import write_faction_lineup
 from .debug_hitboxes import render_debug_overlay
-from .sheet import write_spritesheet
+from .authoring.sheet import write_spritesheet
 from .target_registry import (
     CATEGORIES,
     DiscoveryReport,

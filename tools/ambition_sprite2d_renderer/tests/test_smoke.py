@@ -14,9 +14,9 @@ API so the suite is green from a clean checkout.
 
 from pathlib import Path
 
-from ambition_sprite2d_renderer.canonical import render_canonical
+from ambition_sprite2d_renderer.authoring.canonical import render_canonical
 from ambition_sprite2d_renderer.config import CharacterJob
-from ambition_sprite2d_renderer.sheet import write_spritesheet
+from ambition_sprite2d_renderer.authoring.sheet import write_spritesheet
 
 
 # Resolve configs relative to the package, not the cwd.

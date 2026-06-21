@@ -8,8 +8,8 @@ from pathlib import Path
 
 import pytest
 
-from ambition_sprite2d_renderer.rigdoc import RigDocument
-from ambition_sprite2d_renderer.rigdoc_codegen import doc_to_python
+from ambition_sprite2d_renderer.authoring.rigdoc import RigDocument
+from ambition_sprite2d_renderer.authoring.rigdoc_codegen import doc_to_python
 
 TEMPLATE = (
     Path(__file__).resolve().parent.parent
@@ -44,7 +44,7 @@ class TestRenderScale:
         assert img.size == (384, 384)
 
     def test_sheet_export_uses_scaled_frames(self, doc, tmp_path):
-        from ambition_sprite2d_renderer.rigdoc import render_sheet_for_doc
+        from ambition_sprite2d_renderer.authoring.rigdoc import render_sheet_for_doc
 
         doc.frame["render_scale"] = 2
         doc.data["name"] = "scale_test_bot"

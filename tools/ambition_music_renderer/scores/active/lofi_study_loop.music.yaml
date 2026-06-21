@@ -71,10 +71,10 @@ stem_postprocess:
 instruments:
   - {name: felt_piano,    group: piano,      program: acoustic_grand_piano, volume: 70, pan: 56, expression: 78}
   - {name: rhodes,        group: piano,      program: electric_piano_1,     volume: 64, pan: 70, expression: 74}
-  - {name: warm_pad,      group: pad,        program: pad_warm,             volume: 36, pan: 64, expression: 58, modulation: 14}
-  - {name: upright_bass,  group: bass,       program: acoustic_bass,        volume: 78, pan: 50, expression: 86}
-  - {name: vibraphone,    group: glimmer,    program: vibraphone,           volume: 44, pan: 38, expression: 64}
-  - {name: jazz_drums,    group: percussion, is_drum: true,                 volume: 60, pan: 64, expression: 78}
+  - {name: warm_pad,      group: pad,        program: pad_warm,             volume: 50, pan: 64, expression: 72, modulation: 14}
+  - {name: upright_bass,  group: bass,       program: acoustic_bass,        volume: 74, pan: 50, expression: 82}
+  - {name: vibraphone,    group: glimmer,    program: vibraphone,           volume: 58, pan: 38, expression: 72}
+  - {name: jazz_drums,    group: percussion, is_drum: true,                 volume: 62, pan: 64, expression: 78}
 
 motifs:
   - id: piano_line_a
@@ -101,7 +101,7 @@ layer_templates:
     duration_beats: 4
     velocity: 38
     articulation: pad
-    voicing: wide
+    voicing: drop2
     humanize_ms: 10
     humanize_velocity_pct: 4
   rhodes_chords:
@@ -160,9 +160,9 @@ state_map:
     section: lofi_loop
     stems:
       piano: 0.85
-      pad: 0.6
-      bass: 0.8
-      glimmer: 0.45
+      pad: 0.72
+      bass: 0.72
+      glimmer: 0.58
       percussion: 0.55
 
 sections:
@@ -246,7 +246,7 @@ sections:
         starts:
           - [16, 1.0]
           - [30, 0.5]
-        velocity: 38
+        velocity: 44
         articulation: bell
         humanize_ms: 24
         humanize_velocity_pct: 8

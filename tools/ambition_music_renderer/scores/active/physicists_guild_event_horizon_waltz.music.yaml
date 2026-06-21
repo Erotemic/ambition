@@ -69,14 +69,17 @@ layer_templates:
   curved_space_pad:
     kind: pad_chords
     instruments: [spacetime_pad, halo_pad]
-    instrument_octave_offsets: {spacetime_pad: 0, halo_pad: 1}
-    instrument_velocity_offsets: {spacetime_pad: 0, halo_pad: -10}
+    # Keep the halo as color inside the pad instead of a separate octave
+    # above; the bundle flagged curved_space_pad as the source of most
+    # sour-note/dissonance pressure.
+    instrument_octave_offsets: {spacetime_pad: 0, halo_pad: 0}
+    instrument_velocity_offsets: {spacetime_pad: 0, halo_pad: -14}
     octave: 3
     every_bars: 1
-    duration_beats: 11.0
-    velocity: 34
+    duration_beats: 8.0
+    velocity: 30
     articulation: pad
-    voicing: wide
+    voicing: drop2
     humanize_ms: 16
     humanize_velocity_pct: 4
   invariant_bass:

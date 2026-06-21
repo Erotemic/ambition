@@ -1592,7 +1592,7 @@ def write_adaptive_composition_mastering_report(
     good = [r0 for r0 in rows if not r0.get("error")]
     warnings: list[str] = []
     section_post = [str(r0["section"]) for r0 in rows if r0.get("has_section_postprocess")]
-    if mastering_cfg.get("mode") != "global_master_slices":
+    if mastering_cfg.get("mode") != "global_master_slices" and len(section_order) > 1:
         warnings.append(
             "adaptive full-section assets are not configured for global_master_slices; "
             "verify this is intentional before shipping a horizontally crossfaded cue"

@@ -79,11 +79,11 @@ instruments:
   # "more lofi" lever -- Rhodes lead is the genre's signature.
   - {name: rhodes,        group: piano,      program: electric_piano_1,     volume: 78, pan: 60, expression: 84}
   - {name: felt_piano,    group: piano,      program: acoustic_grand_piano, volume: 38, pan: 48, expression: 60}
-  - {name: warm_pad,      group: pad,        program: pad_new_age,          volume: 26, pan: 64, expression: 54, modulation: 8}
+  - {name: warm_pad,      group: pad,        program: pad_new_age,          volume: 44, pan: 64, expression: 68, modulation: 8}
   # Bass dropped to octave 1 (sub feel) on alternating bars; root
   # at octave 2 keeps the line audible over phone speakers.
-  - {name: upright_bass,  group: bass,       program: acoustic_bass,        volume: 80, pan: 50, expression: 84}
-  - {name: vibraphone,    group: glimmer,    program: vibraphone,           volume: 56, pan: 36, expression: 72}
+  - {name: upright_bass,  group: bass,       program: acoustic_bass,        volume: 76, pan: 50, expression: 82}
+  - {name: vibraphone,    group: glimmer,    program: vibraphone,           volume: 64, pan: 36, expression: 76}
   - {name: jazz_drums,    group: percussion, is_drum: true,                 volume: 50, pan: 64, expression: 72}
 
 motifs:
@@ -126,7 +126,7 @@ layer_templates:
     duration_beats: 8       # 2-bar pad swells, slower than before
     velocity: 32
     articulation: pad
-    voicing: wide
+    voicing: drop2
     humanize_ms: 14
     humanize_velocity_pct: 4
   rhodes_chord_bed:
@@ -196,9 +196,9 @@ state_map:
     section: drift_loop
     stems:
       piano: 0.85
-      pad: 0.55
-      bass: 0.75
-      glimmer: 0.50
+      pad: 0.70
+      bass: 0.70
+      glimmer: 0.60
       percussion: 0.45
 
 sections:

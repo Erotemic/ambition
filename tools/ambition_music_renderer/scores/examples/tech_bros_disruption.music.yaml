@@ -200,11 +200,14 @@ layer_templates:
   synth_pad:
     kind: pad_chords
     instruments: [pad_warm, pad_poly]
-    instrument_octave_offsets: {pad_warm: 0, pad_poly: 0}
+    # Keep the two synth pads lush but avoid the clipped G9 upper partials
+    # highlighted in the sour-note audit. pad_poly supplies body an octave
+    # below instead of doubling the bright top.
+    instrument_octave_offsets: {pad_warm: 0, pad_poly: -1}
     instrument_velocity_offsets: {pad_warm: 0, pad_poly: -8}
     octave: 3
     duration_beats: 4.0
-    velocity: 70
+    velocity: 66
     articulation: pad
     voicing: open
     humanize_ms: 4
@@ -271,7 +274,7 @@ layer_templates:
     instrument_octave_offsets: {synth_brass_a: 0, synth_brass_b: -1}
     octave: 3
     duration_beats: 4.0
-    velocity: 76
+    velocity: 70
     articulation: legato
     voicing: closed
     humanize_ms: 3
@@ -543,8 +546,8 @@ sections:
       - {template: lead_square_voice, starts: [[2, 0.0], [6, 0.0], [10, 0.0], [14, 0.0]], velocity: 86}
       - {template: arp_16th, density: 1.0, velocity: 84}
       - {template: sub_bass_voice, repeats: 16, velocity: 92}
-      - {template: synth_pad, velocity: 76}
-      - {template: synth_brass_pad, velocity: 78}
+      - {template: synth_pad, velocity: 70}
+      - {template: synth_brass_pad, velocity: 70}
       - {template: synth_brass_stab, hits: [[0, 0.0], [4, 0.0], [8, 0.0], [12, 0.0]], velocity: 90}
       - drums_club
       - {template: bell_sparkle, hits: [[0, 0.0], [4, 0.0], [8, 0.0], [12, 0.0]], velocity: 76}

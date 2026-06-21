@@ -183,10 +183,12 @@ layer_templates:
     instruments: [choir_stadium, warm_pad]
     every_bars: 1
     duration_beats: 4.0
-    octave: 4
-    velocity: 52
+    # Keep this as arena glue, not a whistle-tone pad. The old octave/open
+    # voicing produced clipped G9 sour-note candidates in the bridge/chorus.
+    octave: 3
+    velocity: 46
     articulation: pad
-    voicing: open
+    voicing: drop2
     humanize_ms: 12
 
   hook_voice:

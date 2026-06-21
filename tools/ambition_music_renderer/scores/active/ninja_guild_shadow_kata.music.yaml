@@ -47,14 +47,14 @@ stem_postprocess:
   normalize: false
   target_peak_db: -3.0
 instruments:
-  - {name: koto, group: koto, program: koto, volume: 62, pan: 72, expression: 78}
-  - {name: shamisen, group: pluck, program: shamisen, volume: 58, pan: 40, expression: 76}
-  - {name: shakuhachi, group: winds, program: shakuhachi, volume: 58, pan: 80, expression: 78, modulation: 10}
-  - {name: noh_flute_shadow, group: winds, program: piccolo, volume: 28, pan: 58, expression: 52, modulation: 6}
-  - {name: low_bowed_shadow, group: strings, program: tremolo_strings, volume: 34, pan: 46, expression: 54, modulation: 12}
-  - {name: contrabass, group: bass, program: contrabass, volume: 40, pan: 36, expression: 60}
-  - {name: taiko_tuned, group: percussion, program: taiko_drum, volume: 52, pan: 62, expression: 78}
-  - {name: shadow_kit, group: percussion, is_drum: true, volume: 42, pan: 64, expression: 76}
+  - {name: koto, group: koto, program: koto, volume: 76, pan: 72, expression: 84}
+  - {name: shamisen, group: pluck, program: shamisen, volume: 72, pan: 40, expression: 82}
+  - {name: shakuhachi, group: winds, program: shakuhachi, volume: 72, pan: 80, expression: 84, modulation: 10}
+  - {name: noh_flute_shadow, group: winds, program: piccolo, volume: 42, pan: 58, expression: 64, modulation: 6}
+  - {name: low_bowed_shadow, group: strings, program: tremolo_strings, volume: 48, pan: 46, expression: 66, modulation: 12}
+  - {name: contrabass, group: bass, program: contrabass, volume: 56, pan: 36, expression: 70}
+  - {name: taiko_tuned, group: percussion, program: taiko_drum, volume: 64, pan: 62, expression: 82}
+  - {name: shadow_kit, group: percussion, is_drum: true, volume: 54, pan: 64, expression: 80}
 motifs:
   - id: in_sen_kata
     root: D5

@@ -369,6 +369,25 @@ def audit_spec(
         }
 
     for ev in events:
+        group_name = str(ev.get("group") or ev.get("instrument") or "").lower()
+        layer_name = str(ev.get("layer") or "").lower()
+        layer_kind_name = str(ev.get("layer_kind") or "").lower()
+        instrument_name = str(ev.get("instrument") or "").lower()
+        # Drum/percussion MIDI notes are control symbols for kit pieces, not
+        # pitched harmony. Treating kick/snare/hat note numbers as melody
+        # produced hundreds of false sour-note candidates in otherwise useful
+        # bundle reports. Dissonance and amplitude reports still cover drum
+        # loudness/clutter; this audit is intentionally pitch-harmony only.
+        if (
+            layer_kind_name == "drums"
+            or group_name in {"drums", "percussion"}
+            or "drum" in group_name
+            or "percussion" in group_name
+            or "kit" in instrument_name
+            or "drum" in layer_name
+        ):
+            continue
+
         pitch = int(ev.get("pitch", 60))
         pc = pitch % 12
         contexts = _sample_contexts(spec, ev, beats_per_bar, section_keys, bucket_beats)
@@ -376,6 +395,7 @@ def audit_spec(
             continue
         out_chord = 0
         out_key = 0
+        out_key_and_chord = 0
         safe_extension = 0
         pressures: list[float] = []
         intervals: list[str] = []
@@ -386,10 +406,17 @@ def audit_spec(
             key_names[str(ctx["key_name"])] += 1
             chord_pcs = set(ctx.get("chord_pcs") or set())
             key_pcs = set(ctx.get("key_pcs") or set())
-            if chord_pcs and pc not in chord_pcs:
+            in_chord = bool(chord_pcs and pc in chord_pcs)
+            if chord_pcs and not in_chord:
                 out_chord += 1
             if key_pcs and pc not in key_pcs:
                 out_key += 1
+                # Secondary dominants, diminished chords, and altered chords
+                # often contain chromatic chord tones. Those are harmonic
+                # intent, not sour notes. Only score out-of-key pressure when
+                # the pitch is also outside the current chord.
+                if not in_chord:
+                    out_key_and_chord += 1
             root_pc = ctx.get("chord_root_pc")
             if key_pcs and pc in key_pcs and root_pc is not None:
                 # Diatonic 9ths, 4ths/sus notes, 6ths, and b7ths are common
@@ -404,6 +431,7 @@ def audit_spec(
                 intervals.append(iname)
         out_chord_frac = out_chord / len(contexts)
         out_key_frac = out_key / len(contexts)
+        out_key_and_chord_frac = out_key_and_chord / len(contexts)
         safe_extension_frac = safe_extension / len(contexts)
         worst_pressure = max(pressures) if pressures else 0.0
         if out_chord_frac <= 0.0 and out_key_frac <= 0.0 and worst_pressure < 0.5:
@@ -424,7 +452,7 @@ def audit_spec(
         # tones. The pressure term catches b2/maj7/tritone color against the
         # current chord even when the section key is ambiguous.
         extension_discount = 1.0 - 0.55 * safe_extension_frac
-        base = (0.65 * out_chord_frac + 0.90 * worst_pressure) * extension_discount + 0.80 * out_key_frac
+        base = (0.65 * out_chord_frac + 0.90 * worst_pressure) * extension_discount + 0.80 * out_key_and_chord_frac
         score = base * duration_weight * velocity_weight * state_weight * support_weight * register_weight
         if score < min_score:
             continue
@@ -457,6 +485,7 @@ def audit_spec(
             "default_state_weight": _round3(default_weight),
             "out_of_chord_fraction": _round3(out_chord_frac),
             "out_of_key_fraction": _round3(out_key_frac),
+            "out_of_key_and_chord_fraction": _round3(out_key_and_chord_frac),
             "safe_extension_fraction": _round3(safe_extension_frac),
             "worst_chord_interval": worst_interval,
             "source_hint": source_hint,
@@ -517,6 +546,7 @@ def _write_tsv(path: Path, rows: list[dict[str, Any]]) -> None:
         "velocity",
         "out_of_chord_fraction",
         "out_of_key_fraction",
+        "out_of_key_and_chord_fraction",
         "worst_chord_interval",
         "source_hint",
     ]

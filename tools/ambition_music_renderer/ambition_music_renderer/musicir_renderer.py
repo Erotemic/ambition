@@ -314,6 +314,21 @@ def clamp(v: float, lo: float, hi: float) -> float:
     return min(max(v, lo), hi)
 
 
+def fit_midi_pitch(num: int | float) -> int:
+    """Fold an integer pitch into the valid MIDI range by octaves.
+
+    Hard-clamping high generated voicings to 127 creates artificial G9 notes
+    that are both musically wrong and extremely obvious in sour-note audits.
+    Octave folding preserves pitch class while keeping generated pads playable.
+    """
+    p = int(round(float(num)))
+    while p > 127:
+        p -= 12
+    while p < 0:
+        p += 12
+    return int(clamp(p, 0, 127))
+
+
 def chord_intervals(chord_symbol: str) -> tuple[str, list[int], str | None]:
     raw = chord_symbol.strip()
     if "/" in raw:
@@ -471,6 +486,7 @@ def add_note(
         raise KeyError(f"unknown instrument {inst_name!r}")
     inst = ctx.instruments[inst_name]
     pitch_num = note_to_midi(pitch) if isinstance(pitch, str) else int(pitch)
+    pitch_num = fit_midi_pitch(pitch_num)
     start_beat = ctx.bar_to_beat(bar, beat)
     start = ctx.beat_to_time(start_beat)
     if humanize_ms:
@@ -596,7 +612,7 @@ def _apply_voicing_constraints(
     # Final guard: clamp every voice into the valid MIDI range and drop
     # exact duplicates so the constraint stages can't produce out-of-range
     # pitches that would crash the MIDI writer.
-    out = [int(clamp(p, 0, 127)) for p in out]
+    out = [fit_midi_pitch(p) for p in out]
     seen: set[int] = set()
     deduped: list[int] = []
     for p in out:

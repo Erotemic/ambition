@@ -199,7 +199,7 @@ class Scene:
         self.meta = data.get("meta", {})
         self.render_cfg = data.get("render", {})
         self.animations = data.get(
-            "animations", {"hover": {"frames": 1, "duration_ms": 100}}
+            "animations", {"rest": {"frames": 1, "duration_ms": 100}}
         )
 
     @classmethod
@@ -734,7 +734,9 @@ class Renderer:
                 0.0
                 if anim_name == "death"
                 else {
-                    "hover": 1.7,
+                    # "rest" is the boss's hovering idle pose (its gentle
+                    # hover-bob); attack rows spin faster.
+                    "rest": 1.7,
                     "thrust": 2.8,
                     "bite": 1.9,
                     "slash": 2.2,
@@ -743,7 +745,8 @@ class Renderer:
             )
             phase_deg = base_phase + phase * 360 * spin
             strobe = 0.5 + 0.5 * math.sin(
-                math.tau * phase * (3.0 if anim_name != "hover" else 2.0)
+                # The idle "rest" pose bobs slower (2.0) than the active rows (3.0).
+                math.tau * phase * (3.0 if anim_name != "rest" else 2.0)
                 + math.radians(base_phase)
             )
             blur_alpha = int(prim.get("blur_alpha", 48))
@@ -866,7 +869,7 @@ class Renderer:
         self.update_bounds(node["id"], pts_all)
         return pts_all
 
-    def render(self, anim_name="hover", frame_index=0, nframes=1, debug=False):
+    def render(self, anim_name="rest", frame_index=0, nframes=1, debug=False):
         W, H = self.frame_size
         img = Image.new("RGBA", (W * self.aa, H * self.aa), (0, 0, 0, 0))
         draw = ImageDraw.Draw(img, "RGBA")
@@ -942,7 +945,7 @@ def alpha_metrics(img):
     }
 
 
-def render_work(scene, anim="hover", frame=0, nframes=1, debug=False):
+def render_work(scene, anim="rest", frame=0, nframes=1, debug=False):
     work = tuple(
         scene.render_cfg.get("work_size", scene.meta.get("work_size", [900, 640]))
     )
@@ -1009,7 +1012,7 @@ def build_sheet(scene, frame_size=(256, 256), labeled=False):
 
 
 def make_parts_debug(scene, bg_color=None):
-    entries = [("final", crop_alpha(render_work(scene, "hover", 1, 6, debug=True), 10))]
+    entries = [("final", crop_alpha(render_work(scene, "rest", 1, 6, debug=True), 10))]
 
     def walk(n):
         yield n
@@ -1028,7 +1031,7 @@ def make_parts_debug(scene, bg_color=None):
             "scale_x": 1,
             "scale_y": 1,
         }
-        simg = render_work(Scene(sub), "hover", 1, 6)
+        simg = render_work(Scene(sub), "rest", 1, 6)
         entries.append((node["id"], crop_alpha(simg, 8)))
     cols = 3
     cell_w = 260
@@ -1085,18 +1088,6 @@ def _union_alpha_bbox(frames):
     return {"x": int(x0), "y": int(y0), "w": int(x1 - x0), "h": int(y1 - y0)}
 
 
-# The runtime animation vocabulary (`character_sprites::anim::from_name`)
-# names a boss's resting pose "rest" → `CharacterAnim::Idle`, "so the
-# catalog can pull every character in." This generator's idle pose is
-# internally "hover" (its gentle hover-bob motion), but in the runtime
-# vocabulary "hover" means the *airborne* Fly pose (the robot's jump
-# apex, etc.) — so the catalog would find no Idle row and render the
-# boss as a placeholder. Translate the render-side idle label to the
-# runtime "rest" convention when emitting the RON. Faithful to the same
-# frames; only the row label is normalized.
-_RUNTIME_ANIM_NAMES = {"hover": "rest"}
-
-
 def _runtime_sheet_record(manifest):
     """Build the runtime ``SheetRecord`` dict the game's `SheetRegistry`
     deserializes, from this generator's render ``manifest``.
@@ -1133,10 +1124,9 @@ def _runtime_sheet_record(manifest):
             for rc in r.get("rects", [])
         ]
         duration_ms = int(r.get("duration_ms", 100))
-        anim = _RUNTIME_ANIM_NAMES.get(r["animation"], r["animation"])
         norm_rows.append(
             {
-                "animation": anim,
+                "animation": r["animation"],
                 "row_index": int(r.get("row_index", 0)),
                 "frame_count": int(r.get("frame_count", r.get("frames", len(rects)))),
                 "duration_ms": duration_ms,
@@ -1168,7 +1158,7 @@ def render_outputs(
     outputs = []
     bg_color = scene.background_rgba()
     with Timer("canonical renders"):
-        raw = render_work(scene, "hover", 1, 6)
+        raw = render_work(scene, "rest", 1, 6)
         can = fit_on_canvas(
             raw,
             canonical_size,

@@ -42,7 +42,12 @@ render:
   global_outline: false
   editor_outline_boxes: false
 animations:
-  hover:
+  # The boss's idle/resting pose IS a gentle hover-bob. Named "rest" (not
+  # "hover") to match the boss-encounter idle convention: MOCKINGBIRD_SHEET
+  # row 0 is BossAnim::Rest, and the runtime maps "rest" -> CharacterAnim::Idle
+  # (while "hover" means the airborne Fly pose), so the Hall-of-Characters
+  # catalog resolves this sheet instead of showing a placeholder.
+  rest:
     frames: 6
     duration_ms: 110
   thrust:

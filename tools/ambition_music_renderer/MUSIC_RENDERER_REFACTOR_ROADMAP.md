@@ -249,6 +249,7 @@ Do this only after bundle/provenance tests are in place.
 - [x] Generate an LLM-friendly `spectral_fingerprint.json/tsv` summary from scratch stems.
 - [x] Generate `state_mix_report.json/tsv/txt` so similar adaptive states are explicit.
 - [x] Generate `dissonance_hotspots.json/tsv/txt` from expanded note events.
+- [x] Add `dissonance_hotspots.md` plus timeline / layer-pair plots for human review.
 - [x] Write `bundle_manifest.json` and `rerun_bundle.sh`.
 - [x] Zip bundles on request with `--zip`.
 - [x] Add `--zip-report` bundles that exclude OGG/WAV/NPY/MIDI binaries for chat/agent upload while leaving local audio generated.

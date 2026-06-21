@@ -89,6 +89,8 @@ buffers can be large.
 Useful report files in a bundle:
 
 - `reports/dissonance_hotspots_summary.txt` — where note choices/layers clash.
+- `reports/dissonance_hotspots.md` — same information in a scan-friendly table.
+- `plots/dissonance_timeline.<fmt>` / `plots/dissonance_layer_pairs.<fmt>` — visual hotspot aids.
 - `reports/state_mix_report_summary.txt` — why adaptive previews sound similar
   or different and whether states only change loudness.
 - `reports/spectral_fingerprint_summary.txt` — which stem groups dominate broad

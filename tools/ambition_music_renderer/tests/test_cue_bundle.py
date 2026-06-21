@@ -371,6 +371,13 @@ def test_dissonance_audit_identifies_close_layer_clash():
     assert top["worst_pairs"][0]["interval_class"] == 1
     assert top["worst_pairs"][0]["layers"] == ["a_note", "b_note"]
     with tempfile.TemporaryDirectory() as td:
-        paths = write_dissonance_reports(payload, Path(td))
+        root = Path(td)
+        paths = write_dissonance_reports(payload, root / "reports", plots_dir=root / "plots", plot_format="jpg")
         assert Path(paths["summary"]).exists()
+        assert Path(paths["markdown"]).exists()
         assert "minor second" in Path(paths["summary"]).read_text()
+        assert "Top Hotspots" in Path(paths["markdown"]).read_text()
+        if "timeline_plot" in paths:
+            assert Path(paths["timeline_plot"]).exists()
+        if "layer_pair_plot" in paths:
+            assert Path(paths["layer_pair_plot"]).exists()

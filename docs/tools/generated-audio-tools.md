@@ -18,12 +18,12 @@ python -m ambition_music_renderer cue bundle <cue_id> --backend pretty-midi --ru
 python -m pytest tests
 ```
 
-The `cue bundle` subcommand is the preferred one-cue handoff path: it runs the renderer with retained debug stems, executes useful diagnostics, writes manifest-scoped reports/plots, prints clickable output paths, and optionally writes a full zip or compact report zip. Use `--zip-report` for small chat/agent uploads: it excludes OGG/WAV/NPY/MIDI binaries while keeping YAML, manifests, numeric reports, LLM-friendly spectral fingerprints, dissonance hotspot reports, state mix reports, and JPEG spectrograms. Use `--runtime-stem-gain-mode shared` when auditing layered dynamic music; shared gain is capped so the exporter does not hide quiet-source problems by amplifying noise floors. Generated bundles and runtime audio remain ignored by git.
+The `cue bundle` subcommand is the preferred one-cue handoff path: it runs the renderer with retained debug stems, executes useful diagnostics, writes manifest-scoped reports/plots, prints clickable output paths, and optionally writes a full zip or compact report zip. Use `--zip-report` for small chat/agent uploads: it excludes OGG/WAV/NPY/MIDI binaries while keeping YAML, manifests, numeric reports, LLM-friendly spectral fingerprints, dissonance hotspot reports, state mix reports, and JPEG spectrograms. When plotting is available it also writes `dissonance_hotspots.md`, `plots/dissonance_timeline.<fmt>`, and `plots/dissonance_layer_pairs.<fmt>`. Use `--runtime-stem-gain-mode shared` when auditing layered dynamic music; shared gain is capped so the exporter does not hide quiet-source problems by amplifying noise floors. Generated bundles and runtime audio remain ignored by git.
 
 Standalone report helpers are also useful while editing:
 
 ```bash
-python dissonance_audit.py scores/active/<cue_id>.music.yaml --outdir /tmp/<cue>_dissonance
+python dissonance_audit.py scores/active/<cue_id>.music.yaml --outdir /tmp/<cue>_dissonance --plots /tmp/<cue>_dissonance/plots
 python spectral_localize.py tools/ambition_music_renderer/generated/<cue_id> --window 0 -1
 python level_report.py --check
 ```

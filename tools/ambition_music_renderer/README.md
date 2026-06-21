@@ -39,7 +39,7 @@ Use the package CLI and scripts in this directory for current music-renderer wor
 - `scores/archive/` - historical cues kept for reference.
 - `render_first_goblin_transition_lab.sh` - local transition-lab helper.
 - `install_first_goblin_tune_v2.py` - installer for the first-goblin tune asset path.
-- `audit_cue_balance.py`, `transition_audit.py`, `level_report.py`, `spectral_compare.py`, `spectral_localize.py`, `dissonance_audit.py` - analysis helpers (`level_report.py` is the diff-friendly cross-catalog loudness/clipping report; `dissonance_audit.py` finds score-level note clashes before audio is rendered).
+- `audit_cue_balance.py`, `transition_audit.py`, `level_report.py`, `spectral_compare.py`, `spectral_localize.py`, `dissonance_audit.py` - analysis helpers (`level_report.py` is the diff-friendly cross-catalog loudness/clipping report; `dissonance_audit.py` finds score-level note clashes before audio is rendered and can emit human-readable markdown + plots).
 - `goals.md` - design/planning notes for renderer direction.
 - `MUSIC_RENDERER_REFACTOR_ROADMAP.md` - durable roadmap/checklist for the renderer cleanup.
 
@@ -93,6 +93,10 @@ about than raw audio:
 - `dissonance_hotspots_summary.txt/json/tsv` identifies bars/beats where
   overlapping note events create strong seconds, sevenths, tritones, or close
   register clusters, attributed back to layers/groups/instruments.
+- `dissonance_hotspots.md` is the same hotspot information in a scan-friendly
+  table for humans.
+- `plots/dissonance_timeline.<fmt>` and `plots/dissonance_layer_pairs.<fmt>`
+  visualize when clashes occur and which layer pairs are responsible.
 - `state_mix_report_summary.txt/json/tsv` explains why adaptive previews may
   sound similar: `runtime_*` states are true weighted sums, while `audition_*`
   states are normalized for review and may collapse loudness differences.

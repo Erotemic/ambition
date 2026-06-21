@@ -1037,7 +1037,13 @@ def create_bundle(
         write_spectral_fingerprint(analysis_root, manifest, reports_dir)
         write_state_mix_report(spec, manifest, reports_dir)
         dissonance_payload = audit_dissonance_file(score_path)
-        write_dissonance_reports(dissonance_payload, reports_dir)
+        write_dissonance_reports(
+            dissonance_payload,
+            reports_dir,
+            plots_dir=plots_dir,
+            plot_format=plot_format,
+            jpeg_quality=jpeg_quality,
+        )
         mix_diag_path, mix_warnings = summarize_mix_diagnostics(manifest, reports_dir)
         dissonance_warnings = list(dissonance_payload.get("warnings") or [])
         if not skip_spectrograms:

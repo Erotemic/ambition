@@ -57,22 +57,23 @@ const METEOR_HALF: ae::Vec2 = ae::Vec2::new(9.0, 9.0);
 /// unit-testable without the projectile pool.
 fn meteor_strike_origins(
     player_pos: ae::Vec2,
-    aim: ae::Vec2,
+    aim_local: ae::Vec2,
     facing: f32,
+    gravity_dir: ae::Vec2,
 ) -> [ae::Vec2; METEOR_COUNT] {
-    let dir_x = if aim.x.abs() > 0.001 {
-        aim.x.signum()
+    let frame = ae::AccelerationFrame::new(gravity_dir);
+    let dir_x = if aim_local.x.abs() > 0.001 {
+        aim_local.x.signum()
     } else {
         facing.signum()
     };
-    let zone_x = player_pos.x + dir_x * METEOR_RANGE;
-    // Engine y grows downward, so "above" is a *smaller* y.
-    let spawn_y = player_pos.y - METEOR_DROP_HEIGHT;
+    let zone = player_pos + frame.to_world(ae::Vec2::new(dir_x * METEOR_RANGE, 0.0));
+    let spawn_center = zone + frame.to_world(ae::Vec2::new(0.0, -METEOR_DROP_HEIGHT));
     let mut origins = [ae::Vec2::ZERO; METEOR_COUNT];
     for (i, slot) in origins.iter_mut().enumerate() {
-        // Spread evenly across [-0.5, 0.5] * SPREAD.
+        // Spread evenly across [-0.5, 0.5] * SPREAD along local side.
         let frac = (i as f32) / ((METEOR_COUNT - 1) as f32) - 0.5;
-        *slot = ae::Vec2::new(zone_x + frac * METEOR_SPREAD, spawn_y);
+        *slot = spawn_center + frame.to_world(ae::Vec2::new(frac * METEOR_SPREAD, 0.0));
     }
     origins
 }
@@ -82,6 +83,8 @@ fn meteor_strike_origins(
 /// + Attack` drops the item (the id is `UseSystem`).
 pub fn fire_meteor_system(
     control: Res<ControlFrame>,
+    gravity: crate::physics::GravityCtx,
+    user_settings: Option<Res<crate::persistence::settings::UserSettings>>,
     mut players: Query<
         (&BodyKinematics, &HeldItem, &mut PlayerMana),
         (With<PlayerEntity>, With<PrimaryPlayer>),
@@ -101,8 +104,13 @@ pub fn fire_meteor_system(
     if !mana.meter.try_spend(METEOR_MANA_COST) {
         return;
     }
-    let aim = crate::items::pickup::held_shot_aim(&control, kin.facing);
-    for origin in meteor_strike_origins(kin.pos, aim, kin.facing) {
+    let gravity_dir = gravity.dir_at(kin.pos);
+    let input_mode = user_settings
+        .as_deref()
+        .map_or(ae::InputFrameMode::Hybrid, |s| s.gameplay.input_frame_mode);
+    let frame = ae::AccelerationFrame::new(gravity_dir);
+    let aim = crate::items::pickup::held_shot_aim_local(&control, kin.facing, frame, input_mode);
+    for origin in meteor_strike_origins(kin.pos, aim, kin.facing, gravity_dir) {
         effects.write(crate::effects::EffectRequest {
             // Projectiles are self-describing (owner_id is on the shot); the
             // EffectRequest owner is unused by the projectile executor.
@@ -111,8 +119,8 @@ pub fn fire_meteor_system(
                 faction: ProjectileFaction::Player,
                 shots: vec![EnemyProjectileSpawn {
                     origin,
-                    // Straight down (engine y grows downward); gravity accelerates it.
-                    dir: ae::Vec2::new(0.0, 1.0),
+                    // Straight toward local feet/down; gravity accelerates it in the same frame.
+                    dir: gravity_dir,
                     speed: METEOR_SPEED,
                     damage: METEOR_DAMAGE,
                     max_lifetime: METEOR_LIFETIME,
@@ -219,7 +227,7 @@ mod tests {
     #[test]
     fn meteors_spawn_above_the_player_and_spread_horizontally() {
         let player_pos = ae::Vec2::new(100.0, 100.0);
-        let origins = meteor_strike_origins(player_pos, ae::Vec2::new(1.0, 0.0), 1.0);
+        let origins = meteor_strike_origins(player_pos, ae::Vec2::new(1.0, 0.0), 1.0, ae::Vec2::new(0.0, 1.0));
         // All spawn above the player (smaller y, engine y-down).
         assert!(
             origins.iter().all(|o| o.y < player_pos.y),
@@ -241,9 +249,30 @@ mod tests {
     }
 
     #[test]
+    fn meteor_origins_are_frame_equivalent() {
+        let player_pos = ae::Vec2::new(100.0, 100.0);
+        let local_aim = ae::Vec2::new(1.0, 0.0);
+        let down = meteor_strike_origins(player_pos, local_aim, 1.0, ae::Vec2::new(0.0, 1.0));
+        for gravity_dir in [
+            ae::Vec2::new(1.0, 0.0),
+            ae::Vec2::new(0.0, -1.0),
+            ae::Vec2::new(-1.0, 0.0),
+        ] {
+            let frame = ae::AccelerationFrame::new(gravity_dir);
+            let rotated = meteor_strike_origins(player_pos, local_aim, 1.0, gravity_dir);
+            for (reference, actual) in down.iter().zip(rotated.iter()) {
+                let expected_local = ae::AccelerationFrame::new(ae::Vec2::new(0.0, 1.0))
+                    .to_local(*reference - player_pos);
+                let actual_local = frame.to_local(*actual - player_pos);
+                assert!((expected_local - actual_local).length() < 1e-3);
+            }
+        }
+    }
+
+    #[test]
     fn meteor_aims_with_the_left_stick_facing_on_a_null_aim() {
         // Aiming left (negative facing, no directional hold) puts the zone to the left.
-        let left = meteor_strike_origins(ae::Vec2::new(100.0, 100.0), ae::Vec2::ZERO, -1.0);
+        let left = meteor_strike_origins(ae::Vec2::new(100.0, 100.0), ae::Vec2::ZERO, -1.0, ae::Vec2::new(0.0, 1.0));
         let mean_x = left.iter().map(|o| o.x).sum::<f32>() / METEOR_COUNT as f32;
         assert!(
             mean_x < 100.0,

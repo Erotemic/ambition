@@ -40,6 +40,8 @@ const VOLLEY_HALF: ae::Vec2 = ae::Vec2::new(8.0, 8.0);
 /// (the id is excluded from throw-on-plain-Attack in `throw_held_item_system`).
 pub fn fire_volley_system(
     control: Res<ControlFrame>,
+    gravity: crate::physics::GravityCtx,
+    user_settings: Option<Res<crate::persistence::settings::UserSettings>>,
     mut players: Query<
         (&BodyKinematics, &HeldItem, &mut PlayerMana),
         (With<PlayerEntity>, With<PrimaryPlayer>),
@@ -60,7 +62,13 @@ pub fn fire_volley_system(
     if !mana.meter.try_spend(VOLLEY_MANA_COST) {
         return;
     }
-    let aim = crate::items::pickup::held_shot_aim(&control, kin.facing);
+    let gravity_dir = gravity.dir_at(kin.pos);
+    let input_mode = user_settings
+        .as_deref()
+        .map_or(ae::InputFrameMode::Hybrid, |s| s.gameplay.input_frame_mode);
+    let frame = ae::AccelerationFrame::new(gravity_dir);
+    let aim_local = crate::items::pickup::held_shot_aim_local(&control, kin.facing, frame, input_mode);
+    let aim = frame.to_world(aim_local).normalize_or_zero();
     if aim == ae::Vec2::ZERO {
         return;
     }

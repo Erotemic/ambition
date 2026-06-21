@@ -40,6 +40,7 @@ pub enum InputFrameMode {
     Hybrid,
 }
 
+
 /// Raw digital direction edges in the input/screen frame.
 ///
 /// These are intentionally separate from the analog axis: an axis can be held
@@ -55,12 +56,7 @@ pub struct RawDirectionEdges {
 
 impl RawDirectionEdges {
     pub const fn new(left: bool, right: bool, up: bool, down: bool) -> Self {
-        Self {
-            left,
-            right,
-            up,
-            down,
-        }
+        Self { left, right, up, down }
     }
 
     fn pressed_for_raw_axis(self, raw_axis: Vec2) -> bool {
@@ -145,6 +141,27 @@ pub struct AccelerationFrame {
     pub side: Vec2,
 }
 
+/// Declares the frame a gameplay quantity is authored or interpreted in.
+///
+/// This is intentionally a code-level contract, not content metadata. It lets
+/// tests and call sites distinguish body-local verbs from screen/HUD input and
+/// true world/environment geometry without inventing authored floors, walls, or
+/// other surface labels.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub enum GameplayFramePolicy {
+    /// Local to the controlled body: `x` is side/right and `y` is toward feet.
+    ControlledBodyLocal,
+    /// Relative to the current acceleration frame, usually equivalent to
+    /// controlled-body-local for movement/contact mechanics.
+    AccelerationFrame,
+    /// Fixed world/environment space. Use for room geometry, scripted world
+    /// hazards, and other effects that deliberately do not rotate with a body.
+    WorldSpace,
+    /// Raw display/input space. This should live at the input seam and be
+    /// converted before gameplay resolution.
+    ScreenSpace,
+}
+
 impl AccelerationFrame {
     /// Build the frame from the net "down"-defining acceleration (gravity is the
     /// usual source). The direction is normalized but NOT cardinal-snapped, so an
@@ -158,6 +175,7 @@ impl AccelerationFrame {
             side: Vec2::new(down.y, -down.x),
         }
     }
+
 
     /// Build the frame from the nearest cardinal down direction to an arbitrary
     /// acceleration vector.
@@ -258,15 +276,11 @@ impl AccelerationFrame {
         }
     }
 
+
     /// Resolve a raw input/screen-frame stick into the controlled body's local
     /// frame and keep both representations together for consumers that need to
     /// be explicit about which frame they are using.
-    pub fn resolve_control(
-        self,
-        mode: InputFrameMode,
-        axis_x: f32,
-        axis_y: f32,
-    ) -> ResolvedControlFrame {
+    pub fn resolve_control(self, mode: InputFrameMode, axis_x: f32, axis_y: f32) -> ResolvedControlFrame {
         ResolvedControlFrame {
             raw_axis: Vec2::new(axis_x, axis_y),
             local_axis: self.resolve_input(mode, axis_x, axis_y),
@@ -306,6 +320,12 @@ impl AccelerationFrame {
     /// feet) into world coordinates. Identity under normal gravity.
     pub fn to_world(self, player: Vec2) -> Vec2 {
         self.side * player.x + self.down * player.y
+    }
+
+    /// WORLD → LOCAL BODY. Project a world vector into this acceleration frame:
+    /// `x` is side/right, `y` is toward feet.
+    pub fn to_local(self, world: Vec2) -> Vec2 {
+        Vec2::new(world.dot(self.side), world.dot(self.down))
     }
 
     /// LOCAL BODY → WORLD for an axis-aligned half-extent. Returns the world-space
@@ -433,13 +453,7 @@ mod tests {
         // `control_frame(Hybrid).side` by `axis_x`. Old descend: `descend(axis_y)`.
         for (name, down) in CARDINALS {
             let f = AccelerationFrame::new(down);
-            for &(ax, ay) in &[
-                (1.0, 0.0),
-                (-0.4, 0.0),
-                (0.0, 0.7),
-                (0.0, -1.0),
-                (0.6, -0.3),
-            ] {
+            for &(ax, ay) in &[(1.0, 0.0), (-0.4, 0.0), (0.0, 0.7), (0.0, -1.0), (0.6, -0.3)] {
                 let r = f.resolve_input(InputFrameMode::Hybrid, ax, ay);
                 // Run: world velocity direction must match the legacy basis * axis_x.
                 let legacy_run = f.control_frame(InputFrameMode::Hybrid).side * ax;
@@ -464,13 +478,7 @@ mod tests {
         // gravity (to_world ∘ resolve_input == identity on the screen vector).
         for (name, down) in CARDINALS {
             let f = AccelerationFrame::new(down);
-            for &(ax, ay) in &[
-                (1.0, 0.0),
-                (0.0, 1.0),
-                (-1.0, 0.0),
-                (0.0, -1.0),
-                (0.5, -0.5),
-            ] {
+            for &(ax, ay) in &[(1.0, 0.0), (0.0, 1.0), (-1.0, 0.0), (0.0, -1.0), (0.5, -0.5)] {
                 let world = f.to_world(f.resolve_input(InputFrameMode::Screen, ax, ay));
                 assert!(
                     (world - Vec2::new(ax, ay)).length() < 1e-6,
@@ -486,51 +494,20 @@ mod tests {
         // screen-right): run = +side (screen-up), descend = +down (screen-right).
         let right = AccelerationFrame::new(Vec2::new(1.0, 0.0));
         let r = |ax, ay| right.resolve_input(InputFrameMode::Screen, ax, ay);
-        assert_eq!(
-            r(1.0, 0.0),
-            Vec2::new(0.0, 1.0),
-            "input-right -> player-down"
-        );
-        assert_eq!(
-            r(0.0, -1.0),
-            Vec2::new(1.0, 0.0),
-            "input-up -> player-right"
-        );
-        assert_eq!(
-            r(-1.0, 0.0),
-            Vec2::new(0.0, -1.0),
-            "input-left -> player-up"
-        );
-        assert_eq!(
-            r(0.0, 1.0),
-            Vec2::new(-1.0, 0.0),
-            "input-down -> player-left"
-        );
+        assert_eq!(r(1.0, 0.0), Vec2::new(0.0, 1.0), "input-right -> player-down");
+        assert_eq!(r(0.0, -1.0), Vec2::new(1.0, 0.0), "input-up -> player-right");
+        assert_eq!(r(-1.0, 0.0), Vec2::new(0.0, -1.0), "input-left -> player-up");
+        assert_eq!(r(0.0, 1.0), Vec2::new(-1.0, 0.0), "input-down -> player-left");
 
         // Gravity LEFT (feet point screen-left).
         let left = AccelerationFrame::new(Vec2::new(-1.0, 0.0));
         let l = |ax, ay| left.resolve_input(InputFrameMode::Screen, ax, ay);
-        assert_eq!(
-            l(-1.0, 0.0),
-            Vec2::new(0.0, 1.0),
-            "input-left -> player-down"
-        );
-        assert_eq!(
-            l(0.0, 1.0),
-            Vec2::new(1.0, 0.0),
-            "input-down -> player-right"
-        );
-        assert_eq!(
-            l(0.0, -1.0),
-            Vec2::new(-1.0, 0.0),
-            "input-up -> player-left"
-        );
-        assert_eq!(
-            l(1.0, 0.0),
-            Vec2::new(0.0, -1.0),
-            "input-right -> player-up"
-        );
+        assert_eq!(l(-1.0, 0.0), Vec2::new(0.0, 1.0), "input-left -> player-down");
+        assert_eq!(l(0.0, 1.0), Vec2::new(1.0, 0.0), "input-down -> player-right");
+        assert_eq!(l(0.0, -1.0), Vec2::new(-1.0, 0.0), "input-up -> player-left");
+        assert_eq!(l(1.0, 0.0), Vec2::new(0.0, -1.0), "input-right -> player-up");
     }
+
 
     #[test]
     fn inverse_mapping_places_local_labels_on_raw_joystick_directions() {
@@ -586,10 +563,7 @@ mod tests {
     fn player_mode_is_the_raw_stick_in_the_player_frame() {
         // Player mode never accommodates: the stick IS the local body frame.
         let up = AccelerationFrame::new(Vec2::new(0.0, -1.0));
-        assert_eq!(
-            up.resolve_input(InputFrameMode::Player, 0.3, -0.7),
-            Vec2::new(0.3, -0.7)
-        );
+        assert_eq!(up.resolve_input(InputFrameMode::Player, 0.3, -0.7), Vec2::new(0.3, -0.7));
     }
 
     #[test]

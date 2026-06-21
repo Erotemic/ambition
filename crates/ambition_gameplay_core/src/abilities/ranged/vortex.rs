@@ -48,6 +48,8 @@ pub struct VortexWell {
 /// drops the item (the id is `UseSystem`, excluded from throw-on-plain-Attack).
 pub fn fire_vortex_system(
     control: Res<ControlFrame>,
+    gravity: crate::physics::GravityCtx,
+    user_settings: Option<Res<crate::persistence::settings::UserSettings>>,
     mut players: Query<
         (&BodyKinematics, &HeldItem, &mut PlayerMana),
         (With<PlayerEntity>, With<PrimaryPlayer>),
@@ -67,11 +69,21 @@ pub fn fire_vortex_system(
     if !mana.meter.try_spend(VORTEX_MANA_COST) {
         return;
     }
-    let mut aim = crate::items::pickup::held_shot_aim(&control, kin.facing);
+    let gravity_dir = gravity.dir_at(kin.pos);
+    let input_mode = user_settings.as_deref().map_or(ae::InputFrameMode::Hybrid, |s| {
+        s.gameplay.input_frame_mode
+    });
+    let aim = crate::items::pickup::held_shot_aim_world(
+        &control,
+        kin.facing,
+        gravity_dir,
+        input_mode,
+    )
+    .normalize_or_zero();
     if aim == ae::Vec2::ZERO {
-        aim = ae::Vec2::new(kin.facing.signum(), 0.0);
+        return;
     }
-    let center = kin.pos + aim.normalize_or_zero() * VORTEX_RANGE;
+    let center = kin.pos + aim * VORTEX_RANGE;
     commands.spawn((
         VortexWell {
             center,

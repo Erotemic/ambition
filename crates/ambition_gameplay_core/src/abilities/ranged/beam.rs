@@ -79,6 +79,8 @@ fn beam_geometry(aim: ae::Vec2, facing: f32) -> (ae::Vec2, ae::Vec2) {
 /// throw-on-plain-Attack in `throw_held_item_system`).
 pub fn fire_beam_system(
     control: Res<ControlFrame>,
+    gravity: crate::physics::GravityCtx,
+    user_settings: Option<Res<crate::persistence::settings::UserSettings>>,
     mut players: Query<
         (Entity, &HeldItem, &BodyKinematics, &mut PlayerMana),
         (With<PlayerEntity>, With<PrimaryPlayer>),
@@ -99,8 +101,15 @@ pub fn fire_beam_system(
     if !mana.meter.try_spend(BEAM_MANA_COST) {
         return;
     }
-    let aim = crate::items::pickup::held_shot_aim(&control, kin.facing);
-    let (offset, half_extent) = beam_geometry(aim, kin.facing);
+    let gravity_dir = gravity.dir_at(kin.pos);
+    let input_mode = user_settings
+        .as_deref()
+        .map_or(ae::InputFrameMode::Hybrid, |s| s.gameplay.input_frame_mode);
+    let frame = ae::AccelerationFrame::new(gravity_dir);
+    let aim = crate::items::pickup::held_shot_aim_local(&control, kin.facing, frame, input_mode);
+    let (offset_local, half_local) = beam_geometry(aim, kin.facing);
+    let offset = frame.to_world(offset_local);
+    let half_extent = frame.to_world_half(half_local);
     effects.write(crate::effects::EffectRequest {
         owner: entity,
         effect: crate::effects::Effect::DamageBox(crate::effects::DamageBoxEffect {

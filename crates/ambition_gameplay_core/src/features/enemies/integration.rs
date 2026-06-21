@@ -15,26 +15,37 @@ pub(crate) fn enemy_attack_aabb_dir(
     pos: ae::Vec2,
     size: ae::Vec2,
     facing: f32,
-    axis: ae::Vec2,
+    axis_local: ae::Vec2,
+    gravity_dir: ae::Vec2,
 ) -> ae::Aabb {
+    let frame = ae::AccelerationFrame::new(gravity_dir);
+    let axis = if axis_local.length_squared() > 0.01 {
+        axis_local.normalize_or_zero()
+    } else {
+        ae::Vec2::new(facing, 0.0)
+    };
     let horizontal = axis.x.abs() >= axis.y.abs();
-    if horizontal {
+    let (center_local, half_local) = if horizontal {
         let side = if axis.x.abs() > 0.1 {
             axis.x.signum()
         } else {
             facing
         };
-        let center = pos + ae::Vec2::new(side * (size.x * 0.55 + 24.0), -4.0);
-        return ae::Aabb::new(center, ae::Vec2::new(34.0, 28.0));
-    }
-    if axis.y < 0.0 {
+        (
+            ae::Vec2::new(side * (size.x * 0.55 + 24.0), -4.0),
+            ae::Vec2::new(34.0, 28.0),
+        )
+    } else if axis.y < 0.0 {
         let half = ae::Vec2::new(16.0, 36.0);
-        let center = pos + ae::Vec2::new(0.0, -(size.y * 0.5 + half.y + 4.0));
-        return ae::Aabb::new(center, half);
-    }
-    let half = ae::Vec2::new(36.0, 20.0);
-    let center = pos + ae::Vec2::new(0.0, size.y * 0.5 + half.y - 2.0);
-    ae::Aabb::new(center, half)
+        (
+            ae::Vec2::new(0.0, -(size.y * 0.5 + half.y + 4.0)),
+            half,
+        )
+    } else {
+        let half = ae::Vec2::new(36.0, 20.0);
+        (ae::Vec2::new(0.0, size.y * 0.5 + half.y - 2.0), half)
+    };
+    ae::Aabb::new(pos + frame.to_world(center_local), frame.to_world_half(half_local))
 }
 
 fn evaluate_enemy_ai_output(
@@ -462,10 +473,7 @@ impl<'a> EnemyMut<'a> {
     }
 
     pub fn attack_aabb(&self) -> ae::Aabb {
-        ae::Aabb::new(
-            self.kin.pos + ae::Vec2::new(self.kin.facing * (self.kin.size.x * 0.55 + 24.0), -4.0),
-            ae::Vec2::new(34.0, 28.0),
-        )
+        self.attack_aabb_dir(ae::Vec2::new(self.kin.facing, 0.0))
     }
 
     pub fn attack_telegraph_aabb(&self) -> ae::Aabb {
@@ -473,7 +481,14 @@ impl<'a> EnemyMut<'a> {
     }
 
     pub fn attack_aabb_dir(&self, axis: ae::Vec2) -> ae::Aabb {
-        enemy_attack_aabb_dir(self.kin.pos, self.kin.size, self.kin.facing, axis)
+        let gravity_dir = -self.surface.surface_normal.normalize_or(ae::Vec2::new(0.0, -1.0));
+        enemy_attack_aabb_dir(
+            self.kin.pos,
+            self.kin.size,
+            self.kin.facing,
+            axis,
+            gravity_dir,
+        )
     }
 
     pub fn begin_melee_attack(

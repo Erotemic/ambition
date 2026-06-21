@@ -57,11 +57,7 @@ pub fn spawn_enemy_projectiles_from_brain_actions(
     possessed: Query<(), bevy::prelude::With<crate::abilities::traversal::possession::Possessed>>,
 ) {
     for msg in messages.read() {
-        let ActionRequest::Ranged {
-            spec,
-            origin: _,
-            dir,
-        } = msg.request
+        let ActionRequest::Ranged { spec, origin, dir } = msg.request
         else {
             continue;
         };
@@ -88,17 +84,20 @@ pub fn spawn_enemy_projectiles_from_brain_actions(
         // Future items can extend this routing by id without changing the brain.
         let held_item_id = held_items.get(msg.actor).ok().map(|item| item.id());
         let uses_gun_sword = held_item_id == Some("gun_sword");
+        let gravity_dir = -enemy.surface.surface_normal.normalize_or(ae::Vec2::new(0.0, -1.0));
+        let frame = ae::AccelerationFrame::new(gravity_dir);
         let (spawn_origin, owner_id) = if uses_gun_sword {
-            let hand = crate::features::rider_hand_world_pos(
+            let hand = crate::features::rider_hand_world_pos_in_frame(
                 enemy.kin.pos,
                 enemy.kin.facing,
                 enemy.kin.size.y,
+                gravity_dir,
             );
             let muzzle = hand + dir.normalize_or_zero() * 18.0;
             (muzzle, format!("lasersword:{}", enemy.config.id))
         } else {
             (
-                enemy.kin.pos + ae::Vec2::new(0.0, -8.0),
+                origin + frame.to_world(ae::Vec2::new(0.0, -8.0)),
                 enemy.config.id.clone(),
             )
         };

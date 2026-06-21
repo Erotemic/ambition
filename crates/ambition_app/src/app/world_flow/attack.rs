@@ -108,19 +108,15 @@ pub(crate) fn start_attack(
     // A held melee weapon re-tunes the swing to its own feel (axe = slow,
     // long-reach, heavier). Pogo (AirDown) keeps its spike timing.
     if let Some(melee) = held_melee {
-        if !matches!(
-            intent,
-            ambition_gameplay_core::combat::AttackIntent::AirDown
-        ) {
+        if !matches!(intent, ambition_gameplay_core::combat::AttackIntent::AirDown) {
             spec = spec.with_held_melee(melee);
         }
     }
-    // LOCAL BODY → WORLD: the spec's hitbox + self-impulse are authored for an upright
-    // body; rotate them into the live gravity so a down-attack's box lands toward
-    // the feet (and overlaps the pogo orb there). Identity under normal gravity.
-    spec.hitbox_offset = frame.to_world(spec.hitbox_offset);
-    spec.hitbox_half_size = frame.to_world_half(spec.hitbox_half_size);
-    spec.self_impulse = frame.to_world(spec.self_impulse);
+    // LOCAL BODY → WORLD: the spec's hitbox, impulses, and knockback are authored
+    // in the controlled body's local frame; rotate them through the single combat
+    // conversion seam so a down-attack's box lands toward the feet under any
+    // gravity. Identity under normal gravity.
+    spec = spec.into_world_frame(frame);
 
     // Directional attacks get small self-motion so the hitbox feels connected
     // to the controller. Keep these impulses modest; the engine control path
@@ -132,8 +128,7 @@ pub(crate) fn start_attack(
     let descend = frame.descend_speed(clusters.kinematics.vel);
     if matches!(
         intent,
-        ambition_gameplay_core::combat::AttackIntent::AirUp
-            | ambition_gameplay_core::combat::AttackIntent::Up
+        ambition_gameplay_core::combat::AttackIntent::AirUp | ambition_gameplay_core::combat::AttackIntent::Up
     ) && descend > -40.0
     {
         clusters.kinematics.vel += frame.down * (-40.0 - descend);
@@ -196,8 +191,7 @@ pub(crate) fn advance_attack(
             dash_timer: clusters.dash.timer,
             abilities_directional_primary: clusters.abilities.abilities.directional_primary,
         };
-        let attack =
-            ambition_gameplay_core::combat::attack_hitbox_from_view(&view, attack_state.spec);
+        let attack = ambition_gameplay_core::combat::attack_hitbox_from_view(&view, attack_state.spec);
         let first_active_frame = !attack_state.active_started;
         if first_active_frame {
             attack_state.active_started = true;

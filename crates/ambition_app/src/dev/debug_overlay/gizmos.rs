@@ -397,10 +397,10 @@ pub(crate) fn draw_player_debug(
                 controls.axis_y,
                 dedicated_pogo_held || controls.pogo_pressed,
             );
-            let hitbox = ambition_gameplay_core::combat::attack_hitbox_from_view(
-                &view,
-                ambition_gameplay_core::combat::attack_spec_from_view(&view, intent),
-            );
+            let frame = ae::AccelerationFrame::new(gravity_dir);
+            let spec = ambition_gameplay_core::combat::attack_spec_from_view(&view, intent)
+                .into_world_frame(frame);
+            let hitbox = ambition_gameplay_core::combat::attack_hitbox_from_view(&view, spec);
             draw_aabb(gizmos, world, hitbox, yellow());
         }
     }

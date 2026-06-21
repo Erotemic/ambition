@@ -36,6 +36,7 @@ const SHOCKWAVE_KNOCKBACK: f32 = 1.3;
 /// this id from throw-on-plain-Attack).
 pub fn fire_shockwave_system(
     control: Res<ControlFrame>,
+    gravity: crate::physics::GravityCtx,
     mut players: Query<
         (Entity, &HeldItem, &BodyKinematics, &mut PlayerMana),
         (With<PlayerEntity>, With<PrimaryPlayer>),
@@ -56,12 +57,14 @@ pub fn fire_shockwave_system(
     if !mana.meter.try_spend(SHOCKWAVE_MANA_COST) {
         return;
     }
+    let gravity_dir = gravity.dir_at(kin.pos);
+    let half_extent = ae::AccelerationFrame::new(gravity_dir).to_world_half(SHOCKWAVE_HALF);
     effects.write(crate::effects::EffectRequest {
         owner: entity,
         effect: crate::effects::Effect::DamageBox(crate::effects::DamageBoxEffect {
             center: kin.pos,
             faction: crate::features::ActorFaction::Player,
-            half_extent: SHOCKWAVE_HALF,
+            half_extent,
             damage: SHOCKWAVE_DAMAGE,
             knockback: SHOCKWAVE_KNOCKBACK,
             lifetime_s: SHOCKWAVE_LIFETIME_S,

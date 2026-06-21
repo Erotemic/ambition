@@ -540,9 +540,9 @@ fn emit_fireball_explosion(
     });
 }
 
-/// Aim a held ranged shot the way the pirates aim their gun-sword: right-stick
-/// aim if pushed, else the movement axis (so holding Up / Down / a diagonal
-/// aims there), else straight ahead along facing.
+/// Legacy screen/raw aim helper. Prefer [`held_shot_aim_local`] or
+/// [`held_shot_aim_world`] in gameplay systems so aiming crosses the input seam
+/// once and then lives in the controlled body's frame.
 pub fn held_shot_aim(control: &ControlFrame, facing: f32) -> Vec2 {
     let aim = Vec2::new(control.aim_x, control.aim_y);
     if aim.length() > 0.3 {
@@ -555,10 +555,60 @@ pub fn held_shot_aim(control: &ControlFrame, facing: f32) -> Vec2 {
     Vec2::new(if facing >= 0.0 { 1.0 } else { -1.0 }, 0.0)
 }
 
+/// Resolve held-item aim into the controlled body's local frame: `x` is side/right
+/// and `y` is toward feet. Right-stick aim wins, then movement, then local facing.
+pub fn held_shot_aim_local(
+    control: &ControlFrame,
+    facing: f32,
+    frame: ae::AccelerationFrame,
+    input_frame_mode: ae::InputFrameMode,
+) -> Vec2 {
+    let aim = Vec2::new(control.aim_x, control.aim_y);
+    if aim.length() > 0.3 {
+        return frame
+            .resolve_input(input_frame_mode, control.aim_x, control.aim_y)
+            .normalize_or_zero();
+    }
+    let mv = Vec2::new(control.axis_x, control.axis_y);
+    if mv.length() > 0.3 {
+        return frame
+            .resolve_input(input_frame_mode, control.axis_x, control.axis_y)
+            .normalize_or_zero();
+    }
+    Vec2::new(if facing >= 0.0 { 1.0 } else { -1.0 }, 0.0)
+}
+
+/// Resolve held-item aim into world space after crossing the input seam through
+/// [`held_shot_aim_local`].
+pub fn held_shot_aim_world(
+    control: &ControlFrame,
+    facing: f32,
+    gravity_dir: Vec2,
+    input_frame_mode: ae::InputFrameMode,
+) -> Vec2 {
+    let frame = ae::AccelerationFrame::new(gravity_dir);
+    frame.to_world(held_shot_aim_local(control, facing, frame, input_frame_mode))
+}
+
+fn input_frame_mode_from_settings(
+    settings: Option<&crate::persistence::settings::UserSettings>,
+) -> ae::InputFrameMode {
+    settings.map_or(ae::InputFrameMode::Hybrid, |s| s.gameplay.input_frame_mode)
+}
+
+fn gravity_dir_at(
+    gravity: &crate::physics::GravityCtx,
+    pos: Vec2,
+) -> Vec2 {
+    gravity.dir_at(pos)
+}
+
 /// `Attack` while holding a *ranged* item fires a laser bolt along the aim
 /// direction. `Shield + Attack` is the throw/drop gesture, so don't fire on it.
 pub fn fire_held_ranged_system(
     control: Res<ControlFrame>,
+    gravity: crate::physics::GravityCtx,
+    user_settings: Option<Res<crate::persistence::settings::UserSettings>>,
     mut commands: Commands,
     players: Query<(&BodyKinematics, &HeldItem), (With<PlayerEntity>, With<PrimaryPlayer>)>,
     mut sfx: MessageWriter<crate::audio::SfxMessage>,
@@ -572,11 +622,24 @@ pub fn fire_held_ranged_system(
     let Some(ranged) = held.spec.ranged else {
         return;
     };
-    let dir = held_shot_aim(&control, kin.facing);
+    let gravity_dir = gravity_dir_at(&gravity, kin.pos);
+    let input_frame_mode = input_frame_mode_from_settings(user_settings.as_deref());
+    let frame = ae::AccelerationFrame::new(gravity_dir);
+    let local_dir = held_shot_aim_local(&control, kin.facing, frame, input_frame_mode);
+    let dir = frame.to_world(local_dir).normalize_or_zero();
     if dir == Vec2::ZERO {
         return;
     }
-    let origin = kin.pos + dir * (kin.size.x * 0.5 + 8.0) - Vec2::new(0.0, kin.size.y * 0.12);
+    let muzzle_side = if local_dir.x.abs() > 0.001 {
+        local_dir.x.signum()
+    } else {
+        kin.facing.signum()
+    };
+    let muzzle = frame.to_world(Vec2::new(
+        muzzle_side * (kin.size.x * 0.5 + 8.0),
+        -kin.size.y * 0.12,
+    ));
+    let origin = kin.pos + muzzle;
     // A Fireball shot explodes on contact; every other ranged held item fires a
     // plain single-target bolt (`explode_half` 0).
     let explode_half = if held.spec.id == FIREBALL_ID {

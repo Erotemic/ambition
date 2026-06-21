@@ -137,9 +137,9 @@ impl<'a> NpcMut<'a> {
             self.status.ai_mode,
             crate::actor::ai::CharacterAiMode::Chase
         ) {
-            let dx = target_pos.x - self.kin.pos.x;
-            if dx.abs() > 4.0 {
-                self.kin.facing = dx.signum();
+            let side = ae::AccelerationFrame::new(gravity_dir).to_local(target_pos - self.kin.pos).x;
+            if side.abs() > 4.0 {
+                self.kin.facing = side.signum();
             }
         }
         frame

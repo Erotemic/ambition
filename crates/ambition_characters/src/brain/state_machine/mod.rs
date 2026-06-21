@@ -208,6 +208,18 @@ pub struct PatrolState {
     pub mode: crate::actor::ai::CharacterAiMode,
 }
 
+fn local_target_side(snapshot: &BrainSnapshot) -> f32 {
+    snapshot.target_delta_local().x
+}
+
+fn frame_to_world(snapshot: &BrainSnapshot, local: ae::Vec2) -> ae::Vec2 {
+    snapshot.acceleration_frame().to_world(local)
+}
+
+fn frame_to_local(snapshot: &BrainSnapshot, world: ae::Vec2) -> ae::Vec2 {
+    snapshot.acceleration_frame().to_local(world)
+}
+
 fn tick_patrol(
     cfg: &PatrolCfg,
     state: &mut PatrolState,
@@ -226,9 +238,9 @@ fn tick_patrol(
             // Player in talk range or otherwise hold position.
             // Face toward target if any.
             if snapshot.target_alive {
-                let dx = snapshot.target_pos.x - snapshot.actor_pos.x;
-                if dx.abs() > 4.0 {
-                    out.facing = dx.signum();
+                let side = local_target_side(snapshot);
+                if side.abs() > 4.0 {
+                    out.facing = side.signum();
                 }
             }
         }
@@ -258,9 +270,9 @@ fn tick_patrol(
             } else {
                 // Peaceful patroller in "Chase" mode = HOLD. The
                 // npc semantics: "player is close, face them".
-                let dx = snapshot.target_pos.x - snapshot.actor_pos.x;
-                if dx.abs() > 4.0 {
-                    out.facing = dx.signum();
+                let side = local_target_side(snapshot);
+                if side.abs() > 4.0 {
+                    out.facing = side.signum();
                 }
             }
         }
@@ -527,6 +539,7 @@ fn tick_skirmisher(
         return;
     }
     let to_target_raw = snapshot.target_pos - snapshot.actor_pos;
+    let to_target_local = snapshot.target_delta_local();
     let raw_dist = to_target_raw.length();
     if raw_dist > cfg.aggro_radius {
         state.mode = crate::actor::ai::CharacterAiMode::Idle;
@@ -548,11 +561,11 @@ fn tick_skirmisher(
     // sine modulation `vertical_amp` keeps the actor above the
     // player throughout the orbit.
     let (sin_p, cos_p) = state.orbit_phase.sin_cos();
-    let horizontal = cos_p * cfg.standoff_px;
-    let vertical_center = -0.45 * cfg.standoff_px;
-    let vertical_amp = 0.20 * cfg.standoff_px;
-    let vertical = vertical_center + sin_p * vertical_amp;
-    let orbit_offset = ae::Vec2::new(horizontal, vertical);
+    let side_offset = cos_p * cfg.standoff_px;
+    let away_from_feet_center = -0.45 * cfg.standoff_px;
+    let away_from_feet_amp = 0.20 * cfg.standoff_px;
+    let down_offset = away_from_feet_center + sin_p * away_from_feet_amp;
+    let orbit_offset = frame_to_world(snapshot, ae::Vec2::new(side_offset, down_offset));
     let desired_pos = snapshot.target_pos + orbit_offset;
     let to_orbit = desired_pos - snapshot.actor_pos;
     let approach_dist = to_orbit.length();
@@ -560,7 +573,7 @@ fn tick_skirmisher(
     // Facing always toward the actual target so the rider / muzzle
     // aims at the player rather than the orbit point.
     let aim_dir = to_target_raw.normalize_or_zero();
-    out.facing = aim_dir.x.signum_or(snapshot.actor_facing);
+    out.facing = to_target_local.x.signum_or(snapshot.actor_facing);
     // Move toward the orbit point at strafe_speed. Aerial archetypes
     // (sharks etc.) need 2D motion to actually orbit; the
     // integration uses both x and y when `is_aerial = true`.
@@ -624,12 +637,13 @@ fn tick_sniper(
         return;
     }
     let to_target = snapshot.target_pos - snapshot.actor_pos;
+    let to_target_local = snapshot.target_delta_local();
     let dist = to_target.length();
     if dist > cfg.aggro_radius {
         return;
     }
     let dir = to_target.normalize_or_zero();
-    out.facing = dir.x.signum_or(snapshot.actor_facing);
+    out.facing = to_target_local.x.signum_or(snapshot.actor_facing);
     if state.cooldown_remaining <= 0.0 {
         out.fire = Some(crate::actor::control::ActorFireRequest { dir, speed: 0.0 });
         state.cooldown_remaining = cfg.fire_cooldown_s;
@@ -683,6 +697,7 @@ fn tick_shark(
     }
 
     let to_target = snapshot.target_pos - snapshot.actor_pos;
+    let to_target_local = snapshot.target_delta_local();
     let dist = to_target.length();
     if dist > cfg.aggro_radius {
         state.mode = crate::actor::ai::CharacterAiMode::Idle;
@@ -694,13 +709,16 @@ fn tick_shark(
     } else {
         ae::Vec2::new(snapshot.actor_facing, 0.0)
     };
-    let facing = aim_dir.x.signum_or(snapshot.actor_facing);
+    let facing = to_target_local.x.signum_or(snapshot.actor_facing);
     out.facing = facing;
 
     let (sin_p, cos_p) = state.orbit_phase.sin_cos();
-    let orbit_offset = ae::Vec2::new(
-        cos_p * cfg.standoff_px,
-        -0.42 * cfg.standoff_px + sin_p * cfg.vertical_wobble_px,
+    let orbit_offset = frame_to_world(
+        snapshot,
+        ae::Vec2::new(
+            cos_p * cfg.standoff_px,
+            -0.42 * cfg.standoff_px + sin_p * cfg.vertical_wobble_px,
+        ),
     );
     let desired_orbit_pos = snapshot.target_pos + orbit_offset;
     let to_orbit = desired_orbit_pos - snapshot.actor_pos;
@@ -827,7 +845,12 @@ pub struct AerialState {
     pub initialized: bool,
 }
 
-fn aerial_pick_waypoint(cfg: &AerialCfg, state: &mut AerialState, now: f32) {
+fn aerial_pick_waypoint(
+    cfg: &AerialCfg,
+    state: &mut AerialState,
+    now: f32,
+    frame: ae::AccelerationFrame,
+) {
     let anchor = state.anchor;
     let h1 = aerial_hash01(now * 0.37 + anchor.x * 0.13);
     let h2 = aerial_hash01(now * 0.71 + anchor.y * 0.17 + 3.3);
@@ -839,7 +862,7 @@ fn aerial_pick_waypoint(cfg: &AerialCfg, state: &mut AerialState, now: f32) {
     } else {
         0.0
     };
-    state.waypoint = ae::Vec2::new(anchor.x + dx, anchor.y + dy);
+    state.waypoint = anchor + frame.to_world(ae::Vec2::new(dx, dy));
 }
 
 fn tick_aerial(
@@ -859,13 +882,13 @@ fn tick_aerial(
     }
 
     // Face the target if engaged, else the direction of travel.
-    let face_dx = if snapshot.target_alive {
-        snapshot.target_pos.x - pos.x
+    let face_side = if snapshot.target_alive {
+        frame_to_local(snapshot, snapshot.target_pos - pos).x
     } else {
-        out.desired_vel.x
+        frame_to_local(snapshot, out.desired_vel).x
     };
-    if face_dx.abs() > 4.0 {
-        out.facing = face_dx.signum();
+    if face_side.abs() > 4.0 {
+        out.facing = face_side.signum();
     }
 }
 
@@ -884,11 +907,12 @@ fn tick_aerial_lively(
     // grounded patrol NPC, but the bird flies down to do it.
     if snapshot.target_alive {
         let to_target = snapshot.target_pos - pos;
+        let to_target_local = frame_to_local(snapshot, to_target);
         if to_target.length() < cfg.aggro_radius {
             state.mode = CharacterAiMode::Idle;
             state.initialized = false; // re-roll a fresh leg once the player leaves
-            let side = if to_target.x >= 0.0 { -1.0 } else { 1.0 };
-            let perch = ae::Vec2::new(snapshot.target_pos.x + side * 30.0, snapshot.target_pos.y);
+            let side = if to_target_local.x >= 0.0 { -1.0 } else { 1.0 };
+            let perch = snapshot.target_pos + frame_to_world(snapshot, ae::Vec2::new(side * 30.0, 0.0));
             let delta = perch - pos;
             out.desired_vel = if delta.length() > 6.0 {
                 delta.normalize_or_zero() * cfg.cruise_speed
@@ -902,7 +926,7 @@ fn tick_aerial_lively(
     if !state.initialized {
         state.initialized = true;
         state.anchor = pos;
-        aerial_pick_waypoint(cfg, state, now);
+        aerial_pick_waypoint(cfg, state, now, snapshot.acceleration_frame());
         state.phase = AerialPhase::Fly;
     }
 
@@ -912,7 +936,7 @@ fn tick_aerial_lively(
             let delta = state.waypoint - pos;
             if delta.length() <= 10.0 {
                 // Arrived: dwell. A high waypoint → perch; a ground one → walk.
-                let airborne = state.waypoint.y < state.anchor.y - 8.0;
+                let airborne = frame_to_local(snapshot, state.waypoint - state.anchor).y < -8.0;
                 state.phase = if airborne {
                     AerialPhase::Perch
                 } else {
@@ -929,9 +953,9 @@ fn tick_aerial_lively(
             state.mode = CharacterAiMode::Patrol;
             // Little ground hops: a slow back-and-forth drift.
             let hop = (now * 2.4).sin() * cfg.cruise_speed * 0.3;
-            out.desired_vel = ae::Vec2::new(hop, 0.0);
+            out.desired_vel = frame_to_world(snapshot, ae::Vec2::new(hop, 0.0));
             if now >= state.phase_until {
-                aerial_pick_waypoint(cfg, state, now);
+                aerial_pick_waypoint(cfg, state, now, snapshot.acceleration_frame());
                 state.phase = AerialPhase::Fly;
             }
         }
@@ -939,7 +963,7 @@ fn tick_aerial_lively(
             state.mode = CharacterAiMode::Patrol;
             out.desired_vel = ae::Vec2::ZERO;
             if now >= state.phase_until {
-                aerial_pick_waypoint(cfg, state, now);
+                aerial_pick_waypoint(cfg, state, now, snapshot.acceleration_frame());
                 state.phase = AerialPhase::Fly;
             }
         }
@@ -985,15 +1009,16 @@ fn tick_aerial_hostile(
         AerialPhase::Stalk => {
             state.mode = CharacterAiMode::Chase;
             // Climb to a point above the target, then commit to a dive.
-            let anchor = ae::Vec2::new(target.x, target.y - altitude);
+            let anchor = target + frame_to_world(snapshot, ae::Vec2::new(0.0, -altitude));
             let delta = anchor - pos;
             out.desired_vel = apply_flying_separation(
                 delta.normalize_or_zero() * cfg.cruise_speed,
                 cfg.cruise_speed,
                 snapshot,
             );
-            let lined_up = pos.y < target.y - altitude * 0.5
-                && (pos.x - target.x).abs() < cfg.attack_range * 2.5;
+            let actor_from_target = frame_to_local(snapshot, pos - target);
+            let lined_up = actor_from_target.y < -altitude * 0.5
+                && actor_from_target.x.abs() < cfg.attack_range * 2.5;
             if lined_up && snapshot.attack_cooldown_remaining <= 0.0 {
                 state.phase = AerialPhase::Dive;
                 state.mode = CharacterAiMode::Telegraph;
@@ -1006,14 +1031,16 @@ fn tick_aerial_hostile(
                 out.melee_pressed = true;
             }
             // Hit, or dropped below the target → peel off and recover.
-            if dist <= cfg.attack_range || pos.y > target.y + 8.0 {
+            if dist <= cfg.attack_range || frame_to_local(snapshot, pos - target).y > 8.0 {
                 state.phase = AerialPhase::Recover;
                 state.phase_until = now + 1.1;
             }
         }
         AerialPhase::Recover => {
             state.mode = CharacterAiMode::Chase;
-            let away = ae::Vec2::new((pos.x - target.x).signum_or(1.0), -1.0).normalize_or_zero();
+            let away_local = ae::Vec2::new(frame_to_local(snapshot, pos - target).x.signum_or(1.0), -1.0)
+                .normalize_or_zero();
+            let away = frame_to_world(snapshot, away_local);
             out.desired_vel =
                 apply_flying_separation(away * cfg.cruise_speed, cfg.cruise_speed, snapshot);
             if now >= state.phase_until {

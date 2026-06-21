@@ -150,8 +150,11 @@ impl AttackPhase {
     }
 }
 
-/// Resolved melee swing parameters. Offsets are in world units and are already
-/// signed for the player's current facing direction.
+/// Resolved melee swing parameters. Offsets/half-extents/impulses are authored
+/// in the controlled body's local frame (`x` side/right, `y` toward feet) and
+/// signed for the body's current local facing direction. Runtime callers rotate
+/// them into world space with [`AttackSpec::into_world_frame`] before spawning
+/// hitboxes or applying impulses.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct AttackSpec {
     pub intent: AttackIntent,
@@ -172,6 +175,20 @@ pub struct AttackSpec {
 impl AttackSpec {
     pub fn total_seconds(self) -> f32 {
         self.startup_seconds + self.active_seconds + self.recovery_seconds
+    }
+
+    /// Rotate this body-local attack spec into the provided acceleration frame.
+    ///
+    /// Combat authoring remains relative to the controlled body: forward/back are
+    /// local side, up/down are away-from-feet/toward-feet. This conversion is the
+    /// single runtime seam that turns those local values into world AABBs and
+    /// impulses.
+    pub fn into_world_frame(mut self, frame: ambition_engine_core::AccelerationFrame) -> Self {
+        self.hitbox_offset = frame.to_world(self.hitbox_offset);
+        self.hitbox_half_size = frame.to_world_half(self.hitbox_half_size);
+        self.self_impulse = frame.to_world(self.self_impulse);
+        self.knockback = frame.to_world(self.knockback);
+        self
     }
 
     /// Re-tune this swing to a held melee weapon's spec (the axe etc.): the
@@ -499,5 +516,26 @@ mod tests {
         let pos = Vec2::new(100.0, 100.0);
         let up = slash_hitbox_for_view(&view_at(pos, 1.0), -1.0, false);
         assert!(up.center().y < pos.y);
+    }
+
+    #[test]
+    fn attack_spec_world_conversion_is_frame_equivalent() {
+        let local_view = view_at(Vec2::ZERO, 1.0);
+        let local = attack_spec_from_view(&local_view, AttackIntent::AirDown);
+        for gravity_dir in [
+            Vec2::new(0.0, 1.0),
+            Vec2::new(1.0, 0.0),
+            Vec2::new(0.0, -1.0),
+            Vec2::new(-1.0, 0.0),
+        ] {
+            let frame = ambition_engine_core::AccelerationFrame::new(gravity_dir);
+            let world = local.into_world_frame(frame);
+            let offset_local = frame.to_local(world.hitbox_offset);
+            let impulse_local = frame.to_local(world.self_impulse);
+            let knock_local = frame.to_local(world.knockback);
+            assert!((offset_local - local.hitbox_offset).length() < 1e-3);
+            assert!((impulse_local - local.self_impulse).length() < 1e-3);
+            assert!((knock_local - local.knockback).length() < 1e-3);
+        }
     }
 }

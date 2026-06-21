@@ -273,7 +273,7 @@ pub fn update_ecs_actors(
                     // its OWN ActorControlFrame — the same translation the player
                     // brain uses — so it moves/attacks via its own update path.
                     let crowding = crowding_by_id.get(&em.config.id).copied();
-                    let mut snapshot = build_enemy_brain_snapshot(&em, target_pos, crowding, dt);
+                    let mut snapshot = build_enemy_brain_snapshot(&em, target_pos, crowding, dt, enemy_gravity_dir);
                     snapshot.control_down = enemy_gravity_dir;
                     snapshot.input_frame_mode = input_frame_mode;
                     let mut bf = crate::actor::control::ActorControlFrame::neutral();
@@ -287,7 +287,7 @@ pub fn update_ecs_actors(
                     bf
                 } else if let Some(brain_ref) = brain.as_deref_mut() {
                     let crowding = crowding_by_id.get(&em.config.id).copied();
-                    let snapshot = build_enemy_brain_snapshot(&em, target_pos, crowding, dt);
+                    let snapshot = build_enemy_brain_snapshot(&em, target_pos, crowding, dt, enemy_gravity_dir);
                     let mut bf = crate::actor::control::ActorControlFrame::neutral();
                     let peaceful = crate::brain::ActionSet::peaceful();
                     let actions = action_set.unwrap_or(&peaceful);
@@ -560,7 +560,14 @@ pub fn update_ecs_npcs(
             );
             bf
         } else if let Some(brain) = brain.as_deref_mut() {
-            npc.tick_via_brain(brain, &feature_world, target_pos, sim_time, dt, gravity_dir)
+            npc.tick_via_brain(
+                brain,
+                &feature_world,
+                target_pos,
+                sim_time,
+                dt,
+                gravity_dir,
+            )
         } else {
             // Brainless peaceful actor — should not happen post-Chunk 3
             // (spawn attaches a brain), but build one inline so the tick
@@ -739,12 +746,13 @@ fn build_enemy_brain_snapshot(
     target_pos: ae::Vec2,
     crowding: Option<crate::brain::CrowdingSignal>,
     dt: f32,
+    gravity_dir: ae::Vec2,
 ) -> crate::brain::BrainSnapshot {
     crate::brain::BrainSnapshot {
         actor_pos: em.kin.pos,
         actor_vel: em.kin.vel,
         actor_facing: em.kin.facing,
-        control_down: ae::Vec2::new(0.0, 1.0),
+        control_down: gravity_dir,
         input_frame_mode: ae::InputFrameMode::Hybrid,
         actor_on_ground: em.surface.on_ground,
         alive: em.status.alive,

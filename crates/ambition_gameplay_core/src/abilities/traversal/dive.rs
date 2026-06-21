@@ -84,6 +84,8 @@ fn dive_corridor(from: ae::Vec2, to: ae::Vec2) -> ae::Aabb {
 /// throw-on-plain-Attack in `throw_held_item_system`).
 pub fn fire_dive_system(
     control: Res<ControlFrame>,
+    gravity: crate::physics::GravityCtx,
+    user_settings: Option<Res<crate::persistence::settings::UserSettings>>,
     world: Option<Res<crate::GameWorld>>,
     mut players: Query<
         (Entity, &mut BodyKinematics, &HeldItem, &mut PlayerMana),
@@ -104,11 +106,19 @@ pub fn fire_dive_system(
     if !mana.meter.try_spend(DIVE_MANA_COST) {
         return;
     }
-    let dir = dive_dir(
-        crate::items::pickup::held_shot_aim(&control, kin.facing),
+    let gravity_dir = gravity.dir_at(kin.pos);
+    let input_mode = user_settings.as_deref().map_or(ae::InputFrameMode::Hybrid, |s| {
+        s.gameplay.input_frame_mode
+    });
+    let frame = ae::AccelerationFrame::new(gravity_dir);
+    let local_aim = crate::items::pickup::held_shot_aim_local(
+        &control,
         kin.facing,
-    )
-    .normalize_or_zero();
+        frame,
+        input_mode,
+    );
+    let local_dir = dive_dir(local_aim, kin.facing).normalize_or_zero();
+    let dir = frame.to_world(local_dir).normalize_or_zero();
     let from = kin.pos;
     // Stop a body-half short of the wall so the lunge never embeds. The pull-back
     // must use the body's extent IN THE LUNGE DIRECTION -- half-height for a
@@ -143,8 +153,8 @@ pub fn fire_dive_system(
         }
     }
     kin.pos = target;
-    if dir.x.abs() > 0.001 {
-        kin.facing = dir.x.signum();
+    if local_dir.x.abs() > 0.001 {
+        kin.facing = local_dir.x.signum();
     }
     // The dash corridor cuts everything between start and landing — a one-shot
     // PlayerSlash volume (spares the player, shoves enemies along the dash).
@@ -152,7 +162,7 @@ pub fn fire_dive_system(
         volume: dive_corridor(from, target),
         damage: DIVE_DAMAGE,
         source: crate::features::HitSource::PlayerSlash {
-            knock_x: dir.x * DIVE_KNOCKBACK,
+            knock_x: local_dir.x * DIVE_KNOCKBACK,
         },
         attacker: Some(player),
         target: crate::features::HitTarget::Volume,

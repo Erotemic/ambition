@@ -748,7 +748,13 @@ mod enemy_archetype_data_tests {
         let size = spec
             .default_size
             .unwrap_or_else(|| authored_aabb.half_size() * 2.0);
-        let hitbox = enemy_attack_aabb_dir(pos, size, 1.0, ae::Vec2::new(1.0, 0.0));
+        let hitbox = enemy_attack_aabb_dir(
+            pos,
+            size,
+            1.0,
+            ae::Vec2::new(1.0, 0.0),
+            ae::Vec2::new(0.0, 1.0),
+        );
         let reach_edge = hitbox.center().x + hitbox.half_size().x - pos.x;
         let attack_range = spec.tuning().attack_range;
         assert!(

@@ -162,16 +162,13 @@ impl BrainSnapshot {
     /// Vector from the actor to its current target in actor-local coordinates.
     /// `x` is local side/right; `y` is toward the actor's feet/down.
     pub fn target_delta_local(self) -> ae::Vec2 {
-        let frame = self.acceleration_frame();
-        let delta = self.target_pos - self.actor_pos;
-        ae::Vec2::new(delta.dot(frame.side), delta.dot(frame.down))
+        self.acceleration_frame().to_local(self.target_pos - self.actor_pos)
     }
 
     /// Actor velocity in actor-local coordinates. Brains that make body-relative
     /// movement decisions should prefer this over reading world `x/y` directly.
     pub fn actor_vel_local(self) -> ae::Vec2 {
-        let frame = self.acceleration_frame();
-        ae::Vec2::new(self.actor_vel.dot(frame.side), self.actor_vel.dot(frame.down))
+        self.acceleration_frame().to_local(self.actor_vel)
     }
 
     /// Build the engine-side AI snapshot from this brain snapshot
@@ -186,9 +183,13 @@ impl BrainSnapshot {
         attack_range: f32,
         patrol_enabled: bool,
     ) -> crate::actor::ai::CharacterAiSnapshot {
+        // The low-level evaluator only needs distance and `x` sign. Feed it the
+        // actor-relative target vector so `direction_x` means local side/right,
+        // not raw world X. Direct tests of `CharacterAiSnapshot` can still pass
+        // world-like coordinates; the brain seam normalizes live actors here.
         crate::actor::ai::CharacterAiSnapshot {
-            actor_pos: self.actor_pos,
-            player_pos: self.target_pos,
+            actor_pos: ae::Vec2::ZERO,
+            player_pos: self.target_delta_local(),
             aggro_radius,
             attack_range,
             attack_windup_remaining: self.attack_windup_remaining,

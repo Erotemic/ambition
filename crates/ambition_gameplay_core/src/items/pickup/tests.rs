@@ -329,3 +329,22 @@ fn javelin_is_thrown_on_plain_attack_use() {
     };
     assert_eq!(on_ground, 1, "the thrown javelin should be on the ground");
 }
+
+#[test]
+fn held_shot_aim_resolves_screen_input_through_the_controlled_body_frame() {
+    let mut control = ControlFrame::default();
+    control.aim_x = 0.0;
+    control.aim_y = -1.0; // screen/world up on the right stick
+    let down = ae::Vec2::new(0.0, 1.0);
+    let left = ae::Vec2::new(-1.0, 0.0);
+
+    let down_frame = ae::AccelerationFrame::new(down);
+    let left_frame = ae::AccelerationFrame::new(left);
+    let down_local = held_shot_aim_local(&control, 1.0, down_frame, ae::InputFrameMode::Screen);
+    let left_local = held_shot_aim_local(&control, 1.0, left_frame, ae::InputFrameMode::Screen);
+
+    assert_eq!(down_local, ae::Vec2::new(0.0, -1.0));
+    assert_eq!(left_local, ae::Vec2::new(-1.0, 0.0));
+    assert_eq!(down_frame.to_world(down_local), ae::Vec2::new(0.0, -1.0));
+    assert_eq!(left_frame.to_world(left_local), ae::Vec2::new(0.0, -1.0));
+}

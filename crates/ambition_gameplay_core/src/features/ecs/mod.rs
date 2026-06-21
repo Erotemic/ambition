@@ -48,7 +48,7 @@ mod encounter_rewards;
 pub mod enemy_clusters;
 mod interact;
 mod mount;
-pub use mount::rider_hand_world_pos;
+pub use mount::{rider_hand_world_pos, rider_hand_world_pos_in_frame};
 pub mod npc_clusters;
 mod reset;
 mod save_sync;

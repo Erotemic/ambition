@@ -39,6 +39,8 @@ const BLINK_SHOCKWAVE_DAMAGE: i32 = 2;
 /// first solid wall so the teleport never lands inside geometry.
 pub fn blink_system(
     control: Res<ControlFrame>,
+    gravity: crate::physics::GravityCtx,
+    user_settings: Option<Res<crate::persistence::settings::UserSettings>>,
     world: Option<Res<crate::GameWorld>>,
     mut commands: Commands,
     mut players: Query<
@@ -64,9 +66,20 @@ pub fn blink_system(
     if held.spec.id != BLINK_ID {
         return;
     }
-    // Aim exactly like the ranged held items (right-stick aim, else movement,
-    // else facing), so the blink goes where the player is pointing.
-    let dir = crate::items::pickup::held_shot_aim(&control, kin.facing).normalize_or_zero();
+    // Aim in the controlled body's input frame, then resolve to world-space for
+    // the raycast/teleport. The gameplay move is body-relative; the raycast is
+    // naturally world-space.
+    let gravity_dir = gravity.dir_at(kin.pos);
+    let input_mode = user_settings.as_deref().map_or(ae::InputFrameMode::Hybrid, |s| {
+        s.gameplay.input_frame_mode
+    });
+    let dir = crate::items::pickup::held_shot_aim_world(
+        &control,
+        kin.facing,
+        gravity_dir,
+        input_mode,
+    )
+    .normalize_or_zero();
     if dir == ae::Vec2::ZERO {
         return;
     }

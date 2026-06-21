@@ -34,6 +34,8 @@ const GRAPPLE_COOLDOWN_S: f32 = 0.55;
 /// hitting a solid within [`GRAPPLE_RANGE`] it yanks the player toward the hit.
 pub fn grapple_system(
     control: Res<ControlFrame>,
+    gravity: crate::physics::GravityCtx,
+    user_settings: Option<Res<crate::persistence::settings::UserSettings>>,
     world: Option<Res<crate::GameWorld>>,
     mut commands: Commands,
     mut players: Query<
@@ -57,7 +59,17 @@ pub fn grapple_system(
     if held.spec.id != GRAPPLE_ID {
         return;
     }
-    let dir = crate::items::pickup::held_shot_aim(&control, kin.facing);
+    let gravity_dir = gravity.dir_at(kin.pos);
+    let input_mode = user_settings.as_deref().map_or(ae::InputFrameMode::Hybrid, |s| {
+        s.gameplay.input_frame_mode
+    });
+    let dir = crate::items::pickup::held_shot_aim_world(
+        &control,
+        kin.facing,
+        gravity_dir,
+        input_mode,
+    )
+    .normalize_or_zero();
     if dir == ae::Vec2::ZERO {
         return;
     }

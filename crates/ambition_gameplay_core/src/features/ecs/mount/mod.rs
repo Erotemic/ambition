@@ -384,8 +384,27 @@ pub fn rider_hand_world_pos(
     facing: f32,
     rider_height: f32,
 ) -> crate::engine_core::Vec2 {
+    rider_hand_world_pos_in_frame(
+        rider_pos,
+        facing,
+        rider_height,
+        crate::engine_core::Vec2::new(0.0, 1.0),
+    )
+}
+
+/// World position of the rider's hand under the actor's acceleration frame.
+/// `facing` is local side-facing, so the hand offset is authored in rider-local
+/// side/down coordinates and then resolved to world.
+pub fn rider_hand_world_pos_in_frame(
+    rider_pos: crate::engine_core::Vec2,
+    facing: f32,
+    rider_height: f32,
+    gravity_dir: crate::engine_core::Vec2,
+) -> crate::engine_core::Vec2 {
     let facing_sign = if facing >= 0.0 { 1.0 } else { -1.0 };
-    let hand_local_x = HAND_OFFSET_NORM.x * rider_height * facing_sign;
-    let hand_local_y = HAND_OFFSET_NORM.y * rider_height;
-    crate::engine_core::Vec2::new(rider_pos.x + hand_local_x, rider_pos.y + hand_local_y)
+    let hand_local = crate::engine_core::Vec2::new(
+        HAND_OFFSET_NORM.x * rider_height * facing_sign,
+        HAND_OFFSET_NORM.y * rider_height,
+    );
+    rider_pos + crate::engine_core::AccelerationFrame::new(gravity_dir).to_world(hand_local)
 }

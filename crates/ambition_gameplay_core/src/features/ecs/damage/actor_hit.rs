@@ -127,8 +127,12 @@ pub(crate) fn apply_actor_hit(
                 }
             }
             if let HitSource::PlayerSlash { knock_x } = &event.source {
-                em.kin.vel.x += *knock_x;
-                em.kin.vel.y = (em.kin.vel.y - 90.0).max(-280.0);
+                let gravity_dir = -em.surface.surface_normal.normalize_or(ae::Vec2::new(0.0, -1.0));
+                let frame = ae::AccelerationFrame::new(gravity_dir);
+                let mut local_vel = frame.to_local(em.kin.vel);
+                local_vel.x += *knock_x;
+                local_vel.y = (local_vel.y - 90.0).max(-280.0);
+                em.kin.vel = frame.to_world(local_vel);
             }
             let damage_amount = event.damage.max(1);
             let caps = em.caps.clone();

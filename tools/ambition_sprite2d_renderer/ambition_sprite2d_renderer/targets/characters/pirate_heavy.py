@@ -113,7 +113,14 @@ RGBA = Tuple[int, int, int, int]
 Point = Tuple[float, float]
 
 BASE_TARGET_NAME = "pirate_heavy"
-FRAME_SIZE = (320, 288)
+# Output (post-downsample) frame resolution. Heavy pirate bruisers render larger
+# on screen than a normal character, so the texture needs more native pixels to
+# stay crisp (a normal character ships at a 256 native frame). The body fills
+# ~half the frame, so (640,576) yields a ~340px body. Geometry is authored in
+# WORK_FRAME_SIZE units and supersampled by SUPER (=6), leaving ample detail to
+# preserve at the higher downsample target — no redraw, no gameplay change
+# (display size is collision-driven).
+FRAME_SIZE = (640, 576)
 WORK_FRAME_SIZE = (640, 576)
 SUPER = 6
 ROWS: List[Tuple[str, int, int]] = [

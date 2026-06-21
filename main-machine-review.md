@@ -243,6 +243,43 @@ Per-character in-game *size* tuning for the toon path already exists too
 `SheetTuning` consts in favor of data-driven tuning is available whenever you
 want it.
 
+**Big bespoke sprites scaled up — DONE (2026-06-21 cont.).** Root cause for the
+flying spaghetti monster / Broadside Bess softness: `render_scale` only flows
+through the **adapter** path (`build_spritesheet`). The big bosses + heavy
+pirates are **tack-on** generators (`build_sheet`) that bake their own
+`FRAME_SIZE` — typically a 128–320 base, i.e. *half* the adapter baseline (the
+player is 256). Displayed 2–3× larger than a normal character, they upscaled and
+read soft. Measured native bodies (cropped frame): spaghetti **169×150**,
+broadside_bess **172×138** — both *smaller* than the 256 player despite rendering
+much bigger. Fix = bump each bespoke generator's `FRAME_SIZE` (geometry is
+authored in `WORK_FRAME_SIZE` units + supersampled, so this only preserves more
+detail — no redraw, no gameplay change):
+- `flying_spaghetti_monster_boss`: `FRAME_SIZE (320,256)→(800,640)` → body
+  **169→393** (2.3×). Sheet 3244×2408, ~31 MB texture.
+- `pirate_heavy` (covers broadside_bess / iron_mary / salt_annet):
+  `FRAME_SIZE (320,288)→(640,576)` → body **172→319** (1.85×). Sheet 2652×1500.
+- Surveyed the rest: gnu_ton (768) + mockingbird (576) already crisp; smirking
+  behemoth renders at `collision_scale 1.0` (doesn't display large). So these two
+  were the real offenders. Verified headless; both well under the 8192 texture
+  limit. Lands on the next `./regen_sprites.sh` (leaf-hash sees the `.py` edit).
+
+**Verify:** spaghetti monster + heavy pirates noticeably sharper. If a boss is
+*still* soft it's displaying even bigger — bump its `FRAME_SIZE` further (cost:
+the texture grows with the square; a 400px-body boss is already ~30 MB, a truly
+crisp 600px-body one is ~130 MB, so there's a VRAM ceiling — that's where
+splitting / packing earns its keep).
+
+**⚠ Latent: 3 sheets already exceed the 8192 GPU texture limit** — `player_robot`
+**2148×10752**, `player_extended` 2168×8960, `sandbag_full_review` 2190×8960.
+They're tall because the sheet layout stacks every animation **row** in a single
+column, so `frame_height × num_rows` blows the height. Works on this desktop GPU
+(16384 cap) but would fail on WebGL2 / many mobile GPUs. The clean fix is the
+**grid-packing** you mentioned: lay frames out in 2D instead of one column of
+rows. The RON already records explicit per-frame `rects` and the Rust atlas
+builder uses them directly when present, so a 2D packer needs **no Rust change** —
+just emit a grid + correct rects. Say the word and I'll do it (it also unblocks
+pushing boss resolution higher without hitting the dimension cap).
+
 ---
 
 ## 5. Player slash effect — hooked up; tune look/size/placement in game 🗡️

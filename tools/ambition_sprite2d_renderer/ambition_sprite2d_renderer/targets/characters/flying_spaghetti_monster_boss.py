@@ -28,7 +28,16 @@ RGBA = Tuple[int, int, int, int]
 Point = Tuple[float, float]
 
 TARGET_NAME = "flying_spaghetti_monster_boss"
-FRAME_SIZE = (320, 256)
+# Output (post-downsample) frame resolution. This is a BOSS that renders much
+# larger on screen than a normal character, so its texture needs proportionally
+# more native pixels to stay crisp — a normal character (the player) ships at a
+# 256 native frame and reads sharp at its small on-screen size; a boss displayed
+# 2-3x larger needs ~2-3x the native pixels for the same crispness. The body
+# fills ~half the frame, so a (800,640) frame yields a ~400px body. Geometry is
+# authored in WORK_FRAME_SIZE units and supersampled by SUPER, so raising the
+# downsample target just preserves more of that detail (no redraw, no gameplay
+# change — display size is collision-driven).
+FRAME_SIZE = (800, 640)
 WORK_FRAME_SIZE = (920, 840)
 SUPER = 4
 ROWS: List[Tuple[str, int, int]] = [

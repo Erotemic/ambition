@@ -247,8 +247,9 @@ fn slash_clung_surface_walker(cling_breaks_on_hit: bool) -> (App, bevy::prelude:
 #[test]
 fn struck_cling_breaker_loses_its_surface_and_falls() {
     // The puppy-slug "panic on hit": a struck surface-walker authored
-    // `cling_breaks_on_hit` leaves its surface, re-orients upright (gravity-down)
-    // so it falls + renders upright, and peels away along the surface normal.
+    // `cling_breaks_on_hit` leaves its surface and peels away along that surface
+    // normal. It keeps the last contact normal while airborne; the surface-walk
+    // integration reorients it to the active acceleration frame when it next lands.
     let (app, actor) = slash_clung_surface_walker(true);
     let surf = app
         .world()
@@ -260,8 +261,8 @@ fn struck_cling_breaker_loses_its_surface_and_falls() {
     );
     assert_eq!(
         surf.surface_normal,
-        ae::Vec2::new(0.0, -1.0),
-        "it re-orients to gravity-down so the body falls + renders upright"
+        ae::Vec2::new(1.0, 0.0),
+        "detaching preserves the last contact normal until gravity-relative landing"
     );
     let kin = app
         .world()

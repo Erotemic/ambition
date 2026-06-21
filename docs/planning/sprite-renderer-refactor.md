@@ -212,9 +212,34 @@ paradigms touching each file once (break rigdoc↔PySide6 in the same visit) →
   Forcing a merge would be drift-prone for little gain (the shared part is just
   grid-packing, entangled with differing label/preview/contact rendering). Left
   separate by analysis (cf. the won't-unify entries in code_smells).
-- **Next — directory reorg (navigability) or FrameSet per-paradigm migration.**
-  Both are large; the reorg's module-grouping (`authoring/` vs root infra) is a
-  layout choice worth a quick steer before a 100+ import-site churn.
+- **2026-06-21 — Step 3 landed: directory reorg (navigability).** Moved 16
+  shared spine modules from the package root into `authoring/` via `git mv`
+  (history preserved); all imports fixed (relative + absolute + rigdoc_codegen's
+  generated-code strings + tests + doc links). Pure move — 117 clean, 101 tests
+  pass. The top level now reads `core/ · authoring/ · targets/ · gui/ · configs/`
+  + root infra (cli, target_registry, config, paths, console, draw_all,
+  debug_hitboxes). The root went from ~25 modules to 9.
+
+## Status: structural maintainability refactor COMPLETE
+The core goal — taming the sprawl behind a small, navigable, dependency-clean
+core — is done. `core/` (Pillow+stdlib) holds the shared spine; both render
+spines are unified onto it (measurement + the single RON emitter); helpers
+deduped; an alpha-clobber guard added; dead code removed; the tree reorganized.
+~20 commits, every step parity-verified (117 targets byte-identical, except the
+one blessed feet-anchor correctness fix).
+
+**Remaining (all larger / needs input, not blocking):**
+- **Melee hitbox-agreement tooling** (goal 4, the expressiveness ask) — needs a
+  spec from Jon: overlay-to-verify vs. hitbox-follows-rig-part.
+- **FrameSet per-paradigm migration** — partially blocked (the two sheet
+  assemblers are essentially different), lower payoff than hoped.
+- **yaml-sidecar removal** — load-bearing tooling rewire; portability intent
+  already met (core is yaml-free).
+- **alpha-clobber audit** of ~139 plain `Draw(img)` sites — eyeball, the harness
+  can't catch these.
+- **composite-helper unification** (skeleton/rigdoc copies) — needs parity bless.
+
+## (historical) earlier next-step notes
 
 - *(historical)* **The single RON emitter.** Consolidate the two RON writers
   (`sheet.py` + `tackon_sheet.py`) into one (`core/manifest.py` schema → stdlib

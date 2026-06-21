@@ -360,6 +360,59 @@ def collect_visual_ref_issues(project: dict) -> list[ManifestIssue]:
     return issues
 
 
+def clear_entity_icons(project: dict, keep: set[str]) -> list[str]:
+    """Strip the editor tile off entity defs (back to a plain colored
+    `Rectangle`), except the `keep` set. Use this to remove gizmo/sprite tiles
+    that make resizable region entities read as textured geometry — a cleared
+    entity falls back to its `color` box, which is honest about being a region.
+    Prunes any tileset def left unreferenced afterward."""
+    messages: list[str] = []
+    for ent in entity_defs(project):
+        ident = str(ent.get("identifier"))
+        if ident in keep:
+            continue
+        if ent.get("tileRect") is None and ent.get("tilesetId") is None:
+            continue
+        ent["renderMode"] = "Rectangle"
+        ent["tilesetId"] = None
+        ent["tileRect"] = None
+        ent["uiTileRect"] = None
+        messages.append(f"cleared icon on {ident} (→ Rectangle)")
+    messages.extend(prune_unused_tilesets(project))
+    return messages
+
+
+def prune_unused_tilesets(project: dict) -> list[str]:
+    """Drop tileset defs no longer referenced by any entity icon, layer, or
+    enum, so cleared sprites don't leave orphaned (often gitignored-PNG)
+    tileset defs cluttering the project."""
+    referenced: set[int] = set()
+    for ent in entity_defs(project):
+        rect = ent.get("tileRect")
+        if isinstance(rect, dict) and rect.get("tilesetUid") is not None:
+            referenced.add(int(rect["tilesetUid"]))
+        if ent.get("tilesetId") is not None:
+            referenced.add(int(ent["tilesetId"]))
+    for layer in project.setdefault("defs", {}).setdefault("layers", []):
+        for key in ("tilesetDefUid", "autoTilesetDefUid"):
+            if layer.get(key) is not None:
+                referenced.add(int(layer[key]))
+    for enum in project.setdefault("defs", {}).setdefault("enums", []):
+        if enum.get("iconTilesetUid") is not None:
+            referenced.add(int(enum["iconTilesetUid"]))
+
+    tilesets = tileset_defs(project)
+    kept = [ts for ts in tilesets if int(ts.get("uid", -1)) in referenced]
+    messages = [
+        f"pruned unused tileset {ts.get('identifier')} uid={ts.get('uid')}"
+        for ts in tilesets
+        if int(ts.get("uid", -1)) not in referenced
+    ]
+    if messages:
+        tilesets[:] = kept
+    return messages
+
+
 def apply_manifest(project: dict, ldtk: Path, manifest: dict[str, Any]) -> list[str]:
     messages = upsert_tilesets(project, ldtk, manifest)
     messages.extend(apply_entity_icons(project, manifest))
@@ -518,17 +571,33 @@ def format_issues(issues: list[Issue]) -> str:
 
 def main(argv=None) -> int:
     ap = argparse.ArgumentParser(description="LDtk visual manifest scaffolding and application.")
-    ap.add_argument("action", choices=["generate-editor-icons", "suggest-manifest", "apply-manifest", "validate-manifest", "preview-manifest"])
+    ap.add_argument("action", choices=["generate-editor-icons", "suggest-manifest", "apply-manifest", "validate-manifest", "preview-manifest", "clear-entity-icons"])
     ap.add_argument("ldtk", type=Path, nargs="?")
     ap.add_argument("manifest", type=Path, nargs="?")
     ap.add_argument("--out", type=Path)
     ap.add_argument("--icons", type=Path, help="Output/input editor icon PNG path")
     ap.add_argument("--tile-size", type=int, default=32)
     ap.add_argument("--entity", action="append", default=[], help="Entity identifier to include in generated icon manifest; repeatable")
+    ap.add_argument("--keep", action="append", default=[], help="Entity identifier to KEEP when clearing icons; repeatable")
     ap.add_argument("--format", choices=["text", "json"], default="text")
     ap.add_argument("--in-place", action="store_true")
     ap.add_argument("--output", type=Path)
     args = ap.parse_args(argv)
+
+    if args.action == "clear-entity-icons":
+        if not args.ldtk:
+            raise SystemExit("clear-entity-icons requires <ldtk>")
+        if not args.in_place and not args.output:
+            raise SystemExit("clear-entity-icons requires --in-place or --output")
+        tx = LdtkTransaction(args.ldtk, in_place=args.in_place, output=args.output)
+        msgs = clear_entity_icons(tx.project, set(args.keep))
+        if msgs:
+            tx.note_changed(msgs)
+        out = tx.write_if_changed()
+        for msg in msgs:
+            print(msg)
+        print(f"wrote {out}")
+        return 0
 
     if args.action == "generate-editor-icons":
         if not args.icons and not args.out:

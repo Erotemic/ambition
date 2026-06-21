@@ -1,32 +1,5 @@
 {
   "entity_icons": {
-    "BossSpawn": {
-      "tile": [
-        0,
-        0,
-        768,
-        576
-      ],
-      "tileset": "sprite_gnu_ton_boss"
-    },
-    "EnemySpawn": {
-      "tile": [
-        0,
-        0,
-        121,
-        127
-      ],
-      "tileset": "sprite_goblin"
-    },
-    "NpcSpawn": {
-      "tile": [
-        0,
-        0,
-        83,
-        91
-      ],
-      "tileset": "sprite_merchant_prototype"
-    },
     "PlayerStart": {
       "tile": [
         0,
@@ -38,33 +11,6 @@
     }
   },
   "tilesets": [
-    {
-      "identifier": "sprite_gnu_ton_boss",
-      "path": "crates/ambition_gameplay_core/assets/sprites/gnu_ton_boss/gnu_ton_boss_spritesheet.png",
-      "tags": [
-        "sprite"
-      ],
-      "tile_height": 576,
-      "tile_width": 768
-    },
-    {
-      "identifier": "sprite_goblin",
-      "path": "crates/ambition_gameplay_core/assets/sprites/goblin_spritesheet.png",
-      "tags": [
-        "sprite"
-      ],
-      "tile_height": 127,
-      "tile_width": 121
-    },
-    {
-      "identifier": "sprite_merchant_prototype",
-      "path": "crates/ambition_gameplay_core/assets/sprites/merchant_prototype_spritesheet.png",
-      "tags": [
-        "sprite"
-      ],
-      "tile_height": 91,
-      "tile_width": 83
-    },
     {
       "identifier": "sprite_player_robot",
       "path": "crates/ambition_gameplay_core/assets/sprites/player_robot_spritesheet.png",

@@ -35,13 +35,14 @@ from __future__ import annotations
 
 import argparse
 import json
-import shutil
-import subprocess
 import sys
 from pathlib import Path
 
 # tools/ambition_ldtk_tools/ambition_ldtk_tools/edit/set_field.py -> repo root.
 REPO_ROOT = Path(__file__).resolve().parents[4]
+
+from ambition_ldtk_tools.edit.postprocess import run_repair_and_validate
+from ambition_ldtk_tools.ldtk.transaction import LdtkTransaction
 
 from ambition_ldtk_tools.area_authoring import (  # noqa: E402
     coerce_field_value,
@@ -181,7 +182,13 @@ def main(argv=None) -> int:
     if not isinstance(spec, dict) or "level_id" not in spec or "edits" not in spec:
         return _fail("spec must be a mapping with `level_id` and `edits`")
 
-    project = load_project(args.ldtk)
+    tx = LdtkTransaction(
+        args.ldtk,
+        in_place=args.in_place,
+        output=args.output,
+        backup=args.backup,
+    )
+    project = tx.project
     level = find_level(project, spec["level_id"])
     layer = find_ambition_layer(level)
 
@@ -200,33 +207,18 @@ def main(argv=None) -> int:
                 + ", ".join(f"{k}={v!r}" for k, v in fields.items())
             )
 
-    target_path = args.output or args.ldtk
-    if args.in_place and args.backup:
-        backup = args.ldtk.with_suffix(args.ldtk.suffix + ".bak")
-        shutil.copy2(args.ldtk, backup)
-        print(f"wrote backup: {backup}")
-    write_project(target_path, project)
+    if edits:
+        tx.note_changed(edits)
+    target_path = tx.finish(
+        noop_message="entity set-field: no matching edits were applied",
+        write_message="wrote {path}",
+    )
     print(f"applied {len(edits)} edit(s):")
     for line in edits:
         print(f"  {line}")
-    if args.no_repair:
+    if target_path is None or args.no_repair:
         return 0
-
-    cmd = [
-        sys.executable,
-        "-m",
-        "ambition_ldtk_tools.repair",
-        str(target_path),
-        "--in-place",
-    ]
-    print("$ " + " ".join(cmd))
-    if subprocess.run(cmd).returncode != 0:
-        return 1
-    cmd = [sys.executable, "-m", "ambition_ldtk_tools.validate", str(target_path)]
-    if args.schema and args.schema.exists():
-        cmd.extend(["--schema", str(args.schema), "--require-schema"])
-    print("$ " + " ".join(cmd))
-    return subprocess.run(cmd).returncode
+    return run_repair_and_validate(target_path, args.schema)
 
 
 def _fail(msg: str) -> int:

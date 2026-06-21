@@ -316,3 +316,16 @@ The public CLI entrypoints remain stable while implementation files move behind
 these packages. If a later overlay turns a legacy `.py` entrypoint into a package
 or removes dead wrappers, include explicit `git rm` cleanup commands because ZIP
 overlays cannot delete files.
+
+### LDtk tool architecture notes
+
+The LDtk tools are being migrated away from command-local JSON mutation.
+Prefer these shared seams for new work:
+
+- `ldtk.transaction.LdtkTransaction` for load/mutate/writeback behavior.
+- `edit.postprocess.run_repair_and_validate` for standard post-write repair and validation.
+- `ldtk.issues.Issue` for structured diagnostics and JSON output.
+- `area.plan.AreaPatchPlan` for compiling authoring specs before mutating projects.
+
+This keeps correctness in common helpers instead of duplicating dry-run, backup,
+repair, and validation logic across every edit command.

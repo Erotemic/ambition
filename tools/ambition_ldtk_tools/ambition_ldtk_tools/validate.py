@@ -19,6 +19,7 @@ from collections import Counter, defaultdict
 from pathlib import Path
 
 from ambition_ldtk_tools.ldtk.issues import Issue, format_issue_lines, has_errors
+from ambition_ldtk_tools.validate_rules.authoring_hygiene import authoring_hygiene_issues
 from ambition_ldtk_tools.validate_rules.messages import issues_from_messages
 from ambition_ldtk_tools.validate_rules.official_schema import validate_official_schema
 
@@ -616,6 +617,7 @@ def validate(
     schema_path: Path | None = None,
     require_schema: bool = False,
     secondary_worlds: list[Path] | None = None,
+    include_authoring_hygiene: bool = True,
 ):
     errors = []
     warnings = []
@@ -1216,242 +1218,20 @@ def validate(
                 f"active area {area!r} has {count} PlayerStart entities across {level_names}; expected exactly 1"
             )
 
-    _check_intro_authoring_hygiene(project, warnings)
+    if include_authoring_hygiene:
+        _check_intro_authoring_hygiene(project, warnings)
 
     return errors, warnings
 
 
+
 def _check_intro_authoring_hygiene(project, warnings):
-    """Three soft checks Jon asked for after the 2026-05-22 review:
+    """Compatibility shim for older imports.
 
-    - **DebugLabel overlaps**: any pair of DebugLabel entities whose
-      rendered text bboxes overlap in world space looks like a wall
-      of garbled text in the debug overlay. Flagged as a warning so
-      authors can space them.
-    - **Mid-air LoadingZones**: a `Door` LoadingZone that has no
-      walkable surface (Solid / OneWayPlatform) within `STAND_GAP`
-      px below its bottom edge is a teleport from nowhere. Warned
-      so authors notice.
-    - **Missing room walls**: a level whose boundary has neither a
-      Solid covering it NOR an EdgeExit LoadingZone is a "walks off
-      the world" boundary. Warned so authors fill it.
-
-    These are warnings — they describe authoring smells rather than
-    schema violations, so `validate --strict` can be used to escalate
-    them in CI without breaking iteration.
+    New code should use ``validate_rules.authoring_hygiene.authoring_hygiene_issues``
+    so checks emit first-class Issue codes instead of string warnings.
     """
-    STAND_GAP = 16.0
-
-    # --- DebugLabel pair-wise overlap ---------------------------------
-    # Approximate each label's bbox from its entity rect — exact text
-    # metrics depend on the runtime font choice but the entity's
-    # `width` field is sized for the rendered text already.
-    label_rects_by_level = defaultdict(list)
-    for level in project.get("levels") or []:
-        identifier = level.get("identifier", "<unknown>")
-        for layer in level.get("layerInstances") or []:
-            for entity in layer.get("entityInstances") or []:
-                if entity.get("__identifier") != "DebugLabel":
-                    continue
-                ex, ey, ew, eh = rect(entity)
-                label_rects_by_level[identifier].append(
-                    (entity_name(entity), ex, ey, ew, eh)
-                )
-    for level_name, rects in label_rects_by_level.items():
-        for i in range(len(rects)):
-            for j in range(i + 1, len(rects)):
-                ai, ax, ay, aw, ah = rects[i]
-                bi, bx, by, bw, bh = rects[j]
-                if strict_rects_intersect((ax, ay, aw, ah), (bx, by, bw, bh)):
-                    warnings.append(
-                        f"DebugLabels {ai!r} and {bi!r} in level {level_name!r} "
-                        f"overlap — space them apart or stack vertically so the "
-                        f"text is readable in the debug overlay"
-                    )
-
-    # --- Spawn entity overlap (NpcSpawn / EnemySpawn / BossSpawn) ------
-    # Two spawn AABBs that overlap or sit within a few pixels of each
-    # other will render their sprites stacked — flagged as a soft
-    # warning so authors notice (e.g. the Hall of Characters basement
-    # bosses with wide-frame sprites that bleed across slot
-    # boundaries). The threshold is a small "personal-space" buffer
-    # rather than literal AABB intersection.
-    SPAWN_GAP_PX = 4.0  # min separation between spawn AABBs
-    spawn_kinds = ("NpcSpawn", "EnemySpawn", "BossSpawn")
-    spawns_by_level = defaultdict(list)
-    for level in project.get("levels") or []:
-        identifier = level.get("identifier", "<unknown>")
-        for layer in level.get("layerInstances") or []:
-            for entity in layer.get("entityInstances") or []:
-                ident = entity.get("__identifier")
-                if ident not in spawn_kinds:
-                    continue
-                ex, ey, ew, eh = rect(entity)
-                label = entity_name(entity) or entity.get("iid", "<no-iid>")
-                spawns_by_level[identifier].append((ident, label, ex, ey, ew, eh))
-    for level_name, items in spawns_by_level.items():
-        for i in range(len(items)):
-            for j in range(i + 1, len(items)):
-                ka, la, ax, ay, aw, ah = items[i]
-                kb, lb, bx, by, bw, bh = items[j]
-                # Inflate each rect by half the gap so the
-                # intersection test rejects too-close pairs as well
-                # as outright overlaps.
-                inflate = SPAWN_GAP_PX / 2.0
-                if strict_rects_intersect(
-                    (ax - inflate, ay - inflate, aw + 2 * inflate, ah + 2 * inflate),
-                    (bx - inflate, by - inflate, bw + 2 * inflate, bh + 2 * inflate),
-                ):
-                    warnings.append(
-                        f"{ka} {la!r} and {kb} {lb!r} in level "
-                        f"{level_name!r} overlap or sit within "
-                        f"{SPAWN_GAP_PX:g}px of each other "
-                        f"(rects: a=({ax:g},{ay:g},{aw:g},{ah:g}) "
-                        f"b=({bx:g},{by:g},{bw:g},{bh:g})) — wide "
-                        f"sprite render bleeds across slot "
-                        f"boundaries"
-                    )
-
-    # --- Mid-air Doors + missing room walls --------------------------
-    for level in project.get("levels") or []:
-        identifier = level.get("identifier", "<unknown>")
-        width = int(level.get("pxWid", 0))
-        height = int(level.get("pxHei", 0))
-        solids = []
-        one_ways = []
-        doors = []
-        edge_exits = set()  # which sides have an EdgeExit
-        for layer in level.get("layerInstances") or []:
-            for entity in layer.get("entityInstances") or []:
-                ident = entity.get("__identifier")
-                if ident == "Solid":
-                    solids.append(rect(entity))
-                elif ident == "OneWayPlatform":
-                    one_ways.append(rect(entity))
-                elif ident == "LoadingZone":
-                    fields = entity.get("fieldInstances") or []
-                    activation = str(field_value(fields, "activation", "Door"))
-                    er = rect(entity)
-                    doors.append((entity_name(entity), activation, er))
-                    if activation == "EdgeExit":
-                        ex, ey, ew, eh = er
-                        if ex <= 1:
-                            edge_exits.add("left")
-                        if ex + ew >= width - 1:
-                            edge_exits.add("right")
-                        if ey <= 1:
-                            edge_exits.add("top")
-                        if ey + eh >= height - 1:
-                            edge_exits.add("bottom")
-        # Mid-air Door check: a `Door` activation should have a
-        # walkable surface within STAND_GAP px below its bottom edge.
-        # Accepts entity-instance Solids/OneWayPlatforms OR IntGrid
-        # Collision cells with value 1 (Solid) / 2 (OneWayPlatform) —
-        # `area_authoring` lowers static-collision entities to IntGrid
-        # by default, so a strict entity-only check false-positives on
-        # every door over an IntGrid floor.
-        intgrid_layer = None
-        for layer in level.get("layerInstances") or []:
-            if layer.get("__identifier") == "Collision":
-                intgrid_layer = layer
-                break
-        ig_grid = int(intgrid_layer.get("__gridSize", 16)) if intgrid_layer else 16
-        ig_c_wid = int(intgrid_layer.get("__cWid", 0)) if intgrid_layer else 0
-        ig_c_hei = int(intgrid_layer.get("__cHei", 0)) if intgrid_layer else 0
-        ig_csv = intgrid_layer.get("intGridCsv", []) if intgrid_layer else []
-
-        def intgrid_rect_intersects_walkable(
-            rect_xywh: tuple[float, float, float, float],
-        ) -> bool:
-            if not (intgrid_layer and ig_c_wid and ig_c_hei and ig_csv):
-                return False
-            rx, ry, rw, rh = rect_xywh
-            cx0 = max(0, int(rx) // ig_grid)
-            cy0 = max(0, int(ry) // ig_grid)
-            cx1 = min(ig_c_wid - 1, int(rx + rw - 1) // ig_grid)
-            cy1 = min(ig_c_hei - 1, int(ry + rh - 1) // ig_grid)
-            for cy in range(cy0, cy1 + 1):
-                for cx in range(cx0, cx1 + 1):
-                    v = ig_csv[cy * ig_c_wid + cx]
-                    if v in (1, 2):  # Solid or OneWayPlatform
-                        return True
-            return False
-
-        for name, activation, (dx, dy, dw, dh) in doors:
-            if activation != "Door":
-                continue
-            door_bottom_y = dy + dh
-            probe = (dx, door_bottom_y, dw, STAND_GAP)
-            supports = (
-                any(
-                    strict_rects_intersect(probe, (sx, sy, sw, sh))
-                    for (sx, sy, sw, sh) in solids
-                )
-                or any(
-                    strict_rects_intersect(probe, (sx, sy, sw, sh))
-                    for (sx, sy, sw, sh) in one_ways
-                )
-                or intgrid_rect_intersects_walkable(probe)
-            )
-            if not supports:
-                warnings.append(
-                    f"LoadingZone {name!r} in level {identifier!r} is a "
-                    f"`Door` with no walkable surface within {int(STAND_GAP)}px "
-                    f"below — looks like a teleport hanging in mid-air. Add a "
-                    f"Solid/OneWayPlatform under it or switch to EdgeExit."
-                )
-        # Missing-wall check: every side of the level box that has no
-        # EdgeExit should be covered by a Solid that meets the level
-        # edge. Also accept IntGrid Collision cells with `Solid` value
-        # (=1) since `area_authoring` lowers static-collision entities
-        # into IntGrid by default — checking only entity-instance
-        # Solids would false-positive on every level that uses
-        # canonical IntGrid collision.
-        if width > 0 and height > 0:
-            intgrid_layer = None
-            for layer in level.get("layerInstances") or []:
-                if layer.get("__identifier") == "Collision":
-                    intgrid_layer = layer
-                    break
-            grid_size = (
-                int(intgrid_layer.get("__gridSize", 16)) if intgrid_layer else 16
-            )
-            c_wid = int(intgrid_layer.get("__cWid", 0)) if intgrid_layer else 0
-            c_hei = int(intgrid_layer.get("__cHei", 0)) if intgrid_layer else 0
-            csv = intgrid_layer.get("intGridCsv", []) if intgrid_layer else []
-
-            def intgrid_blocks_side(side: str) -> bool:
-                if not (intgrid_layer and c_wid and c_hei and csv):
-                    return False
-                if side == "left":
-                    return any(csv[y * c_wid] == 1 for y in range(c_hei))
-                if side == "right":
-                    return any(csv[y * c_wid + (c_wid - 1)] == 1 for y in range(c_hei))
-                if side == "top":
-                    return any(csv[x] == 1 for x in range(c_wid))
-                if side == "bottom":
-                    return any(csv[(c_hei - 1) * c_wid + x] == 1 for x in range(c_wid))
-                return False
-
-            sides = (
-                ("left", (0, 0, 1, height)),
-                ("right", (max(0, width - 1), 0, 1, height)),
-                ("top", (0, 0, width, 1)),
-                ("bottom", (0, max(0, height - 1), width, 1)),
-            )
-            for side_name, probe in sides:
-                if side_name in edge_exits:
-                    continue
-                blocks_side = any(
-                    strict_rects_intersect(probe, (sx, sy, sw, sh))
-                    for (sx, sy, sw, sh) in solids
-                ) or intgrid_blocks_side(side_name)
-                if not blocks_side:
-                    warnings.append(
-                        f"level {identifier!r} has no Solid blocking the "
-                        f"{side_name} edge and no EdgeExit on that side — "
-                        f"the player can walk off the world."
-                    )
+    warnings.extend(issue.message for issue in authoring_hygiene_issues(project))
 
 
 def validate_issues(
@@ -1471,8 +1251,17 @@ def validate_issues(
         schema_path,
         require_schema,
         secondary_worlds=secondary_worlds,
+        include_authoring_hygiene=False,
     )
-    return issues_from_messages(errors, warnings)
+    issues = issues_from_messages(errors, warnings)
+    if not errors or path.exists():
+        try:
+            project = json.loads(path.read_text())
+        except Exception:
+            project = None
+        if project is not None:
+            issues.extend(authoring_hygiene_issues(project))
+    return issues
 
 
 def main(argv=None):

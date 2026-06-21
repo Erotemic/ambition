@@ -30,6 +30,7 @@ from ambition_ldtk_tools.ldtk import (
     load_project,
     write_project,
 )
+from ambition_ldtk_tools.ldtk.transaction import LdtkTransaction
 
 DEFAULT_ENTITY_LAYER_RULES = {"CameraZone": "AmbitionCameras"}
 DEFAULT_DISALLOW_ENTITIES_ON_LAYERS = {"Collision", "Water", "Climbable"}
@@ -151,21 +152,27 @@ def main(argv=None) -> int:
     ap.add_argument("--output", type=Path)
     args = ap.parse_args(argv)
 
-    project = load_project(args.ldtk)
     rules = parse_rules(args.rule, include_defaults=not args.no_default_rules)
     if args.action == "fix":
-        moved = fix_policy(project, rules)
-        if args.in_place:
-            write_project(args.ldtk, project)
-            out = args.ldtk
-        elif args.output:
-            write_project(args.output, project)
-            out = args.output
-        else:
-            print("policy fix requires --in-place or --output", flush=True)
-            return 64
-        print(f"policy fix: moved {moved} entit(y/ies); wrote {out}")
+        tx = LdtkTransaction(
+            args.ldtk,
+            in_place=args.in_place,
+            output=args.output,
+        )
+        moved = fix_policy(tx.project, rules)
+        if moved:
+            tx.note_changed([f"policy fix moved {moved} entit(y/ies)"])
+        out = tx.finish(
+            noop_message="policy fix: no entities needed moving",
+            write_message=f"policy fix: moved {moved} entit(y/ies); wrote {{path}}",
+        )
+        if out is None and not moved:
+            pass
+    else:
+        project = load_project(args.ldtk)
 
+    if args.action == "fix":
+        project = tx.project
     issues = collect_policy_issues(project, rules)
     if args.format == "json":
         print(json.dumps([issue.as_dict() for issue in issues], indent=2, sort_keys=True))

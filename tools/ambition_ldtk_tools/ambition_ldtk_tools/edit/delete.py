@@ -32,13 +32,14 @@ from __future__ import annotations
 
 import argparse
 import json
-import shutil
-import subprocess
 import sys
 from pathlib import Path
 
 # tools/ambition_ldtk_tools/ambition_ldtk_tools/edit/delete.py -> repo root.
 REPO_ROOT = Path(__file__).resolve().parents[4]
+
+from ambition_ldtk_tools.edit.postprocess import run_repair_and_validate
+from ambition_ldtk_tools.ldtk.transaction import LdtkTransaction
 
 from ambition_ldtk_tools.area_authoring import (  # noqa: E402
     load_project,
@@ -134,7 +135,13 @@ def main(argv=None) -> int:
     if not isinstance(deletes, list) or not deletes:
         return _fail("spec missing required `deletes` list")
 
-    project = load_project(args.ldtk)
+    tx = LdtkTransaction(
+        args.ldtk,
+        in_place=args.in_place,
+        output=args.output,
+        backup=args.backup,
+    )
+    project = tx.project
     level = find_level(project, level_id)
     layer = find_ambition_layer(level)
     instances = layer.get("entityInstances", [])
@@ -160,34 +167,16 @@ def main(argv=None) -> int:
         f"deleted {total_deleted} entit{'y' if total_deleted == 1 else 'ies'} from '{level_id}'"
     )
 
-    target_path = args.output or args.ldtk
-    if args.output is None and args.backup:
-        backup = args.ldtk.with_suffix(args.ldtk.suffix + ".bak")
-        shutil.copy2(args.ldtk, backup)
-        print(f"wrote backup: {backup}")
-    write_project(target_path, project)
+    if summaries:
+        tx.note_changed(summaries)
+    target_path = tx.finish(
+        noop_message="entity delete: no matching entities were deleted",
+        write_message="wrote {path}",
+    )
 
-    if args.no_repair:
+    if target_path is None or args.no_repair:
         return 0
-    cmd_repair = [
-        sys.executable,
-        "-m",
-        "ambition_ldtk_tools.repair",
-        str(target_path),
-        "--in-place",
-    ]
-    rc = subprocess.run(cmd_repair).returncode
-    if rc != 0:
-        return rc
-    cmd_val = [
-        sys.executable,
-        "-m",
-        "ambition_ldtk_tools.validate",
-        str(target_path),
-    ]
-    if args.schema and args.schema.exists():
-        cmd_val.extend(["--schema", str(args.schema), "--require-schema"])
-    return subprocess.run(cmd_val).returncode
+    return run_repair_and_validate(target_path, args.schema)
 
 
 def _fail(msg: str) -> int:

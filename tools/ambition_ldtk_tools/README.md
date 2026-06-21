@@ -347,3 +347,12 @@ The tool package is intentionally moving toward thin CLIs over shared internals:
 
 Keep new commands on these seams instead of re-implementing raw LDtk JSON access,
 writeback, no-op handling, or diagnostic formatting locally.
+
+### Refactor note: transactions and first-class validation issues
+
+Recent LDtk-tool refactors established shared seams for future commands:
+
+- Mutating commands should prefer `ambition_ldtk_tools.ldtk.transaction.LdtkTransaction` for dry-run/no-op/backup/writeback behavior.
+- Commands that run repair + validate after writing should use `ambition_ldtk_tools.edit.postprocess.run_repair_and_validate`.
+- Validation rule modules should emit `ambition_ldtk_tools.ldtk.issues.Issue` directly when possible; legacy string diagnostics are compatibility-only.
+- Area-authoring create now compiles to `AreaPatchPlan` operations before applying them, which is the migration path toward fully typed LDtk patch ops.

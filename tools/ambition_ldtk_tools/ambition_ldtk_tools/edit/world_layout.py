@@ -9,13 +9,11 @@ rendering, and LDtk writeback can evolve independently.
 from __future__ import annotations
 
 import argparse
-import json
-import shutil
 import subprocess
 import sys
 from pathlib import Path
 
-from ambition_ldtk_tools.editor_format import dump_editor_style
+from ambition_ldtk_tools.ldtk.transaction import LdtkTransaction
 from ambition_ldtk_tools.edit.layout.graph import *  # noqa: F401,F403 - compatibility exports
 from ambition_ldtk_tools.edit.layout.model import Point
 from ambition_ldtk_tools.edit.layout.model import *  # noqa: F401,F403 - compatibility exports
@@ -92,9 +90,15 @@ def main(argv=None) -> int:
     except Exception:
         return _fail("--origin must be X,Y")
 
-    project = json.loads(args.ldtk.read_text())
+    tx = LdtkTransaction(
+        args.ldtk,
+        dry_run=args.dry_run,
+        in_place=args.in_place,
+        output=args.output,
+        backup=args.backup,
+    )
     result = auto_layout(
-        project,
+        tx.project,
         start=args.start,
         origin=origin,
         grid=args.grid,
@@ -121,13 +125,17 @@ def main(argv=None) -> int:
     if args.dry_run:
         return 0
 
-    target = args.output or args.ldtk
-    if args.in_place and args.backup:
-        backup = args.ldtk.with_suffix(args.ldtk.suffix + ".bak")
-        shutil.copy2(args.ldtk, backup)
-        print(f"wrote backup: {backup}")
-    target.write_text(dump_editor_style(project))
-    print(f"wrote {target}")
+    if result.moved_levels or result.updated_entities or args.output is not None:
+        tx.note_changed([
+            f"auto-layout {args.strategy}: moved {result.moved_levels} level(s), "
+            f"updated {result.updated_entities} entity coordinate cache(s)"
+        ])
+    target = tx.finish(
+        noop_message="world auto-layout: no LDtk changes to write",
+        write_message="wrote {path}",
+    )
+    if target is None:
+        return 0
 
     if args.no_repair:
         return 0

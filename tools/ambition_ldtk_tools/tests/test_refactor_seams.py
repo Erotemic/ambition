@@ -76,3 +76,71 @@ def test_area_patch_plan_applies_named_ops():
     )
     assert plan.apply(project) == ["added demo_level"]
     assert project["levels"][0]["identifier"] == "demo_level"
+
+
+def test_authoring_hygiene_rule_module_emits_first_class_issue_codes():
+    from ambition_ldtk_tools.validate_rules.authoring_hygiene import authoring_hygiene_issues
+
+    project = {
+        "levels": [
+            {
+                "identifier": "tiny_room",
+                "pxWid": 64,
+                "pxHei": 64,
+                "layerInstances": [
+                    {
+                        "__identifier": "Ambition",
+                        "entityInstances": [
+                            {"__identifier": "DebugLabel", "iid": "label-a", "px": [0, 0], "width": 32, "height": 16},
+                            {"__identifier": "DebugLabel", "iid": "label-b", "px": [8, 0], "width": 32, "height": 16},
+                        ],
+                    }
+                ],
+            }
+        ]
+    }
+
+    codes = {issue.code for issue in authoring_hygiene_issues(project)}
+    assert "validate.debug_label_overlap" in codes
+    assert "validate.missing_level_wall" in codes
+
+
+def test_area_create_plan_uses_first_class_ops():
+    from ambition_ldtk_tools.area.plan import (
+        AddReciprocalLoadingZonesOp,
+        AppendGeneratedLevelOp,
+        ReplaceExistingLevelOp,
+    )
+    from ambition_ldtk_tools.area_authoring import compile_area_create_plan
+
+    project = {
+        "jsonVersion": "1.5.3",
+        "defaultGridSize": 16,
+        "defaultLevelBgColor": "#000000",
+        "nextUid": 1,
+        "defs": {
+            "layers": [
+                {"identifier": "Collision", "uid": 10, "__type": "IntGrid", "gridSize": 16},
+                {"identifier": "Ambition", "uid": 11, "__type": "Entities", "gridSize": 16},
+            ],
+            "entities": [],
+            "levelFields": [
+                {"identifier": "activeArea", "uid": 20, "__type": "String", "type": "F_String"},
+            ],
+        },
+        "levels": [],
+    }
+    spec = {
+        "id": "tiny_area",
+        "level_id": "tiny_area",
+        "world_x": 0,
+        "world_y": 0,
+        "px_wid": 64,
+        "px_hei": 64,
+        "entities": [],
+    }
+
+    plan, _level, _summaries = compile_area_create_plan(project, spec)
+    assert any(isinstance(op, AppendGeneratedLevelOp) for op in plan.ops)
+    assert not any(isinstance(op, ReplaceExistingLevelOp) for op in plan.ops)
+    assert not any(isinstance(op, AddReciprocalLoadingZonesOp) for op in plan.ops)

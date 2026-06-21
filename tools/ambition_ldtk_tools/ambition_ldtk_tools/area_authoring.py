@@ -130,7 +130,6 @@ from __future__ import annotations
 
 import argparse
 import json
-import shutil
 import subprocess
 import sys
 from pathlib import Path
@@ -138,7 +137,13 @@ from pathlib import Path
 PKG_DIR = Path(__file__).resolve().parent
 
 from ambition_ldtk_tools.area.spec import load_spec
-from ambition_ldtk_tools.area.plan import AreaPatchPlan, CallableAreaPatchOp
+from ambition_ldtk_tools.ldtk.transaction import LdtkTransaction
+from ambition_ldtk_tools.area.plan import (
+    AddReciprocalLoadingZonesOp,
+    AppendGeneratedLevelOp,
+    AreaPatchPlan,
+    ReplaceExistingLevelOp,
+)
 
 
 def load_project(path: Path) -> dict:
@@ -1493,46 +1498,17 @@ def compile_area_create_plan(
     level = build_level(project, spec)
     reciprocal_summaries: list[str] = []
 
-    def replace_existing_level_op(target_project: dict) -> list[str]:
-        if existing_index is None:
-            return []
-        removed = target_project["levels"].pop(existing_index)
-        return [
-            f"replacing existing level '{removed['identifier']}' "
-            f"({removed['pxWid']}x{removed['pxHei']} at "
-            f"{removed['worldX']},{removed['worldY']})"
-        ]
-
-    def append_level_op(target_project: dict) -> list[str]:
-        target_project.setdefault("levels", []).append(level)
-        target_project.setdefault("toc", [])
-        return [
-            f"add level '{level['identifier']}' (area '{spec['id']}', "
-            f"{level['pxWid']}x{level['pxHei']} at {level['worldX']},{level['worldY']})"
-        ]
-
-    def reciprocal_zones_op(target_project: dict) -> list[str]:
-        summaries: list[str] = []
-        for connection in spec.get("connect_to") or []:
-            instance = add_reciprocal_loading_zone(target_project, connection, level_id)
-            fields = {
-                f["__identifier"]: f.get("__value")
-                for f in instance.get("fieldInstances", [])
-            }
-            line = (
-                f"reciprocal LoadingZone in '{connection['target_room']}' at "
-                f"px={instance['px']} size=({instance['width']}x{instance['height']}) "
-                f"→ {fields.get('target_room')}/{fields.get('target_zone')}"
-            )
-            summaries.append(line)
-            reciprocal_summaries.append(line)
-        return summaries
-
     if existing_index is not None:
-        plan.add_op(CallableAreaPatchOp("replace existing level", replace_existing_level_op))
-    plan.add_op(CallableAreaPatchOp("append generated level", append_level_op))
+        plan.add_op(ReplaceExistingLevelOp(existing_index))
+    plan.add_op(AppendGeneratedLevelOp(level=level, area_id=str(spec["id"])))
     if spec.get("connect_to"):
-        plan.add_op(CallableAreaPatchOp("add reciprocal loading zones", reciprocal_zones_op))
+        plan.add_op(
+            AddReciprocalLoadingZonesOp(
+                connections=tuple(spec.get("connect_to") or []),
+                source_level_id=level_id,
+                builder=add_reciprocal_loading_zone,
+            )
+        )
 
     plan.preview_lines.append(summarize_level(level))
     return plan, level, reciprocal_summaries
@@ -1771,10 +1747,16 @@ def main(argv=None) -> int:
         if required not in spec:
             return _fail(f"spec is missing required key '{required}'")
 
-    project = load_project(args.ldtk)
+    tx = LdtkTransaction(
+        args.ldtk,
+        dry_run=args.dry_run,
+        in_place=args.output is None,
+        output=args.output,
+        backup=args.backup,
+    )
     try:
         plan, level, _reciprocal_summaries = compile_area_create_plan(
-            project,
+            tx.project,
             spec,
             replace_existing=args.replace_existing,
         )
@@ -1784,7 +1766,8 @@ def main(argv=None) -> int:
     print("--- preview ---")
     for line in plan.preview_lines:
         print(line)
-    apply_summaries = plan.apply(project)
+    apply_summaries = plan.apply(tx.project)
+    tx.note_changed(apply_summaries)
     for line in apply_summaries:
         print(line)
     print("--- end preview ---")
@@ -1793,18 +1776,15 @@ def main(argv=None) -> int:
         print("dry-run: no file written; repair/validate skipped")
         return 0
 
-    target = args.output or args.ldtk
-    if args.output is None and args.backup:
-        backup = args.ldtk.with_suffix(args.ldtk.suffix + ".bak")
-        shutil.copy2(args.ldtk, backup)
-        print(f"wrote backup: {backup}")
-
-    write_project(target, project)
-    print(
-        f"wrote new level '{level['identifier']}' (area '{spec['id']}', "
-        f"{level['pxWid']}x{level['pxHei']} at {level['worldX']},{level['worldY']}) "
-        f"to {target}"
+    target = tx.finish(
+        write_message=(
+            f"wrote new level '{level['identifier']}' (area '{spec['id']}', "
+            f"{level['pxWid']}x{level['pxHei']} at {level['worldX']},{level['worldY']}) "
+            "to {path}"
+        )
     )
+    if target is None:
+        return 0
     if args.no_repair:
         return 0
 

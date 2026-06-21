@@ -24,6 +24,7 @@ from ambition_ldtk_tools.ldtk import (
     repo_root_from_ldtk,
     write_project,
 )
+from ambition_ldtk_tools.ldtk.transaction import LdtkTransaction
 from ambition_ldtk_tools.edit.visual_manifest import (
     apply_manifest,
     default_icon_manifest,
@@ -218,18 +219,18 @@ def main(argv=None) -> int:
             else:
                 print(format_manifest_issues(issues), end="")
             return 1 if any(i.severity == "error" for i in issues) else 0
-        messages = apply_manifest(project, args.ldtk, manifest)
-        if args.in_place:
-            write_project(args.ldtk, project)
-            out = args.ldtk
-        elif args.output:
-            write_project(args.output, project)
-            out = args.output
-        else:
-            raise SystemExit("apply-manifest requires --in-place or --output")
+        tx = LdtkTransaction(args.ldtk, in_place=args.in_place, output=args.output)
+        messages = apply_manifest(tx.project, args.ldtk, manifest)
+        if messages:
+            tx.note_changed(messages)
+        out = tx.finish(
+            noop_message="asset apply-manifest: no LDtk visual changes",
+            write_message="wrote {path}",
+        )
         for msg in messages:
             print(msg)
-        print(f"wrote {out}")
+        if out is None and messages:
+            raise SystemExit("apply-manifest requires --in-place or --output")
         return 0
 
     if args.action == "link-entity-tile":
@@ -238,14 +239,11 @@ def main(argv=None) -> int:
         parts = [int(p.strip()) for p in args.tile.split(",")]
         if len(parts) != 4:
             raise SystemExit("--tile must be x,y,w,h")
-        msg = link_entity_tile(project, args.entity, args.tileset, tuple(parts))
-        if args.in_place:
-            write_project(args.ldtk, project)
-            out = args.ldtk
-        elif args.output:
-            write_project(args.output, project)
-            out = args.output
-        else:
+        tx = LdtkTransaction(args.ldtk, in_place=args.in_place, output=args.output)
+        msg = link_entity_tile(tx.project, args.entity, args.tileset, tuple(parts))
+        tx.note_changed([msg])
+        out = tx.finish(write_message="wrote {path}")
+        if out is None:
             raise SystemExit("link-entity-tile requires --in-place or --output")
         print(f"{msg}; wrote {out}")
         return 0

@@ -23,6 +23,7 @@ Subcommands (those marked [TODO] are not yet wired and will print a hint):
     asset catalog <ldtk>          List registered tilesets, entity sprites, and PNGs.
     asset link-entity-tile <ldtk> Point an entity def at a registered tileset tile.
     asset generate-editor-icons   Create placeholder editor icon PNGs.
+    asset register-entity-icons   Generate the editor-icon atlas + wire every entity def's icon (one shot).
     asset suggest/apply/validate-manifest
                                   Scaffold and apply visual manifests.
 
@@ -173,6 +174,7 @@ def cmd_asset(args, rest):
         "catalog",
         "link-entity-tile",
         "generate-editor-icons",
+        "register-entity-icons",
         "suggest-manifest",
         "apply-manifest",
         "validate-manifest",
@@ -436,6 +438,7 @@ def build_parser() -> argparse.ArgumentParser:
     asset_sub.add_parser("catalog", help="List registered tilesets, editor sprites, and PNG assets")
     asset_sub.add_parser("link-entity-tile", help="Point an entity def at a registered tileset tileRect")
     asset_sub.add_parser("generate-editor-icons", help="Create placeholder editor icon PNGs")
+    asset_sub.add_parser("register-entity-icons", help="One shot: generate the editor-icon atlas + wire every entity def to its icon")
     asset_sub.add_parser("suggest-manifest", help="Print or write a draft visual manifest")
     asset_sub.add_parser("apply-manifest", help="Register tilesets and entity editor icons from a visual manifest")
     asset_sub.add_parser("validate-manifest", help="Validate LDtk visual refs against a manifest")

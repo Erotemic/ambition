@@ -26,6 +26,7 @@ from ambition_ldtk_tools.ldtk import (
 )
 from ambition_ldtk_tools.ldtk.transaction import LdtkTransaction
 from ambition_ldtk_tools.edit.visual_manifest import (
+    DEFAULT_ENTITY_ICON_ORDER,
     apply_manifest,
     default_icon_manifest,
     format_issues as format_manifest_issues,
@@ -153,7 +154,7 @@ def link_entity_tile(project: dict, entity_id: str, tileset_id: str, rect: tuple
 
 def main(argv=None) -> int:
     ap = argparse.ArgumentParser(description="LDtk asset and editor-sprite helpers.")
-    ap.add_argument("action", choices=["catalog", "link-entity-tile", "generate-editor-icons", "suggest-manifest", "apply-manifest", "validate-manifest", "preview-manifest"])
+    ap.add_argument("action", choices=["catalog", "link-entity-tile", "generate-editor-icons", "register-entity-icons", "suggest-manifest", "apply-manifest", "validate-manifest", "preview-manifest"])
     ap.add_argument("ldtk", type=Path, nargs="?", default=DEFAULT_LDTK)
     ap.add_argument("--assets-root", type=Path)
     ap.add_argument("--format", choices=["text", "json"], default="text")
@@ -184,6 +185,41 @@ def main(argv=None) -> int:
             raise SystemExit("generate-editor-icons requires --icons or --out")
         info = generate_editor_icons(target, tile_size=args.tile_size, entities=args.include_entity or None)
         print(json.dumps(info, indent=2, sort_keys=True) if args.format == "json" else f"wrote editor icons {target} size={info['size']}")
+        return 0
+
+    if args.action == "register-entity-icons":
+        # One shot: (1) (re)generate the shared editor-icon atlas from the
+        # canonical order, (2) wire every entity def in THIS .ldtk to its tile.
+        # The atlas PNG is a regenerated asset (gitignored, like the other
+        # tileset PNGs); only the .ldtk wiring is tracked.
+        icon_path = args.icons or (
+            repo_root_from_ldtk(args.ldtk)
+            / "crates" / "ambition_gameplay_core" / "assets" / "sprites" / "editor_icons.png"
+        )
+        present = [e.get("identifier") for e in (project.get("defs", {}).get("entities") or [])]
+        uncovered = [e for e in present if e not in DEFAULT_ENTITY_ICON_ORDER]
+        if uncovered:
+            print(
+                f"warning: {len(uncovered)} entity def(s) absent from the canonical "
+                f"icon order (no icon assigned): {', '.join(map(str, uncovered))}\n"
+                f"  -> append them to DEFAULT_ENTITY_ICON_ORDER in visual_manifest.py"
+            )
+        info = generate_editor_icons(icon_path, tile_size=args.tile_size, entities=DEFAULT_ENTITY_ICON_ORDER)
+        manifest = default_icon_manifest(args.ldtk, icon_path, args.tile_size, DEFAULT_ENTITY_ICON_ORDER)
+        tx = LdtkTransaction(args.ldtk, in_place=args.in_place, output=args.output)
+        messages = apply_manifest(tx.project, args.ldtk, manifest)
+        if messages:
+            tx.note_changed(messages)
+        out = tx.finish(
+            noop_message="register-entity-icons: no LDtk changes",
+            write_message="wrote {path}",
+        )
+        print(f"editor icons atlas: {icon_path} size={info['size']}")
+        linked = sum(1 for m in messages if m.startswith("linked "))
+        skipped = sum(1 for m in messages if m.startswith("skipped "))
+        print(f"linked {linked} entity icon(s), {skipped} not-in-this-ldtk")
+        if out is None and messages:
+            raise SystemExit("register-entity-icons requires --in-place or --output")
         return 0
 
     if args.action == "suggest-manifest":

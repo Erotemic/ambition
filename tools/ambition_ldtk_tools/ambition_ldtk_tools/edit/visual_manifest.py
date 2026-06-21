@@ -32,6 +32,11 @@ from ambition_ldtk_tools.ldtk import (
     tileset_defs,
 )
 
+# Canonical icon order. Indices are STABLE — the atlas places each entity at
+# its index here, so a given entity always lands on the same tile across every
+# .ldtk that shares the atlas. APPEND new entities; never reorder (it would
+# re-color/re-place existing ones). Covers every entity def across the
+# sandbox/intro/cut-the-rope worlds.
 DEFAULT_ENTITY_ICON_ORDER = [
     "CameraZone",
     "LoadingZone",
@@ -49,6 +54,22 @@ DEFAULT_ENTITY_ICON_ORDER = [
     "LockWall",
     "PogoOrb",
     "ReboundPad",
+    # --- appended 2026-06-21 to cover the remaining entity defs ---
+    "Solid",
+    "OneWayPlatform",
+    "BlinkWall",
+    "DebugLabel",
+    "HazardBlock",
+    "BossSpawn",
+    "BreakablePlatform",
+    "BreakablePogoOrb",
+    "ChestSpawn",
+    "StitchedBoundary",
+    "EncounterTrigger",
+    "Prop",
+    "GroundItem",
+    "PortalGunSpawn",
+    "ShrineSpawn",
 ]
 
 DEFAULT_ICON_COLORS = {
@@ -68,6 +89,22 @@ DEFAULT_ICON_COLORS = {
     "LockWall": (185, 28, 28),
     "PogoOrb": (250, 204, 21),
     "ReboundPad": (251, 146, 60),
+    # --- appended 2026-06-21 ---
+    "Solid": (107, 114, 128),
+    "OneWayPlatform": (148, 163, 184),
+    "BlinkWall": (34, 211, 238),
+    "DebugLabel": (163, 163, 163),
+    "HazardBlock": (234, 88, 12),
+    "BossSpawn": (159, 18, 57),
+    "BreakablePlatform": (180, 83, 9),
+    "BreakablePogoOrb": (245, 158, 11),
+    "ChestSpawn": (202, 138, 4),
+    "StitchedBoundary": (100, 116, 139),
+    "EncounterTrigger": (192, 38, 211),
+    "Prop": (120, 113, 108),
+    "GroundItem": (16, 185, 129),
+    "PortalGunSpawn": (124, 58, 237),
+    "ShrineSpawn": (245, 158, 66),
 }
 
 ManifestIssue = Issue
@@ -397,6 +434,25 @@ def _draw_icon(buf: bytearray, width: int, height: int, tile: int, tile_size: in
         _fill_rect(buf, width, height, cx - 8, cy - 4, cx + 9, cy + 1, fg)
     elif ident in {"NpcSpawn", "PickupSpawn"}:
         _fill_rect(buf, width, height, cx - 6, cy - 6, cx + 7, cy + 7, fg)
+    elif ident == "Solid":
+        # A full block (the collision filler).
+        _fill_rect(buf, width, height, tx + 5, ty + 5, tx + tile_size - 5, ty + tile_size - 5, fg)
+    elif ident in {"OneWayPlatform", "BreakablePlatform"}:
+        # A top bar (jump-through floor).
+        _fill_rect(buf, width, height, tx + 5, ty + 9, tx + tile_size - 5, ty + 14, fg)
+    elif ident == "Portal":
+        # A vertical ring (oval doorway).
+        _fill_rect(buf, width, height, cx - 7, ty + 6, cx + 8, ty + tile_size - 6, fg)
+        _fill_rect(buf, width, height, cx - 3, ty + 10, cx + 4, ty + tile_size - 10, bg)
+    elif ident == "WaterVolume":
+        # Two waves.
+        _fill_rect(buf, width, height, tx + 6, cy - 4, tx + tile_size - 6, cy - 1, fg)
+        _fill_rect(buf, width, height, tx + 6, cy + 3, tx + tile_size - 6, cy + 6, fg)
+    elif ident == "ChestSpawn":
+        # A chest: lid + body + keyhole.
+        _fill_rect(buf, width, height, tx + 6, cy - 6, tx + tile_size - 6, cy - 1, fg)
+        _fill_rect(buf, width, height, tx + 7, cy - 1, tx + tile_size - 7, cy + 9, fg)
+        _fill_rect(buf, width, height, cx - 1, cy + 1, cx + 2, cy + 6, bg)
     else:
         _fill_rect(buf, width, height, tx + 8, ty + 8, tx + tile_size - 8, ty + tile_size - 8, fg)
 

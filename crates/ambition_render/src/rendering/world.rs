@@ -7,6 +7,7 @@ use ambition_gameplay_core::engine_core as ae;
 use ambition_gameplay_core::engine_core::AabbExt;
 use bevy::math::Vec2 as BVec2;
 use bevy::prelude::*;
+use bevy::sprite::Anchor;
 
 use super::primitives::{
     block_color, feature_color, feature_z, spawn_world_label, FeatureVisual, LockWallVisual,
@@ -420,6 +421,13 @@ pub fn spawn_block(
     physics::spawn_static_collider_for_block(commands, world, block, physics_settings);
 }
 
+/// Width-to-height aspect of the authored `door_zone.png` (published with
+/// `ground = true`, so its bottom edge is the door's feet). A door preserves
+/// this aspect instead of stretching to fill the trigger box — which can be
+/// any size — so it never looks squashed. Keep in sync with the `door_zone`
+/// drawer in the sprite renderer.
+const DOOR_SPRITE_ASPECT: f32 = 0.56;
+
 pub fn spawn_loading_zone(
     commands: &mut Commands,
     world: &ae::World,
@@ -434,7 +442,24 @@ pub fn spawn_loading_zone(
         // exits while still reading as "step in and go."
         LoadingZoneActivation::Walk => Color::srgba(0.40, 1.00, 0.55, 0.30),
     };
-    let render = BVec2::new(size.x, size.y);
+    // A `Door` is a standing prop: render it like a character. Its feet (the
+    // sprite's bottom edge) plant on the bottom (floor) face of the trigger
+    // box via a bottom-centre anchor, and it keeps its authored aspect rather
+    // than stretching to the box. Edge-exit / walk zones stay box-filling
+    // tints, anchored at the box centre. This is why doors stand on the
+    // ground without any per-placement nudging — the box is authored flush
+    // to the floor, and the feet anchor does the rest.
+    let grounded = matches!(zone.activation, LoadingZoneActivation::Door);
+    let (render, sprite_pos, anchor) = if grounded {
+        let height = size.y;
+        let width = height * DOOR_SPRITE_ASPECT;
+        // Bottom-centre of the box in world space (y-down → +half_y is the
+        // floor edge).
+        let foot = zone.aabb.center() + ae::Vec2::new(0.0, zone.aabb.half_size().y);
+        (BVec2::new(width, height), foot, Anchor::BOTTOM_CENTER)
+    } else {
+        (BVec2::new(size.x, size.y), zone.aabb.center(), Anchor::CENTER)
+    };
     let sprite = match assets {
         Some(a) => entity_sprite(
             a,
@@ -446,11 +471,8 @@ pub fn spawn_loading_zone(
     };
     commands.spawn((
         sprite,
-        Transform::from_translation(world_to_bevy(
-            world,
-            zone.aabb.center(),
-            WORLD_Z_BLOCK + 6.0,
-        )),
+        anchor,
+        Transform::from_translation(world_to_bevy(world, sprite_pos, WORLD_Z_BLOCK + 6.0)),
         Name::new(format!("Loading zone: {}", zone.name)),
         // Marker carrying the zone id so portal-aware systems can
         // hide the debug door visual for portal-mode LoadingZones

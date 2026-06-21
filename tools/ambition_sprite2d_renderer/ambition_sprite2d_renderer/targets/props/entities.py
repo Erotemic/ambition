@@ -30,6 +30,12 @@ class EntitySpriteSpec:
     # preserved so `Sprite::image_mode = Tiled` repeats them at the
     # authored scale instead of stretching the cropped extent.
     tight_crop: bool = True
+    # Set True for sprites that STAND on the ground (doors, standing
+    # props). The crop then keeps the bottom edge flush (no bottom
+    # padding) so the lowest opaque pixel — the sprite's "feet" — is the
+    # texture's bottom edge. The runtime plants that edge on the bottom
+    # (floor) face of the entity box so the sprite never floats.
+    ground: bool = False
 
 
 def rgba(hex_color: str, alpha: int = 255) -> Color:
@@ -64,6 +70,7 @@ def _render_supersampled(
     supersample: int = 4,
     tight_crop: bool = True,
     crop_padding: int = 4,
+    ground: bool = False,
 ) -> Image.Image:
     """Rasterize a draw fn at `size * supersample`, downsample, then
     optionally crop to the alpha bounding box plus a small padding so
@@ -96,7 +103,10 @@ def _render_supersampled(
     l = max(0, l - pad)
     t = max(0, t - pad)
     r = min(size[0], r + pad)
-    b = min(size[1], b + pad)
+    # Grounded sprites keep their bottom edge flush (no padding) so the
+    # texture's bottom == the sprite's feet; the runtime plants that edge
+    # on the floor.
+    b = b if ground else min(size[1], b + pad)
     return img.crop((l, t, r, b))
 
 
@@ -512,59 +522,64 @@ def one_way_platform(d: ImageDraw.ImageDraw, s: float) -> None:
 
 
 def door_zone(d: ImageDraw.ImageDraw, s: float) -> None:
-    # A clear, upright paneled door that fills its footprint top to
-    # bottom. The artwork is auto-cropped to its alpha bbox and then
-    # stretched to fill the loading-zone collision box (typically a
-    # tall 48x96), so the BOTTOM of the art must be the bottom of the
-    # door — that way the door reads as standing on the ground rather
-    # than floating. (The old version drew a small panel mid-canvas
-    # plus a decorative arc, so after cropping the panel floated with
-    # the arc curling around it like a stray circle.)
+    # A solid, upright paneled door whose FOOT is the bottom edge of the
+    # canvas. This drawer is published with `ground=True`, so the crop
+    # keeps the bottom flush (no padding): the lowest opaque pixel — the
+    # gold sill below — becomes the texture's bottom edge, i.e. the
+    # door's "feet". The renderer then plants those feet on the bottom
+    # (floor) edge of the loading-zone box, so the door stands on the
+    # ground rather than floating. The fill is fully opaque and warmer
+    # than the cool hub background so it reads as a solid door instead
+    # of a gold wireframe.
     gold = rgba("#F1B33B")
-    gold_soft = rgba("#F1B33B", 170)
-    # Outer door frame / jamb — a clean rounded rectangle reaching the
-    # very bottom of the canvas so the crop bottom == door foot.
+    gold_soft = rgba("#F1B33B", 200)
+    rad = max(2, int(8 * s))
+    # Outer frame / jamb. Top corners rounded, bottom left square so the
+    # door foot is a flat edge flush with the floor.
     d.rounded_rectangle(
-        (36 * s, 6 * s, 92 * s, 122 * s),
-        radius=6 * s,
-        fill=rgba("#1F2638", 235),
+        (36 * s, 10 * s, 92 * s, 127 * s),
+        radius=rad,
+        corners=(True, True, False, False),
+        fill=rgba("#2A3148"),
         outline=gold,
         width=max(1, int(3 * s)),
     )
-    # Bright sill/step at the foot of the door so it visually plants on
-    # the floor instead of hanging in the air.
-    d.rectangle(
-        (39 * s, 110 * s, 89 * s, 119 * s),
-        fill=rgba("#F1B33B", 200),
-        outline=rgba("#7A5410", 200),
-        width=max(1, int(1 * s)),
-    )
-    # Door leaf (the slab itself), sitting on the sill.
+    # Door leaf — solid, warm bronze so it pops against the dark-blue hub.
     d.rounded_rectangle(
-        (42 * s, 12 * s, 86 * s, 110 * s),
-        radius=4 * s,
-        fill=rgba("#2A324C", 232),
-        outline=gold_soft,
+        (42 * s, 16 * s, 86 * s, 113 * s),
+        radius=max(2, int(4 * s)),
+        corners=(True, True, False, False),
+        fill=rgba("#8A6A3E"),
+        outline=rgba("#5E441F"),
         width=max(1, int(2 * s)),
     )
-    # Two recessed panels for a classic paneled-door read.
-    for top, bot in ((20, 58), (66, 104)):
-        d.rounded_rectangle(
+    # Two recessed panels with a simple top-left highlight / bottom-right
+    # shadow for depth.
+    for top, bot in ((22, 60), (68, 108)):
+        d.rectangle(
             (48 * s, top * s, 80 * s, bot * s),
-            radius=3 * s,
-            fill=rgba("#232B42", 180),
-            outline=gold_soft,
+            fill=rgba("#6E5230"),
+        )
+        d.line(
+            [(48 * s, bot * s), (48 * s, top * s), (80 * s, top * s)],
+            fill=rgba("#C7A35F", 220),
             width=max(1, int(2 * s)),
         )
-    # Cross rail between the panels, with the doorknob on the latch
-    # (right) side of the leaf.
-    d.line(
-        [(43 * s, 62 * s), (85 * s, 62 * s)],
-        fill=gold_soft,
-        width=max(1, int(2 * s)),
+        d.line(
+            [(80 * s, top * s), (80 * s, bot * s), (48 * s, bot * s)],
+            fill=rgba("#4E3A22", 220),
+            width=max(1, int(2 * s)),
+        )
+    # Doorknob on the latch (right) side, on the rail between the panels.
+    d.ellipse(bbox(78 * s, 64 * s, 7 * s, 7 * s), fill=gold, outline=rgba("#7A5410"))
+    d.ellipse(bbox(76 * s, 62 * s, 2 * s, 2 * s), fill=rgba("#FFF4D2", 230))
+    # Gold sill/threshold at the very bottom — the door's flat foot.
+    d.rectangle(
+        (37 * s, 118 * s, 91 * s, 127 * s),
+        fill=gold,
+        outline=rgba("#7A5410"),
+        width=max(1, int(1 * s)),
     )
-    d.ellipse(bbox(78 * s, 62 * s, 6 * s, 6 * s), fill=gold)
-    d.ellipse(bbox(76 * s, 60 * s, 2 * s, 2 * s), fill=rgba("#FFF4D2", 220))
 
 
 def edge_exit(d: ImageDraw.ImageDraw, s: float) -> None:
@@ -1315,6 +1330,7 @@ ENTITY_SPECS: List[EntitySpriteSpec] = [
         "LoadingZoneActivation::Door",
         "Door",
         "interior door loading zone",
+        ground=True,
     ),
     EntitySpriteSpec(
         "edge_exit",
@@ -1531,7 +1547,7 @@ def render_entity_sprite(spec: EntitySpriteSpec, supersample: int = 4) -> Image.
     except KeyError as ex:
         raise KeyError(f"no drawer registered for {spec.key!r}") from ex
     return _render_supersampled(
-        draw_fn, spec.size, supersample, tight_crop=spec.tight_crop
+        draw_fn, spec.size, supersample, tight_crop=spec.tight_crop, ground=spec.ground
     )
 
 

@@ -181,3 +181,26 @@ worlds that intentionally link to rooms in other LDtk files. Use
 The default rule is `CameraZone=AmbitionCameras`; add more with repeated
 `--rule EntityIdentifier=LayerIdentifier` flags or pass `--no-defaults` to use
 only explicit rules.
+
+## Agent toolbox workflow
+
+For reviewable generated LDtk edits, prefer this loop:
+
+```bash
+# 1. Inspect current room state.
+PYTHONPATH=tools/ambition_ldtk_tools python -m ambition_ldtk_tools room describe --level symmetry_room
+PYTHONPATH=tools/ambition_ldtk_tools python -m ambition_ldtk_tools room render --level symmetry_room --out /tmp/symmetry_room.svg
+
+# 2. Apply generated edits through intent-level tools, not raw JSON.
+PYTHONPATH=tools/ambition_ldtk_tools python -m ambition_ldtk_tools room compile-spec specs/patch.json --ldtk sandbox.ldtk --dry-run
+
+# 3. Check policy and camera coverage.
+PYTHONPATH=tools/ambition_ldtk_tools python -m ambition_ldtk_tools policy check sandbox.ldtk
+PYTHONPATH=tools/ambition_ldtk_tools python -m ambition_ldtk_tools camera audit sandbox.ldtk --level symmetry_room
+
+# 4. Review semantic changes instead of noisy JSON.
+PYTHONPATH=tools/ambition_ldtk_tools python -m ambition_ldtk_tools diff semantic before.ldtk after.ldtk
+```
+
+Use `asset catalog` and `asset link-entity-tile` when generated sprites or
+visual tiles are ready to be exposed to LDtk for nicer human editing.

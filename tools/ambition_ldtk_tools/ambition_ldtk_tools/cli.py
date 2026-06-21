@@ -17,6 +17,11 @@ Subcommands (those marked [TODO] are not yet wired and will print a hint):
     world init <target.ldtk>       Scaffold a new .ldtk file by cloning sandbox.ldtk defs.
     world auto-layout <ldtk>      Arrange Free-layout levels by LoadingZone graph
                                    (--strategy greedy/layered/clustered).
+    diff semantic <before> <after> Review semantic LDtk changes without JSON noise.
+    policy check|fix <ldtk>        Check/fix agent authoring policies.
+    camera audit|auto-cover <ldtk> CameraZone placement and coverage helpers.
+    asset catalog <ldtk>          List registered tilesets, entity sprites, and PNGs.
+    asset link-entity-tile <ldtk> Point an entity def at a registered tileset tile.
 
     level set-field [--level ID --set key=value | <spec.yaml>]
                                    Update level-scoped metadata (biome /
@@ -140,6 +145,30 @@ def cmd_world(args, rest):
             "ambition_ldtk_tools.edit.world_layout", [args.world_action, *rest]
         )
     return _todo(f"world {args.world_action}")
+
+
+def cmd_diff(args, rest):
+    if args.diff_action == "semantic":
+        return _delegate("ambition_ldtk_tools.edit.semantic_diff", [args.diff_action, *rest])
+    return _todo(f"diff {args.diff_action}")
+
+
+def cmd_policy(args, rest):
+    if args.policy_action in {"check", "fix"}:
+        return _delegate("ambition_ldtk_tools.edit.policy", [args.policy_action, *rest])
+    return _todo(f"policy {args.policy_action}")
+
+
+def cmd_camera(args, rest):
+    if args.camera_action in {"audit", "auto-cover"}:
+        return _delegate("ambition_ldtk_tools.edit.camera", [args.camera_action, *rest])
+    return _todo(f"camera {args.camera_action}")
+
+
+def cmd_asset(args, rest):
+    if args.asset_action in {"catalog", "link-entity-tile"}:
+        return _delegate("ambition_ldtk_tools.edit.assets", [args.asset_action, *rest])
+    return _todo(f"asset {args.asset_action}")
 
 
 def cmd_door(args, rest):
@@ -289,6 +318,8 @@ def cmd_room(args, rest):
             "ambition_ldtk_tools.room",
             [*before_action, args.room_action, *after_action],
         )
+    if args.room_action == "compile-spec":
+        return _delegate("ambition_ldtk_tools.edit.room_spec", ["compile", *rest])
     return _todo(f"room {args.room_action}")
 
 
@@ -367,6 +398,33 @@ def build_parser() -> argparse.ArgumentParser:
         ),
     )
     sp_world.set_defaults(func=cmd_world)
+
+    # diff {semantic}
+    sp_diff = sub.add_parser("diff", help="Semantic LDtk diffs")
+    diff_sub = sp_diff.add_subparsers(dest="diff_action", required=True)
+    diff_sub.add_parser("semantic", help="Review semantic LDtk changes without raw JSON noise")
+    sp_diff.set_defaults(func=cmd_diff)
+
+    # policy {check,fix}
+    sp_policy = sub.add_parser("policy", help="Agent/CI LDtk policy checks")
+    policy_sub = sp_policy.add_subparsers(dest="policy_action", required=True)
+    policy_sub.add_parser("check", help="Check LDtk authoring policy rules")
+    policy_sub.add_parser("fix", help="Apply safe policy fixes such as entity layer moves")
+    sp_policy.set_defaults(func=cmd_policy)
+
+    # camera {audit,auto-cover}
+    sp_camera = sub.add_parser("camera", help="CameraZone audit and auto-cover helpers")
+    camera_sub = sp_camera.add_subparsers(dest="camera_action", required=True)
+    camera_sub.add_parser("audit", help="Check CameraZone layer placement and coverage")
+    camera_sub.add_parser("auto-cover", help="Create/update a CameraZone covering a level play rect")
+    sp_camera.set_defaults(func=cmd_camera)
+
+    # asset {catalog,link-entity-tile}
+    sp_asset = sub.add_parser("asset", help="Asset/tileset/entity-sprite helpers")
+    asset_sub = sp_asset.add_subparsers(dest="asset_action", required=True)
+    asset_sub.add_parser("catalog", help="List registered tilesets, editor sprites, and PNG assets")
+    asset_sub.add_parser("link-entity-tile", help="Point an entity def at a registered tileset tileRect")
+    sp_asset.set_defaults(func=cmd_asset)
 
     # door free-spots / door snap
     sp_door = sub.add_parser("door", help="Door helpers")
@@ -620,6 +678,13 @@ def build_parser() -> argparse.ArgumentParser:
             "Read-only: create a .tar.gz containing room_describe.txt/json, "
             "a room render, matching specs, and debug trace JSONs. Usage: "
             "room bundle-debug --level <id> --out /tmp/room_debug.tar.gz"
+        ),
+    )
+    room_sub.add_parser(
+        "compile-spec",
+        help=(
+            "Compile a compact JSON/RON room edit spec into IntGrid/entity/camera "
+            "edits. Usage: room compile-spec specs/foo.json --ldtk sandbox.ldtk --dry-run"
         ),
     )
     sp_room.set_defaults(func=cmd_room)

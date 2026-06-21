@@ -145,3 +145,72 @@ Layer relocation writes editor-style JSON directly and does not run full
 LoadingZone validation as a post-pass. This keeps the commands safe for sandbox
 worlds that intentionally link to rooms in other LDtk files. Use
 `repair --in-place` separately when you specifically want full validation.
+
+## Agent toolbox additions
+
+These commands are intended for chat-sandbox authoring and CI preflight. They are
+mostly read-only, emit compact reports, and avoid noisy raw LDtk JSON diffs.
+
+### Semantic diff
+
+```bash
+PYTHONPATH=tools/ambition_ldtk_tools python -m ambition_ldtk_tools diff semantic \
+  before.ldtk after.ldtk
+```
+
+Reports level moves/resizes, entity layer moves, entity field changes, IntGrid
+value-count changes, entity/layer definition additions/removals, and tileset
+changes.
+
+### Policy checks and safe fixes
+
+```bash
+PYTHONPATH=tools/ambition_ldtk_tools python -m ambition_ldtk_tools policy check \
+  crates/ambition_gameplay_core/assets/ambition/worlds/sandbox.ldtk
+```
+
+Default policy includes `CameraZone=AmbitionCameras`. Add project-specific rules
+with repeated `--rule Entity=Layer`. Use `policy fix --in-place` for safe entity
+layer moves.
+
+### Camera helpers
+
+```bash
+PYTHONPATH=tools/ambition_ldtk_tools python -m ambition_ldtk_tools camera audit \
+  crates/ambition_gameplay_core/assets/ambition/worlds/sandbox.ldtk --level symmetry_room
+
+PYTHONPATH=tools/ambition_ldtk_tools python -m ambition_ldtk_tools camera auto-cover \
+  crates/ambition_gameplay_core/assets/ambition/worlds/sandbox.ldtk \
+  --level symmetry_room --margin 64 --create --in-place
+```
+
+`auto-cover` creates or updates a `CameraZone` on `AmbitionCameras` using the
+collision play envelope, expanded by `--margin`.
+
+### Asset and editor-sprite helpers
+
+```bash
+PYTHONPATH=tools/ambition_ldtk_tools python -m ambition_ldtk_tools asset catalog \
+  crates/ambition_gameplay_core/assets/ambition/worlds/sandbox.ldtk
+
+PYTHONPATH=tools/ambition_ldtk_tools python -m ambition_ldtk_tools asset link-entity-tile \
+  crates/ambition_gameplay_core/assets/ambition/worlds/sandbox.ldtk \
+  --entity PlayerStart --tileset my_tiles --tile 0,0,16,16 --in-place
+```
+
+`asset catalog` lists registered LDtk tilesets, entity definitions that already
+have editor tile art, PNGs under the game asset tree, and PNGs that are not yet
+registered as LDtk tilesets. `link-entity-tile` points an entity definition at a
+registered tileset tile so humans see useful editor art instead of abstract
+rectangles.
+
+### Compact room specs
+
+```bash
+PYTHONPATH=tools/ambition_ldtk_tools python -m ambition_ldtk_tools room compile-spec \
+  specs/my_room_patch.json --ldtk crates/ambition_gameplay_core/assets/ambition/worlds/sandbox.ldtk \
+  --dry-run
+```
+
+JSON specs can paint IntGrid rectangles, add common entities, and request camera
+auto-cover. RON specs are supported when `python-ron` is installed.

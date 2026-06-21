@@ -43,22 +43,32 @@ the start gate. (Instrumentation landed in commits `a6460e3b`, `42e58ee6`.)
 **Why it's machine-bound:** needs the LDtk editor GUI to see what's actually
 wrong and to verify a fix.
 
-**STATUS — Phase 1 shipped (2026-06-21).** The sprite renderer now emits an
-LDtk-consumable visual manifest. New command:
+**STATUS — shipped (2026-06-21).** The sprite renderer now emits an
+LDtk-consumable visual manifest and the worlds use it. New command:
 `python -m ambition_sprite2d_renderer ldtk-manifest [--all-sheets]`
 → writes `crates/.../assets/sprites/ldtk_sprite_manifest.json`
 (`{tilesets, entity_icons}`), consumed by the existing
 `ambition_ldtk_tools … visual-manifest apply-manifest`. `regen_sprites.sh`
-now emits + re-applies it. Default is a **curated** map (PlayerStart → the
-real `player_robot` sprite, wired into all three worlds — open the editor and
-PlayerStart should show the actual player instead of a green gizmo).
-`--all-sheets` registers **all 120** sprite sheets as tilesets so any of them
-can be assigned in the editor (not committed by default — large `.ldtk`
-diff + every sheet PNG is gitignored, so run it locally when you want them).
+emits + re-applies it.
 
-**To verify at the main machine:** open `sandbox.ldtk` — PlayerStart should
-render the real player sprite. If it looks right, decide whether to commit the
-`--all-sheets` set too.
+The committed/default set is **curated** — every registered tileset is
+actually used by an entity def (no orphans):
+- `PlayerStart` → `player_robot`
+- `NpcSpawn` → `merchant_prototype`
+- `EnemySpawn` → `goblin`
+- `BossSpawn` → `gnu_ton_boss`
+
+wired into all three worlds. Open the editor and those entities should show
+real sprites instead of gizmos. `--all-sheets` registers **all 120** sheets
+as tilesets so any of them can be assigned by hand (not committed by default:
+~6.8k-line `.ldtk` diff + every sheet PNG is gitignored + 116 would be
+unused — run it locally when you want the full tileset browser).
+
+**To verify at the main machine:** open `sandbox.ldtk` — PlayerStart /
+NpcSpawn / EnemySpawn / BossSpawn should render real sprites. Decide whether
+to (a) commit `--all-sheets` too, and/or (b) pick different representatives
+(it's a one-line-each dict, `DEFAULT_ENTITY_SPRITE_MAP` in
+`tools/ambition_sprite2d_renderer/.../ldtk_manifest.py`).
 
 **Phase 2 (the real richness — needs an LDtk-schema decision):** the generic
 spawners (`EnemySpawn` / `NpcSpawn` / `BossSpawn`) are 1:many, so a single

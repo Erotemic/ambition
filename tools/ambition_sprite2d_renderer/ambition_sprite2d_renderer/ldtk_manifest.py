@@ -51,6 +51,16 @@ DEFAULT_ENTITY_SPRITE_MAP: dict[str, str] = {
     # The runtime player file root is `player_robot` (see
     # crates/ambition_gameplay_core/src/character_sprites/attack_hitbox.rs).
     "PlayerStart": "player_robot",
+    # The generic spawners (NpcSpawn/EnemySpawn/BossSpawn) pick the actual
+    # character per-instance via a String field (`character_id` / `name`),
+    # which LDtk can't turn into a per-instance canvas icon. So the entity DEF
+    # gets a clear *representative* sprite — far more legible than a gizmo, and
+    # the exact character still shows in the instance field. Per-instance
+    # canvas art would need those fields converted to enums (a schema +
+    # loader change); see main-machine-review.md.
+    "NpcSpawn": "merchant_prototype",
+    "EnemySpawn": "goblin",
+    "BossSpawn": "gnu_ton_boss",
 }
 
 _AUX_PNG_SUFFIXES = ("_canonical", "_preview", "_debug")

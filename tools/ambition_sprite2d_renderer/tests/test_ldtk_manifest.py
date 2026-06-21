@@ -12,10 +12,22 @@ import json
 from pathlib import Path
 
 from ambition_sprite2d_renderer.ldtk_manifest import (
+    DEFAULT_ENTITY_SPRITE_MAP,
     build_manifest,
     discover_sheets,
     _frame_size_from_yaml_scan,
 )
+
+
+def test_default_entity_map_covers_the_placeable_characters() -> None:
+    # Pin the wired set so a future edit can't silently drop an entity's real
+    # sprite back to a gizmo. Values are sprite stems (resolved at apply time).
+    assert DEFAULT_ENTITY_SPRITE_MAP == {
+        "PlayerStart": "player_robot",
+        "NpcSpawn": "merchant_prototype",
+        "EnemySpawn": "goblin",
+        "BossSpawn": "gnu_ton_boss",
+    }
 
 
 def _make_sheet(directory: Path, stem: str) -> None:

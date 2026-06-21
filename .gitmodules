@@ -4,3 +4,6 @@
 [submodule "submodules/bevy_kira_audio"]
 	path = submodules/bevy_kira_audio
 	url = https://github.com/Erotemic/bevy_kira_audio.git
+[submodule "tools/ambition_music_renderer"]
+	path = tools/ambition_music_renderer
+	url = https://github.com/Erotemic/ambition_music_renderer.git

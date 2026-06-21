@@ -286,7 +286,7 @@ compute_fingerprint() {
     (
         cd "$renderer_dir" || exit 1
         {
-            find ambition_sprite2d_renderer -type f \( -name '*.py' -o -name '*.yaml' \) -print0 \
+            find ambition_sprite2d_renderer -type f \( -name '*.py' -o -name '*.yaml' -o -name '*.json' \) -print0 \
                 | sort -z \
                 | xargs -0 sha256sum
             find . -maxdepth 1 -type f \( -name '*.py' -o -name '*.sh' \) -print0 \
@@ -377,6 +377,10 @@ leaf_hash() {
     (
         cd "$renderer_dir" || exit 1
         local f d
+        # Rigged characters (GUI .rig.json docs) are data, not a .py leaf —
+        # hash the document so editing a rig invalidates only its sheet.
+        local rig="ambition_sprite2d_renderer/targets/characters/rigged/$name.rig.json"
+        if [ -f "$rig" ]; then sha256sum "$rig"; return 0; fi
         for f in ambition_sprite2d_renderer/targets/*/"$name".py; do
             if [ -f "$f" ]; then sha256sum "$f"; return 0; fi
         done
@@ -599,6 +603,18 @@ for target in "${tackon_targets[@]}"; do
     # `publish_cached` skips targets already current (per-sheet cache)
     # and only stores the cache key on a successful publish.
     publish_cached "$target"
+done
+
+# Rigged characters authored as GUI `.rig.json` documents
+# (targets/characters/rigged/*.rig.json) auto-register as targets named after
+# the file stem. They were previously checked for existence (expected_files)
+# but NEVER re-published here, so rig edits silently never reached the crate.
+# Discover + publish them so the rig editor's output ships like everything else.
+echo "==> rigged characters (GUI .rig.json docs) → $sprites_dir"
+for rig in "$renderer_dir"/ambition_sprite2d_renderer/targets/characters/rigged/*.rig.json; do
+    [ -f "$rig" ] || continue
+    rig_name="$(basename "$rig" .rig.json)"
+    publish_cached "$rig_name"
 done
 
 echo "==> held-item prop canonicals (single-pose → $sprites_dir/props)"

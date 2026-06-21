@@ -5,13 +5,11 @@ from __future__ import annotations
 from typing import Optional, Sequence, Tuple
 
 from PIL import ImageColor, ImageDraw, ImageFont
+from ambition_sprite2d_renderer.core.draw import rgba
 
 Color = Tuple[int, int, int, int]
 
 
-def rgba(hex_color: str, alpha: int = 255) -> Color:
-    r, g, b = ImageColor.getrgb(hex_color)
-    return (r, g, b, alpha)
 
 
 def parse_color(value: str) -> Color:

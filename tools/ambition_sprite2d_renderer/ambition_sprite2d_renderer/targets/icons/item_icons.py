@@ -14,6 +14,7 @@ from typing import Callable, Dict, Iterable, List, Tuple
 
 import yaml
 from PIL import Image, ImageColor, ImageDraw
+from ambition_sprite2d_renderer.core.draw import rgba, with_alpha, bbox
 
 try:
     RESAMPLING = Image.Resampling
@@ -24,17 +25,10 @@ Color = Tuple[int, int, int, int]
 Point = Tuple[float, float]
 
 
-def rgba(value: str, alpha: int = 255) -> Color:
-    r, g, b = ImageColor.getrgb(value)
-    return (r, g, b, alpha)
 
 
-def with_alpha(color: Color, alpha: int) -> Color:
-    return (color[0], color[1], color[2], alpha)
 
 
-def bbox(cx: float, cy: float, w: float, h: float) -> Tuple[float, float, float, float]:
-    return (cx - w / 2.0, cy - h / 2.0, cx + w / 2.0, cy + h / 2.0)
 
 
 def scaled(points: Iterable[Point], s: float) -> List[Point]:

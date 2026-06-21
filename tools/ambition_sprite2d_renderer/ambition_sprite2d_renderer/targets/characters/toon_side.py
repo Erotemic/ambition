@@ -22,6 +22,7 @@ from dataclasses import dataclass
 from typing import Callable, Dict, Optional, Tuple
 
 from PIL import Image, ImageColor, ImageDraw
+from ambition_sprite2d_renderer.core.draw import rgba, with_alpha, bbox_from_center as _bbox
 
 from ...common_draw import RESAMPLING, draw_capsule, draw_rotated_ellipse, draw_rotated_rounded_rect
 from ...rig import add, clamp, ease_in_out_sine, ease_out_cubic, smoothstep, vec
@@ -32,14 +33,9 @@ Point = Tuple[float, float]
 
 # --- generic helpers -----------------------------------------------------------
 
-def rgba(value: str, alpha: int = 255) -> Color:
-    r, g, b = ImageColor.getrgb(value)
-    return (r, g, b, alpha)
 
 
 
-def with_alpha(color: Color, alpha: int) -> Color:
-    return (color[0], color[1], color[2], alpha)
 
 
 
@@ -48,13 +44,6 @@ def parse_background(value: str) -> Optional[Color]:
 
 
 
-def _bbox(center: Point, w: float, h: float) -> Tuple[float, float, float, float]:
-    return (
-        center[0] - w / 2.0,
-        center[1] - h / 2.0,
-        center[0] + w / 2.0,
-        center[1] + h / 2.0,
-    )
 
 
 

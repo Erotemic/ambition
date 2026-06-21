@@ -18,6 +18,7 @@ import random
 from typing import Dict, Optional, Tuple
 
 from PIL import Image, ImageDraw
+from ambition_sprite2d_renderer.core.draw import bbox_from_center as _bbox
 
 from ...common_draw import RESAMPLING, draw_capsule, draw_rotated_rounded_rect
 from .robot25d import BotSpec, Pose, parse_background
@@ -44,8 +45,6 @@ def _with_alpha(color: Color, alpha: int) -> Color:
     return (color[0], color[1], color[2], alpha)
 
 
-def _bbox(center: Point, w: float, h: float) -> Tuple[float, float, float, float]:
-    return (center[0] - w / 2.0, center[1] - h / 2.0, center[0] + w / 2.0, center[1] + h / 2.0)
 
 
 def _paste_rotated_local(base: Image.Image, layer: Image.Image, center: Point, angle: float) -> None:

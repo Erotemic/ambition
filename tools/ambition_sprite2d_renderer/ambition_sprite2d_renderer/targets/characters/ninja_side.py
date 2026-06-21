@@ -20,6 +20,7 @@ from dataclasses import asdict, dataclass
 from typing import Dict, Optional, Tuple
 
 from PIL import Image, ImageColor, ImageDraw
+from ambition_sprite2d_renderer.core.draw import rgba, with_alpha
 
 from ...animation_vocab import CORE_CHARACTER_ANIMATION_ORDER, DEFAULT_CORE_TIMINGS, ordered_subset
 from ...rig import add, clamp, vec
@@ -29,13 +30,8 @@ Color = Tuple[int, int, int, int]
 Point = Tuple[float, float]
 
 
-def rgba(value: str, alpha: int = 255) -> Color:
-    r, g, b = ImageColor.getrgb(value)
-    return (r, g, b, alpha)
 
 
-def with_alpha(color: Color, alpha: int) -> Color:
-    return (color[0], color[1], color[2], alpha)
 
 
 def parse_background(value: str) -> Optional[Color]:

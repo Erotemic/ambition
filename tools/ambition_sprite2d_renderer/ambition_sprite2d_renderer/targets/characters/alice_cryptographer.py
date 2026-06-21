@@ -48,27 +48,18 @@ from enum import Enum
 from typing import Dict, Optional, Tuple
 
 from PIL import Image, ImageColor, ImageDraw
+from ambition_sprite2d_renderer.core.draw import rgba, bbox_from_center as _bbox
 
 Color = Tuple[int, int, int, int]
 Point = Tuple[float, float]
 
 
-def rgba(value: str, alpha: int = 255) -> Color:
-    r, g, b = ImageColor.getrgb(value)
-    return (r, g, b, alpha)
 
 
 def parse_background(value: str) -> Optional[Color]:
     return None if str(value).lower() == "transparent" else rgba(str(value))
 
 
-def _bbox(center: Point, w: float, h: float) -> Tuple[float, float, float, float]:
-    return (
-        center[0] - w / 2.0,
-        center[1] - h / 2.0,
-        center[0] + w / 2.0,
-        center[1] + h / 2.0,
-    )
 
 
 def _scale_color(color: Color, factor: float) -> Color:

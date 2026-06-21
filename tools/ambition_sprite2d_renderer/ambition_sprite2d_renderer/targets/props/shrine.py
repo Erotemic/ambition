@@ -19,6 +19,7 @@ from pathlib import Path
 from typing import List, Tuple
 
 from PIL import Image, ImageDraw, ImageFilter
+from ambition_sprite2d_renderer.core.draw import with_alpha
 
 from ...tackon_sheet import build_sheet
 
@@ -257,8 +258,6 @@ def _draw_base(img: Image.Image, draw: ImageDraw.ImageDraw, params: dict) -> Non
         )
 
 
-def with_alpha(color: RGBA, alpha: int) -> RGBA:
-    return (color[0], color[1], color[2], alpha)
 
 
 def render_frame(animation: str, frame_idx: int, n_frames: int) -> Image.Image:

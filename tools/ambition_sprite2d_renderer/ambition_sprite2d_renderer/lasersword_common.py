@@ -27,14 +27,12 @@ from dataclasses import dataclass
 from typing import Optional, Tuple
 
 from PIL import Image, ImageColor, ImageDraw, ImageFilter
+from ambition_sprite2d_renderer.core.draw import rgba
 
 RGBA = Tuple[int, int, int, int]
 Point = Tuple[float, float]
 
 
-def rgba(color: str, alpha: int = 255) -> RGBA:
-    r, g, b = ImageColor.getrgb(color)
-    return (r, g, b, alpha)
 
 
 def with_alpha(color: RGBA, alpha: int) -> RGBA:

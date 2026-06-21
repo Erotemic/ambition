@@ -20,6 +20,7 @@ from typing import Callable, Dict, Iterable, List, Tuple
 
 import yaml
 from PIL import Image, ImageColor, ImageDraw, ImageFilter
+from ambition_sprite2d_renderer.core.draw import rgba, bbox, poly_scaled
 
 try:
     RESAMPLING = Image.Resampling
@@ -42,17 +43,10 @@ class BackgroundLayerSpec:
     size: Tuple[int, int] = (512, 512)
 
 
-def rgba(hex_color: str, alpha: int = 255) -> Color:
-    r, g, b = ImageColor.getrgb(hex_color)
-    return (r, g, b, alpha)
 
 
-def bbox(cx: float, cy: float, w: float, h: float) -> Tuple[float, float, float, float]:
-    return (cx - w / 2.0, cy - h / 2.0, cx + w / 2.0, cy + h / 2.0)
 
 
-def poly_scaled(points: Iterable[Point], s: float) -> List[Point]:
-    return [(x * s, y * s) for x, y in points]
 
 
 def soft_layer(

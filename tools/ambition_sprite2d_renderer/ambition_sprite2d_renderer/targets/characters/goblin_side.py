@@ -18,6 +18,7 @@ from dataclasses import asdict, dataclass
 from typing import Dict, Optional, Tuple
 
 from PIL import Image, ImageColor, ImageDraw
+from ambition_sprite2d_renderer.core.draw import rgba, with_alpha, bbox_from_center as _bbox
 
 from ...common_draw import RESAMPLING, draw_capsule, draw_rotated_ellipse, draw_rotated_rounded_rect
 from ...rig import add, clamp, ease_in_out_sine, ease_out_cubic, lerp, smoothstep, vec
@@ -26,21 +27,14 @@ Color = Tuple[int, int, int, int]
 Point = Tuple[float, float]
 
 
-def rgba(value: str, alpha: int = 255) -> Color:
-    r, g, b = ImageColor.getrgb(value)
-    return (r, g, b, alpha)
 
 
-def with_alpha(color: Color, alpha: int) -> Color:
-    return (color[0], color[1], color[2], alpha)
 
 
 def parse_background(value: str) -> Optional[Color]:
     return None if str(value).lower() == "transparent" else rgba(str(value))
 
 
-def _bbox(center: Point, w: float, h: float) -> Tuple[float, float, float, float]:
-    return (center[0] - w / 2.0, center[1] - h / 2.0, center[0] + w / 2.0, center[1] + h / 2.0)
 
 
 def _paste_rotated_local(base: Image.Image, layer: Image.Image, center: Point, angle: float) -> None:

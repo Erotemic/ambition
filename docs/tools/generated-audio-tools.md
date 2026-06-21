@@ -14,11 +14,11 @@ cd tools/ambition_music_renderer
 python -m ambition_music_renderer --help
 python -m ambition_music_renderer cue bundle <cue_id> --backend pretty-midi --force --zip
 python -m ambition_music_renderer cue bundle <cue_id> --backend pretty-midi --runtime-stem-gain-mode shared --force --zip
-python -m ambition_music_renderer cue bundle <cue_id> --backend pretty-midi --runtime-stem-gain-mode shared --report-only --force --zip
+python -m ambition_music_renderer cue bundle <cue_id> --backend pretty-midi --runtime-stem-gain-mode shared --zip-report --force
 python -m pytest tests
 ```
 
-The `cue bundle` subcommand is the preferred one-cue handoff path: it runs the renderer with retained debug stems, executes useful diagnostics, writes manifest-scoped reports/plots, and optionally zips a bundle. Use `--report-only --zip` for small chat/agent uploads: it excludes OGG/WAV/NPY binaries while keeping YAML, manifests, numeric reports, LLM-friendly spectral fingerprints, and JPEG spectrograms. Use `--runtime-stem-gain-mode shared` when auditing layered dynamic music; shared gain is capped so the exporter does not hide quiet-source problems by amplifying noise floors. Generated bundles and runtime audio remain ignored by git.
+The `cue bundle` subcommand is the preferred one-cue handoff path: it runs the renderer with retained debug stems, executes useful diagnostics, writes manifest-scoped reports/plots, prints clickable output paths, and optionally writes a full zip or compact report zip. Use `--zip-report` for small chat/agent uploads: it excludes OGG/WAV/NPY binaries while keeping YAML, manifests, numeric reports, LLM-friendly spectral fingerprints, and JPEG spectrograms. Use `--runtime-stem-gain-mode shared` when auditing layered dynamic music; shared gain is capped so the exporter does not hide quiet-source problems by amplifying noise floors. Generated bundles and runtime audio remain ignored by git.
 
 See [`../recipes/generated-music-workflow.md`](../recipes/generated-music-workflow.md) for the current recipe.
 

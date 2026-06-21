@@ -18,7 +18,7 @@ From the repo root:
 PYTHONPATH=tools/ambition_music_renderer python -m ambition_music_renderer --help
 PYTHONPATH=tools/ambition_music_renderer python -m ambition_music_renderer cue bundle <cue_id> --backend pretty-midi --force --zip
 PYTHONPATH=tools/ambition_music_renderer python -m ambition_music_renderer cue bundle <cue_id> --backend pretty-midi --runtime-stem-gain-mode shared --force --zip
-PYTHONPATH=tools/ambition_music_renderer python -m ambition_music_renderer cue bundle <cue_id> --backend pretty-midi --runtime-stem-gain-mode shared --report-only --force --zip
+PYTHONPATH=tools/ambition_music_renderer python -m ambition_music_renderer cue bundle <cue_id> --backend pretty-midi --runtime-stem-gain-mode shared --zip-report --force
 ./generate_audio_assets.sh --force
 ```
 
@@ -51,7 +51,7 @@ Prefer the tool README and CLI help over old recipe fragments when command flags
 2. Search `dev/journals/` and `dev/benchmark-candidates/` for music director/refactor lessons.
 3. Render locally into the tool's generated output path.
 4. Audit balance/transitions if a cue set changes.
-5. Use `cue bundle <cue_id> --report-only --zip` when a cue needs lightweight review, handoff, or spectral/debug evidence. Use a full bundle only when the recipient needs audio.
+5. Use `cue bundle <cue_id> --zip-report` when a cue needs lightweight review, handoff, or spectral/debug evidence. Use a full bundle only when the recipient needs audio.
 6. Publish/install only when the generated assets are meant to become runtime inputs.
 7. Update `docs/tools/generated-audio-tools.md` and `tools/ambition_music_renderer/README.md` if the workflow changes.
 
@@ -73,7 +73,7 @@ then copies manifest-referenced artifacts into
 `tools/ambition_music_renderer/bundles/`. The bundle deliberately ignores stale
 preview/adaptive files from older hashes.
 
-Use `--report-only --zip` for chat/agent upload. Report-only bundles exclude
+Use `--zip-report` for chat/agent upload. Report zips exclude
 large audio/scratch binaries while keeping source YAML, manifests, logs, TSV/JSON
 reports, `spectral_fingerprint.json`, and JPEG spectrograms. Use full bundles
 when the recipient needs to audition OGGs. Add `--publish` only when the cue

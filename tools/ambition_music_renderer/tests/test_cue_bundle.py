@@ -12,6 +12,7 @@ from ambition_music_renderer.cue_bundle import (
     copy_manifest_referenced_files,
     make_zip,
     manifest_audio_entries,
+    should_include_in_report_zip,
     summarize_mix_diagnostics,
     prepare_manifest_analysis_root,
     write_manifest_audio_level_report,
@@ -54,7 +55,7 @@ def test_bundle_parser_exposes_publish_and_zip_flags():
             "shared",
             "--runtime-stem-max-gain-db",
             "18",
-            "--report-only",
+            "--zip-report",
             "--plot-format",
             "jpg",
         ]
@@ -67,7 +68,7 @@ def test_bundle_parser_exposes_publish_and_zip_flags():
     assert args.jobs == 2
     assert args.runtime_stem_gain_mode == "shared"
     assert args.runtime_stem_max_gain_db == 18.0
-    assert args.report_only is True
+    assert args.zip_report_bundle is True
     assert args.plot_format == "jpg"
 
 
@@ -133,6 +134,35 @@ def test_make_zip_contains_bundle_files():
             names = set(zf.namelist())
         assert "mycue_hash_bundle/reports/report.txt" in names
 
+
+def test_report_zip_excludes_large_binary_artifacts():
+    with tempfile.TemporaryDirectory() as td:
+        root = Path(td)
+        bundle = root / "mycue_hash_bundle"
+        (bundle / "reports").mkdir(parents=True)
+        (bundle / "adaptive" / "loop").mkdir(parents=True)
+        (bundle / "plots").mkdir(parents=True)
+        (bundle / "reports" / "report.txt").write_text("ok", encoding="utf8")
+        (bundle / "source.music.yaml").write_text("id: mycue", encoding="utf8")
+        (bundle / "plots" / "stem.spectrogram.jpg").write_bytes(b"jpeg")
+        (bundle / "adaptive" / "loop" / "mycue.loop.full.ogg").write_bytes(b"ogg")
+        (bundle / "scratch_stems").mkdir()
+        (bundle / "scratch_stems" / "mycue.keys.npy").write_bytes(b"npy")
+
+        assert should_include_in_report_zip(bundle / "reports" / "report.txt")
+        assert should_include_in_report_zip(bundle / "plots" / "stem.spectrogram.jpg")
+        assert not should_include_in_report_zip(bundle / "adaptive" / "loop" / "mycue.loop.full.ogg")
+        assert not should_include_in_report_zip(bundle / "scratch_stems" / "mycue.keys.npy")
+
+        zip_path = make_zip(bundle, root / "mycue_hash_bundle_report.zip", report_only=True)
+        import zipfile
+
+        with zipfile.ZipFile(zip_path) as zf:
+            names = set(zf.namelist())
+        assert "mycue_hash_bundle/reports/report.txt" in names
+        assert "mycue_hash_bundle/plots/stem.spectrogram.jpg" in names
+        assert "mycue_hash_bundle/adaptive/loop/mycue.loop.full.ogg" not in names
+        assert "mycue_hash_bundle/scratch_stems/mycue.keys.npy" not in names
 
 
 def test_manifest_audio_entries_and_bundle_copy_are_manifest_scoped():

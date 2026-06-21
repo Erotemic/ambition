@@ -189,22 +189,20 @@ tools/ambition_music_renderer/generated/<cue_id>/
   regen.sh
 ```
 
-Use ignored bundles for upload/share artifacts. Full bundles include manifest-referenced audio; report bundles are designed for chat/agent upload and exclude OGG/WAV/NPY binaries while retaining source, manifests, numeric reports, logs, and spectrogram images:
+Use ignored bundle directories for local review/share artifacts. The on-disk bundle directory is always fully featured and includes manifest-referenced audio so a human can ctrl-click into the output tree and audition the render locally. Zip selection controls upload weight: `--zip` writes a full zip with audio, while `--zip-report` writes a compact chat/agent zip that excludes OGG/WAV/NPY/MIDI binaries while retaining source, manifests, numeric reports, logs, and spectrogram images:
 
 ```text
 tools/ambition_music_renderer/bundles/<cue_id>_<hash>_bundle/
   source/
-  adaptive/                 # full bundle only
-  preview/                  # full bundle only
+  adaptive/                 # present on disk; omitted from --zip-report
+  preview/                  # present on disk; omitted from --zip-report
   reports/
-  plots/                    # JPEG by default for small report bundles
+  plots/                    # JPEG by default for compact report zips
   bundle_manifest.json
   rerun_bundle.sh
 ```
 
-Bundle zips should be ignored by git and uploaded manually when needed. Prefer
-`--report-only --zip` for bulk catalog handoff bundles and use `--bundle-mode
-full --zip` only when the recipient needs to audition audio directly.
+Bundle zips should be ignored by git and uploaded manually when needed. Prefer `--zip-report` for bulk catalog handoff zips and use `--zip` only when the recipient needs audio inside the zip.
 
 ### Future package organization
 
@@ -245,13 +243,14 @@ Do this only after bundle/provenance tests are in place.
 - [x] Generate an LLM-friendly `spectral_fingerprint.json/tsv` summary from scratch stems.
 - [x] Write `bundle_manifest.json` and `rerun_bundle.sh`.
 - [x] Zip bundles on request with `--zip`.
-- [x] Add report-only bundles that exclude OGG/WAV/NPY binaries for chat/agent upload.
+- [x] Replace report-only bundle mode with `--zip-report`; the generated bundle directory stays fully featured and report zips exclude OGG/WAV/NPY/MIDI binaries.
 - [x] Cap shared runtime stem gain by default so diagnostics cannot accidentally publish noise-lifted stems.
+- [x] Emit rich clickable path summaries for generated outdir, bundle dir, manifest, zips, and publish destination.
 - [x] Rework Emmy after diagnostics showed a +47 dB shared gain requirement.
 - [ ] Exercise the bundle command on a real cue with `pretty-midi` in a fully provisioned audio environment.
-- [ ] Re-run Emmy with `--runtime-stem-gain-mode shared` and compare runtime vs audition previews.
+- [ ] Re-run Emmy de-hiss revision with `--runtime-stem-gain-mode shared` and compare runtime vs audition previews.
 - [ ] Take a pass over active tunes whose diagnostics show huge master lift, capped shared gain, or quiet native stems.
-- [ ] Decide whether to add a catalog-wide `bundle-reports` command after the per-cue report-only bundle proves stable.
+- [ ] Decide whether to add a catalog-wide `bundle-reports` command after per-cue `--zip-report` proves stable.
 
 ### Phase 2: validation and provenance hardening
 
@@ -306,7 +305,7 @@ venv.
 
 ## Current first-iteration command examples
 
-Render, debug, and zip an upload bundle:
+Render, debug, and zip a full upload bundle:
 
 ```bash
 PYTHONPATH=tools/ambition_music_renderer \
@@ -323,7 +322,18 @@ PYTHONPATH=tools/ambition_music_renderer \
 python -m ambition_music_renderer cue bundle for_emmy_forever_ago \
   --skip-render \
   --outdir tools/ambition_music_renderer/generated/for_emmy_forever_ago \
-  --zip
+  --zip-report
+```
+
+Create a compact report zip while leaving the full local bundle and audio output on disk:
+
+```bash
+PYTHONPATH=tools/ambition_music_renderer \
+python -m ambition_music_renderer cue bundle for_emmy_forever_ago \
+  --backend pretty-midi \
+  --runtime-stem-gain-mode shared \
+  --force \
+  --zip-report
 ```
 
 Publish after rendering:

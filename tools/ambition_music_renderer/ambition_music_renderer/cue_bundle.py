@@ -30,8 +30,8 @@ from . import musicir_renderer as r
 DEFAULT_BACKEND = "pretty-midi"
 BACKEND_CHOICES = ("pretty-midi", "fluidsynth-cli", "fallback", "auto")
 RUNTIME_STEM_GAIN_MODES = ("native", "shared")
-BUNDLE_MODES = ("full", "report")
 PLOT_FORMATS = ("jpg", "png")
+REPORT_ZIP_EXCLUDED_SUFFIXES = {".ogg", ".oga", ".wav", ".flac", ".mp3", ".npy", ".mid", ".midi"}
 
 
 @dataclass(frozen=True)
@@ -666,7 +666,18 @@ def copy_tree_if_exists(src: Path, dst: Path) -> None:
         shutil.copy2(src, dst)
 
 
-def make_zip(src_dir: Path, zip_path: Path) -> Path:
+def should_include_in_report_zip(path: Path) -> bool:
+    """Return True for compact, LLM-friendly bundle artifacts.
+
+    Report zips are meant for chat/agent upload: keep source YAML, manifests,
+    text/JSON/TSV diagnostics, rerun scripts, and spectrogram images, but omit
+    heavyweight binary audio and raw NumPy/MIDI intermediates. The full bundle
+    directory on disk remains complete either way.
+    """
+    return path.suffix.lower() not in REPORT_ZIP_EXCLUDED_SUFFIXES
+
+
+def make_zip(src_dir: Path, zip_path: Path, *, report_only: bool = False) -> Path:
     zip_path.parent.mkdir(parents=True, exist_ok=True)
     if zip_path.exists():
         zip_path.unlink()
@@ -674,8 +685,52 @@ def make_zip(src_dir: Path, zip_path: Path) -> Path:
         for path in sorted(src_dir.rglob("*")):
             if path == zip_path or path.is_dir():
                 continue
+            if report_only and not should_include_in_report_zip(path):
+                continue
             zf.write(path, path.relative_to(src_dir.parent))
     return zip_path
+
+
+def file_uri(path: Path) -> str:
+    return path.resolve().as_uri()
+
+
+def terminal_link(path: Path, label: str | None = None) -> str:
+    """Return an OSC-8 terminal hyperlink with a plain absolute-path label.
+
+    Terminals that do not support OSC-8 still show a ctrl-clickable absolute
+    path. This keeps command output ergonomic without requiring a rich console
+    dependency.
+    """
+    path = path.resolve()
+    shown = label or str(path)
+    return f"\033]8;;{path.as_uri()}\033\\{shown}\033]8;;\033\\"
+
+
+def print_bundle_summary(report: dict[str, object], *, stream=None) -> None:
+    """Print human-friendly paths in addition to the machine-readable JSON."""
+    if stream is None:
+        stream = sys.stderr
+    keys = [
+        ("render output", "outdir"),
+        ("bundle dir", "bundle_dir"),
+        ("manifest", "manifest"),
+        ("full zip", "zip"),
+        ("report zip", "zip_report"),
+        ("published", "published"),
+    ]
+    print("\nMusic bundle outputs:", file=stream)
+    for label, key in keys:
+        value = report.get(key)
+        if not value or value == "publish failed":
+            continue
+        path = Path(str(value))
+        print(f"  {label:13s}: {terminal_link(path)}", file=stream)
+    if report.get("warnings"):
+        print("  warnings     :", file=stream)
+        for warning in report.get("warnings", []):
+            print(f"    - {warning}", file=stream)
+    print("", file=stream)
 
 
 def build_rerun_script(
@@ -685,9 +740,10 @@ def build_rerun_script(
     outdir: Path,
     publish: bool,
     runtime_stem_gain_mode: str,
-    bundle_mode: str,
     plot_format: str,
     runtime_stem_max_gain_db: float | None,
+    zip_bundle: bool,
+    zip_report_bundle: bool,
 ) -> Path:
     script = bundle_dir / "rerun_bundle.sh"
     publish_flag = " --publish" if publish else ""
@@ -701,11 +757,14 @@ def build_rerun_script(
     ]
     if runtime_stem_max_gain_db is not None:
         cmd.extend(["--runtime-stem-max-gain-db", str(runtime_stem_max_gain_db)])
-    cmd.extend(["--bundle-mode", str(bundle_mode), "--plot-format", str(plot_format)])
+    cmd.extend(["--plot-format", str(plot_format)])
     cmd.extend(["--outdir", str(outdir), "--force"])
     if publish:
         cmd.append("--publish")
-    cmd.append("--zip")
+    if zip_bundle:
+        cmd.append("--zip")
+    if zip_report_bundle:
+        cmd.append("--zip-report")
     wrapped = " \\\n  ".join(cmd)
     body = (
         "#!/usr/bin/env bash\n"
@@ -729,8 +788,8 @@ def create_bundle(
     publish: bool = False,
     dest_root: Path | None = None,
     zip_bundle: bool = False,
+    zip_report_bundle: bool = False,
     jobs: int = 1,
-    bundle_mode: str = "full",
     include_scratch_stems: bool = False,
     skip_render: bool = False,
     skip_spectrograms: bool = False,
@@ -896,12 +955,7 @@ def create_bundle(
     source_dir.mkdir(parents=True, exist_ok=True)
     shutil.copy2(score_path, source_dir / score_path.name)
     (source_dir / "normalized_spec.json").write_text(json.dumps(spec, indent=2), encoding="utf8")
-    if bundle_mode == "full":
-        copied_audio = copy_manifest_referenced_files(outdir, manifest, bundle_dir)
-    elif bundle_mode == "report":
-        copied_audio = []
-    else:
-        raise ValueError(f"unknown bundle_mode: {bundle_mode}")
+    copied_audio = copy_manifest_referenced_files(outdir, manifest, bundle_dir)
     copy_tree_if_exists(reports_dir, bundle_dir / "reports")
     copy_tree_if_exists(plots_dir, bundle_dir / "plots")
     shutil.copy2(manifest_path, bundle_dir / manifest_path.name)
@@ -915,9 +969,10 @@ def create_bundle(
         outdir,
         publish,
         runtime_stem_gain_mode,
-        bundle_mode,
         plot_format,
         runtime_stem_max_gain_db,
+        zip_bundle,
+        zip_report_bundle,
     )
 
     command_rows = [
@@ -937,7 +992,6 @@ def create_bundle(
         "backend": backend,
         "runtime_stem_gain_mode": runtime_stem_gain_mode,
         "runtime_stem_max_gain_db": runtime_stem_max_gain_db,
-        "bundle_mode": bundle_mode,
         "plot_format": plot_format,
         "render_hash": render_hash,
         "outdir": str(outdir),
@@ -955,9 +1009,16 @@ def create_bundle(
     (bundle_dir / "bundle_manifest.json").write_text(json.dumps(report, indent=2), encoding="utf8")
 
     zip_path: Path | None = None
+    zip_report_path: Path | None = None
     if zip_bundle:
         zip_path = make_zip(bundle_dir, bundle_root / f"{bundle_name}.zip")
         report["zip"] = str(zip_path)
+    if zip_report_bundle:
+        zip_report_path = make_zip(
+            bundle_dir, bundle_root / f"{bundle_name}_report.zip", report_only=True
+        )
+        report["zip_report"] = str(zip_report_path)
+    if zip_path or zip_report_path:
         (bundle_dir / "bundle_manifest.json").write_text(json.dumps(report, indent=2), encoding="utf8")
 
     return report
@@ -987,18 +1048,8 @@ def build_parser() -> argparse.ArgumentParser:
     ap.add_argument("--force", action="store_true", help="force render regeneration")
     ap.add_argument("--publish", action="store_true", help="publish full.ogg to game assets after rendering")
     ap.add_argument("--dest-root", type=Path, default=None, help="game music generated asset root")
-    ap.add_argument("--zip", dest="zip_bundle", action="store_true", help="write an uploadable bundle zip")
-    ap.add_argument(
-        "--bundle-mode",
-        choices=BUNDLE_MODES,
-        default="full",
-        help="full includes manifest-referenced OGGs; report excludes audio and keeps source, reports, and plots",
-    )
-    ap.add_argument(
-        "--report-only",
-        action="store_true",
-        help="alias for --bundle-mode report; useful for small chat/agent uploads",
-    )
+    ap.add_argument("--zip", dest="zip_bundle", action="store_true", help="write a complete uploadable bundle zip including manifest-referenced audio")
+    ap.add_argument("--zip-report", dest="zip_report_bundle", action="store_true", help="write a compact report zip excluding OGG/WAV/NPY/MIDI binaries")
     ap.add_argument(
         "--plot-format",
         choices=PLOT_FORMATS,
@@ -1013,7 +1064,7 @@ def build_parser() -> argparse.ArgumentParser:
         help="include raw scratch_stems/*.npy in the bundle zip; useful but can be large",
     )
     ap.add_argument("--skip-render", action="store_true", help="bundle/analyze existing outdir")
-    ap.add_argument("--skip-spectrograms", action="store_true", help="skip spectrogram image generation")
+    ap.add_argument("--skip-spectrograms", action="store_true", help="skip PNG spectrogram generation")
     return ap
 
 
@@ -1029,8 +1080,8 @@ def main(argv: list[str] | None = None) -> int:
         publish=args.publish,
         dest_root=args.dest_root,
         zip_bundle=args.zip_bundle,
+        zip_report_bundle=args.zip_report_bundle,
         jobs=args.jobs,
-        bundle_mode="report" if args.report_only else args.bundle_mode,
         include_scratch_stems=args.include_scratch_stems,
         skip_render=args.skip_render,
         skip_spectrograms=args.skip_spectrograms,
@@ -1038,6 +1089,7 @@ def main(argv: list[str] | None = None) -> int:
         jpeg_quality=args.jpeg_quality,
         runtime_stem_max_gain_db=args.runtime_stem_max_gain_db,
     )
+    print_bundle_summary(report)
     print(json.dumps(report, indent=2, default=str))
     return 0 if report.get("ok", True) else 1
 

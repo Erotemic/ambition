@@ -410,7 +410,7 @@ def cmd_radio(args: argparse.Namespace) -> int:
 
 
 def cmd_bundle(args: argparse.Namespace) -> int:
-    from .cue_bundle import create_bundle
+    from .cue_bundle import create_bundle, print_bundle_summary
 
     report = create_bundle(
         args.cue,
@@ -423,8 +423,8 @@ def cmd_bundle(args: argparse.Namespace) -> int:
         publish=args.publish,
         dest_root=args.dest_root,
         zip_bundle=args.zip_bundle,
+        zip_report_bundle=args.zip_report_bundle,
         jobs=args.jobs,
-        bundle_mode="report" if args.report_only else args.bundle_mode,
         include_scratch_stems=args.include_scratch_stems,
         skip_render=args.skip_render,
         skip_spectrograms=args.skip_spectrograms,
@@ -433,6 +433,7 @@ def cmd_bundle(args: argparse.Namespace) -> int:
     )
     import json as _json
 
+    print_bundle_summary(report)
     print(_json.dumps(report, indent=2, default=str))
     return 0 if report.get("ok", True) else 1
 
@@ -465,18 +466,8 @@ def add_bundle_args(p: argparse.ArgumentParser) -> None:
     p.add_argument("--force", action="store_true", help="force render regeneration")
     p.add_argument("--publish", action="store_true", help="publish full.ogg to game assets")
     p.add_argument("--dest-root", type=Path, default=None, help="game music generated asset root")
-    p.add_argument("--zip", dest="zip_bundle", action="store_true", help="write an uploadable bundle zip")
-    p.add_argument(
-        "--bundle-mode",
-        choices=["full", "report"],
-        default="full",
-        help="full includes manifest-referenced OGGs; report excludes audio and keeps source, reports, and plots",
-    )
-    p.add_argument(
-        "--report-only",
-        action="store_true",
-        help="alias for --bundle-mode report; useful for small chat/agent uploads",
-    )
+    p.add_argument("--zip", dest="zip_bundle", action="store_true", help="write a complete uploadable bundle zip including manifest-referenced audio")
+    p.add_argument("--zip-report", dest="zip_report_bundle", action="store_true", help="write a compact report zip excluding OGG/WAV/NPY/MIDI binaries")
     p.add_argument(
         "--plot-format",
         choices=["jpg", "png"],
@@ -491,7 +482,7 @@ def add_bundle_args(p: argparse.ArgumentParser) -> None:
         help="include raw scratch_stems/*.npy in the bundle zip; useful but large",
     )
     p.add_argument("--skip-render", action="store_true", help="bundle/analyze existing outdir")
-    p.add_argument("--skip-spectrograms", action="store_true", help="skip spectrogram image generation")
+    p.add_argument("--skip-spectrograms", action="store_true", help="skip PNG spectrogram generation")
 
 
 def add_render_args(p: argparse.ArgumentParser) -> None:

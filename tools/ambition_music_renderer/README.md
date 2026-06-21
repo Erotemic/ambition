@@ -12,7 +12,7 @@ Run from the repo root unless noted:
 PYTHONPATH=tools/ambition_music_renderer python -m ambition_music_renderer --help
 PYTHONPATH=tools/ambition_music_renderer python -m ambition_music_renderer cue bundle for_emmy_forever_ago --backend pretty-midi --force --zip
 PYTHONPATH=tools/ambition_music_renderer python -m ambition_music_renderer cue bundle for_emmy_forever_ago --backend pretty-midi --runtime-stem-gain-mode shared --force --zip
-PYTHONPATH=tools/ambition_music_renderer python -m ambition_music_renderer cue bundle for_emmy_forever_ago --backend pretty-midi --runtime-stem-gain-mode shared --report-only --force --zip
+PYTHONPATH=tools/ambition_music_renderer python -m ambition_music_renderer cue bundle for_emmy_forever_ago --backend pretty-midi --runtime-stem-gain-mode shared --zip-report --force
 ./generate_audio_assets.sh --force
 ```
 
@@ -80,10 +80,9 @@ normalization. Shared gain is capped by default (`render.runtime_stems.max_gain_
 or `--runtime-stem-max-gain-db`) because a cue that needs 40+ dB of rescue gain
 usually needs louder source instruments/layers, not louder exported noise.
 
-Use `--report-only --zip` for chat/agent handoff bundles. Report bundles exclude
+Use `--zip-report` for compact chat/agent handoff zips; the on-disk bundle directory remains fully featured and keeps the generated audio for local audition. Report zips exclude
 large OGG/WAV/NPY binaries but keep source YAML, manifests, logs, TSV/JSON level
-reports, `spectral_fingerprint.json`, and JPEG spectrograms. Use full bundles
-only when the recipient must audition audio directly. Add `--publish` only when
+reports, `spectral_fingerprint.json`, and JPEG spectrograms. Use `--zip` only when the recipient must audition audio directly from the zip. Add `--publish` only when
 the generated `full.ogg` should be copied into the game asset tree. Add
 `--include-scratch-stems` only for local handoff bundles; raw `.npy` stems are
 useful but usually too large for chat upload.

@@ -39,7 +39,7 @@ Use the package CLI and scripts in this directory for current music-renderer wor
 - `scores/archive/` - historical cues kept for reference.
 - `render_first_goblin_transition_lab.sh` - local transition-lab helper.
 - `install_first_goblin_tune_v2.py` - installer for the first-goblin tune asset path.
-- `audit_cue_balance.py`, `transition_audit.py`, `level_report.py`, `spectral_compare.py`, `spectral_localize.py`, `dissonance_audit.py` - analysis helpers (`level_report.py` is the diff-friendly cross-catalog loudness/clipping report; `dissonance_audit.py` finds score-level note clashes before audio is rendered and can emit human-readable markdown + plots).
+- `audit_cue_balance.py`, `transition_audit.py`, `level_report.py`, `spectral_compare.py`, `spectral_localize.py`, `arrangement_audit.py`, `dissonance_audit.py` - analysis helpers (`level_report.py` is the diff-friendly cross-catalog loudness/clipping report; `arrangement_audit.py` preflights group prominence, low-register density, and harmonic outliers; `dissonance_audit.py` finds score-level note clashes before audio is rendered and can emit human-readable markdown + plots).
 - `goals.md` - design/planning notes for renderer direction.
 - `MUSIC_RENDERER_REFACTOR_ROADMAP.md` - durable roadmap/checklist for the renderer cleanup.
 
@@ -90,6 +90,7 @@ useful but usually too large for chat upload.
 The bundle also emits theory/debug reports that are easier for agents to reason
 about than raw audio:
 
+- `arrangement_audit_summary.txt/json/md` preflights the YAML before audio render: default-state group prominence, likely buried groups, bass/melody collision candidates, and long non-chord tones.
 - `dissonance_hotspots_summary.txt/json/tsv` identifies bars/beats where
   overlapping note events create strong seconds, sevenths, tritones, or close
   register clusters, attributed back to layers/groups/instruments.

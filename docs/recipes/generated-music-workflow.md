@@ -31,7 +31,8 @@ python -m ambition_music_renderer --help
 python transition_audit.py --help     # two-file transition seam (RMS/peak over time, plots)
 python audit_cue_balance.py --help    # sections WITHIN one adaptive cue (intro vs wave1...)
 python level_report.py --help         # ACROSS the runtime cue catalog (inter-cue leveling)
-python dissonance_audit.py --help     # score-level note/layer clash hotspots
+python arrangement_audit.py --help    # score-level arrangement preflight
+python -m ambition_music_renderer.dissonance_audit --help     # score-level note/layer clash hotspots
 ```
 
 For one-cue composition/debug handoff, prefer `cue bundle` first. It wraps rendering, scratch-stem retention, level reports, spectral localization, optional spectrograms, and a shareable bundle manifest around the current renderer without changing runtime publish policy.
@@ -43,6 +44,9 @@ Three lower-level audio-analysis tools, three scopes:
   sorted, diff-friendly table (duration, RMS dBFS, true peak dBTP, crest,
   target-RMS delta, optional LUFS) + a spread summary with CLIP/LOUD/QUIET
   flags. Use it to catch inter-cue loudness jumps and clipping across re-renders.
+- `arrangement_audit.py` — expanded MusicIR notes before audio render; reports
+  group prominence, likely buried stems, low-register density, bass/melody
+  collision candidates, and long non-chord tones.
 - `dissonance_audit.py` — expanded MusicIR notes before audio render; reports
   bars/beats/layers/groups with strong close seconds, sevenths, tritones, and
   register clusters. Use it when a cue sounds like notes are clashing rather
@@ -88,6 +92,7 @@ buffers can be large.
 
 Useful report files in a bundle:
 
+- `reports/arrangement_audit_summary.txt` / `.md` — group prominence and score-level preflight issues before audio rendering.
 - `reports/dissonance_hotspots_summary.txt` — where note choices/layers clash.
 - `reports/dissonance_hotspots.md` — same information in a scan-friendly table.
 - `plots/dissonance_timeline.<fmt>` / `plots/dissonance_layer_pairs.<fmt>` — visual hotspot aids.

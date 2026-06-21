@@ -20,6 +20,8 @@ from ambition_music_renderer.cue_bundle import (
     write_state_mix_report,
     write_stem_export_report,
 )
+from ambition_music_renderer.arrangement_audit import audit_spec as audit_arrangement_spec
+from ambition_music_renderer.arrangement_audit import write_reports as write_arrangement_reports
 from ambition_music_renderer.dissonance_audit import audit_spec, write_reports as write_dissonance_reports
 from ambition_music_renderer.render_group_worker import build_parser as build_worker_parser
 from ambition_music_renderer.render_isolated import build_parser as build_isolated_parser
@@ -381,3 +383,61 @@ def test_dissonance_audit_identifies_close_layer_clash():
             assert Path(paths["timeline_plot"]).exists()
         if "layer_pair_plot" in paths:
             assert Path(paths["layer_pair_plot"]).exists()
+
+
+def test_arrangement_audit_reports_group_prominence_and_bass_collisions():
+    spec = {
+        "schema": "ambition.musicir.v1",
+        "id": "arrangement_test",
+        "tempo": {"bpm": 120},
+        "meter": {"beats_per_bar": 4, "beat_unit": 4},
+        "instruments": [
+            {"name": "bass", "group": "low_keys", "program": "acoustic_grand_piano"},
+            {"name": "horn", "group": "horns", "program": "french_horn"},
+            {"name": "lead", "group": "keys", "program": "acoustic_grand_piano"},
+        ],
+        "state_map": {
+            "default": {"section": "loop", "stems": {"low_keys": 0.4, "horns": 0.7, "keys": 0.7}}
+        },
+        "layer_templates": {
+            "bass_note": {
+                "kind": "motif",
+                "instrument": "bass",
+                "motif": "bass_motif",
+                "root": "C2",
+                "starts": [[0, 0.0]],
+                "velocity": 80,
+            },
+            "horn_note": {
+                "kind": "motif",
+                "instrument": "horn",
+                "motif": "horn_motif",
+                "root": "G3",
+                "starts": [[0, 0.0]],
+                "velocity": 80,
+            },
+            "lead_note": {
+                "kind": "motif",
+                "instrument": "lead",
+                "motif": "lead_motif",
+                "root": "C5",
+                "starts": [[0, 0.0]],
+                "velocity": 80,
+            },
+        },
+        "motifs": [
+            {"id": "bass_motif", "root": "C2", "intervals": [0], "rhythm": [2.0], "velocities": [1.0]},
+            {"id": "horn_motif", "root": "G3", "intervals": [0], "rhythm": [2.0], "velocities": [1.0]},
+            {"id": "lead_motif", "root": "C5", "intervals": [1], "rhythm": [2.0], "velocities": [1.0]},
+        ],
+        "sections": [{"id": "loop", "bars": 1, "harmony": ["C"], "layers": ["bass_note", "horn_note", "lead_note"]}],
+    }
+    payload = audit_arrangement_spec(spec)
+    assert payload["schema"] == "ambition.music_arrangement_audit.v1"
+    assert any(row["group"] == "horns" for row in payload["groups"])
+    assert payload["bass_collision_candidates"]
+    with tempfile.TemporaryDirectory() as td:
+        paths = write_arrangement_reports(payload, Path(td))
+        assert Path(paths["summary"]).exists()
+        assert Path(paths["markdown"]).exists()
+        assert "Default-state group presence" in Path(paths["markdown"]).read_text()

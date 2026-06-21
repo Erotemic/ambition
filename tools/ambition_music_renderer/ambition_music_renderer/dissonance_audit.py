@@ -47,12 +47,12 @@ INTERVAL_CLASS_NAMES = {
 # Values are intentionally heuristic. The goal is to surface places a human
 # should listen to, not to declare all dissonance invalid.
 INTERVAL_CLASS_SEVERITY = {
-    0: 0.04,
+    0: 0.00,
     1: 1.00,
     2: 0.48,
     3: 0.08,
     4: 0.04,
-    5: 0.16,
+    5: 0.035,
     6: 0.72,
 }
 

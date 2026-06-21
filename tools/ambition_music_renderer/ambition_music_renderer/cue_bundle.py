@@ -26,6 +26,8 @@ import numpy as np
 import yaml
 
 from . import musicir_renderer as r
+from .arrangement_audit import audit_file as audit_arrangement_file
+from .arrangement_audit import write_reports as write_arrangement_reports
 from .dissonance_audit import audit_file as audit_dissonance_file
 from .dissonance_audit import write_reports as write_dissonance_reports
 
@@ -818,6 +820,13 @@ def terminal_link(path: Path, label: str | None = None) -> str:
     return f"\033]8;;{path.as_uri()}\033\\{shown}\033]8;;\033\\"
 
 
+def progress_line(message: str, *, stream=None) -> None:
+    """Emit a visible progress update for long bundle workflows."""
+    if stream is None:
+        stream = sys.stderr
+    print(f"[music bundle] {message}", file=stream, flush=True)
+
+
 def print_bundle_summary(report: dict[str, object], *, stream=None) -> None:
     """Print human-friendly paths in addition to the machine-readable JSON."""
     if stream is None:
@@ -908,11 +917,13 @@ def create_bundle(
     jpeg_quality: int = 84,
     runtime_stem_max_gain_db: float | None = None,
 ) -> dict[str, object]:
+    progress_line(f"locating score for {cue!r}")
     score_path = find_score(cue)
     if score_path is None:
         raise FileNotFoundError(f"cue not found: {cue}")
     spec = load_yaml(score_path)
     cue_id = str(spec.get("id", cue))
+    progress_line(f"loaded {cue_id} from {terminal_link(score_path)}")
     if cue_id != Path(score_path.name).name.split(".music.yaml")[0] and score_path.name.endswith(".music.yaml"):
         # Warn in the final report without preventing compatibility renders.
         id_warning = f"score id {cue_id!r} does not match filename {score_path.name!r}"
@@ -932,6 +943,9 @@ def create_bundle(
     else:
         dest_root = Path(dest_root)
 
+    progress_line(f"render output directory: {terminal_link(outdir)}")
+    progress_line(f"bundle root: {terminal_link(bundle_root)}")
+
     reports_dir = outdir / "reports"
     plots_dir = outdir / "plots"
     # Reports and plots are derived products for the current bundle. Clear them
@@ -944,7 +958,12 @@ def create_bundle(
     reports_dir.mkdir(parents=True, exist_ok=True)
     commands: list[CommandResult] = []
 
+    progress_line("running arrangement preflight")
+    arrangement_payload = audit_arrangement_file(score_path)
+    write_arrangement_reports(arrangement_payload, reports_dir)
+
     if not skip_render:
+        progress_line(f"rendering {cue_id} with backend={backend}, runtime_stems={runtime_stem_gain_mode}")
         render_cmd = [
             sys.executable,
             "-m",
@@ -974,6 +993,7 @@ def create_bundle(
                 "outdir": str(outdir),
             }
 
+    progress_line("loading adaptive manifest")
     manifest_path = latest_manifest(outdir, cue_id)
     if manifest_path is None:
         raise FileNotFoundError(f"no adaptive manifest found in {outdir} for {cue_id}")
@@ -986,6 +1006,7 @@ def create_bundle(
     # scoped analysis root so stale hashes in the real output dir cannot leak
     # into the reports.
     tools_dir = package_dir()
+    progress_line("running manifest-scoped reports and plots")
     with tempfile.TemporaryDirectory(prefix=f"{cue_id}_{render_hash}_analysis_") as td:
         analysis_root = prepare_manifest_analysis_root(outdir, manifest, Path(td))
         commands.append(
@@ -1036,6 +1057,9 @@ def create_bundle(
         write_manifest_audio_level_report(analysis_root, manifest, reports_dir)
         write_spectral_fingerprint(analysis_root, manifest, reports_dir)
         write_state_mix_report(spec, manifest, reports_dir)
+        # Re-run arrangement preflight after render report cleanup so it is present in the final bundle.
+        arrangement_payload = audit_arrangement_file(score_path)
+        write_arrangement_reports(arrangement_payload, reports_dir)
         dissonance_payload = audit_dissonance_file(score_path)
         write_dissonance_reports(
             dissonance_payload,
@@ -1057,6 +1081,7 @@ def create_bundle(
 
     published: str | None = None
     if publish:
+        progress_line("publishing full.ogg to game assets")
         # Import lazily so this module can be used by tests without importing the CLI.
         from .cli import publish_cue
 
@@ -1066,6 +1091,7 @@ def create_bundle(
         else:
             published = "publish failed"
 
+    progress_line("assembling shareable bundle directory")
     bundle_name = f"{cue_id}_{render_hash}_bundle"
     bundle_dir = bundle_root / bundle_name
     if bundle_dir.exists():

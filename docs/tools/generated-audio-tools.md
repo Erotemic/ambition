@@ -23,7 +23,8 @@ The `cue bundle` subcommand is the preferred one-cue handoff path: it runs the r
 Standalone report helpers are also useful while editing:
 
 ```bash
-python dissonance_audit.py scores/active/<cue_id>.music.yaml --outdir /tmp/<cue>_dissonance --plots /tmp/<cue>_dissonance/plots
+python arrangement_audit.py scores/active/<cue_id>.music.yaml --outdir /tmp/<cue>_arrangement
+python -m ambition_music_renderer.dissonance_audit scores/active/<cue_id>.music.yaml --outdir /tmp/<cue>_dissonance --plots /tmp/<cue>_dissonance/plots
 python spectral_localize.py tools/ambition_music_renderer/generated/<cue_id> --window 0 -1
 python level_report.py --check
 ```

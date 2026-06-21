@@ -12,12 +12,13 @@ fn boss_sheet_has_seven_animation_rows() {
 
 #[test]
 fn fsm_and_trex_sheets_match_their_published_layouts() {
-    // FSM: 7 PNG rows (169×150), every BossAnim used once. These match
-    // flying_spaghetti_monster_boss_spritesheet.yaml; a drift here means
-    // the boss renders frames from the wrong row.
+    // FSM: 7 PNG rows, every BossAnim used once. The row mapping (not the exact
+    // pixel dims, which are now a fallback the published RON overrides) is what
+    // a drift here would corrupt — the boss would render frames from the wrong
+    // row.
     assert_eq!(FLYING_SPAGHETTI_MONSTER_SHEET.rows.len(), 7);
-    assert_eq!(FLYING_SPAGHETTI_MONSTER_SHEET.frame_width, 169);
-    assert_eq!(FLYING_SPAGHETTI_MONSTER_SHEET.frame_height, 150);
+    assert_eq!(FLYING_SPAGHETTI_MONSTER_SHEET.frame_width, 393);
+    assert_eq!(FLYING_SPAGHETTI_MONSTER_SHEET.frame_height, 344);
     assert_eq!(
         FLYING_SPAGHETTI_MONSTER_SHEET.frame_count(BossAnim::Rest),
         6
@@ -66,6 +67,101 @@ fn fsm_and_trex_sheets_match_their_published_layouts() {
         .map(|(_, r)| r.frame_count)
         .sum();
     assert_eq!(TREX_BOSS_SHEET.build_atlas().len(), trex_frames);
+}
+
+fn fsm_record(frame_w: u32, frame_h: u32, label_w: u32) -> ambition_sprite_sheet::SheetRecord {
+    use ambition_sprite_sheet::{FrameRect, SheetRow};
+    // Mirror the FSM const's PNG-order rows + frame counts, laid out as the
+    // generator emits: a uniform grid `label + col*fw, row*fh` (border 0).
+    let counts = [
+        ("idle", 6u32),
+        ("drift", 8),
+        ("noodle_whip", 7),
+        ("meatball_volley", 7),
+        ("eye_beam", 7),
+        ("hurt", 4),
+        ("death", 8),
+    ];
+    let rows = counts
+        .iter()
+        .enumerate()
+        .map(|(row_idx, (name, n))| SheetRow {
+            animation: (*name).to_string(),
+            row_index: row_idx as u32,
+            frame_count: *n,
+            duration_ms: 100,
+            duration_secs: 0.1,
+            rects: (0..*n)
+                .map(|col| FrameRect {
+                    x: (label_w + col * frame_w) as i32,
+                    y: (row_idx as u32 * frame_h) as i32,
+                    w: frame_w as i32,
+                    h: frame_h as i32,
+                    anchors: Default::default(),
+                })
+                .collect(),
+        })
+        .collect();
+    ambition_sprite_sheet::SheetRecord {
+        target: "flying_spaghetti_monster_boss".to_string(),
+        image: "flying_spaghetti_monster_boss_spritesheet.png".to_string(),
+        label_width: label_w,
+        frame_width: frame_w,
+        frame_height: frame_h,
+        y_offset: 0,
+        body_metrics: None,
+        tuning: None,
+        rows,
+    }
+}
+
+#[test]
+fn boss_ron_target_strips_the_sheet_suffix() {
+    assert_eq!(
+        boss_ron_target("sprites/flying_spaghetti_monster_boss_spritesheet.png"),
+        Some("flying_spaghetti_monster_boss")
+    );
+    assert_eq!(
+        boss_ron_target("sprites/gnu_ton_boss/gnu_ton_boss_spritesheet.png"),
+        Some("gnu_ton_boss")
+    );
+}
+
+#[test]
+fn boss_atlas_tracks_the_published_rects_not_the_const_grid() {
+    // The flashing bug: the boss atlas was a uniform grid recomputed from the
+    // const's frame_width, so when the regenerated sheet's cells changed size
+    // the boss indexed the wrong pixels. The data-driven path must lay cells out
+    // at the PUBLISHED rect stride. Use a deliberately DIFFERENT frame width
+    // (300) from the const so a grid-from-const would land cells elsewhere.
+    let record = fsm_record(300, 280, 100);
+    let layout = boss_atlas_from_record(&record, &FLYING_SPAGHETTI_MONSTER_SHEET)
+        .expect("aligned record builds an atlas");
+    // One rect per frame (47 total for the FSM row set).
+    assert_eq!(layout.len(), 6 + 8 + 7 + 7 + 7 + 4 + 8);
+    // drift (row 1) frame 0 starts at label(100) + 0*300 = 100 on x and
+    // 1*280 = 280 on y — proving the layout follows the record's 300/280 stride,
+    // NOT the const's 393/344 grid.
+    let drift_frame0 = layout.textures[6]; // first frame after idle's 6
+    assert_eq!(drift_frame0.min.y, 280 + FLYING_SPAGHETTI_MONSTER_SHEET.frame_sample_inset);
+}
+
+#[test]
+fn boss_atlas_falls_back_when_record_rows_dont_line_up() {
+    // A record with fewer rows than the const can't be addressed in the const's
+    // flat_index order, so the helper declines (caller uses the const grid).
+    use ambition_sprite_sheet::SheetRow;
+    let mut record = fsm_record(393, 344, 100);
+    record.rows.truncate(3);
+    assert!(boss_atlas_from_record(&record, &FLYING_SPAGHETTI_MONSTER_SHEET).is_none());
+    // A row with too few frames also declines.
+    let mut record = fsm_record(393, 344, 100);
+    record.rows[0] = SheetRow {
+        frame_count: 1,
+        rects: record.rows[0].rects[..1].to_vec(),
+        ..record.rows[0].clone()
+    };
+    assert!(boss_atlas_from_record(&record, &FLYING_SPAGHETTI_MONSTER_SHEET).is_none());
 }
 
 #[test]

@@ -68,6 +68,6 @@ pub use registry::{SheetRecord, SheetRegistry};
 )]
 pub use sheets::{
     build_character_sprite, build_character_sprite_with_render_size, feet_anchor_for,
-    feet_anchor_for_render_size, player_placeholder_render_size, sprite_render_size,
-    try_load_spec_for_target, CharacterSheetSpec, SheetTuning,
+    feet_anchor_for_render_size, player_placeholder_render_size, record_for_target,
+    sprite_render_size, try_load_spec_for_target, CharacterSheetSpec, SheetTuning,
 };

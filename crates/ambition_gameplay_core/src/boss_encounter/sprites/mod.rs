@@ -504,17 +504,22 @@ pub const GNU_TON_SHEET: BossSheetSpec = BossSheetSpec {
     authored_faces_left: false,
 };
 
-/// Flying Spaghetti Monster boss sheet (169×150 frames, 7 rows). The sheet
-/// ships its own attack rows, so unlike the old generic fallback this renders
-/// the noodly appendages instead of the gradient-sentinel body. Rows in PNG
-/// order map onto the gameplay vocabulary as: idle→Rest, drift→DashEcho,
-/// noodle_whip→SideSweep, meatball_volley→FloorSlam, eye_beam→SpikeHalo,
-/// hurt→Hit, death→Death (every BossAnim used exactly once). Floating boss, so
-/// `body_centered`. _Render scale / anchor are first-pass; feel-tune in-game._
+/// Flying Spaghetti Monster boss sheet (7 rows). The sheet ships its own attack
+/// rows, so unlike the old generic fallback this renders the noodly appendages
+/// instead of the gradient-sentinel body. Rows in PNG order map onto the
+/// gameplay vocabulary as: idle→Rest, drift→DashEcho, noodle_whip→SideSweep,
+/// meatball_volley→FloorSlam, eye_beam→SpikeHalo, hurt→Hit, death→Death (every
+/// BossAnim used exactly once). Floating boss, so `body_centered`.
+///
+/// `frame_width`/`frame_height`/`label_width` here are a FALLBACK only — the
+/// live atlas + render aspect are driven by the published sheet RON (see
+/// `load_named_boss_sprite_via_catalog`), so a generator resolution change no
+/// longer desyncs the in-game indexing. The values mirror the current generated
+/// crop so headless/no-asset renders still get the right aspect.
 pub const FLYING_SPAGHETTI_MONSTER_SHEET: BossSheetSpec = BossSheetSpec {
     label_width: 100,
-    frame_width: 169,
-    frame_height: 150,
+    frame_width: 393,
+    frame_height: 344,
     rows: &[
         (
             BossAnim::Rest,
@@ -726,6 +731,71 @@ pub fn load_boss_sprite_in(
 /// Build the Smirking Behemoth boss sprite asset.
 ///
 
+/// Derive the published sheet's RON record key (its file root) from the resolved
+/// PNG asset path, e.g. `sprites/flying_spaghetti_monster_boss_spritesheet.png`
+/// → `flying_spaghetti_monster_boss`, or `sprites/gnu_ton_boss/...png` →
+/// `gnu_ton_boss`. This is the key [`crate::character_sprites::record_for_target`]
+/// indexes baked sheets by.
+fn boss_ron_target(path: &str) -> Option<&str> {
+    path.rsplit('/').next()?.strip_suffix("_spritesheet.png")
+}
+
+/// Build a boss atlas layout from the published sheet RON's per-frame rects —
+/// the same data-driven path the character sheets use, so the atlas tracks the
+/// regenerated texture (resolution / crop / future packing) instead of a
+/// recomputed grid off the const's authored-at-first-pass dims.
+///
+/// Returns `None` (caller falls back to the const grid) when the record's rows
+/// don't line up 1:1 with the const spec — the const owns the gameplay row
+/// order + frame counts that [`BossSheetSpec::flat_index`] sums over, so the
+/// rects must be addable in that exact order with enough frames each, or we'd
+/// risk sampling the wrong cell.
+fn boss_atlas_from_record(
+    record: &crate::character_sprites::SheetRecord,
+    spec: &BossSheetSpec,
+) -> Option<TextureAtlasLayout> {
+    if record.rows.len() < spec.rows.len() {
+        return None;
+    }
+    for (i, (_, row)) in spec.rows.iter().enumerate() {
+        let rec_row = &record.rows[i];
+        if (rec_row.frame_count as usize) < row.frame_count || rec_row.rects.len() < row.frame_count
+        {
+            return None;
+        }
+    }
+    let inset = spec
+        .frame_sample_inset
+        .min(record.frame_width.min(record.frame_height) / 4);
+    let used = |r: &ambition_sprite_sheet::FrameRect| -> (u32, u32, u32, u32) {
+        let x0 = r.x.max(0) as u32;
+        let y0 = r.y.max(0) as u32;
+        ((x0), (y0), ((r.x + r.w).max(0) as u32), ((r.y + r.h).max(0) as u32))
+    };
+    let mut max_x = 1u32;
+    let mut max_y = 1u32;
+    for (i, (_, row)) in spec.rows.iter().enumerate() {
+        for r in record.rows[i].rects.iter().take(row.frame_count) {
+            let (_, _, x1, y1) = used(r);
+            max_x = max_x.max(x1);
+            max_y = max_y.max(y1);
+        }
+    }
+    let mut layout = TextureAtlasLayout::new_empty(UVec2::new(max_x, max_y));
+    for (i, (_, row)) in spec.rows.iter().enumerate() {
+        for r in record.rows[i].rects.iter().take(row.frame_count) {
+            let (x0, y0, x1, y1) = used(r);
+            let min = UVec2::new(x0 + inset, y0 + inset);
+            let max = UVec2::new(
+                x1.saturating_sub(inset).max(min.x + 1),
+                y1.saturating_sub(inset).max(min.y + 1),
+            );
+            layout.add_texture(URect { min, max });
+        }
+    }
+    Some(layout)
+}
+
 pub(crate) fn load_named_boss_sprite_via_catalog(
     catalog: &crate::assets::sandbox_assets::SandboxAssetCatalog,
     asset_server: &AssetServer,
@@ -741,7 +811,26 @@ pub(crate) fn load_named_boss_sprite_via_catalog(
         );
         return None;
     };
-    let layout = layouts.add(spec.build_atlas());
+    // Data-driven geometry: prefer the published sheet RON so the atlas + render
+    // aspect track the regenerated texture (resolution / crop) instead of the
+    // const's first-pass dims — a boss whose generator `FRAME_SIZE` changed (or
+    // that picked up the fleet `render_scale` bump) otherwise indexes the wrong
+    // cells and flickers. The const still owns the gameplay row mapping + tuning;
+    // only the pixel geometry comes from the RON. Falls back to the const grid
+    // when the sheet has no baked record (subdir bosses, headless/tests) or its
+    // rows don't line up with the const.
+    let mut spec = spec;
+    let layout = boss_ron_target(&path)
+        .and_then(crate::character_sprites::record_for_target)
+        .and_then(|record| {
+            let layout = boss_atlas_from_record(record, &spec)?;
+            spec.frame_width = record.frame_width;
+            spec.frame_height = record.frame_height;
+            spec.label_width = record.label_width;
+            Some(layout)
+        })
+        .unwrap_or_else(|| spec.build_atlas());
+    let layout = layouts.add(layout);
     Some(BossSpriteAsset {
         texture: asset_server.load(path),
         layout,

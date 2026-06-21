@@ -5,12 +5,16 @@ from pathlib import Path
 from typing import Callable, Dict, Iterable, List, Tuple
 
 import yaml
-from PIL import Image, ImageColor, ImageDraw, ImageFont
+from PIL import Image, ImageDraw
 
-try:
-    RESAMPLING = Image.Resampling
-except AttributeError:  # pragma: no cover
-    RESAMPLING = Image
+from ambition_sprite2d_renderer.core.draw import (
+    bbox,
+    downsample,
+    font,
+    poly_scaled,
+    rgba,
+    with_alpha,
+)
 
 Color = Tuple[int, int, int, int]
 Point = Tuple[float, float]
@@ -36,32 +40,6 @@ class EntitySpriteSpec:
     # texture's bottom edge. The runtime plants that edge on the bottom
     # (floor) face of the entity box so the sprite never floats.
     ground: bool = False
-
-
-def rgba(hex_color: str, alpha: int = 255) -> Color:
-    r, g, b = ImageColor.getrgb(hex_color)
-    return (r, g, b, alpha)
-
-
-def with_alpha(color: Color, alpha: int) -> Color:
-    return (color[0], color[1], color[2], alpha)
-
-
-def bbox(cx: float, cy: float, w: float, h: float) -> Tuple[float, float, float, float]:
-    return (cx - w / 2.0, cy - h / 2.0, cx + w / 2.0, cy + h / 2.0)
-
-
-def font(size: int):
-    for name in ("DejaVuSans-Bold.ttf", "DejaVuSans.ttf"):
-        try:
-            return ImageFont.truetype(name, size=max(8, int(size)))
-        except OSError:
-            pass
-    return ImageFont.load_default()
-
-
-def downsample(img: Image.Image, size: Tuple[int, int]) -> Image.Image:
-    return img.resize(size, RESAMPLING.LANCZOS)
 
 
 def _render_supersampled(
@@ -108,10 +86,6 @@ def _render_supersampled(
     # on the floor.
     b = b if ground else min(size[1], b + pad)
     return img.crop((l, t, r, b))
-
-
-def poly_scaled(points: Iterable[Point], s: float) -> List[Point]:
-    return [(x * s, y * s) for x, y in points]
 
 
 def draw_gem(

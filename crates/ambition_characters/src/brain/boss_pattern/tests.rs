@@ -353,6 +353,7 @@ fn world_arena_lateral_boss_preserves_world_y_during_approach() {
         speed: 200.0,
     };
     let mut state = BossPatternState::default();
+    state.last_phase = Some(BossEncounterPhase::Phase1);
     state.macro_state = BossMacroState::Approach { remaining_s: 3.0 };
     let mut attack_state = BossAttackState::default();
     let mut out = crate::actor::control::ActorControlFrame::neutral();

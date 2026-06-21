@@ -297,8 +297,10 @@ mod tests {
 
     #[test]
     fn projectile_released_emits_fire_with_resolved_aim_or_facing() {
-        // Aim stick → local aim is preserved for charge projectiles, while the
-        // legacy fire request exposes a world launch vector.
+        // Aim stick -> local aim is preserved for charge projectiles. The
+        // fire request carries that same local direction plus an explicit
+        // frame policy; consumers decide how to project it into their runtime
+        // frame.
         let input = input_with(|c| {
             c.projectile_released = true;
             c.aim_x = 0.0;
@@ -309,7 +311,8 @@ mod tests {
         let mut out = crate::actor::control::ActorControlFrame::default();
         tick_player_brain_from_control(&input, &s, &mut out);
         let fire = out.fire.expect("fire request expected");
-        // Aim wins over facing.
+        // Aim wins over facing, and remains controlled-body-local.
+        assert_eq!(fire.dir_policy, ae::GameplayFramePolicy::ControlledBodyLocal);
         assert!((fire.dir.y - (-1.0)).abs() < 0.001);
         assert_eq!(out.aim, ae::Vec2::new(0.0, -1.0));
         // No aim → fire uses facing.
@@ -319,6 +322,7 @@ mod tests {
         let mut out2 = crate::actor::control::ActorControlFrame::default();
         tick_player_brain_from_control(&input2, &s, &mut out2);
         let fire2 = out2.fire.expect("fire request expected");
+        assert_eq!(fire2.dir_policy, ae::GameplayFramePolicy::ControlledBodyLocal);
         assert!((fire2.dir.x - (-1.0)).abs() < 0.001);
         assert_eq!(out2.aim, ae::Vec2::ZERO);
     }
@@ -338,7 +342,9 @@ mod tests {
         tick_player_brain_from_control(&input, &s, &mut out);
         assert_eq!(out.aim, ae::Vec2::new(1.0, 0.0));
         let fire = out.fire.expect("fire request expected");
-        assert_eq!(fire.dir, ae::Vec2::new(0.0, -1.0));
+        assert_eq!(fire.dir_policy, ae::GameplayFramePolicy::ControlledBodyLocal);
+        assert_eq!(fire.dir, out.aim);
+        assert_eq!(fire.dir_to_world(ae::AccelerationFrame::new(s.control_down)), ae::Vec2::new(0.0, -1.0));
     }
 
     #[test]

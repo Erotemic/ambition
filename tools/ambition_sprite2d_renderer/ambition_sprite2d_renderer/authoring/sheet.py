@@ -296,10 +296,17 @@ def build_spritesheet(job: CharacterJob) -> Tuple[Image.Image, Dict[str, Any]]:
             if isinstance(hitbox, dict):
                 if isinstance(hitbox.get("bbox"), tuple):
                     x, y, w, h = hitbox["bbox"]
-                    cx0 = max(0, int(x) - crop_min_x)
-                    cy0 = max(0, int(y) - crop_min_y)
-                    cw = min(fw, int(x) + int(w) - crop_min_x) - cx0
-                    ch = min(fh, int(y) + int(h) - crop_min_y) - cy0
+                    # Attack hitboxes are NOT clamped to the sprite frame.
+                    # A melee box (Hollow-Knight nail-style) reaches out in
+                    # FRONT of the body, disjoint from it and usually past
+                    # the drawn sprite's edge. Translate into cropped-frame
+                    # space but keep the authored extent so a forward box
+                    # survives. (Hurtboxes ARE the body and stay frame-bound
+                    # via the auto alpha-bbox path — different code.)
+                    cx0 = int(x) - crop_min_x
+                    cy0 = int(y) - crop_min_y
+                    cw = int(w)
+                    ch = int(h)
                     if cw > 0 and ch > 0:
                         hitbox_out["bbox"] = {
                             "x": int(cx0),

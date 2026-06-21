@@ -418,12 +418,17 @@ class RobotAdapter(BaseAdapter):
         """
         w, h = size
         cx = w // 2
-        # Frame-0 forehand sweeps down-forward from the hand (~body
-        # center) out past the blade tip (~0.9w) and down to ~0.82h.
-        # Box covers that arc; verified against the f0 strike pose.
+        # Hollow-Knight-style: a damage box thrust out IN FRONT of the
+        # body, disjoint from it. The torso front edge is ~0.74w; the box
+        # starts past it (gap) and reaches forward beyond the sprite frame
+        # (attack hitboxes are not frame-clamped — see sheet.py). Robot
+        # faces +x. Eyeball against `debug-hitboxes player_robot`.
+        front = cx + int(w * 0.26)  # ~0.76w — just past the torso, with a gap
         return {
             "attack_side": {
-                "bbox": (cx - 2, int(h * 0.42), int(w * 0.46), int(h * 0.40)),
+                # y drops to the f0 blade's low forehand sweep so the box
+                # and the weapon agree; reaches forward past the frame.
+                "bbox": (front, int(h * 0.44), int(w * 0.60), int(h * 0.42)),
                 "active_frames": [0],
             },
         }

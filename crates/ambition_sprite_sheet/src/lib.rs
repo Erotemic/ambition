@@ -364,8 +364,8 @@ mod tests {
     /// (cyan box stays at idle-pose size during attacks).
     #[test]
     fn body_metrics_animations_round_trip_from_renderer_emit() {
-        // Matches the shape emitted by
-        // `_ron_anim_metrics_map` in `sheet.py` for the boss.
+        // Matches the shape emitted by `_ron_anim_metrics_map` in the
+        // renderer's `core/manifest_ron.py` (the unified RON emitter) for the boss.
         let ron_text = r#"
         (
             body_pixel_bbox: Some((x: 8, y: 5, w: 106, h: 83)),

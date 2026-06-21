@@ -41,6 +41,7 @@ from PIL import Image, ImageDraw, ImageFont
 
 from .actor_contract import write_actor_contract_for_tackon
 from .core.measure import measure_body_metrics
+from .core.manifest_ron import record_to_ron, records_to_ron, ron_tuning
 
 RGBA = Tuple[int, int, int, int]
 
@@ -473,175 +474,15 @@ def build_sheet(
     }
 
 
-def _ron_escape(s):
-    return s.replace("\\", "\\\\").replace('"', '\\"')
-
-
-def _ron_some(inner):
-    return f"Some({inner})"
-
-
-def _ron_optional_rect(v):
-    if not isinstance(v, dict):
-        return "None"
-    return _ron_some(
-        f"(x: {int(v['x'])}, y: {int(v['y'])}, w: {int(v['w'])}, h: {int(v['h'])})"
-    )
-
-
-def _ron_optional_point(v):
-    if not isinstance(v, dict):
-        return "None"
-    return _ron_some(f"(x: {float(v['x'])}, y: {float(v['y'])})")
-
-
-def _ron_body_metrics(bm):
-    if not isinstance(bm, dict):
-        return "None"
-    parts = [
-        f"body_pixel_bbox: {_ron_optional_rect(bm.get('body_pixel_bbox'))}",
-        f"feet_pixel: {_ron_optional_point(bm.get('feet_pixel'))}",
-        f"feet_anchor_norm: {_ron_optional_point(bm.get('feet_anchor_norm'))}",
-    ]
-    return _ron_some(f"({', '.join(parts)})")
-
-
-def _ron_tuning(manifest_or_tuning):
-    """Serialize optional tack-on sheet tuning into a full RON field.
-
-    Compatibility helper used by the sheet-tuning tests and older callers.
-    Callers may pass either a full sheet manifest containing `sheet_tuning:`
-    / `tuning:` or the tuning dictionary itself. Missing tuning returns the
-    empty string sentinel so emitters can omit the `tuning:` field. An explicit
-    empty tuning dict is meaningful: it emits default tuning values.
-    """
-    if not isinstance(manifest_or_tuning, dict):
-        return ""
-
-    full_manifest_keys = {
-        "target",
-        "image",
-        "rows",
-        "animations",
-        "frame_width",
-        "frame_height",
-        "label_width",
-        "body_metrics",
-    }
-    has_sheet_tuning_key = "sheet_tuning" in manifest_or_tuning
-    has_tuning_key = "tuning" in manifest_or_tuning
-
-    if has_sheet_tuning_key:
-        tuning = manifest_or_tuning.get("sheet_tuning")
-    elif has_tuning_key:
-        tuning = manifest_or_tuning.get("tuning")
-    elif any(key in manifest_or_tuning for key in full_manifest_keys):
-        return ""
-    else:
-        tuning = manifest_or_tuning
-
-    if tuning is None or not isinstance(tuning, dict):
-        return ""
-
-    collision_scale = float(tuning.get("collision_scale", 1.0))
-    frame_sample_inset = int(tuning.get("frame_sample_inset", 0))
-    feet_anchor_y = tuning.get("feet_anchor_y_override", tuning.get("feet_anchor_y"))
-
-    fields = [f"collision_scale: {collision_scale}"]
-    if feet_anchor_y is not None:
-        fields.append(f"feet_anchor_y_override: Some({float(feet_anchor_y)})")
-    fields.append(f"frame_sample_inset: {frame_sample_inset}")
-
-    inner = "\n".join(f"        {field}," for field in fields)
-    return f"    tuning: Some((\n{inner}\n    )),\n"
-
-
-def _ron_anchors(anchors):
-    if not isinstance(anchors, dict) or not anchors:
-        return "{}"
-    items = []
-    for name, pos in sorted(anchors.items()):
-        if not isinstance(pos, dict) or "x" not in pos or "y" not in pos:
-            continue
-        items.append(
-            f'"{_ron_escape(str(name))}": (x: {float(pos["x"])}, y: {float(pos["y"])})'
-        )
-    return "{" + ", ".join(items) + "}" if items else "{}"
-
-
-def _ron_rect(r):
-    base = f"x: {int(r['x'])}, y: {int(r['y'])}, w: {int(r['w'])}, h: {int(r['h'])}"
-    anchors = r.get("anchors")
-    if anchors:
-        return f"({base}, anchors: {_ron_anchors(anchors)})"
-    return f"({base})"
-
-
-def _ron_row(row):
-    rects = ",\n            ".join(_ron_rect(r) for r in row.get("rects", []))
-    return (
-        f"(\n"
-        f'        animation: "{_ron_escape(row["animation"])}",\n'
-        f"        row_index: {int(row['row_index'])},\n"
-        f"        frame_count: {int(row['frame_count'])},\n"
-        f"        duration_ms: {int(row['duration_ms'])},\n"
-        f"        duration_secs: {float(row['duration_secs'])},\n"
-        f"        rects: [\n            {rects},\n        ],\n"
-        f"    )"
-    )
+# RON manifest emission is unified in core.manifest_ron (one writer for both
+# spines). These aliases keep the names callers/tests import.
+_ron_sheet_record = record_to_ron
+_ron_tuning = ron_tuning
 
 
 def _emit_sheet_ron(manifest):
-    """Serialize the manifest dict to RON in the shape
-    `Vec<SheetRecord>` (defined in
-    `crates/ambition_gameplay_core/src/presentation/character_sprites/registry.rs`)
-    expects. Even for single-target sheets the top-level is a list — the
-    loader always parses `Vec<SheetRecord>`, and shared PNGs (lab props)
-    use the same emitter to write multiple records.
-
-    Kept as a hand-rolled emitter (no python-ron dep) because the
-    output shape is small, fixed, and easy to inspect in a diff.
-    """
-    target = manifest["target"]
-    return (
-        f"// Auto-emitted from {target}_spritesheet.yaml — see\n"
-        f"// `presentation::character_sprites::registry`.\n"
-        f"[\n"
-        f"{_ron_sheet_record(manifest)},\n"
-        f"]\n"
-    )
-
-
-def _ron_sheet_record(manifest):
-    """Render one `SheetRecord` as RON. Caller wraps in `[...]`.
-
-    A separate helper so callers that need to emit a multi-record list
-    (e.g. the lab-props sheet with 8 props on one PNG) can join several
-    `_ron_sheet_record(...)` strings with `,\n` between them.
-    """
-    target = manifest["target"]
-    row_entries = list(manifest.get("rows", []))
-    if row_entries:
-        rows_inner = "\n    ".join(_ron_row(r) + "," for r in row_entries)
-        rows_field = f"    rows: [\n    {rows_inner}\n    ],\n"
-    else:
-        rows_field = "    rows: [],\n"
-    y_offset = int(manifest.get("y_offset", 0))
-    y_offset_field = f"    y_offset: {y_offset},\n" if y_offset else ""
-    tuning_field = _ron_tuning(manifest)
-    return (
-        f"(\n"
-        f'    target: "{_ron_escape(target)}",\n'
-        f'    image: "{_ron_escape(manifest.get("image", f"{target}_spritesheet.png"))}",\n'
-        f"    label_width: {int(manifest.get('label_width', 0))},\n"
-        f"    frame_width: {int(manifest['frame_width'])},\n"
-        f"    frame_height: {int(manifest['frame_height'])},\n"
-        f"{y_offset_field}"
-        f"{tuning_field}"
-        f"    body_metrics: {_ron_body_metrics(manifest.get('body_metrics'))},\n"
-        f"{rows_field}"
-        f")"
-    )
+    """Serialize a manifest to the `Vec<SheetRecord>` RON the game reads."""
+    return records_to_ron(manifest["target"], [manifest])
 
 
 def write_canonical(

@@ -13,12 +13,12 @@ import argparse
 import json
 import struct
 import zlib
-from dataclasses import dataclass
 from html import escape
 from pathlib import Path
 from typing import Any
 
 from ambition_ldtk_tools.ldtk import (
+    Issue,
     LdtkTransaction,
     alloc_uid,
     entity_defs,
@@ -70,13 +70,7 @@ DEFAULT_ICON_COLORS = {
     "ReboundPad": (251, 146, 60),
 }
 
-
-@dataclass(frozen=True)
-class ManifestIssue:
-    severity: str
-    code: str
-    message: str
-
+ManifestIssue = Issue
 
 
 def load_manifest(path: Path) -> dict[str, Any]:
@@ -281,23 +275,23 @@ def validate_manifest(project: dict, ldtk: Path, manifest: dict[str, Any]) -> li
         spec = dict(spec_raw or {})
         ent = find_entity_def(project, entity_id)
         if ent is None:
-            issues.append(ManifestIssue("error", "missing_entity_def", f"entity def {entity_id!r} is missing"))
+            issues.append(Issue("error", "missing_entity_def", f"entity def {entity_id!r} is missing", entity=entity_id))
             continue
         tileset_id = str(spec.get("tileset") or spec.get("source") or spec.get("tileset_identifier") or "EditorIcons")
         ts = find_tileset(project, tileset_id)
         if ts is None:
-            issues.append(ManifestIssue("error", "entity_missing_tileset", f"{entity_id}: tileset {tileset_id!r} is not registered"))
+            issues.append(Issue("error", "entity_missing_tileset", f"tileset {tileset_id!r} is not registered", entity=entity_id, data={"tileset": tileset_id}))
             continue
         rect = ent.get("tileRect") or {}
         if ent.get("tilesetId") != ts.get("uid") or rect.get("tilesetUid") != ts.get("uid"):
-            issues.append(ManifestIssue("error", "entity_icon_tileset_mismatch", f"{entity_id}: LDtk icon does not reference {tileset_id}"))
+            issues.append(Issue("error", "entity_icon_tileset_mismatch", f"LDtk icon does not reference {tileset_id}", entity=entity_id, data={"tileset": tileset_id}))
             continue
         if rect:
             x, y, w, h = int(rect.get("x", 0)), int(rect.get("y", 0)), int(rect.get("w", 0)), int(rect.get("h", 0))
             if x < 0 or y < 0 or w <= 0 or h <= 0 or x + w > int(ts.get("pxWid") or 0) or y + h > int(ts.get("pxHei") or 0):
-                issues.append(ManifestIssue("error", "entity_icon_rect_oob", f"{entity_id}: tileRect {rect} is outside tileset {tileset_id}"))
+                issues.append(Issue("error", "entity_icon_rect_oob", f"tileRect {rect} is outside tileset {tileset_id}", entity=entity_id, data={"tileset": tileset_id, "tileRect": rect}))
         else:
-            issues.append(ManifestIssue("error", "entity_missing_tile_rect", f"{entity_id}: missing tileRect"))
+            issues.append(Issue("error", "entity_missing_tile_rect", "missing tileRect", entity=entity_id))
     return issues
 
 
@@ -314,18 +308,18 @@ def collect_visual_ref_issues(project: dict) -> list[ManifestIssue]:
         try:
             uid = int(uid)
         except Exception:
-            issues.append(ManifestIssue("error", "bad_entity_tileset_uid", f"{ident}: invalid tileset uid {uid!r}"))
+            issues.append(Issue("error", "bad_entity_tileset_uid", f"invalid tileset uid {uid!r}", entity=str(ident)))
             continue
         ts = tiles_by_uid.get(uid)
         if ts is None:
-            issues.append(ManifestIssue("error", "stale_entity_tileset_uid", f"{ident}: references missing tileset uid {uid}"))
+            issues.append(Issue("error", "stale_entity_tileset_uid", f"references missing tileset uid {uid}", entity=str(ident), data={"tileset_uid": uid}))
             continue
         if not isinstance(rect, dict):
-            issues.append(ManifestIssue("error", "missing_entity_tile_rect", f"{ident}: has tilesetId but no tileRect"))
+            issues.append(Issue("error", "missing_entity_tile_rect", "has tilesetId but no tileRect", entity=str(ident)))
             continue
         x, y, w, h = int(rect.get("x", 0)), int(rect.get("y", 0)), int(rect.get("w", 0)), int(rect.get("h", 0))
         if x < 0 or y < 0 or w <= 0 or h <= 0 or x + w > int(ts.get("pxWid") or 0) or y + h > int(ts.get("pxHei") or 0):
-            issues.append(ManifestIssue("error", "entity_tile_rect_oob", f"{ident}: tileRect {rect} is outside {ts.get('identifier')}"))
+            issues.append(Issue("error", "entity_tile_rect_oob", f"tileRect {rect} is outside {ts.get('identifier')}", entity=str(ident), data={"tileRect": rect, "tileset": ts.get("identifier")}))
     return issues
 
 
@@ -460,13 +454,10 @@ def preview_manifest_html(ldtk: Path, manifest: dict[str, Any]) -> str:
     return "\n".join(rows) + "\n"
 
 
-def format_issues(issues: list[ManifestIssue]) -> str:
-    if not issues:
-        return "visual manifest validation passed.\n"
-    lines = ["Visual manifest issues:"]
-    for issue in issues:
-        lines.append(f"  {issue.severity}: {issue.code}: {issue.message}")
-    return "\n".join(lines) + "\n"
+def format_issues(issues: list[Issue]) -> str:
+    from ambition_ldtk_tools.ldtk import format_issue_lines
+
+    return format_issue_lines(issues, title="Visual manifest issues:", empty="visual manifest validation passed.")
 
 
 def main(argv=None) -> int:
@@ -511,7 +502,7 @@ def main(argv=None) -> int:
         manifest = load_manifest(args.manifest)
         if args.action == "validate-manifest":
             issues = validate_manifest(project, args.ldtk, manifest)
-            print(json.dumps([i.__dict__ for i in issues], indent=2, sort_keys=True) if args.format == "json" else format_issues(issues), end="" if args.format == "text" else "\n")
+            print(json.dumps([i.as_dict() for i in issues], indent=2, sort_keys=True) if args.format == "json" else format_issues(issues), end="" if args.format == "text" else "\n")
             return 1 if any(i.severity == "error" for i in issues) else 0
         if not args.in_place and not args.output:
             raise SystemExit("apply-manifest requires --in-place or --output")

@@ -214,7 +214,7 @@ def main(argv=None) -> int:
         if args.action == "validate-manifest":
             issues = validate_manifest(project, args.ldtk, manifest)
             if args.format == "json":
-                print(json.dumps([i.__dict__ for i in issues], indent=2, sort_keys=True))
+                print(json.dumps([i.as_dict() for i in issues], indent=2, sort_keys=True))
             else:
                 print(format_manifest_issues(issues), end="")
             return 1 if any(i.severity == "error" for i in issues) else 0

@@ -279,3 +279,12 @@ tx.finish(noop_message="no matching entities; left file unchanged")
 This is the migration seam for future cleanups: area specs, camera edits,
 visual manifest writes, IntGrid paint commands, and layout writeback should all
 compile down to shared patch/transaction operations over time.
+
+### Structured issue model
+
+LDtk diagnostics now have a shared `Issue` model under `ambition_ldtk_tools.ldtk`.
+Use it for policy, validation, camera, visual-reference, and room-inspection
+findings. JSON CLI output should use `Issue.as_dict()`; text output should use
+`format_issue_lines(...)`. This gives agents stable fields such as `severity`,
+`code`, `level`, `layer`, `entity`, `entity_iid`, `fixable`, and `fix_hint`
+instead of forcing them to parse one-off prose.

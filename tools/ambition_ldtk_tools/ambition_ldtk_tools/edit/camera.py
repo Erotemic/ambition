@@ -5,12 +5,12 @@ from __future__ import annotations
 
 import argparse
 import json
-from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
 from ambition_ldtk_tools.edit.entity_layer_rules import DEFAULT_LDTK
 from ambition_ldtk_tools.ldtk import (
+    Issue,
     LdtkTransaction,
     alloc_uid,
     default_field_value,
@@ -25,14 +25,7 @@ from ambition_ldtk_tools.ldtk import (
 CAMERA_LAYER = "AmbitionCameras"
 CAMERA_ENTITY = "CameraZone"
 
-
-@dataclass(frozen=True)
-class CameraIssue:
-    severity: str
-    level: str
-    message: str
-    fixable: bool = False
-
+CameraIssue = Issue
 
 
 def find_level(project: dict, level_id: str) -> dict:
@@ -103,8 +96,8 @@ def entity_rect(entity: dict) -> tuple[int, int, int, int]:
     return int(px[0]), int(px[1]), int(entity.get("width") or 0), int(entity.get("height") or 0)
 
 
-def collect_camera_issues(project: dict, level_filter: str | None = None, margin: int = 0) -> list[CameraIssue]:
-    issues: list[CameraIssue] = []
+def collect_camera_issues(project: dict, level_filter: str | None = None, margin: int = 0) -> list[Issue]:
+    issues: list[Issue] = []
     levels = project.get("levels", []) or []
     for level in levels:
         if level_filter and level.get("identifier") != level_filter:
@@ -112,12 +105,12 @@ def collect_camera_issues(project: dict, level_filter: str | None = None, margin
         target = target_camera_rect(level, margin)
         cameras = list(iter_camera_zones(level))
         if not cameras:
-            issues.append(CameraIssue("warning", str(level.get("identifier")), "no CameraZone found", fixable=True))
+            issues.append(Issue("warning", "camera_missing", "no CameraZone found", level=str(level.get("identifier")), fixable=True, fix_hint="run camera auto-cover --create"))
             continue
         if not any(layer.get("__identifier") == CAMERA_LAYER for layer, _ in cameras):
-            issues.append(CameraIssue("error", str(level.get("identifier")), f"CameraZone exists but not on {CAMERA_LAYER}", fixable=True))
+            issues.append(Issue("error", "camera_wrong_layer", f"CameraZone exists but not on {CAMERA_LAYER}", level=str(level.get("identifier")), entity=CAMERA_ENTITY, fixable=True, fix_hint="run camera auto-cover or layer/entity policy fix"))
         if not any(covers(entity_rect(entity), target) for _, entity in cameras):
-            issues.append(CameraIssue("warning", str(level.get("identifier")), f"no CameraZone covers target play rect {target}", fixable=True))
+            issues.append(Issue("warning", "camera_coverage_missing", f"no CameraZone covers target play rect {target}", level=str(level.get("identifier")), entity=CAMERA_ENTITY, fixable=True, fix_hint="run camera auto-cover"))
     return issues
 
 
@@ -185,14 +178,10 @@ def autocover_camera(project: dict, level_id: str, margin: int, create: bool) ->
     return f"created CameraZone {iid} in {level_id} at {(x, y, w, h)}"
 
 
-def format_issues(issues: list[CameraIssue]) -> str:
-    if not issues:
-        return "camera audit passed.\n"
-    lines = ["Camera audit issues:"]
-    for issue in issues:
-        suffix = " [fixable]" if issue.fixable else ""
-        lines.append(f"  {issue.severity}: {issue.level}: {issue.message}{suffix}")
-    return "\n".join(lines) + "\n"
+def format_issues(issues: list[Issue]) -> str:
+    from ambition_ldtk_tools.ldtk import format_issue_lines
+
+    return format_issue_lines(issues, title="Camera audit issues:", empty="camera audit passed.")
 
 
 def main(argv=None) -> int:
@@ -222,7 +211,7 @@ def main(argv=None) -> int:
         project = load_project(args.ldtk)
     issues = collect_camera_issues(project, args.level, args.margin)
     if args.format == "json":
-        print(json.dumps([issue.__dict__ for issue in issues], indent=2, sort_keys=True))
+        print(json.dumps([issue.as_dict() for issue in issues], indent=2, sort_keys=True))
     else:
         print(format_issues(issues), end="")
     return 1 if any(i.severity == "error" for i in issues) else 0

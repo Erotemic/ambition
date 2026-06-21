@@ -11,7 +11,6 @@ from __future__ import annotations
 
 import argparse
 import json
-from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
@@ -23,7 +22,9 @@ from ambition_ldtk_tools.edit.entity_layer_rules import (
     parse_rule,
 )
 from ambition_ldtk_tools.ldtk import (
+    Issue,
     entity_defs as _entity_defs,
+    format_issue_lines,
     iter_entities,
     layer_defs as _layer_defs,
     load_project,
@@ -33,15 +34,7 @@ from ambition_ldtk_tools.ldtk import (
 DEFAULT_ENTITY_LAYER_RULES = {"CameraZone": "AmbitionCameras"}
 DEFAULT_DISALLOW_ENTITIES_ON_LAYERS = {"Collision", "Water", "Climbable"}
 
-
-@dataclass(frozen=True)
-class PolicyIssue:
-    severity: str
-    code: str
-    level: str | None
-    message: str
-    fixable: bool = False
-
+PolicyIssue = Issue
 
 
 def layer_defs(project: dict) -> dict[str, dict]:
@@ -67,42 +60,44 @@ def parse_rules(raw_rules: list[str], include_defaults: bool = True) -> dict[str
     return rules
 
 
-def collect_policy_issues(project: dict, rules: dict[str, str]) -> list[PolicyIssue]:
-    issues: list[PolicyIssue] = []
+def collect_policy_issues(project: dict, rules: dict[str, str]) -> list[Issue]:
+    issues: list[Issue] = []
     ldefs = layer_defs(project)
     edefs = entity_defs(project)
     for entity_type, layer_id in rules.items():
         if entity_type not in edefs:
-            issues.append(PolicyIssue("error", "missing_entity_def", None, f"entity def {entity_type!r} is missing"))
+            issues.append(Issue("error", "missing_entity_def", f"entity def {entity_type!r} is missing", entity=entity_type))
         if layer_id not in ldefs:
-            issues.append(PolicyIssue("error", "missing_layer_def", None, f"layer def {layer_id!r} is missing"))
+            issues.append(Issue("error", "missing_layer_def", f"layer def {layer_id!r} is missing", layer=layer_id))
 
     for v in collect_rule_violations(project, rules):
-        issues.append(PolicyIssue(
+        issues.append(Issue(
             "error",
             "entity_wrong_layer",
-            v.level,
-            f"{v.level}: {v.identifier} {v.iid} is on {v.layer}, expected {v.expected_layer}",
+            f"is on {v.layer}, expected {v.expected_layer}",
+            level=v.level,
+            layer=v.layer,
+            entity=v.identifier,
+            entity_iid=v.iid,
             fixable=True,
+            fix_hint=f"move {v.identifier} to {v.expected_layer}",
+            data={"expected_layer": v.expected_layer},
         ))
 
     for level, layer, entity in iter_entity_instances(project):
         if layer.get("__identifier") in DEFAULT_DISALLOW_ENTITIES_ON_LAYERS:
-            issues.append(PolicyIssue(
+            issues.append(Issue(
                 "error",
                 "entity_on_non_entity_policy_layer",
-                level.get("identifier"),
-                f"{level.get('identifier')}: {entity.get('__identifier')} {entity.get('iid')} is on {layer.get('__identifier')}",
+                f"is on {layer.get('__identifier')}",
+                level=str(level.get("identifier")),
+                layer=str(layer.get("__identifier")),
+                entity=str(entity.get("__identifier")),
+                entity_iid=str(entity.get("iid")),
             ))
 
     for issue in collect_visual_ref_issues(project):
-        issues.append(PolicyIssue(
-            issue.severity,
-            issue.code,
-            None,
-            issue.message,
-            fixable=False,
-        ))
+        issues.append(issue)
 
     # Verify LDtk editor tag restrictions agree with the default entity-layer rules
     # when tags have been applied. Missing tags are warnings, not errors, because
@@ -115,11 +110,12 @@ def collect_policy_issues(project: dict, rules: dict[str, str]) -> list[PolicyIs
         ent_tags = set(ent.get("tags") or [])
         required = set(target.get("requiredTags") or [])
         if ent_tags and not (ent_tags & required):
-            issues.append(PolicyIssue(
+            issues.append(Issue(
                 "warning",
                 "ldtk_tag_rule_not_enforced",
-                None,
-                f"{entity_type} has tags {sorted(ent_tags)} but target layer {layer_id} does not require one of them",
+                f"has tags {sorted(ent_tags)} but target layer {layer_id} does not require one of them",
+                entity=entity_type,
+                layer=layer_id,
                 fixable=False,
             ))
     return issues
@@ -140,14 +136,8 @@ def fix_policy(project: dict, rules: dict[str, str]) -> int:
     return moved
 
 
-def format_issues(issues: list[PolicyIssue]) -> str:
-    if not issues:
-        return "LDtk policy check passed.\n"
-    lines = ["LDtk policy issues:"]
-    for issue in issues:
-        suffix = " [fixable]" if issue.fixable else ""
-        lines.append(f"  {issue.severity}: {issue.code}: {issue.message}{suffix}")
-    return "\n".join(lines) + "\n"
+def format_issues(issues: list[Issue]) -> str:
+    return format_issue_lines(issues, title="LDtk policy issues:", empty="LDtk policy check passed.")
 
 
 def main(argv=None) -> int:
@@ -178,7 +168,7 @@ def main(argv=None) -> int:
 
     issues = collect_policy_issues(project, rules)
     if args.format == "json":
-        print(json.dumps([issue.__dict__ for issue in issues], indent=2, sort_keys=True))
+        print(json.dumps([issue.as_dict() for issue in issues], indent=2, sort_keys=True))
     else:
         print(format_issues(issues), end="")
     return 1 if any(i.severity == "error" for i in issues) else 0

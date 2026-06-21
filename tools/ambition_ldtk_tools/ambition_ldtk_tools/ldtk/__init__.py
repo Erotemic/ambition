@@ -8,6 +8,7 @@ entity/layer lookup, editor-style writeback, or dry-run/no-op mutation flow.
 
 from .fields import default_field_value, entity_field_value
 from .ids import alloc_uid
+from .issues import Issue, format_issue_lines, has_errors
 from .io import load_project, write_project, write_project_json
 from .layers import ensure_entities_layer_def, ensure_entities_layer_instance
 from .paths import (
@@ -40,11 +41,13 @@ from .transaction import LdtkTransaction
 __all__ = [
     "ApplyEntityLayerTagRule",
     "EntityLocation",
+    "Issue",
     "LdtkTransaction",
     "MoveEntitiesToLayer",
     "PatchOp",
     "PatchResult",
     "alloc_uid",
+    "format_issue_lines",
     "default_field_value",
     "default_sandbox_ldtk",
     "entity_defs",
@@ -56,6 +59,7 @@ __all__ = [
     "find_layer_instance",
     "find_level",
     "find_tileset",
+    "has_errors",
     "iter_entities",
     "layer_defs",
     "load_project",

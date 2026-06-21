@@ -302,3 +302,14 @@ boundary so commands become:
 ```text
 parse CLI intent -> build patch ops -> transaction applies/writes
 ```
+
+### Structured issues
+
+Diagnostics should use `ambition_ldtk_tools.ldtk.Issue` instead of command-local
+issue dataclasses. `Issue.as_dict()` is the stable JSON shape for agents and CI;
+text output should pass through `format_issue_lines(...)` so severity, code,
+location, fixability, and fix hints stay consistent across commands.
+
+Commands already using the shared issue model include policy checks, camera
+audits, and visual-manifest validation. Future validation, room-inspection, and
+asset commands should emit the same shape instead of prose-only messages.

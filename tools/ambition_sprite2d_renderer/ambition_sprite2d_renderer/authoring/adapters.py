@@ -426,9 +426,11 @@ class RobotAdapter(BaseAdapter):
         front = cx + int(w * 0.26)  # ~0.76w — just past the torso, with a gap
         return {
             "attack_side": {
-                # y drops to the f0 blade's low forehand sweep so the box
-                # and the weapon agree; reaches forward past the frame.
-                "bbox": (front, int(h * 0.44), int(w * 0.60), int(h * 0.42)),
+                # A full-height slash plane: at least as tall as the body
+                # (which spans ~0.13h..0.80h) so the swing covers above and
+                # below the player, HK-style. Starts past the torso front
+                # and reaches forward beyond the sprite frame.
+                "bbox": (front, int(h * 0.12), int(w * 0.60), int(h * 0.72)),
                 "active_frames": [0],
             },
         }

@@ -72,6 +72,13 @@ class SideRobotGenerator:
         **DEFAULT_ADVANCED_TIMINGS,
         **DEFAULT_TRAVERSAL_POLISH_TIMINGS,
         **DEFAULT_DIRECTIONAL_ATTACK_TIMINGS,
+        # Player primary melee. A snappy 2-frame swing: frame 0 is the
+        # blade already out (the hit comes immediately), frame 1 is a
+        # single wind-down / recovery frame. Authored feel — verify the
+        # active frame with `python -m ambition_sprite2d_renderer
+        # debug-hitboxes player_robot`. Enemies use `slash` (8f) via
+        # pick_enemy_anim, so this only changes the player's read.
+        "attack_side": {"frames": 2, "duration_ms": 60},
     }
 
     PALETTE = {
@@ -980,24 +987,27 @@ class SideRobotGenerator:
             p.slash_dir = "side"
             p.eye_squint = 0.24 + 0.22 * strike - 0.08 * recover
         elif animation == "attack_side":
-            # Marth-style forehand: short windup, fast forward slash, brief
-            # recovery. Re-uses the slash 3-phase shape but commits the body
-            # more and uses the "side" blade arc.
-            wind = 1.0 - smoothstep(clamp(t / 0.24, 0.0, 1.0))
-            strike = smoothstep(clamp((t - 0.18) / 0.34, 0.0, 1.0))
-            recover = smoothstep(clamp((t - 0.66) / 0.34, 0.0, 1.0))
-            p.root_x = -3.5 * wind + 6.0 * strike - 1.6 * recover
-            p.body_tilt = -10.0 * wind + 16.0 * strike - 4.0 * recover
-            p.head_tilt = -3.0 * wind + 6.0 * strike
+            # 2-frame immediate forehand (see ANIMATIONS["attack_side"]).
+            # NO windup: frame 0 is the full strike — blade extended,
+            # body committed forward — so the hit reads on the very
+            # first frame. Frame 1 is the lone wind-down, settling back
+            # toward a combat-ready guard. `strike`/`recover` are linear
+            # in t so they land cleanly on the two frames (t=0 / t=1) but
+            # still read if the row is ever re-timed to more frames.
+            strike = 1.0 - t  # 1.0 @ frame 0, 0.0 @ frame 1
+            recover = t       # 0.0 @ frame 0, 1.0 @ frame 1
+            p.root_x = 6.0 * strike - 1.6 * recover
+            p.body_tilt = 16.0 * strike - 4.0 * recover
+            p.head_tilt = 6.0 * strike
             p.far_arm_upper = 156.0
             p.far_arm_lower = 145.0
-            p.near_arm_upper = -30.0 - 24.0 * wind + 64.0 * strike - 18.0 * recover
-            p.near_arm_lower = -18.0 - 22.0 * wind + 58.0 * strike - 20.0 * recover
+            p.near_arm_upper = -30.0 + 64.0 * strike - 18.0 * recover
+            p.near_arm_lower = -18.0 + 58.0 * strike - 20.0 * recover
             p.far_leg_upper = 106.0 + 12.0 * strike
             p.far_leg_lower = 92.0
-            p.near_leg_upper = 60.0 - 12.0 * wind
+            p.near_leg_upper = 60.0 - 6.0 * recover
             p.near_leg_lower = 80.0
-            p.slash = max(0.25, wind, strike)
+            p.slash = max(0.25, strike)
             p.slash_arc = strike
             p.slash_dir = "side"
             p.eye_squint = 0.22 + strike * 0.22

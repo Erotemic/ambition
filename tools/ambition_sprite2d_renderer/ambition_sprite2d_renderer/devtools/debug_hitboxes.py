@@ -28,8 +28,12 @@ from ..authoring.canonical import load_font
 
 HURTBOX_OUTLINE = (0, 230, 255, 230)  # cyan
 HURTBOX_FILL = (0, 230, 255, 40)
-HITBOX_OUTLINE = (255, 60, 60, 240)  # red
+HITBOX_OUTLINE = (255, 60, 60, 240)  # red — hitbox LIVE this frame
 HITBOX_FILL = (255, 60, 60, 60)
+HITBOX_OUTLINE_OFF = (255, 90, 90, 80)  # dim red — hitbox declared but not live
+HITBOX_FILL_OFF = (255, 90, 90, 16)
+ACTIVE_BADGE = (255, 224, 64, 245)  # yellow per-frame "live" marker
+INACTIVE_BADGE = (150, 150, 160, 200)
 PART_LABEL = (255, 255, 255, 220)
 
 
@@ -124,6 +128,7 @@ def render_debug_overlay(yaml_path: Path, out_path: Optional[Path] = None) -> Pa
 
     legend_font = load_font(11)
 
+    badge_font = load_font(9)
     for animation, info in animations.items():
         anim_entry = anim_metrics.get(animation) or {}
         hurtbox = anim_entry.get("hurtbox")
@@ -132,7 +137,16 @@ def render_debug_overlay(yaml_path: Path, out_path: Optional[Path] = None) -> Pa
         hit_rects = _rects_from_box(hitbox)
         if not hurt_rects and not hit_rects:
             continue
-        for frame in info.get("frames", []):
+        # Which frame indices the attack hitbox is actually live on.
+        # Absent => live on every frame (back-compatible). This is what
+        # makes a 2-frame swing legible: "hit on frame 0, recover on
+        # frame 1" instead of one static box smeared across the row.
+        active_frames: Optional[set] = None
+        if isinstance(hitbox, dict):
+            af = hitbox.get("active_frames")
+            if isinstance(af, (list, tuple)):
+                active_frames = {int(i) for i in af}
+        for frame_idx, frame in enumerate(info.get("frames", [])):
             fx = int(frame.get("x", 0))
             fy = int(frame.get("y", 0))
             for rx, ry, rw, rh, label in hurt_rects:
@@ -143,14 +157,25 @@ def render_debug_overlay(yaml_path: Path, out_path: Optional[Path] = None) -> Pa
                     HURTBOX_FILL,
                     f"H {label}" if label else "H",
                 )
+            hit_live = active_frames is None or frame_idx in active_frames
             for rx, ry, rw, rh, label in hit_rects:
+                outline = HITBOX_OUTLINE if hit_live else HITBOX_OUTLINE_OFF
+                fill = HITBOX_FILL if hit_live else HITBOX_FILL_OFF
+                marker = "X" if hit_live else "x"
                 _draw_rect_with_label(
                     draw,
                     (fx + rx, fy + ry, rw, rh),
-                    HITBOX_OUTLINE,
-                    HITBOX_FILL,
-                    f"X {label}" if label else "X",
+                    outline,
+                    fill,
+                    f"{marker} {label}" if label else marker,
                 )
+            # Per-frame badge in the frame's top-left: index + live state,
+            # but only when this animation actually has an attack hitbox
+            # to reason about (keeps idle/walk rows uncluttered).
+            if hit_rects:
+                badge = f"f{frame_idx} {'HIT' if hit_live else '-'}"
+                color = ACTIVE_BADGE if hit_live else INACTIVE_BADGE
+                draw.text((fx + 2, fy + 2), badge, fill=color, font=badge_font)
 
     # Legend block in the label column on the left so each row's
     # bare row-name is supplemented with its (hurt + hit) shapes.

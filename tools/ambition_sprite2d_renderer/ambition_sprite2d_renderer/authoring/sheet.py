@@ -332,6 +332,14 @@ def build_spritesheet(job: CharacterJob) -> Tuple[Image.Image, Dict[str, Any]]:
                             )
                     if cropped_parts:
                         hitbox_out["parts"] = cropped_parts
+                # Optional per-frame active window: which frame indices
+                # the attack hitbox is actually live on (e.g. [0] for a
+                # hit-on-frame-0 swing). Absent = live on every frame
+                # (back-compatible). Consumed by the debug-hitbox overlay
+                # and available to the runtime for timing agreement.
+                active = hitbox.get("active_frames")
+                if isinstance(active, (list, tuple)) and active:
+                    hitbox_out["active_frames"] = [int(i) for i in active]
             if hitbox_out:
                 anim_metrics[anim_name]["hitbox"] = hitbox_out
         # Drop animations with no data (rest, hit, death may end up empty

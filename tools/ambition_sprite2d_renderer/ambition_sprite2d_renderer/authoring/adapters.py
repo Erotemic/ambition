@@ -406,6 +406,28 @@ class RobotAdapter(BaseAdapter):
             downsample=job.render.downsample,
         )
 
+    def attack_hitboxes(self, size: Tuple[int, int]) -> Dict[str, Dict[str, Any]]:
+        """Player primary-melee hitbox (`attack_side`).
+
+        A forward blade box at the strike reach. The robot faces right,
+        so the box sits forward of body-center at mid-body height. It's
+        live on frame 0 only (`active_frames=[0]`) — the 2-frame swing's
+        hit comes out immediately; frame 1 is pure wind-down. Coords are
+        source-canvas pixels; eyeball alignment with
+        ``debug-hitboxes player_robot`` and nudge to taste.
+        """
+        w, h = size
+        cx = w // 2
+        # Frame-0 forehand sweeps down-forward from the hand (~body
+        # center) out past the blade tip (~0.9w) and down to ~0.82h.
+        # Box covers that arc; verified against the f0 strike pose.
+        return {
+            "attack_side": {
+                "bbox": (cx - 2, int(h * 0.42), int(w * 0.46), int(h * 0.40)),
+                "active_frames": [0],
+            },
+        }
+
 
 class NinjaAdapter(BaseAdapter):
     target = "ninja"

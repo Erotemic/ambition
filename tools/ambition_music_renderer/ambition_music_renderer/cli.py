@@ -684,6 +684,66 @@ def build_parser() -> argparse.ArgumentParser:
     add_bundle_args(p_bundle)
     p_bundle.set_defaults(func=cmd_bundle)
 
+    def _cmd_bundle_many(batch_args: argparse.Namespace) -> int:
+        from .batch_bundle import main as batch_main
+
+        argv: list[str] = []
+        if batch_args.workers is not None:
+            argv.extend(["--workers", str(batch_args.workers)])
+        if batch_args.render_jobs is not None:
+            argv.extend(["--render-jobs", str(batch_args.render_jobs)])
+        argv.extend(["--scope", batch_args.scope])
+        if batch_args.include_examples:
+            argv.append("--include-examples")
+        argv.extend(["--backend", batch_args.backend])
+        argv.extend(["--runtime-stem-gain-mode", batch_args.runtime_stem_gain_mode])
+        if batch_args.runtime_stem_max_gain_db is not None:
+            argv.extend(["--runtime-stem-max-gain-db", str(batch_args.runtime_stem_max_gain_db)])
+        if batch_args.force:
+            argv.append("--force")
+        if batch_args.publish:
+            argv.append("--publish")
+        if batch_args.zip:
+            argv.append("--zip")
+        if batch_args.zip_report:
+            argv.append("--zip-report")
+        else:
+            argv.append("--no-zip-report")
+        if batch_args.skip_spectrograms:
+            argv.append("--skip-spectrograms")
+        if batch_args.include_scratch_stems:
+            argv.append("--include-scratch-stems")
+        argv.extend(["--plot-format", batch_args.plot_format])
+        argv.extend(["--jpeg-quality", str(batch_args.jpeg_quality)])
+        if batch_args.bundle_root is not None:
+            argv.extend(["--bundle-root", str(batch_args.bundle_root)])
+        if batch_args.log_root is not None:
+            argv.extend(["--log-root", str(batch_args.log_root)])
+        argv.extend(batch_args.cues)
+        return batch_main(argv)
+
+    p_bundle_many = sub.add_parser("bundle-many", help="Render/debug many cue bundles in parallel")
+    p_bundle_many.add_argument("cues", nargs="*", help="cue ids or YAML paths; omit to discover by --scope")
+    p_bundle_many.add_argument("-j", "--workers", type=int, default=None, help="parallel cue bundle jobs")
+    p_bundle_many.add_argument("--render-jobs", type=int, default=1, help="per-cue render worker count")
+    p_bundle_many.add_argument("--scope", choices=["active", "examples", "all"], default="active")
+    p_bundle_many.add_argument("--include-examples", action="store_true")
+    p_bundle_many.add_argument("--backend", default="pretty-midi")
+    p_bundle_many.add_argument("--runtime-stem-gain-mode", choices=["native", "shared"], default="shared")
+    p_bundle_many.add_argument("--runtime-stem-max-gain-db", type=float, default=None)
+    p_bundle_many.add_argument("--force", action="store_true")
+    p_bundle_many.add_argument("--publish", action="store_true")
+    p_bundle_many.add_argument("--zip", action="store_true")
+    p_bundle_many.add_argument("--zip-report", action="store_true", default=True)
+    p_bundle_many.add_argument("--no-zip-report", dest="zip_report", action="store_false")
+    p_bundle_many.add_argument("--skip-spectrograms", action="store_true")
+    p_bundle_many.add_argument("--include-scratch-stems", action="store_true")
+    p_bundle_many.add_argument("--plot-format", choices=["jpg", "png"], default="jpg")
+    p_bundle_many.add_argument("--jpeg-quality", type=int, default=84)
+    p_bundle_many.add_argument("--bundle-root", type=Path, default=None)
+    p_bundle_many.add_argument("--log-root", type=Path, default=None)
+    p_bundle_many.set_defaults(func=_cmd_bundle_many)
+
     p_cue = sub.add_parser("cue", help="Cue-oriented workflows")
     cue_sub = p_cue.add_subparsers(dest="cue_action", required=True)
     p_cue_bundle = cue_sub.add_parser("bundle", help="Render, debug, and package one cue")

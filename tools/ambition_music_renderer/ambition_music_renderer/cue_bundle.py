@@ -32,6 +32,8 @@ from .dissonance_audit import audit_file as audit_dissonance_file
 from .dissonance_audit import write_reports as write_dissonance_reports
 from .sour_note_audit import audit_file as audit_sour_note_file
 from .sour_note_audit import write_reports as write_sour_note_reports
+from .shrill_note_audit import audit_file as audit_shrill_note_file
+from .shrill_note_audit import write_reports as write_shrill_note_reports
 
 DEFAULT_BACKEND = "pretty-midi"
 BACKEND_CHOICES = ("pretty-midi", "fluidsynth-cli", "fallback", "auto")
@@ -1779,10 +1781,10 @@ def write_spectrograms(
     sample_rate = int(manifest.get("sample_rate", 48000))
     written: list[Path] = []
 
-    def save_audio_plot(audio: np.ndarray, title: str, dest: Path) -> None:
+    def _spectrogram_db(audio: np.ndarray) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
         mono = audio.mean(axis=1) if audio.ndim == 2 else audio.astype("float32")
         if mono.size == 0:
-            return
+            return np.asarray([]), np.asarray([]), np.asarray([[]])
         nperseg = min(4096, max(256, int(2 ** math.floor(math.log2(max(256, min(len(mono), 4096)))))))
         noverlap = max(0, int(nperseg * 0.75))
         freqs, times, spec = signal.spectrogram(
@@ -1793,9 +1795,21 @@ def write_spectrograms(
             scaling="spectrum",
             mode="magnitude",
         )
-        spec_db = 20 * np.log10(spec + 1e-10)
+        return freqs, times, 20 * np.log10(spec + 1e-10)
+
+    def _save_kwargs(dest: Path) -> dict:
+        save_kwargs = {"dpi": 120}
+        if dest.suffix.lower() in {".jpg", ".jpeg"}:
+            save_kwargs["format"] = "jpeg"
+            save_kwargs["pil_kwargs"] = {"quality": int(jpeg_quality), "optimize": True}
+        return save_kwargs
+
+    def save_audio_plot(audio: np.ndarray, title: str, dest: Path) -> None:
+        freqs, times, spec_db = _spectrogram_db(audio)
+        if spec_db.size == 0:
+            return
         plt.figure(figsize=(14, 5))
-        plt.pcolormesh(times, freqs, spec_db, shading="auto", vmin=-110, vmax=-35)
+        plt.pcolormesh(times, freqs, spec_db, shading="auto", vmin=-110, vmax=-35, cmap="inferno")
         plt.yscale("log")
         plt.ylim(80, 12000)
         plt.axhspan(3000, 6000, alpha=0.15)
@@ -1803,13 +1817,69 @@ def write_spectrograms(
         plt.title(title)
         plt.xlabel("time (s)")
         plt.ylabel("frequency (Hz)")
-        plt.colorbar(label="dB")
+        plt.colorbar(label="dB, fixed -110..-35")
         plt.tight_layout()
-        save_kwargs = {"dpi": 120}
-        if dest.suffix.lower() in {".jpg", ".jpeg"}:
-            save_kwargs["format"] = "jpeg"
-            save_kwargs["pil_kwargs"] = {"quality": int(jpeg_quality), "optimize": True}
-        plt.savefig(dest, **save_kwargs)
+        plt.savefig(dest, **_save_kwargs(dest))
+        plt.close()
+
+    def save_high_detail_plot(audio: np.ndarray, title: str, dest: Path) -> None:
+        freqs, times, spec_db = _spectrogram_db(audio)
+        if spec_db.size == 0:
+            return
+        mask = (freqs >= 2500) & (freqs <= 16000)
+        if not np.any(mask):
+            return
+        focus = spec_db[mask]
+        finite = focus[np.isfinite(focus)]
+        if finite.size:
+            vmax = float(np.percentile(finite, 99.7))
+            vmin = max(vmax - 60.0, float(np.percentile(finite, 20.0)))
+        else:
+            vmin, vmax = -100.0, -40.0
+        plt.figure(figsize=(14, 5))
+        plt.pcolormesh(times, freqs[mask], focus, shading="auto", vmin=vmin, vmax=vmax, cmap="inferno")
+        plt.yscale("log")
+        plt.ylim(2500, 16000)
+        plt.axhline(4000, linestyle="--", linewidth=0.8)
+        plt.axhline(8000, linestyle=":", linewidth=0.9)
+        plt.title(f"{title} — high-frequency detail")
+        plt.xlabel("time (s)")
+        plt.ylabel("frequency (Hz)")
+        plt.colorbar(label=f"relative dB, local percentile {vmin:.0f}..{vmax:.0f}")
+        plt.tight_layout()
+        plt.savefig(dest, **_save_kwargs(dest))
+        plt.close()
+
+    def save_shrill_detail_plot(audio: np.ndarray, title: str, dest: Path) -> None:
+        freqs, times, spec_db = _spectrogram_db(audio)
+        if spec_db.size == 0:
+            return
+        mask = (freqs >= 3500) & (freqs <= 12500)
+        if not np.any(mask):
+            return
+        focus = spec_db[mask]
+        finite = focus[np.isfinite(focus)]
+        if finite.size:
+            vmax = float(np.percentile(finite, 99.85))
+            vmin = max(vmax - 48.0, float(np.percentile(finite, 35.0)))
+        else:
+            vmin, vmax = -95.0, -45.0
+        plt.figure(figsize=(14, 5))
+        plt.pcolormesh(times, freqs[mask], focus, shading="auto", vmin=vmin, vmax=vmax, cmap="inferno")
+        # Linear high-frequency axis makes isolated C8-C9 whistle lines easier
+        # to see than the full log spectrogram. The percentile colorbar avoids
+        # cymbal/drum maxima hiding quieter but audible standalone tones.
+        plt.ylim(3500, 12500)
+        for hz, label in ((4000, "4k review"), (6000, "6k piercing"), (8000, "8k whistle"), (10000, "10k extreme")):
+            plt.axhline(hz, linestyle="--", linewidth=0.7)
+            if times.size:
+                plt.text(float(times[0]), hz * 1.01, label, fontsize=7, va="bottom")
+        plt.title(f"{title} — shrill-band detail")
+        plt.xlabel("time (s)")
+        plt.ylabel("frequency (Hz, linear)")
+        plt.colorbar(label=f"relative dB, local percentile {vmin:.0f}..{vmax:.0f}")
+        plt.tight_layout()
+        plt.savefig(dest, **_save_kwargs(dest))
         plt.close()
 
     candidates: list[tuple[str, Path, str]] = []
@@ -1835,6 +1905,14 @@ def write_spectrograms(
             save_audio_plot(audio, label, dest)
             if dest.exists():
                 written.append(dest)
+            high_dest = plots_dir / f"{label}.spectrogram_high_detail.{suffix}"
+            save_high_detail_plot(audio, label, high_dest)
+            if high_dest.exists():
+                written.append(high_dest)
+            shrill_dest = plots_dir / f"{label}.spectrogram_shrill_detail.{suffix}"
+            save_shrill_detail_plot(audio, label, shrill_dest)
+            if shrill_dest.exists():
+                written.append(shrill_dest)
         except Exception as ex:  # noqa: BLE001
             (plots_dir / f"{label}.spectrogram.error.txt").write_text(
                 f"failed to render {path}: {type(ex).__name__}: {ex}\n",
@@ -2237,9 +2315,18 @@ def create_bundle(
             plot_format=plot_format,
             jpeg_quality=jpeg_quality,
         )
+        shrill_note_payload = audit_shrill_note_file(score_path)
+        write_shrill_note_reports(
+            shrill_note_payload,
+            reports_dir,
+            plots_dir=plots_dir,
+            plot_format=plot_format,
+            jpeg_quality=jpeg_quality,
+        )
         mix_diag_path, mix_warnings = summarize_mix_diagnostics(manifest, reports_dir)
         dissonance_warnings = list(dissonance_payload.get("warnings") or [])
         sour_note_warnings = list(sour_note_payload.get("warnings") or [])
+        shrill_note_warnings = list(shrill_note_payload.get("warnings") or [])
         if not skip_spectrograms:
             write_spectrograms(
                 analysis_root,
@@ -2319,7 +2406,7 @@ def create_bundle(
         "include_scratch_stems": include_scratch_stems,
         "copied_audio_files": copied_audio,
         "mix_diagnostics": str(mix_diag_path),
-        "warnings": [w for w in [id_warning, *mix_warnings, *dissonance_warnings, *sour_note_warnings] if w],
+        "warnings": [w for w in [id_warning, *mix_warnings, *dissonance_warnings, *sour_note_warnings, *shrill_note_warnings] if w],
         "commands": command_rows,
         "rerun_script": str(rerun_script),
     }

@@ -19,6 +19,7 @@ dependencies = [
   "mido",
   "pydub",
   "ubelt",
+  "rich",
 ]
 
 [project.scripts]

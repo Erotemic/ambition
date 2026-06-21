@@ -31,6 +31,8 @@ from ambition_music_renderer.render_isolated import build_parser as build_isolat
 from ambition_music_renderer.reference_audio_audit import analyze_audio as analyze_reference_audio, write_reports as write_reference_audio_reports
 from ambition_music_renderer.sour_note_audit import audit_spec as audit_sour_note_spec
 from ambition_music_renderer.sour_note_audit import write_reports as write_sour_note_reports
+from ambition_music_renderer.shrill_note_audit import audit_spec as audit_shrill_note_spec
+from ambition_music_renderer.shrill_note_audit import write_reports as write_shrill_note_reports
 
 
 def test_backend_defaults_prefer_pretty_midi():
@@ -726,3 +728,68 @@ def test_adaptive_composition_mastering_report_prefers_global_slices():
         assert (root / "reports" / "adaptive_composition_mastering.tsv").exists()
         if (root / "plots" / "adaptive_composition_mastering_levels.jpg").exists():
             assert (root / "plots" / "adaptive_composition_noise_floor.jpg").exists()
+
+
+def test_shrill_note_audit_flags_whistle_register_sources():
+    spec = {
+        "schema": "ambition.musicir.v1",
+        "id": "shrill_test",
+        "tempo": {"bpm": 120},
+        "meter": {"beats_per_bar": 4, "beat_unit": 4},
+        "instruments": [
+            {"name": "guitar", "group": "guitars", "program": "distortion_guitar"},
+            {"name": "kit", "group": "drums", "is_drum": True},
+        ],
+        "state_map": {"default": {"section": "loop", "stems": {"guitars": 1.0}}},
+        "motifs": [
+            {"id": "bad_whistle", "root": "C4", "intervals": [0], "rhythm": [1.0], "velocities": [1.0]},
+        ],
+        "layer_templates": {
+            "bad_guitar": {
+                "kind": "motif",
+                "instrument": "guitar",
+                "motif": "bad_whistle",
+                "root": "C9",
+                "starts": [[0, 0.0]],
+                "velocity": 100,
+            },
+            "kit_noise": {
+                "kind": "drums",
+                "instrument": "kit",
+                "events": [{"drum": "crash", "beat": 0.0, "velocity": 120}],
+            },
+        },
+        "sections": [{"id": "loop", "bars": 1, "harmony": ["C"], "layers": ["bad_guitar", "kit_noise"]}],
+    }
+    payload = audit_shrill_note_spec(spec, min_frequency_hz=4000.0)
+    assert payload["schema"] == "ambition.music_shrill_note_audit.v1"
+    assert payload["candidates"]
+    top = payload["candidates"][0]
+    assert top["note"] == "C9"
+    assert top["group"] == "guitars"
+    assert top["severity"] in {"whistle_8k_plus", "extreme_10k_plus"}
+    assert "layer_templates.bad_guitar.root=C9" in top["source_hint"]
+    with tempfile.TemporaryDirectory() as td:
+        root = Path(td)
+        paths = write_shrill_note_reports(payload, root / "reports", plots_dir=root / "plots", plot_format="jpg")
+        assert Path(paths["summary"]).exists()
+        assert Path(paths["markdown"]).exists()
+        assert "Top Candidates" in Path(paths["markdown"]).read_text()
+
+
+def test_bundle_many_parser_accepts_parallel_flags():
+    args = build_parser().parse_args([
+        "bundle-many",
+        "lofi_study_loop",
+        "tech_bros_disruption",
+        "--workers",
+        "3",
+        "--render-jobs",
+        "1",
+        "--force",
+        "--zip-report",
+    ])
+    assert args.command == "bundle-many"
+    assert args.workers == 3
+    assert args.render_jobs == 1
+    assert args.cues == ["lofi_study_loop", "tech_bros_disruption"]

@@ -351,6 +351,11 @@ def main(argv=None) -> int:
             )
 
     pm, groups, meta = r.build_score(spec)
+    cue_metadata = r.section_chapter_metadata(
+        cue_id=str(spec.get("id", spec_path.stem)),
+        title=str(spec.get("title", spec.get("id", spec_path.stem))),
+        sections=meta,
+    )
     total = meta[-1]["end_seconds"]
     target = int(math.ceil(total * sr))
     group_names = sorted(set(groups.values()))
@@ -444,7 +449,14 @@ def main(argv=None) -> int:
     preview = (
         outdir / "preview" / f"{spec['id']}_{cue_hash}.full_soundtrack_preview.ogg"
     )
-    r.write_ogg_from_audio(master, sr, preview, quality=quality, keep_wav=False)
+    r.write_ogg_from_audio(
+        master,
+        sr,
+        preview,
+        quality=quality,
+        keep_wav=False,
+        metadata=cue_metadata,
+    )
     output_files["preview"]["full_soundtrack"] = str(preview.relative_to(outdir))
 
     stem_stats_native = {
@@ -555,7 +567,24 @@ def main(argv=None) -> int:
                 / sec["id"]
                 / f"{spec['id']}_{cue_hash}.{sec['id']}.full.ogg"
             )
-            r.write_ogg_from_audio(piece, sr, path, quality=quality, keep_wav=False)
+            section_metadata = dict(cue_metadata)
+            section_metadata.update(
+                r.section_chapter_metadata(
+                    cue_id=str(spec.get("id", spec_path.stem)),
+                    title=f"{spec.get('title', spec.get('id', spec_path.stem))} — {sec['id']}",
+                    section_id=str(sec["id"]),
+                    section_start_s=float(sec.get("start_seconds", 0.0)),
+                    section_end_s=float(sec.get("end_seconds", 0.0)),
+                )
+            )
+            r.write_ogg_from_audio(
+                piece,
+                sr,
+                path,
+                quality=quality,
+                keep_wav=False,
+                metadata=section_metadata,
+            )
             output_files["adaptive"].setdefault(sec["id"], {})["full"] = str(
                 path.relative_to(outdir)
             )
@@ -575,12 +604,18 @@ def main(argv=None) -> int:
                 if group in runtime_stem_audio and weight > 0.0:
                     mix += runtime_stem_audio[group] * float(weight)
             runtime_path = outdir / "preview" / f"{spec['id']}_{cue_hash}.runtime_{label}.ogg"
-            r.write_ogg_from_audio(mix, sr, runtime_path, quality=quality, keep_wav=False)
+            runtime_meta = dict(cue_metadata)
+            runtime_meta["PREVIEW_TYPE"] = "runtime"
+            runtime_meta["STATE_ID"] = label
+            r.write_ogg_from_audio(mix, sr, runtime_path, quality=quality, keep_wav=False, metadata=runtime_meta)
             output_files["preview"][f"runtime_{label}"] = str(runtime_path.relative_to(outdir))
 
             audition = r.soft_limit(mix, target_peak_db=-2.5, drive=1.0, normalize=True)
             audition_path = outdir / "preview" / f"{spec['id']}_{cue_hash}.audition_{label}.ogg"
-            r.write_ogg_from_audio(audition, sr, audition_path, quality=quality, keep_wav=False)
+            audition_meta = dict(cue_metadata)
+            audition_meta["PREVIEW_TYPE"] = "audition"
+            audition_meta["STATE_ID"] = label
+            r.write_ogg_from_audio(audition, sr, audition_path, quality=quality, keep_wav=False, metadata=audition_meta)
             output_files["preview"][f"audition_{label}"] = str(audition_path.relative_to(outdir))
             runtime_preview_stats[label] = {
                 "runtime": _audio_stats(mix, sr),

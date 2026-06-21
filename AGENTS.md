@@ -2,6 +2,12 @@
 
 This is the repository operating guide for coding agents. Keep it short, session-agnostic, and focused on routing. Put durable project knowledge in `docs/`, engineering memory in `dev/`, and generated navigation aids in `.agent/`.
 
+## Core Values
+
+* Avoid player-centrism. Value the principle of relativity.
+* Find the elegant solution. Jon will push back on hacks.
+* Correctness is emergent from elegance.
+
 ## Cold start
 
 For non-trivial work, read in this order:

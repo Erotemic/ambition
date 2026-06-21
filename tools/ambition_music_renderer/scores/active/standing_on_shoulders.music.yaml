@@ -25,6 +25,8 @@ render:
   sample_rate: 48000
   ogg_quality: 6
   backend: pretty-midi
+  adaptive_section_mastering:
+    mode: global_master_slices
 
 postprocess:
   gain_db: 0.0
@@ -168,11 +170,14 @@ layer_templates:
     kind: pad_chords
     instruments: [strings_academic]
     every_bars: 2
-    duration_beats: 8.0
+    duration_beats: 7.35
     octave: 4
     velocity: 58
     articulation: pad
     voicing: open
+    # Keep the academic gravity pad from voice-leading itself into the C7+ range.
+    # This cue wants weight and tension, not isolated whistle-string notes.
+    constraints: {max_pitch: 84}
     humanize_ms: 18
 
   # Scholar recursive motif — organ + harpsichord in parallel
@@ -376,6 +381,9 @@ sections:
         velocity: 116
         articulation: marcato
         voicing: wide
+        instrument_velocity_offsets: {heavy_distortion: 0, low_guitar: -8, brass_pompous: -14, strings_academic: -28}
+        instrument_octave_offsets: {heavy_distortion: 0, low_guitar: 0, brass_pompous: 0, strings_academic: -1}
+        constraints: {max_pitch: 84}
       - kind: root_hits
         instruments: [giant_bass, synth_low]
         hits: [[3, 3.5, 0, 0.75]]

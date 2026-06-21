@@ -609,10 +609,24 @@ def _apply_voicing_constraints(
             out = _voice_lead_minimize(prev, out)
     if constraints.get("no_clusters"):
         out = _spread_clusters(out)
+    max_pitch = constraints.get("max_pitch")
+    min_pitch = constraints.get("min_pitch")
+    bounded: list[int] = []
+    for p0 in out:
+        p = int(round(float(p0)))
+        if max_pitch is not None:
+            max_p = int(max_pitch)
+            while p > max_p:
+                p -= 12
+        if min_pitch is not None:
+            min_p = int(min_pitch)
+            while p < min_p:
+                p += 12
+        bounded.append(p)
     # Final guard: clamp every voice into the valid MIDI range and drop
     # exact duplicates so the constraint stages can't produce out-of-range
     # pitches that would crash the MIDI writer.
-    out = [fit_midi_pitch(p) for p in out]
+    out = [fit_midi_pitch(p) for p in bounded]
     seen: set[int] = set()
     deduped: list[int] = []
     for p in out:
@@ -1068,6 +1082,12 @@ def render_layer_chord_hits(
     hits = layer.get("hits", [[0, 0.0], [4, 0.0], [8, 0.0], [12, 0.0]])
     velocity = float(layer.get("velocity", 90))
     octave = int(layer.get("octave", 3))
+    inst_octave_offsets = {
+        str(k): int(v) for k, v in (layer.get("instrument_octave_offsets") or {}).items()
+    }
+    inst_velocity_offsets = {
+        str(k): float(v) for k, v in (layer.get("instrument_velocity_offsets") or {}).items()
+    }
     hk = _layer_human(layer, 6.0)
     constraints = _layer_constraints(ctx.spec, layer)
     for local, beat in hits:
@@ -1082,8 +1102,8 @@ def render_layer_chord_hits(
                 section["start_bar"] + float(local),
                 float(beat),
                 float(layer.get("duration_beats", 0.75)),
-                velocity * float(section.get("intensity", 1.0)),
-                octave=octave,
+                (velocity + float(inst_velocity_offsets.get(inst, 0.0))) * float(section.get("intensity", 1.0)),
+                octave=octave + int(inst_octave_offsets.get(inst, 0)),
                 articulation=layer.get("articulation", "marcato"),
                 voicing=layer.get("voicing", "closed"),
                 constraints=constraints,
@@ -1886,7 +1906,67 @@ def write_wav(path: Path, audio: np.ndarray, sample_rate: int) -> None:
     sf.write(path, audio, sample_rate, subtype="PCM_16")
 
 
-def encode_ogg(wav_path: Path, ogg_path: Path, quality: float = 5.0) -> None:
+def format_ogg_timestamp(seconds: float) -> str:
+    """Return an OGM/Vorbis chapter timestamp like ``HH:MM:SS.mmm``."""
+    seconds = max(0.0, float(seconds))
+    hours = int(seconds // 3600)
+    minutes = int((seconds % 3600) // 60)
+    secs = seconds - hours * 3600 - minutes * 60
+    return f"{hours:02d}:{minutes:02d}:{secs:06.3f}"
+
+
+def ogg_metadata_args(metadata: dict[str, object] | None) -> list[str]:
+    args: list[str] = []
+    if not metadata:
+        return args
+    for key, value in metadata.items():
+        if value is None:
+            continue
+        key_s = str(key).strip()
+        if not key_s:
+            continue
+        args.extend(["-metadata", f"{key_s}={value}"])
+    return args
+
+
+def section_chapter_metadata(
+    *,
+    cue_id: str,
+    title: str | None = None,
+    sections: list[dict[str, Any]] | None = None,
+    section_id: str | None = None,
+    section_start_s: float | None = None,
+    section_end_s: float | None = None,
+) -> dict[str, object]:
+    """Build Vorbis comments that VLC and tag tools can use as breadcrumbs.
+
+    OGG/Vorbis does not have one universal chapter standard, but VLC and
+    several tag readers understand the common ``CHAPTER001`` /
+    ``CHAPTER001NAME`` Vorbis-comment convention.  We also write plain
+    ``CUE_ID``/``SECTION_ID`` fields so the runtime asset can be traced even
+    when a player ignores chapters.
+    """
+    meta: dict[str, object] = {
+        "TITLE": title or cue_id,
+        "ARTIST": "Ambition MusicIR",
+        "ALBUM": "Ambition generated music",
+        "CUE_ID": cue_id,
+    }
+    if section_id is not None:
+        meta["SECTION_ID"] = section_id
+    if section_start_s is not None:
+        meta["SECTION_START"] = format_ogg_timestamp(float(section_start_s))
+    if section_end_s is not None:
+        meta["SECTION_END"] = format_ogg_timestamp(float(section_end_s))
+    for idx, section in enumerate(sections or [], start=1):
+        sid = str(section.get("id", f"section_{idx}"))
+        start_s = float(section.get("start_seconds", 0.0) or 0.0)
+        meta[f"CHAPTER{idx:03d}"] = format_ogg_timestamp(start_s)
+        meta[f"CHAPTER{idx:03d}NAME"] = sid
+    return meta
+
+
+def encode_ogg(wav_path: Path, ogg_path: Path, quality: float = 5.0, metadata: dict[str, object] | None = None) -> None:
     ogg_path.parent.mkdir(parents=True, exist_ok=True)
     if not shutil.which("ffmpeg"):
         raise FileNotFoundError("ffmpeg is required to encode OGG Vorbis")
@@ -1900,6 +1980,7 @@ def encode_ogg(wav_path: Path, ogg_path: Path, quality: float = 5.0) -> None:
         str(wav_path),
         "-map_metadata",
         "-1",
+        *ogg_metadata_args(metadata),
         "-c:a",
         "libvorbis",
         "-q:a",
@@ -1916,6 +1997,7 @@ def write_ogg_from_audio(
     *,
     quality: float = 5.0,
     keep_wav: bool = False,
+    metadata: dict[str, object] | None = None,
 ) -> Path:
     """Write OGG Vorbis, preferring ffmpeg pipe encoding for reliability/speed."""
     ogg_path.parent.mkdir(parents=True, exist_ok=True)
@@ -1945,6 +2027,7 @@ def write_ogg_from_audio(
         "pipe:0",
         "-map_metadata",
         "-1",
+        *ogg_metadata_args(metadata),
         "-c:a",
         "libvorbis",
         "-q:a",

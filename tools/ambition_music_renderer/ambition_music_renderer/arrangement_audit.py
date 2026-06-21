@@ -154,6 +154,7 @@ def audit_spec(spec: dict[str, Any], *, bucket_beats: float = 0.25, max_rows: in
     bar_density_counter: Counter[int] = Counter()
     bar_velocity_weight: Counter[int] = Counter()
     harmonic_outliers: list[dict[str, Any]] = []
+    high_register_rows: list[dict[str, Any]] = []
 
     for ev in events:
         dur = max(0.0, float(ev.get("end_beat", 0.0)) - float(ev.get("start_beat", 0.0)))
@@ -178,6 +179,29 @@ def audit_spec(spec: dict[str, Any], *, bucket_beats: float = 0.25, max_rows: in
                     "duration_beats": _round3(dur),
                     "velocity": int(ev.get("velocity", 64)),
                     "severity": _round3(severity),
+                }
+            )
+        group = str(ev.get("group") or "")
+        layer_kind = str(ev.get("layer_kind") or "")
+        if group not in {"drums", "percussion"} and layer_kind != "drums" and pitch >= 96:
+            # MIDI 96 is C7.  Guitar/pad/brass content here is often a sign of
+            # a voicing generator escaping into whistle-tone territory, even
+            # when the pitch class is technically harmonic.
+            start = float(ev.get("start_beat", 0.0))
+            high_register_rows.append(
+                {
+                    "bar": bar0 + 1,
+                    "beat": _round3(start - bar0 * beats_per_bar + 1.0),
+                    "time_s": _round3(start * 60.0 / bpm),
+                    "note": ev.get("note"),
+                    "pitch": int(pitch),
+                    "layer": ev.get("layer"),
+                    "group": ev.get("group"),
+                    "instrument": ev.get("instrument"),
+                    "section": ev.get("section"),
+                    "duration_beats": _round3(dur),
+                    "velocity": int(ev.get("velocity", 64)),
+                    "severity": _round3((pitch - 95) * max(1.0, dur) * max(1.0, float(ev.get("velocity", 64))) / 96.0),
                 }
             )
 
@@ -231,6 +255,7 @@ def audit_spec(spec: dict[str, Any], *, bucket_beats: float = 0.25, max_rows: in
     bar_rows.sort(key=lambda row: float(row["weighted_note_beats"]), reverse=True)
     bass_collision_rows.sort(key=lambda row: float(row["score"]), reverse=True)
     harmonic_outliers.sort(key=lambda row: float(row["severity"]), reverse=True)
+    high_register_rows.sort(key=lambda row: float(row["severity"]), reverse=True)
     low_density_rows = low_density_rows[:max_rows]
 
     if bass_collision_rows and float(bass_collision_rows[0]["score"]) > 0.45:
@@ -246,6 +271,11 @@ def audit_spec(spec: dict[str, Any], *, bucket_beats: float = 0.25, max_rows: in
         warnings.append(
             f"long/high non-chord tone candidate at bar {top['bar']} beat {top['beat']}: {top['note']} in layer {top['layer']}"
         )
+    if high_register_rows and float(high_register_rows[0]["severity"]) > 1.5:
+        top = high_register_rows[0]
+        warnings.append(
+            f"piercing high-register candidate at bar {top['bar']} beat {top['beat']}: {top['note']} in layer {top['layer']} group {top['group']}"
+        )
 
     return {
         "schema": "ambition.music_arrangement_audit.v1",
@@ -260,6 +290,7 @@ def audit_spec(spec: dict[str, Any], *, bucket_beats: float = 0.25, max_rows: in
         "low_register_density": low_density_rows,
         "bass_collision_candidates": bass_collision_rows[:max_rows],
         "harmonic_outliers": harmonic_outliers[:max_rows],
+        "high_register_candidates": high_register_rows[:max_rows],
         "warnings": warnings,
     }
 
@@ -282,6 +313,7 @@ def write_reports(payload: dict[str, Any], reports_dir: Path) -> dict[str, str]:
     _write_tsv(reports_dir / "arrangement_group_presence.tsv", payload.get("groups", []))
     _write_tsv(reports_dir / "arrangement_bass_collisions.tsv", payload.get("bass_collision_candidates", []))
     _write_tsv(reports_dir / "arrangement_harmonic_outliers.tsv", payload.get("harmonic_outliers", []))
+    _write_tsv(reports_dir / "arrangement_high_register_candidates.tsv", payload.get("high_register_candidates", []))
 
     summary_path = reports_dir / "arrangement_audit_summary.txt"
     lines: list[str] = [
@@ -315,6 +347,13 @@ def write_reports(payload: dict[str, Any], reports_dir: Path) -> dict[str, str]:
             f"  bar {row['bar']} beat {row['beat']} severity {row['severity']}: "
             f"{row['note']} layer {row['layer']} group {row['group']} dur {row['duration_beats']}"
         )
+    lines.append("")
+    lines.append("top high-register candidates (C7+):")
+    for row in payload.get("high_register_candidates", [])[:10]:
+        lines.append(
+            f"  {row['time_s']:>6.2f}s bar {row['bar']} beat {row['beat']} severity {row['severity']}: "
+            f"{row['note']} layer {row['layer']} group {row['group']} instrument {row['instrument']}"
+        )
     summary_path.write_text("\n".join(lines) + "\n", encoding="utf8")
 
     md_path = reports_dir / "arrangement_audit.md"
@@ -340,6 +379,11 @@ def write_reports(payload: dict[str, Any], reports_dir: Path) -> dict[str, str]:
     for row in payload.get("harmonic_outliers", [])[:20]:
         md.append(
             f"| {row['bar']} | {row['beat']} | {row['severity']} | {row['note']} | {row['layer']} | {row['duration_beats']} |"
+        )
+    md.extend(["", "## High-register candidates", "", "| time | bar | beat | severity | note | group | layer | instrument |", "| ---: | ---: | ---: | ---: | --- | --- | --- | --- |"] )
+    for row in payload.get("high_register_candidates", [])[:20]:
+        md.append(
+            f"| {row['time_s']} | {row['bar']} | {row['beat']} | {row['severity']} | {row['note']} | {row['group']} | {row['layer']} | {row['instrument']} |"
         )
     md_path.write_text("\n".join(md) + "\n", encoding="utf8")
 

@@ -52,6 +52,17 @@ stem_postprocess:
   normalize: false
   target_peak_db: -3.0
 
+group_postprocess:
+  guitars:
+    # Keep arena crunch but remove the standalone whistle/fizz bands that showed
+    # up as bright guitar ridges in the chorus/bridge spectrogram. This is
+    # group bus tone shaping, not section-local normalization.
+    high_shelf_hz: 4300
+    high_shelf_db: -2.8
+    lowpass_hz: 8600
+    transient_tame: 0.06
+    transient_lowpass_hz: 6200
+
 instruments:
   - {name: neon_brass_lead, group: lead, program: synth_brass_1, volume: 104, pan: 70, expression: 106, modulation: 6, chorus: 14, reverb: 18}
   - {name: razor_saw_answer, group: lead, program: lead_saw, volume: 78, pan: 52, expression: 88, modulation: 4, chorus: 10, reverb: 12}
@@ -176,19 +187,26 @@ layer_templates:
     velocity: 88
     articulation: marcato
     voicing: wide
+    # Keep generated arena-guitar hits below whistle-register. The high
+    # bridge/chorus spikes were generated chord voicings, not intentional notes.
+    instrument_octave_offsets: {rhythm_guitars: -1, wide_guitars: -1}
+    constraints: {min_pitch: 40, max_pitch: 95}
     humanize_ms: 4
 
   stadium_pads:
     kind: pad_chords
     instruments: [choir_stadium, warm_pad]
     every_bars: 1
-    duration_beats: 4.0
+    duration_beats: 3.25
     # Keep this as arena glue, not a whistle-tone pad. The old octave/open
     # voicing produced clipped G9 sour-note candidates in the bridge/chorus.
     octave: 3
-    velocity: 46
+    velocity: 38
     articulation: pad
     voicing: drop2
+    constraints:
+      max_pitch: 84
+      min_pitch: 38
     humanize_ms: 12
 
   hook_voice:
@@ -316,6 +334,8 @@ sections:
         velocity: 100
         articulation: marcato
         voicing: wide
+        instrument_octave_offsets: {rhythm_guitars: -1, wide_guitars: -1}
+        constraints: {min_pitch: 40, max_pitch: 95}
 
   - id: main_assault
     bars: 12
@@ -351,6 +371,8 @@ sections:
         velocity: 98
         articulation: marcato
         voicing: wide
+        instrument_octave_offsets: {rhythm_guitars: -1, wide_guitars: -1}
+        constraints: {min_pitch: 40, max_pitch: 95}
       - kind: automation
         group: lead
         automation:
@@ -390,6 +412,8 @@ sections:
         velocity: 104
         articulation: marcato
         voicing: wide
+        instrument_octave_offsets: {rhythm_guitars: -1, wide_guitars: -1}
+        constraints: {min_pitch: 40, max_pitch: 95}
 
   - id: boss_tag
     bars: 4
@@ -410,6 +434,8 @@ sections:
         velocity: 112
         articulation: marcato
         voicing: wide
+        instrument_octave_offsets: {rhythm_guitars: -1, wide_guitars: -1}
+        constraints: {min_pitch: 40, max_pitch: 95}
       - kind: root_hits
         instruments: [picked_bass, synth_bass]
         hits: [[3, 3.5, 0, 0.50]]

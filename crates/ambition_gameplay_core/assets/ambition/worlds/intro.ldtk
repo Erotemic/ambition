@@ -11,7 +11,7 @@
 	"iid": "ambition-intro-world",
 	"jsonVersion": "1.5.3",
 	"appBuildId": 473703,
-	"nextUid": 104901,
+	"nextUid": 104902,
 	"identifierStyle": "Free",
 	"toc": [],
 	"worldLayout": "GridVania",
@@ -288,10 +288,10 @@
 			"color": "#41D1FF",
 			"renderMode": "Tile",
 			"showName": true,
-			"tilesetId": 104900,
+			"tilesetId": 104901,
 			"tileRenderMode": "Cover",
-			"tileRect": { "tilesetUid": 104900, "x": 64, "y": 0, "w": 32, "h": 32 },
-			"uiTileRect": { "tilesetUid": 104900, "x": 64, "y": 0, "w": 32, "h": 32 },
+			"tileRect": { "tilesetUid": 104901, "x": 0, "y": 0, "w": 128, "h": 128 },
+			"uiTileRect": { "tilesetUid": 104901, "x": 0, "y": 0, "w": 128, "h": 128 },
 			"nineSliceBorders": [],
 			"maxCount": 0,
 			"limitScope": "PerLayer",
@@ -4743,6 +4743,25 @@
 			"tagsSourceEnumUid": null,
 			"tileGridSize": 32,
 			"uid": 104900
+		},
+		{
+			"__cHei": 42,
+			"__cWid": 8,
+			"cachedPixelData": null,
+			"customData": [],
+			"embedAtlas": null,
+			"enumTags": [],
+			"identifier": "sprite_player_robot",
+			"padding": 0,
+			"pxHei": 5376,
+			"pxWid": 1124,
+			"relPath": "../../sprites/player_robot_spritesheet.png",
+			"savedSelections": [],
+			"spacing": 0,
+			"tags": ["sprite"],
+			"tagsSourceEnumUid": null,
+			"tileGridSize": 128,
+			"uid": 104901
 		}
 	], "enums": [{ "identifier": "BreakablePlatformCollision", "uid": 5002, "values": [ { "id": "Solid", "tileRect": null, "color": 14180189 }, { "id": "OneWayUp", "tileRect": null, "color": 10802479 } ], "iconTilesetUid": null, "externalRelPath": null, "externalFileChecksum": null, "tags": [] }], "externalEnums": [], "levelFields": [
 		{

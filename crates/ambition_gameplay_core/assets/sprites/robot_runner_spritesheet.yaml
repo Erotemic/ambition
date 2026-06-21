@@ -324,3 +324,12 @@ body_metrics:
           y: 0
           w: 85
           h: 96
+    attack_side:
+      hitbox:
+        bbox:
+          x: 90
+          y: 15
+          w: 76
+          h: 92
+        active_frames:
+        - 0

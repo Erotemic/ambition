@@ -110,9 +110,13 @@ crates/ambition_gameplay_core/assets/sprites/**/*.ron
 tools/ambition_sprite2d_renderer/ambition_sprite2d_renderer/generated/
 tools/ambition_sprite2d_renderer/ambition_sprite2d_renderer/targets/generated/
 
-# Generated sprite YAML sidecars; runtime uses *_spritesheet.ron.
-crates/ambition_gameplay_core/assets/sprites/*_spritesheet.yaml
-crates/ambition_gameplay_core/assets/sprites/**/*_spritesheet.yaml
+# Generated sprite YAML sidecars (manifests/tilesets); runtime uses the
+# *_spritesheet.ron. The renderer still EMITS yaml as a throwaway dev-tool
+# intermediate (debug-hitbox overlay, gif exporter) — it's just never
+# tracked. All yaml under assets/sprites is generated output; authored
+# input yaml lives in tools/ambition_sprite2d_renderer/configs/.
+crates/ambition_gameplay_core/assets/sprites/*.yaml
+crates/ambition_gameplay_core/assets/sprites/**/*.yaml
 
 # Agent/worktree scratch (must never be committed)
 .worktrees/

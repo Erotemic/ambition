@@ -103,8 +103,8 @@ body_metrics:
     w: 150
     h: 152
   feet_pixel:
-    x: 77.0
-    y: 154.0
+    x: 76.5
+    y: 153.0
   feet_anchor_norm:
-    x: 0.0
-    y: -0.487179
+    x: -0.003247
+    y: -0.480769

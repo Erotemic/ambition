@@ -27,7 +27,7 @@
   "outline": "#1A1410"
  },
  "features": {
-  "hairpin": false,
+  "hairpin": true,
   "glasses": true,
   "sigil": true
  },
@@ -784,31 +784,34 @@
    "fill": "hair_hi"
   },
   {
-   "name": "pin_stem",
-   "bone": "antenna",
+   "name": "pin_shaft",
+   "bone": "head",
    "z": 66,
    "kind": "capsule",
    "a": [
-    0.0,
-    0.0
+    -4.5,
+    -13.5
    ],
-   "b": null,
-   "radius": 0.7,
-   "fill": "gold_dark",
+   "b": [
+    2.5,
+    -20.5
+   ],
+   "radius": 0.65,
+   "fill": "gold",
    "outline": "outline",
    "outline_w": 0.4,
    "feature": "hairpin"
   },
   {
-   "name": "pin_tip",
-   "bone": "antenna",
+   "name": "pin_bead",
+   "bone": "head",
    "z": 67,
    "kind": "circle",
    "center": [
-    10.0,
-    0.0
+    3.2,
+    -21.2
    ],
-   "radius": 2.0,
+   "radius": 1.5,
    "fill": "chalk",
    "outline": "gold",
    "outline_w": 0.5,

@@ -131,12 +131,15 @@ parts = [
     # Hair bun on top, with a soft highlight.
     circ("bun", "head", 64, [-2.0, -15.5], 6.6, "hair", outline="outline", ow=1.0),
     circ("bun_hi", "head", 65, [-4.0, -17.0], 2.2, "hair_hi", outline=None),
-    # ---- Hairpin (driven by the old `antenna` channel for a gentle bob). ----
-    # Tagged as the optional `hairpin` feature and turned OFF by default below:
-    # it read as an antenna sticking off her head. Flip features.hairpin to true
-    # to bring it back.
-    feature(cap("pin_stem", "antenna", 66, 0.7, "gold_dark", ow=0.4), "hairpin"),
-    feature(circ("pin_tip", "antenna", 67, [10.0, 0.0], 2.0, "chalk", outline="gold", ow=0.5), "hairpin"),
+    # ---- Hairpin: a rigid decorative pin set INTO the bun. Bound to `head`
+    # (NOT the bobbing `antenna` channel) so it stays put instead of waving
+    # like an antenna; a short gold shaft tucked diagonally through the bun
+    # with a small pearl ornament at the exposed end. Optional `hairpin`
+    # feature, on by default.
+    feature({"name": "pin_shaft", "bone": "head", "z": 66, "kind": "capsule",
+             "a": [-4.5, -13.5], "b": [2.5, -20.5], "radius": 0.65,
+             "fill": "gold", "outline": "outline", "outline_w": 0.4}, "hairpin"),
+    feature(circ("pin_bead", "head", 67, [3.2, -21.2], 1.5, "chalk", outline="gold", ow=0.5), "hairpin"),
     # ---- Near (front) arm: drawn last so it reads in front of the coat. ----
     cap("near_arm_upper", "near_arm_u", 70, 2.3, "robe_top"),
     cap("near_arm_lower", "near_arm_l", 71, 2.0, "robe_top"),
@@ -147,10 +150,10 @@ doc = {
     "name": "noether",
     "frame": robot["frame"],
     "palette": PALETTE,
-    # Optional-accessory toggles. The hairpin is OFF (it read as an antenna);
-    # glasses + sigil are on. Flip any of these to re-customize Emmy without
-    # touching the parts list.
-    "features": {"hairpin": False, "glasses": True, "sigil": True},
+    # Optional-accessory toggles. Flip any to re-customize Emmy without
+    # touching the parts list. The hairpin now reads as a rigid pin set into
+    # the bun (was an antenna), so it's on.
+    "features": {"hairpin": True, "glasses": True, "sigil": True},
     "bones": robot["bones"],          # reuse skeleton verbatim (IK depends on it)
     "parts": parts,
     "ik_legs": robot["ik_legs"],

@@ -61,15 +61,22 @@ class TestFeatureToggles:
         out = [p["name"] for p in visible_parts(parts, {"hairpin": False})]
         assert out == ["a", "b"]  # pin dropped; remaining sorted by z
 
-    def test_noether_has_no_antenna_hairpin(self):
-        """Emmy's hairpin (the old antenna) is shipped off by default."""
+    def test_noether_hairpin_is_present_and_rigid(self):
+        """Emmy's hairpin reads as a hairpin (on) and is RIGID: bound to the
+        `head` bone, never the bobbing `antenna` channel that made it wave."""
         emmy = RigDocument.load(NOETHER)
-        assert emmy.features.get("hairpin") is False
+        assert emmy.features.get("hairpin") is True
+        pin_parts = [p for p in emmy.parts if p["name"].startswith("pin_")]
+        assert pin_parts, "hairpin parts should exist"
+        for p in pin_parts:
+            assert p["bone"] == "head", f"{p['name']} must be rigid (head-bound)"
+            assert p.get("feature") == "hairpin"
         visible = {p["name"] for p in visible_parts(emmy.parts, emmy.features)}
-        assert "pin_stem" not in visible and "pin_tip" not in visible
-        # The other tagged accessories stay on, proving the toggle is per-feature.
-        assert "lens_far" in visible  # glasses
-        assert "sigil_ring" in visible
+        assert {"pin_shaft", "pin_bead"} <= visible
+        # Toggling the feature off still removes it (customization seam intact).
+        assert not ({"pin_shaft", "pin_bead"} & {
+            p["name"] for p in visible_parts(emmy.parts, {"hairpin": False})
+        })
 
 
 class TestChannelSpecs:

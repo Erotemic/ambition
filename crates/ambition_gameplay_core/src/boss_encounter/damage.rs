@@ -54,12 +54,12 @@ pub fn record_boss_damage(
     boss_runtime_id: &str,
     damage: i32,
 ) -> Option<BossDamageOutcome> {
-    let (id, _) = registry
-        .runtime_ids
-        .iter()
-        .find(|(_id, runtime_id)| runtime_id.as_str() == boss_runtime_id)
-        .map(|(id, runtime_id)| (id.clone(), runtime_id.clone()))?;
-    let state = registry.encounters.get_mut(&id)?;
+    // Live encounter state is keyed per-entity by the boss runtime id, so this
+    // is a direct lookup — damage routes to exactly one boss instance (two of
+    // the same archetype no longer share an HP pool). `state.spec.id` carries
+    // the archetype id for the event publisher (music / save records).
+    let state = registry.encounters.get_mut(boss_runtime_id)?;
+    let id = state.spec.id.clone();
     let prev_hp = state.hp;
     let evs = state.apply_player_damage(damage);
     let applied = evs.iter().any(|ev| {
@@ -90,12 +90,8 @@ pub fn force_boss_death(
     banner: &mut crate::features::GameplayBanner,
     boss_runtime_id: &str,
 ) -> Option<BossDamageOutcome> {
-    let (id, _) = registry
-        .runtime_ids
-        .iter()
-        .find(|(_id, runtime_id)| runtime_id.as_str() == boss_runtime_id)
-        .map(|(id, runtime_id)| (id.clone(), runtime_id.clone()))?;
-    let state = registry.encounters.get_mut(&id)?;
+    let state = registry.encounters.get_mut(boss_runtime_id)?;
+    let id = state.spec.id.clone();
     let prev_hp = state.hp;
     let evs = state.force_death();
     publish_events(&id, &evs, music_request, cutscene_queue, banner);
@@ -122,10 +118,15 @@ mod tests {
         spec.name = "Test Boss".into();
         spec.max_hp = max_hp;
         let mut registry = BossEncounterRegistry::default();
-        registry.ensure(spec);
+        // Live state is keyed by the boss RUNTIME id (per-entity); the spec keeps
+        // the archetype id ("test_boss") for event/save routing.
+        registry.encounters.insert(
+            "test_boss_runtime".into(),
+            crate::boss_encounter::BossEncounterState::new(spec),
+        );
         registry.link_runtime("test_boss", "test_boss_runtime");
         // Skip Intro -> Phase1 so the boss is damageable.
-        let state = registry.encounters.get_mut("test_boss").unwrap();
+        let state = registry.encounters.get_mut("test_boss_runtime").unwrap();
         state.phase = crate::boss_encounter::BossEncounterPhase::Phase1;
         state.hp = max_hp;
         registry
@@ -232,8 +233,9 @@ mod tests {
     #[test]
     fn record_boss_damage_reports_not_applied_during_invulnerable_phase() {
         let mut registry = fixture(10);
-        // Flip to an invulnerable phase (Intro / Transition / Stagger).
-        registry.encounters.get_mut("test_boss").unwrap().phase =
+        // Flip to an invulnerable phase (Intro / Transition / Stagger). The live
+        // state is keyed by the per-entity runtime id.
+        registry.encounters.get_mut("test_boss_runtime").unwrap().phase =
             crate::boss_encounter::BossEncounterPhase::Transition;
         let mut music = BossEncounterMusicRequest::default();
         let mut cutscene = CutsceneTriggerQueue::default();

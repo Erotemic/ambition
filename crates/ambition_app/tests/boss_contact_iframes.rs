@@ -25,6 +25,7 @@
 
 use ambition_app::{AgentAction, SandboxSim, TimestepMode};
 use ambition_gameplay_core::actor::BossBrain;
+use ambition_gameplay_core::boss_encounter::{BossEncounterPhase, BossEncounterRegistry};
 use ambition_gameplay_core::combat::boss_clusters::{BossConfig, BossStatus};
 use ambition_gameplay_core::combat::{HitEvent, HitSource};
 use ambition_gameplay_core::engine_core::{self as ae, AabbExt};
@@ -493,5 +494,80 @@ fn face_tanking_player_swings_back_and_is_recoil_locked() {
         recoil_suppressed_steer,
         "during the recoil lock the player should NOT be able to steer back toward \
          the boss — the knockback should get to eject them first"
+    );
+}
+
+/// Boss-encounter refactor canary (Stage 1): live encounter state is keyed
+/// per-ENTITY (by the boss's unique runtime id), not per-archetype.
+///
+/// Two of the SAME boss archetype must get independent HP / phase / death —
+/// the property a gauntlet or twin-boss room needs. Before this change both
+/// linked to a single `encounters["mockingbird"]` state and shared one HP pool;
+/// damaging one would drain the other. See
+/// `docs/planning/boss-entity-local-refactor.md`.
+#[test]
+fn two_same_archetype_bosses_have_independent_encounter_state() {
+    let mut sim = SandboxSim::new_with_timestep(TimestepMode::fixed_60hz())
+        .expect("sandbox sim builds");
+
+    let start = read_player(sim.world_mut()).pos;
+    // Two mockingbirds, far enough apart that neither is on top of the other.
+    sim.spawn_boss_at(
+        "mock_a",
+        "mockingbird",
+        (start.x - 400.0, start.y),
+        (30.0, 30.0),
+        BossBrain::PhaseScript {
+            script_id: "mockingbird".to_string(),
+        },
+    );
+    sim.spawn_boss_at(
+        "mock_b",
+        "mockingbird",
+        (start.x + 400.0, start.y),
+        (30.0, 30.0),
+        BossBrain::PhaseScript {
+            script_id: "mockingbird".to_string(),
+        },
+    );
+    // A few frames so `update_boss_encounters` registers each boss per-entity.
+    for _ in 0..3 {
+        sim.step(AgentAction::default());
+    }
+
+    // Each boss gets its OWN encounter entry, keyed by its runtime id.
+    {
+        let reg = sim.world().resource::<BossEncounterRegistry>();
+        let keys: Vec<String> = reg.encounters.keys().cloned().collect();
+        assert!(
+            keys.iter().any(|k| k == "mock_a") && keys.iter().any(|k| k == "mock_b"),
+            "two same-archetype bosses must register independent per-entity encounter \
+             state; got keys {keys:?}"
+        );
+    }
+
+    // Damage only boss A's encounter (skip its Intro invuln first). Boss B must
+    // be untouched — the gauntlet-correctness property.
+    {
+        let mut reg = sim.world_mut().resource_mut::<BossEncounterRegistry>();
+        let a = reg
+            .encounters
+            .get_mut("mock_a")
+            .expect("boss A has its own state");
+        a.phase = BossEncounterPhase::Phase1;
+        let _ = a.apply_player_damage(5);
+    }
+
+    let reg = sim.world().resource::<BossEncounterRegistry>();
+    let a_hp = reg.encounters.get("mock_a").expect("A").hp;
+    let b_hp = reg.encounters.get("mock_b").expect("B").hp;
+    let b_max = reg.encounters.get("mock_b").expect("B").spec.max_hp;
+    assert!(
+        a_hp < b_hp,
+        "damaging boss A must not lower boss B's HP (a={a_hp}, b={b_hp})"
+    );
+    assert_eq!(
+        b_hp, b_max,
+        "boss B should be at full HP — damage to A leaked into B (b={b_hp}/{b_max})"
     );
 }

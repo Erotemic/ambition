@@ -32,11 +32,13 @@ pub fn sync_boss_encounter_phase(
     for mut feature in &mut bosses {
         let boss_id = feature.config.id.clone();
         let behavior_id = feature.config.behavior.id.clone();
-        let lookup = encounter_registry.get(&behavior_id);
+        // Live encounter state is keyed per-entity by the boss runtime id
+        // (`config.id`), so two of the same archetype sync independent phases.
+        let lookup = encounter_registry.get(&boss_id);
         let new_phase = lookup.map(|s| s.phase);
         // Log phase transitions per boss so we can see in the logs
         // when (or if) Dormant → Intro → Phase1 actually fires.
-        let prev = last_logged.get(&behavior_id).copied();
+        let prev = last_logged.get(&boss_id).copied();
         if new_phase != prev {
             match (lookup, new_phase) {
                 (Some(_), Some(phase)) => {
@@ -48,7 +50,7 @@ pub fn sync_boss_encounter_phase(
                         prev,
                         phase,
                     );
-                    last_logged.insert(behavior_id.clone(), phase);
+                    last_logged.insert(boss_id.clone(), phase);
                 }
                 (None, _) => {
                     bevy::log::warn!(
@@ -58,7 +60,7 @@ pub fn sync_boss_encounter_phase(
                         behavior_id,
                         feature.status.encounter_phase,
                     );
-                    last_logged.insert(behavior_id.clone(), feature.status.encounter_phase);
+                    last_logged.insert(boss_id.clone(), feature.status.encounter_phase);
                 }
                 _ => {}
             }

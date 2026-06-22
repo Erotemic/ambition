@@ -149,11 +149,19 @@ Content (`ambition_content`):
       `two_bosses_take_independent_damage` (spawn two same-archetype bosses, damage one, assert the
       other is untouched). Fails/awkward today (shared state); passes after Stage 1. Keep the
       existing `boss_contact_iframes` + full boss-encounter test suite green throughout.
-- [ ] **Stage 1 — State onto the entity.** Make `BossEncounterState` a `Component`; `spawn_boss`
+- [x] **Stage 1a — Per-entity KEYING (the correctness win, landed first as the low-risk step).**
+      The live `encounters` map is now keyed by the boss's UNIQUE runtime id (`config.id`), not the
+      shared archetype `encounter_id`. Two same-archetype bosses get independent HP/phase/death.
+      `record_boss_damage`/`force_boss_death` look up by runtime id directly; `update_boss_encounters`
+      registers/wakes/ticks/mirrors per-entity; `sync_boss_encounter_phase` reads by `config.id`;
+      cut-rope + rewards still route through the kept `runtime_ids` (archetype→runtime) link.
+      Canary: `two_same_archetype_bosses_have_independent_encounter_state`. The map is STILL a global
+      resource — Stage 1b moves it onto the entity.
+- [ ] **Stage 1b — State onto the entity.** Make `BossEncounterState` a `Component`; `spawn_boss`
       stamps it from the resolved profile. `record_boss_damage`/`boss_hit` mutate the entity's
-      component directly (drop string routing). `update_boss_encounters` ticks per-entity. HP/phase
-      authority = the component; `BossStatus.health`/`encounter_phase` become reads of it. Fix the
-      stale test comment. Registry keeps `profiles` only.
+      component directly (drop the registry map for live state). `update_boss_encounters` ticks
+      per-entity over the component. HP/phase authority = the component; `BossStatus.health`/
+      `encounter_phase` become reads of it. Fix the stale `tests/boss_contact_iframes.rs` comment.
 - [ ] **Stage 2 — Phase transitions as triggers + transition-lock beat.** Add `transition_lock` +
       the trigger model (`HpBelow`/`TimeInPhase`/`External`). Default = fight-til-death (no Intro
       invuln unless opted in). Emit a "scream"/tell event on transition.

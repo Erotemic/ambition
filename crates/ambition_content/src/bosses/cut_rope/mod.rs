@@ -147,7 +147,12 @@ pub fn reset_cut_rope_boss_attempt(
     music_request: Option<&mut ambition_gameplay_core::encounter::BossEncounterMusicRequest>,
 ) {
     let runtime_id = registry.runtime_ids.get(CUT_ROPE_BOSS_ID).cloned();
-    let intro_track = registry.encounters.get_mut(CUT_ROPE_BOSS_ID).map(|state| {
+    // Live encounter state is keyed per-entity by the boss runtime id, so resolve
+    // it through the archetype → runtime link rather than the archetype id.
+    let encounter_key = runtime_id
+        .clone()
+        .unwrap_or_else(|| CUT_ROPE_BOSS_ID.to_string());
+    let intro_track = registry.encounters.get_mut(&encounter_key).map(|state| {
         state.reset_for_retry();
         state.spec.music_intro.clone()
     });

@@ -124,22 +124,40 @@ pub fn update_boss_encounters(
     // before this system runs) take precedence; only bosses without
     // a spec fall through to the auto-registered defaults.
     for (boss_runtime_id, boss_name, encounter_id, _pos, _spawn, _hp, max_hp) in &bosses_in_room {
+        // Per-ENTITY live state: the encounter is keyed by the boss's UNIQUE
+        // runtime id, not the shared archetype `encounter_id`. Two of the same
+        // boss (a gauntlet, a twin fight) therefore get independent HP / phase /
+        // death. The archetype id still selects the authored profile + spec
+        // (music tracks, phase thresholds) used to seed each instance, and the
+        // profile catalog stays archetype-keyed (read-only data).
+        let profile = BossProfile::for_encounter_id_or_name(encounter_id).unwrap_or_else(|| {
+            BossProfile::generic(encounter_id.clone(), boss_name.clone(), *max_hp)
+        });
+        registry
+            .profiles
+            .entry(profile.id.clone())
+            .or_insert_with(|| profile.clone());
+        registry
+            .encounters
+            .entry(boss_runtime_id.clone())
+            .or_insert_with(|| {
+                crate::boss_encounter::BossEncounterState::new(profile.encounter.clone())
+            });
+        // Keep the archetype → runtime-id link for the few single-boss consumers
+        // that still locate "the" boss entity by archetype id (cut-rope victory
+        // rule, reward placement). The live encounter map itself is now keyed by
+        // runtime id, so those consumers route through this to the per-entity
+        // state. (Two same-archetype bosses collide here, but those consumers are
+        // single-boss today; the gauntlet-correct path is the per-entity map.)
         registry.link_runtime(encounter_id, boss_runtime_id);
-        if !registry.encounters.contains_key(encounter_id) {
-            let profile =
-                BossProfile::for_encounter_id_or_name(encounter_id).unwrap_or_else(|| {
-                    BossProfile::generic(encounter_id.clone(), boss_name.clone(), *max_hp)
-                });
-            registry.ensure_profile(profile);
-        }
     }
 
     // Wake up an encounter whose boss is now visible in the room.
     // Only the wake-up transition logs (Dormant → Intro); the
     // per-frame "encounter is in phase X" line is gated to debug!
     // so the steady-state doesn't flood the log every frame.
-    for (_runtime_id, boss_name, encounter_id, _pos, _spawn, _hp, _max) in &bosses_in_room {
-        match registry.encounters.get_mut(encounter_id) {
+    for (boss_runtime_id, boss_name, encounter_id, _pos, _spawn, _hp, _max) in &bosses_in_room {
+        match registry.encounters.get_mut(boss_runtime_id) {
             Some(state) => {
                 if matches!(
                     state.phase,
@@ -237,25 +255,24 @@ pub fn update_boss_encounters(
     let BossEncounterRegistry {
         encounters,
         profiles,
-        runtime_ids,
         ..
     } = registry_mut;
-    for (id, state) in encounters.iter_mut() {
-        let runtime_id = runtime_ids
-            .get(id)
-            .map(String::as_str)
-            .unwrap_or(id.as_str());
+    for (runtime_id, state) in encounters.iter_mut() {
+        // The encounter is now keyed by the boss's unique runtime id, so it
+        // matches exactly one feature. The archetype id (`state.spec.id`) keys
+        // the shared profile catalog and the per-archetype save/quest records.
+        let archetype_id = state.spec.id.clone();
         for (feature_id, mut feature) in &mut bosses {
-            if feature_id.as_str() != runtime_id {
+            if feature_id.as_str() != runtime_id.as_str() {
                 continue;
             }
-            if let Some(profile) = profiles.get(id) {
+            if let Some(profile) = profiles.get(&archetype_id) {
                 feature
                     .as_boss_mut()
                     .apply_behavior_profile(profile.behavior.clone());
             }
             if matches!(
-                save.data().boss(id),
+                save.data().boss(&archetype_id),
                 crate::persistence::save_data::PersistedEncounterState::Cleared
             ) {
                 feature.status.alive = false;
@@ -288,16 +305,18 @@ pub fn update_boss_encounters(
                 if feature.status.alive {
                     feature.status.alive = false;
                 }
-                let prior = save.data().boss(id);
+                let prior = save.data().boss(&archetype_id);
                 if !matches!(
                     prior,
                     crate::persistence::save_data::PersistedEncounterState::Cleared
                 ) {
                     save.data_mut().set_boss(
-                        id,
+                        &archetype_id,
                         crate::persistence::save_data::PersistedEncounterState::Cleared,
                     );
-                    quests.push_event(crate::quest::QuestAdvanceEvent::BossDefeated(id.clone()));
+                    quests.push_event(crate::quest::QuestAdvanceEvent::BossDefeated(
+                        archetype_id.clone(),
+                    ));
                 }
             }
             break;

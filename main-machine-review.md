@@ -55,6 +55,25 @@ green):
 - S5: delete `ActorRuntime` + the conversion; hostility = disposition flip +
   brain/action swap in place.
 
+**Scope found after an exhaustive map (2026-06-22):** ~30 interconnected files,
+70+ branch points on `ActorRuntime::{Npc,Enemy}`. Two findings that matter:
+1. **The seam already exists and is right.** `ActorAggression { mode, target }`
+   (Passive / RetaliatesWhenHit{threshold} / HostileToPlayer, + a `target`
+   Entity) + `ActorDisposition` already model "hostile or not, toward whom" —
+   exactly the Skyrim shape, and `target` is the non-player-centric hook.
+2. **The real obstacle is the brain pipeline, not the tags.** Enemies are
+   ARCHETYPE-driven (`EnemyBrain` → `spec_for_brain` → tuning + brain), NPCs are
+   CATALOG-driven (`character_id` → `default_brain_for_character_id`). The
+   unified config must hold/recronstruct EITHER. The good news: the live `Brain`
+   COMPONENT is already the per-tick authority for both — only *reconstruction*
+   (provoke/dismount) reads the archetype/catalog path — so the merge keeps the
+   `Brain` component authoritative and only unifies the reconstruction seam.
+
+The cluster merge (S4) is atomic — the two ticks exist *solely* because two
+QueryDatas both `&mut BodyKinematics`; you can't half-merge and still compile.
+So S2/S3 are prep that compiles green but the headline "one tick" win only lands
+at S4. This is a dedicated grind, not a session-end change.
+
 ---
 
 ## 0c. Debug box labels + FSM box flip-alignment (2026-06-22)

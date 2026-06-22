@@ -7,7 +7,7 @@
 
 use std::collections::{BTreeMap, BTreeSet};
 
-use crate::data::SandboxDataSpec;
+use crate::data::MusicRegistry;
 use ambition_gameplay_core::ldtk_world::{field_string, LdtkProject};
 
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
@@ -56,7 +56,7 @@ impl ContentValidationReport {
 /// Validate the checked-in sandbox content graph.
 #[cfg_attr(not(test), allow(dead_code))]
 pub fn validate_embedded_content_graph() -> ContentValidationReport {
-    let data = SandboxDataSpec::load_embedded();
+    let music = crate::data::load_embedded_music_registry();
     let project = match LdtkProject::load_default_for_dev() {
         Ok(project) => project,
         Err(error) => {
@@ -65,18 +65,19 @@ pub fn validate_embedded_content_graph() -> ContentValidationReport {
             return report;
         }
     };
-    validate_content_graph(&data, &project)
+    validate_content_graph(&music, &project)
 }
 
-/// Validate relationships among the non-spatial data manifest and LDtk world.
+/// Validate relationships among the music registry and the LDtk world
+/// (room/encounter/boss music references, dialogue, quests, patrols).
 pub fn validate_content_graph(
-    data: &SandboxDataSpec,
+    music: &MusicRegistry,
     project: &LdtkProject,
 ) -> ContentValidationReport {
     let mut report = ContentValidationReport::default();
 
-    if let Err(error) = data.audio.validate() {
-        report.push_error(format!("audio manifest invalid: {error}"));
+    if let Err(error) = music.validate() {
+        report.push_error(format!("music registry invalid: {error}"));
     }
 
     let ldtk_report = project.validate();
@@ -94,10 +95,10 @@ pub fn validate_content_graph(
     );
 
     validate_ldtk_room_links(project, &mut report);
-    validate_room_music_tracks(project, data, &mut report);
+    validate_room_music_tracks(project, music, &mut report);
     validate_npc_dialogue_ids(project, &mut report);
-    validate_quest_conditions(project, data, &mut report);
-    validate_boss_music_tracks(data, &mut report);
+    validate_quest_conditions(project, music, &mut report);
+    validate_boss_music_tracks(music, &mut report);
     validate_patrol_brain_paths(project, &mut report);
 
     #[cfg(feature = "audio")]
@@ -271,14 +272,10 @@ fn validate_ldtk_room_links(project: &LdtkProject, report: &mut ContentValidatio
 
 fn validate_room_music_tracks(
     project: &LdtkProject,
-    data: &SandboxDataSpec,
+    music: &MusicRegistry,
     report: &mut ContentValidationReport,
 ) {
-    let valid_tracks = data
-        .audio
-        .music_tracks
-        .iter()
-        .map(|track| track.id.as_str());
+    let valid_tracks = music.tracks.iter().map(|track| track.id.as_str());
     report.extend_errors(
         project
             .music_track_warnings(valid_tracks)
@@ -316,7 +313,7 @@ fn validate_npc_dialogue_ids(project: &LdtkProject, report: &mut ContentValidati
 
 fn validate_quest_conditions(
     project: &LdtkProject,
-    data: &SandboxDataSpec,
+    music: &MusicRegistry,
     report: &mut ContentValidationReport,
 ) {
     let room_ids = active_area_ids(project);
@@ -324,9 +321,8 @@ fn validate_quest_conditions(
     let boss_ids = authored_boss_encounter_ids(project);
     let item_ids = authored_pickup_ids(project);
     let known_flags = authored_flag_ids(project);
-    let valid_tracks = data
-        .audio
-        .music_tracks
+    let valid_tracks = music
+        .tracks
         .iter()
         .map(|track| track.id.as_str())
         .collect::<BTreeSet<_>>();
@@ -406,10 +402,9 @@ fn validate_quest_conditions(
     }
 }
 
-fn validate_boss_music_tracks(data: &SandboxDataSpec, report: &mut ContentValidationReport) {
-    let tracks = data
-        .audio
-        .music_tracks
+fn validate_boss_music_tracks(music: &MusicRegistry, report: &mut ContentValidationReport) {
+    let tracks = music
+        .tracks
         .iter()
         .map(|track| track.id.as_str())
         .collect::<BTreeSet<_>>();
@@ -574,9 +569,9 @@ mod tests {
     #[test]
     fn validates_ldtk_loading_zone_targets() {
         crate::bosses::install_boss_roster();
-        let data = SandboxDataSpec::load_embedded();
+        let music = crate::data::load_embedded_music_registry();
         let project = LdtkProject::load_default_for_dev().expect("embedded LDtk loads");
-        let report = validate_content_graph(&data, &project);
+        let report = validate_content_graph(&music, &project);
         assert!(
             report
                 .errors

@@ -33655,9 +33655,9 @@
 					"id": "V_String",
 					"params": ["boss"]
 				}] },
-				{ "__identifier": "music_track", "__type": "String", "__value": "flying_spaghetti_monster_fight", "__tile": null, "defUid": 4173, "realEditorValues": [{
+				{ "__identifier": "music_track", "__type": "String", "__value": "flying_spaghetti_monster_roots_boss", "__tile": null, "defUid": 4173, "realEditorValues": [{
 					"id": "V_String",
-					"params": ["flying_spaghetti_monster_fight"]
+					"params": ["flying_spaghetti_monster_roots_boss"]
 				}] },
 				{ "__identifier": "ambient_profile", "__type": "String", "__value": null, "__tile": null, "defUid": 4174, "realEditorValues": [] },
 				{ "__identifier": "visual_theme", "__type": "String", "__value": null, "__tile": null, "defUid": 4175, "realEditorValues": [] },

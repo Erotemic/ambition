@@ -42,7 +42,7 @@ pub fn sync_active_room_metadata(room_set: Res<RoomSet>, mut active: ResMut<Acti
 /// Push the active room's `music_track` into `RoomMusicRequest` so the
 /// audio system knows the room-default track when no encounter
 /// override is active. Empty values clear the request, falling back to
-/// `sandbox_data.audio.default_music_track`.
+/// the music registry's `default_track`.
 pub fn sync_room_music_request(
     active: Res<ActiveRoomMetadata>,
     mut request: ResMut<RoomMusicRequest>,

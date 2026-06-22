@@ -17,14 +17,14 @@ pub fn apply_encounter_music(
     mut request: ResMut<crate::encounter::EncounterMusicRequest>,
     mut boss_request: ResMut<crate::encounter::BossEncounterMusicRequest>,
     room_music: Res<crate::rooms::RoomMusicRequest>,
-    sandbox_data: Res<crate::session::data::SandboxDataSpec>,
+    music_registry: Res<crate::session::data::MusicRegistry>,
 ) {
     let resolved_default = room_music
         .desired_track
         .as_ref()
         .filter(|id| library.track(id).is_some())
         .cloned()
-        .unwrap_or_else(|| sandbox_data.audio.default_music_track.clone());
+        .unwrap_or_else(|| music_registry.default_track.clone());
     // Priority: boss encounter > regular encounter > room default.
     // Boss music has its own resource so the regular encounter
     // tick can't clobber it by writing `desired_track = None`

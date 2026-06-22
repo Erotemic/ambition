@@ -3,7 +3,7 @@
 //! load gates, and the `WebServedAssets` BevyPath fallback.
 
 use super::super::*;
-use crate::session::data::SandboxDataSpec;
+use crate::session::data::load_embedded_music_registry;
 
 use super::SFX_BANK_ENV_LOCK;
 
@@ -18,8 +18,8 @@ fn sfx_bank_resolves_under_desktop_dev_loose() {
 
     let mut config = GameAssetConfig::default();
     config.asset_profile = AssetProfile::DesktopDevLoose;
-    let spec = SandboxDataSpec::load_embedded();
-    let catalog = build_sandbox_catalog(&config, &spec.audio);
+    let music = load_embedded_music_registry();
+    let catalog = build_sandbox_catalog(&config, &music);
     let result = catalog.path_for(&ids::sfx_bank());
 
     // Restore prior value before asserting.
@@ -34,8 +34,8 @@ fn sfx_bank_resolves_under_desktop_dev_loose() {
 fn ldtk_resolves_to_local_path_under_desktop_dev_loose() {
     let mut config = GameAssetConfig::default();
     config.asset_profile = AssetProfile::DesktopDevLoose;
-    let spec = SandboxDataSpec::load_embedded();
-    let catalog = build_sandbox_catalog(&config, &spec.audio);
+    let music = load_embedded_music_registry();
+    let catalog = build_sandbox_catalog(&config, &music);
     let resolved = catalog.resolve(&ids::sandbox_ldtk()).unwrap();
     // Explicit LooseFilesystem candidate -> LocalPath that the
     // hot-reload watcher can poll.
@@ -50,8 +50,8 @@ fn ldtk_resolves_to_local_path_under_desktop_dev_loose() {
 fn ldtk_falls_back_to_embedded_under_web_static() {
     let mut config = GameAssetConfig::default();
     config.asset_profile = AssetProfile::WebStatic;
-    let spec = SandboxDataSpec::load_embedded();
-    let catalog = build_sandbox_catalog(&config, &spec.audio);
+    let music = load_embedded_music_registry();
+    let catalog = build_sandbox_catalog(&config, &music);
     let path = catalog.path_for(&ids::sandbox_ldtk()).unwrap();
     // Authored EmbeddedBinary candidate carries the explicit URL
     // that AmbitionAssetSourcePlugin registers under
@@ -78,8 +78,8 @@ fn ldtk_falls_back_to_embedded_under_web_static() {
 fn bundled_static_does_not_support_hot_reload() {
     let mut config = GameAssetConfig::default();
     config.asset_profile = AssetProfile::BundledStatic;
-    let spec = SandboxDataSpec::load_embedded();
-    let catalog = build_sandbox_catalog(&config, &spec.audio);
+    let music = load_embedded_music_registry();
+    let catalog = build_sandbox_catalog(&config, &music);
     assert!(catalog
         .hot_reload_local_path(&ids::sandbox_ldtk())
         .is_none());
@@ -89,8 +89,8 @@ fn bundled_static_does_not_support_hot_reload() {
 fn no_assets_disables_optional_image_and_font_entries() {
     let mut config = GameAssetConfig::default();
     config.asset_profile = AssetProfile::NoAssets;
-    let spec = SandboxDataSpec::load_embedded();
-    let catalog = build_sandbox_catalog(&config, &spec.audio);
+    let music = load_embedded_music_registry();
+    let catalog = build_sandbox_catalog(&config, &music);
     assert!(catalog.path_for(&ids::font_dialog_regular()).is_none());
     assert!(catalog.path_for(&ids::sfx_bank()).is_none());
 }
@@ -100,7 +100,7 @@ fn no_assets_disables_optional_image_and_font_entries() {
 /// depend on this. Disabling here would be fatal.
 #[test]
 fn required_bootstrap_assets_resolve_under_every_real_profile() {
-    let spec = SandboxDataSpec::load_embedded();
+    let music = load_embedded_music_registry();
     let real_profiles = [
         AssetProfile::DesktopDevLoose,
         AssetProfile::DesktopInstalled,
@@ -115,7 +115,7 @@ fn required_bootstrap_assets_resolve_under_every_real_profile() {
     for profile in real_profiles {
         let mut config = GameAssetConfig::default();
         config.asset_profile = profile;
-        let catalog = build_sandbox_catalog(&config, &spec.audio);
+        let catalog = build_sandbox_catalog(&config, &music);
         for id in [ids::sandbox_ldtk(), ids::sandbox_data()] {
             let resolved = catalog.resolve(&id).unwrap();
             assert!(
@@ -134,11 +134,11 @@ fn required_bootstrap_assets_resolve_under_every_real_profile() {
 /// candidate gets stripped or the load gate stops honoring it.
 #[test]
 fn web_static_attempts_to_load_embedded_sandbox_ldtk() {
-    let spec = SandboxDataSpec::load_embedded();
+    let music = load_embedded_music_registry();
     for profile in [AssetProfile::WebStatic, AssetProfile::BundledStatic] {
         let mut config = GameAssetConfig::default();
         config.asset_profile = profile;
-        let catalog = build_sandbox_catalog(&config, &spec.audio);
+        let catalog = build_sandbox_catalog(&config, &music);
         assert!(
             catalog.try_path_for_load(&ids::sandbox_ldtk()).is_some(),
             "{} should attempt LDtk load via authored Embedded candidate",
@@ -154,7 +154,7 @@ fn web_static_attempts_to_load_embedded_sandbox_ldtk() {
 /// break here.
 #[test]
 fn ldtk_hot_reload_only_under_desktop_dev_loose() {
-    let spec = SandboxDataSpec::load_embedded();
+    let music = load_embedded_music_registry();
     let profiles = [
         (AssetProfile::DesktopDevLoose, true),
         (AssetProfile::DesktopInstalled, false),
@@ -172,7 +172,7 @@ fn ldtk_hot_reload_only_under_desktop_dev_loose() {
     for (profile, expected) in profiles {
         let mut config = GameAssetConfig::default();
         config.asset_profile = profile;
-        let catalog = build_sandbox_catalog(&config, &spec.audio);
+        let catalog = build_sandbox_catalog(&config, &music);
         let supports = catalog
             .hot_reload_local_path(&ids::sandbox_ldtk())
             .is_some();
@@ -205,8 +205,8 @@ fn sfx_bank_env_override_is_authored_local_path_candidate() {
 
     let mut config = GameAssetConfig::default();
     config.asset_profile = AssetProfile::DesktopDevLoose;
-    let spec = SandboxDataSpec::load_embedded();
-    let catalog = build_sandbox_catalog(&config, &spec.audio);
+    let music = load_embedded_music_registry();
+    let catalog = build_sandbox_catalog(&config, &music);
     let entry = catalog.catalog().manifest().get(&ids::sfx_bank()).unwrap();
     let has_override = entry.locations.iter().any(|c| {
         matches!(
@@ -243,8 +243,8 @@ fn should_attempt_required_load_only_disabled_for_no_assets_profiles() {
     ] {
         let mut config = GameAssetConfig::default();
         config.asset_profile = profile;
-        let spec = SandboxDataSpec::load_embedded();
-        let catalog = build_sandbox_catalog(&config, &spec.audio);
+        let music = load_embedded_music_registry();
+        let catalog = build_sandbox_catalog(&config, &music);
         assert_eq!(
             catalog.should_attempt_required_load("foo.png"),
             expected,
@@ -266,8 +266,8 @@ fn should_attempt_required_load_only_disabled_for_no_assets_profiles() {
 fn web_served_assets_attempts_optional_sprites_via_bevy_path() {
     let mut config = GameAssetConfig::default();
     config.asset_profile = AssetProfile::WebServedAssets;
-    let spec = SandboxDataSpec::load_embedded();
-    let catalog = build_sandbox_catalog(&config, &spec.audio);
+    let music = load_embedded_music_registry();
+    let catalog = build_sandbox_catalog(&config, &music);
 
     // An out-of-set entity sprite (no Embedded candidate). Under
     // `WebStatic` this returns None; under `WebServedAssets` it
@@ -314,11 +314,11 @@ fn web_served_assets_attempts_optional_sprites_via_bevy_path() {
 fn web_served_assets_resolves_music_track_paths_via_bevy_path() {
     let mut config = GameAssetConfig::default();
     config.asset_profile = AssetProfile::WebServedAssets;
-    let spec = SandboxDataSpec::load_embedded();
-    let catalog = build_sandbox_catalog(&config, &spec.audio);
+    let music = load_embedded_music_registry();
+    let catalog = build_sandbox_catalog(&config, &music);
 
     let mut attempted = 0;
-    for track in &spec.audio.music_tracks {
+    for track in &music.tracks {
         if track.asset_path.is_none() {
             continue;
         }

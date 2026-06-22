@@ -2,7 +2,7 @@
 //! uniqueness across the manifest.
 
 use super::super::*;
-use crate::session::data::SandboxDataSpec;
+use crate::session::data::load_embedded_music_registry;
 use std::collections::HashSet;
 
 use super::fixture_catalog;
@@ -115,8 +115,8 @@ fn sandbox_data_is_required_and_bootstrap() {
 #[test]
 fn music_track_ids_match_audio_spec() {
     let catalog = fixture_catalog();
-    let spec = SandboxDataSpec::load_embedded();
-    for track in &spec.audio.music_tracks {
+    let music = load_embedded_music_registry();
+    for track in &music.tracks {
         let id = ids::music_track(&track.id);
         if track.asset_path.is_some() {
             let entry = catalog
@@ -145,8 +145,8 @@ fn all_catalog_ids_are_unique() {
 fn secondary_ldtk_worlds_are_in_the_catalog_under_world_namespace() {
     let mut config = GameAssetConfig::default();
     config.asset_profile = AssetProfile::DesktopDevLoose;
-    let spec = SandboxDataSpec::load_embedded();
-    let catalog = build_sandbox_catalog(&config, &spec.audio);
+    let music = load_embedded_music_registry();
+    let catalog = build_sandbox_catalog(&config, &music);
 
     for (id, embedded_path) in [
         (ids::intro_ldtk(), EMBEDDED_INTRO_LDTK_ASSET_PATH),
@@ -162,7 +162,7 @@ fn secondary_ldtk_worlds_are_in_the_catalog_under_world_namespace() {
         assert!(r_desktop.location.as_local_path().is_some());
 
         config.asset_profile = AssetProfile::WebStatic;
-        let catalog = build_sandbox_catalog(&config, &spec.audio);
+        let catalog = build_sandbox_catalog(&config, &music);
         let path = catalog.try_path_for_load(&id).unwrap();
         assert_eq!(path, format!("embedded://{embedded_path}"));
     }

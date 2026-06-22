@@ -18,7 +18,7 @@ use crate::encounter::{
     BossEncounterMusicRequest, EncounterMusicRequest, EncounterPhase, EncounterRegistry,
 };
 use crate::rooms::RoomMusicRequest;
-use crate::session::data::SandboxDataSpec;
+use crate::session::data::MusicRegistry;
 
 use ambition_audio::music::{
     AdaptiveCueDirective, MusicDirectorMode, MusicDirectorState, MusicIntent,
@@ -42,7 +42,7 @@ pub fn compute_music_intent(
     mut boss_music: ResMut<BossEncounterMusicRequest>,
     room_music: Res<RoomMusicRequest>,
     radio: Option<Res<RadioStationState>>,
-    sandbox_data: Res<SandboxDataSpec>,
+    music_registry: Res<MusicRegistry>,
     mut intent: ResMut<MusicIntent>,
 ) {
     let adaptive = match (catalog.as_ref(), director.as_ref()) {
@@ -55,7 +55,7 @@ pub fn compute_music_intent(
     let candidates = simple_track_candidates(
         &room_music,
         radio.as_deref(),
-        &sandbox_data,
+        &music_registry,
         &encounter_music,
         &boss_music,
     );
@@ -80,7 +80,7 @@ pub fn compute_music_intent(
 fn simple_track_candidates(
     room_music: &RoomMusicRequest,
     radio: Option<&RadioStationState>,
-    sandbox_data: &SandboxDataSpec,
+    music_registry: &MusicRegistry,
     encounter_music: &EncounterMusicRequest,
     boss_music: &BossEncounterMusicRequest,
 ) -> Vec<String> {
@@ -97,7 +97,7 @@ fn simple_track_candidates(
     if let Some(track) = &room_music.desired_track {
         candidates.push(track.clone());
     }
-    candidates.push(sandbox_data.audio.default_music_track.clone());
+    candidates.push(music_registry.default_track.clone());
     candidates
 }
 

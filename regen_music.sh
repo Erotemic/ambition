@@ -100,4 +100,9 @@ else
     (cd "$renderer_dir" && "$renderer_py" -m ambition_music_renderer radio render-publish "${radio_args[@]}")
 fi
 
+# Project every published OGG into the in-game music registry so newly
+# rendered cues are registered automatically (stdlib-only; no venv needed).
+echo "==> music registry (music_registry.ron)"
+"$renderer_py" "$repo_root/scripts/regen_music_registry.py"
+
 echo "==> done"

@@ -4,7 +4,7 @@
 //! requests apply, where the bank bytes come from) stay in the host.
 
 use crate::render::{audio_source_from_sfx_clip, silent_audio_source};
-use crate::spec::{AudioSpec, SoundCueKey};
+use crate::spec::{MusicRegistry, SfxRegistry, SoundCueKey};
 use crate::web_unlock::AudioUnlockState;
 use ambition_sfx::{self as sfx, SfxId, SfxMessage, SfxProvider};
 use bevy::platform::collections::HashMap;
@@ -142,7 +142,6 @@ struct TrackSource {
 pub struct MusicTrackRuntime {
     pub id: String,
     pub display_name: String,
-    pub duration_seconds: f32,
     source: TrackSource,
 }
 
@@ -191,26 +190,27 @@ impl AudioLibrary {
     ///
     /// `resolve_track_path` (when `Some`) resolves each music track id
     /// through the host's asset catalog so the runtime stores the
-    /// catalog-blessed path
-    /// instead of the raw `MusicTrackSpec::asset_path`. Tracks without an `asset_path`
-    /// (and with no catalog-resolved path) are skipped with a loud
-    /// warning — there is no procedural fallback anymore. Author a
-    /// pre-rendered OGG at the path the spec points to, or drop the
-    /// track from the list.
+    /// catalog-blessed path instead of the track's conventional
+    /// `audio/music/generated/{id}/full.ogg`. A genuinely missing OGG
+    /// surfaces as a load warning later — there is no procedural fallback.
     ///
     /// `resolve_track_path = None` is the test-fixture / pre-catalog seam: the
-    /// library reads paths directly from `spec.music_tracks`.
+    /// library reads each track's [`MusicTrack::resolved_asset_path`] directly.
     pub fn new(
         audio_sources: &mut Assets<KiraAudioSource>,
-        spec: &AudioSpec,
+        sfx_registry: &SfxRegistry,
+        music_registry: &MusicRegistry,
         _asset_server: Option<&AssetServer>,
         sfx_provider: Option<&dyn SfxProvider>,
         resolve_track_path: Option<&dyn Fn(&str) -> Option<String>>,
     ) -> Self {
-        if let Err(error) = spec.validate() {
-            warn!("invalid audio spec: {error}");
+        if let Err(error) = sfx_registry.validate() {
+            warn!("invalid sfx registry: {error}");
         }
-        let sample_rate = spec.sample_rate.max(8_000);
+        if let Err(error) = music_registry.validate() {
+            warn!("invalid music registry: {error}");
+        }
+        let sample_rate = sfx_registry.sample_rate.max(8_000);
 
         // SFX: every cue tries the bank; missing entries get a short
         // silent stub so the playback path stays uniform without
@@ -248,35 +248,24 @@ impl AudioLibrary {
         }
         let fallback_sfx = silent_handle;
 
-        // Music: every track must have an `asset_path` (either authored
-        // on `MusicTrackSpec` or resolved by the catalog). Skip silently
-        // missing ones with a loud warning — no fundsp fallback exists.
-        let mut music_tracks = Vec::with_capacity(spec.music_tracks.len());
-        let mut skipped: Vec<String> = Vec::new();
-        for track in &spec.music_tracks {
-            let catalog_path = resolve_track_path.and_then(|resolve| resolve(&track.id));
-            let effective_path = catalog_path.or_else(|| track.asset_path.clone());
-            let Some(asset_path) = effective_path else {
-                skipped.push(track.id.clone());
-                continue;
-            };
+        // Music: each track resolves to a pre-rendered OGG path — the
+        // catalog-blessed path when a resolver is supplied, otherwise the
+        // track's conventional `audio/music/generated/{id}/full.ogg`
+        // (see `MusicTrack::resolved_asset_path`). A genuinely missing OGG
+        // surfaces later as a load warning; there is no fundsp fallback.
+        let mut music_tracks = Vec::with_capacity(music_registry.tracks.len());
+        for track in &music_registry.tracks {
+            let asset_path = resolve_track_path
+                .and_then(|resolve| resolve(&track.id))
+                .unwrap_or_else(|| track.resolved_asset_path());
             music_tracks.push(MusicTrackRuntime {
                 id: track.id.clone(),
                 display_name: track.display_name.clone(),
-                duration_seconds: track.arrangement.duration_seconds(),
                 source: TrackSource {
                     asset_path,
                     handle: None,
                 },
             });
-        }
-        if !skipped.is_empty() {
-            warn!(
-                "audio library: skipped {} music track(s) with no asset_path: {:?}. \
-                 Author a pre-rendered OGG (see tools/ambition_music_renderer) or remove from sandbox.ron.",
-                skipped.len(),
-                skipped
-            );
         }
 
         Self {
@@ -434,9 +423,9 @@ pub struct MusicPlaybackState {
 }
 
 impl MusicPlaybackState {
-    pub fn from_audio_spec(spec: &AudioSpec, library: &AudioLibrary) -> Self {
+    pub fn from_music_registry(music: &MusicRegistry, library: &AudioLibrary) -> Self {
         let active_track = library
-            .default_track_id(&spec.default_music_track)
+            .default_track_id(&music.default_track)
             .unwrap_or_default()
             .to_string();
         Self { active_track }

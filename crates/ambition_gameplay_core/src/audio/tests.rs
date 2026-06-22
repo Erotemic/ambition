@@ -5,7 +5,9 @@
 //! `web_audio` implies `audio`.
 
 use super::*;
-use crate::session::data::SandboxDataSpec;
+use crate::session::data::{
+    load_embedded_music_registry, load_embedded_sfx_registry, MusicRegistry, MusicTrack,
+};
 use ambition_sfx::SfxProvider;
 
 #[test]
@@ -100,9 +102,10 @@ fn audio_library_loads_every_cue_from_real_bank() {
         );
     }
 
-    let spec = SandboxDataSpec::load_embedded();
+    let sfx = load_embedded_sfx_registry();
+    let music = load_embedded_music_registry();
     let mut assets = Assets::<KiraAudioSource>::default();
-    let library = AudioLibrary::new(&mut assets, &spec.audio, None, Some(&provider), None);
+    let library = AudioLibrary::new(&mut assets, &sfx, &music, None, Some(&provider), None);
 
     for cue in SoundCue::ALL {
         let handle = library.sfx_handle(cue);
@@ -114,79 +117,62 @@ fn audio_library_loads_every_cue_from_real_bank() {
     }
 }
 
-/// Every embedded music track must declare an `asset_path`. Procedural
-/// music generation was retired in favor of pre-rendered OGGs; a track
-/// with `asset_path = None` would silently disappear from the radio.
+/// Every embedded music track resolves to a `.ogg` under `audio/music/`.
+/// The path is derived from the id (or an explicit override) — procedural
+/// music generation was retired, so a non-OGG / off-tree path would mean a
+/// silent radio entry.
 #[test]
-fn embedded_music_tracks_all_have_asset_paths() {
-    let spec = SandboxDataSpec::load_embedded();
-    for track in &spec.audio.music_tracks {
+fn embedded_music_tracks_resolve_to_ogg_assets() {
+    let music = load_embedded_music_registry();
+    for track in &music.tracks {
+        let path = track.resolved_asset_path();
         assert!(
-            track.asset_path.is_some(),
-            "music track '{}' has no asset_path. Author a pre-rendered OGG \
-             (tools/ambition_music_renderer) or remove the track — the runtime no \
-             longer falls back to procedural synthesis.",
+            path.starts_with("audio/music/") && path.ends_with(".ogg"),
+            "music track '{}' resolved to an unexpected asset path '{path}'",
             track.id,
         );
     }
 }
 
-/// `AudioLibrary` only exposes music tracks that actually have a
-/// resolvable path. The build skips any spec row missing `asset_path`,
-/// so the radio menu never offers a silent entry.
+/// A track with no explicit `asset_path` derives the conventional
+/// `audio/music/generated/<id>/full.ogg`; an explicit override wins. The
+/// library builds one runtime track per registry entry — there is no
+/// skip/None path anymore.
 #[test]
-fn audio_library_skips_music_tracks_without_asset_path() {
-    use crate::session::data::{
-        AudioSpec, MusicSpec, MusicTrackSpec, SfxSpec, SoundCueKey, WaveformSpec,
-    };
-
-    fn synthetic_arrangement() -> MusicSpec {
-        MusicSpec {
-            bpm: 72.0,
-            total_beats: 32.0,
-        }
-    }
-
-    let spec = AudioSpec {
-        sample_rate: 44_100,
-        sfx: vec![SfxSpec {
-            cue: SoundCueKey::Jump,
-            waveform: WaveformSpec::Sine,
-            frequency: 440.0,
-            frequency_end: 440.0,
-            duration: 0.05,
-            volume: 0.2,
-            attack: 0.003,
-            release: 0.04,
-            noise: 0.0,
-        }],
-        default_music_track: "with_path".into(),
-        music_tracks: vec![
-            MusicTrackSpec {
-                id: "with_path".into(),
-                display_name: "With path".into(),
-                arrangement: synthetic_arrangement(),
-                asset_path: Some("audio/music/x.ogg".into()),
-            },
-            MusicTrackSpec {
-                id: "no_path".into(),
-                display_name: "No path".into(),
-                arrangement: synthetic_arrangement(),
+fn audio_library_resolves_default_and_override_paths() {
+    let sfx = load_embedded_sfx_registry();
+    let music = MusicRegistry {
+        default_track: "convention".into(),
+        tracks: vec![
+            MusicTrack {
+                id: "convention".into(),
+                display_name: "Convention".into(),
                 asset_path: None,
+            },
+            MusicTrack {
+                id: "override".into(),
+                display_name: "Override".into(),
+                asset_path: Some("audio/music/x.ogg".into()),
             },
         ],
     };
 
+    assert_eq!(
+        music.tracks[0].resolved_asset_path(),
+        "audio/music/generated/convention/full.ogg"
+    );
+    assert_eq!(music.tracks[1].resolved_asset_path(), "audio/music/x.ogg");
+
     let mut assets = Assets::<KiraAudioSource>::default();
-    let library = AudioLibrary::new(&mut assets, &spec, None, None, None);
-    assert_eq!(library.track_count(), 1);
-    assert!(library.track("with_path").is_some());
-    assert!(library.track("no_path").is_none());
+    let library = AudioLibrary::new(&mut assets, &sfx, &music, None, None, None);
+    assert_eq!(library.track_count(), 2);
+    assert!(library.track("convention").is_some());
+    assert!(library.track("override").is_some());
 }
 
 #[test]
 fn embedded_audio_catalog_includes_tech_bro_banger_tracks() {
-    let spec = SandboxDataSpec::load_embedded();
+    let music = load_embedded_music_registry();
     for id in [
         "pivot_protocol",
         "minimum_viable_apocalypse",
@@ -194,41 +180,37 @@ fn embedded_audio_catalog_includes_tech_bro_banger_tracks() {
         "burn_rate_bossa",
         "shareholder_ritual",
     ] {
-        let track = spec
-            .audio
+        let track = music
             .track(id)
             .unwrap_or_else(|| panic!("missing music track {id}"));
         let expected_path = format!("audio/music/generated/{id}/full.ogg");
-        assert_eq!(track.asset_path.as_deref(), Some(expected_path.as_str()));
+        assert_eq!(track.resolved_asset_path(), expected_path);
     }
 }
 
 #[test]
 fn music_track_order_cycles() {
-    let spec = SandboxDataSpec::load_embedded();
+    let sfx = load_embedded_sfx_registry();
+    let music = load_embedded_music_registry();
     let mut assets = Assets::<KiraAudioSource>::default();
-    let library = AudioLibrary::new(&mut assets, &spec.audio, None, None, None);
-    let ids: Vec<&str> = spec
-        .audio
-        .music_tracks
-        .iter()
-        .map(|track| track.id.as_str())
-        .collect();
+    let library = AudioLibrary::new(&mut assets, &sfx, &music, None, None, None);
+    let ids: Vec<&str> = music.tracks.iter().map(|track| track.id.as_str()).collect();
     assert_eq!(library.track_count(), ids.len());
     assert!(
         ids.len() >= 2,
         "cycle test needs at least 2 tracks, got {}",
         ids.len()
     );
-    // Pin only the head of the list — the seed tracks the radio ships
-    // with. Adding tracks after these must not break this test.
+    // The registry leads with the curated special entries; `original_lofi_loop`
+    // is pinned first (the fallback the library special-cases). The default
+    // `long_lofi_drift` must also be present.
     assert_eq!(ids[0], ORIGINAL_TRACK_ID);
-    assert_eq!(ids[1], "long_lofi_drift");
+    assert_eq!(music.default_track, "long_lofi_drift");
+    assert!(ids.contains(&"long_lofi_drift"));
 
-    // Forward step from the head.
+    // Forward step from the head lands on the second entry; back round-trips.
     assert_eq!(library.next_track_id(ORIGINAL_TRACK_ID), Some(ids[1]));
-    // Backward step round-trips with forward step.
-    assert_eq!(library.previous_track_id(ids[1]), Some(ORIGINAL_TRACK_ID),);
+    assert_eq!(library.previous_track_id(ids[1]), Some(ORIGINAL_TRACK_ID));
     // Cycle wraps: next of the last track is the first.
     let last = *ids.last().expect("non-empty list");
     assert_eq!(library.next_track_id(last), Some(ORIGINAL_TRACK_ID));
@@ -423,16 +405,15 @@ fn ambition_gameplay_core_uses_only_bevy_kira_audio() {
 #[test]
 fn every_live_music_track_resolves_under_web_served_assets() {
     use crate::assets::game_assets::GameAssetConfig;
-    use crate::session::data::SandboxDataSpec;
     use ambition_asset_manager::AssetProfile;
 
-    let spec = SandboxDataSpec::load_embedded();
+    let music = load_embedded_music_registry();
     let mut config = GameAssetConfig::default();
     config.asset_profile = AssetProfile::WebServedAssets;
-    let catalog = crate::assets::sandbox_assets::build_sandbox_catalog(&config, &spec.audio);
+    let catalog = crate::assets::sandbox_assets::build_sandbox_catalog(&config, &music);
 
     let mut missing: Vec<String> = Vec::new();
-    for track in &spec.audio.music_tracks {
+    for track in &music.tracks {
         let id = crate::assets::sandbox_assets::ids::music_track(&track.id);
         let path = catalog.path_for(&id);
         if path.is_none() {
@@ -442,8 +423,7 @@ fn every_live_music_track_resolves_under_web_served_assets() {
     assert!(
         missing.is_empty(),
         "music tracks without a WebServedAssets-resolvable path: {missing:?}. \
-         Either add a pre-rendered OGG (asset_path: Some(\"audio/music/...\")) \
-         or remove the track from sandbox.ron — the procedural fallback is \
-         retired."
+         Either add a pre-rendered OGG or remove the track from \
+         music_registry.ron — the procedural fallback is retired."
     );
 }

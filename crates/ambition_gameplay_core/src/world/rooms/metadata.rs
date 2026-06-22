@@ -13,7 +13,7 @@ use super::*;
 /// priority — `EncounterMusicRequest::desired_track = Some(...)`
 /// overrides this resource the same way it overrides the sandbox-wide
 /// default music track. Empty/absent room music falls back to
-/// `sandbox_data.audio.default_music_track`.
+/// the music registry's `default_track`.
 #[derive(Resource, Clone, Debug, Default)]
 pub struct RoomMusicRequest {
     pub desired_track: Option<String>,

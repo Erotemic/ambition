@@ -26,7 +26,8 @@ use ambition_gameplay_core::character_sprites::{
 };
 use ambition_gameplay_core::platformer_runtime::lifecycle::SceneEntities;
 use ambition_gameplay_core::rooms::RoomSet;
-use ambition_gameplay_core::session::data::SandboxDataSpec;
+#[cfg(feature = "audio")]
+use ambition_gameplay_core::session::data::{MusicRegistry, SfxRegistry};
 use ambition_gameplay_core::world::physics::PhysicsSandboxSettings;
 use ambition_gameplay_core::world::platforms;
 use ambition_gameplay_core::GameWorld;
@@ -41,9 +42,12 @@ use ambition_sfx::BankProvider;
 pub struct PresentationSetup<'a> {
     pub world: &'a GameWorld,
     pub room_set: &'a RoomSet,
-    pub sandbox_data: &'a SandboxDataSpec,
     pub physics_settings: PhysicsSandboxSettings,
     pub game_assets: &'a GameAssets,
+    #[cfg(feature = "audio")]
+    pub music_registry: &'a MusicRegistry,
+    #[cfg(feature = "audio")]
+    pub sfx_registry: &'a SfxRegistry,
     #[cfg(feature = "audio")]
     pub ui_fonts: Option<&'a UiFonts>,
 }
@@ -65,7 +69,8 @@ pub fn presentation_world(
     params: PresentationSetup<'_>,
     player: Entity,
 ) {
-    let sandbox_data = params.sandbox_data;
+    let music_registry = params.music_registry;
+    let sfx_registry = params.sfx_registry;
     presentation_world_inner(commands, params, player);
     let bank_provider = try_load_sfx_bank_via_catalog(catalog);
     // Resolve music-track ids through the sandbox asset catalog so the
@@ -76,14 +81,15 @@ pub fn presentation_world(
     };
     let audio_library = AudioLibrary::new(
         audio_sources,
-        &sandbox_data.audio,
+        sfx_registry,
+        music_registry,
         Some(asset_server),
         bank_provider
             .as_ref()
             .map(|provider| provider as &dyn ambition_sfx::SfxProvider),
         Some(&resolve_track_path),
     );
-    let music_state = MusicPlaybackState::from_audio_spec(&sandbox_data.audio, &audio_library);
+    let music_state = MusicPlaybackState::from_music_registry(music_registry, &audio_library);
     commands.insert_resource(audio_library);
     commands.insert_resource(music_state);
     if let Some(provider) = bank_provider {

@@ -1,0 +1,26 @@
+// Ambition SFX registry — procedural sound-design synthesis specs.
+//
+// Hand-authored: one entry per typed cue (waveform / envelope / pitch
+// sweep) plus the synth sample rate. Deliberately separate from
+// music_registry.ron — SFX and music are different concerns. Parsed into
+// `ambition_audio::spec::SfxRegistry`.
+//
+// Note: the runtime prefers packed SFX-bank clips (audio/sfx.bank) when
+// present; these specs are the procedural fallback / source of truth for
+// the cue set.
+(
+    sample_rate: 44100,
+    sfx: [
+        (cue: Jump, waveform: Sine, frequency: 460.0, frequency_end: 720.0, duration: 0.085, volume: 0.22, attack: 0.003, release: 0.045, noise: 0.0),
+        (cue: DoubleJump, waveform: Triangle, frequency: 520.0, frequency_end: 940.0, duration: 0.115, volume: 0.22, attack: 0.003, release: 0.045, noise: 0.0),
+        (cue: Dash, waveform: Saw, frequency: 260.0, frequency_end: 110.0, duration: 0.105, volume: 0.18, attack: 0.003, release: 0.045, noise: 0.0),
+        (cue: Blink, waveform: Triangle, frequency: 740.0, frequency_end: 260.0, duration: 0.090, volume: 0.18, attack: 0.003, release: 0.045, noise: 0.0),
+        (cue: PrecisionBlink, waveform: Sine, frequency: 880.0, frequency_end: 180.0, duration: 0.160, volume: 0.20, attack: 0.003, release: 0.045, noise: 0.08),
+        (cue: Slash, waveform: Square, frequency: 620.0, frequency_end: 340.0, duration: 0.075, volume: 0.16, attack: 0.003, release: 0.045, noise: 0.0),
+        (cue: Hit, waveform: Triangle, frequency: 220.0, frequency_end: 88.0, duration: 0.105, volume: 0.26, attack: 0.003, release: 0.045, noise: 0.44),
+        (cue: Pogo, waveform: Sine, frequency: 360.0, frequency_end: 880.0, duration: 0.105, volume: 0.22, attack: 0.003, release: 0.045, noise: 0.0),
+        (cue: Reset, waveform: Sine, frequency: 160.0, frequency_end: 90.0, duration: 0.150, volume: 0.16, attack: 0.003, release: 0.045, noise: 0.0),
+        (cue: Death, waveform: Saw, frequency: 140.0, frequency_end: 48.0, duration: 0.220, volume: 0.24, attack: 0.003, release: 0.045, noise: 0.18),
+        (cue: Respawn, waveform: Triangle, frequency: 440.0, frequency_end: 660.0, duration: 0.145, volume: 0.20, attack: 0.003, release: 0.045, noise: 0.0),
+    ],
+)

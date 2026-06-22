@@ -1,19 +1,33 @@
-//! Audio data schema: the authored (RON) shapes for SFX cues and
-//! pre-rendered music tracks. Kira-free — parse/validation only; the
-//! playback runtime lives behind this crate's `kira` feature.
+//! Audio data schema: the authored (RON) shapes for procedural SFX and
+//! pre-rendered music. Kira-free — parse/validation only; the playback
+//! runtime lives behind this crate's `kira` feature.
+//!
+//! SFX and music are deliberately split into two registries
+//! ([`SfxRegistry`] ← `sfx_registry.ron`, [`MusicRegistry`] ←
+//! `music_registry.ron`): they are different concerns with different
+//! authorship. SFX specs are hand-tuned procedural synthesis; the music
+//! registry is a *generated* projection of the rendered-OGG asset tree
+//! (see `scripts/regen_music_registry.py` + `regen_music.sh`). Keeping
+//! them apart means the auto-generated music list never churns the
+//! hand-authored sound-design data, and neither lives inside the
+//! gameplay-tuning `sandbox.ron`.
 
+use bevy::prelude::Resource;
 use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
 
-#[derive(Clone, Debug, Deserialize)]
-pub struct AudioSpec {
+/// Procedural SFX-synthesis registry, authored in `sfx_registry.ron`.
+///
+/// Hand-tuned sound design: the synth `sample_rate` plus one [`SfxSpec`]
+/// per cue. Deliberately separate from [`MusicRegistry`] — different
+/// concern, different file.
+#[derive(Clone, Debug, Deserialize, Resource)]
+pub struct SfxRegistry {
     pub sample_rate: u32,
     pub sfx: Vec<SfxSpec>,
-    pub default_music_track: String,
-    pub music_tracks: Vec<MusicTrackSpec>,
 }
 
-impl AudioSpec {
+impl SfxRegistry {
     pub fn validate(&self) -> Result<(), String> {
         if self.sample_rate < 8_000 {
             return Err(format!(
@@ -21,54 +35,8 @@ impl AudioSpec {
                 self.sample_rate
             ));
         }
-        if self.music_tracks.is_empty() {
-            return Err("audio music_tracks must contain at least one track".to_string());
-        }
-        let mut ids = HashSet::new();
-        for track in &self.music_tracks {
-            if track.id.trim().is_empty() {
-                return Err("music track id must not be empty".to_string());
-            }
-            if track.display_name.trim().is_empty() {
-                return Err(format!("music track '{}' display_name is empty", track.id));
-            }
-            if !ids.insert(track.id.as_str()) {
-                return Err(format!("duplicate music track id '{}'", track.id));
-            }
-            track.arrangement.validate().map_err(|error| {
-                format!("music track '{}' arrangement is invalid: {error}", track.id)
-            })?;
-        }
-        if self.track(&self.default_music_track).is_none() {
-            return Err(format!(
-                "default_music_track '{}' does not match any music_tracks id",
-                self.default_music_track
-            ));
-        }
         Ok(())
     }
-
-    pub fn track(&self, id: &str) -> Option<&MusicTrackSpec> {
-        self.music_tracks.iter().find(|track| track.id == id)
-    }
-}
-
-#[derive(Clone, Debug, Deserialize)]
-pub struct MusicTrackSpec {
-    pub id: String,
-    pub display_name: String,
-    pub arrangement: MusicSpec,
-    /// Pre-rendered OGG asset path (relative to the asset root).
-    /// `AudioLibrary::new` loads this asset at startup. Authored via
-    /// `tools/ambition_music_renderer` as a YAML cue → OGG. The
-    /// runtime requires every live track to set this — tracks left
-    /// at `None` are skipped at startup with a warning (the fundsp
-    /// procedural music generator was retired; see
-    /// `docs/archive/retired/fundsp-audio.md`). The `arrangement` field is retained
-    /// as documentation of how each OGG was authored and for
-    /// `duration_seconds()` reporting.
-    #[serde(default)]
-    pub asset_path: Option<String>,
 }
 
 #[derive(Clone, Copy, Debug, Deserialize, PartialEq, Eq, Hash)]
@@ -107,46 +75,75 @@ pub struct SfxSpec {
     pub noise: f32,
 }
 
-/// Minimal duration descriptor for a pre-rendered music track.
+/// Music-cue registry, authored in `music_registry.ron`.
 ///
-/// Originally this was a full `MusicSpec` describing the fundsp
-/// procedural synth path (chord progressions, lead notes, bass
-/// roots, per-section gains). That synth path was retired (see
-/// `docs/archive/retired/fundsp-audio.md`) and OGGs are now authored
-/// via `tools/ambition_music_renderer` from YAML cues. The only
-/// runtime-meaningful values left were `bpm` + `total_beats` —
-/// everything else was inert documentation that drifted from the
-/// real OGGs. Trimmed 2026-05-23 to just those two fields so the
-/// `sandbox.ron` track list stops carrying ~30-80 lines of dead
-/// data per entry.
-///
-/// Authoritative arrangement details for each track live in the
-/// renderer score: `tools/ambition_music_renderer/scores/active/<id>.music.yaml`.
-#[derive(Clone, Copy, Debug, Deserialize)]
-pub struct MusicSpec {
-    pub bpm: f32,
-    pub total_beats: f32,
+/// **This file is GENERATED** by `scripts/regen_music_registry.py` from
+/// the rendered-OGG asset tree (`audio/music/generated/*/full.ogg`), wired
+/// into `regen_music.sh`. Hand-edits get overwritten on the next render —
+/// adjust the generator's denylist / display-name map instead. The format
+/// is intentionally trivial (just ids) precisely so it can be generated:
+/// there is no tempo/arrangement metadata because the OGG is what plays
+/// and the runtime music director owns looping/crossfade.
+#[derive(Clone, Debug, Deserialize, Resource)]
+pub struct MusicRegistry {
+    /// Track id played at startup / when no radio station is selected.
+    pub default_track: String,
+    pub tracks: Vec<MusicTrack>,
 }
 
-impl MusicSpec {
-    pub fn duration_seconds(&self) -> f32 {
-        self.total_beats.max(1.0) * 60.0 / self.bpm.max(1.0)
-    }
-
-    pub fn bar_count(&self) -> usize {
-        (self.total_beats.max(1.0) / 4.0).ceil().max(1.0) as usize
-    }
-
+impl MusicRegistry {
     pub fn validate(&self) -> Result<(), String> {
-        if self.bpm <= 0.0 {
-            return Err(format!("bpm must be positive, got {}", self.bpm));
+        if self.tracks.is_empty() {
+            return Err("music registry must contain at least one track".to_string());
         }
-        if self.total_beats <= 0.0 {
+        let mut ids = HashSet::new();
+        for track in &self.tracks {
+            if track.id.trim().is_empty() {
+                return Err("music track id must not be empty".to_string());
+            }
+            if track.display_name.trim().is_empty() {
+                return Err(format!("music track '{}' display_name is empty", track.id));
+            }
+            if !ids.insert(track.id.as_str()) {
+                return Err(format!("duplicate music track id '{}'", track.id));
+            }
+        }
+        if self.track(&self.default_track).is_none() {
             return Err(format!(
-                "total_beats must be positive, got {}",
-                self.total_beats
+                "default_track '{}' does not match any registered track id",
+                self.default_track
             ));
         }
         Ok(())
+    }
+
+    pub fn track(&self, id: &str) -> Option<&MusicTrack> {
+        self.tracks.iter().find(|track| track.id == id)
+    }
+}
+
+/// One playable music track: a pointer to a pre-rendered OGG.
+///
+/// `asset_path` is optional — when omitted it defaults to the conventional
+/// `audio/music/generated/{id}/full.ogg`, which covers every plain
+/// renderer cue. Set it explicitly only for off-convention assets (e.g. an
+/// adaptive cue's section mix). No arrangement/tempo metadata: that data
+/// was vestigial (the OGG dictates length), and dropping it is what lets
+/// the registry be generated from `id` alone.
+#[derive(Clone, Debug, Deserialize)]
+pub struct MusicTrack {
+    pub id: String,
+    pub display_name: String,
+    #[serde(default)]
+    pub asset_path: Option<String>,
+}
+
+impl MusicTrack {
+    /// Asset path the `AudioLibrary` should load: the explicit override if
+    /// set, else the conventional generated path derived from `id`.
+    pub fn resolved_asset_path(&self) -> String {
+        self.asset_path
+            .clone()
+            .unwrap_or_else(|| format!("audio/music/generated/{}/full.ogg", self.id))
     }
 }

@@ -63,12 +63,16 @@ pub fn init_sandbox_resources(app: &mut App) {
     ambition_content::bosses::install_boss_roster();
 
     let sandbox_data = data::SandboxDataSpec::load_embedded();
+    // Audio lives in its own registries, separate from sandbox tuning and
+    // from each other (SFX synthesis vs. generated music pointers).
+    let music_registry = data::load_embedded_music_registry();
+    let sfx_registry = data::load_embedded_sfx_registry();
 
     // Build the singleton SandboxAssetCatalog before anything else asks
     // it for a path. Every asset path/source policy in the visible
     // sandbox flows through this — LDtk, SFX bank, fonts, sprites,
-    // music. Consumes the already-parsed sandbox_data so music-track
-    // ids land in the catalog.
+    // music. Consumes the music registry so music-track ids land in the
+    // catalog.
     let asset_config = app
         .world()
         .get_resource::<ambition_gameplay_core::assets::game_assets::GameAssetConfig>()
@@ -77,7 +81,7 @@ pub fn init_sandbox_resources(app: &mut App) {
     let sandbox_catalog =
         ambition_gameplay_core::assets::sandbox_assets::build_sandbox_catalog_with(
             &asset_config,
-            &sandbox_data.audio,
+            &music_registry,
             |manifest| {
                 ambition_content::intro::sprites::extend_with_intro_sprite_entries(
                     manifest,
@@ -93,7 +97,7 @@ pub fn init_sandbox_resources(app: &mut App) {
             sandbox_init_failed();
         }
     };
-    let content_report = content_validation::validate_content_graph(&sandbox_data, &ldtk_project);
+    let content_report = content_validation::validate_content_graph(&music_registry, &ldtk_project);
     for warning in &content_report.warnings {
         eprintln!("content validation warning: {warning}");
     }
@@ -182,6 +186,8 @@ pub fn init_sandbox_resources(app: &mut App) {
             ..default()
         })
         .insert_resource(sandbox_data)
+        .insert_resource(music_registry)
+        .insert_resource(sfx_registry)
         .insert_resource(sandbox_catalog)
         .insert_resource(DeveloperTools::default())
         .insert_resource(EditablePlayerStats::default())

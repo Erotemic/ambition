@@ -27,7 +27,7 @@ use ambition_asset_manager::{
 use ambition_asset_manager::{AssetKind, AssetLocation, MissingAssetPolicy, PreloadGroup};
 
 use crate::assets::game_assets::{sandbox_image_manifest, GameAssetConfig};
-use crate::session::data::AudioSpec;
+use crate::session::data::MusicRegistry;
 
 mod builders;
 mod embedded;
@@ -77,8 +77,8 @@ impl SandboxAssetCatalog {
             asset_profile: AssetProfile::DesktopDevLoose,
             ..Default::default()
         };
-        let spec = crate::session::data::SandboxDataSpec::load_embedded();
-        build_sandbox_catalog(&config, &spec.audio)
+        let music = crate::session::data::load_embedded_music_registry();
+        build_sandbox_catalog(&config, &music)
     }
 
     pub fn catalog(&self) -> &AmbitionAssetCatalog {
@@ -267,12 +267,15 @@ fn desktop_candidate_roots(rel_path: &str) -> Vec<std::path::PathBuf> {
 /// Build the full sandbox catalog: every visible-sandbox asset id +
 /// the active profile. Called once during `init_sandbox_resources`.
 ///
-/// `audio` is borrowed from the already-loaded [`crate::session::data::SandboxDataSpec`]
-/// so music-track ids land in the catalog at startup; the spec itself
-/// is loaded via `include_str!`, so the catalog doesn't depend on
-/// disk-resident files for bootstrap.
-pub fn build_sandbox_catalog(config: &GameAssetConfig, audio: &AudioSpec) -> SandboxAssetCatalog {
-    build_sandbox_catalog_with(config, audio, |_| {})
+/// `music` is the already-loaded [`crate::session::data::MusicRegistry`]
+/// so music-track ids land in the catalog at startup; it is loaded via
+/// `include_str!`, so the catalog doesn't depend on disk-resident files
+/// for bootstrap.
+pub fn build_sandbox_catalog(
+    config: &GameAssetConfig,
+    music: &MusicRegistry,
+) -> SandboxAssetCatalog {
+    build_sandbox_catalog_with(config, music, |_| {})
 }
 
 /// [`build_sandbox_catalog`] with a content-extension hook: the app
@@ -280,7 +283,7 @@ pub fn build_sandbox_catalog(config: &GameAssetConfig, audio: &AudioSpec) -> San
 /// the intro sprite rows) so this machinery module names no content.
 pub fn build_sandbox_catalog_with(
     config: &GameAssetConfig,
-    audio: &AudioSpec,
+    music: &MusicRegistry,
     extend: impl FnOnce(&mut AssetManifest),
 ) -> SandboxAssetCatalog {
     let mut manifest = sandbox_image_manifest(&config.sprite_folder);
@@ -290,7 +293,7 @@ pub fn build_sandbox_catalog_with(
     extend_with_font_entries(&mut manifest);
     extend_with_character_entries(&mut manifest, &config.sprite_folder);
     extend_with_boss_entries(&mut manifest, &config.sprite_folder);
-    extend_with_music_entries(&mut manifest, audio);
+    extend_with_music_entries(&mut manifest, music);
     extend(&mut manifest);
     SandboxAssetCatalog::new(AmbitionAssetCatalog::new(manifest), config.asset_profile)
 }

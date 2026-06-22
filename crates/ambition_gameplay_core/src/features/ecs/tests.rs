@@ -128,6 +128,50 @@ fn overlay_uses_published_pogo_volumes_instead_of_boss_body_aabb() {
 }
 
 #[test]
+fn boss_classifies_as_boss_not_the_actor_enemy_fallback() {
+    // Regression: bosses carry the shared actor read-models (`ActorDisposition`,
+    // `ActorCombatState`, …) synced by `sync_boss_actor_components`. The
+    // view-index `actors` query keys on those, so without a
+    // `Without<BossConfig>` exclusion a boss matches the actor family — which is
+    // inserted BEFORE the boss family (first-wins priority) — and renders as the
+    // generic enemy fallback sprite (a big goblin), invisible, instead of its
+    // boss sheet. This pins the exclusion that the deleted `ActorRuntime` tag
+    // used to provide implicitly.
+    let boss_body = ae::Aabb::new(ae::Vec2::new(500.0, 500.0), ae::Vec2::new(80.0, 120.0));
+    let boss = super::boss_clusters::BossClusterScratch::new(
+        "gnu_ton",
+        "GNU-ton",
+        boss_body,
+        crate::actor::BossBrain::Dormant,
+    );
+    let (identity, disposition, health, combat, intent, cooldowns) =
+        boss_component_snapshot(boss.as_ref(), &crate::brain::BossAttackState::default());
+
+    let mut app = App::new();
+    app.init_resource::<FeatureViewIndex>();
+    app.world_mut().spawn((
+        FeatureSimEntity,
+        FeatureId::new("gnu_ton"),
+        FeatureName::new("GNU-ton"),
+        CenteredAabb::from_aabb(boss_body),
+        boss.into_components(),
+        crate::brain::BossAttackState::default(),
+        (identity, disposition, health, combat, intent, cooldowns),
+    ));
+    app.add_systems(Update, rebuild_feature_view_index);
+    app.update();
+
+    let index = app.world().resource::<FeatureViewIndex>();
+    let view = index.get("gnu_ton").expect("the boss must have a feature view");
+    assert_eq!(
+        view.kind,
+        crate::features::FeatureVisualKind::Boss,
+        "a boss must classify as Boss, not the actor-family enemy fallback (got {:?})",
+        view.kind,
+    );
+}
+
+#[test]
 fn ecs_overlay_ignores_broken_breakables() {
     let mut breakable = crate::interaction::Breakable::new("crate", 1);
     breakable.collision = crate::interaction::BreakableCollision::Solid;

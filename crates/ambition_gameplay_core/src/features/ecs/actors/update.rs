@@ -119,7 +119,18 @@ pub fn update_ecs_actors(
         // `player_query` above reads it; exclude the player here so this
         // `&mut BodyKinematics` actor query is provably disjoint from it
         // (player / actor archetypes never overlap).
-        (With<FeatureSimEntity>, Without<crate::player::PlayerEntity>),
+        //
+        // Exclude BOSSES too: they carry the shared actor read-models
+        // (`ActorIdentity`/`ActorDisposition`/… synced by
+        // `sync_boss_actor_components`) but have NO actor cluster, so without
+        // this they'd match here (cluster = `None`) and get ticked by the actor
+        // loop ON TOP of their own `tick_boss_brains_system` — a double brain
+        // tick. The deleted `ActorRuntime` tag used to keep them out implicitly.
+        (
+            With<FeatureSimEntity>,
+            Without<crate::player::PlayerEntity>,
+            Without<super::super::boss_clusters::BossConfig>,
+        ),
     >,
 ) {
     // Sim clock: enemies, NPCs, encounter mobs all advance on the

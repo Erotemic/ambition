@@ -23,7 +23,15 @@ pub fn refresh_actor_damageable_volumes(
             Option<&super::actor_clusters::ActorStatus>,
             &mut DamageableVolumes,
         ),
-        With<FeatureSimEntity>,
+        // Exclude bosses: they ALSO carry `DamageableVolumes` + the shared
+        // `ActorDisposition`, and `refresh_boss_damageable_volumes` publishes
+        // their authored head/hand hurtboxes. Without this, both systems write
+        // the boss's `DamageableVolumes` and the coarse actor AABB clobbers the
+        // authored boss hurtboxes (the GNU-ton seam) depending on system order.
+        (
+            With<FeatureSimEntity>,
+            Without<super::boss_clusters::BossConfig>,
+        ),
     >,
 ) {
     for (aabb, disposition, status, mut damageable) in &mut actors {

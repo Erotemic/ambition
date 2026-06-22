@@ -1237,3 +1237,17 @@ The flat body uses only its OWN marker (`BevyUiMenuBody`), NOT `AmbitionMenuPage
 - **Two presentations of one content model must NOT share the ECS *marker* components that either backend's despawn/rebuild systems query.** A `for e in Query<With<SharedMarker>> { despawn }` in backend A silently reaps backend B's entities that reuse `SharedMarker`. Give each presentation distinct markers; reserve shared components for genuinely shared interactive *data*, and audit every `despawn`/`remove_*` keyed on them.
 - **"Renders correctly for one frame, then vanishes" is a DESPAWN smell, not a render bug.** When content is provably built (logs/tests) and isn't rebuilt every frame (idle is quiet), stop staring at the renderer — grep every `despawn`/`remove_*`/`Query<…, With<X>>` for the components your entity carries and find who reaps it.
 - **Blunt empirical bisection beats code-reading when you can't see the result.** Bright opaque debug colors per layer + a single debug box + an idle-log frequency check isolated render-vs-color-vs-position-vs-lifecycle-vs-ownership in ~3 rounds, after many rounds of reasoning. Reach for the crayon earlier. (Related: the de-vendor/headless saga two entries up — same "diff/repro-empirically, don't speculate" lesson.)
+
+## 2026-06-22: Re-keying a map (Stage 1a) silently broke boss music — a missed `.get()` call site no test covered
+
+**Date:** 2026-06-22. **Context:** boss entity-local refactor (`docs/planning/boss-entity-local-refactor.md`). Stage 1a re-keyed `BossEncounterRegistry.encounters` from the shared archetype id to the per-entity runtime id (so a gauntlet's two same-archetype bosses get independent state). Found instantly while writing the R3 "test-first" safety net.
+
+### What it was
+`update_boss_encounters`'s music-LIFETIME pass (the "is any boss in an active phase? if not, clear the boss-music request" guard) still looked the encounter up by the **archetype** `encounter_id` (3rd tuple field), but the map is now keyed by the **runtime** id (1st field). For any LDtk/spawned boss whose runtime id ≠ archetype id (i.e. all of them), `encounters.get(archetype_id)` returned `None` → the guard took its "no active boss" branch → it **cleared `desired_track` the same frame the wake had set it**. Boss music never played. The damage/phase `.get()` sites were updated in Stage 1a; this read-only music site was missed.
+
+### Why no test caught it
+There was no headless test asserting boss music plays during a fight — the exact coverage gap. The new `boss_lifecycle::boss_music_plays_during_the_fight` pin failed on the first run and pointed straight at it. Fix: look up by the runtime id (1st tuple field).
+
+### Takeaway
+- **When you re-key a collection, grep EVERY `.get`/`.get_mut`/`.entry`/`.contains_key` on it — not just the mutators you came to change.** A read-only lookup with the old key fails silently (returns `None`/default), so it won't panic or fail to compile; it just quietly does the wrong thing.
+- **Test-first before a big-bang earns its keep immediately.** The "write the safety net for the behaviors you can't see" step (here: boss music, save-cleared, reward drop) surfaced a pre-existing regression the moment it ran — before any of the risky R3 work began.

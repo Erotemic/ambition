@@ -359,10 +359,16 @@ pub fn update_boss_encounters(
     let active_boss_music_track =
         bosses_in_room
             .iter()
-            .find_map(|(_, _, encounter_id, _, _, _, _)| {
+            .find_map(|(boss_runtime_id, _, _, _, _, _, _)| {
+                // Live encounter state is keyed per-ENTITY by the boss runtime id
+                // (Stage 1a). The earlier code looked it up by the archetype
+                // `encounter_id`, which never matched for an LDtk/spawned boss
+                // whose runtime id differs from its archetype — so boss music was
+                // set on wake then cleared the SAME frame. Pinned by
+                // `boss_music_plays_during_the_fight`.
                 registry
                     .encounters
-                    .get(encounter_id)
+                    .get(boss_runtime_id)
                     .and_then(active_phase_music_track)
                     .map(str::to_owned)
             });

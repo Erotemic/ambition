@@ -357,6 +357,17 @@ edits per stage, build once. `cargo`/test invocations use `-p ambition_app` (e.g
         headless test coverage and can't be observed in this environment. Land R3 either (a) with new
         headless tests pinning each of those, or (b) blind in its own commit with an explicit
         "verify in-game" note (per Jon's blind-fix rule). Do NOT ship it silently as "done".
+      - **NET LANDED (2026-06-22, pre-R3, "test-first" per Jon):** new
+        `crates/ambition_app/tests/boss_lifecycle.rs` pins the generic death CONTRACT —
+        `boss_music_plays_during_the_fight` + `defeated_boss_is_recorded_cleared_drops_reward_and_clears_music`
+        (save Cleared + reward chest + music restore). Writing it immediately surfaced a **pre-existing
+        regression**: Stage 1a re-keyed `encounters` to the runtime id but the music-lifetime `.get()`
+        in `update_boss_encounters` still keyed by archetype id → boss music was set on wake then cleared
+        the same frame (silently broken since 1a). Fixed (look up by runtime id) + logged in
+        `dev/journals/lessons_learned.md`. The kill helper (`force_kill_boss`) is the only
+        authority-coupled part — **R3 repoints it to the entity** and the assertions must stay green.
+        Cut-rope victory NPC + in-place replay stay an in-game verification item (headless-hard; R5
+        rewrites cut-rope), but cut-rope's death consequences ride the same generic path this net pins.
 - [ ] **R4 — Save persistence keyed to the ENCOUNTER placement (not archetype).**
       `cleared: HashSet<encounter_placement_id>` written on encounter win. Supersedes Stage 1a's
       archetype-keyed save — reusing a boss archetype elsewhere is NOT pre-marked cleared.

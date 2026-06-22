@@ -179,6 +179,11 @@ impl CombatKit {
 pub struct ActorAggression {
     pub mode: AggressionMode,
     pub target: Option<Entity>,
+    /// Accumulated provocation count. Lives here (next to the
+    /// `RetaliatesWhenHit { strike_threshold }` mode it feeds) rather than on a
+    /// per-family status component, so the provoke accumulator survives the
+    /// NPC→one-actor cluster merge and the in-place hostile flip.
+    pub strikes: i32,
 }
 
 impl ActorAggression {
@@ -186,6 +191,7 @@ impl ActorAggression {
         Self {
             mode: AggressionMode::Passive,
             target: None,
+            strikes: 0,
         }
     }
 
@@ -193,6 +199,7 @@ impl ActorAggression {
         Self {
             mode: AggressionMode::RetaliatesWhenHit { strike_threshold },
             target: None,
+            strikes: 0,
         }
     }
 
@@ -200,6 +207,7 @@ impl ActorAggression {
         Self {
             mode: AggressionMode::HostileToPlayer,
             target: None,
+            strikes: 0,
         }
     }
 

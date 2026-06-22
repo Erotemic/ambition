@@ -856,6 +856,7 @@ pub fn tick_npc_idle_barks(
             &super::super::enemy_clusters::BodyKinematics,
             &super::super::npc_clusters::NpcConfig,
             &super::super::npc_clusters::NpcStatus,
+            &ActorDisposition,
         ),
         With<FeatureSimEntity>,
     >,
@@ -866,8 +867,8 @@ pub fn tick_npc_idle_barks(
     if dt <= 0.0 {
         return;
     }
-    for (kin, config, status) in &npcs {
-        if status.hostile || status.hit_flash > 0.0 {
+    for (kin, config, status, disposition) in &npcs {
+        if disposition.is_hostile() || status.hit_flash > 0.0 {
             continue;
         }
         let rotation = *state.rotations.get(&config.id).unwrap_or(&0);

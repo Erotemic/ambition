@@ -239,7 +239,9 @@ pub fn npc_component_snapshot(
         ActorIdentity::new(config.id.clone(), config.name.clone()),
         ActorDisposition::Peaceful,
         ActorHealth::new(crate::actor::Health::new(1)),
-        ActorCombatState::peaceful(status.strikes, status.hit_flash),
+        // `strike_count` is a write-only read-model field (no behavioral
+        // reader); the provoke accumulator now lives on `ActorAggression`.
+        ActorCombatState::peaceful(0, status.hit_flash),
         ActorIntent::new(crate::actor::ai::CharacterAiMode::Idle),
         ActorCooldowns::default(),
     )

@@ -72,7 +72,7 @@ pub fn apply_npc_stimuli(
 
         let should_be_aggressive = match aggression.mode {
             AggressionMode::RetaliatesWhenHit { strike_threshold } => {
-                npc.status.strikes >= i32::from(strike_threshold)
+                aggression.strikes >= i32::from(strike_threshold)
             }
             AggressionMode::HostileToPlayer => true,
             AggressionMode::Passive => false,
@@ -206,19 +206,24 @@ mod tests {
             interactable,
             &[],
         );
-        let mut bundle = npc.into_components();
-        bundle.4.strikes = strikes; // NpcStatus.strikes
+        let bundle = npc.into_components();
         let (identity, disposition, health, combat, intent, cooldowns) =
             super::super::actors::npc_component_snapshot(&bundle.3, &bundle.4);
+        // Provoke accumulator lives on `ActorAggression` now.
+        let aggression = ActorAggression {
+            mode: AggressionMode::RetaliatesWhenHit {
+                strike_threshold: crate::features::NPC_HOSTILE_STRIKE_THRESHOLD as u8,
+            },
+            target: None,
+            strikes,
+        };
         app.world_mut()
             .spawn((
                 FeatureSimEntity,
                 FeatureId::new("alice"),
                 CenteredAabb::from_center_size(aabb.center(), aabb.half_size() * 2.0),
                 ActorRuntime::Npc,
-                ActorAggression::retaliates_when_hit(
-                    crate::features::NPC_HOSTILE_STRIKE_THRESHOLD as u8,
-                ),
+                aggression,
                 CombatKit::default(),
                 bundle,
                 identity,

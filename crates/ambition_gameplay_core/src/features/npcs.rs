@@ -297,13 +297,15 @@ impl<'a> NpcMut<'a> {
         }
     }
 
+    /// Reset the NPC's body + transient status. Hostility / provoke-count reset
+    /// (now on `ActorDisposition` / `ActorAggression`) is done by the calling
+    /// reset system, which holds those shared components.
     pub fn reset_to_spawn(&mut self) {
         self.kin.pos = self.config.spawn;
         self.kin.vel = ae::Vec2::ZERO;
         self.surface.on_ground = false;
-        self.status.hostile = false;
-        self.status.strikes = 0;
         self.status.hit_flash = 0.0;
+        self.status.ai_mode = crate::actor::ai::CharacterAiMode::Idle;
     }
 }
 

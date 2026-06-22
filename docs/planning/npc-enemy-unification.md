@@ -218,7 +218,8 @@ The NPC's only truly-unique DATA is its dialogue/interaction + patrol/talk radii
   id/name/spawn/patrol) — this phase only lifts the dialogue data out so an
   enemy *could* also be talkable. Compiles green.
 
-### Phase 2 — Collapse status + provoke onto shared components
+### Phase 2 — Collapse status + provoke onto shared components ✅ DONE (Opus 4.8)
+_Provoke accumulator `strikes` moved to `ActorAggression.strikes`; `hostile` dropped from `NpcStatus` (it was a mirror of the already-synced `ActorDisposition`). `NpcStatus` is now just `{ ai_mode, hit_flash }`. Readers updated: aggression threshold, damage increment/threshold/bark (via `NpcHitTarget.aggression`), idle-barks (disposition gate), reset (clears `aggression.strikes`/`target`). **Deviation from brief:** NPCs do NOT yet adopt `EnemyStatus` here — doing so while the damage path is still split would create a write-write `EnemyStatus` conflict in `apply_feature_hit_events` (it queries `Option<EnemyClusterQueryData>`). NPCs adopt `EnemyStatus` in Phase 3 where the damage path also collapses to one cluster. Build + 949 tests green._
 - Give NPCs an `EnemyStatus` (alive=true, health=`Health::new(1)`,
   respawn_timer=0, plus ai_mode/hit_flash) instead of `NpcStatus`.
 - Move the provoke counter (`NpcStatus.strikes`) into `ActorAggression` (add

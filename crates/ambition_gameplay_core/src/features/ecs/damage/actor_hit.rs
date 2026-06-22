@@ -45,6 +45,9 @@ const CLING_DETACH_POP_SPEED: f32 = 180.0;
 pub(crate) struct NpcHitTarget<'a> {
     pub(crate) status: &'a mut super::super::npc_clusters::NpcStatus,
     pub(crate) config: &'a super::super::npc_clusters::NpcConfig,
+    /// Provoke accumulator + last attacker — shared aggression component now,
+    /// not the NPC status cluster.
+    pub(crate) aggression: &'a mut crate::features::ActorAggression,
     pub(crate) aabb: ae::Aabb,
 }
 
@@ -66,7 +69,7 @@ pub(crate) fn apply_actor_hit(
             let pos = npc.aabb.center();
             let bark_anchor = super::super::super::npcs::npc_bark_anchor_from_aabb(npc.aabb);
             npc.status.hit_flash = 0.18;
-            npc.status.strikes = npc.status.strikes.saturating_add(1);
+            npc.aggression.strikes = npc.aggression.strikes.saturating_add(1);
             let impact = midpoint(event.volume.center(), pos);
             writers.vfx.write(VfxMessage::Impact { pos: impact });
             // Retaliation/hostility is driven by ActorStimulus
@@ -77,7 +80,7 @@ pub(crate) fn apply_actor_hit(
                 source: event.attacker,
                 damage: event.damage,
             });
-            if npc.status.strikes >= NPC_HOSTILE_STRIKE_THRESHOLD {
+            if npc.aggression.strikes >= NPC_HOSTILE_STRIKE_THRESHOLD {
                 writers.set_flag.write(SetFlagRequested {
                     id: super::super::super::npcs::npc_flag_id(&npc.config.id),
                     on: true,
@@ -106,7 +109,7 @@ pub(crate) fn apply_actor_hit(
                         &npc.config.interactable,
                         &npc.config.name,
                         &npc.config.id,
-                        npc.status.strikes,
+                        npc.aggression.strikes,
                     )
                     .to_string(),
                 });

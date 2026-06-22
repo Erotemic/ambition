@@ -35,14 +35,16 @@ pub struct NpcConfig {
     pub aerial: bool,
 }
 
-/// Per-tick NPC status: last-evaluated AI mode, hit-flash timer,
-/// hostility flag, and accumulated strike count.
+/// Per-tick NPC status: last-evaluated AI mode and hit-flash timer.
+///
+/// Hostility moved to the shared [`crate::features::ActorDisposition`] and the
+/// provocation accumulator to [`crate::features::ActorAggression::strikes`], so
+/// what remains is the transient per-tick presentation/AI scratch — itself
+/// folded into the unified `EnemyStatus` at the cluster merge.
 #[derive(Component, Clone, Copy, Debug, PartialEq)]
 pub struct NpcStatus {
     pub ai_mode: crate::actor::ai::CharacterAiMode,
     pub hit_flash: f32,
-    pub hostile: bool,
-    pub strikes: i32,
 }
 
 /// Mutable borrow of every component the NPC tick touches.
@@ -186,8 +188,6 @@ impl NpcClusterScratch {
             status: NpcStatus {
                 ai_mode: crate::actor::ai::CharacterAiMode::Idle,
                 hit_flash: 0.0,
-                hostile: false,
-                strikes: 0,
             },
             render_size,
         }

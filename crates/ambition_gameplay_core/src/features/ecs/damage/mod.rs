@@ -101,6 +101,10 @@ pub fn apply_feature_hit_events(
             // kinematics the enemy cluster query already holds mutably.
             Option<&mut super::npc_clusters::NpcStatus>,
             Option<&super::npc_clusters::NpcConfig>,
+            // Provoke accumulator + last attacker (shared aggression component).
+            // `Option` so minimal test fixtures that spawn a bare enemy/NPC
+            // without it still match; production actors always carry it.
+            Option<&mut super::super::components::ActorAggression>,
         ),
         // Bosses are handled by the disjoint `bosses` query; both take
         // `&mut BodyKinematics` (the unified component), so exclude bosses
@@ -210,6 +214,7 @@ pub fn apply_feature_hit_events(
             mut clusters,
             mut npc_status,
             npc_config,
+            mut aggression,
         ) in &mut actors
         {
             let prefix = match *disposition {
@@ -223,10 +228,12 @@ pub fn apply_feature_hit_events(
                 continue;
             }
             let mut em_opt = clusters.as_mut().map(|cq| cq.as_enemy_mut());
-            let npc_target = match (npc_status.as_deref_mut(), npc_config) {
-                (Some(status), Some(config)) => Some(NpcHitTarget {
+            let npc_target = match (npc_status.as_deref_mut(), npc_config, aggression.as_deref_mut())
+            {
+                (Some(status), Some(config), Some(aggr)) => Some(NpcHitTarget {
                     status,
                     config,
+                    aggression: aggr,
                     aabb: aabb.aabb(),
                 }),
                 _ => None,

@@ -184,6 +184,7 @@ pub fn reset_ecs_npc_actors(
             &mut ActorCombatState,
             &mut ActorIntent,
             &mut ActorCooldowns,
+            &mut super::ActorAggression,
         ),
         With<FeatureSimEntity>,
     >,
@@ -200,8 +201,14 @@ pub fn reset_ecs_npc_actors(
         mut combat,
         mut intent,
         mut cooldowns,
+        mut aggression,
     ) in &mut npcs
     {
+        // Provoke accumulator + last attacker live on the shared aggression
+        // component now; clear them so a struck-but-not-yet-hostile NPC starts
+        // the retried room fresh.
+        aggression.strikes = 0;
+        aggression.target = None;
         let mut npc = clusters.as_npc_mut();
         npc.reset_to_spawn();
         aabb.center = npc.kin.pos;

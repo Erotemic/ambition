@@ -61,6 +61,15 @@ pub struct BossStatus {
     /// has loaded. `None` for bosses whose sprite has no `body_metrics`
     /// entry (the legacy `combat_size` path applies).
     pub sprite_metrics: Option<BossSpriteMetrics>,
+    /// Entity-local copy of this boss's live encounter state (HP, phase,
+    /// stagger, timers). Mirrored from `BossEncounterRegistry` each frame by
+    /// `update_boss_encounters` (Stage 1b of the boss entity-local refactor —
+    /// see `docs/planning/boss-entity-local-refactor.md`). `None` until the
+    /// encounter is registered. Readers migrate onto this in Stage 3; in Stage 4
+    /// it becomes the source of truth and the global map is deleted. Keeping the
+    /// state ON the entity is what makes two of the same boss (a gauntlet) carry
+    /// independent fights by construction rather than by a string-keyed side map.
+    pub encounter: Option<crate::boss_encounter::BossEncounterState>,
 }
 
 /// Immutable borrow view over the boss clusters. Hosts the read-only
@@ -295,6 +304,7 @@ impl BossClusterScratch {
                 hit_flash: 0.0,
                 encounter_phase: BossEncounterPhase::Dormant,
                 sprite_metrics: None,
+                encounter: None,
             },
         }
     }

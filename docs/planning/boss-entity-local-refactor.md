@@ -157,11 +157,20 @@ Content (`ambition_content`):
       cut-rope + rewards still route through the kept `runtime_ids` (archetype→runtime) link.
       Canary: `two_same_archetype_bosses_have_independent_encounter_state`. The map is STILL a global
       resource — Stage 1b moves it onto the entity.
-- [ ] **Stage 1b — State onto the entity.** Make `BossEncounterState` a `Component`; `spawn_boss`
-      stamps it from the resolved profile. `record_boss_damage`/`boss_hit` mutate the entity's
-      component directly (drop the registry map for live state). `update_boss_encounters` ticks
-      per-entity over the component. HP/phase authority = the component; `BossStatus.health`/
-      `encounter_phase` become reads of it. Fix the stale `tests/boss_contact_iframes.rs` comment.
+- [x] **Stage 1b — State onto the entity (ADDITIVE foundation).** `BossStatus` now carries
+      `encounter: Option<BossEncounterState>`, mirrored from the per-entity registry state every
+      frame by `update_boss_encounters`. Purely additive (populated, not yet read), so zero behavior
+      change — but the live encounter state now lives ON the entity, which is what readers (Stage 3)
+      and then writers (Stage 4) migrate onto.
+      - NOTE on sequencing: a full "component IS the source of truth, drop the registry" flip is a
+        BIG-BANG, not incremental — every MUTATOR (player damage in `apply_boss_hit`, the cut-rope
+        environmental `force_death`, retry-reset) and every READER (`sync_boss_encounter_phase`,
+        HUD `active_phase`, music, lock-walls) must move together, or a registry-derived mirror
+        overwrites whatever a half-migrated mutator wrote. So the authority flip is consolidated into
+        Stage 4 (below); Stage 3 first migrates the READERS off the registry onto the entity copy.
+      - Reader-migration ordering gotcha: `update_boss_encounters` (progression schedule) and
+        `sync_boss_encounter_phase` (features schedule) have no explicit order, so a reader that
+        switches to the entity copy may see a one-frame-stale phase unless ordered after the mirror.
 - [ ] **Stage 2 — Phase transitions as triggers + transition-lock beat.** Add `transition_lock` +
       the trigger model (`HpBelow`/`TimeInPhase`/`External`). Default = fight-til-death (no Intro
       invuln unless opted in). Emit a "scream"/tell event on transition.

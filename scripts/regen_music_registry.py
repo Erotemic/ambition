@@ -50,19 +50,20 @@ SPECIAL_ENTRIES = [
 ]
 CLAIMED_DIRS = {"lofi_study_loop", "first_goblin_tune_v2"}
 
-# Generated dirs that exist but are NOT standalone radio songs.
-#   - ``*_choir_backing``: layered stems mixed UNDER a boss/stage cue.
+# Generated dirs that exist but should NOT appear as radio songs.
 #   - ``flying_spaghetti_monster_fight``: superseded by the ``roots`` family
-#     (the boss radio entry is ``flying_spaghetti_monster_roots_boss``).
-# Add an id here (or extend the stem suffix rule) to retire a cue from the
-# radio without deleting its render.
+#     (the boss now uses ``flying_spaghetti_monster_roots_boss_choir_backing``).
+# NOTE: ``*_choir_backing`` cues are NOT stems despite the name — they are the
+# fuller boss/stage arrangements (boss + choir) and the cues with live scores
+# under scores/active, so they ARE registered. Add an id here to retire a cue
+# from the radio without deleting its render.
 DENY_IDS = {
     "flying_spaghetti_monster_fight",
 }
 
 
 def is_denied(cue: str) -> bool:
-    return cue in DENY_IDS or cue.endswith("_choir_backing")
+    return cue in DENY_IDS
 
 
 # Curated display names. Anything not listed is title-cased from its id
@@ -95,7 +96,9 @@ DISPLAY_NAMES = {
     "flying_spaghetti_monster_pastafarian_stage": "Flying Spaghetti Monster (Pastafarian, Stage)",
     "flying_spaghetti_monster_roots_boss": "Flying Spaghetti Monster (Roots, Boss)",
     "flying_spaghetti_monster_roots_boss_brimstone": "Flying Spaghetti Monster (Roots, Boss — Brimstone)",
+    "flying_spaghetti_monster_roots_boss_choir_backing": "Flying Spaghetti Monster (Roots, Boss — Choir)",
     "flying_spaghetti_monster_roots_stage": "Flying Spaghetti Monster (Roots, Stage)",
+    "flying_spaghetti_monster_roots_stage_choir_backing": "Flying Spaghetti Monster (Roots, Stage — Choir)",
 }
 
 # Lowercased in the middle of a title (never first word).

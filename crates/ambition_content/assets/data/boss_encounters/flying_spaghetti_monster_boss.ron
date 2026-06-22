@@ -6,9 +6,10 @@
 // fields per ADR 0017 (Rust = behavior, RON = content). Behaviour (movement +
 // attack schedule) lives in `assets/data/boss_profiles.ron`.
 //
-// Music: `flying_spaghetti_monster_roots_boss` is the generated boss cue
-// (supersedes the retired `flying_spaghetti_monster_fight` mix). The
-// Will-Smith-eats-the-FSM finish + a per-phase music ramp are follow-ups.
+// Music: `flying_spaghetti_monster_roots_boss_choir_backing` is the generated
+// boss cue (the full roots arrangement with choir; supersedes the retired
+// `flying_spaghetti_monster_fight` mix). The Will-Smith-eats-the-FSM finish +
+// a per-phase music ramp are follow-ups.
 
 (
     id: "flying_spaghetti_monster_boss",
@@ -23,8 +24,8 @@
     death_seconds: 2.6,
     stagger_threshold: 7,
     stagger_window_seconds: 1.6,
-    music_intro: "flying_spaghetti_monster_roots_boss",
-    music_phase1: "flying_spaghetti_monster_roots_boss",
-    music_phase2: "flying_spaghetti_monster_roots_boss",
-    music_enrage: "flying_spaghetti_monster_roots_boss",
+    music_intro: "flying_spaghetti_monster_roots_boss_choir_backing",
+    music_phase1: "flying_spaghetti_monster_roots_boss_choir_backing",
+    music_phase2: "flying_spaghetti_monster_roots_boss_choir_backing",
+    music_enrage: "flying_spaghetti_monster_roots_boss_choir_backing",
 )

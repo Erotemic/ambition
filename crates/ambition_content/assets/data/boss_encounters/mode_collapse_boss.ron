@@ -8,8 +8,9 @@
 // (Rust = behavior, RON = content). Behaviour (movement + attack schedule)
 // lives in `assets/data/boss_profiles.ron`.
 //
-// Music: reuses `flying_spaghetti_monster_roots_boss` as a placeholder fight
-// cue — a bespoke "mode collapse" track (a loop that degenerates) is a handoff.
+// Music: reuses `flying_spaghetti_monster_roots_boss_choir_backing` as a
+// placeholder fight cue — a bespoke "mode collapse" track (a loop that
+// degenerates) is a handoff.
 (
     id: "mode_collapse_boss",
     name: "Mode Collapse",
@@ -23,8 +24,8 @@
     death_seconds: 2.6,
     stagger_threshold: 7,
     stagger_window_seconds: 1.6,
-    music_intro: "flying_spaghetti_monster_roots_boss",
-    music_phase1: "flying_spaghetti_monster_roots_boss",
-    music_phase2: "flying_spaghetti_monster_roots_boss",
-    music_enrage: "flying_spaghetti_monster_roots_boss",
+    music_intro: "flying_spaghetti_monster_roots_boss_choir_backing",
+    music_phase1: "flying_spaghetti_monster_roots_boss_choir_backing",
+    music_phase2: "flying_spaghetti_monster_roots_boss_choir_backing",
+    music_enrage: "flying_spaghetti_monster_roots_boss_choir_backing",
 )

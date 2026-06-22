@@ -74,6 +74,13 @@ QueryDatas both `&mut BodyKinematics`; you can't half-merge and still compile.
 So S2/S3 are prep that compiles green but the headline "one tick" win only lands
 at S4. This is a dedicated grind, not a session-end change.
 
+**→ Full execution brief written:
+[docs/planning/npc-enemy-unification.md](docs/planning/npc-enemy-unification.md)** —
+self-contained, 7 phases, for a fresh agent to run end-to-end. Captures Jon's
+Skyrim vision (relational/dynamic hostility, no actor "type", combat+dialogue
+universal) and the agent-pluggable-brain future. Kills the archetype-vs-catalog
+brain split (one resolver, `Brain` component authoritative).
+
 ---
 
 ## 0c. Debug box labels + FSM box flip-alignment (2026-06-22)

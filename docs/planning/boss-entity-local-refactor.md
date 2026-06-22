@@ -1,0 +1,187 @@
+# Boss encounter → entity-local refactor
+
+**Status:** in progress (started 2026-06-22)
+**Owner:** executing model (Opus 4.8), with Jon
+**Goal in one line:** "Spawn boss X (with tweaks Z) at position Y and it just works" — no
+global encounter registration, correct for gauntlets / multiple bosses at once, with
+phases as a trigger-driven property of the entity (its own mechanism, parallel to hitstun).
+
+This doc is the recoverable source of truth for the refactor. If context is lost, read this
+top-to-bottom, check `git log` for the stage commits, then resume at the first unchecked stage.
+
+---
+
+## Why (the smell)
+
+A boss today is split across three places and the **entity is the least authoritative**:
+
+- **`BossEncounterRegistry`** (a global `Resource`, `boss_encounter/registry.rs`) owns the live
+  truth: `encounters: BTreeMap<encounter_id_string, BossEncounterState>`. `BossEncounterState`
+  (`ambition_characters/src/boss_encounter.rs`) holds **HP, phase, the phase state machine,
+  stagger, timers**, and emits music/cutscene/reward events.
+- **`BossStatus.health` / `BossStatus.encounter_phase` on the entity are one-way MIRRORS**,
+  overwritten from the registry every frame by `update_boss_encounters`.
+- **The brain** (`BossPattern`) just reads the phase to choose patterns/movement.
+
+Damage flow: player slash → `HitEvent` → `record_boss_damage(registry, runtime_id_string)`
+(`boss_encounter/damage.rs`) → looks up the encounter via `runtime_ids: encounter_id → boss_id`
+→ mutates registry state → mirrors HP back onto the entity.
+
+### The core defect: live state is keyed by `encounter_id` (the archetype string), not by entity
+
+- **Two of the same boss collide.** Spawn two mockingbirds → both `link_runtime("mockingbird", …)`
+  and both mirror from the single `encounters["mockingbird"]` state → shared HP pool + shared
+  phase. **Gauntlets / multi-boss rooms are broken by construction.**
+- `active_phase()` returns "the one boss mid-fight" → music, lock-walls, HUD all assume a single
+  global active encounter.
+- Spawning a working boss depends on `update_boss_encounters` reaching into the global map and
+  wiring it by string (`systems.rs` lazy register/link/wake). Invisible coupling.
+- Phase is a monolithic 8-variant enum (`Dormant→Intro→Phase1→Transition→Phase2→Stagger→Enrage→
+  Death`) imposed on every boss, with baked-in invulnerable beats — not a per-boss/brain property.
+
+> NOTE: an earlier claim that "a programmatically-spawned boss isn't a registered encounter" was
+> imprecise. `update_boss_encounters` DOES auto-register/link/wake any boss in the room by its
+> `behavior.id`. The reasons a fresh spawned boss looked inert in the i-frame test were (a) the 2s
+> `Intro` invulnerability and (b) a room-edge transition resetting it away — both orthogonal to
+> this refactor. Fix the stale comment in `tests/boss_contact_iframes.rs` during Stage 1.
+
+---
+
+## Decisions (locked with Jon)
+
+1. **Full refactor**, not a partial: entity-local HP + entity-local phase state + pluggable phase
+   triggers + music/cutscene/rewards become entity-event consumers + delete the live registry map.
+2. **Phase transitions are their OWN parallel mechanism**, not literally the hitstun/recoil code.
+   They may *resemble* the "event → brief locked beat → exposed controls change" shape, but live in
+   their own component/system so combat-feel and boss-phase code stay decoupled.
+
+---
+
+## Target architecture
+
+**Everything the registry owned becomes entity-local components + entity-emitted messages.**
+
+### Components on the boss entity
+- `BossStatus.health` — already there; becomes the SOURCE OF TRUTH. Death = `health.current == 0`.
+- `BossEncounterState` — promoted from "value in a global map" to a **`Component`** on the entity.
+  Keeps its existing pure logic (`apply_player_damage`, `tick`, thresholds, stagger). Its `phase`
+  field is the authority; `BossStatus.encounter_phase` becomes a trivial read (or is removed).
+- Phase-transition triggers as data on the entity (see "phase model" below).
+
+### Reactions become message consumers (the existing pattern: `HitEvent`/`VfxMessage`/`EffectRequest`)
+- The entity emits `BossPhaseChanged { entity, from, to }`, `BossDefeated { entity, encounter_id }`,
+  `BossMusicRequested { entity, track }` (or reuse `BossEncounterEvent` carrying the entity).
+- Music / cutscene / banner / reward / lock-wall systems subscribe per-entity instead of reading
+  `registry.active_phase()`. Because events carry the entity, **multiple bosses never collide;
+  correctness is emergent from per-entity state.**
+
+### Registry shrinks to a read-only content catalog
+- Keep `profiles: BTreeMap<id, BossProfile>` (authored thresholds/music/reward DATA) + `specs_loaded`.
+- **Delete** `encounters` (live state) and `runtime_ids` (string routing). Spawn looks up the data
+  catalog, applies tweaks Z, stamps components. No registration, no linking, no wake-by-global-map.
+
+### Spawn
+- `spawn_boss_at(id, name, pos, brain, overrides Z)`: resolve profile data → apply Z → spawn entity
+  with `BossStatus{health}`, `BossEncounterState`, `Brain`, transition triggers. Done.
+- The `SpawnActorRequest::Boss` seam (already built) gains optional `overrides` for Z.
+
+### Persistence (the one thing the global gave us)
+- "This boss is cleared" is a SAVE concern, not live combat. Keep a `HashSet<encounter_id>` of
+  cleared bosses in save state, written when `BossDefeated` fires. Live fight is fully entity-local.
+
+---
+
+## Phase model (trigger-driven, its own mechanism)
+
+Reframe phases the way Jon described — a transition is something that *happens to* the entity
+(like getting hit triggers hitstun), gated by an external/internal trigger:
+
+- `BossEncounterState` keeps `phase` + `phase_elapsed` + a new **`transition_lock: f32`** (the brief
+  invulnerable "tell/scream" beat — its own field/timer, NOT the player's recoil_lock).
+- **Triggers are pluggable data** (extend the existing threshold model):
+  - `HpBelow(frac)` — the common case (already encoded as `phase1_to_transition_hp` etc.).
+  - `TimeInPhase(s)` — intro tell (already encoded as `intro_seconds` etc.).
+  - `External(gate: String)` — fired by a message (room switch, "all adds dead", cutscene cue).
+    **This is the gauntlet/scripted hook.**
+- **Default boss = no triggers → fights one phase until `health == 0`.** No forced Intro
+  invulnerability unless the boss opts in. (Today every boss is forced through Intro; make it opt-in.)
+- On a trigger firing: enter `transition_lock` (invulnerable + emit a "scream"/tell event), then on
+  lock expiry swap the brain's exposed phase (patterns/movement/available actions). The brain owns
+  *what each phase exposes*; this mechanism owns *when/how we move between them*.
+
+Keep the existing named `BossEncounterPhase` enum as the phase VOCABULARY for now (existing bosses
+are authored against it). Generalizing to arbitrary N phases can be a follow-up; the `External`
+trigger + entity-local state already unlock gauntlets without that.
+
+---
+
+## Blast radius (files that touch the registry today)
+
+Machinery (`ambition_gameplay_core`):
+- `boss_encounter/registry.rs` — the resource (shrink to profile catalog).
+- `boss_encounter/systems.rs` — `update_boss_encounters` register/wake/tick → per-entity.
+- `boss_encounter/damage.rs` — `record_boss_damage` / `force_boss_death` → operate on a component.
+- `boss_encounter/mod.rs` — re-exports.
+- `features/ecs/damage/boss_hit.rs` + `damage/mod.rs` — boss-hit applies damage (string-routed today).
+- `features/ecs/bosses/{mod,tick}.rs` — boss tick reads/syncs phase.
+- `features/ecs/encounter_rewards.rs` — reward on defeat.
+- `encounter/{registry,systems,lock_walls}.rs` — the *other* encounter layer (lock walls, music) reads `active_phase()`.
+- `session/reset/mod.rs` — reset / retry (`reset_for_retry`).
+- `persistence/save_data.rs` — save cleared bosses.
+- `combat/boss_clusters.rs` + `features/bosses.rs` — spawn/profile resolution.
+
+Characters (`ambition_characters`):
+- `boss_encounter.rs` — `BossEncounterState` state machine (make it a `Component`).
+- `brain/boss_pattern/mod.rs` — phase enum + `pattern_for`/`movement_for_phase`.
+
+App (`ambition_app`):
+- `app/hud.rs`, `app/sim_systems.rs`, `app/feedback.rs` — HUD/feedback read the active encounter.
+
+Content (`ambition_content`):
+- `bosses/cut_rope/{mod,arena,victory}.rs` — environmental boss uses `force_boss_death` + registry.
+- `bosses/mod.rs` — boss data install.
+
+---
+
+## Staged migration (each stage must COMPILE; commit as a checkpoint; then keep moving)
+
+- [ ] **Stage 0 — Safety net.** This doc. Plus a canary test
+      `two_bosses_take_independent_damage` (spawn two same-archetype bosses, damage one, assert the
+      other is untouched). Fails/awkward today (shared state); passes after Stage 1. Keep the
+      existing `boss_contact_iframes` + full boss-encounter test suite green throughout.
+- [ ] **Stage 1 — State onto the entity.** Make `BossEncounterState` a `Component`; `spawn_boss`
+      stamps it from the resolved profile. `record_boss_damage`/`boss_hit` mutate the entity's
+      component directly (drop string routing). `update_boss_encounters` ticks per-entity. HP/phase
+      authority = the component; `BossStatus.health`/`encounter_phase` become reads of it. Fix the
+      stale test comment. Registry keeps `profiles` only.
+- [ ] **Stage 2 — Phase transitions as triggers + transition-lock beat.** Add `transition_lock` +
+      the trigger model (`HpBelow`/`TimeInPhase`/`External`). Default = fight-til-death (no Intro
+      invuln unless opted in). Emit a "scream"/tell event on transition.
+- [ ] **Stage 3 — Reactions become entity-event consumers.** Music / cutscene / banner / rewards /
+      lock-walls subscribe to per-entity `BossPhaseChanged` / `BossDefeated` messages instead of
+      `registry.active_phase()`.
+- [ ] **Stage 4 — Delete the live registry map.** Remove `encounters` + `runtime_ids`; registry is a
+      read-only data catalog. Update all remaining call sites.
+- [ ] **Stage 5 — Save persistence.** `BossDefeated` → `cleared: HashSet<encounter_id>` in save.
+- [ ] **Stage 6 — Spawn seam tweaks Z.** `SpawnActorRequest::Boss { overrides }` + `spawn_boss_at`
+      applies hp/size/threshold overrides. Add a "spawn two different bosses, both fightable" test.
+
+---
+
+## Safety net / how we verify
+
+- Differential harness = the existing test suite stays green + new per-entity tests:
+  - `two_bosses_take_independent_damage` (Stage 0/1).
+  - `spawned_boss_skips_to_phase1_and_dies_from_player_damage` (entity-local death).
+  - `two_different_bosses_both_fightable` (Stage 6).
+- Replay/behavior may legitimately change (per ADR-style bold-refactor rule); the gate is "it
+  compiles + the boss tests encode the new contract." Commit each compiling stage.
+
+## Risks / open questions
+
+- The `encounter/` layer (lock walls, music gate) and the `cut_rope` content boss are the gnarliest
+  consumers of `active_phase()`; they assume one global active boss. Per-entity may change their UX
+  (e.g. which boss owns the music) — decide policy in Stage 3 (proposal: most-recently-aggroed boss
+  owns music; lock-walls keyed per arena, not global).
+- Disk on the dev VM is tight (was 100% full; freed the 32G `debug/incremental` cache). Watch space
+  across the many heavy rebuilds; `rm -rf target/debug/incremental` is the safe pressure valve.

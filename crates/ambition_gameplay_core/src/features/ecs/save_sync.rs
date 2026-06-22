@@ -30,7 +30,7 @@ pub fn sync_ecs_actors_with_save(
             // Talkable actors (NPCs) carry the interaction payload + a persisted
             // `npc_<id>_hostile` provoke flag.
             Option<&ActorInteraction>,
-            super::enemy_clusters::EnemyClusterQueryData,
+            super::actor_clusters::ActorClusterQueryData,
         ),
         With<FeatureSimEntity>,
     >,
@@ -51,7 +51,7 @@ pub fn sync_ecs_actors_with_save(
         mut cq,
     ) in &mut actors
     {
-        let id = cq.as_enemy_mut().config.id.clone();
+        let id = cq.as_actor_mut().config.id.clone();
         let dead_on_load = data.flag(&format!("enemy_{id}_dead"))
             || data.flag(&format!(
                 "enemy_{id}{}",
@@ -68,7 +68,7 @@ pub fn sync_ecs_actors_with_save(
                 _ => None,
             });
             aggression.mode = AggressionMode::HostileToPlayer;
-            let mut em = cq.as_enemy_mut();
+            let mut em = cq.as_actor_mut();
             super::actors::provoke_actor_in_place(
                 &mut commands,
                 entity,
@@ -88,7 +88,7 @@ pub fn sync_ecs_actors_with_save(
             // `_dead_until_rest` (OnRest policy) flags so an enemy killed in a
             // previous session/room visit stays dead. OnRoomReenter enemies
             // never write a flag, so they spawn alive.
-            let em = cq.as_enemy_mut();
+            let em = cq.as_actor_mut();
             if !em.config.id.starts_with("encounter:")
                 && !em.config.tuning.is_sandbag
                 && dead_on_load
@@ -98,7 +98,7 @@ pub fn sync_ecs_actors_with_save(
             }
         }
 
-        let em = cq.as_enemy_mut();
+        let em = cq.as_actor_mut();
         sync_actor_components_from_cluster(
             &em,
             *disposition,

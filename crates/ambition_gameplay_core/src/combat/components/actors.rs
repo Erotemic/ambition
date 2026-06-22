@@ -64,7 +64,7 @@ impl ActorDisposition {
 /// size instead of re-deriving `collision * collision_scale`, which would
 /// double-scale once the collision already equals the body.
 ///
-/// A SHARED actor component (not on `NpcConfig`/`EnemyConfig`) precisely so it
+/// A SHARED actor component (not on `NpcConfig`/`ActorConfig`) precisely so it
 /// survives a peaceful→hostile flip: when an NPC turns hostile the NPC-only
 /// cluster is swapped for the enemy cluster, but this component stays attached,
 /// so the actor keeps rendering at its authored size instead of ballooning.

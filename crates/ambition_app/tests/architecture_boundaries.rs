@@ -1251,21 +1251,21 @@ fn architecture_boundaries_enemy_sim_reads_data_not_the_archetype_enum() {
 
 #[test]
 fn architecture_boundaries_enemy_config_is_archetype_free() {
-    // The spawn-seam milestone: the DURABLE enemy component (`EnemyConfig`)
-    // and the per-frame mutable view (`EnemyMut`) carry projected generic
+    // The spawn-seam milestone: the DURABLE enemy component (`ActorConfig`)
+    // and the per-frame mutable view (`ActorMut`) carry projected generic
     // kit data — `tuning`, `brain_spec`, and the `CombatCapabilities`
     // component — so neither the per-frame integration nor the runtime
     // brain rebuilds (provoke, dismount) call back into the named roster.
     // That is what lets the roster (`EnemyArchetype` + specs + RON) leave
     // the machinery lib for `ambition_content`. The spawn-time
-    // `EnemyClusterSeed` is allowed to carry the enum (it is consumed
+    // `ActorClusterSeed` is allowed to carry the enum (it is consumed
     // before the entity exists), so this guards only the durable structs.
-    let text = fs::read_to_string(crate_src().join("features/ecs/enemy_clusters.rs"))
-        .expect("read enemy_clusters.rs");
-    for struct_name in ["pub struct EnemyConfig {", "pub struct EnemyMut<'a> {"] {
+    let text = fs::read_to_string(crate_src().join("features/ecs/actor_clusters.rs"))
+        .expect("read actor_clusters.rs");
+    for struct_name in ["pub struct ActorConfig {", "pub struct ActorMut<'a> {"] {
         let start = text
             .find(struct_name)
-            .unwrap_or_else(|| panic!("{struct_name} not found in enemy_clusters.rs"));
+            .unwrap_or_else(|| panic!("{struct_name} not found in actor_clusters.rs"));
         let body = &text[start..];
         let end = body
             .find("\n}")

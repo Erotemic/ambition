@@ -29,10 +29,10 @@ pub fn reset_ecs_room_features(
             &mut ActorCooldowns,
             &mut ActorAggression,
             Option<&ActorInteraction>,
-            super::enemy_clusters::EnemyClusterQueryData,
+            super::actor_clusters::ActorClusterQueryData,
         ),
         // Bosses are reset by the disjoint `bosses` query below. Both this
-        // query (via `EnemyClusterQueryData`) and the boss query take
+        // query (via `ActorClusterQueryData`) and the boss query take
         // `&mut BodyKinematics` — now the unified component — so exclude
         // bosses here so Bevy can prove the two queries never alias.
         (
@@ -104,7 +104,7 @@ pub fn reset_ecs_room_features(
         // cluster: morphed actors (PirateOnShark → PirateRaider /
         // BurningFlyingShark) return as their fused archetype, non-morphing
         // enemies to a clean baseline, and peaceful NPCs to their spawn pose.
-        let mut em = cq.as_enemy_mut();
+        let mut em = cq.as_actor_mut();
         em.reset_to_spawn();
         aabb.center = em.kin.pos;
         aabb.half_size = em.kin.size * 0.5;

@@ -42,7 +42,7 @@ fn peaceful_actor_damageable_volume_derives_pogo_overlay() {
             patrol_path_id: None,
         },
     );
-    let (seed, _render) = super::enemy_clusters::EnemyClusterSeed::new_peaceful_npc(
+    let (seed, _render) = super::actor_clusters::ActorClusterSeed::new_peaceful_npc(
         "guide",
         "Guide",
         aabb,
@@ -294,7 +294,7 @@ fn interact_buffered_starts_npc_dialogue() {
             patrol_path_id: None,
         },
     );
-    let (seed, _render) = super::enemy_clusters::EnemyClusterSeed::new_peaceful_npc(
+    let (seed, _render) = super::actor_clusters::ActorClusterSeed::new_peaceful_npc(
         "guide",
         "Guide",
         npc_aabb,

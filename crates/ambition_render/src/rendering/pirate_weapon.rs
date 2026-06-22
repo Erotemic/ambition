@@ -93,7 +93,7 @@ pub fn sync_pirate_weapon_visuals(
         &ambition_gameplay_core::features::ActorDisposition,
         &HeldItem,
         Option<&ambition_gameplay_core::features::BodyKinematics>,
-        Option<&ambition_gameplay_core::features::EnemyStatus>,
+        Option<&ambition_gameplay_core::features::ActorStatus>,
     )>,
     player_q: Query<
         &ambition_gameplay_core::player::BodyKinematics,

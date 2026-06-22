@@ -358,7 +358,19 @@ the biggest *capability*. Can be its own session if Phase 5 ran long.
   relation override. **Don't build the stealth/bounty systems here** — just make
   targeting *relational* so those systems have a seam to write to.
 
-### Phase 7 — Rename `Enemy*` → `Actor*`
+### Phase 7 — Rename `Enemy*` → `Actor*` ✅ DONE (Opus 4.8)
+_Mechanical rename of the unified cluster types now that nothing NPC-specific
+remains: `EnemyConfig`→`ActorConfig`, `EnemyStatus`→`ActorStatus`,
+`EnemyMut`→`ActorMut`, `EnemyClusterSeed`→`ActorClusterSeed`,
+`EnemyClusterQueryData(Item)`→`ActorClusterQueryData(Item)`,
+`EnemyTuning`→`ActorTuning`, `as_enemy_mut`→`as_actor_mut`,
+`enemy_clusters.rs`→`actor_clusters.rs`. Precise word-disjoint replacement across
+39 files; the archetype/roster DATA names stay (`EnemyArchetypeSpec`,
+`enemy_archetypes.ron`, `EnemyBrain`, `EnemyRoster`, `EnemyRespawnPolicy`,
+`EnemyBrainSpec/Template`). Deliberately left for a follow-up (out of brief
+scope): `EnemyActorBundle`/`EnemyActorSpawnPlan`, `enemy_component_snapshot`,
+`ecs_enemy_*` render helpers — all still "enemy"-named but used by the unified
+path. Build + 947 + 26 + 30 tests green._
 Pure mechanical rename once nothing NPC-specific remains: `EnemyConfig`→`ActorConfig`,
 `EnemyStatus`→`ActorStatus`, `EnemyMut`→`ActorMut`, `EnemyClusterSeed`→`ActorClusterSeed`,
 `EnemyTuning`→`ActorTuning`, `EnemyClusterQueryData`→`ActorClusterQueryData`,

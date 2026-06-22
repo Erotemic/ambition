@@ -42,7 +42,7 @@ pub(crate) fn apply_actor_hit(
     event: &HitEvent,
     actor_entity: Entity,
     disposition: ActorDisposition,
-    em: &mut super::super::enemy_clusters::EnemyMut<'_>,
+    em: &mut super::super::actor_clusters::ActorMut<'_>,
     aggression: Option<&mut crate::features::ActorAggression>,
     interactable: Option<&crate::interaction::Interactable>,
     banner: &mut GameplayBanner,

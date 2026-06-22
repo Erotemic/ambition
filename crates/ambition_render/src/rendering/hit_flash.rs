@@ -11,7 +11,7 @@
 //!
 //! Source-of-truth for the flash timer:
 //!
-//! - **Actor (NPC / enemy)**: `EnemyStatus::hit_flash` on the unified
+//! - **Actor (NPC / enemy)**: `ActorStatus::hit_flash` on the unified
 //!   `hit_flash: f32` (seconds remaining).
 //! - **Boss**: [`ambition_gameplay_core::features::BossStatus::hit_flash`].
 //! - **Player**: [`ambition_gameplay_core::player::PlayerCombatState::flash_timer`].
@@ -335,8 +335,8 @@ pub fn cleanup_hit_flash_overlays(
 /// | type | timer storage | set by damage |
 /// |------|---------------|---------------|
 /// | player | `PlayerCombatState::flash_timer` | `world_flow` damage paths |
-/// | enemy  | `EnemyStatus::hit_flash` (unified cluster) | actor damage paths |
-/// | NPC    | `EnemyStatus::hit_flash` (unified cluster) | actor damage paths |
+/// | enemy  | `ActorStatus::hit_flash` (unified cluster) | actor damage paths |
+/// | NPC    | `ActorStatus::hit_flash` (unified cluster) | actor damage paths |
 /// | boss   | `BossStatus::hit_flash` (boss cluster)   | boss damage paths |
 fn hit_flash_secs_for_source(
     feature: Option<&FeatureVisual>,
@@ -366,7 +366,7 @@ fn hit_flash_secs_for_source(
         if feature_id.as_str() != id {
             return None;
         }
-        // Hit-flash lives on the shared `EnemyStatus` for every actor now.
+        // Hit-flash lives on the shared `ActorStatus` for every actor now.
         status.map(|s| s.hit_flash)
     }) {
         return Some(secs);

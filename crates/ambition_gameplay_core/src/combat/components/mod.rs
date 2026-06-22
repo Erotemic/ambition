@@ -95,7 +95,7 @@ pub struct CombatCapabilities {
 /// behaviors). Carried as a field on the enemy config component so
 /// the per-frame systems never call back into a named archetype enum.
 #[derive(Clone, Copy, Debug, PartialEq)]
-pub struct EnemyTuning {
+pub struct ActorTuning {
     /// Full health pool at spawn / respawn-reset.
     pub max_health: i32,
     /// Patrol walking speed (px/s).
@@ -142,7 +142,7 @@ pub struct EnemyTuning {
     pub dream_seed: Option<f32>,
 }
 
-impl Default for EnemyTuning {
+impl Default for ActorTuning {
     fn default() -> Self {
         Self {
             max_health: 0,
@@ -168,7 +168,7 @@ impl Default for EnemyTuning {
     }
 }
 
-impl EnemyTuning {
+impl ActorTuning {
     /// Slot class this actor requests from the combat slot board.
     pub fn slot_kind(&self) -> crate::combat::slots::SlotKind {
         if self.is_aerial {
@@ -195,7 +195,7 @@ pub enum EnemyBrainTemplate {
     Wanderer,
     /// Approach-then-strike melee policy. Variety comes from the
     /// per-actor chase_speed / attack_range / aggro_radius in
-    /// [`EnemyTuning`].
+    /// [`ActorTuning`].
     MeleeBrute,
     /// Strafe-and-fire ranged policy. Maintains a standoff distance and
     /// emits `frame.fire` on a fixed cooldown.
@@ -219,7 +219,7 @@ pub enum EnemyBrainTemplate {
 /// the runtime brain rebuilds (provoke-to-hostile, dismount) can
 /// reconstruct the brain WITHOUT naming the content archetype enum. The
 /// numeric inputs (aggro/chase/attack/attacks_player) live in
-/// [`EnemyTuning`]; this carries the structural choices.
+/// [`ActorTuning`]; this carries the structural choices.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct EnemyBrainSpec {
     /// Which motion / AI policy template the brain instantiates.

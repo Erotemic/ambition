@@ -1,16 +1,16 @@
 //! Enemy physics/AI integration: the per-frame tick that drives enemy
-//! movement + attack geometry through the [`EnemyMut`] ECS view. Grounded
+//! movement + attack geometry through the [`ActorMut`] ECS view. Grounded
 //! enemies run the shared grounded movement spine (`integrate_normal_spine`
 //! + `step_kinematic` sweep); aerial enemies and the shark/rider composite
 //! go through [`super::super::step_floating_body`]. Attack AABBs are derived
 //! here; archetype tuning comes from the [`super::EnemyRoster`].
 
-use super::super::ecs::enemy_clusters::EnemyMut;
+use super::super::ecs::actor_clusters::ActorMut;
 use super::super::*;
 use super::*;
 
 /// Enemy physics/AI integration, operating directly on the authoritative
-/// ECS components through the [`EnemyMut`] view.
+/// ECS components through the [`ActorMut`] view.
 pub(crate) fn enemy_attack_aabb_dir(
     pos: ae::Vec2,
     size: ae::Vec2,
@@ -52,7 +52,7 @@ fn evaluate_enemy_ai_output(
     pos: ae::Vec2,
     target_pos: ae::Vec2,
     brain: &crate::actor::EnemyBrain,
-    tuning: &crate::combat::EnemyTuning,
+    tuning: &crate::combat::ActorTuning,
     attack: &crate::features::ActorAttackState,
     alive: bool,
 ) -> crate::actor::ai::CharacterAiOutput {
@@ -84,10 +84,10 @@ fn evaluate_enemy_ai_output(
 #[allow(clippy::too_many_arguments)]
 fn integrate_standard_enemy_body(
     world: &ae::World,
-    kin: &mut super::super::ecs::enemy_clusters::BodyKinematics,
+    kin: &mut super::super::ecs::actor_clusters::BodyKinematics,
     surface: &mut ActorSurfaceState,
-    motion: &mut super::super::ecs::enemy_clusters::ActorMotionPath,
-    tuning: &crate::combat::EnemyTuning,
+    motion: &mut super::super::ecs::actor_clusters::ActorMotionPath,
+    tuning: &crate::combat::ActorTuning,
     ai_intent: crate::actor::ai::CharacterAiIntent,
     is_aerial: bool,
     frame: &crate::actor::control::ActorControlFrame,
@@ -207,7 +207,7 @@ fn integrate_standard_enemy_body(
     }
 }
 
-impl<'a> EnemyMut<'a> {
+impl<'a> ActorMut<'a> {
     #[allow(clippy::too_many_arguments)]
     pub fn update(
         &mut self,

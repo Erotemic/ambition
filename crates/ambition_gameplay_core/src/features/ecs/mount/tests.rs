@@ -5,11 +5,11 @@ use super::super::CenteredAabb;
 use super::*;
 use bevy::prelude::*;
 
-type EnemyClusterBundle = (
-    super::super::enemy_clusters::BodyKinematics,
-    super::super::enemy_clusters::EnemyStatus,
-    super::super::enemy_clusters::EnemyConfig,
-    super::super::enemy_clusters::ActorMotionPath,
+type ActorClusterBundle = (
+    super::super::actor_clusters::BodyKinematics,
+    super::super::actor_clusters::ActorStatus,
+    super::super::actor_clusters::ActorConfig,
+    super::super::actor_clusters::ActorMotionPath,
     crate::features::ActorSurfaceState,
     crate::features::ActorAttackState,
     crate::combat::CombatCapabilities,
@@ -20,9 +20,9 @@ fn hostile(
     archetype_brain: &str,
     pos: ae::Vec2,
     size: ae::Vec2,
-) -> (crate::features::ActorDisposition, EnemyClusterBundle) {
+) -> (crate::features::ActorDisposition, ActorClusterBundle) {
     let aabb = ae::Aabb::new(pos, size * 0.5);
-    let mut enemy = super::super::enemy_clusters::EnemyClusterSeed::new(
+    let mut enemy = super::super::actor_clusters::ActorClusterSeed::new(
         id,
         id,
         aabb,
@@ -43,10 +43,10 @@ fn hostile(
 fn rider_kin(
     world: &bevy::prelude::World,
     e: bevy::prelude::Entity,
-) -> super::super::enemy_clusters::BodyKinematics {
+) -> super::super::actor_clusters::BodyKinematics {
     *world
         .entity(e)
-        .get::<super::super::enemy_clusters::BodyKinematics>()
+        .get::<super::super::actor_clusters::BodyKinematics>()
         .expect("enemy entity has BodyKinematics")
 }
 
@@ -159,7 +159,7 @@ fn spawn_pair(app: &mut App, mount_alive: bool, rider_alive: bool) -> (Entity, E
     let mount_pos = ae::Vec2::new(0.0, 0.0);
     let mount_size = ae::Vec2::new(126.0, 52.0);
     let mut mount_actor = hostile("mount", "burning_flying_shark", mount_pos, mount_size);
-    // .1 = EnemyClusterBundle, .1.1 = EnemyStatus.
+    // .1 = ActorClusterBundle, .1.1 = ActorStatus.
     mount_actor.1 .1.alive = mount_alive;
     let mount = app
         .world_mut()
@@ -175,7 +175,7 @@ fn spawn_pair(app: &mut App, mount_alive: bool, rider_alive: bool) -> (Entity, E
     let rider_pos = ae::Vec2::new(0.0, -40.0);
     let rider_size = ae::Vec2::new(44.0, 78.0);
     let mut rider_actor = hostile("rider", "pirate_raider", rider_pos, rider_size);
-    // .1.1 = EnemyStatus, .1.4 = ActorSurfaceState.
+    // .1.1 = ActorStatus, .1.4 = ActorSurfaceState.
     rider_actor.1 .1.alive = rider_alive;
     rider_actor.1 .4.gravity_scale = 0.0;
     let rider = app
@@ -262,7 +262,7 @@ fn reviving_mount_re_arms_rider_to_mounted_brain() {
     // true (reset_to_spawn would do this). The enforcer should
     // re-arm the link on the next tick.
     app.world_mut()
-        .get_mut::<crate::features::EnemyStatus>(mount)
+        .get_mut::<crate::features::ActorStatus>(mount)
         .unwrap()
         .alive = true;
     app.update();
@@ -311,7 +311,7 @@ fn dead_rider_does_not_disturb_mount_records() {
     assert!(
         app.world()
             .entity(mount)
-            .get::<crate::features::EnemyStatus>()
+            .get::<crate::features::ActorStatus>()
             .unwrap()
             .alive,
         "mount stays alive when rider dies"

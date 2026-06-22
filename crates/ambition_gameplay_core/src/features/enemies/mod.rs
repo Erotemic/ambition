@@ -280,7 +280,7 @@ static ENEMY_ARCHETYPE_REGISTRY: std::sync::LazyLock<
 ///
 /// Held as an installable global (not a Bevy `Resource`) because spec
 /// resolution is read from many non-system contexts — plain constructors
-/// (`EnemyClusterSeed::new`), presentation sprite-binding
+/// (`ActorClusterSeed::new`), presentation sprite-binding
 /// (`presentation::rendering::world`), and asset resolution
 /// (`assets::game_assets`) — where threading `Res<EnemyRoster>` would be a
 /// pervasive, ugly ripple. The content layer installs the real table at
@@ -498,9 +498,9 @@ impl EnemyArchetypeSpec {
         }
     }
 
-    /// Project the per-frame runtime tuning carried on `EnemyConfig.tuning`.
-    pub(crate) fn tuning(&self) -> crate::combat::EnemyTuning {
-        crate::combat::EnemyTuning {
+    /// Project the per-frame runtime tuning carried on `ActorConfig.tuning`.
+    pub(crate) fn tuning(&self) -> crate::combat::ActorTuning {
+        crate::combat::ActorTuning {
             max_health: self.max_health,
             patrol_speed: self.patrol_speed,
             chase_speed: self.chase_speed,

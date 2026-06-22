@@ -1,15 +1,17 @@
-//! Authoritative ECS components for an enemy actor + the `EnemyMut`
-//! view that the per-tick integration mutates in place.
+//! Authoritative ECS components for the UNIFIED actor cluster (every actor —
+//! was-NPC, was-enemy, encounter mob — shares this one cluster) + the `ActorMut`
+//! view the per-tick integration mutates in place.
 //!
-//! Enemy state lives as ECS components. Per-tick systems borrow those
-//! components through [`EnemyMut`] instead of rebuilding a runtime blob.
+//! Actor state lives as ECS components. Per-tick systems borrow those components
+//! through [`ActorMut`] instead of rebuilding a runtime blob. Hostility is the
+//! `ActorDisposition` state, not a cluster *type*.
 //!
 //! Field → component map:
 //! - pos/vel/size/facing      → [`BodyKinematics`]
 //! - on_ground/normal/gravity/air_jumps → [`ActorSurfaceState`] (component)
 //! - attack windup/active/cooldown/axis → [`ActorAttackState`] (component)
-//! - alive/respawn/hit_flash/ai_mode/health → [`EnemyStatus`]
-//! - tuning/brain_spec/brain/spawn baseline/sprite override/id/name → [`EnemyConfig`]
+//! - alive/respawn/hit_flash/ai_mode/health → [`ActorStatus`]
+//! - tuning/brain_spec/brain/spawn baseline/sprite override/id/name → [`ActorConfig`]
 //! - patrol path             → [`ActorMotionPath`]
 
 use bevy::ecs::query::QueryData;
@@ -29,7 +31,7 @@ pub use crate::platformer_runtime::body::BodyKinematics;
 /// Liveness + per-tick status scalars: alive flag, respawn countdown,
 /// hit-flash timer, last-evaluated AI mode, and current health.
 #[derive(Component, Clone, Copy, Debug, PartialEq)]
-pub struct EnemyStatus {
+pub struct ActorStatus {
     pub alive: bool,
     pub respawn_timer: f32,
     pub hit_flash: f32,
@@ -37,20 +39,19 @@ pub struct EnemyStatus {
     pub health: crate::actor::Health,
 }
 
-/// Authored configuration + identity for an enemy actor. Archetype-free
-/// by construction: the named roster enum is resolved at spawn and
-/// projected into generic kit data (`tuning` + `brain_spec` + the
-/// `CombatCapabilities` component), so neither the per-frame integration
-/// nor the runtime brain rebuilds (provoke, dismount) call back into the
-/// content roster. `spawn` records the authored baseline
-/// `reset_to_spawn` restores.
+/// Authored configuration + identity for an actor (any disposition). Archetype-
+/// free by construction: the named roster enum is resolved at spawn and projected
+/// into generic kit data (`tuning` + `brain_spec` + the `CombatCapabilities`
+/// component), so neither the per-frame integration nor the runtime brain
+/// rebuilds (provoke, dismount) call back into the content roster. `spawn` records
+/// the authored baseline `reset_to_spawn` restores.
 #[derive(Component, Clone, Debug)]
-pub struct EnemyConfig {
+pub struct ActorConfig {
     pub id: String,
     pub name: String,
     /// Per-frame runtime tuning snapshot (kit vocabulary), projected
     /// from the archetype's authored spec at spawn.
-    pub tuning: crate::combat::EnemyTuning,
+    pub tuning: crate::combat::ActorTuning,
     /// Generic brain-construction inputs (kit vocabulary), projected
     /// from the archetype at spawn so the runtime brain rebuilds
     /// reconstruct a brain without naming the roster enum.
@@ -68,13 +69,13 @@ pub struct EnemyConfig {
 pub struct ActorMotionPath(pub Option<PathMotion>);
 
 /// Mutable borrow of every component the enemy integration touches,
-/// assembled from a Bevy query via [`EnemyClusterQueryData`].
-pub struct EnemyMut<'a> {
+/// assembled from a Bevy query via [`ActorClusterQueryData`].
+pub struct ActorMut<'a> {
     pub kin: &'a mut BodyKinematics,
-    pub status: &'a mut EnemyStatus,
+    pub status: &'a mut ActorStatus,
     pub surface: &'a mut ActorSurfaceState,
     pub attack: &'a mut ActorAttackState,
-    pub config: &'a mut EnemyConfig,
+    pub config: &'a mut ActorConfig,
     pub motion: &'a mut ActorMotionPath,
     /// Spawn-resolved special-behavior flags (kit vocabulary). Read-only:
     /// the per-frame integration and the damage hook branch on these
@@ -84,24 +85,24 @@ pub struct EnemyMut<'a> {
 
 #[derive(QueryData)]
 #[query_data(mutable)]
-pub struct EnemyClusterQueryData {
+pub struct ActorClusterQueryData {
     pub kin: &'static mut BodyKinematics,
-    pub status: &'static mut EnemyStatus,
+    pub status: &'static mut ActorStatus,
     pub surface: &'static mut ActorSurfaceState,
     pub attack: &'static mut ActorAttackState,
-    pub config: &'static mut EnemyConfig,
+    pub config: &'static mut ActorConfig,
     pub motion: &'static mut ActorMotionPath,
     pub caps: &'static crate::combat::CombatCapabilities,
 }
 
-impl<'w, 's> EnemyClusterQueryDataItem<'w, 's> {
-    /// Borrow the components as an [`EnemyMut`] view for one tick.
-    pub fn as_enemy_mut<'a>(&'a mut self) -> EnemyMut<'a>
+impl<'w, 's> ActorClusterQueryDataItem<'w, 's> {
+    /// Borrow the components as an [`ActorMut`] view for one tick.
+    pub fn as_actor_mut<'a>(&'a mut self) -> ActorMut<'a>
     where
         'w: 'a,
         's: 'a,
     {
-        EnemyMut {
+        ActorMut {
             kin: &mut self.kin,
             status: &mut self.status,
             surface: &mut self.surface,
@@ -114,14 +115,14 @@ impl<'w, 's> EnemyClusterQueryDataItem<'w, 's> {
 }
 
 /// Owned seed used to construct the enemy ECS component cluster before spawn.
-/// Runtime systems should query [`EnemyClusterQueryData`] instead.
+/// Runtime systems should query [`ActorClusterQueryData`] instead.
 #[derive(Clone, Debug)]
-pub struct EnemyClusterSeed {
+pub struct ActorClusterSeed {
     pub kin: BodyKinematics,
-    pub status: EnemyStatus,
+    pub status: ActorStatus,
     pub surface: ActorSurfaceState,
     pub attack: ActorAttackState,
-    pub config: EnemyConfig,
+    pub config: ActorConfig,
     pub motion: ActorMotionPath,
     /// Spawn-resolved special-behavior flags (kit vocabulary), spawned
     /// alongside the clusters by [`Self::into_components`].
@@ -129,7 +130,7 @@ pub struct EnemyClusterSeed {
     /// The authored roster spec (resolved by string key from the spawn
     /// brain). Spawn-time ONLY: brain / combat-kit / held-item construction
     /// reads it here before the entity exists; it is deliberately NOT
-    /// carried onto any spawned component, so the persisted [`EnemyConfig`]
+    /// carried onto any spawned component, so the persisted [`ActorConfig`]
     /// stays roster-free. The named `EnemyArchetype` enum never reaches the
     /// spawn path — only this data does. `pub(crate)`: the seed type itself is
     /// publicly re-exported (content builds peaceful seeds) but this archetype
@@ -137,7 +138,7 @@ pub struct EnemyClusterSeed {
     pub(crate) spec: EnemyArchetypeSpec,
 }
 
-impl EnemyClusterSeed {
+impl ActorClusterSeed {
     /// Build enemy component seed state from authored spawn inputs.
     pub fn new(
         id: impl Into<String>,
@@ -168,7 +169,7 @@ impl EnemyClusterSeed {
                 size,
                 facing: -1.0,
             },
-            status: EnemyStatus {
+            status: ActorStatus {
                 alive: true,
                 respawn_timer: 0.0,
                 hit_flash: 0.0,
@@ -182,7 +183,7 @@ impl EnemyClusterSeed {
                 air_jumps_remaining: MAX_ENEMY_AIR_JUMPS,
             },
             attack: ActorAttackState::default(),
-            config: EnemyConfig {
+            config: ActorConfig {
                 id: id.into(),
                 name: name.into(),
                 tuning: spec.tuning(),
@@ -269,7 +270,7 @@ impl EnemyClusterSeed {
             None => (ldtk_collision, None),
         };
         let has_patrol = patrol_radius > 0.0 || motion.is_some();
-        let tuning = crate::combat::EnemyTuning {
+        let tuning = crate::combat::ActorTuning {
             max_health: 1,
             patrol_speed: crate::brain::NPC_PATROL_SPEED,
             chase_speed: crate::brain::NPC_PATROL_SPEED,
@@ -291,7 +292,7 @@ impl EnemyClusterSeed {
                 size: collision_size,
                 facing: 1.0,
             },
-            status: EnemyStatus {
+            status: ActorStatus {
                 alive: true,
                 respawn_timer: 0.0,
                 hit_flash: 0.0,
@@ -305,7 +306,7 @@ impl EnemyClusterSeed {
                 air_jumps_remaining: 0,
             },
             attack: ActorAttackState::default(),
-            config: EnemyConfig {
+            config: ActorConfig {
                 id: id.into(),
                 name: name.into(),
                 tuning,
@@ -339,7 +340,7 @@ impl EnemyClusterSeed {
         frame: crate::actor::control::ActorControlFrame,
         gravity_dir: ae::Vec2,
     ) -> crate::actor::control::ActorControlFrame {
-        EnemyMut {
+        ActorMut {
             kin: &mut self.kin,
             status: &mut self.status,
             surface: &mut self.surface,
@@ -365,8 +366,8 @@ impl EnemyClusterSeed {
         self,
     ) -> (
         BodyKinematics,
-        EnemyStatus,
-        EnemyConfig,
+        ActorStatus,
+        ActorConfig,
         ActorMotionPath,
         ActorSurfaceState,
         ActorAttackState,

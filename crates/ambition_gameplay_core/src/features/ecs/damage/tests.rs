@@ -13,7 +13,7 @@ use bevy::prelude::{App, Update};
 
 fn spawn_hostile_actor(app: &mut App) -> bevy::prelude::Entity {
     let aabb = ae::Aabb::new(ae::Vec2::ZERO, ae::Vec2::new(24.0, 40.0));
-    let mut enemy = crate::features::ecs::enemy_clusters::EnemyClusterSeed::new(
+    let mut enemy = crate::features::ecs::actor_clusters::ActorClusterSeed::new(
         "kernel_guide".to_string(),
         "Kernel Guide".to_string(),
         aabb,
@@ -113,7 +113,7 @@ fn enemy_charge_crash_is_processed_as_enemy_damage() {
     );
     let status = app
         .world()
-        .get::<super::super::enemy_clusters::EnemyStatus>(actor_entity)
+        .get::<super::super::actor_clusters::ActorStatus>(actor_entity)
         .expect("hostile actor cluster status exists");
     assert!(
         !status.alive,
@@ -163,7 +163,7 @@ fn player_slash_damages_and_can_kill_a_hostile_actor() {
     );
     assert!(
         app.world()
-            .get::<super::super::enemy_clusters::EnemyStatus>(actor_entity)
+            .get::<super::super::actor_clusters::ActorStatus>(actor_entity)
             .unwrap()
             .alive,
         "the enemy should still be alive after one slash"
@@ -192,7 +192,7 @@ fn player_slash_damages_and_can_kill_a_hostile_actor() {
     );
     assert!(
         !app.world()
-            .get::<super::super::enemy_clusters::EnemyStatus>(actor_entity)
+            .get::<super::super::actor_clusters::ActorStatus>(actor_entity)
             .unwrap()
             .alive,
         "the killed enemy should be marked dead"
@@ -216,7 +216,7 @@ fn slash_clung_surface_walker(cling_breaks_on_hit: bool) -> (App, bevy::prelude:
     {
         let mut cfg = app
             .world_mut()
-            .get_mut::<super::super::enemy_clusters::EnemyConfig>(actor)
+            .get_mut::<super::super::actor_clusters::ActorConfig>(actor)
             .unwrap();
         cfg.tuning.surface_walker = true;
         cfg.tuning.cling_breaks_on_hit = cling_breaks_on_hit;
@@ -265,7 +265,7 @@ fn struck_cling_breaker_loses_its_surface_and_falls() {
     );
     let kin = app
         .world()
-        .get::<super::super::enemy_clusters::BodyKinematics>(actor)
+        .get::<super::super::actor_clusters::BodyKinematics>(actor)
         .unwrap();
     assert!(
         kin.vel.x > 0.0,

@@ -48,7 +48,7 @@ pub fn spawn_enemy_projectiles_from_brain_actions(
     mut sfx: MessageWriter<SfxMessage>,
     mut actors: Query<(
         &super::super::components::ActorDisposition,
-        Option<super::enemy_clusters::EnemyClusterQueryData>,
+        Option<super::actor_clusters::ActorClusterQueryData>,
     )>,
     held_items: Query<&super::HeldItem>,
     // A possessed actor fires player-faction shots (the faction-aware pool then
@@ -79,7 +79,7 @@ pub fn spawn_enemy_projectiles_from_brain_actions(
         let Some(mut cq) = clusters else {
             continue;
         };
-        let enemy = cq.as_enemy_mut();
+        let enemy = cq.as_actor_mut();
         if !enemy.status.alive {
             continue;
         }
@@ -169,7 +169,7 @@ pub fn start_enemy_melee_from_brain_actions(
     feel_tuning: Res<SandboxFeelTuning>,
     mut actors: Query<(
         &super::super::components::ActorDisposition,
-        Option<super::enemy_clusters::EnemyClusterQueryData>,
+        Option<super::actor_clusters::ActorClusterQueryData>,
     )>,
 ) {
     let combat_tuning = feel_tuning.feature_combat_tuning();
@@ -188,7 +188,7 @@ pub fn start_enemy_melee_from_brain_actions(
         let Some(mut cq) = clusters else {
             continue;
         };
-        let mut enemy = cq.as_enemy_mut();
+        let mut enemy = cq.as_actor_mut();
         // The ActionSet → ActorActionMessage seam is the attack-policy gate:
         // if a hostile actor produced a Melee message, it owns a melee verb
         // for this state even when its authored archetype is normally peaceful
@@ -215,7 +215,7 @@ mod tests {
     use crate::brain::{ActionSet, RangedActionSpec};
     use crate::enemy_projectile::test_support::enemy_projectile_bodies;
     use crate::enemy_projectile::EnemyProjectileState;
-    use crate::features::ecs::enemy_clusters::EnemyClusterSeed;
+    use crate::features::ecs::actor_clusters::ActorClusterSeed;
     use crate::projectile::ProjectileSeqCounter;
 
     /// Build a rider-shaped hostile actor: standalone PirateRaider
@@ -223,11 +223,11 @@ mod tests {
     /// attach a [`crate::features::RidingOn`] component to the
     /// spawned entity so the ranged-projectile handler routes the
     /// fire through the lasersword path.
-    type EnemyClusterBundle = (
-        super::super::enemy_clusters::BodyKinematics,
-        super::super::enemy_clusters::EnemyStatus,
-        super::super::enemy_clusters::EnemyConfig,
-        super::super::enemy_clusters::ActorMotionPath,
+    type ActorClusterBundle = (
+        super::super::actor_clusters::BodyKinematics,
+        super::super::actor_clusters::ActorStatus,
+        super::super::actor_clusters::ActorConfig,
+        super::super::actor_clusters::ActorMotionPath,
         crate::features::ActorSurfaceState,
         crate::features::ActorAttackState,
         crate::combat::CombatCapabilities,
@@ -235,8 +235,8 @@ mod tests {
 
     /// Spawnable (disposition + clusters) bundle for an enemy test fixture.
     fn enemy_actor(
-        enemy: EnemyClusterSeed,
-    ) -> (crate::features::ActorDisposition, EnemyClusterBundle) {
+        enemy: ActorClusterSeed,
+    ) -> (crate::features::ActorDisposition, ActorClusterBundle) {
         (
             crate::features::ActorDisposition::Hostile,
             enemy.into_components(),
@@ -245,9 +245,9 @@ mod tests {
 
     fn pirate_rider_actor(
         pos: ae::Vec2,
-    ) -> (crate::features::ActorDisposition, EnemyClusterBundle) {
+    ) -> (crate::features::ActorDisposition, ActorClusterBundle) {
         let aabb = ae::Aabb::new(pos, ae::Vec2::new(14.0, 23.0));
-        let enemy = EnemyClusterSeed::new(
+        let enemy = ActorClusterSeed::new(
             "rider_a",
             "Pirate Raider",
             aabb,
@@ -286,7 +286,7 @@ mod tests {
         // here; the consumer only branches on archetype for origin
         // and owner_id formatting.
         let aabb = ae::Aabb::new(actor_pos, ae::Vec2::new(14.0, 23.0));
-        let enemy = EnemyClusterSeed::new(
+        let enemy = ActorClusterSeed::new(
             "skitter_a",
             "Skitter",
             aabb,
@@ -323,7 +323,7 @@ mod tests {
         let mut app = build_app();
         let actor_pos = ae::Vec2::new(300.0, 300.0);
         let aabb = ae::Aabb::new(actor_pos, ae::Vec2::new(14.0, 23.0));
-        let enemy = EnemyClusterSeed::new(
+        let enemy = ActorClusterSeed::new(
             "side_gravity_shooter",
             "Skitter",
             aabb,
@@ -365,7 +365,7 @@ mod tests {
         let mut app = build_app();
         let actor_pos = ae::Vec2::new(300.0, 300.0);
         let mut actor_runtime = pirate_rider_actor(actor_pos);
-        // .1 = cluster bundle, .1.1 = EnemyStatus.
+        // .1 = cluster bundle, .1.1 = ActorStatus.
         actor_runtime.1 .1.alive = false;
         let actor = app.world_mut().spawn(actor_runtime).id();
         app.world_mut()
@@ -408,7 +408,7 @@ mod tests {
 
         let actor_pos = ae::Vec2::new(300.0, 300.0);
         let aabb = ae::Aabb::new(actor_pos, ae::Vec2::new(20.0, 24.0));
-        let mut enemy = EnemyClusterSeed::new(
+        let mut enemy = ActorClusterSeed::new(
             "striker_a",
             "Striker",
             aabb,
@@ -436,7 +436,7 @@ mod tests {
             .unwrap();
         let status = *app
             .world()
-            .get::<crate::features::EnemyStatus>(actor)
+            .get::<crate::features::ActorStatus>(actor)
             .unwrap();
         assert!(
             attack.windup_timer > pre_windup,
@@ -471,7 +471,7 @@ mod tests {
 
         let actor_pos = ae::Vec2::new(300.0, 300.0);
         let aabb = ae::Aabb::new(actor_pos, ae::Vec2::new(36.0, 55.0));
-        let mut enemy = EnemyClusterSeed::new(
+        let mut enemy = ActorClusterSeed::new(
             "iron_mary_dismounted",
             "Iron Mary",
             aabb,
@@ -512,7 +512,7 @@ mod tests {
             .unwrap();
         let status = *app
             .world()
-            .get::<crate::features::EnemyStatus>(actor)
+            .get::<crate::features::ActorStatus>(actor)
             .unwrap();
         assert!(
             attack.windup_timer > 0.0,
@@ -538,7 +538,7 @@ mod tests {
 
         let actor_pos = ae::Vec2::new(300.0, 300.0);
         let aabb = ae::Aabb::new(actor_pos, ae::Vec2::new(20.0, 24.0));
-        let mut enemy = EnemyClusterSeed::new(
+        let mut enemy = ActorClusterSeed::new(
             "striker_a",
             "Striker",
             aabb,

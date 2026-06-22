@@ -216,7 +216,7 @@ impl SandboxSim {
         // collection assertions. Read once per tick; cheap.
         let mut enemy_query = self.app.world_mut().query::<(
             &ambition_gameplay_core::player::BodyKinematics,
-            &ambition_gameplay_core::features::EnemyStatus,
+            &ambition_gameplay_core::features::ActorStatus,
         )>();
         let mut pickup_query = self
             .app

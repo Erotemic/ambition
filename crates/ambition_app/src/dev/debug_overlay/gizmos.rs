@@ -609,7 +609,7 @@ pub(crate) fn draw_feature_debug(
         if hostile {
             if let (Some(kin), Some(attack)) = (kin, attack) {
                 // Forward-swing hitbox geometry (matches
-                // EnemyMut::attack_aabb): offset by facing.
+                // ActorMut::attack_aabb): offset by facing.
                 let center = kin.pos
                     + ambition_gameplay_core::engine_core::Vec2::new(
                         kin.facing * (kin.size.x * 0.55 + 24.0),

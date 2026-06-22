@@ -34,7 +34,7 @@ pub fn apply_actor_stimuli(
             &mut ActorCombatState,
             &mut ActorIntent,
             &mut ActorCooldowns,
-            super::enemy_clusters::EnemyClusterQueryData,
+            super::actor_clusters::ActorClusterQueryData,
         ),
         With<FeatureSimEntity>,
     >,
@@ -85,7 +85,7 @@ pub fn apply_actor_stimuli(
             _ => None,
         });
 
-        let mut em = cq.as_enemy_mut();
+        let mut em = cq.as_actor_mut();
         super::actors::provoke_actor_in_place(
             &mut commands,
             entity,
@@ -130,7 +130,7 @@ mod tests {
             },
         );
         // Peaceful actor = the unified enemy cluster with peaceful tuning.
-        let (seed, _render) = super::super::enemy_clusters::EnemyClusterSeed::new_peaceful_npc(
+        let (seed, _render) = super::super::actor_clusters::ActorClusterSeed::new_peaceful_npc(
             "alice",
             "Alice",
             aabb,

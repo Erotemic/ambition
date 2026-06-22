@@ -20,7 +20,7 @@ pub fn refresh_actor_damageable_volumes(
         (
             &CenteredAabb,
             &ActorDisposition,
-            Option<&super::enemy_clusters::EnemyStatus>,
+            Option<&super::actor_clusters::ActorStatus>,
             &mut DamageableVolumes,
         ),
         With<FeatureSimEntity>,

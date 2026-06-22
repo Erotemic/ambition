@@ -59,7 +59,7 @@ pub(crate) fn hostile_spec_for_actor(
 /// disposition. Peaceful actors get a peaceful `ActorCombatState`; hostile actors
 /// the full hostile combat state.
 pub fn actor_component_snapshot(
-    seed: &super::super::enemy_clusters::EnemyClusterSeed,
+    seed: &super::super::actor_clusters::ActorClusterSeed,
     disposition: ActorDisposition,
 ) -> (
     ActorIdentity,
@@ -96,7 +96,7 @@ pub fn actor_component_snapshot(
 
 /// Hostile spawn read-models (the common case for authored enemies).
 pub fn enemy_component_snapshot(
-    enemy: &super::super::enemy_clusters::EnemyClusterSeed,
+    enemy: &super::super::actor_clusters::ActorClusterSeed,
 ) -> (
     ActorIdentity,
     ActorDisposition,
@@ -121,7 +121,7 @@ pub fn enemy_component_snapshot(
 pub(crate) fn provoke_actor_in_place(
     commands: &mut Commands,
     entity: Entity,
-    em: &mut super::super::enemy_clusters::EnemyMut<'_>,
+    em: &mut super::super::actor_clusters::ActorMut<'_>,
     disposition: &mut ActorDisposition,
     combat_kit: &CombatKit,
     held_item: Option<&HeldItem>,

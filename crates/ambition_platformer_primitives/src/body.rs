@@ -1,7 +1,7 @@
 //! Unified body kinematics for every controllable platformer body.
 //!
 //! Systems that hold multiple mutable [`BodyKinematics`] queries must prove
-//! them disjoint with marker filters (`With<PlayerEntity>`, `With<EnemyConfig>`,
+//! them disjoint with marker filters (`With<PlayerEntity>`, `With<ActorConfig>`,
 //! `With<BossConfig>`, plus `Without<...>` guards where needed). Do that with
 //! filters, never by re-splitting the component.
 

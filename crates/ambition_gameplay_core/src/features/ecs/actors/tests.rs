@@ -179,9 +179,9 @@ fn aerial_actors_crowd_at_a_wider_radius_than_ground() {
     );
 }
 
-fn burning_shark_enemy() -> super::enemy_clusters::EnemyClusterSeed {
+fn burning_shark_enemy() -> super::actor_clusters::ActorClusterSeed {
     let aabb = ae::Aabb::new(ae::Vec2::ZERO, ae::Vec2::new(126.0, 52.0));
-    super::enemy_clusters::EnemyClusterSeed::new(
+    super::actor_clusters::ActorClusterSeed::new(
         "burning_shark".to_string(),
         "Burning Shark".to_string(),
         aabb,

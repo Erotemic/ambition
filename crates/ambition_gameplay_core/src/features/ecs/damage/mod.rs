@@ -99,7 +99,7 @@ pub fn apply_feature_hit_events(
             Option<&mut super::super::components::ActorAggression>,
             // Dialogue payload — present on talkable actors (drives barks).
             Option<&super::super::components::ActorInteraction>,
-            super::enemy_clusters::EnemyClusterQueryData,
+            super::actor_clusters::ActorClusterQueryData,
         ),
         // Bosses are handled by the disjoint `bosses` query; both take
         // `&mut BodyKinematics` (the unified component), so exclude bosses
@@ -218,7 +218,7 @@ pub fn apply_feature_hit_events(
                 continue;
             }
             let interactable = interaction.map(|i| &i.interactable);
-            let mut em = cq.as_enemy_mut();
+            let mut em = cq.as_actor_mut();
             if apply_actor_hit(
                 &event,
                 actor_entity,

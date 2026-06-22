@@ -13,10 +13,10 @@ use super::*;
 /// these read the cluster directly without a per-actor type tag.
 pub type ActorSpriteData = (
     &'static FeatureId,
-    Option<&'static super::enemy_clusters::BodyKinematics>,
-    Option<&'static super::enemy_clusters::EnemyStatus>,
+    Option<&'static super::actor_clusters::BodyKinematics>,
+    Option<&'static super::actor_clusters::ActorStatus>,
     Option<&'static ActorAttackState>,
-    Option<&'static super::enemy_clusters::EnemyConfig>,
+    Option<&'static super::actor_clusters::ActorConfig>,
 );
 
 pub fn ecs_npc_name(id: &str, actors: &Query<ActorSpriteData>) -> Option<String> {

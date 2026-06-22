@@ -12,13 +12,13 @@ mod conversion_tests {
     /// Build a peaceful actor (the unified cluster) with a patrol radius and a
     /// player parked far outside the talk radius, plus the catalog Brain that
     /// drives it. Peaceful actors are the SAME cluster as enemies now, so these
-    /// tests drive `EnemyMut::update` (via `update_for_test`) with a frame the
+    /// tests drive `ActorMut::update` (via `update_for_test`) with a frame the
     /// catalog brain produced — exactly what `update_ecs_actors` does per tick.
     fn world_with_patrolling_npc(
         patrol_radius: f32,
     ) -> (
         ae::World,
-        super::ecs::enemy_clusters::EnemyClusterSeed,
+        super::ecs::actor_clusters::ActorClusterSeed,
         crate::brain::Brain,
         ae::PlayerClusterScratch,
     ) {
@@ -45,7 +45,7 @@ mod conversion_tests {
                 patrol_path_id: None,
             },
         );
-        let (seed, _render) = super::ecs::enemy_clusters::EnemyClusterSeed::new_peaceful_npc(
+        let (seed, _render) = super::ecs::actor_clusters::ActorClusterSeed::new_peaceful_npc(
             id.clone(),
             id.clone(),
             aabb,
@@ -68,9 +68,9 @@ mod conversion_tests {
 
     /// Tick a peaceful actor one frame the way `update_ecs_actors` does: build a
     /// brain snapshot, tick the catalog brain into a frame, then integrate the
-    /// body through the unified `EnemyMut::update`.
+    /// body through the unified `ActorMut::update`.
     fn tick_peaceful(
-        seed: &mut super::ecs::enemy_clusters::EnemyClusterSeed,
+        seed: &mut super::ecs::actor_clusters::ActorClusterSeed,
         brain: &mut crate::brain::Brain,
         world: &ae::World,
         target: ae::Vec2,
@@ -438,7 +438,7 @@ mod conversion_tests {
             ],
         );
         let aabb = ae::Aabb::new(ae::Vec2::new(200.0, 300.0), ae::Vec2::new(20.0, 16.0));
-        let mut enemy = super::ecs::enemy_clusters::EnemyClusterSeed::new(
+        let mut enemy = super::ecs::actor_clusters::ActorClusterSeed::new(
             "shark_a",
             "Burning Flying Shark",
             aabb,
@@ -507,7 +507,7 @@ mod conversion_tests {
             start_offset_seconds: 0.0,
         };
         let paths = vec![("skitter_path".to_string(), path)];
-        let mut enemy = super::ecs::enemy_clusters::EnemyClusterSeed::new(
+        let mut enemy = super::ecs::actor_clusters::ActorClusterSeed::new(
             "path_skitter",
             "path_skitter",
             aabb,
@@ -585,7 +585,7 @@ mod conversion_tests {
         // Right edge (center.x + 14) touches the ground wall at x = 300.
         let aabb = enemy_aabb(ae::Vec2::new(286.0, 300.0));
         let paths: Vec<(String, crate::actor::KinematicPath)> = vec![];
-        let mut enemy = super::ecs::enemy_clusters::EnemyClusterSeed::new(
+        let mut enemy = super::ecs::actor_clusters::ActorClusterSeed::new(
             "sideways_patroller",
             "sideways_patroller",
             aabb,
@@ -671,7 +671,7 @@ mod conversion_tests {
             vec![platform],
         );
         let aabb = ae::Aabb::new(ae::Vec2::new(200.0, 492.0), ae::Vec2::new(10.0, 8.0));
-        let mut enemy = super::ecs::enemy_clusters::EnemyClusterSeed::new(
+        let mut enemy = super::ecs::actor_clusters::ActorClusterSeed::new(
             "slug",
             "PuppySlug",
             aabb,

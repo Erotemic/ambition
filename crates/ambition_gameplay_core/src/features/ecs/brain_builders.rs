@@ -7,7 +7,7 @@
 //! and per-actor jitter.
 
 use super::super::enemies::EnemyArchetypeSpec;
-use super::enemy_clusters::EnemyConfig;
+use super::actor_clusters::ActorConfig;
 use super::variation::{five_f32s_from_seed, seed_from_id};
 use super::{CombatKit, HeldItem};
 use crate::brain::{
@@ -15,7 +15,7 @@ use crate::brain::{
     SkirmisherState, SmashCfg, SmashState, SniperCfg, SniperState, StateMachineCfg, WandererCfg,
     WandererState,
 };
-use crate::combat::{EnemyBrainSpec, EnemyBrainTemplate, EnemyTuning};
+use crate::combat::{EnemyBrainSpec, EnemyBrainTemplate, ActorTuning};
 
 /// Build the enemy's durable combat capability kit from archetype data.
 ///
@@ -61,7 +61,7 @@ pub(super) fn held_item_for_spec(spec: &EnemyArchetypeSpec) -> Option<crate::bra
 ///
 /// Reads `brain_template()` off the consolidated `EnemyArchetypeSpec` so adding
 /// a new archetype is a single row, not a parallel match.
-pub(in crate::features) fn enemy_default_brain(enemy: &EnemyConfig) -> Brain {
+pub(in crate::features) fn enemy_default_brain(enemy: &ActorConfig) -> Brain {
     match enemy.brain_spec.template {
         EnemyBrainTemplate::StandStill => Brain::StateMachine(StateMachineCfg::StandStill),
         EnemyBrainTemplate::Wanderer => Brain::StateMachine(StateMachineCfg::Wanderer {
@@ -87,7 +87,7 @@ pub(in crate::features) fn enemy_default_brain(enemy: &EnemyConfig) -> Brain {
 /// parrot). Per-actor jitter keeps a flock from diving in lockstep. Shares
 /// `StateMachineCfg::Aerial` with the peaceful catalog bird — only
 /// `aggressiveness` differs.
-fn aerial_brain_for_enemy(enemy: &EnemyConfig) -> Brain {
+fn aerial_brain_for_enemy(enemy: &ActorConfig) -> Brain {
     let t = &enemy.tuning;
     let jitters = five_f32s_from_seed(seed_from_id(&enemy.id));
     let cruise_speed = t.chase_speed * (0.55 + 0.25 * jitters.0);
@@ -113,7 +113,7 @@ fn aerial_brain_for_enemy(enemy: &EnemyConfig) -> Brain {
 /// struck; this override gives them the same concrete heavy swing/capability
 /// once the hostility flag is set.
 pub(super) fn aggressive_brain_and_action_set_for_enemy(
-    enemy: &EnemyConfig,
+    enemy: &ActorConfig,
     kit: &CombatKit,
     held_item: Option<&HeldItem>,
 ) -> (Brain, ActionSet) {
@@ -140,7 +140,7 @@ pub(super) fn aggressive_brain_and_action_set_for_enemy(
     (enemy_default_brain(enemy), action_set)
 }
 
-fn forced_hostile_melee_brute_brain(enemy: &EnemyConfig, min_aggro_radius: f32) -> Brain {
+fn forced_hostile_melee_brute_brain(enemy: &ActorConfig, min_aggro_radius: f32) -> Brain {
     let t = &enemy.tuning;
     let jitters = five_f32s_from_seed(seed_from_id(&enemy.id));
     let aggro_radius = t.aggro_radius.max(min_aggro_radius) * (0.9 + 0.2 * jitters.0);
@@ -157,7 +157,7 @@ fn forced_hostile_melee_brute_brain(enemy: &EnemyConfig, min_aggro_radius: f32) 
     })
 }
 
-pub(super) fn melee_brute_brain_for_enemy(enemy: &EnemyConfig) -> Brain {
+pub(super) fn melee_brute_brain_for_enemy(enemy: &ActorConfig) -> Brain {
     let t = &enemy.tuning;
     let jitters = five_f32s_from_seed(seed_from_id(&enemy.id));
     let aggro_radius = t.aggro_radius * (0.8 + 0.4 * jitters.0);
@@ -174,11 +174,11 @@ pub(super) fn melee_brute_brain_for_enemy(enemy: &EnemyConfig) -> Brain {
     })
 }
 
-pub(super) fn skirmisher_brain_for_enemy(enemy: &EnemyConfig) -> Brain {
+pub(super) fn skirmisher_brain_for_enemy(enemy: &ActorConfig) -> Brain {
     skirmisher_brain_from_tuning(&enemy.id, &enemy.tuning, enemy.tuning.attacks_player)
 }
 
-fn sniper_brain_for_enemy(enemy: &EnemyConfig) -> Brain {
+fn sniper_brain_for_enemy(enemy: &ActorConfig) -> Brain {
     let t = &enemy.tuning;
     let jitters = five_f32s_from_seed(seed_from_id(&enemy.id));
     let base_cooldown_s = 1.5;
@@ -196,7 +196,7 @@ fn sniper_brain_for_enemy(enemy: &EnemyConfig) -> Brain {
     })
 }
 
-fn shark_brain_for_enemy(enemy: &EnemyConfig) -> Brain {
+fn shark_brain_for_enemy(enemy: &ActorConfig) -> Brain {
     let t = &enemy.tuning;
     let jitters = five_f32s_from_seed(seed_from_id(&enemy.id));
     let aggro_radius = t.aggro_radius * (0.85 + 0.3 * jitters.0);
@@ -256,7 +256,7 @@ pub(super) fn mounted_rider_brain_and_action_set(
 /// default is peaceful. Dismount means "fall off and fight," so the builder
 /// installs an aggressive MeleeBrute brain plus a melee-only action set.
 pub(super) fn dismounted_rider_brain_and_action_set(
-    rider: &EnemyConfig,
+    rider: &ActorConfig,
     kit: &CombatKit,
     held_item: Option<&crate::brain::HeldItemSpec>,
 ) -> (Brain, ActionSet) {
@@ -286,7 +286,7 @@ pub(super) fn dismounted_rider_brain_and_action_set(
 
 fn skirmisher_brain_from_tuning(
     actor_id: &str,
-    tuning: &EnemyTuning,
+    tuning: &ActorTuning,
     force_hostile: bool,
 ) -> Brain {
     let jitters = five_f32s_from_seed(seed_from_id(actor_id));
@@ -329,7 +329,7 @@ fn skirmisher_brain_from_tuning(
 /// (~28 px); the brain needs to close to roughly `body_half_width +
 /// swing_reach` before emitting MeleeAttack, otherwise the windup fires from too
 /// far away and the player walks out of the active window.
-fn smash_cfg_from_spec(spec: &EnemyBrainSpec, tuning: &EnemyTuning) -> SmashCfg {
+fn smash_cfg_from_spec(spec: &EnemyBrainSpec, tuning: &ActorTuning) -> SmashCfg {
     // Heavy vs striker base + per-archetype hit band + dash-to-close are
     // projected onto `EnemyBrainSpec` at spawn (`smash_hit_band`,
     // `smash_heavy`, `smash_dash_to_close`), so this builder reads generic
@@ -366,8 +366,8 @@ mod tests {
     use super::*;
     use crate::engine_core as ae;
 
-    fn enemy(brain_key: &str) -> super::super::enemy_clusters::EnemyClusterSeed {
-        super::super::enemy_clusters::EnemyClusterSeed::new(
+    fn enemy(brain_key: &str) -> super::super::actor_clusters::ActorClusterSeed {
+        super::super::actor_clusters::ActorClusterSeed::new(
             "e",
             "E",
             ae::Aabb::new(ae::Vec2::ZERO, ae::Vec2::new(24.0, 40.0)),

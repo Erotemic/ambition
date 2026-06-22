@@ -15,7 +15,7 @@ pub fn sync_actor_poses_from_feature_aabbs(
         (
             &CenteredAabb,
             &mut super::super::super::components::ActorPose,
-            Option<&super::super::enemy_clusters::BodyKinematics>,
+            Option<&super::super::actor_clusters::BodyKinematics>,
             Option<super::super::boss_clusters::BossClusterRef>,
         ),
         With<FeatureSimEntity>,
@@ -104,14 +104,14 @@ pub fn update_ecs_actors(
             Option<&crate::brain::ActionSet>,
             Option<&super::super::Mounted>,
             // The unified actor cluster — every actor (was-NPC + was-enemy)
-            // carries it. The tick integrates through it via `EnemyMut`.
+            // carries it. The tick integrates through it via `ActorMut`.
             //
             // `Possessed` is nested with the cluster data (not a new top-level
             // tuple field) to stay within Bevy's query-tuple arity: when set,
             // the actor is driven from the player's input instead of its brain
             // (`crate::abilities::traversal::possession`).
             (
-                Option<super::super::enemy_clusters::EnemyClusterQueryData>,
+                Option<super::super::actor_clusters::ActorClusterQueryData>,
                 Option<&crate::abilities::traversal::possession::Possessed>,
             ),
         ),
@@ -210,12 +210,12 @@ pub fn update_ecs_actors(
             // Every actor (was-NPC + was-enemy) shares the unified cluster.
             // Peaceful actors no-op the slot-board / body-contact / hostile
             // passes via tuning (`attacks_player` / `body_contact_damage`); the
-            // brain drives patrol/idle. Borrow the cluster as an EnemyMut view.
+            // brain drives patrol/idle. Borrow the cluster as an ActorMut view.
             let Some(mut cq) = clusters else {
                 continue;
             };
             {
-                let mut em = cq.as_enemy_mut();
+                let mut em = cq.as_actor_mut();
                 let slot_pos = if let Some(slot) = slot_board.0.slot_for(&em.config.id) {
                     Some(slot.world_pos(target_pos))
                 } else if em.status.alive {
@@ -609,7 +609,7 @@ pub(crate) fn compute_crowding_by_id(
 /// brain, but always populating it keeps the snapshot uniform across
 /// state-machine variants.
 fn build_enemy_brain_snapshot(
-    em: &super::super::enemy_clusters::EnemyMut<'_>,
+    em: &super::super::actor_clusters::ActorMut<'_>,
     target_pos: ae::Vec2,
     crowding: Option<crate::brain::CrowdingSignal>,
     dt: f32,
@@ -646,7 +646,7 @@ fn build_enemy_brain_snapshot(
 /// cluster), so it is read here (to pick peaceful vs hostile `ActorCombatState`)
 /// but never written.
 pub fn sync_actor_components_from_cluster(
-    em: &super::super::enemy_clusters::EnemyMut<'_>,
+    em: &super::super::actor_clusters::ActorMut<'_>,
     disposition: ActorDisposition,
     identity: &mut ActorIdentity,
     health: &mut ActorHealth,
@@ -712,9 +712,9 @@ pub fn tick_npc_idle_barks(
     world_time: Res<WorldTime>,
     npcs: Query<
         (
-            &super::super::enemy_clusters::BodyKinematics,
-            &super::super::enemy_clusters::EnemyConfig,
-            &super::super::enemy_clusters::EnemyStatus,
+            &super::super::actor_clusters::BodyKinematics,
+            &super::super::actor_clusters::ActorConfig,
+            &super::super::actor_clusters::ActorStatus,
             &ActorInteraction,
             &ActorDisposition,
         ),

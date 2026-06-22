@@ -137,8 +137,8 @@ pub use components::{
     PogoTargetVolumes, PostBossNpc, RespawnTimer, SandboxSolidContributor, StandTimer,
     SwitchFeature, SwitchOn,
 };
-pub use ecs::enemy_clusters::{
-    ActorMotionPath, BodyKinematics, EnemyClusterSeed, EnemyConfig, EnemyMut, EnemyStatus,
+pub use ecs::actor_clusters::{
+    ActorMotionPath, BodyKinematics, ActorClusterSeed, ActorConfig, ActorMut, ActorStatus,
 };
 pub use ecs::ActorSpriteData;
 pub use ecs::{

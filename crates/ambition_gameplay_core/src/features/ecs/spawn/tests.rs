@@ -11,14 +11,14 @@ use crate::brain::{
 use crate::engine_core as ae;
 use crate::features::{
     ActorAggression, ActorCombatState, ActorCooldowns, ActorDisposition, ActorHealth,
-    ActorIdentity, ActorIntent, AggressionMode, CombatKit, EnemyConfig, MountSlot, MountedSize,
+    ActorIdentity, ActorIntent, AggressionMode, CombatKit, ActorConfig, MountSlot, MountedSize,
     RidingOn,
 };
 use bevy::prelude::{App, Commands, Update, With};
 
-fn make_enemy(brain_key: &str) -> EnemyConfig {
+fn make_enemy(brain_key: &str) -> ActorConfig {
     let aabb = ae::Aabb::new(ae::Vec2::ZERO, ae::Vec2::new(20.0, 30.0));
-    crate::features::ecs::enemy_clusters::EnemyClusterSeed::new(
+    crate::features::ecs::actor_clusters::ActorClusterSeed::new(
         "test".to_string(),
         "test".to_string(),
         aabb,
@@ -286,7 +286,7 @@ fn pirate_raider_shark_rider_keeps_compact_dismounted_size() {
 
     let mut q = app.world_mut().query_filtered::<(
         &crate::features::BodyKinematics,
-        &crate::features::EnemyConfig,
+        &crate::features::ActorConfig,
         &MountedSize,
     ), With<RidingOn>>();
     let (kin, config, mounted_size) = q
@@ -326,7 +326,7 @@ fn pirate_heavy_shark_rider_keeps_compact_dismounted_size() {
 
     let mut q = app.world_mut().query_filtered::<(
         &crate::features::BodyKinematics,
-        &crate::features::EnemyConfig,
+        &crate::features::ActorConfig,
         &MountedSize,
     ), With<RidingOn>>();
     let (kin, config, mounted_size) = q

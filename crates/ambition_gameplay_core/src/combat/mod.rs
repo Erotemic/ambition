@@ -9,7 +9,7 @@
 //! kit and re-exports it so inbound `crate::features::…` paths are
 //! unchanged.
 //!
-//! The named actor layer (`EnemyConfig`/archetype-coupled systems:
+//! The named actor layer (`ActorConfig`/archetype-coupled systems:
 //! actors / damage / mount / spawn / save_sync) intentionally remains
 //! content-side until the archetype hub is dissolved into capability
 //! components; see `docs/current/state.md` for the current Stage 20 crate split.

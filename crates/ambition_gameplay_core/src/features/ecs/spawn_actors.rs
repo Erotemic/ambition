@@ -22,7 +22,7 @@ pub(super) struct EnemyActorSpawnPlan {
     feature_id: String,
     feature_name: String,
     feature_aabb: CenteredAabb,
-    enemy: super::enemy_clusters::EnemyClusterSeed,
+    enemy: super::actor_clusters::ActorClusterSeed,
     faction: super::ActorFaction,
     aggression: super::ActorAggression,
     brain: crate::brain::Brain,
@@ -37,7 +37,7 @@ impl EnemyActorSpawnPlan {
         feature_id: impl Into<String>,
         feature_name: impl Into<String>,
         feature_aabb: CenteredAabb,
-        enemy: super::enemy_clusters::EnemyClusterSeed,
+        enemy: super::actor_clusters::ActorClusterSeed,
     ) -> Self {
         let brain = enemy_default_brain(&enemy.config);
         let action_set = enemy_default_action_set(&enemy.spec);
@@ -144,7 +144,7 @@ pub(super) struct NpcActorSpawnPlan {
     feature_aabb: CenteredAabb,
     /// Peaceful actors are the SAME unified cluster as enemies, built with
     /// peaceful tuning + a `Passive`/`Patrol` AI brain.
-    seed: super::enemy_clusters::EnemyClusterSeed,
+    seed: super::actor_clusters::ActorClusterSeed,
     render_size: Option<ae::Vec2>,
     interactable: crate::interaction::Interactable,
     brain: crate::brain::Brain,
@@ -175,7 +175,7 @@ impl NpcActorSpawnPlan {
         // the seed's inert reconstruction spec.
         let hostile_spec = super::actors::hostile_spec_for_actor(&id, &name, dialogue_id);
         let combat_kit = super::brain_builders::enemy_combat_kit_for_spec(&hostile_spec);
-        let (seed, render_size) = super::enemy_clusters::EnemyClusterSeed::new_peaceful_npc(
+        let (seed, render_size) = super::actor_clusters::ActorClusterSeed::new_peaceful_npc(
             id.clone(),
             name.clone(),
             spawn_aabb,
@@ -442,8 +442,8 @@ pub(crate) fn spawn_runtime_minion(
     let aabb = ae::Aabb::new(world_pos, half_size);
     let brain = crate::actor::EnemyBrain::Custom(archetype_id.into());
     let mut enemy =
-        super::enemy_clusters::EnemyClusterSeed::new(id.clone(), name.clone(), aabb, brain, &[]);
-    // `EnemyClusterSeed::new` already sets HP from the resolved spec.
+        super::actor_clusters::ActorClusterSeed::new(id.clone(), name.clone(), aabb, brain, &[]);
+    // `ActorClusterSeed::new` already sets HP from the resolved spec.
     // Boss-spawned minions shouldn't auto-respawn — they're part of
     // the encounter, not a static sandbag.
     enemy.status.respawn_timer = 999_999.0;
@@ -474,7 +474,7 @@ pub(super) fn spawn_enemy(
         super::spawn_mounts::spawn_composite_mount_rider(commands, authored, paths, &spec);
         return;
     }
-    let enemy = super::enemy_clusters::EnemyClusterSeed::new(
+    let enemy = super::actor_clusters::ActorClusterSeed::new(
         authored.id.clone(),
         authored.name.clone(),
         authored.aabb,
@@ -488,7 +488,7 @@ pub(super) fn spawn_enemy(
 /// mount/rider fan-out has been handled.
 pub(super) fn spawn_solo_enemy(
     commands: &mut Commands,
-    enemy: super::enemy_clusters::EnemyClusterSeed,
+    enemy: super::actor_clusters::ActorClusterSeed,
     authored: &crate::rooms::Authored<crate::actor::EnemyBrain>,
 ) {
     let feature_aabb = CenteredAabb::from_aabb(authored.aabb);
@@ -553,8 +553,8 @@ pub(super) fn spawn_encounter_mob(
     let encounter_id = encounter_id.into();
     let aabb = ae::Aabb::new(pos, size * 0.5);
     let mut enemy =
-        super::enemy_clusters::EnemyClusterSeed::new(id.clone(), id.clone(), aabb, brain, &[]);
-    // `EnemyClusterSeed::new` already sets HP from the resolved spec.
+        super::actor_clusters::ActorClusterSeed::new(id.clone(), id.clone(), aabb, brain, &[]);
+    // `ActorClusterSeed::new` already sets HP from the resolved spec.
     // Encounter mobs should not auto-respawn like training sandbags.
     enemy.status.respawn_timer = 999_999.0;
     let feature_aabb = CenteredAabb::from_center_size(pos, size);

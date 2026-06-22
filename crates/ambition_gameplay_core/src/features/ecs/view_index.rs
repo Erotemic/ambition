@@ -88,9 +88,9 @@ pub fn rebuild_feature_view_index(
         &FeatureId,
         &CenteredAabb,
         &ActorDisposition,
-        Option<&super::enemy_clusters::EnemyStatus>,
+        Option<&super::actor_clusters::ActorStatus>,
         Option<&ActorAttackState>,
-        Option<&super::enemy_clusters::EnemyConfig>,
+        Option<&super::actor_clusters::ActorConfig>,
         Option<&ActorSurfaceState>,
         // Portal aerial-roll (same component the player uses) so actors
         // somersault + self-right through portals just like the player.

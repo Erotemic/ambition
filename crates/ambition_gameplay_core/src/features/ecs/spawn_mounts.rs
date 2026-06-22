@@ -71,7 +71,7 @@ pub(super) fn spawn_composite_mount_rider(
     // `presentation::rendering::world`.
     let mount_id = authored.id.clone();
     let mount_name = cv.mount_name.clone();
-    let mut mount_enemy = super::enemy_clusters::EnemyClusterSeed::new(
+    let mut mount_enemy = super::actor_clusters::ActorClusterSeed::new(
         mount_id.clone(),
         mount_name.clone(),
         mount_aabb,
@@ -112,7 +112,7 @@ pub(super) fn spawn_composite_mount_rider(
     let rider_pos = center + rider_offset;
     let rider_aabb = ae::Aabb::new(rider_pos, mounted_size * 0.5);
     let rider_id = format!("{}:rider", authored.id);
-    let mut rider_enemy = super::enemy_clusters::EnemyClusterSeed::new(
+    let mut rider_enemy = super::actor_clusters::ActorClusterSeed::new(
         rider_id.clone(),
         rider_variant_name.clone(),
         rider_aabb,

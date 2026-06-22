@@ -8,7 +8,7 @@
 use super::*;
 
 fn shark_charge_crashed(
-    em: &super::enemy_clusters::EnemyMut<'_>,
+    em: &super::actor_clusters::ActorMut<'_>,
     is_mounted: bool,
     charge_vec: ae::Vec2,
     previous_pos: ae::Vec2,

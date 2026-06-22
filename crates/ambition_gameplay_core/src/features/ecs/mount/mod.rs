@@ -133,7 +133,7 @@ pub fn sync_riders_to_mounts(
             &mut CenteredAabb,
             Option<&MountedSize>,
             Option<&Mass>,
-            Option<super::enemy_clusters::EnemyClusterQueryData>,
+            Option<super::actor_clusters::ActorClusterQueryData>,
         ),
         Without<MountSlot>,
     >,
@@ -142,7 +142,7 @@ pub fn sync_riders_to_mounts(
             &ActorDisposition,
             &Mountable,
             Option<&Mass>,
-            Option<super::enemy_clusters::EnemyClusterQueryData>,
+            Option<super::actor_clusters::ActorClusterQueryData>,
         ),
         With<MountSlot>,
     >,
@@ -173,7 +173,7 @@ pub fn sync_riders_to_mounts(
         let Some(mut rider_cq) = rider_clusters else {
             continue;
         };
-        let rider = rider_cq.as_enemy_mut();
+        let rider = rider_cq.as_actor_mut();
         if !rider.status.alive {
             continue;
         }
@@ -253,7 +253,7 @@ pub fn enforce_mount_rider_link(
             Option<&Mounted>,
             Option<&super::HeldItem>,
             Option<&super::CombatKit>,
-            Option<super::enemy_clusters::EnemyClusterQueryData>,
+            Option<super::actor_clusters::ActorClusterQueryData>,
         ),
         Without<MountSlot>,
     >,
@@ -261,7 +261,7 @@ pub fn enforce_mount_rider_link(
         (
             Entity,
             &ActorDisposition,
-            Option<&super::enemy_clusters::EnemyStatus>,
+            Option<&super::actor_clusters::ActorStatus>,
         ),
         With<MountSlot>,
     >,
@@ -294,7 +294,7 @@ pub fn enforce_mount_rider_link(
         let Some(mut rider_cq) = rider_clusters else {
             continue;
         };
-        let rider = rider_cq.as_enemy_mut();
+        let rider = rider_cq.as_actor_mut();
         if !rider.status.alive {
             continue;
         }

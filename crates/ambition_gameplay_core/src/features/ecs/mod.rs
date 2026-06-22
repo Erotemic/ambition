@@ -8,7 +8,7 @@
 //!
 //! Module map (each sibling owns one slice of that sim):
 //! - `spawn*` — spawn authored room objects, encounter mobs, mounts/riders;
-//! - `actors` / `enemy_clusters` / `bosses` — the per-frame actor tick over the
+//! - `actors` / `actor_clusters` / `bosses` — the per-frame actor tick over the
 //!   unified ECS cluster components that hold actor state (NPCs + enemies share
 //!   one cluster; bosses are their own);
 //! - `damage*` / `aggression` / `interact` — hit routing, provocation, and
@@ -46,7 +46,7 @@ mod damage;
 mod damage_drops;
 mod damage_predicates;
 mod encounter_rewards;
-pub mod enemy_clusters;
+pub mod actor_clusters;
 mod interact;
 mod mount;
 pub use mount::{rider_hand_world_pos, rider_hand_world_pos_in_frame};

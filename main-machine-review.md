@@ -9,6 +9,32 @@ _Last updated: 2026-06-21 (Opus 4.8)_
 
 ---
 
+## 0c. Debug box labels + FSM box flip-alignment (2026-06-22)
+
+- **Every debug box is now labeled** with its type, as world-space text
+  (`hurtbox` / `contact` / `collision` / `telegraph` / `active` / `npc` /
+  `enemy` / `breakable` / `chest` / `hazard` / `hit:player|enemy|boss|npc` /
+  `player` / `atk`). Label color matches the box color; each box *type* uses a
+  distinct corner so overlapping boxes don't stack illegibly.
+  - **TEXT SIZE KNOB:** one const — `DEBUG_LABEL_FONT_PX` in
+    [crates/ambition_app/src/dev/debug_overlay/prims.rs](crates/ambition_app/src/dev/debug_overlay/prims.rs)
+    (it's near the top of the "debug box labels" section). Bump it up/down to
+    scale every label; nothing else to touch. (World-space `Text2d`, so it also
+    scales with camera zoom.)
+
+- **FSM box misalignment fixed (blind).** Root cause: the boss sprite flips to
+  face the player, but the combat geometry was computed in the *unflipped* frame.
+  The FSM's body sits off-center in its frame (the union-crop is widened by
+  asymmetric attack noodles → left-biased `body_pixel_bbox`), so when it faces
+  left the boxes landed on the opposite side from the visible body. Now the
+  hurtbox + collision + contact boxes mirror with facing (no-op for centered
+  bodies, so no other boss regresses). **Verify with the new labels** — the cyan
+  `hurtbox` and orange `collision` / magenta `contact` should now sit on the
+  visible body whichever way the FSM faces. If a box is still off, tell me which
+  *labeled* one and I can target it precisely.
+
+---
+
 ## 0b. FSM rerender fixed + authoritative hurtboxes (2026-06-21)
 
 The flying-spaghetti-monster "crazy cropped mess that flashes" was a **boss

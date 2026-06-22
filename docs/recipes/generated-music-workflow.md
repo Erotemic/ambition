@@ -15,44 +15,42 @@ This is the current recipe for generated/adaptive music. Older transition labs a
 From the repo root:
 
 ```bash
-PYTHONPATH=tools/ambition_music_renderer python -m ambition_music_renderer --help
-PYTHONPATH=tools/ambition_music_renderer python -m ambition_music_renderer cue bundle <cue_id> --backend pretty-midi --force --zip
-PYTHONPATH=tools/ambition_music_renderer python -m ambition_music_renderer cue bundle <cue_id> --backend pretty-midi --runtime-stem-gain-mode shared --force --zip
-PYTHONPATH=tools/ambition_music_renderer python -m ambition_music_renderer cue bundle <cue_id> --backend pretty-midi --runtime-stem-gain-mode shared --zip-report --force
+uv run --project ~/code/ambition/tools/ambition_music_renderer python -m ambition_music_renderer --help
+uv run --project ~/code/ambition/tools/ambition_music_renderer python -m ambition_music_renderer cue_bundle <cue_id> --backend=pretty-midi --force --zip
+uv run --project ~/code/ambition/tools/ambition_music_renderer python -m ambition_music_renderer cue_bundle <cue_id> --backend=pretty-midi --runtime_stem_gain_mode=shared --force --zip
+uv run --project ~/code/ambition/tools/ambition_music_renderer python -m ambition_music_renderer cue_bundle <cue_id> --backend=pretty-midi --runtime_stem_gain_mode=shared --zip_report --force
 ./generate_audio_assets.sh --force
 ```
 
-From the tool directory unless the tool README says otherwise:
+Auxiliary tools live under the package modal CLI:
 
 ```bash
-cd tools/ambition_music_renderer
-python -m ambition_music_renderer --help
-./render_first_goblin_transition_lab.sh
-python transition_audit.py --help     # two-file transition seam (RMS/peak over time, plots)
-python audit_cue_balance.py --help    # sections WITHIN one adaptive cue (intro vs wave1...)
-python level_report.py --help         # ACROSS the runtime cue catalog (inter-cue leveling)
-python arrangement_audit.py --help    # score-level arrangement preflight
-python -m ambition_music_renderer.dissonance_audit --help     # score-level note/layer clash hotspots
+uv run --project ~/code/ambition/tools/ambition_music_renderer python -m ambition_music_renderer tools --help
+uv run --project ~/code/ambition/tools/ambition_music_renderer python -m ambition_music_renderer tools transition_audit --help     # two-file transition seam
+uv run --project ~/code/ambition/tools/ambition_music_renderer python -m ambition_music_renderer tools audit_cue_balance --help    # sections within one cue
+uv run --project ~/code/ambition/tools/ambition_music_renderer python -m ambition_music_renderer tools level_report --check         # inter-cue catalog levels
+uv run --project ~/code/ambition/tools/ambition_music_renderer python -m ambition_music_renderer tools arrangement_audit --help    # score-level arrangement preflight
+uv run --project ~/code/ambition/tools/ambition_music_renderer python -m ambition_music_renderer tools dissonance_audit --help     # score-level note/layer clash hotspots
 ```
 
-For one-cue composition/debug handoff, prefer `cue bundle` first. It wraps rendering, scratch-stem retention, level reports, spectral localization, optional spectrograms, and a shareable bundle manifest around the current renderer without changing runtime publish policy.
+For one-cue composition/debug handoff, prefer `cue_bundle` first. It wraps rendering, scratch-stem retention, level reports, spectral localization, optional spectrograms, and a shareable bundle manifest around the current renderer without changing runtime publish policy.
 
 Three lower-level audio-analysis tools, three scopes:
-- `transition_audit.py` — two specific section files; visual transition-seam plots.
-- `audit_cue_balance.py` — every section/stem inside one cue's output dir.
-- `level_report.py` — every `<cue>/full.ogg` under the runtime music root; a
+- `tools transition_audit` — two specific section files; visual transition-seam plots.
+- `tools audit_cue_balance` — every section/stem inside one cue's output dir.
+- `tools level_report` — every `<cue>/full.ogg` under the runtime music root; a
   sorted, diff-friendly table (duration, RMS dBFS, true peak dBTP, crest,
   target-RMS delta, optional LUFS) + a spread summary with CLIP/LOUD/QUIET
   flags. Use it to catch inter-cue loudness jumps and clipping across re-renders.
-- `arrangement_audit.py` — expanded MusicIR notes before audio render; reports
+- `tools arrangement_audit` — expanded MusicIR notes before audio render; reports
   group prominence, likely buried stems, low-register density, bass/melody
   collision candidates, and long non-chord tones.
-- `dissonance_audit.py` — expanded MusicIR notes before audio render; reports
+- `tools dissonance_audit` — expanded MusicIR notes before audio render; reports
   bars/beats/layers/groups with strong close seconds, sevenths, tritones, and
   register clusters. Use it when a cue sounds like notes are clashing rather
   than when it has spectral noise.
 
-Use `python -m ambition_music_renderer.reference_audio_audit <audio> --outdir <dir>` for broad reference-track surface features. It is useful for loudness/brightness/density targets, but it does not separate stems or recover instrumentation.
+Use `python -m ambition_music_renderer tools reference_audio_audit <audio> --outdir=<dir>` for broad reference-track surface features. It is useful for loudness/brightness/density targets, but it does not separate stems or recover instrumentation.
 
 Prefer the tool README and CLI help over old recipe fragments when command flags drift.
 
@@ -62,7 +60,7 @@ Prefer the tool README and CLI help over old recipe fragments when command flags
 2. Search `dev/journals/` and `dev/benchmark-candidates/` for music director/refactor lessons.
 3. Render locally into the tool's generated output path.
 4. Audit balance/transitions if a cue set changes.
-5. Use `cue bundle <cue_id> --zip-report` when a cue needs lightweight review, handoff, or spectral/debug evidence. Use a full bundle only when the recipient needs audio.
+5. Use `cue_bundle <cue_id> --zip_report` when a cue needs lightweight review, handoff, or spectral/debug evidence. Use a full bundle only when the recipient needs audio.
 6. Publish/install only when the generated assets are meant to become runtime inputs.
 7. Update `docs/tools/generated-audio-tools.md` and `tools/ambition_music_renderer/README.md` if the workflow changes.
 
@@ -72,9 +70,9 @@ Prefer the tool README and CLI help over old recipe fragments when command flags
 Use this when regenerating a song and collecting useful diagnostics for review:
 
 ```bash
-PYTHONPATH=tools/ambition_music_renderer \
-python -m ambition_music_renderer cue bundle for_emmy_forever_ago \
-  --backend pretty-midi \
+uv run --project ~/code/ambition/tools/ambition_music_renderer \
+python -m ambition_music_renderer cue_bundle for_emmy_forever_ago \
+  --backend=pretty-midi \
   --force \
   --zip
 ```
@@ -84,12 +82,12 @@ then copies manifest-referenced artifacts into
 `tools/ambition_music_renderer/bundles/`. The bundle deliberately ignores stale
 preview/adaptive files from older hashes.
 
-Use `--zip-report` for chat/agent upload. Report zips exclude
+Use `--zip_report` for chat/agent upload. Report zips exclude
 large audio/scratch binaries while keeping source YAML, manifests, logs, TSV/JSON
 reports, `spectral_fingerprint.json`, and JPEG spectrograms. Use full bundles
 when the recipient needs to audition OGGs. Add `--publish` only when the cue
 should also update the runtime `assets/audio/music/generated/<cue_id>/full.ogg`.
-Add `--include-scratch-stems` only for local handoffs because raw NumPy stem
+Add `--include_scratch_stems` only for local handoffs because raw NumPy stem
 buffers can be large.
 
 Useful report files in a bundle:
@@ -107,7 +105,7 @@ Useful report files in a bundle:
 - `reports/mix_diagnostics.txt` — raw stem levels vs mastered full and runtime
   stem gain policy.
 
-Use `--runtime-stem-gain-mode shared` when checking layered dynamic music. It
+Use `--runtime_stem_gain_mode=shared` when checking layered dynamic music. It
 applies one shared reference gain to all runtime stems, preserving their balance
 while making the exported stem set audible. Shared gain is capped by default; if
 reports show capped or very large gain, raise source/layer levels in the score
@@ -125,7 +123,7 @@ Use this sequence before changing runtime code:
 1. **Regenerate only the relevant cue.** For the current goblin lab, `./generate_audio_assets.sh --force` renders and installs `first_goblin_tune_v2`.
 2. **Run directly in the encounter room.** Start the sandbox in the room that triggers the cue and reproduce the transition.
 3. **Capture runtime logs.** Look for `start_adaptive_state`, `queue_music_state`, `gain_start=target`, and the section/state names.
-4. **Audit the OGGs.** Use `audit_cue_balance.py` on the generated cue directory and compare peak/RMS/duration across `intro.full.ogg`, `wave1.full.ogg`, `wave2.full.ogg`, `wave3.full.ogg`, `recap_loop.full.ogg`, and `outro.full.ogg`.
+4. **Audit the OGGs.** Use `tools audit_cue_balance` on the generated cue directory and compare peak/RMS/duration across `intro.full.ogg`, `wave1.full.ogg`, `wave2.full.ogg`, `wave3.full.ogg`, `recap_loop.full.ogg`, and `outro.full.ogg`.
 5. **Listen outside the game.** Queue adjacent files back-to-back. If the seam is already audible before runtime, fix arrangement/mastering before tuning code.
 
 Questions to answer:
@@ -171,10 +169,10 @@ Consequences worth internalizing:
 ```bash
 python -m pytest tools/ambition_music_renderer/tests
 python scripts/check_agent_kb.py
-python tools/ambition_music_renderer/level_report.py --check   # fail on any clipping cue
+uv run --project ~/code/ambition/tools/ambition_music_renderer python -m ambition_music_renderer tools level_report --check   # fail on any clipping cue
 ```
 
-`level_report.py --check` exits non-zero if any cue's true peak exceeds
+`tools level_report --check` exits non-zero if any cue's true peak exceeds
 -1 dBTP — a cheap regression gate after a re-render. (It does not gate on the
 loudness spread; that's a mastering call you read off the report, not a
 pass/fail.) Runtime audio changes usually also need a sandbox smoke run or a

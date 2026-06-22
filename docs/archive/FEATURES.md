@@ -106,7 +106,7 @@ For implementation details, start from `docs/current/state.md`, `docs/systems/in
 | Documentation health checks | Available | `scripts/check_agent_kb.py`, `scripts/check_doc_links.py` |
 | LDtk area-spec coordinate drift check | Available | `tools/ambition_ldtk_tools` `level diff-specs --all`; `dev/benchmark-candidates/ldtk-area-spec-drift-2026-05-21.md` |
 | LDtk read-only spatial queries for LLM authoring (`intgrid query` / `entity measure` / `gates audit`) | Available | `tools/ambition_ldtk_tools`; `docs/concepts/llm-spatial-authoring-discipline.md` |
-| Music cue loudness/level report + clipping gate | Available | `tools/ambition_music_renderer/level_report.py` (`--check`); `docs/recipes/generated-music-workflow.md` |
+| Music cue loudness/level report + clipping gate | Available | `python -m ambition_music_renderer tools level_report --check`; `docs/recipes/generated-music-workflow.md` |
 | EnemySpawn `Patrol:<id>` brain reference validation | Available as warnings | `crates/ambition_content/src/content_validation.rs::validate_patrol_brain_paths` |
 
 ## Intro vertical slice (intro-v1)

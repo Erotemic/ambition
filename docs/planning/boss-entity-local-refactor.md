@@ -57,7 +57,58 @@ Damage flow: player slash → `HitEvent` → `record_boss_damage(registry, runti
 
 ---
 
-## Target architecture
+## DESIGN REFINEMENT (2026-06-22, with Jon) — encounter as a first-class OPTIONAL entity
+
+The original target below said "everything the registry owned moves onto the boss entity." That's
+half right. Jon's HUD / reuse / Smirking-Behemoth discussion sharpened it into a **three-layer
+model**, where the encounter is NOT deleted — it is *promoted* to a first-class, OPTIONAL entity:
+
+1. **Archetype (data)** — the reusable creature (a boss is an enemy with more HP/attacks). Reuse a
+   boss as a normal enemy = spawn the archetype with NO encounter wrapped around it.
+2. **Entity instance** — a specific spawned creature. Owns: HP, phase STATE + behavior, intrinsic
+   phase triggers, and **per-instance payload** (e.g. a swallowed NPC), plus generic capabilities.
+3. **Encounter (optional entity, references its members)** — owns ORCHESTRATION: a progress model +
+   **HUD binding** (optional; headless-fine), lock-walls, win/lose conditions, music, and a
+   **scripted event timeline**. Reusable structure: single-boss, add-wave, gauntlet, cut-rope puzzle.
+
+Consequences for this plan:
+- **Split `BossEncounterState`**: HP + phase-state half → the entity (Stage 1b over-moved the WHOLE
+  blob; trim it). Thresholds-as-progress + music + lock-walls + HUD-binding + script → the encounter.
+- The HUD is a *view bound to encounter progress* ("phase 2/3", "adds remaining" = encounter reading
+  its members). No encounter → no HUD, no lock-walls, nothing required; the creature is just an enemy.
+- The global `BossEncounterRegistry.encounters` map becomes a SET OF ENCOUNTER ENTITIES (each an
+  entity with an `EncounterDef` + member refs), not a string-keyed resource the boss is a puppet of.
+
+### Smirking Behemoth decomposition (the tricky case) — three generic pieces
+- **Unkillable outside its encounter** = the existing generic `environmental_kill_only` flag.
+- **Swallowed NPC** = INSTANCE payload, not encounter/archetype: a generic `Contains(npc)` +
+  `ReleaseOnDeath` component. THIS entity frees ITS payload on death; a different instance has none.
+- **Scripted move→crush→release** = an encounter SCRIPT. The release is NOT scripted — it falls out
+  of the generic on-death capability. So the cut-rope script is only: rope-cut → move behemoth under
+  boulder + drop boulder → on impact ForceKill → on death set victory music / reward / dialogue.
+
+### Encounter-script shape (proposal)
+An encounter entity carries an `EncounterScript`: ordered **beats** `{ when: Trigger, then: [Effect] }`
+advancing as triggers fire.
+- Triggers (observe world/members): `RopeCut`, `MemberAtPosition`, `HazardImpact`, `MemberDied`,
+  `AllMembersDead`, `Timer`, `PlayerEntered`.
+- Effects (command members/world): `CommandMoveTo`, `DropHazard`, `ForceKill`, `SetLockWalls`,
+  `SetMusic`, `GrantReward`, (`ReleasePayload` only if ever wanted decoupled from death).
+- Same `condition → effect-on-entity` shape as the phase-transition triggers — they can SHARE a
+  trigger/effect vocabulary while staying separate mechanisms (a phase transition is a tiny built-in
+  beat the entity owns intrinsically; the encounter owns the bespoke ones). Don't unify yet.
+
+### Open forks (NOT yet decided)
+- **Phase-up without an encounter?** Lean: phase state + intrinsic HP-triggers live on the entity, so
+  a boss reused with no encounter still enrages at low HP (the encounter only FRAMES/displays phases
+  and can ADD external triggers), with an opt-out knob. Confirm vs "no encounter = phase 1 only".
+- **"Cleared" keyed to the encounter PLACEMENT, not the archetype.** Today save is archetype-keyed
+  (Stage 1a kept that). Reuse story implies per-encounter-instance ("the cut-rope encounter is
+  cleared"), so reusing the archetype elsewhere isn't pre-marked dead. Changes Stage 5.
+
+---
+
+## Target architecture (original — read together with the refinement above)
 
 **Everything the registry owned becomes entity-local components + entity-emitted messages.**
 

@@ -255,6 +255,7 @@ fn damageable_volumes_uses_per_animation_hurtbox_during_attack() {
         attack_state: &attack_state,
         sprite_metrics: Some(&metrics),
         animation_frame: None,
+        facing: 1.0,
     };
     let volumes = damageable_volumes(&ctx);
     assert_eq!(volumes.len(), 1);
@@ -351,6 +352,7 @@ fn damageable_volumes_samples_per_frame_hurtbox_from_animation_elapsed() {
         attack_state: &attack_state,
         sprite_metrics: Some(&metrics),
         animation_frame: None,
+        facing: 1.0,
     };
 
     let volumes = damageable_volumes(&ctx);
@@ -432,6 +434,7 @@ fn animation_frame_sample_overrides_elapsed_frame_for_authored_boxes() {
         attack_state: &attack_state,
         sprite_metrics: Some(&metrics),
         animation_frame: Some(&visual_frame),
+        facing: 1.0,
     };
 
     let volumes = damageable_volumes(&ctx);
@@ -514,6 +517,7 @@ fn idle_rest_hurtbox_follows_the_live_animation_frame() {
         attack_state: &attack_state,
         sprite_metrics: Some(&metrics),
         animation_frame: None,
+        facing: 1.0,
     };
     let v0 = damageable_volumes(&ctx0);
     assert_eq!(v0.len(), 1);
@@ -632,6 +636,7 @@ fn gnu_head_descent_accepts_visual_row_alias_for_runtime_boxes() {
         attack_state: &attack_state,
         sprite_metrics: Some(&metrics),
         animation_frame: None,
+        facing: 1.0,
     };
 
     let hurt = damageable_volumes(&ctx);
@@ -697,6 +702,7 @@ fn damageable_volumes_scales_to_sprite_render_size() {
         attack_state: &attack_state,
         sprite_metrics: Some(&legacy_metrics),
         animation_frame: None,
+        facing: 1.0,
     };
     let render_ctx = BossVolumeContext {
         pos: ae::Vec2::ZERO,
@@ -706,6 +712,7 @@ fn damageable_volumes_scales_to_sprite_render_size() {
         attack_state: &attack_state,
         sprite_metrics: Some(&render_metrics),
         animation_frame: None,
+        facing: 1.0,
     };
     let legacy = damageable_volumes(&legacy_ctx)[0];
     let render = damageable_volumes(&render_ctx)[0];
@@ -829,6 +836,7 @@ fn attack_fully_inside_boss_volume_still_registers() {
         attack_state: &attack_state,
         sprite_metrics: None, // mockingbird has no authored body_metrics -> fallback box
         animation_frame: None,
+        facing: 1.0,
     };
     let damageable = damageable_volumes(&ctx);
     // A tiny attack fully inside the boss volume — "I'm in the middle and swing".
@@ -867,6 +875,7 @@ fn mockingbird_combat_size_fallback_undershoots_the_visible_sprite() {
         attack_state: &attack_state,
         sprite_metrics: None,
         animation_frame: None,
+        facing: 1.0,
     };
     assert!(
         !damageable_volumes(&ctx_fallback)
@@ -899,6 +908,7 @@ fn mockingbird_combat_size_fallback_undershoots_the_visible_sprite() {
         attack_state: &attack_state,
         sprite_metrics: Some(&metrics),
         animation_frame: None,
+        facing: 1.0,
     };
     assert!(
         damageable_volumes(&ctx_authored)
@@ -906,4 +916,23 @@ fn mockingbird_combat_size_fallback_undershoots_the_visible_sprite() {
             .any(|p| attack.strict_intersects(*p)),
         "with an authored body hurtbox covering the visible sprite, the same hit lands",
     );
+}
+
+#[test]
+fn mirror_x_if_flipped_reflects_about_axis_only_when_facing_left() {
+    // The boss sprite flips horizontally to face the player, so an off-center
+    // body's hit/hurt boxes must mirror with it. This pins the reflection:
+    // center.x → 2*axis - center.x when facing < 0; size + y untouched; no-op
+    // when facing right.
+    let boxes = vec![ae::Aabb::new(ae::Vec2::new(70.0, 5.0), ae::Vec2::new(4.0, 3.0))];
+    let axis = 50.0;
+
+    let right = mirror_x_if_flipped(boxes.clone(), axis, 1.0);
+    assert!((right[0].center().x - 70.0).abs() < 1e-6, "facing right is a no-op");
+
+    let left = mirror_x_if_flipped(boxes, axis, -1.0);
+    // 70 reflected about 50 → 30 (the mirror side of the boss center).
+    assert!((left[0].center().x - 30.0).abs() < 1e-6);
+    assert!((left[0].center().y - 5.0).abs() < 1e-6, "y unchanged");
+    assert!((left[0].half_size().x - 4.0).abs() < 1e-6, "width unchanged");
 }

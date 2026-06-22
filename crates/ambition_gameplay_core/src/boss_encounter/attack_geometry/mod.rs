@@ -12,6 +12,7 @@
 //! this is boss-attack-specific geometry only.
 
 use crate::engine_core as ae;
+use crate::engine_core::AabbExt;
 
 use bevy::prelude::Component;
 
@@ -44,6 +45,11 @@ pub struct BossVolumeContext<'a> {
     /// instead of re-deriving a frame from attack timers. That keeps
     /// gameplay/debug boxes locked to the rendered animation frame.
     pub animation_frame: Option<&'a BossAnimationFrameSample>,
+    /// Boss facing (sign of x). The sprite flips horizontally to face the
+    /// player, so an off-center body's hurtboxes must mirror too — otherwise
+    /// they land on the wrong side when the boss faces left. `1.0` = right
+    /// (no mirror), `< 0.0` = flipped. See [`mirror_x_if_flipped`].
+    pub facing: f32,
 }
 
 /// Live sprite-animation frame for a boss attack profile.
@@ -86,6 +92,7 @@ impl<'a> BossVolumeContext<'a> {
             attack_state,
             sprite_metrics: boss.status.sprite_metrics.as_ref(),
             animation_frame: None,
+            facing: boss.kin.facing,
         }
     }
 
@@ -149,7 +156,33 @@ pub fn telegraph_volumes(ctx: &BossVolumeContext) -> Vec<ae::Aabb> {
 /// hit independently. Animation boxes may also carry per-frame
 /// samples so large moving parts like GNU-ton's head can track the
 /// drawn pose instead of one coarse per-animation rectangle.
+/// Reflect each AABB's center across the vertical line `axis_x` when `facing`
+/// is leftward (`< 0`), leaving sizes unchanged. The boss sprite mirrors to
+/// face the player, so an off-center body's hit/hurt boxes must mirror with it;
+/// for a centered body this is a no-op (center already on the axis).
+pub(crate) fn mirror_x_if_flipped(
+    mut aabbs: Vec<ae::Aabb>,
+    axis_x: f32,
+    facing: f32,
+) -> Vec<ae::Aabb> {
+    if facing >= 0.0 {
+        return aabbs;
+    }
+    for aabb in &mut aabbs {
+        let c = aabb.center();
+        let half = aabb.half_size();
+        *aabb = ae::Aabb::new(ae::Vec2::new(2.0 * axis_x - c.x, c.y), half);
+    }
+    aabbs
+}
+
 pub fn damageable_volumes(ctx: &BossVolumeContext) -> Vec<ae::Aabb> {
+    mirror_x_if_flipped(damageable_volumes_unmirrored(ctx), ctx.pos.x, ctx.facing)
+}
+
+/// Body hurtbox volumes in the sprite's UNFLIPPED frame. `damageable_volumes`
+/// mirrors these to the boss's current facing.
+fn damageable_volumes_unmirrored(ctx: &BossVolumeContext) -> Vec<ae::Aabb> {
     // Priority (uniform across every boss now that GNU-ton's
     // hand-tuned head path was migrated into its spritesheet RON
     // — `gnu_ton_boss_spritesheet.ron` carries per-animation
@@ -334,6 +367,14 @@ pub fn boss_attack_damage(
             .sprite_metrics
             .map(|m| m.combat_offset)
             .unwrap_or(ae::Vec2::ZERO);
+        // Mirror the body offset to the boss's facing (the sprite flips), so the
+        // contact zone matches the visible body on both sides — consistent with
+        // `BossRef::combat_offset` and the mirrored hurtboxes above.
+        let combat_offset = if ctx.facing < 0.0 {
+            ae::Vec2::new(-combat_offset.x, combat_offset.y)
+        } else {
+            combat_offset
+        };
         let body = body_damage_aabb(ctx.pos + combat_offset, ctx.combat_size);
         if body.strict_intersects(player_body) {
             return Some(HitEvent {

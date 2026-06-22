@@ -93,12 +93,23 @@ impl<'a> BossRef<'a> {
     /// World offset from `kin.pos` to the body's bounding-AABB center.
     /// Non-zero for bosses whose sprite metadata reports an off-center
     /// body bbox; `ZERO` otherwise.
+    ///
+    /// Mirrored horizontally when the boss faces left: the sprite flips to face
+    /// the player, so an off-center body's collision/contact envelope must flip
+    /// with it (otherwise it lands on the wrong side). No-op for a centered body
+    /// (`combat_offset.x == 0`).
     pub fn combat_offset(&self) -> ae::Vec2 {
-        self.status
+        let raw = self
+            .status
             .sprite_metrics
             .as_ref()
             .map(|m| m.combat_offset)
-            .unwrap_or(ae::Vec2::ZERO)
+            .unwrap_or(ae::Vec2::ZERO);
+        if self.kin.facing < 0.0 {
+            ae::Vec2::new(-raw.x, raw.y)
+        } else {
+            raw
+        }
     }
 
     pub fn aabb(&self) -> ae::Aabb {

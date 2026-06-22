@@ -38,7 +38,12 @@ pub(crate) fn hostile_brain_id_for_actor(
     if looks_like_pirate {
         return "pirate_raider";
     }
-    "medium_striker"
+    // Generic provoked NPC = a melee brawler (`combatant`: Smash + melee Swipe,
+    // NO ranged), matching how the pirates fight. Deliberately NOT
+    // `medium_striker` — that archetype carries a ranged Rock, which turned every
+    // provoked NPC (kernel guide, merchant, ...) into a rock-thrower instead of a
+    // melee attacker like the pirates.
+    "combatant"
 }
 
 /// Resolve the hostile archetype spec a peaceful actor would become when

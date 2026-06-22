@@ -220,10 +220,12 @@ mod tests {
         let record = registry
             .get(SLASH_SHEET)
             .expect("robot_slash sheet must be baked into the registry");
+        // 2 frames/row (matched to the 2-frame melee swing): side=0,1 up=2,3
+        // down=4,5. The Arc art is `side`, the Poke art is `down`.
         assert_eq!(row_start_index(record, "side"), Some(0)); // Arc
-        assert_eq!(row_start_index(record, "down"), Some(10)); // Poke
+        assert_eq!(row_start_index(record, "down"), Some(4)); // Poke
         for row in ["side", "down"] {
-            assert_eq!(row_frame_count(record, row), Some(5), "{row} frames");
+            assert_eq!(row_frame_count(record, row), Some(2), "{row} frames");
         }
     }
 

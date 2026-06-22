@@ -41,10 +41,14 @@ SHEET_FILES = (
 
 FRAME_SIZE = (160, 160)
 SUPER = 4
+# 2 frames per row to match the player's 2-frame melee swing — the effect
+# played 5 frames (~230ms) and lingered well past the snappy attack. The
+# runtime plays the row once over `frames * frame_duration`, so 2 frames keeps
+# the slash on screen for roughly the swing's length instead of trailing it.
 ROWS: List[Tuple[str, int, int]] = [
-    ("side", 5, 46),
-    ("up", 5, 46),
-    ("down", 5, 52),
+    ("side", 2, 60),
+    ("up", 2, 60),
+    ("down", 2, 60),
 ]
 
 # Energy palette — hot white core into a cool cyan halo. Reads as a

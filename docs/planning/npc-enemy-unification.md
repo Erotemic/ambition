@@ -1,6 +1,52 @@
 # NPC / Enemy → One Actor: Unification Execution Brief
 
-_Status: ready to execute • Authored 2026-06-22 (Opus 4.8) • Owner: Jon Crall_
+_Status: ✅ COMPLETE 2026-06-22 (Opus 4.8) • Owner: Jon Crall_
+
+## ✅ Completion note (Opus 4.8, 2026-06-22)
+
+All 7 phases executed and committed to `main`. **There is no longer a notion of
+an NPC vs an enemy** — every actor is one ECS cluster driven by a `Brain`, and
+"enemy" is the runtime `ActorDisposition::Hostile` state, not a class.
+
+What landed (one commit per phase):
+1. `ActorInteraction` — dialogue is a shared actor capability, not an NPC trait.
+2. Provoke accumulator → `ActorAggression.strikes`; hostility → `ActorDisposition`.
+3+4. **The cluster merge.** `npc_clusters.rs` deleted; NPCs spawn through the
+   unified `ActorClusterSeed::new_peaceful_npc`; one `update_ecs_actors` ticks
+   every actor; one damage/reset/save/stimulus path each. Provoke is **in place**
+   (`provoke_actor_in_place`) — no entity churn, keeps sprite (the balloon bug
+   class is structurally gone).
+5. `ActorRuntime` enum **deleted**; `FeatureVisualKind` + all gates derive from
+   `ActorDisposition`.
+6. Relational targeting seam: `FactionRelations` resource + a non-player-centric
+   `select_actor_targets` (an actor hunts whoever its faction is hostile to).
+7. Cluster types renamed `Enemy*` → `Actor*` (`ActorConfig`/`ActorStatus`/
+   `ActorMut`/`ActorClusterSeed`/`ActorTuning`/`actor_clusters.rs`).
+
+Headless gate met: `cargo build -p ambition_app` + `cargo test -p
+ambition_gameplay_core` (947) + `-p ambition_render` (26) + the
+`architecture_boundaries` guard (30) all green.
+
+**What Jon must verify in-game** (cannot be checked headless — see §6):
+- Peaceful NPC still patrols / stands / **flies (parrot)** / **talks** (dialogue
+  opens; idle barks fire).
+- Striking an NPC past the threshold flips it hostile **in place** (same sprite,
+  no balloon, no teleport) and it then attacks; hit/hostile barks fire.
+- Enemies still aggro / chase / attack as before; pirates keep their gun-sword.
+- Save/reload: a provoked NPC stays hostile.
+- **Known behavior change to confirm acceptable:** a same-room *reset* no longer
+  reverts a provoked NPC to peaceful (it respawns at its spawn but stays hostile —
+  the in-place peaceful-revert is a noted follow-up, see Phase 3+4).
+- Boss path untouched (bosses are their own cluster — out of scope).
+
+Follow-ups noted inline: in-place peaceful-revert-on-reset; renaming the still-
+"enemy"-named spawn bundles + `ecs_enemy_*` render helpers (out of Phase 7 scope);
+making player-targeting itself relational so a future stealth system can fully
+hide the player.
+
+---
+
+_Original brief (Authored 2026-06-22, Opus 4.8) follows._
 
 This is a **self-contained execution brief**: a fresh agent should be able to run
 it end-to-end in one focused session against the codebase, with no other context.

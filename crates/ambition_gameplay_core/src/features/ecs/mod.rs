@@ -130,7 +130,7 @@ pub use target_volumes::{
     derive_pogo_target_volumes, refresh_actor_damageable_volumes, refresh_boss_damageable_volumes,
     refresh_breakable_damageable_volumes,
 };
-pub use targeting::select_actor_targets;
+pub use targeting::{select_actor_targets, FactionRelations};
 pub use view_index::{rebuild_feature_view_index, FeatureViewIndex};
 
 // `FeatureSimEntity` is a generic entity-marker queried by the reusable

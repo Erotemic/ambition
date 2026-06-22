@@ -154,7 +154,8 @@ pub use ecs::{
     pirate_on_shark_rider_offset, rebuild_feature_ecs_world_overlay, rebuild_feature_view_index,
     refresh_actor_damageable_volumes, refresh_boss_damageable_volumes,
     refresh_breakable_damageable_volumes, reset_ecs_room_features,
-    select_actor_targets, spawn_encounter_mob, spawn_enemy_projectiles_from_brain_actions,
+    select_actor_targets, FactionRelations, spawn_encounter_mob,
+    spawn_enemy_projectiles_from_brain_actions,
     spawn_melee_hitbox, spawn_room_feature_entities, start_enemy_melee_from_brain_actions,
     sync_actor_poses_from_feature_aabbs, sync_boss_actor_components, sync_boss_encounter_phase,
     sync_boss_reward_chests_ecs, sync_ecs_actors_with_save, sync_ecs_bosses_with_save,
@@ -215,6 +216,9 @@ pub struct WorldPrepSchedulePlugin;
 impl bevy::prelude::Plugin for WorldPrepSchedulePlugin {
     fn build(&self, app: &mut bevy::prelude::App) {
         use bevy::prelude::{IntoScheduleConfigs, Update};
+        // Relational targeting seam (default = today's behavior; stealth/bounty/
+        // alliance systems mutate it). `select_actor_targets` reads it.
+        app.init_resource::<FactionRelations>();
         app.add_systems(
             Update,
             (

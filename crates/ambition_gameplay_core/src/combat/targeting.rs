@@ -11,9 +11,62 @@
 use crate::engine_core as ae;
 use bevy::prelude::*;
 
-use super::components::{ActorAggression, ActorTarget, AggressionTarget, CenteredAabb};
+use super::components::{
+    ActorAggression, ActorFaction, ActorTarget, AggressionTarget, CenteredAabb,
+};
 use super::FeatureSimEntity;
 use crate::player::{BodyKinematics, PlayerEntity};
+
+/// Number of [`ActorFaction`] variants (Player / Enemy / Npc / Boss / Neutral).
+/// The relations matrix is indexed by `faction as usize`.
+const FACTION_COUNT: usize = 5;
+
+/// Who-fights-whom, as DATA rather than hard-coded actor types — the relational
+/// targeting seam. `hostile[from][to] == true` means a `from`-faction actor
+/// treats `to`-faction actors as a combat target this frame.
+///
+/// This is the seam future stealth / bounty / grudge / alliance systems write
+/// to: revealing yourself flips the player's row, a bounty makes a faction
+/// hostile to the player, an alliance clears two factions' mutual hostility — all
+/// without touching the brains or the actor spawn path.
+///
+/// The default reproduces today's behavior exactly: no faction is hostile to
+/// another faction's actors yet (the player baseline is still carried by each
+/// actor's [`ActorAggression`] policy, so hostile enemies + retaliating NPCs keep
+/// chasing the player; nothing regresses). The matrix only ADDS actor-vs-actor
+/// hostility on top of that baseline.
+#[derive(Resource, Clone, Debug)]
+pub struct FactionRelations {
+    hostile: [[bool; FACTION_COUNT]; FACTION_COUNT],
+}
+
+impl Default for FactionRelations {
+    fn default() -> Self {
+        Self {
+            hostile: [[false; FACTION_COUNT]; FACTION_COUNT],
+        }
+    }
+}
+
+impl FactionRelations {
+    /// True iff `from`-faction actors currently treat `to`-faction actors as
+    /// combat targets.
+    pub fn is_hostile(&self, from: ActorFaction, to: ActorFaction) -> bool {
+        self.hostile[from as usize][to as usize]
+    }
+
+    /// Set the one-directional stance `from → to`. Stealth/bounty/alliance
+    /// systems call this; for mutual hostility call it both ways.
+    pub fn set_hostile(&mut self, from: ActorFaction, to: ActorFaction, hostile: bool) {
+        self.hostile[from as usize][to as usize] = hostile;
+    }
+
+    /// Set mutual hostility between two factions (both directions).
+    pub fn set_mutual_hostile(&mut self, a: ActorFaction, b: ActorFaction, hostile: bool) {
+        self.set_hostile(a, b, hostile);
+        self.set_hostile(b, a, hostile);
+    }
+}
 
 /// Pick each non-player actor's `ActorTarget` for this frame.
 ///
@@ -35,15 +88,37 @@ use crate::player::{BodyKinematics, PlayerEntity};
 /// O(n) over actors. A many-player build can swap in a spatial
 /// index here without changing the consumer side.
 pub fn select_actor_targets(
+    relations: Option<Res<FactionRelations>>,
     players: Query<(Entity, &BodyKinematics), With<PlayerEntity>>,
-    mut actors: Query<(&CenteredAabb, &mut ActorTarget, &ActorAggression), With<FeatureSimEntity>>,
+    // Non-player actors are candidate targets too (the relational, non-player-
+    // centric part): an actor can target another actor whose faction it's hostile
+    // to. Snapshotted, so this read-only borrow ends before the mutable pass.
+    others: Query<(Entity, &CenteredAabb, &ActorFaction), With<FeatureSimEntity>>,
+    mut actors: Query<
+        (
+            Entity,
+            &CenteredAabb,
+            &mut ActorTarget,
+            &ActorAggression,
+            Option<&ActorFaction>,
+        ),
+        With<FeatureSimEntity>,
+    >,
 ) {
+    let relations = relations.map(|r| r.clone()).unwrap_or_default();
     let player_snapshots: Vec<(Entity, ae::Vec2)> =
         players.iter().map(|(e, kin)| (e, kin.pos)).collect();
-    if player_snapshots.is_empty() {
+    let candidates: Vec<(Entity, ae::Vec2, ActorFaction)> = others
+        .iter()
+        .map(|(e, aabb, faction)| (e, aabb.center, *faction))
+        .collect();
+    // Nothing to point at: leave every actor's target untouched so downstream
+    // ticks keep last frame's value instead of zeroing (matches old behavior
+    // when no players existed).
+    if player_snapshots.is_empty() && candidates.is_empty() {
         return;
     }
-    for (aabb, mut target, aggression) in actors.iter_mut() {
+    for (self_entity, aabb, mut target, aggression, faction) in actors.iter_mut() {
         let actor_pos = aabb.center;
         match aggression.target_policy() {
             AggressionTarget::None => {
@@ -53,17 +128,39 @@ pub fn select_actor_targets(
                 target.entity = None;
             }
             AggressionTarget::NearestPlayer => {
-                let (best_entity, best_pos) = player_snapshots
-                    .iter()
-                    .copied()
-                    .min_by(|(_, a), (_, b)| {
-                        let da = distance_squared(*a, actor_pos);
-                        let db = distance_squared(*b, actor_pos);
-                        da.partial_cmp(&db).unwrap_or(std::cmp::Ordering::Equal)
-                    })
-                    .expect("player_snapshots non-empty above");
-                target.pos = best_pos;
-                target.entity = Some(best_entity);
+                // Candidate pool = the player baseline (so hostile enemies +
+                // retaliating NPCs keep chasing/facing the player) PLUS any
+                // non-player actor this actor's faction is relationally hostile
+                // to (the seam — empty by default). Nearest wins.
+                let mut best: Option<(Entity, ae::Vec2, f32)> = None;
+                let mut consider = |entity: Entity, pos: ae::Vec2| {
+                    if entity == self_entity {
+                        return;
+                    }
+                    let d = distance_squared(pos, actor_pos);
+                    if best.map(|(_, _, bd)| d < bd).unwrap_or(true) {
+                        best = Some((entity, pos, d));
+                    }
+                };
+                for (entity, pos) in &player_snapshots {
+                    consider(*entity, *pos);
+                }
+                if let Some(faction) = faction {
+                    for (entity, pos, other_faction) in &candidates {
+                        if relations.is_hostile(*faction, *other_faction) {
+                            consider(*entity, *pos);
+                        }
+                    }
+                }
+                if let Some((entity, pos, _)) = best {
+                    target.pos = pos;
+                    target.entity = Some(entity);
+                } else {
+                    // No valid target (e.g. no players + no relational foes):
+                    // keep facing by pointing at self.
+                    target.pos = actor_pos;
+                    target.entity = None;
+                }
             }
         }
     }
@@ -226,5 +323,92 @@ mod tests {
         app.update();
         let target = app.world().entity(enemy).get::<ActorTarget>().unwrap();
         assert_eq!(target.pos, ae::Vec2::new(42.0, 42.0));
+    }
+
+    /// The relational seam: with no player present, an actor targets the nearest
+    /// NON-PLAYER actor of a faction `FactionRelations` marks it hostile to. This
+    /// is the non-player-centric capability — "aggressive to whoever they're
+    /// normally aggressive toward," driven by data, not a player hard-code.
+    #[test]
+    fn actor_targets_relationally_hostile_faction_when_no_player() {
+        use crate::combat::components::ActorFaction;
+        let mut app = App::new();
+        let mut relations = FactionRelations::default();
+        relations.set_hostile(ActorFaction::Enemy, ActorFaction::Npc, true);
+        app.insert_resource(relations);
+
+        // An Enemy-faction actor — no players anywhere ...
+        let enemy = app
+            .world_mut()
+            .spawn((
+                FeatureSimEntity,
+                CenteredAabb::from_center_size(
+                    ae::Vec2::new(100.0, 100.0),
+                    ae::Vec2::new(20.0, 20.0),
+                ),
+                ActorTarget::default(),
+                ActorAggression::hostile_to_player(),
+                ActorFaction::Enemy,
+            ))
+            .id();
+        // ... and an Npc-faction actor it's now relationally hostile to.
+        let npc = app
+            .world_mut()
+            .spawn((
+                FeatureSimEntity,
+                CenteredAabb::from_center_size(
+                    ae::Vec2::new(160.0, 100.0),
+                    ae::Vec2::new(20.0, 20.0),
+                ),
+                ActorFaction::Npc,
+            ))
+            .id();
+
+        app.add_systems(Update, select_actor_targets);
+        app.update();
+
+        let target = app.world().entity(enemy).get::<ActorTarget>().unwrap();
+        assert_eq!(
+            target.entity,
+            Some(npc),
+            "an Enemy hostile-to-Npc should target the Npc actor with no player present"
+        );
+        assert_eq!(target.pos, ae::Vec2::new(160.0, 100.0));
+    }
+
+    /// Default relations add NO actor-vs-actor hostility, so the same pair with
+    /// no player + no relation produces no target (the actor faces itself) —
+    /// proving the relational pool is opt-in and nothing regresses by default.
+    #[test]
+    fn no_relation_no_player_yields_no_target() {
+        use crate::combat::components::ActorFaction;
+        let mut app = App::new();
+        app.insert_resource(FactionRelations::default());
+        let enemy = app
+            .world_mut()
+            .spawn((
+                FeatureSimEntity,
+                CenteredAabb::from_center_size(
+                    ae::Vec2::new(100.0, 100.0),
+                    ae::Vec2::new(20.0, 20.0),
+                ),
+                ActorTarget::default(),
+                ActorAggression::hostile_to_player(),
+                ActorFaction::Enemy,
+            ))
+            .id();
+        app.world_mut().spawn((
+            FeatureSimEntity,
+            CenteredAabb::from_center_size(ae::Vec2::new(160.0, 100.0), ae::Vec2::new(20.0, 20.0)),
+            ActorFaction::Npc,
+        ));
+        app.add_systems(Update, select_actor_targets);
+        app.update();
+        let target = app.world().entity(enemy).get::<ActorTarget>().unwrap();
+        assert_eq!(
+            target.entity, None,
+            "no relation + no player → no combat target by default"
+        );
+        assert_eq!(target.pos, ae::Vec2::new(100.0, 100.0));
     }
 }

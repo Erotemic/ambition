@@ -327,6 +327,21 @@ Stale `ActorRuntime` comments cleaned up. Build + 945 + 26 + 30 tests green._
 - Update all tests that constructed `ActorRuntime::Npc/Enemy` / `NpcConfig` /
   `NpcStatus` literally.
 
+### Phase 6 — Relational, non-player-centric targeting ✅ DONE (Opus 4.8)
+_Added `FactionRelations` (a `Resource`: `hostile[from][to]` matrix +
+`set_hostile`/`set_mutual_hostile`/`is_hostile`) — the seam stealth/bounty/grudge/
+alliance systems write to. `select_actor_targets` is now relational: a non-passive
+actor's candidate pool = the player baseline (so hostile enemies + retaliating NPCs
+keep chasing/facing the player — nothing regresses) PLUS any non-player actor its
+faction is relationally hostile to; nearest wins. Default matrix is all-false, so
+behavior is byte-identical today; flipping a relation makes an actor hunt another
+faction's actors with no player involved (verified by two new tests). Registered
+via `WorldPrepSchedulePlugin`. **Scope note (per brief):** this is the seam only —
+the stealth/bounty systems that WRITE to it are future work, and the player
+baseline is still carried by `ActorAggression` (a future richer pass can make
+player-targeting itself relational so stealth can fully hide you). Build + 947
+gameplay_core tests green._
+
 ### Phase 6 — Relational, non-player-centric targeting (the Skyrim payoff)
 This is the part Jon most cares about conceptually; it's the smallest *code* but
 the biggest *capability*. Can be its own session if Phase 5 ran long.

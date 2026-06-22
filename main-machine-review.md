@@ -9,6 +9,54 @@ _Last updated: 2026-06-21 (Opus 4.8)_
 
 ---
 
+## 0d. NPC/Enemy unification — agreed, plan below (2026-06-22)
+
+**Bug fixed first:** aggressive NPCs ballooned because the body-metrics render
+size lived on `NpcConfig`, which the peaceful→hostile conversion drops (it swaps
+the NPC cluster for the enemy cluster but keeps the body-sized `kin.size`, so the
+enemy render re-applied `collision_scale`). Moved the render size to a SHARED
+`ActorRenderSize` component that survives the flip; both sprite paths honor it.
+Committed (`8211584a`).
+
+**The real ask (agreed): there should be no "NPC" type — just an actor that is
+hostile or not, Skyrim-style, hostility toward *anyone* (no player-centrism).**
+How unified we already are: every actor shares `BodyKinematics` /
+`ActorSurfaceState` / `Brain` / `ActionSet` / `ActorControl` / `ActorDisposition`
+/ `ActorFaction` / `ActorIdentity` / health+combat read-models. What still
+splits NPC from Enemy:
+1. `ActorRuntime::{Npc, Enemy}` enum tag.
+2. `NpcConfig`/`NpcStatus` vs `EnemyConfig`/`EnemyStatus` cluster components.
+3. Two tick systems (`update_ecs_npcs` vs `update_ecs_actors`) — split ONLY
+   because one query with both cluster QueryDatas panics on conflicting mutable
+   access to the shared components.
+4. The peaceful→hostile *conversion* that swaps clusters + retags.
+
+Collapsing it *removes* code: one `ActorConfig` (the NPC-only bits —
+interactable/dialogue, patrol/talk radii — become optional fields or a small
+`Interactable`-carrying component), disposition is just `ActorDisposition` +
+faction targeting, ONE cluster → ONE tick query (no conflict) → no migration
+(hostility = flip disposition + swap Brain/ActionSet in place). Faction targeting
+already exists (`ActorTarget`/`select_actor_targets`) and is the seam for
+"hostile to non-player actors."
+
+**Why staged, not one big-bang:** it changes runtime combat/patrol behavior I
+can't verify headless — needs you to test "provoke an NPC, watch patrol/idle,
+confirm no regressions" at checkpoints. Proposed order (each compiles + ships
+green):
+- S1 ✅ shared `ActorRenderSize` (done — and the pattern: actor-wide facts leave
+  the per-disposition cluster).
+- S2: merge `NpcStatus` into the shared status read-models (hit_flash/ai_mode
+  already mirrored to components) — delete `NpcStatus`.
+- S3: fold NPC-only config (interactable, patrol/talk radii) into a small
+  `Interactable`+`PatrolBounds` component carried by ANY actor; delete the
+  NPC-specific fields from the cluster.
+- S4: unify the cluster + the two tick systems into one (the big one — resolves
+  the query split by construction).
+- S5: delete `ActorRuntime` + the conversion; hostility = disposition flip +
+  brain/action swap in place.
+
+---
+
 ## 0c. Debug box labels + FSM box flip-alignment (2026-06-22)
 
 - **Every debug box is now labeled** with its type, as world-space text

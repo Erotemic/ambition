@@ -326,22 +326,28 @@ pub(crate) fn advance_attack(
         } else {
             clusters.kinematics.facing * 300.0
         };
-        if first_active_frame {
-            hit_events.write(features::HitEvent {
-                volume: attack,
-                damage: slash_damage,
-                source: features::HitSource::PlayerSlash { knock_x },
-                // Slash hits attribute to the player whose attack
-                // landed — the feature-side consumer reads this
-                // to apply hitstop / flash to the right player
-                // rather than always landing it on primary.
-                attacker: Some(player_entity),
-                target: features::HitTarget::Volume,
-                mode: features::HitMode::Knockback,
-                knockback: None,
-                ignored_targets: attack_state.hit_targets.clone(),
-            });
-        }
+        // Emit the slash hit on EVERY active frame, not just the first — the
+        // hitbox tracks the player as it moves, so a strike at the edge of reach
+        // (or mid-descent on a pogo) connects on whatever active frame the box
+        // actually reaches the target, matching the every-frame pogo-bounce
+        // check. `ignored_targets` (the per-swing `hit_targets`, accumulated by
+        // `apply_feature_hit_events` as each target is struck) keeps it to one
+        // hit per target across the active window.
+        let _ = first_active_frame;
+        hit_events.write(features::HitEvent {
+            volume: attack,
+            damage: slash_damage,
+            source: features::HitSource::PlayerSlash { knock_x },
+            // Slash hits attribute to the player whose attack
+            // landed — the feature-side consumer reads this
+            // to apply hitstop / flash to the right player
+            // rather than always landing it on primary.
+            attacker: Some(player_entity),
+            target: features::HitTarget::Volume,
+            mode: features::HitMode::Knockback,
+            knockback: None,
+            ignored_targets: attack_state.hit_targets.clone(),
+        });
         // Damage is resolved by the ECS damage queue after the player tick.
         // Keep this phase responsible only for spawning the one-frame hitbox
         // and for immediate pogo/world-contact feedback.

@@ -692,19 +692,16 @@ mod tests {
         );
     }
 
-    /// REPRODUCTION (pogo bounces but deals no damage at the edge of reach).
-    /// `advance_attack` emits the slash-damage `HitEvent` ONLY on the first
-    /// active frame (`if first_active_frame { hit_events.write(PlayerSlash..) }`)
-    /// using that frame's hitbox, but re-checks the POGO bounce EVERY active
-    /// frame. So if the connecting frame isn't the first — the player is still
-    /// descending / at the edge so frame 1's hitbox misses, and a later frame's
-    /// hitbox reaches the target — the bounce fires while the damage never
-    /// re-checks. Pogo without a hit.
-    ///
-    /// When fixed (emit the slash damage every active frame, deduped by
-    /// `hit_targets`, mirroring the pogo's every-frame check) the later frame
-    /// will also land damage — assert the later-frame overlap below stays true,
-    /// and route damage through it.
+    /// Pins the geometry behind the "pogo bounces but deals no damage at the
+    /// edge" bug (now FIXED): the slash hitbox tracks the player, so frame 1
+    /// (player still high / at the edge) misses while a later active frame
+    /// reaches the target. The bug was that `advance_attack` emitted the
+    /// slash-damage `HitEvent` only on the FIRST active frame but re-checked the
+    /// POGO bounce EVERY active frame — so the later frame bounced with no hit.
+    /// Fixed by emitting the slash damage every active frame (deduped per target
+    /// via `hit_targets`, accumulated in `apply_feature_hit_events`), mirroring
+    /// the pogo check. This test keeps the geometry honest: the later-frame
+    /// hitbox DOES overlap, so the every-frame emit will land the hit.
     #[test]
     fn pogo_connects_on_a_later_frame_than_the_first_active_frame_damage_check() {
         use ambition_gameplay_core::combat::{

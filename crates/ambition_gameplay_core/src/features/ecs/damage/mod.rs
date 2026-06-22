@@ -128,7 +128,13 @@ pub fn apply_feature_hit_events(
     // where a feature-target consumer ever needs to apply hitstop
     // for them.
     mut player_combat_q: Query<
-        (bevy::prelude::Entity, &mut crate::player::PlayerCombatState),
+        (
+            bevy::prelude::Entity,
+            &mut crate::player::PlayerCombatState,
+            // The attacker's live swing, so a multi-active-frame slash records
+            // which targets it has already struck and never double-hits them.
+            Option<&mut crate::player::ActivePlayerAttack>,
+        ),
         bevy::prelude::With<crate::player::PlayerEntity>,
     >,
     primary_q: bevy::prelude::Query<
@@ -194,6 +200,10 @@ pub fn apply_feature_hit_events(
         if !event.source.is_attacker_side() {
             continue;
         }
+        // Ignore-keys (`prefix:id`) of every target struck by THIS event, folded
+        // back into the attacker's per-swing `hit_targets` below so a slash that
+        // emits on every active frame only damages each target once.
+        let mut landed_keys: Vec<String> = Vec::new();
         let mut actor_hit_this_event = false;
         for (
             actor_entity,
@@ -231,6 +241,7 @@ pub fn apply_feature_hit_events(
                 &mut writers,
             ) {
                 actor_hit_this_event = true;
+                landed_keys.push(format!("{prefix}:{}", id.as_str()));
                 sync_actor_components_from_cluster(
                     &em,
                     *disposition,
@@ -260,18 +271,29 @@ pub fn apply_feature_hit_events(
                 cutscene_queue.as_deref_mut(),
             ) {
                 boss_hit_this_event = true;
+                landed_keys.push(format!("boss:{}", id.as_str()));
             }
         }
 
         if actor_hit_this_event || boss_hit_this_event {
             let target_attacker = event.attacker.or_else(|| primary_q.single().ok());
             if let Some(attacker) = target_attacker {
-                for (entity, mut combat) in &mut player_combat_q {
+                let record_dedup = matches!(event.source, HitSource::PlayerSlash { .. });
+                for (entity, mut combat, active_attack) in &mut player_combat_q {
                     if entity != attacker {
                         continue;
                     }
                     combat.hitstop_timer = combat.hitstop_timer.max(0.06);
                     combat.flash_timer = combat.flash_timer.max(0.10);
+                    // Record the targets this slash just struck so the next active
+                    // frame's emit ignores them (one hit per target per swing).
+                    if record_dedup {
+                        if let Some(mut active) = active_attack {
+                            if let Some(state) = active.0.as_mut() {
+                                state.hit_targets.extend(landed_keys.iter().cloned());
+                            }
+                        }
+                    }
                     break;
                 }
             }

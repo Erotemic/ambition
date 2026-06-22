@@ -318,6 +318,45 @@ edits per stage, build once. `cargo`/test invocations use `-p ambition_app` (e.g
       source of truth; DELETE `BossEncounterRegistry.encounters` + `runtime_ids` (registry = read-only
       `profiles`/`specs_loaded` catalog only); remove/repoint `record_boss_damage`/`force_boss_death`.
       All mutators+readers move together here — half-migration is overwritten by the mirror.
+      - **R3 surface map (scouted 2026-06-22, NOT yet executed).** The atomic edit set:
+        1. **Register `tick_boss_phases`** (built in R1, `boss_encounter/phase_runtime.rs`) as the
+           phase driver: add a `wake()` step (alive && Dormant ⇒ wake) + bridge the returned
+           `BossPhaseEvent`s to the existing `publish_events` consumers (music/banner/cutscene).
+           Order `sync_boss_encounter_phase` (reader) AFTER it.
+        2. **`features/ecs/damage/boss_hit.rs::apply_boss_hit`** already holds the boss `BossMut`.
+           Replace the `record_boss_damage(registry,…)` branch with direct entity mutation: swallow if
+           `boss.status.encounter.boss_invulnerable()` (make that method also honor
+           `phase.boss_invulnerable()` so Intro/Transition stay invuln), else `health.damage(amount)`;
+           on kill set `encounter.phase = Death`. Drop the `boss_registry/music/cutscene` params.
+        3. **New entity death-resolution system** (replaces the death half of `update_boss_encounters`):
+           on a boss reaching `Death` (or `alive==false` first frame), do save `set_boss(Cleared)` +
+           `QuestAdvanceEvent::BossDefeated` + victory banner + music restore. (R4 rekeys the save to
+           the encounter placement.)
+        4. **`update_boss_encounters` guts out**: delete register/wake/tick/mirror/music-lifetime/death.
+           What may remain (or move): behavior-profile application, max_hp seeding, save-Cleared skip,
+           reward-chest sync. Then **delete `BossEncounterRegistry.{encounters,runtime_ids}` + `ensure`/
+           `link_runtime`/`get`/`active_phase`**; keep `profiles`/`specs_loaded`. Delete `damage.rs`
+           (`record_boss_damage`/`force_boss_death`) + its tests.
+        5. **`features/ecs/encounter_rewards.rs`** iterates `registry.encounters` + `runtime_ids` for
+           reward-chest placement on defeat — repoint to the boss entities / save-Cleared.
+        6. **`boss_encounter/systems.rs::boss_phase_transition_feedback`** iterates `registry.encounters`
+           — read boss entity phases instead.
+        7. **cut-rope content** (`ambition_content/src/bosses/cut_rope/`): `arena.rs` ALREADY kills the
+           entity directly (`alive=false; health.current=0`) — just drop the extra
+           `force_boss_death(registry,…)` call + set `phase = Death`. `victory.rs` reads
+           `encounters.get(CUT_ROPE_BOSS_ID)` and `mod.rs::reset_cut_rope_boss_attempt` uses
+           `runtime_ids` + `encounters.get_mut().reset_for_retry()` — repoint both to the boss entity.
+           (Full `EncounterScript`/`Contains`/`ReleaseOnDeath` is R5; R3 only de-registries the kill.)
+        8. **Tests to rewrite onto the entity contract**: the canary
+           `two_same_archetype_bosses_have_independent_encounter_state` + the R2 integration test (read
+           per-entity `BossStatus`/`EncounterProgress`, not `reg.encounters`); `damage.rs` unit tests
+           (gone with the file → re-pin as entity damage tests); `systems.rs` `phase_feedback_tests`;
+           `encounter_rewards.rs` tests.
+      - **Verification gap (why this is a deliberate checkpoint boundary):** save-cleared persistence,
+        reward-chest spawning, cut-rope victory + in-place replay, and adaptive-music restore have NO
+        headless test coverage and can't be observed in this environment. Land R3 either (a) with new
+        headless tests pinning each of those, or (b) blind in its own commit with an explicit
+        "verify in-game" note (per Jon's blind-fix rule). Do NOT ship it silently as "done".
 - [ ] **R4 — Save persistence keyed to the ENCOUNTER placement (not archetype).**
       `cleared: HashSet<encounter_placement_id>` written on encounter win. Supersedes Stage 1a's
       archetype-keyed save — reusing a boss archetype elsewhere is NOT pre-marked cleared.

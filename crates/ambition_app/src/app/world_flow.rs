@@ -691,4 +691,74 @@ mod tests {
             Some(orb.aabb)
         );
     }
+
+    /// REPRODUCTION (pogo bounces but deals no damage at the edge of reach).
+    /// `advance_attack` emits the slash-damage `HitEvent` ONLY on the first
+    /// active frame (`if first_active_frame { hit_events.write(PlayerSlash..) }`)
+    /// using that frame's hitbox, but re-checks the POGO bounce EVERY active
+    /// frame. So if the connecting frame isn't the first — the player is still
+    /// descending / at the edge so frame 1's hitbox misses, and a later frame's
+    /// hitbox reaches the target — the bounce fires while the damage never
+    /// re-checks. Pogo without a hit.
+    ///
+    /// When fixed (emit the slash damage every active frame, deduped by
+    /// `hit_targets`, mirroring the pogo's every-frame check) the later frame
+    /// will also land damage — assert the later-frame overlap below stays true,
+    /// and route damage through it.
+    #[test]
+    fn pogo_connects_on_a_later_frame_than_the_first_active_frame_damage_check() {
+        use ambition_gameplay_core::combat::{
+            attack_hitbox_from_view, attack_spec_from_view, AttackIntent, AttackView,
+        };
+        let hitbox_at = |pos: ae::Vec2| {
+            let view = AttackView {
+                pos,
+                size: ae::Vec2::new(30.0, 48.0),
+                facing: 1.0,
+                on_ground: false,
+                wall_clinging: false,
+                dash_timer: 0.0,
+                abilities_directional_primary: true,
+            };
+            attack_hitbox_from_view(&view, attack_spec_from_view(&view, AttackIntent::AirDown))
+        };
+        // The boss's pogo target — same geometry as its damageable volume
+        // (pogo is `FromDamageable`).
+        let orb = ae::Block::pogo_orb("boss", ae::Vec2::new(100.0, 200.0), 16.0);
+        let world = ae::World::new(
+            "pogo-timing repro",
+            ae::Vec2::new(400.0, 400.0),
+            ae::Vec2::ZERO,
+            vec![orb.clone()],
+        );
+
+        // First active frame: player still high → the down hitbox misses.
+        let first = hitbox_at(ae::Vec2::new(100.0, 80.0));
+        // A later active frame: player descended into the boss → hitbox overlaps.
+        let later = hitbox_at(ae::Vec2::new(100.0, 120.0));
+
+        // Damage is first-active-frame only → it samples `first`, which misses.
+        assert!(
+            !first.strict_intersects(orb.aabb),
+            "first-frame hitbox misses the boss, so the one-shot slash damage never lands",
+        );
+        assert_eq!(
+            pogo_target_for_attack_hitbox(&world, first),
+            None,
+            "pogo also misses on the first frame",
+        );
+        // Pogo is checked every active frame → it connects on `later` and bounces.
+        assert_eq!(
+            pogo_target_for_attack_hitbox(&world, later),
+            Some(orb.aabb),
+            "pogo connects on a later frame → bounce with no damage (the bug)",
+        );
+        // The later-frame hitbox DOES overlap the boss — the only reason damage
+        // didn't land is the first-active-frame-only gate. Checking damage every
+        // active frame (like pogo) would fix it.
+        assert!(
+            later.strict_intersects(orb.aabb),
+            "later-frame hitbox overlaps the boss; only the first-frame damage gate hid the hit",
+        );
+    }
 }

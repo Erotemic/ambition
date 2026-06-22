@@ -473,6 +473,48 @@ mod tests {
         );
     }
 
+    /// REPRODUCTION (point-blank / "inside the boss body" whiff): a target that
+    /// occupies the attacker's OWN footprint is not struck by a forward/neutral
+    /// swing, because the hitbox is offset entirely in front of the body — its
+    /// near edge lands at the attacker's front edge (`offset.x - half_size.x ==
+    /// half.x`), leaving a dead zone over (and behind) the attacker. This is the
+    /// "I fly inside the mockingbird and my swing throws a box but never
+    /// connects" symptom: when the player overlaps the enemy, no horizontal
+    /// swing covers where the player actually is.
+    ///
+    /// When this is fixed (e.g. a point-blank rule: a hurtbox overlapping the
+    /// attacker's body counts as hit, or the neutral hitbox includes the body),
+    /// flip the assertion to `assert!(intersects)`.
+    #[test]
+    fn forward_swing_leaves_a_dead_zone_over_the_attackers_own_body() {
+        let pos = Vec2::new(0.0, 0.0);
+        let view = view_at(pos, 1.0);
+        // An enemy occupying exactly the player's space (player flew inside it).
+        let on_top_of_player = view.aabb();
+        for intent in [AttackIntent::Forward, AttackIntent::Neutral] {
+            let hitbox = attack_hitbox_from_view(&view, attack_spec_from_view(&view, intent));
+            assert!(
+                !hitbox.strict_intersects(on_top_of_player),
+                "{intent:?} swing must currently MISS a target on top of the attacker \
+                 (reproduces the point-blank whiff); near edge {} vs body right edge {}",
+                hitbox.min.x,
+                on_top_of_player.max.x,
+            );
+        }
+        // Contrast: the same swing DOES hit a target one body-width in front, so
+        // the dead zone is specifically the attacker's own footprint, not a reach
+        // problem.
+        let in_front = Aabb::new(
+            Vec2::new(pos.x + view.size.x, pos.y),
+            view.size * 0.5,
+        );
+        let fwd = attack_hitbox_from_view(&view, attack_spec_from_view(&view, AttackIntent::Forward));
+        assert!(
+            fwd.strict_intersects(in_front),
+            "the forward swing reaches a target in front — the whiff is the self-overlap, not reach",
+        );
+    }
+
     #[test]
     fn forward_slash_is_in_front_of_facing_direction() {
         let pos = Vec2::new(100.0, 100.0);

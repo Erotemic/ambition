@@ -98,13 +98,17 @@ advancing as triggers fire.
   trigger/effect vocabulary while staying separate mechanisms (a phase transition is a tiny built-in
   beat the entity owns intrinsically; the encounter owns the bespoke ones). Don't unify yet.
 
-### Open forks (NOT yet decided)
-- **Phase-up without an encounter?** Lean: phase state + intrinsic HP-triggers live on the entity, so
-  a boss reused with no encounter still enrages at low HP (the encounter only FRAMES/displays phases
-  and can ADD external triggers), with an opt-out knob. Confirm vs "no encounter = phase 1 only".
-- **"Cleared" keyed to the encounter PLACEMENT, not the archetype.** Today save is archetype-keyed
-  (Stage 1a kept that). Reuse story implies per-encounter-instance ("the cut-rope encounter is
-  cleared"), so reusing the archetype elsewhere isn't pre-marked dead. Changes Stage 5.
+### Resolved decisions (Jon, 2026-06-22)
+- **Phases are intrinsic-but-OPTIONAL DATA, not a mode.** A boss carries a (possibly empty) list of
+  intrinsic health-gated phase triggers as DATA on the archetype/entity. Empty list → the boss just
+  fights, no phase-up (works as a plain enemy). Non-empty → it phases up on its own, **with or
+  without an encounter**. The encounter never *gates* phase-up; it only FRAMES/displays phases (HUD)
+  and may ADD external (e.g. scripted) triggers. **Key requirement: the per-boss decision must be
+  trivially changeable** — flipping a boss between "has phases" and "no phases" is editing its
+  trigger DATA, never a code change. "Most bosses will have them; some won't" must be cheap.
+- **"Cleared" is keyed to the ENCOUNTER (placement/instance), not the archetype.** Confirmed, no
+  question. Reusing a boss archetype elsewhere is NOT pre-marked cleared. (Supersedes Stage 1a's
+  archetype-keyed save; the per-encounter cleared key lands with the encounter entity in Stage B.)
 
 ---
 
@@ -222,17 +226,79 @@ Content (`ambition_content`):
       - Reader-migration ordering gotcha: `update_boss_encounters` (progression schedule) and
         `sync_boss_encounter_phase` (features schedule) have no explicit order, so a reader that
         switches to the entity copy may see a one-frame-stale phase unless ordered after the mirror.
-- [ ] **Stage 2 — Phase transitions as triggers + transition-lock beat.** Add `transition_lock` +
-      the trigger model (`HpBelow`/`TimeInPhase`/`External`). Default = fight-til-death (no Intro
-      invuln unless opted in). Emit a "scream"/tell event on transition.
-- [ ] **Stage 3 — Reactions become entity-event consumers.** Music / cutscene / banner / rewards /
-      lock-walls subscribe to per-entity `BossPhaseChanged` / `BossDefeated` messages instead of
-      `registry.active_phase()`.
-- [ ] **Stage 4 — Delete the live registry map.** Remove `encounters` + `runtime_ids`; registry is a
-      read-only data catalog. Update all remaining call sites.
-- [ ] **Stage 5 — Save persistence.** `BossDefeated` → `cleared: HashSet<encounter_id>` in save.
-- [ ] **Stage 6 — Spawn seam tweaks Z.** `SpawnActorRequest::Boss { overrides }` + `spawn_boss_at`
-      applies hp/size/threshold overrides. Add a "spawn two different bosses, both fightable" test.
+> **The original Stages 2–6 below are SUPERSEDED by the refined model.** Execute the
+> "Remaining work" list that follows instead. (Kept here only as the pre-refinement history.)
+> - ~~Stage 2 — phase transitions as triggers~~ → folded into refined Stage R1
+> - ~~Stage 3 — reactions as entity-event consumers~~ → refined Stage R2 (encounter ENTITY)
+> - ~~Stage 4 — delete live registry map~~ → refined Stage R3
+> - ~~Stage 5 — save persistence~~ → refined Stage R4 (now encounter-keyed)
+> - ~~Stage 6 — spawn tweaks Z~~ → refined Stage R6
+
+---
+
+## ⇒ TASK FOR THE NEXT AGENT (refined remaining work) — START HERE
+
+**Baseline already on `main` (anchors):** `92dd6f56` plan · `a3907567` Stage 1a (per-entity keying)
+· `449868ad` Stage 1b (entity-local `BossStatus.encounter` copy) · `c1fb4ec9` design refinement.
+
+**What is already true:** live encounter state is keyed per-entity AND copied onto
+`BossStatus.encounter` each frame (additive, not yet read). The global `BossEncounterRegistry` still
+holds the authoritative live map. The combat-feel tests (`boss_contact_iframes`) + the canary
+`two_same_archetype_bosses_have_independent_encounter_state` + the 949 gameplay_core lib tests are
+green — keep them green (the differential harness). Read the "DESIGN REFINEMENT" + "Resolved
+decisions" + "Blast radius" sections above before starting; they are authoritative.
+
+**Working rules:** each stage must COMPILE before committing (the only hard gate); commit each stage
+as a checkpoint with a `boss:`-prefixed message; sign as the executing model + the Co-Authored-By
+trailer; commit directly to `main`; stage explicit paths (never `git add -A`); watch disk
+(`rm -rf ~/ambition-target/debug/incremental` is the safe pressure valve). Builds are ~10 min — batch
+edits per stage, build once. `cargo`/test invocations use `-p ambition_app` (e.g.
+`cargo test -p ambition_app --test boss_contact_iframes`).
+
+- [ ] **R1 — Split state + phases as intrinsic-OPTIONAL data (entity-local).**
+      Trim `BossStatus.encounter` to the ENTITY half: HP (already `BossStatus.health`) + phase state
+      (current phase, `transition_lock: f32` tell/scream timer) + a **`Vec<PhaseTrigger>` of intrinsic
+      triggers (DATA, may be empty)**. The encounter-only fields (per-phase music, thresholds-as-
+      display, lock-walls, HUD) stop living on the entity — leave them on the profile/data catalog for
+      now; they move to the encounter entity in R2. Build the phase-transition mechanism as its OWN
+      entity-local component+system (parallel to hitstun, NOT shared per Jon): a trigger fires →
+      enter `transition_lock` (invuln + emit a tell/"scream" event) → swap the brain's exposed phase.
+      Triggers: `HpBelow(frac)`, `TimeInPhase(s)`, `External(gate: String)` (fired by message).
+      **Empty trigger list ⇒ no phase-up, fights till `health==0`** (a boss reused as a plain enemy);
+      a boss with triggers phases up on its own WITH OR WITHOUT an encounter. The decision is pure
+      DATA and must be trivially flippable — no code change to add/remove a boss's phases. Drop the
+      forced Intro invulnerability (make it an opt-in `TimeInPhase` trigger).
+- [ ] **R2 — Promote the encounter to a first-class OPTIONAL entity; migrate READERS.**
+      Introduce an `Encounter` entity with an `EncounterDef`: member entity refs + a **progress model
+      DERIVED from member state** (single boss = its HP/phase; wave = adds remaining; etc.) + music +
+      lock-walls config + win/lose condition + optional `EncounterScript` (see shape above) + optional
+      HUD binding. A boss spawned with NO encounter just exists (no HUD/lock-walls/progress required —
+      headless/RL-fine). Migrate readers onto the right layer: HUD reads encounter progress;
+      `sync_boss_encounter_phase` reads the entity phase; music + lock-walls become per-encounter-
+      entity properties instead of the global `active_phase()`. Keep the global live map alive in
+      parallel still (deleted in R3) so this stage is reader-only and stays green.
+      Ordering gotcha: a reader switched to the entity copy must run AFTER the mirror or see a
+      one-frame-stale phase — order it explicitly.
+- [ ] **R3 — Flip WRITERS + delete the global live map (the big-bang; do in ONE commit).**
+      Player damage (`apply_boss_hit`) mutates the entity HP/phase directly (drop string routing).
+      Cut-rope environmental kill becomes an `EncounterScript` `ForceKill(member)` effect. The
+      encounter win-condition observes members. `BossStatus.encounter` (the entity copy) becomes the
+      source of truth; DELETE `BossEncounterRegistry.encounters` + `runtime_ids` (registry = read-only
+      `profiles`/`specs_loaded` catalog only); remove/repoint `record_boss_damage`/`force_boss_death`.
+      All mutators+readers move together here — half-migration is overwritten by the mirror.
+- [ ] **R4 — Save persistence keyed to the ENCOUNTER placement (not archetype).**
+      `cleared: HashSet<encounter_placement_id>` written on encounter win. Supersedes Stage 1a's
+      archetype-keyed save — reusing a boss archetype elsewhere is NOT pre-marked cleared.
+- [ ] **R5 — Smirking Behemoth via the generic pieces** (see "decomposition" above). Add a generic
+      `Contains(npc) + ReleaseOnDeath` instance-payload component (freed at the entity's position on
+      death — NOT scripted). Express the cut-rope fight as an `EncounterScript`
+      (rope-cut → `CommandMoveTo` behemoth under boulder + `DropHazard` → on `HazardImpact`
+      `ForceKill` → death auto-frees the NPC). Keep `environmental_kill_only` (generic immune flag).
+      Delete the bespoke `ambition_content::bosses::cut_rope` registry plumbing it replaces.
+- [ ] **R6 — Spawn seam tweaks Z.** `SpawnActorRequest::Boss { overrides }` + `spawn_boss_at(...,
+      overrides)` applies hp / size / phase-trigger overrides. Tests: spawn two DIFFERENT bosses both
+      fightable; spawn a boss with NO encounter (plain tough enemy, no HUD); spawn a boss with
+      overridden/empty phase triggers (proves phases are trivially-flippable data).
 
 ---
 
@@ -248,8 +314,12 @@ Content (`ambition_content`):
 ## Risks / open questions
 
 - The `encounter/` layer (lock walls, music gate) and the `cut_rope` content boss are the gnarliest
-  consumers of `active_phase()`; they assume one global active boss. Per-entity may change their UX
-  (e.g. which boss owns the music) — decide policy in Stage 3 (proposal: most-recently-aggroed boss
-  owns music; lock-walls keyed per arena, not global).
+  consumers of `active_phase()`; they assume one global active boss. Under the refined model these
+  become **encounter-entity** properties (R2/R3): music + lock-walls belong to the ENCOUNTER, so a
+  room with no active encounter plays room music and a gauntlet's encounter owns its own music/walls.
+  No more global "the one active boss" assumption.
+- `BossEncounterState` currently bundles entity concerns (HP, phase) with encounter concerns (per-
+  phase music, thresholds-as-display, HUD). R1 splits it; don't move the whole blob to the entity (as
+  Stage 1b temporarily did) — that copy is trimmed to the entity half in R1 and deleted-as-mirror in R3.
 - Disk on the dev VM is tight (was 100% full; freed the 32G `debug/incremental` cache). Watch space
   across the many heavy rebuilds; `rm -rf target/debug/incremental` is the safe pressure valve.

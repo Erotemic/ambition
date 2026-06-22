@@ -120,6 +120,7 @@ pub(crate) fn load_room(
     combat.hitstop_timer = 0.0;
     combat.damage_invuln_timer = 0.0;
     combat.hitstun_timer = 0.0;
+    combat.recoil_lock_timer = 0.0;
     safety.last_safe_pos = clusters.kinematics.pos;
     clock.time_scale = 1.0;
     interaction.down_tap_timer = 0.0;

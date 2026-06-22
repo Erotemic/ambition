@@ -25,7 +25,7 @@
 
 use ambition_app::{AgentAction, SandboxSim, TimestepMode};
 use ambition_gameplay_core::actor::BossBrain;
-use ambition_gameplay_core::combat::boss_clusters::BossConfig;
+use ambition_gameplay_core::combat::boss_clusters::{BossConfig, BossStatus};
 use ambition_gameplay_core::combat::{HitEvent, HitSource};
 use ambition_gameplay_core::engine_core::{self as ae, AabbExt};
 use ambition_gameplay_core::player::{
@@ -40,9 +40,12 @@ const FRAMES: usize = 300;
 #[derive(Clone, Copy, Debug)]
 struct PlayerSnapshot {
     pos: ae::Vec2,
+    vel: ae::Vec2,
     half: ae::Vec2,
     invuln: f32,
     hitstun: f32,
+    /// The brief hard control-lock at the front of a knockback.
+    recoil: f32,
     attacking: bool,
     hp: i32,
 }
@@ -52,6 +55,12 @@ struct BossSnapshot {
     pos: ae::Vec2,
     /// FULL contact-box size (profile `combat_size` for the mockingbird).
     combat_size: ae::Vec2,
+    /// Hit-flash, set to 0.18 whenever a player slash SPATIALLY connects with a
+    /// boss damageable part — before the encounter-registry HP check. So
+    /// `hit_flash > 0` is a clean "the swing reached the boss" signal even
+    /// though a programmatically-spawned boss isn't a registered encounter (its
+    /// HP accounting is inert).
+    hit_flash: f32,
 }
 
 fn read_player(world: &mut World) -> PlayerSnapshot {
@@ -63,21 +72,24 @@ fn read_player(world: &mut World) -> PlayerSnapshot {
     let (kin, combat, health) = q.single(world).expect("primary player exists");
     PlayerSnapshot {
         pos: kin.pos,
+        vel: kin.vel,
         half: kin.size * 0.5,
         invuln: combat.damage_invuln_timer,
         hitstun: combat.hitstun_timer,
+        recoil: combat.recoil_lock_timer,
         attacking: combat.attacking,
         hp: health.current(),
     }
 }
 
 fn read_boss(world: &mut World) -> Option<BossSnapshot> {
-    // Only the boss carries `BossConfig`, so this query never matches the
-    // player even though both share `BodyKinematics`.
-    let mut q = world.query::<(&BodyKinematics, &BossConfig)>();
-    q.iter(world).next().map(|(kin, cfg)| BossSnapshot {
+    // Only the boss carries `BossConfig` / `BossStatus`, so this query never
+    // matches the player even though both share `BodyKinematics`.
+    let mut q = world.query::<(&BodyKinematics, &BossConfig, &BossStatus)>();
+    q.iter(world).next().map(|(kin, cfg, status)| BossSnapshot {
         pos: kin.pos,
         combat_size: cfg.behavior.combat_size.unwrap_or(kin.size),
+        hit_flash: status.hit_flash,
     })
 }
 
@@ -291,5 +303,195 @@ fn flying_into_mockingbird_traces_iframe_gated_contact_damage() {
         max_invuln_at_damage <= 0.05,
         "contact damage landed while the player still had {max_invuln_at_damage:.3}s of \
          i-frames remaining — i-frames are supposed to gate it"
+    );
+}
+
+/// The Hollow-Knight fix: face-tanking should not be helpless.
+///
+/// Same setup as the i-frame trace, but the player *swings every frame* while
+/// inside the boss. Pins the two behaviors we just added:
+///   1. The player can SWING (and connect on the boss) while standing in it and
+///      flashing — the melee gate is now the brief recoil lock, not the full
+///      hitstun window. Before the fix `attacking` could only be true after
+///      hitstun (~0.94s) cleared, which outlasts the i-frame window, so you
+///      could never swing while invulnerable. That helplessness is what "felt
+///      the most bad".
+///   2. Each contact hit engages a short, hard recoil control-lock during which
+///      the player cannot steer back toward the boss (the knockback gets to
+///      eject them before they can act).
+///
+/// Note: a programmatically-spawned boss is the boss ENTITY but not a registered
+/// `BossEncounterRegistry` encounter, so its HP/death accounting is inert and a
+/// stray room-edge can trigger a feature reset that despawns it — both
+/// orthogonal to the combat-feel fix. So we measure the swing CONNECTING
+/// (`hit_flash`, set before the registry check) rather than boss HP, and break
+/// cleanly if the boss is reset away.
+#[test]
+fn face_tanking_player_swings_back_and_is_recoil_locked() {
+    let mut sim = SandboxSim::new_with_timestep(TimestepMode::fixed_60hz())
+        .expect("sandbox sim builds");
+
+    boost_player_health(sim.world_mut(), 1000);
+    sim.grant_flight();
+
+    let start = read_player(sim.world_mut()).pos;
+    sim.spawn_boss_at(
+        "test_mockingbird",
+        "mockingbird",
+        (start.x, start.y),
+        (30.0, 30.0),
+        BossBrain::PhaseScript {
+            script_id: "mockingbird".to_string(),
+        },
+    );
+
+    println!("frame | invuln | recoil | atk | flash | note");
+    println!("------+--------+--------+-----+-------+-----");
+
+    let mut prev = read_player(sim.world_mut());
+
+    let mut frames_ran = 0usize;
+    let mut swing_while_iframed = 0usize; // attacking AND invulnerable (the gate fix)
+    let mut swing_connected = 0usize; // a player slash reached the boss (hit_flash set)
+    let mut connect_while_iframed = 0usize; // ...on a frame the player was invulnerable
+    let mut player_took_hits = 0usize;
+    let mut recoil_frames = 0usize;
+    let mut max_recoil = 0.0f32;
+    // A recoil frame where the player was commanded toward the boss but had no
+    // velocity authority toward it — proof the lock actually removes control.
+    let mut recoil_suppressed_steer = false;
+
+    for frame in 0..FRAMES {
+        // The boss can be reset away by a stray room-edge transition (it isn't a
+        // registered encounter); stop cleanly rather than panicking.
+        let Some(boss) = read_boss(sim.world_mut()) else {
+            println!("(boss reset away at frame {frame}; stopping)");
+            break;
+        };
+        let to_center = boss.pos - prev.pos;
+        let dist = to_center.length();
+        let axis = |d: f32| if d.abs() > 3.0 { d.signum() } else { 0.0 };
+        // Steer toward the boss center and TAP attack on a cadence when close
+        // enough to land it. Tapping (not holding) matters: the engine applies a
+        // small backward `slash_recoil` on every attack-pressed edge, so holding
+        // attack every frame would continuously shove the player out of range —
+        // an artifact of the synthetic input, not the mechanic.
+        let action = AgentAction {
+            move_x: axis(to_center.x),
+            move_y: axis(to_center.y),
+            attack: dist < 70.0 && frame % 5 == 0,
+            ..AgentAction::default()
+        };
+
+        sim.step(action);
+        frames_ran += 1;
+
+        let cur = read_player(sim.world_mut());
+        let boss_after = read_boss(sim.world_mut());
+        let boss_flash = boss_after.map(|b| b.hit_flash).unwrap_or(0.0);
+
+        // The core fix: the player is mid-swing WHILE still invulnerable.
+        if cur.attacking && cur.invuln > 0.0 {
+            swing_while_iframed += 1;
+        }
+        // A player slash reached the boss this frame (`hit_flash` is set only by
+        // the player-attacker boss-hit path), and whether the player was
+        // invulnerable at the time = "face-tanked and hit it".
+        if boss_flash > 0.0 {
+            swing_connected += 1;
+            if cur.invuln > 0.0 {
+                connect_while_iframed += 1;
+            }
+        }
+        if cur.hp < prev.hp {
+            player_took_hits += 1;
+        }
+        if cur.recoil > 0.0 {
+            recoil_frames += 1;
+            max_recoil = max_recoil.max(cur.recoil);
+            let to_boss = boss.pos - prev.pos;
+            if to_boss.length() > 5.0 && cur.vel.dot(to_boss.normalize()) <= 0.0 {
+                recoil_suppressed_steer = true;
+            }
+        }
+
+        if frame % 6 == 0 || cur.recoil > 0.0 || boss_flash > 0.0 || (cur.attacking && cur.invuln > 0.0)
+        {
+            println!(
+                "{:5} | {:6.3} | {:6.3} | {:^3} | {:5.2} | {}",
+                frame,
+                cur.invuln,
+                cur.recoil,
+                if cur.attacking { "y" } else { "." },
+                boss_flash,
+                if cur.recoil > 0.0 {
+                    "RECOIL-LOCK (no control)"
+                } else if boss_flash > 0.0 && cur.invuln > 0.0 {
+                    "SWING HIT BOSS while i-framed"
+                } else if boss_flash > 0.0 {
+                    "swing hit boss"
+                } else if cur.attacking && cur.invuln > 0.0 {
+                    "swinging while i-framed"
+                } else {
+                    ""
+                },
+            );
+        }
+
+        prev = cur;
+    }
+
+    println!("\n--- summary ---");
+    println!("frames run before any reset          : {frames_ran}");
+    println!("frames swinging WHILE i-framed       : {swing_while_iframed}");
+    println!("frames a swing reached the boss      : {swing_connected}");
+    println!("...while the player was i-framed      : {connect_while_iframed}");
+    println!("player hits taken                    : {player_took_hits}");
+    println!("recoil-lock frames                   : {recoil_frames}");
+    println!("max recoil-lock remaining            : {max_recoil:.3}");
+    println!("steering suppressed during recoil    : {recoil_suppressed_steer}");
+
+    // Sanity: the run actually exercised several hit cycles.
+    assert!(
+        frames_ran >= 60,
+        "expected the scenario to run a while before any reset, only got {frames_ran} frames"
+    );
+    assert!(
+        player_took_hits >= 1,
+        "the player must take >=1 boss hit, otherwise there is no recoil to measure"
+    );
+
+    // --- Ask 2: face-tanking is no longer helpless. ---
+    // Before the fix the attack gate was the full ~0.94s hitstun, which
+    // outlasts the 0.75s i-frame window — so the player could NEVER swing while
+    // invulnerable. Now they can, and the swing reaches the boss while flashing.
+    assert!(
+        swing_while_iframed >= 1,
+        "the player should be mid-swing while invulnerable (face-tanking); got {swing_while_iframed}"
+    );
+    assert!(
+        swing_connected >= 1,
+        "the player's swing should reach and hit the boss (face-tank and damage it); \
+         got {swing_connected}"
+    );
+    assert!(
+        connect_while_iframed >= 1,
+        "the player's swing should hit the boss WHILE invulnerable (the literal \
+         face-tank-and-hit-it case); got {connect_while_iframed}"
+    );
+
+    // --- Ask 1: the recoil control-lock is real, brief, and removes control. ---
+    assert!(
+        recoil_frames >= 1,
+        "each contact hit should engage the recoil control-lock"
+    );
+    assert!(
+        max_recoil <= 0.20,
+        "the recoil lock should be brief (<= ~0.15s + a frame), got {max_recoil:.3}"
+    );
+    assert!(
+        recoil_suppressed_steer,
+        "during the recoil lock the player should NOT be able to steer back toward \
+         the boss — the knockback should get to eject them first"
     );
 }

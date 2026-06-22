@@ -458,6 +458,7 @@ pub(super) fn safe_respawn_player(
     );
     combat.damage_invuln_timer = feel.hazard_respawn_invulnerability_time;
     combat.hitstun_timer = 0.0;
+    combat.recoil_lock_timer = 0.0;
     combat.hitstop_timer = 0.0;
     combat.flash_timer = feel.reset_flash_time;
     clock.time_scale = 1.0;
@@ -535,6 +536,11 @@ pub(super) fn apply_player_knockback(
     } else {
         feel.enemy_hitstun_time
     } * strength.max(0.35);
+    // Brief hard control-lock at the front of the hitstun window: the player is
+    // thrown with no authority, then regains the attack verb the instant it
+    // clears (while still in hitstun + i-frames). Fixed-length — the recoil is a
+    // readable beat, not something that scales with how hard the hit was.
+    combat.recoil_lock_timer = feel.knockback_recoil_lock_time;
     combat.damage_invuln_timer = feel.knockback_invulnerability_time;
     combat.hitstop_timer = feel.player_damage_hitstop_time;
     combat.flash_timer = 0.20;

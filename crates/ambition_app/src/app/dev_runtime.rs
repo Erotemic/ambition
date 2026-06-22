@@ -291,6 +291,7 @@ pub(super) fn reload_ldtk_world_from_disk(
     dialogue.close();
     combat.hitstop_timer = 0.0;
     combat.hitstun_timer = 0.0;
+    combat.recoil_lock_timer = 0.0;
     sim_state.room_transition_cooldown = 0.10;
     dev_state.preset_flash = 1.0;
 

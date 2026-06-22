@@ -119,6 +119,14 @@ pub struct PlayerCombatState {
     pub damage_invuln_timer: f32,
     /// Partial-control penalty after knockback. Decays in `input_timer_system`.
     pub hitstun_timer: f32,
+    /// Short HARD control-lock at the start of a knockback (the recoil throw).
+    /// While positive, the player has NO input authority — it is the gate that
+    /// suppresses movement/flight steering and the attack-start, so the
+    /// knockback ejects the player before they can act. Set to
+    /// `SandboxFeelTuning::knockback_recoil_lock_time` on a knockback hit and
+    /// decayed in `input_timer_system`; once it hits zero the player can swing
+    /// again even though `hitstun_timer` / `damage_invuln_timer` are still up.
+    pub recoil_lock_timer: f32,
     /// Mirrored each frame from `ActivePlayerAttack::is_active()`.
     pub attacking: bool,
 }
@@ -133,6 +141,7 @@ impl PlayerCombatState {
         self.hitstop_timer = 0.0;
         self.damage_invuln_timer = 0.0;
         self.hitstun_timer = 0.0;
+        self.recoil_lock_timer = 0.0;
         self.attacking = false;
     }
 }

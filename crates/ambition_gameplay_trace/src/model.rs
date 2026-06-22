@@ -132,9 +132,10 @@ pub struct PlayerTraceState {
     /// to `true` means an attack was REQUESTED but GATED — the next
     /// three fields say why.
     pub attacking: bool,
-    /// Hitstun timer (`PlayerCombatState::hitstun_timer`). The attack
-    /// start gate is `hitstun_timer <= 0.0`; any positive value here on
-    /// a frame the swing didn't start explains the gate.
+    /// Hitstun timer (`PlayerCombatState::hitstun_timer`). The longer,
+    /// softer partial-movement window after a hit. Note the attack-start
+    /// gate is the briefer `recoil_lock_timer`, NOT this — a positive
+    /// `hitstun_timer` no longer blocks a swing once recoil has cleared.
     pub hitstun_timer: f32,
     /// Damage i-frame timer (`PlayerCombatState::damage_invuln_timer`).
     /// A positive value means a recent hit; useful for confirming

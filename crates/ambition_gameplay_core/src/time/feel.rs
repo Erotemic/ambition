@@ -47,6 +47,14 @@ pub struct SandboxFeelTuning {
     pub enemy_hitstun_time: f32,
     /// Hitstun duration for boss hits.
     pub boss_hitstun_time: f32,
+    /// Short HARD control-lock at the start of a knockback: the player is being
+    /// thrown and has no input authority — can't steer back in (incl. flight),
+    /// can't jump/dash/blink, can't attack. Once it clears the player regains
+    /// the attack verb while `*_hitstun_time` / `knockback_invulnerability_time`
+    /// keep ticking, so you can swing back the instant the recoil ends — the
+    /// Hollow-Knight "get bopped out, then fight back while flashing" feel.
+    /// Distinct from hitstun (the longer, softer partial-movement window).
+    pub knockback_recoil_lock_time: f32,
     /// Post-hit invulnerability after enemy/boss knockback.
     pub knockback_invulnerability_time: f32,
     /// Post-respawn invulnerability after lava/spike-style hazard recovery.
@@ -83,6 +91,7 @@ impl Default for SandboxFeelTuning {
             hitstun_control_scale: 0.18,
             enemy_hitstun_time: 0.24,
             boss_hitstun_time: 0.36,
+            knockback_recoil_lock_time: 0.12,
             knockback_invulnerability_time: 0.75,
             hazard_respawn_invulnerability_time: 1.10,
             player_damage_hitstop_time: 0.070,
@@ -125,6 +134,12 @@ mod tests {
         // Boss knockback / hitstun should be punchier than enemy.
         assert!(f.boss_knockback_x > f.enemy_knockback_x);
         assert!(f.boss_hitstun_time >= f.enemy_hitstun_time);
+        // The recoil control-lock is a brief hard lock at the FRONT of the
+        // hitstun window, so it must be positive and shorter than the (base)
+        // hitstun it sits inside — otherwise it would outlast the window it's
+        // supposed to be the opening of.
+        assert!(f.knockback_recoil_lock_time > 0.0);
+        assert!(f.knockback_recoil_lock_time < f.boss_hitstun_time);
         // Hazard respawn invuln should be at least as long as
         // knockback invuln (ordinary contact is less punishing than
         // a hazard wipe).

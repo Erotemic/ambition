@@ -96,6 +96,7 @@ pub fn input_timer_system(
     sim_state.room_transition_cooldown = (sim_state.room_transition_cooldown - frame_dt).max(0.0);
     combat.damage_invuln_timer = (combat.damage_invuln_timer - frame_dt).max(0.0);
     combat.hitstun_timer = (combat.hitstun_timer - frame_dt).max(0.0);
+    combat.recoil_lock_timer = (combat.recoil_lock_timer - frame_dt).max(0.0);
     // Fast-fall = double-tap local-down for the controlled body. Raw cardinal
     // edges are resolved through the same input mapping policy as locomotion,
     // so ScreenDirected sideways gravity can map raw-right/raw-left into local
@@ -464,7 +465,11 @@ pub fn attack_advance_system(
     let melee_requested = brain_actions
         .read()
         .any(|msg| msg.actor == player_entity && msg.is_melee());
-    if combat.hitstun_timer <= 0.0 && (melee_requested || actor_frame.pogo_pressed) {
+    // Attack is gated on the brief recoil lock, NOT the full hitstun window:
+    // once the player has been thrown clear (~0.12s) they can swing again even
+    // while still in hitstun / i-frames, so face-tanking a boss lets you fight
+    // back instead of standing there helpless (Hollow-Knight feel).
+    if combat.recoil_lock_timer <= 0.0 && (melee_requested || actor_frame.pogo_pressed) {
         super::world_flow::start_attack(
             &mut sfx_writer,
             &mut vfx_writer,

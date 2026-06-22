@@ -15,12 +15,19 @@ use super::*;
 /// gravity-relatively (`movement::wants_drop_through`) from `axis_y + jump`, so
 /// it flips correctly under inverted gravity.
 ///
-/// The hitstun gate is applied to the FINAL `InputState` so every
-/// verb is zeroed uniformly.
+/// Two post-hit gates apply to the FINAL `InputState`:
+/// - `recoil_lock_timer` (the brief recoil throw): a HARD lock — every verb,
+///   including the movement/flight steering axis, is zeroed so the knockback
+///   ejects the player and they can't act.
+/// - `hitstun_timer` (the longer, softer window once recoil clears): movement
+///   authority is reduced and jump/dash/blink are suppressed, but the ATTACK
+///   verb is preserved so the player can swing back the instant recoil ends —
+///   even while still inside a boss and flashing (Hollow-Knight feel).
 pub(crate) fn engine_input_from_actor_control(
     actor: ambition_gameplay_core::actor::control::ActorControlFrame,
     feel: SandboxFeelTuning,
     hitstun_timer: f32,
+    recoil_lock_timer: f32,
     control_dt: f32,
 ) -> ae::InputState {
     let mut input = ae::InputState {
@@ -42,7 +49,29 @@ pub(crate) fn engine_input_from_actor_control(
         shield_held: actor.shield_held,
         control_dt,
     };
-    if hitstun_timer > 0.0 {
+    if recoil_lock_timer > 0.0 {
+        // Recoil throw: NO authority. Zero everything (including the movement /
+        // flight steering axis) so the knockback carries the player out and they
+        // can't steer back in or act until it clears.
+        input.axis_x = 0.0;
+        input.axis_y = 0.0;
+        input.jump_pressed = false;
+        input.jump_held = false;
+        input.jump_released = false;
+        input.dash_pressed = false;
+        input.fast_fall_pressed = false;
+        input.blink_pressed = false;
+        input.blink_held = false;
+        input.blink_released = false;
+        input.attack_pressed = false;
+        input.pogo_pressed = false;
+        input.fly_toggle_pressed = false;
+        input.interact_pressed = false;
+    } else if hitstun_timer > 0.0 {
+        // Post-recoil hitstun: reduced movement authority and no
+        // jump/dash/blink/fly, but the attack verb (and its pogo sibling) is
+        // PRESERVED — you can fight back, and damage a boss you're standing in,
+        // the instant the recoil lock ends while i-frames are still ticking.
         let scale = feel.hitstun_control_scale.clamp(0.0, 1.0);
         input.axis_x *= scale;
         input.axis_y *= scale;
@@ -52,8 +81,6 @@ pub(crate) fn engine_input_from_actor_control(
         input.blink_pressed = false;
         input.blink_held = false;
         input.blink_released = false;
-        input.attack_pressed = false;
-        input.pogo_pressed = false;
         input.fly_toggle_pressed = false;
         input.interact_pressed = false;
     }

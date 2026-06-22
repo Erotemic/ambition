@@ -299,7 +299,20 @@ architecture_boundaries tests green._
 - The provoked actor keeps its sprite (`ActorRenderSize` + sprite override already
   shared) — the balloon bug class is structurally gone.
 
-### Phase 5 — Delete `ActorRuntime`; derive visual kind from state
+### Phase 5 — Delete `ActorRuntime`; derive visual kind from state ✅ DONE (Opus 4.8)
+_The `ActorRuntime { Npc, Enemy }` enum is **deleted**. It was a pure mirror of
+`ActorDisposition` (spawn/provoke always set them together), so every
+`matches!(actor, ActorRuntime::Enemy)` became `disposition.is_hostile()` and
+`::Npc` became `disposition.is_peaceful()` — a faithful 1:1 swap. `FeatureVisualKind`
+is now a function of state in `view_index`: `is_sandbag → TrainingDummy`, else
+`hostile → Enemy`, else `Npc` (a provoked NPC turns red automatically).
+`provoke_actor_in_place` drops the runtime flip (just flips disposition) and now
+also restores the hostile archetype's HP pool. Converted: update (Pass-1 slot
+gate, pose-sync), aggression/save_sync (provoke), spawn, target_volumes,
+brain_effects, mount, view_index, anim_helpers (`ActorSpriteData` drops the tag;
+helpers read the cluster directly). Cross-crate: render (deep_dream / pirate_weapon
+/ features), app debug overlay (color/label by disposition), content victory NPC.
+Stale `ActorRuntime` comments cleaned up. Build + 945 + 26 + 30 tests green._
 - Remove the `ActorRuntime` enum. Everywhere that matched it:
   - `view_index.rs`: `FeatureVisualKind` from disposition/faction/tuning
     (hostile or hostile-faction → `Enemy`; talkable/peaceful → `Npc`; sandbag →

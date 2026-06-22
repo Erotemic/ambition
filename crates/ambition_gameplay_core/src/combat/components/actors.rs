@@ -41,7 +41,7 @@ impl ActorIdentity {
 
 /// High-level actor disposition. Peaceful actors talk/patrol; hostile actors
 /// chase/attack. Hostility is data now, not an enum arm callers must discover
-/// by inspecting `ActorRuntime`.
+/// by inspecting an actor-type tag.
 #[derive(Component, Clone, Copy, Debug, PartialEq, Eq)]
 pub enum ActorDisposition {
     Peaceful,
@@ -78,7 +78,7 @@ pub struct ActorRenderSize(pub ae::Vec2);
 /// not an NPC-type trait: a peaceful NPC today, a parley-able enemy or ally
 /// tomorrow, all carry the same component. Presence = "this actor can be talked
 /// to"; the interact / proximity-highlight / dialogue-bubble systems key off the
-/// component instead of an `ActorRuntime::Npc` type tag.
+/// component instead of an actor-type tag.
 ///
 /// `talk_radius` is the world-pixel range at which a patrolling actor stops to
 /// face the player so the interact is reachable.
@@ -393,7 +393,7 @@ impl ActorCombatState {
 }
 
 /// ECS-visible actor AI intent. Mirrors `crate::actor::ai::CharacterAiMode` so rendering and
-/// HUD systems can branch on actor state without pattern-matching `ActorRuntime`.
+/// HUD systems can branch on actor state without a per-family runtime.
 /// Synced from the runtime each frame by `update_ecs_actors`.
 #[derive(Component, Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub struct ActorIntent(pub crate::actor::ai::CharacterAiMode);

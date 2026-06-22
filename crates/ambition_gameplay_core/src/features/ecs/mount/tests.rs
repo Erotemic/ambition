@@ -20,7 +20,7 @@ fn hostile(
     archetype_brain: &str,
     pos: ae::Vec2,
     size: ae::Vec2,
-) -> (ActorRuntime, EnemyClusterBundle) {
+) -> (crate::features::ActorDisposition, EnemyClusterBundle) {
     let aabb = ae::Aabb::new(pos, size * 0.5);
     let mut enemy = super::super::enemy_clusters::EnemyClusterSeed::new(
         id,
@@ -32,7 +32,10 @@ fn hostile(
     enemy.kin.size = size;
     enemy.kin.pos = pos;
     enemy.status.alive = true;
-    (ActorRuntime::Enemy, enemy.into_components())
+    (
+        crate::features::ActorDisposition::Hostile,
+        enemy.into_components(),
+    )
 }
 
 /// Read an entity's enemy kinematics/status/surface from its

@@ -95,7 +95,7 @@ pub struct FeatureDebugQueries<'w, 's> {
         'w,
         's,
         (
-            &'static ambition_gameplay_core::features::ActorRuntime,
+            &'static ambition_gameplay_core::features::ActorDisposition,
             &'static ambition_gameplay_core::features::CenteredAabb,
             Option<&'static ambition_gameplay_core::features::BodyKinematics>,
             Option<&'static ambition_gameplay_core::features::ActorAttackState>,
@@ -541,7 +541,7 @@ pub(crate) fn draw_health_bars(
     draw_health_bar(gizmos, world, player_aabb, ratio, cyan());
     // Enemy / boss / breakable health bars are now drawn by
     // `sync_health_overlays` (the Bevy sprite overlay system), which reads
-    // ECS `ActorRuntime`, boss cluster, and `BreakableFeature` components.
+    // ECS actor disposition, boss cluster, and `BreakableFeature` components.
 }
 
 pub(crate) fn draw_health_bar(
@@ -590,26 +590,23 @@ pub(crate) fn draw_feature_debug(
     let telegraph_color = Color::srgba(1.00, 0.95, 0.20, 0.60); // yellow
     let active_color = Color::srgba(1.00, 0.12, 0.12, 0.95); // bright red
 
-    for (actor, aabb, kin, attack, _surface) in feature_q.actors.iter() {
-        let color = match actor {
-            ambition_gameplay_core::features::ActorRuntime::Npc => npc_color,
-            ambition_gameplay_core::features::ActorRuntime::Enemy => enemy_color,
-        };
+    for (disposition, aabb, kin, attack, _surface) in feature_q.actors.iter() {
+        // Color/label key off disposition now — "enemy" is hostile state, not a
+        // type (a provoked NPC turns red automatically).
+        let hostile = disposition.is_hostile();
+        let color = if hostile { enemy_color } else { npc_color };
         // `CenteredAabb` is already oriented to the actor's surface (a clung
         // surface-walker swaps width<->height onto a wall — see
-        // `update_enemy_actors`), so the drawn box matches the rotated sprite.
+        // `update_ecs_actors`), so the drawn box matches the rotated sprite.
         draw_aabb_styled(gizmos, world, aabb.aabb(), color, developer_tools);
-        let actor_label = match actor {
-            ambition_gameplay_core::features::ActorRuntime::Npc => "npc",
-            ambition_gameplay_core::features::ActorRuntime::Enemy => "enemy",
-        };
+        let actor_label = if hostile { "enemy" } else { "npc" };
         label_box(labels, aabb.aabb(), actor_label, color, LabelSpot::TopLeft);
         // Hostile actors (and turned-hostile NPCs like the Kernel Guide)
         // own an attack volume that becomes active during a swing — draw
         // it whenever windup or strike timer is live so the player can
         // see exactly where the hit will land. Telegraph wins when both
         // are zero so a frame on the edge still reads as "incoming".
-        if matches!(actor, ambition_gameplay_core::features::ActorRuntime::Enemy) {
+        if hostile {
             if let (Some(kin), Some(attack)) = (kin, attack) {
                 // Forward-swing hitbox geometry (matches
                 // EnemyMut::attack_aabb): offset by facing.

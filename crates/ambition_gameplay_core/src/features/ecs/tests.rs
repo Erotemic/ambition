@@ -57,7 +57,6 @@ fn peaceful_actor_damageable_volume_derives_pogo_overlay() {
         FeatureId::new("guide"),
         FeatureName::new("Guide"),
         CenteredAabb::from_center_size(center, size),
-        ActorRuntime::Npc,
         crate::features::ActorDisposition::Peaceful,
         seed.into_components(),
         DamageableVolumes::default(),
@@ -311,7 +310,6 @@ fn interact_buffered_starts_npc_dialogue() {
     app.world_mut().spawn((
         FeatureSimEntity,
         CenteredAabb::from_center_size(center, ae::Vec2::new(32.0, 48.0)),
-        ActorRuntime::Npc,
         seed.into_components(),
         interaction,
         crate::features::ActorIdentity::new("guide", "Guide"),

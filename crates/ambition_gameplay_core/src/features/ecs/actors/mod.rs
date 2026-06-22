@@ -1,10 +1,9 @@
-//! ECS actor types and the per-frame actor tick.
+//! The per-frame actor tick.
 //!
-//! `ActorRuntime` is the unified component that backs every authored
-//! NPC, authored hostile enemy, and dynamic encounter-spawned mob.
-//! Peaceful and hostile actors share the same entity identity so a
-//! peaceful NPC can flip to hostile in place after enough strikes
-//! rather than being moved between containers.
+//! Every actor (was-NPC, was-enemy, dynamic encounter mob) is the SAME ECS
+//! cluster; there is no actor *type*. Hostility is the runtime
+//! [`ActorDisposition`] state — a peaceful actor flips to hostile in place
+//! (`provoke_actor_in_place`) without changing its entity or components.
 
 use super::*;
 
@@ -60,25 +59,6 @@ fn shark_charge_crashed_geometry(
     };
     crashed(charge_vec.x, pos.x, prev_pos.x, vel.x)
         || crashed(charge_vec.y, pos.y, prev_pos.y, vel.y)
-}
-
-/// Marker for an actor entity. Both variants are payload-free: NPC and
-/// enemy state live in ECS cluster components. The enum is only the
-/// peaceful-vs-hostile disposition tag, so an NPC can flip to `Enemy`
-/// in place when aggression provokes it.
-#[derive(Component, Clone, Copy, Debug, PartialEq, Eq)]
-pub enum ActorRuntime {
-    Npc,
-    Enemy,
-}
-
-impl ActorRuntime {
-    pub fn disposition(&self) -> ActorDisposition {
-        match self {
-            Self::Npc => ActorDisposition::Peaceful,
-            Self::Enemy => ActorDisposition::Hostile,
-        }
-    }
 }
 
 mod conversion;

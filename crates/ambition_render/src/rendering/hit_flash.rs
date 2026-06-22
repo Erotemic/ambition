@@ -11,7 +11,7 @@
 //!
 //! Source-of-truth for the flash timer:
 //!
-//! - **Enemy / NPC**: [`ambition_gameplay_core::features::ActorRuntime`] inner
+//! - **Actor (NPC / enemy)**: `EnemyStatus::hit_flash` on the unified
 //!   `hit_flash: f32` (seconds remaining).
 //! - **Boss**: [`ambition_gameplay_core::features::BossStatus::hit_flash`].
 //! - **Player**: [`ambition_gameplay_core::player::PlayerCombatState::flash_timer`].
@@ -258,7 +258,7 @@ pub fn sync_hit_flash_overlays(
         // Single dispatch covers every character type the universal
         // Brain/ActorControl architecture knows about — player, NPC,
         // enemy, boss. Each routes through a different per-entity
-        // storage today (PlayerCombatState vs ActorRuntime vs
+        // storage today (PlayerCombatState vs the actor cluster vs
         // the boss cluster components) but they all converge on one shader uniform
         // through this lookup. A future refactor that unifies them
         // into a single `HitFlash` component can collapse this to
@@ -361,16 +361,14 @@ fn hit_flash_secs_for_source(
     let id = visual.id.as_str();
     // Feature path: cross-reference the visual entity's id against
     // the sim entity's `FeatureId`. Tries the actor list first
-    // (enemies + NPCs share `ActorRuntime`), then bosses.
-    if let Some(secs) = actors.iter().find_map(
-        |(feature_id, _actor, _kin, status, _attack, _config)| {
-            if feature_id.as_str() != id {
-                return None;
-            }
-            // Hit-flash lives on the shared `EnemyStatus` for every actor now.
-            status.map(|s| s.hit_flash)
-        },
-    ) {
+    // (every actor shares the unified cluster), then bosses.
+    if let Some(secs) = actors.iter().find_map(|(feature_id, _kin, status, _attack, _config)| {
+        if feature_id.as_str() != id {
+            return None;
+        }
+        // Hit-flash lives on the shared `EnemyStatus` for every actor now.
+        status.map(|s| s.hit_flash)
+    }) {
         return Some(secs);
     }
     bosses.iter().find_map(|(feature_id, item)| {

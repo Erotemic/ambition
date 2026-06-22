@@ -4,7 +4,8 @@
 //! a persisted-hostile NPC on load) no longer swaps clusters or churns the
 //! entity: every actor is the SAME cluster, so the flip just re-resolves the
 //! hostile archetype, overwrites the cluster `config` in place, swaps the
-//! `Brain`/`ActionSet`, and flips `ActorDisposition`/`ActorRuntime`.
+//! `Brain`/`ActionSet`, and flips `ActorDisposition` (the single source of
+//! truth for hostility — "enemy" is a state, not a class).
 
 use super::super::*;
 use super::*;
@@ -111,8 +112,9 @@ pub fn enemy_component_snapshot(
 ///
 /// On the first flip (the actor is still peaceful) this re-resolves the hostile
 /// archetype, overwrites the cluster `config` (tuning / brain_spec / brain /
-/// caps) so the actor fights as that archetype, keeps its own sprite, and flips
-/// `ActorDisposition::Hostile` + `ActorRuntime::Enemy`. An already-hostile actor
+/// caps) so the actor fights as that archetype, keeps its own sprite, resets HP
+/// to the hostile pool, and flips `ActorDisposition::Hostile` (the single source
+/// of truth — "enemy" is just hostile disposition now). An already-hostile actor
 /// just re-derives its aggressive brain (escalation). Shared by the runtime
 /// stimulus and save-load provoke paths.
 #[allow(clippy::too_many_arguments)]
@@ -120,7 +122,6 @@ pub(crate) fn provoke_actor_in_place(
     commands: &mut Commands,
     entity: Entity,
     em: &mut super::super::enemy_clusters::EnemyMut<'_>,
-    runtime: &mut ActorRuntime,
     disposition: &mut ActorDisposition,
     combat_kit: &CombatKit,
     held_item: Option<&HeldItem>,
@@ -135,6 +136,9 @@ pub(crate) fn provoke_actor_in_place(
         em.config.tuning = spec.tuning();
         em.config.brain_spec = spec.brain_spec();
         em.config.brain = crate::actor::EnemyBrain::Custom(hostile_id.into());
+        // Take on the hostile archetype's HP pool (the peaceful seed spawned with
+        // health=1; a provoked actor should fight at full archetype HP).
+        em.status.health = crate::actor::Health::new(spec.max_health);
         // Keep the actor's own sprite sheet (its NPC name) when hostile — except
         // the Kernel Guide, which uses the default enemy sheet (legacy quirk).
         if em.config.name != "Kernel Guide NPC" {
@@ -142,7 +146,6 @@ pub(crate) fn provoke_actor_in_place(
         }
         commands.entity(entity).insert(spec.combat_capabilities());
         *disposition = ActorDisposition::Hostile;
-        *runtime = ActorRuntime::Enemy;
     }
     if chase {
         em.status.ai_mode = crate::actor::ai::CharacterAiMode::Chase;

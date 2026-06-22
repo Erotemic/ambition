@@ -10,8 +10,8 @@ use super::primitives::{feature_color, feature_z, FeatureVisual, RoomVisual};
 use ambition_gameplay_core::assets::game_assets::{self, entity_sprite_or_color, GameAssets};
 use ambition_gameplay_core::config::world_to_bevy;
 use ambition_gameplay_core::features::{
-    ActorRuntime, BossRewardChest, CenteredAabb, ChestFeature, EncounterMob, EncounterRewardChest,
-    FeatureId, FeatureName, FeatureVisualKind,
+    ActorDisposition, BossRewardChest, CenteredAabb, ChestFeature, EncounterMob,
+    EncounterRewardChest, FeatureId, FeatureName, FeatureVisualKind,
 };
 
 /// Spawn `FeatureVisual` entities for dynamically introduced ECS features
@@ -31,7 +31,7 @@ pub fn spawn_dynamic_feature_visuals(
         (
             &FeatureId,
             &CenteredAabb,
-            &ActorRuntime,
+            &ActorDisposition,
             Option<&ambition_gameplay_core::features::EnemyConfig>,
         ),
         With<EncounterMob>,
@@ -41,7 +41,7 @@ pub fn spawn_dynamic_feature_visuals(
             &FeatureId,
             &FeatureName,
             &CenteredAabb,
-            &ActorRuntime,
+            &ActorDisposition,
             Option<&ambition_gameplay_core::features::EnemyConfig>,
             Option<&ambition_gameplay_core::features::ActorInteraction>,
         ),
@@ -54,11 +54,12 @@ pub fn spawn_dynamic_feature_visuals(
 ) {
     let known: std::collections::HashSet<&str> = existing.iter().map(|v| v.id.as_str()).collect();
     let assets_ref = assets.as_deref();
-    for (id, aabb, actor, config) in &ecs_mobs {
+    for (id, aabb, disposition, config) in &ecs_mobs {
         if known.contains(id.as_str()) {
             continue;
         }
-        let (ActorRuntime::Enemy, Some(config)) = (actor, config) else {
+        // Encounter mobs are hostile by construction; skip any peaceful one.
+        let (false, Some(config)) = (disposition.is_peaceful(), config) else {
             continue;
         };
         let kind = if config.tuning.is_sandbag {
@@ -82,21 +83,24 @@ pub fn spawn_dynamic_feature_visuals(
             RoomVisual,
         ));
     }
-    for (id, name, aabb, actor, config, interaction) in &post_boss_npcs {
+    for (id, name, aabb, disposition, config, interaction) in &post_boss_npcs {
         if known.contains(id.as_str()) {
             continue;
         }
         let kind = FeatureVisualKind::Npc;
         let render = BVec2::new(aabb.size().x, aabb.size().y);
-        let entity_key = match actor {
-            ActorRuntime::Npc => match interaction {
+        // A peaceful post-boss NPC resolves its sprite from the dialogue
+        // interactable; a hostile one (provoked) from its archetype brain.
+        let entity_key = if disposition.is_peaceful() {
+            match interaction {
                 Some(i) => game_assets::entity_sprite_for_interactable(&i.interactable),
                 None => continue,
-            },
-            ActorRuntime::Enemy => match config {
+            }
+        } else {
+            match config {
                 Some(c) => game_assets::entity_sprite_for_enemy(&c.brain),
                 None => continue,
-            },
+            }
         };
         let sprite = match assets_ref {
             Some(a) => entity_sprite_or_color(a, entity_key, render, feature_color(kind, false)),

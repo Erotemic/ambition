@@ -22,7 +22,6 @@ use bevy::prelude::*;
 use crate::audio::SfxMessage;
 use crate::brain::{action_set::ActionRequest, ActorActionMessage};
 use crate::enemy_projectile::EnemyProjectileSpawn;
-use crate::features::ecs::actors::ActorRuntime;
 use crate::time::feel::SandboxFeelTuning;
 
 /// Recoil applied to the firing enemy along the negative fire
@@ -48,7 +47,7 @@ pub fn spawn_enemy_projectiles_from_brain_actions(
     mut effects: MessageWriter<crate::effects::EffectRequest>,
     mut sfx: MessageWriter<SfxMessage>,
     mut actors: Query<(
-        &ActorRuntime,
+        &super::super::components::ActorDisposition,
         Option<super::enemy_clusters::EnemyClusterQueryData>,
     )>,
     held_items: Query<&super::HeldItem>,
@@ -66,12 +65,12 @@ pub fn spawn_enemy_projectiles_from_brain_actions(
         else {
             continue;
         };
-        let Ok((actor, clusters)) = actors.get_mut(msg.actor) else {
+        let Ok((disposition, clusters)) = actors.get_mut(msg.actor) else {
             // Message references an actor that no longer exists
             // (despawned this frame). Skip silently.
             continue;
         };
-        if !matches!(actor, ActorRuntime::Enemy) {
+        if disposition.is_peaceful() {
             // Peaceful actor emitting a Ranged action — would happen
             // only via test fixtures or a future "possessed-NPC"
             // path. Not in scope for this consumer.
@@ -169,7 +168,7 @@ pub fn start_enemy_melee_from_brain_actions(
     mut messages: MessageReader<ActorActionMessage>,
     feel_tuning: Res<SandboxFeelTuning>,
     mut actors: Query<(
-        &ActorRuntime,
+        &super::super::components::ActorDisposition,
         Option<super::enemy_clusters::EnemyClusterQueryData>,
     )>,
 ) {
@@ -178,10 +177,10 @@ pub fn start_enemy_melee_from_brain_actions(
         let ActionRequest::Melee { attack_axis, .. } = msg.request else {
             continue;
         };
-        let Ok((actor, clusters)) = actors.get_mut(msg.actor) else {
+        let Ok((disposition, clusters)) = actors.get_mut(msg.actor) else {
             continue;
         };
-        if !matches!(actor, ActorRuntime::Enemy) {
+        if disposition.is_peaceful() {
             // Peaceful actors never produce Melee messages today
             // (their ActionSet is empty); skip defensively.
             continue;
@@ -234,12 +233,19 @@ mod tests {
         crate::combat::CombatCapabilities,
     );
 
-    /// Spawnable (marker + clusters) bundle for an enemy test fixture.
-    fn enemy_actor(enemy: EnemyClusterSeed) -> (ActorRuntime, EnemyClusterBundle) {
-        (ActorRuntime::Enemy, enemy.into_components())
+    /// Spawnable (disposition + clusters) bundle for an enemy test fixture.
+    fn enemy_actor(
+        enemy: EnemyClusterSeed,
+    ) -> (crate::features::ActorDisposition, EnemyClusterBundle) {
+        (
+            crate::features::ActorDisposition::Hostile,
+            enemy.into_components(),
+        )
     }
 
-    fn pirate_rider_actor(pos: ae::Vec2) -> (ActorRuntime, EnemyClusterBundle) {
+    fn pirate_rider_actor(
+        pos: ae::Vec2,
+    ) -> (crate::features::ActorDisposition, EnemyClusterBundle) {
         let aabb = ae::Aabb::new(pos, ae::Vec2::new(14.0, 23.0));
         let enemy = EnemyClusterSeed::new(
             "rider_a",

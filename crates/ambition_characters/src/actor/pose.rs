@@ -68,7 +68,7 @@ fn normalized_facing(facing: f32) -> f32 {
 /// Initially attached as a read-model / identity tag only — none of
 /// today's combat / projectile code consults it. The point is to
 /// give per-family components (`PlayerEntity`, `BossFeature`,
-/// `ActorRuntime`, etc.) a single shared "faction" handle so
+/// the actor cluster, etc.) a single shared "faction" handle so
 /// multiplayer-aware targeting (#17.8) and the unified projectile
 /// faction merge (#17.7) can move off type-pattern-matching onto a
 /// uniform query filter.

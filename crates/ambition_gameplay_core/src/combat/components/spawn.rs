@@ -98,7 +98,7 @@ impl ChestBundle {
 /// Bundle for enemy actor entities. `base` is the rendered feature bundle
 /// today; once headless feature spawning lands, swap it for
 /// [`FeatureLifecycleBundle`] and add `RoomVisual` only on the rendered
-/// path. Behavior runtime (`ActorRuntime`) is still added separately.
+/// path. The behavior brain + cluster are still added separately.
 #[derive(Bundle)]
 pub struct EnemyActorBundle {
     pub base: FeatureBaseBundle,
@@ -108,7 +108,7 @@ pub struct EnemyActorBundle {
     /// mobs, `ActorFaction::Npc` for peaceful actors). Future
     /// projectile-faction merge / multiplayer targeting will
     /// dispatch on this rather than pattern-matching on
-    /// `ActorRuntime`. See OVERNIGHT-TODO #17.2 / #17.3.
+    /// the actor cluster. See OVERNIGHT-TODO #17.2 / #17.3.
     pub faction: ActorFaction,
     /// Per-frame "who is this actor looking at" pointer. Populated
     /// by `select_actor_targets` to the nearest alive player-faction

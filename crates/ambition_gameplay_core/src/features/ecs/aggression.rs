@@ -10,8 +10,8 @@ use bevy::prelude::*;
 
 use super::{
     sync_actor_components_from_cluster, ActorAggression, ActorCombatState, ActorCooldowns,
-    ActorDisposition, ActorHealth, ActorIdentity, ActorIntent, ActorInteraction, ActorRuntime,
-    AggressionMode, CombatKit, FeatureSimEntity, HeldItem,
+    ActorDisposition, ActorHealth, ActorIdentity, ActorIntent, ActorInteraction, AggressionMode,
+    CombatKit, FeatureSimEntity, HeldItem,
 };
 use crate::features::ActorStimulus;
 
@@ -24,7 +24,6 @@ pub fn apply_actor_stimuli(
     mut actors: Query<
         (
             Entity,
-            &mut ActorRuntime,
             &mut ActorAggression,
             &CombatKit,
             Option<&HeldItem>,
@@ -48,7 +47,6 @@ pub fn apply_actor_stimuli(
         } = stimulus;
         let Ok((
             entity,
-            mut runtime,
             mut aggression,
             combat_kit,
             held_item,
@@ -92,7 +90,6 @@ pub fn apply_actor_stimuli(
             &mut commands,
             entity,
             &mut em,
-            &mut runtime,
             &mut disposition,
             combat_kit,
             held_item,
@@ -155,7 +152,6 @@ mod tests {
                 FeatureSimEntity,
                 FeatureId::new("alice"),
                 CenteredAabb::from_center_size(aabb.center(), aabb.half_size() * 2.0),
-                ActorRuntime::Npc,
                 aggression,
                 CombatKit::default(),
                 seed.into_components(),
@@ -195,11 +191,6 @@ mod tests {
             *app.world().get::<ActorDisposition>(npc).unwrap(),
             ActorDisposition::Hostile,
             "an NPC at the strike threshold should flip hostile when provoked"
-        );
-        assert_eq!(
-            *app.world().get::<ActorRuntime>(npc).unwrap(),
-            ActorRuntime::Enemy,
-            "the flipped actor renders as an enemy"
         );
     }
 

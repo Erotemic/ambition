@@ -15,26 +15,19 @@ pub fn sync_actor_poses_from_feature_aabbs(
         (
             &CenteredAabb,
             &mut super::super::super::components::ActorPose,
-            Option<&ActorRuntime>,
             Option<&super::super::enemy_clusters::BodyKinematics>,
             Option<super::super::boss_clusters::BossClusterRef>,
         ),
         With<FeatureSimEntity>,
     >,
 ) {
-    for (aabb, mut pose, actor, kin, boss) in &mut actors {
-        // Facing source: enemy clusters (BodyKinematics), NPC runtime,
-        // or boss runtime; default to the current pose facing.
-        let facing = match actor {
-            // NPCs and enemies both carry the shared `BodyKinematics`
-            // component, so facing reads from `kin` for either marker.
-            Some(ActorRuntime::Npc) | Some(ActorRuntime::Enemy) => {
-                kin.map(|k| k.facing).unwrap_or(pose.facing)
-            }
-            None => boss
-                .map(|feature| feature.kin.facing)
-                .unwrap_or(pose.facing),
-        };
+    for (aabb, mut pose, kin, boss) in &mut actors {
+        // Facing source: the unified actor cluster (BodyKinematics) for every
+        // actor, or the boss runtime; default to the current pose facing.
+        let facing = kin
+            .map(|k| k.facing)
+            .or_else(|| boss.map(|feature| feature.kin.facing))
+            .unwrap_or(pose.facing);
         *pose = super::super::super::components::ActorPose::from_parts(
             aabb.center,
             aabb.half_size,
@@ -45,7 +38,7 @@ pub fn sync_actor_poses_from_feature_aabbs(
 
 /// Tick ECS actors. Peaceful and hostile actors share the same entity identity
 /// and can switch disposition in-place; dynamic encounter-spawned mobs use the
-/// same `ActorRuntime::Enemy` path with an `EncounterMob` marker.
+/// same hostile path with an `EncounterMob` marker.
 pub fn update_ecs_actors(
     mut commands: Commands,
     world_time: Res<WorldTime>,
@@ -89,9 +82,8 @@ pub fn update_ecs_actors(
         (
             Entity,
             &mut CenteredAabb,
-            &mut ActorRuntime,
             &mut ActorIdentity,
-            &mut ActorDisposition,
+            &ActorDisposition,
             &mut ActorHealth,
             &mut ActorCombatState,
             &mut ActorIntent,
@@ -111,9 +103,8 @@ pub fn update_ecs_actors(
             // so dynamically-spawned actors without a set still tick.
             Option<&crate::brain::ActionSet>,
             Option<&super::super::Mounted>,
-            // Enemy cluster components — `None` on NPC actors. The
-            // enemy branch runs its integration through these via
-            // `EnemyMut`.
+            // The unified actor cluster — every actor (was-NPC + was-enemy)
+            // carries it. The tick integrates through it via `EnemyMut`.
             //
             // `Possessed` is nested with the cluster data (not a new top-level
             // tuple field) to stay within Bevy's query-tuple arity: when set,
@@ -156,8 +147,10 @@ pub fn update_ecs_actors(
     // enemies are allowed to commit to an attack this tick; the
     // others hold at the outer ring. This is the anti-clump layer.
     let mut requests: Vec<(String, ae::Vec2, crate::combat::slots::SlotKind)> = Vec::new();
-    for (_, _, actor, _, _, _, _, _, _, _, _, _, _, _, (clusters, _)) in &actors {
-        if matches!(actor, ActorRuntime::Enemy) {
+    for (_, _, _, disposition, _, _, _, _, _, _, _, _, _, (clusters, _)) in &actors {
+        // Only hostile actors compete for combat slots; peaceful actors don't
+        // crowd the board ("enemy" == hostile disposition now).
+        if disposition.is_hostile() {
             if let Some(c) = clusters {
                 if c.status.alive {
                     requests.push((c.config.id.clone(), c.kin.pos, c.config.tuning.slot_kind()));
@@ -193,7 +186,6 @@ pub fn update_ecs_actors(
     for (
         actor_entity,
         mut aabb,
-        _actor,
         mut identity,
         disposition,
         mut health,

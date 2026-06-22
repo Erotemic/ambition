@@ -69,7 +69,7 @@ pub use actors::{
     actor_component_snapshot, enemy_component_snapshot, sync_actor_components_from_cluster,
 };
 pub use actors::{
-    sync_actor_poses_from_feature_aabbs, tick_npc_idle_barks, update_ecs_actors, ActorRuntime,
+    sync_actor_poses_from_feature_aabbs, tick_npc_idle_barks, update_ecs_actors,
 };
 pub use aggression::apply_actor_stimuli;
 pub use anim_helpers::{

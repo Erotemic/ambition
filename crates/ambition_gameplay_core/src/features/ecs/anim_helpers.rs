@@ -6,13 +6,13 @@
 
 use super::*;
 
-/// QueryData tuple for actor-sprite lookups: the runtime variant tag plus the
-/// unified actor cluster components every actor (was-NPC + was-enemy) now
-/// carries. Systems declare `Query<ActorSpriteData>`; the helpers take
-/// `&Query<ActorSpriteData>`.
+/// QueryData tuple for actor-sprite lookups: the unified actor cluster
+/// components every actor (was-NPC + was-enemy) carries. Systems declare
+/// `Query<ActorSpriteData>`; the helpers take `&Query<ActorSpriteData>`. The
+/// caller already filtered by `FeatureVisualKind` (derived from disposition), so
+/// these read the cluster directly without a per-actor type tag.
 pub type ActorSpriteData = (
     &'static FeatureId,
-    &'static ActorRuntime,
     Option<&'static super::enemy_clusters::BodyKinematics>,
     Option<&'static super::enemy_clusters::EnemyStatus>,
     Option<&'static ActorAttackState>,
@@ -20,17 +20,12 @@ pub type ActorSpriteData = (
 );
 
 pub fn ecs_npc_name(id: &str, actors: &Query<ActorSpriteData>) -> Option<String> {
-    actors
-        .iter()
-        .find_map(|(feature_id, actor, _, _, _, config)| {
-            if feature_id.as_str() != id {
-                return None;
-            }
-            match actor {
-                ActorRuntime::Npc => config.map(|c| c.name.clone()),
-                ActorRuntime::Enemy => config.and_then(|c| c.sprite_override_npc_name.clone()),
-            }
-        })
+    actors.iter().find_map(|(feature_id, _, _, _, config)| {
+        if feature_id.as_str() != id {
+            return None;
+        }
+        config.map(|c| c.name.clone())
+    })
 }
 
 /// Explicit sprite render-quad size for an actor whose collision was derived
@@ -51,17 +46,12 @@ pub fn ecs_actor_render_size(
 }
 
 pub fn ecs_enemy_sprite_override(id: &str, actors: &Query<ActorSpriteData>) -> Option<String> {
-    actors
-        .iter()
-        .find_map(|(feature_id, actor, _, _, _, config)| {
-            if feature_id.as_str() != id {
-                return None;
-            }
-            match actor {
-                ActorRuntime::Enemy => config.and_then(|c| c.sprite_override_npc_name.clone()),
-                _ => None,
-            }
-        })
+    actors.iter().find_map(|(feature_id, _, _, _, config)| {
+        if feature_id.as_str() != id {
+            return None;
+        }
+        config.and_then(|c| c.sprite_override_npc_name.clone())
+    })
 }
 
 /// Per-enemy display name, used by `upgrade_enemy_sprites` as a
@@ -72,72 +62,55 @@ pub fn ecs_enemy_sprite_override(id: &str, actors: &Query<ActorSpriteData>) -> O
 /// via the intro NPC sprite registry without authors having to
 /// double-register them as an `enemy_sprite_registry`.
 pub fn ecs_enemy_name(id: &str, actors: &Query<ActorSpriteData>) -> Option<String> {
-    actors
-        .iter()
-        .find_map(|(feature_id, actor, _, _, _, config)| {
-            if feature_id.as_str() != id {
-                return None;
-            }
-            match actor {
-                ActorRuntime::Enemy => config.map(|c| c.name.clone()),
-                _ => None,
-            }
-        })
+    actors.iter().find_map(|(feature_id, _, _, _, config)| {
+        if feature_id.as_str() != id {
+            return None;
+        }
+        config.map(|c| c.name.clone())
+    })
 }
 
 pub fn ecs_enemy_anim_state(
     id: &str,
     actors: &Query<ActorSpriteData>,
 ) -> Option<crate::character_sprites::EnemyAnimState> {
-    actors
-        .iter()
-        .find_map(|(feature_id, actor, kin, status, attack, config)| {
-            if feature_id.as_str() != id {
-                return None;
-            }
-            match actor {
-                ActorRuntime::Enemy => {
-                    let kin = kin?;
-                    let status = status?;
-                    let attack = attack?;
-                    Some(crate::character_sprites::EnemyAnimState {
-                        pos: kin.pos,
-                        vel: kin.vel,
-                        facing: kin.facing,
-                        alive: status.alive,
-                        attack_active: attack.is_active(),
-                        attack_windup: attack.is_winding_up(),
-                        hit_flash: status.hit_flash > 0.0,
-                        aerial: config.map(|c| c.tuning.is_aerial).unwrap_or(false),
-                    })
-                }
-                _ => None,
-            }
+    actors.iter().find_map(|(feature_id, kin, status, attack, config)| {
+        if feature_id.as_str() != id {
+            return None;
+        }
+        let kin = kin?;
+        let status = status?;
+        let attack = attack?;
+        Some(crate::character_sprites::EnemyAnimState {
+            pos: kin.pos,
+            vel: kin.vel,
+            facing: kin.facing,
+            alive: status.alive,
+            attack_active: attack.is_active(),
+            attack_windup: attack.is_winding_up(),
+            hit_flash: status.hit_flash > 0.0,
+            aerial: config.map(|c| c.tuning.is_aerial).unwrap_or(false),
         })
+    })
 }
 
 pub fn ecs_npc_anim_state(
     id: &str,
     actors: &Query<ActorSpriteData>,
 ) -> Option<crate::character_sprites::NpcAnimState> {
-    actors.iter().find_map(|(feature_id, actor, kin, status, _, config)| {
+    actors.iter().find_map(|(feature_id, kin, status, _, config)| {
         if feature_id.as_str() != id {
             return None;
         }
-        match actor {
-            ActorRuntime::Npc => {
-                let kin = kin?;
-                let status = status?;
-                Some(crate::character_sprites::NpcAnimState {
-                    pos: kin.pos,
-                    vel: kin.vel,
-                    facing: kin.facing,
-                    hit_flash: status.hit_flash > 0.0,
-                    aerial: config.map(|c| c.tuning.is_aerial).unwrap_or(false),
-                })
-            }
-            _ => None,
-        }
+        let kin = kin?;
+        let status = status?;
+        Some(crate::character_sprites::NpcAnimState {
+            pos: kin.pos,
+            vel: kin.vel,
+            facing: kin.facing,
+            hit_flash: status.hit_flash > 0.0,
+            aerial: config.map(|c| c.tuning.is_aerial).unwrap_or(false),
+        })
     })
 }
 

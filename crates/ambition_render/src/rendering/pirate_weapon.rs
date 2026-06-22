@@ -25,7 +25,7 @@ use bevy::prelude::*;
 use bevy::sprite::Anchor;
 
 use ambition_gameplay_core::config::{world_to_bevy, WORLD_Z_PLAYER};
-use ambition_gameplay_core::features::{ActorRuntime, FeatureId, HeldItem};
+use ambition_gameplay_core::features::{FeatureId, HeldItem};
 
 #[derive(Component)]
 pub struct PirateWeaponVisual;
@@ -90,7 +90,7 @@ pub fn sync_pirate_weapon_visuals(
     world: Res<ambition_gameplay_core::GameWorld>,
     rider_actors: Query<(
         &FeatureId,
-        &ActorRuntime,
+        &ambition_gameplay_core::features::ActorDisposition,
         &HeldItem,
         Option<&ambition_gameplay_core::features::BodyKinematics>,
         Option<&ambition_gameplay_core::features::EnemyStatus>,
@@ -113,11 +113,11 @@ pub fn sync_pirate_weapon_visuals(
     };
     let art = art.get_or_insert_with(|| PirateWeaponVisualArt::load(&asset_server));
 
-    for (_id, actor, held_item, kin, status) in &rider_actors {
+    for (_id, disposition, held_item, kin, status) in &rider_actors {
         if held_item.id() != "gun_sword" {
             continue;
         }
-        if !matches!(actor, ActorRuntime::Enemy) {
+        if disposition.is_peaceful() {
             continue;
         }
         let (Some(kin), Some(status)) = (kin, status) else {

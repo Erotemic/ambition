@@ -30,7 +30,7 @@
 use bevy::prelude::{Commands, Component, Entity, Query, With, Without};
 
 use super::brain_builders::dismounted_rider_brain_and_action_set;
-use super::{ActorRuntime, CenteredAabb};
+use super::{ActorDisposition, CenteredAabb};
 use crate::engine_core as ae;
 
 /// Physical mass of an actor, used to weight a mount+rider pair's center of
@@ -129,7 +129,7 @@ pub fn sync_riders_to_mounts(
     mut riders: Query<
         (
             &RidingOn,
-            &ActorRuntime,
+            &ActorDisposition,
             &mut CenteredAabb,
             Option<&MountedSize>,
             Option<&Mass>,
@@ -139,7 +139,7 @@ pub fn sync_riders_to_mounts(
     >,
     mounts: Query<
         (
-            &ActorRuntime,
+            &ActorDisposition,
             &Mountable,
             Option<&Mass>,
             Option<super::enemy_clusters::EnemyClusterQueryData>,
@@ -158,7 +158,7 @@ pub fn sync_riders_to_mounts(
         else {
             continue;
         };
-        if !matches!(mount_actor, ActorRuntime::Enemy) {
+        if !mount_actor.is_hostile() {
             continue;
         }
         let Some(mount_c) = mount_clusters else {
@@ -167,7 +167,7 @@ pub fn sync_riders_to_mounts(
         if !mount_c.status.alive {
             continue;
         }
-        if !matches!(rider_actor, ActorRuntime::Enemy) {
+        if !rider_actor.is_hostile() {
             continue;
         }
         let Some(mut rider_cq) = rider_clusters else {
@@ -247,7 +247,7 @@ pub fn enforce_mount_rider_link(
         (
             Entity,
             &RidingOn,
-            &ActorRuntime,
+            &ActorDisposition,
             &mut CenteredAabb,
             Option<&MountedBrainCache>,
             Option<&Mounted>,
@@ -260,7 +260,7 @@ pub fn enforce_mount_rider_link(
     mounts: Query<
         (
             Entity,
-            &ActorRuntime,
+            &ActorDisposition,
             Option<&super::enemy_clusters::EnemyStatus>,
         ),
         With<MountSlot>,
@@ -272,7 +272,7 @@ pub fn enforce_mount_rider_link(
     let mut mount_alive: HashMap<Entity, bool> = HashMap::new();
     for (mount_entity, mount_actor, mount_status) in &mounts {
         let alive =
-            matches!(mount_actor, ActorRuntime::Enemy) && mount_status.is_some_and(|s| s.alive);
+            mount_actor.is_hostile() && mount_status.is_some_and(|s| s.alive);
         mount_alive.insert(mount_entity, alive);
     }
 
@@ -288,7 +288,7 @@ pub fn enforce_mount_rider_link(
         rider_clusters,
     ) in &mut riders
     {
-        if !matches!(rider_actor, ActorRuntime::Enemy) {
+        if !rider_actor.is_hostile() {
             continue;
         }
         let Some(mut rider_cq) = rider_clusters else {

@@ -19,23 +19,20 @@ pub fn refresh_actor_damageable_volumes(
     mut actors: Query<
         (
             &CenteredAabb,
-            &ActorRuntime,
+            &ActorDisposition,
             Option<&super::enemy_clusters::EnemyStatus>,
             &mut DamageableVolumes,
         ),
         With<FeatureSimEntity>,
     >,
 ) {
-    for (aabb, actor, status, mut damageable) in &mut actors {
-        match actor {
-            ActorRuntime::Npc => damageable.set_single(aabb.aabb()),
-            ActorRuntime::Enemy => {
-                if status.is_some_and(|s| s.alive) {
-                    damageable.set_single(aabb.aabb());
-                } else {
-                    damageable.clear();
-                }
-            }
+    for (aabb, disposition, status, mut damageable) in &mut actors {
+        // Peaceful actors are always a valid player-strike target; hostile actors
+        // only while alive.
+        if disposition.is_peaceful() || status.is_some_and(|s| s.alive) {
+            damageable.set_single(aabb.aabb());
+        } else {
+            damageable.clear();
         }
     }
 }

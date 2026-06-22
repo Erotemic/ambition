@@ -87,7 +87,7 @@ pub fn rebuild_feature_view_index(
     actors: Query<(
         &FeatureId,
         &CenteredAabb,
-        &ActorRuntime,
+        &ActorDisposition,
         Option<&super::enemy_clusters::EnemyStatus>,
         Option<&ActorAttackState>,
         Option<&super::enemy_clusters::EnemyConfig>,
@@ -171,78 +171,62 @@ pub fn rebuild_feature_view_index(
             },
         );
     }
-    for (id, aabb, actor, status, attack, config, surface, roll) in &actors {
+    for (id, aabb, disposition, status, attack, config, surface, roll) in &actors {
         let roll_rad = roll.map_or(0.0, |r| r.angle);
-        let view = match actor {
-            ActorRuntime::Npc => FeatureView {
-                pos: aabb.center,
-                size: aabb.size(),
-                kind: FeatureVisualKind::Npc,
-                visible: true,
-                flash: status.is_some_and(|s| s.hit_flash > 0.0),
-                switch_on: false,
-                rotation_rad: roll_rad,
-            },
-            ActorRuntime::Enemy => {
-                let alive = status.is_some_and(|s| s.alive);
-                let flash = status.is_some_and(|s| s.hit_flash > 0.0)
-                    || attack.is_some_and(|a| a.is_winding_up() || a.is_active());
-                let kind = if config.is_some_and(|c| c.tuning.is_sandbag) {
-                    FeatureVisualKind::TrainingDummy
-                } else {
-                    FeatureVisualKind::Enemy
-                };
-                // Sprite rotation. A *surface-walker* (PuppySlug) orients to the
-                // surface it clings to (its `surface_normal` already encodes which
-                // floor/wall/ceiling it's on, so it handles gravity flips too). EVERY
-                // OTHER actor rights to gravity via `roll_rad` — the SAME path NPCs
-                // and the player use, so a flipped-gravity sprite flips upright. Using
-                // `surface_normal` here for a non-walker pinned it to `(0,-1)` and
-                // left it gravity-blind, so a now-hostile NPC (NPC -> Enemy) stopped
-                // tracking gravity (the orientation diverged on the hostility flip).
-                // The two must NOT be summed — under a sideways gravity zone a
-                // surface-walker's clung surface IS the gravity floor, so adding both
-                // over-rotates.
-                let is_surface_walker = config.is_some_and(|c| c.tuning.surface_walker);
-                let rotation_rad = if is_surface_walker {
-                    match surface {
-                        Some(s) => f32::atan2(-s.surface_normal.x, -s.surface_normal.y),
-                        None => roll_rad,
-                    }
-                } else {
-                    roll_rad
-                };
-                // Render size is the RAW (un-oriented) body box. The sprite is
-                // oriented by `rotation_rad`, so it must NOT also receive the
-                // surface-oriented footprint — that double-counts the rotation and,
-                // worse, changes `view.size` when the slug climbs a wall, tripping
-                // the `BoundFeatureKind` re-bind which re-bakes the feet anchor off
-                // the swapped (long) dimension and shoves the sprite off its box.
-                // The ORIENTED footprint still lives in the `CenteredAabb` component
-                // (read directly by the debug overlay + hurtbox), so un-swap here to
-                // recover the raw dims. Only a surface-walker on a wall swaps.
-                let render_size = match surface {
-                    Some(s)
-                        if is_surface_walker
-                            && s.surface_normal.x.abs() > s.surface_normal.y.abs() =>
-                    {
-                        let o = aabb.size();
-                        ae::Vec2::new(o.y, o.x)
-                    }
-                    _ => aabb.size(),
-                };
-                FeatureView {
-                    pos: aabb.center,
-                    size: render_size,
-                    kind,
-                    visible: alive,
-                    flash,
-                    switch_on: false,
-                    rotation_rad,
-                }
-            }
+        // Visual kind is now a FUNCTION OF STATE, not an actor type: a sandbag
+        // tuning renders as a training dummy; a hostile disposition as an enemy;
+        // everything peaceful as an NPC. A provoked NPC (now `Hostile`) therefore
+        // renders red automatically, with no separate type flip.
+        let hostile = disposition.is_hostile();
+        let alive = status.is_some_and(|s| s.alive);
+        let kind = if config.is_some_and(|c| c.tuning.is_sandbag) {
+            FeatureVisualKind::TrainingDummy
+        } else if hostile {
+            FeatureVisualKind::Enemy
+        } else {
+            FeatureVisualKind::Npc
         };
-        index.insert_if_absent(id.as_str(), view);
+        // Peaceful actors are always visible (they don't die); hostile actors are
+        // visible while alive.
+        let visible = !hostile || alive;
+        let flash = status.is_some_and(|s| s.hit_flash > 0.0)
+            || (hostile && attack.is_some_and(|a| a.is_winding_up() || a.is_active()));
+        // Sprite rotation. A *surface-walker* (PuppySlug) orients to the surface it
+        // clings to (its `surface_normal` encodes floor/wall/ceiling + gravity
+        // flips). EVERY OTHER actor rights to gravity via `roll_rad` — the SAME
+        // path the player uses. The two must NOT be summed.
+        let is_surface_walker = config.is_some_and(|c| c.tuning.surface_walker);
+        let rotation_rad = if is_surface_walker {
+            match surface {
+                Some(s) => f32::atan2(-s.surface_normal.x, -s.surface_normal.y),
+                None => roll_rad,
+            }
+        } else {
+            roll_rad
+        };
+        // Render size is the RAW (un-oriented) body box. The sprite is oriented by
+        // `rotation_rad`, so it must NOT also receive the surface-oriented
+        // footprint (that double-counts the rotation and changes `view.size` when
+        // the slug climbs a wall). Only a surface-walker on a wall swaps.
+        let render_size = match surface {
+            Some(s) if is_surface_walker && s.surface_normal.x.abs() > s.surface_normal.y.abs() => {
+                let o = aabb.size();
+                ae::Vec2::new(o.y, o.x)
+            }
+            _ => aabb.size(),
+        };
+        index.insert_if_absent(
+            id.as_str(),
+            FeatureView {
+                pos: aabb.center,
+                size: render_size,
+                kind,
+                visible,
+                flash,
+                switch_on: false,
+                rotation_rad,
+            },
+        );
     }
     for (id, aabb, hazard) in &hazards {
         index.insert_if_absent(

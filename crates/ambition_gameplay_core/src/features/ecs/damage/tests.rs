@@ -8,7 +8,7 @@ use super::super::damage_drops::{
 use super::*;
 use crate::engine_core as ae;
 use crate::features::ecs::enemy_component_snapshot;
-use crate::features::{ActorRuntime, HitMode, HitTarget};
+use crate::features::{HitMode, HitTarget};
 use bevy::prelude::{App, Update};
 
 fn spawn_hostile_actor(app: &mut App) -> bevy::prelude::Entity {
@@ -28,7 +28,6 @@ fn spawn_hostile_actor(app: &mut App) -> bevy::prelude::Entity {
             FeatureSimEntity,
             FeatureId::new("kernel_guide"),
             CenteredAabb::from_center_size(aabb.center(), aabb.half_size() * 2.0),
-            ActorRuntime::Enemy,
             enemy.into_components(),
             identity,
             disposition,

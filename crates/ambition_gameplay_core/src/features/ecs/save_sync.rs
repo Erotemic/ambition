@@ -18,7 +18,6 @@ pub fn sync_ecs_actors_with_save(
     mut actors: Query<
         (
             Entity,
-            &mut ActorRuntime,
             &mut ActorIdentity,
             &mut ActorDisposition,
             &mut ActorHealth,
@@ -39,7 +38,6 @@ pub fn sync_ecs_actors_with_save(
     let data = save.data();
     for (
         entity,
-        mut runtime,
         mut identity,
         mut disposition,
         mut health,
@@ -75,7 +73,6 @@ pub fn sync_ecs_actors_with_save(
                 &mut commands,
                 entity,
                 &mut em,
-                &mut runtime,
                 &mut disposition,
                 combat_kit,
                 held_item,

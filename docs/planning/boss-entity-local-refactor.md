@@ -255,7 +255,7 @@ trailer; commit directly to `main`; stage explicit paths (never `git add -A`); w
 edits per stage, build once. `cargo`/test invocations use `-p ambition_app` (e.g.
 `cargo test -p ambition_app --test boss_contact_iframes`).
 
-- [ ] **R1 — Split state + phases as intrinsic-OPTIONAL data (entity-local).**
+- [x] **R1 — Split state + phases as intrinsic-OPTIONAL data (entity-local). LANDED.**
       Trim `BossStatus.encounter` to the ENTITY half: HP (already `BossStatus.health`) + phase state
       (current phase, `transition_lock: f32` tell/scream timer) + a **`Vec<PhaseTrigger>` of intrinsic
       triggers (DATA, may be empty)**. The encounter-only fields (per-phase music, thresholds-as-
@@ -268,6 +268,18 @@ edits per stage, build once. `cargo`/test invocations use `-p ambition_app` (e.g
       a boss with triggers phases up on its own WITH OR WITHOUT an encounter. The decision is pure
       DATA and must be trivially flippable — no code change to add/remove a boss's phases. Drop the
       forced Intro invulnerability (make it an opt-in `TimeInPhase` trigger).
+      - **What landed:** `PhaseTrigger { when: HpBelow|TimeInPhase|External, from: Vec<phase>, to,
+        lock }` + `BossPhaseState { phase, phase_elapsed, transition_lock, triggers, start_phase }`
+        in `ambition_characters::boss_encounter` (pure mechanism: `tick(dt, hp_fraction)` /
+        `notify_external(gate)` / `wake()`, 8 unit tests). `PhaseTrigger::intrinsic_from_spec` derives
+        a legacy spec's graph as DATA (intro opt-in, Phase1→Phase2 tell via `lock`, Phase2→Enrage).
+        `BossStatus.encounter` is now `Option<BossPhaseState>` (the entity half), still mirror-only
+        (`BossPhaseState::mirror_from`); the registry stays authoritative (flipped in R3). The
+        entity-local Bevy system `tick_boss_phases` (`boss_encounter/phase_runtime.rs`) is built +
+        tested as a real system but NOT yet registered — R3 wires it as the sole driver and bridges
+        its `BossPhaseEvent`s to music/banner/VFX. Fixed the stale "not a registered encounter"
+        comments in `tests/boss_contact_iframes.rs`. Green: 8 mechanism + 2 system + 67 boss_encounter
+        lib tests + the 3 app boss tests (canary + both i-frame traces).
 - [ ] **R2 — Promote the encounter to a first-class OPTIONAL entity; migrate READERS.**
       Introduce an `Encounter` entity with an `EncounterDef`: member entity refs + a **progress model
       DERIVED from member state** (single boss = its HP/phase; wave = adds remaining; etc.) + music +

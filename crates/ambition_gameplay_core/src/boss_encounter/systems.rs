@@ -290,11 +290,14 @@ pub fn update_boss_encounters(
             if feature.status.health.current != state.hp && state.hp > 0 {
                 feature.status.health.current = state.hp;
             }
-            // Stage 1b: also mirror the full live encounter state ONTO the
-            // entity. This is the entity-local copy readers migrate onto in
-            // Stage 3 (so they stop reaching into the global map), before it
-            // becomes the source of truth in Stage 4. Purely additive today.
-            feature.status.encounter = Some(state.clone());
+            // Mirror the ENTITY half of the live state onto the boss: phase +
+            // tell timer + intrinsic triggers (R1 trimmed this from the whole
+            // `BossEncounterState` blob Stage 1b temporarily copied). This is
+            // the entity-local copy readers migrate onto in R2, before it
+            // becomes the source of truth (driven by `tick_boss_phases`) in R3.
+            // Purely additive today — nothing reads it yet.
+            feature.status.encounter =
+                Some(crate::boss_encounter::BossPhaseState::mirror_from(state));
             // Suppress runtime-side death animation while boss is in an
             // invulnerable phase (Intro/Transition/Stagger).
             if state.phase.boss_invulnerable() && feature.status.alive {

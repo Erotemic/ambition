@@ -26,6 +26,7 @@ pub mod behavior;
 mod damage;
 mod events;
 mod ids;
+mod phase_runtime;
 mod profile;
 mod registry;
 mod rewards;
@@ -46,9 +47,11 @@ pub use ids::encounter_id_from_name;
 // `assets/data/dialogue/registry.ron` `BossCleared("mockingbird")`
 // rule. Internal tests reference it via `super::ids::MOCKINGBIRD_ENCOUNTER_ID`.
 pub use ambition_characters::boss_encounter::{
-    BossEncounterEvent, BossEncounterPhase, BossEncounterSpec, BossEncounterState,
+    BossEncounterEvent, BossEncounterPhase, BossEncounterSpec, BossEncounterState, BossPhaseEvent,
+    BossPhaseState, PhaseTrigger, PhaseTriggerCondition,
 };
 pub use behavior::{install_boss_profiles, install_boss_special_anim_keys, BossProfileRegistry};
+pub use phase_runtime::tick_boss_phases;
 pub use profile::{default_boss_profiles, BossProfile, BossRewardProfile};
 pub use registry::BossEncounterRegistry;
 pub use roster::BossSpecRoster;

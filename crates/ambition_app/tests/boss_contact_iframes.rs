@@ -57,10 +57,11 @@ struct BossSnapshot {
     /// FULL contact-box size (profile `combat_size` for the mockingbird).
     combat_size: ae::Vec2,
     /// Hit-flash, set to 0.18 whenever a player slash SPATIALLY connects with a
-    /// boss damageable part — before the encounter-registry HP check. So
-    /// `hit_flash > 0` is a clean "the swing reached the boss" signal even
-    /// though a programmatically-spawned boss isn't a registered encounter (its
-    /// HP accounting is inert).
+    /// boss damageable part — before the encounter HP check. So `hit_flash > 0`
+    /// is a clean "the swing reached the boss" signal independent of whether
+    /// the boss's HP/death accounting accepted the hit this frame (it rejects
+    /// damage during the ~2s Intro invulnerability a freshly-spawned boss
+    /// starts in).
     hit_flash: f32,
 }
 
@@ -321,12 +322,12 @@ fn flying_into_mockingbird_traces_iframe_gated_contact_damage() {
 ///      the player cannot steer back toward the boss (the knockback gets to
 ///      eject them before they can act).
 ///
-/// Note: a programmatically-spawned boss is the boss ENTITY but not a registered
-/// `BossEncounterRegistry` encounter, so its HP/death accounting is inert and a
-/// stray room-edge can trigger a feature reset that despawns it — both
-/// orthogonal to the combat-feel fix. So we measure the swing CONNECTING
-/// (`hit_flash`, set before the registry check) rather than boss HP, and break
-/// cleanly if the boss is reset away.
+/// Note: `update_boss_encounters` DOES auto-register/wake a programmatically-
+/// spawned boss (by its `behavior.id`), but its HP only starts dropping after
+/// the ~2s Intro invulnerability, and a stray room-edge can trigger a feature
+/// reset that despawns it — both orthogonal to the combat-feel fix. So we
+/// measure the swing CONNECTING (`hit_flash`, set before the HP check) rather
+/// than boss HP, and break cleanly if the boss is reset away.
 #[test]
 fn face_tanking_player_swings_back_and_is_recoil_locked() {
     let mut sim = SandboxSim::new_with_timestep(TimestepMode::fixed_60hz())

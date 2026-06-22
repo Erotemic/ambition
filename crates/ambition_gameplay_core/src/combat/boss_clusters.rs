@@ -61,15 +61,20 @@ pub struct BossStatus {
     /// has loaded. `None` for bosses whose sprite has no `body_metrics`
     /// entry (the legacy `combat_size` path applies).
     pub sprite_metrics: Option<BossSpriteMetrics>,
-    /// Entity-local copy of this boss's live encounter state (HP, phase,
-    /// stagger, timers). Mirrored from `BossEncounterRegistry` each frame by
-    /// `update_boss_encounters` (Stage 1b of the boss entity-local refactor —
-    /// see `docs/planning/boss-entity-local-refactor.md`). `None` until the
-    /// encounter is registered. Readers migrate onto this in Stage 3; in Stage 4
-    /// it becomes the source of truth and the global map is deleted. Keeping the
-    /// state ON the entity is what makes two of the same boss (a gauntlet) carry
-    /// independent fights by construction rather than by a string-keyed side map.
-    pub encounter: Option<crate::boss_encounter::BossEncounterState>,
+    /// Entity-local phase state: the ENTITY half of the old per-entity
+    /// `BossEncounterState` — current phase, the `transition_lock` tell timer,
+    /// and the intrinsic phase triggers as DATA (HP lives in `health`; the
+    /// encounter-only concerns — per-phase music, lock-walls, HUD, display
+    /// thresholds — stay on the data catalog / move to the encounter entity in
+    /// R2). Mirrored from `BossEncounterRegistry` each frame by
+    /// `update_boss_encounters` while the global map stays authoritative (R1);
+    /// readers migrate onto it in R2; in R3 it becomes the source of truth,
+    /// `tick_boss_phases` drives it, and the global map + this mirror are
+    /// deleted. Keeping the state ON the entity is what makes two of the same
+    /// boss (a gauntlet) carry independent fights by construction rather than
+    /// by a string-keyed side map. See
+    /// `docs/planning/boss-entity-local-refactor.md`. `None` until registered.
+    pub encounter: Option<crate::boss_encounter::BossPhaseState>,
 }
 
 /// Immutable borrow view over the boss clusters. Hosts the read-only

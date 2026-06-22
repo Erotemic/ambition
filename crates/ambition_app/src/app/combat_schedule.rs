@@ -25,6 +25,17 @@ impl Plugin for CombatSchedulePlugin {
         // drains it. Registered here so the writers never hit an unregistered
         // message.
         app.add_message::<ambition_gameplay_core::effects::EffectRequest>();
+        // Programmatic actor-spawn seam: scenario tests and RL/agent scene setup
+        // emit `SpawnActorRequest`; `apply_spawn_actor_requests` materializes each
+        // actor through the same `spawn_boss` / `spawn_enemy` paths room load uses.
+        // Registered (and run) here next to the in-gameplay spawners, but
+        // deliberately UNGATED so a scene-setup spawn applies in any `GameMode`.
+        app.add_message::<ambition_gameplay_core::features::SpawnActorRequest>();
+        app.add_systems(
+            Update,
+            ambition_gameplay_core::features::apply_spawn_actor_requests
+                .in_set(SandboxSet::Combat),
+        );
         app.add_systems(
             Update,
             (

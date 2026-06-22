@@ -8,7 +8,92 @@ use super::brain_builders::{
     enemy_combat_kit_for_spec, enemy_default_action_set, enemy_default_brain,
 };
 use super::*;
-use bevy::prelude::Name;
+use bevy::prelude::{Message, Name};
+
+/// Programmatic actor-spawn request — the public seam for dropping a specific
+/// actor into a live sim at an arbitrary position WITHOUT authoring an LDtk room.
+///
+/// Room load is the only other way an actor reaches the world, and it needs a
+/// fully-built [`crate::rooms::RoomSpec`] — too heavy for scenario tests and
+/// RL/agent scene setup, which both want "put this boss here, step, observe".
+/// Writers emit this as a Bevy message; [`apply_spawn_actor_requests`] drains it
+/// each frame and materializes the entity through the SAME `spawn_boss` /
+/// `spawn_enemy` paths room load uses, so a programmatically-spawned actor is
+/// indistinguishable from an authored one (it targets, ticks, takes damage, and
+/// resets identically).
+///
+/// Today's variants cover bosses and hostile enemies — the families with a
+/// trivial value-only spawn path. Peaceful NPCs need an
+/// [`crate::interaction::Interactable`] payload, so they stay room-authored
+/// until a programmatic use case lands (the "add knobs when use cases land"
+/// rule).
+#[derive(Message, Clone, Debug)]
+pub struct SpawnActorRequest {
+    /// Stable feature id. Must be unique per live spawn so per-entity systems
+    /// (targeting, encounter bookkeeping, save sync) don't collide on identity.
+    pub id: String,
+    /// Display name. For bosses this also seeds the behavior-profile lookup when
+    /// the brain doesn't pin a `PhaseScript:` id — e.g. name `"mockingbird"`
+    /// resolves the mockingbird profile via `canonical_boss_id_from`.
+    pub name: String,
+    /// World-space spawn center.
+    pub pos: ae::Vec2,
+    /// World-space collision HALF-extent at spawn. A boss whose profile defines
+    /// `combat_size` (most do) overrides this for its combat/contact box, and an
+    /// enemy archetype's `default_size` usually overrides it too — but it always
+    /// seeds the kinematic body size.
+    pub half_size: ae::Vec2,
+    /// Which actor family to materialize.
+    pub kind: SpawnActorKind,
+}
+
+/// The actor family a [`SpawnActorRequest`] materializes.
+#[derive(Clone, Debug)]
+pub enum SpawnActorKind {
+    /// A boss, resolved through the same behavior-profile lookup as a room
+    /// `BossSpawn`. `brain` pins the encounter (`PhaseScript { script_id }`) or
+    /// falls back to the request `name` (`Dormant` / `Custom` both defer to it).
+    Boss { brain: crate::actor::BossBrain },
+    /// A hostile enemy, resolved through `EnemyArchetype::from_brain` — the same
+    /// path a room `EnemySpawn` takes.
+    Enemy { brain: crate::actor::EnemyBrain },
+}
+
+/// Drain [`SpawnActorRequest`]s and materialize each actor.
+///
+/// Intentionally UNGATED by `gameplay_allowed`: programmatic scene setup (an RL
+/// episode reset, a scenario-test fixture) must apply regardless of the coarse
+/// `GameMode`, unlike the in-gameplay `apply_summon_effects`. The spawned
+/// entity's own systems are still gameplay-gated, so an actor placed during a
+/// transition just waits inert until play resumes.
+pub fn apply_spawn_actor_requests(
+    mut commands: bevy::prelude::Commands,
+    mut requests: bevy::prelude::MessageReader<SpawnActorRequest>,
+) {
+    for req in requests.read() {
+        let aabb = ae::Aabb::new(req.pos, req.half_size);
+        match &req.kind {
+            SpawnActorKind::Boss { brain } => {
+                let authored = crate::rooms::Authored::new(
+                    req.id.clone(),
+                    req.name.clone(),
+                    aabb,
+                    brain.clone(),
+                );
+                spawn_boss(&mut commands, &authored);
+            }
+            SpawnActorKind::Enemy { brain } => {
+                let authored = crate::rooms::Authored::new(
+                    req.id.clone(),
+                    req.name.clone(),
+                    aabb,
+                    brain.clone(),
+                );
+                spawn_enemy(&mut commands, &authored, &[]);
+            }
+        }
+    }
+}
 
 /// Declarative seed for the common hostile-actor spawn bundle.
 ///

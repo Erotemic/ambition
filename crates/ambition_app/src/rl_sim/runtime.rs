@@ -409,6 +409,51 @@ impl SandboxSim {
         }
     }
 
+    /// Grant the player flight and turn it on. Test / RL setup — the sibling of
+    /// [`Self::grant_pogo_ability`]. Free flight needs BOTH the ability flag and
+    /// the live `fly_enabled` toggle (see `integrate_flight_clusters`), so this
+    /// sets both; nothing in the sim disables `fly_enabled` except the player's
+    /// own fly-toggle input, so it persists across steps.
+    pub fn grant_flight(&mut self) {
+        let mut q = self.app.world_mut().query_filtered::<(
+            &mut ambition_gameplay_core::player::PlayerAbilities,
+            &mut ambition_gameplay_core::player::PlayerFlightState,
+        ), ambition_gameplay_core::player::PrimaryPlayerOnly>();
+        if let Ok((mut abilities, mut flight)) = q.single_mut(self.app.world_mut()) {
+            abilities.abilities.fly = true;
+            flight.fly_enabled = true;
+        }
+    }
+
+    /// Spawn a boss into the live sim at `pos` via [`SpawnActorRequest`], then
+    /// step one frame so the spawn command flushes and the entity exists. The
+    /// programmatic counterpart to a room `BossSpawn` — scene setup for scenario
+    /// tests / RL without authoring an LDtk room.
+    ///
+    /// `half_size` seeds the kinematic body; a boss whose profile defines
+    /// `combat_size` (e.g. the mockingbird) overrides it for the contact box.
+    /// `brain` resolves the behavior profile (`BossBrain::PhaseScript { script_id }`
+    /// pins it; `Dormant` / `Custom` fall back to `name`).
+    pub fn spawn_boss_at(
+        &mut self,
+        id: impl Into<String>,
+        name: impl Into<String>,
+        pos: (f32, f32),
+        half_size: (f32, f32),
+        brain: ambition_gameplay_core::actor::BossBrain,
+    ) {
+        self.app
+            .world_mut()
+            .write_message(ambition_gameplay_core::features::SpawnActorRequest {
+                id: id.into(),
+                name: name.into(),
+                pos: ae::Vec2::new(pos.0, pos.1),
+                half_size: ae::Vec2::new(half_size.0, half_size.1),
+                kind: ambition_gameplay_core::features::SpawnActorKind::Boss { brain },
+            });
+        self.app.update();
+    }
+
     /// Inject a block into the live sim world (a pogo orb, one-way
     /// platform, solid, …). Used by symmetry tests to place a known
     /// target without authoring a room. Build with `ae::Block::pogo_orb`

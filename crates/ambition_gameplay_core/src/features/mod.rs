@@ -143,7 +143,8 @@ pub use ecs::actor_clusters::{
 pub use ecs::ActorSpriteData;
 pub use ecs::{
     apply_actor_stimuli, apply_feature_hit_events, apply_gameplay_banner_requests,
-    apply_hitbox_damage, apply_summon_effects, boss_spawn_hurtboxes, clear_encounter_reward_ecs,
+    apply_hitbox_damage, apply_spawn_actor_requests, apply_summon_effects, boss_spawn_hurtboxes,
+    clear_encounter_reward_ecs,
     collect_ecs_pickups, derive_boss_sprite_metrics, derive_pogo_target_volumes,
     despawn_encounter_mobs, ecs_boss_anim_state, ecs_boss_anim_state_and_entity,
     ecs_boss_animation_frame_sample, ecs_boss_name, ecs_breakable_state, ecs_chest_opened,
@@ -157,6 +158,7 @@ pub use ecs::{
     select_actor_targets, FactionRelations, spawn_encounter_mob,
     spawn_enemy_projectiles_from_brain_actions,
     spawn_melee_hitbox, spawn_room_feature_entities, start_enemy_melee_from_brain_actions,
+    SpawnActorKind, SpawnActorRequest,
     sync_actor_poses_from_feature_aabbs, sync_boss_actor_components, sync_boss_encounter_phase,
     sync_boss_reward_chests_ecs, sync_ecs_actors_with_save, sync_ecs_bosses_with_save,
     sync_ecs_switches_from_save, sync_encounter_reward_chests_ecs,

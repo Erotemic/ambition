@@ -21,14 +21,15 @@ pub fn reset_ecs_room_features(
     mut actors: Query<
         (
             &mut CenteredAabb,
-            &mut ActorRuntime,
             &mut ActorIdentity,
-            &mut ActorDisposition,
+            &ActorDisposition,
             &mut ActorHealth,
             &mut ActorCombatState,
             &mut ActorIntent,
             &mut ActorCooldowns,
-            Option<super::enemy_clusters::EnemyClusterQueryData>,
+            &mut ActorAggression,
+            Option<&ActorInteraction>,
+            super::enemy_clusters::EnemyClusterQueryData,
         ),
         // Bosses are reset by the disjoint `bosses` query below. Both this
         // query (via `EnemyClusterQueryData`) and the boss query take
@@ -88,46 +89,40 @@ pub fn reset_ecs_room_features(
     }
     for (
         mut aabb,
-        mut actor,
         mut identity,
-        mut disposition,
+        disposition,
         mut health,
         mut combat,
         mut intent,
         mut cooldowns,
-        mut clusters,
+        mut aggression,
+        interaction,
+        mut cq,
     ) in &mut actors
     {
-        match &mut *actor {
-            // NPCs reset in the sibling `reset_ecs_npc_actors` system —
-            // their cluster query borrows the shared kinematics/surface
-            // components the enemy query here also holds mutably.
-            ActorRuntime::Npc => {}
-            ActorRuntime::Enemy => {
-                // Restore authored spawn state so morphed actors
-                // (PirateOnShark → PirateRaider / BurningFlyingShark)
-                // return as their original fused archetype with
-                // matching size, gravity, mount/rider links, and
-                // rider health. Non-morphing enemies are reset to a clean
-                // baseline by the same call.
-                let cq = clusters
-                    .as_mut()
-                    .expect("enemy entity carries cluster components");
-                let mut em = cq.as_enemy_mut();
-                em.reset_to_spawn();
-                aabb.center = em.kin.pos;
-                aabb.half_size = em.kin.size * 0.5;
-                sync_actor_components_from_enemy(
-                    &em,
-                    &mut identity,
-                    &mut disposition,
-                    &mut health,
-                    &mut combat,
-                    &mut intent,
-                    &mut cooldowns,
-                );
-            }
+        // Restore authored spawn state for EVERY actor through the unified
+        // cluster: morphed actors (PirateOnShark → PirateRaider /
+        // BurningFlyingShark) return as their fused archetype, non-morphing
+        // enemies to a clean baseline, and peaceful NPCs to their spawn pose.
+        let mut em = cq.as_enemy_mut();
+        em.reset_to_spawn();
+        aabb.center = em.kin.pos;
+        aabb.half_size = em.kin.size * 0.5;
+        // Talkable actors (NPCs): clear the provoke accumulator + last attacker
+        // so a struck-but-not-yet-hostile NPC starts the retried room fresh.
+        if interaction.is_some() {
+            aggression.strikes = 0;
+            aggression.target = None;
         }
+        sync_actor_components_from_cluster(
+            &em,
+            *disposition,
+            &mut identity,
+            &mut health,
+            &mut combat,
+            &mut intent,
+            &mut cooldowns,
+        );
     }
     for (mut feature, mut brain, mut attack_state, mut control) in &mut bosses {
         feature.kin.pos = feature.config.spawn;
@@ -165,63 +160,6 @@ pub fn reset_ecs_room_features(
     }
     for mut switch_on in &mut switches {
         switch_on.0 = false;
-    }
-}
-
-/// Reset peaceful NPC actors to their authored spawn on a same-room
-/// reset. Split from [`reset_ecs_room_features`] because the NPC cluster
-/// query borrows the shared kinematics/surface components the enemy
-/// reset query also holds mutably.
-pub fn reset_ecs_npc_actors(
-    mut reset_requests: MessageReader<ResetRoomFeaturesEvent>,
-    mut npcs: Query<
-        (
-            &mut CenteredAabb,
-            super::npc_clusters::NpcClusterQueryData,
-            &mut ActorIdentity,
-            &mut ActorDisposition,
-            &mut ActorHealth,
-            &mut ActorCombatState,
-            &mut ActorIntent,
-            &mut ActorCooldowns,
-            &mut super::ActorAggression,
-        ),
-        With<FeatureSimEntity>,
-    >,
-) {
-    if reset_requests.read().next().is_none() {
-        return;
-    }
-    for (
-        mut aabb,
-        mut clusters,
-        mut identity,
-        mut disposition,
-        mut health,
-        mut combat,
-        mut intent,
-        mut cooldowns,
-        mut aggression,
-    ) in &mut npcs
-    {
-        // Provoke accumulator + last attacker live on the shared aggression
-        // component now; clear them so a struck-but-not-yet-hostile NPC starts
-        // the retried room fresh.
-        aggression.strikes = 0;
-        aggression.target = None;
-        let mut npc = clusters.as_npc_mut();
-        npc.reset_to_spawn();
-        aabb.center = npc.kin.pos;
-        aabb.half_size = npc.kin.size * 0.5;
-        super::actors::sync_actor_components_from_npc(
-            &npc,
-            &mut identity,
-            &mut disposition,
-            &mut health,
-            &mut combat,
-            &mut intent,
-            &mut cooldowns,
-        );
     }
 }
 

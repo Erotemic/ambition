@@ -8,8 +8,9 @@
 //!
 //! Module map (each sibling owns one slice of that sim):
 //! - `spawn*` — spawn authored room objects, encounter mobs, mounts/riders;
-//! - `actors` / `npc_clusters` / `enemy_clusters` / `bosses` — the per-frame
-//!   actor tick over the ECS cluster components that hold actor state;
+//! - `actors` / `enemy_clusters` / `bosses` — the per-frame actor tick over the
+//!   unified ECS cluster components that hold actor state (NPCs + enemies share
+//!   one cluster; bosses are their own);
 //! - `damage*` / `aggression` / `interact` — hit routing, provocation, and
 //!   player interactions;
 //! - `encounter_rewards` / `reset` / `save_sync` — reward chests, room reset,
@@ -49,7 +50,6 @@ pub mod enemy_clusters;
 mod interact;
 mod mount;
 pub use mount::{rider_hand_world_pos, rider_hand_world_pos_in_frame};
-pub mod npc_clusters;
 mod reset;
 mod save_sync;
 mod spawn;
@@ -66,13 +66,12 @@ pub use crate::combat::{
 };
 
 pub use actors::{
-    enemy_component_snapshot, npc_component_snapshot, sync_actor_components_from_enemy,
+    actor_component_snapshot, enemy_component_snapshot, sync_actor_components_from_cluster,
 };
 pub use actors::{
-    sync_actor_poses_from_feature_aabbs, tick_npc_idle_barks, update_ecs_actors, update_ecs_npcs,
-    ActorRuntime,
+    sync_actor_poses_from_feature_aabbs, tick_npc_idle_barks, update_ecs_actors, ActorRuntime,
 };
-pub use aggression::{apply_actor_stimuli, apply_npc_stimuli};
+pub use aggression::apply_actor_stimuli;
 pub use anim_helpers::{
     ecs_boss_anim_state, ecs_boss_anim_state_and_entity, ecs_boss_animation_frame_sample,
     ecs_boss_name, ecs_breakable_state, ecs_chest_opened, ecs_enemy_anim_state, ecs_enemy_name,
@@ -120,10 +119,9 @@ pub use mount::{
 };
 pub use overlay::{rebuild_feature_ecs_world_overlay, FeatureEcsWorldOverlay};
 pub use pickups::{collect_ecs_pickups, magnetize_pickups};
-pub use reset::{reset_ecs_npc_actors, reset_ecs_room_features};
+pub use reset::reset_ecs_room_features;
 pub use save_sync::{
-    sync_ecs_actors_with_save, sync_ecs_bosses_with_save, sync_ecs_npc_actors_with_save,
-    sync_ecs_switches_from_save,
+    sync_ecs_actors_with_save, sync_ecs_bosses_with_save, sync_ecs_switches_from_save,
 };
 pub(crate) use spawn::spawn_runtime_minion;
 pub use spawn::{despawn_encounter_mobs, spawn_encounter_mob, spawn_room_feature_entities};

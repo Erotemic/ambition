@@ -13,66 +13,6 @@ use super::*;
 /// deaths stay dead across room reloads. Dynamic encounter mobs are ignored
 /// because their lifecycle belongs to encounter state.
 pub fn sync_ecs_actors_with_save(
-    save: Res<crate::persistence::save::SandboxSave>,
-    mut actors: Query<
-        (
-            &mut ActorIdentity,
-            &mut ActorDisposition,
-            &mut ActorHealth,
-            &mut ActorCombatState,
-            &mut ActorIntent,
-            &mut ActorCooldowns,
-            super::enemy_clusters::EnemyClusterQueryData,
-        ),
-        With<FeatureSimEntity>,
-    >,
-) {
-    let data = save.data();
-    for (
-        mut identity,
-        mut disposition,
-        mut health,
-        mut combat,
-        mut intent,
-        mut cooldowns,
-        mut cq,
-    ) in &mut actors
-    {
-        // Respect both `_dead` (Never policy) and `_dead_until_rest`
-        // (OnRest policy) flags so an enemy killed in a previous
-        // session/room visit doesn't spring back to life when the room
-        // loads. OnRoomReenter enemies never write a flag in the first
-        // place, so they spawn alive by default.
-        let em = cq.as_enemy_mut();
-        if !em.config.id.starts_with("encounter:")
-            && !em.config.tuning.is_sandbag
-            && (data.flag(&format!("enemy_{}_dead", em.config.id))
-                || data.flag(&format!(
-                    "enemy_{}{}",
-                    em.config.id,
-                    crate::features::ENEMY_DEAD_UNTIL_REST_SUFFIX,
-                )))
-        {
-            em.status.alive = false;
-            em.status.health.current = 0;
-        }
-        sync_actor_components_from_enemy(
-            &em,
-            &mut identity,
-            &mut disposition,
-            &mut health,
-            &mut combat,
-            &mut intent,
-            &mut cooldowns,
-        );
-    }
-}
-
-/// Mirror save-derived provoke state onto peaceful NPC actors: an NPC
-/// whose hostility flag is persisted loads as a hostile enemy. Split
-/// from [`sync_ecs_actors_with_save`] because the NPC cluster query
-/// borrows the shared kinematics/surface the enemy query holds mutably.
-pub fn sync_ecs_npc_actors_with_save(
     mut commands: Commands,
     save: Res<crate::persistence::save::SandboxSave>,
     mut actors: Query<
@@ -88,7 +28,10 @@ pub fn sync_ecs_npc_actors_with_save(
             &mut ActorAggression,
             &CombatKit,
             Option<&HeldItem>,
-            super::npc_clusters::NpcClusterQueryData,
+            // Talkable actors (NPCs) carry the interaction payload + a persisted
+            // `npc_<id>_hostile` provoke flag.
+            Option<&ActorInteraction>,
+            super::enemy_clusters::EnemyClusterQueryData,
         ),
         With<FeatureSimEntity>,
     >,
@@ -96,7 +39,7 @@ pub fn sync_ecs_npc_actors_with_save(
     let data = save.data();
     for (
         entity,
-        mut actor,
+        mut runtime,
         mut identity,
         mut disposition,
         mut health,
@@ -106,45 +49,63 @@ pub fn sync_ecs_npc_actors_with_save(
         mut aggression,
         combat_kit,
         held_item,
-        npc,
+        interaction,
+        mut cq,
     ) in &mut actors
     {
-        if !data.flag(&super::super::npcs::npc_flag_id(&npc.config.id)) {
-            let (i, d, h, c, it, cd) =
-                super::actors::npc_component_snapshot(&npc.config, &npc.status);
-            *identity = i;
-            *disposition = d;
-            *health = h;
-            *combat = c;
-            *intent = it;
-            *cooldowns = cd;
-            continue;
-        }
-        let hostile_id = npc.config.id.clone();
-        let dead_on_load = data.flag(&format!("enemy_{hostile_id}_dead"))
+        let id = cq.as_enemy_mut().config.id.clone();
+        let dead_on_load = data.flag(&format!("enemy_{id}_dead"))
             || data.flag(&format!(
-                "enemy_{hostile_id}{}",
+                "enemy_{id}{}",
                 crate::features::ENEMY_DEAD_UNTIL_REST_SUFFIX,
             ));
-        aggression.mode = AggressionMode::HostileToPlayer;
-        let conversion = super::actors::HostileNpcConversionPlan::from_npc(
-            &npc.config,
-            &npc.kin,
-            &npc.surface,
-            combat_kit,
-            held_item,
-        );
-        let conversion = if dead_on_load {
-            conversion.with_dead_state()
-        } else {
-            conversion
-        };
-        conversion.apply(
-            &mut commands,
-            entity,
-            &mut actor,
+
+        if interaction.is_some() && data.flag(&super::super::npcs::npc_flag_id(&id)) {
+            // Persisted-hostile NPC: flip it hostile IN PLACE on load (no cluster
+            // swap), keeping its entity + sprite.
+            let dialogue_id = interaction.and_then(|i| match &i.interactable.kind {
+                crate::interaction::InteractionKind::Npc { dialogue_id, .. } => {
+                    dialogue_id.as_deref()
+                }
+                _ => None,
+            });
+            aggression.mode = AggressionMode::HostileToPlayer;
+            let mut em = cq.as_enemy_mut();
+            super::actors::provoke_actor_in_place(
+                &mut commands,
+                entity,
+                &mut em,
+                &mut runtime,
+                &mut disposition,
+                combat_kit,
+                held_item,
+                dialogue_id,
+                false,
+            );
+            if dead_on_load {
+                em.status.alive = false;
+                em.status.health.current = 0;
+            }
+        } else if interaction.is_none() {
+            // Authored enemy: respect both `_dead` (Never policy) and
+            // `_dead_until_rest` (OnRest policy) flags so an enemy killed in a
+            // previous session/room visit stays dead. OnRoomReenter enemies
+            // never write a flag, so they spawn alive.
+            let em = cq.as_enemy_mut();
+            if !em.config.id.starts_with("encounter:")
+                && !em.config.tuning.is_sandbag
+                && dead_on_load
+            {
+                em.status.alive = false;
+                em.status.health.current = 0;
+            }
+        }
+
+        let em = cq.as_enemy_mut();
+        sync_actor_components_from_cluster(
+            &em,
+            *disposition,
             &mut identity,
-            &mut disposition,
             &mut health,
             &mut combat,
             &mut intent,

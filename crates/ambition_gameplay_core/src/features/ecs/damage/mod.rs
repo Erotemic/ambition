@@ -19,10 +19,9 @@ use bevy::prelude::{
 use super::super::util::{approximately_same_aabb, midpoint};
 use super::damage_drops::drop_currency_coin;
 use super::{
-    sync_actor_components_from_enemy, ActorCombatState, ActorCooldowns, ActorDisposition,
-    ActorHealth, ActorIdentity, ActorIntent, ActorRuntime, BreakableFeature, CenteredAabb,
-    FeatureId, FeatureName, FeatureSimEntity, GameplayBanner, HitEvent, HitSource,
-    SetFlagRequested,
+    sync_actor_components_from_cluster, ActorCombatState, ActorCooldowns, ActorDisposition,
+    ActorHealth, ActorIdentity, ActorIntent, BreakableFeature, CenteredAabb, FeatureId,
+    FeatureName, FeatureSimEntity, GameplayBanner, HitEvent, HitSource, SetFlagRequested,
 };
 // Only the exploding-mite blast test pins this drop tuning constant; the drop
 // tests query `PickupFeature` directly. Both are test-only now that the drop
@@ -88,23 +87,19 @@ pub fn apply_feature_hit_events(
             Entity,
             &FeatureId,
             &CenteredAabb,
-            &mut ActorRuntime,
             &mut ActorIdentity,
-            &mut ActorDisposition,
+            &ActorDisposition,
             &mut ActorHealth,
             &mut ActorCombatState,
             &mut ActorIntent,
             &mut ActorCooldowns,
-            Option<super::enemy_clusters::EnemyClusterQueryData>,
-            // NPC status/config read & mutated directly; position comes
-            // from `CenteredAabb` above so we never borrow the shared
-            // kinematics the enemy cluster query already holds mutably.
-            Option<&mut super::npc_clusters::NpcStatus>,
-            Option<&super::npc_clusters::NpcConfig>,
-            // Provoke accumulator + last attacker (shared aggression component).
-            // `Option` so minimal test fixtures that spawn a bare enemy/NPC
-            // without it still match; production actors always carry it.
+            // Provoke accumulator (shared aggression component). `Option` so
+            // minimal test fixtures that spawn a bare actor without it still
+            // match; production actors always carry it.
             Option<&mut super::super::components::ActorAggression>,
+            // Dialogue payload — present on talkable actors (drives barks).
+            Option<&super::super::components::ActorInteraction>,
+            super::enemy_clusters::EnemyClusterQueryData,
         ),
         // Bosses are handled by the disjoint `bosses` query; both take
         // `&mut BodyKinematics` (the unified component), so exclude bosses
@@ -204,78 +199,47 @@ pub fn apply_feature_hit_events(
             actor_entity,
             id,
             aabb,
-            mut actor,
             mut identity,
-            mut disposition,
+            disposition,
             mut health,
             mut combat,
             mut intent,
             mut cooldowns,
-            mut clusters,
-            mut npc_status,
-            npc_config,
             mut aggression,
+            interaction,
+            mut cq,
         ) in &mut actors
         {
-            let prefix = match *disposition {
-                ActorDisposition::Peaceful => "npc",
-                ActorDisposition::Hostile => "enemy",
-            };
+            let prefix = if disposition.is_hostile() { "enemy" } else { "npc" };
             if target_is_ignored(&event.ignored_targets, prefix, id.as_str()) {
                 continue;
             }
             if !event.volume.strict_intersects(aabb.aabb()) {
                 continue;
             }
-            let mut em_opt = clusters.as_mut().map(|cq| cq.as_enemy_mut());
-            let npc_target = match (npc_status.as_deref_mut(), npc_config, aggression.as_deref_mut())
-            {
-                (Some(status), Some(config), Some(aggr)) => Some(NpcHitTarget {
-                    status,
-                    config,
-                    aggression: aggr,
-                    aabb: aabb.aabb(),
-                }),
-                _ => None,
-            };
+            let interactable = interaction.map(|i| &i.interactable);
+            let mut em = cq.as_enemy_mut();
             if apply_actor_hit(
                 &event,
                 actor_entity,
-                &mut actor,
-                em_opt.as_mut(),
-                npc_target,
+                *disposition,
+                &mut em,
+                aggression.as_deref_mut(),
+                interactable,
                 &mut banner,
                 combat_banter.as_deref(),
                 &mut writers,
             ) {
                 actor_hit_this_event = true;
-                match &*actor {
-                    ActorRuntime::Enemy => {
-                        if let Some(em) = em_opt.as_ref() {
-                            sync_actor_components_from_enemy(
-                                em,
-                                &mut identity,
-                                &mut disposition,
-                                &mut health,
-                                &mut combat,
-                                &mut intent,
-                                &mut cooldowns,
-                            );
-                        }
-                    }
-                    ActorRuntime::Npc => {
-                        if let (Some(status), Some(config)) = (npc_status.as_deref(), npc_config) {
-                            let (i, d, h, c, it, cd) =
-                                super::actors::npc_component_snapshot(config, status);
-                            *identity = i;
-                            *disposition = d;
-                            *health = h;
-                            *combat = c;
-                            *intent = it;
-                            *cooldowns = cd;
-                        }
-                    }
-                }
+                sync_actor_components_from_cluster(
+                    &em,
+                    *disposition,
+                    &mut identity,
+                    &mut health,
+                    &mut combat,
+                    &mut intent,
+                    &mut cooldowns,
+                );
             }
         }
         let mut boss_hit_this_event = false;

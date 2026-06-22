@@ -269,7 +269,11 @@ impl<'a> EnemyMut<'a> {
             );
         }
 
-        if self.config.tuning.attacks_player && frame.facing.abs() > 0.001 {
+        // Face the brain's committed direction whenever it commits one. Hostile
+        // chasers AND peaceful patrollers/flyers both set `frame.facing`; a
+        // standstill/idle brain leaves it ~0 so facing is preserved. (Previously
+        // gated on `attacks_player`, which left peaceful actors facing-frozen.)
+        if frame.facing.abs() > 0.001 {
             self.kin.facing = frame.facing.signum();
         }
 

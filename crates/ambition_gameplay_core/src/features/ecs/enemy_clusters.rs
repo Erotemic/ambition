@@ -131,8 +131,10 @@ pub struct EnemyClusterSeed {
     /// reads it here before the entity exists; it is deliberately NOT
     /// carried onto any spawned component, so the persisted [`EnemyConfig`]
     /// stays roster-free. The named `EnemyArchetype` enum never reaches the
-    /// spawn path — only this data does.
-    pub spec: EnemyArchetypeSpec,
+    /// spawn path — only this data does. `pub(crate)`: the seed type itself is
+    /// publicly re-exported (content builds peaceful seeds) but this archetype
+    /// field is internal-only.
+    pub(crate) spec: EnemyArchetypeSpec,
 }
 
 impl EnemyClusterSeed {
@@ -194,6 +196,136 @@ impl EnemyClusterSeed {
             spec,
         }
     }
+    /// Build a PEACEFUL actor seed from catalog/NPC spawn inputs — the unified
+    /// replacement for `NpcClusterScratch::new_with_paths`. A peaceful actor is
+    /// the same cluster as a hostile enemy, just with peaceful tuning
+    /// (`attacks_player = false`, zero aggro, `max_run_speed = NPC_PATROL_SPEED`,
+    /// `health = 1`) and a `Passive`/`Patrol` AI brain; its movement is driven by
+    /// the catalog `Brain` component attached at spawn, not by this `config.brain`
+    /// (which only feeds the integrator's patrol-stall intent). The seed's `spec`
+    /// field is filled with an inert default (peaceful actors never spawn through
+    /// the archetype path), so callers — including the content crate — need no
+    /// `EnemyArchetypeSpec`. Returns the seed plus the optional sprite render size
+    /// (lifted onto the shared `ActorRenderSize` at spawn so it survives a flip).
+    pub fn new_peaceful_npc(
+        id: impl Into<String>,
+        name: impl Into<String>,
+        aabb: ae::Aabb,
+        interactable: &crate::interaction::Interactable,
+        paths: &[(String, crate::actor::KinematicPath)],
+    ) -> (Self, Option<ae::Vec2>) {
+        let authored_pos = aabb.center();
+        let (patrol_radius, patrol_path_id, motion) = match &interactable.kind {
+            crate::interaction::InteractionKind::Npc {
+                patrol_radius,
+                patrol_path_id,
+                ..
+            } => {
+                let motion = patrol_path_id.as_deref().and_then(|path_id| {
+                    paths
+                        .iter()
+                        .find(|(p_id, _)| p_id == path_id)
+                        .map(|(_, path)| PathMotion::new(path.clone()))
+                });
+                (patrol_radius.max(0.0), patrol_path_id.clone(), motion)
+            }
+            _ => (0.0, None, None),
+        };
+        let pos = motion
+            .as_ref()
+            .and_then(PathMotion::start_pos)
+            .unwrap_or(authored_pos);
+        let character_id = match &interactable.kind {
+            crate::interaction::InteractionKind::Npc {
+                character_id: Some(cid),
+                ..
+            } => Some(cid.as_str()),
+            _ => None,
+        };
+        // A `Floating` catalog body = a gravity-free flyer (the stochastic
+        // parrot): zero gravity so the brain's full 2D velocity drives flight
+        // through the shared aerial integrator.
+        let gravity_scale = match character_id {
+            Some(cid)
+                if matches!(
+                    crate::character_roster::body_kind_for_character_id(cid),
+                    Some(crate::actor::character_catalog::CharacterBodyKind::Floating)
+                ) =>
+            {
+                0.0
+            }
+            _ => 1.0,
+        };
+        let is_aerial = gravity_scale <= 0.001;
+        // Sprite metadata supersedes the LDtk spawn box (see the old
+        // `NpcClusterScratch`): size the collision to the visible body and
+        // remember the render-quad size so the sprite still draws at scale.
+        let ldtk_collision = aabb.half_size() * 2.0;
+        let body = character_id.and_then(|cid| {
+            crate::character_sprites::sprite_body_collision_for_character_id(cid, ldtk_collision)
+        });
+        let (collision_size, render_size) = match body {
+            Some(b) => (b.collision, Some(b.render_size)),
+            None => (ldtk_collision, None),
+        };
+        let has_patrol = patrol_radius > 0.0 || motion.is_some();
+        let tuning = crate::combat::EnemyTuning {
+            max_health: 1,
+            patrol_speed: crate::brain::NPC_PATROL_SPEED,
+            chase_speed: crate::brain::NPC_PATROL_SPEED,
+            max_run_speed: crate::brain::NPC_PATROL_SPEED,
+            is_aerial,
+            ..Default::default()
+        };
+        let config_brain = if has_patrol {
+            crate::actor::EnemyBrain::Patrol {
+                path_id: patrol_path_id,
+            }
+        } else {
+            crate::actor::EnemyBrain::Passive
+        };
+        let seed = Self {
+            kin: BodyKinematics {
+                pos,
+                vel: ae::Vec2::ZERO,
+                size: collision_size,
+                facing: 1.0,
+            },
+            status: EnemyStatus {
+                alive: true,
+                respawn_timer: 0.0,
+                hit_flash: 0.0,
+                ai_mode: crate::actor::ai::CharacterAiMode::Idle,
+                health: crate::actor::Health::new(1),
+            },
+            surface: ActorSurfaceState {
+                on_ground: false,
+                surface_normal: ae::Vec2::new(0.0, -1.0),
+                gravity_scale,
+                air_jumps_remaining: 0,
+            },
+            attack: ActorAttackState::default(),
+            config: EnemyConfig {
+                id: id.into(),
+                name: name.into(),
+                tuning,
+                brain_spec: crate::combat::EnemyBrainSpec::default(),
+                brain: config_brain,
+                spawn: ActorSpawnState {
+                    pos,
+                    size: collision_size,
+                },
+                sprite_override_npc_name: None,
+            },
+            motion: ActorMotionPath(motion),
+            caps: crate::combat::CombatCapabilities::default(),
+            // Inert: peaceful actors never spawn through the archetype path that
+            // reads `spec`. `Passive` resolves to the roster's fallback row.
+            spec: spec_for_brain(&crate::actor::EnemyBrain::Passive),
+        };
+        (seed, render_size)
+    }
+
     #[cfg(test)]
     #[allow(clippy::too_many_arguments)]
     pub fn update_for_test(

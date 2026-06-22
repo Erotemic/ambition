@@ -143,7 +143,11 @@ pub(super) struct NpcActorSpawnPlan {
     feature_id: String,
     feature_name: String,
     feature_aabb: CenteredAabb,
-    npc: super::npc_clusters::NpcClusterScratch,
+    /// Peaceful actors are the SAME unified cluster as enemies, built with
+    /// peaceful tuning + a `Passive`/`Patrol` AI brain.
+    seed: super::enemy_clusters::EnemyClusterSeed,
+    render_size: Option<ae::Vec2>,
+    interactable: crate::interaction::Interactable,
     brain: crate::brain::Brain,
     action_set: crate::brain::ActionSet,
     combat_kit: crate::combat::CombatKit,
@@ -151,23 +155,53 @@ pub(super) struct NpcActorSpawnPlan {
 }
 
 impl NpcActorSpawnPlan {
+    #[allow(clippy::too_many_arguments)]
     pub(super) fn peaceful(
         entity_name: impl Into<String>,
-        feature_id: impl Into<String>,
-        feature_name: impl Into<String>,
         feature_aabb: CenteredAabb,
-        npc: super::npc_clusters::NpcClusterScratch,
+        id: impl Into<String>,
+        name: impl Into<String>,
+        spawn_aabb: ae::Aabb,
+        interactable: crate::interaction::Interactable,
+        paths: &[(String, crate::actor::KinematicPath)],
     ) -> Self {
-        let mut npc = npc;
-        let brain = npc.as_mut().build_brain();
-        let hostile_spec = super::actors::hostile_enemy_spec_for_npc(&npc.config);
+        let id = id.into();
+        let name = name.into();
+        let dialogue_id = match &interactable.kind {
+            crate::interaction::InteractionKind::Npc { dialogue_id, .. } => dialogue_id.as_deref(),
+            _ => None,
+        };
+        // The hostile archetype this actor becomes when provoked: feeds its
+        // stored CombatKit (so a provoked NPC fights with the right weapon) and
+        // the seed's inert reconstruction spec.
+        let hostile_spec = super::actors::hostile_spec_for_actor(&id, &name, dialogue_id);
         let combat_kit = super::brain_builders::enemy_combat_kit_for_spec(&hostile_spec);
+        let (seed, render_size) = super::enemy_clusters::EnemyClusterSeed::new_peaceful_npc(
+            id.clone(),
+            name.clone(),
+            spawn_aabb,
+            &interactable,
+            paths,
+        );
+        let patrol_radius = match &interactable.kind {
+            crate::interaction::InteractionKind::Npc { patrol_radius, .. } => patrol_radius.max(0.0),
+            _ => 0.0,
+        };
+        let brain = super::super::npcs::npc_brain_from_catalog(
+            &interactable,
+            seed.config.spawn.pos.x,
+            patrol_radius,
+            super::super::npcs::NPC_TALK_RADIUS,
+            seed.motion.0.is_some(),
+        );
         Self {
             entity_name: entity_name.into(),
-            feature_id: feature_id.into(),
-            feature_name: feature_name.into(),
+            feature_id: id,
+            feature_name: name,
             feature_aabb,
-            npc,
+            seed,
+            render_size,
+            interactable,
             brain,
             action_set: crate::brain::ActionSet::peaceful(),
             combat_kit,
@@ -178,22 +212,19 @@ impl NpcActorSpawnPlan {
     }
 
     pub(super) fn spawn(self, commands: &mut Commands) -> Entity {
-        let facing = self.npc.kin.facing;
+        let facing = self.seed.kin.facing;
         // Sprite-metadata render size lives on the SHARED `ActorRenderSize`
-        // component (not the NPC-only cluster) so it survives a hostile flip —
-        // otherwise the migrated enemy loses it and the body-sized collision
-        // gets `collision_scale` re-applied, ballooning the sprite.
-        let render_size = self.npc.render_size;
-        // Dialogue is a SHARED actor capability (`ActorInteraction`), not the
-        // NPC cluster — captured before `into_components` consumes the seed so a
-        // talkable actor keeps it through a peaceful→hostile flip.
+        // component so it survives a hostile flip (otherwise the body-sized
+        // collision would get `collision_scale` re-applied, ballooning the sprite).
+        let render_size = self.render_size;
+        // Dialogue is a SHARED actor capability (`ActorInteraction`).
         let interaction = super::ActorInteraction {
-            interactable: self.npc.config.interactable.clone(),
-            talk_radius: self.npc.config.talk_radius,
+            interactable: self.interactable,
+            talk_radius: super::super::npcs::NPC_TALK_RADIUS,
         };
         let (identity, disposition, health, combat, intent, cooldowns) =
-            super::actors::npc_component_snapshot(&self.npc.config, &self.npc.status);
-        let cluster_bundle = self.npc.into_components();
+            super::actors::actor_component_snapshot(&self.seed, super::ActorDisposition::Peaceful);
+        let cluster_bundle = self.seed.into_components();
         let mut entity = commands.spawn((
             Name::new(self.entity_name),
             EnemyActorBundle::new(
@@ -483,19 +514,14 @@ pub(super) fn spawn_interactable(
         interactable.kind,
         crate::interaction::InteractionKind::Npc { .. }
     ) {
-        let npc = super::npc_clusters::NpcClusterScratch::new_with_paths(
+        NpcActorSpawnPlan::peaceful(
+            format!("Feature actor npc: {}", authored.name),
+            feature_aabb,
             authored.id.clone(),
             authored.name.clone(),
             authored.aabb,
             interactable.clone(),
             paths,
-        );
-        NpcActorSpawnPlan::peaceful(
-            format!("Feature actor npc: {}", authored.name),
-            authored.id.clone(),
-            authored.name.clone(),
-            feature_aabb,
-            npc,
         )
         .spawn(commands);
     } else if let crate::interaction::InteractionKind::Custom(payload) = &interactable.kind {

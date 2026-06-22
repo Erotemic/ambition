@@ -34,8 +34,9 @@ impl Plugin for ProgressionSchedulePlugin {
                 // movement consumes `world.climbable_regions` in the next
                 // visual sync set.
                 ambition_content::bosses::gate_gnu_ton_arena_ladder,
+                // One save-sync over the unified actor cluster (enemies +
+                // persisted-hostile NPCs flip in place).
                 ambition_gameplay_core::features::sync_ecs_actors_with_save,
-                ambition_gameplay_core::features::sync_ecs_npc_actors_with_save,
                 ambition_gameplay_core::features::sync_ecs_bosses_with_save,
                 ambition_content::quest::push_room_entered_quest_events,
                 ambition_content::quest::apply_quest_advance_events,

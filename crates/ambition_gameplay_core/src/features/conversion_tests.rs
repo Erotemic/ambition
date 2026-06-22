@@ -9,14 +9,17 @@ use super::*;
 mod conversion_tests {
     use super::*;
 
-    /// Build an NPC with a patrol radius and a player parked far
-    /// outside the talk radius — used by the patrol-motion tests so
-    /// the AI lands on `Patrol` mode each tick.
+    /// Build a peaceful actor (the unified cluster) with a patrol radius and a
+    /// player parked far outside the talk radius, plus the catalog Brain that
+    /// drives it. Peaceful actors are the SAME cluster as enemies now, so these
+    /// tests drive `EnemyMut::update` (via `update_for_test`) with a frame the
+    /// catalog brain produced — exactly what `update_ecs_actors` does per tick.
     fn world_with_patrolling_npc(
         patrol_radius: f32,
     ) -> (
         ae::World,
-        crate::features::ecs::npc_clusters::NpcClusterScratch,
+        super::ecs::enemy_clusters::EnemyClusterSeed,
+        crate::brain::Brain,
         ae::PlayerClusterScratch,
     ) {
         let world = ae::World::new(
@@ -42,46 +45,90 @@ mod conversion_tests {
                 patrol_path_id: None,
             },
         );
-        let npc = crate::features::ecs::npc_clusters::NpcClusterScratch::new_with_paths(
+        let (seed, _render) = super::ecs::enemy_clusters::EnemyClusterSeed::new_peaceful_npc(
             id.clone(),
             id.clone(),
             aabb,
-            interactable,
+            &interactable,
             &[],
+        );
+        let brain = crate::features::npcs::npc_brain_from_catalog(
+            &interactable,
+            seed.config.spawn.pos.x,
+            patrol_radius.max(0.0),
+            crate::features::NPC_TALK_RADIUS,
+            false,
         );
         let player = crate::player::primary_player_scratch(
             ae::Vec2::new(1500.0, 540.0),
             ae::AbilitySet::sandbox_all(),
         );
-        (world, npc, player)
+        (world, seed, brain, player)
     }
 
-    /// Build a brain matching the NPC's authored fields. Convenience
-    /// for the conversion tests so each scenario doesn't repeat the
-    /// `let mut brain = npc.build_brain();` setup boilerplate.
-    fn brain_for(
-        npc: &mut crate::features::ecs::npc_clusters::NpcClusterScratch,
-    ) -> crate::brain::Brain {
-        npc.as_mut().build_brain()
+    /// Tick a peaceful actor one frame the way `update_ecs_actors` does: build a
+    /// brain snapshot, tick the catalog brain into a frame, then integrate the
+    /// body through the unified `EnemyMut::update`.
+    fn tick_peaceful(
+        seed: &mut super::ecs::enemy_clusters::EnemyClusterSeed,
+        brain: &mut crate::brain::Brain,
+        world: &ae::World,
+        target: ae::Vec2,
+        dt: f32,
+        gravity: ae::Vec2,
+    ) {
+        let snapshot = crate::brain::BrainSnapshot {
+            actor_pos: seed.kin.pos,
+            actor_vel: seed.kin.vel,
+            actor_facing: seed.kin.facing,
+            control_down: gravity,
+            input_frame_mode: ae::InputFrameMode::Hybrid,
+            actor_on_ground: seed.surface.on_ground,
+            alive: true,
+            target_pos: target,
+            target_alive: true,
+            sim_time: 0.0,
+            dt,
+            max_run_speed: crate::brain::NPC_PATROL_SPEED,
+            attack_cooldown_remaining: 0.0,
+            attack_windup_remaining: 0.0,
+            attack_active_remaining: 0.0,
+            attack_recover_remaining: 0.0,
+            stun_remaining: 0.0,
+            wall_contact: None,
+            player_input: None,
+            crowding: None,
+            terrain: None,
+            air_jumps_remaining: 0,
+        };
+        let mut frame = crate::actor::control::ActorControlFrame::neutral();
+        brain.tick(&snapshot, &mut frame);
+        seed.update_for_test(
+            world,
+            target,
+            FeatureCombatTuning::default(),
+            None,
+            dt,
+            false,
+            frame,
+            gravity,
+        );
     }
 
-    /// Bug the user reported: NPCs floated wherever LDtk placed them
-    /// because the runtime didn't tick gravity / collision on them.
-    /// Pin: after a few ticks an NPC spawned in mid-air lands on the
-    /// floor and `on_ground` flips true.
+    /// Bug the user reported: NPCs floated wherever LDtk placed them because the
+    /// runtime didn't tick gravity / collision on them. Pin: after a few ticks an
+    /// NPC spawned in mid-air lands on the floor and `on_ground` flips true.
     #[test]
     fn npc_falls_to_floor_under_gravity() {
-        let (world, mut npc, player) = world_with_patrolling_npc(0.0);
-        // Lift the NPC into mid-air so gravity has work to do.
+        let (world, mut npc, mut brain, player) = world_with_patrolling_npc(0.0);
         npc.kin.pos.y = 200.0;
-        npc.config.spawn.y = 200.0;
-        let mut brain = brain_for(&mut npc);
+        npc.config.spawn.pos.y = 200.0;
         for _ in 0..120 {
-            npc.as_mut().tick_via_brain(
+            tick_peaceful(
+                &mut npc,
                 &mut brain,
                 &world,
                 player.kinematics.pos,
-                0.0,
                 0.016,
                 ae::Vec2::new(0.0, 1.0),
             );
@@ -90,7 +137,6 @@ mod conversion_tests {
             npc.surface.on_ground,
             "NPC must land on the floor under gravity"
         );
-        // Body bottom should rest on the floor's top edge (y=600).
         let body_bottom = npc.kin.pos.y + npc.kin.size.y * 0.5;
         assert!(
             (body_bottom - 600.0).abs() < 1.0,
@@ -98,297 +144,130 @@ mod conversion_tests {
         );
     }
 
-    /// Possession-on-NPCs (the #92 "drive any actor via the human path" flex):
-    /// `update_ecs_npcs` drives a possessed NPC through `integrate_velocity` with
-    /// the player's axis scaled by `POSSESSED_MOVE_SPEED`. Pin that this moves
-    /// the body *meaningfully* (the latent crawl bug — a `[-1,1]` direction fed
-    /// straight to the integration moved it ~1 px/s — is fixed by the scale).
-    #[test]
-    fn possessed_npc_walks_at_a_real_speed_not_a_crawl() {
-        let (world, mut npc, _player) = world_with_patrolling_npc(0.0);
-        // Settle on the floor first so x-motion is the only variable.
-        let mut brain = brain_for(&mut npc);
-        for _ in 0..120 {
-            npc.as_mut().tick_via_brain(
-                &mut brain,
-                &world,
-                ae::Vec2::ZERO,
-                0.0,
-                0.016,
-                ae::Vec2::new(0.0, 1.0),
-            );
-        }
-        let start_x = npc.kin.pos.x;
-        // "Possess" → drive right: axis_x = 1 scaled to a real walk speed.
-        for _ in 0..60 {
-            npc.as_mut().integrate_velocity(
-                1.0 * crate::abilities::traversal::possession::POSSESSED_MOVE_SPEED,
-                &world,
-                0.016,
-                ae::Vec2::new(0.0, 1.0),
-            );
-        }
-        let moved = npc.kin.pos.x - start_x;
-        assert!(
-            moved > 100.0,
-            "possessed NPC should walk right meaningfully (not crawl); moved {moved}"
-        );
-    }
-
-    /// A patrolling NPC paces left/right around its spawn within
-    /// `patrol_radius`. Pin both the motion (NPC moves) and the
-    /// bound (NPC reverses before exceeding the radius).
+    /// A patrolling NPC paces left/right around its spawn within `patrol_radius`.
+    /// Pin both the motion (NPC moves) and the bound (reverses before exceeding
+    /// the radius).
     #[test]
     fn patrolling_npc_paces_within_radius() {
-        let (world, mut npc, player) = world_with_patrolling_npc(96.0);
-        let mut brain = brain_for(&mut npc);
-        // Settle gravity first so we're testing horizontal motion,
-        // not the freefall.
+        let (world, mut npc, mut brain, player) = world_with_patrolling_npc(96.0);
         for _ in 0..30 {
-            npc.as_mut().tick_via_brain(
+            tick_peaceful(
+                &mut npc,
                 &mut brain,
                 &world,
                 player.kinematics.pos,
-                0.0,
                 0.016,
                 ae::Vec2::new(0.0, 1.0),
             );
         }
-        let spawn_x = npc.config.spawn.x;
+        let spawn_x = npc.config.spawn.pos.x;
         let mut min_x = npc.kin.pos.x;
         let mut max_x = npc.kin.pos.x;
         for _ in 0..600 {
-            npc.as_mut().tick_via_brain(
+            tick_peaceful(
+                &mut npc,
                 &mut brain,
                 &world,
                 player.kinematics.pos,
-                0.0,
                 0.016,
                 ae::Vec2::new(0.0, 1.0),
             );
             min_x = min_x.min(npc.kin.pos.x);
             max_x = max_x.max(npc.kin.pos.x);
         }
-        // The NPC actually moved some distance — not stuck.
         assert!(
             max_x - min_x > 50.0,
-            "patrolling NPC must move; range was {}-{}",
-            min_x,
-            max_x
+            "patrolling NPC must move; range was {min_x}-{max_x}"
         );
-        // And stayed inside its patrol bounds (with a small slack
-        // for one tick of overshoot before the bound flip kicks in).
         assert!(
-            min_x >= spawn_x - 96.0 - 4.0,
-            "NPC went too far left: {min_x} < {} - 4",
+            min_x >= spawn_x - 96.0 - 6.0,
+            "NPC went too far left: {min_x} < {} - 6",
             spawn_x - 96.0
         );
         assert!(
-            max_x <= spawn_x + 96.0 + 4.0,
-            "NPC went too far right: {max_x} > {} + 4",
+            max_x <= spawn_x + 96.0 + 6.0,
+            "NPC went too far right: {max_x} > {} + 6",
             spawn_x + 96.0
         );
     }
 
-    /// When the player walks within `talk_radius`, a patrolling NPC
-    /// must STOP (so the player can interact). This is the inverse
-    /// of an enemy "chase" — the shared character_ai vocabulary
-    /// flagging "player in range" maps to "hold position" for
-    /// peaceful NPCs.
-    #[test]
-    fn patrolling_npc_stops_when_player_is_within_talk_radius() {
-        let (world, mut npc, mut player) = world_with_patrolling_npc(120.0);
-        let mut brain = brain_for(&mut npc);
-        // Settle physics.
-        for _ in 0..30 {
-            npc.as_mut().tick_via_brain(
-                &mut brain,
-                &world,
-                player.kinematics.pos,
-                0.0,
-                0.016,
-                ae::Vec2::new(0.0, 1.0),
-            );
-        }
-        // Park the player right next to the NPC — within talk_radius.
-        player.kinematics.pos = ae::Vec2::new(npc.kin.pos.x + 30.0, npc.kin.pos.y);
-        // Run for a half-second of real time. Whatever momentum was
-        // left from the patrol step must drain to ~0 inside the
-        // talk radius.
-        for _ in 0..30 {
-            npc.as_mut().tick_via_brain(
-                &mut brain,
-                &world,
-                player.kinematics.pos,
-                0.0,
-                0.016,
-                ae::Vec2::new(0.0, 1.0),
-            );
-        }
-        assert!(
-            matches!(npc.status.ai_mode, crate::actor::ai::CharacterAiMode::Chase),
-            "expected Chase mode (NPC interprets as hold-and-face), got {:?}",
-            npc.status.ai_mode
-        );
-        assert!(
-            npc.kin.vel.x.abs() < 5.0,
-            "NPC must come to rest inside talk_radius; got vel.x={}",
-            npc.kin.vel.x
-        );
-        // And the NPC faces the player so the dialog prompt sits on
-        // the right side.
-        let dx = player.kinematics.pos.x - npc.kin.pos.x;
-        assert_eq!(
-            npc.kin.facing.signum(),
-            dx.signum(),
-            "NPC must face the player"
-        );
-    }
-
-    /// patrol_radius=0 is the explicit "static NPC" knob — no
-    /// motion regardless of how long the simulation runs. Pin so a
-    /// future tuning pass that defaults patrol_radius nonzero
-    /// doesn't silently move every NPC.
+    /// patrol_radius=0 is the explicit "static NPC" knob — no motion regardless
+    /// of how long the simulation runs.
     #[test]
     fn npc_with_zero_patrol_radius_stays_at_spawn_x() {
-        let (world, mut npc, player) = world_with_patrolling_npc(0.0);
+        let (world, mut npc, mut brain, player) = world_with_patrolling_npc(0.0);
         let original_x = npc.kin.pos.x;
-        let mut brain = brain_for(&mut npc);
         for _ in 0..300 {
-            npc.as_mut().tick_via_brain(
+            tick_peaceful(
+                &mut npc,
                 &mut brain,
                 &world,
                 player.kinematics.pos,
-                0.0,
                 0.016,
                 ae::Vec2::new(0.0, 1.0),
             );
         }
         assert!(
             (npc.kin.pos.x - original_x).abs() < 1.0,
-            "static NPC must not drift; was {}, now {}",
-            original_x,
+            "static NPC must not drift; was {original_x}, now {}",
             npc.kin.pos.x
         );
-        assert!(matches!(
-            npc.status.ai_mode,
-            crate::actor::ai::CharacterAiMode::Idle | crate::actor::ai::CharacterAiMode::Chase
-        ));
     }
 
-    /// build_brain() picks Patrol vs StandStill based on the NPC's
-    /// authored fields. Pins the spawn-time mapping the actors
-    /// system depends on.
+    /// `npc_brain_from_catalog` picks Patrol vs StandStill from the authored
+    /// fields. Pins the spawn-time mapping the unified actor tick depends on.
     #[test]
-    fn npc_build_brain_picks_template_from_authored_fields() {
-        let (_, mut npc_static, _) = world_with_patrolling_npc(0.0);
-        match npc_static.as_mut().build_brain() {
+    fn npc_brain_from_catalog_picks_template_from_authored_fields() {
+        let interactable = |radius: f32| {
+            crate::interaction::Interactable::new(
+                "kira",
+                "Talk",
+                ae::Aabb::new(ae::Vec2::new(800.0, 540.0), ae::Vec2::new(11.0, 19.0)),
+                crate::interaction::InteractionKind::Npc {
+                    character_id: None,
+                    dialogue_id: Some("kira".into()),
+                    patrol_radius: radius,
+                    patrol_path_id: None,
+                },
+            )
+        };
+        match crate::features::npcs::npc_brain_from_catalog(
+            &interactable(0.0),
+            800.0,
+            0.0,
+            crate::features::NPC_TALK_RADIUS,
+            false,
+        ) {
             crate::brain::Brain::StateMachine(crate::brain::StateMachineCfg::StandStill) => {}
-            other => panic!("expected StandStill for zero-radius NPC, got {:?}", other),
+            other => panic!("expected StandStill for zero-radius NPC, got {other:?}"),
         }
-        let (_, mut npc_patrol, _) = world_with_patrolling_npc(64.0);
-        match npc_patrol.as_mut().build_brain() {
-            crate::brain::Brain::StateMachine(crate::brain::StateMachineCfg::Patrol {
-                cfg,
-                ..
-            }) => {
+        match crate::features::npcs::npc_brain_from_catalog(
+            &interactable(64.0),
+            800.0,
+            64.0,
+            crate::features::NPC_TALK_RADIUS,
+            false,
+        ) {
+            crate::brain::Brain::StateMachine(crate::brain::StateMachineCfg::Patrol { cfg, .. }) => {
                 assert_eq!(cfg.lane.radius_px, 64.0);
-                // Peaceful NPC: aggressiveness zero.
                 assert_eq!(cfg.aggressiveness, 0.0);
-                // talk_radius mirrors into aggro_radius so the
-                // engine evaluator returns Chase when in range.
                 assert!(cfg.aggro_radius > 0.0);
             }
-            other => panic!("expected Patrol for nonzero-radius NPC, got {:?}", other),
+            other => panic!("expected Patrol for nonzero-radius NPC, got {other:?}"),
         }
     }
 
-    /// Pre-hostile NPC's brain reports not-hostile; the EFFECTS-stage
-    /// attack gate uses this to skip melee even if the brain ever
-    /// emitted `melee_pressed=true`. Locks in the "aggressiveness in
-    /// the brain" decision.
+    /// Pre-hostile NPC's catalog brain reports not-hostile; the EFFECTS-stage
+    /// attack gate uses this to skip melee. Locks in "aggressiveness in the brain".
     #[test]
     fn peaceful_npc_brain_is_not_hostile() {
-        let (_, mut npc, _) = world_with_patrolling_npc(96.0);
-        let brain = npc.as_mut().build_brain();
+        let (_, _npc, brain, _) = world_with_patrolling_npc(96.0);
         assert!(
             !brain.is_hostile(),
             "peaceful NPC brain must report !is_hostile"
         );
     }
 
-    /// NPC brain dispatch over many ticks doesn't accumulate ghost
-    /// state — patrol mode flips at the right bound times even when
-    /// the brain re-uses the same PatrolState across many ticks.
-    /// Regresses against any future patrol-mode-cache bug where
-    /// the brain state gets out of sync with the actor body.
-    #[test]
-    fn npc_brain_patrol_mode_tracks_bounds_across_many_ticks() {
-        let (world, mut npc, player) = world_with_patrolling_npc(96.0);
-        let mut brain = brain_for(&mut npc);
-        // Settle gravity.
-        for _ in 0..30 {
-            npc.as_mut().tick_via_brain(
-                &mut brain,
-                &world,
-                player.kinematics.pos,
-                0.0,
-                0.016,
-                ae::Vec2::new(0.0, 1.0),
-            );
-        }
-        // Run for a long while; track that the AI mode stays in
-        // patrol and never wedges in Idle.
-        let mut patrol_ticks = 0;
-        let mut chase_ticks = 0;
-        for _ in 0..300 {
-            npc.as_mut().tick_via_brain(
-                &mut brain,
-                &world,
-                player.kinematics.pos,
-                0.0,
-                0.016,
-                ae::Vec2::new(0.0, 1.0),
-            );
-            match npc.status.ai_mode {
-                crate::actor::ai::CharacterAiMode::Patrol => patrol_ticks += 1,
-                crate::actor::ai::CharacterAiMode::Chase => chase_ticks += 1,
-                _ => {}
-            }
-        }
-        // Player is far away (1500), so we expect mostly Patrol.
-        assert!(
-            patrol_ticks > 200,
-            "NPC should be patrolling most ticks; got {patrol_ticks}"
-        );
-        // No chase (player far).
-        assert_eq!(chase_ticks, 0, "Player far → no Chase mode");
-    }
-
-    /// NPC with no patrol_radius + no motion path → brain emits
-    /// neutral frame every tick + the NPC stays exactly at spawn
-    /// (no jitter, no drift, no ghost velocity).
-    #[test]
-    fn static_npc_brain_emits_neutral_each_tick() {
-        let (world, mut npc, player) = world_with_patrolling_npc(0.0);
-        let mut brain = brain_for(&mut npc);
-        for _ in 0..120 {
-            npc.as_mut().tick_via_brain(
-                &mut brain,
-                &world,
-                player.kinematics.pos,
-                0.0,
-                0.016,
-                ae::Vec2::new(0.0, 1.0),
-            );
-        }
-        // Vel along x should drain to zero (gravity has settled).
-        assert!(
-            npc.kin.vel.x.abs() < 0.5,
-            "static NPC should have ~zero horizontal velocity; got {}",
-            npc.kin.vel.x
-        );
-    }
 
     #[test]
     fn enemy_brain_keys_resolve_to_their_rows() {

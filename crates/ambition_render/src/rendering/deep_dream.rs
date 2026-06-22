@@ -290,19 +290,19 @@ fn puppy_slug_seed(
     actors: &Query<ambition_gameplay_core::features::ActorSpriteData>,
 ) -> Option<f32> {
     actors.iter().find_map(
-        |(feature_id, actor, _kin, _status, _attack, config, npc_config, _)| {
+        |(feature_id, actor, _kin, _status, _attack, config)| {
             if feature_id.as_str() != id {
                 return None;
             }
-            let (name, dream_seed) = match actor {
-                ActorRuntime::Enemy => match config {
-                    Some(c) => (c.name.as_str(), c.tuning.dream_seed),
-                    None => return None,
-                },
-                ActorRuntime::Npc => match npc_config {
-                    Some(c) => (c.name.as_str(), None),
-                    None => return None,
-                },
+            let Some(c) = config else {
+                return None;
+            };
+            // Name from the unified cluster; only hostile actors carry a
+            // `dream_seed` (peaceful NPCs never participate in the dream pass).
+            let name = c.name.as_str();
+            let dream_seed = match actor {
+                ActorRuntime::Enemy => c.tuning.dream_seed,
+                ActorRuntime::Npc => None,
             };
             let name_lc = name.to_ascii_lowercase();
             // Dream participation is authored data (the archetype's

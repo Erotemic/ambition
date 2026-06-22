@@ -119,7 +119,7 @@ pub use bosses::{
 pub use bus::{
     apply_flag_effects, apply_gameplay_sfx_effects, apply_quest_effects, apply_switch_effects,
 };
-pub use ecs::npc_component_snapshot;
+pub use ecs::actor_component_snapshot;
 // Runtime minion/summon spawner, re-exported so non-feature modules (e.g. the
 // puppy-slug gun) can summon actors without reaching into the private `ecs` tree.
 pub(crate) use ecs::spawn_runtime_minion;
@@ -138,9 +138,8 @@ pub use components::{
     SwitchFeature, SwitchOn,
 };
 pub use ecs::enemy_clusters::{
-    ActorMotionPath, BodyKinematics, EnemyConfig, EnemyMut, EnemyStatus,
+    ActorMotionPath, BodyKinematics, EnemyClusterSeed, EnemyConfig, EnemyMut, EnemyStatus,
 };
-pub use ecs::npc_clusters::{NpcClusterScratch, NpcConfig, NpcMut, NpcStatus};
 pub use ecs::ActorSpriteData;
 pub use ecs::{
     apply_actor_stimuli, apply_feature_hit_events, apply_gameplay_banner_requests,
@@ -154,15 +153,15 @@ pub use ecs::{
     magnetize_pickups, open_ecs_chests,
     pirate_on_shark_rider_offset, rebuild_feature_ecs_world_overlay, rebuild_feature_view_index,
     refresh_actor_damageable_volumes, refresh_boss_damageable_volumes,
-    refresh_breakable_damageable_volumes, reset_ecs_npc_actors, reset_ecs_room_features,
+    refresh_breakable_damageable_volumes, reset_ecs_room_features,
     select_actor_targets, spawn_encounter_mob, spawn_enemy_projectiles_from_brain_actions,
     spawn_melee_hitbox, spawn_room_feature_entities, start_enemy_melee_from_brain_actions,
     sync_actor_poses_from_feature_aabbs, sync_boss_actor_components, sync_boss_encounter_phase,
     sync_boss_reward_chests_ecs, sync_ecs_actors_with_save, sync_ecs_bosses_with_save,
-    sync_ecs_npc_actors_with_save, sync_ecs_switches_from_save, sync_encounter_reward_chests_ecs,
+    sync_ecs_switches_from_save, sync_encounter_reward_chests_ecs,
     sync_riders_to_mounts, tick_and_despawn_hitboxes, tick_boss_brains_system,
     tick_gameplay_banner, tick_npc_idle_barks, update_ecs_actors, update_ecs_bosses,
-    update_ecs_breakables, update_ecs_falling_chests, update_ecs_hazards, update_ecs_npcs,
+    update_ecs_breakables, update_ecs_falling_chests, update_ecs_hazards,
     ActorRuntime, BossClusterQueryData, BossClusterRef, BossClusterScratch, BossConfig, BossMut,
     BossRef, BossStatus, FeatureEcsWorldOverlay, FeatureSimEntity, FeatureViewIndex, HazardFeature,
     HeldItem, Hitbox, HitboxAnchor, HitboxHits, HitboxLifetime, MountSlot, Mountable, Mounted,
@@ -180,7 +179,7 @@ pub use events::{
     SetFlagRequested, SwitchActivated,
 };
 pub use hazards::HazardRuntime;
-pub use npcs::NPC_PATROL_SPEED;
+pub use npcs::{NPC_PATROL_SPEED, NPC_TALK_RADIUS};
 pub use path_motion::PathMotion;
 pub use world_overlay::{world_with_portal_carves, world_with_sandbox_solids};
 
@@ -200,7 +199,6 @@ impl bevy::prelude::Plugin for GameplayEffectsSchedulePlugin {
                 bus::apply_flag_effects,
                 bus::apply_quest_effects,
                 bus::apply_switch_effects,
-                ecs::apply_npc_stimuli,
                 ecs::apply_actor_stimuli,
                 bus::apply_gameplay_sfx_effects,
             )
@@ -235,13 +233,10 @@ impl bevy::prelude::Plugin for WorldPrepSchedulePlugin {
                 // Target selection refreshes each actor's `ActorTarget`
                 // before actor / boss update systems consume it.
                 select_actor_targets,
+                // One tick for EVERY actor (was-NPC + was-enemy): they share the
+                // unified cluster, so peaceful and hostile actors run the same
+                // system. Peaceful actors no-op the combat passes via tuning.
                 update_ecs_actors,
-                // NPCs tick in their own system (shared cluster
-                // components prevent a unified actor query — see
-                // `update_ecs_npcs`). Ordering relative to
-                // `update_ecs_actors` is irrelevant: NPCs and enemies
-                // touch disjoint entities.
-                update_ecs_npcs,
                 // Ambient NPC chatter (parrot squawks, etc.) on its own timer.
                 tick_npc_idle_barks,
                 // Rider/mount pose sync. Runs immediately after the

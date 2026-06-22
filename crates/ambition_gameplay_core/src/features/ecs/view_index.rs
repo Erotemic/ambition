@@ -92,7 +92,6 @@ pub fn rebuild_feature_view_index(
         Option<&ActorAttackState>,
         Option<&super::enemy_clusters::EnemyConfig>,
         Option<&ActorSurfaceState>,
-        Option<&super::npc_clusters::NpcStatus>,
         // Portal aerial-roll (same component the player uses) so actors
         // somersault + self-right through portals just like the player.
         Option<&crate::platformer_runtime::orientation::ActorRoll>,
@@ -172,7 +171,7 @@ pub fn rebuild_feature_view_index(
             },
         );
     }
-    for (id, aabb, actor, status, attack, config, surface, npc_status, roll) in &actors {
+    for (id, aabb, actor, status, attack, config, surface, roll) in &actors {
         let roll_rad = roll.map_or(0.0, |r| r.angle);
         let view = match actor {
             ActorRuntime::Npc => FeatureView {
@@ -180,7 +179,7 @@ pub fn rebuild_feature_view_index(
                 size: aabb.size(),
                 kind: FeatureVisualKind::Npc,
                 visible: true,
-                flash: npc_status.is_some_and(|s| s.hit_flash > 0.0),
+                flash: status.is_some_and(|s| s.hit_flash > 0.0),
                 switch_on: false,
                 rotation_rad: roll_rad,
             },

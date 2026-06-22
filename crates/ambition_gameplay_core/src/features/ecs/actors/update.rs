@@ -193,9 +193,9 @@ pub fn update_ecs_actors(
     for (
         actor_entity,
         mut aabb,
-        mut actor,
+        _actor,
         mut identity,
-        mut disposition,
+        disposition,
         mut health,
         mut combat,
         mut intent,
@@ -205,7 +205,7 @@ pub fn update_ecs_actors(
         mut control,
         action_set,
         mounted,
-        (mut clusters, possessed),
+        (clusters, possessed),
     ) in &mut actors
     {
         // `target.pos` is populated by `select_actor_targets`
@@ -214,18 +214,15 @@ pub fn update_ecs_actors(
         // and is the primary player's pos in the single-player
         // production game.
         let target_pos = target.pos;
-        match &mut *actor {
-            // NPCs are ticked by the dedicated `update_ecs_npcs`
-            // system — they don't participate in the enemy slot board
-            // / crowding / body-contact passes, so they skip this loop.
-            ActorRuntime::Npc => continue,
-            ActorRuntime::Enemy => {
-                // Enemy state is authoritative in the cluster
-                // components; borrow them as an EnemyMut view for the
-                // whole branch.
-                let cq = clusters
-                    .as_mut()
-                    .expect("enemy entity carries cluster components");
+        {
+            // Every actor (was-NPC + was-enemy) shares the unified cluster.
+            // Peaceful actors no-op the slot-board / body-contact / hostile
+            // passes via tuning (`attacks_player` / `body_contact_damage`); the
+            // brain drives patrol/idle. Borrow the cluster as an EnemyMut view.
+            let Some(mut cq) = clusters else {
+                continue;
+            };
+            {
                 let mut em = cq.as_enemy_mut();
                 let slot_pos = if let Some(slot) = slot_board.0.slot_for(&em.config.id) {
                     Some(slot.world_pos(target_pos))
@@ -407,14 +404,14 @@ pub fn update_ecs_actors(
                     );
                 }
                 // Mirror the cluster state onto the ECS read-model
-                // components consumers still read (identity / disposition
-                // / health / combat / intent / cooldowns). Replaces the
-                // post-match sync_actor_components_from_runtime for the
-                // enemy path.
-                sync_actor_components_from_enemy(
+                // components consumers still read (identity / health /
+                // combat / intent / cooldowns). Disposition is owned by
+                // spawn/provoke, so it is read (peaceful vs hostile combat
+                // state) but not written here.
+                sync_actor_components_from_cluster(
                     &em,
+                    *disposition,
                     &mut identity,
-                    &mut disposition,
                     &mut health,
                     &mut combat,
                     &mut intent,
@@ -478,142 +475,7 @@ pub fn update_ecs_actors(
                 }
             }
         }
-        // Enemies mirrored from their clusters inside the branch above;
-        // NPCs are handled entirely by `update_ecs_npcs`.
-    }
-}
-
-/// Tick peaceful/hostile NPC actors. Split out from
-/// [`update_ecs_actors`] because NPCs carry the actor-generic
-/// [`BodyKinematics`] / [`ActorSurfaceState`] / [`ActorMotionPath`]
-/// components that the enemy cluster query *also* borrows mutably — a
-/// single query containing both `Option<EnemyClusterQueryData>` and
-/// `Option<NpcClusterQueryData>` would panic on conflicting access to
-/// those shared components. NPCs also skip the enemy-only slot board,
-/// crowding, and body-contact machinery, so a dedicated system is both
-/// necessary and simpler.
-pub fn update_ecs_npcs(
-    world_time: Res<WorldTime>,
-    world: Res<crate::GameWorld>,
-    gravity: crate::physics::GravityCtx,
-    user_settings: Option<Res<crate::persistence::settings::UserSettings>>,
-    platform_set: Res<crate::MovingPlatformSet>,
-    overlay: Res<FeatureEcsWorldOverlay>,
-    mut npcs: Query<
-        (
-            &mut CenteredAabb,
-            super::super::npc_clusters::NpcClusterQueryData,
-            &super::super::super::components::ActorTarget,
-            Option<&mut crate::brain::Brain>,
-            Option<&mut crate::brain::ActorControl>,
-            &mut ActorIdentity,
-            &mut ActorDisposition,
-            &mut ActorHealth,
-            &mut ActorCombatState,
-            &mut ActorIntent,
-            &mut ActorCooldowns,
-            // Possession: when present, the player drives this NPC's body
-            // through its own control frame (the unification flex on a
-            // peaceful actor) instead of its brain.
-            Option<&crate::abilities::traversal::possession::Possessed>,
-        ),
-        With<FeatureSimEntity>,
-    >,
-    // Monotonic sim clock for time-driven NPC brains (the lively `Aerial`
-    // flyer's waypoint / dwell timing). `WorldTime` only exposes dt, so
-    // accumulate a scaled-dt clock here; it freezes with pause / bullet-time
-    // like everything else gameplay.
-    mut sim_clock: Local<f32>,
-) {
-    let dt = world_time.sim_dt();
-    let feature_world = world_with_sandbox_solids(&world.0, &platform_set.0, &overlay);
-    let input_frame_mode = user_settings
-        .as_deref()
-        .map_or(ae::InputFrameMode::Hybrid, |s| s.gameplay.input_frame_mode);
-    *sim_clock += dt;
-    let sim_time = *sim_clock;
-    for (
-        mut aabb,
-        mut clusters,
-        target,
-        mut brain,
-        mut control,
-        mut identity,
-        mut disposition,
-        mut health,
-        mut combat,
-        mut intent,
-        mut cooldowns,
-        possessed,
-    ) in &mut npcs
-    {
-        let target_pos = target.pos;
-        let mut npc = clusters.as_npc_mut();
-        // Localized gravity: each NPC feels the gravity of the column it stands
-        // in (its own position), so an NPC in a gravity room reorients on its own.
-        let gravity_dir = gravity.dir_at(npc.kin.pos);
-        let frame = if let Some(p) = possessed {
-            // POSSESSED: drive the NPC body from the player's input through its
-            // OWN ActorControlFrame — the unification flex ("drive any actor's
-            // ActionSet via the human control path") on a peaceful actor.
-            // `tick_player_brain_from_control` emits `desired_vel` as a direction
-            // (`actor_facing` is the only snapshot field it reads); scale it to a
-            // real walk speed. A peaceful NPC carries no attack verbs, so Attack
-            // is a harmless no-op on it.
-            let mut snapshot = crate::brain::BrainSnapshot::idle();
-            snapshot.actor_facing = npc.kin.facing;
-            snapshot.control_down = gravity_dir;
-            snapshot.input_frame_mode = input_frame_mode;
-            let mut bf = crate::actor::control::ActorControlFrame::neutral();
-            crate::brain::player::tick_player_brain_from_control(&p.control, &snapshot, &mut bf);
-            if bf.facing.abs() > 0.001 {
-                npc.kin.facing = bf.facing;
-            }
-            npc.integrate_velocity(
-                // Possess at POSSESSED_MOVE_SPEED, expressed as a throttle of the
-                // NPC run capability the consumer scales by.
-                bf.locomotion.x * crate::abilities::traversal::possession::POSSESSED_MOVE_SPEED
-                    / crate::brain::NPC_PATROL_SPEED,
-                &feature_world,
-                dt,
-                gravity_dir,
-            );
-            bf
-        } else if let Some(brain) = brain.as_deref_mut() {
-            npc.tick_via_brain(brain, &feature_world, target_pos, sim_time, dt, gravity_dir)
-        } else {
-            // Brainless peaceful actor — should not happen post-Chunk 3
-            // (spawn attaches a brain), but build one inline so the tick
-            // is never skipped if components drift.
-            let mut fallback = npc.build_brain();
-            npc.tick_via_brain(
-                &mut fallback,
-                &feature_world,
-                target_pos,
-                sim_time,
-                dt,
-                gravity_dir,
-            )
-        };
-        if let Some(control) = control.as_deref_mut() {
-            control.0 = frame;
-        }
-        // Footprint oriented to gravity (the kernel guide, raiders, etc.), so the
-        // debug box + hurtbox match the gravity-rotated sprite. Byte-identical for
-        // vertical gravity; swaps width<->height only sideways.
-        let npc_frame = crate::engine_core::AccelerationFrame::new(gravity.dir_at(npc.kin.pos));
-        aabb.center = npc.kin.pos;
-        aabb.half_size = npc_frame.to_world_half(npc.kin.size * 0.5);
-        // Mirror the NPC clusters onto the read-model components.
-        sync_actor_components_from_npc(
-            &npc,
-            &mut identity,
-            &mut disposition,
-            &mut health,
-            &mut combat,
-            &mut intent,
-            &mut cooldowns,
-        );
+        // Read-models mirrored from the unified cluster inside the block above.
     }
 }
 
@@ -787,12 +649,14 @@ fn build_enemy_brain_snapshot(
     }
 }
 
-/// Mirror the authoritative enemy clusters onto the ECS read-model
-/// components consumers read.
-pub fn sync_actor_components_from_enemy(
+/// Mirror the authoritative actor cluster onto the ECS read-model components
+/// consumers read. Disposition is OWNED by spawn/provoke (not derived from the
+/// cluster), so it is read here (to pick peaceful vs hostile `ActorCombatState`)
+/// but never written.
+pub fn sync_actor_components_from_cluster(
     em: &super::super::enemy_clusters::EnemyMut<'_>,
+    disposition: ActorDisposition,
     identity: &mut ActorIdentity,
-    disposition: &mut ActorDisposition,
     health: &mut ActorHealth,
     combat: &mut ActorCombatState,
     intent: &mut ActorIntent,
@@ -809,15 +673,18 @@ pub fn sync_actor_components_from_enemy(
         *identity = ActorIdentity::new(em.config.id.clone(), em.config.name.clone())
             .with_sprite_override(em.config.sprite_override_npc_name.clone());
     }
-    *disposition = ActorDisposition::Hostile;
     *health = ActorHealth::new(em.status.health);
-    *combat = ActorCombatState::hostile(
-        em.status.alive,
-        em.status.hit_flash,
-        em.attack.windup_timer,
-        em.attack.active_timer,
-        em.config.tuning.is_sandbag,
-    );
+    *combat = if disposition.is_hostile() {
+        ActorCombatState::hostile(
+            em.status.alive,
+            em.status.hit_flash,
+            em.attack.windup_timer,
+            em.attack.active_timer,
+            em.config.tuning.is_sandbag,
+        )
+    } else {
+        ActorCombatState::peaceful(0, em.status.hit_flash)
+    };
     *intent = ActorIntent::new(em.status.ai_mode);
     *cooldowns = ActorCooldowns {
         attack_cooldown: em.attack.cooldown,
@@ -854,8 +721,9 @@ pub fn tick_npc_idle_barks(
     npcs: Query<
         (
             &super::super::enemy_clusters::BodyKinematics,
-            &super::super::npc_clusters::NpcConfig,
-            &super::super::npc_clusters::NpcStatus,
+            &super::super::enemy_clusters::EnemyConfig,
+            &super::super::enemy_clusters::EnemyStatus,
+            &ActorInteraction,
             &ActorDisposition,
         ),
         With<FeatureSimEntity>,
@@ -867,14 +735,16 @@ pub fn tick_npc_idle_barks(
     if dt <= 0.0 {
         return;
     }
-    for (kin, config, status, disposition) in &npcs {
+    for (kin, config, status, interaction, disposition) in &npcs {
         if disposition.is_hostile() || status.hit_flash > 0.0 {
             continue;
         }
         let rotation = *state.rotations.get(&config.id).unwrap_or(&0);
-        let Some(line) =
-            super::super::npcs::npc_idle_bark_line(&config.interactable, &config.id, rotation)
-        else {
+        let Some(line) = super::super::npcs::npc_idle_bark_line(
+            &interaction.interactable,
+            &config.id,
+            rotation,
+        ) else {
             continue;
         };
         let timer = state

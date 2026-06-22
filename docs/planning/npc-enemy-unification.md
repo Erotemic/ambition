@@ -231,6 +231,31 @@ _Provoke accumulator `strikes` moved to `ActorAggression.strikes`; `hostile` dro
   `view_index.rs`/`anim_helpers.rs` (hit_flash now from `EnemyStatus`), reset, save.
 - Compiles green. (Two ticks still exist — config not merged yet.)
 
+### Phase 3 + 4 — Merge the cluster + in-place provoke ✅ DONE (Opus 4.8)
+_Done together: once NPCs carry the unified enemy cluster, the old cluster-swap
+provoke is impossible, so the in-place flip (Phase 4) lands with the merge.
+**What changed:** NPCs spawn through `EnemyClusterSeed::new_peaceful_npc` (peaceful
+tuning: `attacks_player=false`, zero aggro, `max_run_speed=NPC_PATROL_SPEED`,
+`health=1`, aerial from catalog body-kind) + a catalog `Brain` (`npc_brain_from_catalog`)
++ peaceful `ActionSet` + `ActorInteraction` + `ActorRenderSize`. `npc_clusters.rs`
+(`NpcConfig`/`NpcStatus`/`NpcMut`/`NpcClusterScratch`/`NpcClusterQueryData`) **deleted**.
+`update_ecs_npcs` deleted — `update_ecs_actors` ticks every actor (peaceful no-op the
+combat passes via tuning; brain drives patrol/idle/fly). `apply_npc_stimuli` folded into
+`apply_actor_stimuli`; `reset_ecs_npc_actors` into `reset_ecs_room_features`;
+`sync_ecs_npc_actors_with_save` into `sync_ecs_actors_with_save`. Provoke
+(`provoke_actor_in_place`, in `actors/conversion.rs`) re-resolves the hostile
+archetype, overwrites the cluster config in place, swaps `Brain`+`ActionSet`, flips
+`ActorDisposition`/`ActorRuntime` — no entity churn, keeps sprite + `ActorRenderSize`.
+Damage handler branches on `ActorDisposition` (peaceful→strikes/bark, hostile→damage).
+`sync_actor_components_from_enemy`→`sync_actor_components_from_cluster` (disposition-aware,
+no longer writes disposition). `EnemyMut::update` faces the brain frame regardless of
+`attacks_player` (so peaceful patrollers face their walk direction). Render
+(`hit_flash`/`features`/`deep_dream`) + app schedules + content victory NPC updated.
+**Deferred:** same-room reset does NOT yet revert a provoked NPC to peaceful (old
+behavior preserved: it resets to spawn but stays hostile) — the in-place revert is a
+small follow-up. Build (`ambition_app`) + 945 gameplay_core + 26 render + 30
+architecture_boundaries tests green._
+
 ### Phase 3 — Merge the cluster (the atomic one)
 - Make `NpcConfig`'s remaining fields part of `EnemyConfig` OR a tiny companion:
   - `id`, `name`, `spawn` → already on `EnemyConfig` (`ActorSpawnState`).

@@ -1,52 +1,24 @@
-//! Spawn-time NPC<->enemy conversion: building the enemy/NPC component
-//! snapshots an authored actor needs, and the hostile-NPC conversion plan.
+//! Actor read-model snapshots + the in-place hostile flip.
+//!
+//! Provoking a peaceful actor (an NPC struck past its retaliation threshold, or
+//! a persisted-hostile NPC on load) no longer swaps clusters or churns the
+//! entity: every actor is the SAME cluster, so the flip just re-resolves the
+//! hostile archetype, overwrites the cluster `config` in place, swaps the
+//! `Brain`/`ActionSet`, and flips `ActorDisposition`/`ActorRuntime`.
 
 use super::super::*;
 use super::*;
 
-/// Build the enemy component seed an NPC uses when its aggression policy
-/// flips it hostile. The NPC keeps the same entity identity; only the
-/// NPC-only cluster is replaced with the enemy cluster.
-fn enemy_cluster_for_hostile_npc(
-    config: &super::super::npc_clusters::NpcConfig,
-    kin: &super::super::enemy_clusters::BodyKinematics,
-    surface: &ActorSurfaceState,
-) -> super::super::enemy_clusters::EnemyClusterSeed {
-    let brain_id = hostile_enemy_brain_for_npc(config);
-    let mut enemy = super::super::enemy_clusters::EnemyClusterSeed::new(
-        config.id.clone(),
-        config.name.clone(),
-        ae::Aabb::new(kin.pos, kin.size * 0.5),
-        crate::actor::EnemyBrain::Custom(brain_id.into()),
-        &[],
-    );
-    enemy.kin.pos = kin.pos;
-    enemy.config.spawn.pos = config.spawn;
-    enemy.kin.size = ae::Vec2::new(kin.size.x.max(22.0), kin.size.y.max(38.0));
-    enemy.config.spawn.size = enemy.kin.size;
-    enemy.kin.vel = kin.vel;
-    enemy.kin.facing = kin.facing;
-    enemy.surface.on_ground = surface.on_ground;
-    if config.name != "Kernel Guide NPC" {
-        enemy.config.sprite_override_npc_name = Some(config.name.clone());
-    }
-    enemy
-}
-
-pub(crate) fn hostile_enemy_spec_for_npc(
-    config: &super::super::npc_clusters::NpcConfig,
-) -> super::super::super::enemies::EnemyArchetypeSpec {
-    let brain = crate::actor::EnemyBrain::Custom(hostile_enemy_brain_for_npc(config).into());
-    super::super::super::enemies::spec_for_brain(&brain)
-}
-
-fn hostile_enemy_brain_for_npc(config: &super::super::npc_clusters::NpcConfig) -> &'static str {
-    let dialogue_id = match &config.interactable.kind {
-        crate::interaction::InteractionKind::Npc { dialogue_id, .. } => dialogue_id.as_deref(),
-        _ => None,
-    };
-    let id = config.id.to_ascii_lowercase();
-    let name = config.name.to_ascii_lowercase();
+/// Resolve the spawn-brain key of the hostile archetype a peaceful actor turns
+/// into when provoked, from its identity + dialogue id (string matching only —
+/// no roster enum). Generalized from the old `hostile_enemy_brain_for_npc`.
+pub(crate) fn hostile_brain_id_for_actor(
+    id: &str,
+    name: &str,
+    dialogue_id: Option<&str>,
+) -> &'static str {
+    let id = id.to_ascii_lowercase();
+    let name = name.to_ascii_lowercase();
     let dialogue = dialogue_id.unwrap_or("").to_ascii_lowercase();
     let looks_like_pirate_heavy = id.contains("pirate_heavy")
         || name.contains("broadside bess")
@@ -68,7 +40,60 @@ fn hostile_enemy_brain_for_npc(config: &super::super::npc_clusters::NpcConfig) -
     "medium_striker"
 }
 
-/// Build the read-model mirror components from an enemy cluster seed.
+/// Resolve the hostile archetype spec a peaceful actor would become when
+/// provoked. Spawn-time use: feeds the actor's stored `CombatKit` so a provoked
+/// NPC fights with the right weapon. Generalized from `hostile_enemy_spec_for_npc`.
+pub(crate) fn hostile_spec_for_actor(
+    id: &str,
+    name: &str,
+    dialogue_id: Option<&str>,
+) -> super::super::super::enemies::EnemyArchetypeSpec {
+    let brain = crate::actor::EnemyBrain::Custom(
+        hostile_brain_id_for_actor(id, name, dialogue_id).into(),
+    );
+    super::super::super::enemies::spec_for_brain(&brain)
+}
+
+/// Build the read-model mirror components for an actor cluster seed at the given
+/// disposition. Peaceful actors get a peaceful `ActorCombatState`; hostile actors
+/// the full hostile combat state.
+pub fn actor_component_snapshot(
+    seed: &super::super::enemy_clusters::EnemyClusterSeed,
+    disposition: ActorDisposition,
+) -> (
+    ActorIdentity,
+    ActorDisposition,
+    ActorHealth,
+    ActorCombatState,
+    ActorIntent,
+    ActorCooldowns,
+) {
+    let combat = if disposition.is_hostile() {
+        ActorCombatState::hostile(
+            seed.status.alive,
+            seed.status.hit_flash,
+            seed.attack.windup_timer,
+            seed.attack.active_timer,
+            seed.config.tuning.is_sandbag,
+        )
+    } else {
+        ActorCombatState::peaceful(0, seed.status.hit_flash)
+    };
+    (
+        ActorIdentity::new(seed.config.id.clone(), seed.config.name.clone())
+            .with_sprite_override(seed.config.sprite_override_npc_name.clone()),
+        disposition,
+        ActorHealth::new(seed.status.health),
+        combat,
+        ActorIntent::new(seed.status.ai_mode),
+        ActorCooldowns {
+            attack_cooldown: seed.attack.cooldown,
+            respawn_timer: seed.status.respawn_timer,
+        },
+    )
+}
+
+/// Hostile spawn read-models (the common case for authored enemies).
 pub fn enemy_component_snapshot(
     enemy: &super::super::enemy_clusters::EnemyClusterSeed,
 ) -> (
@@ -79,189 +104,52 @@ pub fn enemy_component_snapshot(
     ActorIntent,
     ActorCooldowns,
 ) {
-    (
-        ActorIdentity::new(enemy.config.id.clone(), enemy.config.name.clone())
-            .with_sprite_override(enemy.config.sprite_override_npc_name.clone()),
-        ActorDisposition::Hostile,
-        ActorHealth::new(enemy.status.health),
-        ActorCombatState::hostile(
-            enemy.status.alive,
-            enemy.status.hit_flash,
-            enemy.attack.windup_timer,
-            enemy.attack.active_timer,
-            enemy.config.tuning.is_sandbag,
-        ),
-        ActorIntent::new(enemy.status.ai_mode),
-        ActorCooldowns {
-            attack_cooldown: enemy.attack.cooldown,
-            respawn_timer: enemy.status.respawn_timer,
-        },
-    )
+    actor_component_snapshot(enemy, ActorDisposition::Hostile)
 }
 
-/// Flip an entity from peaceful NPC to hostile enemy in place: attach
-/// the enemy cluster components, set the `Enemy` marker, and mirror the
-/// read-model components. Shared by runtime stimulus and save-load
-/// provoke paths.
-fn make_entity_enemy(
+/// Flip an actor hostile IN PLACE — no cluster swap, no entity churn.
+///
+/// On the first flip (the actor is still peaceful) this re-resolves the hostile
+/// archetype, overwrites the cluster `config` (tuning / brain_spec / brain /
+/// caps) so the actor fights as that archetype, keeps its own sprite, and flips
+/// `ActorDisposition::Hostile` + `ActorRuntime::Enemy`. An already-hostile actor
+/// just re-derives its aggressive brain (escalation). Shared by the runtime
+/// stimulus and save-load provoke paths.
+#[allow(clippy::too_many_arguments)]
+pub(crate) fn provoke_actor_in_place(
     commands: &mut Commands,
     entity: Entity,
-    actor: &mut ActorRuntime,
-    hostile: &super::super::enemy_clusters::EnemyClusterSeed,
-    identity: &mut ActorIdentity,
+    em: &mut super::super::enemy_clusters::EnemyMut<'_>,
+    runtime: &mut ActorRuntime,
     disposition: &mut ActorDisposition,
-    health: &mut ActorHealth,
-    combat: &mut ActorCombatState,
-    intent: &mut ActorIntent,
-    cooldowns: &mut ActorCooldowns,
+    combat_kit: &CombatKit,
+    held_item: Option<&HeldItem>,
+    dialogue_id: Option<&str>,
+    chase: bool,
 ) {
-    *actor = ActorRuntime::Enemy;
-    commands
-        .entity(entity)
-        // Drop the NPC-only cluster components so the entity stops
-        // matching `NpcClusterQueryData` (and thus `update_ecs_npcs`);
-        // the shared kin/surface/motion components are overwritten by
-        // the enemy bundle below.
-        .remove::<(
-            super::super::npc_clusters::NpcConfig,
-            super::super::npc_clusters::NpcStatus,
-        )>()
-        .insert(hostile.clone().into_components());
-    let (next_id, next_disp, next_health, next_combat, next_intent, next_cd) =
-        enemy_component_snapshot(hostile);
-    *identity = next_id;
-    *disposition = next_disp;
-    *health = next_health;
-    *combat = next_combat;
-    *intent = next_intent;
-    *cooldowns = next_cd;
-}
-
-/// Complete conversion recipe for an NPC that becomes hostile.
-///
-/// The plan keeps the enemy cluster seed together with the brain/action pair
-/// derived from the current combat kit and held item. Callers can tweak the
-/// seed for the trigger source or save flags, then apply it to the entity in
-/// one place.
-pub(crate) struct HostileNpcConversionPlan {
-    hostile: super::super::enemy_clusters::EnemyClusterSeed,
-    brain: crate::brain::Brain,
-    action_set: crate::brain::ActionSet,
-}
-
-impl HostileNpcConversionPlan {
-    pub(crate) fn from_npc(
-        config: &super::super::npc_clusters::NpcConfig,
-        kin: &super::super::enemy_clusters::BodyKinematics,
-        surface: &ActorSurfaceState,
-        combat_kit: &CombatKit,
-        held_item: Option<&HeldItem>,
-    ) -> Self {
-        let hostile = enemy_cluster_for_hostile_npc(config, kin, surface);
-        Self::from_hostile_cluster(hostile, combat_kit, held_item)
-    }
-
-    pub(crate) fn from_hostile_cluster(
-        hostile: super::super::enemy_clusters::EnemyClusterSeed,
-        combat_kit: &CombatKit,
-        held_item: Option<&HeldItem>,
-    ) -> Self {
-        let (brain, action_set) =
-            super::super::brain_builders::aggressive_brain_and_action_set_for_enemy(
-                &hostile.config,
-                combat_kit,
-                held_item,
-            );
-        Self {
-            hostile,
-            brain,
-            action_set,
-        }
-    }
-
-    pub(crate) fn with_chase(mut self) -> Self {
-        self.hostile.status.ai_mode = crate::actor::ai::CharacterAiMode::Chase;
-        self
-    }
-
-    pub(crate) fn with_dead_state(mut self) -> Self {
-        self.hostile.status.alive = false;
-        self.hostile.status.health.current = 0;
-        self
-    }
-
-    #[allow(clippy::too_many_arguments)]
-    pub(crate) fn apply(
-        self,
-        commands: &mut Commands,
-        entity: Entity,
-        actor: &mut ActorRuntime,
-        identity: &mut ActorIdentity,
-        disposition: &mut ActorDisposition,
-        health: &mut ActorHealth,
-        combat: &mut ActorCombatState,
-        intent: &mut ActorIntent,
-        cooldowns: &mut ActorCooldowns,
-    ) {
-        make_entity_enemy(
-            commands,
-            entity,
-            actor,
-            &self.hostile,
-            identity,
-            disposition,
-            health,
-            combat,
-            intent,
-            cooldowns,
+    if disposition.is_peaceful() {
+        let hostile_id = hostile_brain_id_for_actor(&em.config.id, &em.config.name, dialogue_id);
+        let spec = super::super::super::enemies::spec_for_brain(
+            &crate::actor::EnemyBrain::Custom(hostile_id.into()),
         );
-        commands
-            .entity(entity)
-            .insert((self.brain, self.action_set));
+        em.config.tuning = spec.tuning();
+        em.config.brain_spec = spec.brain_spec();
+        em.config.brain = crate::actor::EnemyBrain::Custom(hostile_id.into());
+        // Keep the actor's own sprite sheet (its NPC name) when hostile — except
+        // the Kernel Guide, which uses the default enemy sheet (legacy quirk).
+        if em.config.name != "Kernel Guide NPC" {
+            em.config.sprite_override_npc_name = Some(em.config.name.clone());
+        }
+        commands.entity(entity).insert(spec.combat_capabilities());
+        *disposition = ActorDisposition::Hostile;
+        *runtime = ActorRuntime::Enemy;
     }
-}
-
-type ActorSnapshot = (
-    ActorIdentity,
-    ActorDisposition,
-    ActorHealth,
-    ActorCombatState,
-    ActorIntent,
-    ActorCooldowns,
-);
-
-/// Build the read-model mirror components for an NPC from its clusters.
-pub fn npc_component_snapshot(
-    config: &super::super::npc_clusters::NpcConfig,
-    status: &super::super::npc_clusters::NpcStatus,
-) -> ActorSnapshot {
-    (
-        ActorIdentity::new(config.id.clone(), config.name.clone()),
-        ActorDisposition::Peaceful,
-        ActorHealth::new(crate::actor::Health::new(1)),
-        // `strike_count` is a write-only read-model field (no behavioral
-        // reader); the provoke accumulator now lives on `ActorAggression`.
-        ActorCombatState::peaceful(0, status.hit_flash),
-        ActorIntent::new(crate::actor::ai::CharacterAiMode::Idle),
-        ActorCooldowns::default(),
-    )
-}
-
-/// Mirror an NPC's clusters onto the read-model components.
-pub(crate) fn sync_actor_components_from_npc(
-    npc: &super::super::npc_clusters::NpcMut<'_>,
-    identity: &mut ActorIdentity,
-    disposition: &mut ActorDisposition,
-    health: &mut ActorHealth,
-    combat: &mut ActorCombatState,
-    intent: &mut ActorIntent,
-    cooldowns: &mut ActorCooldowns,
-) {
-    let (i, d, h, c, it, cd) = npc_component_snapshot(npc.config, npc.status);
-    *identity = i;
-    *disposition = d;
-    *health = h;
-    *combat = c;
-    *intent = it;
-    *cooldowns = cd;
+    if chase {
+        em.status.ai_mode = crate::actor::ai::CharacterAiMode::Chase;
+    }
+    let (brain, action_set) =
+        super::super::brain_builders::aggressive_brain_and_action_set_for_enemy(
+            em.config, combat_kit, held_item,
+        );
+    commands.entity(entity).insert((brain, action_set));
 }

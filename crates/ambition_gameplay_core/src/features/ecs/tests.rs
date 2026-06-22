@@ -31,21 +31,22 @@ fn peaceful_actor_damageable_volume_derives_pogo_overlay() {
     let center = ae::Vec2::new(120.0, 180.0);
     let size = ae::Vec2::new(32.0, 48.0);
     let aabb = ae::Aabb::new(center, size * 0.5);
-    let npc = super::npc_clusters::NpcClusterScratch::new_with_paths(
+    let interactable = crate::interaction::Interactable::new(
+        "guide",
+        "Talk",
+        aabb,
+        crate::interaction::InteractionKind::Npc {
+            character_id: None,
+            dialogue_id: Some("hub_guide".into()),
+            patrol_radius: 0.0,
+            patrol_path_id: None,
+        },
+    );
+    let (seed, _render) = super::enemy_clusters::EnemyClusterSeed::new_peaceful_npc(
         "guide",
         "Guide",
         aabb,
-        crate::interaction::Interactable::new(
-            "guide",
-            "Talk",
-            aabb,
-            crate::interaction::InteractionKind::Npc {
-                character_id: None,
-                dialogue_id: Some("hub_guide".into()),
-                patrol_radius: 0.0,
-                patrol_path_id: None,
-            },
-        ),
+        &interactable,
         &[],
     );
 
@@ -57,7 +58,8 @@ fn peaceful_actor_damageable_volume_derives_pogo_overlay() {
         FeatureName::new("Guide"),
         CenteredAabb::from_center_size(center, size),
         ActorRuntime::Npc,
-        npc.into_components(),
+        crate::features::ActorDisposition::Peaceful,
+        seed.into_components(),
         DamageableVolumes::default(),
         PogoPolicy::FromDamageable,
         PogoTargetVolumes::default(),
@@ -282,34 +284,35 @@ fn interact_buffered_starts_npc_dialogue() {
     spawn_interaction_player(&mut app, center);
 
     let npc_aabb = ae::Aabb::new(center, ae::Vec2::new(16.0, 24.0));
-    let npc = super::npc_clusters::NpcClusterScratch::new_with_paths(
+    let interactable = crate::interaction::Interactable::new(
+        "guide",
+        "Talk",
+        npc_aabb,
+        crate::interaction::InteractionKind::Npc {
+            character_id: None,
+            dialogue_id: Some("hub_guide".into()),
+            patrol_radius: 0.0,
+            patrol_path_id: None,
+        },
+    );
+    let (seed, _render) = super::enemy_clusters::EnemyClusterSeed::new_peaceful_npc(
         "guide",
         "Guide",
         npc_aabb,
-        crate::interaction::Interactable::new(
-            "guide",
-            "Talk",
-            npc_aabb,
-            crate::interaction::InteractionKind::Npc {
-                character_id: None,
-                dialogue_id: Some("hub_guide".into()),
-                patrol_radius: 0.0,
-                patrol_path_id: None,
-            },
-        ),
+        &interactable,
         &[],
     );
     // Dialogue now keys off the shared `ActorInteraction` payload + a peaceful
     // `ActorDisposition`, not an `ActorRuntime::Npc` type tag.
     let interaction = crate::features::ActorInteraction {
-        interactable: npc.config.interactable.clone(),
-        talk_radius: npc.config.talk_radius,
+        interactable,
+        talk_radius: crate::features::NPC_TALK_RADIUS,
     };
     app.world_mut().spawn((
         FeatureSimEntity,
         CenteredAabb::from_center_size(center, ae::Vec2::new(32.0, 48.0)),
         ActorRuntime::Npc,
-        npc.into_components(),
+        seed.into_components(),
         interaction,
         crate::features::ActorIdentity::new("guide", "Guide"),
         crate::features::ActorDisposition::Peaceful,

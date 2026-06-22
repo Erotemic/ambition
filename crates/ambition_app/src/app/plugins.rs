@@ -359,8 +359,8 @@ fn register_room_transition_systems(app: &mut App) {
             detect_room_transition_system.run_if(gameplay_allowed),
             ensure_requested_room_parallax_system,
             apply_room_transition_system,
+            // One reset over the unified actor cluster (NPCs + enemies).
             ambition_gameplay_core::features::reset_ecs_room_features,
-            ambition_gameplay_core::features::reset_ecs_npc_actors,
             // Content-side reset work carries the ContentRoomResetSet
             // label so generic plugins (gravity, portal) can order
             // after it without naming content systems.

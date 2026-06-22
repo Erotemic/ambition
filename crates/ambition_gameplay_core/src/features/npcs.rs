@@ -1,13 +1,11 @@
-//! Per-NPC runtime glue for the actor simulation: [`NpcMut`] integration
-//! (grounded NPCs run the shared `integrate_normal_spine` via
-//! [`NpcMut::integrate_velocity`]; flyers like the parrot route through
-//! [`super::step_floating_body`] via `integrate_velocity_aerial`), brain
-//! selection ([`NpcMut::build_brain`]: catalog default vs patrol/stand-still),
-//! and the hit/hostile/dialogue/idle-bark line tables. Talk/hostility tuning
-//! consts ([`NPC_TALK_RADIUS`], [`NPC_HOSTILE_STRIKE_THRESHOLD`]) live here;
-//! `NpcConfig`/`NpcStatus`/`NpcMut` cluster components live in the `ecs` tree.
+//! Peaceful-actor (NPC) glue for the unified actor simulation: the catalog
+//! brain builder ([`npc_brain_from_catalog`]) and the hit/hostile/dialogue/
+//! idle-bark line tables. Peaceful actors are the SAME ECS cluster as hostile
+//! enemies now (see [`crate::features::ecs::enemy_clusters`]); this module no
+//! longer owns a separate NPC runtime view — only the dialogue/bark content and
+//! the peaceful brain selection. Talk/hostility tuning consts
+//! ([`NPC_TALK_RADIUS`], [`NPC_HOSTILE_STRIKE_THRESHOLD`]) live here.
 
-use super::ecs::npc_clusters::NpcMut;
 use super::*;
 
 /// Number of player attacks before a peaceful NPC turns hostile.
@@ -28,284 +26,54 @@ pub const NPC_TALK_RADIUS: f32 = 80.0;
 /// authoring-side reference.
 pub use crate::brain::NPC_PATROL_SPEED;
 
-/// Cluster-native NPC integration + helpers. Port of the `NpcRuntime`
-/// methods that operate on the authoritative ECS components through the
-/// [`NpcMut`] view. Field map: self.kin.* (pos/vel/size/facing),
-/// self.surface.on_ground, self.status.* (ai_mode/hit_flash/hostile/
-/// strikes), self.config.* (id/name/spawn/interactable/patrol/talk),
-/// self.motion.0.
-impl<'a> NpcMut<'a> {
-    pub fn aabb(&self) -> ae::Aabb {
-        ae::Aabb::new(self.kin.pos, self.kin.size * 0.5)
-    }
-
-    #[allow(clippy::too_many_arguments)]
-    pub fn tick_via_brain(
-        &mut self,
-        brain: &mut crate::brain::Brain,
-        world: &ae::World,
-        target_pos: ae::Vec2,
-        sim_time: f32,
-        dt: f32,
-        // World gravity DIRECTION at the NPC (down/up/sideways) so NPCs fall the
-        // way the player does under any gravity, including left/right.
-        gravity_dir: ae::Vec2,
-    ) -> crate::actor::control::ActorControlFrame {
-        self.status.hit_flash = (self.status.hit_flash - dt).max(0.0);
-
-        let snapshot = crate::brain::BrainSnapshot {
-            actor_pos: self.kin.pos,
-            actor_vel: self.kin.vel,
-            actor_facing: self.kin.facing,
-            control_down: gravity_dir,
-            input_frame_mode: ae::InputFrameMode::Hybrid,
-            actor_on_ground: self.surface.on_ground,
-            alive: true,
-            target_pos,
-            target_alive: true,
-            sim_time,
-            dt,
-            max_run_speed: crate::brain::NPC_PATROL_SPEED,
-            attack_cooldown_remaining: 0.0,
-            attack_windup_remaining: 0.0,
-            attack_active_remaining: 0.0,
-            attack_recover_remaining: 0.0,
-            stun_remaining: 0.0,
-            wall_contact: None,
-            player_input: None,
-            crowding: None,
-            terrain: None,
-            air_jumps_remaining: 0,
-        };
-        let mut frame = crate::actor::control::ActorControlFrame::neutral();
-        brain.tick(&snapshot, &mut frame);
-
-        self.status.ai_mode = match brain {
-            crate::brain::Brain::StateMachine(crate::brain::StateMachineCfg::Patrol {
-                state,
-                ..
-            }) => state.mode,
-            crate::brain::Brain::StateMachine(crate::brain::StateMachineCfg::Aerial {
-                state,
-                ..
-            }) => state.mode,
-            crate::brain::Brain::StateMachine(crate::brain::StateMachineCfg::StandStill) => {
-                crate::actor::ai::CharacterAiMode::Idle
-            }
-            _ => crate::actor::ai::CharacterAiMode::Idle,
-        };
-
-        if frame.facing.abs() > 0.001 {
-            self.kin.facing = frame.facing;
-        }
-
-        // Aerial NPC (gravity-free flyer, e.g. the stochastic parrot): the brain
-        // drives the FULL 2D velocity — fly up to perches, dive, drop beside the
-        // player — so integrate the whole `desired_vel` with no gravity, mirroring
-        // the aerial-enemy path. Keyed off `gravity_scale` like the enemy side.
-        if self.surface.gravity_scale <= 0.001 {
-            self.integrate_velocity_aerial(frame.velocity_target, world, dt);
-            return frame;
-        }
-
-        if matches!(
-            self.status.ai_mode,
-            crate::actor::ai::CharacterAiMode::Patrol
-        ) {
-            if let Some(motion) = &mut self.motion.0 {
-                let old = self.kin.pos;
-                self.kin.pos = motion.advance(self.kin.pos, dt);
-                let delta = self.kin.pos - old;
-                self.kin.vel = if dt > 0.0 { delta / dt } else { ae::Vec2::ZERO };
-                if delta.x.abs() > 0.001 {
-                    self.kin.facing = delta.x.signum();
-                }
-                return frame;
-            }
-        }
-
-        let stalled_on_wall = self.integrate_velocity(frame.locomotion.x, world, dt, gravity_dir);
-
-        if matches!(
-            self.status.ai_mode,
-            crate::actor::ai::CharacterAiMode::Patrol
-        ) && stalled_on_wall
-        {
-            self.kin.facing *= -1.0;
-        }
-
-        if matches!(
-            self.status.ai_mode,
-            crate::actor::ai::CharacterAiMode::Chase
-        ) {
-            let side = ae::AccelerationFrame::new(gravity_dir)
-                .to_local(target_pos - self.kin.pos)
-                .x;
-            if side.abs() > 4.0 {
-                self.kin.facing = side.signum();
-            }
-        }
-        frame
-    }
-
-    /// Step the NPC body one tick toward `desired_vel_x` (the rest — gravity,
-    /// collision, ground contact — comes from `step_kinematic`). Shared by
-    /// `tick_via_brain` and the *possession* path, where the desired velocity
-    /// comes from the player's input instead of the NPC's brain.
-    ///
-    /// Returns whether the body STALLED on its run (gravity-perpendicular) axis
-    /// this tick — i.e. it was moving along the ground and is now stopped, the
-    /// signature of running into a wall. Detected on the gravity-PERPENDICULAR
-    /// "side" axis (not screen-x), so it stays correct under sideways gravity; the
-    /// patrol caller reverses facing on a stall.
-    pub fn integrate_velocity(
-        &mut self,
-        locomotion_x: f32,
-        world: &ae::World,
-        dt: f32,
-        gravity_dir: ae::Vec2,
-    ) -> bool {
-        // Grounded NPCs run the SHARED player physics spine (gravity + run +
-        // fall-cap, gravity-direction-relative) — the same core enemies and the
-        // player use, in the SAME shape: normalized `locomotion_x` in, the body's
-        // `NPC_PATROL_SPEED` capability as the scale. No velocity→axis hack.
-        let mut body = crate::kinematic::KinematicBody {
-            pos: self.kin.pos,
-            vel: self.kin.vel,
-            size: self.kin.size,
-            on_ground: self.surface.on_ground,
-            facing: self.kin.facing,
-        };
-        // Run axis = gravity-perpendicular. Under vertical gravity `perp = (-1,0)`
-        // so `side == ±vel.x` (byte-identical to the old screen-x read).
-        let perp = ae::Vec2::new(-gravity_dir.y, gravity_dir.x);
-        let prev_side_speed = body.vel.dot(perp);
-        let axis_x = locomotion_x;
-        let spine_tuning = ae::MovementTuning {
-            gravity: ENEMY_GRAVITY,
-            gravity_dir,
-            run_accel: ENEMY_RUN_ACCEL,
-            air_accel: ENEMY_RUN_ACCEL,
-            ground_friction: 0.0,
-            air_friction: 0.0,
-            max_run_speed: crate::brain::NPC_PATROL_SPEED,
-            max_fall_speed: ENEMY_MAX_FALL,
-            ..ae::MovementTuning::default()
-        };
-        let mut fast_falling = false;
-        let mut gliding = false;
-        ae::integrate_normal_spine(
-            &mut body.vel,
-            &mut fast_falling,
-            &mut gliding,
-            ae::NormalSpineCtx::bare(body.on_ground),
-            ae::InputState {
-                axis_x,
-                ..Default::default()
-            },
-            dt,
-            spine_tuning,
-        );
-        crate::kinematic::step_kinematic(
-            &mut body,
-            world,
-            crate::kinematic::KinematicTuning {
-                // Spine already applied gravity; the sweep is pure collision.
-                gravity: 0.0,
-                max_fall_speed: ENEMY_MAX_FALL,
-                gravity_dir,
-            },
-            crate::kinematic::KinematicInputs::default(),
-            dt,
-        );
-        self.kin.pos = body.pos;
-        self.kin.vel = body.vel;
-        self.surface.on_ground = body.on_ground;
-        prev_side_speed.abs() > 1.0 && body.vel.dot(perp).abs() < 0.01
-    }
-
-    /// Gravity-free 2D integration for a flying NPC: approach the brain's full
-    /// `desired_vel` (both axes) and step through collision with gravity off, so
-    /// a `Floating` bird actually flies. Mirrors the aerial-enemy integrator.
-    pub fn integrate_velocity_aerial(&mut self, desired_vel: ae::Vec2, world: &ae::World, dt: f32) {
-        let mut body = crate::kinematic::KinematicBody {
-            pos: self.kin.pos,
-            vel: self.kin.vel,
-            size: self.kin.size,
-            on_ground: self.surface.on_ground,
-            facing: self.kin.facing,
-        };
-        // Shared floating free-mover path (aerial enemies, bosses use the same).
-        super::step_floating_body(
-            &mut body,
-            world,
-            desired_vel,
-            Some(900.0 * dt),
-            ENEMY_MAX_FALL,
-            dt,
-        );
-        self.kin.pos = body.pos;
-        self.kin.vel = body.vel;
-        // A flyer is never "grounded" — keeps gravity-righting + anim aerial.
-        self.surface.on_ground = false;
-    }
-
-    pub fn build_brain(&self) -> crate::brain::Brain {
-        // Data-driven: if this NPC was authored from a catalog row that asks for
-        // a RICH, PEACEFUL brain (past Patrol/StandStill but not hostile — e.g.
-        // the lively Aerial flyer), honor the catalog `default_brain`.
-        //
-        // A placed `NpcSpawn` is peaceful/talkable BY CONSTRUCTION, so a catalog
-        // row whose `default_brain` is HOSTILE (the cove pirates carry
-        // `melee_brute_striker` for when they spawn as ENEMIES) must NOT turn the
-        // friendly NPC into a player-chaser — those fall through to the legacy
-        // peaceful patrol/standstill below, unchanged. (An NPC only turns hostile
-        // by being struck past its retaliation threshold.)
-        if let crate::interaction::InteractionKind::Npc {
-            character_id: Some(cid),
-            ..
-        } = &self.config.interactable.kind
-        {
-            if let Some(brain) =
-                crate::character_roster::default_brain_for_character_id(cid, self.config.spawn.x)
-            {
-                let is_basic = matches!(
-                    brain,
-                    crate::brain::Brain::StateMachine(
-                        crate::brain::StateMachineCfg::Patrol { .. }
-                            | crate::brain::StateMachineCfg::StandStill
-                    )
-                );
-                if !is_basic && !brain.is_hostile() {
-                    return brain;
-                }
-            }
-        }
-        if self.config.patrol_radius > 0.0 || self.motion.0.is_some() {
-            let mut cfg = crate::brain::PatrolCfg::NPC_DEFAULT;
-            cfg.lane = crate::brain::AuthoredWorldPatrolLane::new(
-                self.config.spawn.x,
-                self.config.patrol_radius,
+/// Build the peaceful `Brain` component for a catalog/authored NPC.
+///
+/// Data-driven: if the NPC was authored from a catalog row that asks for a RICH,
+/// PEACEFUL brain (past Patrol/StandStill but not hostile — e.g. the lively
+/// Aerial flyer), honor the catalog `default_brain`. A placed `NpcSpawn` is
+/// peaceful/talkable BY CONSTRUCTION, so a catalog row whose `default_brain` is
+/// HOSTILE (the cove pirates carry a combat brain for when they spawn as
+/// ENEMIES) must NOT turn the friendly NPC into a player-chaser — those fall
+/// through to the peaceful patrol/standstill below. (An NPC only turns hostile
+/// by being struck past its retaliation threshold.)
+///
+/// Drives the actor's movement at the unified tick; the cluster `config.brain`
+/// (an `EnemyBrain`) only feeds the integrator's patrol-stall intent.
+pub(crate) fn npc_brain_from_catalog(
+    interactable: &crate::interaction::Interactable,
+    spawn_x: f32,
+    patrol_radius: f32,
+    talk_radius: f32,
+    has_motion: bool,
+) -> crate::brain::Brain {
+    if let crate::interaction::InteractionKind::Npc {
+        character_id: Some(cid),
+        ..
+    } = &interactable.kind
+    {
+        if let Some(brain) = crate::character_roster::default_brain_for_character_id(cid, spawn_x) {
+            let is_basic = matches!(
+                brain,
+                crate::brain::Brain::StateMachine(
+                    crate::brain::StateMachineCfg::Patrol { .. }
+                        | crate::brain::StateMachineCfg::StandStill
+                )
             );
-            cfg.aggro_radius = self.config.talk_radius;
-            crate::brain::Brain::StateMachine(crate::brain::StateMachineCfg::Patrol {
-                cfg,
-                state: crate::brain::PatrolState::default(),
-            })
-        } else {
-            crate::brain::Brain::stand_still()
+            if !is_basic && !brain.is_hostile() {
+                return brain;
+            }
         }
     }
-
-    /// Reset the NPC's body + transient status. Hostility / provoke-count reset
-    /// (now on `ActorDisposition` / `ActorAggression`) is done by the calling
-    /// reset system, which holds those shared components.
-    pub fn reset_to_spawn(&mut self) {
-        self.kin.pos = self.config.spawn;
-        self.kin.vel = ae::Vec2::ZERO;
-        self.surface.on_ground = false;
-        self.status.hit_flash = 0.0;
-        self.status.ai_mode = crate::actor::ai::CharacterAiMode::Idle;
+    if patrol_radius > 0.0 || has_motion {
+        let mut cfg = crate::brain::PatrolCfg::NPC_DEFAULT;
+        cfg.lane = crate::brain::AuthoredWorldPatrolLane::new(spawn_x, patrol_radius);
+        cfg.aggro_radius = talk_radius;
+        crate::brain::Brain::StateMachine(crate::brain::StateMachineCfg::Patrol {
+            cfg,
+            state: crate::brain::PatrolState::default(),
+        })
+    } else {
+        crate::brain::Brain::stand_still()
     }
 }
 
@@ -518,10 +286,9 @@ fn npc_hostile_bark(key: &str, name: &str) -> &'static str {
 //
 // These derive flags + bark/dialogue lines from the actor's *interaction*
 // payload (`Interactable`) plus its identity (`name`/`id`) and a couple of
-// status scalars (`strikes`/`hostile`), explicitly threaded — never from the
-// `NpcConfig` cluster. That decouples dialogue from the NPC-only cluster (the
-// `ActorInteraction` seam): any talkable actor can drive them, and they survive
-// the NPC→one-actor cluster merge unchanged.
+// status scalars (`strikes`/`hostile`), explicitly threaded — never from a
+// per-family cluster. That keeps dialogue an actor capability (the
+// `ActorInteraction` seam): any talkable actor can drive them.
 
 use crate::interaction::{Interactable, InteractionKind};
 
@@ -580,12 +347,6 @@ pub(crate) fn npc_idle_bark_line(
         _ => return None,
     };
     Some(pool[(rotation as usize) % pool.len()])
-}
-
-/// Bark/speech-bubble anchor derived from the actor AABB (head height).
-pub(crate) fn npc_bark_anchor_from_aabb(aabb: ae::Aabb) -> ae::Vec2 {
-    let size = aabb.half_size() * 2.0;
-    aabb.center() + ae::Vec2::new(0.0, -size.y * 0.72 - 16.0)
 }
 
 pub(crate) fn npc_message(interactable: &Interactable, name: &str, hostile: bool) -> String {

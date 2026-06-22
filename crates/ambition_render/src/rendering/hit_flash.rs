@@ -31,7 +31,7 @@ use bevy::{
 };
 
 use super::primitives::{FeatureVisual, PlayerVisual, PropVisual};
-use ambition_gameplay_core::features::{ActorRuntime, BossClusterRef, FeatureId};
+use ambition_gameplay_core::features::{BossClusterRef, FeatureId};
 
 const SHADER_ASSET_PATH: &str = "shaders/hit_flash.wgsl";
 
@@ -335,8 +335,8 @@ pub fn cleanup_hit_flash_overlays(
 /// | type | timer storage | set by damage |
 /// |------|---------------|---------------|
 /// | player | `PlayerCombatState::flash_timer` | `world_flow` damage paths |
-/// | enemy  | `EnemyStatus::hit_flash` (enemy cluster) | enemy damage paths |
-/// | NPC    | `NpcStatus::hit_flash` (NPC cluster)     | NPC damage paths |
+/// | enemy  | `EnemyStatus::hit_flash` (unified cluster) | actor damage paths |
+/// | NPC    | `EnemyStatus::hit_flash` (unified cluster) | actor damage paths |
 /// | boss   | `BossStatus::hit_flash` (boss cluster)   | boss damage paths |
 fn hit_flash_secs_for_source(
     feature: Option<&FeatureVisual>,
@@ -363,14 +363,12 @@ fn hit_flash_secs_for_source(
     // the sim entity's `FeatureId`. Tries the actor list first
     // (enemies + NPCs share `ActorRuntime`), then bosses.
     if let Some(secs) = actors.iter().find_map(
-        |(feature_id, actor, _kin, status, _attack, _config, _npc_config, npc_status)| {
+        |(feature_id, _actor, _kin, status, _attack, _config)| {
             if feature_id.as_str() != id {
                 return None;
             }
-            match actor {
-                ActorRuntime::Enemy => status.map(|s| s.hit_flash),
-                ActorRuntime::Npc => npc_status.map(|s| s.hit_flash),
-            }
+            // Hit-flash lives on the shared `EnemyStatus` for every actor now.
+            status.map(|s| s.hit_flash)
         },
     ) {
         return Some(secs);

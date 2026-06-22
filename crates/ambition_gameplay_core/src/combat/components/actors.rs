@@ -52,6 +52,10 @@ impl ActorDisposition {
     pub fn is_hostile(self) -> bool {
         matches!(self, Self::Hostile)
     }
+
+    pub fn is_peaceful(self) -> bool {
+        matches!(self, Self::Peaceful)
+    }
 }
 
 /// Explicit sprite render-quad size for an actor whose collision box was derived

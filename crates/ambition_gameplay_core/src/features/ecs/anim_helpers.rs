@@ -6,9 +6,10 @@
 
 use super::*;
 
-/// QueryData tuple for actor-sprite lookups: the runtime variant tag
-/// plus the enemy cluster components (`None` on NPCs). Systems declare
-/// `Query<ActorSpriteData>`; the helpers take `&Query<ActorSpriteData>`.
+/// QueryData tuple for actor-sprite lookups: the runtime variant tag plus the
+/// unified actor cluster components every actor (was-NPC + was-enemy) now
+/// carries. Systems declare `Query<ActorSpriteData>`; the helpers take
+/// `&Query<ActorSpriteData>`.
 pub type ActorSpriteData = (
     &'static FeatureId,
     &'static ActorRuntime,
@@ -16,19 +17,17 @@ pub type ActorSpriteData = (
     Option<&'static super::enemy_clusters::EnemyStatus>,
     Option<&'static ActorAttackState>,
     Option<&'static super::enemy_clusters::EnemyConfig>,
-    Option<&'static super::npc_clusters::NpcConfig>,
-    Option<&'static super::npc_clusters::NpcStatus>,
 );
 
 pub fn ecs_npc_name(id: &str, actors: &Query<ActorSpriteData>) -> Option<String> {
     actors
         .iter()
-        .find_map(|(feature_id, actor, _, _, _, config, npc_config, _)| {
+        .find_map(|(feature_id, actor, _, _, _, config)| {
             if feature_id.as_str() != id {
                 return None;
             }
             match actor {
-                ActorRuntime::Npc => npc_config.map(|c| c.name.clone()),
+                ActorRuntime::Npc => config.map(|c| c.name.clone()),
                 ActorRuntime::Enemy => config.and_then(|c| c.sprite_override_npc_name.clone()),
             }
         })
@@ -54,7 +53,7 @@ pub fn ecs_actor_render_size(
 pub fn ecs_enemy_sprite_override(id: &str, actors: &Query<ActorSpriteData>) -> Option<String> {
     actors
         .iter()
-        .find_map(|(feature_id, actor, _, _, _, config, _, _)| {
+        .find_map(|(feature_id, actor, _, _, _, config)| {
             if feature_id.as_str() != id {
                 return None;
             }
@@ -75,7 +74,7 @@ pub fn ecs_enemy_sprite_override(id: &str, actors: &Query<ActorSpriteData>) -> O
 pub fn ecs_enemy_name(id: &str, actors: &Query<ActorSpriteData>) -> Option<String> {
     actors
         .iter()
-        .find_map(|(feature_id, actor, _, _, _, config, _, _)| {
+        .find_map(|(feature_id, actor, _, _, _, config)| {
             if feature_id.as_str() != id {
                 return None;
             }
@@ -92,7 +91,7 @@ pub fn ecs_enemy_anim_state(
 ) -> Option<crate::character_sprites::EnemyAnimState> {
     actors
         .iter()
-        .find_map(|(feature_id, actor, kin, status, attack, config, _, _)| {
+        .find_map(|(feature_id, actor, kin, status, attack, config)| {
             if feature_id.as_str() != id {
                 return None;
             }
@@ -121,27 +120,25 @@ pub fn ecs_npc_anim_state(
     id: &str,
     actors: &Query<ActorSpriteData>,
 ) -> Option<crate::character_sprites::NpcAnimState> {
-    actors.iter().find_map(
-        |(feature_id, actor, kin, _, _, _, npc_config, npc_status)| {
-            if feature_id.as_str() != id {
-                return None;
+    actors.iter().find_map(|(feature_id, actor, kin, status, _, config)| {
+        if feature_id.as_str() != id {
+            return None;
+        }
+        match actor {
+            ActorRuntime::Npc => {
+                let kin = kin?;
+                let status = status?;
+                Some(crate::character_sprites::NpcAnimState {
+                    pos: kin.pos,
+                    vel: kin.vel,
+                    facing: kin.facing,
+                    hit_flash: status.hit_flash > 0.0,
+                    aerial: config.map(|c| c.tuning.is_aerial).unwrap_or(false),
+                })
             }
-            match actor {
-                ActorRuntime::Npc => {
-                    let kin = kin?;
-                    let status = npc_status?;
-                    Some(crate::character_sprites::NpcAnimState {
-                        pos: kin.pos,
-                        vel: kin.vel,
-                        facing: kin.facing,
-                        hit_flash: status.hit_flash > 0.0,
-                        aerial: npc_config.map(|c| c.aerial).unwrap_or(false),
-                    })
-                }
-                _ => None,
-            }
-        },
-    )
+            _ => None,
+        }
+    })
 }
 
 /// ECS chest-opened lookup for sprite swapping.

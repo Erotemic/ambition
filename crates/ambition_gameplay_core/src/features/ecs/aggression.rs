@@ -1,26 +1,24 @@
 //! Actor stimulus → aggression updates.
 //!
-//! Damage should say "this actor was hit"; the actor's aggression policy decides
-//! whether that means retaliation, fleeing, ignoring the hit, or some future
-//! faction relationship change. Cove NPCs convert to enemy component clusters
-//! when provoked; the decision is driven by `ActorAggression + CombatKit +
-//! HeldItem`, not by the damage application loop.
+//! Damage says "this actor was hit"; the actor's aggression policy decides
+//! whether that means retaliation (flip hostile), escalation (already hostile),
+//! or nothing (passive). Every actor is the SAME cluster now, so one system over
+//! one query handles both the peaceful→hostile flip and the
+//! already-hostile re-derive — in place, no cluster swap, no entity churn.
 
 use bevy::prelude::*;
 
 use super::{
-    sync_actor_components_from_enemy, ActorAggression, ActorCombatState, ActorCooldowns,
-    ActorDisposition, ActorHealth, ActorIdentity, ActorIntent, ActorRuntime, AggressionMode,
-    CombatKit, FeatureSimEntity, HeldItem,
+    sync_actor_components_from_cluster, ActorAggression, ActorCombatState, ActorCooldowns,
+    ActorDisposition, ActorHealth, ActorIdentity, ActorIntent, ActorInteraction, ActorRuntime,
+    AggressionMode, CombatKit, FeatureSimEntity, HeldItem,
 };
 use crate::features::ActorStimulus;
 
-/// Apply actor stimuli to NPC aggression: a peaceful NPC that has been
-/// provoked past its strike threshold flips to a hostile enemy in
-/// place. Split from the enemy path because the NPC cluster query and
-/// enemy cluster query both borrow the shared kinematics/surface/motion
-/// components mutably and cannot coexist in one query.
-pub fn apply_npc_stimuli(
+/// Apply actor stimuli to aggression: a non-passive actor that crosses its
+/// provocation threshold flips hostile IN PLACE (peaceful NPC → hostile
+/// archetype), and an already-hostile actor re-derives its aggressive brain.
+pub fn apply_actor_stimuli(
     mut commands: Commands,
     mut stimuli: MessageReader<ActorStimulus>,
     mut actors: Query<
@@ -30,13 +28,14 @@ pub fn apply_npc_stimuli(
             &mut ActorAggression,
             &CombatKit,
             Option<&HeldItem>,
+            Option<&ActorInteraction>,
             &mut ActorIdentity,
             &mut ActorDisposition,
             &mut ActorHealth,
             &mut ActorCombatState,
             &mut ActorIntent,
             &mut ActorCooldowns,
-            super::npc_clusters::NpcClusterQueryData,
+            super::enemy_clusters::EnemyClusterQueryData,
         ),
         With<FeatureSimEntity>,
     >,
@@ -53,13 +52,14 @@ pub fn apply_npc_stimuli(
             mut aggression,
             combat_kit,
             held_item,
+            interaction,
             mut identity,
             mut disposition,
             mut health,
             mut combat,
             mut intent,
             mut cooldowns,
-            npc,
+            mut cq,
         )) = actors.get_mut(actor)
         else {
             continue;
@@ -82,94 +82,27 @@ pub fn apply_npc_stimuli(
         }
         aggression.mode = AggressionMode::HostileToPlayer;
 
-        let conversion = super::actors::HostileNpcConversionPlan::from_npc(
-            &npc.config,
-            &npc.kin,
-            &npc.surface,
-            combat_kit,
-            held_item,
-        );
-        let conversion = if source.is_some() {
-            conversion.with_chase()
-        } else {
-            conversion
-        };
-        conversion.apply(
+        let dialogue_id = interaction.and_then(|i| match &i.interactable.kind {
+            crate::interaction::InteractionKind::Npc { dialogue_id, .. } => dialogue_id.as_deref(),
+            _ => None,
+        });
+
+        let mut em = cq.as_enemy_mut();
+        super::actors::provoke_actor_in_place(
             &mut commands,
             entity,
+            &mut em,
             &mut runtime,
-            &mut identity,
             &mut disposition,
-            &mut health,
-            &mut combat,
-            &mut intent,
-            &mut cooldowns,
-        );
-    }
-}
-
-/// Apply actor stimuli to enemy aggression: an already-hostile enemy
-/// re-derives its aggressive brain/action set when newly provoked.
-pub fn apply_actor_stimuli(
-    mut commands: Commands,
-    mut stimuli: MessageReader<ActorStimulus>,
-    mut actors: Query<
-        (
-            Entity,
-            &mut ActorAggression,
-            &CombatKit,
-            Option<&HeldItem>,
-            &mut ActorIdentity,
-            &mut ActorDisposition,
-            &mut ActorHealth,
-            &mut ActorCombatState,
-            &mut ActorIntent,
-            &mut ActorCooldowns,
-            super::enemy_clusters::EnemyClusterQueryData,
-        ),
-        With<FeatureSimEntity>,
-    >,
-) {
-    for stimulus in stimuli.read().copied() {
-        let ActorStimulus::DamagedBy {
-            actor,
-            source,
-            damage: _,
-        } = stimulus;
-        let Ok((
-            entity,
-            mut aggression,
             combat_kit,
             held_item,
-            mut identity,
-            mut disposition,
-            mut health,
-            mut combat,
-            mut intent,
-            mut cooldowns,
-            mut cq,
-        )) = actors.get_mut(actor)
-        else {
-            continue;
-        };
-
-        if matches!(aggression.mode, AggressionMode::Passive) {
-            continue;
-        }
-        aggression.target = source.or(aggression.target);
-        // Every non-passive enemy escalates to hostile on a hit.
-        aggression.mode = AggressionMode::HostileToPlayer;
-
-        // Re-derive the aggressive brain from the live enemy config.
-        let em = cq.as_enemy_mut();
-        let (brain, action_set) = super::brain_builders::aggressive_brain_and_action_set_for_enemy(
-            em.config, combat_kit, held_item,
+            dialogue_id,
+            source.is_some(),
         );
-        commands.entity(entity).insert((brain, action_set));
-        sync_actor_components_from_enemy(
+        sync_actor_components_from_cluster(
             &em,
+            *disposition,
             &mut identity,
-            &mut disposition,
             &mut health,
             &mut combat,
             &mut intent,
@@ -199,20 +132,20 @@ mod tests {
                 patrol_path_id: None,
             },
         );
-        let npc = super::super::npc_clusters::NpcClusterScratch::new_with_paths(
+        // Peaceful actor = the unified enemy cluster with peaceful tuning.
+        let (seed, _render) = super::super::enemy_clusters::EnemyClusterSeed::new_peaceful_npc(
             "alice",
             "Alice",
             aabb,
-            interactable,
+            &interactable,
             &[],
         );
-        let bundle = npc.into_components();
         let (identity, disposition, health, combat, intent, cooldowns) =
-            super::super::actors::npc_component_snapshot(&bundle.3, &bundle.4);
+            super::super::actors::actor_component_snapshot(&seed, ActorDisposition::Peaceful);
         // Provoke accumulator lives on `ActorAggression` now.
         let aggression = ActorAggression {
             mode: AggressionMode::RetaliatesWhenHit {
-                strike_threshold: crate::features::NPC_HOSTILE_STRIKE_THRESHOLD as u8,
+                strike_threshold: NPC_HOSTILE_STRIKE_THRESHOLD as u8,
             },
             target: None,
             strikes,
@@ -225,7 +158,11 @@ mod tests {
                 ActorRuntime::Npc,
                 aggression,
                 CombatKit::default(),
-                bundle,
+                seed.into_components(),
+                ActorInteraction {
+                    interactable,
+                    talk_radius: crate::features::NPC_TALK_RADIUS,
+                },
                 identity,
                 disposition,
                 health,
@@ -249,7 +186,7 @@ mod tests {
     fn npc_flips_hostile_once_strikes_reach_the_threshold() {
         let mut app = App::new();
         app.add_message::<ActorStimulus>();
-        app.add_systems(Update, apply_npc_stimuli);
+        app.add_systems(Update, apply_actor_stimuli);
         // Already at the strike threshold (the damage system increments
         // strikes; this stimulus is the provocation that re-evaluates).
         let npc = spawn_npc_with_strikes(&mut app, NPC_HOSTILE_STRIKE_THRESHOLD);
@@ -259,13 +196,18 @@ mod tests {
             ActorDisposition::Hostile,
             "an NPC at the strike threshold should flip hostile when provoked"
         );
+        assert_eq!(
+            *app.world().get::<ActorRuntime>(npc).unwrap(),
+            ActorRuntime::Enemy,
+            "the flipped actor renders as an enemy"
+        );
     }
 
     #[test]
     fn npc_below_the_threshold_stays_peaceful() {
         let mut app = App::new();
         app.add_message::<ActorStimulus>();
-        app.add_systems(Update, apply_npc_stimuli);
+        app.add_systems(Update, apply_actor_stimuli);
         let npc = spawn_npc_with_strikes(&mut app, NPC_HOSTILE_STRIKE_THRESHOLD - 1);
         run(&mut app, npc);
         assert_eq!(

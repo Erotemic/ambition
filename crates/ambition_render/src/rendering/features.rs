@@ -43,7 +43,7 @@ pub fn spawn_dynamic_feature_visuals(
             &CenteredAabb,
             &ActorRuntime,
             Option<&ambition_gameplay_core::features::EnemyConfig>,
-            Option<&ambition_gameplay_core::features::NpcConfig>,
+            Option<&ambition_gameplay_core::features::ActorInteraction>,
         ),
         With<ambition_gameplay_core::features::PostBossNpc>,
     >,
@@ -82,15 +82,15 @@ pub fn spawn_dynamic_feature_visuals(
             RoomVisual,
         ));
     }
-    for (id, name, aabb, actor, config, npc_config) in &post_boss_npcs {
+    for (id, name, aabb, actor, config, interaction) in &post_boss_npcs {
         if known.contains(id.as_str()) {
             continue;
         }
         let kind = FeatureVisualKind::Npc;
         let render = BVec2::new(aabb.size().x, aabb.size().y);
         let entity_key = match actor {
-            ActorRuntime::Npc => match npc_config {
-                Some(c) => game_assets::entity_sprite_for_interactable(&c.interactable),
+            ActorRuntime::Npc => match interaction {
+                Some(i) => game_assets::entity_sprite_for_interactable(&i.interactable),
                 None => continue,
             },
             ActorRuntime::Enemy => match config {

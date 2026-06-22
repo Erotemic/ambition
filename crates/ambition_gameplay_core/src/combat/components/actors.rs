@@ -53,6 +53,20 @@ impl ActorDisposition {
         matches!(self, Self::Hostile)
     }
 }
+
+/// Explicit sprite render-quad size for an actor whose collision box was derived
+/// from published sprite `body_metrics` (so `kin.size` is the visible-body
+/// hitbox, not a scaled placeholder). The renderer draws the sprite at THIS
+/// size instead of re-deriving `collision * collision_scale`, which would
+/// double-scale once the collision already equals the body.
+///
+/// A SHARED actor component (not on `NpcConfig`/`EnemyConfig`) precisely so it
+/// survives a peaceful→hostile flip: when an NPC turns hostile the NPC-only
+/// cluster is swapped for the enemy cluster, but this component stays attached,
+/// so the actor keeps rendering at its authored size instead of ballooning.
+/// Absent ⇒ the actor uses the legacy `collision_scale` render path.
+#[derive(Component, Clone, Copy, Debug, PartialEq)]
+pub struct ActorRenderSize(pub ae::Vec2);
 // `ActorFaction` moved to `crate::actor::pose` with `ActorPose`.
 pub use crate::actor::pose::ActorFaction;
 

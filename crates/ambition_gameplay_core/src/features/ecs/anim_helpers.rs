@@ -34,26 +34,21 @@ pub fn ecs_npc_name(id: &str, actors: &Query<ActorSpriteData>) -> Option<String>
         })
 }
 
-/// Explicit sprite render-quad size for an NPC whose collision was derived
-/// from published sprite `body_metrics` (see [`NpcConfig::render_size`]). The
-/// renderer draws the sprite at this size instead of `collision * scale` so
-/// the visible art is preserved even though the hitbox shrank to the body.
-/// `None` → the NPC uses the legacy `collision_scale` render path.
-pub fn ecs_npc_render_size(
+/// Explicit sprite render-quad size for an actor whose collision was derived
+/// from published sprite `body_metrics` (see
+/// [`crate::features::ActorRenderSize`]). The renderer draws the sprite at this
+/// size instead of `collision * collision_scale` so the visible art is
+/// preserved even though the hitbox equals the body. SHARED across dispositions
+/// (NPC + the enemy it becomes when hostile), so the sprite never balloons on a
+/// hostile flip. `None` → the actor uses the legacy `collision_scale` path.
+pub fn ecs_actor_render_size(
     id: &str,
-    actors: &Query<ActorSpriteData>,
+    render_sizes: &Query<(&FeatureId, &crate::features::ActorRenderSize)>,
 ) -> Option<crate::engine_core::Vec2> {
-    actors
+    render_sizes
         .iter()
-        .find_map(|(feature_id, actor, _, _, _, _, npc_config, _)| {
-            if feature_id.as_str() != id {
-                return None;
-            }
-            match actor {
-                ActorRuntime::Npc => npc_config.and_then(|c| c.render_size),
-                ActorRuntime::Enemy => None,
-            }
-        })
+        .find(|(feature_id, _)| feature_id.as_str() == id)
+        .map(|(_, size)| size.0)
 }
 
 pub fn ecs_enemy_sprite_override(id: &str, actors: &Query<ActorSpriteData>) -> Option<String> {

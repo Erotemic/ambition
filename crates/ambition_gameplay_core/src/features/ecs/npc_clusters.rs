@@ -33,15 +33,6 @@ pub struct NpcConfig {
     /// the parrot). Distinct from merely being airborne: a jump or knockback is
     /// NOT flight. Drives the `Fly` animation (vs `Idle`/`Walk`) when moving.
     pub aerial: bool,
-    /// Explicit sprite render-quad size, set when the NPC's collision box was
-    /// derived from published sprite `body_metrics` (so `kin.size` is the
-    /// visible-body hitbox, not the LDtk box). The renderer draws the sprite
-    /// at THIS size rather than re-deriving `collision * collision_scale`,
-    /// which would double-scale once the collision already equals the body.
-    /// `None` for NPCs without published body metrics — they keep the legacy
-    /// `collision_scale` render path. See
-    /// [`crate::character_sprites::sprite_body_collision_for_character_id`].
-    pub render_size: Option<ae::Vec2>,
 }
 
 /// Per-tick NPC status: last-evaluated AI mode, hit-flash timer,
@@ -97,6 +88,11 @@ pub struct NpcClusterScratch {
     pub motion: ActorMotionPath,
     pub config: NpcConfig,
     pub status: NpcStatus,
+    /// Explicit sprite render-quad size when the collision was derived from
+    /// published sprite `body_metrics`. The spawn site lifts this onto the
+    /// SHARED [`crate::features::ActorRenderSize`] component (so it survives a
+    /// peaceful→hostile flip); `None` ⇒ legacy `collision_scale` render path.
+    pub render_size: Option<ae::Vec2>,
 }
 
 impl NpcClusterScratch {
@@ -186,7 +182,6 @@ impl NpcClusterScratch {
                 patrol_radius,
                 talk_radius: super::super::npcs::NPC_TALK_RADIUS,
                 aerial: gravity_scale <= 0.001,
-                render_size,
             },
             status: NpcStatus {
                 ai_mode: crate::actor::ai::CharacterAiMode::Idle,
@@ -194,6 +189,7 @@ impl NpcClusterScratch {
                 hostile: false,
                 strikes: 0,
             },
+            render_size,
         }
     }
 

@@ -179,36 +179,39 @@ impl NpcActorSpawnPlan {
 
     pub(super) fn spawn(self, commands: &mut Commands) -> Entity {
         let facing = self.npc.kin.facing;
+        // Sprite-metadata render size lives on the SHARED `ActorRenderSize`
+        // component (not the NPC-only cluster) so it survives a hostile flip —
+        // otherwise the migrated enemy loses it and the body-sized collision
+        // gets `collision_scale` re-applied, ballooning the sprite.
+        let render_size = self.npc.render_size;
         let (identity, disposition, health, combat, intent, cooldowns) =
             super::actors::npc_component_snapshot(&self.npc.config, &self.npc.status);
         let cluster_bundle = self.npc.into_components();
-        commands
-            .spawn((
-                Name::new(self.entity_name),
-                EnemyActorBundle::new(
-                    FeatureBaseBundle::new(&self.feature_id, &self.feature_name, self.feature_aabb),
-                    identity,
-                    disposition,
-                    super::ActorFaction::Npc,
-                    ActorPose::from_parts(
-                        self.feature_aabb.center,
-                        self.feature_aabb.half_size,
-                        facing,
-                    ),
-                    self.combat_kit,
-                    self.aggression,
-                    health,
-                    combat,
-                    intent,
-                    cooldowns,
-                ),
-                ActorRuntime::Npc,
-                cluster_bundle,
-                self.brain,
-                self.action_set,
-                crate::brain::ActorControl::default(),
-            ))
-            .id()
+        let mut entity = commands.spawn((
+            Name::new(self.entity_name),
+            EnemyActorBundle::new(
+                FeatureBaseBundle::new(&self.feature_id, &self.feature_name, self.feature_aabb),
+                identity,
+                disposition,
+                super::ActorFaction::Npc,
+                ActorPose::from_parts(self.feature_aabb.center, self.feature_aabb.half_size, facing),
+                self.combat_kit,
+                self.aggression,
+                health,
+                combat,
+                intent,
+                cooldowns,
+            ),
+            ActorRuntime::Npc,
+            cluster_bundle,
+            self.brain,
+            self.action_set,
+            crate::brain::ActorControl::default(),
+        ));
+        if let Some(size) = render_size {
+            entity.insert(crate::features::ActorRenderSize(size));
+        }
+        entity.id()
     }
 }
 

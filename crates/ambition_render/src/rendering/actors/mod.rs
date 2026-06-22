@@ -23,8 +23,8 @@ use ambition_gameplay_core::character_sprites::{
 use ambition_gameplay_core::combat::BoundFeatureKind;
 use ambition_gameplay_core::config::{world_to_bevy, WORLD_Z_PLAYER};
 use ambition_gameplay_core::features::{
-    BossClusterRef, BreakableFeature, ChestFeature, FeatureId, FeatureViewIndex, FeatureVisualKind,
-    Opened,
+    ActorRenderSize, BossClusterRef, BreakableFeature, ChestFeature, FeatureId, FeatureViewIndex,
+    FeatureVisualKind, Opened,
 };
 
 mod animation;
@@ -205,6 +205,10 @@ pub fn upgrade_enemy_sprites(
     feature_views: Res<FeatureViewIndex>,
     features: Query<(Entity, &FeatureVisual, Option<&BoundFeatureKind>)>,
     ecs_actors: Query<ambition_gameplay_core::features::ActorSpriteData>,
+    // Shared sprite-metadata render size — present on an enemy that was a
+    // body-metrics NPC before it turned hostile, so its sprite keeps the
+    // authored size instead of re-applying `collision_scale` to the body box.
+    render_sizes: Query<(&FeatureId, &ActorRenderSize)>,
     // Names we've already warned about resolving no sprite, so the warning fires
     // once per offending name instead of every frame the actor is unbound.
     mut warned_sprite_names: Local<std::collections::HashSet<String>>,
@@ -294,7 +298,24 @@ pub fn upgrade_enemy_sprites(
         if images.get(&character_asset.texture).is_none() {
             continue;
         }
-        let sprite = build_character_sprite(character_asset, collision);
+        // Honor a shared sprite-metadata render size (e.g. a hostile-flipped
+        // body-metrics NPC): render at the stored quad, NOT collision*scale,
+        // so the sprite doesn't balloon once collision already equals the body.
+        let render_size = ambition_gameplay_core::features::ecs_actor_render_size(
+            &visual.id,
+            &render_sizes,
+        )
+        .map(|r| BVec2::new(r.x, r.y));
+        let (sprite, anchor) = match render_size {
+            Some(render_size) => (
+                build_character_sprite_with_render_size(character_asset, render_size),
+                feet_anchor_for_render_size(&character_asset.spec, collision, render_size),
+            ),
+            None => (
+                build_character_sprite(character_asset, collision),
+                feet_anchor_for(&character_asset.spec, collision),
+            ),
+        };
         // The feet anchor plants the sprite's authored feet (`feet_anchor_y` from
         // sprite metadata) on the gravity-side edge of the collision box. It is a
         // 1-D anchor that rotates WITH the sprite, so for a surface-walker clung to
@@ -302,7 +323,7 @@ pub fn upgrade_enemy_sprites(
         // is oriented (see `update_enemy_actors`). No per-family special-casing.
         commands.entity(entity).insert((
             sprite,
-            feet_anchor_for(&character_asset.spec, collision),
+            anchor,
             CharacterAnimator::new(&character_asset.spec),
             BoundFeatureKind::new(view.kind, collision),
         ));
@@ -326,6 +347,7 @@ pub fn upgrade_npc_sprites(
     feature_views: Res<FeatureViewIndex>,
     features: Query<(Entity, &FeatureVisual, Option<&BoundFeatureKind>)>,
     ecs_actors: Query<ambition_gameplay_core::features::ActorSpriteData>,
+    render_sizes: Query<(&FeatureId, &ActorRenderSize)>,
 ) {
     let Some(assets) = assets else {
         return;
@@ -360,9 +382,9 @@ pub fn upgrade_npc_sprites(
         // render at the stored quad size, not `collision * collision_scale`
         // (which would double-scale). NPCs without body metrics fall through to
         // the legacy collision-driven render.
-        let render_size = ambition_gameplay_core::features::ecs_npc_render_size(
+        let render_size = ambition_gameplay_core::features::ecs_actor_render_size(
             &visual.id,
-            &ecs_actors,
+            &render_sizes,
         )
         .map(|r| BVec2::new(r.x, r.y));
         let (sprite, anchor) = match render_size {

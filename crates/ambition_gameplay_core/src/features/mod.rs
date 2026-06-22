@@ -126,7 +126,8 @@ pub(crate) use ecs::spawn_runtime_minion;
 
 pub use components::{
     ActorAggression, ActorAttackState, ActorCombatState, ActorCooldowns, ActorDisposition,
-    ActorFaction, ActorHealth, ActorIdentity, ActorIntent, ActorPose, ActorTarget, AggressionMode,
+    ActorFaction, ActorHealth, ActorIdentity, ActorIntent, ActorPose, ActorRenderSize, ActorTarget,
+    AggressionMode,
     AggressionTarget, BossDeathAnimation, BossPatternTimer, BossPhase, BossRewardChest,
     BreakableFeature, CenteredAabb, ChestBundle, ChestFeature, Collected, CombatKit,
     DamageableVolumes, EncounterMob, EncounterRewardChest, EnemyActorBundle, FallingChest,
@@ -148,7 +149,7 @@ pub use ecs::{
     ecs_boss_animation_frame_sample, ecs_boss_name, ecs_breakable_state, ecs_chest_opened,
     ecs_enemy_anim_state, ecs_enemy_name, ecs_enemy_sprite_override, ecs_hit_event_hits_actor,
     ecs_hit_event_hits_boss, ecs_hit_event_hits_breakable, ecs_npc_anim_state, ecs_npc_name,
-    ecs_npc_render_size, enforce_mount_rider_link, interact_ecs_actors_and_switches,
+    ecs_actor_render_size, enforce_mount_rider_link, interact_ecs_actors_and_switches,
     magnetize_pickups, open_ecs_chests,
     pirate_on_shark_rider_offset, rebuild_feature_ecs_world_overlay, rebuild_feature_view_index,
     refresh_actor_damageable_volumes, refresh_boss_damageable_volumes,

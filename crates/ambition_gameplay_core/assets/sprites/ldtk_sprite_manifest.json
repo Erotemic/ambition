@@ -4,8 +4,8 @@
       "tile": [
         0,
         0,
-        128,
-        128
+        256,
+        256
       ],
       "tileset": "sprite_player_robot"
     }
@@ -17,8 +17,8 @@
       "tags": [
         "sprite"
       ],
-      "tile_height": 128,
-      "tile_width": 128
+      "tile_height": 256,
+      "tile_width": 256
     }
   ]
 }

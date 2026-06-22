@@ -12,4 +12,4 @@
 # Bump this manually when intentionally adopting newer packages (e.g. a
 # security fix). Keep the date >= ~2 weeks behind today under normal
 # circumstances.
-exclude-newer = "2026-05-08"
+# exclude-newer = "2026-05-08"

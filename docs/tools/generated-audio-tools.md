@@ -23,11 +23,11 @@ The `cue_bundle` subcommand is the preferred one-cue handoff path: it runs the r
 Standalone report helpers are also useful while editing:
 
 ```bash
-uv run --project ~/code/ambition/tools/ambition_music_renderer python -m ambition_music_renderer tools arrangement_audit scores/active/<cue_id>.music.yaml --outdir=/tmp/<cue>_arrangement
-uv run --project ~/code/ambition/tools/ambition_music_renderer python -m ambition_music_renderer tools dissonance_audit scores/active/<cue_id>.music.yaml --outdir=/tmp/<cue>_dissonance --plots=/tmp/<cue>_dissonance/plots
-uv run --project ~/code/ambition/tools/ambition_music_renderer python -m ambition_music_renderer tools spectral_localize tools/ambition_music_renderer/generated/<cue_id> --window 0 -1
-uv run --project ~/code/ambition/tools/ambition_music_renderer python -m ambition_music_renderer tools reference_audio_audit path/to/reference.mp3 --outdir=/tmp/reference_audio_audit
-uv run --project ~/code/ambition/tools/ambition_music_renderer python -m ambition_music_renderer tools level_report --check
+uv run --project ~/code/ambition/tools/ambition_music_renderer python -m ambition_music_renderer audit arrangement scores/active/<cue_id>.music.yaml --outdir=/tmp/<cue>_arrangement
+uv run --project ~/code/ambition/tools/ambition_music_renderer python -m ambition_music_renderer audit dissonance scores/active/<cue_id>.music.yaml --outdir=/tmp/<cue>_dissonance --plots=/tmp/<cue>_dissonance/plots
+uv run --project ~/code/ambition/tools/ambition_music_renderer python -m ambition_music_renderer audit spectral_localize tools/ambition_music_renderer/generated/<cue_id> --window 0 -1
+uv run --project ~/code/ambition/tools/ambition_music_renderer python -m ambition_music_renderer audit reference_audio path/to/reference.mp3 --outdir=/tmp/reference_audio_audit
+uv run --project ~/code/ambition/tools/ambition_music_renderer python -m ambition_music_renderer audit levels --check
 ```
 
 See [`../recipes/generated-music-workflow.md`](../recipes/generated-music-workflow.md) for the current recipe.

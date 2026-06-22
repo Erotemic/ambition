@@ -25,12 +25,12 @@ uv run --project ~/code/ambition/tools/ambition_music_renderer python -m ambitio
 Auxiliary tools live under the package modal CLI:
 
 ```bash
-uv run --project ~/code/ambition/tools/ambition_music_renderer python -m ambition_music_renderer tools --help
-uv run --project ~/code/ambition/tools/ambition_music_renderer python -m ambition_music_renderer tools transition_audit --help     # two-file transition seam
-uv run --project ~/code/ambition/tools/ambition_music_renderer python -m ambition_music_renderer tools audit_cue_balance --help    # sections within one cue
-uv run --project ~/code/ambition/tools/ambition_music_renderer python -m ambition_music_renderer tools level_report --check         # inter-cue catalog levels
-uv run --project ~/code/ambition/tools/ambition_music_renderer python -m ambition_music_renderer tools arrangement_audit --help    # score-level arrangement preflight
-uv run --project ~/code/ambition/tools/ambition_music_renderer python -m ambition_music_renderer tools dissonance_audit --help     # score-level note/layer clash hotspots
+uv run --project ~/code/ambition/tools/ambition_music_renderer python -m ambition_music_renderer audit --help
+uv run --project ~/code/ambition/tools/ambition_music_renderer python -m ambition_music_renderer audit transition --help     # two-file transition seam
+uv run --project ~/code/ambition/tools/ambition_music_renderer python -m ambition_music_renderer audit cue_balance --help    # sections within one cue
+uv run --project ~/code/ambition/tools/ambition_music_renderer python -m ambition_music_renderer audit levels --check         # inter-cue catalog levels
+uv run --project ~/code/ambition/tools/ambition_music_renderer python -m ambition_music_renderer audit arrangement --help    # score-level arrangement preflight
+uv run --project ~/code/ambition/tools/ambition_music_renderer python -m ambition_music_renderer audit dissonance --help     # score-level note/layer clash hotspots
 ```
 
 For one-cue composition/debug handoff, prefer `cue_bundle` first. It wraps rendering, scratch-stem retention, level reports, spectral localization, optional spectrograms, and a shareable bundle manifest around the current renderer without changing runtime publish policy.
@@ -50,7 +50,7 @@ Three lower-level audio-analysis tools, three scopes:
   register clusters. Use it when a cue sounds like notes are clashing rather
   than when it has spectral noise.
 
-Use `python -m ambition_music_renderer tools reference_audio_audit <audio> --outdir=<dir>` for broad reference-track surface features. It is useful for loudness/brightness/density targets, but it does not separate stems or recover instrumentation.
+Use `python -m ambition_music_renderer audit reference_audio <audio> --outdir=<dir>` for broad reference-track surface features. It is useful for loudness/brightness/density targets, but it does not separate stems or recover instrumentation.
 
 Prefer the tool README and CLI help over old recipe fragments when command flags drift.
 
@@ -169,7 +169,7 @@ Consequences worth internalizing:
 ```bash
 python -m pytest tools/ambition_music_renderer/tests
 python scripts/check_agent_kb.py
-uv run --project ~/code/ambition/tools/ambition_music_renderer python -m ambition_music_renderer tools level_report --check   # fail on any clipping cue
+uv run --project ~/code/ambition/tools/ambition_music_renderer python -m ambition_music_renderer audit levels --check   # fail on any clipping cue
 ```
 
 `tools level_report --check` exits non-zero if any cue's true peak exceeds

@@ -25,8 +25,6 @@ cd "$repo_root"
 renderer_dir="$repo_root/tools/ambition_music_renderer"
 spec="$renderer_dir/scores/active/first_goblin_tune_v2.music.yaml"
 staging="$renderer_dir/generated/first_goblin_tune_v2"
-installer="$renderer_dir/install_first_goblin_tune_v2.py"
-auditor="$renderer_dir/audit_cue_balance.py"
 backend="${AMBITION_MUSIC_BACKEND:-pretty-midi}"
 
 select_python() {
@@ -118,7 +116,7 @@ if [ "$skip_render" -eq 0 ]; then
     fi
     (
         cd "$renderer_dir"
-        "$python_bin" -m ambition_music_renderer.render_isolated "${render_args[@]}"
+        "$python_bin" -m ambition_music_renderer.render.isolated "${render_args[@]}"
     )
 fi
 if [ ! -d "$staging/adaptive" ]; then
@@ -127,14 +125,14 @@ if [ ! -d "$staging/adaptive" ]; then
 fi
 
 echo "==> audit generated cue balance"
-"$python_bin" "$auditor" "$staging" || true
+"$python_bin" -m ambition_music_renderer audit cue_balance "$staging" || true
 
 echo "==> installing into crates/ambition_gameplay_core/assets/audio/music/generated/first_goblin_tune_v2"
 install_args=(--src "$staging" --clean)
 if [ "$with_stems" -eq 1 ]; then
     install_args+=(--with-stems)
 fi
-"$python_bin" "$installer" "${install_args[@]}"
+"$python_bin" -m ambition_music_renderer legacy install_first_goblin_tune_v2 "${install_args[@]}"
 
 echo "==> previews:"
 find "$staging/preview" -maxdepth 1 -type f -name '*.ogg' -print | sort

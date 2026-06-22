@@ -109,7 +109,7 @@ pub fn sync_ecs_npc_actors_with_save(
         npc,
     ) in &mut actors
     {
-        if !data.flag(&super::super::npcs::npc_flag_id(&npc.config)) {
+        if !data.flag(&super::super::npcs::npc_flag_id(&npc.config.id)) {
             let (i, d, h, c, it, cd) =
                 super::actors::npc_component_snapshot(&npc.config, &npc.status);
             *identity = i;

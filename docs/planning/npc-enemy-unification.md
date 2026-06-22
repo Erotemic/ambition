@@ -203,7 +203,8 @@ prep that compiles independently.
 - `ActorRenderSize` shared component (sprite render size survives disposition flip). ✅
 - This brief. ✅
 
-### Phase 1 — Extract NPC dialogue into a shared `ActorInteraction` component
+### Phase 1 — Extract NPC dialogue into a shared `ActorInteraction` component ✅ DONE (Opus 4.8)
+_Component added; dialogue/bark helpers decoupled from `NpcConfig` (take interactable+name+id+status pieces); interact + proximity-highlight gate off `ActorInteraction` presence + `ActorDisposition::Peaceful`; spawn (lib + cut_rope victory) inserts it. Build + 949 tests green._
 The NPC's only truly-unique DATA is its dialogue/interaction + patrol/talk radii.
 - Add `ActorInteraction { interactable: crate::interaction::Interactable, talk_radius: f32 }`
   in `combat/components/actors.rs` (re-export via `features::`).

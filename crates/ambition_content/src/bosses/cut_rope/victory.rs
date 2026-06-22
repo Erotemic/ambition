@@ -98,6 +98,13 @@ fn spawn_victory_npc_entity(commands: &mut Commands, pos: ae::Vec2) -> Entity {
     let combat_kit = ambition_gameplay_core::features::CombatKit::default();
     let cluster_bundle = npc.into_components();
     let facing = cluster_bundle.0.facing;
+    // Dialogue is a SHARED actor capability now — carry it on `ActorInteraction`
+    // so the interact / proximity systems (which key off the component, not an
+    // NPC type tag) still offer "Talk" on this runtime-spawned victory NPC.
+    let interaction = ambition_gameplay_core::features::ActorInteraction {
+        interactable: cluster_bundle.3.interactable.clone(),
+        talk_radius: cluster_bundle.3.talk_radius,
+    };
     let (identity, disposition, health, combat, intent, cooldowns) =
         ambition_gameplay_core::features::npc_component_snapshot(
             &cluster_bundle.3,
@@ -134,6 +141,7 @@ fn spawn_victory_npc_entity(commands: &mut Commands, pos: ae::Vec2) -> Entity {
             brain,
             ambition_gameplay_core::brain::ActionSet::peaceful(),
             ActorControl::default(),
+            interaction,
         ))
         .id()
 }

@@ -871,7 +871,9 @@ pub fn tick_npc_idle_barks(
             continue;
         }
         let rotation = *state.rotations.get(&config.id).unwrap_or(&0);
-        let Some(line) = super::super::npcs::npc_idle_bark_line(config, rotation) else {
+        let Some(line) =
+            super::super::npcs::npc_idle_bark_line(&config.interactable, &config.id, rotation)
+        else {
             continue;
         };
         let timer = state

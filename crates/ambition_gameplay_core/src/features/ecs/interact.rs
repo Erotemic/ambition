@@ -21,12 +21,16 @@ pub fn interact_ecs_actors_and_switches(
         ),
         With<crate::player::PlayerEntity>,
     >,
+    // Talkable actors carry the shared `ActorInteraction` payload (dialogue
+    // is an actor capability, not an NPC type). Dialogue is offered only to a
+    // PEACEFUL talkable actor — a provoked one keeps its `ActorInteraction`
+    // but its `ActorDisposition::Hostile` gates dialogue off.
     actors: Query<
         (
             &CenteredAabb,
-            &ActorRuntime,
-            Option<&super::npc_clusters::NpcConfig>,
-            Option<&super::npc_clusters::NpcStatus>,
+            &ActorDisposition,
+            &ActorIdentity,
+            &ActorInteraction,
         ),
         With<FeatureSimEntity>,
     >,
@@ -62,24 +66,26 @@ pub fn interact_ecs_actors_and_switches(
         }
         let player_aabb = player_kin.aabb();
         let mut consumed = false;
-        for (aabb, actor, npc_config, npc_status) in &actors {
-            if !matches!(actor, ActorRuntime::Npc) {
+        for (aabb, disposition, identity, interaction_payload) in &actors {
+            if disposition.is_hostile() {
                 continue;
             }
-            let (Some(config), Some(status)) = (npc_config, npc_status) else {
-                continue;
-            };
+            let interactable = &interaction_payload.interactable;
             if !aabb.aabb().strict_intersects(player_aabb) {
                 continue;
             }
             interaction.clear();
             anim.interact_anim_timer = INTERACT_ANIM_HOLD_SECS;
-            banner.show(super::super::npcs::npc_message(config, status), 2.6);
-            let request = super::super::npcs::npc_dialogue_request(config);
+            banner.show(
+                super::super::npcs::npc_message(interactable, &identity.name, false),
+                2.6,
+            );
+            let request =
+                super::super::npcs::npc_dialogue_request(interactable, &identity.name, &identity.id);
             dialogue.start(&request.dialogue_id, &request.npc_name);
             next_mode.set(crate::GameMode::Dialogue);
             quest_advance.write(QuestAdvanceRequested(
-                crate::quest::QuestAdvanceEvent::NpcTalked(config.id.clone()),
+                crate::quest::QuestAdvanceEvent::NpcTalked(identity.id.clone()),
             ));
             set_flag.write(SetFlagRequested {
                 id: "met_any_hub_npc".into(),

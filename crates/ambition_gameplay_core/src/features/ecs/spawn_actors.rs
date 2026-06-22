@@ -184,6 +184,13 @@ impl NpcActorSpawnPlan {
         // otherwise the migrated enemy loses it and the body-sized collision
         // gets `collision_scale` re-applied, ballooning the sprite.
         let render_size = self.npc.render_size;
+        // Dialogue is a SHARED actor capability (`ActorInteraction`), not the
+        // NPC cluster — captured before `into_components` consumes the seed so a
+        // talkable actor keeps it through a peaceful→hostile flip.
+        let interaction = super::ActorInteraction {
+            interactable: self.npc.config.interactable.clone(),
+            talk_radius: self.npc.config.talk_radius,
+        };
         let (identity, disposition, health, combat, intent, cooldowns) =
             super::actors::npc_component_snapshot(&self.npc.config, &self.npc.status);
         let cluster_bundle = self.npc.into_components();
@@ -208,6 +215,7 @@ impl NpcActorSpawnPlan {
             self.action_set,
             crate::brain::ActorControl::default(),
         ));
+        entity.insert(interaction);
         if let Some(size) = render_size {
             entity.insert(crate::features::ActorRenderSize(size));
         }

@@ -67,6 +67,22 @@ impl ActorDisposition {
 /// Absent ⇒ the actor uses the legacy `collision_scale` render path.
 #[derive(Component, Clone, Copy, Debug, PartialEq)]
 pub struct ActorRenderSize(pub ae::Vec2);
+
+/// Optional dialogue/interaction payload for a *talkable* actor.
+///
+/// Lifted off `NpcConfig` so "can be talked to" is a SHARED actor capability,
+/// not an NPC-type trait: a peaceful NPC today, a parley-able enemy or ally
+/// tomorrow, all carry the same component. Presence = "this actor can be talked
+/// to"; the interact / proximity-highlight / dialogue-bubble systems key off the
+/// component instead of an `ActorRuntime::Npc` type tag.
+///
+/// `talk_radius` is the world-pixel range at which a patrolling actor stops to
+/// face the player so the interact is reachable.
+#[derive(Component, Clone, Debug)]
+pub struct ActorInteraction {
+    pub interactable: crate::interaction::Interactable,
+    pub talk_radius: f32,
+}
 // `ActorFaction` moved to `crate::actor::pose` with `ActorPose`.
 pub use crate::actor::pose::ActorFaction;
 

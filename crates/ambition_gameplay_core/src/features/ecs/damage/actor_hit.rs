@@ -79,12 +79,17 @@ pub(crate) fn apply_actor_hit(
             });
             if npc.status.strikes >= NPC_HOSTILE_STRIKE_THRESHOLD {
                 writers.set_flag.write(SetFlagRequested {
-                    id: super::super::super::npcs::npc_flag_id(npc.config),
+                    id: super::super::super::npcs::npc_flag_id(&npc.config.id),
                     on: true,
                 });
                 writers.vfx.write(VfxMessage::SpeechBubble {
                     pos: bark_anchor,
-                    text: super::super::super::npcs::npc_hostile_bark_line(npc.config).to_string(),
+                    text: super::super::super::npcs::npc_hostile_bark_line(
+                        &npc.config.interactable,
+                        &npc.config.name,
+                        &npc.config.id,
+                    )
+                    .to_string(),
                 });
                 writers.vfx.write(VfxMessage::Burst {
                     pos,
@@ -97,8 +102,13 @@ pub(crate) fn apply_actor_hit(
             } else {
                 writers.vfx.write(VfxMessage::SpeechBubble {
                     pos: bark_anchor,
-                    text: super::super::super::npcs::npc_hit_bark_line(npc.config, npc.status)
-                        .to_string(),
+                    text: super::super::super::npcs::npc_hit_bark_line(
+                        &npc.config.interactable,
+                        &npc.config.name,
+                        &npc.config.id,
+                        npc.status.strikes,
+                    )
+                    .to_string(),
                 });
             }
             true

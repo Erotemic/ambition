@@ -18,7 +18,8 @@ use bevy::prelude::*;
 
 use super::variants::InteractVariant;
 use crate::features::{
-    ActorRuntime, CenteredAabb, ChestFeature, FeatureSimEntity, Opened, SwitchFeature,
+    ActorDisposition, ActorInteraction, CenteredAabb, ChestFeature, FeatureSimEntity, Opened,
+    SwitchFeature,
 };
 
 /// Resource: the nearest live interactable overlapping the primary
@@ -45,7 +46,10 @@ pub fn update_nearest_interactable(
             With<crate::player::PrimaryPlayer>,
         ),
     >,
-    actors: Query<(&CenteredAabb, &ActorRuntime), With<FeatureSimEntity>>,
+    actors: Query<
+        (&CenteredAabb, &ActorDisposition, &ActorInteraction),
+        With<FeatureSimEntity>,
+    >,
     chests: Query<(&CenteredAabb, Option<&Opened>), (With<FeatureSimEntity>, With<ChestFeature>)>,
     switches: Query<&CenteredAabb, (With<FeatureSimEntity>, With<SwitchFeature>)>,
     mut out: ResMut<NearestInteractable>,
@@ -58,13 +62,13 @@ pub fn update_nearest_interactable(
     };
     let player_aabb = kin.aabb();
 
-    // NPCs first — `Talk` is the most common contextual swap and the
-    // one players need feedback on while approaching dialog. Peaceful
-    // hostile-flipped NPCs no longer carry a `Peaceful` actor variant,
-    // so they naturally drop out of this query.
+    // Talkable actors first — `Talk` is the most common contextual swap and the
+    // one players need feedback on while approaching dialog. A talkable actor
+    // carries `ActorInteraction`; a provoked one keeps it but flips to
+    // `Hostile`, so the disposition gate drops it out of the prompt.
     let mut chosen = InteractVariant::None;
-    for (aabb, actor) in &actors {
-        if !matches!(actor, ActorRuntime::Npc) {
+    for (aabb, disposition, _interaction) in &actors {
+        if disposition.is_hostile() {
             continue;
         }
         if aabb.aabb().strict_intersects(player_aabb) {

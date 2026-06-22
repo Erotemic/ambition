@@ -297,30 +297,6 @@ impl<'a> NpcMut<'a> {
         }
     }
 
-    pub fn flag_id(&self) -> String {
-        npc_flag_id(self.config)
-    }
-
-    pub fn bark_anchor(&self) -> ae::Vec2 {
-        self.kin.pos + ae::Vec2::new(0.0, -self.kin.size.y * 0.72 - 16.0)
-    }
-
-    pub fn hit_bark(&self) -> &'static str {
-        npc_hit_bark_line(self.config, self.status)
-    }
-
-    pub fn hostile_bark(&self) -> &'static str {
-        npc_hostile_bark_line(self.config)
-    }
-
-    pub fn message(&self) -> String {
-        npc_message(self.config, self.status)
-    }
-
-    pub fn dialogue_request(&self) -> NpcDialogueRequest {
-        npc_dialogue_request(self.config)
-    }
-
     pub fn reset_to_spawn(&mut self) {
         self.kin.pos = self.config.spawn;
         self.kin.vel = ae::Vec2::ZERO;
@@ -536,41 +512,47 @@ fn npc_hostile_bark(key: &str, name: &str) -> &'static str {
     }
 }
 
-// --- Cluster-based free helpers ---------------------------------------
+// --- Interaction-based free helpers -----------------------------------
 //
-// These operate on the NPC cluster components directly (no `NpcMut`
-// view), so consumers that only hold `&NpcConfig` / `&NpcStatus` (the
-// damage system reads position from `CenteredAabb` instead of the
-// kinematics it borrows mutably for enemies) can still derive flags and
-// bark lines. The `NpcMut` methods above delegate to these.
+// These derive flags + bark/dialogue lines from the actor's *interaction*
+// payload (`Interactable`) plus its identity (`name`/`id`) and a couple of
+// status scalars (`strikes`/`hostile`), explicitly threaded — never from the
+// `NpcConfig` cluster. That decouples dialogue from the NPC-only cluster (the
+// `ActorInteraction` seam): any talkable actor can drive them, and they survive
+// the NPC→one-actor cluster merge unchanged.
 
-use super::ecs::npc_clusters::{NpcConfig, NpcStatus};
+use crate::interaction::{Interactable, InteractionKind};
 
-pub(crate) fn npc_flag_id(config: &NpcConfig) -> String {
-    format!("npc_{}_hostile", config.id)
+pub(crate) fn npc_flag_id(id: &str) -> String {
+    format!("npc_{id}_hostile")
 }
 
-pub(crate) fn npc_dialogue_key(config: &NpcConfig) -> String {
-    match &config.interactable.kind {
-        crate::interaction::InteractionKind::Npc {
+pub(crate) fn npc_dialogue_key(interactable: &Interactable, id: &str) -> String {
+    match &interactable.kind {
+        InteractionKind::Npc {
             dialogue_id: Some(dialogue_id),
             ..
         } => dialogue_id.to_ascii_lowercase(),
-        _ => config.id.to_ascii_lowercase(),
+        _ => id.to_ascii_lowercase(),
     }
 }
 
-pub(crate) fn npc_hit_bark_line(config: &NpcConfig, status: &NpcStatus) -> &'static str {
-    let key = npc_dialogue_key(config);
-    let name = config.name.to_ascii_lowercase();
-    let strike_index = status.strikes.saturating_sub(1).max(0) as usize;
+pub(crate) fn npc_hit_bark_line(
+    interactable: &Interactable,
+    name: &str,
+    id: &str,
+    strikes: i32,
+) -> &'static str {
+    let key = npc_dialogue_key(interactable, id);
+    let name = name.to_ascii_lowercase();
+    let strike_index = strikes.saturating_sub(1).max(0) as usize;
     let lines = npc_hit_barks(&key, &name);
     lines[strike_index.min(lines.len().saturating_sub(1))]
 }
 
-pub(crate) fn npc_hostile_bark_line(config: &NpcConfig) -> &'static str {
-    let key = npc_dialogue_key(config);
-    let name = config.name.to_ascii_lowercase();
+pub(crate) fn npc_hostile_bark_line(interactable: &Interactable, name: &str, id: &str) -> &'static str {
+    let key = npc_dialogue_key(interactable, id);
+    let name = name.to_ascii_lowercase();
     npc_hostile_bark(&key, &name)
 }
 
@@ -578,8 +560,12 @@ pub(crate) fn npc_hostile_bark_line(config: &NpcConfig) -> &'static str {
 /// interact dialog). Returns `None` for NPCs with no ambient pool, so the
 /// idle-bark system skips them. Rotation cycles through the pool. The
 /// stochastic parrot riffs on the LLM "stochastic parrot" hypothesis.
-pub(crate) fn npc_idle_bark_line(config: &NpcConfig, rotation: u32) -> Option<&'static str> {
-    let pool: &[&str] = match npc_dialogue_key(config).as_str() {
+pub(crate) fn npc_idle_bark_line(
+    interactable: &Interactable,
+    id: &str,
+    rotation: u32,
+) -> Option<&'static str> {
+    let pool: &[&str] = match npc_dialogue_key(interactable, id).as_str() {
         "parrot_cove" => &[
             "Awk! Polly wants a corpus.",
             "Squawk! Next token... 'cracker'. High confidence.",
@@ -600,30 +586,34 @@ pub(crate) fn npc_bark_anchor_from_aabb(aabb: ae::Aabb) -> ae::Vec2 {
     aabb.center() + ae::Vec2::new(0.0, -size.y * 0.72 - 16.0)
 }
 
-pub(crate) fn npc_message(config: &NpcConfig, status: &NpcStatus) -> String {
-    if status.hostile {
-        return format!("{} attacks!", config.name);
+pub(crate) fn npc_message(interactable: &Interactable, name: &str, hostile: bool) -> String {
+    if hostile {
+        return format!("{name} attacks!");
     }
-    match &config.interactable.kind {
-        crate::interaction::InteractionKind::Npc {
+    match &interactable.kind {
+        InteractionKind::Npc {
             dialogue_id: Some(dialogue_id),
             ..
-        } => format!("{} opens dialogue {}", config.name, dialogue_id),
-        _ => format!("{} opens fallback dialogue", config.name),
+        } => format!("{name} opens dialogue {dialogue_id}"),
+        _ => format!("{name} opens fallback dialogue"),
     }
 }
 
-pub(crate) fn npc_dialogue_request(config: &NpcConfig) -> NpcDialogueRequest {
-    let dialogue_id = match &config.interactable.kind {
-        crate::interaction::InteractionKind::Npc {
+pub(crate) fn npc_dialogue_request(
+    interactable: &Interactable,
+    name: &str,
+    id: &str,
+) -> NpcDialogueRequest {
+    let dialogue_id = match &interactable.kind {
+        InteractionKind::Npc {
             dialogue_id: Some(dialogue_id),
             ..
         } => dialogue_id.clone(),
         _ => "generic_npc".to_string(),
     };
     NpcDialogueRequest {
-        npc_id: config.id.clone(),
-        npc_name: config.name.clone(),
+        npc_id: id.to_string(),
+        npc_name: name.to_string(),
         dialogue_id,
     }
 }

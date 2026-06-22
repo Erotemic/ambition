@@ -299,11 +299,20 @@ fn interact_buffered_starts_npc_dialogue() {
         ),
         &[],
     );
+    // Dialogue now keys off the shared `ActorInteraction` payload + a peaceful
+    // `ActorDisposition`, not an `ActorRuntime::Npc` type tag.
+    let interaction = crate::features::ActorInteraction {
+        interactable: npc.config.interactable.clone(),
+        talk_radius: npc.config.talk_radius,
+    };
     app.world_mut().spawn((
         FeatureSimEntity,
         CenteredAabb::from_center_size(center, ae::Vec2::new(32.0, 48.0)),
         ActorRuntime::Npc,
         npc.into_components(),
+        interaction,
+        crate::features::ActorIdentity::new("guide", "Guide"),
+        crate::features::ActorDisposition::Peaceful,
     ));
 
     // No switches in this test — the switch query will be empty and the

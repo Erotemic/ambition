@@ -22,6 +22,13 @@ impl Plugin for ProgressionSchedulePlugin {
             Update,
             (
                 ambition_gameplay_core::boss_encounter::update_boss_encounters,
+                // Wrap each woken boss in a first-class (optional) encounter
+                // entity, then derive its progress from member state. Run after
+                // `update_boss_encounters` so they observe this frame's woken
+                // phase + the entity-local `BossStatus.encounter` mirror (R2 —
+                // the HUD reads this instead of the global registry).
+                ambition_gameplay_core::boss_encounter::sync_boss_encounter_entities,
+                ambition_gameplay_core::boss_encounter::update_encounter_progress,
                 // Feel feedback (shake + cry SFX) on dramatic boss phase changes;
                 // diffs the registry phase, so it just needs to run after the
                 // boss update advances it.

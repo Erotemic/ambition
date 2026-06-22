@@ -280,7 +280,7 @@ edits per stage, build once. `cargo`/test invocations use `-p ambition_app` (e.g
         its `BossPhaseEvent`s to music/banner/VFX. Fixed the stale "not a registered encounter"
         comments in `tests/boss_contact_iframes.rs`. Green: 8 mechanism + 2 system + 67 boss_encounter
         lib tests + the 3 app boss tests (canary + both i-frame traces).
-- [ ] **R2 — Promote the encounter to a first-class OPTIONAL entity; migrate READERS.**
+- [x] **R2 — Promote the encounter to a first-class OPTIONAL entity; migrate READERS. LANDED.**
       Introduce an `Encounter` entity with an `EncounterDef`: member entity refs + a **progress model
       DERIVED from member state** (single boss = its HP/phase; wave = adds remaining; etc.) + music +
       lock-walls config + win/lose condition + optional `EncounterScript` (see shape above) + optional
@@ -291,6 +291,26 @@ edits per stage, build once. `cargo`/test invocations use `-p ambition_app` (e.g
       parallel still (deleted in R3) so this stage is reader-only and stays green.
       Ordering gotcha: a reader switched to the entity copy must run AFTER the mirror or see a
       one-frame-stale phase — order it explicitly.
+      - **What landed:** new `boss_encounter/encounter_entity.rs` — `EncounterDef { placement_id,
+        members, hud, win: EncounterWin::AllMembersDead }` + `EncounterProgress { members:
+        Vec<MemberProgress{name,phase,hp,max_hp}> }` (a first-class entity, optional by construction).
+        `sync_boss_encounter_entities` wraps each WOKEN boss in a single-boss HUD-bound encounter (R6
+        adds the spawn-seam opt-out for an encounter-LESS boss); `update_encounter_progress` derives
+        progress from member `BossStatus.health` + the entity-local `BossPhaseState.phase` copy and
+        retires an encounter whose members all left the world. Both scheduled right after
+        `update_boss_encounters` in the Progression chain. **Readers migrated:** HUD `boss_line` now
+        reads `EncounterProgress` (one line per HUD-bound member) instead of `registry.active_phase()`;
+        `sync_boss_encounter_phase` reads `BossStatus.encounter.phase` (entity copy) instead of the
+        registry — both old/new sources are written by `update_boss_encounters`, so no new staleness
+        (R3 must reorder this after `tick_boss_phases` once that becomes the writer). The global map
+        stays authoritative. `BossEncounterRegistry::active_phase()` is now unused (deleted with the
+        map in R3). Green: 3 encounter unit tests + 1 app integration test
+        (`woken_boss_is_wrapped_by_an_encounter_entity_with_live_progress`) + 954 gameplay_core lib
+        tests + 4 app boss tests.
+      - **Scoping note:** music + lock-walls for bosses are NOT registry/`active_phase`-coupled today
+        (boss music flows through `BossEncounterMusicRequest` events; boss lock-walls don't read
+        `active_phase`). They are an *authority* concern, so they fold into R3 alongside the writer
+        flip rather than being a separate reader migration here.
 - [ ] **R3 — Flip WRITERS + delete the global live map (the big-bang; do in ONE commit).**
       Player damage (`apply_boss_hit`) mutates the entity HP/phase directly (drop string routing).
       Cut-rope environmental kill becomes an `EncounterScript` `ForceKill(member)` effect. The

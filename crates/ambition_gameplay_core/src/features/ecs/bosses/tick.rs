@@ -11,19 +11,18 @@ use crate::engine_core::AabbExt;
 use crate::features::{boss_attack_damage, boss_special_for_profile, BossVolumeContext};
 use bevy::prelude::MessageWriter;
 
-/// Sync each boss's `encounter_phase` mirror from `BossEncounterRegistry`.
-/// Runs before [`tick_boss_brains_system`] so the brain sees this
-/// frame's phase.
+/// Sync each boss's `encounter_phase` mirror from the entity-local
+/// [`BossPhaseState`] copy (`BossStatus.encounter`) — R2 of the
+/// boss-entity-local refactor migrated this READER off the global
+/// `BossEncounterRegistry`. The copy is itself mirrored from the registry by
+/// `update_boss_encounters`; both old (registry) and new (entity copy) sources
+/// are written by that one system, so switching the source introduces no new
+/// staleness. R3 deletes the mirror + registry and `tick_boss_phases` becomes
+/// the sole writer of `BossStatus.encounter` — at which point this reader must
+/// be ordered AFTER `tick_boss_phases` (see the refactor doc's ordering gotcha).
 ///
-/// **Encounter id resolution**: uses `boss.behavior.id` (canonical
-/// id resolved at spawn from the brain's `PhaseScript:` payload),
-/// not `encounter_id_from_name(boss.name)`. The two diverge when an
-/// LDtk BossSpawn carries a flavor name like "System Boss" plus a
-/// `PhaseScript:clockwork_warden` brain — `boss.name` ≠
-/// `behavior.id`, and using the name would miss the registry
-/// entry, leaving the boss permanently Dormant (no attacks).
+/// Runs before [`tick_boss_brains_system`] so the brain sees this frame's phase.
 pub fn sync_boss_encounter_phase(
-    encounter_registry: Res<crate::boss_encounter::BossEncounterRegistry>,
     mut bosses: Query<super::super::boss_clusters::BossClusterQueryData, With<FeatureSimEntity>>,
     mut last_logged: bevy::ecs::system::Local<
         std::collections::HashMap<String, crate::boss_encounter::BossEncounterPhase>,
@@ -32,16 +31,15 @@ pub fn sync_boss_encounter_phase(
     for mut feature in &mut bosses {
         let boss_id = feature.config.id.clone();
         let behavior_id = feature.config.behavior.id.clone();
-        // Live encounter state is keyed per-entity by the boss runtime id
-        // (`config.id`), so two of the same archetype sync independent phases.
-        let lookup = encounter_registry.get(&boss_id);
-        let new_phase = lookup.map(|s| s.phase);
+        // Phase comes from the entity-local copy, keyed per-entity by
+        // construction, so two of the same archetype sync independent phases.
+        let new_phase = feature.status.encounter.as_ref().map(|p| p.phase);
         // Log phase transitions per boss so we can see in the logs
         // when (or if) Dormant → Intro → Phase1 actually fires.
         let prev = last_logged.get(&boss_id).copied();
         if new_phase != prev {
-            match (lookup, new_phase) {
-                (Some(_), Some(phase)) => {
+            match new_phase {
+                Some(phase) => {
                     bevy::log::info!(
                         target: "ambition::boss_encounter",
                         "sync_phase: boss={} (behavior.id={}) phase {:?} → {:?}",
@@ -52,17 +50,16 @@ pub fn sync_boss_encounter_phase(
                     );
                     last_logged.insert(boss_id.clone(), phase);
                 }
-                (None, _) => {
+                None => {
                     bevy::log::warn!(
                         target: "ambition::boss_encounter",
-                        "sync_phase: boss={} behavior.id={} NOT IN encounter_registry (boss.encounter_phase stays {:?})",
+                        "sync_phase: boss={} behavior.id={} has no entity-local encounter state (boss.encounter_phase stays {:?})",
                         boss_id,
                         behavior_id,
                         feature.status.encounter_phase,
                     );
                     last_logged.insert(boss_id.clone(), feature.status.encounter_phase);
                 }
-                _ => {}
             }
         }
         if let Some(phase) = new_phase {

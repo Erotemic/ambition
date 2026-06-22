@@ -25,7 +25,9 @@
 
 use ambition_app::{AgentAction, SandboxSim, TimestepMode};
 use ambition_gameplay_core::actor::BossBrain;
-use ambition_gameplay_core::boss_encounter::{BossEncounterPhase, BossEncounterRegistry};
+use ambition_gameplay_core::boss_encounter::{
+    BossEncounterPhase, BossEncounterRegistry, EncounterDef, EncounterProgress,
+};
 use ambition_gameplay_core::combat::boss_clusters::{BossConfig, BossStatus};
 use ambition_gameplay_core::combat::{HitEvent, HitSource};
 use ambition_gameplay_core::engine_core::{self as ae, AabbExt};
@@ -570,5 +572,53 @@ fn two_same_archetype_bosses_have_independent_encounter_state() {
     assert_eq!(
         b_hp, b_max,
         "boss B should be at full HP — damage to A leaked into B (b={b_hp}/{b_max})"
+    );
+}
+
+/// Boss-encounter refactor R2: the encounter is a first-class OPTIONAL entity.
+///
+/// A boss woken in the room is wrapped by a single-boss `EncounterDef` entity,
+/// and its `EncounterProgress` is derived from the boss's entity-local state
+/// (HP + the `BossPhaseState` phase copy) — NOT the global registry. The HUD is
+/// a view bound to this progress. See `docs/planning/boss-entity-local-refactor.md`.
+#[test]
+fn woken_boss_is_wrapped_by_an_encounter_entity_with_live_progress() {
+    let mut sim = SandboxSim::new_with_timestep(TimestepMode::fixed_60hz())
+        .expect("sandbox sim builds");
+
+    let start = read_player(sim.world_mut()).pos;
+    sim.spawn_boss_at(
+        "boss_with_encounter",
+        "mockingbird",
+        (start.x, start.y),
+        (30.0, 30.0),
+        BossBrain::PhaseScript {
+            script_id: "mockingbird".to_string(),
+        },
+    );
+    // A few frames: update_boss_encounters wakes the boss (Dormant→Intro),
+    // sync_boss_encounter_entities wraps it, update_encounter_progress derives.
+    for _ in 0..6 {
+        sim.step(AgentAction::default());
+    }
+
+    let world = sim.world_mut();
+    let mut q = world.query::<(&EncounterDef, &EncounterProgress)>();
+    let (def, progress) = q
+        .iter(world)
+        .find(|(def, _)| def.placement_id == "boss_with_encounter")
+        .expect("a woken boss must be wrapped by an encounter entity");
+    assert!(def.hud, "the auto-created encounter binds the HUD");
+    assert_eq!(def.members.len(), 1, "single-boss encounter has one member");
+    let member = progress
+        .members
+        .first()
+        .expect("progress derived from the boss member");
+    assert_eq!(member.name, "mockingbird");
+    assert!(member.max_hp > 0);
+    assert_ne!(
+        member.phase,
+        BossEncounterPhase::Dormant,
+        "a woken boss's encounter progress reports a live (non-Dormant) phase"
     );
 }

@@ -76,11 +76,16 @@ pub(super) fn update_hud(
     progression: ProgressionResources,
     windows: Query<&Window, With<PrimaryWindow>>,
     entities: Res<SceneEntities>,
+    // R2: the boss HUD is a view bound to ENCOUNTER ENTITY progress, not the
+    // global `BossEncounterRegistry`. A boss with no encounter ⇒ no HUD line.
+    boss_encounters: Query<(
+        &ambition_gameplay_core::boss_encounter::EncounterDef,
+        &ambition_gameplay_core::boss_encounter::EncounterProgress,
+    )>,
     mut query: Query<&mut Text, With<HudText>>,
 ) {
     let _quest_registry = &progression.quests;
     let cutscene = &progression.cutscene;
-    let boss_registry = &progression.bosses;
     let encounter_registry = &progression.encounters;
     let map_state = &progression.map;
     let Ok(mut text) = query.get_mut(entities.hud) else {
@@ -174,26 +179,38 @@ pub(super) fn update_hud(
     } else {
         String::new()
     };
-    let boss_line = if let Some((id, phase)) = boss_registry.active_phase() {
-        if let Some(state) = boss_registry.get(id) {
-            // Health bar: 16-tick string that shrinks as boss HP drops
-            // so the player gets a glanceable progress signal even
-            // before a real HUD lands.
-            let frac = state.hp_fraction();
-            let filled = (frac * 16.0).round().clamp(0.0, 16.0) as usize;
-            let empty = 16usize.saturating_sub(filled);
-            let bar_filled = "=".repeat(filled);
-            let bar_empty = "-".repeat(empty);
-            let phase = phase.label();
-            let hp = state.hp;
-            let max_hp = state.spec.max_hp;
-            let pct = frac * 100.0;
-            format!("\nBOSS [{id}] {phase} hp {hp}/{max_hp} [{bar_filled}{bar_empty}] {pct:.0}%")
-        } else {
-            String::new()
+    // Boss HUD: one line per HUD-bound encounter member, read from the
+    // member-derived `EncounterProgress` (R2). No encounter → no line.
+    let boss_line = {
+        let mut lines = Vec::new();
+        for (def, progress) in &boss_encounters {
+            if !def.hud {
+                continue;
+            }
+            for member in &progress.members {
+                // Health bar: 16-tick string that shrinks as boss HP drops
+                // so the player gets a glanceable progress signal even
+                // before a real HUD lands.
+                let frac = member.hp_fraction();
+                let filled = (frac * 16.0).round().clamp(0.0, 16.0) as usize;
+                let empty = 16usize.saturating_sub(filled);
+                let bar_filled = "=".repeat(filled);
+                let bar_empty = "-".repeat(empty);
+                let id = &def.placement_id;
+                let phase = member.phase.label();
+                let hp = member.hp;
+                let max_hp = member.max_hp;
+                let pct = frac * 100.0;
+                lines.push(format!(
+                    "BOSS [{id}] {phase} hp {hp}/{max_hp} [{bar_filled}{bar_empty}] {pct:.0}%"
+                ));
+            }
         }
-    } else {
-        String::new()
+        if lines.is_empty() {
+            String::new()
+        } else {
+            format!("\n{}", lines.join("\n"))
+        }
     };
     let encounter_line = {
         let mut bits = Vec::new();

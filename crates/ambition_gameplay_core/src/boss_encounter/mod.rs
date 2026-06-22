@@ -24,6 +24,7 @@
 pub mod attack_geometry;
 pub mod behavior;
 mod damage;
+mod encounter_entity;
 mod events;
 mod ids;
 mod phase_runtime;
@@ -51,6 +52,10 @@ pub use ambition_characters::boss_encounter::{
     BossPhaseState, PhaseTrigger, PhaseTriggerCondition,
 };
 pub use behavior::{install_boss_profiles, install_boss_special_anim_keys, BossProfileRegistry};
+pub use encounter_entity::{
+    sync_boss_encounter_entities, update_encounter_progress, EncounterDef, EncounterProgress,
+    EncounterWin, MemberProgress,
+};
 pub use phase_runtime::tick_boss_phases;
 pub use profile::{default_boss_profiles, BossProfile, BossRewardProfile};
 pub use registry::BossEncounterRegistry;

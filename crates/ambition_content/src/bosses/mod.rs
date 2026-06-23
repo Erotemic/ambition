@@ -23,13 +23,12 @@ pub mod yarn;
 
 pub use banter::{install_boss_banter, tick_boss_idle_barks};
 pub use cut_rope::{
-    emit_cut_rope_room_replay_after_dialogue_closes, is_cut_rope_boss,
+    detect_cut_rope_rope_cut, emit_cut_rope_room_replay_after_dialogue_closes, is_cut_rope_boss,
     reset_cut_rope_boss_arena_on_room_reset, reset_cut_rope_boss_attempt, setup_cut_rope_encounter,
-    spawn_cut_rope_victory_npc, steer_cut_rope_boss_under_anvil,
-    sync_cut_rope_boss_arena_prop_visuals, tick_cut_rope_boss_arena, CutRopeBossArenaState,
-    CutRopeHeavyObjectCycle, CutRopeRoomReplayRequested, PendingCutRopeRoomReplay,
-    SmirkingBehemothVictoryNpc, CUT_ROPE_BOSS_ID, CUT_ROPE_VICTORY_NPC_DIALOGUE_ID,
-    CUT_ROPE_VICTORY_NPC_ID,
+    spawn_cut_rope_victory_npc, sync_cut_rope_boss_arena_prop_visuals, tick_cut_rope_flavor,
+    CutRopeBossArenaState, CutRopeHeavyObjectCycle, CutRopeRoomReplayRequested,
+    PendingCutRopeRoomReplay, SmirkingBehemothVictoryNpc, CUT_ROPE_BOSS_ID,
+    CUT_ROPE_VICTORY_NPC_DIALOGUE_ID, CUT_ROPE_VICTORY_NPC_ID,
 };
 pub use gnu_ton::gate_gnu_ton_arena_ladder;
 
@@ -156,13 +155,15 @@ impl Plugin for AmbitionBossContentPlugin {
             specials::EchoFanState,
         >();
 
-        // Cut-rope boss steering: tracks the hanging anvil during the
-        // encounter. Runs in the machinery-defined `BossSteerSlot`
-        // (between `tick_boss_brains_system` and `update_ecs_bosses`
-        // inside the WorldPrep boss chain).
+        // Generic "lured movement" steering: any boss carrying a `CommandedMove`
+        // (e.g. the cut-rope behemoth lured under the anvil by the encounter
+        // script's `CommandMoveTo`) is steered toward its target, overriding the
+        // brain. Runs in the machinery-defined `BossSteerSlot` (between
+        // `tick_boss_brains_system` and `update_ecs_bosses` in the WorldPrep boss
+        // chain) — exactly where the old cut-rope-specific steering ran.
         app.add_systems(
             Update,
-            cut_rope::steer_cut_rope_boss_under_anvil
+            ambition_gameplay_core::boss_encounter::tick_commanded_moves
                 .in_set(ambition_gameplay_core::schedule::BossSteerSlot),
         );
 

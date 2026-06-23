@@ -1,72 +1,74 @@
-//! Cut-rope boss arena runtime: the heavy-object (anvil/piano) drop cycle
-//! state, its per-tick simulation, prop visuals, and under-anvil steering.
+//! Cut-rope boss arena: the cut-rope-SPECIFIC bits — rope-cut detection (the one
+//! bespoke trigger), the heavy-object (anvil/piano) prop visuals + cycle, and the
+//! death flavor (sparks / explosion / fireworks).
 //!
-//! Split out of the former 793-line `cut_rope.rs` (2026-06-15).
+//! The actual FIGHT is the generic encounter machinery (R5): cutting the rope
+//! fires `Gate("rope_cut")`, the cut-rope `EncounterScript` lures the behemoth
+//! (`CommandMoveTo` → generic `CommandedMove`) + drops the anvil (`DropHazard` →
+//! generic `FallingHazard`), the hazard fires `Gate("cut_rope_impact")` on
+//! contact, and the script `ForceKill`s the behemoth. This file no longer
+//! contains any anvil physics or boss steering — those are reusable mechanics.
+//!
+//! Split out of the former 793-line `cut_rope.rs` (2026-06-15); the bespoke
+//! physics was lifted into the generic encounter mechanic (2026-06-23).
 
 use super::*;
 
+use ambition_gameplay_core::boss_encounter::{EncounterGate, FallingHazard};
+
+/// Cut-rope VISUAL/FLAVOR state. The anvil's PHYSICS lives on the generic
+/// `FallingHazard` entity now; `anvil_center` / `awaiting_alignment` are mirrored
+/// from it each frame so the existing prop-visual + spark code is unchanged.
 #[derive(Resource, Default)]
 pub struct CutRopeBossArenaState {
     active_room: String,
     rope_cut: bool,
+    /// Mirror of "the hazard is still waiting for the boss to align" (drives the
+    /// waiting rope sparks).
     awaiting_alignment: bool,
+    /// Mirror of the falling hazard's center (drives the anvil prop visual).
     anvil_center: Option<ae::Vec2>,
-    anvil_velocity_y: f32,
-    kill_sent: bool,
     anvil_exploded: bool,
     rope_fx_timer: f32,
     rope_fx_pulse: u32,
     death_fireworks_sent: bool,
 }
 
-/// Drive the Smirking Behemoth's environmental win condition.
-pub fn tick_cut_rope_boss_arena(
-    world_time: Res<ambition_gameplay_core::WorldTime>,
+/// Detect the player slashing the authored rope prop → fire `Gate("rope_cut")`
+/// (the cut-rope `EncounterScript` turns that into the lure + anvil drop). The
+/// rope-cut is the ONLY cut-rope-specific trigger; everything after it is the
+/// generic encounter script + falling-hazard mechanic. Also owns the cut-rope
+/// state reset on room enter/exit + room-feature reset.
+pub fn detect_cut_rope_rope_cut(
     room_set: Res<RoomSet>,
     mut state: ResMut<CutRopeBossArenaState>,
-    heavy_object: Res<CutRopeHeavyObjectCycle>,
     mut hit_events: MessageReader<HitEvent>,
     mut reset_events: MessageReader<ResetRoomFeaturesEvent>,
-    mut bosses: Query<(&CenteredAabb, BossClusterQueryData), With<FeatureSimEntity>>,
-    mut banner: ResMut<GameplayBanner>,
     mut sfx: MessageWriter<SfxMessage>,
     mut vfx: MessageWriter<VfxMessage>,
-    mut explosions: MessageWriter<ExplosionRequest>,
-    mut fireworks: MessageWriter<FireworksRequest>,
-    mut debris: MessageWriter<DebrisBurstMessage>,
-    // R5: on impact the hazard fires the gate the cut-rope EncounterScript waits
-    // on (it does the ForceKill) — the kill is data-driven, not inline here.
-    mut gate_writer: MessageWriter<ambition_gameplay_core::boss_encounter::EncounterGate>,
+    mut gate_writer: MessageWriter<EncounterGate>,
 ) {
     let room = room_set.active_spec();
     if room.id != CUT_ROPE_ROOM_ID {
         if state.active_room != room.id {
-            reset_cut_rope_arena_state_for_room(&mut *state, &room.id);
+            reset_cut_rope_arena_state_for_room(&mut state, &room.id);
         }
-        // Advance the readers so old slash/reset messages do not get interpreted if
-        // the player warps into the cut-rope room on the next frame.
+        // Drain readers so stale slash/reset messages don't fire on room entry.
         for _ in hit_events.read() {}
         for _ in reset_events.read() {}
         return;
     }
     if state.active_room != room.id {
-        reset_cut_rope_arena_state_for_room(&mut *state, &room.id);
+        reset_cut_rope_arena_state_for_room(&mut state, &room.id);
     }
-
-    let reset_requested = reset_events.read().next().is_some();
-    if reset_requested {
-        reset_cut_rope_arena_state_for_room(&mut *state, &room.id);
+    if reset_events.read().next().is_some() {
+        reset_cut_rope_arena_state_for_room(&mut state, &room.id);
     }
 
     let Some(rope) = authored_prop(room_set.active_props(), ROPE_KIND) else {
         for _ in hit_events.read() {}
         return;
     };
-    let Some(anvil) = authored_prop(room_set.active_props(), ANVIL_KIND) else {
-        for _ in hit_events.read() {}
-        return;
-    };
-
     let rope_aabb = prop_aabb(rope);
     for event in hit_events.read() {
         if state.rope_cut {
@@ -80,8 +82,6 @@ pub fn tick_cut_rope_boss_arena(
         }
         state.rope_cut = true;
         state.awaiting_alignment = true;
-        state.anvil_center = Some(anvil.pos);
-        state.anvil_velocity_y = 0.0;
         state.rope_fx_timer = 0.0;
         state.rope_fx_pulse = 0;
         vfx.write(VfxMessage::Impact {
@@ -95,79 +95,74 @@ pub fn tick_cut_rope_boss_arena(
             kind: ParticleKind::Shard,
         });
         sfx.write(SfxMessage::Slash { pos: rope.pos });
+        // Hand off to the generic encounter script (lure + drop the anvil).
+        gate_writer.write(EncounterGate::new("rope_cut"));
     }
+}
 
-    if state.kill_sent || !state.rope_cut {
+/// Cut-rope FLAVOR: mirror the generic falling hazard onto the visual state,
+/// pulse the waiting rope sparks, and react to the `cut_rope_impact` gate with
+/// the explosion / fireworks / banner. The KILL itself is the EncounterScript's
+/// `ForceKill`; the anvil PHYSICS is the generic `FallingHazard`.
+pub fn tick_cut_rope_flavor(
+    world_time: Res<ambition_gameplay_core::WorldTime>,
+    room_set: Res<RoomSet>,
+    mut state: ResMut<CutRopeBossArenaState>,
+    heavy_object: Res<CutRopeHeavyObjectCycle>,
+    mut gates: MessageReader<EncounterGate>,
+    hazards: Query<(&CenteredAabb, &FallingHazard)>,
+    bosses: Query<BossClusterRef, With<FeatureSimEntity>>,
+    mut banner: ResMut<GameplayBanner>,
+    mut explosions: MessageWriter<ExplosionRequest>,
+    mut fireworks: MessageWriter<FireworksRequest>,
+    mut debris: MessageWriter<DebrisBurstMessage>,
+    mut vfx: MessageWriter<VfxMessage>,
+) {
+    // Fully drain the gate reader (cursor hygiene) + note an anvil impact.
+    let mut impacted = false;
+    for gate in gates.read() {
+        if gate.gate == "cut_rope_impact" {
+            impacted = true;
+        }
+    }
+    if room_set.active_spec().id != CUT_ROPE_ROOM_ID {
         return;
     }
 
-    let dt = world_time.sim_dt().max(0.0);
-    let Some(mut center) = state.anvil_center else {
-        return;
-    };
+    // Mirror the falling hazard (the anvil) onto the visual state.
+    if let Some((aabb, hazard)) = hazards.iter().next() {
+        state.anvil_center = Some(aabb.center);
+        state.awaiting_alignment = !hazard.dropping;
+    }
 
-    let mut boss_under_anvil = false;
-    let mut live_boss_pos = None;
-    for (_aabb, feature) in bosses.iter_mut() {
+    let boss_pos = bosses.iter().find_map(|feature| {
         let boss = feature.as_boss_ref();
-        if !is_cut_rope_boss(&boss.config.behavior.id) || !boss.status.alive {
-            continue;
-        }
-        live_boss_pos = Some(boss.kin.pos);
-        if boss_is_under_anvil(&boss, center.x) {
-            boss_under_anvil = true;
-            break;
+        is_cut_rope_boss(&boss.config.behavior.id).then_some(boss.kin.pos)
+    });
+
+    // Waiting rope sparks while the anvil hangs unaligned.
+    if state.rope_cut && !state.anvil_exploded && state.awaiting_alignment {
+        if let Some(rope) = authored_prop(room_set.active_props(), ROPE_KIND) {
+            let dt = world_time.sim_dt().max(0.0);
+            let rope_pos = rope.pos;
+            pulse_waiting_rope_explosions(
+                &mut state,
+                dt,
+                rope_pos,
+                boss_pos.unwrap_or(rope_pos),
+                &mut explosions,
+            );
         }
     }
 
-    if !boss_under_anvil {
-        state.awaiting_alignment = true;
-        state.anvil_velocity_y = 0.0;
-        pulse_waiting_rope_explosions(
-            &mut state,
-            dt,
-            rope.pos,
-            live_boss_pos.unwrap_or(rope.pos),
-            &mut explosions,
-        );
-        return;
-    }
-
-    state.awaiting_alignment = false;
-    state.anvil_velocity_y =
-        (state.anvil_velocity_y + ANVIL_GRAVITY * dt).min(ANVIL_TERMINAL_SPEED);
-    center.y += state.anvil_velocity_y * dt;
-    state.anvil_center = Some(center);
-
-    let anvil_aabb = ae::Aabb::new(center, anvil.size * 0.5);
-    let floor_y = room.world.size.y - anvil.size.y * 0.5;
-    if center.y > floor_y {
-        state.anvil_center = Some(ae::Vec2::new(center.x, floor_y));
-        state.anvil_velocity_y = 0.0;
-    }
-
-    for (_aabb, mut feature) in &mut bosses {
-        if !is_cut_rope_boss(&feature.config.behavior.id) || !feature.status.alive {
-            continue;
-        }
-        if !anvil_aabb.strict_intersects(feature.as_boss_ref().aabb()) {
-            continue;
-        }
-        state.kill_sent = true;
+    // The anvil hit → death flavor (the EncounterScript does the actual kill).
+    if impacted && !state.anvil_exploded {
         state.anvil_exploded = true;
-        // The death animation should render as-authored. A lingering
-        // hit-flash overlay reads as a white silhouette stuck over the body.
-        feature.status.hit_flash = 0.0;
-        // R5: the KILL is the encounter SCRIPT's job. The rope/anvil is the
-        // hazard MECHANISM; on impact it fires the gate the cut-rope
-        // `EncounterScript` waits on, which `ForceKill`s the behemoth (bypassing
-        // `environmental_kill_only`). `update_boss_encounters` then runs the
-        // death outro + records Cleared + restores music, the same generic path
-        // a normally-damaged boss takes; `ReleaseOnDeath` frees the victory NPC.
-        gate_writer.write(
-            ambition_gameplay_core::boss_encounter::EncounterGate::new("cut_rope_impact"),
-        );
-
+        let center = state
+            .anvil_center
+            .or(boss_pos)
+            .unwrap_or(ae::Vec2::ZERO);
+        let burst_pos = boss_pos.unwrap_or(center);
         banner.show(
             format!(
                 "Smirking Behemoth was flattened by a {}",
@@ -177,7 +172,7 @@ pub fn tick_cut_rope_boss_arena(
         );
         explosions.write(ExplosionRequest::classic(center).with_scale(1.25));
         if !state.death_fireworks_sent {
-            let mut death_show = FireworksRequest::around(feature.kin.pos);
+            let mut death_show = FireworksRequest::around(burst_pos);
             death_show.count = 18;
             death_show.spread = ae::Vec2::new(420.0, 280.0);
             death_show.duration = 2.75;
@@ -185,25 +180,22 @@ pub fn tick_cut_rope_boss_arena(
             state.death_fireworks_sent = true;
         }
         vfx.write(VfxMessage::Burst {
-            pos: feature.kin.pos,
+            pos: burst_pos,
             count: 28,
             speed: 260.0,
             color: [0.84, 0.95, 1.0, 0.86],
             kind: ParticleKind::Spark,
         });
         debris.write(DebrisBurstMessage {
-            pos: feature.kin.pos,
+            pos: burst_pos,
             cue: PhysicsDebrisCue::BossRagdoll,
         });
-        break;
     }
 }
 
 /// Keep the authored rope/heavy-object prop visuals in sync with the cut-rope
-/// arena state. This is intentionally separate from `tick_cut_rope_boss_arena`:
-/// the gameplay tick already uses Bevy's maximum practical system-parameter
-/// arity after boss death/music/VFX plumbing, and adding the rendering query
-/// there makes it stop satisfying `IntoSystem`/`.run_if(...)`.
+/// arena state. This is intentionally separate from the gameplay systems so the
+/// rendering query doesn't bloat their parameter arity.
 pub fn sync_cut_rope_boss_arena_prop_visuals(
     room_set: Res<RoomSet>,
     state: Res<CutRopeBossArenaState>,
@@ -233,53 +225,6 @@ pub fn sync_cut_rope_boss_arena_prop_visuals(
         heavy_object.current(),
         assets.as_deref(),
     );
-}
-
-/// After the rope is cut, override the boss brain output with a horizontal
-/// lure toward the authored anvil center until impact. The movement still goes
-/// through the boss cluster's `integrate_body`, so authored solids and future
-/// player-control constraints remain authoritative.
-pub fn steer_cut_rope_boss_under_anvil(
-    state: Res<CutRopeBossArenaState>,
-    mut bosses: Query<
-        (BossClusterRef, &mut ActorControl, &mut BossAttackState),
-        With<FeatureSimEntity>,
-    >,
-) {
-    if state.active_room != CUT_ROPE_ROOM_ID || !state.rope_cut || state.kill_sent {
-        return;
-    }
-    let Some(center) = state.anvil_center else {
-        return;
-    };
-    for (feature, mut control, mut attack_state) in &mut bosses {
-        let boss = feature.as_boss_ref();
-        if !boss.status.alive || !is_cut_rope_boss(&boss.config.behavior.id) {
-            continue;
-        }
-        let dx = center.x - boss.kin.pos.x;
-        attack_state.clear();
-        control.0.melee_pressed = false;
-        control.0.special_pressed = false;
-        control.0.facing = if dx.abs() > 2.0 {
-            dx.signum()
-        } else {
-            boss.kin.facing
-        };
-        control.0.velocity_target = if dx.abs() <= boss_alignment_tolerance(&boss) {
-            ae::Vec2::ZERO
-        } else {
-            ae::Vec2::new(dx.signum() * ROPE_LURE_SPEED, 0.0)
-        };
-    }
-}
-
-fn boss_is_under_anvil(boss: &BossRef<'_>, anvil_x: f32) -> bool {
-    (boss.kin.pos.x - anvil_x).abs() <= boss_alignment_tolerance(boss)
-}
-
-fn boss_alignment_tolerance(boss: &BossRef<'_>) -> f32 {
-    ROPE_ALIGNMENT_TOLERANCE.max(boss.combat_size().x * 0.18)
 }
 
 fn pulse_waiting_rope_explosions(
@@ -419,10 +364,9 @@ fn reset_cut_rope_arena_state_for_room(state: &mut CutRopeBossArenaState, room_i
 
 /// Reset cut-rope-specific prop state immediately when a same-room reset is requested.
 ///
-/// The main arena tick is gameplay-gated because it advances the falling anvil. Dialogue
-/// commands can request a room replay while gameplay is suspended, so this reset bridge runs in
-/// the ungated room-reset chain and restores rope/anvil visuals on the reset frame instead of
-/// relying on the combat tick to observe a short-lived reset message later.
+/// The main flavor tick is gameplay-gated. Dialogue commands can request a room
+/// replay while gameplay is suspended, so this reset bridge runs in the ungated
+/// room-reset chain and restores rope/anvil visuals on the reset frame.
 pub fn reset_cut_rope_boss_arena_on_room_reset(
     room_set: Res<RoomSet>,
     mut state: ResMut<CutRopeBossArenaState>,
@@ -445,12 +389,12 @@ pub fn reset_cut_rope_boss_arena_on_room_reset(
     let room = room_set.active_spec();
     if room.id != CUT_ROPE_ROOM_ID {
         if state.active_room != room.id {
-            reset_cut_rope_arena_state_for_room(&mut *state, &room.id);
+            reset_cut_rope_arena_state_for_room(&mut state, &room.id);
         }
         return;
     }
     heavy_object.advance();
-    reset_cut_rope_arena_state_for_room(&mut *state, &room.id);
+    reset_cut_rope_arena_state_for_room(&mut state, &room.id);
     if let Some(anvil) = authored_prop(room_set.active_props(), ANVIL_KIND) {
         sync_cut_rope_prop_visuals(
             &mut prop_visuals,

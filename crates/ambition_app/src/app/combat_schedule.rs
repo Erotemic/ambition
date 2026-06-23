@@ -135,8 +135,15 @@ impl Plugin for CombatSchedulePlugin {
                 ambition_gameplay_core::features::apply_hitbox_damage.run_if(gameplay_allowed),
                 ambition_gameplay_core::features::tick_and_despawn_hitboxes,
                 ambition_gameplay_core::features::apply_feature_hit_events,
-                ambition_content::bosses::tick_cut_rope_boss_arena.run_if(gameplay_allowed),
-                ambition_content::bosses::sync_cut_rope_boss_arena_prop_visuals,
+                // Cut-rope flavor (rope-cut detection → gate, hazard→visual
+                // mirror + impact flavor, prop visuals). Grouped into a nested
+                // `.chain()` to keep the outer tuple under Bevy's 20-element limit.
+                (
+                    ambition_content::bosses::detect_cut_rope_rope_cut.run_if(gameplay_allowed),
+                    ambition_content::bosses::tick_cut_rope_flavor.run_if(gameplay_allowed),
+                    ambition_content::bosses::sync_cut_rope_boss_arena_prop_visuals,
+                )
+                    .chain(),
                 // Mount/rider link bookkeeping. Runs after damage so
                 // it observes the alive flag transition for either
                 // side; a dead mount releases its rider (gravity on,

@@ -25,26 +25,23 @@ impl Plugin for ProgressionSchedulePlugin {
         app.add_systems(
             Update,
             (
-                ambition_gameplay_core::boss_encounter::update_boss_encounters,
-                // Wrap each woken boss in a first-class (optional) encounter
-                // entity, then derive its progress from member state. Run after
-                // `update_boss_encounters` so they observe this frame's woken
-                // phase + the entity-local `BossStatus.encounter` mirror (R2 —
-                // the HUD reads this instead of the global registry).
-                ambition_gameplay_core::boss_encounter::sync_boss_encounter_entities,
-                ambition_gameplay_core::boss_encounter::update_encounter_progress,
-                // R5: express the cut-rope fight as the generic encounter pieces —
-                // attach its EncounterScript + the behemoth's ReleaseOnDeath, then
-                // advance each encounter's scripted beats (cut-rope: rope/anvil
-                // fire gates → the script ForceKills) + release any on-death
-                // instance payload (the behemoth's swallowed victory NPC).
-                ambition_content::bosses::setup_cut_rope_encounter,
-                ambition_gameplay_core::boss_encounter::tick_encounter_scripts,
-                ambition_gameplay_core::boss_encounter::release_payloads_on_death,
-                // Feel feedback (shake + cry SFX) on dramatic boss phase changes;
-                // diffs the registry phase, so it just needs to run after the
-                // boss update advances it.
-                ambition_gameplay_core::boss_encounter::boss_phase_transition_feedback,
+                // Boss-encounter chain (grouped into a nested `.chain()` to keep
+                // the outer tuple under Bevy's 20-element limit; internal order
+                // preserved). Drives phase + encounter + script + payload.
+                (
+                    ambition_gameplay_core::boss_encounter::update_boss_encounters,
+                    ambition_gameplay_core::boss_encounter::sync_boss_encounter_entities,
+                    ambition_gameplay_core::boss_encounter::update_encounter_progress,
+                    ambition_content::bosses::setup_cut_rope_encounter,
+                    ambition_gameplay_core::boss_encounter::tick_falling_hazards,
+                    ambition_gameplay_core::boss_encounter::tick_encounter_scripts,
+                    ambition_gameplay_core::boss_encounter::release_payloads_on_death,
+                    ambition_gameplay_core::boss_encounter::boss_phase_transition_feedback,
+                )
+                    .chain(),
+                // The boss-encounter group above (nested chain) runs first; the
+                // rest of the Progression chain follows. Victory NPC spawns after
+                // `release_payloads_on_death` so it sees the freed payload.
                 ambition_content::bosses::spawn_cut_rope_victory_npc,
                 // Hides the gnu_ton arena's retreat ladder while the boss
                 // is alive, re-adds it the frame the boss dies. Runs after

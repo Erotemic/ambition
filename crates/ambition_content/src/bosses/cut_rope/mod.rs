@@ -177,35 +177,79 @@ pub fn reset_cut_rope_boss_attempt(
     }
 }
 
-/// Express the Smirking Behemoth as the generic encounter pieces (R5): attach an
-/// `EncounterScript` to its encounter (the anvil `Gate("cut_rope_impact")` →
-/// `ForceKill`) + `ReleaseOnDeath` to the entity (frees the victory NPC on
-/// death). Idempotent: skips an encounter that already has a script / a boss
-/// that already has the marker. Runs after `sync_boss_encounter_entities`.
+/// Express the WHOLE Smirking Behemoth fight as the generic encounter pieces
+/// (R5): attach `ReleaseOnDeath` to the entity (frees the victory NPC on death)
+/// + an `EncounterScript` to its encounter that DATA-drives the fight:
+///   rope-cut → lure the behemoth under the anvil (`CommandMoveTo` → generic
+///   `CommandedMove`) + drop the anvil (`DropHazard` → generic `FallingHazard`)
+///   → on the hazard's impact gate, `ForceKill`.
+/// No cut-rope-specific physics or steering — those are reusable mechanics now.
+/// Idempotent + waits until the authored anvil prop is available.
 pub fn setup_cut_rope_encounter(
     mut commands: Commands,
+    room_set: Res<RoomSet>,
     bosses: Query<&BossConfig>,
     encounters: Query<(Entity, &EncounterDef), Without<EncounterScript>>,
     behemoths: Query<(Entity, &BossConfig), Without<ReleaseOnDeath>>,
 ) {
-    for (encounter, def) in &encounters {
-        let wraps_behemoth = def
-            .members
-            .iter()
-            .any(|&m| bosses.get(m).is_ok_and(|c| is_cut_rope_boss(&c.behavior.id)));
-        if wraps_behemoth {
-            commands
-                .entity(encounter)
-                .insert(EncounterScript::new(vec![EncounterBeat::new(
-                    EncounterTrigger::Gate("cut_rope_impact".to_string()),
-                    vec![EncounterEffect::ForceKill(0)],
-                )]));
-        }
-    }
+    // The swallowed victory NPC is freed by the generic on-death capability.
     for (entity, config) in &behemoths {
         if is_cut_rope_boss(&config.behavior.id) {
             commands.entity(entity).insert(ReleaseOnDeath);
         }
+    }
+
+    // The script needs the authored anvil's position + size to author the lure
+    // target + the falling hazard. Wait for the prop to load.
+    let Some(anvil) = room_set
+        .active_props()
+        .iter()
+        .find(|prop| prop.kind == ANVIL_KIND || prop.name == ANVIL_KIND)
+    else {
+        return;
+    };
+
+    for (encounter, def) in &encounters {
+        // Only the behemoth's encounter gets the cut-rope script; member 0 is the
+        // single boss the encounter wraps.
+        let Some(config) = def
+            .members
+            .first()
+            .and_then(|&m| bosses.get(m).ok())
+            .filter(|c| is_cut_rope_boss(&c.behavior.id))
+        else {
+            continue;
+        };
+        // Drop fires once the boss is within this x-tolerance of the anvil — the
+        // old `boss_alignment_tolerance` (scaled by the boss's combat width).
+        let align_tolerance =
+            ROPE_ALIGNMENT_TOLERANCE.max(config.behavior.combat_size.map_or(0.0, |s| s.x) * 0.18);
+        commands.entity(encounter).insert(EncounterScript::new(vec![
+            EncounterBeat::new(
+                EncounterTrigger::Gate("rope_cut".to_string()),
+                vec![
+                    EncounterEffect::CommandMoveTo {
+                        member: 0,
+                        target: anvil.pos,
+                        speed: ROPE_LURE_SPEED,
+                        arrive_tolerance: align_tolerance,
+                    },
+                    EncounterEffect::DropHazard {
+                        anchor: anvil.pos,
+                        size: anvil.size,
+                        gravity: ANVIL_GRAVITY,
+                        terminal: ANVIL_TERMINAL_SPEED,
+                        align_tolerance,
+                        target_member: 0,
+                        impact_gate: "cut_rope_impact".to_string(),
+                    },
+                ],
+            ),
+            EncounterBeat::new(
+                EncounterTrigger::Gate("cut_rope_impact".to_string()),
+                vec![EncounterEffect::ForceKill(0)],
+            ),
+        ]));
     }
 }
 

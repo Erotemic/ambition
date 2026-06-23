@@ -9,10 +9,14 @@
 //! the script is the orchestration the encounter layers on top.
 //!
 //! Triggers OBSERVE the world / members; effects COMMAND members / world. The
-//! cut-rope fight is expressed as a script (rope/anvil are the hazard mechanism
-//! that fires `Gate("cut_rope_impact")`; the script does the `ForceKill` +
-//! victory banner), and the swallowed-NPC release falls out of the generic
-//! [`ReleaseOnDeath`](super::encounter_entity::ReleaseOnDeath) capability.
+//! cut-rope fight is expressed ENTIRELY as a script: `Gate("rope_cut")` →
+//! [`EncounterEffect::CommandMoveTo`] (lure the behemoth under the drop) +
+//! [`EncounterEffect::DropHazard`] (a generic [`FallingHazard`] that hangs,
+//! waits for alignment, falls, and fires its impact gate) → `ForceKill`. The
+//! lure + falling-hazard are GENERIC mechanics ([`CommandedMove`] /
+//! [`FallingHazard`]) any future "stand-under-the-thing" puzzle reuses; cut-rope
+//! owns only its rope-cut detection + flavor visuals. The swallowed-NPC release
+//! falls out of the generic [`ReleaseOnDeath`](super::encounter_entity::ReleaseOnDeath).
 //!
 //! See `docs/planning/boss-entity-local-refactor.md` (encounter-script shape).
 //!
@@ -22,7 +26,10 @@
 use bevy::prelude::*;
 
 use super::encounter_entity::EncounterDef;
-use crate::combat::boss_clusters::BossStatus;
+use crate::combat::boss_clusters::{BossClusterRef, BossStatus};
+use crate::engine_core as ae;
+use crate::engine_core::AabbExt;
+use crate::features::CenteredAabb;
 
 /// A named gate fired by gameplay code (rope cut, hazard impact, cutscene cue,
 /// "all adds dead") to advance an [`EncounterScript`] beat waiting on it. The
@@ -53,9 +60,7 @@ pub enum EncounterTrigger {
 }
 
 /// A command the script issues when its beat's trigger fires. Commands members
-/// / world. (Hazard spawning + member luring stay the cut-rope mechanism's job
-/// for now — their proven feel-constants aren't reimplemented here; this is the
-/// kill / presentation / chaining vocabulary.)
+/// / world.
 #[derive(Clone, Debug, PartialEq)]
 pub enum EncounterEffect {
     /// Force the Nth member straight to `Death` (an environmental kill that
@@ -65,6 +70,27 @@ pub enum EncounterEffect {
     Banner { text: String, secs: f32 },
     /// Set (`Some`) or clear (`None`) the adaptive-music request.
     SetMusic(Option<String>),
+    /// Lure the Nth member toward `target.x` at `speed` (stopping within
+    /// `arrive_tolerance`) by overriding its brain control — attaches a generic
+    /// [`CommandedMove`]. The cut-rope behemoth is lured under the anvil this way.
+    CommandMoveTo {
+        member: usize,
+        target: ae::Vec2,
+        speed: f32,
+        arrive_tolerance: f32,
+    },
+    /// Spawn a generic [`FallingHazard`] hanging at `anchor`: it waits until the
+    /// `target_member` is within `align_tolerance.x`, then falls under `gravity`
+    /// (capped at `terminal`) and fires `EncounterGate(impact_gate)` on contact.
+    DropHazard {
+        anchor: ae::Vec2,
+        size: ae::Vec2,
+        gravity: f32,
+        terminal: f32,
+        align_tolerance: f32,
+        target_member: usize,
+        impact_gate: String,
+    },
 }
 
 /// One scripted beat: when `when` fires, apply `then` and advance the cursor.
@@ -113,6 +139,7 @@ impl EncounterScript {
 /// tick's fired gates + member state, and on a match apply the effects and step
 /// the cursor. Runs in the Progression set after the encounter entity exists.
 pub fn tick_encounter_scripts(
+    mut commands: Commands,
     world_time: Res<crate::WorldTime>,
     mut gates: MessageReader<EncounterGate>,
     mut scripts: Query<(&EncounterDef, &mut EncounterScript)>,
@@ -164,10 +191,150 @@ pub fn tick_encounter_scripts(
                 }
                 EncounterEffect::Banner { text, secs } => banner.show(text.clone(), *secs),
                 EncounterEffect::SetMusic(track) => music.desired_track = track.clone(),
+                EncounterEffect::CommandMoveTo {
+                    member,
+                    target,
+                    speed,
+                    arrive_tolerance,
+                } => {
+                    if let Some(&m) = def.members.get(*member) {
+                        commands.entity(m).insert(CommandedMove {
+                            target: *target,
+                            speed: *speed,
+                            arrive_tolerance: *arrive_tolerance,
+                        });
+                    }
+                }
+                EncounterEffect::DropHazard {
+                    anchor,
+                    size,
+                    gravity,
+                    terminal,
+                    align_tolerance,
+                    target_member,
+                    impact_gate,
+                } => {
+                    if let Some(&target) = def.members.get(*target_member) {
+                        commands.spawn((
+                            CenteredAabb::from_center_size(*anchor, *size),
+                            FallingHazard {
+                                size: *size,
+                                gravity: *gravity,
+                                terminal: *terminal,
+                                align_tolerance: *align_tolerance,
+                                target,
+                                impact_gate: impact_gate.clone(),
+                                vel_y: 0.0,
+                                dropping: false,
+                            },
+                        ));
+                    }
+                }
             }
         }
         script.cursor += 1;
         script.elapsed = 0.0;
+    }
+}
+
+/// Generic "lured movement" override: while present on a boss, its brain control
+/// is overridden to steer toward `target.x` at `speed` (stopping within
+/// `arrive_tolerance`). Attached by [`EncounterEffect::CommandMoveTo`]; the
+/// encounter removes it (e.g. the member dies / the script ends). Reusable by
+/// any "walk the boss to a spot" beat.
+#[derive(Component, Clone, Copy, Debug)]
+pub struct CommandedMove {
+    pub target: ae::Vec2,
+    pub speed: f32,
+    pub arrive_tolerance: f32,
+}
+
+/// Steer every [`CommandedMove`] boss toward its target, overriding the brain's
+/// `ActorControl` (and clearing its attack intent). Runs in the boss steer slot
+/// (between the brain tick and the body integrate), exactly where the old
+/// cut-rope-specific steering ran — but generic.
+pub fn tick_commanded_moves(
+    mut bosses: Query<(
+        BossClusterRef,
+        &mut crate::brain::ActorControl,
+        &mut crate::brain::BossAttackState,
+        &CommandedMove,
+    )>,
+) {
+    for (feature, mut control, mut attack_state, cmd) in &mut bosses {
+        let boss = feature.as_boss_ref();
+        if !boss.status.alive {
+            continue;
+        }
+        let dx = cmd.target.x - boss.kin.pos.x;
+        attack_state.clear();
+        control.0.melee_pressed = false;
+        control.0.special_pressed = false;
+        control.0.facing = if dx.abs() > 2.0 {
+            dx.signum()
+        } else {
+            boss.kin.facing
+        };
+        control.0.velocity_target = if dx.abs() <= cmd.arrive_tolerance {
+            ae::Vec2::ZERO
+        } else {
+            ae::Vec2::new(dx.signum() * cmd.speed, 0.0)
+        };
+    }
+}
+
+/// A generic hazard that hangs at its spawn point until its `target` is aligned
+/// under it (within `align_tolerance` in x), then falls under `gravity` (capped
+/// at `terminal`) and fires `EncounterGate(impact_gate)` on contact with the
+/// target — then despawns. The cut-rope anvil/piano is one of these.
+#[derive(Component, Clone, Debug)]
+pub struct FallingHazard {
+    pub size: ae::Vec2,
+    pub gravity: f32,
+    pub terminal: f32,
+    pub align_tolerance: f32,
+    pub target: Entity,
+    pub impact_gate: String,
+    pub vel_y: f32,
+    pub dropping: bool,
+}
+
+/// Integrate every [`FallingHazard`]: wait for the target to align, then fall +
+/// clamp to the floor + fire the impact gate on contact. Despawns the hazard on
+/// impact (or if its target left the world).
+pub fn tick_falling_hazards(
+    mut commands: Commands,
+    world_time: Res<crate::WorldTime>,
+    world: Res<crate::GameWorld>,
+    mut gates: MessageWriter<EncounterGate>,
+    mut hazards: Query<(Entity, &mut CenteredAabb, &mut FallingHazard)>,
+    targets: Query<&CenteredAabb, Without<FallingHazard>>,
+) {
+    let dt = world_time.sim_dt().max(0.0);
+    for (entity, mut aabb, mut hazard) in &mut hazards {
+        let Ok(target) = targets.get(hazard.target) else {
+            // Target gone (room change / despawn) — retire the hazard.
+            commands.entity(entity).despawn();
+            continue;
+        };
+        if !hazard.dropping {
+            if (target.center.x - aabb.center.x).abs() <= hazard.align_tolerance {
+                hazard.dropping = true;
+            } else {
+                continue;
+            }
+        }
+        hazard.vel_y = (hazard.vel_y + hazard.gravity * dt).min(hazard.terminal);
+        aabb.center.y += hazard.vel_y * dt;
+        let floor_y = world.0.size.y - hazard.size.y * 0.5;
+        if aabb.center.y > floor_y {
+            aabb.center.y = floor_y;
+            hazard.vel_y = 0.0;
+        }
+        if aabb.aabb().strict_intersects(target.aabb()) {
+            gates.write(EncounterGate::new(hazard.impact_gate.clone()));
+            commands.entity(entity).despawn();
+        }
     }
 }
 
@@ -286,5 +453,121 @@ mod tests {
         assert!(!app.world().entity(boss).get::<BossStatus>().unwrap().alive);
         let mut q = app.world_mut().query::<&EncounterScript>();
         assert!(q.single(app.world()).unwrap().done());
+    }
+
+    fn boss_config() -> crate::combat::boss_clusters::BossConfig {
+        crate::combat::boss_clusters::BossConfig {
+            id: "b".into(),
+            name: "B".into(),
+            spawn: ae::Vec2::ZERO,
+            brain: crate::actor::BossBrain::PhaseScript {
+                script_id: "mockingbird".into(),
+            },
+            behavior: crate::boss_encounter::behavior::BossBehaviorProfile::for_authored_boss(
+                "mockingbird",
+            ),
+        }
+    }
+
+    /// A `CommandedMove` steers the boss's control toward the target's x.
+    #[test]
+    fn commanded_move_steers_the_boss_toward_target() {
+        let mut app = App::new();
+        app.add_systems(Update, tick_commanded_moves);
+        let boss = app
+            .world_mut()
+            .spawn((
+                crate::features::BodyKinematics {
+                    pos: ae::Vec2::ZERO,
+                    vel: ae::Vec2::ZERO,
+                    size: ae::Vec2::splat(40.0),
+                    facing: -1.0,
+                },
+                boss_config(),
+                member(100),
+                crate::brain::ActorControl::default(),
+                crate::brain::BossAttackState::default(),
+                CommandedMove {
+                    target: ae::Vec2::new(300.0, 0.0),
+                    speed: 150.0,
+                    arrive_tolerance: 10.0,
+                },
+            ))
+            .id();
+
+        app.update();
+
+        let control = app
+            .world()
+            .entity(boss)
+            .get::<crate::brain::ActorControl>()
+            .unwrap();
+        assert!(
+            control.0.velocity_target.x > 0.0,
+            "the boss is lured toward the +x target"
+        );
+        assert_eq!(control.0.facing, 1.0, "and faces the target");
+    }
+
+    /// An aligned `FallingHazard` falls onto its target and fires its impact gate.
+    #[test]
+    fn falling_hazard_drops_when_aligned_and_fires_impact_gate() {
+        let mut app = App::new();
+        app.insert_resource(WorldTime {
+            raw_dt: 1.0 / 60.0,
+            scaled_dt: 1.0 / 60.0,
+        });
+        app.insert_resource(crate::GameWorld(ae::World::new(
+            "t",
+            ae::Vec2::new(2000.0, 2000.0),
+            ae::Vec2::new(50.0, 50.0),
+            Vec::new(),
+        )));
+        app.add_message::<EncounterGate>();
+        app.add_systems(Update, tick_falling_hazards);
+
+        // Target sits directly below the hazard anchor (aligned in x).
+        let target = app
+            .world_mut()
+            .spawn(CenteredAabb::from_center_size(
+                ae::Vec2::new(500.0, 500.0),
+                ae::Vec2::splat(40.0),
+            ))
+            .id();
+        app.world_mut().spawn((
+            CenteredAabb::from_center_size(ae::Vec2::new(500.0, 100.0), ae::Vec2::splat(60.0)),
+            FallingHazard {
+                size: ae::Vec2::splat(60.0),
+                gravity: 1400.0,
+                terminal: 920.0,
+                align_tolerance: 50.0,
+                target,
+                impact_gate: "boom".into(),
+                vel_y: 0.0,
+                dropping: false,
+            },
+        ));
+
+        let mut fired = false;
+        for _ in 0..180 {
+            app.update();
+            let msgs = app
+                .world()
+                .resource::<bevy::ecs::message::Messages<EncounterGate>>();
+            if msgs
+                .iter_current_update_messages()
+                .any(|g| g.gate == "boom")
+            {
+                fired = true;
+                break;
+            }
+        }
+        assert!(
+            fired,
+            "an aligned hazard falls onto its target and fires its impact gate"
+        );
+        // The hazard despawns on impact.
+        let mut q = app.world_mut().query::<&FallingHazard>();
+        assert_eq!(q.iter(app.world()).count(), 0, "hazard retires on impact");
     }
 }

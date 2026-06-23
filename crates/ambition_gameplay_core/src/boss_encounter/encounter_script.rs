@@ -341,25 +341,15 @@ pub fn tick_falling_hazards(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::boss_encounter::{BossEncounterPhase, BossPhaseState};
+    use crate::boss_encounter::BossEncounterPhase;
+    use crate::combat::boss_clusters::test_support::{test_boss_config, test_boss_status};
     use crate::combat::boss_clusters::BossStatus;
     use crate::encounter::BossEncounterMusicRequest;
     use crate::features::GameplayBanner;
     use crate::WorldTime;
 
     fn member(hp: i32) -> BossStatus {
-        let mut phase = BossPhaseState::new(Vec::new());
-        phase.phase = BossEncounterPhase::Phase1;
-        let mut status = BossStatus {
-            health: crate::actor::Health::new(hp),
-            alive: true,
-            hit_flash: 0.0,
-            encounter_phase: BossEncounterPhase::Phase1,
-            sprite_metrics: None,
-            encounter: Some(phase),
-        };
-        status.health.current = hp;
-        status
+        test_boss_status(hp, BossEncounterPhase::Phase1)
     }
 
     fn test_app() -> App {
@@ -456,17 +446,7 @@ mod tests {
     }
 
     fn boss_config() -> crate::combat::boss_clusters::BossConfig {
-        crate::combat::boss_clusters::BossConfig {
-            id: "b".into(),
-            name: "B".into(),
-            spawn: ae::Vec2::ZERO,
-            brain: crate::actor::BossBrain::PhaseScript {
-                script_id: "mockingbird".into(),
-            },
-            behavior: crate::boss_encounter::behavior::BossBehaviorProfile::for_authored_boss(
-                "mockingbird",
-            ),
-        }
+        test_boss_config("b", "B", "mockingbird")
     }
 
     /// A `CommandedMove` steers the boss's control toward the target's x.

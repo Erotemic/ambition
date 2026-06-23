@@ -173,6 +173,29 @@ impl<'a> BossMut<'a> {
         self.config.behavior = behavior;
     }
 
+    /// Full same-room revive of a boss: restore the authored spawn pose +
+    /// liveness + HP and CLEAR the entity-local encounter so
+    /// `update_boss_encounters` re-seeds fresh phase state (Dormant → wake) the
+    /// next frame. The single definition of "revive a boss" — the room-reset
+    /// loop routes through it (the actor mirror of `ActorMut::reset_to_spawn`),
+    /// so adding a [`BossStatus`] field can't desync the revive from the
+    /// seed/save-skip paths.
+    ///
+    /// Clearing `encounter` is load-bearing: keep last attempt's `Death` phase
+    /// and the death-resolution re-kills the boss the instant it "respawns" (the
+    /// in-place replay regression, pinned by `boss_revives_after_a_room_reset`).
+    /// The brain / attack-state / control are separate components the room-reset
+    /// loop clears alongside this.
+    pub fn reset_to_spawn(&mut self) {
+        self.kin.pos = self.config.spawn;
+        self.kin.facing = 1.0;
+        self.status.alive = true;
+        self.status.health.reset();
+        self.status.hit_flash = 0.0;
+        self.status.encounter = None;
+        self.status.encounter_phase = BossEncounterPhase::Dormant;
+    }
+
     /// Integrate the boss body using the brain-emitted `desired_vel`.
     /// **Integration only** — the brain owns the policy decision and
     /// writes `ActorControl` upstream; this just collision-resolves the
@@ -330,5 +353,85 @@ impl BossClusterScratch {
     /// The three authoritative components as a spawnable Bundle.
     pub fn into_components(self) -> (BodyKinematics, BossConfig, BossStatus) {
         (self.kin, self.config, self.status)
+    }
+}
+
+/// Whether this boss PLACEMENT is recorded `Cleared` in the save.
+///
+/// R4 keys "cleared" by the boss's unique runtime/LDtk placement id
+/// (`config.id`), NOT the archetype — so the same archetype reused at another
+/// placement is not pre-marked defeated. The single definition of the
+/// "cleared" predicate, called by both the room-load save-sync
+/// (`sync_ecs_bosses_with_save`) and the per-tick encounter driver
+/// (`update_boss_encounters`) so the skip-check can't drift between them.
+pub fn boss_is_cleared(save: &crate::persistence::save::SandboxSave, config: &BossConfig) -> bool {
+    matches!(
+        save.data().boss(&config.id),
+        crate::persistence::save_data::PersistedEncounterState::Cleared
+    )
+}
+
+#[cfg(test)]
+pub(crate) mod test_support {
+    //! Shared boss test fixtures. One definition of "a test `BossStatus` /
+    //! `BossConfig`" so the boss test modules build the same shape — adding a
+    //! field updates them all at once instead of drifting per-module.
+    use super::*;
+    use crate::boss_encounter::{BossPhaseState, PhaseTrigger};
+
+    /// A `BossStatus` at `hp` HP in `phase`, with entity-local `BossPhaseState`
+    /// carrying `triggers` (empty ⇒ never phases up) already set to `phase`.
+    pub(crate) fn test_boss_status_with(
+        hp: i32,
+        phase: BossEncounterPhase,
+        triggers: Vec<PhaseTrigger>,
+    ) -> BossStatus {
+        let mut encounter = BossPhaseState::new(triggers);
+        encounter.phase = phase;
+        let mut health = crate::actor::Health::new(hp);
+        health.current = hp;
+        BossStatus {
+            health,
+            alive: true,
+            hit_flash: 0.0,
+            encounter_phase: phase,
+            sprite_metrics: None,
+            encounter: Some(encounter),
+        }
+    }
+
+    /// A `BossStatus` at `hp` HP in `phase` with no phase triggers (fights to
+    /// death — the common single-phase fixture).
+    pub(crate) fn test_boss_status(hp: i32, phase: BossEncounterPhase) -> BossStatus {
+        test_boss_status_with(hp, phase, Vec::new())
+    }
+
+    /// A `BossConfig` whose brain `PhaseScript` and behavior profile both resolve
+    /// to `script_id`'s authored profile (their real coupling), with the given
+    /// placement `id` + display `name`.
+    pub(crate) fn test_boss_config(
+        id: impl Into<String>,
+        name: impl Into<String>,
+        script_id: &str,
+    ) -> BossConfig {
+        BossConfig {
+            id: id.into(),
+            name: name.into(),
+            spawn: ae::Vec2::ZERO,
+            brain: crate::actor::BossBrain::PhaseScript {
+                script_id: script_id.to_string(),
+            },
+            behavior: BossBehaviorProfile::for_authored_boss(script_id),
+        }
+    }
+
+    /// A `(BossConfig, BossStatus)` for the common case where placement id,
+    /// display name, and brain/behavior profile all key off `name`.
+    pub(crate) fn test_boss(
+        name: &str,
+        hp: i32,
+        phase: BossEncounterPhase,
+    ) -> (BossConfig, BossStatus) {
+        (test_boss_config(name, name, name), test_boss_status(hp, phase))
     }
 }

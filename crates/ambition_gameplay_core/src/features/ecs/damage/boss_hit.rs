@@ -223,22 +223,11 @@ mod entity_damage_tests {
     //! The entity-local boss damage contract (R3) — ports the old
     //! `boss_encounter::damage` registry tests onto `apply_entity_boss_damage`.
     use super::*;
-    use crate::actor::Health;
-    use crate::boss_encounter::{BossEncounterPhase, BossPhaseState};
+    use crate::boss_encounter::BossEncounterPhase;
+    use crate::combat::boss_clusters::test_support::test_boss_status;
 
     fn boss(hp: i32, phase: BossEncounterPhase) -> BossStatus {
-        let mut p = BossPhaseState::new(Vec::new());
-        p.phase = phase;
-        let mut status = BossStatus {
-            health: Health::new(hp),
-            alive: true,
-            hit_flash: 0.0,
-            encounter_phase: phase,
-            sprite_metrics: None,
-            encounter: Some(p),
-        };
-        status.health.current = hp;
-        status
+        test_boss_status(hp, phase)
     }
 
     #[test]

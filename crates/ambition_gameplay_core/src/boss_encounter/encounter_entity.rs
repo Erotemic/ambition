@@ -223,35 +223,25 @@ pub fn release_payloads_on_death(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::boss_encounter::{BossPhaseState, PhaseTrigger};
+    use crate::boss_encounter::PhaseTrigger;
+    use crate::combat::boss_clusters::test_support::{test_boss_config, test_boss_status_with};
     use crate::combat::boss_clusters::{BossConfig, BossStatus};
 
     fn awake_boss(name: &str, hp: i32) -> (BossConfig, BossStatus, FeatureSimEntity) {
-        let mut phase = BossPhaseState::new(vec![PhaseTrigger::hp_below(
-            0.5,
+        // Placement id is the `<name>_runtime` LDtk-style key the tests assert on.
+        let config = test_boss_config(format!("{name}_runtime"), name, name);
+        // Awake in Phase1 with an hp<0.5 Phase1→Phase2 trigger — the half-health
+        // phase-up the progress/encounter tests observe.
+        let status = test_boss_status_with(
+            hp,
             BossEncounterPhase::Phase1,
-            BossEncounterPhase::Phase2,
-            0.0,
-        )]);
-        phase.wake();
-        let config = BossConfig {
-            id: format!("{name}_runtime"),
-            name: name.to_string(),
-            spawn: crate::engine_core::Vec2::ZERO,
-            brain: crate::actor::BossBrain::PhaseScript {
-                script_id: name.to_string(),
-            },
-            behavior: crate::boss_encounter::behavior::BossBehaviorProfile::for_authored_boss(name),
-        };
-        let mut status = BossStatus {
-            health: crate::actor::Health::new(hp),
-            alive: true,
-            hit_flash: 0.0,
-            encounter_phase: BossEncounterPhase::Phase1,
-            sprite_metrics: None,
-            encounter: Some(phase),
-        };
-        status.health.current = hp;
+            vec![PhaseTrigger::hp_below(
+                0.5,
+                BossEncounterPhase::Phase1,
+                BossEncounterPhase::Phase2,
+                0.0,
+            )],
+        );
         (config, status, FeatureSimEntity)
     }
 

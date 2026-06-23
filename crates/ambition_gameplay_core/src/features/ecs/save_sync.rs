@@ -123,15 +123,11 @@ pub fn sync_ecs_bosses_with_save(
         With<FeatureSimEntity>,
     >,
 ) {
-    let data = save.data();
     for (mut feature, death_anim, phase) in &mut bosses {
-        // R4: "cleared" is keyed to this PLACEMENT (the boss's unique
-        // runtime/LDtk id `config.id`), NOT the archetype — so the same boss
-        // archetype reused at another placement is not pre-marked defeated.
-        if matches!(
-            data.boss(&feature.config.id),
-            crate::persistence::save_data::PersistedEncounterState::Cleared
-        ) {
+        // R4: "cleared" is keyed to this PLACEMENT, not the archetype. Shared
+        // predicate (`boss_is_cleared`) with the per-tick encounter driver so
+        // they can't drift.
+        if super::boss_clusters::boss_is_cleared(&save, &feature.config) {
             feature.status.alive = false;
             feature.status.health.current = 0;
             if let Some(mut death_anim) = death_anim {

@@ -126,15 +126,11 @@ pub fn update_boss_encounters(
             feature.status.encounter = Some(crate::boss_encounter::BossPhaseState::new(triggers));
         }
 
-        // Persisted "cleared" is keyed to this PLACEMENT (the boss's unique
-        // runtime/LDtk id), NOT the archetype (R4) — so reusing the same boss
-        // archetype at another placement is NOT pre-marked cleared. A cleared
-        // placement renders defeated and is otherwise inert.
-        let cleared = matches!(
-            save.data().boss(&runtime_id),
-            crate::persistence::save_data::PersistedEncounterState::Cleared
-        );
-        if cleared {
+        // Persisted "cleared" is keyed to this PLACEMENT, NOT the archetype (R4) —
+        // a cleared placement renders defeated and is otherwise inert. Shared
+        // predicate (`boss_is_cleared`) with the room-load save-sync so they
+        // can't drift.
+        if crate::features::boss_is_cleared(&save, &feature.config) {
             feature.status.alive = false;
             feature.status.health.current = 0;
             if let Some(phase) = feature.status.encounter.as_mut() {
@@ -191,10 +187,7 @@ pub fn update_boss_encounters(
             if feature.status.alive {
                 feature.status.alive = false;
             }
-            if !matches!(
-                save.data().boss(&runtime_id),
-                crate::persistence::save_data::PersistedEncounterState::Cleared
-            ) {
+            if !crate::features::boss_is_cleared(&save, &feature.config) {
                 save.data_mut().set_boss(
                     &runtime_id,
                     crate::persistence::save_data::PersistedEncounterState::Cleared,
@@ -384,33 +377,15 @@ pub fn boss_phase_transition_feedback(
 #[cfg(test)]
 mod phase_feedback_tests {
     use super::*;
-    use crate::boss_encounter::{BossEncounterPhase, BossPhaseState};
-    use crate::combat::boss_clusters::{BossConfig, BossStatus};
+    use crate::boss_encounter::BossEncounterPhase;
+    use crate::combat::boss_clusters::test_support::{test_boss_config, test_boss_status};
+    use crate::combat::boss_clusters::BossStatus;
     use crate::features::{BodyKinematics, CenteredAabb, FeatureId};
     use crate::time::camera_ease::CameraShakeState;
 
     fn spawn_boss(app: &mut App, phase: BossEncounterPhase) -> Entity {
-        let mut pstate = BossPhaseState::new(Vec::new());
-        pstate.phase = phase;
-        let config = BossConfig {
-            id: "gradient_sentinel".into(),
-            name: "Gradient Sentinel".into(),
-            spawn: ae::Vec2::ZERO,
-            brain: crate::actor::BossBrain::PhaseScript {
-                script_id: "clockwork_warden".into(),
-            },
-            behavior: crate::boss_encounter::behavior::BossBehaviorProfile::for_authored_boss(
-                "clockwork_warden",
-            ),
-        };
-        let status = BossStatus {
-            health: crate::actor::Health::new(100),
-            alive: true,
-            hit_flash: 0.0,
-            encounter_phase: phase,
-            sprite_metrics: None,
-            encounter: Some(pstate),
-        };
+        let config = test_boss_config("gradient_sentinel", "Gradient Sentinel", "clockwork_warden");
+        let status = test_boss_status(100, phase);
         app.world_mut()
             .spawn((
                 FeatureId::new("gradient_sentinel"),

@@ -131,20 +131,11 @@ pub fn reset_ecs_room_features(
         );
     }
     for (mut feature, mut brain, mut attack_state, mut control) in &mut bosses {
-        feature.kin.pos = feature.config.spawn;
-        feature.status.alive = true;
-        feature.kin.facing = 1.0;
-        feature.status.health.reset();
-        feature.status.hit_flash = 0.0;
-        // The boss's live fight is ENTITY-LOCAL (`BossStatus.encounter` is the
-        // source of truth since the boss-entity-local refactor). Clearing it
-        // lets `update_boss_encounters` re-seed fresh state (Dormant → wake)
-        // next frame. WITHOUT this the boss keeps last attempt's `Death` phase
-        // and is re-killed by the death-resolution the instant it "respawns" —
-        // the in-place replay regression. (Pinned by
-        // `boss_revives_after_a_room_reset`.)
-        feature.status.encounter = None;
-        feature.status.encounter_phase = crate::boss_encounter::BossEncounterPhase::Dormant;
+        // Full revive (pos / facing / health / hit_flash + clear the entity-local
+        // encounter so it re-seeds fresh next frame). One definition on `BossMut`
+        // so a new `BossStatus` field can't desync this from the seed/save-skip
+        // paths. (Why clearing `encounter` is load-bearing: see the helper docs.)
+        feature.as_boss_mut().reset_to_spawn();
         // Brain-owned state: zero the per-actor `BossPatternState`
         // (cursor / clocks / cycle phase / last_phase) and the
         // `BossAttackState` mirror (live telegraph + active profile

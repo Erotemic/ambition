@@ -76,11 +76,20 @@ fn music_track(sim: &SandboxSim) -> Option<String> {
         .clone()
 }
 
-fn boss_cleared(sim: &SandboxSim, archetype_id: &str) -> bool {
+/// R4: "cleared" is keyed by the boss PLACEMENT id (its runtime/LDtk id), not
+/// the archetype.
+fn boss_cleared(sim: &SandboxSim, placement_id: &str) -> bool {
     matches!(
-        sim.world().resource::<SandboxSave>().data().boss(archetype_id),
+        sim.world().resource::<SandboxSave>().data().boss(placement_id),
         PersistedEncounterState::Cleared
     )
+}
+
+fn boss_alive(world: &mut World, placement_id: &str) -> Option<bool> {
+    let mut q = world.query::<(&BossConfig, &BossStatus)>();
+    q.iter(world)
+        .find(|(config, _)| config.id == placement_id)
+        .map(|(_, status)| status.alive)
 }
 
 fn boss_reward_chest_count(world: &mut World) -> usize {
@@ -127,7 +136,7 @@ fn defeated_boss_is_recorded_cleared_drops_reward_and_clears_music() {
         "precondition: the boss fight music is playing before the kill"
     );
     assert!(
-        !boss_cleared(&sim, "mockingbird"),
+        !boss_cleared(&sim, "dying_boss"),
         "precondition: the boss is not pre-marked cleared"
     );
 
@@ -141,8 +150,8 @@ fn defeated_boss_is_recorded_cleared_drops_reward_and_clears_music() {
     }
 
     assert!(
-        boss_cleared(&sim, "mockingbird"),
-        "a defeated boss must be recorded Cleared in the save"
+        boss_cleared(&sim, "dying_boss"),
+        "a defeated boss must be recorded Cleared in the save (by placement id)"
     );
     assert_eq!(
         boss_reward_chest_count(sim.world_mut()),
@@ -153,5 +162,43 @@ fn defeated_boss_is_recorded_cleared_drops_reward_and_clears_music() {
         music_track(&sim),
         None,
         "after the fight the boss-music request clears (room music resumes)"
+    );
+}
+
+/// R4: "cleared" is keyed to the encounter PLACEMENT, not the archetype — so the
+/// SAME boss archetype reused at a different placement is NOT pre-marked cleared.
+#[test]
+fn reused_archetype_at_a_new_placement_is_not_pre_cleared() {
+    let mut sim = SandboxSim::new_with_timestep(TimestepMode::fixed_60hz())
+        .expect("sandbox sim builds");
+
+    // Placement A: a mockingbird the player defeats.
+    spawn_mockingbird(&mut sim, "placement_a");
+    for _ in 0..6 {
+        sim.step(AgentAction::default());
+    }
+    force_kill_boss(&mut sim, "placement_a");
+    for _ in 0..200 {
+        sim.step(AgentAction::default());
+    }
+    assert!(
+        boss_cleared(&sim, "placement_a"),
+        "placement A must be recorded cleared after its defeat"
+    );
+
+    // Placement B: the SAME archetype, a different placement id. It must NOT be
+    // pre-marked cleared just because another mockingbird was beaten.
+    spawn_mockingbird(&mut sim, "placement_b");
+    for _ in 0..6 {
+        sim.step(AgentAction::default());
+    }
+    assert!(
+        !boss_cleared(&sim, "placement_b"),
+        "a fresh placement of a beaten archetype must NOT be pre-marked cleared"
+    );
+    assert_eq!(
+        boss_alive(sim.world_mut(), "placement_b"),
+        Some(true),
+        "the reused-archetype boss at a new placement must spawn alive, not skipped"
     );
 }

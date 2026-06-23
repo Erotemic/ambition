@@ -79,9 +79,10 @@ pub fn update_boss_encounters(
     let dt = world_time.sim_dt();
 
     // Active-fight music track (first fighting boss wins) + reward anchors,
-    // collected as we drive each boss.
+    // collected as we drive each boss. Anchors carry (placement_id,
+    // archetype_id, spawn): R4 keys "cleared" + rewards by PLACEMENT.
     let mut active_music_track: Option<String> = None;
-    let mut boss_anchors: Vec<(String, ae::Vec2)> = Vec::new();
+    let mut boss_anchors: Vec<(String, String, ae::Vec2)> = Vec::new();
 
     for (_feature_id, mut feature) in &mut bosses {
         let archetype_id = feature.config.behavior.id.clone();
@@ -113,13 +114,11 @@ pub fn update_boss_encounters(
             feature.status.encounter = Some(crate::boss_encounter::BossPhaseState::from_spec(&spec));
         }
 
-        // Persisted "cleared" (by archetype OR runtime placement) ⇒ the boss
-        // renders defeated and is otherwise inert. (R4 rekeys to the encounter
-        // placement id.)
+        // Persisted "cleared" is keyed to this PLACEMENT (the boss's unique
+        // runtime/LDtk id), NOT the archetype (R4) — so reusing the same boss
+        // archetype at another placement is NOT pre-marked cleared. A cleared
+        // placement renders defeated and is otherwise inert.
         let cleared = matches!(
-            save.data().boss(&archetype_id),
-            crate::persistence::save_data::PersistedEncounterState::Cleared
-        ) || matches!(
             save.data().boss(&runtime_id),
             crate::persistence::save_data::PersistedEncounterState::Cleared
         );
@@ -171,18 +170,21 @@ pub fn update_boss_encounters(
             feature.status.hit_flash = 0.0;
         }
 
-        // Death resolution: once the outro elapses, record Cleared + the quest
-        // event (idempotent — only the first time the boss flips to Cleared).
+        // Death resolution: once the outro elapses, record this PLACEMENT as
+        // Cleared (R4) + fire the quest event (idempotent — only the first time
+        // the placement flips to Cleared). The quest event still carries the
+        // ARCHETYPE id (quest objectives are about the boss kind, e.g. "defeat
+        // the Gradient Sentinel").
         if matches!(phase, crate::boss_encounter::BossEncounterPhase::Death) && death_done {
             if feature.status.alive {
                 feature.status.alive = false;
             }
             if !matches!(
-                save.data().boss(&archetype_id),
+                save.data().boss(&runtime_id),
                 crate::persistence::save_data::PersistedEncounterState::Cleared
             ) {
                 save.data_mut().set_boss(
-                    &archetype_id,
+                    &runtime_id,
                     crate::persistence::save_data::PersistedEncounterState::Cleared,
                 );
                 quests.push_event(crate::quest::QuestAdvanceEvent::BossDefeated(
@@ -191,8 +193,9 @@ pub fn update_boss_encounters(
             }
         }
 
-        // Collect the active-fight music + the reward anchor (keyed by
-        // archetype, matching the profile/save the reward sync reads).
+        // Collect the active-fight music + the reward anchor (placement_id,
+        // archetype_id, spawn): the reward sync keys the chest + looted flag by
+        // PLACEMENT and resolves the DropChest reward via the archetype profile.
         if active_music_track.is_none() {
             if let Some(track) = phase_music_track(&spec, phase) {
                 if !track.is_empty() {
@@ -200,7 +203,7 @@ pub fn update_boss_encounters(
                 }
             }
         }
-        boss_anchors.push((archetype_id.clone(), feature.config.spawn));
+        boss_anchors.push((runtime_id.clone(), archetype_id.clone(), feature.config.spawn));
     }
 
     // Music-request lifetime: keep the active boss's track up; clear it when no

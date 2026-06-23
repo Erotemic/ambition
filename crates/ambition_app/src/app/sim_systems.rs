@@ -272,6 +272,10 @@ pub fn apply_cut_rope_room_replay_request_system(
     boss_registry: Res<ambition_gameplay_core::boss_encounter::BossEncounterRegistry>,
     mut save: Option<ResMut<ambition_gameplay_core::persistence::save::SandboxSave>>,
     mut boss_music: Option<ResMut<ambition_gameplay_core::encounter::BossEncounterMusicRequest>>,
+    // Cut-rope boss placements in the room — R4 keys "cleared" by placement
+    // (`config.id`), so the replay clears those keys (the respawned boss carries
+    // the same LDtk id).
+    cut_rope_bosses: Query<&ambition_gameplay_core::combat::boss_clusters::BossConfig>,
     mut reset_room_features: MessageWriter<features::ResetRoomFeaturesEvent>,
     mut sfx_writer: MessageWriter<SfxMessage>,
     mut vfx_writer: MessageWriter<VfxMessage>,
@@ -291,10 +295,16 @@ pub fn apply_cut_rope_room_replay_request_system(
     if replay_requests.read().count() == 0 {
         return;
     }
+    let cut_rope_placements: Vec<String> = cut_rope_bosses
+        .iter()
+        .filter(|config| ambition_content::bosses::is_cut_rope_boss(&config.behavior.id))
+        .map(|config| config.id.clone())
+        .collect();
     ambition_content::bosses::reset_cut_rope_boss_attempt(
         &boss_registry,
         save.as_deref_mut(),
         boss_music.as_deref_mut(),
+        &cut_rope_placements,
     );
 
     let Ok((

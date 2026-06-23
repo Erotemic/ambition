@@ -144,20 +144,26 @@ pub fn emit_cut_rope_room_replay_after_dialogue_closes(
 /// only clears the *persisted* "cleared" record (so the respawned boss isn't
 /// pre-marked defeated), re-hides the victory NPC, and restores the intro music
 /// from the read-only profile catalog.
+///
+/// R4: "cleared" is keyed by PLACEMENT (the boss's `config.id`), so the caller
+/// passes the cut-rope boss placement ids currently in the room to clear.
 pub fn reset_cut_rope_boss_attempt(
     registry: &BossEncounterRegistry,
     save: Option<&mut ambition_gameplay_core::persistence::save::SandboxSave>,
     music_request: Option<&mut ambition_gameplay_core::encounter::BossEncounterMusicRequest>,
+    placement_ids: &[String],
 ) {
     let intro_track = registry
         .profile(CUT_ROPE_BOSS_ID)
         .map(|profile| profile.encounter.music_intro.clone());
     if let Some(save) = save {
         let data = save.data_mut();
-        data.set_boss(
-            CUT_ROPE_BOSS_ID,
-            ambition_gameplay_core::persistence::save_data::PersistedEncounterState::Untouched,
-        );
+        for placement_id in placement_ids {
+            data.set_boss(
+                placement_id,
+                ambition_gameplay_core::persistence::save_data::PersistedEncounterState::Untouched,
+            );
+        }
         // The NPC appears only after the victory beat. Replaying the room should
         // make the post-boss conversation available again only after the next kill.
         data.set_flag("smirking_behemoth_victory_npc_seen", false);

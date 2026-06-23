@@ -125,17 +125,10 @@ pub fn sync_ecs_bosses_with_save(
 ) {
     let data = save.data();
     for (mut feature, death_anim, phase) in &mut bosses {
-        // Use the canonical behavior id (resolved at spawn from the
-        // brain's `PhaseScript:` payload) so an LDtk BossSpawn with
-        // flavor name "System Boss" + brain
-        // `PhaseScript:clockwork_warden` still hits the
-        // `clockwork_warden` save slot. `boss.id` (runtime entity
-        // id) also wins as a legacy fallback.
-        let encounter_id = feature.config.behavior.id.clone();
+        // R4: "cleared" is keyed to this PLACEMENT (the boss's unique
+        // runtime/LDtk id `config.id`), NOT the archetype — so the same boss
+        // archetype reused at another placement is not pre-marked defeated.
         if matches!(
-            data.boss(&encounter_id),
-            crate::persistence::save_data::PersistedEncounterState::Cleared
-        ) || matches!(
             data.boss(&feature.config.id),
             crate::persistence::save_data::PersistedEncounterState::Cleared
         ) {

@@ -34,23 +34,14 @@ pub fn spawn_cut_rope_victory_npc(
         return;
     };
     let boss = boss_feature.as_boss_ref();
-    // R3: the boss death is resolved entity-side. The NPC appears once the death
-    // outro has elapsed, which is exactly when `update_boss_encounters` writes the
-    // persisted "cleared" record — so gate on the save (the entity-resolved
-    // outcome), not the deleted global live map.
-    let boss_persisted_cleared = {
-        let data = save.data();
-        matches!(
-            data.boss(CUT_ROPE_BOSS_ID),
-            ambition_gameplay_core::persistence::save_data::PersistedEncounterState::Cleared
-        ) || matches!(
-            data.boss(&boss.config.behavior.id),
-            ambition_gameplay_core::persistence::save_data::PersistedEncounterState::Cleared
-        ) || matches!(
-            data.boss(&boss.config.id),
-            ambition_gameplay_core::persistence::save_data::PersistedEncounterState::Cleared
-        )
-    };
+    // R3/R4: the boss death is resolved entity-side; the NPC appears once the
+    // death outro has elapsed, which is exactly when `update_boss_encounters`
+    // writes the persisted "cleared" record. R4 keys that record by PLACEMENT
+    // (the boss's `config.id`), so gate on it.
+    let boss_persisted_cleared = matches!(
+        save.data().boss(&boss.config.id),
+        ambition_gameplay_core::persistence::save_data::PersistedEncounterState::Cleared
+    );
     if !boss_persisted_cleared {
         return;
     }

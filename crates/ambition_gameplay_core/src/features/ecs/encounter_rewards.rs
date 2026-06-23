@@ -97,7 +97,10 @@ pub fn sync_boss_reward_chests_ecs(
     save: &crate::persistence::save_data::SandboxSaveData,
     registry: &crate::boss_encounter::BossEncounterRegistry,
     world: &ae::World,
-    boss_anchors: &[(String, ae::Vec2)],
+    // (placement_id, archetype_id, spawn) for each boss in the room. R4 keys the
+    // chest + looted flag by PLACEMENT (so a cleared placement drops its own
+    // chest) and resolves the DropChest reward via the archetype profile.
+    boss_placements: &[(String, String, ae::Vec2)],
     chests: &Query<
         (
             Entity,
@@ -109,7 +112,10 @@ pub fn sync_boss_reward_chests_ecs(
         With<ChestFeature>,
     >,
 ) {
-    for (encounter_id, profile) in &registry.profiles {
+    for (placement_id, archetype_id, boss_spawn) in boss_placements {
+        let Some(profile) = registry.profiles.get(archetype_id) else {
+            continue;
+        };
         let crate::boss_encounter::BossRewardProfile::DropChest {
             pickup,
             offset,
@@ -119,25 +125,18 @@ pub fn sync_boss_reward_chests_ecs(
             continue;
         };
         if !matches!(
-            save.boss(encounter_id),
+            save.boss(placement_id),
             crate::persistence::save_data::PersistedEncounterState::Cleared
         ) {
             continue;
         }
-        // `boss_anchors` are keyed by archetype id (matching the profile catalog
-        // + the save record). R3 deleted the `runtime_ids` indirection — the
-        // boss's entity-local state is the authority, and `update_boss_encounters`
-        // hands us the anchor by archetype.
-        let Some((_, boss_spawn)) = boss_anchors.iter().find(|(id, _)| id == encounter_id) else {
-            continue;
-        };
-        let chest_id = format!("encounter_chest_{encounter_id}");
+        let chest_id = format!("encounter_chest_{placement_id}");
         let looted = save.flag(&crate::encounter::encounter_reward_looted_flag(
-            encounter_id,
+            placement_id,
         ));
         let existing = chests
             .iter()
-            .find(|(_, reward, _, _, _)| reward.encounter_id == *encounter_id);
+            .find(|(_, reward, _, _, _)| reward.encounter_id == *placement_id);
         if let Some((entity, _, _, opened, falling)) = existing {
             match (looted, opened.is_some()) {
                 (true, false) => {
@@ -158,7 +157,7 @@ pub fn sync_boss_reward_chests_ecs(
             chest_pos = settled_chest_center(world, chest_pos, *size);
         }
         let mut entity = commands.spawn((
-            Name::new(format!("Boss reward chest: {encounter_id}")),
+            Name::new(format!("Boss reward chest: {placement_id}")),
             FeatureSimEntity,
             RoomVisual,
             FeatureId::new(chest_id.clone()),
@@ -168,7 +167,7 @@ pub fn sync_boss_reward_chests_ecs(
                 chest_id,
                 Some(pickup.clone()),
             )),
-            BossRewardChest::new(encounter_id.clone()),
+            BossRewardChest::new(placement_id.clone()),
         ));
         if looted {
             entity.insert(Opened);
@@ -277,7 +276,7 @@ mod boss_reward_sync_tests {
     #[derive(Resource)]
     struct TestWorld(ae::World);
     #[derive(Resource)]
-    struct TestAnchors(Vec<(String, ae::Vec2)>);
+    struct TestAnchors(Vec<(String, String, ae::Vec2)>);
 
     fn run_boss_sync(
         mut commands: Commands,
@@ -324,7 +323,10 @@ mod boss_reward_sync_tests {
             ae::Vec2::new(50.0, 50.0),
             Vec::new(),
         )));
+        // (placement_id, archetype_id, spawn) — placement == archetype for this
+        // single-placement fixture.
         app.insert_resource(TestAnchors(vec![(
+            "test_boss".into(),
             "test_boss".into(),
             ae::Vec2::new(200.0, 100.0),
         )]));

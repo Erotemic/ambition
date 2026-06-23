@@ -38,10 +38,9 @@ mod roster;
 mod tests;
 
 pub use ids::encounter_id_from_name;
-// `MOCKINGBIRD_ENCOUNTER_ID` is no longer re-exported — the dialog
-// redirect that read it moved to the data-driven
-// `assets/data/dialogue/registry.ron` `BossCleared("mockingbird")`
-// rule. Internal tests reference it via `super::ids::MOCKINGBIRD_ENCOUNTER_ID`.
+// `MOCKINGBIRD_ENCOUNTER_ID` is not re-exported — it's the one hard-coded
+// archetype id, referenced only by internal tests via
+// `super::ids::MOCKINGBIRD_ENCOUNTER_ID`.
 pub use ambition_characters::boss_encounter::{
     BossEncounterEvent, BossEncounterPhase, BossEncounterSpec, BossEncounterState, BossPhaseEvent,
     BossPhaseState, PhaseTrigger, PhaseTriggerCondition,

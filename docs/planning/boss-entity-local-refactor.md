@@ -387,9 +387,22 @@ edits per stage, build once. `cargo`/test invocations use `-p ambition_app` (e.g
         authority-coupled part — **R3 repoints it to the entity** and the assertions must stay green.
         Cut-rope victory NPC + in-place replay stay an in-game verification item (headless-hard; R5
         rewrites cut-rope), but cut-rope's death consequences ride the same generic path this net pins.
-- [ ] **R4 — Save persistence keyed to the ENCOUNTER placement (not archetype).**
+- [x] **R4 — Save persistence keyed to the ENCOUNTER placement (not archetype). LANDED.**
       `cleared: HashSet<encounter_placement_id>` written on encounter win. Supersedes Stage 1a's
       archetype-keyed save — reusing a boss archetype elsewhere is NOT pre-marked cleared.
+      - **What landed:** the boss-cleared save record is keyed by the boss's PLACEMENT id (`config.id`,
+        the unique runtime/LDtk id = `EncounterDef.placement_id`), not the archetype (`behavior.id`).
+        Death resolution writes `set_boss(placement_id, Cleared)`; both spawn-skip systems
+        (`update_boss_encounters`, `sync_ecs_bosses_with_save`) read the placement key only; reward
+        chests + looted flags are placement-keyed (`sync_boss_reward_chests_ecs` now takes
+        `(placement, archetype, spawn)` and resolves the DropChest reward via the archetype profile);
+        cut-rope victory gates on the placement key; cut-rope in-place replay clears the placement
+        key(s) (caller passes the cut-rope boss `config.id`s). The QUEST event still carries the
+        archetype id (objectives are about the boss kind). **No dialogue/quest breakage:** the only
+        save-key readers were the spawn-skip + reward + victory systems (the `BossCleared("mockingbird")`
+        dialogue rule referenced by a stale `mod.rs` comment does not exist; `gnu_ton` reads entity
+        `alive`). Green: new `reused_archetype_at_a_new_placement_is_not_pre_cleared` + the death net
+        (now placement-keyed) + 951 gameplay_core lib + 4 boss_contact_iframes.
 - [ ] **R5 — Smirking Behemoth via the generic pieces** (see "decomposition" above). Add a generic
       `Contains(npc) + ReleaseOnDeath` instance-payload component (freed at the entity's position on
       death — NOT scripted). Express the cut-rope fight as an `EncounterScript`

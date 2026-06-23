@@ -69,6 +69,33 @@ are now gravity-relative. These four remain world-Y-locked — each is a DESIGN 
 - **Where:** `boss_encounter/systems.rs::phase_music_track` vs `boss_encounter/events.rs::publish_events`.
 - **Finding:** NOT a duplicate. `phase_music_track` is the only place that maps a `BossEncounterPhase` to its `BossEncounterSpec` music field; it's called twice within `systems.rs` (the active-track collector + `phase_event_to_encounter_events`). `publish_events` only *consumes* an already-resolved `MusicRequested { track }` string — it never re-derives the phase→track mapping. (`publish_events` DOES own the sole phase→banner-*text* mapping, also single-source.) Recorded so the next reader doesn't re-chase it as a dedup target.
 
+## 2026-06-23 Settings: 3 IR options absent from the pause-menu SettingsItem surface (gap, behavior-change to fix)
+- **Where:** `persistence/settings/model/mod.rs` (`SettingsItem` enum + `rows_for` + `shared_option_id`) vs `menu/ir/settings/mod.rs` (`SettingsOptionId`) + `menu/ir/system/mod.rs` (curated_options) + settings `apply`/`build`.
+- **Smell (already-diverged parallel list):** `FramePacing`, `PortalReverseFacing`, `InputFrameMode` exist in the IR, the System-cube curated_options, and `apply_settings_option`, but have NO `SettingsItem` variant / `rows_for` entry, so the pause menu can't surface them. The comment at `model/mod.rs:181-183` claims the "stage 3b" IR-bridge migration is complete, which contradicts this.
+- **Why NOT fixed here:** resolving it ADDS user-facing pause-menu rows = a behavior change, out of scope for a behavior-preserving de-bloat pass. Also may be an intentional subset (pause menu < cube menu) rather than a bug. Needs Jon's call.
+- **Suggested fix / size:** M — if the pause menu should mirror the cube: add the 3 `SettingsItem` variants + `rows_for` + `shared_option_id` mappings; then update the `:181-183` comment. If intentional, add a one-line note that the pause surface is deliberately a subset. The whole class would benefit from a test asserting every `SettingsOptionId` reachable via the cube is either in `SettingsItem` or on an explicit "pause-omitted" allow-list.
+
+## 2026-06-23 Manual `const ALL` lists shadow exhaustive enum matches (drift-prone, add a guard)
+- **Where:** `assets/game_assets/entity_sprite.rs` (`EntitySprite` enum + `const ALL` at ~:104 + `relative_path`/`entity_sprite_asset_id` matches); `assets/game_assets/mod.rs` (`ParallaxTheme`/`ParallaxLayerAsset` enums + their `const ALL` + `key()`/`from_key()`).
+- **Smell:** the `match` arms are exhaustive (compiler catches a missing variant), but the hand-maintained `const ALL: [_; N]` is NOT — adding a variant without updating `ALL` silently drops it from every `ALL`-driven iteration (asset preload, round-trip checks). No current mismatch.
+- **Why not fixed:** the only robust fix is a guard test, and `ALL.len() == <variant count>` needs `std::mem::variant_count` (nightly) or a strum-style derive; a plain test that round-trips every `ALL` entry through `key()`/`from_key()` is the pragmatic option. Adding tests is lower-value than dedup and preventive only.
+- **Suggested fix / size:** S each — a round-trip test per enum (every `ALL` entry resolves through its match and back), or adopt a derive that generates `ALL`.
+
+## 2026-06-23 Diverging test fixtures NOT consolidated (verified, leave)
+- **`EncounterSpec` builders** — `encounter/state.rs::spec()`, `encounter/rewards.rs::spec_with_trigger()`, `encounter/tests.rs::lab_spec()` each rebuild the 9-field `EncounterSpec`, but with different values (camera_zoom 1.2/1.0/1.5, reward `Health{2}` vs `default_encounter_reward()`) and different parameterization (waves vs trigger vs fixed). A shared builder would need a base+override shape; values already differ per test, so forcing it risks changing fixtures tests depend on. Left.
+- **`LdtkProject` synthetic fixtures** — `world/ldtk_world/tests/kinematic_paths.rs` has 6 `LdtkProject` literals. The world-audit agent rated them ~95% identical, but that held only for the first two: across all six the level dimensions diverge (only 2 use 640×480 / 40×30; one project has multiple levels). A single `synthetic_project(id, entities)` helper won't fit without a wide builder (px_wid/hei/c_wid/hei params), at which point the call sites aren't much shorter. Left.
+
+## 2026-06-23 Portal LDtk-emission field vs helper feature-gate mismatch
+- **Where:** `world/ldtk_world/conversion/mod.rs` — `RuntimeEntityEmission` fields `portal_gun_spawns`/`portals` are `#[cfg(feature = "portal")]` but their helper methods `portal_gun_spawn()`/`portal()` are `#[cfg(feature = "portal_ldtk")]`.
+- **Smell:** two gates for one concern. `portal_ldtk` implies `portal` (per Cargo.toml) so it compiles, but a reader checking the field gate would mis-predict the helper gate.
+- **Why not fixed:** changing a cfg gate can shift what compiles under each feature combo — needs a per-feature build check, not a blind edit; not behavior-preserving by inspection alone.
+- **Suggested fix / size:** S — align the helper gates to the field gate (or add a one-line comment explaining the asymmetry), then build under `--features portal` and `--features portal_ldtk` to confirm.
+
+## 2026-06-23 `dialog_lint` fixed-arity command table is hand-synced + untested
+- **Where:** `dialog_lint.rs` (`FIXED_ARITY_COMMANDS` ~:19-31) must match the `In<...>` arities of the `cmd_*` fns in `dialog/yarn_bindings.rs`; the comment says "MUST match" but nothing tests it.
+- **Smell:** a new dialog command added without updating the table is silently un-linted. Manual parallel list, no guard.
+- **Suggested fix / size:** M — a test that scrapes the `cmd_*` signatures (or a registry the bindings already build) and cross-checks the table.
+
 ## Resolved
 
 - **2026-06-17 Patrol wall-stop read screen-vel.x** — under sideways gravity the patrol "reverse facing" detection watched the zeroed gravity axis and never fired (enemy ground into the wall). Now watches the gravity-perpendicular side velocity in both grounded integrators. `5c29c4a9`; pinned by `patrol_enemy_reverses_facing_at_a_wall_under_sideways_gravity`.

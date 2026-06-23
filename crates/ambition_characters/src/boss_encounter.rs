@@ -60,22 +60,19 @@ pub struct BossEncounterSpec {
     pub music_enrage: String,
 }
 
+/// Bridge events the phase mechanism emits for the music / banner / cutscene
+/// publisher (`boss_encounter::events::publish_events`). Built from
+/// `BossPhaseEvent` by `phase_event_to_encounter_events`.
 #[derive(Clone, Debug, PartialEq)]
 pub enum BossEncounterEvent {
     PhaseChanged {
         from: BossEncounterPhase,
         to: BossEncounterPhase,
     },
-    DamageApplied {
-        amount: i32,
-        hp_remaining: i32,
-        hp_fraction: f32,
-    },
     MusicRequested {
         track: String,
     },
-    /// Boss reached HP=0; the runtime will play the death animation
-    /// and `death_complete` returns true once it's fully resolved.
+    /// Boss reached `Death`; shows the victory banner.
     Defeated,
 }
 

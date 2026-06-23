@@ -1251,3 +1251,14 @@ There was no headless test asserting boss music plays during a fight — the exa
 ### Takeaway
 - **When you re-key a collection, grep EVERY `.get`/`.get_mut`/`.entry`/`.contains_key` on it — not just the mutators you came to change.** A read-only lookup with the old key fails silently (returns `None`/default), so it won't panic or fail to compile; it just quietly does the wrong thing.
 - **Test-first before a big-bang earns its keep immediately.** The "write the safety net for the behaviors you can't see" step (here: boss music, save-cleared, reward drop) surfaced a pre-existing regression the moment it ran — before any of the risky R3 work began.
+
+## 2026-06-23: "Elegant vs cheap" refactor + tests keeping dead code alive
+
+**Date:** 2026-06-23. **Context:** boss entity-local refactor R5 (express the cut-rope fight via generic encounter pieces) + Jon's review ("are we slimming as we unify? was avoiding what you did in R5 elegant or cheap?").
+
+### Two transferable lessons
+- **A "script on top of the bespoke system" is cheap, not elegant.** The first R5 cut built a generic `EncounterScript` engine but bolted it onto the existing `arena.rs` — a gate that fired `ForceKill` while the anvil physics + steering stayed bespoke. That NET-ADDS (engine) without removing what it was meant to replace. The elegant version makes the bespoke logic GENERIC (`CommandMoveTo`→`CommandedMove`, `DropHazard`→`FallingHazard`) and DELETES the bespoke physics, so the cut-rope becomes data + a future puzzle reuses the mechanic. Test for elegance: *did the bespoke code get deleted, and is the new code reusable by a second caller?* If you only added, you cheaped it.
+- **When a refactor obsoletes a system, delete it AND its tests in the SAME stage.** R3 made the registry-owned `BossEncounterState` live-state machine obsolete (the entity became the source of truth) but left it because `roster.rs` tests still exercised it — ~440 lines used ONLY by their own tests. Tests of dead code masquerade as coverage and silently keep the corpse compiling. After replacing a system, grep its methods for NON-TEST callers; if there are none, the system + its tests go together. (The replacement's behavior was already covered by the new mechanism's own tests.)
+
+### Takeaway
+Slimming is part of "done", not a follow-up: a unification that only adds is half-finished. Each refactor stage should leave the net production surface flat-or-smaller and the new code reused by ≥1 real caller, with the obsoleted code + its tests deleted in the same commit.

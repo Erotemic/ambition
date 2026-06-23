@@ -42,7 +42,6 @@ pub(super) fn publish_events(
                     music_request.desired_track = Some(track.clone());
                 }
             }
-            crate::boss_encounter::BossEncounterEvent::DamageApplied { .. } => {}
             crate::boss_encounter::BossEncounterEvent::Defeated => {
                 // Death cutscene swap could go here in a richer build.
                 banner.show(format!("VICTORY: {encounter_id}"), 2.5);

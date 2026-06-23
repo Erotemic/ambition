@@ -31,3 +31,34 @@ pub(crate) fn spawn_primary_player_holding(app: &mut App, held_item_id: &str) ->
         ))
         .id()
 }
+
+/// A primary player holding `held_item_id` at an explicit `pos` / `facing`, with
+/// NO `PlayerMana` — the minimal bundle the traversal-ability tests (blink /
+/// grapple / mark-recall) spawn. One definition so the body/`PlayerBaseSize`
+/// bundle can't drift across those modules; each caller passes only the pos /
+/// facing it cares about.
+pub(crate) fn spawn_primary_player_holding_at(
+    app: &mut App,
+    held_item_id: &str,
+    pos: ae::Vec2,
+    facing: f32,
+) -> Entity {
+    let spec = held_item_by_id(held_item_id).unwrap();
+    app.world_mut()
+        .spawn((
+            PlayerEntity,
+            PrimaryPlayer,
+            BodyKinematics {
+                pos,
+                vel: ae::Vec2::ZERO,
+                size: ae::Vec2::new(24.0, 40.0),
+                facing,
+            },
+            PlayerBaseSize {
+                base_size: ae::Vec2::new(24.0, 40.0),
+            },
+            ActionSet::default(),
+            HeldItem::new(spec),
+        ))
+        .id()
+}

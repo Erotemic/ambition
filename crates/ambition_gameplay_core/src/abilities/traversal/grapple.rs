@@ -117,8 +117,6 @@ pub fn grapple_system(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::brain::ActionSet;
-    use crate::player::PlayerBaseSize;
 
     fn world_with_right_wall() -> crate::GameWorld {
         // A solid wall at x[380,400], y[0,400]; open space to its left.
@@ -148,24 +146,7 @@ mod tests {
     }
 
     fn spawn_player_holding(app: &mut App, id: &str, pos: ae::Vec2, facing: f32) -> Entity {
-        let spec = crate::brain::held_item_by_id(id).unwrap();
-        app.world_mut()
-            .spawn((
-                PlayerEntity,
-                PrimaryPlayer,
-                BodyKinematics {
-                    pos,
-                    vel: ae::Vec2::ZERO,
-                    size: ae::Vec2::new(24.0, 40.0),
-                    facing,
-                },
-                PlayerBaseSize {
-                    base_size: ae::Vec2::new(24.0, 40.0),
-                },
-                ActionSet::default(),
-                HeldItem::new(spec),
-            ))
-            .id()
+        crate::abilities::test_support::spawn_primary_player_holding_at(app, id, pos, facing)
     }
 
     fn player_vel(app: &App, player: Entity) -> ae::Vec2 {

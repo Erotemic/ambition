@@ -158,8 +158,6 @@ pub fn blink_system(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::brain::ActionSet;
-    use crate::player::PlayerBaseSize;
 
     fn test_app() -> App {
         let mut app = App::new();
@@ -172,24 +170,12 @@ mod tests {
     }
 
     fn spawn_player_holding(app: &mut App, id: &str, facing: f32) -> Entity {
-        let spec = crate::brain::held_item_by_id(id).unwrap();
-        app.world_mut()
-            .spawn((
-                PlayerEntity,
-                PrimaryPlayer,
-                BodyKinematics {
-                    pos: ae::Vec2::new(300.0, 300.0),
-                    vel: ae::Vec2::ZERO,
-                    size: ae::Vec2::new(24.0, 40.0),
-                    facing,
-                },
-                PlayerBaseSize {
-                    base_size: ae::Vec2::new(24.0, 40.0),
-                },
-                ActionSet::default(),
-                HeldItem::new(spec),
-            ))
-            .id()
+        crate::abilities::test_support::spawn_primary_player_holding_at(
+            app,
+            id,
+            ae::Vec2::new(300.0, 300.0),
+            facing,
+        )
     }
 
     fn player_pos(app: &App, player: Entity) -> ae::Vec2 {

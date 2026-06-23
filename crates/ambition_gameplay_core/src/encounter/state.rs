@@ -104,6 +104,20 @@ pub struct EncounterRun {
     pub wave_elapsed: f32,
 }
 
+impl EncounterRun {
+    /// A fresh wave's run state: the wave's `pending` mob spawns, no live mobs
+    /// yet, clock at zero. The single definition of "start a wave's run" — the
+    /// intro→wave-0 and inter-wave-advance sites route through it (and
+    /// `..Self::default()` covers the other fields), so adding an `EncounterRun`
+    /// field can't desync the two wave-start sites.
+    fn for_wave(pending: Vec<EncounterMobSpec>) -> Self {
+        Self {
+            pending,
+            ..Self::default()
+        }
+    }
+}
+
 /// Bevy resource holding the live encounter state plus the authored
 /// spec it's tracking. Populated by the LDtk encounter loader when
 /// `EncounterTrigger` markers land in an active area.
@@ -232,11 +246,7 @@ impl EncounterState {
                 wave_index: 0,
                 remaining_mobs: spec.waves[0].mobs.len(),
             };
-            self.run = EncounterRun {
-                pending: spec.waves[0].mobs.clone(),
-                alive_ids: Vec::new(),
-                wave_elapsed: 0.0,
-            };
+            self.run = EncounterRun::for_wave(spec.waves[0].mobs.clone());
             events.push(EncounterEvent::WaveStarted {
                 wave_index: 0,
                 label: spec.waves[0].label.clone(),
@@ -301,62 +311,7 @@ impl EncounterState {
                     wave_index: next_wave,
                     remaining_mobs: next.mobs.len(),
                 };
-                self.run = EncounterRun {
-                    pending: add_inter_wave_delay(&next.mobs),
-                    alive_ids: Vec::new(),
-                    wave_elapsed: 0.0,
-                };
-                events.push(EncounterEvent::WaveStarted {
-                    wave_index: next_wave,
-                    label: next.label.clone(),
-                });
-            } else {
-                self.phase = EncounterPhase::Cleared;
-                self.lock_active = false;
-                self.run = EncounterRun::default();
-                events.push(EncounterEvent::Cleared { id: spec.id });
-                events.push(EncounterEvent::LockChanged { locked: false });
-            }
-        }
-        events
-    }
-
-    /// Legacy helper kept for tests that drive defeats one at a time
-    /// (rather than via the alive-id retain path). Prefer
-    /// `tick_intro_or_wave`. Marks one alive_id (the last one) as
-    /// dead and re-runs wave-progress logic.
-    pub fn on_mob_defeated(&mut self) -> Vec<EncounterEvent> {
-        let mut events = Vec::new();
-        let Some(spec) = self.spec.clone() else {
-            return events;
-        };
-        let EncounterPhase::Active { wave_index, .. } = self.phase else {
-            return events;
-        };
-        if self.run.alive_ids.is_empty() && self.run.pending.is_empty() {
-            // Wave already empty — fall through to clear logic below.
-        } else if !self.run.alive_ids.is_empty() {
-            self.run.alive_ids.pop();
-        } else {
-            return events;
-        }
-        let remaining = self.run.pending.len() + self.run.alive_ids.len();
-        self.phase = EncounterPhase::Active {
-            wave_index,
-            remaining_mobs: remaining,
-        };
-        if remaining == 0 {
-            let next_wave = wave_index + 1;
-            if let Some(next) = spec.waves.get(next_wave) {
-                self.phase = EncounterPhase::Active {
-                    wave_index: next_wave,
-                    remaining_mobs: next.mobs.len(),
-                };
-                self.run = EncounterRun {
-                    pending: add_inter_wave_delay(&next.mobs),
-                    alive_ids: Vec::new(),
-                    wave_elapsed: 0.0,
-                };
+                self.run = EncounterRun::for_wave(add_inter_wave_delay(&next.mobs));
                 events.push(EncounterEvent::WaveStarted {
                     wave_index: next_wave,
                     label: next.label.clone(),
@@ -545,7 +500,8 @@ mod tests {
     #[test]
     fn defeating_the_last_mob_of_the_last_wave_clears_and_unlocks() {
         let mut s = active_with_one_live_mob(spec(vec![wave("only", 1)]));
-        let events = s.on_mob_defeated();
+        // The live mob is reported dead this tick → wave (and encounter) clears.
+        let events = s.tick_intro_or_wave(0.0, |_| false);
         assert_eq!(s.phase, EncounterPhase::Cleared);
         assert!(!s.lock_active, "clearing releases the lock");
         assert!(events
@@ -559,7 +515,8 @@ mod tests {
     #[test]
     fn defeating_the_last_mob_of_a_wave_advances_to_the_next() {
         let mut s = active_with_one_live_mob(spec(vec![wave("first", 1), wave("second", 2)]));
-        let events = s.on_mob_defeated();
+        // The live mob is reported dead this tick → the wave advances.
+        let events = s.tick_intro_or_wave(0.0, |_| false);
         assert_eq!(s.phase.wave_index(), Some(1), "advanced to the second wave");
         assert!(events
             .iter()
@@ -600,9 +557,9 @@ mod tests {
     }
 
     #[test]
-    fn defeating_a_mob_while_inactive_is_a_noop() {
+    fn ticking_while_inactive_is_a_noop() {
         let mut s = EncounterState::default();
-        assert!(s.on_mob_defeated().is_empty());
+        assert!(s.tick_intro_or_wave(0.0, |_| false).is_empty());
         assert_eq!(s.phase, EncounterPhase::Inactive);
     }
 }

@@ -104,17 +104,15 @@ fn defeating_all_mobs_clears_each_wave_and_then_encounter() {
     let mut state = EncounterState::default();
     state.spec = Some(lab_spec());
     state.maybe_start(ae::Vec2::new(50.0, 50.0), ae::Vec2::new(20.0, 30.0));
+    // `advance_past_intro` also spawns wave 1's single mob (delay 0).
     advance_past_intro(&mut state);
-    // Wave 1 has 1 mob; spawn it then mark defeated.
-    let _ = state.tick_intro_or_wave(0.001, |_| true);
-    let _ = state.on_mob_defeated();
-    // Wave 2 has 2 mobs; tick past the 0.70s inter-wave delay so
-    // both pending entries spawn (otherwise their delays are still
-    // counting down and `on_mob_defeated`'s legacy alive_ids.pop
-    // path no-ops, leaving the wave stuck).
+    // Wave 1's mob is reported dead → wave advances to wave 2.
+    let _ = state.tick_intro_or_wave(0.001, |_| false);
+    // Wave 2 has 2 mobs; tick past the 0.70s inter-wave delay so both
+    // pending entries spawn before they can be reported dead.
     let _ = state.tick_intro_or_wave(ENCOUNTER_INTER_WAVE_DELAY_SECONDS + 0.01, |_| true);
-    let _ = state.on_mob_defeated();
-    let events = state.on_mob_defeated();
+    // Both wave-2 mobs reported dead → the encounter clears.
+    let events = state.tick_intro_or_wave(0.001, |_| false);
     assert_eq!(state.phase, EncounterPhase::Cleared);
     assert!(!state.lock_active);
     assert!(events

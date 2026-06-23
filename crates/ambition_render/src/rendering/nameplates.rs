@@ -1,0 +1,533 @@
+//! Nameplates: presentation-only world-space labels above actors and doors.
+//!
+//! This intentionally lives in `ambition_render` rather than gameplay. Actor
+//! identity, door names, and bounds are simulation/content state, but deciding
+//! whether / how a human-facing label is drawn is view policy. The system keeps
+//! one ECS visual entity per labeled source and only toggles visibility,
+//! transform, and opacity each frame, so the rules can grow without becoming a
+//! debug-overlay respawn loop.
+
+use std::collections::{HashMap, HashSet};
+
+use ambition_gameplay_core::engine_core::{self as ae, AabbExt};
+use ambition_gameplay_core::features::{
+    ActorCombatState, ActorHealth, ActorIdentity, BossPhase, CenteredAabb, FeatureId,
+    FeatureSimEntity, FeatureViewIndex,
+};
+use ambition_gameplay_core::player::PrimaryPlayerOnly;
+use ambition_gameplay_core::{config::world_to_bevy, config::WORLD_Z_PLAYER};
+use bevy::prelude::*;
+
+use crate::ui_fonts::{UiFontWeight, UiFonts};
+
+use super::camera::CameraViewState;
+use super::primitives::RoomVisual;
+
+/// Presentation policy for world nameplates.
+///
+/// The default policy ranks all eligible labels by distance to
+/// [`CameraViewState::target_world`], draws the first three at full opacity,
+/// fades the fourth through sixth labels, and reaches zero opacity at the
+/// seventh. Later candidates are hidden. This keeps the selection rule local and
+/// easy to tune without changing the actor/door collection code.
+#[derive(Resource, Clone, Debug)]
+pub struct ActorNameplateSettings {
+    /// Global off-switch for the presentation surface.
+    pub enabled: bool,
+    /// Number of nearest eligible labels drawn at full configured opacity.
+    pub full_opacity_count: usize,
+    /// Ranked candidate count where opacity reaches zero. Candidates after this
+    /// rank are hidden entirely.
+    pub fade_out_count: usize,
+    /// Optional world-pixel cutoff from the focus point. `None` means no cutoff.
+    pub max_distance_px: Option<f32>,
+    /// Gap between the source's rendered top edge and the text baseline.
+    pub vertical_gap_px: f32,
+    /// Font size in Bevy text points.
+    pub font_size: f32,
+    /// Absolute Bevy Z layer for the text root.
+    pub z: f32,
+    /// Main text color before rank-opacity is applied.
+    pub text_color: Color,
+    /// Shadow/outline text color before rank-opacity is applied.
+    pub outline_color: Color,
+    /// World-space pixel offset used for the four outline samples.
+    pub outline_offset_px: f32,
+}
+
+impl Default for ActorNameplateSettings {
+    fn default() -> Self {
+        Self {
+            enabled: true,
+            full_opacity_count: 3,
+            fade_out_count: 7,
+            max_distance_px: None,
+            vertical_gap_px: 10.0,
+            font_size: 10.0,
+            z: WORLD_Z_PLAYER + 18.0,
+            text_color: Color::srgba(0.94, 0.98, 1.0, 1.0),
+            outline_color: Color::srgba(0.0, 0.0, 0.0, 0.72),
+            outline_offset_px: 0.9,
+        }
+    }
+}
+
+/// Marker on any room visual that should participate in the nameplate policy.
+///
+/// Actor labels are collected directly from actor ECS components because their
+/// render bounds are dynamic. Static door visuals carry this source component so
+/// they can share the same ranking/fade/render machinery without adding door
+/// special cases to gameplay.
+#[derive(Component, Clone, Debug)]
+pub struct DoorNameplateSource {
+    pub id: String,
+    pub label: String,
+    pub center_world: ae::Vec2,
+    pub size_world: ae::Vec2,
+}
+
+impl DoorNameplateSource {
+    pub fn new(id: impl Into<String>, label: impl Into<String>, aabb: ae::Aabb) -> Self {
+        Self {
+            id: id.into(),
+            label: label.into(),
+            center_world: aabb.center(),
+            size_world: aabb.half_size() * 2.0,
+        }
+    }
+}
+
+/// Marker on the root `Text2d` entity for a nameplate.
+#[derive(Component, Clone, Debug)]
+pub struct ActorNameplateVisual {
+    pub owner: Entity,
+    pub label: String,
+}
+
+/// Marker on outline child text entities. Kept separate so future style systems
+/// can adjust only the shadow pass without inspecting hierarchy.
+#[derive(Component, Clone, Copy, Debug)]
+pub struct ActorNameplateOutlineVisual;
+
+/// System set for nameplates. Downstream presentation code can order
+/// before/after this set without naming the concrete sync system.
+#[derive(SystemSet, Clone, Debug, PartialEq, Eq, Hash)]
+pub struct ActorNameplateSet;
+
+/// Render-layer plugin for player-facing actor/door labels.
+pub struct ActorNameplatePresentationPlugin;
+
+impl Plugin for ActorNameplatePresentationPlugin {
+    fn build(&self, app: &mut App) {
+        app.init_resource::<ActorNameplateSettings>()
+            .configure_sets(
+                Update,
+                ActorNameplateSet
+                    .after(super::actors::sync_visuals)
+                    .after(super::camera::camera_follow),
+            )
+            .add_systems(Update, sync_actor_nameplates.in_set(ActorNameplateSet));
+    }
+}
+
+#[derive(Clone, Debug)]
+struct NameplateCandidate {
+    owner: Entity,
+    label: String,
+    anchor_world: ae::Vec2,
+    distance_sq: f32,
+    opacity: f32,
+}
+
+#[allow(clippy::type_complexity)]
+pub fn sync_actor_nameplates(
+    mut commands: Commands,
+    world: Res<ambition_gameplay_core::GameWorld>,
+    settings: Res<ActorNameplateSettings>,
+    camera: Option<Res<CameraViewState>>,
+    feature_views: Option<Res<FeatureViewIndex>>,
+    ui_fonts: Option<Res<UiFonts>>,
+    possession: Option<
+        Res<ambition_gameplay_core::abilities::traversal::possession::PossessionState>,
+    >,
+    primary_player: Query<Entity, PrimaryPlayerOnly>,
+    actors: Query<
+        (
+            Entity,
+            &FeatureId,
+            &ActorIdentity,
+            &CenteredAabb,
+            Option<&ActorCombatState>,
+            Option<&ActorHealth>,
+            Option<&BossPhase>,
+        ),
+        With<FeatureSimEntity>,
+    >,
+    door_sources: Query<(Entity, &DoorNameplateSource, Option<&Visibility>)>,
+    mut nameplates: Query<(
+        Entity,
+        &ActorNameplateVisual,
+        &mut Transform,
+        &mut Visibility,
+        &mut TextColor,
+        &Children,
+    )>,
+    mut outline_colors: Query<&mut TextColor, With<ActorNameplateOutlineVisual>>,
+) {
+    if !settings.enabled {
+        hide_all_nameplates(&mut nameplates);
+        return;
+    }
+
+    let controlled_actor = camera_controlled_actor(possession.as_deref(), &primary_player);
+    let focus_world = camera
+        .as_deref()
+        .map_or(ae::Vec2::ZERO, |camera| camera.target_world);
+    let mut source_entities = HashSet::new();
+    let mut candidates = Vec::new();
+
+    collect_actor_candidates(
+        &settings,
+        feature_views.as_deref(),
+        controlled_actor,
+        focus_world,
+        &actors,
+        &mut source_entities,
+        &mut candidates,
+    );
+    collect_door_candidates(
+        &settings,
+        focus_world,
+        &door_sources,
+        &mut source_entities,
+        &mut candidates,
+    );
+
+    candidates.sort_by(|a, b| {
+        a.distance_sq
+            .total_cmp(&b.distance_sq)
+            .then_with(|| a.label.cmp(&b.label))
+    });
+    apply_rank_opacity(&settings, &mut candidates);
+
+    let visible_candidates: HashMap<Entity, NameplateCandidate> = candidates
+        .into_iter()
+        .take(settings.fade_out_count)
+        .map(|candidate| (candidate.owner, candidate))
+        .collect();
+
+    let mut existing_visible = HashSet::new();
+    for (entity, plate, mut transform, mut visibility, mut text_color, children) in &mut nameplates
+    {
+        if let Some(candidate) = visible_candidates.get(&plate.owner) {
+            if plate.label != candidate.label {
+                // Name changes are rare. Rebuild the small text subtree so the
+                // root and outline children stay identical without relying on
+                // Text2d internals.
+                commands.entity(entity).despawn();
+                continue;
+            }
+            existing_visible.insert(plate.owner);
+            transform.translation = world_to_bevy(&world.0, candidate.anchor_world, settings.z);
+            let visible = candidate.opacity > 0.0;
+            *visibility = if visible {
+                Visibility::Visible
+            } else {
+                Visibility::Hidden
+            };
+            *text_color = TextColor(color_with_opacity(settings.text_color, candidate.opacity));
+            for child in children.iter() {
+                if let Ok(mut outline_color) = outline_colors.get_mut(child) {
+                    *outline_color = TextColor(color_with_opacity(
+                        settings.outline_color,
+                        candidate.opacity,
+                    ));
+                }
+            }
+        } else if source_entities.contains(&plate.owner) {
+            *visibility = Visibility::Hidden;
+        } else {
+            commands.entity(entity).despawn();
+        }
+    }
+
+    let font = nameplate_font(ui_fonts.as_deref(), settings.font_size);
+    for candidate in visible_candidates.values() {
+        if !existing_visible.contains(&candidate.owner) {
+            spawn_actor_nameplate(&mut commands, &world.0, &settings, &font, candidate);
+        }
+    }
+}
+
+fn collect_actor_candidates(
+    settings: &ActorNameplateSettings,
+    feature_views: Option<&FeatureViewIndex>,
+    controlled_actor: Option<Entity>,
+    focus_world: ae::Vec2,
+    actors: &Query<
+        (
+            Entity,
+            &FeatureId,
+            &ActorIdentity,
+            &CenteredAabb,
+            Option<&ActorCombatState>,
+            Option<&ActorHealth>,
+            Option<&BossPhase>,
+        ),
+        With<FeatureSimEntity>,
+    >,
+    source_entities: &mut HashSet<Entity>,
+    candidates: &mut Vec<NameplateCandidate>,
+) {
+    for (entity, feature_id, identity, aabb, combat, health, boss_phase) in actors.iter() {
+        source_entities.insert(entity);
+        if Some(entity) == controlled_actor {
+            continue;
+        }
+        if !actor_nameplate_alive(combat, health, boss_phase) {
+            continue;
+        }
+
+        let (center, size, visible) = feature_views
+            .and_then(|index| index.get(feature_id.as_str()))
+            .map(|view| (view.pos, view.size, view.visible))
+            .unwrap_or_else(|| (aabb.center, aabb.size(), true));
+        if !visible {
+            continue;
+        }
+
+        push_candidate_if_in_range(
+            settings,
+            focus_world,
+            candidates,
+            entity,
+            identity.name().to_string(),
+            center,
+            size,
+        );
+    }
+}
+
+fn collect_door_candidates(
+    settings: &ActorNameplateSettings,
+    focus_world: ae::Vec2,
+    door_sources: &Query<(Entity, &DoorNameplateSource, Option<&Visibility>)>,
+    source_entities: &mut HashSet<Entity>,
+    candidates: &mut Vec<NameplateCandidate>,
+) {
+    for (entity, source, visibility) in door_sources.iter() {
+        source_entities.insert(entity);
+        if visibility.is_some_and(|visibility| *visibility == Visibility::Hidden) {
+            continue;
+        }
+        if source.label.trim().is_empty() {
+            continue;
+        }
+
+        push_candidate_if_in_range(
+            settings,
+            focus_world,
+            candidates,
+            entity,
+            source.label.clone(),
+            source.center_world,
+            source.size_world,
+        );
+    }
+}
+
+fn push_candidate_if_in_range(
+    settings: &ActorNameplateSettings,
+    focus_world: ae::Vec2,
+    candidates: &mut Vec<NameplateCandidate>,
+    owner: Entity,
+    label: String,
+    center: ae::Vec2,
+    size: ae::Vec2,
+) {
+    let distance_sq = (center - focus_world).length_squared();
+    if let Some(max_distance) = settings.max_distance_px {
+        if distance_sq > max_distance.max(0.0).powi(2) {
+            return;
+        }
+    }
+
+    candidates.push(NameplateCandidate {
+        owner,
+        label,
+        anchor_world: nameplate_anchor(center, size, settings.vertical_gap_px),
+        distance_sq,
+        opacity: 1.0,
+    });
+}
+
+fn apply_rank_opacity(settings: &ActorNameplateSettings, candidates: &mut [NameplateCandidate]) {
+    for (rank_index, candidate) in candidates.iter_mut().enumerate() {
+        candidate.opacity = rank_opacity(
+            rank_index,
+            settings.full_opacity_count,
+            settings.fade_out_count,
+        );
+    }
+}
+
+fn rank_opacity(rank_index: usize, full_opacity_count: usize, fade_out_count: usize) -> f32 {
+    let rank = rank_index + 1;
+    if rank <= full_opacity_count {
+        return 1.0;
+    }
+    if fade_out_count <= full_opacity_count || rank >= fade_out_count {
+        return 0.0;
+    }
+    let fade_span = (fade_out_count - full_opacity_count) as f32;
+    let remaining = (fade_out_count - rank) as f32;
+    (remaining / fade_span).clamp(0.0, 1.0)
+}
+
+fn hide_all_nameplates(
+    nameplates: &mut Query<(
+        Entity,
+        &ActorNameplateVisual,
+        &mut Transform,
+        &mut Visibility,
+        &mut TextColor,
+        &Children,
+    )>,
+) {
+    for (_, _, _, mut visibility, _, _) in nameplates.iter_mut() {
+        *visibility = Visibility::Hidden;
+    }
+}
+
+fn camera_controlled_actor(
+    possession: Option<&ambition_gameplay_core::abilities::traversal::possession::PossessionState>,
+    primary_player: &Query<Entity, PrimaryPlayerOnly>,
+) -> Option<Entity> {
+    // Current presentation has one main camera: it follows the possessed actor
+    // when possession is active, otherwise the primary player body. When the
+    // game gains per-camera associations, this function is the only resolver
+    // that should need to change.
+    possession
+        .and_then(|state| state.possessed)
+        .or_else(|| primary_player.single().ok())
+}
+
+fn actor_nameplate_alive(
+    combat: Option<&ActorCombatState>,
+    health: Option<&ActorHealth>,
+    boss_phase: Option<&BossPhase>,
+) -> bool {
+    if boss_phase.is_some_and(|phase| phase.is_defeated()) {
+        return false;
+    }
+    if combat.is_some_and(|combat| !combat.alive) {
+        return false;
+    }
+    if health.is_some_and(|health| !health.alive()) {
+        return false;
+    }
+    true
+}
+
+fn nameplate_anchor(center: ae::Vec2, size: ae::Vec2, vertical_gap_px: f32) -> ae::Vec2 {
+    // Ambition world coordinates are +Y down. The label's anchor sits above the
+    // rendered source box, so subtract half-height and the configured gap.
+    ae::Vec2::new(center.x, center.y - size.y * 0.5 - vertical_gap_px.max(0.0))
+}
+
+fn nameplate_font(ui_fonts: Option<&UiFonts>, font_size: f32) -> TextFont {
+    ui_fonts
+        .map(|fonts| fonts.text_font(font_size, UiFontWeight::Semibold))
+        .unwrap_or(TextFont {
+            font_size,
+            ..default()
+        })
+}
+
+fn spawn_actor_nameplate(
+    commands: &mut Commands,
+    world: &ae::World,
+    settings: &ActorNameplateSettings,
+    font: &TextFont,
+    candidate: &NameplateCandidate,
+) {
+    let text = candidate.label.clone();
+    let outline_offsets = outline_offsets(settings.outline_offset_px);
+    let text_color = color_with_opacity(settings.text_color, candidate.opacity);
+    let outline_color = color_with_opacity(settings.outline_color, candidate.opacity);
+    commands
+        .spawn((
+            Text2d::new(text.clone()),
+            font.clone(),
+            TextColor(text_color),
+            Transform::from_translation(world_to_bevy(world, candidate.anchor_world, settings.z)),
+            if candidate.opacity > 0.0 {
+                Visibility::Visible
+            } else {
+                Visibility::Hidden
+            },
+            ActorNameplateVisual {
+                owner: candidate.owner,
+                label: text.clone(),
+            },
+            RoomVisual,
+            Name::new(format!("Nameplate: {text}")),
+        ))
+        .with_children(|parent| {
+            for offset in outline_offsets {
+                parent.spawn((
+                    Text2d::new(text.clone()),
+                    font.clone(),
+                    TextColor(outline_color),
+                    Transform::from_xyz(offset.x, offset.y, -0.1),
+                    ActorNameplateOutlineVisual,
+                    Name::new("Nameplate outline"),
+                ));
+            }
+        });
+}
+
+fn color_with_opacity(color: Color, opacity: f32) -> Color {
+    let srgba = color.to_srgba();
+    Color::srgba(
+        srgba.red,
+        srgba.green,
+        srgba.blue,
+        srgba.alpha * opacity.clamp(0.0, 1.0),
+    )
+}
+
+fn outline_offsets(offset_px: f32) -> [Vec2; 4] {
+    let offset = offset_px.max(0.0);
+    [
+        Vec2::new(-offset, 0.0),
+        Vec2::new(offset, 0.0),
+        Vec2::new(0.0, -offset),
+        Vec2::new(0.0, offset),
+    ]
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn default_policy_shows_three_full_and_fades_to_zero_at_seven() {
+        let settings = ActorNameplateSettings::default();
+        assert!(settings.enabled);
+        assert_eq!(settings.full_opacity_count, 3);
+        assert_eq!(settings.fade_out_count, 7);
+        assert_eq!(settings.max_distance_px, None);
+        assert_eq!(rank_opacity(0, 3, 7), 1.0);
+        assert_eq!(rank_opacity(2, 3, 7), 1.0);
+        assert_eq!(rank_opacity(3, 3, 7), 0.75);
+        assert_eq!(rank_opacity(5, 3, 7), 0.25);
+        assert_eq!(rank_opacity(6, 3, 7), 0.0);
+    }
+
+    #[test]
+    fn anchor_sits_above_source_in_y_down_world_space() {
+        let anchor = nameplate_anchor(ae::Vec2::new(20.0, 100.0), ae::Vec2::new(30.0, 40.0), 10.0);
+        assert_eq!(anchor, ae::Vec2::new(20.0, 70.0));
+    }
+}

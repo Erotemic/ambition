@@ -48983,32 +48983,6 @@
 							"__worldY": -672
 						},
 						{
-							"__identifier": "DebugLabel",
-							"__grid": [0,61],
-							"__pivot": [0,0],
-							"__tags": [],
-							"__tile": null,
-							"__smartColor": "#FFFFFF",
-							"iid": "DebugLabel-6164",
-							"width": 120,
-							"height": 20,
-							"defUid": 2007,
-							"px": [4,980],
-							"fieldInstances": [
-								{ "__identifier": "name", "__type": "String", "__value": "hall_label_player", "__tile": null, "defUid": 3015, "realEditorValues": [{
-									"id": "V_String",
-									"params": ["hall_label_player"]
-								}] },
-								{ "__identifier": "text", "__type": "String", "__value": "Player", "__tile": null, "defUid": 3016, "realEditorValues": [{
-									"id": "V_String",
-									"params": ["Player"]
-								}] },
-								{ "__identifier": "category", "__type": "String", "__value": "Custom", "__tile": null, "defUid": 3017, "realEditorValues": [] }
-							],
-							"__worldX": 3588,
-							"__worldY": -812
-						},
-						{
 							"__identifier": "NpcSpawn",
 							"__grid": [11,70],
 							"__pivot": [0,0],
@@ -49035,32 +49009,6 @@
 							],
 							"__worldX": 3760,
 							"__worldY": -672
-						},
-						{
-							"__identifier": "DebugLabel",
-							"__grid": [8,61],
-							"__pivot": [0,0],
-							"__tags": [],
-							"__tile": null,
-							"__smartColor": "#FFFFFF",
-							"iid": "DebugLabel-6166",
-							"width": 120,
-							"height": 20,
-							"defUid": 2007,
-							"px": [132,980],
-							"fieldInstances": [
-								{ "__identifier": "name", "__type": "String", "__value": "hall_label_robot", "__tile": null, "defUid": 3015, "realEditorValues": [{
-									"id": "V_String",
-									"params": ["hall_label_robot"]
-								}] },
-								{ "__identifier": "text", "__type": "String", "__value": "Robot", "__tile": null, "defUid": 3016, "realEditorValues": [{
-									"id": "V_String",
-									"params": ["Robot"]
-								}] },
-								{ "__identifier": "category", "__type": "String", "__value": "Custom", "__tile": null, "defUid": 3017, "realEditorValues": [] }
-							],
-							"__worldX": 3716,
-							"__worldY": -812
 						},
 						{
 							"__identifier": "NpcSpawn",
@@ -49091,32 +49039,6 @@
 							"__worldY": -672
 						},
 						{
-							"__identifier": "DebugLabel",
-							"__grid": [16,61],
-							"__pivot": [0,0],
-							"__tags": [],
-							"__tile": null,
-							"__smartColor": "#FFFFFF",
-							"iid": "DebugLabel-6168",
-							"width": 120,
-							"height": 20,
-							"defUid": 2007,
-							"px": [260,980],
-							"fieldInstances": [
-								{ "__identifier": "name", "__type": "String", "__value": "hall_label_goblin", "__tile": null, "defUid": 3015, "realEditorValues": [{
-									"id": "V_String",
-									"params": ["hall_label_goblin"]
-								}] },
-								{ "__identifier": "text", "__type": "String", "__value": "Goblin", "__tile": null, "defUid": 3016, "realEditorValues": [{
-									"id": "V_String",
-									"params": ["Goblin"]
-								}] },
-								{ "__identifier": "category", "__type": "String", "__value": "Custom", "__tile": null, "defUid": 3017, "realEditorValues": [] }
-							],
-							"__worldX": 3844,
-							"__worldY": -812
-						},
-						{
 							"__identifier": "NpcSpawn",
 							"__grid": [27,70],
 							"__pivot": [0,0],
@@ -49143,32 +49065,6 @@
 							],
 							"__worldX": 4016,
 							"__worldY": -672
-						},
-						{
-							"__identifier": "DebugLabel",
-							"__grid": [24,61],
-							"__pivot": [0,0],
-							"__tags": [],
-							"__tile": null,
-							"__smartColor": "#FFFFFF",
-							"iid": "DebugLabel-6170",
-							"width": 120,
-							"height": 20,
-							"defUid": 2007,
-							"px": [388,980],
-							"fieldInstances": [
-								{ "__identifier": "name", "__type": "String", "__value": "hall_label_sandbag", "__tile": null, "defUid": 3015, "realEditorValues": [{
-									"id": "V_String",
-									"params": ["hall_label_sandbag"]
-								}] },
-								{ "__identifier": "text", "__type": "String", "__value": "Sandbag", "__tile": null, "defUid": 3016, "realEditorValues": [{
-									"id": "V_String",
-									"params": ["Sandbag"]
-								}] },
-								{ "__identifier": "category", "__type": "String", "__value": "Custom", "__tile": null, "defUid": 3017, "realEditorValues": [] }
-							],
-							"__worldX": 3972,
-							"__worldY": -812
 						},
 						{
 							"__identifier": "NpcSpawn",
@@ -49199,32 +49095,6 @@
 							"__worldY": -672
 						},
 						{
-							"__identifier": "DebugLabel",
-							"__grid": [32,61],
-							"__pivot": [0,0],
-							"__tags": [],
-							"__tile": null,
-							"__smartColor": "#FFFFFF",
-							"iid": "DebugLabel-6172",
-							"width": 120,
-							"height": 20,
-							"defUid": 2007,
-							"px": [516,980],
-							"fieldInstances": [
-								{ "__identifier": "name", "__type": "String", "__value": "hall_label_npc_general", "__tile": null, "defUid": 3015, "realEditorValues": [{
-									"id": "V_String",
-									"params": ["hall_label_npc_general"]
-								}] },
-								{ "__identifier": "text", "__type": "String", "__value": "General", "__tile": null, "defUid": 3016, "realEditorValues": [{
-									"id": "V_String",
-									"params": ["General"]
-								}] },
-								{ "__identifier": "category", "__type": "String", "__value": "Custom", "__tile": null, "defUid": 3017, "realEditorValues": [] }
-							],
-							"__worldX": 4100,
-							"__worldY": -812
-						},
-						{
 							"__identifier": "NpcSpawn",
 							"__grid": [43,70],
 							"__pivot": [0,0],
@@ -49251,32 +49121,6 @@
 							],
 							"__worldX": 4272,
 							"__worldY": -672
-						},
-						{
-							"__identifier": "DebugLabel",
-							"__grid": [40,61],
-							"__pivot": [0,0],
-							"__tags": [],
-							"__tile": null,
-							"__smartColor": "#FFFFFF",
-							"iid": "DebugLabel-6174",
-							"width": 120,
-							"height": 20,
-							"defUid": 2007,
-							"px": [644,980],
-							"fieldInstances": [
-								{ "__identifier": "name", "__type": "String", "__value": "hall_label_npc_goblin_cantina_chieftain", "__tile": null, "defUid": 3015, "realEditorValues": [{
-									"id": "V_String",
-									"params": ["hall_label_npc_goblin_cantina_chieftain"]
-								}] },
-								{ "__identifier": "text", "__type": "String", "__value": "Fretjaw, Cantina Chieftain", "__tile": null, "defUid": 3016, "realEditorValues": [{
-									"id": "V_String",
-									"params": ["Fretjaw, Cantina Chieftain"]
-								}] },
-								{ "__identifier": "category", "__type": "String", "__value": "Custom", "__tile": null, "defUid": 3017, "realEditorValues": [] }
-							],
-							"__worldX": 4228,
-							"__worldY": -812
 						},
 						{
 							"__identifier": "NpcSpawn",
@@ -49307,32 +49151,6 @@
 							"__worldY": -672
 						},
 						{
-							"__identifier": "DebugLabel",
-							"__grid": [48,61],
-							"__pivot": [0,0],
-							"__tags": [],
-							"__tile": null,
-							"__smartColor": "#FFFFFF",
-							"iid": "DebugLabel-6176",
-							"width": 120,
-							"height": 20,
-							"defUid": 2007,
-							"px": [772,980],
-							"fieldInstances": [
-								{ "__identifier": "name", "__type": "String", "__value": "hall_label_npc_pulse_voyager_captain", "__tile": null, "defUid": 3015, "realEditorValues": [{
-									"id": "V_String",
-									"params": ["hall_label_npc_pulse_voyager_captain"]
-								}] },
-								{ "__identifier": "text", "__type": "String", "__value": "Captain Pulse", "__tile": null, "defUid": 3016, "realEditorValues": [{
-									"id": "V_String",
-									"params": ["Captain Pulse"]
-								}] },
-								{ "__identifier": "category", "__type": "String", "__value": "Custom", "__tile": null, "defUid": 3017, "realEditorValues": [] }
-							],
-							"__worldX": 4356,
-							"__worldY": -812
-						},
-						{
 							"__identifier": "NpcSpawn",
 							"__grid": [59,70],
 							"__pivot": [0,0],
@@ -49359,32 +49177,6 @@
 							],
 							"__worldX": 4528,
 							"__worldY": -672
-						},
-						{
-							"__identifier": "DebugLabel",
-							"__grid": [56,61],
-							"__pivot": [0,0],
-							"__tags": [],
-							"__tile": null,
-							"__smartColor": "#FFFFFF",
-							"iid": "DebugLabel-6178",
-							"width": 120,
-							"height": 20,
-							"defUid": 2007,
-							"px": [900,980],
-							"fieldInstances": [
-								{ "__identifier": "name", "__type": "String", "__value": "hall_label_npc_tech_bro_disruptor", "__tile": null, "defUid": 3015, "realEditorValues": [{
-									"id": "V_String",
-									"params": ["hall_label_npc_tech_bro_disruptor"]
-								}] },
-								{ "__identifier": "text", "__type": "String", "__value": "Chadwick Disruptor III", "__tile": null, "defUid": 3016, "realEditorValues": [{
-									"id": "V_String",
-									"params": ["Chadwick Disruptor III"]
-								}] },
-								{ "__identifier": "category", "__type": "String", "__value": "Custom", "__tile": null, "defUid": 3017, "realEditorValues": [] }
-							],
-							"__worldX": 4484,
-							"__worldY": -812
 						},
 						{
 							"__identifier": "NpcSpawn",
@@ -49415,32 +49207,6 @@
 							"__worldY": -672
 						},
 						{
-							"__identifier": "DebugLabel",
-							"__grid": [64,61],
-							"__pivot": [0,0],
-							"__tags": [],
-							"__tile": null,
-							"__smartColor": "#FFFFFF",
-							"iid": "DebugLabel-6180",
-							"width": 120,
-							"height": 20,
-							"defUid": 2007,
-							"px": [1028,980],
-							"fieldInstances": [
-								{ "__identifier": "name", "__type": "String", "__value": "hall_label_npc_pirate_admiral", "__tile": null, "defUid": 3015, "realEditorValues": [{
-									"id": "V_String",
-									"params": ["hall_label_npc_pirate_admiral"]
-								}] },
-								{ "__identifier": "text", "__type": "String", "__value": "Pirate Admiral", "__tile": null, "defUid": 3016, "realEditorValues": [{
-									"id": "V_String",
-									"params": ["Pirate Admiral"]
-								}] },
-								{ "__identifier": "category", "__type": "String", "__value": "Custom", "__tile": null, "defUid": 3017, "realEditorValues": [] }
-							],
-							"__worldX": 4612,
-							"__worldY": -812
-						},
-						{
 							"__identifier": "NpcSpawn",
 							"__grid": [75,70],
 							"__pivot": [0,0],
@@ -49467,32 +49233,6 @@
 							],
 							"__worldX": 4784,
 							"__worldY": -672
-						},
-						{
-							"__identifier": "DebugLabel",
-							"__grid": [72,61],
-							"__pivot": [0,0],
-							"__tags": [],
-							"__tile": null,
-							"__smartColor": "#FFFFFF",
-							"iid": "DebugLabel-6182",
-							"width": 120,
-							"height": 20,
-							"defUid": 2007,
-							"px": [1156,980],
-							"fieldInstances": [
-								{ "__identifier": "name", "__type": "String", "__value": "hall_label_npc_pirate_raider", "__tile": null, "defUid": 3015, "realEditorValues": [{
-									"id": "V_String",
-									"params": ["hall_label_npc_pirate_raider"]
-								}] },
-								{ "__identifier": "text", "__type": "String", "__value": "Pirate Raider", "__tile": null, "defUid": 3016, "realEditorValues": [{
-									"id": "V_String",
-									"params": ["Pirate Raider"]
-								}] },
-								{ "__identifier": "category", "__type": "String", "__value": "Custom", "__tile": null, "defUid": 3017, "realEditorValues": [] }
-							],
-							"__worldX": 4740,
-							"__worldY": -812
 						},
 						{
 							"__identifier": "NpcSpawn",
@@ -49523,32 +49263,6 @@
 							"__worldY": -672
 						},
 						{
-							"__identifier": "DebugLabel",
-							"__grid": [80,61],
-							"__pivot": [0,0],
-							"__tags": [],
-							"__tile": null,
-							"__smartColor": "#FFFFFF",
-							"iid": "DebugLabel-6184",
-							"width": 120,
-							"height": 20,
-							"defUid": 2007,
-							"px": [1284,980],
-							"fieldInstances": [
-								{ "__identifier": "name", "__type": "String", "__value": "hall_label_npc_pirate_quartermaster", "__tile": null, "defUid": 3015, "realEditorValues": [{
-									"id": "V_String",
-									"params": ["hall_label_npc_pirate_quartermaster"]
-								}] },
-								{ "__identifier": "text", "__type": "String", "__value": "Pirate Quartermaster", "__tile": null, "defUid": 3016, "realEditorValues": [{
-									"id": "V_String",
-									"params": ["Pirate Quartermaster"]
-								}] },
-								{ "__identifier": "category", "__type": "String", "__value": "Custom", "__tile": null, "defUid": 3017, "realEditorValues": [] }
-							],
-							"__worldX": 4868,
-							"__worldY": -812
-						},
-						{
 							"__identifier": "NpcSpawn",
 							"__grid": [91,70],
 							"__pivot": [0,0],
@@ -49575,32 +49289,6 @@
 							],
 							"__worldX": 5040,
 							"__worldY": -672
-						},
-						{
-							"__identifier": "DebugLabel",
-							"__grid": [88,61],
-							"__pivot": [0,0],
-							"__tags": [],
-							"__tile": null,
-							"__smartColor": "#FFFFFF",
-							"iid": "DebugLabel-6186",
-							"width": 120,
-							"height": 20,
-							"defUid": 2007,
-							"px": [1412,980],
-							"fieldInstances": [
-								{ "__identifier": "name", "__type": "String", "__value": "hall_label_npc_pirate_lookout", "__tile": null, "defUid": 3015, "realEditorValues": [{
-									"id": "V_String",
-									"params": ["hall_label_npc_pirate_lookout"]
-								}] },
-								{ "__identifier": "text", "__type": "String", "__value": "Pirate Lookout", "__tile": null, "defUid": 3016, "realEditorValues": [{
-									"id": "V_String",
-									"params": ["Pirate Lookout"]
-								}] },
-								{ "__identifier": "category", "__type": "String", "__value": "Custom", "__tile": null, "defUid": 3017, "realEditorValues": [] }
-							],
-							"__worldX": 4996,
-							"__worldY": -812
 						},
 						{
 							"__identifier": "NpcSpawn",
@@ -49631,32 +49319,6 @@
 							"__worldY": -672
 						},
 						{
-							"__identifier": "DebugLabel",
-							"__grid": [96,61],
-							"__pivot": [0,0],
-							"__tags": [],
-							"__tile": null,
-							"__smartColor": "#FFFFFF",
-							"iid": "DebugLabel-6188",
-							"width": 120,
-							"height": 20,
-							"defUid": 2007,
-							"px": [1540,980],
-							"fieldInstances": [
-								{ "__identifier": "name", "__type": "String", "__value": "hall_label_npc_pirate_navigator", "__tile": null, "defUid": 3015, "realEditorValues": [{
-									"id": "V_String",
-									"params": ["hall_label_npc_pirate_navigator"]
-								}] },
-								{ "__identifier": "text", "__type": "String", "__value": "Pirate Navigator", "__tile": null, "defUid": 3016, "realEditorValues": [{
-									"id": "V_String",
-									"params": ["Pirate Navigator"]
-								}] },
-								{ "__identifier": "category", "__type": "String", "__value": "Custom", "__tile": null, "defUid": 3017, "realEditorValues": [] }
-							],
-							"__worldX": 5124,
-							"__worldY": -812
-						},
-						{
 							"__identifier": "NpcSpawn",
 							"__grid": [107,70],
 							"__pivot": [0,0],
@@ -49683,32 +49345,6 @@
 							],
 							"__worldX": 5296,
 							"__worldY": -672
-						},
-						{
-							"__identifier": "DebugLabel",
-							"__grid": [104,61],
-							"__pivot": [0,0],
-							"__tags": [],
-							"__tile": null,
-							"__smartColor": "#FFFFFF",
-							"iid": "DebugLabel-6190",
-							"width": 120,
-							"height": 20,
-							"defUid": 2007,
-							"px": [1668,980],
-							"fieldInstances": [
-								{ "__identifier": "name", "__type": "String", "__value": "hall_label_stochastic_parrot", "__tile": null, "defUid": 3015, "realEditorValues": [{
-									"id": "V_String",
-									"params": ["hall_label_stochastic_parrot"]
-								}] },
-								{ "__identifier": "text", "__type": "String", "__value": "Stochastic Parrot", "__tile": null, "defUid": 3016, "realEditorValues": [{
-									"id": "V_String",
-									"params": ["Stochastic Parrot"]
-								}] },
-								{ "__identifier": "category", "__type": "String", "__value": "Custom", "__tile": null, "defUid": 3017, "realEditorValues": [] }
-							],
-							"__worldX": 5252,
-							"__worldY": -812
 						},
 						{
 							"__identifier": "NpcSpawn",
@@ -49739,32 +49375,6 @@
 							"__worldY": -672
 						},
 						{
-							"__identifier": "DebugLabel",
-							"__grid": [112,61],
-							"__pivot": [0,0],
-							"__tags": [],
-							"__tile": null,
-							"__smartColor": "#FFFFFF",
-							"iid": "DebugLabel-6192",
-							"width": 120,
-							"height": 20,
-							"defUid": 2007,
-							"px": [1796,980],
-							"fieldInstances": [
-								{ "__identifier": "name", "__type": "String", "__value": "hall_label_npc_pirate_heavy_broadside_bess", "__tile": null, "defUid": 3015, "realEditorValues": [{
-									"id": "V_String",
-									"params": ["hall_label_npc_pirate_heavy_broadside_bess"]
-								}] },
-								{ "__identifier": "text", "__type": "String", "__value": "Broadside Bess", "__tile": null, "defUid": 3016, "realEditorValues": [{
-									"id": "V_String",
-									"params": ["Broadside Bess"]
-								}] },
-								{ "__identifier": "category", "__type": "String", "__value": "Custom", "__tile": null, "defUid": 3017, "realEditorValues": [] }
-							],
-							"__worldX": 5380,
-							"__worldY": -812
-						},
-						{
 							"__identifier": "NpcSpawn",
 							"__grid": [123,70],
 							"__pivot": [0,0],
@@ -49791,32 +49401,6 @@
 							],
 							"__worldX": 5552,
 							"__worldY": -672
-						},
-						{
-							"__identifier": "DebugLabel",
-							"__grid": [120,61],
-							"__pivot": [0,0],
-							"__tags": [],
-							"__tile": null,
-							"__smartColor": "#FFFFFF",
-							"iid": "DebugLabel-6194",
-							"width": 120,
-							"height": 20,
-							"defUid": 2007,
-							"px": [1924,980],
-							"fieldInstances": [
-								{ "__identifier": "name", "__type": "String", "__value": "hall_label_npc_pirate_heavy_iron_mary", "__tile": null, "defUid": 3015, "realEditorValues": [{
-									"id": "V_String",
-									"params": ["hall_label_npc_pirate_heavy_iron_mary"]
-								}] },
-								{ "__identifier": "text", "__type": "String", "__value": "Iron Mary", "__tile": null, "defUid": 3016, "realEditorValues": [{
-									"id": "V_String",
-									"params": ["Iron Mary"]
-								}] },
-								{ "__identifier": "category", "__type": "String", "__value": "Custom", "__tile": null, "defUid": 3017, "realEditorValues": [] }
-							],
-							"__worldX": 5508,
-							"__worldY": -812
 						},
 						{
 							"__identifier": "NpcSpawn",
@@ -49847,32 +49431,6 @@
 							"__worldY": -864
 						},
 						{
-							"__identifier": "DebugLabel",
-							"__grid": [0,49],
-							"__pivot": [0,0],
-							"__tags": [],
-							"__tile": null,
-							"__smartColor": "#FFFFFF",
-							"iid": "DebugLabel-6196",
-							"width": 120,
-							"height": 20,
-							"defUid": 2007,
-							"px": [4,788],
-							"fieldInstances": [
-								{ "__identifier": "name", "__type": "String", "__value": "hall_label_npc_pirate_heavy_salt_annet", "__tile": null, "defUid": 3015, "realEditorValues": [{
-									"id": "V_String",
-									"params": ["hall_label_npc_pirate_heavy_salt_annet"]
-								}] },
-								{ "__identifier": "text", "__type": "String", "__value": "Salt Annet", "__tile": null, "defUid": 3016, "realEditorValues": [{
-									"id": "V_String",
-									"params": ["Salt Annet"]
-								}] },
-								{ "__identifier": "category", "__type": "String", "__value": "Custom", "__tile": null, "defUid": 3017, "realEditorValues": [] }
-							],
-							"__worldX": 3588,
-							"__worldY": -1004
-						},
-						{
 							"__identifier": "NpcSpawn",
 							"__grid": [11,58],
 							"__pivot": [0,0],
@@ -49899,32 +49457,6 @@
 							],
 							"__worldX": 3760,
 							"__worldY": -864
-						},
-						{
-							"__identifier": "DebugLabel",
-							"__grid": [8,49],
-							"__pivot": [0,0],
-							"__tags": [],
-							"__tile": null,
-							"__smartColor": "#FFFFFF",
-							"iid": "DebugLabel-6198",
-							"width": 120,
-							"height": 20,
-							"defUid": 2007,
-							"px": [132,788],
-							"fieldInstances": [
-								{ "__identifier": "name", "__type": "String", "__value": "hall_label_npc_burning_flying_shark", "__tile": null, "defUid": 3015, "realEditorValues": [{
-									"id": "V_String",
-									"params": ["hall_label_npc_burning_flying_shark"]
-								}] },
-								{ "__identifier": "text", "__type": "String", "__value": "Burning Flying Shark", "__tile": null, "defUid": 3016, "realEditorValues": [{
-									"id": "V_String",
-									"params": ["Burning Flying Shark"]
-								}] },
-								{ "__identifier": "category", "__type": "String", "__value": "Custom", "__tile": null, "defUid": 3017, "realEditorValues": [] }
-							],
-							"__worldX": 3716,
-							"__worldY": -1004
 						},
 						{
 							"__identifier": "NpcSpawn",
@@ -49955,32 +49487,6 @@
 							"__worldY": -864
 						},
 						{
-							"__identifier": "DebugLabel",
-							"__grid": [16,49],
-							"__pivot": [0,0],
-							"__tags": [],
-							"__tile": null,
-							"__smartColor": "#FFFFFF",
-							"iid": "DebugLabel-6200",
-							"width": 120,
-							"height": 20,
-							"defUid": 2007,
-							"px": [260,788],
-							"fieldInstances": [
-								{ "__identifier": "name", "__type": "String", "__value": "hall_label_npc_puppy_slug", "__tile": null, "defUid": 3015, "realEditorValues": [{
-									"id": "V_String",
-									"params": ["hall_label_npc_puppy_slug"]
-								}] },
-								{ "__identifier": "text", "__type": "String", "__value": "Puppy Slug", "__tile": null, "defUid": 3016, "realEditorValues": [{
-									"id": "V_String",
-									"params": ["Puppy Slug"]
-								}] },
-								{ "__identifier": "category", "__type": "String", "__value": "Custom", "__tile": null, "defUid": 3017, "realEditorValues": [] }
-							],
-							"__worldX": 3844,
-							"__worldY": -1004
-						},
-						{
 							"__identifier": "NpcSpawn",
 							"__grid": [27,58],
 							"__pivot": [0,0],
@@ -50007,32 +49513,6 @@
 							],
 							"__worldX": 4016,
 							"__worldY": -864
-						},
-						{
-							"__identifier": "DebugLabel",
-							"__grid": [24,49],
-							"__pivot": [0,0],
-							"__tags": [],
-							"__tile": null,
-							"__smartColor": "#FFFFFF",
-							"iid": "DebugLabel-6202",
-							"width": 120,
-							"height": 20,
-							"defUid": 2007,
-							"px": [388,788],
-							"fieldInstances": [
-								{ "__identifier": "name", "__type": "String", "__value": "hall_label_npc_ninja_shadow_oni_leader", "__tile": null, "defUid": 3015, "realEditorValues": [{
-									"id": "V_String",
-									"params": ["hall_label_npc_ninja_shadow_oni_leader"]
-								}] },
-								{ "__identifier": "text", "__type": "String", "__value": "Shadow Oni Leader", "__tile": null, "defUid": 3016, "realEditorValues": [{
-									"id": "V_String",
-									"params": ["Shadow Oni Leader"]
-								}] },
-								{ "__identifier": "category", "__type": "String", "__value": "Custom", "__tile": null, "defUid": 3017, "realEditorValues": [] }
-							],
-							"__worldX": 3972,
-							"__worldY": -1004
 						},
 						{
 							"__identifier": "NpcSpawn",
@@ -50063,32 +49543,6 @@
 							"__worldY": -864
 						},
 						{
-							"__identifier": "DebugLabel",
-							"__grid": [32,49],
-							"__pivot": [0,0],
-							"__tags": [],
-							"__tile": null,
-							"__smartColor": "#FFFFFF",
-							"iid": "DebugLabel-6204",
-							"width": 120,
-							"height": 20,
-							"defUid": 2007,
-							"px": [516,788],
-							"fieldInstances": [
-								{ "__identifier": "name", "__type": "String", "__value": "hall_label_npc_ninja_shadow_duelist", "__tile": null, "defUid": 3015, "realEditorValues": [{
-									"id": "V_String",
-									"params": ["hall_label_npc_ninja_shadow_duelist"]
-								}] },
-								{ "__identifier": "text", "__type": "String", "__value": "Shadow Duelist", "__tile": null, "defUid": 3016, "realEditorValues": [{
-									"id": "V_String",
-									"params": ["Shadow Duelist"]
-								}] },
-								{ "__identifier": "category", "__type": "String", "__value": "Custom", "__tile": null, "defUid": 3017, "realEditorValues": [] }
-							],
-							"__worldX": 4100,
-							"__worldY": -1004
-						},
-						{
 							"__identifier": "NpcSpawn",
 							"__grid": [43,58],
 							"__pivot": [0,0],
@@ -50115,32 +49569,6 @@
 							],
 							"__worldX": 4272,
 							"__worldY": -864
-						},
-						{
-							"__identifier": "DebugLabel",
-							"__grid": [40,49],
-							"__pivot": [0,0],
-							"__tags": [],
-							"__tile": null,
-							"__smartColor": "#FFFFFF",
-							"iid": "DebugLabel-6206",
-							"width": 120,
-							"height": 20,
-							"defUid": 2007,
-							"px": [644,788],
-							"fieldInstances": [
-								{ "__identifier": "name", "__type": "String", "__value": "hall_label_npc_architect", "__tile": null, "defUid": 3015, "realEditorValues": [{
-									"id": "V_String",
-									"params": ["hall_label_npc_architect"]
-								}] },
-								{ "__identifier": "text", "__type": "String", "__value": "Architect NPC", "__tile": null, "defUid": 3016, "realEditorValues": [{
-									"id": "V_String",
-									"params": ["Architect NPC"]
-								}] },
-								{ "__identifier": "category", "__type": "String", "__value": "Custom", "__tile": null, "defUid": 3017, "realEditorValues": [] }
-							],
-							"__worldX": 4228,
-							"__worldY": -1004
 						},
 						{
 							"__identifier": "NpcSpawn",
@@ -50171,32 +49599,6 @@
 							"__worldY": -864
 						},
 						{
-							"__identifier": "DebugLabel",
-							"__grid": [48,49],
-							"__pivot": [0,0],
-							"__tags": [],
-							"__tile": null,
-							"__smartColor": "#FFFFFF",
-							"iid": "DebugLabel-6208",
-							"width": 120,
-							"height": 20,
-							"defUid": 2007,
-							"px": [772,788],
-							"fieldInstances": [
-								{ "__identifier": "name", "__type": "String", "__value": "hall_label_npc_kernel_guide", "__tile": null, "defUid": 3015, "realEditorValues": [{
-									"id": "V_String",
-									"params": ["hall_label_npc_kernel_guide"]
-								}] },
-								{ "__identifier": "text", "__type": "String", "__value": "Kernel Guide NPC", "__tile": null, "defUid": 3016, "realEditorValues": [{
-									"id": "V_String",
-									"params": ["Kernel Guide NPC"]
-								}] },
-								{ "__identifier": "category", "__type": "String", "__value": "Custom", "__tile": null, "defUid": 3017, "realEditorValues": [] }
-							],
-							"__worldX": 4356,
-							"__worldY": -1004
-						},
-						{
 							"__identifier": "NpcSpawn",
 							"__grid": [59,58],
 							"__pivot": [0,0],
@@ -50223,32 +49625,6 @@
 							],
 							"__worldX": 4528,
 							"__worldY": -864
-						},
-						{
-							"__identifier": "DebugLabel",
-							"__grid": [56,49],
-							"__pivot": [0,0],
-							"__tags": [],
-							"__tile": null,
-							"__smartColor": "#FFFFFF",
-							"iid": "DebugLabel-6210",
-							"width": 120,
-							"height": 20,
-							"defUid": 2007,
-							"px": [900,788],
-							"fieldInstances": [
-								{ "__identifier": "name", "__type": "String", "__value": "hall_label_npc_vault_keeper", "__tile": null, "defUid": 3015, "realEditorValues": [{
-									"id": "V_String",
-									"params": ["hall_label_npc_vault_keeper"]
-								}] },
-								{ "__identifier": "text", "__type": "String", "__value": "Vault Keeper NPC", "__tile": null, "defUid": 3016, "realEditorValues": [{
-									"id": "V_String",
-									"params": ["Vault Keeper NPC"]
-								}] },
-								{ "__identifier": "category", "__type": "String", "__value": "Custom", "__tile": null, "defUid": 3017, "realEditorValues": [] }
-							],
-							"__worldX": 4484,
-							"__worldY": -1004
 						},
 						{
 							"__identifier": "NpcSpawn",
@@ -50279,32 +49655,6 @@
 							"__worldY": -864
 						},
 						{
-							"__identifier": "DebugLabel",
-							"__grid": [64,49],
-							"__pivot": [0,0],
-							"__tags": [],
-							"__tile": null,
-							"__smartColor": "#FFFFFF",
-							"iid": "DebugLabel-6212",
-							"width": 120,
-							"height": 20,
-							"defUid": 2007,
-							"px": [1028,788],
-							"fieldInstances": [
-								{ "__identifier": "name", "__type": "String", "__value": "hall_label_npc_merchant_prototype", "__tile": null, "defUid": 3015, "realEditorValues": [{
-									"id": "V_String",
-									"params": ["hall_label_npc_merchant_prototype"]
-								}] },
-								{ "__identifier": "text", "__type": "String", "__value": "Merchant Prototype NPC", "__tile": null, "defUid": 3016, "realEditorValues": [{
-									"id": "V_String",
-									"params": ["Merchant Prototype NPC"]
-								}] },
-								{ "__identifier": "category", "__type": "String", "__value": "Custom", "__tile": null, "defUid": 3017, "realEditorValues": [] }
-							],
-							"__worldX": 4612,
-							"__worldY": -1004
-						},
-						{
 							"__identifier": "NpcSpawn",
 							"__grid": [75,58],
 							"__pivot": [0,0],
@@ -50331,32 +49681,6 @@
 							],
 							"__worldX": 4784,
 							"__worldY": -864
-						},
-						{
-							"__identifier": "DebugLabel",
-							"__grid": [72,49],
-							"__pivot": [0,0],
-							"__tags": [],
-							"__tile": null,
-							"__smartColor": "#FFFFFF",
-							"iid": "DebugLabel-6214",
-							"width": 120,
-							"height": 20,
-							"defUid": 2007,
-							"px": [1156,788],
-							"fieldInstances": [
-								{ "__identifier": "name", "__type": "String", "__value": "hall_label_npc_alice", "__tile": null, "defUid": 3015, "realEditorValues": [{
-									"id": "V_String",
-									"params": ["hall_label_npc_alice"]
-								}] },
-								{ "__identifier": "text", "__type": "String", "__value": "Alice", "__tile": null, "defUid": 3016, "realEditorValues": [{
-									"id": "V_String",
-									"params": ["Alice"]
-								}] },
-								{ "__identifier": "category", "__type": "String", "__value": "Custom", "__tile": null, "defUid": 3017, "realEditorValues": [] }
-							],
-							"__worldX": 4740,
-							"__worldY": -1004
 						},
 						{
 							"__identifier": "NpcSpawn",
@@ -50387,32 +49711,6 @@
 							"__worldY": -864
 						},
 						{
-							"__identifier": "DebugLabel",
-							"__grid": [80,49],
-							"__pivot": [0,0],
-							"__tags": [],
-							"__tile": null,
-							"__smartColor": "#FFFFFF",
-							"iid": "DebugLabel-6216",
-							"width": 120,
-							"height": 20,
-							"defUid": 2007,
-							"px": [1284,788],
-							"fieldInstances": [
-								{ "__identifier": "name", "__type": "String", "__value": "hall_label_npc_bob", "__tile": null, "defUid": 3015, "realEditorValues": [{
-									"id": "V_String",
-									"params": ["hall_label_npc_bob"]
-								}] },
-								{ "__identifier": "text", "__type": "String", "__value": "Bob", "__tile": null, "defUid": 3016, "realEditorValues": [{
-									"id": "V_String",
-									"params": ["Bob"]
-								}] },
-								{ "__identifier": "category", "__type": "String", "__value": "Custom", "__tile": null, "defUid": 3017, "realEditorValues": [] }
-							],
-							"__worldX": 4868,
-							"__worldY": -1004
-						},
-						{
 							"__identifier": "NpcSpawn",
 							"__grid": [91,58],
 							"__pivot": [0,0],
@@ -50439,32 +49737,6 @@
 							],
 							"__worldX": 5040,
 							"__worldY": -864
-						},
-						{
-							"__identifier": "DebugLabel",
-							"__grid": [88,49],
-							"__pivot": [0,0],
-							"__tags": [],
-							"__tile": null,
-							"__smartColor": "#FFFFFF",
-							"iid": "DebugLabel-6218",
-							"width": 120,
-							"height": 20,
-							"defUid": 2007,
-							"px": [1412,788],
-							"fieldInstances": [
-								{ "__identifier": "name", "__type": "String", "__value": "hall_label_npc_creator", "__tile": null, "defUid": 3015, "realEditorValues": [{
-									"id": "V_String",
-									"params": ["hall_label_npc_creator"]
-								}] },
-								{ "__identifier": "text", "__type": "String", "__value": "Creator", "__tile": null, "defUid": 3016, "realEditorValues": [{
-									"id": "V_String",
-									"params": ["Creator"]
-								}] },
-								{ "__identifier": "category", "__type": "String", "__value": "Custom", "__tile": null, "defUid": 3017, "realEditorValues": [] }
-							],
-							"__worldX": 4996,
-							"__worldY": -1004
 						},
 						{
 							"__identifier": "NpcSpawn",
@@ -50495,32 +49767,6 @@
 							"__worldY": -864
 						},
 						{
-							"__identifier": "DebugLabel",
-							"__grid": [96,49],
-							"__pivot": [0,0],
-							"__tags": [],
-							"__tile": null,
-							"__smartColor": "#FFFFFF",
-							"iid": "DebugLabel-6220",
-							"width": 120,
-							"height": 20,
-							"defUid": 2007,
-							"px": [1540,788],
-							"fieldInstances": [
-								{ "__identifier": "name", "__type": "String", "__value": "hall_label_npc_creator_final", "__tile": null, "defUid": 3015, "realEditorValues": [{
-									"id": "V_String",
-									"params": ["hall_label_npc_creator_final"]
-								}] },
-								{ "__identifier": "text", "__type": "String", "__value": "Creator Final", "__tile": null, "defUid": 3016, "realEditorValues": [{
-									"id": "V_String",
-									"params": ["Creator Final"]
-								}] },
-								{ "__identifier": "category", "__type": "String", "__value": "Custom", "__tile": null, "defUid": 3017, "realEditorValues": [] }
-							],
-							"__worldX": 5124,
-							"__worldY": -1004
-						},
-						{
 							"__identifier": "NpcSpawn",
 							"__grid": [107,58],
 							"__pivot": [0,0],
@@ -50547,32 +49793,6 @@
 							],
 							"__worldX": 5296,
 							"__worldY": -864
-						},
-						{
-							"__identifier": "DebugLabel",
-							"__grid": [104,49],
-							"__pivot": [0,0],
-							"__tags": [],
-							"__tile": null,
-							"__smartColor": "#FFFFFF",
-							"iid": "DebugLabel-6222",
-							"width": 120,
-							"height": 20,
-							"defUid": 2007,
-							"px": [1668,788],
-							"fieldInstances": [
-								{ "__identifier": "name", "__type": "String", "__value": "hall_label_npc_oiler", "__tile": null, "defUid": 3015, "realEditorValues": [{
-									"id": "V_String",
-									"params": ["hall_label_npc_oiler"]
-								}] },
-								{ "__identifier": "text", "__type": "String", "__value": "Oiler", "__tile": null, "defUid": 3016, "realEditorValues": [{
-									"id": "V_String",
-									"params": ["Oiler"]
-								}] },
-								{ "__identifier": "category", "__type": "String", "__value": "Custom", "__tile": null, "defUid": 3017, "realEditorValues": [] }
-							],
-							"__worldX": 5252,
-							"__worldY": -1004
 						},
 						{
 							"__identifier": "NpcSpawn",
@@ -50603,32 +49823,6 @@
 							"__worldY": -864
 						},
 						{
-							"__identifier": "DebugLabel",
-							"__grid": [112,49],
-							"__pivot": [0,0],
-							"__tags": [],
-							"__tile": null,
-							"__smartColor": "#FFFFFF",
-							"iid": "DebugLabel-6224",
-							"width": 120,
-							"height": 20,
-							"defUid": 2007,
-							"px": [1796,788],
-							"fieldInstances": [
-								{ "__identifier": "name", "__type": "String", "__value": "hall_label_npc_gate_janitor", "__tile": null, "defUid": 3015, "realEditorValues": [{
-									"id": "V_String",
-									"params": ["hall_label_npc_gate_janitor"]
-								}] },
-								{ "__identifier": "text", "__type": "String", "__value": "Gate Janitor", "__tile": null, "defUid": 3016, "realEditorValues": [{
-									"id": "V_String",
-									"params": ["Gate Janitor"]
-								}] },
-								{ "__identifier": "category", "__type": "String", "__value": "Custom", "__tile": null, "defUid": 3017, "realEditorValues": [] }
-							],
-							"__worldX": 5380,
-							"__worldY": -1004
-						},
-						{
 							"__identifier": "NpcSpawn",
 							"__grid": [123,58],
 							"__pivot": [0,0],
@@ -50655,32 +49849,6 @@
 							],
 							"__worldX": 5552,
 							"__worldY": -864
-						},
-						{
-							"__identifier": "DebugLabel",
-							"__grid": [120,49],
-							"__pivot": [0,0],
-							"__tags": [],
-							"__tile": null,
-							"__smartColor": "#FFFFFF",
-							"iid": "DebugLabel-6226",
-							"width": 120,
-							"height": 20,
-							"defUid": 2007,
-							"px": [1924,788],
-							"fieldInstances": [
-								{ "__identifier": "name", "__type": "String", "__value": "hall_label_npc_manifest_clerk", "__tile": null, "defUid": 3015, "realEditorValues": [{
-									"id": "V_String",
-									"params": ["hall_label_npc_manifest_clerk"]
-								}] },
-								{ "__identifier": "text", "__type": "String", "__value": "Manifest Clerk", "__tile": null, "defUid": 3016, "realEditorValues": [{
-									"id": "V_String",
-									"params": ["Manifest Clerk"]
-								}] },
-								{ "__identifier": "category", "__type": "String", "__value": "Custom", "__tile": null, "defUid": 3017, "realEditorValues": [] }
-							],
-							"__worldX": 5508,
-							"__worldY": -1004
 						},
 						{
 							"__identifier": "NpcSpawn",
@@ -50711,32 +49879,6 @@
 							"__worldY": -1056
 						},
 						{
-							"__identifier": "DebugLabel",
-							"__grid": [0,37],
-							"__pivot": [0,0],
-							"__tags": [],
-							"__tile": null,
-							"__smartColor": "#FFFFFF",
-							"iid": "DebugLabel-6228",
-							"width": 120,
-							"height": 20,
-							"defUid": 2007,
-							"px": [4,596],
-							"fieldInstances": [
-								{ "__identifier": "name", "__type": "String", "__value": "hall_label_npc_news_board", "__tile": null, "defUid": 3015, "realEditorValues": [{
-									"id": "V_String",
-									"params": ["hall_label_npc_news_board"]
-								}] },
-								{ "__identifier": "text", "__type": "String", "__value": "News Board", "__tile": null, "defUid": 3016, "realEditorValues": [{
-									"id": "V_String",
-									"params": ["News Board"]
-								}] },
-								{ "__identifier": "category", "__type": "String", "__value": "Custom", "__tile": null, "defUid": 3017, "realEditorValues": [] }
-							],
-							"__worldX": 3588,
-							"__worldY": -1196
-						},
-						{
 							"__identifier": "NpcSpawn",
 							"__grid": [11,46],
 							"__pivot": [0,0],
@@ -50763,32 +49905,6 @@
 							],
 							"__worldX": 3760,
 							"__worldY": -1056
-						},
-						{
-							"__identifier": "DebugLabel",
-							"__grid": [8,37],
-							"__pivot": [0,0],
-							"__tags": [],
-							"__tile": null,
-							"__smartColor": "#FFFFFF",
-							"iid": "DebugLabel-6230",
-							"width": 120,
-							"height": 20,
-							"defUid": 2007,
-							"px": [132,596],
-							"fieldInstances": [
-								{ "__identifier": "name", "__type": "String", "__value": "hall_label_npc_erdish", "__tile": null, "defUid": 3015, "realEditorValues": [{
-									"id": "V_String",
-									"params": ["hall_label_npc_erdish"]
-								}] },
-								{ "__identifier": "text", "__type": "String", "__value": "Erdish", "__tile": null, "defUid": 3016, "realEditorValues": [{
-									"id": "V_String",
-									"params": ["Erdish"]
-								}] },
-								{ "__identifier": "category", "__type": "String", "__value": "Custom", "__tile": null, "defUid": 3017, "realEditorValues": [] }
-							],
-							"__worldX": 3716,
-							"__worldY": -1196
 						},
 						{
 							"__identifier": "NpcSpawn",
@@ -50819,32 +49935,6 @@
 							"__worldY": -1056
 						},
 						{
-							"__identifier": "DebugLabel",
-							"__grid": [16,37],
-							"__pivot": [0,0],
-							"__tags": [],
-							"__tile": null,
-							"__smartColor": "#FFFFFF",
-							"iid": "DebugLabel-6232",
-							"width": 120,
-							"height": 20,
-							"defUid": 2007,
-							"px": [260,596],
-							"fieldInstances": [
-								{ "__identifier": "name", "__type": "String", "__value": "hall_label_npc_lab_raider", "__tile": null, "defUid": 3015, "realEditorValues": [{
-									"id": "V_String",
-									"params": ["hall_label_npc_lab_raider"]
-								}] },
-								{ "__identifier": "text", "__type": "String", "__value": "Lab Raider", "__tile": null, "defUid": 3016, "realEditorValues": [{
-									"id": "V_String",
-									"params": ["Lab Raider"]
-								}] },
-								{ "__identifier": "category", "__type": "String", "__value": "Custom", "__tile": null, "defUid": 3017, "realEditorValues": [] }
-							],
-							"__worldX": 3844,
-							"__worldY": -1196
-						},
-						{
 							"__identifier": "NpcSpawn",
 							"__grid": [27,46],
 							"__pivot": [0,0],
@@ -50871,32 +49961,6 @@
 							],
 							"__worldX": 4016,
 							"__worldY": -1056
-						},
-						{
-							"__identifier": "DebugLabel",
-							"__grid": [24,37],
-							"__pivot": [0,0],
-							"__tags": [],
-							"__tile": null,
-							"__smartColor": "#FFFFFF",
-							"iid": "DebugLabel-6234",
-							"width": 120,
-							"height": 20,
-							"defUid": 2007,
-							"px": [388,596],
-							"fieldInstances": [
-								{ "__identifier": "name", "__type": "String", "__value": "hall_label_npc_salvage_guard", "__tile": null, "defUid": 3015, "realEditorValues": [{
-									"id": "V_String",
-									"params": ["hall_label_npc_salvage_guard"]
-								}] },
-								{ "__identifier": "text", "__type": "String", "__value": "Salvage Guard", "__tile": null, "defUid": 3016, "realEditorValues": [{
-									"id": "V_String",
-									"params": ["Salvage Guard"]
-								}] },
-								{ "__identifier": "category", "__type": "String", "__value": "Custom", "__tile": null, "defUid": 3017, "realEditorValues": [] }
-							],
-							"__worldX": 3972,
-							"__worldY": -1196
 						},
 						{
 							"__identifier": "NpcSpawn",
@@ -50927,32 +49991,6 @@
 							"__worldY": -1056
 						},
 						{
-							"__identifier": "DebugLabel",
-							"__grid": [32,37],
-							"__pivot": [0,0],
-							"__tags": [],
-							"__tile": null,
-							"__smartColor": "#FFFFFF",
-							"iid": "DebugLabel-6236",
-							"width": 120,
-							"height": 20,
-							"defUid": 2007,
-							"px": [516,596],
-							"fieldInstances": [
-								{ "__identifier": "name", "__type": "String", "__value": "hall_label_npc_agent_swarm", "__tile": null, "defUid": 3015, "realEditorValues": [{
-									"id": "V_String",
-									"params": ["hall_label_npc_agent_swarm"]
-								}] },
-								{ "__identifier": "text", "__type": "String", "__value": "Agent Swarm", "__tile": null, "defUid": 3016, "realEditorValues": [{
-									"id": "V_String",
-									"params": ["Agent Swarm"]
-								}] },
-								{ "__identifier": "category", "__type": "String", "__value": "Custom", "__tile": null, "defUid": 3017, "realEditorValues": [] }
-							],
-							"__worldX": 4100,
-							"__worldY": -1196
-						},
-						{
 							"__identifier": "NpcSpawn",
 							"__grid": [43,46],
 							"__pivot": [0,0],
@@ -50979,32 +50017,6 @@
 							],
 							"__worldX": 4272,
 							"__worldY": -1056
-						},
-						{
-							"__identifier": "DebugLabel",
-							"__grid": [40,37],
-							"__pivot": [0,0],
-							"__tags": [],
-							"__tile": null,
-							"__smartColor": "#FFFFFF",
-							"iid": "DebugLabel-6238",
-							"width": 120,
-							"height": 20,
-							"defUid": 2007,
-							"px": [644,596],
-							"fieldInstances": [
-								{ "__identifier": "name", "__type": "String", "__value": "hall_label_npc_ai_slop", "__tile": null, "defUid": 3015, "realEditorValues": [{
-									"id": "V_String",
-									"params": ["hall_label_npc_ai_slop"]
-								}] },
-								{ "__identifier": "text", "__type": "String", "__value": "Ai Slop", "__tile": null, "defUid": 3016, "realEditorValues": [{
-									"id": "V_String",
-									"params": ["Ai Slop"]
-								}] },
-								{ "__identifier": "category", "__type": "String", "__value": "Custom", "__tile": null, "defUid": 3017, "realEditorValues": [] }
-							],
-							"__worldX": 4228,
-							"__worldY": -1196
 						},
 						{
 							"__identifier": "NpcSpawn",
@@ -51035,32 +50047,6 @@
 							"__worldY": -1056
 						},
 						{
-							"__identifier": "DebugLabel",
-							"__grid": [48,37],
-							"__pivot": [0,0],
-							"__tags": [],
-							"__tile": null,
-							"__smartColor": "#FFFFFF",
-							"iid": "DebugLabel-6240",
-							"width": 120,
-							"height": 20,
-							"defUid": 2007,
-							"px": [772,596],
-							"fieldInstances": [
-								{ "__identifier": "name", "__type": "String", "__value": "hall_label_npc_colonial_statesman", "__tile": null, "defUid": 3015, "realEditorValues": [{
-									"id": "V_String",
-									"params": ["hall_label_npc_colonial_statesman"]
-								}] },
-								{ "__identifier": "text", "__type": "String", "__value": "Colonial Statesman", "__tile": null, "defUid": 3016, "realEditorValues": [{
-									"id": "V_String",
-									"params": ["Colonial Statesman"]
-								}] },
-								{ "__identifier": "category", "__type": "String", "__value": "Custom", "__tile": null, "defUid": 3017, "realEditorValues": [] }
-							],
-							"__worldX": 4356,
-							"__worldY": -1196
-						},
-						{
 							"__identifier": "NpcSpawn",
 							"__grid": [59,46],
 							"__pivot": [0,0],
@@ -51087,32 +50073,6 @@
 							],
 							"__worldX": 4528,
 							"__worldY": -1056
-						},
-						{
-							"__identifier": "DebugLabel",
-							"__grid": [56,37],
-							"__pivot": [0,0],
-							"__tags": [],
-							"__tile": null,
-							"__smartColor": "#FFFFFF",
-							"iid": "DebugLabel-6242",
-							"width": 120,
-							"height": 20,
-							"defUid": 2007,
-							"px": [900,596],
-							"fieldInstances": [
-								{ "__identifier": "name", "__type": "String", "__value": "hall_label_npc_craig", "__tile": null, "defUid": 3015, "realEditorValues": [{
-									"id": "V_String",
-									"params": ["hall_label_npc_craig"]
-								}] },
-								{ "__identifier": "text", "__type": "String", "__value": "Craig", "__tile": null, "defUid": 3016, "realEditorValues": [{
-									"id": "V_String",
-									"params": ["Craig"]
-								}] },
-								{ "__identifier": "category", "__type": "String", "__value": "Custom", "__tile": null, "defUid": 3017, "realEditorValues": [] }
-							],
-							"__worldX": 4484,
-							"__worldY": -1196
 						},
 						{
 							"__identifier": "NpcSpawn",
@@ -51143,32 +50103,6 @@
 							"__worldY": -1056
 						},
 						{
-							"__identifier": "DebugLabel",
-							"__grid": [64,37],
-							"__pivot": [0,0],
-							"__tags": [],
-							"__tile": null,
-							"__smartColor": "#FFFFFF",
-							"iid": "DebugLabel-6244",
-							"width": 120,
-							"height": 20,
-							"defUid": 2007,
-							"px": [1028,596],
-							"fieldInstances": [
-								{ "__identifier": "name", "__type": "String", "__value": "hall_label_npc_eve", "__tile": null, "defUid": 3015, "realEditorValues": [{
-									"id": "V_String",
-									"params": ["hall_label_npc_eve"]
-								}] },
-								{ "__identifier": "text", "__type": "String", "__value": "Eve", "__tile": null, "defUid": 3016, "realEditorValues": [{
-									"id": "V_String",
-									"params": ["Eve"]
-								}] },
-								{ "__identifier": "category", "__type": "String", "__value": "Custom", "__tile": null, "defUid": 3017, "realEditorValues": [] }
-							],
-							"__worldX": 4612,
-							"__worldY": -1196
-						},
-						{
 							"__identifier": "NpcSpawn",
 							"__grid": [75,46],
 							"__pivot": [0,0],
@@ -51195,32 +50129,6 @@
 							],
 							"__worldX": 4784,
 							"__worldY": -1056
-						},
-						{
-							"__identifier": "DebugLabel",
-							"__grid": [72,37],
-							"__pivot": [0,0],
-							"__tags": [],
-							"__tile": null,
-							"__smartColor": "#FFFFFF",
-							"iid": "DebugLabel-6246",
-							"width": 120,
-							"height": 20,
-							"defUid": 2007,
-							"px": [1156,596],
-							"fieldInstances": [
-								{ "__identifier": "name", "__type": "String", "__value": "hall_label_npc_raid_enforcer", "__tile": null, "defUid": 3015, "realEditorValues": [{
-									"id": "V_String",
-									"params": ["hall_label_npc_raid_enforcer"]
-								}] },
-								{ "__identifier": "text", "__type": "String", "__value": "Raid Enforcer", "__tile": null, "defUid": 3016, "realEditorValues": [{
-									"id": "V_String",
-									"params": ["Raid Enforcer"]
-								}] },
-								{ "__identifier": "category", "__type": "String", "__value": "Custom", "__tile": null, "defUid": 3017, "realEditorValues": [] }
-							],
-							"__worldX": 4740,
-							"__worldY": -1196
 						},
 						{
 							"__identifier": "NpcSpawn",
@@ -51251,32 +50159,6 @@
 							"__worldY": -1056
 						},
 						{
-							"__identifier": "DebugLabel",
-							"__grid": [80,37],
-							"__pivot": [0,0],
-							"__tags": [],
-							"__tile": null,
-							"__smartColor": "#FFFFFF",
-							"iid": "DebugLabel-6248",
-							"width": 120,
-							"height": 20,
-							"defUid": 2007,
-							"px": [1284,596],
-							"fieldInstances": [
-								{ "__identifier": "name", "__type": "String", "__value": "hall_label_npc_galwah", "__tile": null, "defUid": 3015, "realEditorValues": [{
-									"id": "V_String",
-									"params": ["hall_label_npc_galwah"]
-								}] },
-								{ "__identifier": "text", "__type": "String", "__value": "Galwah", "__tile": null, "defUid": 3016, "realEditorValues": [{
-									"id": "V_String",
-									"params": ["Galwah"]
-								}] },
-								{ "__identifier": "category", "__type": "String", "__value": "Custom", "__tile": null, "defUid": 3017, "realEditorValues": [] }
-							],
-							"__worldX": 4868,
-							"__worldY": -1196
-						},
-						{
 							"__identifier": "NpcSpawn",
 							"__grid": [91,46],
 							"__pivot": [0,0],
@@ -51303,32 +50185,6 @@
 							],
 							"__worldX": 5040,
 							"__worldY": -1056
-						},
-						{
-							"__identifier": "DebugLabel",
-							"__grid": [88,37],
-							"__pivot": [0,0],
-							"__tags": [],
-							"__tile": null,
-							"__smartColor": "#FFFFFF",
-							"iid": "DebugLabel-6250",
-							"width": 120,
-							"height": 20,
-							"defUid": 2007,
-							"px": [1412,596],
-							"fieldInstances": [
-								{ "__identifier": "name", "__type": "String", "__value": "hall_label_npc_general_hero", "__tile": null, "defUid": 3015, "realEditorValues": [{
-									"id": "V_String",
-									"params": ["hall_label_npc_general_hero"]
-								}] },
-								{ "__identifier": "text", "__type": "String", "__value": "General Hero", "__tile": null, "defUid": 3016, "realEditorValues": [{
-									"id": "V_String",
-									"params": ["General Hero"]
-								}] },
-								{ "__identifier": "category", "__type": "String", "__value": "Custom", "__tile": null, "defUid": 3017, "realEditorValues": [] }
-							],
-							"__worldX": 4996,
-							"__worldY": -1196
 						},
 						{
 							"__identifier": "NpcSpawn",
@@ -51359,32 +50215,6 @@
 							"__worldY": -1056
 						},
 						{
-							"__identifier": "DebugLabel",
-							"__grid": [96,37],
-							"__pivot": [0,0],
-							"__tags": [],
-							"__tile": null,
-							"__smartColor": "#FFFFFF",
-							"iid": "DebugLabel-6252",
-							"width": 120,
-							"height": 20,
-							"defUid": 2007,
-							"px": [1540,596],
-							"fieldInstances": [
-								{ "__identifier": "name", "__type": "String", "__value": "hall_label_npc_ghoul_skulker", "__tile": null, "defUid": 3015, "realEditorValues": [{
-									"id": "V_String",
-									"params": ["hall_label_npc_ghoul_skulker"]
-								}] },
-								{ "__identifier": "text", "__type": "String", "__value": "Ghoul Skulker", "__tile": null, "defUid": 3016, "realEditorValues": [{
-									"id": "V_String",
-									"params": ["Ghoul Skulker"]
-								}] },
-								{ "__identifier": "category", "__type": "String", "__value": "Custom", "__tile": null, "defUid": 3017, "realEditorValues": [] }
-							],
-							"__worldX": 5124,
-							"__worldY": -1196
-						},
-						{
 							"__identifier": "NpcSpawn",
 							"__grid": [107,46],
 							"__pivot": [0,0],
@@ -51411,32 +50241,6 @@
 							],
 							"__worldX": 5296,
 							"__worldY": -1056
-						},
-						{
-							"__identifier": "DebugLabel",
-							"__grid": [104,37],
-							"__pivot": [0,0],
-							"__tags": [],
-							"__tile": null,
-							"__smartColor": "#FFFFFF",
-							"iid": "DebugLabel-6254",
-							"width": 120,
-							"height": 20,
-							"defUid": 2007,
-							"px": [1668,596],
-							"fieldInstances": [
-								{ "__identifier": "name", "__type": "String", "__value": "hall_label_npc_girdle", "__tile": null, "defUid": 3015, "realEditorValues": [{
-									"id": "V_String",
-									"params": ["hall_label_npc_girdle"]
-								}] },
-								{ "__identifier": "text", "__type": "String", "__value": "Girdle", "__tile": null, "defUid": 3016, "realEditorValues": [{
-									"id": "V_String",
-									"params": ["Girdle"]
-								}] },
-								{ "__identifier": "category", "__type": "String", "__value": "Custom", "__tile": null, "defUid": 3017, "realEditorValues": [] }
-							],
-							"__worldX": 5252,
-							"__worldY": -1196
 						},
 						{
 							"__identifier": "NpcSpawn",
@@ -51467,32 +50271,6 @@
 							"__worldY": -1056
 						},
 						{
-							"__identifier": "DebugLabel",
-							"__grid": [112,37],
-							"__pivot": [0,0],
-							"__tags": [],
-							"__tile": null,
-							"__smartColor": "#FFFFFF",
-							"iid": "DebugLabel-6256",
-							"width": 120,
-							"height": 20,
-							"defUid": 2007,
-							"px": [1796,596],
-							"fieldInstances": [
-								{ "__identifier": "name", "__type": "String", "__value": "hall_label_npc_goblin_brute_hammer", "__tile": null, "defUid": 3015, "realEditorValues": [{
-									"id": "V_String",
-									"params": ["hall_label_npc_goblin_brute_hammer"]
-								}] },
-								{ "__identifier": "text", "__type": "String", "__value": "Goblin Brute Hammer", "__tile": null, "defUid": 3016, "realEditorValues": [{
-									"id": "V_String",
-									"params": ["Goblin Brute Hammer"]
-								}] },
-								{ "__identifier": "category", "__type": "String", "__value": "Custom", "__tile": null, "defUid": 3017, "realEditorValues": [] }
-							],
-							"__worldX": 5380,
-							"__worldY": -1196
-						},
-						{
 							"__identifier": "NpcSpawn",
 							"__grid": [123,46],
 							"__pivot": [0,0],
@@ -51519,32 +50297,6 @@
 							],
 							"__worldX": 5552,
 							"__worldY": -1056
-						},
-						{
-							"__identifier": "DebugLabel",
-							"__grid": [120,37],
-							"__pivot": [0,0],
-							"__tags": [],
-							"__tile": null,
-							"__smartColor": "#FFFFFF",
-							"iid": "DebugLabel-6258",
-							"width": 120,
-							"height": 20,
-							"defUid": 2007,
-							"px": [1924,596],
-							"fieldInstances": [
-								{ "__identifier": "name", "__type": "String", "__value": "hall_label_npc_goblin_cave_dagger", "__tile": null, "defUid": 3015, "realEditorValues": [{
-									"id": "V_String",
-									"params": ["hall_label_npc_goblin_cave_dagger"]
-								}] },
-								{ "__identifier": "text", "__type": "String", "__value": "Goblin Cave Dagger", "__tile": null, "defUid": 3016, "realEditorValues": [{
-									"id": "V_String",
-									"params": ["Goblin Cave Dagger"]
-								}] },
-								{ "__identifier": "category", "__type": "String", "__value": "Custom", "__tile": null, "defUid": 3017, "realEditorValues": [] }
-							],
-							"__worldX": 5508,
-							"__worldY": -1196
 						},
 						{
 							"__identifier": "NpcSpawn",
@@ -51575,32 +50327,6 @@
 							"__worldY": -1248
 						},
 						{
-							"__identifier": "DebugLabel",
-							"__grid": [0,25],
-							"__pivot": [0,0],
-							"__tags": [],
-							"__tile": null,
-							"__smartColor": "#FFFFFF",
-							"iid": "DebugLabel-6260",
-							"width": 120,
-							"height": 20,
-							"defUid": 2007,
-							"px": [4,404],
-							"fieldInstances": [
-								{ "__identifier": "name", "__type": "String", "__value": "hall_label_npc_goblin_desert_bow", "__tile": null, "defUid": 3015, "realEditorValues": [{
-									"id": "V_String",
-									"params": ["hall_label_npc_goblin_desert_bow"]
-								}] },
-								{ "__identifier": "text", "__type": "String", "__value": "Goblin Desert Bow", "__tile": null, "defUid": 3016, "realEditorValues": [{
-									"id": "V_String",
-									"params": ["Goblin Desert Bow"]
-								}] },
-								{ "__identifier": "category", "__type": "String", "__value": "Custom", "__tile": null, "defUid": 3017, "realEditorValues": [] }
-							],
-							"__worldX": 3588,
-							"__worldY": -1388
-						},
-						{
 							"__identifier": "NpcSpawn",
 							"__grid": [11,34],
 							"__pivot": [0,0],
@@ -51627,32 +50353,6 @@
 							],
 							"__worldX": 3760,
 							"__worldY": -1248
-						},
-						{
-							"__identifier": "DebugLabel",
-							"__grid": [8,25],
-							"__pivot": [0,0],
-							"__tags": [],
-							"__tile": null,
-							"__smartColor": "#FFFFFF",
-							"iid": "DebugLabel-6262",
-							"width": 120,
-							"height": 20,
-							"defUid": 2007,
-							"px": [132,404],
-							"fieldInstances": [
-								{ "__identifier": "name", "__type": "String", "__value": "hall_label_npc_goblin_forest_spear", "__tile": null, "defUid": 3015, "realEditorValues": [{
-									"id": "V_String",
-									"params": ["hall_label_npc_goblin_forest_spear"]
-								}] },
-								{ "__identifier": "text", "__type": "String", "__value": "Goblin Forest Spear", "__tile": null, "defUid": 3016, "realEditorValues": [{
-									"id": "V_String",
-									"params": ["Goblin Forest Spear"]
-								}] },
-								{ "__identifier": "category", "__type": "String", "__value": "Custom", "__tile": null, "defUid": 3017, "realEditorValues": [] }
-							],
-							"__worldX": 3716,
-							"__worldY": -1388
 						},
 						{
 							"__identifier": "NpcSpawn",
@@ -51683,32 +50383,6 @@
 							"__worldY": -1248
 						},
 						{
-							"__identifier": "DebugLabel",
-							"__grid": [16,25],
-							"__pivot": [0,0],
-							"__tags": [],
-							"__tile": null,
-							"__smartColor": "#FFFFFF",
-							"iid": "DebugLabel-6264",
-							"width": 120,
-							"height": 20,
-							"defUid": 2007,
-							"px": [260,404],
-							"fieldInstances": [
-								{ "__identifier": "name", "__type": "String", "__value": "hall_label_npc_ranged_skirmisher", "__tile": null, "defUid": 3015, "realEditorValues": [{
-									"id": "V_String",
-									"params": ["hall_label_npc_ranged_skirmisher"]
-								}] },
-								{ "__identifier": "text", "__type": "String", "__value": "Skirmisher", "__tile": null, "defUid": 3016, "realEditorValues": [{
-									"id": "V_String",
-									"params": ["Skirmisher"]
-								}] },
-								{ "__identifier": "category", "__type": "String", "__value": "Custom", "__tile": null, "defUid": 3017, "realEditorValues": [] }
-							],
-							"__worldX": 3844,
-							"__worldY": -1388
-						},
-						{
 							"__identifier": "NpcSpawn",
 							"__grid": [27,34],
 							"__pivot": [0,0],
@@ -51735,32 +50409,6 @@
 							],
 							"__worldX": 4016,
 							"__worldY": -1248
-						},
-						{
-							"__identifier": "DebugLabel",
-							"__grid": [24,25],
-							"__pivot": [0,0],
-							"__tags": [],
-							"__tile": null,
-							"__smartColor": "#FFFFFF",
-							"iid": "DebugLabel-6266",
-							"width": 120,
-							"height": 20,
-							"defUid": 2007,
-							"px": [388,404],
-							"fieldInstances": [
-								{ "__identifier": "name", "__type": "String", "__value": "hall_label_npc_exploding_mite", "__tile": null, "defUid": 3015, "realEditorValues": [{
-									"id": "V_String",
-									"params": ["hall_label_npc_exploding_mite"]
-								}] },
-								{ "__identifier": "text", "__type": "String", "__value": "Exploding Mite", "__tile": null, "defUid": 3016, "realEditorValues": [{
-									"id": "V_String",
-									"params": ["Exploding Mite"]
-								}] },
-								{ "__identifier": "category", "__type": "String", "__value": "Custom", "__tile": null, "defUid": 3017, "realEditorValues": [] }
-							],
-							"__worldX": 3972,
-							"__worldY": -1388
 						},
 						{
 							"__identifier": "NpcSpawn",
@@ -51791,32 +50439,6 @@
 							"__worldY": -1248
 						},
 						{
-							"__identifier": "DebugLabel",
-							"__grid": [32,25],
-							"__pivot": [0,0],
-							"__tags": [],
-							"__tile": null,
-							"__smartColor": "#FFFFFF",
-							"iid": "DebugLabel-6268",
-							"width": 120,
-							"height": 20,
-							"defUid": 2007,
-							"px": [516,404],
-							"fieldInstances": [
-								{ "__identifier": "name", "__type": "String", "__value": "hall_label_npc_dividing_mite", "__tile": null, "defUid": 3015, "realEditorValues": [{
-									"id": "V_String",
-									"params": ["hall_label_npc_dividing_mite"]
-								}] },
-								{ "__identifier": "text", "__type": "String", "__value": "Dividing Mite", "__tile": null, "defUid": 3016, "realEditorValues": [{
-									"id": "V_String",
-									"params": ["Dividing Mite"]
-								}] },
-								{ "__identifier": "category", "__type": "String", "__value": "Custom", "__tile": null, "defUid": 3017, "realEditorValues": [] }
-							],
-							"__worldX": 4100,
-							"__worldY": -1388
-						},
-						{
 							"__identifier": "NpcSpawn",
 							"__grid": [43,34],
 							"__pivot": [0,0],
@@ -51843,32 +50465,6 @@
 							],
 							"__worldX": 4272,
 							"__worldY": -1248
-						},
-						{
-							"__identifier": "DebugLabel",
-							"__grid": [40,25],
-							"__pivot": [0,0],
-							"__tags": [],
-							"__tile": null,
-							"__smartColor": "#FFFFFF",
-							"iid": "DebugLabel-6270",
-							"width": 120,
-							"height": 20,
-							"defUid": 2007,
-							"px": [644,404],
-							"fieldInstances": [
-								{ "__identifier": "name", "__type": "String", "__value": "hall_label_npc_goblin_frost_sword", "__tile": null, "defUid": 3015, "realEditorValues": [{
-									"id": "V_String",
-									"params": ["hall_label_npc_goblin_frost_sword"]
-								}] },
-								{ "__identifier": "text", "__type": "String", "__value": "Goblin Frost Sword", "__tile": null, "defUid": 3016, "realEditorValues": [{
-									"id": "V_String",
-									"params": ["Goblin Frost Sword"]
-								}] },
-								{ "__identifier": "category", "__type": "String", "__value": "Custom", "__tile": null, "defUid": 3017, "realEditorValues": [] }
-							],
-							"__worldX": 4228,
-							"__worldY": -1388
 						},
 						{
 							"__identifier": "NpcSpawn",
@@ -51899,32 +50495,6 @@
 							"__worldY": -1248
 						},
 						{
-							"__identifier": "DebugLabel",
-							"__grid": [48,25],
-							"__pivot": [0,0],
-							"__tags": [],
-							"__tile": null,
-							"__smartColor": "#FFFFFF",
-							"iid": "DebugLabel-6272",
-							"width": 120,
-							"height": 20,
-							"defUid": 2007,
-							"px": [772,404],
-							"fieldInstances": [
-								{ "__identifier": "name", "__type": "String", "__value": "hall_label_npc_goblin_shaman_staff", "__tile": null, "defUid": 3015, "realEditorValues": [{
-									"id": "V_String",
-									"params": ["hall_label_npc_goblin_shaman_staff"]
-								}] },
-								{ "__identifier": "text", "__type": "String", "__value": "Goblin Shaman Staff", "__tile": null, "defUid": 3016, "realEditorValues": [{
-									"id": "V_String",
-									"params": ["Goblin Shaman Staff"]
-								}] },
-								{ "__identifier": "category", "__type": "String", "__value": "Custom", "__tile": null, "defUid": 3017, "realEditorValues": [] }
-							],
-							"__worldX": 4356,
-							"__worldY": -1388
-						},
-						{
 							"__identifier": "NpcSpawn",
 							"__grid": [59,34],
 							"__pivot": [0,0],
@@ -51951,32 +50521,6 @@
 							],
 							"__worldX": 4528,
 							"__worldY": -1248
-						},
-						{
-							"__identifier": "DebugLabel",
-							"__grid": [56,25],
-							"__pivot": [0,0],
-							"__tags": [],
-							"__tile": null,
-							"__smartColor": "#FFFFFF",
-							"iid": "DebugLabel-6274",
-							"width": 120,
-							"height": 20,
-							"defUid": 2007,
-							"px": [900,404],
-							"fieldInstances": [
-								{ "__identifier": "name", "__type": "String", "__value": "hall_label_npc_hand_saint", "__tile": null, "defUid": 3015, "realEditorValues": [{
-									"id": "V_String",
-									"params": ["hall_label_npc_hand_saint"]
-								}] },
-								{ "__identifier": "text", "__type": "String", "__value": "Hand Saint", "__tile": null, "defUid": 3016, "realEditorValues": [{
-									"id": "V_String",
-									"params": ["Hand Saint"]
-								}] },
-								{ "__identifier": "category", "__type": "String", "__value": "Custom", "__tile": null, "defUid": 3017, "realEditorValues": [] }
-							],
-							"__worldX": 4484,
-							"__worldY": -1388
 						},
 						{
 							"__identifier": "NpcSpawn",
@@ -52007,32 +50551,6 @@
 							"__worldY": -1248
 						},
 						{
-							"__identifier": "DebugLabel",
-							"__grid": [64,25],
-							"__pivot": [0,0],
-							"__tags": [],
-							"__tile": null,
-							"__smartColor": "#FFFFFF",
-							"iid": "DebugLabel-6276",
-							"width": 120,
-							"height": 20,
-							"defUid": 2007,
-							"px": [1028,404],
-							"fieldInstances": [
-								{ "__identifier": "name", "__type": "String", "__value": "hall_label_npc_helpful_liar", "__tile": null, "defUid": 3015, "realEditorValues": [{
-									"id": "V_String",
-									"params": ["hall_label_npc_helpful_liar"]
-								}] },
-								{ "__identifier": "text", "__type": "String", "__value": "Helpful Liar", "__tile": null, "defUid": 3016, "realEditorValues": [{
-									"id": "V_String",
-									"params": ["Helpful Liar"]
-								}] },
-								{ "__identifier": "category", "__type": "String", "__value": "Custom", "__tile": null, "defUid": 3017, "realEditorValues": [] }
-							],
-							"__worldX": 4612,
-							"__worldY": -1388
-						},
-						{
 							"__identifier": "NpcSpawn",
 							"__grid": [75,34],
 							"__pivot": [0,0],
@@ -52059,32 +50577,6 @@
 							],
 							"__worldX": 4784,
 							"__worldY": -1248
-						},
-						{
-							"__identifier": "DebugLabel",
-							"__grid": [72,25],
-							"__pivot": [0,0],
-							"__tags": [],
-							"__tile": null,
-							"__smartColor": "#FFFFFF",
-							"iid": "DebugLabel-6278",
-							"width": 120,
-							"height": 20,
-							"defUid": 2007,
-							"px": [1156,404],
-							"fieldInstances": [
-								{ "__identifier": "name", "__type": "String", "__value": "hall_label_npc_judy", "__tile": null, "defUid": 3015, "realEditorValues": [{
-									"id": "V_String",
-									"params": ["hall_label_npc_judy"]
-								}] },
-								{ "__identifier": "text", "__type": "String", "__value": "Judy", "__tile": null, "defUid": 3016, "realEditorValues": [{
-									"id": "V_String",
-									"params": ["Judy"]
-								}] },
-								{ "__identifier": "category", "__type": "String", "__value": "Custom", "__tile": null, "defUid": 3017, "realEditorValues": [] }
-							],
-							"__worldX": 4740,
-							"__worldY": -1388
 						},
 						{
 							"__identifier": "NpcSpawn",
@@ -52115,32 +50607,6 @@
 							"__worldY": -1248
 						},
 						{
-							"__identifier": "DebugLabel",
-							"__grid": [80,25],
-							"__pivot": [0,0],
-							"__tags": [],
-							"__tile": null,
-							"__smartColor": "#FFFFFF",
-							"iid": "DebugLabel-6280",
-							"width": 120,
-							"height": 20,
-							"defUid": 2007,
-							"px": [1284,404],
-							"fieldInstances": [
-								{ "__identifier": "name", "__type": "String", "__value": "hall_label_npc_mallory", "__tile": null, "defUid": 3015, "realEditorValues": [{
-									"id": "V_String",
-									"params": ["hall_label_npc_mallory"]
-								}] },
-								{ "__identifier": "text", "__type": "String", "__value": "Mallory", "__tile": null, "defUid": 3016, "realEditorValues": [{
-									"id": "V_String",
-									"params": ["Mallory"]
-								}] },
-								{ "__identifier": "category", "__type": "String", "__value": "Custom", "__tile": null, "defUid": 3017, "realEditorValues": [] }
-							],
-							"__worldX": 4868,
-							"__worldY": -1388
-						},
-						{
 							"__identifier": "NpcSpawn",
 							"__grid": [91,34],
 							"__pivot": [0,0],
@@ -52167,32 +50633,6 @@
 							],
 							"__worldX": 5040,
 							"__worldY": -1248
-						},
-						{
-							"__identifier": "DebugLabel",
-							"__grid": [88,25],
-							"__pivot": [0,0],
-							"__tags": [],
-							"__tile": null,
-							"__smartColor": "#FFFFFF",
-							"iid": "DebugLabel-6282",
-							"width": 120,
-							"height": 20,
-							"defUid": 2007,
-							"px": [1412,404],
-							"fieldInstances": [
-								{ "__identifier": "name", "__type": "String", "__value": "hall_label_npc_ninja_heavy", "__tile": null, "defUid": 3015, "realEditorValues": [{
-									"id": "V_String",
-									"params": ["hall_label_npc_ninja_heavy"]
-								}] },
-								{ "__identifier": "text", "__type": "String", "__value": "Ninja Heavy", "__tile": null, "defUid": 3016, "realEditorValues": [{
-									"id": "V_String",
-									"params": ["Ninja Heavy"]
-								}] },
-								{ "__identifier": "category", "__type": "String", "__value": "Custom", "__tile": null, "defUid": 3017, "realEditorValues": [] }
-							],
-							"__worldX": 4996,
-							"__worldY": -1388
 						},
 						{
 							"__identifier": "NpcSpawn",
@@ -52223,32 +50663,6 @@
 							"__worldY": -1248
 						},
 						{
-							"__identifier": "DebugLabel",
-							"__grid": [96,25],
-							"__pivot": [0,0],
-							"__tags": [],
-							"__tile": null,
-							"__smartColor": "#FFFFFF",
-							"iid": "DebugLabel-6284",
-							"width": 120,
-							"height": 20,
-							"defUid": 2007,
-							"px": [1540,404],
-							"fieldInstances": [
-								{ "__identifier": "name", "__type": "String", "__value": "hall_label_npc_olivia", "__tile": null, "defUid": 3015, "realEditorValues": [{
-									"id": "V_String",
-									"params": ["hall_label_npc_olivia"]
-								}] },
-								{ "__identifier": "text", "__type": "String", "__value": "Olivia", "__tile": null, "defUid": 3016, "realEditorValues": [{
-									"id": "V_String",
-									"params": ["Olivia"]
-								}] },
-								{ "__identifier": "category", "__type": "String", "__value": "Custom", "__tile": null, "defUid": 3017, "realEditorValues": [] }
-							],
-							"__worldX": 5124,
-							"__worldY": -1388
-						},
-						{
 							"__identifier": "NpcSpawn",
 							"__grid": [107,34],
 							"__pivot": [0,0],
@@ -52275,32 +50689,6 @@
 							],
 							"__worldX": 5296,
 							"__worldY": -1248
-						},
-						{
-							"__identifier": "DebugLabel",
-							"__grid": [104,25],
-							"__pivot": [0,0],
-							"__tags": [],
-							"__tile": null,
-							"__smartColor": "#FFFFFF",
-							"iid": "DebugLabel-6286",
-							"width": 120,
-							"height": 20,
-							"defUid": 2007,
-							"px": [1668,404],
-							"fieldInstances": [
-								{ "__identifier": "name", "__type": "String", "__value": "hall_label_npc_peggy", "__tile": null, "defUid": 3015, "realEditorValues": [{
-									"id": "V_String",
-									"params": ["hall_label_npc_peggy"]
-								}] },
-								{ "__identifier": "text", "__type": "String", "__value": "Peggy", "__tile": null, "defUid": 3016, "realEditorValues": [{
-									"id": "V_String",
-									"params": ["Peggy"]
-								}] },
-								{ "__identifier": "category", "__type": "String", "__value": "Custom", "__tile": null, "defUid": 3017, "realEditorValues": [] }
-							],
-							"__worldX": 5252,
-							"__worldY": -1388
 						},
 						{
 							"__identifier": "NpcSpawn",
@@ -52331,32 +50719,6 @@
 							"__worldY": -1248
 						},
 						{
-							"__identifier": "DebugLabel",
-							"__grid": [112,25],
-							"__pivot": [0,0],
-							"__tags": [],
-							"__tile": null,
-							"__smartColor": "#FFFFFF",
-							"iid": "DebugLabel-6288",
-							"width": 120,
-							"height": 20,
-							"defUid": 2007,
-							"px": [1796,404],
-							"fieldInstances": [
-								{ "__identifier": "name", "__type": "String", "__value": "hall_label_npc_pirate_cutlass_viper", "__tile": null, "defUid": 3015, "realEditorValues": [{
-									"id": "V_String",
-									"params": ["hall_label_npc_pirate_cutlass_viper"]
-								}] },
-								{ "__identifier": "text", "__type": "String", "__value": "Pirate Cutlass Viper", "__tile": null, "defUid": 3016, "realEditorValues": [{
-									"id": "V_String",
-									"params": ["Pirate Cutlass Viper"]
-								}] },
-								{ "__identifier": "category", "__type": "String", "__value": "Custom", "__tile": null, "defUid": 3017, "realEditorValues": [] }
-							],
-							"__worldX": 5380,
-							"__worldY": -1388
-						},
-						{
 							"__identifier": "NpcSpawn",
 							"__grid": [123,34],
 							"__pivot": [0,0],
@@ -52383,32 +50745,6 @@
 							],
 							"__worldX": 5552,
 							"__worldY": -1248
-						},
-						{
-							"__identifier": "DebugLabel",
-							"__grid": [120,25],
-							"__pivot": [0,0],
-							"__tags": [],
-							"__tile": null,
-							"__smartColor": "#FFFFFF",
-							"iid": "DebugLabel-6290",
-							"width": 120,
-							"height": 20,
-							"defUid": 2007,
-							"px": [1924,404],
-							"fieldInstances": [
-								{ "__identifier": "name", "__type": "String", "__value": "hall_label_npc_player_combat_review", "__tile": null, "defUid": 3015, "realEditorValues": [{
-									"id": "V_String",
-									"params": ["hall_label_npc_player_combat_review"]
-								}] },
-								{ "__identifier": "text", "__type": "String", "__value": "Player Combat Review", "__tile": null, "defUid": 3016, "realEditorValues": [{
-									"id": "V_String",
-									"params": ["Player Combat Review"]
-								}] },
-								{ "__identifier": "category", "__type": "String", "__value": "Custom", "__tile": null, "defUid": 3017, "realEditorValues": [] }
-							],
-							"__worldX": 5508,
-							"__worldY": -1388
 						},
 						{
 							"__identifier": "NpcSpawn",
@@ -52439,32 +50775,6 @@
 							"__worldY": -1440
 						},
 						{
-							"__identifier": "DebugLabel",
-							"__grid": [0,13],
-							"__pivot": [0,0],
-							"__tags": [],
-							"__tile": null,
-							"__smartColor": "#FFFFFF",
-							"iid": "DebugLabel-6292",
-							"width": 120,
-							"height": 20,
-							"defUid": 2007,
-							"px": [4,212],
-							"fieldInstances": [
-								{ "__identifier": "name", "__type": "String", "__value": "hall_label_npc_player_extended", "__tile": null, "defUid": 3015, "realEditorValues": [{
-									"id": "V_String",
-									"params": ["hall_label_npc_player_extended"]
-								}] },
-								{ "__identifier": "text", "__type": "String", "__value": "Player Extended", "__tile": null, "defUid": 3016, "realEditorValues": [{
-									"id": "V_String",
-									"params": ["Player Extended"]
-								}] },
-								{ "__identifier": "category", "__type": "String", "__value": "Custom", "__tile": null, "defUid": 3017, "realEditorValues": [] }
-							],
-							"__worldX": 3588,
-							"__worldY": -1580
-						},
-						{
 							"__identifier": "NpcSpawn",
 							"__grid": [11,22],
 							"__pivot": [0,0],
@@ -52491,32 +50801,6 @@
 							],
 							"__worldX": 3760,
 							"__worldY": -1440
-						},
-						{
-							"__identifier": "DebugLabel",
-							"__grid": [8,13],
-							"__pivot": [0,0],
-							"__tags": [],
-							"__tile": null,
-							"__smartColor": "#FFFFFF",
-							"iid": "DebugLabel-6294",
-							"width": 120,
-							"height": 20,
-							"defUid": 2007,
-							"px": [132,212],
-							"fieldInstances": [
-								{ "__identifier": "name", "__type": "String", "__value": "hall_label_npc_player_social_review", "__tile": null, "defUid": 3015, "realEditorValues": [{
-									"id": "V_String",
-									"params": ["hall_label_npc_player_social_review"]
-								}] },
-								{ "__identifier": "text", "__type": "String", "__value": "Player Social Review", "__tile": null, "defUid": 3016, "realEditorValues": [{
-									"id": "V_String",
-									"params": ["Player Social Review"]
-								}] },
-								{ "__identifier": "category", "__type": "String", "__value": "Custom", "__tile": null, "defUid": 3017, "realEditorValues": [] }
-							],
-							"__worldX": 3716,
-							"__worldY": -1580
 						},
 						{
 							"__identifier": "NpcSpawn",
@@ -52547,32 +50831,6 @@
 							"__worldY": -1440
 						},
 						{
-							"__identifier": "DebugLabel",
-							"__grid": [16,13],
-							"__pivot": [0,0],
-							"__tags": [],
-							"__tile": null,
-							"__smartColor": "#FFFFFF",
-							"iid": "DebugLabel-6296",
-							"width": 120,
-							"height": 20,
-							"defUid": 2007,
-							"px": [260,212],
-							"fieldInstances": [
-								{ "__identifier": "name", "__type": "String", "__value": "hall_label_npc_player_traversal_review", "__tile": null, "defUid": 3015, "realEditorValues": [{
-									"id": "V_String",
-									"params": ["hall_label_npc_player_traversal_review"]
-								}] },
-								{ "__identifier": "text", "__type": "String", "__value": "Player Traversal Review", "__tile": null, "defUid": 3016, "realEditorValues": [{
-									"id": "V_String",
-									"params": ["Player Traversal Review"]
-								}] },
-								{ "__identifier": "category", "__type": "String", "__value": "Custom", "__tile": null, "defUid": 3017, "realEditorValues": [] }
-							],
-							"__worldX": 3844,
-							"__worldY": -1580
-						},
-						{
 							"__identifier": "NpcSpawn",
 							"__grid": [27,22],
 							"__pivot": [0,0],
@@ -52599,32 +50857,6 @@
 							],
 							"__worldX": 4016,
 							"__worldY": -1440
-						},
-						{
-							"__identifier": "DebugLabel",
-							"__grid": [24,13],
-							"__pivot": [0,0],
-							"__tags": [],
-							"__tile": null,
-							"__smartColor": "#FFFFFF",
-							"iid": "DebugLabel-6298",
-							"width": 120,
-							"height": 20,
-							"defUid": 2007,
-							"px": [388,212],
-							"fieldInstances": [
-								{ "__identifier": "name", "__type": "String", "__value": "hall_label_npc_president_portrait", "__tile": null, "defUid": 3015, "realEditorValues": [{
-									"id": "V_String",
-									"params": ["hall_label_npc_president_portrait"]
-								}] },
-								{ "__identifier": "text", "__type": "String", "__value": "President Portrait", "__tile": null, "defUid": 3016, "realEditorValues": [{
-									"id": "V_String",
-									"params": ["President Portrait"]
-								}] },
-								{ "__identifier": "category", "__type": "String", "__value": "Custom", "__tile": null, "defUid": 3017, "realEditorValues": [] }
-							],
-							"__worldX": 3972,
-							"__worldY": -1580
 						},
 						{
 							"__identifier": "NpcSpawn",
@@ -52655,32 +50887,6 @@
 							"__worldY": -1440
 						},
 						{
-							"__identifier": "DebugLabel",
-							"__grid": [32,13],
-							"__pivot": [0,0],
-							"__tags": [],
-							"__tile": null,
-							"__smartColor": "#FFFFFF",
-							"iid": "DebugLabel-6300",
-							"width": 120,
-							"height": 20,
-							"defUid": 2007,
-							"px": [516,212],
-							"fieldInstances": [
-								{ "__identifier": "name", "__type": "String", "__value": "hall_label_npc_puppy_slug_variant2", "__tile": null, "defUid": 3015, "realEditorValues": [{
-									"id": "V_String",
-									"params": ["hall_label_npc_puppy_slug_variant2"]
-								}] },
-								{ "__identifier": "text", "__type": "String", "__value": "Puppy Slug Variant2", "__tile": null, "defUid": 3016, "realEditorValues": [{
-									"id": "V_String",
-									"params": ["Puppy Slug Variant2"]
-								}] },
-								{ "__identifier": "category", "__type": "String", "__value": "Custom", "__tile": null, "defUid": 3017, "realEditorValues": [] }
-							],
-							"__worldX": 4100,
-							"__worldY": -1580
-						},
-						{
 							"__identifier": "NpcSpawn",
 							"__grid": [43,22],
 							"__pivot": [0,0],
@@ -52707,32 +50913,6 @@
 							],
 							"__worldX": 4272,
 							"__worldY": -1440
-						},
-						{
-							"__identifier": "DebugLabel",
-							"__grid": [40,13],
-							"__pivot": [0,0],
-							"__tags": [],
-							"__tile": null,
-							"__smartColor": "#FFFFFF",
-							"iid": "DebugLabel-6302",
-							"width": 120,
-							"height": 20,
-							"defUid": 2007,
-							"px": [644,212],
-							"fieldInstances": [
-								{ "__identifier": "name", "__type": "String", "__value": "hall_label_npc_robot_archivist", "__tile": null, "defUid": 3015, "realEditorValues": [{
-									"id": "V_String",
-									"params": ["hall_label_npc_robot_archivist"]
-								}] },
-								{ "__identifier": "text", "__type": "String", "__value": "Robot Archivist", "__tile": null, "defUid": 3016, "realEditorValues": [{
-									"id": "V_String",
-									"params": ["Robot Archivist"]
-								}] },
-								{ "__identifier": "category", "__type": "String", "__value": "Custom", "__tile": null, "defUid": 3017, "realEditorValues": [] }
-							],
-							"__worldX": 4228,
-							"__worldY": -1580
 						},
 						{
 							"__identifier": "NpcSpawn",
@@ -52763,32 +50943,6 @@
 							"__worldY": -1440
 						},
 						{
-							"__identifier": "DebugLabel",
-							"__grid": [48,13],
-							"__pivot": [0,0],
-							"__tags": [],
-							"__tile": null,
-							"__smartColor": "#FFFFFF",
-							"iid": "DebugLabel-6304",
-							"width": 120,
-							"height": 20,
-							"defUid": 2007,
-							"px": [772,212],
-							"fieldInstances": [
-								{ "__identifier": "name", "__type": "String", "__value": "hall_label_npc_robot_caster", "__tile": null, "defUid": 3015, "realEditorValues": [{
-									"id": "V_String",
-									"params": ["hall_label_npc_robot_caster"]
-								}] },
-								{ "__identifier": "text", "__type": "String", "__value": "Robot Caster", "__tile": null, "defUid": 3016, "realEditorValues": [{
-									"id": "V_String",
-									"params": ["Robot Caster"]
-								}] },
-								{ "__identifier": "category", "__type": "String", "__value": "Custom", "__tile": null, "defUid": 3017, "realEditorValues": [] }
-							],
-							"__worldX": 4356,
-							"__worldY": -1580
-						},
-						{
 							"__identifier": "NpcSpawn",
 							"__grid": [59,22],
 							"__pivot": [0,0],
@@ -52815,32 +50969,6 @@
 							],
 							"__worldX": 4528,
 							"__worldY": -1440
-						},
-						{
-							"__identifier": "DebugLabel",
-							"__grid": [56,13],
-							"__pivot": [0,0],
-							"__tags": [],
-							"__tile": null,
-							"__smartColor": "#FFFFFF",
-							"iid": "DebugLabel-6306",
-							"width": 120,
-							"height": 20,
-							"defUid": 2007,
-							"px": [900,212],
-							"fieldInstances": [
-								{ "__identifier": "name", "__type": "String", "__value": "hall_label_npc_robot_diver", "__tile": null, "defUid": 3015, "realEditorValues": [{
-									"id": "V_String",
-									"params": ["hall_label_npc_robot_diver"]
-								}] },
-								{ "__identifier": "text", "__type": "String", "__value": "Robot Diver", "__tile": null, "defUid": 3016, "realEditorValues": [{
-									"id": "V_String",
-									"params": ["Robot Diver"]
-								}] },
-								{ "__identifier": "category", "__type": "String", "__value": "Custom", "__tile": null, "defUid": 3017, "realEditorValues": [] }
-							],
-							"__worldX": 4484,
-							"__worldY": -1580
 						},
 						{
 							"__identifier": "NpcSpawn",
@@ -52871,32 +50999,6 @@
 							"__worldY": -1440
 						},
 						{
-							"__identifier": "DebugLabel",
-							"__grid": [64,13],
-							"__pivot": [0,0],
-							"__tags": [],
-							"__tile": null,
-							"__smartColor": "#FFFFFF",
-							"iid": "DebugLabel-6308",
-							"width": 120,
-							"height": 20,
-							"defUid": 2007,
-							"px": [1028,212],
-							"fieldInstances": [
-								{ "__identifier": "name", "__type": "String", "__value": "hall_label_npc_robot_engineer", "__tile": null, "defUid": 3015, "realEditorValues": [{
-									"id": "V_String",
-									"params": ["hall_label_npc_robot_engineer"]
-								}] },
-								{ "__identifier": "text", "__type": "String", "__value": "Robot Engineer", "__tile": null, "defUid": 3016, "realEditorValues": [{
-									"id": "V_String",
-									"params": ["Robot Engineer"]
-								}] },
-								{ "__identifier": "category", "__type": "String", "__value": "Custom", "__tile": null, "defUid": 3017, "realEditorValues": [] }
-							],
-							"__worldX": 4612,
-							"__worldY": -1580
-						},
-						{
 							"__identifier": "NpcSpawn",
 							"__grid": [75,22],
 							"__pivot": [0,0],
@@ -52923,32 +51025,6 @@
 							],
 							"__worldX": 4784,
 							"__worldY": -1440
-						},
-						{
-							"__identifier": "DebugLabel",
-							"__grid": [72,13],
-							"__pivot": [0,0],
-							"__tags": [],
-							"__tile": null,
-							"__smartColor": "#FFFFFF",
-							"iid": "DebugLabel-6310",
-							"width": 120,
-							"height": 20,
-							"defUid": 2007,
-							"px": [1156,212],
-							"fieldInstances": [
-								{ "__identifier": "name", "__type": "String", "__value": "hall_label_npc_robot_guardian", "__tile": null, "defUid": 3015, "realEditorValues": [{
-									"id": "V_String",
-									"params": ["hall_label_npc_robot_guardian"]
-								}] },
-								{ "__identifier": "text", "__type": "String", "__value": "Robot Guardian", "__tile": null, "defUid": 3016, "realEditorValues": [{
-									"id": "V_String",
-									"params": ["Robot Guardian"]
-								}] },
-								{ "__identifier": "category", "__type": "String", "__value": "Custom", "__tile": null, "defUid": 3017, "realEditorValues": [] }
-							],
-							"__worldX": 4740,
-							"__worldY": -1580
 						},
 						{
 							"__identifier": "NpcSpawn",
@@ -52979,32 +51055,6 @@
 							"__worldY": -1440
 						},
 						{
-							"__identifier": "DebugLabel",
-							"__grid": [80,13],
-							"__pivot": [0,0],
-							"__tags": [],
-							"__tile": null,
-							"__smartColor": "#FFFFFF",
-							"iid": "DebugLabel-6312",
-							"width": 120,
-							"height": 20,
-							"defUid": 2007,
-							"px": [1284,212],
-							"fieldInstances": [
-								{ "__identifier": "name", "__type": "String", "__value": "hall_label_npc_robot_medic", "__tile": null, "defUid": 3015, "realEditorValues": [{
-									"id": "V_String",
-									"params": ["hall_label_npc_robot_medic"]
-								}] },
-								{ "__identifier": "text", "__type": "String", "__value": "Robot Medic", "__tile": null, "defUid": 3016, "realEditorValues": [{
-									"id": "V_String",
-									"params": ["Robot Medic"]
-								}] },
-								{ "__identifier": "category", "__type": "String", "__value": "Custom", "__tile": null, "defUid": 3017, "realEditorValues": [] }
-							],
-							"__worldX": 4868,
-							"__worldY": -1580
-						},
-						{
 							"__identifier": "NpcSpawn",
 							"__grid": [91,22],
 							"__pivot": [0,0],
@@ -53031,32 +51081,6 @@
 							],
 							"__worldX": 5040,
 							"__worldY": -1440
-						},
-						{
-							"__identifier": "DebugLabel",
-							"__grid": [88,13],
-							"__pivot": [0,0],
-							"__tags": [],
-							"__tile": null,
-							"__smartColor": "#FFFFFF",
-							"iid": "DebugLabel-6314",
-							"width": 120,
-							"height": 20,
-							"defUid": 2007,
-							"px": [1412,212],
-							"fieldInstances": [
-								{ "__identifier": "name", "__type": "String", "__value": "hall_label_npc_robot_miner", "__tile": null, "defUid": 3015, "realEditorValues": [{
-									"id": "V_String",
-									"params": ["hall_label_npc_robot_miner"]
-								}] },
-								{ "__identifier": "text", "__type": "String", "__value": "Robot Miner", "__tile": null, "defUid": 3016, "realEditorValues": [{
-									"id": "V_String",
-									"params": ["Robot Miner"]
-								}] },
-								{ "__identifier": "category", "__type": "String", "__value": "Custom", "__tile": null, "defUid": 3017, "realEditorValues": [] }
-							],
-							"__worldX": 4996,
-							"__worldY": -1580
 						},
 						{
 							"__identifier": "NpcSpawn",
@@ -53087,32 +51111,6 @@
 							"__worldY": -1440
 						},
 						{
-							"__identifier": "DebugLabel",
-							"__grid": [96,13],
-							"__pivot": [0,0],
-							"__tags": [],
-							"__tile": null,
-							"__smartColor": "#FFFFFF",
-							"iid": "DebugLabel-6316",
-							"width": 120,
-							"height": 20,
-							"defUid": 2007,
-							"px": [1540,212],
-							"fieldInstances": [
-								{ "__identifier": "name", "__type": "String", "__value": "hall_label_npc_robot_runner", "__tile": null, "defUid": 3015, "realEditorValues": [{
-									"id": "V_String",
-									"params": ["hall_label_npc_robot_runner"]
-								}] },
-								{ "__identifier": "text", "__type": "String", "__value": "Robot Runner", "__tile": null, "defUid": 3016, "realEditorValues": [{
-									"id": "V_String",
-									"params": ["Robot Runner"]
-								}] },
-								{ "__identifier": "category", "__type": "String", "__value": "Custom", "__tile": null, "defUid": 3017, "realEditorValues": [] }
-							],
-							"__worldX": 5124,
-							"__worldY": -1580
-						},
-						{
 							"__identifier": "NpcSpawn",
 							"__grid": [107,22],
 							"__pivot": [0,0],
@@ -53139,32 +51137,6 @@
 							],
 							"__worldX": 5296,
 							"__worldY": -1440
-						},
-						{
-							"__identifier": "DebugLabel",
-							"__grid": [104,13],
-							"__pivot": [0,0],
-							"__tags": [],
-							"__tile": null,
-							"__smartColor": "#FFFFFF",
-							"iid": "DebugLabel-6318",
-							"width": 120,
-							"height": 20,
-							"defUid": 2007,
-							"px": [1668,212],
-							"fieldInstances": [
-								{ "__identifier": "name", "__type": "String", "__value": "hall_label_npc_sandbag_armored_review", "__tile": null, "defUid": 3015, "realEditorValues": [{
-									"id": "V_String",
-									"params": ["hall_label_npc_sandbag_armored_review"]
-								}] },
-								{ "__identifier": "text", "__type": "String", "__value": "Sandbag Armored Review", "__tile": null, "defUid": 3016, "realEditorValues": [{
-									"id": "V_String",
-									"params": ["Sandbag Armored Review"]
-								}] },
-								{ "__identifier": "category", "__type": "String", "__value": "Custom", "__tile": null, "defUid": 3017, "realEditorValues": [] }
-							],
-							"__worldX": 5252,
-							"__worldY": -1580
 						},
 						{
 							"__identifier": "NpcSpawn",
@@ -53195,32 +51167,6 @@
 							"__worldY": -1440
 						},
 						{
-							"__identifier": "DebugLabel",
-							"__grid": [112,13],
-							"__pivot": [0,0],
-							"__tags": [],
-							"__tile": null,
-							"__smartColor": "#FFFFFF",
-							"iid": "DebugLabel-6320",
-							"width": 120,
-							"height": 20,
-							"defUid": 2007,
-							"px": [1796,212],
-							"fieldInstances": [
-								{ "__identifier": "name", "__type": "String", "__value": "hall_label_npc_sandbag_full_review", "__tile": null, "defUid": 3015, "realEditorValues": [{
-									"id": "V_String",
-									"params": ["hall_label_npc_sandbag_full_review"]
-								}] },
-								{ "__identifier": "text", "__type": "String", "__value": "Sandbag Full Review", "__tile": null, "defUid": 3016, "realEditorValues": [{
-									"id": "V_String",
-									"params": ["Sandbag Full Review"]
-								}] },
-								{ "__identifier": "category", "__type": "String", "__value": "Custom", "__tile": null, "defUid": 3017, "realEditorValues": [] }
-							],
-							"__worldX": 5380,
-							"__worldY": -1580
-						},
-						{
 							"__identifier": "NpcSpawn",
 							"__grid": [123,22],
 							"__pivot": [0,0],
@@ -53247,32 +51193,6 @@
 							],
 							"__worldX": 5552,
 							"__worldY": -1440
-						},
-						{
-							"__identifier": "DebugLabel",
-							"__grid": [120,13],
-							"__pivot": [0,0],
-							"__tags": [],
-							"__tile": null,
-							"__smartColor": "#FFFFFF",
-							"iid": "DebugLabel-6322",
-							"width": 120,
-							"height": 20,
-							"defUid": 2007,
-							"px": [1924,212],
-							"fieldInstances": [
-								{ "__identifier": "name", "__type": "String", "__value": "hall_label_npc_spaghetti_event", "__tile": null, "defUid": 3015, "realEditorValues": [{
-									"id": "V_String",
-									"params": ["hall_label_npc_spaghetti_event"]
-								}] },
-								{ "__identifier": "text", "__type": "String", "__value": "Spaghetti Event", "__tile": null, "defUid": 3016, "realEditorValues": [{
-									"id": "V_String",
-									"params": ["Spaghetti Event"]
-								}] },
-								{ "__identifier": "category", "__type": "String", "__value": "Custom", "__tile": null, "defUid": 3017, "realEditorValues": [] }
-							],
-							"__worldX": 5508,
-							"__worldY": -1580
 						},
 						{
 							"__identifier": "NpcSpawn",
@@ -53303,32 +51223,6 @@
 							"__worldY": -1632
 						},
 						{
-							"__identifier": "DebugLabel",
-							"__grid": [0,1],
-							"__pivot": [0,0],
-							"__tags": [],
-							"__tile": null,
-							"__smartColor": "#FFFFFF",
-							"iid": "DebugLabel-6324",
-							"width": 120,
-							"height": 20,
-							"defUid": 2007,
-							"px": [4,20],
-							"fieldInstances": [
-								{ "__identifier": "name", "__type": "String", "__value": "hall_label_npc_sybil", "__tile": null, "defUid": 3015, "realEditorValues": [{
-									"id": "V_String",
-									"params": ["hall_label_npc_sybil"]
-								}] },
-								{ "__identifier": "text", "__type": "String", "__value": "Sybil", "__tile": null, "defUid": 3016, "realEditorValues": [{
-									"id": "V_String",
-									"params": ["Sybil"]
-								}] },
-								{ "__identifier": "category", "__type": "String", "__value": "Custom", "__tile": null, "defUid": 3017, "realEditorValues": [] }
-							],
-							"__worldX": 3588,
-							"__worldY": -1772
-						},
-						{
 							"__identifier": "NpcSpawn",
 							"__grid": [11,10],
 							"__pivot": [0,0],
@@ -53355,32 +51249,6 @@
 							],
 							"__worldX": 3760,
 							"__worldY": -1632
-						},
-						{
-							"__identifier": "DebugLabel",
-							"__grid": [8,1],
-							"__pivot": [0,0],
-							"__tags": [],
-							"__tile": null,
-							"__smartColor": "#FFFFFF",
-							"iid": "DebugLabel-6326",
-							"width": 120,
-							"height": 20,
-							"defUid": 2007,
-							"px": [132,20],
-							"fieldInstances": [
-								{ "__identifier": "name", "__type": "String", "__value": "hall_label_npc_synthetic_friend", "__tile": null, "defUid": 3015, "realEditorValues": [{
-									"id": "V_String",
-									"params": ["hall_label_npc_synthetic_friend"]
-								}] },
-								{ "__identifier": "text", "__type": "String", "__value": "Synthetic Friend", "__tile": null, "defUid": 3016, "realEditorValues": [{
-									"id": "V_String",
-									"params": ["Synthetic Friend"]
-								}] },
-								{ "__identifier": "category", "__type": "String", "__value": "Custom", "__tile": null, "defUid": 3017, "realEditorValues": [] }
-							],
-							"__worldX": 3716,
-							"__worldY": -1772
 						},
 						{
 							"__identifier": "NpcSpawn",
@@ -53411,32 +51279,6 @@
 							"__worldY": -1632
 						},
 						{
-							"__identifier": "DebugLabel",
-							"__grid": [16,1],
-							"__pivot": [0,0],
-							"__tags": [],
-							"__tile": null,
-							"__smartColor": "#FFFFFF",
-							"iid": "DebugLabel-6328",
-							"width": 120,
-							"height": 20,
-							"defUid": 2007,
-							"px": [260,20],
-							"fieldInstances": [
-								{ "__identifier": "name", "__type": "String", "__value": "hall_label_npc_trent", "__tile": null, "defUid": 3015, "realEditorValues": [{
-									"id": "V_String",
-									"params": ["hall_label_npc_trent"]
-								}] },
-								{ "__identifier": "text", "__type": "String", "__value": "Trent", "__tile": null, "defUid": 3016, "realEditorValues": [{
-									"id": "V_String",
-									"params": ["Trent"]
-								}] },
-								{ "__identifier": "category", "__type": "String", "__value": "Custom", "__tile": null, "defUid": 3017, "realEditorValues": [] }
-							],
-							"__worldX": 3844,
-							"__worldY": -1772
-						},
-						{
 							"__identifier": "NpcSpawn",
 							"__grid": [27,10],
 							"__pivot": [0,0],
@@ -53463,32 +51305,6 @@
 							],
 							"__worldX": 4016,
 							"__worldY": -1632
-						},
-						{
-							"__identifier": "DebugLabel",
-							"__grid": [24,1],
-							"__pivot": [0,0],
-							"__tags": [],
-							"__tile": null,
-							"__smartColor": "#FFFFFF",
-							"iid": "DebugLabel-6330",
-							"width": 120,
-							"height": 20,
-							"defUid": 2007,
-							"px": [388,20],
-							"fieldInstances": [
-								{ "__identifier": "name", "__type": "String", "__value": "hall_label_npc_trudy", "__tile": null, "defUid": 3015, "realEditorValues": [{
-									"id": "V_String",
-									"params": ["hall_label_npc_trudy"]
-								}] },
-								{ "__identifier": "text", "__type": "String", "__value": "Trudy", "__tile": null, "defUid": 3016, "realEditorValues": [{
-									"id": "V_String",
-									"params": ["Trudy"]
-								}] },
-								{ "__identifier": "category", "__type": "String", "__value": "Custom", "__tile": null, "defUid": 3017, "realEditorValues": [] }
-							],
-							"__worldX": 3972,
-							"__worldY": -1772
 						},
 						{
 							"__identifier": "NpcSpawn",
@@ -53519,32 +51335,6 @@
 							"__worldY": -1632
 						},
 						{
-							"__identifier": "DebugLabel",
-							"__grid": [32,1],
-							"__pivot": [0,0],
-							"__tags": [],
-							"__tile": null,
-							"__smartColor": "#FFFFFF",
-							"iid": "DebugLabel-6332",
-							"width": 120,
-							"height": 20,
-							"defUid": 2007,
-							"px": [516,20],
-							"fieldInstances": [
-								{ "__identifier": "name", "__type": "String", "__value": "hall_label_npc_victor", "__tile": null, "defUid": 3015, "realEditorValues": [{
-									"id": "V_String",
-									"params": ["hall_label_npc_victor"]
-								}] },
-								{ "__identifier": "text", "__type": "String", "__value": "Victor", "__tile": null, "defUid": 3016, "realEditorValues": [{
-									"id": "V_String",
-									"params": ["Victor"]
-								}] },
-								{ "__identifier": "category", "__type": "String", "__value": "Custom", "__tile": null, "defUid": 3017, "realEditorValues": [] }
-							],
-							"__worldX": 4100,
-							"__worldY": -1772
-						},
-						{
 							"__identifier": "NpcSpawn",
 							"__grid": [43,10],
 							"__pivot": [0,0],
@@ -53571,32 +51361,6 @@
 							],
 							"__worldX": 4272,
 							"__worldY": -1632
-						},
-						{
-							"__identifier": "DebugLabel",
-							"__grid": [40,1],
-							"__pivot": [0,0],
-							"__tags": [],
-							"__tile": null,
-							"__smartColor": "#FFFFFF",
-							"iid": "DebugLabel-6334",
-							"width": 120,
-							"height": 20,
-							"defUid": 2007,
-							"px": [644,20],
-							"fieldInstances": [
-								{ "__identifier": "name", "__type": "String", "__value": "hall_label_npc_viking_heavy_shieldmaiden", "__tile": null, "defUid": 3015, "realEditorValues": [{
-									"id": "V_String",
-									"params": ["hall_label_npc_viking_heavy_shieldmaiden"]
-								}] },
-								{ "__identifier": "text", "__type": "String", "__value": "Viking Heavy Shieldmaiden", "__tile": null, "defUid": 3016, "realEditorValues": [{
-									"id": "V_String",
-									"params": ["Viking Heavy Shieldmaiden"]
-								}] },
-								{ "__identifier": "category", "__type": "String", "__value": "Custom", "__tile": null, "defUid": 3017, "realEditorValues": [] }
-							],
-							"__worldX": 4228,
-							"__worldY": -1772
 						},
 						{
 							"__identifier": "NpcSpawn",
@@ -53627,32 +51391,6 @@
 							"__worldY": -1632
 						},
 						{
-							"__identifier": "DebugLabel",
-							"__grid": [48,1],
-							"__pivot": [0,0],
-							"__tags": [],
-							"__tile": null,
-							"__smartColor": "#FFFFFF",
-							"iid": "DebugLabel-6336",
-							"width": 120,
-							"height": 20,
-							"defUid": 2007,
-							"px": [772,20],
-							"fieldInstances": [
-								{ "__identifier": "name", "__type": "String", "__value": "hall_label_npc_viking_heavy_warrior", "__tile": null, "defUid": 3015, "realEditorValues": [{
-									"id": "V_String",
-									"params": ["hall_label_npc_viking_heavy_warrior"]
-								}] },
-								{ "__identifier": "text", "__type": "String", "__value": "Viking Heavy Warrior", "__tile": null, "defUid": 3016, "realEditorValues": [{
-									"id": "V_String",
-									"params": ["Viking Heavy Warrior"]
-								}] },
-								{ "__identifier": "category", "__type": "String", "__value": "Custom", "__tile": null, "defUid": 3017, "realEditorValues": [] }
-							],
-							"__worldX": 4356,
-							"__worldY": -1772
-						},
-						{
 							"__identifier": "NpcSpawn",
 							"__grid": [59,10],
 							"__pivot": [0,0],
@@ -53679,32 +51417,6 @@
 							],
 							"__worldX": 4528,
 							"__worldY": -1632
-						},
-						{
-							"__identifier": "DebugLabel",
-							"__grid": [56,1],
-							"__pivot": [0,0],
-							"__tags": [],
-							"__tile": null,
-							"__smartColor": "#FFFFFF",
-							"iid": "DebugLabel-6338",
-							"width": 120,
-							"height": 20,
-							"defUid": 2007,
-							"px": [900,20],
-							"fieldInstances": [
-								{ "__identifier": "name", "__type": "String", "__value": "hall_label_npc_viking_shieldmaiden", "__tile": null, "defUid": 3015, "realEditorValues": [{
-									"id": "V_String",
-									"params": ["hall_label_npc_viking_shieldmaiden"]
-								}] },
-								{ "__identifier": "text", "__type": "String", "__value": "Viking Shieldmaiden", "__tile": null, "defUid": 3016, "realEditorValues": [{
-									"id": "V_String",
-									"params": ["Viking Shieldmaiden"]
-								}] },
-								{ "__identifier": "category", "__type": "String", "__value": "Custom", "__tile": null, "defUid": 3017, "realEditorValues": [] }
-							],
-							"__worldX": 4484,
-							"__worldY": -1772
 						},
 						{
 							"__identifier": "NpcSpawn",
@@ -53735,32 +51447,6 @@
 							"__worldY": -1632
 						},
 						{
-							"__identifier": "DebugLabel",
-							"__grid": [64,1],
-							"__pivot": [0,0],
-							"__tags": [],
-							"__tile": null,
-							"__smartColor": "#FFFFFF",
-							"iid": "DebugLabel-6340",
-							"width": 120,
-							"height": 20,
-							"defUid": 2007,
-							"px": [1028,20],
-							"fieldInstances": [
-								{ "__identifier": "name", "__type": "String", "__value": "hall_label_npc_viking_warrior", "__tile": null, "defUid": 3015, "realEditorValues": [{
-									"id": "V_String",
-									"params": ["hall_label_npc_viking_warrior"]
-								}] },
-								{ "__identifier": "text", "__type": "String", "__value": "Viking Warrior", "__tile": null, "defUid": 3016, "realEditorValues": [{
-									"id": "V_String",
-									"params": ["Viking Warrior"]
-								}] },
-								{ "__identifier": "category", "__type": "String", "__value": "Custom", "__tile": null, "defUid": 3017, "realEditorValues": [] }
-							],
-							"__worldX": 4612,
-							"__worldY": -1772
-						},
-						{
 							"__identifier": "NpcSpawn",
 							"__grid": [75,10],
 							"__pivot": [0,0],
@@ -53787,32 +51473,6 @@
 							],
 							"__worldX": 4784,
 							"__worldY": -1632
-						},
-						{
-							"__identifier": "DebugLabel",
-							"__grid": [72,1],
-							"__pivot": [0,0],
-							"__tags": [],
-							"__tile": null,
-							"__smartColor": "#FFFFFF",
-							"iid": "DebugLabel-6342",
-							"width": 120,
-							"height": 20,
-							"defUid": 2007,
-							"px": [1156,20],
-							"fieldInstances": [
-								{ "__identifier": "name", "__type": "String", "__value": "hall_label_npc_walter", "__tile": null, "defUid": 3015, "realEditorValues": [{
-									"id": "V_String",
-									"params": ["hall_label_npc_walter"]
-								}] },
-								{ "__identifier": "text", "__type": "String", "__value": "Walter", "__tile": null, "defUid": 3016, "realEditorValues": [{
-									"id": "V_String",
-									"params": ["Walter"]
-								}] },
-								{ "__identifier": "category", "__type": "String", "__value": "Custom", "__tile": null, "defUid": 3017, "realEditorValues": [] }
-							],
-							"__worldX": 4740,
-							"__worldY": -1772
 						},
 						{
 							"__identifier": "NpcSpawn",
@@ -53843,32 +51503,6 @@
 							"__worldY": -1632
 						},
 						{
-							"__identifier": "DebugLabel",
-							"__grid": [80,1],
-							"__pivot": [0,0],
-							"__tags": [],
-							"__tile": null,
-							"__smartColor": "#FFFFFF",
-							"iid": "DebugLabel-6344",
-							"width": 120,
-							"height": 20,
-							"defUid": 2007,
-							"px": [1284,20],
-							"fieldInstances": [
-								{ "__identifier": "name", "__type": "String", "__value": "hall_label_npc_weird_hermit", "__tile": null, "defUid": 3015, "realEditorValues": [{
-									"id": "V_String",
-									"params": ["hall_label_npc_weird_hermit"]
-								}] },
-								{ "__identifier": "text", "__type": "String", "__value": "Weird Hermit", "__tile": null, "defUid": 3016, "realEditorValues": [{
-									"id": "V_String",
-									"params": ["Weird Hermit"]
-								}] },
-								{ "__identifier": "category", "__type": "String", "__value": "Custom", "__tile": null, "defUid": 3017, "realEditorValues": [] }
-							],
-							"__worldX": 4868,
-							"__worldY": -1772
-						},
-						{
 							"__identifier": "NpcSpawn",
 							"__grid": [14,93],
 							"__pivot": [0,0],
@@ -53895,32 +51529,6 @@
 							],
 							"__worldX": 3816,
 							"__worldY": -304
-						},
-						{
-							"__identifier": "DebugLabel",
-							"__grid": [0,74],
-							"__pivot": [0,0],
-							"__tags": [],
-							"__tile": null,
-							"__smartColor": "#FFFFFF",
-							"iid": "DebugLabel-6346",
-							"width": 504,
-							"height": 24,
-							"defUid": 2007,
-							"px": [4,1188],
-							"fieldInstances": [
-								{ "__identifier": "name", "__type": "String", "__value": "hall_label_npc_bear_mauler", "__tile": null, "defUid": 3015, "realEditorValues": [{
-									"id": "V_String",
-									"params": ["hall_label_npc_bear_mauler"]
-								}] },
-								{ "__identifier": "text", "__type": "String", "__value": "Bear Mauler", "__tile": null, "defUid": 3016, "realEditorValues": [{
-									"id": "V_String",
-									"params": ["Bear Mauler"]
-								}] },
-								{ "__identifier": "category", "__type": "String", "__value": "Custom", "__tile": null, "defUid": 3017, "realEditorValues": [] }
-							],
-							"__worldX": 3588,
-							"__worldY": -604
 						},
 						{
 							"__identifier": "NpcSpawn",
@@ -53951,32 +51559,6 @@
 							"__worldY": -304
 						},
 						{
-							"__identifier": "DebugLabel",
-							"__grid": [32,74],
-							"__pivot": [0,0],
-							"__tags": [],
-							"__tile": null,
-							"__smartColor": "#FFFFFF",
-							"iid": "DebugLabel-6348",
-							"width": 504,
-							"height": 24,
-							"defUid": 2007,
-							"px": [516,1188],
-							"fieldInstances": [
-								{ "__identifier": "name", "__type": "String", "__value": "hall_label_npc_boss", "__tile": null, "defUid": 3015, "realEditorValues": [{
-									"id": "V_String",
-									"params": ["hall_label_npc_boss"]
-								}] },
-								{ "__identifier": "text", "__type": "String", "__value": "Boss", "__tile": null, "defUid": 3016, "realEditorValues": [{
-									"id": "V_String",
-									"params": ["Boss"]
-								}] },
-								{ "__identifier": "category", "__type": "String", "__value": "Custom", "__tile": null, "defUid": 3017, "realEditorValues": [] }
-							],
-							"__worldX": 4100,
-							"__worldY": -604
-						},
-						{
 							"__identifier": "NpcSpawn",
 							"__grid": [78,93],
 							"__pivot": [0,0],
@@ -54003,32 +51585,6 @@
 							],
 							"__worldX": 4840,
 							"__worldY": -304
-						},
-						{
-							"__identifier": "DebugLabel",
-							"__grid": [64,74],
-							"__pivot": [0,0],
-							"__tags": [],
-							"__tile": null,
-							"__smartColor": "#FFFFFF",
-							"iid": "DebugLabel-6350",
-							"width": 504,
-							"height": 24,
-							"defUid": 2007,
-							"px": [1028,1188],
-							"fieldInstances": [
-								{ "__identifier": "name", "__type": "String", "__value": "hall_label_npc_dark_lord", "__tile": null, "defUid": 3015, "realEditorValues": [{
-									"id": "V_String",
-									"params": ["hall_label_npc_dark_lord"]
-								}] },
-								{ "__identifier": "text", "__type": "String", "__value": "Dark Lord", "__tile": null, "defUid": 3016, "realEditorValues": [{
-									"id": "V_String",
-									"params": ["Dark Lord"]
-								}] },
-								{ "__identifier": "category", "__type": "String", "__value": "Custom", "__tile": null, "defUid": 3017, "realEditorValues": [] }
-							],
-							"__worldX": 4612,
-							"__worldY": -604
 						},
 						{
 							"__identifier": "NpcSpawn",
@@ -54059,32 +51615,6 @@
 							"__worldY": -304
 						},
 						{
-							"__identifier": "DebugLabel",
-							"__grid": [96,74],
-							"__pivot": [0,0],
-							"__tags": [],
-							"__tile": null,
-							"__smartColor": "#FFFFFF",
-							"iid": "DebugLabel-6352",
-							"width": 504,
-							"height": 24,
-							"defUid": 2007,
-							"px": [1540,1188],
-							"fieldInstances": [
-								{ "__identifier": "name", "__type": "String", "__value": "hall_label_npc_flying_spaghetti_monster_boss", "__tile": null, "defUid": 3015, "realEditorValues": [{
-									"id": "V_String",
-									"params": ["hall_label_npc_flying_spaghetti_monster_boss"]
-								}] },
-								{ "__identifier": "text", "__type": "String", "__value": "Flying Spaghetti Monster Boss", "__tile": null, "defUid": 3016, "realEditorValues": [{
-									"id": "V_String",
-									"params": ["Flying Spaghetti Monster Boss"]
-								}] },
-								{ "__identifier": "category", "__type": "String", "__value": "Custom", "__tile": null, "defUid": 3017, "realEditorValues": [] }
-							],
-							"__worldX": 5124,
-							"__worldY": -604
-						},
-						{
 							"__identifier": "NpcSpawn",
 							"__grid": [14,117],
 							"__pivot": [0,0],
@@ -54111,32 +51641,6 @@
 							],
 							"__worldX": 3816,
 							"__worldY": 80
-						},
-						{
-							"__identifier": "DebugLabel",
-							"__grid": [0,98],
-							"__pivot": [0,0],
-							"__tags": [],
-							"__tile": null,
-							"__smartColor": "#FFFFFF",
-							"iid": "DebugLabel-6354",
-							"width": 504,
-							"height": 24,
-							"defUid": 2007,
-							"px": [4,1572],
-							"fieldInstances": [
-								{ "__identifier": "name", "__type": "String", "__value": "hall_label_npc_gnu_ton_boss", "__tile": null, "defUid": 3015, "realEditorValues": [{
-									"id": "V_String",
-									"params": ["hall_label_npc_gnu_ton_boss"]
-								}] },
-								{ "__identifier": "text", "__type": "String", "__value": "Gnu Ton Boss", "__tile": null, "defUid": 3016, "realEditorValues": [{
-									"id": "V_String",
-									"params": ["Gnu Ton Boss"]
-								}] },
-								{ "__identifier": "category", "__type": "String", "__value": "Custom", "__tile": null, "defUid": 3017, "realEditorValues": [] }
-							],
-							"__worldX": 3588,
-							"__worldY": -220
 						},
 						{
 							"__identifier": "NpcSpawn",
@@ -54167,32 +51671,6 @@
 							"__worldY": 80
 						},
 						{
-							"__identifier": "DebugLabel",
-							"__grid": [32,98],
-							"__pivot": [0,0],
-							"__tags": [],
-							"__tile": null,
-							"__smartColor": "#FFFFFF",
-							"iid": "DebugLabel-6356",
-							"width": 504,
-							"height": 24,
-							"defUid": 2007,
-							"px": [516,1572],
-							"fieldInstances": [
-								{ "__identifier": "name", "__type": "String", "__value": "hall_label_npc_mantis_lancer", "__tile": null, "defUid": 3015, "realEditorValues": [{
-									"id": "V_String",
-									"params": ["hall_label_npc_mantis_lancer"]
-								}] },
-								{ "__identifier": "text", "__type": "String", "__value": "Mantis Lancer", "__tile": null, "defUid": 3016, "realEditorValues": [{
-									"id": "V_String",
-									"params": ["Mantis Lancer"]
-								}] },
-								{ "__identifier": "category", "__type": "String", "__value": "Custom", "__tile": null, "defUid": 3017, "realEditorValues": [] }
-							],
-							"__worldX": 4100,
-							"__worldY": -220
-						},
-						{
 							"__identifier": "NpcSpawn",
 							"__grid": [78,117],
 							"__pivot": [0,0],
@@ -54219,32 +51697,6 @@
 							],
 							"__worldX": 4840,
 							"__worldY": 80
-						},
-						{
-							"__identifier": "DebugLabel",
-							"__grid": [64,98],
-							"__pivot": [0,0],
-							"__tags": [],
-							"__tile": null,
-							"__smartColor": "#FFFFFF",
-							"iid": "DebugLabel-6358",
-							"width": 504,
-							"height": 24,
-							"defUid": 2007,
-							"px": [1028,1572],
-							"fieldInstances": [
-								{ "__identifier": "name", "__type": "String", "__value": "hall_label_npc_mockingbird_boss", "__tile": null, "defUid": 3015, "realEditorValues": [{
-									"id": "V_String",
-									"params": ["hall_label_npc_mockingbird_boss"]
-								}] },
-								{ "__identifier": "text", "__type": "String", "__value": "Mockingbird Boss", "__tile": null, "defUid": 3016, "realEditorValues": [{
-									"id": "V_String",
-									"params": ["Mockingbird Boss"]
-								}] },
-								{ "__identifier": "category", "__type": "String", "__value": "Custom", "__tile": null, "defUid": 3017, "realEditorValues": [] }
-							],
-							"__worldX": 4612,
-							"__worldY": -220
 						},
 						{
 							"__identifier": "NpcSpawn",
@@ -54275,32 +51727,6 @@
 							"__worldY": 80
 						},
 						{
-							"__identifier": "DebugLabel",
-							"__grid": [96,98],
-							"__pivot": [0,0],
-							"__tags": [],
-							"__tile": null,
-							"__smartColor": "#FFFFFF",
-							"iid": "DebugLabel-6360",
-							"width": 504,
-							"height": 24,
-							"defUid": 2007,
-							"px": [1540,1572],
-							"fieldInstances": [
-								{ "__identifier": "name", "__type": "String", "__value": "hall_label_npc_raptor_stalker", "__tile": null, "defUid": 3015, "realEditorValues": [{
-									"id": "V_String",
-									"params": ["hall_label_npc_raptor_stalker"]
-								}] },
-								{ "__identifier": "text", "__type": "String", "__value": "Raptor Stalker", "__tile": null, "defUid": 3016, "realEditorValues": [{
-									"id": "V_String",
-									"params": ["Raptor Stalker"]
-								}] },
-								{ "__identifier": "category", "__type": "String", "__value": "Custom", "__tile": null, "defUid": 3017, "realEditorValues": [] }
-							],
-							"__worldX": 5124,
-							"__worldY": -220
-						},
-						{
 							"__identifier": "NpcSpawn",
 							"__grid": [14,141],
 							"__pivot": [0,0],
@@ -54329,32 +51755,6 @@
 							"__worldY": 464
 						},
 						{
-							"__identifier": "DebugLabel",
-							"__grid": [0,122],
-							"__pivot": [0,0],
-							"__tags": [],
-							"__tile": null,
-							"__smartColor": "#FFFFFF",
-							"iid": "DebugLabel-6362",
-							"width": 504,
-							"height": 24,
-							"defUid": 2007,
-							"px": [4,1956],
-							"fieldInstances": [
-								{ "__identifier": "name", "__type": "String", "__value": "hall_label_npc_smart_house", "__tile": null, "defUid": 3015, "realEditorValues": [{
-									"id": "V_String",
-									"params": ["hall_label_npc_smart_house"]
-								}] },
-								{ "__identifier": "text", "__type": "String", "__value": "Smart House", "__tile": null, "defUid": 3016, "realEditorValues": [{
-									"id": "V_String",
-									"params": ["Smart House"]
-								}] },
-								{ "__identifier": "category", "__type": "String", "__value": "Custom", "__tile": null, "defUid": 3017, "realEditorValues": [] }
-							],
-							"__worldX": 3588,
-							"__worldY": 164
-						},
-						{
 							"__identifier": "NpcSpawn",
 							"__grid": [46,141],
 							"__pivot": [0,0],
@@ -54381,32 +51781,6 @@
 							],
 							"__worldX": 4328,
 							"__worldY": 464
-						},
-						{
-							"__identifier": "DebugLabel",
-							"__grid": [32,122],
-							"__pivot": [0,0],
-							"__tags": [],
-							"__tile": null,
-							"__smartColor": "#FFFFFF",
-							"iid": "DebugLabel-6364",
-							"width": 504,
-							"height": 24,
-							"defUid": 2007,
-							"px": [516,1956],
-							"fieldInstances": [
-								{ "__identifier": "name", "__type": "String", "__value": "hall_label_npc_trex_enemy", "__tile": null, "defUid": 3015, "realEditorValues": [{
-									"id": "V_String",
-									"params": ["hall_label_npc_trex_enemy"]
-								}] },
-								{ "__identifier": "text", "__type": "String", "__value": "Trex Enemy", "__tile": null, "defUid": 3016, "realEditorValues": [{
-									"id": "V_String",
-									"params": ["Trex Enemy"]
-								}] },
-								{ "__identifier": "category", "__type": "String", "__value": "Custom", "__tile": null, "defUid": 3017, "realEditorValues": [] }
-							],
-							"__worldX": 4100,
-							"__worldY": 164
 						}
 					]
 				},

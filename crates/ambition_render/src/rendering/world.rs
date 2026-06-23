@@ -9,6 +9,7 @@ use bevy::math::Vec2 as BVec2;
 use bevy::prelude::*;
 use bevy::sprite::Anchor;
 
+use super::nameplates::DoorNameplateSource;
 use super::primitives::{
     block_color, feature_color, feature_z, spawn_world_label, FeatureVisual, LockWallVisual,
     PropVisual, RoomVisual,
@@ -17,7 +18,7 @@ use ambition_gameplay_core::assets::game_assets::{
     self, entity_sprite, entity_sprite_or_color, GameAssets,
 };
 use ambition_gameplay_core::character_sprites::{
-    build_character_sprite, feet_anchor_for, sprite_render_size, CharacterAnimator,
+    build_character_sprite, feet_anchor_for, CharacterAnimator,
 };
 use ambition_gameplay_core::config::{world_to_bevy, GRID_STEP, WORLD_Z_BLOCK, WORLD_Z_PLAYER};
 use ambition_gameplay_core::features::FeatureVisualKind;
@@ -473,7 +474,7 @@ pub fn spawn_loading_zone(
         ),
         None => Sprite::from_color(fallback_color, render),
     };
-    commands.spawn((
+    let mut visual = commands.spawn((
         sprite,
         anchor,
         Transform::from_translation(world_to_bevy(world, sprite_pos, WORLD_Z_BLOCK + 6.0)),
@@ -487,8 +488,16 @@ pub fn spawn_loading_zone(
         },
         RoomVisual,
     ));
-    let label_pos = zone.aabb.center() + ae::Vec2::new(0.0, -zone.aabb.half_size().y - 18.0);
-    spawn_world_label(commands, world, label_pos, &zone.name, 13.0);
+    if matches!(zone.activation, LoadingZoneActivation::Door) {
+        visual.insert(DoorNameplateSource::new(
+            zone.id.clone(),
+            zone.name.clone(),
+            zone.aabb,
+        ));
+    } else {
+        let label_pos = zone.aabb.center() + ae::Vec2::new(0.0, -zone.aabb.half_size().y - 18.0);
+        spawn_world_label(commands, world, label_pos, &zone.name, 13.0);
+    }
 }
 
 /// Common spawn body for an authored entity with a sprite and no
@@ -661,27 +670,9 @@ fn spawn_authored_interactable(
         game_assets::entity_sprite_for_interactable(interactable),
         assets,
     );
-    if matches!(kind, FeatureVisualKind::Npc) {
-        // NPCs render with `collision_scale > 1`, so the sprite extends
-        // past the AABB top. When a character sheet is registered for
-        // this NPC, lift the label to clear the sprite's actual top by
-        // 12px; otherwise fall back to the AABB-based 22px gap.
-        let half_h = authored.aabb.half_size().y;
-        let mut label_dy = -half_h - 22.0;
-        if let Some(ch) = assets.and_then(|a| a.characters.npc_asset_for_name(&authored.name)) {
-            let collision = authored.aabb.half_size() * 2.0;
-            let render_h = sprite_render_size(&ch.spec, collision).y;
-            let sprite_top_dy = half_h - render_h;
-            label_dy = label_dy.min(sprite_top_dy - 12.0);
-        }
-        spawn_world_label(
-            commands,
-            world,
-            authored.aabb.center() + ae::Vec2::new(0.0, label_dy),
-            &authored.name,
-            14.0,
-        );
-    }
+    // NPC labels are rendered by the presentation nameplate system. Keep this
+    // spawn path to sprites/features only so authored map labels, chest labels,
+    // and non-door loading-zone labels remain independent presentation surfaces.
 }
 
 /// Block-name prefixes whose presence in `world.blocks` should be

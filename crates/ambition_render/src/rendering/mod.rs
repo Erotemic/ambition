@@ -20,7 +20,7 @@
 //!   [`spawn_dynamic_feature_visuals`].
 //! - [`health`] — debug health-bar overlay
 //!   ([`sync_health_overlays`]).
-//! - [`nameplates`] — player-facing actor name labels
+//! - [`nameplates`] — player-facing actor/door labels
 //!   ([`sync_actor_nameplates`]).
 //! - [`parallax`] — optional generated sky/background/atmosphere layers
 //!   ([`spawn_parallax_layers`], [`sync_parallax_layers`]).
@@ -65,7 +65,7 @@ pub use camera::{camera_follow, CameraViewState};
 pub use health::{sync_boss_health_bar_overlay, sync_health_overlays};
 pub use nameplates::{
     sync_actor_nameplates, ActorNameplatePresentationPlugin, ActorNameplateSet,
-    ActorNameplateSettings, ActorNameplateVisual,
+    ActorNameplateSettings, ActorNameplateVisual, DoorNameplateSource,
 };
 // Re-exported so simulation/effects code can place projectile-spawn
 // origins at the same hand position the visual lays the gun-sword on.

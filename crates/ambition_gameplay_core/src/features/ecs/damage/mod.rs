@@ -142,8 +142,6 @@ pub fn apply_feature_hit_events(
         ),
     >,
     mut writers: FeatureHitWriters,
-    // OVERNIGHT-TODO #8 — boss encounter authoritative state. The
-    // engine `BossEncounterState` is now the source of truth for boss
     // R3: boss damage mutates the boss ENTITY directly (`apply_boss_hit` →
     // `apply_entity_boss_damage`), so this system no longer needs the boss
     // encounter resources — death save/quest/music resolution lives in

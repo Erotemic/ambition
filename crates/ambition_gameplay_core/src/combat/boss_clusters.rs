@@ -61,19 +61,16 @@ pub struct BossStatus {
     /// has loaded. `None` for bosses whose sprite has no `body_metrics`
     /// entry (the legacy `combat_size` path applies).
     pub sprite_metrics: Option<BossSpriteMetrics>,
-    /// Entity-local phase state: the ENTITY half of the old per-entity
-    /// `BossEncounterState` — current phase, the `transition_lock` tell timer,
-    /// and the intrinsic phase triggers as DATA (HP lives in `health`; the
-    /// encounter-only concerns — per-phase music, lock-walls, HUD, display
-    /// thresholds — stay on the data catalog / move to the encounter entity in
-    /// R2). Mirrored from `BossEncounterRegistry` each frame by
-    /// `update_boss_encounters` while the global map stays authoritative (R1);
-    /// readers migrate onto it in R2; in R3 it becomes the source of truth,
-    /// `tick_boss_phases` drives it, and the global map + this mirror are
-    /// deleted. Keeping the state ON the entity is what makes two of the same
-    /// boss (a gauntlet) carry independent fights by construction rather than
-    /// by a string-keyed side map. See
-    /// `docs/planning/boss-entity-local-refactor.md`. `None` until registered.
+    /// Entity-local phase state + the trigger-driven phase mechanism: current
+    /// phase, the `transition_lock` tell timer, and the intrinsic phase triggers
+    /// as DATA. This + `health` ARE the source of truth for the fight (the old
+    /// global registry live-map is gone); the encounter-only concerns (per-phase
+    /// music, lock-walls, HUD, display) live on the data catalog / the optional
+    /// encounter entity. `update_boss_encounters` seeds it once from the boss's
+    /// `BossProfile` (or `BossOverrides`) and ticks it. Keeping the state ON the
+    /// entity is what makes two of the same boss (a gauntlet) carry independent
+    /// fights by construction rather than by a string-keyed side map. See
+    /// `docs/planning/boss-entity-local-refactor.md`. `None` until seeded.
     pub encounter: Option<crate::boss_encounter::BossPhaseState>,
 }
 

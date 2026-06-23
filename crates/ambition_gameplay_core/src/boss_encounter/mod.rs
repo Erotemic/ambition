@@ -1,9 +1,12 @@
-//! Sandbox-side coordinator for ONE scripted boss fight (distinct from the
-//! generic `crate::encounter` enemy-wave system).
+//! Sandbox-side coordinator for boss fights (distinct from the generic
+//! `crate::encounter` enemy-wave system).
 //!
-//! Bridges `BossEncounterState` (the actor-crate phase machine, re-exported
-//! here) with the in-arena boss ECS clusters (`features::BossClusterQueryData`
-//! / `BossRef`) and the adaptive music + cutscene + save-state systems.
+//! Boss HP/phase state is ENTITY-LOCAL (`BossStatus.health` +
+//! `BossStatus.encounter: BossPhaseState`); this module bridges it to the
+//! in-arena boss ECS clusters (`features::BossClusterQueryData` / `BossRef`),
+//! the optional first-class encounter entity (`EncounterDef` + `EncounterScript`),
+//! and the adaptive music + cutscene + save-state systems. The registry is a
+//! read-only `BossProfile` data catalog.
 //!
 //! This `mod.rs` is intentionally a facade: type ownership, registration,
 //! update systems, rewards, event publication, and damage routing live in
@@ -43,8 +46,8 @@ pub use ids::encounter_id_from_name;
 // archetype id, referenced only by internal tests via
 // `super::ids::MOCKINGBIRD_ENCOUNTER_ID`.
 pub use ambition_characters::boss_encounter::{
-    BossEncounterEvent, BossEncounterPhase, BossEncounterSpec, BossEncounterState, BossPhaseEvent,
-    BossPhaseState, PhaseTrigger, PhaseTriggerCondition,
+    BossEncounterEvent, BossEncounterPhase, BossEncounterSpec, BossPhaseEvent, BossPhaseState,
+    PhaseTrigger, PhaseTriggerCondition,
 };
 pub use behavior::{install_boss_profiles, install_boss_special_anim_keys, BossProfileRegistry};
 pub use encounter_entity::{

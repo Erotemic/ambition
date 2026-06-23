@@ -158,7 +158,7 @@ pub use ecs::{
     select_actor_targets, FactionRelations, spawn_encounter_mob,
     spawn_enemy_projectiles_from_brain_actions,
     spawn_melee_hitbox, spawn_room_feature_entities, start_enemy_melee_from_brain_actions,
-    SpawnActorKind, SpawnActorRequest,
+    BossOverrides, SpawnActorKind, SpawnActorRequest,
     sync_actor_poses_from_feature_aabbs, sync_boss_actor_components, sync_boss_encounter_phase,
     sync_boss_reward_chests_ecs, sync_ecs_actors_with_save, sync_ecs_bosses_with_save,
     sync_ecs_switches_from_save, sync_encounter_reward_chests_ecs,

@@ -99,15 +99,28 @@ impl MemberProgress {
 /// `update_boss_encounters` so it observes this frame's woken phase.
 pub fn sync_boss_encounter_entities(
     mut commands: Commands,
-    bosses: Query<(Entity, &BossConfig, &BossStatus), With<FeatureSimEntity>>,
+    bosses: Query<
+        (
+            Entity,
+            &BossConfig,
+            &BossStatus,
+            Option<&crate::features::BossOverrides>,
+        ),
+        With<FeatureSimEntity>,
+    >,
     encounters: Query<&EncounterDef>,
 ) {
     let covered: HashSet<Entity> = encounters
         .iter()
         .flat_map(|d| d.members.iter().copied())
         .collect();
-    for (entity, config, status) in &bosses {
+    for (entity, config, status, overrides) in &bosses {
         if covered.contains(&entity) {
+            continue;
+        }
+        // R6: a boss spawned with `no_encounter` is a plain tough enemy — no
+        // HUD / lock-walls / win-lose. Skip wrapping it.
+        if overrides.is_some_and(|o| o.no_encounter) {
             continue;
         }
         // Only wrap an encounter around a boss that has actually woken — a

@@ -69,6 +69,7 @@ pub fn update_boss_encounters(
         (
             &crate::features::FeatureId,
             crate::features::BossClusterQueryData,
+            Option<&crate::features::BossOverrides>,
         ),
         With<crate::features::FeatureSimEntity>,
     >,
@@ -84,7 +85,7 @@ pub fn update_boss_encounters(
     let mut active_music_track: Option<String> = None;
     let mut boss_anchors: Vec<(String, String, ae::Vec2)> = Vec::new();
 
-    for (_feature_id, mut feature) in &mut bosses {
+    for (_feature_id, mut feature, overrides) in &mut bosses {
         let archetype_id = feature.config.behavior.id.clone();
         let runtime_id = feature.config.id.clone();
         let boss_name = feature.config.name.clone();
@@ -105,13 +106,24 @@ pub fn update_boss_encounters(
         // Seed entity-local state ONCE from the profile (phase triggers as data
         // + HP + behavior) — the per-entity replacement for the old global-map
         // registration. Two of the same boss seed independent state by
-        // construction.
+        // construction. R6: the per-spawn `BossOverrides` (hp / combat_size /
+        // phase triggers) are applied HERE so the profile application above
+        // can't clobber them.
         if feature.status.encounter.is_none() {
             feature
                 .as_boss_mut()
                 .apply_behavior_profile(profile.behavior.clone());
-            feature.status.health = crate::actor::Health::new(spec.max_hp.max(1));
-            feature.status.encounter = Some(crate::boss_encounter::BossPhaseState::from_spec(&spec));
+            if let Some(size) = overrides.and_then(|o| o.combat_size) {
+                feature.config.behavior.combat_size = Some(size);
+            }
+            let max_hp = overrides.and_then(|o| o.max_hp).unwrap_or(spec.max_hp).max(1);
+            feature.status.health = crate::actor::Health::new(max_hp);
+            let triggers = overrides
+                .and_then(|o| o.phase_triggers.clone())
+                .unwrap_or_else(|| {
+                    crate::boss_encounter::PhaseTrigger::intrinsic_from_spec(&spec)
+                });
+            feature.status.encounter = Some(crate::boss_encounter::BossPhaseState::new(triggers));
         }
 
         // Persisted "cleared" is keyed to this PLACEMENT (the boss's unique

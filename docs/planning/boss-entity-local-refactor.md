@@ -409,7 +409,18 @@ edits per stage, build once. `cargo`/test invocations use `-p ambition_app` (e.g
       (rope-cut → `CommandMoveTo` behemoth under boulder + `DropHazard` → on `HazardImpact`
       `ForceKill` → death auto-frees the NPC). Keep `environmental_kill_only` (generic immune flag).
       Delete the bespoke `ambition_content::bosses::cut_rope` registry plumbing it replaces.
-- [ ] **R6 — Spawn seam tweaks Z.** `SpawnActorRequest::Boss { overrides }` + `spawn_boss_at(...,
+- [x] **R6 — Spawn seam tweaks Z. LANDED (out of order, before R5).**
+      - **What landed:** `BossOverrides { max_hp, combat_size, phase_triggers, no_encounter }` — a
+        Component + the `SpawnActorKind::Boss { brain, overrides }` payload. Attached at spawn
+        (`spawn_boss_with_overrides`), applied at SEED time by `update_boss_encounters` (hp / combat
+        size / phase triggers, so the profile application can't clobber them) and honored by
+        `sync_boss_encounter_entities` (the `no_encounter` opt-out). `SandboxSim::spawn_boss_at_with`
+        is the test seam (`spawn_boss_at` stays the no-tweaks convenience). Tests (all green):
+        `two_different_bosses_are_both_fightable`, `boss_spawned_with_no_encounter_has_no_encounter_entity`
+        (plain tough enemy, no HUD), `boss_with_empty_phase_triggers_never_phases_up` (phases are
+        trivially-flippable data) + 951 gameplay_core lib. This delivers the doc's one-line goal:
+        "spawn boss X (with tweaks Z) at position Y and it just works."
+- [ ] ~~**R6 (original wording below)**~~ `SpawnActorRequest::Boss { overrides }` + `spawn_boss_at(...,
       overrides)` applies hp / size / phase-trigger overrides. Tests: spawn two DIFFERENT bosses both
       fightable; spawn a boss with NO encounter (plain tough enemy, no HUD); spawn a boss with
       overridden/empty phase triggers (proves phases are trivially-flippable data).

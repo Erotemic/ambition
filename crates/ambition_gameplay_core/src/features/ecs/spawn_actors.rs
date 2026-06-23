@@ -53,10 +53,40 @@ pub enum SpawnActorKind {
     /// A boss, resolved through the same behavior-profile lookup as a room
     /// `BossSpawn`. `brain` pins the encounter (`PhaseScript { script_id }`) or
     /// falls back to the request `name` (`Dormant` / `Custom` both defer to it).
-    Boss { brain: crate::actor::BossBrain },
+    /// `overrides` applies the spawn "tweaks Z" (hp / size / phase triggers /
+    /// encounter opt-out) — see [`BossOverrides`].
+    Boss {
+        brain: crate::actor::BossBrain,
+        overrides: BossOverrides,
+    },
     /// A hostile enemy, resolved through `EnemyArchetype::from_brain` — the same
     /// path a room `EnemySpawn` takes.
     Enemy { brain: crate::actor::EnemyBrain },
+}
+
+/// Per-spawn boss "tweaks Z" — the data that makes "spawn boss X (with tweaks Z)
+/// at position Y and it just works" true (the refactor's one-line goal, R6).
+///
+/// Carried on the spawned boss entity as a `Component` and read at SEED time by
+/// `update_boss_encounters` (hp / size / phase triggers) and by
+/// `sync_boss_encounter_entities` (the encounter opt-out). `Default` = no
+/// tweaks (use the archetype profile), so a room-authored boss is unaffected.
+#[derive(bevy::prelude::Component, Clone, Debug, Default)]
+pub struct BossOverrides {
+    /// Override max HP (also the starting HP). `None` ⇒ the profile's `max_hp`.
+    pub max_hp: Option<i32>,
+    /// Override the combat/contact box half-extent → full size. `None` ⇒ the
+    /// profile's `combat_size`.
+    pub combat_size: Option<ae::Vec2>,
+    /// Override the intrinsic phase triggers as DATA. `Some(vec![])` ⇒ the boss
+    /// never phases up (fights to death — a boss reused as a plain tough enemy);
+    /// `None` ⇒ the profile-derived triggers. Proves phases are trivially
+    /// flippable data, no code change.
+    pub phase_triggers: Option<Vec<crate::boss_encounter::PhaseTrigger>>,
+    /// Spawn the boss WITHOUT an encounter wrapper — a plain tough enemy: no
+    /// HUD, no lock-walls, no win/lose. (`sync_boss_encounter_entities` skips
+    /// it.) The creature still fights + dies normally.
+    pub no_encounter: bool,
 }
 
 /// Drain [`SpawnActorRequest`]s and materialize each actor.
@@ -73,14 +103,14 @@ pub fn apply_spawn_actor_requests(
     for req in requests.read() {
         let aabb = ae::Aabb::new(req.pos, req.half_size);
         match &req.kind {
-            SpawnActorKind::Boss { brain } => {
+            SpawnActorKind::Boss { brain, overrides } => {
                 let authored = crate::rooms::Authored::new(
                     req.id.clone(),
                     req.name.clone(),
                     aabb,
                     brain.clone(),
                 );
-                spawn_boss(&mut commands, &authored);
+                spawn_boss_with_overrides(&mut commands, &authored, overrides);
             }
             SpawnActorKind::Enemy { brain } => {
                 let authored = crate::rooms::Authored::new(
@@ -337,16 +367,35 @@ impl NpcActorSpawnPlan {
     }
 }
 
+/// Spawn a boss with no spawn-time tweaks (room-load + the default seam path).
 pub(super) fn spawn_boss(
     commands: &mut Commands,
     authored: &crate::rooms::Authored<crate::actor::BossBrain>,
 ) {
-    let boss = BossClusterScratch::new(
+    spawn_boss_with_overrides(commands, authored, &BossOverrides::default());
+}
+
+/// Spawn a boss applying the per-spawn "tweaks Z" ([`BossOverrides`]). The
+/// overrides are attached as a component and applied at SEED time by
+/// `update_boss_encounters` (so the profile-application there can't clobber
+/// them); the encounter opt-out is honored by `sync_boss_encounter_entities`.
+pub(super) fn spawn_boss_with_overrides(
+    commands: &mut Commands,
+    authored: &crate::rooms::Authored<crate::actor::BossBrain>,
+    overrides: &BossOverrides,
+) {
+    let mut boss = BossClusterScratch::new(
         authored.id.clone(),
         authored.name.clone(),
         authored.aabb,
         authored.payload.clone(),
     );
+    // Apply a combat-size override to the initial scratch so the first-frame
+    // AABB/render size are right; `update_boss_encounters` re-applies it at seed
+    // (after the profile application that would otherwise overwrite it).
+    if let Some(size) = overrides.combat_size {
+        boss.config.behavior.combat_size = Some(size);
+    }
     bevy::log::info!(
         target: "ambition::boss_spawn",
         "spawn_boss id={} name={:?} brain={:?} → behavior.id={} combat_size={:?}",
@@ -481,6 +530,10 @@ pub(super) fn spawn_boss(
         crate::brain::ActorControl::default(),
         crate::brain::BossAttackState::default(),
     ));
+    // Per-spawn tweaks Z: read at seed time by `update_boss_encounters`
+    // (hp / size / phase triggers) + `sync_boss_encounter_entities`
+    // (encounter opt-out). Default for room-authored bosses ⇒ no-op.
+    entity.insert(overrides.clone());
     // Per-boss special-technique state (apple-rain accumulator, overfit-volley
     // samples, pit/cross/cascade gates, eye-beam lock) is now content-owned
     // (`ambition_content::bosses::specials`), attached to every boss via

@@ -442,6 +442,29 @@ impl SandboxSim {
         half_size: (f32, f32),
         brain: ambition_gameplay_core::actor::BossBrain,
     ) {
+        self.spawn_boss_at_with(
+            id,
+            name,
+            pos,
+            half_size,
+            brain,
+            ambition_gameplay_core::features::BossOverrides::default(),
+        );
+    }
+
+    /// Like [`Self::spawn_boss_at`] but applies per-spawn "tweaks Z"
+    /// ([`BossOverrides`](ambition_gameplay_core::features::BossOverrides)): hp /
+    /// combat size / phase triggers / encounter opt-out. The refactor's headline
+    /// "spawn boss X with tweaks Z at Y and it just works" seam.
+    pub fn spawn_boss_at_with(
+        &mut self,
+        id: impl Into<String>,
+        name: impl Into<String>,
+        pos: (f32, f32),
+        half_size: (f32, f32),
+        brain: ambition_gameplay_core::actor::BossBrain,
+        overrides: ambition_gameplay_core::features::BossOverrides,
+    ) {
         self.app
             .world_mut()
             .write_message(ambition_gameplay_core::features::SpawnActorRequest {
@@ -449,7 +472,7 @@ impl SandboxSim {
                 name: name.into(),
                 pos: ae::Vec2::new(pos.0, pos.1),
                 half_size: ae::Vec2::new(half_size.0, half_size.1),
-                kind: ambition_gameplay_core::features::SpawnActorKind::Boss { brain },
+                kind: ambition_gameplay_core::features::SpawnActorKind::Boss { brain, overrides },
             });
         self.app.update();
     }

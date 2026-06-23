@@ -21,9 +21,10 @@
 
 use ambition_app::{AgentAction, SandboxSim, TimestepMode};
 use ambition_gameplay_core::actor::BossBrain;
+use ambition_gameplay_core::boss_encounter::{BossEncounterPhase, EncounterDef};
 use ambition_gameplay_core::combat::boss_clusters::{BossConfig, BossStatus};
 use ambition_gameplay_core::encounter::BossEncounterMusicRequest;
-use ambition_gameplay_core::features::BossRewardChest;
+use ambition_gameplay_core::features::{BossOverrides, BossRewardChest};
 use ambition_gameplay_core::persistence::save::SandboxSave;
 use ambition_gameplay_core::persistence::save_data::PersistedEncounterState;
 use ambition_gameplay_core::player::{BodyKinematics, PrimaryPlayerOnly};
@@ -90,6 +91,34 @@ fn boss_alive(world: &mut World, placement_id: &str) -> Option<bool> {
     q.iter(world)
         .find(|(config, _)| config.id == placement_id)
         .map(|(_, status)| status.alive)
+}
+
+fn boss_phase(world: &mut World, placement_id: &str) -> Option<BossEncounterPhase> {
+    let mut q = world.query::<(&BossConfig, &BossStatus)>();
+    q.iter(world)
+        .find(|(config, _)| config.id == placement_id)
+        .and_then(|(_, status)| status.encounter.as_ref().map(|p| p.phase))
+}
+
+fn boss_max_hp(world: &mut World, placement_id: &str) -> Option<i32> {
+    let mut q = world.query::<(&BossConfig, &BossStatus)>();
+    q.iter(world)
+        .find(|(config, _)| config.id == placement_id)
+        .map(|(_, status)| status.health.max)
+}
+
+fn set_boss_hp(world: &mut World, placement_id: &str, hp: i32) {
+    let mut q = world.query::<(&BossConfig, &mut BossStatus)>();
+    for (config, mut status) in q.iter_mut(world) {
+        if config.id == placement_id {
+            status.health.current = hp;
+        }
+    }
+}
+
+fn has_encounter_for(world: &mut World, placement_id: &str) -> bool {
+    let mut q = world.query::<&EncounterDef>();
+    q.iter(world).any(|d| d.placement_id == placement_id)
 }
 
 fn boss_reward_chest_count(world: &mut World) -> usize {
@@ -200,5 +229,131 @@ fn reused_archetype_at_a_new_placement_is_not_pre_cleared() {
         boss_alive(sim.world_mut(), "placement_b"),
         Some(true),
         "the reused-archetype boss at a new placement must spawn alive, not skipped"
+    );
+}
+
+// ===== R6: spawn seam "tweaks Z" =====
+
+/// Two DIFFERENT boss archetypes spawned via the seam are both fightable, each
+/// with its own profile-derived state (independent HP pools + encounters).
+#[test]
+fn two_different_bosses_are_both_fightable() {
+    let mut sim = SandboxSim::new_with_timestep(TimestepMode::fixed_60hz())
+        .expect("sandbox sim builds");
+    let (px, py) = player_pos(sim.world_mut());
+
+    sim.spawn_boss_at(
+        "mock",
+        "mockingbird",
+        (px - 350.0, py),
+        (30.0, 30.0),
+        BossBrain::PhaseScript {
+            script_id: "mockingbird".to_string(),
+        },
+    );
+    sim.spawn_boss_at(
+        "sentinel",
+        "clockwork_warden",
+        (px + 350.0, py),
+        (30.0, 30.0),
+        BossBrain::PhaseScript {
+            script_id: "clockwork_warden".to_string(),
+        },
+    );
+    for _ in 0..6 {
+        sim.step(AgentAction::default());
+    }
+
+    assert_eq!(boss_alive(sim.world_mut(), "mock"), Some(true));
+    assert_eq!(boss_alive(sim.world_mut(), "sentinel"), Some(true));
+    assert!(has_encounter_for(sim.world_mut(), "mock"));
+    assert!(has_encounter_for(sim.world_mut(), "sentinel"));
+    // Different archetypes ⇒ different authored HP pools (independent profiles).
+    let mock_hp = boss_max_hp(sim.world_mut(), "mock").expect("mock seeded");
+    let sentinel_hp = boss_max_hp(sim.world_mut(), "sentinel").expect("sentinel seeded");
+    assert_ne!(
+        mock_hp, sentinel_hp,
+        "two different boss archetypes should resolve distinct HP pools"
+    );
+}
+
+/// A boss spawned with `no_encounter` is a plain tough enemy: it exists + fights,
+/// but NO encounter entity wraps it (so no HUD / lock-walls / win-lose).
+#[test]
+fn boss_spawned_with_no_encounter_has_no_encounter_entity() {
+    let mut sim = SandboxSim::new_with_timestep(TimestepMode::fixed_60hz())
+        .expect("sandbox sim builds");
+    let (px, py) = player_pos(sim.world_mut());
+
+    sim.spawn_boss_at_with(
+        "plain_brute",
+        "mockingbird",
+        (px, py),
+        (30.0, 30.0),
+        BossBrain::PhaseScript {
+            script_id: "mockingbird".to_string(),
+        },
+        BossOverrides {
+            no_encounter: true,
+            ..BossOverrides::default()
+        },
+    );
+    for _ in 0..6 {
+        sim.step(AgentAction::default());
+    }
+
+    assert_eq!(
+        boss_alive(sim.world_mut(), "plain_brute"),
+        Some(true),
+        "the no-encounter boss still exists + lives (a plain tough enemy)"
+    );
+    assert!(
+        !has_encounter_for(sim.world_mut(), "plain_brute"),
+        "a no_encounter boss must NOT be wrapped by an encounter entity (no HUD)"
+    );
+}
+
+/// A boss spawned with EMPTY phase triggers never phases up — it fights its one
+/// phase to death. Proves phases are trivially-flippable DATA (no code change).
+#[test]
+fn boss_with_empty_phase_triggers_never_phases_up() {
+    let mut sim = SandboxSim::new_with_timestep(TimestepMode::fixed_60hz())
+        .expect("sandbox sim builds");
+    let (px, py) = player_pos(sim.world_mut());
+
+    sim.spawn_boss_at_with(
+        "no_phases",
+        "mockingbird",
+        (px, py),
+        (30.0, 30.0),
+        BossBrain::PhaseScript {
+            script_id: "mockingbird".to_string(),
+        },
+        BossOverrides {
+            phase_triggers: Some(Vec::new()),
+            ..BossOverrides::default()
+        },
+    );
+    for _ in 0..6 {
+        sim.step(AgentAction::default());
+    }
+
+    // No triggers ⇒ no intro tell, so it wakes straight into Phase1 and stays.
+    assert_eq!(
+        boss_phase(sim.world_mut(), "no_phases"),
+        Some(BossEncounterPhase::Phase1),
+        "empty triggers ⇒ the boss wakes into Phase1 (no forced Intro)"
+    );
+
+    // Drop HP well past where the mockingbird would normally phase up (66% / 25%)
+    // and confirm it does NOT advance — there are no triggers to fire.
+    set_boss_hp(sim.world_mut(), "no_phases", 1);
+    for _ in 0..30 {
+        sim.step(AgentAction::default());
+    }
+    assert_eq!(
+        boss_phase(sim.world_mut(), "no_phases"),
+        Some(BossEncounterPhase::Phase1),
+        "with no phase triggers the boss never phases up, even at 1 HP"
     );
 }

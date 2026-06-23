@@ -21,7 +21,10 @@
 
 use ambition_app::{AgentAction, SandboxSim, TimestepMode};
 use ambition_gameplay_core::actor::BossBrain;
-use ambition_gameplay_core::boss_encounter::{BossEncounterPhase, EncounterDef};
+use ambition_gameplay_core::boss_encounter::{
+    BossEncounterPhase, EncounterBeat, EncounterDef, EncounterEffect, EncounterGate, EncounterScript,
+    EncounterTrigger,
+};
 use ambition_gameplay_core::combat::boss_clusters::{BossConfig, BossStatus};
 use ambition_gameplay_core::encounter::BossEncounterMusicRequest;
 use ambition_gameplay_core::features::{BossOverrides, BossRewardChest};
@@ -355,5 +358,67 @@ fn boss_with_empty_phase_triggers_never_phases_up() {
         boss_phase(sim.world_mut(), "no_phases"),
         Some(BossEncounterPhase::Phase1),
         "with no phase triggers the boss never phases up, even at 1 HP"
+    );
+}
+
+// ===== R5: encounter script + on-death payload =====
+
+/// An `EncounterScript` beat waiting on a gate force-kills its member when the
+/// gate fires — exercised through the REAL Progression schedule (this is the
+/// generic mechanism the cut-rope fight is expressed with: rope/anvil fire the
+/// gate, the script does the kill, the entity death pipeline records Cleared).
+#[test]
+fn encounter_script_gate_force_kills_through_the_real_schedule() {
+    let mut sim = SandboxSim::new_with_timestep(TimestepMode::fixed_60hz())
+        .expect("sandbox sim builds");
+    let (px, py) = player_pos(sim.world_mut());
+    sim.spawn_boss_at(
+        "scripted",
+        "mockingbird",
+        (px, py),
+        (30.0, 30.0),
+        BossBrain::PhaseScript {
+            script_id: "mockingbird".to_string(),
+        },
+    );
+    // Wake the boss + let `sync_boss_encounter_entities` create its encounter.
+    for _ in 0..8 {
+        sim.step(AgentAction::default());
+    }
+
+    // Attach a gate→ForceKill script to the boss's encounter entity.
+    {
+        let world = sim.world_mut();
+        let mut q = world.query::<(bevy::prelude::Entity, &EncounterDef)>();
+        let enc = q
+            .iter(world)
+            .find(|(_, def)| def.placement_id == "scripted")
+            .map(|(e, _)| e)
+            .expect("the woken boss has an encounter entity");
+        world
+            .entity_mut(enc)
+            .insert(EncounterScript::new(vec![EncounterBeat::new(
+                EncounterTrigger::Gate("kill_now".to_string()),
+                vec![EncounterEffect::ForceKill(0)],
+            )]));
+    }
+
+    // The boss is alive until the gate fires.
+    assert_eq!(boss_alive(sim.world_mut(), "scripted"), Some(true));
+
+    // Fire the gate → the script force-kills member 0; step past the death outro.
+    sim.world_mut().write_message(EncounterGate::new("kill_now"));
+    for _ in 0..200 {
+        sim.step(AgentAction::default());
+    }
+
+    assert_eq!(
+        boss_alive(sim.world_mut(), "scripted"),
+        Some(false),
+        "the encounter script's gate→ForceKill must kill the member"
+    );
+    assert!(
+        boss_cleared(&sim, "scripted"),
+        "a script-killed boss flows through the same death→Cleared pipeline"
     );
 }

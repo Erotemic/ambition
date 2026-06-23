@@ -24,7 +24,7 @@ pub mod yarn;
 pub use banter::{install_boss_banter, tick_boss_idle_barks};
 pub use cut_rope::{
     emit_cut_rope_room_replay_after_dialogue_closes, is_cut_rope_boss,
-    reset_cut_rope_boss_arena_on_room_reset, reset_cut_rope_boss_attempt,
+    reset_cut_rope_boss_arena_on_room_reset, reset_cut_rope_boss_attempt, setup_cut_rope_encounter,
     spawn_cut_rope_victory_npc, steer_cut_rope_boss_under_anvil,
     sync_cut_rope_boss_arena_prop_visuals, tick_cut_rope_boss_arena, CutRopeBossArenaState,
     CutRopeHeavyObjectCycle, CutRopeRoomReplayRequested, PendingCutRopeRoomReplay,

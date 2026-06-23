@@ -24,6 +24,7 @@
 pub mod attack_geometry;
 pub mod behavior;
 mod encounter_entity;
+mod encounter_script;
 mod events;
 mod ids;
 mod profile;
@@ -47,8 +48,12 @@ pub use ambition_characters::boss_encounter::{
 };
 pub use behavior::{install_boss_profiles, install_boss_special_anim_keys, BossProfileRegistry};
 pub use encounter_entity::{
-    sync_boss_encounter_entities, update_encounter_progress, EncounterDef, EncounterProgress,
-    EncounterWin, MemberProgress,
+    release_payloads_on_death, sync_boss_encounter_entities, update_encounter_progress,
+    EncounterDef, EncounterProgress, EncounterWin, MemberProgress, PayloadReleased, ReleaseOnDeath,
+};
+pub use encounter_script::{
+    tick_encounter_scripts, EncounterBeat, EncounterEffect, EncounterGate, EncounterScript,
+    EncounterTrigger,
 };
 pub use profile::{default_boss_profiles, BossProfile, BossRewardProfile};
 pub use registry::BossEncounterRegistry;

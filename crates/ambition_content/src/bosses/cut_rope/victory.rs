@@ -15,9 +15,15 @@ pub fn spawn_cut_rope_victory_npc(
     mut commands: Commands,
     room_set: Res<RoomSet>,
     save: Res<ambition_gameplay_core::persistence::save::SandboxSave>,
+    mut released: MessageReader<ambition_gameplay_core::boss_encounter::PayloadReleased>,
     existing: Query<&FeatureId, With<SmirkingBehemothVictoryNpc>>,
-    bosses: Query<(&FeatureId, &CenteredAabb, BossClusterRef), With<FeatureSimEntity>>,
+    bosses: Query<(Entity, &FeatureId, &CenteredAabb, BossClusterRef), With<FeatureSimEntity>>,
 ) {
+    // Drain the release signal every frame (host = the dying behemoth). R5: the
+    // swallowed victory NPC is freed via the generic `ReleaseOnDeath` capability
+    // the instant the behemoth dies; the save-cleared poll below re-spawns it on
+    // a later room re-entry. Both paths are guarded by "NPC not already present".
+    let released_hosts: Vec<Entity> = released.read().map(|m| m.host).collect();
     if room_set.active_spec().id != CUT_ROPE_ROOM_ID {
         return;
     }
@@ -27,22 +33,25 @@ pub fn spawn_cut_rope_victory_npc(
     {
         return;
     }
-    let Some((_boss_id, boss_aabb, boss_feature)) = bosses.iter().find(|(id, _, feature)| {
-        id.as_str() == CUT_ROPE_BOSS_ID
-            || is_cut_rope_boss(feature.as_boss_ref().config.behavior.id.as_str())
-    }) else {
+    let Some((boss_entity, _boss_id, boss_aabb, boss_feature)) =
+        bosses.iter().find(|(_, id, _, feature)| {
+            id.as_str() == CUT_ROPE_BOSS_ID
+                || is_cut_rope_boss(feature.as_boss_ref().config.behavior.id.as_str())
+        })
+    else {
         return;
     };
     let boss = boss_feature.as_boss_ref();
-    // R3/R4: the boss death is resolved entity-side; the NPC appears once the
-    // death outro has elapsed, which is exactly when `update_boss_encounters`
-    // writes the persisted "cleared" record. R4 keys that record by PLACEMENT
-    // (the boss's `config.id`), so gate on it.
+    // R3/R4: the boss death is resolved entity-side; R4 keys the persisted
+    // "cleared" record by PLACEMENT (`config.id`). Spawn the victory NPC when
+    // EITHER the behemoth just released its payload this frame (fresh kill) OR
+    // the placement reads cleared in the save (room re-entry).
     let boss_persisted_cleared = matches!(
         save.data().boss(&boss.config.id),
         ambition_gameplay_core::persistence::save_data::PersistedEncounterState::Cleared
     );
-    if !boss_persisted_cleared {
+    let released_now = released_hosts.contains(&boss_entity);
+    if !boss_persisted_cleared && !released_now {
         return;
     }
     let boss_bottom_y = boss_aabb.center.y + boss_aabb.half_size.y;

@@ -184,6 +184,42 @@ pub fn update_encounter_progress(
     }
 }
 
+/// Generic instance-payload capability (R5): when the host entity dies, emit a
+/// [`PayloadReleased`] so content can spawn whatever the host "contained" (e.g.
+/// the Smirking Behemoth's swallowed victory NPC) at the host's death position.
+///
+/// The release falls out of DEATH — it is NOT scripted. THIS host frees ITS
+/// payload; a different instance of the same archetype has none. Decoupling the
+/// release event from the content-specific spawn keeps this reusable in the lib
+/// while the payload (a content NPC) stays content-owned.
+#[derive(Component, Clone, Copy, Debug, Default)]
+pub struct ReleaseOnDeath;
+
+/// Emitted once per [`ReleaseOnDeath`] host when it dies.
+#[derive(bevy::prelude::Message, Clone, Copy, Debug)]
+pub struct PayloadReleased {
+    pub host: Entity,
+    pub pos: crate::engine_core::Vec2,
+}
+
+/// Emit [`PayloadReleased`] for each dead `ReleaseOnDeath` host (once — the
+/// marker is removed after firing).
+pub fn release_payloads_on_death(
+    mut commands: Commands,
+    mut released: bevy::prelude::MessageWriter<PayloadReleased>,
+    hosts: Query<(Entity, &BossStatus, &crate::features::BodyKinematics), With<ReleaseOnDeath>>,
+) {
+    for (entity, status, kin) in &hosts {
+        if !status.alive {
+            released.write(PayloadReleased {
+                host: entity,
+                pos: kin.pos,
+            });
+            commands.entity(entity).remove::<ReleaseOnDeath>();
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -277,5 +313,45 @@ mod tests {
             0,
             "an encounter whose members all left the world retires"
         );
+    }
+
+    #[test]
+    fn release_on_death_emits_payload_once_at_host_position() {
+        use crate::features::BodyKinematics;
+        let mut app = App::new();
+        app.add_message::<PayloadReleased>();
+        app.add_systems(Update, release_payloads_on_death);
+
+        let (config, mut status, sim) = awake_boss("behemoth", 9999);
+        status.alive = false; // dead host
+        let host = app
+            .world_mut()
+            .spawn((
+                config,
+                status,
+                sim,
+                BodyKinematics {
+                    pos: crate::engine_core::Vec2::new(120.0, 80.0),
+                    vel: crate::engine_core::Vec2::ZERO,
+                    size: crate::engine_core::Vec2::splat(32.0),
+                    facing: 1.0,
+                },
+                ReleaseOnDeath,
+            ))
+            .id();
+
+        app.update();
+
+        let released: Vec<_> = app
+            .world()
+            .resource::<bevy::ecs::message::Messages<PayloadReleased>>()
+            .iter_current_update_messages()
+            .map(|m| (m.host, m.pos))
+            .collect();
+        assert_eq!(released.len(), 1, "exactly one release on death");
+        assert_eq!(released[0].0, host);
+        assert_eq!(released[0].1, crate::engine_core::Vec2::new(120.0, 80.0));
+        // Released once: the marker is gone, so a second tick emits nothing.
+        assert!(app.world().entity(host).get::<ReleaseOnDeath>().is_none());
     }
 }

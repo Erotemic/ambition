@@ -13,7 +13,11 @@ use bevy::sprite::Anchor;
 
 use ambition_gameplay_core::assets::game_assets::GameAssets;
 use ambition_gameplay_core::audio::SfxMessage;
-use ambition_gameplay_core::boss_encounter::BossEncounterRegistry;
+use ambition_gameplay_core::boss_encounter::{
+    BossEncounterRegistry, EncounterBeat, EncounterDef, EncounterEffect, EncounterScript,
+    EncounterTrigger, ReleaseOnDeath,
+};
+use ambition_gameplay_core::features::BossConfig;
 use ambition_gameplay_core::brain::ActorControl;
 use ambition_gameplay_core::brain::BossAttackState;
 use ambition_gameplay_core::character_sprites::{
@@ -170,6 +174,38 @@ pub fn reset_cut_rope_boss_attempt(
     }
     if let Some(music) = music_request {
         music.desired_track = intro_track.filter(|track| !track.is_empty());
+    }
+}
+
+/// Express the Smirking Behemoth as the generic encounter pieces (R5): attach an
+/// `EncounterScript` to its encounter (the anvil `Gate("cut_rope_impact")` →
+/// `ForceKill`) + `ReleaseOnDeath` to the entity (frees the victory NPC on
+/// death). Idempotent: skips an encounter that already has a script / a boss
+/// that already has the marker. Runs after `sync_boss_encounter_entities`.
+pub fn setup_cut_rope_encounter(
+    mut commands: Commands,
+    bosses: Query<&BossConfig>,
+    encounters: Query<(Entity, &EncounterDef), Without<EncounterScript>>,
+    behemoths: Query<(Entity, &BossConfig), Without<ReleaseOnDeath>>,
+) {
+    for (encounter, def) in &encounters {
+        let wraps_behemoth = def
+            .members
+            .iter()
+            .any(|&m| bosses.get(m).is_ok_and(|c| is_cut_rope_boss(&c.behavior.id)));
+        if wraps_behemoth {
+            commands
+                .entity(encounter)
+                .insert(EncounterScript::new(vec![EncounterBeat::new(
+                    EncounterTrigger::Gate("cut_rope_impact".to_string()),
+                    vec![EncounterEffect::ForceKill(0)],
+                )]));
+        }
+    }
+    for (entity, config) in &behemoths {
+        if is_cut_rope_boss(&config.behavior.id) {
+            commands.entity(entity).insert(ReleaseOnDeath);
+        }
     }
 }
 

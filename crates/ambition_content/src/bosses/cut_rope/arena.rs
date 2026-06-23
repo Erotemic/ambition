@@ -34,6 +34,9 @@ pub fn tick_cut_rope_boss_arena(
     mut explosions: MessageWriter<ExplosionRequest>,
     mut fireworks: MessageWriter<FireworksRequest>,
     mut debris: MessageWriter<DebrisBurstMessage>,
+    // R5: on impact the hazard fires the gate the cut-rope EncounterScript waits
+    // on (it does the ForceKill) — the kill is data-driven, not inline here.
+    mut gate_writer: MessageWriter<ambition_gameplay_core::boss_encounter::EncounterGate>,
 ) {
     let room = room_set.active_spec();
     if room.id != CUT_ROPE_ROOM_ID {
@@ -152,19 +155,18 @@ pub fn tick_cut_rope_boss_arena(
         }
         state.kill_sent = true;
         state.anvil_exploded = true;
-        feature.status.alive = false;
-        feature.status.health.current = 0;
         // The death animation should render as-authored. A lingering
         // hit-flash overlay reads as a white silhouette stuck over the body.
         feature.status.hit_flash = 0.0;
-        // R3: the boss ENTITY is the source of truth — force its phase to Death
-        // directly (this environmental kill bypasses `environmental_kill_only`'s
-        // immunity to ordinary player hits). `update_boss_encounters` then runs
-        // the death outro + records Cleared + restores music, the same generic
-        // path a normally-damaged boss takes.
-        if let Some(phase) = feature.status.encounter.as_mut() {
-            let _ = phase.kill();
-        }
+        // R5: the KILL is the encounter SCRIPT's job. The rope/anvil is the
+        // hazard MECHANISM; on impact it fires the gate the cut-rope
+        // `EncounterScript` waits on, which `ForceKill`s the behemoth (bypassing
+        // `environmental_kill_only`). `update_boss_encounters` then runs the
+        // death outro + records Cleared + restores music, the same generic path
+        // a normally-damaged boss takes; `ReleaseOnDeath` frees the victory NPC.
+        gate_writer.write(
+            ambition_gameplay_core::boss_encounter::EncounterGate::new("cut_rope_impact"),
+        );
 
         banner.show(
             format!(

@@ -18,6 +18,10 @@ pub struct ProgressionSchedulePlugin;
 
 impl Plugin for ProgressionSchedulePlugin {
     fn build(&self, app: &mut App) {
+        // R5 encounter-script messages: the named gate (rope cut / hazard impact
+        // / cues) + the on-death payload-release signal.
+        app.add_message::<ambition_gameplay_core::boss_encounter::EncounterGate>();
+        app.add_message::<ambition_gameplay_core::boss_encounter::PayloadReleased>();
         app.add_systems(
             Update,
             (
@@ -29,6 +33,14 @@ impl Plugin for ProgressionSchedulePlugin {
                 // the HUD reads this instead of the global registry).
                 ambition_gameplay_core::boss_encounter::sync_boss_encounter_entities,
                 ambition_gameplay_core::boss_encounter::update_encounter_progress,
+                // R5: express the cut-rope fight as the generic encounter pieces —
+                // attach its EncounterScript + the behemoth's ReleaseOnDeath, then
+                // advance each encounter's scripted beats (cut-rope: rope/anvil
+                // fire gates → the script ForceKills) + release any on-death
+                // instance payload (the behemoth's swallowed victory NPC).
+                ambition_content::bosses::setup_cut_rope_encounter,
+                ambition_gameplay_core::boss_encounter::tick_encounter_scripts,
+                ambition_gameplay_core::boss_encounter::release_payloads_on_death,
                 // Feel feedback (shake + cry SFX) on dramatic boss phase changes;
                 // diffs the registry phase, so it just needs to run after the
                 // boss update advances it.

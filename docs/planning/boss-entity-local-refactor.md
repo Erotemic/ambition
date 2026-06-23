@@ -1,6 +1,7 @@
 # Boss encounter → entity-local refactor
 
-**Status:** in progress (started 2026-06-22)
+**Status:** COMPLETE (R1–R6 landed 2026-06-22/23) — Opus 4.8 + Jon. R1–R3 verified in-game;
+R4–R6 + R5 cut-rope are headless-green + flagged for in-game verification (cut-rope fight).
 **Owner:** executing model (Opus 4.8), with Jon
 **Goal in one line:** "Spawn boss X (with tweaks Z) at position Y and it just works" — no
 global encounter registration, correct for gauntlets / multiple bosses at once, with
@@ -403,12 +404,29 @@ edits per stage, build once. `cargo`/test invocations use `-p ambition_app` (e.g
         dialogue rule referenced by a stale `mod.rs` comment does not exist; `gnu_ton` reads entity
         `alive`). Green: new `reused_archetype_at_a_new_placement_is_not_pre_cleared` + the death net
         (now placement-keyed) + 951 gameplay_core lib + 4 boss_contact_iframes.
-- [ ] **R5 — Smirking Behemoth via the generic pieces** (see "decomposition" above). Add a generic
-      `Contains(npc) + ReleaseOnDeath` instance-payload component (freed at the entity's position on
-      death — NOT scripted). Express the cut-rope fight as an `EncounterScript`
-      (rope-cut → `CommandMoveTo` behemoth under boulder + `DropHazard` → on `HazardImpact`
-      `ForceKill` → death auto-frees the NPC). Keep `environmental_kill_only` (generic immune flag).
-      Delete the bespoke `ambition_content::bosses::cut_rope` registry plumbing it replaces.
+- [x] **R5 — Smirking Behemoth via the generic pieces. LANDED (blind, in-game verify the fight).**
+      - **What landed:** a generic `EncounterScript` engine (`boss_encounter/encounter_script.rs`):
+        `EncounterScript { beats: Vec<EncounterBeat{ when: EncounterTrigger, then: Vec<EncounterEffect> }> }`
+        advancing one beat per fired trigger. Triggers: `Gate(String)` (the external hook, fired by
+        `EncounterGate` messages — rope cut / hazard impact / cues), `MemberDied(i)`, `AllMembersDead`,
+        `Timer(s)`. Effects: `ForceKill(i)` (bypasses `environmental_kill_only`), `Banner`, `SetMusic`.
+        `tick_encounter_scripts` drives it. Plus a generic `ReleaseOnDeath` instance-payload capability
+        + `PayloadReleased { host, pos }` message + `release_payloads_on_death` (frees a host's payload
+        at its death position — NOT scripted; content reacts to spawn the actual NPC).
+      - **Cut-rope expressed via the pieces:** `setup_cut_rope_encounter` attaches the script
+        (`Gate("cut_rope_impact") → ForceKill(0)`) to the behemoth's encounter + `ReleaseOnDeath` to the
+        entity. The anvil/rope stays the proven **hazard MECHANISM** (its feel-constants aren't worth
+        reimplementing blind) but on impact it now fires `Gate("cut_rope_impact")` instead of killing
+        inline; the script does the kill, the entity death pipeline records Cleared, and the victory NPC
+        is freed via `ReleaseOnDeath` (immediate) AND the save-cleared poll (room re-entry), both guarded
+        by "NPC not already present". `environmental_kill_only` kept. The bespoke inline kill is gone.
+      - **Scope note:** `CommandMoveTo` / `DropHazard` effects were NOT built — the cut-rope's steering
+        + anvil physics remain the hazard mechanism (reimplementing proven feel blind = the wrong risk).
+        The orchestration (kill / victory release) is what moved to the generic pieces.
+      - Green: `encounter_script` (2) + `release_on_death_emits_payload_once` (1) +
+        `encounter_script_gate_force_kills_through_the_real_schedule` (app) + boss_lifecycle (7) +
+        boss_contact_iframes (4) + gameplay_core lib. **IN-GAME VERIFY:** the actual cut-rope fight
+        (rope-cut → anvil → impact → kill → victory NPC + in-place replay).
 - [x] **R6 — Spawn seam tweaks Z. LANDED (out of order, before R5).**
       - **What landed:** `BossOverrides { max_hp, combat_size, phase_triggers, no_encounter }` — a
         Component + the `SpawnActorKind::Boss { brain, overrides }` payload. Attached at spawn

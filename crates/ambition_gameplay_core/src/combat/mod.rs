@@ -1,6 +1,6 @@
 //! Generic combat kit — the content-free half of the feature-ECS world.
 //!
-//! Extracted from `content/features` (Stage 20 / A2): the component
+//! Extracted from `content/features`: the component
 //! vocabulary, gameplay messages/buses, hitbox lifecycle, pickups,
 //! chests, breakables, hazards, target selection, path motion, and the
 //! collision world-overlay. Everything here is reusable platformer
@@ -12,7 +12,7 @@
 //! The named actor layer (`ActorConfig`/archetype-coupled systems:
 //! actors / damage / mount / spawn / save_sync) intentionally remains
 //! content-side until the archetype hub is dissolved into capability
-//! components; see `docs/current/state.md` for the current Stage 20 crate split.
+//! components; see `docs/current/state.md` for the crate split.
 
 use crate::engine_core as ae;
 use crate::engine_core::AabbExt;

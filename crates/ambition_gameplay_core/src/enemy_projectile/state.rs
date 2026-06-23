@@ -1,13 +1,12 @@
 //! Spawn-request → body mapping for enemy-fired projectiles.
 //!
-//! Phase 3c-iii moved the in-flight bodies off `EnemyProjectileState.bodies:
-//! Vec` onto ECS entities (`crate::enemy_projectile::entity`), mirroring the
-//! player pool. `EnemyProjectileState` survives as a (now field-less) resource:
-//! it owns no in-flight storage anymore, but it keeps the canonical
-//! request→body builder (`build`) that both the `SpawnProjectile` message path
-//! and the direct test spawns share, and it remains a stable type for the
-//! `Res<EnemyProjectileState>` references + room-reset hooks across the
-//! codebase (matching how the player pool kept `PlayerProjectileState` for its
+//! The in-flight bodies are ECS entities (`crate::enemy_projectile::entity`),
+//! mirroring the player pool. `EnemyProjectileState` is a field-less resource:
+//! it owns no in-flight storage, but it keeps the canonical request→body builder
+//! (`build`) that both the `SpawnProjectile` message path and the direct test
+//! spawns share, and it remains a stable type for the
+//! `Res<EnemyProjectileState>` references + room-reset hooks across the codebase
+//! (matching how the player pool keeps `PlayerProjectileState` for its
 //! controller state).
 
 use crate::engine_core as ae;
@@ -20,9 +19,8 @@ use bevy::prelude::Resource;
 pub use ambition_platformer_primitives::projectile::EnemyProjectileSpawn;
 
 /// Bevy resource for the enemy-projectile pool. The in-flight bodies are ECS
-/// entities now (Phase 3c-iii); this type owns no `Vec` — it survives as a
-/// stable resource handle + the home of the [`Self::build`] request→body
-/// mapping.
+/// entities; this type owns no `Vec` — it is a stable resource handle + the home
+/// of the [`Self::build`] request→body mapping.
 #[derive(Resource, Default)]
 pub struct EnemyProjectileState;
 

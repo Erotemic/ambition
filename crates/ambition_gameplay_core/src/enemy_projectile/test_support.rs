@@ -1,4 +1,4 @@
-//! Test-only helpers for the entity-era enemy projectile pool (Phase 3c-iii).
+//! Test-only helpers for the entity-era enemy projectile pool.
 //!
 //! The enemy pool's in-flight bodies are ECS entities now, so the ~15 unit
 //! tests that used to read `EnemyProjectileState.bodies` and inject via

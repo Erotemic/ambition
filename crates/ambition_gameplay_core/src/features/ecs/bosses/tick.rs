@@ -12,14 +12,11 @@ use crate::features::{boss_attack_damage, boss_special_for_profile, BossVolumeCo
 use bevy::prelude::MessageWriter;
 
 /// Sync each boss's `encounter_phase` mirror from the entity-local
-/// [`BossPhaseState`] copy (`BossStatus.encounter`) — R2 of the
-/// boss-entity-local refactor migrated this READER off the global
-/// `BossEncounterRegistry`. The copy is itself mirrored from the registry by
-/// `update_boss_encounters`; both old (registry) and new (entity copy) sources
-/// are written by that one system, so switching the source introduces no new
-/// staleness. R3 deletes the mirror + registry and `tick_boss_phases` becomes
-/// the sole writer of `BossStatus.encounter` — at which point this reader must
-/// be ordered AFTER `tick_boss_phases` (see the refactor doc's ordering gotcha).
+/// [`BossPhaseState`] copy (`BossStatus.encounter`). The mirror is a convenience
+/// field the brain (`BossPatternContext`) reads; the `BossStatus.encounter`
+/// phase machine — ticked by `update_boss_encounters` — is the source of truth.
+/// Keyed per-entity by construction, so two of the same archetype sync
+/// independent phases.
 ///
 /// Runs before [`tick_boss_brains_system`] so the brain sees this frame's phase.
 pub fn sync_boss_encounter_phase(
@@ -71,9 +68,8 @@ pub fn sync_boss_encounter_phase(
 /// Tick every boss's `BossPattern` brain: advance the cursor, emit
 /// `ActorControlFrame` intent (movement + melee/special edges), and
 /// update the `BossAttackState` component. `BossAttackState` is the
-/// single source of truth for boss attack state from this point on;
-/// the runtime no longer carries mirror fields and the volume /
-/// damage / debug-overlay paths all query it.
+/// single source of truth for boss attack state — the volume / damage /
+/// debug-overlay paths all query it.
 pub fn tick_boss_brains_system(
     world_time: Res<WorldTime>,
     world: Res<crate::GameWorld>,
@@ -263,18 +259,11 @@ pub fn update_ecs_bosses(
     mut vfx: MessageWriter<ambition_vfx::vfx::VfxMessage>,
     mut debris: MessageWriter<DebrisBurstMessage>,
     mut hit_events: MessageWriter<HitEvent>,
-    // Bosses target the primary player today. Real multiplayer
-    // boss AI (per-player targeting, agro lists, phase transitions
-    // that respond to multiple players) is a deeper redesign than
-    // the iterate-all-players pattern used by hazards / projectiles
-    // — see OVERNIGHT-TODO #17.8 "Generalize enemy targeting." The
-    // `PrimaryPlayerOnly` filter documents the targeting decision
-    // at the query rather than leaving it as an implicit
-    // `single()` semantic.
-    // Per-boss target via `ActorTarget` (populated by
-    // `select_actor_targets`). Read each boss's targeted player by
-    // Entity from the all-players query — single-player behavior is
-    // preserved because there's only one player today.
+    // Per-boss target via `ActorTarget` (populated by `select_actor_targets`):
+    // read each boss's targeted player by Entity from the all-players query.
+    // Single-player behavior is preserved because there's only one player today;
+    // real multiplayer boss AI (per-player agro lists, phase transitions that
+    // respond to multiple players) is a deeper redesign left for later.
     player_query: Query<
         (
             &crate::player::BodyKinematics,

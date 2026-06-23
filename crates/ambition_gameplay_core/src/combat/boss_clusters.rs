@@ -1,24 +1,19 @@
 //! Authoritative ECS components for a boss actor + the `BossMut` /
 //! `BossRef` views the per-tick systems mutate / read in place.
 //!
-//! Dissolves the legacy `BossRuntime` blob (formerly held inside the
-//! monolithic `BossFeature` component) into real ECS state, following
-//! the enemy / NPC cluster pattern. The boss carries the shared
-//! [`BodyKinematics`] component (pos / vel / size / facing) — the same
-//! component the player and enemies/NPCs use. Bosses float and never
-//! integrate `vel` themselves (the brain emits a fresh `desired_vel`
-//! each tick for `integrate_body`), so a boss simply leaves `vel` at
-//! `Vec2::ZERO`. A `&mut BodyKinematics` boss query is kept disjoint
-//! from player/enemy ones with `With<BossConfig>` / `Without<BossConfig>`
-//! filters (boss / enemy / player are mutually exclusive archetypes).
-//! Boss-specific config
-//! (identity, spawn anchor, brain, behavior profile) lives in
-//! [`BossConfig`]; mutable status (health, liveness, hit-flash,
-//! encounter phase, derived sprite metrics) lives in [`BossStatus`].
+//! Bosses follow the enemy / NPC cluster pattern: real ECS state split across
+//! [`BossConfig`] (identity, spawn anchor, brain, behavior profile) and
+//! [`BossStatus`] (health, liveness, hit-flash, encounter phase, derived sprite
+//! metrics). The boss carries the shared [`BodyKinematics`] component (pos / vel
+//! / size / facing) — the same component the player and enemies/NPCs use. Bosses
+//! float and never integrate `vel` themselves (the brain emits a fresh
+//! `desired_vel` each tick for `integrate_body`), so a boss simply leaves `vel`
+//! at `Vec2::ZERO`. A `&mut BodyKinematics` boss query is kept disjoint from
+//! player/enemy ones with `With<BossConfig>` / `Without<BossConfig>` filters
+//! (boss / enemy / player are mutually exclusive archetypes).
 //!
-//! [`BossConfig`] doubles as the *is-a-boss* marker component — every
-//! boss entity carries exactly one, no other actor does — so systems
-//! that used to filter on `With<BossFeature>` / `Without<BossFeature>`
+//! [`BossConfig`] doubles as the *is-a-boss* marker component — every boss
+//! entity carries exactly one, no other actor does — so boss / non-boss systems
 //! filter on `With<BossConfig>` / `Without<BossConfig>`.
 
 use bevy::ecs::query::QueryData;
@@ -75,7 +70,7 @@ pub struct BossStatus {
 }
 
 /// Immutable borrow view over the boss clusters. Hosts the read-only
-/// geometry/identity helpers ported from `BossRuntime`.
+/// geometry/identity helpers.
 pub struct BossRef<'a> {
     pub kin: &'a BodyKinematics,
     pub config: &'a BossConfig,
@@ -83,7 +78,7 @@ pub struct BossRef<'a> {
 }
 
 /// Mutable borrow view over the boss clusters. Hosts the integration /
-/// profile-mutation helpers ported from `BossRuntime`.
+/// profile-mutation helpers.
 pub struct BossMut<'a> {
     pub kin: &'a mut BodyKinematics,
     pub config: &'a mut BossConfig,
@@ -291,8 +286,8 @@ pub struct BossClusterScratch {
 }
 
 impl BossClusterScratch {
-    /// Build the boss clusters directly from spawn inputs — the
-    /// cluster-native replacement for `BossRuntime::new`.
+    /// Build the boss clusters directly from spawn inputs (tests / non-ECS
+    /// callers; see the struct docs).
     pub fn new(
         id: impl Into<String>,
         name: impl Into<String>,
@@ -423,15 +418,5 @@ pub(crate) mod test_support {
             },
             behavior: BossBehaviorProfile::for_authored_boss(script_id),
         }
-    }
-
-    /// A `(BossConfig, BossStatus)` for the common case where placement id,
-    /// display name, and brain/behavior profile all key off `name`.
-    pub(crate) fn test_boss(
-        name: &str,
-        hp: i32,
-        phase: BossEncounterPhase,
-    ) -> (BossConfig, BossStatus) {
-        (test_boss_config(name, name, name), test_boss_status(hp, phase))
     }
 }

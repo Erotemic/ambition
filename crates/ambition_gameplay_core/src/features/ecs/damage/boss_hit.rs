@@ -1,12 +1,10 @@
 //! Applying a hit to a boss: mutating the boss ENTITY's HP + phase directly.
 //!
-//! R3 of the boss entity-local refactor flipped boss HP/phase authority onto
-//! the entity (`BossStatus.health` + `BossStatus.encounter: BossPhaseState`)
-//! and deleted the global `BossEncounterRegistry` live map. Player damage now
-//! mutates the entity in place via [`apply_entity_boss_damage`]; the death
-//! CONSEQUENCES that aren't immediate VFX (save Cleared + quest + music
-//! restore) are resolved by `update_boss_encounters` once the death outro
-//! elapses.
+//! Boss HP/phase authority is entity-local (`BossStatus.health` +
+//! `BossStatus.encounter: BossPhaseState`). Player damage mutates the entity in
+//! place via [`apply_entity_boss_damage`]; the death CONSEQUENCES that aren't
+//! immediate VFX (save Cleared + quest + music restore) are resolved by
+//! `update_boss_encounters` once the death outro elapses.
 
 use crate::engine_core::AabbExt;
 
@@ -23,7 +21,7 @@ use ambition_vfx::vfx::{ParticleKind, VfxMessage};
 
 use super::*;
 
-/// Apply player damage to a boss ENTITY (R3: the entity is the source of truth).
+/// Apply player damage to a boss ENTITY (the entity is the source of truth).
 ///
 /// Returns `(applied, killed)`: `applied` is false when an invulnerable phase
 /// (Intro / Transition / the `transition_lock` tell / Dormant / Death) swallows
@@ -51,16 +49,14 @@ pub(crate) fn apply_entity_boss_damage(status: &mut BossStatus, amount: i32) -> 
 
 /// Apply one landed attacker-side hit to a single boss and emit its
 /// feedback. Mutates the boss ENTITY's HP + phase directly via
-/// [`apply_entity_boss_damage`] (the entity is the source of truth since R3).
+/// [`apply_entity_boss_damage`] (the entity is the source of truth).
 /// Cut-rope puzzle bosses give honest local impact feedback but take no HP
 /// damage from ordinary player hits.
 ///
 /// Returns `true` when the boss took the hit (so the caller drives the
 /// shared landed-hit feedback). Early-returns `false` for a dead boss,
 /// a miss against the live damageable volumes, or an invulnerable-phase
-/// swallow — matching the previous `continue` behavior.
-///
-/// Extracted from `apply_feature_hit_events` per ecs-cleanup-plan.md #4.
+/// swallow.
 #[allow(clippy::too_many_arguments)]
 pub(crate) fn apply_boss_hit(
     event: &HitEvent,
@@ -134,12 +130,12 @@ pub(crate) fn apply_boss_hit(
         }
     }
     let amount = event.damage.max(1);
-    // R3: the boss ENTITY is the source of truth. Mutate its HP + phase in
-    // place. `applied` is false during invulnerable phases (Intro / Transition
-    // / the transition_lock tell) so we suppress the hit VFX; `killed` flags the
-    // lethal hit. The death CONSEQUENCES that aren't immediate feedback (save
-    // Cleared + quest + music restore) are resolved by `update_boss_encounters`
-    // once the death outro elapses.
+    // The boss ENTITY is the source of truth: mutate its HP + phase in place.
+    // `applied` is false during invulnerable phases (Intro / Transition / the
+    // transition_lock tell) so we suppress the hit VFX; `killed` flags the lethal
+    // hit. The death CONSEQUENCES that aren't immediate feedback (save Cleared +
+    // quest + music restore) are resolved by `update_boss_encounters` once the
+    // death outro elapses.
     let (applied, killed) = apply_entity_boss_damage(boss.status, amount);
     if !applied {
         // Invulnerable phase swallowed the damage. Skip the
@@ -220,8 +216,9 @@ pub(crate) use crate::combat::breakables::{begin_ecs_breakable_respawn, emit_bre
 
 #[cfg(test)]
 mod entity_damage_tests {
-    //! The entity-local boss damage contract (R3) — ports the old
-    //! `boss_encounter::damage` registry tests onto `apply_entity_boss_damage`.
+    //! The entity-local boss damage contract for `apply_entity_boss_damage`:
+    //! vulnerable phases take damage, lethal damage forces `Death`, invulnerable
+    //! phases swallow the hit.
     use super::*;
     use crate::boss_encounter::BossEncounterPhase;
     use crate::combat::boss_clusters::test_support::test_boss_status;

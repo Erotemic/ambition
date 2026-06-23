@@ -9,13 +9,15 @@
 //! read-only `BossProfile` data catalog.
 //!
 //! This `mod.rs` is intentionally a facade: type ownership, registration,
-//! update systems, rewards, event publication, and damage routing live in
-//! child modules so future boss work doesn't pile into the entry point.
-//! Children: `behavior`/`profile`/`specs`/`roster` (data schemas + installed
-//! registries), `registry` (`BossEncounterRegistry` resource), `systems`
-//! (per-frame tick + HP mirror), `damage`/`events` (damage routing +
-//! publication), `ids` (id slugging), `attack_geometry` (hitbox math),
-//! `sprites` (boss spritesheets).
+//! update systems, rewards, and event publication live in child modules so
+//! future boss work doesn't pile into the entry point. Children:
+//! `behavior`/`profile`/`specs`/`roster` (data schemas + installed registries),
+//! `registry` (`BossEncounterRegistry` resource), `systems` (per-frame tick +
+//! HP mirror), `encounter_entity`/`encounter_script` (the optional encounter
+//! entity + its scripted beats), `events` (event publication), `rewards`
+//! (reward chests), `ids` (id slugging), `attack_geometry` (hitbox math),
+//! `sprites` (boss spritesheets). (Player→boss damage routing lives in
+//! `features::ecs::damage`.)
 //!
 //! Each `BossSpawn` LDtk entity in the active room maps to one encounter id
 //! (defaulting to the boss `name`). When the player enters the room the

@@ -77,9 +77,8 @@ pub struct BossBehaviorProfile {
     /// Authored post-defeat reward. `None` (the default when the RON
     /// row omits `reward:`) means the boss drops nothing; `DropChest`
     /// spawns a reward chest at the given offset/size on defeat. This
-    /// is the data the legacy `BossProfile::<name>()` constructors used
-    /// to carry; it now rides on the behavior profile so the whole
-    /// boss is authored in one RON row.
+    /// rides on the behavior profile so the whole boss is authored in
+    /// one RON row.
     #[serde(default)]
     pub reward: BossRewardProfile,
     /// Catalog ability this boss grants on defeat (`"blink"`, `"fireball"`, …),
@@ -102,10 +101,9 @@ pub struct BossBehaviorProfile {
     /// rule authored elsewhere (e.g. the Smirking Behemoth's LDtk-authored
     /// rope/anvil trap in `crate::ambition_content::bosses::cut_rope`).
     ///
-    /// This is the data-driven inversion of the old `is_cut_rope_boss(id)`
-    /// check in core damage handling: core asks the boss's *data* whether it
-    /// is invulnerable to ordinary hits, instead of naming a specific boss,
-    /// so the dependency points content -> core, never the reverse.
+    /// Data-driven by design: core asks the boss's *data* whether it is
+    /// invulnerable to ordinary hits, instead of naming a specific boss, so the
+    /// dependency points content -> core, never the reverse.
     #[serde(default)]
     pub environmental_kill_only: bool,
     /// Where a combat-banter speech bubble anchors relative to the
@@ -141,10 +139,8 @@ impl Default for BarkAnchorSpec {
 /// geometry (`offset`, `size`) is in world pixels; `pickup` names the
 /// `PickupKind` granted on open.
 ///
-/// This is the data the old `BossProfile::<name>()` constructors used
-/// to bake into core Rust; it now lives in the RON alongside the rest
-/// of the boss's behavior tuning so adding/retuning a reward is a
-/// content edit, not a code change.
+/// Lives in the RON alongside the rest of the boss's behavior tuning, so
+/// adding/retuning a reward is a content edit, not a code change.
 #[derive(Clone, Debug, PartialEq, serde::Deserialize)]
 pub enum BossRewardProfile {
     None,

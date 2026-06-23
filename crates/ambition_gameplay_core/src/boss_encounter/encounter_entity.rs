@@ -1,22 +1,17 @@
-//! The ENCOUNTER as a first-class, OPTIONAL entity (refactor Stage R2).
+//! The ENCOUNTER as a first-class, OPTIONAL entity.
 //!
 //! Jon's three-layer model: an *archetype* is reusable creature data; an
 //! *entity instance* is one spawned creature (HP + phase + payload); and an
 //! *encounter* is the optional orchestration wrapped around one or more member
 //! creatures — a progress model derived from member state, a HUD binding, lock
-//! walls, win/lose conditions, music, and (R5) a scripted timeline.
+//! walls, win/lose conditions, music, and a scripted timeline.
 //!
 //! A boss spawned with NO encounter is just a tough enemy: no HUD, no lock
 //! walls, no win/lose — headless / RL fine. The encounter never *gates* the
 //! creature's intrinsic phase-up (that is entity-local [`BossPhaseState`]); it
-//! only FRAMES / DISPLAYS the fight and (R5) adds external/scripted triggers.
+//! only FRAMES / DISPLAYS the fight and adds external/scripted triggers.
 //!
-//! R2 is reader-only: this introduces the entity + a member-derived progress
-//! model and points the HUD at it, while the global `BossEncounterRegistry`
-//! stays the authority. R3 flips writers (win conditions observe members; the
-//! entity copy becomes the source of truth) and deletes the global live map.
-//!
-//! See `docs/planning/boss-entity-local-refactor.md` (DESIGN REFINEMENT + R2).
+//! See `docs/planning/boss-entity-local-refactor.md`.
 
 use std::collections::HashSet;
 
@@ -91,12 +86,11 @@ impl MemberProgress {
 
 /// Ensure every *active* boss in the room is wrapped by an encounter entity.
 ///
-/// R2 policy: a boss that has woken (left `Dormant`) and is not yet a member of
-/// any encounter gets a single-boss `EncounterDef` (HUD-bound). This preserves
-/// the live boss HUD when its reader migrates off the global registry. R6 adds
-/// the spawn-seam opt-out so a boss can be spawned encounter-LESS (a plain
-/// tough enemy, no HUD). Runs in the Progression set after
-/// `update_boss_encounters` so it observes this frame's woken phase.
+/// A boss that has woken (left `Dormant`) and is not yet a member of any
+/// encounter gets a single-boss `EncounterDef` (HUD-bound). A boss spawned with
+/// `no_encounter` opts out (a plain tough enemy, no HUD). Runs in the
+/// Progression set after `update_boss_encounters` so it observes this frame's
+/// woken phase.
 pub fn sync_boss_encounter_entities(
     mut commands: Commands,
     bosses: Query<
@@ -118,7 +112,7 @@ pub fn sync_boss_encounter_entities(
         if covered.contains(&entity) {
             continue;
         }
-        // R6: a boss spawned with `no_encounter` is a plain tough enemy — no
+        // A boss spawned with `no_encounter` is a plain tough enemy — no
         // HUD / lock-walls / win-lose. Skip wrapping it.
         if overrides.is_some_and(|o| o.no_encounter) {
             continue;
@@ -147,9 +141,9 @@ pub fn sync_boss_encounter_entities(
 
 /// Recompute each encounter's progress from its members' entity-local state
 /// (HP from `BossStatus.health`, phase from the entity-local `BossPhaseState`
-/// copy — NOT the global registry). Despawns an encounter whose members have
-/// all left the world (room change), so stale encounters don't linger on the
-/// HUD. Runs after `sync_boss_encounter_entities` in the Progression set.
+/// copy). Despawns an encounter whose members have all left the world (room
+/// change), so stale encounters don't linger on the HUD. Runs after
+/// `sync_boss_encounter_entities` in the Progression set.
 pub fn update_encounter_progress(
     mut commands: Commands,
     mut encounters: Query<(Entity, &EncounterDef, &mut EncounterProgress)>,
@@ -161,9 +155,8 @@ pub fn update_encounter_progress(
             let Ok((config, status)) = bosses.get(member) else {
                 continue;
             };
-            // Phase comes from the entity-local copy (the reader migration);
-            // fall back to the synced `encounter_phase` mirror if the copy
-            // isn't populated yet.
+            // Phase comes from the entity-local copy; fall back to the synced
+            // `encounter_phase` mirror if the copy isn't populated yet.
             let phase = status
                 .encounter
                 .as_ref()

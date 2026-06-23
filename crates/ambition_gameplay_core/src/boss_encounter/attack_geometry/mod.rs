@@ -78,11 +78,9 @@ pub struct BossAnimationFrameSample {
 }
 
 impl<'a> BossVolumeContext<'a> {
-    /// Build the context from a live boss runtime + its attack-state
-    /// component. The runtime contributes only body fields, not
-    /// policy. `is_gnu_ton` used to be carried separately for the
-    /// hand-tuned volume path; the data-driven sprite_metrics path
-    /// makes that special-case unnecessary.
+    /// Build the context from a live boss view + its attack-state component.
+    /// The boss contributes only body fields, not policy; volume selection is
+    /// data-driven via `sprite_metrics`.
     pub fn from_ref(boss: crate::features::BossRef<'a>, attack_state: &'a BossAttackState) -> Self {
         Self {
             pos: boss.kin.pos,
@@ -280,10 +278,8 @@ fn damageable_volumes_unmirrored(ctx: &BossVolumeContext) -> Vec<ae::Aabb> {
     vec![ae::Aabb::new(ctx.pos, ctx.combat_size * 0.5)]
 }
 
-/// Body-contact damage AABB. Stays at the runtime's combat envelope
-/// — body contact is "you ran into the boss", not a discrete strike.
-/// Pure function so future cleanup can lift this off `BossRuntime`
-/// too without rewriting callers.
+/// Body-contact damage AABB at the boss's combat envelope — body contact is
+/// "you ran into the boss", not a discrete strike.
 pub fn body_damage_aabb(pos: ae::Vec2, combat_size: ae::Vec2) -> ae::Aabb {
     ae::Aabb::new(pos, combat_size * 0.5)
 }
@@ -292,8 +288,7 @@ pub fn body_damage_aabb(pos: ae::Vec2, combat_size: ae::Vec2) -> ae::Aabb {
 ///
 /// Pure: reads the brain's `BossAttackState` (which strike is live,
 /// which profile) + the boss body fields + the behavior's damage
-/// scalars. Replaces `BossRuntime::player_damage`, which used to
-/// poll mirror fields on the runtime.
+/// scalars.
 ///
 /// Returns `Some(HitEvent)` when:
 ///   - A strike is live (`attack_state.active_profile.is_some()`)
@@ -301,8 +296,7 @@ pub fn body_damage_aabb(pos: ae::Vec2, combat_size: ae::Vec2) -> ae::Aabb {
 ///   - The boss body has positive `body_damage` and overlaps the
 ///     player.
 ///
-/// Body contact wins only if the strike arm didn't fire — same
-/// priority order as the legacy `BossRuntime::player_damage`.
+/// Body contact wins only if the strike arm didn't fire.
 ///
 /// `player_entity` is the player whose body is being tested; it's
 /// stamped on the returned event's `target` so the player-side
@@ -352,9 +346,8 @@ pub fn boss_attack_damage(
         }
     }
 
-    // Body-contact arm: same priority as the legacy
-    // `BossRuntime::player_damage` — only fires when no strike
-    // landed, and only when the behavior opts into body damage.
+    // Body-contact arm: only fires when no strike landed, and only when the
+    // behavior opts into body damage.
     let body_damage_amount = ctx.behavior.body_damage;
     if body_damage_amount > 0 {
         // Apply the sprite-derived body offset so the body-contact
@@ -414,10 +407,7 @@ pub fn volumes_for_profile(
     combat_size: ae::Vec2,
     behavior: &BossBehaviorProfile,
 ) -> Vec<ae::Aabb> {
-    // The function used to take a separate `size` (boss spawn AABB)
-    // because the GNU-ton arm scaled its design coords against it;
-    // the data-driven migration retired that path, so combat_size is
-    // the only size input the remaining arms need.
+    // `combat_size` is the only size input the volume arms need.
     let size = combat_size;
     let origin = pos + behavior.attack_origin_offset;
     match attack {
@@ -452,9 +442,7 @@ pub fn volumes_for_profile(
         // its own Technique's EFFECTS consumer (spawned projectiles /
         // World-anchored hitboxes / minions), so it has no body-mounted
         // melee volume — empty here prevents double-counting via
-        // `boss_attack_damage`'s strike arm. This covers what used to be
-        // MemorizedVolley / LockOnBeam / PitTrap / RotatingCross /
-        // MinionCascade / DebrisRain.
+        // `boss_attack_damage`'s strike arm.
         BossAttackProfile::Special(_) => Vec::new(),
         BossAttackProfile::WingSweep => vec![ae::Aabb::new(
             origin + ae::Vec2::new(0.0, size.y * 0.08),
@@ -503,13 +491,10 @@ pub fn volumes_for_profile(
 }
 
 // `gnu_ton_part_aabb` / `gnu_ton_sprite_scale` /
-// `GNU_TON_COLLISION_SCALE` / `GNU_TON_FRAME_HEIGHT` were retired
-// in the 2026-05-26 data-driven migration. GNU-ton's per-animation
-// hit/hurt-box geometry now lives in
-// `gnu_ton_boss_spritesheet.ron`'s `body_metrics.animations` map,
-// and `world_aabb_from_pixel_rect` (the generic pixel→world
-// transform that the gradient sentinel uses) produces the same
-// world AABBs the hand-tuned math used to.
+// GNU-ton's per-animation hit/hurt-box geometry lives in
+// `gnu_ton_boss_spritesheet.ron`'s `body_metrics.animations` map, derived via
+// the generic `world_aabb_from_pixel_rect` pixel→world transform (the same one
+// the gradient sentinel uses).
 
 #[cfg(test)]
 mod sprite_metadata_derivation_tests;

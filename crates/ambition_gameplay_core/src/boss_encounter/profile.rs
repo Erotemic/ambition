@@ -15,8 +15,8 @@
 /// `BossProfile` owns the content-facing bundle: phase thresholds, movement,
 /// hitboxes, damage tuning, music, and rewards.
 ///
-/// `BossProfile` is no longer authored via named Rust constructors —
-/// every named boss instance is DATA. The encounter numbers come from
+/// `BossProfile` is authored as DATA, never via named Rust constructors:
+/// every named boss instance lives on disk. The encounter numbers come from
 /// `assets/data/boss_encounters/<id>.ron` and the behavior + reward
 /// come from `assets/data/boss_profiles.ron`; `BossProfile::from_id`
 /// stitches the two registries together. The general type + the

@@ -53,8 +53,8 @@ fn encounter_id_from_name_drops_non_ascii() {
 }
 
 // Verify the mockingbird reward profile registers into the read-only data
-// catalog — purely checking the registry shape (R3 deleted the live map +
-// runtime-id links; the boss's live state is entity-local now).
+// catalog — purely checking the registry shape (the boss's live state is
+// entity-local, not in the registry).
 #[test]
 fn mockingbird_profile_registers_in_the_catalog() {
     let mut registry = BossEncounterRegistry::default();

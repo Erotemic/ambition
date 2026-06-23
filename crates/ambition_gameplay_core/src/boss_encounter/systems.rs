@@ -1,10 +1,10 @@
 //! Boss-encounter Bevy systems — the per-frame driver.
 //!
-//! `populate_boss_encounter_registry` (startup) loads profiles + carries over
-//! save-cleared bosses. `update_boss_encounters` (per sim-tick) registers/wakes
-//! bosses in the active room, ticks each phase machine, publishes events,
-//! mirrors phase-machine HP/phase onto the boss ECS clusters, manages the
-//! adaptive-music request lifetime, and syncs reward chests.
+//! `populate_boss_encounter_registry` (startup) loads the read-only profile
+//! catalog. `update_boss_encounters` (per sim-tick) seeds + wakes bosses in the
+//! active room, ticks each phase machine, publishes events, mirrors phase
+//! HP/phase onto the boss ECS clusters, manages the adaptive-music request
+//! lifetime, and syncs reward chests.
 //! `boss_phase_transition_feedback` diffs each boss's phase against a `Local`
 //! snapshot to fire camera shake + a `DamageBox` shockwave + scream VFX on
 //! dramatic transitions — decoupled from the event pipeline on purpose.
@@ -34,17 +34,16 @@ pub fn populate_boss_encounter_registry(mut registry: ResMut<BossEncounterRegist
     for profile in profiles {
         registry.ensure_profile(profile);
     }
-    // The registry is now a read-only DATA CATALOG (profiles only — the live
-    // map was deleted in R3). Persisted "cleared" is applied per-entity in
-    // `update_boss_encounters` against the boss's own state, not pre-seeded
-    // into a global map here.
+    // The registry is a read-only DATA CATALOG (profiles only). Persisted
+    // "cleared" is applied per-entity in `update_boss_encounters` against the
+    // boss's own state, not pre-seeded here.
     registry.specs_loaded = true;
 }
 
-/// Drive every boss's entity-local phase mechanism (R3): seed from the profile
+/// Drive every boss's entity-local phase mechanism: seed from the profile
 /// catalog, wake, tick the `BossPhaseState`, resolve death (save + quest), keep
-/// the adaptive-music request live, and sync reward chests. The global live map
-/// is gone — `BossStatus.health` + `BossStatus.encounter` ARE the source of truth.
+/// the adaptive-music request live, and sync reward chests.
+/// `BossStatus.health` + `BossStatus.encounter` ARE the source of truth.
 pub fn update_boss_encounters(
     mut commands: Commands,
     world_time: Res<crate::WorldTime>,
@@ -104,11 +103,10 @@ pub fn update_boss_encounters(
         let spec = profile.encounter.clone();
 
         // Seed entity-local state ONCE from the profile (phase triggers as data
-        // + HP + behavior) — the per-entity replacement for the old global-map
-        // registration. Two of the same boss seed independent state by
-        // construction. R6: the per-spawn `BossOverrides` (hp / combat_size /
-        // phase triggers) are applied HERE so the profile application above
-        // can't clobber them.
+        // + HP + behavior). Two of the same boss seed independent state by
+        // construction. The per-spawn `BossOverrides` (hp / combat_size / phase
+        // triggers) are applied HERE so the profile application above can't
+        // clobber them.
         if feature.status.encounter.is_none() {
             feature
                 .as_boss_mut()
@@ -293,9 +291,9 @@ const BOSS_PHASE_SHAKE_PX: f32 = 11.0;
 /// a phase change "without breaking the player's ears"). On a transition INTO a
 /// dramatic phase (Transition / Phase2 / Enrage / Stagger) we kick the camera
 /// shake and play a placeholder "cry" SFX — a feel layer that works for every
-/// boss, including the new FSM + T-rex. The dedicated per-boss scream SPRITE
-/// animation + a bespoke quiet "cry" SFX are follow-ups; this reuses the existing
-/// shake + a soft impact sound as placeholders.
+/// boss. The dedicated per-boss scream SPRITE animation + a bespoke quiet "cry"
+/// SFX are follow-ups; this reuses the existing shake + a soft impact sound as
+/// placeholders.
 ///
 /// Decoupled from the phase-advance / event pipeline on purpose: it diffs each
 /// boss's entity-local phase (`BossStatus.encounter`) against a `Local`

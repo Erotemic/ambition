@@ -1,5 +1,5 @@
 //! Generic ENCOUNTER SCRIPT — ordered beats `{ when: Trigger, then: [Effect] }`
-//! that advance as triggers fire (refactor Stage R5).
+//! that advance as triggers fire.
 //!
 //! An encounter entity ([`EncounterDef`]) may carry an [`EncounterScript`] for
 //! its bespoke scripted beats (a cut-rope puzzle, a timed add-wave, a gauntlet
@@ -251,8 +251,7 @@ pub struct CommandedMove {
 
 /// Steer every [`CommandedMove`] boss toward its target, overriding the brain's
 /// `ActorControl` (and clearing its attack intent). Runs in the boss steer slot
-/// (between the brain tick and the body integrate), exactly where the old
-/// cut-rope-specific steering ran — but generic.
+/// (between the brain tick and the body integrate).
 pub fn tick_commanded_moves(
     mut bosses: Query<(
         BossClusterRef,

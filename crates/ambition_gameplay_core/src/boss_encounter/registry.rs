@@ -1,12 +1,10 @@
 //! `BossEncounterRegistry` — the read-only boss DATA CATALOG.
 //!
 //! Holds the authored `BossProfile`s (thresholds / music / reward data) keyed by
-//! archetype id. The live phase/HP state used to live here too (a string-keyed
-//! map the boss entity mirrored), but R3 of the boss entity-local refactor moved
-//! that ONTO the entity (`BossStatus.health` + `BossStatus.encounter`) and
-//! deleted the map. `update_boss_encounters` now reads this catalog to SEED each
-//! boss's entity-local state, and `BossProfile` selection is the only thing the
-//! registry does. See `docs/planning/boss-entity-local-refactor.md`.
+//! archetype id. Live phase/HP state is entity-local (`BossStatus.health` +
+//! `BossStatus.encounter`), NOT here; `update_boss_encounters` reads this catalog
+//! to SEED each boss's entity-local state, and `BossProfile` selection is the
+//! only thing the registry does. See `docs/planning/boss-entity-local-refactor.md`.
 
 use std::collections::BTreeMap;
 

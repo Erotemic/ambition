@@ -163,18 +163,21 @@ pub fn sync_actor_nameplates(
         ),
         With<FeatureSimEntity>,
     >,
-    door_sources: Query<(Entity, &DoorNameplateSource, Option<&Visibility>)>,
-    mut nameplates: Query<(
-        Entity,
-        &ActorNameplateVisual,
-        &mut Transform,
-        &mut Visibility,
-        &mut TextColor,
-        &Children,
+    mut nameplate_queries: ParamSet<(
+        Query<(Entity, &DoorNameplateSource, Option<&Visibility>)>,
+        Query<(
+            Entity,
+            &ActorNameplateVisual,
+            &mut Transform,
+            &mut Visibility,
+            &mut TextColor,
+            &Children,
+        )>,
+        Query<&mut TextColor, With<ActorNameplateOutlineVisual>>,
     )>,
-    mut outline_colors: Query<&mut TextColor, With<ActorNameplateOutlineVisual>>,
 ) {
     if !settings.enabled {
+        let mut nameplates = nameplate_queries.p1();
         hide_all_nameplates(&mut nameplates);
         return;
     }
@@ -195,13 +198,16 @@ pub fn sync_actor_nameplates(
         &mut source_entities,
         &mut candidates,
     );
-    collect_door_candidates(
-        &settings,
-        focus_world,
-        &door_sources,
-        &mut source_entities,
-        &mut candidates,
-    );
+    {
+        let door_sources = nameplate_queries.p0();
+        collect_door_candidates(
+            &settings,
+            focus_world,
+            &door_sources,
+            &mut source_entities,
+            &mut candidates,
+        );
+    }
 
     candidates.sort_by(|a, b| {
         a.distance_sq
@@ -217,37 +223,46 @@ pub fn sync_actor_nameplates(
         .collect();
 
     let mut existing_visible = HashSet::new();
-    for (entity, plate, mut transform, mut visibility, mut text_color, children) in &mut nameplates
+    let mut outline_color_updates = Vec::new();
     {
-        if let Some(candidate) = visible_candidates.get(&plate.owner) {
-            if plate.label != candidate.label {
-                // Name changes are rare. Rebuild the small text subtree so the
-                // root and outline children stay identical without relying on
-                // Text2d internals.
-                commands.entity(entity).despawn();
-                continue;
-            }
-            existing_visible.insert(plate.owner);
-            transform.translation = world_to_bevy(&world.0, candidate.anchor_world, settings.z);
-            let visible = candidate.opacity > 0.0;
-            *visibility = if visible {
-                Visibility::Visible
-            } else {
-                Visibility::Hidden
-            };
-            *text_color = TextColor(color_with_opacity(settings.text_color, candidate.opacity));
-            for child in children.iter() {
-                if let Ok(mut outline_color) = outline_colors.get_mut(child) {
-                    *outline_color = TextColor(color_with_opacity(
-                        settings.outline_color,
-                        candidate.opacity,
-                    ));
+        let mut nameplates = nameplate_queries.p1();
+        for (entity, plate, mut transform, mut visibility, mut text_color, children) in
+            &mut nameplates
+        {
+            if let Some(candidate) = visible_candidates.get(&plate.owner) {
+                if plate.label != candidate.label {
+                    // Name changes are rare. Rebuild the small text subtree so
+                    // the root and outline children stay identical without
+                    // relying on Text2d internals.
+                    commands.entity(entity).despawn();
+                    continue;
                 }
+                existing_visible.insert(plate.owner);
+                transform.translation = world_to_bevy(&world.0, candidate.anchor_world, settings.z);
+                let visible = candidate.opacity > 0.0;
+                *visibility = if visible {
+                    Visibility::Visible
+                } else {
+                    Visibility::Hidden
+                };
+                *text_color = TextColor(color_with_opacity(settings.text_color, candidate.opacity));
+                for child in children.iter() {
+                    outline_color_updates.push((child, candidate.opacity));
+                }
+            } else if source_entities.contains(&plate.owner) {
+                *visibility = Visibility::Hidden;
+            } else {
+                commands.entity(entity).despawn();
             }
-        } else if source_entities.contains(&plate.owner) {
-            *visibility = Visibility::Hidden;
-        } else {
-            commands.entity(entity).despawn();
+        }
+    }
+
+    {
+        let mut outline_colors = nameplate_queries.p2();
+        for (child, opacity) in outline_color_updates {
+            if let Ok(mut outline_color) = outline_colors.get_mut(child) {
+                *outline_color = TextColor(color_with_opacity(settings.outline_color, opacity));
+            }
         }
     }
 

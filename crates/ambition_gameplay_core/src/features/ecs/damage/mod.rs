@@ -204,7 +204,11 @@ pub fn apply_feature_hit_events(
             mut cq,
         ) in &mut actors
         {
-            let prefix = if disposition.is_hostile() { "enemy" } else { "npc" };
+            let prefix = if disposition.is_hostile() {
+                "enemy"
+            } else {
+                "npc"
+            };
             if target_is_ignored(&event.ignored_targets, prefix, id.as_str()) {
                 continue;
             }

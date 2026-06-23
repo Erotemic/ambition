@@ -17,7 +17,6 @@ use ambition_gameplay_core::boss_encounter::{
     BossEncounterRegistry, EncounterBeat, EncounterDef, EncounterEffect, EncounterScript,
     EncounterTrigger, ReleaseOnDeath,
 };
-use ambition_gameplay_core::features::BossConfig;
 use ambition_gameplay_core::brain::ActorControl;
 use ambition_gameplay_core::brain::BossAttackState;
 use ambition_gameplay_core::character_sprites::{
@@ -25,6 +24,7 @@ use ambition_gameplay_core::character_sprites::{
 };
 use ambition_gameplay_core::config::world_to_bevy;
 use ambition_gameplay_core::engine_core::{self as ae, AabbExt};
+use ambition_gameplay_core::features::BossConfig;
 use ambition_gameplay_core::features::{
     ActorPose, BossClusterQueryData, BossClusterRef, BossRef, CenteredAabb, DamageableVolumes,
     EnemyActorBundle, FeatureBaseBundle, FeatureId, FeatureName, FeatureSimEntity, GameplayBanner,

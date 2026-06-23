@@ -74,44 +74,48 @@ pub fn ecs_enemy_anim_state(
     id: &str,
     actors: &Query<ActorSpriteData>,
 ) -> Option<crate::character_sprites::EnemyAnimState> {
-    actors.iter().find_map(|(feature_id, kin, status, attack, config)| {
-        if feature_id.as_str() != id {
-            return None;
-        }
-        let kin = kin?;
-        let status = status?;
-        let attack = attack?;
-        Some(crate::character_sprites::EnemyAnimState {
-            pos: kin.pos,
-            vel: kin.vel,
-            facing: kin.facing,
-            alive: status.alive,
-            attack_active: attack.is_active(),
-            attack_windup: attack.is_winding_up(),
-            hit_flash: status.hit_flash > 0.0,
-            aerial: config.map(|c| c.tuning.is_aerial).unwrap_or(false),
+    actors
+        .iter()
+        .find_map(|(feature_id, kin, status, attack, config)| {
+            if feature_id.as_str() != id {
+                return None;
+            }
+            let kin = kin?;
+            let status = status?;
+            let attack = attack?;
+            Some(crate::character_sprites::EnemyAnimState {
+                pos: kin.pos,
+                vel: kin.vel,
+                facing: kin.facing,
+                alive: status.alive,
+                attack_active: attack.is_active(),
+                attack_windup: attack.is_winding_up(),
+                hit_flash: status.hit_flash > 0.0,
+                aerial: config.map(|c| c.tuning.is_aerial).unwrap_or(false),
+            })
         })
-    })
 }
 
 pub fn ecs_npc_anim_state(
     id: &str,
     actors: &Query<ActorSpriteData>,
 ) -> Option<crate::character_sprites::NpcAnimState> {
-    actors.iter().find_map(|(feature_id, kin, status, _, config)| {
-        if feature_id.as_str() != id {
-            return None;
-        }
-        let kin = kin?;
-        let status = status?;
-        Some(crate::character_sprites::NpcAnimState {
-            pos: kin.pos,
-            vel: kin.vel,
-            facing: kin.facing,
-            hit_flash: status.hit_flash > 0.0,
-            aerial: config.map(|c| c.tuning.is_aerial).unwrap_or(false),
+    actors
+        .iter()
+        .find_map(|(feature_id, kin, status, _, config)| {
+            if feature_id.as_str() != id {
+                return None;
+            }
+            let kin = kin?;
+            let status = status?;
+            Some(crate::character_sprites::NpcAnimState {
+                pos: kin.pos,
+                vel: kin.vel,
+                facing: kin.facing,
+                hit_flash: status.hit_flash > 0.0,
+                aerial: config.map(|c| c.tuning.is_aerial).unwrap_or(false),
+            })
         })
-    })
 }
 
 /// ECS chest-opened lookup for sprite swapping.

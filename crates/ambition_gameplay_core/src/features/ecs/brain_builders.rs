@@ -15,7 +15,7 @@ use crate::brain::{
     SkirmisherState, SmashCfg, SmashState, SniperCfg, SniperState, StateMachineCfg, WandererCfg,
     WandererState,
 };
-use crate::combat::{EnemyBrainSpec, EnemyBrainTemplate, ActorTuning};
+use crate::combat::{ActorTuning, EnemyBrainSpec, EnemyBrainTemplate};
 
 /// Build the enemy's durable combat capability kit from archetype data.
 ///

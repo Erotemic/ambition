@@ -22,8 +22,8 @@
 use ambition_app::{AgentAction, SandboxSim, TimestepMode};
 use ambition_gameplay_core::actor::BossBrain;
 use ambition_gameplay_core::boss_encounter::{
-    BossEncounterPhase, EncounterBeat, EncounterDef, EncounterEffect, EncounterGate, EncounterScript,
-    EncounterTrigger,
+    BossEncounterPhase, EncounterBeat, EncounterDef, EncounterEffect, EncounterGate,
+    EncounterScript, EncounterTrigger,
 };
 use ambition_gameplay_core::combat::boss_clusters::{BossConfig, BossStatus};
 use ambition_gameplay_core::encounter::BossEncounterMusicRequest;
@@ -86,7 +86,10 @@ fn music_track(sim: &SandboxSim) -> Option<String> {
 /// the archetype.
 fn boss_cleared(sim: &SandboxSim, placement_id: &str) -> bool {
     matches!(
-        sim.world().resource::<SandboxSave>().data().boss(placement_id),
+        sim.world()
+            .resource::<SandboxSave>()
+            .data()
+            .boss(placement_id),
         PersistedEncounterState::Cleared
     )
 }
@@ -134,8 +137,8 @@ fn boss_reward_chest_count(world: &mut World) -> usize {
 /// track. (R3 must keep boss music playing through the fight.)
 #[test]
 fn boss_music_plays_during_the_fight() {
-    let mut sim = SandboxSim::new_with_timestep(TimestepMode::fixed_60hz())
-        .expect("sandbox sim builds");
+    let mut sim =
+        SandboxSim::new_with_timestep(TimestepMode::fixed_60hz()).expect("sandbox sim builds");
     spawn_mockingbird(&mut sim, "music_boss");
 
     // A few frames to wake the boss (Dormant → Intro) + publish its music.
@@ -156,8 +159,8 @@ fn boss_music_plays_during_the_fight() {
 /// through the same death path).
 #[test]
 fn defeated_boss_is_recorded_cleared_drops_reward_and_clears_music() {
-    let mut sim = SandboxSim::new_with_timestep(TimestepMode::fixed_60hz())
-        .expect("sandbox sim builds");
+    let mut sim =
+        SandboxSim::new_with_timestep(TimestepMode::fixed_60hz()).expect("sandbox sim builds");
     spawn_mockingbird(&mut sim, "dying_boss");
 
     // Wake + register the boss, then confirm the fight music is up.
@@ -203,8 +206,8 @@ fn defeated_boss_is_recorded_cleared_drops_reward_and_clears_music() {
 /// SAME boss archetype reused at a different placement is NOT pre-marked cleared.
 #[test]
 fn reused_archetype_at_a_new_placement_is_not_pre_cleared() {
-    let mut sim = SandboxSim::new_with_timestep(TimestepMode::fixed_60hz())
-        .expect("sandbox sim builds");
+    let mut sim =
+        SandboxSim::new_with_timestep(TimestepMode::fixed_60hz()).expect("sandbox sim builds");
 
     // Placement A: a mockingbird the player defeats.
     spawn_mockingbird(&mut sim, "placement_a");
@@ -244,8 +247,8 @@ fn reused_archetype_at_a_new_placement_is_not_pre_cleared() {
 /// it "respawns". Reproduces the cut-rope replay bug at the generic boss level.
 #[test]
 fn boss_revives_after_a_room_reset() {
-    let mut sim = SandboxSim::new_with_timestep(TimestepMode::fixed_60hz())
-        .expect("sandbox sim builds");
+    let mut sim =
+        SandboxSim::new_with_timestep(TimestepMode::fixed_60hz()).expect("sandbox sim builds");
     spawn_mockingbird(&mut sim, "respawner");
     for _ in 0..15 {
         sim.step(AgentAction::default());
@@ -255,7 +258,10 @@ fn boss_revives_after_a_room_reset() {
         sim.step(AgentAction::default());
     }
     assert_eq!(boss_alive(sim.world_mut(), "respawner"), Some(false));
-    assert!(boss_cleared(&sim, "respawner"), "precondition: defeated + cleared");
+    assert!(
+        boss_cleared(&sim, "respawner"),
+        "precondition: defeated + cleared"
+    );
 
     // The NPC replay does two things: clear the placement save record + reset the
     // room features. Do both, then let it settle.
@@ -292,8 +298,8 @@ fn boss_revives_after_a_room_reset() {
 /// with its own profile-derived state (independent HP pools + encounters).
 #[test]
 fn two_different_bosses_are_both_fightable() {
-    let mut sim = SandboxSim::new_with_timestep(TimestepMode::fixed_60hz())
-        .expect("sandbox sim builds");
+    let mut sim =
+        SandboxSim::new_with_timestep(TimestepMode::fixed_60hz()).expect("sandbox sim builds");
     let (px, py) = player_pos(sim.world_mut());
 
     sim.spawn_boss_at(
@@ -335,8 +341,8 @@ fn two_different_bosses_are_both_fightable() {
 /// but NO encounter entity wraps it (so no HUD / lock-walls / win-lose).
 #[test]
 fn boss_spawned_with_no_encounter_has_no_encounter_entity() {
-    let mut sim = SandboxSim::new_with_timestep(TimestepMode::fixed_60hz())
-        .expect("sandbox sim builds");
+    let mut sim =
+        SandboxSim::new_with_timestep(TimestepMode::fixed_60hz()).expect("sandbox sim builds");
     let (px, py) = player_pos(sim.world_mut());
 
     sim.spawn_boss_at_with(
@@ -371,8 +377,8 @@ fn boss_spawned_with_no_encounter_has_no_encounter_entity() {
 /// phase to death. Proves phases are trivially-flippable DATA (no code change).
 #[test]
 fn boss_with_empty_phase_triggers_never_phases_up() {
-    let mut sim = SandboxSim::new_with_timestep(TimestepMode::fixed_60hz())
-        .expect("sandbox sim builds");
+    let mut sim =
+        SandboxSim::new_with_timestep(TimestepMode::fixed_60hz()).expect("sandbox sim builds");
     let (px, py) = player_pos(sim.world_mut());
 
     sim.spawn_boss_at_with(
@@ -420,8 +426,8 @@ fn boss_with_empty_phase_triggers_never_phases_up() {
 /// gate, the script does the kill, the entity death pipeline records Cleared).
 #[test]
 fn encounter_script_gate_force_kills_through_the_real_schedule() {
-    let mut sim = SandboxSim::new_with_timestep(TimestepMode::fixed_60hz())
-        .expect("sandbox sim builds");
+    let mut sim =
+        SandboxSim::new_with_timestep(TimestepMode::fixed_60hz()).expect("sandbox sim builds");
     let (px, py) = player_pos(sim.world_mut());
     sim.spawn_boss_at(
         "scripted",
@@ -458,7 +464,8 @@ fn encounter_script_gate_force_kills_through_the_real_schedule() {
     assert_eq!(boss_alive(sim.world_mut(), "scripted"), Some(true));
 
     // Fire the gate → the script force-kills member 0; step past the death outro.
-    sim.world_mut().write_message(EncounterGate::new("kill_now"));
+    sim.world_mut()
+        .write_message(EncounterGate::new("kill_now"));
     for _ in 0..200 {
         sim.step(AgentAction::default());
     }

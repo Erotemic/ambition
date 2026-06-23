@@ -588,7 +588,13 @@ mod tests {
             max_fall_speed: 0.0,
             gravity_dir: Vec2::new(0.0, 1.0),
         };
-        step_kinematic(&mut body, &world, tuning, KinematicInputs::default(), 1.0 / 60.0);
+        step_kinematic(
+            &mut body,
+            &world,
+            tuning,
+            KinematicInputs::default(),
+            1.0 / 60.0,
+        );
 
         let moved = (body.pos - start).length();
         let cap = body.aabb().half_size().length();

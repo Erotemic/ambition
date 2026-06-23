@@ -143,7 +143,10 @@ fn boss_atlas_tracks_the_published_rects_not_the_const_grid() {
     // 1*280 = 280 on y — proving the layout follows the record's 300/280 stride,
     // NOT the const's 393/344 grid.
     let drift_frame0 = layout.textures[6]; // first frame after idle's 6
-    assert_eq!(drift_frame0.min.y, 280 + FLYING_SPAGHETTI_MONSTER_SHEET.frame_sample_inset);
+    assert_eq!(
+        drift_frame0.min.y,
+        280 + FLYING_SPAGHETTI_MONSTER_SHEET.frame_sample_inset
+    );
 }
 
 #[test]

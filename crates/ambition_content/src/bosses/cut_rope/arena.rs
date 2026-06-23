@@ -158,10 +158,7 @@ pub fn tick_cut_rope_flavor(
     // The anvil hit → death flavor (the EncounterScript does the actual kill).
     if impacted && !state.anvil_exploded {
         state.anvil_exploded = true;
-        let center = state
-            .anvil_center
-            .or(boss_pos)
-            .unwrap_or(ae::Vec2::ZERO);
+        let center = state.anvil_center.or(boss_pos).unwrap_or(ae::Vec2::ZERO);
         let burst_pos = boss_pos.unwrap_or(center);
         banner.show(
             format!(

@@ -84,27 +84,28 @@ pub fn rebuild_feature_view_index(
     chests: Query<(&FeatureId, &CenteredAabb, Option<&Opened>), With<ChestFeature>>,
     breakables: Query<(&FeatureId, &CenteredAabb, &BreakableFeature)>,
     switches: Query<(&FeatureId, &CenteredAabb, &SwitchOn), With<SwitchFeature>>,
-    actors: Query<(
-        &FeatureId,
-        &CenteredAabb,
-        &ActorDisposition,
-        Option<&super::actor_clusters::ActorStatus>,
-        Option<&ActorAttackState>,
-        Option<&super::actor_clusters::ActorConfig>,
-        Option<&ActorSurfaceState>,
-        // Portal aerial-roll (same component the player uses) so actors
-        // somersault + self-right through portals just like the player.
-        Option<&crate::platformer_runtime::orientation::ActorRoll>,
-    ),
-    // Bosses carry the shared actor read-models (`ActorDisposition` etc., synced
-    // by `sync_boss_actor_components`) but are their OWN feature family below.
-    // Without this exclusion a boss matches here too and — because the actor
-    // family is inserted before the boss family (first-wins priority) — it gets
-    // classified as an invisible `Enemy` (its `ActorStatus`/`ActorConfig` are
-    // absent), shadowing the boss view → the boss renders as the generic enemy
-    // fallback sprite instead of its sheet. This is the boss-exclusion the
-    // deleted `ActorRuntime` tag used to provide implicitly.
-    Without<super::boss_clusters::BossConfig>,
+    actors: Query<
+        (
+            &FeatureId,
+            &CenteredAabb,
+            &ActorDisposition,
+            Option<&super::actor_clusters::ActorStatus>,
+            Option<&ActorAttackState>,
+            Option<&super::actor_clusters::ActorConfig>,
+            Option<&ActorSurfaceState>,
+            // Portal aerial-roll (same component the player uses) so actors
+            // somersault + self-right through portals just like the player.
+            Option<&crate::platformer_runtime::orientation::ActorRoll>,
+        ),
+        // Bosses carry the shared actor read-models (`ActorDisposition` etc., synced
+        // by `sync_boss_actor_components`) but are their OWN feature family below.
+        // Without this exclusion a boss matches here too and — because the actor
+        // family is inserted before the boss family (first-wins priority) — it gets
+        // classified as an invisible `Enemy` (its `ActorStatus`/`ActorConfig` are
+        // absent), shadowing the boss view → the boss renders as the generic enemy
+        // fallback sprite instead of its sheet. This is the boss-exclusion the
+        // deleted `ActorRuntime` tag used to provide implicitly.
+        Without<super::boss_clusters::BossConfig>,
     >,
     hazards: Query<(&FeatureId, &CenteredAabb, &HazardFeature)>,
     bosses: Query<(

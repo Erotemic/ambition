@@ -89,7 +89,9 @@ fn player_render_size(collision: ae::Vec2) -> Option<ae::Vec2> {
     let spec = SPEC
         .get_or_init(|| super::assets::sheet_for_character_id(PLAYER_CHARACTER_ID))
         .as_ref()?;
-    Some(super::sheets::player_placeholder_render_size(spec, collision))
+    Some(super::sheets::player_placeholder_render_size(
+        spec, collision,
+    ))
 }
 
 /// Resolve the player's melee attack hitbox for `animation` from the

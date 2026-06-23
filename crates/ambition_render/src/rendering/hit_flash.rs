@@ -362,13 +362,16 @@ fn hit_flash_secs_for_source(
     // Feature path: cross-reference the visual entity's id against
     // the sim entity's `FeatureId`. Tries the actor list first
     // (every actor shares the unified cluster), then bosses.
-    if let Some(secs) = actors.iter().find_map(|(feature_id, _kin, status, _attack, _config)| {
-        if feature_id.as_str() != id {
-            return None;
-        }
-        // Hit-flash lives on the shared `ActorStatus` for every actor now.
-        status.map(|s| s.hit_flash)
-    }) {
+    if let Some(secs) = actors
+        .iter()
+        .find_map(|(feature_id, _kin, status, _attack, _config)| {
+            if feature_id.as_str() != id {
+                return None;
+            }
+            // Hit-flash lives on the shared `ActorStatus` for every actor now.
+            status.map(|s| s.hit_flash)
+        })
+    {
         return Some(secs);
     }
     bosses.iter().find_map(|(feature_id, item)| {

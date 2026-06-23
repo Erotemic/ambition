@@ -906,7 +906,8 @@ mod scripted_pattern_tests {
                 &mut frame,
                 &mut attack_state,
             );
-            boss.as_mut().integrate_body(&world, frame.velocity_target, dt);
+            boss.as_mut()
+                .integrate_body(&world, frame.velocity_target, dt);
         }
         let boss_right_edge = boss.kin.pos.x + boss.as_ref().combat_size().x * 0.5;
         let wall_left_edge = 400.0;

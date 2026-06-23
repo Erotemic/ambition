@@ -162,7 +162,9 @@ fn boss_classifies_as_boss_not_the_actor_enemy_fallback() {
     app.update();
 
     let index = app.world().resource::<FeatureViewIndex>();
-    let view = index.get("gnu_ton").expect("the boss must have a feature view");
+    let view = index
+        .get("gnu_ton")
+        .expect("the boss must have a feature view");
     assert_eq!(
         view.kind,
         crate::features::FeatureVisualKind::Boss,

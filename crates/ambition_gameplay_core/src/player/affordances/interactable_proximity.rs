@@ -46,10 +46,7 @@ pub fn update_nearest_interactable(
             With<crate::player::PrimaryPlayer>,
         ),
     >,
-    actors: Query<
-        (&CenteredAabb, &ActorDisposition, &ActorInteraction),
-        With<FeatureSimEntity>,
-    >,
+    actors: Query<(&CenteredAabb, &ActorDisposition, &ActorInteraction), With<FeatureSimEntity>>,
     chests: Query<(&CenteredAabb, Option<&Opened>), (With<FeatureSimEntity>, With<ChestFeature>)>,
     switches: Query<&CenteredAabb, (With<FeatureSimEntity>, With<SwitchFeature>)>,
     mut out: ResMut<NearestInteractable>,

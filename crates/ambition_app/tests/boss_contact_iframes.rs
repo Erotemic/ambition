@@ -66,11 +66,9 @@ struct BossSnapshot {
 }
 
 fn read_player(world: &mut World) -> PlayerSnapshot {
-    let mut q = world.query_filtered::<(
-        &BodyKinematics,
-        &PlayerCombatState,
-        &PlayerHealth,
-    ), PrimaryPlayerOnly>();
+    let mut q = world
+        .query_filtered::<(&BodyKinematics, &PlayerCombatState, &PlayerHealth), PrimaryPlayerOnly>(
+        );
     let (kin, combat, health) = q.single(world).expect("primary player exists");
     PlayerSnapshot {
         pos: kin.pos,
@@ -120,8 +118,8 @@ fn boss_contact_hits(world: &World) -> usize {
 
 #[test]
 fn flying_into_mockingbird_traces_iframe_gated_contact_damage() {
-    let mut sim = SandboxSim::new_with_timestep(TimestepMode::fixed_60hz())
-        .expect("sandbox sim builds");
+    let mut sim =
+        SandboxSim::new_with_timestep(TimestepMode::fixed_60hz()).expect("sandbox sim builds");
 
     // Survive the whole run so hp only ever moves downward (one delta per
     // landed hit) — no respawn to confuse the trace.
@@ -330,8 +328,8 @@ fn flying_into_mockingbird_traces_iframe_gated_contact_damage() {
 /// than boss HP, and break cleanly if the boss is reset away.
 #[test]
 fn face_tanking_player_swings_back_and_is_recoil_locked() {
-    let mut sim = SandboxSim::new_with_timestep(TimestepMode::fixed_60hz())
-        .expect("sandbox sim builds");
+    let mut sim =
+        SandboxSim::new_with_timestep(TimestepMode::fixed_60hz()).expect("sandbox sim builds");
 
     boost_player_health(sim.world_mut(), 1000);
     sim.grant_flight();
@@ -417,7 +415,10 @@ fn face_tanking_player_swings_back_and_is_recoil_locked() {
             }
         }
 
-        if frame % 6 == 0 || cur.recoil > 0.0 || boss_flash > 0.0 || (cur.attacking && cur.invuln > 0.0)
+        if frame % 6 == 0
+            || cur.recoil > 0.0
+            || boss_flash > 0.0
+            || (cur.attacking && cur.invuln > 0.0)
         {
             println!(
                 "{:5} | {:6.3} | {:6.3} | {:^3} | {:5.2} | {}",
@@ -511,8 +512,8 @@ fn face_tanking_player_swings_back_and_is_recoil_locked() {
 fn two_same_archetype_bosses_have_independent_encounter_state() {
     use ambition_gameplay_core::combat::boss_clusters::{BossConfig, BossStatus};
 
-    let mut sim = SandboxSim::new_with_timestep(TimestepMode::fixed_60hz())
-        .expect("sandbox sim builds");
+    let mut sim =
+        SandboxSim::new_with_timestep(TimestepMode::fixed_60hz()).expect("sandbox sim builds");
 
     let start = read_player(sim.world_mut()).pos;
     // Two mockingbirds, far enough apart that neither is on top of the other.
@@ -611,8 +612,8 @@ fn two_same_archetype_bosses_have_independent_encounter_state() {
 /// a view bound to this progress. See `docs/planning/boss-entity-local-refactor.md`.
 #[test]
 fn woken_boss_is_wrapped_by_an_encounter_entity_with_live_progress() {
-    let mut sim = SandboxSim::new_with_timestep(TimestepMode::fixed_60hz())
-        .expect("sandbox sim builds");
+    let mut sim =
+        SandboxSim::new_with_timestep(TimestepMode::fixed_60hz()).expect("sandbox sim builds");
 
     let start = read_player(sim.world_mut()).pos;
     sim.spawn_boss_at(

@@ -80,8 +80,11 @@ pub fn interact_ecs_actors_and_switches(
                 super::super::npcs::npc_message(interactable, &identity.name, false),
                 2.6,
             );
-            let request =
-                super::super::npcs::npc_dialogue_request(interactable, &identity.name, &identity.id);
+            let request = super::super::npcs::npc_dialogue_request(
+                interactable,
+                &identity.name,
+                &identity.id,
+            );
             dialogue.start(&request.dialogue_id, &request.npc_name);
             next_mode.set(crate::GameMode::Dialogue);
             quest_advance.write(QuestAdvanceRequested(

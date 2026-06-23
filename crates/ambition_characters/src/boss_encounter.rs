@@ -434,7 +434,13 @@ mod phase_mechanism_tests {
     fn empty_triggers_never_phase_up() {
         let mut state = BossPhaseState::new(Vec::new());
         assert_eq!(state.start_phase, Phase1, "no intro tell ⇒ start fighting");
-        assert_eq!(state.wake(), vec![BossPhaseEvent::PhaseChanged { from: Dormant, to: Phase1 }]);
+        assert_eq!(
+            state.wake(),
+            vec![BossPhaseEvent::PhaseChanged {
+                from: Dormant,
+                to: Phase1
+            }]
+        );
         // Tick a long time at low HP — nothing happens without a trigger.
         for _ in 0..600 {
             assert!(state.tick(1.0 / 60.0, 0.01).is_empty());
@@ -453,7 +459,13 @@ mod phase_mechanism_tests {
         assert_eq!(state.phase, Phase1);
         // Cross it: swap to Phase2.
         let evs = state.tick(0.016, 0.4);
-        assert_eq!(evs, vec![BossPhaseEvent::PhaseChanged { from: Phase1, to: Phase2 }]);
+        assert_eq!(
+            evs,
+            vec![BossPhaseEvent::PhaseChanged {
+                from: Phase1,
+                to: Phase2
+            }]
+        );
         assert_eq!(state.phase, Phase2);
     }
 
@@ -468,29 +480,53 @@ mod phase_mechanism_tests {
         // Drop HP straight past BOTH thresholds. Only Phase1→Phase2 should fire
         // this tick (the Enrage trigger is gated to `from: Phase2`).
         let evs = state.tick(0.016, 0.1);
-        assert_eq!(evs, vec![BossPhaseEvent::PhaseChanged { from: Phase1, to: Phase2 }]);
+        assert_eq!(
+            evs,
+            vec![BossPhaseEvent::PhaseChanged {
+                from: Phase1,
+                to: Phase2
+            }]
+        );
         // Next tick, now in Phase2, the Enrage trigger fires.
         let evs = state.tick(0.016, 0.1);
-        assert_eq!(evs, vec![BossPhaseEvent::PhaseChanged { from: Phase2, to: Enrage }]);
+        assert_eq!(
+            evs,
+            vec![BossPhaseEvent::PhaseChanged {
+                from: Phase2,
+                to: Enrage
+            }]
+        );
     }
 
     /// A trigger with a `lock` inserts an invulnerable tell beat before the
     /// swap — its own mechanism, not the swap itself.
     #[test]
     fn lock_inserts_invulnerable_tell_before_swap() {
-        let mut state = BossPhaseState::new(vec![PhaseTrigger::hp_below(0.5, Phase1, Phase2, 0.30)]);
+        let mut state =
+            BossPhaseState::new(vec![PhaseTrigger::hp_below(0.5, Phase1, Phase2, 0.30)]);
         state.wake();
         assert!(!state.boss_invulnerable(), "Phase1 is vulnerable");
         // Crossing the threshold starts the lock, but does NOT swap yet.
         let evs = state.tick(0.016, 0.4);
-        assert_eq!(evs, vec![BossPhaseEvent::TransitionLockStarted { to: Phase2 }]);
+        assert_eq!(
+            evs,
+            vec![BossPhaseEvent::TransitionLockStarted { to: Phase2 }]
+        );
         assert_eq!(state.phase, Phase1, "phase holds during the tell");
-        assert!(state.boss_invulnerable(), "boss is invulnerable during the tell");
+        assert!(
+            state.boss_invulnerable(),
+            "boss is invulnerable during the tell"
+        );
         // Tick out the lock; the swap lands on expiry.
         let mut swapped = false;
         for _ in 0..40 {
             let evs = state.tick(0.016, 0.4);
-            if evs == vec![BossPhaseEvent::PhaseChanged { from: Phase1, to: Phase2 }] {
+            if evs
+                == vec![BossPhaseEvent::PhaseChanged {
+                    from: Phase1,
+                    to: Phase2,
+                }]
+            {
                 swapped = true;
                 break;
             }
@@ -516,7 +552,10 @@ mod phase_mechanism_tests {
         let mut advanced = false;
         for _ in 0..10 {
             if state.tick(0.1, 1.0)
-                == vec![BossPhaseEvent::PhaseChanged { from: Intro, to: Phase1 }]
+                == vec![BossPhaseEvent::PhaseChanged {
+                    from: Intro,
+                    to: Phase1,
+                }]
             {
                 advanced = true;
                 break;
@@ -529,8 +568,12 @@ mod phase_mechanism_tests {
     /// External triggers fire via `notify_external`, never from `tick`.
     #[test]
     fn external_trigger_only_fires_on_notify() {
-        let mut state =
-            BossPhaseState::new(vec![PhaseTrigger::external("all_adds_dead", Phase1, Enrage, 0.0)]);
+        let mut state = BossPhaseState::new(vec![PhaseTrigger::external(
+            "all_adds_dead",
+            Phase1,
+            Enrage,
+            0.0,
+        )]);
         state.wake();
         // Ticking does nothing — external triggers don't auto-fire.
         assert!(state.tick(1.0, 0.01).is_empty());
@@ -540,7 +583,13 @@ mod phase_mechanism_tests {
         assert_eq!(state.phase, Phase1);
         // The right gate fires it.
         let evs = state.notify_external("all_adds_dead");
-        assert_eq!(evs, vec![BossPhaseEvent::PhaseChanged { from: Phase1, to: Enrage }]);
+        assert_eq!(
+            evs,
+            vec![BossPhaseEvent::PhaseChanged {
+                from: Phase1,
+                to: Enrage
+            }]
+        );
         assert_eq!(state.phase, Enrage);
     }
 

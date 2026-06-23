@@ -82,8 +82,7 @@ pub use player_state::{
     LocomotionState, PlayerSafetyVerdict, ResourceMeter,
 };
 pub use reference_frame::{
-    AccelerationFrame, GameplayFramePolicy, InputFrameMode, RawDirectionEdges,
-    ResolvedControlFrame,
+    AccelerationFrame, GameplayFramePolicy, InputFrameMode, RawDirectionEdges, ResolvedControlFrame,
 };
 pub use world::{
     BlinkWallTier, Block, BlockKind, ClimbableContact, ClimbableKind, ClimbableRegion,

@@ -182,10 +182,7 @@ impl ActorTraceBuffer {
     pub fn record(&mut self, frame: ActorTraceFrame) {
         // Re-arm any previously-dumped body that is no longer OOB this
         // frame (absent bodies count as "no longer OOB").
-        let oob_now: HashSet<&str> = frame
-            .oob_bodies()
-            .map(|b| b.actor_id.as_str())
-            .collect();
+        let oob_now: HashSet<&str> = frame.oob_bodies().map(|b| b.actor_id.as_str()).collect();
         self.oob_disarmed.retain(|id| oob_now.contains(id.as_str()));
 
         // The first still-armed OOB body requests the dump — but only once
@@ -397,27 +394,41 @@ mod tests {
     fn an_oob_body_requests_exactly_one_dump_until_it_returns() {
         let mut b = ActorTraceBuffer::with_capacity(8);
         b.min_context_frames = 0; // test arming in isolation, no warm-up gate
-        // In bounds: no dump.
+                                  // In bounds: no dump.
         b.record(frame(vec![body("boss", None)]));
         assert!(b.dump_request.is_none());
         // Goes OOB: dump requested, attributed to the boss.
-        b.record(frame(vec![body("boss", Some("outside world envelope (y)"))]));
+        b.record(frame(vec![body(
+            "boss",
+            Some("outside world envelope (y)"),
+        )]));
         match b.dump_request.take() {
-            Some(ActorDumpReason::OobAuto { actor_id, reason, .. }) => {
+            Some(ActorDumpReason::OobAuto {
+                actor_id, reason, ..
+            }) => {
                 assert_eq!(actor_id, "boss");
                 assert_eq!(reason, "outside world envelope (y)");
             }
             other => panic!("expected OobAuto for the boss, got {other:?}"),
         }
         // Still OOB next frame: disarmed, so NO new dump (no spam).
-        b.record(frame(vec![body("boss", Some("outside world envelope (y)"))]));
-        assert!(b.dump_request.is_none(), "a still-OOB body must not re-dump");
+        b.record(frame(vec![body(
+            "boss",
+            Some("outside world envelope (y)"),
+        )]));
+        assert!(
+            b.dump_request.is_none(),
+            "a still-OOB body must not re-dump"
+        );
         // Returns in bounds → re-armed.
         b.record(frame(vec![body("boss", None)]));
         assert!(b.oob_disarmed.is_empty(), "returning in bounds re-arms");
         // Goes OOB again → dumps again.
         b.record(frame(vec![body("boss", Some("inside solid (wall)"))]));
-        assert!(b.dump_request.is_some(), "a fresh OOB after recovery re-dumps");
+        assert!(
+            b.dump_request.is_some(),
+            "a fresh OOB after recovery re-dumps"
+        );
     }
 
     #[test]

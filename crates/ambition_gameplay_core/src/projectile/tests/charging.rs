@@ -5,7 +5,9 @@
 use crate::projectile::MotionDirection;
 use crate::projectile::ProjectileKind;
 
-use super::{advance_time, dummy_world, min_app, projectile_test_app, tap_projectile, ControlFrame};
+use super::{
+    advance_time, dummy_world, min_app, projectile_test_app, tap_projectile, ControlFrame,
+};
 
 #[test]
 fn tap_release_fires_one_fireball() {
@@ -195,7 +197,6 @@ fn out_of_resource_blocks_fire() {
     let bodies = crate::projectile::tests::projectile_bodies(&mut app);
     assert!(bodies.is_empty());
 }
-
 
 #[test]
 fn released_fireball_uses_controlled_body_local_aim_under_sideways_gravity() {

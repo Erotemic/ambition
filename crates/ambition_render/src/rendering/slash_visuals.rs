@@ -21,7 +21,9 @@ use ambition_gameplay_core::config::{world_to_bevy, WORLD_Z_FX};
 use ambition_gameplay_core::engine_core as ae;
 use ambition_vfx::vfx::{SlashKind, VfxMessage};
 
-use super::sheet_atlas::{atlas_layout_from_record, row_duration, row_frame_count, row_start_index};
+use super::sheet_atlas::{
+    atlas_layout_from_record, row_duration, row_frame_count, row_start_index,
+};
 
 /// The `robot_slash` sheet name in the baked [`SheetRegistry`].
 const SLASH_SHEET: &str = "robot_slash";
@@ -244,7 +246,10 @@ mod tests {
         };
         // Arc art opens +x at rest; rotation = atan2(-dir.y, dir.x).
         // World y is DOWN, so "down" gravity = +y, "up" = -y.
-        assert!(approx(slash_rotation(Vec2::new(1.0, 0.0), SlashKind::Arc), 0.0)); // forward
+        assert!(approx(
+            slash_rotation(Vec2::new(1.0, 0.0), SlashKind::Arc),
+            0.0
+        )); // forward
         assert!(approx(
             slash_rotation(Vec2::new(0.0, 1.0), SlashKind::Arc),
             -FRAC_PI_2
@@ -253,9 +258,12 @@ mod tests {
             slash_rotation(Vec2::new(0.0, -1.0), SlashKind::Arc),
             FRAC_PI_2
         )); // toward head (up)
-        assert!(approx(slash_rotation(Vec2::new(-1.0, 0.0), SlashKind::Arc), PI)); // backward
-        // Poke art points image-down at rest (+90° offset): a forward strike
-        // (down-tilt) becomes a horizontal forward poke, not a vertical lance.
+        assert!(approx(
+            slash_rotation(Vec2::new(-1.0, 0.0), SlashKind::Arc),
+            PI
+        )); // backward
+            // Poke art points image-down at rest (+90° offset): a forward strike
+            // (down-tilt) becomes a horizontal forward poke, not a vertical lance.
         assert!(approx(
             slash_rotation(Vec2::new(1.0, 0.0), SlashKind::Poke),
             FRAC_PI_2

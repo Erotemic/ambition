@@ -10,9 +10,8 @@ use crate::brain::{
 };
 use crate::engine_core as ae;
 use crate::features::{
-    ActorAggression, ActorCombatState, ActorCooldowns, ActorDisposition, ActorHealth,
-    ActorIdentity, ActorIntent, AggressionMode, CombatKit, ActorConfig, MountSlot, MountedSize,
-    RidingOn,
+    ActorAggression, ActorCombatState, ActorConfig, ActorCooldowns, ActorDisposition, ActorHealth,
+    ActorIdentity, ActorIntent, AggressionMode, CombatKit, MountSlot, MountedSize, RidingOn,
 };
 use bevy::prelude::{App, Commands, Update, With};
 

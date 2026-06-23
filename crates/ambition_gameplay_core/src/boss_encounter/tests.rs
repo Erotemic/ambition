@@ -61,7 +61,9 @@ fn mockingbird_profile_registers_in_the_catalog() {
     registry.ensure_profile(BossProfile::from_id("mockingbird").expect("mockingbird is authored"));
     assert!(registry.profiles.contains_key(MOCKINGBIRD_ENCOUNTER_ID));
     assert_eq!(
-        registry.profile(MOCKINGBIRD_ENCOUNTER_ID).map(|p| p.id.as_str()),
+        registry
+            .profile(MOCKINGBIRD_ENCOUNTER_ID)
+            .map(|p| p.id.as_str()),
         Some(MOCKINGBIRD_ENCOUNTER_ID)
     );
 }

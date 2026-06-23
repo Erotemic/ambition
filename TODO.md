@@ -27,6 +27,12 @@ When you wake up here, pick the next task from this list and work on it without 
 
 ## Jon's Bug List
 
+- [ ] The pirates placed in the pirate cove seem to have there feet placed 1 pixel (or something like that) into the platform I meant to place them on, which means when they spawn in they fall to the floor. I did not indend this and would like this fixed. There is a similar bug in the hall of characters. The fix is probably to properly position the characters on the platform in LDTK.
+
+
+- [ ] I would like to remove the LDTK labels above the characters, instead we should have some ability to render text above the characters indicating their name. For now let's just default it to always on, there is probably a better way to present this for a real game with a nameplate system that decides when to draw the text, how big, and how prominent.
+
+
 ## Jon's Polish List
 
 - [x] **Tie-a-knot trail mechanic** `[V?/D?]` - Add a feature where the player emits a trail that can drape onto collision, be pulled taut, and work through portals.

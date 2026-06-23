@@ -508,6 +508,7 @@ pub fn add_presentation_plugins(app: &mut App) {
     install_menu_setup_and_hotkeys(app);
     app.add_plugins(ambition_render::rendering::PresentationVisualAnimationPlugin);
     install_camera_and_debug_overlay_systems(app);
+    app.add_plugins(ambition_render::rendering::ActorNameplatePresentationPlugin);
     install_fx_and_hud_systems(app);
     install_misc_visual_sync_systems(app);
     app.add_plugins(ambition_render::rendering::PlayerVisualSchedulePlugin);

@@ -298,7 +298,9 @@ impl NpcActorSpawnPlan {
             paths,
         );
         let patrol_radius = match &interactable.kind {
-            crate::interaction::InteractionKind::Npc { patrol_radius, .. } => patrol_radius.max(0.0),
+            crate::interaction::InteractionKind::Npc { patrol_radius, .. } => {
+                patrol_radius.max(0.0)
+            }
             _ => 0.0,
         };
         let brain = super::super::npcs::npc_brain_from_catalog(
@@ -346,7 +348,11 @@ impl NpcActorSpawnPlan {
                 identity,
                 disposition,
                 super::ActorFaction::Npc,
-                ActorPose::from_parts(self.feature_aabb.center, self.feature_aabb.half_size, facing),
+                ActorPose::from_parts(
+                    self.feature_aabb.center,
+                    self.feature_aabb.half_size,
+                    facing,
+                ),
                 self.combat_kit,
                 self.aggression,
                 health,

@@ -64,7 +64,6 @@ fn player_projectile_muzzle_local_offset(
     }
 }
 
-
 /// A timed-out or wall-killed **lasersword** detonates with a rendered
 /// explosion (keyed on the `lasersword:`-prefixed owner id). Returns `None` for
 /// any other projectile. VFX-only — replay-neutral.

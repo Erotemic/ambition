@@ -288,26 +288,29 @@ fn puppy_slug_seed(
     id: &str,
     actors: &Query<ambition_gameplay_core::features::ActorSpriteData>,
 ) -> Option<f32> {
-    actors.iter().find_map(|(feature_id, _kin, _status, _attack, config)| {
-        if feature_id.as_str() != id {
-            return None;
-        }
-        let c = config?;
-        // Name + dream participation both come from the unified cluster.
-        // Peaceful actors carry the peaceful default tuning (dream_seed = None),
-        // so reading it directly already excludes them from the dream pass.
-        let name = c.name.as_str();
-        let dream_seed = c.tuning.dream_seed;
-        let name_lc = name.to_ascii_lowercase();
-        // Dream participation is authored data (the archetype's dream_seed) with
-        // the name heuristics kept as fallback.
-        let is_slug = dream_seed.is_some() || name_lc.contains("puppy") || name_lc.contains("slug");
-        if is_slug {
-            Some(seed_from_id(name) * 0.63 + dream_seed.unwrap_or(0.0))
-        } else {
-            None
-        }
-    })
+    actors
+        .iter()
+        .find_map(|(feature_id, _kin, _status, _attack, config)| {
+            if feature_id.as_str() != id {
+                return None;
+            }
+            let c = config?;
+            // Name + dream participation both come from the unified cluster.
+            // Peaceful actors carry the peaceful default tuning (dream_seed = None),
+            // so reading it directly already excludes them from the dream pass.
+            let name = c.name.as_str();
+            let dream_seed = c.tuning.dream_seed;
+            let name_lc = name.to_ascii_lowercase();
+            // Dream participation is authored data (the archetype's dream_seed) with
+            // the name heuristics kept as fallback.
+            let is_slug =
+                dream_seed.is_some() || name_lc.contains("puppy") || name_lc.contains("slug");
+            if is_slug {
+                Some(seed_from_id(name) * 0.63 + dream_seed.unwrap_or(0.0))
+            } else {
+                None
+            }
+        })
 }
 
 fn current_sprite_uv_rect(

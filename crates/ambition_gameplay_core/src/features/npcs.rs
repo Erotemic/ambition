@@ -319,7 +319,11 @@ pub(crate) fn npc_hit_bark_line(
     lines[strike_index.min(lines.len().saturating_sub(1))]
 }
 
-pub(crate) fn npc_hostile_bark_line(interactable: &Interactable, name: &str, id: &str) -> &'static str {
+pub(crate) fn npc_hostile_bark_line(
+    interactable: &Interactable,
+    name: &str,
+    id: &str,
+) -> &'static str {
     let key = npc_dialogue_key(interactable, id);
     let name = name.to_ascii_lowercase();
     npc_hostile_bark(&key, &name)

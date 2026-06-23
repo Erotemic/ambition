@@ -271,8 +271,7 @@ pub fn enforce_mount_rider_link(
     use std::collections::HashMap;
     let mut mount_alive: HashMap<Entity, bool> = HashMap::new();
     for (mount_entity, mount_actor, mount_status) in &mounts {
-        let alive =
-            mount_actor.is_hostile() && mount_status.is_some_and(|s| s.alive);
+        let alive = mount_actor.is_hostile() && mount_status.is_some_and(|s| s.alive);
         mount_alive.insert(mount_entity, alive);
     }
 

@@ -36,6 +36,7 @@ use bevy::prelude::{
 
 use crate::WorldTime;
 
+pub mod actor_clusters;
 mod actors;
 mod aggression;
 mod anim_helpers;
@@ -46,7 +47,6 @@ mod damage;
 mod damage_drops;
 mod damage_predicates;
 mod encounter_rewards;
-pub mod actor_clusters;
 mod interact;
 mod mount;
 pub use mount::{rider_hand_world_pos, rider_hand_world_pos_in_frame};
@@ -68,15 +68,13 @@ pub use crate::combat::{
 pub use actors::{
     actor_component_snapshot, enemy_component_snapshot, sync_actor_components_from_cluster,
 };
-pub use actors::{
-    sync_actor_poses_from_feature_aabbs, tick_npc_idle_barks, update_ecs_actors,
-};
+pub use actors::{sync_actor_poses_from_feature_aabbs, tick_npc_idle_barks, update_ecs_actors};
 pub use aggression::apply_actor_stimuli;
 pub use anim_helpers::{
-    ecs_boss_anim_state, ecs_boss_anim_state_and_entity, ecs_boss_animation_frame_sample,
-    ecs_boss_name, ecs_breakable_state, ecs_chest_opened, ecs_enemy_anim_state, ecs_enemy_name,
-    ecs_enemy_sprite_override, ecs_npc_anim_state, ecs_npc_name, ecs_actor_render_size,
-    ActorSpriteData,
+    ecs_actor_render_size, ecs_boss_anim_state, ecs_boss_anim_state_and_entity,
+    ecs_boss_animation_frame_sample, ecs_boss_name, ecs_breakable_state, ecs_chest_opened,
+    ecs_enemy_anim_state, ecs_enemy_name, ecs_enemy_sprite_override, ecs_npc_anim_state,
+    ecs_npc_name, ActorSpriteData,
 };
 pub use banner::{apply_gameplay_banner_requests, tick_gameplay_banner};
 pub use boss_clusters::{

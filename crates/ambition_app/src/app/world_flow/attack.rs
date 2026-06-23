@@ -242,9 +242,7 @@ fn player_attack_hitbox(
 /// resolve to a box; the rest fall back to the spec volume. Today only
 /// `attack_side` is authored — the others are placeholders for when their
 /// per-row hitboxes land.
-fn attack_intent_animation(
-    intent: ambition_gameplay_core::combat::AttackIntent,
-) -> &'static str {
+fn attack_intent_animation(intent: ambition_gameplay_core::combat::AttackIntent) -> &'static str {
     use ambition_gameplay_core::combat::AttackIntent as I;
     match intent {
         I::Up => "attack_up",

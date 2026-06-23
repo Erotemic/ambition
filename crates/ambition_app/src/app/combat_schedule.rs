@@ -33,8 +33,7 @@ impl Plugin for CombatSchedulePlugin {
         app.add_message::<ambition_gameplay_core::features::SpawnActorRequest>();
         app.add_systems(
             Update,
-            ambition_gameplay_core::features::apply_spawn_actor_requests
-                .in_set(SandboxSet::Combat),
+            ambition_gameplay_core::features::apply_spawn_actor_requests.in_set(SandboxSet::Combat),
         );
         app.add_systems(
             Update,

@@ -301,11 +301,9 @@ pub fn upgrade_enemy_sprites(
         // Honor a shared sprite-metadata render size (e.g. a hostile-flipped
         // body-metrics NPC): render at the stored quad, NOT collision*scale,
         // so the sprite doesn't balloon once collision already equals the body.
-        let render_size = ambition_gameplay_core::features::ecs_actor_render_size(
-            &visual.id,
-            &render_sizes,
-        )
-        .map(|r| BVec2::new(r.x, r.y));
+        let render_size =
+            ambition_gameplay_core::features::ecs_actor_render_size(&visual.id, &render_sizes)
+                .map(|r| BVec2::new(r.x, r.y));
         let (sprite, anchor) = match render_size {
             Some(render_size) => (
                 build_character_sprite_with_render_size(character_asset, render_size),
@@ -382,11 +380,9 @@ pub fn upgrade_npc_sprites(
         // render at the stored quad size, not `collision * collision_scale`
         // (which would double-scale). NPCs without body metrics fall through to
         // the legacy collision-driven render.
-        let render_size = ambition_gameplay_core::features::ecs_actor_render_size(
-            &visual.id,
-            &render_sizes,
-        )
-        .map(|r| BVec2::new(r.x, r.y));
+        let render_size =
+            ambition_gameplay_core::features::ecs_actor_render_size(&visual.id, &render_sizes)
+                .map(|r| BVec2::new(r.x, r.y));
         let (sprite, anchor) = match render_size {
             Some(render_size) => (
                 build_character_sprite_with_render_size(character_asset, render_size),

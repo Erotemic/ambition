@@ -85,12 +85,14 @@ pub fn emit_inputs(
         }
         SpecificAction::RangedAttack { dir } => {
             if dir.length_squared() > 1e-6 {
-                out.fire = Some(crate::actor::control::ActorFireRequest::controlled_body_local(
-                    dir,
-                    // Speed routed through ActionSet at resolve time;
-                    // emit a placeholder here.
-                    0.0,
-                ));
+                out.fire = Some(
+                    crate::actor::control::ActorFireRequest::controlled_body_local(
+                        dir,
+                        // Speed routed through ActionSet at resolve time;
+                        // emit a placeholder here.
+                        0.0,
+                    ),
+                );
             }
         }
         SpecificAction::Special => {
@@ -182,10 +184,7 @@ mod tests {
         match frame.fire {
             Some(req) => {
                 assert!((req.dir.y + 1.0).abs() < 1e-3);
-                assert_eq!(
-                    req.dir_policy,
-                    ae::GameplayFramePolicy::ControlledBodyLocal
-                );
+                assert_eq!(req.dir_policy, ae::GameplayFramePolicy::ControlledBodyLocal);
             }
             None => panic!("expected fire request"),
         }

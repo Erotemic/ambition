@@ -248,7 +248,10 @@ mod conversion_tests {
             crate::features::NPC_TALK_RADIUS,
             false,
         ) {
-            crate::brain::Brain::StateMachine(crate::brain::StateMachineCfg::Patrol { cfg, .. }) => {
+            crate::brain::Brain::StateMachine(crate::brain::StateMachineCfg::Patrol {
+                cfg,
+                ..
+            }) => {
                 assert_eq!(cfg.lane.radius_px, 64.0);
                 assert_eq!(cfg.aggressiveness, 0.0);
                 assert!(cfg.aggro_radius > 0.0);
@@ -267,7 +270,6 @@ mod conversion_tests {
             "peaceful NPC brain must report !is_hostile"
         );
     }
-
 
     #[test]
     fn enemy_brain_keys_resolve_to_their_rows() {

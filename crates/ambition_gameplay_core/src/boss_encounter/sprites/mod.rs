@@ -770,7 +770,12 @@ fn boss_atlas_from_record(
     let used = |r: &ambition_sprite_sheet::FrameRect| -> (u32, u32, u32, u32) {
         let x0 = r.x.max(0) as u32;
         let y0 = r.y.max(0) as u32;
-        ((x0), (y0), ((r.x + r.w).max(0) as u32), ((r.y + r.h).max(0) as u32))
+        (
+            (x0),
+            (y0),
+            ((r.x + r.w).max(0) as u32),
+            ((r.y + r.h).max(0) as u32),
+        )
     };
     let mut max_x = 1u32;
     let mut max_y = 1u32;

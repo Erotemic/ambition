@@ -98,7 +98,11 @@ pub fn update_boss_encounters(
             .cloned()
             .or_else(|| BossProfile::for_encounter_id_or_name(&archetype_id))
             .unwrap_or_else(|| {
-                BossProfile::generic(archetype_id.clone(), boss_name.clone(), feature.status.health.max)
+                BossProfile::generic(
+                    archetype_id.clone(),
+                    boss_name.clone(),
+                    feature.status.health.max,
+                )
             });
         let spec = profile.encounter.clone();
 
@@ -114,13 +118,14 @@ pub fn update_boss_encounters(
             if let Some(size) = overrides.and_then(|o| o.combat_size) {
                 feature.config.behavior.combat_size = Some(size);
             }
-            let max_hp = overrides.and_then(|o| o.max_hp).unwrap_or(spec.max_hp).max(1);
+            let max_hp = overrides
+                .and_then(|o| o.max_hp)
+                .unwrap_or(spec.max_hp)
+                .max(1);
             feature.status.health = crate::actor::Health::new(max_hp);
             let triggers = overrides
                 .and_then(|o| o.phase_triggers.clone())
-                .unwrap_or_else(|| {
-                    crate::boss_encounter::PhaseTrigger::intrinsic_from_spec(&spec)
-                });
+                .unwrap_or_else(|| crate::boss_encounter::PhaseTrigger::intrinsic_from_spec(&spec));
             feature.status.encounter = Some(crate::boss_encounter::BossPhaseState::new(triggers));
         }
 
@@ -145,7 +150,12 @@ pub fn update_boss_encounters(
         let mut phase_events = Vec::new();
         {
             let phase = feature.status.encounter.as_mut().expect("seeded above");
-            if alive && matches!(phase.phase, crate::boss_encounter::BossEncounterPhase::Dormant) {
+            if alive
+                && matches!(
+                    phase.phase,
+                    crate::boss_encounter::BossEncounterPhase::Dormant
+                )
+            {
                 phase_events.extend(phase.wake());
             }
             phase_events.extend(phase.tick(dt, hp_fraction));
@@ -206,7 +216,11 @@ pub fn update_boss_encounters(
                 }
             }
         }
-        boss_anchors.push((runtime_id.clone(), archetype_id.clone(), feature.config.spawn));
+        boss_anchors.push((
+            runtime_id.clone(),
+            archetype_id.clone(),
+            feature.config.spawn,
+        ));
     }
 
     // Music-request lifetime: keep the active boss's track up; clear it when no

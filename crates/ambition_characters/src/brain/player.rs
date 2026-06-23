@@ -112,9 +112,7 @@ pub fn tick_player_brain_from_control(
             ae::Vec2::new(snapshot.actor_facing, 0.0)
         };
         let dir = local_dir.normalize_or_zero();
-        out.fire = Some(crate::actor::control::ActorFireRequest::controlled_body_local(
-            dir, 0.0,
-        ));
+        out.fire = Some(crate::actor::control::ActorFireRequest::controlled_body_local(dir, 0.0));
     }
 
     // Jump edges + sustain.
@@ -312,7 +310,10 @@ mod tests {
         tick_player_brain_from_control(&input, &s, &mut out);
         let fire = out.fire.expect("fire request expected");
         // Aim wins over facing, and remains controlled-body-local.
-        assert_eq!(fire.dir_policy, ae::GameplayFramePolicy::ControlledBodyLocal);
+        assert_eq!(
+            fire.dir_policy,
+            ae::GameplayFramePolicy::ControlledBodyLocal
+        );
         assert!((fire.dir.y - (-1.0)).abs() < 0.001);
         assert_eq!(out.aim, ae::Vec2::new(0.0, -1.0));
         // No aim → fire uses facing.
@@ -322,7 +323,10 @@ mod tests {
         let mut out2 = crate::actor::control::ActorControlFrame::default();
         tick_player_brain_from_control(&input2, &s, &mut out2);
         let fire2 = out2.fire.expect("fire request expected");
-        assert_eq!(fire2.dir_policy, ae::GameplayFramePolicy::ControlledBodyLocal);
+        assert_eq!(
+            fire2.dir_policy,
+            ae::GameplayFramePolicy::ControlledBodyLocal
+        );
         assert!((fire2.dir.x - (-1.0)).abs() < 0.001);
         assert_eq!(out2.aim, ae::Vec2::ZERO);
     }
@@ -342,9 +346,15 @@ mod tests {
         tick_player_brain_from_control(&input, &s, &mut out);
         assert_eq!(out.aim, ae::Vec2::new(1.0, 0.0));
         let fire = out.fire.expect("fire request expected");
-        assert_eq!(fire.dir_policy, ae::GameplayFramePolicy::ControlledBodyLocal);
+        assert_eq!(
+            fire.dir_policy,
+            ae::GameplayFramePolicy::ControlledBodyLocal
+        );
         assert_eq!(fire.dir, out.aim);
-        assert_eq!(fire.dir_to_world(ae::AccelerationFrame::new(s.control_down)), ae::Vec2::new(0.0, -1.0));
+        assert_eq!(
+            fire.dir_to_world(ae::AccelerationFrame::new(s.control_down)),
+            ae::Vec2::new(0.0, -1.0)
+        );
     }
 
     #[test]

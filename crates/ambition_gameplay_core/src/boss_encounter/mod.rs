@@ -58,7 +58,8 @@ pub use encounter_entity::{
 };
 pub use encounter_script::{
     tick_commanded_moves, tick_encounter_scripts, tick_falling_hazards, CommandedMove,
-    EncounterBeat, EncounterEffect, EncounterGate, EncounterScript, EncounterTrigger, FallingHazard,
+    EncounterBeat, EncounterEffect, EncounterGate, EncounterScript, EncounterTrigger,
+    FallingHazard,
 };
 pub use profile::{default_boss_profiles, BossProfile, BossRewardProfile};
 pub use registry::BossEncounterRegistry;

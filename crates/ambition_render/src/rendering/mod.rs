@@ -20,6 +20,8 @@
 //!   [`spawn_dynamic_feature_visuals`].
 //! - [`health`] — debug health-bar overlay
 //!   ([`sync_health_overlays`]).
+//! - [`nameplates`] — player-facing actor name labels
+//!   ([`sync_actor_nameplates`]).
 //! - [`parallax`] — optional generated sky/background/atmosphere layers
 //!   ([`spawn_parallax_layers`], [`sync_parallax_layers`]).
 //! - [`camera`] — player-following camera with eased zoom around
@@ -37,6 +39,7 @@ mod hit_flash;
 mod item_visuals;
 pub mod mark_beacon;
 pub mod morph_ball;
+mod nameplates;
 mod parallax;
 mod pirate_weapon;
 mod primitives;
@@ -60,6 +63,10 @@ pub use ambition_gameplay_core::combat::BoundFeatureKind;
 // callers need a re-export.
 pub use camera::{camera_follow, CameraViewState};
 pub use health::{sync_boss_health_bar_overlay, sync_health_overlays};
+pub use nameplates::{
+    sync_actor_nameplates, ActorNameplatePresentationPlugin, ActorNameplateSet,
+    ActorNameplateSettings, ActorNameplateVisual,
+};
 // Re-exported so simulation/effects code can place projectile-spawn
 // origins at the same hand position the visual lays the gun-sword on.
 // Keeps "where the muzzle is" defined in one module.

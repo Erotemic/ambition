@@ -418,7 +418,8 @@ impl SandboxSim {
         let mut q = self.app.world_mut().query_filtered::<(
             &mut ambition_gameplay_core::player::PlayerAbilities,
             &mut ambition_gameplay_core::player::PlayerFlightState,
-        ), ambition_gameplay_core::player::PrimaryPlayerOnly>();
+        ), ambition_gameplay_core::player::PrimaryPlayerOnly>(
+        );
         if let Ok((mut abilities, mut flight)) = q.single_mut(self.app.world_mut()) {
             abilities.abilities.fly = true;
             flight.fly_enabled = true;

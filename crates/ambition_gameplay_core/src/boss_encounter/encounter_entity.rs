@@ -262,7 +262,10 @@ mod tests {
     #[test]
     fn progress_reflects_member_hp_and_phase() {
         let mut app = App::new();
-        app.add_systems(Update, (sync_boss_encounter_entities, update_encounter_progress).chain());
+        app.add_systems(
+            Update,
+            (sync_boss_encounter_entities, update_encounter_progress).chain(),
+        );
         app.world_mut().spawn(awake_boss("mockingbird", 40));
 
         app.update();
@@ -280,11 +283,17 @@ mod tests {
     #[test]
     fn encounter_retires_when_its_member_despawns() {
         let mut app = App::new();
-        app.add_systems(Update, (sync_boss_encounter_entities, update_encounter_progress).chain());
+        app.add_systems(
+            Update,
+            (sync_boss_encounter_entities, update_encounter_progress).chain(),
+        );
         let boss = app.world_mut().spawn(awake_boss("mockingbird", 40)).id();
         app.update();
         assert_eq!(
-            app.world_mut().query::<&EncounterDef>().iter(app.world()).count(),
+            app.world_mut()
+                .query::<&EncounterDef>()
+                .iter(app.world())
+                .count(),
             1
         );
 
@@ -292,7 +301,10 @@ mod tests {
         app.world_mut().entity_mut(boss).despawn();
         app.update();
         assert_eq!(
-            app.world_mut().query::<&EncounterDef>().iter(app.world()).count(),
+            app.world_mut()
+                .query::<&EncounterDef>()
+                .iter(app.world())
+                .count(),
             0,
             "an encounter whose members all left the world retires"
         );

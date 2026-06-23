@@ -387,10 +387,12 @@ fn resolve_preserves_controlled_body_local_fire_policy() {
         ..Default::default()
     };
     let mut frame = crate::actor::control::ActorControlFrame::neutral();
-    frame.fire = Some(crate::actor::control::ActorFireRequest::controlled_body_local(
-        ae::Vec2::new(0.0, -1.0),
-        0.0,
-    ));
+    frame.fire = Some(
+        crate::actor::control::ActorFireRequest::controlled_body_local(
+            ae::Vec2::new(0.0, -1.0),
+            0.0,
+        ),
+    );
     let reqs = resolve(&actions, &frame, ae::Vec2::ZERO);
     match reqs[0] {
         ActionRequest::Ranged {

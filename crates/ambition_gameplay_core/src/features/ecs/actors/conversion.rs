@@ -54,9 +54,8 @@ pub(crate) fn hostile_spec_for_actor(
     name: &str,
     dialogue_id: Option<&str>,
 ) -> super::super::super::enemies::EnemyArchetypeSpec {
-    let brain = crate::actor::EnemyBrain::Custom(
-        hostile_brain_id_for_actor(id, name, dialogue_id).into(),
-    );
+    let brain =
+        crate::actor::EnemyBrain::Custom(hostile_brain_id_for_actor(id, name, dialogue_id).into());
     super::super::super::enemies::spec_for_brain(&brain)
 }
 
@@ -135,9 +134,9 @@ pub(crate) fn provoke_actor_in_place(
 ) {
     if disposition.is_peaceful() {
         let hostile_id = hostile_brain_id_for_actor(&em.config.id, &em.config.name, dialogue_id);
-        let spec = super::super::super::enemies::spec_for_brain(
-            &crate::actor::EnemyBrain::Custom(hostile_id.into()),
-        );
+        let spec = super::super::super::enemies::spec_for_brain(&crate::actor::EnemyBrain::Custom(
+            hostile_id.into(),
+        ));
         em.config.tuning = spec.tuning();
         em.config.brain_spec = spec.brain_spec();
         em.config.brain = crate::actor::EnemyBrain::Custom(hostile_id.into());

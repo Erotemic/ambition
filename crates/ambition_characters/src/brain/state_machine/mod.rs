@@ -294,7 +294,8 @@ fn tick_patrol(
             // evaluator returns as Hold for `attack_range = 0`.
             // For aggressive patrol we close the distance.
             if cfg.aggressiveness > 0.0 {
-                out.locomotion = snapshot.locomotion_for(ae::Vec2::new(direction_side * cfg.speed, 0.0));
+                out.locomotion =
+                    snapshot.locomotion_for(ae::Vec2::new(direction_side * cfg.speed, 0.0));
                 out.facing = direction_side.signum_or(snapshot.actor_facing);
             } else {
                 // Peaceful patroller in "Chase" mode = HOLD. The
@@ -472,7 +473,8 @@ fn tick_melee_brute(
             // Not used by MeleeBrute today (patrol_enabled=false).
         }
         crate::actor::ai::CharacterAiIntent::Chase { direction_side } => {
-            out.locomotion = snapshot.locomotion_for(ae::Vec2::new(direction_side * cfg.chase_speed, 0.0));
+            out.locomotion =
+                snapshot.locomotion_for(ae::Vec2::new(direction_side * cfg.chase_speed, 0.0));
             out.facing = direction_side.signum_or(snapshot.actor_facing);
         }
         crate::actor::ai::CharacterAiIntent::Attack { direction_side } => {

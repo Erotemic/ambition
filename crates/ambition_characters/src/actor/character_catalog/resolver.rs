@@ -13,9 +13,8 @@ use crate::brain::action_set::{
     SlamSpec, SpecialActionSpec, SwipeSpec,
 };
 use crate::brain::state_machine::{
-    AuthoredWorldPatrolLane, MeleeBruteCfg, MeleeBruteState, PatrolCfg, PatrolState,
-    SkirmisherCfg, SkirmisherState, SniperCfg, SniperState, StateMachineCfg, WandererCfg,
-    WandererState,
+    AuthoredWorldPatrolLane, MeleeBruteCfg, MeleeBruteState, PatrolCfg, PatrolState, SkirmisherCfg,
+    SkirmisherState, SniperCfg, SniperState, StateMachineCfg, WandererCfg, WandererState,
 };
 use crate::brain::Brain;
 use crate::brain::{BossPatternCfg, BossPatternState};

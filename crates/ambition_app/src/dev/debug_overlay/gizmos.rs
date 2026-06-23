@@ -624,7 +624,13 @@ pub(crate) fn draw_feature_debug(
                     label_box(labels, attack_box, "atk", active_color, LabelSpot::Center);
                 } else if attack.is_winding_up() {
                     draw_aabb_styled(gizmos, world, attack_box, telegraph_color, developer_tools);
-                    label_box(labels, attack_box, "atk", telegraph_color, LabelSpot::Center);
+                    label_box(
+                        labels,
+                        attack_box,
+                        "atk",
+                        telegraph_color,
+                        LabelSpot::Center,
+                    );
                 }
             }
         }
@@ -668,7 +674,13 @@ pub(crate) fn draw_feature_debug(
         )
         .with_animation_frame(animation_frame);
         draw_aabb_styled(gizmos, world, boss.aabb(), boss_color, developer_tools);
-        label_box(labels, boss.aabb(), "collision", boss_color, LabelSpot::BottomLeft);
+        label_box(
+            labels,
+            boss.aabb(),
+            "collision",
+            boss_color,
+            LabelSpot::BottomLeft,
+        );
         // Body-contact damage zone — drawn ONLY when the boss
         // actually deals contact damage so a `body_damage = 0`
         // boss (like GNU-ton) doesn't show a misleading magenta
@@ -695,11 +707,23 @@ pub(crate) fn draw_feature_debug(
         }
         for hurtbox in ambition_gameplay_core::features::damageable_volumes(&ctx) {
             draw_aabb_styled(gizmos, world, hurtbox, hurtbox_color, developer_tools);
-            label_box(labels, hurtbox, "hurtbox", hurtbox_color, LabelSpot::TopLeft);
+            label_box(
+                labels,
+                hurtbox,
+                "hurtbox",
+                hurtbox_color,
+                LabelSpot::TopLeft,
+            );
         }
         for vol in ambition_gameplay_core::features::telegraph_volumes(&ctx) {
             draw_aabb_styled(gizmos, world, vol, telegraph_color, developer_tools);
-            label_box(labels, vol, "telegraph", telegraph_color, LabelSpot::TopRight);
+            label_box(
+                labels,
+                vol,
+                "telegraph",
+                telegraph_color,
+                LabelSpot::TopRight,
+            );
         }
         for vol in ambition_gameplay_core::features::active_attack_volumes(&ctx) {
             draw_aabb_styled(gizmos, world, vol, active_color, developer_tools);
@@ -708,11 +732,23 @@ pub(crate) fn draw_feature_debug(
     }
     for aabb in feature_q.breakables.iter() {
         draw_aabb_styled(gizmos, world, aabb.aabb(), breakable_color, developer_tools);
-        label_box(labels, aabb.aabb(), "breakable", breakable_color, LabelSpot::TopLeft);
+        label_box(
+            labels,
+            aabb.aabb(),
+            "breakable",
+            breakable_color,
+            LabelSpot::TopLeft,
+        );
     }
     for aabb in feature_q.chests.iter() {
         draw_aabb_styled(gizmos, world, aabb.aabb(), chest_color, developer_tools);
-        label_box(labels, aabb.aabb(), "chest", chest_color, LabelSpot::TopLeft);
+        label_box(
+            labels,
+            aabb.aabb(),
+            "chest",
+            chest_color,
+            LabelSpot::TopLeft,
+        );
     }
     for hf in feature_q.hazards.iter() {
         draw_aabb_styled(
@@ -722,7 +758,13 @@ pub(crate) fn draw_feature_debug(
             hazard_color,
             developer_tools,
         );
-        label_box(labels, hf.hazard.aabb(), "hazard", hazard_color, LabelSpot::TopLeft);
+        label_box(
+            labels,
+            hf.hazard.aabb(),
+            "hazard",
+            hazard_color,
+            LabelSpot::TopLeft,
+        );
     }
 
     // Live Hitbox entities — melee swings (FollowOwner) + World-
@@ -750,7 +792,9 @@ pub(crate) fn draw_feature_debug(
             ambition_gameplay_core::features::ActorFaction::Player => {
                 (player_hitbox_color, "hit:player")
             }
-            ambition_gameplay_core::features::ActorFaction::Enemy => (enemy_hitbox_color, "hit:enemy"),
+            ambition_gameplay_core::features::ActorFaction::Enemy => {
+                (enemy_hitbox_color, "hit:enemy")
+            }
             ambition_gameplay_core::features::ActorFaction::Boss => (boss_hitbox_color, "hit:boss"),
             ambition_gameplay_core::features::ActorFaction::Npc
             | ambition_gameplay_core::features::ActorFaction::Neutral => {

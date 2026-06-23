@@ -924,15 +924,24 @@ fn mirror_x_if_flipped_reflects_about_axis_only_when_facing_left() {
     // body's hit/hurt boxes must mirror with it. This pins the reflection:
     // center.x → 2*axis - center.x when facing < 0; size + y untouched; no-op
     // when facing right.
-    let boxes = vec![ae::Aabb::new(ae::Vec2::new(70.0, 5.0), ae::Vec2::new(4.0, 3.0))];
+    let boxes = vec![ae::Aabb::new(
+        ae::Vec2::new(70.0, 5.0),
+        ae::Vec2::new(4.0, 3.0),
+    )];
     let axis = 50.0;
 
     let right = mirror_x_if_flipped(boxes.clone(), axis, 1.0);
-    assert!((right[0].center().x - 70.0).abs() < 1e-6, "facing right is a no-op");
+    assert!(
+        (right[0].center().x - 70.0).abs() < 1e-6,
+        "facing right is a no-op"
+    );
 
     let left = mirror_x_if_flipped(boxes, axis, -1.0);
     // 70 reflected about 50 → 30 (the mirror side of the boss center).
     assert!((left[0].center().x - 30.0).abs() < 1e-6);
     assert!((left[0].center().y - 5.0).abs() < 1e-6, "y unchanged");
-    assert!((left[0].half_size().x - 4.0).abs() < 1e-6, "width unchanged");
+    assert!(
+        (left[0].half_size().x - 4.0).abs() < 1e-6,
+        "width unchanged"
+    );
 }

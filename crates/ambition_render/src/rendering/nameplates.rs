@@ -15,6 +15,7 @@ use ambition_gameplay_core::features::{
     FeatureSimEntity, FeatureViewIndex,
 };
 use ambition_gameplay_core::player::PrimaryPlayerOnly;
+use ambition_gameplay_core::rooms::{ActiveRoomMetadata, RoomNameplatePolicy};
 use ambition_gameplay_core::{config::world_to_bevy, config::WORLD_Z_PLAYER};
 use bevy::prelude::*;
 
@@ -26,9 +27,10 @@ use super::primitives::RoomVisual;
 /// Presentation policy for world nameplates.
 ///
 /// The default policy ranks all eligible labels by distance to
-/// [`CameraViewState::target_world`], draws the first three at full opacity,
-/// fades the fourth through sixth labels, and reaches zero opacity at the
-/// seventh. Later candidates are hidden. This keeps the selection rule local and
+/// [`CameraViewState::target_world`], draws the first five at full opacity,
+/// fades the sixth label, and reaches zero opacity at the seventh. Later
+/// candidates are hidden. Active-room metadata may override the rank thresholds
+/// from LDtk level fields. This keeps the selection rule local and
 /// easy to tune without changing the actor/door collection code.
 #[derive(Resource, Clone, Debug)]
 pub struct ActorNameplateSettings {
@@ -59,7 +61,7 @@ impl Default for ActorNameplateSettings {
     fn default() -> Self {
         Self {
             enabled: true,
-            full_opacity_count: 3,
+            full_opacity_count: 5,
             fade_out_count: 7,
             max_distance_px: None,
             vertical_gap_px: 10.0,
@@ -139,11 +141,34 @@ struct NameplateCandidate {
     opacity: f32,
 }
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+struct ResolvedNameplateRankPolicy {
+    full_opacity_count: usize,
+    fade_out_count: usize,
+}
+
+impl ActorNameplateSettings {
+    fn resolve_rank_policy(
+        &self,
+        room_policy: Option<&RoomNameplatePolicy>,
+    ) -> ResolvedNameplateRankPolicy {
+        ResolvedNameplateRankPolicy {
+            full_opacity_count: room_policy
+                .and_then(|policy| policy.full_opacity_count)
+                .unwrap_or(self.full_opacity_count),
+            fade_out_count: room_policy
+                .and_then(|policy| policy.fade_out_count)
+                .unwrap_or(self.fade_out_count),
+        }
+    }
+}
+
 #[allow(clippy::type_complexity)]
 pub fn sync_actor_nameplates(
     mut commands: Commands,
     world: Res<ambition_gameplay_core::GameWorld>,
     settings: Res<ActorNameplateSettings>,
+    active_metadata: Option<Res<ActiveRoomMetadata>>,
     camera: Option<Res<CameraViewState>>,
     feature_views: Option<Res<FeatureViewIndex>>,
     ui_fonts: Option<Res<UiFonts>>,
@@ -182,6 +207,11 @@ pub fn sync_actor_nameplates(
         return;
     }
 
+    let rank_policy = settings.resolve_rank_policy(
+        active_metadata
+            .as_deref()
+            .map(|active| &active.0.nameplate_policy),
+    );
     let controlled_actor = camera_controlled_actor(possession.as_deref(), &primary_player);
     let focus_world = camera
         .as_deref()
@@ -214,11 +244,11 @@ pub fn sync_actor_nameplates(
             .total_cmp(&b.distance_sq)
             .then_with(|| a.label.cmp(&b.label))
     });
-    apply_rank_opacity(&settings, &mut candidates);
+    apply_rank_opacity(rank_policy, &mut candidates);
 
     let visible_candidates: HashMap<Entity, NameplateCandidate> = candidates
         .into_iter()
-        .take(settings.fade_out_count)
+        .take(rank_policy.fade_out_count)
         .map(|candidate| (candidate.owner, candidate))
         .collect();
 
@@ -376,13 +406,10 @@ fn push_candidate_if_in_range(
     });
 }
 
-fn apply_rank_opacity(settings: &ActorNameplateSettings, candidates: &mut [NameplateCandidate]) {
+fn apply_rank_opacity(policy: ResolvedNameplateRankPolicy, candidates: &mut [NameplateCandidate]) {
     for (rank_index, candidate) in candidates.iter_mut().enumerate() {
-        candidate.opacity = rank_opacity(
-            rank_index,
-            settings.full_opacity_count,
-            settings.fade_out_count,
-        );
+        candidate.opacity =
+            rank_opacity(rank_index, policy.full_opacity_count, policy.fade_out_count);
     }
 }
 
@@ -527,17 +554,32 @@ mod tests {
     use super::*;
 
     #[test]
-    fn default_policy_shows_three_full_and_fades_to_zero_at_seven() {
+    fn default_policy_shows_five_full_and_fades_to_zero_at_seven() {
         let settings = ActorNameplateSettings::default();
         assert!(settings.enabled);
-        assert_eq!(settings.full_opacity_count, 3);
+        assert_eq!(settings.full_opacity_count, 5);
         assert_eq!(settings.fade_out_count, 7);
         assert_eq!(settings.max_distance_px, None);
-        assert_eq!(rank_opacity(0, 3, 7), 1.0);
-        assert_eq!(rank_opacity(2, 3, 7), 1.0);
-        assert_eq!(rank_opacity(3, 3, 7), 0.75);
-        assert_eq!(rank_opacity(5, 3, 7), 0.25);
-        assert_eq!(rank_opacity(6, 3, 7), 0.0);
+        assert_eq!(rank_opacity(0, 5, 7), 1.0);
+        assert_eq!(rank_opacity(4, 5, 7), 1.0);
+        assert_eq!(rank_opacity(5, 5, 7), 0.5);
+        assert_eq!(rank_opacity(6, 5, 7), 0.0);
+    }
+
+    #[test]
+    fn active_room_policy_overrides_rank_thresholds() {
+        let settings = ActorNameplateSettings::default();
+        let policy = RoomNameplatePolicy {
+            full_opacity_count: Some(100),
+            fade_out_count: Some(120),
+        };
+        assert_eq!(
+            settings.resolve_rank_policy(Some(&policy)),
+            ResolvedNameplateRankPolicy {
+                full_opacity_count: 100,
+                fade_out_count: 120,
+            }
+        );
     }
 
     #[test]

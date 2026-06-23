@@ -17,6 +17,13 @@ fn level_metadata_reads_optional_biome_fields() {
             real_editor_values: vec![],
         }
     }
+    fn int_field(name: &str, value: i32) -> LdtkFieldInstance {
+        LdtkFieldInstance {
+            identifier: name.into(),
+            value: Value::Number(value.into()),
+            real_editor_values: vec![],
+        }
+    }
     let level = LdtkLevel {
         iid: "level-iid".into(),
         identifier: "metadata_level".into(),
@@ -35,6 +42,8 @@ fn level_metadata_reads_optional_biome_fields() {
             field("palette", "warm_terminal"),
             field("lighting_hint", "low_key"),
             field("foreground_treatment", "dusty_edges"),
+            int_field("nameplate_full_opacity_count", 100),
+            int_field("nameplate_fade_out_count", 120),
         ],
         layer_instances: Vec::new(),
     };
@@ -60,6 +69,8 @@ fn level_metadata_reads_optional_biome_fields() {
         meta.visual_profile.foreground_treatment.as_deref(),
         Some("dusty_edges")
     );
+    assert_eq!(meta.nameplate_policy.full_opacity_count, Some(100));
+    assert_eq!(meta.nameplate_policy.fade_out_count, Some(120));
 }
 
 #[test]
@@ -102,6 +113,7 @@ fn room_metadata_merge_first_non_empty_wins() {
         ambient_profile: None,
         visual_theme: None,
         visual_profile: Default::default(),
+        nameplate_policy: Default::default(),
     };
     let b = RoomMetadata {
         biome: Some("basement".into()),
@@ -109,6 +121,7 @@ fn room_metadata_merge_first_non_empty_wins() {
         ambient_profile: Some("bass".into()),
         visual_theme: None,
         visual_profile: Default::default(),
+        nameplate_policy: Default::default(),
     };
     a.merge(b);
     assert_eq!(a.biome.as_deref(), Some("hub"), "first non-empty wins");

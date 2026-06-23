@@ -120,6 +120,7 @@ fn active_metadata_returns_active_room_metadata() {
         ambient_profile: None,
         visual_theme: None,
         visual_profile: Default::default(),
+        nameplate_policy: Default::default(),
     };
     let m2 = RoomMetadata {
         biome: Some("cave".into()),
@@ -127,6 +128,7 @@ fn active_metadata_returns_active_room_metadata() {
         ambient_profile: Some("damp".into()),
         visual_theme: None,
         visual_profile: Default::default(),
+        nameplate_policy: Default::default(),
     };
     let mut set = RoomSet::from_parts(
         "first",
@@ -151,6 +153,7 @@ fn sync_room_music_request_mirrors_metadata_music_track() {
         ambient_profile: None,
         visual_theme: None,
         visual_profile: Default::default(),
+        nameplate_policy: Default::default(),
     }));
     app.insert_resource(RoomMusicRequest::default());
     app.add_systems(Update, sync_room_music_request);
@@ -182,6 +185,7 @@ fn sync_active_room_metadata_publishes_active_value() {
         ambient_profile: None,
         visual_theme: None,
         visual_profile: Default::default(),
+        nameplate_policy: Default::default(),
     };
     let m_lab = RoomMetadata {
         biome: Some("lab".into()),
@@ -189,6 +193,7 @@ fn sync_active_room_metadata_publishes_active_value() {
         ambient_profile: None,
         visual_theme: None,
         visual_profile: Default::default(),
+        nameplate_policy: Default::default(),
     };
     let set = RoomSet::from_parts(
         "hub",
@@ -227,11 +232,16 @@ fn room_metadata_is_empty_false_when_any_field_set() {
         ambient_profile: None,
         visual_theme: None,
         visual_profile: Default::default(),
+        nameplate_policy: Default::default(),
     };
     assert!(!m.is_empty());
 
     let mut m = RoomMetadata::default();
     m.visual_profile.id = Some("intro".into());
+    assert!(!m.is_empty());
+
+    let mut m = RoomMetadata::default();
+    m.nameplate_policy.full_opacity_count = Some(100);
     assert!(!m.is_empty());
 }
 
@@ -243,6 +253,7 @@ fn room_metadata_merge_preserves_existing_values() {
         ambient_profile: None,
         visual_theme: Some("blue".into()),
         visual_profile: Default::default(),
+        nameplate_policy: Default::default(),
     };
     let b = RoomMetadata {
         biome: Some("CONFLICT".into()),        // ignored — a.biome wins
@@ -250,12 +261,18 @@ fn room_metadata_merge_preserves_existing_values() {
         ambient_profile: Some("damp".into()),  // takes effect
         visual_theme: Some("CONFLICT".into()), // ignored
         visual_profile: Default::default(),
+        nameplate_policy: RoomNameplatePolicy {
+            full_opacity_count: Some(100),
+            fade_out_count: Some(120),
+        },
     };
     a.merge(b);
     assert_eq!(a.biome.as_deref(), Some("hub"));
     assert_eq!(a.music_track.as_deref(), Some("hub_loop"));
     assert_eq!(a.ambient_profile.as_deref(), Some("damp"));
     assert_eq!(a.visual_theme.as_deref(), Some("blue"));
+    assert_eq!(a.nameplate_policy.full_opacity_count, Some(100));
+    assert_eq!(a.nameplate_policy.fade_out_count, Some(120));
 }
 
 #[test]

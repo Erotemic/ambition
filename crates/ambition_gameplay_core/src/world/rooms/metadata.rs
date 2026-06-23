@@ -31,16 +31,17 @@ pub struct ActiveRoomMetadata(pub RoomMetadata);
 /// Optional declarative room metadata authored on LDtk levels.
 ///
 /// LDtk level fields `biome` / `music_track` / `ambient_profile` /
-/// `visual_theme` plus explicit room-visual-profile fields land here.
+/// `visual_theme`, explicit room-visual-profile fields, and small
+/// presentation-policy overrides land here.
 /// Every field is optional so existing levels keep working
 /// without a value. The first non-empty value among an active area's
 /// member levels wins; future systems can refine this if needed
 /// (e.g. dominant-vote, level-position weighted).
 ///
 /// Consumers: room music selection, ambient layer selection,
-/// renderer palette/theme variants. This struct is intentionally
-/// non-exhaustive — adding a metadata seam is cheaper than adding a
-/// new resource per consumer.
+/// renderer palette/theme variants, nameplate presentation policy. This
+/// struct is intentionally non-exhaustive — adding a metadata seam is
+/// cheaper than adding a new resource per consumer.
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct RoomVisualProfile {
     /// Stable authored profile id (for example `intro_wakeup_room`).
@@ -92,12 +93,38 @@ impl RoomVisualProfile {
 }
 
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub struct RoomNameplatePolicy {
+    /// Number of nearest eligible nameplates to draw at full opacity.
+    /// `None` falls back to the presentation default.
+    pub full_opacity_count: Option<usize>,
+    /// Ranked candidate count where nameplate opacity reaches zero.
+    /// `None` falls back to the presentation default.
+    pub fade_out_count: Option<usize>,
+}
+
+impl RoomNameplatePolicy {
+    pub fn is_empty(&self) -> bool {
+        self.full_opacity_count.is_none() && self.fade_out_count.is_none()
+    }
+
+    pub fn merge(&mut self, other: RoomNameplatePolicy) {
+        if self.full_opacity_count.is_none() {
+            self.full_opacity_count = other.full_opacity_count;
+        }
+        if self.fade_out_count.is_none() {
+            self.fade_out_count = other.fade_out_count;
+        }
+    }
+}
+
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct RoomMetadata {
     pub biome: Option<String>,
     pub music_track: Option<String>,
     pub ambient_profile: Option<String>,
     pub visual_theme: Option<String>,
     pub visual_profile: RoomVisualProfile,
+    pub nameplate_policy: RoomNameplatePolicy,
 }
 
 impl RoomMetadata {
@@ -107,6 +134,7 @@ impl RoomMetadata {
             && self.ambient_profile.is_none()
             && self.visual_theme.is_none()
             && self.visual_profile.is_empty()
+            && self.nameplate_policy.is_empty()
     }
 
     /// Fold `other` into `self`, preferring values already set.
@@ -126,5 +154,6 @@ impl RoomMetadata {
             self.visual_theme = other.visual_theme;
         }
         self.visual_profile.merge(other.visual_profile);
+        self.nameplate_policy.merge(other.nameplate_policy);
     }
 }

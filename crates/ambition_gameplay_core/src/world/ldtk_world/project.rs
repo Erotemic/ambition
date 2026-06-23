@@ -118,6 +118,11 @@ impl LdtkLevel {
                 .map(|s| s.trim().to_string())
                 .filter(|s| !s.is_empty())
         };
+        let take_count = |name: &str| {
+            self.field_i32(name)
+                .filter(|value| *value >= 0)
+                .map(|value| value as usize)
+        };
         crate::rooms::RoomMetadata {
             biome: take("biome"),
             music_track: take("music_track"),
@@ -129,6 +134,10 @@ impl LdtkLevel {
                 palette: take("palette"),
                 lighting_hint: take("lighting_hint"),
                 foreground_treatment: take("foreground_treatment"),
+            },
+            nameplate_policy: crate::rooms::RoomNameplatePolicy {
+                full_opacity_count: take_count("nameplate_full_opacity_count"),
+                fade_out_count: take_count("nameplate_fade_out_count"),
             },
         }
     }
@@ -183,6 +192,14 @@ impl LdtkLevel {
 
     pub(super) fn field_string(&self, name: &str) -> Option<String> {
         field_value(&self.field_instances, name).and_then(value_to_string)
+    }
+
+    pub(super) fn field_i32(&self, name: &str) -> Option<i32> {
+        field_value(&self.field_instances, name).and_then(|value| match value {
+            Value::Number(number) => number.as_i64().map(|value| value as i32),
+            Value::String(text) => text.parse::<i32>().ok(),
+            _ => None,
+        })
     }
 }
 

@@ -454,7 +454,14 @@ def build_active_area_field(project: dict, area_id: str) -> dict:
 # These map directly to `defs.levelFields` entries created by
 # `tools/add_biome_level_fields.py`. Specs may set any subset; missing
 # fields are simply not emitted as level field instances.
-OPTIONAL_LEVEL_FIELDS = ("biome", "music_track", "ambient_profile", "visual_theme")
+OPTIONAL_LEVEL_FIELDS = (
+    "biome",
+    "music_track",
+    "ambient_profile",
+    "visual_theme",
+    "nameplate_full_opacity_count",
+    "nameplate_fade_out_count",
+)
 
 
 def build_level_field_instances(project: dict, spec: dict) -> list[dict]:

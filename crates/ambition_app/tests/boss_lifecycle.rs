@@ -27,7 +27,9 @@ use ambition_gameplay_core::boss_encounter::{
 };
 use ambition_gameplay_core::combat::boss_clusters::{BossConfig, BossStatus};
 use ambition_gameplay_core::encounter::BossEncounterMusicRequest;
-use ambition_gameplay_core::features::{BossOverrides, BossRewardChest};
+use ambition_gameplay_core::features::{
+    BossOverrides, BossRewardChest, ResetRoomFeaturesEvent, RoomResetReason,
+};
 use ambition_gameplay_core::persistence::save::SandboxSave;
 use ambition_gameplay_core::persistence::save_data::PersistedEncounterState;
 use ambition_gameplay_core::player::{BodyKinematics, PrimaryPlayerOnly};
@@ -232,6 +234,55 @@ fn reused_archetype_at_a_new_placement_is_not_pre_cleared() {
         boss_alive(sim.world_mut(), "placement_b"),
         Some(true),
         "the reused-archetype boss at a new placement must spawn alive, not skipped"
+    );
+}
+
+/// Regression: a defeated boss must REVIVE after a same-room reset (the NPC
+/// "reset and start again" path). The in-place reset resets `health`/`alive` but
+/// must also clear the entity-local phase state — otherwise the boss stays in
+/// last attempt's `Death` phase and the death-resolution re-kills it the instant
+/// it "respawns". Reproduces the cut-rope replay bug at the generic boss level.
+#[test]
+fn boss_revives_after_a_room_reset() {
+    let mut sim = SandboxSim::new_with_timestep(TimestepMode::fixed_60hz())
+        .expect("sandbox sim builds");
+    spawn_mockingbird(&mut sim, "respawner");
+    for _ in 0..15 {
+        sim.step(AgentAction::default());
+    }
+    force_kill_boss(&mut sim, "respawner");
+    for _ in 0..200 {
+        sim.step(AgentAction::default());
+    }
+    assert_eq!(boss_alive(sim.world_mut(), "respawner"), Some(false));
+    assert!(boss_cleared(&sim, "respawner"), "precondition: defeated + cleared");
+
+    // The NPC replay does two things: clear the placement save record + reset the
+    // room features. Do both, then let it settle.
+    sim.world_mut()
+        .resource_mut::<SandboxSave>()
+        .data_mut()
+        .set_boss("respawner", PersistedEncounterState::Untouched);
+    sim.world_mut().write_message(ResetRoomFeaturesEvent {
+        reason: RoomResetReason::Manual,
+    });
+    for _ in 0..15 {
+        sim.step(AgentAction::default());
+    }
+
+    assert_eq!(
+        boss_alive(sim.world_mut(), "respawner"),
+        Some(true),
+        "the boss must revive after a room reset, not stay dead from the last attempt"
+    );
+    assert_ne!(
+        boss_phase(sim.world_mut(), "respawner"),
+        Some(BossEncounterPhase::Death),
+        "and not be stuck in the Death phase"
+    );
+    assert!(
+        !boss_cleared(&sim, "respawner"),
+        "and not be re-marked cleared on the revive"
     );
 }
 

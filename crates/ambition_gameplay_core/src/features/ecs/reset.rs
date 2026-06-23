@@ -56,6 +56,12 @@ pub fn reset_ecs_room_features(
     // the actor/boss `&mut BodyKinematics` queries above.
     enemy_projectiles: Query<Entity, With<crate::enemy_projectile::EnemyProjectile>>,
     mut combat_slots: ResMut<crate::combat::slots::CombatSlotsRes>,
+    // R5 encounter orchestration from the previous attempt: the encounter entity
+    // (+ its finished `EncounterScript`), in-flight falling hazards, and the lure
+    // override on a boss. `Entity`-only fetches → no aliasing with the queries above.
+    encounter_entities: Query<Entity, With<crate::boss_encounter::EncounterDef>>,
+    falling_hazards: Query<Entity, With<crate::boss_encounter::FallingHazard>>,
+    commanded_bosses: Query<Entity, With<crate::boss_encounter::CommandedMove>>,
 ) {
     if reset_requests.read().next().is_none() {
         return;
@@ -130,6 +136,15 @@ pub fn reset_ecs_room_features(
         feature.kin.facing = 1.0;
         feature.status.health.reset();
         feature.status.hit_flash = 0.0;
+        // The boss's live fight is ENTITY-LOCAL (`BossStatus.encounter` is the
+        // source of truth since the boss-entity-local refactor). Clearing it
+        // lets `update_boss_encounters` re-seed fresh state (Dormant → wake)
+        // next frame. WITHOUT this the boss keeps last attempt's `Death` phase
+        // and is re-killed by the death-resolution the instant it "respawns" —
+        // the in-place replay regression. (Pinned by
+        // `boss_revives_after_a_room_reset`.)
+        feature.status.encounter = None;
+        feature.status.encounter_phase = crate::boss_encounter::BossEncounterPhase::Dormant;
         // Brain-owned state: zero the per-actor `BossPatternState`
         // (cursor / clocks / cycle phase / last_phase) and the
         // `BossAttackState` mirror (live telegraph + active profile
@@ -160,6 +175,22 @@ pub fn reset_ecs_room_features(
     }
     for mut switch_on in &mut switches {
         switch_on.0 = false;
+    }
+    // Retire the previous attempt's encounter orchestration so the replay
+    // re-forms it fresh: the encounter entity (its `EncounterScript` cursor is
+    // already past its beats) is re-created by `sync_boss_encounter_entities` +
+    // `setup_cut_rope_encounter` once the boss re-wakes; any in-flight falling
+    // hazard + the lure override are dropped.
+    for entity in &encounter_entities {
+        commands.entity(entity).despawn();
+    }
+    for entity in &falling_hazards {
+        commands.entity(entity).despawn();
+    }
+    for entity in &commanded_bosses {
+        commands
+            .entity(entity)
+            .remove::<crate::boss_encounter::CommandedMove>();
     }
 }
 

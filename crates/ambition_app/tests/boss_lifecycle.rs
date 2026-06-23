@@ -21,7 +21,7 @@
 
 use ambition_app::{AgentAction, SandboxSim, TimestepMode};
 use ambition_gameplay_core::actor::BossBrain;
-use ambition_gameplay_core::boss_encounter::BossEncounterRegistry;
+use ambition_gameplay_core::combat::boss_clusters::{BossConfig, BossStatus};
 use ambition_gameplay_core::encounter::BossEncounterMusicRequest;
 use ambition_gameplay_core::features::BossRewardChest;
 use ambition_gameplay_core::persistence::save::SandboxSave;
@@ -50,16 +50,23 @@ fn spawn_mockingbird(sim: &mut SandboxSim, runtime_id: &str) {
     );
 }
 
-/// Drive the boss to death. **R3: repoint this to mutate the boss ENTITY
-/// (`BossStatus.health` = 0 + `encounter.phase = Death`) once the global map is
-/// deleted.** The assertions in each test are the stable contract.
+/// Drive the boss to death by mutating its ENTITY-LOCAL state (R3: the entity is
+/// the source of truth). `update_boss_encounters` then runs the death outro +
+/// records the consequences the tests assert.
 fn force_kill_boss(sim: &mut SandboxSim, runtime_id: &str) {
-    let mut reg = sim.world_mut().resource_mut::<BossEncounterRegistry>();
-    let state = reg
-        .encounters
-        .get_mut(runtime_id)
-        .expect("boss is registered before being killed");
-    let _ = state.force_death();
+    let world = sim.world_mut();
+    let mut q = world.query::<(&BossConfig, &mut BossStatus)>();
+    for (config, mut status) in q.iter_mut(world) {
+        if config.id == runtime_id {
+            status.health.current = 0;
+            status.alive = false;
+            if let Some(phase) = status.encounter.as_mut() {
+                let _ = phase.kill();
+            }
+            return;
+        }
+    }
+    panic!("boss {runtime_id} not found");
 }
 
 fn music_track(sim: &SandboxSim) -> Option<String> {

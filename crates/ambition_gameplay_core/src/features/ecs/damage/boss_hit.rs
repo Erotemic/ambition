@@ -1,4 +1,12 @@
-//! Applying a hit to a boss: routing damage into the encounter registry + phase.
+//! Applying a hit to a boss: mutating the boss ENTITY's HP + phase directly.
+//!
+//! R3 of the boss entity-local refactor flipped boss HP/phase authority onto
+//! the entity (`BossStatus.health` + `BossStatus.encounter: BossPhaseState`)
+//! and deleted the global `BossEncounterRegistry` live map. Player damage now
+//! mutates the entity in place via [`apply_entity_boss_damage`]; the death
+//! CONSEQUENCES that aren't immediate VFX (save Cleared + quest + music
+//! restore) are resolved by `update_boss_encounters` once the death outro
+//! elapses.
 
 use crate::engine_core::AabbExt;
 
@@ -9,21 +17,43 @@ use super::super::{ae, GameplayBanner, HitEvent, HitSource};
 // tests query `PickupFeature` directly. Both are test-only now that the drop
 // spawners live in `damage_drops`.
 use crate::audio::SfxMessage;
-use crate::boss_encounter::{record_boss_damage, BossEncounterRegistry};
-use crate::cutscene_trigger::CutsceneTriggerQueue;
-use crate::encounter::BossEncounterMusicRequest;
+use crate::combat::boss_clusters::BossStatus;
 use crate::world::physics::{DebrisBurstMessage, PhysicsDebrisCue};
 use ambition_vfx::vfx::{ParticleKind, VfxMessage};
 
 use super::*;
 
+/// Apply player damage to a boss ENTITY (R3: the entity is the source of truth).
+///
+/// Returns `(applied, killed)`: `applied` is false when an invulnerable phase
+/// (Intro / Transition / the `transition_lock` tell / Dormant / Death) swallows
+/// the hit, so the caller can suppress hit VFX; `killed` is true on the hit that
+/// drives HP to zero. On a kill the entity is marked dead and its phase forced
+/// to `Death` (the death outro + save/quest resolution run in
+/// `update_boss_encounters`).
+pub(crate) fn apply_entity_boss_damage(status: &mut BossStatus, amount: i32) -> (bool, bool) {
+    let invulnerable = status
+        .encounter
+        .as_ref()
+        .map_or(false, |phase| phase.boss_invulnerable());
+    if invulnerable || amount <= 0 || !status.alive {
+        return (false, false);
+    }
+    let killed = status.health.damage(amount);
+    if killed {
+        status.alive = false;
+        if let Some(phase) = status.encounter.as_mut() {
+            let _ = phase.kill();
+        }
+    }
+    (true, killed)
+}
+
 /// Apply one landed attacker-side hit to a single boss and emit its
-/// feedback. Routes damage through `record_boss_damage` (engine
-/// `BossEncounterState` is the source of truth) when the encounter
-/// resources are present, falling back to direct runtime mutation for
-/// test fixtures without the encounter machine. Cut-rope puzzle bosses
-/// give honest local impact feedback but take no HP damage from
-/// ordinary player hits.
+/// feedback. Mutates the boss ENTITY's HP + phase directly via
+/// [`apply_entity_boss_damage`] (the entity is the source of truth since R3).
+/// Cut-rope puzzle bosses give honest local impact feedback but take no HP
+/// damage from ordinary player hits.
 ///
 /// Returns `true` when the boss took the hit (so the caller drives the
 /// shared landed-hit feedback). Early-returns `false` for a dead boss,
@@ -40,9 +70,6 @@ pub(crate) fn apply_boss_hit(
     banner: &mut GameplayBanner,
     combat_banter: Option<&crate::features::banter::CombatBanterRegistry>,
     writers: &mut FeatureHitWriters<'_, '_>,
-    boss_registry: Option<&mut BossEncounterRegistry>,
-    music_request: Option<&mut BossEncounterMusicRequest>,
-    cutscene_queue: Option<&mut CutsceneTriggerQueue>,
 ) -> bool {
     if !boss.status.alive {
         return false;
@@ -107,43 +134,13 @@ pub(crate) fn apply_boss_hit(
         }
     }
     let amount = event.damage.max(1);
-    // Boss encounter authoritative state (OVERNIGHT-TODO #8).
-    // Apply damage to engine state via the registry; the
-    // outcome tells us whether the hit actually landed (false
-    // during invulnerable phases) and whether it killed the
-    // boss. Mirror the new HP back to the runtime so
-    // downstream readers (HUD health bar, bark count, etc.)
-    // see it on the same tick instead of one frame late.
-    //
-    // If any of the boss-encounter resources is missing (test
-    // fixtures that don't install the encounter machine) we
-    // fall back to the pre-inversion direct mutation so the
-    // runtime still takes damage and the test exercises the
-    // hit path.
-    let outcome = match (boss_registry, music_request, cutscene_queue) {
-        (Some(registry), Some(music), Some(cutscene)) => record_boss_damage(
-            registry,
-            music,
-            cutscene,
-            banner,
-            boss.config.id.as_str(),
-            amount,
-        ),
-        _ => None,
-    };
-    let (applied, killed) = match outcome {
-        Some(outcome) => {
-            boss.status.health.current = outcome.hp_remaining;
-            (outcome.applied, outcome.killed)
-        }
-        // No engine encounter / missing test resource. Fall
-        // back to the pre-inversion direct mutation so the
-        // runtime still takes damage.
-        None => {
-            let died = boss.status.health.damage(amount);
-            (true, died)
-        }
-    };
+    // R3: the boss ENTITY is the source of truth. Mutate its HP + phase in
+    // place. `applied` is false during invulnerable phases (Intro / Transition
+    // / the transition_lock tell) so we suppress the hit VFX; `killed` flags the
+    // lethal hit. The death CONSEQUENCES that aren't immediate feedback (save
+    // Cleared + quest + music restore) are resolved by `update_boss_encounters`
+    // once the death outro elapses.
+    let (applied, killed) = apply_entity_boss_damage(boss.status, amount);
     if !applied {
         // Invulnerable phase swallowed the damage. Skip the
         // hit VFX / GameplayEffect signal so the player sees
@@ -153,10 +150,6 @@ pub(crate) fn apply_boss_hit(
     }
     let impact = midpoint(event.volume.center(), hit_aabb.center());
     writers.vfx.write(VfxMessage::Impact { pos: impact });
-    // Boss HP is applied directly via `record_boss_damage`
-    // above, so the engine BossEncounterState is the source of
-    // truth; the old no-op GameplayEffect::DamageBoss bus hook
-    // has been removed.
     if killed {
         boss.status.alive = false;
         banner.show(format!("defeated boss {}", boss.config.name), 2.6);
@@ -224,3 +217,71 @@ pub(crate) fn apply_boss_hit(
 // generic breakable side-effect helpers shared by the typed-damage
 // path here and the kit's stand-to-break path.
 pub(crate) use crate::combat::breakables::{begin_ecs_breakable_respawn, emit_breakable_destroyed};
+
+#[cfg(test)]
+mod entity_damage_tests {
+    //! The entity-local boss damage contract (R3) — ports the old
+    //! `boss_encounter::damage` registry tests onto `apply_entity_boss_damage`.
+    use super::*;
+    use crate::actor::Health;
+    use crate::boss_encounter::{BossEncounterPhase, BossPhaseState};
+
+    fn boss(hp: i32, phase: BossEncounterPhase) -> BossStatus {
+        let mut p = BossPhaseState::new(Vec::new());
+        p.phase = phase;
+        let mut status = BossStatus {
+            health: Health::new(hp),
+            alive: true,
+            hit_flash: 0.0,
+            encounter_phase: phase,
+            sprite_metrics: None,
+            encounter: Some(p),
+        };
+        status.health.current = hp;
+        status
+    }
+
+    #[test]
+    fn damage_decreases_hp_in_a_vulnerable_phase() {
+        let mut s = boss(10, BossEncounterPhase::Phase1);
+        let (applied, killed) = apply_entity_boss_damage(&mut s, 3);
+        assert!(applied);
+        assert!(!killed);
+        assert_eq!(s.health.current, 7);
+    }
+
+    #[test]
+    fn lethal_damage_kills_and_sets_death_phase() {
+        let mut s = boss(4, BossEncounterPhase::Phase1);
+        let (applied, killed) = apply_entity_boss_damage(&mut s, 10);
+        assert!(applied);
+        assert!(killed);
+        assert_eq!(s.health.current, 0);
+        assert!(!s.alive);
+        assert_eq!(
+            s.encounter.as_ref().unwrap().phase,
+            BossEncounterPhase::Death
+        );
+    }
+
+    #[test]
+    fn invulnerable_phase_swallows_damage() {
+        // Transition is invulnerable in the phase vocabulary.
+        let mut s = boss(10, BossEncounterPhase::Transition);
+        let (applied, killed) = apply_entity_boss_damage(&mut s, 5);
+        assert!(!applied);
+        assert!(!killed);
+        assert_eq!(s.health.current, 10);
+    }
+
+    #[test]
+    fn already_dead_boss_does_not_refire_killed() {
+        let mut s = boss(4, BossEncounterPhase::Phase1);
+        let _ = apply_entity_boss_damage(&mut s, 10); // kills → Death
+        let (applied, killed) = apply_entity_boss_damage(&mut s, 5);
+        // Death is invulnerable → the follow-up hit is swallowed, killed stays false.
+        assert!(!applied);
+        assert!(!killed);
+        assert_eq!(s.health.current, 0);
+    }
+}

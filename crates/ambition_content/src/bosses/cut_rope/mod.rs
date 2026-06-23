@@ -13,7 +13,7 @@ use bevy::sprite::Anchor;
 
 use ambition_gameplay_core::assets::game_assets::GameAssets;
 use ambition_gameplay_core::audio::SfxMessage;
-use ambition_gameplay_core::boss_encounter::{force_boss_death, BossEncounterRegistry};
+use ambition_gameplay_core::boss_encounter::BossEncounterRegistry;
 use ambition_gameplay_core::brain::ActorControl;
 use ambition_gameplay_core::brain::BossAttackState;
 use ambition_gameplay_core::character_sprites::{
@@ -136,38 +136,28 @@ pub fn emit_cut_rope_room_replay_after_dialogue_closes(
     replay_requests.write(CutRopeRoomReplayRequested);
 }
 
-/// Reset the Smirking Behemoth encounter state so the room can be replayed in-place.
+/// Reset the Smirking Behemoth encounter so the room can be replayed in-place.
 ///
-/// This deliberately does not move the player or mutate ECS feature entities directly. Callers
-/// should also trigger the normal room reset path, which emits `ResetRoomFeaturesEvent`; this
-/// helper only clears the boss encounter/save state that would otherwise keep the boss retired.
+/// R3: the boss's live state is entity-local, so the actual reset happens when
+/// the caller's `ResetRoomFeaturesEvent` despawns + respawns the boss (a fresh
+/// boss re-seeds clean Dormant state via `update_boss_encounters`). This helper
+/// only clears the *persisted* "cleared" record (so the respawned boss isn't
+/// pre-marked defeated), re-hides the victory NPC, and restores the intro music
+/// from the read-only profile catalog.
 pub fn reset_cut_rope_boss_attempt(
-    registry: &mut BossEncounterRegistry,
+    registry: &BossEncounterRegistry,
     save: Option<&mut ambition_gameplay_core::persistence::save::SandboxSave>,
     music_request: Option<&mut ambition_gameplay_core::encounter::BossEncounterMusicRequest>,
 ) {
-    let runtime_id = registry.runtime_ids.get(CUT_ROPE_BOSS_ID).cloned();
-    // Live encounter state is keyed per-entity by the boss runtime id, so resolve
-    // it through the archetype → runtime link rather than the archetype id.
-    let encounter_key = runtime_id
-        .clone()
-        .unwrap_or_else(|| CUT_ROPE_BOSS_ID.to_string());
-    let intro_track = registry.encounters.get_mut(&encounter_key).map(|state| {
-        state.reset_for_retry();
-        state.spec.music_intro.clone()
-    });
+    let intro_track = registry
+        .profile(CUT_ROPE_BOSS_ID)
+        .map(|profile| profile.encounter.music_intro.clone());
     if let Some(save) = save {
         let data = save.data_mut();
         data.set_boss(
             CUT_ROPE_BOSS_ID,
             ambition_gameplay_core::persistence::save_data::PersistedEncounterState::Untouched,
         );
-        if let Some(runtime_id) = runtime_id.as_deref() {
-            data.set_boss(
-                runtime_id,
-                ambition_gameplay_core::persistence::save_data::PersistedEncounterState::Untouched,
-            );
-        }
         // The NPC appears only after the victory beat. Replaying the room should
         // make the post-boss conversation available again only after the next kill.
         data.set_flag("smirking_behemoth_victory_npc_seen", false);

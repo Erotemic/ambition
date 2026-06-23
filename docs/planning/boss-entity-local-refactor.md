@@ -311,7 +311,7 @@ edits per stage, build once. `cargo`/test invocations use `-p ambition_app` (e.g
         (boss music flows through `BossEncounterMusicRequest` events; boss lock-walls don't read
         `active_phase`). They are an *authority* concern, so they fold into R3 alongside the writer
         flip rather than being a separate reader migration here.
-- [ ] **R3 — Flip WRITERS + delete the global live map (the big-bang; do in ONE commit).**
+- [x] **R3 — Flip WRITERS + delete the global live map (the big-bang). LANDED.**
       Player damage (`apply_boss_hit`) mutates the entity HP/phase directly (drop string routing).
       Cut-rope environmental kill becomes an `EncounterScript` `ForceKill(member)` effect. The
       encounter win-condition observes members. `BossStatus.encounter` (the entity copy) becomes the
@@ -357,6 +357,25 @@ edits per stage, build once. `cargo`/test invocations use `-p ambition_app` (e.g
         headless test coverage and can't be observed in this environment. Land R3 either (a) with new
         headless tests pinning each of those, or (b) blind in its own commit with an explicit
         "verify in-game" note (per Jon's blind-fix rule). Do NOT ship it silently as "done".
+      - **R3 EXECUTED (2026-06-23).** `BossStatus.health` + `BossStatus.encounter` are the source of
+        truth; the global `BossEncounterRegistry.{encounters,runtime_ids}` map + `ensure`/`link_runtime`/
+        `get`/`active_phase` + `boss_encounter::damage` (`record_boss_damage`/`force_boss_death`) +
+        `phase_runtime.rs`/`tick_boss_phases` are DELETED (registry = read-only `profiles` catalog).
+        `apply_boss_hit` → `apply_entity_boss_damage` (swallow if `BossPhaseState::boss_invulnerable`,
+        else `health.damage`, on kill `phase.kill()`). `update_boss_encounters` rewritten entity-based:
+        per boss it SEEDS state from the profile catalog once, applies save-Cleared, wakes, ticks the
+        `BossPhaseState`, bridges `BossPhaseEvent`→`publish_events`, resolves death (outro elapsed →
+        save Cleared + quest) and keeps the music lifetime + reward-chest sync. `BossPhaseState` gained
+        `boss_invulnerable` (delegates to the phase enum), death-outro timing (tick advances
+        `phase_elapsed` during Death), and `kill()`. `boss_phase_transition_feedback`, the boss HUD,
+        `sync_boss_encounter_phase`, reward placement (`encounter_rewards`, archetype-keyed anchors),
+        and cut-rope (arena drops `force_boss_death`→`phase.kill()`; victory + replay read the save, not
+        the map) all read/write the entity. Tests rewritten onto the entity contract (canary,
+        `entity_damage_tests`, `phase_feedback_tests`, `mockingbird_profile_registers_in_the_catalog`,
+        `boss_lifecycle` kill helper). **Green:** boss_lifecycle (2) + boss_contact_iframes (4) + 951
+        gameplay_core lib + 63 boss_encounter lib. **IN-GAME VERIFY (headless-blind):** real boss fight
+        feel, reward-chest spawn position, cut-rope anvil→victory NPC + in-place replay, adaptive-music
+        crossfade. The old `BossEncounterState` machine survives only as roster spec-validation tests.
       - **NET LANDED (2026-06-22, pre-R3, "test-first" per Jon):** new
         `crates/ambition_app/tests/boss_lifecycle.rs` pins the generic death CONTRACT —
         `boss_music_plays_during_the_fight` + `defeated_boss_is_recorded_cleared_drops_reward_and_clears_music`

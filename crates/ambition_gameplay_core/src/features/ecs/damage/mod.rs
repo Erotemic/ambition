@@ -32,9 +32,6 @@ use super::damage_predicates::target_is_ignored;
 #[cfg(test)]
 use super::PickupFeature;
 use crate::audio::SfxMessage;
-use crate::boss_encounter::BossEncounterRegistry;
-use crate::cutscene_trigger::CutsceneTriggerQueue;
-use crate::encounter::BossEncounterMusicRequest;
 use crate::features::ActorStimulus;
 use crate::world::physics::DebrisBurstMessage;
 use ambition_vfx::vfx::VfxMessage;
@@ -147,21 +144,10 @@ pub fn apply_feature_hit_events(
     mut writers: FeatureHitWriters,
     // OVERNIGHT-TODO #8 — boss encounter authoritative state. The
     // engine `BossEncounterState` is now the source of truth for boss
-    // HP; the sandbox `BossRuntime.health` is a one-way mirror updated
-    // by `update_boss_encounters`. `record_boss_damage` applies the
-    // damage delta to engine state and returns the outcome (post-hit
-    // HP + killed flag) so this system can drive death VFX / banner
-    // on the same tick the kill landed instead of one frame late.
-    //
-    // The boss-encounter resources are `Option<ResMut<…>>` so unit
-    // tests that exercise only the actor / breakable / pickup damage
-    // paths (e.g. projectile tests) don't have to install the boss
-    // encounter machine. When the resources are absent the boss
-    // damage branch falls back to the pre-inversion direct mutation
-    // path, so behavior is identical to the legacy code on tests.
-    mut boss_registry: Option<ResMut<BossEncounterRegistry>>,
-    mut music_request: Option<ResMut<BossEncounterMusicRequest>>,
-    mut cutscene_queue: Option<ResMut<CutsceneTriggerQueue>>,
+    // R3: boss damage mutates the boss ENTITY directly (`apply_boss_hit` →
+    // `apply_entity_boss_damage`), so this system no longer needs the boss
+    // encounter resources — death save/quest/music resolution lives in
+    // `update_boss_encounters`.
 ) {
     for event in hit_events.read().cloned() {
         // PogoBounce hits target only the breakable whose AABB
@@ -266,9 +252,6 @@ pub fn apply_feature_hit_events(
                 &mut banner,
                 combat_banter.as_deref(),
                 &mut writers,
-                boss_registry.as_deref_mut(),
-                music_request.as_deref_mut(),
-                cutscene_queue.as_deref_mut(),
             ) {
                 boss_hit_this_event = true;
                 landed_keys.push(format!("boss:{}", id.as_str()));

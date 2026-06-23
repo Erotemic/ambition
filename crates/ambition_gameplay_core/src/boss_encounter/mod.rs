@@ -23,11 +23,9 @@
 
 pub mod attack_geometry;
 pub mod behavior;
-mod damage;
 mod encounter_entity;
 mod events;
 mod ids;
-mod phase_runtime;
 mod profile;
 mod registry;
 mod rewards;
@@ -39,9 +37,6 @@ mod roster;
 #[cfg(test)]
 mod tests;
 
-#[allow(unused_imports)] // Future callers of `record_boss_damage` will name the outcome type.
-pub use damage::BossDamageOutcome;
-pub use damage::{force_boss_death, record_boss_damage};
 pub use ids::encounter_id_from_name;
 // `MOCKINGBIRD_ENCOUNTER_ID` is no longer re-exported — the dialog
 // redirect that read it moved to the data-driven
@@ -56,7 +51,6 @@ pub use encounter_entity::{
     sync_boss_encounter_entities, update_encounter_progress, EncounterDef, EncounterProgress,
     EncounterWin, MemberProgress,
 };
-pub use phase_runtime::tick_boss_phases;
 pub use profile::{default_boss_profiles, BossProfile, BossRewardProfile};
 pub use registry::BossEncounterRegistry;
 pub use roster::BossSpecRoster;

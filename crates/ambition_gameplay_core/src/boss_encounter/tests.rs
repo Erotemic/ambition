@@ -52,19 +52,16 @@ fn encounter_id_from_name_drops_non_ascii() {
     assert_eq!(encounter_id_from_name("Ω-omega"), "omega");
 }
 
-// Verify the mockingbird reward profile registers and links correctly
-// without touching live feature entities — purely checking the registry shape.
+// Verify the mockingbird reward profile registers into the read-only data
+// catalog — purely checking the registry shape (R3 deleted the live map +
+// runtime-id links; the boss's live state is entity-local now).
 #[test]
-fn mockingbird_profile_registers_and_links() {
+fn mockingbird_profile_registers_in_the_catalog() {
     let mut registry = BossEncounterRegistry::default();
     registry.ensure_profile(BossProfile::from_id("mockingbird").expect("mockingbird is authored"));
-    registry.link_runtime(MOCKINGBIRD_ENCOUNTER_ID, "MockingbirdSpawn-0");
     assert!(registry.profiles.contains_key(MOCKINGBIRD_ENCOUNTER_ID));
     assert_eq!(
-        registry
-            .runtime_ids
-            .get(MOCKINGBIRD_ENCOUNTER_ID)
-            .map(|s| s.as_str()),
-        Some("MockingbirdSpawn-0")
+        registry.profile(MOCKINGBIRD_ENCOUNTER_ID).map(|p| p.id.as_str()),
+        Some(MOCKINGBIRD_ENCOUNTER_ID)
     );
 }

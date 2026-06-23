@@ -269,7 +269,7 @@ pub fn apply_cut_rope_room_replay_request_system(
     feel_tuning: Res<SandboxFeelTuning>,
     mut sim_state: ResMut<SandboxSimState>,
     mut clock: ResMut<ambition_gameplay_core::time::clock_state::ClockState>,
-    mut boss_registry: ResMut<ambition_gameplay_core::boss_encounter::BossEncounterRegistry>,
+    boss_registry: Res<ambition_gameplay_core::boss_encounter::BossEncounterRegistry>,
     mut save: Option<ResMut<ambition_gameplay_core::persistence::save::SandboxSave>>,
     mut boss_music: Option<ResMut<ambition_gameplay_core::encounter::BossEncounterMusicRequest>>,
     mut reset_room_features: MessageWriter<features::ResetRoomFeaturesEvent>,
@@ -292,7 +292,7 @@ pub fn apply_cut_rope_room_replay_request_system(
         return;
     }
     ambition_content::bosses::reset_cut_rope_boss_attempt(
-        &mut *boss_registry,
+        &boss_registry,
         save.as_deref_mut(),
         boss_music.as_deref_mut(),
     );

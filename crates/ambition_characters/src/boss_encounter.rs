@@ -502,13 +502,28 @@ impl BossPhaseState {
     }
 
     /// Whether the boss currently rejects player damage. True during the
-    /// `transition_lock` tell beat and while `Dormant` / `Death`.
+    /// `transition_lock` tell beat, plus the phases the vocabulary marks
+    /// invulnerable (`Dormant` / `Intro` / `Transition` / `Death`) — so the
+    /// intro title-card + the legacy transition beat stay invulnerable.
     pub fn boss_invulnerable(&self) -> bool {
-        self.transition_lock > 0.0
-            || matches!(
-                self.phase,
-                BossEncounterPhase::Dormant | BossEncounterPhase::Death
-            )
+        self.transition_lock > 0.0 || self.phase.boss_invulnerable()
+    }
+
+    /// True once a dead boss's death outro has elapsed `death_seconds` — the
+    /// caller (the death-resolution system) reads this to write the save +
+    /// quest event. `phase_elapsed` keeps advancing during `Death` (see
+    /// [`tick`](Self::tick)) so this can fire.
+    pub fn death_outro_complete(&self, death_seconds: f32) -> bool {
+        matches!(self.phase, BossEncounterPhase::Death) && self.phase_elapsed >= death_seconds
+    }
+
+    /// Force the boss straight to `Death` (environmental kills / lethal damage
+    /// bypassing the tell beat). Returns the phase event for the caller to
+    /// bridge.
+    pub fn kill(&mut self) -> Vec<BossPhaseEvent> {
+        self.transition_lock = 0.0;
+        self.pending = None;
+        self.enter(BossEncounterPhase::Death)
     }
 
     /// Wake the boss: `Dormant → start_phase`. No-op if already awake.
@@ -523,13 +538,15 @@ impl BossPhaseState {
     /// (from `BossStatus.health`). Returns the phase events to react to.
     pub fn tick(&mut self, dt: f32, hp_fraction: f32) -> Vec<BossPhaseEvent> {
         let dt = dt.max(0.0);
-        if matches!(
-            self.phase,
-            BossEncounterPhase::Dormant | BossEncounterPhase::Death
-        ) {
+        if matches!(self.phase, BossEncounterPhase::Dormant) {
             return Vec::new();
         }
         self.phase_elapsed += dt;
+        // Death advances its outro timer (for `death_outro_complete`) but fires
+        // no further triggers — it is terminal.
+        if matches!(self.phase, BossEncounterPhase::Death) {
+            return Vec::new();
+        }
         // Resolve an in-flight tell beat first; stay invulnerable + ignore
         // fresh triggers until it expires.
         if self.transition_lock > 0.0 {
@@ -584,27 +601,6 @@ impl BossPhaseState {
             Some((to, lock)) => self.fire(to, lock),
             None => Vec::new(),
         }
-    }
-
-    /// Mirror a registry [`BossEncounterState`] onto the entity copy. Stage R1
-    /// keeps the global map authoritative and re-derives this each frame; the
-    /// mirror is deleted in R3 when the entity copy becomes the source of
-    /// truth.
-    pub fn mirror_from(enc: &BossEncounterState) -> Self {
-        let mut state = Self::from_spec(&enc.spec);
-        state.phase = enc.phase;
-        state.phase_elapsed = enc.phase_elapsed;
-        state.pending = None;
-        // Reflect the registry's invulnerable beats as a `transition_lock` so
-        // the entity copy reads consistently during Intro / Transition.
-        state.transition_lock = match enc.phase {
-            BossEncounterPhase::Intro => (enc.spec.intro_seconds - enc.phase_elapsed).max(0.0),
-            BossEncounterPhase::Transition => {
-                (enc.spec.transition_seconds - enc.phase_elapsed).max(0.0)
-            }
-            _ => 0.0,
-        };
-        state
     }
 
     fn fire(&mut self, to: BossEncounterPhase, lock: f32) -> Vec<BossPhaseEvent> {

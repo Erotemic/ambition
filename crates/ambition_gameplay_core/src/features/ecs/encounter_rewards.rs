@@ -124,12 +124,11 @@ pub fn sync_boss_reward_chests_ecs(
         ) {
             continue;
         }
-        let runtime_id = registry
-            .runtime_ids
-            .get(encounter_id)
-            .cloned()
-            .unwrap_or_else(|| encounter_id.clone());
-        let Some((_, boss_spawn)) = boss_anchors.iter().find(|(id, _)| id == &runtime_id) else {
+        // `boss_anchors` are keyed by archetype id (matching the profile catalog
+        // + the save record). R3 deleted the `runtime_ids` indirection — the
+        // boss's entity-local state is the authority, and `update_boss_encounters`
+        // hands us the anchor by archetype.
+        let Some((_, boss_spawn)) = boss_anchors.iter().find(|(id, _)| id == encounter_id) else {
             continue;
         };
         let chest_id = format!("encounter_chest_{encounter_id}");

@@ -25,9 +25,7 @@
 
 use ambition_app::{AgentAction, SandboxSim, TimestepMode};
 use ambition_gameplay_core::actor::BossBrain;
-use ambition_gameplay_core::boss_encounter::{
-    BossEncounterPhase, BossEncounterRegistry, EncounterDef, EncounterProgress,
-};
+use ambition_gameplay_core::boss_encounter::{BossEncounterPhase, EncounterDef, EncounterProgress};
 use ambition_gameplay_core::combat::boss_clusters::{BossConfig, BossStatus};
 use ambition_gameplay_core::combat::{HitEvent, HitSource};
 use ambition_gameplay_core::engine_core::{self as ae, AabbExt};
@@ -500,16 +498,19 @@ fn face_tanking_player_swings_back_and_is_recoil_locked() {
     );
 }
 
-/// Boss-encounter refactor canary (Stage 1): live encounter state is keyed
-/// per-ENTITY (by the boss's unique runtime id), not per-archetype.
+/// Boss-encounter refactor canary: live HP/phase state is ENTITY-LOCAL
+/// (`BossStatus.health` + `BossStatus.encounter`), not a shared global map.
 ///
-/// Two of the SAME boss archetype must get independent HP / phase / death —
-/// the property a gauntlet or twin-boss room needs. Before this change both
-/// linked to a single `encounters["mockingbird"]` state and shared one HP pool;
-/// damaging one would drain the other. See
+/// Two of the SAME boss archetype must get independent HP / phase / death — the
+/// property a gauntlet or twin-boss room needs. Before the refactor both linked
+/// to a single `encounters["mockingbird"]` state and shared one HP pool;
+/// damaging one would drain the other. After R3 the global map is gone, so this
+/// reads the per-entity `BossStatus`. See
 /// `docs/planning/boss-entity-local-refactor.md`.
 #[test]
 fn two_same_archetype_bosses_have_independent_encounter_state() {
+    use ambition_gameplay_core::combat::boss_clusters::{BossConfig, BossStatus};
+
     let mut sim = SandboxSim::new_with_timestep(TimestepMode::fixed_60hz())
         .expect("sandbox sim builds");
 
@@ -533,38 +534,65 @@ fn two_same_archetype_bosses_have_independent_encounter_state() {
             script_id: "mockingbird".to_string(),
         },
     );
-    // A few frames so `update_boss_encounters` registers each boss per-entity.
+    // A few frames so `update_boss_encounters` seeds each boss's entity-local
+    // encounter state from the profile.
     for _ in 0..3 {
         sim.step(AgentAction::default());
     }
 
-    // Each boss gets its OWN encounter entry, keyed by its runtime id.
+    // Each boss carries its OWN entity-local state — independent objects.
     {
-        let reg = sim.world().resource::<BossEncounterRegistry>();
-        let keys: Vec<String> = reg.encounters.keys().cloned().collect();
+        let world = sim.world_mut();
+        let mut q = world.query::<(&BossConfig, &BossStatus)>();
+        let mut a_seeded = false;
+        let mut b_seeded = false;
+        for (config, status) in q.iter(world) {
+            match config.id.as_str() {
+                "mock_a" => a_seeded = status.encounter.is_some(),
+                "mock_b" => b_seeded = status.encounter.is_some(),
+                _ => {}
+            }
+        }
         assert!(
-            keys.iter().any(|k| k == "mock_a") && keys.iter().any(|k| k == "mock_b"),
-            "two same-archetype bosses must register independent per-entity encounter \
-             state; got keys {keys:?}"
+            a_seeded && b_seeded,
+            "both same-archetype bosses must carry independent entity-local state"
         );
     }
 
-    // Damage only boss A's encounter (skip its Intro invuln first). Boss B must
-    // be untouched — the gauntlet-correctness property.
+    // Damage only boss A (drop its HP + drive it to Phase1). Boss B must be
+    // untouched — the gauntlet-correctness property.
     {
-        let mut reg = sim.world_mut().resource_mut::<BossEncounterRegistry>();
-        let a = reg
-            .encounters
-            .get_mut("mock_a")
-            .expect("boss A has its own state");
-        a.phase = BossEncounterPhase::Phase1;
-        let _ = a.apply_player_damage(5);
+        let world = sim.world_mut();
+        let mut q = world.query::<(&BossConfig, &mut BossStatus)>();
+        for (config, mut status) in q.iter_mut(world) {
+            if config.id == "mock_a" {
+                status.health.current = 5;
+                if let Some(phase) = status.encounter.as_mut() {
+                    phase.phase = BossEncounterPhase::Phase1;
+                }
+            }
+        }
     }
+    // A frame to prove the damage to A is NOT re-seeded/mirrored away and does
+    // not leak into B.
+    sim.step(AgentAction::default());
 
-    let reg = sim.world().resource::<BossEncounterRegistry>();
-    let a_hp = reg.encounters.get("mock_a").expect("A").hp;
-    let b_hp = reg.encounters.get("mock_b").expect("B").hp;
-    let b_max = reg.encounters.get("mock_b").expect("B").spec.max_hp;
+    let world = sim.world_mut();
+    let mut q = world.query::<(&BossConfig, &BossStatus)>();
+    let mut a_hp = None;
+    let mut b_hp = None;
+    let mut b_max = None;
+    for (config, status) in q.iter(world) {
+        match config.id.as_str() {
+            "mock_a" => a_hp = Some(status.health.current),
+            "mock_b" => {
+                b_hp = Some(status.health.current);
+                b_max = Some(status.health.max);
+            }
+            _ => {}
+        }
+    }
+    let (a_hp, b_hp, b_max) = (a_hp.unwrap(), b_hp.unwrap(), b_max.unwrap());
     assert!(
         a_hp < b_hp,
         "damaging boss A must not lower boss B's HP (a={a_hp}, b={b_hp})"

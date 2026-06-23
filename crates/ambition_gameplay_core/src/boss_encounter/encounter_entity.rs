@@ -231,7 +231,7 @@ mod tests {
     fn progress_reflects_member_hp_and_phase() {
         let mut app = App::new();
         app.add_systems(Update, (sync_boss_encounter_entities, update_encounter_progress).chain());
-        app.world_mut().spawn(awake_boss("mockingbird", 40)).id();
+        app.world_mut().spawn(awake_boss("mockingbird", 40));
 
         app.update();
 

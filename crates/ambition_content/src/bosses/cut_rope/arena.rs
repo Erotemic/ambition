@@ -28,9 +28,6 @@ pub fn tick_cut_rope_boss_arena(
     mut hit_events: MessageReader<HitEvent>,
     mut reset_events: MessageReader<ResetRoomFeaturesEvent>,
     mut bosses: Query<(&CenteredAabb, BossClusterQueryData), With<FeatureSimEntity>>,
-    mut boss_registry: Option<ResMut<BossEncounterRegistry>>,
-    mut music_request: Option<ResMut<ambition_gameplay_core::encounter::BossEncounterMusicRequest>>,
-    mut cutscene_queue: Option<ResMut<ambition_render::cutscene::CutsceneTriggerQueue>>,
     mut banner: ResMut<GameplayBanner>,
     mut sfx: MessageWriter<SfxMessage>,
     mut vfx: MessageWriter<VfxMessage>,
@@ -160,19 +157,13 @@ pub fn tick_cut_rope_boss_arena(
         // The death animation should render as-authored. A lingering
         // hit-flash overlay reads as a white silhouette stuck over the body.
         feature.status.hit_flash = 0.0;
-
-        if let (Some(registry), Some(music), Some(cutscene)) = (
-            boss_registry.as_deref_mut(),
-            music_request.as_deref_mut(),
-            cutscene_queue.as_deref_mut(),
-        ) {
-            let _ = force_boss_death(
-                registry,
-                music,
-                cutscene,
-                &mut banner,
-                feature.config.id.as_str(),
-            );
+        // R3: the boss ENTITY is the source of truth — force its phase to Death
+        // directly (this environmental kill bypasses `environmental_kill_only`'s
+        // immunity to ordinary player hits). `update_boss_encounters` then runs
+        // the death outro + records Cleared + restores music, the same generic
+        // path a normally-damaged boss takes.
+        if let Some(phase) = feature.status.encounter.as_mut() {
+            let _ = phase.kill();
         }
 
         banner.show(

@@ -14,7 +14,6 @@ use super::*;
 pub fn spawn_cut_rope_victory_npc(
     mut commands: Commands,
     room_set: Res<RoomSet>,
-    registry: Res<BossEncounterRegistry>,
     save: Res<ambition_gameplay_core::persistence::save::SandboxSave>,
     existing: Query<&FeatureId, With<SmirkingBehemothVictoryNpc>>,
     bosses: Query<(&FeatureId, &CenteredAabb, BossClusterRef), With<FeatureSimEntity>>,
@@ -35,16 +34,10 @@ pub fn spawn_cut_rope_victory_npc(
         return;
     };
     let boss = boss_feature.as_boss_ref();
-    let encounter_death_complete =
-        registry
-            .encounters
-            .get(CUT_ROPE_BOSS_ID)
-            .is_some_and(|encounter| {
-                matches!(
-                    encounter.phase,
-                    ambition_gameplay_core::boss_encounter::BossEncounterPhase::Death
-                ) && encounter.death_complete()
-            });
+    // R3: the boss death is resolved entity-side. The NPC appears once the death
+    // outro has elapsed, which is exactly when `update_boss_encounters` writes the
+    // persisted "cleared" record — so gate on the save (the entity-resolved
+    // outcome), not the deleted global live map.
     let boss_persisted_cleared = {
         let data = save.data();
         matches!(
@@ -58,7 +51,7 @@ pub fn spawn_cut_rope_victory_npc(
             ambition_gameplay_core::persistence::save_data::PersistedEncounterState::Cleared
         )
     };
-    if !encounter_death_complete && !boss_persisted_cleared {
+    if !boss_persisted_cleared {
         return;
     }
     let boss_bottom_y = boss_aabb.center.y + boss_aabb.half_size.y;

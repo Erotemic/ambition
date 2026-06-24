@@ -106,7 +106,11 @@ def build(pose: str, palette: np.ndarray, eps_quant=None):
 
     # collect labelled regions (connected components per colour)
     regions = []  # (part, color, mask)
-    face_box, _ = pca_eyes.detect(crop)
+    face_box, eyes = pca_eyes.detect(crop)
+    # Eye count = view: front shows 2 eyes, profile 1, back 0. The cream chest
+    # has TWO pecs only when the chest faces us (front); in profile a single pec
+    # reads, and there is none from the back.
+    is_front_view = len(eyes) >= 2
     for ci in range(len(palette)):
         mask = (qi == ci).astype(np.uint8)
         if mask.sum() < 10:
@@ -165,12 +169,21 @@ def build(pose: str, palette: np.ndarray, eps_quant=None):
                           "area": float(union.sum()), "points": poly.astype(int).tolist()})
             continue
         if part in DARK_STRUCTURAL:
-            # the helmet must not run past the face into the neck (a tall tower);
-            # clip it to just below the detected face bottom.
+            # the helmet must TRACE the head, not engulf the whole dark upper
+            # figure. Bound its mask to the tight head box (`_in_head_tight`):
+            # just past the face sides in x, from ~2 face-heights above down to
+            # just below the face bottom — so it can't tower into the neck/torso
+            # or balloon out behind the head into a giant blob.
             if part == "helmet" and face_box is not None:
-                fy1, fhh = face_box[3], face_box[3] - face_box[1]
-                union = union.copy()
-                union[int(fy1 + 0.25 * fhh):, :] = 0
+                fx0, fy0, fx1, fy1 = [int(v) for v in face_box]
+                fw, fhh = fx1 - fx0, fy1 - fy0
+                x0 = max(0, int(fx0 - 0.35 * fw))
+                x1 = min(w, int(fx1 + 0.35 * fw))
+                y0 = max(0, int(fy0 - 2.0 * fhh))
+                y1 = min(h, int(fy1 + 0.25 * fhh))
+                box = np.zeros_like(union)
+                box[y0:y1, x0:x1] = 1
+                union = union * box
             # close gaps, then take the LARGEST component as a clean (non-convex)
             # torso/helmet base -- convex hull engulfs the figure, jagged
             # fragments look noisy; the largest closed blob simplified is right.
@@ -193,8 +206,9 @@ def build(pose: str, palette: np.ndarray, eps_quant=None):
             inst = (lab == li) & (union > 0)
             if int(inst.sum()) >= 12:
                 instances.append(inst)
-        # pecs: one wide cream blob -> split L/R into two pecs
-        if part == "pec" and len(instances) == 1:
+        # pecs: one wide cream blob -> split L/R into two pecs, but ONLY when the
+        # chest faces us (front view). In profile a single pec reads as one.
+        if part == "pec" and len(instances) == 1 and is_front_view:
             inst = instances[0]
             xs = np.where(inst.any(0))[0]
             mid = int(xs.mean())

@@ -134,10 +134,18 @@ $PY $EXP/pca_eval.py --version 10_anchored
   swallowed the neck/torso" failure was avoided by anchoring to the face *bottom*
   (a cut line), not a head *box*. Also: belly-grid degenerate guard + `fill_gaps`
   no longer squares large green gaps (killed the side-view floating green block).
+- **DONE (per-view pec + helmet bound):** the cream chest splits into TWO pecs
+  ONLY in front view (eye-count == 2); profile reads ONE pec, back none — fixed
+  the "2 pecs in profile" bug. The `helmet` mask is now clamped to the tight head
+  box (`_in_head_tight` extent: face ±0.35fw in x, ~2fh above to 0.25fh below the
+  face) so it TRACES the head instead of ballooning into a giant dark blob in
+  profile. `top_side` IoU 0.894 -> 0.951, match 2% -> 31%. Front/back not
+  regressed (front still 2 pecs).
 - **Still needs work:** `label_part`'s CHEST/BELLY y-bands are STILL fixed
   fractions — on heavy crouch (attack/land) the green/cream there can mislabel.
-  Anchor those bands to the detected core/torso extent next. Per-view helmet
-  silhouette (roadmap #3) still open; side forehead/horn cluster reads busy.
+  Anchor those bands to the detected core/torso extent next. The helmet is now
+  bounded but its per-view SHAPE (roadmap #3) could be refined; side
+  forehead/horn cluster still reads busy.
 
 ## Roadmap to near-perfect (modulo noise + artistic discretion)
 

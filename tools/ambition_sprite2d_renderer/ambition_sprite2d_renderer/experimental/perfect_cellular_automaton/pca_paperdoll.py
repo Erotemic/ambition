@@ -115,6 +115,38 @@ def _square(pts: np.ndarray) -> np.ndarray:
     return cv2.boxPoints(((cx, cy), (s, s), ang)).astype(int)
 
 
+def _spike(pts: np.ndarray) -> np.ndarray:
+    """A horn is a TAPERED spike, not a fat min-enclosing triangle. Find the
+    region's long axis, take the narrow end as the TIP and the wide end as the
+    base; emit [tip, base_left, base_right] so it reads as a pointed horn even
+    when the green blob is chunky (side view)."""
+    p = pts.astype(np.float32)
+    c = p.mean(0)
+    d = p - c
+    cov = np.cov(d.T) if len(p) > 2 else np.eye(2)
+    evals, evecs = np.linalg.eigh(cov)
+    major = evecs[:, int(np.argmax(evals))]
+    minor = np.array([-major[1], major[0]], np.float32)
+    proj = d @ major
+    mproj = d @ minor
+    rng = max(1e-3, float(np.ptp(proj)))
+    hi = proj > proj.max() - 0.35 * rng       # one end
+    lo = proj < proj.min() + 0.35 * rng       # other end
+    spread_hi = float(np.ptp(mproj[hi])) if hi.any() else 0.0
+    spread_lo = float(np.ptp(mproj[lo])) if lo.any() else 0.0
+    if spread_hi <= spread_lo:                # narrow end is the tip
+        tip = p[hi][int(np.argmax(proj[hi]))]
+        base = lo
+    else:
+        tip = p[lo][int(np.argmin(proj[lo]))]
+        base = hi
+    if not base.any():
+        return _square(pts)[:3]
+    bl = p[base][int(np.argmin(mproj[base]))]
+    br = p[base][int(np.argmax(mproj[base]))]
+    return np.array([tip, bl, br]).astype(int)
+
+
 def _clean(pts: np.ndarray, convex=True, max_edges=12, min_edges=5) -> np.ndarray:
     """Simplify to a low-but-honest edge count. The reference is noisy but not
     THAT noisy -- most parts want 5-12 sides, not 4. Start gentle and only
@@ -277,8 +309,7 @@ def build(pose: str, palette: np.ndarray, eps_quant=None):
                     poly = np.array([[cx0 - s, cy0 - s], [cx0 + s, cy0 - s],
                                      [cx0 + s, cy0 + s], [cx0 - s, cy0 + s]])
             elif part == "horn":
-                ok, tri = cv2.minEnclosingTriangle(pts.astype(np.float32))
-                poly = tri.reshape(-1, 2).astype(int) if tri is not None else _clean(pts, False, 4)
+                poly = _spike(pts)
             elif part in CONVEX_SPOT:
                 poly = _clean(pts, convex=True, max_edges=8)   # irregular convex
             else:
@@ -382,7 +413,9 @@ def build(pose: str, palette: np.ndarray, eps_quant=None):
     green = np.isin(qi, green_idx).astype(np.uint8) if green_idx else np.zeros((h, w), np.uint8)
     cys, cxs = np.where(core_mask > 0)
     cells = []
-    if cys.size:
+    # the belly grid faces the camera only -- visible from the front, a little from
+    # the side, NEVER from the back. The back view has no face, so skip it there.
+    if face_box is not None and cys.size:
         cy0, cy1, cx0, cx1 = cys.min(), cys.max(), cxs.min(), cxs.max()
         ch = max(1, cy1 - cy0); cw = max(1, cx1 - cx0)
         belly_y0 = cy0 + 0.20 * ch          # belly = lower ~2/3 of the core

@@ -106,14 +106,18 @@ def render_views(pose: str, version: str):
 def make(pose: str, version: str, out: Path):
     hi, sp, used, palette_sp = render_views(pose, version)
     legend_w = 230
-    H = max(hi.height, sp.height) + 4
+    TITLE_H = 22
+    H = max(hi.height, sp.height) + 4 + TITLE_H
     panel = Image.new("RGB", (hi.width + sp.width + legend_w + 16, H), (250, 250, 250))
-    panel.paste(hi, (0, 0))
-    panel.paste(sp, (hi.width + 8, 0))
     d = ImageDraw.Draw(panel)
+    # pose-name title bar so each frame is identifiable at a glance
+    d.rectangle((0, 0, panel.width, TITLE_H), fill=(28, 28, 34))
+    d.text((6, 4), f"{pose}    [ high-level  |  sub-part ]", fill=(255, 255, 255), font=_font(14))
+    panel.paste(hi, (0, TITLE_H))
+    panel.paste(sp, (hi.width + 8, TITLE_H))
     x0 = hi.width + sp.width + 16
-    d.text((x0, 2), "HIGH-LEVEL:", fill=(0, 0, 0), font=_font(12))
-    y = 18
+    d.text((x0, TITLE_H + 2), "HIGH-LEVEL:", fill=(0, 0, 0), font=_font(12))
+    y = TITLE_H + 18
     for hl, c in HL_COLORS.items():
         d.rectangle((x0, y, x0 + 12, y + 12), fill=c); d.text((x0 + 16, y), hl, fill=(0, 0, 0), font=_font(11)); y += 15
     y += 8

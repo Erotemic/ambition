@@ -93,14 +93,33 @@ def build(pose: str, palette: np.ndarray, eps_quant=None):
         by_part.setdefault(part, []).append((ci, m, area))
     polys = []
     bridge = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (3, 3))
+    # dark structural parts: ONE clean convex polygon each (the bodysuit base the
+    # plates layer over), not jagged contours of fragments.
+    DARK_STRUCTURAL = {"helmet", "core", "pelvis", "bodysuit"}
+
+    def dom_color(masks_items, inst):
+        cols = [ci for ci, m, a in masks_items if (m & inst).sum() > 0]
+        return max(set(cols), key=cols.count) if cols else masks_items[0][0]
+
     for part, items in by_part.items():
         union = np.zeros((h, w), np.uint8)
-        for ci, m, area in items:
+        for ci, m, a in items:
             union |= m.astype(np.uint8)
-        if part in CELL_PARTS:
-            grouped = union              # keep cells separate (don't bridge)
-        else:
-            grouped = cv2.dilate(union, bridge)
+        if part in DARK_STRUCTURAL:
+            # close gaps, then take the LARGEST component as a clean (non-convex)
+            # torso/helmet base -- convex hull engulfs the figure, jagged
+            # fragments look noisy; the largest closed blob simplified is right.
+            closed = cv2.morphologyEx(union, cv2.MORPH_CLOSE,
+                                      cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (7, 7)))
+            cnts = cv2.findContours(closed, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)[0]
+            if not cnts:
+                continue
+            pts = max(cnts, key=cv2.contourArea).reshape(-1, 2)
+            poly = _clean(pts, convex=False, max_edges=8)
+            polys.append({"part": part, "color": int(dom_color(items, union > 0)),
+                          "area": float(union.sum()), "points": poly.astype(int).tolist()})
+            continue
+        grouped = union if part in CELL_PARTS else cv2.dilate(union, bridge)
         n, lab, stats, cents = cv2.connectedComponentsWithStats(grouped, 8)
         for li in range(1, n):
             inst = (lab == li) & (union > 0)
@@ -112,14 +131,17 @@ def build(pose: str, palette: np.ndarray, eps_quant=None):
             if not cnts:
                 continue
             pts = max(cnts, key=cv2.contourArea).reshape(-1, 2)
-            poly = _square(pts) if part in CELL_PARTS else _clean(pts, convex=False, max_edges=10)
+            if part in CELL_PARTS:
+                poly = _square(pts)
+            elif part == "horn":
+                ok, tri = cv2.minEnclosingTriangle(pts.astype(np.float32))
+                poly = tri.reshape(-1, 2).astype(int) if tri is not None else _clean(pts, False, 4)
+            else:
+                poly = _clean(pts, convex=False, max_edges=10)
             if len(poly) < 3:
                 continue
-            # dominant colour among this instance's source fragments
-            cols = [ci for ci, m, a in items if (m & inst).sum() > 0]
-            col = max(set(cols), key=cols.count) if cols else items[0][0]
-            polys.append({"part": part, "color": int(col), "area": float(inst_area),
-                          "points": poly.astype(int).tolist()})
+            polys.append({"part": part, "color": int(dom_color(items, inst)),
+                          "area": float(inst_area), "points": poly.astype(int).tolist()})
 
     # explicit detected eyes on top
     di = int(np.argmin(palette.sum(1)))

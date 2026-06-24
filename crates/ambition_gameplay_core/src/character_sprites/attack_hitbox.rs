@@ -113,6 +113,39 @@ pub fn player_attack_hitbox_world(
     manifest_attack_hitbox_world(record, animation, body_pos, collision, facing, render_size)
 }
 
+/// Resolve ANY catalog actor's melee attack hitbox for `animation` from its
+/// baked manifest — the actor-neutral generalization of
+/// [`player_attack_hitbox_world`] (the `TODO(non-player-centric)` above). The
+/// actor's sheet is resolved by its catalog `character_id` through the
+/// file-root registry (so robot-family characters — the player and the robot
+/// enemy both author `target: "robot"` — stay distinct), and pixel rects scale
+/// by the actor's rendered sprite size.
+///
+/// Returns `None` when the character has no catalog row, no baked sheet, or no
+/// authored hitbox for `animation`; the caller falls back to its shared
+/// hardcoded melee volume. This is the same sprite-metadata-then-fallback shape
+/// the player uses, so an enemy with an authored blade swings the box you see
+/// in `debug-hitboxes`, not a divergent hardcoded rectangle.
+pub fn actor_attack_hitbox_world(
+    character_id: &str,
+    animation: &str,
+    body_pos: ae::Vec2,
+    collision: ae::Vec2,
+    facing: f32,
+) -> Option<ae::Aabb> {
+    let file_root = crate::character_roster::EMBEDDED_CATALOG
+        .characters
+        .get(character_id)?
+        .manifest_target()?;
+    let record = file_root_registry().get(file_root)?;
+    // Scale by the actor's rendered sprite size (same derivation its collision
+    // came from); fall back to the collision box when no sheet spec resolves.
+    let render_size = super::assets::sprite_body_collision_for_character_id(character_id, collision)
+        .map(|b| b.render_size)
+        .unwrap_or(collision);
+    manifest_attack_hitbox_world(record, animation, body_pos, collision, facing, render_size)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -156,5 +189,36 @@ mod tests {
             aabb.max.x,
             body_left
         );
+    }
+
+    #[test]
+    fn actor_attack_hitbox_resolves_an_authored_enemy_blade() {
+        // The robot enemy (character_id "robot") authors an `attack_side` hitbox
+        // in its sheet, so the actor-neutral path resolves a real box instead of
+        // the hardcoded fallback — the unification payoff: an enemy swings the
+        // authored blade you see in `debug-hitboxes`, not magic numbers.
+        let aabb = actor_attack_hitbox_world(
+            "robot",
+            "attack_side",
+            ae::Vec2::new(0.0, 0.0),
+            collision(),
+            1.0,
+        );
+        assert!(
+            aabb.is_some(),
+            "robot/attack_side should resolve an authored manifest hitbox"
+        );
+    }
+
+    #[test]
+    fn actor_attack_hitbox_is_none_for_unknown_character() {
+        assert!(actor_attack_hitbox_world(
+            "definitely_not_a_character",
+            "attack_side",
+            ae::Vec2::ZERO,
+            collision(),
+            1.0,
+        )
+        .is_none());
     }
 }

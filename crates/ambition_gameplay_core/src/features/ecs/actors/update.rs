@@ -4,6 +4,20 @@
 use super::super::*;
 use super::*;
 
+/// Map an enemy's committed melee axis to the player-style directional attack
+/// animation row, so an enemy whose sheet authors an attack hitbox is read the
+/// same data-driven way the player is. Mirrors `enemy_attack_aabb_dir`'s axis
+/// branching (forward / up / down).
+fn enemy_melee_animation_for_axis(axis: crate::engine_core::Vec2) -> &'static str {
+    if axis.x.abs() >= axis.y.abs() {
+        "attack_side"
+    } else if axis.y < 0.0 {
+        "attack_up"
+    } else {
+        "attack_down"
+    }
+}
+
 /// Keep actor-like gameplay poses in sync with the authoritative [`CenteredAabb`].
 ///
 /// `ActorPose` is the gameplay action-origin read model used by the universal
@@ -385,7 +399,28 @@ pub fn update_ecs_actors(
                     // axis falls back to the actor's facing; up /
                     // down attacks place the hitbox above / below
                     // the body instead of in front.
-                    let attack_box = em.attack_aabb_dir(em.attack.pending_axis);
+                    // Prefer the actor's authored sprite-metadata attack hitbox
+                    // (the same data-driven path the player and bosses use),
+                    // falling back to the shared hardcoded melee volume when the
+                    // sheet authors none. Gated to upright gravity: the manifest
+                    // box is screen-axis, while the fallback rotates with a
+                    // wall-clinger's frame, so a clung enemy keeps its oriented box.
+                    let upright = down.x.abs() < 0.01 && down.y > 0.0;
+                    let attack_box = em
+                        .config
+                        .sprite_character_id
+                        .as_deref()
+                        .filter(|_| upright)
+                        .and_then(|cid| {
+                            crate::character_sprites::actor_attack_hitbox_world(
+                                cid,
+                                enemy_melee_animation_for_axis(em.attack.pending_axis),
+                                em.kin.pos,
+                                em.kin.size,
+                                em.kin.facing,
+                            )
+                        })
+                        .unwrap_or_else(|| em.attack_aabb_dir(em.attack.pending_axis));
                     let local_offset = attack_box.center() - em.kin.pos;
                     // A POSSESSED enemy swings for the player's side, so its
                     // hitbox damages its former allies (through the player-

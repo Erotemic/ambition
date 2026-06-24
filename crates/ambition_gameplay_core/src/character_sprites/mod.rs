@@ -44,7 +44,9 @@ pub use animator::CharacterAnimator;
     unused_imports,
     reason = "manifest_attack_hitbox_world is the reusable core; player_attack_hitbox_world is the live consumer (ambition_app advance_attack)."
 )]
-pub use attack_hitbox::{manifest_attack_hitbox_world, player_attack_hitbox_world};
+pub use attack_hitbox::{
+    actor_attack_hitbox_world, manifest_attack_hitbox_world, player_attack_hitbox_world,
+};
 pub use registry::{baked_sheet_registry, SheetRegistryPlugin};
 // SheetRecord and SheetRegistry are kept in the module's public surface
 // for future consumers that want per-frame anchors / body bbox queries;

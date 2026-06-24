@@ -652,8 +652,6 @@ pub(crate) fn draw_feature_debug(
     //   (e.g. clockwork_warden has body_damage=1). Drawn separately
     //   so the player can answer "why did I get hit by just touching
     //   the boss?" without source-diving.
-    // - **yellow** (`telegraph_color`, `telegraph_volumes`):
-    //   attack windup volumes (e.g. FloorSlam telegraph).
     // - **red** (`active_color`, `active_attack_volumes`): live
     //   strike volumes. These are also the source of `boss_attack_damage`.
     //
@@ -713,16 +711,6 @@ pub(crate) fn draw_feature_debug(
                 "hurtbox",
                 hurtbox_color,
                 LabelSpot::TopLeft,
-            );
-        }
-        for vol in ambition_gameplay_core::features::telegraph_volumes(&ctx) {
-            draw_aabb_styled(gizmos, world, vol, telegraph_color, developer_tools);
-            label_box(
-                labels,
-                vol,
-                "telegraph",
-                telegraph_color,
-                LabelSpot::TopRight,
             );
         }
         for vol in ambition_gameplay_core::features::active_attack_volumes(&ctx) {

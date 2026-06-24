@@ -125,21 +125,6 @@ pub fn active_attack_volumes(ctx: &BossVolumeContext) -> Vec<ae::Aabb> {
     volumes_for_profile(profile, ctx.pos, ctx.combat_size, ctx.behavior)
 }
 
-/// Telegraph volumes — drawn yellow in the debug overlay. Returns
-/// empty when nothing is currently telegraphing. Uses the same
-/// sprite-authored-then-fallback priority as
-/// [`active_attack_volumes`].
-pub fn telegraph_volumes(ctx: &BossVolumeContext) -> Vec<ae::Aabb> {
-    let Some(profile) = ctx.attack_state.telegraph_profile.as_ref() else {
-        return Vec::new();
-    };
-    if let Some(volumes) = sprite_authored_volumes(ctx, profile, ctx.attack_state.telegraph_elapsed)
-    {
-        return volumes;
-    }
-    volumes_for_profile(profile, ctx.pos, ctx.combat_size, ctx.behavior)
-}
-
 /// Pull sprite-author-declared hitbox rectangles for the given
 /// attack profile from `ctx.sprite_metrics.animations`. Returns
 /// `None` (not empty) when the sprite has no hitbox for this

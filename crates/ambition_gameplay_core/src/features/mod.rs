@@ -108,7 +108,7 @@ pub use crate::combat::{bus, util};
 
 pub use boss_attack_geometry::{
     active_attack_volumes, body_damage_aabb, boss_attack_damage, bounding_aabb, damageable_volumes,
-    telegraph_volumes, volumes_for_profile, world_space_body_aabbs_from_metrics,
+    volumes_for_profile, world_space_body_aabbs_from_metrics,
     world_space_body_aabbs_from_parts, BossAnimationFrameSample, BossVolumeContext,
 };
 pub use bosses::{

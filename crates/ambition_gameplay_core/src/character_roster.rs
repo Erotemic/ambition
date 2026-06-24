@@ -44,6 +44,20 @@ pub fn display_name_for_character_id(character_id: &str) -> Option<&'static str>
         .map(|entry| entry.display_name.as_str())
 }
 
+/// Reverse of [`display_name_for_character_id`]: resolve a display name back to
+/// its catalog `character_id`. This is the gameplay-side mirror of the
+/// presentation layer's name → sheet join (`npc_asset_for_name`), and is how a
+/// spawned actor earns a uniform sprite identity from the only thing every
+/// actor reliably carries — its display name. Returns `None` for a name with no
+/// catalog row (a generic enemy that renders from a kind-default sheet).
+pub fn character_id_for_display_name(display_name: &str) -> Option<&'static str> {
+    EMBEDDED_CATALOG
+        .characters
+        .iter()
+        .find(|(_, entry)| entry.display_name == display_name)
+        .map(|(id, _)| id.as_str())
+}
+
 /// Resolve a catalog `character_id` into its authored default [`Brain`], using
 /// `spawn_world_x` as the patrol/anchor center. This is the data-driven join
 /// that lets a placed NPC's behavior come from its catalog row (e.g. the lively
@@ -192,6 +206,32 @@ mod tests {
                 entry.display_name,
             );
         }
+    }
+
+    #[test]
+    fn character_id_round_trips_through_display_name() {
+        // The unified actor sprite identity is resolved from the display name
+        // (every actor carries one) back to the catalog id. Each entry whose
+        // display name is unique must round-trip id → name → id, so a spawned
+        // actor recovers the same catalog id presentation resolves its sheet by.
+        for (id, entry) in &EMBEDDED_CATALOG.characters {
+            // Skip ids that share a display name with another entry — the
+            // reverse lookup can only return one, and uniqueness isn't promised.
+            let shares_name = EMBEDDED_CATALOG
+                .characters
+                .iter()
+                .any(|(other_id, other)| other_id != id && other.display_name == entry.display_name);
+            if shares_name {
+                continue;
+            }
+            assert_eq!(
+                character_id_for_display_name(&entry.display_name),
+                Some(id.as_str()),
+                "'{}' should round-trip back to id '{id}'",
+                entry.display_name,
+            );
+        }
+        assert_eq!(character_id_for_display_name("Definitely Not A Character"), None);
     }
 
     /// Snapshot of every renderer-registered character_id at the

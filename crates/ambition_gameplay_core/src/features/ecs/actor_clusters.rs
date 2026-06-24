@@ -62,6 +62,15 @@ pub struct ActorConfig {
     /// by migrating a hostile NPC (keeps its own sprite sheet). `None`
     /// uses the default enemy sprite.
     pub sprite_override_npc_name: Option<String>,
+    /// Uniform gameplay-side sprite identity: the catalog `character_id` this
+    /// actor's sprite resolves to (via its display name, mirroring the
+    /// presentation `npc_asset_for_name` join). `Some` for catalog characters
+    /// (player, named NPCs/enemies, content actors); `None` for a generic
+    /// enemy that renders from a kind-default sheet. Lets gameplay resolve any
+    /// actor's `SheetRecord` / per-animation hit/hurt metrics — the same
+    /// sprite-metadata path the player and bosses use — without reaching into
+    /// the presentation registry. See [`CombatGeometry`].
+    pub sprite_character_id: Option<String>,
 }
 
 /// Optional patrol path the kinematic step advances each tick.
@@ -164,6 +173,12 @@ impl ActorClusterSeed {
         paths: &[(String, crate::actor::KinematicPath)],
     ) -> Self {
         let spec = spec_for_brain(&brain);
+        let name: String = name.into();
+        // Resolve this enemy's uniform sprite identity from its display name
+        // (the same name → sheet join presentation does). `None` for a generic
+        // enemy whose name isn't a catalog character.
+        let sprite_character_id =
+            crate::character_roster::character_id_for_display_name(&name).map(String::from);
         let motion = match &brain {
             crate::actor::EnemyBrain::Patrol {
                 path_id: Some(path_id),
@@ -201,12 +216,13 @@ impl ActorClusterSeed {
             attack: ActorAttackState::default(),
             config: ActorConfig {
                 id: id.into(),
-                name: name.into(),
+                name,
                 tuning: spec.tuning(),
                 brain_spec: spec.brain_spec(),
                 brain,
                 spawn: ActorSpawnState { pos, size },
                 sprite_override_npc_name: None,
+                sprite_character_id,
             },
             motion: ActorMotionPath(motion),
             caps: spec.combat_capabilities(),
@@ -332,6 +348,8 @@ impl ActorClusterSeed {
                     size: collision_size,
                 },
                 sprite_override_npc_name: None,
+                // Peaceful actors already resolved their catalog id above.
+                sprite_character_id: character_id.map(String::from),
             },
             motion: ActorMotionPath(motion),
             caps: crate::combat::CombatCapabilities::default(),

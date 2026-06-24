@@ -38,7 +38,7 @@ Z = {"bodysuit": 0, "horn": 0, "tail": 0,
      "chest_plate": 3, "belly_panel": 3, "forearm": 2, "shin": 2, "helmet": 5,
      "pec": 4, "belly_cell": 4, "knee": 2, "foot": 3, "hand": 3,
      "shoulder": 3, "shoulder_spot": 4, "neck": 5, "face": 6,
-     "forehead_cell": 7, "eye": 8, "other": 2}
+     "forehead_cell": 7, "eye": 8, "other": 2, "core_fill": 1}
 
 
 def _in_head_tight(cx, cy, fb):
@@ -165,6 +165,12 @@ def build(pose: str, palette: np.ndarray, eps_quant=None):
                           "area": float(union.sum()), "points": poly.astype(int).tolist()})
             continue
         if part in DARK_STRUCTURAL:
+            # the helmet must not run past the face into the neck (a tall tower);
+            # clip it to just below the detected face bottom.
+            if part == "helmet" and face_box is not None:
+                fy1, fhh = face_box[3], face_box[3] - face_box[1]
+                union = union.copy()
+                union[int(fy1 + 0.25 * fhh):, :] = 0
             # close gaps, then take the LARGEST component as a clean (non-convex)
             # torso/helmet base -- convex hull engulfs the figure, jagged
             # fragments look noisy; the largest closed blob simplified is right.
@@ -325,6 +331,38 @@ def build(pose: str, palette: np.ndarray, eps_quant=None):
 # accents read as flat colour with NO outline; everything else (the main arm /
 # torso / leg / head parts) gets a thick black line-art outline like the reference.
 ACCENTS = {"belly_cell", "forehead_cell", "shoulder_spot", "eye"}
+
+
+def fill_gaps(polys, qi, fg, palette, w, h, min_area=28):
+    """COMPLETENESS (run LAST, after the optimizer): any reference foreground not
+    covered by a candidate polygon becomes a polygon of its dominant reference
+    colour, labelled by position. The reference interior is pristine, so a gap is
+    a missing piece -- feet-darks, tail connectors, stray segments are never lost.
+    Conservative: opened to drop thin edge slivers, and only gaps >= min_area."""
+    rec = render(polys, palette, w, h, outline=False)
+    covered = ~(rec == 255).all(axis=2)
+    gap = (fg & ~covered).astype(np.uint8)
+    gap = cv2.morphologyEx(gap, cv2.MORPH_OPEN, cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (3, 3)))
+    gn, glab, gst, gce = cv2.connectedComponentsWithStats(gap, 8)
+    for li in range(1, gn):
+        if gst[li, cv2.CC_STAT_AREA] < min_area:
+            continue
+        m = (glab == li)
+        cnts = cv2.findContours(m.astype(np.uint8), cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)[0]
+        if not cnts:
+            continue
+        pts = max(cnts, key=cv2.contourArea).reshape(-1, 2)
+        col = int(np.bincount(qi[m], minlength=len(palette)).argmax())
+        cx, cy = gce[li]
+        part = PARTS.label_part(cx / w, cy / h, col, gst[li, cv2.CC_STAT_AREA] / (w * h))
+        if part in ("core", "belly_cell"):
+            part = "core_fill" if part == "core" else "belly_cell"
+        poly = _square(pts) if part in CELL_PARTS else _clean(pts, convex=False, max_edges=10)
+        if len(poly) >= 3:
+            polys.append({"part": part, "color": col, "area": float(gst[li, cv2.CC_STAT_AREA]),
+                          "points": poly.astype(int).tolist()})
+    polys.sort(key=lambda p: (Z.get(p["part"], 5), -p["area"]))
+    return polys
 
 
 def render(polys, palette, w, h, outline=False):

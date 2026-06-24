@@ -29,7 +29,7 @@ GROUP = {
     "forehead_cell": "head",
     "core": "torso", "bodysuit": "torso", "chest_plate": "torso", "pec": "torso",
     "belly_panel": "torso", "belly_cell": "torso", "tail": "torso", "other": "torso",
-    "neck": "torso",
+    "neck": "torso", "core_fill": "torso",
     "shoulder": "arm", "shoulder_spot": "arm", "upper_arm": "arm",
     "forearm": "arm", "hand": "arm",
     "thigh": "leg", "shin": "leg", "knee": "leg", "foot": "leg",

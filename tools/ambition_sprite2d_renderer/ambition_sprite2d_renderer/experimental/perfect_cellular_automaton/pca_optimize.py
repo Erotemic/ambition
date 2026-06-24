@@ -98,6 +98,12 @@ def optimize(pose: str, version: str, passes: int = 3, log=print):
                 improved = True
         if not improved:
             break
+    # FINAL completeness pass: fill any reference foreground the (nudged) parts
+    # still don't cover, so no piece is missing in the saved result.
+    crop = np.asarray(Image.open(P.REFS / f"{pose}.png").convert("RGBA"))
+    fg = crop[:, :, 3] >= 127
+    qi = quantize(crop[:, :, :3], fg, palette)
+    polys = PD.fill_gaps(polys, qi, fg, palette, w, h)
     d["polys"] = polys
     (vd / f"{pose}_polys.json").write_text(json.dumps(d))
     rec = PD.render(polys, palette, w, h)

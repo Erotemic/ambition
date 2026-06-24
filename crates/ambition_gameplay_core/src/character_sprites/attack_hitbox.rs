@@ -205,6 +205,18 @@ mod tests {
     }
 
     #[test]
+    fn player_attack_side_is_an_authored_convex_blade() {
+        // The robot's attack_side authors a poly (blade arc), so the player
+        // slash resolves a Convex volume — not a box.
+        let vol = player_attack_hitbox_world("attack_side", ae::Vec2::ZERO, collision(), 1.0)
+            .expect("attack_side authored");
+        assert!(
+            matches!(vol, ae::CombatVolume::Convex { .. }),
+            "expected a Convex blade, got {vol:?}"
+        );
+    }
+
+    #[test]
     fn actor_attack_hitbox_resolves_an_authored_enemy_blade() {
         // The robot enemy (character_id "robot") authors an `attack_side` hitbox
         // in its sheet, so the actor-neutral path resolves a real box instead of

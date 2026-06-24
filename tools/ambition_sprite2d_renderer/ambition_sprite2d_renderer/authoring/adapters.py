@@ -441,9 +441,26 @@ class RobotAdapter(BaseAdapter):
         def box(x: float, y: float, ww: float, hh: float) -> Dict[str, Any]:
             return {"bbox": (int(x), int(y), int(ww), int(hh)), "active_frames": [0]}
 
+        # Blade-arc convex polygon for the primary side slash — a forward
+        # crescent that conforms to the swing instead of a coarse box. Points in
+        # source-canvas pixels (forward = +x; runtime mirrors x by facing). The
+        # runtime reads this as a CombatVolume::Convex; the bbox stays as the
+        # fallback for consumers that don't support polygons.
+        attack_side = box(cx + w * 0.26, h * 0.12, w * 0.60, h * 0.72)
+        # Forward crescent — all points at/ahead of the bbox front edge (0.26w)
+        # so the slash stays disjoint in front of the body (Hollow-Knight nail),
+        # but tapers to a tip instead of filling a rectangle's corners.
+        attack_side["poly"] = [
+            (cx + w * 0.26, h * 0.14),
+            (cx + w * 0.62, h * 0.06),
+            (cx + w * 0.92, h * 0.42),
+            (cx + w * 0.62, h * 0.80),
+            (cx + w * 0.26, h * 0.70),
+        ]
+
         return {
-            # Forward forehand (the primary side attack).
-            "attack_side": box(cx + w * 0.26, h * 0.12, w * 0.60, h * 0.72),
+            # Forward forehand (the primary side attack) — blade-arc poly.
+            "attack_side": attack_side,
             # Overhead (up-tilt / aerial up): above the body.
             "attack_up": box(cx - w * 0.12, -h * 0.08, w * 0.58, h * 0.62),
             "air_up": box(cx - w * 0.22, -h * 0.10, w * 0.55, h * 0.62),

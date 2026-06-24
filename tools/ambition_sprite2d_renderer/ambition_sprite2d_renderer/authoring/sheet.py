@@ -358,6 +358,16 @@ def build_spritesheet(job: CharacterJob) -> Tuple[Image.Image, Dict[str, Any]]:
                             "w": int(cw),
                             "h": int(ch),
                         }
+                # Optional convex polygon — an effect-conforming hitbox shape
+                # (blade arc, cone). Translated source canvas -> cropped frame,
+                # NOT clamped (like the attack bbox, it can reach past the body).
+                # The runtime reads it as a CombatVolume::Convex.
+                poly = hitbox.get("poly")
+                if isinstance(poly, list) and len(poly) >= 3:
+                    hitbox_out["poly"] = [
+                        (float(px) - crop_min_x, float(py) - crop_min_y)
+                        for px, py in poly
+                    ]
                 if isinstance(hitbox.get("parts"), list):
                     cropped_parts = []
                     for part in hitbox["parts"]:

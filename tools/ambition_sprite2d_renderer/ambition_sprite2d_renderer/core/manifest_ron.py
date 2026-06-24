@@ -46,7 +46,7 @@ def _ron_optional_point(v) -> str:
 
 
 def _ron_animation_box(box) -> str:
-    """Serialize one animation's hit-or-hurt box (parts + bbox)."""
+    """Serialize one animation's hit-or-hurt box (parts + bbox + poly)."""
     inner = []
     parts = box.get("parts")
     if isinstance(parts, list) and parts:
@@ -60,6 +60,12 @@ def _ron_animation_box(box) -> str:
     bbox = box.get("bbox")
     if isinstance(bbox, dict):
         inner.append(f"bbox: {_ron_optional_rect(bbox)}")
+    # Optional convex polygon (sprite-frame pixel points) — an effect-conforming
+    # hitbox shape (blade arc, cone) the runtime reads as a CombatVolume::Convex.
+    poly = box.get("poly")
+    if isinstance(poly, list) and poly:
+        pts = ", ".join(f"({float(x)}, {float(y)})" for x, y in poly)
+        inner.append(f"poly: [{pts}]")
     return "(" + ", ".join(inner) + ")"
 
 

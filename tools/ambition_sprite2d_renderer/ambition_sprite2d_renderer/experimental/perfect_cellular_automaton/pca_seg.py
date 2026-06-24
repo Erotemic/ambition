@@ -53,15 +53,55 @@ def foreground_mask(im: Image.Image, tol: float = 30.0) -> np.ndarray:
     return ~background_mask(rgb, bg, tol)
 
 
-def replace_background_white(im: Image.Image, tol: float = 12.0) -> Image.Image:
-    """Reference with the backdrop flood-filled to white, keeping the dark
-    charcoal helmet/body. Uses a TIGHT tol so the charcoal (~34,34,34, ~14 from
-    the ~26,27,28 backdrop) is not admissible as background and survives."""
-    rgb = np.asarray(im.convert("RGB"))
+_PLATES = [(137, 188, 49), (164, 218, 42), (114, 78, 130), (240, 235, 180), (54, 88, 49)]
+
+
+def replace_background_white(im: Image.Image, tol: float = 12.0,
+                             grow: int = 3) -> Image.Image:
+    """Reference with the backdrop replaced by white, keeping the dark charcoal
+    helmet/body.
+
+    The charcoal body (~34,34,34) is only ~14 from the backdrop (~26,27,28), so:
+      1. flood-fill the border-connected background at a TIGHT tol (charcoal is
+         not admissible, so it blocks the fill and survives) -- solid, no holes,
+         but leaves a 1-2px anti-aliased halo fringe;
+      2. grow the white region by ``grow`` px into that fringe, but PROTECT
+         actual armour plates and the *thick* charcoal core (morphological
+         opening), so the halo is removed without eating the helmet or edges.
+    """
+    rgb = np.asarray(im.convert("RGB")).astype(np.int32)
     bg = estimate_bg(im)
-    mask = background_mask(rgb, bg, tol)
-    out = rgb.copy()
-    out[mask] = (255, 255, 255)
+    flooded = background_mask(np.asarray(im.convert("RGB")), bg, tol)
+
+    plate = np.zeros(rgb.shape[:2], dtype=bool)
+    for c in _PLATES:
+        plate |= np.sqrt(((rgb - np.array(c)) ** 2).sum(axis=2)) < 62
+    s = rgb.sum(axis=2)
+    neutral = (rgb.max(2) - rgb.min(2)) <= 22
+    charcoal = neutral & (s >= 88) & (s <= 150)
+    # thick charcoal only (opening) -> protect helmet/body, drop thin fringe
+    core = charcoal
+    for _ in range(2):
+        e = core.copy()
+        e[1:] &= core[:-1]; e[:-1] &= core[1:]
+        e[:, 1:] &= core[:, :-1]; e[:, :-1] &= core[:, 1:]
+        core = e
+    for _ in range(3):
+        d = core.copy()
+        d[1:] |= core[:-1]; d[:-1] |= core[1:]
+        d[:, 1:] |= core[:, :-1]; d[:, :-1] |= core[:, 1:]
+        core = d
+    protected = plate | core
+
+    grown = flooded.copy()
+    for _ in range(grow):
+        d = grown.copy()
+        d[1:] |= grown[:-1]; d[:-1] |= grown[1:]
+        d[:, 1:] |= grown[:, :-1]; d[:, :-1] |= grown[:, 1:]
+        grown = d & ~protected
+    white = flooded | grown
+    out = np.asarray(im.convert("RGB")).copy()
+    out[white] = (255, 255, 255)
     return Image.fromarray(out)
 
 

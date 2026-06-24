@@ -53,6 +53,18 @@ def foreground_mask(im: Image.Image, tol: float = 30.0) -> np.ndarray:
     return ~background_mask(rgb, bg, tol)
 
 
+def replace_background_white(im: Image.Image, tol: float = 12.0) -> Image.Image:
+    """Reference with the backdrop flood-filled to white, keeping the dark
+    charcoal helmet/body. Uses a TIGHT tol so the charcoal (~34,34,34, ~14 from
+    the ~26,27,28 backdrop) is not admissible as background and survives."""
+    rgb = np.asarray(im.convert("RGB"))
+    bg = estimate_bg(im)
+    mask = background_mask(rgb, bg, tol)
+    out = rgb.copy()
+    out[mask] = (255, 255, 255)
+    return Image.fromarray(out)
+
+
 def estimate_bg(im: Image.Image) -> np.ndarray:
     rgb = np.asarray(im.convert("RGB"))
     strips = np.concatenate([

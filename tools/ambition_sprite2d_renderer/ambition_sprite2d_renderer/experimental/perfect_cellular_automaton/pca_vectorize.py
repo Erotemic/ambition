@@ -57,8 +57,16 @@ def quantize(rgb: np.ndarray, fg: np.ndarray, palette: np.ndarray) -> np.ndarray
     return idx
 
 
+def _is_sliver(cnt, area, *, sliver_area=60, sliver_thin=40):
+    """A thin small region (high perimeter^2/area): line-art edge noise, not a
+    real part -- dropping it removes overcomplication; the neighbouring colour
+    polygons' sealed borders cover the gap."""
+    per = cv2.arcLength(cnt, True)
+    return area < sliver_area and (per * per / max(1.0, area)) > sliver_thin
+
+
 def vectorize_crop(path: Path, palette: np.ndarray, *, eps_frac: float = 0.01,
-                   min_area: int = 8):
+                   min_area: int = 8, drop_slivers=(0, 4)):
     a = np.asarray(Image.open(path).convert("RGBA"))
     rgb = a[:, :, :3]
     fg = a[:, :, 3] >= 127
@@ -68,12 +76,12 @@ def vectorize_crop(path: Path, palette: np.ndarray, *, eps_frac: float = 0.01,
         mask = (qi == ci).astype(np.uint8)
         if mask.sum() < min_area:
             continue
-        # RETR_CCOMP: outer contours + holes; keep only outer (level-0) here,
-        # holes are covered by other colours drawn on top.
         contours, hier = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
         for cnt in contours:
             area = cv2.contourArea(cnt)
             if area < min_area:
+                continue
+            if ci in drop_slivers and _is_sliver(cnt, area):
                 continue
             eps = eps_frac * cv2.arcLength(cnt, True)
             approx = cv2.approxPolyDP(cnt, eps, True).reshape(-1, 2)
@@ -84,6 +92,57 @@ def vectorize_crop(path: Path, palette: np.ndarray, *, eps_frac: float = 0.01,
     # draw order: large regions first, small detail on top
     polys.sort(key=lambda p: -p["area"])
     return polys, a.shape[1], a.shape[0]
+
+
+def vectorize_substrate(path: Path, palette: np.ndarray, *, eps_frac: float = 0.01,
+                        min_area: int = 8, dark_idx=(0, 4)):
+    """Reference-faithful, low-poly construction: a dark *substrate* = the whole
+    silhouette filled with the charcoal colour, then the coloured plates on top.
+
+    The dark helmet / torso core / line-art seams are all just exposed substrate
+    -- captured by ONE silhouette polygon instead of dozens of charcoal slivers.
+    Coloured plates are drawn slightly *inset* (eroded 1px) so a thin dark seam
+    shows between adjacent plates, reproducing the line-art."""
+    a = np.asarray(Image.open(path).convert("RGBA"))
+    rgb = a[:, :, :3]
+    fg = (a[:, :, 3] >= 127).astype(np.uint8)
+    qi = quantize(rgb, fg.astype(bool), palette)
+    polys = []
+    # substrate: silhouette (filled), charcoal colour
+    sil = cv2.morphologyEx(fg, cv2.MORPH_CLOSE,
+                           cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (3, 3)))
+    contours, _ = cv2.findContours(sil, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+    for cnt in contours:
+        area = cv2.contourArea(cnt)
+        if area < 40:
+            continue
+        approx = cv2.approxPolyDP(cnt, eps_frac * cv2.arcLength(cnt, True), True).reshape(-1, 2)
+        if len(approx) >= 3:
+            polys.append({"color": int(dark_idx[0]), "area": float(area),
+                          "points": approx.astype(int).tolist()})
+    for ci in range(len(palette)):
+        if ci in dark_idx:
+            continue  # dark is the substrate
+        mask = (qi == ci).astype(np.uint8)
+        if mask.sum() < min_area:
+            continue
+        # no erosion: plates fill their quantized region exactly; the substrate
+        # shows only where the reference is actually dark (real line-art) and at
+        # the corners DP rounds -- which reads as line-art, not a forced seam.
+        contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+        for cnt in contours:
+            area = cv2.contourArea(cnt)
+            if area < min_area:
+                continue
+            approx = cv2.approxPolyDP(cnt, eps_frac * cv2.arcLength(cnt, True), True).reshape(-1, 2)
+            if len(approx) < 3:
+                continue
+            polys.append({"color": ci, "area": float(area),
+                          "points": approx.astype(int).tolist()})
+    # substrate first, then plates largest->smallest
+    sub = [p for p in polys if p["color"] == dark_idx[0] and p["area"] > 0.2 * fg.sum()]
+    rest = sorted([p for p in polys if p not in sub], key=lambda p: -p["area"])
+    return sub + rest, a.shape[1], a.shape[0]
 
 
 def render_polys(polys, palette, w, h, bg=(255, 255, 255), seal=2):
@@ -109,10 +168,14 @@ def quantized_ref(path: Path, palette: np.ndarray):
     return out, fg
 
 
-def process(pose: str, palette: np.ndarray, vdir: Path, eps: float):
+def process(pose: str, palette: np.ndarray, vdir: Path, eps: float, substrate=False):
     path = REFS / f"{pose}.png"
-    polys, w, h = vectorize_crop(path, palette, eps_frac=eps)
-    rec = render_polys(polys, palette, w, h)
+    if substrate:
+        polys, w, h = vectorize_substrate(path, palette, eps_frac=eps)
+        rec = render_polys(polys, palette, w, h, seal=0)
+    else:
+        polys, w, h = vectorize_crop(path, palette, eps_frac=eps)
+        rec = render_polys(polys, palette, w, h)
     # candidate render (RGBA: white->transparent so eval masks fg correctly)
     rgba = np.dstack([rec, np.where((rec == 255).all(2), 0, 255).astype(np.uint8)])
     Image.fromarray(rgba, "RGBA").save(vdir / "cand" / f"{pose}.png")
@@ -128,6 +191,8 @@ def main():
     ap.add_argument("--k", type=int, default=7)
     ap.add_argument("--eps", type=float, default=0.006)
     ap.add_argument("--version", default="04_vectorized")
+    ap.add_argument("--substrate", action="store_true",
+                    help="dark-substrate + inset plates (low-poly line-art mode)")
     args = ap.parse_args()
     vdir = P.version_dir(args.version)
     palette = build_palette(args.k)
@@ -137,7 +202,7 @@ def main():
     todo = [args.pose] if args.pose else POSES
     print(f"{'pose':12s} {'polys':>6s} {'mean_edges':>10s}")
     for pose in todo:
-        r = process(pose, palette, vdir, args.eps)
+        r = process(pose, palette, vdir, args.eps, substrate=args.substrate)
         print(f"{pose:12s} {r['polys']:6d} {r['mean_edges']:10.1f}")
 
 

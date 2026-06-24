@@ -347,9 +347,18 @@ pub(crate) fn draw_player_debug(
     let on_ground = clusters.ground.on_ground;
     let on_wall = clusters.wall.on_wall;
     let wall_normal_x = clusters.wall.wall_normal_x;
-    // Oriented to the player's frame so the box matches the rotated sprite + the
-    // (now gravity-oriented) collision box; identity under vertical gravity.
-    let body = clusters.kinematics.aabb_oriented(gravity_dir);
+    // The player's body box through the SAME shared combat-geometry path the
+    // damage resolution, enemies, and bosses use (`collision_aabb`), so the
+    // overlay provably draws the gameplay hurtbox by construction rather than a
+    // parallel computation that could drift. Identity under vertical gravity.
+    let body = ambition_gameplay_core::features::collision_aabb(
+        &ambition_gameplay_core::features::SimpleActorGeometry {
+            pos: clusters.kinematics.pos,
+            size: clusters.kinematics.size,
+            facing: clusters.kinematics.facing,
+            frame_down: gravity_dir,
+        },
+    );
     if developer_tools.show_player_hitbox {
         draw_aabb_styled(gizmos, world, body, cyan(), developer_tools);
         label_box(labels, body, "player", cyan(), LabelSpot::TopLeft);

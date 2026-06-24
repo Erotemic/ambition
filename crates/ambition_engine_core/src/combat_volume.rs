@@ -129,6 +129,17 @@ impl CombatVolume {
             .unwrap_or(true)
     }
 
+    /// Convenience: overlap against a plain [`Aabb`] target (the common case —
+    /// most hurtboxes are still boxes).
+    pub fn intersects_aabb(&self, other: Aabb) -> bool {
+        match self {
+            // Fast path: box-vs-box keeps the exact strict semantics with no
+            // wrapping allocation.
+            CombatVolume::Aabb(a) => a.strict_intersects(other),
+            _ => self.intersects(&CombatVolume::Aabb(other)),
+        }
+    }
+
     /// Lower to a Parry shape + pose. AABB → translated `Cuboid`; OBB/convex →
     /// `ConvexPolygon` of world corner points with an identity pose (the
     /// rotation is baked into the points). A degenerate convex hull falls back

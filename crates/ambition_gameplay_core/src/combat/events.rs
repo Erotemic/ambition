@@ -360,9 +360,12 @@ pub enum HitTarget {
 #[derive(Message, Clone, Debug)]
 pub struct HitEvent {
     /// World-space volume the hit covers. For broadcast / orb-match
-    /// hits this is the broadcast / orb AABB; for resolved single-
-    /// victim hits this is the AABB at the impact location.
-    pub volume: ae::Aabb,
+    /// hits this is the broadcast / orb volume; for resolved single-
+    /// victim hits this is the volume at the impact location. A
+    /// [`CombatVolume`] so an attack can carry an effect-shaped (rotated
+    /// or convex) hitbox; the common case is still an axis-aligned box
+    /// (`Aabb` converts via `.into()`).
+    pub volume: ae::CombatVolume,
     /// Damage to apply.
     pub damage: i32,
     /// Who or what dealt the hit.

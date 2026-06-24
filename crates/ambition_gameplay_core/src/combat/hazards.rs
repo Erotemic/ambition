@@ -81,7 +81,7 @@ pub fn update_ecs_hazards(
                 pos,
             });
             hit_events.write(HitEvent {
-                volume: hazard.aabb(),
+                volume: hazard.aabb().into(),
                 damage: hazard.volume.damage.amount.max(1),
                 source: HitSource::Hazard,
                 attacker: None,

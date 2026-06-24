@@ -91,7 +91,7 @@ pub(crate) fn apply_boss_hit(
         );
         if let Some(hit_aabb) = damageable
             .iter()
-            .find(|part| event.volume.strict_intersects(**part))
+            .find(|part| event.volume.intersects_aabb(**part))
         {
             boss.status.hit_flash = 0.18;
             let impact = midpoint(event.volume.center(), hit_aabb.center());
@@ -111,7 +111,7 @@ pub(crate) fn apply_boss_hit(
     );
     let Some(hit_aabb) = damageable
         .iter()
-        .find(|part| event.volume.strict_intersects(**part))
+        .find(|part| event.volume.intersects_aabb(**part))
     else {
         return false;
     };

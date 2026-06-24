@@ -505,7 +505,7 @@ pub fn step_projectiles(
         match game.faction {
             ProjectileFaction::Player => {
                 let hit_event = HitEvent {
-                    volume: kin.aabb(),
+                    volume: kin.aabb().into(),
                     damage: game.damage.max(1),
                     source: HitSource::PlayerProjectile { kind: game.kind },
                     attacker: owner_entity,
@@ -570,7 +570,7 @@ pub fn step_projectiles(
                         (player_kin.pos.y + kin.pos.y) * 0.5,
                     );
                     feature_damage.write(HitEvent {
-                        volume: kin.aabb(),
+                        volume: kin.aabb().into(),
                         damage: game.damage.max(1),
                         source: HitSource::EnemyProjectile,
                         attacker: None,

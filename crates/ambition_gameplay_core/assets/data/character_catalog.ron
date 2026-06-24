@@ -371,6 +371,18 @@
             default_action_set: "striker_swipe",
             tags: ["aerial", "enemy", "custom", "cellular"],
         ),
+        "imperfect_cellular_automaton": (
+            sprite_tuning: Some((collision_scale: 1.12, frame_sample_inset: 1)),
+            display_name: "Imperfect Cellular Automaton",
+            spritesheet: "sprites/imperfect_cellular_automaton_spritesheet.png",
+            manifest: "sprites/imperfect_cellular_automaton_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Floating,
+            composition: None,
+            default_brain: "cellular_automaton_raider",
+            default_action_set: "striker_swipe",
+            tags: ["aerial", "enemy", "custom", "cellular"],
+        ),
 
         // ===== Pirate Heavy bruisers (slow + hard hitting).
         "npc_pirate_heavy_broadside_bess": (

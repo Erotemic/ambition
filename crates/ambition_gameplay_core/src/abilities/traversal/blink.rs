@@ -129,7 +129,7 @@ pub fn blink_system(
     // can blink *into* enemies to strike them (and the PlayerSlash source spares
     // the player). Composes nicely with a gravity well — blink in, sweep them up.
     hits.write(crate::features::HitEvent {
-        volume: ae::Aabb::new(target, ae::Vec2::splat(BLINK_SHOCKWAVE_HALF)),
+        volume: ae::Aabb::new(target, ae::Vec2::splat(BLINK_SHOCKWAVE_HALF)).into(),
         damage: BLINK_SHOCKWAVE_DAMAGE,
         source: crate::features::HitSource::PlayerSlash { knock_x: 0.0 },
         attacker: Some(player),
@@ -205,7 +205,7 @@ mod tests {
         let hits = &app.world().resource::<CapturedHits>().0;
         assert_eq!(hits.len(), 1, "one shockwave on arrival");
         // Centered at the arrival point (300 + BLINK_DISTANCE along facing).
-        let center_x = (hits[0].volume.min.x + hits[0].volume.max.x) * 0.5;
+        let center_x = (hits[0].volume.bounds().min.x + hits[0].volume.bounds().max.x) * 0.5;
         assert!(
             (center_x - (300.0 + BLINK_DISTANCE)).abs() < 1.0,
             "shockwave is at the arrival point",

@@ -105,7 +105,7 @@ pub fn mark_recall_system(
             // Recall-strike: a player-side shockwave at the mark, so you can mark a
             // spot, lure enemies onto it, and recall in to hit them (mirrors Blink).
             hits.write(crate::features::HitEvent {
-                volume: ae::Aabb::new(target, ae::Vec2::splat(RECALL_SHOCKWAVE_HALF)),
+                volume: ae::Aabb::new(target, ae::Vec2::splat(RECALL_SHOCKWAVE_HALF)).into(),
                 damage: RECALL_SHOCKWAVE_DAMAGE,
                 source: crate::features::HitSource::PlayerSlash { knock_x: 0.0 },
                 attacker: Some(player),
@@ -185,7 +185,7 @@ mod tests {
         app.update();
         let hits = &app.world().resource::<CapturedHits>().0;
         assert_eq!(hits.len(), 1, "one shockwave on recall");
-        let cx = (hits[0].volume.min.x + hits[0].volume.max.x) * 0.5;
+        let cx = (hits[0].volume.bounds().min.x + hits[0].volume.bounds().max.x) * 0.5;
         assert!((cx - 200.0).abs() < 1.0, "shockwave centered on the mark");
         assert!(
             matches!(

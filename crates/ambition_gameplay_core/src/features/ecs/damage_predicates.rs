@@ -11,7 +11,6 @@ use super::{
     ActorCombatState, ActorDisposition, BossConfig, BreakableFeature, CenteredAabb, FeatureId,
     FeatureSimEntity, HitEvent,
 };
-use crate::engine_core::AabbExt;
 
 /// True if `ignored_targets` contains the `"{prefix}:{id}"` disposition key,
 /// WITHOUT allocating that key. The old code `format!("enemy:{id}")`-ed a fresh
@@ -40,7 +39,7 @@ pub fn ecs_hit_event_hits_breakable(
             && !feature.broken()
             && feature.breakable.trigger.allows_hit()
             && !feature.breakable.pogo_refresh
-            && event.volume.strict_intersects(aabb.aabb())
+            && event.volume.intersects_aabb(aabb.aabb())
     })
 }
 
@@ -63,7 +62,7 @@ pub fn ecs_hit_event_hits_actor(
         };
         !target_is_ignored(&event.ignored_targets, prefix, id.as_str())
             && combat.alive
-            && event.volume.strict_intersects(aabb.aabb())
+            && event.volume.intersects_aabb(aabb.aabb())
     })
 }
 
@@ -108,6 +107,6 @@ pub fn ecs_hit_event_hits_boss(
                     .with_animation_frame(animation_frame),
             )
             .iter()
-            .any(|part| event.volume.strict_intersects(*part))
+            .any(|part| event.volume.intersects_aabb(*part))
         })
 }

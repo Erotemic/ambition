@@ -7,6 +7,7 @@ use super::super::damage_drops::{
 };
 use super::*;
 use crate::engine_core as ae;
+use crate::engine_core::AabbExt;
 use crate::features::ecs::enemy_component_snapshot;
 use crate::features::{HitMode, HitTarget};
 use bevy::prelude::{App, Update};
@@ -54,7 +55,7 @@ fn victim_side_enemy_body_hit_does_not_damage_features() {
     let actor_entity = spawn_hostile_actor(&mut app);
     let event_volume = ae::Aabb::new(ae::Vec2::ZERO, ae::Vec2::new(24.0, 40.0));
     app.world_mut().write_message(HitEvent {
-        volume: event_volume,
+        volume: event_volume.into(),
         damage: 1,
         source: HitSource::EnemyBody,
         attacker: None,
@@ -91,7 +92,7 @@ fn enemy_charge_crash_is_processed_as_enemy_damage() {
     let actor_entity = spawn_hostile_actor(&mut app);
     let event_volume = ae::Aabb::new(ae::Vec2::ZERO, ae::Vec2::new(24.0, 40.0));
     app.world_mut().write_message(HitEvent {
-        volume: event_volume,
+        volume: event_volume.into(),
         damage: 10,
         source: HitSource::EnemyChargeCrash,
         attacker: None,
@@ -142,7 +143,7 @@ fn player_slash_damages_and_can_kill_a_hostile_actor() {
 
     // First slash: 2 damage → 3 HP, still alive.
     app.world_mut().write_message(HitEvent {
-        volume: event_volume,
+        volume: event_volume.into(),
         damage: 2,
         source: HitSource::PlayerSlash { knock_x: 120.0 },
         attacker: None,
@@ -171,7 +172,7 @@ fn player_slash_damages_and_can_kill_a_hostile_actor() {
 
     // Lethal slash: 5 damage → dead through the normal kill path.
     app.world_mut().write_message(HitEvent {
-        volume: event_volume,
+        volume: event_volume.into(),
         damage: 5,
         source: HitSource::PlayerSlash { knock_x: 120.0 },
         attacker: None,
@@ -230,7 +231,7 @@ fn slash_clung_surface_walker(cling_breaks_on_hit: bool) -> (App, bevy::prelude:
         surf.surface_normal = ae::Vec2::new(1.0, 0.0);
     }
     app.world_mut().write_message(HitEvent {
-        volume: ae::Aabb::new(ae::Vec2::ZERO, ae::Vec2::new(24.0, 40.0)),
+        volume: ae::Aabb::new(ae::Vec2::ZERO, ae::Vec2::new(24.0, 40.0)).into(),
         damage: 1,
         source: HitSource::PlayerSlash { knock_x: 0.0 },
         attacker: None,
@@ -323,7 +324,7 @@ fn player_slash_shatters_a_breakable() {
         .broken());
 
     app.world_mut().write_message(HitEvent {
-        volume: aabb,
+        volume: aabb.into(),
         damage: 2,
         source: HitSource::PlayerSlash { knock_x: 0.0 },
         attacker: None,

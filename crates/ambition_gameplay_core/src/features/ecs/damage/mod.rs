@@ -10,7 +10,6 @@
 //! pre-check whether a queued hit will actually land before kicking off
 //! cues.
 
-use crate::engine_core::AabbExt;
 use bevy::ecs::system::SystemParam;
 use bevy::prelude::{
     Commands, Entity, MessageReader, MessageWriter, Query, Res, ResMut, With, Without,
@@ -157,7 +156,7 @@ pub fn apply_feature_hit_events(
                 if feature.broken() || !feature.breakable.pogo_refresh {
                     continue;
                 }
-                if !approximately_same_aabb(aabb.aabb(), event.volume) {
+                if !approximately_same_aabb(aabb.aabb(), event.volume.bounds()) {
                     continue;
                 }
                 let broke = feature.breakable.apply_damage(event.damage.max(1));
@@ -212,7 +211,7 @@ pub fn apply_feature_hit_events(
             if target_is_ignored(&event.ignored_targets, prefix, id.as_str()) {
                 continue;
             }
-            if !event.volume.strict_intersects(aabb.aabb()) {
+            if !event.volume.intersects_aabb(aabb.aabb()) {
                 continue;
             }
             let interactable = interaction.map(|i| &i.interactable);
@@ -297,7 +296,7 @@ pub fn apply_feature_hit_events(
             if feature.breakable.pogo_refresh {
                 continue;
             }
-            if !event.volume.strict_intersects(aabb.aabb()) {
+            if !event.volume.intersects_aabb(aabb.aabb()) {
                 continue;
             }
             let broke = feature.breakable.apply_damage(event.damage.max(1));

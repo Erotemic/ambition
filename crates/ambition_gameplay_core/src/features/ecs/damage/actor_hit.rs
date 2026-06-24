@@ -3,7 +3,6 @@
 //! Branches on `ActorDisposition`, not an actor type — every actor is the same
 //! unified cluster.
 
-use crate::engine_core::AabbExt;
 use bevy::prelude::Entity;
 
 use super::super::super::{util::midpoint, NPC_HOSTILE_STRIKE_THRESHOLD};

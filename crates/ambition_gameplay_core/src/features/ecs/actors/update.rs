@@ -352,7 +352,7 @@ pub fn update_ecs_actors(
                 let mut frame = frame;
                 if shark_crashed {
                     hit_events.write(HitEvent {
-                        volume: em.aabb(),
+                        volume: em.aabb().into(),
                         damage: em.status.health.current.max(1),
                         source: HitSource::EnemyChargeCrash,
                         attacker: None,

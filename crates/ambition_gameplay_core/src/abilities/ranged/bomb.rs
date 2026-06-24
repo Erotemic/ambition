@@ -68,7 +68,7 @@ pub fn tick_bomb_fuses(
         }
         // Detonate: a broadcast player-side hit over the blast AABB.
         hits.write(HitEvent {
-            volume: ae::Aabb::new(ground.pos, ae::Vec2::splat(BOMB_BLAST_HALF)),
+            volume: ae::Aabb::new(ground.pos, ae::Vec2::splat(BOMB_BLAST_HALF)).into(),
             damage: BOMB_DAMAGE,
             source: HitSource::PlayerSlash { knock_x: 0.0 },
             attacker: None,

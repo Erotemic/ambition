@@ -326,7 +326,7 @@ pub(crate) fn advance_attack(
                 pogo_landed = true;
                 sfx.write(SfxMessage::Pogo { pos: player_pos });
                 hit_events.write(features::HitEvent {
-                    volume: orb_aabb,
+                    volume: orb_aabb.into(),
                     damage: 1,
                     source: features::HitSource::PogoBounce,
                     // Player melee-driven pogo: this player's
@@ -360,7 +360,7 @@ pub(crate) fn advance_attack(
         // hit per target across the active window.
         let _ = first_active_frame;
         hit_events.write(features::HitEvent {
-            volume: attack,
+            volume: attack.into(),
             damage: slash_damage,
             source: features::HitSource::PlayerSlash { knock_x },
             // Slash hits attribute to the player whose attack

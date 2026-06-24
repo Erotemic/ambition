@@ -151,7 +151,7 @@ pub fn apply_hitbox_damage(
                         cue: PhysicsDebrisCue::Impact,
                     });
                     hit_events.write(HitEvent {
-                        volume: world_aabb,
+                        volume: world_aabb.into(),
                         damage: hitbox.damage.max(1),
                         source: source_kind,
                         // Enemy / boss hitboxes know their owner — the
@@ -189,7 +189,7 @@ pub fn apply_hitbox_damage(
                         pos: world_aabb.center(),
                     });
                     hit_events.write(HitEvent {
-                        volume: world_aabb,
+                        volume: world_aabb.into(),
                         damage: hitbox.damage.max(1),
                         source: HitSource::PlayerSlash { knock_x: 0.0 },
                         attacker: Some(hitbox.owner),

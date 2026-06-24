@@ -438,7 +438,7 @@ pub fn boss_attack_damage(
             .find(|volume| volume.strict_intersects(player_body))
         {
             return Some(HitEvent {
-                volume,
+                volume: volume.into(),
                 damage: ctx.behavior.attack_damage.max(1),
                 source: HitSource::BossAttack,
                 attacker: None,
@@ -480,7 +480,7 @@ pub fn boss_attack_damage(
         let body = body_damage_aabb(ctx.pos + combat_offset, ctx.combat_size);
         if body.strict_intersects(player_body) {
             return Some(HitEvent {
-                volume: body,
+                volume: body.into(),
                 damage: body_damage_amount,
                 source: HitSource::BossBody,
                 attacker: None,

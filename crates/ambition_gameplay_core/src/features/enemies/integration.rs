@@ -529,7 +529,7 @@ impl<'a> ActorMut<'a> {
         }
         let impact = midpoint(player_body.center(), body_damage.center());
         Some(HitEvent {
-            volume: body_damage,
+            volume: body_damage.into(),
             damage: self.config.tuning.damage_amount,
             source: HitSource::EnemyBody,
             attacker: None,

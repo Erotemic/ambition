@@ -199,7 +199,7 @@ def _add_shading(polys, qi, fg, palette, w, h):
         base = p["color"]
         counts = np.bincount(qi[m], minlength=len(palette))
         for ci in range(len(palette)):
-            if ci == base or counts[ci] < 0.16 * a:
+            if ci == base or counts[ci] < 0.10 * a:
                 continue
             if int(np.abs(palette[ci].astype(int) - palette[base].astype(int)).sum()) < 55:
                 continue
@@ -207,7 +207,7 @@ def _add_shading(polys, qi, fg, palette, w, h):
                                    cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (3, 3)))
             cnts = cv2.findContours(reg, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)[0]
             for c in cnts:
-                if cv2.contourArea(c) < max(24, 0.05 * a):
+                if cv2.contourArea(c) < max(20, 0.035 * a):
                     continue
                 poly = _clean(c.reshape(-1, 2), convex=False, max_edges=10)
                 if len(poly) >= 3:

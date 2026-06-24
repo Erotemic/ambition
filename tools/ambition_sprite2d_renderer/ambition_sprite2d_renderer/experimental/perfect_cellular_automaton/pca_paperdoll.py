@@ -83,7 +83,7 @@ def _cranium(mask: np.ndarray, h: int, face_box=None) -> np.ndarray | None:
     pinch). View-general -- needs no face, so it fixes the back view too -- with a
     hard head-height cap and an optional face-bottom cap as backstops."""
     m = cv2.morphologyEx(mask, cv2.MORPH_CLOSE,
-                         cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (5, 5)))
+                         cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (3, 3)))
     n, lab, stats, _ = cv2.connectedComponentsWithStats(m, 8)
     if n <= 1:
         return None
@@ -253,7 +253,7 @@ def build(pose: str, palette: np.ndarray, eps_quant=None):
                 if not cnts:
                     continue
                 pts = max(cnts, key=cv2.contourArea).reshape(-1, 2)
-                poly = _clean(pts, convex=False, max_edges=10)
+                poly = _clean(pts, convex=False, max_edges=14)
                 polys.append({"part": part, "color": int(dom_color(items, cm > 0)),
                               "area": float(cm.sum()), "points": poly.astype(int).tolist()})
                 continue

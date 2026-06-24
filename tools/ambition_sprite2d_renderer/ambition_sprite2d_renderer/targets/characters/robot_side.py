@@ -72,23 +72,24 @@ class SideRobotGenerator:
         **DEFAULT_ADVANCED_TIMINGS,
         **DEFAULT_TRAVERSAL_POLISH_TIMINGS,
         **DEFAULT_DIRECTIONAL_ATTACK_TIMINGS,
-        # Player primary melee. A snappy 2-frame swing: frame 0 is the
-        # blade already out (the hit comes immediately), frame 1 is a
-        # single wind-down / recovery frame. Authored feel — verify the
-        # active frame with `python -m ambition_sprite2d_renderer
-        # debug-hitboxes player_robot`. Enemies use `slash` (8f) via
-        # pick_enemy_anim, so this only changes the player's read.
-        "attack_side": {"frames": 2, "duration_ms": 60},
-        # The rest of the directional/aerial attacks share the snappy 2-frame
-        # feel: frame 0 is the committed strike, frame 1 the lone wind-down.
-        # Their poses use the same immediate strike=1-t / recover=t shaping.
-        "attack_up": {"frames": 2, "duration_ms": 60},
-        "attack_down": {"frames": 2, "duration_ms": 60},
-        "air_neutral": {"frames": 2, "duration_ms": 60},
-        "air_forward": {"frames": 2, "duration_ms": 60},
-        "air_back": {"frames": 2, "duration_ms": 60},
-        "air_down": {"frames": 2, "duration_ms": 60},
-        "air_up": {"frames": 2, "duration_ms": 60},
+        # Player primary melee. A 3-frame CONTINUOUS SWEEP: the body holds the
+        # committed lunge and the blade arcs through its hitbox across all three
+        # frames (slash_arc = t), so the slash + hitbox are live the whole swing
+        # (active_frames=[0,1,2]) with no windup/recover beat. Authored feel —
+        # verify with `python -m ambition_sprite2d_renderer debug-hitboxes
+        # player_robot`. Enemies use `slash` (8f) via pick_enemy_anim, so this
+        # only changes the player's read.
+        "attack_side": {"frames": 3, "duration_ms": 60},
+        # The rest of the directional/aerial attacks share the 3-frame sweep:
+        # the committed pose is held and the blade sweeps (slash_arc = t) with
+        # the hitbox live across all frames.
+        "attack_up": {"frames": 3, "duration_ms": 60},
+        "attack_down": {"frames": 3, "duration_ms": 60},
+        "air_neutral": {"frames": 3, "duration_ms": 60},
+        "air_forward": {"frames": 3, "duration_ms": 60},
+        "air_back": {"frames": 3, "duration_ms": 60},
+        "air_down": {"frames": 3, "duration_ms": 60},
+        "air_up": {"frames": 3, "duration_ms": 60},
     }
 
     PALETTE = {
@@ -997,15 +998,15 @@ class SideRobotGenerator:
             p.slash_dir = "side"
             p.eye_squint = 0.24 + 0.22 * strike - 0.08 * recover
         elif animation == "attack_side":
-            # 2-frame immediate forehand (see ANIMATIONS["attack_side"]).
+            # 3-frame continuous sweep (blade arcs across all frames, hitbox live throughout) forehand (see ANIMATIONS["attack_side"]).
             # NO windup: frame 0 is the full strike — blade extended,
             # body committed forward — so the hit reads on the very
             # first frame. Frame 1 is the lone wind-down, settling back
             # toward a combat-ready guard. `strike`/`recover` are linear
             # in t so they land cleanly on the two frames (t=0 / t=1) but
             # still read if the row is ever re-timed to more frames.
-            strike = 1.0 - t  # 1.0 @ frame 0, 0.0 @ frame 1
-            recover = t       # 0.0 @ frame 0, 1.0 @ frame 1
+            strike = 1.0  # 1.0 @ frame 0, 0.0 @ frame 1
+            recover = 0.0       # 0.0 @ frame 0, 1.0 @ frame 1
             p.root_x = 6.0 * strike - 1.6 * recover
             p.body_tilt = 16.0 * strike - 4.0 * recover
             p.head_tilt = 6.0 * strike
@@ -1018,16 +1019,16 @@ class SideRobotGenerator:
             p.near_leg_upper = 60.0 - 6.0 * recover
             p.near_leg_lower = 80.0
             p.slash = max(0.25, strike)
-            p.slash_arc = strike
+            p.slash_arc = t
             p.slash_dir = "side"
             p.eye_squint = 0.22 + strike * 0.22
         elif animation == "attack_up":
             # Up-tilt: blade arcs from low forward up over the head to back-up.
-            # 2-frame immediate (see ANIMATIONS): f0 = full overhead strike,
+            # 3-frame continuous sweep (blade arcs across all frames, hitbox live throughout) (see ANIMATIONS): f0 = full overhead strike,
             # f1 = wind-down. No windup; pose body unchanged.
             wind = 0.0
-            strike = 1.0 - t
-            recover = t
+            strike = 1.0
+            recover = 0.0
             p.root_y = -3.0 * strike + 1.0 * recover
             p.body_tilt = 4.0 * wind - 8.0 * strike + 2.0 * recover
             p.head_tilt = 4.0 * wind - 10.0 * strike + 2.0 * recover
@@ -1039,7 +1040,7 @@ class SideRobotGenerator:
             p.far_leg_upper = 110.0 + 6.0 * strike
             p.near_leg_upper = 72.0 - 6.0 * wind
             p.slash = max(0.25, wind, strike)
-            p.slash_arc = strike
+            p.slash_arc = t
             p.slash_dir = "up"
             p.eye_squint = 0.20 + strike * 0.18
         elif animation == "attack_down":
@@ -1048,10 +1049,10 @@ class SideRobotGenerator:
             # under as the kneeling support, near leg plants forward
             # bent; near arm extends low and horizontal with the blade
             # for a short thrust. Distinct from the aerial Down spike.
-            # 2-frame immediate: f0 = committed kneeling poke, f1 = rise/recover.
+            # 3-frame continuous sweep (blade arcs across all frames, hitbox live throughout): f0 = committed kneeling poke, f1 = rise/recover.
             crouch = 1.0
-            thrust = 1.0 - t
-            recover = t
+            thrust = 1.0
+            recover = 0.0
             sink = max(0.65 * crouch, thrust, 0.55 * (1.0 - recover) * crouch)
             p.root_y = 9.0 * sink
             p.body_bob = 4.0 * sink
@@ -1073,15 +1074,15 @@ class SideRobotGenerator:
             p.near_leg_upper = 74.0 + 6.0 * crouch
             p.near_leg_lower = 18.0 + 8.0 * crouch + 14.0 * recover
             p.slash = max(0.25, crouch, thrust)
-            p.slash_arc = thrust
+            p.slash_arc = t
             p.slash_dir = "low_poke"
             p.eye_squint = 0.18 + thrust * 0.18
         elif animation == "air_neutral":
             # Aerial neutral: short spin-slash with the blade making a near
             # full revolution around the body. Body floats; legs tuck.
-            # 2-frame immediate: f0 = mid-spin slash, f1 = settle.
-            spin = 1.0 - t
-            float_t = 1.0 - t
+            # 3-frame continuous sweep (blade arcs across all frames, hitbox live throughout): f0 = mid-spin slash, f1 = settle.
+            spin = 1.0
+            float_t = 1.0
             p.root_y = -6.0 + float_t * 2.0
             p.body_tilt = -6.0 + spin * 24.0
             p.head_tilt = -2.0 + spin * 12.0
@@ -1094,16 +1095,16 @@ class SideRobotGenerator:
             p.near_leg_upper = 92.0 - 10.0 * float_t
             p.near_leg_lower = 56.0 + 18.0 * float_t
             p.slash = 0.85
-            p.slash_arc = spin
+            p.slash_arc = t
             p.slash_dir = "air_neutral"
             p.eye_squint = 0.24
         elif animation == "air_forward":
             # Fair: forward-down committed swing. Body leans into the swing,
             # near arm whips forward, far leg trails behind for balance.
-            # 2-frame immediate: f0 = committed aerial swing, f1 = settle.
+            # 3-frame continuous sweep (blade arcs across all frames, hitbox live throughout): f0 = committed aerial swing, f1 = settle.
             wind = 0.0
-            strike = 1.0 - t
-            float_t = 1.0 - t
+            strike = 1.0
+            float_t = 1.0
             p.root_x = -2.0 * wind + 5.0 * strike
             p.root_y = -7.0 + float_t * 1.6
             p.body_tilt = -6.0 * wind + 18.0 * strike
@@ -1117,17 +1118,17 @@ class SideRobotGenerator:
             p.near_leg_upper = 102.0 - 10.0 * strike
             p.near_leg_lower = 60.0 + 14.0 * strike
             p.slash = max(0.25, wind, strike)
-            p.slash_arc = strike
+            p.slash_arc = t
             p.slash_dir = "air_forward"
             p.eye_squint = 0.24 + strike * 0.18
         elif animation == "air_back":
             # Bair: backward sword swing. Body turns/leans backward, near arm
             # whips behind, blade traces back-up to back-down arc. Front shows
             # a clear shoulder check / over-shoulder cut read.
-            # 2-frame immediate: f0 = committed aerial swing, f1 = settle.
+            # 3-frame continuous sweep (blade arcs across all frames, hitbox live throughout): f0 = committed aerial swing, f1 = settle.
             wind = 0.0
-            strike = 1.0 - t
-            float_t = 1.0 - t
+            strike = 1.0
+            float_t = 1.0
             p.root_x = 2.0 * wind - 4.0 * strike
             p.root_y = -7.0 + float_t * 1.6
             p.body_tilt = 6.0 * wind - 14.0 * strike
@@ -1142,15 +1143,15 @@ class SideRobotGenerator:
             p.near_leg_upper = 92.0 + 6.0 * strike
             p.near_leg_lower = 86.0 + 10.0 * strike
             p.slash = max(0.25, wind, strike)
-            p.slash_arc = strike
+            p.slash_arc = t
             p.slash_dir = "air_back"
             p.eye_squint = 0.24 + strike * 0.18
         elif animation == "air_down":
             # Dair: straight-down stab/spike. Body inverts slightly head-down,
             # blade points down with a brief downward thrust pulse.
-            # 2-frame immediate: f0 = downward spike, f1 = settle.
+            # 3-frame continuous sweep (blade arcs across all frames, hitbox live throughout): f0 = downward spike, f1 = settle.
             wind = 0.0
-            thrust = 1.0 - t
+            thrust = 1.0
             p.root_y = -8.0 + 4.0 * thrust
             p.body_tilt = 4.0 * wind + 12.0 * thrust
             p.head_tilt = 2.0 * wind + 8.0 * thrust
@@ -1163,15 +1164,15 @@ class SideRobotGenerator:
             p.near_leg_upper = 84.0
             p.near_leg_lower = 80.0
             p.slash = max(0.3, thrust, wind)
-            p.slash_arc = thrust
+            p.slash_arc = t
             p.slash_dir = "air_down"
             p.eye_squint = 0.26 + thrust * 0.18
         elif animation == "air_up":
             # Uair: straight-up thrust. Body straightens, near arm reaches
             # overhead, blade points up with a quick upward thrust pulse.
-            # 2-frame immediate: f0 = overhead thrust, f1 = settle.
+            # 3-frame continuous sweep (blade arcs across all frames, hitbox live throughout): f0 = overhead thrust, f1 = settle.
             wind = 0.0
-            thrust = 1.0 - t
+            thrust = 1.0
             p.root_y = -10.0 - 2.0 * thrust
             p.body_tilt = -4.0 * wind - 10.0 * thrust
             p.head_tilt = -3.0 * wind - 8.0 * thrust
@@ -1185,7 +1186,7 @@ class SideRobotGenerator:
             p.near_leg_upper = 100.0 - 4.0 * thrust
             p.near_leg_lower = 96.0 - 6.0 * thrust
             p.slash = max(0.3, thrust, wind)
-            p.slash_arc = thrust
+            p.slash_arc = t
             p.slash_dir = "air_up"
             p.eye_squint = 0.24 + thrust * 0.18
         return p

@@ -439,7 +439,9 @@ class RobotAdapter(BaseAdapter):
         cx = w // 2
 
         def box(x: float, y: float, ww: float, hh: float) -> Dict[str, Any]:
-            return {"bbox": (int(x), int(y), int(ww), int(hh)), "active_frames": [0]}
+            # Active across all 3 frames of the continuous-sweep attack (the
+            # blade arcs through its hitbox the whole swing), not just frame 0.
+            return {"bbox": (int(x), int(y), int(ww), int(hh)), "active_frames": [0, 1, 2]}
 
         # Blade-arc convex polygon for the primary side slash — a forward
         # crescent that conforms to the swing instead of a coarse box. Points in

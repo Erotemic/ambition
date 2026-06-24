@@ -255,6 +255,12 @@ def build(pose: str, palette: np.ndarray, eps_quant=None):
             # when the head leans (pose_attack). Torso/limbs still use label_part.
             if face_box is not None and _in_head_tight(cx, cy, face_box):
                 part = _head_label(cx, cy, ci, np.asarray(face_box, float), palette)
+                # a forehead cell is a SMALL automaton square; a LARGE green blob in
+                # the head box is a shoulder a crouch (low face) lifted into the head
+                # region -- relabel it as a body part, not a giant floating cell.
+                if part == "forehead_cell" and area > 0.005 * w * h:
+                    bnx, bny = body_frac(cx, cy)
+                    part = PARTS.label_part(bnx, max(0.30, bny), ci, area / (w * h))
             else:
                 bnx, bny = body_frac(cx, cy)
                 part = PARTS.label_part(bnx, bny, ci, area / (w * h))

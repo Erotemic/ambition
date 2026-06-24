@@ -154,6 +154,23 @@ class BaseAdapter:
         del size
         return {}
 
+    def body_inset(self) -> Dict[str, float] | None:
+        """Fractional shrink applied to the measured body bbox (and each
+        per-animation hurtbox) at generation time.
+
+        Returns a mapping with optional ``left``/``right``/``top``/``bottom``
+        keys, each a fraction of the measured width (left/right) or height
+        (top/bottom) to trim from that edge. ``None`` (the default) keeps the
+        raw measured alpha box.
+
+        Authored on the adapter, so EVERY character built from this adapter
+        (player + enemies + variants) shares the tighter gameplay body. This is
+        the body-box analogue of :meth:`attack_hitboxes`: frame-agnostic, it
+        survives art changes because it scales with the measured box rather than
+        pinning absolute pixels.
+        """
+        return None
+
     def render_single(
         self, spec: Any, animation: str, frame_index: int, job: CharacterJob
     ) -> Image.Image:
@@ -439,6 +456,14 @@ class RobotAdapter(BaseAdapter):
             # Aerial neutral: a wide spin around the whole body.
             "air_neutral": box(cx - w * 0.42, h * 0.18, w * 0.92, h * 0.68),
         }
+
+    def body_inset(self) -> Dict[str, float]:
+        """Tighten the robot's gameplay body to half the visible width (25% off
+        each side) and trim the top 20%. The rendered art keeps its full
+        silhouette (antenna, lean, arm-swing); only the collision / hurt body
+        shrinks. Shared by every robot-adapter character — the player and the
+        robot enemies + variants all build from this adapter."""
+        return {"left": 0.25, "right": 0.25, "top": 0.20, "bottom": 0.0}
 
 
 class NinjaAdapter(BaseAdapter):

@@ -28,6 +28,29 @@ def _measure_body_extent(frame: Image.Image) -> Dict[str, Any] | None:
     return measure_body_metrics(frame)
 
 
+def _apply_body_inset(
+    bbox: Dict[str, int], inset: Dict[str, float]
+) -> Dict[str, int]:
+    """Shrink a pixel bbox by per-edge fractions of its own size.
+
+    ``inset`` keys (all optional, default 0): ``left``/``right`` as a fraction
+    of width, ``top``/``bottom`` as a fraction of height. The origin moves in by
+    the left/top trim; the result never has a non-positive dimension. Used to
+    derive an authored gameplay body tighter than the measured alpha box — see
+    ``BaseAdapter.body_inset``."""
+    left = float(inset.get("left", 0.0))
+    right = float(inset.get("right", 0.0))
+    top = float(inset.get("top", 0.0))
+    bottom = float(inset.get("bottom", 0.0))
+    w, h = int(bbox["w"]), int(bbox["h"])
+    return {
+        "x": int(bbox["x"]) + int(round(w * left)),
+        "y": int(bbox["y"]) + int(round(h * top)),
+        "w": max(1, int(round(w * (1.0 - left - right)))),
+        "h": max(1, int(round(h * (1.0 - top - bottom)))),
+    }
+
+
 # Pixels of safety padding kept around the union bbox before cropping. Anti-
 # aliased character edges are only slightly transparent, so without a small
 # pad bilinear sampling could clip them. Two pixels is enough at the current
@@ -217,6 +240,14 @@ def build_spritesheet(job: CharacterJob) -> Tuple[Image.Image, Dict[str, Any]]:
         else None
     )
     if metrics is not None:
+        # Authored body-box inset (adapter-declared): trim the measured alpha
+        # box to the intended gameplay body so every character from this adapter
+        # shares a tighter collision / hurt body than its full silhouette.
+        body_inset = adapter.body_inset()
+        if body_inset:
+            metrics["body_pixel_bbox"] = _apply_body_inset(
+                metrics["body_pixel_bbox"], body_inset
+            )
         # Per-animation hurtbox: each animation's alpha-bbox in
         # cropped-frame coords (subtract the sheet crop offset).
         # Per-animation hitbox: adapter-declared rects, also
@@ -242,6 +273,12 @@ def build_spritesheet(job: CharacterJob) -> Tuple[Image.Image, Dict[str, Any]]:
                             "h": int(ch),
                         }
                     }
+                    # Same authored inset as the base body box, so a pose's
+                    # hurtbox stays consistent with the tighter gameplay body.
+                    if body_inset:
+                        entry["hurtbox"]["bbox"] = _apply_body_inset(
+                            entry["hurtbox"]["bbox"], body_inset
+                        )
             anim_metrics[animation] = entry
         # Adapter-declared per-animation hurtbox parts override
         # (head + body split for bosses, etc.). When present, the

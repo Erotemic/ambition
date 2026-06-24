@@ -195,7 +195,14 @@ def build(pose: str, palette: np.ndarray, eps_quant=None):
             if area < 12:
                 continue
             cx, cy = cents[li]
-            part = PARTS.label_part(cx / w, cy / h, ci, area / (w * h))
+            # HEAD parts are labelled relative to the DETECTED FACE (view-anchored)
+            # so horns/cells/helmet are correct regardless of head tilt -- the fixed
+            # image-band heuristic mislabels e.g. centre-x horns as forehead cells
+            # when the head leans (pose_attack). Torso/limbs still use label_part.
+            if face_box is not None and _in_head_tight(cx, cy, face_box):
+                part = _head_label(cx, cy, ci, np.asarray(face_box, float), palette)
+            else:
+                part = PARTS.label_part(cx / w, cy / h, ci, area / (w * h))
             regions.append((part, ci, (lab == li), area))
 
     # group same-part fragments into instances: OR the part's masks, bridge

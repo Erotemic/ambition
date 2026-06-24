@@ -174,6 +174,48 @@ def _spike(pts: np.ndarray) -> np.ndarray:
     return np.array([tip, bl, br]).astype(int)
 
 
+def _basepart(part):
+    return part[:-6] if part.endswith("_shade") else part
+
+
+def _add_shading(polys, qi, fg, palette, w, h):
+    """Each part is one flat colour, but the reference SHADES every part (lit +
+    shadow). With perfect per-pixel colour our exact shapes would score ~+33pts,
+    so the whole remaining gap is shading. Add it: for each main part, find the
+    secondary palette shades that actually fall inside it and emit them as
+    no-outline OVERLAY polygons (`<part>_shade`) drawn just above the base. Keeps
+    the clean line-art silhouette; adds the lit/shadow tones."""
+    extra = []
+    for p in polys:
+        part = p["part"]
+        if part in ACCENTS or part.endswith("_shade") or part in ("eye", "neck"):
+            continue
+        mask = np.zeros((h, w), np.uint8)
+        cv2.fillPoly(mask, [np.array(p["points"], np.int32)], 1)
+        m = (mask > 0) & fg
+        a = int(m.sum())
+        if a < 90:
+            continue
+        base = p["color"]
+        counts = np.bincount(qi[m], minlength=len(palette))
+        for ci in range(len(palette)):
+            if ci == base or counts[ci] < 0.16 * a:
+                continue
+            if int(np.abs(palette[ci].astype(int) - palette[base].astype(int)).sum()) < 55:
+                continue
+            reg = cv2.morphologyEx(((qi == ci) & m).astype(np.uint8), cv2.MORPH_OPEN,
+                                   cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (3, 3)))
+            cnts = cv2.findContours(reg, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)[0]
+            for c in cnts:
+                if cv2.contourArea(c) < max(24, 0.05 * a):
+                    continue
+                poly = _clean(c.reshape(-1, 2), convex=False, max_edges=10)
+                if len(poly) >= 3:
+                    extra.append({"part": part + "_shade", "color": int(ci),
+                                  "area": float(cv2.contourArea(c)), "points": poly.astype(int).tolist()})
+    return polys + extra
+
+
 def _despike(pts: np.ndarray, min_angle=16.0) -> np.ndarray:
     """Drop needle vertices -- a corner whose interior angle is razor-sharp is a
     degenerate spike (a thin sliver poking out of an otherwise blobby part, e.g.
@@ -699,7 +741,8 @@ def fill_gaps(polys, qi, fg, palette, w, h, min_area=28):
             polys.append({"part": part, "color": col, "area": float(gst[li, cv2.CC_STAT_AREA]),
                           "points": poly.astype(int).tolist()})
     polys = _brighten_limb_greens(polys, palette)
-    polys.sort(key=lambda p: (Z.get(p["part"], 5), -p["area"]))
+    polys = _add_shading(polys, qi, fg, palette, w, h)
+    polys.sort(key=lambda p: (Z.get(_basepart(p["part"]), 5), p["part"].endswith("_shade"), -p["area"]))
     return polys
 
 
@@ -712,11 +755,12 @@ def render(polys, palette, w, h, outline=False):
         cv2.fillPoly(img, [pts], tuple(int(c) for c in palette[p["color"]]))
         if outline:
             cv2.polylines(img, [pts], True, (0, 0, 0), 1, cv2.LINE_AA)
-        elif p.get("part") not in ACCENTS:
+        elif p.get("part") not in ACCENTS and not p.get("part", "").endswith("_shade"):
             # 1px line-art: a 2px stroke was the single biggest source of colour
             # error (~50% of it) -- on these ~200px crops the reference line-art is
             # ~1px, so a 2px black band landed where the reference is colour. 1px
             # still reads as line-art and lifts mean colour-match ~+5%.
+            # _shade overlays are interior tones -> filled, never outlined.
             cv2.polylines(img, [pts], True, (0, 0, 0), 1, cv2.LINE_AA)
     return img
 

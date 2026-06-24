@@ -38,7 +38,13 @@ def detect(crop_rgba: np.ndarray):
     dark = (rgb.sum(2) < 200) & fg
     best, best_eyes = None, []
     for fx0, fy0, fx1, fy1, area, cen in _comps(cream, 40):
-        if cen[1] > 0.62 * h:        # face is high in the sprite
+        # the face is high in the sprite -- the head. A cream blob lower than this
+        # is a hand/chest, not the face: in a foreshortened dive (pose_air) the
+        # real face is occluded and a mid-body cream cluster would otherwise be
+        # picked as a false face (and anchor the head-labelling wrongly). Every
+        # genuine face here sits at <=0.43h; reject below 0.46h -> treat as
+        # faceless (the build then anchors the head to the top of the figure).
+        if cen[1] > 0.46 * h:
             continue
         sub_dark = dark[fy0:fy1, fx0:fx1]
         sub_cream = cream[fy0:fy1, fx0:fx1]

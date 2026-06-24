@@ -237,6 +237,10 @@ def build(pose: str, palette: np.ndarray, eps_quant=None):
                 # below the head band so it gets a torso/limb label instead.
                 if face_box is not None and part in ("face", "horn", "forehead_cell", "helmet"):
                     part = PARTS.label_part(bnx, max(0.30, bny), ci, area / (w * h))
+                elif face_box is None and part == "face":
+                    # no face is visible from behind -> cream up here is collar /
+                    # shoulder trim, never a face. Push it below the head band.
+                    part = PARTS.label_part(bnx, max(0.30, bny), ci, area / (w * h))
             regions.append((part, ci, (lab == li), area))
 
     # group same-part fragments into instances: OR the part's masks, bridge

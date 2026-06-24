@@ -446,22 +446,38 @@ class RobotAdapter(BaseAdapter):
             # blade arcs through its hitbox the whole swing), not just frame 0.
             return {"bbox": (int(x), int(y), int(ww), int(hh)), "active_frames": [0, 1, 2]}
 
-        def fan(ox, oy, dx, dy, length, near_w, far_w):
-            """Directional fan poly: NARROW (near_w) at the body-side point
-            (ox,oy), WIDENING to far_w at the tip `length` away along (dx,dy).
-            Perpendicular half-widths; a convex quad that opens toward the
-            effect's far end (so it covers a swing/crescent, wide where the
-            effect flares). Authored for the right-facing robot; the runtime
-            mirrors x by facing. Points may reach past the frame (unclamped)."""
+        def cone(ox, oy, dx, dy, length, near_w, far_w, tip=0.18):
+            """Slash-arc cone: NARROW (near_w) at the body-side point (ox,oy),
+            flaring to a wide FAN at the far end (far_w) with a forward tip — the
+            lasersword arc spreading at the end of the swing. `(dx,dy)` is the
+            CARDINAL swing direction (no diagonal tilt). Perpendicular half-
+            widths; 5-point convex hull. Authored for the right-facing robot
+            (runtime mirrors x by facing); may reach past the frame (unclamped)."""
             plen = math.hypot(dx, dy) or 1.0
             ux, uy = dx / plen, dy / plen
             px, py = -uy, ux  # perpendicular
             fx, fy = ox + ux * length, oy + uy * length
+            tx, ty = ox + ux * length * (1.0 + tip), oy + uy * length * (1.0 + tip)
             return [
-                (ox + px * near_w, oy + py * near_w),
-                (fx + px * far_w, fy + py * far_w),
-                (fx - px * far_w, fy - py * far_w),
-                (ox - px * near_w, oy - py * near_w),
+                (ox + px * near_w, oy + py * near_w),  # near, one side
+                (fx + px * far_w, fy + py * far_w),    # far fan, one side
+                (tx, ty),                              # forward tip
+                (fx - px * far_w, fy - py * far_w),    # far fan, other side
+                (ox - px * near_w, oy - py * near_w),  # near, other side
+            ]
+
+        def poke(ox, oy, dx, dy, length, half_w):
+            """Straight narrow thrust (a down-tilt poke / stab) — a parallel-sided
+            jab in a CARDINAL direction, NOT a flaring cone."""
+            plen = math.hypot(dx, dy) or 1.0
+            ux, uy = dx / plen, dy / plen
+            px, py = -uy, ux
+            fx, fy = ox + ux * length, oy + uy * length
+            return [
+                (ox + px * half_w, oy + py * half_w),
+                (fx + px * half_w, fy + py * half_w),
+                (fx - px * half_w, fy - py * half_w),
+                (ox - px * half_w, oy - py * half_w),
             ]
 
         def ring(ox, oy, rx, ry):
@@ -480,45 +496,46 @@ class RobotAdapter(BaseAdapter):
             b["poly"] = poly
             return b
 
-        # Each attack carries the coarse bbox (fallback) PLUS a directional
-        # convex `poly` that surrounds its slash effect — narrow at the body,
-        # flaring wide at the far end (the crescent's tip). Forward = +x.
+        # Each attack carries the coarse bbox (fallback) PLUS a convex `poly`
+        # surrounding its slash effect. Arcs are CONES that flare into a fan at
+        # the tip; the down-tilt is a straight POKE. All directions are CARDINAL
+        # (forward = +x, up = -y, down = +y) — no diagonal tilt.
         return {
-            # Forehand: a big forward fan starting just inside the body and
-            # flaring tall at the far end to cover the whole crescent.
+            # Forehand slash: forward cone, flaring tall into a fan at the tip to
+            # cover the whole arc.
             "attack_side": shaped(
                 box(cx + w * 0.26, h * 0.12, w * 0.60, h * 0.72),
-                fan(cx - w * 0.06, body_cy, 1.0, 0.0, w * 1.42, h * 0.22, h * 0.60),
+                cone(cx - w * 0.06, body_cy, 1.0, 0.0, w * 1.34, h * 0.22, h * 0.62),
             ),
-            # Up-tilt: arcs forward-and-up, flaring overhead.
+            # Up-tilt slash: straight overhead cone (cardinal up).
             "attack_up": shaped(
                 box(cx - w * 0.12, -h * 0.08, w * 0.58, h * 0.62),
-                fan(cx + w * 0.02, body_cy - h * 0.02, 0.35, -1.0, h * 1.02, w * 0.20, w * 0.54),
+                cone(cx, body_cy - h * 0.04, 0.0, -1.0, h * 1.0, w * 0.20, w * 0.54),
             ),
-            # Aerial up: straight overhead thrust, flaring up.
+            # Aerial up: straight overhead cone.
             "air_up": shaped(
                 box(cx - w * 0.22, -h * 0.10, w * 0.55, h * 0.62),
-                fan(cx, body_cy - h * 0.02, 0.0, -1.0, h * 1.02, w * 0.18, w * 0.46),
+                cone(cx, body_cy - h * 0.04, 0.0, -1.0, h * 1.0, w * 0.18, w * 0.48),
             ),
-            # Down-tilt: forward-low poke, flaring forward and a touch down.
+            # Down-tilt: a straight forward-low POKE (jab), not a cone.
             "attack_down": shaped(
                 box(cx + w * 0.16, h * 0.50, w * 0.58, h * 0.46),
-                fan(cx - w * 0.02, body_cy + h * 0.14, 1.0, 0.20, w * 1.12, h * 0.13, h * 0.34),
+                poke(cx, body_cy + h * 0.16, 1.0, 0.0, w * 1.04, h * 0.13),
             ),
-            # Aerial down: straight-down spike, flaring below.
+            # Aerial down: straight-down cone.
             "air_down": shaped(
                 box(cx - w * 0.28, h * 0.52, w * 0.62, h * 0.58),
-                fan(cx, body_cy + h * 0.02, 0.0, 1.0, h * 1.02, w * 0.18, w * 0.46),
+                cone(cx, body_cy + h * 0.04, 0.0, 1.0, h * 1.0, w * 0.18, w * 0.48),
             ),
-            # Aerial forward: forward swing angled slightly down.
+            # Aerial forward: straight forward cone.
             "air_forward": shaped(
                 box(cx + w * 0.22, h * 0.22, w * 0.60, h * 0.58),
-                fan(cx - w * 0.02, body_cy, 1.0, 0.18, w * 1.28, h * 0.20, h * 0.54),
+                cone(cx - w * 0.02, body_cy, 1.0, 0.0, w * 1.22, h * 0.20, h * 0.56),
             ),
-            # Aerial back: reaches BEHIND (left of centre), angled slightly up.
+            # Aerial back: straight BACKWARD cone (left of centre).
             "air_back": shaped(
                 box(cx - w * 0.72, h * 0.22, w * 0.62, h * 0.58),
-                fan(cx + w * 0.02, body_cy, -1.0, -0.12, w * 1.18, h * 0.20, h * 0.50),
+                cone(cx + w * 0.02, body_cy, -1.0, 0.0, w * 1.12, h * 0.20, h * 0.52),
             ),
             # Aerial neutral: a wide spin all the way around the body.
             "air_neutral": shaped(

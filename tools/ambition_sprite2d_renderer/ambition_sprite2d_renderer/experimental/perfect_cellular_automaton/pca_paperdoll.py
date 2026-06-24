@@ -179,25 +179,45 @@ def build(pose: str, palette: np.ndarray, eps_quant=None):
             polys.append({"part": part, "color": int(dom_color(items, inst)),
                           "area": float(inst_area), "points": poly.astype(int).tolist()})
 
-    # authored dark torso core: the torso silhouette (central body band) as one
-    # clean polygon behind the plates -- the dark reads at the neck + seams.
+    # authored dark torso core: trace the VISIBLE dark bodysuit (the dark area
+    # the belly grid sits on) carefully -- ~15 edges, keeping the hip detail.
+    dark_mask = np.isin(qi, list(dark_idx)).astype(np.uint8)
     band = np.zeros((h, w), np.uint8)
-    band[int(0.25 * h):int(0.66 * h), int(0.24 * w):int(0.76 * w)] = 1
-    torso = cv2.morphologyEx((fg.astype(np.uint8) & band), cv2.MORPH_CLOSE,
-                             cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (9, 9)))
-    cnts = cv2.findContours(torso, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)[0]
+    band[int(0.24 * h):int(0.68 * h), int(0.22 * w):int(0.78 * w)] = 1
+    core_mask = cv2.morphologyEx(dark_mask & band, cv2.MORPH_CLOSE,
+                                 cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (7, 7)))
+    # front/back are symmetric views -> enforce symmetry about the body centreline
+    # (the reference torso core is symmetric; the raw dark mask is not).
+    if pose in ("top_front", "top_back"):
+        col_w = fg.sum(0).astype(float)
+        cx = int(round((np.arange(w) * col_w).sum() / max(1.0, col_w.sum())))
+        xs = np.arange(w)
+        src = 2 * cx - xs
+        valid = (src >= 0) & (src < w)
+        mir = np.zeros_like(core_mask)
+        mir[:, xs[valid]] = core_mask[:, src[valid]]
+        # intersection of mask with its mirror -> a symmetric core (avoids the
+        # union's lopsided bulges); close to fill the centreline seam.
+        core_mask = cv2.morphologyEx((core_mask & mir).astype(np.uint8), cv2.MORPH_CLOSE,
+                                     cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (5, 5)))
+    cnts = cv2.findContours(core_mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)[0]
     if cnts:
         pts = max(cnts, key=cv2.contourArea).reshape(-1, 2)
+        poly = _clean(pts, convex=False, max_edges=16)
         polys.append({"part": "core", "color": dark_base_idx,
-                      "area": float(torso.sum()),
-                      "points": _clean(pts, convex=False, max_edges=10).astype(int).tolist()})
+                      "area": float(core_mask.sum()),
+                      "points": poly.astype(int).tolist()})
 
-    # explicit detected eyes on top
+    # explicit detected eyes on top -- slanted PARALLELOGRAMS (the slit's top
+    # sheared toward the face centre) so the character reads a little mean.
     di = int(np.argmin(palette.sum(1)))
     _, eyes = pca_eyes.detect(crop)
+    fc = np.mean([(e[0] + e[2]) / 2 for e in eyes]) if eyes else w / 2
     for x0, y0, x1, y1 in eyes:
+        cx = (x0 + x1) / 2
+        sh = -3 if cx < fc else 3            # shear top OUTWARD -> mean, not sad
         polys.append({"part": "eye", "color": di, "area": float((x1 - x0) * (y1 - y0)),
-                      "points": [[x0, y0], [x1, y0], [x1, y1], [x0, y1]]})
+                      "points": [[x0 + sh, y0], [x1 + sh, y0], [x1, y1], [x0, y1]]})
 
     polys.sort(key=lambda p: (Z.get(p["part"], 5), -p["area"]))
     return polys, w, h

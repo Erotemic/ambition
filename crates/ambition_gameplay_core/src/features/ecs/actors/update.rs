@@ -376,9 +376,16 @@ pub fn update_ecs_actors(
                 } else {
                     gravity.dir_at(em.kin.pos)
                 };
-                let body_frame = crate::engine_core::AccelerationFrame::new(down);
-                aabb.center = em.kin.pos;
-                aabb.half_size = body_frame.to_world_half(em.kin.size * 0.5);
+                // One shared computation of an actor's frame-oriented body box
+                // (the same `collision_aabb` the damage path and tests use).
+                let body = crate::features::collision_aabb(&crate::features::SimpleActorGeometry {
+                    pos: em.kin.pos,
+                    size: em.kin.size,
+                    facing: em.kin.facing,
+                    frame_down: down,
+                });
+                aabb.center = body.center();
+                aabb.half_size = body.half_size();
 
                 if let Some(control) = control.as_deref_mut() {
                     control.0 = frame;

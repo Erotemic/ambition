@@ -139,9 +139,64 @@ pub trait CombatGeometry {
     fn combat_offset(&self) -> ae::Vec2 {
         ae::Vec2::ZERO
     }
+    /// The actor's reference-frame "down": gravity at its position, or a clung
+    /// surface normal for a wall-walker. The body/hurt box orients to this so a
+    /// sideways-gravity body's footprint lies along the wall — the relativity
+    /// principle. Defaults to screen-down `(0, 1)`; the box is identity under
+    /// vertical gravity, so upright play is byte-for-byte unchanged.
+    fn frame_down(&self) -> ae::Vec2 {
+        ae::Vec2::new(0.0, 1.0)
+    }
     fn sprite_metrics(&self) -> Option<&ActorSpriteMetrics>;
     /// The current pose for hurtbox sampling (rest/idle when not attacking).
     fn hurtbox_selection(&self) -> AnimationSelection;
+}
+
+/// An actor's collision AABB — its combat-size body box oriented to its
+/// reference frame and shifted by any off-center `combat_offset`. The single
+/// way to ask "where is this actor's body" across player / NPC / enemy / boss.
+pub fn collision_aabb(g: &impl CombatGeometry) -> ae::Aabb {
+    let half = ae::AccelerationFrame::new(g.frame_down()).to_world_half(g.combat_size() * 0.5);
+    ae::Aabb::new(g.body_pos() + g.combat_offset(), half)
+}
+
+/// A minimal [`CombatGeometry`] for an actor whose hurtbox is just its
+/// frame-oriented collision box — no per-animation sprite metrics. This is the
+/// player and ordinary enemies today: build it from a body's pos / size /
+/// facing and its reference-frame down, and `damageable_volumes` /
+/// [`collision_aabb`] yield the same box they used before, now through the one
+/// shared path. (Sprite metrics — pose-accurate, multi-part hurtboxes — are a
+/// later opt-in: populate them and the same call lights up automatically.)
+pub struct SimpleActorGeometry {
+    pub pos: ae::Vec2,
+    pub size: ae::Vec2,
+    pub facing: f32,
+    pub frame_down: ae::Vec2,
+}
+
+impl CombatGeometry for SimpleActorGeometry {
+    fn body_pos(&self) -> ae::Vec2 {
+        self.pos
+    }
+    fn body_size(&self) -> ae::Vec2 {
+        self.size
+    }
+    fn facing(&self) -> f32 {
+        self.facing
+    }
+    fn frame_down(&self) -> ae::Vec2 {
+        self.frame_down
+    }
+    fn sprite_metrics(&self) -> Option<&ActorSpriteMetrics> {
+        None
+    }
+    fn hurtbox_selection(&self) -> AnimationSelection {
+        AnimationSelection {
+            keys: Vec::new(),
+            elapsed_s: 0.0,
+            live_frame_index: None,
+        }
+    }
 }
 
 impl CombatGeometry for BossVolumeContext<'_> {
@@ -325,8 +380,11 @@ fn damageable_volumes_unmirrored(g: &impl CombatGeometry) -> Vec<ae::Aabb> {
             )];
         }
     }
-    // (4) Legacy fallback: combat_size-driven single AABB.
-    vec![ae::Aabb::new(g.body_pos(), g.combat_size() * 0.5)]
+    // (4) Fallback: combat_size-driven single AABB, oriented to the actor's
+    // reference frame (identity under vertical gravity, so bosses — which keep
+    // the default screen-down frame — are unchanged).
+    let half = ae::AccelerationFrame::new(g.frame_down()).to_world_half(g.combat_size() * 0.5);
+    vec![ae::Aabb::new(g.body_pos(), half)]
 }
 
 /// Body-contact damage AABB at the boss's combat envelope — body contact is
@@ -549,3 +607,40 @@ pub fn volumes_for_profile(
 
 #[cfg(test)]
 mod sprite_metadata_derivation_tests;
+
+#[cfg(test)]
+mod simple_geometry_tests {
+    use super::*;
+
+    fn geom(frame_down: ae::Vec2) -> SimpleActorGeometry {
+        SimpleActorGeometry {
+            pos: ae::Vec2::new(10.0, 20.0),
+            size: ae::Vec2::new(30.0, 48.0),
+            facing: 1.0,
+            frame_down,
+        }
+    }
+
+    #[test]
+    fn upright_gravity_is_the_plain_centered_box() {
+        // Under screen-down gravity the oriented body box is identity — upright
+        // play stays byte-for-byte the old `kin.aabb()` / CenteredAabb.
+        let aabb = collision_aabb(&geom(ae::Vec2::new(0.0, 1.0)));
+        assert_eq!(aabb.center(), ae::Vec2::new(10.0, 20.0));
+        assert_eq!(aabb.half_size(), ae::Vec2::new(15.0, 24.0));
+        // The single damageable volume agrees with the collision box.
+        let vols = damageable_volumes(&geom(ae::Vec2::new(0.0, 1.0)));
+        assert_eq!(vols.len(), 1);
+        assert_eq!(vols[0].half_size(), ae::Vec2::new(15.0, 24.0));
+    }
+
+    #[test]
+    fn sideways_gravity_lays_the_body_along_the_wall() {
+        // Under sideways gravity the footprint rotates: width<->height swap so
+        // the body lies along the wall (the relativity principle). Same box the
+        // gizmo's `aabb_oriented` draws.
+        let aabb = collision_aabb(&geom(ae::Vec2::new(1.0, 0.0)));
+        assert_eq!(aabb.center(), ae::Vec2::new(10.0, 20.0));
+        assert_eq!(aabb.half_size(), ae::Vec2::new(24.0, 15.0));
+    }
+}

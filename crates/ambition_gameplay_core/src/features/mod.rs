@@ -107,9 +107,10 @@ pub use crate::combat::world_overlay;
 pub use crate::combat::{bus, util};
 
 pub use boss_attack_geometry::{
-    active_attack_volumes, body_damage_aabb, boss_attack_damage, bounding_aabb, damageable_volumes,
-    volumes_for_profile, world_space_body_aabbs_from_metrics, world_space_body_aabbs_from_parts,
-    AnimationSelection, BossAnimationFrameSample, BossVolumeContext, CombatGeometry,
+    active_attack_volumes, body_damage_aabb, boss_attack_damage, bounding_aabb, collision_aabb,
+    damageable_volumes, volumes_for_profile, world_space_body_aabbs_from_metrics,
+    world_space_body_aabbs_from_parts, AnimationSelection, BossAnimationFrameSample,
+    BossVolumeContext, CombatGeometry, SimpleActorGeometry,
 };
 pub use bosses::{
     boss_special_for_profile, BossAttackProfile, BossBehaviorProfile, BossMovementProfile,

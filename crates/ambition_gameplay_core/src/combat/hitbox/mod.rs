@@ -69,6 +69,10 @@ pub fn apply_hitbox_damage(
         ),
         bevy::prelude::With<crate::player::PlayerEntity>,
     >,
+    // Orient the player's hurtbox to its (zone-aware) gravity frame — the same
+    // box the debug overlay draws and enemies/bosses resolve through
+    // `collision_aabb`. Identity under vertical gravity.
+    gravity: crate::physics::GravityCtx,
     mut sfx: MessageWriter<SfxMessage>,
     mut vfx: MessageWriter<VfxMessage>,
     mut debris: MessageWriter<DebrisBurstMessage>,
@@ -94,7 +98,17 @@ pub fn apply_hitbox_damage(
                 // damaged so a long active window doesn't double-
                 // tap a stationary player.
                 for (player_entity, kin, offense, dodge, shield, combat) in &player_query {
-                    let player_body = kin.aabb();
+                    // Player hurtbox via the one shared combat-geometry path,
+                    // oriented to its gravity frame (matches the gizmo + the
+                    // box enemies/bosses resolve through `collision_aabb`).
+                    let down = gravity.dir_at(kin.pos);
+                    let player_body =
+                        crate::features::collision_aabb(&crate::features::SimpleActorGeometry {
+                            pos: kin.pos,
+                            size: kin.size,
+                            facing: kin.facing,
+                            frame_down: down,
+                        });
                     let dodge_rolling = dodge.roll_timer > 0.0;
                     let player_vulnerable = !offense.invincible
                         && !dodge_rolling

@@ -456,6 +456,12 @@ def build(pose: str, palette: np.ndarray, eps_quant=None):
     core_mask = opened.copy()
     cut = int(max(0, face_bottom - 0.1 * fch))
     core_mask[:cut, :] = 0
+    # the inner-thigh dark shadow continues down from the torso as a THIN spike,
+    # shooting the core into the legs (degenerate sub-degree angles + dark where
+    # the thighs are purple). Open it away -- the wide torso survives, the thin
+    # leg spikes are severed -- then take the largest blob.
+    core_mask = cv2.morphologyEx(core_mask, cv2.MORPH_OPEN,
+                                 cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (7, 7)))
     n, lab, stats, _ = cv2.connectedComponentsWithStats(core_mask, 8)
     if n > 1:
         li = 1 + int(np.argmax(stats[1:, cv2.CC_STAT_AREA]))

@@ -403,6 +403,46 @@ def build(pose: str, palette: np.ndarray, eps_quant=None):
                       "area": float(core_mask.sum()),
                       "points": poly.astype(int).tolist()})
 
+    # ---- chest plate (geometric, view-general) ----
+    # The UPPER torso is green chest armor over the dark bodysuit; the reference
+    # torso is ~half green. The fixed center-band label loses that armor when the
+    # torso moves, so the action poses read as a dark slab. Author it from the
+    # GREEN that sits over the upper core (central, not the lateral arms), drawn
+    # OVER the core so the dark no longer dominates.
+    green_ids = [i for i, c in enumerate(palette) if c[1] > c[0] and c[1] > 100]
+    green_all = np.isin(qi, green_ids).astype(np.uint8)
+    cpy, cpx = np.where(core_mask > 0)
+    if cpy.size:
+        ky0, ky1 = int(cpy.min()), int(cpy.max())
+        kx0, kx1 = int(cpx.min()), int(cpx.max())
+        kh = max(1, ky1 - ky0); kw = max(1, kx1 - kx0)
+        band = np.zeros((h, w), np.uint8)
+        band[int(ky0):int(ky0 + 0.6 * kh), int(kx0 - 0.05 * kw):int(kx1 + 0.05 * kw)] = 1
+        chest = green_all & band
+        cn, clab, cst, cce = cv2.connectedComponentsWithStats(chest, 8)
+        keep = np.zeros((h, w), np.uint8)
+        for i in range(1, cn):
+            if cst[i, cv2.CC_STAT_AREA] < 30:
+                continue
+            gx = cce[i][0]
+            if kx0 - 0.05 * kw <= gx <= kx1 + 0.05 * kw:   # central (over the core), not a far arm
+                keep |= (clab == i).astype(np.uint8)
+        if keep.sum() >= 0.05 * core_mask.sum():
+            keep = cv2.morphologyEx(keep, cv2.MORPH_CLOSE,
+                                    cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (5, 5)))
+            cc2 = cv2.findContours(keep, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)[0]
+            if cc2:
+                cp = max(cc2, key=cv2.contourArea).reshape(-1, 2)
+                if cv2.contourArea(cp) > 40:
+                    # colour = the dominant green actually under the plate (mid-green,
+                    # not forced to the bright cell green)
+                    gpx = qi[keep > 0]
+                    gpx = gpx[np.isin(gpx, green_ids)]
+                    cpc = int(np.bincount(gpx).argmax()) if gpx.size else cell_green
+                    polys.append({"part": "chest_plate", "color": cpc,
+                                  "area": float(keep.sum()),
+                                  "points": _clean(cp, convex=False, max_edges=12).astype(int).tolist()})
+
     # ---- belly grid (geometric, view-general) ----
     # The automaton belly grid is the character's signature, but the fixed
     # center-band label loses it whenever the torso moves (idle/air/land had ~0

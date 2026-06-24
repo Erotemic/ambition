@@ -62,6 +62,8 @@ def _font(sz):
 def high_level(part: str, nx: float, body_cx: float = 0.5) -> str:
     # split L/R about the BODY centreline (torso centroid), not the image centre,
     # so offset / crouched / diving poses assign the correct side.
+    if part.endswith("_shade"):                  # shading overlay -> group with its base part
+        part = part[:-6]
     g = GROUP.get(part, "torso")
     if g == "arm":
         return "left_arm" if nx < body_cx else "right_arm"
@@ -104,7 +106,8 @@ def render_views(pose: str, version: str):
         pts = np.array(p["points"], np.int32)
         nx = pts[:, 0].mean() / w
         hl = high_level(p["part"], nx, body_cx)
-        key = (hl, p["part"])
+        base = p["part"][:-6] if p["part"].endswith("_shade") else p["part"]
+        key = (hl, base)
         col = palette_sp.get(key, (200, 0, 200))
         used.add(key)
         cv2.fillPoly(sp, [pts], col)

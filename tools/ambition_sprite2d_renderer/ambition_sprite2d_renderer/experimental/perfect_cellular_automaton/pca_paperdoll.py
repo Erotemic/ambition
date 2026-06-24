@@ -29,13 +29,16 @@ import pca_eyes
 CELL_PARTS = {"belly_cell", "forehead_cell"}            # exact squares
 CONVEX_SPOT = {"shoulder_spot"}                          # irregular convex
 SINGLE_PLATE = {"chest_plate", "belly_panel"}            # one clean backing poly
-# z-order: lower drawn first (behind)
-Z = {"bodysuit": 0, "core": 0, "helmet": 1, "horn": 1, "tail": 1,
-     "chest_plate": 2, "belly_panel": 2, "upper_arm": 2, "thigh": 2,
-     "pec": 3, "belly_cell": 3, "forearm": 3, "shin": 3,
-     "shoulder": 4, "knee": 4, "foot": 4, "hand": 4,
-     "shoulder_spot": 5, "face": 5,
-     "forehead_cell": 6, "eye": 7, "other": 3}
+# z-order: lower drawn first (behind). The torso CORE sits OVER the thighs
+# (its lower outline -- the pelvis/crotch -- shapes how the upper legs read);
+# pecs/chest_plate/belly sit OVER the core.
+Z = {"bodysuit": 0, "horn": 0, "tail": 0,
+     "upper_arm": 1, "thigh": 1,
+     "core": 2,
+     "chest_plate": 3, "belly_panel": 3, "forearm": 2, "shin": 2, "helmet": 5,
+     "pec": 4, "belly_cell": 4, "knee": 2, "foot": 3, "hand": 3,
+     "shoulder": 3, "shoulder_spot": 4, "face": 6,
+     "forehead_cell": 7, "eye": 8, "other": 2}
 
 
 def _square(pts: np.ndarray) -> np.ndarray:
@@ -179,15 +182,21 @@ def build(pose: str, palette: np.ndarray, eps_quant=None):
             polys.append({"part": part, "color": int(dom_color(items, inst)),
                           "area": float(inst_area), "points": poly.astype(int).tolist()})
 
-    # authored dark torso core: trace the VISIBLE dark bodysuit (the dark area
-    # the belly grid sits on) carefully -- ~15 edges, keeping the hip detail.
+    # authored dark torso core: the central dark bodysuit (neck -> chest/abdomen
+    # -> waist -> pelvis). The raw dark mask tangles every thin part-outline into
+    # the core, so OPEN it to drop the thin lines and keep the thick central
+    # blob, take the largest component, then trace ~15 edges with hip detail.
     dark_mask = np.isin(qi, list(dark_idx)).astype(np.uint8)
     band = np.zeros((h, w), np.uint8)
-    band[int(0.24 * h):int(0.68 * h), int(0.22 * w):int(0.78 * w)] = 1
-    core_mask = cv2.morphologyEx(dark_mask & band, cv2.MORPH_CLOSE,
-                                 cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (7, 7)))
-    # front/back are symmetric views -> enforce symmetry about the body centreline
-    # (the reference torso core is symmetric; the raw dark mask is not).
+    band[int(0.22 * h):int(0.74 * h), int(0.28 * w):int(0.72 * w)] = 1
+    core_mask = cv2.morphologyEx(dark_mask & band, cv2.MORPH_OPEN,
+                                 cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (3, 3)))
+    n, lab, stats, _ = cv2.connectedComponentsWithStats(core_mask, 8)
+    if n > 1:
+        li = 1 + int(np.argmax(stats[1:, cv2.CC_STAT_AREA]))
+        core_mask = (lab == li).astype(np.uint8)
+    # front/back are symmetric views -> union with the mirror about the centreline
+    # makes a symmetric core that keeps full width on both sides.
     if pose in ("top_front", "top_back"):
         col_w = fg.sum(0).astype(float)
         cx = int(round((np.arange(w) * col_w).sum() / max(1.0, col_w.sum())))
@@ -196,10 +205,9 @@ def build(pose: str, palette: np.ndarray, eps_quant=None):
         valid = (src >= 0) & (src < w)
         mir = np.zeros_like(core_mask)
         mir[:, xs[valid]] = core_mask[:, src[valid]]
-        # intersection of mask with its mirror -> a symmetric core (avoids the
-        # union's lopsided bulges); close to fill the centreline seam.
-        core_mask = cv2.morphologyEx((core_mask & mir).astype(np.uint8), cv2.MORPH_CLOSE,
-                                     cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (5, 5)))
+        core_mask = (core_mask | mir).astype(np.uint8)
+    core_mask = cv2.morphologyEx(core_mask, cv2.MORPH_CLOSE,
+                                 cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (9, 9)))
     cnts = cv2.findContours(core_mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)[0]
     if cnts:
         pts = max(cnts, key=cv2.contourArea).reshape(-1, 2)

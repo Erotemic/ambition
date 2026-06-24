@@ -109,6 +109,33 @@ def _cranium(mask: np.ndarray, h: int, face_box=None) -> np.ndarray | None:
     return cm.astype(np.uint8)
 
 
+def _densest_cluster(cells):
+    """Keep only the largest cluster of cell-centres linked within ~2x the median
+    nearest-neighbour spacing -- the tight belly grid -- and drop spread-out
+    outliers (square leg-armour segments that pass the per-cell tests)."""
+    if len(cells) < 4:
+        return cells
+    pts = np.array(cells, float)
+    D = np.sqrt(((pts[:, None] - pts[None, :]) ** 2).sum(2))
+    np.fill_diagonal(D, np.inf)
+    s = float(np.median(D.min(1)))
+    adj = D <= 2.2 * max(1.0, s)
+    seen, best = set(), []
+    for i in range(len(pts)):
+        if i in seen:
+            continue
+        stack, comp = [i], []
+        while stack:
+            j = stack.pop()
+            if j in seen:
+                continue
+            seen.add(j); comp.append(j)
+            stack.extend(int(k) for k in np.where(adj[j])[0] if k not in seen)
+        if len(comp) > len(best):
+            best = comp
+    return [tuple(pts[i]) for i in best]
+
+
 def _square(pts: np.ndarray) -> np.ndarray:
     (cx, cy), (w, h), ang = cv2.minAreaRect(pts.astype(np.float32))
     s = (w + h) / 2.0
@@ -515,8 +542,13 @@ def build(pose: str, palette: np.ndarray, eps_quant=None):
             if a < 0.5 * bw * bh:                          # filled (not an L/ring)
                 continue
             gx, gy = gce[i]
-            if cx0 - 0.10 * cw <= gx <= cx1 + 0.10 * cw and belly_y0 <= gy <= cy1 + 0.18 * ch:
+            if cx0 - 0.10 * cw <= gx <= cx1 + 0.10 * cw and belly_y0 <= gy <= cy1:
                 cells.append((gx, gy))
+        # the belly grid is a TIGHT cluster; square leg-armour segments also pass
+        # the per-cell tests and would stretch the grid down into the legs (jump/
+        # walk). Keep only the densest cluster (cells linked within ~2x the median
+        # neighbour spacing) so outlier leg cells are dropped.
+        cells = _densest_cluster(cells)
     if len(cells) >= 4:
         cxa = np.array([c[0] for c in cells]); cya = np.array([c[1] for c in cells])
         gx0, gy0, gx1, gy1 = cxa.min(), cya.min(), cxa.max(), cya.max()

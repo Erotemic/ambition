@@ -31,12 +31,14 @@ def _quant_target(pose, palette, w, h):
     return tgt
 
 
-def _xform(pts, dx, dy, s, rot, cx, cy):
+def _xform(pts, dx, dy, s, rot, cx, cy, kx=0.0):
     p = np.asarray(pts, np.float32) - (cx, cy)
     if rot:
         a = np.radians(rot)
         R = np.array([[np.cos(a), -np.sin(a)], [np.sin(a), np.cos(a)]], np.float32)
         p = p @ R.T
+    if kx:                                   # horizontal shear (skew)
+        p[:, 0] = p[:, 0] + kx * p[:, 1]
     return p * s + (cx, cy) + (dx, dy)
 
 
@@ -52,11 +54,12 @@ def optimize(pose: str, version: str, passes: int = 3, log=print):
         rec = PD.render(ps, palette, w, h).astype(np.int16)
         return int(np.abs(rec - target).sum())
 
-    # (dx, dy, scale, rot-degrees)
-    moves = [(1, 0, 1, 0), (-1, 0, 1, 0), (0, 1, 1, 0), (0, -1, 1, 0),
-             (3, 0, 1, 0), (-3, 0, 1, 0), (0, 3, 1, 0), (0, -3, 1, 0),
-             (0, 0, 1.05, 0), (0, 0, 0.95, 0), (0, 0, 1.10, 0), (0, 0, 0.90, 0),
-             (0, 0, 1, 4), (0, 0, 1, -4), (0, 0, 1, 8), (0, 0, 1, -8)]
+    # (dx, dy, scale, rot-degrees, skew)
+    moves = [(1, 0, 1, 0, 0), (-1, 0, 1, 0, 0), (0, 1, 1, 0, 0), (0, -1, 1, 0, 0),
+             (3, 0, 1, 0, 0), (-3, 0, 1, 0, 0), (0, 3, 1, 0, 0), (0, -3, 1, 0, 0),
+             (0, 0, 1.05, 0, 0), (0, 0, 0.95, 0, 0), (0, 0, 1.10, 0, 0), (0, 0, 0.90, 0, 0),
+             (0, 0, 1, 4, 0), (0, 0, 1, -4, 0), (0, 0, 1, 8, 0), (0, 0, 1, -8, 0),
+             (0, 0, 1, 0, 0.12), (0, 0, 1, 0, -0.12)]
     base = loss_of(polys)
     cur = base
     for _ in range(passes):
@@ -67,8 +70,8 @@ def optimize(pose: str, version: str, passes: int = 3, log=print):
             pts = np.asarray(p["points"], np.float32)
             cx, cy = pts[:, 0].mean(), pts[:, 1].mean()
             best_pts, best_loss = None, cur
-            for dx, dy, s, rot in moves:
-                cand = _xform(pts, dx, dy, s, rot, cx, cy)
+            for dx, dy, s, rot, kx in moves:
+                cand = _xform(pts, dx, dy, s, rot, cx, cy, kx)
                 trial = polys[:i] + [{**p, "points": cand.tolist()}] + polys[i + 1:]
                 l = loss_of(trial)
                 if l < best_loss - 1:

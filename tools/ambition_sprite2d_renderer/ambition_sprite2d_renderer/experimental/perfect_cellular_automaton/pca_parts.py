@@ -65,7 +65,9 @@ def label_part(nx, ny, color, area_frac):
     #      green shoulder pauldrons with dark-green spots on the sides ----
     if ny < 0.46:
         if is_dg:
-            return "shoulder_spot" if side else "chest_plate"
+            # only dark-green clearly ON the far-side pauldrons is a spot; the
+            # rest is the single dark-green upper-torso backing (chest_plate).
+            return "shoulder_spot" if (nx < 0.28 or nx > 0.72) else "chest_plate"
         if is_green:
             return "shoulder" if side else "chest_plate"
         if is_cream:

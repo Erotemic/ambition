@@ -41,6 +41,35 @@ Z = {"bodysuit": 0, "horn": 0, "tail": 0,
      "forehead_cell": 7, "eye": 8, "other": 2}
 
 
+def _in_head(cx, cy, fb):
+    fx0, fy0, fx1, fy1 = fb
+    fw, fh = fx1 - fx0, fy1 - fy0
+    return (fx0 - 0.8 * fw <= cx <= fx1 + 0.8 * fw) and (fy0 - 2.2 * fh <= cy <= fy1 + 0.15 * fh)
+
+
+def _head_label(cx, cy, ci, fb, palette):
+    """Label a region as a head part by its position RELATIVE to the detected
+    face (view-anchored), so the head is correct regardless of pose/tilt."""
+    fx0, fy0, fx1, fy1 = fb
+    fh, fw = fy1 - fy0, fx1 - fx0
+    fcx = (fx0 + fx1) / 2
+    c = palette[ci]
+    is_dark = c.sum() < 130
+    is_cream = c[0] > 200 and c[1] > 200 and c[2] > 150
+    is_green = c[1] > c[0] + 15 and c[1] > 100
+    if is_cream:
+        return "face"
+    if is_green:
+        # horns sit high above the face and off-centre; the forehead cells are
+        # lower (just above the face top) and central.
+        if cy < fy0 - 0.45 * fh and abs(cx - fcx) > 0.22 * fw:
+            return "horn"
+        return "forehead_cell"
+    if is_dark:
+        return "helmet"
+    return "forehead_cell"
+
+
 def _square(pts: np.ndarray) -> np.ndarray:
     (cx, cy), (w, h), ang = cv2.minAreaRect(pts.astype(np.float32))
     s = (w + h) / 2.0
@@ -91,7 +120,10 @@ def build(pose: str, palette: np.ndarray, eps_quant=None):
             if area < 12:
                 continue
             cx, cy = cents[li]
-            part = PARTS.label_part(cx / w, cy / h, ci, area / (w * h))
+            if face_box and _in_head(cx, cy, face_box):
+                part = _head_label(cx, cy, ci, face_box, palette)   # view-anchored head
+            else:
+                part = PARTS.label_part(cx / w, cy / h, ci, area / (w * h))
             regions.append((part, ci, (lab == li), area))
 
     # group same-part fragments into instances: OR the part's masks, bridge
@@ -278,26 +310,34 @@ def build(pose: str, palette: np.ndarray, eps_quant=None):
         polys.append({"part": "eye", "color": di, "area": float((x1 - x0) * (y1 - y0)),
                       "points": [[x0 + sh, y0], [x1 + sh, y0], [x1, y1], [x0, y1]]})
 
-    # cap parts that shouldn't proliferate: decorative spots, and the L/R limbs
-    # (one polygon per side; shading must not split them into many).
-    CAPS = {"shoulder_spot": 4, "thigh": 2, "shin": 2, "foot": 2,
-            "forearm": 2, "upper_arm": 2, "hand": 2}
-    for part, cap in CAPS.items():
-        inst = sorted([p for p in polys if p["part"] == part], key=lambda p: -p["area"])
-        if len(inst) > cap:
-            drop = set(id(p) for p in inst[cap:])
-            polys = [p for p in polys if id(p) not in drop]
+    # cap ONLY the decorative shoulder spots (keep the largest 4). Never cap
+    # structural parts -- area-based dropping can discard a real foot/claw and
+    # keep a sliver, which is how the feet vanished. Limb fragments are cleaned
+    # by merging (the bridge), never by dropping content.
+    inst = sorted([p for p in polys if p["part"] == "shoulder_spot"], key=lambda p: -p["area"])
+    if len(inst) > 4:
+        drop = set(id(p) for p in inst[4:])
+        polys = [p for p in polys if id(p) not in drop]
     polys.sort(key=lambda p: (Z.get(p["part"], 5), -p["area"]))
     return polys, w, h
 
 
+# accents read as flat colour with NO outline; everything else (the main arm /
+# torso / leg / head parts) gets a thick black line-art outline like the reference.
+ACCENTS = {"belly_cell", "forehead_cell", "shoulder_spot", "eye"}
+
+
 def render(polys, palette, w, h, outline=False):
+    """outline=False -> line-art look: main parts get a thick black outline,
+    accents none.  outline=True -> diagnostic: every polygon stroked 1px."""
     img = np.full((h, w, 3), 255, np.uint8)
     for p in polys:
         pts = np.array(p["points"], np.int32)
         cv2.fillPoly(img, [pts], tuple(int(c) for c in palette[p["color"]]))
         if outline:
             cv2.polylines(img, [pts], True, (0, 0, 0), 1, cv2.LINE_AA)
+        elif p.get("part") not in ACCENTS:
+            cv2.polylines(img, [pts], True, (0, 0, 0), 2, cv2.LINE_AA)
     return img
 
 

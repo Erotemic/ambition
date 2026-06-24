@@ -46,15 +46,12 @@ def label_part(nx, ny, color, area_frac):
     is_purple = color == PURPLE
     is_dg = color == DARKGREEN
     cell = area_frac < 0.012
-    tiny = area_frac < 0.0025
-    # ---- head (top ~30%) ----
+    # ---- head (top ~30%) ----  (eyes are assigned separately by detection)
     if ny < 0.30:
         if ny < 0.17 and (is_green or is_dg) and not cell:
             return "horn"
         if is_cream:
             return "face"
-        if is_dark and tiny and ny > 0.17:
-            return "eye"            # tiny dark slit low in the head = eye
         if is_dark:
             return "helmet"
         if (is_green or is_dg) and cell:
@@ -88,15 +85,24 @@ def label_part(nx, ny, color, area_frac):
 
 
 def label_pose(pose: str, vec_dir: Path):
+    import pca_eyes
     d = json.loads((vec_dir / f"{pose}_polys.json").read_text())
     w, h = d["w"], d["h"]
+    palette = d["palette"]
     out = []
     for p in d["polys"]:
         pts = np.array(p["points"])
         cx, cy = pts[:, 0].mean() / w, pts[:, 1].mean() / h
         part = label_part(cx, cy, p["color"], p["area"] / (w * h))
         out.append({**p, "part": part})
-    return out, d["palette"], w, h
+    # eyes: explicit, detected -> guaranteed present + correctly placed.
+    # darkest palette index for the eye fill.
+    dark_idx = int(np.argmin(np.array(palette).sum(1)))
+    _, eyes = pca_eyes.detect_pose(pose)
+    for x0, y0, x1, y1 in eyes:
+        out.append({"color": dark_idx, "area": float((x1 - x0) * (y1 - y0)),
+                    "points": [[x0, y0], [x1, y0], [x1, y1], [x0, y1]], "part": "eye"})
+    return out, palette, w, h
 
 
 def visualize(pose, vec_dir, out_dir):

@@ -31,7 +31,7 @@ use ambition_gameplay_core::schedule::*;
 /// and the room-transition cooldown (sim-owned [`ambition_gameplay_core::SandboxSimState`])
 /// are reset together on every room load / death / respawn.
 #[derive(bevy::ecs::system::SystemParam)]
-pub(super) struct RoomClock<'w> {
+pub(crate) struct RoomClock<'w> {
     pub sim_state: ResMut<'w, ambition_gameplay_core::SandboxSimState>,
     pub clock: ResMut<'w, ambition_gameplay_core::time::clock_state::ClockState>,
 }
@@ -548,7 +548,7 @@ pub(super) fn apply_player_knockback(
     vfx.write(VfxMessage::Impact { pos: impact_pos });
 }
 
-mod attack;
+pub(crate) mod attack;
 pub use attack::*;
 
 #[cfg(test)]

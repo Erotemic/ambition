@@ -102,7 +102,7 @@ mod scene_setup;
 mod setup_systems;
 mod sim_resources;
 mod sim_systems;
-mod world_flow;
+pub(crate) mod world_flow;
 
 #[cfg(feature = "input")]
 pub use ambition_gameplay_core::schedule::{

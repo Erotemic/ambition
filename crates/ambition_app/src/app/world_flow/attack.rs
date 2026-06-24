@@ -224,7 +224,7 @@ fn slash_effect_size(hitbox_half_size: ae::Vec2) -> f32 {
 /// (`character_sprites::player_attack_hitbox_world`). Returns `None` when the
 /// current swing's animation has no authored hitbox, so callers fall back to the
 /// hardcoded `AttackSpec` volume.
-fn player_attack_hitbox(
+pub(crate) fn player_attack_hitbox(
     view: &ambition_gameplay_core::combat::AttackView,
     intent: ambition_gameplay_core::combat::AttackIntent,
 ) -> Option<ae::CombatVolume> {

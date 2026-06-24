@@ -173,13 +173,21 @@ mod tests {
     }
 
     #[test]
-    fn player_attack_side_is_forward_disjoint_and_tall() {
+    fn player_attack_side_reaches_forward_starts_in_body_and_is_tall() {
         let body_right = collision().x * 0.5; // +15
         let aabb = player_box(1.0);
-        // Disjoint + in front: the whole box sits to the RIGHT of the body.
+        // Reaches well forward, PAST the body, to surround the slash effect.
         assert!(
-            aabb.min.x > body_right,
-            "hitbox should be disjoint in front of the body (min.x {} > {})",
+            aabb.max.x > body_right + collision().x,
+            "hitbox should reach well forward of the body (max.x {} > {})",
+            aabb.max.x,
+            body_right + collision().x
+        );
+        // Starts a bit INSIDE the body (back edge left of the body's right edge),
+        // not disjoint in front — the authored hull begins within the player.
+        assert!(
+            aabb.min.x < body_right,
+            "hitbox should start inside the body (min.x {} < {})",
             aabb.min.x,
             body_right
         );
@@ -196,11 +204,12 @@ mod tests {
     fn player_attack_side_mirrors_with_facing() {
         let body_left = -collision().x * 0.5; // -15
         let aabb = player_box(-1.0);
+        // Left-facing reaches well forward to the LEFT, past the body.
         assert!(
-            aabb.max.x < body_left,
-            "left-facing hitbox should be disjoint in front on the LEFT (max.x {} < {})",
-            aabb.max.x,
-            body_left
+            aabb.min.x < body_left - collision().x,
+            "left-facing hitbox should reach forward on the LEFT (min.x {} < {})",
+            aabb.min.x,
+            body_left - collision().x
         );
     }
 

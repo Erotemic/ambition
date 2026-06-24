@@ -449,15 +449,17 @@ class RobotAdapter(BaseAdapter):
         # runtime reads this as a CombatVolume::Convex; the bbox stays as the
         # fallback for consumers that don't support polygons.
         attack_side = box(cx + w * 0.26, h * 0.12, w * 0.60, h * 0.72)
-        # Forward crescent — all points at/ahead of the bbox front edge (0.26w)
-        # so the slash stays disjoint in front of the body (Hollow-Knight nail),
-        # but tapers to a tip instead of filling a rectangle's corners.
+        # Big forward slash hull that SURROUNDS the slash effect and starts a bit
+        # inside the body (back edge just left of body centre), bulging forward +
+        # up/down and tapering to a forward tip — like the swing's arc, not a
+        # rectangle. Points reach past the sprite frame on purpose (unclamped).
         attack_side["poly"] = [
-            (cx + w * 0.26, h * 0.14),
-            (cx + w * 0.62, h * 0.06),
-            (cx + w * 0.92, h * 0.42),
-            (cx + w * 0.62, h * 0.80),
-            (cx + w * 0.26, h * 0.70),
+            (cx - w * 0.06, h * 0.06),   # back-top, a bit inside the body
+            (cx + w * 0.50, -h * 0.06),  # top bulge, forward + above
+            (cx + w * 1.08, h * 0.30),   # forward tip, upper
+            (cx + w * 1.08, h * 0.74),   # forward tip, lower
+            (cx + w * 0.50, h * 1.06),   # bottom bulge, forward + below
+            (cx - w * 0.06, h * 0.96),   # back-bottom, a bit inside the body
         ]
 
         return {

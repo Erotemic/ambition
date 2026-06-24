@@ -415,16 +415,25 @@ pub(crate) fn draw_player_debug(
             abilities_directional_primary: clusters.abilities.abilities.directional_primary,
         };
         if let Some(attack_state) = attack {
-            let hitbox =
-                ambition_gameplay_core::combat::attack_hitbox_from_view(&view, attack_state.spec);
+            // Draw the ACTUAL damage volume — the authored blade-arc poly (or the
+            // hardcoded AABB fallback) the slash emits — not a separate preview
+            // box, so the overlay matches what hits.
+            let volume = crate::app::world_flow::attack::player_attack_hitbox(
+                &view,
+                attack_state.spec.intent,
+            )
+            .unwrap_or_else(|| {
+                ambition_gameplay_core::combat::attack_hitbox_from_view(&view, attack_state.spec)
+                    .into()
+            });
             let color = match attack_state.phase() {
                 Some(ambition_gameplay_core::combat::AttackPhase::Startup) => yellow(),
                 Some(ambition_gameplay_core::combat::AttackPhase::Active) => red(),
                 Some(ambition_gameplay_core::combat::AttackPhase::Recovery) => gray(),
                 None => gray(),
             };
-            draw_aabb(gizmos, world, hitbox, color);
-            label_box(labels, hitbox, "atk", color, LabelSpot::TopRight);
+            draw_combat_volume(gizmos, world, &volume, color);
+            label_box(labels, volume.bounds(), "atk", color, LabelSpot::TopRight);
         } else if attack_held || dedicated_pogo_held {
             let intent = ambition_gameplay_core::combat::resolve_attack_intent_from_view(
                 &view,
@@ -435,8 +444,11 @@ pub(crate) fn draw_player_debug(
             let frame = ae::AccelerationFrame::new(gravity_dir);
             let spec = ambition_gameplay_core::combat::attack_spec_from_view(&view, intent)
                 .into_world_frame(frame);
-            let hitbox = ambition_gameplay_core::combat::attack_hitbox_from_view(&view, spec);
-            draw_aabb(gizmos, world, hitbox, yellow());
+            let volume = crate::app::world_flow::attack::player_attack_hitbox(&view, intent)
+                .unwrap_or_else(|| {
+                    ambition_gameplay_core::combat::attack_hitbox_from_view(&view, spec).into()
+                });
+            draw_combat_volume(gizmos, world, &volume, yellow());
         }
     }
 

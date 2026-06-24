@@ -46,6 +46,58 @@ pub(crate) fn draw_aabb(gizmos: &mut Gizmos, world: &ae::World, aabb: ae::Aabb, 
     gizmos.line_2d(bl, tl, color);
 }
 
+/// Draw a [`CombatVolume`] outline — a box, rotated box, disc, or convex
+/// polygon. Lets the overlay show the ACTUAL shaped hitbox (a blade-arc poly)
+/// instead of its bounding box.
+pub(crate) fn draw_combat_volume(
+    gizmos: &mut Gizmos,
+    world: &ae::World,
+    vol: &ae::CombatVolume,
+    color: Color,
+) {
+    let outline = |gizmos: &mut Gizmos, pts: &[ae::Vec2]| {
+        let n = pts.len();
+        for i in 0..n {
+            gizmos.line_2d(w2(world, pts[i]), w2(world, pts[(i + 1) % n]), color);
+        }
+    };
+    match vol {
+        ae::CombatVolume::Aabb(a) => draw_aabb(gizmos, world, *a, color),
+        ae::CombatVolume::Obb {
+            center,
+            half,
+            rotation,
+        } => {
+            let (s, c) = rotation.sin_cos();
+            let rot = |x: f32, y: f32| *center + ae::Vec2::new(x * c - y * s, x * s + y * c);
+            outline(
+                gizmos,
+                &[
+                    rot(-half.x, -half.y),
+                    rot(half.x, -half.y),
+                    rot(half.x, half.y),
+                    rot(-half.x, half.y),
+                ],
+            );
+        }
+        ae::CombatVolume::Circle { center, radius } => {
+            const N: usize = 24;
+            let pts: Vec<ae::Vec2> = (0..N)
+                .map(|i| {
+                    let a = i as f32 / N as f32 * std::f32::consts::TAU;
+                    *center + ae::Vec2::new(a.cos() * radius, a.sin() * radius)
+                })
+                .collect();
+            outline(gizmos, &pts);
+        }
+        ae::CombatVolume::Convex { points, .. } => {
+            if points.len() >= 2 {
+                outline(gizmos, points);
+            }
+        }
+    }
+}
+
 /// Outline + optional translucent fill. Fills are controlled directly by the
 /// current debug view mode instead of being coupled to sprite hiding; choose
 /// Collision/Combat/Triggers when the filled volume view is useful.

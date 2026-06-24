@@ -102,7 +102,10 @@ def build(pose: str, palette: np.ndarray, eps_quant=None):
     bridge = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (3, 3))
     # dark structural parts: ONE clean convex polygon each (the bodysuit base the
     # plates layer over), not jagged contours of fragments.
-    DARK_STRUCTURAL = {"helmet", "core", "pelvis", "bodysuit"}
+    # 'core' (dark torso base) is authored from the torso SILHOUETTE below, not
+    # the jagged dark colour mask; helmet/pelvis still come from the dark mask.
+    DARK_STRUCTURAL = {"helmet", "pelvis", "bodysuit"}
+    dark_base_idx = int(np.argmin(palette.sum(1)))
 
     def dom_color(masks_items, inst):
         cols = [ci for ci, m, a in masks_items if (m & inst).sum() > 0]
@@ -138,13 +141,25 @@ def build(pose: str, palette: np.ndarray, eps_quant=None):
             polys.append({"part": part, "color": int(dom_color(items, union > 0)),
                           "area": float(union.sum()), "points": poly.astype(int).tolist()})
             continue
+        if part == "core":
+            continue  # authored from the torso silhouette after the loop
         grouped = union if part in CELL_PARTS else cv2.dilate(union, bridge)
         n, lab, stats, cents = cv2.connectedComponentsWithStats(grouped, 8)
+        instances = []
         for li in range(1, n):
             inst = (lab == li) & (union > 0)
+            if int(inst.sum()) >= 12:
+                instances.append(inst)
+        # pecs: one wide cream blob -> split L/R into two pecs
+        if part == "pec" and len(instances) == 1:
+            inst = instances[0]
+            xs = np.where(inst.any(0))[0]
+            mid = int(xs.mean())
+            left = inst.copy(); left[:, mid:] = False
+            right = inst.copy(); right[:, :mid] = False
+            instances = [m for m in (left, right) if m.sum() >= 12]
+        for inst in instances:
             inst_area = int(inst.sum())
-            if inst_area < 12:
-                continue
             cnts = cv2.findContours(inst.astype(np.uint8), cv2.RETR_EXTERNAL,
                                     cv2.CHAIN_APPROX_SIMPLE)[0]
             if not cnts:
@@ -163,6 +178,19 @@ def build(pose: str, palette: np.ndarray, eps_quant=None):
                 continue
             polys.append({"part": part, "color": int(dom_color(items, inst)),
                           "area": float(inst_area), "points": poly.astype(int).tolist()})
+
+    # authored dark torso core: the torso silhouette (central body band) as one
+    # clean polygon behind the plates -- the dark reads at the neck + seams.
+    band = np.zeros((h, w), np.uint8)
+    band[int(0.25 * h):int(0.66 * h), int(0.24 * w):int(0.76 * w)] = 1
+    torso = cv2.morphologyEx((fg.astype(np.uint8) & band), cv2.MORPH_CLOSE,
+                             cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (9, 9)))
+    cnts = cv2.findContours(torso, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)[0]
+    if cnts:
+        pts = max(cnts, key=cv2.contourArea).reshape(-1, 2)
+        polys.append({"part": "core", "color": dark_base_idx,
+                      "area": float(torso.sum()),
+                      "points": _clean(pts, convex=False, max_edges=10).astype(int).tolist()})
 
     # explicit detected eyes on top
     di = int(np.argmin(palette.sum(1)))

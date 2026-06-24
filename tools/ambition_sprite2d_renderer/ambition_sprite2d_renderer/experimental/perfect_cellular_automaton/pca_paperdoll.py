@@ -278,8 +278,10 @@ def build(pose: str, palette: np.ndarray, eps_quant=None):
         polys.append({"part": "eye", "color": di, "area": float((x1 - x0) * (y1 - y0)),
                       "points": [[x0 + sh, y0], [x1 + sh, y0], [x1, y1], [x0, y1]]})
 
-    # cap decorative parts that shouldn't proliferate (keep the largest)
-    CAPS = {"shoulder_spot": 4}
+    # cap parts that shouldn't proliferate: decorative spots, and the L/R limbs
+    # (one polygon per side; shading must not split them into many).
+    CAPS = {"shoulder_spot": 4, "thigh": 2, "shin": 2, "foot": 2,
+            "forearm": 2, "upper_arm": 2, "hand": 2}
     for part, cap in CAPS.items():
         inst = sorted([p for p in polys if p["part"] == part], key=lambda p: -p["area"])
         if len(inst) > cap:

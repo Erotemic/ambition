@@ -115,12 +115,12 @@ _FRONT_BODY = [
      "pts": [[140, 186], [170, 180], [200, 186], [194, 232], [170, 248], [146, 232]]},
     # abdomen automaton grid (cream panel + cells)
     {"name": "belly_panel", "color": "cream",
-     "pts": [[150, 252], [192, 252], [190, 312], [152, 312]]},
+     "pts": [[150, 240], [192, 240], [190, 300], [152, 300]]},
 ]
 
 # 3x3 belly cells (green/lime checker) on the panel.
 _BELLY_CELLS = []
-for _r, _y in enumerate(range(258, 306, 16)):
+for _r, _y in enumerate(range(246, 294, 16)):
     for _c, _x in enumerate(range(154, 190, 12)):
         _col = "lime" if (_r + _c) % 2 == 0 else "dark_green"
         _BELLY_CELLS.append({"name": f"bcell_{_r}_{_c}", "color": _col,

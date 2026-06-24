@@ -26,13 +26,16 @@ import pca_paths as P
 import pca_parts as PARTS
 import pca_eyes
 
-CELL_PARTS = {"belly_cell", "forehead_cell"}
+CELL_PARTS = {"belly_cell", "forehead_cell"}            # exact squares
+CONVEX_SPOT = {"shoulder_spot"}                          # irregular convex
+SINGLE_PLATE = {"chest_plate", "belly_panel"}            # one clean backing poly
 # z-order: lower drawn first (behind)
-Z = {"bodysuit": 0, "helmet": 1, "core": 1, "pelvis": 1, "tail": 2,
-     "thigh": 3, "shin": 4, "knee": 5, "foot": 6,
-     "upper_arm": 3, "forearm": 4, "hand": 6, "shoulder": 7,
-     "chest": 8, "belly_cell": 9, "face": 9, "forehead_cell": 10, "eye": 11,
-     "horn": 2, "other": 5}
+Z = {"bodysuit": 0, "core": 0, "helmet": 1, "horn": 1, "tail": 1,
+     "chest_plate": 2, "belly_panel": 2, "upper_arm": 2, "thigh": 2,
+     "pec": 3, "belly_cell": 3, "forearm": 3, "shin": 3,
+     "shoulder": 4, "knee": 4, "foot": 4, "hand": 4,
+     "shoulder_spot": 5, "face": 5,
+     "forehead_cell": 6, "eye": 7, "other": 3}
 
 
 def _square(pts: np.ndarray) -> np.ndarray:
@@ -41,14 +44,18 @@ def _square(pts: np.ndarray) -> np.ndarray:
     return cv2.boxPoints(((cx, cy), (s, s), ang)).astype(int)
 
 
-def _clean(pts: np.ndarray, convex=True, max_edges=8) -> np.ndarray:
+def _clean(pts: np.ndarray, convex=True, max_edges=12, min_edges=5) -> np.ndarray:
+    """Simplify to a low-but-honest edge count. The reference is noisy but not
+    THAT noisy -- most parts want 5-12 sides, not 4. Start gentle and only
+    coarsen until under max_edges."""
     hull = cv2.convexHull(pts.astype(np.int32)) if convex else pts.astype(np.int32)
-    eps = 0.018 * cv2.arcLength(hull, True)
-    for _ in range(6):
-        approx = cv2.approxPolyDP(hull, eps, True).reshape(-1, 2)
+    eps = 0.006 * cv2.arcLength(hull, True)
+    approx = cv2.approxPolyDP(hull, eps, True).reshape(-1, 2)
+    for _ in range(8):
         if len(approx) <= max_edges:
-            return approx
-        eps *= 1.4
+            break
+        eps *= 1.35
+        approx = cv2.approxPolyDP(hull, eps, True).reshape(-1, 2)
     return approx
 
 
@@ -105,6 +112,18 @@ def build(pose: str, palette: np.ndarray, eps_quant=None):
         union = np.zeros((h, w), np.uint8)
         for ci, m, a in items:
             union |= m.astype(np.uint8)
+        if part in SINGLE_PLATE:
+            # one clean backing polygon (largest closed component, simplified)
+            closed = cv2.morphologyEx(union, cv2.MORPH_CLOSE,
+                                      cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (5, 5)))
+            cnts = cv2.findContours(closed, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)[0]
+            if not cnts:
+                continue
+            pts = max(cnts, key=cv2.contourArea).reshape(-1, 2)
+            poly = _clean(pts, convex=False, max_edges=12)
+            polys.append({"part": part, "color": int(dom_color(items, union > 0)),
+                          "area": float(union.sum()), "points": poly.astype(int).tolist()})
+            continue
         if part in DARK_STRUCTURAL:
             # close gaps, then take the LARGEST component as a clean (non-convex)
             # torso/helmet base -- convex hull engulfs the figure, jagged
@@ -136,8 +155,10 @@ def build(pose: str, palette: np.ndarray, eps_quant=None):
             elif part == "horn":
                 ok, tri = cv2.minEnclosingTriangle(pts.astype(np.float32))
                 poly = tri.reshape(-1, 2).astype(int) if tri is not None else _clean(pts, False, 4)
+            elif part in CONVEX_SPOT:
+                poly = _clean(pts, convex=True, max_edges=8)   # irregular convex
             else:
-                poly = _clean(pts, convex=False, max_edges=10)
+                poly = _clean(pts, convex=False, max_edges=12)
             if len(poly) < 3:
                 continue
             polys.append({"part": part, "color": int(dom_color(items, inst)),

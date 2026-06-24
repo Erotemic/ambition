@@ -31,47 +31,58 @@ GREENS = {GREEN, MIDGREEN}
 PART_COLORS = {
     "horn": (120, 230, 60), "helmet": (40, 40, 48), "forehead_cell": (180, 240, 70),
     "face": (245, 240, 180), "eye": (10, 10, 10), "bodysuit": (55, 55, 64),
-    "chest": (255, 210, 140), "belly_cell": (160, 220, 50), "core": (70, 70, 80),
-    "shoulder": (60, 150, 40), "upper_arm": (90, 200, 70), "forearm": (150, 90, 170),
-    "hand": (230, 220, 160),
+    "chest_plate": (70, 110, 50), "pec": (255, 210, 140), "belly_panel": (250, 235, 170),
+    "belly_cell": (160, 220, 50), "core": (70, 70, 80),
+    "shoulder": (60, 150, 40), "shoulder_spot": (40, 90, 40),
+    "upper_arm": (90, 200, 70), "forearm": (150, 90, 170), "hand": (230, 220, 160),
     "thigh": (120, 70, 140), "shin": (70, 170, 60), "knee": (110, 210, 90),
     "foot": (220, 215, 150), "tail": (90, 180, 70), "other": (220, 40, 220),
 }
 
 
 def label_part(nx, ny, color, area_frac):
-    # the dark substrate (one big charcoal silhouette) is the bodysuit
-    if color in DARK and area_frac > 0.12:
-        return "bodysuit"
     is_dark = color in DARK
     is_green = color in GREENS
     is_cream = color == CREAM
     is_purple = color == PURPLE
     is_dg = color == DARKGREEN
-    cell = area_frac < 0.012
-    # ---- head (top ~30%) ----  (eyes are assigned separately by detection)
-    if ny < 0.30:
-        if ny < 0.17 and (is_green or is_dg) and not cell:
+    side = nx < 0.34 or nx > 0.66
+    center = 0.36 < nx < 0.64
+    if is_dark and area_frac > 0.12:
+        return "bodysuit"
+    # ---- head (top ~28%) ----  (eyes assigned separately by detection)
+    if ny < 0.28:
+        if ny < 0.14 and (is_green or is_dg) and side:
             return "horn"
         if is_cream:
             return "face"
         if is_dark:
             return "helmet"
-        if (is_green or is_dg) and cell:
+        if is_green or is_dg:
             return "forehead_cell"
-    # ---- torso + arms (~0.28-0.62) ----
-    if ny < 0.60:
-        side = nx < 0.32 or nx > 0.68
-        if is_cream:
-            return "hand" if side and ny > 0.45 else "chest"
-        if is_purple:
-            return "forearm" if side else "thigh"
+    # ---- chest band (~0.28-0.46): dark-green chest plate, cream pecs on it,
+    #      green shoulder pauldrons with dark-green spots on the sides ----
+    if ny < 0.46:
+        if is_dg:
+            return "shoulder_spot" if side else "chest_plate"
         if is_green:
-            if side:
-                return "shoulder" if ny < 0.42 else "upper_arm"
-            return "belly_cell" if cell else "shoulder"
-        if is_dg or (is_green and cell):
+            return "shoulder" if side else "chest_plate"
+        if is_cream:
+            return "hand" if side and ny > 0.42 else "pec"
+        if is_purple:
+            return "forearm"
+        if is_dark:
+            return "core"
+    # ---- belly band (~0.46-0.62): cream panel + automaton grid cells ----
+    if ny < 0.62:
+        if is_cream:
+            return "belly_panel" if center else "hand"
+        if (is_green or is_dg) and center:
             return "belly_cell"
+        if is_green:
+            return "upper_arm"
+        if is_purple:
+            return "thigh" if center else "forearm"
         if is_dark:
             return "core"
     # ---- legs / tail (lower) ----
@@ -80,7 +91,6 @@ def label_part(nx, ny, color, area_frac):
     if is_cream:
         return "foot"
     if is_green or is_dg:
-        # a far-side elongated green run low down reads as the segmented tail
         return "tail" if (nx > 0.78 or nx < 0.22) and ny > 0.7 else "shin"
     if is_dark:
         return "core"

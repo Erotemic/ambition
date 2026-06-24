@@ -288,50 +288,9 @@ def build(pose: str, palette: np.ndarray, eps_quant=None):
             polys.append({"part": part, "color": color,
                           "area": float(inst_area), "points": poly.astype(int).tolist()})
 
-    # clean parametric belly grid: fit a regular NxM array of equal squares to
-    # the detected cell cluster (the reference cells vary; ours are consistent).
-    bc = by_part.get("belly_cell", [])
-    if bc:
-        u = np.zeros((h, w), np.uint8)
-        for ci, m, a in bc:
-            u |= m.astype(np.uint8)
-        nC, labC, statsC, centsC = cv2.connectedComponentsWithStats(u, 8)
-        cells = [(centsC[i][0], centsC[i][1]) for i in range(1, nC) if statsC[i, 4] >= 6]
-        if len(cells) >= 4:
-            cxs = np.array([c[0] for c in cells]); cys = np.array([c[1] for c in cells])
-            gx0, gy0, gx1, gy1 = cxs.min(), cys.min(), cxs.max(), cys.max()
-            gw, gh = max(1, gx1 - gx0), max(1, gy1 - gy0)
-            ncols = max(1, int(round(np.sqrt(len(cells) * gw / gh))))
-            nrows = max(1, int(round(len(cells) / ncols)))
-            pitch_x = gw / max(1, ncols - 1)
-            pitch_y = gh / max(1, nrows - 1)
-            cell = 0.66 * min(pitch_x, pitch_y) if ncols > 1 and nrows > 1 else 8
-            green_idx = [i for i, c in enumerate(palette) if c[1] > c[0] and c[1] > 100]
-            green_map = np.isin(qi, green_idx) if green_idx else np.zeros((h, w), bool)
-            # Degenerate-fit guard: a real belly grid is compact (cells touching).
-            # In profile/back the few green specks are far apart -> a huge bogus
-            # pitch; bail rather than paint a giant floating "cell".
-            degenerate = cell > 0.18 * w or pitch_x > 0.22 * w or pitch_y > 0.30 * h
-            if not degenerate:
-                for r in range(nrows):
-                    for c in range(ncols):
-                        ux, uy = gx0 + c * pitch_x, gy0 + r * pitch_y
-                        iy, ix = int(round(uy)), int(round(ux))
-                        # only emit a cell BACKED BY GREEN: sample a small radius so
-                        # a center landing on a grout line still counts, but a
-                        # fabricated cell over non-belly area is skipped (no green).
-                        rad = max(1, int(cell * 0.4))
-                        y0s, y1s = max(0, iy - rad), min(h, iy + rad + 1)
-                        x0s, x1s = max(0, ix - rad), min(w, ix + rad + 1)
-                        if not green_map[y0s:y1s, x0s:x1s].any():
-                            continue
-                        col = qi[iy, ix] if 0 <= iy < h and 0 <= ix < w else -1
-                        if col not in green_idx:
-                            col = green_idx[0] if green_idx else int(dom_color(bc, u > 0))
-                        s = cell / 2
-                        polys.append({"part": "belly_cell", "color": int(col), "area": float(cell * cell),
-                                      "points": [[int(ux - s), int(uy - s)], [int(ux + s), int(uy - s)],
-                                                 [int(ux + s), int(uy + s)], [int(ux - s), int(uy + s)]]})
+    # (belly grid is authored AFTER the core below -- it is detected geometrically
+    # as small square green cells sitting ON the dark core, so it survives action
+    # poses where the fixed center-band labelling loses it.)
 
     # authored dark torso core: the central dark bodysuit (neck -> chest/abdomen
     # -> waist -> pelvis). The raw dark mask tangles every thin part-outline into
@@ -412,6 +371,56 @@ def build(pose: str, palette: np.ndarray, eps_quant=None):
         polys.append({"part": "core", "color": dark_base_idx,
                       "area": float(core_mask.sum()),
                       "points": poly.astype(int).tolist()})
+
+    # ---- belly grid (geometric, view-general) ----
+    # The automaton belly grid is the character's signature, but the fixed
+    # center-band label loses it whenever the torso moves (idle/air/land had ~0
+    # cells). Detect it instead by GEOMETRY: small, square, filled GREEN blobs that
+    # sit on the dark CORE (lower half of the core bbox). Then fit a regular NxM
+    # array of equal squares -- consistent cells, like the reference.
+    green_idx = [i for i, c in enumerate(palette) if c[1] > c[0] and c[1] > 100]
+    green = np.isin(qi, green_idx).astype(np.uint8) if green_idx else np.zeros((h, w), np.uint8)
+    cys, cxs = np.where(core_mask > 0)
+    cells = []
+    if cys.size:
+        cy0, cy1, cx0, cx1 = cys.min(), cys.max(), cxs.min(), cxs.max()
+        ch = max(1, cy1 - cy0); cw = max(1, cx1 - cx0)
+        belly_y0 = cy0 + 0.20 * ch          # belly = lower ~2/3 of the core
+        gn, glab, gst, gce = cv2.connectedComponentsWithStats(green, 8)
+        for i in range(1, gn):
+            a = gst[i, cv2.CC_STAT_AREA]
+            bw, bh = gst[i, cv2.CC_STAT_WIDTH], gst[i, cv2.CC_STAT_HEIGHT]
+            if a < 6 or a > 0.012 * w * h:                 # cell-sized only
+                continue
+            if max(bw, bh) > 2.6 * max(1, min(bw, bh)):    # square-ish
+                continue
+            if a < 0.5 * bw * bh:                          # filled (not an L/ring)
+                continue
+            gx, gy = gce[i]
+            if cx0 - 0.10 * cw <= gx <= cx1 + 0.10 * cw and belly_y0 <= gy <= cy1 + 0.18 * ch:
+                cells.append((gx, gy))
+    if len(cells) >= 4:
+        cxa = np.array([c[0] for c in cells]); cya = np.array([c[1] for c in cells])
+        gx0, gy0, gx1, gy1 = cxa.min(), cya.min(), cxa.max(), cya.max()
+        gw, gh = max(1, gx1 - gx0), max(1, gy1 - gy0)
+        ncols = max(1, int(round(np.sqrt(len(cells) * gw / gh))))
+        nrows = max(1, int(round(len(cells) / ncols)))
+        pitch_x = gw / max(1, ncols - 1)
+        pitch_y = gh / max(1, nrows - 1)
+        cell = 0.66 * min(pitch_x, pitch_y) if ncols > 1 and nrows > 1 else 8
+        degenerate = cell > 0.18 * w or pitch_x > 0.22 * w or pitch_y > 0.30 * h
+        if not degenerate:
+            for r in range(nrows):
+                for c in range(ncols):
+                    ux, uy = gx0 + c * pitch_x, gy0 + r * pitch_y
+                    iy, ix = int(round(uy)), int(round(ux))
+                    rad = max(1, int(cell * 0.4))
+                    if not green[max(0, iy - rad):iy + rad + 1, max(0, ix - rad):ix + rad + 1].any():
+                        continue
+                    s = cell / 2
+                    polys.append({"part": "belly_cell", "color": cell_green, "area": float(cell * cell),
+                                  "points": [[int(ux - s), int(uy - s)], [int(ux + s), int(uy - s)],
+                                             [int(ux + s), int(uy + s)], [int(ux - s), int(uy + s)]]})
 
     # explicit detected eyes on top -- slanted PARALLELOGRAMS (the slit's top
     # sheared toward the face centre) so the character reads a little mean.

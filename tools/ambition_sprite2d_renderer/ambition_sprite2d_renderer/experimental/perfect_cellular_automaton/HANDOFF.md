@@ -20,7 +20,7 @@ hard constraints, learned the hard way over a long session.
 - **NOT hooked into the generator yet — gated on Jon's explicit sign-off.** Do not
   wire it in until he says so.
 
-## Pipeline (current best version = `09_paperdoll`)
+## Pipeline (current best version = `10_anchored`)
 
 1. `pca_crops.py` — from `pca-segment.png`: alpha>=127, drop <100px noise
    components, split the 10 figures by 2-row layout, **mask-crop** each (their
@@ -53,11 +53,11 @@ hard constraints, learned the hard way over a long session.
 ```
 PY=.venv/bin/python; EXP=ambition_sprite2d_renderer/experimental/perfect_cellular_automaton
 for p in top_front top_side top_back pose_idle pose_walk_1 pose_walk_2 pose_attack pose_jump pose_air pose_land; do
-  $PY $EXP/pca_paperdoll.py --pose $p --version 09_paperdoll
-  $PY $EXP/pca_optimize.py  --pose $p --version 09_paperdoll --passes 3
-  $PY $EXP/pca_hierarchy.py --pose $p --version 09_paperdoll
+  $PY $EXP/pca_paperdoll.py --pose $p --version 10_anchored
+  $PY $EXP/pca_optimize.py  --pose $p --version 10_anchored --passes 3
+  $PY $EXP/pca_hierarchy.py --pose $p --version 10_anchored
 done
-$PY $EXP/pca_eval.py --version 09_paperdoll
+$PY $EXP/pca_eval.py --version 10_anchored
 ```
 
 ## Scratch layout (KEEP IT ORGANIZED — Jon insisted)
@@ -119,17 +119,25 @@ $PY $EXP/pca_eval.py --version 09_paperdoll
 
 ## Current state
 
+- **Live version: `10_anchored`** (supersedes `10_anchored`; code is shared, the
+  version is just the output snapshot dir). See `versions/10_anchored/notes.md`
+  and `LATEST_core_anchoring_before_after.png`.
 - **Good:** `top_front` and `top_back` are close to the reference — neck,
   symmetric hourglass core over the legs, clean 4x4 belly grid, both pecs,
   parallelogram eyes, triangle horns, octagon helmet, single chest_plate, line-art
   outlines, clean limb counts. Eyes correct per view (2/1/0). Completeness fill
-  keeps uncovered foreground at 1–2.4%/frame.
-- **Needs work:** the 7 action poses + `top_side` are COMPLETE but DISTORTED. The
-  `label_part` bands and the core/neck/helmet/grid authoring are tuned for the
-  upright FRONT view, so on profile/tilted/crouched poses parts land wrong (the
-  side helmet "towers" upward; idle's grid/pecs read poorly). A view-anchoring
-  attempt was reverted because a too-big head box swallowed the neck/torso into a
-  giant helmet — redo it carefully (tight, tested) if you try again.
+  keeps uncovered foreground low.
+- **DONE in 10_anchored (roadmap #1/#2, the CORE/NECK part):** the dark `core` and
+  `neck` are now **face-anchored** (largest opened dark blob below the detected
+  face bottom; helmet cut above the face) instead of fixed `0.22h–0.67h` bands, so
+  the torso is followed on crouch / dive / profile. The earlier "too-big head box
+  swallowed the neck/torso" failure was avoided by anchoring to the face *bottom*
+  (a cut line), not a head *box*. Also: belly-grid degenerate guard + `fill_gaps`
+  no longer squares large green gaps (killed the side-view floating green block).
+- **Still needs work:** `label_part`'s CHEST/BELLY y-bands are STILL fixed
+  fractions — on heavy crouch (attack/land) the green/cream there can mislabel.
+  Anchor those bands to the detected core/torso extent next. Per-view helmet
+  silhouette (roadmap #3) still open; side forehead/horn cluster reads busy.
 
 ## Roadmap to near-perfect (modulo noise + artistic discretion)
 

@@ -241,26 +241,66 @@ def build(pose: str, palette: np.ndarray, eps_quant=None):
             pitch_y = gh / max(1, nrows - 1)
             cell = 0.66 * min(pitch_x, pitch_y) if ncols > 1 and nrows > 1 else 8
             green_idx = [i for i, c in enumerate(palette) if c[1] > c[0] and c[1] > 100]
-            for r in range(nrows):
-                for c in range(ncols):
-                    ux, uy = gx0 + c * pitch_x, gy0 + r * pitch_y
-                    iy, ix = int(round(uy)), int(round(ux))
-                    col = qi[iy, ix] if 0 <= iy < h and 0 <= ix < w else -1
-                    if col not in green_idx:
-                        col = green_idx[0] if green_idx else int(dom_color(bc, u > 0))
-                    s = cell / 2
-                    polys.append({"part": "belly_cell", "color": int(col), "area": float(cell * cell),
-                                  "points": [[int(ux - s), int(uy - s)], [int(ux + s), int(uy - s)],
-                                             [int(ux + s), int(uy + s)], [int(ux - s), int(uy + s)]]})
+            green_map = np.isin(qi, green_idx) if green_idx else np.zeros((h, w), bool)
+            # Degenerate-fit guard: a real belly grid is compact (cells touching).
+            # In profile/back the few green specks are far apart -> a huge bogus
+            # pitch; bail rather than paint a giant floating "cell".
+            degenerate = cell > 0.18 * w or pitch_x > 0.22 * w or pitch_y > 0.30 * h
+            if not degenerate:
+                for r in range(nrows):
+                    for c in range(ncols):
+                        ux, uy = gx0 + c * pitch_x, gy0 + r * pitch_y
+                        iy, ix = int(round(uy)), int(round(ux))
+                        # only emit a cell BACKED BY GREEN: sample a small radius so
+                        # a center landing on a grout line still counts, but a
+                        # fabricated cell over non-belly area is skipped (no green).
+                        rad = max(1, int(cell * 0.4))
+                        y0s, y1s = max(0, iy - rad), min(h, iy + rad + 1)
+                        x0s, x1s = max(0, ix - rad), min(w, ix + rad + 1)
+                        if not green_map[y0s:y1s, x0s:x1s].any():
+                            continue
+                        col = qi[iy, ix] if 0 <= iy < h and 0 <= ix < w else -1
+                        if col not in green_idx:
+                            col = green_idx[0] if green_idx else int(dom_color(bc, u > 0))
+                        s = cell / 2
+                        polys.append({"part": "belly_cell", "color": int(col), "area": float(cell * cell),
+                                      "points": [[int(ux - s), int(uy - s)], [int(ux + s), int(uy - s)],
+                                                 [int(ux + s), int(uy + s)], [int(ux - s), int(uy + s)]]})
 
     # authored dark torso core: the central dark bodysuit (neck -> chest/abdomen
     # -> waist -> pelvis). The raw dark mask tangles every thin part-outline into
     # the core, so OPEN it to drop the thin lines and keep the thick central
     # blob, take the largest component, then trace ~15 edges with hip detail.
+    #
+    # VIEW-ANCHORED (roadmap #1/#2): the head is always the topmost feature, so we
+    # anchor both the neck and the core to the DETECTED FACE rather than to fixed
+    # image fractions. The old fixed bands (0.22h-0.67h) only matched the upright
+    # front view and dropped a misplaced black blob on every crouched / diving /
+    # profile pose. Anchoring to the face bottom keeps the helmet out (it lives
+    # above the face) while following the torso wherever the pose puts it.
     dark_mask = np.isin(qi, list(dark_idx)).astype(np.uint8)
-    # dark neck: trapezoid just below the chin (the character was neck-less).
+    opened = cv2.morphologyEx(dark_mask, cv2.MORPH_OPEN,
+                              cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (3, 3)))
+    if face_box is not None:
+        fx0, fy0, fx1, fy1 = [float(v) for v in face_box]
+    else:                                   # back view (no face): fall back to fg top
+        ys, xs = np.where(fg)
+        fy0 = float(ys.min()) if ys.size else 0.0
+        fy1 = fy0 + 0.18 * h
+        cxw = fg.sum(0).astype(float)
+        fcx0 = (np.arange(w) * cxw).sum() / max(1.0, cxw.sum())
+        fx0, fx1 = fcx0 - 0.12 * w, fcx0 + 0.12 * w
+    fcx = 0.5 * (fx0 + fx1)
+    fch = max(1.0, fy1 - fy0)
+    fcw = max(1.0, fx1 - fx0)
+    face_bottom = fy1
+
+    # dark neck: trapezoid just below the chin, in a face-sized box (the character
+    # was neck-less); follows the detected face instead of a fixed y-band.
     neck_band = np.zeros((h, w), np.uint8)
-    neck_band[int(0.27 * h):int(0.37 * h), int(0.36 * w):int(0.64 * w)] = 1
+    ny0 = int(max(0, face_bottom - 0.15 * fch)); ny1 = int(min(h, face_bottom + 0.7 * fch))
+    nx0 = int(max(0, fcx - 0.55 * fcw)); nx1 = int(min(w, fcx + 0.55 * fcw))
+    neck_band[ny0:ny1, nx0:nx1] = 1
     neck_mask = cv2.morphologyEx(dark_mask & neck_band, cv2.MORPH_OPEN,
                                  cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (3, 3)))
     ncn, nlab, nstats, _ = cv2.connectedComponentsWithStats(neck_mask, 8)
@@ -274,12 +314,12 @@ def build(pose: str, palette: np.ndarray, eps_quant=None):
                 polys.append({"part": "neck", "color": dark_base_idx,
                               "area": float(cv2.contourArea(npts)),
                               "points": _clean(npts, convex=False, max_edges=7).astype(int).tolist()})
-    band = np.zeros((h, w), np.uint8)
-    # stop the band at the crotch (~0.67h); below that is legs, whose THIN dark
-    # outlines must not be mistaken for the core.
-    band[int(0.22 * h):int(0.67 * h), int(0.24 * w):int(0.76 * w)] = 1
-    core_mask = cv2.morphologyEx(dark_mask & band, cv2.MORPH_OPEN,
-                                 cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (3, 3)))
+    # core = the largest thick dark blob BELOW the face bottom (the helmet, above
+    # the face, is cut away by the anchored top edge). No fixed band / no x-bounds:
+    # the torso may sit anywhere the pose puts it, so we follow the dark pixels.
+    core_mask = opened.copy()
+    cut = int(max(0, face_bottom - 0.1 * fch))
+    core_mask[:cut, :] = 0
     n, lab, stats, _ = cv2.connectedComponentsWithStats(core_mask, 8)
     if n > 1:
         li = 1 + int(np.argmax(stats[1:, cv2.CC_STAT_AREA]))
@@ -354,10 +394,16 @@ def fill_gaps(polys, qi, fg, palette, w, h, min_area=28):
         pts = max(cnts, key=cv2.contourArea).reshape(-1, 2)
         col = int(np.bincount(qi[m], minlength=len(palette)).argmax())
         cx, cy = gce[li]
-        part = PARTS.label_part(cx / w, cy / h, col, gst[li, cv2.CC_STAT_AREA] / (w * h))
-        if part in ("core", "belly_cell"):
-            part = "core_fill" if part == "core" else "belly_cell"
-        poly = _square(pts) if part in CELL_PARTS else _clean(pts, convex=False, max_edges=10)
+        area = gst[li, cv2.CC_STAT_AREA]
+        part = PARTS.label_part(cx / w, cy / h, col, area / (w * h))
+        if part == "core":
+            part = "core_fill"
+        # A genuine belly cell is tiny; a LARGE green gap labelled belly_cell is
+        # really uncovered limb/torso (common in profile/back) -- filling it as a
+        # big outlined SQUARE makes a floating block. Keep it a flat clean poly
+        # (still belly_cell -> accent, no outline) so it blends into the figure.
+        is_cell = part in CELL_PARTS and area < (0.05 * w) ** 2
+        poly = _square(pts) if is_cell else _clean(pts, convex=False, max_edges=10)
         if len(poly) >= 3:
             polys.append({"part": part, "color": col, "area": float(gst[li, cv2.CC_STAT_AREA]),
                           "points": poly.astype(int).tolist()})

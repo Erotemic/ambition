@@ -19,23 +19,13 @@ import json
 from pathlib import Path
 
 import pca_fit as F
-import pca_finalize  # noqa: F401  (imported for side-effect parity / reuse)
-import pca_detect_spots as D
+import pca_finalize
 from PIL import Image
 
 HERE = Path(__file__).resolve().parent
 DEFAULT_DATA = HERE / "perfect_cellular_automaton_pose_polygons_v14.json"
 DEFAULT_REF = Path("/home/joncrall/code/ambition/assets/concept_art/"
                    "prefect-cellular-automaton-reference-image.png")
-
-
-def add_spots(geoms, ref, specs):
-    for name in ("top_back", "top_side"):
-        for r in D.detect(ref, specs[name]["roi"])[:6]:
-            gx0, gy0, gx1, gy1 = r["global_box"]
-            import numpy as np
-            pts = np.asarray([[gx0, gy0], [gx1, gy0], [gx1, gy1], [gx0, gy1]], np.float32)
-            geoms[name].polys.append(F.Poly("dark_green", False, pts, locked=True))
 
 
 def main():
@@ -48,23 +38,26 @@ def main():
     args = ap.parse_args()
     args.out_dir.mkdir(parents=True, exist_ok=True)
 
-    fit_json = args.out_dir / "pca_v15_fit.json"
-    fit_png = args.out_dir / "pca_v15_fit.png"
-    final_json = args.out_dir / "pca_v15_final.json"
-    final_png = args.out_dir / "pca_v15_final.png"
+    fit_json = args.out_dir / "pca_fit.json"
+    fit_png = args.out_dir / "pca_fit.png"
+    final_json = args.out_dir / "pca_final.json"
+    final_png = args.out_dir / "pca_final.png"
+    white_png = args.out_dir / "pca_final_white.png"
 
     # 1. optimize (palette fix + motif applied inside pca_fit.run)
     F.run(args.data, args.ref, fit_json, fit_png, poses=args.poses, seed=args.seed)
 
-    # 2. stamp static detail (back/side carapace spots) as a locked layer
+    # 2. stamp detail layers (dark substrate + spots + face/eyes); dark + white
     data = json.loads(fit_json.read_text())
+    data["palette"].update(F.PALETTE_FIX)
     geoms = F.load_geom_v15(data)
     ref = Image.open(args.ref).convert("RGB")
     specs = json.loads((HERE / "pca_roi_specs_v14.json").read_text())["rois"]
-    add_spots(geoms, ref, specs)
+    pca_finalize.stamp_detail(geoms, ref, specs)
     F.save_geom_v15(geoms, data["palette"], data.get("meta", {}), final_json)
-    F.render_sheet(geoms, data["palette"]).save(final_png)
-    print(f"wrote {final_json}\nwrote {final_png}")
+    F.render_sheet(geoms, data["palette"]).convert("RGB").save(final_png)
+    F.render_sheet(geoms, data["palette"], bg=(255, 255, 255)).convert("RGB").save(white_png)
+    print(f"wrote {final_json}\nwrote {final_png}\nwrote {white_png}")
 
 
 if __name__ == "__main__":

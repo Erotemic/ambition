@@ -228,7 +228,18 @@ def _draw_layout(d, palette) -> None:
         d.text((22, 996 + i * 28), txt, font=_font(17), fill=txt_col)
 
 
-def render_sheet(geoms: Dict[str, PoseGeom], palette: dict) -> Image.Image:
+def render_sheet(geoms: Dict[str, PoseGeom], palette: dict,
+                 bg: Optional[Tuple[int, int, int]] = None) -> Image.Image:
+    """Render the full sheet. ``bg`` overrides the gradient with a solid colour
+    (e.g. white) and drops the legend -- a diagnostic to verify the dark
+    helmet/body silhouette is actually present, not just lost against the
+    dark backdrop."""
+    if bg is not None:
+        img = Image.new("RGBA", (W, H), tuple(bg) + (255,))
+        d = ImageDraw.Draw(img, "RGBA")
+        for name in POSE_NAMES:
+            draw_polys(d, geoms[name].polys, palette)
+        return img
     img = Image.new("RGBA", (W, H), tuple(palette["bg0"]))
     d = ImageDraw.Draw(img, "RGBA")
     _draw_bg(d, palette)

@@ -17,12 +17,21 @@ IoU ≈ 0.80** because the geometry was being nudged by hand.
 
 | File | Role |
 |---|---|
-| `pca_fit.py` | Flatten v14 polygons → absolute-coord list; faithful renderer (pixel-identical to v14, see `--selftest`); FG-aware loss; staged descent (global affine → per-polygon → per-vertex). Also applies `PALETTE_FIX` and renders the `motif_segments` grid. |
+| `pca_fit.py` | Flatten v14 polygons → absolute-coord list; faithful renderer (pixel-identical to v14, see `--selftest`); FG-aware loss; staged descent (global affine → per-polygon → per-vertex). Applies `PALETTE_FIX`, renders the `motif_segments` grid, and supports a solid-`bg` (white) diagnostic render. |
 | `pca_seg.py` | Flood-fill foreground mask: background = border-connected bg-coloured pixels, so the **dark helmet/forehead counts as foreground**. |
-| `pca_detect_spots.py` | Connected-component detector for the dark-green carapace spots (top_back / top_side), emitted as motif rects. |
-| `pca_finalize.py` | Stamps detected static detail onto a fitted sheet as a locked layer. |
+| `pca_detect_spots.py` | Connected-component detector for the dark-green carapace spots (top_back / top_side). |
+| `pca_substrate.py` | Reconstructs the **charcoal bodysuit/helmet** (neutral ~34,34,34, near-bg) as a rectangle-cover layer drawn *behind* the plates, so the dark silhouette is actually built (verify on white bg). |
+| `pca_face.py` | Detects the cream **face** (the cream blob that *has* eye-slits) + eye boxes; emits a face hull + eyes. |
+| `pca_finalize.py` | `stamp_detail`: dark substrate (behind) + carapace spots + face/eyes (front), all locked; renders dark + white sheets. |
 | `pca_inspect.py` | Builds a `[target | candidate | overlay]` grid for eyeballing. |
-| `pca_pipeline.py` | End-to-end driver (v14 → fit → finalize → sheet + IoU). |
+| `pca_pipeline.py` | End-to-end driver (v14 → fit → finalize → dark + white sheets). |
+
+### White-background diagnostic
+
+`render_sheet(..., bg=(255,255,255))` drops the gradient + legend so the dark
+helmet/torso silhouette can be verified — on the dark backdrop, missing dark
+structure is invisible (dark-on-dark). This caught that the v14 bodysuit/helmet
+was under-built; `pca_substrate` reconstructs it.
 
 Three insights broke the plateau:
 

@@ -42,6 +42,13 @@ pub struct Hitbox {
     /// authoritative position; `World` is a fixed world-space rectangle.
     pub anchor: HitboxAnchor,
     pub half_extent: ae::Vec2,
+    /// Optional non-box strike shape (rotated box, disc, convex arc), in local
+    /// space (`+x` = forward) and placed at the anchor center. `None` falls back
+    /// to the `half_extent` box, so existing strikes are unchanged.
+    pub shape: Option<ae::VolumeShape>,
+    /// Facing baked at spawn — mirrors an asymmetric `shape`. `1.0` for boxes /
+    /// discs (mirror-invariant).
+    pub facing: f32,
     pub damage: i32,
     pub knockback_strength: f32,
 }
@@ -70,14 +77,25 @@ pub struct HitboxHits {
 }
 
 impl Hitbox {
-    /// Re-resolve this hitbox's world-space AABB. Computed every tick rather than
-    /// mirrored on the entity so a moving owner needs no per-frame update.
-    pub fn world_aabb(&self, owner_pos: ae::Vec2) -> ae::Aabb {
+    /// Re-resolve this hitbox's world-space volume. Computed every tick rather
+    /// than mirrored on the entity so a moving owner needs no per-frame update.
+    /// Uses the authored `shape` when present (placed + facing-mirrored at the
+    /// anchor center); otherwise the `half_extent` box.
+    pub fn world_volume(&self, owner_pos: ae::Vec2) -> ae::CombatVolume {
         let center = match self.anchor {
             HitboxAnchor::FollowOwner { local_offset } => owner_pos + local_offset,
             HitboxAnchor::World { center } => center,
         };
-        ae::Aabb::new(center, self.half_extent)
+        match &self.shape {
+            Some(shape) => shape.place_at(center, self.facing, ae::Vec2::new(0.0, 1.0)),
+            None => ae::CombatVolume::aabb(ae::Aabb::new(center, self.half_extent)),
+        }
+    }
+
+    /// Conservative axis-aligned bounds of [`Self::world_volume`] — for the
+    /// debug overlay and any broad-phase callers.
+    pub fn world_aabb(&self, owner_pos: ae::Vec2) -> ae::Aabb {
+        self.world_volume(owner_pos).bounds()
     }
 }
 
@@ -90,6 +108,10 @@ impl Hitbox {
 /// player AOEs, boss hazards, and enemy death blasts.
 pub struct DamageBox {
     pub half_extent: ae::Vec2,
+    /// Optional non-box shape (a disc for an explosion, a convex blast cone).
+    /// `None` = the `half_extent` box. The world-anchored counterpart to the
+    /// player/enemy melee `shape`.
+    pub shape: Option<ae::VolumeShape>,
     pub damage: i32,
     pub knockback: f32,
     /// Final lifetime in seconds — callers pass the already-clamped value.
@@ -116,6 +138,8 @@ pub fn spawn_damage_box(
             source,
             anchor: HitboxAnchor::World { center },
             half_extent: dbox.half_extent,
+            shape: dbox.shape.clone(),
+            facing: 1.0,
             damage: dbox.damage,
             knockback_strength: dbox.knockback,
         },
@@ -197,6 +221,7 @@ pub fn apply_effects(mut commands: Commands, mut requests: MessageReader<EffectR
                     d.center,
                     DamageBox {
                         half_extent: d.half_extent,
+                        shape: None,
                         damage: d.damage,
                         knockback: d.knockback,
                         lifetime_s: d.lifetime_s,
@@ -208,5 +233,55 @@ pub fn apply_effects(mut commands: Commands, mut requests: MessageReader<EffectR
             // (`apply_summon_effects` / `apply_projectile_effects`).
             Effect::Summon(_) | Effect::Projectiles { .. } => {}
         }
+    }
+}
+
+#[cfg(test)]
+mod hitbox_shape_tests {
+    use super::*;
+
+    #[test]
+    fn shaped_hitbox_resolves_its_shape_at_the_anchor() {
+        // A disc FollowOwner hitbox resolves to a Circle centered at owner+offset,
+        // not the half_extent box.
+        let hb = Hitbox {
+            owner: Entity::PLACEHOLDER,
+            source: ActorFaction::Player,
+            anchor: HitboxAnchor::FollowOwner {
+                local_offset: ae::Vec2::new(20.0, 0.0),
+            },
+            half_extent: ae::Vec2::splat(10.0),
+            shape: Some(ae::VolumeShape::circle(15.0)),
+            facing: 1.0,
+            damage: 1,
+            knockback_strength: 0.0,
+        };
+        match hb.world_volume(ae::Vec2::new(100.0, 50.0)) {
+            ae::CombatVolume::Circle { center, radius } => {
+                assert_eq!(center, ae::Vec2::new(120.0, 50.0));
+                assert_eq!(radius, 15.0);
+            }
+            other => panic!("expected Circle, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn unshaped_hitbox_falls_back_to_the_half_extent_box() {
+        let hb = Hitbox {
+            owner: Entity::PLACEHOLDER,
+            source: ActorFaction::Enemy,
+            anchor: HitboxAnchor::World {
+                center: ae::Vec2::new(5.0, 5.0),
+            },
+            half_extent: ae::Vec2::new(8.0, 12.0),
+            shape: None,
+            facing: 1.0,
+            damage: 1,
+            knockback_strength: 0.0,
+        };
+        assert!(matches!(
+            hb.world_volume(ae::Vec2::ZERO),
+            ae::CombatVolume::Aabb(_)
+        ));
     }
 }

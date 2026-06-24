@@ -65,6 +65,7 @@ pub(super) fn spawn_death_explosion(commands: &mut Commands, owner: Entity, pos:
         pos,
         crate::effects::DamageBox {
             half_extent: ae::Vec2::splat(EXPLODER_BLAST_HALF),
+            shape: None,
             damage: EXPLODER_BLAST_DAMAGE,
             knockback: EXPLODER_BLAST_KNOCKBACK,
             lifetime_s: EXPLODER_BLAST_LIFETIME_S,

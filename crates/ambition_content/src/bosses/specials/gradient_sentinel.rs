@@ -683,6 +683,7 @@ pub fn spawn_saddle_point_from_special_messages(
                 boss.kin.pos,
                 ambition_gameplay_core::effects::DamageBox {
                     half_extent: ae::Vec2::new(he_x, he_y),
+                    shape: None,
                     damage,
                     knockback: SADDLE_POINT_KNOCKBACK,
                     lifetime_s: period * 2.0,

@@ -88,7 +88,7 @@ pub fn apply_hitbox_damage(
             // resolved sensibly.
             Err(_) => continue,
         };
-        let world_aabb = hitbox.world_aabb(owner_pos);
+        let world_volume = hitbox.world_volume(owner_pos);
 
         match hitbox.source {
             ActorFaction::Enemy | ActorFaction::Boss => {
@@ -120,10 +120,10 @@ pub fn apply_hitbox_damage(
                     if hits.hit.contains(&player_entity) {
                         continue;
                     }
-                    if !world_aabb.strict_intersects(player_body) {
+                    if !world_volume.intersects_aabb(player_body) {
                         continue;
                     }
-                    let impact = midpoint(player_body.center(), world_aabb.center());
+                    let impact = midpoint(player_body.center(), world_volume.center());
                     let knockback_dir = if player_body.center().x >= owner_pos.x {
                         1.0
                     } else {
@@ -151,7 +151,7 @@ pub fn apply_hitbox_damage(
                         cue: PhysicsDebrisCue::Impact,
                     });
                     hit_events.write(HitEvent {
-                        volume: world_aabb.into(),
+                        volume: world_volume.clone(),
                         damage: hitbox.damage.max(1),
                         source: source_kind,
                         // Enemy / boss hitboxes know their owner — the
@@ -186,10 +186,10 @@ pub fn apply_hitbox_damage(
             ActorFaction::Player => {
                 if hits.hit.insert(hitbox.owner) {
                     vfx.write(VfxMessage::Impact {
-                        pos: world_aabb.center(),
+                        pos: world_volume.center(),
                     });
                     hit_events.write(HitEvent {
-                        volume: world_aabb.into(),
+                        volume: world_volume.clone(),
                         damage: hitbox.damage.max(1),
                         source: HitSource::PlayerSlash { knock_x: 0.0 },
                         attacker: Some(hitbox.owner),
@@ -243,6 +243,8 @@ pub fn spawn_melee_hitbox(
                 source,
                 anchor: HitboxAnchor::FollowOwner { local_offset },
                 half_extent,
+                shape: None,
+                facing: 1.0,
                 damage,
                 knockback_strength,
             },

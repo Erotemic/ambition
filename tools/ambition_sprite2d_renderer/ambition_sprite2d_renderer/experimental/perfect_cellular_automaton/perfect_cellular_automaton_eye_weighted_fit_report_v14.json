@@ -1,0 +1,278 @@
+{
+  "version": "v14",
+  "focus": "top_front eyes",
+  "eyes": {
+    "top_front:left_eye": {
+      "black_pixel_iou": 0.3793103448275862,
+      "search_box_local": [
+        78,
+        110,
+        100,
+        142
+      ],
+      "polygon_local": [
+        [
+          84,
+          115
+        ],
+        [
+          94,
+          120
+        ],
+        [
+          94,
+          138
+        ],
+        [
+          85,
+          134
+        ]
+      ]
+    },
+    "top_front:right_eye": {
+      "black_pixel_iou": 0.41834451901565994,
+      "search_box_local": [
+        134,
+        110,
+        156,
+        142
+      ],
+      "polygon_local": [
+        [
+          140,
+          120
+        ],
+        [
+          150,
+          115
+        ],
+        [
+          149,
+          134
+        ],
+        [
+          140,
+          138
+        ]
+      ]
+    },
+    "top_side:visible_eye": {
+      "black_pixel_iou": 0.902803738317757,
+      "search_box_local": [
+        12,
+        102,
+        40,
+        146
+      ],
+      "polygon_local": [
+        [
+          18,
+          110
+        ],
+        [
+          34,
+          108
+        ],
+        [
+          32,
+          136
+        ],
+        [
+          18,
+          140
+        ]
+      ]
+    },
+    "pose_idle:visible_eye": {
+      "black_pixel_iou": 0.8199445983379502,
+      "search_box_local": [
+        24,
+        64,
+        50,
+        97
+      ],
+      "polygon_local": [
+        [
+          30,
+          70
+        ],
+        [
+          44,
+          70
+        ],
+        [
+          43,
+          90
+        ],
+        [
+          31,
+          91
+        ]
+      ]
+    },
+    "pose_walk_1:visible_eye": {
+      "black_pixel_iou": 0.8438256658595642,
+      "search_box_local": [
+        49,
+        64,
+        78,
+        98
+      ],
+      "polygon_local": [
+        [
+          55,
+          70
+        ],
+        [
+          72,
+          70
+        ],
+        [
+          71,
+          91
+        ],
+        [
+          56,
+          92
+        ]
+      ]
+    },
+    "pose_walk_2:visible_eye": {
+      "black_pixel_iou": 0.8934977578475336,
+      "search_box_local": [
+        58,
+        64,
+        87,
+        98
+      ],
+      "polygon_local": [
+        [
+          64,
+          70
+        ],
+        [
+          81,
+          70
+        ],
+        [
+          80,
+          91
+        ],
+        [
+          65,
+          92
+        ]
+      ]
+    },
+    "pose_attack:visible_eye": {
+      "black_pixel_iou": 0.8687830687830688,
+      "search_box_local": [
+        104,
+        90,
+        134,
+        127
+      ],
+      "polygon_local": [
+        [
+          110,
+          96
+        ],
+        [
+          128,
+          96
+        ],
+        [
+          127,
+          119
+        ],
+        [
+          111,
+          121
+        ]
+      ]
+    },
+    "pose_jump:visible_eye": {
+      "black_pixel_iou": 0.5626598465473146,
+      "search_box_local": [
+        10,
+        64,
+        39,
+        98
+      ],
+      "polygon_local": [
+        [
+          16,
+          70
+        ],
+        [
+          33,
+          70
+        ],
+        [
+          32,
+          91
+        ],
+        [
+          17,
+          92
+        ]
+      ]
+    },
+    "pose_air:visible_eye": {
+      "black_pixel_iou": 0.8777648428405123,
+      "search_box_local": [
+        13,
+        64,
+        42,
+        98
+      ],
+      "polygon_local": [
+        [
+          19,
+          70
+        ],
+        [
+          36,
+          70
+        ],
+        [
+          35,
+          91
+        ],
+        [
+          20,
+          92
+        ]
+      ]
+    },
+    "pose_land:visible_eye": {
+      "black_pixel_iou": 0.834625322997416,
+      "search_box_local": [
+        61,
+        70,
+        90,
+        103
+      ],
+      "polygon_local": [
+        [
+          67,
+          76
+        ],
+        [
+          84,
+          76
+        ],
+        [
+          83,
+          96
+        ],
+        [
+          68,
+          97
+        ]
+      ]
+    }
+  },
+  "mean_eye_iou": 0.7401559705374362,
+  "recommended_weight_in_total_score": 5.0
+}

@@ -1,0 +1,140 @@
+{
+  "schema": "pca_pose_roi_specs_v14",
+  "image_size": [
+    1448,
+    1086
+  ],
+  "coordinate_space": "reference sheet pixels",
+  "notes": [
+    "These are comparison windows, not final animation sprite crop boxes.",
+    "Bottom-row windows start above horn tips but below label text; the previous AIR y0 cropped the horn/head top.",
+    "Exclude rectangles mask unavoidable adjacent-pose contamination from tails/limbs before scoring.",
+    "v6 polygon pass uses traced/simplified polygon reconstructions within these fixed masked ROI windows.",
+    "These windows are the alignment gate for comparisons; polygon changes happen only after the windows are validated.",
+    "v7 simplification pass keeps the v6 alignment gate and simplifies the traced polygon sets.",
+    "v7 also adds explicit manual detail polygons (forehead cells / abdomen grids) for front-ish poses.",
+    "v8 uses the same validated masked ROI alignment gate as v7.",
+    "New work is motif segmentation / exact placement of forehead and abdomen grid cells.",
+    "v9 is a turn-based part pass: head, chest, belly, limbs, feet, pelvis, neck, and tail are patched part-by-part.",
+    "The ROI alignment gate is unchanged from v8; improvements focus on missing internal dark regions and local anatomy details.",
+    "v10 cleans up noisy internal overlay artifacts and replaces missing eyes with explicit simple polygons.",
+    "Black squiggles from v9 are treated as overlay artifacts, not intended sprite detail.",
+    "v11 retunes eye placement pose-by-pose using reference head crops.",
+    "v12 makes eye slits bolder and more inward so they read clearly on the cream face.",
+    "v13 makes eyes a first-class weighted target and updates eye polygons using reference-crop placement.",
+    "v14 specifically corrects top_front eye placement against the original reference."
+  ],
+  "rois": {
+    "top_front": {
+      "roi": [
+        50,
+        25,
+        292,
+        555
+      ],
+      "exclude": []
+    },
+    "top_side": {
+      "roi": [
+        350,
+        25,
+        681,
+        555
+      ],
+      "exclude": []
+    },
+    "top_back": {
+      "roi": [
+        682,
+        25,
+        915,
+        555
+      ],
+      "exclude": []
+    },
+    "pose_idle": {
+      "roi": [
+        25,
+        655,
+        205,
+        950
+      ],
+      "exclude": []
+    },
+    "pose_walk_1": {
+      "roi": [
+        200,
+        655,
+        405,
+        950
+      ],
+      "exclude": []
+    },
+    "pose_walk_2": {
+      "roi": [
+        400,
+        655,
+        635,
+        950
+      ],
+      "exclude": [
+        [
+          590,
+          655,
+          635,
+          805
+        ]
+      ]
+    },
+    "pose_attack": {
+      "roi": [
+        590,
+        655,
+        855,
+        950
+      ],
+      "exclude": [
+        [
+          590,
+          820,
+          620,
+          900
+        ]
+      ]
+    },
+    "pose_jump": {
+      "roi": [
+        865,
+        650,
+        1055,
+        920
+      ],
+      "exclude": []
+    },
+    "pose_air": {
+      "roi": [
+        1028,
+        650,
+        1242,
+        905
+      ],
+      "exclude": []
+    },
+    "pose_land": {
+      "roi": [
+        1210,
+        760,
+        1440,
+        970
+      ],
+      "exclude": [
+        [
+          1210,
+          760,
+          1240,
+          860
+        ]
+      ]
+    }
+  }
+}

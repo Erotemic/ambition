@@ -1,0 +1,203 @@
+{
+  "target": "/mnt/data/perfect_cellular_automaton_target_reference.png",
+  "candidate": "/mnt/data/perfect_cellular_automaton_pil_concept_sheet_v14.png",
+  "roi_specs": "/mnt/data/pca_roi_specs_v14.json",
+  "notes": [
+    "Metrics are computed only inside fixed ROI windows and outside any exclude sub-rectangles.",
+    "mean_abs_rgb_union is lower-is-better; coverage_iou is higher-is-better.",
+    "This v14 pass prioritizes corrected alignment windows and polygon edits rather than optimizer-only nudges."
+  ],
+  "rois": {
+    "top_front": {
+      "roi": [
+        50,
+        25,
+        292,
+        555
+      ],
+      "exclude": [],
+      "diff": {
+        "mean_abs_rgb_union": 25.16118414242832,
+        "coverage_iou": 0.8386916468274506,
+        "target_only_pixels": 4571,
+        "candidate_only_pixels": 3221,
+        "overlap_pixels": 40513,
+        "union_pixels": 48305
+      }
+    },
+    "top_side": {
+      "roi": [
+        350,
+        25,
+        681,
+        555
+      ],
+      "exclude": [],
+      "diff": {
+        "mean_abs_rgb_union": 26.827257676568895,
+        "coverage_iou": 0.8464373848124199,
+        "target_only_pixels": 2843,
+        "candidate_only_pixels": 2073,
+        "overlap_pixels": 27097,
+        "union_pixels": 32013
+      }
+    },
+    "top_back": {
+      "roi": [
+        682,
+        25,
+        915,
+        555
+      ],
+      "exclude": [],
+      "diff": {
+        "mean_abs_rgb_union": 23.716593831569764,
+        "coverage_iou": 0.8712482530668382,
+        "target_only_pixels": 3552,
+        "candidate_only_pixels": 2252,
+        "overlap_pixels": 39275,
+        "union_pixels": 45079
+      }
+    },
+    "pose_idle": {
+      "roi": [
+        25,
+        655,
+        205,
+        950
+      ],
+      "exclude": [],
+      "diff": {
+        "mean_abs_rgb_union": 32.69518739721285,
+        "coverage_iou": 0.7836276291872241,
+        "target_only_pixels": 2039,
+        "candidate_only_pixels": 1294,
+        "overlap_pixels": 12071,
+        "union_pixels": 15404
+      }
+    },
+    "pose_walk_1": {
+      "roi": [
+        200,
+        655,
+        405,
+        950
+      ],
+      "exclude": [],
+      "diff": {
+        "mean_abs_rgb_union": 33.31026497439323,
+        "coverage_iou": 0.7731462925851703,
+        "target_only_pixels": 1841,
+        "candidate_only_pixels": 1555,
+        "overlap_pixels": 11574,
+        "union_pixels": 14970
+      }
+    },
+    "pose_walk_2": {
+      "roi": [
+        400,
+        655,
+        635,
+        950
+      ],
+      "exclude": [
+        [
+          590,
+          655,
+          635,
+          805
+        ]
+      ],
+      "diff": {
+        "mean_abs_rgb_union": 35.07746071133168,
+        "coverage_iou": 0.7756203473945409,
+        "target_only_pixels": 2058,
+        "candidate_only_pixels": 1559,
+        "overlap_pixels": 12503,
+        "union_pixels": 16120
+      }
+    },
+    "pose_attack": {
+      "roi": [
+        590,
+        655,
+        855,
+        950
+      ],
+      "exclude": [
+        [
+          590,
+          820,
+          620,
+          900
+        ]
+      ],
+      "diff": {
+        "mean_abs_rgb_union": 32.629236115722605,
+        "coverage_iou": 0.7827877017066206,
+        "target_only_pixels": 1934,
+        "candidate_only_pixels": 1337,
+        "overlap_pixels": 11788,
+        "union_pixels": 15059
+      }
+    },
+    "pose_jump": {
+      "roi": [
+        865,
+        650,
+        1055,
+        920
+      ],
+      "exclude": [],
+      "diff": {
+        "mean_abs_rgb_union": 35.465407789972026,
+        "coverage_iou": 0.7616204002582311,
+        "target_only_pixels": 1689,
+        "candidate_only_pixels": 1265,
+        "overlap_pixels": 9438,
+        "union_pixels": 12392
+      }
+    },
+    "pose_air": {
+      "roi": [
+        1028,
+        650,
+        1242,
+        905
+      ],
+      "exclude": [],
+      "diff": {
+        "mean_abs_rgb_union": 35.318567177586885,
+        "coverage_iou": 0.7738756947953512,
+        "target_only_pixels": 1474,
+        "candidate_only_pixels": 1211,
+        "overlap_pixels": 9189,
+        "union_pixels": 11874
+      }
+    },
+    "pose_land": {
+      "roi": [
+        1210,
+        760,
+        1440,
+        970
+      ],
+      "exclude": [
+        [
+          1210,
+          760,
+          1240,
+          860
+        ]
+      ],
+      "diff": {
+        "mean_abs_rgb_union": 37.105167007498295,
+        "coverage_iou": 0.7676073619631902,
+        "target_only_pixels": 1678,
+        "candidate_only_pixels": 1163,
+        "overlap_pixels": 9384,
+        "union_pixels": 12225
+      }
+    }
+  }
+}

@@ -93,11 +93,13 @@ _FRONT_BODY = [
      "pts": [[120, 518], [168, 518], [168, 544], [122, 544]]},
     {"name": "foot_r", "color": "cream",
      "pts": [[176, 518], [222, 518], [220, 544], [176, 544]]},
-    # arms
+    # arms -- shoulders are big rounded pauldrons that overlap the torso (z-order
+    # bridges the gap to the body); drawn before the cream chest so the chest
+    # edge sits on top.
     {"name": "shoulder_l", "color": "green",
-     "pts": [[78, 186], [126, 182], [128, 224], [82, 228]]},
+     "pts": [[74, 184], [132, 180], [134, 214], [128, 238], [86, 240], [78, 214]]},
     {"name": "shoulder_r", "color": "green",
-     "pts": [[218, 182], [266, 186], [262, 228], [216, 224]]},
+     "pts": [[212, 180], [270, 184], [266, 214], [258, 240], [216, 238], [210, 214]]},
     {"name": "uparm_l", "color": "green",
      "pts": [[90, 224], [126, 224], [122, 290], [92, 290]]},
     {"name": "uparm_r", "color": "green",
@@ -110,9 +112,10 @@ _FRONT_BODY = [
      "pts": [[86, 340], [118, 340], [112, 378], [88, 374]]},
     {"name": "hand_r", "color": "cream",
      "pts": [[226, 340], [258, 340], [256, 374], [232, 378]]},
-    # chest plate (cream shield) over the torso core
+    # chest plate (cream shield) over the torso core -- wider, with the green
+    # shell shoulders flanking it
     {"name": "chest", "color": "cream",
-     "pts": [[140, 186], [170, 180], [200, 186], [194, 232], [170, 248], [146, 232]]},
+     "pts": [[134, 184], [170, 178], [206, 184], [200, 230], [170, 250], [140, 230]]},
     # abdomen automaton grid (cream panel + cells)
     {"name": "belly_panel", "color": "cream",
      "pts": [[150, 240], [192, 240], [190, 300], [152, 300]]},

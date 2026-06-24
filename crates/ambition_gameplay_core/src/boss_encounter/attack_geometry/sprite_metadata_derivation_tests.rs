@@ -215,6 +215,7 @@ fn damageable_volumes_uses_per_animation_hurtbox_during_attack() {
                     w: 127,
                     h: 86,
                 }),
+                poly: Vec::new(),
                 frames: Vec::new(),
             }),
             hitbox: None,
@@ -304,6 +305,7 @@ fn damageable_volumes_samples_per_frame_hurtbox_from_animation_elapsed() {
                     h: 10,
                 }],
                 bbox: None,
+                poly: Vec::new(),
                 frames: vec![
                     AnimationBoxFrame {
                         parts: vec![NamedPixelRect {
@@ -381,6 +383,7 @@ fn animation_frame_sample_overrides_elapsed_frame_for_authored_boxes() {
             hurtbox: Some(AnimationBox {
                 parts: Vec::new(),
                 bbox: None,
+                poly: Vec::new(),
                 frames: vec![
                     AnimationBoxFrame {
                         parts: vec![NamedPixelRect {
@@ -469,6 +472,7 @@ fn idle_rest_hurtbox_follows_the_live_animation_frame() {
             hurtbox: Some(AnimationBox {
                 parts: Vec::new(),
                 bbox: None,
+                poly: Vec::new(),
                 frames: vec![
                     AnimationBoxFrame {
                         parts: vec![NamedPixelRect {
@@ -563,6 +567,7 @@ fn gnu_head_descent_accepts_visual_row_alias_for_runtime_boxes() {
             hurtbox: Some(AnimationBox {
                 parts: Vec::new(),
                 bbox: None,
+                poly: Vec::new(),
                 frames: vec![
                     AnimationBoxFrame {
                         parts: vec![NamedPixelRect {
@@ -589,6 +594,7 @@ fn gnu_head_descent_accepts_visual_row_alias_for_runtime_boxes() {
             hitbox: Some(AnimationBox {
                 parts: Vec::new(),
                 bbox: None,
+                poly: Vec::new(),
                 frames: vec![
                     AnimationBoxFrame {
                         parts: vec![NamedPixelRect {

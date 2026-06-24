@@ -354,6 +354,7 @@ mod scripted_pattern_tests {
             hurtbox: Some(AnimationBox {
                 parts: vec![head_rest.clone()],
                 bbox: None,
+                poly: Vec::new(),
                 frames: Vec::new(),
             }),
             hitbox: None,
@@ -363,11 +364,13 @@ mod scripted_pattern_tests {
             hurtbox: Some(AnimationBox {
                 parts: vec![head_descent_hurt],
                 bbox: None,
+                poly: Vec::new(),
                 frames: Vec::new(),
             }),
             hitbox: Some(AnimationBox {
                 parts: vec![head_descent_hit],
                 bbox: None,
+                poly: Vec::new(),
                 frames: Vec::new(),
             }),
             frame_duration_secs: None,

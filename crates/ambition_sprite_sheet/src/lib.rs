@@ -176,6 +176,13 @@ pub struct AnimationBox {
     /// most hurtboxes derived from alpha bounds are one box.
     #[serde(default)]
     pub bbox: Option<PixelRect>,
+    /// Optional convex polygon (sprite-frame pixel points, same space as
+    /// `bbox`). When non-empty, a consumer that supports shaped volumes (the
+    /// player/actor attack hitbox) builds a convex hitbox conforming to the
+    /// effect — a blade arc, a cone — instead of the `bbox`. Empty = use `bbox`.
+    /// Older manifests without this field deserialize unchanged.
+    #[serde(default)]
+    pub poly: Vec<(f32, f32)>,
     /// Optional per-frame boxes for animation rows whose gameplay
     /// geometry should move with the drawn pose. When populated,
     /// consumers sample this by the current animation elapsed time
@@ -191,6 +198,7 @@ impl AnimationBox {
     pub fn is_populated(&self) -> bool {
         !self.parts.is_empty()
             || self.bbox.is_some()
+            || !self.poly.is_empty()
             || self.frames.iter().any(AnimationBoxFrame::is_populated)
     }
 }

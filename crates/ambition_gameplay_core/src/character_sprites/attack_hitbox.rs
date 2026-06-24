@@ -51,9 +51,9 @@ pub fn manifest_attack_hitbox_world(
     collision: ae::Vec2,
     facing: f32,
     render_size: ae::Vec2,
-) -> Option<ae::Aabb> {
+) -> Option<ae::CombatVolume> {
     let metrics = record.body_metrics.as_ref()?;
-    let bbox = metrics.animations.get(animation)?.hitbox.as_ref()?.bbox?;
+    let hitbox = metrics.animations.get(animation)?.hitbox.as_ref()?;
 
     let fw = record.frame_width.max(1) as f32;
     let fh = record.frame_height.max(1) as f32;
@@ -61,25 +61,37 @@ pub fn manifest_attack_hitbox_world(
 
     // Feet plant at the collision box's bottom-centre (world y-down → the
     // "bottom" of the body is at +y). Every frame pixel maps to world
-    // relative to the feet, scaled by the render size.
+    // relative to the feet, scaled by the render size. The sprite flips
+    // horizontally with facing, so the forward x offset negates facing left.
     let (feet_x, feet_y) = metrics
         .feet_pixel
         .map(|p| (p.x, p.y))
         .unwrap_or((fw * 0.5, fh));
-    let hit_cx = bbox.x as f32 + bbox.w as f32 * 0.5;
-    let hit_cy = bbox.y as f32 + bbox.h as f32 * 0.5;
-    // The sprite flips horizontally with facing, so the forward x offset
-    // negates when facing left.
     let face = if facing < 0.0 { -1.0 } else { 1.0 };
-    let off_x = (hit_cx - feet_x) * scale.x * face;
-    let off_y = (hit_cy - feet_y) * scale.y;
+    let pixel_to_world = |px: f32, py: f32| {
+        let off_x = (px - feet_x) * scale.x * face;
+        let off_y = (py - feet_y) * scale.y;
+        ae::Vec2::new(body_pos.x + off_x, body_pos.y + collision.y * 0.5 + off_y)
+    };
 
-    let center = ae::Vec2::new(body_pos.x + off_x, body_pos.y + collision.y * 0.5 + off_y);
+    // Authored convex polygon wins: a hitbox shape that conforms to the effect
+    // (a blade arc, a cone) instead of the coarse bbox.
+    if !hitbox.poly.is_empty() {
+        let points: Vec<ae::Vec2> = hitbox.poly.iter().map(|(x, y)| pixel_to_world(*x, *y)).collect();
+        return Some(ae::CombatVolume::convex(points));
+    }
+
+    // Fallback: the single bbox as an axis-aligned volume.
+    let bbox = hitbox.bbox?;
+    let center = pixel_to_world(
+        bbox.x as f32 + bbox.w as f32 * 0.5,
+        bbox.y as f32 + bbox.h as f32 * 0.5,
+    );
     let half = ae::Vec2::new(
         (bbox.w as f32 * 0.5 * scale.x).abs(),
         (bbox.h as f32 * 0.5 * scale.y).abs(),
     );
-    Some(ae::Aabb::new(center, half))
+    Some(ae::CombatVolume::aabb(ae::Aabb::new(center, half)))
 }
 
 /// Render size of the player's sprite quad, resolved (and cached) the
@@ -107,7 +119,7 @@ pub fn player_attack_hitbox_world(
     body_pos: ae::Vec2,
     collision: ae::Vec2,
     facing: f32,
-) -> Option<ae::Aabb> {
+) -> Option<ae::CombatVolume> {
     let record = file_root_registry().get(PLAYER_FILE_ROOT)?;
     let render_size = player_render_size(collision)?;
     manifest_attack_hitbox_world(record, animation, body_pos, collision, facing, render_size)
@@ -132,7 +144,7 @@ pub fn actor_attack_hitbox_world(
     body_pos: ae::Vec2,
     collision: ae::Vec2,
     facing: f32,
-) -> Option<ae::Aabb> {
+) -> Option<ae::CombatVolume> {
     let file_root = crate::character_roster::EMBEDDED_CATALOG
         .characters
         .get(character_id)?
@@ -157,6 +169,7 @@ mod tests {
     fn player_box(facing: f32) -> ae::Aabb {
         player_attack_hitbox_world("attack_side", ae::Vec2::new(0.0, 0.0), collision(), facing)
             .expect("player_robot/attack_side has an authored manifest hitbox")
+            .bounds()
     }
 
     #[test]

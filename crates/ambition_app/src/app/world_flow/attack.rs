@@ -227,7 +227,7 @@ fn slash_effect_size(hitbox_half_size: ae::Vec2) -> f32 {
 fn player_attack_hitbox(
     view: &ambition_gameplay_core::combat::AttackView,
     intent: ambition_gameplay_core::combat::AttackIntent,
-) -> Option<ae::Aabb> {
+) -> Option<ae::CombatVolume> {
     let animation = attack_intent_animation(intent);
     ambition_gameplay_core::character_sprites::player_attack_hitbox_world(
         animation,
@@ -292,7 +292,7 @@ pub(crate) fn advance_attack(
             abilities_directional_primary: clusters.abilities.abilities.directional_primary,
         };
         let attack = player_attack_hitbox(&view, attack_state.spec.intent).unwrap_or_else(|| {
-            ambition_gameplay_core::combat::attack_hitbox_from_view(&view, attack_state.spec)
+            ambition_gameplay_core::combat::attack_hitbox_from_view(&view, attack_state.spec).into()
         });
         let first_active_frame = !attack_state.active_started;
         if first_active_frame {
@@ -309,7 +309,7 @@ pub(crate) fn advance_attack(
         {
             let attack_world =
                 features::world_with_sandbox_solids(world, moving_platforms, feature_ecs_overlay);
-            if let Some(orb_aabb) = pogo_target_for_attack_hitbox(&attack_world, attack) {
+            if let Some(orb_aabb) = pogo_target_for_attack_hitbox(&attack_world, attack.bounds()) {
                 ae::movement::set_jump_velocity(
                     &mut clusters.kinematics.vel,
                     tuning.gravity_dir,
@@ -360,7 +360,7 @@ pub(crate) fn advance_attack(
         // hit per target across the active window.
         let _ = first_active_frame;
         hit_events.write(features::HitEvent {
-            volume: attack.into(),
+            volume: attack,
             damage: slash_damage,
             source: features::HitSource::PlayerSlash { knock_x },
             // Slash hits attribute to the player whose attack

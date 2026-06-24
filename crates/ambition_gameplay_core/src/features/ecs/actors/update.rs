@@ -426,6 +426,10 @@ pub fn update_ecs_actors(
                                 em.kin.size,
                                 em.kin.facing,
                             )
+                            // Enemy melee spawns a box hitbox today; collapse a
+                            // shaped manifest volume to its bounds (shaped enemy
+                            // melee is a later step).
+                            .map(|v| v.bounds())
                         })
                         .unwrap_or_else(|| em.attack_aabb_dir(em.attack.pending_axis));
                     let local_offset = attack_box.center() - em.kin.pos;

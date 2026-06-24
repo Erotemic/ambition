@@ -92,7 +92,10 @@ def label_part(nx, ny, color, area_frac):
     if is_purple:
         return "thigh"
     if is_cream:
-        return "foot"
+        # cream at the SIDES above the very bottom is a HAND (the arms hang past
+        # the waist); only cream near the bottom is a foot. Otherwise hands that
+        # hang low get mislabelled as feet -> grouped into the legs.
+        return "hand" if side and ny < 0.85 else "foot"
     if is_green or is_dg:
         return "tail" if (nx > 0.78 or nx < 0.22) and ny > 0.7 else "shin"
     if is_dark:

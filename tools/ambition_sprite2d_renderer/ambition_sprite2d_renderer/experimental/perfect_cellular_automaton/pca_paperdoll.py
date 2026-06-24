@@ -514,8 +514,34 @@ def build(pose: str, palette: np.ndarray, eps_quant=None):
     if len(inst) > 4:
         drop = set(id(p) for p in inst[4:])
         polys = [p for p in polys if id(p) not in drop]
+    polys = _brighten_limb_greens(polys, palette)
     polys.sort(key=lambda p: (Z.get(p["part"], 5), -p["area"]))
     return polys, w, h
+
+
+# green structural parts: should read GREEN, not as the dark-green SHADOW shade.
+GREEN_LIMB = {"shin", "knee", "tail", "upper_arm", "shoulder", "chest_plate"}
+
+
+def _brighten_limb_greens(polys, palette):
+    """A whole limb/plate segment whose dominant colour is a dark-green SHADOW
+    shade renders as a dark olive blob (the legs in air/land, the chest plate).
+    Shadow is shading, not the part's identity -- flatten every green-family limb
+    fill to the BRIGHTEST green so the part reads green and matches the reference
+    (which is mostly the bright green; the dark shade is only deep shadow). Keeps
+    cohesion (Jon: 'look better than the reference -- consistent, noise-free').
+
+    Note the green test allows the dark-green shade (g>100 would drop it): a green
+    is g>r and clearly greener than blue (g-b margin), regardless of brightness."""
+    greens = [i for i, c in enumerate(palette) if c[1] > c[0] and c[1] - c[2] > 15]
+    if len(greens) < 2:
+        return polys
+    brightest = max(greens, key=lambda i: int(palette[i].sum()))
+    greenset = set(greens)
+    for p in polys:
+        if p["part"] in GREEN_LIMB and p["color"] in greenset and p["color"] != brightest:
+            p["color"] = brightest
+    return polys
 
 
 # accents read as flat colour with NO outline; everything else (the main arm /
@@ -557,6 +583,7 @@ def fill_gaps(polys, qi, fg, palette, w, h, min_area=28):
         if len(poly) >= 3:
             polys.append({"part": part, "color": col, "area": float(gst[li, cv2.CC_STAT_AREA]),
                           "points": poly.astype(int).tolist()})
+    polys = _brighten_limb_greens(polys, palette)
     polys.sort(key=lambda p: (Z.get(p["part"], 5), -p["area"]))
     return polys
 

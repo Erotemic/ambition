@@ -58,7 +58,7 @@ pub(super) fn world_aabb_from_pixel_rect(
 
 /// Build the full list of world-space body AABBs for a sprite-driven
 /// actor from raw metadata parts. Both the registry's `BodyMetrics`
-/// and the gameplay snapshot `BossSpriteMetrics` flow through here
+/// and the gameplay snapshot `ActorSpriteMetrics` flow through here
 /// — pass `body_pixel_parts` (preferred) and `body_pixel_bbox`
 /// (fallback) directly.
 ///

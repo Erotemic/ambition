@@ -52,10 +52,10 @@ pub(super) fn sprite_authored_volumes(
 /// Prefer the metrics-captured render size (set by
 /// `derive_boss_sprite_metrics` from the sheet spec's
 /// `collision_scale`). Fall back to `ctx.size` when the snapshot
-/// didn't capture one — test fixtures that build `BossSpriteMetrics`
+/// didn't capture one — test fixtures that build `ActorSpriteMetrics`
 /// by hand can leave `sprite_render_size = Vec2::ZERO` to opt out.
 pub(super) fn sprite_world_size(
-    metrics: &crate::boss_encounter::behavior::BossSpriteMetrics,
+    metrics: &crate::boss_encounter::behavior::ActorSpriteMetrics,
     fallback: ae::Vec2,
 ) -> ae::Vec2 {
     if metrics.sprite_render_size.x > 0.0 && metrics.sprite_render_size.y > 0.0 {

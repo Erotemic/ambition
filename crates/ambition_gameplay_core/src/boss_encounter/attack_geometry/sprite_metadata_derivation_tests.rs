@@ -186,7 +186,7 @@ fn bounding_aabb_returns_none_for_empty_input() {
 /// debug box stops growing during attacks — which is the
 /// exact regression the user just reported.
 ///
-/// Builds a fake `BossSpriteMetrics` with a clearly-distinct
+/// Builds a fake `ActorSpriteMetrics` with a clearly-distinct
 /// per-animation hurtbox for `side_sweep`, sets
 /// `attack_state.active_profile = Some(SideSweep)`, and
 /// asserts the consumer returns an AABB matching the wide
@@ -194,7 +194,7 @@ fn bounding_aabb_returns_none_for_empty_input() {
 /// `body_pixel_bbox` (~106 wide).
 #[test]
 fn damageable_volumes_uses_per_animation_hurtbox_during_attack() {
-    use crate::boss_encounter::behavior::{BossBehaviorProfile, BossSpriteMetrics};
+    use crate::boss_encounter::behavior::{BossBehaviorProfile, ActorSpriteMetrics};
     use crate::brain::{BossAttackProfile, BossAttackState};
     use ambition_sprite_sheet::{AnimationBox, AnimationMetrics, PixelRect};
     use std::collections::HashMap;
@@ -221,7 +221,7 @@ fn damageable_volumes_uses_per_animation_hurtbox_during_attack() {
             frame_duration_secs: None,
         },
     );
-    let metrics = BossSpriteMetrics {
+    let metrics = ActorSpriteMetrics {
         frame_width: 128,
         frame_height: 128,
         body_pixel_bbox: Some(PixelRect {
@@ -280,7 +280,7 @@ fn damageable_volumes_uses_per_animation_hurtbox_during_attack() {
 /// but the hurtbox would scale by `boss.size` only.
 #[test]
 fn damageable_volumes_samples_per_frame_hurtbox_from_animation_elapsed() {
-    use crate::boss_encounter::behavior::{BossBehaviorProfile, BossSpriteMetrics};
+    use crate::boss_encounter::behavior::{BossBehaviorProfile, ActorSpriteMetrics};
     use crate::brain::{BossAttackProfile, BossAttackState};
     use ambition_sprite_sheet::{
         AnimationBox, AnimationBoxFrame, AnimationMetrics, NamedPixelRect,
@@ -330,7 +330,7 @@ fn damageable_volumes_samples_per_frame_hurtbox_from_animation_elapsed() {
             hitbox: None,
         },
     );
-    let metrics = BossSpriteMetrics {
+    let metrics = ActorSpriteMetrics {
         frame_width: 100,
         frame_height: 100,
         body_pixel_bbox: None,
@@ -366,7 +366,7 @@ fn damageable_volumes_samples_per_frame_hurtbox_from_animation_elapsed() {
 
 #[test]
 fn animation_frame_sample_overrides_elapsed_frame_for_authored_boxes() {
-    use crate::boss_encounter::behavior::{BossBehaviorProfile, BossSpriteMetrics};
+    use crate::boss_encounter::behavior::{BossBehaviorProfile, ActorSpriteMetrics};
     use crate::brain::{BossAttackProfile, BossAttackState};
     use ambition_sprite_sheet::{
         AnimationBox, AnimationBoxFrame, AnimationMetrics, NamedPixelRect,
@@ -407,7 +407,7 @@ fn animation_frame_sample_overrides_elapsed_frame_for_authored_boxes() {
             hitbox: None,
         },
     );
-    let metrics = BossSpriteMetrics {
+    let metrics = ActorSpriteMetrics {
         frame_width: 100,
         frame_height: 100,
         body_pixel_bbox: None,
@@ -454,7 +454,7 @@ fn idle_rest_hurtbox_follows_the_live_animation_frame() {
     // animation at elapsed 0 → frame 0 forever, even as the
     // rendered breathing pose bobbed. An idle `BossAnimationFrameSample`
     // (`profile: None`) now feeds the live frame index through.
-    use crate::boss_encounter::behavior::{BossBehaviorProfile, BossSpriteMetrics};
+    use crate::boss_encounter::behavior::{BossBehaviorProfile, ActorSpriteMetrics};
     use crate::brain::BossAttackState;
     use ambition_sprite_sheet::{
         AnimationBox, AnimationBoxFrame, AnimationMetrics, NamedPixelRect,
@@ -495,7 +495,7 @@ fn idle_rest_hurtbox_follows_the_live_animation_frame() {
             hitbox: None,
         },
     );
-    let metrics = BossSpriteMetrics {
+    let metrics = ActorSpriteMetrics {
         frame_width: 100,
         frame_height: 100,
         body_pixel_bbox: None,
@@ -548,7 +548,7 @@ fn idle_rest_hurtbox_follows_the_live_animation_frame() {
 
 #[test]
 fn gnu_head_descent_accepts_visual_row_alias_for_runtime_boxes() {
-    use crate::boss_encounter::behavior::{BossBehaviorProfile, BossSpriteMetrics};
+    use crate::boss_encounter::behavior::{BossBehaviorProfile, ActorSpriteMetrics};
     use crate::brain::{BossAttackProfile, BossAttackState};
     use ambition_sprite_sheet::{
         AnimationBox, AnimationBoxFrame, AnimationMetrics, NamedPixelRect,
@@ -615,7 +615,7 @@ fn gnu_head_descent_accepts_visual_row_alias_for_runtime_boxes() {
         },
     );
 
-    let metrics = BossSpriteMetrics {
+    let metrics = ActorSpriteMetrics {
         frame_width: 100,
         frame_height: 100,
         body_pixel_bbox: None,
@@ -658,7 +658,7 @@ fn gnu_head_descent_accepts_visual_row_alias_for_runtime_boxes() {
 
 #[test]
 fn damageable_volumes_scales_to_sprite_render_size() {
-    use crate::boss_encounter::behavior::{BossBehaviorProfile, BossSpriteMetrics};
+    use crate::boss_encounter::behavior::{BossBehaviorProfile, ActorSpriteMetrics};
     use crate::brain::BossAttackState;
     use crate::engine_core::AabbExt;
     use ambition_sprite_sheet::PixelRect;
@@ -673,7 +673,7 @@ fn damageable_volumes_scales_to_sprite_render_size() {
     let behavior = BossBehaviorProfile::clockwork_warden();
     let attack_state = BossAttackState::default();
 
-    let legacy_metrics = BossSpriteMetrics {
+    let legacy_metrics = ActorSpriteMetrics {
         frame_width: 128,
         frame_height: 128,
         body_pixel_bbox: Some(bbox),
@@ -684,7 +684,7 @@ fn damageable_volumes_scales_to_sprite_render_size() {
         combat_offset: ae::Vec2::ZERO,
         animations: HashMap::new(),
     };
-    let render_metrics = BossSpriteMetrics {
+    let render_metrics = ActorSpriteMetrics {
         frame_width: 128,
         frame_height: 128,
         body_pixel_bbox: Some(bbox),
@@ -855,7 +855,7 @@ fn attack_fully_inside_boss_volume_still_registers() {
 /// An authored hurtbox covering the visible sprite (as GNU-ton has) fixes it.
 #[test]
 fn mockingbird_combat_size_fallback_undershoots_the_visible_sprite() {
-    use crate::boss_encounter::behavior::{BossBehaviorProfile, BossSpriteMetrics};
+    use crate::boss_encounter::behavior::{BossBehaviorProfile, ActorSpriteMetrics};
     use crate::brain::BossAttackState;
     use std::collections::HashMap;
 
@@ -886,7 +886,7 @@ fn mockingbird_combat_size_fallback_undershoots_the_visible_sprite() {
     );
 
     // Fix: an authored body hurtbox covering the visible 576x216 sprite.
-    let metrics = BossSpriteMetrics {
+    let metrics = ActorSpriteMetrics {
         frame_width: 576,
         frame_height: 216,
         body_pixel_bbox: Some(PixelRect {

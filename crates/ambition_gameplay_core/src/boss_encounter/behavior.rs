@@ -1,7 +1,7 @@
 //! Boss behavior-profile vocabulary (data-driven).
 //!
 //! `BossBehaviorProfile` / `BarkAnchorSpec` / `BossRewardProfile` /
-//! `BossSpriteMetrics` are the schemas every boss instance is authored INTO:
+//! `ActorSpriteMetrics` are the schemas every boss instance is authored INTO:
 //! the named rows live in `boss_profiles.ron`, parsed by `BossProfileRegistry`
 //! and installed via `install_boss_profiles`. Owns movement/attacks/damage/
 //! hitbox tuning (the engine `BossEncounterSpec` owns phase progression + HP).
@@ -428,7 +428,7 @@ pub fn canonical_boss_id_from(name: &str, brain: &crate::actor::BossBrain) -> St
 /// (e.g. 128×160) but renders 1.6× bigger (~256×256), and the boxes
 /// end up half the size of the visible body.
 #[derive(Clone, Debug, Default)]
-pub struct BossSpriteMetrics {
+pub struct ActorSpriteMetrics {
     pub frame_width: u32,
     pub frame_height: u32,
     pub body_pixel_bbox: Option<ambition_sprite_sheet::PixelRect>,
@@ -461,7 +461,7 @@ pub struct BossSpriteMetrics {
     pub animations: std::collections::HashMap<String, ambition_sprite_sheet::AnimationMetrics>,
 }
 
-impl BossSpriteMetrics {
+impl ActorSpriteMetrics {
     /// True iff this snapshot carries at least one rectangle the
     /// derivation can use.
     pub fn has_body(&self) -> bool {

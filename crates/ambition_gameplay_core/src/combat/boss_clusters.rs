@@ -20,7 +20,7 @@ use bevy::ecs::query::QueryData;
 use bevy::prelude::Component;
 
 use crate::boss_encounter::behavior::{
-    canonical_boss_id_from, BossBehaviorProfile, BossSpriteMetrics,
+    canonical_boss_id_from, BossBehaviorProfile, ActorSpriteMetrics,
 };
 use crate::boss_encounter::BossEncounterPhase;
 use crate::engine_core as ae;
@@ -55,7 +55,7 @@ pub struct BossStatus {
     /// `derive_boss_sprite_metrics` system after the SheetRegistry
     /// has loaded. `None` for bosses whose sprite has no `body_metrics`
     /// entry (the legacy `combat_size` path applies).
-    pub sprite_metrics: Option<BossSpriteMetrics>,
+    pub sprite_metrics: Option<ActorSpriteMetrics>,
     /// Entity-local phase state + the trigger-driven phase mechanism: current
     /// phase, the `transition_lock` tell timer, and the intrinsic phase triggers
     /// as DATA. This + `health` ARE the source of truth for the fight (the old

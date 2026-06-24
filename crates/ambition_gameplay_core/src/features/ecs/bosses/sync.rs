@@ -6,7 +6,7 @@ use super::super::*;
 
 use crate::brain::{BossAttackState, Brain, StateMachineCfg};
 use crate::engine_core::AabbExt;
-use crate::features::bosses::BossSpriteMetrics;
+use crate::features::bosses::ActorSpriteMetrics;
 use crate::features::bounding_aabb;
 use ambition_sprite_sheet::SheetRegistry;
 use bevy::prelude::Commands;
@@ -279,11 +279,11 @@ pub fn boss_spawn_hurtboxes(
 pub(crate) fn boss_sprite_metrics_from_registry(
     boss: super::super::boss_clusters::BossRef<'_>,
     registry: &SheetRegistry,
-) -> Option<(BossSpriteMetrics, Option<ae::Vec2>)> {
+) -> Option<(ActorSpriteMetrics, Option<ae::Vec2>)> {
     let target = sprite_target_for_boss(&boss.config.behavior.id);
     let (metrics, frame_w, frame_h) = registry.body_metrics(target)?;
     let sprite_render_size = sprite_render_size_for(target, boss.kin.size);
-    let mut snapshot = BossSpriteMetrics {
+    let mut snapshot = ActorSpriteMetrics {
         frame_width: frame_w,
         frame_height: frame_h,
         body_pixel_bbox: metrics.body_pixel_bbox,

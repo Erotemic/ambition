@@ -65,6 +65,17 @@
             attack_range: 0.0,
             roam_radius: 130.0,
         ),
+        // Aggressive flying melee archetype for the Perfect Cellular Automaton.
+        // The body must be `Floating` so the Aerial brain's 2D velocity drives
+        // the fly row instead of walking on the ground.
+        "cellular_automaton_raider": Aerial(
+            aggressiveness: 1.0,
+            cruise_speed: 88.0,
+            dive_speed: 210.0,
+            aggro_radius: 220.0,
+            attack_range: 42.0,
+            roam_radius: 144.0,
+        ),
     },
 
     action_set_presets: {
@@ -343,6 +354,22 @@
             default_brain: "parrot_lively",
             default_action_set: "peaceful",
             tags: ["pirate", "bird", "npc"],
+        ),
+
+        // ===== Perfect Cellular Automaton.
+        // Python-authored Fable-extension skeletal target. VFX such as energy
+        // or slash arcs are intentionally not baked into the sprite sheet.
+        "perfect_cellular_automaton": (
+            sprite_tuning: Some((collision_scale: 1.12, frame_sample_inset: 1)),
+            display_name: "Perfect Cellular Automaton",
+            spritesheet: "sprites/perfect_cellular_automaton_spritesheet.png",
+            manifest: "sprites/perfect_cellular_automaton_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Floating,
+            composition: None,
+            default_brain: "cellular_automaton_raider",
+            default_action_set: "striker_swipe",
+            tags: ["aerial", "enemy", "custom", "cellular"],
         ),
 
         // ===== Pirate Heavy bruisers (slow + hard hitting).

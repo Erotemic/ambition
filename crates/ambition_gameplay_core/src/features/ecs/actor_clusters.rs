@@ -138,6 +138,22 @@ pub struct ActorClusterSeed {
     pub(crate) spec: EnemyArchetypeSpec,
 }
 
+/// Convert an authored LDtk actor rectangle plus a possibly sprite-derived
+/// runtime collision size into the actor's initial body center.
+///
+/// The authored rectangle is a spatial placement footprint: its bottom edge is
+/// the authored feet/floor contact. NPCs and enemies may replace that rectangle
+/// with sprite-derived collision metrics at spawn time, but doing so must not
+/// move the actor's feet below the platform the author placed it on. Preserve
+/// the horizontal center and the authored bottom edge under the normal LDtk
+/// down-gravity frame.
+fn actor_spawn_center_for_collision(authored: ae::Aabb, collision_size: ae::Vec2) -> ae::Vec2 {
+    ae::Vec2::new(
+        authored.center().x,
+        authored.bottom() - collision_size.y * 0.5,
+    )
+}
+
 impl ActorClusterSeed {
     /// Build enemy component seed state from authored spawn inputs.
     pub fn new(
@@ -157,11 +173,11 @@ impl ActorClusterSeed {
                 .map(|(_, path)| PathMotion::new(path.clone())),
             _ => None,
         };
+        let size = spec.default_size.unwrap_or_else(|| aabb.half_size() * 2.0);
         let pos = motion
             .as_ref()
             .and_then(PathMotion::start_pos)
-            .unwrap_or_else(|| aabb.center());
-        let size = spec.default_size.unwrap_or_else(|| aabb.half_size() * 2.0);
+            .unwrap_or_else(|| actor_spawn_center_for_collision(aabb, size));
         Self {
             kin: BodyKinematics {
                 pos,
@@ -215,7 +231,6 @@ impl ActorClusterSeed {
         interactable: &crate::interaction::Interactable,
         paths: &[(String, crate::actor::KinematicPath)],
     ) -> (Self, Option<ae::Vec2>) {
-        let authored_pos = aabb.center();
         let (patrol_radius, patrol_path_id, motion) = match &interactable.kind {
             crate::interaction::InteractionKind::Npc {
                 patrol_radius,
@@ -232,10 +247,6 @@ impl ActorClusterSeed {
             }
             _ => (0.0, None, None),
         };
-        let pos = motion
-            .as_ref()
-            .and_then(PathMotion::start_pos)
-            .unwrap_or(authored_pos);
         let character_id = match &interactable.kind {
             crate::interaction::InteractionKind::Npc {
                 character_id: Some(cid),
@@ -269,6 +280,10 @@ impl ActorClusterSeed {
             Some(b) => (b.collision, Some(b.render_size)),
             None => (ldtk_collision, None),
         };
+        let pos = motion
+            .as_ref()
+            .and_then(PathMotion::start_pos)
+            .unwrap_or_else(|| actor_spawn_center_for_collision(aabb, collision_size));
         let has_patrol = patrol_radius > 0.0 || motion.is_some();
         let tuning = crate::combat::ActorTuning {
             max_health: 1,
@@ -382,5 +397,36 @@ impl ActorClusterSeed {
             self.attack,
             self.caps,
         )
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn sprite_sized_spawn_preserves_authored_feet() {
+        let authored = ae::aabb_from_min_size(ae::Vec2::new(10.0, 20.0), ae::Vec2::new(42.0, 70.0));
+        let collision_size = ae::Vec2::new(44.0, 73.0);
+
+        let center = actor_spawn_center_for_collision(authored, collision_size);
+
+        assert_eq!(center.x, authored.center().x);
+        assert_eq!(center.y + collision_size.y * 0.5, authored.bottom());
+        assert_ne!(
+            center.y,
+            authored.center().y,
+            "different collision height should move the center to keep feet planted"
+        );
+    }
+
+    #[test]
+    fn ldtk_sized_spawn_keeps_authored_center() {
+        let authored = ae::aabb_from_min_size(ae::Vec2::new(10.0, 20.0), ae::Vec2::new(42.0, 70.0));
+        let collision_size = authored.half_size() * 2.0;
+
+        let center = actor_spawn_center_for_collision(authored, collision_size);
+
+        assert_eq!(center, authored.center());
     }
 }

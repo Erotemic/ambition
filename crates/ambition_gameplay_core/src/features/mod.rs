@@ -113,7 +113,7 @@ pub use boss_attack_geometry::{
 };
 pub use bosses::{
     boss_special_for_profile, BossAttackProfile, BossBehaviorProfile, BossMovementProfile,
-    BossRewardProfile, BossSpriteMetrics, GNU_TON_APPLE_OWNER_PREFIX,
+    BossRewardProfile, ActorSpriteMetrics, GNU_TON_APPLE_OWNER_PREFIX,
     GRADIENT_SENTINEL_ENCOUNTER_ID,
 };
 pub use bus::{

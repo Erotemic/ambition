@@ -64,7 +64,7 @@ pub const GRADIENT_SENTINEL_ENCOUNTER_ID: &str = "gradient_sentinel";
 // `body_metrics.animations` map and flows through the generic
 // `world_aabb_from_pixel_rect` transform the gradient sentinel uses.
 
-// `BossBehaviorProfile` / `BossRewardProfile` / `BossSpriteMetrics` /
+// `BossBehaviorProfile` / `BossRewardProfile` / `ActorSpriteMetrics` /
 // `canonical_boss_id_from` / `boss_animation_keys_for_profile` moved to
 // `crate::boss_encounter::behavior` (Stage 20 / A2 stretch): the boss
 // PROFILE vocabulary is machinery (data-driven via boss_profiles.ron);
@@ -72,7 +72,7 @@ pub const GRADIENT_SENTINEL_ENCOUNTER_ID: &str = "gradient_sentinel";
 #[cfg(test)]
 use crate::boss_encounter::behavior::canonical_boss_id_from;
 pub use crate::boss_encounter::behavior::{
-    boss_animation_keys_for_profile, BossBehaviorProfile, BossRewardProfile, BossSpriteMetrics,
+    boss_animation_keys_for_profile, BossBehaviorProfile, BossRewardProfile, ActorSpriteMetrics,
 };
 
 /// Boss-side resolver for `Special`-flavored `BossAttackProfile`s.
@@ -320,13 +320,13 @@ mod scripted_pattern_tests {
         scratch
     }
 
-    /// Build a minimal `BossSpriteMetrics` whose per-animation
+    /// Build a minimal `ActorSpriteMetrics` whose per-animation
     /// `hurtbox.parts` mirror the rest / descent head positions
     /// authored in the live spritesheet RON. Tests that exercise
     /// `damageable_volumes` use this so the head invariants stay
     /// pinned even though gnu_ton_runtime doesn't go through
     /// `derive_boss_sprite_metrics`.
-    fn gnu_ton_sprite_metrics_fixture() -> super::BossSpriteMetrics {
+    fn gnu_ton_sprite_metrics_fixture() -> super::ActorSpriteMetrics {
         use ambition_sprite_sheet::{AnimationBox, AnimationMetrics, NamedPixelRect};
         use std::collections::HashMap;
         let head_rest = NamedPixelRect {
@@ -375,7 +375,7 @@ mod scripted_pattern_tests {
         let mut animations: HashMap<String, AnimationMetrics> = HashMap::new();
         animations.insert("rest".to_string(), rest_entry);
         animations.insert("gnu_head_descent".to_string(), descent_entry);
-        super::BossSpriteMetrics {
+        super::ActorSpriteMetrics {
             frame_width: 768,
             frame_height: 576,
             body_pixel_bbox: None,

@@ -4,7 +4,7 @@
 //! telegraph, damageable hurtbox, and body-contact zone, then resolve the
 //! per-tick boss -> player `HitEvent`. Inputs are bundled in
 //! [`BossVolumeContext`] (body fields + `BossAttackState` + optional
-//! [`BossSpriteMetrics`] + an optional [`BossAnimationFrameSample`]); helpers
+//! [`ActorSpriteMetrics`] + an optional [`BossAnimationFrameSample`]); helpers
 //! prefer sprite-author-declared hit/hurtboxes and fall back to
 //! `volumes_for_profile`'s hardcoded geometry per `BossAttackProfile`.
 //! Submodules: `aabb` (pixel-rect -> world-AABB derivation), `frame`
@@ -38,7 +38,7 @@ pub struct BossVolumeContext<'a> {
     /// RON carries `body_metrics` and the derivation system has
     /// snapshotted it. `damageable_volumes` prefers multi-rect
     /// hurtboxes from here over the legacy single-AABB fallback.
-    pub sprite_metrics: Option<&'a crate::boss_encounter::behavior::BossSpriteMetrics>,
+    pub sprite_metrics: Option<&'a crate::boss_encounter::behavior::ActorSpriteMetrics>,
     /// Optional frame sample from the live boss sprite animator.
     /// When present and its profile matches the requested attack,
     /// sprite-authored hit/hurt boxes use this exact frame index
@@ -108,7 +108,7 @@ impl<'a> BossVolumeContext<'a> {
 /// no strike is live (`attack_state.active_profile == None`).
 ///
 /// Priority: sprite-author-declared per-animation hitbox (from
-/// `BossSpriteMetrics::animations[animation_name].hitbox`) wins
+/// `ActorSpriteMetrics::animations[animation_name].hitbox`) wins
 /// over the hardcoded `volumes_for_profile` math. So when an
 /// adapter declares the FloorSlam hitbox as `(4, 88, 120, 30)` in
 /// pixel-frame coords, that's what damages the player — scaled to

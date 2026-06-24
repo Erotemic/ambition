@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import math
 from dataclasses import asdict, fields, is_dataclass, replace
 from typing import Any, Dict, List, Tuple
 
@@ -424,58 +425,106 @@ class RobotAdapter(BaseAdapter):
         )
 
     def attack_hitboxes(self, size: Tuple[int, int]) -> Dict[str, Dict[str, Any]]:
-        """Per-attack hitboxes for the player's 2-frame swings.
+        """Per-attack hitboxes for the player's 3-frame continuous-sweep melee.
 
-        Hollow-Knight-style: each box is thrust out IN the swing's
-        direction, disjoint from the body, and live on frame 0 only
-        (`active_frames=[0]`) — the 2-frame swings hit immediately, frame 1
-        is wind-down. Boxes are authored for the right-facing robot; the
-        runtime mirrors x by facing. Attack hitboxes are NOT frame-clamped
-        (see sheet.py), so they reach past the sprite edge. Coords are
-        source-canvas pixels — eyeball with ``debug-hitboxes player_robot``
-        and nudge to taste (these are a first pass, feel-tunable).
+        Every attack carries a coarse bbox (fallback) PLUS a directional convex
+        `poly` that surrounds its slash effect — narrow at the body, flaring wide
+        at the far end (the crescent's tip), via the `fan` helper. Active across
+        all three frames. Authored for the right-facing robot; the runtime
+        mirrors x by facing and reads the poly as a `CombatVolume::Convex`.
+        Coords are source-canvas pixels (NOT frame-clamped, so they reach past
+        the sprite edge) — eyeball with ``debug-hitboxes player_robot`` and nudge
+        the fan extents to taste.
         """
         w, h = size
         cx = w // 2
+        # Body anchor the swings originate from (chest-ish), source pixels.
+        body_cy = h * 0.47
 
         def box(x: float, y: float, ww: float, hh: float) -> Dict[str, Any]:
             # Active across all 3 frames of the continuous-sweep attack (the
             # blade arcs through its hitbox the whole swing), not just frame 0.
             return {"bbox": (int(x), int(y), int(ww), int(hh)), "active_frames": [0, 1, 2]}
 
-        # Blade-arc convex polygon for the primary side slash — a forward
-        # crescent that conforms to the swing instead of a coarse box. Points in
-        # source-canvas pixels (forward = +x; runtime mirrors x by facing). The
-        # runtime reads this as a CombatVolume::Convex; the bbox stays as the
-        # fallback for consumers that don't support polygons.
-        attack_side = box(cx + w * 0.26, h * 0.12, w * 0.60, h * 0.72)
-        # Big forward slash hull that SURROUNDS the slash effect and starts a bit
-        # inside the body (back edge just left of body centre), bulging forward +
-        # up/down and tapering to a forward tip — like the swing's arc, not a
-        # rectangle. Points reach past the sprite frame on purpose (unclamped).
-        attack_side["poly"] = [
-            (cx - w * 0.06, h * 0.06),   # back-top, a bit inside the body
-            (cx + w * 0.50, -h * 0.06),  # top bulge, forward + above
-            (cx + w * 1.08, h * 0.30),   # forward tip, upper
-            (cx + w * 1.08, h * 0.74),   # forward tip, lower
-            (cx + w * 0.50, h * 1.06),   # bottom bulge, forward + below
-            (cx - w * 0.06, h * 0.96),   # back-bottom, a bit inside the body
-        ]
+        def fan(ox, oy, dx, dy, length, near_w, far_w):
+            """Directional fan poly: NARROW (near_w) at the body-side point
+            (ox,oy), WIDENING to far_w at the tip `length` away along (dx,dy).
+            Perpendicular half-widths; a convex quad that opens toward the
+            effect's far end (so it covers a swing/crescent, wide where the
+            effect flares). Authored for the right-facing robot; the runtime
+            mirrors x by facing. Points may reach past the frame (unclamped)."""
+            plen = math.hypot(dx, dy) or 1.0
+            ux, uy = dx / plen, dy / plen
+            px, py = -uy, ux  # perpendicular
+            fx, fy = ox + ux * length, oy + uy * length
+            return [
+                (ox + px * near_w, oy + py * near_w),
+                (fx + px * far_w, fy + py * far_w),
+                (fx - px * far_w, fy - py * far_w),
+                (ox - px * near_w, oy - py * near_w),
+            ]
 
+        def ring(ox, oy, rx, ry):
+            """Hexagonal hull around (ox,oy) — for the aerial-neutral spin that
+            sweeps all the way around the body."""
+            return [
+                (ox + rx, oy),
+                (ox + rx * 0.5, oy - ry * 0.87),
+                (ox - rx * 0.5, oy - ry * 0.87),
+                (ox - rx, oy),
+                (ox - rx * 0.5, oy + ry * 0.87),
+                (ox + rx * 0.5, oy + ry * 0.87),
+            ]
+
+        def shaped(b, poly):
+            b["poly"] = poly
+            return b
+
+        # Each attack carries the coarse bbox (fallback) PLUS a directional
+        # convex `poly` that surrounds its slash effect — narrow at the body,
+        # flaring wide at the far end (the crescent's tip). Forward = +x.
         return {
-            # Forward forehand (the primary side attack) — blade-arc poly.
-            "attack_side": attack_side,
-            # Overhead (up-tilt / aerial up): above the body.
-            "attack_up": box(cx - w * 0.12, -h * 0.08, w * 0.58, h * 0.62),
-            "air_up": box(cx - w * 0.22, -h * 0.10, w * 0.55, h * 0.62),
-            # Down: ground down-poke is forward-low; aerial down spikes below.
-            "attack_down": box(cx + w * 0.16, h * 0.50, w * 0.58, h * 0.46),
-            "air_down": box(cx - w * 0.28, h * 0.52, w * 0.62, h * 0.58),
-            # Aerial forward / back (back reaches behind = left of center).
-            "air_forward": box(cx + w * 0.22, h * 0.22, w * 0.60, h * 0.58),
-            "air_back": box(cx - w * 0.72, h * 0.22, w * 0.62, h * 0.58),
-            # Aerial neutral: a wide spin around the whole body.
-            "air_neutral": box(cx - w * 0.42, h * 0.18, w * 0.92, h * 0.68),
+            # Forehand: a big forward fan starting just inside the body and
+            # flaring tall at the far end to cover the whole crescent.
+            "attack_side": shaped(
+                box(cx + w * 0.26, h * 0.12, w * 0.60, h * 0.72),
+                fan(cx - w * 0.06, body_cy, 1.0, 0.0, w * 1.42, h * 0.22, h * 0.60),
+            ),
+            # Up-tilt: arcs forward-and-up, flaring overhead.
+            "attack_up": shaped(
+                box(cx - w * 0.12, -h * 0.08, w * 0.58, h * 0.62),
+                fan(cx + w * 0.02, body_cy - h * 0.02, 0.35, -1.0, h * 1.02, w * 0.20, w * 0.54),
+            ),
+            # Aerial up: straight overhead thrust, flaring up.
+            "air_up": shaped(
+                box(cx - w * 0.22, -h * 0.10, w * 0.55, h * 0.62),
+                fan(cx, body_cy - h * 0.02, 0.0, -1.0, h * 1.02, w * 0.18, w * 0.46),
+            ),
+            # Down-tilt: forward-low poke, flaring forward and a touch down.
+            "attack_down": shaped(
+                box(cx + w * 0.16, h * 0.50, w * 0.58, h * 0.46),
+                fan(cx - w * 0.02, body_cy + h * 0.14, 1.0, 0.20, w * 1.12, h * 0.13, h * 0.34),
+            ),
+            # Aerial down: straight-down spike, flaring below.
+            "air_down": shaped(
+                box(cx - w * 0.28, h * 0.52, w * 0.62, h * 0.58),
+                fan(cx, body_cy + h * 0.02, 0.0, 1.0, h * 1.02, w * 0.18, w * 0.46),
+            ),
+            # Aerial forward: forward swing angled slightly down.
+            "air_forward": shaped(
+                box(cx + w * 0.22, h * 0.22, w * 0.60, h * 0.58),
+                fan(cx - w * 0.02, body_cy, 1.0, 0.18, w * 1.28, h * 0.20, h * 0.54),
+            ),
+            # Aerial back: reaches BEHIND (left of centre), angled slightly up.
+            "air_back": shaped(
+                box(cx - w * 0.72, h * 0.22, w * 0.62, h * 0.58),
+                fan(cx + w * 0.02, body_cy, -1.0, -0.12, w * 1.18, h * 0.20, h * 0.50),
+            ),
+            # Aerial neutral: a wide spin all the way around the body.
+            "air_neutral": shaped(
+                box(cx - w * 0.42, h * 0.18, w * 0.92, h * 0.68),
+                ring(cx, body_cy, w * 0.78, h * 0.62),
+            ),
         }
 
     def body_inset(self) -> Dict[str, float]:

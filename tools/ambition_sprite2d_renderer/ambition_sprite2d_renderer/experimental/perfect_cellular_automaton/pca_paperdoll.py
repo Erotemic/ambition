@@ -144,8 +144,8 @@ def build(pose: str, palette: np.ndarray, eps_quant=None):
             polys.append({"part": part, "color": int(dom_color(items, union > 0)),
                           "area": float(union.sum()), "points": poly.astype(int).tolist()})
             continue
-        if part == "core":
-            continue  # authored from the torso silhouette after the loop
+        if part in ("core", "belly_cell"):
+            continue  # authored cleanly after the loop
         grouped = union if part in CELL_PARTS else cv2.dilate(union, bridge)
         n, lab, stats, cents = cv2.connectedComponentsWithStats(grouped, 8)
         instances = []
@@ -182,13 +182,44 @@ def build(pose: str, palette: np.ndarray, eps_quant=None):
             polys.append({"part": part, "color": int(dom_color(items, inst)),
                           "area": float(inst_area), "points": poly.astype(int).tolist()})
 
+    # clean parametric belly grid: fit a regular NxM array of equal squares to
+    # the detected cell cluster (the reference cells vary; ours are consistent).
+    bc = by_part.get("belly_cell", [])
+    if bc:
+        u = np.zeros((h, w), np.uint8)
+        for ci, m, a in bc:
+            u |= m.astype(np.uint8)
+        nC, labC, statsC, centsC = cv2.connectedComponentsWithStats(u, 8)
+        cells = [(centsC[i][0], centsC[i][1]) for i in range(1, nC) if statsC[i, 4] >= 6]
+        if len(cells) >= 4:
+            cxs = np.array([c[0] for c in cells]); cys = np.array([c[1] for c in cells])
+            gx0, gy0, gx1, gy1 = cxs.min(), cys.min(), cxs.max(), cys.max()
+            gw, gh = max(1, gx1 - gx0), max(1, gy1 - gy0)
+            ncols = max(1, int(round(np.sqrt(len(cells) * gw / gh))))
+            nrows = max(1, int(round(len(cells) / ncols)))
+            pitch_x = gw / max(1, ncols - 1)
+            pitch_y = gh / max(1, nrows - 1)
+            cell = 0.66 * min(pitch_x, pitch_y) if ncols > 1 and nrows > 1 else 8
+            green_idx = [i for i, c in enumerate(palette) if c[1] > c[0] and c[1] > 100]
+            for r in range(nrows):
+                for c in range(ncols):
+                    ux, uy = gx0 + c * pitch_x, gy0 + r * pitch_y
+                    iy, ix = int(round(uy)), int(round(ux))
+                    col = qi[iy, ix] if 0 <= iy < h and 0 <= ix < w else -1
+                    if col not in green_idx:
+                        col = green_idx[0] if green_idx else int(dom_color(bc, u > 0))
+                    s = cell / 2
+                    polys.append({"part": "belly_cell", "color": int(col), "area": float(cell * cell),
+                                  "points": [[int(ux - s), int(uy - s)], [int(ux + s), int(uy - s)],
+                                             [int(ux + s), int(uy + s)], [int(ux - s), int(uy + s)]]})
+
     # authored dark torso core: the central dark bodysuit (neck -> chest/abdomen
     # -> waist -> pelvis). The raw dark mask tangles every thin part-outline into
     # the core, so OPEN it to drop the thin lines and keep the thick central
     # blob, take the largest component, then trace ~15 edges with hip detail.
     dark_mask = np.isin(qi, list(dark_idx)).astype(np.uint8)
     band = np.zeros((h, w), np.uint8)
-    band[int(0.22 * h):int(0.74 * h), int(0.28 * w):int(0.72 * w)] = 1
+    band[int(0.22 * h):int(0.74 * h), int(0.24 * w):int(0.76 * w)] = 1
     core_mask = cv2.morphologyEx(dark_mask & band, cv2.MORPH_OPEN,
                                  cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (3, 3)))
     n, lab, stats, _ = cv2.connectedComponentsWithStats(core_mask, 8)

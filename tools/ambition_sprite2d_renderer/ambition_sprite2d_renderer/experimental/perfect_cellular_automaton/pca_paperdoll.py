@@ -102,7 +102,9 @@ def build(pose: str, palette: np.ndarray, eps_quant=None):
     for part, ci, m, area in regions:
         by_part.setdefault(part, []).append((ci, m, area))
     polys = []
-    bridge = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (3, 3))
+    # bridge gaps up to ~4px (the thin dark part-outlines) so same-part fragments
+    # merge into ONE clean polygon per instance, not many slivers.
+    bridge = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (5, 5))
     # dark structural parts: ONE clean convex polygon each (the bodysuit base the
     # plates layer over), not jagged contours of fragments.
     # 'core' (dark torso base) is authored from the torso SILHOUETTE below, not
@@ -276,6 +278,13 @@ def build(pose: str, palette: np.ndarray, eps_quant=None):
         polys.append({"part": "eye", "color": di, "area": float((x1 - x0) * (y1 - y0)),
                       "points": [[x0 + sh, y0], [x1 + sh, y0], [x1, y1], [x0, y1]]})
 
+    # cap decorative parts that shouldn't proliferate (keep the largest)
+    CAPS = {"shoulder_spot": 4}
+    for part, cap in CAPS.items():
+        inst = sorted([p for p in polys if p["part"] == part], key=lambda p: -p["area"])
+        if len(inst) > cap:
+            drop = set(id(p) for p in inst[cap:])
+            polys = [p for p in polys if id(p) not in drop]
     polys.sort(key=lambda p: (Z.get(p["part"], 5), -p["area"]))
     return polys, w, h
 

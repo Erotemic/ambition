@@ -174,6 +174,25 @@ def _spike(pts: np.ndarray) -> np.ndarray:
     return np.array([tip, bl, br]).astype(int)
 
 
+def _despike(pts: np.ndarray, min_angle=16.0) -> np.ndarray:
+    """Drop needle vertices -- a corner whose interior angle is razor-sharp is a
+    degenerate spike (a thin sliver poking out of an otherwise blobby part, e.g.
+    the chest-plate / shoulder / helmet). Collapsing it removes the spike without
+    moving the rest of the outline. (Horns use _spike and eyes/cells are authored
+    directly, so intentional points never reach here.)"""
+    pl = [tuple(map(int, p)) for p in pts]
+    changed = True
+    while changed and len(pl) > 3:
+        changed = False
+        for i in range(len(pl)):
+            a = np.array(pl[i - 1], float); v = np.array(pl[i], float); b = np.array(pl[(i + 1) % len(pl)], float)
+            e1, e2 = a - v, b - v
+            n1, n2 = np.linalg.norm(e1), np.linalg.norm(e2)
+            if n1 < 1 or n2 < 1 or np.degrees(np.arccos(np.clip(e1 @ e2 / (n1 * n2), -1, 1))) < min_angle:
+                pl.pop(i); changed = True; break
+    return np.array(pl)
+
+
 def _clean(pts: np.ndarray, convex=True, max_edges=12, min_edges=5) -> np.ndarray:
     """Simplify to a low-but-honest edge count. The reference is noisy but not
     THAT noisy -- most parts want 5-12 sides, not 4. Start gentle and only
@@ -314,7 +333,7 @@ def build(pose: str, palette: np.ndarray, eps_quant=None):
             if not cnts:
                 continue
             pts = max(cnts, key=cv2.contourArea).reshape(-1, 2)
-            poly = _clean(pts, convex=False, max_edges=12)
+            poly = _despike(_clean(pts, convex=False, max_edges=12))   # plate: no needles
             polys.append({"part": part, "color": int(dom_color(items, union > 0)),
                           "area": float(union.sum()), "points": poly.astype(int).tolist()})
             continue
@@ -525,7 +544,7 @@ def build(pose: str, palette: np.ndarray, eps_quant=None):
                     cpc = int(np.bincount(gpx).argmax()) if gpx.size else cell_green
                     polys.append({"part": "chest_plate", "color": cpc,
                                   "area": float(keep.sum()),
-                                  "points": _clean(cp, convex=False, max_edges=12).astype(int).tolist()})
+                                  "points": _despike(_clean(cp, convex=False, max_edges=12)).astype(int).tolist()})
 
     # ---- belly grid (geometric, view-general) ----
     # The automaton belly grid is the character's signature, but the fixed

@@ -706,12 +706,14 @@ def _brighten_limb_greens(polys, palette):
 ACCENTS = {"belly_cell", "forehead_cell", "shoulder_spot", "eye"}
 
 
-def fill_gaps(polys, qi, fg, palette, w, h, min_area=28):
+def fill_gaps(polys, qi, fg, palette, w, h, min_area=14):
     """COMPLETENESS (run LAST, after the optimizer): any reference foreground not
     covered by a candidate polygon becomes a polygon of its dominant reference
     colour, labelled by position. The reference interior is pristine, so a gap is
     a missing piece -- feet-darks, tail connectors, stray segments are never lost.
-    Conservative: opened to drop thin edge slivers, and only gaps >= min_area."""
+    The 3x3 open still drops the thin AA perimeter (filling that whole ring made
+    noise), but a lower min_area now catches the MEDIUM interior holes (a part
+    seam, the back's inter-limb darks) that were being left white."""
     rec = render(polys, palette, w, h, outline=False)
     covered = ~(rec == 255).all(axis=2)
     gap = (fg & ~covered).astype(np.uint8)

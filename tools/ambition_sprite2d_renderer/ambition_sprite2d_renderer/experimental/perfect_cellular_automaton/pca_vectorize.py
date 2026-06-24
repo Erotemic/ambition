@@ -22,10 +22,11 @@ import cv2
 import numpy as np
 from PIL import Image
 
+import pca_paths as P
+
 HERE = Path(__file__).resolve().parent
-REFS = Path(__file__).resolve().parents[3] / "agent-scratch" / "refs"
-POSES = ["top_front", "top_side", "top_back", "pose_idle", "pose_walk_1",
-         "pose_walk_2", "pose_attack", "pose_jump", "pose_air", "pose_land"]
+REFS = P.REFS
+POSES = P.POSES
 
 
 def build_palette(k: int = 7, refs: Path = REFS) -> np.ndarray:
@@ -108,22 +109,16 @@ def quantized_ref(path: Path, palette: np.ndarray):
     return out, fg
 
 
-def process(pose: str, palette: np.ndarray, out_dir: Path, eps: float):
+def process(pose: str, palette: np.ndarray, vdir: Path, eps: float):
     path = REFS / f"{pose}.png"
     polys, w, h = vectorize_crop(path, palette, eps_frac=eps)
     rec = render_polys(polys, palette, w, h)
-    qref, fg = quantized_ref(path, palette)
-    ref = np.asarray(Image.open(path).convert("RGBA"))
-    refc = ref[:, :, :3].copy(); refc[~fg] = (255, 255, 255)
-    # diff vs quantized (isolates polygon-fit error from shading)
-    dq = np.abs(qref.astype(int) - rec.astype(int)).sum(2)
-    fit_iou = ((dq[fg] < 30).sum()) / max(1, fg.sum())
-    panel = np.concatenate([refc, qref, rec,
-                            np.stack([np.clip(dq, 0, 255)] * 3, -1).astype(np.uint8)], axis=1)
-    Image.fromarray(panel).save(out_dir / f"{pose}_vec.png")
-    (out_dir / f"{pose}_polys.json").write_text(json.dumps(
+    # candidate render (RGBA: white->transparent so eval masks fg correctly)
+    rgba = np.dstack([rec, np.where((rec == 255).all(2), 0, 255).astype(np.uint8)])
+    Image.fromarray(rgba, "RGBA").save(vdir / "cand" / f"{pose}.png")
+    (vdir / f"{pose}_polys.json").write_text(json.dumps(
         {"palette": palette.tolist(), "w": w, "h": h, "polys": polys}))
-    return {"polys": len(polys), "fit_match_frac": float(fit_iou),
+    return {"polys": len(polys),
             "mean_edges": float(np.mean([len(p["points"]) for p in polys]))}
 
 
@@ -131,18 +126,19 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--pose", default=None, help="one pose, or all if omitted")
     ap.add_argument("--k", type=int, default=7)
-    ap.add_argument("--eps", type=float, default=0.01)
-    ap.add_argument("--out", type=Path, default=Path("agent-scratch/vec"))
+    ap.add_argument("--eps", type=float, default=0.006)
+    ap.add_argument("--version", default="04_vectorized")
     args = ap.parse_args()
-    args.out.mkdir(parents=True, exist_ok=True)
+    vdir = P.version_dir(args.version)
     palette = build_palette(args.k)
-    (args.out / "palette.json").write_text(json.dumps(palette.tolist()))
+    P.PALETTE_JSON.write_text(json.dumps(palette.tolist()))
+    (vdir / "palette.json").write_text(json.dumps(palette.tolist()))
     print("palette:", palette.tolist())
     todo = [args.pose] if args.pose else POSES
-    print(f"{'pose':12s} {'polys':>6s} {'mean_edges':>10s} {'fit_match%':>10s}")
+    print(f"{'pose':12s} {'polys':>6s} {'mean_edges':>10s}")
     for pose in todo:
-        r = process(pose, palette, args.out, args.eps)
-        print(f"{pose:12s} {r['polys']:6d} {r['mean_edges']:10.1f} {r['fit_match_frac']*100:9.1f}%")
+        r = process(pose, palette, vdir, args.eps)
+        print(f"{pose:12s} {r['polys']:6d} {r['mean_edges']:10.1f}")
 
 
 if __name__ == "__main__":

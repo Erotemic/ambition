@@ -19,6 +19,7 @@ from pathlib import Path
 import numpy as np
 from PIL import Image, ImageDraw, ImageFont
 
+import pca_paths as P
 import pca_vectorize as V
 
 # palette indices (from pca_vectorize k-means order)
@@ -129,9 +130,11 @@ def visualize(pose, vec_dir, out_dir):
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--pose", default=None)
-    ap.add_argument("--vec", type=Path, default=Path("agent-scratch/vec"))
-    ap.add_argument("--out", type=Path, default=Path("agent-scratch/parts"))
+    ap.add_argument("--version", default="04_vectorized")
     args = ap.parse_args()
+    vdir = P.VERSIONS / args.version
+    args.vec = vdir
+    args.out = vdir / "parts"
     args.out.mkdir(parents=True, exist_ok=True)
     todo = [args.pose] if args.pose else V.POSES
     for pose in todo:

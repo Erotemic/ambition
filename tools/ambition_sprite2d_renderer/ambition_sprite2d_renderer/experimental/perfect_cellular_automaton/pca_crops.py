@@ -21,8 +21,10 @@ import cv2
 import numpy as np
 from PIL import Image
 
+import pca_paths as P
+
 SEG = Path("/home/joncrall/code/ambition/assets/concept_art/pca-segment.png")
-OUT = Path(__file__).resolve().parents[3] / "agent-scratch" / "refs"
+OUT = P.REFS
 MIN_AREA = 100
 TOP_ROW = ["top_front", "top_side", "top_back"]
 BOTTOM_ROW = ["pose_idle", "pose_walk_1", "pose_walk_2", "pose_attack",
@@ -64,7 +66,8 @@ def assign_poses(stats, cents, kept):
     return mapping, top, bot
 
 
-def extract(out_dir: Path = OUT):
+def extract(out_dir: Path = None):
+    out_dir = out_dir or OUT
     out_dir.mkdir(parents=True, exist_ok=True)
     rgba, labels, stats, cents, kept = load_clean_fg()
     mapping, top, bot = assign_poses(stats, cents, kept)

@@ -41,10 +41,13 @@ Z = {"bodysuit": 0, "horn": 0, "tail": 0,
      "forehead_cell": 7, "eye": 8, "other": 2}
 
 
-def _in_head(cx, cy, fb):
+def _in_head_tight(cx, cy, fb):
+    """Tight head box: from the horns (above) down to the FACE BOTTOM only, and
+    just past the face sides -- never into the neck/torso, so the helmet can't
+    swallow them."""
     fx0, fy0, fx1, fy1 = fb
     fw, fh = fx1 - fx0, fy1 - fy0
-    return (fx0 - 0.8 * fw <= cx <= fx1 + 0.8 * fw) and (fy0 - 2.2 * fh <= cy <= fy1 + 0.15 * fh)
+    return (fx0 - 0.35 * fw <= cx <= fx1 + 0.35 * fw) and (fy0 - 2.0 * fh <= cy <= fy1)
 
 
 def _head_label(cx, cy, ci, fb, palette):
@@ -120,10 +123,7 @@ def build(pose: str, palette: np.ndarray, eps_quant=None):
             if area < 12:
                 continue
             cx, cy = cents[li]
-            if face_box and _in_head(cx, cy, face_box):
-                part = _head_label(cx, cy, ci, face_box, palette)   # view-anchored head
-            else:
-                part = PARTS.label_part(cx / w, cy / h, ci, area / (w * h))
+            part = PARTS.label_part(cx / w, cy / h, ci, area / (w * h))
             regions.append((part, ci, (lab == li), area))
 
     # group same-part fragments into instances: OR the part's masks, bridge

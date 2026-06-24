@@ -54,12 +54,19 @@ def optimize(pose: str, version: str, passes: int = 3, log=print):
         rec = PD.render(ps, palette, w, h).astype(np.int16)
         return int(np.abs(rec - target).sum())
 
-    # (dx, dy, scale, rot-degrees, skew)
-    moves = [(1, 0, 1, 0, 0), (-1, 0, 1, 0, 0), (0, 1, 1, 0, 0), (0, -1, 1, 0, 0),
-             (3, 0, 1, 0, 0), (-3, 0, 1, 0, 0), (0, 3, 1, 0, 0), (0, -3, 1, 0, 0),
-             (0, 0, 1.05, 0, 0), (0, 0, 0.95, 0, 0), (0, 0, 1.10, 0, 0), (0, 0, 0.90, 0, 0),
-             (0, 0, 1, 4, 0), (0, 0, 1, -4, 0), (0, 0, 1, 8, 0), (0, 0, 1, -8, 0),
-             (0, 0, 1, 0, 0.12), (0, 0, 1, 0, -0.12)]
+    # GENTLE, shape-preserving moves only (no skew, no big scale/rotation -- those
+    # distort and break the spirit of the authored sprite).
+    moves = [(1, 0, 1, 0), (-1, 0, 1, 0), (0, 1, 1, 0), (0, -1, 1, 0),
+             (2, 0, 1, 0), (-2, 0, 1, 0), (0, 2, 1, 0), (0, -2, 1, 0),
+             (0, 0, 1.03, 0), (0, 0, 0.97, 0), (0, 0, 1, 3), (0, 0, 1, -3)]
+    # per-part budget: the optimizer may only NUDGE near the manual placement.
+    MAX_SHIFT = 6.0          # px the centroid may drift from the authored spot
+    SCALE_LO, SCALE_HI = 0.85, 1.15
+    orig = []
+    for p in polys:
+        a = np.asarray(p["points"], np.float32)
+        orig.append((a[:, 0].mean(), a[:, 1].mean(),
+                     max(1.0, np.ptp(a[:, 0])), max(1.0, np.ptp(a[:, 1]))))
     base = loss_of(polys)
     cur = base
     for _ in range(passes):
@@ -69,9 +76,18 @@ def optimize(pose: str, version: str, passes: int = 3, log=print):
             p = polys[i]
             pts = np.asarray(p["points"], np.float32)
             cx, cy = pts[:, 0].mean(), pts[:, 1].mean()
+            ox, oy, ow, oh = orig[i]
             best_pts, best_loss = None, cur
-            for dx, dy, s, rot, kx in moves:
-                cand = _xform(pts, dx, dy, s, rot, cx, cy, kx)
+            for dx, dy, s, rot in moves:
+                cand = _xform(pts, dx, dy, s, rot, cx, cy)
+                ncx, ncy = cand[:, 0].mean(), cand[:, 1].mean()
+                # reject anything that drifts/scales beyond the nudge budget --
+                # the manual placement stays first-class.
+                if (ncx - ox) ** 2 + (ncy - oy) ** 2 > MAX_SHIFT ** 2:
+                    continue
+                if not (SCALE_LO <= np.ptp(cand[:, 0]) / ow <= SCALE_HI and
+                        SCALE_LO <= np.ptp(cand[:, 1]) / oh <= SCALE_HI):
+                    continue
                 trial = polys[:i] + [{**p, "points": cand.tolist()}] + polys[i + 1:]
                 l = loss_of(trial)
                 if l < best_loss - 1:

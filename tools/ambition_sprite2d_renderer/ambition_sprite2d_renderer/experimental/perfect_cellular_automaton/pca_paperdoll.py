@@ -73,6 +73,42 @@ def _head_label(cx, cy, ci, fb, palette):
     return "forehead_cell"
 
 
+def _cranium(mask: np.ndarray, h: int, face_box=None) -> np.ndarray | None:
+    """Carve the dark CRANIUM out of the dark head-band mask so the helmet TRACES
+    the head instead of ballooning into a black rectangle.
+
+    The head is the topmost dark blob and it PINCHES at the neck -- the cranium is
+    wide, the neck narrow. So: take the top-most connected component, then cut it
+    at the first row below its widest point where the row-width collapses (the neck
+    pinch). View-general -- needs no face, so it fixes the back view too -- with a
+    hard head-height cap and an optional face-bottom cap as backstops."""
+    m = cv2.morphologyEx(mask, cv2.MORPH_CLOSE,
+                         cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (5, 5)))
+    n, lab, stats, _ = cv2.connectedComponentsWithStats(m, 8)
+    if n <= 1:
+        return None
+    top = 1 + int(np.argmin(stats[1:, cv2.CC_STAT_TOP]))   # component reaching highest
+    cm = (lab == top)
+    widths = cm.sum(1).astype(int)
+    rows = np.where(widths > 0)[0]
+    if rows.size == 0:
+        return None
+    ytop = int(rows[0])
+    wmax = int(widths.max())
+    ywmax = int(np.argmax(widths))
+    ycut = h
+    for y in range(ywmax, h):                              # neck pinch below crown
+        if widths[y] < 0.40 * wmax:
+            ycut = y
+            break
+    ycut = min(ycut, ytop + int(0.32 * h))                 # hard cap: never tower
+    if face_box is not None:
+        ycut = min(ycut, int(face_box[3] + 0.30 * (face_box[3] - face_box[1])))
+    cm = cm.copy()
+    cm[ycut:, :] = False
+    return cm.astype(np.uint8)
+
+
 def _square(pts: np.ndarray) -> np.ndarray:
     (cx, cy), (w, h), ang = cv2.minAreaRect(pts.astype(np.float32))
     s = (w + h) / 2.0
@@ -147,6 +183,10 @@ def build(pose: str, palette: np.ndarray, eps_quant=None):
     # the jagged dark colour mask; helmet/pelvis still come from the dark mask.
     DARK_STRUCTURAL = {"helmet", "pelvis", "bodysuit"}
     dark_base_idx = int(np.argmin(palette.sum(1)))
+    # the automaton-cell green (belly + forehead cells): the brightest green in
+    # the palette, so cells never read as near-black dark-green.
+    _greens = [i for i, c in enumerate(palette) if c[1] > c[0] and c[1] > 100]
+    cell_green = max(_greens, key=lambda i: int(palette[i][1])) if _greens else dark_base_idx
 
     def dom_color(masks_items, inst):
         cols = [ci for ci, m, a in masks_items if (m & inst).sum() > 0]
@@ -170,23 +210,23 @@ def build(pose: str, palette: np.ndarray, eps_quant=None):
             continue
         if part in DARK_STRUCTURAL:
             # the helmet must TRACE the head, not engulf the whole dark upper
-            # figure. Bound its mask to the tight head box (`_in_head_tight`):
-            # just past the face sides in x, from ~2 face-heights above down to
-            # just below the face bottom — so it can't tower into the neck/torso
-            # or balloon out behind the head into a giant blob.
-            if part == "helmet" and face_box is not None:
-                fx0, fy0, fx1, fy1 = [int(v) for v in face_box]
-                fw, fhh = fx1 - fx0, fy1 - fy0
-                x0 = max(0, int(fx0 - 0.35 * fw))
-                x1 = min(w, int(fx1 + 0.35 * fw))
-                y0 = max(0, int(fy0 - 2.0 * fhh))
-                y1 = min(h, int(fy1 + 0.25 * fhh))
-                box = np.zeros_like(union)
-                box[y0:y1, x0:x1] = 1
-                union = union * box
-            # close gaps, then take the LARGEST component as a clean (non-convex)
-            # torso/helmet base -- convex hull engulfs the figure, jagged
-            # fragments look noisy; the largest closed blob simplified is right.
+            # figure. Carve the cranium out by the NECK PINCH (view-general: works
+            # for the back view, which has no detected face) rather than a fixed
+            # box. Trace it with enough edges (10) to follow the real silhouette.
+            if part == "helmet":
+                cm = _cranium(union, h, face_box)
+                if cm is None:
+                    continue
+                cnts = cv2.findContours(cm, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)[0]
+                if not cnts:
+                    continue
+                pts = max(cnts, key=cv2.contourArea).reshape(-1, 2)
+                poly = _clean(pts, convex=False, max_edges=10)
+                polys.append({"part": part, "color": int(dom_color(items, cm > 0)),
+                              "area": float(cm.sum()), "points": poly.astype(int).tolist()})
+                continue
+            # other dark structural parts: close gaps, take the LARGEST component
+            # as a clean (non-convex) base -- convex hull engulfs the figure.
             closed = cv2.morphologyEx(union, cv2.MORPH_CLOSE,
                                       cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (7, 7)))
             cnts = cv2.findContours(closed, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)[0]
@@ -222,8 +262,20 @@ def build(pose: str, palette: np.ndarray, eps_quant=None):
             if not cnts:
                 continue
             pts = max(cnts, key=cv2.contourArea).reshape(-1, 2)
+            color = int(dom_color(items, inst))
             if part in CELL_PARTS:
                 poly = _square(pts)
+                # forehead cells are the automaton pattern on the SKULL: they read
+                # as bright-green squares in the reference. Quantisation splits some
+                # to near-black dark-green and shrinks them, so the back-of-head
+                # reads as a featureless black box -- snap to the green cell colour
+                # and floor the square so the celled skull traces like the ref.
+                if part == "forehead_cell":
+                    color = cell_green
+                    s = max(3, int(0.45 * np.sqrt(max(inst_area, 1))))
+                    cx0, cy0 = pts[:, 0].mean(), pts[:, 1].mean()
+                    poly = np.array([[cx0 - s, cy0 - s], [cx0 + s, cy0 - s],
+                                     [cx0 + s, cy0 + s], [cx0 - s, cy0 + s]])
             elif part == "horn":
                 ok, tri = cv2.minEnclosingTriangle(pts.astype(np.float32))
                 poly = tri.reshape(-1, 2).astype(int) if tri is not None else _clean(pts, False, 4)
@@ -233,7 +285,7 @@ def build(pose: str, palette: np.ndarray, eps_quant=None):
                 poly = _clean(pts, convex=False, max_edges=12)
             if len(poly) < 3:
                 continue
-            polys.append({"part": part, "color": int(dom_color(items, inst)),
+            polys.append({"part": part, "color": color,
                           "area": float(inst_area), "points": poly.astype(int).tolist()})
 
     # clean parametric belly grid: fit a regular NxM array of equal squares to
@@ -309,8 +361,10 @@ def build(pose: str, palette: np.ndarray, eps_quant=None):
     fcw = max(1.0, fx1 - fx0)
     face_bottom = fy1
 
-    # dark neck: trapezoid just below the chin, in a face-sized box (the character
-    # was neck-less); follows the detected face instead of a fixed y-band.
+    # dark neck: trapezoid just below the CHIN, in a face-sized box (the character
+    # was neck-less); follows the detected face. Only authored when a face is
+    # actually visible (front/side) -- the back view has no chin, so the fg-top
+    # fallback would otherwise drop a bogus dark square in the middle of the skull.
     neck_band = np.zeros((h, w), np.uint8)
     ny0 = int(max(0, face_bottom - 0.15 * fch)); ny1 = int(min(h, face_bottom + 0.7 * fch))
     nx0 = int(max(0, fcx - 0.55 * fcw)); nx1 = int(min(w, fcx + 0.55 * fcw))
@@ -318,7 +372,7 @@ def build(pose: str, palette: np.ndarray, eps_quant=None):
     neck_mask = cv2.morphologyEx(dark_mask & neck_band, cv2.MORPH_OPEN,
                                  cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (3, 3)))
     ncn, nlab, nstats, _ = cv2.connectedComponentsWithStats(neck_mask, 8)
-    if ncn > 1:
+    if face_box is not None and ncn > 1:
         li = 1 + int(np.argmax(nstats[1:, cv2.CC_STAT_AREA]))
         nc = cv2.findContours((nlab == li).astype(np.uint8), cv2.RETR_EXTERNAL,
                               cv2.CHAIN_APPROX_SIMPLE)[0]

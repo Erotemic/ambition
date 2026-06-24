@@ -37,7 +37,7 @@ Z = {"bodysuit": 0, "horn": 0, "tail": 0,
      "core": 2,
      "chest_plate": 3, "belly_panel": 3, "forearm": 2, "shin": 2, "helmet": 5,
      "pec": 4, "belly_cell": 4, "knee": 2, "foot": 3, "hand": 3,
-     "shoulder": 3, "shoulder_spot": 4, "face": 6,
+     "shoulder": 3, "shoulder_spot": 4, "neck": 5, "face": 6,
      "forehead_cell": 7, "eye": 8, "other": 2}
 
 
@@ -218,8 +218,26 @@ def build(pose: str, palette: np.ndarray, eps_quant=None):
     # the core, so OPEN it to drop the thin lines and keep the thick central
     # blob, take the largest component, then trace ~15 edges with hip detail.
     dark_mask = np.isin(qi, list(dark_idx)).astype(np.uint8)
+    # dark neck: trapezoid just below the chin (the character was neck-less).
+    neck_band = np.zeros((h, w), np.uint8)
+    neck_band[int(0.27 * h):int(0.37 * h), int(0.36 * w):int(0.64 * w)] = 1
+    neck_mask = cv2.morphologyEx(dark_mask & neck_band, cv2.MORPH_OPEN,
+                                 cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (3, 3)))
+    ncn, nlab, nstats, _ = cv2.connectedComponentsWithStats(neck_mask, 8)
+    if ncn > 1:
+        li = 1 + int(np.argmax(nstats[1:, cv2.CC_STAT_AREA]))
+        nc = cv2.findContours((nlab == li).astype(np.uint8), cv2.RETR_EXTERNAL,
+                              cv2.CHAIN_APPROX_SIMPLE)[0]
+        if nc:
+            npts = max(nc, key=cv2.contourArea).reshape(-1, 2)
+            if cv2.contourArea(npts) > 20:
+                polys.append({"part": "neck", "color": dark_base_idx,
+                              "area": float(cv2.contourArea(npts)),
+                              "points": _clean(npts, convex=False, max_edges=7).astype(int).tolist()})
     band = np.zeros((h, w), np.uint8)
-    band[int(0.22 * h):int(0.74 * h), int(0.24 * w):int(0.76 * w)] = 1
+    # stop the band at the crotch (~0.67h); below that is legs, whose THIN dark
+    # outlines must not be mistaken for the core.
+    band[int(0.22 * h):int(0.67 * h), int(0.24 * w):int(0.76 * w)] = 1
     core_mask = cv2.morphologyEx(dark_mask & band, cv2.MORPH_OPEN,
                                  cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (3, 3)))
     n, lab, stats, _ = cv2.connectedComponentsWithStats(core_mask, 8)
@@ -238,7 +256,7 @@ def build(pose: str, palette: np.ndarray, eps_quant=None):
         mir[:, xs[valid]] = core_mask[:, src[valid]]
         core_mask = (core_mask | mir).astype(np.uint8)
     core_mask = cv2.morphologyEx(core_mask, cv2.MORPH_CLOSE,
-                                 cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (9, 9)))
+                                 cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (5, 5)))
     cnts = cv2.findContours(core_mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)[0]
     if cnts:
         pts = max(cnts, key=cv2.contourArea).reshape(-1, 2)

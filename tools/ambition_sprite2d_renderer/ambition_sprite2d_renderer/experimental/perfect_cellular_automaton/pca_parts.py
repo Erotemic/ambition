@@ -31,6 +31,7 @@ GREENS = {GREEN, MIDGREEN}
 PART_COLORS = {
     "horn": (120, 230, 60), "helmet": (40, 40, 48), "forehead_cell": (180, 240, 70),
     "face": (245, 240, 180), "eye": (10, 10, 10), "bodysuit": (55, 55, 64),
+    "neck": (48, 48, 56),
     "chest_plate": (70, 110, 50), "pec": (255, 210, 140), "belly_panel": (250, 235, 170),
     "belly_cell": (160, 220, 50), "core": (70, 70, 80),
     "shoulder": (60, 150, 40), "shoulder_spot": (40, 90, 40),

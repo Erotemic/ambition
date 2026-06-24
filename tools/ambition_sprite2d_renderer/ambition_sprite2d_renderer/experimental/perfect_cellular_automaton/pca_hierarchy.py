@@ -29,6 +29,7 @@ GROUP = {
     "forehead_cell": "head",
     "core": "torso", "bodysuit": "torso", "chest_plate": "torso", "pec": "torso",
     "belly_panel": "torso", "belly_cell": "torso", "tail": "torso", "other": "torso",
+    "neck": "torso",
     "shoulder": "arm", "shoulder_spot": "arm", "upper_arm": "arm",
     "forearm": "arm", "hand": "arm",
     "thigh": "leg", "shin": "leg", "knee": "leg", "foot": "leg",
@@ -40,7 +41,7 @@ HL_COLORS = {
 }
 HIERARCHY = {
     "head": ["helmet", "horn", "face", "eye", "forehead_cell"],
-    "torso": ["core", "bodysuit", "chest_plate", "pec", "belly_panel", "belly_cell", "tail"],
+    "torso": ["neck", "core", "bodysuit", "chest_plate", "pec", "belly_panel", "belly_cell", "tail"],
     "left_arm": ["shoulder", "shoulder_spot", "upper_arm", "forearm", "hand"],
     "right_arm": ["shoulder", "shoulder_spot", "upper_arm", "forearm", "hand"],
     "left_leg": ["thigh", "knee", "shin", "foot"],

@@ -168,13 +168,28 @@ def quantized_ref(path: Path, palette: np.ndarray):
     return out, fg
 
 
+def add_eyes(pose, polys, palette):
+    """Append detected eyes as explicit, semantically-tagged 'eye' polygons
+    (darkest palette colour, drawn last/on top) so they are guaranteed in the
+    canonical polygon set -- eval reconstruction and part map both show them."""
+    import pca_eyes
+    dark_idx = int(np.argmin(np.array(palette).sum(1)))
+    _, eyes = pca_eyes.detect_pose(pose)
+    for x0, y0, x1, y1 in eyes:
+        polys.append({"color": dark_idx, "area": float((x1 - x0) * (y1 - y0)),
+                      "part": "eye", "points": [[x0, y0], [x1, y0], [x1, y1], [x0, y1]]})
+    return polys
+
+
 def process(pose: str, palette: np.ndarray, vdir: Path, eps: float, substrate=False):
     path = REFS / f"{pose}.png"
     if substrate:
         polys, w, h = vectorize_substrate(path, palette, eps_frac=eps)
+        polys = add_eyes(pose, polys, palette)
         rec = render_polys(polys, palette, w, h, seal=0)
     else:
         polys, w, h = vectorize_crop(path, palette, eps_frac=eps)
+        polys = add_eyes(pose, polys, palette)
         rec = render_polys(polys, palette, w, h)
     # candidate render (RGBA: white->transparent so eval masks fg correctly)
     rgba = np.dstack([rec, np.where((rec == 255).all(2), 0, 255).astype(np.uint8)])

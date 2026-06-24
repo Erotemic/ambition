@@ -30,7 +30,7 @@ GREENS = {GREEN, MIDGREEN}
 # part -> display colour for the visualization
 PART_COLORS = {
     "horn": (120, 230, 60), "helmet": (40, 40, 48), "forehead_cell": (180, 240, 70),
-    "face": (245, 240, 180), "eye": (10, 10, 10),
+    "face": (245, 240, 180), "eye": (10, 10, 10), "bodysuit": (55, 55, 64),
     "chest": (255, 210, 140), "belly_cell": (160, 220, 50), "core": (70, 70, 80),
     "shoulder": (60, 150, 40), "upper_arm": (90, 200, 70), "forearm": (150, 90, 170),
     "hand": (230, 220, 160),
@@ -40,6 +40,9 @@ PART_COLORS = {
 
 
 def label_part(nx, ny, color, area_frac):
+    # the dark substrate (one big charcoal silhouette) is the bodysuit
+    if color in DARK and area_frac > 0.12:
+        return "bodysuit"
     is_dark = color in DARK
     is_green = color in GREENS
     is_cream = color == CREAM
@@ -85,23 +88,18 @@ def label_part(nx, ny, color, area_frac):
 
 
 def label_pose(pose: str, vec_dir: Path):
-    import pca_eyes
     d = json.loads((vec_dir / f"{pose}_polys.json").read_text())
     w, h = d["w"], d["h"]
     palette = d["palette"]
     out = []
     for p in d["polys"]:
+        if p.get("part"):                      # pre-tagged (e.g. eyes) -> keep
+            out.append(dict(p))
+            continue
         pts = np.array(p["points"])
         cx, cy = pts[:, 0].mean() / w, pts[:, 1].mean() / h
         part = label_part(cx, cy, p["color"], p["area"] / (w * h))
         out.append({**p, "part": part})
-    # eyes: explicit, detected -> guaranteed present + correctly placed.
-    # darkest palette index for the eye fill.
-    dark_idx = int(np.argmin(np.array(palette).sum(1)))
-    _, eyes = pca_eyes.detect_pose(pose)
-    for x0, y0, x1, y1 in eyes:
-        out.append({"color": dark_idx, "area": float((x1 - x0) * (y1 - y0)),
-                    "points": [[x0, y0], [x1, y0], [x1, y1], [x0, y1]], "part": "eye"})
     return out, palette, w, h
 
 
@@ -109,7 +107,7 @@ def visualize(pose, vec_dir, out_dir):
     import cv2
     polys, palette, w, h = label_pose(pose, vec_dir)
     palette = np.array(palette)
-    recon = V.render_polys(polys, palette, w, h)
+    recon = V.render_polys(polys, palette, w, h, seal=0)
     lab = np.full((h, w, 3), 255, np.uint8)
     for p in sorted(polys, key=lambda p: -p["area"]):
         col = PART_COLORS.get(p["part"], (200, 0, 200))

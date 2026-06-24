@@ -688,7 +688,11 @@ def render(polys, palette, w, h, outline=False):
         if outline:
             cv2.polylines(img, [pts], True, (0, 0, 0), 1, cv2.LINE_AA)
         elif p.get("part") not in ACCENTS:
-            cv2.polylines(img, [pts], True, (0, 0, 0), 2, cv2.LINE_AA)
+            # 1px line-art: a 2px stroke was the single biggest source of colour
+            # error (~50% of it) -- on these ~200px crops the reference line-art is
+            # ~1px, so a 2px black band landed where the reference is colour. 1px
+            # still reads as line-art and lifts mean colour-match ~+5%.
+            cv2.polylines(img, [pts], True, (0, 0, 0), 1, cv2.LINE_AA)
     return img
 
 

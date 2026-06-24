@@ -179,6 +179,33 @@ def build(pose: str, palette: np.ndarray, eps_quant=None):
     # has TWO pecs only when the chest faces us (front); in profile a single pec
     # reads, and there is none from the back.
     is_front_view = len(eyes) >= 2
+
+    # ---- BODY FRAME (view-general torso/limb labelling) ----
+    # label_part's bands are image fractions, so a limb that crosses the image
+    # centre in a dive/crouch (air/land/walk) gets mislabelled torso. Instead map
+    # each region to BODY-RELATIVE coords along the head->torso axis and feed THOSE
+    # to label_part: for upright poses the axis is vertical so body-space == image-
+    # space (no regression); for tilted poses the bands follow the body.
+    ys, xs = np.where(fg)
+    fg_cx, fg_cy = float(xs.mean()), float(ys.mean())
+    if face_box is not None:
+        hx = 0.5 * (face_box[0] + face_box[2]); hy = 0.5 * (face_box[1] + face_box[3])
+    else:                                            # back: head = top-of-figure centroid
+        top = ys.min(); hy = float(top); hx = float(xs[ys < top + 0.1 * h].mean())
+    axis = np.array([fg_cx - hx, fg_cy - hy], float)
+    nrm = float(np.hypot(*axis))
+    axis = axis / nrm if nrm > 5 else np.array([0.0, 1.0])   # default straight down
+    perp = np.array([-axis[1], axis[0]])
+    pa = (xs - hx) * axis[0] + (ys - hy) * axis[1]   # along-body of every fg px
+    pb = (xs - hx) * perp[0] + (ys - hy) * perp[1]   # across-body
+    amin, arng = float(pa.min()), max(1.0, float(np.ptp(pa)))
+    bmin, brng = float(pb.min()), max(1.0, float(np.ptp(pb)))
+
+    def body_frac(cx, cy):
+        va = (cx - hx) * axis[0] + (cy - hy) * axis[1]
+        vb = (cx - hx) * perp[0] + (cy - hy) * perp[1]
+        return (vb - bmin) / brng, (va - amin) / arng    # bnx, bny in [0,1]
+
     for ci in range(len(palette)):
         mask = (qi == ci).astype(np.uint8)
         if mask.sum() < 10:
@@ -202,7 +229,14 @@ def build(pose: str, palette: np.ndarray, eps_quant=None):
             if face_box is not None and _in_head_tight(cx, cy, face_box):
                 part = _head_label(cx, cy, ci, np.asarray(face_box, float), palette)
             else:
-                part = PARTS.label_part(cx / w, cy / h, ci, area / (w * h))
+                bnx, bny = body_frac(cx, cy)
+                part = PARTS.label_part(bnx, bny, ci, area / (w * h))
+                # the head is handled ONLY by the view-anchored branch above; a
+                # region OUTSIDE the head box must not be a head part (the body
+                # frame can misfire at the far end of an extreme dive). Push it
+                # below the head band so it gets a torso/limb label instead.
+                if face_box is not None and part in ("face", "horn", "forehead_cell", "helmet"):
+                    part = PARTS.label_part(bnx, max(0.30, bny), ci, area / (w * h))
             regions.append((part, ci, (lab == li), area))
 
     # group same-part fragments into instances: OR the part's masks, bridge
@@ -506,6 +540,13 @@ def build(pose: str, palette: np.ndarray, eps_quant=None):
     # sheared toward the face centre) so the character reads a little mean.
     di = int(np.argmin(palette.sum(1)))
     _, eyes = pca_eyes.detect(crop)
+    # keep only eyes that actually sit in the detected face (a foreshortened dive
+    # can produce a false cream-with-slits blob elsewhere -> a stray eye/face).
+    if face_box is not None and eyes:
+        fx0, fy0, fx1, fy1 = face_box
+        mx, my = 0.5 * (fx1 - fx0), 0.5 * (fy1 - fy0)
+        eyes = [e for e in eyes if fx0 - mx <= (e[0] + e[2]) / 2 <= fx1 + mx
+                and fy0 - my <= (e[1] + e[3]) / 2 <= fy1 + my]
     fc = np.mean([(e[0] + e[2]) / 2 for e in eyes]) if eyes else w / 2
     for x0, y0, x1, y1 in eyes:
         cx = (x0 + x1) / 2

@@ -16,7 +16,7 @@
 use parry2d::{
     math::{Pose, Vector},
     query,
-    shape::{ConvexPolygon, Cuboid, Shape},
+    shape::{Ball, ConvexPolygon, Cuboid, Shape},
 };
 
 use crate::{Aabb, AabbExt, Vec2};
@@ -34,6 +34,9 @@ pub enum CombatVolume {
         half: Vec2,
         rotation: f32,
     },
+    /// Circle / disc — first-class (Parry `Ball`), exact and cheap. The natural
+    /// shape for explosions and radial AoE.
+    Circle { center: Vec2, radius: f32 },
     /// Arbitrary convex polygon (world-space points). `bounds` is the cached
     /// broad-phase AABB so we never recompute it per test.
     Convex { bounds: Aabb, points: Vec<Vec2> },
@@ -58,6 +61,13 @@ impl CombatVolume {
         }
     }
 
+    pub fn circle(center: Vec2, radius: f32) -> Self {
+        CombatVolume::Circle {
+            center,
+            radius: radius.max(0.0),
+        }
+    }
+
     /// Build a convex volume from world-space points. The points need not be
     /// pre-ordered — the Parry shape is built from their convex hull.
     pub fn convex(points: Vec<Vec2>) -> Self {
@@ -76,6 +86,9 @@ impl CombatVolume {
                 half,
                 rotation,
             } => bounds_of_points(&obb_corners(*center, *half, *rotation)),
+            CombatVolume::Circle { center, radius } => {
+                Aabb::new(*center, Vec2::splat(*radius))
+            }
             CombatVolume::Convex { bounds, .. } => *bounds,
         }
     }
@@ -84,6 +97,7 @@ impl CombatVolume {
         match self {
             CombatVolume::Aabb(a) => a.center(),
             CombatVolume::Obb { center, .. } => *center,
+            CombatVolume::Circle { center, .. } => *center,
             CombatVolume::Convex { bounds, .. } => bounds.center(),
         }
     }
@@ -100,6 +114,10 @@ impl CombatVolume {
                 center: *center + delta,
                 half: *half,
                 rotation: *rotation,
+            },
+            CombatVolume::Circle { center, radius } => CombatVolume::Circle {
+                center: *center + delta,
+                radius: *radius,
             },
             CombatVolume::Convex { bounds, points } => CombatVolume::Convex {
                 bounds: bounds.translated(delta),
@@ -159,6 +177,10 @@ impl CombatVolume {
                 half,
                 rotation,
             } => convex_shape(&obb_corners(*center, *half, *rotation), self.bounds()),
+            CombatVolume::Circle { center, radius } => (
+                ParryShape::Ball(Ball::new(radius.max(0.0))),
+                Pose::translation(center.x, center.y),
+            ),
             CombatVolume::Convex { points, bounds } => convex_shape(points, *bounds),
         }
     }
@@ -167,6 +189,7 @@ impl CombatVolume {
 /// Owns a Parry shape so a borrow can be handed to `intersection_test`.
 enum ParryShape {
     Cuboid(Cuboid),
+    Ball(Ball),
     Convex(ConvexPolygon),
 }
 
@@ -174,6 +197,7 @@ impl ParryShape {
     fn as_shape(&self) -> &dyn Shape {
         match self {
             ParryShape::Cuboid(c) => c,
+            ParryShape::Ball(b) => b,
             ParryShape::Convex(p) => p,
         }
     }
@@ -275,6 +299,19 @@ mod tests {
         assert!(tri.intersects(&aabb(2.0, 2.0, 2.0, 2.0).into()));
         // Far corner of the bounding box that the triangle doesn't cover.
         assert!(!tri.intersects(&aabb(18.0, 18.0, 1.0, 1.0).into()));
+    }
+
+    #[test]
+    fn circle_overlap_is_radial_not_boxy() {
+        let circle = CombatVolume::circle(Vec2::new(0.0, 0.0), 10.0);
+        // A box overlapping the disc near its edge along an axis: hit.
+        assert!(circle.intersects(&aabb(9.0, 0.0, 1.0, 1.0).into()));
+        // A box in the bounding-box CORNER the disc doesn't reach (~(8.5,8.5) is
+        // outside r=10? dist=12.0>10 → miss), proving it's a disc not its bbox.
+        assert!(!circle.intersects(&aabb(8.5, 8.5, 0.2, 0.2).into()));
+        // Circle vs circle.
+        assert!(circle.intersects(&CombatVolume::circle(Vec2::new(18.0, 0.0), 10.0)));
+        assert!(!circle.intersects(&CombatVolume::circle(Vec2::new(30.0, 0.0), 5.0)));
     }
 
     #[test]

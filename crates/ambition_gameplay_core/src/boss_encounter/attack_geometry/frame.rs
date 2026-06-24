@@ -90,36 +90,18 @@ pub(super) fn authored_animation_frame_index(
     animation_frame_index(entry, elapsed_s)
 }
 
-/// Idle-pose frame index. Mirrors [`authored_animation_frame_index`]
-/// for the rest pose: prefer the live rendered frame carried by an
-/// idle (`profile: None`) sample so the rest-pose hurtbox bobs with
-/// the breathing animation, falling back to elapsed-time sampling
-/// (which, with the idle elapsed of 0, would lock to frame 0).
-pub(super) fn idle_animation_frame_index(
-    ctx: &BossVolumeContext,
-    entry: &ambition_sprite_sheet::AnimationMetrics,
-    elapsed_s: f32,
-) -> Option<usize> {
-    if let Some(sample) = ctx.animation_frame {
-        if sample.profile.is_none() {
-            return Some(sample.frame_index);
-        }
-    }
-    animation_frame_index(entry, elapsed_s)
-}
-
-pub(super) fn push_unique_animation_key<'a>(keys: &mut Vec<&'a str>, key: &'a str) {
+pub(super) fn push_unique_animation_key(keys: &mut Vec<&'static str>, key: &'static str) {
     if !key.is_empty() && !keys.iter().any(|existing| *existing == key) {
         keys.push(key);
     }
 }
 
-pub(super) fn runtime_animation_keys<'a>(
-    ctx: &'a BossVolumeContext<'a>,
-    active_profile: Option<&'a BossAttackProfile>,
-    rest_keys: &'a [&'a str],
-) -> Vec<&'a str> {
-    let mut keys = Vec::new();
+pub(super) fn runtime_animation_keys(
+    ctx: &BossVolumeContext,
+    active_profile: Option<&BossAttackProfile>,
+    rest_keys: &[&'static str],
+) -> Vec<&'static str> {
+    let mut keys: Vec<&'static str> = Vec::new();
     if let (Some(sample), Some(profile)) = (ctx.animation_frame, active_profile) {
         if sample.profile.as_ref() == Some(profile) {
             if let Some(animation_key) = sample.animation_key {

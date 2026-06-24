@@ -129,7 +129,7 @@ pub fn blink_system(
     // can blink *into* enemies to strike them (and the PlayerSlash source spares
     // the player). Composes nicely with a gravity well — blink in, sweep them up.
     hits.write(crate::features::HitEvent {
-        volume: ae::Aabb::new(target, ae::Vec2::splat(BLINK_SHOCKWAVE_HALF)).into(),
+        volume: ae::CombatVolume::circle(target, BLINK_SHOCKWAVE_HALF),
         damage: BLINK_SHOCKWAVE_DAMAGE,
         source: crate::features::HitSource::PlayerSlash { knock_x: 0.0 },
         attacker: Some(player),

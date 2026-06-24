@@ -66,9 +66,10 @@ pub fn tick_bomb_fuses(
         if fuse.timer > 0.0 {
             continue;
         }
-        // Detonate: a broadcast player-side hit over the blast AABB.
+        // Detonate: a broadcast player-side hit over the blast radius — a real
+        // disc, so the blast is radial (corners of the old square no longer hit).
         hits.write(HitEvent {
-            volume: ae::Aabb::new(ground.pos, ae::Vec2::splat(BOMB_BLAST_HALF)).into(),
+            volume: ae::CombatVolume::circle(ground.pos, BOMB_BLAST_HALF),
             damage: BOMB_DAMAGE,
             source: HitSource::PlayerSlash { knock_x: 0.0 },
             attacker: None,

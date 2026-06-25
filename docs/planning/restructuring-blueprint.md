@@ -55,11 +55,23 @@ the full reasoning; the section is annotated **DONE** / **NEXT** / **OPEN** inli
 - **Falling-sand world-model question RESOLVED** (`25fcb13a`) — confirms the
   RoomGeometry model; no durable-overlay tier needed (see Open questions #1).
 
-**Next live frontier — the RoomGeometry collision-view API (NOT yet done):**
+**RoomGeometry collision-view API — SEAM + FIRST READERS LANDED (2026-06-25):**
 
-The rename landed but the *architectural* half — routing collision readers
-through the derived view instead of the bare base — is the remaining work, and
-it is **behavior-sensitive, not a sweep**. Concrete write-map gathered post-rename
+The `CollisionWorld` SystemParam is the single collision read-API
+(`combat::world_overlay`, re-exported via `features`): `solids()` (full
+composite), `carves_only()` (projectile path), `base()` (metadata only). All
+resources optional, so it degrades to the bare geometry exactly when there are no
+dynamics. Landed `b51ac38e` (seam + 4 unit tests) + `0208bbb5` (first readers).
+
+The first behaviour-sensitive batch is routed onto `solids()`: `grapple_system`,
+`blink_system`, `fire_dive_system`, `update_body_mode`, `ground_item_physics` —
+these now collide against moving platforms / ECS solids / portal carves instead
+of the bare room. (Blind — owed a feel check in a room with moving platforms.)
+
+**Still owed** (the rest of the needs-composite set in the write-map below):
+`abilities/traversal` is done; remaining are `portal/*` and the boss-special
+spawners that raycast. The render/layout readers stay on the base (do NOT route);
+projectile readers already use `carves_only`-equivalent. Original write-map below
 (verify against `main` before acting):
 
 - **7 writers** of `ResMut<RoomGeometry>` to classify: `session/reset/mod.rs`
@@ -73,9 +85,10 @@ it is **behavior-sensitive, not a sweep**. Concrete write-map gathered post-rena
   - **~18 `render/*` readers = layout/metadata** (camera, parallax, HUD,
     nameplates, visuals read bounds/size). Keep on the base — do NOT route.
   - **genuine needs-composite set = the collision/raycast consumers**:
-    `abilities/traversal/{grapple,blink,dive}.rs`, `body_mode/mechanics/mod.rs`,
-    `items/pickup/mod.rs`, `portal/*`, and the boss-special spawners that raycast.
-    These should sweep against `base + overlay`.
+    `abilities/traversal/{grapple,blink,dive}.rs` ✅, `body_mode/mechanics/mod.rs` ✅,
+    `items/pickup/mod.rs` (`ground_item_physics`) ✅ — all routed onto
+    `CollisionWorld::solids()` in `0208bbb5`. STILL OWED: `portal/*` and the
+    boss-special spawners that raycast. These should sweep against `base + overlay`.
   - dev/trace, parity, debug overlay = base is fine.
 - **Approach:** classify each reader (metadata / base-collision / needs-composite),
   then route only the needs-composite set through a single collision read-API

@@ -41,7 +41,7 @@ pub struct PropSpec {
 ///
 /// Resolved to a [`crate::items::pickup::GroundItem`] at room load by looking
 /// `held_item` up in the brain held-item registry
-/// (`crate::brain::held_item_by_id`). This is the authored-placement home for
+/// (`ambition_characters::brain::held_item_by_id`). This is the authored-placement home for
 /// the gauntlet / weapon pickups that the debug `spawn_debug_ground_items_once`
 /// table used to drop near the player — kept off `World::objects` for the same
 /// reason as [`PropSpec`] (the engine never sees them).
@@ -52,7 +52,7 @@ pub struct GroundItemSpec {
     /// LDtk display name (editor-facing / entity naming only).
     pub name: String,
     /// Held-item registry id, e.g. `meteor`, `bomb`, `puppy_slug_gun`,
-    /// `gun_sword`. Resolved via `crate::brain::held_item_by_id`; an
+    /// `gun_sword`. Resolved via `ambition_characters::brain::held_item_by_id`; an
     /// unregistered id is skipped at spawn rather than erroring.
     pub held_item: String,
     /// World-space center of the pickup box.

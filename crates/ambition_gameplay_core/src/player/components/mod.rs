@@ -12,7 +12,7 @@ use ambition_input::ControlFrame;
 // Re-export generic player markers from the platformer runtime.
 pub use ambition_platformer_primitives::markers::{PlayerEntity, PrimaryPlayer};
 // Stable facade for the player-slot marker used by brain/player code.
-pub use crate::brain::PlayerSlot;
+pub use ambition_characters::brain::PlayerSlot;
 
 /// Marks a player whose input comes from this machine's input devices
 /// (keyboard / gamepad / touch). In single-player today the local

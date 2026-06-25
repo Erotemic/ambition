@@ -154,7 +154,7 @@ fn held_item_ids_point_at_real_specs() {
     // The three wired weapons resolve to a known held-item spec.
     assert_eq!(Item::Axe.held_item_id(), Some("axe"));
     assert_eq!(Item::GunSword.held_item_id(), Some("gun_sword"));
-    assert!(crate::brain::held_item_by_id("gun_sword").is_some());
+    assert!(ambition_characters::brain::held_item_by_id("gun_sword").is_some());
 }
 
 #[test]

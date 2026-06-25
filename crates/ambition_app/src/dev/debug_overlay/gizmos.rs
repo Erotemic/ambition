@@ -86,7 +86,7 @@ pub struct FeatureDebugQueries<'w, 's> {
         's,
         (
             ambition_gameplay_core::features::BossClusterRef,
-            &'static ambition_gameplay_core::brain::BossAttackState,
+            &'static ambition_characters::brain::BossAttackState,
             Option<&'static ambition_gameplay_core::features::BossAnimationFrameSample>,
         ),
         With<ambition_gameplay_core::features::FeatureSimEntity>,

@@ -15,7 +15,7 @@ use super::movement_components::{
     PlayerLedgeState, PlayerLifetime, PlayerMana, PlayerOffense, PlayerShieldState,
     PlayerWallState,
 };
-use crate::brain::{ActionSet, ActorControl, Brain};
+use ambition_characters::brain::{ActionSet, ActorControl, Brain};
 use crate::features::{ActorFaction, ActorPose};
 
 /// All simulation components required on the player entity.
@@ -77,7 +77,7 @@ pub struct PlayerSimulationBundle {
     /// ability. Gates `emit_player_projectile_tick_messages` by CAPABILITY rather
     /// than `brain.is_player()`, so possession of this body keeps the charge
     /// mechanic. Pay-for-use: actors without it never enter the charge stream.
-    pub charges_projectiles: crate::brain::ChargesProjectiles,
+    pub charges_projectiles: ambition_characters::brain::ChargesProjectiles,
     /// Gameplay-space action origin / facing read model shared with
     /// non-player actors. Synced from `BodyKinematics`, not from any
     /// presentation `Transform`.
@@ -173,7 +173,7 @@ impl PlayerSimulationBundle {
             // default fires only for actual player entities.
             action_set,
             actor_control: ActorControl::default(),
-            charges_projectiles: crate::brain::ChargesProjectiles,
+            charges_projectiles: ambition_characters::brain::ChargesProjectiles,
             actor_pose: ActorPose::from_parts(
                 kinematics.pos,
                 kinematics.size * 0.5,
@@ -214,7 +214,7 @@ impl PlayerSimulationBundle {
 /// read the ActionSet as the authoritative "what can this player
 /// actually do right now" surface without re-checking AbilitySet.
 fn default_player_action_set(abilities: ae::AbilitySet) -> ActionSet {
-    use crate::brain::{
+    use ambition_characters::brain::{
         MeleeActionSpec, MoveStyleSpec, RangedActionSpec, SpecialActionSpec, SwipeSpec,
     };
     ActionSet {

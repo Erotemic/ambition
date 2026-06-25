@@ -12,7 +12,7 @@
 
 use bevy::prelude::*;
 
-use crate::brain::{ActionSet, HeldItemSpec, HeldUseBehavior, MeleeActionSpec, SwipeSpec};
+use ambition_characters::brain::{ActionSet, HeldItemSpec, HeldUseBehavior, MeleeActionSpec, SwipeSpec};
 use ambition_engine_core::{self as ae, AabbExt};
 use crate::features::HeldItem;
 use ambition_input::ControlFrame;
@@ -244,12 +244,12 @@ pub fn javelin_spec() -> HeldItemSpec {
 }
 
 /// The laser gun-sword as a *player* held item — the same authored `gun_sword`
-/// the pirates carry (`crate::brain::held_item_by_id`). Picking it up replaces
+/// the pirates carry (`ambition_characters::brain::held_item_by_id`). Picking it up replaces
 /// the player's melee swing with the item's *ranged* verb, so `Attack` fires a
 /// laser bolt instead of swinging — the unification the pirates will share once
 /// their dedicated sniper mode is dropped (see TODO).
 pub fn gunsword_spec() -> HeldItemSpec {
-    crate::brain::held_item_by_id("gun_sword").expect("gun_sword is a built-in held item")
+    ambition_characters::brain::held_item_by_id("gun_sword").expect("gun_sword is a built-in held item")
 }
 
 /// Resolve a catalog [`crate::items::Item`]'s held-item spec, for equipping from
@@ -261,7 +261,7 @@ pub fn held_spec_for_item(item: crate::items::Item) -> Option<HeldItemSpec> {
         Item::Axe => Some(axe_spec()),
         Item::Javelin => Some(javelin_spec()),
         Item::GunSword => Some(gunsword_spec()),
-        _ => item.held_item_id().and_then(crate::brain::held_item_by_id),
+        _ => item.held_item_id().and_then(ambition_characters::brain::held_item_by_id),
     }
 }
 
@@ -746,7 +746,7 @@ pub fn held_projectile_step(
             &crate::features::FeatureId,
             &crate::features::CenteredAabb,
             crate::features::BossClusterRef,
-            &crate::brain::BossAttackState,
+            &ambition_characters::brain::BossAttackState,
             Option<&crate::features::BossAnimationFrameSample>,
         ),
         With<crate::features::FeatureSimEntity>,

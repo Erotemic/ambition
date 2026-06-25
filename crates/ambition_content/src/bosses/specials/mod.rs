@@ -15,7 +15,7 @@
 
 use bevy::prelude::*;
 
-use ambition_gameplay_core::brain::{
+use ambition_characters::brain::{
     action_set::ActionRequest, ActorActionMessage, BossAttackProfile, BossAttackState,
     SpecialActionSpec,
 };

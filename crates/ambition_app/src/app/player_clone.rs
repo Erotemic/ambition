@@ -19,7 +19,7 @@
 use bevy::prelude::*;
 
 use ambition_gameplay_core::assets::game_assets::GameAssets;
-use ambition_gameplay_core::brain::{ActorControl, Brain, BrainSnapshot, StateMachineCfg};
+use ambition_characters::brain::{ActorControl, Brain, BrainSnapshot, StateMachineCfg};
 use ambition_gameplay_core::character_sprites::{
     build_character_sprite_with_render_size, feet_anchor_for_render_size,
     player_placeholder_render_size, CharacterAnimator,
@@ -117,7 +117,7 @@ pub fn spawn_requested_player_clone(
         clusters_a,
         clusters_b,
         Brain::StateMachine(StateMachineCfg::PlayerDemo {
-            cfg: ambition_gameplay_core::brain::state_machine::PlayerDemoCfg::default(),
+            cfg: ambition_characters::brain::state_machine::PlayerDemoCfg::default(),
             state: Default::default(),
         }),
         ActorControl::default(),

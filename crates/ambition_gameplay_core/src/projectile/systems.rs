@@ -129,7 +129,7 @@ pub fn player_projectile_input(
         ),
         With<crate::player::PlayerEntity>,
     >,
-    mut brain_actions: MessageReader<crate::brain::ActorActionMessage>,
+    mut brain_actions: MessageReader<ambition_characters::brain::ActorActionMessage>,
     user_settings: Res<crate::persistence::settings::UserSettings>,
     gravity: crate::physics::GravityCtx,
     mut trace: ResMut<GameplayTraceBuffer>,
@@ -148,7 +148,7 @@ pub fn player_projectile_input(
     let tick_infos: std::collections::HashMap<Entity, PlayerProjectileTickInfo> = brain_actions
         .read()
         .filter_map(|msg| match msg.request {
-            crate::brain::ActionRequest::PlayerProjectileTick {
+            ambition_characters::brain::ActionRequest::PlayerProjectileTick {
                 axis,
                 aim,
                 press,
@@ -444,7 +444,7 @@ pub fn step_projectiles(
             &FeatureId,
             &CenteredAabb,
             BossClusterRef,
-            &crate::brain::BossAttackState,
+            &ambition_characters::brain::BossAttackState,
             Option<&crate::features::BossAnimationFrameSample>,
         ),
         With<FeatureSimEntity>,

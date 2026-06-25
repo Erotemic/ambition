@@ -4,7 +4,7 @@
 //! action set, held item, and mana. Keeping that bundle here lets each ability
 //! test focus on the behavior it is asserting instead of repeating spawn wiring.
 
-use crate::brain::{held_item_by_id, ActionSet};
+use ambition_characters::brain::{held_item_by_id, ActionSet};
 use ambition_engine_core as ae;
 use crate::features::HeldItem;
 use crate::player::{BodyKinematics, PlayerBaseSize, PlayerEntity, PlayerMana, PrimaryPlayer};

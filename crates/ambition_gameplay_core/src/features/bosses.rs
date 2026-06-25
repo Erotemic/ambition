@@ -4,23 +4,23 @@
 //! `ActorActionMessage::Special`), plus stable boss encounter-id consts
 //! ([`GNU_TON_ENCOUNTER_ID`], [`GRADIENT_SENTINEL_ENCOUNTER_ID`],
 //! [`GNU_TON_APPLE_OWNER_PREFIX`]). The boss PROFILE/pattern vocabulary and
-//! sprite metrics now live in `crate::brain::boss_pattern` and
+//! sprite metrics now live in `ambition_characters::brain::boss_pattern` and
 //! `crate::boss_encounter::behavior` and are re-exported here for legacy paths.
 
 // Boss policy vocabulary (`BossMovementProfile`, `BossPatternStep`,
 // `BossPattern`, `BossAttackPattern`, `BossAttackProfile`,
-// `step_duration`) moved to `crate::brain::boss_pattern` per the
+// `step_duration`) moved to `ambition_characters::brain::boss_pattern` per the
 // "move boss policy out of BossRuntime" migration. Re-exported here
 // because `BossBehaviorProfile` and the volumes / construction code
 // below still reference them by their old `content::features::bosses`
 // path — those references stay legal via the re-export while call
 // sites migrate to the brain-module path at their leisure.
 #[cfg(test)]
-use crate::brain::boss_pattern::BossAttackPattern;
-pub use crate::brain::boss_pattern::{BossAttackProfile, BossMovementProfile};
+use ambition_characters::brain::boss_pattern::BossAttackPattern;
+pub use ambition_characters::brain::boss_pattern::{BossAttackProfile, BossMovementProfile};
 // `BossPattern` and `BossPatternStep` only show up inside the
 // scripted profiles, which now live in `boss_profiles.ron`. They're
-// still publicly accessible via `crate::brain::boss_pattern`; we
+// still publicly accessible via `ambition_characters::brain::boss_pattern`; we
 // just don't re-export them here anymore.
 
 // `BossTickOutputs` (previously: `projectile_spawns: Vec<…>`) was
@@ -93,9 +93,9 @@ pub use crate::boss_encounter::behavior::{
 /// schedule edits that introduce a profile before the spec wiring
 /// lands).
 pub fn boss_special_for_profile(
-    profile: &crate::brain::BossAttackProfile,
-) -> Option<crate::brain::SpecialActionSpec> {
-    use crate::brain::SpecialActionSpec;
+    profile: &ambition_characters::brain::BossAttackProfile,
+) -> Option<ambition_characters::brain::SpecialActionSpec> {
+    use ambition_characters::brain::SpecialActionSpec;
     // Open seam: a `Special` beat carries its content-technique key; the
     // brain emits it verbatim as `SpecialActionSpec::Special(key)` and the
     // matching content Technique reads its own params + emits the effects.
@@ -239,7 +239,7 @@ mod boss_special_resolver_tests {
     /// edits can't introduce a profile without its consumer wiring.
     #[test]
     fn every_special_profile_resolves_to_a_spec_for_gradient_sentinel() {
-        use crate::brain::BossAttackProfile;
+        use ambition_characters::brain::BossAttackProfile;
         for key in [
             "overfit_volley",
             "minima_trap",
@@ -259,7 +259,7 @@ mod boss_special_resolver_tests {
     /// verbatim key, which the content apple-rain Technique recognizes.
     #[test]
     fn gnu_apple_rain_profile_resolves_to_apple_rain_spec_for_gnu_ton() {
-        use crate::brain::{BossAttackProfile, SpecialActionSpec};
+        use ambition_characters::brain::{BossAttackProfile, SpecialActionSpec};
         match boss_special_for_profile(&BossAttackProfile::Special("apple_rain".into())) {
             Some(SpecialActionSpec::Special(key)) => assert_eq!(key, "apple_rain"),
             other => panic!("expected Special(apple_rain) spec, got {other:?}"),
@@ -271,7 +271,7 @@ mod boss_special_resolver_tests {
     /// `boss_attack_damage` reading `BossAttackState` directly.
     #[test]
     fn ordinary_profiles_resolve_to_none() {
-        use crate::brain::BossAttackProfile;
+        use ambition_characters::brain::BossAttackProfile;
         for profile in [
             BossAttackProfile::FloorSlam,
             BossAttackProfile::SideSweep,
@@ -286,12 +286,12 @@ mod boss_special_resolver_tests {
     }
 }
 
-// `step_duration` moved to `crate::brain::boss_pattern`.
+// `step_duration` moved to `ambition_characters::brain::boss_pattern`.
 
 #[cfg(test)]
 mod scripted_pattern_tests {
     use super::*;
-    use crate::brain::boss_pattern::BossPatternStep;
+    use ambition_characters::brain::boss_pattern::BossPatternStep;
     use ambition_engine_core as ae;
     use ambition_engine_core::AabbExt;
     use crate::features::FeatureCombatTuning;
@@ -498,7 +498,7 @@ mod scripted_pattern_tests {
         // Concrete repro: a player AABB identical to the boss body
         // AABB with no active strike must produce no event.
         let boss = gnu_ton_runtime();
-        let attack_state = crate::brain::BossAttackState::default();
+        let attack_state = ambition_characters::brain::BossAttackState::default();
         let ctx = crate::features::BossVolumeContext::from_ref(boss.as_ref(), &attack_state);
         let player_body =
             crate::features::body_damage_aabb(boss.kin.pos, boss.as_ref().combat_size());
@@ -563,7 +563,7 @@ mod scripted_pattern_tests {
         // the player doesn't have to climb. Both states must produce
         // exactly one head AABB.
         let boss = gnu_ton_runtime();
-        let mut attack_state = crate::brain::BossAttackState::default();
+        let mut attack_state = ambition_characters::brain::BossAttackState::default();
         let rest_head = crate::features::damageable_volumes(
             &crate::features::BossVolumeContext::from_ref(boss.as_ref(), &attack_state),
         );
@@ -659,7 +659,7 @@ mod scripted_pattern_tests {
     /// spike sharply.
     #[test]
     fn gradient_sentinel_phase1_includes_gradient_lane_and_overfit_volley() {
-        use crate::brain::BossAttackProfile;
+        use ambition_characters::brain::BossAttackProfile;
         let BossAttackPattern::Scripted { phase1, .. } =
             BossBehaviorProfile::clockwork_warden().attack_pattern
         else {
@@ -690,7 +690,7 @@ mod scripted_pattern_tests {
     /// faster", which defeats the design.
     #[test]
     fn gradient_sentinel_phase2_includes_all_advanced_specials() {
-        use crate::brain::BossAttackProfile;
+        use ambition_characters::brain::BossAttackProfile;
         let BossAttackPattern::Scripted { phase2, .. } =
             BossBehaviorProfile::clockwork_warden().attack_pattern
         else {
@@ -872,7 +872,7 @@ mod scripted_pattern_tests {
         // `desired_vel` to `integrate_body`. This mirrors what
         // `tick_boss_brains_system` + `update_ecs_bosses` do in the
         // real schedule.
-        use crate::brain::{
+        use ambition_characters::brain::{
             tick_boss_pattern, BossAttackState, BossPatternCfg, BossPatternContext,
             BossPatternState,
         };

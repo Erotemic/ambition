@@ -65,7 +65,7 @@ pub fn add_simulation_plugins(app: &mut App) {
 
     app.add_plugins(ambition_gameplay_core::features::WorldPrepSchedulePlugin);
     // Universal-brain messages/resources; per-tick systems are registered below.
-    app.add_plugins(ambition_gameplay_core::brain::BrainPlugin);
+    app.add_plugins(ambition_characters::brain::BrainPlugin);
     register_player_input_systems(app);
     register_player_simulation_systems(app);
     // Ambition's player ability/weapon kit plus its small shared app state.
@@ -258,7 +258,7 @@ fn register_player_input_systems(app: &mut App) {
             // Combat: enemy ranged, enemy melee start, player
             // melee + pogo start gating, GNU-ton apple rain, and
             // Gradient Sentinel specials.
-            ambition_gameplay_core::brain::emit_brain_action_messages,
+            ambition_characters::brain::emit_brain_action_messages,
             // Sibling emitter: for every player-brain actor, surface
             // the per-tick projectile state (axis sample + press /
             // held / released edges) into the same ActorActionMessage
@@ -267,11 +267,11 @@ fn register_player_input_systems(app: &mut App) {
             // stream instead of reading `PlayerInputFrame` directly,
             // so player projectile charging now flows through the
             // universal action seam.
-            ambition_gameplay_core::brain::emit_player_projectile_tick_messages,
+            ambition_characters::brain::emit_player_projectile_tick_messages,
             // Observe the resolver output into a per-frame counter
             // so the HUD + debug tooling have a quick "any brain
             // wants something this tick" signal.
-            ambition_gameplay_core::brain::observe_brain_action_counter,
+            ambition_characters::brain::observe_brain_action_counter,
         )
             .chain()
             .in_set(SandboxSet::PlayerInput),

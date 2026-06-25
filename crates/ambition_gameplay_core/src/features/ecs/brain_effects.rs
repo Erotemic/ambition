@@ -20,7 +20,7 @@ use ambition_engine_core as ae;
 use bevy::prelude::*;
 
 use crate::audio::SfxMessage;
-use crate::brain::{action_set::ActionRequest, ActorActionMessage};
+use ambition_characters::brain::{action_set::ActionRequest, ActorActionMessage};
 use crate::enemy_projectile::EnemyProjectileSpawn;
 use crate::time::feel::SandboxFeelTuning;
 
@@ -212,7 +212,7 @@ fn default_combat_tuning() -> crate::features::events::FeatureCombatTuning {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::brain::{ActionSet, RangedActionSpec};
+    use ambition_characters::brain::{ActionSet, RangedActionSpec};
     use crate::enemy_projectile::test_support::enemy_projectile_bodies;
     use crate::enemy_projectile::EnemyProjectileState;
     use crate::features::ecs::actor_clusters::ActorClusterSeed;
@@ -399,7 +399,7 @@ mod tests {
     /// windup/cooldown timings.
     #[test]
     fn melee_message_starts_enemy_windup_and_cooldown() {
-        use crate::brain::{MeleeActionSpec, SwipeSpec};
+        use ambition_characters::brain::{MeleeActionSpec, SwipeSpec};
         let mut app = App::new();
         app.add_plugins(MinimalPlugins);
         app.add_message::<ActorActionMessage>();
@@ -462,7 +462,7 @@ mod tests {
     /// `EnemyArchetype::attacks_player()`.
     #[test]
     fn melee_message_can_start_windup_for_dismounted_pirate_heavy() {
-        use crate::brain::{LungeSpec, MeleeActionSpec};
+        use ambition_characters::brain::{LungeSpec, MeleeActionSpec};
         let mut app = App::new();
         app.add_plugins(MinimalPlugins);
         app.add_message::<ActorActionMessage>();
@@ -529,7 +529,7 @@ mod tests {
     /// pre-migration legacy gate.
     #[test]
     fn melee_message_during_cooldown_is_dropped() {
-        use crate::brain::{MeleeActionSpec, SwipeSpec};
+        use ambition_characters::brain::{MeleeActionSpec, SwipeSpec};
         let mut app = App::new();
         app.add_plugins(MinimalPlugins);
         app.add_message::<ActorActionMessage>();

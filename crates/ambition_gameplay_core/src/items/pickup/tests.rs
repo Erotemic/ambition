@@ -180,7 +180,7 @@ fn fireball_shot_is_tagged_to_explode_unlike_a_plain_bolt() {
     app.insert_resource(ControlFrame::default());
     app.add_systems(Update, fire_held_ranged_system);
     let player = spawn_player(&mut app, Vec2::new(100.0, 100.0));
-    let spec = crate::brain::held_item_by_id(FIREBALL_ID).unwrap();
+    let spec = ambition_characters::brain::held_item_by_id(FIREBALL_ID).unwrap();
     app.world_mut()
         .entity_mut(player)
         .insert(HeldItem::new(spec));

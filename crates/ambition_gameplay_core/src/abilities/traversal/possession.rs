@@ -1,7 +1,7 @@
 //! Possession — Down + Interact takes over a nearby non-boss actor.
 //!
 //! The possessed actor's **own** `ActorControlFrame` is driven from the player's
-//! `ControlFrame` (via [`crate::brain::player::tick_player_brain_from_control`]),
+//! `ControlFrame` (via [`ambition_characters::brain::player::tick_player_brain_from_control`]),
 //! so it moves and attacks through its own update path in `update_ecs_actors` —
 //! the honest "drive any actor's control path" unification the universal-brain
 //! seam was built for (an `ActorControlFrame` field's doc literally calls out
@@ -85,7 +85,7 @@ pub fn possession_trigger_system(
         (Entity, &crate::features::CenteredAabb),
         (
             With<crate::features::FeatureSimEntity>,
-            With<crate::brain::ActorControl>,
+            With<ambition_characters::brain::ActorControl>,
             Without<crate::features::BossConfig>,
         ),
     >,
@@ -236,7 +236,7 @@ mod tests {
             .spawn((
                 crate::features::FeatureSimEntity,
                 crate::features::CenteredAabb::new(pos, vec2(12.0, 16.0)),
-                crate::brain::ActorControl::default(),
+                ambition_characters::brain::ActorControl::default(),
                 crate::features::ActorFaction::Enemy,
             ))
             .id()

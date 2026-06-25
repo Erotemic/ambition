@@ -255,8 +255,8 @@ pub struct CommandedMove {
 pub fn tick_commanded_moves(
     mut bosses: Query<(
         BossClusterRef,
-        &mut crate::brain::ActorControl,
-        &mut crate::brain::BossAttackState,
+        &mut ambition_characters::brain::ActorControl,
+        &mut ambition_characters::brain::BossAttackState,
         &CommandedMove,
     )>,
 ) {
@@ -464,8 +464,8 @@ mod tests {
                 },
                 boss_config(),
                 member(100),
-                crate::brain::ActorControl::default(),
-                crate::brain::BossAttackState::default(),
+                ambition_characters::brain::ActorControl::default(),
+                ambition_characters::brain::BossAttackState::default(),
                 CommandedMove {
                     target: ae::Vec2::new(300.0, 0.0),
                     speed: 150.0,
@@ -479,7 +479,7 @@ mod tests {
         let control = app
             .world()
             .entity(boss)
-            .get::<crate::brain::ActorControl>()
+            .get::<ambition_characters::brain::ActorControl>()
             .unwrap();
         assert!(
             control.0.velocity_target.x > 0.0,

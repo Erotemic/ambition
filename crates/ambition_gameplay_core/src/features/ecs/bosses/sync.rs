@@ -4,7 +4,7 @@
 
 use super::super::*;
 
-use crate::brain::{BossAttackState, Brain, StateMachineCfg};
+use ambition_characters::brain::{BossAttackState, Brain, StateMachineCfg};
 use ambition_engine_core::AabbExt;
 use crate::features::bosses::ActorSpriteMetrics;
 use crate::features::bounding_aabb;
@@ -70,7 +70,7 @@ pub fn sync_boss_actor_components(
         (
             super::super::boss_clusters::BossClusterRef,
             &BossAttackState,
-            &crate::brain::ActionSet,
+            &ambition_characters::brain::ActionSet,
             &mut CombatKit,
             &mut ActorIdentity,
             &mut ActorDisposition,
@@ -269,7 +269,7 @@ pub fn boss_spawn_hurtboxes(
     if let Some((metrics, _)) = boss_sprite_metrics_from_registry(boss.as_ref(), &registry) {
         boss.status.sprite_metrics = Some(metrics);
     }
-    let attack_state = crate::brain::BossAttackState::default();
+    let attack_state = ambition_characters::brain::BossAttackState::default();
     crate::features::damageable_volumes(&crate::features::BossVolumeContext::from_ref(
         boss.as_ref(),
         &attack_state,

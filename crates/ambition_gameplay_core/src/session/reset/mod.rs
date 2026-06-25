@@ -216,7 +216,7 @@ pub fn clear_transient_on_sandbox_reset(
     mut players: Query<
         (
             Entity,
-            &mut crate::brain::ActionSet,
+            &mut ambition_characters::brain::ActionSet,
             Option<&crate::items::pickup::StashedActionSet>,
         ),
         With<crate::player::PlayerEntity>,

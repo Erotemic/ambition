@@ -362,7 +362,7 @@ impl Item {
     }
 
     /// For [`ItemCategory::Weapon`] items, the `HeldItem` id whose `ActionSet` the
-    /// player gains on equip (resolved via [`crate::brain::held_item_by_id`] or a
+    /// player gains on equip (resolved via [`ambition_characters::brain::held_item_by_id`] or a
     /// dedicated `*_spec` in [`crate::items::pickup`]). `None` for non-equippables
     /// and for weapons whose held-item wiring is not built yet.
     pub fn held_item_id(self) -> Option<&'static str> {

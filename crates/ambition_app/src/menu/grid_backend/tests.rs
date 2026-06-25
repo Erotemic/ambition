@@ -1,6 +1,6 @@
 use super::*;
 use crate::menu::model::{build_inventory_pages, system_rows, SystemRow};
-use ambition_gameplay_core::brain::ActionSet;
+use ambition_characters::brain::ActionSet;
 use ambition_gameplay_core::items::Item;
 use ambition_gameplay_core::persistence::settings::{SystemMenuEntryId, SystemMenuModel};
 use ambition_gameplay_core::player::{PlayerEntity, PlayerMana, PrimaryPlayer};

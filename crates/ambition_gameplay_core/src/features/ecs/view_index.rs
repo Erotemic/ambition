@@ -111,7 +111,7 @@ pub fn rebuild_feature_view_index(
     bosses: Query<(
         &FeatureId,
         super::boss_clusters::BossClusterRef,
-        &crate::brain::BossAttackState,
+        &ambition_characters::brain::BossAttackState,
         // Shared combat read-model, synced from the boss runtime by
         // `sync_boss_actor_components` (WorldPrep, before this rebuild).
         // Presentation reads alive / hit-flash from here instead of the

@@ -16,7 +16,7 @@ use ambition_engine_core::AabbExt;
 
 use bevy::prelude::Component;
 
-use crate::brain::{BossAttackProfile, BossAttackState};
+use ambition_characters::brain::{BossAttackProfile, BossAttackState};
 use ambition_sprite_sheet::{AnimationBox, BodyMetrics, PixelRect};
 
 use super::behavior::{ActorSpriteMetrics, BossBehaviorProfile};

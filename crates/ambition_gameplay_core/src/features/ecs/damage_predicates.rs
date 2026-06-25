@@ -73,7 +73,7 @@ pub fn ecs_hit_event_hits_boss(
             &FeatureId,
             &CenteredAabb,
             super::boss_clusters::BossClusterRef,
-            &crate::brain::BossAttackState,
+            &ambition_characters::brain::BossAttackState,
             Option<&crate::features::BossAnimationFrameSample>,
         ),
         With<FeatureSimEntity>,

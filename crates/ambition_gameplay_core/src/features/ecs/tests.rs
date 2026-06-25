@@ -145,7 +145,7 @@ fn boss_classifies_as_boss_not_the_actor_enemy_fallback() {
         ambition_characters::actor::BossBrain::Dormant,
     );
     let (identity, disposition, health, combat, intent, cooldowns) =
-        boss_component_snapshot(boss.as_ref(), &crate::brain::BossAttackState::default());
+        boss_component_snapshot(boss.as_ref(), &ambition_characters::brain::BossAttackState::default());
 
     let mut app = App::new();
     app.init_resource::<FeatureViewIndex>();
@@ -155,7 +155,7 @@ fn boss_classifies_as_boss_not_the_actor_enemy_fallback() {
         FeatureName::new("GNU-ton"),
         CenteredAabb::from_aabb(boss_body),
         boss.into_components(),
-        crate::brain::BossAttackState::default(),
+        ambition_characters::brain::BossAttackState::default(),
         (identity, disposition, health, combat, intent, cooldowns),
     ));
     app.add_systems(Update, rebuild_feature_view_index);

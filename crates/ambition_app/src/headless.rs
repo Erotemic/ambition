@@ -249,7 +249,7 @@ mod tests {
     /// counter resource gets reset/leaked between frames.
     #[test]
     fn sim_completes_60_ticks_with_counter_intact() {
-        use ambition_gameplay_core::brain::BrainActionCounter;
+        use ambition_characters::brain::BrainActionCounter;
         let mut app = sandbox_sim_app();
         // Run 60 ticks (1 sim second at 60Hz).
         for _ in 0..60 {
@@ -272,10 +272,10 @@ mod tests {
     /// — adding the plugin should mean ActorActionMessage +
     /// BrainActionCounter are both registered. Catches a future
     /// app-plugin refactor that accidentally drops the
-    /// `app.add_plugins(ambition_gameplay_core::brain::BrainPlugin)` call.
+    /// `app.add_plugins(ambition_characters::brain::BrainPlugin)` call.
     #[test]
     fn sim_includes_brain_plugin_registration() {
-        use ambition_gameplay_core::brain::{ActorActionMessage, BrainActionCounter};
+        use ambition_characters::brain::{ActorActionMessage, BrainActionCounter};
         use bevy::ecs::message::Messages;
         let app = initialized_sandbox_sim_app();
         // Both resources should be present.
@@ -298,7 +298,7 @@ mod tests {
     /// (not just single-tick poison).
     #[test]
     fn sim_accumulates_messages_across_repeated_attacks() {
-        use ambition_gameplay_core::brain::BrainActionCounter;
+        use ambition_characters::brain::BrainActionCounter;
         let mut app = initialized_sandbox_sim_app();
         for i in 0..20 {
             let attack = i % 2 == 0;
@@ -326,7 +326,7 @@ mod tests {
     /// runs through the real Startup schedule.
     #[test]
     fn sim_spawns_player_with_brain_and_action_set() {
-        use ambition_gameplay_core::brain::{ActionSet, ActorControl, Brain};
+        use ambition_characters::brain::{ActionSet, ActorControl, Brain};
         use ambition_gameplay_core::player::PlayerEntity;
         let mut app = initialized_sandbox_sim_app();
         let mut q = app
@@ -354,7 +354,7 @@ mod tests {
     /// in `player/systems.rs` tests).
     #[test]
     fn sim_emits_action_messages_when_player_attacks() {
-        use ambition_gameplay_core::brain::{ActorActionMessage, BrainActionCounter};
+        use ambition_characters::brain::{ActorActionMessage, BrainActionCounter};
         let mut app = initialized_sandbox_sim_app();
         // Stamp an attack press into the control frame.
         *app.world_mut().resource_mut::<ControlFrame>() = ControlFrame {

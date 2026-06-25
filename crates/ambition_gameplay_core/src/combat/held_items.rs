@@ -12,11 +12,11 @@ use bevy::prelude::Component;
 /// the actor when it spawns or changes state.
 #[derive(Component, Clone, Debug, PartialEq)]
 pub struct HeldItem {
-    pub spec: crate::brain::HeldItemSpec,
+    pub spec: ambition_characters::brain::HeldItemSpec,
 }
 
 impl HeldItem {
-    pub fn new(spec: crate::brain::HeldItemSpec) -> Self {
+    pub fn new(spec: ambition_characters::brain::HeldItemSpec) -> Self {
         Self { spec }
     }
 

@@ -22,9 +22,9 @@ pub const NPC_HOSTILE_STRIKE_THRESHOLD: i32 = 3;
 pub const NPC_TALK_RADIUS: f32 = 80.0;
 
 /// Patrol speed for NPCs. Moved to the brain (its consumer,
-/// `crate::brain::PatrolCfg::NPC_DEFAULT`); re-exported here for
+/// `ambition_characters::brain::PatrolCfg::NPC_DEFAULT`); re-exported here for
 /// authoring-side reference.
-pub use crate::brain::NPC_PATROL_SPEED;
+pub use ambition_characters::brain::NPC_PATROL_SPEED;
 
 /// Build the peaceful `Brain` component for a catalog/authored NPC.
 ///
@@ -45,7 +45,7 @@ pub(crate) fn npc_brain_from_catalog(
     patrol_radius: f32,
     talk_radius: f32,
     has_motion: bool,
-) -> crate::brain::Brain {
+) -> ambition_characters::brain::Brain {
     if let ambition_interaction::InteractionKind::Npc {
         character_id: Some(cid),
         ..
@@ -54,9 +54,9 @@ pub(crate) fn npc_brain_from_catalog(
         if let Some(brain) = crate::character_roster::default_brain_for_character_id(cid, spawn_x) {
             let is_basic = matches!(
                 brain,
-                crate::brain::Brain::StateMachine(
-                    crate::brain::StateMachineCfg::Patrol { .. }
-                        | crate::brain::StateMachineCfg::StandStill
+                ambition_characters::brain::Brain::StateMachine(
+                    ambition_characters::brain::StateMachineCfg::Patrol { .. }
+                        | ambition_characters::brain::StateMachineCfg::StandStill
                 )
             );
             if !is_basic && !brain.is_hostile() {
@@ -65,15 +65,15 @@ pub(crate) fn npc_brain_from_catalog(
         }
     }
     if patrol_radius > 0.0 || has_motion {
-        let mut cfg = crate::brain::PatrolCfg::NPC_DEFAULT;
-        cfg.lane = crate::brain::AuthoredWorldPatrolLane::new(spawn_x, patrol_radius);
+        let mut cfg = ambition_characters::brain::PatrolCfg::NPC_DEFAULT;
+        cfg.lane = ambition_characters::brain::AuthoredWorldPatrolLane::new(spawn_x, patrol_radius);
         cfg.aggro_radius = talk_radius;
-        crate::brain::Brain::StateMachine(crate::brain::StateMachineCfg::Patrol {
+        ambition_characters::brain::Brain::StateMachine(ambition_characters::brain::StateMachineCfg::Patrol {
             cfg,
-            state: crate::brain::PatrolState::default(),
+            state: ambition_characters::brain::PatrolState::default(),
         })
     } else {
-        crate::brain::Brain::stand_still()
+        ambition_characters::brain::Brain::stand_still()
     }
 }
 

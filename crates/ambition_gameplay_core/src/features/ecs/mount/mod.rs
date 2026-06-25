@@ -93,8 +93,8 @@ pub struct RidingOn {
 /// underneath them.
 #[derive(Component, Clone, Debug)]
 pub struct MountedBrainCache {
-    pub brain: crate::brain::Brain,
-    pub action_set: crate::brain::ActionSet,
+    pub brain: ambition_characters::brain::Brain,
+    pub action_set: ambition_characters::brain::ActionSet,
 }
 
 /// Tag marker on a rider whose brain is currently in MOUNTED mode

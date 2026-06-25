@@ -8,7 +8,7 @@ use super::components::{
 };
 use super::events::PlayerHealRequested;
 use super::movement_components::{BodyKinematics, PlayerGroundState};
-use crate::brain::{ActorControl, Brain, BrainSnapshot};
+use ambition_characters::brain::{ActorControl, Brain, BrainSnapshot};
 use ambition_engine_core as ae;
 use crate::features::ActorPose;
 use ambition_input::ControlFrame;
@@ -39,7 +39,7 @@ pub fn sync_player_actor_poses(
 }
 
 /// Translate each player's input frame into their `ActorControl`
-/// frame via `crate::brain::player::tick_player_brain_from_control`.
+/// frame via `ambition_characters::brain::player::tick_player_brain_from_control`.
 ///
 /// This is the producer for the universal-brain seam on the player
 /// side. Player control/simulation reads the resulting `ActorControl`,
@@ -156,7 +156,7 @@ pub fn apply_player_heal_requests(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::brain::ActorControl;
+    use ambition_characters::brain::ActorControl;
 
     /// Default player ActionSet derives from AbilitySet — when
     /// `attack` is on, the ActionSet has a Swipe melee; when off,
@@ -164,7 +164,7 @@ mod tests {
     /// presses. Pins the ability-gated capability invariant.
     #[test]
     fn player_action_set_melee_disabled_when_attack_ability_off() {
-        use crate::brain::ActionSet;
+        use ambition_characters::brain::ActionSet;
         let mut player = crate::player::primary_player_scratch(
             ae::Vec2::new(0.0, 0.0),
             ae::AbilitySet::sandbox_all(),
@@ -187,7 +187,7 @@ mod tests {
     /// Pins the same gating discipline for special-ability slots.
     #[test]
     fn player_action_set_special_disabled_when_shield_ability_off() {
-        use crate::brain::ActionSet;
+        use ambition_characters::brain::ActionSet;
         let mut player = crate::player::primary_player_scratch(
             ae::Vec2::new(0.0, 0.0),
             ae::AbilitySet::sandbox_all(),
@@ -210,7 +210,7 @@ mod tests {
     /// can rely on these slots being filled.
     #[test]
     fn player_action_set_has_full_moveset_with_sandbox_all_abilities() {
-        use crate::brain::{ActionSet, MeleeActionSpec, RangedActionSpec, SpecialActionSpec};
+        use ambition_characters::brain::{ActionSet, MeleeActionSpec, RangedActionSpec, SpecialActionSpec};
         let player = crate::player::primary_player_scratch(
             ae::Vec2::new(0.0, 0.0),
             ae::AbilitySet::sandbox_all(),
@@ -237,7 +237,7 @@ mod tests {
     /// the ranged side of the seam alongside the melee test below.
     #[test]
     fn player_projectile_release_emits_ranged_bolt_action_message_end_to_end() {
-        use crate::brain::{
+        use ambition_characters::brain::{
             emit_brain_action_messages, ActionRequest, ActorActionMessage, RangedActionSpec,
         };
         use bevy::transform::components::Transform;
@@ -309,7 +309,7 @@ mod tests {
     /// concrete action.
     #[test]
     fn player_attack_press_emits_swipe_action_message_end_to_end() {
-        use crate::brain::{
+        use ambition_characters::brain::{
             emit_brain_action_messages, ActionRequest, ActorActionMessage, MeleeActionSpec,
         };
         use bevy::transform::components::Transform;

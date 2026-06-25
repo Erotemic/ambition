@@ -303,9 +303,9 @@ impl ActorClusterSeed {
         let has_patrol = patrol_radius > 0.0 || motion.is_some();
         let tuning = crate::combat::ActorTuning {
             max_health: 1,
-            patrol_speed: crate::brain::NPC_PATROL_SPEED,
-            chase_speed: crate::brain::NPC_PATROL_SPEED,
-            max_run_speed: crate::brain::NPC_PATROL_SPEED,
+            patrol_speed: ambition_characters::brain::NPC_PATROL_SPEED,
+            chase_speed: ambition_characters::brain::NPC_PATROL_SPEED,
+            max_run_speed: ambition_characters::brain::NPC_PATROL_SPEED,
             is_aerial,
             ..Default::default()
         };

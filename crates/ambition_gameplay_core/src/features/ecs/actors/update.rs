@@ -110,12 +110,12 @@ pub fn update_ecs_actors(
             // stage consumers see the brain's intent. `Option` on
             // both because dynamically-spawned actors (debug tools,
             // scripted spawns) might skip brain attachment.
-            Option<&mut crate::brain::Brain>,
-            Option<&mut crate::brain::ActorControl>,
+            Option<&mut ambition_characters::brain::Brain>,
+            Option<&mut ambition_characters::brain::ActorControl>,
             // ActionSet — read for the Smash brain so it knows which
             // attacks (melee / ranged) the actor can commit. `Option`
             // so dynamically-spawned actors without a set still tick.
-            Option<&crate::brain::ActionSet>,
+            Option<&ambition_characters::brain::ActionSet>,
             Option<&super::super::Mounted>,
             // The unified actor cluster — every actor (was-NPC + was-enemy)
             // carries it. The tick integrates through it via `ActorMut`.
@@ -297,7 +297,7 @@ pub fn update_ecs_actors(
                     snapshot.control_down = enemy_gravity_dir;
                     snapshot.input_frame_mode = input_frame_mode;
                     let mut bf = ambition_characters::actor::control::ActorControlFrame::neutral();
-                    crate::brain::player::tick_player_brain_from_control(
+                    ambition_characters::brain::player::tick_player_brain_from_control(
                         &p.control, &snapshot, &mut bf,
                     );
                     // The player brain emits normalized `locomotion`. A possessed
@@ -320,14 +320,14 @@ pub fn update_ecs_actors(
                         enemy_gravity_dir,
                     );
                     let mut bf = ambition_characters::actor::control::ActorControlFrame::neutral();
-                    let peaceful = crate::brain::ActionSet::peaceful();
+                    let peaceful = ambition_characters::brain::ActionSet::peaceful();
                     let actions = action_set.unwrap_or(&peaceful);
                     brain_ref.tick_with_actions(actions, &snapshot, &mut bf);
                     bf
                 } else {
                     ambition_characters::actor::control::ActorControlFrame::neutral()
                 };
-                let body_contact_damage_enabled = !brain.as_deref().is_some_and(crate::brain::Brain::is_player)
+                let body_contact_damage_enabled = !brain.as_deref().is_some_and(ambition_characters::brain::Brain::is_player)
                         // A POSSESSED actor is on your side — its body never hurts
                         // you on contact (its melee + ranged already redirect at
                         // its former allies; contact just stops harming the player).
@@ -617,10 +617,10 @@ pub(crate) fn compute_holding_positions(
 /// unit-testable in isolation from the actor tick.
 pub(crate) fn compute_crowding_by_id(
     requests: &[(String, ae::Vec2, crate::combat::slots::SlotKind)],
-) -> std::collections::HashMap<String, crate::brain::CrowdingSignal> {
+) -> std::collections::HashMap<String, ambition_characters::brain::CrowdingSignal> {
     const CROWDING_RADIUS_PX: f32 = 80.0;
     const AERIAL_CROWDING_RADIUS_PX: f32 = 220.0;
-    let mut crowding_by_id: std::collections::HashMap<String, crate::brain::CrowdingSignal> =
+    let mut crowding_by_id: std::collections::HashMap<String, ambition_characters::brain::CrowdingSignal> =
         std::collections::HashMap::new();
     for (id_a, pos_a, kind_a) in requests {
         let mut count: u8 = 0;
@@ -648,11 +648,11 @@ pub(crate) fn compute_crowding_by_id(
             let away = (*pos_a - centroid).normalize_or_zero();
             crowding_by_id.insert(
                 id_a.clone(),
-                crate::brain::CrowdingSignal {
+                ambition_characters::brain::CrowdingSignal {
                     same_faction_count: count,
                     other_faction_count: 0,
                     away_dir: away,
-                    pressure: crate::brain::CrowdingSignal::compute_pressure(count, 0),
+                    pressure: ambition_characters::brain::CrowdingSignal::compute_pressure(count, 0),
                 },
             );
         }
@@ -668,11 +668,11 @@ pub(crate) fn compute_crowding_by_id(
 fn build_enemy_brain_snapshot(
     em: &super::super::actor_clusters::ActorMut<'_>,
     target_pos: ae::Vec2,
-    crowding: Option<crate::brain::CrowdingSignal>,
+    crowding: Option<ambition_characters::brain::CrowdingSignal>,
     dt: f32,
     gravity_dir: ae::Vec2,
-) -> crate::brain::BrainSnapshot {
-    crate::brain::BrainSnapshot {
+) -> ambition_characters::brain::BrainSnapshot {
+    ambition_characters::brain::BrainSnapshot {
         actor_pos: em.kin.pos,
         actor_vel: em.kin.vel,
         actor_facing: em.kin.facing,

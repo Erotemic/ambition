@@ -66,7 +66,7 @@ pub fn character_id_for_display_name(display_name: &str) -> Option<&'static str>
 pub fn default_brain_for_character_id(
     character_id: &str,
     spawn_world_x: f32,
-) -> Option<crate::brain::Brain> {
+) -> Option<ambition_characters::brain::Brain> {
     let entry = EMBEDDED_CATALOG.characters.get(character_id)?;
     let preset = EMBEDDED_CATALOG.brain_presets.get(&entry.default_brain)?;
     Some(ambition_characters::actor::character_catalog::brain_from_preset(
@@ -101,7 +101,7 @@ mod tests {
     // — they pin SHEET resolution, which is presentation's contract.
     use super::*;
     use ambition_characters::actor::character_catalog::*;
-    use crate::brain::Brain;
+    use ambition_characters::brain::Brain;
 
     #[test]
     fn catalog_loads_without_panic() {

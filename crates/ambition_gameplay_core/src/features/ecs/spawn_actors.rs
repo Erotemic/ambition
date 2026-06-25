@@ -140,10 +140,10 @@ pub(super) struct EnemyActorSpawnPlan {
     enemy: super::actor_clusters::ActorClusterSeed,
     faction: super::ActorFaction,
     aggression: super::ActorAggression,
-    brain: crate::brain::Brain,
-    action_set: crate::brain::ActionSet,
+    brain: ambition_characters::brain::Brain,
+    action_set: ambition_characters::brain::ActionSet,
     combat_kit: crate::combat::CombatKit,
-    held_item: Option<crate::brain::HeldItemSpec>,
+    held_item: Option<ambition_characters::brain::HeldItemSpec>,
 }
 
 impl EnemyActorSpawnPlan {
@@ -183,12 +183,12 @@ impl EnemyActorSpawnPlan {
         self
     }
 
-    pub(super) fn with_brain(mut self, brain: crate::brain::Brain) -> Self {
+    pub(super) fn with_brain(mut self, brain: ambition_characters::brain::Brain) -> Self {
         self.brain = brain;
         self
     }
 
-    pub(super) fn with_action_set(mut self, action_set: crate::brain::ActionSet) -> Self {
+    pub(super) fn with_action_set(mut self, action_set: ambition_characters::brain::ActionSet) -> Self {
         self.action_set = action_set;
         self
     }
@@ -198,7 +198,7 @@ impl EnemyActorSpawnPlan {
         self
     }
 
-    pub(super) fn with_held_item(mut self, held_item: Option<crate::brain::HeldItemSpec>) -> Self {
+    pub(super) fn with_held_item(mut self, held_item: Option<ambition_characters::brain::HeldItemSpec>) -> Self {
         self.held_item = held_item;
         self
     }
@@ -236,7 +236,7 @@ impl EnemyActorSpawnPlan {
                 cluster_bundle,
                 self.brain,
                 self.action_set,
-                crate::brain::ActorControl::default(),
+                ambition_characters::brain::ActorControl::default(),
             ))
             .id();
         if let Some(item) = self.held_item {
@@ -262,8 +262,8 @@ pub(super) struct NpcActorSpawnPlan {
     seed: super::actor_clusters::ActorClusterSeed,
     render_size: Option<ae::Vec2>,
     interactable: ambition_interaction::Interactable,
-    brain: crate::brain::Brain,
-    action_set: crate::brain::ActionSet,
+    brain: ambition_characters::brain::Brain,
+    action_set: ambition_characters::brain::ActionSet,
     combat_kit: crate::combat::CombatKit,
     aggression: super::ActorAggression,
 }
@@ -319,7 +319,7 @@ impl NpcActorSpawnPlan {
             render_size,
             interactable,
             brain,
-            action_set: crate::brain::ActionSet::peaceful(),
+            action_set: ambition_characters::brain::ActionSet::peaceful(),
             combat_kit,
             aggression: super::ActorAggression::retaliates_when_hit(
                 super::super::NPC_HOSTILE_STRIKE_THRESHOLD as u8,
@@ -363,7 +363,7 @@ impl NpcActorSpawnPlan {
             cluster_bundle,
             self.brain,
             self.action_set,
-            crate::brain::ActorControl::default(),
+            ambition_characters::brain::ActorControl::default(),
         ));
         entity.insert(interaction);
         if let Some(size) = render_size {
@@ -443,7 +443,7 @@ pub(super) fn spawn_boss_with_overrides(
         } else {
             (0.0, 0.0)
         };
-    let brain_cfg = crate::brain::BossPatternCfg {
+    let brain_cfg = ambition_characters::brain::BossPatternCfg {
         aggressiveness: 1.0,
         encounter_id: encounter_id.clone(),
         pattern: boss.config.behavior.attack_pattern.clone(),
@@ -461,9 +461,9 @@ pub(super) fn spawn_boss_with_overrides(
         apple_rain_dodge_freq,
         macro_tuning: boss.config.behavior.macro_tuning,
     };
-    let brain = crate::brain::Brain::StateMachine(crate::brain::StateMachineCfg::BossPattern {
+    let brain = ambition_characters::brain::Brain::StateMachine(ambition_characters::brain::StateMachineCfg::BossPattern {
         cfg: brain_cfg,
-        state: crate::brain::BossPatternState::default(),
+        state: ambition_characters::brain::BossPatternState::default(),
     });
     // Bosses spawn with an offensive ActionSet — Bolt ranged +
     // empty special slot. Per-boss specials (including GNU-ton's
@@ -475,18 +475,18 @@ pub(super) fn spawn_boss_with_overrides(
     // duplicate Special message that would double-fire the
     // consumer.
     let _ = encounter_id; // resolved upstream via `boss.behavior`
-    let boss_action_set = crate::brain::ActionSet {
-        ranged: Some(crate::brain::RangedActionSpec::Bolt {
+    let boss_action_set = ambition_characters::brain::ActionSet {
+        ranged: Some(ambition_characters::brain::RangedActionSpec::Bolt {
             speed: 380.0,
             damage: 1,
         }),
         special: None,
-        move_style: crate::brain::MoveStyleSpec::Walk,
+        move_style: ambition_characters::brain::MoveStyleSpec::Walk,
         ..Default::default()
     };
     let boss_combat_kit = CombatKit::from_action_set(&boss_action_set);
     let (boss_identity, boss_disposition, boss_health, boss_combat, boss_intent, boss_cooldowns) =
-        boss_component_snapshot(boss.as_ref(), &crate::brain::BossAttackState::default());
+        boss_component_snapshot(boss.as_ref(), &ambition_characters::brain::BossAttackState::default());
     let boss_facing = boss.kin.facing;
     let boss_components = boss.into_components();
     let mut entity = commands.spawn((
@@ -533,8 +533,8 @@ pub(super) fn spawn_boss_with_overrides(
         // for the boss tick chain.
         brain,
         boss_action_set,
-        crate::brain::ActorControl::default(),
-        crate::brain::BossAttackState::default(),
+        ambition_characters::brain::ActorControl::default(),
+        ambition_characters::brain::BossAttackState::default(),
     ));
     // Per-spawn tweaks Z: read at seed time by `update_boss_encounters`
     // (hp / size / phase triggers) + `sync_boss_encounter_entities`

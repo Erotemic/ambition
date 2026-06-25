@@ -5,7 +5,7 @@
 
 use bevy::prelude::*;
 
-use ambition_gameplay_core::brain::ActionSet;
+use ambition_characters::brain::ActionSet;
 use ambition_gameplay_core::items::pickup::{
     equip_held_spec, held_spec_for_item, unequip_held, StashedActionSet,
 };

@@ -110,7 +110,7 @@ pub fn apply_feature_hit_events(
             &FeatureId,
             &CenteredAabb,
             super::boss_clusters::BossClusterQueryData,
-            &crate::brain::BossAttackState,
+            &ambition_characters::brain::BossAttackState,
             Option<&crate::features::BossAnimationFrameSample>,
         ),
         With<FeatureSimEntity>,

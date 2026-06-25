@@ -3,7 +3,7 @@
 
 use super::super::*;
 
-use crate::brain::{
+use ambition_characters::brain::{
     action_set::ActionRequest, boss_pattern::tick_boss_pattern, ActorActionMessage, ActorControl,
     BossAttackState, BossPatternContext, Brain, StateMachineCfg,
 };

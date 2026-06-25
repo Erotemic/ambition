@@ -19,7 +19,7 @@ mod conversion_tests {
     ) -> (
         ae::World,
         super::ecs::actor_clusters::ActorClusterSeed,
-        crate::brain::Brain,
+        ambition_characters::brain::Brain,
         ae::PlayerClusterScratch,
     ) {
         let world = ae::World::new(
@@ -71,13 +71,13 @@ mod conversion_tests {
     /// body through the unified `ActorMut::update`.
     fn tick_peaceful(
         seed: &mut super::ecs::actor_clusters::ActorClusterSeed,
-        brain: &mut crate::brain::Brain,
+        brain: &mut ambition_characters::brain::Brain,
         world: &ae::World,
         target: ae::Vec2,
         dt: f32,
         gravity: ae::Vec2,
     ) {
-        let snapshot = crate::brain::BrainSnapshot {
+        let snapshot = ambition_characters::brain::BrainSnapshot {
             actor_pos: seed.kin.pos,
             actor_vel: seed.kin.vel,
             actor_facing: seed.kin.facing,
@@ -89,7 +89,7 @@ mod conversion_tests {
             target_alive: true,
             sim_time: 0.0,
             dt,
-            max_run_speed: crate::brain::NPC_PATROL_SPEED,
+            max_run_speed: ambition_characters::brain::NPC_PATROL_SPEED,
             attack_cooldown_remaining: 0.0,
             attack_windup_remaining: 0.0,
             attack_active_remaining: 0.0,
@@ -238,7 +238,7 @@ mod conversion_tests {
             crate::features::NPC_TALK_RADIUS,
             false,
         ) {
-            crate::brain::Brain::StateMachine(crate::brain::StateMachineCfg::StandStill) => {}
+            ambition_characters::brain::Brain::StateMachine(ambition_characters::brain::StateMachineCfg::StandStill) => {}
             other => panic!("expected StandStill for zero-radius NPC, got {other:?}"),
         }
         match crate::features::npcs::npc_brain_from_catalog(
@@ -248,7 +248,7 @@ mod conversion_tests {
             crate::features::NPC_TALK_RADIUS,
             false,
         ) {
-            crate::brain::Brain::StateMachine(crate::brain::StateMachineCfg::Patrol {
+            ambition_characters::brain::Brain::StateMachine(ambition_characters::brain::StateMachineCfg::Patrol {
                 cfg,
                 ..
             }) => {
@@ -398,14 +398,14 @@ mod conversion_tests {
     // `build_control_frame` path. Chase motion now
     // comes from the brain's tick output, not from
     // `evaluate_character_ai_output`; brain-side tick equivalence
-    // lives in `crate::brain::state_machine` tests.
+    // lives in `ambition_characters::brain::state_machine` tests.
 
     // `path_enemy_holds_patrol_and_starts_attack_from_character_ai_output`
     // was deleted with the brain-authority GC pass. Path patrol +
     // melee-pressed routing now comes from the brain frame; the
     // integration's job is just to react to whatever frame the
     // brain emits. Brain-side coverage for path patrol lives in
-    // `crate::brain::state_machine::tick_patrol` tests.
+    // `ambition_characters::brain::state_machine::tick_patrol` tests.
 
     // Tests for the legacy fused PirateOnShark archetype (rider+shark
     // share one entity, `apply_damage_at` routes hits to rider vs

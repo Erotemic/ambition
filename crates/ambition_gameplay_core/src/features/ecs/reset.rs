@@ -44,9 +44,9 @@ pub fn reset_ecs_room_features(
     mut bosses: Query<
         (
             super::boss_clusters::BossClusterQueryData,
-            &mut crate::brain::Brain,
-            &mut crate::brain::BossAttackState,
-            &mut crate::brain::ActorControl,
+            &mut ambition_characters::brain::Brain,
+            &mut ambition_characters::brain::BossAttackState,
+            &mut ambition_characters::brain::ActorControl,
         ),
         With<FeatureSimEntity>,
     >,
@@ -142,12 +142,12 @@ pub fn reset_ecs_room_features(
         // + remaining time). `ActorControl` is cleared too so a
         // stale `desired_vel` from the previous attempt doesn't
         // integrate on the post-reset frame.
-        if let crate::brain::Brain::StateMachine(crate::brain::StateMachineCfg::BossPattern {
+        if let ambition_characters::brain::Brain::StateMachine(ambition_characters::brain::StateMachineCfg::BossPattern {
             state,
             ..
         }) = &mut *brain
         {
-            *state = crate::brain::BossPatternState::default();
+            *state = ambition_characters::brain::BossPatternState::default();
         }
         attack_state.clear();
         control.0 = ambition_characters::actor::control::ActorControlFrame::neutral();

@@ -58,7 +58,6 @@ pub mod assets;
 pub mod body_mode;
 pub mod boss_encounter;
 pub mod character_sprites;
-pub use ambition_characters::brain;
 pub mod config;
 pub mod cutscene_trigger;
 pub mod dev;

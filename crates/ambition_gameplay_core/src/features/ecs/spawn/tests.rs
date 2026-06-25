@@ -5,7 +5,7 @@ use super::super::brain_builders::{enemy_default_action_set, enemy_default_brain
 use super::super::spawn_actors::spawn_boss;
 use super::super::spawn_mounts::spawn_composite_mount_rider;
 use super::*;
-use crate::brain::{
+use ambition_characters::brain::{
     ActionSet, ActorControl, Brain, MeleeActionSpec, MoveStyleSpec, StateMachineCfg,
 };
 use ambition_engine_core as ae;
@@ -33,7 +33,7 @@ fn make_enemy(brain_key: &str) -> ActorConfig {
 /// follows that and pins the Smash variant instead.
 #[test]
 fn encounter_mob_brain_is_per_archetype_melee_brute() {
-    use crate::brain::{Brain, StateMachineCfg};
+    use ambition_characters::brain::{Brain, StateMachineCfg};
     let mut app = App::new();
     app.add_systems(Update, |mut commands: Commands| {
         spawn_encounter_mob(
@@ -60,7 +60,7 @@ fn encounter_mob_brain_is_per_archetype_melee_brute() {
 /// parallel-shape invariant.
 #[test]
 fn boss_spawn_attaches_brain_components() {
-    use crate::brain::{ActionSet, ActorControl, Brain, StateMachineCfg};
+    use ambition_characters::brain::{ActionSet, ActorControl, Brain, StateMachineCfg};
     let mut app = App::new();
     app.add_systems(Update, |mut commands: Commands| {
         let authored = crate::rooms::Authored {
@@ -100,7 +100,7 @@ fn boss_spawn_attaches_brain_components() {
     assert!(
         matches!(
             action_set.ranged,
-            Some(crate::brain::RangedActionSpec::Bolt { .. })
+            Some(ambition_characters::brain::RangedActionSpec::Bolt { .. })
         ),
         "boss ActionSet should default to Bolt ranged",
     );
@@ -233,7 +233,7 @@ fn enemy_default_brain_covers_every_combat_archetype() {
 /// Skirmisher-style mount brain on purpose.
 #[test]
 fn shark_composite_mount_brain_stays_skirmisher() {
-    use crate::brain::{Brain, StateMachineCfg};
+    use ambition_characters::brain::{Brain, StateMachineCfg};
     let mut app = App::new();
     app.add_systems(Update, |mut commands: Commands| {
         let authored = crate::rooms::Authored {
@@ -405,7 +405,7 @@ fn pirate_heavy_action_set_swings_when_brain_is_forced_hostile() {
     let actions = enemy_default_action_set(&crate::features::enemies::test_spec("pirate_heavy"));
     assert!(matches!(actions.melee, Some(MeleeActionSpec::Lunge(_))));
 
-    let snapshot = crate::brain::BrainSnapshot {
+    let snapshot = ambition_characters::brain::BrainSnapshot {
         actor_pos: ae::Vec2::ZERO,
         actor_vel: ae::Vec2::ZERO,
         actor_facing: 1.0,

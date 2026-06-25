@@ -135,7 +135,7 @@ fn sync_riders_to_mounts_snaps_rider_to_mount_offset() {
 /// brain (Skirmisher with explicit cfg) so the cache check has
 /// something concrete to compare against.
 fn spawn_pair(app: &mut App, mount_alive: bool, rider_alive: bool) -> (Entity, Entity) {
-    use crate::brain::{
+    use ambition_characters::brain::{
         ActionSet, Brain, RangedActionSpec, SkirmisherCfg, SkirmisherState, StateMachineCfg,
     };
     let mounted_brain = Brain::StateMachine(StateMachineCfg::Skirmisher {
@@ -228,12 +228,12 @@ fn dead_mount_dissolves_link_keeping_records() {
     let brain = app
         .world()
         .entity(rider)
-        .get::<crate::brain::Brain>()
+        .get::<ambition_characters::brain::Brain>()
         .unwrap();
     assert!(
         matches!(
             brain,
-            crate::brain::Brain::StateMachine(crate::brain::StateMachineCfg::MeleeBrute { .. }),
+            ambition_characters::brain::Brain::StateMachine(ambition_characters::brain::StateMachineCfg::MeleeBrute { .. }),
         ),
         "after dismount the rider should be MeleeBrute (explicit chase + swipe)",
     );
@@ -279,12 +279,12 @@ fn reviving_mount_re_arms_rider_to_mounted_brain() {
     let brain = app
         .world()
         .entity(rider)
-        .get::<crate::brain::Brain>()
+        .get::<ambition_characters::brain::Brain>()
         .unwrap();
     assert!(
         matches!(
             brain,
-            crate::brain::Brain::StateMachine(crate::brain::StateMachineCfg::Skirmisher { .. }),
+            ambition_characters::brain::Brain::StateMachine(ambition_characters::brain::StateMachineCfg::Skirmisher { .. }),
         ),
         "after revive the rider's mounted brain (Skirmisher) should be restored",
     );

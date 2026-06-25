@@ -10,7 +10,7 @@ use super::super::enemies::EnemyArchetypeSpec;
 use super::actor_clusters::ActorConfig;
 use super::variation::{five_f32s_from_seed, seed_from_id};
 use super::{CombatKit, HeldItem};
-use crate::brain::{
+use ambition_characters::brain::{
     ActionSet, Brain, MeleeBruteCfg, MeleeBruteState, SharkCfg, SharkState, SkirmisherCfg,
     SkirmisherState, SmashCfg, SmashState, SniperCfg, SniperState, StateMachineCfg, WandererCfg,
     WandererState,
@@ -53,7 +53,7 @@ fn apply_spec_held_item(spec: &EnemyArchetypeSpec, actions: &mut ActionSet) {
     }
 }
 
-pub(super) fn held_item_for_spec(spec: &EnemyArchetypeSpec) -> Option<crate::brain::HeldItemSpec> {
+pub(super) fn held_item_for_spec(spec: &EnemyArchetypeSpec) -> Option<ambition_characters::brain::HeldItemSpec> {
     spec.held_item_spec()
 }
 
@@ -95,7 +95,7 @@ fn aerial_brain_for_enemy(enemy: &ActorConfig) -> Brain {
     // Dive altitude / range: a bit of spread so two parrots stack their dives.
     let roam_radius = (110.0 + 60.0 * jitters.2).max(t.attack_range * 1.5);
     Brain::StateMachine(StateMachineCfg::Aerial {
-        cfg: crate::brain::state_machine::AerialCfg {
+        cfg: ambition_characters::brain::state_machine::AerialCfg {
             aggressiveness: if t.attacks_player { 1.0 } else { 0.0 },
             cruise_speed,
             dive_speed,
@@ -103,7 +103,7 @@ fn aerial_brain_for_enemy(enemy: &ActorConfig) -> Brain {
             attack_range: t.attack_range,
             roam_radius,
         },
-        state: crate::brain::state_machine::AerialState::default(),
+        state: ambition_characters::brain::state_machine::AerialState::default(),
     })
 }
 
@@ -258,7 +258,7 @@ pub(super) fn mounted_rider_brain_and_action_set(
 pub(super) fn dismounted_rider_brain_and_action_set(
     rider: &ActorConfig,
     kit: &CombatKit,
-    held_item: Option<&crate::brain::HeldItemSpec>,
+    held_item: Option<&ambition_characters::brain::HeldItemSpec>,
 ) -> (Brain, ActionSet) {
     // Rebuild the rider's solo action set from its DURABLE stored combat
     // kit (`innate_melee` / `innate_ranged` / `move_style`) plus its live
@@ -411,7 +411,7 @@ mod tests {
         assert!(
             matches!(
                 set.ranged,
-                Some(crate::brain::RangedActionSpec::Rock { .. })
+                Some(ambition_characters::brain::RangedActionSpec::Rock { .. })
             ),
             "medium_striker should carry a ranged Rock verb; got {:?}",
             set.ranged

@@ -18,8 +18,8 @@
 //! in `docs/journals/content-authoring-pain-points.md`.)
 
 use ambition_characters::actor::control::ActorControlFrame;
-use crate::brain::state_machine::PlayerDemoCfg;
-use crate::brain::{Brain, BrainSnapshot, StateMachineCfg};
+use ambition_characters::brain::state_machine::PlayerDemoCfg;
+use ambition_characters::brain::{Brain, BrainSnapshot, StateMachineCfg};
 use ambition_engine_core as ae;
 use ae::movement::{update_player_clusters, InputState};
 use ae::world::{Block, World};

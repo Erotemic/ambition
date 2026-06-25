@@ -165,13 +165,13 @@ pub(crate) struct EnemyArchetypeSpec {
     /// `None` = no melee capability (peaceful patrollers, ranged-only
     /// actors).
     #[serde(default)]
-    pub melee: Option<crate::brain::MeleeActionSpec>,
+    pub melee: Option<ambition_characters::brain::MeleeActionSpec>,
     /// Concrete ranged action this archetype's `ActionSet` carries.
     /// `None` = no ranged capability.
     #[serde(default)]
-    pub ranged: Option<crate::brain::RangedActionSpec>,
+    pub ranged: Option<ambition_characters::brain::RangedActionSpec>,
     /// Optional held-item id, resolved against the held-item registry
-    /// (`crate::brain::held_item_by_id`). The item's abilities overlay the
+    /// (`ambition_characters::brain::held_item_by_id`). The item's abilities overlay the
     /// archetype action set at spawn / state transitions so weapons, not
     /// ad-hoc Rust branches, own whether an actor can melee or fire.
     #[serde(default)]
@@ -213,7 +213,7 @@ pub(crate) struct EnemyArchetypeSpec {
     #[serde(default)]
     pub respawn_on_rest: bool,
     /// Locomotion style for the actor's `ActionSet.move_style`.
-    pub move_style: crate::brain::MoveStyleSpec,
+    pub move_style: ambition_characters::brain::MoveStyleSpec,
 }
 
 /// Serde default for the `bool` spec fields that are true for the common
@@ -465,22 +465,22 @@ impl EnemyArchetypeSpec {
     }
 
     /// Authored held item resolved against the held-item registry.
-    pub(super) fn held_item_spec(&self) -> Option<crate::brain::HeldItemSpec> {
+    pub(super) fn held_item_spec(&self) -> Option<ambition_characters::brain::HeldItemSpec> {
         self.held_item
             .as_deref()
-            .and_then(crate::brain::held_item_by_id)
+            .and_then(ambition_characters::brain::held_item_by_id)
     }
 
     /// Concrete melee/ranged/locomotion the actor's `ActionSet` carries
     /// at spawn. Thin field accessors so the spawn path can read the spec
     /// without naming the roster enum.
-    pub(super) fn melee_spec(&self) -> Option<crate::brain::MeleeActionSpec> {
+    pub(super) fn melee_spec(&self) -> Option<ambition_characters::brain::MeleeActionSpec> {
         self.melee.clone()
     }
-    pub(super) fn ranged_spec(&self) -> Option<crate::brain::RangedActionSpec> {
+    pub(super) fn ranged_spec(&self) -> Option<ambition_characters::brain::RangedActionSpec> {
         self.ranged.clone()
     }
-    pub(super) fn move_style(&self) -> crate::brain::MoveStyleSpec {
+    pub(super) fn move_style(&self) -> ambition_characters::brain::MoveStyleSpec {
         self.move_style
     }
     /// True when this spawn renders / fans out as a mount + rider pair.
@@ -637,7 +637,7 @@ mod enemy_archetype_data_tests {
     /// accidental drift on the rows the player notices first.
     #[test]
     fn legacy_baseline_pins() {
-        use crate::brain::MeleeActionSpec;
+        use ambition_characters::brain::MeleeActionSpec;
         let combatant = test_spec("combatant");
         assert_eq!(combatant.max_health, 4);
         assert!((combatant.chase_speed - 155.0).abs() < f32::EPSILON);
@@ -663,7 +663,7 @@ mod enemy_archetype_data_tests {
     /// scaling.
     #[test]
     fn gun_sword_archetypes_resolve_held_item_by_id() {
-        use crate::brain::RangedActionSpec;
+        use ambition_characters::brain::RangedActionSpec;
         let on_shark = test_spec("pirate_on_shark")
             .held_item_spec()
             .expect("PirateOnShark should resolve a held item");
@@ -850,7 +850,7 @@ mod capability_tests {
         assert!(
             matches!(
                 friendly,
-                crate::brain::Brain::StateMachine(crate::brain::StateMachineCfg::Aerial {
+                ambition_characters::brain::Brain::StateMachine(ambition_characters::brain::StateMachineCfg::Aerial {
                     cfg,
                     ..
                 }) if cfg.aggressiveness == 0.0

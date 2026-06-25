@@ -228,7 +228,7 @@ mod tests {
             .spawn((
                 ambition_gameplay_core::features::FeatureSimEntity,
                 spawn_gnu_ton_runtime().into_components(),
-                ambition_gameplay_core::brain::BossAttackState::default(),
+                ambition_characters::brain::BossAttackState::default(),
             ))
             .id();
         app.add_systems(
@@ -249,7 +249,7 @@ mod tests {
         );
         let attack = app
             .world()
-            .get::<ambition_gameplay_core::brain::BossAttackState>(entity)
+            .get::<ambition_characters::brain::BossAttackState>(entity)
             .unwrap();
         let kin = app
             .world()

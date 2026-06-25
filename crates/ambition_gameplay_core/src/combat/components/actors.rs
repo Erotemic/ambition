@@ -133,13 +133,13 @@ impl Default for ActorTarget {
 /// swapping the actor's identity or archetype.
 #[derive(Component, Clone, Debug, Default, PartialEq)]
 pub struct CombatKit {
-    pub innate_melee: Option<crate::brain::MeleeActionSpec>,
-    pub innate_ranged: Option<crate::brain::RangedActionSpec>,
-    pub move_style: crate::brain::MoveStyleSpec,
+    pub innate_melee: Option<ambition_characters::brain::MeleeActionSpec>,
+    pub innate_ranged: Option<ambition_characters::brain::RangedActionSpec>,
+    pub move_style: ambition_characters::brain::MoveStyleSpec,
 }
 
 impl CombatKit {
-    pub fn from_action_set(actions: &crate::brain::ActionSet) -> Self {
+    pub fn from_action_set(actions: &ambition_characters::brain::ActionSet) -> Self {
         Self {
             innate_melee: actions.melee,
             innate_ranged: actions.ranged,
@@ -149,9 +149,9 @@ impl CombatKit {
 
     pub fn to_action_set(
         &self,
-        held_item: Option<&crate::brain::HeldItemSpec>,
-    ) -> crate::brain::ActionSet {
-        let mut actions = crate::brain::ActionSet {
+        held_item: Option<&ambition_characters::brain::HeldItemSpec>,
+    ) -> ambition_characters::brain::ActionSet {
+        let mut actions = ambition_characters::brain::ActionSet {
             melee: self.innate_melee,
             ranged: self.innate_ranged,
             move_style: self.move_style,
@@ -163,11 +163,11 @@ impl CombatKit {
         actions
     }
 
-    pub fn can_melee(&self, held_item: Option<&crate::brain::HeldItemSpec>) -> bool {
+    pub fn can_melee(&self, held_item: Option<&ambition_characters::brain::HeldItemSpec>) -> bool {
         self.to_action_set(held_item).melee.is_some()
     }
 
-    pub fn can_ranged(&self, held_item: Option<&crate::brain::HeldItemSpec>) -> bool {
+    pub fn can_ranged(&self, held_item: Option<&ambition_characters::brain::HeldItemSpec>) -> bool {
         self.to_action_set(held_item).ranged.is_some()
     }
 }

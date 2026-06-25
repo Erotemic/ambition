@@ -97,7 +97,7 @@ pub(crate) fn start_attack(
     // When the player is holding a melee weapon (axe etc.), its `ActionSet`
     // melee spec re-tunes the swing (timing / reach / damage) so the held item
     // *replaces* the default attack instead of merely gating it.
-    held_melee: Option<ambition_gameplay_core::brain::MeleeActionSpec>,
+    held_melee: Option<ambition_characters::brain::MeleeActionSpec>,
     // The live gravity, so the attack is classified + placed in the player's
     // reference frame (a toward-feet down-attack is `AirDown`/pogoable, and its
     // hitbox lands toward the feet, under ANY gravity).

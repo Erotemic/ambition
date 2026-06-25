@@ -131,8 +131,8 @@ fn spawn_victory_npc_entity(commands: &mut Commands, pos: ae::Vec2) -> Entity {
                 pogo_target_volumes: PogoTargetVolumes::default(),
             },
             cluster_bundle,
-            ambition_gameplay_core::brain::Brain::stand_still(),
-            ambition_gameplay_core::brain::ActionSet::peaceful(),
+            ambition_characters::brain::Brain::stand_still(),
+            ambition_characters::brain::ActionSet::peaceful(),
             ActorControl::default(),
             interaction,
         ))

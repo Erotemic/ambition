@@ -4,7 +4,7 @@ use super::*;
 use crate::menu::test_support::{
     click_control, pointer_location, spawn_control, trigger_move, trigger_press, trigger_release,
 };
-use ambition_gameplay_core::brain::ActionSet;
+use ambition_characters::brain::ActionSet;
 use ambition_gameplay_core::game_mode::GameMode;
 use ambition_gameplay_core::player::{PlayerEntity, PlayerMana, PrimaryPlayer};
 

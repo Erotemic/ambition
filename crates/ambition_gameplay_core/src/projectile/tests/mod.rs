@@ -79,13 +79,13 @@ fn projectile_test_app(world: World, player_pos: ae::Vec2, facing: f32) -> App {
     // registered even though player projectiles never trigger it.
     app.add_message::<crate::player::PlayerHealRequested>();
     app.init_resource::<crate::features::FeatureEcsWorldOverlay>();
-    app.add_plugins(crate::brain::BrainPlugin);
+    app.add_plugins(ambition_characters::brain::BrainPlugin);
     app.add_systems(
         Update,
         (
             crate::player::sync_local_player_input_frame,
             crate::player::tick_player_brains,
-            crate::brain::emit_player_projectile_tick_messages,
+            ambition_characters::brain::emit_player_projectile_tick_messages,
             // Mirror production order: the unified stepper advances existing
             // shots, THEN input fires + the pool consumer materializes (so a
             // shot fired this frame first ticks next frame), then feature hits.

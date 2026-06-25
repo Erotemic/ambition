@@ -50,7 +50,7 @@ pub(crate) fn spawn_ground_item(commands: &mut Commands, spec: &crate::rooms::Gr
     // Resolve the held-item registry id -> HeldItemSpec. An unregistered or
     // feature-gated id is skipped (the item simply doesn't appear) -- the same
     // tolerance the retired `spawn_debug_ground_items_once` table had.
-    let Some(held) = crate::brain::held_item_by_id(&spec.held_item) else {
+    let Some(held) = ambition_characters::brain::held_item_by_id(&spec.held_item) else {
         return;
     };
     commands.spawn_room_scoped((

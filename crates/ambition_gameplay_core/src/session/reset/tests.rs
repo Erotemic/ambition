@@ -46,8 +46,8 @@ fn sandbox_reset_clears_portals_held_items_and_summons() {
         .world_mut()
         .spawn((
             crate::player::PlayerEntity,
-            crate::brain::ActionSet::default(),
-            crate::items::pickup::StashedActionSet(crate::brain::ActionSet::default()),
+            ambition_characters::brain::ActionSet::default(),
+            crate::items::pickup::StashedActionSet(ambition_characters::brain::ActionSet::default()),
             crate::features::HeldItem::new(crate::items::pickup::axe_spec()),
         ))
         .id();

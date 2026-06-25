@@ -10,7 +10,7 @@
 //! `boss_animation_keys_for_profile` (attack-profile -> sprite-row keys) and
 //! `canonical_boss_id_from` (resolves the boss kind from LDtk name + brain).
 
-use crate::brain::boss_pattern::{BossAttackPattern, BossAttackProfile, BossMovementProfile};
+use ambition_characters::brain::boss_pattern::{BossAttackPattern, BossAttackProfile, BossMovementProfile};
 use ambition_engine_core as ae;
 
 /// Live sandbox-side behavior tuning for a boss. This is deliberately separate
@@ -45,10 +45,10 @@ pub struct BossBehaviorProfile {
     pub strike_speed_scale: f32,
     /// Macro state machine tuning — when enabled, the boss runs an
     /// Engage / Approach / Retreat dance on top of the scripted
-    /// attack schedule. See [`crate::brain::BossMacroTuning`].
+    /// attack schedule. See [`ambition_characters::brain::BossMacroTuning`].
     /// Use `BossMacroTuning::disabled()` for legacy "stand and
     /// fight" behavior.
-    pub macro_tuning: crate::brain::BossMacroTuning,
+    pub macro_tuning: ambition_characters::brain::BossMacroTuning,
     pub attacks: Vec<BossAttackProfile>,
     pub attack_cooldown: f32,
     pub attack_windup: f32,
@@ -503,9 +503,9 @@ impl ActorSpriteMetrics {
 /// generator names the visual row `head_down` but gameplay asks for
 /// `HeadDescent`.
 pub fn boss_animation_keys_for_profile(
-    profile: &crate::brain::BossAttackProfile,
+    profile: &ambition_characters::brain::BossAttackProfile,
 ) -> &'static [&'static str] {
-    use crate::brain::BossAttackProfile;
+    use ambition_characters::brain::BossAttackProfile;
     match profile {
         BossAttackProfile::FloorSlam => &["floor_slam", "mouth_open"],
         BossAttackProfile::SideSweep => &["side_sweep"],

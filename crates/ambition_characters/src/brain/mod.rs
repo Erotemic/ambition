@@ -400,7 +400,7 @@ pub fn observe_brain_action_counter(
 
 /// Bevy system: log each `ActorActionMessage` at debug level using
 /// `tracing::debug!`. Gated by the standard tracing filter — set
-/// `RUST_LOG=ambition_gameplay_core::brain=debug` to see the per-tick
+/// `RUST_LOG=ambition_characters::brain=debug` to see the per-tick
 /// resolver output. Useful for EFFECTS-consumer verification
 /// without a HUD readout. Not registered by default.
 #[allow(dead_code, reason = "diagnostic system; off by default")]

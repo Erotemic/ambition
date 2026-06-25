@@ -57,7 +57,7 @@ pub fn refresh_boss_damageable_volumes(
     mut bosses: Query<
         (
             super::boss_clusters::BossClusterRef,
-            &crate::brain::BossAttackState,
+            &ambition_characters::brain::BossAttackState,
             Option<&crate::features::BossAnimationFrameSample>,
             &mut DamageableVolumes,
         ),

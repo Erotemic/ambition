@@ -145,7 +145,7 @@ pub fn ecs_boss_name<'a>(
     bosses: &'a Query<(
         &FeatureId,
         super::boss_clusters::BossClusterRef,
-        &crate::brain::BossAttackState,
+        &ambition_characters::brain::BossAttackState,
     )>,
 ) -> Option<&'a str> {
     bosses.iter().find_map(|(feature_id, boss, _)| {
@@ -154,10 +154,10 @@ pub fn ecs_boss_name<'a>(
 }
 
 fn boss_anim_for_attack_profile(
-    profile: &crate::brain::BossAttackProfile,
+    profile: &ambition_characters::brain::BossAttackProfile,
 ) -> Option<crate::boss_encounter::sprites::BossAnim> {
     use crate::boss_encounter::sprites::BossAnim;
-    use crate::brain::BossAttackProfile;
+    use ambition_characters::brain::BossAttackProfile;
     match profile {
         BossAttackProfile::FloorSlam
         | BossAttackProfile::HandSlam
@@ -178,11 +178,11 @@ fn boss_anim_for_attack_profile(
 }
 
 fn boss_animation_key_for_sample(
-    profile: &crate::brain::BossAttackProfile,
+    profile: &ambition_characters::brain::BossAttackProfile,
     anim: crate::boss_encounter::sprites::BossAnim,
 ) -> Option<&'static str> {
     use crate::boss_encounter::sprites::BossAnim;
-    use crate::brain::BossAttackProfile;
+    use ambition_characters::brain::BossAttackProfile;
     match (profile, anim) {
         // GNU-ton has profile-specific dangerous boxes (for example
         // `gnu_shockwave`) but the damageable head/body box should follow
@@ -206,8 +206,8 @@ fn boss_animation_key_for_sample(
 
 fn boss_anim_state_for(
     boss: super::boss_clusters::BossRef<'_>,
-    attack_state: &crate::brain::BossAttackState,
-    brain: &crate::brain::Brain,
+    attack_state: &ambition_characters::brain::BossAttackState,
+    brain: &ambition_characters::brain::Brain,
 ) -> crate::boss_encounter::sprites::BossAnimState {
     // attack_active / attack_windup read the brain's
     // BossAttackState (single source of truth) instead of
@@ -243,8 +243,8 @@ pub fn ecs_boss_anim_state_and_entity(
         bevy::prelude::Entity,
         &FeatureId,
         super::boss_clusters::BossClusterRef,
-        &crate::brain::BossAttackState,
-        &crate::brain::Brain,
+        &ambition_characters::brain::BossAttackState,
+        &ambition_characters::brain::Brain,
     )>,
 ) -> Option<(
     bevy::prelude::Entity,
@@ -276,8 +276,8 @@ pub fn ecs_boss_animation_frame_sample(
         bevy::prelude::Entity,
         &FeatureId,
         super::boss_clusters::BossClusterRef,
-        &crate::brain::BossAttackState,
-        &crate::brain::Brain,
+        &ambition_characters::brain::BossAttackState,
+        &ambition_characters::brain::Brain,
     )>,
     anim: crate::boss_encounter::sprites::BossAnim,
     frame_index: usize,
@@ -350,8 +350,8 @@ pub fn ecs_boss_anim_state(
     bosses: &Query<(
         &FeatureId,
         super::boss_clusters::BossClusterRef,
-        &crate::brain::BossAttackState,
-        &crate::brain::Brain,
+        &ambition_characters::brain::BossAttackState,
+        &ambition_characters::brain::Brain,
     )>,
 ) -> Option<crate::boss_encounter::sprites::BossAnimState> {
     bosses

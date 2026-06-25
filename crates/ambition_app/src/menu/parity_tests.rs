@@ -425,7 +425,7 @@ mod dispatch_parity {
     use crate::menu::model::{MenuPage, MenuPageAction};
     use crate::menu::test_support::click_control as click;
     use ambition_gameplay_core::audio::SfxMessage;
-    use ambition_gameplay_core::brain::ActionSet;
+    use ambition_characters::brain::ActionSet;
     use ambition_input::MenuControlFrame;
     use ambition_gameplay_core::inventory_ui::InventoryUiState;
     use ambition_gameplay_core::menu::backend::InventoryUiBackend;

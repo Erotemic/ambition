@@ -463,7 +463,7 @@ fn boss_signature_gauntlets_map_to_real_wielded_held_items() {
         );
         if let Some(g) = profile.signature_gauntlet.as_deref() {
             assert!(
-                crate::brain::held_item_by_id(g).is_some(),
+                ambition_characters::brain::held_item_by_id(g).is_some(),
                 "boss {id} -> gauntlet {g} must be a registered held item",
             );
             gauntlets += 1;

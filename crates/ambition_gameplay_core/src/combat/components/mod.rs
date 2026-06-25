@@ -86,7 +86,7 @@ pub struct CombatCapabilities {
     /// Weapon dropped at the corpse as a wieldable `GroundItem` (the
     /// "steal the enemy's weapon" rule), resolved from authored data
     /// at spawn.
-    pub drops_held_item: Option<crate::brain::HeldItemSpec>,
+    pub drops_held_item: Option<ambition_characters::brain::HeldItemSpec>,
 }
 
 /// Per-actor numeric/flag tuning the RUNTIME combat loops read each
@@ -206,7 +206,7 @@ pub enum EnemyBrainTemplate {
     /// Dedicated shark motion policy (charge-and-crash).
     Shark,
     /// Smash-brawl pipeline: observe → mode → action → difficulty →
-    /// emit. See `crate::brain::smash`.
+    /// emit. See `ambition_characters::brain::smash`.
     Smash,
     /// Lively flyer: an aerial dive-bomber when hostile (stalk → dive →
     /// recover). Shares its code with the peaceful catalog `Aerial` bird via

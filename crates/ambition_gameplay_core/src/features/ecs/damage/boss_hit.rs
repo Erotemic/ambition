@@ -61,7 +61,7 @@ pub(crate) fn apply_entity_boss_damage(status: &mut BossStatus, amount: i32) -> 
 pub(crate) fn apply_boss_hit(
     event: &HitEvent,
     boss: super::super::boss_clusters::BossMut<'_>,
-    attack_state: &crate::brain::BossAttackState,
+    attack_state: &ambition_characters::brain::BossAttackState,
     animation_frame: Option<&crate::features::BossAnimationFrameSample>,
     banner: &mut GameplayBanner,
     combat_banter: Option<&crate::features::banter::CombatBanterRegistry>,
@@ -191,7 +191,7 @@ pub(crate) fn apply_boss_hit(
         // …and its signature wielded attack drops as a ground-item gauntlet the
         // player picks up + uses (the player literally wields the boss's move).
         if let Some(gauntlet_id) = boss.config.behavior.signature_gauntlet.as_deref() {
-            if let Some(spec) = crate::brain::held_item_by_id(gauntlet_id) {
+            if let Some(spec) = ambition_characters::brain::held_item_by_id(gauntlet_id) {
                 writers.commands.spawn((
                     crate::items::pickup::GroundItem {
                         spec,

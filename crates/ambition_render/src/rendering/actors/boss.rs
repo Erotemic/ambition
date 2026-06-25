@@ -42,7 +42,7 @@ pub fn upgrade_boss_sprites(
     ecs_bosses: Query<(
         &FeatureId,
         BossClusterRef,
-        &ambition_gameplay_core::brain::BossAttackState,
+        &ambition_characters::brain::BossAttackState,
     )>,
     new_bosses: Query<
         (Entity, &FeatureVisual),
@@ -233,8 +233,8 @@ pub fn animate_bosses(
         Entity,
         &FeatureId,
         BossClusterRef,
-        &ambition_gameplay_core::brain::BossAttackState,
-        &ambition_gameplay_core::brain::Brain,
+        &ambition_characters::brain::BossAttackState,
+        &ambition_characters::brain::Brain,
     )>,
     mut query: Query<
         (

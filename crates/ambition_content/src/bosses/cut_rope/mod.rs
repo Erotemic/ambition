@@ -17,8 +17,8 @@ use ambition_gameplay_core::boss_encounter::{
     BossEncounterRegistry, EncounterBeat, EncounterDef, EncounterEffect, EncounterScript,
     EncounterTrigger, ReleaseOnDeath,
 };
-use ambition_gameplay_core::brain::ActorControl;
-use ambition_gameplay_core::brain::BossAttackState;
+use ambition_characters::brain::ActorControl;
+use ambition_characters::brain::BossAttackState;
 use ambition_gameplay_core::character_sprites::{
     build_character_sprite, feet_anchor_for, CharacterAnimator,
 };

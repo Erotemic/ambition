@@ -118,7 +118,7 @@ impl LdtkSurfaceSpec {
 #[derive(Clone, Debug, Default)]
 pub struct SurfaceCompiled {
     pub blocks: Vec<ae::Block>,
-    pub breakables: Vec<crate::rooms::Authored<crate::interaction::Breakable>>,
+    pub breakables: Vec<crate::rooms::Authored<ambition_interaction::Breakable>>,
 }
 
 /// LDtk identifiers that lower into the typed runtime "surface" conversion
@@ -313,7 +313,7 @@ pub fn compile_surface(spec: &LdtkSurfaceSpec) -> Result<SurfaceCompiled, String
     }
 
     let mut blocks = Vec::new();
-    let mut breakables: Vec<crate::rooms::Authored<crate::interaction::Breakable>> = Vec::new();
+    let mut breakables: Vec<crate::rooms::Authored<ambition_interaction::Breakable>> = Vec::new();
 
     match spec.breakability {
         SurfaceBreakability::Indestructible => {
@@ -338,9 +338,9 @@ pub fn compile_surface(spec: &LdtkSurfaceSpec) -> Result<SurfaceCompiled, String
                 ));
             }
             let collision = match spec.collision {
-                SurfaceCollision::None => crate::interaction::BreakableCollision::None,
-                SurfaceCollision::Solid => crate::interaction::BreakableCollision::Solid,
-                SurfaceCollision::OneWayUp => crate::interaction::BreakableCollision::OneWayUp,
+                SurfaceCollision::None => ambition_interaction::BreakableCollision::None,
+                SurfaceCollision::Solid => ambition_interaction::BreakableCollision::Solid,
+                SurfaceCollision::OneWayUp => ambition_interaction::BreakableCollision::OneWayUp,
                 SurfaceCollision::BlinkSoft | SurfaceCollision::BlinkHard => {
                     return Err(format!(
                         "Surface {} cannot mix BlinkWall collision with breakability yet",
@@ -357,13 +357,13 @@ pub fn compile_surface(spec: &LdtkSurfaceSpec) -> Result<SurfaceCompiled, String
                 ));
             }
             let max_hp = spec.max_hp.max(1);
-            let mut breakable = crate::interaction::Breakable::new(spec.iid.clone(), max_hp);
+            let mut breakable = ambition_interaction::Breakable::new(spec.iid.clone(), max_hp);
             breakable.collision = collision;
             breakable.trigger = match breakable_kind {
-                SurfaceBreakability::BreakOnHit => crate::interaction::BreakableTrigger::OnHit,
-                SurfaceBreakability::BreakOnStand => crate::interaction::BreakableTrigger::OnStand,
+                SurfaceBreakability::BreakOnHit => ambition_interaction::BreakableTrigger::OnHit,
+                SurfaceBreakability::BreakOnStand => ambition_interaction::BreakableTrigger::OnStand,
                 SurfaceBreakability::BreakOnHitOrStand => {
-                    crate::interaction::BreakableTrigger::Either
+                    ambition_interaction::BreakableTrigger::Either
                 }
                 SurfaceBreakability::Indestructible => unreachable!(),
             };

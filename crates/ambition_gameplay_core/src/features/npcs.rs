@@ -40,13 +40,13 @@ pub use crate::brain::NPC_PATROL_SPEED;
 /// Drives the actor's movement at the unified tick; the cluster `config.brain`
 /// (an `EnemyBrain`) only feeds the integrator's patrol-stall intent.
 pub(crate) fn npc_brain_from_catalog(
-    interactable: &crate::interaction::Interactable,
+    interactable: &ambition_interaction::Interactable,
     spawn_x: f32,
     patrol_radius: f32,
     talk_radius: f32,
     has_motion: bool,
 ) -> crate::brain::Brain {
-    if let crate::interaction::InteractionKind::Npc {
+    if let ambition_interaction::InteractionKind::Npc {
         character_id: Some(cid),
         ..
     } = &interactable.kind
@@ -290,7 +290,7 @@ fn npc_hostile_bark(key: &str, name: &str) -> &'static str {
 // per-family cluster. That keeps dialogue an actor capability (the
 // `ActorInteraction` seam): any talkable actor can drive them.
 
-use crate::interaction::{Interactable, InteractionKind};
+use ambition_interaction::{Interactable, InteractionKind};
 
 pub(crate) fn npc_flag_id(id: &str) -> String {
     format!("npc_{id}_hostile")

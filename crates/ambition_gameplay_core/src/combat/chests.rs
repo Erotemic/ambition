@@ -130,7 +130,7 @@ mod chest_tests {
                 FeatureId::new(id),
                 FeatureName::new("Chest"),
                 CenteredAabb::from_center_size(pos, ae::Vec2::new(24.0, 24.0)),
-                ChestFeature::new(crate::interaction::Chest::new(id, None)),
+                ChestFeature::new(ambition_interaction::Chest::new(id, None)),
             ))
             .id()
     }

@@ -122,27 +122,27 @@ pub(super) fn parse_optional_path(
     })
 }
 
-pub(super) fn parse_pickup_kind(value: &str) -> crate::interaction::PickupKind {
+pub(super) fn parse_pickup_kind(value: &str) -> ambition_interaction::PickupKind {
     if let Some(amount) = value
         .strip_prefix("health:")
         .and_then(|text| text.parse::<i32>().ok())
     {
-        crate::interaction::PickupKind::Health { amount }
+        ambition_interaction::PickupKind::Health { amount }
     } else if let Some(amount) = value
         .strip_prefix("currency:")
         .and_then(|text| text.parse::<i32>().ok())
     {
-        crate::interaction::PickupKind::Currency { amount }
+        ambition_interaction::PickupKind::Currency { amount }
     } else if let Some(ability_id) = value.strip_prefix("ability:") {
-        crate::interaction::PickupKind::Ability {
+        ambition_interaction::PickupKind::Ability {
             ability_id: ability_id.to_string(),
         }
     } else if let Some(flag) = value.strip_prefix("flag:") {
-        crate::interaction::PickupKind::StoryFlag {
+        ambition_interaction::PickupKind::StoryFlag {
             flag: flag.to_string(),
         }
     } else {
-        crate::interaction::PickupKind::Custom(value.to_string())
+        ambition_interaction::PickupKind::Custom(value.to_string())
     }
 }
 
@@ -196,7 +196,7 @@ pub(super) fn parse_debug_label_kind(value: &str) -> crate::debug_label::DebugLa
 mod tests {
     use super::*;
     use crate::actor::{BossBrain, EnemyBrain, KinematicPathMode};
-    use crate::interaction::PickupKind;
+    use ambition_interaction::PickupKind;
 
     #[test]
     fn parse_points_reads_semicolon_pairs_and_skips_malformed() {

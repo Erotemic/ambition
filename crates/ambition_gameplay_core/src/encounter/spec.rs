@@ -100,13 +100,13 @@ pub struct EncounterSpec {
     /// ability, a story flag, or a bigger heal. Defaults to the legacy
     /// small heal for back-compat / specs that don't set it.
     #[serde(default = "default_encounter_reward")]
-    pub reward: crate::interaction::PickupKind,
+    pub reward: ambition_interaction::PickupKind,
 }
 
 /// Legacy default encounter reward (small heal) used when a spec omits
 /// `reward`.
-pub fn default_encounter_reward() -> crate::interaction::PickupKind {
-    crate::interaction::PickupKind::Health { amount: 2 }
+pub fn default_encounter_reward() -> ambition_interaction::PickupKind {
+    ambition_interaction::PickupKind::Health { amount: 2 }
 }
 
 impl EncounterSpec {
@@ -121,7 +121,7 @@ impl EncounterSpec {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::interaction::PickupKind;
+    use ambition_interaction::PickupKind;
 
     const BASE: &str = r#"(
         id: "t", waves: [], trigger_min: (0.0, 0.0), trigger_size: (10.0, 10.0),

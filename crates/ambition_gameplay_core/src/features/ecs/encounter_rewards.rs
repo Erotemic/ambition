@@ -77,7 +77,7 @@ pub fn sync_encounter_reward_chests_ecs(
             FeatureId::new(chest_id.clone()),
             FeatureName::new(chest_id.clone()),
             CenteredAabb::from_center_size(chest_pos, chest_size),
-            ChestFeature::new(crate::interaction::Chest::new(
+            ChestFeature::new(ambition_interaction::Chest::new(
                 chest_id,
                 Some(spec.reward.clone()),
             )),
@@ -163,7 +163,7 @@ pub fn sync_boss_reward_chests_ecs(
             FeatureId::new(chest_id.clone()),
             FeatureName::new(chest_id.clone()),
             CenteredAabb::from_center_size(chest_pos, *size),
-            ChestFeature::new(crate::interaction::Chest::new(
+            ChestFeature::new(ambition_interaction::Chest::new(
                 chest_id,
                 Some(pickup.clone()),
             )),
@@ -185,7 +185,7 @@ mod reward_sync_tests {
     //! /&Query helper.
     use super::*;
     use crate::encounter::{EncounterPhase, EncounterRegistry, EncounterSpec, EncounterState};
-    use crate::interaction::PickupKind;
+    use ambition_interaction::PickupKind;
     use crate::persistence::save::SandboxSave;
     use bevy::prelude::{App, Update};
 

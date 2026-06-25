@@ -34,7 +34,7 @@ pub fn update_ecs_breakables(
             if let Some(mut timer) = respawn_timer {
                 timer.0 = (timer.0 - dt).max(0.0);
                 if timer.0 <= 0.0 {
-                    feature.breakable.state = crate::interaction::BreakableState::Intact;
+                    feature.breakable.state = ambition_interaction::BreakableState::Intact;
                     feature.breakable.health.reset();
                     commands.entity(entity).remove::<RespawnTimer>();
                     banner.show(format!("{} respawned", name.0.as_str()), 2.6);
@@ -89,7 +89,7 @@ mod breakable_tests {
     //! past BREAK_ON_STAND_SECONDS, collapses it; standing elsewhere does
     //! not. Drives sim time via a fixed WorldTime::scaled_dt.
     use super::*;
-    use crate::interaction::{Breakable, BreakableCollision, BreakableTrigger};
+    use ambition_interaction::{Breakable, BreakableCollision, BreakableTrigger};
     use crate::player::{BodyKinematics, PlayerBaseSize, PlayerEntity};
     use crate::world::physics::DebrisBurstMessage;
     use crate::WorldTime;
@@ -177,7 +177,7 @@ mod breakable_tests {
 pub(crate) fn begin_ecs_breakable_respawn(
     commands: &mut Commands,
     entity: Entity,
-    breakable: &crate::interaction::Breakable,
+    breakable: &ambition_interaction::Breakable,
 ) {
     if let crate::actor::RespawnPolicy::AfterSeconds(seconds) = breakable.respawn {
         commands.entity(entity).insert(RespawnTimer(seconds));

@@ -51,7 +51,6 @@ pub use ambition_engine_core as engine_core;
 // Re-export input types under the sandbox's stable `crate::input` path.
 pub use ambition_input as input;
 pub mod host;
-pub use ambition_interaction as interaction;
 pub mod platformer_runtime;
 pub mod player;
 pub mod quest;

@@ -81,7 +81,7 @@ pub fn apply_actor_stimuli(
         aggression.mode = AggressionMode::HostileToPlayer;
 
         let dialogue_id = interaction.and_then(|i| match &i.interactable.kind {
-            crate::interaction::InteractionKind::Npc { dialogue_id, .. } => dialogue_id.as_deref(),
+            ambition_interaction::InteractionKind::Npc { dialogue_id, .. } => dialogue_id.as_deref(),
             _ => None,
         });
 
@@ -118,11 +118,11 @@ mod tests {
 
     fn spawn_npc_with_strikes(app: &mut App, strikes: i32) -> bevy::prelude::Entity {
         let aabb = ae::Aabb::new(ae::Vec2::ZERO, ae::Vec2::new(24.0, 40.0));
-        let interactable = crate::interaction::Interactable::new(
+        let interactable = ambition_interaction::Interactable::new(
             "alice",
             "Talk",
             aabb,
-            crate::interaction::InteractionKind::Npc {
+            ambition_interaction::InteractionKind::Npc {
                 character_id: None,
                 dialogue_id: None,
                 patrol_radius: 0.0,

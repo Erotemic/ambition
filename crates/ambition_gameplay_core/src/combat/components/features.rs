@@ -63,15 +63,15 @@ impl PersistKey {
 /// ECS-native pickup payload.
 #[derive(Component, Clone, Debug, PartialEq)]
 pub struct PickupFeature {
-    pub pickup: crate::interaction::Pickup,
+    pub pickup: ambition_interaction::Pickup,
 }
 
 impl PickupFeature {
-    pub fn new(pickup: crate::interaction::Pickup) -> Self {
+    pub fn new(pickup: ambition_interaction::Pickup) -> Self {
         Self { pickup }
     }
 
-    pub fn kind(&self) -> &crate::interaction::PickupKind {
+    pub fn kind(&self) -> &ambition_interaction::PickupKind {
         &self.pickup.kind
     }
 }
@@ -83,15 +83,15 @@ pub struct Collected;
 /// ECS-native chest payload.
 #[derive(Component, Clone, Debug, PartialEq)]
 pub struct ChestFeature {
-    pub chest: crate::interaction::Chest,
+    pub chest: ambition_interaction::Chest,
 }
 
 impl ChestFeature {
-    pub fn new(chest: crate::interaction::Chest) -> Self {
+    pub fn new(chest: ambition_interaction::Chest) -> Self {
         Self { chest }
     }
 
-    pub fn reward(&self) -> Option<&crate::interaction::PickupKind> {
+    pub fn reward(&self) -> Option<&ambition_interaction::PickupKind> {
         self.chest.reward.as_ref()
     }
 }
@@ -115,16 +115,16 @@ impl FallingChest {
 /// ECS-native breakable payload.
 #[derive(Component, Clone, Debug, PartialEq)]
 pub struct BreakableFeature {
-    pub breakable: crate::interaction::Breakable,
+    pub breakable: ambition_interaction::Breakable,
 }
 
 impl BreakableFeature {
-    pub fn new(breakable: crate::interaction::Breakable) -> Self {
+    pub fn new(breakable: ambition_interaction::Breakable) -> Self {
         Self { breakable }
     }
 
     pub fn broken(&self) -> bool {
-        self.breakable.state == crate::interaction::BreakableState::Broken
+        self.breakable.state == ambition_interaction::BreakableState::Broken
     }
 }
 

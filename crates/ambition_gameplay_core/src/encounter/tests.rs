@@ -48,7 +48,7 @@ fn lab_spec() -> EncounterSpec {
 
 #[test]
 fn encounter_reward_defaults_to_small_heal_and_is_authorable() {
-    use crate::interaction::PickupKind;
+    use ambition_interaction::PickupKind;
     // Back-compat: the default reward stays the legacy small heal, so
     // specs that don't set `reward` behave exactly as before.
     assert_eq!(
@@ -290,10 +290,10 @@ fn ldtk_switch_runtime_id_matches_activation_payload() {
     let switch_object = goblin_encounter
         .interactables
         .iter()
-        .find(|authored| matches!(&authored.payload.kind, crate::interaction::InteractionKind::Custom(s) if s.starts_with("switch:")))
+        .find(|authored| matches!(&authored.payload.kind, ambition_interaction::InteractionKind::Custom(s) if s.starts_with("switch:")))
         .expect("goblin_encounter has a switch interactable");
     let payload = match &switch_object.payload.kind {
-        crate::interaction::InteractionKind::Custom(s) => s.clone(),
+        ambition_interaction::InteractionKind::Custom(s) => s.clone(),
         _ => panic!("switch kind"),
     };
     let activation = SwitchActivation::parse_custom(&payload).expect("parse");

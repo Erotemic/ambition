@@ -62,7 +62,7 @@ pub fn sync_ecs_actors_with_save(
             // Persisted-hostile NPC: flip it hostile IN PLACE on load (no cluster
             // swap), keeping its entity + sprite.
             let dialogue_id = interaction.and_then(|i| match &i.interactable.kind {
-                crate::interaction::InteractionKind::Npc { dialogue_id, .. } => {
+                ambition_interaction::InteractionKind::Npc { dialogue_id, .. } => {
                     dialogue_id.as_deref()
                 }
                 _ => None,

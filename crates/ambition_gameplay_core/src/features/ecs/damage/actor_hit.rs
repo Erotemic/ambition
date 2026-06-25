@@ -43,7 +43,7 @@ pub(crate) fn apply_actor_hit(
     disposition: ActorDisposition,
     em: &mut super::super::actor_clusters::ActorMut<'_>,
     aggression: Option<&mut crate::features::ActorAggression>,
-    interactable: Option<&crate::interaction::Interactable>,
+    interactable: Option<&ambition_interaction::Interactable>,
     banner: &mut GameplayBanner,
     combat_banter: Option<&crate::features::banter::CombatBanterRegistry>,
     writers: &mut FeatureHitWriters<'_, '_>,

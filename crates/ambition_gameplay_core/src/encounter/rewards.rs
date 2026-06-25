@@ -28,7 +28,7 @@ pub fn encounter_reward_chest_pos(spec: &EncounterSpec, chest_size: ae::Vec2) ->
 #[cfg(test)]
 mod rewards_tests {
     use super::*;
-    use crate::interaction::PickupKind;
+    use ambition_interaction::PickupKind;
 
     fn spec_with_trigger(min: [f32; 2], size: [f32; 2]) -> EncounterSpec {
         EncounterSpec {

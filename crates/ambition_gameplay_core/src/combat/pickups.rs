@@ -75,19 +75,19 @@ pub fn collect_ecs_pickups(
         commands.entity(entity).insert(Collected);
         banner.show(format!("picked up {}", name.0.as_str()), 2.6);
         match &pickup.pickup.kind {
-            crate::interaction::PickupKind::Health { amount } => {
+            ambition_interaction::PickupKind::Health { amount } => {
                 heals.write(crate::player::PlayerHealRequested::for_target(
                     *amount,
                     collector_entity,
                 ));
             }
-            crate::interaction::PickupKind::Currency { amount } => {
+            ambition_interaction::PickupKind::Currency { amount } => {
                 // Credit the collecting player's wallet (HUD money meter).
                 if let Ok(mut wallet) = wallets.get_mut(collector_entity) {
                     wallet.add(*amount);
                 }
             }
-            crate::interaction::PickupKind::Ability { ability_id } => {
+            ambition_interaction::PickupKind::Ability { ability_id } => {
                 // Grant the ability into the player's catalog so it shows up in
                 // the OoT inventory and can be equipped (wired abilities) — the
                 // Metroidvania "learn a power from a boss" beat.
@@ -97,7 +97,7 @@ pub fn collect_ecs_pickups(
                     }
                 }
             }
-            crate::interaction::PickupKind::StoryFlag { flag } => {
+            ambition_interaction::PickupKind::StoryFlag { flag } => {
                 // PickupSpawn entities with `kind: "flag:<id>"` set
                 // the named flag in the save layer and emit a
                 // QuestAdvanceEvent::FlagSet via apply_flag_effects.
@@ -120,10 +120,10 @@ pub fn collect_ecs_pickups(
             kind: ParticleKind::Spark,
         });
         let id = match &pickup.pickup.kind {
-            crate::interaction::PickupKind::Health { .. } => {
+            ambition_interaction::PickupKind::Health { .. } => {
                 ambition_sfx::ids::WORLD_HEALTH_COLLECT
             }
-            crate::interaction::PickupKind::Currency { .. } => ambition_sfx::ids::WORLD_COIN_PICKUP,
+            ambition_interaction::PickupKind::Currency { .. } => ambition_sfx::ids::WORLD_COIN_PICKUP,
             _ => ambition_sfx::ids::WORLD_PICKUP_GENERIC,
         };
         sfx.write(SfxMessage::Play { id, pos });
@@ -161,9 +161,9 @@ mod tests {
                 FeatureId::new(id),
                 FeatureName::new("Health"),
                 CenteredAabb::from_center_size(pos, ae::Vec2::new(12.0, 12.0)),
-                PickupFeature::new(crate::interaction::Pickup::new(
+                PickupFeature::new(ambition_interaction::Pickup::new(
                     id,
-                    crate::interaction::PickupKind::Health { amount: 1 },
+                    ambition_interaction::PickupKind::Health { amount: 1 },
                 )),
             ))
             .id()
@@ -228,9 +228,9 @@ mod tests {
             FeatureId::new("coin"),
             FeatureName::new("Coin"),
             CenteredAabb::from_center_size(center, ae::Vec2::new(12.0, 12.0)),
-            PickupFeature::new(crate::interaction::Pickup::new(
+            PickupFeature::new(ambition_interaction::Pickup::new(
                 "coin",
-                crate::interaction::PickupKind::Currency { amount: 25 },
+                ambition_interaction::PickupKind::Currency { amount: 25 },
             )),
         ));
 
@@ -275,9 +275,9 @@ mod tests {
             FeatureId::new("ability_drop"),
             FeatureName::new("Blink"),
             CenteredAabb::from_center_size(center, ae::Vec2::new(16.0, 16.0)),
-            PickupFeature::new(crate::interaction::Pickup::new(
+            PickupFeature::new(ambition_interaction::Pickup::new(
                 "ability_drop",
-                crate::interaction::PickupKind::Ability {
+                ambition_interaction::PickupKind::Ability {
                     ability_id: "blink".to_string(),
                 },
             )),

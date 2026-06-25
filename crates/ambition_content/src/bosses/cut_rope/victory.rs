@@ -66,11 +66,11 @@ fn victory_npc_size() -> ae::Vec2 {
 fn spawn_victory_npc_entity(commands: &mut Commands, pos: ae::Vec2) -> Entity {
     let size = victory_npc_size();
     let aabb = ae::Aabb::new(pos, size * 0.5);
-    let interactable = ambition_gameplay_core::interaction::Interactable {
+    let interactable = ambition_interaction::Interactable {
         id: CUT_ROPE_VICTORY_NPC_ID.to_string(),
         prompt: "Talk".to_string(),
         aabb,
-        kind: ambition_gameplay_core::interaction::InteractionKind::Npc {
+        kind: ambition_interaction::InteractionKind::Npc {
             character_id: None,
             dialogue_id: Some(CUT_ROPE_VICTORY_NPC_DIALOGUE_ID.to_string()),
             patrol_radius: 0.0,

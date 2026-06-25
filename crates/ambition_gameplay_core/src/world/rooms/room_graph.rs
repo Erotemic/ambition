@@ -38,10 +38,10 @@ pub struct RoomSpec {
 
     // --- Per-family authored entity lists; each family spawns through ECS.
     pub hazards: Vec<Authored<crate::combat::DamageVolume>>,
-    pub interactables: Vec<Authored<crate::interaction::Interactable>>,
-    pub pickups: Vec<Authored<crate::interaction::Pickup>>,
-    pub chests: Vec<Authored<crate::interaction::Chest>>,
-    pub breakables: Vec<Authored<crate::interaction::Breakable>>,
+    pub interactables: Vec<Authored<ambition_interaction::Interactable>>,
+    pub pickups: Vec<Authored<ambition_interaction::Pickup>>,
+    pub chests: Vec<Authored<ambition_interaction::Chest>>,
+    pub breakables: Vec<Authored<ambition_interaction::Breakable>>,
     pub enemy_spawns: Vec<Authored<crate::actor::EnemyBrain>>,
     pub boss_spawns: Vec<Authored<crate::actor::BossBrain>>,
     pub debug_labels: Vec<Authored<crate::debug_label::DebugLabel>>,

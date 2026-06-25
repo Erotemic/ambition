@@ -616,7 +616,7 @@ fn spawn_authored_hazard(
 fn spawn_authored_chest(
     commands: &mut Commands,
     world: &ae::World,
-    authored: &ambition_gameplay_core::rooms::Authored<ambition_gameplay_core::interaction::Chest>,
+    authored: &ambition_gameplay_core::rooms::Authored<ambition_interaction::Chest>,
     assets: Option<&GameAssets>,
 ) {
     spawn_authored_basic(
@@ -644,17 +644,17 @@ fn spawn_authored_interactable(
     commands: &mut Commands,
     world: &ae::World,
     authored: &ambition_gameplay_core::rooms::Authored<
-        ambition_gameplay_core::interaction::Interactable,
+        ambition_interaction::Interactable,
     >,
     assets: Option<&GameAssets>,
 ) {
     let interactable = &authored.payload;
     let kind = if matches!(
         interactable.kind,
-        ambition_gameplay_core::interaction::InteractionKind::Npc { .. }
+        ambition_interaction::InteractionKind::Npc { .. }
     ) {
         FeatureVisualKind::Npc
-    } else if matches!(&interactable.kind, ambition_gameplay_core::interaction::InteractionKind::Custom(s) if s.starts_with("switch:"))
+    } else if matches!(&interactable.kind, ambition_interaction::InteractionKind::Custom(s) if s.starts_with("switch:"))
     {
         FeatureVisualKind::Switch
     } else {

@@ -244,11 +244,11 @@ impl ActorClusterSeed {
         id: impl Into<String>,
         name: impl Into<String>,
         aabb: ae::Aabb,
-        interactable: &crate::interaction::Interactable,
+        interactable: &ambition_interaction::Interactable,
         paths: &[(String, crate::actor::KinematicPath)],
     ) -> (Self, Option<ae::Vec2>) {
         let (patrol_radius, patrol_path_id, motion) = match &interactable.kind {
-            crate::interaction::InteractionKind::Npc {
+            ambition_interaction::InteractionKind::Npc {
                 patrol_radius,
                 patrol_path_id,
                 ..
@@ -264,7 +264,7 @@ impl ActorClusterSeed {
             _ => (0.0, None, None),
         };
         let character_id = match &interactable.kind {
-            crate::interaction::InteractionKind::Npc {
+            ambition_interaction::InteractionKind::Npc {
                 character_id: Some(cid),
                 ..
             } => Some(cid.as_str()),

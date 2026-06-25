@@ -65,7 +65,7 @@ impl PickupBundle {
         id: impl Into<String>,
         name: impl Into<String>,
         aabb: CenteredAabb,
-        pickup: crate::interaction::Pickup,
+        pickup: ambition_interaction::Pickup,
     ) -> Self {
         Self {
             base: FeatureBaseBundle::new(id, name, aabb),
@@ -86,7 +86,7 @@ impl ChestBundle {
         id: impl Into<String>,
         name: impl Into<String>,
         aabb: CenteredAabb,
-        chest: crate::interaction::Chest,
+        chest: ambition_interaction::Chest,
     ) -> Self {
         Self {
             base: FeatureBaseBundle::new(id, name, aabb),

@@ -84,7 +84,7 @@ pub struct ActorRenderSize(pub ae::Vec2);
 /// face the player so the interact is reachable.
 #[derive(Component, Clone, Debug)]
 pub struct ActorInteraction {
-    pub interactable: crate::interaction::Interactable,
+    pub interactable: ambition_interaction::Interactable,
     pub talk_radius: f32,
 }
 // `ActorFaction` moved to `crate::actor::pose` with `ActorPose`.

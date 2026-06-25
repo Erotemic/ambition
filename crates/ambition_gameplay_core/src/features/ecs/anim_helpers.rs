@@ -133,7 +133,7 @@ pub fn ecs_chest_opened(
 pub fn ecs_breakable_state(
     id: &str,
     breakables: &Query<(&FeatureId, &BreakableFeature)>,
-) -> Option<crate::interaction::BreakableState> {
+) -> Option<ambition_interaction::BreakableState> {
     breakables
         .iter()
         .find(|(feature_id, _)| feature_id.as_str() == id)

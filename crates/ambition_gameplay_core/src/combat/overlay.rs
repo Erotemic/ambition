@@ -50,11 +50,11 @@ pub fn rebuild_feature_ecs_world_overlay(
             continue;
         }
         let kind = match feature.breakable.collision {
-            crate::interaction::BreakableCollision::None => continue,
-            crate::interaction::BreakableCollision::Solid => ae::BlockKind::BlinkWall {
+            ambition_interaction::BreakableCollision::None => continue,
+            ambition_interaction::BreakableCollision::Solid => ae::BlockKind::BlinkWall {
                 tier: ae::BlinkWallTier::Hard,
             },
-            crate::interaction::BreakableCollision::OneWayUp => ae::BlockKind::OneWay,
+            ambition_interaction::BreakableCollision::OneWayUp => ae::BlockKind::OneWay,
         };
         overlay.blocks.push(ae::Block {
             name: format!("ecs-breakable {}", name.0.as_str()),

@@ -142,11 +142,11 @@ pub(super) fn convert_npc_spawn(
             .map(|s| s.to_string())
             .unwrap_or_else(|| character_id.clone())
     };
-    let interactable = crate::interaction::Interactable::new(
+    let interactable = ambition_interaction::Interactable::new(
         entity.iid.clone(),
         field_string(entity, "prompt").unwrap_or_else(|| "Talk".to_string()),
         object_aabb(min, size),
-        crate::interaction::InteractionKind::Npc {
+        ambition_interaction::InteractionKind::Npc {
             character_id: (!character_id.is_empty()).then(|| character_id.clone()),
             dialogue_id: field_string(entity, "dialogue_id"),
             // Optional `patrol_radius` field on NpcSpawn. 0 (or unset)
@@ -166,7 +166,7 @@ pub(super) fn convert_pickup_spawn(
     min: ae::Vec2,
     size: ae::Vec2,
 ) -> RuntimeEntityEmission {
-    let pickup = crate::interaction::Pickup::new(
+    let pickup = ambition_interaction::Pickup::new(
         entity.iid.clone(),
         parse_pickup_kind(&field_string(entity, "kind").unwrap_or_else(|| "health:1".to_string())),
     );
@@ -315,7 +315,7 @@ pub(super) fn convert_chest_spawn(
     min: ae::Vec2,
     size: ae::Vec2,
 ) -> RuntimeEntityEmission {
-    let chest = crate::interaction::Chest::new(
+    let chest = ambition_interaction::Chest::new(
         entity.iid.clone(),
         field_string(entity, "reward").map(|value| parse_pickup_kind(&value)),
     );
@@ -466,7 +466,7 @@ pub(super) fn convert_camera_zone(
     })
 }
 
-/// Convert an LDtk `Switch` entity into a runtime [`crate::interaction::Interactable`]
+/// Convert an LDtk `Switch` entity into a runtime [`ambition_interaction::Interactable`]
 /// carrying the wire-format custom payload.
 ///
 /// The `SwitchFeature` spawn path re-parses the payload into a typed
@@ -484,11 +484,11 @@ pub(super) fn convert_switch(
         target_encounter: field_string(entity, "target_encounter").unwrap_or_default(),
     };
     let aabb = object_aabb(min, size);
-    let interactable = crate::interaction::Interactable::new(
+    let interactable = ambition_interaction::Interactable::new(
         activation.id.clone(),
         field_string(entity, "prompt").unwrap_or_else(|| "Activate".into()),
         aabb,
-        crate::interaction::InteractionKind::Custom(activation.to_custom_payload()),
+        ambition_interaction::InteractionKind::Custom(activation.to_custom_payload()),
     );
     // Use the LDtk field `id` (carried on activation) for the
     // authored entity id so the SwitchRuntime id matches the

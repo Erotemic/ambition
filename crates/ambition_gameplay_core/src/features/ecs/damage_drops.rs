@@ -24,16 +24,16 @@ pub fn id_drops_health(id: &str) -> bool {
 /// exact pickup entity shape that LDtk-placed coins use, so the already-registered
 /// [`super::collect_ecs_pickups`] grants it (and plays `WORLD_COIN_PICKUP`) when a
 /// player overlaps it. The coin sits where the enemy fell and never respawns
-/// (`Pickup::new` defaults to [`crate::interaction::RespawnPolicy::Never`]).
+/// (`Pickup::new` defaults to [`ambition_interaction::RespawnPolicy::Never`]).
 pub fn drop_currency_coin(commands: &mut Commands, id: &str, pos: ae::Vec2, amount: i32) {
     commands.spawn((
         FeatureSimEntity,
         FeatureId::new(format!("coin:{id}")),
         FeatureName::new("Coin"),
         CenteredAabb::from_center_size(pos, ae::Vec2::new(12.0, 12.0)),
-        PickupFeature::new(crate::interaction::Pickup::new(
+        PickupFeature::new(ambition_interaction::Pickup::new(
             format!("coin:{id}"),
-            crate::interaction::PickupKind::Currency { amount },
+            ambition_interaction::PickupKind::Currency { amount },
         )),
     ));
 }
@@ -108,9 +108,9 @@ pub fn drop_health_pickup(commands: &mut Commands, id: &str, pos: ae::Vec2, amou
         FeatureId::new(format!("heart:{id}")),
         FeatureName::new("Health"),
         CenteredAabb::from_center_size(pos, ae::Vec2::new(12.0, 12.0)),
-        PickupFeature::new(crate::interaction::Pickup::new(
+        PickupFeature::new(ambition_interaction::Pickup::new(
             format!("heart:{id}"),
-            crate::interaction::PickupKind::Health { amount },
+            ambition_interaction::PickupKind::Health { amount },
         )),
     ));
 }
@@ -130,9 +130,9 @@ pub fn drop_ability_pickup(
         FeatureId::new(format!("ability_drop:{boss_id}")),
         FeatureName::new(ability_name.to_string()),
         CenteredAabb::from_center_size(pos, ae::Vec2::new(16.0, 16.0)),
-        PickupFeature::new(crate::interaction::Pickup::new(
+        PickupFeature::new(ambition_interaction::Pickup::new(
             format!("ability_drop:{boss_id}"),
-            crate::interaction::PickupKind::Ability {
+            ambition_interaction::PickupKind::Ability {
                 ability_id: ability_id.to_string(),
             },
         )),

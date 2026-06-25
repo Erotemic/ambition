@@ -32,7 +32,7 @@ pub(crate) fn spawn_hazard(
 
 pub(crate) fn spawn_pickup(
     commands: &mut Commands,
-    authored: &crate::rooms::Authored<crate::interaction::Pickup>,
+    authored: &crate::rooms::Authored<ambition_interaction::Pickup>,
 ) {
     let feature_aabb = CenteredAabb::from_aabb(authored.aabb);
     commands.spawn_room_scoped((
@@ -140,7 +140,7 @@ pub(crate) fn spawn_gravity_zone(commands: &mut Commands, spec: &crate::rooms::G
 
 pub(crate) fn spawn_chest(
     commands: &mut Commands,
-    authored: &crate::rooms::Authored<crate::interaction::Chest>,
+    authored: &crate::rooms::Authored<ambition_interaction::Chest>,
 ) {
     let feature_aabb = CenteredAabb::from_aabb(authored.aabb);
     commands.spawn_room_scoped((
@@ -156,7 +156,7 @@ pub(crate) fn spawn_chest(
 
 pub(crate) fn spawn_breakable(
     commands: &mut Commands,
-    authored: &crate::rooms::Authored<crate::interaction::Breakable>,
+    authored: &crate::rooms::Authored<ambition_interaction::Breakable>,
 ) {
     let feature_aabb = CenteredAabb::from_aabb(authored.aabb);
     let breakable = &authored.payload;

@@ -644,7 +644,7 @@ fn intro_props_do_not_grow_interactables() {
         for authored in &room.interactables {
             if !matches!(
                 authored.payload.kind,
-                crate::interaction::InteractionKind::Npc { .. }
+                ambition_interaction::InteractionKind::Npc { .. }
             ) {
                 continue;
             }

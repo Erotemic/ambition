@@ -24,7 +24,7 @@ use bevy::prelude::{Message, Name};
 ///
 /// Today's variants cover bosses and hostile enemies — the families with a
 /// trivial value-only spawn path. Peaceful NPCs need an
-/// [`crate::interaction::Interactable`] payload, so they stay room-authored
+/// [`ambition_interaction::Interactable`] payload, so they stay room-authored
 /// until a programmatic use case lands (the "add knobs when use cases land"
 /// rule).
 #[derive(Message, Clone, Debug)]
@@ -261,7 +261,7 @@ pub(super) struct NpcActorSpawnPlan {
     /// peaceful tuning + a `Passive`/`Patrol` AI brain.
     seed: super::actor_clusters::ActorClusterSeed,
     render_size: Option<ae::Vec2>,
-    interactable: crate::interaction::Interactable,
+    interactable: ambition_interaction::Interactable,
     brain: crate::brain::Brain,
     action_set: crate::brain::ActionSet,
     combat_kit: crate::combat::CombatKit,
@@ -276,13 +276,13 @@ impl NpcActorSpawnPlan {
         id: impl Into<String>,
         name: impl Into<String>,
         spawn_aabb: ae::Aabb,
-        interactable: crate::interaction::Interactable,
+        interactable: ambition_interaction::Interactable,
         paths: &[(String, crate::actor::KinematicPath)],
     ) -> Self {
         let id = id.into();
         let name = name.into();
         let dialogue_id = match &interactable.kind {
-            crate::interaction::InteractionKind::Npc { dialogue_id, .. } => dialogue_id.as_deref(),
+            ambition_interaction::InteractionKind::Npc { dialogue_id, .. } => dialogue_id.as_deref(),
             _ => None,
         };
         // The hostile archetype this actor becomes when provoked: feeds its
@@ -298,7 +298,7 @@ impl NpcActorSpawnPlan {
             paths,
         );
         let patrol_radius = match &interactable.kind {
-            crate::interaction::InteractionKind::Npc { patrol_radius, .. } => {
+            ambition_interaction::InteractionKind::Npc { patrol_radius, .. } => {
                 patrol_radius.max(0.0)
             }
             _ => 0.0,
@@ -647,14 +647,14 @@ pub(super) fn spawn_solo_enemy(
 }
 pub(super) fn spawn_interactable(
     commands: &mut Commands,
-    authored: &crate::rooms::Authored<crate::interaction::Interactable>,
+    authored: &crate::rooms::Authored<ambition_interaction::Interactable>,
     paths: &[(String, crate::actor::KinematicPath)],
 ) {
     let feature_aabb = CenteredAabb::from_aabb(authored.aabb);
     let interactable = &authored.payload;
     if matches!(
         interactable.kind,
-        crate::interaction::InteractionKind::Npc { .. }
+        ambition_interaction::InteractionKind::Npc { .. }
     ) {
         NpcActorSpawnPlan::peaceful(
             format!("Feature actor npc: {}", authored.name),
@@ -666,7 +666,7 @@ pub(super) fn spawn_interactable(
             paths,
         )
         .spawn(commands);
-    } else if let crate::interaction::InteractionKind::Custom(payload) = &interactable.kind {
+    } else if let ambition_interaction::InteractionKind::Custom(payload) = &interactable.kind {
         if let Some(activation) = crate::encounter::SwitchActivation::parse_custom(payload) {
             commands.spawn((
                 Name::new(format!("Feature switch: {}", authored.name)),

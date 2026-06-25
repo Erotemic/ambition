@@ -130,11 +130,11 @@ impl LdtkProject {
         // exactly one of these (or into one of the non-authored Vecs
         // above).
         let mut hazards: Vec<crate::rooms::Authored<crate::combat::DamageVolume>> = Vec::new();
-        let mut interactables: Vec<crate::rooms::Authored<crate::interaction::Interactable>> =
+        let mut interactables: Vec<crate::rooms::Authored<ambition_interaction::Interactable>> =
             Vec::new();
-        let mut pickups: Vec<crate::rooms::Authored<crate::interaction::Pickup>> = Vec::new();
-        let mut chests: Vec<crate::rooms::Authored<crate::interaction::Chest>> = Vec::new();
-        let mut breakables: Vec<crate::rooms::Authored<crate::interaction::Breakable>> = Vec::new();
+        let mut pickups: Vec<crate::rooms::Authored<ambition_interaction::Pickup>> = Vec::new();
+        let mut chests: Vec<crate::rooms::Authored<ambition_interaction::Chest>> = Vec::new();
+        let mut breakables: Vec<crate::rooms::Authored<ambition_interaction::Breakable>> = Vec::new();
         let mut enemy_spawns: Vec<crate::rooms::Authored<crate::actor::EnemyBrain>> = Vec::new();
         let mut boss_spawns: Vec<crate::rooms::Authored<crate::actor::BossBrain>> = Vec::new();
         let mut debug_labels: Vec<crate::rooms::Authored<crate::debug_label::DebugLabel>> =
@@ -342,10 +342,10 @@ pub(super) struct RuntimeEntityEmission {
     pub(super) gravity_zones: Vec<crate::rooms::GravityZoneSpec>,
     // --- Per-family authored entity emissions:
     pub(super) hazards: Vec<crate::rooms::Authored<crate::combat::DamageVolume>>,
-    pub(super) interactables: Vec<crate::rooms::Authored<crate::interaction::Interactable>>,
-    pub(super) pickups: Vec<crate::rooms::Authored<crate::interaction::Pickup>>,
-    pub(super) chests: Vec<crate::rooms::Authored<crate::interaction::Chest>>,
-    pub(super) breakables: Vec<crate::rooms::Authored<crate::interaction::Breakable>>,
+    pub(super) interactables: Vec<crate::rooms::Authored<ambition_interaction::Interactable>>,
+    pub(super) pickups: Vec<crate::rooms::Authored<ambition_interaction::Pickup>>,
+    pub(super) chests: Vec<crate::rooms::Authored<ambition_interaction::Chest>>,
+    pub(super) breakables: Vec<crate::rooms::Authored<ambition_interaction::Breakable>>,
     pub(super) enemy_spawns: Vec<crate::rooms::Authored<crate::actor::EnemyBrain>>,
     pub(super) boss_spawns: Vec<crate::rooms::Authored<crate::actor::BossBrain>>,
     pub(super) debug_labels: Vec<crate::rooms::Authored<crate::debug_label::DebugLabel>>,
@@ -463,21 +463,21 @@ impl RuntimeEntityEmission {
         }
     }
 
-    fn interactable(authored: crate::rooms::Authored<crate::interaction::Interactable>) -> Self {
+    fn interactable(authored: crate::rooms::Authored<ambition_interaction::Interactable>) -> Self {
         Self {
             interactables: vec![authored],
             ..Self::default()
         }
     }
 
-    fn pickup(authored: crate::rooms::Authored<crate::interaction::Pickup>) -> Self {
+    fn pickup(authored: crate::rooms::Authored<ambition_interaction::Pickup>) -> Self {
         Self {
             pickups: vec![authored],
             ..Self::default()
         }
     }
 
-    fn chest(authored: crate::rooms::Authored<crate::interaction::Chest>) -> Self {
+    fn chest(authored: crate::rooms::Authored<ambition_interaction::Chest>) -> Self {
         Self {
             chests: vec![authored],
             ..Self::default()

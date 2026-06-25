@@ -110,11 +110,11 @@ fn breakable_platform_solid_compiles_with_solid_collision() {
     let breakable = &compiled.breakables[0].payload;
     assert_eq!(
         breakable.collision,
-        crate::interaction::BreakableCollision::Solid
+        ambition_interaction::BreakableCollision::Solid
     );
     assert_eq!(
         breakable.trigger,
-        crate::interaction::BreakableTrigger::OnHit
+        ambition_interaction::BreakableTrigger::OnHit
     );
     assert_eq!(breakable.health.max, 2);
     assert!(!breakable.pogo_refresh);
@@ -136,11 +136,11 @@ fn breakable_platform_one_way_up_compiles() {
     let breakable = &compiled.breakables[0].payload;
     assert_eq!(
         breakable.collision,
-        crate::interaction::BreakableCollision::OneWayUp
+        ambition_interaction::BreakableCollision::OneWayUp
     );
     assert_eq!(
         breakable.trigger,
-        crate::interaction::BreakableTrigger::OnStand
+        ambition_interaction::BreakableTrigger::OnStand
     );
 }
 
@@ -247,11 +247,11 @@ fn breakable_pogo_orb_compiles_with_pogo_flag() {
     assert!(breakable.pogo_refresh);
     assert_eq!(
         breakable.collision,
-        crate::interaction::BreakableCollision::None
+        ambition_interaction::BreakableCollision::None
     );
     assert_eq!(
         breakable.trigger,
-        crate::interaction::BreakableTrigger::OnHit
+        ambition_interaction::BreakableTrigger::OnHit
     );
     assert_eq!(breakable.health.max, 4);
 }

@@ -145,7 +145,7 @@ impl Default for BarkAnchorSpec {
 pub enum BossRewardProfile {
     None,
     DropChest {
-        pickup: crate::interaction::PickupKind,
+        pickup: ambition_interaction::PickupKind,
         #[serde(with = "boss_vec2_required")]
         offset: ae::Vec2,
         #[serde(with = "boss_vec2_required")]

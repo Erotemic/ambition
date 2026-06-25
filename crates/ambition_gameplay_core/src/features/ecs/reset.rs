@@ -86,7 +86,7 @@ pub fn reset_ecs_room_features(
         commands.entity(entity).despawn();
     }
     for (entity, mut feature, stand_timer) in &mut breakables {
-        feature.breakable.state = crate::interaction::BreakableState::Intact;
+        feature.breakable.state = ambition_interaction::BreakableState::Intact;
         feature.breakable.health.reset();
         if let Some(mut timer) = stand_timer {
             timer.0 = 0.0;
@@ -194,7 +194,7 @@ mod reset_tests {
     use super::*;
     use crate::combat::slots::CombatSlotsRes;
     use crate::enemy_projectile::EnemyProjectileState;
-    use crate::interaction::Breakable;
+    use ambition_interaction::Breakable;
     use bevy::prelude::{App, Entity, Update};
 
     fn app() -> App {

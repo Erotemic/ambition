@@ -314,7 +314,7 @@ fn player_slash_shatters_a_breakable() {
             FeatureId::new("crate"),
             FeatureName::new("crate"),
             CenteredAabb::from_center_size(aabb.center(), aabb.half_size() * 2.0),
-            BreakableFeature::new(crate::interaction::Breakable::new("crate", 1)),
+            BreakableFeature::new(ambition_interaction::Breakable::new("crate", 1)),
         ))
         .id();
     assert!(!app
@@ -347,7 +347,7 @@ fn player_slash_shatters_a_breakable() {
     let mut q = app.world_mut().query::<&PickupFeature>();
     let coins = q
         .iter(app.world())
-        .filter(|p| matches!(p.kind(), crate::interaction::PickupKind::Currency { .. }))
+        .filter(|p| matches!(p.kind(), ambition_interaction::PickupKind::Currency { .. }))
         .count();
     assert_eq!(coins, 1, "shattering a crate drops one coin");
 }
@@ -360,7 +360,7 @@ fn enemy_defeat_drops_a_collectible_currency_coin() {
     });
     app.update();
     let mut q = app.world_mut().query::<(&PickupFeature, &FeatureId)>();
-    let rows: Vec<(crate::interaction::PickupKind, String)> = q
+    let rows: Vec<(ambition_interaction::PickupKind, String)> = q
         .iter(app.world())
         .map(|(p, id)| (p.kind().clone(), id.as_str().to_string()))
         .collect();
@@ -368,7 +368,7 @@ fn enemy_defeat_drops_a_collectible_currency_coin() {
     assert_eq!(rows[0].1, "coin:goblin_1", "coin id is keyed to the enemy");
     assert_eq!(
         rows[0].0,
-        crate::interaction::PickupKind::Currency {
+        ambition_interaction::PickupKind::Currency {
             amount: ENEMY_BOUNTY
         },
         "the drop is a currency coin worth the bounty",
@@ -417,12 +417,12 @@ fn defeated_boss_drops_its_signature_ability() {
     });
     app.update();
     let mut q = app.world_mut().query::<&PickupFeature>();
-    let kinds: Vec<crate::interaction::PickupKind> =
+    let kinds: Vec<ambition_interaction::PickupKind> =
         q.iter(app.world()).map(|p| p.kind().clone()).collect();
     assert_eq!(kinds.len(), 1, "one ability pickup dropped");
     assert_eq!(
         kinds[0],
-        crate::interaction::PickupKind::Ability {
+        ambition_interaction::PickupKind::Ability {
             ability_id: "grapple".to_string()
         },
     );
@@ -540,11 +540,11 @@ fn enemy_health_drop_is_deterministic_and_spawns_a_heart() {
     });
     app.update();
     let mut q = app.world_mut().query::<&PickupFeature>();
-    let kinds: Vec<crate::interaction::PickupKind> =
+    let kinds: Vec<ambition_interaction::PickupKind> =
         q.iter(app.world()).map(|p| p.kind().clone()).collect();
     assert_eq!(kinds.len(), 1, "one heart dropped");
     assert!(
-        matches!(kinds[0], crate::interaction::PickupKind::Health { .. }),
+        matches!(kinds[0], ambition_interaction::PickupKind::Health { .. }),
         "the drop is a health pickup",
     );
 }

@@ -410,7 +410,7 @@ mod tests {
     use super::*;
     use crate::encounter::events::EncounterEvent;
     use crate::encounter::spec::{EncounterMobSpec, EncounterSpec, EncounterWaveSpec};
-    use crate::interaction::PickupKind;
+    use ambition_interaction::PickupKind;
 
     fn wave(label: &str, mob_count: usize) -> EncounterWaveSpec {
         EncounterWaveSpec {

@@ -34,11 +34,11 @@ mod conversion_tests {
         );
         let aabb = ae::Aabb::new(ae::Vec2::new(800.0, 540.0), ae::Vec2::new(11.0, 19.0));
         let id = String::from("patrol_kira");
-        let interactable = crate::interaction::Interactable::new(
+        let interactable = ambition_interaction::Interactable::new(
             id.clone(),
             String::from("Talk"),
             aabb,
-            crate::interaction::InteractionKind::Npc {
+            ambition_interaction::InteractionKind::Npc {
                 character_id: None,
                 dialogue_id: Some(id.clone()),
                 patrol_radius,
@@ -219,11 +219,11 @@ mod conversion_tests {
     #[test]
     fn npc_brain_from_catalog_picks_template_from_authored_fields() {
         let interactable = |radius: f32| {
-            crate::interaction::Interactable::new(
+            ambition_interaction::Interactable::new(
                 "kira",
                 "Talk",
                 ae::Aabb::new(ae::Vec2::new(800.0, 540.0), ae::Vec2::new(11.0, 19.0)),
-                crate::interaction::InteractionKind::Npc {
+                ambition_interaction::InteractionKind::Npc {
                     character_id: None,
                     dialogue_id: Some("kira".into()),
                     patrol_radius: radius,

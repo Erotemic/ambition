@@ -8,15 +8,16 @@
 //! Pure-data types/phase logic live in `gate_portal`/`metadata`/`room_graph`.
 
 use bevy::prelude::{
-    Commands, Component, Entity, Query, Res, ResMut, Sprite, Transform, Visibility,
+    Commands, Component, Entity, MessageWriter, Query, Res, ResMut, Sprite, Transform, Visibility,
 };
 
 use super::{
     tick_gate_portal_phase, ActiveRoomMetadata, GatePortalPhase, GatePortalRegistry,
-    RoomMusicRequest, RoomSet,
+    LoadingZoneActivation, RoomMusicRequest, RoomSet, RoomTransitionRequested,
 };
 use crate::character_sprites::{CharacterAnim, CharacterAnimator};
 use crate::WorldTime;
+use ambition_engine_core as ae;
 
 /// Tag on the portal + gate-ring visual entities so the generic
 /// `animate_characters` system skips them. Without this filter the
@@ -243,4 +244,64 @@ pub fn sync_portal_ring_rotation_system(
             }
         }
     }
+}
+
+/// Detect a loading-zone overlap and emit a [`RoomTransitionRequested`]
+/// message. The actual room load (despawn old, spawn new, reset player
+/// to spawn point) happens in the host's `apply_room_transition_system`,
+/// which runs immediately after this system in the `CoreSimulation` chain.
+///
+/// Ordering is player tick → detect transition → apply transition. Attacks may
+/// still advance on a transition frame, but replay fixtures confirm player-position
+/// determinism because attacks do not push the player.
+///
+/// Gated by `gameplay_allowed` at the registration site: transitions must not
+/// fire while paused or in dialogue. The apply system itself is unconditional
+/// because it reads its own message queue and is a no-op when empty.
+pub fn detect_room_transition_system(
+    room_set: Res<RoomSet>,
+    sim_state: Res<crate::SandboxSimState>,
+    portals: Res<GatePortalRegistry>,
+    mut transition_writer: MessageWriter<RoomTransitionRequested>,
+    mut player_q: Query<
+        (
+            ae::PlayerClusterQueryData,
+            &mut crate::player::PlayerInteractionState,
+        ),
+        crate::player::PrimaryPlayerOnly,
+    >,
+) {
+    if sim_state.room_transition_cooldown > 0.0 {
+        return;
+    }
+    let Ok((mut cluster_item, mut interaction)) = player_q.single_mut() else {
+        return;
+    };
+    let clusters = cluster_item.as_clusters_mut();
+    let Some(zone) =
+        room_set.transition_for_player(clusters.kinematics.aabb(), interaction.buffered())
+    else {
+        return;
+    };
+    // Portal check: if this zone is registered as a portal, the
+    // portal's own phase must be `On` for traversal to be allowed.
+    // The switch only commands the boot/shutdown sequence — the
+    // portal itself runs the state machine. Non-portal zones pass
+    // through unchanged.
+    if portals.is_portal(&zone.zone.id) && !portals.allows_traversal(&zone.zone.id) {
+        return;
+    }
+    let zone_sfx = match zone.zone.activation {
+        LoadingZoneActivation::Door => Some(ambition_sfx::ids::WORLD_DOOR_OPEN),
+        // Walk-through zones (mid-room portals and side-edge exits)
+        // both use the portal-enter sfx — the door-open sound only
+        // fits the discrete interact door beat.
+        LoadingZoneActivation::EdgeExit | LoadingZoneActivation::Walk => {
+            Some(ambition_sfx::ids::WORLD_PORTAL_ENTER)
+        }
+    };
+    // Clear the interact buffer so the same press doesn't re-trigger
+    // a transition next frame before `load_room` resets it.
+    interaction.clear();
+    transition_writer.write(RoomTransitionRequested::new(zone, zone_sfx));
 }

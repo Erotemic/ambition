@@ -19,9 +19,9 @@ mod tests;
 
 pub use spawn::validated_spawn;
 pub use systems::{
-    hide_portal_loading_zone_visuals, sync_active_room_metadata, sync_portal_ring_rotation_system,
-    sync_portal_sprite_animation, sync_portal_sprite_visibility, sync_room_music_request,
-    tick_portal_phases_system, PortalSprite,
+    detect_room_transition_system, hide_portal_loading_zone_visuals, sync_active_room_metadata,
+    sync_portal_ring_rotation_system, sync_portal_sprite_animation, sync_portal_sprite_visibility,
+    sync_room_music_request, tick_portal_phases_system, PortalSprite,
 };
 
 // --- data-type submodules (split out 2026-06-15; re-exported below) ---

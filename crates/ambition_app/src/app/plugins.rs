@@ -356,7 +356,8 @@ fn register_room_transition_systems(app: &mut App) {
     app.add_systems(
         Update,
         (
-            detect_room_transition_system.run_if(gameplay_allowed),
+            ambition_gameplay_core::rooms::detect_room_transition_system
+                .run_if(gameplay_allowed),
             ensure_requested_room_parallax_system,
             apply_room_transition_system,
             // One reset over the unified actor cluster (NPCs + enemies).

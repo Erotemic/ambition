@@ -59,6 +59,7 @@ pub mod body_mode;
 pub mod boss_encounter;
 pub mod character_sprites;
 pub mod config;
+pub mod cutscene;
 pub mod cutscene_trigger;
 pub mod dev;
 pub mod dialog;

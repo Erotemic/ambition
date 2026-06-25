@@ -120,7 +120,7 @@ pub fn add_simulation_plugins(app: &mut App) {
     app.add_plugins(ambition_gameplay_core::features::FeatureInteractionSchedulePlugin);
     app.add_plugins(ldtk_world::LdtkRuntimeSpinePlugin);
     app.add_plugins(ambition_gameplay_core::encounter::EncounterSimulationSchedulePlugin);
-    app.add_plugins(ambition_render::cutscene::CutsceneSchedulePlugin);
+    app.add_plugins(ambition_gameplay_core::cutscene::CutsceneSchedulePlugin);
     app.add_plugins(ambition_gameplay_core::features::GameplayEffectsSchedulePlugin);
     app.add_plugins(super::progression_schedule::ProgressionSchedulePlugin);
     app.add_plugins(ambition_gameplay_core::features::FeatureViewSyncSchedulePlugin);

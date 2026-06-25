@@ -208,7 +208,7 @@ to the checklist — none are *blocked*, this is just where to expect owed check
 | Step | Feel risk | Notes |
 | --- | --- | --- |
 | §5 OnceLock classification | **none** | registry/resource reorg, no behavior |
-| Cutscene runtime → `ambition_cutscene` | **none** | move types between crates; the "bounded win" |
+| ~~Cutscene runtime → `ambition_cutscene`~~ | **DONE** | the "bounded win" — landed 2026-06-25; runtime types→`ambition_cutscene`, systems→`gameplay_core::cutscene`, authored defaults→content, presentation stays in render |
 | Content module families reorg | **none** | module moves only |
 | Attacker-entity attribution on enemy/boss `HitSource`s | **none** | data threading, like `DeathCause` |
 | gnu_ton arena gate → overlay | **low** | collision headless-testable (ladder/floor-gate present-or-not); needs the subtractive overlay extension |
@@ -616,18 +616,34 @@ Condensed orientation so an agent can work a domain without rediscovering it.
   split); move portal/boss adapters into explicit adapter modules; treat quest as
   facts/commands only.
 
-### Cutscenes / dialogue / render — a clean bounded win
-- **Now:** `ambition_cutscene` exists but **cutscene runtime types
+### Cutscenes / dialogue / render — a clean bounded win — **DONE (2026-06-25)**
+- **Now (was):** `ambition_cutscene` existed but cutscene runtime types
   (`CutsceneLibrary`, `ActiveCutscene`, `CutsceneTriggerQueue`,
-  `CutsceneAdvanceRequest`, `RoomCutsceneBindings`, `CutsceneSchedulePlugin`) live
-  in `ambition_render::cutscene` (verified)**; content inserts those render
-  resources; docs already call this boundary debt.
-- **Target:** `ambition_cutscene` owns runtime (queues/playback/advance/room
-  bindings/save effects); `render::cutscene_presentation` owns UI/render; content
-  installs scripts/bindings into the *runtime*, not render.
-- **First move:** classify every type/system in `render::cutscene` as runtime /
-  presentation / authored-default / save-effect; move runtime-only vocabulary to
-  `ambition_cutscene`. Self-contained, high clarity-per-effort.
+  `CutsceneAdvanceRequest`, `RoomCutsceneBindings`, `CutsceneSchedulePlugin`) lived
+  in `ambition_render::cutscene`; content inserted those render resources.
+- **Target:** `ambition_cutscene` owns runtime vocab; the playback systems own the
+  drive; `render::cutscene` owns UI/render only; content installs scripts/bindings
+  into the *runtime*, not render.
+- **Landed (2026-06-25):** classified every type/system and split by the actual
+  dependency layering (`gameplay_core` → `ambition_cutscene`, so the
+  gameplay-coupled systems can't sink into the foundation crate):
+  - **Runtime types** `CutsceneLibrary` + `RoomCutsceneBindings` (pure, content-free)
+    → `ambition_cutscene` (joins `ActiveCutscene`/`CutsceneAdvanceRequest`/the
+    script+stepper already there).
+  - **Runtime systems + plugin** (`auto_trigger_room_cutscenes`,
+    `drain_cutscene_triggers`, `tick_active_cutscene`, `CutsceneSchedulePlugin` —
+    need `RoomSet`/`SandboxSave`/`SandboxSet`/`CutsceneTriggerQueue`) →
+    new `ambition_gameplay_core::cutscene` (sibling of `cutscene_trigger`).
+  - **Authored defaults** (`default_cutscene_library`, the room→cutscene bindings —
+    named Ambition scripts/rooms) → `ambition_content::dialogue::cutscene_defaults`
+    (`RoomCutsceneBindings::defaults()` → free fn `default_room_cutscene_bindings()`).
+  - **Presentation** (`CutsceneOverlayRoot`, `sync_cutscene_ui`) → stays in
+    `render::cutscene`, now presentation-only.
+  - Net: **content no longer imports `ambition_render` for cutscene runtime** (the
+    verified boundary leak is closed); the only remaining `render::cutscene`
+    references are the presentation overlay + accurate doc comments. No compat
+    shims/re-exports — all consumers repointed to canonical paths. Feel-risk: none
+    (type moves only; build + all cutscene/arch-boundary tests green).
 
 ### Audio / music / SFX / VFX
 - **Now:** `SandboxAudioPlugin` mixes backend, settings, content cue loading, and
@@ -659,7 +675,11 @@ Condensed orientation so an agent can work a domain without rediscovering it.
 3. **Combat runtime plugin** — hitboxes, damage, facts, attribution, faction rules.
 4. **Projectile runtime plugin** — generic body lifecycle + spawn/despawn messages;
    split from named spells/item abilities.
-5. **Cutscene runtime plugin** — move runtime out of render (the bounded win).
+5. ~~**Cutscene runtime plugin** — move runtime out of render (the bounded win).~~
+   **DONE (2026-06-25):** runtime types → `ambition_cutscene`, playback systems +
+   `CutsceneSchedulePlugin` → `ambition_gameplay_core::cutscene`, authored defaults →
+   `ambition_content::dialogue::cutscene_defaults`, presentation stays in
+   `render::cutscene`. Content/render cutscene-runtime leak closed.
 6. **World/LDtk runtime plugin** — room load/reset/lifecycle + RoomGeometry contract.
 7. **Encounter runtime plugin** — scripts/phases/payloads; content specials mount
    into extension sets.

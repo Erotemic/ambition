@@ -814,7 +814,7 @@ fn architecture_boundaries_named_content_registers_through_content_plugin() {
         "QuestRegistry::default()",
         "BossEncounterRegistry::default()",
         "default_cutscene_library()",
-        "RoomCutsceneBindings::defaults()",
+        "default_room_cutscene_bindings()",
         "install_boss_banter",
         "install_pirate_banter",
         "crate::intro::IntroPlugin",

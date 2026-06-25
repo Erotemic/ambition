@@ -10,6 +10,8 @@
 //! lives in the sandbox: rendering the dialogue text, easing the
 //! camera target, drawing the fade overlay.
 
+use std::collections::BTreeMap;
+
 use bevy::prelude::*;
 use serde::{Deserialize, Serialize};
 
@@ -234,6 +236,37 @@ impl CutsceneAdvanceRequest {
         }
         (self.skip_hold_seconds / SKIP_HOLD_THRESHOLD_SECS).clamp(0.0, 1.0)
     }
+}
+
+// ---------------------------------------------------------------------------
+// Runtime registries (content-free). The authored scripts/bindings live in a
+// game's content crate; these are the reusable resources that hold them and the
+// runtime systems look up. No named content here.
+
+/// Registry of cutscene scripts keyed by id. A game's content installs scripts
+/// here at startup; the trigger/playback systems look one up by id when a
+/// trigger fires.
+#[derive(Resource, Default)]
+pub struct CutsceneLibrary {
+    pub scripts: BTreeMap<String, CutsceneScript>,
+}
+
+impl CutsceneLibrary {
+    pub fn insert(&mut self, script: CutsceneScript) {
+        self.scripts.insert(script.id.clone(), script);
+    }
+
+    pub fn get(&self, id: &str) -> Option<&CutsceneScript> {
+        self.scripts.get(id)
+    }
+}
+
+/// Mapping from room id → cutscene id to play the first time an actor enters
+/// that room. Drained by the runtime auto-trigger system. Content populates the
+/// pairs; this type carries no defaults of its own.
+#[derive(Resource, Default)]
+pub struct RoomCutsceneBindings {
+    pub bindings: Vec<(String, String)>,
 }
 
 #[cfg(test)]

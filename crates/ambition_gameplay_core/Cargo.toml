@@ -360,8 +360,9 @@ ambition_time = { path = "../ambition_time" }
 # from lib.rs (ADR 0019). See docs/current/state.md.
 ambition_characters = { path = "../ambition_characters" }
 ambition_combat = { path = "../ambition_combat" }
-# Cutscene script format + runtime stepper (pure data; re-exported as
-# `presentation::cutscene::script`).
+# Cutscene script format + runtime stepper + playback-state resources (pure
+# data + ECS resources). The playback systems that drive them live in
+# `crate::cutscene`.
 ambition_cutscene = { path = "../ambition_cutscene" }
 ambition_vfx = { path = "../ambition_vfx" }
 ambition_engine_core = { path = "../ambition_engine_core" }

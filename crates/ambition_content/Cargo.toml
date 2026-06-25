@@ -27,6 +27,7 @@ ambition_gameplay_core = { path = "../ambition_gameplay_core", default-features 
     "portal",
 ] }
 ambition_render = { path = "../ambition_render" }
+ambition_cutscene = { path = "../ambition_cutscene" }
 ambition_asset_manager = { path = "../ambition_asset_manager", features = ["bevy", "sfx"] }
 ambition_sfx = { path = "../ambition_sfx" }
 ambition_audio = { path = "../ambition_audio", optional = true }

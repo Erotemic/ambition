@@ -5,8 +5,8 @@
 //! The plugin contributes via startup systems:
 //!
 //! - [`install_intro_cutscenes_system`] extends
-//!   [`ambition_render::cutscene::CutsceneLibrary`] and
-//!   [`ambition_render::cutscene::RoomCutsceneBindings`] with the intro scripts
+//!   [`ambition_cutscene::CutsceneLibrary`] and
+//!   [`ambition_cutscene::RoomCutsceneBindings`] with the intro scripts
 //!   and room bindings from [`crate::intro::cutscene`].
 //! - [`load_intro_npc_sprites_system`] extends
 //!   [`ambition_gameplay_core::assets::game_assets::GameAssets`]`.characters.npcs` with the
@@ -25,7 +25,7 @@ use crate::banter::CombatBanterRegistry;
 use ambition_gameplay_core::assets::game_assets::{GameAssetConfig, GameAssets};
 use ambition_gameplay_core::character_sprites::{build_npc_sprite_asset, build_prop_sprite_asset};
 use ambition_gameplay_core::rooms::GatePortalRegistry;
-use ambition_render::cutscene::{CutsceneLibrary, RoomCutsceneBindings};
+use ambition_cutscene::{CutsceneLibrary, RoomCutsceneBindings};
 
 use super::banter::install_intro_banter;
 use super::cutscene::{install_intro_cutscenes, intro_room_cutscene_bindings};

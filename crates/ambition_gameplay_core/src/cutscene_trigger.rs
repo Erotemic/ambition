@@ -2,10 +2,10 @@
 //!
 //! Gameplay systems (a boss dying, a room entry, a dialogue node) decide *that*
 //! a cutscene should play by pushing its id here; the cutscene PLAYBACK runtime
-//! (overlay, script player) lives in [`crate::presentation::cutscene`] and drains
-//! this queue. Splitting the trigger out of the presentation module lets sim
-//! code request a cutscene without depending on the renderer — the same
-//! request-channel seam used for VFX/SFX.
+//! (script player) lives in [`crate::cutscene`] and drains this queue, while the
+//! overlay presentation lives in `ambition_render::cutscene`. Splitting the
+//! trigger out lets sim code request a cutscene without depending on the
+//! renderer — the same request-channel seam used for VFX/SFX.
 
 use bevy::prelude::*;
 

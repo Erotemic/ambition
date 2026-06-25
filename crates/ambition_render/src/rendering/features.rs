@@ -24,7 +24,7 @@ use ambition_gameplay_core::features::{
 /// same frame; chests pick up their sprite via `state_aware_entity_sprite`.
 pub fn spawn_dynamic_feature_visuals(
     mut commands: Commands,
-    world: Res<ambition_gameplay_core::GameWorld>,
+    world: Res<ambition_gameplay_core::RoomGeometry>,
     assets: Option<Res<GameAssets>>,
     existing: Query<&FeatureVisual>,
     ecs_mobs: Query<

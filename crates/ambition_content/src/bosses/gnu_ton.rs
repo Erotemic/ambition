@@ -75,7 +75,7 @@ fn boss_is_gnu_ton(boss: &ambition_gameplay_core::features::BossRef<'_>) -> bool
 }
 
 pub fn gate_gnu_ton_arena_ladder(
-    mut world: ResMut<ambition_gameplay_core::GameWorld>,
+    mut world: ResMut<ambition_gameplay_core::RoomGeometry>,
     bosses: Query<BossClusterRef>,
     mut state: Local<GnuTonLadderGate>,
 ) {
@@ -153,7 +153,7 @@ mod tests {
     fn make_game_world(
         name: &str,
         ladders: Vec<ae::ClimbableRegion>,
-    ) -> ambition_gameplay_core::GameWorld {
+    ) -> ambition_gameplay_core::RoomGeometry {
         let world = ae::World::new(
             name,
             ae::Vec2::new(2_000.0, 2_000.0),
@@ -161,13 +161,13 @@ mod tests {
             Vec::new(),
         )
         .with_climbable_regions(ladders);
-        ambition_gameplay_core::GameWorld(world)
+        ambition_gameplay_core::RoomGeometry(world)
     }
 
     fn make_game_world_with_floor_gate(
         name: &str,
         ladders: Vec<ae::ClimbableRegion>,
-    ) -> ambition_gameplay_core::GameWorld {
+    ) -> ambition_gameplay_core::RoomGeometry {
         let gate_block = ae::Block::solid(
             FLOOR_GATE_BLOCK_NAME,
             ae::Vec2::new(112.0, 208.0),
@@ -180,12 +180,12 @@ mod tests {
             vec![gate_block],
         )
         .with_climbable_regions(ladders);
-        ambition_gameplay_core::GameWorld(world)
+        ambition_gameplay_core::RoomGeometry(world)
     }
 
     fn floor_gate_count(app: &App) -> usize {
         app.world()
-            .resource::<ambition_gameplay_core::GameWorld>()
+            .resource::<ambition_gameplay_core::RoomGeometry>()
             .0
             .blocks
             .iter()
@@ -301,7 +301,7 @@ mod tests {
         }
     }
 
-    fn make_app(world: ambition_gameplay_core::GameWorld) -> App {
+    fn make_app(world: ambition_gameplay_core::RoomGeometry) -> App {
         crate::bosses::install_boss_roster();
         let mut app = App::new();
         app.insert_resource(world);
@@ -315,7 +315,7 @@ mod tests {
 
     fn climbable_regions_len(app: &App) -> usize {
         app.world()
-            .resource::<ambition_gameplay_core::GameWorld>()
+            .resource::<ambition_gameplay_core::RoomGeometry>()
             .0
             .climbable_regions
             .len()
@@ -358,7 +358,7 @@ mod tests {
         app.update();
         let regions = &app
             .world()
-            .resource::<ambition_gameplay_core::GameWorld>()
+            .resource::<ambition_gameplay_core::RoomGeometry>()
             .0
             .climbable_regions;
         assert_eq!(regions.len(), 1, "ladder should be back after defeat");
@@ -467,7 +467,7 @@ mod tests {
         // boss entity despawned in the real flow but irrelevant
         // here since the room-name check fires first).
         app.world_mut()
-            .resource_mut::<ambition_gameplay_core::GameWorld>()
+            .resource_mut::<ambition_gameplay_core::RoomGeometry>()
             .0 = ae::World::new(
             "some_other_room",
             ae::Vec2::new(2_000.0, 2_000.0),
@@ -478,7 +478,7 @@ mod tests {
 
         // Re-enter arena with fresh ladder + fresh (alive) boss.
         app.world_mut()
-            .resource_mut::<ambition_gameplay_core::GameWorld>()
+            .resource_mut::<ambition_gameplay_core::RoomGeometry>()
             .0 = ae::World::new(
             ARENA_ROOM_NAME,
             ae::Vec2::new(2_000.0, 2_000.0),

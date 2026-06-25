@@ -83,7 +83,7 @@ pub(super) fn sync_preset_input_map(
 pub(super) fn handle_ldtk_hot_reload(
     mut commands: Commands,
     keys: Res<ButtonInput<KeyCode>>,
-    mut world: ResMut<GameWorld>,
+    mut world: ResMut<RoomGeometry>,
     mut room_set: ResMut<rooms::RoomSet>,
     mut dev_state: ResMut<SandboxDevState>,
     mut sim_state: ResMut<ambition_gameplay_core::SandboxSimState>,
@@ -235,7 +235,7 @@ pub(super) fn prepare_ldtk_reload_transaction(
 
 pub(super) fn reload_ldtk_world_from_disk(
     commands: &mut Commands,
-    world: &mut GameWorld,
+    world: &mut RoomGeometry,
     room_set: &mut rooms::RoomSet,
     clusters: &mut ae::PlayerClustersMut<'_>,
     dev_state: &mut SandboxDevState,

@@ -10,7 +10,7 @@ use ambition_gameplay_core::platformer_runtime::gravity::{gravity_upright_angle,
 use ambition_gameplay_core::platformer_runtime::orientation::{update_actor_roll, ActorRoll};
 use ambition_gameplay_core::platformer_runtime::transit::rotate_velocity_between_normals as portal_transform_velocity;
 use ambition_gameplay_core::player::{BodyKinematics, PlayerBaseSize, PlayerEntity, PrimaryPlayer};
-use ambition_gameplay_core::GameWorld;
+use ambition_gameplay_core::RoomGeometry;
 
 #[allow(unused_imports)]
 use super::*;
@@ -25,13 +25,13 @@ const ORANGE: PortalChannel = PortalChannel::Gun(PortalGunColor::ORANGE);
 const PURPLE: PortalChannel = PortalChannel::Authored(PortalChannelColor::Purple);
 const YELLOW: PortalChannel = PortalChannel::Authored(PortalChannelColor::Yellow);
 
-fn world_with_two_walls() -> GameWorld {
+fn world_with_two_walls() -> RoomGeometry {
     // Left wall x[0,20], right wall x[380,400], both y[0,400].
     let blocks = vec![
         ae::Block::solid("left", Vec2::new(0.0, 0.0), Vec2::new(20.0, 400.0)),
         ae::Block::solid("right", Vec2::new(380.0, 0.0), Vec2::new(20.0, 400.0)),
     ];
-    GameWorld(ae::World::new(
+    RoomGeometry(ae::World::new(
         "portal_test",
         Vec2::new(400.0, 400.0),
         Vec2::new(200.0, 360.0),
@@ -876,7 +876,7 @@ fn partial_render_keeps_the_sprite_and_adds_the_exit_copy() {
     let mut app = App::new();
     app.insert_resource(world_with_two_walls());
     // Drive the visual through the REAL host adapter chain: world-frame sync +
-    // scene-body tagging bridge the sandbox types (GameWorld / PlayerVisual)
+    // scene-body tagging bridge the sandbox types (RoomGeometry / PlayerVisual)
     // to the crate-owned seams the presentation system reads (auto sync points
     // flush the tag's commands between the chained systems).
     app.init_resource::<PortalWorldFrame>();
@@ -1020,7 +1020,7 @@ fn portal_shot_travels_and_opens_a_portal_on_a_wall() {
     app.add_message::<FirePortalGun>();
     // The `FirePortalGun` gesture is resolved into the generic `PortalFireIntent`
     // by the Ambition resolver (Phase 2 Seam 3) before the core fire system reads
-    // it; the GameWorld-reading shot stepper is the Ambition world-seam adapter
+    // it; the RoomGeometry-reading shot stepper is the Ambition world-seam adapter
     // (Phase 2 Seam 2). Portal core keeps the pure `step_portal_shot` helper.
     app.add_message::<ambition_gameplay_core::portal::PortalFireIntent>();
     app.add_systems(

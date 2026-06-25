@@ -41,7 +41,7 @@ pub fn blink_system(
     control: Res<ControlFrame>,
     gravity: crate::physics::GravityCtx,
     user_settings: Option<Res<crate::persistence::settings::UserSettings>>,
-    world: Option<Res<crate::GameWorld>>,
+    world: Option<Res<crate::RoomGeometry>>,
     mut commands: Commands,
     mut players: Query<
         (
@@ -222,7 +222,7 @@ mod tests {
 
     #[test]
     fn attack_blinks_the_player_forward_along_facing() {
-        // No GameWorld inserted → the no-clamp branch teleports the full distance.
+        // No RoomGeometry inserted → the no-clamp branch teleports the full distance.
         let mut app = test_app();
         let player = spawn_player_holding(&mut app, BLINK_ID, 1.0);
         app.world_mut()
@@ -244,7 +244,7 @@ mod tests {
         let mut app = test_app();
         let player = spawn_player_holding(&mut app, BLINK_ID, 1.0); // (300,300), 24x40
                                                                     // Solid floor whose top edge is at y=350, just below the player.
-        app.insert_resource(crate::GameWorld(ae::World::new(
+        app.insert_resource(crate::RoomGeometry(ae::World::new(
             "test",
             ae::Vec2::new(600.0, 600.0),
             ae::Vec2::new(300.0, 300.0),

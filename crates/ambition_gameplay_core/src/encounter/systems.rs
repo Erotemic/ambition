@@ -57,7 +57,7 @@ pub fn update_encounters_from_world(
     mut switch_activations: ResMut<SwitchActivationQueue>,
     switch_index: Res<EncounterSwitchIndex>,
     mut trace: ResMut<crate::trace::GameplayTraceBuffer>,
-    mut world: ResMut<crate::GameWorld>,
+    mut world: ResMut<crate::RoomGeometry>,
     player_body_q: Query<&crate::player::BodyKinematics, With<crate::player::PlayerEntity>>,
     mut music_request: ResMut<EncounterMusicRequest>,
     mut quests: ResMut<crate::quest::QuestRegistry>,
@@ -357,7 +357,7 @@ pub fn update_encounters_from_world(
 
     // 7. Lock-wall management: while any encounter is in Starting or
     //    Active, the lock wall block needs to be present in the
-    //    GameWorld. When the encounter leaves those phases, pull it
+    //    RoomGeometry. When the encounter leaves those phases, pull it
     //    out. Identified by the block name `lockwall:<encounter_id>`.
     sync_lock_walls(&mut world.0, &registry);
 

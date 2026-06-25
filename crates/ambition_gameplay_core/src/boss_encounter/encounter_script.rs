@@ -304,7 +304,7 @@ pub struct FallingHazard {
 pub fn tick_falling_hazards(
     mut commands: Commands,
     world_time: Res<crate::WorldTime>,
-    world: Res<crate::GameWorld>,
+    world: Res<crate::RoomGeometry>,
     mut gates: MessageWriter<EncounterGate>,
     mut hazards: Query<(Entity, &mut CenteredAabb, &mut FallingHazard)>,
     targets: Query<&CenteredAabb, Without<FallingHazard>>,
@@ -496,7 +496,7 @@ mod tests {
             raw_dt: 1.0 / 60.0,
             scaled_dt: 1.0 / 60.0,
         });
-        app.insert_resource(crate::GameWorld(ae::World::new(
+        app.insert_resource(crate::RoomGeometry(ae::World::new(
             "t",
             ae::Vec2::new(2000.0, 2000.0),
             ae::Vec2::new(50.0, 50.0),

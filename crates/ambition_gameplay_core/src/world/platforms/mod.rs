@@ -524,7 +524,7 @@ pub fn spawn_moving_platforms(
 
 pub fn sync_moving_platform(
     mut commands: Commands,
-    world: Res<crate::GameWorld>,
+    world: Res<crate::RoomGeometry>,
     room_set: Res<RoomSet>,
     mut platform_set: ResMut<crate::MovingPlatformSet>,
     mut active_platform_room: Local<Option<String>>,
@@ -535,7 +535,7 @@ pub fn sync_moving_platform(
     let desired_start = moving_platforms_for_room(active_spec);
 
     // Refresh only when the authored source changes, not every time RoomSet or
-    // GameWorld gets marked changed by an unrelated system. The runtime copies
+    // RoomGeometry gets marked changed by an unrelated system. The runtime copies
     // are live state: the player tick advances them and carries the player by
     // their frame deltas. Resetting them every frame turns invisible collision
     // platforms into conveyor belts while visuals stay pinned at authored starts.

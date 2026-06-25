@@ -24,7 +24,7 @@ use crate::ldtk_world::{LdtkRuntimeIndex, SandboxLdtkAsset};
 use crate::platformer_runtime::lifecycle::{PlayerVisual, SceneEntities};
 use crate::rooms::RoomSet;
 use crate::session::data::SandboxDataAsset;
-use crate::GameWorld;
+use crate::RoomGeometry;
 
 /// Borrowed inputs for `simulation_world`.
 ///
@@ -33,7 +33,7 @@ use crate::GameWorld;
 /// past 16 params again. The struct also documents what the simulation
 /// half of setup actually needs.
 pub struct SimulationSetup<'a> {
-    pub world: &'a GameWorld,
+    pub world: &'a RoomGeometry,
     pub room_set: &'a RoomSet,
     pub ldtk_index: &'a LdtkRuntimeIndex,
     pub editable_abilities: &'a EditableAbilitySet,

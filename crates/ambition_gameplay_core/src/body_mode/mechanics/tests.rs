@@ -36,8 +36,8 @@ fn open_world() -> ae::World {
 
 fn build_body_mode_test_app() -> (App, Entity) {
     let mut app = App::new();
-    app.insert_resource(crate::GameWorld(open_world()));
-    let world_spawn = app.world().resource::<crate::GameWorld>().0.spawn;
+    app.insert_resource(crate::RoomGeometry(open_world()));
+    let world_spawn = app.world().resource::<crate::RoomGeometry>().0.spawn;
     app.add_systems(Update, super::update_body_mode);
     let player = app
         .world_mut()
@@ -74,7 +74,7 @@ fn build_body_mode_test_app() -> (App, Entity) {
 
 fn place_player_on_test_ladder(app: &mut App, player: Entity, vel: Option<Vec2>) {
     app.world_mut()
-        .resource_mut::<crate::GameWorld>()
+        .resource_mut::<crate::RoomGeometry>()
         .0
         .climbable_regions
         .push(ClimbableRegion::new(
@@ -91,7 +91,7 @@ fn place_player_on_test_ladder(app: &mut App, player: Entity, vel: Option<Vec2>)
     }
     let contact = app
         .world()
-        .resource::<crate::GameWorld>()
+        .resource::<crate::RoomGeometry>()
         .0
         .climbable_at(app.world().get::<BodyKinematics>(player).unwrap().aabb());
     app.world_mut()

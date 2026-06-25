@@ -72,7 +72,7 @@ pub fn sync_boss_encounter_phase(
 /// debug-overlay paths all query it.
 pub fn tick_boss_brains_system(
     world_time: Res<WorldTime>,
-    world: Res<crate::GameWorld>,
+    world: Res<crate::RoomGeometry>,
     platform_set: Res<crate::MovingPlatformSet>,
     overlay: Res<FeatureEcsWorldOverlay>,
     mut bosses: Query<
@@ -252,7 +252,7 @@ fn pattern_brain_mut(brain: &mut Brain) -> &mut StateMachineCfg {
 ///    directly (no runtime mirror fields involved).
 pub fn update_ecs_bosses(
     world_time: Res<WorldTime>,
-    world: Res<crate::GameWorld>,
+    world: Res<crate::RoomGeometry>,
     platform_set: Res<crate::MovingPlatformSet>,
     overlay: Res<FeatureEcsWorldOverlay>,
     mut sfx: MessageWriter<crate::audio::SfxMessage>,

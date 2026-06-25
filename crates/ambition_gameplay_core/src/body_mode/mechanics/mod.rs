@@ -39,7 +39,7 @@ use bevy::prelude::*;
 const CROUCH_AXIS_Y_THRESHOLD: f32 = 0.4;
 
 pub fn update_body_mode(
-    world: Res<crate::GameWorld>,
+    world: Res<crate::RoomGeometry>,
     gravity_field: Option<Res<crate::physics::GravityField>>,
     // Optional: headless / unit-test apps may omit the settings resource. Absent →
     // Hybrid (the historical behavior).

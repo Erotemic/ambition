@@ -34,7 +34,7 @@ pub struct PlayerChargeVisual;
 /// are transform-updated until their projectile entity despawns.
 pub fn sync_projectile_visuals(
     mut commands: Commands,
-    world: Res<ambition_gameplay_core::GameWorld>,
+    world: Res<ambition_gameplay_core::RoomGeometry>,
     assets: Option<Res<ambition_gameplay_core::assets::game_assets::GameAssets>>,
     // Per-player charge UI: iterate every player so each one's charge
     // indicator renders independently. Single-player behavior unchanged.

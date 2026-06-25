@@ -146,7 +146,7 @@ pub fn init_sandbox_resources(app: &mut App) {
     let active_world = room_set.active_world().clone();
 
     app.insert_resource(ldtk_world::SandboxLdtkProject(ldtk_project.clone()))
-        .insert_resource(GameWorld(active_world))
+        .insert_resource(RoomGeometry(active_world))
         .insert_resource(rooms::ActiveRoomMetadata::default())
         .insert_resource(room_set)
         .insert_resource(ldtk_index)

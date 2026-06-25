@@ -30,7 +30,7 @@ use ambition_gameplay_core::rooms::RoomSet;
 use ambition_gameplay_core::session::data::{MusicRegistry, SfxRegistry};
 use ambition_gameplay_core::world::physics::PhysicsSandboxSettings;
 use ambition_gameplay_core::world::platforms;
-use ambition_gameplay_core::GameWorld;
+use ambition_gameplay_core::RoomGeometry;
 use ambition_render::rendering::{
     spawn_parallax_layers, spawn_room_visuals, HudText, PlayerSpriteBaseline, QuestPanelText,
 };
@@ -40,7 +40,7 @@ use ambition_sfx::BankProvider;
 
 /// Borrowed inputs for `presentation_world`.
 pub struct PresentationSetup<'a> {
-    pub world: &'a GameWorld,
+    pub world: &'a RoomGeometry,
     pub room_set: &'a RoomSet,
     pub physics_settings: PhysicsSandboxSettings,
     pub game_assets: &'a GameAssets,

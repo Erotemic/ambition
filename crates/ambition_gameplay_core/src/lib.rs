@@ -22,7 +22,7 @@
 //! `persistence`, `effects`, `projectile`, `enemy_projectile`, `boss_encounter`,
 //! `quest`, plus the `schedule`/`host`/`session` assembly and `dev` tooling.
 //!
-//! This crate owns the module graph and the cross-cutting types (`GameWorld`,
+//! This crate owns the module graph and the cross-cutting types (`RoomGeometry`,
 //! `SandboxSimState`, `SandboxDevState`) that submodules reference via `crate::*`.
 //! It is a library only; the playable app, the headless entry point
 //! (`run_headless`), and all binaries live in `ambition_app`.
@@ -184,13 +184,21 @@ impl SafePositionContext {
     }
 }
 
-/// Active room's collision world, exposed as a Bevy resource.
+/// The active room's authored static spatial geometry — collision blocks,
+/// water/climbable regions, bounds, spawn — exposed as a Bevy resource.
 ///
-/// Sandbox systems read collision through this wrapper so simulation logic
-/// stays decoupled from how the world was authored. LDtk hot reload mutates
-/// this resource as part of the transactional reload path.
+/// (Formerly `GameWorld`; renamed because the old name named what it *wasn't*
+/// — disambiguation from `bevy::ecs::World` — rather than what it is.)
+///
+/// This is the authored BASE, write-once-per-room: it is replaced wholesale at
+/// a room boundary (load / reset / LDtk hot-reload), not mutated incrementally
+/// mid-room. The collision the simulation actually sweeps against is a per-frame
+/// derived *view* over this base plus dynamic overlay contributions (moving
+/// platforms, ECS solids, portal carves) — see
+/// [`combat::world_overlay::world_with_sandbox_solids`]. RoomGeometry is the
+/// geometry; the view is what you collide against.
 #[derive(Resource, Clone)]
-pub struct GameWorld(pub ae::World);
+pub struct RoomGeometry(pub ae::World);
 
 pub const BLINK_IN_ANIM_TIME: f32 = 0.34;
 pub const ROOM_DOOR_CAMERA_SNAP_TIME: f32 = 0.08;

@@ -22,7 +22,7 @@ const BEACON_SIZE: ae::Vec2 = ae::Vec2::new(30.0, 70.0);
 /// cleared. Visible build only.
 pub fn sync_mark_beacon_visual(
     mut commands: Commands,
-    world: Res<ambition_gameplay_core::GameWorld>,
+    world: Res<ambition_gameplay_core::RoomGeometry>,
     asset_server: Res<AssetServer>,
     visuals: Query<Entity, With<MarkBeaconVisual>>,
     marks: Query<&PlayerMark>,

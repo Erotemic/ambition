@@ -77,7 +77,7 @@ impl Plugin for AmbitionPortalAdaptersPlugin {
                 .after(publish_portal_carves),
         );
 
-        // Advance in-flight portal shots against the concrete `GameWorld` (the
+        // Advance in-flight portal shots against the concrete `RoomGeometry` (the
         // world-seam adapter, Phase 2 Seam 2). Runs in the weapon set after the
         // core fire system, preserving the old `toggle → fire → step` order; the
         // pure decision lives in `ambition_gameplay_core::portal::step_portal_shot`.

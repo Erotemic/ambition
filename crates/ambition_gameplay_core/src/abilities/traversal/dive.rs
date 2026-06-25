@@ -86,7 +86,7 @@ pub fn fire_dive_system(
     control: Res<ControlFrame>,
     gravity: crate::physics::GravityCtx,
     user_settings: Option<Res<crate::persistence::settings::UserSettings>>,
-    world: Option<Res<crate::GameWorld>>,
+    world: Option<Res<crate::RoomGeometry>>,
     mut players: Query<
         (Entity, &mut BodyKinematics, &HeldItem, &mut PlayerMana),
         (With<PlayerEntity>, With<PrimaryPlayer>),
@@ -236,7 +236,7 @@ mod tests {
         // the body's half-HEIGHT, not half-width, or a down dive embeds in the floor.
         let mut app = test_app();
         let player = spawn_primary_player_holding(&mut app, DIVE_ID); // (100,100), 24x40
-        app.insert_resource(crate::GameWorld(ae::World::new(
+        app.insert_resource(crate::RoomGeometry(ae::World::new(
             "test",
             ae::Vec2::new(600.0, 600.0),
             ae::Vec2::new(100.0, 100.0),

@@ -6,7 +6,7 @@
 //! entry), and `PortalBodyTransited` (the crossing, carrying the exit position) —
 //! and this Ambition adapter maps each to the concrete portal sfx cues. The shot
 //! placement / close / fizzle cues stay in `shot_adapter` (they already lived in
-//! the Ambition world-seam adapter, which owns `GameWorld`).
+//! the Ambition world-seam adapter, which owns `RoomGeometry`).
 //!
 //! Moving these here (Stage 19 Phase 5a) removes the last `ambition_sfx`
 //! reference from portal core (`portal_transit` / `portal_fire_system`).

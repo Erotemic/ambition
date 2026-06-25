@@ -5,7 +5,7 @@
 //! [`SolidWorldQuery`](ambition_platformer_primitives::world_query::SolidWorldQuery)
 //! seam — the pure [`step_portal_shot`] helper raycasts against it (plus a
 //! world-bounds rectangle) and decides the outcome, so portal core never reads
-//! the concrete `Res<GameWorld>`. The Bevy adapter that owns `GameWorld` lives in
+//! the concrete `Res<RoomGeometry>`. The Bevy adapter that owns `RoomGeometry` lives in
 //! the host portal adapter and calls the helper.
 
 use bevy::prelude::*;
@@ -66,8 +66,8 @@ pub fn portal_fire_system(
 
 /// World access for the pure portal-shot step: the solid surfaces the shot's
 /// ray can hit, plus the world bounds it fizzles past. The host supplies a
-/// concrete value (its `GameWorld`) via the Ambition adapter; portal core's
-/// [`step_portal_shot`] reasons about it through this seam, never `GameWorld`.
+/// concrete value (its `RoomGeometry`) via the Ambition adapter; portal core's
+/// [`step_portal_shot`] reasons about it through this seam, never `RoomGeometry`.
 ///
 /// `solids` is the reusable
 /// [`SolidWorldQuery`](ambition_platformer_primitives::world_query::SolidWorldQuery)
@@ -95,7 +95,7 @@ pub fn is_portal_placeable(_hit: Vec2, _normal: Vec2) -> bool {
 
 /// Outcome of advancing one [`PortalShot`] by `dt` against the world seam. The
 /// pure decision; the Bevy adapter applies it (spawns/despawns entities, plays
-/// sfx). Keeps portal core's shot logic free of `Res<GameWorld>` and of ECS
+/// sfx). Keeps portal core's shot logic free of `Res<RoomGeometry>` and of ECS
 /// entity bookkeeping.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum PortalShotStep {
@@ -117,7 +117,7 @@ pub enum PortalShotStep {
 
 /// Advance one portal shot one tick against the world seam and decide its
 /// outcome — the pure heart of `portal_projectile_step`, free of ECS and of the
-/// concrete `GameWorld`. A solid contact on a [`is_portal_placeable`] surface
+/// concrete `RoomGeometry`. A solid contact on a [`is_portal_placeable`] surface
 /// places the portal; a contact on a non-placeable surface fizzles; otherwise
 /// the shot travels until it passes max range or leaves the world bounds.
 pub fn step_portal_shot<W: SolidWorldQuery + ?Sized>(

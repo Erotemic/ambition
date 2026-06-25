@@ -13,7 +13,7 @@ use super::{CHEST_FALL_GRAVITY, CHEST_FALL_MAX_SPEED};
 pub fn update_ecs_falling_chests(
     mut commands: Commands,
     world_time: Res<WorldTime>,
-    world: Res<crate::GameWorld>,
+    world: Res<crate::RoomGeometry>,
     mut chests: Query<(Entity, &mut CenteredAabb, &mut FallingChest), With<ChestFeature>>,
 ) {
     // Sim clock: bullet-time / pause / hitstop must freeze a falling

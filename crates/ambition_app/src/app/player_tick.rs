@@ -74,7 +74,7 @@ pub fn clear_sandbox_reset_this_frame(mut flag: ResMut<SandboxResetThisFrame>) {
 /// the simulation system can skip this frame.
 pub fn player_control_system(
     time: Res<Time>,
-    world: Res<GameWorld>,
+    world: Res<RoomGeometry>,
     editable_tuning: Res<EditableMovementTuning>,
     user_settings: Res<ambition_gameplay_core::persistence::settings::UserSettings>,
     feel_tuning: Res<SandboxFeelTuning>,
@@ -174,7 +174,7 @@ pub fn player_control_system(
 /// update and updates the flag itself if its own reset fires.
 pub fn player_simulation_system(
     time: Res<Time>,
-    world: Res<GameWorld>,
+    world: Res<RoomGeometry>,
     editable_tuning: Res<EditableMovementTuning>,
     user_settings: Res<ambition_gameplay_core::persistence::settings::UserSettings>,
     feel_tuning: Res<SandboxFeelTuning>,

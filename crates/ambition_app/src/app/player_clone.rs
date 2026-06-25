@@ -25,7 +25,7 @@ use ambition_gameplay_core::character_sprites::{
     player_placeholder_render_size, CharacterAnimator,
 };
 use ambition_engine_core as ae;
-use ambition_gameplay_core::GameWorld;
+use ambition_gameplay_core::RoomGeometry;
 use ambition_render::rendering::{PlayerSpriteBaseline, PlayerVisual};
 
 /// Marks a brain-driven player-body clone (NOT the human player).
@@ -59,7 +59,7 @@ pub fn request_player_clone_on_key(
 pub fn spawn_requested_player_clone(
     mut commands: Commands,
     mut request: ResMut<SpawnPlayerCloneRequest>,
-    world: Res<GameWorld>,
+    world: Res<RoomGeometry>,
     // Optional: the headless RL harness has no loaded character sheets. Absent →
     // the clone falls back to a tinted rectangle (movement still works).
     game_assets: Option<Res<GameAssets>>,
@@ -248,7 +248,7 @@ pub fn despawn_player_clones_on_reset(
 
 /// Keep the clone's sprite on its simulated body.
 pub fn sync_player_clone_transform(
-    world: Res<GameWorld>,
+    world: Res<RoomGeometry>,
     mut clones: Query<
         (
             &ambition_gameplay_core::player::BodyKinematics,

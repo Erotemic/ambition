@@ -12,7 +12,7 @@ use ae::AabbExt;
 use bevy::prelude::*;
 
 use ambition_input::ControlFrame;
-use crate::GameWorld;
+use crate::RoomGeometry;
 
 const NEARBY_COLLISION_RADIUS: f32 = 220.0;
 const MAX_NEARBY_COLLISION: usize = 32;

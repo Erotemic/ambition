@@ -61,7 +61,7 @@ pub(crate) fn load_room(
     combat: &mut ambition_gameplay_core::player::PlayerCombatState,
     interaction: &mut ambition_gameplay_core::player::PlayerInteractionState,
     blink_cam: &mut ambition_gameplay_core::player::PlayerBlinkCameraState,
-    world: &mut GameWorld,
+    world: &mut RoomGeometry,
     room_set: &mut rooms::RoomSet,
     room_visuals: &Query<(Entity, Option<&physics::PhysicsRoomEntity>), With<RoomScopedEntity>>,
     transition: rooms::RoomTransition,
@@ -208,7 +208,7 @@ pub(crate) fn apply_room_transition_system(
         // camera body crossing an edge/door; the clone rides along in-room.
         ambition_gameplay_core::player::PrimaryPlayerOnly,
     >,
-    mut world: ResMut<GameWorld>,
+    mut world: ResMut<RoomGeometry>,
     mut room_set: ResMut<rooms::RoomSet>,
     mut dev_state: ResMut<ambition_gameplay_core::SandboxDevState>,
     mut room_clock: RoomClock,

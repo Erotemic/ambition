@@ -21,7 +21,7 @@ use crate::features::{
 use crate::player::BodyKinematics;
 use crate::projectile::ProjectileGameplay;
 use crate::trace::GameplayTraceBuffer;
-use crate::GameWorld;
+use crate::RoomGeometry;
 use ambition_vfx::vfx::VfxMessage;
 
 /// Speed multiplier applied to a parried shot as it reverses — a timed parry
@@ -88,7 +88,7 @@ fn lasersword_detonation(owner_id: &str, pos: ae::Vec2) -> Option<VfxMessage> {
 /// and could never transit a wall portal.
 #[derive(bevy::ecs::system::SystemParam)]
 pub struct ProjectileCollisionWorld<'w, 's> {
-    world: Res<'w, GameWorld>,
+    world: Res<'w, RoomGeometry>,
     overlay: Res<'w, crate::features::FeatureEcsWorldOverlay>,
     // Folded in here (rather than as its own top-level param) because
     // `update_projectiles` is already at Bevy's 16-param ceiling.

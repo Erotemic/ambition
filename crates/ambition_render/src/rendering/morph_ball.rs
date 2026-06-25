@@ -134,7 +134,7 @@ pub fn spawn_morph_ball_visual(
 /// AABB. Hides the regular player sprite while the ball is active so
 /// the standing-rig animation doesn't show through.
 pub fn sync_morph_ball_visual(
-    world: Res<ambition_gameplay_core::GameWorld>,
+    world: Res<ambition_gameplay_core::RoomGeometry>,
     entities: Res<ambition_gameplay_core::platformer_runtime::lifecycle::SceneEntities>,
     player_q: Query<
         (

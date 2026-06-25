@@ -133,7 +133,7 @@ pub fn sync_boss_health_bar_overlay(
 
 pub fn sync_health_overlays(
     mut commands: Commands,
-    world: Res<ambition_gameplay_core::GameWorld>,
+    world: Res<ambition_gameplay_core::RoomGeometry>,
     dev_state: Res<ambition_gameplay_core::SandboxDevState>,
     developer_tools: Res<ambition_gameplay_core::dev::dev_tools::DeveloperTools>,
     overlays: Query<Entity, With<HealthOverlayVisual>>,

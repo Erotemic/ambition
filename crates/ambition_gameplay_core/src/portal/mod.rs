@@ -14,7 +14,7 @@
 //! with zero churn, plus the Ambition-specific glue that is NOT reusable:
 //!
 //! - the **presentation host adapter** (render-gated): sync the crate-owned
-//!   [`PortalWorldFrame`] from [`GameWorld`], tag [`PortalSceneBody`] on the
+//!   [`PortalWorldFrame`] from [`RoomGeometry`], tag [`PortalSceneBody`] on the
 //!   player's visual entity, and load [`PortalGunArt`] from the Ambition asset
 //!   paths. The presentation crate never names a host type; these three
 //!   systems are the entire bridge.
@@ -50,7 +50,7 @@ mod host_adapter {
     use crate::platformer_runtime::body::BodyKinematics;
     use crate::platformer_runtime::lifecycle::PlayerVisual;
     use crate::player::{PlayerEntity, PrimaryPlayer};
-    use crate::GameWorld;
+    use crate::RoomGeometry;
 
     /// Bridge the controlled character + the collision world → the crate-owned
     /// [`PortalViewer`] seam, so each portal window is the wedge that character
@@ -60,7 +60,7 @@ mod host_adapter {
     /// blocks for the line-of-sight test. Absent player/possessed body ⇒
     /// `present = false`, and the renderer falls back to the static window.
     pub fn sync_portal_viewer(
-        world: Res<GameWorld>,
+        world: Res<RoomGeometry>,
         possession: Res<PossessionState>,
         feature_aabbs: Query<&CenteredAabb>,
         player: Query<&BodyKinematics, (With<PlayerEntity>, With<PrimaryPlayer>)>,
@@ -87,11 +87,11 @@ mod host_adapter {
         }
     }
 
-    /// Bridge [`GameWorld`] → the crate-owned [`PortalWorldFrame`] seam: the
+    /// Bridge [`RoomGeometry`] → the crate-owned [`PortalWorldFrame`] seam: the
     /// presentation crate only ever needs the world's size for its centered
     /// y-flip render transform, so the host copies that one field each frame
     /// (room transitions resize the world).
-    pub fn sync_portal_world_frame(world: Res<GameWorld>, mut frame: ResMut<PortalWorldFrame>) {
+    pub fn sync_portal_world_frame(world: Res<RoomGeometry>, mut frame: ResMut<PortalWorldFrame>) {
         if frame.size != world.0.size {
             frame.size = world.0.size;
         }

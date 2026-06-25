@@ -112,7 +112,7 @@ pub fn spawn_bubble_shield_visual(
 /// Show / hide and tint the shield ring based on `PlayerShieldState`.
 /// Position and scale track the player body size.
 pub fn sync_bubble_shield_visual(
-    world: Res<ambition_gameplay_core::GameWorld>,
+    world: Res<ambition_gameplay_core::RoomGeometry>,
     player_q: Query<
         (
             &ambition_gameplay_core::player::BodyKinematics,

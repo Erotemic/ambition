@@ -22,7 +22,7 @@ use super::*;
 #[allow(unused_imports)]
 use ambition_gameplay_core::schedule::*;
 
-// `GameWorld` and the time-scale ramp helper `move_toward` live in
+// `RoomGeometry` and the time-scale ramp helper `move_toward` live in
 // `ambition_gameplay_core::lib` (`ambition_gameplay_core`) and are re-imported above through
 // `use ambition_gameplay_core::*;`.
 
@@ -32,7 +32,7 @@ use ambition_gameplay_core::schedule::*;
 /// the presentation startup system later overwrites that with the real HUD entity.
 pub(super) fn setup_simulation_system(
     mut commands: Commands,
-    world: Res<GameWorld>,
+    world: Res<RoomGeometry>,
     room_set: Res<rooms::RoomSet>,
     sandbox_data_asset: Option<Res<data::SandboxDataAsset>>,
     ldtk_asset: Option<Res<ldtk_world::SandboxLdtkAsset>>,
@@ -73,7 +73,7 @@ pub(super) fn setup_simulation_system(
 #[cfg(feature = "audio")]
 pub(crate) fn setup_presentation_system(
     mut commands: Commands,
-    world: Res<GameWorld>,
+    world: Res<RoomGeometry>,
     room_set: Res<rooms::RoomSet>,
     music_registry: Res<data::MusicRegistry>,
     sfx_registry: Res<data::SfxRegistry>,
@@ -162,7 +162,7 @@ pub(crate) fn setup_presentation_system(
 #[cfg(not(feature = "audio"))]
 pub(crate) fn setup_presentation_system(
     mut commands: Commands,
-    world: Res<GameWorld>,
+    world: Res<RoomGeometry>,
     room_set: Res<rooms::RoomSet>,
     sandbox_catalog: Res<ambition_gameplay_core::assets::sandbox_assets::SandboxAssetCatalog>,
     physics_settings: Res<physics::PhysicsSandboxSettings>,

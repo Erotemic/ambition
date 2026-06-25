@@ -122,7 +122,7 @@ pub fn record_frame_system(
     mut buffer: ResMut<GameplayTraceBuffer>,
     clock: Res<crate::time::clock_state::ClockState>,
     platform_set: Res<crate::MovingPlatformSet>,
-    world: Res<GameWorld>,
+    world: Res<RoomGeometry>,
     time: Res<Time>,
     rooms: Option<Res<crate::rooms::RoomSet>>,
     mode: Res<State<crate::game_mode::GameMode>>,

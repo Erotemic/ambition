@@ -3,10 +3,10 @@
 //! Portal core's [`step_portal_shot`] is a pure helper over the reusable
 //! [`SolidWorldQuery`](ambition_gameplay_core::platformer_runtime::collision::SolidWorldQuery)
 //! seam (+ world bounds): it decides whether a shot travels, places a portal, or
-//! fizzles, without ever reading the concrete `Res<GameWorld>`. This adapter owns
-//! the concrete world — it reads `Res<GameWorld>`, calls the helper per shot, and
+//! fizzles, without ever reading the concrete `Res<RoomGeometry>`. This adapter owns
+//! the concrete world — it reads `Res<RoomGeometry>`, calls the helper per shot, and
 //! applies the [`PortalShotStep`] outcome (entity spawn/despawn + sfx). Moving
-//! the `GameWorld` read here keeps portal core's projectile step content-free.
+//! the `RoomGeometry` read here keeps portal core's projectile step content-free.
 
 use bevy::prelude::*;
 
@@ -14,16 +14,16 @@ use ambition_gameplay_core::platformer_runtime::prelude::SpawnScopedExt;
 use ambition_gameplay_core::portal::{
     portal_half_extent, step_portal_shot, PlacedPortal, PortalShot, PortalShotStep, PortalShotWorld,
 };
-use ambition_gameplay_core::GameWorld;
+use ambition_gameplay_core::RoomGeometry;
 
 /// Advance portal shots against the concrete collision world. For each shot,
-/// call the pure [`step_portal_shot`] over the `GameWorld`'s solids + bounds and
+/// call the pure [`step_portal_shot`] over the `RoomGeometry`'s solids + bounds and
 /// apply the outcome: open (or replace) the portal of the shot's color on a
 /// placeable surface (the warping whoosh + close/attach sfx), or fizzle past
 /// range / out of bounds / on a non-placeable surface (the rejection buzz).
 pub fn portal_projectile_step(
     time: Res<ambition_gameplay_core::WorldTime>,
-    world: Res<GameWorld>,
+    world: Res<RoomGeometry>,
     mut commands: Commands,
     mut projectiles: Query<(Entity, &mut PortalShot)>,
     portals: Query<(Entity, &PlacedPortal)>,

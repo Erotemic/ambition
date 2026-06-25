@@ -4,7 +4,7 @@
 use super::*;
 use crate::dev::dev_tools::EditableMovementTuning;
 use crate::player::PlayerBlinkCameraState;
-use crate::GameWorld;
+use crate::RoomGeometry;
 
 /// Pin the request resource's defaults: a fresh app starts with
 /// no reset queued. Important because the reset processor must
@@ -159,7 +159,7 @@ fn min_app() -> App {
     app.insert_resource(crate::SandboxSimState::default());
     app.insert_resource(crate::time::clock_state::ClockState::default());
     app.insert_resource(crate::SandboxDevState::default());
-    app.insert_resource(GameWorld(world.clone()));
+    app.insert_resource(RoomGeometry(world.clone()));
     // Construct a minimal RoomSet with one room so `start` and
     // `active` are both valid indices.
     let room_spec = crate::rooms::RoomSpec {
@@ -305,7 +305,7 @@ fn processor_warps_player_to_start_spawn() {
         req.request();
     }
     app.update();
-    let world = app.world().resource::<GameWorld>();
+    let world = app.world().resource::<RoomGeometry>();
     let expected_spawn = world.0.spawn;
     let mut q = app
         .world_mut()

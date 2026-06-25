@@ -86,7 +86,7 @@ fn item_sprite(art: &ItemArt, spec_id: &str) -> Option<(Handle<Image>, Vec2)> {
 
 pub fn sync_ground_item_visuals(
     mut commands: Commands,
-    world: Res<ambition_gameplay_core::GameWorld>,
+    world: Res<ambition_gameplay_core::RoomGeometry>,
     art: Option<Res<ItemArt>>,
     visuals: Query<Entity, With<GroundItemVisual>>,
     grounds: Query<&GroundItem>,
@@ -125,7 +125,7 @@ pub struct HeldItemVisual;
 pub fn sync_held_item_visual(
     mut commands: Commands,
     control: Res<ControlFrame>,
-    world: Res<ambition_gameplay_core::GameWorld>,
+    world: Res<ambition_gameplay_core::RoomGeometry>,
     art: Option<Res<ItemArt>>,
     visuals: Query<Entity, With<HeldItemVisual>>,
     players: Query<(&BodyKinematics, &HeldItem), (With<PlayerEntity>, With<PrimaryPlayer>)>,
@@ -207,7 +207,7 @@ pub struct HeldProjectileVisual;
 pub fn sync_held_projectile_visuals(
     mut commands: Commands,
     asset_server: Res<AssetServer>,
-    world: Res<ambition_gameplay_core::GameWorld>,
+    world: Res<ambition_gameplay_core::RoomGeometry>,
     visuals: Query<Entity, With<HeldProjectileVisual>>,
     projectiles: Query<(&BodyKinematics, &HeldProjectile)>,
     mut art: Local<Option<HeldProjectileVisualArt>>,

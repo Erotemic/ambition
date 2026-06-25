@@ -20,7 +20,7 @@ use crate::features::{ActorHealth, ActorIdentity, GameplayBanner, HitEvent, SetF
 use ambition_input::ControlFrame;
 use crate::trace::GameplayTraceBuffer;
 use crate::world::physics::DebrisBurstMessage;
-use crate::GameWorld;
+use crate::RoomGeometry;
 use ambition_vfx::vfx::VfxMessage;
 
 mod charging;
@@ -57,7 +57,7 @@ fn projectile_test_app(world: World, player_pos: ae::Vec2, facing: f32) -> App {
     let mut app = App::new();
     app.insert_resource(Time::<()>::default());
     app.insert_resource(crate::WorldTime::default());
-    app.insert_resource(GameWorld(world));
+    app.insert_resource(RoomGeometry(world));
     // `update_projectiles` collides against the portal-carved world; no carves in
     // these tests, so the overlay is empty (collision == raw world).
     app.init_resource::<crate::features::FeatureEcsWorldOverlay>();

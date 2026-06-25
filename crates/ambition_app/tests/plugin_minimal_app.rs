@@ -10,7 +10,7 @@
 //!   [`PlayerHealth`], [`PlayerCombatState`], [`PlayerAnimState`],
 //!   [`PlayerInteractionState`], [`PlayerBlinkCameraState`]);
 //! - the canonical sim resources ([`SandboxSimState`], [`ControlFrame`],
-//!   [`GameWorld`], [`RoomSet`], [`MovingPlatformSet`]) are present;
+//!   [`RoomGeometry`], [`RoomSet`], [`MovingPlatformSet`]) are present;
 //! - no deleted god-object resource (`SandboxRuntime`, `FeatureRuntime`)
 //!   is silently re-introduced — this is the runtime companion to the
 //!   `legacy_runtime_guardrail` static-text scanner.
@@ -27,7 +27,7 @@ use ambition_gameplay_core::player::{
     PrimaryPlayer,
 };
 use ambition_gameplay_core::rooms::RoomSet;
-use ambition_gameplay_core::{ClockState, GameMode, GameWorld, MovingPlatformSet, SandboxSimState};
+use ambition_gameplay_core::{ClockState, GameMode, RoomGeometry, MovingPlatformSet, SandboxSimState};
 use bevy::asset::AssetPlugin;
 use bevy::image::ImagePlugin;
 use bevy::prelude::*;
@@ -69,8 +69,8 @@ fn sandbox_simulation_plugin_inserts_core_resources() {
         "ControlFrame resource missing — sim/presentation input seam broken"
     );
     assert!(
-        world.get_resource::<GameWorld>().is_some(),
-        "GameWorld resource missing — active room world not seeded"
+        world.get_resource::<RoomGeometry>().is_some(),
+        "RoomGeometry resource missing — active room world not seeded"
     );
     assert!(
         world.get_resource::<RoomSet>().is_some(),

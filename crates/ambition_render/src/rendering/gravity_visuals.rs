@@ -7,7 +7,7 @@ use bevy::prelude::*;
 
 use ambition_engine_core::{self as ae};
 use ambition_gameplay_core::physics::{GravityField, GravityZone};
-use ambition_gameplay_core::GameWorld;
+use ambition_gameplay_core::RoomGeometry;
 
 use ambition_gameplay_core::gravity::GravityFlipSwitch;
 
@@ -19,7 +19,7 @@ pub struct GravityZoneVisual;
 /// where gravity changes (violet = up, teal = down/other).
 pub fn sync_gravity_zone_visual(
     mut commands: Commands,
-    world: Res<GameWorld>,
+    world: Res<RoomGeometry>,
     visuals: Query<Entity, With<GravityZoneVisual>>,
     zones: Query<&GravityZone>,
 ) {
@@ -77,7 +77,7 @@ pub struct GravitySwitchVisual;
 /// orange when it's flipped, so the player can see the current gravity state.
 pub fn sync_gravity_switch_visual(
     mut commands: Commands,
-    world: Res<GameWorld>,
+    world: Res<RoomGeometry>,
     gravity: Option<Res<GravityField>>,
     visuals: Query<Entity, With<GravitySwitchVisual>>,
     switches: Query<&GravityFlipSwitch>,

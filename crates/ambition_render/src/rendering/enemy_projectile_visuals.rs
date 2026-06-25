@@ -132,7 +132,7 @@ fn is_lasersword_owner(owner_id: &str) -> bool {
 pub fn sync_enemy_projectile_visuals(
     mut commands: Commands,
     asset_server: Res<AssetServer>,
-    world: Res<ambition_gameplay_core::GameWorld>,
+    world: Res<ambition_gameplay_core::RoomGeometry>,
     // Localized gravity so a projectile's "upright" follows the acceleration frame.
     gravity: ambition_gameplay_core::physics::GravityCtx,
     // Enemy projectiles that don't yet have a visual get one spawned.

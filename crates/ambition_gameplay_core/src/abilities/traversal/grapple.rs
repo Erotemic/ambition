@@ -36,7 +36,7 @@ pub fn grapple_system(
     control: Res<ControlFrame>,
     gravity: crate::physics::GravityCtx,
     user_settings: Option<Res<crate::persistence::settings::UserSettings>>,
-    world: Option<Res<crate::GameWorld>>,
+    world: Option<Res<crate::RoomGeometry>>,
     mut commands: Commands,
     mut players: Query<
         (
@@ -118,14 +118,14 @@ pub fn grapple_system(
 mod tests {
     use super::*;
 
-    fn world_with_right_wall() -> crate::GameWorld {
+    fn world_with_right_wall() -> crate::RoomGeometry {
         // A solid wall at x[380,400], y[0,400]; open space to its left.
         let blocks = vec![ae::Block::solid(
             "wall",
             ae::Vec2::new(380.0, 0.0),
             ae::Vec2::new(20.0, 400.0),
         )];
-        crate::GameWorld(ae::World::new(
+        crate::RoomGeometry(ae::World::new(
             "grapple_test",
             ae::Vec2::new(400.0, 400.0),
             ae::Vec2::new(100.0, 200.0),
@@ -133,7 +133,7 @@ mod tests {
         ))
     }
 
-    fn test_app(world: Option<crate::GameWorld>) -> App {
+    fn test_app(world: Option<crate::RoomGeometry>) -> App {
         let mut app = App::new();
         app.add_message::<crate::audio::SfxMessage>();
         app.add_message::<ambition_vfx::vfx::VfxMessage>();

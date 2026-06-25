@@ -256,7 +256,7 @@ fn thrown_item_arcs_and_settles_on_the_floor() {
         Vec2::new(0.0, 380.0),
         Vec2::new(400.0, 20.0),
     )];
-    app.insert_resource(crate::GameWorld(ae::World::new(
+    app.insert_resource(crate::RoomGeometry(ae::World::new(
         "phys",
         Vec2::new(400.0, 400.0),
         Vec2::new(200.0, 360.0),

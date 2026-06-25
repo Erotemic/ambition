@@ -304,7 +304,7 @@ fn setup_particle_types(mut commands: Commands) {
 fn sync_falling_sand_room_state(
     mut commands: Commands,
     room_set: Res<crate::rooms::RoomSet>,
-    world: Res<crate::GameWorld>,
+    world: Res<crate::RoomGeometry>,
     save: Res<crate::persistence::save::SandboxSave>,
     mut state: ResMut<FallingSandRoomState>,
     particles: Query<Entity, With<Particle>>,
@@ -862,7 +862,7 @@ fn project_particles_to_movement_world(
     mut commands: Commands,
     room_set: Res<crate::rooms::RoomSet>,
     state: Res<FallingSandRoomState>,
-    mut world: ResMut<crate::GameWorld>,
+    mut world: ResMut<crate::RoomGeometry>,
     particles: Query<(&GridPosition, &Particle)>,
     visuals: Query<(Entity, &FallingSandMaterialVisual)>,
     mut scratch: Local<ProjectionScratch>,

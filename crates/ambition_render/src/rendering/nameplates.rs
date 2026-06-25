@@ -166,7 +166,7 @@ impl ActorNameplateSettings {
 #[allow(clippy::type_complexity)]
 pub fn sync_actor_nameplates(
     mut commands: Commands,
-    world: Res<ambition_gameplay_core::GameWorld>,
+    world: Res<ambition_gameplay_core::RoomGeometry>,
     settings: Res<ActorNameplateSettings>,
     active_metadata: Option<Res<ActiveRoomMetadata>>,
     camera: Option<Res<CameraViewState>>,

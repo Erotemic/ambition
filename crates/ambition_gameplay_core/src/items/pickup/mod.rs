@@ -171,7 +171,7 @@ const THROW_SPEED_UP: f32 = 260.0;
 /// are skipped, so pickup-able items stay put.
 pub fn ground_item_physics(
     time: Res<crate::WorldTime>,
-    world: Res<crate::GameWorld>,
+    world: Res<crate::RoomGeometry>,
     gravity: crate::physics::GravityCtx,
     mut grounds: Query<&mut GroundItem>,
 ) {
@@ -710,7 +710,7 @@ pub fn fire_held_ranged_system(
 #[allow(clippy::too_many_arguments)]
 pub fn held_projectile_step(
     time: Res<crate::WorldTime>,
-    world: Res<crate::GameWorld>,
+    world: Res<crate::RoomGeometry>,
     overlay: Res<crate::features::FeatureEcsWorldOverlay>,
     mut commands: Commands,
     // `Without<FeatureSimEntity>` keeps this `&mut BodyKinematics` disjoint from

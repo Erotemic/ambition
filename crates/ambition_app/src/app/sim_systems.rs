@@ -19,7 +19,7 @@ use ambition_gameplay_core::rooms::{
 };
 use ambition_gameplay_core::time::feel::SandboxFeelTuning;
 use ambition_gameplay_core::{
-    GameWorld, MovingPlatformSet, PlayerDiedMessage, SafePositionContext, SandboxSimState,
+    RoomGeometry, MovingPlatformSet, PlayerDiedMessage, SafePositionContext, SandboxSimState,
 };
 use ambition_render::fx::VfxMessage;
 
@@ -193,7 +193,7 @@ pub fn interaction_input_system(
 /// reset input.
 pub fn apply_player_reset_input_system(
     mut control_frame: ResMut<ControlFrame>,
-    world: Res<GameWorld>,
+    world: Res<RoomGeometry>,
     editable_tuning: Res<EditableMovementTuning>,
     feel_tuning: Res<SandboxFeelTuning>,
     mut sim_state: ResMut<SandboxSimState>,
@@ -264,7 +264,7 @@ pub fn apply_player_reset_input_system(
 /// reset timing depend on UI/game-mode scheduling.
 pub fn apply_cut_rope_room_replay_request_system(
     mut replay_requests: MessageReader<ambition_content::bosses::CutRopeRoomReplayRequested>,
-    world: Res<GameWorld>,
+    world: Res<RoomGeometry>,
     editable_tuning: Res<EditableMovementTuning>,
     feel_tuning: Res<SandboxFeelTuning>,
     mut sim_state: ResMut<SandboxSimState>,
@@ -415,7 +415,7 @@ pub fn detect_room_transition_system(
 /// the real message writers.
 pub fn attack_advance_system(
     time: Res<Time>,
-    world: Res<GameWorld>,
+    world: Res<RoomGeometry>,
     moving_platforms: Res<MovingPlatformSet>,
     editable_tuning: Res<EditableMovementTuning>,
     feel_tuning: Res<SandboxFeelTuning>,
@@ -530,7 +530,7 @@ pub fn attack_advance_system(
 /// `detect_room_transition_system` (which both read post-damage player
 /// state). Gated by `gameplay_allowed`.
 pub fn apply_player_hit_events(
-    world: Res<GameWorld>,
+    world: Res<RoomGeometry>,
     control_frame: Res<ControlFrame>,
     moving_platforms: Res<MovingPlatformSet>,
     editable_tuning: Res<EditableMovementTuning>,

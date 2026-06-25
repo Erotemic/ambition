@@ -18,7 +18,7 @@ use ambition_input::ControlFrame;
 use ambition_input::SandboxAction;
 use ambition_gameplay_core::rooms::{LoadingZone, LoadingZoneActivation, RoomSet};
 use ambition_gameplay_core::world::platforms;
-use ambition_gameplay_core::{GameMode, GameWorld, SandboxDevState};
+use ambition_gameplay_core::{GameMode, RoomGeometry, SandboxDevState};
 #[cfg(feature = "input")]
 use ambition_render::rendering::PlayerVisual;
 use ambition_render::rendering::{CameraViewState, SceneEntities};
@@ -41,7 +41,7 @@ pub struct DebugOverlayLabel;
 /// frame, so toggling the overlay off (no pushes) clears the labels next frame.
 pub fn render_debug_overlay_labels(
     mut commands: Commands,
-    world: Res<GameWorld>,
+    world: Res<RoomGeometry>,
     mut labels: ResMut<DebugOverlayLabels>,
     existing: Query<Entity, With<DebugOverlayLabel>>,
 ) {
@@ -74,7 +74,7 @@ pub fn draw_debug_overlay() {}
 #[cfg(feature = "input")]
 pub fn draw_debug_overlay(
     mut gizmos: Gizmos,
-    world: Res<GameWorld>,
+    world: Res<RoomGeometry>,
     dev_state: Res<SandboxDevState>,
     platform_set: Res<ambition_gameplay_core::MovingPlatformSet>,
     developer_tools: Res<DeveloperTools>,

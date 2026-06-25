@@ -56,7 +56,7 @@ pub fn sync_actor_poses_from_feature_aabbs(
 pub fn update_ecs_actors(
     mut commands: Commands,
     world_time: Res<WorldTime>,
-    world: Res<crate::GameWorld>,
+    world: Res<crate::RoomGeometry>,
     gravity: crate::physics::GravityCtx,
     user_settings: Option<Res<crate::persistence::settings::UserSettings>>,
     platform_set: Res<crate::MovingPlatformSet>,

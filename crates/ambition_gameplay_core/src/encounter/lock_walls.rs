@@ -1,5 +1,5 @@
 //! Lock-wall sync: insert/remove the solid blocks that seal an arena's exits
-//! while an encounter is in flight. `sync_lock_walls` reconciles `GameWorld`
+//! while an encounter is in flight. `sync_lock_walls` reconciles `RoomGeometry`
 //! blocks named `lockwall:<encounter_id>` against the live phase of each
 //! registered encounter (Starting/Active want a wall; everything else removes
 //! it). The wall geometry comes from `EncounterSpec::lock_wall`.

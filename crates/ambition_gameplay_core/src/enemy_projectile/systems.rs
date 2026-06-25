@@ -76,7 +76,7 @@ mod tests {
     #[test]
     fn player_faction_shot_damages_an_overlapping_enemy_and_expires() {
         let mut app = App::new();
-        app.insert_resource(crate::GameWorld(ae::World::new(
+        app.insert_resource(crate::RoomGeometry(ae::World::new(
             "phys",
             ae::Vec2::new(800.0, 800.0),
             ae::Vec2::new(400.0, 400.0),
@@ -166,7 +166,7 @@ mod tests {
             PlayerOffense, PlayerShieldState,
         };
         let mut app = App::new();
-        app.insert_resource(crate::GameWorld(ae::World::new(
+        app.insert_resource(crate::RoomGeometry(ae::World::new(
             "phys",
             ae::Vec2::new(800.0, 800.0),
             ae::Vec2::new(400.0, 400.0),

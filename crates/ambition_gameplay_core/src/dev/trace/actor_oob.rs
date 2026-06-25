@@ -67,7 +67,7 @@ pub fn body_snapshot(
 pub fn record_actor_oob_frame_system(
     mut buffer: ResMut<ActorTraceBuffer>,
     world_time: Res<crate::WorldTime>,
-    world: Res<GameWorld>,
+    world: Res<RoomGeometry>,
     platform_set: Res<crate::MovingPlatformSet>,
     feature_ecs_overlay: Res<crate::features::FeatureEcsWorldOverlay>,
     rooms: Option<Res<crate::rooms::RoomSet>>,

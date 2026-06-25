@@ -34,7 +34,7 @@
 use ambition_app::rl_sim::TimestepMode;
 use ambition_app::{RandomWalkPolicy, SandboxSim, SandboxSimOptions};
 use ambition_engine_core as ae;
-use ambition_gameplay_core::GameWorld;
+use ambition_gameplay_core::RoomGeometry;
 
 // --- the oracle ---
 
@@ -101,7 +101,7 @@ const TELEPORT_PX: f32 = 250.0;
 
 /// The Solid (full-collision) block AABBs of the room the sim is currently in.
 fn solid_blocks(sim: &SandboxSim) -> Vec<ae::Aabb> {
-    let Some(world) = sim.world().get_resource::<GameWorld>() else {
+    let Some(world) = sim.world().get_resource::<RoomGeometry>() else {
         return Vec::new();
     };
     world

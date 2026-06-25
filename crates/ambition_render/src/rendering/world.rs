@@ -702,7 +702,7 @@ fn is_lock_wall_block(name: &str) -> bool {
 /// "this just slammed shut" beat reads at a glance.
 pub fn sync_lock_wall_visuals(
     mut commands: Commands,
-    world: Res<ambition_gameplay_core::GameWorld>,
+    world: Res<ambition_gameplay_core::RoomGeometry>,
     assets: Option<Res<GameAssets>>,
     existing: Query<(Entity, &LockWallVisual)>,
 ) {

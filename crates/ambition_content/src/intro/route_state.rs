@@ -162,7 +162,7 @@ pub fn sync_intro_flag_gated_lock_walls(
     project: Option<Res<ambition_gameplay_core::world::ldtk_world::SandboxLdtkProject>>,
     room_set: Option<Res<ambition_gameplay_core::rooms::RoomSet>>,
     save: Option<Res<ambition_gameplay_core::persistence::save::SandboxSave>>,
-    world: Option<ResMut<ambition_gameplay_core::GameWorld>>,
+    world: Option<ResMut<ambition_gameplay_core::RoomGeometry>>,
 ) {
     let (Some(project), Some(room_set), Some(save), Some(mut world)) =
         (project, room_set, save, world)

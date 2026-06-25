@@ -91,7 +91,7 @@ impl Default for CameraViewState {
 /// `With<ambition_gameplay_core::player::PrimaryPlayer>` once a second player can
 /// exist. See [`ambition_gameplay_core::player::queries::PrimaryPlayerOnly`].
 pub fn camera_follow(
-    world: Res<ambition_gameplay_core::GameWorld>,
+    world: Res<ambition_gameplay_core::RoomGeometry>,
     room_set: Res<RoomSet>,
     time: Res<Time>,
     developer_tools: Res<ambition_gameplay_core::dev::dev_tools::DeveloperTools>,

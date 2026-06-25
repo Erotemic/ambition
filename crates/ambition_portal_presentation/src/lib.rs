@@ -40,7 +40,7 @@ pub use visuals::{
 /// them (delegating to `ambition_engine_core::config::world_size_to_bevy` so
 /// the math is defined exactly once).
 ///
-/// Host seam: keep `size` synced (e.g. from Ambition's `GameWorld`). A zero
+/// Host seam: keep `size` synced (e.g. from Ambition's `RoomGeometry`). A zero
 /// size just centers everything on the camera origin for a frame — wrong but
 /// harmless until the first sync runs.
 #[derive(Resource, Clone, Copy, Debug, Default)]

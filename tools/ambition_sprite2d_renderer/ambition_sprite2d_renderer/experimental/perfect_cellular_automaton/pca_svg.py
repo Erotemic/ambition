@@ -95,12 +95,13 @@ def export(pose: str, version: str):
             continue
         L.append(f'<g inkscape:groupmode="layer" inkscape:label="{layer}" id="layer-{layer}">')
         for p in members:
-            pts = " ".join(f"{int(x)},{int(y)}" for x, y in p["points"])
+            pp = p["points"]
+            dd = "M " + " L ".join(f"{int(x)},{int(y)}" for x, y in pp) + " Z"
             col = _hex(pal[p["color"]])
             # accents/shades: no stroke; main parts: thin black line-art
             stroke = "none" if (p["part"] in ACCENT or p["part"].endswith("_shade")) else "#000000"
-            L.append(f'<polygon id="poly{n}" inkscape:label="{p["part"]}" '
-                     f'points="{pts}" fill="{col}" stroke="{stroke}" stroke-width="1" '
+            L.append(f'<path id="poly{n}" inkscape:label="{p["part"]}" '
+                     f'd="{dd}" fill="{col}" stroke="{stroke}" stroke-width="1" '
                      f'fill-opacity="1"/>')
             n += 1
         L.append('</g>')
@@ -170,7 +171,7 @@ def import_svg(pose: str, version: str, src_version: str = None):
                 if lbl == "reference":
                     continue                 # skip the backdrop
                 walk(ch, M @ _parse_transform(ch.get("transform", "")))
-            elif _tag(ch) in ("polygon", "path"):
+            elif _tag(ch) in ("polygon", "path", "rect"):
                 part = _local(ch.attrib, "label") or "other"
                 Mc = M @ _parse_transform(ch.get("transform", ""))
                 pts = _points(ch)
@@ -185,11 +186,12 @@ def import_svg(pose: str, version: str, src_version: str = None):
                               "points": pts.astype(int).tolist()})
 
     walk(root, np.eye(3))
-    # z-order so layers/accents stack right, then render the candidate PNG
+    # PRESERVE DOCUMENT ORDER as the z-order: the human authored the SVG layers/
+    # paint order deliberately (back -> front), so that IS the stacking. Do NOT
+    # re-sort by our part-name table -- it doesn't know custom labels like
+    # 'chest-background' and would bury the pecs/eyes behind their backing.
     import pca_paperdoll as PD
     from PIL import Image
-    polys.sort(key=lambda p: (PD.Z.get(PD._basepart(p["part"]), 5),
-                              p["part"].endswith("_shade"), -p["area"]))
     out = {"w": w, "h": h, "palette": pal.tolist(), "polys": polys}
     vd = P.version_dir(version)
     (vd / f"{pose}_polys.json").write_text(json.dumps(out))
@@ -200,20 +202,75 @@ def import_svg(pose: str, version: str, src_version: str = None):
     return out
 
 
+_NUM = r"-?\d*\.?\d+(?:[eE][+-]?\d+)?"
+
+
 def _points(e):
-    if _tag(e) == "polygon":
+    tg = _tag(e)
+    if tg == "polygon":
         nums = [float(x) for x in re.split(r"[,\s]+", e.get("points", "").strip()) if x]
-        return np.array(nums).reshape(-1, 2)
-    # path: support only straight-line M/L/Z (what we export / Inkscape gives for polys)
-    d = e.get("d", "")
-    nums, cur = [], []
-    for tok in re.findall(r"[MLZmlz]|-?\d*\.?\d+", d):
-        if tok in "MLZmlz":
-            continue
-        cur.append(float(tok))
-        if len(cur) == 2:
-            nums.append(cur); cur = []
-    return np.array(nums) if nums else np.zeros((0, 2))
+        return np.array(nums).reshape(-1, 2) if nums else np.zeros((0, 2))
+    if tg == "rect":
+        x = float(e.get("x", 0)); y = float(e.get("y", 0))
+        ww = float(e.get("width", 0)); hh = float(e.get("height", 0))
+        return np.array([[x, y], [x + ww, y], [x + ww, y + hh], [x, y + hh]], float)
+    if tg == "path":
+        return _flatten_path(e.get("d", ""))
+    return np.zeros((0, 2))
+
+
+def _flatten_path(d):
+    """Parse an SVG path to a polygon -- full command set, relative/absolute,
+    curves flattened to short segments. Enough for hand-edited Inkscape shapes."""
+    toks = re.findall(r"[MmLlHhVvCcSsQqTtAaZz]|" + _NUM, d)
+    pts = []; i = 0; cx = cy = sx = sy = 0.0; cmd = None
+    n = len(toks)
+
+    def num():
+        nonlocal i
+        v = float(toks[i]); i += 1; return v
+
+    while i < n:
+        if re.match(r"[A-Za-z]", toks[i]):
+            cmd = toks[i]; i += 1
+            if cmd in "Zz":
+                cx, cy = sx, sy; continue
+        rel = cmd.islower(); c = cmd.upper()
+        if c == "M":
+            x = num(); y = num()
+            if rel: x += cx; y += cy
+            cx, cy, sx, sy = x, y, x, y; pts.append((cx, cy)); cmd = "l" if rel else "L"
+        elif c == "L":
+            x = num(); y = num()
+            if rel: x += cx; y += cy
+            cx, cy = x, y; pts.append((cx, cy))
+        elif c == "H":
+            x = num(); cx = (cx + x) if rel else x; pts.append((cx, cy))
+        elif c == "V":
+            y = num(); cy = (cy + y) if rel else y; pts.append((cx, cy))
+        elif c in ("C", "S", "Q", "T"):
+            if c == "C":
+                x1 = num(); y1 = num(); x2 = num(); y2 = num(); x = num(); y = num()
+            elif c == "S":
+                x2 = num(); y2 = num(); x = num(); y = num(); x1, y1 = cx, cy
+            elif c == "Q":
+                x1 = num(); y1 = num(); x = num(); y = num(); x2, y2 = x1, y1
+            else:                               # T
+                x = num(); y = num(); x1, y1 = cx, cy; x2, y2 = cx, cy
+            if rel:
+                x1 += cx; y1 += cy; x2 += cx; y2 += cy; x += cx; y += cy
+            for t in (k / 6.0 for k in range(1, 7)):
+                bx = (1 - t)**3 * cx + 3 * (1 - t)**2 * t * x1 + 3 * (1 - t) * t**2 * x2 + t**3 * x
+                by = (1 - t)**3 * cy + 3 * (1 - t)**2 * t * y1 + 3 * (1 - t) * t**2 * y2 + t**3 * y
+                pts.append((bx, by))
+            cx, cy = x, y
+        elif c == "A":
+            num(); num(); num(); num(); num(); x = num(); y = num()
+            if rel: x += cx; y += cy
+            cx, cy = x, y; pts.append((cx, cy))
+        else:
+            i += 1                              # unknown -> skip a token defensively
+    return np.array(pts) if pts else np.zeros((0, 2))
 
 
 def _style(style, key):

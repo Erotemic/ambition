@@ -253,4 +253,105 @@ mod tests {
             body.kin.vel.length()
         );
     }
+
+    /// Task B: an enemy shot spawned through the executor with a real firing
+    /// actor carries `ProjectileOwner`, so the hit it lands on the player
+    /// attributes back to that actor (`HitEvent::attacker`), instead of the
+    /// historical `None`. Drives the full `EffectRequest` → executor →
+    /// `step_projectiles` path so the stamping + the enemy-branch read are both
+    /// exercised.
+    #[test]
+    fn an_owned_enemy_shot_attributes_its_player_hit_to_the_firing_actor() {
+        use crate::player::{
+            BodyKinematics, PlayerBaseSize, PlayerCombatState, PlayerDodgeState, PlayerEntity,
+            PlayerOffense, PlayerShieldState,
+        };
+        let mut app = App::new();
+        app.insert_resource(crate::RoomGeometry(ae::World::new(
+            "phys",
+            ae::Vec2::new(800.0, 800.0),
+            ae::Vec2::new(400.0, 400.0),
+            vec![],
+        )));
+        app.insert_resource(crate::WorldTime {
+            raw_dt: 1.0 / 60.0,
+            scaled_dt: 1.0 / 60.0,
+        });
+        app.add_message::<HitEvent>();
+        app.add_message::<SfxMessage>();
+        app.add_message::<VfxMessage>();
+        app.add_message::<crate::effects::EffectRequest>();
+        app.add_message::<crate::player::PlayerHealRequested>();
+        app.init_resource::<ProjectileSeqCounter>();
+        app.init_resource::<CapturedHits>();
+        app.init_resource::<crate::features::FeatureEcsWorldOverlay>();
+        app.init_resource::<crate::trace::GameplayTraceBuffer>();
+        app.add_systems(
+            Update,
+            (
+                apply_projectile_effects,
+                crate::projectile::step_projectiles,
+                capture_hits,
+            )
+                .chain(),
+        );
+
+        // Stand-in for the firing boss/enemy entity.
+        let attacker = app.world_mut().spawn_empty().id();
+
+        // A vulnerable player (no parry / dodge / invuln) at the shot's origin.
+        let player_pos = ae::Vec2::new(200.0, 200.0);
+        app.world_mut().spawn((
+            PlayerEntity,
+            BodyKinematics {
+                pos: player_pos,
+                vel: ae::Vec2::ZERO,
+                size: ae::Vec2::new(24.0, 40.0),
+                facing: 1.0,
+            },
+            PlayerBaseSize {
+                base_size: ae::Vec2::new(24.0, 40.0),
+            },
+            PlayerOffense::default(),
+            PlayerDodgeState::default(),
+            PlayerShieldState {
+                active: false,
+                parry_window_timer: 0.0,
+            },
+            PlayerCombatState::default(),
+        ));
+
+        // Fire an enemy-faction shot owned by `attacker`, overlapping the player.
+        app.world_mut()
+            .write_message(crate::effects::EffectRequest {
+                owner: attacker,
+                effect: crate::effects::Effect::Projectiles {
+                    faction: ProjectileFaction::Enemy,
+                    shots: vec![EnemyProjectileSpawn {
+                        origin: player_pos,
+                        dir: ae::Vec2::new(1.0, 0.0),
+                        speed: 100.0,
+                        damage: 2,
+                        max_lifetime: 2.0,
+                        half_extent: ae::Vec2::new(8.0, 8.0),
+                        owner_id: "boss_bolt".into(),
+                        gravity: 0.0,
+                    }],
+                },
+            });
+
+        app.update();
+
+        let cap = app.world().resource::<CapturedHits>();
+        let player_hit = cap
+            .0
+            .iter()
+            .find(|e| matches!(e.source, HitSource::EnemyProjectile))
+            .expect("the enemy shot lands an EnemyProjectile hit on the player");
+        assert_eq!(
+            player_hit.attacker,
+            Some(attacker),
+            "the hit attributes back to the firing actor, not None"
+        );
+    }
 }

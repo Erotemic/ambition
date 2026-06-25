@@ -11,8 +11,11 @@
 //! `ProjectileSeq` so processing stays deterministic despite unspecified Bevy query
 //! iteration order.
 //!
-//! Enemy projectiles intentionally carry no `ProjectileOwner(Entity)`: hits report
-//! `attacker = None`, while owner-id strings handle visuals and self-filtering.
+//! When the spawn request names a real firing actor, the entity also carries
+//! [`crate::projectile::ProjectileOwner`] so a kill attributes back to that
+//! enemy / boss (`step_projectiles` reads it for `HitEvent::attacker`). The
+//! owner-id string is retained for visuals / self-filtering; an ownerless shot
+//! still reports `attacker = None`.
 
 use bevy::prelude::*;
 

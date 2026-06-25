@@ -592,7 +592,9 @@ pub fn step_projectiles(
                         volume: kin.aabb().into(),
                         damage: game.damage.max(1),
                         source: HitSource::EnemyProjectile,
-                        attacker: None,
+                        // The firing actor (enemy / boss), when the shot was
+                        // spawned with a real owner — `None` for ownerless shots.
+                        attacker: owner_entity,
                         target: HitTarget::Player(player_entity),
                         mode: HitMode::Knockback,
                         knockback: Some(HitKnockback {

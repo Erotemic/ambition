@@ -505,17 +505,31 @@ pub fn settings_menu_model(settings: &UserSettings) -> SettingsMenuModel {
                 "Reverse facing when a portal turns the controlled body back along the same wall.",
             ),
             {
-                let (i, n) = g.input_frame_mode_index();
+                let (i, n) = g.movement_frame_mode_index();
                 cycle(
-                    SettingsOptionId::InputFrameMode,
-                    "Input Frame",
-                    crate::persistence::settings::gameplay::GameplaySettings::input_frame_mode_label(
-                        g.input_frame_mode,
+                    SettingsOptionId::MovementFrameMode,
+                    "Movement Frame",
+                    crate::persistence::settings::gameplay::GameplaySettings::frame_mode_label(
+                        g.movement_frame_mode,
                     ),
                     i,
                     n,
-                    "How raw movement input maps onto the controlled body under \
+                    "How raw locomotion input maps onto the controlled body under \
                      rotated gravity: body-relative assist or screen-directed.",
+                )
+            },
+            {
+                let (i, n) = g.aim_frame_mode_index();
+                cycle(
+                    SettingsOptionId::AimFrameMode,
+                    "Aim Frame",
+                    crate::persistence::settings::gameplay::GameplaySettings::frame_mode_label(
+                        g.aim_frame_mode,
+                    ),
+                    i,
+                    n,
+                    "How raw precision-aim input (blink steer, shots) maps onto the \
+                     controlled body under rotated gravity. Defaults to screen-directed.",
                 )
             },
         ],

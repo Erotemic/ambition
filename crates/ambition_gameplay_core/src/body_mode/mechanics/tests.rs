@@ -171,7 +171,7 @@ fn local_up_press_from_morph_ball_transitions_to_standing_under_sideways_screen_
         dir: Vec2::new(1.0, 0.0),
     });
     let mut settings = crate::persistence::settings::UserSettings::default();
-    settings.gameplay.input_frame_mode = ae::InputFrameMode::Screen;
+    settings.gameplay.movement_frame_mode = ae::InputFrameMode::Screen;
     app.insert_resource(settings);
     {
         let mut body_mode = app

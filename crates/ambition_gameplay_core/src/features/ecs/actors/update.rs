@@ -152,9 +152,11 @@ pub fn update_ecs_actors(
     // alongside the player. ADR 0010 + reference_lessons_learned.
     let dt = world_time.sim_dt();
     let feature_world = world_with_sandbox_solids(&world.0, &platform_set.0, &overlay);
-    let input_frame_mode = user_settings
+    let control_frame_modes = user_settings
         .as_deref()
-        .map_or(ae::InputFrameMode::Hybrid, |s| s.gameplay.input_frame_mode);
+        .map_or(ae::ControlFrameModes::default(), |s| {
+            s.gameplay.control_frame_modes()
+        });
     // Pick the slot-board anchor: the primary player by default, or
     // fall back to the first available player so combat slot
     // assignment still works on a multi-player non-primary build.
@@ -295,7 +297,8 @@ pub fn update_ecs_actors(
                         enemy_gravity_dir,
                     );
                     snapshot.control_down = enemy_gravity_dir;
-                    snapshot.input_frame_mode = input_frame_mode;
+                    snapshot.movement_frame_mode = control_frame_modes.movement;
+                    snapshot.aim_frame_mode = control_frame_modes.aim;
                     let mut bf = ambition_characters::actor::control::ActorControlFrame::neutral();
                     ambition_characters::brain::player::tick_player_brain_from_control(
                         &p.control, &snapshot, &mut bf,
@@ -677,7 +680,8 @@ fn build_enemy_brain_snapshot(
         actor_vel: em.kin.vel,
         actor_facing: em.kin.facing,
         control_down: gravity_dir,
-        input_frame_mode: ae::InputFrameMode::Hybrid,
+        movement_frame_mode: ae::InputFrameMode::Hybrid,
+        aim_frame_mode: ae::InputFrameMode::Screen,
         actor_on_ground: em.surface.on_ground,
         alive: em.status.alive,
         target_pos,

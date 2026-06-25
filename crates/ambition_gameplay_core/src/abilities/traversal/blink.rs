@@ -70,12 +70,9 @@ pub fn blink_system(
     // the raycast/teleport. The gameplay move is body-relative; the raycast is
     // naturally world-space.
     let gravity_dir = gravity.dir_at(kin.pos);
-    let input_mode = user_settings
-        .as_deref()
-        .map_or(ae::InputFrameMode::Hybrid, |s| s.gameplay.input_frame_mode);
-    let dir =
-        crate::items::pickup::held_shot_aim_world(&control, kin.facing, gravity_dir, input_mode)
-            .normalize_or_zero();
+    let modes = crate::items::pickup::control_frame_modes_from_settings(user_settings.as_deref());
+    let dir = crate::items::pickup::held_shot_aim_world(&control, kin.facing, gravity_dir, modes)
+        .normalize_or_zero();
     if dir == ae::Vec2::ZERO {
         return;
     }

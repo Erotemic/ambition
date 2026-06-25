@@ -314,6 +314,13 @@ fn gameplay_systems_must_not_read_res_time_directly() {
             "app/sim_systems.rs",
             "input timers + attack advance still compute scaled dt manually — ADR 0011 follow-up",
         ),
+        // `attack_advance_system` was drained out of `app/world_flow/attack.rs`
+        // into the combat runtime (commit b30cfe7f); it still wraps its own
+        // sandbox_dt for the attack phase machine. Same ADR 0011 follow-up.
+        (
+            "combat/attack.rs",
+            "attack advance wraps its own sandbox_dt() — ADR 0011 follow-up",
+        ),
         (
             "app/input_systems.rs",
             "input buffer decay; ADR 0011 player-clock follow-up",

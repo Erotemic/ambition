@@ -206,7 +206,7 @@ pub struct MovementTuning {
     /// How raw stick input maps onto the controlled body's gravity-relative frame for free
     /// movement (run / flight). The toward-feet gate (pogo/crouch) is independent.
     #[serde(default)]
-    pub input_frame_mode: crate::reference_frame::InputFrameMode,
+    pub movement_frame_mode: crate::reference_frame::InputFrameMode,
     pub run_accel: f32,
     pub air_accel: f32,
     pub ground_friction: f32,
@@ -276,7 +276,7 @@ impl MovementTuning {
     /// [`InputState`]. Keeping this as the named accessor avoids reopening the old
     /// bug class where some consumers silently re-resolved already-local input.
     pub fn stick(&self, input: &super::InputState) -> Vec2 {
-        let _ = self.input_frame_mode;
+        let _ = self.movement_frame_mode;
         Vec2::new(input.axis_x, input.axis_y)
     }
 }
@@ -285,7 +285,7 @@ pub const DEFAULT_TUNING: MovementTuning = MovementTuning {
     gravity: GRAVITY,
     gravity_sign: 1.0,
     gravity_dir: Vec2::new(0.0, 1.0),
-    input_frame_mode: crate::reference_frame::InputFrameMode::Hybrid,
+    movement_frame_mode: crate::reference_frame::InputFrameMode::Hybrid,
     run_accel: RUN_ACCEL,
     air_accel: AIR_ACCEL,
     ground_friction: GROUND_FRICTION,

@@ -205,6 +205,15 @@ fn released_fireball_uses_controlled_body_local_aim_under_sideways_gravity() {
     app.insert_resource(crate::physics::GravityField {
         dir: ambition_engine_core::Vec2::new(1.0, 0.0),
     });
+    // Precision aiming (charged fire) now defaults to screen-directed, so opt
+    // into a body-relative aim mode to exercise the controlled-body-local seam
+    // this test is about.
+    {
+        let mut settings = app
+            .world_mut()
+            .resource_mut::<crate::persistence::settings::UserSettings>();
+        settings.gameplay.aim_frame_mode = ambition_engine_core::InputFrameMode::Player;
+    }
 
     {
         let mut frame = app.world_mut().resource_mut::<ControlFrame>();

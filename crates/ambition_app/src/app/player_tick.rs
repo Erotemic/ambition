@@ -97,7 +97,7 @@ pub fn player_control_system(
     // gravity direction (the engine's `as_engine()` baseline is Hybrid; the live
     // gameplay setting wins here). Drives run + descend gate mapping under rotated
     // gravity. Default Hybrid == the historical feel, so normal play is unchanged.
-    tuning.input_frame_mode = user_settings.gameplay.input_frame_mode;
+    tuning.movement_frame_mode = user_settings.gameplay.movement_frame_mode;
     let feel = *feel_tuning;
     let frame_dt = time.delta_secs();
 
@@ -201,7 +201,7 @@ pub fn player_simulation_system(
     // gravity direction (the engine's `as_engine()` baseline is Hybrid; the live
     // gameplay setting wins here). Drives run + descend gate mapping under rotated
     // gravity. Default Hybrid == the historical feel, so normal play is unchanged.
-    tuning.input_frame_mode = user_settings.gameplay.input_frame_mode;
+    tuning.movement_frame_mode = user_settings.gameplay.movement_frame_mode;
     let feel = *feel_tuning;
     let frame_dt = time.delta_secs();
 

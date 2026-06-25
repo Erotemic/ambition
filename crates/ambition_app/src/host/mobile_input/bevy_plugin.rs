@@ -386,7 +386,7 @@ fn position_frame_axis_glyphs(
         .map_or(Vec2::new(0.0, 1.0), |g| Vec2::new(g.dir.x, g.dir.y));
     let mode = user_settings
         .as_deref()
-        .map_or(InputFrameMode::Hybrid, |s| s.gameplay.input_frame_mode);
+        .map_or(InputFrameMode::Hybrid, |s| s.gameplay.movement_frame_mode);
     let frame = AccelerationFrame::new(gdir);
     let layout = movement_joystick_layout();
     let center = layout.base_size * 0.5;

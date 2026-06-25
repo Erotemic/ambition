@@ -209,6 +209,15 @@ pub struct ActorControlFrame {
     pub blink_held: bool,
     /// Falling edge: blink released — commit the blink target.
     pub blink_released: bool,
+    /// WORLD-space quick-blink direction, resolved at the brain seam through the
+    /// MOVEMENT frame mode (locomotion-framed). The movement engine consumes this
+    /// directly so it stays frame-agnostic; `ZERO` → fall back to facing.
+    pub blink_quick_dir: Vec2,
+    /// WORLD-space precision-blink steer vector, resolved at the brain seam
+    /// through the AIM frame mode (screen-directed by default). Decoupled from
+    /// [`Self::blink_quick_dir`] so the two blink forms can use different frame
+    /// policies on the same stick. `ZERO` → no precision steer this tick.
+    pub blink_aim_step: Vec2,
     /// Aim direction for charged ranged attacks in the controlled actor's local
     /// frame. `(0,0)` = use actor facing; non-zero = explicit twin-stick / mouse
     /// aim after crossing the input seam.

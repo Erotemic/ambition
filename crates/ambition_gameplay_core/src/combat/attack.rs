@@ -68,6 +68,8 @@ pub fn engine_input_from_actor_control(
         blink_pressed: actor.blink_pressed,
         blink_held: actor.blink_held,
         blink_released: actor.blink_released,
+        blink_quick_dir: actor.blink_quick_dir,
+        blink_aim_step: actor.blink_aim_step,
         fast_fall_pressed: actor.fast_fall_pressed,
         attack_pressed: actor.melee_pressed,
         pogo_pressed: actor.pogo_pressed,

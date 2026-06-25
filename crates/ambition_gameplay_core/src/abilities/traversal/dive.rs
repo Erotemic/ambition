@@ -107,12 +107,10 @@ pub fn fire_dive_system(
         return;
     }
     let gravity_dir = gravity.dir_at(kin.pos);
-    let input_mode = user_settings
-        .as_deref()
-        .map_or(ae::InputFrameMode::Hybrid, |s| s.gameplay.input_frame_mode);
+    let modes = crate::items::pickup::control_frame_modes_from_settings(user_settings.as_deref());
     let frame = ae::AccelerationFrame::new(gravity_dir);
     let local_aim =
-        crate::items::pickup::held_shot_aim_local(&control, kin.facing, frame, input_mode);
+        crate::items::pickup::held_shot_aim_local(&control, kin.facing, frame, modes);
     let local_dir = dive_dir(local_aim, kin.facing).normalize_or_zero();
     let dir = frame.to_world(local_dir).normalize_or_zero();
     let from = kin.pos;

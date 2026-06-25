@@ -116,7 +116,7 @@ fn quick_blink_moves_on_release() {
         &world,
         &mut scratch,
         InputState {
-            axis_x: 1.0,
+            blink_quick_dir: Vec2::new(1.0, 0.0),
             blink_released: true,
             ..Default::default()
         },
@@ -137,7 +137,7 @@ fn held_blink_enters_precision_aiming() {
             &world,
             &mut scratch,
             InputState {
-                axis_x: 1.0,
+                blink_aim_step: Vec2::new(1.0, 0.0),
                 blink_held: true,
                 blink_pressed,
                 ..Default::default()

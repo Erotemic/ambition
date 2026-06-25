@@ -130,14 +130,26 @@ pub struct GameplaySettings {
     /// toggled live from the gameplay settings page.
     #[serde(default)]
     pub portal_reverses_facing: bool,
-    /// How raw movement input maps onto the controlled body's local frame.
+    /// How raw LOCOMOTION input maps onto the controlled body's local frame.
     /// `Hybrid` is surfaced as body-relative assist: follow the body frame except
     /// when upside-down, where the mapping accommodates screen orientation.
     /// `Screen` is surfaced as screen-directed: press a screen direction to move
     /// in that screen direction through the controlled body's local frame. Flows
-    /// into `MovementTuning::input_frame_mode`.
+    /// into `MovementTuning::movement_frame_mode`.
     #[serde(default)]
-    pub input_frame_mode: InputFrameMode,
+    pub movement_frame_mode: InputFrameMode,
+    /// How raw PRECISION-AIM input (blink steer, ranged/held-item aim) maps onto
+    /// the controlled body's local frame. Independent of [`Self::movement_frame_mode`]
+    /// because aiming a teleport/shot at a screen point is a different gesture than
+    /// locomotion — it defaults to screen-directed ([`InputFrameMode::Screen`]) so
+    /// precision aiming points where the stick points on screen at any gravity.
+    #[serde(default = "default_aim_frame_mode")]
+    pub aim_frame_mode: InputFrameMode,
+}
+
+/// Precision aiming defaults to screen-directed (see [`GameplaySettings::aim_frame_mode`]).
+fn default_aim_frame_mode() -> InputFrameMode {
+    ambition_engine_core::ControlFrameModes::default().aim
 }
 
 fn default_debug_hud_visible() -> bool {
@@ -159,7 +171,8 @@ impl Default for GameplaySettings {
             trace_auto_dump: true,
             pause_input_when_unfocused: false,
             portal_reverses_facing: false,
-            input_frame_mode: InputFrameMode::Hybrid,
+            movement_frame_mode: InputFrameMode::Hybrid,
+            aim_frame_mode: default_aim_frame_mode(),
         }
     }
 }
@@ -167,14 +180,15 @@ impl Default for GameplaySettings {
 impl GameplaySettings {
     pub const DAMAGE_STEP: f32 = 0.10;
 
-    /// The input-frame modes surfaced to the user — the two Jon asked for. The
-    /// engine's third mode (`InputFrameMode::Player`, fully body-relative with no
+    /// The frame modes surfaced to the user — the two Jon asked for. The engine's
+    /// third mode (`InputFrameMode::Player`, fully body-relative with no
     /// accommodation) stays dev-only and is reachable through the F3 tuning editor.
-    pub const INPUT_FRAME_MODES: [InputFrameMode; 2] =
+    /// Shared by both the locomotion and the precision-aim cycle.
+    pub const FRAME_MODES: [InputFrameMode; 2] =
         [InputFrameMode::Hybrid, InputFrameMode::Screen];
 
-    /// Short, user-facing label for an input-frame mode.
-    pub fn input_frame_mode_label(mode: InputFrameMode) -> &'static str {
+    /// Short, user-facing label for a frame mode.
+    pub fn frame_mode_label(mode: InputFrameMode) -> &'static str {
         match mode {
             InputFrameMode::Hybrid => "body-relative assist",
             InputFrameMode::Screen => "screen-directed",
@@ -182,28 +196,50 @@ impl GameplaySettings {
         }
     }
 
-    /// Position of the current mode within [`Self::INPUT_FRAME_MODES`] and the
-    /// surfaced count, for the cycle UI. Falls back to index 0 if the live mode is
-    /// the dev-only one.
-    pub fn input_frame_mode_index(&self) -> (usize, usize) {
-        let i = Self::INPUT_FRAME_MODES
-            .iter()
-            .position(|&m| m == self.input_frame_mode)
-            .unwrap_or(0);
-        (i, Self::INPUT_FRAME_MODES.len())
+    /// The pair of control-authority frame policies these settings express, for
+    /// the gameplay verbs that resolve input by source ([`ae::ControlFrameModes`]).
+    pub fn control_frame_modes(&self) -> ambition_engine_core::ControlFrameModes {
+        ambition_engine_core::ControlFrameModes {
+            movement: self.movement_frame_mode,
+            aim: self.aim_frame_mode,
+        }
     }
 
-    /// Cycle the input-frame mode across the surfaced set; `dir < 0` goes back,
-    /// otherwise forward (confirm advances like next, matching the other cycles).
-    pub fn cycle_input_frame_mode(&mut self, dir: i32) {
-        let modes = Self::INPUT_FRAME_MODES;
-        let n = modes.len() as i32;
-        let cur = modes
+    /// Position of `mode` within [`Self::FRAME_MODES`] and the surfaced count, for
+    /// the cycle UI. Falls back to index 0 if the live mode is the dev-only one.
+    fn frame_mode_index(mode: InputFrameMode) -> (usize, usize) {
+        let i = Self::FRAME_MODES
             .iter()
-            .position(|&m| m == self.input_frame_mode)
-            .unwrap_or(0) as i32;
+            .position(|&m| m == mode)
+            .unwrap_or(0);
+        (i, Self::FRAME_MODES.len())
+    }
+
+    fn cycle_frame_mode(mode: InputFrameMode, dir: i32) -> InputFrameMode {
+        let modes = Self::FRAME_MODES;
+        let n = modes.len() as i32;
+        let cur = modes.iter().position(|&m| m == mode).unwrap_or(0) as i32;
         let step = if dir < 0 { -1 } else { 1 };
-        self.input_frame_mode = modes[(((cur + step) % n + n) % n) as usize];
+        modes[(((cur + step) % n + n) % n) as usize]
+    }
+
+    pub fn movement_frame_mode_index(&self) -> (usize, usize) {
+        Self::frame_mode_index(self.movement_frame_mode)
+    }
+
+    /// Cycle the locomotion frame mode across the surfaced set; `dir < 0` goes
+    /// back, otherwise forward (confirm advances like next).
+    pub fn cycle_movement_frame_mode(&mut self, dir: i32) {
+        self.movement_frame_mode = Self::cycle_frame_mode(self.movement_frame_mode, dir);
+    }
+
+    pub fn aim_frame_mode_index(&self) -> (usize, usize) {
+        Self::frame_mode_index(self.aim_frame_mode)
+    }
+
+    /// Cycle the precision-aim frame mode across the surfaced set.
+    pub fn cycle_aim_frame_mode(&mut self, dir: i32) {
+        self.aim_frame_mode = Self::cycle_frame_mode(self.aim_frame_mode, dir);
     }
 
     pub fn nudge_player_damage(&mut self, delta: f32) {

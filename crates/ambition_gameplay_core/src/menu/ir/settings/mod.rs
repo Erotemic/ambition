@@ -134,10 +134,14 @@ pub enum SettingsOptionId {
     /// Reverse facing when transiting a same-wall portal pair.
     /// Default OFF; mirrored into `PortalTuning::reorient_facing`.
     PortalReverseFacing,
-    /// How raw movement input maps onto the controlled body's local frame
+    /// How raw LOCOMOTION input maps onto the controlled body's local frame
     /// (`Hybrid` body-relative assist vs `Screen` screen-directed). Flows into
-    /// `MovementTuning::input_frame_mode`.
-    InputFrameMode,
+    /// `MovementTuning::movement_frame_mode`.
+    MovementFrameMode,
+    /// How raw PRECISION-AIM input (blink steer, ranged/held aim) maps onto the
+    /// controlled body's local frame. Independent of [`Self::MovementFrameMode`];
+    /// defaults to screen-directed.
+    AimFrameMode,
     // Menu-level action (not under any category).
     Close,
 }

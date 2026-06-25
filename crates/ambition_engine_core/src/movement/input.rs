@@ -1,3 +1,5 @@
+use crate::Vec2;
+
 /// Game-action input for one simulation frame.
 ///
 /// Keyboard/gamepad remapping belongs in the presentation layer. Once those
@@ -24,6 +26,18 @@ pub struct InputState {
     pub blink_held: bool,
     /// Blink/special button released this frame.
     pub blink_released: bool,
+    /// WORLD-space quick-blink direction, already resolved through the movement
+    /// frame mode at the input seam. The engine consumes this directly (it does
+    /// NOT re-derive blink direction from the local `axis_*`), so quick blink is
+    /// locomotion-framed and gravity-correct without the engine knowing the
+    /// gravity frame. Zero → fall back to facing.
+    pub blink_quick_dir: Vec2,
+    /// WORLD-space precision-blink steer vector for the current frame, resolved
+    /// through the *aim* frame mode at the seam (screen-directed by default).
+    /// Magnitude carries the stick deflection; the engine integrates it into the
+    /// precision aim offset. Decoupled from `blink_quick_dir` so quick blink and
+    /// precision blink can use different frame policies on the same stick.
+    pub blink_aim_step: Vec2,
     /// Double-tap-down gesture recognized by the input layer. This is separate
     /// from `axis_y` so down+attack can mean pogo without forcing fast-fall.
     pub fast_fall_pressed: bool,

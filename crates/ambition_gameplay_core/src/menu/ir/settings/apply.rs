@@ -239,7 +239,8 @@ pub fn apply_settings_option(id: SettingsOptionId, dir: i32, settings: &mut User
         SettingsOptionId::PortalReverseFacing => {
             tog!(settings.gameplay.portal_reverses_facing)
         }
-        SettingsOptionId::InputFrameMode => settings.gameplay.cycle_input_frame_mode(dir),
+        SettingsOptionId::MovementFrameMode => settings.gameplay.cycle_movement_frame_mode(dir),
+        SettingsOptionId::AimFrameMode => settings.gameplay.cycle_aim_frame_mode(dir),
 
         SettingsOptionId::Close => return true,
     }

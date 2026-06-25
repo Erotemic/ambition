@@ -65,9 +65,11 @@ pub fn tick_player_brains(
     let control_down = gravity_field
         .as_deref()
         .map_or(ae::Vec2::new(0.0, 1.0), |g| g.dir);
-    let input_frame_mode = user_settings
+    let control_frame_modes = user_settings
         .as_deref()
-        .map_or(ae::InputFrameMode::Hybrid, |s| s.gameplay.input_frame_mode);
+        .map_or(ae::ControlFrameModes::default(), |s| {
+            s.gameplay.control_frame_modes()
+        });
 
     for (slot, input, kin, ground, mut brain, mut control) in &mut players {
         // Build the snapshot from the player's cluster components plus
@@ -79,7 +81,8 @@ pub fn tick_player_brains(
             actor_vel: kin.vel,
             actor_facing: kin.facing,
             control_down,
-            input_frame_mode,
+            movement_frame_mode: control_frame_modes.movement,
+            aim_frame_mode: control_frame_modes.aim,
             actor_on_ground: ground.on_ground,
             alive: true,
             target_pos: kin.pos,

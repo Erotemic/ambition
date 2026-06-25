@@ -97,11 +97,11 @@ pub fn input_timer_system(
     let gravity_dir = gravity_field
         .as_deref()
         .map_or(ae::Vec2::new(0.0, 1.0), |g| g.dir);
-    let input_mode = user_settings
+    let movement_mode = user_settings
         .as_deref()
-        .map_or(ae::InputFrameMode::Hybrid, |s| s.gameplay.input_frame_mode);
+        .map_or(ae::InputFrameMode::Hybrid, |s| s.gameplay.movement_frame_mode);
     let resolved = ae::AccelerationFrame::new(gravity_dir).resolve_control(
-        input_mode,
+        movement_mode,
         control_frame.axis_x,
         control_frame.axis_y,
     );

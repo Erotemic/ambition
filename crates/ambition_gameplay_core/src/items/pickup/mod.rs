@@ -560,27 +560,23 @@ pub fn held_shot_aim(control: &ControlFrame, facing: f32) -> Vec2 {
     Vec2::new(if facing >= 0.0 { 1.0 } else { -1.0 }, 0.0)
 }
 
-/// Resolve held-item aim into the controlled body's local frame: `x` is side/right
-/// and `y` is toward feet. Right-stick aim wins, then movement, then local facing.
+/// Resolve held-item aim into the controlled body's local frame, choosing the
+/// frame policy by INPUT SOURCE per [`ae::ControlFrameModes`]: the precision-aim
+/// stick wins (precision aiming → `modes.aim`), then the movement stick
+/// (locomotion → `modes.movement`), then local facing. Thin `ControlFrame`
+/// adapter over [`ae::AccelerationFrame::resolve_aim_local`].
 pub fn held_shot_aim_local(
     control: &ControlFrame,
     facing: f32,
     frame: ae::AccelerationFrame,
-    input_frame_mode: ae::InputFrameMode,
+    modes: ae::ControlFrameModes,
 ) -> Vec2 {
-    let aim = Vec2::new(control.aim_x, control.aim_y);
-    if aim.length() > 0.3 {
-        return frame
-            .resolve_input(input_frame_mode, control.aim_x, control.aim_y)
-            .normalize_or_zero();
-    }
-    let mv = Vec2::new(control.axis_x, control.axis_y);
-    if mv.length() > 0.3 {
-        return frame
-            .resolve_input(input_frame_mode, control.axis_x, control.axis_y)
-            .normalize_or_zero();
-    }
-    Vec2::new(if facing >= 0.0 { 1.0 } else { -1.0 }, 0.0)
+    frame.resolve_aim_local(
+        modes,
+        Vec2::new(control.aim_x, control.aim_y),
+        Vec2::new(control.axis_x, control.axis_y),
+        facing,
+    )
 }
 
 /// Resolve held-item aim into world space after crossing the input seam through
@@ -589,21 +585,18 @@ pub fn held_shot_aim_world(
     control: &ControlFrame,
     facing: f32,
     gravity_dir: Vec2,
-    input_frame_mode: ae::InputFrameMode,
+    modes: ae::ControlFrameModes,
 ) -> Vec2 {
     let frame = ae::AccelerationFrame::new(gravity_dir);
-    frame.to_world(held_shot_aim_local(
-        control,
-        facing,
-        frame,
-        input_frame_mode,
-    ))
+    frame.to_world(held_shot_aim_local(control, facing, frame, modes))
 }
 
-fn input_frame_mode_from_settings(
+pub(crate) fn control_frame_modes_from_settings(
     settings: Option<&crate::persistence::settings::UserSettings>,
-) -> ae::InputFrameMode {
-    settings.map_or(ae::InputFrameMode::Hybrid, |s| s.gameplay.input_frame_mode)
+) -> ae::ControlFrameModes {
+    settings.map_or(ae::ControlFrameModes::default(), |s| {
+        s.gameplay.control_frame_modes()
+    })
 }
 
 fn gravity_dir_at(gravity: &crate::physics::GravityCtx, pos: Vec2) -> Vec2 {
@@ -630,9 +623,9 @@ pub fn fire_held_ranged_system(
         return;
     };
     let gravity_dir = gravity_dir_at(&gravity, kin.pos);
-    let input_frame_mode = input_frame_mode_from_settings(user_settings.as_deref());
+    let modes = control_frame_modes_from_settings(user_settings.as_deref());
     let frame = ae::AccelerationFrame::new(gravity_dir);
-    let local_dir = held_shot_aim_local(&control, kin.facing, frame, input_frame_mode);
+    let local_dir = held_shot_aim_local(&control, kin.facing, frame, modes);
     let dir = frame.to_world(local_dir).normalize_or_zero();
     if dir == Vec2::ZERO {
         return;

@@ -60,11 +60,9 @@ pub fn grapple_system(
         return;
     }
     let gravity_dir = gravity.dir_at(kin.pos);
-    let input_mode = user_settings
-        .as_deref()
-        .map_or(ae::InputFrameMode::Hybrid, |s| s.gameplay.input_frame_mode);
+    let modes = crate::items::pickup::control_frame_modes_from_settings(user_settings.as_deref());
     let dir =
-        crate::items::pickup::held_shot_aim_world(&control, kin.facing, gravity_dir, input_mode)
+        crate::items::pickup::held_shot_aim_world(&control, kin.facing, gravity_dir, modes)
             .normalize_or_zero();
     if dir == ae::Vec2::ZERO {
         return;

@@ -67,12 +67,12 @@ pub fn tick_player_brain_from_control(
     // edges, and future possessed actors: unqualified left/right/up/down means
     // local to the controlled body, not privileged screen/player space.
     let frame = ae::AccelerationFrame::new(snapshot.control_down);
-    let resolved = frame.resolve_control(snapshot.input_frame_mode, c.axis_x, c.axis_y);
+    let resolved = frame.resolve_control(snapshot.movement_frame_mode, c.axis_x, c.axis_y);
     let local_axis = resolved.local_axis;
     let raw_aim = ae::Vec2::new(c.aim_x, c.aim_y);
     let local_aim = if raw_aim.length() > 0.1 {
         frame
-            .resolve_input(snapshot.input_frame_mode, c.aim_x, c.aim_y)
+            .resolve_input(snapshot.aim_frame_mode, c.aim_x, c.aim_y)
             .normalize_or_zero()
     } else {
         ae::Vec2::ZERO
@@ -153,6 +153,15 @@ pub fn tick_player_brain_from_control(
     out.blink_pressed = c.blink_pressed;
     out.blink_held = c.blink_held;
     out.blink_released = c.blink_released;
+    // Blink steers with the LOCOMOTION stick, but the two forms use different
+    // frame policies, resolved here (the seam) into WORLD space so the movement
+    // engine stays frame-agnostic. Quick blink follows the movement mode (already
+    // baked into `local_axis`); precision blink follows the aim mode (screen-
+    // directed by default), so a precision blink points where the stick points on
+    // screen under any gravity.
+    out.blink_quick_dir = frame.to_world(local_axis);
+    out.blink_aim_step =
+        frame.to_world(frame.resolve_input(snapshot.aim_frame_mode, c.axis_x, c.axis_y));
     out.aim = local_aim;
 }
 
@@ -239,7 +248,7 @@ mod tests {
         // local-right direction is screen-up. In screen-directed mode, raw
         // screen-down should therefore mean local-left.
         s.control_down = ae::Vec2::new(1.0, 0.0);
-        s.input_frame_mode = ae::InputFrameMode::Screen;
+        s.movement_frame_mode = ae::InputFrameMode::Screen;
         s.actor_facing = 1.0;
         let input = input_with(|c| {
             c.axis_x = 0.0;
@@ -340,7 +349,7 @@ mod tests {
         });
         let mut s = BrainSnapshot::idle();
         s.control_down = ae::Vec2::new(1.0, 0.0);
-        s.input_frame_mode = ae::InputFrameMode::Screen;
+        s.aim_frame_mode = ae::InputFrameMode::Screen;
         s.actor_facing = 1.0;
         let mut out = crate::actor::control::ActorControlFrame::default();
         tick_player_brain_from_control(&input, &s, &mut out);
@@ -354,6 +363,37 @@ mod tests {
         assert_eq!(
             fire.dir_to_world(ae::AccelerationFrame::new(s.control_down)),
             ae::Vec2::new(0.0, -1.0)
+        );
+    }
+
+    #[test]
+    fn blink_precision_aim_is_screen_relative_by_default_quick_is_locomotion() {
+        // The two forms of blink steer the same locomotion stick but resolve
+        // through different default frame policies. Sideways gravity (feet point
+        // screen-right) is within ±90°, where the default movement mode (Hybrid)
+        // is body-relative while the default aim mode (Screen) stays
+        // screen-directed — so the two world vectors must diverge.
+        let input = input_with(|c| {
+            c.axis_y = -1.0; // screen-up on the locomotion stick
+        });
+        let mut s = BrainSnapshot::idle(); // movement = Hybrid, aim = Screen (defaults)
+        s.control_down = ae::Vec2::new(1.0, 0.0);
+        s.actor_facing = 1.0;
+        let mut out = crate::actor::control::ActorControlFrame::default();
+        tick_player_brain_from_control(&input, &s, &mut out);
+
+        // Precision blink: screen-up stays screen-up in WORLD at any gravity.
+        assert!(
+            (out.blink_aim_step - ae::Vec2::new(0.0, -1.0)).length() < 1e-5,
+            "precision blink must be screen-relative by default; got {:?}",
+            out.blink_aim_step
+        );
+        // Quick blink: follows the locomotion frame, so it rotates with gravity
+        // and is NOT screen-up.
+        assert!(
+            (out.blink_quick_dir - ae::Vec2::new(-1.0, 0.0)).length() < 1e-5,
+            "quick blink should be locomotion-framed; got {:?}",
+            out.blink_quick_dir
         );
     }
 

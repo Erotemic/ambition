@@ -89,7 +89,8 @@ const ALL_SETTINGS_OPTION_IDS: &[SettingsOptionId] = &[
     SettingsOptionId::TraceAutoDump,
     SettingsOptionId::PauseInputUnfocused,
     SettingsOptionId::PortalReverseFacing,
-    SettingsOptionId::InputFrameMode,
+    SettingsOptionId::MovementFrameMode,
+    SettingsOptionId::AimFrameMode,
     SettingsOptionId::Close,
 ];
 
@@ -153,7 +154,8 @@ fn assert_all_settings_option_ids_listed(id: SettingsOptionId) {
         | SettingsOptionId::TraceAutoDump
         | SettingsOptionId::PauseInputUnfocused
         | SettingsOptionId::PortalReverseFacing
-        | SettingsOptionId::InputFrameMode
+        | SettingsOptionId::MovementFrameMode
+        | SettingsOptionId::AimFrameMode
         | SettingsOptionId::Close => {}
     }
 }

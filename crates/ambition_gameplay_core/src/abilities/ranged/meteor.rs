@@ -105,11 +105,9 @@ pub fn fire_meteor_system(
         return;
     }
     let gravity_dir = gravity.dir_at(kin.pos);
-    let input_mode = user_settings
-        .as_deref()
-        .map_or(ae::InputFrameMode::Hybrid, |s| s.gameplay.input_frame_mode);
+    let modes = crate::items::pickup::control_frame_modes_from_settings(user_settings.as_deref());
     let frame = ae::AccelerationFrame::new(gravity_dir);
-    let aim = crate::items::pickup::held_shot_aim_local(&control, kin.facing, frame, input_mode);
+    let aim = crate::items::pickup::held_shot_aim_local(&control, kin.facing, frame, modes);
     for origin in meteor_strike_origins(kin.pos, aim, kin.facing, gravity_dir) {
         effects.write(crate::effects::EffectRequest {
             // Projectiles are self-describing (owner_id is on the shot); the

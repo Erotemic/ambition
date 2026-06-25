@@ -19,6 +19,10 @@
 
 use crate::Vec2;
 
+/// Stick magnitude above which a source counts as "engaged" for
+/// [`AccelerationFrame::resolve_aim_local`]'s aim → movement → facing priority.
+const STICK_SELECT_DEADZONE: f32 = 0.3;
+
 /// How the raw INPUT frame maps onto the controlled body's local frame — "which
 /// way is right when gravity is sideways or upside-down". A human-control
 /// preference (see [`AccelerationFrame::control_frame`]).
@@ -38,6 +42,38 @@ pub enum InputFrameMode {
     /// ([`Self::descend`]).
     #[default]
     Hybrid,
+}
+
+/// The pair of [`InputFrameMode`] policies a control authority maps raw input
+/// through, split by INPUT SOURCE rather than by actor.
+///
+/// The locomotion stick (left stick / movement keys) and the precision-aim stick
+/// (right stick / aim) are physically different sources and a human tracks them
+/// differently under rotated gravity, so they each carry their own mapping
+/// policy: locomotion defaults to body-relative assist ([`InputFrameMode::Hybrid`]);
+/// precision aiming defaults to screen-directed ([`InputFrameMode::Screen`]) — you
+/// point where on screen you want the shot / blink to land, at any gravity.
+///
+/// This is frame-agnostic and actor-agnostic: it is a control-authority preference,
+/// not a property of any one (privileged) actor. [`AccelerationFrame::resolve_aim_local`]
+/// consumes it for the verbs that pick a direction by source priority (aim → move
+/// → facing).
+#[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub struct ControlFrameModes {
+    /// How the locomotion stick maps onto the body's local frame.
+    pub movement: InputFrameMode,
+    /// How the precision-aim stick maps onto the body's local frame.
+    pub aim: InputFrameMode,
+}
+
+impl Default for ControlFrameModes {
+    /// Locomotion is body-relative assist; precision aiming is screen-directed.
+    fn default() -> Self {
+        Self {
+            movement: InputFrameMode::Hybrid,
+            aim: InputFrameMode::Screen,
+        }
+    }
 }
 
 /// Raw digital direction edges in the input/screen frame.
@@ -277,6 +313,38 @@ impl AccelerationFrame {
                 Vec2::new(axis_x * s, axis_y * s)
             }
         }
+    }
+
+    /// Resolve a direction-picking verb (blink target, grapple/dive direction,
+    /// held-shot aim) into the controlled body's LOCAL frame, choosing the frame
+    /// policy by INPUT SOURCE per [`ControlFrameModes`]:
+    ///
+    /// - **aim stick engaged** → precision aiming, resolved through `modes.aim`
+    ///   (the "precision blink");
+    /// - **else movement stick engaged** → locomotion, resolved through
+    ///   `modes.movement` (the "quick blink");
+    /// - **else** → body-local facing (`+x`), no mode needed.
+    ///
+    /// `aim` and `movement` are raw INPUT-frame sticks (`+x` screen-right, `+y`
+    /// screen-down); `facing` is the body's screen-space facing sign. The result
+    /// is unit-length (or the facing fallback). [`Self::to_world`] lifts it to
+    /// world space for the raycast / spawn.
+    pub fn resolve_aim_local(
+        self,
+        modes: ControlFrameModes,
+        aim: Vec2,
+        movement: Vec2,
+        facing: f32,
+    ) -> Vec2 {
+        if aim.length() > STICK_SELECT_DEADZONE {
+            return self.resolve_input(modes.aim, aim.x, aim.y).normalize_or_zero();
+        }
+        if movement.length() > STICK_SELECT_DEADZONE {
+            return self
+                .resolve_input(modes.movement, movement.x, movement.y)
+                .normalize_or_zero();
+        }
+        Vec2::new(if facing >= 0.0 { 1.0 } else { -1.0 }, 0.0)
     }
 
     /// Resolve a raw input/screen-frame stick into the controlled body's local
@@ -617,6 +685,38 @@ mod tests {
             up.resolve_input(InputFrameMode::Player, 0.3, -0.7),
             Vec2::new(0.3, -0.7)
         );
+    }
+
+    #[test]
+    fn resolve_aim_local_picks_frame_by_source_under_flipped_gravity() {
+        // Upside-down gravity: feet point up (screen). The aim stick uses the AIM
+        // policy, the movement stick uses the MOVEMENT policy, independently.
+        let up = AccelerationFrame::new(Vec2::new(0.0, -1.0));
+        let modes = ControlFrameModes {
+            movement: InputFrameMode::Player, // strict body-relative locomotion
+            aim: InputFrameMode::Screen,      // screen-directed precision aim
+        };
+
+        // Aim stick pushed screen-up (-y). Screen aim → world stays screen-up
+        // regardless of gravity: to_world(resolve) == (0,-1).
+        let aim_local = up.resolve_aim_local(modes, Vec2::new(0.0, -1.0), Vec2::ZERO, 1.0);
+        assert_eq!(up.to_world(aim_local), Vec2::new(0.0, -1.0));
+
+        // No aim, movement stick pushed screen-up (-y). Player movement → the
+        // stick IS the body frame, so world = side*0 + down*(-1) = -down = (0,1).
+        let move_local = up.resolve_aim_local(modes, Vec2::ZERO, Vec2::new(0.0, -1.0), 1.0);
+        assert_eq!(up.to_world(move_local), Vec2::new(0.0, 1.0));
+
+        // Neither stick → body-local facing (+x), gravity-independent in local frame.
+        let facing_local = up.resolve_aim_local(modes, Vec2::ZERO, Vec2::ZERO, -1.0);
+        assert_eq!(facing_local, Vec2::new(-1.0, 0.0));
+    }
+
+    #[test]
+    fn control_frame_modes_default_aim_is_screen_movement_is_hybrid() {
+        let d = ControlFrameModes::default();
+        assert_eq!(d.movement, InputFrameMode::Hybrid);
+        assert_eq!(d.aim, InputFrameMode::Screen);
     }
 
     #[test]

@@ -47,7 +47,10 @@ pub fn handle_blink_clusters(
             blink.aiming = true;
         }
         if blink.aiming {
-            let aim_input = Vec2::new(input.axis_x, input.axis_y);
+            // Precision steer in WORLD space, already resolved through the AIM
+            // frame mode at the seam (screen-directed by default), so the cursor
+            // moves the way the stick points ON SCREEN at any gravity.
+            let aim_input = input.blink_aim_step;
             if aim_input.length_squared() > 0.01 {
                 blink.aim_offset += aim_input * (tuning.precision_blink_aim_speed * control_dt);
                 blink.aim_offset = blink
@@ -58,8 +61,10 @@ pub fn handle_blink_clusters(
     }
 
     if blink.hold_active && input.blink_released {
+        // Quick blink direction in WORLD space, resolved through the MOVEMENT
+        // frame mode at the seam (locomotion-framed). Zero stick → facing.
         let fallback = Vec2::new(kinematics.facing, 0.0);
-        let aim = Vec2::new(input.axis_x, input.axis_y).normalize_or(fallback);
+        let aim = input.blink_quick_dir.normalize_or(fallback);
         let precision = blink.aiming && abilities.abilities.precision_blink;
         let from = kinematics.pos;
         let to = if precision {

@@ -17,4 +17,6 @@ pub use input_systems::{
     populate_control_frame_from_actions, populate_menu_control_frame_from_actions,
     toggle_player_trail_emission_from_actions, MenuNavConsume,
 };
-pub use schedule::{configure_sandbox_sets, BossSteerSlot, PresentationSetupSet, SandboxSet};
+pub use schedule::{
+    configure_sandbox_sets, BossSteerSlot, CombatSet, PresentationSetupSet, SandboxSet,
+};

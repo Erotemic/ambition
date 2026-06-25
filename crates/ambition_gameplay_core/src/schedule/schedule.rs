@@ -39,6 +39,33 @@ pub struct PresentationSetupSet;
 #[derive(SystemSet, Debug, Hash, PartialEq, Eq, Clone, Copy)]
 pub struct BossSteerSlot;
 
+/// Content extension slots inside the [`SandboxSet::Combat`] chain.
+///
+/// The engine owns the generic combat spine (action consumers → effect
+/// executors → projectile step → hitbox resolution → bookkeeping); the
+/// *named* Ambition content that participates in combat hangs on these
+/// slots instead of being registered inline by the app. A content plugin
+/// adds its systems `.in_set(CombatSet::ContentSpecials)` (or
+/// `ContentFlavor`) and the app's `CombatSchedulePlugin` configures where
+/// each slot sits in the chain — the same pattern as [`BossSteerSlot`] in
+/// the `WorldPrep` boss chain.
+///
+/// - `ContentSpecials`: per-boss special-attack Techniques (apple rain,
+///   eye beam, the Gradient Sentinel barrage family, …). They read
+///   `ActorActionMessage::Special` and emit `SpawnProjectile`/`EffectRequest`,
+///   so the slot is configured to run AFTER the enemy-action consumers and
+///   BEFORE the effect/projectile executors that drain those messages.
+/// - `ContentFlavor`: post-damage encounter flavor (the cut-rope rope-cut
+///   gate + arena-prop visuals). Configured to run AFTER the feature-hit
+///   resolution so it observes this frame's alive-flag transitions.
+#[derive(SystemSet, Debug, Hash, PartialEq, Eq, Clone, Copy)]
+pub enum CombatSet {
+    /// Per-boss special-attack Techniques (content-owned).
+    ContentSpecials,
+    /// Post-damage encounter flavor (content-owned).
+    ContentFlavor,
+}
+
 #[derive(SystemSet, Debug, Hash, PartialEq, Eq, Clone, Copy)]
 pub enum SandboxSet {
     /// Top-level set that contains the six sub-sets below. Kept as a

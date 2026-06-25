@@ -106,54 +106,29 @@ impl Plugin for AmbitionBossContentPlugin {
             ambition_gameplay_core::boss_encounter::BossEncounterRegistry::default(),
         );
 
-        // Boss special Techniques own their per-boss temporal state. Attach each
-        // to every boss (the `BossConfig` marker) via required components, so the
-        // machinery lib's spawn no longer names a boss technique. Registered
-        // before any boss spawns (plugin build time). First: the eye beam.
-        app.register_required_components::<
-            ambition_gameplay_core::features::BossConfig,
-            specials::EyeBeamState,
-        >();
-        app.register_required_components::<
-            ambition_gameplay_core::features::BossConfig,
-            specials::AppleRainSpawnState,
-        >();
-        app.register_required_components::<
-            ambition_gameplay_core::features::BossConfig,
-            specials::OverfitVolleyState,
-        >();
-        app.register_required_components::<
-            ambition_gameplay_core::features::BossConfig,
-            specials::MinimaTrapState,
-        >();
-        app.register_required_components::<
-            ambition_gameplay_core::features::BossConfig,
-            specials::SaddlePointState,
-        >();
-        app.register_required_components::<
-            ambition_gameplay_core::features::BossConfig,
-            specials::GradientCascadeState,
-        >();
-        app.register_required_components::<
-            ambition_gameplay_core::features::BossConfig,
-            specials::ModeCollapseState,
-        >();
-        app.register_required_components::<
-            ambition_gameplay_core::features::BossConfig,
-            specials::ExplodingGradientState,
-        >();
-        app.register_required_components::<
-            ambition_gameplay_core::features::BossConfig,
-            specials::OverflowState,
-        >();
-        app.register_required_components::<
-            ambition_gameplay_core::features::BossConfig,
-            specials::SeismicStompState,
-        >();
-        app.register_required_components::<
-            ambition_gameplay_core::features::BossConfig,
-            specials::EchoFanState,
-        >();
+        // The named per-boss special-attack Techniques (state attachment +
+        // schedule into the engine's `CombatSet::ContentSpecials` slot) are
+        // a self-contained content domain unit.
+        app.add_plugins(specials::BossSpecialContentPlugin);
+
+        // Cut-rope post-damage flavor (rope-cut detection → gate, hazard→
+        // visual mirror + impact flavor, prop visuals). Runs in the engine's
+        // `CombatSet::ContentFlavor` slot (after feature-hit resolution so it
+        // observes this frame's alive-flag transitions); the slot's position
+        // in the combat chain is configured by the app's `CombatSchedulePlugin`.
+        // Grouped into a `.chain()` to preserve the former inline ordering.
+        app.add_systems(
+            Update,
+            (
+                detect_cut_rope_rope_cut
+                    .run_if(ambition_gameplay_core::session::game_mode::gameplay_allowed),
+                tick_cut_rope_flavor
+                    .run_if(ambition_gameplay_core::session::game_mode::gameplay_allowed),
+                sync_cut_rope_boss_arena_prop_visuals,
+            )
+                .chain()
+                .in_set(ambition_gameplay_core::schedule::CombatSet::ContentFlavor),
+        );
 
         // Generic "lured movement" steering: any boss carrying a `CommandedMove`
         // (e.g. the cut-rope behemoth lured under the anvil by the encounter

@@ -12,7 +12,7 @@
 use bevy::prelude::*;
 
 use ambition_gameplay_core::combat::attack::attack_advance_system;
-use ambition_gameplay_core::schedule::SandboxSet;
+use ambition_gameplay_core::schedule::{CombatSet, SandboxSet};
 use ambition_gameplay_core::session::game_mode::gameplay_allowed;
 
 /// Schedules the `SandboxSet::Combat` system chain.
@@ -55,44 +55,15 @@ impl Plugin for CombatSchedulePlugin {
                 // the only place that owns the windup → active transition);
                 // `apply_hitbox_damage` below resolves the overlap.
                 ambition_gameplay_core::features::start_enemy_melee_from_brain_actions.run_if(gameplay_allowed),
-                // EFFECTS-stage consumer: reads
-                // `ActorActionMessage::Special { SpecialActionSpec::Special("apple_rain") }`
-                // and accumulates per-boss apple-rain spawn cadence.
-                // Replaces `BossRuntime::tick_apple_rain` (Task B of the
-                // actor/brain follow-up plan). Runs BEFORE
-                // `update_enemy_projectiles` so apples spawned this tick
-                // advance one step this frame, matching the legacy
-                // ordering of `outputs.projectile_spawns` flush →
-                // projectile tick.
-                ambition_content::bosses::specials::spawn_gnu_apple_rain_from_special_messages
-                    .run_if(gameplay_allowed),
-                // Gradient Sentinel special consumers (one per
-                // SpecialActionSpec variant): position-sampling bolt
-                // barrage, pit + puppy_slug spawn, rotating cross hazard,
-                // and slop-minion descent. All four are written directly
-                // by `tick_boss_brains_system` via `boss_special_for_profile`
-                // and follow the apple-rain consumer pattern (per-boss
-                // state component, reset on no-message tick). Run before
-                // `update_enemy_projectiles` for the bolt barrage so it
-                // advances this frame.
-                ambition_content::bosses::specials::spawn_overfit_volley_from_special_messages
-                    .run_if(gameplay_allowed),
-                // Content boss specials nested as one chain element (keeps the
-                // outer tuple under Bevy's 20-system limit). Independent of each
-                // other; both just need to run before the projectile slot below.
-                (
-                    ambition_content::bosses::specials::spawn_eye_beam_from_special_messages,
-                    ambition_content::bosses::specials::spawn_mode_collapse_converge_from_special_messages,
-                    ambition_content::bosses::specials::spawn_gradient_nova_from_special_messages,
-                    ambition_content::bosses::specials::spawn_overflow_flood_from_special_messages,
-                    ambition_content::bosses::specials::spawn_seismic_stomp_from_special_messages,
-                    ambition_content::bosses::specials::spawn_echo_fan_from_special_messages,
-                )
-                    .run_if(gameplay_allowed),
-                ambition_content::bosses::specials::spawn_minima_trap_from_special_messages.run_if(gameplay_allowed),
-                ambition_content::bosses::specials::spawn_saddle_point_from_special_messages.run_if(gameplay_allowed),
-                ambition_content::bosses::specials::spawn_gradient_cascade_minions_from_special_messages
-                    .run_if(gameplay_allowed),
+                // The 11 per-boss special-attack Techniques (apple rain,
+                // eye beam, the Gradient Sentinel barrage family, …) used
+                // to sit inline here. They are now content-owned and run
+                // in `CombatSet::ContentSpecials`, configured below to slot
+                // in at exactly this point — AFTER the enemy-action
+                // consumers, BEFORE the effect/projectile executors that
+                // drain their `SpawnProjectile`/`EffectRequest` output.
+                // Registration lives in
+                // `ambition_content::bosses::specials::BossSpecialContentPlugin`.
                 // Generic effect executor: drains `EffectRequest` (boss OR
                 // player emitted) and makes each effect happen — currently the
                 // `DamageBox` AOE (shockwave gauntlet + boss phase-transition
@@ -135,14 +106,13 @@ impl Plugin for CombatSchedulePlugin {
                 ambition_gameplay_core::features::tick_and_despawn_hitboxes,
                 ambition_gameplay_core::features::apply_feature_hit_events,
                 // Cut-rope flavor (rope-cut detection → gate, hazard→visual
-                // mirror + impact flavor, prop visuals). Grouped into a nested
-                // `.chain()` to keep the outer tuple under Bevy's 20-element limit.
-                (
-                    ambition_content::bosses::detect_cut_rope_rope_cut.run_if(gameplay_allowed),
-                    ambition_content::bosses::tick_cut_rope_flavor.run_if(gameplay_allowed),
-                    ambition_content::bosses::sync_cut_rope_boss_arena_prop_visuals,
-                )
-                    .chain(),
+                // mirror + impact flavor, prop visuals) used to sit inline
+                // here. It is now content-owned and runs in
+                // `CombatSet::ContentFlavor`, configured below to slot in at
+                // exactly this point — AFTER the feature-hit resolution so
+                // it observes this frame's alive-flag transitions, BEFORE
+                // the mount/rider bookkeeping. Registration lives in
+                // `ambition_content::bosses::AmbitionBossContentPlugin`.
                 // Mount/rider link bookkeeping. Runs after damage so
                 // it observes the alive flag transition for either
                 // side; a dead mount releases its rider (gravity on,
@@ -153,5 +123,66 @@ impl Plugin for CombatSchedulePlugin {
                 .chain()
                 .in_set(SandboxSet::Combat),
         );
+
+        // Map the content combat-extension slots into the chain. The app
+        // owns this composition (where a domain-local set sits in the
+        // global phase); the content plugins own the systems that hang on
+        // each slot. Both slots live in `SandboxSet::Combat`.
+        //
+        // `ContentSpecials` slots in where the inline boss-special block
+        // used to be: after the enemy-action consumers, before the
+        // effect/projectile executors that drain the specials' output.
+        // `ContentFlavor` slots in after feature-hit resolution (so it
+        // observes this frame's alive-flag transitions) and before the
+        // mount/rider bookkeeping — the cut-rope block's former position.
+        app.configure_sets(
+            Update,
+            (
+                CombatSet::ContentSpecials
+                    .after(ambition_gameplay_core::features::start_enemy_melee_from_brain_actions)
+                    .before(ambition_gameplay_core::effects::apply_effects)
+                    .in_set(SandboxSet::Combat),
+                CombatSet::ContentFlavor
+                    .after(ambition_gameplay_core::features::apply_feature_hit_events)
+                    .before(ambition_gameplay_core::features::enforce_mount_rider_link)
+                    .in_set(SandboxSet::Combat),
+            ),
+        );
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use bevy::ecs::schedule::Schedules;
+
+    /// Guards the content combat-extension slot configuration. Both
+    /// `CombatSet` slots must be registered as set nodes in the `Update`
+    /// schedule after `CombatSchedulePlugin` builds — that registration IS
+    /// the `configure_sets` block above, the seam content boss-specials and
+    /// cut-rope flavor hang on. If it is dropped, those content systems
+    /// still run but float unordered relative to the projectile/effect
+    /// executors that drain their output — a silent spawn-timing
+    /// regression with no compile error. (Same graph-introspection pattern
+    /// as `presentation_visual_sync_runs_after_feature_view_sync` in
+    /// `gameplay_core`.)
+    #[test]
+    fn content_combat_slots_are_registered_in_the_combat_chain() {
+        let mut app = App::new();
+        app.add_plugins(CombatSchedulePlugin);
+
+        let schedules = app.world().resource::<Schedules>();
+        let graph = schedules
+            .get(Update)
+            .expect("Update schedule must exist after CombatSchedulePlugin")
+            .graph();
+        for slot in [CombatSet::ContentSpecials, CombatSet::ContentFlavor] {
+            assert!(
+                graph.system_sets.get_key(slot.intern()).is_some(),
+                "{slot:?} must be a registered combat-extension set node \
+                 (configured by CombatSchedulePlugin). Without it the \
+                 content systems that hang on the slot float unordered."
+            );
+        }
     }
 }

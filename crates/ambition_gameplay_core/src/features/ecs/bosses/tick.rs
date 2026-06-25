@@ -95,7 +95,7 @@ pub fn tick_boss_brains_system(
         if !boss.status.alive {
             // Dead boss: zero out frame + attack state so any
             // downstream consumer sees a coherent "no intent".
-            control.0 = crate::actor::control::ActorControlFrame::neutral();
+            control.0 = ambition_characters::actor::control::ActorControlFrame::neutral();
             attack_state.clear();
             continue;
         }
@@ -104,7 +104,7 @@ pub fn tick_boss_brains_system(
             // Boss has a non-BossPattern brain (test fixture). Leave
             // ActorControl + BossAttackState neutral so a future
             // brain swap doesn't leak stale intent.
-            control.0 = crate::actor::control::ActorControlFrame::neutral();
+            control.0 = ambition_characters::actor::control::ActorControlFrame::neutral();
             attack_state.clear();
             continue;
         };
@@ -123,7 +123,7 @@ pub fn tick_boss_brains_system(
             front_wall_clearance,
             dt,
         };
-        let mut frame = crate::actor::control::ActorControlFrame::neutral();
+        let mut frame = ambition_characters::actor::control::ActorControlFrame::neutral();
         tick_boss_pattern(cfg, state, &ctx, &mut frame, &mut attack_state);
 
         // Boss-side Special direct-write: the Gradient Sentinel has

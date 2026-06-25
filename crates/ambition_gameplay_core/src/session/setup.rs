@@ -112,7 +112,7 @@ pub fn simulation_world(commands: &mut Commands, params: SimulationSetup<'_>) ->
             PlayerVisual,
             crate::player::PlayerSimulationBundle::from_scratch(
                 initial_scratch,
-                crate::actor::Health::new(20),
+                ambition_characters::actor::Health::new(20),
             ),
         ))
         .id();

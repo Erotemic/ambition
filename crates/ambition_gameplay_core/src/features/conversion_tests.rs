@@ -101,7 +101,7 @@ mod conversion_tests {
             terrain: None,
             air_jumps_remaining: 0,
         };
-        let mut frame = crate::actor::control::ActorControlFrame::neutral();
+        let mut frame = ambition_characters::actor::control::ActorControlFrame::neutral();
         brain.tick(&snapshot, &mut frame);
         seed.update_for_test(
             world,
@@ -444,7 +444,7 @@ mod conversion_tests {
             "shark_a",
             "Burning Flying Shark",
             aabb,
-            crate::actor::EnemyBrain::Custom("pirate_on_shark".into()),
+            ambition_characters::actor::EnemyBrain::Custom("pirate_on_shark".into()),
             &[],
         );
         enemy.attack.cooldown = 0.0;
@@ -453,7 +453,7 @@ mod conversion_tests {
         // requesting rightward motion at chase speed — the test
         // verifies the integration step blocks the body against
         // the wall, not just the steering code that picks velocity.
-        let mut frame = crate::actor::control::ActorControlFrame::neutral();
+        let mut frame = ambition_characters::actor::control::ActorControlFrame::neutral();
         frame.velocity_target = ae::Vec2::new(enemy.config.tuning.chase_speed, 0.0);
         for _ in 0..120 {
             enemy.update_for_test(
@@ -502,10 +502,10 @@ mod conversion_tests {
             ],
         );
         let aabb = enemy_aabb(ae::Vec2::new(100.0, 536.0));
-        let path = crate::actor::KinematicPath {
+        let path = ambition_characters::actor::KinematicPath {
             points: vec![ae::Vec2::new(100.0, 536.0), ae::Vec2::new(400.0, 536.0)],
             speed: 120.0,
-            mode: crate::actor::KinematicPathMode::PingPong,
+            mode: ambition_characters::actor::KinematicPathMode::PingPong,
             start_offset_seconds: 0.0,
         };
         let paths = vec![("skitter_path".to_string(), path)];
@@ -513,7 +513,7 @@ mod conversion_tests {
             "path_skitter",
             "path_skitter",
             aabb,
-            crate::actor::EnemyBrain::Patrol {
+            ambition_characters::actor::EnemyBrain::Patrol {
                 path_id: Some("skitter_path".into()),
             },
             &paths,
@@ -523,7 +523,7 @@ mod conversion_tests {
         // Drive directly with a brain-shaped frame requesting
         // rightward patrol motion — the test verifies the
         // integration step blocks the body against the wall.
-        let mut frame = crate::actor::control::ActorControlFrame::neutral();
+        let mut frame = ambition_characters::actor::control::ActorControlFrame::neutral();
         // Full-throttle rightward run intent; the enemy's tuning owns the px/s scale.
         frame.locomotion = ae::Vec2::new(1.0, 0.0);
         for _ in 0..120 {
@@ -586,12 +586,12 @@ mod conversion_tests {
         );
         // Right edge (center.x + 14) touches the ground wall at x = 300.
         let aabb = enemy_aabb(ae::Vec2::new(286.0, 300.0));
-        let paths: Vec<(String, crate::actor::KinematicPath)> = vec![];
+        let paths: Vec<(String, ambition_characters::actor::KinematicPath)> = vec![];
         let mut enemy = super::ecs::actor_clusters::ActorClusterSeed::new(
             "sideways_patroller",
             "sideways_patroller",
             aabb,
-            crate::actor::EnemyBrain::Patrol { path_id: None },
+            ambition_characters::actor::EnemyBrain::Patrol { path_id: None },
             &paths,
         );
         enemy.attack.cooldown = 0.0;
@@ -604,7 +604,7 @@ mod conversion_tests {
         let player_pos_far = ae::Vec2::new(2000.0, 300.0);
         // Constant run intent along the perpendicular axis (sign maps to ±vertical);
         // the enemy travels until a cap stops it, then the detection flips facing.
-        let mut frame = crate::actor::control::ActorControlFrame::neutral();
+        let mut frame = ambition_characters::actor::control::ActorControlFrame::neutral();
         // Full-throttle run intent along the local side axis; tuning owns px/s.
         frame.locomotion = ae::Vec2::new(1.0, 0.0);
         // Count facing reversals: with the OLD screen-x detection, `vel.x` is the
@@ -677,7 +677,7 @@ mod conversion_tests {
             "slug",
             "PuppySlug",
             aabb,
-            crate::actor::EnemyBrain::Passive,
+            ambition_characters::actor::EnemyBrain::Passive,
             &[],
         );
         // Force the surface-walker grounded state directly (independent of which
@@ -693,7 +693,7 @@ mod conversion_tests {
             None,
             1.0 / 60.0,
             false,
-            crate::actor::control::ActorControlFrame::neutral(),
+            ambition_characters::actor::control::ActorControlFrame::neutral(),
             ae::Vec2::new(0.0, 1.0),
         );
         enemy.kin.pos.x - x0

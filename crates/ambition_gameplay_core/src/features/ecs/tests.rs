@@ -21,7 +21,7 @@ fn spawn_interaction_player(app: &mut App, player_pos: ae::Vec2) {
         crate::player::primary_player_scratch(player_pos, ae::AbilitySet::sandbox_all());
     scratch.ground.on_ground = true;
     let mut bundle =
-        crate::player::PlayerSimulationBundle::from_scratch(scratch, crate::actor::Health::new(10));
+        crate::player::PlayerSimulationBundle::from_scratch(scratch, ambition_characters::actor::Health::new(10));
     bundle.interaction.interact_buffer_timer = 0.15;
     app.world_mut().spawn(bundle);
 }
@@ -92,7 +92,7 @@ fn overlay_uses_published_pogo_volumes_instead_of_boss_body_aabb() {
         "gnu_ton",
         "GNU-ton",
         boss_body,
-        crate::actor::BossBrain::Dormant,
+        ambition_characters::actor::BossBrain::Dormant,
     );
 
     let mut app = App::new();
@@ -142,7 +142,7 @@ fn boss_classifies_as_boss_not_the_actor_enemy_fallback() {
         "gnu_ton",
         "GNU-ton",
         boss_body,
-        crate::actor::BossBrain::Dormant,
+        ambition_characters::actor::BossBrain::Dormant,
     );
     let (identity, disposition, health, combat, intent, cooldowns) =
         boss_component_snapshot(boss.as_ref(), &crate::brain::BossAttackState::default());

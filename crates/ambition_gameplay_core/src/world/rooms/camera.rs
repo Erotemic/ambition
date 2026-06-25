@@ -68,7 +68,7 @@ pub struct KinematicPathSpec {
     pub id: String,
     pub name: String,
     pub aabb: ae::Aabb,
-    pub path: crate::actor::KinematicPath,
+    pub path: ambition_characters::actor::KinematicPath,
 }
 
 impl KinematicPathSpec {
@@ -76,7 +76,7 @@ impl KinematicPathSpec {
         id: impl Into<String>,
         name: impl Into<String>,
         aabb: ae::Aabb,
-        path: crate::actor::KinematicPath,
+        path: ambition_characters::actor::KinematicPath,
     ) -> Self {
         Self {
             id: id.into(),

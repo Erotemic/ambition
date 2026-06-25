@@ -296,7 +296,7 @@ pub fn update_ecs_actors(
                     );
                     snapshot.control_down = enemy_gravity_dir;
                     snapshot.input_frame_mode = input_frame_mode;
-                    let mut bf = crate::actor::control::ActorControlFrame::neutral();
+                    let mut bf = ambition_characters::actor::control::ActorControlFrame::neutral();
                     crate::brain::player::tick_player_brain_from_control(
                         &p.control, &snapshot, &mut bf,
                     );
@@ -319,13 +319,13 @@ pub fn update_ecs_actors(
                         dt,
                         enemy_gravity_dir,
                     );
-                    let mut bf = crate::actor::control::ActorControlFrame::neutral();
+                    let mut bf = ambition_characters::actor::control::ActorControlFrame::neutral();
                     let peaceful = crate::brain::ActionSet::peaceful();
                     let actions = action_set.unwrap_or(&peaceful);
                     brain_ref.tick_with_actions(actions, &snapshot, &mut bf);
                     bf
                 } else {
-                    crate::actor::control::ActorControlFrame::neutral()
+                    ambition_characters::actor::control::ActorControlFrame::neutral()
                 };
                 let body_contact_damage_enabled = !brain.as_deref().is_some_and(crate::brain::Brain::is_player)
                         // A POSSESSED actor is on your side — its body never hurts
@@ -361,7 +361,7 @@ pub fn update_ecs_actors(
                         knockback: None,
                         ignored_targets: Vec::new(),
                     });
-                    frame = crate::actor::control::ActorControlFrame::neutral();
+                    frame = ambition_characters::actor::control::ActorControlFrame::neutral();
                 }
                 // Publish the actor's footprint ORIENTED to its reference frame —
                 // the single source of truth read by the debug overlay, player

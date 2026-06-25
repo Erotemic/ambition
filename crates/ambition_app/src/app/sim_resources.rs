@@ -90,7 +90,7 @@ impl Plugin for SandboxSimulationResourcesPlugin {
             // CharacterCatalogPlugin installs the parsed character
             // catalog as a Bevy resource and runs a Startup validator
             // that panics on broken references. See
-            // `ambition_gameplay_core::actor::character_catalog` and ADR 0017
+            // `ambition_characters::actor::character_catalog` and ADR 0017
             // (Rust = behavior, RON = content, LDtk = space).
             .add_plugins(ambition_gameplay_core::character_roster::character_roster_plugin())
             .add_systems(

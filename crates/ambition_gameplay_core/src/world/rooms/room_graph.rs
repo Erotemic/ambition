@@ -42,8 +42,8 @@ pub struct RoomSpec {
     pub pickups: Vec<Authored<ambition_interaction::Pickup>>,
     pub chests: Vec<Authored<ambition_interaction::Chest>>,
     pub breakables: Vec<Authored<ambition_interaction::Breakable>>,
-    pub enemy_spawns: Vec<Authored<crate::actor::EnemyBrain>>,
-    pub boss_spawns: Vec<Authored<crate::actor::BossBrain>>,
+    pub enemy_spawns: Vec<Authored<ambition_characters::actor::EnemyBrain>>,
+    pub boss_spawns: Vec<Authored<ambition_characters::actor::BossBrain>>,
     pub debug_labels: Vec<Authored<crate::debug_label::DebugLabel>>,
 }
 

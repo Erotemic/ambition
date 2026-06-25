@@ -93,7 +93,7 @@ pub fn spawn_enemy_projectiles_from_brain_actions(
             .surface_normal
             .normalize_or(ae::Vec2::new(0.0, -1.0));
         let frame = ae::AccelerationFrame::new(gravity_dir);
-        let request = crate::actor::control::ActorFireRequest {
+        let request = ambition_characters::actor::control::ActorFireRequest {
             dir,
             dir_policy,
             speed: spec.speed(),
@@ -251,7 +251,7 @@ mod tests {
             "rider_a",
             "Pirate Raider",
             aabb,
-            crate::actor::EnemyBrain::Custom("pirate_raider".into()),
+            ambition_characters::actor::EnemyBrain::Custom("pirate_raider".into()),
             &[],
         );
         enemy_actor(enemy)
@@ -290,7 +290,7 @@ mod tests {
             "skitter_a",
             "Skitter",
             aabb,
-            crate::actor::EnemyBrain::Custom("small_skitter".into()),
+            ambition_characters::actor::EnemyBrain::Custom("small_skitter".into()),
             &[],
         );
         let actor = app.world_mut().spawn(enemy_actor(enemy)).id();
@@ -327,7 +327,7 @@ mod tests {
             "side_gravity_shooter",
             "Skitter",
             aabb,
-            crate::actor::EnemyBrain::Custom("small_skitter".into()),
+            ambition_characters::actor::EnemyBrain::Custom("small_skitter".into()),
             &[],
         );
         let mut actor_bundle = enemy_actor(enemy);
@@ -412,7 +412,7 @@ mod tests {
             "striker_a",
             "Striker",
             aabb,
-            crate::actor::EnemyBrain::Custom("medium_striker".into()),
+            ambition_characters::actor::EnemyBrain::Custom("medium_striker".into()),
             &[],
         );
         enemy.attack.cooldown = 0.0;
@@ -449,7 +449,7 @@ mod tests {
             attack.cooldown,
         );
         assert!(
-            matches!(status.ai_mode, crate::actor::ai::CharacterAiMode::Telegraph),
+            matches!(status.ai_mode, ambition_characters::actor::ai::CharacterAiMode::Telegraph),
             "ai_mode should flip to Telegraph; got {:?}",
             status.ai_mode,
         );
@@ -475,7 +475,7 @@ mod tests {
             "iron_mary_dismounted",
             "Iron Mary",
             aabb,
-            crate::actor::EnemyBrain::Custom("pirate_heavy".into()),
+            ambition_characters::actor::EnemyBrain::Custom("pirate_heavy".into()),
             &[],
         );
         // The "pirate_heavy" brain resolved to the PirateHeavy spec: peaceful
@@ -519,7 +519,7 @@ mod tests {
             "explicit melee message should start dismounted PirateHeavy windup"
         );
         assert!(
-            matches!(status.ai_mode, crate::actor::ai::CharacterAiMode::Telegraph),
+            matches!(status.ai_mode, ambition_characters::actor::ai::CharacterAiMode::Telegraph),
             "dismounted PirateHeavy should telegraph her melee attack"
         );
     }
@@ -542,7 +542,7 @@ mod tests {
             "striker_a",
             "Striker",
             aabb,
-            crate::actor::EnemyBrain::Custom("medium_striker".into()),
+            ambition_characters::actor::EnemyBrain::Custom("medium_striker".into()),
             &[],
         );
         // Pre-set cooldown so begin_melee_attack refuses.

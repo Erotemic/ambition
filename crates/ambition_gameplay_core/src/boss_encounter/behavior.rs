@@ -388,12 +388,12 @@ impl BossBehaviorProfile {
 /// 2. `BossBrain::Custom(label)` with a non-empty label — same
 ///    intent, weaker contract.
 /// 3. `encounter_id_from_name(authored_name)` — legacy fallback.
-pub fn canonical_boss_id_from(name: &str, brain: &crate::actor::BossBrain) -> String {
+pub fn canonical_boss_id_from(name: &str, brain: &ambition_characters::actor::BossBrain) -> String {
     match brain {
-        crate::actor::BossBrain::PhaseScript { script_id } if !script_id.is_empty() => {
+        ambition_characters::actor::BossBrain::PhaseScript { script_id } if !script_id.is_empty() => {
             script_id.clone()
         }
-        crate::actor::BossBrain::Custom(label) if !label.is_empty() => {
+        ambition_characters::actor::BossBrain::Custom(label) if !label.is_empty() => {
             crate::boss_encounter::encounter_id_from_name(label)
         }
         _ => crate::boss_encounter::encounter_id_from_name(name),

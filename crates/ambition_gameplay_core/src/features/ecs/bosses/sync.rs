@@ -37,13 +37,13 @@ pub(crate) fn boss_component_snapshot(
     ActorCooldowns,
 ) {
     let mode = if !boss.status.alive {
-        crate::actor::ai::CharacterAiMode::Dead
+        ambition_characters::actor::ai::CharacterAiMode::Dead
     } else if attack_state.active_profile.is_some() {
-        crate::actor::ai::CharacterAiMode::Attack
+        ambition_characters::actor::ai::CharacterAiMode::Attack
     } else if attack_state.telegraph_profile.is_some() {
-        crate::actor::ai::CharacterAiMode::Telegraph
+        ambition_characters::actor::ai::CharacterAiMode::Telegraph
     } else {
-        crate::actor::ai::CharacterAiMode::Chase
+        ambition_characters::actor::ai::CharacterAiMode::Chase
     };
     (
         ActorIdentity::new(boss.config.id.clone(), boss.config.name.clone()),
@@ -262,7 +262,7 @@ pub fn boss_spawn_hurtboxes(
     id: &str,
     name: &str,
     aabb: ae::Aabb,
-    brain: crate::actor::BossBrain,
+    brain: ambition_characters::actor::BossBrain,
 ) -> Vec<ae::Aabb> {
     let registry = crate::character_sprites::baked_sheet_registry();
     let mut boss = super::super::boss_clusters::BossClusterScratch::new(id, name, aabb, brain);

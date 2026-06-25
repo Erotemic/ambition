@@ -202,7 +202,7 @@ mod tests {
             "boss_gnu_ton",
             "GNU-ton",
             aabb,
-            ambition_gameplay_core::actor::BossBrain::Dormant,
+            ambition_characters::actor::BossBrain::Dormant,
         );
         scratch.config.behavior = behavior;
         scratch

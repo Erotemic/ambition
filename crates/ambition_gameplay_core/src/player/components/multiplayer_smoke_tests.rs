@@ -243,7 +243,7 @@ fn targeted_heal_routes_to_named_entity_not_primary() {
             PlayerEntity,
             PlayerSlot(0),
             PrimaryPlayer,
-            PlayerHealth::new(crate::actor::Health {
+            PlayerHealth::new(ambition_characters::actor::Health {
                 current: 1,
                 max: 5,
                 invulnerable: false,
@@ -255,7 +255,7 @@ fn targeted_heal_routes_to_named_entity_not_primary() {
         .spawn((
             PlayerEntity,
             PlayerSlot(1),
-            PlayerHealth::new(crate::actor::Health {
+            PlayerHealth::new(ambition_characters::actor::Health {
                 current: 1,
                 max: 5,
                 invulnerable: false,
@@ -292,7 +292,7 @@ fn untargeted_heal_routes_to_primary() {
             PlayerEntity,
             PlayerSlot(0),
             PrimaryPlayer,
-            PlayerHealth::new(crate::actor::Health {
+            PlayerHealth::new(ambition_characters::actor::Health {
                 current: 1,
                 max: 5,
                 invulnerable: false,
@@ -304,7 +304,7 @@ fn untargeted_heal_routes_to_primary() {
         .spawn((
             PlayerEntity,
             PlayerSlot(1),
-            PlayerHealth::new(crate::actor::Health {
+            PlayerHealth::new(ambition_characters::actor::Health {
                 current: 1,
                 max: 5,
                 invulnerable: false,

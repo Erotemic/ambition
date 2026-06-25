@@ -2,7 +2,7 @@
 //!
 //! Each character is identified by a stable `character_id` keyed in
 //! `assets/data/character_catalog.ron` (loaded by
-//! [`crate::actor::character_catalog`]). The catalog provides the
+//! [`ambition_characters::actor::character_catalog`]). The catalog provides the
 //! display name + on-disk path; the per-character `CharacterSheetSpec`
 //! (frame/grid/anchor metadata) is resolved at startup by
 //! [`sheet_for_character_id`] — a single table that maps

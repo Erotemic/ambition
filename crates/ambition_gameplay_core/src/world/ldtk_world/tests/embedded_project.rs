@@ -469,7 +469,7 @@ fn embedded_ldtk_patrol_enemy_resolves_kinematic_path_index() {
         .enemy_spawns
         .iter()
         .find_map(|authored| match &authored.payload {
-            crate::actor::EnemyBrain::Patrol {
+            ambition_characters::actor::EnemyBrain::Patrol {
                 path_id: Some(path_id),
             } => Some(path_id.as_str()),
             _ => None,

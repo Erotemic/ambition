@@ -68,7 +68,7 @@ pub(super) fn player_control_phase(
     // Vestigial since the engine `pogo_hits` path was removed (orb damage now
     // flows from the sandbox attack pogo). Kept on the signature for now.
     _player_entity: bevy::prelude::Entity,
-    actor_control: ambition_gameplay_core::actor::control::ActorControlFrame,
+    actor_control: ambition_characters::actor::control::ActorControlFrame,
     world: &ae::World,
     clusters: &mut ae::PlayerClustersMut<'_>,
     sim_state: &mut ambition_gameplay_core::SandboxSimState,
@@ -169,7 +169,7 @@ pub(super) fn player_control_phase(
 /// This phase observes the smoothed `sim_state.time_scale` set by
 /// the PlayerInput pipeline.
 pub(super) fn player_simulation_phase(
-    actor_control: ambition_gameplay_core::actor::control::ActorControlFrame,
+    actor_control: ambition_characters::actor::control::ActorControlFrame,
     world: &ae::World,
     clusters: &mut ae::PlayerClustersMut<'_>,
     dev_state: &ambition_gameplay_core::SandboxDevState,

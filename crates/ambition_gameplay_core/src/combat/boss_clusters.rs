@@ -37,7 +37,7 @@ pub struct BossConfig {
     pub name: String,
     /// Authored spawn anchor; `reset` restores `kin.pos` to it.
     pub spawn: ae::Vec2,
-    pub brain: crate::actor::BossBrain,
+    pub brain: ambition_characters::actor::BossBrain,
     pub behavior: BossBehaviorProfile,
 }
 
@@ -45,7 +45,7 @@ pub struct BossConfig {
 /// active encounter phase, and sprite-derived body metrics.
 #[derive(Component, Clone, Debug)]
 pub struct BossStatus {
-    pub health: crate::actor::Health,
+    pub health: ambition_characters::actor::Health,
     pub alive: bool,
     pub hit_flash: f32,
     /// Active encounter phase. Forwarded by `sync_boss_encounter_phase`
@@ -293,7 +293,7 @@ impl BossClusterScratch {
         id: impl Into<String>,
         name: impl Into<String>,
         aabb: ae::Aabb,
-        brain: crate::actor::BossBrain,
+        brain: ambition_characters::actor::BossBrain,
     ) -> Self {
         let name = name.into();
         // Behavior lookup prefers the brain's `PhaseScript:` id over the
@@ -320,7 +320,7 @@ impl BossClusterScratch {
                 behavior: BossBehaviorProfile::for_authored_boss(&canonical_id),
             },
             status: BossStatus {
-                health: crate::actor::Health::new(18),
+                health: ambition_characters::actor::Health::new(18),
                 alive: true,
                 hit_flash: 0.0,
                 encounter_phase: BossEncounterPhase::Dormant,
@@ -384,7 +384,7 @@ pub(crate) mod test_support {
     ) -> BossStatus {
         let mut encounter = BossPhaseState::new(triggers);
         encounter.phase = phase;
-        let mut health = crate::actor::Health::new(hp);
+        let mut health = ambition_characters::actor::Health::new(hp);
         health.current = hp;
         BossStatus {
             health,
@@ -414,7 +414,7 @@ pub(crate) mod test_support {
             id: id.into(),
             name: name.into(),
             spawn: ae::Vec2::ZERO,
-            brain: crate::actor::BossBrain::PhaseScript {
+            brain: ambition_characters::actor::BossBrain::PhaseScript {
                 script_id: script_id.to_string(),
             },
             behavior: BossBehaviorProfile::for_authored_boss(script_id),

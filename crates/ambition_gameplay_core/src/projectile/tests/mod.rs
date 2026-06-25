@@ -49,7 +49,7 @@ fn spawn_player(app: &mut App, pos: ae::Vec2, facing: f32) {
     scratch.kinematics.facing = facing;
     scratch.ground.on_ground = true;
     let bundle =
-        crate::player::PlayerSimulationBundle::from_scratch(scratch, crate::actor::Health::new(10));
+        crate::player::PlayerSimulationBundle::from_scratch(scratch, ambition_characters::actor::Health::new(10));
     app.world_mut().spawn(bundle);
 }
 

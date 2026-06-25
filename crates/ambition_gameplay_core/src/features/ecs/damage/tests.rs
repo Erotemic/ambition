@@ -18,10 +18,10 @@ fn spawn_hostile_actor(app: &mut App) -> bevy::prelude::Entity {
         "kernel_guide".to_string(),
         "Kernel Guide".to_string(),
         aabb,
-        crate::actor::EnemyBrain::Custom("medium_striker".into()),
+        ambition_characters::actor::EnemyBrain::Custom("medium_striker".into()),
         &[],
     );
-    enemy.status.health = crate::actor::Health::new(5);
+    enemy.status.health = ambition_characters::actor::Health::new(5);
     let (identity, disposition, health, combat, intent, cooldowns) =
         enemy_component_snapshot(&enemy);
     app.world_mut()

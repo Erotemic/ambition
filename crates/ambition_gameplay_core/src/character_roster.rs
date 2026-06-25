@@ -11,7 +11,7 @@
 
 use std::sync::LazyLock;
 
-use crate::actor::character_catalog::{
+use ambition_characters::actor::character_catalog::{
     parse_catalog, CharacterCatalogData, CharacterCatalogPlugin,
 };
 
@@ -69,7 +69,7 @@ pub fn default_brain_for_character_id(
 ) -> Option<crate::brain::Brain> {
     let entry = EMBEDDED_CATALOG.characters.get(character_id)?;
     let preset = EMBEDDED_CATALOG.brain_presets.get(&entry.default_brain)?;
-    Some(crate::actor::character_catalog::brain_from_preset(
+    Some(ambition_characters::actor::character_catalog::brain_from_preset(
         preset,
         spawn_world_x,
     ))
@@ -80,7 +80,7 @@ pub fn default_brain_for_character_id(
 /// brain's full 2D `desired_vel` drives flight.
 pub fn body_kind_for_character_id(
     character_id: &str,
-) -> Option<crate::actor::character_catalog::CharacterBodyKind> {
+) -> Option<ambition_characters::actor::character_catalog::CharacterBodyKind> {
     EMBEDDED_CATALOG
         .characters
         .get(character_id)
@@ -100,7 +100,7 @@ mod tests {
     // policy, loader coverage) live in `presentation::character_sprites::tests`
     // — they pin SHEET resolution, which is presentation's contract.
     use super::*;
-    use crate::actor::character_catalog::*;
+    use ambition_characters::actor::character_catalog::*;
     use crate::brain::Brain;
 
     #[test]

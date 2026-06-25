@@ -20,7 +20,7 @@
 #![cfg(feature = "rl_sim")]
 
 use ambition_app::{AgentAction, SandboxSim, TimestepMode};
-use ambition_gameplay_core::actor::BossBrain;
+use ambition_characters::actor::BossBrain;
 use ambition_gameplay_core::boss_encounter::{
     BossEncounterPhase, EncounterBeat, EncounterDef, EncounterEffect, EncounterGate,
     EncounterScript, EncounterTrigger,

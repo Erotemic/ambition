@@ -102,8 +102,8 @@ impl Default for SheetTuning {
 
 impl SheetTuning {
     /// Build runtime tuning from a catalog row's authored
-    /// [`SpriteTuningSpec`](crate::actor::character_catalog::SpriteTuningSpec).
-    pub fn from_spec(spec: crate::actor::character_catalog::SpriteTuningSpec) -> Self {
+    /// [`SpriteTuningSpec`](ambition_characters::actor::character_catalog::SpriteTuningSpec).
+    pub fn from_spec(spec: ambition_characters::actor::character_catalog::SpriteTuningSpec) -> Self {
         Self {
             collision_scale: spec.collision_scale,
             feet_anchor_y_override: spec.feet_anchor_y,

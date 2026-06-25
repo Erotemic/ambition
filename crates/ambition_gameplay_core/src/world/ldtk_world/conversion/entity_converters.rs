@@ -76,7 +76,7 @@ pub(super) fn convert_kinematic_path(
     if speed <= 0.0 {
         return Err("KinematicPath speed must be positive".to_string());
     }
-    let path = crate::actor::KinematicPath {
+    let path = ambition_characters::actor::KinematicPath {
         points,
         speed,
         mode: parse_path_mode(
@@ -335,7 +335,7 @@ pub(super) fn convert_enemy_spawn(
         field_string(entity, "path_id").or_else(|| field_string(entity, "patrol_path_id"))
     {
         if !path_id.trim().is_empty() {
-            brain = crate::actor::EnemyBrain::Patrol {
+            brain = ambition_characters::actor::EnemyBrain::Patrol {
                 path_id: Some(path_id.trim().to_string()),
             };
         }

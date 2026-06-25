@@ -105,6 +105,7 @@ ambition_gameplay_core = { path = "../ambition_gameplay_core", default-features 
 ambition_content = { path = "../ambition_content" }
 ambition_render = { path = "../ambition_render" }
 ambition_engine_core = { path = "../ambition_engine_core" }
+ambition_characters = { path = "../ambition_characters" }
 ambition_input = { path = "../ambition_input" }
 ambition_ui_nav = { path = "../ambition_ui_nav" }
 ambition_platformer_primitives = { path = "../ambition_platformer_primitives" }

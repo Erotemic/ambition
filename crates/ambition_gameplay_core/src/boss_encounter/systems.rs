@@ -122,7 +122,7 @@ pub fn update_boss_encounters(
                 .and_then(|o| o.max_hp)
                 .unwrap_or(spec.max_hp)
                 .max(1);
-            feature.status.health = crate::actor::Health::new(max_hp);
+            feature.status.health = ambition_characters::actor::Health::new(max_hp);
             let triggers = overrides
                 .and_then(|o| o.phase_triggers.clone())
                 .unwrap_or_else(|| crate::boss_encounter::PhaseTrigger::intrinsic_from_spec(&spec));

@@ -97,22 +97,22 @@ pub(super) fn parse_points(value: &str) -> Vec<ae::Vec2> {
         .collect()
 }
 
-pub(super) fn parse_path_mode(value: &str) -> crate::actor::KinematicPathMode {
+pub(super) fn parse_path_mode(value: &str) -> ambition_characters::actor::KinematicPathMode {
     match value.trim().to_ascii_lowercase().replace('-', "_").as_str() {
-        "once" => crate::actor::KinematicPathMode::Once,
-        "loop" => crate::actor::KinematicPathMode::Loop,
-        _ => crate::actor::KinematicPathMode::PingPong,
+        "once" => ambition_characters::actor::KinematicPathMode::Once,
+        "loop" => ambition_characters::actor::KinematicPathMode::Loop,
+        _ => ambition_characters::actor::KinematicPathMode::PingPong,
     }
 }
 
 pub(super) fn parse_optional_path(
     entity: &LdtkEntityInstance,
-) -> Option<crate::actor::KinematicPath> {
+) -> Option<ambition_characters::actor::KinematicPath> {
     let points = parse_points(&field_string(entity, "path_points").unwrap_or_default());
     if points.len() < 2 {
         return None;
     }
-    Some(crate::actor::KinematicPath {
+    Some(ambition_characters::actor::KinematicPath {
         points,
         speed: field_f32(entity, "path_speed").unwrap_or(100.0),
         mode: parse_path_mode(
@@ -146,35 +146,35 @@ pub(super) fn parse_pickup_kind(value: &str) -> ambition_interaction::PickupKind
     }
 }
 
-pub(super) fn parse_enemy_brain(value: &str) -> crate::actor::EnemyBrain {
+pub(super) fn parse_enemy_brain(value: &str) -> ambition_characters::actor::EnemyBrain {
     if let Some(path_id) = value.strip_prefix("Patrol:") {
-        crate::actor::EnemyBrain::Patrol {
+        ambition_characters::actor::EnemyBrain::Patrol {
             path_id: Some(path_id.to_string()),
         }
     } else if let Some(radius) = value
         .strip_prefix("Guard:")
         .and_then(|text| text.parse::<f32>().ok())
     {
-        crate::actor::EnemyBrain::Guard {
+        ambition_characters::actor::EnemyBrain::Guard {
             leash_radius: radius,
         }
     } else {
         match value {
-            "Passive" => crate::actor::EnemyBrain::Passive,
-            other => crate::actor::EnemyBrain::Custom(other.to_string()),
+            "Passive" => ambition_characters::actor::EnemyBrain::Passive,
+            other => ambition_characters::actor::EnemyBrain::Custom(other.to_string()),
         }
     }
 }
 
-pub(super) fn parse_boss_brain(value: &str) -> crate::actor::BossBrain {
+pub(super) fn parse_boss_brain(value: &str) -> ambition_characters::actor::BossBrain {
     if let Some(script_id) = value.strip_prefix("PhaseScript:") {
-        crate::actor::BossBrain::PhaseScript {
+        ambition_characters::actor::BossBrain::PhaseScript {
             script_id: script_id.to_string(),
         }
     } else {
         match value {
-            "Dormant" => crate::actor::BossBrain::Dormant,
-            other => crate::actor::BossBrain::Custom(other.to_string()),
+            "Dormant" => ambition_characters::actor::BossBrain::Dormant,
+            other => ambition_characters::actor::BossBrain::Custom(other.to_string()),
         }
     }
 }
@@ -195,7 +195,7 @@ pub(super) fn parse_debug_label_kind(value: &str) -> crate::debug_label::DebugLa
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::actor::{BossBrain, EnemyBrain, KinematicPathMode};
+    use ambition_characters::actor::{BossBrain, EnemyBrain, KinematicPathMode};
     use ambition_interaction::PickupKind;
 
     #[test]

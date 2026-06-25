@@ -24,7 +24,7 @@ use super::*;
 ///   verb is preserved so the player can swing back the instant recoil ends —
 ///   even while still inside a boss and flashing (Hollow-Knight feel).
 pub(crate) fn engine_input_from_actor_control(
-    actor: ambition_gameplay_core::actor::control::ActorControlFrame,
+    actor: ambition_characters::actor::control::ActorControlFrame,
     feel: SandboxFeelTuning,
     hitstun_timer: f32,
     recoil_lock_timer: f32,
@@ -93,7 +93,7 @@ pub(crate) fn start_attack(
     clusters: &mut ae::PlayerClustersMut<'_>,
     attack: &mut Option<ambition_gameplay_core::PlayerAttackState>,
     anim: &mut ambition_gameplay_core::player::PlayerAnimState,
-    actor: ambition_gameplay_core::actor::control::ActorControlFrame,
+    actor: ambition_characters::actor::control::ActorControlFrame,
     // When the player is holding a melee weapon (axe etc.), its `ActionSet`
     // melee spec re-tunes the swing (timing / reach / damage) so the held item
     // *replaces* the default attack instead of merely gating it.

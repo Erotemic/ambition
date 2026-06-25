@@ -17,7 +17,7 @@
 //! `single_mut()`-keyed to the one `PlayerEntity` — see the player-clone probe
 //! in `docs/journals/content-authoring-pain-points.md`.)
 
-use crate::actor::control::ActorControlFrame;
+use ambition_characters::actor::control::ActorControlFrame;
 use crate::brain::state_machine::PlayerDemoCfg;
 use crate::brain::{Brain, BrainSnapshot, StateMachineCfg};
 use ambition_engine_core as ae;

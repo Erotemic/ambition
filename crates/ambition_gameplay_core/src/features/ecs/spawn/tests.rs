@@ -21,7 +21,7 @@ fn make_enemy(brain_key: &str) -> ActorConfig {
         "test".to_string(),
         "test".to_string(),
         aabb,
-        crate::actor::EnemyBrain::Custom(brain_key.to_string()),
+        ambition_characters::actor::EnemyBrain::Custom(brain_key.to_string()),
         &[],
     )
     .config
@@ -40,7 +40,7 @@ fn encounter_mob_brain_is_per_archetype_melee_brute() {
             &mut commands,
             "test_encounter",
             "test_mob".to_string(),
-            crate::actor::EnemyBrain::Custom("medium_striker".into()),
+            ambition_characters::actor::EnemyBrain::Custom("medium_striker".into()),
             ae::Vec2::new(100.0, 100.0),
             ae::Vec2::new(20.0, 30.0),
         );
@@ -67,7 +67,7 @@ fn boss_spawn_attaches_brain_components() {
             id: "test_boss".to_string(),
             name: "Test Warden".to_string(),
             aabb: ae::Aabb::new(ae::Vec2::new(200.0, 100.0), ae::Vec2::new(40.0, 50.0)),
-            payload: crate::actor::BossBrain::Dormant,
+            payload: ambition_characters::actor::BossBrain::Dormant,
         };
         spawn_boss(&mut commands, &authored);
     });
@@ -129,7 +129,7 @@ fn boss_spawn_attaches_brain_components() {
     assert_eq!(*disposition, ActorDisposition::Hostile);
     assert!(health.alive());
     assert!(combat.alive);
-    assert_eq!(intent.mode(), crate::actor::ai::CharacterAiMode::Chase);
+    assert_eq!(intent.mode(), ambition_characters::actor::ai::CharacterAiMode::Chase);
     assert_eq!(cooldowns.attack_cooldown, 0.0);
     assert!(kit.can_ranged(None));
     assert_eq!(aggression.mode, AggressionMode::HostileToPlayer);
@@ -147,7 +147,7 @@ fn encounter_mob_spawns_with_brain_components() {
             &mut commands,
             "test_encounter",
             "test_mob".to_string(),
-            crate::actor::EnemyBrain::Custom("medium_striker".into()),
+            ambition_characters::actor::EnemyBrain::Custom("medium_striker".into()),
             ae::Vec2::new(100.0, 100.0),
             ae::Vec2::new(20.0, 30.0),
         );
@@ -240,7 +240,7 @@ fn shark_composite_mount_brain_stays_skirmisher() {
             id: "test_shark_on_shark".to_string(),
             name: "Test Shark on Shark".to_string(),
             aabb: ae::Aabb::new(ae::Vec2::new(200.0, 120.0), ae::Vec2::new(40.0, 32.0)),
-            payload: crate::actor::EnemyBrain::Custom("pirate_on_shark".into()),
+            payload: ambition_characters::actor::EnemyBrain::Custom("pirate_on_shark".into()),
         };
         spawn_composite_mount_rider(
             &mut commands,
@@ -272,7 +272,7 @@ fn pirate_raider_shark_rider_keeps_compact_dismounted_size() {
             id: "pirate_raider_sky".to_string(),
             name: "Pirate Raider on Shark".to_string(),
             aabb: ae::Aabb::new(ae::Vec2::new(200.0, 120.0), ae::Vec2::new(40.0, 32.0)),
-            payload: crate::actor::EnemyBrain::Custom("pirate_on_shark".into()),
+            payload: ambition_characters::actor::EnemyBrain::Custom("pirate_on_shark".into()),
         };
         spawn_composite_mount_rider(
             &mut commands,
@@ -312,7 +312,7 @@ fn pirate_heavy_shark_rider_keeps_compact_dismounted_size() {
             id: "iron_mary_sky".to_string(),
             name: "Iron Mary on Shark".to_string(),
             aabb: ae::Aabb::new(ae::Vec2::new(200.0, 120.0), ae::Vec2::new(40.0, 32.0)),
-            payload: crate::actor::EnemyBrain::Custom("pirate_heavy_on_shark".into()),
+            payload: ambition_characters::actor::EnemyBrain::Custom("pirate_heavy_on_shark".into()),
         };
         spawn_composite_mount_rider(
             &mut commands,
@@ -429,7 +429,7 @@ fn pirate_heavy_action_set_swings_when_brain_is_forced_hostile() {
         terrain: None,
         air_jumps_remaining: 0,
     };
-    let mut frame = crate::actor::control::ActorControlFrame::neutral();
+    let mut frame = ambition_characters::actor::control::ActorControlFrame::neutral();
     brain.tick_with_actions(&actions, &snapshot, &mut frame);
     assert!(
         frame.melee_pressed,

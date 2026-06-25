@@ -17,8 +17,8 @@ pub(crate) fn player_is_standing_on(player: ae::Aabb, platform: ae::Aabb) -> boo
 
 pub(crate) fn room_spec_paths(
     room: &crate::rooms::RoomSpec,
-) -> Vec<(String, crate::actor::KinematicPath)> {
-    let mut paths: Vec<(String, crate::actor::KinematicPath)> = Vec::new();
+) -> Vec<(String, ambition_characters::actor::KinematicPath)> {
+    let mut paths: Vec<(String, ambition_characters::actor::KinematicPath)> = Vec::new();
     for spec in &room.kinematic_paths {
         paths.push((spec.id.clone(), spec.path.clone()));
         if spec.name != spec.id {

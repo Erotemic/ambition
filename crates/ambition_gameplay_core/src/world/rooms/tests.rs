@@ -374,7 +374,7 @@ fn loading_zone_hint_for_edge_exit_skips_prompt() {
 
 #[test]
 fn kinematic_path_spec_matches_id_accepts_compacted_form() {
-    use crate::actor::KinematicPath;
+    use ambition_characters::actor::KinematicPath;
     use crate::world::rooms::KinematicPathSpec;
 
     // Spec id is the `compact_path_name`-stripped form

@@ -55,7 +55,7 @@ pub(crate) fn hostile_spec_for_actor(
     dialogue_id: Option<&str>,
 ) -> super::super::super::enemies::EnemyArchetypeSpec {
     let brain =
-        crate::actor::EnemyBrain::Custom(hostile_brain_id_for_actor(id, name, dialogue_id).into());
+        ambition_characters::actor::EnemyBrain::Custom(hostile_brain_id_for_actor(id, name, dialogue_id).into());
     super::super::super::enemies::spec_for_brain(&brain)
 }
 
@@ -134,15 +134,15 @@ pub(crate) fn provoke_actor_in_place(
 ) {
     if disposition.is_peaceful() {
         let hostile_id = hostile_brain_id_for_actor(&em.config.id, &em.config.name, dialogue_id);
-        let spec = super::super::super::enemies::spec_for_brain(&crate::actor::EnemyBrain::Custom(
+        let spec = super::super::super::enemies::spec_for_brain(&ambition_characters::actor::EnemyBrain::Custom(
             hostile_id.into(),
         ));
         em.config.tuning = spec.tuning();
         em.config.brain_spec = spec.brain_spec();
-        em.config.brain = crate::actor::EnemyBrain::Custom(hostile_id.into());
+        em.config.brain = ambition_characters::actor::EnemyBrain::Custom(hostile_id.into());
         // Take on the hostile archetype's HP pool (the peaceful seed spawned with
         // health=1; a provoked actor should fight at full archetype HP).
-        em.status.health = crate::actor::Health::new(spec.max_health);
+        em.status.health = ambition_characters::actor::Health::new(spec.max_health);
         // Keep the actor's own sprite sheet (its NPC name) when hostile — except
         // the Kernel Guide, which uses the default enemy sheet (legacy quirk).
         if em.config.name != "Kernel Guide NPC" {
@@ -152,7 +152,7 @@ pub(crate) fn provoke_actor_in_place(
         *disposition = ActorDisposition::Hostile;
     }
     if chase {
-        em.status.ai_mode = crate::actor::ai::CharacterAiMode::Chase;
+        em.status.ai_mode = ambition_characters::actor::ai::CharacterAiMode::Chase;
     }
     let (brain, action_set) =
         super::super::brain_builders::aggressive_brain_and_action_set_for_enemy(

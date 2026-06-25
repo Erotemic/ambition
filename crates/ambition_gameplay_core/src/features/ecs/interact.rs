@@ -157,7 +157,7 @@ mod tests {
         scratch.ground.on_ground = true;
         let mut bundle = crate::player::PlayerSimulationBundle::from_scratch(
             scratch,
-            crate::actor::Health::new(10),
+            ambition_characters::actor::Health::new(10),
         );
         bundle.interaction.interact_buffer_timer = 0.15;
         app.world_mut().spawn(bundle);

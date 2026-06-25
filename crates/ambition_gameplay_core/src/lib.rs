@@ -40,7 +40,6 @@
 // External API surface — bins, tests, and Android/wasm entry points reach
 // into these modules. Everything else stays `pub(crate)` so the compiler
 // can tell us what's actually depended on from outside.
-pub use ambition_characters::actor;
 pub mod audio;
 pub mod character_roster;
 pub mod debug_label;

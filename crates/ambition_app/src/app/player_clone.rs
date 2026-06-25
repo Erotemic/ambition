@@ -221,7 +221,7 @@ pub fn tick_player_clone_brains(
         snapshot.sim_time = clock.0;
         snapshot.dt = dt;
 
-        let mut frame = ambition_gameplay_core::actor::control::ActorControlFrame::neutral();
+        let mut frame = ambition_characters::actor::control::ActorControlFrame::neutral();
         brain.tick(&snapshot, &mut frame);
         control.0 = frame;
     }

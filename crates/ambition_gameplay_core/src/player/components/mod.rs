@@ -47,11 +47,11 @@ pub struct PlayerInputFrame {
 /// ECS-owned player health.
 #[derive(Component, Clone, Copy, Debug, PartialEq, Eq)]
 pub struct PlayerHealth {
-    pub health: crate::actor::Health,
+    pub health: ambition_characters::actor::Health,
 }
 
 impl PlayerHealth {
-    pub fn new(health: crate::actor::Health) -> Self {
+    pub fn new(health: ambition_characters::actor::Health) -> Self {
         Self { health }
     }
 

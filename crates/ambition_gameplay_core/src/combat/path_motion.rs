@@ -1,6 +1,6 @@
 //! `PathMotion`: waypoint-following used by moving hazards/platforms.
 //!
-//! Walks a position along a `crate::actor::KinematicPath` by `speed * dt`
+//! Walks a position along a `ambition_characters::actor::KinematicPath` by `speed * dt`
 //! (`advance`), with the `(segment, dir)` cursor stepped by `lookahead_advance`
 //! under Once / Loop / PingPong end-reversal rules. Re-exported via
 //! `pub use path_motion::*`.
@@ -9,13 +9,13 @@ use super::*;
 
 #[derive(Clone, Debug)]
 pub struct PathMotion {
-    path: crate::actor::KinematicPath,
+    path: ambition_characters::actor::KinematicPath,
     segment: usize,
     dir: i32,
 }
 
 impl PathMotion {
-    pub(crate) fn new(path: crate::actor::KinematicPath) -> Self {
+    pub(crate) fn new(path: ambition_characters::actor::KinematicPath) -> Self {
         Self {
             path,
             segment: 0,
@@ -76,10 +76,10 @@ fn lookahead_advance(
     segment: &mut usize,
     dir: &mut i32,
     last_segment: usize,
-    mode: crate::actor::KinematicPathMode,
+    mode: ambition_characters::actor::KinematicPathMode,
 ) -> bool {
     match mode {
-        crate::actor::KinematicPathMode::Once => {
+        ambition_characters::actor::KinematicPathMode::Once => {
             if *dir >= 0 && *segment < last_segment {
                 *segment += 1;
                 true
@@ -87,7 +87,7 @@ fn lookahead_advance(
                 false
             }
         }
-        crate::actor::KinematicPathMode::Loop => {
+        ambition_characters::actor::KinematicPathMode::Loop => {
             if *dir >= 0 {
                 *segment = if *segment >= last_segment {
                     0
@@ -101,7 +101,7 @@ fn lookahead_advance(
             }
             true
         }
-        crate::actor::KinematicPathMode::PingPong => {
+        ambition_characters::actor::KinematicPathMode::PingPong => {
             if *dir >= 0 {
                 if *segment >= last_segment {
                     *dir = -1;
@@ -125,7 +125,7 @@ mod path_motion_tests {
     //! dir) cursor whose Once/Loop/PingPong reversal logic is the
     //! bug-prone part (off-by-one at the ends flips a platform's travel).
     use super::*;
-    use crate::actor::{KinematicPath, KinematicPathMode};
+    use ambition_characters::actor::{KinematicPath, KinematicPathMode};
 
     fn path(points: Vec<ae::Vec2>, mode: KinematicPathMode) -> KinematicPath {
         KinematicPath {

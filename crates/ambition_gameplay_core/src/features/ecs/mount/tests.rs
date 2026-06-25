@@ -26,7 +26,7 @@ fn hostile(
         id,
         id,
         aabb,
-        crate::actor::EnemyBrain::Custom(archetype_brain.into()),
+        ambition_characters::actor::EnemyBrain::Custom(archetype_brain.into()),
         &[],
     );
     enemy.kin.size = size;

@@ -87,8 +87,8 @@ pub struct ActorInteraction {
     pub interactable: ambition_interaction::Interactable,
     pub talk_radius: f32,
 }
-// `ActorFaction` moved to `crate::actor::pose` with `ActorPose`.
-pub use crate::actor::pose::ActorFaction;
+// `ActorFaction` moved to `ambition_characters::actor::pose` with `ActorPose`.
+pub use ambition_characters::actor::pose::ActorFaction;
 
 /// Per-actor "who am I looking at this frame" pointer. Populated by
 /// [`select_actor_targets`](crate::features::ecs::select_actor_targets)
@@ -276,11 +276,11 @@ pub enum AggressionTarget {
 /// for AI details, but shared systems should read/write this component for HP.
 #[derive(Component, Clone, Copy, Debug, PartialEq, Eq)]
 pub struct ActorHealth {
-    pub health: crate::actor::Health,
+    pub health: ambition_characters::actor::Health,
 }
 
 impl ActorHealth {
-    pub fn new(health: crate::actor::Health) -> Self {
+    pub fn new(health: ambition_characters::actor::Health) -> Self {
         Self { health }
     }
 
@@ -392,17 +392,17 @@ impl ActorCombatState {
     }
 }
 
-/// ECS-visible actor AI intent. Mirrors `crate::actor::ai::CharacterAiMode` so rendering and
+/// ECS-visible actor AI intent. Mirrors `ambition_characters::actor::ai::CharacterAiMode` so rendering and
 /// HUD systems can branch on actor state without a per-family runtime.
 /// Synced from the runtime each frame by `update_ecs_actors`.
 #[derive(Component, Clone, Copy, Debug, Default, PartialEq, Eq)]
-pub struct ActorIntent(pub crate::actor::ai::CharacterAiMode);
+pub struct ActorIntent(pub ambition_characters::actor::ai::CharacterAiMode);
 
 impl ActorIntent {
-    pub fn new(mode: crate::actor::ai::CharacterAiMode) -> Self {
+    pub fn new(mode: ambition_characters::actor::ai::CharacterAiMode) -> Self {
         Self(mode)
     }
-    pub fn mode(self) -> crate::actor::ai::CharacterAiMode {
+    pub fn mode(self) -> ambition_characters::actor::ai::CharacterAiMode {
         self.0
     }
     pub fn is_dangerous(self) -> bool {

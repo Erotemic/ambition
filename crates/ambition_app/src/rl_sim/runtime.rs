@@ -248,7 +248,7 @@ impl SandboxSim {
         let health = health_query
             .single(world)
             .map(|h| h.health)
-            .unwrap_or_else(|_| ambition_gameplay_core::actor::Health::new(20));
+            .unwrap_or_else(|_| ambition_characters::actor::Health::new(20));
         let room = world.resource::<RoomSet>().active_spec();
         let combat = combat_query.single(world).ok();
         let recently_damaged = combat.is_some_and(|c| c.damage_invuln_timer > 0.0);
@@ -441,7 +441,7 @@ impl SandboxSim {
         name: impl Into<String>,
         pos: (f32, f32),
         half_size: (f32, f32),
-        brain: ambition_gameplay_core::actor::BossBrain,
+        brain: ambition_characters::actor::BossBrain,
     ) {
         self.spawn_boss_at_with(
             id,
@@ -463,7 +463,7 @@ impl SandboxSim {
         name: impl Into<String>,
         pos: (f32, f32),
         half_size: (f32, f32),
-        brain: ambition_gameplay_core::actor::BossBrain,
+        brain: ambition_characters::actor::BossBrain,
         overrides: ambition_gameplay_core::features::BossOverrides,
     ) {
         self.app

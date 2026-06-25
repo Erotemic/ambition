@@ -35,8 +35,8 @@ pub struct ActorStatus {
     pub alive: bool,
     pub respawn_timer: f32,
     pub hit_flash: f32,
-    pub ai_mode: crate::actor::ai::CharacterAiMode,
-    pub health: crate::actor::Health,
+    pub ai_mode: ambition_characters::actor::ai::CharacterAiMode,
+    pub health: ambition_characters::actor::Health,
 }
 
 /// Authored configuration + identity for an actor (any disposition). Archetype-
@@ -56,7 +56,7 @@ pub struct ActorConfig {
     /// from the archetype at spawn so the runtime brain rebuilds
     /// reconstruct a brain without naming the roster enum.
     pub brain_spec: crate::combat::EnemyBrainSpec,
-    pub brain: crate::actor::EnemyBrain,
+    pub brain: ambition_characters::actor::EnemyBrain,
     pub spawn: ActorSpawnState,
     /// LDtk display name of the original NPC when this enemy was spawned
     /// by migrating a hostile NPC (keeps its own sprite sheet). `None`
@@ -169,8 +169,8 @@ impl ActorClusterSeed {
         id: impl Into<String>,
         name: impl Into<String>,
         aabb: ae::Aabb,
-        brain: crate::actor::EnemyBrain,
-        paths: &[(String, crate::actor::KinematicPath)],
+        brain: ambition_characters::actor::EnemyBrain,
+        paths: &[(String, ambition_characters::actor::KinematicPath)],
     ) -> Self {
         let spec = spec_for_brain(&brain);
         let name: String = name.into();
@@ -180,7 +180,7 @@ impl ActorClusterSeed {
         let sprite_character_id =
             crate::character_roster::character_id_for_display_name(&name).map(String::from);
         let motion = match &brain {
-            crate::actor::EnemyBrain::Patrol {
+            ambition_characters::actor::EnemyBrain::Patrol {
                 path_id: Some(path_id),
             } if !spec.is_sandbag => paths
                 .iter()
@@ -204,8 +204,8 @@ impl ActorClusterSeed {
                 alive: true,
                 respawn_timer: 0.0,
                 hit_flash: 0.0,
-                ai_mode: crate::actor::ai::CharacterAiMode::Idle,
-                health: crate::actor::Health::new(spec.max_health),
+                ai_mode: ambition_characters::actor::ai::CharacterAiMode::Idle,
+                health: ambition_characters::actor::Health::new(spec.max_health),
             },
             surface: ActorSurfaceState {
                 on_ground: false,
@@ -245,7 +245,7 @@ impl ActorClusterSeed {
         name: impl Into<String>,
         aabb: ae::Aabb,
         interactable: &ambition_interaction::Interactable,
-        paths: &[(String, crate::actor::KinematicPath)],
+        paths: &[(String, ambition_characters::actor::KinematicPath)],
     ) -> (Self, Option<ae::Vec2>) {
         let (patrol_radius, patrol_path_id, motion) = match &interactable.kind {
             ambition_interaction::InteractionKind::Npc {
@@ -277,7 +277,7 @@ impl ActorClusterSeed {
             Some(cid)
                 if matches!(
                     crate::character_roster::body_kind_for_character_id(cid),
-                    Some(crate::actor::character_catalog::CharacterBodyKind::Floating)
+                    Some(ambition_characters::actor::character_catalog::CharacterBodyKind::Floating)
                 ) =>
             {
                 0.0
@@ -310,11 +310,11 @@ impl ActorClusterSeed {
             ..Default::default()
         };
         let config_brain = if has_patrol {
-            crate::actor::EnemyBrain::Patrol {
+            ambition_characters::actor::EnemyBrain::Patrol {
                 path_id: patrol_path_id,
             }
         } else {
-            crate::actor::EnemyBrain::Passive
+            ambition_characters::actor::EnemyBrain::Passive
         };
         let seed = Self {
             kin: BodyKinematics {
@@ -327,8 +327,8 @@ impl ActorClusterSeed {
                 alive: true,
                 respawn_timer: 0.0,
                 hit_flash: 0.0,
-                ai_mode: crate::actor::ai::CharacterAiMode::Idle,
-                health: crate::actor::Health::new(1),
+                ai_mode: ambition_characters::actor::ai::CharacterAiMode::Idle,
+                health: ambition_characters::actor::Health::new(1),
             },
             surface: ActorSurfaceState {
                 on_ground: false,
@@ -355,7 +355,7 @@ impl ActorClusterSeed {
             caps: crate::combat::CombatCapabilities::default(),
             // Inert: peaceful actors never spawn through the archetype path that
             // reads `spec`. `Passive` resolves to the roster's fallback row.
-            spec: spec_for_brain(&crate::actor::EnemyBrain::Passive),
+            spec: spec_for_brain(&ambition_characters::actor::EnemyBrain::Passive),
         };
         (seed, render_size)
     }
@@ -370,9 +370,9 @@ impl ActorClusterSeed {
         nearest_neighbor: Option<ae::Vec2>,
         dt: f32,
         is_mounted: bool,
-        frame: crate::actor::control::ActorControlFrame,
+        frame: ambition_characters::actor::control::ActorControlFrame,
         gravity_dir: ae::Vec2,
-    ) -> crate::actor::control::ActorControlFrame {
+    ) -> ambition_characters::actor::control::ActorControlFrame {
         ActorMut {
             kin: &mut self.kin,
             status: &mut self.status,

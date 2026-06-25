@@ -56,12 +56,12 @@ pub enum SpawnActorKind {
     /// `overrides` applies the spawn "tweaks Z" (hp / size / phase triggers /
     /// encounter opt-out) — see [`BossOverrides`].
     Boss {
-        brain: crate::actor::BossBrain,
+        brain: ambition_characters::actor::BossBrain,
         overrides: BossOverrides,
     },
     /// A hostile enemy, resolved through `EnemyArchetype::from_brain` — the same
     /// path a room `EnemySpawn` takes.
-    Enemy { brain: crate::actor::EnemyBrain },
+    Enemy { brain: ambition_characters::actor::EnemyBrain },
 }
 
 /// Per-spawn boss "tweaks Z" — the data that makes "spawn boss X (with tweaks Z)
@@ -277,7 +277,7 @@ impl NpcActorSpawnPlan {
         name: impl Into<String>,
         spawn_aabb: ae::Aabb,
         interactable: ambition_interaction::Interactable,
-        paths: &[(String, crate::actor::KinematicPath)],
+        paths: &[(String, ambition_characters::actor::KinematicPath)],
     ) -> Self {
         let id = id.into();
         let name = name.into();
@@ -376,7 +376,7 @@ impl NpcActorSpawnPlan {
 /// Spawn a boss with no spawn-time tweaks (room-load + the default seam path).
 pub(super) fn spawn_boss(
     commands: &mut Commands,
-    authored: &crate::rooms::Authored<crate::actor::BossBrain>,
+    authored: &crate::rooms::Authored<ambition_characters::actor::BossBrain>,
 ) {
     spawn_boss_with_overrides(commands, authored, &BossOverrides::default());
 }
@@ -387,7 +387,7 @@ pub(super) fn spawn_boss(
 /// them); the encounter opt-out is honored by `sync_boss_encounter_entities`.
 pub(super) fn spawn_boss_with_overrides(
     commands: &mut Commands,
-    authored: &crate::rooms::Authored<crate::actor::BossBrain>,
+    authored: &crate::rooms::Authored<ambition_characters::actor::BossBrain>,
     overrides: &BossOverrides,
 ) {
     let mut boss = BossClusterScratch::new(
@@ -584,7 +584,7 @@ pub(crate) fn spawn_runtime_minion(
     let name = name.into();
     let encounter_id = encounter_id.into();
     let aabb = ae::Aabb::new(world_pos, half_size);
-    let brain = crate::actor::EnemyBrain::Custom(archetype_id.into());
+    let brain = ambition_characters::actor::EnemyBrain::Custom(archetype_id.into());
     let mut enemy =
         super::actor_clusters::ActorClusterSeed::new(id.clone(), name.clone(), aabb, brain, &[]);
     // `ActorClusterSeed::new` already sets HP from the resolved spec.
@@ -610,8 +610,8 @@ pub(crate) fn spawn_runtime_minion(
 
 pub(super) fn spawn_enemy(
     commands: &mut Commands,
-    authored: &crate::rooms::Authored<crate::actor::EnemyBrain>,
-    paths: &[(String, crate::actor::KinematicPath)],
+    authored: &crate::rooms::Authored<ambition_characters::actor::EnemyBrain>,
+    paths: &[(String, ambition_characters::actor::KinematicPath)],
 ) {
     let spec = super::super::enemies::spec_for_brain(&authored.payload);
     if spec.is_composite() {
@@ -633,7 +633,7 @@ pub(super) fn spawn_enemy(
 pub(super) fn spawn_solo_enemy(
     commands: &mut Commands,
     enemy: super::actor_clusters::ActorClusterSeed,
-    authored: &crate::rooms::Authored<crate::actor::EnemyBrain>,
+    authored: &crate::rooms::Authored<ambition_characters::actor::EnemyBrain>,
 ) {
     let feature_aabb = CenteredAabb::from_aabb(authored.aabb);
     EnemyActorSpawnPlan::hostile(
@@ -648,7 +648,7 @@ pub(super) fn spawn_solo_enemy(
 pub(super) fn spawn_interactable(
     commands: &mut Commands,
     authored: &crate::rooms::Authored<ambition_interaction::Interactable>,
-    paths: &[(String, crate::actor::KinematicPath)],
+    paths: &[(String, ambition_characters::actor::KinematicPath)],
 ) {
     let feature_aabb = CenteredAabb::from_aabb(authored.aabb);
     let interactable = &authored.payload;
@@ -690,7 +690,7 @@ pub(super) fn spawn_encounter_mob(
     commands: &mut Commands,
     encounter_id: impl Into<String>,
     id: String,
-    brain: crate::actor::EnemyBrain,
+    brain: ambition_characters::actor::EnemyBrain,
     pos: ae::Vec2,
     size: ae::Vec2,
 ) {

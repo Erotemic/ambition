@@ -147,7 +147,7 @@ fn min_app() -> App {
             &mut initial.jump,
             ae::DEFAULT_TUNING,
         );
-        let health = crate::actor::Health::new(20);
+        let health = ambition_characters::actor::Health::new(20);
         app.world_mut()
             .spawn(crate::player::PlayerSimulationBundle::from_scratch(
                 initial, health,

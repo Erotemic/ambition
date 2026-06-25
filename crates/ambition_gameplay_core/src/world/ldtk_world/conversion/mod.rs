@@ -135,8 +135,8 @@ impl LdtkProject {
         let mut pickups: Vec<crate::rooms::Authored<ambition_interaction::Pickup>> = Vec::new();
         let mut chests: Vec<crate::rooms::Authored<ambition_interaction::Chest>> = Vec::new();
         let mut breakables: Vec<crate::rooms::Authored<ambition_interaction::Breakable>> = Vec::new();
-        let mut enemy_spawns: Vec<crate::rooms::Authored<crate::actor::EnemyBrain>> = Vec::new();
-        let mut boss_spawns: Vec<crate::rooms::Authored<crate::actor::BossBrain>> = Vec::new();
+        let mut enemy_spawns: Vec<crate::rooms::Authored<ambition_characters::actor::EnemyBrain>> = Vec::new();
+        let mut boss_spawns: Vec<crate::rooms::Authored<ambition_characters::actor::BossBrain>> = Vec::new();
         let mut debug_labels: Vec<crate::rooms::Authored<crate::debug_label::DebugLabel>> =
             Vec::new();
         let mut metadata = crate::rooms::RoomMetadata::default();
@@ -346,8 +346,8 @@ pub(super) struct RuntimeEntityEmission {
     pub(super) pickups: Vec<crate::rooms::Authored<ambition_interaction::Pickup>>,
     pub(super) chests: Vec<crate::rooms::Authored<ambition_interaction::Chest>>,
     pub(super) breakables: Vec<crate::rooms::Authored<ambition_interaction::Breakable>>,
-    pub(super) enemy_spawns: Vec<crate::rooms::Authored<crate::actor::EnemyBrain>>,
-    pub(super) boss_spawns: Vec<crate::rooms::Authored<crate::actor::BossBrain>>,
+    pub(super) enemy_spawns: Vec<crate::rooms::Authored<ambition_characters::actor::EnemyBrain>>,
+    pub(super) boss_spawns: Vec<crate::rooms::Authored<ambition_characters::actor::BossBrain>>,
     pub(super) debug_labels: Vec<crate::rooms::Authored<crate::debug_label::DebugLabel>>,
     pub(super) ignored: bool,
 }
@@ -484,14 +484,14 @@ impl RuntimeEntityEmission {
         }
     }
 
-    fn enemy_spawn(authored: crate::rooms::Authored<crate::actor::EnemyBrain>) -> Self {
+    fn enemy_spawn(authored: crate::rooms::Authored<ambition_characters::actor::EnemyBrain>) -> Self {
         Self {
             enemy_spawns: vec![authored],
             ..Self::default()
         }
     }
 
-    fn boss_spawn(authored: crate::rooms::Authored<crate::actor::BossBrain>) -> Self {
+    fn boss_spawn(authored: crate::rooms::Authored<ambition_characters::actor::BossBrain>) -> Self {
         Self {
             boss_spawns: vec![authored],
             ..Self::default()

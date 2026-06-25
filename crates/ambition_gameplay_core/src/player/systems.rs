@@ -105,7 +105,7 @@ pub fn tick_player_brains(
             // PlayerInputFrame / engine path, not via the snapshot.
             air_jumps_remaining: 0,
         };
-        let mut frame = crate::actor::control::ActorControlFrame::neutral();
+        let mut frame = ambition_characters::actor::control::ActorControlFrame::neutral();
         brain.tick(&snapshot, &mut frame);
         control.0 = frame;
         // Silence unused-var: slot is part of the multi-player seam.
@@ -173,7 +173,7 @@ mod tests {
         player.abilities.abilities.attack = false;
         let bundle = crate::player::PlayerSimulationBundle::from_scratch(
             player,
-            crate::actor::Health::new(10),
+            ambition_characters::actor::Health::new(10),
         );
         // ActionSet on the bundle reflects the disabled ability.
         let action_set: &ActionSet = &bundle.action_set;
@@ -195,7 +195,7 @@ mod tests {
         player.abilities.abilities.shield = false;
         let bundle = crate::player::PlayerSimulationBundle::from_scratch(
             player,
-            crate::actor::Health::new(10),
+            ambition_characters::actor::Health::new(10),
         );
         let action_set: &ActionSet = &bundle.action_set;
         assert!(
@@ -217,7 +217,7 @@ mod tests {
         );
         let bundle = crate::player::PlayerSimulationBundle::from_scratch(
             player,
-            crate::actor::Health::new(10),
+            ambition_characters::actor::Health::new(10),
         );
         let action_set: &ActionSet = &bundle.action_set;
         assert!(matches!(action_set.melee, Some(MeleeActionSpec::Swipe(_))));
@@ -256,7 +256,7 @@ mod tests {
         );
         let bundle = crate::player::PlayerSimulationBundle::from_scratch(
             player,
-            crate::actor::Health::new(10),
+            ambition_characters::actor::Health::new(10),
         );
         app.world_mut()
             .spawn((bundle, Transform::from_xyz(40.0, 60.0, 0.0)));
@@ -331,7 +331,7 @@ mod tests {
         // already includes a PlayerBody synced off the authority.
         let bundle = crate::player::PlayerSimulationBundle::from_scratch(
             player,
-            crate::actor::Health::new(10),
+            ambition_characters::actor::Health::new(10),
         );
         app.world_mut()
             .spawn((bundle, Transform::from_xyz(40.0, 60.0, 0.0)));
@@ -394,7 +394,7 @@ mod tests {
         // too, so no extra spawn-tuple state is needed.
         let bundle = crate::player::PlayerSimulationBundle::from_scratch(
             player,
-            crate::actor::Health::new(10),
+            ambition_characters::actor::Health::new(10),
         );
         app.world_mut().spawn(bundle);
         app.add_systems(

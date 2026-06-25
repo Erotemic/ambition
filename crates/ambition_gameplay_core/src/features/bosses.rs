@@ -165,7 +165,7 @@ mod canonical_boss_id_tests {
     fn phase_script_brain_wins_over_display_name() {
         let id = canonical_boss_id_from(
             "System Boss",
-            &crate::actor::BossBrain::PhaseScript {
+            &ambition_characters::actor::BossBrain::PhaseScript {
                 script_id: "clockwork_warden".to_string(),
             },
         );
@@ -177,7 +177,7 @@ mod canonical_boss_id_tests {
     fn empty_phase_script_falls_back_to_name() {
         let id = canonical_boss_id_from(
             "System Boss",
-            &crate::actor::BossBrain::PhaseScript {
+            &ambition_characters::actor::BossBrain::PhaseScript {
                 script_id: String::new(),
             },
         );
@@ -190,7 +190,7 @@ mod canonical_boss_id_tests {
     fn custom_brain_label_becomes_encounter_id_slug() {
         let id = canonical_boss_id_from(
             "Display",
-            &crate::actor::BossBrain::Custom("Clockwork Warden".to_string()),
+            &ambition_characters::actor::BossBrain::Custom("Clockwork Warden".to_string()),
         );
         assert_eq!(id, "clockwork_warden");
     }
@@ -198,7 +198,7 @@ mod canonical_boss_id_tests {
     /// Dormant brain falls back to the display name.
     #[test]
     fn dormant_brain_falls_back_to_name() {
-        let id = canonical_boss_id_from("Clockwork Warden", &crate::actor::BossBrain::Dormant);
+        let id = canonical_boss_id_from("Clockwork Warden", &ambition_characters::actor::BossBrain::Dormant);
         assert_eq!(id, "clockwork_warden");
     }
 
@@ -214,7 +214,7 @@ mod canonical_boss_id_tests {
             "boss_under_test",
             "System Boss",
             aabb,
-            crate::actor::BossBrain::PhaseScript {
+            ambition_characters::actor::BossBrain::PhaseScript {
                 script_id: "clockwork_warden".to_string(),
             },
         );
@@ -305,7 +305,7 @@ mod scripted_pattern_tests {
             "boss_gnu_ton",
             "GNU-ton",
             aabb,
-            crate::actor::BossBrain::Dormant,
+            ambition_characters::actor::BossBrain::Dormant,
         );
         scratch.config.behavior = behavior;
         scratch.status.encounter_phase = crate::boss_encounter::BossEncounterPhase::Phase1;
@@ -840,7 +840,7 @@ mod scripted_pattern_tests {
             "test_warden",
             "Clockwork Warden",
             aabb,
-            crate::actor::BossBrain::Dormant,
+            ambition_characters::actor::BossBrain::Dormant,
         );
         boss.config.behavior = BossBehaviorProfile::clockwork_warden();
         boss.status.encounter_phase = crate::boss_encounter::BossEncounterPhase::Phase1;
@@ -894,7 +894,7 @@ mod scripted_pattern_tests {
         let mut attack_state = BossAttackState::default();
         let dt = 1.0 / 60.0;
         for _ in 0..600 {
-            let mut frame = crate::actor::control::ActorControlFrame::neutral();
+            let mut frame = ambition_characters::actor::control::ActorControlFrame::neutral();
             tick_boss_pattern(
                 &cfg,
                 &mut state,

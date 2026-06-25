@@ -52,11 +52,11 @@ pub(crate) fn enemy_attack_aabb_dir(
 fn evaluate_enemy_ai_output(
     pos: ae::Vec2,
     target_pos: ae::Vec2,
-    brain: &crate::actor::EnemyBrain,
+    brain: &ambition_characters::actor::EnemyBrain,
     tuning: &crate::combat::ActorTuning,
     attack: &crate::features::ActorAttackState,
     alive: bool,
-) -> crate::actor::ai::CharacterAiOutput {
+) -> ambition_characters::actor::ai::CharacterAiOutput {
     let recover_remaining =
         if attack.cooldown > 0.0 && attack.windup_timer <= 0.0 && attack.active_timer <= 0.0 {
             attack.cooldown.min(0.30)
@@ -64,11 +64,11 @@ fn evaluate_enemy_ai_output(
             0.0
         };
     let effective_aggro_radius = match brain {
-        crate::actor::EnemyBrain::Passive => 0.0,
-        crate::actor::EnemyBrain::Guard { leash_radius } => *leash_radius,
+        ambition_characters::actor::EnemyBrain::Passive => 0.0,
+        ambition_characters::actor::EnemyBrain::Guard { leash_radius } => *leash_radius,
         _ => tuning.aggro_radius,
     };
-    crate::actor::ai::evaluate_character_ai_output(crate::actor::ai::CharacterAiSnapshot {
+    ambition_characters::actor::ai::evaluate_character_ai_output(ambition_characters::actor::ai::CharacterAiSnapshot {
         actor_pos: pos,
         player_pos: target_pos,
         aggro_radius: effective_aggro_radius,
@@ -78,7 +78,7 @@ fn evaluate_enemy_ai_output(
         attack_recover_remaining: recover_remaining,
         stun_remaining: 0.0,
         alive,
-        patrol_enabled: !tuning.is_sandbag && !matches!(brain, crate::actor::EnemyBrain::Passive),
+        patrol_enabled: !tuning.is_sandbag && !matches!(brain, ambition_characters::actor::EnemyBrain::Passive),
     })
 }
 
@@ -89,9 +89,9 @@ fn integrate_standard_enemy_body(
     surface: &mut ActorSurfaceState,
     motion: &mut super::super::ecs::actor_clusters::ActorMotionPath,
     tuning: &crate::combat::ActorTuning,
-    ai_intent: crate::actor::ai::CharacterAiIntent,
+    ai_intent: ambition_characters::actor::ai::CharacterAiIntent,
     is_aerial: bool,
-    frame: &crate::actor::control::ActorControlFrame,
+    frame: &ambition_characters::actor::control::ActorControlFrame,
     dt: f32,
     gravity_dir: ae::Vec2,
 ) {
@@ -200,7 +200,7 @@ fn integrate_standard_enemy_body(
     }
 
     if !is_aerial
-        && matches!(ai_intent, crate::actor::ai::CharacterAiIntent::Patrol)
+        && matches!(ai_intent, ambition_characters::actor::ai::CharacterAiIntent::Patrol)
         && prev_side_speed.abs() > 1.0
         && kin.vel.dot(perp).abs() < 0.01
     {
@@ -218,12 +218,12 @@ impl<'a> ActorMut<'a> {
         nearest_neighbor: Option<ae::Vec2>,
         dt: f32,
         _is_mounted: bool,
-        frame: crate::actor::control::ActorControlFrame,
+        frame: ambition_characters::actor::control::ActorControlFrame,
         // World gravity DIRECTION at the enemy (down/up/sideways) from
         // `GravityField`, so the enemy falls the way the player does under ANY
         // gravity — including left/right.
         gravity_dir: ae::Vec2,
-    ) -> crate::actor::control::ActorControlFrame {
+    ) -> ambition_characters::actor::control::ActorControlFrame {
         self.status.hit_flash = (self.status.hit_flash - dt).max(0.0);
         if !self.status.alive {
             self.status.respawn_timer = (self.status.respawn_timer - dt).max(0.0);
@@ -234,8 +234,8 @@ impl<'a> ActorMut<'a> {
                 self.kin.vel = ae::Vec2::ZERO;
                 self.status.hit_flash = 0.24;
             }
-            self.status.ai_mode = crate::actor::ai::CharacterAiMode::Dead;
-            return crate::actor::control::ActorControlFrame::neutral();
+            self.status.ai_mode = ambition_characters::actor::ai::CharacterAiMode::Dead;
+            return ambition_characters::actor::control::ActorControlFrame::neutral();
         }
 
         self.attack.tick(dt, tuning.enemy_attack_active);
@@ -279,7 +279,7 @@ impl<'a> ActorMut<'a> {
         }
 
         if frame.fire.is_some() {
-            self.status.ai_mode = crate::actor::ai::CharacterAiMode::Attack;
+            self.status.ai_mode = ambition_characters::actor::ai::CharacterAiMode::Attack;
         }
         frame
     }
@@ -503,7 +503,7 @@ impl<'a> ActorMut<'a> {
         }
         self.attack.windup_timer = tuning.enemy_attack_windup.max(0.01);
         self.attack.cooldown = ENEMY_ATTACK_COOLDOWN * self.config.tuning.attack_cooldown_mult;
-        self.status.ai_mode = crate::actor::ai::CharacterAiMode::Telegraph;
+        self.status.ai_mode = ambition_characters::actor::ai::CharacterAiMode::Telegraph;
         self.attack.pending_axis = if attack_axis.length_squared() > 0.01 {
             attack_axis.normalize_or_zero()
         } else {
@@ -555,11 +555,11 @@ impl<'a> ActorMut<'a> {
         self.kin.pos = self.config.spawn.pos;
         self.kin.vel = ae::Vec2::ZERO;
         self.status.alive = true;
-        self.status.health = crate::actor::Health::new(self.config.tuning.max_health);
+        self.status.health = ambition_characters::actor::Health::new(self.config.tuning.max_health);
         *self.attack = ActorAttackState::default();
         self.status.respawn_timer = 0.0;
         self.status.hit_flash = 0.0;
-        self.status.ai_mode = crate::actor::ai::CharacterAiMode::Idle;
+        self.status.ai_mode = ambition_characters::actor::ai::CharacterAiMode::Idle;
         self.kin.facing = -1.0;
         *self.surface = ActorSurfaceState {
             on_ground: false,

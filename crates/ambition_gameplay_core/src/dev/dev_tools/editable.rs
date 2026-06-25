@@ -485,7 +485,7 @@ pub fn sync_player_stats_with_inspector(
     let user_changed_hp = stats.health != snapshot.health;
     if let Ok(mut health) = health_q.single_mut() {
         if user_changed_max {
-            health.health = crate::actor::Health::new(stats.max_health.max(1));
+            health.health = ambition_characters::actor::Health::new(stats.max_health.max(1));
             health.health.current = stats.health.clamp(0, stats.max_health.max(1));
         } else if user_changed_hp {
             health.health.current = stats.health.clamp(0, health.health.max.max(1));

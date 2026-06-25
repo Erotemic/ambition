@@ -103,7 +103,7 @@ mod tests {
                 PlayerBaseSize {
                     base_size: Vec2::new(24.0, 40.0),
                 },
-                PlayerHealth::new(crate::actor::Health {
+                PlayerHealth::new(ambition_characters::actor::Health {
                     current: 1,
                     max: 5,
                     invulnerable: false,
@@ -160,7 +160,7 @@ mod tests {
                 PlayerBaseSize {
                     base_size: Vec2::new(24.0, 40.0),
                 },
-                PlayerHealth::new(crate::actor::Health {
+                PlayerHealth::new(ambition_characters::actor::Health {
                     current: 1,
                     max: 5,
                     invulnerable: false,

@@ -317,9 +317,9 @@ impl EnemyRoster {
     /// Resolve the authored spec for a spawn `EnemyBrain` payload by its
     /// `Custom("…")` brain key, falling back to the roster's default for an
     /// unknown key or a non-`Custom` brain.
-    pub(crate) fn spec_for_brain(&self, brain: &crate::actor::EnemyBrain) -> EnemyArchetypeSpec {
+    pub(crate) fn spec_for_brain(&self, brain: &ambition_characters::actor::EnemyBrain) -> EnemyArchetypeSpec {
         let key = match brain {
-            crate::actor::EnemyBrain::Custom(name) => name.as_str(),
+            ambition_characters::actor::EnemyBrain::Custom(name) => name.as_str(),
             _ => "",
         };
         self.by_brain
@@ -393,7 +393,7 @@ fn enemy_roster() -> &'static EnemyRoster {
 /// Resolve the authored spec for a spawn `EnemyBrain` payload — a pure
 /// string lookup against the installed [`EnemyRoster`]. The spawn path holds
 /// the returned spec; the roster enum never appears here.
-pub(crate) fn spec_for_brain(brain: &crate::actor::EnemyBrain) -> EnemyArchetypeSpec {
+pub(crate) fn spec_for_brain(brain: &ambition_characters::actor::EnemyBrain) -> EnemyArchetypeSpec {
     enemy_roster().spec_for_brain(brain)
 }
 
@@ -404,7 +404,7 @@ pub(crate) fn spec_for_brain(brain: &crate::actor::EnemyBrain) -> EnemyArchetype
 /// game authors.
 #[cfg(test)]
 pub(crate) fn test_spec(brain_key: &str) -> EnemyArchetypeSpec {
-    spec_for_brain(&crate::actor::EnemyBrain::Custom(brain_key.to_string()))
+    spec_for_brain(&ambition_characters::actor::EnemyBrain::Custom(brain_key.to_string()))
 }
 
 /// Every authored spawn brain key in the lib's fixture roster — the
@@ -545,8 +545,8 @@ impl EnemyArchetypeSpec {
 pub struct CompositeVisualPlan {
     pub rider_name_from_spawn: bool,
     pub mount_name: String,
-    pub mount_brain: crate::actor::EnemyBrain,
-    pub rider_brain: crate::actor::EnemyBrain,
+    pub mount_brain: ambition_characters::actor::EnemyBrain,
+    pub rider_brain: ambition_characters::actor::EnemyBrain,
     pub rider_fallback_name: String,
     /// Rider's standalone body size (the visual renders at half while
     /// mounted, mirroring the sim's `MountedSize`).
@@ -556,7 +556,7 @@ pub struct CompositeVisualPlan {
 
 /// Visual kind for an enemy spawn payload (training dummies render as
 /// sandbags; everything else as a standard enemy).
-pub fn enemy_visual_kind(payload: &crate::actor::EnemyBrain) -> FeatureVisualKind {
+pub fn enemy_visual_kind(payload: &ambition_characters::actor::EnemyBrain) -> FeatureVisualKind {
     if spec_for_brain(payload).is_sandbag {
         FeatureVisualKind::TrainingDummy
     } else {
@@ -567,11 +567,11 @@ pub fn enemy_visual_kind(payload: &crate::actor::EnemyBrain) -> FeatureVisualKin
 /// The mount+rider visual fan-out plan for a composite spawn payload,
 /// or `None` for ordinary single-entity spawns. Backed by the
 /// `composite_visual` rows in `enemy_archetypes.ron`.
-pub fn composite_visual_plan(payload: &crate::actor::EnemyBrain) -> Option<CompositeVisualPlan> {
+pub fn composite_visual_plan(payload: &ambition_characters::actor::EnemyBrain) -> Option<CompositeVisualPlan> {
     let spec = spec_for_brain(payload);
     let composite = spec.composite_visual.as_ref()?;
-    let mount_brain = crate::actor::EnemyBrain::Custom(composite.mount_brain.clone());
-    let rider_brain = crate::actor::EnemyBrain::Custom(composite.rider_brain.clone());
+    let mount_brain = ambition_characters::actor::EnemyBrain::Custom(composite.mount_brain.clone());
+    let rider_brain = ambition_characters::actor::EnemyBrain::Custom(composite.rider_brain.clone());
     let rider_standalone_size = spec_for_brain(&rider_brain)
         .default_size
         .unwrap_or(ae::Vec2::new(44.0, 78.0));
@@ -601,7 +601,7 @@ mod enemy_archetype_data_tests {
     /// locally so it doesn't touch the process-global override.
     #[test]
     fn enemy_roster_resolves_brain_keys_with_fallback() {
-        use crate::actor::EnemyBrain;
+        use ambition_characters::actor::EnemyBrain;
         let mut by_brain = std::collections::HashMap::new();
         by_brain.insert("pirate_heavy".to_string(), test_spec("pirate_heavy"));
         let roster = EnemyRoster::new(by_brain, test_spec("combatant"));
@@ -859,7 +859,7 @@ mod capability_tests {
         );
         assert_eq!(
             crate::character_roster::body_kind_for_character_id("stochastic_parrot"),
-            Some(crate::actor::character_catalog::CharacterBodyKind::Floating),
+            Some(ambition_characters::actor::character_catalog::CharacterBodyKind::Floating),
             "the cove parrot is Floating (gravity-free) so the Aerial brain flies it",
         );
     }

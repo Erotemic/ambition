@@ -10,7 +10,7 @@ use bevy::prelude::Name;
 pub(crate) fn spawn_hazard(
     commands: &mut Commands,
     authored: &crate::rooms::Authored<crate::combat::DamageVolume>,
-    paths: &[(String, crate::actor::KinematicPath)],
+    paths: &[(String, ambition_characters::actor::KinematicPath)],
 ) {
     let hazard = HazardRuntime::new_with_paths(
         authored.id.clone(),

@@ -185,7 +185,7 @@ fn burning_shark_enemy() -> super::actor_clusters::ActorClusterSeed {
         "burning_shark".to_string(),
         "Burning Shark".to_string(),
         aabb,
-        crate::actor::EnemyBrain::Custom("burning_flying_shark".into()),
+        ambition_characters::actor::EnemyBrain::Custom("burning_flying_shark".into()),
         &[],
     )
 }

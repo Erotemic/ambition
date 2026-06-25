@@ -36,8 +36,8 @@ use super::*;
 /// under her.
 pub(super) fn spawn_composite_mount_rider(
     commands: &mut Commands,
-    authored: &crate::rooms::Authored<crate::actor::EnemyBrain>,
-    paths: &[(String, crate::actor::KinematicPath)],
+    authored: &crate::rooms::Authored<ambition_characters::actor::EnemyBrain>,
+    paths: &[(String, ambition_characters::actor::KinematicPath)],
     composite_spec: &EnemyArchetypeSpec,
 ) {
     // The whole fan-out is driven by the composite's authored
@@ -52,7 +52,7 @@ pub(super) fn spawn_composite_mount_rider(
     // size is its `default_size`; the rider rides at
     // `pirate_on_shark_rider_offset(mount.size, rider.size)`.
     let center = authored.aabb.center();
-    let mount_brain_payload = crate::actor::EnemyBrain::Custom(cv.mount_brain.clone());
+    let mount_brain_payload = ambition_characters::actor::EnemyBrain::Custom(cv.mount_brain.clone());
     let mount_spec = spec_for_brain(&mount_brain_payload);
     let mount_size = mount_spec
         .default_size
@@ -78,13 +78,13 @@ pub(super) fn spawn_composite_mount_rider(
         mount_brain_payload,
         paths,
     );
-    mount_enemy.status.health = crate::actor::Health::new(composite_hp);
+    mount_enemy.status.health = ambition_characters::actor::Health::new(composite_hp);
 
     // Rider variant name. `rider_name_from_spawn` heavy variants parse the
     // authored spawn name (e.g. "Iron Mary on Shark" → "Iron Mary"),
     // falling back to the authored `rider_fallback_name`; light variants
     // always use the fallback.
-    let rider_brain_payload = crate::actor::EnemyBrain::Custom(cv.rider_brain.clone());
+    let rider_brain_payload = ambition_characters::actor::EnemyBrain::Custom(cv.rider_brain.clone());
     let rider_spec = spec_for_brain(&rider_brain_payload);
     let rider_variant_name = if cv.rider_name_from_spawn {
         authored
@@ -127,7 +127,7 @@ pub(super) fn spawn_composite_mount_rider(
     rider_enemy.kin.size = mounted_size;
     // Rider HP from the composite spec's `rider_max_health`.
     if let Some(rider_hp) = composite_spec.rider_max_health {
-        rider_enemy.status.health = crate::actor::Health::new(rider_hp);
+        rider_enemy.status.health = ambition_characters::actor::Health::new(rider_hp);
     }
     rider_enemy.surface.gravity_scale = 0.0;
 

@@ -202,10 +202,10 @@ fn world_with_moving_platforms_appends_all_blocks() {
 
 #[test]
 fn path_driven_platform_advances_along_authored_path() {
-    let path = crate::actor::KinematicPath {
+    let path = ambition_characters::actor::KinematicPath {
         points: vec![ae::Vec2::new(100.0, 200.0), ae::Vec2::new(180.0, 200.0)],
         speed: 80.0,
-        mode: crate::actor::KinematicPathMode::PingPong,
+        mode: ambition_characters::actor::KinematicPathMode::PingPong,
         start_offset_seconds: 0.0,
     };
     let mut platform =
@@ -218,10 +218,10 @@ fn path_driven_platform_advances_along_authored_path() {
 
 #[test]
 fn moving_platform_spec_resolves_path_id_against_room_paths() {
-    let path = crate::actor::KinematicPath {
+    let path = ambition_characters::actor::KinematicPath {
         points: vec![ae::Vec2::new(20.0, 30.0), ae::Vec2::new(120.0, 30.0)],
         speed: 50.0,
-        mode: crate::actor::KinematicPathMode::PingPong,
+        mode: ambition_characters::actor::KinematicPathMode::PingPong,
         start_offset_seconds: 0.0,
     };
     let spec = KinematicPathSpec::new(

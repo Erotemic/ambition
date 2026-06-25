@@ -44,7 +44,7 @@ pub mod portal;
 pub use plugin::AmbitionContentPlugin;
 
 // The character catalog *machinery* (schema, loader, brain resolver,
-// validation) moved to `ambition_gameplay_core::actor::character_catalog`; the authored
+// validation) moved to `ambition_characters::actor::character_catalog`; the authored
 // entries live in `assets/data/character_catalog.ron`.
 
 /// Facade: the data-manifest *machinery* (spec schema + asset wiring)

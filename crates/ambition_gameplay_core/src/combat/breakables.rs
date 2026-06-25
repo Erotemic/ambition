@@ -179,7 +179,7 @@ pub(crate) fn begin_ecs_breakable_respawn(
     entity: Entity,
     breakable: &ambition_interaction::Breakable,
 ) {
-    if let crate::actor::RespawnPolicy::AfterSeconds(seconds) = breakable.respawn {
+    if let ambition_characters::actor::RespawnPolicy::AfterSeconds(seconds) = breakable.respawn {
         commands.entity(entity).insert(RespawnTimer(seconds));
     }
 }

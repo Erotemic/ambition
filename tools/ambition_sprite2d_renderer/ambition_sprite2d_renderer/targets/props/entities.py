@@ -745,95 +745,141 @@ def hard_blink_tile(d: ImageDraw.ImageDraw, s: float) -> None:
 # automatically the next time `write_entity_sprites` runs.
 
 
-def _round_button(d: ImageDraw.ImageDraw, s: float, palette: Dict[str, str]) -> None:
-    """Shared draw for a circular button with bezel + face + glow.
+# Lever palettes. The housing/shaft are state-independent steel; the two
+# throw positions are colour-coded (red = left = armed, green = right =
+# disabled) so the lever reads as a physical two-position switch rather
+# than a colour-shifting gem.
+_LEVER_STEEL = {
+    "housing": "#2A2F3A",
+    "housing_hi": "#454C5C",
+    "shaft": "#5A6373",
+    "shaft_hi": "#9AA4B5",
+}
+# Gem palettes — reused both for the small position sockets and for the
+# gem mounted as the lever's knob (the original switch art lives on, now
+# riding a lever arm instead of just recolouring in place).
+_LEVER_RED = {
+    "bezel_outer": "#3A0A0E",
+    "bezel_inner": "#5C141A",
+    "button_outer": "#A8202C",
+    "button_inner": "#F04450",
+    "dim": "#5C141A",
+    "bright": "#F04450",
+    "glow": "#FFB8B8",
+}
+_LEVER_GREEN = {
+    "bezel_outer": "#0E2A14",
+    "bezel_inner": "#175024",
+    "button_outer": "#1F8A30",
+    "button_inner": "#38E983",
+    "dim": "#175024",
+    "bright": "#38E983",
+    "glow": "#D9FFE2",
+}
 
-    `palette` provides hex strings for `bezel_outer`, `bezel_inner`,
-    `button_outer`, `button_inner`, `glow`. The button reads as a
-    distinct gameplay actuator at a glance (round-button silhouette
-    is universal) regardless of the palette, so the same drawer
-    handles both armed and disabled switch states.
+
+def _gem(d: ImageDraw.ImageDraw, s: float, cx: float, cy: float, r: float, pal: Dict[str, str]) -> None:
+    """The original switch gem — bezel + face + glow — at an arbitrary
+    centre/radius so it can be mounted as the lever knob."""
+    dark = rgba("#04060A")
+    bz = r * 0.82
+    face = r * 0.58
+    d.ellipse(bbox(cx, cy, 2 * r, 2 * r), fill=rgba(pal["bezel_outer"]), outline=dark, width=max(1, int(2 * s)))
+    d.ellipse(bbox(cx, cy, 2 * bz, 2 * bz), fill=rgba(pal["bezel_inner"]), outline=rgba(pal["bezel_outer"]), width=max(1, int(2 * s)))
+    d.ellipse(bbox(cx, cy, 2 * face, 2 * face), fill=rgba(pal["button_outer"]), outline=dark, width=max(1, int(1 * s)))
+    # Inner bright crescent, biased up-left.
+    d.ellipse(
+        (cx - face + 1 * s, cy - face + 1 * s, cx + face - 4 * s, cy + face - 6 * s),
+        fill=rgba(pal["button_inner"], 220),
+    )
+    # Small specular glow.
+    d.ellipse(
+        (cx - face + 3 * s, cy - face + 3 * s, cx - face + 9 * s, cy - face + 7 * s),
+        fill=rgba(pal["glow"], 200),
+    )
+
+
+def _lever(d: ImageDraw.ImageDraw, s: float, *, left: bool) -> None:
+    """Shared draw for a two-position lever switch.
+
+    `left` selects which way the handle is thrown: left → red position
+    (armed), right → green position (disabled). The handle, knob colour
+    and lit position socket all swap together so the state reads at a
+    glance from the lever's *pose*, not just its colour.
+
+    Both poses share an identical alpha bounding box: the symmetric
+    mounting housing fixes the horizontal/bottom extent and the knob
+    (always at the same height, just mirrored left/right) fixes the top.
+    So with `tight_crop=True` the two state sprites crop to the same
+    footprint and the switch never appears to shift or stretch when it
+    toggles. (No drop shadow — cast shadows are an ECS visual-layer
+    concern, not baked into the sprite.)
     """
-    cx, cy = 64 * s, 64 * s
-    outer_r = 50 * s
-    bezel_r = 44 * s
-    inner_r = 32 * s
-    # Drop shadow.
-    d.ellipse(bbox(64 * s, 96 * s, 84 * s, 14 * s), fill=(0, 0, 0, 60))
-    # Bezel: filled outer ring with radial-feeling outline.
-    d.ellipse(
-        (cx - outer_r, cy - outer_r, cx + outer_r, cy + outer_r),
-        fill=rgba(palette["bezel_outer"]),
-        outline=rgba("#04060A"),
-        width=max(1, int(2 * s)),
+    dark = rgba("#04060A")
+    lw = max(1, int(2 * s))
+    pivot = (64 * s, 82 * s)
+
+    # Base housing: a symmetric mounting box the lever sits in. Wide
+    # enough to contain both knob throws, so it (not the off-centre
+    # handle) defines the crop extent and both poses share one footprint.
+    d.rounded_rectangle(
+        (24 * s, 78 * s, 104 * s, 114 * s),
+        radius=8 * s,
+        fill=rgba(_LEVER_STEEL["housing"]),
+        outline=dark,
+        width=lw,
     )
-    d.ellipse(
-        (cx - bezel_r, cy - bezel_r, cx + bezel_r, cy + bezel_r),
-        fill=rgba(palette["bezel_inner"]),
-        outline=rgba(palette["bezel_outer"]),
-        width=max(1, int(2 * s)),
+    # Top bevel highlight on the housing face.
+    d.rounded_rectangle(
+        (30 * s, 82 * s, 98 * s, 90 * s),
+        radius=4 * s,
+        fill=rgba(_LEVER_STEEL["housing_hi"]),
     )
-    # Button face.
-    d.ellipse(
-        (cx - inner_r, cy - inner_r, cx + inner_r, cy + inner_r),
-        fill=rgba(palette["button_outer"]),
-        outline=rgba("#04060A"),
-        width=max(1, int(1 * s)),
-    )
-    # Inner glow / highlight crescent.
-    d.ellipse(
-        (
-            cx - inner_r + 2 * s,
-            cy - inner_r + 2 * s,
-            cx + inner_r - 8 * s,
-            cy + inner_r - 14 * s,
-        ),
-        fill=rgba(palette["button_inner"], 220),
-    )
-    # Top-left highlight: small bright crescent for sphericality.
-    d.ellipse(
-        (
-            cx - inner_r + 6 * s,
-            cy - inner_r + 6 * s,
-            cx - inner_r + 18 * s,
-            cy - inner_r + 14 * s,
-        ),
-        fill=rgba(palette["glow"], 200),
-    )
+
+    # Two throw sockets, colour-coded; the active side is lit + haloed.
+    def socket(cx: float, cy: float, pal: Dict[str, str], lit: bool) -> None:
+        r = 7
+        d.ellipse(
+            bbox(cx * s, cy * s, 2 * r * s, 2 * r * s),
+            fill=rgba(pal["bright"] if lit else pal["dim"]),
+            outline=dark,
+            width=max(1, int(1 * s)),
+        )
+        if lit:
+            d.ellipse(
+                bbox(cx * s, cy * s, (2 * r + 10) * s, (2 * r + 10) * s),
+                outline=rgba(pal["bright"], 110),
+                width=lw,
+            )
+
+    socket(40, 100, _LEVER_RED, left)
+    socket(88, 100, _LEVER_GREEN, not left)
+
+    # Handle: thick steel shaft from the pivot up to the thrown side.
+    knob = (40 * s, 40 * s) if left else (88 * s, 40 * s)
+    d.line([pivot, knob], fill=rgba(_LEVER_STEEL["shaft"]), width=int(11 * s), joint="curve")
+    d.line([pivot, knob], fill=rgba(_LEVER_STEEL["shaft_hi"]), width=int(4 * s), joint="curve")
+
+    # Pivot hub the shaft rotates about.
+    d.ellipse(bbox(64 * s, 82 * s, 20 * s, 20 * s), fill=rgba(_LEVER_STEEL["housing_hi"]), outline=dark, width=lw)
+    d.ellipse(bbox(64 * s, 82 * s, 8 * s, 8 * s), fill=dark)
+
+    # Gem mounted as the knob, coloured by the active state.
+    _gem(d, s, knob[0], knob[1], 16 * s, _LEVER_RED if left else _LEVER_GREEN)
 
 
 def switch_armed(d: ImageDraw.ImageDraw, s: float) -> None:
-    """Encounter switch in the armed state — touching the trigger
-    will start the encounter. Red palette so the player reads the
-    color as "active danger / committed action"."""
-    _round_button(
-        d,
-        s,
-        {
-            "bezel_outer": "#3A0A0E",
-            "bezel_inner": "#5C141A",
-            "button_outer": "#A8202C",
-            "button_inner": "#F04450",
-            "glow": "#FFB8B8",
-        },
-    )
+    """Encounter switch in the armed state — touching the trigger will
+    start the encounter. The lever is thrown LEFT into the red position
+    so the state reads as "active danger / committed action"."""
+    _lever(d, s, left=True)
 
 
 def switch_disabled(d: ImageDraw.ImageDraw, s: float) -> None:
-    """Encounter switch in the disabled state — encounter cleared
-    or de-armed. Green palette so the color reads as "safe to walk
-    past / encounter is off"."""
-    _round_button(
-        d,
-        s,
-        {
-            "bezel_outer": "#0E2A14",
-            "bezel_inner": "#175024",
-            "button_outer": "#1F8A30",
-            "button_inner": "#38E983",
-            "glow": "#D9FFE2",
-        },
-    )
+    """Encounter switch in the disabled state — encounter cleared or
+    de-armed. The lever is thrown RIGHT into the green position so it
+    reads as "safe to walk past / encounter is off"."""
+    _lever(d, s, left=False)
 
 
 def lock_wall_tile(d: ImageDraw.ImageDraw, s: float) -> None:

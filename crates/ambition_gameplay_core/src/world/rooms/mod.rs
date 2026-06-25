@@ -12,11 +12,13 @@ use bevy::prelude::{Message, Resource};
 use petgraph::graph::{Graph, NodeIndex};
 
 mod graph;
+mod load;
 mod spawn;
 mod systems;
 #[cfg(test)]
 mod tests;
 
+pub use load::{load_room_geometry, RoomLoadResult};
 pub use spawn::validated_spawn;
 pub use systems::{
     detect_room_transition_system, hide_portal_loading_zone_visuals, sync_active_room_metadata,

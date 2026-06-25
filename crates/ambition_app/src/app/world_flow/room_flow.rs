@@ -3,7 +3,22 @@
 //!
 //! Split out of the former 1211-line `world_flow.rs` (2026-06-15).
 
-use super::*;
+use bevy::prelude::{
+    AssetServer, Commands, Entity, MessageReader, MessageWriter, Query, Res, ResMut, With,
+};
+
+use ambition_engine_core::{self as ae, AabbExt};
+use ambition_gameplay_core::audio::SfxMessage;
+use ambition_gameplay_core::dev::dev_tools::EditableMovementTuning;
+use ambition_gameplay_core::platformer_runtime::lifecycle::RoomScopedEntity;
+use ambition_gameplay_core::time::feel::SandboxFeelTuning;
+use ambition_gameplay_core::world::physics;
+use ambition_gameplay_core::{rooms, RoomGeometry};
+use ambition_render::fx::{ParticleKind, VfxMessage};
+use ambition_render::rendering::spawn_room_visuals;
+
+use super::super::feedback::SandboxEventWriters;
+use super::{ground_gap_below_feet, RoomClock};
 
 pub(crate) fn reset_sandbox(
     world: &ae::World,
@@ -70,78 +85,39 @@ pub(crate) fn load_room(
     physics_settings: physics::PhysicsSandboxSettings,
     assets: Option<&ambition_gameplay_core::assets::game_assets::GameAssets>,
 ) {
-    let old_velocity = clusters.kinematics.vel;
-    let fly_enabled = clusters.flight.fly_enabled;
-    let player_size = clusters.kinematics.size;
-    let edge_exit = matches!(
-        transition.zone.activation,
-        rooms::LoadingZoneActivation::EdgeExit
-    );
-
-    for (entity, physics_entity) in room_visuals.iter() {
-        if physics_entity.is_some() {
-            physics::retire_physics_entity(commands, entity);
-        } else {
-            commands.entity(entity).despawn();
-        }
-    }
-    let spec = room_set.set_active(transition.target_room).clone();
-    world.0 = spec.world.clone();
-
-    // Room transitions are not player deaths/resets. Rebuild transient room
-    // state, but preserve ability progression and, for edge exits, preserve
-    // velocity so side-to-side room changes feel continuous. Door transitions
-    // intentionally zero velocity because they are discrete interactions.
-    let arrival = rooms::validated_spawn(&world.0, transition.arrival, player_size);
-    ae::reset_player_clusters(clusters, arrival);
-    ae::refresh_movement_resources_clusters(
-        clusters.abilities,
-        &mut *clusters.dash,
-        &mut *clusters.jump,
+    // Runtime half: swap geometry, reset the body, rebuild platforms, spawn
+    // feature entities. Lives in the world runtime (`ambition_gameplay_core`) so
+    // the headless sim can load rooms without a render dependency.
+    let rooms::RoomLoadResult {
+        spec,
+        arrival_pos,
+        edge_exit,
+    } = rooms::load_room_geometry(
+        commands,
+        sfx,
+        clusters,
+        dev_state,
+        sim_state,
+        clock,
+        safety,
+        moving_platforms,
+        dialogue,
+        combat,
+        interaction,
+        blink_cam,
+        world,
+        room_set,
+        room_visuals,
+        transition,
         tuning,
+        feel,
     );
-    clusters.flight.fly_enabled = fly_enabled && clusters.abilities.abilities.fly;
-    if edge_exit {
-        clusters.kinematics.vel = old_velocity;
-    }
-    blink_cam.blink_in_timer = 0.0;
-    blink_cam.blink_camera_from = clusters.kinematics.pos;
-    blink_cam.blink_camera_to = clusters.kinematics.pos;
-    blink_cam.camera_snap_timer = if edge_exit {
-        0.0
-    } else {
-        ambition_gameplay_core::ROOM_DOOR_CAMERA_SNAP_TIME
-    };
-    combat.flash_timer = if edge_exit {
-        feel.edge_transition_flash
-    } else {
-        feel.door_transition_flash
-    };
-    combat.hitstop_timer = 0.0;
-    combat.damage_invuln_timer = 0.0;
-    combat.hitstun_timer = 0.0;
-    combat.recoil_lock_timer = 0.0;
-    safety.last_safe_pos = clusters.kinematics.pos;
-    clock.time_scale = 1.0;
-    interaction.down_tap_timer = 0.0;
-    *moving_platforms = platforms::moving_platforms_for_room(&spec);
-    features::spawn_room_feature_entities(commands, &spec);
-    dialogue.close();
-    // This guard prevents immediate backtracking when arriving inside/near a
-    // paired zone. It should not feel like frozen input, so keep it short and
-    // rely on validated arrivals to do most of the safety work.
-    sim_state.room_transition_cooldown = if edge_exit {
-        feel.edge_transition_cooldown
-    } else {
-        feel.door_transition_cooldown
-    };
-    dev_state.preset_flash = 1.0;
 
+    // Presentation half (host-only): render-side spawns + arrival VFX. These name
+    // `ambition_render`, which the world runtime is forbidden from importing, so
+    // they stay here in the app where composition with render is allowed.
     ambition_render::rendering::spawn_parallax_layers(commands, &world.0, &spec.metadata, assets);
     spawn_room_visuals(commands, &spec, physics_settings, assets);
-    platforms::spawn_moving_platforms(commands, &world.0, moving_platforms);
-    let arrival_pos = clusters.kinematics.pos;
-    sfx.write(SfxMessage::Reset { pos: arrival_pos });
     if edge_exit {
         // Edge exits should feel like contiguous room scrolling, not a death-like
         // teleport. Only show an arrival puff in the new room because `from` was

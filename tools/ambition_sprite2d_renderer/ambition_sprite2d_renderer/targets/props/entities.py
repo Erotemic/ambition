@@ -573,6 +573,64 @@ def projectile_energy(d: ImageDraw.ImageDraw, s: float) -> None:
     d.ellipse(bbox(72 * s, 60 * s, 10 * s, 8 * s), fill=rgba("#FFFFFF", 200))
 
 
+def projectile_glider(d: ImageDraw.ImageDraw, s: float) -> None:
+    """A Conway's Game of Life glider — the canonical 5-cell spaceship —
+    energized as a projectile.
+
+    The faint 4×4 grid reads as a Life board; the lit cells trace the
+    glider phase::
+
+        . # . .
+        . . # .
+        # # # .
+        . . . .
+
+    The full grid is drawn (even dead cells) so the alpha bbox is a
+    stable square — the cropped sprite always fills the projectile's
+    collision box the same way. The runtime flips the sprite to face
+    travel, so the glider always reads as flying forward."""
+    cells = 4
+    origin = 12.0
+    step = 26.0
+    live = {(0, 1), (1, 2), (2, 0), (2, 1), (2, 2)}
+    dark = rgba("#04140F")
+
+    def cell_box(r: int, c: int, inset: float):
+        x0 = (origin + c * step + inset) * s
+        y0 = (origin + r * step + inset) * s
+        x1 = (origin + (c + 1) * step - inset) * s
+        y1 = (origin + (r + 1) * step - inset) * s
+        return (x0, y0, x1, y1)
+
+    # Faint board grid (every cell) so the glider reads as a Life pattern
+    # and the footprint stays a stable square under tight crop.
+    for r in range(cells):
+        for c in range(cells):
+            d.rounded_rectangle(
+                cell_box(r, c, 3),
+                radius=3 * s,
+                outline=rgba("#1C4A3C", 120),
+                width=max(1, int(1 * s)),
+            )
+
+    # Soft energy bloom behind the live cells.
+    for (r, c) in live:
+        d.rounded_rectangle(cell_box(r, c, -2), radius=8 * s, fill=rgba("#39E06E", 60))
+
+    # Live cells: energized squares with a bright core + specular glint.
+    for (r, c) in live:
+        d.rounded_rectangle(
+            cell_box(r, c, 2),
+            radius=5 * s,
+            fill=rgba("#1E8F5A"),
+            outline=dark,
+            width=max(1, int(2 * s)),
+        )
+        d.rounded_rectangle(cell_box(r, c, 6), radius=4 * s, fill=rgba("#39E06E"))
+        gx0, gy0, gx1, gy1 = cell_box(r, c, 9)
+        d.ellipse((gx0, gy0, (gx0 + gx1) / 2, (gy0 + gy1) / 2), fill=rgba("#CFFFE0", 230))
+
+
 # ─── Tile drawers ───────────────────────────────────────────────────
 #
 # These are 32×32 textures designed to TILE seamlessly across a
@@ -1356,6 +1414,13 @@ ENTITY_SPECS: List[EntitySpriteSpec] = [
         "future projectile",
         "small energy projectile placeholder",
     ),
+    EntitySpriteSpec(
+        "projectile_glider",
+        "projectile_glider.png",
+        "ActorKind::Projectile",
+        "glider projectile",
+        "Conway's Game of Life glider fired as a projectile",
+    ),
     # Tile sprites: 32×32 seamless textures rendered via Bevy's
     # `Sprite::image_mode = Tiled` so they REPEAT across IntGrid-
     # derived block surfaces (which can be arbitrary aspect ratios)
@@ -1532,6 +1597,7 @@ DRAWERS: Dict[str, Callable[[ImageDraw.ImageDraw, float], None]] = {
     "door_zone": door_zone,
     "edge_exit": edge_exit,
     "projectile_energy": projectile_energy,
+    "projectile_glider": projectile_glider,
     "solid_tile": solid_tile,
     "one_way_tile": one_way_tile,
     "hazard_tile": hazard_tile,

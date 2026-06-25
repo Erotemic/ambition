@@ -55,6 +55,7 @@ CATEGORIES: Tuple[str, ...] = (
     "props",
     "tiles",
     "icons",
+    "projectiles",
 )
 # Note: there used to be a separate `review_npcs` category for YAML-
 # config-driven characters that lived in `configs/review/*.yaml`. As
@@ -535,7 +536,7 @@ def discover_tackon_targets() -> DiscoveryReport:
     """
     targets: Dict[str, Target] = {}
     warnings: List[str] = []
-    tackon_categories = ("characters", "props", "tiles", "icons")
+    tackon_categories = ("characters", "props", "tiles", "icons", "projectiles")
     for category in tackon_categories:
         for stem, dotted in _walk_category(category):
             if category == "characters" and stem in ADAPTER_HELPER_STEMS:

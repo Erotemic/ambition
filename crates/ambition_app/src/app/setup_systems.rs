@@ -1,30 +1,20 @@
-#[allow(unused_imports)]
-use super::cli::*;
-#[allow(unused_imports)]
-use super::dev_runtime::*;
-#[allow(unused_imports)]
-use super::feedback::*;
-#[allow(unused_imports)]
-use super::hud::*;
-#[allow(unused_imports)]
-use super::phases::*;
-#[allow(unused_imports)]
-use super::player_tick::*;
-#[allow(unused_imports)]
-use super::plugins::*;
-#[allow(unused_imports)]
-use super::resources::*;
-use super::scene_setup;
-#[allow(unused_imports)]
-use super::world_flow::*;
-#[allow(unused_imports)]
-use super::*;
-#[allow(unused_imports)]
-use ambition_gameplay_core::schedule::*;
+use bevy::prelude::*;
 
-// `RoomGeometry` and the time-scale ramp helper `move_toward` live in
-// `ambition_gameplay_core::lib` (`ambition_gameplay_core`) and are re-imported above through
-// `use ambition_gameplay_core::*;`.
+#[cfg(feature = "audio")]
+use bevy_kira_audio::prelude::AudioSource as KiraAudioSource;
+
+use ambition_gameplay_core::assets::game_assets::{self, GameAssetConfig};
+use ambition_gameplay_core::assets::loading;
+use ambition_gameplay_core::dev::dev_tools::{EditableAbilitySet, EditableMovementTuning};
+use ambition_gameplay_core::ldtk_world;
+use ambition_gameplay_core::rooms;
+use ambition_gameplay_core::session::{data, setup};
+use ambition_gameplay_core::world::physics;
+use ambition_gameplay_core::RoomGeometry;
+use ambition_render::rendering::SceneEntities;
+use ambition_render::ui_fonts;
+
+use super::scene_setup;
 
 /// Sim-only startup. Calls `ambition_gameplay_core::session::setup::simulation_world` to spawn the
 /// LdtkWorldBundle and the player entity (with gameplay-essential components

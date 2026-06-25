@@ -1,25 +1,11 @@
-#[allow(unused_imports)]
-use super::dev_runtime::*;
-#[allow(unused_imports)]
-use super::feedback::*;
-#[allow(unused_imports)]
-use super::hud::*;
-#[allow(unused_imports)]
-use super::phases::*;
-#[allow(unused_imports)]
-use super::player_tick::*;
-#[allow(unused_imports)]
-use super::plugins::*;
-#[allow(unused_imports)]
-use super::resources::*;
-#[allow(unused_imports)]
-use super::setup_systems::*;
-#[allow(unused_imports)]
-use super::world_flow::*;
-#[allow(unused_imports)]
-use super::*;
-#[allow(unused_imports)]
-use ambition_gameplay_core::schedule::*;
+use bevy::prelude::*;
+use bevy::window::WindowResolution;
+
+use ambition_gameplay_core::assets::game_assets::GameAssetConfig;
+use ambition_gameplay_core::config::{WINDOW_H, WINDOW_W};
+use ambition_gameplay_core::game_mode::GameMode;
+
+use super::plugins::{SandboxLdtkPlugin, SandboxPresentationPlugin, SandboxSimulationPlugin};
 
 /// Resolve the on-disk asset root for the desktop app.
 ///

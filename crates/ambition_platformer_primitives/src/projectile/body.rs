@@ -9,7 +9,7 @@
 use ambition_engine_core::BodyKinematics;
 use ambition_engine_core::Vec2;
 
-use super::spec::{ProjectileKind, ProjectileSpec};
+use super::spec::ProjectileSpec;
 use ambition_engine_core::{Aabb, AabbExt};
 
 /// Which side of the combat faction a projectile belongs to.
@@ -54,7 +54,6 @@ pub struct InFlightProjectile {
 /// are never swept into actor behavior such as auto-righting or AI.
 #[derive(Clone, Copy, Debug, PartialEq, bevy::prelude::Component)]
 pub struct ProjectileGameplay {
-    pub kind: ProjectileKind,
     /// Combat faction (who fired this projectile, which targets it
     /// may damage). Set at spawn time; the engine never mutates it.
     pub faction: ProjectileFaction,
@@ -87,15 +86,14 @@ impl ProjectileGameplay {
     /// Build the gameplay half from `spec` with an explicit faction.
     fn from_spec_with_faction(spec: ProjectileSpec, faction: ProjectileFaction) -> Self {
         Self {
-            kind: spec.kind,
             faction,
             age: 0.0,
             max_lifetime: spec.max_lifetime,
             gravity: spec.gravity,
             damage: spec.damage,
-            // Fireballs bounce off the floor a couple of times — a
-            // Mario-like / arcade-style behavior, not a literal copy.
-            bounces_remaining: matches!(spec.kind, ProjectileKind::Fireball) as u8 * 2,
+            // Bounce budget is authored on the spec (e.g. Ambition's fireball
+            // bounces twice; straight shots set 0). The engine never names kinds.
+            bounces_remaining: spec.bounces,
         }
     }
 
@@ -330,9 +328,6 @@ impl ProjectileBody {
     pub fn half_extent(&self) -> Vec2 {
         self.kin.size * 0.5
     }
-    pub fn kind(&self) -> ProjectileKind {
-        self.game.kind
-    }
     pub fn faction(&self) -> ProjectileFaction {
         self.game.faction
     }
@@ -374,7 +369,6 @@ mod tests {
                 facing: 1.0,
             },
             game: ProjectileGameplay {
-                kind: ProjectileKind::Fireball,
                 faction: ProjectileFaction::Player,
                 age: 0.0,
                 max_lifetime: 1.0,

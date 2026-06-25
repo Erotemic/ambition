@@ -48,12 +48,7 @@ impl ProjectileSpawner {
             return Err(SpawnFailure::OutOfResource);
         }
         self.cooldown_remaining = kind.cooldown();
-        Ok(ProjectileSpec::new(
-            kind,
-            origin,
-            direction,
-            outgoing_damage_multiplier,
-        ))
+        Ok(kind.spec(origin, direction, outgoing_damage_multiplier))
     }
 }
 

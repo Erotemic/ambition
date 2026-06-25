@@ -50,7 +50,7 @@ pub fn sync_projectile_visuals(
         (
             Entity,
             &ambition_gameplay_core::player::BodyKinematics,
-            &ambition_gameplay_core::projectile::ProjectileGameplay,
+            Option<&ambition_gameplay_core::projectile::ProjectileKind>,
         ),
         (
             With<ambition_gameplay_core::projectile::PlayerProjectile>,
@@ -120,23 +120,19 @@ pub fn sync_projectile_visuals(
     } // end per-player charge loop
 
     // Spawn one persistent sprite per NEW in-flight player projectile entity.
-    for (proj_entity, kin, game) in &new_projectiles {
+    for (proj_entity, kin, kind) in &new_projectiles {
+        use ambition_gameplay_core::projectile::ProjectileKind;
         let render_size = bevy::math::Vec2::new((kin.size.x).max(8.0), (kin.size.y).max(8.0));
         // Hadouken tint (cooler / blue-shifted) vs Fireball (warmer
         // orange). The tint applies whether or not the textured sprite
-        // loads; a missing texture falls through to a colored quad.
-        let tint = match game.kind {
-            ambition_gameplay_core::projectile::ProjectileKind::Fireball => {
-                Color::srgba(1.0, 0.74, 0.30, 0.95)
-            }
-            ambition_gameplay_core::projectile::ProjectileKind::Hadouken => {
-                Color::srgba(0.45, 0.78, 1.0, 0.96)
-            }
+        // loads; a missing texture falls through to a colored quad. A
+        // kind-less shot (shouldn't happen for player) reads as a fireball.
+        let tint = match kind.copied().unwrap_or(ProjectileKind::Fireball) {
+            ProjectileKind::Fireball => Color::srgba(1.0, 0.74, 0.30, 0.95),
+            ProjectileKind::Hadouken => Color::srgba(0.45, 0.78, 1.0, 0.96),
             // Stronger tint for the Super so the player can see at a
             // glance that they fired the harder gesture.
-            ambition_gameplay_core::projectile::ProjectileKind::HadoukenSuper => {
-                Color::srgba(0.30, 0.55, 1.0, 1.0)
-            }
+            ProjectileKind::HadoukenSuper => Color::srgba(0.30, 0.55, 1.0, 1.0),
         };
         let mut sprite = match handle.clone() {
             Some(image) => Sprite {
@@ -160,16 +156,10 @@ pub fn sync_projectile_visuals(
                 )),
                 PlayerProjectileVisual,
                 VisualProjectile(proj_entity),
-                Name::new(match game.kind {
-                    ambition_gameplay_core::projectile::ProjectileKind::Fireball => {
-                        "Player projectile: fireball"
-                    }
-                    ambition_gameplay_core::projectile::ProjectileKind::Hadouken => {
-                        "Player projectile: hadouken"
-                    }
-                    ambition_gameplay_core::projectile::ProjectileKind::HadoukenSuper => {
-                        "Player projectile: hadouken_super"
-                    }
+                Name::new(match kind.copied().unwrap_or(ProjectileKind::Fireball) {
+                    ProjectileKind::Fireball => "Player projectile: fireball",
+                    ProjectileKind::Hadouken => "Player projectile: hadouken",
+                    ProjectileKind::HadoukenSuper => "Player projectile: hadouken_super",
                 }),
             ))
             .id();

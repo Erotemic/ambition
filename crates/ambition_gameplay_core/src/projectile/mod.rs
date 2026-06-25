@@ -28,6 +28,7 @@
 
 mod diagnostics;
 mod entity;
+mod kind;
 mod portal_transit;
 mod spawn;
 mod spawn_message;
@@ -41,6 +42,7 @@ pub use entity::{
     LiveProjectile, PlayerProjectile, ProjectileOwner, ProjectileOwnerId, ProjectileSeq,
     ProjectileSeqCounter,
 };
+pub use kind::{FireballChargeTuning, ProjectileKind};
 pub use spawn_message::{ProjectilePool, SpawnProjectile};
 pub use state::PlayerProjectileState;
 pub use systems::{
@@ -57,9 +59,8 @@ mod engine_tests;
 // primitive through this facade. The brain-coupled SPAWN (`systems`) stays in
 // sandbox as a thin consumer.
 pub use ambition_platformer_primitives::projectile::{
-    resolve_world_collision, FireballChargeTuning, InFlightProjectile, ProjectileBody,
-    ProjectileFaction, ProjectileGameplay, ProjectileKind, ProjectileSolidHit, ProjectileSpec,
-    WorldHitOutcome, WorldHitPolicy,
+    resolve_world_collision, InFlightProjectile, ProjectileBody, ProjectileFaction,
+    ProjectileGameplay, ProjectileSolidHit, ProjectileSpec, WorldHitOutcome, WorldHitPolicy,
 };
 
 // Sandbox-specific spawn helpers (player input gesture buffer + cooldown meter)

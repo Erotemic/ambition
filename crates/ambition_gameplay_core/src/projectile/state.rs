@@ -74,11 +74,13 @@ pub enum ProjectileTraceEvent {
         kind: crate::projectile::ProjectileKind,
     },
     Hit {
-        kind: crate::projectile::ProjectileKind,
+        /// `None` for kind-less (enemy) shots in the unified step loop.
+        kind: Option<crate::projectile::ProjectileKind>,
         damage: i32,
     },
     Expired {
-        kind: crate::projectile::ProjectileKind,
+        /// `None` for kind-less (enemy) shots in the unified step loop.
+        kind: Option<crate::projectile::ProjectileKind>,
     },
 }
 
@@ -99,13 +101,13 @@ impl ProjectileTraceEvent {
             },
             Self::Hit { kind, damage } => GameplayTraceEvent::Projectile {
                 tick,
-                kind: kind.label().to_string(),
+                kind: kind.map(|k| k.label()).unwrap_or("projectile").to_string(),
                 event: "hit".into(),
                 damage,
             },
             Self::Expired { kind } => GameplayTraceEvent::Projectile {
                 tick,
-                kind: kind.label().to_string(),
+                kind: kind.map(|k| k.label()).unwrap_or("projectile").to_string(),
                 event: "expired".into(),
                 damage: 0,
             },

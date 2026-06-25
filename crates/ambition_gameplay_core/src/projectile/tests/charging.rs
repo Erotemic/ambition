@@ -16,7 +16,10 @@ fn tap_release_fires_one_fireball() {
     let bodies = crate::projectile::tests::projectile_bodies(&mut app);
     assert_eq!(bodies.len(), 1);
     // Tap-release is below the medium threshold → tier 0 Fireball.
-    assert_eq!(bodies[0].game.kind, ProjectileKind::Fireball);
+    assert_eq!(
+        crate::projectile::tests::projectile_kinds(&mut app)[0],
+        Some(ProjectileKind::Fireball)
+    );
 }
 
 /// Pressing without releasing is "still charging" — no body
@@ -77,7 +80,10 @@ fn held_release_after_medium_threshold_fires_charged_fireball() {
     let bodies = crate::projectile::tests::projectile_bodies(&mut app);
     assert_eq!(bodies.len(), 1);
     let body = &bodies[0];
-    assert_eq!(body.game.kind, ProjectileKind::Fireball);
+    assert_eq!(
+        crate::projectile::tests::projectile_kinds(&mut app)[0],
+        Some(ProjectileKind::Fireball)
+    );
     // Tier-1 size scaling is 1.4x on baseline half-extent (12, 9)
     // → at least 16x12 — meaningfully bigger than tier 0.
     let baseline = crate::projectile::ProjectileKind::Fireball.half_extent();
@@ -115,7 +121,10 @@ fn grace_qcf_then_press_fires_hadouken_immediately() {
     app.update();
     let bodies = crate::projectile::tests::projectile_bodies(&mut app);
     assert_eq!(bodies.len(), 1);
-    assert_eq!(bodies[0].game.kind, ProjectileKind::Hadouken);
+    assert_eq!(
+        crate::projectile::tests::projectile_kinds(&mut app)[0],
+        Some(ProjectileKind::Hadouken)
+    );
 }
 
 #[test]
@@ -143,7 +152,10 @@ fn full_qcf_then_press_fires_hadouken_super() {
     app.update();
     let bodies = crate::projectile::tests::projectile_bodies(&mut app);
     assert_eq!(bodies.len(), 1);
-    assert_eq!(bodies[0].game.kind, ProjectileKind::HadoukenSuper);
+    assert_eq!(
+        crate::projectile::tests::projectile_kinds(&mut app)[0],
+        Some(ProjectileKind::HadoukenSuper)
+    );
 }
 
 #[test]
@@ -173,7 +185,10 @@ fn half_circle_still_fires_hadouken_super() {
     app.update();
     let bodies = crate::projectile::tests::projectile_bodies(&mut app);
     assert_eq!(bodies.len(), 1);
-    assert_eq!(bodies[0].game.kind, ProjectileKind::HadoukenSuper);
+    assert_eq!(
+        crate::projectile::tests::projectile_kinds(&mut app)[0],
+        Some(ProjectileKind::HadoukenSuper)
+    );
 }
 
 #[test]

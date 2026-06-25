@@ -177,6 +177,24 @@ pub(in crate::projectile) fn projectile_bodies(
     rows.into_iter().map(|(_, body)| body).collect()
 }
 
+/// Collect the in-flight player projectile *kinds*, sorted by spawn sequence
+/// (oldest first). The named kind rides as its own `ProjectileKind` component
+/// (the engine body is generic), so kind assertions read it here rather than
+/// off `ProjectileBody`. `None` for any kind-less shot.
+pub(in crate::projectile) fn projectile_kinds(
+    app: &mut App,
+) -> Vec<Option<crate::projectile::ProjectileKind>> {
+    use crate::projectile::{ProjectileKind, ProjectileSeq};
+    let world = app.world_mut();
+    let mut q = world
+        .try_query::<(&ProjectileSeq, Option<&ProjectileKind>)>()
+        .unwrap();
+    let mut rows: Vec<(ProjectileSeq, Option<ProjectileKind>)> =
+        q.iter(world).map(|(seq, kind)| (*seq, kind.copied())).collect();
+    rows.sort_by_key(|(seq, _)| *seq);
+    rows.into_iter().map(|(_, kind)| kind).collect()
+}
+
 /// Directly spawn an in-flight player projectile entity owned by the
 /// primary player — the entity-era equivalent of the old
 /// `state.bodies.push(InFlightProjectile { .. })` test setup. Assigns the

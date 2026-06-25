@@ -113,21 +113,31 @@ reintroduce them).
 **Still open in §3+:** two deeper extractions remain, both larger/riskier than
 what has landed:
 
-1. **Generic-vs-named projectile split (combat).** `ProjectileKind { Fireball,
-   Hadouken, HadoukenSuper }` + its stat tables live in `platformer_primitives`
-   (a foundation crate) — verified named-content leak. But it is woven across SIX
-   crates: the primitive body couples behavior to it
-   (`bounces_remaining = matches!(kind, Fireball) as u8 * 2`), input does Hadouken
-   gesture recognition (entangled with §4), render tints/sprites by kind, and the
-   charge-tier ramps key off it. Splitting properly means replacing `match kind`
-   with generic `ProjectileSpec` fields (e.g. `bounces`, gravity already a field)
-   and moving the named tables to content. **Safe to do structurally now** — Jon's
-   stance is land-structural-then-fix-feel, so this is no longer gated on runtime
-   testing; port it boldly (the existing spec-stat headless tests catch the
-   mechanical errors), keep the spawn-timing contracts as tests, and add the result
-   to the Feel-test checklist (#4: arcs/bounce, charge ramps, gesture timing, tints).
-   The remaining attribution work (attacker entity on enemy/boss-side `HitSource`s)
-   is part of this domain and is itself feel-risk-none (data threading).
+1. **Generic-vs-named projectile split (combat) — DONE (2026-06-25).** The verified
+   leak (`ProjectileKind { Fireball, Hadouken, HadoukenSuper }` + stat tables in the
+   foundation crate `platformer_primitives`) is closed. What landed:
+   - **Foundation made generic.** `ProjectileSpec` / `ProjectileGameplay` carry only
+     generic data; `match kind` for the bounce budget became a `bounces: u8` field
+     (`from_spec` reads `spec.bounces`). `ProjectileKind`, `FireballChargeTuning`,
+     the stat tables, `ProjectileSpec::new(kind,..)` and `with_charge_tier` were all
+     removed from `platformer_primitives` (its now-unused `serde` dep dropped).
+   - **Named kit moved UP to `gameplay_core::projectile::kind`** (not content — the
+     player fire/charge/gesture systems that consume it can't reach content without
+     the §4 ControlFrame extraction; gameplay_core is "machinery" and a strict
+     improvement over the foundation leak). `ProjectileKind::spec()` lowers a kind
+     into the generic spec; `charged_spec()` applies the fireball tier ramp.
+   - **Kind rides as its own ECS component.** `ProjectileKind` is now a `Component`
+     attached to player shots at spawn (via a new `SpawnProjectile.kind` field).
+     `step_projectiles` queries `Option<&ProjectileKind>` for `HitSource` /
+     trace; render reads it for tint + sprite name. The engine body never names a
+     kind. Trace `Hit`/`Expired` now carry `Option<ProjectileKind>` (enemy shots are
+     genuinely kind-less → label "projectile" instead of the old fake "fireball").
+   - **Guard added.** `architecture_boundaries` now asserts the foundation projectile
+     module names no `ProjectileKind`/`Fireball`/`Hadouken` (regression fence).
+   All projectile/collision/charging/portal/arch tests green. Owed: Feel-test #4.
+   **Still remaining in this domain:** attacker-entity attribution on enemy/boss-side
+   `HitSource`s (feel-risk-none data threading), and replacing the player/enemy
+   projectile split with source/faction.
 2. **World gate→overlay (world) — 2 of 3 gates DONE (2026-06-25).** The fork was
    resolved toward the authored-base preference: gates contribute to the per-frame
    collision overlay, not the base. New overlay category
@@ -196,9 +206,12 @@ only the part a headless test cannot see (sprite draw, on-screen feel, timing).
 
 **Added to this checklist when the corresponding structural step lands:**
 
-4. **Projectile generic/named split** (when done) — the feel-critical one: fireball
-   arcs/bounce, charge-tier ramps (size + damage), Hadouken vs HadoukenSuper gesture
-   timing, projectile render tints/sprites. Port structurally, then walk this list.
+4. **Projectile generic/named split** (LANDED 2026-06-25) — the feel-critical one,
+   now owed a play-session check: fireball arcs/bounce (2 bounces, then expire),
+   charge-tier ramps (size 1.0/1.4/1.8×, damage 1/4/16×), Hadouken vs HadoukenSuper
+   gesture timing, and projectile render tints (fireball warm-orange, Hadouken blue,
+   Super deep-blue) + the per-kind sprite name. Headless tests cover the mechanics;
+   what's owed is on-screen feel/tint. Revert/patch the named commit if any feels off.
 5. **falling_sand → overlay** (when done) — standing/climbing settled sand piles
    (behind its feature flag, low exposure).
 
@@ -215,7 +228,7 @@ to the checklist — none are *blocked*, this is just where to expect owed check
 | §4 ControlFrame → actor-local intent | **low–med** | behaviour-preserving by design; input is feel-y, so any drift shows → adds an owed input check |
 | Audio plugin split (backend/director/cue) | **low–med** | playback should be unchanged if careful → owed audio check |
 | falling_sand → overlay | **med** | sand collision projection; adds checklist #5 |
-| **Projectile generic/named split** | **high** | adds checklist #4; do it structurally, feel-test after |
+| ~~**Projectile generic/named split**~~ | **DONE** | landed 2026-06-25; foundation now generic, named kit in `gameplay_core::projectile::kind`. Owed feel-check #4 below. |
 
 ---
 

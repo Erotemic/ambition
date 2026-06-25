@@ -128,8 +128,7 @@ fn projectile_spawner_blocks_when_out_of_resource() {
 
 #[test]
 fn projectile_body_expires_after_max_lifetime() {
-    let spec = ProjectileSpec::new(
-        ProjectileKind::Fireball,
+    let spec = ProjectileKind::Fireball.spec(
         Vec2::ZERO,
         Vec2::new(1.0, 0.0),
         1.0,
@@ -148,8 +147,7 @@ fn projectile_body_expires_after_max_lifetime() {
 
 #[test]
 fn fireball_arcs_downward() {
-    let spec = ProjectileSpec::new(
-        ProjectileKind::Fireball,
+    let spec = ProjectileKind::Fireball.spec(
         Vec2::ZERO,
         Vec2::new(1.0, 0.0),
         1.0,
@@ -168,8 +166,7 @@ fn fireball_arcs_downward() {
 
 #[test]
 fn hadouken_travels_straight_horizontally() {
-    let spec = ProjectileSpec::new(
-        ProjectileKind::Hadouken,
+    let spec = ProjectileKind::Hadouken.spec(
         Vec2::ZERO,
         Vec2::new(1.0, 0.0),
         1.0,
@@ -192,8 +189,7 @@ fn block_aabb(min: Vec2, size: Vec2) -> Aabb {
 /// decrements.
 #[test]
 fn fireball_bounces_off_floor_top() {
-    let spec = ProjectileSpec::new(
-        ProjectileKind::Fireball,
+    let spec = ProjectileKind::Fireball.spec(
         Vec2::new(100.0, 100.0),
         Vec2::new(1.0, 0.0),
         1.0,
@@ -224,8 +220,7 @@ fn fireball_bounces_off_floor_top() {
 /// re-overlaps a ceiling.
 #[test]
 fn fireball_expires_on_non_floor_contact() {
-    let spec = ProjectileSpec::new(
-        ProjectileKind::Fireball,
+    let spec = ProjectileKind::Fireball.spec(
         Vec2::ZERO,
         Vec2::new(1.0, 0.0),
         1.0,
@@ -244,8 +239,7 @@ fn fireball_expires_on_non_floor_contact() {
 /// contact returns Expired — the fireball has used its budget.
 #[test]
 fn fireball_expires_when_bounce_budget_exhausted() {
-    let spec = ProjectileSpec::new(
-        ProjectileKind::Fireball,
+    let spec = ProjectileKind::Fireball.spec(
         Vec2::ZERO,
         Vec2::new(1.0, 0.0),
         1.0,
@@ -265,8 +259,7 @@ fn fireball_expires_when_bounce_budget_exhausted() {
 /// feels arbitrary.
 #[test]
 fn fireball_bounces_off_one_way_platform_top() {
-    let spec = ProjectileSpec::new(
-        ProjectileKind::Fireball,
+    let spec = ProjectileKind::Fireball.spec(
         Vec2::new(100.0, 100.0),
         Vec2::new(1.0, 0.0),
         1.0,
@@ -289,8 +282,7 @@ fn fireball_bounces_off_one_way_platform_top() {
 /// into one from below shouldn't be stopped or expired.
 #[test]
 fn fireball_passes_through_one_way_on_non_top_contact() {
-    let spec = ProjectileSpec::new(
-        ProjectileKind::Fireball,
+    let spec = ProjectileKind::Fireball.spec(
         Vec2::ZERO,
         Vec2::new(1.0, 0.0),
         1.0,
@@ -315,8 +307,7 @@ fn fireball_passes_through_one_way_on_non_top_contact() {
 /// keeps the platform feeling non-solid from any non-bounce angle.
 #[test]
 fn fireball_with_no_bounces_passes_through_one_way_top() {
-    let spec = ProjectileSpec::new(
-        ProjectileKind::Fireball,
+    let spec = ProjectileKind::Fireball.spec(
         Vec2::ZERO,
         Vec2::new(1.0, 0.0),
         1.0,
@@ -335,8 +326,7 @@ fn fireball_with_no_bounces_passes_through_one_way_top() {
 /// "horizontal projectile that disappears on first wall" UX.
 #[test]
 fn hadouken_expires_on_first_solid_hit() {
-    let spec = ProjectileSpec::new(
-        ProjectileKind::Hadouken,
+    let spec = ProjectileKind::Hadouken.spec(
         Vec2::new(50.0, 100.0),
         Vec2::new(1.0, 0.0),
         1.0,
@@ -391,26 +381,10 @@ fn grace_quarter_circle_rejects_straight_forward_only() {
 /// spec. Hadouken / Super ignore the tier — they don't charge.
 #[test]
 fn charge_tier_scales_fireball_size_and_damage() {
-    let baseline = ProjectileSpec::new(
-        ProjectileKind::Fireball,
-        Vec2::ZERO,
-        Vec2::new(1.0, 0.0),
-        1.0,
-    );
-    let medium = ProjectileSpec::new(
-        ProjectileKind::Fireball,
-        Vec2::ZERO,
-        Vec2::new(1.0, 0.0),
-        1.0,
-    )
-    .with_charge_tier(1);
-    let heavy = ProjectileSpec::new(
-        ProjectileKind::Fireball,
-        Vec2::ZERO,
-        Vec2::new(1.0, 0.0),
-        1.0,
-    )
-    .with_charge_tier(2);
+    let dir = Vec2::new(1.0, 0.0);
+    let baseline = ProjectileKind::Fireball.spec(Vec2::ZERO, dir, 1.0);
+    let medium = ProjectileKind::Fireball.charged_spec(baseline, 1);
+    let heavy = ProjectileKind::Fireball.charged_spec(baseline, 2);
     // Size monotonically increases with tier.
     assert!(medium.half_extent.x > baseline.half_extent.x);
     assert!(heavy.half_extent.x > medium.half_extent.x);
@@ -418,19 +392,8 @@ fn charge_tier_scales_fireball_size_and_damage() {
     assert_eq!(medium.damage, baseline.damage * 4);
     assert_eq!(heavy.damage, baseline.damage * 16);
     // Hadouken with a charge tier ignores the request.
-    let hadouken_baseline = ProjectileSpec::new(
-        ProjectileKind::Hadouken,
-        Vec2::ZERO,
-        Vec2::new(1.0, 0.0),
-        1.0,
-    );
-    let hadouken_charged = ProjectileSpec::new(
-        ProjectileKind::Hadouken,
-        Vec2::ZERO,
-        Vec2::new(1.0, 0.0),
-        1.0,
-    )
-    .with_charge_tier(2);
+    let hadouken_baseline = ProjectileKind::Hadouken.spec(Vec2::ZERO, dir, 1.0);
+    let hadouken_charged = ProjectileKind::Hadouken.charged_spec(hadouken_baseline, 2);
     assert_eq!(hadouken_charged.damage, hadouken_baseline.damage);
     assert_eq!(hadouken_charged.half_extent, hadouken_baseline.half_extent);
 }
@@ -543,8 +506,7 @@ fn motion_direction_quantization() {
 
 #[test]
 fn outgoing_damage_multiplier_scales_damage() {
-    let spec = ProjectileSpec::new(
-        ProjectileKind::Hadouken,
+    let spec = ProjectileKind::Hadouken.spec(
         Vec2::ZERO,
         Vec2::new(1.0, 0.0),
         2.0,
@@ -560,8 +522,7 @@ fn projectile_faction_default_is_player() {
 
 #[test]
 fn from_spec_defaults_faction_to_player() {
-    let spec = ProjectileSpec::new(
-        ProjectileKind::Fireball,
+    let spec = ProjectileKind::Fireball.spec(
         Vec2::ZERO,
         Vec2::new(1.0, 0.0),
         1.0,
@@ -572,15 +533,16 @@ fn from_spec_defaults_faction_to_player() {
 
 #[test]
 fn from_spec_with_faction_carries_enemy_tag_through_to_body() {
-    let spec = ProjectileSpec::new(
-        ProjectileKind::Fireball,
+    let spec = ProjectileKind::Fireball.spec(
         Vec2::ZERO,
         Vec2::new(1.0, 0.0),
         1.0,
     );
     let body = ProjectileBody::from_spec_with_faction(spec, ProjectileFaction::Enemy);
     assert_eq!(body.game.faction, ProjectileFaction::Enemy);
-    // All other body fields land as if `from_spec` had been called.
-    assert_eq!(body.game.kind, ProjectileKind::Fireball);
+    // All other body fields land as if `from_spec` had been called. The named
+    // kind no longer rides the (generic) body; its lowered data does — Fireball
+    // authors a 2-bounce budget.
+    assert_eq!(body.game.bounces_remaining, ProjectileKind::Fireball.bounces());
     assert_eq!(body.kin.pos, Vec2::ZERO);
 }

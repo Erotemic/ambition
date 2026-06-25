@@ -24,9 +24,7 @@ use common::{base, first_floor_authored_portal_pair, fixed_60hz_room_sim};
 use ambition_gameplay_core::items::pickup::HeldProjectile;
 use ambition_gameplay_core::platformer_runtime::body::BodyKinematics;
 use ambition_gameplay_core::portal::{PortalBody, PortalPolicy};
-use ambition_platformer_primitives::projectile::{
-    ProjectileFaction, ProjectileGameplay, ProjectileKind,
-};
+use ambition_platformer_primitives::projectile::{ProjectileFaction, ProjectileGameplay};
 use bevy::prelude::*;
 
 #[test]
@@ -57,7 +55,6 @@ fn a_held_bolt_transits_an_authored_portal_in_the_real_app() {
                 facing: 1.0,
             },
             ProjectileGameplay {
-                kind: ProjectileKind::Fireball,
                 faction: ProjectileFaction::Player,
                 age: 0.0,
                 max_lifetime: f32::MAX,

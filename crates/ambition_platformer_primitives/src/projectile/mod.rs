@@ -15,8 +15,10 @@
 //! [`HitEvent`]-style damage themselves.
 //!
 //! ## Submodules
-//! - [`spec`] — [`ProjectileKind`], [`ProjectileSpec`], charge tuning
-//!   (authored intent).
+//! - [`spec`] — the generic, content-free [`ProjectileSpec`] (authored intent).
+//!   Named projectile kinds + their stat tables are a *game's* concern (for
+//!   Ambition: `ambition_gameplay_core::projectile::kind`); the engine never
+//!   names them.
 //! - [`body`] — the kinematic/gameplay split: [`ProjectileGameplay`]
 //!   (per-frame motion + solid/one-way resolution over a
 //!   [`ambition_engine_core::BodyKinematics`]), the [`ProjectileBody`]
@@ -34,4 +36,4 @@ pub use body::{
     InFlightProjectile, ProjectileBody, ProjectileFaction, ProjectileGameplay, ProjectileSolidHit,
 };
 pub use collision::{resolve_world_collision, WorldHitOutcome, WorldHitPolicy};
-pub use spec::{EnemyProjectileSpawn, FireballChargeTuning, ProjectileKind, ProjectileSpec};
+pub use spec::{EnemyProjectileSpawn, ProjectileSpec};

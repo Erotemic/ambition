@@ -384,6 +384,25 @@ fn architecture_boundaries_platformer_runtime_crate_is_extracted() {
         &["ambition_gameplay_core"],
         "ambition_platformer_primitives must remain reusable and content-free",
     );
+
+    // The generic projectile primitive must NOT name a game's projectile kinds.
+    // The named Fireball/Hadouken vocabulary + stat tables live in
+    // `ambition_gameplay_core::projectile::kind`; the engine carries only generic
+    // `ProjectileSpec` data (bounces/gravity/half_extent/…). Guard against the
+    // named-content leak creeping back into the foundation crate.
+    let projectile_dir = crate_root.join("src/projectile");
+    for file in ["spec.rs", "body.rs", "collision.rs", "mod.rs"] {
+        let text = fs::read_to_string(projectile_dir.join(file))
+            .unwrap_or_else(|e| panic!("read projectile/{file}: {e}"));
+        for needle in ["ProjectileKind", "Fireball", "Hadouken"] {
+            assert!(
+                !text.contains(needle),
+                "ambition_platformer_primitives/src/projectile/{file} must stay content-free, \
+                 but names `{needle}` — named projectile kinds belong in \
+                 ambition_gameplay_core::projectile::kind"
+            );
+        }
+    }
     assert_paths_absent(
         &sandbox_runtime,
         &["schedule.rs", "lifecycle", "transit.rs"],

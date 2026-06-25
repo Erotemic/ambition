@@ -43,9 +43,6 @@ impl EnemyProjectileState {
             request.dir / request.dir.length()
         };
         let spec = crate::projectile::ProjectileSpec {
-            // We reuse the Fireball kind for sprite/lifetime tables;
-            // damage/speed/lifetime are overridden below.
-            kind: crate::projectile::ProjectileKind::Fireball,
             origin: request.origin,
             direction: dir,
             damage: request.damage.max(1),
@@ -53,13 +50,13 @@ impl EnemyProjectileState {
             max_lifetime: request.max_lifetime.max(0.2),
             half_extent: request.half_extent,
             gravity: request.gravity.max(0.0),
+            // Enemy projectiles travel in a straight line (no bouncing —
+            // a bouncing volley reads as a pinball and confuses the
+            // player about the hostile path).
+            bounces: 0,
             charge_tier: 0,
         };
-        let mut body = crate::projectile::ProjectileBody::from_spec_with_faction(spec, faction);
-        // Enemy projectiles travel in a straight line (no bouncing —
-        // a bouncing volley reads as a pinball and confuses the
-        // player about the hostile path).
-        body.game.bounces_remaining = 0;
+        let body = crate::projectile::ProjectileBody::from_spec_with_faction(spec, faction);
         crate::projectile::InFlightProjectile {
             body,
             owner_id: request.owner_id,

@@ -324,13 +324,14 @@ fn try_fire_projectile(
         .try_spawn(kind, origin, direction, damage_mult)
     {
         Ok(spec) => {
-            let spec = spec.with_charge_tier(charge_tier);
+            let spec = kind.charged_spec(spec, charge_tier);
             spawn_projectiles.write(SpawnProjectile {
                 pool: ProjectilePool::Player { owner },
                 projectile: crate::projectile::InFlightProjectile {
                     body: crate::projectile::ProjectileBody::from_spec(spec),
                     owner_id: String::new(),
                 },
+                kind: Some(kind),
             });
             events.push(ProjectileTraceEvent::Fired { kind });
             true
@@ -357,7 +358,7 @@ pub fn apply_player_spawn_projectile_messages(
             continue;
         };
         let body = &msg.projectile.body;
-        commands.spawn((
+        let mut entity = commands.spawn((
             body.kin,
             body.game,
             ProjectileOwner(owner),
@@ -367,6 +368,11 @@ pub fn apply_player_spawn_projectile_messages(
             PlayerProjectile,
             Name::new("Player projectile (sim)"),
         ));
+        // Named kind rides as its own component (the engine body is generic):
+        // combat attribution, trace, and render read it off the entity.
+        if let Some(kind) = msg.kind {
+            entity.insert(kind);
+        }
     }
 }
 
@@ -412,6 +418,7 @@ pub fn step_projectiles(
             Option<&ProjectileOwner>,
             Option<&ProjectileOwnerId>,
             &ProjectileSeq,
+            Option<&crate::projectile::ProjectileKind>,
         ),
         (
             With<LiveProjectile>,
@@ -468,15 +475,18 @@ pub fn step_projectiles(
     // across both factions; the seq counter is shared at spawn).
     let mut ordered: Vec<(Entity, ProjectileSeq)> = projectiles
         .iter()
-        .map(|(entity, _, _, _, _, seq)| (entity, *seq))
+        .map(|(entity, _, _, _, _, seq, _)| (entity, *seq))
         .collect();
     ordered.sort_by_key(|(_, seq)| *seq);
 
     for (proj_entity, _) in ordered {
-        let Ok((_, mut kin, mut game, owner, owner_id, _)) = projectiles.get_mut(proj_entity)
+        let Ok((_, mut kin, mut game, owner, owner_id, _, kind)) =
+            projectiles.get_mut(proj_entity)
         else {
             continue;
         };
+        // Named kind for player shots (None for kind-less enemy volleys).
+        let kind = kind.copied();
         let owner_entity = owner.map(|o| o.0);
         let owner_id_str = owner_id.map(|o| o.0.clone()).unwrap_or_default();
 
@@ -492,7 +502,7 @@ pub fn step_projectiles(
                 });
             } else {
                 trace.push_event(
-                    ProjectileTraceEvent::Expired { kind: game.kind }.into_trace_event(tick),
+                    ProjectileTraceEvent::Expired { kind }.into_trace_event(tick),
                 );
             }
             commands.entity(proj_entity).despawn();
@@ -512,7 +522,11 @@ pub fn step_projectiles(
                 let hit_event = HitEvent {
                     volume: kin.aabb().into(),
                     damage: game.damage.max(1),
-                    source: HitSource::PlayerProjectile { kind: game.kind },
+                    // Player shots always carry the kind component; default is
+                    // unreachable (kept total for the engine-generic body).
+                    source: HitSource::PlayerProjectile {
+                        kind: kind.unwrap_or(crate::projectile::ProjectileKind::Fireball),
+                    },
                     attacker: owner_entity,
                     target: HitTarget::Volume,
                     mode: HitMode::Knockback,
@@ -528,7 +542,7 @@ pub fn step_projectiles(
                     sfx.write(SfxMessage::Hit { pos: kin.pos });
                     trace.push_event(
                         ProjectileTraceEvent::Hit {
-                            kind: game.kind,
+                            kind,
                             damage: game.damage,
                         }
                         .into_trace_event(tick),
@@ -627,7 +641,7 @@ pub fn step_projectiles(
                     None => {
                         trace.push_event(
                             ProjectileTraceEvent::Hit {
-                                kind: game.kind,
+                                kind,
                                 damage: game.damage,
                             }
                             .into_trace_event(tick),

@@ -22,7 +22,3 @@ bevy = { version = "0.18.1", default-features = false }
 # it (ADR 0019); the generic ECS systems moved here operate on engine_core
 # bodies/world. Foundation-only — still NEVER ambition_gameplay_core.
 ambition_engine_core = { path = "../ambition_engine_core" }
-
-# Serde derive for the authored projectile spec (`ProjectileKind`). Mirrors
-# the engine_core dependency; no other crate features needed.
-serde = { version = "1", features = ["derive"] }

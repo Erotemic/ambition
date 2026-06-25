@@ -662,7 +662,6 @@ pub fn fire_held_ranged_system(
         // projectile step (keyed on `PlayerProjectile`), so this marker never
         // double-steps the bolt.
         crate::projectile::ProjectileGameplay {
-            kind: crate::projectile::ProjectileKind::Fireball,
             faction: crate::projectile::ProjectileFaction::Player,
             age: 0.0,
             max_lifetime: f32::MAX,

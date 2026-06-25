@@ -13,11 +13,11 @@ use super::body::ProjectileGameplay;
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum WorldHitPolicy {
     /// Player-fired projectile. Bounces off solid + blink-wall
-    /// surfaces using `bounces_remaining` (Fireball arc); Hadouken
-    /// spawns with 0 bounces and expires on first solid hit. One-way
-    /// platforms only block from above when the body would normally
-    /// bounce — otherwise the projectile passes through (so a
-    /// horizontal Hadouken doesn't get stopped by a thin platform).
+    /// surfaces using `bounces_remaining` (an arcing shot); a 0-bounce
+    /// shot expires on first solid hit. One-way platforms only block
+    /// from above when the body would normally bounce — otherwise the
+    /// projectile passes through (so a horizontal 0-bounce shot doesn't
+    /// get stopped by a thin platform).
     PlayerBouncing,
     /// Enemy-fired projectile. Treats any solid / blink-wall / one-way
     /// contact as expiry; no bouncing (a bouncing volley reads as a
@@ -53,7 +53,7 @@ pub fn resolve_world_collision(
     let aabb = kin.aabb();
     match policy {
         WorldHitPolicy::PlayerBouncing => {
-            // Solids first so a fireball overlapping both kinds in the
+            // Solids first so a bouncing shot overlapping both kinds in the
             // same frame resolves against the harder surface (matches
             // the priority used by player physics).
             let solid_hit = world.blocks.iter().find(|block| {
@@ -126,7 +126,6 @@ mod tests {
         pos: ae::Vec2,
     ) -> crate::projectile::ProjectileBody {
         let spec = crate::projectile::ProjectileSpec {
-            kind: crate::projectile::ProjectileKind::Fireball,
             origin: pos,
             direction: ae::Vec2::new(1.0, 0.0),
             damage: 1,
@@ -134,6 +133,7 @@ mod tests {
             max_lifetime: 1.0,
             half_extent: ae::Vec2::new(6.0, 6.0),
             gravity: 0.0,
+            bounces: 0,
             charge_tier: 0,
         };
         let mut body = crate::projectile::ProjectileBody::from_spec_with_faction(spec, faction);
@@ -197,7 +197,7 @@ mod tests {
             crate::projectile::ProjectileFaction::Player,
             ae::Vec2::new(100.0, 100.0),
         );
-        // bounces_remaining = 0 (Hadouken)
+        // bounces_remaining = 0 (straight shot)
         let outcome = resolve_world_collision(
             &mut body.kin,
             &mut body.game,
@@ -210,7 +210,7 @@ mod tests {
 
     #[test]
     fn player_policy_passes_through_one_way_at_zero_bounces() {
-        // Player Hadouken (0 bounces) travelling horizontally past a
+        // Player straight shot (0 bounces) travelling horizontally past a
         // thin one-way platform should NOT be stopped — pins the
         // asymmetry with enemy policy.
         let world = world_with_block(
@@ -397,7 +397,7 @@ mod tests {
         );
         assert!(
             matches!(outcome, WorldHitOutcome::Bounced { .. }),
-            "fireball should skip off a one-way top like a floor; got {outcome:?}"
+            "bouncing shot should skip off a one-way top like a floor; got {outcome:?}"
         );
         assert_eq!(
             body.game.bounces_remaining, 1,
@@ -461,7 +461,7 @@ mod tests {
         );
         assert!(
             matches!(outcome, WorldHitOutcome::Bounced { .. }),
-            "fireball with budget should skip off a solid floor; got {outcome:?}"
+            "bouncing shot with budget should skip off a solid floor; got {outcome:?}"
         );
         assert_eq!(body.game.bounces_remaining, 1);
     }

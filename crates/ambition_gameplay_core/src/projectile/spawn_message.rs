@@ -6,7 +6,7 @@
 
 use bevy::prelude::*;
 
-use crate::projectile::InFlightProjectile;
+use crate::projectile::{InFlightProjectile, ProjectileKind};
 
 /// Which in-flight pool a spawned projectile belongs to. The two pools have
 /// different storage (the player pool is a per-entity component, the enemy
@@ -30,6 +30,10 @@ pub enum ProjectilePool {
 pub struct SpawnProjectile {
     pub pool: ProjectilePool,
     pub projectile: InFlightProjectile,
+    /// Named projectile kind for player-fired shots — attached to the entity as
+    /// a `ProjectileKind` component so combat attribution / trace / render can
+    /// read the named identity. `None` for kind-less (enemy) shots.
+    pub kind: Option<ProjectileKind>,
 }
 
 // `SpawnProjectile::enemy` was removed: enemy-pool projectiles are now emitted

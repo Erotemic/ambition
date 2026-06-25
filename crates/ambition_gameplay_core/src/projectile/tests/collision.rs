@@ -35,8 +35,7 @@ fn fireball_damages_enemy_on_intersect() {
     app.update();
     // Inject a fireball moving toward the enemy.
     {
-        let spec = crate::projectile::ProjectileSpec::new(
-            ProjectileKind::Fireball,
+        let spec = ProjectileKind::Fireball.spec(
             ae::Vec2::new(395.0, 300.0),
             ae::Vec2::new(1.0, 0.0),
             1.0,
@@ -94,8 +93,7 @@ fn fireball_bounces_off_floor_in_system() {
     // Spawn a fireball just above the floor moving downward.
     let starting_bounces;
     {
-        let spec = crate::projectile::ProjectileSpec::new(
-            ProjectileKind::Fireball,
+        let spec = ProjectileKind::Fireball.spec(
             ae::Vec2::new(500.0, 380.0),
             ae::Vec2::new(1.0, 0.0),
             1.0,
@@ -140,8 +138,7 @@ fn fireball_bounces_off_one_way_platform_in_system() {
 
     let starting_bounces;
     {
-        let spec = crate::projectile::ProjectileSpec::new(
-            ProjectileKind::Fireball,
+        let spec = ProjectileKind::Fireball.spec(
             ae::Vec2::new(500.0, 380.0),
             ae::Vec2::new(1.0, 0.0),
             1.0,
@@ -191,8 +188,7 @@ fn fireball_passes_through_one_way_from_below_in_system() {
     let mut app = projectile_test_app(world, ae::Vec2::new(200.0, 500.0), 1.0);
 
     {
-        let spec = crate::projectile::ProjectileSpec::new(
-            ProjectileKind::Fireball,
+        let spec = ProjectileKind::Fireball.spec(
             ae::Vec2::new(500.0, 405.0),
             ae::Vec2::new(1.0, 0.0),
             1.0,
@@ -240,8 +236,7 @@ fn hadouken_expires_on_solid_in_system() {
     let mut app = projectile_test_app(world, ae::Vec2::new(500.0, 300.0), 1.0);
 
     {
-        let spec = crate::projectile::ProjectileSpec::new(
-            ProjectileKind::Hadouken,
+        let spec = ProjectileKind::Hadouken.spec(
             ae::Vec2::new(580.0, 300.0),
             ae::Vec2::new(1.0, 0.0),
             1.0,

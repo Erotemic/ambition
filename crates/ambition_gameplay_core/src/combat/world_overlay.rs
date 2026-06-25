@@ -5,9 +5,80 @@
 //! `carve_portal_apertures` splits solid host blocks around the holes.
 //! The overlay *resource* lives in [`overlay`](super::overlay); this is the
 //! consumption side. Re-exported via `pub use world_overlay::*`.
+//!
+//! [`CollisionWorld`] is the single collision read-API every actor sweep/raycast
+//! should reach for instead of `Res<RoomGeometry>`: it composites the authored
+//! room with the per-frame dynamic overlay so player, NPC, enemy, and projectile
+//! all collide against one truth (the relativity principle as a correctness
+//! property), never the bare geometry.
 
 use super::overlay::FeatureEcsWorldOverlay;
 use super::*;
+use std::borrow::Cow;
+
+/// The single collision read-API. Composites the authored [`crate::RoomGeometry`]
+/// with the per-frame dynamic overlay — moving platforms, ECS-owned solids, and
+/// portal carves — into the collision world a sweep or raycast should see.
+///
+/// Every resource is optional so headless / minimal-app tests that insert only a
+/// room (or nothing) still satisfy the param. The composite degrades to the bare
+/// authored geometry *exactly* when there are no dynamics — which is precisely
+/// when bare and composite are identical — so routing a former `Res<RoomGeometry>`
+/// reader through here changes behaviour only in production rooms that actually
+/// carry moving platforms / ECS solids / portal carves.
+#[derive(bevy::ecs::system::SystemParam)]
+pub struct CollisionWorld<'w> {
+    room: Option<bevy::prelude::Res<'w, crate::RoomGeometry>>,
+    platforms: Option<bevy::prelude::Res<'w, crate::MovingPlatformSet>>,
+    overlay: Option<bevy::prelude::Res<'w, FeatureEcsWorldOverlay>>,
+}
+
+impl CollisionWorld<'_> {
+    /// The full collision world: authored room + moving platforms + ECS solids,
+    /// with portal apertures carved. This is what actor sweeps and traversal
+    /// raycasts (grapple / blink / dive / body-mode clearance / dropped items)
+    /// read so they collide with everything solid this frame.
+    ///
+    /// Returns `None` when no room is loaded (minimal test apps), and borrows the
+    /// base geometry on the no-dynamics fast path so the common case never clones.
+    pub fn solids(&self) -> Option<Cow<'_, ae::World>> {
+        let room = self.room.as_ref()?;
+        let platforms = self.platforms.as_ref().map_or(&[][..], |p| &p.0);
+        let overlay_empty = self
+            .overlay
+            .as_ref()
+            .map_or(true, |o| o.blocks.is_empty() && o.portal_carves.is_empty());
+        if platforms.is_empty() && overlay_empty {
+            return Some(Cow::Borrowed(&room.0));
+        }
+        let default_overlay;
+        let overlay = match self.overlay.as_ref() {
+            Some(o) => &**o,
+            None => {
+                default_overlay = FeatureEcsWorldOverlay::default();
+                &default_overlay
+            }
+        };
+        Some(Cow::Owned(world_with_sandbox_solids(
+            &room.0, platforms, overlay,
+        )))
+    }
+
+    /// The room with ONLY portal apertures carved — moving platforms and ECS
+    /// solids omitted. Projectiles pass through moving platforms, so they read
+    /// this. Borrows when no carves are active (the common case).
+    pub fn carves_only(&self) -> Option<Cow<'_, ae::World>> {
+        let room = self.room.as_ref()?;
+        let carves = self.overlay.as_ref().map_or(&[][..], |o| &o.portal_carves);
+        Some(world_with_portal_carves(&room.0, carves))
+    }
+
+    /// The bare authored geometry, no overlay. For metadata / bounds / layout
+    /// reads only — never for collision. Prefer `solids()` / `carves_only()`.
+    pub fn base(&self) -> Option<&ae::World> {
+        self.room.as_ref().map(|r| &r.0)
+    }
+}
 
 pub fn world_with_sandbox_solids(
     world: &ae::World,
@@ -81,5 +152,84 @@ fn carve_portal_apertures(blocks: &mut Vec<ae::Block>, holes: &[ae::Aabb]) {
                 velocity: block.velocity,
             });
         }
+    }
+}
+
+#[cfg(test)]
+mod collision_world_tests {
+    use super::*;
+    use bevy::prelude::{App, ResMut, Resource, Update};
+
+    /// Captured `(is_some, was_owned, block_count)` from a `CollisionWorld::solids()`
+    /// read, so a system can report the borrow/own decision out of the App.
+    #[derive(Resource, Default, Debug, PartialEq)]
+    struct SolidsProbe(Option<(bool, usize)>);
+
+    fn room_one_block() -> crate::RoomGeometry {
+        crate::RoomGeometry(ae::World::new(
+            "test",
+            ae::Vec2::new(400.0, 400.0),
+            ae::Vec2::new(50.0, 50.0),
+            vec![ae::Block {
+                name: "floor".into(),
+                aabb: ae::Aabb::new(ae::Vec2::new(200.0, 380.0), ae::Vec2::new(200.0, 20.0)),
+                kind: ae::BlockKind::Solid,
+                velocity: ae::Vec2::ZERO,
+            }],
+        ))
+    }
+
+    fn probe_solids(world: CollisionWorld, mut out: ResMut<SolidsProbe>) {
+        out.0 = world.solids().map(|w| (matches!(w, Cow::Owned(_)), w.blocks.len()));
+    }
+
+    fn run(app: &mut App) -> Option<(bool, usize)> {
+        app.add_systems(Update, probe_solids);
+        app.update();
+        app.world().resource::<SolidsProbe>().0
+    }
+
+    #[test]
+    fn no_room_yields_none() {
+        let mut app = App::new();
+        app.init_resource::<SolidsProbe>();
+        assert_eq!(run(&mut app), None);
+    }
+
+    #[test]
+    fn no_dynamics_borrows_base() {
+        let mut app = App::new();
+        app.init_resource::<SolidsProbe>();
+        app.insert_resource(room_one_block());
+        // No platforms, no overlay → borrow the base, identical block count.
+        assert_eq!(run(&mut app), Some((false, 1)));
+    }
+
+    #[test]
+    fn empty_overlay_still_borrows() {
+        let mut app = App::new();
+        app.init_resource::<SolidsProbe>();
+        app.insert_resource(room_one_block());
+        app.insert_resource(FeatureEcsWorldOverlay::default());
+        // An empty overlay is still the no-dynamics fast path.
+        assert_eq!(run(&mut app), Some((false, 1)));
+    }
+
+    #[test]
+    fn overlay_solids_compose_owned() {
+        let mut app = App::new();
+        app.init_resource::<SolidsProbe>();
+        app.insert_resource(room_one_block());
+        app.insert_resource(FeatureEcsWorldOverlay {
+            blocks: vec![ae::Block {
+                name: "ecs-solid".into(),
+                aabb: ae::Aabb::new(ae::Vec2::new(100.0, 100.0), ae::Vec2::new(10.0, 10.0)),
+                kind: ae::BlockKind::Solid,
+                velocity: ae::Vec2::ZERO,
+            }],
+            portal_carves: Vec::new(),
+        });
+        // A non-empty overlay forces an owned composite: base + the ECS solid.
+        assert_eq!(run(&mut app), Some((true, 2)));
     }
 }

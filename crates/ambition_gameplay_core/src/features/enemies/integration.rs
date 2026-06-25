@@ -521,6 +521,7 @@ impl<'a> ActorMut<'a> {
 
     pub fn body_contact_damage(
         &self,
+        attacker: bevy::prelude::Entity,
         player_entity: bevy::prelude::Entity,
         player_body: ae::Aabb,
     ) -> Option<HitEvent> {
@@ -533,7 +534,7 @@ impl<'a> ActorMut<'a> {
             volume: body_damage.into(),
             damage: self.config.tuning.damage_amount,
             source: HitSource::EnemyBody,
-            attacker: None,
+            attacker: Some(attacker),
             target: HitTarget::Player(player_entity),
             mode: HitMode::Knockback,
             knockback: Some(HitKnockback {

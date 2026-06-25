@@ -370,13 +370,17 @@ pub struct HitEvent {
     pub damage: i32,
     /// Who or what dealt the hit.
     pub source: HitSource,
-    /// Attacker entity, if the producer knows it. Every player-
-    /// attacker source (slash, pogo, player projectile) stamps the
-    /// player whose attack landed — `apply_feature_hit_events`
-    /// uses it to attribute hitstop / flash to the correct player.
-    /// Hostile sources (Hazard / Enemy* / Boss*) leave this as
-    /// `None` since the relevant "attacker identity" for the
-    /// player-side reader is the source enum, not an Entity.
+    /// Attacker entity, if the producer knows it. Player-attacker
+    /// sources (slash, pogo, player projectile) stamp the player whose
+    /// attack landed — `apply_feature_hit_events` uses it to attribute
+    /// hitstop / flash to the correct player. Hostile sources stamp the
+    /// attacking entity symmetrically where one exists: `BossAttack` /
+    /// `BossBody` carry the boss, `EnemyBody` / `EnemyChargeCrash` the
+    /// enemy — so the victim's `DeathCause` records who killed it (the
+    /// compact causality seam for replay / RL / future netcode). Sources
+    /// with no entity attacker stay `None`: `Hazard` (environmental) and
+    /// `EnemyProjectile` (string-`ProjectileOwnerId`-owned, not entity-
+    /// tracked).
     pub attacker: Option<bevy::prelude::Entity>,
     /// Hint for how the consumer resolves the victim. See
     /// [`HitTarget`].

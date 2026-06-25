@@ -276,6 +276,7 @@ pub fn update_ecs_bosses(
     >,
     mut bosses: Query<
         (
+            Entity,
             &mut CenteredAabb,
             super::super::boss_clusters::BossClusterQueryData,
             &mut BossPatternTimer,
@@ -302,6 +303,7 @@ pub fn update_ecs_bosses(
     let dt = world_time.sim_dt();
     let feature_world = world_with_sandbox_solids(&world.0, &platform_set.0, &overlay);
     for (
+        boss_entity,
         mut aabb,
         mut feature,
         mut pattern_timer,
@@ -369,7 +371,7 @@ pub fn update_ecs_bosses(
         if player_vulnerable && feature.status.alive {
             let ctx = BossVolumeContext::from_ref(feature.as_boss_ref(), attack_state)
                 .with_animation_frame(animation_frame);
-            if let Some(damage) = boss_attack_damage(&ctx, target_entity, player_body) {
+            if let Some(damage) = boss_attack_damage(&ctx, boss_entity, target_entity, player_body) {
                 let pos = damage
                     .knockback
                     .as_ref()

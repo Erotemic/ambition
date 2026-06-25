@@ -358,7 +358,7 @@ pub fn update_ecs_actors(
                         volume: em.aabb().into(),
                         damage: em.status.health.current.max(1),
                         source: HitSource::EnemyChargeCrash,
-                        attacker: None,
+                        attacker: Some(actor_entity),
                         target: HitTarget::Volume,
                         mode: HitMode::Knockback,
                         knockback: None,
@@ -500,7 +500,7 @@ pub fn update_ecs_actors(
                     && !target_shield.parrying()
                     && target_combat.vulnerable();
                 if target_vulnerable && em.status.alive && body_contact_damage_enabled {
-                    if let Some(damage) = em.body_contact_damage(target_entity, target_body) {
+                    if let Some(damage) = em.body_contact_damage(actor_entity, target_entity, target_body) {
                         let pos = damage
                             .knockback
                             .as_ref()

@@ -502,13 +502,43 @@ mod scripted_pattern_tests {
         let ctx = crate::features::BossVolumeContext::from_ref(boss.as_ref(), &attack_state);
         let player_body =
             crate::features::body_damage_aabb(boss.kin.pos, boss.as_ref().combat_size());
-        // Synthetic player entity — the test only checks the
-        // None branch, the entity is never read out of the event.
+        // Synthetic boss + player entities — the test only checks the
+        // None branch, neither entity is read out of the event.
+        let synthetic_boss =
+            bevy::prelude::Entity::from_raw_u32(2).expect("nonzero raw entity index");
         let synthetic_player =
             bevy::prelude::Entity::from_raw_u32(1).expect("nonzero raw entity index");
         assert!(
-            crate::features::boss_attack_damage(&ctx, synthetic_player, player_body).is_none(),
+            crate::features::boss_attack_damage(&ctx, synthetic_boss, synthetic_player, player_body)
+                .is_none(),
             "gnu_ton must not deal contact damage when body_damage = 0"
+        );
+    }
+
+    /// Causality seam: a boss body-contact hit stamps the attacking boss
+    /// entity, so the victim's `DeathCause` can attribute the kill. Mirrors the
+    /// player-attacker stamping; the symmetric direction was previously `None`.
+    #[test]
+    fn boss_body_contact_attributes_the_attacking_boss_entity() {
+        let mut boss = gnu_ton_runtime();
+        // gnu_ton authors body_damage = 0; force the body-contact arm on.
+        boss.config.behavior.body_damage = 5;
+        let attack_state = ambition_characters::brain::BossAttackState::default();
+        let ctx = crate::features::BossVolumeContext::from_ref(boss.as_ref(), &attack_state);
+        // A player body covering the boss center overlaps the body-contact zone
+        // regardless of the sprite combat offset.
+        let player_body = ae::Aabb::new(boss.kin.pos, boss.as_ref().combat_size());
+        let boss_entity =
+            bevy::prelude::Entity::from_raw_u32(7).expect("nonzero raw entity index");
+        let player_entity =
+            bevy::prelude::Entity::from_raw_u32(1).expect("nonzero raw entity index");
+        let hit = crate::features::boss_attack_damage(&ctx, boss_entity, player_entity, player_body)
+            .expect("a body-damage boss overlapping the player must produce a hit");
+        assert_eq!(hit.source, crate::features::HitSource::BossBody);
+        assert_eq!(
+            hit.attacker,
+            Some(boss_entity),
+            "boss body contact must attribute the attacking boss entity"
         );
     }
 

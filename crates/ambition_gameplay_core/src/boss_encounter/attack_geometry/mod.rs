@@ -411,9 +411,12 @@ pub fn body_damage_aabb(pos: ae::Vec2, combat_size: ae::Vec2) -> ae::Aabb {
 /// stamped on the returned event's `target` so the player-side
 /// reader lands the hit on that player rather than primary. The
 /// caller (`update_ecs_bosses`) reads each boss's `ActorTarget` to
-/// pick the per-boss victim and passes it down here.
+/// pick the per-boss victim and passes it down here. `boss_entity`
+/// is the attacking boss; it is stamped as the event's `attacker` so
+/// the victim's `DeathCause` attributes the kill to this boss.
 pub fn boss_attack_damage(
     ctx: &BossVolumeContext,
+    boss_entity: bevy::prelude::Entity,
     player_entity: bevy::prelude::Entity,
     player_body: ae::Aabb,
 ) -> Option<crate::features::HitEvent> {
@@ -441,7 +444,7 @@ pub fn boss_attack_damage(
                 volume: volume.into(),
                 damage: ctx.behavior.attack_damage.max(1),
                 source: HitSource::BossAttack,
-                attacker: None,
+                attacker: Some(boss_entity),
                 target: HitTarget::Player(player_entity),
                 mode: HitMode::Knockback,
                 knockback: Some(HitKnockback {
@@ -483,7 +486,7 @@ pub fn boss_attack_damage(
                 volume: body.into(),
                 damage: body_damage_amount,
                 source: HitSource::BossBody,
-                attacker: None,
+                attacker: Some(boss_entity),
                 target: HitTarget::Player(player_entity),
                 mode: HitMode::Knockback,
                 knockback: Some(HitKnockback {

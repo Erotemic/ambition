@@ -490,15 +490,21 @@ surface that's explicitly not the goal.
 
 ## Open questions
 
-1. **Falling sand is the forcing function for the world model.** If settled sand
-   becomes *durable* collision (`falling_sand.rs`), the pure derived-view model
-   needs a **durable overlay tier** (a persistent block list that survives frames
-   but still isn't the authored base) rather than a mutable authoritative world.
-   Verify how settled sand reaches collision before committing the "no persistent
-   mutation" stance. This is the one fact that confirms or complicates the
-   RoomGeometry decision.
-2. **`GameWorld` authority vs. derived** — resolved (RoomGeometry + collision view),
-   pending only the falling-sand check above.
+1. **Falling sand — RESOLVED (2026-06-25), confirms the decision.** Investigated
+   `falling_sand.rs`: it snapshots the authored room into its own `base_blocks`,
+   then every frame restores `world.0.blocks` to that base and re-projects settled
+   particles as `OneWay` collision blocks (`falling_sand.rs:328, 878, 955`). The
+   *durable* state is the particle simulation, NOT the collision world — collision
+   is a per-frame derived projection of it, exactly the derived-view pattern. So
+   **no durable-overlay tier and no mutable-authoritative world are needed.** Under
+   RoomGeometry, falling sand drops its private base-snapshot (reads the immutable
+   `RoomGeometry`) and contributes sand blocks to the overlay like portal carves —
+   *simpler* than today's clobber-and-restore. Migration note: falling sand is the
+   one production system that writes `GameWorld` directly (behind its feature
+   flag), so it is a site in the RoomGeometry write-map to convert to the overlay.
+2. **`GameWorld` authority vs. derived** — RESOLVED: RoomGeometry (authored base)
+   + derived collision view over the overlay. The falling-sand check above removed
+   the last open dependency.
 3. **Exact new crate names** for domain plugins — pick at extraction time.
 4. **How far to split `ambition_content`** into crates vs. module families.
 5. **`ae::World` → `Terrain`?** Optional, lower priority than the resource rename.

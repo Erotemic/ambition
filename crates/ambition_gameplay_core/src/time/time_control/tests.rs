@@ -254,10 +254,12 @@ fn gameplay_systems_must_not_read_res_time_directly() {
             "time/time_control/mod.rs",
             "smoother / clock-scale dispatch is the controller, not a consumer",
         ),
-        // Cutscenes intentionally suspend bullet-time and run
-        // on the wall clock so a paused cutscene still advances.
+        // Cutscenes intentionally suspend bullet-time and run on the
+        // wall clock so banner/fade beats advance independent of any
+        // sim time-scale. The playback system moved here from
+        // `ambition_render::cutscene` (runtime extraction, 2026-06-25).
         (
-            "presentation/cutscene/mod.rs",
+            "cutscene.rs",
             "cutscene beats are wall-clock by design",
         ),
         // VFX particles are presentation; the design decision

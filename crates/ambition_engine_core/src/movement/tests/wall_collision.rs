@@ -871,3 +871,99 @@ fn one_way_platform_works_under_sideways_gravity() {
         scratch.kinematics.pos.x - resting_x
     );
 }
+
+/// Regression for the central-hub OOB clip caught by the actor OOB trace
+/// (2026-06-25): under sideways gravity the player walked/fell into a wide hub
+/// solid and was pushout-teleported hundreds of pixels — once 310px on the side
+/// axis, once 163px clear out of the world's left edge — in a single tick. The
+/// shared kinematic primitive already forbids this
+/// (`is_contact_range_snap`); the authored player collision path did not, so
+/// every penetration-resolution snap/push here must stay bounded by the body's
+/// own half-extent. This pins the player path to the same no-pushout invariant.
+#[test]
+fn deeply_embedded_player_is_not_pushout_teleported_under_sideways_gravity() {
+    use crate::world::Block;
+    use crate::AbilitySet;
+
+    // A big solid the player is jammed inside, far from every face — like the
+    // hub's wide floor/ceiling slabs. With gravity along +X, X is the gravity
+    // axis and Y the side axis, exercising both resolution branches.
+    let world = World {
+        name: "embed-hub".into(),
+        size: Vec2::new(1900.0, 2004.0),
+        spawn: Vec2::new(950.0, 1000.0),
+        blocks: vec![
+            Block::solid("slab", Vec2::new(300.0, 300.0), Vec2::new(700.0, 700.0)),
+            // Containing walls (like the hub's perimeter) so a body falling
+            // sideways out of the slab is CAUGHT, never flung out of the world.
+            Block::solid("left wall", Vec2::new(0.0, 0.0), Vec2::new(48.0, 2004.0)),
+            Block::solid("right wall", Vec2::new(1852.0, 0.0), Vec2::new(48.0, 2004.0)),
+        ],
+        water_regions: Vec::new(),
+        climbable_regions: Vec::new(),
+    };
+    let start = Vec2::new(650.0, 650.0); // deep inside the 700x700 slab
+
+    // (1) A SINGLE resolution step must stay bounded in every cardinal gravity.
+    // Gravity magnitude is zeroed so the only motion is penetration resolution
+    // (no free-fall to confound the per-tick budget) — the body's own velocity,
+    // not a pushout teleport, is what carries it out the near face over later
+    // frames. This mirrors the kinematic primitive's `deeply_embedded` guard.
+    for dir in [
+        Vec2::new(0.0, 1.0),
+        Vec2::new(0.0, -1.0),
+        Vec2::new(1.0, 0.0),
+        Vec2::new(-1.0, 0.0),
+    ] {
+        let tuning = MovementTuning {
+            gravity: 0.0,
+            gravity_dir: dir,
+            ..DEFAULT_TUNING
+        };
+        let mut scratch =
+            PlayerClusterScratch::new_with_abilities(world.spawn, AbilitySet::sandbox_all());
+        scratch.kinematics.pos = start;
+        scratch.kinematics.vel = Vec2::ZERO;
+        let cap = scratch.kinematics.aabb_oriented(dir).half_size().length() + 1.0;
+        update_player_with_tuning_scratch(
+            &world,
+            &mut scratch,
+            InputState::default(),
+            1.0 / 60.0,
+            tuning,
+        );
+        let moved = (scratch.kinematics.pos - start).length();
+        assert!(
+            moved <= cap,
+            "gravity {dir:?}: penetration resolution pushout-teleported the player \
+             {moved:.1}px (cap {cap:.1}px) to {:?}",
+            scratch.kinematics.pos
+        );
+    }
+
+    // (2) Under real sideways gravity the body falls THROUGH the slab and out
+    // its near face, but must never be flung outside the world envelope — the
+    // actual OOB the actor trace recorded (player at x=-81, outside x).
+    let tuning = MovementTuning {
+        gravity_dir: Vec2::new(-1.0, 0.0),
+        ..DEFAULT_TUNING
+    };
+    let mut scratch =
+        PlayerClusterScratch::new_with_abilities(world.spawn, AbilitySet::sandbox_all());
+    scratch.kinematics.pos = start;
+    scratch.kinematics.vel = Vec2::ZERO;
+    for tick in 0..240 {
+        update_player_with_tuning_scratch(
+            &world,
+            &mut scratch,
+            InputState::default(),
+            1.0 / 60.0,
+            tuning,
+        );
+        let p = scratch.kinematics.pos;
+        assert!(
+            p.x > 0.0 && p.x < world.size.x && p.y > 0.0 && p.y < world.size.y,
+            "tick {tick}: player was flung out of the world to {p:?}",
+        );
+    }
+}

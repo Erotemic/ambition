@@ -1,11 +1,30 @@
 use crate::collision_semantics::{
-    axis_role, body_on_support_side, is_full_collision_surface, is_solid_for_axis,
-    moving_toward_feet, one_way_landing_from_previous_feet, snap_feet_to_surface, supporting_block,
-    surface_supports_body_at_rest, Axis, AxisRole,
+    axis_role, body_on_support_side, is_contact_range_snap, is_full_collision_surface,
+    is_solid_for_axis, moving_toward_feet, one_way_landing_from_previous_feet, snap_feet_to_surface,
+    supporting_block, surface_supports_body_at_rest, Axis, AxisRole,
 };
 use crate::geometry::{Aabb, AabbExt};
 use crate::world::{BlockKind, World};
 use crate::Vec2;
+
+/// Apply a penetration snap/push to the body position only when it is a genuine
+/// bounded contact correction, never a pushout-teleport. Returns whether it was
+/// applied so callers can gate the matching velocity-zero / contact flags: a
+/// rejected (catastrophic) push leaves the body and its velocity untouched so it
+/// depenetrates out the near face over subsequent frames. See
+/// [`is_contact_range_snap`] — the engine's shared no-artificial-pushout guard.
+#[must_use]
+fn apply_bounded_resolution(
+    kinematics: &mut crate::player_clusters::BodyKinematics,
+    gravity_dir: Vec2,
+    delta: Vec2,
+) -> bool {
+    if !is_contact_range_snap(delta, kinematics.aabb_oriented(gravity_dir)) {
+        return false;
+    }
+    kinematics.pos += delta;
+    true
+}
 
 fn one_way_landing_from_feet(
     body: Aabb,
@@ -153,11 +172,12 @@ pub(super) fn sweep_player_x_clusters(
         if matches!(hit.block.kind, BlockKind::OneWay)
             || (role == AxisRole::Gravity && moving_toward_feet(delta, gravity_dir))
         {
-            kinematics.pos += snap_feet_to_surface(body, hit.block.aabb, gravity_dir);
+            let snap = snap_feet_to_surface(body, hit.block.aabb, gravity_dir);
+            let _ = apply_bounded_resolution(kinematics, gravity_dir, snap);
             kinematics.vel.x = 0.0;
         } else if role == AxisRole::Gravity {
             let (push, _) = axis_face_resolution(body, hit.block.aabb, axis);
-            kinematics.pos += push;
+            let _ = apply_bounded_resolution(kinematics, gravity_dir, push);
             kinematics.vel.x = 0.0;
         } else {
             let body = kinematics.aabb_oriented(gravity_dir);
@@ -269,17 +289,19 @@ pub(super) fn sweep_player_y_clusters(
         if matches!(hit.block.kind, BlockKind::OneWay)
             || (role == AxisRole::Gravity && moving_toward_feet(delta, gravity_dir))
         {
-            kinematics.pos += snap_feet_to_surface(body, hit.block.aabb, gravity_dir);
+            let snap = snap_feet_to_surface(body, hit.block.aabb, gravity_dir);
+            let _ = apply_bounded_resolution(kinematics, gravity_dir, snap);
             kinematics.vel.y = 0.0;
             if role == AxisRole::Gravity {
                 ground.on_ground = true;
             }
         } else {
             let (push, world_normal) = axis_face_resolution(body, hit.block.aabb, axis);
-            kinematics.pos += push;
-            kinematics.vel.y = 0.0;
-            if role == AxisRole::Side {
-                apply_side_contact(wall, world_normal, gravity_dir);
+            if apply_bounded_resolution(kinematics, gravity_dir, push) {
+                kinematics.vel.y = 0.0;
+                if role == AxisRole::Side {
+                    apply_side_contact(wall, world_normal, gravity_dir);
+                }
             }
         }
     } else {
@@ -347,6 +369,10 @@ pub(super) fn stabilize_on_support(
 /// 2. Otherwise push out the nearer X face, but NEVER out of the world: at a top
 ///    corner the nearer face of a boundary-spanning block IS the world edge, so
 ///    pick the other face; if both X exits would leave the world, defer to Y.
+/// 3. And NEVER a pushout-teleport: a chosen exit deeper than the body's own
+///    half-extent means the body is embedded, not in contact — defer (the body's
+///    velocity carries it out the near face over subsequent frames). See
+///    [`is_contact_range_snap`].
 fn resolve_x_penetration(body: Aabb, block: Aabb, world_w: f32) -> Option<(f32, f32)> {
     let exit_left = body.right() - block.left(); // push left (-) this far
     let exit_right = block.right() - body.left(); // push right (+) this far
@@ -360,11 +386,12 @@ fn resolve_x_penetration(body: Aabb, block: Aabb, world_w: f32) -> Option<(f32, 
     let left = ((cx - exit_left) - half_w >= 0.0).then_some((-exit_left, -1.0));
     let right = ((cx + exit_right) + half_w <= world_w).then_some((exit_right, 1.0));
     // Prefer the shorter exit; fall back to the other if it would leave the world.
-    if exit_left <= exit_right {
+    let chosen = if exit_left <= exit_right {
         left.or(right)
     } else {
         right.or(left)
-    }
+    };
+    chosen.filter(|&(dx, _)| is_contact_range_snap(Vec2::new(dx, 0.0), body))
 }
 
 /// Penetration repair for one axis. X/Y remain the low-level sweep axes because
@@ -392,15 +419,16 @@ fn resolve_axis_clusters(
         }
         match role {
             AxisRole::Gravity => {
-                if body_on_support_side(aabb, block.aabb, gravity_dir) {
-                    kinematics.pos += snap_feet_to_surface(aabb, block.aabb, gravity_dir);
+                let delta = if body_on_support_side(aabb, block.aabb, gravity_dir) {
+                    snap_feet_to_surface(aabb, block.aabb, gravity_dir)
                 } else {
-                    let (push, _) = axis_face_resolution(aabb, block.aabb, axis);
-                    kinematics.pos += push;
-                }
-                match axis {
-                    Axis::X => kinematics.vel.x = 0.0,
-                    Axis::Y => kinematics.vel.y = 0.0,
+                    axis_face_resolution(aabb, block.aabb, axis).0
+                };
+                if apply_bounded_resolution(kinematics, gravity_dir, delta) {
+                    match axis {
+                        Axis::X => kinematics.vel.x = 0.0,
+                        Axis::Y => kinematics.vel.y = 0.0,
+                    }
                 }
             }
             AxisRole::Side => {
@@ -415,9 +443,10 @@ fn resolve_axis_clusters(
                     }
                 } else {
                     let (push, world_normal) = axis_face_resolution(aabb, block.aabb, axis);
-                    kinematics.pos += push;
-                    kinematics.vel.y = 0.0;
-                    apply_side_contact(wall, world_normal, gravity_dir);
+                    if apply_bounded_resolution(kinematics, gravity_dir, push) {
+                        kinematics.vel.y = 0.0;
+                        apply_side_contact(wall, world_normal, gravity_dir);
+                    }
                 }
             }
         }
@@ -470,22 +499,26 @@ fn resolve_vertical_clusters(
         }
         match role {
             AxisRole::Gravity => {
-                if matches!(block.kind, BlockKind::OneWay)
-                    || body_on_support_side(aabb, block.aabb, gravity_dir)
-                {
-                    kinematics.pos += snap_feet_to_surface(aabb, block.aabb, gravity_dir);
-                    ground.on_ground = true;
+                let on_support = matches!(block.kind, BlockKind::OneWay)
+                    || body_on_support_side(aabb, block.aabb, gravity_dir);
+                let delta = if on_support {
+                    snap_feet_to_surface(aabb, block.aabb, gravity_dir)
                 } else {
-                    let (push, _) = axis_face_resolution(aabb, block.aabb, axis);
-                    kinematics.pos += push;
+                    axis_face_resolution(aabb, block.aabb, axis).0
+                };
+                if apply_bounded_resolution(kinematics, gravity_dir, delta) {
+                    if on_support {
+                        ground.on_ground = true;
+                    }
+                    kinematics.vel.y = 0.0;
                 }
-                kinematics.vel.y = 0.0;
             }
             AxisRole::Side => {
                 let (push, world_normal) = axis_face_resolution(aabb, block.aabb, axis);
-                kinematics.pos += push;
-                kinematics.vel.y = 0.0;
-                apply_side_contact(wall, world_normal, gravity_dir);
+                if apply_bounded_resolution(kinematics, gravity_dir, push) {
+                    kinematics.vel.y = 0.0;
+                    apply_side_contact(wall, world_normal, gravity_dir);
+                }
             }
         }
         aabb = kinematics.aabb_oriented(gravity_dir);

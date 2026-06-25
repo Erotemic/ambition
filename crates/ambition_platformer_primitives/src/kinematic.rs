@@ -32,10 +32,10 @@
 //! sweep helpers in `movement`.
 
 use ambition_engine_core::collision_semantics::{
-    axis_role, body_on_support_side, gravity_axis, is_full_collision_surface, is_solid_for_axis,
-    moving_toward_feet, one_way_landing_from_previous_feet, perpendicular_overlap,
-    snap_feet_to_surface, supporting_block, surface_supports_body_at_rest, Axis, AxisRole,
-    MOTION_EPS,
+    axis_role, body_on_support_side, gravity_axis, is_contact_range_snap,
+    is_full_collision_surface, is_solid_for_axis, moving_toward_feet,
+    one_way_landing_from_previous_feet, perpendicular_overlap, snap_feet_to_surface,
+    supporting_block, surface_supports_body_at_rest, Axis, AxisRole, MOTION_EPS,
 };
 use ambition_engine_core::Vec2;
 use ambition_engine_core::{Aabb, AabbExt};
@@ -226,24 +226,6 @@ fn clear_velocity_toward_feet(vel: &mut Vec2, gravity_dir: Vec2) {
     if toward_feet > 0.0 {
         *vel -= toward_feet * gravity_dir;
     }
-}
-
-/// True when a feet-to-surface resting snap is a genuine small contact
-/// correction rather than a pushout-teleport. A legitimate "resting on a
-/// support" snap moves the body at most a contact-slop distance; a snap
-/// larger than the body's own half-extent means the matched "support" is a
-/// block the body is deeply penetrating (or matched in error), and snapping
-/// feet to its far surface would fling the body clear across — or out of —
-/// the world.
-///
-/// This is the mockingbird "flies above the arena" bug: a gravity-free,
-/// oversized boss jammed into a tall wall block was treated as resting on it
-/// and snapped its feet (bottom edge) up to the block's top surface at y=0,
-/// teleporting it to y=-half in a single tick. Deep overlap is
-/// `resolve_penetration`'s bounded job; resting snaps must never pushout
-/// (per the engine's no-artificial-pushout invariant).
-fn is_contact_range_snap(snap: Vec2, body: Aabb) -> bool {
-    snap.length() <= body.half_size().length()
 }
 
 fn sweep_axis(

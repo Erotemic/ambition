@@ -139,6 +139,24 @@ pub fn snap_feet_to_surface(body: Aabb, surface: Aabb, gravity_dir: Vec2) -> Vec
     gravity_dir * (surface.head_coord(gravity_dir) - body.feet_coord(gravity_dir))
 }
 
+/// True when a penetration snap/push is a genuine small contact correction
+/// rather than a pushout-teleport. A legitimate resting/contact resolution moves
+/// the body at most a contact-slop distance; a move larger than the body's own
+/// half-extent means the matched surface is one the body is deeply penetrating
+/// (its nearest in-axis exit is the FAR face), and shoving its feet/edge to that
+/// far surface would fling the body clear across — or out of — the world.
+///
+/// Deep overlap is depenetration's bounded job: leave the body and let its own
+/// velocity carry it out the near face over subsequent frames. This is the
+/// engine's no-artificial-pushout invariant ([[feedback_avoid_pushout]]),
+/// shared by the controlled-body sweep and the generic kinematic primitive so
+/// neither path can single-tick teleport an embedded actor out of the world.
+/// Caught twice by the actor OOB trace: the mockingbird arena (2026-06-21) and
+/// the central hub under sideways gravity (2026-06-25).
+pub fn is_contact_range_snap(snap: Vec2, body: Aabb) -> bool {
+    snap.length() <= body.half_size().length()
+}
+
 /// Overlap on the axis PERPENDICULAR to gravity — the "width" a body must share
 /// with a surface to rest on it (the X span under vertical gravity, the Y span
 /// under wall-walking). Requires [`EDGE_OVERLAP_SLOP`] of real overlap on each

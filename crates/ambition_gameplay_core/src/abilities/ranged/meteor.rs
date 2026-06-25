@@ -84,13 +84,19 @@ pub fn fire_meteor_system(
     gravity: crate::physics::GravityCtx,
     user_settings: Option<Res<crate::persistence::settings::UserSettings>>,
     mut players: Query<
-        (&PlayerInputFrame, &BodyKinematics, &HeldItem, &mut PlayerMana),
+        (
+            Entity,
+            &PlayerInputFrame,
+            &BodyKinematics,
+            &HeldItem,
+            &mut PlayerMana,
+        ),
         (With<PlayerEntity>, With<PrimaryPlayer>),
     >,
     mut effects: MessageWriter<crate::effects::EffectRequest>,
     mut sfx: MessageWriter<crate::audio::SfxMessage>,
 ) {
-    let Ok((input, kin, held, mut mana)) = players.single_mut() else {
+    let Ok((entity, input, kin, held, mut mana)) = players.single_mut() else {
         return;
     };
     if !input.frame.attack_pressed || input.frame.shield_held {
@@ -108,9 +114,9 @@ pub fn fire_meteor_system(
     let aim = crate::items::pickup::held_shot_aim_local(&input.frame, kin.facing, frame, modes);
     for origin in meteor_strike_origins(kin.pos, aim, kin.facing, gravity_dir) {
         effects.write(crate::effects::EffectRequest {
-            // Projectiles are self-describing (owner_id is on the shot); the
-            // EffectRequest owner is unused by the projectile executor.
-            owner: Entity::PLACEHOLDER,
+            // The firing actor owns every meteor, so a kill attributes back to
+            // the player (the executor stamps `ProjectileOwner` from this entity).
+            owner: entity,
             effect: crate::effects::Effect::Projectiles {
                 faction: ProjectileFaction::Player,
                 shots: vec![EnemyProjectileSpawn {

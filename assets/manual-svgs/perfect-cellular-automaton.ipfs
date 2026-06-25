@@ -1,0 +1,27 @@
+type: ipfs-sidecar
+cid: bafybeib7zamcbtyzolzsxilhhdeufc26ipxdxkw2w7scbksbu2fl5t7oa4
+rel_path: perfect-cellular-automaton
+size: 247.53 KiB
+num_items: 3
+add_config:
+  path: perfect-cellular-automaton
+  name: null
+  recursive: true
+  progress: true
+  cid_version: 1
+  raw_leaves: false
+  only_hash: false
+  pin: true
+  sidecar: true
+  update_gitignore: true
+  git_add_sidecar: true
+  dry_run: false
+add_datetime: 2026-06-25T182933-5
+add_duration: 2.092875113012269
+local_quickstat:
+  kind: dir
+  bytes: 253466
+  mtime: 1782430105.6312122
+  nfiles: 2
+pin_name: pkg:github/Erotemic/ambition#assets/manual-svgs/perfect-cellular-automaton
+pin_name_source: generated

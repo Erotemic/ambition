@@ -8,7 +8,7 @@
 use bevy::prelude::*;
 
 use super::entity::EnemyProjectile;
-use crate::projectile::{ProjectileOwnerId, ProjectileSeqCounter};
+use crate::projectile::{ProjectileOwner, ProjectileOwnerId, ProjectileSeqCounter};
 
 /// Materialize enemy-pool projectiles from [`crate::effects::Effect::Projectiles`]
 /// requests — one projectile ENTITY per shot. Scheduled BEFORE
@@ -20,7 +20,13 @@ use crate::projectile::{ProjectileOwnerId, ProjectileSeqCounter};
 ///
 /// Each entity carries the SHARED [`crate::player::BodyKinematics`] body + the
 /// [`ProjectileGameplay`] marker/state + the [`ProjectileOwnerId`] string + the
-/// monotonic [`ProjectileSeq`].
+/// monotonic [`ProjectileSeq`]. When the request names a real firing actor
+/// (`req.owner != Entity::PLACEHOLDER`) the entity also carries
+/// [`ProjectileOwner`] so a kill attributes back to that actor — the
+/// `step_projectiles` player-faction branch reads it for `HitEvent::attacker`
+/// (player-wielded volley/meteor, a possessed actor's player-faction shots).
+/// The enemy-faction branch attributes `None` independently, so an unowned or
+/// enemy shot is unaffected.
 pub fn apply_projectile_effects(
     mut commands: Commands,
     mut seq: ResMut<ProjectileSeqCounter>,
@@ -34,7 +40,7 @@ pub fn apply_projectile_effects(
             let owner_id = shot.owner_id.clone();
             let projectile =
                 crate::enemy_projectile::EnemyProjectileState::build(shot.clone(), *faction);
-            commands.spawn((
+            let mut entity = commands.spawn((
                 projectile.body.kin,
                 projectile.body.game,
                 seq.next(),
@@ -43,6 +49,9 @@ pub fn apply_projectile_effects(
                 EnemyProjectile,
                 Name::new("Enemy projectile (sim)"),
             ));
+            if req.owner != Entity::PLACEHOLDER {
+                entity.insert(ProjectileOwner(req.owner));
+            }
         }
     }
 }

@@ -60,13 +60,19 @@ pub fn fire_volley_system(
     gravity: crate::physics::GravityCtx,
     user_settings: Option<Res<crate::persistence::settings::UserSettings>>,
     mut players: Query<
-        (&PlayerInputFrame, &BodyKinematics, &HeldItem, &mut PlayerMana),
+        (
+            Entity,
+            &PlayerInputFrame,
+            &BodyKinematics,
+            &HeldItem,
+            &mut PlayerMana,
+        ),
         (With<PlayerEntity>, With<PrimaryPlayer>),
     >,
     mut effects: MessageWriter<crate::effects::EffectRequest>,
     mut sfx: MessageWriter<crate::audio::SfxMessage>,
 ) {
-    let Ok((input, kin, held, mut mana)) = players.single_mut() else {
+    let Ok((entity, input, kin, held, mut mana)) = players.single_mut() else {
         return;
     };
     if !input.frame.attack_pressed || input.frame.shield_held {
@@ -101,9 +107,9 @@ pub fn fire_volley_system(
         let angle = base_angle + t * spread;
         let dir = ae::Vec2::new(angle.cos(), angle.sin());
         effects.write(crate::effects::EffectRequest {
-            // Projectiles are self-describing (owner_id is on the shot); the
-            // EffectRequest owner is unused by the projectile executor.
-            owner: Entity::PLACEHOLDER,
+            // The firing actor owns every bolt, so a kill attributes back to the
+            // player (the executor stamps `ProjectileOwner` from this entity).
+            owner: entity,
             effect: crate::effects::Effect::Projectiles {
                 faction: ProjectileFaction::Player,
                 shots: vec![EnemyProjectileSpawn {
@@ -170,6 +176,19 @@ mod tests {
                 .iter()
                 .all(|b| b.body.game.faction == ProjectileFaction::Player),
             "the wielded volley fires player-faction bolts"
+        );
+        // Every bolt is owned by the firing player entity, so a kill attributes
+        // back to them (the executor stamps `ProjectileOwner` from the request).
+        let owners: Vec<_> = app
+            .world_mut()
+            .query::<&crate::projectile::ProjectileOwner>()
+            .iter(app.world())
+            .map(|o| o.0)
+            .collect();
+        assert_eq!(owners.len(), VOLLEY_SHOT_COUNT, "every bolt carries an owner");
+        assert!(
+            owners.iter().all(|&o| o == player),
+            "bolts are owned by the firing player, got {owners:?} (player {player:?})"
         );
         // The bolts fan out — not all the same direction.
         let dirs: Vec<f32> = bodies

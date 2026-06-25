@@ -1,6 +1,6 @@
 # Restructuring blueprint — actionable distillation
 
-*Author: Claude Opus 4.8 (1M) · 2026-06-25 · status: PROPOSAL (one decision resolved; see RoomGeometry)*
+*Author: Claude Opus 4.8 (1M) · 2026-06-25 · status: IN PROGRESS — see the Status log; shim removal + collision-semantics dedup + RoomGeometry rename have LANDED.*
 
 This distils an externally-generated "restructuring blueprint v5" (static
 inspection only, no `cargo`) into a repo-canonical plan. It keeps two kinds of
@@ -30,6 +30,67 @@ Counts and smells below were re-verified against live `main` on 2026-06-25.
 
 ---
 
+## Status log — what has LANDED, and what is next (2026-06-25)
+
+A fresh agent should read this first. Each item below links to the section with
+the full reasoning; the section is annotated **DONE** / **NEXT** / **OPEN** inline.
+
+**Landed (committed to `main`, all validated):**
+
+- **All 7 compat shims removed** (§1 DONE). One canonical import path per concept.
+  `kinematic`/`ui_nav`/`interaction` (earlier session) + `input` (`4e9743a2`),
+  `engine_core` (`bf0daf5a`, `ae` alias kept), `actor` (`a4a63d73`), `brain`
+  (`c9f647a5`). `architecture_boundaries` now *guards against re-adding* the shim
+  (inverted assertion). Stale shim paths in docs swept (`6eb9b97d`, `2fa23bf0`).
+- **Collision-semantics dedup + drift unification** (§2 DONE). New
+  `ambition_engine_core::collision_semantics` is the single source of truth for
+  the gravity-relative support/surface kernel; `movement::collision` and
+  `platformer_primitives::kinematic` both delegate. Kernel extract `39313f26`,
+  drift unification `c732671c`. The 3 former drifts are unified on canonical rules
+  (1px `EDGE_OVERLAP_SLOP`, zero-gravity one-way guard, `body_on_support_side`).
+  FEEL-TEST owed: kinematic enemies now treat platform edges 1px more strictly.
+- **`GameWorld` → `RoomGeometry` rename** (§"Resolved decision" DONE). Pure
+  identifier rename, 155 sites, `90966244`. Names what it *is* (authored room
+  geometry), not what it isn't.
+- **Falling-sand world-model question RESOLVED** (`25fcb13a`) — confirms the
+  RoomGeometry model; no durable-overlay tier needed (see Open questions #1).
+
+**Next live frontier — the RoomGeometry collision-view API (NOT yet done):**
+
+The rename landed but the *architectural* half — routing collision readers
+through the derived view instead of the bare base — is the remaining work, and
+it is **behavior-sensitive, not a sweep**. Concrete write-map gathered post-rename
+(verify against `main` before acting):
+
+- **7 writers** of `ResMut<RoomGeometry>` to classify: `session/reset/mod.rs`
+  (reset), `app/world_flow/room_flow.rs` (room transition), `app/dev_runtime.rs`
+  (hot-reload), `falling_sand.rs` (per-frame sand projection — the one durable-ish
+  writer, snapshots its own base), `encounter/systems.rs`, `content/bosses/gnu_ton.rs`
+  (arena ladder gate), `content/intro/route_state.rs`.
+- **43 readers** of `Res<RoomGeometry>`, and **none currently use the composite
+  builders** (`combat::world_overlay::{world_with_sandbox_solids, world_with_portal_carves}`).
+  They split sharply:
+  - **~18 `render/*` readers = layout/metadata** (camera, parallax, HUD,
+    nameplates, visuals read bounds/size). Keep on the base — do NOT route.
+  - **genuine needs-composite set = the collision/raycast consumers**:
+    `abilities/traversal/{grapple,blink,dive}.rs`, `body_mode/mechanics/mod.rs`,
+    `items/pickup/mod.rs`, `portal/*`, and the boss-special spawners that raycast.
+    These should sweep against `base + overlay`.
+  - dev/trace, parity, debug overlay = base is fine.
+- **Approach:** classify each reader (metadata / base-collision / needs-composite),
+  then route only the needs-composite set through a single collision read-API
+  (a helper that takes `Res<RoomGeometry>` + `Res<MovingPlatformSet>` +
+  `Res<FeatureEcsWorldOverlay>` and returns the Cow-composited world). Do NOT
+  blanket-route — a render visual or a projectile that suddenly sees moving-platform
+  / carve geometry is a silent feel regression. This is the seam the collision
+  dedup was built for. Validate per-reader; flag feel-sensitive changes.
+
+The rest of the plan (§3 app-drain, §4 ControlFrame→intent, §5 OnceLock, the
+domain-by-domain extractions) is untouched and remains the menu after the
+collision-view API.
+
+---
+
 ## What's worth keeping (guardrails — do not regress these)
 
 The repo is already substantially Bevy-ECS-shaped. The reshape is ownership
@@ -53,6 +114,10 @@ clarity, not a conversion. Preserve and amplify:
 ---
 
 ## Resolved decision: `GameWorld` → `RoomGeometry`, read through a collision view
+
+> **Status:** the *rename* `GameWorld` → `RoomGeometry` is DONE (`90966244`). The
+> *collision-view API* (the "read through a collision view" half) is NOT done — it
+> is the live next frontier, with the reader/writer write-map in the Status log.
 
 The blueprint posed an open fork: is `GameWorld` an *authoritative mutable world*
 or a *derived cache*? That fork was a false dichotomy built on a bad name. There
@@ -91,10 +156,12 @@ only to avoid clashing with `bevy::ecs::World`. The name is named for what it
    `RoomGeometry + overlay` value, transient. `FeatureEcsWorldOverlay` is the
    retained per-frame *gather* of dynamic contributions (platforms, ECS solids,
    carves) — the overlay layer the view composites over.
-3. **The 25 raw `Res<GameWorld>` readers are the bug.** They read bare geometry
-   when they should read the collision view. Promote the composite to the single
-   collision read-API and route readers through it. This is the *same seam* the
-   collision-semantics dedup needs (plan item 2) — one frontier.
+3. **The raw `Res<RoomGeometry>` collision readers are the bug.** They read bare
+   geometry when they should read the collision view. Promote the composite to the
+   single collision read-API and route the *collision* readers through it (NOT the
+   metadata/layout ones). This is the *same seam* the collision-semantics dedup
+   needs (plan item 2) — one frontier. Post-rename write-map (43 readers / 7
+   writers, with the metadata-vs-collision split) is in the **Status log** above.
 
 Why this is the elegant answer and not the mutable pole: an authored
 `RoomGeometry` + derived collision view is replay/RL-friendly (a frame's collision
@@ -217,6 +284,10 @@ content/adapter package, host schedule mapping.**
 
 ### 1. Delete the compatibility shims (one canonical import per concept)
 
+> **DONE (2026-06-25).** All 7 shims removed; canonical imports everywhere; the
+> `architecture_boundaries` test guards against re-adding them. The original plan
+> and call-site table below are kept as the record of how it was done.
+
 `ambition_gameplay_core/src/lib.rs` re-exports already-extracted crates under
 historical paths, creating multiple valid import paths for one concept — directly
 against agent-navigability. Live call-site pressure (excluding gameplay_core):
@@ -241,6 +312,14 @@ those crates' imports are ready.
 **Validation:** `rg "ambition_gameplay_core::(input|engine_core|brain|actor|interaction|ui_nav|kinematic)" crates` → zero internal hits.
 
 ### 2. Collision/support-semantics dedup (+ RoomGeometry collision view)
+
+> **DONE except step 4 (the collision-view API).** The kernel is extracted to
+> `ambition_engine_core::collision_semantics` and both sweeps delegate; the 3
+> drifts are unified (parity-first worked, though the two impls were found NOT
+> byte-identical — see commit `c732671c`). **Step 4 — routing collision readers
+> through the composited view — is the live NEXT frontier; the reader/writer
+> write-map is in the Status log above.** Step 5 (whether the controlled body
+> consumes `step_kinematic` directly) remains deferred. Original plan kept below.
 
 The highest-value correctness work. Two implementations carry overlapping
 gravity-relative support semantics that can agree at the design level while

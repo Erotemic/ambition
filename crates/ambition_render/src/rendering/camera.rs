@@ -316,7 +316,7 @@ pub fn camera_follow(
 
     let bounds = active_zone
         .map(|zone| zone.clamp_mode)
-        .unwrap_or(CameraClampMode::RoomBounds);
+        .unwrap_or_default();
     let (x, y) = clamp_camera_target(
         &world.0,
         target,

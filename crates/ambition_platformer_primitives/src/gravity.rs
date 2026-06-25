@@ -35,9 +35,9 @@ pub struct GravityField {
 
 impl Default for GravityField {
     fn default() -> Self {
-        // +Y is down in the world frame, so default gravity points +Y.
+        // +Y is down in the world frame; the convention lives in one place.
         Self {
-            dir: Vec2::new(0.0, 1.0),
+            dir: ambition_engine_core::DEFAULT_GRAVITY_DIR,
         }
     }
 }
@@ -73,7 +73,7 @@ pub struct BaseGravity {
 impl Default for BaseGravity {
     fn default() -> Self {
         Self {
-            dir: Vec2::new(0.0, 1.0),
+            dir: ambition_engine_core::DEFAULT_GRAVITY_DIR,
         }
     }
 }
@@ -251,7 +251,7 @@ pub fn snap_cardinal(dir: Vec2) -> Vec2 {
 /// `field.as_deref().map_or((0,1), |g| g.dir)`. Call as
 /// `gravity_dir_or_default(gravity_field.as_deref())`.
 pub fn gravity_dir_or_default(field: Option<&GravityField>) -> Vec2 {
-    field.map_or(Vec2::new(0.0, 1.0), |g| g.dir)
+    field.map_or(ambition_engine_core::DEFAULT_GRAVITY_DIR, |g| g.dir)
 }
 
 pub fn apply_gravity_dir(tuning: &mut ambition_engine_core::MovementTuning, gravity_dir: Vec2) {
@@ -281,12 +281,14 @@ pub struct GravityCtx<'w> {
 
 impl GravityCtx<'_> {
     fn base_dir(&self) -> Vec2 {
-        self.base.as_deref().map_or(Vec2::new(0.0, 1.0), |b| b.dir)
+        self.base
+            .as_deref()
+            .map_or(ambition_engine_core::DEFAULT_GRAVITY_DIR, |b| b.dir)
     }
 
     /// The player's gravity direction (fallback when a body has no position).
     pub fn field_dir(&self) -> Vec2 {
-        self.field.as_deref().map_or(Vec2::new(0.0, 1.0), |g| g.dir)
+        gravity_dir_or_default(self.field.as_deref())
     }
 
     /// Localized gravity direction at `pos` (zone-or-ambient); falls back to the
@@ -320,7 +322,7 @@ pub fn resolve_active_gravity(
     mut gravity: ResMut<GravityField>,
 ) {
     use ambition_engine_core::AabbExt;
-    let base_dir = base.map_or(Vec2::new(0.0, 1.0), |b| b.dir);
+    let base_dir = base.map_or(ambition_engine_core::DEFAULT_GRAVITY_DIR, |b| b.dir);
     let target = bodies
         .single()
         .ok()

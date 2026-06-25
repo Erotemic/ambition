@@ -75,13 +75,21 @@ pub struct FeatureCombatTuning {
     pub boss_attack_active: f32,
 }
 
+/// Default attack-phase timings (seconds). Single source of truth, shared by
+/// [`FeatureCombatTuning::default`] and `SandboxFeelTuning::default` (which
+/// projects them back out via `SandboxFeelTuning::feature_combat_tuning`).
+pub const DEFAULT_ENEMY_ATTACK_WINDUP: f32 = 0.36;
+pub const DEFAULT_ENEMY_ATTACK_ACTIVE: f32 = 0.20;
+pub const DEFAULT_BOSS_ATTACK_WINDUP: f32 = 0.52;
+pub const DEFAULT_BOSS_ATTACK_ACTIVE: f32 = 0.32;
+
 impl Default for FeatureCombatTuning {
     fn default() -> Self {
         Self {
-            enemy_attack_windup: 0.36,
-            enemy_attack_active: 0.20,
-            boss_attack_windup: 0.52,
-            boss_attack_active: 0.32,
+            enemy_attack_windup: DEFAULT_ENEMY_ATTACK_WINDUP,
+            enemy_attack_active: DEFAULT_ENEMY_ATTACK_ACTIVE,
+            boss_attack_windup: DEFAULT_BOSS_ATTACK_WINDUP,
+            boss_attack_active: DEFAULT_BOSS_ATTACK_ACTIVE,
         }
     }
 }

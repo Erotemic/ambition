@@ -5,13 +5,13 @@ use crate::Vec2;
 /// Default gravity sign (normal, downward). Used by `serde(default)` so tuning
 /// files baked before `gravity_sign` existed load as normal gravity.
 fn default_gravity_sign() -> f32 {
-    1.0
+    DEFAULT_GRAVITY_SIGN
 }
 
 /// Default cardinal gravity direction (down, `+Y`). `serde(default)` for tuning
 /// files baked before `gravity_dir` existed.
 fn default_gravity_dir() -> Vec2 {
-    Vec2::new(0.0, 1.0)
+    DEFAULT_GRAVITY_DIR
 }
 
 /// Default locomotion frame mode for tuning files that omit it. Resolves to the
@@ -24,6 +24,14 @@ fn default_movement_frame_mode() -> crate::reference_frame::InputFrameMode {
 // but the simulation accepts a `MovementTuning` so experiments can override
 // them without recompiling every assumption into the update function.
 pub const GRAVITY: f32 = 2250.0;
+/// THE default gravity DIRECTION (`+Y` is screen-down). Single source of truth
+/// for "down" — `DEFAULT_TUNING`, the `serde(default)` for tuning files, and the
+/// world `GravityField`/`BaseGravity` resources (in `ambition_platformer_primitives`)
+/// all resolve here so a flip of the convention is a one-line change.
+pub const DEFAULT_GRAVITY_DIR: Vec2 = Vec2::new(0.0, 1.0);
+/// THE default gravity SIGN along Y (`+1` = down/normal). Paired with
+/// [`DEFAULT_GRAVITY_DIR`]; consumed by the axis-based controllers.
+pub const DEFAULT_GRAVITY_SIGN: f32 = 1.0;
 pub const RUN_ACCEL: f32 = 5200.0;
 pub const AIR_ACCEL: f32 = 3100.0;
 pub const GROUND_FRICTION: f32 = 7600.0;
@@ -289,8 +297,8 @@ impl MovementTuning {
 
 pub const DEFAULT_TUNING: MovementTuning = MovementTuning {
     gravity: GRAVITY,
-    gravity_sign: 1.0,
-    gravity_dir: Vec2::new(0.0, 1.0),
+    gravity_sign: DEFAULT_GRAVITY_SIGN,
+    gravity_dir: DEFAULT_GRAVITY_DIR,
     movement_frame_mode: crate::reference_frame::InputFrameMode::DEFAULT_MOVEMENT,
     run_accel: RUN_ACCEL,
     air_accel: AIR_ACCEL,

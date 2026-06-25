@@ -123,11 +123,13 @@ pub fn sync_projectile_visuals(
     for (proj_entity, kin, kind) in &new_projectiles {
         use ambition_gameplay_core::projectile::ProjectileKind;
         let render_size = bevy::math::Vec2::new((kin.size.x).max(8.0), (kin.size.y).max(8.0));
+        // A kind-less shot (shouldn't happen for player) reads as a fireball.
+        // Resolved once so the tint and the debug Name can't disagree.
+        let kind = kind.copied().unwrap_or(ProjectileKind::Fireball);
         // Hadouken tint (cooler / blue-shifted) vs Fireball (warmer
         // orange). The tint applies whether or not the textured sprite
-        // loads; a missing texture falls through to a colored quad. A
-        // kind-less shot (shouldn't happen for player) reads as a fireball.
-        let tint = match kind.copied().unwrap_or(ProjectileKind::Fireball) {
+        // loads; a missing texture falls through to a colored quad.
+        let tint = match kind {
             ProjectileKind::Fireball => Color::srgba(1.0, 0.74, 0.30, 0.95),
             ProjectileKind::Hadouken => Color::srgba(0.45, 0.78, 1.0, 0.96),
             // Stronger tint for the Super so the player can see at a
@@ -156,7 +158,7 @@ pub fn sync_projectile_visuals(
                 )),
                 PlayerProjectileVisual,
                 VisualProjectile(proj_entity),
-                Name::new(match kind.copied().unwrap_or(ProjectileKind::Fireball) {
+                Name::new(match kind {
                     ProjectileKind::Fireball => "Player projectile: fireball",
                     ProjectileKind::Hadouken => "Player projectile: hadouken",
                     ProjectileKind::HadoukenSuper => "Player projectile: hadouken_super",

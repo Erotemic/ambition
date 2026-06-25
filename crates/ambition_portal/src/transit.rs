@@ -240,7 +240,8 @@ pub fn portal_transit(
     if all.is_empty() {
         return;
     }
-    let gravity_dir = gravity.map_or(Vec2::new(0.0, 1.0), |g| g.dir);
+    let gravity_dir =
+        ambition_platformer_primitives::gravity::gravity_dir_or_default(gravity.as_deref());
 
     for (entity, mut kin, policy, mut transit, mut roll, cooldown) in &mut bodies {
         // The transit cooldown is a BODY latch (`PortalTransitCooldown`), ticked

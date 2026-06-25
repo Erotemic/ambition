@@ -94,9 +94,8 @@ pub fn input_timer_system(
     // edges are resolved through the same input mapping policy as locomotion,
     // so ScreenDirected sideways gravity can map raw-right/raw-left into local
     // down/up without bespoke cases here.
-    let gravity_dir = gravity_field
-        .as_deref()
-        .map_or(ae::Vec2::new(0.0, 1.0), |g| g.dir);
+    let gravity_dir =
+        ambition_gameplay_core::physics::gravity_dir_or_default(gravity_field.as_deref());
     let movement_mode = user_settings
         .as_deref()
         .map_or(ae::InputFrameMode::DEFAULT_MOVEMENT, |s| s.gameplay.movement_frame_mode);

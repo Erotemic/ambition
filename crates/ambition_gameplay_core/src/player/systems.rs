@@ -62,9 +62,7 @@ pub fn tick_player_brains(
         &mut ActorControl,
     )>,
 ) {
-    let control_down = gravity_field
-        .as_deref()
-        .map_or(ae::Vec2::new(0.0, 1.0), |g| g.dir);
+    let control_down = crate::physics::gravity_dir_or_default(gravity_field.as_deref());
     let control_frame_modes = user_settings
         .as_deref()
         .map_or(ae::ControlFrameModes::default(), |s| {

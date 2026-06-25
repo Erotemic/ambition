@@ -291,7 +291,8 @@ impl SandboxSaveData {
             .iter()
             .find(|q| q.id == id)
             .map(|q| (q.state, q.step))
-            .unwrap_or((PersistedQuestState::NotStarted, 0))
+            // An unrecorded quest is in its default state by definition.
+            .unwrap_or_default()
     }
 
     pub fn set_quest(&mut self, id: impl Into<String>, state: PersistedQuestState, step: u8) {

@@ -105,7 +105,8 @@ impl GatePortalRegistry {
         self.portals
             .get(zone_id)
             .map(|c| c.phase)
-            .unwrap_or(GatePortalPhase::Off)
+            // A zone with no recorded portal state is in the default phase.
+            .unwrap_or_default()
     }
 
     pub fn is_portal(&self, zone_id: &str) -> bool {

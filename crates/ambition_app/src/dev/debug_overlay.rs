@@ -161,10 +161,8 @@ pub fn draw_debug_overlay(
     if developer_tools.show_moving_platform {
         draw_moving_platform_debug(&mut gizmos, world, &platform_set.0);
     }
-    let player_gravity = feature_q
-        .gravity
-        .as_deref()
-        .map_or(ae::Vec2::new(0.0, 1.0), |g| g.dir);
+    let player_gravity =
+        ambition_gameplay_core::physics::gravity_dir_or_default(feature_q.gravity.as_deref());
     draw_player_debug(
         &mut gizmos,
         world,

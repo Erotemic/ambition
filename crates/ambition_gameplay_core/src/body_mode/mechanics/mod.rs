@@ -108,9 +108,7 @@ pub fn update_body_mode(
         // Gravity- AND input-mode-relative via the resolved local stick `y`, so it honors
         // the Screen/Hybrid setting exactly like the engine movement core (under
         // Hybrid this is the old `gravity_descend(axis_y)`).
-        let gravity_dir = gravity_field
-            .as_deref()
-            .map_or(ae::Vec2::new(0.0, 1.0), |g| g.dir);
+        let gravity_dir = crate::physics::gravity_dir_or_default(gravity_field.as_deref());
         let movement_mode = user_settings
             .as_deref()
             .map_or(ae::InputFrameMode::DEFAULT_MOVEMENT, |s| s.gameplay.movement_frame_mode);

@@ -199,6 +199,18 @@ pub struct ProfileFilterDefaults {
     pub trigger_press_threshold: f32,
 }
 
+impl ProfileFilterDefaults {
+    /// The baseline stick/trigger filter values — single source of truth shared
+    /// by `ControlSettings::default` and the Default/XboxOne/Generic profile arms
+    /// of [`ControllerProfileId::filter_defaults`]. Calibrated profiles override.
+    pub const BASELINE: Self = Self {
+        left_stick_deadzone: 0.18,
+        right_stick_deadzone: 0.20,
+        trigger_release_threshold: 0.30,
+        trigger_press_threshold: 0.55,
+    };
+}
+
 impl ControllerProfileId {
     pub const ALL: [Self; 5] = [
         Self::Default,
@@ -240,12 +252,7 @@ impl ControllerProfileId {
                 trigger_press_threshold: 0.55,
             },
             // Default / XboxOne / Generic share the baseline.
-            _ => ProfileFilterDefaults {
-                left_stick_deadzone: 0.18,
-                right_stick_deadzone: 0.20,
-                trigger_release_threshold: 0.30,
-                trigger_press_threshold: 0.55,
-            },
+            _ => ProfileFilterDefaults::BASELINE,
         }
     }
 
@@ -311,10 +318,10 @@ impl Default for ControlSettings {
         Self {
             keyboard_preset_index: 0,
             controller_profile: ControllerProfileId::default(),
-            left_stick_deadzone: 0.18,
-            right_stick_deadzone: 0.20,
-            trigger_release_threshold: 0.30,
-            trigger_press_threshold: 0.55,
+            left_stick_deadzone: ProfileFilterDefaults::BASELINE.left_stick_deadzone,
+            right_stick_deadzone: ProfileFilterDefaults::BASELINE.right_stick_deadzone,
+            trigger_release_threshold: ProfileFilterDefaults::BASELINE.trigger_release_threshold,
+            trigger_press_threshold: ProfileFilterDefaults::BASELINE.trigger_press_threshold,
             dpad_menu_navigation: true,
             invert_aim_y: false,
             dash_input_mode: DashInputMode::default(),

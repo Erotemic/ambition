@@ -240,11 +240,17 @@ pub struct EnemyBrainSpec {
     pub provoke_forced_brute_min_aggro: Option<f32>,
 }
 
+impl EnemyBrainSpec {
+    /// Default melee smash hit-band (px) when an archetype authors none. Single
+    /// source of truth shared with `EnemyArchetypeSpec::brain_spec`.
+    pub const DEFAULT_SMASH_HIT_BAND: f32 = 36.0;
+}
+
 impl Default for EnemyBrainSpec {
     fn default() -> Self {
         Self {
             template: EnemyBrainTemplate::MeleeBrute,
-            smash_hit_band: 36.0,
+            smash_hit_band: Self::DEFAULT_SMASH_HIT_BAND,
             smash_heavy: false,
             smash_dash_to_close: false,
             provoke_forced_brute_min_aggro: None,

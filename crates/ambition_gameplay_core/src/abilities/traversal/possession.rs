@@ -96,9 +96,7 @@ pub fn possession_trigger_system(
     // actor while possessing) doesn't snap back to the abandoned body.
     actor_aabb: Query<&crate::features::CenteredAabb>,
 ) {
-    let gravity_dir = gravity_field
-        .as_deref()
-        .map_or(ambition_engine_core::Vec2::new(0.0, 1.0), |g| g.dir);
+    let gravity_dir = crate::physics::gravity_dir_or_default(gravity_field.as_deref());
     let movement_mode = user_settings
         .as_deref()
         .map_or(ambition_engine_core::InputFrameMode::DEFAULT_MOVEMENT, |s| {

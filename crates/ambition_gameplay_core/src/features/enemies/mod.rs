@@ -457,7 +457,9 @@ impl EnemyArchetypeSpec {
     pub(super) fn brain_spec(&self) -> crate::combat::EnemyBrainSpec {
         crate::combat::EnemyBrainSpec {
             template: self.brain_template,
-            smash_hit_band: self.smash_hit_band.unwrap_or(36.0),
+            smash_hit_band: self
+                .smash_hit_band
+                .unwrap_or(crate::combat::EnemyBrainSpec::DEFAULT_SMASH_HIT_BAND),
             smash_heavy: self.smash_heavy,
             smash_dash_to_close: self.smash_dash_to_close,
             provoke_forced_brute_min_aggro: self.provoke_forced_brute_min_aggro,

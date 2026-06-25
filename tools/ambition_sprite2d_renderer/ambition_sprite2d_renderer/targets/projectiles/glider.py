@@ -8,19 +8,20 @@ canonical south-east glider and step the actual Life rules to produce
 the four animation frames.
 
 Orientation: the seed is the south-east glider, whose natural Life
-travel is down-and-to-the-RIGHT. Played forward (phase 0 → 3) the
-pattern rolls toward screen-right, so when the projectile is fired
-rightward the sprite reads as a glider genuinely flying the way it
-would on a real Life grid. (A glider is inherently a *diagonal*
-spaceship — there is no purely-horizontal glider — so "screen right"
-is the rightward-traveling chirality, drifting one cell down per
-cycle.) The runtime flips the sheet horizontally to face travel, so a
-leftward shot mirrors into the south-WEST glider, which is likewise
-correct for that direction.
+travel is down-and-to-the-RIGHT — a 45° diagonal. A glider is inherently
+a *diagonal* spaceship; it does not move along an axis-aligned grid
+direction. So after rendering each Life phase we ROTATE the frame by 45°,
+mapping that diagonal travel vector onto the sprite's +x axis. The
+projectile then flies "nose-first" along its velocity: fired rightward,
+the sprite reads as a glider genuinely travelling the way it would on a
+real Life grid, just with its diagonal lattice tipped onto the screen
+horizontal. The runtime flips the sheet horizontally to face travel, so
+a leftward shot mirrors correctly.
 
-The four phases are each re-centred to a fixed 3×3 window inside a faint
-5×5 Life board, so the sprite animates in place (the projectile entity
-supplies the actual world translation) and loops seamlessly.
+The four phases are each re-centred to a fixed 3×3 window before the
+rotation, so the sprite animates in place (the projectile entity supplies
+the actual world translation) and loops seamlessly. No board grid — only
+the live cells are drawn.
 """
 from __future__ import annotations
 
@@ -44,11 +45,15 @@ SUPERSAMPLE = 4
 # ~90 ms each → a brisk, legible roll for a projectile.
 ROWS: List[Tuple[str, int, int]] = [("fly", 4, 90)]
 
-# Faint Life board the glider sits on.
-BOARD = 5          # 5×5 grid of cells
+# The glider is a 3×3 pattern; centre it in the frame, then rotate.
 CELL = 16.0        # logical px per cell
-ORIGIN = 8.0       # top-left of the board within the 96×96 frame
-CELL_OFFSET = 1    # place the 3×3 glider one cell in, centring it on the board
+GLIDER_SPAN = 3    # the glider's bounding box is 3×3 cells
+MARGIN = (FRAME_W - GLIDER_SPAN * CELL) / 2.0  # centres the 3×3 in the frame
+
+# A glider travels at 45° (its diagonal lattice). Rotate the rendered
+# frame counter-clockwise by this so the south-east travel vector lands
+# on the sprite's +x axis (screen right).
+ROTATE_DEG = 45.0
 
 # Canonical south-east glider (travels down-right). Coordinates are
 # (x, y) with +x right and +y down — i.e. screen space.
@@ -59,7 +64,6 @@ _SEED: Set[Cell] = {(1, 0), (2, 1), (0, 2), (1, 2), (2, 2)}
 
 # Energised-cell palette (ties into the cellular-automaton content theme).
 _DARK = "#04140F"
-_GRID = "#1C4A3C"
 _CELL_RIM = "#1E8F5A"
 _CELL_CORE = "#39E06E"
 _GLINT = "#CFFFE0"
@@ -101,10 +105,10 @@ _PHASES: List[FrozenSet[Cell]] = _glider_phases(4)
 
 
 def _cell_box(col: float, row: float, inset: float, s: float):
-    x0 = (ORIGIN + col * CELL + inset) * s
-    y0 = (ORIGIN + row * CELL + inset) * s
-    x1 = (ORIGIN + (col + 1) * CELL - inset) * s
-    y1 = (ORIGIN + (row + 1) * CELL - inset) * s
+    x0 = (MARGIN + col * CELL + inset) * s
+    y0 = (MARGIN + row * CELL + inset) * s
+    x1 = (MARGIN + (col + 1) * CELL - inset) * s
+    y1 = (MARGIN + (row + 1) * CELL - inset) * s
     return (x0, y0, x1, y1)
 
 
@@ -114,20 +118,9 @@ def _draw_phase(phase: FrozenSet[Cell]) -> Image.Image:
     d = ImageDraw.Draw(img, "RGBA")
     dark = rgba(_DARK)
 
-    # Faint board grid (every cell) — reads as a Life board and keeps the
-    # per-frame footprint identical so the packed strip never jitters.
-    for r in range(BOARD):
-        for c in range(BOARD):
-            d.rounded_rectangle(
-                _cell_box(c, r, 2, s),
-                radius=2 * s,
-                outline=rgba(_GRID, 120),
-                width=max(1, int(1 * s)),
-            )
-
     # Live cells: energised squares with a bright core + specular glint.
     for (x, y) in phase:
-        col, row = x + CELL_OFFSET, y + CELL_OFFSET
+        col, row = float(x), float(y)
         bx0, by0, bx1, by1 = _cell_box(col, row, -3, s)
         d.rounded_rectangle((bx0, by0, bx1, by1), radius=5 * s, fill=rgba(_CELL_CORE, 60))
         x0, y0, x1, y1 = _cell_box(col, row, 2, s)
@@ -136,6 +129,8 @@ def _draw_phase(phase: FrozenSet[Cell]) -> Image.Image:
         d.rounded_rectangle((cx0, cy0, cx1, cy1), radius=3 * s, fill=rgba(_CELL_CORE))
         d.ellipse((cx0, cy0, (cx0 + cx1) / 2, (cy0 + cy1) / 2), fill=rgba(_GLINT, 230))
 
+    # Tip the 45° diagonal travel onto the sprite's +x axis.
+    img = img.rotate(ROTATE_DEG, resample=Image.BICUBIC, expand=False)
     return img.resize((FRAME_W, FRAME_H), Image.LANCZOS)
 
 

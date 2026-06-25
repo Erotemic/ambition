@@ -1,6 +1,6 @@
 # Restructuring blueprint — actionable distillation
 
-*Author: Claude Opus 4.8 (1M) · 2026-06-25 · status: IN PROGRESS — see the Status log. §1 (shims), §2 (collision dedup + collision-view API, bar the portal reader) done; §3–§5 + domain extractions remain.*
+*Author: Claude Opus 4.8 (1M) · 2026-06-25 · status: IN PROGRESS — see the Status log. §1 (shims) and §2 (collision dedup + collision-view API, bar the portal reader) done; §3 (app-drain) substantially done — its three first-movers and the world_flow drains landed; §4, §5, and the remaining domain extractions remain.*
 
 This distils an externally-generated "restructuring blueprint v5" (static
 inspection only, no `cargo`) into a repo-canonical plan. It keeps two kinds of
@@ -81,12 +81,35 @@ Guard when extending: do NOT route render/layout/metadata readers or projectiles
 (projectiles pass through platforms → `carves_only`) — a reader that suddenly
 sees moving-platform / carve geometry is a silent feel regression.
 
-The rest of the plan (§3 app-drain, §4 ControlFrame→intent, §5 OnceLock, the
-domain-by-domain extractions) is untouched and remains the menu.
+**§3 app-drain — substantially landed (2026-06-25 session).** The three
+first-movers drained out of `ambition_app` into runtime crates, and several more
+followed. Where the drained code now lives (so a fresh agent doesn't hunt for it
+in the app):
+
+- `detect_room_transition_system` → `gameplay_core::rooms`.
+- attack-phase machine + `attack_advance_system` → `gameplay_core::combat::attack`.
+- victim-side damage resolution + `apply_player_hit_events` → `gameplay_core::combat::damage`.
+- room load split: sim half → `gameplay_core::rooms::load_room_geometry` (returns
+  a `RoomLoadResult`); render spawns + arrival VFX stay in the app's `load_room`.
+- movement-event Sfx/Vfx emission → `gameplay_core::player::movement_fx`.
+- `PlayerDiedMessage` → `ActorDiedMessage` (the death-fact vocabulary; source/cause
+  attribution still TODO).
+
+`app/world_flow.rs` is now just host glue (`RoomClock`, `sandbox_dt`,
+`ground_gap_below_feet`, the `room_flow` submodule). The whole `ambition_app::app`
+module is now explicit-import — the `use super::*`-family glob blocks and the
+module-level `allow(unused_imports)` are gone (a navigability win; do not
+reintroduce them).
+
+**Still open in §3+:** the deeper extractions remain — boss-special content
+plugin + source/cause attribution + generic-vs-named projectile split (combat),
+world commands/events + the RoomGeometry write-map (world). §4
+(ControlFrame→actor-local intent) and §5 (OnceLock classification) are untouched.
 
 > Orientation for the future world-runtime extraction (§"World / rooms / LDtk"):
 > the `ResMut<RoomGeometry>` writers still to classify are `session/reset/mod.rs`
-> (reset), `app/world_flow/room_flow.rs` (transition), `app/dev_runtime.rs`
+> (reset), `app/world_flow/room_flow.rs` (transition apply — note the geometry swap
+> itself now lives in `gameplay_core::rooms::load_room_geometry`), `app/dev_runtime.rs`
 > (hot-reload), `falling_sand.rs` (per-frame sand projection — snapshots its own
 > base), `encounter/systems.rs`, `content/bosses/gnu_ton.rs` (arena gate),
 > `content/intro/route_state.rs`. Verify against `main` before acting.
@@ -330,12 +353,18 @@ items remain:
 ### 3. Drain simulation out of `ambition_app` into domain plugins
 
 The app should compose and host, not define domain meaning (see app contract).
-Clearest first movers (low coupling), from `app/sim_systems.rs`:
+The three first-movers and the `app/world_flow` drains **landed (2026-06-25)** —
+see the Status log for where the code now lives. `app/world_flow.rs` is host glue
+and the `app` module is fully explicit-import.
 
-- `attack_advance_system` → combat runtime.
-- `detect_room_transition_system` → world runtime (after the RoomGeometry
-  write-map exists).
-- `apply_player_hit_events` → combat/actor-health runtime (+ source/cause).
+What remains here is the deeper extraction (still real work):
+
+- Combat: a `BossSpecialContentPlugin` mounting boss specials into an explicit
+  `CombatSet::ContentSpecials` extension set; source/cause attribution on
+  projectile/damage messages; split generic projectile stepping from named kinds.
+  `combat::{attack, damage}` now exist as the runtime home for this.
+- World: a RoomGeometry write-map + world commands/events before moving the
+  remaining `ResMut<RoomGeometry>` writers (Status log lists them).
 
 Keep platform/device/Android/mobile/window systems in app. `ambition_game` is a
 *direction*, not a prerequisite — introduce it when the app file reads as two jobs
@@ -398,6 +427,8 @@ Condensed orientation so an agent can work a domain without rediscovering it.
 - **First move:** role-audit `player_clusters.rs` + `player/components/mod.rs`;
   move named held-item/action rows out of `characters` into content install rows;
   move app-owned actor-sim registration toward an actor-runtime plugin.
+- **Landed (2026-06-25):** movement-event Sfx/Vfx emission → `player::movement_fx`.
+  The role-audit + actor-runtime plugin remain.
 
 ### Carryable items
 - **Now:** held and thrown are states of one lifecycle; `HeldItemSpec` flows
@@ -423,6 +454,9 @@ Condensed orientation so an agent can work a domain without rediscovering it.
   attribution) + content plugins for named projectile kinds and a
   `BossSpecialContentPlugin` mounting specials into an explicit `CombatSet::
   ContentSpecials` extension set; `EncounterFlavorContentPlugin` for cut-rope etc.
+- **Landed (2026-06-25):** the player attack-phase machine + `attack_advance_system`
+  → `combat::attack`; victim-side damage resolution + `apply_player_hit_events`
+  → `combat::damage`. These are the runtime home for the first-move work below.
 - **First move:** add source/cause attribution to projectile/damage messages;
   pull boss-special consumers into the content plugin + extension set; split
   generic stepping from named kinds; replace player/enemy split with source/faction.
@@ -435,6 +469,9 @@ Condensed orientation so an agent can work a domain without rediscovering it.
 - **Target:** `WorldRuntimePlugin`/`LdtkWorldPlugin` owns load/reset/lifecycle +
   the RoomGeometry contract + the collision-view read API; content mutates world
   through explicit commands/facts, not ad hoc access.
+- **Landed (2026-06-25):** `detect_room_transition_system` → `rooms`; room-load
+  split — sim half → `rooms::load_room_geometry`, render tail stays in the app's
+  `load_room`. The write-map + world commands/events remain.
 - **First move:** a RoomGeometry write-map (every writer + why), classify each
   (LDtk load / transition / dynamic feature / portal carve / content gate / test),
   define world commands/events before moving code.
@@ -517,8 +554,8 @@ surface that's explicitly not the goal.
   `PrimaryPlayer`→`PrimaryControlledActor` (or `LocalPresentationFocus` for
   camera/HUD), `PlayerEntity`→`ActorBody`/`ControlledActorMarker`,
   `PlayerInputFrame`→`ActorInputFrame`, `PlayerMana`/`PlayerCombatState`/
-  `PlayerWallet`/`PlayerSafetyState`→`Actor*` equivalents,
-  `PlayerDiedMessage`→`ActorDiedMessage` (+ source/cause).
+  `PlayerWallet`/`PlayerSafetyState`→`Actor*` equivalents.
+  (`PlayerDiedMessage`→`ActorDiedMessage` done 2026-06-25; source/cause still TODO.)
 - **fact/request/event message vocabulary.** Add the message seam when the
   *second* consumer appears, not preemptively.
 - **Doc-consistency annotations.** Nine docs under `docs/planning`/`docs/systems`

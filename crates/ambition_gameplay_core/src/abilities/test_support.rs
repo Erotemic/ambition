@@ -7,7 +7,9 @@
 use ambition_characters::brain::{held_item_by_id, ActionSet};
 use ambition_engine_core as ae;
 use crate::features::HeldItem;
-use crate::player::{BodyKinematics, PlayerBaseSize, PlayerEntity, PlayerMana, PrimaryPlayer};
+use crate::player::{
+    BodyKinematics, PlayerBaseSize, PlayerEntity, PlayerInputFrame, PlayerMana, PrimaryPlayer,
+};
 use bevy::prelude::*;
 
 pub(crate) fn spawn_primary_player_holding(app: &mut App, held_item_id: &str) -> Entity {
@@ -25,6 +27,7 @@ pub(crate) fn spawn_primary_player_holding(app: &mut App, held_item_id: &str) ->
             PlayerBaseSize {
                 base_size: ae::Vec2::new(24.0, 40.0),
             },
+            PlayerInputFrame::default(),
             ActionSet::default(),
             HeldItem::new(spec),
             PlayerMana::default(),
@@ -57,6 +60,7 @@ pub(crate) fn spawn_primary_player_holding_at(
             PlayerBaseSize {
                 base_size: ae::Vec2::new(24.0, 40.0),
             },
+            PlayerInputFrame::default(),
             ActionSet::default(),
             HeldItem::new(spec),
         ))

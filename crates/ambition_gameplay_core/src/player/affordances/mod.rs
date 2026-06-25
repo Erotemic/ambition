@@ -46,7 +46,7 @@ pub mod variants;
 pub use devices::{
     detect_active_input_method, glyph_for, ActiveInputMethod, GamepadKind, InputMethod,
 };
-pub use intent::{compute_aim, compute_player_intent, Aim, PlayerIntent};
+pub use intent::{compute_aim, compute_controlled_actor_intent, Aim, PlayerIntent};
 pub use interactable_proximity::{update_nearest_interactable, NearestInteractable};
 pub use pogo_proximity::{update_pogo_target_below, PogoTargetBelow};
 pub use resolvers::{
@@ -181,12 +181,19 @@ impl Plugin for AffordancesPlugin {
             .add_systems(
                 Update,
                 (
-                    compute_player_intent,
+                    compute_controlled_actor_intent,
                     update_nearest_interactable,
                     update_pogo_target_below,
                     compute_player_affordances,
                 )
                     .chain()
+                    // `compute_controlled_actor_intent` now reads the
+                    // actor-local `PlayerInputFrame` (mirrored inside the
+                    // `PlayerInput` set) rather than the global
+                    // `Res<ControlFrame>` (populated before
+                    // `CoreSimulation`). Pin the chain after the sync so
+                    // the intent still reflects this frame's input.
+                    .after(crate::player::sync_local_player_input_frame)
                     .in_set(AffordancesSystemSet::Compute),
             )
             // Active-input-method detection runs unchained because it

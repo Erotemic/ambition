@@ -11,8 +11,6 @@
 
 use bevy::prelude::*;
 
-use ambition_input::ControlFrame;
-
 /// Nine-way directional intent derived from the stick + facing.
 ///
 /// Closed set on purpose — impossible combinations like "up AND down"
@@ -116,8 +114,9 @@ pub fn compute_aim(axis_x: f32, axis_y: f32, facing: f32) -> Aim {
 }
 
 /// Resource: per-frame snapshot of player-driven intent. Refreshed by
-/// [`compute_player_intent`] once per frame, after the input pipeline
-/// has folded keyboard + gamepad + touch into [`ControlFrame`].
+/// [`compute_controlled_actor_intent`] once per frame, after the input
+/// pipeline has folded keyboard + gamepad + touch into the actor's
+/// `PlayerInputFrame`.
 ///
 /// The compute system runs only when the primary player exists; in
 /// menu / startup states with no player yet, the resource keeps its
@@ -128,19 +127,24 @@ pub struct PlayerIntent {
     pub aim: Aim,
 }
 
-/// Derive [`PlayerIntent`] from the current [`ControlFrame`] and the
-/// primary player's facing direction. Runs after the input pipeline
-/// and the touch fold so it sees the final merged input.
+/// Derive [`PlayerIntent`] from the controlled actor's own
+/// [`PlayerInputFrame`] and its facing direction. Runs after the input
+/// pipeline + touch fold + `sync_local_player_input_frame` so it sees
+/// the final merged input mirrored onto the actor.
 ///
-/// Reads facing from `BodyKinematics` (the authoritative cluster)
-/// so the intent and the affordances compute see exactly the same
-/// facing value within one frame.
-pub fn compute_player_intent(
-    control_frame: Res<ControlFrame>,
+/// Reads the input and facing from the same primary-actor entity (the
+/// actor-local frame, not the global `Res<ControlFrame>`) so the intent
+/// is the actor's own intent — the relativity principle / §4 of the
+/// restructuring blueprint — and the intent and affordances compute see
+/// exactly the same facing within one frame.
+pub fn compute_controlled_actor_intent(
     gravity_field: Option<Res<crate::physics::GravityField>>,
     user_settings: Option<Res<crate::persistence::settings::UserSettings>>,
     player_q: Query<
-        &crate::player::BodyKinematics,
+        (
+            &crate::player::PlayerInputFrame,
+            &crate::player::BodyKinematics,
+        ),
         (
             With<crate::player::PlayerEntity>,
             With<crate::player::PrimaryPlayer>,
@@ -148,7 +152,7 @@ pub fn compute_player_intent(
     >,
     mut intent: ResMut<PlayerIntent>,
 ) {
-    let Ok(kinematics) = player_q.single() else {
+    let Ok((input, kinematics)) = player_q.single() else {
         // No player yet — leave the resource at its default. Any
         // downstream consumer reads `Aim::Neutral`, which is the
         // correct conservative behavior pre-spawn.
@@ -162,8 +166,8 @@ pub fn compute_player_intent(
         });
     let local_axis = ambition_engine_core::AccelerationFrame::new(gravity_dir).resolve_input(
         movement_mode,
-        control_frame.axis_x,
-        control_frame.axis_y,
+        input.frame.axis_x,
+        input.frame.axis_y,
     );
     let next = PlayerIntent {
         aim: compute_aim(local_axis.x, local_axis.y, kinematics.facing),

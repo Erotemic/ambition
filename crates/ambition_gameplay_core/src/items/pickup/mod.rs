@@ -17,7 +17,7 @@ use ambition_engine_core::{self as ae, AabbExt};
 use crate::features::HeldItem;
 use ambition_input::ControlFrame;
 use crate::platformer_runtime::prelude::SpawnScopedExt;
-use crate::player::{BodyKinematics, PlayerEntity, PrimaryPlayer};
+use crate::player::{BodyKinematics, PlayerEntity, PlayerInputFrame, PrimaryPlayer};
 #[cfg(feature = "portal")]
 use crate::portal::PortalGun;
 
@@ -343,12 +343,18 @@ pub fn unequip_portal_gun(
 /// `Attack` while empty-handed and overlapping a `GroundItem` picks it up:
 /// stash the current action set, overlay the item's verbs, attach `HeldItem`.
 pub fn pickup_held_item_system(
+    // The press is consumed (below) on BOTH the global `ControlFrame` and the
+    // actor-local `PlayerInputFrame`: actor-local readers (throw / fire / the
+    // wielded gauntlets that have migrated off the global frame) are gated by
+    // the actor-local consume, while abilities still reading `Res<ControlFrame>`
+    // are gated by the global one. The global write drops out once every
+    // attack_pressed reader is actor-local (§4 of the restructuring blueprint).
     mut control: ResMut<ControlFrame>,
     mut commands: Commands,
     // One item at a time (Smash-style): can't grab a ground item while already
     // holding one, or while holding the portal gun (portal builds only).
     #[cfg(feature = "portal")] mut players: Query<
-        (Entity, &BodyKinematics, &mut ActionSet),
+        (Entity, &mut PlayerInputFrame, &BodyKinematics, &mut ActionSet),
         (
             With<PlayerEntity>,
             With<PrimaryPlayer>,
@@ -357,18 +363,18 @@ pub fn pickup_held_item_system(
         ),
     >,
     #[cfg(not(feature = "portal"))] mut players: Query<
-        (Entity, &BodyKinematics, &mut ActionSet),
+        (Entity, &mut PlayerInputFrame, &BodyKinematics, &mut ActionSet),
         (With<PlayerEntity>, With<PrimaryPlayer>, Without<HeldItem>),
     >,
     grounds: Query<(Entity, &GroundItem)>,
     mut owned: Option<ResMut<crate::items::OwnedItems>>,
 ) {
-    if !control.attack_pressed {
-        return;
-    }
-    let Ok((player, kin, mut action_set)) = players.single_mut() else {
+    let Ok((player, mut input, kin, mut action_set)) = players.single_mut() else {
         return;
     };
+    if !input.frame.attack_pressed {
+        return;
+    }
     let player_aabb = ae::Aabb::new(kin.pos, kin.size * 0.5);
     for (ground_entity, ground) in &grounds {
         let ground_aabb = ae::Aabb::new(ground.pos, ground.half_extent);
@@ -396,7 +402,10 @@ pub fn pickup_held_item_system(
             // The Attack press is *consumed* by the pickup: clear it so the same
             // press doesn't also fire the just-equipped item's attack this frame
             // (the gauntlet/weapon attack systems all gate on `attack_pressed`).
-            // Mirrors the portal-gun pickup's consume.
+            // Mirrors the portal-gun pickup's consume. Cleared on BOTH frames:
+            // the actor-local one gates migrated readers (throw/fire/shockwave),
+            // the global one gates abilities still on `Res<ControlFrame>`.
+            input.frame.attack_pressed = false;
             control.attack_pressed = false;
             commands.entity(ground_entity).despawn();
             break;
@@ -408,11 +417,11 @@ pub fn pickup_held_item_system(
 /// and drop a `GroundItem` ahead of the player. Fires on `Shield + Attack`
 /// for any item, or on a plain `Attack` for a pure throwable (throw-on-use).
 pub fn throw_held_item_system(
-    control: Res<ControlFrame>,
     mut commands: Commands,
     mut players: Query<
         (
             Entity,
+            &PlayerInputFrame,
             &BodyKinematics,
             &mut ActionSet,
             &HeldItem,
@@ -422,16 +431,16 @@ pub fn throw_held_item_system(
     >,
     mut owned: Option<ResMut<crate::items::OwnedItems>>,
 ) {
-    if !control.attack_pressed {
-        return;
-    }
-    let Ok((player, kin, mut action_set, held, stashed)) = players.single_mut() else {
+    let Ok((player, input, kin, mut action_set, held, stashed)) = players.single_mut() else {
         return;
     };
+    if !input.frame.attack_pressed {
+        return;
+    }
     // Shield+Attack throws anything; plain Attack throws only items whose
     // authored `use_behavior` opts in, leaving `UseSystem` abilities to their
     // own systems.
-    if !(control.shield_held || held.spec.throws_on_plain_attack()) {
+    if !(input.frame.shield_held || held.spec.throws_on_plain_attack()) {
         return;
     }
     if let Some(stash) = stashed {
@@ -606,26 +615,28 @@ fn gravity_dir_at(gravity: &crate::physics::GravityCtx, pos: Vec2) -> Vec2 {
 /// `Attack` while holding a *ranged* item fires a laser bolt along the aim
 /// direction. `Shield + Attack` is the throw/drop gesture, so don't fire on it.
 pub fn fire_held_ranged_system(
-    control: Res<ControlFrame>,
     gravity: crate::physics::GravityCtx,
     user_settings: Option<Res<crate::persistence::settings::UserSettings>>,
     mut commands: Commands,
-    players: Query<(&BodyKinematics, &HeldItem), (With<PlayerEntity>, With<PrimaryPlayer>)>,
+    players: Query<
+        (&PlayerInputFrame, &BodyKinematics, &HeldItem),
+        (With<PlayerEntity>, With<PrimaryPlayer>),
+    >,
     mut sfx: MessageWriter<crate::audio::SfxMessage>,
 ) {
-    if !control.attack_pressed || control.shield_held {
-        return;
-    }
-    let Ok((kin, held)) = players.single() else {
+    let Ok((input, kin, held)) = players.single() else {
         return;
     };
+    if !input.frame.attack_pressed || input.frame.shield_held {
+        return;
+    }
     let Some(ranged) = held.spec.ranged else {
         return;
     };
     let gravity_dir = gravity_dir_at(&gravity, kin.pos);
     let modes = control_frame_modes_from_settings(user_settings.as_deref());
     let frame = ae::AccelerationFrame::new(gravity_dir);
-    let local_dir = held_shot_aim_local(&control, kin.facing, frame, modes);
+    let local_dir = held_shot_aim_local(&input.frame, kin.facing, frame, modes);
     let dir = frame.to_world(local_dir).normalize_or_zero();
     if dir == Vec2::ZERO {
         return;

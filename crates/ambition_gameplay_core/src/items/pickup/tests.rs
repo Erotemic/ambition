@@ -9,6 +9,7 @@ fn spawn_player(app: &mut App, pos: Vec2) -> Entity {
         .spawn((
             PlayerEntity,
             PrimaryPlayer,
+            PlayerInputFrame::default(),
             BodyKinematics {
                 pos,
                 vel: Vec2::ZERO,
@@ -23,10 +24,20 @@ fn spawn_player(app: &mut App, pos: Vec2) -> Entity {
         .id()
 }
 
-fn set_control(app: &mut App, attack: bool, shield: bool) {
-    let mut cf = app.world_mut().resource_mut::<ControlFrame>();
-    cf.attack_pressed = attack;
-    cf.shield_held = shield;
+/// Stamp the input onto BOTH the actor-local `PlayerInputFrame` (what the
+/// migrated pickup/throw/fire systems read) and the global `ControlFrame`
+/// (the channel `sync_local_player_input_frame` mirrors from in production,
+/// and still the consume target for not-yet-migrated readers).
+fn set_control(app: &mut App, player: Entity, attack: bool, shield: bool) {
+    {
+        let mut input = app.world_mut().get_mut::<PlayerInputFrame>(player).unwrap();
+        input.frame.attack_pressed = attack;
+        input.frame.shield_held = shield;
+    }
+    if let Some(mut cf) = app.world_mut().get_resource_mut::<ControlFrame>() {
+        cf.attack_pressed = attack;
+        cf.shield_held = shield;
+    }
 }
 
 #[test]
@@ -51,7 +62,7 @@ fn attack_picks_up_axe_and_grants_its_swing_then_throw_restores() {
         .is_none());
 
     // Attack (no shield) → pick up the axe.
-    set_control(&mut app, true, false);
+    set_control(&mut app, player, true, false);
     app.update();
     assert!(
         app.world().get::<HeldItem>(player).is_some(),
@@ -75,7 +86,7 @@ fn attack_picks_up_axe_and_grants_its_swing_then_throw_restores() {
     );
 
     // Shield + Attack → throw it back onto the ground.
-    set_control(&mut app, true, true);
+    set_control(&mut app, player, true, true);
     app.update();
     assert!(
         app.world().get::<HeldItem>(player).is_none(),
@@ -121,7 +132,7 @@ fn gunsword_pickup_swaps_to_ranged_and_attack_fires_a_bolt() {
 
     // Attack picks up the gun-sword (commands flush after the tick, so the
     // fire system can't also fire on this same press).
-    set_control(&mut app, true, false);
+    set_control(&mut app, player, true, false);
     app.update();
     let actions = app.world().get::<ActionSet>(player).unwrap();
     assert!(
@@ -134,7 +145,7 @@ fn gunsword_pickup_swaps_to_ranged_and_attack_fires_a_bolt() {
     );
 
     // A second Attack while holding it fires exactly one laser bolt.
-    set_control(&mut app, true, false);
+    set_control(&mut app, player, true, false);
     app.update();
     let bolts = {
         let mut q = app.world_mut().query::<&HeldProjectile>();
@@ -161,15 +172,25 @@ fn pickup_consumes_the_attack_press() {
         vel: Vec2::ZERO,
         half_extent: Vec2::splat(PICKUP_HALF),
     });
-    set_control(&mut app, true, false);
+    set_control(&mut app, player, true, false);
     app.update();
     assert!(
         app.world().get::<HeldItem>(player).is_some(),
         "the item should be picked up"
     );
     assert!(
+        !app
+            .world()
+            .get::<PlayerInputFrame>(player)
+            .unwrap()
+            .frame
+            .attack_pressed,
+        "pickup must clear the actor-local attack_pressed so migrated readers \
+         (throw/fire) don't fire on the pickup press"
+    );
+    assert!(
         !app.world().resource::<ControlFrame>().attack_pressed,
-        "pickup must clear attack_pressed so the item doesn't fire on the pickup press"
+        "pickup must also clear the global attack_pressed for not-yet-migrated readers"
     );
 }
 
@@ -184,7 +205,7 @@ fn fireball_shot_is_tagged_to_explode_unlike_a_plain_bolt() {
     app.world_mut()
         .entity_mut(player)
         .insert(HeldItem::new(spec));
-    set_control(&mut app, true, false);
+    set_control(&mut app, player, true, false);
     app.update();
     let halves: Vec<f32> = {
         let mut q = app.world_mut().query::<&HeldProjectile>();
@@ -239,7 +260,7 @@ fn a_plain_ranged_bolt_does_not_explode() {
     app.world_mut()
         .entity_mut(player)
         .insert(HeldItem::new(gunsword_spec()));
-    set_control(&mut app, true, false);
+    set_control(&mut app, player, true, false);
     app.update();
     let half = {
         let mut q = app.world_mut().query::<&HeldProjectile>();
@@ -308,7 +329,7 @@ fn javelin_is_thrown_on_plain_attack_use() {
 
     // First Attack picks up the javelin (commands flush after the tick, so
     // the throw system can't also fire this frame).
-    set_control(&mut app, true, false);
+    set_control(&mut app, player, true, false);
     app.update();
     assert!(
         app.world().get::<HeldItem>(player).is_some(),
@@ -317,7 +338,7 @@ fn javelin_is_thrown_on_plain_attack_use() {
 
     // A second plain Attack (no shield) *uses* the javelin — which throws
     // it, since it has no melee/ranged verb of its own.
-    set_control(&mut app, true, false);
+    set_control(&mut app, player, true, false);
     app.update();
     assert!(
         app.world().get::<HeldItem>(player).is_none(),

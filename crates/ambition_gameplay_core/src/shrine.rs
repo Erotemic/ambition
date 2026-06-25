@@ -14,8 +14,9 @@
 use bevy::prelude::*;
 
 use ambition_engine_core::{self as ae, AabbExt};
-use ambition_input::ControlFrame;
-use crate::player::{BodyKinematics, PlayerEntity, PlayerHealth, PlayerMana, PrimaryPlayer};
+use crate::player::{
+    BodyKinematics, PlayerEntity, PlayerHealth, PlayerInputFrame, PlayerMana, PrimaryPlayer,
+};
 
 /// A healing / save-point shrine the player can `Interact` with.
 #[derive(Component, Clone, Copy, Debug)]
@@ -30,10 +31,19 @@ pub struct HealShrine {
 /// `Interact` while overlapping a [`HealShrine`] heals the player to full
 /// (health + mana) and writes a save checkpoint. `interact_pressed` is an edge,
 /// so one press = one heal.
+///
+/// Reads the actor-local [`PlayerInputFrame`] rather than the global
+/// `Res<ControlFrame>`: the interact intent belongs to the actor at the shrine,
+/// not to one machine-wide input frame (relativity principle / §4 of the
+/// restructuring blueprint).
 pub fn heal_save_shrine_system(
-    control: Res<ControlFrame>,
     mut players: Query<
-        (&BodyKinematics, &mut PlayerHealth, &mut PlayerMana),
+        (
+            &PlayerInputFrame,
+            &BodyKinematics,
+            &mut PlayerHealth,
+            &mut PlayerMana,
+        ),
         (With<PlayerEntity>, With<PrimaryPlayer>),
     >,
     shrines: Query<&HealShrine>,
@@ -41,12 +51,12 @@ pub fn heal_save_shrine_system(
     mut activation: ResMut<ShrineActivationPulse>,
     mut sfx: MessageWriter<crate::audio::SfxMessage>,
 ) {
-    if !control.interact_pressed {
-        return;
-    }
-    let Ok((kin, mut health, mut mana)) = players.single_mut() else {
+    let Ok((input, kin, mut health, mut mana)) = players.single_mut() else {
         return;
     };
+    if !input.frame.interact_pressed {
+        return;
+    }
     let player_aabb = ae::Aabb::new(kin.pos, kin.size * 0.5);
     let touching = shrines
         .iter()
@@ -84,7 +94,6 @@ mod tests {
     fn interacting_at_the_shrine_heals_to_full() {
         let mut app = App::new();
         app.add_message::<crate::audio::SfxMessage>();
-        app.insert_resource(ControlFrame::default());
         app.init_resource::<crate::persistence::save::SandboxSave>();
         app.init_resource::<ShrineActivationPulse>();
         app.add_systems(Update, heal_save_shrine_system);
@@ -94,6 +103,7 @@ mod tests {
             .spawn((
                 PlayerEntity,
                 PrimaryPlayer,
+                PlayerInputFrame::default(),
                 BodyKinematics {
                     pos: Vec2::new(100.0, 100.0),
                     vel: Vec2::ZERO,
@@ -124,7 +134,9 @@ mod tests {
 
         // Interact while overlapping → heal to full.
         app.world_mut()
-            .resource_mut::<ControlFrame>()
+            .get_mut::<PlayerInputFrame>(player)
+            .unwrap()
+            .frame
             .interact_pressed = true;
         app.update();
 
@@ -142,7 +154,6 @@ mod tests {
     fn no_heal_without_interact_or_when_not_touching() {
         let mut app = App::new();
         app.add_message::<crate::audio::SfxMessage>();
-        app.insert_resource(ControlFrame::default());
         app.init_resource::<crate::persistence::save::SandboxSave>();
         app.init_resource::<ShrineActivationPulse>();
         app.add_systems(Update, heal_save_shrine_system);
@@ -151,6 +162,7 @@ mod tests {
             .spawn((
                 PlayerEntity,
                 PrimaryPlayer,
+                PlayerInputFrame::default(),
                 BodyKinematics {
                     pos: Vec2::new(100.0, 100.0),
                     vel: Vec2::ZERO,
@@ -176,7 +188,9 @@ mod tests {
 
         // Interact pressed but not touching → no heal.
         app.world_mut()
-            .resource_mut::<ControlFrame>()
+            .get_mut::<PlayerInputFrame>(player)
+            .unwrap()
+            .frame
             .interact_pressed = true;
         app.update();
         assert_eq!(

@@ -13,8 +13,7 @@ use bevy::prelude::*;
 
 use ambition_engine_core as ae;
 use crate::features::HeldItem;
-use ambition_input::ControlFrame;
-use crate::player::{BodyKinematics, PlayerEntity, PlayerMana, PrimaryPlayer};
+use crate::player::{BodyKinematics, PlayerEntity, PlayerInputFrame, PlayerMana, PrimaryPlayer};
 
 /// Held-item id of the shockwave gauntlet.
 pub const SHOCKWAVE_ID: &str = "shockwave";
@@ -35,21 +34,26 @@ const SHOCKWAVE_KNOCKBACK: f32 = 1.3;
 /// gesture (handled by `item_pickup::throw_held_item_system`, which excludes
 /// this id from throw-on-plain-Attack).
 pub fn fire_shockwave_system(
-    control: Res<ControlFrame>,
     gravity: crate::physics::GravityCtx,
     mut players: Query<
-        (Entity, &HeldItem, &BodyKinematics, &mut PlayerMana),
+        (
+            Entity,
+            &PlayerInputFrame,
+            &HeldItem,
+            &BodyKinematics,
+            &mut PlayerMana,
+        ),
         (With<PlayerEntity>, With<PrimaryPlayer>),
     >,
     mut effects: MessageWriter<crate::effects::EffectRequest>,
     mut sfx: MessageWriter<crate::audio::SfxMessage>,
 ) {
-    if !control.attack_pressed || control.shield_held {
-        return;
-    }
-    let Ok((entity, held, kin, mut mana)) = players.single_mut() else {
+    let Ok((entity, input, held, kin, mut mana)) = players.single_mut() else {
         return;
     };
+    if !input.frame.attack_pressed || input.frame.shield_held {
+        return;
+    }
     if held.spec.id != SHOCKWAVE_ID {
         return;
     }
@@ -87,12 +91,21 @@ mod tests {
         let mut app = App::new();
         app.add_message::<crate::audio::SfxMessage>();
         app.add_message::<crate::effects::EffectRequest>();
-        app.insert_resource(ControlFrame::default());
         app.add_systems(
             Update,
             (fire_shockwave_system, crate::effects::apply_effects).chain(),
         );
         app
+    }
+
+    /// Stamp `attack_pressed` onto the actor-local input frame (the
+    /// shockwave system reads `PlayerInputFrame`, not `Res<ControlFrame>`).
+    fn press_attack(app: &mut App, player: Entity) {
+        app.world_mut()
+            .get_mut::<PlayerInputFrame>(player)
+            .unwrap()
+            .frame
+            .attack_pressed = true;
     }
 
     fn shockwave_count(app: &mut App) -> usize {
@@ -106,9 +119,7 @@ mod tests {
     fn player_attack_with_shockwave_spawns_a_player_faction_aoe() {
         let mut app = test_app();
         let player = spawn_primary_player_holding(&mut app, SHOCKWAVE_ID);
-        app.world_mut()
-            .resource_mut::<ControlFrame>()
-            .attack_pressed = true;
+        press_attack(&mut app, player);
         app.update();
         // Exactly one AOE hitbox, owned by the player and Player-faction so it
         // damages enemies (not the player) through apply_hitbox_damage.
@@ -146,9 +157,7 @@ mod tests {
             .unwrap()
             .meter
             .current = 5.0;
-        app.world_mut()
-            .resource_mut::<ControlFrame>()
-            .attack_pressed = true;
+        press_attack(&mut app, player);
         app.update();
         assert_eq!(shockwave_count(&mut app), 0, "no slam when mana < cost");
 

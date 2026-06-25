@@ -125,15 +125,30 @@ what has landed:
    (projectile arcs, charge ramps, gesture timing, tints) — NOT headless-verifiable.
    Needs Jon's runtime testing; do not ship blind. The remaining attribution work
    (attacker entity on enemy/boss-side `HitSource`s) is part of this domain.
-2. **World commands/events (world).** The 3 content gates
-   (`encounter/systems.rs` lock walls, `content/bosses/gnu_ton.rs` arena ladder,
-   `content/intro/route_state.rs` flag gates) mutate `RoomGeometry.0` directly
-   mid-room — against the resolved authored-base model. **Architecture fork:**
-   route them through explicit world *commands* that mutate the base, OR (the
-   resolved decision's preference) make them per-frame *overlay* contributors like
-   portal carves so the base stays authored-immutable. Structural, headless-testable
-   (does the wall exist when flag X? does the ladder reappear on defeat?), but the
-   fork is a real design decision. The 7-writer write-map is below.
+2. **World gate→overlay (world) — 2 of 3 gates DONE (2026-06-25).** The fork was
+   resolved toward the authored-base preference: gates contribute to the per-frame
+   collision overlay, not the base. New overlay category
+   `FeatureEcsWorldOverlay::gate_solids` (`4adf73f2`): authored-equivalent static
+   solids composited into EVERY base-reader (player/traversal/item collision via
+   `CollisionWorld::solids`, projectile collision via the new
+   `world_with_gate_solids_and_carves`, AND the render `LockWallVisual` reconcile)
+   — so a lock wall collides and draws exactly as a base wall while the base stays
+   immutable. The **encounter lock walls** (`4adf73f2`) and **intro flag gates**
+   (`3b26e7fb`) now derive onto `gate_solids` in WorldPrep contributors;
+   `update_encounters_from_world` and `sync_intro_flag_gated_lock_walls` no longer
+   take `ResMut<RoomGeometry>`. All headless-tested (gate solids in player + projectile
+   views; render reconcile; pure-fn derive).
+   **Remaining: gnu_ton's arena gate** (`content/bosses/gnu_ton.rs`) — the last
+   mid-room base mutator. It is *subtractive*: it removes authored Ladder
+   `climbable_regions` (stashed on entry) and a floor-gate Solid block on defeat,
+   relying on room-reload to restore. `gate_solids` is additive-only, so this needs
+   an overlay-model extension — a way to subtract authored blocks (a carve, like
+   portals do) AND a climbable-region overlay (the overlay models neither water nor
+   climbable regions today). Invert cleanly under an immutable base: the base always
+   carries the ladders + floor-gate; the overlay *removes* them based on gate state.
+   The geometry-swap writers (`load.rs`, `reset/mod.rs`, `dev_runtime.rs`) and
+   `falling_sand.rs` are classified in the write-map below and are NOT base-immutability
+   violations (boundary swaps / a system that snapshots its own base).
 
 §4 (ControlFrame→actor-local intent) and §5 (OnceLock classification) are untouched.
 

@@ -28,7 +28,7 @@ existing keyboard + gamepad pipeline stays canonical for desktop.
 +---------------------+                        |
                                                v
                                 +------------------------------+
-                                | crate::input::ControlFrame  |
+                                | ambition_input::ControlFrame |
                                 | (the canonical sim seam)     |
                                 +------------------------------+
                                                |

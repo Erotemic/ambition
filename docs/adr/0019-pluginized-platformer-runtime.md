@@ -66,9 +66,13 @@ cargo test -p ambition_app --test gravity_room_reachability
   `ambition_audio` (foundations) ← `ambition_gameplay_core` (machinery lib) ←
   `ambition_content` (named game content) ← `ambition_app` (assembly + bins +
   tests). See `docs/current/state.md` and `docs/systems/architecture.md`.
-- `crate::engine_core`, `crate::kinematic`, `crate::input`, `crate::time`,
-  `crate::portal` inside `ambition_gameplay_core` are FACADE re-exports of those crates —
-  edit the crate, not a (nonexistent) lib module.
+- The `crate::{engine_core, kinematic, input, ui_nav, interaction, actor, brain}`
+  compat re-exports inside `ambition_gameplay_core` were REMOVED (2026-06-25). Import
+  each by its canonical path — `ambition_engine_core`,
+  `ambition_platformer_primitives::kinematic`, `ambition_input`, `ambition_ui_nav`,
+  `ambition_interaction`, `ambition_characters::{actor, brain}` — and edit the crate
+  directly; there is no lib facade. The `architecture_boundaries` test guards against
+  re-adding them.
 - Machinery must not import content: the `architecture_boundaries` guards (in
   `ambition_app/tests`) enforce it. Add a guard when you win a new boundary.
 - New gameplay subsystems should be self-owning `Plugin`s (components-as-plugins),

@@ -1,65 +1,11 @@
+use crate::collision_semantics::{
+    axis_role, body_on_support_side, is_full_collision_surface, is_solid_for_axis,
+    is_support_surface, moving_toward_feet, snap_feet_to_surface, support_face_separation, Axis,
+    AxisRole, CONTACT_SLOP, ONE_WAY_CROSSING_SLOP,
+};
 use crate::geometry::{Aabb, AabbExt};
 use crate::world::{Block, BlockKind, World};
 use crate::Vec2;
-
-const CONTACT_SLOP: f32 = 4.0;
-const ONE_WAY_CROSSING_SLOP: f32 = 8.0;
-
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-enum Axis {
-    X,
-    Y,
-}
-
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-enum AxisRole {
-    Gravity,
-    Side,
-}
-
-fn gravity_axis(gravity_dir: Vec2) -> Axis {
-    if gravity_dir.x.abs() > gravity_dir.y.abs() {
-        Axis::X
-    } else {
-        Axis::Y
-    }
-}
-
-fn axis_role(axis: Axis, gravity_dir: Vec2) -> AxisRole {
-    if axis == gravity_axis(gravity_dir) {
-        AxisRole::Gravity
-    } else {
-        AxisRole::Side
-    }
-}
-
-fn moving_toward_feet(delta: Vec2, gravity_dir: Vec2) -> bool {
-    delta.dot(gravity_dir) > 1.0e-5
-}
-
-fn is_support_surface(kind: BlockKind) -> bool {
-    matches!(
-        kind,
-        BlockKind::Solid | BlockKind::BlinkWall { .. } | BlockKind::OneWay
-    )
-}
-
-fn is_full_collision_surface(kind: BlockKind) -> bool {
-    matches!(kind, BlockKind::Solid | BlockKind::BlinkWall { .. })
-}
-
-fn is_solid_for_axis(kind: BlockKind, axis: Axis, gravity_dir: Vec2) -> bool {
-    match kind {
-        BlockKind::Solid | BlockKind::BlinkWall { .. } => true,
-        // One-way surfaces are collision surfaces only on the current gravity
-        // axis. Their passability is then decided by `one_way_landing_from_*`:
-        // a body may land on the surface's anti-gravity face, or pass through it
-        // from every other direction. This makes one-way platforms respect the
-        // controlled body's acceleration frame instead of hard-coding world Y.
-        BlockKind::OneWay => axis_role(axis, gravity_dir) == AxisRole::Gravity,
-        BlockKind::Hazard | BlockKind::PogoOrb | BlockKind::Rebound { .. } => false,
-    }
-}
 
 fn one_way_landing_from_previous_feet(
     body: Aabb,
@@ -100,14 +46,6 @@ fn one_way_landing_from_feet(
     )
 }
 
-fn support_face_separation(body: Aabb, surface: Aabb, gravity_dir: Vec2) -> f32 {
-    body.feet_coord(gravity_dir) - surface.head_coord(gravity_dir)
-}
-
-fn body_on_support_side(body: Aabb, surface: Aabb, gravity_dir: Vec2) -> bool {
-    body.center().dot(gravity_dir) <= surface.center().dot(gravity_dir)
-}
-
 fn surface_supports_body_at_rest(
     kind: BlockKind,
     body: Aabb,
@@ -133,10 +71,6 @@ pub(super) fn supporting_block<'a>(
     world.blocks.iter().find(|block| {
         surface_supports_body_at_rest(block.kind, body, block.aabb, gravity_dir, drop_through)
     })
-}
-
-pub(super) fn snap_feet_to_surface(body: Aabb, surface: Aabb, gravity_dir: Vec2) -> Vec2 {
-    gravity_dir * (surface.head_coord(gravity_dir) - body.feet_coord(gravity_dir))
 }
 
 fn axis_face_resolution(body: Aabb, block: Aabb, axis: Axis) -> (Vec2, Vec2) {

@@ -31,6 +31,11 @@
 //! gains a few abilities-shaped fields and we delete the duplicate
 //! sweep helpers in `movement`.
 
+use ambition_engine_core::collision_semantics::{
+    axis_role, body_on_support_side, gravity_axis, is_full_collision_surface, is_solid_for_axis,
+    is_support_surface, moving_toward_feet, snap_feet_to_surface, support_face_separation, Axis,
+    AxisRole, CONTACT_SLOP, MOTION_EPS, ONE_WAY_CROSSING_SLOP,
+};
 use ambition_engine_core::Vec2;
 use ambition_engine_core::{Aabb, AabbExt};
 use ambition_engine_core::{Block, BlockKind, World};
@@ -177,31 +182,6 @@ pub fn step_kinematic(
     resolve_penetration(body, world, g);
 }
 
-const CONTACT_SLOP: f32 = 4.0;
-const ONE_WAY_CROSSING_SLOP: f32 = 8.0;
-const MOTION_EPS: f32 = 1.0e-5;
-
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-enum Axis {
-    X,
-    Y,
-}
-
-impl Axis {
-    fn perpendicular(self) -> Self {
-        match self {
-            Axis::X => Axis::Y,
-            Axis::Y => Axis::X,
-        }
-    }
-}
-
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-enum AxisRole {
-    Gravity,
-    Side,
-}
-
 fn cardinal_gravity(gravity_dir: Vec2) -> Vec2 {
     if gravity_dir.x.abs() > gravity_dir.y.abs() {
         Vec2::new(gravity_dir.x.signum(), 0.0)
@@ -209,22 +189,6 @@ fn cardinal_gravity(gravity_dir: Vec2) -> Vec2 {
         Vec2::new(0.0, gravity_dir.y.signum())
     } else {
         Vec2::new(0.0, 1.0)
-    }
-}
-
-fn gravity_axis(gravity_dir: Vec2) -> Axis {
-    if gravity_dir.x.abs() > gravity_dir.y.abs() {
-        Axis::X
-    } else {
-        Axis::Y
-    }
-}
-
-fn axis_role(axis: Axis, gravity_dir: Vec2) -> AxisRole {
-    if axis == gravity_axis(gravity_dir) {
-        AxisRole::Gravity
-    } else {
-        AxisRole::Side
     }
 }
 
@@ -263,29 +227,6 @@ fn clear_velocity_toward_feet(vel: &mut Vec2, gravity_dir: Vec2) {
     }
 }
 
-fn moving_toward_feet(delta: Vec2, gravity_dir: Vec2) -> bool {
-    delta.dot(gravity_dir) > MOTION_EPS
-}
-
-fn is_support_surface(kind: BlockKind) -> bool {
-    matches!(
-        kind,
-        BlockKind::Solid | BlockKind::BlinkWall { .. } | BlockKind::OneWay
-    )
-}
-
-fn is_full_collision_surface(kind: BlockKind) -> bool {
-    matches!(kind, BlockKind::Solid | BlockKind::BlinkWall { .. })
-}
-
-fn is_solid_for_axis(kind: BlockKind, axis: Axis, gravity_dir: Vec2) -> bool {
-    match kind {
-        BlockKind::Solid | BlockKind::BlinkWall { .. } => true,
-        BlockKind::OneWay => axis_role(axis, gravity_dir) == AxisRole::Gravity,
-        BlockKind::Hazard | BlockKind::PogoOrb | BlockKind::Rebound { .. } => false,
-    }
-}
-
 fn perpendicular_overlap(body: Aabb, surface: Aabb, gravity_dir: Vec2) -> bool {
     if gravity_dir.x.abs() > gravity_dir.y.abs() {
         body.bottom() > surface.top() && body.top() < surface.bottom()
@@ -308,14 +249,6 @@ fn one_way_landing_from_previous_feet(
     moving_toward_feet(delta, gravity_dir)
         && prev_feet_coord <= block.head_coord(gravity_dir) + ONE_WAY_CROSSING_SLOP
         && perpendicular_overlap(body, block, gravity_dir)
-}
-
-fn support_face_separation(body: Aabb, surface: Aabb, gravity_dir: Vec2) -> f32 {
-    body.feet_coord(gravity_dir) - surface.head_coord(gravity_dir)
-}
-
-fn body_on_support_side(body: Aabb, surface: Aabb, gravity_dir: Vec2) -> bool {
-    body.center().dot(gravity_dir) <= surface.center().dot(gravity_dir)
 }
 
 fn surface_supports_body_at_rest(
@@ -344,10 +277,6 @@ fn supporting_block<'a>(
     world.blocks.iter().find(|block| {
         surface_supports_body_at_rest(block.kind, body, block.aabb, gravity_dir, drop_through)
     })
-}
-
-fn snap_feet_to_surface(body: Aabb, surface: Aabb, gravity_dir: Vec2) -> Vec2 {
-    gravity_dir * (surface.head_coord(gravity_dir) - body.feet_coord(gravity_dir))
 }
 
 /// True when a feet-to-surface resting snap is a genuine small contact

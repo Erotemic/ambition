@@ -26,6 +26,7 @@
 //! [`player_clusters::PlayerClusterScratch::new_with_abilities`].
 
 pub mod abilities;
+pub mod collision_semantics;
 pub mod combat_volume;
 pub mod config;
 pub mod volume_shape;

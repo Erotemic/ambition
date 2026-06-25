@@ -14,5 +14,7 @@ ADDING a content crate without editing core? Jon's four goals the work served:
 
 **What's left is no longer "extract a crate."** The clean crate-leaf frontier is
 exhausted; further structure is internal splits + content promotion, tracked
-live in `refactor-candidates.md` and `tech-debt-log.md`. The detailed scoping and
+live in `refactor-candidates.md`, `tech-debt-log.md`, and the actionable
+`restructuring-blueprint.md` (the current ownership / domain-plugin cleanup
+plan: shim deletion, collision-semantics dedup, app-drain, RoomGeometry). The detailed scoping and
 per-phase run-logs were pruned (outcome is in the crate graph + git history).

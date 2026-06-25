@@ -2,6 +2,14 @@
 
 **Review date:** 2026-05-30. Reviewed against source archive `ambition-source-2026-05-30T104014-5-e721ea65c578`.
 
+> **Target-state note (2026-06-25).** This is the current controllable-actor seam
+> and is sound, but `Brain::Player(slot)` is a **bridge adapter**, not the target
+> vocabulary — it still routes one local input source to one primary actor. The
+> target is explicit control-authority roles (input source → authority → actor
+> intent), where a human-controlled actor is just one authority among
+> AI/script/replay/remote. See `docs/planning/restructuring-blueprint.md` (role
+> taxonomy, `ControlFrame`→actor-local-intent).
+
 The universal-brain interface is the current controllable-actor seam. It separates:
 
 - **policy**: what the actor wants to do this tick (`Brain`);

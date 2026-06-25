@@ -6,7 +6,12 @@ This file tracks structural cleanup candidates. It is planning material, not a r
 
 - Search `dev/` for prior traps before broad module moves.
 - Prefer one module family per patch.
-- Preserve compatibility re-exports until downstream imports are updated.
+- Compatibility re-exports through `ambition_gameplay_core` (e.g. `::input`,
+  `::engine_core`, `::actor`, `::brain`, `::interaction`) are **deletion targets**,
+  not stable paths — canonical imports are the active goal. Switch downstream
+  callers to the canonical crate, then drop the re-export (privatize to a plain
+  `use` if gameplay_core still needs it internally). No facade/allowlist — there
+  are no external consumers. See `restructuring-blueprint.md` §1.
 - Regenerate `.agent/` indexes after moves.
 - Do not mix gameplay behavior changes with mechanical file moves unless a test requires it.
 

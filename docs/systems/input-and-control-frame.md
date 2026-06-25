@@ -2,6 +2,14 @@
 
 Ambition normalizes physical input into gameplay-facing actions and control frames before simulation code consumes it. Keyboard, controller, and mobile/touch sources should not leak device-specific policy into movement and combat systems.
 
+> **This describes the current single-local bridge, not the target.** Today many
+> simulation systems read the global `Res<ControlFrame>` directly, which hardcodes
+> one local input source and one primary controlled actor. The target seam is
+> **input source → participant / control authority → actor-local intent**: sim
+> consumes entity-local `ActorIntent`/`ActorInputFrame`; `ControlFrame` stays an
+> input-source snapshot; presentation reads viewpoint/focus, not controlled-actor
+> identity. See `docs/planning/restructuring-blueprint.md` §4 and the role taxonomy.
+
 ## Current shape
 
 ```text

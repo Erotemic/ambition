@@ -5,6 +5,14 @@ character — player, NPC, enemy, boss — onto one actor system. The work lande
 `main`; the detailed run-log was pruned (its outcome is captured here, in project
 memory, and in git history).
 
+> **Scope note (2026-06-25).** What landed is actor-**body** unification (one
+> movement/render/combat spine for every character). The remaining player-centric
+> surface — `PrimaryPlayer`/`PlayerEntity`/`PlayerInputFrame` and the global
+> `ControlFrame` read — is the *control-authority / participant / viewpoint* role
+> split, which is **not** done. That work is tracked in `restructuring-blueprint.md`
+> (role taxonomy + `ControlFrame`→actor-local-intent). Treat the `Player*` names
+> here as current bridge vocabulary, not the target.
+
 ## North star (achieved)
 
 Every character is a different *instance* of one actor system. The only genuinely

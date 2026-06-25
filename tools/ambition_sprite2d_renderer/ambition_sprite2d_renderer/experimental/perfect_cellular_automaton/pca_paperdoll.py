@@ -548,54 +548,17 @@ def build(pose: str, palette: np.ndarray, eps_quant=None):
                       "area": float(core_mask.sum()),
                       "points": poly.astype(int).tolist()})
 
-    # ---- chest plate (geometric, view-general) ----
-    # The UPPER torso is green chest armor over the dark bodysuit; the reference
-    # torso is ~half green. The fixed center-band label loses that armor when the
-    # torso moves, so the action poses read as a dark slab. Author it from the
-    # GREEN that sits over the upper core (central, not the lateral arms), drawn
-    # OVER the core so the dark no longer dominates.
-    green_ids = [i for i, c in enumerate(palette) if c[1] > c[0] and c[1] > 100]
-    green_all = np.isin(qi, green_ids).astype(np.uint8)
-    cpy, cpx = np.where(core_mask > 0)
-    if cpy.size:
-        ky0, ky1 = int(cpy.min()), int(cpy.max())
-        kx0, kx1 = int(cpx.min()), int(cpx.max())
-        kh = max(1, ky1 - ky0); kw = max(1, kx1 - kx0)
-        band = np.zeros((h, w), np.uint8)
-        band[int(ky0):int(ky0 + 0.6 * kh), int(kx0 - 0.05 * kw):int(kx1 + 0.05 * kw)] = 1
-        chest = green_all & band
-        cn, clab, cst, cce = cv2.connectedComponentsWithStats(chest, 8)
-        keep = np.zeros((h, w), np.uint8)
-        for i in range(1, cn):
-            if cst[i, cv2.CC_STAT_AREA] < 30:
-                continue
-            gx = cce[i][0]
-            if kx0 - 0.05 * kw <= gx <= kx1 + 0.05 * kw:   # central (over the core), not a far arm
-                keep |= (clab == i).astype(np.uint8)
-        if keep.sum() >= 0.05 * core_mask.sum():
-            keep = cv2.morphologyEx(keep, cv2.MORPH_CLOSE,
-                                    cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (5, 5)))
-            cc2 = cv2.findContours(keep, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)[0]
-            if cc2:
-                cp = max(cc2, key=cv2.contourArea).reshape(-1, 2)
-                if cv2.contourArea(cp) > 40:
-                    # colour = the dominant green actually under the plate (mid-green,
-                    # not forced to the bright cell green)
-                    gpx = qi[keep > 0]
-                    gpx = gpx[np.isin(gpx, green_ids)]
-                    cpc = int(np.bincount(gpx).argmax()) if gpx.size else cell_green
-                    polys.append({"part": "chest_plate", "color": cpc,
-                                  "area": float(keep.sum()),
-                                  "points": _despike(_clean(cp, convex=False, max_edges=12)).astype(int).tolist()})
-
-    # ---- belly grid (geometric, view-general) ----
+    # ---- belly grid (geometric, view-general) ----  [built BEFORE the chest plate
+    # so the chest plate can exclude this footprint -- otherwise the cells merge
+    # into the plate as one green blob ("M" bug).]
     # The automaton belly grid is the character's signature, but the fixed
     # center-band label loses it whenever the torso moves (idle/air/land had ~0
     # cells). Detect it instead by GEOMETRY: small, square, filled GREEN blobs that
-    # sit on the dark CORE (lower half of the core bbox). Then fit a regular NxM
+    # sit on the dark CORE (lower 2/3 of the core bbox). Then fit a regular NxM
     # array of equal squares -- consistent cells, like the reference.
     green_idx = [i for i, c in enumerate(palette) if c[1] > c[0] and c[1] > 100]
     green = np.isin(qi, green_idx).astype(np.uint8) if green_idx else np.zeros((h, w), np.uint8)
+    belly_region = np.zeros((h, w), np.uint8)     # footprint of the grid, for the chest plate
     cys, cxs = np.where(core_mask > 0)
     cells = []
     # the belly grid faces the camera only -- visible from the front, a little from
@@ -603,7 +566,7 @@ def build(pose: str, palette: np.ndarray, eps_quant=None):
     if face_box is not None and cys.size:
         cy0, cy1, cx0, cx1 = cys.min(), cys.max(), cxs.min(), cxs.max()
         ch = max(1, cy1 - cy0); cw = max(1, cx1 - cx0)
-        belly_y0 = cy0 + 0.20 * ch          # belly = lower ~2/3 of the core
+        belly_y0 = cy0 + 0.20 * ch
         gn, glab, gst, gce = cv2.connectedComponentsWithStats(green, 8)
         for i in range(1, gn):
             a = gst[i, cv2.CC_STAT_AREA]
@@ -617,10 +580,6 @@ def build(pose: str, palette: np.ndarray, eps_quant=None):
             gx, gy = gce[i]
             if cx0 - 0.10 * cw <= gx <= cx1 + 0.10 * cw and belly_y0 <= gy <= cy1:
                 cells.append((gx, gy))
-        # the belly grid is a TIGHT cluster; square leg-armour segments also pass
-        # the per-cell tests and would stretch the grid down into the legs (jump/
-        # walk). Keep only the densest cluster (cells linked within ~2x the median
-        # neighbour spacing) so outlier leg cells are dropped.
         cells = _densest_cluster(cells)
     if len(cells) >= 4:
         cxa = np.array([c[0] for c in cells]); cya = np.array([c[1] for c in cells])
@@ -644,6 +603,48 @@ def build(pose: str, palette: np.ndarray, eps_quant=None):
                     polys.append({"part": "belly_cell", "color": cell_green, "area": float(cell * cell),
                                   "points": [[int(ux - s), int(uy - s)], [int(ux + s), int(uy - s)],
                                              [int(ux + s), int(uy + s)], [int(ux - s), int(uy + s)]]})
+            # the grid's bounding footprint (cells + their gaps), so the chest plate
+            # can carve it out and the cells render as a clean grid on dark.
+            belly_region[int(gy0 - cell):int(gy1 + cell), int(gx0 - cell):int(gx1 + cell)] = 1
+
+    # ---- chest plate (geometric, view-general) ----
+    # The UPPER torso is green chest armor over the dark bodysuit; the reference
+    # torso is ~half green. Author it from the GREEN over the upper core (central,
+    # not the lateral arms), EXCLUDING the belly-grid footprint, drawn OVER the
+    # core so the dark no longer dominates the action poses.
+    green_ids = green_idx
+    green_all = green
+    cpy, cpx = np.where(core_mask > 0)
+    if cpy.size:
+        ky0, ky1 = int(cpy.min()), int(cpy.max())
+        kx0, kx1 = int(cpx.min()), int(cpx.max())
+        kh = max(1, ky1 - ky0); kw = max(1, kx1 - kx0)
+        band = np.zeros((h, w), np.uint8)
+        band[int(ky0):int(ky0 + 0.6 * kh), int(kx0 - 0.05 * kw):int(kx1 + 0.05 * kw)] = 1
+        chest = (green_all & band).astype(np.uint8)
+        chest[belly_region > 0] = 0                       # don't swallow the grid
+        cn, clab, cst, cce = cv2.connectedComponentsWithStats(chest, 8)
+        keep = np.zeros((h, w), np.uint8)
+        for i in range(1, cn):
+            if cst[i, cv2.CC_STAT_AREA] < 30:
+                continue
+            gx = cce[i][0]
+            if kx0 - 0.05 * kw <= gx <= kx1 + 0.05 * kw:   # central (over the core), not a far arm
+                keep |= (clab == i).astype(np.uint8)
+        if keep.sum() >= 0.05 * core_mask.sum():
+            keep = cv2.morphologyEx(keep, cv2.MORPH_CLOSE,
+                                    cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (5, 5)))
+            keep[belly_region > 0] = 0                    # re-carve after the close
+            cc2 = cv2.findContours(keep, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)[0]
+            if cc2:
+                cp = max(cc2, key=cv2.contourArea).reshape(-1, 2)
+                if cv2.contourArea(cp) > 40:
+                    gpx = qi[keep > 0]
+                    gpx = gpx[np.isin(gpx, green_ids)]
+                    cpc = int(np.bincount(gpx).argmax()) if gpx.size else cell_green
+                    polys.append({"part": "chest_plate", "color": cpc,
+                                  "area": float(keep.sum()),
+                                  "points": _despike(_clean(cp, convex=False, max_edges=12)).astype(int).tolist()})
 
     # explicit detected eyes on top -- slanted PARALLELOGRAMS (the slit's top
     # sheared toward the face centre) so the character reads a little mean.

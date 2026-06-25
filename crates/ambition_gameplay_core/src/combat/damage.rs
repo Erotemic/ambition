@@ -72,6 +72,7 @@ pub(crate) fn death_respawn_player(
     tuning: ae::MovementTuning,
     feel: SandboxFeelTuning,
     from: ae::Vec2,
+    cause: crate::DeathCause,
     anim: &mut PlayerAnimState,
     combat: &mut PlayerCombatState,
 ) {
@@ -97,7 +98,7 @@ pub(crate) fn death_respawn_player(
     banner.show("PLAYER DOWN: respawned at room start with full HP", 2.4);
     sfx.write(SfxMessage::Death { pos: from });
     vfx.write(VfxMessage::ResetEffects { from, to });
-    died.write(ActorDiedMessage { pos: from });
+    died.write(ActorDiedMessage { pos: from, cause });
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -169,6 +170,12 @@ pub(crate) fn handle_player_damage_events(
         .map(|k| k.impact_pos)
         .unwrap_or_else(|| damage.volume.center());
     if died_from_damage {
+        // Attribution for the death fact: the killing hit's source category
+        // plus its attacker entity when the source carries one.
+        let cause = crate::DeathCause {
+            source: damage.source.clone(),
+            attacker: damage.attacker,
+        };
         death_respawn_player(
             world,
             sfx,
@@ -183,6 +190,7 @@ pub(crate) fn handle_player_damage_events(
             tuning,
             feel,
             impact_pos,
+            cause,
             anim,
             combat,
         );

@@ -137,16 +137,33 @@ use ambition_input::KeyboardPreset;
 /// actors). Today only the controlled player routes through it.
 ///
 /// `pos` carries the impact location for downstream consumers (vfx, future
-/// death-replay tooling). Today the encounter system ignores it. (Source/cause
-/// attribution — who killed the actor — is future attribution work; the death
-/// path does not yet thread the attacker identity.)
+/// death-replay tooling). `cause` carries the attribution — what dealt the
+/// killing blow — so causality exists for future death-replay / multiplayer
+/// kill-credit without a downstream consumer having to reconstruct it from the
+/// raw [`combat::HitEvent`] stream. Today the encounter system ignores both.
 ///
 /// Replaces the previous `player_died_pending` bool — the Vec-collector →
 /// `MessageWriter` pattern matches the rest of the sim → presentation seam
 /// (`SfxMessage` / `VfxMessage` / `DebrisBurstMessage`).
-#[derive(Message, Clone, Copy, Debug)]
+#[derive(Message, Clone, Debug)]
 pub struct ActorDiedMessage {
     pub pos: ae::Vec2,
+    pub cause: DeathCause,
+}
+
+/// Attribution for an actor death — what dealt the killing blow.
+///
+/// Compact by design: the killing hit's [`combat::HitSource`] category plus the
+/// attacker entity when the source carries one (player-side hits do; enemy /
+/// boss / hazard sources identify by category only today — threading their
+/// dealing entity is the deeper actor-attribution work). Reuses `HitSource`
+/// rather than a parallel enum so a new attack source needs no second edit.
+#[derive(Clone, Debug, PartialEq)]
+pub struct DeathCause {
+    /// The killing hit's source category (melee / projectile / hazard / …).
+    pub source: combat::HitSource,
+    /// The entity that dealt the killing blow, when known.
+    pub attacker: Option<bevy::prelude::Entity>,
 }
 
 /// Per-frame conditions that gate writes to `SandboxSimState::last_safe_player_pos`.

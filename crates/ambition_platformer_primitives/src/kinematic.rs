@@ -33,12 +33,13 @@
 
 use ambition_engine_core::collision_semantics::{
     axis_role, body_on_support_side, gravity_axis, is_full_collision_surface, is_solid_for_axis,
-    is_support_surface, moving_toward_feet, snap_feet_to_surface, support_face_separation, Axis,
-    AxisRole, CONTACT_SLOP, MOTION_EPS, ONE_WAY_CROSSING_SLOP,
+    moving_toward_feet, one_way_landing_from_previous_feet, perpendicular_overlap,
+    snap_feet_to_surface, supporting_block, surface_supports_body_at_rest, Axis, AxisRole,
+    MOTION_EPS,
 };
 use ambition_engine_core::Vec2;
 use ambition_engine_core::{Aabb, AabbExt};
-use ambition_engine_core::{Block, BlockKind, World};
+use ambition_engine_core::{BlockKind, World};
 
 /// Per-tick configuration for [`step_kinematic`].
 #[derive(Clone, Copy, Debug)]
@@ -227,58 +228,6 @@ fn clear_velocity_toward_feet(vel: &mut Vec2, gravity_dir: Vec2) {
     }
 }
 
-fn perpendicular_overlap(body: Aabb, surface: Aabb, gravity_dir: Vec2) -> bool {
-    if gravity_dir.x.abs() > gravity_dir.y.abs() {
-        body.bottom() > surface.top() && body.top() < surface.bottom()
-    } else {
-        body.right() > surface.left() && body.left() < surface.right()
-    }
-}
-
-fn one_way_landing_from_previous_feet(
-    body: Aabb,
-    block: Aabb,
-    delta: Vec2,
-    gravity_dir: Vec2,
-    drop_through: bool,
-    prev_feet_coord: f32,
-) -> bool {
-    if drop_through {
-        return false;
-    }
-    moving_toward_feet(delta, gravity_dir)
-        && prev_feet_coord <= block.head_coord(gravity_dir) + ONE_WAY_CROSSING_SLOP
-        && perpendicular_overlap(body, block, gravity_dir)
-}
-
-fn surface_supports_body_at_rest(
-    kind: BlockKind,
-    body: Aabb,
-    surface: Aabb,
-    gravity_dir: Vec2,
-    drop_through: bool,
-) -> bool {
-    if !is_support_surface(kind) || !perpendicular_overlap(body, surface, gravity_dir) {
-        return false;
-    }
-    if matches!(kind, BlockKind::OneWay) && drop_through {
-        return false;
-    }
-    body_on_support_side(body, surface, gravity_dir)
-        && support_face_separation(body, surface, gravity_dir).abs() <= CONTACT_SLOP
-}
-
-fn supporting_block<'a>(
-    world: &'a World,
-    body: Aabb,
-    gravity_dir: Vec2,
-    drop_through: bool,
-) -> Option<&'a Block> {
-    world.blocks.iter().find(|block| {
-        surface_supports_body_at_rest(block.kind, body, block.aabb, gravity_dir, drop_through)
-    })
-}
-
 /// True when a feet-to-surface resting snap is a genuine small contact
 /// correction rather than a pushout-teleport. A legitimate "resting on a
 /// support" snap moves the body at most a contact-slop distance; a snap
@@ -463,6 +412,7 @@ fn resolve_penetration(body: &mut KinematicBody, world: &World, gravity_dir: Vec
 #[cfg(test)]
 mod tests {
     use super::*;
+    use ambition_engine_core::Block;
 
     fn world_with(blocks: Vec<Block>) -> World {
         World {

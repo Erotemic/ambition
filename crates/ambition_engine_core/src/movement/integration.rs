@@ -226,7 +226,7 @@ pub(super) fn integrate_velocity_clusters(
     if clusters.ground.on_ground {
         let g = tuning.gravity_dir;
         let oriented = clusters.kinematics.aabb_oriented(g);
-        if let Some(support) = super::collision::supporting_block(
+        if let Some(support) = crate::collision_semantics::supporting_block(
             world,
             oriented,
             g,

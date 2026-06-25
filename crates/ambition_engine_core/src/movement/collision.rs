@@ -1,33 +1,11 @@
 use crate::collision_semantics::{
     axis_role, body_on_support_side, is_full_collision_surface, is_solid_for_axis,
-    is_support_surface, moving_toward_feet, snap_feet_to_surface, support_face_separation, Axis,
-    AxisRole, CONTACT_SLOP, ONE_WAY_CROSSING_SLOP,
+    moving_toward_feet, one_way_landing_from_previous_feet, snap_feet_to_surface, supporting_block,
+    surface_supports_body_at_rest, Axis, AxisRole,
 };
 use crate::geometry::{Aabb, AabbExt};
-use crate::world::{Block, BlockKind, World};
+use crate::world::{BlockKind, World};
 use crate::Vec2;
-
-fn one_way_landing_from_previous_feet(
-    body: Aabb,
-    block: Aabb,
-    delta: Vec2,
-    gravity_dir: Vec2,
-    drop_through: bool,
-    prev_feet_coord: f32,
-) -> bool {
-    if drop_through || gravity_dir == Vec2::ZERO {
-        return false;
-    }
-    // The body can only collide with a one-way while moving toward its feet.
-    if !moving_toward_feet(delta, gravity_dir) {
-        return false;
-    }
-    // It must have started on the passable side, outside or just touching the
-    // authored anti-gravity face. The tolerance matches the historical landing
-    // gate and handles discrete timesteps near the surface.
-    prev_feet_coord <= block.head_coord(gravity_dir) + ONE_WAY_CROSSING_SLOP
-        && perpendicular_overlap(body, block, gravity_dir)
-}
 
 fn one_way_landing_from_feet(
     body: Aabb,
@@ -44,33 +22,6 @@ fn one_way_landing_from_feet(
         drop_through,
         body.feet_coord(gravity_dir),
     )
-}
-
-fn surface_supports_body_at_rest(
-    kind: BlockKind,
-    body: Aabb,
-    surface: Aabb,
-    gravity_dir: Vec2,
-    drop_through: bool,
-) -> bool {
-    if !is_support_surface(kind) || !perpendicular_overlap(body, surface, gravity_dir) {
-        return false;
-    }
-    if matches!(kind, BlockKind::OneWay) && drop_through {
-        return false;
-    }
-    support_face_separation(body, surface, gravity_dir).abs() <= CONTACT_SLOP
-}
-
-pub(super) fn supporting_block<'a>(
-    world: &'a World,
-    body: Aabb,
-    gravity_dir: Vec2,
-    drop_through: bool,
-) -> Option<&'a Block> {
-    world.blocks.iter().find(|block| {
-        surface_supports_body_at_rest(block.kind, body, block.aabb, gravity_dir, drop_through)
-    })
 }
 
 fn axis_face_resolution(body: Aabb, block: Aabb, axis: Axis) -> (Vec2, Vec2) {
@@ -550,17 +501,6 @@ pub fn standing_on_one_way_aabb(world: &World, body: Aabb, gravity_dir: Vec2) ->
         matches!(block.kind, BlockKind::OneWay)
             && surface_supports_body_at_rest(block.kind, body, block.aabb, gravity_dir, false)
     })
-}
-
-/// Overlap on the axis PERPENDICULAR to gravity (the "width" the body must share
-/// with a surface to rest on it): the X span under vertical gravity, the Y span
-/// under wall-walking. 1px slack matches the historical strict-touch contract.
-pub(super) fn perpendicular_overlap(body: Aabb, b: Aabb, gravity_dir: Vec2) -> bool {
-    if gravity_dir.y.abs() >= gravity_dir.x.abs() {
-        body.right() > b.left() + 1.0 && body.left() < b.right() - 1.0
-    } else {
-        body.bottom() > b.top() + 1.0 && body.top() < b.bottom() - 1.0
-    }
 }
 
 /// Tile-set-only hazard touch test. Cluster-aware callers

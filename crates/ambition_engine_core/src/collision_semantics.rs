@@ -23,7 +23,7 @@
 //! all four cardinal gravity directions (see the `tests` module).
 
 use crate::geometry::{Aabb, AabbExt};
-use crate::world::BlockKind;
+use crate::world::{Block, BlockKind, World};
 use crate::Vec2;
 
 /// Resting contact tolerance along the gravity (feet) axis, in pixels. A body
@@ -38,6 +38,11 @@ pub const ONE_WAY_CROSSING_SLOP: f32 = 8.0;
 
 /// Minimum motion (along an axis or toward the feet) treated as non-zero.
 pub const MOTION_EPS: f32 = 1.0e-5;
+
+/// Required real overlap on the axis perpendicular to gravity, in pixels, before
+/// a body counts as resting on a surface (so a sliver overhang does not). See
+/// [`perpendicular_overlap`].
+pub const EDGE_OVERLAP_SLOP: f32 = 1.0;
 
 /// A world axis. The world is axis-aligned, so sweeps and penetration repair
 /// step one world axis at a time even though support/wall *decisions* are
@@ -134,6 +139,85 @@ pub fn snap_feet_to_surface(body: Aabb, surface: Aabb, gravity_dir: Vec2) -> Vec
     gravity_dir * (surface.head_coord(gravity_dir) - body.feet_coord(gravity_dir))
 }
 
+/// Overlap on the axis PERPENDICULAR to gravity — the "width" a body must share
+/// with a surface to rest on it (the X span under vertical gravity, the Y span
+/// under wall-walking). Requires [`EDGE_OVERLAP_SLOP`] of real overlap on each
+/// side, so a body hanging off an edge by a sliver does not count as resting.
+///
+/// Canonical unification (2026-06-25): the controlled-body sweep required this
+/// slack ("strict-touch contract"); the generic kinematic sweep used none. The
+/// slack is the more conservative, tuned rule, so it now applies to every actor.
+pub fn perpendicular_overlap(body: Aabb, surface: Aabb, gravity_dir: Vec2) -> bool {
+    if gravity_dir.y.abs() >= gravity_dir.x.abs() {
+        body.right() > surface.left() + EDGE_OVERLAP_SLOP
+            && body.left() < surface.right() - EDGE_OVERLAP_SLOP
+    } else {
+        body.bottom() > surface.top() + EDGE_OVERLAP_SLOP
+            && body.top() < surface.bottom() - EDGE_OVERLAP_SLOP
+    }
+}
+
+/// Whether a body may LAND on a one-way surface this step: it must be moving
+/// toward its feet, have started on the passable (anti-gravity) side within
+/// [`ONE_WAY_CROSSING_SLOP`], and share perpendicular overlap. `drop_through`
+/// — or absent gravity — suppresses the landing so the body falls through.
+///
+/// Canonical unification (2026-06-25): includes the `gravity_dir == ZERO` guard
+/// (a one-way "landing" is meaningless without a gravity direction) that the
+/// controlled-body sweep had and the kinematic sweep lacked.
+pub fn one_way_landing_from_previous_feet(
+    body: Aabb,
+    block: Aabb,
+    delta: Vec2,
+    gravity_dir: Vec2,
+    drop_through: bool,
+    prev_feet_coord: f32,
+) -> bool {
+    if drop_through || gravity_dir == Vec2::ZERO {
+        return false;
+    }
+    moving_toward_feet(delta, gravity_dir)
+        && prev_feet_coord <= block.head_coord(gravity_dir) + ONE_WAY_CROSSING_SLOP
+        && perpendicular_overlap(body, block, gravity_dir)
+}
+
+/// Whether `surface` supports `body` at rest under this gravity: a support kind,
+/// perpendicular overlap, the body's center on the support side, and the feet
+/// face within [`CONTACT_SLOP`] of the surface head. A one-way does not support
+/// a body that is dropping through.
+///
+/// Canonical unification (2026-06-25): includes the `body_on_support_side`
+/// requirement (you are not resting ON something your center has passed) that
+/// the kinematic sweep had and the controlled-body sweep lacked.
+pub fn surface_supports_body_at_rest(
+    kind: BlockKind,
+    body: Aabb,
+    surface: Aabb,
+    gravity_dir: Vec2,
+    drop_through: bool,
+) -> bool {
+    if !is_support_surface(kind) || !perpendicular_overlap(body, surface, gravity_dir) {
+        return false;
+    }
+    if matches!(kind, BlockKind::OneWay) && drop_through {
+        return false;
+    }
+    body_on_support_side(body, surface, gravity_dir)
+        && support_face_separation(body, surface, gravity_dir).abs() <= CONTACT_SLOP
+}
+
+/// The first world block that supports `body` at rest under this gravity, if any.
+pub fn supporting_block<'a>(
+    world: &'a World,
+    body: Aabb,
+    gravity_dir: Vec2,
+    drop_through: bool,
+) -> Option<&'a Block> {
+    world.blocks.iter().find(|block| {
+        surface_supports_body_at_rest(block.kind, body, block.aabb, gravity_dir, drop_through)
+    })
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -198,6 +282,86 @@ mod tests {
         assert!(!moving_toward_feet(Vec2::new(0.0, -5.0), Vec2::new(0.0, 1.0)));
         assert!(moving_toward_feet(Vec2::new(-5.0, 0.0), Vec2::new(-1.0, 0.0)));
         assert!(!moving_toward_feet(Vec2::new(5.0, 0.0), Vec2::new(-1.0, 0.0)));
+    }
+
+    // --- Canonical resolutions of the three former player/enemy drifts ---
+
+    #[test]
+    fn perpendicular_overlap_requires_real_overlap_not_a_sliver() {
+        // Drift #1: the slack now applies to every actor. A body overlapping a
+        // surface by less than EDGE_OVERLAP_SLOP on a side is NOT resting.
+        let surface = aabb_from_min_size(Vec2::new(0.0, 100.0), Vec2::new(100.0, 20.0));
+        let dir = Vec2::new(0.0, 1.0);
+        // Body whose right edge clears the surface left by only 0.5px -> sliver.
+        let sliver = Aabb::new(Vec2::new(-9.5, 80.0), Vec2::new(10.0, 10.0)); // right = 0.5
+        assert!(!perpendicular_overlap(sliver, surface, dir));
+        // Two px of real overlap -> rests.
+        let resting = Aabb::new(Vec2::new(-8.0, 80.0), Vec2::new(10.0, 10.0)); // right = 2.0
+        assert!(perpendicular_overlap(resting, surface, dir));
+    }
+
+    #[test]
+    fn at_rest_uses_the_body_on_support_side_guard() {
+        // Drift #3: surface_supports_body_at_rest now also requires the body's
+        // center to be on the support side. `body_on_support_side` compares
+        // CENTERS, so for a normally-resting body it is always true (feet near
+        // the head => center above the surface center) — the guard is inert for
+        // normal actors and only excludes a huge/embedded body whose center has
+        // passed the surface center (the mockingbird OOB class). This documents
+        // that semantics rather than claiming the guard flips a resting contact.
+        let surface = aabb_from_min_size(Vec2::new(0.0, 100.0), Vec2::new(100.0, 20.0));
+        let dir = Vec2::new(0.0, 1.0); // head(top)=100, center=110
+        let resting = Aabb::new(Vec2::new(40.0, 89.0), Vec2::new(10.0, 10.0)); // feet=99
+        assert!(body_on_support_side(resting, surface, dir));
+        assert!(surface_supports_body_at_rest(
+            BlockKind::Solid,
+            resting,
+            surface,
+            dir,
+            false
+        ));
+        // Center past the surface center: not on the support side, not resting.
+        let embedded = Aabb::new(Vec2::new(40.0, 130.0), Vec2::new(10.0, 10.0));
+        assert!(!body_on_support_side(embedded, surface, dir));
+        assert!(!surface_supports_body_at_rest(
+            BlockKind::Solid,
+            embedded,
+            surface,
+            dir,
+            false
+        ));
+        // A one-way dropping through is never a resting support.
+        assert!(!surface_supports_body_at_rest(
+            BlockKind::OneWay,
+            resting,
+            surface,
+            dir,
+            true
+        ));
+    }
+
+    #[test]
+    fn one_way_landing_is_false_without_gravity() {
+        // Drift #2: no gravity direction -> no one-way "landing".
+        let block = aabb_from_min_size(Vec2::new(0.0, 100.0), Vec2::new(100.0, 14.0));
+        let body = Aabb::new(Vec2::new(40.0, 88.0), Vec2::new(10.0, 10.0));
+        assert!(!one_way_landing_from_previous_feet(
+            body,
+            block,
+            Vec2::new(0.0, 5.0),
+            Vec2::ZERO,
+            false,
+            88.0,
+        ));
+        // With down gravity and a feet-side crossing, it lands.
+        assert!(one_way_landing_from_previous_feet(
+            body,
+            block,
+            Vec2::new(0.0, 5.0),
+            Vec2::new(0.0, 1.0),
+            false,
+            96.0,
+        ));
     }
 
     #[test]

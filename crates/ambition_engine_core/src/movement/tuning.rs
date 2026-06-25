@@ -14,6 +14,12 @@ fn default_gravity_dir() -> Vec2 {
     Vec2::new(0.0, 1.0)
 }
 
+/// Default locomotion frame mode for tuning files that omit it. Resolves to the
+/// single source of truth ([`crate::reference_frame::InputFrameMode::DEFAULT_MOVEMENT`]).
+fn default_movement_frame_mode() -> crate::reference_frame::InputFrameMode {
+    crate::reference_frame::InputFrameMode::DEFAULT_MOVEMENT
+}
+
 // First-pass movement constants. These remain constants for easy grep/tuning,
 // but the simulation accepts a `MovementTuning` so experiments can override
 // them without recompiling every assumption into the update function.
@@ -205,7 +211,7 @@ pub struct MovementTuning {
     pub gravity_dir: Vec2,
     /// How raw stick input maps onto the controlled body's gravity-relative frame for free
     /// movement (run / flight). The toward-feet gate (pogo/crouch) is independent.
-    #[serde(default)]
+    #[serde(default = "default_movement_frame_mode")]
     pub movement_frame_mode: crate::reference_frame::InputFrameMode,
     pub run_accel: f32,
     pub air_accel: f32,
@@ -285,7 +291,7 @@ pub const DEFAULT_TUNING: MovementTuning = MovementTuning {
     gravity: GRAVITY,
     gravity_sign: 1.0,
     gravity_dir: Vec2::new(0.0, 1.0),
-    movement_frame_mode: crate::reference_frame::InputFrameMode::BodyRelativeAssist,
+    movement_frame_mode: crate::reference_frame::InputFrameMode::DEFAULT_MOVEMENT,
     run_accel: RUN_ACCEL,
     air_accel: AIR_ACCEL,
     ground_friction: GROUND_FRICTION,

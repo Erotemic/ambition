@@ -131,12 +131,11 @@ pub struct GameplaySettings {
     #[serde(default)]
     pub portal_reverses_facing: bool,
     /// How raw LOCOMOTION input maps onto the controlled body's local frame.
-    /// `Hybrid` is surfaced as body-relative assist: follow the body frame except
-    /// when upside-down, where the mapping accommodates screen orientation.
-    /// `Screen` is surfaced as screen-directed: press a screen direction to move
-    /// in that screen direction through the controlled body's local frame. Flows
-    /// into `MovementTuning::movement_frame_mode`.
-    #[serde(default)]
+    /// `BodyRelativeAssist` follows the body frame except when upside-down, where
+    /// the mapping accommodates screen orientation. `ScreenRelative` (the default)
+    /// presses a screen direction to move in that screen direction through the
+    /// controlled body's local frame. Flows into `MovementTuning::movement_frame_mode`.
+    #[serde(default = "default_movement_frame_mode")]
     pub movement_frame_mode: InputFrameMode,
     /// How raw PRECISION-AIM input (blink steer, ranged/held-item aim) maps onto
     /// the controlled body's local frame. Independent of [`Self::movement_frame_mode`]
@@ -145,6 +144,12 @@ pub struct GameplaySettings {
     /// precision aiming points where the stick points on screen at any gravity.
     #[serde(default = "default_aim_frame_mode")]
     pub aim_frame_mode: InputFrameMode,
+}
+
+/// Locomotion frame-mode default (see [`GameplaySettings::movement_frame_mode`]),
+/// resolved from the engine's single source of truth.
+fn default_movement_frame_mode() -> InputFrameMode {
+    ambition_engine_core::ControlFrameModes::default().movement
 }
 
 /// Precision aiming defaults to screen-directed (see [`GameplaySettings::aim_frame_mode`]).
@@ -171,7 +176,7 @@ impl Default for GameplaySettings {
             trace_auto_dump: true,
             pause_input_when_unfocused: false,
             portal_reverses_facing: false,
-            movement_frame_mode: InputFrameMode::BodyRelativeAssist,
+            movement_frame_mode: default_movement_frame_mode(),
             aim_frame_mode: default_aim_frame_mode(),
         }
     }

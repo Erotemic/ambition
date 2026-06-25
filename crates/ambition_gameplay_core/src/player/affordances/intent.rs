@@ -159,7 +159,7 @@ pub fn compute_player_intent(
         .map_or(Vec2::new(0.0, 1.0), |g| g.dir);
     let movement_mode = user_settings
         .as_deref()
-        .map_or(ambition_engine_core::InputFrameMode::BodyRelativeAssist, |s| {
+        .map_or(ambition_engine_core::InputFrameMode::DEFAULT_MOVEMENT, |s| {
             s.gameplay.movement_frame_mode
         });
     let local_axis = ambition_engine_core::AccelerationFrame::new(gravity_dir).resolve_input(

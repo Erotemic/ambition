@@ -99,7 +99,7 @@ pub fn input_timer_system(
         .map_or(ae::Vec2::new(0.0, 1.0), |g| g.dir);
     let movement_mode = user_settings
         .as_deref()
-        .map_or(ae::InputFrameMode::BodyRelativeAssist, |s| s.gameplay.movement_frame_mode);
+        .map_or(ae::InputFrameMode::DEFAULT_MOVEMENT, |s| s.gameplay.movement_frame_mode);
     let resolved = ae::AccelerationFrame::new(gravity_dir).resolve_control(
         movement_mode,
         control_frame.axis_x,

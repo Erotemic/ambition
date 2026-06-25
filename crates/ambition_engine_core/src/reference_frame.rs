@@ -26,7 +26,12 @@ const STICK_SELECT_DEADZONE: f32 = 0.3;
 /// How the raw INPUT frame maps onto the controlled body's local frame — "which
 /// way is right when gravity is sideways or upside-down". A human-control
 /// preference (see [`AccelerationFrame::control_frame`]).
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Default, serde::Serialize, serde::Deserialize)]
+///
+/// Deliberately NOT `Default`: there is no source-agnostic default frame mode.
+/// The default depends on the INPUT SOURCE — see [`Self::DEFAULT_MOVEMENT`] /
+/// [`Self::DEFAULT_AIM`], which are the single source of truth that
+/// [`ControlFrameModes::default`] and every settings/tuning fallback resolve to.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub enum InputFrameMode {
     /// Input is always SCREEN-aligned: right is screen-right regardless of
     /// gravity (the human mentally tracks the controlled body).
@@ -34,14 +39,24 @@ pub enum InputFrameMode {
     /// Input always follows the controlled body's local frame: right is the
     /// body's own right, fully rotated with gravity (no accommodation).
     BodyRelativeStrict,
-    /// Default HYBRID / body-relative assist: follow the controlled body frame
+    /// HYBRID / body-relative assist: follow the controlled body frame
     /// up to ±90° from screen-down — gravity down / left / right, where a human
     /// tracks the rotation fine — then revert to screen-aligned past 90° (gravity
     /// up-ish), where the flip is hard to map. The vertical "descend" gate
     /// (pogo / crouch) is independent and always flips with the body frame
     /// ([`Self::descend`]).
-    #[default]
     BodyRelativeAssist,
+}
+
+impl InputFrameMode {
+    /// THE default for LOCOMOTION input. Single source of truth — every
+    /// settings/tuning/fallback default for the movement stick resolves here
+    /// (directly, or via [`ControlFrameModes::default`]). A `const` so `const`
+    /// contexts like [`crate::movement::DEFAULT_TUNING`] can reference it too.
+    pub const DEFAULT_MOVEMENT: Self = Self::ScreenRelative;
+    /// THE default for PRECISION-AIM input (blink steer, ranged/held aim) — point
+    /// where the stick points on screen at any gravity. Single source of truth.
+    pub const DEFAULT_AIM: Self = Self::ScreenRelative;
 }
 
 /// The pair of [`InputFrameMode`] policies a control authority maps raw input
@@ -50,9 +65,10 @@ pub enum InputFrameMode {
 /// The locomotion stick (left stick / movement keys) and the precision-aim stick
 /// (right stick / aim) are physically different sources and a human tracks them
 /// differently under rotated gravity, so they each carry their own mapping
-/// policy: locomotion defaults to body-relative assist ([`InputFrameMode::BodyRelativeAssist`]);
-/// precision aiming defaults to screen-directed ([`InputFrameMode::ScreenRelative`]) — you
-/// point where on screen you want the shot / blink to land, at any gravity.
+/// policy. Both default to screen-directed ([`InputFrameMode::ScreenRelative`]) —
+/// press / point a screen direction and the controlled body moves / aims that way
+/// on screen at any gravity. See [`InputFrameMode::DEFAULT_MOVEMENT`] /
+/// [`InputFrameMode::DEFAULT_AIM`] for the single source of truth.
 ///
 /// This is frame-agnostic and actor-agnostic: it is a control-authority preference,
 /// not a property of any one (privileged) actor. [`AccelerationFrame::resolve_aim_local`]
@@ -67,11 +83,12 @@ pub struct ControlFrameModes {
 }
 
 impl Default for ControlFrameModes {
-    /// Locomotion is body-relative assist; precision aiming is screen-directed.
+    /// Both locomotion and precision aiming default to screen-directed, resolved
+    /// from the per-source single source of truth on [`InputFrameMode`].
     fn default() -> Self {
         Self {
-            movement: InputFrameMode::BodyRelativeAssist,
-            aim: InputFrameMode::ScreenRelative,
+            movement: InputFrameMode::DEFAULT_MOVEMENT,
+            aim: InputFrameMode::DEFAULT_AIM,
         }
     }
 }
@@ -297,10 +314,11 @@ impl AccelerationFrame {
     ///   any gravity (push screen-right → move screen-right). Under sideways
     ///   gravity the run/descend roles swap, exactly as screen-directed control
     ///   expects.
-    /// - [`InputFrameMode::BodyRelativeAssist`] — the default. BYTE-IDENTICAL at every
+    /// - [`InputFrameMode::BodyRelativeAssist`] — BYTE-IDENTICAL at every
     ///   orientation to the old `axis_x` run + [`Self::descend`] gate: it equals
-    ///   `Player` up to ±90° from screen-down, then inverts BOTH axes past 90°
-    ///   (gravity up-ish) so the hard-to-track flip reverts to a screen-like feel.
+    ///   `BodyRelativeStrict` up to ±90° from screen-down, then inverts BOTH axes
+    ///   past 90° (gravity up-ish) so the hard-to-track flip reverts to a
+    ///   screen-like feel.
     pub fn resolve_input(self, mode: InputFrameMode, axis_x: f32, axis_y: f32) -> Vec2 {
         match mode {
             InputFrameMode::BodyRelativeStrict => Vec2::new(axis_x, axis_y),
@@ -713,9 +731,9 @@ mod tests {
     }
 
     #[test]
-    fn control_frame_modes_default_aim_is_screen_movement_is_hybrid() {
+    fn control_frame_modes_default_is_screen_relative_both() {
         let d = ControlFrameModes::default();
-        assert_eq!(d.movement, InputFrameMode::BodyRelativeAssist);
+        assert_eq!(d.movement, InputFrameMode::ScreenRelative);
         assert_eq!(d.aim, InputFrameMode::ScreenRelative);
     }
 

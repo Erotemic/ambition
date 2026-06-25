@@ -705,6 +705,48 @@ def _brighten_limb_greens(polys, palette):
 # torso / leg / head parts) gets a thick black line-art outline like the reference.
 ACCENTS = {"belly_cell", "forehead_cell", "shoulder_spot", "eye"}
 
+PART_GROUP = {
+    "helmet": "head", "horn": "head", "face": "head", "eye": "head", "forehead_cell": "head",
+    "neck": "torso", "core": "torso", "core_fill": "torso", "bodysuit": "torso",
+    "chest_plate": "torso", "pec": "torso", "belly_panel": "torso", "belly_cell": "torso",
+    "tail": "tail", "shoulder": "arm", "shoulder_spot": "arm", "upper_arm": "arm",
+    "forearm": "arm", "hand": "arm", "thigh": "leg", "shin": "leg", "knee": "leg", "foot": "leg",
+}
+_CREAM_PARTS = {"face", "pec", "hand", "foot", "belly_panel"}
+
+
+def _reclassify_cells_by_base(polys, w, h):
+    """A green automaton CELL must belong to whatever body part it sits ON -- the
+    head-box / band heuristics mislabel cells that land on the shoulders (head),
+    torso, etc. Look up the BASE part beneath each cell (z-ordered) and relabel it
+    to that group's accent: head->forehead_cell, torso->belly_cell, arm->
+    shoulder_spot, leg/tail->the base part itself. A green cell that lands on a
+    CREAM part (the face) does not belong -> drop it."""
+    bases = [p for p in polys if p["part"] not in ACCENTS and not p["part"].endswith("_shade")]
+    if not bases:
+        return polys
+    pid = np.full((h, w), -1, np.int32)
+    for i in sorted(range(len(bases)), key=lambda i: (Z.get(bases[i]["part"], 5), bases[i]["area"])):
+        cv2.fillPoly(pid, [np.array(bases[i]["points"], np.int32)], i)
+    cell_for = {"head": "forehead_cell", "torso": "belly_cell", "arm": "shoulder_spot"}
+    out = []
+    for p in polys:
+        if p["part"] in ("forehead_cell", "belly_cell"):
+            # majority base part under the cell's FOOTPRINT (centroid alone lands in
+            # 1px seams), not a single pixel.
+            cm = np.zeros((h, w), np.uint8)
+            cv2.fillPoly(cm, [np.array(p["points"], np.int32)], 1)
+            ids = pid[(cm > 0) & (pid >= 0)]
+            if ids.size < 0.25 * max(1, int(cm.sum())):   # cell floats over nothing -> drop
+                continue
+            basepart = bases[int(np.bincount(ids).argmax())]["part"]
+            if basepart in _CREAM_PARTS:        # green square on a cream part -> noise, drop
+                continue
+            g = PART_GROUP.get(basepart, "torso")
+            p = {**p, "part": cell_for.get(g, basepart)}   # leg/tail cell -> its base part
+        out.append(p)
+    return out
+
 
 def fill_gaps(polys, qi, fg, palette, w, h, min_area=28):
     """COMPLETENESS (run LAST, after the optimizer): any reference foreground not
@@ -743,6 +785,7 @@ def fill_gaps(polys, qi, fg, palette, w, h, min_area=28):
             polys.append({"part": part, "color": col, "area": float(gst[li, cv2.CC_STAT_AREA]),
                           "points": poly.astype(int).tolist()})
     polys = _brighten_limb_greens(polys, palette)
+    polys = _reclassify_cells_by_base(polys, w, h)
     polys = _add_shading(polys, qi, fg, palette, w, h)
     polys.sort(key=lambda p: (Z.get(_basepart(p["part"]), 5), p["part"].endswith("_shade"), -p["area"]))
     return polys

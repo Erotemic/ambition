@@ -39,7 +39,7 @@ use bevy::prelude::*;
 const CROUCH_AXIS_Y_THRESHOLD: f32 = 0.4;
 
 pub fn update_body_mode(
-    world: Res<crate::RoomGeometry>,
+    world: crate::features::CollisionWorld,
     gravity_field: Option<Res<crate::physics::GravityField>>,
     // Optional: headless / unit-test apps may omit the settings resource. Absent →
     // Hybrid (the historical behavior).
@@ -66,6 +66,12 @@ pub fn update_body_mode(
         With<crate::player::PlayerEntity>,
     >,
 ) {
+    // Body-mode changes test overhead/standing clearance against the composited
+    // collision world so a moving platform / ECS solid blocks unmorphing the same
+    // way authored geometry does. No room (minimal test app) → nothing to clear.
+    let Some(collision) = world.solids() else {
+        return;
+    };
     for (
         mut kinematics,
         base_size,
@@ -146,7 +152,7 @@ pub fn update_body_mode(
                     base_size,
                     &mut body_mode_state,
                     ae::BodyMode::Standing,
-                    &world.0,
+                    &*collision,
                     gravity_dir,
                     solid,
                 );
@@ -161,7 +167,7 @@ pub fn update_body_mode(
                     base_size,
                     &mut body_mode_state,
                     ae::BodyMode::Standing,
-                    &world.0,
+                    &*collision,
                     gravity_dir,
                     solid,
                 );
@@ -196,7 +202,7 @@ pub fn update_body_mode(
                 base_size,
                 &mut body_mode_state,
                 ae::BodyMode::Climbing,
-                &world.0,
+                &*collision,
                 gravity_dir,
                 solid,
             );
@@ -217,7 +223,7 @@ pub fn update_body_mode(
                     base_size,
                     &mut body_mode_state,
                     ae::BodyMode::Standing,
-                    &world.0,
+                    &*collision,
                     gravity_dir,
                     solid,
                 );
@@ -233,7 +239,7 @@ pub fn update_body_mode(
                 base_size,
                 &mut body_mode_state,
                 ae::BodyMode::MorphBall,
-                &world.0,
+                &*collision,
                 gravity_dir,
                 solid,
             );
@@ -255,7 +261,7 @@ pub fn update_body_mode(
             base_size,
             &mut body_mode_state,
             target,
-            &world.0,
+            &*collision,
             gravity_dir,
             solid,
         );

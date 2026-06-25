@@ -171,7 +171,7 @@ const THROW_SPEED_UP: f32 = 260.0;
 /// are skipped, so pickup-able items stay put.
 pub fn ground_item_physics(
     time: Res<crate::WorldTime>,
-    world: Res<crate::RoomGeometry>,
+    world: crate::features::CollisionWorld,
     gravity: crate::physics::GravityCtx,
     mut grounds: Query<&mut GroundItem>,
 ) {
@@ -179,6 +179,11 @@ pub fn ground_item_physics(
     if dt <= 0.0 {
         return;
     }
+    // Thrown / dropped items settle on the composited collision world, so a
+    // moving platform / ECS solid catches them the same as authored geometry.
+    let Some(world) = world.solids() else {
+        return;
+    };
     // Thrown / dropped items are free bodies that integrate through the shared
     // world-forces seam. Gravity is resolved per item by position, so an item
     // thrown into a gravity column falls the column's way (localized).
@@ -192,13 +197,13 @@ pub fn ground_item_physics(
         crate::physics::apply_world_forces(&mut item.vel, GROUND_ITEM_GRAVITY, &local, dt);
         let next = item.pos + item.vel * dt;
         let next_aabb = ae::Aabb::new(next, item.half_extent);
-        let blocked = world.0.blocks.iter().any(|block| {
+        let blocked = world.blocks.iter().any(|block| {
             matches!(
                 block.kind,
                 ae::BlockKind::Solid | ae::BlockKind::OneWay | ae::BlockKind::BlinkWall { .. }
             ) && next_aabb.strict_intersects(block.aabb)
         });
-        let below_world = next.y > world.0.size.y + 200.0 || next.y < -200.0;
+        let below_world = next.y > world.size.y + 200.0 || next.y < -200.0;
         if blocked {
             // Settle in place (simple — no slide).
             item.vel = Vec2::ZERO;

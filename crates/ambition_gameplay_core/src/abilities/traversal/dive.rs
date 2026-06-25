@@ -86,7 +86,7 @@ pub fn fire_dive_system(
     control: Res<ControlFrame>,
     gravity: crate::physics::GravityCtx,
     user_settings: Option<Res<crate::persistence::settings::UserSettings>>,
-    world: Option<Res<crate::RoomGeometry>>,
+    world: crate::features::CollisionWorld,
     mut players: Query<
         (Entity, &mut BodyKinematics, &HeldItem, &mut PlayerMana),
         (With<PlayerEntity>, With<PrimaryPlayer>),
@@ -122,9 +122,12 @@ pub fn fire_dive_system(
     // uses (or a down/diagonal dive embeds in the floor and trips the OOB detector).
     let half = kin.size * 0.5;
     let margin = (half.x * dir.x.abs() + half.y * dir.y.abs()) + 2.0;
-    let mut target = match world.as_ref().and_then(|w| {
+    // One composited collision view, shared by the clamp raycast and the embed
+    // safety net, so the lunge is stopped by moving platforms / ECS solids too.
+    let collision = world.solids();
+    let mut target = match collision.as_ref().and_then(|w| {
         crate::platformer_runtime::collision::raycast_solids(
-            &w.0,
+            &**w,
             from,
             dir,
             DIVE_LUNGE + margin,
@@ -136,9 +139,9 @@ pub fn fire_dive_system(
     };
     // Safety net: if the landing AABB still overlaps a solid (a corner / grazing
     // the center-ray missed), fall back to the start instead of embedding.
-    if let Some(w) = world.as_ref() {
+    if let Some(w) = collision.as_ref() {
         let landing = ae::Aabb::new(target, half);
-        let embeds = w.0.blocks.iter().any(|b| {
+        let embeds = w.blocks.iter().any(|b| {
             matches!(
                 b.kind,
                 ae::BlockKind::Solid | ae::BlockKind::BlinkWall { .. }

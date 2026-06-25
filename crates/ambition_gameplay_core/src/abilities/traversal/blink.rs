@@ -41,7 +41,7 @@ pub fn blink_system(
     control: Res<ControlFrame>,
     gravity: crate::physics::GravityCtx,
     user_settings: Option<Res<crate::persistence::settings::UserSettings>>,
-    world: Option<Res<crate::RoomGeometry>>,
+    world: crate::features::CollisionWorld,
     mut commands: Commands,
     mut players: Query<
         (
@@ -97,9 +97,12 @@ pub fn blink_system(
     // floor/ceiling and trips the inside-solid OOB detector.
     let half = kin.size * 0.5;
     let margin = (half.x * dir.x.abs() + half.y * dir.y.abs()) + 2.0;
-    let mut target = match world.as_ref().and_then(|w| {
+    // One composited collision view, shared by the clamp raycast and the embed
+    // safety net, so the blink is stopped by moving platforms / ECS solids too.
+    let collision = world.solids();
+    let mut target = match collision.as_ref().and_then(|w| {
         crate::platformer_runtime::collision::raycast_solids(
-            &w.0,
+            &**w,
             from,
             dir,
             BLINK_DISTANCE + margin,
@@ -112,9 +115,9 @@ pub fn blink_system(
     // Safety net: the center-ray can miss a wall the body's *perpendicular* extent
     // would clip (corners, grazing). If the landing box still overlaps a solid,
     // fall back to the start so a blink never lands the player inside geometry.
-    if let Some(w) = world.as_ref() {
+    if let Some(w) = collision.as_ref() {
         let landing = ae::Aabb::new(target, half);
-        let embeds = w.0.blocks.iter().any(|b| {
+        let embeds = w.blocks.iter().any(|b| {
             matches!(
                 b.kind,
                 ae::BlockKind::Solid | ae::BlockKind::BlinkWall { .. }

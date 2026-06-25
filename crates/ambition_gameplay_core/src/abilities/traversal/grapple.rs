@@ -36,7 +36,7 @@ pub fn grapple_system(
     control: Res<ControlFrame>,
     gravity: crate::physics::GravityCtx,
     user_settings: Option<Res<crate::persistence::settings::UserSettings>>,
-    world: Option<Res<crate::RoomGeometry>>,
+    world: crate::features::CollisionWorld,
     mut commands: Commands,
     mut players: Query<
         (
@@ -70,8 +70,10 @@ pub fn grapple_system(
         return;
     }
     let from = kin.pos;
-    let Some((hit, _normal)) = world.as_ref().and_then(|w| {
-        crate::platformer_runtime::collision::raycast_solids(&w.0, from, dir, GRAPPLE_RANGE, false)
+    // Raycast against the composited collision world so the grapple can latch a
+    // moving platform / ECS solid, not just the bare authored room.
+    let Some((hit, _normal)) = world.solids().and_then(|w| {
+        crate::platformer_runtime::collision::raycast_solids(&*w, from, dir, GRAPPLE_RANGE, false)
     }) else {
         // Grapple into empty space: a dry fizzle, no pull (and no cooldown burned).
         sfx.write(crate::audio::SfxMessage::Play {

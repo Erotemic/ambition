@@ -96,12 +96,17 @@ pub struct ProjectileCollisionWorld<'w, 's> {
 }
 
 impl ProjectileCollisionWorld<'_, '_> {
-    /// The room world with ONLY the portal apertures carved out — preserves the
-    /// projectile's historical raw-world collision (it passes through moving
-    /// platforms) while letting a shot sink into a portal opening and transit.
-    /// Borrowed (no clone) in the common no-carve case.
+    /// The room world with gate solids (lock walls) added and ONLY the portal
+    /// apertures carved out — preserves the projectile's historical raw-world
+    /// collision (it passes through moving platforms) while still colliding with
+    /// gate solids and letting a shot sink into a portal opening and transit.
+    /// Borrowed (no clone) in the common no-gate, no-carve case.
     fn solids(&self) -> std::borrow::Cow<'_, ae::World> {
-        crate::features::world_with_portal_carves(&self.world.0, &self.overlay.portal_carves)
+        crate::features::world_with_gate_solids_and_carves(
+            &self.world.0,
+            &self.overlay.gate_solids,
+            &self.overlay.portal_carves,
+        )
     }
 
     /// Snapshot the placed portals for the per-projectile transit test.

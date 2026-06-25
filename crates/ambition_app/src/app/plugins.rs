@@ -748,12 +748,13 @@ fn install_misc_visual_sync_systems(app: &mut App) {
         Update,
         ambition_render::rendering::sync_parallax_layers.after(camera_follow),
     )
-    // Encounter-driven LockWall visuals. Reconciles `LockWallVisual`
-    // Bevy entities against `world.blocks` so the wall is visible
-    // for the player when an encounter slams it shut. Must run
-    // after `update_encounters_from_world` (which inserts /
-    // removes the backing `lockwall:*` blocks) so we observe the
-    // current frame's world state, not last frame's.
+    // Encounter / intro LockWall visuals. Reconciles `LockWallVisual`
+    // Bevy entities against the collision overlay's `gate_solids` (the
+    // lock walls the gate contributors derive each frame in WorldPrep,
+    // no longer mutated into the authored base) so the wall is visible
+    // when an encounter slams it shut. Pinned after
+    // `update_encounters_from_world` so it runs late in the frame, well
+    // after the WorldPrep contributor has populated `gate_solids`.
     .add_systems(
         Update,
         ambition_render::rendering::sync_lock_wall_visuals

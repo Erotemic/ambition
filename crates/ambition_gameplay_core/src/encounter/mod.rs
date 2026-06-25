@@ -25,8 +25,7 @@ mod systems;
 
 pub use events::EncounterEvent;
 pub use loading::{install_encounter_waves, load_encounter_specs_from_ldtk};
-#[cfg(test)]
-use lock_walls::sync_lock_walls;
+pub use lock_walls::contribute_encounter_lock_walls;
 pub use music::{BossEncounterMusicRequest, EncounterMusicRequest};
 pub use registry::{EncounterRegistry, SwitchActivation};
 pub use rewards::{encounter_reward_chest_pos, encounter_reward_looted_flag};
@@ -61,6 +60,19 @@ impl bevy::prelude::Plugin for EncounterSimulationSchedulePlugin {
             )
                 .chain()
                 .in_set(crate::schedule::SandboxSet::EncounterSimulation),
+        );
+        // The lock-wall contribution runs a phase EARLIER, in WorldPrep: it
+        // derives the seal walls onto the collision overlay's `gate_solids` from
+        // the registry phase, right after the overlay is cleared/rebuilt and
+        // before any WorldPrep collision consumer (enemy actor sweeps) — so the
+        // walls are present for this frame's collision exactly as the old
+        // base-resident blocks were, without mutating the authored base.
+        app.add_systems(
+            Update,
+            contribute_encounter_lock_walls
+                .after(crate::features::rebuild_feature_ecs_world_overlay)
+                .before(crate::features::update_ecs_hazards)
+                .in_set(crate::schedule::SandboxSet::WorldPrep),
         );
     }
 }

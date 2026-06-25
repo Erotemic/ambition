@@ -9,7 +9,6 @@ use bevy::prelude::*;
 
 use ambition_engine_core as ae;
 
-use super::lock_walls::sync_lock_walls;
 use super::{
     load_encounter_specs_from_ldtk, EncounterEvent, EncounterMusicRequest, EncounterPhase,
     EncounterRegistry, EncounterRun, EncounterSwitchIndex, SwitchActivationQueue,
@@ -57,7 +56,6 @@ pub fn update_encounters_from_world(
     mut switch_activations: ResMut<SwitchActivationQueue>,
     switch_index: Res<EncounterSwitchIndex>,
     mut trace: ResMut<crate::trace::GameplayTraceBuffer>,
-    mut world: ResMut<crate::RoomGeometry>,
     player_body_q: Query<&crate::player::BodyKinematics, With<crate::player::PlayerEntity>>,
     mut music_request: ResMut<EncounterMusicRequest>,
     mut quests: ResMut<crate::quest::QuestRegistry>,
@@ -355,11 +353,12 @@ pub fn update_encounters_from_world(
         &reward_chests,
     );
 
-    // 7. Lock-wall management: while any encounter is in Starting or
-    //    Active, the lock wall block needs to be present in the
-    //    RoomGeometry. When the encounter leaves those phases, pull it
-    //    out. Identified by the block name `lockwall:<encounter_id>`.
-    sync_lock_walls(&mut world.0, &registry);
+    // 7. Lock-wall management: while any encounter is in Starting or Active, a
+    //    solid lock wall seals the arena exits. The wall is NOT mutated into the
+    //    authored base here — `contribute_encounter_lock_walls` (WorldPrep)
+    //    derives it onto the collision overlay's `gate_solids` each frame from
+    //    the registry phase this tick just updated. Keeps `RoomGeometry`
+    //    authored-immutable mid-room.
 
     // 8. Music: pick the first encounter currently in flight and
     //    request its track; otherwise request the default. The

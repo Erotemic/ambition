@@ -556,18 +556,8 @@ fn encounter_reward_chest_pos_sits_on_trigger_floor() {
 // ── Lock wall sync ─────────────────────────────────────────────
 
 #[test]
-fn sync_lock_walls_inserts_and_removes_block() {
-    use ambition_engine_core::Block;
-    let mut world = ae::World::new(
-        "test",
-        ae::Vec2::new(2000.0, 2000.0),
-        ae::Vec2::ZERO,
-        vec![Block::solid(
-            "floor",
-            ae::Vec2::ZERO,
-            ae::Vec2::new(2000.0, 16.0),
-        )],
-    );
+fn lock_wall_is_derived_while_active_and_dropped_when_inactive() {
+    use super::lock_walls::desired_lock_wall_blocks;
     let mut reg = EncounterRegistry::default();
     let mut spec = lab_spec();
     spec.lock_wall = Some(LockWallSpec {
@@ -577,17 +567,17 @@ fn sync_lock_walls_inserts_and_removes_block() {
     let state = reg.ensure("goblin_encounter");
     state.spec = Some(spec);
     state.maybe_start(ae::Vec2::new(50.0, 50.0), ae::Vec2::new(20.0, 30.0));
-    sync_lock_walls(&mut world, &reg);
-    assert!(world
-        .blocks
+    // Starting/Active phase → the gate solid is derived this frame.
+    let blocks = desired_lock_wall_blocks(&reg);
+    assert!(blocks
         .iter()
         .any(|b| b.name == "lockwall:goblin_encounter"));
-    // Force back to Inactive — wall should be removed.
+    // Force back to Inactive — the overlay clears each frame, so "removal" is
+    // simply the wall no longer being derived (no reconcile against a base).
     let state = reg.ensure("goblin_encounter");
     state.phase = EncounterPhase::Inactive;
-    sync_lock_walls(&mut world, &reg);
-    assert!(!world
-        .blocks
+    let blocks = desired_lock_wall_blocks(&reg);
+    assert!(!blocks
         .iter()
         .any(|b| b.name == "lockwall:goblin_encounter"));
 }

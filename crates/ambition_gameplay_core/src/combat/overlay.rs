@@ -14,6 +14,18 @@ use super::*;
 #[derive(Resource, Default, Clone, Debug)]
 pub struct FeatureEcsWorldOverlay {
     pub blocks: Vec<ae::Block>,
+    /// Authored-equivalent static solids contributed by per-frame *gates*
+    /// (encounter lock walls, intro flag gates) instead of being mutated into
+    /// the authored [`crate::RoomGeometry`] base. Unlike `blocks` — which carry
+    /// moving-platform semantics that projectiles pass through — gate solids are
+    /// composited into EVERY collision read-path (player, projectile, traversal)
+    /// AND surfaced to the render layer, so a lock wall collides and draws
+    /// exactly as it did when it lived in the base. This is what keeps the base
+    /// authored-immutable mid-room (the resolved RoomGeometry decision): a gate
+    /// is a derived per-frame contribution, not a base edit. Cleared by
+    /// [`rebuild_feature_ecs_world_overlay`] each frame, then re-extended by the
+    /// gate contributor systems that run after it in `WorldPrep`.
+    pub gate_solids: Vec<ae::Block>,
     /// Portal apertures to carve OUT of the host surface: the floor / wall a
     /// portal sits on becomes non-solid inside the opening so a body can sink
     /// in (the "feet in, feet out" transit). Filled each frame by
@@ -39,6 +51,10 @@ pub fn rebuild_feature_ecs_world_overlay(
     pogo_targets: Query<(&FeatureId, &PogoTargetVolumes), With<FeatureSimEntity>>,
 ) {
     overlay.blocks.clear();
+    // Gate contributors (encounter / intro lock walls) re-extend this after we
+    // run; clearing it here gives them the same clean-slate-per-frame contract
+    // the breakable blocks above have.
+    overlay.gate_solids.clear();
     for (id, name, aabb, feature) in &breakables {
         if feature.broken() {
             continue;

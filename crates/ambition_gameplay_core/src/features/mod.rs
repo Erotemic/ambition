@@ -181,7 +181,10 @@ pub use events::{
 pub use hazards::HazardRuntime;
 pub use npcs::{NPC_PATROL_SPEED, NPC_TALK_RADIUS};
 pub use path_motion::PathMotion;
-pub use world_overlay::{CollisionWorld, world_with_portal_carves, world_with_sandbox_solids};
+pub use world_overlay::{
+    world_with_gate_solids_and_carves, world_with_portal_carves, world_with_sandbox_solids,
+    CollisionWorld,
+};
 
 pub(super) use npcs::NPC_HOSTILE_STRIKE_THRESHOLD;
 use util::*;

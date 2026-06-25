@@ -690,19 +690,23 @@ fn is_lock_wall_block(name: &str) -> bool {
 }
 
 /// Reconcile `LockWallVisual` Bevy entities against the encounter-
-/// driven `lockwall:*` and intro flag-gated `intro_lock:*` blocks in
-/// `world.blocks`. Spawn a sprite for any new lock wall, despawn
-/// entities whose backing block has been removed (encounter cleared /
-/// failed, or flag unlocked).
+/// driven `lockwall:*` and intro flag-gated `intro_lock:*` gate solids
+/// the gates contribute to the per-frame collision overlay. Spawn a
+/// sprite for any new lock wall, despawn entities whose backing block
+/// has been removed (encounter cleared / failed, or flag unlocked).
 ///
-/// Without this system the lock wall has collision (the engine reads
-/// `world.blocks` every frame) but no rendered tile — the player
-/// bumps into an invisible barrier. The dedicated `LockWallTile`
-/// asset keeps the visual distinct from regular solid walls so the
-/// "this just slammed shut" beat reads at a glance.
+/// The walls live in [`FeatureEcsWorldOverlay::gate_solids`] (derived
+/// each frame), NOT the authored `RoomGeometry` base — so this reads the
+/// overlay for the block set and the base only for the world→screen
+/// coordinate frame. Without this system the lock wall has collision
+/// (the overlay folds it into every collision read-path) but no rendered
+/// tile — the player bumps into an invisible barrier. The dedicated
+/// `LockWallTile` asset keeps the visual distinct from regular solid
+/// walls so the "this just slammed shut" beat reads at a glance.
 pub fn sync_lock_wall_visuals(
     mut commands: Commands,
     world: Res<ambition_gameplay_core::RoomGeometry>,
+    overlay: Res<ambition_gameplay_core::features::FeatureEcsWorldOverlay>,
     assets: Option<Res<GameAssets>>,
     existing: Query<(Entity, &LockWallVisual)>,
 ) {
@@ -720,7 +724,7 @@ pub fn sync_lock_wall_visuals(
     // intro flag-gated) that doesn't have one yet. Mark consumed
     // names so the despawn pass below leaves them alone.
     let mut consumed: std::collections::HashSet<String> = std::collections::HashSet::new();
-    for block in &world.0.blocks {
+    for block in &overlay.gate_solids {
         if !is_lock_wall_block(&block.name) {
             continue;
         }
@@ -761,11 +765,79 @@ pub fn sync_lock_wall_visuals(
         consumed.insert(block.name.clone());
     }
 
-    // Pass 2: despawn visuals whose block disappeared (encounter
-    // cleared / failed → `sync_lock_walls` removed the block).
+    // Pass 2: despawn visuals whose gate solid disappeared (encounter
+    // cleared / failed, or flag unlocked → the contributor stopped
+    // deriving the block this frame).
     for (name, entity) in &existing_by_name {
         if !consumed.contains(name) {
             commands.entity(*entity).despawn();
         }
+    }
+}
+
+#[cfg(test)]
+mod lock_wall_visual_tests {
+    use super::*;
+    use ambition_gameplay_core::features::FeatureEcsWorldOverlay;
+    use ambition_gameplay_core::RoomGeometry;
+
+    fn room() -> RoomGeometry {
+        RoomGeometry(ae::World::new(
+            "test",
+            ae::Vec2::new(800.0, 600.0),
+            ae::Vec2::new(50.0, 50.0),
+            Vec::new(),
+        ))
+    }
+
+    fn gate_wall() -> ae::Block {
+        ae::Block::solid(
+            "lockwall:goblin_encounter",
+            ae::Vec2::new(300.0, 300.0),
+            ae::Vec2::new(16.0, 100.0),
+        )
+    }
+
+    fn lock_wall_names(app: &mut App) -> Vec<String> {
+        let mut q = app.world_mut().query::<&LockWallVisual>();
+        let mut names: Vec<String> = q.iter(app.world()).map(|v| v.block_name.clone()).collect();
+        names.sort();
+        names
+    }
+
+    /// The reconcile reads the overlay's `gate_solids` (NOT the authored base):
+    /// a gate solid spawns a `LockWallVisual`, and dropping it from the overlay
+    /// despawns the visual. This is what keeps lock walls visible after the
+    /// move off the base — the render contract the base→overlay conversion must
+    /// preserve.
+    #[test]
+    fn lock_wall_visual_tracks_overlay_gate_solids() {
+        let mut app = App::new();
+        app.insert_resource(room());
+        app.insert_resource(FeatureEcsWorldOverlay {
+            blocks: Vec::new(),
+            gate_solids: vec![gate_wall()],
+            portal_carves: Vec::new(),
+        });
+        app.add_systems(Update, sync_lock_wall_visuals);
+
+        app.update();
+        assert_eq!(
+            lock_wall_names(&mut app),
+            vec!["lockwall:goblin_encounter".to_string()],
+            "a gate solid spawns its LockWallVisual"
+        );
+
+        // Encounter cleared / flag unlocked → the contributor stops deriving the
+        // wall, so the overlay no longer carries it and the visual despawns.
+        app.world_mut()
+            .resource_mut::<FeatureEcsWorldOverlay>()
+            .gate_solids
+            .clear();
+        app.update();
+        assert!(
+            lock_wall_names(&mut app).is_empty(),
+            "dropping the gate solid despawns the LockWallVisual"
+        );
     }
 }

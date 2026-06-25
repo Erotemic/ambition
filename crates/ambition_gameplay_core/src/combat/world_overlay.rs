@@ -44,10 +44,9 @@ impl CollisionWorld<'_> {
     pub fn solids(&self) -> Option<Cow<'_, ae::World>> {
         let room = self.room.as_ref()?;
         let platforms = self.platforms.as_ref().map_or(&[][..], |p| &p.0);
-        let overlay_empty = self
-            .overlay
-            .as_ref()
-            .map_or(true, |o| o.blocks.is_empty() && o.portal_carves.is_empty());
+        let overlay_empty = self.overlay.as_ref().map_or(true, |o| {
+            o.blocks.is_empty() && o.gate_solids.is_empty() && o.portal_carves.is_empty()
+        });
         if platforms.is_empty() && overlay_empty {
             return Some(Cow::Borrowed(&room.0));
         }
@@ -90,6 +89,12 @@ pub fn world_with_sandbox_solids(
     collision_world
         .blocks
         .extend(ecs_overlay.blocks.iter().cloned());
+    // Gate solids (lock walls) are authored-equivalent statics: added alongside
+    // the base/platform solids BEFORE the carve so a portal aperture splits them
+    // exactly as it would a base wall.
+    collision_world
+        .blocks
+        .extend(ecs_overlay.gate_solids.iter().cloned());
     // Carve portal apertures out of the host surface so a body can sink into a
     // portal (the "feet in, feet out" transit). Only the solid host kinds are
     // carved; the portal rim and surrounding geometry stay solid.
@@ -117,6 +122,28 @@ pub fn world_with_portal_carves<'w>(
     let mut carved = world.clone();
     carve_portal_apertures(&mut carved.blocks, portal_carves);
     std::borrow::Cow::Owned(carved)
+}
+
+/// The room world with gate solids (lock walls) added and ONLY the portal
+/// apertures carved — moving-platform and ECS-breakable solids omitted. This is
+/// the projectile collision world: projectiles pass through moving platforms but
+/// must collide with gate solids exactly as they did when lock walls lived in
+/// the authored base. Borrows (no clone) when there are neither gate solids nor
+/// active carves — the common case.
+pub fn world_with_gate_solids_and_carves<'w>(
+    world: &'w ae::World,
+    gate_solids: &[ae::Block],
+    portal_carves: &[ae::Aabb],
+) -> std::borrow::Cow<'w, ae::World> {
+    if gate_solids.is_empty() && portal_carves.is_empty() {
+        return std::borrow::Cow::Borrowed(world);
+    }
+    let mut composed = world.clone();
+    composed.blocks.extend(gate_solids.iter().cloned());
+    if !portal_carves.is_empty() {
+        carve_portal_apertures(&mut composed.blocks, portal_carves);
+    }
+    std::borrow::Cow::Owned(composed)
 }
 
 /// Split every solid host block by the portal aperture holes, leaving a doorway
@@ -227,9 +254,56 @@ mod collision_world_tests {
                 kind: ae::BlockKind::Solid,
                 velocity: ae::Vec2::ZERO,
             }],
+            gate_solids: Vec::new(),
             portal_carves: Vec::new(),
         });
         // A non-empty overlay forces an owned composite: base + the ECS solid.
         assert_eq!(run(&mut app), Some((true, 2)));
+    }
+
+    fn gate_wall() -> ae::Block {
+        ae::Block::solid(
+            "lockwall:test_encounter",
+            ae::Vec2::new(300.0, 300.0),
+            ae::Vec2::new(16.0, 100.0),
+        )
+    }
+
+    #[test]
+    fn gate_solids_compose_into_the_player_collision_view() {
+        let mut app = App::new();
+        app.init_resource::<SolidsProbe>();
+        app.insert_resource(room_one_block());
+        app.insert_resource(FeatureEcsWorldOverlay {
+            blocks: Vec::new(),
+            gate_solids: vec![gate_wall()],
+            portal_carves: Vec::new(),
+        });
+        // A gate solid is a dynamic contribution → owned composite of base + wall.
+        assert_eq!(run(&mut app), Some((true, 2)));
+    }
+
+    #[test]
+    fn gate_solids_compose_into_the_projectile_collision_view() {
+        // Projectiles read base + gate solids + carves (NOT moving platforms /
+        // breakables). A lock wall must stop a shot exactly as it did when it
+        // lived in the authored base.
+        let room = room_one_block();
+        let gates = vec![gate_wall()];
+        let view = world_with_gate_solids_and_carves(&room.0, &gates, &[]);
+        assert!(
+            matches!(view, Cow::Owned(_)),
+            "gate solids force an owned projectile view"
+        );
+        assert_eq!(view.blocks.len(), 2, "base floor + the gate wall");
+        assert!(view
+            .blocks
+            .iter()
+            .any(|b| b.name == "lockwall:test_encounter"));
+
+        // No gate solids and no carves borrows the base (no per-frame clone).
+        let none: Vec<ae::Block> = Vec::new();
+        let borrowed = world_with_gate_solids_and_carves(&room.0, &none, &[]);
+        assert!(matches!(borrowed, Cow::Borrowed(_)));
     }
 }

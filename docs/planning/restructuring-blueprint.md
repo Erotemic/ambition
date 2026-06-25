@@ -135,9 +135,14 @@ what has landed:
    - **Guard added.** `architecture_boundaries` now asserts the foundation projectile
      module names no `ProjectileKind`/`Fireball`/`Hadouken` (regression fence).
    All projectile/collision/charging/portal/arch tests green. Owed: Feel-test #4.
-   **Still remaining in this domain:** attacker-entity attribution on enemy/boss-side
-   `HitSource`s (feel-risk-none data threading), and replacing the player/enemy
-   projectile split with source/faction.
+   **Attacker-entity attribution — DONE (2026-06-25).** `HitEvent.attacker` is now
+   stamped on hostile sources wherever an entity exists: `BossAttack`/`BossBody`
+   (boss entity, added to the bosses query), `EnemyBody`/`EnemyChargeCrash` (enemy
+   entity). It flows into the victim's `DeathCause`. Honest `None` remains for
+   `Hazard` (environmental) and `EnemyProjectile` (string-`ProjectileOwnerId`-owned,
+   not entity-tracked — threading the owner `Entity` through the effect/spawn pipeline
+   is a separate step). **Still remaining in this domain:** replacing the player/enemy
+   projectile split with source/faction, and entity-tracking enemy-projectile owners.
 2. **World gate→overlay (world) — 2 of 3 gates DONE (2026-06-25).** The fork was
    resolved toward the authored-base preference: gates contribute to the per-frame
    collision overlay, not the base. New overlay category
@@ -223,7 +228,7 @@ to the checklist — none are *blocked*, this is just where to expect owed check
 | §5 OnceLock classification | **none** | registry/resource reorg, no behavior |
 | ~~Cutscene runtime → `ambition_cutscene`~~ | **DONE** | the "bounded win" — landed 2026-06-25; runtime types→`ambition_cutscene`, systems→`gameplay_core::cutscene`, authored defaults→content, presentation stays in render |
 | Content module families reorg | **none** | module moves only |
-| Attacker-entity attribution on enemy/boss `HitSource`s | **none** | data threading, like `DeathCause` |
+| ~~Attacker-entity attribution on enemy/boss `HitSource`s~~ | **DONE** | landed 2026-06-25; boss/enemy entity stamped on `HitEvent.attacker` → `DeathCause`. Hazard + enemy-projectile stay honest `None`. |
 | gnu_ton arena gate → overlay | **low** | collision headless-testable (ladder/floor-gate present-or-not); needs the subtractive overlay extension |
 | §4 ControlFrame → actor-local intent | **low–med** | behaviour-preserving by design; input is feel-y, so any drift shows → adds an owed input check |
 | Audio plugin split (backend/director/cue) | **low–med** | playback should be unchanged if careful → owed audio check |

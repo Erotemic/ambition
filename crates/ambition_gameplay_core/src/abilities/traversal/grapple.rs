@@ -15,8 +15,7 @@ use bevy::prelude::*;
 
 use ambition_engine_core as ae;
 use crate::features::HeldItem;
-use ambition_input::ControlFrame;
-use crate::player::{BodyKinematics, PlayerEntity, PrimaryPlayer};
+use crate::player::{BodyKinematics, PlayerEntity, PlayerInputFrame, PrimaryPlayer};
 
 /// The held-item id the Grapple ability grants.
 pub const GRAPPLE_ID: &str = "grapple";
@@ -33,7 +32,6 @@ const GRAPPLE_COOLDOWN_S: f32 = 0.55;
 /// `Attack` while holding the Grapple ability casts along the aim direction; on
 /// hitting a solid within [`GRAPPLE_RANGE`] it yanks the player toward the hit.
 pub fn grapple_system(
-    control: Res<ControlFrame>,
     gravity: crate::physics::GravityCtx,
     user_settings: Option<Res<crate::persistence::settings::UserSettings>>,
     world: crate::features::CollisionWorld,
@@ -41,6 +39,7 @@ pub fn grapple_system(
     mut players: Query<
         (
             Entity,
+            &PlayerInputFrame,
             &mut BodyKinematics,
             &HeldItem,
             Option<&mut crate::ability_cooldown::AbilityCooldown>,
@@ -50,19 +49,19 @@ pub fn grapple_system(
     mut sfx: MessageWriter<crate::audio::SfxMessage>,
     mut vfx: MessageWriter<ambition_vfx::vfx::VfxMessage>,
 ) {
-    if !control.attack_pressed || control.shield_held {
-        return;
-    }
-    let Ok((player, mut kin, held, mut cooldown)) = players.single_mut() else {
+    let Ok((player, input, mut kin, held, mut cooldown)) = players.single_mut() else {
         return;
     };
+    if !input.frame.attack_pressed || input.frame.shield_held {
+        return;
+    }
     if held.spec.id != GRAPPLE_ID {
         return;
     }
     let gravity_dir = gravity.dir_at(kin.pos);
     let modes = crate::items::pickup::control_frame_modes_from_settings(user_settings.as_deref());
     let dir =
-        crate::items::pickup::held_shot_aim_world(&control, kin.facing, gravity_dir, modes)
+        crate::items::pickup::held_shot_aim_world(&input.frame, kin.facing, gravity_dir, modes)
             .normalize_or_zero();
     if dir == ae::Vec2::ZERO {
         return;
@@ -137,7 +136,6 @@ mod tests {
         let mut app = App::new();
         app.add_message::<crate::audio::SfxMessage>();
         app.add_message::<ambition_vfx::vfx::VfxMessage>();
-        app.insert_resource(ControlFrame::default());
         if let Some(w) = world {
             app.insert_resource(w);
         }
@@ -159,7 +157,9 @@ mod tests {
         // Player to the left of the wall, facing/aiming right.
         let player = spawn_player_holding(&mut app, GRAPPLE_ID, ae::Vec2::new(100.0, 200.0), 1.0);
         app.world_mut()
-            .resource_mut::<ControlFrame>()
+            .get_mut::<PlayerInputFrame>(player)
+            .unwrap()
+            .frame
             .attack_pressed = true;
         app.update();
         let vel = player_vel(&app, player);
@@ -183,7 +183,9 @@ mod tests {
         let mut app = test_app(None);
         let player = spawn_player_holding(&mut app, GRAPPLE_ID, ae::Vec2::new(100.0, 200.0), 1.0);
         app.world_mut()
-            .resource_mut::<ControlFrame>()
+            .get_mut::<PlayerInputFrame>(player)
+            .unwrap()
+            .frame
             .attack_pressed = true;
         app.update();
         assert_eq!(
@@ -204,7 +206,9 @@ mod tests {
         let mut app2 = test_app(Some(world_with_right_wall()));
         let player2 = spawn_player_holding(&mut app2, "bomb", ae::Vec2::new(100.0, 200.0), 1.0);
         app2.world_mut()
-            .resource_mut::<ControlFrame>()
+            .get_mut::<PlayerInputFrame>(player2)
+            .unwrap()
+            .frame
             .attack_pressed = true;
         app2.update();
         assert_eq!(player_vel(&app2, player2), ae::Vec2::ZERO);

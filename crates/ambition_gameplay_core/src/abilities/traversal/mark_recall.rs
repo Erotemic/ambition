@@ -26,8 +26,7 @@ use bevy::prelude::*;
 
 use ambition_engine_core as ae;
 use crate::features::HeldItem;
-use ambition_input::ControlFrame;
-use crate::player::{BodyKinematics, PlayerEntity, PrimaryPlayer};
+use crate::player::{BodyKinematics, PlayerEntity, PlayerInputFrame, PrimaryPlayer};
 
 /// The held-item id the Mark/Recall ability grants (see `brain::action_set`
 /// `HELD_ITEMS` and `items::Item::held_item_id`).
@@ -52,11 +51,11 @@ pub struct PlayerMark {
 /// frame that drops a mark does not also recall, so a simultaneous press resolves
 /// as "set the mark here" rather than "recall to where I just stood".
 pub fn mark_recall_system(
-    control: Res<ControlFrame>,
     mut commands: Commands,
     mut players: Query<
         (
             Entity,
+            &PlayerInputFrame,
             &mut BodyKinematics,
             &HeldItem,
             Option<&mut PlayerMark>,
@@ -67,7 +66,7 @@ pub fn mark_recall_system(
     mut vfx: MessageWriter<ambition_vfx::vfx::VfxMessage>,
     mut hits: MessageWriter<crate::features::HitEvent>,
 ) {
-    let Ok((player, mut kin, held, mut mark)) = players.single_mut() else {
+    let Ok((player, input, mut kin, held, mut mark)) = players.single_mut() else {
         return;
     };
     if held.spec.id != MARK_RECALL_ID {
@@ -76,7 +75,7 @@ pub fn mark_recall_system(
 
     // Plain Attack drops / moves the mark. Shield+Attack is the generic "throw
     // the item away", so a marked frame must not be a shielded one.
-    if control.attack_pressed && !control.shield_held {
+    if input.frame.attack_pressed && !input.frame.shield_held {
         let pos = kin.pos;
         match mark.as_deref_mut() {
             Some(existing) => existing.pos = Some(pos),
@@ -99,7 +98,7 @@ pub fn mark_recall_system(
     }
 
     // Blink recalls to the mark, if one is set.
-    if control.blink_pressed {
+    if input.frame.blink_pressed {
         if let Some(target) = mark.and_then(|m| m.pos) {
             kin.pos = target;
             // Recall-strike: a player-side shockwave at the mark, so you can mark a
@@ -136,7 +135,6 @@ mod tests {
         app.add_message::<crate::audio::SfxMessage>();
         app.add_message::<ambition_vfx::vfx::VfxMessage>();
         app.add_message::<crate::features::HitEvent>();
-        app.insert_resource(ControlFrame::default());
         app.add_systems(Update, mark_recall_system);
         app
     }
@@ -145,11 +143,11 @@ mod tests {
         crate::abilities::test_support::spawn_primary_player_holding_at(app, id, pos, 1.0)
     }
 
-    fn press(app: &mut App, attack: bool, blink: bool) {
-        let mut cf = app.world_mut().resource_mut::<ControlFrame>();
-        cf.attack_pressed = attack;
-        cf.blink_pressed = blink;
-        cf.shield_held = false;
+    fn press(app: &mut App, player: Entity, attack: bool, blink: bool) {
+        let mut input = app.world_mut().get_mut::<PlayerInputFrame>(player).unwrap();
+        input.frame.attack_pressed = attack;
+        input.frame.blink_pressed = blink;
+        input.frame.shield_held = false;
     }
 
     fn player_pos(app: &App, player: Entity) -> ae::Vec2 {
@@ -175,13 +173,13 @@ mod tests {
             capture_hits.after(mark_recall_system),
         );
         let player = spawn_player_holding(&mut app, MARK_RECALL_ID, ae::Vec2::new(200.0, 80.0));
-        press(&mut app, true, false); // mark at (200,80) — no hit yet
+        press(&mut app, player, true, false); // mark at (200,80) — no hit yet
         app.update();
         app.world_mut()
             .get_mut::<BodyKinematics>(player)
             .unwrap()
             .pos = ae::Vec2::new(900.0, 50.0);
-        press(&mut app, false, true); // recall -> shockwave at the mark
+        press(&mut app, player, false, true); // recall -> shockwave at the mark
         app.update();
         let hits = &app.world().resource::<CapturedHits>().0;
         assert_eq!(hits.len(), 1, "one shockwave on recall");
@@ -201,7 +199,7 @@ mod tests {
         let mut app = test_app();
         let player = spawn_player_holding(&mut app, MARK_RECALL_ID, ae::Vec2::new(100.0, 100.0));
         // Drop a mark where we stand.
-        press(&mut app, true, false);
+        press(&mut app, player, true, false);
         app.update();
         assert_eq!(
             app.world().get::<PlayerMark>(player).and_then(|m| m.pos),
@@ -213,7 +211,7 @@ mod tests {
             .get_mut::<BodyKinematics>(player)
             .unwrap()
             .pos = ae::Vec2::new(900.0, 50.0);
-        press(&mut app, false, true);
+        press(&mut app, player, false, true);
         app.update();
         assert_eq!(
             player_pos(&app, player),
@@ -226,13 +224,13 @@ mod tests {
     fn re_marking_moves_the_single_mark() {
         let mut app = test_app();
         let player = spawn_player_holding(&mut app, MARK_RECALL_ID, ae::Vec2::new(10.0, 10.0));
-        press(&mut app, true, false);
+        press(&mut app, player, true, false);
         app.update(); // mark at (10,10)
         app.world_mut()
             .get_mut::<BodyKinematics>(player)
             .unwrap()
             .pos = ae::Vec2::new(400.0, 20.0);
-        press(&mut app, true, false);
+        press(&mut app, player, true, false);
         app.update(); // re-mark at (400,20) — should replace, not add a second
         assert_eq!(
             app.world().get::<PlayerMark>(player).and_then(|m| m.pos),
@@ -245,7 +243,7 @@ mod tests {
     fn blink_without_a_mark_is_a_no_op() {
         let mut app = test_app();
         let player = spawn_player_holding(&mut app, MARK_RECALL_ID, ae::Vec2::new(900.0, 50.0));
-        press(&mut app, false, true);
+        press(&mut app, player, false, true);
         app.update();
         assert_eq!(
             player_pos(&app, player),
@@ -259,7 +257,7 @@ mod tests {
         // Holding the bomb (also a pure throwable) must not trip the mark logic.
         let mut app = test_app();
         let player = spawn_player_holding(&mut app, "bomb", ae::Vec2::new(100.0, 100.0));
-        press(&mut app, true, false);
+        press(&mut app, player, true, false);
         app.update();
         assert!(
             app.world().get::<PlayerMark>(player).is_none(),

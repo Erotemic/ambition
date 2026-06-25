@@ -17,8 +17,7 @@ use bevy::prelude::*;
 use crate::enemy_projectile::EnemyProjectileSpawn;
 use ambition_engine_core as ae;
 use crate::features::{ActorFaction, CenteredAabb, FeatureSimEntity, HeldItem};
-use ambition_input::ControlFrame;
-use crate::player::{BodyKinematics, PlayerEntity, PlayerMana, PrimaryPlayer};
+use crate::player::{BodyKinematics, PlayerEntity, PlayerInputFrame, PlayerMana, PrimaryPlayer};
 use crate::projectile::ProjectileFaction;
 
 /// Held-item id of the sentry gauntlet.
@@ -50,20 +49,19 @@ pub struct Sentry {
 /// feet. Plain Attack only — `Shield + Attack` drops the item (the id is
 /// `UseSystem`).
 pub fn fire_sentry_system(
-    control: Res<ControlFrame>,
     mut players: Query<
-        (&BodyKinematics, &HeldItem, &mut PlayerMana),
+        (&PlayerInputFrame, &BodyKinematics, &HeldItem, &mut PlayerMana),
         (With<PlayerEntity>, With<PrimaryPlayer>),
     >,
     mut commands: Commands,
     mut sfx: MessageWriter<crate::audio::SfxMessage>,
 ) {
-    if !control.attack_pressed || control.shield_held {
-        return;
-    }
-    let Ok((kin, held, mut mana)) = players.single_mut() else {
+    let Ok((input, kin, held, mut mana)) = players.single_mut() else {
         return;
     };
+    if !input.frame.attack_pressed || input.frame.shield_held {
+        return;
+    }
     if held.spec.id != SENTRY_ID {
         return;
     }
@@ -168,7 +166,6 @@ mod tests {
         let mut app = App::new();
         app.add_message::<crate::audio::SfxMessage>();
         app.add_message::<crate::effects::EffectRequest>();
-        app.insert_resource(ControlFrame::default());
         app.insert_resource(crate::WorldTime {
             raw_dt: 0.1,
             scaled_dt: 0.1,
@@ -192,7 +189,7 @@ mod tests {
     #[test]
     fn deployed_sentry_fires_a_player_bolt_at_a_nearby_enemy() {
         let mut app = test_app();
-        spawn_primary_player_holding(&mut app, SENTRY_ID);
+        let player = spawn_primary_player_holding(&mut app, SENTRY_ID);
         // An enemy within range of where the sentry will deploy (100,100).
         app.world_mut().spawn((
             FeatureSimEntity,
@@ -200,11 +197,15 @@ mod tests {
             ActorFaction::Enemy,
         ));
         app.world_mut()
-            .resource_mut::<ControlFrame>()
+            .get_mut::<PlayerInputFrame>(player)
+            .unwrap()
+            .frame
             .attack_pressed = true;
         app.update(); // deploy (arm delay 0.25; dt 0.1 → not yet firing)
         app.world_mut()
-            .resource_mut::<ControlFrame>()
+            .get_mut::<PlayerInputFrame>(player)
+            .unwrap()
+            .frame
             .attack_pressed = false;
         // Tick until past the arm delay + a fire interval.
         for _ in 0..10 {
@@ -226,7 +227,7 @@ mod tests {
     #[test]
     fn sentry_with_no_enemy_in_range_does_not_fire_and_expires() {
         let mut app = test_app();
-        spawn_primary_player_holding(&mut app, SENTRY_ID);
+        let player = spawn_primary_player_holding(&mut app, SENTRY_ID);
         // Enemy far outside SENTRY_RANGE.
         app.world_mut().spawn((
             FeatureSimEntity,
@@ -234,11 +235,15 @@ mod tests {
             ActorFaction::Enemy,
         ));
         app.world_mut()
-            .resource_mut::<ControlFrame>()
+            .get_mut::<PlayerInputFrame>(player)
+            .unwrap()
+            .frame
             .attack_pressed = true;
         app.update();
         app.world_mut()
-            .resource_mut::<ControlFrame>()
+            .get_mut::<PlayerInputFrame>(player)
+            .unwrap()
+            .frame
             .attack_pressed = false;
         for _ in 0..5 {
             app.update();

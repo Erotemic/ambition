@@ -17,8 +17,7 @@ use bevy::prelude::*;
 
 use ambition_engine_core as ae;
 use crate::features::{ActorAggression, ActorFaction, HeldItem};
-use ambition_input::ControlFrame;
-use crate::player::{BodyKinematics, PlayerEntity, PrimaryPlayer};
+use crate::player::{BodyKinematics, PlayerEntity, PlayerInputFrame, PrimaryPlayer};
 
 /// Marks a summoned, player-allied puppy slug (so the cap can count them and a
 /// future system can manage them).
@@ -38,21 +37,23 @@ const SLUG_ARCHETYPE: &str = "puppy_slug";
 /// ahead of the player, up to [`MAX_ALLIES`] alive. The gun's `HeldItemSpec` has
 /// no melee/ranged verb, so this is the only thing `Attack` does while it's held.
 pub fn fire_puppy_slug_gun_system(
-    control: Res<ControlFrame>,
     mut commands: Commands,
     mut next_id: Local<u64>,
-    players: Query<(&BodyKinematics, &HeldItem), (With<PlayerEntity>, With<PrimaryPlayer>)>,
+    players: Query<
+        (&PlayerInputFrame, &BodyKinematics, &HeldItem),
+        (With<PlayerEntity>, With<PrimaryPlayer>),
+    >,
     allies: Query<(), With<PuppySlugAlly>>,
     mut sfx: MessageWriter<crate::audio::SfxMessage>,
 ) {
-    // Plain Attack summons; Shield+Attack is reserved for throwing the gun away
-    // (handled by `throw_held_item_system`), so don't also summon then.
-    if !control.attack_pressed || control.shield_held {
-        return;
-    }
-    let Ok((kin, held)) = players.single() else {
+    let Ok((input, kin, held)) = players.single() else {
         return;
     };
+    // Plain Attack summons; Shield+Attack is reserved for throwing the gun away
+    // (handled by `throw_held_item_system`), so don't also summon then.
+    if !input.frame.attack_pressed || input.frame.shield_held {
+        return;
+    }
     if held.spec.id != PUPPY_SLUG_GUN_ID {
         return;
     }
@@ -99,7 +100,6 @@ mod tests {
     fn test_app() -> App {
         let mut app = App::new();
         app.add_message::<crate::audio::SfxMessage>();
-        app.insert_resource(ControlFrame::default());
         app.add_systems(Update, fire_puppy_slug_gun_system);
         app
     }
@@ -114,9 +114,11 @@ mod tests {
     #[test]
     fn attack_with_the_gun_summons_a_player_allied_slug() {
         let mut app = test_app();
-        spawn_primary_player_holding(&mut app, PUPPY_SLUG_GUN_ID);
+        let player = spawn_primary_player_holding(&mut app, PUPPY_SLUG_GUN_ID);
         app.world_mut()
-            .resource_mut::<ControlFrame>()
+            .get_mut::<PlayerInputFrame>(player)
+            .unwrap()
+            .frame
             .attack_pressed = true;
         app.update();
         assert_eq!(ally_count(&mut app), 1, "one ally summoned");
@@ -138,11 +140,13 @@ mod tests {
     #[test]
     fn summon_is_capped() {
         let mut app = test_app();
-        spawn_primary_player_holding(&mut app, PUPPY_SLUG_GUN_ID);
+        let player = spawn_primary_player_holding(&mut app, PUPPY_SLUG_GUN_ID);
         // Press attack many times (re-arming the edge each frame).
         for _ in 0..6 {
             app.world_mut()
-                .resource_mut::<ControlFrame>()
+                .get_mut::<PlayerInputFrame>(player)
+                .unwrap()
+                .frame
                 .attack_pressed = true;
             app.update();
         }

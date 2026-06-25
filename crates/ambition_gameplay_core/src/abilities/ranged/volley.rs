@@ -15,8 +15,7 @@ use bevy::prelude::*;
 use crate::enemy_projectile::EnemyProjectileSpawn;
 use ambition_engine_core as ae;
 use crate::features::HeldItem;
-use ambition_input::ControlFrame;
-use crate::player::{BodyKinematics, PlayerEntity, PlayerMana, PrimaryPlayer};
+use crate::player::{BodyKinematics, PlayerEntity, PlayerInputFrame, PlayerMana, PrimaryPlayer};
 use crate::projectile::ProjectileFaction;
 
 /// Held-item id of the volley gauntlet.
@@ -58,22 +57,21 @@ fn volley_origin_world(
 /// shared `held_shot_aim`). Plain Attack only — `Shield + Attack` drops the item
 /// (the id is excluded from throw-on-plain-Attack in `throw_held_item_system`).
 pub fn fire_volley_system(
-    control: Res<ControlFrame>,
     gravity: crate::physics::GravityCtx,
     user_settings: Option<Res<crate::persistence::settings::UserSettings>>,
     mut players: Query<
-        (&BodyKinematics, &HeldItem, &mut PlayerMana),
+        (&PlayerInputFrame, &BodyKinematics, &HeldItem, &mut PlayerMana),
         (With<PlayerEntity>, With<PrimaryPlayer>),
     >,
     mut effects: MessageWriter<crate::effects::EffectRequest>,
     mut sfx: MessageWriter<crate::audio::SfxMessage>,
 ) {
-    if !control.attack_pressed || control.shield_held {
-        return;
-    }
-    let Ok((kin, held, mut mana)) = players.single_mut() else {
+    let Ok((input, kin, held, mut mana)) = players.single_mut() else {
         return;
     };
+    if !input.frame.attack_pressed || input.frame.shield_held {
+        return;
+    }
     if held.spec.id != VOLLEY_ID {
         return;
     }
@@ -85,7 +83,7 @@ pub fn fire_volley_system(
     let modes = crate::items::pickup::control_frame_modes_from_settings(user_settings.as_deref());
     let frame = ae::AccelerationFrame::new(gravity_dir);
     let aim_local =
-        crate::items::pickup::held_shot_aim_local(&control, kin.facing, frame, modes);
+        crate::items::pickup::held_shot_aim_local(&input.frame, kin.facing, frame, modes);
     let aim = frame.to_world(aim_local).normalize_or_zero();
     if aim == ae::Vec2::ZERO {
         return;
@@ -139,7 +137,6 @@ mod tests {
         let mut app = App::new();
         app.add_message::<crate::audio::SfxMessage>();
         app.add_message::<crate::effects::EffectRequest>();
-        app.insert_resource(ControlFrame::default());
         app.init_resource::<EnemyProjectileState>();
         app.init_resource::<ProjectileSeqCounter>();
         // Chain the enemy-pool spawn consumer after the fire system.
@@ -157,9 +154,11 @@ mod tests {
     #[test]
     fn attack_with_the_volley_spawns_a_fan_of_player_faction_bolts() {
         let mut app = test_app();
-        spawn_primary_player_holding(&mut app, VOLLEY_ID);
+        let player = spawn_primary_player_holding(&mut app, VOLLEY_ID);
         app.world_mut()
-            .resource_mut::<ControlFrame>()
+            .get_mut::<PlayerInputFrame>(player)
+            .unwrap()
+            .frame
             .attack_pressed = true;
         app.update();
         let bodies = enemy_projectile_bodies(&mut app);

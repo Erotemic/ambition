@@ -219,14 +219,17 @@ mod tests {
         use ambition_input::ControlFrame;
         use crate::player::{
             BodyKinematics, PlayerBodyModeState, PlayerEntity, PlayerEnvironmentContact,
-            PlayerGroundState, PlayerLedgeState, PrimaryPlayer,
+            PlayerGroundState, PlayerInputFrame, PlayerLedgeState, PrimaryPlayer,
         };
 
         let mut app = App::new();
         // `detect_active_input_method` reads `Res<ButtonInput<KeyCode>>`
         // and `Res<Touches>`; Bevy normally creates them via
         // `InputPlugin`. Initialise them directly so the test app
-        // doesn't depend on the full input plugin graph.
+        // doesn't depend on the full input plugin graph. `ControlFrame`
+        // is no longer read by the compute chain (it reads the actor's
+        // `PlayerInputFrame`), but keep it so the harness still mirrors
+        // the production resource set.
         app.init_resource::<ControlFrame>()
             .init_resource::<bevy::input::ButtonInput<KeyCode>>()
             .init_resource::<bevy::input::touch::Touches>()
@@ -234,12 +237,14 @@ mod tests {
         // The affordance compute reads exactly these four cluster
         // components: ground (on_ground), ledge (grab), body_mode
         // (body_mode), env_contact (water). Plus kinematics for the
-        // intent system's facing read. Start with grounded baseline.
+        // intent system's facing read and `PlayerInputFrame` for the
+        // actor-local aim. Start with grounded baseline + neutral input.
         let entity = app
             .world_mut()
             .spawn((
                 PlayerEntity,
                 PrimaryPlayer,
+                PlayerInputFrame::default(),
                 BodyKinematics::default(),
                 PlayerGroundState {
                     on_ground: true,
@@ -255,6 +260,17 @@ mod tests {
 
     fn read_affordances(app: &App) -> PlayerAffordances {
         app.world().resource::<PlayerAffordances>().clone()
+    }
+
+    /// Stamp the controlled actor's local input axes (the intent compute
+    /// reads `PlayerInputFrame`, not the global `Res<ControlFrame>`).
+    fn set_axis(app: &mut App, player: Entity, x: f32, y: f32) {
+        let mut input = app
+            .world_mut()
+            .get_mut::<crate::player::PlayerInputFrame>(player)
+            .unwrap();
+        input.frame.axis_x = x;
+        input.frame.axis_y = y;
     }
 
     #[test]
@@ -277,18 +293,12 @@ mod tests {
     fn special_dispatches_on_aim_direction() {
         let (mut app, player_entity) = build_test_app();
         // Push axis_y down → DownSpecial.
-        app.world_mut()
-            .resource_mut::<ambition_input::ControlFrame>()
-            .axis_y = 1.0;
+        set_axis(&mut app, player_entity, 0.0, 1.0);
         app.update();
         assert_eq!(read_affordances(&app).special, SpecialVariant::DownSpecial);
 
         // Push axis_y up → UpSpecial.
-        {
-            let mut cf = app.world_mut().resource_mut::<ambition_input::ControlFrame>();
-            cf.axis_y = -1.0;
-            cf.axis_x = 0.0;
-        }
+        set_axis(&mut app, player_entity, 0.0, -1.0);
         app.update();
         assert_eq!(read_affordances(&app).special, SpecialVariant::UpSpecial);
 
@@ -298,11 +308,7 @@ mod tests {
             let mut kin = entity.get_mut::<crate::player::BodyKinematics>().unwrap();
             kin.facing = 1.0;
         }
-        {
-            let mut cf = app.world_mut().resource_mut::<ambition_input::ControlFrame>();
-            cf.axis_x = 1.0;
-            cf.axis_y = 0.0;
-        }
+        set_axis(&mut app, player_entity, 1.0, 0.0);
         app.update();
         assert_eq!(read_affordances(&app).special, SpecialVariant::SideSpecial);
     }
@@ -311,9 +317,7 @@ mod tests {
     fn airborne_player_with_down_aim_reads_as_dair() {
         let (mut app, player_entity) = build_test_app();
         // Push axis_y down (sim convention: +Y is down).
-        app.world_mut()
-            .resource_mut::<ambition_input::ControlFrame>()
-            .axis_y = 1.0;
+        set_axis(&mut app, player_entity, 0.0, 1.0);
         // Lift the player off the ground.
         {
             let mut entity = app.world_mut().entity_mut(player_entity);
@@ -360,9 +364,7 @@ mod tests {
                 .facing = 1.0;
         }
         // Push stick left (negative X) — opposing facing-right.
-        app.world_mut()
-            .resource_mut::<ambition_input::ControlFrame>()
-            .axis_x = -1.0;
+        set_axis(&mut app, player_entity, -1.0, 0.0);
         app.update();
         let aff = read_affordances(&app);
         assert_eq!(aff.attack, AttackVariant::BAir);

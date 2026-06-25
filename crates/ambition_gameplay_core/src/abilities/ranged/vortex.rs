@@ -16,8 +16,7 @@ use bevy::prelude::*;
 
 use ambition_engine_core as ae;
 use crate::features::{ActorFaction, BodyKinematics, FeatureSimEntity, HeldItem};
-use ambition_input::ControlFrame;
-use crate::player::{PlayerEntity, PlayerMana, PrimaryPlayer};
+use crate::player::{PlayerEntity, PlayerInputFrame, PlayerMana, PrimaryPlayer};
 
 /// Held-item id of the vortex gauntlet.
 pub const VORTEX_ID: &str = "vortex";
@@ -47,22 +46,21 @@ pub struct VortexWell {
 /// ahead of the player along the aim. Plain Attack only — `Shield + Attack`
 /// drops the item (the id is `UseSystem`, excluded from throw-on-plain-Attack).
 pub fn fire_vortex_system(
-    control: Res<ControlFrame>,
     gravity: crate::physics::GravityCtx,
     user_settings: Option<Res<crate::persistence::settings::UserSettings>>,
     mut players: Query<
-        (&BodyKinematics, &HeldItem, &mut PlayerMana),
+        (&PlayerInputFrame, &BodyKinematics, &HeldItem, &mut PlayerMana),
         (With<PlayerEntity>, With<PrimaryPlayer>),
     >,
     mut commands: Commands,
     mut sfx: MessageWriter<crate::audio::SfxMessage>,
 ) {
-    if !control.attack_pressed || control.shield_held {
-        return;
-    }
-    let Ok((kin, held, mut mana)) = players.single_mut() else {
+    let Ok((input, kin, held, mut mana)) = players.single_mut() else {
         return;
     };
+    if !input.frame.attack_pressed || input.frame.shield_held {
+        return;
+    }
     if held.spec.id != VORTEX_ID {
         return;
     }
@@ -72,7 +70,7 @@ pub fn fire_vortex_system(
     let gravity_dir = gravity.dir_at(kin.pos);
     let modes = crate::items::pickup::control_frame_modes_from_settings(user_settings.as_deref());
     let aim =
-        crate::items::pickup::held_shot_aim_world(&control, kin.facing, gravity_dir, modes)
+        crate::items::pickup::held_shot_aim_world(&input.frame, kin.facing, gravity_dir, modes)
             .normalize_or_zero();
     if aim == ae::Vec2::ZERO {
         return;
@@ -132,7 +130,6 @@ mod tests {
     fn test_app() -> App {
         let mut app = App::new();
         app.add_message::<crate::audio::SfxMessage>();
-        app.insert_resource(ControlFrame::default());
         app.insert_resource(crate::WorldTime {
             raw_dt: 0.016,
             scaled_dt: 0.016,
@@ -159,13 +156,15 @@ mod tests {
     #[test]
     fn attack_with_vortex_spawns_a_well_and_pulls_a_nearby_enemy_inward() {
         let mut app = test_app();
-        spawn_primary_player_holding(&mut app, VORTEX_ID);
+        let player = spawn_primary_player_holding(&mut app, VORTEX_ID);
         // Player at (100,100), facing +x → well at (300,100). Enemy just inside
         // the radius, off to the side, should be dragged toward the center.
         let enemy = spawn_enemy(&mut app, ae::Vec2::new(420.0, 100.0));
         let start_dist = ae::Vec2::new(420.0, 100.0).distance(ae::Vec2::new(300.0, 100.0));
         app.world_mut()
-            .resource_mut::<ControlFrame>()
+            .get_mut::<PlayerInputFrame>(player)
+            .unwrap()
+            .frame
             .attack_pressed = true;
         app.update();
         // A well exists.
@@ -187,15 +186,19 @@ mod tests {
     #[test]
     fn vortex_ignores_a_far_enemy_and_expires() {
         let mut app = test_app();
-        spawn_primary_player_holding(&mut app, VORTEX_ID);
+        let player = spawn_primary_player_holding(&mut app, VORTEX_ID);
         // Far away (well at 300,100; enemy at 900 — outside the 220 radius).
         let far = spawn_enemy(&mut app, ae::Vec2::new(900.0, 100.0));
         app.world_mut()
-            .resource_mut::<ControlFrame>()
+            .get_mut::<PlayerInputFrame>(player)
+            .unwrap()
+            .frame
             .attack_pressed = true;
         app.update();
         app.world_mut()
-            .resource_mut::<ControlFrame>()
+            .get_mut::<PlayerInputFrame>(player)
+            .unwrap()
+            .frame
             .attack_pressed = false;
         let far_pos = app.world().get::<BodyKinematics>(far).unwrap().pos;
         assert_eq!(

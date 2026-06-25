@@ -25,8 +25,7 @@ use bevy::prelude::*;
 
 use ambition_engine_core::{self as ae, AabbExt};
 use crate::features::HeldItem;
-use ambition_input::ControlFrame;
-use crate::player::{BodyKinematics, PlayerEntity, PlayerMana, PrimaryPlayer};
+use crate::player::{BodyKinematics, PlayerEntity, PlayerInputFrame, PlayerMana, PrimaryPlayer};
 
 /// Held-item id of the dive gauntlet.
 pub const DIVE_ID: &str = "dive";
@@ -83,23 +82,22 @@ fn dive_corridor(from: ae::Vec2, to: ae::Vec2) -> ae::Aabb {
 /// only — `Shield + Attack` drops the item (the id is `UseSystem`, excluded from
 /// throw-on-plain-Attack in `throw_held_item_system`).
 pub fn fire_dive_system(
-    control: Res<ControlFrame>,
     gravity: crate::physics::GravityCtx,
     user_settings: Option<Res<crate::persistence::settings::UserSettings>>,
     world: crate::features::CollisionWorld,
     mut players: Query<
-        (Entity, &mut BodyKinematics, &HeldItem, &mut PlayerMana),
+        (Entity, &PlayerInputFrame, &mut BodyKinematics, &HeldItem, &mut PlayerMana),
         (With<PlayerEntity>, With<PrimaryPlayer>),
     >,
     mut sfx: MessageWriter<crate::audio::SfxMessage>,
     mut hits: MessageWriter<crate::features::HitEvent>,
 ) {
-    if !control.attack_pressed || control.shield_held {
-        return;
-    }
-    let Ok((player, mut kin, held, mut mana)) = players.single_mut() else {
+    let Ok((player, input, mut kin, held, mut mana)) = players.single_mut() else {
         return;
     };
+    if !input.frame.attack_pressed || input.frame.shield_held {
+        return;
+    }
     if held.spec.id != DIVE_ID {
         return;
     }
@@ -110,7 +108,7 @@ pub fn fire_dive_system(
     let modes = crate::items::pickup::control_frame_modes_from_settings(user_settings.as_deref());
     let frame = ae::AccelerationFrame::new(gravity_dir);
     let local_aim =
-        crate::items::pickup::held_shot_aim_local(&control, kin.facing, frame, modes);
+        crate::items::pickup::held_shot_aim_local(&input.frame, kin.facing, frame, modes);
     let local_dir = dive_dir(local_aim, kin.facing).normalize_or_zero();
     let dir = frame.to_world(local_dir).normalize_or_zero();
     let from = kin.pos;
@@ -182,7 +180,6 @@ mod tests {
         let mut app = App::new();
         app.add_message::<crate::audio::SfxMessage>();
         app.add_message::<crate::features::HitEvent>();
-        app.insert_resource(ControlFrame::default());
         app.add_systems(Update, fire_dive_system);
         app
     }
@@ -204,7 +201,9 @@ mod tests {
         app.add_systems(Update, capture_hits.after(fire_dive_system));
         let player = spawn_primary_player_holding(&mut app, DIVE_ID);
         app.world_mut()
-            .resource_mut::<ControlFrame>()
+            .get_mut::<PlayerInputFrame>(player)
+            .unwrap()
+            .frame
             .attack_pressed = true;
         app.update();
         // No world → no walls → full lunge along facing (+x).
@@ -248,9 +247,9 @@ mod tests {
             )],
         )));
         {
-            let mut c = app.world_mut().resource_mut::<ControlFrame>();
-            c.attack_pressed = true;
-            c.aim_y = 1.0; // dive straight down
+            let mut input = app.world_mut().get_mut::<PlayerInputFrame>(player).unwrap();
+            input.frame.attack_pressed = true;
+            input.frame.aim_y = 1.0; // dive straight down
         }
         app.update();
         let pos = app.world().get::<BodyKinematics>(player).unwrap().pos;
@@ -292,7 +291,9 @@ mod tests {
             .meter
             .current = 5.0;
         app.world_mut()
-            .resource_mut::<ControlFrame>()
+            .get_mut::<PlayerInputFrame>(player)
+            .unwrap()
+            .frame
             .attack_pressed = true;
         app.update();
         assert_eq!(

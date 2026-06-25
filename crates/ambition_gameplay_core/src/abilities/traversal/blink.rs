@@ -16,8 +16,7 @@ use bevy::prelude::*;
 
 use ambition_engine_core::{self as ae, AabbExt};
 use crate::features::HeldItem;
-use ambition_input::ControlFrame;
-use crate::player::{BodyKinematics, PlayerEntity, PrimaryPlayer};
+use crate::player::{BodyKinematics, PlayerEntity, PlayerInputFrame, PrimaryPlayer};
 
 /// The held-item id the Blink ability grants.
 pub const BLINK_ID: &str = "blink";
@@ -38,7 +37,6 @@ const BLINK_SHOCKWAVE_DAMAGE: i32 = 2;
 /// [`BLINK_DISTANCE`] along the aim direction, stopping a body-half short of the
 /// first solid wall so the teleport never lands inside geometry.
 pub fn blink_system(
-    control: Res<ControlFrame>,
     gravity: crate::physics::GravityCtx,
     user_settings: Option<Res<crate::persistence::settings::UserSettings>>,
     world: crate::features::CollisionWorld,
@@ -46,6 +44,7 @@ pub fn blink_system(
     mut players: Query<
         (
             Entity,
+            &PlayerInputFrame,
             &mut BodyKinematics,
             &HeldItem,
             Option<&mut crate::ability_cooldown::AbilityCooldown>,
@@ -56,13 +55,13 @@ pub fn blink_system(
     mut vfx: MessageWriter<ambition_vfx::vfx::VfxMessage>,
     mut hits: MessageWriter<crate::features::HitEvent>,
 ) {
-    // Plain Attack blinks; Shield+Attack is the generic "throw the item away".
-    if !control.attack_pressed || control.shield_held {
-        return;
-    }
-    let Ok((player, mut kin, held, mut cooldown)) = players.single_mut() else {
+    let Ok((player, input, mut kin, held, mut cooldown)) = players.single_mut() else {
         return;
     };
+    // Plain Attack blinks; Shield+Attack is the generic "throw the item away".
+    if !input.frame.attack_pressed || input.frame.shield_held {
+        return;
+    }
     if held.spec.id != BLINK_ID {
         return;
     }
@@ -71,7 +70,7 @@ pub fn blink_system(
     // naturally world-space.
     let gravity_dir = gravity.dir_at(kin.pos);
     let modes = crate::items::pickup::control_frame_modes_from_settings(user_settings.as_deref());
-    let dir = crate::items::pickup::held_shot_aim_world(&control, kin.facing, gravity_dir, modes)
+    let dir = crate::items::pickup::held_shot_aim_world(&input.frame, kin.facing, gravity_dir, modes)
         .normalize_or_zero();
     if dir == ae::Vec2::ZERO {
         return;
@@ -164,7 +163,6 @@ mod tests {
         app.add_message::<crate::audio::SfxMessage>();
         app.add_message::<ambition_vfx::vfx::VfxMessage>();
         app.add_message::<crate::features::HitEvent>();
-        app.insert_resource(ControlFrame::default());
         app.add_systems(Update, blink_system);
         app
     }
@@ -197,9 +195,11 @@ mod tests {
         let mut app = test_app();
         app.init_resource::<CapturedHits>();
         app.add_systems(bevy::prelude::Update, capture_hits.after(blink_system));
-        let _player = spawn_player_holding(&mut app, BLINK_ID, 1.0);
+        let player = spawn_player_holding(&mut app, BLINK_ID, 1.0);
         app.world_mut()
-            .resource_mut::<ControlFrame>()
+            .get_mut::<PlayerInputFrame>(player)
+            .unwrap()
+            .frame
             .attack_pressed = true;
         app.update();
         let hits = &app.world().resource::<CapturedHits>().0;
@@ -226,7 +226,9 @@ mod tests {
         let mut app = test_app();
         let player = spawn_player_holding(&mut app, BLINK_ID, 1.0);
         app.world_mut()
-            .resource_mut::<ControlFrame>()
+            .get_mut::<PlayerInputFrame>(player)
+            .unwrap()
+            .frame
             .attack_pressed = true;
         app.update();
         assert_eq!(
@@ -255,9 +257,9 @@ mod tests {
             )],
         )));
         {
-            let mut c = app.world_mut().resource_mut::<ControlFrame>();
-            c.attack_pressed = true;
-            c.aim_y = 1.0; // aim straight down
+            let mut input = app.world_mut().get_mut::<PlayerInputFrame>(player).unwrap();
+            input.frame.attack_pressed = true;
+            input.frame.aim_y = 1.0; // aim straight down
         }
         app.update();
         let pos = player_pos(&app, player);
@@ -279,7 +281,9 @@ mod tests {
         let mut app = test_app();
         let player = spawn_player_holding(&mut app, BLINK_ID, -1.0);
         app.world_mut()
-            .resource_mut::<ControlFrame>()
+            .get_mut::<PlayerInputFrame>(player)
+            .unwrap()
+            .frame
             .attack_pressed = true;
         app.update();
         assert_eq!(
@@ -300,7 +304,9 @@ mod tests {
         let mut app2 = test_app();
         let player2 = spawn_player_holding(&mut app2, "bomb", 1.0);
         app2.world_mut()
-            .resource_mut::<ControlFrame>()
+            .get_mut::<PlayerInputFrame>(player2)
+            .unwrap()
+            .frame
             .attack_pressed = true;
         app2.update();
         assert_eq!(player_pos(&app2, player2), ae::Vec2::new(300.0, 300.0));

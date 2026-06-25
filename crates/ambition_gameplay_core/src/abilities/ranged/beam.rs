@@ -22,8 +22,7 @@ use bevy::prelude::*;
 
 use ambition_engine_core as ae;
 use crate::features::{ActorFaction, HeldItem};
-use ambition_input::ControlFrame;
-use crate::player::{BodyKinematics, PlayerEntity, PlayerMana, PrimaryPlayer};
+use crate::player::{BodyKinematics, PlayerEntity, PlayerInputFrame, PlayerMana, PrimaryPlayer};
 
 /// Held-item id of the focus-beam gauntlet.
 pub const BEAM_ID: &str = "beam";
@@ -78,22 +77,21 @@ fn beam_geometry(aim: ae::Vec2, facing: f32) -> (ae::Vec2, ae::Vec2) {
 /// `Shield + Attack` drops the item (the id is `UseSystem`, excluded from
 /// throw-on-plain-Attack in `throw_held_item_system`).
 pub fn fire_beam_system(
-    control: Res<ControlFrame>,
     gravity: crate::physics::GravityCtx,
     user_settings: Option<Res<crate::persistence::settings::UserSettings>>,
     mut players: Query<
-        (Entity, &HeldItem, &BodyKinematics, &mut PlayerMana),
+        (Entity, &PlayerInputFrame, &HeldItem, &BodyKinematics, &mut PlayerMana),
         (With<PlayerEntity>, With<PrimaryPlayer>),
     >,
     mut effects: MessageWriter<crate::effects::EffectRequest>,
     mut sfx: MessageWriter<crate::audio::SfxMessage>,
 ) {
-    if !control.attack_pressed || control.shield_held {
-        return;
-    }
-    let Ok((entity, held, kin, mut mana)) = players.single_mut() else {
+    let Ok((entity, input, held, kin, mut mana)) = players.single_mut() else {
         return;
     };
+    if !input.frame.attack_pressed || input.frame.shield_held {
+        return;
+    }
     if held.spec.id != BEAM_ID {
         return;
     }
@@ -104,7 +102,7 @@ pub fn fire_beam_system(
     let gravity_dir = gravity.dir_at(kin.pos);
     let modes = crate::items::pickup::control_frame_modes_from_settings(user_settings.as_deref());
     let frame = ae::AccelerationFrame::new(gravity_dir);
-    let aim = crate::items::pickup::held_shot_aim_local(&control, kin.facing, frame, modes);
+    let aim = crate::items::pickup::held_shot_aim_local(&input.frame, kin.facing, frame, modes);
     let (offset_local, half_local) = beam_geometry(aim, kin.facing);
     let offset = frame.to_world(offset_local);
     let half_extent = frame.to_world_half(half_local);
@@ -136,7 +134,6 @@ mod tests {
         let mut app = App::new();
         app.add_message::<crate::audio::SfxMessage>();
         app.add_message::<crate::effects::EffectRequest>();
-        app.insert_resource(ControlFrame::default());
         // fire_beam emits Effect::DamageBox; apply_effects spawns the hitbox.
         app.add_systems(
             Update,
@@ -158,7 +155,9 @@ mod tests {
         let mut app = test_app();
         let player = spawn_primary_player_holding(&mut app, BEAM_ID);
         app.world_mut()
-            .resource_mut::<ControlFrame>()
+            .get_mut::<PlayerInputFrame>(player)
+            .unwrap()
+            .frame
             .attack_pressed = true;
         app.update();
         let boxes = hitboxes(&mut app);
@@ -201,7 +200,9 @@ mod tests {
             .meter
             .current = 5.0;
         app.world_mut()
-            .resource_mut::<ControlFrame>()
+            .get_mut::<PlayerInputFrame>(player)
+            .unwrap()
+            .frame
             .attack_pressed = true;
         app.update();
         assert_eq!(hitboxes(&mut app).len(), 0, "no beam when mana < cost");

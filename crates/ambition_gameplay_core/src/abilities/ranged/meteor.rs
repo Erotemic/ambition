@@ -22,8 +22,7 @@ use bevy::prelude::*;
 use crate::enemy_projectile::EnemyProjectileSpawn;
 use ambition_engine_core as ae;
 use crate::features::HeldItem;
-use ambition_input::ControlFrame;
-use crate::player::{BodyKinematics, PlayerEntity, PlayerMana, PrimaryPlayer};
+use crate::player::{BodyKinematics, PlayerEntity, PlayerInputFrame, PlayerMana, PrimaryPlayer};
 use crate::projectile::ProjectileFaction;
 
 /// Held-item id of the meteor gauntlet.
@@ -82,22 +81,21 @@ fn meteor_strike_origins(
 /// `Player`-faction projectiles onto the zone ahead. Plain Attack only — `Shield
 /// + Attack` drops the item (the id is `UseSystem`).
 pub fn fire_meteor_system(
-    control: Res<ControlFrame>,
     gravity: crate::physics::GravityCtx,
     user_settings: Option<Res<crate::persistence::settings::UserSettings>>,
     mut players: Query<
-        (&BodyKinematics, &HeldItem, &mut PlayerMana),
+        (&PlayerInputFrame, &BodyKinematics, &HeldItem, &mut PlayerMana),
         (With<PlayerEntity>, With<PrimaryPlayer>),
     >,
     mut effects: MessageWriter<crate::effects::EffectRequest>,
     mut sfx: MessageWriter<crate::audio::SfxMessage>,
 ) {
-    if !control.attack_pressed || control.shield_held {
-        return;
-    }
-    let Ok((kin, held, mut mana)) = players.single_mut() else {
+    let Ok((input, kin, held, mut mana)) = players.single_mut() else {
         return;
     };
+    if !input.frame.attack_pressed || input.frame.shield_held {
+        return;
+    }
     if held.spec.id != METEOR_ID {
         return;
     }
@@ -107,7 +105,7 @@ pub fn fire_meteor_system(
     let gravity_dir = gravity.dir_at(kin.pos);
     let modes = crate::items::pickup::control_frame_modes_from_settings(user_settings.as_deref());
     let frame = ae::AccelerationFrame::new(gravity_dir);
-    let aim = crate::items::pickup::held_shot_aim_local(&control, kin.facing, frame, modes);
+    let aim = crate::items::pickup::held_shot_aim_local(&input.frame, kin.facing, frame, modes);
     for origin in meteor_strike_origins(kin.pos, aim, kin.facing, gravity_dir) {
         effects.write(crate::effects::EffectRequest {
             // Projectiles are self-describing (owner_id is on the shot); the
@@ -147,7 +145,6 @@ mod tests {
         let mut app = App::new();
         app.add_message::<crate::audio::SfxMessage>();
         app.add_message::<crate::effects::EffectRequest>();
-        app.insert_resource(ControlFrame::default());
         app.init_resource::<EnemyProjectileState>();
         app.init_resource::<ProjectileSeqCounter>();
         // fire emits Effect::Projectiles; apply_projectile_effects spawns the entity.
@@ -165,9 +162,11 @@ mod tests {
     #[test]
     fn attack_rains_player_faction_meteors() {
         let mut app = test_app();
-        spawn_primary_player_holding(&mut app, METEOR_ID);
+        let player = spawn_primary_player_holding(&mut app, METEOR_ID);
         app.world_mut()
-            .resource_mut::<ControlFrame>()
+            .get_mut::<PlayerInputFrame>(player)
+            .unwrap()
+            .frame
             .attack_pressed = true;
         app.update();
         let bodies = enemy_projectile_bodies(&mut app);
@@ -202,7 +201,9 @@ mod tests {
             .meter
             .current = 5.0;
         app.world_mut()
-            .resource_mut::<ControlFrame>()
+            .get_mut::<PlayerInputFrame>(player)
+            .unwrap()
+            .frame
             .attack_pressed = true;
         app.update();
         assert!(

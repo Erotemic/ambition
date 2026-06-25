@@ -25,6 +25,7 @@ use crate::boss_encounter::behavior::{
 use crate::boss_encounter::BossEncounterPhase;
 use crate::engine_core as ae;
 use crate::engine_core::AabbExt;
+use ambition_platformer_primitives::kinematic;
 
 pub use crate::platformer_runtime::body::BodyKinematics;
 
@@ -201,7 +202,7 @@ impl<'a> BossMut<'a> {
         if !self.status.alive || dt <= 0.0 {
             return;
         }
-        let mut body = crate::kinematic::KinematicBody {
+        let mut body = kinematic::KinematicBody {
             pos: self.kin.pos,
             vel: desired_vel,
             size: self.combat_size(),

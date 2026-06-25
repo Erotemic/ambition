@@ -8,6 +8,7 @@
 use super::super::ecs::actor_clusters::ActorMut;
 use super::super::*;
 use super::*;
+use ambition_platformer_primitives::kinematic;
 
 /// Enemy physics/AI integration, operating directly on the authoritative
 /// ECS components through the [`ActorMut`] view.
@@ -94,7 +95,7 @@ fn integrate_standard_enemy_body(
     dt: f32,
     gravity_dir: ae::Vec2,
 ) {
-    let mut body = crate::kinematic::KinematicBody {
+    let mut body = kinematic::KinematicBody {
         pos: kin.pos,
         vel: kin.vel,
         size: kin.size,
@@ -173,15 +174,15 @@ fn integrate_standard_enemy_body(
         // Grounded sweep: the spine already applied gravity along `gravity_dir`,
         // so this is pure collision resolution (the same intent/sweep split the
         // player uses). The aerial branch did its own sweep via step_floating_body.
-        crate::kinematic::step_kinematic(
+        kinematic::step_kinematic(
             &mut body,
             world,
-            crate::kinematic::KinematicTuning {
+            kinematic::KinematicTuning {
                 gravity: 0.0,
                 max_fall_speed: ENEMY_MAX_FALL,
                 gravity_dir,
             },
-            crate::kinematic::KinematicInputs {
+            kinematic::KinematicInputs {
                 drop_through: frame.drop_through,
             },
             dt,
@@ -408,24 +409,24 @@ impl<'a> ActorMut<'a> {
     }
 
     fn fall_until_landed(&mut self, world: &ae::World, dt: f32, gravity_dir: ae::Vec2) {
-        let mut body = crate::kinematic::KinematicBody {
+        let mut body = kinematic::KinematicBody {
             pos: self.kin.pos,
             vel: self.kin.vel,
             size: self.kin.size,
             on_ground: self.surface.on_ground,
             facing: self.kin.facing,
         };
-        crate::kinematic::step_kinematic(
+        kinematic::step_kinematic(
             &mut body,
             world,
-            crate::kinematic::KinematicTuning {
+            kinematic::KinematicTuning {
                 gravity: ENEMY_GRAVITY,
                 max_fall_speed: ENEMY_MAX_FALL,
                 // Detached surface-walkers fall toward the active acceleration frame,
                 // then reattach with their surface normal opposite local down.
                 gravity_dir,
             },
-            crate::kinematic::KinematicInputs {
+            kinematic::KinematicInputs {
                 drop_through: false,
             },
             dt,

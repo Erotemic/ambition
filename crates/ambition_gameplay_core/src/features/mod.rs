@@ -18,6 +18,7 @@
 
 use crate::engine_core as ae;
 use crate::engine_core::AabbExt;
+use ambition_platformer_primitives::kinematic;
 use bevy::prelude::*;
 
 const ENEMY_GRAVITY: f32 = 1450.0;
@@ -49,14 +50,14 @@ pub(crate) const MAX_ENEMY_AIR_JUMPS: u8 = 1;
 /// move `vel` toward the brain-emitted `desired_vel` (smoothly at `accel`, or
 /// SNAP to it when `accel` is `None` — the boss case, whose pattern drives an
 /// exact velocity each tick), then resolve collisions through the shared
-/// gravity-free [`crate::kinematic::step_kinematic`] sweep. The caller owns the
+/// gravity-free [`kinematic::step_kinematic`] sweep. The caller owns the
 /// facing / status / brain glue.
 ///
 /// This is the FLOATING counterpart to the grounded `integrate_normal_spine`
 /// path: one source of truth for how a non-grounded actor moves, so a boss, a
 /// dive-bombing parrot, and a hover-drone all collide and stop identically.
 pub(crate) fn step_floating_body(
-    body: &mut crate::kinematic::KinematicBody,
+    body: &mut kinematic::KinematicBody,
     world: &ae::World,
     desired_vel: ae::Vec2,
     accel: Option<f32>,
@@ -71,16 +72,16 @@ pub(crate) fn step_floating_body(
         // Snap: the boss pattern emits an exact velocity each tick (no smoothing).
         None => body.vel = desired_vel,
     }
-    crate::kinematic::step_kinematic(
+    kinematic::step_kinematic(
         body,
         world,
-        crate::kinematic::KinematicTuning {
+        kinematic::KinematicTuning {
             // Gravity-free: a floating actor's brain owns its full 2D velocity.
             gravity: 0.0,
             max_fall_speed,
             gravity_dir: ae::Vec2::new(0.0, 1.0),
         },
-        crate::kinematic::KinematicInputs::default(),
+        kinematic::KinematicInputs::default(),
         dt,
     );
 }

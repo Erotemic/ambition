@@ -1,6 +1,6 @@
 # Restructuring blueprint — actionable distillation
 
-*Author: Claude Opus 4.8 (1M) · 2026-06-25 · status: IN PROGRESS — see the Status log; shim removal + collision-semantics dedup + RoomGeometry rename have LANDED.*
+*Author: Claude Opus 4.8 (1M) · 2026-06-25 · status: IN PROGRESS — see the Status log. §1 (shims), §2 (collision dedup + collision-view API, bar the portal reader) done; §3–§5 + domain extractions remain.*
 
 This distils an externally-generated "restructuring blueprint v5" (static
 inspection only, no `cargo`) into a repo-canonical plan. It keeps two kinds of
@@ -52,55 +52,44 @@ the full reasoning; the section is annotated **DONE** / **NEXT** / **OPEN** inli
 - **`GameWorld` → `RoomGeometry` rename** (§"Resolved decision" DONE). Pure
   identifier rename, 155 sites, `90966244`. Names what it *is* (authored room
   geometry), not what it isn't.
+- **`CollisionWorld` collision-view API** (§2/§"Resolved decision" — seam `b51ac38e`,
+  readers `0208bbb5`). Single composited collision read-API; traversal abilities,
+  body-mode clearance, and dropped-item physics routed off bare `RoomGeometry`.
+  FEEL-TEST owed (blind batch); portal shot-placement reader still pending (a
+  design fork — see below).
 - **Falling-sand world-model question RESOLVED** (`25fcb13a`) — confirms the
   RoomGeometry model; no durable-overlay tier needed (see Open questions #1).
 
-**RoomGeometry collision-view API — SEAM + FIRST READERS LANDED (2026-06-25):**
+**RoomGeometry collision-view API — mostly done; what remains:**
 
-The `CollisionWorld` SystemParam is the single collision read-API
-(`combat::world_overlay`, re-exported via `features`): `solids()` (full
-composite), `carves_only()` (projectile path), `base()` (metadata only). All
-resources optional, so it degrades to the bare geometry exactly when there are no
-dynamics. Landed `b51ac38e` (seam + 4 unit tests) + `0208bbb5` (first readers).
+The `CollisionWorld` read-API exists (`combat::world_overlay`, via `features`):
+`solids()` / `carves_only()` / `base()`. The traversal abilities, body-mode
+clearance, and dropped-item physics are routed onto it; the boss-special /
+encounter readers were classified as bounds-metadata (room `size`, not collision)
+and correctly stay on the base. Two things are left:
 
-The first behaviour-sensitive batch is routed onto `solids()`: `grapple_system`,
-`blink_system`, `fire_dive_system`, `update_body_mode`, `ground_item_physics` —
-these now collide against moving platforms / ECS solids / portal carves instead
-of the bare room. (Blind — owed a feel check in a room with moving platforms.)
+1. **Portal shot-placement adapter** (`content/portal/shot_adapter.rs`) is the
+   last genuine collision reader still on bare `RoomGeometry`. Routing it is a
+   **design fork, not a sweep**: deciding whether a portal may be placed on a
+   moving platform / ECS solid (and whether carving the aperture into the world
+   the shot raycasts against creates feedback). Decide that first; add a test.
+2. **Feel-check owed** on the routed batch (`0208bbb5`, blind): in a room with a
+   moving platform, confirm grapple latches it, blink/dive stop on it, and
+   unmorph is blocked under it. Revert that one commit if any feels wrong.
 
-**Still owed** (the rest of the needs-composite set in the write-map below):
-`abilities/traversal` is done; remaining are `portal/*` and the boss-special
-spawners that raycast. The render/layout readers stay on the base (do NOT route);
-projectile readers already use `carves_only`-equivalent. Original write-map below
-(verify against `main` before acting):
-
-- **7 writers** of `ResMut<RoomGeometry>` to classify: `session/reset/mod.rs`
-  (reset), `app/world_flow/room_flow.rs` (room transition), `app/dev_runtime.rs`
-  (hot-reload), `falling_sand.rs` (per-frame sand projection — the one durable-ish
-  writer, snapshots its own base), `encounter/systems.rs`, `content/bosses/gnu_ton.rs`
-  (arena ladder gate), `content/intro/route_state.rs`.
-- **43 readers** of `Res<RoomGeometry>`, and **none currently use the composite
-  builders** (`combat::world_overlay::{world_with_sandbox_solids, world_with_portal_carves}`).
-  They split sharply:
-  - **~18 `render/*` readers = layout/metadata** (camera, parallax, HUD,
-    nameplates, visuals read bounds/size). Keep on the base — do NOT route.
-  - **genuine needs-composite set = the collision/raycast consumers**:
-    `abilities/traversal/{grapple,blink,dive}.rs` ✅, `body_mode/mechanics/mod.rs` ✅,
-    `items/pickup/mod.rs` (`ground_item_physics`) ✅ — all routed onto
-    `CollisionWorld::solids()` in `0208bbb5`. STILL OWED: `portal/*` and the
-    boss-special spawners that raycast. These should sweep against `base + overlay`.
-  - dev/trace, parity, debug overlay = base is fine.
-- **Approach:** classify each reader (metadata / base-collision / needs-composite),
-  then route only the needs-composite set through a single collision read-API
-  (a helper that takes `Res<RoomGeometry>` + `Res<MovingPlatformSet>` +
-  `Res<FeatureEcsWorldOverlay>` and returns the Cow-composited world). Do NOT
-  blanket-route — a render visual or a projectile that suddenly sees moving-platform
-  / carve geometry is a silent feel regression. This is the seam the collision
-  dedup was built for. Validate per-reader; flag feel-sensitive changes.
+Guard when extending: do NOT route render/layout/metadata readers or projectiles
+(projectiles pass through platforms → `carves_only`) — a reader that suddenly
+sees moving-platform / carve geometry is a silent feel regression.
 
 The rest of the plan (§3 app-drain, §4 ControlFrame→intent, §5 OnceLock, the
-domain-by-domain extractions) is untouched and remains the menu after the
-collision-view API.
+domain-by-domain extractions) is untouched and remains the menu.
+
+> Orientation for the future world-runtime extraction (§"World / rooms / LDtk"):
+> the `ResMut<RoomGeometry>` writers still to classify are `session/reset/mod.rs`
+> (reset), `app/world_flow/room_flow.rs` (transition), `app/dev_runtime.rs`
+> (hot-reload), `falling_sand.rs` (per-frame sand projection — snapshots its own
+> base), `encounter/systems.rs`, `content/bosses/gnu_ton.rs` (arena gate),
+> `content/intro/route_state.rs`. Verify against `main` before acting.
 
 ---
 
@@ -128,9 +117,9 @@ clarity, not a conversion. Preserve and amplify:
 
 ## Resolved decision: `GameWorld` → `RoomGeometry`, read through a collision view
 
-> **Status:** the *rename* `GameWorld` → `RoomGeometry` is DONE (`90966244`). The
-> *collision-view API* (the "read through a collision view" half) is NOT done — it
-> is the live next frontier, with the reader/writer write-map in the Status log.
+> **Status:** done except the portal shot-placement reader (a design fork) — see
+> the Status log. The `CollisionWorld` read-API exists and the collision readers
+> are routed onto it; the section below is retained as the design rationale.
 
 The blueprint posed an open fork: is `GameWorld` an *authoritative mutable world*
 or a *derived cache*? That fork was a false dichotomy built on a bad name. There
@@ -326,42 +315,17 @@ those crates' imports are ready.
 
 ### 2. Collision/support-semantics dedup (+ RoomGeometry collision view)
 
-> **DONE except step 4 (the collision-view API).** The kernel is extracted to
-> `ambition_engine_core::collision_semantics` and both sweeps delegate; the 3
-> drifts are unified (parity-first worked, though the two impls were found NOT
-> byte-identical — see commit `c732671c`). **Step 4 — routing collision readers
-> through the composited view — is the live NEXT frontier; the reader/writer
-> write-map is in the Status log above.** Step 5 (whether the controlled body
-> consumes `step_kinematic` directly) remains deferred. Original plan kept below.
+The semantics kernel is extracted (`ambition_engine_core::collision_semantics`,
+both sweeps delegate) and the collision-view API is routed (see Status log). Two
+items remain:
 
-The highest-value correctness work. Two implementations carry overlapping
-gravity-relative support semantics that can agree at the design level while
-drifting at the implementation level:
-
-- `ambition_engine_core/src/movement/collision.rs` (707 lines) — controlled-body.
-- `ambition_platformer_primitives/src/kinematic.rs` (1226 lines) — generic
-  actor/NPC/enemy sweep.
-
-This is the relativity principle as a correctness property: every actor — player,
-NPC, enemy, projectile, remote/AI — collides against one composited truth. It is
-the engine-for-other-games keystone.
-
-**Do (parity-first — the proven-safe order for big mechanical ports):**
-
-1. Shared fixture table: `BlockKind` × cardinal `gravity_dir` × previous-feet
-   coord × delta × drop-through → expected support/block/pass.
-2. Run identical expectations against *both* paths before changing anything.
-3. Extract pure helpers (support-surface classification, gravity-axis role,
-   support-face separation, one-way landing eligibility) into a shared semantics
-   module; keep both sweeps but make them call it.
-4. Land the `RoomGeometry` collision-view API here — both sweeps query the
-   composited view, not bare geometry. Unifies item 1's decision with the dedup.
-5. After parity holds, decide if controlled-body movement consumes
-   `step_kinematic` directly or keeps a richer sweep over the same kernel.
-
-Watch the dependency direction: `platformer_primitives` already depends on
-`engine_core` for `Aabb`/`Block`/`BlockKind`/`World`, so the shared semantics home
-needs a clean direction.
+- **The portal shot-placement reader** (the collision-view design fork — Status
+  log item 1).
+- **Deferred:** decide whether controlled-body movement consumes `step_kinematic`
+  directly or keeps a richer sweep over the same kernel. Only worth doing if the
+  two sweeps (`engine_core/src/movement/collision.rs` controlled-body vs
+  `platformer_primitives/src/kinematic.rs` generic actor) start drifting again;
+  parity holds today.
 
 ### 3. Drain simulation out of `ambition_app` into domain plugins
 

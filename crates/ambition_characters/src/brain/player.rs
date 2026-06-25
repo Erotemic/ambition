@@ -248,7 +248,7 @@ mod tests {
         // local-right direction is screen-up. In screen-directed mode, raw
         // screen-down should therefore mean local-left.
         s.control_down = ae::Vec2::new(1.0, 0.0);
-        s.movement_frame_mode = ae::InputFrameMode::Screen;
+        s.movement_frame_mode = ae::InputFrameMode::ScreenRelative;
         s.actor_facing = 1.0;
         let input = input_with(|c| {
             c.axis_x = 0.0;
@@ -349,7 +349,7 @@ mod tests {
         });
         let mut s = BrainSnapshot::idle();
         s.control_down = ae::Vec2::new(1.0, 0.0);
-        s.aim_frame_mode = ae::InputFrameMode::Screen;
+        s.aim_frame_mode = ae::InputFrameMode::ScreenRelative;
         s.actor_facing = 1.0;
         let mut out = crate::actor::control::ActorControlFrame::default();
         tick_player_brain_from_control(&input, &s, &mut out);

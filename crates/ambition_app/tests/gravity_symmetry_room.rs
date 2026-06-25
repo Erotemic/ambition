@@ -148,7 +148,7 @@ fn open_arm_sim(arm: Arm, spot: StartSpot) -> SandboxSim {
     // This makes AgentAction axes mean controlled-body-local side/down. The room
     // still supplies the gravity via zones; the setting only avoids mixing the
     // raw human-input policy into a symmetry property about mechanics.
-    sim.set_movement_frame_mode(InputFrameMode::Player);
+    sim.set_movement_frame_mode(InputFrameMode::BodyRelativeStrict);
     // Use the arm's gravity as ambient fallback for the first post-teleport tick;
     // the gravity zone should then keep the same direction because the start
     // point is inside that arm's authored well.
@@ -517,7 +517,7 @@ fn local_one_way_block(id: &'static str, dir: Vec2, local_min: Vec2, local_size:
 
 fn settle_on_injected_one_way(arm: Arm) -> SandboxSim {
     let mut sim = fixed_60hz_room_sim("symmetry_room");
-    sim.set_movement_frame_mode(InputFrameMode::Player);
+    sim.set_movement_frame_mode(InputFrameMode::BodyRelativeStrict);
     sim.set_base_gravity_dir((arm.dir.x, arm.dir.y));
 
     // A small one-way in the open air between the down-arm step A and step B,

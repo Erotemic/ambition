@@ -141,7 +141,7 @@ pub struct GameplaySettings {
     /// How raw PRECISION-AIM input (blink steer, ranged/held-item aim) maps onto
     /// the controlled body's local frame. Independent of [`Self::movement_frame_mode`]
     /// because aiming a teleport/shot at a screen point is a different gesture than
-    /// locomotion — it defaults to screen-directed ([`InputFrameMode::Screen`]) so
+    /// locomotion — it defaults to screen-directed ([`InputFrameMode::ScreenRelative`]) so
     /// precision aiming points where the stick points on screen at any gravity.
     #[serde(default = "default_aim_frame_mode")]
     pub aim_frame_mode: InputFrameMode,
@@ -171,7 +171,7 @@ impl Default for GameplaySettings {
             trace_auto_dump: true,
             pause_input_when_unfocused: false,
             portal_reverses_facing: false,
-            movement_frame_mode: InputFrameMode::Hybrid,
+            movement_frame_mode: InputFrameMode::BodyRelativeAssist,
             aim_frame_mode: default_aim_frame_mode(),
         }
     }
@@ -181,18 +181,18 @@ impl GameplaySettings {
     pub const DAMAGE_STEP: f32 = 0.10;
 
     /// The frame modes surfaced to the user — the two Jon asked for. The engine's
-    /// third mode (`InputFrameMode::Player`, fully body-relative with no
+    /// third mode (`InputFrameMode::BodyRelativeStrict`, fully body-relative with no
     /// accommodation) stays dev-only and is reachable through the F3 tuning editor.
     /// Shared by both the locomotion and the precision-aim cycle.
     pub const FRAME_MODES: [InputFrameMode; 2] =
-        [InputFrameMode::Hybrid, InputFrameMode::Screen];
+        [InputFrameMode::BodyRelativeAssist, InputFrameMode::ScreenRelative];
 
     /// Short, user-facing label for a frame mode.
     pub fn frame_mode_label(mode: InputFrameMode) -> &'static str {
         match mode {
-            InputFrameMode::Hybrid => "body-relative assist",
-            InputFrameMode::Screen => "screen-directed",
-            InputFrameMode::Player => "body-relative strict",
+            InputFrameMode::BodyRelativeAssist => "body-relative assist",
+            InputFrameMode::ScreenRelative => "screen-directed",
+            InputFrameMode::BodyRelativeStrict => "body-relative strict",
         }
     }
 

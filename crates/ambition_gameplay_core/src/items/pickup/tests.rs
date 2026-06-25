@@ -341,8 +341,8 @@ fn held_shot_aim_resolves_screen_input_through_the_controlled_body_frame() {
     let down_frame = ae::AccelerationFrame::new(down);
     let left_frame = ae::AccelerationFrame::new(left);
     let screen = ae::ControlFrameModes {
-        movement: ae::InputFrameMode::Screen,
-        aim: ae::InputFrameMode::Screen,
+        movement: ae::InputFrameMode::ScreenRelative,
+        aim: ae::InputFrameMode::ScreenRelative,
     };
     let down_local = held_shot_aim_local(&control, 1.0, down_frame, screen);
     let left_local = held_shot_aim_local(&control, 1.0, left_frame, screen);

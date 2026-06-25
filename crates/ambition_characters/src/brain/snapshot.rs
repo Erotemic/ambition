@@ -247,8 +247,8 @@ mod tests {
         assert!(s.alive);
         assert!(s.player_input.is_none(), "idle snapshot has no input");
         assert_eq!(s.control_down, ae::Vec2::new(0.0, 1.0));
-        assert_eq!(s.movement_frame_mode, ae::InputFrameMode::Hybrid);
-        assert_eq!(s.aim_frame_mode, ae::InputFrameMode::Screen);
+        assert_eq!(s.movement_frame_mode, ae::InputFrameMode::BodyRelativeAssist);
+        assert_eq!(s.aim_frame_mode, ae::InputFrameMode::ScreenRelative);
     }
 
     #[test]

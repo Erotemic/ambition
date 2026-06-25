@@ -101,7 +101,7 @@ pub fn possession_trigger_system(
         .map_or(ambition_engine_core::Vec2::new(0.0, 1.0), |g| g.dir);
     let movement_mode = user_settings
         .as_deref()
-        .map_or(ambition_engine_core::InputFrameMode::Hybrid, |s| {
+        .map_or(ambition_engine_core::InputFrameMode::BodyRelativeAssist, |s| {
             s.gameplay.movement_frame_mode
         });
     let descend = ambition_engine_core::AccelerationFrame::new(gravity_dir)

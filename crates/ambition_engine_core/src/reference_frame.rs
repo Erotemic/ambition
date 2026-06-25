@@ -30,10 +30,10 @@ const STICK_SELECT_DEADZONE: f32 = 0.3;
 pub enum InputFrameMode {
     /// Input is always SCREEN-aligned: right is screen-right regardless of
     /// gravity (the human mentally tracks the controlled body).
-    Screen,
+    ScreenRelative,
     /// Input always follows the controlled body's local frame: right is the
     /// body's own right, fully rotated with gravity (no accommodation).
-    Player,
+    BodyRelativeStrict,
     /// Default HYBRID / body-relative assist: follow the controlled body frame
     /// up to ±90° from screen-down — gravity down / left / right, where a human
     /// tracks the rotation fine — then revert to screen-aligned past 90° (gravity
@@ -41,7 +41,7 @@ pub enum InputFrameMode {
     /// (pogo / crouch) is independent and always flips with the body frame
     /// ([`Self::descend`]).
     #[default]
-    Hybrid,
+    BodyRelativeAssist,
 }
 
 /// The pair of [`InputFrameMode`] policies a control authority maps raw input
@@ -50,8 +50,8 @@ pub enum InputFrameMode {
 /// The locomotion stick (left stick / movement keys) and the precision-aim stick
 /// (right stick / aim) are physically different sources and a human tracks them
 /// differently under rotated gravity, so they each carry their own mapping
-/// policy: locomotion defaults to body-relative assist ([`InputFrameMode::Hybrid`]);
-/// precision aiming defaults to screen-directed ([`InputFrameMode::Screen`]) — you
+/// policy: locomotion defaults to body-relative assist ([`InputFrameMode::BodyRelativeAssist`]);
+/// precision aiming defaults to screen-directed ([`InputFrameMode::ScreenRelative`]) — you
 /// point where on screen you want the shot / blink to land, at any gravity.
 ///
 /// This is frame-agnostic and actor-agnostic: it is a control-authority preference,
@@ -70,8 +70,8 @@ impl Default for ControlFrameModes {
     /// Locomotion is body-relative assist; precision aiming is screen-directed.
     fn default() -> Self {
         Self {
-            movement: InputFrameMode::Hybrid,
-            aim: InputFrameMode::Screen,
+            movement: InputFrameMode::BodyRelativeAssist,
+            aim: InputFrameMode::ScreenRelative,
         }
     }
 }
@@ -257,9 +257,9 @@ impl AccelerationFrame {
     pub fn control_frame(self, mode: InputFrameMode) -> AccelerationFrame {
         let screen = AccelerationFrame::new(Vec2::new(0.0, 1.0));
         match mode {
-            InputFrameMode::Screen => screen,
-            InputFrameMode::Player => self,
-            InputFrameMode::Hybrid => {
+            InputFrameMode::ScreenRelative => screen,
+            InputFrameMode::BodyRelativeStrict => self,
+            InputFrameMode::BodyRelativeAssist => {
                 if self.down.y >= 0.0 {
                     self
                 } else {
@@ -275,7 +275,7 @@ impl AccelerationFrame {
     /// flips sign once gravity rotates PAST ±90° from screen-down (i.e. gravity
     /// points up-ish). Identity under normal gravity.
     ///
-    /// This is exactly the `y` of [`Self::resolve_input`] in [`InputFrameMode::Hybrid`];
+    /// This is exactly the `y` of [`Self::resolve_input`] in [`InputFrameMode::BodyRelativeAssist`];
     /// prefer `resolve_input` at the input seam so the run axis and the descend
     /// gate honor the SAME mode together.
     pub fn descend(self, input_axis_y: f32) -> f32 {
@@ -290,25 +290,25 @@ impl AccelerationFrame {
     /// movement direction; the `x`/`y` scalars drive the run axis and the
     /// descend gates respectively.
     ///
-    /// - [`InputFrameMode::Player`] — the stick already IS the local body frame:
+    /// - [`InputFrameMode::BodyRelativeStrict`] — the stick already IS the local body frame:
     ///   `(axis_x, axis_y)`, fully rotated with gravity.
-    /// - [`InputFrameMode::Screen`] — the stick is screen-aligned; project it onto
+    /// - [`InputFrameMode::ScreenRelative`] — the stick is screen-aligned; project it onto
     ///   the player basis so the body moves the way the stick points ON SCREEN at
     ///   any gravity (push screen-right → move screen-right). Under sideways
     ///   gravity the run/descend roles swap, exactly as screen-directed control
     ///   expects.
-    /// - [`InputFrameMode::Hybrid`] — the default. BYTE-IDENTICAL at every
+    /// - [`InputFrameMode::BodyRelativeAssist`] — the default. BYTE-IDENTICAL at every
     ///   orientation to the old `axis_x` run + [`Self::descend`] gate: it equals
     ///   `Player` up to ±90° from screen-down, then inverts BOTH axes past 90°
     ///   (gravity up-ish) so the hard-to-track flip reverts to a screen-like feel.
     pub fn resolve_input(self, mode: InputFrameMode, axis_x: f32, axis_y: f32) -> Vec2 {
         match mode {
-            InputFrameMode::Player => Vec2::new(axis_x, axis_y),
-            InputFrameMode::Screen => {
+            InputFrameMode::BodyRelativeStrict => Vec2::new(axis_x, axis_y),
+            InputFrameMode::ScreenRelative => {
                 let input = Vec2::new(axis_x, axis_y);
                 Vec2::new(input.dot(self.side), input.dot(self.down))
             }
-            InputFrameMode::Hybrid => {
+            InputFrameMode::BodyRelativeAssist => {
                 let s = if self.down.y < 0.0 { -1.0 } else { 1.0 };
                 Vec2::new(axis_x * s, axis_y * s)
             }
@@ -371,9 +371,9 @@ impl AccelerationFrame {
     /// should be labeled with that command under the active mapping policy.
     pub fn raw_axis_for_resolved_input(self, mode: InputFrameMode, local_axis: Vec2) -> Vec2 {
         match mode {
-            InputFrameMode::Player => local_axis,
-            InputFrameMode::Screen => self.to_world(local_axis),
-            InputFrameMode::Hybrid => {
+            InputFrameMode::BodyRelativeStrict => local_axis,
+            InputFrameMode::ScreenRelative => self.to_world(local_axis),
+            InputFrameMode::BodyRelativeAssist => {
                 let s = if self.down.y < 0.0 { -1.0 } else { 1.0 };
                 local_axis * s
             }
@@ -497,18 +497,18 @@ mod tests {
         // Right gravity (≤90°): the control frame follows the player, so "right"
         // on the stick maps to screen-up (the player's right).
         let right = AccelerationFrame::new(Vec2::new(1.0, 0.0));
-        let cf = right.control_frame(InputFrameMode::Hybrid);
+        let cf = right.control_frame(InputFrameMode::BodyRelativeAssist);
         let world = cf.to_world(Vec2::new(1.0, 0.0));
         assert!((world - Vec2::new(0.0, -1.0)).length() < 1e-6, "{world:?}");
         // Up gravity (>90°): the control frame reverts to screen, so "right" maps
         // to screen-right (= the player's left — the accommodation).
         let up = AccelerationFrame::new(Vec2::new(0.0, -1.0));
-        let cf = up.control_frame(InputFrameMode::Hybrid);
+        let cf = up.control_frame(InputFrameMode::BodyRelativeAssist);
         assert_eq!(cf.to_world(Vec2::new(1.0, 0.0)), Vec2::new(1.0, 0.0));
         // Player mode never reverts; Screen mode never rotates.
-        assert_eq!(up.control_frame(InputFrameMode::Player), up);
+        assert_eq!(up.control_frame(InputFrameMode::BodyRelativeStrict), up);
         assert_eq!(
-            up.control_frame(InputFrameMode::Screen).down,
+            up.control_frame(InputFrameMode::ScreenRelative).down,
             Vec2::new(0.0, 1.0)
         );
     }
@@ -535,9 +535,9 @@ mod tests {
                 (0.0, -1.0),
                 (0.6, -0.3),
             ] {
-                let r = f.resolve_input(InputFrameMode::Hybrid, ax, ay);
+                let r = f.resolve_input(InputFrameMode::BodyRelativeAssist, ax, ay);
                 // Run: world velocity direction must match the legacy basis * axis_x.
-                let legacy_run = f.control_frame(InputFrameMode::Hybrid).side * ax;
+                let legacy_run = f.control_frame(InputFrameMode::BodyRelativeAssist).side * ax;
                 let new_run = f.side * r.x;
                 assert!(
                     (legacy_run - new_run).length() < 1e-6,
@@ -566,7 +566,7 @@ mod tests {
                 (0.0, -1.0),
                 (0.5, -0.5),
             ] {
-                let world = f.to_world(f.resolve_input(InputFrameMode::Screen, ax, ay));
+                let world = f.to_world(f.resolve_input(InputFrameMode::ScreenRelative, ax, ay));
                 assert!(
                     (world - Vec2::new(ax, ay)).length() < 1e-6,
                     "{name}: screen input ({ax},{ay}) should move screen-relative, got {world:?}"
@@ -580,7 +580,7 @@ mod tests {
         // The exact mapping Jon specified. Gravity RIGHT (player's feet point
         // screen-right): run = +side (screen-up), descend = +down (screen-right).
         let right = AccelerationFrame::new(Vec2::new(1.0, 0.0));
-        let r = |ax, ay| right.resolve_input(InputFrameMode::Screen, ax, ay);
+        let r = |ax, ay| right.resolve_input(InputFrameMode::ScreenRelative, ax, ay);
         assert_eq!(
             r(1.0, 0.0),
             Vec2::new(0.0, 1.0),
@@ -604,7 +604,7 @@ mod tests {
 
         // Gravity LEFT (feet point screen-left).
         let left = AccelerationFrame::new(Vec2::new(-1.0, 0.0));
-        let l = |ax, ay| left.resolve_input(InputFrameMode::Screen, ax, ay);
+        let l = |ax, ay| left.resolve_input(InputFrameMode::ScreenRelative, ax, ay);
         assert_eq!(
             l(-1.0, 0.0),
             Vec2::new(0.0, 1.0),
@@ -631,19 +631,19 @@ mod tests {
     fn inverse_mapping_places_local_labels_on_raw_joystick_directions() {
         let right = AccelerationFrame::new(Vec2::new(1.0, 0.0));
         assert_eq!(
-            right.raw_axis_for_resolved_input(InputFrameMode::Screen, Vec2::new(0.0, 1.0)),
+            right.raw_axis_for_resolved_input(InputFrameMode::ScreenRelative, Vec2::new(0.0, 1.0)),
             Vec2::new(1.0, 0.0),
             "screen-directed: local down labels raw right when feet point screen-right"
         );
         assert_eq!(
-            right.raw_axis_for_resolved_input(InputFrameMode::Hybrid, Vec2::new(0.0, 1.0)),
+            right.raw_axis_for_resolved_input(InputFrameMode::BodyRelativeAssist, Vec2::new(0.0, 1.0)),
             Vec2::new(0.0, 1.0),
             "body-relative assist: local down stays on raw down for side gravity"
         );
 
         let up = AccelerationFrame::new(Vec2::new(0.0, -1.0));
         assert_eq!(
-            up.raw_axis_for_resolved_input(InputFrameMode::Hybrid, Vec2::new(0.0, 1.0)),
+            up.raw_axis_for_resolved_input(InputFrameMode::BodyRelativeAssist, Vec2::new(0.0, 1.0)),
             Vec2::new(0.0, -1.0),
             "body-relative assist flips only when inverted"
         );
@@ -653,11 +653,11 @@ mod tests {
     fn local_edge_mapping_uses_the_same_inverse_mapping() {
         let right = AccelerationFrame::new(Vec2::new(1.0, 0.0));
         let edges = RawDirectionEdges::new(false, true, false, false); // raw right edge
-        let resolved = right.resolve_control(InputFrameMode::Screen, 1.0, 0.0);
+        let resolved = right.resolve_control(InputFrameMode::ScreenRelative, 1.0, 0.0);
         assert!(resolved.local_down_pressed(edges));
         assert!(!resolved.local_up_pressed(edges));
 
-        let hybrid = right.resolve_control(InputFrameMode::Hybrid, 1.0, 0.0);
+        let hybrid = right.resolve_control(InputFrameMode::BodyRelativeAssist, 1.0, 0.0);
         assert!(!hybrid.local_down_pressed(edges));
     }
 
@@ -682,7 +682,7 @@ mod tests {
         // Player mode never accommodates: the stick IS the local body frame.
         let up = AccelerationFrame::new(Vec2::new(0.0, -1.0));
         assert_eq!(
-            up.resolve_input(InputFrameMode::Player, 0.3, -0.7),
+            up.resolve_input(InputFrameMode::BodyRelativeStrict, 0.3, -0.7),
             Vec2::new(0.3, -0.7)
         );
     }
@@ -693,8 +693,8 @@ mod tests {
         // policy, the movement stick uses the MOVEMENT policy, independently.
         let up = AccelerationFrame::new(Vec2::new(0.0, -1.0));
         let modes = ControlFrameModes {
-            movement: InputFrameMode::Player, // strict body-relative locomotion
-            aim: InputFrameMode::Screen,      // screen-directed precision aim
+            movement: InputFrameMode::BodyRelativeStrict, // strict body-relative locomotion
+            aim: InputFrameMode::ScreenRelative,      // screen-directed precision aim
         };
 
         // Aim stick pushed screen-up (-y). Screen aim → world stays screen-up
@@ -715,8 +715,8 @@ mod tests {
     #[test]
     fn control_frame_modes_default_aim_is_screen_movement_is_hybrid() {
         let d = ControlFrameModes::default();
-        assert_eq!(d.movement, InputFrameMode::Hybrid);
-        assert_eq!(d.aim, InputFrameMode::Screen);
+        assert_eq!(d.movement, InputFrameMode::BodyRelativeAssist);
+        assert_eq!(d.aim, InputFrameMode::ScreenRelative);
     }
 
     #[test]

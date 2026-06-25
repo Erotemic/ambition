@@ -285,7 +285,7 @@ pub const DEFAULT_TUNING: MovementTuning = MovementTuning {
     gravity: GRAVITY,
     gravity_sign: 1.0,
     gravity_dir: Vec2::new(0.0, 1.0),
-    movement_frame_mode: crate::reference_frame::InputFrameMode::Hybrid,
+    movement_frame_mode: crate::reference_frame::InputFrameMode::BodyRelativeAssist,
     run_accel: RUN_ACCEL,
     air_accel: AIR_ACCEL,
     ground_friction: GROUND_FRICTION,

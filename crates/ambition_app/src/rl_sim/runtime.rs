@@ -375,7 +375,7 @@ impl SandboxSim {
     ///
     /// `AgentAction` fields are raw input axes. Symmetry/regression tests that
     /// want to drive controlled-body-local directions can set
-    /// [`InputFrameMode::Player`], making `move_x` / `move_y` mean local
+    /// [`InputFrameMode::BodyRelativeStrict`], making `move_x` / `move_y` mean local
     /// side/down directly. Other tests can select the user-facing modes and
     /// convert local intent through `AccelerationFrame::raw_axis_for_resolved_input`.
     pub fn set_movement_frame_mode(&mut self, mode: ae::InputFrameMode) {

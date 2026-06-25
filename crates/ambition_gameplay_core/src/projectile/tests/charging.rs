@@ -227,7 +227,7 @@ fn released_fireball_uses_controlled_body_local_aim_under_sideways_gravity() {
         let mut settings = app
             .world_mut()
             .resource_mut::<crate::persistence::settings::UserSettings>();
-        settings.gameplay.aim_frame_mode = ambition_engine_core::InputFrameMode::Player;
+        settings.gameplay.aim_frame_mode = ambition_engine_core::InputFrameMode::BodyRelativeStrict;
     }
 
     {

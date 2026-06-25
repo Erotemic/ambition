@@ -121,10 +121,13 @@ what has landed:
    gesture recognition (entangled with §4), render tints/sprites by kind, and the
    charge-tier ramps key off it. Splitting properly means replacing `match kind`
    with generic `ProjectileSpec` fields (e.g. `bounces`, gravity already a field)
-   and moving the named tables to content. Its correctness gate is *feel*
-   (projectile arcs, charge ramps, gesture timing, tints) — NOT headless-verifiable.
-   Needs Jon's runtime testing; do not ship blind. The remaining attribution work
-   (attacker entity on enemy/boss-side `HitSource`s) is part of this domain.
+   and moving the named tables to content. **Safe to do structurally now** — Jon's
+   stance is land-structural-then-fix-feel, so this is no longer gated on runtime
+   testing; port it boldly (the existing spec-stat headless tests catch the
+   mechanical errors), keep the spawn-timing contracts as tests, and add the result
+   to the Feel-test checklist (#4: arcs/bounce, charge ramps, gesture timing, tints).
+   The remaining attribution work (attacker entity on enemy/boss-side `HitSource`s)
+   is part of this domain and is itself feel-risk-none (data threading).
 2. **World gate→overlay (world) — 2 of 3 gates DONE (2026-06-25).** The fork was
    resolved toward the authored-base preference: gates contribute to the per-frame
    collision overlay, not the base. New overlay category
@@ -165,6 +168,54 @@ what has landed:
 >   overlay-model extension described above. `falling_sand.rs` snapshots its own base
 >   and re-projects per frame (Open question #1) — convert to an overlay contributor
 >   like the gates, but it needs additive sand blocks, not gate solids.
+
+---
+
+## Feel-test checklist (owed verification) + structural-work feel-risk
+
+**Working stance (Jon, 2026-06-25):** structural refactors may land *ahead* of
+feel/visual verification; feel regressions get fixed afterward and are not a
+blocker. So **nothing below gates further structural work.** This is the running
+ledger of owed visual/feel confirmations — clear them in a play session and, if
+one feels wrong, revert or patch the *named commit* (cheap; the changes are
+isolated). Headless tests already cover the *correctness* of each; what is owed is
+only the part a headless test cannot see (sprite draw, on-screen feel, timing).
+
+**Owed now (already landed, headless-correct, feel/visual unconfirmed):**
+
+1. **Collision drift, 1px stricter edge** (`c732671c`, §2). Kinematic enemies now
+   treat platform edges 1px more strictly. Look: enemies walking to a platform lip
+   don't teeter/fall differently than before.
+2. **Collision-view routed batch** (`0208bbb5`, §2, blind). In a room with a moving
+   platform: grapple latches it, blink/dive stop on it, unmorph is blocked under it.
+3. **Lock-wall visual draw** (`4adf73f2` encounter, `3b26e7fb` intro — gate→overlay).
+   Collision + the `LockWallVisual` ECS reconcile are headless-tested; the actual
+   on-screen sprite draw is not. Look: trigger an encounter (or an intro flag gate)
+   and confirm the seal wall still *draws* (it now sources from `gate_solids`, not
+   the base). Minor: the wall now appears 1 frame later than before (negligible).
+
+**Added to this checklist when the corresponding structural step lands:**
+
+4. **Projectile generic/named split** (when done) — the feel-critical one: fireball
+   arcs/bounce, charge-tier ramps (size + damage), Hadouken vs HadoukenSuper gesture
+   timing, projectile render tints/sprites. Port structurally, then walk this list.
+5. **falling_sand → overlay** (when done) — standing/climbing settled sand piles
+   (behind its feature flag, low exposure).
+
+**Structural-work feel-risk classification** (what is safe to bulldoze vs what adds
+to the checklist — none are *blocked*, this is just where to expect owed checks):
+
+| Step | Feel risk | Notes |
+| --- | --- | --- |
+| §5 OnceLock classification | **none** | registry/resource reorg, no behavior |
+| Cutscene runtime → `ambition_cutscene` | **none** | move types between crates; the "bounded win" |
+| Content module families reorg | **none** | module moves only |
+| Attacker-entity attribution on enemy/boss `HitSource`s | **none** | data threading, like `DeathCause` |
+| gnu_ton arena gate → overlay | **low** | collision headless-testable (ladder/floor-gate present-or-not); needs the subtractive overlay extension |
+| §4 ControlFrame → actor-local intent | **low–med** | behaviour-preserving by design; input is feel-y, so any drift shows → adds an owed input check |
+| Audio plugin split (backend/director/cue) | **low–med** | playback should be unchanged if careful → owed audio check |
+| falling_sand → overlay | **med** | sand collision projection; adds checklist #5 |
+| **Projectile generic/named split** | **high** | adds checklist #4; do it structurally, feel-test after |
 
 ---
 
@@ -423,9 +474,9 @@ detail). What is DONE here:
 What STILL remains (the two larger/riskier items):
 
 - Combat: **split generic projectile stepping from named kinds** — feel-critical,
-  6-crate, §4-entangled; deferred for runtime testing (Status log item 1). The
-  remaining attribution work (attacker entity on enemy/boss-side `HitSource`s) rides
-  with it.
+  6-crate, §4-entangled, but **safe to do structurally now** (land-then-feel-test;
+  adds Feel-test checklist #4). See Status-log item 1. The remaining attribution
+  work (attacker entity on enemy/boss-side `HitSource`s) rides with it.
 - World: **gnu_ton's subtractive arena gate** — the last mid-room base mutator;
   needs an overlay-model extension (authored-block carve + climbable-region overlay)
   beyond what additive `gate_solids` covers. `falling_sand.rs` is the other
@@ -527,11 +578,11 @@ Condensed orientation so an agent can work a domain without rediscovering it.
   `gameplay_core::schedule`). **`ActorDiedMessage` `DeathCause { source, attacker }`
   attribution DONE.**
 - **First move (what remains):** split generic projectile stepping from named kinds
-  (`ProjectileKind` Fireball/Hadouken leak in `platformer_primitives` — feel-critical,
-  6-crate, deferred for runtime testing; see Status-log item 1); add attacker-entity
-  attribution to enemy/boss-side `HitSource`s; replace the player/enemy projectile
-  split with source/faction. Keep the projectile-spawn timing contracts (comments →
-  tests).
+  (`ProjectileKind` Fireball/Hadouken leak in `platformer_primitives` — feel-critical
+  + 6-crate, but **safe to land structurally now** then feel-test; Feel-test checklist
+  #4, Status-log item 1); add attacker-entity attribution to enemy/boss-side
+  `HitSource`s; replace the player/enemy projectile split with source/faction. Keep
+  the projectile-spawn timing contracts (comments → tests).
 
 ### World / rooms / LDtk
 - **Now:** `RoomGeometry` (was `GameWorld`) is the per-room geometry; `world/

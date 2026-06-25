@@ -7,9 +7,8 @@
 //! This is the upper-sibling input abstraction (ADR 0019): it depends DOWN on
 //! `ambition_engine_core` (to map a `ControlFrame` into `engine_core::InputState`)
 //! and on the input-domain `settings` (deadzones / trigger hysteresis / dash
-//! mode), but NEVER on `ambition_gameplay_core`. The sandbox re-exports this crate as
-//! `crate::input` so all existing `crate::input::{ControlFrame, SandboxAction, …}`
-//! paths resolve unchanged.
+//! mode), but NEVER on `ambition_gameplay_core`. Consumers import it by its
+//! canonical path, `ambition_input::{ControlFrame, SandboxAction, …}`.
 
 use ambition_engine_core as ae;
 use bevy::prelude::*;

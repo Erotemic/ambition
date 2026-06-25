@@ -11,7 +11,7 @@ use crate::engine_core as ae;
 use ae::AabbExt;
 use bevy::prelude::*;
 
-use crate::input::ControlFrame;
+use ambition_input::ControlFrame;
 use crate::GameWorld;
 
 const NEARBY_COLLISION_RADIUS: f32 = 220.0;

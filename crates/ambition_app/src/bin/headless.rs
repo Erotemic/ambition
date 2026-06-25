@@ -23,7 +23,7 @@
 use std::path::PathBuf;
 
 use ambition_app::rl_sim::{SandboxSim, SandboxSimOptions, TimestepMode};
-use ambition_gameplay_core::input::ControlFrame;
+use ambition_input::ControlFrame;
 use ambition_gameplay_core::trace::{
     self, record_simulation_frame, DumpReason, GameplayTraceBuffer,
 };

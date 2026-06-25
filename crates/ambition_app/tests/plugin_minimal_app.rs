@@ -20,7 +20,7 @@
 //! `scripted_gameplay.rs` and the per-feature suites under
 //! `crates/ambition_gameplay_core/src/**/tests.rs`.
 
-use ambition_gameplay_core::input::ControlFrame;
+use ambition_input::ControlFrame;
 use ambition_gameplay_core::player::{
     BodyKinematics, LocalPlayer, PlayerAnimState, PlayerBlinkCameraState, PlayerCombatState,
     PlayerEntity, PlayerHealth, PlayerIdentityBundle, PlayerInteractionState, PlayerSlot,

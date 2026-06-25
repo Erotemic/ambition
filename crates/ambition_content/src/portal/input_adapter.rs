@@ -16,7 +16,7 @@
 
 use bevy::prelude::*;
 
-use ambition_gameplay_core::input::ControlFrame;
+use ambition_input::ControlFrame;
 use ambition_gameplay_core::player::affordances::{InteractVariant, NearestInteractable};
 use ambition_gameplay_core::player::{BodyKinematics, PlayerEntity, PrimaryPlayer};
 #[cfg(feature = "portal_render")]

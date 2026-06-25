@@ -63,10 +63,10 @@ use ambition_gameplay_core::dialog;
 use ambition_gameplay_core::features;
 use ambition_gameplay_core::game_mode::{gameplay_allowed, gameplay_suspended, GameMode};
 #[cfg(feature = "input")]
-use ambition_gameplay_core::input::SandboxAction;
-use ambition_gameplay_core::input::{ControlFrame, MenuControlFrame, GAMEPAD_MAP};
+use ambition_input::SandboxAction;
+use ambition_input::{ControlFrame, MenuControlFrame, GAMEPAD_MAP};
 #[cfg(feature = "input")]
-use ambition_gameplay_core::input::{MenuInputState, PlayerDashTriggerState};
+use ambition_input::{MenuInputState, PlayerDashTriggerState};
 use ambition_gameplay_core::inventory_ui;
 use ambition_gameplay_core::ldtk_world;
 use ambition_gameplay_core::platformer_runtime::lifecycle::RoomScopedEntity;

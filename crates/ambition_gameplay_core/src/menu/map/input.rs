@@ -9,7 +9,7 @@ use bevy::prelude::*;
 use super::model::MapMenuState;
 
 #[cfg(feature = "input")]
-use crate::input::MenuControlFrame;
+use ambition_input::MenuControlFrame;
 
 #[cfg(feature = "input")]
 pub fn handle_map_menu_hotkeys(

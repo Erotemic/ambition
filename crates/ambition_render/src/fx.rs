@@ -835,7 +835,7 @@ pub fn update_blink_preview(
     mode: Res<State<ambition_gameplay_core::game_mode::GameMode>>,
     scene: Res<ambition_gameplay_core::platformer_runtime::lifecycle::SceneEntities>,
     action_query: Query<
-        &leafwing_input_manager::prelude::ActionState<ambition_gameplay_core::input::SandboxAction>,
+        &leafwing_input_manager::prelude::ActionState<ambition_input::SandboxAction>,
         bevy::prelude::With<ambition_gameplay_core::platformer_runtime::lifecycle::PlayerVisual>,
     >,
     player_q: Query<
@@ -848,7 +848,7 @@ pub fn update_blink_preview(
     >,
     mut existing: Query<(Entity, &BlinkPreviewVisual, &mut Transform, &mut Sprite)>,
 ) {
-    use ambition_gameplay_core::input::ControlFrame;
+    use ambition_input::ControlFrame;
 
     let Ok((kin, abilities, blink_state)) = player_q.single() else {
         for (entity, _, _, _) in &existing {

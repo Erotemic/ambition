@@ -3,7 +3,7 @@
 //! systems that read the item SIM state in `ambition_gameplay_core::items::pickup`.
 
 use ambition_gameplay_core::features::HeldItem;
-use ambition_gameplay_core::input::ControlFrame;
+use ambition_input::ControlFrame;
 use ambition_gameplay_core::items::pickup::{
     held_shot_aim, GroundItem, HeldProjectile, FIREBALL_ID,
 };

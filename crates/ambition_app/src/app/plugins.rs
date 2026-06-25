@@ -231,7 +231,7 @@ fn register_player_input_systems(app: &mut App) {
             apply_cut_rope_room_replay_request_system,
             input_timer_system
                 .run_if(gameplay_allowed)
-                .in_set(ambition_gameplay_core::input::InputSet::Populate),
+                .in_set(ambition_input::InputSet::Populate),
             interaction_input_system.run_if(gameplay_allowed),
             // Portal-warped held movement input is registered by
             // `ambition_gameplay_core::portal::PortalPlugin` so the portal subsystem owns
@@ -861,7 +861,7 @@ pub(super) fn add_input_plugins(app: &mut App) {
     app.init_resource::<MenuInputState>()
         .init_resource::<MenuControlFrame>()
         .init_resource::<PlayerDashTriggerState>()
-        .init_resource::<ambition_gameplay_core::input::ActiveInputKind>()
+        .init_resource::<ambition_input::ActiveInputKind>()
         .add_plugins(InputManagerPlugin::<SandboxAction>::default())
         // Track which input source is CURRENTLY active (last to produce
         // GENUINE input). This gates the menu mouse-hover handlers so a
@@ -874,8 +874,8 @@ pub(super) fn add_input_plugins(app: &mut App) {
         // mobile_input plugin flips it to `Touch` itself.
         .add_systems(
             Update,
-            ambition_gameplay_core::input::update_active_input_kind
-                .in_set(ambition_gameplay_core::input::InputSet::Populate),
+            ambition_input::update_active_input_kind
+                .in_set(ambition_input::InputSet::Populate),
         )
         .add_systems(
             Startup,
@@ -903,7 +903,7 @@ pub(super) fn add_input_plugins(app: &mut App) {
             (
                 populate_menu_control_frame_from_actions,
                 populate_control_frame_from_actions
-                    .in_set(ambition_gameplay_core::input::InputSet::Populate),
+                    .in_set(ambition_input::InputSet::Populate),
                 toggle_player_trail_emission_from_actions,
                 apply_menu_frame_to_cutscene_request,
                 dialog::dialog_pointer_input,

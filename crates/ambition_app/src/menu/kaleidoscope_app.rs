@@ -29,7 +29,7 @@ use crate::menu::model::{
 };
 use ambition_gameplay_core::audio::SfxMessage;
 use ambition_gameplay_core::engine_core::Vec2;
-use ambition_gameplay_core::input::MenuControlFrame;
+use ambition_input::MenuControlFrame;
 use ambition_gameplay_core::items::{Item, OwnedItems, ITEM_GRID_COLS, ITEM_GRID_ROWS};
 use ambition_gameplay_core::persistence::settings::{
     apply_settings_option, settings_menu_model, DevSnapshot, DevToggleId, RadioSnapshot,
@@ -61,7 +61,7 @@ pub fn install_unified_menu_shared(app: &mut App) {
         // The pointer-hover handlers read `ActiveInputKind`. The input plugin
         // also inits it; init here too so the menu remains self-sufficient
         // (`init_resource` is idempotent).
-        .init_resource::<ambition_gameplay_core::input::ActiveInputKind>()
+        .init_resource::<ambition_input::ActiveInputKind>()
         .init_resource::<KaleidoscopeSystemNav>()
         .init_resource::<CachedSystemMenu>()
         .add_plugins(AmbitionInventoryUiPlugin);

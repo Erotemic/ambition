@@ -13,9 +13,9 @@ use bevy::prelude::*;
 
 use ambition_gameplay_core::config::world_to_bevy;
 use ambition_gameplay_core::dev::dev_tools::DeveloperTools;
-use ambition_gameplay_core::input::ControlFrame;
+use ambition_input::ControlFrame;
 #[cfg(feature = "input")]
-use ambition_gameplay_core::input::SandboxAction;
+use ambition_input::SandboxAction;
 use ambition_gameplay_core::rooms::{LoadingZone, LoadingZoneActivation, RoomSet};
 use ambition_gameplay_core::world::platforms;
 use ambition_gameplay_core::{GameMode, GameWorld, SandboxDevState};

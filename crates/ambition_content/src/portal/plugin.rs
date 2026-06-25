@@ -199,7 +199,7 @@ impl Plugin for AmbitionPortalAdaptersPlugin {
                 // `PlayerInput`), so it stays — it pins this write-back inside the
                 // `Populate.before(sync_local_player_input_frame)` consume window.
                 .in_set(PortalSet::InputWarp)
-                .in_set(ambition_gameplay_core::input::InputSet::Populate)
+                .in_set(ambition_input::InputSet::Populate)
                 .after(warp_portal_input)
                 .before(ambition_gameplay_core::player::sync_local_player_input_frame),
         );
@@ -313,7 +313,7 @@ mod schedule_tests {
     //! pure round-trip).
     use bevy::prelude::*;
 
-    use ambition_gameplay_core::input::ControlFrame;
+    use ambition_input::ControlFrame;
     use ambition_gameplay_core::player::{PlayerEntity, PrimaryPlayer};
     use ambition_gameplay_core::portal::PlayerMovementIntent;
     use ambition_gameplay_core::schedule::{configure_sandbox_sets, SandboxSet};
@@ -422,7 +422,7 @@ mod schedule_tests {
 
         app.add_systems(
             Update,
-            populate_only_via_set.in_set(ambition_gameplay_core::input::InputSet::Populate),
+            populate_only_via_set.in_set(ambition_input::InputSet::Populate),
         );
         app.add_systems(
             Update,

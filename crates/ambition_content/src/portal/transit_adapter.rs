@@ -17,14 +17,14 @@
 //!   marker to ground items and keeps it in sync with the `GroundItem` body around
 //!   transit.
 //!
-//! [`ControlFrame`]: ambition_gameplay_core::input::ControlFrame
+//! [`ControlFrame`]: ambition_input::ControlFrame
 //! [`GroundItem`]: ambition_gameplay_core::items::pickup::GroundItem
 //! [`PlayerMovementIntent`]: ambition_gameplay_core::portal::PlayerMovementIntent
 //! [`PortalTransitable`]: ambition_gameplay_core::portal::PortalTransitable
 
 use bevy::prelude::*;
 
-use ambition_gameplay_core::input::ControlFrame;
+use ambition_input::ControlFrame;
 use ambition_gameplay_core::items::pickup::GroundItem;
 use ambition_gameplay_core::portal::{PlayerMovementIntent, PortalTransitable};
 

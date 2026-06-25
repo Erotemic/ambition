@@ -11,7 +11,7 @@
 //! InputPlugin / inspector / Avian2D).
 
 use ambition_gameplay_core::audio::SfxMessage;
-use ambition_gameplay_core::input::ControlFrame;
+use ambition_input::ControlFrame;
 use ambition_gameplay_core::GameMode;
 use bevy::asset::AssetPlugin;
 use bevy::ecs::message::Messages;

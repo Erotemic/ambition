@@ -554,8 +554,9 @@ fn architecture_boundaries_input_crate_is_extracted() {
 
     let lib = fs::read_to_string(crate_src().join("lib.rs")).expect("read sandbox lib.rs");
     assert!(
-        lib.contains("pub use ambition_input as input"),
-        "ambition_gameplay_core::input should re-export ambition_input"
+        !lib.contains("pub use ambition_input as input"),
+        "the ambition_gameplay_core::input compat shim was removed; \
+         import ambition_input by its canonical path, not via gameplay_core"
     );
     let settings_mod = fs::read_to_string(crate_src().join("persistence/settings/mod.rs"))
         .expect("read persistence settings mod.rs");
@@ -707,7 +708,7 @@ fn architecture_boundaries_portal_core_does_not_import_ambition_content_roster()
         "ambition_gameplay_core::ldtk_world",
         "ambition_gameplay_core::world::ldtk_world",
         "ambition_gameplay_core::persistence",
-        "ambition_gameplay_core::input::ControlFrame",
+        "ambition_input::ControlFrame",
         "ambition_gameplay_core::items::pickup::GroundItem",
     ];
     let violations = scan_code_refs_filtered(
@@ -719,7 +720,7 @@ fn architecture_boundaries_portal_core_does_not_import_ambition_content_roster()
             line.contains("ambition_gameplay_core::items::pickup::ItemPickupSet")
                 || line.contains("ambition_gameplay_core::items::pickup::axe_spec")
                 || (is_test && line.contains("ambition_gameplay_core::items::pickup::GroundItem"))
-                || (is_test && line.contains("ambition_gameplay_core::input::ControlFrame"))
+                || (is_test && line.contains("ambition_input::ControlFrame"))
         },
     );
     assert!(
@@ -744,7 +745,7 @@ fn architecture_boundaries_portal_core_does_not_name_host_world_or_reset() {
             "Res<GameWorld>",
             "FeatureEcsWorldOverlay",
             "ResetRoomFeaturesEvent",
-            "ambition_gameplay_core::input::ControlFrame",
+            "ambition_input::ControlFrame",
             "ambition_gameplay_core::player",
         ],
         |file| {

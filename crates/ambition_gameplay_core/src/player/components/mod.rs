@@ -7,7 +7,7 @@
 use crate::engine_core as ae;
 use bevy::prelude::*;
 
-use crate::input::ControlFrame;
+use ambition_input::ControlFrame;
 
 // Re-export generic player markers from the platformer runtime.
 pub use ambition_platformer_primitives::markers::{PlayerEntity, PrimaryPlayer};
@@ -23,7 +23,7 @@ pub use crate::brain::PlayerSlot;
 pub struct LocalPlayer;
 
 /// Per-player input snapshot. Mirrors the single global
-/// [`crate::input::ControlFrame`] resource onto the local player
+/// [`ambition_input::ControlFrame`] resource onto the local player
 /// entity so simulation systems can move toward reading input from a
 /// `Query<&PlayerInputFrame>` rather than `Res<ControlFrame>`. That's
 /// the architectural seam multiplayer / netcode work needs:

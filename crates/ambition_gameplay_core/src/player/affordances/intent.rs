@@ -11,7 +11,7 @@
 
 use bevy::prelude::*;
 
-use crate::input::ControlFrame;
+use ambition_input::ControlFrame;
 
 /// Nine-way directional intent derived from the stick + facing.
 ///

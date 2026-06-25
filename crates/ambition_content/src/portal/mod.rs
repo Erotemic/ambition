@@ -8,7 +8,7 @@
 //!
 //! Gated behind the `portal` feature.
 //!
-//! [`ControlFrame`]: ambition_gameplay_core::input::ControlFrame
+//! [`ControlFrame`]: ambition_input::ControlFrame
 //! [`OwnedItems`]: ambition_gameplay_core::items::OwnedItems
 
 mod ability_adapter;

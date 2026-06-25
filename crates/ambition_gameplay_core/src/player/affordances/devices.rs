@@ -31,7 +31,7 @@ use bevy::input::touch::Touches;
 use bevy::input::ButtonInput;
 use bevy::prelude::*;
 
-use crate::input::{KeyboardPreset, PresetId, SandboxAction};
+use ambition_input::{KeyboardPreset, PresetId, SandboxAction};
 
 /// Which input modality the player is currently using. Updated each
 /// frame by [`detect_active_input_method`] — last device that
@@ -304,7 +304,7 @@ fn key_glyph(key: KeyCode) -> &'static str {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::input::KeyboardPreset;
+    use ambition_input::KeyboardPreset;
 
     #[test]
     fn keyboard_glyph_follows_active_preset() {

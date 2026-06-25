@@ -50,7 +50,7 @@ fn base_kaleidoscope_test_app() -> App {
     app.init_resource::<InventoryUiBackend>();
     app.init_resource::<ActiveMenuPages<MenuPage, MenuPageAction>>();
     app.init_resource::<KaleidoscopeCursor>();
-    app.init_resource::<ambition_gameplay_core::input::ActiveInputKind>();
+    app.init_resource::<ambition_input::ActiveInputKind>();
     app.init_resource::<KaleidoscopeSystemNav>();
     app.init_resource::<KaleidoscopeScroll>();
     app.init_resource::<CachedSystemMenu>();
@@ -313,7 +313,7 @@ fn open_app() -> App {
 
 fn move_control(app: &mut App, action: MenuPageAction) {
     app.world_mut()
-        .insert_resource(ambition_gameplay_core::input::ActiveInputKind::Mouse);
+        .insert_resource(ambition_input::ActiveInputKind::Mouse);
     let entity = spawn_control(app, action);
     trigger_move(app, entity, Vec2::new(1.0, 0.0));
     app.update();
@@ -869,7 +869,7 @@ fn pointer_motion_selects_a_kaleidoscope_control() {
 /// `menu.start` and `menu.back`).
 #[test]
 fn esc_backs_out_then_closes_the_kaleidoscope_via_real_input() {
-    use ambition_gameplay_core::input::SandboxAction;
+    use ambition_input::SandboxAction;
     use ambition_render::rendering::PlayerVisual;
     use leafwing_input_manager::prelude::*;
 
@@ -882,7 +882,7 @@ fn esc_backs_out_then_closes_the_kaleidoscope_via_real_input() {
     app.init_resource::<InventoryUiBackend>();
     app.init_resource::<ActiveMenuPages<MenuPage, MenuPageAction>>();
     app.init_resource::<KaleidoscopeCursor>();
-    app.init_resource::<ambition_gameplay_core::input::ActiveInputKind>();
+    app.init_resource::<ambition_input::ActiveInputKind>();
     app.init_resource::<KaleidoscopeSystemNav>();
     app.init_resource::<KaleidoscopeScroll>();
     app.init_resource::<CachedSystemMenu>();
@@ -897,7 +897,7 @@ fn esc_backs_out_then_closes_the_kaleidoscope_via_real_input() {
     app.init_resource::<ambition_gameplay_core::inventory_ui::InventoryUiState>();
     app.init_resource::<ambition_gameplay_core::menu::map::MapMenuState>();
     app.init_resource::<MenuControlFrame>();
-    app.init_resource::<ambition_gameplay_core::input::MenuInputState>();
+    app.init_resource::<ambition_input::MenuInputState>();
     app.add_message::<PlayerHealRequested>();
     app.add_message::<SfxMessage>();
     app.add_systems(
@@ -1626,7 +1626,7 @@ fn highlight_app_ordered(owned_item: Item, writer_first: bool) -> App {
     app.init_resource::<InventoryUiBackend>();
     app.init_resource::<ActiveMenuPages<MenuPage, MenuPageAction>>();
     app.init_resource::<KaleidoscopeCursor>();
-    app.init_resource::<ambition_gameplay_core::input::ActiveInputKind>();
+    app.init_resource::<ambition_input::ActiveInputKind>();
     app.init_resource::<KaleidoscopeSystemNav>();
     app.init_resource::<KaleidoscopeScroll>();
     app.init_resource::<CachedSystemMenu>();

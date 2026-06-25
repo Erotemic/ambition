@@ -14,7 +14,7 @@ use super::layout::{
 };
 use super::menu_bridge::{fold_to_control_frame, fold_to_menu_control_frame};
 use super::state::TouchInputState;
-use ambition_gameplay_core::input::{ControlFrame, KeyboardPreset, MenuInputState, SandboxAction};
+use ambition_input::{ControlFrame, KeyboardPreset, MenuInputState, SandboxAction};
 use ambition_ui_nav::DragScrollState;
 use ambition_render::ui_fonts::{UiFontWeight, UiFonts};
 
@@ -165,7 +165,7 @@ impl Plugin for TouchControlsPlugin {
                     fold_to_control_frame
                         // ControlFrame writer: join the input populate set so
                         // the schedule pins it before the consume boundary.
-                        .in_set(ambition_gameplay_core::input::InputSet::Populate)
+                        .in_set(ambition_input::InputSet::Populate)
                         // Touch fold MUST run AFTER the keyboard
                         // fold (`populate_control_frame_from_actions`)
                         // so the OR-merge sees the keyboard's

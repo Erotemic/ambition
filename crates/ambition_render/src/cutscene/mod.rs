@@ -443,7 +443,7 @@ pub fn sync_cutscene_ui(
                     ));
                     panel.spawn((
                         // The actual bindings live in
-                        // `ambition_gameplay_core::input::presets::ControlPreset::input_map`
+                        // `ambition_input::presets::ControlPreset::input_map`
                         // (Interact = E by default, Jump = Space/W).
                         // The hint names the *semantic* actions so a
                         // rebound key isn't a lie.

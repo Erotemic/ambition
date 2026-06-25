@@ -17,7 +17,7 @@ use bevy::prelude::*;
 
 use crate::engine_core as ae;
 use crate::features::{ActorAggression, ActorFaction, HeldItem};
-use crate::input::ControlFrame;
+use ambition_input::ControlFrame;
 use crate::player::{BodyKinematics, PlayerEntity, PrimaryPlayer};
 
 /// Marks a summoned, player-allied puppy slug (so the cap can count them and a

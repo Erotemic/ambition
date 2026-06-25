@@ -12,7 +12,7 @@
 //! Bevy `Resource` wrapping the pure [`super::state::TouchInputState`])
 //! plus [`super::bevy_plugin::TouchControlsVisible`] /
 //! [`super::bevy_plugin::MenuTouchGestureState`], and write
-//! [`ambition_gameplay_core::input::ControlFrame`] / [`ambition_gameplay_core::input::MenuControlFrame`].
+//! [`ambition_input::ControlFrame`] / [`ambition_input::MenuControlFrame`].
 //! They are scheduled by [`super::bevy_plugin::TouchControlsPlugin`].
 
 use bevy::input::mouse::MouseButton;
@@ -23,7 +23,7 @@ use bevy::window::PrimaryWindow;
 use super::bevy_plugin::{MenuTouchGestureState, MobileTouchState};
 use super::exclusion::{touch_exclusion_contains, TouchExclusionZone};
 use super::state::{fold_touch_into_control_frame, touch_state_is_active, TouchInputState};
-use ambition_gameplay_core::input::{ControlFrame, MenuControlFrame, MenuInputState};
+use ambition_input::{ControlFrame, MenuControlFrame, MenuInputState};
 
 /// Merge the latest [`MobileTouchState`] into gameplay
 /// [`ControlFrame`]. The desktop input pipeline (Leafwing) writes its
@@ -142,7 +142,7 @@ pub fn fold_to_menu_control_frame(
     exclusion_zones: Query<&TouchExclusionZone>,
     mut gesture: ResMut<MenuTouchGestureState>,
     mut frame: ResMut<MenuControlFrame>,
-    mut active_input: ResMut<ambition_gameplay_core::input::ActiveInputKind>,
+    mut active_input: ResMut<ambition_input::ActiveInputKind>,
 ) {
     // Touch menu input is always live while the plugin is installed; the
     // `touch_controls_visible` setting only hides the overlay, not the input.
@@ -168,7 +168,7 @@ pub fn fold_to_menu_control_frame(
         || touch.interact.pressed_this_frame
         || touch.interact.held;
     if stick_mag > user_settings.controls.left_stick_deadzone || touch_button_active {
-        active_input.mark(ambition_gameplay_core::input::ActiveInputKind::Touch);
+        active_input.mark(ambition_input::ActiveInputKind::Touch);
     }
 
     if menu_move_active(*mode.get()) {
@@ -242,14 +242,14 @@ pub fn menu_move_active(mode: ambition_gameplay_core::game_mode::GameMode) -> bo
 pub fn touch_move_to_menu_dir(
     touch: TouchInputState,
     deadzone: f32,
-) -> Option<ambition_gameplay_core::input::MenuDir> {
+) -> Option<ambition_input::MenuDir> {
     let (x, y_down) =
         ambition_gameplay_core::persistence::settings::ControlSettings::apply_deadzone(
             touch.move_x,
             touch.move_y,
             deadzone,
         );
-    ambition_gameplay_core::input::analog_to_dir(x, -y_down, 0.5)
+    ambition_input::analog_to_dir(x, -y_down, 0.5)
 }
 
 /// Should `pos` count as occupied by an on-screen touch control?

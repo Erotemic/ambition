@@ -22,7 +22,7 @@ use bevy::prelude::*;
 use crate::enemy_projectile::EnemyProjectileSpawn;
 use crate::engine_core as ae;
 use crate::features::HeldItem;
-use crate::input::ControlFrame;
+use ambition_input::ControlFrame;
 use crate::player::{BodyKinematics, PlayerEntity, PlayerMana, PrimaryPlayer};
 use crate::projectile::ProjectileFaction;
 

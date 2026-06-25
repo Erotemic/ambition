@@ -51,7 +51,7 @@ pub(crate) fn kaleidoscope_pointer_move(
     pages: Res<ActiveMenuPages<MenuPage, MenuPageAction>>,
     system_nav: Res<KaleidoscopeSystemNav>,
     settings: Res<UserSettings>,
-    active_input: Res<ambition_gameplay_core::input::ActiveInputKind>,
+    active_input: Res<ambition_input::ActiveInputKind>,
     snapshot: SystemMenuSnapshotParams,
     mut cursor: ResMut<KaleidoscopeCursor>,
     // Feature E: a press in flight is cancelled (no click) once the pointer drags
@@ -75,7 +75,7 @@ pub(crate) fn kaleidoscope_pointer_move(
     // every keyboard/gamepad/touch directional move. A real mouse move sets
     // active=Mouse (see `update_active_input_kind`) so hovering still works; clicks
     // are unaffected (separate press/release observers).
-    if *active_input != ambition_gameplay_core::input::ActiveInputKind::Mouse {
+    if *active_input != ambition_input::ActiveInputKind::Mouse {
         return;
     }
     let Some(active_page) = pages.active else {

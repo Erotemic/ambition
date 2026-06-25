@@ -74,7 +74,7 @@ fn grid_app() -> App {
     app.init_resource::<MenuControlFrame>();
     app.init_resource::<GridMenuTabState>();
     app.init_resource::<GridPointerPress>();
-    app.init_resource::<ambition_gameplay_core::input::ActiveInputKind>();
+    app.init_resource::<ambition_input::ActiveInputKind>();
     app.add_message::<PlayerHealRequested>();
     app.add_message::<SfxMessage>();
     app.add_message::<bevy::app::AppExit>();
@@ -830,7 +830,7 @@ fn hover_control(app: &mut App, action: MenuPageAction) {
 /// rebuilt the menu → fired `Over` → snapped the cursor back to the mouse.
 #[test]
 fn hover_is_gated_on_active_input_being_mouse() {
-    use ambition_gameplay_core::input::ActiveInputKind;
+    use ambition_input::ActiveInputKind;
     use ambition_gameplay_core::items::Item;
 
     let mut app = grid_app();
@@ -999,8 +999,8 @@ fn grid_override_survives_hover_and_clears_on_keyboard() {
     // A hover (cursor-follow) moves the CURSOR but, with the override set, the
     // EFFECTIVE window stays at the override — hovering does not scroll the list.
     *app.world_mut()
-        .resource_mut::<ambition_gameplay_core::input::ActiveInputKind>() =
-        ambition_gameplay_core::input::ActiveInputKind::Mouse;
+        .resource_mut::<ambition_input::ActiveInputKind>() =
+        ambition_input::ActiveInputKind::Mouse;
     app.world_mut()
         .resource_mut::<KaleidoscopeCursor>()
         .mark_keyboard(MenuFocus::System(0));

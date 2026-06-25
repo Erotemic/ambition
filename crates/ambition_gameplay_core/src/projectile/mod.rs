@@ -67,6 +67,6 @@ pub use ambition_platformer_primitives::projectile::{
 // Motion-gesture recognition moved to the `ambition_input` crate (it is pure
 // input logic, reusable beyond projectiles). Re-exported so existing
 // `crate::projectile::MotionInputBuffer` paths keep resolving.
-pub use crate::input::{MotionDirection, MotionInputBuffer};
+pub use ambition_input::{MotionDirection, MotionInputBuffer};
 pub use portal_transit::try_projectile_portal_transit;
 pub use spawn::{ProjectileSpawner, SpawnFailure};

@@ -426,7 +426,7 @@ mod dispatch_parity {
     use crate::menu::test_support::click_control as click;
     use ambition_gameplay_core::audio::SfxMessage;
     use ambition_gameplay_core::brain::ActionSet;
-    use ambition_gameplay_core::input::MenuControlFrame;
+    use ambition_input::MenuControlFrame;
     use ambition_gameplay_core::inventory_ui::InventoryUiState;
     use ambition_gameplay_core::menu::backend::InventoryUiBackend;
     use ambition_gameplay_core::persistence::settings::{SystemMenuEntryId, UserSettings};
@@ -460,7 +460,7 @@ mod dispatch_parity {
         app.init_resource::<InventoryUiState>();
         app.init_resource::<ambition_gameplay_core::menu::map::MapMenuState>();
         app.init_resource::<MenuControlFrame>();
-        app.init_resource::<ambition_gameplay_core::input::ActiveInputKind>();
+        app.init_resource::<ambition_input::ActiveInputKind>();
         app.add_message::<PlayerHealRequested>();
         app.add_message::<SfxMessage>();
         app.add_message::<bevy::app::AppExit>();

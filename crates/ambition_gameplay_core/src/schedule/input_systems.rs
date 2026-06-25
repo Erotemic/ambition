@@ -16,8 +16,8 @@ use leafwing_input_manager::prelude::ActionState;
 
 use crate::game_mode::GameMode;
 #[cfg(feature = "input")]
-use crate::input::SandboxAction;
-use crate::input::{
+use ambition_input::SandboxAction;
+use ambition_input::{
     analog_to_dir, ControlFrame, MenuControlFrame, MenuInputState, PlayerDashTriggerState,
 };
 #[cfg(feature = "input")]

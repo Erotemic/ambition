@@ -28,7 +28,7 @@ use crate::menu::model::{
     SYSTEM_VISIBLE_ROWS,
 };
 use ambition_gameplay_core::audio::SfxMessage;
-use ambition_gameplay_core::input::MenuControlFrame;
+use ambition_input::MenuControlFrame;
 use ambition_gameplay_core::items::{OwnedItems, ITEM_GRID_COLS, ITEM_GRID_ROWS};
 use ambition_gameplay_core::menu::backend::{InventoryUiBackend, BEVY_UI_MENU_BACKEND_ENABLED};
 use ambition_gameplay_core::persistence::settings::{SystemMenuModel, UserSettings};
@@ -1053,7 +1053,7 @@ pub(crate) fn grid_menu_pointer_release(
 pub(crate) fn grid_menu_pointer_hover(
     over: On<Pointer<Over>>,
     overlay: Res<ambition_gameplay_core::inventory_ui::InventoryUiState>,
-    active_input: Res<ambition_gameplay_core::input::ActiveInputKind>,
+    active_input: Res<ambition_input::ActiveInputKind>,
     controls: Query<&AmbitionMenuControl<MenuPageAction>>,
     settings: Res<UserSettings>,
     system: SystemMenuParams,
@@ -1068,7 +1068,7 @@ pub(crate) fn grid_menu_pointer_hover(
     }
     // Only a genuine mouse move (which set active=Mouse) may move the cursor;
     // a rebuild-induced `Over` while on keyboard/gamepad/touch is ignored.
-    if *active_input != ambition_gameplay_core::input::ActiveInputKind::Mouse {
+    if *active_input != ambition_input::ActiveInputKind::Mouse {
         return;
     }
     let Ok(ctrl) = controls.get(over.entity) else {
@@ -1092,7 +1092,7 @@ pub fn install_grid_unified_menu(app: &mut App) {
         // The pointer-hover observer reads `ActiveInputKind`; the input plugin
         // also inits it, but init here too so the Grid backend is self-sufficient
         // (`init_resource` is idempotent).
-        .init_resource::<ambition_gameplay_core::input::ActiveInputKind>();
+        .init_resource::<ambition_input::ActiveInputKind>();
     #[cfg(feature = "input")]
     app.add_systems(
         Update,

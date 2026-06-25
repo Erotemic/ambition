@@ -209,7 +209,7 @@ mod tests {
     /// `app.update()` so the affordance compute chain runs end-to-end
     /// without pulling in the whole sandbox plugin graph.
     fn build_test_app() -> (App, Entity) {
-        use crate::input::ControlFrame;
+        use ambition_input::ControlFrame;
         use crate::player::{
             BodyKinematics, PlayerBodyModeState, PlayerEntity, PlayerEnvironmentContact,
             PlayerGroundState, PlayerLedgeState, PrimaryPlayer,
@@ -271,14 +271,14 @@ mod tests {
         let (mut app, player_entity) = build_test_app();
         // Push axis_y down → DownSpecial.
         app.world_mut()
-            .resource_mut::<crate::input::ControlFrame>()
+            .resource_mut::<ambition_input::ControlFrame>()
             .axis_y = 1.0;
         app.update();
         assert_eq!(read_affordances(&app).special, SpecialVariant::DownSpecial);
 
         // Push axis_y up → UpSpecial.
         {
-            let mut cf = app.world_mut().resource_mut::<crate::input::ControlFrame>();
+            let mut cf = app.world_mut().resource_mut::<ambition_input::ControlFrame>();
             cf.axis_y = -1.0;
             cf.axis_x = 0.0;
         }
@@ -292,7 +292,7 @@ mod tests {
             kin.facing = 1.0;
         }
         {
-            let mut cf = app.world_mut().resource_mut::<crate::input::ControlFrame>();
+            let mut cf = app.world_mut().resource_mut::<ambition_input::ControlFrame>();
             cf.axis_x = 1.0;
             cf.axis_y = 0.0;
         }
@@ -305,7 +305,7 @@ mod tests {
         let (mut app, player_entity) = build_test_app();
         // Push axis_y down (sim convention: +Y is down).
         app.world_mut()
-            .resource_mut::<crate::input::ControlFrame>()
+            .resource_mut::<ambition_input::ControlFrame>()
             .axis_y = 1.0;
         // Lift the player off the ground.
         {
@@ -354,7 +354,7 @@ mod tests {
         }
         // Push stick left (negative X) — opposing facing-right.
         app.world_mut()
-            .resource_mut::<crate::input::ControlFrame>()
+            .resource_mut::<ambition_input::ControlFrame>()
             .axis_x = -1.0;
         app.update();
         let aff = read_affordances(&app);

@@ -14,7 +14,7 @@ use super::runtime::DialogChoiceSlot;
 use super::runtime::DialogState;
 use crate::game_mode::GameMode;
 #[cfg(feature = "input")]
-use crate::input::MenuControlFrame;
+use ambition_input::MenuControlFrame;
 #[cfg(feature = "input")]
 use ambition_ui_nav::{apply_vertical_scroll, resolve_selectable_row_interaction};
 #[cfg(feature = "input")]
@@ -157,7 +157,7 @@ pub fn dialog_input(
         next_mode.set(GameMode::Playing);
         return;
     }
-    let mut frame = crate::input::MenuInputFrame {
+    let mut frame = ambition_input::MenuInputFrame {
         up: menu.up,
         down: menu.down,
         left: menu.left,

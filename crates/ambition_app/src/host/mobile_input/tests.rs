@@ -12,7 +12,7 @@ fn fold_system_touch_down_sets_menu_down_and_active_touch() {
     use super::bevy_plugin::{MenuTouchGestureState, MobileTouchState};
     use super::menu_bridge::fold_to_menu_control_frame;
     use ambition_gameplay_core::game_mode::GameMode;
-    use ambition_gameplay_core::input::{ActiveInputKind, MenuControlFrame};
+    use ambition_input::{ActiveInputKind, MenuControlFrame};
     use bevy::input::touch::Touches;
     use bevy::input::ButtonInput;
     use bevy::prelude::*;
@@ -196,7 +196,7 @@ fn fold_propagates_all_action_buttons() {
 #[test]
 fn touch_move_to_menu_dir_flips_touch_y_for_menu_navigation() {
     use super::menu_bridge::touch_move_to_menu_dir;
-    use ambition_gameplay_core::input::MenuDir;
+    use ambition_input::MenuDir;
 
     let mut state = TouchInputState::default();
     state.move_y = 1.0;
@@ -253,7 +253,7 @@ fn touch_drag_folds_into_menu_frame_while_kaleidoscope_paused() {
     // miss).
     use super::menu_bridge::{menu_move_active, touch_move_to_menu_dir};
     use ambition_gameplay_core::game_mode::GameMode;
-    use ambition_gameplay_core::input::MenuDir;
+    use ambition_input::MenuDir;
 
     // Kaleidoscope (and grid) open in Paused -> menu fold is active.
     assert!(menu_move_active(GameMode::Paused));
@@ -278,7 +278,7 @@ fn touch_joystick_drag_down_drives_debounced_menu_down() {
     // `MenuInputState::step` -> `MenuControlFrame::from_menu_input`.
     use super::menu_bridge::{menu_move_active, touch_move_to_menu_dir};
     use ambition_gameplay_core::game_mode::GameMode;
-    use ambition_gameplay_core::input::{MenuControlFrame, MenuInputState};
+    use ambition_input::{MenuControlFrame, MenuInputState};
 
     assert!(menu_move_active(GameMode::Paused));
 
@@ -286,7 +286,7 @@ fn touch_joystick_drag_down_drives_debounced_menu_down() {
     state.move_y = 1.0; // drag the on-screen stick fully DOWN
 
     let dir = touch_move_to_menu_dir(state, 0.05);
-    assert_eq!(dir, Some(ambition_gameplay_core::input::MenuDir::Down));
+    assert_eq!(dir, Some(ambition_input::MenuDir::Down));
 
     let mut menu_state = MenuInputState::default();
     let dt = 1.0 / 60.0;
@@ -370,7 +370,7 @@ fn touch_back_button_sets_menu_back_frame() {
     // fires in BOTH backends. `fold_to_menu_control_frame` does
     // `frame.back |= touch.reset.pressed_this_frame`; pin that mapping
     // on the pure state so the wiring can't silently regress.
-    use ambition_gameplay_core::input::MenuControlFrame;
+    use ambition_input::MenuControlFrame;
 
     let mut touch = TouchInputState::default();
     touch.reset = TouchButton::pressed_now();

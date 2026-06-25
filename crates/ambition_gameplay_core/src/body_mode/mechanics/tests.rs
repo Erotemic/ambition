@@ -5,7 +5,7 @@
 use super::*;
 use crate::engine_core::world::{ClimbableKind, ClimbableRegion, ClimbableSpec, World};
 use crate::engine_core::Vec2;
-use crate::input::ControlFrame;
+use ambition_input::ControlFrame;
 use crate::player::{
     BodyKinematics, PlayerBaseSize, PlayerBlinkState, PlayerBodyModeState, PlayerDashState,
     PlayerEntity, PlayerEnvironmentContact, PlayerGroundState, PlayerInputFrame,

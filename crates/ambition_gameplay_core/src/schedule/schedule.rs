@@ -203,6 +203,6 @@ pub fn configure_sandbox_sets(app: &mut App) {
     // Move-axis regression this contract exists to prevent.
     app.configure_sets(
         Update,
-        crate::input::InputSet::Populate.before(crate::player::sync_local_player_input_frame),
+        ambition_input::InputSet::Populate.before(crate::player::sync_local_player_input_frame),
     );
 }

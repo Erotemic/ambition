@@ -10,7 +10,7 @@ use ambition_gameplay_core::engine_core as ae;
 
 use crate::app::{SandboxSimulationPlugin, StartRoomOverride};
 use ambition_gameplay_core::game_mode::GameMode;
-use ambition_gameplay_core::input::ControlFrame;
+use ambition_input::ControlFrame;
 use ambition_gameplay_core::ldtk_world;
 use ambition_gameplay_core::rooms::RoomSet;
 

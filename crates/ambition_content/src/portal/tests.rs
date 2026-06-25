@@ -5,7 +5,7 @@ use bevy::prelude::*;
 
 use ambition_gameplay_core::brain::ActionSet;
 use ambition_gameplay_core::engine_core::{self as ae};
-use ambition_gameplay_core::input::ControlFrame;
+use ambition_input::ControlFrame;
 use ambition_gameplay_core::platformer_runtime::gravity::{gravity_upright_angle, GravityField};
 use ambition_gameplay_core::platformer_runtime::orientation::{update_actor_roll, ActorRoll};
 use ambition_gameplay_core::platformer_runtime::transit::rotate_velocity_between_normals as portal_transform_velocity;

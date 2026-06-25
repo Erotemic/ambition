@@ -48,8 +48,6 @@ pub mod debug_label;
 pub mod schedule;
 // Re-export the pure-logic core under the sandbox's stable `crate::engine_core` path.
 pub use ambition_engine_core as engine_core;
-// Re-export input types under the sandbox's stable `crate::input` path.
-pub use ambition_input as input;
 pub mod host;
 pub mod platformer_runtime;
 pub mod player;
@@ -130,7 +128,7 @@ pub use world::platforms::MovingPlatformState;
 use crate::engine_core as ae;
 use bevy::prelude::{Message, Resource};
 
-use input::KeyboardPreset;
+use ambition_input::KeyboardPreset;
 
 /// Sandbox-side death notification. Emitted from `death_respawn_player`
 /// the frame the player's HP drops to zero and they respawn at the room

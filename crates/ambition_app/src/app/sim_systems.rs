@@ -13,7 +13,7 @@ use ambition_gameplay_core::dev::dev_tools::{self, EditableAbilitySet, EditableM
 use ambition_gameplay_core::features::{
     self, FeatureEcsWorldOverlay, GameplayBanner, HitEvent as FeatureHitEvent,
 };
-use ambition_gameplay_core::input::ControlFrame;
+use ambition_input::ControlFrame;
 use ambition_gameplay_core::rooms::{
     GatePortalRegistry, LoadingZoneActivation, RoomSet, RoomTransitionRequested,
 };

@@ -16,7 +16,7 @@ use bevy::prelude::*;
 
 use crate::engine_core::{self as ae, AabbExt};
 use crate::features::HeldItem;
-use crate::input::ControlFrame;
+use ambition_input::ControlFrame;
 use crate::player::{BodyKinematics, PlayerEntity, PrimaryPlayer};
 
 /// The held-item id the Blink ability grants.

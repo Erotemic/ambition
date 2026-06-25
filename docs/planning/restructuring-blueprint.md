@@ -92,8 +92,17 @@ in the app):
 - room load split: sim half → `gameplay_core::rooms::load_room_geometry` (returns
   a `RoomLoadResult`); render spawns + arrival VFX stay in the app's `load_room`.
 - movement-event Sfx/Vfx emission → `gameplay_core::player::movement_fx`.
-- `PlayerDiedMessage` → `ActorDiedMessage` (the death-fact vocabulary; source/cause
-  attribution still TODO).
+- `PlayerDiedMessage` → `ActorDiedMessage` (the death-fact vocabulary).
+- **`BossSpecialContentPlugin`** (`1bdb0cf7`'s parent `5a6f02f3`): the 11 named
+  boss-special Techniques + cut-rope flavor drained out of `app/combat_schedule.rs`
+  onto a new `CombatSet { ContentSpecials, ContentFlavor }` extension-slot enum
+  (mirrors `BossSteerSlot`). The app now configures only WHERE each slot sits in
+  the combat chain; the content plugins own the systems. State-component
+  registration moved with the specials into the new plugin.
+- **`ActorDiedMessage` source/cause attribution** (`1bdb0cf7`): added
+  `DeathCause { source: HitSource, attacker: Option<Entity> }`, threaded from the
+  killing `HitEvent` at the single death choke point. Reuses `HitSource` (no
+  parallel enum). The compact causality seam, landed ahead of any consumer.
 
 `app/world_flow.rs` is now just host glue (`RoomClock`, `sandbox_dt`,
 `ground_gap_below_feet`, the `room_flow` submodule). The whole `ambition_app::app`
@@ -101,10 +110,32 @@ module is now explicit-import — the `use super::*`-family glob blocks and the
 module-level `allow(unused_imports)` are gone (a navigability win; do not
 reintroduce them).
 
-**Still open in §3+:** the deeper extractions remain — boss-special content
-plugin + source/cause attribution + generic-vs-named projectile split (combat),
-world commands/events + the RoomGeometry write-map (world). §4
-(ControlFrame→actor-local intent) and §5 (OnceLock classification) are untouched.
+**Still open in §3+:** two deeper extractions remain, both larger/riskier than
+what has landed:
+
+1. **Generic-vs-named projectile split (combat).** `ProjectileKind { Fireball,
+   Hadouken, HadoukenSuper }` + its stat tables live in `platformer_primitives`
+   (a foundation crate) — verified named-content leak. But it is woven across SIX
+   crates: the primitive body couples behavior to it
+   (`bounces_remaining = matches!(kind, Fireball) as u8 * 2`), input does Hadouken
+   gesture recognition (entangled with §4), render tints/sprites by kind, and the
+   charge-tier ramps key off it. Splitting properly means replacing `match kind`
+   with generic `ProjectileSpec` fields (e.g. `bounces`, gravity already a field)
+   and moving the named tables to content. Its correctness gate is *feel*
+   (projectile arcs, charge ramps, gesture timing, tints) — NOT headless-verifiable.
+   Needs Jon's runtime testing; do not ship blind. The remaining attribution work
+   (attacker entity on enemy/boss-side `HitSource`s) is part of this domain.
+2. **World commands/events (world).** The 3 content gates
+   (`encounter/systems.rs` lock walls, `content/bosses/gnu_ton.rs` arena ladder,
+   `content/intro/route_state.rs` flag gates) mutate `RoomGeometry.0` directly
+   mid-room — against the resolved authored-base model. **Architecture fork:**
+   route them through explicit world *commands* that mutate the base, OR (the
+   resolved decision's preference) make them per-frame *overlay* contributors like
+   portal carves so the base stays authored-immutable. Structural, headless-testable
+   (does the wall exist when flag X? does the ladder reappear on defeat?), but the
+   fork is a real design decision. The 7-writer write-map is below.
+
+§4 (ControlFrame→actor-local intent) and §5 (OnceLock classification) are untouched.
 
 > Orientation for the future world-runtime extraction (§"World / rooms / LDtk"):
 > the `ResMut<RoomGeometry>` writers still to classify are `session/reset/mod.rs`

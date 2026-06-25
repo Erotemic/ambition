@@ -16,7 +16,7 @@ use crate::game_mode::GameMode;
 #[cfg(feature = "input")]
 use crate::input::MenuControlFrame;
 #[cfg(feature = "input")]
-use crate::ui_nav::{apply_vertical_scroll, resolve_selectable_row_interaction};
+use ambition_ui_nav::{apply_vertical_scroll, resolve_selectable_row_interaction};
 #[cfg(feature = "input")]
 use bevy::window::PrimaryWindow;
 
@@ -190,11 +190,11 @@ fn handle_dialog_choice_hover(
     index: usize,
     selected: usize,
     pointer_armed: Option<usize>,
-    focus: crate::ui_nav::MenuFocusState,
+    focus: ambition_ui_nav::MenuFocusState,
     last_pointer_position: Option<Vec2>,
     cursor_position: Option<Vec2>,
 ) -> DialogHoverUpdate {
-    if focus.owner == crate::ui_nav::MenuFocusOwner::Keyboard
+    if focus.owner == ambition_ui_nav::MenuFocusOwner::Keyboard
         && last_pointer_position.is_some()
         && (cursor_position.is_none() || last_pointer_position == cursor_position)
     {
@@ -228,14 +228,14 @@ fn handle_dialog_choice_hover(
 struct DialogHoverUpdate {
     selected: usize,
     pointer_armed: Option<usize>,
-    focus: crate::ui_nav::MenuFocusState,
+    focus: ambition_ui_nav::MenuFocusState,
     last_pointer_position: Option<Vec2>,
 }
 
 #[cfg(all(test, feature = "input"))]
 mod tests {
     use super::*;
-    use crate::ui_nav::MenuFocusOwner;
+    use ambition_ui_nav::MenuFocusOwner;
 
     #[test]
     fn keyboard_focus_blocks_stale_hover_on_same_row() {
@@ -243,7 +243,7 @@ mod tests {
             2,
             1,
             Some(1),
-            crate::ui_nav::MenuFocusState {
+            ambition_ui_nav::MenuFocusState {
                 owner: MenuFocusOwner::Keyboard,
                 last_hovered_row: Some(2),
             },
@@ -262,7 +262,7 @@ mod tests {
             5,
             1,
             Some(1),
-            crate::ui_nav::MenuFocusState {
+            ambition_ui_nav::MenuFocusState {
                 owner: MenuFocusOwner::Keyboard,
                 last_hovered_row: Some(1),
             },

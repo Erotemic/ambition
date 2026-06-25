@@ -97,7 +97,6 @@ pub mod projectile;
 pub mod session;
 pub mod shrine;
 pub mod time;
-pub use ambition_ui_nav as ui_nav;
 pub mod world;
 
 // Public re-exports double as the external API for bins, tests, and docs.

@@ -259,7 +259,7 @@ pub fn install_kaleidoscope_menu_backend(app: &mut App) {
 }
 
 /// Which input source currently owns the cube cursor. Mirrors the grid's
-/// [`ambition_gameplay_core::ui_nav::MenuFocusOwner`]: keyboard/gamepad nav claims focus and keeps
+/// [`ambition_ui_nav::MenuFocusOwner`]: keyboard/gamepad nav claims focus and keeps
 /// it until the pointer moves to a DIFFERENT control. A stationary hover must not
 /// keep reasserting itself over newer directional navigation (the "can't move away
 /// from the hovered option" bug).

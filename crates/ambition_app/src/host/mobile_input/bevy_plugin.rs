@@ -15,7 +15,7 @@ use super::layout::{
 use super::menu_bridge::{fold_to_control_frame, fold_to_menu_control_frame};
 use super::state::TouchInputState;
 use ambition_gameplay_core::input::{ControlFrame, KeyboardPreset, MenuInputState, SandboxAction};
-use ambition_gameplay_core::ui_nav::DragScrollState;
+use ambition_ui_nav::DragScrollState;
 use ambition_render::ui_fonts::{UiFontWeight, UiFonts};
 
 /// Global z-band for the on-screen touch HUD (joystick + action /

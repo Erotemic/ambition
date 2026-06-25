@@ -2,7 +2,7 @@
 //! confirm/advance, option selection, and the visible-window math.
 
 use super::*;
-use crate::ui_nav::visible_window_start;
+use ambition_ui_nav::visible_window_start;
 
 const DIALOG_VISIBLE_OPTIONS: usize = 4;
 

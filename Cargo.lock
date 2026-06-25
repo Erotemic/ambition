@@ -149,6 +149,7 @@ dependencies = [
  "ambition_render",
  "ambition_sfx",
  "ambition_time",
+ "ambition_ui_nav",
  "bevy",
  "bevy-inspector-egui",
  "bevy_asset_loader",

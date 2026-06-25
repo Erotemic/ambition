@@ -15,7 +15,7 @@
 
 use bevy::prelude::*;
 
-use crate::ui_nav::MenuFocusState;
+use ambition_ui_nav::MenuFocusState;
 
 /// Top-level adventure-menu tab.
 ///

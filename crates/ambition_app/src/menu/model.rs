@@ -711,7 +711,7 @@ pub fn system_window_start(rows: &[SystemRow], focus: MenuFocus) -> usize {
     if rows.len() <= SYSTEM_VISIBLE_ROWS {
         return 0;
     }
-    ambition_gameplay_core::ui_nav::visible_window_start(focused, rows.len(), SYSTEM_VISIBLE_ROWS)
+    ambition_ui_nav::visible_window_start(focused, rows.len(), SYSTEM_VISIBLE_ROWS)
 }
 
 /// The EFFECTIVE scroll-window START for the System face (Features C/D).

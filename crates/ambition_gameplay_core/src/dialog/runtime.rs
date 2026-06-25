@@ -16,7 +16,7 @@ use bevy::prelude::{Component, Resource};
 
 use super::content::DialogChoice;
 use crate::engine_core::Vec2;
-use crate::ui_nav::MenuFocusState;
+use ambition_ui_nav::MenuFocusState;
 
 /// Marker on a rendered dialog choice-row entity, carrying its option index.
 ///

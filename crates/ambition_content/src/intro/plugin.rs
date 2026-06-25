@@ -99,8 +99,19 @@ impl Plugin for IntroPlugin {
                     install_intro_banter_system,
                     install_intro_gated_zones_system,
                     super::route_state::emit_intro_flag_chains,
-                    super::route_state::sync_intro_flag_gated_lock_walls,
                 ),
+            )
+            // The flag-gated lock walls contribute to the collision overlay's
+            // `gate_solids` (not the authored base), so they run a phase earlier
+            // in WorldPrep — after the overlay rebuild clears gate_solids, before
+            // the WorldPrep collision consumers — exactly like the encounter
+            // lock-wall contributor.
+            .add_systems(
+                Update,
+                super::route_state::sync_intro_flag_gated_lock_walls
+                    .after(ambition_gameplay_core::features::rebuild_feature_ecs_world_overlay)
+                    .before(ambition_gameplay_core::features::update_ecs_hazards)
+                    .in_set(ambition_gameplay_core::schedule::SandboxSet::WorldPrep),
             );
         // Intro dialog redirects are handled by the unified
         // `dialog::redirect_post_quest_dialog` system. Its

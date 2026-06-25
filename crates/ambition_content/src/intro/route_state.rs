@@ -153,45 +153,39 @@ pub fn compute_intro_flag_gated_lock_walls(
     out
 }
 
-/// Per-frame sync of the intro flag-gated lock walls. Mirrors the
-/// encounter system's `sync_lock_walls` but driven by the save layer
-/// rather than encounter phase. Delegates the LDtk-walking logic to
-/// [`compute_intro_flag_gated_lock_walls`] so the policy is testable
-/// in isolation.
+/// Per-frame contribution of the intro flag-gated lock walls onto the
+/// collision overlay's `gate_solids`. Mirrors the encounter system's
+/// `contribute_encounter_lock_walls` but driven by the save layer rather than
+/// encounter phase: the walls are derived each frame and folded into the
+/// per-frame overlay, never mutated into the authored `RoomGeometry` base (the
+/// resolved authored-base model). Delegates the LDtk-walking policy to
+/// [`compute_intro_flag_gated_lock_walls`] so it stays testable in isolation.
+///
+/// Runs in `WorldPrep` after the overlay rebuild clears `gate_solids` (so the
+/// contribution is a clean per-frame derive) and before the WorldPrep collision
+/// consumers. The `intro_lock:<id>` block name lets the render layer surface
+/// each wall as a `LockWallVisual`, same as encounter lock walls.
 pub fn sync_intro_flag_gated_lock_walls(
     project: Option<Res<ambition_gameplay_core::world::ldtk_world::SandboxLdtkProject>>,
     room_set: Option<Res<ambition_gameplay_core::rooms::RoomSet>>,
     save: Option<Res<ambition_gameplay_core::persistence::save::SandboxSave>>,
-    world: Option<ResMut<ambition_gameplay_core::RoomGeometry>>,
+    overlay: Option<ResMut<ambition_gameplay_core::features::FeatureEcsWorldOverlay>>,
 ) {
-    let (Some(project), Some(room_set), Some(save), Some(mut world)) =
-        (project, room_set, save, world)
+    let (Some(project), Some(room_set), Some(save), Some(mut overlay)) =
+        (project, room_set, save, overlay)
     else {
         return;
     };
     let active_room_id = room_set.active_spec().id.clone();
     let desired = compute_intro_flag_gated_lock_walls(&project.0, &active_room_id, save.data());
-    let desired_ids: std::collections::HashSet<String> =
-        desired.iter().map(|(id, _, _)| id.clone()).collect();
-
-    world.0.blocks.retain(|b| {
-        if let Some(stripped) = b.name.strip_prefix("intro_lock:") {
-            desired_ids.contains(stripped)
-        } else {
-            true
-        }
-    });
-
     for (id, min, size) in desired {
-        let name = format!("intro_lock:{id}");
-        if !world.0.blocks.iter().any(|b| b.name == name) {
-            world
-                .0
-                .blocks
-                .push(ambition_engine_core::Block::solid(
-                    name, min, size,
-                ));
-        }
+        overlay
+            .gate_solids
+            .push(ambition_engine_core::Block::solid(
+                format!("intro_lock:{id}"),
+                min,
+                size,
+            ));
     }
 }
 

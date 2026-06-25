@@ -1,25 +1,8 @@
-#[allow(unused_imports)]
-use super::cli::*;
-#[allow(unused_imports)]
-use super::dev_runtime::*;
-#[allow(unused_imports)]
-use super::hud::*;
-#[allow(unused_imports)]
-use super::phases::*;
-#[allow(unused_imports)]
-use super::player_tick::*;
-#[allow(unused_imports)]
-use super::plugins::*;
-#[allow(unused_imports)]
-use super::resources::*;
-#[allow(unused_imports)]
-use super::setup_systems::*;
-#[allow(unused_imports)]
-use super::world_flow::*;
-#[allow(unused_imports)]
-use super::*;
-#[allow(unused_imports)]
-use ambition_gameplay_core::schedule::*;
+use bevy::ecs::system::SystemParam;
+use bevy::prelude::*;
+
+use ambition_gameplay_core::audio::SfxMessage;
+use ambition_render::fx::VfxMessage;
 
 /// Bundled `MessageWriter`s for the sim → presentation event channels
 /// the player tick (and the inline `*_phase` helpers it calls) writes

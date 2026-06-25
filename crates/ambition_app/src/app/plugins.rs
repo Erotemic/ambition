@@ -1,27 +1,58 @@
-#[allow(unused_imports)]
-use super::cli::*;
-#[allow(unused_imports)]
-use super::dev_runtime::*;
-#[allow(unused_imports)]
-use super::feedback::*;
-#[allow(unused_imports)]
-use super::hud::*;
-#[allow(unused_imports)]
-use super::phases::*;
-#[allow(unused_imports)]
-use super::player_tick::*;
-#[allow(unused_imports)]
-use super::resources::*;
-#[allow(unused_imports)]
-use super::setup_systems::*;
-#[allow(unused_imports)]
-use super::sim_systems::*;
-#[allow(unused_imports)]
-use super::world_flow::*;
-#[allow(unused_imports)]
-use super::*;
-#[allow(unused_imports)]
-use ambition_gameplay_core::schedule::*;
+use bevy::prelude::*;
+use bevy_asset_loader::asset_collection::AssetCollectionApp;
+use bevy_ecs_ldtk::prelude::LdtkPlugin;
+#[cfg(feature = "ui")]
+use bevy_material_ui::MaterialUiPlugin;
+#[cfg(feature = "input")]
+use leafwing_input_manager::prelude::InputManagerPlugin;
+
+use ambition_gameplay_core::assets::loading;
+use ambition_gameplay_core::dev::dev_tools::{
+    self, DeveloperTools, EditableAbilitySet, EditableMovementTuning, EditablePlayerStats,
+    MovementProfile, PlayerBodyProfile,
+};
+use ambition_gameplay_core::dialog;
+use ambition_gameplay_core::game_mode::{gameplay_allowed, gameplay_suspended};
+use ambition_gameplay_core::inventory_ui;
+use ambition_gameplay_core::ldtk_world;
+use ambition_gameplay_core::rooms;
+use ambition_gameplay_core::schedule::{
+    attach_player_input_components, configure_sandbox_sets,
+    toggle_player_trail_emission_from_actions, SandboxSet,
+};
+#[cfg(feature = "input")]
+use ambition_gameplay_core::schedule::{
+    apply_menu_frame_to_cutscene_request, populate_control_frame_from_actions,
+    populate_menu_control_frame_from_actions,
+};
+use ambition_gameplay_core::time::feel::SandboxFeelTuning;
+#[cfg(feature = "physics_debris")]
+use ambition_gameplay_core::world::physics::physics_spawn_debris_messages;
+use ambition_gameplay_core::world::physics;
+use ambition_input::MenuControlFrame;
+#[cfg(feature = "input")]
+use ambition_input::{MenuInputState, PlayerDashTriggerState, SandboxAction};
+use ambition_render::fx::{self, vfx_spawn_messages};
+use ambition_render::rendering::{animate_bosses, camera_follow, sync_visuals};
+use ambition_render::ui_fonts;
+
+use crate::dev::debug_overlay;
+use crate::host::windowing;
+
+use super::dev_runtime::{handle_debug_hotkeys, handle_ldtk_hot_reload, sync_preset_input_map};
+use super::hud::{update_hud, update_quest_panel};
+use super::player_tick::{
+    advance_moving_platforms, clear_sandbox_reset_this_frame, player_control_system,
+    player_simulation_system,
+};
+use super::resources::init_sandbox_resources;
+use super::setup_systems::{setup_presentation_system, setup_simulation_system};
+use super::sim_systems::{
+    apply_cut_rope_room_replay_request_system, apply_player_reset_input_system,
+    apply_suspended_time_scale_system, cleanup_timers_system, input_timer_system,
+    interaction_input_system, sync_live_player_dev_edits_system,
+};
+use super::world_flow::{apply_room_transition_system, ensure_requested_room_parallax_system};
 
 /// Register core simulation plugins, message types, and the gameplay
 /// schedule. Headless and visible both call this.

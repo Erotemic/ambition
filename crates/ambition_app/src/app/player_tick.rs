@@ -22,30 +22,17 @@
 //! The legacy `PlayerMovementAuthority` wrapper + tick-local
 //! `ae::Player` scratchpad were deleted 2026-05-28.
 
-#[allow(unused_imports)]
-use super::cli::*;
-#[allow(unused_imports)]
-use super::dev_runtime::*;
-#[allow(unused_imports)]
-use super::feedback::*;
-#[allow(unused_imports)]
-use super::hud::*;
-#[allow(unused_imports)]
-use super::phases::*;
-#[allow(unused_imports)]
-use super::plugins::*;
-#[allow(unused_imports)]
-use super::resources::*;
-#[allow(unused_imports)]
-use super::setup_systems::*;
-#[allow(unused_imports)]
-use super::world_flow::*;
-#[allow(unused_imports)]
-use super::*;
-#[allow(unused_imports)]
-use ambition_gameplay_core::schedule::*;
+use bevy::prelude::*;
 
 use ambition_engine_core as ae;
+use ambition_gameplay_core::dev::dev_tools::EditableMovementTuning;
+use ambition_gameplay_core::time::feel::SandboxFeelTuning;
+use ambition_gameplay_core::RoomGeometry;
+
+use super::feedback::{PhaseOutcome, SandboxEventWriters, SandboxQueues};
+use super::phases::{player_control_phase, player_simulation_phase};
+use super::resources::SandboxResetThisFrame;
+use super::world_flow::sandbox_dt;
 
 /// First system in the player tick chain: clear the per-frame
 /// `SandboxResetThisFrame` flag.

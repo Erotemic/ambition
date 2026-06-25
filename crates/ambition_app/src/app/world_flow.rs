@@ -1,28 +1,22 @@
-#![allow(unused_imports)]
-use ambition_engine_core::AabbExt;
+//! Room-flow + player-tick presentation glue that stays in the app host.
+//!
+//! What remains here after the world-runtime / combat-runtime drains:
+//! - [`RoomClock`] — a two-resource bundle for the room-transition apply system.
+//! - [`sandbox_dt`] — the hit-stop-aware sim dt used by the player-tick phases.
+//! - [`ground_gap_below_feet`] — the room-transition landing diagnostic helper.
+//! - [`handle_player_events`] — translates engine movement ops into Sfx/Vfx facts.
+//! - the [`room_flow`] submodule (sandbox reset, room load, transition apply).
+//!
+//! The attack-phase machine and victim-side damage resolution moved DOWN into
+//! `ambition_gameplay_core::combat::{attack, damage}`; the sim half of room load
+//! moved into `ambition_gameplay_core::rooms`.
 
-#[allow(unused_imports)]
-use super::cli::*;
-#[allow(unused_imports)]
-use super::dev_runtime::*;
-#[allow(unused_imports)]
-use super::feedback::*;
-#[allow(unused_imports)]
-use super::hud::*;
-#[allow(unused_imports)]
-use super::phases::*;
-#[allow(unused_imports)]
-use super::player_tick::*;
-#[allow(unused_imports)]
-use super::plugins::*;
-#[allow(unused_imports)]
-use super::resources::*;
-#[allow(unused_imports)]
-use super::setup_systems::*;
-#[allow(unused_imports)]
-use super::*;
-#[allow(unused_imports)]
-use ambition_gameplay_core::schedule::*;
+use bevy::prelude::{MessageWriter, ResMut};
+
+use ambition_engine_core::{self as ae, AabbExt};
+use ambition_gameplay_core::audio::SfxMessage;
+use ambition_gameplay_core::features::FeatureEcsWorldOverlay;
+use ambition_render::fx::{ParticleKind, VfxMessage};
 
 /// Bundle of the two room-reset clock/sim resources, so systems that
 /// already sit near Bevy's 16-SystemParam limit (e.g.
@@ -44,16 +38,9 @@ pub(super) fn sandbox_dt(hitstop_timer: f32, time_scale: f32, frame_dt: f32) -> 
     }
 }
 
-fn pogo_target_for_attack_hitbox(world: &ae::World, attack: ae::Aabb) -> Option<ae::Aabb> {
-    world
-        .blocks
-        .iter()
-        .find(|block| block.kind.is_pogo_target() && attack.strict_intersects(block.aabb))
-        .map(|block| block.aabb)
-}
-
 mod room_flow;
-pub use room_flow::*;
+pub use room_flow::ensure_requested_room_parallax_system;
+pub(crate) use room_flow::{apply_room_transition_system, reset_sandbox};
 
 /// Probe straight down from the player's feet for the nearest block
 /// top (within 256 px). Returns `(distance, source)` where `source` is
@@ -64,7 +51,7 @@ fn ground_gap_below_feet(
     feet_y: f32,
     body: &ae::Aabb,
     world: &ae::World,
-    feature_overlay: &ambition_gameplay_core::features::FeatureEcsWorldOverlay,
+    feature_overlay: &FeatureEcsWorldOverlay,
 ) -> Option<(f32, &'static str)> {
     const MAX_PROBE_PX: f32 = 256.0;
     let probe = |blocks: &[ae::Block]| {
@@ -267,128 +254,5 @@ pub(super) fn handle_player_events(
                 facing,
             });
         }
-    }
-}
-
-pub(crate) mod attack;
-pub use attack::*;
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    fn test_attack_box() -> ae::Aabb {
-        ae::Aabb::new(ae::Vec2::new(100.0, 100.0), ae::Vec2::new(16.0, 16.0))
-    }
-
-    #[test]
-    fn attack_phase_pogo_rejects_ground_and_one_way_targets() {
-        let attack = test_attack_box();
-        let min = attack.center() - attack.half_size();
-        let size = attack.half_size() * 2.0;
-        let world = ae::World::new(
-            "pogo attack reject test",
-            ae::Vec2::new(400.0, 300.0),
-            ae::Vec2::ZERO,
-            vec![
-                ae::Block::solid("floor", min, size),
-                ae::Block::one_way("one-way", min, size),
-                ae::Block::blink_wall("blink-wall", min, size, ae::BlinkWallTier::Soft),
-            ],
-        );
-
-        assert_eq!(pogo_target_for_attack_hitbox(&world, attack), None);
-    }
-
-    #[test]
-    fn attack_phase_pogo_accepts_authored_pogo_targets() {
-        let attack = test_attack_box();
-        let min = attack.center() - attack.half_size();
-        let size = attack.half_size() * 2.0;
-        let orb = ae::Block::pogo_orb("orb", attack.center(), 12.0);
-        let rebound = ae::Block::rebound(
-            "rebound",
-            min + ae::Vec2::new(60.0, 0.0),
-            size,
-            ae::Vec2::new(0.0, 180.0),
-        );
-        let world = ae::World::new(
-            "pogo attack accept test",
-            ae::Vec2::new(400.0, 300.0),
-            ae::Vec2::ZERO,
-            vec![ae::Block::solid("floor", min, size), orb.clone(), rebound],
-        );
-
-        assert_eq!(
-            pogo_target_for_attack_hitbox(&world, attack),
-            Some(orb.aabb)
-        );
-    }
-
-    /// Pins the geometry behind the "pogo bounces but deals no damage at the
-    /// edge" bug (now FIXED): the slash hitbox tracks the player, so frame 1
-    /// (player still high / at the edge) misses while a later active frame
-    /// reaches the target. The bug was that `advance_attack` emitted the
-    /// slash-damage `HitEvent` only on the FIRST active frame but re-checked the
-    /// POGO bounce EVERY active frame — so the later frame bounced with no hit.
-    /// Fixed by emitting the slash damage every active frame (deduped per target
-    /// via `hit_targets`, accumulated in `apply_feature_hit_events`), mirroring
-    /// the pogo check. This test keeps the geometry honest: the later-frame
-    /// hitbox DOES overlap, so the every-frame emit will land the hit.
-    #[test]
-    fn pogo_connects_on_a_later_frame_than_the_first_active_frame_damage_check() {
-        use ambition_gameplay_core::combat::{
-            attack_hitbox_from_view, attack_spec_from_view, AttackIntent, AttackView,
-        };
-        let hitbox_at = |pos: ae::Vec2| {
-            let view = AttackView {
-                pos,
-                size: ae::Vec2::new(30.0, 48.0),
-                facing: 1.0,
-                on_ground: false,
-                wall_clinging: false,
-                dash_timer: 0.0,
-                abilities_directional_primary: true,
-            };
-            attack_hitbox_from_view(&view, attack_spec_from_view(&view, AttackIntent::AirDown))
-        };
-        // The boss's pogo target — same geometry as its damageable volume
-        // (pogo is `FromDamageable`).
-        let orb = ae::Block::pogo_orb("boss", ae::Vec2::new(100.0, 200.0), 16.0);
-        let world = ae::World::new(
-            "pogo-timing repro",
-            ae::Vec2::new(400.0, 400.0),
-            ae::Vec2::ZERO,
-            vec![orb.clone()],
-        );
-
-        // First active frame: player still high → the down hitbox misses.
-        let first = hitbox_at(ae::Vec2::new(100.0, 80.0));
-        // A later active frame: player descended into the boss → hitbox overlaps.
-        let later = hitbox_at(ae::Vec2::new(100.0, 120.0));
-
-        // Damage is first-active-frame only → it samples `first`, which misses.
-        assert!(
-            !first.strict_intersects(orb.aabb),
-            "first-frame hitbox misses the boss, so the one-shot slash damage never lands",
-        );
-        assert_eq!(
-            pogo_target_for_attack_hitbox(&world, first),
-            None,
-            "pogo also misses on the first frame",
-        );
-        // Pogo is checked every active frame → it connects on `later` and bounces.
-        assert_eq!(
-            pogo_target_for_attack_hitbox(&world, later),
-            Some(orb.aabb),
-            "pogo connects on a later frame → bounce with no damage (the bug)",
-        );
-        // The later-frame hitbox DOES overlap the boss — the only reason damage
-        // didn't land is the first-active-frame-only gate. Checking damage every
-        // active frame (like pogo) would fix it.
-        assert!(
-            later.strict_intersects(orb.aabb),
-            "later-frame hitbox overlaps the boss; only the first-frame damage gate hid the hit",
-        );
     }
 }

@@ -20,6 +20,9 @@ use super::world_flow::*;
 use super::*;
 #[allow(unused_imports)]
 use ambition_gameplay_core::schedule::*;
+// The attack-phase machine drained into the combat runtime; the player-tick
+// phases here still call this entry point, so import it explicitly.
+use ambition_gameplay_core::combat::attack::engine_input_from_actor_control;
 
 /// How a ledge-grabbing player should react to the moving platform that carries
 /// them this frame: ride along with it, or be knocked off because the carry

@@ -10,10 +10,10 @@ use bevy::prelude::*;
 
 use ambition_gameplay_core::audio::SfxMessage;
 use ambition_gameplay_core::dev::dev_tools::{self, EditableAbilitySet, EditableMovementTuning};
-use ambition_gameplay_core::features::{self, FeatureEcsWorldOverlay, HitEvent as FeatureHitEvent};
+use ambition_gameplay_core::features;
 use ambition_input::ControlFrame;
 use ambition_gameplay_core::time::feel::SandboxFeelTuning;
-use ambition_gameplay_core::{RoomGeometry, MovingPlatformSet, SandboxSimState};
+use ambition_gameplay_core::{RoomGeometry, SandboxSimState};
 use ambition_render::fx::VfxMessage;
 
 /// Push live dev-tools ability/tuning edits onto the authoritative player.
@@ -336,110 +336,6 @@ pub fn apply_cut_rope_room_replay_request_system(
     reset_room_features.write(features::ResetRoomFeaturesEvent {
         reason: features::RoomResetReason::Manual,
     });
-}
-
-/// Drive the player's slash / pogo attack lifecycle: start a new
-/// swing on rising-edge input (gated by hit-stun), then advance any
-/// in-flight attack — applying hits, debris, and recoil through the
-/// damage / pogo / sfx / vfx message channels.
-///
-/// Runs after transition detection so ordering remains detect → attack → apply.
-/// Engine helpers still collect sfx/vfx in local Vecs; this system drains them to
-/// the real message writers.
-pub fn attack_advance_system(
-    time: Res<Time>,
-    world: Res<RoomGeometry>,
-    moving_platforms: Res<MovingPlatformSet>,
-    editable_tuning: Res<EditableMovementTuning>,
-    feel_tuning: Res<SandboxFeelTuning>,
-    feature_ecs_overlay: Res<FeatureEcsWorldOverlay>,
-    gravity_field: Option<Res<ambition_gameplay_core::physics::GravityField>>,
-    mut player_q: Query<
-        (
-            Entity,
-            ae::PlayerClusterQueryData,
-            &mut ambition_gameplay_core::player::PlayerAnimState,
-            &mut ambition_gameplay_core::player::PlayerCombatState,
-            &mut ambition_gameplay_core::player::ActivePlayerAttack,
-            &ambition_characters::brain::ActorControl,
-            Option<&ambition_gameplay_core::features::HeldItem>,
-        ),
-        ambition_gameplay_core::player::PrimaryPlayerOnly,
-    >,
-    mut brain_actions: MessageReader<ambition_characters::brain::ActorActionMessage>,
-    mut hit_events: MessageWriter<FeatureHitEvent>,
-    mut sfx_writer: MessageWriter<SfxMessage>,
-    mut vfx_writer: MessageWriter<VfxMessage>,
-) {
-    let Ok((
-        player_entity,
-        mut cluster_item,
-        mut anim,
-        mut combat,
-        mut attack,
-        actor_control,
-        held_item,
-    )) = player_q.single_mut()
-    else {
-        return;
-    };
-    // Only an actually-held weapon (axe etc.) re-tunes the swing; the default
-    // ActionSet melee keeps the directional attack_spec_from_view feel.
-    let held_melee = held_item.and_then(|item| item.spec.melee);
-    // The brain-driver system populated this `ActorControl` for the
-    // current player upstream (PlayerInput set). Every combat verb
-    // start_attack needs (pogo, axes for attack-intent resolution)
-    // lives on the brain-driven frame — the raw `PlayerInputFrame`
-    // is no longer read in this system.
-    let actor_frame = actor_control.0;
-    let mut tuning = editable_tuning.as_engine();
-    // Sync gravity into the tuning so the pogo bounce (and any other
-    // gravity-relative impulse this system applies) launches OPPOSITE the live
-    // gravity, not a hardcoded world-up. Without this the attack-path pogo used
-    // the default `(0,1)` down and bounced the wrong way under inverted gravity.
-    let gdir = ambition_gameplay_core::physics::gravity_dir_or_default(gravity_field.as_deref());
-    ambition_gameplay_core::physics::apply_gravity_dir(&mut tuning, gdir);
-    let feel = *feel_tuning;
-    let frame_dt = time.delta_secs();
-
-    let mut clusters = cluster_item.as_clusters_mut();
-    // Melee comes through the ActionSet-resolved brain message; pogo is a
-    // player-specific intent mirrored onto `ActorControlFrame`.
-    let melee_requested = brain_actions
-        .read()
-        .any(|msg| msg.actor == player_entity && msg.is_melee());
-    // Attack is gated on the brief recoil lock, NOT the full hitstun window:
-    // once the player has been thrown clear (~0.12s) they can swing again even
-    // while still in hitstun / i-frames, so face-tanking a boss lets you fight
-    // back instead of standing there helpless (Hollow-Knight feel).
-    if combat.recoil_lock_timer <= 0.0 && (melee_requested || actor_frame.pogo_pressed) {
-        super::world_flow::start_attack(
-            &mut sfx_writer,
-            &mut vfx_writer,
-            &mut clusters,
-            &mut attack.0,
-            &mut anim,
-            actor_frame,
-            held_melee,
-            tuning.gravity_dir,
-        );
-    }
-    super::world_flow::advance_attack(
-        player_entity,
-        &mut sfx_writer,
-        &mut vfx_writer,
-        &world.0,
-        &moving_platforms.0,
-        &mut clusters,
-        &mut attack.0,
-        &mut anim,
-        &mut combat,
-        tuning,
-        feel,
-        frame_dt,
-        &feature_ecs_overlay,
-        &mut hit_events,
-    );
 }
 
 /// Decay presentation-only animation and flash timers.

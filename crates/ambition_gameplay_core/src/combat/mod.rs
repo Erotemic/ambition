@@ -37,6 +37,7 @@ const CHEST_FALL_GRAVITY: f32 = 1400.0;
 /// blast through the floor sweep before the sub-step kicks in.
 const CHEST_FALL_MAX_SPEED: f32 = 900.0;
 
+pub mod attack;
 pub mod banner;
 pub mod boss_clusters;
 pub mod breakables;

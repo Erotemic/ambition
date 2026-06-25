@@ -43,6 +43,7 @@ pub mod breakables;
 pub mod bus;
 pub mod chests;
 pub mod components;
+pub mod damage;
 pub mod events;
 pub mod falling_chest;
 pub mod hazard_runtime;

@@ -10,14 +10,10 @@ use bevy::prelude::*;
 
 use ambition_gameplay_core::audio::SfxMessage;
 use ambition_gameplay_core::dev::dev_tools::{self, EditableAbilitySet, EditableMovementTuning};
-use ambition_gameplay_core::features::{
-    self, FeatureEcsWorldOverlay, GameplayBanner, HitEvent as FeatureHitEvent,
-};
+use ambition_gameplay_core::features::{self, FeatureEcsWorldOverlay, HitEvent as FeatureHitEvent};
 use ambition_input::ControlFrame;
 use ambition_gameplay_core::time::feel::SandboxFeelTuning;
-use ambition_gameplay_core::{
-    RoomGeometry, MovingPlatformSet, PlayerDiedMessage, SafePositionContext, SandboxSimState,
-};
+use ambition_gameplay_core::{RoomGeometry, MovingPlatformSet, SandboxSimState};
 use ambition_render::fx::VfxMessage;
 
 /// Push live dev-tools ability/tuning edits onto the authoritative player.
@@ -444,147 +440,6 @@ pub fn attack_advance_system(
         &feature_ecs_overlay,
         &mut hit_events,
     );
-}
-
-/// Resolve this tick's victim-side `HitEvent`s and remember the last safe-spawn
-/// position.
-///
-/// Reads `MessageReader<HitEvent>` and filters to victim-side
-/// sources (hazard / enemy / boss); attacker-side hits (player slash,
-/// player projectile, pogo) are consumed by
-/// `apply_feature_hit_events` separately. Routes the first event
-/// through `handle_player_damage_events` — which can knock back,
-/// hitstun, hazard-respawn, or fully kill the player — and writes
-/// resulting sfx / vfx / died messages directly to their
-/// `MessageWriter`s. Then runs `remember_safe_player_position` to
-/// update `sim_state.last_safe_player_pos` when the player wasn't
-/// damaged this frame, isn't blinking, isn't in hitstun, and isn't
-/// mid-room-transition.
-///
-/// Ordering: must run after the player tick (whose
-/// `player_simulation_phase` is the canonical producer of player state
-/// for this frame) and before `attack_advance_system` /
-/// `detect_room_transition_system` (which both read post-damage player
-/// state). Gated by `gameplay_allowed`.
-pub fn apply_player_hit_events(
-    world: Res<RoomGeometry>,
-    control_frame: Res<ControlFrame>,
-    moving_platforms: Res<MovingPlatformSet>,
-    editable_tuning: Res<EditableMovementTuning>,
-    feel_tuning: Res<SandboxFeelTuning>,
-    user_settings: Res<ambition_gameplay_core::persistence::settings::UserSettings>,
-    feature_ecs_overlay: Res<FeatureEcsWorldOverlay>,
-    mut sim_state: ResMut<SandboxSimState>,
-    mut clock: ResMut<ambition_gameplay_core::time::clock_state::ClockState>,
-    mut banner: ResMut<GameplayBanner>,
-    mut hit_events: MessageReader<FeatureHitEvent>,
-    mut died_writer: MessageWriter<PlayerDiedMessage>,
-    mut sfx_writer: MessageWriter<SfxMessage>,
-    mut vfx_writer: MessageWriter<VfxMessage>,
-    primary_q: Query<
-        Entity,
-        (
-            With<ambition_gameplay_core::player::PlayerEntity>,
-            With<ambition_gameplay_core::player::PrimaryPlayer>,
-        ),
-    >,
-    mut player_q: Query<
-        (
-            Entity,
-            ae::PlayerClusterQueryData,
-            Option<&mut ambition_gameplay_core::player::PlayerHealth>,
-            &mut ambition_gameplay_core::player::PlayerAnimState,
-            &mut ambition_gameplay_core::player::PlayerCombatState,
-            &mut ambition_gameplay_core::player::PlayerSafetyState,
-        ),
-        ambition_gameplay_core::player::PrimaryPlayerOnly,
-    >,
-) {
-    let primary = primary_q.single().ok();
-    // Drain only victim-side hits — attacker-side hits flow to
-    // `apply_feature_hit_events`. The two consumers read the same
-    // `HitEvent` channel from independent `MessageReader` positions
-    // so both see every event but each filters by source-direction.
-    let events: Vec<FeatureHitEvent> = hit_events
-        .read()
-        .filter(|e| !e.source.is_attacker_side())
-        .cloned()
-        .collect();
-
-    let assist_factor = match user_settings.gameplay.assist {
-        ambition_gameplay_core::persistence::settings::AssistMode::Off => 1.0,
-        ambition_gameplay_core::persistence::settings::AssistMode::On => 0.5,
-    };
-    let difficulty_multiplier = user_settings.gameplay.difficulty.damage_taken_multiplier()
-        * user_settings.gameplay.player_damage_multiplier
-        * assist_factor;
-    let tuning = editable_tuning.as_engine();
-    let feel = *feel_tuning;
-    let safe_world =
-        features::world_with_sandbox_solids(&world.0, &moving_platforms.0, &feature_ecs_overlay);
-
-    // Resolve every event to a concrete target entity once: events
-    // with `HitTarget::Player(e)` route to that player; events with
-    // `HitTarget::Volume` (legacy "iterates-and-takes-primary") fall
-    // back to the primary player. Events that never resolve (no
-    // primary, e.g. headless pre-spawn) are silently dropped.
-    let resolved: Vec<(Entity, FeatureHitEvent)> = events
-        .into_iter()
-        .filter_map(|e| {
-            let target = match e.target {
-                features::HitTarget::Player(entity) => Some(entity),
-                features::HitTarget::Volume => primary,
-                features::HitTarget::OrbMatch => None,
-            };
-            target.map(|t| (t, e))
-        })
-        .collect();
-
-    for (player_entity, mut cluster_item, player_health, mut anim, mut combat, mut safety) in
-        &mut player_q
-    {
-        let target_events: Vec<FeatureHitEvent> = resolved
-            .iter()
-            .filter(|(t, _)| *t == player_entity)
-            .map(|(_, e)| e.clone())
-            .collect();
-        let damaged_this_frame = !target_events.is_empty();
-
-        let mut clusters = cluster_item.as_clusters_mut();
-        super::world_flow::handle_player_damage_events(
-            &world.0,
-            control_frame.shield_held,
-            &mut sfx_writer,
-            &mut vfx_writer,
-            &mut died_writer,
-            &mut clusters,
-            &mut sim_state,
-            &mut clock,
-            &mut safety,
-            &mut banner,
-            player_health.map(|h| h.into_inner()),
-            &target_events,
-            tuning,
-            feel,
-            difficulty_multiplier,
-            &mut anim,
-            &mut combat,
-        );
-
-        let ctx = SafePositionContext {
-            damaged_this_frame,
-            in_hitstun: combat.hitstun_timer > 0.0,
-            feature_requested_reset: false,
-            blink_grace_active: clusters.blink.grace_timer > 0.0,
-            room_transitioning: sim_state.room_transition_cooldown > 0.0,
-        };
-        ambition_gameplay_core::remember_safe_player_position(
-            &mut safety,
-            &clusters,
-            &safe_world,
-            ctx,
-        );
-    }
 }
 
 /// Decay presentation-only animation and flash timers.

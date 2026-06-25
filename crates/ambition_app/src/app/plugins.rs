@@ -342,7 +342,8 @@ fn register_player_simulation_systems(app: &mut App) {
             // this frame's platform positions.
             advance_moving_platforms.run_if(gameplay_allowed),
             player_simulation_system.run_if(gameplay_allowed),
-            apply_player_hit_events.run_if(gameplay_allowed),
+            ambition_gameplay_core::combat::damage::apply_player_hit_events
+                .run_if(gameplay_allowed),
         )
             .chain()
             .in_set(SandboxSet::PlayerSimulation),

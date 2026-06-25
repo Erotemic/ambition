@@ -28,6 +28,7 @@ pub mod components;
 pub mod events;
 pub mod ledge_grab;
 pub mod movement_components;
+pub mod movement_fx;
 pub mod queries;
 pub mod swim;
 pub mod systems;
@@ -40,6 +41,7 @@ pub use components::{
     PlayerSlot, PlayerWallet, PrimaryPlayer,
 };
 pub use events::PlayerHealRequested;
+pub use movement_fx::handle_player_events;
 pub use movement_components::{
     BodyKinematics, PlayerAbilities, PlayerActionBuffer, PlayerBaseSize, PlayerBlinkState,
     PlayerBodyModeState, PlayerComboTrace, PlayerDashState, PlayerDodgeState,

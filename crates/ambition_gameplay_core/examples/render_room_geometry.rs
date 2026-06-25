@@ -21,7 +21,7 @@
 
 use ambition_gameplay_core as sb;
 use image::{Rgba, RgbaImage};
-use sb::engine_core::{self as ae, AabbExt};
+use ambition_engine_core::{self as ae, AabbExt};
 
 /// Longest edge of the output image, in pixels. Worlds scale down to fit.
 const MAX_CANVAS_PX: u32 = 1000;

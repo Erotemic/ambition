@@ -146,7 +146,7 @@ pub fn interact_ecs_actors_and_switches(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::engine_core as ae;
+    use ambition_engine_core as ae;
     use crate::features::{
         CenteredAabb, FeatureId, FeatureName, FeatureSimEntity, SwitchFeature, SwitchOn,
     };

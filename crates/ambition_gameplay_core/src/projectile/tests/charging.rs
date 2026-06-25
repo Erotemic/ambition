@@ -200,10 +200,10 @@ fn out_of_resource_blocks_fire() {
 
 #[test]
 fn released_fireball_uses_controlled_body_local_aim_under_sideways_gravity() {
-    let player_pos = crate::engine_core::Vec2::new(300.0, 300.0);
+    let player_pos = ambition_engine_core::Vec2::new(300.0, 300.0);
     let mut app = projectile_test_app(dummy_world(), player_pos, 1.0);
     app.insert_resource(crate::physics::GravityField {
-        dir: crate::engine_core::Vec2::new(1.0, 0.0),
+        dir: ambition_engine_core::Vec2::new(1.0, 0.0),
     });
 
     {
@@ -235,7 +235,7 @@ fn released_fireball_uses_controlled_body_local_aim_under_sideways_gravity() {
         shot.vel
     );
 
-    let frame = crate::engine_core::AccelerationFrame::new(crate::engine_core::Vec2::new(1.0, 0.0));
+    let frame = ambition_engine_core::AccelerationFrame::new(ambition_engine_core::Vec2::new(1.0, 0.0));
     let local_offset = frame.to_local(shot.pos - player_pos);
     assert!(
         local_offset.y < -20.0,

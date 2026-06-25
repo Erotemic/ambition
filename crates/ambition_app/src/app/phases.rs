@@ -41,7 +41,7 @@ pub(super) fn ledge_platform_carry(
     player_aabb: ae::Aabb,
     delta: ae::Vec2,
 ) -> LedgePlatformCarry {
-    use ambition_gameplay_core::engine_core::AabbExt;
+    use ambition_engine_core::AabbExt;
     let carried = player_aabb.translated(delta);
     let into_wall = world
         .blocks
@@ -317,7 +317,7 @@ pub(super) fn player_simulation_phase(
 #[cfg(test)]
 mod ledge_carry_tests {
     use super::{ledge_platform_carry, LedgePlatformCarry};
-    use ambition_gameplay_core::engine_core as ae;
+    use ambition_engine_core as ae;
 
     fn world_with_right_wall() -> ae::World {
         // A solid wall occupying x[100,120], full height; open space to its left.

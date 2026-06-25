@@ -11,8 +11,8 @@
 //! (animation-frame sampling). Distinct from the engine's collision system —
 //! this is boss-attack-specific geometry only.
 
-use crate::engine_core as ae;
-use crate::engine_core::AabbExt;
+use ambition_engine_core as ae;
+use ambition_engine_core::AabbExt;
 
 use bevy::prelude::Component;
 
@@ -419,7 +419,7 @@ pub fn boss_attack_damage(
 ) -> Option<crate::features::HitEvent> {
     use crate::combat::events::{HitEvent, HitKnockback, HitMode, HitSource, HitTarget};
     use crate::combat::util::midpoint;
-    use crate::engine_core::AabbExt;
+    use ambition_engine_core::AabbExt;
 
     let signum_or = |x: f32, fallback: f32| {
         if x.abs() < f32::EPSILON {

@@ -16,7 +16,7 @@
 //! - the `BrainActionCounter` observer is unaffected (it counts but
 //!   doesn't consume)
 
-use crate::engine_core as ae;
+use ambition_engine_core as ae;
 use bevy::prelude::*;
 
 use crate::audio::SfxMessage;

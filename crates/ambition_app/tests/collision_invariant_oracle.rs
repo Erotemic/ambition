@@ -33,7 +33,7 @@
 
 use ambition_app::rl_sim::TimestepMode;
 use ambition_app::{RandomWalkPolicy, SandboxSim, SandboxSimOptions};
-use ambition_gameplay_core::engine_core as ae;
+use ambition_engine_core as ae;
 use ambition_gameplay_core::GameWorld;
 
 // --- the oracle ---

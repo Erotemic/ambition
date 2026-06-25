@@ -9,7 +9,7 @@
 //! - kinematic-path resolution survives the LDtk → engine emission,
 //! - intro authoring keeps painted tile layers + the prop / NPC split.
 
-use crate::engine_core as ae;
+use ambition_engine_core as ae;
 
 use super::super::fields::*;
 use super::super::project::*;

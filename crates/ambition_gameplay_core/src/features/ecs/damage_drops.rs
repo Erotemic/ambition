@@ -8,7 +8,7 @@
 use bevy::prelude::{Commands, Entity};
 
 use super::{CenteredAabb, FeatureId, FeatureName, FeatureSimEntity, PickupFeature};
-use crate::engine_core as ae;
+use ambition_engine_core as ae;
 
 /// Deterministic (FNV-1a over the id) gate so ~1 in 4 enemy *kinds* drops a heart.
 /// Deterministic, not random, so the headless sim stays reproducible — the same

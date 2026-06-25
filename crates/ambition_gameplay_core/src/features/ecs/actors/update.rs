@@ -8,7 +8,7 @@ use super::*;
 /// animation row, so an enemy whose sheet authors an attack hitbox is read the
 /// same data-driven way the player is. Mirrors `enemy_attack_aabb_dir`'s axis
 /// branching (forward / up / down).
-fn enemy_melee_animation_for_axis(axis: crate::engine_core::Vec2) -> &'static str {
+fn enemy_melee_animation_for_axis(axis: ambition_engine_core::Vec2) -> &'static str {
     if axis.x.abs() >= axis.y.abs() {
         "attack_side"
     } else if axis.y < 0.0 {

@@ -1,6 +1,6 @@
 //! Player ECS spawn bundles.
 
-use crate::engine_core as ae;
+use ambition_engine_core as ae;
 use bevy::prelude::*;
 
 use super::components::{

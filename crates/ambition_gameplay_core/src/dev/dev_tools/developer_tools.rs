@@ -1,7 +1,7 @@
 //! The `DeveloperTools` resource (debug toggles + inspector state) + helpers.
 
 use super::*;
-use crate::engine_core as ae;
+use ambition_engine_core as ae;
 use bevy::prelude::*;
 use serde::{Deserialize, Serialize};
 

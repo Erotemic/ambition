@@ -5,7 +5,7 @@
 //! second eases), even though the consumer is presentation. Re-exported
 //! at the crate root for backward-compat call sites.
 
-use crate::engine_core as ae;
+use ambition_engine_core as ae;
 use bevy::prelude::Resource;
 
 /// Live camera scale + ease state. The camera reads target scale from

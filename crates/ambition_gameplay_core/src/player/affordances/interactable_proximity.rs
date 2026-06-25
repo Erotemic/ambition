@@ -13,7 +13,7 @@
 //! fire — no off-by-one frame where the prompt says "Talk" but the
 //! buffered press silently misses.
 
-use crate::engine_core::AabbExt;
+use ambition_engine_core::AabbExt;
 use bevy::prelude::*;
 
 use super::variants::InteractVariant;

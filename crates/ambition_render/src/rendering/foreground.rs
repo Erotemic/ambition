@@ -4,7 +4,7 @@
 //! are intentionally optional. If a generated PNG is absent, no fallback quad is
 //! spawned; foreground atmosphere should never become gameplay-critical.
 
-use ambition_gameplay_core::engine_core as ae;
+use ambition_engine_core as ae;
 use bevy::prelude::*;
 use bevy::window::PrimaryWindow;
 

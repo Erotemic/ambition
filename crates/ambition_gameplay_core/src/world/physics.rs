@@ -6,9 +6,9 @@
 //! juice without surrendering platforming feel. A future physics-player mode can
 //! be added behind the same boundary.
 
-use crate::engine_core as ae;
+use ambition_engine_core as ae;
 #[cfg(feature = "physics_debris")]
-use crate::engine_core::AabbExt;
+use ambition_engine_core::AabbExt;
 #[cfg(feature = "physics_debris")]
 use avian2d::prelude::*;
 #[cfg(feature = "physics_debris")]

@@ -9,7 +9,7 @@
 //! snapshot to fire camera shake + a `DamageBox` shockwave + scream VFX on
 //! dramatic transitions — decoupled from the event pipeline on purpose.
 
-use crate::engine_core as ae;
+use ambition_engine_core as ae;
 use bevy::prelude::*;
 
 use crate::cutscene_trigger::CutsceneTriggerQueue;

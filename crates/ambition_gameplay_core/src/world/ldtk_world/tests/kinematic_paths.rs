@@ -1,7 +1,7 @@
 //! Synthetic-LDtk tests for moving platforms, camera zones, and
 //! kinematic-path resolution across enemies, NPCs, and hazards.
 
-use crate::engine_core as ae;
+use ambition_engine_core as ae;
 use serde_json::Value;
 
 use super::super::project::*;

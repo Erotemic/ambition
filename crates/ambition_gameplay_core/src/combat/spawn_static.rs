@@ -58,7 +58,7 @@ pub(crate) fn spawn_ground_item(commands: &mut Commands, spec: &crate::rooms::Gr
         crate::items::pickup::GroundItem {
             spec: held,
             pos: spec.pos,
-            vel: crate::engine_core::Vec2::ZERO,
+            vel: ambition_engine_core::Vec2::ZERO,
             half_extent: spec.half_extent,
         },
     ));
@@ -121,7 +121,7 @@ pub(crate) fn spawn_gravity_zone(commands: &mut Commands, spec: &crate::rooms::G
     let mut entity = commands.spawn_room_scoped((
         Name::new(format!("Gravity zone: {}", spec.name)),
         crate::physics::GravityZone {
-            aabb: crate::engine_core::Aabb::new(spec.center, spec.half_extent),
+            aabb: ambition_engine_core::Aabb::new(spec.center, spec.half_extent),
             dir: spec.dir,
         },
     ));

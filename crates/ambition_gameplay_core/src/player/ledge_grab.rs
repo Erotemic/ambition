@@ -1,17 +1,17 @@
 //! Ledge grab sandbox presentation helpers.
 //!
-//! Gameplay ownership lives in `crate::engine_core`:
+//! Gameplay ownership lives in `ambition_engine_core`:
 //! `PlayerLedgeState::grab` is advanced by
 //! `ae::update_player_simulation_with_clusters` alongside gravity,
 //! wall contact, moving platforms, and water. The sandbox keeps this
 //! module only as a stable place for presentation code/tests that
 //! want the public timing constants.
 
-pub use crate::engine_core::{LEDGE_CLIMB_TIME, LEDGE_MIN_CLIMB_DELAY, LEDGE_TOWARD_CLIMB_DELAY};
+pub use ambition_engine_core::{LEDGE_CLIMB_TIME, LEDGE_MIN_CLIMB_DELAY, LEDGE_TOWARD_CLIMB_DELAY};
 
 #[cfg(test)]
 mod tests {
-    use crate::engine_core as ae;
+    use ambition_engine_core as ae;
 
     #[test]
     fn engine_owned_ledge_state_hangs_then_climbs() {

@@ -7,7 +7,7 @@ use crate::brain::{
     action_set::ActionRequest, boss_pattern::tick_boss_pattern, ActorActionMessage, ActorControl,
     BossAttackState, BossPatternContext, Brain, StateMachineCfg,
 };
-use crate::engine_core::AabbExt;
+use ambition_engine_core::AabbExt;
 use crate::features::{boss_attack_damage, boss_special_for_profile, BossVolumeContext};
 use bevy::prelude::MessageWriter;
 
@@ -338,7 +338,7 @@ pub fn update_ecs_bosses(
         // under sideways gravity / a wall — vertical gravity is unchanged, so
         // replay stays byte-identical.
         let boss_frame =
-            crate::engine_core::AccelerationFrame::new(gravity.dir_at(feature.kin.pos));
+            ambition_engine_core::AccelerationFrame::new(gravity.dir_at(feature.kin.pos));
         aabb.half_size = boss_frame.to_world_half(feature.as_boss_ref().render_size() * 0.5);
         // Mirror the brain's pattern_timer (now living in
         // `BossPatternState`) into the presentation-side

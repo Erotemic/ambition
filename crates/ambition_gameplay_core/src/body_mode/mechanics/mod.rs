@@ -30,7 +30,7 @@
 //!   swim) own the player shape; the driver no-ops while any of them are
 //!   active.
 
-use crate::engine_core as ae;
+use ambition_engine_core as ae;
 use bevy::prelude::*;
 
 /// Threshold on `axis_y` for treating Down as "held" for crouch.

@@ -2,7 +2,7 @@
 //! charge-indicator quad in front of the player. Each projectile owns one linked
 //! visual entity that is transformed from the live body and despawned with it.
 
-use ambition_gameplay_core::engine_core as ae;
+use ambition_engine_core as ae;
 use bevy::prelude::*;
 
 /// Marker on the persistent per-projectile sprite entity produced by

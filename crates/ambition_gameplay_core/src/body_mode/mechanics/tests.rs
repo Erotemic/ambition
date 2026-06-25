@@ -3,8 +3,8 @@
 //! flight suppressing ladder auto-climb.
 
 use super::*;
-use crate::engine_core::world::{ClimbableKind, ClimbableRegion, ClimbableSpec, World};
-use crate::engine_core::Vec2;
+use ambition_engine_core::world::{ClimbableKind, ClimbableRegion, ClimbableSpec, World};
+use ambition_engine_core::Vec2;
 use ambition_input::ControlFrame;
 use crate::player::{
     BodyKinematics, PlayerBaseSize, PlayerBlinkState, PlayerBodyModeState, PlayerDashState,

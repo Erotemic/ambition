@@ -16,7 +16,7 @@
 //!    sim-clock player update.
 //!
 //! The systems query the 18 player cluster components through
-//! [`ambition_gameplay_core::engine_core::PlayerClusterQueryData`] and call the
+//! [`ambition_engine_core::PlayerClusterQueryData`] and call the
 //! cluster-native engine entry points
 //! (`player_control_phase` / `player_simulation_phase`) directly.
 //! The legacy `PlayerMovementAuthority` wrapper + tick-local
@@ -45,7 +45,7 @@ use super::*;
 #[allow(unused_imports)]
 use ambition_gameplay_core::schedule::*;
 
-use ambition_gameplay_core::engine_core as ae;
+use ambition_engine_core as ae;
 
 /// First system in the player tick chain: clear the per-frame
 /// `SandboxResetThisFrame` flag.

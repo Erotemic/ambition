@@ -14,7 +14,7 @@
 //! SFX and music are separate concerns from gameplay tuning and from each
 //! other.
 
-use crate::engine_core as ae;
+use ambition_engine_core as ae;
 use bevy::asset::{Asset, AssetServer};
 use bevy::prelude::{Commands, Handle, Res, Resource};
 use bevy::reflect::TypePath;

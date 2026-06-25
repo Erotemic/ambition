@@ -23,8 +23,8 @@ use crate::boss_encounter::behavior::{
     canonical_boss_id_from, BossBehaviorProfile, ActorSpriteMetrics,
 };
 use crate::boss_encounter::BossEncounterPhase;
-use crate::engine_core as ae;
-use crate::engine_core::AabbExt;
+use ambition_engine_core as ae;
+use ambition_engine_core::AabbExt;
 use ambition_platformer_primitives::kinematic;
 
 pub use crate::platformer_runtime::body::BodyKinematics;

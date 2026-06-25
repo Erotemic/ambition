@@ -1,7 +1,7 @@
 //! Unit tests for moving-platform sweep/path motion, riding, and ledge-carry.
 
 use super::*;
-use crate::engine_core::AabbExt;
+use ambition_engine_core::AabbExt;
 
 fn test_world() -> ae::World {
     ae::World::new(

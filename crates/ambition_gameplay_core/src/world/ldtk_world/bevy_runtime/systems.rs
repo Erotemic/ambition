@@ -9,7 +9,7 @@ use std::collections::BTreeMap;
 
 use bevy::prelude::{Query, Res, ResMut, With};
 
-use crate::engine_core as ae;
+use ambition_engine_core as ae;
 
 use super::asset::LdtkRuntimeIndex;
 use super::components::{

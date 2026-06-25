@@ -6,7 +6,7 @@
 
 use bevy::prelude::*;
 
-use crate::engine_core as ae;
+use ambition_engine_core as ae;
 use crate::projectile::ProjectileKind;
 
 use super::{advance_time, min_app, projectile_test_app, ActorHealth, ActorIdentity};

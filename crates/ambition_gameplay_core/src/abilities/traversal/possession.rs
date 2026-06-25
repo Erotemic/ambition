@@ -98,13 +98,13 @@ pub fn possession_trigger_system(
 ) {
     let gravity_dir = gravity_field
         .as_deref()
-        .map_or(crate::engine_core::Vec2::new(0.0, 1.0), |g| g.dir);
+        .map_or(ambition_engine_core::Vec2::new(0.0, 1.0), |g| g.dir);
     let input_mode = user_settings
         .as_deref()
-        .map_or(crate::engine_core::InputFrameMode::Hybrid, |s| {
+        .map_or(ambition_engine_core::InputFrameMode::Hybrid, |s| {
             s.gameplay.input_frame_mode
         });
-    let descend = crate::engine_core::AccelerationFrame::new(gravity_dir)
+    let descend = ambition_engine_core::AccelerationFrame::new(gravity_dir)
         .resolve_input(input_mode, control.axis_x, control.axis_y)
         .y;
     let down_interact = descend > 0.35 && control.interact_pressed;
@@ -123,7 +123,7 @@ pub fn possession_trigger_system(
                 // the actor where it is; it reverts to its own brain beside you.
                 if let (Ok(aabb), Ok(mut pk)) = (actor_aabb.get(entity), players.single_mut()) {
                     pk.pos = aabb.center;
-                    pk.vel = crate::engine_core::Vec2::ZERO;
+                    pk.vel = ambition_engine_core::Vec2::ZERO;
                 }
                 // Restore the actor's original faction, then drop the marker.
                 let original = possessed_q.get(entity).ok().map(|p| p.original_faction);
@@ -198,8 +198,8 @@ mod tests {
     use super::*;
     use crate::player::PlayerBaseSize;
 
-    fn vec2(x: f32, y: f32) -> crate::engine_core::Vec2 {
-        crate::engine_core::Vec2::new(x, y)
+    fn vec2(x: f32, y: f32) -> ambition_engine_core::Vec2 {
+        ambition_engine_core::Vec2::new(x, y)
     }
 
     /// App with the trigger + 1s/frame real time, so 2 held frames clear the 2s hold.
@@ -231,7 +231,7 @@ mod tests {
         ));
     }
 
-    fn spawn_candidate(app: &mut App, pos: crate::engine_core::Vec2) -> Entity {
+    fn spawn_candidate(app: &mut App, pos: ambition_engine_core::Vec2) -> Entity {
         app.world_mut()
             .spawn((
                 crate::features::FeatureSimEntity,

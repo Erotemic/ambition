@@ -32,7 +32,7 @@
 
 use std::sync::{Arc, RwLock};
 
-use crate::engine_core as ae;
+use ambition_engine_core as ae;
 use bevy::prelude::*;
 use bevy_yarnspinner::prelude::DialogueRunner;
 

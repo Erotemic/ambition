@@ -7,7 +7,7 @@
 //! See `docs/systems/gameplay-trace-recorder.md` for the workflow and bug-reporting
 //! checklist.
 
-use crate::engine_core as ae;
+use ambition_engine_core as ae;
 use ae::AabbExt;
 use bevy::prelude::*;
 

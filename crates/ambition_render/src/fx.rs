@@ -3,7 +3,7 @@
 //! Particles are CPU-side Bevy sprite entities for now. Keeping this behind a
 //! compact module gives us a later migration seam to GPU particles or Hanabi.
 
-use ambition_gameplay_core::engine_core as ae;
+use ambition_engine_core as ae;
 use bevy::math::Vec2 as BVec2;
 use bevy::prelude::*;
 use std::f32::consts::TAU;

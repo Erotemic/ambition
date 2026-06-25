@@ -3,7 +3,7 @@
 //! singleton queries / heal routing stay independent and correct.
 
 use super::*;
-use crate::engine_core as ae;
+use ambition_engine_core as ae;
 use crate::player::PrimaryPlayerOnly;
 
 fn dummy_attack_spec() -> crate::combat::AttackSpec {

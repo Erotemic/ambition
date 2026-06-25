@@ -28,6 +28,7 @@ ambition_gameplay_core = { path = "../ambition_gameplay_core", default-features 
 ] }
 ambition_platformer_primitives = { path = "../ambition_platformer_primitives" }
 ambition_input = { path = "../ambition_input" }
+ambition_engine_core = { path = "../ambition_engine_core" }
 ambition_interaction = { path = "../ambition_interaction" }
 # The VFX message vocabulary `fx` re-exports (`ambition_vfx::vfx::*`).
 ambition_vfx = { path = "../ambition_vfx" }

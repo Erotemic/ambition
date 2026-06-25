@@ -632,13 +632,13 @@ pub(crate) fn draw_feature_debug(
                 // Forward-swing hitbox geometry (matches
                 // ActorMut::attack_aabb): offset by facing.
                 let center = kin.pos
-                    + ambition_gameplay_core::engine_core::Vec2::new(
+                    + ambition_engine_core::Vec2::new(
                         kin.facing * (kin.size.x * 0.55 + 24.0),
                         -4.0,
                     );
-                let attack_box = ambition_gameplay_core::engine_core::Aabb::new(
+                let attack_box = ambition_engine_core::Aabb::new(
                     center,
-                    ambition_gameplay_core::engine_core::Vec2::new(34.0, 28.0),
+                    ambition_engine_core::Vec2::new(34.0, 28.0),
                 );
                 if attack.is_active() {
                     draw_aabb_styled(gizmos, world, attack_box, active_color, developer_tools);

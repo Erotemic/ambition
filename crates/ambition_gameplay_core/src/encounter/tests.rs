@@ -5,8 +5,8 @@
 
 use super::*;
 use crate::encounter::switches::{EncounterSwitchIndex, EncounterSwitchLink};
-use crate::engine_core as ae;
-use crate::engine_core::AabbExt;
+use ambition_engine_core as ae;
+use ambition_engine_core::AabbExt;
 use crate::ldtk_world::LdtkProject;
 use crate::persistence::save_data::PersistedEncounterState;
 
@@ -557,7 +557,7 @@ fn encounter_reward_chest_pos_sits_on_trigger_floor() {
 
 #[test]
 fn sync_lock_walls_inserts_and_removes_block() {
-    use crate::engine_core::Block;
+    use ambition_engine_core::Block;
     let mut world = ae::World::new(
         "test",
         ae::Vec2::new(2000.0, 2000.0),

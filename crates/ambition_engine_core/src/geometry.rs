@@ -19,10 +19,9 @@ const CONTACT_EPS: f32 = 1.0e-4;
 
 /// Public engine AABB type.
 ///
-/// This is Bevy's battle-tested 2D bounding box, re-exported under the
-/// shorter `engine_core::Aabb` name so callers can keep importing
-/// `ae::Aabb` (the `ae` prefix is the conventional alias for
-/// `crate::engine_core`).
+/// This is Bevy's battle-tested 2D bounding box, re-exported as
+/// `ambition_engine_core::Aabb` so callers can import `ae::Aabb` (`ae` is the
+/// conventional alias for `ambition_engine_core`).
 pub type Aabb = Aabb2d;
 
 /// Construct an AABB from a minimum corner and a size.

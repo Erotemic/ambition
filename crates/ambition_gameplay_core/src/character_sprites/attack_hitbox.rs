@@ -11,7 +11,7 @@
 //! renderer uses, so the gameplay box lines up with the drawn blade.
 //! Facing mirrors the box's forward offset.
 
-use crate::engine_core as ae;
+use ambition_engine_core as ae;
 use ambition_sprite_sheet::{SheetRecord, SheetRegistry};
 use std::sync::OnceLock;
 

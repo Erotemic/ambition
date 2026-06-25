@@ -159,10 +159,10 @@ pub fn compute_player_intent(
         .map_or(Vec2::new(0.0, 1.0), |g| g.dir);
     let input_mode = user_settings
         .as_deref()
-        .map_or(crate::engine_core::InputFrameMode::Hybrid, |s| {
+        .map_or(ambition_engine_core::InputFrameMode::Hybrid, |s| {
             s.gameplay.input_frame_mode
         });
-    let local_axis = crate::engine_core::AccelerationFrame::new(gravity_dir).resolve_input(
+    let local_axis = ambition_engine_core::AccelerationFrame::new(gravity_dir).resolve_input(
         input_mode,
         control_frame.axis_x,
         control_frame.axis_y,

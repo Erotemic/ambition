@@ -3,11 +3,11 @@
 //! Moving platforms remain sandbox-side as a design experiment, but they now
 //! contribute temporary solid blocks to the engine collision world each frame.
 //! That gives us rideable/collidable behavior without committing moving-solid
-//! semantics to `crate::engine_core` before we have tests for carrying, crushing,
+//! semantics to `ambition_engine_core` before we have tests for carrying, crushing,
 //! and one-way platform interactions.
 
-use crate::engine_core as ae;
-use crate::engine_core::AabbExt;
+use ambition_engine_core as ae;
+use ambition_engine_core::AabbExt;
 use bevy::math::Vec2 as BVec2;
 use bevy::prelude::*;
 
@@ -361,7 +361,7 @@ fn ledge_contact_matches_platform(
     let wall_side = platform_side + side_normal * platform_side_half;
 
     // Invert the local-frame formulas from
-    // engine_core::ledge_grab::probe_ledge_grab_in_frame. These are expressed in
+    // ambition_engine_core::ledge_grab::probe_ledge_grab_in_frame. These are expressed in
     // side/down coordinates so the same check works for down, up, left, and right
     // gravity wells.
     let expected_anchor_side = wall_side + side_normal * (half.x - 1.0);

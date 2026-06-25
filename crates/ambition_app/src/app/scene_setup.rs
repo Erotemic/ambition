@@ -13,7 +13,7 @@ use bevy::prelude::*;
 #[cfg(feature = "audio")]
 use bevy_kira_audio::prelude::AudioSource as KiraAudioSource;
 
-use ambition_gameplay_core::engine_core as ae;
+use ambition_engine_core as ae;
 
 use ambition_gameplay_core::assets::game_assets::GameAssets;
 #[cfg(feature = "audio")]

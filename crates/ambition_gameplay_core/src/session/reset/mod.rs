@@ -16,7 +16,7 @@
 use bevy::ecs::system::SystemParam;
 use bevy::prelude::*;
 
-use crate::engine_core as ae;
+use ambition_engine_core as ae;
 
 /// Room-transition slot for *content-side* reset work (named boss
 /// arenas, story state). The app assembly places the content layer's

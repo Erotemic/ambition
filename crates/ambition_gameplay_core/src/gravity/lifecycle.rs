@@ -5,7 +5,7 @@
 
 use bevy::prelude::*;
 
-use crate::engine_core::{self as ae, AabbExt};
+use ambition_engine_core::{self as ae, AabbExt};
 use crate::physics::GravityField;
 use crate::player::{BodyKinematics, PlayerEntity, PrimaryPlayer};
 

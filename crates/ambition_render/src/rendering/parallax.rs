@@ -6,7 +6,7 @@
 //! fallback-friendly loading behavior without forcing the room renderer through
 //! an external API.
 
-use ambition_gameplay_core::engine_core as ae;
+use ambition_engine_core as ae;
 use bevy::math::Vec2 as BVec2;
 use bevy::prelude::*;
 

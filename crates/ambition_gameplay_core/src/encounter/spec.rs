@@ -6,7 +6,7 @@
 
 use serde::{Deserialize, Serialize};
 
-use crate::engine_core as ae;
+use ambition_engine_core as ae;
 
 /// One mob to spawn during a wave.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]

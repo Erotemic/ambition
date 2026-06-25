@@ -4,13 +4,13 @@
 //! world-collision behavior re-exported from
 //! `ambition_platformer_primitives::projectile`.
 
-use crate::engine_core::Vec2;
+use ambition_engine_core::Vec2;
 
 use super::spawn::{ProjectileSpawner, SpawnFailure};
 use super::{FireballChargeTuning, ProjectileKind, ProjectileSpec};
 use super::{MotionDirection, MotionInputBuffer};
 use super::{ProjectileBody, ProjectileFaction, ProjectileSolidHit};
-use crate::engine_core::{aabb_from_min_size, Aabb, AabbExt};
+use ambition_engine_core::{aabb_from_min_size, Aabb, AabbExt};
 
 #[test]
 fn motion_buffer_recognizes_quarter_circle_right() {

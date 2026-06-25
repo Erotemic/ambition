@@ -13,7 +13,7 @@
 //! [`crate::features::PogoTargetContributor`] marker remains as a fallback for
 //! authored stand-to-crumble surfaces that are pogoable but not damageable.
 
-use crate::engine_core::AabbExt;
+use ambition_engine_core::AabbExt;
 use bevy::prelude::*;
 
 use crate::features::{CenteredAabb, FeatureSimEntity, PogoTargetContributor, PogoTargetVolumes};
@@ -62,10 +62,10 @@ pub fn update_pogo_target_below(
     // (player.pos.y is the center; +Y is down in sim coords, so feet
     // sit at `pos.y + size.y * 0.5`).
     let feet_y = kin.pos.y + kin.size.y * 0.5;
-    let center = crate::engine_core::Vec2::new(kin.pos.x, feet_y + POGO_DETECTION_DEPTH * 0.5);
+    let center = ambition_engine_core::Vec2::new(kin.pos.x, feet_y + POGO_DETECTION_DEPTH * 0.5);
     let half_size =
-        crate::engine_core::Vec2::new(POGO_DETECTION_HALF_WIDTH, POGO_DETECTION_DEPTH * 0.5);
-    let scan = crate::engine_core::Aabb::new(center, half_size);
+        ambition_engine_core::Vec2::new(POGO_DETECTION_HALF_WIDTH, POGO_DETECTION_DEPTH * 0.5);
+    let scan = ambition_engine_core::Aabb::new(center, half_size);
 
     let mut hit = false;
     'targets: for pogo in &targets {

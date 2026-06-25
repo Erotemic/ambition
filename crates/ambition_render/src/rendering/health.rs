@@ -2,8 +2,8 @@
 //! a `Health` resource. Toggled via
 //! `DeveloperTools::show_health_bars`.
 
-use ambition_gameplay_core::engine_core as ae;
-use ambition_gameplay_core::engine_core::AabbExt;
+use ambition_engine_core as ae;
+use ambition_engine_core::AabbExt;
 use bevy::math::Vec2 as BVec2;
 use bevy::prelude::*;
 

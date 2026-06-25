@@ -76,7 +76,7 @@ pub fn apply_gameplay_sfx_effects(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::engine_core as ae;
+    use ambition_engine_core as ae;
 
     #[test]
     fn gameplay_effect_messages_remain_typed() {

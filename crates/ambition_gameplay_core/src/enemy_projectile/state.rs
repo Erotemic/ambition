@@ -9,7 +9,7 @@
 //! (matching how the player pool keeps `PlayerProjectileState` for its
 //! controller state).
 
-use crate::engine_core as ae;
+use ambition_engine_core as ae;
 use bevy::prelude::Resource;
 
 // `EnemyProjectileSpawn` (a substrate-neutral projectile spawn request) moved

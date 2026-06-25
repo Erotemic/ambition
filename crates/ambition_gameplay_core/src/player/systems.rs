@@ -9,7 +9,7 @@ use super::components::{
 use super::events::PlayerHealRequested;
 use super::movement_components::{BodyKinematics, PlayerGroundState};
 use crate::brain::{ActorControl, Brain, BrainSnapshot};
-use crate::engine_core as ae;
+use ambition_engine_core as ae;
 use crate::features::ActorPose;
 use ambition_input::ControlFrame;
 

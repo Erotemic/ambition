@@ -5,7 +5,7 @@
 
 use bevy::prelude::*;
 
-use ambition_gameplay_core::engine_core::{self as ae};
+use ambition_engine_core::{self as ae};
 use ambition_gameplay_core::physics::{GravityField, GravityZone};
 use ambition_gameplay_core::GameWorld;
 
@@ -35,7 +35,7 @@ pub fn sync_gravity_zone_visual(
         let center = (zone.aabb.min + zone.aabb.max) * 0.5;
         let size = zone.aabb.max - zone.aabb.min;
         let translation =
-            ambition_gameplay_core::engine_core::config::world_to_bevy(&world.0, center, 7.5);
+            ambition_engine_core::config::world_to_bevy(&world.0, center, 7.5);
         commands.spawn((
             GravityZoneVisual,
             Sprite::from_color(color, size),
@@ -59,7 +59,7 @@ pub fn sync_gravity_zone_visual(
             if zone.dir.y != 0.0 { thickness } else { size.y },
         );
         let band_translation =
-            ambition_gameplay_core::engine_core::config::world_to_bevy(&world.0, band_center, 7.6);
+            ambition_engine_core::config::world_to_bevy(&world.0, band_center, 7.6);
         commands.spawn((
             GravityZoneVisual,
             Sprite::from_color(band_color, band_size),
@@ -93,7 +93,7 @@ pub fn sync_gravity_switch_visual(
     };
     for sw in &switches {
         let translation =
-            ambition_gameplay_core::engine_core::config::world_to_bevy(&world.0, sw.pos, 8.5);
+            ambition_engine_core::config::world_to_bevy(&world.0, sw.pos, 8.5);
         commands.spawn((
             GravitySwitchVisual,
             Sprite::from_color(color, sw.half_extent * 2.0),

@@ -28,8 +28,8 @@
 
 use bevy::prelude::{Commands, Entity, MessageWriter, Query, Res, With};
 
-use crate::engine_core as ae;
-use crate::engine_core::AabbExt;
+use ambition_engine_core as ae;
+use ambition_engine_core::AabbExt;
 
 use super::components::ActorFaction;
 use super::events::{HitEvent, HitKnockback, HitMode, HitSource, HitTarget};

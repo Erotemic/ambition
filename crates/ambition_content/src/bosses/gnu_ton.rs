@@ -26,7 +26,7 @@
 //! the next attempt. Cross-session persistence inherits whatever
 //! state the boss runtime restores on respawn — no extra hookup here.
 
-use ambition_gameplay_core::engine_core as ae;
+use ambition_engine_core as ae;
 use bevy::prelude::*;
 
 use ambition_gameplay_core::features::BossClusterRef;
@@ -218,7 +218,7 @@ mod tests {
     /// while the body envelope carries `combat_offset`.
     #[test]
     fn gnu_ton_head_hurtbox_overlaps_the_body_envelope() {
-        use ambition_gameplay_core::engine_core::AabbExt;
+        use ambition_engine_core::AabbExt;
 
         crate::bosses::install_boss_roster();
         let mut app = App::new();

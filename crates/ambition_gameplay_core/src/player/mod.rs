@@ -7,7 +7,7 @@
 //! Submodules:
 //! - [`components`] — the per-frame ECS components on the player entity.
 //! - [`movement_components`] — re-exports of the 18 player cluster
-//!   components from [`crate::engine_core::player_clusters`]. These
+//!   components from [`ambition_engine_core::player_clusters`]. These
 //!   replaced the (now-deleted) `PlayerMovementAuthority` /
 //!   `PlayerBody` aggregates in the cluster-native migration
 //!   (finalized 2026-05-28).
@@ -58,8 +58,8 @@ pub use systems::{
 /// uses; switching the underlying constructor (or deleting
 /// `ae::Player`) only needs to touch this helper.
 pub fn primary_player_scratch(
-    spawn: crate::engine_core::Vec2,
-    abilities: crate::engine_core::AbilitySet,
-) -> crate::engine_core::PlayerClusterScratch {
-    crate::engine_core::PlayerClusterScratch::new_with_abilities(spawn, abilities)
+    spawn: ambition_engine_core::Vec2,
+    abilities: ambition_engine_core::AbilitySet,
+) -> ambition_engine_core::PlayerClusterScratch {
+    ambition_engine_core::PlayerClusterScratch::new_with_abilities(spawn, abilities)
 }

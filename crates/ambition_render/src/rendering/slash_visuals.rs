@@ -18,7 +18,7 @@ use bevy::math::Vec2 as BVec2;
 use bevy::prelude::*;
 
 use ambition_gameplay_core::config::{world_to_bevy, WORLD_Z_FX};
-use ambition_gameplay_core::engine_core as ae;
+use ambition_engine_core as ae;
 use ambition_vfx::vfx::{SlashKind, VfxMessage};
 
 use super::sheet_atlas::{

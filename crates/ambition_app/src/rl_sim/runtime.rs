@@ -6,7 +6,7 @@ use bevy::time::TimeUpdateStrategy;
 use bevy::transform::TransformPlugin;
 use bevy::MinimalPlugins;
 
-use ambition_gameplay_core::engine_core as ae;
+use ambition_engine_core as ae;
 
 use crate::app::{SandboxSimulationPlugin, StartRoomOverride};
 use ambition_gameplay_core::game_mode::GameMode;
@@ -197,7 +197,7 @@ impl SandboxSim {
         let mut cluster_query = self
             .app
             .world_mut()
-            .query_filtered::<ambition_gameplay_core::engine_core::PlayerClusterQueryData, ambition_gameplay_core::player::PrimaryPlayerOnly>();
+            .query_filtered::<ambition_engine_core::PlayerClusterQueryData, ambition_gameplay_core::player::PrimaryPlayerOnly>();
         let mut combat_query = self
             .app
             .world_mut()

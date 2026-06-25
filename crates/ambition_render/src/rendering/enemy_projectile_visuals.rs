@@ -85,7 +85,7 @@ impl EnemyProjectileVisualArt {
 /// identical spinning sword aligned to its velocity.
 pub fn lasersword_projectile_sprite(
     texture: Handle<Image>,
-    vel: ambition_gameplay_core::engine_core::Vec2,
+    vel: ambition_engine_core::Vec2,
 ) -> (Sprite, Anchor, Quat) {
     // Bevy +Y is up; sandbox +Y is down — flip Y when computing rotation.
     let bevy_dx = vel.x;
@@ -248,7 +248,7 @@ fn spawn_lasersword_visual(
     commands: &mut Commands,
     texture: &Handle<Image>,
     translation: bevy::math::Vec3,
-    vel: ambition_gameplay_core::engine_core::Vec2,
+    vel: ambition_engine_core::Vec2,
     projectile: Entity,
 ) -> Entity {
     let (sprite, anchor, rotation) = lasersword_projectile_sprite(texture.clone(), vel);

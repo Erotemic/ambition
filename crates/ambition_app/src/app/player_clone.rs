@@ -24,7 +24,7 @@ use ambition_gameplay_core::character_sprites::{
     build_character_sprite_with_render_size, feet_anchor_for_render_size,
     player_placeholder_render_size, CharacterAnimator,
 };
-use ambition_gameplay_core::engine_core as ae;
+use ambition_engine_core as ae;
 use ambition_gameplay_core::GameWorld;
 use ambition_render::rendering::{PlayerSpriteBaseline, PlayerVisual};
 

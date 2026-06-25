@@ -1,9 +1,9 @@
 //! Cooldown + resource-meter gating for spawning new projectiles.
 
-use crate::engine_core::Vec2;
+use ambition_engine_core::Vec2;
 
 use super::{ProjectileKind, ProjectileSpec};
-use crate::engine_core::ResourceMeter;
+use ambition_engine_core::ResourceMeter;
 
 /// Spawner state. Owns the per-projectile cooldown timer and a
 /// [`ResourceMeter`] that mechanics can refill from rooms / pickups.

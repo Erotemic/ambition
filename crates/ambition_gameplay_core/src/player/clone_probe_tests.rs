@@ -20,7 +20,7 @@
 use crate::actor::control::ActorControlFrame;
 use crate::brain::state_machine::PlayerDemoCfg;
 use crate::brain::{Brain, BrainSnapshot, StateMachineCfg};
-use crate::engine_core as ae;
+use ambition_engine_core as ae;
 use ae::movement::{update_player_clusters, InputState};
 use ae::world::{Block, World};
 use ae::Vec2;

@@ -2,10 +2,10 @@
 //! systems that mirror their edits into the running player clusters.
 
 use super::*;
-use crate::engine_core as ae;
+use ambition_engine_core as ae;
 use bevy::prelude::*;
 
-/// Reflected mirror of `crate::engine_core::AbilitySet` for live inspector editing.
+/// Reflected mirror of `ambition_engine_core::AbilitySet` for live inspector editing.
 #[derive(Resource, Reflect, Clone, Copy, Debug)]
 #[reflect(Resource)]
 pub struct EditableAbilitySet {
@@ -109,7 +109,7 @@ impl Default for EditableAbilitySet {
     }
 }
 
-/// Reflected mirror of `crate::engine_core::MovementTuning` for live inspector editing.
+/// Reflected mirror of `ambition_engine_core::MovementTuning` for live inspector editing.
 #[derive(Resource, Reflect, Clone, Copy, Debug)]
 #[reflect(Resource)]
 pub struct EditableMovementTuning {

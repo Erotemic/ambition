@@ -15,7 +15,7 @@
 
 use bevy::prelude::*;
 
-use crate::engine_core as ae;
+use ambition_engine_core as ae;
 use crate::features::{ActorAggression, ActorFaction, HeldItem};
 use ambition_input::ControlFrame;
 use crate::player::{BodyKinematics, PlayerEntity, PrimaryPlayer};

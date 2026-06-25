@@ -380,7 +380,7 @@ fn position_frame_axis_glyphs(
     user_settings: Option<Res<ambition_gameplay_core::persistence::settings::UserSettings>>,
     mut glyphs: Query<(&FrameAxisGlyph, &mut Node)>,
 ) {
-    use ambition_gameplay_core::engine_core::{AccelerationFrame, InputFrameMode};
+    use ambition_engine_core::{AccelerationFrame, InputFrameMode};
     let gdir = gravity
         .as_deref()
         .map_or(Vec2::new(0.0, 1.0), |g| Vec2::new(g.dir.x, g.dir.y));

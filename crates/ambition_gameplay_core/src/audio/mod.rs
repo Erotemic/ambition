@@ -16,7 +16,7 @@
 //! Reverb / heavier coloration remains future work.
 
 #[cfg(all(test, feature = "audio"))]
-use crate::engine_core as ae;
+use ambition_engine_core as ae;
 // `SfxMessage` now lives in the `ambition_sfx` crate (moved down so
 // reusable mechanics request sound without naming a sandbox module).
 // Re-export it here so the historical `crate::audio::SfxMessage` path

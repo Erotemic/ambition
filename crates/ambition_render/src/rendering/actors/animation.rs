@@ -18,7 +18,7 @@ pub(crate) fn apply_character_frame(
     anim: ambition_gameplay_core::character_sprites::CharacterAnim,
     dt: f32,
     facing: f32,
-    gravity_dir: ambition_gameplay_core::engine_core::Vec2,
+    gravity_dir: ambition_engine_core::Vec2,
     color: Color,
 ) {
     animator.request(anim);
@@ -80,7 +80,7 @@ pub fn animate_player(
     // to rendering, only the camera/HUD are.)
     let player_gravity = gravity
         .as_deref()
-        .map_or(ambition_gameplay_core::engine_core::Vec2::Y, |g| g.dir);
+        .map_or(ambition_engine_core::Vec2::Y, |g| g.dir);
     for (
         (
             mut sprite,

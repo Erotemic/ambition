@@ -4,7 +4,7 @@
 //! authoritative state. See [`super::bundles::PlayerSimulationBundle`] for
 //! the canonical spawn shape.
 
-use crate::engine_core as ae;
+use ambition_engine_core as ae;
 use bevy::prelude::*;
 
 use ambition_input::ControlFrame;
@@ -311,10 +311,10 @@ pub struct PlayerBlinkCameraState {
     pub blink_in_duration: f32,
     /// World-space camera position at the moment the blink fired; the camera
     /// eases from here toward the new player position.
-    pub blink_camera_from: crate::engine_core::Vec2,
+    pub blink_camera_from: ambition_engine_core::Vec2,
     /// Blink destination in world space (set alongside `blink_camera_from`
     /// for future use; not yet consumed by the camera easing path).
-    pub blink_camera_to: crate::engine_core::Vec2,
+    pub blink_camera_to: ambition_engine_core::Vec2,
     /// Positive while the camera should snap (not ease) to the player position.
     /// Set on door transitions; zero on edge exits to allow scroll effects.
     pub camera_snap_timer: f32,
@@ -325,8 +325,8 @@ impl Default for PlayerBlinkCameraState {
         Self {
             blink_in_timer: 0.0,
             blink_in_duration: 0.0,
-            blink_camera_from: crate::engine_core::Vec2::ZERO,
-            blink_camera_to: crate::engine_core::Vec2::ZERO,
+            blink_camera_from: ambition_engine_core::Vec2::ZERO,
+            blink_camera_to: ambition_engine_core::Vec2::ZERO,
             camera_snap_timer: 0.0,
         }
     }

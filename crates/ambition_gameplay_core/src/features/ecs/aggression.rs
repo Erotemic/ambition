@@ -111,7 +111,7 @@ pub fn apply_actor_stimuli(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::engine_core::{self as ae, AabbExt};
+    use ambition_engine_core::{self as ae, AabbExt};
     use crate::features::NPC_HOSTILE_STRIKE_THRESHOLD;
     use crate::features::{CenteredAabb, FeatureId, FeatureSimEntity};
     use bevy::prelude::{App, Update};

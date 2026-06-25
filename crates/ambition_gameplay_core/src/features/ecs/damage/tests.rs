@@ -6,8 +6,8 @@ use super::super::damage_drops::{
     spawn_split_offspring,
 };
 use super::*;
-use crate::engine_core as ae;
-use crate::engine_core::AabbExt;
+use ambition_engine_core as ae;
+use ambition_engine_core::AabbExt;
 use crate::features::ecs::enemy_component_snapshot;
 use crate::features::{HitMode, HitTarget};
 use bevy::prelude::{App, Update};

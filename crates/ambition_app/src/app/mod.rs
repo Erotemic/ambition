@@ -21,7 +21,7 @@
 
 #![allow(unused_imports)]
 
-use ambition_gameplay_core::engine_core as ae;
+use ambition_engine_core as ae;
 use bevy::ecs::system::SystemParam;
 use bevy::prelude::*;
 use bevy::window::{PrimaryWindow, WindowResizeConstraints, WindowResolution};

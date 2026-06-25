@@ -6,7 +6,7 @@
 //! `Surface*` enums; `compile_surface` lowers a spec to a `SurfaceCompiled`
 //! (typed `Block`/`Breakable`/contact data). Consumed by sibling `conversion`.
 
-use crate::engine_core as ae;
+use ambition_engine_core as ae;
 
 use super::fields::{field_f32, field_i32, field_string};
 use super::project::LdtkEntityInstance;

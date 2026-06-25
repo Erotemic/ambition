@@ -7,7 +7,7 @@
 //! `emit_climbable_regions_*`, `merge_intgrid_rects`). All `pub(super)`;
 //! consumed by sibling `conversion`.
 
-use crate::engine_core as ae;
+use ambition_engine_core as ae;
 
 use super::LdtkLayerInstance;
 

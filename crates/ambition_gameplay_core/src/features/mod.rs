@@ -16,8 +16,8 @@
 //! chatter registry), and the private `ecs` tree (cluster components + the
 //! per-actor tick/spawn/damage systems).
 
-use crate::engine_core as ae;
-use crate::engine_core::AabbExt;
+use ambition_engine_core as ae;
+use ambition_engine_core::AabbExt;
 use ambition_platformer_primitives::kinematic;
 use bevy::prelude::*;
 

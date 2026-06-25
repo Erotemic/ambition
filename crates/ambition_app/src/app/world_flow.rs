@@ -1,5 +1,5 @@
 #![allow(unused_imports)]
-use ambition_gameplay_core::engine_core::AabbExt;
+use ambition_engine_core::AabbExt;
 
 #[allow(unused_imports)]
 use super::cli::*;

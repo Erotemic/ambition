@@ -34,7 +34,7 @@ use super::registry::BodyMetrics;
 use super::sheets::CharacterSheetSpec;
 use crate::assets::sandbox_assets::{ids, SandboxAssetCatalog};
 use crate::character_roster::EMBEDDED_CATALOG;
-use crate::engine_core as ae;
+use ambition_engine_core as ae;
 use crate::features::FeatureVisualKind;
 
 #[derive(Clone)]

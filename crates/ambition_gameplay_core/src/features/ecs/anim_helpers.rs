@@ -38,7 +38,7 @@ pub fn ecs_npc_name(id: &str, actors: &Query<ActorSpriteData>) -> Option<String>
 pub fn ecs_actor_render_size(
     id: &str,
     render_sizes: &Query<(&FeatureId, &crate::features::ActorRenderSize)>,
-) -> Option<crate::engine_core::Vec2> {
+) -> Option<ambition_engine_core::Vec2> {
     render_sizes
         .iter()
         .find(|(feature_id, _)| feature_id.as_str() == id)

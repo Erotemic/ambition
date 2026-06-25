@@ -9,7 +9,7 @@
 
 use std::collections::{HashMap, HashSet};
 
-use ambition_gameplay_core::engine_core::{self as ae, AabbExt};
+use ambition_engine_core::{self as ae, AabbExt};
 use ambition_gameplay_core::features::{
     ActorCombatState, ActorHealth, ActorIdentity, BossPhase, CenteredAabb, FeatureId,
     FeatureSimEntity, FeatureViewIndex,

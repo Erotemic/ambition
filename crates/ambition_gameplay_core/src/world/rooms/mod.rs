@@ -7,7 +7,7 @@
 //! requires brittle hand-written spawn coordinates.
 
 #![allow(unused_imports)]
-use crate::engine_core as ae;
+use ambition_engine_core as ae;
 use bevy::prelude::{Message, Resource};
 use petgraph::graph::{Graph, NodeIndex};
 

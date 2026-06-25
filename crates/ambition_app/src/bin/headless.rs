@@ -133,12 +133,12 @@ fn run_with_trace_dump(max_ticks: u32, dump_dir: PathBuf, start_room: Option<Str
         // recorder can read them through a `PlayerClustersMut` view.
         let mut cluster_q = sim
             .world_mut()
-            .query_filtered::<ambition_gameplay_core::engine_core::PlayerClusterQueryData, ambition_gameplay_core::player::PrimaryPlayerOnly>();
+            .query_filtered::<ambition_engine_core::PlayerClusterQueryData, ambition_gameplay_core::player::PrimaryPlayerOnly>();
         let Ok(mut cluster_item) = cluster_q.single_mut(sim.world_mut()) else {
             continue;
         };
         let clusters = cluster_item.as_clusters_mut();
-        let locomotion_state = ambition_gameplay_core::engine_core::LocomotionState::from_clusters(
+        let locomotion_state = ambition_engine_core::LocomotionState::from_clusters(
             clusters.ground,
             clusters.wall,
             clusters.flight,
@@ -147,7 +147,7 @@ fn run_with_trace_dump(max_ticks: u32, dump_dir: PathBuf, start_room: Option<Str
             clusters.ledge,
         );
         let body_mode_state =
-            ambition_gameplay_core::engine_core::BodyMode::from_clusters(clusters.body_mode);
+            ambition_engine_core::BodyMode::from_clusters(clusters.body_mode);
         record_simulation_frame(
             &mut buffer,
             &clusters,

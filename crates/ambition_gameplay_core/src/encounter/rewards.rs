@@ -4,7 +4,7 @@
 //! reward chest spawns — centered on the trigger, resting on its floor). The
 //! reward payload itself lives in `EncounterSpec::reward` (`spec.rs`).
 
-use crate::engine_core as ae;
+use ambition_engine_core as ae;
 
 use super::EncounterSpec;
 
@@ -20,7 +20,7 @@ pub fn encounter_reward_looted_flag(encounter_id: &str) -> String {
 /// lower edge in y-down world space, which the LDtk authoring puts
 /// on the arena floor).
 pub fn encounter_reward_chest_pos(spec: &EncounterSpec, chest_size: ae::Vec2) -> ae::Vec2 {
-    use crate::engine_core::AabbExt;
+    use ambition_engine_core::AabbExt;
     let trigger = spec.trigger_aabb();
     ae::Vec2::new(trigger.center().x, trigger.max.y - chest_size.y * 0.5)
 }

@@ -8,7 +8,7 @@ use super::*;
 use crate::brain::{
     ActionSet, ActorControl, Brain, MeleeActionSpec, MoveStyleSpec, StateMachineCfg,
 };
-use crate::engine_core as ae;
+use ambition_engine_core as ae;
 use crate::features::{
     ActorAggression, ActorCombatState, ActorConfig, ActorCooldowns, ActorDisposition, ActorHealth,
     ActorIdentity, ActorIntent, AggressionMode, CombatKit, MountSlot, MountedSize, RidingOn,

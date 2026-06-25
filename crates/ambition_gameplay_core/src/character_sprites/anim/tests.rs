@@ -259,7 +259,7 @@ fn water_contact_with_swim_ability_returns_swim() {
 /// wall-grab path which is for solid-block wall-cling).
 #[test]
 fn climbing_body_mode_returns_ladder_climb() {
-    use crate::engine_core::player_state::BodyMode;
+    use ambition_engine_core::player_state::BodyMode;
     let (anim, combat, blink_cam, mut clusters) = pick_inputs();
     clusters.body_mode.body_mode = BodyMode::Climbing;
     assert_eq!(
@@ -273,7 +273,7 @@ fn climbing_body_mode_returns_ladder_climb() {
 /// through.
 #[test]
 fn crouching_body_mode_returns_crouch() {
-    use crate::engine_core::player_state::BodyMode;
+    use ambition_engine_core::player_state::BodyMode;
     let (mut anim, combat, blink_cam, mut clusters) = pick_inputs();
     clusters.body_mode.body_mode = BodyMode::Crouching;
     clusters.ground.on_ground = true;

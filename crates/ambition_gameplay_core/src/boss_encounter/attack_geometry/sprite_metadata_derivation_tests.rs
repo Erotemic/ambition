@@ -1,7 +1,7 @@
 //! Tests for the pixel-frame -> world-space AABB derivation used by boss attack volumes.
 
 use super::*;
-use crate::engine_core::AabbExt;
+use ambition_engine_core::AabbExt;
 use ambition_sprite_sheet::{NamedPixelRect, PixelRect};
 
 /// Centered pixel bbox at frame center → world AABB at world_center.
@@ -666,7 +666,7 @@ fn gnu_head_descent_accepts_visual_row_alias_for_runtime_boxes() {
 fn damageable_volumes_scales_to_sprite_render_size() {
     use crate::boss_encounter::behavior::{BossBehaviorProfile, ActorSpriteMetrics};
     use crate::brain::BossAttackState;
-    use crate::engine_core::AabbExt;
+    use ambition_engine_core::AabbExt;
     use ambition_sprite_sheet::PixelRect;
     use std::collections::HashMap;
 

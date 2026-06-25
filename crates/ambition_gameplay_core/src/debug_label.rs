@@ -5,9 +5,9 @@
 //! debug overlays, inspectors, and future editor tools share the same
 //! source of truth. (Moved here from the engine when the
 //! former `ambition_engine` workspace crate was collapsed into
-//! `crate::engine_core` on 2026-05-28.)
+//! `ambition_engine_core` on 2026-05-28.)
 
-use crate::engine_core::Vec2;
+use ambition_engine_core::Vec2;
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct DebugLabel {

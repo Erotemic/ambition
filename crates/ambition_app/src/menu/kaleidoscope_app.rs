@@ -28,7 +28,7 @@ use crate::menu::model::{
     MenuFocus, MenuPage, MenuPageAction, SystemRow, SYSTEM_VISIBLE_ROWS,
 };
 use ambition_gameplay_core::audio::SfxMessage;
-use ambition_gameplay_core::engine_core::Vec2;
+use ambition_engine_core::Vec2;
 use ambition_input::MenuControlFrame;
 use ambition_gameplay_core::items::{Item, OwnedItems, ITEM_GRID_COLS, ITEM_GRID_ROWS};
 use ambition_gameplay_core::persistence::settings::{

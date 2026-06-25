@@ -4,7 +4,7 @@
 //! registered encounter (Starting/Active want a wall; everything else removes
 //! it). The wall geometry comes from `EncounterSpec::lock_wall`.
 
-use crate::engine_core as ae;
+use ambition_engine_core as ae;
 
 use super::{EncounterPhase, EncounterRegistry};
 

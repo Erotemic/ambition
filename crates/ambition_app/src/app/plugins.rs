@@ -33,7 +33,7 @@ use ambition_gameplay_core::schedule::*;
 pub fn add_simulation_plugins(app: &mut App) {
     // AmbitionPhysicsPlugin (Avian2D) is intentionally NOT here. Per
     // ADR 0007 Avian is secondary physics for debris/ragdoll visuals;
-    // the player controller is custom via parry2d in ambition_gameplay_core::engine_core.
+    // the player controller is custom via parry2d in ambition_engine_core.
     // Avian's collider backend needs `SceneSpawner` (from ScenePlugin in
     // DefaultPlugins), which headless doesn't have. Until Avian's debris
     // role is migrated to presentation events end-to-end (or Avian gains

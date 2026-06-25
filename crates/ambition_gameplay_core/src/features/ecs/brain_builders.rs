@@ -364,7 +364,7 @@ fn smash_cfg_from_spec(spec: &EnemyBrainSpec, tuning: &ActorTuning) -> SmashCfg 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::engine_core as ae;
+    use ambition_engine_core as ae;
 
     fn enemy(brain_key: &str) -> super::super::actor_clusters::ActorClusterSeed {
         super::super::actor_clusters::ActorClusterSeed::new(

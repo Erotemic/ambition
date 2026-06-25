@@ -14,8 +14,8 @@
 //! content-side until the archetype hub is dissolved into capability
 //! components; see `docs/current/state.md` for the crate split.
 
-use crate::engine_core as ae;
-use crate::engine_core::AabbExt;
+use ambition_engine_core as ae;
+use ambition_engine_core::AabbExt;
 use bevy::prelude::*;
 
 use crate::audio::SfxMessage;

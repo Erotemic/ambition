@@ -14,7 +14,7 @@
 //! homology/cohomology spells should consume [`PlayerTrail`] cycles rather than
 //! raw input gestures.
 
-use crate::engine_core as ae;
+use ambition_engine_core as ae;
 use bevy::prelude::*;
 
 /// Minimum distance the player must move before the trail records another fixed
@@ -622,7 +622,7 @@ pub fn update_player_trail(
 /// future work move the emission point to a hand/hip socket without touching the
 /// trail state machine.
 fn trail_anchor(kin: &crate::player::BodyKinematics) -> ae::Vec2 {
-    use crate::engine_core::AabbExt;
+    use ambition_engine_core::AabbExt;
     kin.aabb().center()
 }
 

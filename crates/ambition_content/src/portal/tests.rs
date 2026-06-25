@@ -4,7 +4,7 @@
 use bevy::prelude::*;
 
 use ambition_gameplay_core::brain::ActionSet;
-use ambition_gameplay_core::engine_core::{self as ae};
+use ambition_engine_core::{self as ae};
 use ambition_input::ControlFrame;
 use ambition_gameplay_core::platformer_runtime::gravity::{gravity_upright_angle, GravityField};
 use ambition_gameplay_core::platformer_runtime::orientation::{update_actor_roll, ActorRoll};
@@ -115,7 +115,7 @@ fn raycast_hits_nearest_solid_face_with_outward_normal() {
 
 #[test]
 fn portals_adhere_to_one_way_platforms_but_blink_passes_through() {
-    use ambition_gameplay_core::engine_core::world::{Block, World};
+    use ambition_engine_core::world::{Block, World};
     let world = World {
         name: "one-way".to_string(),
         size: Vec2::new(400.0, 400.0),

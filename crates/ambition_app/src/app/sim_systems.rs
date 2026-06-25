@@ -5,7 +5,7 @@
 //! [`super::schedule::configure_sandbox_sets`]. Cross-set ordering lives in the
 //! schedule; intra-set ordering is expressed by `.chain()` where registered.
 
-use ambition_gameplay_core::engine_core as ae;
+use ambition_engine_core as ae;
 use bevy::prelude::*;
 
 use ambition_gameplay_core::audio::SfxMessage;

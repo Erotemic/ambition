@@ -31,7 +31,7 @@ use bevy::prelude::{Commands, Component, Entity, Query, With, Without};
 
 use super::brain_builders::dismounted_rider_brain_and_action_set;
 use super::{ActorDisposition, CenteredAabb};
-use crate::engine_core as ae;
+use ambition_engine_core as ae;
 
 /// Physical mass of an actor, used to weight a mount+rider pair's center of
 /// gravity. A heavy mount (the shark) keeps the COG near itself so the lighter
@@ -377,17 +377,17 @@ mod tests;
 /// World position of the rider's hand (where mounted attacks originate). The
 /// hand offset is sprite-layout-derived but the SIM needs it to spawn attacks, so
 /// it lives here, not in presentation.
-const HAND_OFFSET_NORM: crate::engine_core::Vec2 = crate::engine_core::Vec2::new(0.18, -0.05);
+const HAND_OFFSET_NORM: ambition_engine_core::Vec2 = ambition_engine_core::Vec2::new(0.18, -0.05);
 pub fn rider_hand_world_pos(
-    rider_pos: crate::engine_core::Vec2,
+    rider_pos: ambition_engine_core::Vec2,
     facing: f32,
     rider_height: f32,
-) -> crate::engine_core::Vec2 {
+) -> ambition_engine_core::Vec2 {
     rider_hand_world_pos_in_frame(
         rider_pos,
         facing,
         rider_height,
-        crate::engine_core::Vec2::new(0.0, 1.0),
+        ambition_engine_core::Vec2::new(0.0, 1.0),
     )
 }
 
@@ -395,15 +395,15 @@ pub fn rider_hand_world_pos(
 /// `facing` is local side-facing, so the hand offset is authored in rider-local
 /// side/down coordinates and then resolved to world.
 pub fn rider_hand_world_pos_in_frame(
-    rider_pos: crate::engine_core::Vec2,
+    rider_pos: ambition_engine_core::Vec2,
     facing: f32,
     rider_height: f32,
-    gravity_dir: crate::engine_core::Vec2,
-) -> crate::engine_core::Vec2 {
+    gravity_dir: ambition_engine_core::Vec2,
+) -> ambition_engine_core::Vec2 {
     let facing_sign = if facing >= 0.0 { 1.0 } else { -1.0 };
-    let hand_local = crate::engine_core::Vec2::new(
+    let hand_local = ambition_engine_core::Vec2::new(
         HAND_OFFSET_NORM.x * rider_height * facing_sign,
         HAND_OFFSET_NORM.y * rider_height,
     );
-    rider_pos + crate::engine_core::AccelerationFrame::new(gravity_dir).to_world(hand_local)
+    rider_pos + ambition_engine_core::AccelerationFrame::new(gravity_dir).to_world(hand_local)
 }

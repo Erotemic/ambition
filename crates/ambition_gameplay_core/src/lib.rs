@@ -6,17 +6,16 @@
 //!
 //! - below it, `ambition_engine_core` is the pure (Bevy-free) movement model
 //!   and `ambition_platformer_primitives` holds content-free Bevy primitives
-//!   (kinematic body, gravity, projectile, lifecycle, schedule). `engine_core`
-//!   is re-exported here at the stable `crate::engine_core` path;
-//!   `ambition_platformer_primitives` is imported directly by canonical path.
+//!   (kinematic body, gravity, projectile, lifecycle, schedule). Both are
+//!   imported directly by their canonical crate paths.
 //! - above it, `ambition_content` provides the named game DATA (rooms, bosses,
 //!   rosters) and `ambition_app` does final wiring + the binaries.
 //!
 //! Despite the historical `ambition_gameplay_core` name, it is content-light: concrete
-//! content has been migrated out to `ambition_content`. Other foundation crates
-//! (`ambition_combat`, `ambition_input`, `ambition_characters`, `ambition_render`, …)
-//! are re-exported under their historical `crate::*` paths so call sites resolve
-//! unchanged.
+//! content has been migrated out to `ambition_content`. Foundation crates
+//! (`ambition_combat`, `ambition_input`, `ambition_engine_core`, `ambition_characters`,
+//! `ambition_render`, …) are imported directly by their canonical crate paths; the
+//! old `crate::{input,engine_core,…}` compat re-exports have been removed.
 //!
 //! Top-level modules group coherent slices: `world`, `player`, `abilities`,
 //! `combat`, `gravity`, `items`/`inventory_ui`, `dialog`, `menu`, `music`,
@@ -46,8 +45,6 @@ pub mod audio;
 pub mod character_roster;
 pub mod debug_label;
 pub mod schedule;
-// Re-export the pure-logic core under the sandbox's stable `crate::engine_core` path.
-pub use ambition_engine_core as engine_core;
 pub mod host;
 pub mod platformer_runtime;
 pub mod player;
@@ -125,7 +122,7 @@ pub use game_mode::{gameplay_allowed, GameMode};
 pub use time::time_control::ProperTimeScale;
 pub use world::platforms::MovingPlatformState;
 
-use crate::engine_core as ae;
+use ambition_engine_core as ae;
 use bevy::prelude::{Message, Resource};
 
 use ambition_input::KeyboardPreset;
@@ -365,7 +362,7 @@ pub fn remember_safe_player_position_from_kinematics(
 #[cfg(test)]
 mod safe_pos_tests {
     use super::*;
-    use crate::engine_core::Block;
+    use ambition_engine_core::Block;
 
     fn dummy_world() -> ae::World {
         ae::World::new(

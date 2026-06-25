@@ -222,7 +222,7 @@ mod tests {
 
     #[test]
     fn hand_offset_flips_with_facing() {
-        let pos = ambition_gameplay_core::engine_core::Vec2::new(100.0, 50.0);
+        let pos = ambition_engine_core::Vec2::new(100.0, 50.0);
         let right = rider_hand_world_pos(pos, 1.0, 78.0);
         let left = rider_hand_world_pos(pos, -1.0, 78.0);
         assert!(right.x > pos.x, "right-facing hand should be to the right");

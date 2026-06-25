@@ -11,7 +11,7 @@
 //! `canonical_boss_id_from` (resolves the boss kind from LDtk name + brain).
 
 use crate::brain::boss_pattern::{BossAttackPattern, BossAttackProfile, BossMovementProfile};
-use crate::engine_core as ae;
+use ambition_engine_core as ae;
 
 /// Live sandbox-side behavior tuning for a boss. This is deliberately separate
 /// from `crate::boss_encounter::BossEncounterSpec`: the engine spec owns phase progression and HP
@@ -163,7 +163,7 @@ impl Default for BossRewardProfile {
 /// doesn't implement `Deserialize` under the features the sandbox compiles
 /// with, so we route through tuple shims.
 mod boss_vec2_option {
-    use crate::engine_core as ae;
+    use ambition_engine_core as ae;
     use serde::Deserialize;
 
     pub fn deserialize<'de, D>(de: D) -> Result<Option<ae::Vec2>, D::Error>
@@ -176,7 +176,7 @@ mod boss_vec2_option {
 }
 
 mod boss_vec2_required {
-    use crate::engine_core as ae;
+    use ambition_engine_core as ae;
     use serde::Deserialize;
 
     pub fn deserialize<'de, D>(de: D) -> Result<ae::Vec2, D::Error>

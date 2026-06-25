@@ -66,8 +66,8 @@ pub fn spawn_encounter_mob(
     encounter_id: impl Into<String>,
     id: String,
     brain: crate::actor::EnemyBrain,
-    pos: crate::engine_core::Vec2,
-    size: crate::engine_core::Vec2,
+    pos: ambition_engine_core::Vec2,
+    size: ambition_engine_core::Vec2,
 ) {
     super::spawn_actors::spawn_encounter_mob(commands, encounter_id, id, brain, pos, size);
 }

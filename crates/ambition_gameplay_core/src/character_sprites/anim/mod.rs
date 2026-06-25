@@ -7,7 +7,7 @@
 //! any row a sheet doesn't carry, so simple characters can list only
 //! their relevant animations.
 
-use crate::engine_core as ae;
+use ambition_engine_core as ae;
 
 use crate::player::PlayerAnimState;
 
@@ -387,7 +387,7 @@ pub fn pick_player_anim(
     // wall-climb on solid blocks.
     if matches!(
         body_mode.body_mode,
-        crate::engine_core::player_state::BodyMode::Climbing
+        ambition_engine_core::player_state::BodyMode::Climbing
     ) {
         return CharacterAnim::LadderClimb;
     }
@@ -420,7 +420,7 @@ pub fn pick_player_anim(
     // Compact body modes — same shape as the engine collision change,
     // distinct silhouette read. Sliding wins over Crawl/Crouch because
     // it usually carries kinetic momentum and the pose differs.
-    use crate::engine_core::player_state::BodyMode;
+    use ambition_engine_core::player_state::BodyMode;
     match body_mode.body_mode {
         BodyMode::Sliding => return CharacterAnim::Slide,
         BodyMode::Crawling => return CharacterAnim::Crawl,

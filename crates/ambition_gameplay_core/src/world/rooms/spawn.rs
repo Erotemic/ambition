@@ -5,7 +5,7 @@
 //! (edge inset for `EdgeExit`, target-zone center for `Door`/`Walk`). Helpers
 //! and the player-half/inset constants are `pub(super)` for sibling `graph`.
 
-use crate::engine_core::AabbExt;
+use ambition_engine_core::AabbExt;
 
 use super::*;
 

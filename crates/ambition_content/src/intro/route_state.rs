@@ -109,13 +109,13 @@ pub fn compute_intro_flag_gated_lock_walls(
     save: &ambition_gameplay_core::persistence::save_data::SandboxSaveData,
 ) -> Vec<(
     String,
-    ambition_gameplay_core::engine_core::Vec2,
-    ambition_gameplay_core::engine_core::Vec2,
+    ambition_engine_core::Vec2,
+    ambition_engine_core::Vec2,
 )> {
     let mut out: Vec<(
         String,
-        ambition_gameplay_core::engine_core::Vec2,
-        ambition_gameplay_core::engine_core::Vec2,
+        ambition_engine_core::Vec2,
+        ambition_engine_core::Vec2,
     )> = Vec::new();
     for level in &project.levels {
         if level.active_area() != active_room_id {
@@ -139,11 +139,11 @@ pub fn compute_intro_flag_gated_lock_walls(
             if save.flag(flag) {
                 continue;
             }
-            let min = ambition_gameplay_core::engine_core::Vec2::new(
+            let min = ambition_engine_core::Vec2::new(
                 entity.px[0] as f32,
                 entity.px[1] as f32,
             );
-            let size = ambition_gameplay_core::engine_core::Vec2::new(
+            let size = ambition_engine_core::Vec2::new(
                 entity.width as f32,
                 entity.height as f32,
             );
@@ -188,7 +188,7 @@ pub fn sync_intro_flag_gated_lock_walls(
             world
                 .0
                 .blocks
-                .push(ambition_gameplay_core::engine_core::Block::solid(
+                .push(ambition_engine_core::Block::solid(
                     name, min, size,
                 ));
         }
@@ -289,11 +289,11 @@ mod tests {
         assert_eq!(id, "alice_private_return_lock");
         assert_eq!(
             *min,
-            ambition_gameplay_core::engine_core::Vec2::new(800.0, 624.0)
+            ambition_engine_core::Vec2::new(800.0, 624.0)
         );
         assert_eq!(
             *size,
-            ambition_gameplay_core::engine_core::Vec2::new(96.0, 112.0)
+            ambition_engine_core::Vec2::new(96.0, 112.0)
         );
     }
 

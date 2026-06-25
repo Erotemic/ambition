@@ -12,7 +12,7 @@
 
 use bevy::prelude::*;
 
-use crate::engine_core as ae;
+use ambition_engine_core as ae;
 use crate::items::pickup::GroundItem;
 use crate::physics::{GravityZone, TemporaryZone};
 

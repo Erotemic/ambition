@@ -192,7 +192,7 @@ pub struct ReleaseOnDeath;
 #[derive(bevy::prelude::Message, Clone, Copy, Debug)]
 pub struct PayloadReleased {
     pub host: Entity,
-    pub pos: crate::engine_core::Vec2,
+    pub pos: ambition_engine_core::Vec2,
 }
 
 /// Emit [`PayloadReleased`] for each dead `ReleaseOnDeath` host (once — the
@@ -326,9 +326,9 @@ mod tests {
                 status,
                 sim,
                 BodyKinematics {
-                    pos: crate::engine_core::Vec2::new(120.0, 80.0),
-                    vel: crate::engine_core::Vec2::ZERO,
-                    size: crate::engine_core::Vec2::splat(32.0),
+                    pos: ambition_engine_core::Vec2::new(120.0, 80.0),
+                    vel: ambition_engine_core::Vec2::ZERO,
+                    size: ambition_engine_core::Vec2::splat(32.0),
                     facing: 1.0,
                 },
                 ReleaseOnDeath,
@@ -345,7 +345,7 @@ mod tests {
             .collect();
         assert_eq!(released.len(), 1, "exactly one release on death");
         assert_eq!(released[0].0, host);
-        assert_eq!(released[0].1, crate::engine_core::Vec2::new(120.0, 80.0));
+        assert_eq!(released[0].1, ambition_engine_core::Vec2::new(120.0, 80.0));
         // Released once: the marker is gone, so a second tick emits nothing.
         assert!(app.world().entity(host).get::<ReleaseOnDeath>().is_none());
     }

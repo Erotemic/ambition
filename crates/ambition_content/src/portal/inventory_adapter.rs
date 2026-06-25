@@ -18,7 +18,7 @@
 use bevy::prelude::*;
 
 use ambition_gameplay_core::brain::ActionSet;
-use ambition_gameplay_core::engine_core::{self as ae, AabbExt};
+use ambition_engine_core::{self as ae, AabbExt};
 use ambition_gameplay_core::items::pickup::StashedActionSet;
 use ambition_gameplay_core::items::{Item, OwnedItems};
 use ambition_gameplay_core::platformer_runtime::prelude::SpawnScopedExt;

@@ -153,7 +153,7 @@ mod boss_profile_data_tests {
 #[cfg(test)]
 mod canonical_boss_id_tests {
     use super::*;
-    use crate::engine_core as ae;
+    use ambition_engine_core as ae;
 
     /// PhaseScript brain wins over display name. The user-reported
     /// bug: BossSpawn named "System Boss" in `first_system_boss`
@@ -292,8 +292,8 @@ mod boss_special_resolver_tests {
 mod scripted_pattern_tests {
     use super::*;
     use crate::brain::boss_pattern::BossPatternStep;
-    use crate::engine_core as ae;
-    use crate::engine_core::AabbExt;
+    use ambition_engine_core as ae;
+    use ambition_engine_core::AabbExt;
     use crate::features::FeatureCombatTuning;
 
     fn gnu_ton_runtime() -> super::super::ecs::boss_clusters::BossClusterScratch {

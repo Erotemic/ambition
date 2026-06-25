@@ -5,8 +5,8 @@
 //! state for tuning and feel work.
 
 #![allow(unused_imports)]
-use ambition_gameplay_core::engine_core as ae;
-use ambition_gameplay_core::engine_core::AabbExt;
+use ambition_engine_core as ae;
+use ambition_engine_core::AabbExt;
 use bevy::ecs::system::SystemParam;
 use bevy::math::Vec2 as BVec2;
 use bevy::prelude::*;

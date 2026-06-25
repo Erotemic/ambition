@@ -14,7 +14,7 @@
 //! the `ambition_app` crate's startup setup (`app/setup_systems.rs`) does the
 //! param wiring and pairs it with the presentation-side spawns.
 
-use crate::engine_core as ae;
+use ambition_engine_core as ae;
 use bevy::prelude::*;
 
 use crate::assets::loading::SandboxAssetCollection;

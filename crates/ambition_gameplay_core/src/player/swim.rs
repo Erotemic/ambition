@@ -2,7 +2,7 @@
 //!
 //! All gameplay-meaningful water response (drowning without ability,
 //! Mario-style jump→swim conversion, passive buoyancy / drag / fall
-//! cap) now lives in `crate::engine_core::movement` so a single tick
+//! cap) now lives in `ambition_engine_core::movement` so a single tick
 //! sees consistent water state. This module is intentionally a thin
 //! shim: it just owns the test fixtures we use to pin water behavior
 //! end-to-end.
@@ -14,7 +14,7 @@
 
 #[cfg(test)]
 mod tests {
-    use crate::engine_core as ae;
+    use ambition_engine_core as ae;
 
     fn pool_world(kind: ae::WaterKind, spawn: ae::Vec2) -> ae::World {
         let mut world = ae::World::new(

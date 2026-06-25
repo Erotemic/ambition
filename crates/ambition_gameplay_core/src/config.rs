@@ -11,7 +11,7 @@
 
 use bevy::prelude::*;
 
-pub use crate::engine_core::config::{
+pub use ambition_engine_core::config::{
     world_to_bevy, GRID_STEP, WINDOW_H, WINDOW_W, WORLD_Z_BLOCK, WORLD_Z_DUMMY, WORLD_Z_FX,
     WORLD_Z_PLAYER,
 };

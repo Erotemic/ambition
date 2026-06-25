@@ -8,7 +8,7 @@
 //! check for humans; this fails the build if a future room regresses.
 
 use ambition_gameplay_core as sb;
-use sb::engine_core::{self as ae, AabbExt};
+use ambition_engine_core::{self as ae, AabbExt};
 
 fn entity_aabbs(room: &sb::rooms::RoomSpec) -> Vec<(&'static str, ae::Aabb)> {
     let mut v: Vec<(&'static str, ae::Aabb)> = Vec::new();

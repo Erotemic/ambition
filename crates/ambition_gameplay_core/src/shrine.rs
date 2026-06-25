@@ -13,7 +13,7 @@
 
 use bevy::prelude::*;
 
-use crate::engine_core::{self as ae, AabbExt};
+use ambition_engine_core::{self as ae, AabbExt};
 use ambition_input::ControlFrame;
 use crate::player::{BodyKinematics, PlayerEntity, PlayerHealth, PlayerMana, PrimaryPlayer};
 

@@ -1,8 +1,8 @@
 //! The Bevy gameplay system that ticks projectiles, samples motion
 //! input, and routes hits through ECS-native feature damage messages.
 
-use crate::engine_core as ae;
-use crate::engine_core::AabbExt;
+use ambition_engine_core as ae;
+use ambition_engine_core::AabbExt;
 use bevy::prelude::*;
 
 use super::diagnostics::log_press_diagnostics;

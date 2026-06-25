@@ -23,8 +23,8 @@ use super::super::enemies::{
 };
 use super::super::path_motion::PathMotion;
 use super::super::MAX_ENEMY_AIR_JUMPS;
-use crate::engine_core as ae;
-use crate::engine_core::AabbExt;
+use ambition_engine_core as ae;
+use ambition_engine_core::AabbExt;
 
 pub use crate::platformer_runtime::body::BodyKinematics;
 

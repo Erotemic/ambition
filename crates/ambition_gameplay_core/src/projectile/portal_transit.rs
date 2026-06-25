@@ -13,7 +13,7 @@
 //! skips collision for the tick (so it neither explodes on the entry face nor
 //! double-tests a hit).
 
-use crate::engine_core::{self as ae, AabbExt};
+use ambition_engine_core::{self as ae, AabbExt};
 use crate::portal::{find_portal, portal_transform_velocity, PlacedPortal};
 
 /// Margin (px) past the exit face so a transited shot clears the thin portal

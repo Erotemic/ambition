@@ -7,7 +7,7 @@
 
 use std::collections::BTreeMap;
 
-use crate::engine_core as ae;
+use ambition_engine_core as ae;
 
 use super::fields::{
     field_bool, field_f32, field_i32, field_string, parse_boss_brain, parse_debug_label_kind,

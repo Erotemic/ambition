@@ -49,7 +49,7 @@ pub struct ActorSpawnState {
 /// by the kinematic integration each tick.
 #[derive(bevy::prelude::Component, Clone, Copy, Debug, PartialEq)]
 pub struct ActorSurfaceState {
-    /// Set by [`crate::kinematic::step_kinematic`](crate::engine_core::step_kinematic)
+    /// Set by [`crate::kinematic::step_kinematic`](ambition_engine_core::step_kinematic)
     /// each tick. Used by chase-drop-through (enemy must be standing on
     /// something before it tries to fall through it) and by jump AI.
     pub on_ground: bool,
@@ -227,7 +227,7 @@ fn default_true() -> bool {
 /// `Deserialize` directly under the features the sandbox compiles
 /// with, so route through a tuple shim.
 mod vec2_option {
-    use crate::engine_core as ae;
+    use ambition_engine_core as ae;
     use serde::Deserialize;
 
     pub fn deserialize<'de, D>(de: D) -> Result<Option<ae::Vec2>, D::Error>

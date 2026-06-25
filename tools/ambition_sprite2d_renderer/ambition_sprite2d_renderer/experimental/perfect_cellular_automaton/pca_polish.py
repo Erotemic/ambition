@@ -22,7 +22,7 @@ def _retrace(mask, n_src):
     """Largest contour of mask, simplified to about the source vertex count
     (keep the shape, just move/close the boundary)."""
     m = cv2.morphologyEx(mask.astype(np.uint8), cv2.MORPH_CLOSE,
-                         cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (3, 3)))
+                         cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (5, 5)))
     cnts = cv2.findContours(m, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)[0]
     if not cnts:
         return None
@@ -52,14 +52,20 @@ def polish(pose, in_version, out_version, grow_into_ref=True):
 
     target = (rfg | covered) if grow_into_ref else covered  # fill seams + the perimeter inside ref
     gap = target & ~covered
-    # nearest covered pixel for every gap pixel -> inherits that pixel's topmost part
-    iy, ix = distance_transform_edt(~covered, return_distances=False, return_indices=True)
+    # Assign each gap pixel to the EARLIEST (most-backing) part within reach, NOT the
+    # topmost. A seam between two front parts (shoulder vs pec) should fill with the
+    # BACKING behind them (the dark-green chest backing / dark core) -- which is what
+    # the reference shows there -- not the green/cream of the front parts.
+    REACH = 10
+    k = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (2 * REACH + 1, 2 * REACH + 1))
     assign = np.full((h, w), -1, np.int32)
-    nb = lab_top[iy[gap], ix[gap]]
-    # only fill gaps within a sane reach of their part (don't bridge across the body)
-    dist = distance_transform_edt(~covered)
-    ok = gap.copy(); ok[gap] = dist[gap] <= 6.0
-    assign[ok] = lab_top[iy[ok], ix[ok]]
+    free = gap.copy()
+    for i in range(len(masks)):                      # document order: backing -> front
+        if not free.any():
+            break
+        reach = (cv2.dilate(masks[i].astype(np.uint8), k) > 0) & free
+        assign[reach] = i
+        free &= ~reach
 
     grew = 0
     for i, p in enumerate(polys):

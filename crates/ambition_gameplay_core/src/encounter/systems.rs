@@ -51,7 +51,7 @@ pub fn populate_encounter_registry(
 pub fn update_encounters_from_world(
     mut commands: Commands,
     world_time: Res<crate::WorldTime>,
-    mut died_messages: MessageReader<crate::PlayerDiedMessage>,
+    mut died_messages: MessageReader<crate::ActorDiedMessage>,
     mut registry: ResMut<EncounterRegistry>,
     mut save: ResMut<crate::persistence::save::SandboxSave>,
     mut switch_activations: ResMut<SwitchActivationQueue>,

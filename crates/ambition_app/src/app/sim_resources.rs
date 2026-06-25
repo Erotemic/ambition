@@ -28,7 +28,7 @@ use ambition_gameplay_core::audio::SfxMessage;
 use ambition_gameplay_core::game_mode::GameMode;
 use ambition_gameplay_core::session::data;
 use ambition_gameplay_core::world::physics::DebrisBurstMessage;
-use ambition_gameplay_core::PlayerDiedMessage;
+use ambition_gameplay_core::ActorDiedMessage;
 use ambition_render::fx::{ExplosionRequest, FireworksRequest, VfxMessage};
 
 pub struct SandboxSimulationResourcesPlugin;
@@ -41,7 +41,7 @@ impl Plugin for SandboxSimulationResourcesPlugin {
             .add_message::<ExplosionRequest>()
             .add_message::<FireworksRequest>()
             .add_message::<DebrisBurstMessage>()
-            .add_message::<PlayerDiedMessage>()
+            .add_message::<ActorDiedMessage>()
             .add_message::<ambition_gameplay_core::features::SetFlagRequested>()
             .add_message::<ambition_gameplay_core::features::QuestAdvanceRequested>()
             .add_message::<ambition_gameplay_core::features::SwitchActivated>()

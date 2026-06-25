@@ -78,7 +78,7 @@ use ambition_gameplay_core::time::feel::SandboxFeelTuning;
 use ambition_gameplay_core::world::physics::physics_spawn_debris_messages;
 use ambition_gameplay_core::world::physics::{self, DebrisBurstMessage};
 use ambition_gameplay_core::world::platforms;
-use ambition_gameplay_core::{RoomGeometry, PlayerDiedMessage, SandboxDevState};
+use ambition_gameplay_core::{RoomGeometry, ActorDiedMessage, SandboxDevState};
 use ambition_render::fx::{self, vfx_spawn_messages, ParticleKind, SlashKind, VfxMessage};
 use ambition_render::rendering::{
     animate_bosses, animate_characters, animate_player, camera_follow, spawn_room_visuals,

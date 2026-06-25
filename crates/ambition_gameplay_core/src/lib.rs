@@ -125,20 +125,27 @@ use bevy::prelude::{Message, Resource};
 
 use ambition_input::KeyboardPreset;
 
-/// Sandbox-side death notification. Emitted from `death_respawn_player`
-/// the frame the player's HP drops to zero and they respawn at the room
-/// spawn. The encounter system reads this through `MessageReader` to
-/// fail any in-flight encounter (despawn mobs, drop the lock wall,
-/// re-arm the trigger) without sandbox-runtime polling.
+/// Sandbox-side actor-death notification. Emitted from `death_respawn_player`
+/// the frame a controlled actor's HP drops to zero and it respawns at the room
+/// spawn. The encounter system reads this through `MessageReader` to fail any
+/// in-flight encounter (despawn mobs, drop the lock wall, re-arm the trigger)
+/// without sandbox-runtime polling.
 ///
-/// `pos` carries the impact location for downstream consumers (vfx,
-/// future death-replay tooling). Today the encounter system ignores it.
+/// Named for the *actor* role, not "player": the relativity principle wants
+/// death framed as a fact about whichever controlled actor died, so this stays
+/// correct when more than the local player can die (multiplayer / scripted
+/// actors). Today only the controlled player routes through it.
+///
+/// `pos` carries the impact location for downstream consumers (vfx, future
+/// death-replay tooling). Today the encounter system ignores it. (Source/cause
+/// attribution — who killed the actor — is future attribution work; the death
+/// path does not yet thread the attacker identity.)
 ///
 /// Replaces the previous `player_died_pending` bool — the Vec-collector →
 /// `MessageWriter` pattern matches the rest of the sim → presentation seam
 /// (`SfxMessage` / `VfxMessage` / `DebrisBurstMessage`).
 #[derive(Message, Clone, Copy, Debug)]
-pub struct PlayerDiedMessage {
+pub struct ActorDiedMessage {
     pub pos: ae::Vec2,
 }
 

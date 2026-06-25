@@ -30,7 +30,7 @@ use ambition_gameplay_core::schedule::*;
 /// helpers (`player_control_phase`, `player_simulation_phase`) take
 /// `&mut event_writers.sfx` / `&mut event_writers.vfx` via split
 /// borrows and write directly — no intermediate Vec collectors. Other
-/// channels (`PlayerDiedMessage`, `DebrisBurstMessage`,
+/// channels (`ActorDiedMessage`, `DebrisBurstMessage`,
 /// `RoomTransitionRequested`) are written directly from their own
 /// extracted systems' `MessageWriter` params.
 #[derive(SystemParam)]

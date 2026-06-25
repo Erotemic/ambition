@@ -29,7 +29,7 @@ use crate::player::{
 use crate::time::clock_state::ClockState;
 use crate::time::feel::SandboxFeelTuning;
 use crate::{
-    remember_safe_player_position, MovingPlatformSet, PlayerDiedMessage, RoomGeometry,
+    remember_safe_player_position, MovingPlatformSet, ActorDiedMessage, RoomGeometry,
     SafePositionContext, SandboxSimState,
 };
 use ambition_input::ControlFrame;
@@ -62,7 +62,7 @@ pub(crate) fn death_respawn_player(
     world: &ae::World,
     sfx: &mut MessageWriter<SfxMessage>,
     vfx: &mut MessageWriter<VfxMessage>,
-    died: &mut MessageWriter<PlayerDiedMessage>,
+    died: &mut MessageWriter<ActorDiedMessage>,
     clusters: &mut ae::PlayerClustersMut<'_>,
     sim_state: &mut SandboxSimState,
     clock: &mut ClockState,
@@ -97,7 +97,7 @@ pub(crate) fn death_respawn_player(
     banner.show("PLAYER DOWN: respawned at room start with full HP", 2.4);
     sfx.write(SfxMessage::Death { pos: from });
     vfx.write(VfxMessage::ResetEffects { from, to });
-    died.write(PlayerDiedMessage { pos: from });
+    died.write(ActorDiedMessage { pos: from });
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -106,7 +106,7 @@ pub(crate) fn handle_player_damage_events(
     shield_held: bool,
     sfx: &mut MessageWriter<SfxMessage>,
     vfx: &mut MessageWriter<VfxMessage>,
-    died: &mut MessageWriter<PlayerDiedMessage>,
+    died: &mut MessageWriter<ActorDiedMessage>,
     clusters: &mut ae::PlayerClustersMut<'_>,
     sim_state: &mut SandboxSimState,
     clock: &mut ClockState,
@@ -340,7 +340,7 @@ pub fn apply_player_hit_events(
     mut clock: ResMut<ClockState>,
     mut banner: ResMut<GameplayBanner>,
     mut hit_events: MessageReader<FeatureHitEvent>,
-    mut died_writer: MessageWriter<PlayerDiedMessage>,
+    mut died_writer: MessageWriter<ActorDiedMessage>,
     mut sfx_writer: MessageWriter<SfxMessage>,
     mut vfx_writer: MessageWriter<VfxMessage>,
     primary_q: Query<Entity, (With<PlayerEntity>, With<PrimaryPlayer>)>,

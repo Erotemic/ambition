@@ -585,3 +585,8 @@ can attune to the latent co-homology field that permeates the world and
 measures homology.
 
 The world is or can be viewed as a cell-complex. 
+
+---
+
+Going to need to have "Perfect Cell-ular Automaton" as an actor. One of his
+attacks will be shooting a game-of-life glider.

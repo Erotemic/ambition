@@ -167,7 +167,7 @@ impl PersistedItem {
 /// Designed to be open-set / extensible: every collection takes
 /// `#[serde(default)]` so older saves load against newer schemas with
 /// missing fields filling in as empty.
-#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct SandboxSaveData {
     #[serde(default = "default_save_version")]
     pub version: u32,
@@ -202,6 +202,15 @@ pub const CURRENT_SAVE_VERSION: u32 = 2;
 
 fn default_save_version() -> u32 {
     CURRENT_SAVE_VERSION
+}
+
+/// A fresh save stamped with the current version. `Default` delegates here so a
+/// missing/corrupt file (`load_save`) and a reset (`session::reset`) both produce
+/// a `CURRENT_SAVE_VERSION` save, not the `u32::default()` (0) a derive would give.
+impl Default for SandboxSaveData {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl SandboxSaveData {

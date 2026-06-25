@@ -529,36 +529,6 @@ impl Default for MenuCubeGeometry {
     }
 }
 
-/// Configuration resource for a reusable menu shell.
-///
-/// This intentionally avoids audio/music decisions. Instead, use
-/// [`MenuShellEffects`] and let the host game map lifecycle events to SFX,
-/// pause-state changes, or music ducking/muffling.
-#[derive(Resource, Clone, Debug)]
-pub struct MenuShellConfig {
-    pub open_close_style: MenuOpenCloseStyle,
-    pub touch_policy: TouchActivationPolicy,
-    pub gestures: MenuGesturePolicy,
-    pub page_rotate_speed: f32,
-    pub open_close_speed: f32,
-    pub selection_effect: MenuSelectionEffect,
-    pub cube_geometry: MenuCubeGeometry,
-}
-
-impl Default for MenuShellConfig {
-    fn default() -> Self {
-        Self {
-            open_close_style: MenuOpenCloseStyle::SmoothScale,
-            touch_policy: TouchActivationPolicy::SelectThenTap,
-            gestures: MenuGesturePolicy::default(),
-            page_rotate_speed: 5.2,
-            open_close_speed: 8.0,
-            selection_effect: MenuSelectionEffect::default(),
-            cube_geometry: MenuCubeGeometry::default(),
-        }
-    }
-}
-
 /// Marker for the root entity that owns a menu shell / menu room.
 #[derive(Component, Clone, Copy, Debug, Default, Eq, PartialEq)]
 pub struct AmbitionMenuRoot;

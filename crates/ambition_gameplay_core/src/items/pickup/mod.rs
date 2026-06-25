@@ -343,13 +343,6 @@ pub fn unequip_portal_gun(
 /// `Attack` while empty-handed and overlapping a `GroundItem` picks it up:
 /// stash the current action set, overlay the item's verbs, attach `HeldItem`.
 pub fn pickup_held_item_system(
-    // The press is consumed (below) on BOTH the global `ControlFrame` and the
-    // actor-local `PlayerInputFrame`: actor-local readers (throw / fire / the
-    // wielded gauntlets that have migrated off the global frame) are gated by
-    // the actor-local consume, while abilities still reading `Res<ControlFrame>`
-    // are gated by the global one. The global write drops out once every
-    // attack_pressed reader is actor-local (§4 of the restructuring blueprint).
-    mut control: ResMut<ControlFrame>,
     mut commands: Commands,
     // One item at a time (Smash-style): can't grab a ground item while already
     // holding one, or while holding the portal gun (portal builds only).
@@ -399,14 +392,12 @@ pub fn pickup_held_item_system(
                     owned.set_equipped(Some(item));
                 }
             }
-            // The Attack press is *consumed* by the pickup: clear it so the same
-            // press doesn't also fire the just-equipped item's attack this frame
-            // (the gauntlet/weapon attack systems all gate on `attack_pressed`).
-            // Mirrors the portal-gun pickup's consume. Cleared on BOTH frames:
-            // the actor-local one gates migrated readers (throw/fire/shockwave),
-            // the global one gates abilities still on `Res<ControlFrame>`.
+            // The Attack press is *consumed* by the pickup: clear it on the
+            // actor's own input frame so the same press doesn't also fire the
+            // just-equipped item this frame (every attack_pressed reader — held
+            // gauntlets/weapons, the portal-gun gesture adapter — now reads the
+            // actor-local frame, so this single consume gates them all).
             input.frame.attack_pressed = false;
-            control.attack_pressed = false;
             commands.entity(ground_entity).despawn();
             break;
         }

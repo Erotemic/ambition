@@ -23,8 +23,8 @@ use crate::audio::SfxMessage;
 use crate::dev::dev_tools::EditableMovementTuning;
 use crate::features::{self, GameplayBanner, HitEvent as FeatureHitEvent};
 use crate::player::{
-    PlayerAnimState, PlayerCombatState, PlayerEntity, PlayerHealth, PlayerSafetyState,
-    PrimaryPlayer, PrimaryPlayerOnly,
+    PlayerAnimState, PlayerCombatState, PlayerEntity, PlayerHealth, PlayerInputFrame,
+    PlayerSafetyState, PrimaryPlayer, PrimaryPlayerOnly,
 };
 use crate::time::clock_state::ClockState;
 use crate::time::feel::SandboxFeelTuning;
@@ -32,7 +32,6 @@ use crate::{
     remember_safe_player_position, MovingPlatformSet, ActorDiedMessage, RoomGeometry,
     SafePositionContext, SandboxSimState,
 };
-use ambition_input::ControlFrame;
 
 /// Whether a held shield blocks a hit coming from `hit_pos`: you can only guard
 /// the local side you face (a hit from behind still lands). A facing of exactly
@@ -338,7 +337,6 @@ pub(crate) fn apply_player_knockback(
 #[allow(clippy::too_many_arguments)]
 pub fn apply_player_hit_events(
     world: Res<RoomGeometry>,
-    control_frame: Res<ControlFrame>,
     moving_platforms: Res<MovingPlatformSet>,
     editable_tuning: Res<EditableMovementTuning>,
     feel_tuning: Res<SandboxFeelTuning>,
@@ -355,6 +353,7 @@ pub fn apply_player_hit_events(
     mut player_q: Query<
         (
             Entity,
+            &PlayerInputFrame,
             ae::PlayerClusterQueryData,
             Option<&mut PlayerHealth>,
             &mut PlayerAnimState,
@@ -404,7 +403,7 @@ pub fn apply_player_hit_events(
         })
         .collect();
 
-    for (player_entity, mut cluster_item, player_health, mut anim, mut combat, mut safety) in
+    for (player_entity, input, mut cluster_item, player_health, mut anim, mut combat, mut safety) in
         &mut player_q
     {
         let target_events: Vec<FeatureHitEvent> = resolved
@@ -417,7 +416,7 @@ pub fn apply_player_hit_events(
         let mut clusters = cluster_item.as_clusters_mut();
         handle_player_damage_events(
             &world.0,
-            control_frame.shield_held,
+            input.frame.shield_held,
             &mut sfx_writer,
             &mut vfx_writer,
             &mut died_writer,

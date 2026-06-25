@@ -18,7 +18,7 @@ use bevy::prelude::*;
 
 use ambition_input::ControlFrame;
 use ambition_gameplay_core::player::affordances::{InteractVariant, NearestInteractable};
-use ambition_gameplay_core::player::{BodyKinematics, PlayerEntity, PrimaryPlayer};
+use ambition_gameplay_core::player::{BodyKinematics, PlayerEntity, PlayerInputFrame, PrimaryPlayer};
 #[cfg(feature = "portal_render")]
 use ambition_gameplay_core::portal::PortalAimHint;
 use ambition_gameplay_core::portal::{
@@ -46,10 +46,12 @@ pub fn pick_aim(control: &ControlFrame, facing: f32) -> Vec2 {
 /// fire/toggle/pickup/drop systems the same frame.
 #[allow(clippy::too_many_arguments)]
 pub fn portal_input_adapter_system(
-    control: Res<ControlFrame>,
     nearest: Option<Res<NearestInteractable>>,
+    // The gun's gestures are the primary player's own intent — read their
+    // actor-local `PlayerInputFrame`, not the global `Res<ControlFrame>`
+    // (relativity principle / §4 of the restructuring blueprint).
     players: Query<
-        (&BodyKinematics, Option<&PortalGun>),
+        (&PlayerInputFrame, &BodyKinematics, Option<&PortalGun>),
         (With<PlayerEntity>, With<PrimaryPlayer>),
     >,
     #[cfg(feature = "portal_render")] mut aim_hint: Option<ResMut<PortalAimHint>>,
@@ -58,6 +60,10 @@ pub fn portal_input_adapter_system(
     mut drop: MessageWriter<DropPortalGun>,
     mut pickup: MessageWriter<PickUpPortalGun>,
 ) {
+    let Ok((input, kin, gun)) = players.single() else {
+        return;
+    };
+    let control = &input.frame;
     // Color toggle: Interact, but only when no genuine interactable (door / NPC /
     // switch) claims the press — matching the HUD label.
     if control.interact_pressed {
@@ -68,17 +74,13 @@ pub fn portal_input_adapter_system(
             toggle.write(TogglePortalGun);
         }
     }
-
-    let Ok((kin, gun)) = players.single() else {
-        return;
-    };
     // Publish the resolved aim for the visible-build held-gun presentation
     // (`sync_portal_mode_indicator`), so portal presentation reads this hint
     // instead of `ControlFrame`. Render-only: the `PortalAimHint` resource exists
     // exclusively behind `portal_render`.
     #[cfg(feature = "portal_render")]
     if let Some(aim_hint) = aim_hint.as_deref_mut() {
-        aim_hint.aim = pick_aim(&control, kin.facing);
+        aim_hint.aim = pick_aim(control, kin.facing);
     }
     let holding_gun = gun.is_some();
 
@@ -90,7 +92,7 @@ pub fn portal_input_adapter_system(
         } else if holding_gun {
             // Plain Attack while holding the gun fires it.
             fire.write(FirePortalGun {
-                aim: pick_aim(&control, kin.facing),
+                aim: pick_aim(control, kin.facing),
             });
         } else {
             // Plain Attack while NOT holding the gun is a pickup attempt

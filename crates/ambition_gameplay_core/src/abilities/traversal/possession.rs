@@ -16,7 +16,7 @@
 use bevy::prelude::*;
 
 use ambition_input::ControlFrame;
-use crate::player::{BodyKinematics, PlayerEntity, PrimaryPlayer};
+use crate::player::{BodyKinematics, PlayerEntity, PlayerInputFrame, PrimaryPlayer};
 
 /// Marker on the actor the player is currently possessing. Carries the latest
 /// player `ControlFrame`, synced each frame by [`sync_possession_input`] (which
@@ -70,7 +70,6 @@ pub const POSSESSED_MOVE_SPEED: f32 = 180.0;
 /// `Down` is `axis_y > 0.35` (the same threshold drop-through uses). The hold
 /// runs on real time (`raw_dt`) so bullet-time doesn't change the feel.
 pub fn possession_trigger_system(
-    control: Res<ControlFrame>,
     gravity_field: Option<Res<crate::physics::GravityField>>,
     // Optional: headless / unit-test apps may omit the settings resource. Absent →
     // Hybrid (the historical behavior).
@@ -80,6 +79,9 @@ pub fn possession_trigger_system(
     mut prev_down_interact: Local<bool>,
     mut state: ResMut<PossessionState>,
     mut commands: Commands,
+    // The possessor's own intent: the gesture belongs to the primary player, so
+    // read their actor-local `PlayerInputFrame` rather than the global frame.
+    player_input: Query<&PlayerInputFrame, (With<PlayerEntity>, With<PrimaryPlayer>)>,
     mut players: Query<&mut BodyKinematics, (With<PlayerEntity>, With<PrimaryPlayer>)>,
     candidates: Query<
         (Entity, &crate::features::CenteredAabb),
@@ -96,6 +98,8 @@ pub fn possession_trigger_system(
     // actor while possessing) doesn't snap back to the abandoned body.
     actor_aabb: Query<&crate::features::CenteredAabb>,
 ) {
+    // No primary player yet → neutral input (no possession gesture).
+    let frame = player_input.single().map(|i| i.frame).unwrap_or_default();
     let gravity_dir = crate::physics::gravity_dir_or_default(gravity_field.as_deref());
     let movement_mode = user_settings
         .as_deref()
@@ -103,9 +107,9 @@ pub fn possession_trigger_system(
             s.gameplay.movement_frame_mode
         });
     let descend = ambition_engine_core::AccelerationFrame::new(gravity_dir)
-        .resolve_input(movement_mode, control.axis_x, control.axis_y)
+        .resolve_input(movement_mode, frame.axis_x, frame.axis_y)
         .y;
-    let down_interact = descend > 0.35 && control.interact_pressed;
+    let down_interact = descend > 0.35 && frame.interact_pressed;
     let release_edge = down_interact && !*prev_down_interact;
     *prev_down_interact = down_interact;
 
@@ -162,7 +166,7 @@ pub fn possession_trigger_system(
             let original = *faction;
             *faction = crate::features::ActorFaction::Player;
             commands.entity(entity).insert(Possessed {
-                control: *control,
+                control: frame,
                 original_faction: original,
             });
             state.possessed = Some(entity);
@@ -172,9 +176,15 @@ pub fn possession_trigger_system(
 
 /// Mirror the player's input onto the possessed actor each frame, before
 /// `update_ecs_actors` reads it to drive that actor.
-pub fn sync_possession_input(control: Res<ControlFrame>, mut possessed: Query<&mut Possessed>) {
+pub fn sync_possession_input(
+    player_input: Query<&PlayerInputFrame, (With<PlayerEntity>, With<PrimaryPlayer>)>,
+    mut possessed: Query<&mut Possessed>,
+) {
+    let Ok(input) = player_input.single() else {
+        return;
+    };
     for mut p in &mut possessed {
-        p.control = *control;
+        p.control = input.frame;
     }
 }
 
@@ -213,20 +223,23 @@ mod tests {
         app
     }
 
-    fn spawn_player(app: &mut App) {
-        app.world_mut().spawn((
-            PlayerEntity,
-            PrimaryPlayer,
-            BodyKinematics {
-                pos: vec2(0.0, 0.0),
-                vel: vec2(0.0, 0.0),
-                size: vec2(24.0, 40.0),
-                facing: 1.0,
-            },
-            PlayerBaseSize {
-                base_size: vec2(24.0, 40.0),
-            },
-        ));
+    fn spawn_player(app: &mut App) -> Entity {
+        app.world_mut()
+            .spawn((
+                PlayerEntity,
+                PrimaryPlayer,
+                PlayerInputFrame::default(),
+                BodyKinematics {
+                    pos: vec2(0.0, 0.0),
+                    vel: vec2(0.0, 0.0),
+                    size: vec2(24.0, 40.0),
+                    facing: 1.0,
+                },
+                PlayerBaseSize {
+                    base_size: vec2(24.0, 40.0),
+                },
+            ))
+            .id()
     }
 
     fn spawn_candidate(app: &mut App, pos: ambition_engine_core::Vec2) -> Entity {
@@ -244,10 +257,10 @@ mod tests {
         *app.world().get::<crate::features::ActorFaction>(e).unwrap()
     }
 
-    fn hold_down_interact(app: &mut App, held: bool) {
-        let mut c = app.world_mut().resource_mut::<ControlFrame>();
-        c.axis_y = if held { 1.0 } else { 0.0 };
-        c.interact_pressed = held;
+    fn hold_down_interact(app: &mut App, player: Entity, held: bool) {
+        let mut input = app.world_mut().get_mut::<PlayerInputFrame>(player).unwrap();
+        input.frame.axis_y = if held { 1.0 } else { 0.0 };
+        input.frame.interact_pressed = held;
     }
 
     fn possessed(app: &App) -> Option<Entity> {
@@ -257,11 +270,11 @@ mod tests {
     #[test]
     fn holding_down_interact_possesses_then_a_press_releases() {
         let mut app = trigger_app();
-        spawn_player(&mut app);
+        let player = spawn_player(&mut app);
         let actor = spawn_candidate(&mut app, vec2(80.0, 0.0)); // in range
 
         // Hold Down+Interact: 1s, then 2s → crosses the 2s threshold → possess.
-        hold_down_interact(&mut app, true);
+        hold_down_interact(&mut app, player, true);
         app.update(); // hold_timer = 1.0
         assert_eq!(possessed(&app), None, "not possessed mid-hold");
         app.update(); // hold_timer = 2.0 ≥ threshold → possess
@@ -279,9 +292,9 @@ mod tests {
         );
 
         // Release the button, then a fresh press releases possession.
-        hold_down_interact(&mut app, false);
+        hold_down_interact(&mut app, player, false);
         app.update();
-        hold_down_interact(&mut app, true);
+        hold_down_interact(&mut app, player, true);
         app.update();
         assert_eq!(
             possessed(&app),
@@ -313,12 +326,12 @@ mod tests {
     #[test]
     fn a_brief_tap_does_not_possess() {
         let mut app = trigger_app();
-        spawn_player(&mut app);
+        let player = spawn_player(&mut app);
         spawn_candidate(&mut app, vec2(80.0, 0.0));
         // One frame held (1s < 2s), then released → no possession.
-        hold_down_interact(&mut app, true);
+        hold_down_interact(&mut app, player, true);
         app.update();
-        hold_down_interact(&mut app, false);
+        hold_down_interact(&mut app, player, false);
         app.update();
         assert_eq!(
             possessed(&app),
@@ -330,9 +343,9 @@ mod tests {
     #[test]
     fn out_of_range_actors_are_not_possessed() {
         let mut app = trigger_app();
-        spawn_player(&mut app);
+        let player = spawn_player(&mut app);
         spawn_candidate(&mut app, vec2(900.0, 0.0)); // far out of POSSESS_RADIUS
-        hold_down_interact(&mut app, true);
+        hold_down_interact(&mut app, player, true);
         app.update();
         app.update();
         app.update();

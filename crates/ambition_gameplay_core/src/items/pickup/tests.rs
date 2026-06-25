@@ -24,20 +24,13 @@ fn spawn_player(app: &mut App, pos: Vec2) -> Entity {
         .id()
 }
 
-/// Stamp the input onto BOTH the actor-local `PlayerInputFrame` (what the
-/// migrated pickup/throw/fire systems read) and the global `ControlFrame`
-/// (the channel `sync_local_player_input_frame` mirrors from in production,
-/// and still the consume target for not-yet-migrated readers).
+/// Stamp the input onto the actor-local `PlayerInputFrame` — the frame the
+/// pickup / throw / fire systems read (mirrored from the global `ControlFrame`
+/// by `sync_local_player_input_frame` in production).
 fn set_control(app: &mut App, player: Entity, attack: bool, shield: bool) {
-    {
-        let mut input = app.world_mut().get_mut::<PlayerInputFrame>(player).unwrap();
-        input.frame.attack_pressed = attack;
-        input.frame.shield_held = shield;
-    }
-    if let Some(mut cf) = app.world_mut().get_resource_mut::<ControlFrame>() {
-        cf.attack_pressed = attack;
-        cf.shield_held = shield;
-    }
+    let mut input = app.world_mut().get_mut::<PlayerInputFrame>(player).unwrap();
+    input.frame.attack_pressed = attack;
+    input.frame.shield_held = shield;
 }
 
 #[test]
@@ -185,12 +178,8 @@ fn pickup_consumes_the_attack_press() {
             .unwrap()
             .frame
             .attack_pressed,
-        "pickup must clear the actor-local attack_pressed so migrated readers \
-         (throw/fire) don't fire on the pickup press"
-    );
-    assert!(
-        !app.world().resource::<ControlFrame>().attack_pressed,
-        "pickup must also clear the global attack_pressed for not-yet-migrated readers"
+        "pickup must clear the actor-local attack_pressed so the same press \
+         doesn't also fire the just-equipped item (throw/fire/portal gun)"
     );
 }
 

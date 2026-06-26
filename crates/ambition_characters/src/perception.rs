@@ -167,6 +167,24 @@ pub struct PerceivedSolid {
     pub kind: SolidKind,
 }
 
+/// A portal aperture perceived in the viewport — the data a brain needs to
+/// **route through it** (invariant I10 / S5's portal navigation). Plain data: no
+/// dependency on the portal crate, so the perception value stays headless and
+/// the builder (gameplay layer) converts the live `PlacedPortal` into this.
+#[derive(Clone, Copy, Debug)]
+pub struct PerceivedPortal {
+    /// Aperture center on the surface (world px).
+    pub pos: ae::Vec2,
+    /// Unit outward normal of the surface the aperture sits on (±x / ±y).
+    pub normal: ae::Vec2,
+    /// Oriented half-extent of the opening (world px).
+    pub half_extent: ae::Vec2,
+    /// Stable key identifying which pair this aperture belongs to. The linked
+    /// exit is the other portal with the same key — a brain entering one emerges
+    /// at the other. (The gameplay builder derives this from `PortalChannel`.)
+    pub channel_key: u64,
+}
+
 /// The viewing body's own state — kinematics plus **per-capability availability**
 /// (what it can actually do right now, the body-enforced floor of invariant I3).
 #[derive(Clone, Copy, Debug)]
@@ -212,6 +230,8 @@ pub struct WorldView {
     pub projectiles: Vec<PerceivedProjectile>,
     /// Local solid terrain clipped to the viewport.
     pub terrain: Vec<PerceivedSolid>,
+    /// Portal apertures inside the viewport (for S5 routing).
+    pub portals: Vec<PerceivedPortal>,
     /// Sim time (scaled clock seconds) this view was taken.
     pub sim_time: f32,
 }
@@ -254,6 +274,15 @@ impl WorldView {
             &self.terrain,
             SolidKind::blocks_sight,
         )
+    }
+
+    /// The exit aperture linked to `portal` — the other portal on the same
+    /// channel, if it too is in view. A brain entering `portal` emerges here, so
+    /// this is what it routes toward when chasing a target across an aperture.
+    pub fn linked_portal(&self, portal: &PerceivedPortal) -> Option<&PerceivedPortal> {
+        self.portals
+            .iter()
+            .find(|p| p.channel_key == portal.channel_key && p.pos != portal.pos)
     }
 
     /// Whether self can travel in a straight line to `to` without a solid in the
@@ -457,6 +486,7 @@ mod tests {
             ],
             projectiles: vec![],
             terrain: vec![],
+            portals: vec![],
             sim_time: 0.0,
         };
         assert_eq!(view.nearest_hostile().map(|a| a.id.as_str()), Some("near"));
@@ -473,6 +503,7 @@ mod tests {
             actors: vec![],
             projectiles: vec![],
             terrain: vec![wall(ae::Vec2::new(100.0, 0.0), ae::Vec2::new(8.0, 40.0))],
+            portals: vec![],
             sim_time: 0.0,
         };
         assert!(
@@ -494,6 +525,7 @@ mod tests {
             actors: vec![],
             projectiles: vec![],
             terrain: vec![wall(ae::Vec2::new(100.0, 0.0), ae::Vec2::new(20.0, 80.0))],
+            portals: vec![],
             sim_time: 0.0,
         };
         assert!(!view.reachable(ae::Vec2::new(200.0, 0.0)));
@@ -531,9 +563,48 @@ mod tests {
                 },
             ],
             terrain: vec![],
+            portals: vec![],
             sim_time: 0.0,
         };
         assert_eq!(view.incoming_threats().count(), 1);
+    }
+
+    #[test]
+    fn linked_portal_finds_the_paired_exit() {
+        let blue_a = PerceivedPortal {
+            pos: ae::Vec2::new(50.0, 0.0),
+            normal: ae::Vec2::new(-1.0, 0.0),
+            half_extent: ae::Vec2::new(4.0, 24.0),
+            channel_key: 7,
+        };
+        let blue_b = PerceivedPortal {
+            pos: ae::Vec2::new(300.0, 0.0),
+            normal: ae::Vec2::new(1.0, 0.0),
+            half_extent: ae::Vec2::new(4.0, 24.0),
+            channel_key: 7,
+        };
+        let orange = PerceivedPortal {
+            pos: ae::Vec2::new(150.0, 0.0),
+            normal: ae::Vec2::new(0.0, -1.0),
+            half_extent: ae::Vec2::new(24.0, 4.0),
+            channel_key: 9,
+        };
+        let view = WorldView {
+            self_view: self_view_at(ae::Vec2::ZERO, ActorFaction::Enemy),
+            viewport: Viewport::around(ae::Vec2::ZERO, ae::Vec2::splat(500.0)),
+            actors: vec![],
+            projectiles: vec![],
+            terrain: vec![],
+            portals: vec![blue_a, blue_b, orange],
+            sim_time: 0.0,
+        };
+        // Entering blue_a emerges at blue_b (same channel, other aperture).
+        assert_eq!(
+            view.linked_portal(&blue_a).map(|p| p.pos),
+            Some(blue_b.pos)
+        );
+        // The orange aperture has no pair in view → no linked exit.
+        assert!(view.linked_portal(&orange).is_none());
     }
 
     #[test]
@@ -551,6 +622,7 @@ mod tests {
             )],
             projectiles: vec![],
             terrain: vec![],
+            portals: vec![],
             sim_time: 0.0,
         };
         mem.update(&in_view, 1.0 / 60.0);
@@ -589,6 +661,7 @@ mod tests {
             )],
             projectiles: vec![],
             terrain: vec![],
+            portals: vec![],
             sim_time: 0.0,
         };
         mem.update(&view, 1.0 / 60.0);

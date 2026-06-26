@@ -319,15 +319,20 @@ Author model: Opus 4.8 (1M). Wall-clock log at the bottom.
     exact same call as the PCA (proven: a Player-faction view and an Enemy-faction
     view from one function; hostility resolved from `FactionRelations`, not the
     viewer's type). Terrain is clipped from the real collision `world.blocks`.
-    Proven headless: 7 perception-value tests (`ambition_characters`) + 4 builder
-    tests (`gameplay_core`) — line-of-fire blocked by a real wall / clear
-    otherwise, viewport clipping, relational projectile threat, memory
-    retain-then-forget. Zero render dependency (I5).
-  - **Remaining S4:** portal awareness in the view; **live per-tick construction
-    wired into the actor loop** (deferred: `update_ecs_actors` is at the 16-param
-    ceiling and no brain consumes `WorldView` until S5 — wiring it now would churn
-    a maxed system for a dead consumer; the harness proves the seam). The brain
-    *consuming* `WorldView`/`WorldMemory` (enriching `decide`) is S5 by design.
+    The view also carries **portal apertures** (`PerceivedPortal` — pos / normal /
+    half_extent / channel key), with `WorldView::linked_portal` resolving the
+    paired exit, so S5 can route a chase across an aperture. Proven headless: 8
+    perception-value tests (`ambition_characters`) + 5 builder tests
+    (`gameplay_core`) — line-of-fire blocked by a real wall / clear otherwise,
+    viewport clipping (actors / projectiles / portals), relational projectile
+    threat, portal pairing, memory retain-then-forget. Zero render dependency (I5).
+  - **Remaining S4:** **live per-tick construction wired into the actor loop**
+    (deferred: `update_ecs_actors` is at the 16-param ceiling and no brain consumes
+    `WorldView` until S5 — wiring it now would churn a maxed system for a dead
+    consumer; the harness proves the seam). The brain *consuming*
+    `WorldView`/`WorldMemory` (enriching `decide`) is S5 by design. The view value
+    itself is now **feature-complete**: self + viewport + actors + projectiles +
+    terrain + portals.
 - **S3 (full capability parity)** — *in progress, verb by verb:*
   - **S3a blink** ✅ — blink resolves on the actor body via the SAME
     `blink::blink_target` rule the player uses, gated by `CombatCapabilities::can_blink`

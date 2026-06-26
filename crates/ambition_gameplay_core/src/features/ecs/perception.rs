@@ -24,7 +24,8 @@ use ae::AabbExt;
 
 use ambition_characters::actor::ActorFaction;
 use ambition_characters::perception::{
-    PerceivedActor, PerceivedProjectile, PerceivedSolid, SelfView, SolidKind, Viewport, WorldView,
+    PerceivedActor, PerceivedPortal, PerceivedProjectile, PerceivedSolid, SelfView, SolidKind,
+    Viewport, WorldView,
 };
 
 use crate::combat::targeting::FactionRelations;
@@ -78,6 +79,16 @@ pub struct PerceptionProjectile {
     pub faction: ActorFaction,
 }
 
+/// A portal aperture the viewer may perceive. `channel_key` is the stable pair
+/// identity the builder derives from the live `PortalChannel`, so the perceived
+/// value can find the linked exit without depending on the portal crate.
+pub struct PerceptionPortal {
+    pub pos: ae::Vec2,
+    pub normal: ae::Vec2,
+    pub half_extent: ae::Vec2,
+    pub channel_key: u64,
+}
+
 /// Build the headless [`WorldView`] for `body` from real world geometry, the
 /// pre-collected peers/projectiles, and the relational faction matrix.
 ///
@@ -86,10 +97,12 @@ pub struct PerceptionProjectile {
 /// world — moving platforms + ECS overlays already folded in), so the view's
 /// line-of-fire / reachability queries reuse the real geometry, never a parallel
 /// sensor.
+#[allow(clippy::too_many_arguments)]
 pub fn build_world_view(
     body: &PerceptionBody,
     peers: &[PerceptionPeer],
     projectiles: &[PerceptionProjectile],
+    portals: &[PerceptionPortal],
     world: &ae::World,
     relations: &FactionRelations,
     viewport_half: ae::Vec2,
@@ -151,12 +164,24 @@ pub fn build_world_view(
         .map(|(b, kind)| PerceivedSolid { aabb: b.aabb, kind })
         .collect();
 
+    let portals = portals
+        .iter()
+        .filter(|p| viewport.contains(p.pos))
+        .map(|p| PerceivedPortal {
+            pos: p.pos,
+            normal: p.normal,
+            half_extent: p.half_extent,
+            channel_key: p.channel_key,
+        })
+        .collect();
+
     WorldView {
         self_view,
         viewport,
         actors,
         projectiles,
         terrain,
+        portals,
         sim_time,
     }
 }
@@ -240,6 +265,7 @@ mod tests {
             &enemy,
             &peers,
             &[],
+            &[],
             &world,
             &relations,
             DEFAULT_VIEWPORT_HALF,
@@ -265,6 +291,7 @@ mod tests {
             &player,
             &npc_peers,
             &[],
+            &[],
             &world,
             &relations,
             DEFAULT_VIEWPORT_HALF,
@@ -285,6 +312,7 @@ mod tests {
         let shooter = body(ae::Vec2::new(100.0, 120.0), ActorFaction::Enemy);
         let view = build_world_view(
             &shooter,
+            &[],
             &[],
             &[],
             &world,
@@ -311,6 +339,7 @@ mod tests {
         let view = build_world_view(
             &viewer,
             &peers,
+            &[],
             &[],
             &world,
             &relations,
@@ -346,6 +375,7 @@ mod tests {
             &player,
             &[],
             &shots,
+            &[],
             &world,
             &relations,
             DEFAULT_VIEWPORT_HALF,
@@ -354,6 +384,55 @@ mod tests {
         assert_eq!(view.projectiles.len(), 2);
         assert_eq!(view.projectiles.iter().filter(|p| p.hostile_to_self).count(), 1);
         assert_eq!(view.incoming_threats().count(), 1);
+    }
+
+    /// Portals are clipped to the viewport and the paired exit is resolvable from
+    /// the perceived value (the data S5 routes through).
+    #[test]
+    fn portals_in_view_link_to_their_pair() {
+        let relations = FactionRelations::default();
+        let world = arena_world();
+        let viewer = body(ae::Vec2::new(100.0, 180.0), ActorFaction::Enemy);
+        let near = PerceptionPortal {
+            pos: ae::Vec2::new(140.0, 180.0),
+            normal: ae::Vec2::new(-1.0, 0.0),
+            half_extent: ae::Vec2::new(4.0, 24.0),
+            channel_key: 3,
+        };
+        let near_pair = PerceptionPortal {
+            pos: ae::Vec2::new(260.0, 180.0),
+            normal: ae::Vec2::new(1.0, 0.0),
+            half_extent: ae::Vec2::new(4.0, 24.0),
+            channel_key: 3,
+        };
+        // Far outside DEFAULT_VIEWPORT_HALF.x = 480 — clipped out.
+        let far = PerceptionPortal {
+            pos: ae::Vec2::new(3000.0, 180.0),
+            normal: ae::Vec2::new(0.0, -1.0),
+            half_extent: ae::Vec2::new(24.0, 4.0),
+            channel_key: 5,
+        };
+        let view = build_world_view(
+            &viewer,
+            &[],
+            &[],
+            &[near, near_pair, far],
+            &world,
+            &relations,
+            DEFAULT_VIEWPORT_HALF,
+            0.0,
+        );
+        assert_eq!(view.portals.len(), 2, "the far portal is clipped out of view");
+        let entry = view
+            .portals
+            .iter()
+            .find(|p| p.pos == ae::Vec2::new(140.0, 180.0))
+            .unwrap();
+        assert_eq!(
+            view.linked_portal(entry).map(|p| p.pos),
+            Some(ae::Vec2::new(260.0, 180.0)),
+            "entering one aperture resolves to its same-channel exit"
+        );
     }
 }
 

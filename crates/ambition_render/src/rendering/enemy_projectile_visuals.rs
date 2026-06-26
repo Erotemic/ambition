@@ -2,7 +2,8 @@
 //! player-projectile visuals system but with hostile per-owner art:
 //! GNU-ton apples render as a generated apple sprite,
 //! `lasersword:`-prefixed pirate volleys render as a small spinning
-//! laser-sword sprite, and everything else falls back to a
+//! laser-sword sprite, the Perfect Cell-ular Automaton's zoning shots
+//! render as a Conway glider, and everything else falls back to a
 //! red/orange rectangle.
 
 use bevy::math::Vec2;
@@ -23,6 +24,7 @@ pub struct EnemyProjectileVisual;
 pub enum EnemyVisualKind {
     Apple,
     Lasersword,
+    Glider,
     Rect,
 }
 
@@ -58,6 +60,25 @@ const LASERSWORD_POMMEL_Y_PX: f32 = 22.0;
 
 const LASERSWORD_RENDER_WIDTH: f32 = 56.0;
 
+/// The Perfect Cell-ular Automaton's `ranged` zoning shot renders as a Conway
+/// glider. The PCA's `owner_id` is its actor id, which always contains
+/// `cellular_automaton` (the same substring gate `hostile_brain_id_for_actor`
+/// uses to resolve the boss) — so the visuals layer can route it with no
+/// gameplay-side change.
+const GLIDER_OWNER_SUBSTR: &str = "cellular_automaton";
+const GLIDER_SHEET_PATH: &str = "sprites/glider_spritesheet.png";
+/// First `fly` frame in `glider_spritesheet.ron`: a 100px label column, then
+/// 81x82 frames. We clip to frame 0 (the sheet has a label + a 4-frame row;
+/// without the clip it tiles the whole strip).
+const GLIDER_LABEL_W: f32 = 100.0;
+const GLIDER_FRAME_W: f32 = 81.0;
+const GLIDER_FRAME_H: f32 = 82.0;
+const GLIDER_FRAME_X: f32 = GLIDER_LABEL_W;
+const GLIDER_FRAME_Y: f32 = 0.0;
+/// Render size of the glider projectile sprite (square-ish frame), sized for
+/// readability against the arena rather than to the small projectile hitbox.
+const GLIDER_RENDER_PX: f32 = 38.0;
+
 /// Spritesheet path for the spinning-lasersword projectile, exposed so the
 /// player's held gun-sword shot can render the SAME sword the pirates fire.
 pub const LASERSWORD_SHEET: &str = LASERSWORD_SHEET_PATH;
@@ -68,6 +89,7 @@ pub const LASERSWORD_SHEET: &str = LASERSWORD_SHEET_PATH;
 pub struct EnemyProjectileVisualArt {
     apple: Handle<Image>,
     lasersword: Handle<Image>,
+    glider: Handle<Image>,
 }
 
 impl EnemyProjectileVisualArt {
@@ -75,6 +97,7 @@ impl EnemyProjectileVisualArt {
         Self {
             apple: asset_server.load(APPLE_SPRITE_PATH),
             lasersword: asset_server.load(LASERSWORD_SHEET_PATH),
+            glider: asset_server.load(GLIDER_SHEET_PATH),
         }
     }
 }
@@ -123,6 +146,10 @@ fn is_apple_owner(owner_id: &str) -> bool {
 
 fn is_lasersword_owner(owner_id: &str) -> bool {
     owner_id.starts_with(LASERSWORD_OWNER_PREFIX)
+}
+
+fn is_glider_owner(owner_id: &str) -> bool {
+    owner_id.contains(GLIDER_OWNER_SUBSTR)
 }
 
 /// Maintain a persistent sprite for each in-flight enemy projectile entity
@@ -184,6 +211,8 @@ pub fn sync_enemy_projectile_visuals(
                 kin.vel,
                 proj_entity,
             )
+        } else if is_glider_owner(&owner.0) {
+            spawn_glider_visual(&mut commands, &art.glider, translation, proj_entity)
         } else {
             // Hostile orange-red: readable against the sky-blue background
             // of the pirate arena and visually distinct from the warm
@@ -232,11 +261,50 @@ pub fn sync_enemy_projectile_visuals(
                 let (_, _, rotation) = lasersword_projectile_sprite(sprite.image.clone(), kin.vel);
                 transform.rotation = rotation;
             }
+            EnemyVisualKind::Glider => {
+                // Keep the glider upright relative to its local gravity (so the
+                // Conway pattern stays readable; rotates only under sideways /
+                // inverted gravity, matching the apple).
+                transform.rotation = Quat::from_rotation_z(
+                    ambition_gameplay_core::platformer_runtime::gravity::gravity_upright_angle(
+                        gravity.dir_at(kin.pos),
+                    ),
+                );
+            }
             EnemyVisualKind::Rect => {
                 sprite.flip_x = kin.vel.x < 0.0;
             }
         }
     }
+}
+
+/// Spawn the Conway-glider projectile visual at `translation`. Clips the
+/// spritesheet to the first `fly` frame (the sheet carries a label column + a
+/// 4-frame row) and renders it at a fixed readable size.
+fn spawn_glider_visual(
+    commands: &mut Commands,
+    texture: &Handle<Image>,
+    translation: bevy::math::Vec3,
+    projectile: Entity,
+) -> Entity {
+    let aspect = GLIDER_FRAME_W / GLIDER_FRAME_H;
+    let render = Vec2::new(GLIDER_RENDER_PX, GLIDER_RENDER_PX / aspect);
+    let mut sprite = Sprite::from_image(texture.clone());
+    sprite.custom_size = Some(render);
+    sprite.rect = Some(Rect::from_corners(
+        Vec2::new(GLIDER_FRAME_X, GLIDER_FRAME_Y),
+        Vec2::new(GLIDER_FRAME_X + GLIDER_FRAME_W, GLIDER_FRAME_Y + GLIDER_FRAME_H),
+    ));
+    commands
+        .spawn((
+            sprite,
+            Transform::from_translation(translation),
+            EnemyProjectileVisual,
+            EnemyVisualKind::Glider,
+            VisualProjectile(projectile),
+            Name::new("Cellular-automaton glider"),
+        ))
+        .id()
 }
 
 /// Spawn the lasersword-projectile visual at ``translation``, rotated

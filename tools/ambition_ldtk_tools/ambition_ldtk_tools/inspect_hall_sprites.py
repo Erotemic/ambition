@@ -1,11 +1,14 @@
 #!/usr/bin/env python3
-"""Walk the Hall of Characters in `sandbox.ldtk` and report, per
-NpcSpawn pedestal, whether its catalog id will render a real sprite
+"""Walk the Hall of Characters in `hall_of_characters.ldtk` and report,
+per NpcSpawn pedestal, whether its catalog id will render a real sprite
 or fall back to a colored-rectangle placeholder.
+
+The Hall lives in its own secondary-world `.ldtk` file (regenerated
+wholesale from the catalog), not in sandbox.ldtk.
 
 Reads:
   - `crates/ambition_gameplay_core/assets/data/character_catalog.ron`
-  - `crates/ambition_gameplay_core/assets/ambition/worlds/sandbox.ldtk`
+  - `crates/ambition_gameplay_core/assets/ambition/worlds/hall_of_characters.ldtk`
   - `crates/ambition_gameplay_core/assets/sprites/`
 
 For each NpcSpawn in `hall_of_characters`:
@@ -52,7 +55,7 @@ LDTK_PATH = (
     / "assets"
     / "ambition"
     / "worlds"
-    / "sandbox.ldtk"
+    / "hall_of_characters.ldtk"
 )
 SPRITES_DIR = REPO_ROOT / "crates" / "ambition_gameplay_core" / "assets" / "sprites"
 

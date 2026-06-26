@@ -23,23 +23,6 @@
     music_track: "pulse_drift_voyage",
     ambient_profile: "hum",
     visual_theme: "default",
-    connect_to: [
-        (
-            target_room: "central_hub_main",
-            px: [
-                1357,
-                880,
-            ],
-            size: [
-                48,
-                96,
-            ],
-            id: "hall_of_characters_door",
-            target_zone: "hall_of_characters_entry",
-            activation: "Door",
-            bidirectional: true,
-        ),
-    ],
     entities: [
         (
             type: "Solid",

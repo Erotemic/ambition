@@ -25,10 +25,12 @@ PYTHONPATH=tools/ambition_ldtk_tools python -m ambition_ldtk_tools validate \
 
 ### Multi-file worlds: validate with `--secondary-world`
 
-`intro.ldtk` (and any future zone file) is merged on top of `sandbox.ldtk`
-by the runtime loader (`ldtk_world/loading.rs::merge_secondary_worlds`), so
-its `LoadingZone`s legitimately target rooms that live in `sandbox.ldtk`
-(e.g. `central_hub_complex`). Validating a secondary file **in isolation**
+`intro.ldtk`, `you_have_to_cut_the_rope.ldtk`, and
+`hall_of_characters.ldtk` (plus any future zone file) are merged on top of
+`sandbox.ldtk` by the runtime loader
+(`ldtk_world/loading.rs::secondary_world_ids`), so their `LoadingZone`s
+legitimately target rooms that live in `sandbox.ldtk` (e.g.
+`central_hub_complex`). Validating a secondary file **in isolation**
 reports those cross-file targets as `error: ... targets unknown room`
 false positives. Always pass the other world(s) so the validator resolves
 cross-file links:
@@ -45,6 +47,28 @@ warnings)`. Note that `intgrid paint`/`erase` re-serialize the whole file
 to the tool's canonical JSON formatting; a first edit on a drifted file
 produces a large whitespace diff (one-time normalization), after which
 edits diff cleanly.
+
+### Regenerating the Hall of Characters
+
+The Hall is generated wholesale from `character_catalog.ron` into its own
+secondary world, `hall_of_characters.ldtk` — it is never spliced into
+`sandbox.ldtk`. One command rebuilds it (scaffolding the file on first run):
+
+```bash
+PYTHONPATH=tools/ambition_ldtk_tools python3 -m ambition_ldtk_tools \
+  generate hall-of-characters
+```
+
+The hub-side door (`hall_of_characters_door` in `central_hub_main`) is
+permanent hand-authored content in `sandbox.ldtk`; the generated file only
+carries the hall level + its `hall_of_characters_entry` zone, which
+cross-targets the hub. Validate the pair with:
+
+```bash
+PYTHONPATH=tools/ambition_ldtk_tools python3 -m ambition_ldtk_tools validate \
+  crates/ambition_gameplay_core/assets/ambition/worlds/hall_of_characters.ldtk \
+  --secondary-world crates/ambition_gameplay_core/assets/ambition/worlds/sandbox.ldtk
+```
 
 ## Visual verification (collision + entity geometry)
 

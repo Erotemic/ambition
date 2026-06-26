@@ -53,7 +53,7 @@ use super::project::LdtkProject;
 /// row here. Missing entries are tolerated so a partial checkout
 /// still boots `sandbox.ldtk` alone.
 fn secondary_world_ids() -> Vec<AssetId> {
-    vec![ids::intro_ldtk(), ids::cut_rope_ldtk()]
+    vec![ids::intro_ldtk(), ids::cut_rope_ldtk(), ids::hall_ldtk()]
 }
 
 impl LdtkProject {
@@ -235,6 +235,16 @@ fn merge_static_secondary_worlds(project: &mut LdtkProject) {
         Ok(secondary) => append_levels(project, secondary, "you_have_to_cut_the_rope.ldtk"),
         Err(error) => eprintln!(
             "LDtk warning: could not parse statically packed you_have_to_cut_the_rope.ldtk: {error}; \
+             continuing without it"
+        ),
+    }
+
+    const HALL_LDTK_STATIC: &str =
+        include_str!("../../../assets/ambition/worlds/hall_of_characters.ldtk");
+    match serde_json::from_str::<LdtkProject>(HALL_LDTK_STATIC) {
+        Ok(secondary) => append_levels(project, secondary, "hall_of_characters.ldtk"),
+        Err(error) => eprintln!(
+            "LDtk warning: could not parse statically packed hall_of_characters.ldtk: {error}; \
              continuing without it"
         ),
     }

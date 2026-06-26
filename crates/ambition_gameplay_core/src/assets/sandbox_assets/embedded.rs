@@ -38,6 +38,11 @@ pub(crate) const EMBEDDED_INTRO_LDTK_ASSET_PATH: &str =
 pub(crate) const EMBEDDED_CUT_ROPE_LDTK_ASSET_PATH: &str =
     "ambition_gameplay_core/ambition/worlds/you_have_to_cut_the_rope.ldtk";
 
+/// Same shape as [`EMBEDDED_SANDBOX_LDTK_ASSET_PATH`] for the generated
+/// Hall of Characters LDtk world.
+pub(crate) const EMBEDDED_HALL_LDTK_ASSET_PATH: &str =
+    "ambition_gameplay_core/ambition/worlds/hall_of_characters.ldtk";
+
 /// Declarative table of embedded core assets.
 ///
 /// Each row is `NAME => "<embedded_url>" @ "<include_bytes_path>"`. The
@@ -258,6 +263,11 @@ fn register_embedded_assets(app: &mut App) {
             Path::new(EMBEDDED_CUT_ROPE_LDTK_ASSET_PATH),
             include_bytes!("../../../assets/ambition/worlds/you_have_to_cut_the_rope.ldtk")
                 as &[u8],
+        );
+        embedded.insert_asset(
+            PathBuf::new(),
+            Path::new(EMBEDDED_HALL_LDTK_ASSET_PATH),
+            include_bytes!("../../../assets/ambition/worlds/hall_of_characters.ldtk") as &[u8],
         );
     }
     #[cfg(feature = "static_core_assets")]

@@ -8,8 +8,8 @@ use ambition_asset_manager::{
 
 use super::super::ids;
 use super::super::{
-    EMBEDDED_CUT_ROPE_LDTK_ASSET_PATH, EMBEDDED_INTRO_LDTK_ASSET_PATH,
-    EMBEDDED_SANDBOX_LDTK_ASSET_PATH,
+    EMBEDDED_CUT_ROPE_LDTK_ASSET_PATH, EMBEDDED_HALL_LDTK_ASSET_PATH,
+    EMBEDDED_INTRO_LDTK_ASSET_PATH, EMBEDDED_SANDBOX_LDTK_ASSET_PATH,
 };
 
 /// LDtk world entries. The primary `world.sandbox_ldtk` is required —
@@ -88,6 +88,30 @@ pub(in super::super) fn extend_with_world_entries(manifest: &mut AssetManifest) 
         .with_location(
             AssetSourceProfile::EmbeddedBinary,
             AssetLocation::embedded(EMBEDDED_CUT_ROPE_LDTK_ASSET_PATH),
+        ),
+    );
+
+    // The generated Hall of Characters lives in its own file (regenerated
+    // wholesale from character_catalog.ron), merged like the other secondary
+    // worlds. Optional for the same reason: a partial checkout still boots.
+    let loose_hall = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("assets")
+        .join("ambition/worlds/hall_of_characters.ldtk");
+    manifest.insert(
+        AssetEntry::new(
+            ids::hall_ldtk(),
+            AssetKind::LdtkProject,
+            "ambition/worlds/hall_of_characters.ldtk",
+        )
+        .with_missing_policy(MissingAssetPolicy::WarnAndPlaceholder)
+        .with_preload_group(PreloadGroup::Bootstrap)
+        .with_location(
+            AssetSourceProfile::LooseFilesystem,
+            AssetLocation::LocalPath(loose_hall),
+        )
+        .with_location(
+            AssetSourceProfile::EmbeddedBinary,
+            AssetLocation::embedded(EMBEDDED_HALL_LDTK_ASSET_PATH),
         ),
     );
 }

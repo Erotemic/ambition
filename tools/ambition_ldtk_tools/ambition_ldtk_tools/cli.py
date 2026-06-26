@@ -213,6 +213,8 @@ def cmd_level(args, rest):
         return _delegate("ambition_ldtk_tools.edit.level_set_field", rest)
     if args.level_action == "diff-specs":
         return _delegate("ambition_ldtk_tools.edit.spec_diff", rest)
+    if args.level_action == "delete":
+        return _delegate("ambition_ldtk_tools.edit.level_delete", rest)
     return _todo(f"level {args.level_action}")
 
 
@@ -500,6 +502,14 @@ def build_parser() -> argparse.ArgumentParser:
             "world_x/world_y/px_wid/px_hei against the live LDtk and "
             "report any drift. Use --ldtk <file>. Exits non-zero if "
             "any spec disagrees (CI-friendly)."
+        ),
+    )
+    level_sub.add_parser(
+        "delete",
+        help=(
+            "Delete a whole level (room) from an LDtk file. Usage: "
+            "level delete <level_id> [--ldtk PATH] (--in-place | --output PATH) "
+            "[--backup]. Use when relocating a level to its own secondary world."
         ),
     )
     sp_level.set_defaults(func=cmd_level)

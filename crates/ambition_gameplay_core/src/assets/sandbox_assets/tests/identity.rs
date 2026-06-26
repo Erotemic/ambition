@@ -151,6 +151,7 @@ fn secondary_ldtk_worlds_are_in_the_catalog_under_world_namespace() {
     for (id, embedded_path) in [
         (ids::intro_ldtk(), EMBEDDED_INTRO_LDTK_ASSET_PATH),
         (ids::cut_rope_ldtk(), EMBEDDED_CUT_ROPE_LDTK_ASSET_PATH),
+        (ids::hall_ldtk(), EMBEDDED_HALL_LDTK_ASSET_PATH),
     ] {
         let entry = catalog
             .catalog()

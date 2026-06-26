@@ -73,6 +73,22 @@ SPEC_PATH = (
     / "specs"
     / "hall_of_characters_area.ron"
 )
+# The Hall lives in its OWN secondary-world `.ldtk` file (like the cut-rope
+# arena) rather than inside the monolithic sandbox.ldtk, so each regen is a
+# clean wholesale overwrite of one file instead of splicing a level into the
+# monolith. The hub-side door is permanent hand-authored content in
+# sandbox.ldtk (`hall_of_characters_door`); this file only carries the hall
+# level + its own entry zone that cross-targets the hub.
+HALL_LDTK_PATH = (
+    REPO_ROOT
+    / "crates"
+    / "ambition_gameplay_core"
+    / "assets"
+    / "ambition"
+    / "worlds"
+    / "hall_of_characters.ldtk"
+)
+HALL_LDTK_IDENTIFIER = "ambition-hall-world"
 
 # --- Layout dimensions ---
 HALL_WIDTH_PX = 2048
@@ -483,17 +499,13 @@ def build_spec(
         "music_track": "pulse_drift_voyage",
         "ambient_profile": "hum",
         "visual_theme": "default",
-        "connect_to": [
-            {
-                "target_room": "central_hub_main",
-                "px": [1357, 880],
-                "size": [48, 96],
-                "id": "hall_of_characters_door",
-                "target_zone": "hall_of_characters_entry",
-                "activation": "Door",
-                "bidirectional": True,
-            },
-        ],
+        # No `connect_to`: the hub-side door (`hall_of_characters_door` in
+        # central_hub_main) is permanent hand-authored content in sandbox.ldtk.
+        # The hall's own `hall_of_characters_entry` zone (authored above in
+        # `entities`) cross-targets the hub; the runtime merge resolves it the
+        # same way it resolves the cut-rope arena's door. Emitting connect_to
+        # here would make `area create` try to insert a reciprocal into
+        # central_hub_main, which does not live in this dedicated file.
         "entities": entities,
     }
     return spec
@@ -519,6 +531,17 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--catalog", type=Path, default=CATALOG_PATH)
     parser.add_argument("--out", type=Path, default=SPEC_PATH)
+    parser.add_argument(
+        "--ldtk",
+        type=Path,
+        default=HALL_LDTK_PATH,
+        help="Dedicated secondary-world file to (re)build from the spec.",
+    )
+    parser.add_argument(
+        "--spec-only",
+        action="store_true",
+        help="Write the area spec only; do not scaffold/apply the .ldtk file.",
+    )
     parser.add_argument("--print-summary", action="store_true")
     args = parser.parse_args(argv)
 
@@ -530,6 +553,10 @@ def main(argv: list[str] | None = None) -> int:
     out_text = HEADER + ron_dumps(spec)
     args.out.write_text(out_text)
 
+    applied = False
+    if not args.spec_only:
+        applied = _apply_to_dedicated_ldtk(args.out, args.ldtk)
+
     if args.print_summary:
         px_wid, px_hei = derived_dims()
         print(f"hall: {px_wid}x{px_hei} px")
@@ -538,7 +565,47 @@ def main(argv: list[str] | None = None) -> int:
         )
         print(f"  basement entries:  {len(basement_ids)}")
         print(f"  spec written to:   {args.out}")
+        if applied:
+            print(f"  ldtk written to:   {args.ldtk}")
     return 0
+
+
+def _apply_to_dedicated_ldtk(spec_path: Path, ldtk_path: Path) -> bool:
+    """Scaffold the dedicated hall `.ldtk` (clone defs from sandbox.ldtk) if it
+    does not exist yet, then (re)build the hall level inside it from `spec_path`.
+
+    Idempotent: re-running overwrites the single hall level wholesale via
+    `area create --replace-existing`, never touching sandbox.ldtk. Returns True
+    on success.
+    """
+    from ambition_ldtk_tools import area_authoring, world_init
+
+    if not ldtk_path.exists():
+        print(f"scaffolding new secondary world: {ldtk_path}")
+        rc = world_init.main([str(ldtk_path), "--identifier", HALL_LDTK_IDENTIFIER])
+        if rc != 0:
+            print(f"error: world init failed (rc={rc})", file=sys.stderr)
+            return False
+
+    # `--no-repair`: `write_project` already emits canonical editor-style JSON,
+    # so no repair pass is needed. We skip the bundled validate because it runs
+    # the file in isolation and would flag the hall's `hall_of_characters_entry`
+    # zone (which legitimately cross-targets the hub in sandbox.ldtk) as an
+    # "unknown room" false positive. The authoritative check is
+    # `validate <hall> --secondary-world <sandbox>` (see the regen recipe).
+    rc = area_authoring.main(
+        [
+            str(spec_path),
+            "--ldtk",
+            str(ldtk_path),
+            "--replace-existing",
+            "--no-repair",
+        ]
+    )
+    if rc != 0:
+        print(f"error: area create into {ldtk_path} failed (rc={rc})", file=sys.stderr)
+        return False
+    return True
 
 
 if __name__ == "__main__":

@@ -34,6 +34,9 @@ pub mod emit;
 pub mod mode;
 pub mod observation;
 
+#[cfg(test)]
+mod arena;
+
 pub use action::{choose_action, SpecificAction};
 pub use difficulty::{apply_difficulty, DifficultyProfile};
 pub use emit::emit_inputs;

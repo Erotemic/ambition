@@ -24,13 +24,11 @@ use super::SmashState;
 /// without code edits.
 #[derive(Clone, Copy, Debug)]
 pub struct DifficultyProfile {
-    /// Seconds of observation lag — handled by the snapshot
-    /// builder, not the filter. Carried here for completeness so
-    /// downstream visualization can read one struct.
-    #[allow(
-        dead_code,
-        reason = "reaction delay surfaces upstream of the filter today"
-    )]
+    /// Seconds of observation lag on the OPPONENT. `tick_smash` perceives
+    /// the opponent as it was this many seconds ago (via
+    /// [`super::SmashState::obs_history`]) so the brain can't frame-perfectly
+    /// counter. Higher = easier (sees later). Not consumed by the difficulty
+    /// filter itself — it shapes perception upstream, in `observe`.
     pub reaction_delay_s: f32,
     /// `[0.0, 1.0]` — probability of committing the chosen action
     /// this tick. Lower = drops more attempts to Idle.

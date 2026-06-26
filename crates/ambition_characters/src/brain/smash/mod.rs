@@ -107,6 +107,71 @@ impl SmashCfg {
     };
 }
 
+/// Number of opponent-position samples retained for reaction latency.
+/// At 60 fps this is ~0.53 s of history — comfortably longer than any
+/// authored `reaction_delay_s` (EASY = 0.30 s), so the delayed lookup is
+/// always covered once the buffer fills.
+const OBS_HISTORY_LEN: usize = 32;
+
+/// Ring buffer of recent opponent observations `(sim_time, target_pos)`,
+/// used to apply **reaction latency**: each tick the brain perceives the
+/// opponent as it was `reaction_delay_s` ago, so it can't frame-perfectly
+/// counter a sudden move. The actor's OWN state is never delayed (you always
+/// know where you are). Pure function of the tick stream → replay-safe and
+/// deterministic. `Copy` so `SmashState` stays `Copy`.
+#[derive(Clone, Copy, Debug)]
+pub struct ObsHistory {
+    samples: [(f32, ae::Vec2); OBS_HISTORY_LEN],
+    /// Next write index (ring).
+    write: usize,
+    /// Number of valid samples (saturates at `OBS_HISTORY_LEN`).
+    count: usize,
+}
+
+impl Default for ObsHistory {
+    fn default() -> Self {
+        Self {
+            samples: [(0.0, ae::Vec2::ZERO); OBS_HISTORY_LEN],
+            write: 0,
+            count: 0,
+        }
+    }
+}
+
+impl ObsHistory {
+    /// Record this tick's observed opponent position.
+    fn push(&mut self, sim_time: f32, target_pos: ae::Vec2) {
+        self.samples[self.write] = (sim_time, target_pos);
+        self.write = (self.write + 1) % OBS_HISTORY_LEN;
+        self.count = (self.count + 1).min(OBS_HISTORY_LEN);
+    }
+
+    /// The opponent position the brain is allowed to perceive this tick: the
+    /// most recent sample that is at least `delay` seconds old. Never returns
+    /// anything newer than `now - delay`, so the brain truly can't react
+    /// faster than its latency. Until the buffer covers the window (fight
+    /// start), returns the oldest sample it has — lag ramps up rather than
+    /// snapping on. `None` only when no sample has been recorded yet.
+    fn delayed(&self, now: f32, delay: f32) -> Option<ae::Vec2> {
+        if self.count == 0 {
+            return None;
+        }
+        let target_time = now - delay.max(0.0);
+        let mut best_old: Option<(f32, ae::Vec2)> = None; // newest sample <= target_time
+        let mut oldest: Option<(f32, ae::Vec2)> = None;
+        for i in 0..self.count {
+            let s = self.samples[i];
+            if oldest.is_none_or(|o| s.0 < o.0) {
+                oldest = Some(s);
+            }
+            if s.0 <= target_time && best_old.is_none_or(|b| s.0 > b.0) {
+                best_old = Some(s);
+            }
+        }
+        Some(best_old.or(oldest).map(|s| s.1).unwrap_or(ae::Vec2::ZERO))
+    }
+}
+
 /// Per-actor runtime state for the Smash brain.
 #[derive(Clone, Copy, Debug, Default)]
 pub struct SmashState {
@@ -134,6 +199,10 @@ pub struct SmashState {
     /// cadence shape as the ranged cooldown: decremented each tick,
     /// gated against `> 0`, reset to [`DASH_COOLDOWN_S`] on a dash.
     pub dash_cooldown_remaining: f32,
+    /// Rolling history of the opponent's recent positions, used to apply
+    /// the difficulty profile's `reaction_delay_s` (the brain perceives a
+    /// lagged opponent — it never reacts frame-perfectly). See [`ObsHistory`].
+    pub obs_history: ObsHistory,
 }
 
 /// Ranged-verb cadence (seconds). A ranged-capable Smash actor fires
@@ -173,7 +242,25 @@ pub fn tick_smash(
     // frame's verb selection can re-arm them.
     state.ranged_cooldown_remaining = (state.ranged_cooldown_remaining - snapshot.dt).max(0.0);
     state.dash_cooldown_remaining = (state.dash_cooldown_remaining - snapshot.dt).max(0.0);
-    let obs = observe(snapshot);
+    // --- Reaction latency ---
+    // Record the opponent's true position this tick, then build the snapshot the
+    // brain is actually allowed to perceive: the opponent as it was
+    // `reaction_delay_s` ago. Only the OPPONENT is delayed — the actor's own
+    // pos/vel/ground/timers are read live. This is what stops the brain from
+    // frame-perfectly countering a sudden dash or jump; it's also the single
+    // place that makes the difficulty knob fair instead of omniscient.
+    state.obs_history.push(snapshot.sim_time, snapshot.target_pos);
+    let perceived = {
+        let mut s = *snapshot;
+        if let Some(delayed_target) = state
+            .obs_history
+            .delayed(snapshot.sim_time, cfg.difficulty.reaction_delay_s)
+        {
+            s.target_pos = delayed_target;
+        }
+        s
+    };
+    let obs = observe(&perceived);
     let mode = choose_mode(&obs, cfg, state);
     let action = choose_action(&obs, mode, cfg, actions);
     // Verb selection by range (the player/enemy unification flex): a
@@ -491,6 +578,98 @@ mod tests {
             frame.locomotion.x > 0.0 && frame.locomotion.x < 0.8,
             "no dash capability → a walk; got {}",
             frame.locomotion.x
+        );
+    }
+
+    /// Crisp difficulty (always commit, no jitter) with an explicit reaction
+    /// delay, so latency tests aren't confounded by the commit roll.
+    fn crisp_cfg_with_delay(delay_s: f32) -> SmashCfg {
+        SmashCfg {
+            difficulty: DifficultyProfile {
+                reaction_delay_s: delay_s,
+                commit_probability: 1.0,
+                accuracy: 1.0,
+                ..DifficultyProfile::HARD
+            },
+            ..SmashCfg::STRIKER_DEFAULT
+        }
+    }
+
+    fn run_tick(cfg: &SmashCfg, state: &mut SmashState, actions: &ActionSet, target_x: f32, t: f32) -> ae::Vec2 {
+        let mut snap = snap_with_target_at_x(target_x);
+        snap.sim_time = t;
+        snap.dt = 1.0 / 60.0;
+        let mut frame = crate::actor::control::ActorControlFrame::neutral();
+        tick_smash(cfg, state, actions, &snap, &mut frame);
+        frame.locomotion
+    }
+
+    #[test]
+    fn reaction_latency_delays_response_to_a_sudden_move() {
+        // The never-cheats guarantee: after the opponent suddenly teleports
+        // from far-right to far-left, the brain keeps pursuing the STALE
+        // (right) position for ~reaction_delay_s before it perceives the new
+        // one and flips. This is the headless proof the AI can't frame-
+        // perfectly counter.
+        let dt = 1.0 / 60.0;
+        let delay = 0.15;
+        let cfg = crisp_cfg_with_delay(delay);
+        let mut state = SmashState::default();
+        let actions = ActionSet::peaceful();
+        let mut t = 0.0;
+        // Settle approaching the right-hand target so the buffer fills.
+        for _ in 0..30 {
+            let loco = run_tick(&cfg, &mut state, &actions, 300.0, t);
+            assert!(loco.x > 0.0, "should approach the right-hand target");
+            t += dt;
+        }
+        // Opponent teleports to the LEFT. The very next tick still pursues
+        // right (perceiving the lagged position).
+        let loco = run_tick(&cfg, &mut state, &actions, -300.0, t);
+        assert!(
+            loco.x > 0.0,
+            "right after the teleport the brain still chases the stale position; got {loco:?}",
+        );
+        t += dt;
+        // Within the reaction window the brain must NOT have flipped yet.
+        let mut flipped_at: Option<f32> = None;
+        let teleport_t = t - dt;
+        for _ in 0..40 {
+            let loco = run_tick(&cfg, &mut state, &actions, -300.0, t);
+            if loco.x < 0.0 {
+                flipped_at = Some(t - teleport_t);
+                break;
+            }
+            t += dt;
+        }
+        let elapsed = flipped_at.expect("brain eventually pursues the new position");
+        assert!(
+            elapsed >= delay - dt,
+            "brain flipped after {elapsed:.3}s — faster than its {delay:.3}s reaction delay (cheating)",
+        );
+        assert!(
+            elapsed <= delay + 6.0 * dt,
+            "brain flipped after {elapsed:.3}s — far later than its {delay:.3}s reaction delay",
+        );
+    }
+
+    #[test]
+    fn zero_reaction_delay_responds_immediately() {
+        // Control: with reaction_delay_s == 0 the brain has no perception lag
+        // and flips the very next tick after the opponent moves.
+        let dt = 1.0 / 60.0;
+        let cfg = crisp_cfg_with_delay(0.0);
+        let mut state = SmashState::default();
+        let actions = ActionSet::peaceful();
+        let mut t = 0.0;
+        for _ in 0..30 {
+            run_tick(&cfg, &mut state, &actions, 300.0, t);
+            t += dt;
+        }
+        let loco = run_tick(&cfg, &mut state, &actions, -300.0, t);
+        assert!(
+            loco.x < 0.0,
+            "with zero reaction delay the brain pursues the new position immediately; got {loco:?}",
         );
     }
 

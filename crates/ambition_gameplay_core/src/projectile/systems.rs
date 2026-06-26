@@ -15,8 +15,9 @@ use super::state::{PlayerProjectileState, ProjectileTraceEvent};
 use super::{resolve_world_collision, ProjectileFaction, WorldHitOutcome, WorldHitPolicy};
 use crate::audio::SfxMessage;
 use crate::features::{
-    ActorCombatState, ActorDisposition, BossClusterRef, BossConfig, BreakableFeature, CenteredAabb,
-    FeatureId, FeatureSimEntity, HitEvent, HitKnockback, HitMode, HitSource, HitTarget,
+    ActorCombatState, ActorDisposition, ActorFaction, BossClusterRef, BossConfig, BreakableFeature,
+    CenteredAabb, FactionRelations, FeatureId, FeatureSimEntity, HitEvent, HitKnockback, HitMode,
+    HitSource, HitTarget,
 };
 use crate::player::BodyKinematics;
 use crate::projectile::ProjectileGameplay;
@@ -478,8 +479,20 @@ pub fn step_projectiles(
     mut vfx: MessageWriter<VfxMessage>,
     mut heals: MessageWriter<crate::player::PlayerHealRequested>,
     mut trace: ResMut<GameplayTraceBuffer>,
+    // Relational damage authority + non-player actor victims for actor-vs-actor
+    // projectile damage (S3e). A hostile shot routes off the FIRER's faction
+    // (looked up from its owner entity), so a PCA (Enemy) glider damages a
+    // robot (Boss) and a robot's glider damages the PCA — both directions, unlike
+    // the binary `ProjectileFaction`. Default relations keep enemy shots hostile
+    // to the player, so ordinary play is unchanged.
+    relations: Option<Res<FactionRelations>>,
+    actor_victims: Query<
+        (Entity, &CenteredAabb, &ActorFaction),
+        (With<FeatureSimEntity>, Without<BossConfig>),
+    >,
 ) {
     let dt = world_time.sim_dt();
+    let relations = relations.map(|r| r.clone()).unwrap_or_default();
     let collision_world = carved.solids();
     let portal_list = carved.portal_list();
     let tick = trace.current_tick();
@@ -568,9 +581,22 @@ pub fn step_projectiles(
                 }
             }
             ProjectileFaction::Enemy => {
+                // Route damage by the FIRER's real faction (looked up from the
+                // owner), not the binary `ProjectileFaction` — so actor-vs-actor
+                // works in both directions. Ownerless volleys (string-owned) fall
+                // back to Enemy, preserving today's enemy-shoots-player behavior.
+                let firer_faction = owner_entity
+                    .and_then(|e| actor_victims.get(e).ok().map(|(_, _, f)| *f))
+                    .unwrap_or(ActorFaction::Enemy);
                 let mut hit_any_player = false;
                 let mut reflected = false;
+                // The player is a GATED victim: a shot whose firer isn't hostile to
+                // the player (a spectator-arena combatant) passes the observer by.
+                let player_is_target = relations.is_hostile(firer_faction, ActorFaction::Player);
                 for (player_entity, player_kin, offense, dodge, shield, combat) in &player_body_q {
+                    if !player_is_target {
+                        break;
+                    }
                     if !kin.aabb().strict_intersects(player_kin.aabb()) {
                         continue;
                     }
@@ -631,6 +657,39 @@ pub fn step_projectiles(
                     continue;
                 }
                 if hit_any_player {
+                    commands.entity(proj_entity).despawn();
+                    continue;
+                }
+                // Relational actor-vs-actor (S3e): the shot damages the first
+                // overlapping actor its firer is hostile to (e.g. a Boss-faction
+                // body in a spectator arena), pre-resolved to that exact entity.
+                let mut hit_any_actor = false;
+                for (victim_entity, victim_aabb, victim_faction) in &actor_victims {
+                    if Some(victim_entity) == owner_entity {
+                        continue;
+                    }
+                    if !relations.is_hostile(firer_faction, *victim_faction) {
+                        continue;
+                    }
+                    if !kin.aabb().strict_intersects(victim_aabb.aabb()) {
+                        continue;
+                    }
+                    feature_damage.write(HitEvent {
+                        volume: kin.aabb().into(),
+                        damage: game.damage.max(1),
+                        source: HitSource::EnemyProjectile,
+                        attacker: owner_entity,
+                        target: HitTarget::Actor(victim_entity),
+                        mode: HitMode::Knockback,
+                        knockback: None,
+                        ignored_targets: Vec::new(),
+                    });
+                    sfx.write(SfxMessage::Hit { pos: kin.pos });
+                    vfx.write(VfxMessage::Impact { pos: kin.pos });
+                    hit_any_actor = true;
+                    break;
+                }
+                if hit_any_actor {
                     commands.entity(proj_entity).despawn();
                     continue;
                 }

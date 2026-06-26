@@ -170,6 +170,108 @@ mod tests {
         );
     }
 
+    // ── S3e: relational actor-vs-actor projectiles ──────────────────────────
+
+    /// Build a headless app wired for `step_projectiles` with the given relations.
+    fn arena_projectile_app(relations: crate::features::FactionRelations) -> App {
+        let mut app = App::new();
+        app.insert_resource(crate::RoomGeometry(ae::World::new(
+            "phys",
+            ae::Vec2::new(800.0, 800.0),
+            ae::Vec2::new(400.0, 400.0),
+            vec![],
+        )));
+        app.insert_resource(crate::WorldTime {
+            raw_dt: 1.0 / 60.0,
+            scaled_dt: 1.0 / 60.0,
+        });
+        app.add_message::<HitEvent>();
+        app.add_message::<SfxMessage>();
+        app.add_message::<VfxMessage>();
+        app.add_message::<crate::player::PlayerHealRequested>();
+        app.init_resource::<ProjectileSeqCounter>();
+        app.init_resource::<CapturedHits>();
+        app.init_resource::<crate::features::FeatureEcsWorldOverlay>();
+        app.init_resource::<crate::trace::GameplayTraceBuffer>();
+        app.insert_resource(relations);
+        app.add_systems(
+            Update,
+            (crate::projectile::step_projectiles, capture_hits).chain(),
+        );
+        app
+    }
+
+    fn spawn_boss_actor(app: &mut App, pos: ae::Vec2) -> Entity {
+        app.world_mut()
+            .spawn((
+                crate::features::FeatureSimEntity,
+                crate::features::FeatureId::new("arena_robot"),
+                crate::features::CenteredAabb::new(pos, ae::Vec2::new(16.0, 24.0)),
+                crate::features::ActorFaction::Boss,
+            ))
+            .id()
+    }
+
+    fn spawn_overlapping_enemy_glider(app: &mut App, pos: ae::Vec2) {
+        spawn_enemy_projectile(
+            app,
+            EnemyProjectileSpawn {
+                origin: pos,
+                dir: ae::Vec2::new(1.0, 0.0),
+                speed: 200.0,
+                damage: 3,
+                max_lifetime: 2.0,
+                half_extent: ae::Vec2::new(8.0, 8.0),
+                owner_id: "pca_glider".into(),
+                gravity: 0.0,
+                visual_tag: 0,
+            },
+            ProjectileFaction::Enemy,
+        );
+    }
+
+    /// An Enemy-faction shot (the PCA's glider) damages a Boss-faction body when
+    /// the relations matrix marks them hostile — the projectile half of the
+    /// non-player-centric arena. Pre-resolved to that exact actor.
+    #[test]
+    fn enemy_glider_damages_a_relationally_hostile_actor() {
+        let mut relations = crate::features::FactionRelations::default();
+        relations.set_mutual_hostile(
+            crate::features::ActorFaction::Enemy,
+            crate::features::ActorFaction::Boss,
+            true,
+        );
+        let mut app = arena_projectile_app(relations);
+        let pos = ae::Vec2::new(300.0, 100.0);
+        let boss_actor = spawn_boss_actor(&mut app, pos);
+        spawn_overlapping_enemy_glider(&mut app, pos);
+        app.update();
+        let cap = app.world().resource::<CapturedHits>();
+        assert!(
+            cap.0.iter().any(|e| matches!(e.source, HitSource::EnemyProjectile)
+                && e.target == crate::features::HitTarget::Actor(boss_actor)),
+            "the enemy glider lands a pre-resolved hit on the hostile Boss actor"
+        );
+    }
+
+    /// Opt-in: with default (combat-baseline) relations, an Enemy is not hostile
+    /// to a Boss, so its glider passes a Boss-faction actor by — nothing regresses.
+    #[test]
+    fn enemy_glider_ignores_a_non_hostile_actor_by_default() {
+        let mut app = arena_projectile_app(crate::features::FactionRelations::default());
+        let pos = ae::Vec2::new(300.0, 100.0);
+        let _boss_actor = spawn_boss_actor(&mut app, pos);
+        spawn_overlapping_enemy_glider(&mut app, pos);
+        app.update();
+        let cap = app.world().resource::<CapturedHits>();
+        assert!(
+            !cap.0
+                .iter()
+                .any(|e| matches!(e.target, crate::features::HitTarget::Actor(_))),
+            "no actor-vs-actor hit without a relational hostility"
+        );
+    }
+
     /// Parry-reflect: an enemy shot overlapping a **parrying** player flips to
     /// the player's faction and reverses (+boosts) its velocity, so the same
     /// faction-aware routing now sends it back at the enemies — deflect the

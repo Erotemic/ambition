@@ -99,6 +99,14 @@ pub struct CombatCapabilities {
     /// prefers grounded and flies to traverse; a possessing human presses it),
     /// the body flips its own gravity mode.
     pub can_fly: bool,
+    /// Movement/defense kit: this body can **reactive-block** with a shield. The
+    /// body-side gate for the `shield_held` intent (I3): the controller decides
+    /// WHEN to raise the guard (the brain shields a perceived lunge it won't blink;
+    /// a possessing human holds the button), the body enforces the block — a
+    /// guarded hit from the faced side is negated (the same frame-agnostic
+    /// directional rule the player's shield uses, `shield_blocks_hit`). Never
+    /// gated on "is the player".
+    pub can_shield: bool,
 }
 
 /// Per-actor numeric/flag tuning the RUNTIME combat loops read each
@@ -261,6 +269,11 @@ pub struct EnemyBrainSpec {
     /// gap. Projected into `SmashCfg::can_fly` (attempt); the body's
     /// `CombatCapabilities::can_fly` is the matching *enforce* gate.
     pub smash_can_fly: bool,
+    /// Movement/defense kit: the Smash brain reactive-blocks a perceived lunge it
+    /// won't blink. Projected into `SmashCfg::can_shield` (the controller's
+    /// *attempt*); the body's `CombatCapabilities::can_shield` is the matching
+    /// *enforce* gate.
+    pub smash_can_shield: bool,
     /// When provoked from peaceful, force an aggressive MeleeBrute brain
     /// with at least this aggro radius (cove PirateHeavy crew).
     /// `None` = use the template's default aggressive brain.
@@ -282,6 +295,7 @@ impl Default for EnemyBrainSpec {
             smash_dash_to_close: false,
             smash_can_blink: false,
             smash_can_fly: false,
+            smash_can_shield: false,
             provoke_forced_brute_min_aggro: None,
         }
     }

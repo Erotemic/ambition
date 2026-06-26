@@ -557,3 +557,125 @@ fn an_armed_enemy_archetype_resolves_a_weapon_to_drop() {
     assert!(spec.is_some(), "PirateOnShark carries a weapon");
     assert_eq!(spec.unwrap().id.as_str(), "gun_sword");
 }
+
+// ── S3c: body-enforced reactive block ───────────────────────────────────────
+//
+// The shield is a body capability: the controller only sets `shield_held` (which
+// the resolver lands on `status.shield_raised`, gated by `caps.can_shield`); the
+// BODY negates a guarded hit from the side it faces. These drive the REAL actor
+// damage system (`apply_feature_hit_events` → `apply_actor_hit`), so they prove
+// the enforcement, not a mocked rule. A possessing human and an AI brain block
+// identically because both only feed `shield_held` (invariants I2/I3).
+
+/// Spawn a hostile actor with the shield capability, body facing +x (right),
+/// 5 HP, with its guard raised iff `shield_raised`.
+fn spawn_shielding_actor(app: &mut App, shield_raised: bool) -> bevy::prelude::Entity {
+    let aabb = ae::Aabb::new(ae::Vec2::ZERO, ae::Vec2::new(24.0, 40.0));
+    let mut enemy = crate::features::ecs::actor_clusters::ActorClusterSeed::new(
+        "guard".to_string(),
+        "Guard".to_string(),
+        aabb,
+        ambition_characters::actor::EnemyBrain::Custom("cellular_automaton_fighter".into()),
+        &[],
+    );
+    enemy.status.health = ambition_characters::actor::Health::new(5);
+    enemy.kin.facing = 1.0;
+    // Body capability + raised guard — the two halves the resolver normally fills
+    // from `caps.can_shield && frame.shield_held`.
+    enemy.caps.can_shield = true;
+    enemy.status.shield_raised = shield_raised;
+    let (identity, disposition, health, combat, intent, cooldowns) =
+        enemy_component_snapshot(&enemy);
+    app.world_mut()
+        .spawn((
+            FeatureSimEntity,
+            FeatureId::new("guard"),
+            CenteredAabb::from_center_size(aabb.center(), aabb.half_size() * 2.0),
+            enemy.into_components(),
+            identity,
+            disposition,
+            health,
+            combat,
+            intent,
+            cooldowns,
+        ))
+        .id()
+}
+
+fn shield_test_app() -> App {
+    let mut app = App::new();
+    app.insert_resource(GameplayBanner::default());
+    app.add_message::<HitEvent>();
+    app.add_message::<SetFlagRequested>();
+    app.add_message::<SfxMessage>();
+    app.add_message::<VfxMessage>();
+    app.add_message::<DebrisBurstMessage>();
+    app.add_message::<ActorStimulus>();
+    app.add_systems(Update, apply_feature_hit_events);
+    app
+}
+
+/// A player slash whose hitbox is centered at `center` (must overlap the actor's
+/// body AABB to land), dealing `damage`.
+fn slash_at(center: ae::Vec2, damage: i32) -> HitEvent {
+    HitEvent {
+        volume: ae::Aabb::new(center, ae::Vec2::new(32.0, 40.0)).into(),
+        damage,
+        source: HitSource::PlayerSlash { knock_x: 200.0 },
+        attacker: None,
+        target: HitTarget::Volume,
+        mode: HitMode::Knockback,
+        knockback: None,
+        ignored_targets: Vec::new(),
+    }
+}
+
+fn actor_hp(app: &App, entity: bevy::prelude::Entity) -> i32 {
+    app.world()
+        .get::<ActorHealth>(entity)
+        .expect("actor exists")
+        .health
+        .current
+}
+
+#[test]
+fn raised_shield_negates_a_hit_from_the_faced_side() {
+    let mut app = shield_test_app();
+    let actor = spawn_shielding_actor(&mut app, true);
+    // Body faces +x; the slash comes from the front (+x). The hitbox is wide
+    // enough to overlap the body at the origin while its center sits forward.
+    app.world_mut().write_message(slash_at(ae::Vec2::new(14.0, 0.0), 2));
+    app.update();
+    assert_eq!(
+        actor_hp(&app, actor),
+        5,
+        "a guarded hit from the faced side must be fully negated by the body"
+    );
+}
+
+#[test]
+fn a_lowered_shield_does_not_block() {
+    let mut app = shield_test_app();
+    let actor = spawn_shielding_actor(&mut app, false);
+    app.world_mut().write_message(slash_at(ae::Vec2::new(14.0, 0.0), 2));
+    app.update();
+    assert_eq!(
+        actor_hp(&app, actor),
+        3,
+        "with the guard down the same front hit lands full damage"
+    );
+}
+
+#[test]
+fn a_raised_shield_does_not_guard_the_back() {
+    let mut app = shield_test_app();
+    let actor = spawn_shielding_actor(&mut app, true);
+    // Body faces +x; this hit comes from BEHIND (-x). You can't guard your back.
+    app.world_mut().write_message(slash_at(ae::Vec2::new(-14.0, 0.0), 2));
+    app.update();
+    assert_eq!(
+        actor_hp(&app, actor),
+        3,
+        "a hit from behind the guard still lands — the block is directional"
+    );
+}

@@ -107,9 +107,10 @@
     // glider (the `ranged` poke), and dives in for the jab. The aerial dive/perch
     // + glider + dive-melee all resolve through existing integration (the floating-
     // body integrator + the enemy ranged/melee paths), so this floats peacefully
-    // as an NPC and then FIGHTS in the air rather than descending. Blink / block /
-    // hybrid fly-toggle are emitted-but-inert in-engine until enemy bodies carry
-    // those abilities; the brain-level arena harness already exercises them.
+    // as an NPC and then FIGHTS, descending to brawl on the ground. Blink, the
+    // reactive block, and the hybrid fly-toggle are all body-enforced capabilities
+    // now (resolved in `update_ecs_actors` / the actor damage path), so a
+    // possessing player inherits the same kit.
     "cellular_automaton_fighter": (
         max_health: 18,
         patrol_speed: 96.0,
@@ -143,6 +144,11 @@
         // Fly kit: prefers grounded, but takes to the air to close a long gap
         // (brain preference; flight is free for now). Body-enforced capability.
         smash_can_fly: true,
+        // Reactive block: the PCA guards a perceived lunge it won't blink away
+        // from. The body negates a guarded hit from the faced side (a possessing
+        // player gets the same shield). Body-enforced capability + the same
+        // directional `shield_blocks_hit` rule the player's shield uses.
+        smash_can_shield: true,
         move_style: Walk,
     ),
     "small_skitter": (

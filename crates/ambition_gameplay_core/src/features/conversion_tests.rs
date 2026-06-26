@@ -311,6 +311,21 @@ mod conversion_tests {
             spec.ranged.is_some(),
             "the PCA should have a ranged glider poke"
         );
+        // S3c: it carries the reactive-block kit. One authored flag projects into
+        // BOTH the brain's attempt (`smash_can_shield` -> `SmashCfg::can_shield`)
+        // AND the body's enforce gate (`CombatCapabilities::can_shield`).
+        assert!(
+            spec.smash_can_shield,
+            "the PCA boss has the reactive-block kit so it can guard a lunge it won't blink"
+        );
+        assert!(
+            spec.combat_capabilities().can_shield,
+            "the authored shield kit must project onto the body's enforce gate"
+        );
+        assert!(
+            spec.brain_spec().smash_can_shield,
+            "the authored shield kit must project onto the brain's attempt"
+        );
     }
 
     #[test]

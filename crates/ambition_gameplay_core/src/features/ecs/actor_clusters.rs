@@ -37,6 +37,13 @@ pub struct ActorStatus {
     pub hit_flash: f32,
     pub ai_mode: ambition_characters::actor::ai::CharacterAiMode,
     pub health: ambition_characters::actor::Health,
+    /// Body-side reactive-block state: the shield is raised this tick. Set by the
+    /// frame resolver in `update_ecs_actors` from `frame.shield_held`, gated by
+    /// `CombatCapabilities::can_shield` (the body enforces the capability; the
+    /// controller only attempts). The actor damage path reads it to negate a
+    /// guarded hit from the faced side — the body-enforced half of the shield
+    /// intent (invariant I3), the analogue of the player's `PlayerShieldState`.
+    pub shield_raised: bool,
 }
 
 /// Authored configuration + identity for an actor (any disposition). Archetype-
@@ -206,6 +213,7 @@ impl ActorClusterSeed {
                 hit_flash: 0.0,
                 ai_mode: ambition_characters::actor::ai::CharacterAiMode::Idle,
                 health: ambition_characters::actor::Health::new(spec.max_health),
+                shield_raised: false,
             },
             surface: ActorSurfaceState {
                 on_ground: false,
@@ -329,6 +337,7 @@ impl ActorClusterSeed {
                 hit_flash: 0.0,
                 ai_mode: ambition_characters::actor::ai::CharacterAiMode::Idle,
                 health: ambition_characters::actor::Health::new(1),
+                shield_raised: false,
             },
             surface: ActorSurfaceState {
                 on_ground: false,

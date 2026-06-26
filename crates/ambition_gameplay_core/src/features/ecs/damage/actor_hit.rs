@@ -135,6 +135,43 @@ pub(crate) fn apply_actor_hit(
                 });
             }
         }
+        // Reactive block: a body with its shield raised (resolved from the
+        // controller's `shield_held` attempt in `update_ecs_actors`, gated by
+        // `CombatCapabilities::can_shield`) fully negates a hit coming from the
+        // side it faces — it can't guard its back. This is the SAME frame-agnostic
+        // directional rule the player's shield uses (`shield_blocks_hit`), so a
+        // possessing human and an AI brain block identically (invariants I2/I3).
+        // The guard costs nothing here but consumes the hit: no damage, no
+        // knockback, just a clang. A blocked hit still counts as "took the hit"
+        // (returns true) so the caller plays the shared hitstop.
+        if em.status.shield_raised {
+            let gravity_dir = -em
+                .surface
+                .surface_normal
+                .normalize_or(ae::Vec2::new(0.0, -1.0));
+            if crate::combat::damage::shield_blocks_hit(
+                true,
+                em.kin.facing,
+                em.kin.pos,
+                event.volume.center(),
+                gravity_dir,
+            ) {
+                let impact = midpoint(event.volume.center(), em.kin.pos);
+                writers.sfx.write(SfxMessage::Play {
+                    id: ambition_sfx::ids::WORLD_ROCK_HIT,
+                    pos: em.kin.pos,
+                });
+                writers.vfx.write(VfxMessage::Impact { pos: impact });
+                writers.vfx.write(VfxMessage::Burst {
+                    pos: impact,
+                    count: 8,
+                    speed: 160.0,
+                    color: [0.78, 0.90, 1.0, 0.90],
+                    kind: ParticleKind::Spark,
+                });
+                return true;
+            }
+        }
         if let HitSource::PlayerSlash { knock_x } = &event.source {
             let gravity_dir = -em
                 .surface

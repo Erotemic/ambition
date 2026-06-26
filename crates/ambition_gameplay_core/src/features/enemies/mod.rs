@@ -207,6 +207,15 @@ pub(crate) struct EnemyArchetypeSpec {
     /// and `CombatCapabilities::can_fly` (enforce).
     #[serde(default)]
     pub smash_can_fly: bool,
+    /// Movement kit: this body can **reactive-block** — raise a shield to guard a
+    /// perceived lunge it won't blink away from. Projects into BOTH the Smash
+    /// brain's `can_shield` (it *attempts* a block: raises `shield_held` and
+    /// stands its ground) AND the body's
+    /// [`crate::combat::CombatCapabilities::can_shield`] gate (the body *enforces*
+    /// the block — a guarded hit from the faced side is negated). One authored
+    /// source, two projections — attempt vs enforce (invariants I2/I3/I7).
+    #[serde(default)]
+    pub smash_can_shield: bool,
     /// When provoked from peaceful, force an aggressive MeleeBrute brain
     /// with at least this aggro radius (cove PirateHeavy crew). `None` =
     /// use the template's default aggressive brain.
@@ -499,6 +508,7 @@ impl EnemyArchetypeSpec {
             smash_dash_to_close: self.smash_dash_to_close,
             smash_can_blink: self.smash_can_blink,
             smash_can_fly: self.smash_can_fly,
+            smash_can_shield: self.smash_can_shield,
             provoke_forced_brute_min_aggro: self.provoke_forced_brute_min_aggro,
         }
     }
@@ -576,6 +586,7 @@ impl EnemyArchetypeSpec {
             drops_held_item: self.held_item_spec(),
             can_blink: self.smash_can_blink,
             can_fly: self.smash_can_fly,
+            can_shield: self.smash_can_shield,
         }
     }
 }

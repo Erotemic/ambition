@@ -369,6 +369,10 @@ fn smash_cfg_from_spec(spec: &EnemyBrainSpec, tuning: &ActorTuning) -> SmashCfg 
         // to cover a long traversal gap (the decision lives in `decide_flight`).
         // The body's `CombatCapabilities::can_fly` is the matching enforce gate.
         can_fly: spec.smash_can_fly,
+        // Reactive block: the brain *attempts* a guard (raises `shield_held`,
+        // stands ground) on a perceived lunge it won't blink; the body's
+        // `CombatCapabilities::can_shield` is the matching enforce gate.
+        can_shield: spec.smash_can_shield,
         ..base
     }
 }

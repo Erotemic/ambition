@@ -427,6 +427,14 @@ pub fn update_ecs_actors(
                         0.0
                     };
                 }
+                // Body resolves the shield-held intent (invariant I3): the
+                // controller only *attempts* a guard (the brain raises it on a
+                // perceived lunge; a possessing human holds the button); the body
+                // records it ONLY when it has the capability. The actor damage path
+                // reads `status.shield_raised` to negate a guarded hit from the
+                // faced side (the same directional rule the player's shield uses).
+                // A sustain: re-evaluated every tick, so releasing drops the guard.
+                em.status.shield_raised = em.caps.can_shield && frame.shield_held;
                 // Publish the actor's footprint ORIENTED to its reference frame —
                 // the single source of truth read by the debug overlay, player
                 // hurtbox, and target volumes, so the box matches the rotated

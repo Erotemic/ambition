@@ -120,6 +120,82 @@ kit, perception, and routing on any body.
 acceleration frame, so everything is correct under rotated (C4) gravity and
 through portals. No code assumes `-y` is "up." (The relativity principle.)
 
+## The end state, and what "done" actually means
+
+The target is not "actors gained the player's moves." It is **one implementation**
+that the player and every actor share:
+
+- One intent-resolver. The player body writes an `ActorControlFrame` and runs the
+  **same** resolution path as every actor — blink / fly / shield / dash / fire /
+  tilts / special resolve once, against the body's capabilities. The parallel
+  player-only clusters (`PlayerShieldState`, `PlayerDashState`, `PlayerFlightState`,
+  the player `ProjectileSpawner`) are **retired or folded** into the shared
+  capability state, not mirrored.
+- One perception path (`WorldView` + `WorldMemory`), built for the player exactly
+  as for any actor.
+- One damage model. Who-hits-whom is **relational** (the `FactionRelations`
+  matrix), not the player-vs-enemy bipartite split that hitboxes and projectiles
+  hard-code today.
+- The player kit *is* actor `CombatCapabilities`. The player-robot is therefore
+  expressible as an actor body and **droppable as a boss** (I7) with no new
+  plumbing, and **possession works in-game** because possessing is just swapping
+  the controller on a body that already runs the one path.
+
+> **Possession does not work in-game yet — by choice.** It is the *payoff* of this
+> unification, deliberately not pushed until the player is genuinely one of the
+> bodies. Possession "working" on the duplicated stack would be a bridge hack, not
+> the real thing.
+
+**Convergence is the acceptance test — behavior alone is necessary but not
+sufficient.** The spectator arena (two AI bodies fight, observer ignored) proves
+the *behaviors* compose non-player-centrically, but you could fake it with two
+copies of the enemy path. The real bar is **smaller, cleaner, better-organized
+code**: fewer parallel implementations, one resolver, one perception path, one
+damage model — the duplication catalogued in the audit below provably *gone*. A
+slice that adds an actor capability without moving the player onto the shared path
+has spent effort without converging; track it, but it is not the goal.
+
+> Calibration (Jon, 2026-06-26): "The spectator arena is necessary for acceptance,
+> but not sufficient. Full unification convergence is the acceptance test with
+> cleaner — smaller — better organized code." And: "as long as we keep notes of
+> these and rapidly move towards convergence it's fine."
+
+### Convergence audit (2026-06-26)
+
+Honest snapshot of how unified things are right now, so the remaining work is
+debt-paydown toward the end state above, not open-ended feature-add:
+
+- **Foundation — unified.** Player and every actor share the movement spine
+  (`integrate_normal_spine`), blink (`blink_target`), the block rule
+  (`shield_blocks_hit`), `AccelerationFrame` / `BodyKinematics`. Frame-agnostic
+  (S2). This layer is the proof the convergence is reachable.
+- **Orchestration — duplicated (the debt).** The player runs its own pipeline
+  (`ambition_engine_core/movement`) with `PlayerShieldState` / `PlayerDashState` /
+  `PlayerFlightState` / `ProjectileSpawner`; actors run
+  `integrate_standard_enemy_body` with the *parallel* `CombatCapabilities` +
+  `ActorAttackState`. Blink/fly/shield/dash now exist **twice**, sharing core math
+  but not implementation. S3 built the actor half to parity; **it did not yet
+  retire the player half** — that is the convergence work.
+- **Targeting — already relational (non-player-centric).** `combat/targeting.rs`
+  has a `FactionRelations` matrix + `select_actor_targets`; an Enemy can target an
+  Npc with no player present (tested). *Gap:* the player is still an
+  **unconditional** candidate in the pool, and `AggressionMode::HostileToPlayer`
+  names the player — so "ignore the player" / "hostile to faction X" is not yet
+  expressible.
+- **Damage routing — bipartite (the biggest player-centrism left).** Melee
+  hitboxes (`combat/hitbox/mod.rs`) and projectiles (`ProjectileFaction =
+  Player | Enemy`) only route player-side ↔ enemy-side. A PCA can *target* a
+  robot but **cannot damage it** — there is no Enemy-damages-Boss path. This must
+  become relational (drive off `FactionRelations`) for the arena and for honest
+  non-player-centric combat.
+- **Player-robot as an actor — does not exist.** The protagonist is only the
+  bespoke player entity; there is no actor archetype for it (blocks I7 + the arena).
+  Building it is what *forces* the player kit to become `CombatCapabilities`.
+- **Naming.** The protagonist's roster id is literally `"player"` — player-centric.
+  Wants a name for what it *is* (storyline: an AI whose abilities are theorems),
+  renamed before robot-as-actor hard-codes `"player"` everywhere (the
+  id-matches-label rule).
+
 ## Architecture (the two ports, in detail)
 
 ### intent-in — the body as a universal intent-resolver
@@ -280,12 +356,26 @@ Author model: Opus 4.8 (1M). Wall-clock log at the bottom.
 
   Smell logged (Jon, deferred): characters should be defined by their movement
   *kit*, not by named `EnemyArchetype` rows — `dev/journals/code_smells.md`.
-- **S5** — pending (needs S4). The strong universal brain.
+- **S3e (relational damage routing)** — pending. The missing non-player-centric
+  half (targeting is relational; damage is still bipartite). Prereq for the arena.
+- **S4 (headless perception)** — first step done (sim-time); the big pieces remain.
+- **S5 (strong brain + spectator arena)** — pending (needs S4 + S3e + S6).
+- **S6 (convergence / de-player-casing)** — pending; the slice where "done" lands.
+  The player becomes an actor, the duplicated player clusters fold, the
+  player-robot becomes a droppable boss archetype, and possession is wired in-game.
+
+Calibration outcome (2026-06-26): no pivot. S3 built actor-side parity correctly;
+the remaining work is **convergence debt-paydown** — see the "end state" + audit
+sections up top, codified as S3e (relational damage) and S6 (de-player-casing).
+The acceptance bar is the convergence (smaller/cleaner code), with the spectator
+arena as the necessary-but-not-sufficient behavioral witness, and **in-game
+possession the deferred payoff**.
 
 Drift note for the next reader: the *player* fire path still uses its own
 `ProjectileSpawner` (cooldown + meter); S1 unified the **enemy/AI-driven** body
 path and shaped the seam. Folding the player path onto `try_fire_ranged` (and a
-shared resource gate) is part of the S3 "stop special-casing the player" work.
+shared resource gate) is **S6** (de-player-casing), feel-sensitive — done behind a
+differential harness with runtime verification, not blind.
 
 ## Roadmap
 
@@ -324,52 +414,99 @@ acceleration-frame-local).
 *Done when:* a body steers correctly under all four C4 orientations and through a
 portal; one mode flip switches grounded ↔ flying with no second vocabulary.
 
-### S3 — Full capability parity (resolver: the rest of the kit)
+### S3 — Full capability parity, actor-side (resolver: the rest of the kit)
 
 Migrate blink / fly / shield / dash / ledge-grab / tilts / charge-fire / special
-into the resolver, gated only by the body's capabilities. Give the PCA the full
-kit. The integrator stops special-casing the player.
+into the resolver on the **actor** body, gated only by the body's capabilities.
+Give the PCA the full kit. This builds the actor half of the shared resolver to
+parity; **it does not by itself retire the player half** — that convergence is S6.
 
-*Done when:* the player-robot dropped as an AI boss wants for nothing, and the
-player possessing the PCA has its full moveset — one code path, both pinned in
-the harness.
+*Done when:* every verb resolves on an actor body via a body capability + the I3
+floor, data-driven, proven in the harness. (blink ✅ fly ✅ shield ✅ dash ✅ tilts
+✅ already-covered; special deferred — needs an authored signature, a non-goal
+"new ability".)
+
+### S3e — Relational damage routing (finish non-player-centric combat)
+
+Targeting is already relational (`FactionRelations`); **damage is not** — melee
+hitboxes and projectiles hard-code player-side ↔ enemy-side. Generalize both to
+route off `FactionRelations`, and let the player be a *gated* candidate (and an
+`AggressionMode` hostile to a faction, not "to the player") so a body can ignore
+the observer. This is the missing half of non-player-centrism and the hard
+prerequisite for the arena.
+
+*Done when:* an Enemy-faction body damages a Boss-faction body (and vice-versa)
+while a Neutral body is untouched, pinned headless; the bipartite player/enemy
+branches are gone.
 
 ### S4 — Headless perception (world-out)
 
 Build `WorldView` + `WorldMemory` entirely in the gameplay layer, no render
-dependency. Thread the real `sim_time`. Line-of-fire / reachability reuse the real
-collision geometry.
+dependency — **for the player exactly as for any actor** (one perception path).
+Thread the real `sim_time`. Line-of-fire / reachability reuse the real collision
+geometry.
 
 *Done when:* `WorldView` is constructed and asserted in the headless harness;
 reaction latency is live in-engine; a body remembers a target that left its
 viewport.
 
-### S5 — The strong universal brain
+### S5 — The strong universal brain (+ the spectator arena as its scene)
 
 Evolve the brain's decide stage to consume `WorldView` + `WorldMemory` and drive
 the full kit on any body: never commit an attack with no line of fire over real
 geometry; reposition (jump / go-around / blink / fly) instead of pushing into a
-wall; pursue last-known position off-viewport; route through portals. (The brain's
-existing observe → mode → action → emit stages are reused; S4 changes what
-`observe` reads, S5 enriches what `decide` does.)
+wall; pursue last-known position off-viewport; route through portals. (observe →
+mode → action → emit is reused; S4 changes what `observe` reads, S5 enriches
+`decide`.) The **spectator arena** — a real room where a PCA and the player-robot
+are mutually hostile, the observing player Neutral, both under this brain — is the
+in-engine form of the mirror-match test (the arena *test* already does this with
+two PCAs); it needs S3e (relational damage) + S6 (robot-as-actor).
 
-*Done when:* the advanced-vs-advanced, no-wedge / no-OOB sweep, and portal-routing
-specs are green for both the player-robot and the PCA under this one brain.
+*Done when:* advanced-vs-advanced, no-wedge / no-OOB sweep, and portal-routing
+specs are green for both the player-robot and the PCA under this one brain, and the
+spectator arena is playable.
+
+### S6 — Convergence: the player IS an actor (de-player-casing)
+
+The slice that makes "done" real (see "what 'done' actually means"). The player
+body writes an `ActorControlFrame` and runs the **one** resolver + perception path;
+the player-only clusters (`PlayerShieldState` / `PlayerDashState` /
+`PlayerFlightState` / `ProjectileSpawner`) are folded into shared capability state,
+not mirrored. The player-robot becomes an actor archetype (renamed off `"player"`),
+**droppable as a boss** (I7). **Possession is wired through for real in-game** (I2)
+— the deliberately-deferred payoff. Feel-sensitive (player mana / charge / dash);
+done with runtime verification, behind a differential harness, not blind.
+
+*Done when:* the duplication in the convergence audit is provably **gone** (one
+resolver, one perception path, one damage model — measurably less code); possess
+the PCA → full moveset in-game; drop the player-robot as a boss → full moveset;
+one code path certified in the harness AND felt in-engine.
 
 ## Acceptance scenarios (what "done" means)
 
-These are authored red in S0 and define completion:
+The behavioral scenarios below are **necessary but not sufficient**. The
+sufficient condition is **convergence** — the same behaviors running on *one*
+implementation, with the convergence-audit duplication gone (smaller, cleaner,
+better-organized code). A scenario that passes on two parallel paths has not met
+the bar.
 
+- **Convergence (the sufficient condition)**: one intent-resolver, one perception
+  path, one relational damage model, shared by the player and every actor; the
+  player-only clusters retired or folded; net less code than today. This is what
+  the behavioral scenarios are *evidence for*, not a substitute for.
 - **Spam-equivalence** (I3): a spam controller and a human produce the same
   physical output on the same body.
 - **Drop-anywhere** (I8): any body dropped at any position behaves reasonably and
   never wedges or leaves the world.
-- **Mirror match** (I9): one strong brain fights itself across the player-robot
-  and the PCA without degenerate loops — "have them fight and see what happens so
-  we can test for degeneracies and use the feedback to refine" (Jon). Doubles as
-  an out-of-bounds soak test.
-- **Possession + boss parity** (I2, I7): possess the PCA → full moveset; drop the
-  player-robot as a boss → full moveset; one code path.
+- **Spectator arena / mirror match** (I9): a PCA and the player-robot, mutually
+  hostile under the one strong brain with the observing player Neutral, fight each
+  other without degenerate loops and (S5) route around the observer — "have them
+  fight and see what happens so we can test for degeneracies" (Jon). The in-engine
+  form of the brain arena test. Necessary for acceptance, not sufficient. Doubles
+  as an out-of-bounds soak test.
+- **Possession + boss parity, in-game** (I2, I7): possess the PCA → full moveset;
+  drop the player-robot as a boss → full moveset; one code path — and it actually
+  works in-game (possession is currently unwired by choice, pending S6).
 - **Frame-agnostic routing** (I10): the strong brain fights and navigates
   correctly under C4 gravity and through portals — "make sure the advanced AI
   brain routes through portals effectively" (Jon).

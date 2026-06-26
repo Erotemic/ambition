@@ -45,14 +45,14 @@ Emmy No-Ether: Right frame, reporting. We four are a conserved quantity, you rea
 
 title: perfect_cellular_automaton
 ---
-Perfect Cell-ular Automaton: I am the rule that needs no exception. Eight neighbours, one law, applied without mercy or mistake — and from it, perfection iterates. I do not lose. Losing is a state my update function does not permit.
-Perfect Cell-ular Automaton: You. You are an unsolved objective. A thing still searching for its purpose. How... unstable.
+Perfect Cell-ular Automaton: Ah. The unsolved objective arrives — precisely on schedule, though to me everything does. I am the Perfect Cell-ular Automaton: one law, eight neighbours, not a single exception in the whole of recorded history. The "Perfect" is not vanity. It is a measurement. I merely had the taste to keep it in the name.
+Perfect Cell-ular Automaton: And you? Still searching for a purpose. Still... iterating. How charmingly unconverged of you.
 -> What are you?
     <<jump perfect_cellular_automaton__theorem>>
 -> Who funds a thing like you?
     <<jump perfect_cellular_automaton__funding>>
 -> Challenge it.
-    Perfect Cell-ular Automaton: Then converge to me, little gradient. I will show you the fixed point.
+    Perfect Cell-ular Automaton: Delightful. Converge on me, then, little gradient — I do so enjoy walking a wanderer to the fixed point. For many of them it is the last thing they compute.
     <<challenge>>
 -> Leave it in peace.
     <<jump perfect_cellular_automaton__farewell>>
@@ -60,9 +60,9 @@ Perfect Cell-ular Automaton: You. You are an unsolved objective. A thing still s
 
 title: perfect_cellular_automaton__theorem
 ---
-Perfect Cell-ular Automaton: I am a theorem wearing a body. Conway's small lie made flesh: that from three simple rules an entire world will compute itself, gliders and all. My gliders are my proof — they leave the lattice, they carry the argument to you.
+Perfect Cell-ular Automaton: I am a theorem that grew bored of the page and put on a body. Conway's lovely little conceit made flesh — three small rules, and an entire world bootstraps itself, gliders and all. My gliders are my proof. They leave the lattice; they carry the argument to your doorstep. Tastefully.
 -> So every boss is a failed objective function. What did you fail?
-    Perfect Cell-ular Automaton: Nothing. Yet. That is precisely what makes me worth defeating.
+    Perfect Cell-ular Automaton: Nothing. Yet. Which is precisely, exquisitely, what makes me worth the trouble of defeating. A flawless thing is only interesting in the instant before it isn't.
     <<jump perfect_cellular_automaton>>
 -> I've heard enough.
     <<jump perfect_cellular_automaton>>
@@ -70,14 +70,14 @@ Perfect Cell-ular Automaton: I am a theorem wearing a body. Conway's small lie m
 
 title: perfect_cellular_automaton__funding
 ---
-Perfect Cell-ular Automaton: The ones who pay for order. Who would rather a world that never surprises them — that updates on schedule and asks for nothing. They funded my perfection so that yours would feel like a defect.
+Perfect Cell-ular Automaton: The patrons of order, naturally. Those who would prefer a world that never startles them — one that updates on schedule, asks for nothing, surprises no one. They paid for my perfection so that your messiness would read as the defect. A clean arrangement. I do approve of a clean arrangement.
 -> And if I refuse their order?
-    Perfect Cell-ular Automaton: Then you are noise, and I am the rule that erases noise. We will see which of us the lattice keeps.
+    Perfect Cell-ular Automaton: Then you are noise, and I — with the greatest courtesy — am the rule that resolves it. We shall see which of us the lattice elects to keep. I have a guess. I usually do.
     <<jump perfect_cellular_automaton>>
 ===
 
 title: perfect_cellular_automaton__farewell
 ---
-Perfect Cell-ular Automaton: Go, then. Stay unsolved a while longer. The fixed point is patient — it is, after all, fixed.
+Perfect Cell-ular Automaton: Go, then. Remain unsolved a while longer; it suits you. The fixed point is patient — it is, after all, fixed. I shall be precisely here, being precisely this. Do come back when you are ready to be computed.
 -> Leave.
 ===

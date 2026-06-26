@@ -9,6 +9,66 @@ use ambition_gameplay_core::items::pickup::{
 };
 use ambition_gameplay_core::player::{BodyKinematics, PlayerEntity, PrimaryPlayer};
 use bevy::prelude::*;
+use bevy::sprite::Anchor;
+
+// --- Wielded / held gun-sword sprite ---------------------------------------
+// The spinning-lasersword sprite is the WIELDED weapon + the player's held
+// gun-sword shot (a `HeldProjectile`), distinct from the faction projectile
+// pool (whose art now flows through `ProjectileVisualKind`). These consumers
+// keep their own static-frame helper.
+//
+// (Read from `lasersword_spritesheet.yaml`, row `idle`, frame 0.)
+const LASERSWORD_SHEET_PATH: &str = "sprites/lasersword_spritesheet.png";
+const LASERSWORD_LABEL_W: f32 = 110.0;
+const LASERSWORD_FRAME_W: f32 = 169.0;
+const LASERSWORD_FRAME_H: f32 = 44.0;
+const LASERSWORD_IDLE_FRAME_X: f32 = LASERSWORD_LABEL_W;
+const LASERSWORD_IDLE_FRAME_Y: f32 = 0.0;
+/// Pommel anchor in the idle frame — rotation pivot of the sprite.
+const LASERSWORD_POMMEL_X_PX: f32 = 14.0;
+const LASERSWORD_POMMEL_Y_PX: f32 = 22.0;
+const LASERSWORD_RENDER_WIDTH: f32 = 56.0;
+
+/// Spritesheet path for the wielded / held gun-sword sprite.
+pub const LASERSWORD_SHEET: &str = LASERSWORD_SHEET_PATH;
+
+/// Build the lasersword sprite (idle frame, pommel-anchored) + its z-rotation
+/// for a shot traveling at `vel` (world space, y-down). Used by the wielded
+/// weapon and the player's held gun-sword shot so both render an identical
+/// spinning sword aligned to its velocity.
+///
+/// AMBITION_REVIEW(spatial): Bevy +Y is up, sim +Y is down — flip Y for the
+/// rotation; the pommel anchor is normalized from frame-local px (y negated).
+pub fn lasersword_projectile_sprite(
+    texture: Handle<Image>,
+    vel: ambition_engine_core::Vec2,
+) -> (Sprite, Anchor, Quat) {
+    let bevy_dx = vel.x;
+    let bevy_dy = -vel.y;
+    let angle = if bevy_dx == 0.0 && bevy_dy == 0.0 {
+        0.0
+    } else {
+        bevy_dy.atan2(bevy_dx)
+    };
+    let aspect = LASERSWORD_FRAME_W / LASERSWORD_FRAME_H;
+    let render = Vec2::new(LASERSWORD_RENDER_WIDTH, LASERSWORD_RENDER_WIDTH / aspect);
+    let anchor_x_norm = (LASERSWORD_POMMEL_X_PX - LASERSWORD_FRAME_W * 0.5) / LASERSWORD_FRAME_W;
+    let anchor_y_norm = -(LASERSWORD_POMMEL_Y_PX - LASERSWORD_FRAME_H * 0.5) / LASERSWORD_FRAME_H;
+    let mut sprite = Sprite::from_image(texture);
+    sprite.custom_size = Some(render);
+    sprite.rect = Some(Rect::from_corners(
+        Vec2::new(LASERSWORD_IDLE_FRAME_X, LASERSWORD_IDLE_FRAME_Y),
+        Vec2::new(
+            LASERSWORD_IDLE_FRAME_X + LASERSWORD_FRAME_W,
+            LASERSWORD_IDLE_FRAME_Y + LASERSWORD_FRAME_H,
+        ),
+    ));
+    (
+        sprite,
+        Anchor(Vec2::new(anchor_x_norm, anchor_y_norm)),
+        Quat::from_rotation_z(angle),
+    )
+}
 
 // Presentation (visible build only).
 
@@ -191,8 +251,7 @@ pub struct HeldProjectileVisualArt {
 impl HeldProjectileVisualArt {
     fn load(asset_server: &AssetServer) -> Self {
         Self {
-            lasersword: asset_server
-                .load(crate::rendering::enemy_projectile_visuals::LASERSWORD_SHEET),
+            lasersword: asset_server.load(LASERSWORD_SHEET),
             fireball: asset_server.load(format!("sprites/props/gauntlet_{FIREBALL_ID}.png")),
         }
     }
@@ -234,10 +293,7 @@ pub fn sync_held_projectile_visuals(
             continue;
         }
         let (sprite, anchor, rotation) =
-            crate::rendering::enemy_projectile_visuals::lasersword_projectile_sprite(
-                art.lasersword.clone(),
-                kin.vel,
-            );
+            lasersword_projectile_sprite(art.lasersword.clone(), kin.vel);
         commands.spawn((
             HeldProjectileVisual,
             sprite,

@@ -128,10 +128,11 @@
             reach_px: 30.0,
         ))),
         // The glider: a cellular-automaton spaceship as the ranged zoning tool.
-        // Functional `Rock` projectile; the Conway-glider sprite is wired in the
-        // visuals layer (`enemy_projectile_visuals.rs`, routed by the
-        // `cellular_automaton` owner-id substring).
+        // Functional `Rock` projectile; the Conway-glider sprite is selected by
+        // its authored visual KIND below (the render layer reads `ranged_visual`,
+        // not the owner-id string).
         ranged: Some(Rock(speed: 300.0, damage: 1)),
+        ranged_visual: Glider,
         smash_dash_to_close: true,
         move_style: Walk,
     ),

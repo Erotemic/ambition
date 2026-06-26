@@ -31,7 +31,6 @@ pub mod actors;
 pub mod bubble_shield;
 mod camera;
 mod deep_dream;
-pub mod enemy_projectile_visuals;
 mod features;
 pub mod gravity_visuals;
 mod health;

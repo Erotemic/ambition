@@ -143,6 +143,7 @@ pub fn update_sentries(
                     half_extent: SENTRY_BOLT_HALF,
                     owner_id: "player_sentry".into(),
                     gravity: 0.0,
+                    visual_tag: 0,
                 }],
             },
         });

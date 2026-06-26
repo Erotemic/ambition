@@ -65,16 +65,19 @@ fn player_projectile_muzzle_local_offset(
 }
 
 /// A timed-out or wall-killed **lasersword** detonates with a rendered
-/// explosion (keyed on the `lasersword:`-prefixed owner id). Returns `None` for
-/// any other projectile. VFX-only — replay-neutral.
-fn lasersword_detonation(owner_id: &str, pos: ae::Vec2) -> Option<VfxMessage> {
-    owner_id
-        .starts_with("lasersword")
-        .then_some(VfxMessage::Explosion {
+/// explosion (keyed on the projectile's visual KIND, not its owner id). Returns
+/// `None` for any other projectile. VFX-only — replay-neutral.
+fn lasersword_detonation(
+    visual_kind: crate::projectile::ProjectileVisualKind,
+    pos: ae::Vec2,
+) -> Option<VfxMessage> {
+    (visual_kind == crate::projectile::ProjectileVisualKind::Lasersword).then_some(
+        VfxMessage::Explosion {
             pos,
             kind: ambition_vfx::vfx::ExplosionKind::ClassicBurst,
             scale: 0.7,
-        })
+        },
+    )
 }
 
 /// The portal-carved collision world a projectile collides against. Bundled as a
@@ -370,7 +373,15 @@ pub fn apply_player_spawn_projectile_messages(
             Name::new("Player projectile (sim)"),
         ));
         // Named kind rides as its own component (the engine body is generic):
-        // combat attribution, trace, and render read it off the entity.
+        // combat attribution, trace, and render read it off the entity. Every
+        // player shot also carries a visual identity (a kind-less shot — which
+        // shouldn't happen for the player — reads as a fireball), so player +
+        // enemy shots share ONE kind→art selection path in the render layer.
+        let visual = msg
+            .kind
+            .map(crate::projectile::ProjectileVisualKind::from)
+            .unwrap_or(crate::projectile::ProjectileVisualKind::Fireball);
+        entity.insert(visual);
         if let Some(kind) = msg.kind {
             entity.insert(kind);
         }
@@ -420,6 +431,7 @@ pub fn step_projectiles(
             Option<&ProjectileOwnerId>,
             &ProjectileSeq,
             Option<&crate::projectile::ProjectileKind>,
+            Option<&crate::projectile::ProjectileVisualKind>,
         ),
         (
             With<LiveProjectile>,
@@ -476,26 +488,29 @@ pub fn step_projectiles(
     // across both factions; the seq counter is shared at spawn).
     let mut ordered: Vec<(Entity, ProjectileSeq)> = projectiles
         .iter()
-        .map(|(entity, _, _, _, _, seq, _)| (entity, *seq))
+        .map(|(entity, _, _, _, _, seq, _, _)| (entity, *seq))
         .collect();
     ordered.sort_by_key(|(_, seq)| *seq);
 
     for (proj_entity, _) in ordered {
-        let Ok((_, mut kin, mut game, owner, owner_id, _, kind)) =
+        let Ok((_, mut kin, mut game, owner, _owner_id, _, kind, visual_kind)) =
             projectiles.get_mut(proj_entity)
         else {
             continue;
         };
         // Named kind for player shots (None for kind-less enemy volleys).
         let kind = kind.copied();
+        // Visual identity (every spawned shot carries one; default to the
+        // generic hostile look if somehow absent). Drives the detonation FX
+        // pick — by kind, not by sniffing the owner-id string.
+        let visual_kind = visual_kind.copied().unwrap_or_default();
         let owner_entity = owner.map(|o| o.0);
-        let owner_id_str = owner_id.map(|o| o.0.clone()).unwrap_or_default();
 
         // Tick + lifetime. A dead lasersword detonates; everything else logs an
         // Expired trace event.
         let gravity_dir = gravity.dir_at(kin.pos);
         if !game.tick(&mut kin, dt, gravity_dir) {
-            if let Some(boom) = lasersword_detonation(&owner_id_str, kin.pos) {
+            if let Some(boom) = lasersword_detonation(visual_kind, kin.pos) {
                 vfx.write(boom);
                 sfx.write(SfxMessage::Play {
                     id: ambition_sfx::ids::WORLD_EXPLOSION,
@@ -633,7 +648,7 @@ pub fn step_projectiles(
                 sfx.write(SfxMessage::Hit { pos });
             }
             WorldHitOutcome::Expired { pos } => {
-                match lasersword_detonation(&owner_id_str, pos) {
+                match lasersword_detonation(visual_kind, pos) {
                     Some(boom) => {
                         vfx.write(boom);
                         sfx.write(SfxMessage::Play {

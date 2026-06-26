@@ -183,6 +183,11 @@ pub fn spawn_gnu_apple_rain_from_special_messages(
                             boss.config.id,
                         ),
                         gravity: APPLE_RAIN_GRAVITY,
+                        // The apple-rain fruit renders as the generated apple
+                        // sprite (kept upright vs gravity) — keyed by kind, not
+                        // by the owner-id substring the visuals layer once read.
+                        visual_tag: ambition_gameplay_core::projectile::ProjectileVisualKind::Apple
+                            .to_tag(),
                     }],
                 },
             });
@@ -413,6 +418,7 @@ pub fn spawn_overfit_volley_from_special_messages(
                                     OVERFIT_VOLLEY_OWNER_PREFIX, boss.config.id
                                 ),
                                 gravity: 0.0,
+                                visual_tag: 0,
                             }],
                         },
                     });

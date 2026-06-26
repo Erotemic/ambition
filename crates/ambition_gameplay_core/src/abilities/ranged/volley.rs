@@ -121,6 +121,7 @@ pub fn fire_volley_system(
                     half_extent: VOLLEY_HALF,
                     owner_id: "player_volley".into(),
                     gravity: 0.0,
+                    visual_tag: 0,
                 }],
             },
         });

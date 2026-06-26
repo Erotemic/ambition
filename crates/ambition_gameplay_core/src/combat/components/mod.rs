@@ -140,6 +140,12 @@ pub struct ActorTuning {
     pub body_contact_damage: bool,
     /// Deep-dream visual jitter seed; `None` = no dream pass.
     pub dream_seed: Option<f32>,
+    /// Visual identity of this actor's ranged projectile, authored on the
+    /// archetype. The ranged-fire effects consumer stamps it onto the spawned
+    /// shot so the render layer picks art by KIND (e.g. the PCA's Conway
+    /// glider) rather than by reading the owner-id string. `EnemyDefault` is
+    /// the generic orange shot.
+    pub ranged_visual: crate::projectile::ProjectileVisualKind,
 }
 
 impl Default for ActorTuning {
@@ -164,6 +170,7 @@ impl Default for ActorTuning {
             is_sandbag: false,
             body_contact_damage: false,
             dream_seed: None,
+            ranged_visual: crate::projectile::ProjectileVisualKind::EnemyDefault,
         }
     }
 }

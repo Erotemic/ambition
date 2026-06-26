@@ -38,6 +38,10 @@ pub fn apply_projectile_effects(
         };
         for shot in shots {
             let owner_id = shot.owner_id.clone();
+            // Decode the opaque visual tag the firing site stamped into the
+            // shot's visual identity. The render layer reads THIS component —
+            // not the owner-id string — to pick the projectile's art.
+            let visual_kind = crate::projectile::ProjectileVisualKind::from_tag(shot.visual_tag);
             let projectile =
                 crate::enemy_projectile::EnemyProjectileState::build(shot.clone(), *faction);
             let mut entity = commands.spawn((
@@ -45,6 +49,7 @@ pub fn apply_projectile_effects(
                 projectile.body.game,
                 seq.next(),
                 ProjectileOwnerId(owner_id),
+                visual_kind,
                 crate::projectile::LiveProjectile,
                 EnemyProjectile,
                 Name::new("Enemy projectile (sim)"),
@@ -139,6 +144,7 @@ mod tests {
                 half_extent: ae::Vec2::new(8.0, 8.0),
                 owner_id: "player_volley".into(),
                 gravity: 0.0,
+                visual_tag: 0,
             },
             ProjectileFaction::Player,
         );
@@ -229,6 +235,7 @@ mod tests {
                 half_extent: ae::Vec2::new(8.0, 8.0),
                 owner_id: "boss_bolt".into(),
                 gravity: 0.0,
+                visual_tag: 0,
             },
             ProjectileFaction::Enemy,
         );
@@ -336,6 +343,7 @@ mod tests {
                         half_extent: ae::Vec2::new(8.0, 8.0),
                         owner_id: "boss_bolt".into(),
                         gravity: 0.0,
+                        visual_tag: 0,
                     }],
                 },
             });
@@ -352,6 +360,43 @@ mod tests {
             player_hit.attacker,
             Some(attacker),
             "the hit attributes back to the firing actor, not None"
+        );
+    }
+
+    /// The spawn executor decodes the shot's opaque `visual_tag` into a
+    /// `ProjectileVisualKind` component — the render layer's single art-selection
+    /// input, set without reading `owner_id`.
+    #[test]
+    fn spawn_executor_attaches_visual_kind_from_tag() {
+        use crate::projectile::ProjectileVisualKind;
+        let mut app = App::new();
+        app.add_message::<crate::effects::EffectRequest>();
+        app.init_resource::<ProjectileSeqCounter>();
+        app.add_systems(Update, apply_projectile_effects);
+        app.world_mut().write_message(crate::effects::EffectRequest {
+            owner: Entity::PLACEHOLDER,
+            effect: crate::effects::Effect::Projectiles {
+                faction: ProjectileFaction::Enemy,
+                shots: vec![EnemyProjectileSpawn {
+                    origin: ae::Vec2::ZERO,
+                    dir: ae::Vec2::new(1.0, 0.0),
+                    speed: 100.0,
+                    damage: 1,
+                    max_lifetime: 1.0,
+                    half_extent: ae::Vec2::new(8.0, 8.0),
+                    owner_id: "pca".into(),
+                    gravity: 0.0,
+                    visual_tag: ProjectileVisualKind::Glider.to_tag(),
+                }],
+            },
+        });
+        app.update();
+        let mut q = app.world_mut().query::<&ProjectileVisualKind>();
+        let kinds: Vec<_> = q.iter(app.world()).copied().collect();
+        assert_eq!(
+            kinds,
+            vec![ProjectileVisualKind::Glider],
+            "the Glider tag must materialize as a Glider visual-kind component"
         );
     }
 }

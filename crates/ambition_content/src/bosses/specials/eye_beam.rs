@@ -138,6 +138,7 @@ pub fn spawn_eye_beam_from_special_messages(
                         half_extent: ae::Vec2::new(half_x.max(1.0), half_y.max(1.0)),
                         owner_id: format!("{}:{}", EYE_BEAM_OWNER_PREFIX, boss.config.id),
                         gravity: 0.0,
+                        visual_tag: 0,
                     }],
                 },
             });

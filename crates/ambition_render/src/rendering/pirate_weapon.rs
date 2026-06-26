@@ -15,9 +15,8 @@
 //!    the hand and rotated so the blade points along the aim
 //!    direction.
 //!
-//! Despawn-and-respawn each tick mirrors the pattern in
-//! `sync_enemy_projectile_visuals` — no per-entity lifecycle
-//! plumbing, the visual set always reflects the live rider set.
+//! Despawn-and-respawn each tick — no per-entity lifecycle plumbing, the
+//! visual set always reflects the live rider set.
 
 use ambition_gameplay_core::features::rider_hand_world_pos;
 use bevy::math::Vec2;

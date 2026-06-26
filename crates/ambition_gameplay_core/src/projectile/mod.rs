@@ -34,6 +34,7 @@ mod spawn;
 mod spawn_message;
 mod state;
 mod systems;
+mod visual_kind;
 
 #[cfg(test)]
 mod tests;
@@ -44,6 +45,10 @@ pub use entity::{
 };
 pub use kind::{FireballChargeTuning, ProjectileKind};
 pub use spawn_message::{ProjectilePool, SpawnProjectile};
+pub use visual_kind::{
+    ProjectileArt, ProjectileArtSource, ProjectileRenderSize, ProjectileRotation,
+    ProjectileVisualKind,
+};
 pub use state::PlayerProjectileState;
 pub use systems::{
     apply_player_spawn_projectile_messages, player_projectile_input, step_projectiles,

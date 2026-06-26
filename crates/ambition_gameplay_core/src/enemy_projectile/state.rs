@@ -79,6 +79,7 @@ mod tests {
             half_extent: ae::Vec2::new(8.0, 8.0),
             owner_id: "pirate_1".into(),
             gravity: 0.0,
+            visual_tag: 0,
         }
     }
 
@@ -117,6 +118,7 @@ mod tests {
                 half_extent: ae::Vec2::new(8.0, 8.0),
                 owner_id: "test".into(),
                 gravity: 0.0,
+                visual_tag: 0,
             },
             ProjectileFaction::Enemy,
         );

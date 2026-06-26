@@ -212,6 +212,13 @@ pub(crate) struct EnemyArchetypeSpec {
     /// presences) instead of refreshing on every room re-entry.
     #[serde(default)]
     pub respawn_on_rest: bool,
+    /// Visual identity of this archetype's ranged projectile. Authored so the
+    /// render layer selects shot art by KIND (e.g. `Glider` for the Perfect
+    /// Cell-ular Automaton) instead of sniffing the owner-id string. Defaults
+    /// to the generic `EnemyDefault` (orange shot); archetypes with a distinct
+    /// projectile look name it explicitly.
+    #[serde(default)]
+    pub ranged_visual: crate::projectile::ProjectileVisualKind,
     /// Locomotion style for the actor's `ActionSet.move_style`.
     pub move_style: ambition_characters::brain::MoveStyleSpec,
 }
@@ -532,6 +539,7 @@ impl EnemyArchetypeSpec {
             is_sandbag: self.is_sandbag,
             body_contact_damage: self.body_contact_damage,
             dream_seed: self.dream_seed,
+            ranged_visual: self.ranged_visual,
         }
     }
 

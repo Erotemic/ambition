@@ -786,10 +786,7 @@ fn install_misc_visual_sync_systems(app: &mut App) {
             .after(sync_visuals)
             .after(ambition_render::rendering::morph_ball::sync_morph_ball_visual)
             .after(ambition_render::rendering::bubble_shield::sync_bubble_shield_visual)
-            .after(ambition_render::rendering::projectile_visuals::sync_projectile_visuals)
-            .after(
-                ambition_render::rendering::enemy_projectile_visuals::sync_enemy_projectile_visuals,
-            ),
+            .after(ambition_render::rendering::projectile_visuals::sync_projectile_visuals),
     )
     // Mouse / touch dismissal for the map menu.
     .add_systems(
@@ -815,9 +812,11 @@ fn install_projectile_and_vfx_systems(app: &mut App) {
     app.add_systems(
         Update,
         (
+            // One unified, kind-driven visual pass for ALL projectiles (player +
+            // enemy); the charge indicator is its own player-only pass.
             ambition_render::rendering::projectile_visuals::sync_projectile_visuals
                 .after(ambition_gameplay_core::projectile::step_projectiles),
-            ambition_render::rendering::enemy_projectile_visuals::sync_enemy_projectile_visuals
+            ambition_render::rendering::projectile_visuals::sync_projectile_charge_visuals
                 .after(ambition_gameplay_core::projectile::step_projectiles),
         ),
     )

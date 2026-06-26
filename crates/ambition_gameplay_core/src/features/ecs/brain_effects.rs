@@ -88,6 +88,16 @@ pub fn spawn_enemy_projectiles_from_brain_actions(
         // Future items can extend this routing by id without changing the brain.
         let held_item_id = held_items.get(msg.actor).ok().map(|item| item.id());
         let uses_gun_sword = held_item_id == Some("gun_sword");
+        // The projectile's APPEARANCE is chosen by KIND, set here at the fire
+        // site: a gun-sword discharge is a spinning lasersword; otherwise the
+        // archetype's authored ranged visual (e.g. the PCA's Conway glider),
+        // defaulting to the generic hostile shot. The render layer reads this
+        // kind — never the owner-id string.
+        let visual_kind = if uses_gun_sword {
+            crate::projectile::ProjectileVisualKind::Lasersword
+        } else {
+            enemy.config.tuning.ranged_visual
+        };
         let gravity_dir = -enemy
             .surface
             .surface_normal
@@ -99,20 +109,21 @@ pub fn spawn_enemy_projectiles_from_brain_actions(
             speed: spec.speed(),
         };
         let world_dir = request.dir_to_world(frame).normalize_or_zero();
-        let (spawn_origin, owner_id) = if uses_gun_sword {
+        // owner_id is the firing actor's id ONLY — used for self / friendly-fire
+        // filtering and traces. It no longer encodes the projectile's look
+        // (that's `visual_kind`), so a gun-sword shot carries the plain actor id
+        // while still originating at the hand muzzle.
+        let owner_id = enemy.config.id.clone();
+        let spawn_origin = if uses_gun_sword {
             let hand = crate::features::rider_hand_world_pos_in_frame(
                 enemy.kin.pos,
                 enemy.kin.facing,
                 enemy.kin.size.y,
                 gravity_dir,
             );
-            let muzzle = hand + world_dir * 18.0;
-            (muzzle, format!("lasersword:{}", enemy.config.id))
+            hand + world_dir * 18.0
         } else {
-            (
-                origin + frame.to_world(ae::Vec2::new(0.0, -8.0)),
-                enemy.config.id.clone(),
-            )
+            origin + frame.to_world(ae::Vec2::new(0.0, -8.0))
         };
         let spawn = EnemyProjectileSpawn {
             origin: spawn_origin,
@@ -123,8 +134,9 @@ pub fn spawn_enemy_projectiles_from_brain_actions(
             half_extent: PROJECTILE_HALF_EXTENT,
             owner_id: owner_id.clone(),
             gravity: 0.0,
+            visual_tag: visual_kind.to_tag(),
         };
-        if owner_id.starts_with("lasersword:") {
+        if uses_gun_sword {
             sfx.write(SfxMessage::Play {
                 id: ambition_sfx::SfxId::from_static("weapon.lasersword.fire"),
                 pos: spawn.origin,
@@ -315,6 +327,52 @@ mod tests {
         assert!(
             !owner.starts_with("lasersword:"),
             "non-pirate archetype must not get lasersword owner_id; got {owner:?}",
+        );
+    }
+
+    /// The ranged-fire consumer stamps the firing actor's authored ranged
+    /// visual onto the spawned projectile (by KIND, not owner_id). A
+    /// `cellular_automaton_fighter` authored `ranged_visual: Glider` fires a
+    /// Glider-kind shot.
+    #[test]
+    fn ranged_shot_carries_archetype_authored_visual_kind() {
+        let mut app = build_app();
+        let actor_pos = ae::Vec2::new(300.0, 300.0);
+        let aabb = ae::Aabb::new(actor_pos, ae::Vec2::new(14.0, 23.0));
+        let enemy = ActorClusterSeed::new(
+            "pca_test",
+            "Perfect Cell-ular Automaton",
+            aabb,
+            ambition_characters::actor::EnemyBrain::Custom("cellular_automaton_fighter".into()),
+            &[],
+        );
+        let mut bundle = enemy_actor(enemy);
+        // Author the ranged visual as the runtime archetype projection would.
+        bundle.1 .2.tuning.ranged_visual = crate::projectile::ProjectileVisualKind::Glider;
+        let actor = app.world_mut().spawn(bundle).id();
+        app.world_mut()
+            .resource_mut::<bevy::ecs::message::Messages<ActorActionMessage>>()
+            .write(ActorActionMessage {
+                actor,
+                request: ActionRequest::Ranged {
+                    spec: RangedActionSpec::Rock {
+                        speed: 300.0,
+                        damage: 1,
+                    },
+                    origin: actor_pos,
+                    dir: ae::Vec2::new(1.0, 0.0),
+                    dir_policy: ae::GameplayFramePolicy::WorldSpace,
+                },
+            });
+        app.update();
+        let mut q = app
+            .world_mut()
+            .query::<&crate::projectile::ProjectileVisualKind>();
+        let kinds: Vec<_> = q.iter(app.world()).copied().collect();
+        assert_eq!(
+            kinds,
+            vec![crate::projectile::ProjectileVisualKind::Glider],
+            "the PCA's authored ranged_visual must ride onto the spawned shot"
         );
     }
 

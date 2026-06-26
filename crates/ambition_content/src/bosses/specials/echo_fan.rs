@@ -111,6 +111,7 @@ pub fn spawn_echo_fan_from_special_messages(
                         half_extent: ECHO_FAN_HALF_EXTENT,
                         owner_id: format!("{}:{}", ECHO_FAN_OWNER_PREFIX, boss.config.id),
                         gravity: 0.0,
+                        visual_tag: 0,
                     }],
                 },
             });

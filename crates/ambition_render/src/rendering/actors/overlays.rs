@@ -195,14 +195,11 @@ pub fn apply_placeholder_sprites_override(
         Option<&FeatureVisual>,
         Option<&PlayerVisual>,
         Option<&ambition_gameplay_core::player::BodyKinematics>,
-        Option<&crate::rendering::projectile_visuals::PlayerProjectileVisual>,
-        Option<&crate::rendering::enemy_projectile_visuals::EnemyProjectileVisual>,
+        Option<&ambition_gameplay_core::projectile::ProjectileVisualKind>,
     )>,
 ) {
     if developer_tools.placeholder_sprites {
-        for (entity, mut sprite, original, feature, player, player_body, p_proj, e_proj) in
-            &mut sprites
-        {
+        for (entity, mut sprite, original, feature, player, player_body, proj_kind) in &mut sprites {
             // Record original state once so we can restore on toggle-off.
             if original.is_none() {
                 commands.entity(entity).insert(SpriteOriginalState {
@@ -217,8 +214,7 @@ pub fn apply_placeholder_sprites_override(
             let placeholder_color = pick_placeholder_color(
                 feature_view.map(|v| v.kind),
                 player.is_some(),
-                p_proj.is_some(),
-                e_proj.is_some(),
+                proj_kind.copied(),
             );
             // Drop the texture and atlas so the sprite renders as a flat
             // rectangle. Size feature placeholders to their gameplay AABB
@@ -240,7 +236,7 @@ pub fn apply_placeholder_sprites_override(
         }
     } else {
         // Restore any cached originals.
-        for (entity, mut sprite, original, _, _, _, _, _) in &mut sprites {
+        for (entity, mut sprite, original, _, _, _, _) in &mut sprites {
             if let Some(orig) = original {
                 if sprite.image != orig.image {
                     sprite.image = orig.image.clone();
@@ -260,17 +256,17 @@ pub fn apply_placeholder_sprites_override(
 fn pick_placeholder_color(
     feature_kind: Option<FeatureVisualKind>,
     is_player: bool,
-    is_player_projectile: bool,
-    is_enemy_projectile: bool,
+    proj_kind: Option<ambition_gameplay_core::projectile::ProjectileVisualKind>,
 ) -> Color {
     if is_player {
         return Color::srgba(0.55, 0.85, 1.00, 1.0);
     }
-    if is_player_projectile {
-        return Color::srgba(1.00, 0.74, 0.30, 1.0);
-    }
-    if is_enemy_projectile {
-        return Color::srgba(1.00, 0.32, 0.32, 1.0);
+    // Projectiles read their placeholder color from their visual KIND (a glider,
+    // a fireball, an apple each distinct) — not from whether the player or an
+    // enemy fired them.
+    if let Some(kind) = proj_kind {
+        let [r, g, b, a] = kind.debug_tint();
+        return Color::srgba(r, g, b, a);
     }
     match feature_kind {
         Some(kind) => feature_color(kind, false),

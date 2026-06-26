@@ -1,0 +1,5 @@
+# Experimental scratch in this dir stays out of git, but the hand-authored
+# source SVGs that drive rigs (see tools/ambition_sprite2d_renderer sprite
+# parts) are real source and must be tracked.
+perfect-cellular-automaton/*
+!perfect-cellular-automaton/pca-front-side.svg

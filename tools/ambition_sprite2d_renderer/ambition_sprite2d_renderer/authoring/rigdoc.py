@@ -79,7 +79,7 @@ from .skeleton import (
 Color = Tuple[int, int, int, int]
 Point = Tuple[float, float]
 
-PART_KINDS = ("polygon", "capsule", "circle")
+PART_KINDS = ("polygon", "capsule", "circle", "sprite")
 EASE_NAMES = ("linear", "smooth", "out", "in", "sine")
 
 # Restricted namespace for expression channels. Documents are local,
@@ -167,14 +167,21 @@ class RigDocument:
     The GUI edits ``data`` in place; everything here derives from it on
     demand (documents are editor-scale, tens of bones, so no caching)."""
 
-    def __init__(self, data: dict) -> None:
+    def __init__(self, data: dict, source_path=None) -> None:
         self.data = data
+        # Where this document was loaded from. ``sprite`` parts resolve their
+        # SVG relative to this, and the per-resolution sprite raster cache is
+        # keyed per instance (so a sheet rasterizes each part once).
+        self.source_path = Path(source_path) if source_path is not None else None
+        self._sprite_cache: Dict[Tuple[str, int], Tuple[Image.Image, Point]] = {}
 
     # ---- I/O -------------------------------------------------------------
 
     @classmethod
     def load(cls, path) -> "RigDocument":
-        return cls(json.loads(Path(path).read_text(encoding="utf8")))
+        return cls(
+            json.loads(Path(path).read_text(encoding="utf8")), source_path=path
+        )
 
     def save(self, path) -> None:
         Path(path).write_text(
@@ -252,6 +259,19 @@ class RigDocument:
         with a ``feature`` only renders when its entry here is truthy (or
         absent — features default to on)."""
         return self.data.setdefault("features", {})
+
+    @property
+    def svg_source(self) -> Dict[str, object]:
+        """Optional source-SVG binding for ``sprite`` parts::
+
+            {"path": "rel/to/this.rig.json/art.svg", "view": "VIEW-front-right",
+             "ref_dpi": 96.0, "scale": 0.1845}
+
+        ``sprite`` parts name SVG element ids and a ``pivot`` in *reference
+        pixels* (the SVG rendered at ``ref_dpi``); ``scale`` is base-frame units
+        per reference pixel, so the same art drives both the bone geometry and
+        the rendered raster."""
+        return self.data.setdefault("svg_source", {})
 
     @property
     def sprite_tuning(self) -> Dict[str, float]:
@@ -349,6 +369,49 @@ class RigDocument:
                 angles[foot] = pitch - a2 - sk.bones[foot].rest_angle
         return sk.world(angles, root=root), s
 
+    # ---- Sprite parts (rasterized SVG subsets) ------------------------------
+
+    def _svg_path(self) -> Optional[Path]:
+        src = self.svg_source.get("path")
+        if not src:
+            return None
+        p = Path(str(src))
+        if not p.is_absolute() and self.source_path is not None:
+            p = (self.source_path.parent / p).resolve()
+        return p
+
+    def sprite_image(self, part: dict, S: float) -> Optional[Tuple[Image.Image, Point]]:
+        """Rasterize a ``sprite`` part's SVG subset at composite scale ``S``.
+
+        Returns ``(cropped RGBA, pivot_in_crop_px)`` — the pivot is the part's
+        joint (``pivot``, in reference px) located inside the cropped raster.
+        Cached per ``(part, round(S))`` so a whole sheet rasterizes each part
+        once. ``None`` if the SVG is unavailable or the subset renders empty."""
+        svg_path = self._svg_path()
+        if svg_path is None or not svg_path.exists():
+            return None
+        key = (part.get("name", ""), int(round(S * 256)))
+        cached = self._sprite_cache.get(key)
+        if cached is not None:
+            return cached
+        from .svg_parts import rasterize_subset
+
+        src = self.svg_source
+        ref_dpi = float(src.get("ref_dpi", 96.0))
+        scale = float(src.get("scale", 1.0))  # base-frame units per reference px
+        view = str(src.get("view", ""))
+        # 1 ref-px -> scale*S composite px, so render the SVG at this dpi.
+        dpi = ref_dpi * scale * S
+        img, (off_x, off_y), _ppu = rasterize_subset(
+            svg_path, view, list(part.get("include", [])), dpi
+        )
+        if img is None:
+            return None
+        px, py = part.get("pivot", (0.0, 0.0))
+        pivot = (px * scale * S - off_x, py * scale * S - off_y)
+        self._sprite_cache[key] = (img, pivot)
+        return img, pivot
+
     # ---- Painting -----------------------------------------------------------
 
     def render_at(
@@ -373,7 +436,8 @@ class RigDocument:
         draw = ImageDraw.Draw(img)
         world, params = self.solve(clip_name, t)
         for part in visible_parts(self.parts, self.features):
-            paint_part(img, draw, part, world, S, params, self.palette)
+            sprite = self.sprite_image(part, S) if part.get("kind") == "sprite" else None
+            paint_part(img, draw, part, world, S, params, self.palette, sprite=sprite)
         if ss == 1:
             return img
         return img.resize((w * rs, h * rs), Image.Resampling.LANCZOS)
@@ -396,6 +460,35 @@ class RigDocument:
 # same part vocabulary without carrying a RigDocument around.
 
 
+def blit_rotated(
+    canvas: Image.Image,
+    sprite: Image.Image,
+    pivot: Point,
+    world_px: Point,
+    delta_deg: float,
+    opacity: float = 1.0,
+) -> None:
+    """Rotate ``sprite`` about its ``pivot`` by ``delta_deg`` and composite it so
+    the pivot lands at ``world_px``. The sprite is padded into a square centered
+    on the pivot so the rotation keeps the pivot fixed."""
+    px, py = pivot
+    w, h = sprite.size
+    radius = max(
+        math.hypot(cx - px, cy - py) for cx in (0, w) for cy in (0, h)
+    )
+    R = int(math.ceil(radius)) + 2
+    pad = Image.new("RGBA", (2 * R, 2 * R), (0, 0, 0, 0))
+    pad.alpha_composite(sprite, (R - int(round(px)), R - int(round(py))))
+    # PIL rotates counter-clockwise in image space; with +y down that matches the
+    # toolkit's clockwise-positive screen angle, so pass delta straight through.
+    rot = pad.rotate(delta_deg, resample=Image.Resampling.BICUBIC, center=(R, R))
+    if opacity < 1.0:
+        rot.putalpha(rot.getchannel("A").point(lambda v: int(v * opacity)))
+    canvas.alpha_composite(
+        rot, (int(round(world_px[0])) - R, int(round(world_px[1])) - R)
+    )
+
+
 def paint_part(
     img: Image.Image,
     draw: ImageDraw.ImageDraw,
@@ -404,6 +497,7 @@ def paint_part(
     S: float,
     params: Dict[str, float],
     palette: Dict[str, str],
+    sprite: Optional[Tuple[Image.Image, Point]] = None,
 ) -> None:
     bone_name = part.get("bone")
     if bone_name not in world:
@@ -417,6 +511,16 @@ def paint_part(
         opacity = clamp(params.get(oc, 0.0), 0.0, 1.0)
         if opacity <= 0.01:
             return
+    if part.get("kind") == "sprite":
+        if sprite is None:
+            return
+        bw = world[bone_name]
+        spr_img, pivot = sprite
+        delta = bw.angle - float(part.get("rest_angle", 0.0))
+        blit_rotated(
+            img, spr_img, pivot, (bw.origin[0] * S, bw.origin[1] * S), delta, opacity
+        )
+        return
     fill = parse_color(part.get("fill", "#FFFFFF"), palette, opacity)
     outline = parse_color(part.get("outline"), palette, opacity)
     ow = float(part.get("outline_w", 0.0)) * S

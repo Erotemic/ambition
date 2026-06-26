@@ -7,6 +7,9 @@ dependencies = [
   "Pillow>=9",
   "PyYAML>=6",
   "rich>=13",
+  # SVG rasterizer for `sprite` rig parts (binds hand-authored Inkscape art to
+  # bones). Self-contained wheel — no system cairo/inkscape needed.
+  "resvg-py>=0.3",
 ]
 
 [project.scripts]

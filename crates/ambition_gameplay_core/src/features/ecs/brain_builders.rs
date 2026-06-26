@@ -365,6 +365,10 @@ fn smash_cfg_from_spec(spec: &EnemyBrainSpec, tuning: &ActorTuning) -> SmashCfg 
         // reactive restraint (policy, I4); the body owns the physical floor (I3).
         can_blink: spec.smash_can_blink,
         blink_cooldown_s: if spec.smash_can_blink { 1.2 } else { 0.0 },
+        // Grounded-base hybrid flyer: the brain *prefers* grounded and flies only
+        // to cover a long traversal gap (the decision lives in `decide_flight`).
+        // The body's `CombatCapabilities::can_fly` is the matching enforce gate.
+        can_fly: spec.smash_can_fly,
         ..base
     }
 }

@@ -93,6 +93,12 @@ pub struct CombatCapabilities {
     /// body resolves it only when this is set and its blink cooldown is ready, so
     /// the player kit is a per-body capability, never gated on "is the player".
     pub can_blink: bool,
+    /// Movement kit: this body can **fly** — toggle between grounded and free-
+    /// mover (gravity-free) locomotion. The body-side gate for the `fly_toggle`
+    /// intent (I3): the controller decides WHEN to switch modes (the brain
+    /// prefers grounded and flies to traverse; a possessing human presses it),
+    /// the body flips its own gravity mode.
+    pub can_fly: bool,
 }
 
 /// Per-actor numeric/flag tuning the RUNTIME combat loops read each
@@ -251,6 +257,10 @@ pub struct EnemyBrainSpec {
     /// into `SmashCfg::can_blink` (the controller's *attempt*); the body's
     /// `CombatCapabilities::can_blink` is the matching *enforce* gate.
     pub smash_can_blink: bool,
+    /// Movement kit: grounded-base hybrid that flies to cover a long traversal
+    /// gap. Projected into `SmashCfg::can_fly` (attempt); the body's
+    /// `CombatCapabilities::can_fly` is the matching *enforce* gate.
+    pub smash_can_fly: bool,
     /// When provoked from peaceful, force an aggressive MeleeBrute brain
     /// with at least this aggro radius (cove PirateHeavy crew).
     /// `None` = use the template's default aggressive brain.
@@ -271,6 +281,7 @@ impl Default for EnemyBrainSpec {
             smash_heavy: false,
             smash_dash_to_close: false,
             smash_can_blink: false,
+            smash_can_fly: false,
             provoke_forced_brute_min_aggro: None,
         }
     }

@@ -94,6 +94,14 @@ pub fn emit_inputs(
                     ),
                 );
             }
+            // Fire WHILE closing, not instead of closing: a ranged poke advances
+            // toward the target (throwing the poke on the way in to the melee
+            // finish) rather than camping at range. Without this the fighter
+            // stands and pokes forever once it enters the ranged band — an
+            // aggressive fighter keeps coming (the body, not a brain camp, paces
+            // the shots; invariants I3/I4).
+            let toward = signum_or(obs.to_target_x, obs.self_facing);
+            out.locomotion = ae::Vec2::new(toward * (WALK_SPEED_PX_S / DASH_SPEED_PX_S), 0.0);
         }
         SpecificAction::Special => {
             out.special_pressed = true;

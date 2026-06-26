@@ -201,6 +201,12 @@ pub(crate) struct EnemyArchetypeSpec {
     /// attempt vs enforce (invariants I2/I3/I7).
     #[serde(default)]
     pub smash_can_blink: bool,
+    /// Movement kit: grounded-base **hybrid flyer** — prefers to fight grounded
+    /// but takes to the air to cover a long traversal gap (brain preference;
+    /// flight is free for now). Projects into BOTH `SmashCfg::can_fly` (attempt)
+    /// and `CombatCapabilities::can_fly` (enforce).
+    #[serde(default)]
+    pub smash_can_fly: bool,
     /// When provoked from peaceful, force an aggressive MeleeBrute brain
     /// with at least this aggro radius (cove PirateHeavy crew). `None` =
     /// use the template's default aggressive brain.
@@ -492,6 +498,7 @@ impl EnemyArchetypeSpec {
             smash_heavy: self.smash_heavy,
             smash_dash_to_close: self.smash_dash_to_close,
             smash_can_blink: self.smash_can_blink,
+            smash_can_fly: self.smash_can_fly,
             provoke_forced_brute_min_aggro: self.provoke_forced_brute_min_aggro,
         }
     }
@@ -568,6 +575,7 @@ impl EnemyArchetypeSpec {
             respawn_policy: self.respawn_policy(),
             drops_held_item: self.held_item_spec(),
             can_blink: self.smash_can_blink,
+            can_fly: self.smash_can_fly,
         }
     }
 }

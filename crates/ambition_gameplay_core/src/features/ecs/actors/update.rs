@@ -414,6 +414,19 @@ pub fn update_ecs_actors(
                         });
                     }
                 }
+                // Body resolves the fly-toggle intent (invariant I3): capability-
+                // gated, flips the body's gravity mode (grounded spine <-> free-
+                // mover). The integrator reads the new mode next tick (the brain
+                // already steered this tick's motion in the old mode). The
+                // controller decides WHEN — the brain prefers grounded and toggles
+                // up only to traverse a long gap; a possessing human presses it.
+                if em.caps.can_fly && frame.fly_toggle_pressed {
+                    em.surface.gravity_scale = if em.surface.gravity_scale <= 0.001 {
+                        1.0
+                    } else {
+                        0.0
+                    };
+                }
                 // Publish the actor's footprint ORIENTED to its reference frame —
                 // the single source of truth read by the debug overlay, player
                 // hurtbox, and target volumes, so the box matches the rotated

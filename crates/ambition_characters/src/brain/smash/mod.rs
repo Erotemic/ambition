@@ -464,35 +464,34 @@ pub fn tick_smash(
     }
 }
 
-/// Hybrid-flight decision: should the fighter be airborne right now? It fights
-/// grounded by default and either (a) takes off to contest a clearly-elevated
-/// target, or (b) mounts a proactive aerial foray on a cadence, then lands to
-/// footsie again. Phase timers give hysteresis so the fly toggle can't chatter.
-/// Returns the DESIRED airborne state; the caller toggles when it differs from
-/// the body's current `self_aerial`.
-fn decide_flight(obs: &ObservationFrame, cfg: &SmashCfg, state: &mut SmashState) -> bool {
-    let currently = obs.self_aerial;
-    state.foray_timer = (state.foray_timer - obs.dt).max(0.0);
-    // Forced take-off: a target genuinely above us (more than a hop) is better
-    // contested in the air than by jump-chasing. Arms a minimum foray so we don't
-    // immediately land again.
-    let target_above = obs.to_target_up() > cfg.vertical_chase_min;
-    if !currently && target_above {
-        state.foray_timer = cfg.aerial_foray_duration_s.max(0.6);
-        return true;
+/// Hybrid-flight decision: should the fighter be airborne right now?
+///
+/// **The body PREFERS grounded.** It takes to the air only to cover a long
+/// traversal gap — closing on a distant target faster than it could on foot — or
+/// to reach a target far overhead that a jump can't contest; once it has closed
+/// in, it lands and fights on the ground. Distance hysteresis (a higher take-off
+/// than landing threshold) keeps the toggle from chattering at the boundary.
+///
+/// This is pure *policy* (invariant I4): flight here is free, so the preference
+/// is the only thing keeping the fighter grounded; a resource cost will reinforce
+/// it later, and a learned policy could rediscover the same trade-off. Returns the
+/// DESIRED airborne state; the caller toggles when it differs from `self_aerial`.
+fn decide_flight(obs: &ObservationFrame, cfg: &SmashCfg, _state: &mut SmashState) -> bool {
+    // No live target in sensing range → no reason to leave the ground.
+    if !obs.target_alive || obs.distance_to_target > cfg.aggro_radius {
+        return false;
     }
-    // Proactive cadence: when the current phase elapses, switch modes and arm the
-    // other phase's dwell.
-    if state.foray_timer <= 0.0 && cfg.aerial_foray_cadence_s > 0.0 {
-        let desired = !currently;
-        state.foray_timer = if desired {
-            cfg.aerial_foray_duration_s
-        } else {
-            cfg.aerial_foray_cadence_s
-        };
-        return desired;
-    }
-    currently
+    // Take off only for a genuinely long gap; once closed inside the (lower)
+    // landing band, come back down and brawl. Hysteresis via the two thresholds.
+    let threshold = if obs.self_aerial {
+        cfg.aggro_radius * 0.42
+    } else {
+        cfg.aggro_radius * 0.60
+    };
+    let long_traversal = obs.distance_to_target > threshold;
+    // A target far overhead (well beyond a jump) is also a fly case.
+    let high_overhead = obs.to_target_up() > cfg.vertical_chase_min * 2.5;
+    long_traversal || high_overhead
 }
 
 /// Detect an incoming lunge worth defending against, returning the WORLD-space
@@ -1177,6 +1176,69 @@ mod tests {
         assert!(
             vel.dot(obs.up_axis()) >= 0.0,
             "aerial steer must not drive into gravity; got {vel:?} under down={down:?}"
+        );
+    }
+
+    // --- S3b: hybrid flight prefers grounded, flies to traverse ---
+
+    fn hybrid_obs(distance_x: f32, currently_aerial: bool) -> ObservationFrame {
+        let mut snap = snap_with_target_at_x(distance_x);
+        snap.actor_aerial = currently_aerial;
+        snap.actor_on_ground = !currently_aerial;
+        observe(&snap)
+    }
+
+    /// The hybrid PREFERS grounded: with a target close in, it does not take to
+    /// the air; with a target a long traversal away, it does. (Brain *policy* —
+    /// flight is free for now, so this preference is the only thing keeping it
+    /// grounded.)
+    #[test]
+    fn hybrid_flight_prefers_grounded_flies_to_traverse() {
+        let mut cfg = SmashCfg::DUELIST_DEFAULT;
+        cfg.can_fly = true;
+        cfg.aggro_radius = 500.0; // take-off > 300, land > 210
+        let mut state = SmashState::default();
+
+        // Close target, on the ground → stay grounded.
+        assert!(
+            !decide_flight(&hybrid_obs(120.0, false), &cfg, &mut state),
+            "a grounded hybrid should NOT fly to a target it can just walk to"
+        );
+        // Distant target, on the ground → take off to cover the gap.
+        assert!(
+            decide_flight(&hybrid_obs(420.0, false), &cfg, &mut state),
+            "a grounded hybrid SHOULD fly to close a long traversal gap"
+        );
+        // A target beyond sensing range is not chased into the air.
+        assert!(
+            !decide_flight(&hybrid_obs(900.0, false), &cfg, &mut state),
+            "no live target in range → no reason to leave the ground"
+        );
+    }
+
+    /// Hysteresis: once airborne it keeps flying through the mid-band (so the
+    /// toggle doesn't chatter at the boundary), but lands once it has closed in.
+    #[test]
+    fn hybrid_flight_has_landing_hysteresis() {
+        let mut cfg = SmashCfg::DUELIST_DEFAULT;
+        cfg.can_fly = true;
+        cfg.aggro_radius = 500.0; // take-off 300, land 210
+        let mut state = SmashState::default();
+
+        // Mid-band (between land=210 and take-off=300): keep flying if already up…
+        assert!(
+            decide_flight(&hybrid_obs(250.0, true), &cfg, &mut state),
+            "an airborne hybrid keeps flying through the mid-band (hysteresis)"
+        );
+        // …but a grounded one would NOT have taken off at the same distance.
+        assert!(
+            !decide_flight(&hybrid_obs(250.0, false), &cfg, &mut state),
+            "a grounded hybrid does not take off in the mid-band"
+        );
+        // Closed all the way in → land and brawl.
+        assert!(
+            !decide_flight(&hybrid_obs(150.0, true), &cfg, &mut state),
+            "once closed inside the landing band, the hybrid comes down to fight"
         );
     }
 }

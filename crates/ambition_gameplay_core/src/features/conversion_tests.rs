@@ -294,13 +294,17 @@ mod conversion_tests {
         // combatant's 4) and is a hostile Smash fighter.
         let spec = test_spec("cellular_automaton_fighter");
         assert_eq!(spec.max_health, 18);
-        // It FLIES: `is_aerial` keeps it a free-mover when provoked, so the
-        // aerial-capable Smash brain drives it via velocity_target (perch/dive)
-        // instead of descending. (S4a's gravity re-sync now keeps it airborne
-        // because the archetype is aerial — the same mechanism, opposite outcome.)
+        // It is a grounded-base HYBRID (S3b): it prefers to fight on the ground
+        // (so on provoke its gravity re-syncs to grounded and it descends), but
+        // carries the `can_fly` kit to take to the air and cover a long traversal
+        // gap. Flight is a brain *preference* (I4), not a fixed body mode.
         assert!(
-            spec.is_aerial,
-            "the PCA boss should fly (is_aerial) so the aerial Smash brain drives it"
+            !spec.is_aerial,
+            "the PCA boss is grounded-base (prefers grounded), not a permanent flyer"
+        );
+        assert!(
+            spec.smash_can_fly,
+            "the PCA boss has the fly kit so it can traverse long distances airborne"
         );
         // It carries the glider as its ranged zoning tool.
         assert!(

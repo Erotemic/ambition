@@ -118,7 +118,10 @@
         attack_range: 150.0,
         contact_strength: 0.75,
         damage_amount: 1,
-        is_aerial: true,
+        // Grounded-base HYBRID: it prefers to fight on the ground (so it descends
+        // on provoke), and uses `smash_can_fly` below to take to the air only to
+        // cover a long traversal gap, then land.
+        is_aerial: false,
         brain_template: Smash,
         melee: Some(Swipe((
             windup_s: 0.24,
@@ -137,6 +140,9 @@
         // Blink-evade: the PCA teleports out of a perceived lunge (body-enforced
         // capability + cooldown; a possessing player gets the same blink).
         smash_can_blink: true,
+        // Fly kit: prefers grounded, but takes to the air to close a long gap
+        // (brain preference; flight is free for now). Body-enforced capability.
+        smash_can_fly: true,
         move_style: Walk,
     ),
     "small_skitter": (

@@ -815,9 +815,8 @@ mod lock_wall_visual_tests {
         let mut app = App::new();
         app.insert_resource(room());
         app.insert_resource(FeatureEcsWorldOverlay {
-            blocks: Vec::new(),
             gate_solids: vec![gate_wall()],
-            portal_carves: Vec::new(),
+            ..Default::default()
         });
         app.add_systems(Update, sync_lock_wall_visuals);
 

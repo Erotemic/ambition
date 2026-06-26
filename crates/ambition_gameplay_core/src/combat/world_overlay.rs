@@ -45,7 +45,11 @@ impl CollisionWorld<'_> {
         let room = self.room.as_ref()?;
         let platforms = self.platforms.as_ref().map_or(&[][..], |p| &p.0);
         let overlay_empty = self.overlay.as_ref().map_or(true, |o| {
-            o.blocks.is_empty() && o.gate_solids.is_empty() && o.portal_carves.is_empty()
+            o.blocks.is_empty()
+                && o.gate_solids.is_empty()
+                && o.portal_carves.is_empty()
+                && o.removed_block_names.is_empty()
+                && o.climbable_carves.is_empty()
         });
         if platforms.is_empty() && overlay_empty {
             return Some(Cow::Borrowed(&room.0));
@@ -86,6 +90,11 @@ pub fn world_with_sandbox_solids(
 ) -> ae::World {
     let mut collision_world =
         crate::world::platforms::world_with_moving_platforms(world, platforms);
+    // Content gates may SUBTRACT authored geometry from the view (the immutable-
+    // base inversion): drop named authored blocks and carve out suppressed
+    // climbable regions before adding overlay solids / carving portals. A gate
+    // contributes these instead of mutating the authored base mid-room.
+    apply_overlay_subtractions(&mut collision_world, ecs_overlay);
     collision_world
         .blocks
         .extend(ecs_overlay.blocks.iter().cloned());
@@ -134,16 +143,51 @@ pub fn world_with_gate_solids_and_carves<'w>(
     world: &'w ae::World,
     gate_solids: &[ae::Block],
     portal_carves: &[ae::Aabb],
+    removed_block_names: &[String],
 ) -> std::borrow::Cow<'w, ae::World> {
-    if gate_solids.is_empty() && portal_carves.is_empty() {
+    if gate_solids.is_empty() && portal_carves.is_empty() && removed_block_names.is_empty() {
         return std::borrow::Cow::Borrowed(world);
     }
     let mut composed = world.clone();
+    // Subtract authored blocks a gate has opened (gnu_ton floor-gate) so a shot
+    // passes through it exactly as the player does, then add gate solids + carve.
+    remove_named_blocks(&mut composed.blocks, removed_block_names);
     composed.blocks.extend(gate_solids.iter().cloned());
     if !portal_carves.is_empty() {
         carve_portal_apertures(&mut composed.blocks, portal_carves);
     }
     std::borrow::Cow::Owned(composed)
+}
+
+/// Apply a content gate's authored-geometry SUBTRACTIONS to a composited world:
+/// drop blocks whose name is in `removed_block_names`, and drop climbable regions
+/// intersecting any `climbable_carves` AABB. The inverse of adding `gate_solids` —
+/// it lets a gate open an authored solid / hide an authored ladder without
+/// touching the immutable base. No-op (and no allocation scan) when both lists are
+/// empty.
+fn apply_overlay_subtractions(world: &mut ae::World, overlay: &FeatureEcsWorldOverlay) {
+    if !overlay.removed_block_names.is_empty() {
+        world
+            .blocks
+            .retain(|b| !overlay.removed_block_names.iter().any(|n| n == &b.name));
+    }
+    if !overlay.climbable_carves.is_empty() {
+        world.climbable_regions.retain(|r| {
+            !overlay
+                .climbable_carves
+                .iter()
+                .any(|c| r.aabb.strict_intersects(*c))
+        });
+    }
+}
+
+/// Drop authored blocks named in `removed_block_names` from a block list (the
+/// projectile-view half of [`apply_overlay_subtractions`]; projectiles don't read
+/// climbable regions). No-op when the list is empty.
+fn remove_named_blocks(blocks: &mut Vec<ae::Block>, removed_block_names: &[String]) {
+    if !removed_block_names.is_empty() {
+        blocks.retain(|b| !removed_block_names.iter().any(|n| n == &b.name));
+    }
 }
 
 /// Split every solid host block by the portal aperture holes, leaving a doorway
@@ -254,8 +298,7 @@ mod collision_world_tests {
                 kind: ae::BlockKind::Solid,
                 velocity: ae::Vec2::ZERO,
             }],
-            gate_solids: Vec::new(),
-            portal_carves: Vec::new(),
+            ..Default::default()
         });
         // A non-empty overlay forces an owned composite: base + the ECS solid.
         assert_eq!(run(&mut app), Some((true, 2)));
@@ -275,9 +318,8 @@ mod collision_world_tests {
         app.init_resource::<SolidsProbe>();
         app.insert_resource(room_one_block());
         app.insert_resource(FeatureEcsWorldOverlay {
-            blocks: Vec::new(),
             gate_solids: vec![gate_wall()],
-            portal_carves: Vec::new(),
+            ..Default::default()
         });
         // A gate solid is a dynamic contribution → owned composite of base + wall.
         assert_eq!(run(&mut app), Some((true, 2)));
@@ -290,7 +332,7 @@ mod collision_world_tests {
         // lived in the authored base.
         let room = room_one_block();
         let gates = vec![gate_wall()];
-        let view = world_with_gate_solids_and_carves(&room.0, &gates, &[]);
+        let view = world_with_gate_solids_and_carves(&room.0, &gates, &[], &[]);
         assert!(
             matches!(view, Cow::Owned(_)),
             "gate solids force an owned projectile view"
@@ -303,7 +345,7 @@ mod collision_world_tests {
 
         // No gate solids and no carves borrows the base (no per-frame clone).
         let none: Vec<ae::Block> = Vec::new();
-        let borrowed = world_with_gate_solids_and_carves(&room.0, &none, &[]);
+        let borrowed = world_with_gate_solids_and_carves(&room.0, &none, &[], &[]);
         assert!(matches!(borrowed, Cow::Borrowed(_)));
     }
 }

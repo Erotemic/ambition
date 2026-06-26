@@ -106,6 +106,7 @@ impl ProjectileCollisionWorld<'_, '_> {
             &self.world.0,
             &self.overlay.gate_solids,
             &self.overlay.portal_carves,
+            &self.overlay.removed_block_names,
         )
     }
 

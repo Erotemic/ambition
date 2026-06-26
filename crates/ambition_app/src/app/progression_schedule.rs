@@ -43,13 +43,6 @@ impl Plugin for ProgressionSchedulePlugin {
                 // rest of the Progression chain follows. Victory NPC spawns after
                 // `release_payloads_on_death` so it sees the freed payload.
                 ambition_content::bosses::spawn_cut_rope_victory_npc,
-                // Hides the gnu_ton arena's retreat ladder while the boss
-                // is alive, re-adds it the frame the boss dies. Runs after
-                // `update_boss_encounters` so a defeat this tick is
-                // observable as `boss.alive = false`, and before player
-                // movement consumes `world.climbable_regions` in the next
-                // visual sync set.
-                ambition_content::bosses::gate_gnu_ton_arena_ladder,
                 // One save-sync over the unified actor cluster (enemies +
                 // persisted-hostile NPCs flip in place).
                 ambition_gameplay_core::features::sync_ecs_actors_with_save,
@@ -73,6 +66,22 @@ impl Plugin for ProgressionSchedulePlugin {
             )
                 .chain()
                 .in_set(SandboxSet::Progression),
+        );
+
+        // GNU-ton arena gate: a derived collision-overlay contributor (hides the
+        // retreat ladder while the boss is alive; opens the floor-gate on defeat).
+        // Runs in WorldPrep after the overlay rebuild clears the per-frame
+        // contributions and before the WorldPrep collision consumers — exactly
+        // like the encounter / intro lock-wall gates — so this frame's player /
+        // actor / projectile collision sees the derived geometry. A defeat is
+        // observed as `boss.alive = false` one frame after the boss runtime sets
+        // it (negligible, and it no longer mutates the authored RoomGeometry).
+        app.add_systems(
+            Update,
+            ambition_content::bosses::gate_gnu_ton_arena_ladder
+                .after(ambition_gameplay_core::features::rebuild_feature_ecs_world_overlay)
+                .before(ambition_gameplay_core::features::update_ecs_hazards)
+                .in_set(ambition_gameplay_core::schedule::SandboxSet::WorldPrep),
         );
 
         // Populate the encounter / quest / boss registries from the LDtk

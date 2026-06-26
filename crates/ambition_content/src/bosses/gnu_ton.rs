@@ -29,7 +29,8 @@
 use ambition_engine_core as ae;
 use bevy::prelude::*;
 
-use ambition_gameplay_core::features::BossClusterRef;
+use ambition_gameplay_core::features::{BossClusterRef, FeatureEcsWorldOverlay};
+use ambition_gameplay_core::RoomGeometry;
 
 /// LDtk level identifier of the arena room whose ladder this system
 /// gates. Held as a constant so it's grep-able alongside the matching
@@ -42,30 +43,6 @@ const ARENA_ROOM_NAME: &str = "gnu_ton_arena";
 /// match `specs/gnu_ton/add_ladder_floor_gate.yaml`.
 const FLOOR_GATE_BLOCK_NAME: &str = "ladder_floor_gate";
 
-/// Per-visit gating state. Lives in a `Local` on the gating system so
-/// the resource graph stays clean (no global resource for a single
-/// arena's environment hook).
-#[derive(Default)]
-pub struct GnuTonLadderGate {
-    /// The Ladder-kind ClimbableRegions we pulled out of the world on
-    /// arena entry. `None` means we haven't observed the arena yet
-    /// this visit; `Some(_)` (even if empty) means we have, and won't
-    /// re-scan. Reset to `None` on leaving the arena so a fresh entry
-    /// re-runs the stash pass against the newly loaded world.
-    stashed: Option<Vec<ae::ClimbableRegion>>,
-    /// True once we've re-added the stashed ladders on boss death
-    /// this visit. Stops us from re-adding every frame after defeat.
-    revealed: bool,
-    /// True once the named `ladder_floor_gate` Solid has been removed
-    /// from `world.blocks` on defeat this visit. Stops us from
-    /// re-scanning every frame after the gate is open.
-    floor_gate_opened: bool,
-}
-
-/// Stash the arena's Climbable Ladder regions while the boss is alive,
-/// then add them back to `world.climbable_regions` the frame the boss
-/// dies. Cheap in non-arena rooms (single name comparison) and in
-/// arena rooms after stash/reveal completes.
 /// GNU-ton recognizer (id or authored display name). Lives content-side:
 /// the generic cluster views no longer carry named-boss predicates.
 fn boss_is_gnu_ton(boss: &ambition_gameplay_core::features::BossRef<'_>) -> bool {
@@ -74,72 +51,49 @@ fn boss_is_gnu_ton(boss: &ambition_gameplay_core::features::BossRef<'_>) -> bool
         || boss.config.name.eq_ignore_ascii_case("gnu-ton")
 }
 
+/// Stateless arena-gate contributor. The authored base ALWAYS carries the
+/// retreat ladders + the `ladder_floor_gate` Solid (immutable mid-room); this
+/// system derives, each frame, which of them the collision *view* should hide,
+/// from the current boss state — instead of mutating `RoomGeometry`:
+///
+/// - **Boss alive (or not yet spawned):** carve out the arena's Ladder regions
+///   (so the player can't climb back out and skip the fight) and leave the
+///   floor-gate solid.
+/// - **Boss defeated:** stop carving the ladders (they reappear from the base)
+///   and add the floor-gate block to `removed_block_names` so the gap opens and
+///   the player can climb up to the exit.
+///
+/// Runs in `WorldPrep` after `rebuild_feature_ecs_world_overlay` clears the
+/// overlay (same clean-slate-per-frame contract as the encounter / intro lock
+/// walls). No per-visit `Local` state: a fresh room load swaps the immutable
+/// base and the derive recomputes from scratch; dying mid-fight (boss back to
+/// alive) re-hides the ladders automatically.
 pub fn gate_gnu_ton_arena_ladder(
-    mut world: ResMut<ambition_gameplay_core::RoomGeometry>,
+    world: Res<RoomGeometry>,
     bosses: Query<BossClusterRef>,
-    mut state: Local<GnuTonLadderGate>,
+    mut overlay: ResMut<FeatureEcsWorldOverlay>,
 ) {
     if world.0.name != ARENA_ROOM_NAME {
-        // Leaving the arena (or never entered). Drop visit-scoped
-        // state so re-entry re-stashes against the freshly loaded
-        // world — `world.0 = spec.world.clone()` on room change
-        // restores the ladder cells that we removed last visit, and
-        // re-emits the `ladder_floor_gate` Solid block.
-        state.stashed = None;
-        state.revealed = false;
-        state.floor_gate_opened = false;
         return;
     }
-
-    // First-frame-in-arena: pull all Ladder-kind regions out of the
-    // world and stash them. Empty stash is allowed (e.g. a future
-    // arena revision with no authored ladder); we still mark
-    // `stashed = Some(...)` so we don't keep re-scanning.
-    if state.stashed.is_none() {
-        let ladders: Vec<ae::ClimbableRegion> = world
-            .0
-            .climbable_regions
-            .iter()
-            .filter(|r| r.kind == ae::ClimbableKind::Ladder)
-            .cloned()
-            .collect();
-        if !ladders.is_empty() {
-            world
-                .0
-                .climbable_regions
-                .retain(|r| r.kind != ae::ClimbableKind::Ladder);
-        }
-        state.stashed = Some(ladders);
-        state.revealed = false;
-    }
-
-    if state.revealed {
-        return;
-    }
-
-    // Reveal condition: any ECS boss is a defeated gnu_ton. Empty
-    // query (boss not yet spawned, or already despawned) does NOT
-    // count as defeat — we only reveal on observed `alive = false`.
+    // Defeat = an ECS gnu_ton boss observed `alive = false`. An empty query
+    // (boss not yet spawned) is NOT defeat — the ladder stays hidden.
     let boss_defeated = bosses.iter().any(|feature| {
         let boss = feature.as_boss_ref();
         boss_is_gnu_ton(&boss) && !boss.status.alive
     });
 
     if boss_defeated {
-        if let Some(stashed) = state.stashed.as_ref() {
-            for region in stashed {
-                world.0.climbable_regions.push(region.clone());
-            }
-        }
-        state.revealed = true;
-        if !state.floor_gate_opened {
-            // Drop the named Solid that fills the gap above the ladder
-            // so the player can climb back up. The block is restored
-            // automatically on re-entry by the LDtk room-load path.
-            let before = world.0.blocks.len();
-            world.0.blocks.retain(|b| b.name != FLOOR_GATE_BLOCK_NAME);
-            if world.0.blocks.len() != before {
-                state.floor_gate_opened = true;
+        // Open the gap above the ladder so the player can climb back to the exit.
+        overlay
+            .removed_block_names
+            .push(FLOOR_GATE_BLOCK_NAME.to_string());
+        // Ladders: contribute no carve → they reappear from the immutable base.
+    } else {
+        // Hide every authored Ladder region while the fight is live.
+        for region in &world.0.climbable_regions {
+            if region.kind == ae::ClimbableKind::Ladder {
+                overlay.climbable_carves.push(region.aabb);
             }
         }
     }
@@ -148,7 +102,19 @@ pub fn gate_gnu_ton_arena_ladder(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use ambition_gameplay_core::features::{BossBehaviorProfile, BossClusterScratch};
+    use ambition_gameplay_core::features::{
+        rebuild_feature_ecs_world_overlay, world_with_sandbox_solids, BossBehaviorProfile,
+        BossClusterScratch,
+    };
+
+    /// The composited collision view (immutable base + this frame's overlay).
+    /// The gate is now a derived overlay contributor, so the arena assertions
+    /// read the VIEW — what player/actor collision actually sees — not the base.
+    fn arena_view(app: &App) -> ae::World {
+        let base = &app.world().resource::<RoomGeometry>().0;
+        let overlay = app.world().resource::<FeatureEcsWorldOverlay>();
+        world_with_sandbox_solids(base, &[], overlay)
+    }
 
     fn make_game_world(
         name: &str,
@@ -184,9 +150,7 @@ mod tests {
     }
 
     fn floor_gate_count(app: &App) -> usize {
-        app.world()
-            .resource::<ambition_gameplay_core::RoomGeometry>()
-            .0
+        arena_view(app)
             .blocks
             .iter()
             .filter(|b| b.name == FLOOR_GATE_BLOCK_NAME)
@@ -305,7 +269,13 @@ mod tests {
         crate::bosses::install_boss_roster();
         let mut app = App::new();
         app.insert_resource(world);
-        app.add_systems(Update, gate_gnu_ton_arena_ladder);
+        app.init_resource::<FeatureEcsWorldOverlay>();
+        // Mirror the production WorldPrep order: the overlay rebuild clears the
+        // per-frame contributions, then the gate re-derives them this frame.
+        app.add_systems(
+            Update,
+            (rebuild_feature_ecs_world_overlay, gate_gnu_ton_arena_ladder).chain(),
+        );
         app
     }
 
@@ -314,11 +284,7 @@ mod tests {
     }
 
     fn climbable_regions_len(app: &App) -> usize {
-        app.world()
-            .resource::<ambition_gameplay_core::RoomGeometry>()
-            .0
-            .climbable_regions
-            .len()
+        arena_view(app).climbable_regions.len()
     }
 
     #[test]

@@ -31,6 +31,23 @@ pub struct FeatureEcsWorldOverlay {
     /// in (the "feet in, feet out" transit). Filled each frame by
     /// `portal::publish_portal_carves`; consumed by `world_with_sandbox_solids`.
     pub portal_carves: Vec<ae::Aabb>,
+    /// Authored blocks (by `Block::name`) to REMOVE from the collision view this
+    /// frame — a content gate *opening* an authored solid without mutating the
+    /// immutable [`crate::RoomGeometry`] base. The inverse of `gate_solids`:
+    /// `gate_solids` ADD derived statics, this SUBTRACTS authored ones (gnu_ton's
+    /// `ladder_floor_gate` drops out on boss defeat so the player can climb out).
+    /// Composited into every collision read-path (player/actor/item/traversal via
+    /// `world_with_sandbox_solids`, projectiles via the gate view). Cleared each
+    /// frame by [`rebuild_feature_ecs_world_overlay`], re-extended by the WorldPrep
+    /// gate contributors — same clean-slate-per-frame contract as `gate_solids`.
+    pub removed_block_names: Vec<String>,
+    /// Authored climbable regions to SUPPRESS this frame: any base climbable
+    /// region intersecting one of these AABBs is dropped from the view. Same
+    /// immutable-base inversion as `removed_block_names` for ladders/vines (gnu_ton
+    /// hides the arena retreat ladder while the boss is alive). Climbable-only —
+    /// projectiles never read climbable — so it composites in
+    /// `world_with_sandbox_solids` alone.
+    pub climbable_carves: Vec<ae::Aabb>,
 }
 
 /// Rebuild the transient collision blocks contributed by ECS-owned features.
@@ -51,10 +68,13 @@ pub fn rebuild_feature_ecs_world_overlay(
     pogo_targets: Query<(&FeatureId, &PogoTargetVolumes), With<FeatureSimEntity>>,
 ) {
     overlay.blocks.clear();
-    // Gate contributors (encounter / intro lock walls) re-extend this after we
-    // run; clearing it here gives them the same clean-slate-per-frame contract
-    // the breakable blocks above have.
+    // Gate contributors (encounter / intro lock walls, gnu_ton arena gate)
+    // re-extend these after we run; clearing them here gives them the same
+    // clean-slate-per-frame contract the breakable blocks above have. (Portal
+    // carves are owned + cleared by the portal subsystem, so not touched here.)
     overlay.gate_solids.clear();
+    overlay.removed_block_names.clear();
+    overlay.climbable_carves.clear();
     for (id, name, aabb, feature) in &breakables {
         if feature.broken() {
             continue;

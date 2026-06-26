@@ -28,6 +28,7 @@ const FIXED_ARITY_COMMANDS: &[(&str, usize)] = &[
     ("spawn_fireworks", 0),
     ("watch_cut_rope_video", 0),
     ("reset_cut_rope_room", 0),
+    ("challenge", 0),
 ];
 
 fn expected_arity(name: &str) -> Option<usize> {

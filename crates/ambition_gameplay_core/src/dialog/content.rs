@@ -94,6 +94,9 @@ pub const KNOWN_DIALOGUE_IDS: &[&str] = &[
     "emmy_noether_left",
     "emmy_noether_up",
     "emmy_noether_right",
+    // symmetry.yarn — the Perfect Cell-ular Automaton boss encounter. The
+    // "Challenge it" choice fires <<challenge>> to provoke it into combat.
+    "perfect_cellular_automaton",
 ];
 
 /// Validator surface (LDtk content_validation reads this). Folds in the

@@ -434,6 +434,7 @@ pub(crate) const COMBAT_BRAIN_KEYS: &[&str] = &[
     "puppy_slug",
     "pirate_heavy",
     "pirate_heavy_on_shark",
+    "cellular_automaton_fighter",
 ];
 
 /// Every authored row in the fixture (combat + training dummies + raw mites).

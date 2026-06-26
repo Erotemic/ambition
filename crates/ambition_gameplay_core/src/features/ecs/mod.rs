@@ -68,6 +68,8 @@ pub use crate::combat::{
 pub use actors::{
     actor_component_snapshot, enemy_component_snapshot, sync_actor_components_from_cluster,
 };
+// Crate-internal: the dialogue-gated boss resolver reuses this; tests pin it.
+pub(crate) use actors::hostile_brain_id_for_actor;
 pub use actors::{sync_actor_poses_from_feature_aabbs, tick_npc_idle_barks, update_ecs_actors};
 pub use aggression::apply_actor_stimuli;
 pub use anim_helpers::{

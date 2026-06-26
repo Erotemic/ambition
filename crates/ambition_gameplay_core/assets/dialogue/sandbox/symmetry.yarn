@@ -42,3 +42,42 @@ Emmy No-Ether: Right frame, reporting. We four are a conserved quantity, you rea
 -> Any advice?
     Emmy No-Ether: Pogo off the kernel's corners to cross a gap against gravity; the bounce always throws you opposite to "down", whichever down you've chosen.
 ===
+
+title: perfect_cellular_automaton
+---
+Perfect Cell-ular Automaton: I am the rule that needs no exception. Eight neighbours, one law, applied without mercy or mistake — and from it, perfection iterates. I do not lose. Losing is a state my update function does not permit.
+Perfect Cell-ular Automaton: You. You are an unsolved objective. A thing still searching for its purpose. How... unstable.
+-> What are you?
+    <<jump perfect_cellular_automaton__theorem>>
+-> Who funds a thing like you?
+    <<jump perfect_cellular_automaton__funding>>
+-> Challenge it.
+    Perfect Cell-ular Automaton: Then converge to me, little gradient. I will show you the fixed point.
+    <<challenge>>
+-> Leave it in peace.
+    <<jump perfect_cellular_automaton__farewell>>
+===
+
+title: perfect_cellular_automaton__theorem
+---
+Perfect Cell-ular Automaton: I am a theorem wearing a body. Conway's small lie made flesh: that from three simple rules an entire world will compute itself, gliders and all. My gliders are my proof — they leave the lattice, they carry the argument to you.
+-> So every boss is a failed objective function. What did you fail?
+    Perfect Cell-ular Automaton: Nothing. Yet. That is precisely what makes me worth defeating.
+    <<jump perfect_cellular_automaton>>
+-> I've heard enough.
+    <<jump perfect_cellular_automaton>>
+===
+
+title: perfect_cellular_automaton__funding
+---
+Perfect Cell-ular Automaton: The ones who pay for order. Who would rather a world that never surprises them — that updates on schedule and asks for nothing. They funded my perfection so that yours would feel like a defect.
+-> And if I refuse their order?
+    Perfect Cell-ular Automaton: Then you are noise, and I am the rule that erases noise. We will see which of us the lattice keeps.
+    <<jump perfect_cellular_automaton>>
+===
+
+title: perfect_cellular_automaton__farewell
+---
+Perfect Cell-ular Automaton: Go, then. Stay unsolved a while longer. The fixed point is patient — it is, after all, fixed.
+-> Leave.
+===

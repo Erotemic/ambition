@@ -99,6 +99,32 @@
         ))),
         move_style: Walk,
     ),
+    // Perfect Cell-ular Automaton — the dialogue-gated boss. Resolved when an
+    // actor whose id/name reads "perfect cellular automaton" is provoked (see
+    // `hostile_brain_id_for_actor`). A beefy reactive Smash fighter: more HP
+    // than a grunt, dashes to close, a quick jab. The glider zoning special +
+    // blink/fly verbs land in later PCA slices (S4/S5); for now it's a strong,
+    // fair melee brawler so the encounter is playable end-to-end. Floats
+    // because the catalog body_kind is Floating.
+    "cellular_automaton_fighter": (
+        max_health: 18,
+        patrol_speed: 96.0,
+        chase_speed: 168.0,
+        aggro_radius: 480.0,
+        attack_range: 150.0,
+        contact_strength: 0.75,
+        damage_amount: 1,
+        brain_template: Smash,
+        melee: Some(Swipe((
+            windup_s: 0.24,
+            active_s: 0.08,
+            recover_s: 0.30,
+            damage: 1,
+            reach_px: 30.0,
+        ))),
+        smash_dash_to_close: true,
+        move_style: Float,
+    ),
     "small_skitter": (
         max_health: 2,
         patrol_speed: 150.0,

@@ -21,6 +21,17 @@ pub(crate) fn hostile_brain_id_for_actor(
     let id = id.to_ascii_lowercase();
     let name = name.to_ascii_lowercase();
     let dialogue = dialogue_id.unwrap_or("").to_ascii_lowercase();
+    // The Perfect Cell-ular Automaton boss: a dedicated reactive Smash
+    // archetype with boss HP + a quick jab (see `cellular_automaton_fighter`
+    // in enemy_archetypes.ron). Matches the catalog id, the display name, or
+    // the encounter's dialogue node so any of the three placements resolves.
+    let looks_like_cellular_automaton = id.contains("cellular_automaton")
+        || name.contains("cell-ular automaton")
+        || name.contains("cellular automaton")
+        || dialogue.contains("cellular_automaton");
+    if looks_like_cellular_automaton {
+        return "cellular_automaton_fighter";
+    }
     let looks_like_pirate_heavy = id.contains("pirate_heavy")
         || name.contains("broadside bess")
         || name.contains("iron mary")

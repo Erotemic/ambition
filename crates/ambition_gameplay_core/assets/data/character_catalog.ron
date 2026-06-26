@@ -76,25 +76,6 @@
             attack_range: 42.0,
             roam_radius: 144.0,
         ),
-        // Reactive-fighter brain for the Perfect Cell-ular Automaton boss
-        // encounter. The challenge dialogue choice swaps this in over the
-        // peaceful NPC brain. A strong, fair melee/zoner: MEDIUM-tier
-        // difficulty (reaction lag + bounded commit/aim) so it's beatable.
-        // Aerial/blink/glider verbs land in PCA slices S4/S5.
-        "cellular_automaton_fighter": Smash(
-            aggro_radius: 460.0,
-            engage_distance: 76.0,
-            attack_range: 52.0,
-            too_close_distance: 34.0,
-            chase_speed: 150.0,
-            retreat_speed: 120.0,
-            crowding_threshold: 0.65,
-            dash_to_close: true,
-            reaction_delay_s: 0.12,
-            commit_probability: 0.85,
-            accuracy: 0.9,
-            mash_speed_hz: 6.0,
-        ),
     },
 
     action_set_presets: {

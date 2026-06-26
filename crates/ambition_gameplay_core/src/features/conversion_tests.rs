@@ -272,6 +272,28 @@ mod conversion_tests {
         );
     }
 
+    /// The Perfect Cell-ular Automaton resolves to its dedicated boss
+    /// archetype when provoked — by catalog id, display name, or the
+    /// encounter's dialogue node. Pins the dialogue-gated boss wiring so a
+    /// rename in any of the three doesn't silently drop the PCA to the
+    /// generic `combatant` grunt.
+    #[test]
+    fn perfect_cellular_automaton_provokes_to_its_boss_archetype() {
+        use crate::features::ecs::hostile_brain_id_for_actor;
+        use crate::features::enemies::test_spec;
+        assert_eq!(
+            hostile_brain_id_for_actor("perfect_cellular_automaton", "Perfect Cellular Automaton", None),
+            "cellular_automaton_fighter",
+        );
+        assert_eq!(
+            hostile_brain_id_for_actor("npc_unknown", "Mystery", Some("perfect_cellular_automaton")),
+            "cellular_automaton_fighter",
+        );
+        // The boss archetype is beefier than a grunt (18 HP vs the
+        // combatant's 4) and is a hostile Smash fighter.
+        assert_eq!(test_spec("cellular_automaton_fighter").max_health, 18);
+    }
+
     #[test]
     fn enemy_brain_keys_resolve_to_their_rows() {
         use crate::features::enemies::test_spec;

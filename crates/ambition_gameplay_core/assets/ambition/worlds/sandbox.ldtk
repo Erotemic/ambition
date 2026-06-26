@@ -11,7 +11,7 @@
 	"iid": "ambition-sandbox-world",
 	"jsonVersion": "1.5.3",
 	"appBuildId": 473703,
-	"nextUid": 6576,
+	"nextUid": 6577,
 	"identifierStyle": "Free",
 	"toc": [],
 	"worldLayout": "Free",
@@ -53936,6 +53936,36 @@
 							],
 							"__worldX": -2112,
 							"__worldY": 1184
+						},
+						{
+							"__identifier": "NpcSpawn",
+							"__grid": [37,50],
+							"__pivot": [0,0],
+							"__tags": [],
+							"__tile": null,
+							"__smartColor": "#FF9EEA",
+							"__worldX": -2732,
+							"__worldY": 1576,
+							"iid": "NpcSpawn-6576",
+							"width": 48,
+							"height": 48,
+							"defUid": 2006,
+							"px": [596,808],
+							"fieldInstances": [
+								{ "__identifier": "character_id", "__type": "String", "__value": "perfect_cellular_automaton", "__tile": null, "defUid": 3012, "realEditorValues": [{
+									"id": "V_String",
+									"params": ["perfect_cellular_automaton"]
+								}] },
+								{ "__identifier": "prompt", "__type": "String", "__value": "Challenge the Perfect Cell-ular Automaton", "__tile": null, "defUid": 3013, "realEditorValues": [{
+									"id": "V_String",
+									"params": ["Challenge the Perfect Cell-ular Automaton"]
+								}] },
+								{ "__identifier": "dialogue_id", "__type": "String", "__value": "perfect_cellular_automaton", "__tile": null, "defUid": 3014, "realEditorValues": [{
+									"id": "V_String",
+									"params": ["perfect_cellular_automaton"]
+								}] },
+								{ "__identifier": "patrol_radius", "__type": "Float", "__value": 0.0, "__tile": null, "defUid": 4123, "realEditorValues": [] }
+							]
 						}
 					]
 				},

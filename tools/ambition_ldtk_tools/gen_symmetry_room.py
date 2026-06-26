@@ -149,6 +149,18 @@ for n in range(4):
         "prompt": f'"Talk to Emmy No-Ether ({d})"', "dialogue_id": f'"{dialogue}"',
         "character_id": '"npc_noether"', "patrol_radius": "0"}))
 
+# The Perfect Cell-ular Automaton boss — a peaceful NPC guarding the kernel's
+# down face, reachable on foot from the entrance under default down-gravity.
+# Talking opens its dialogue; the "Challenge it" choice fires <<challenge>> and
+# the fight begins (a reactive Smash fighter, hostile archetype
+# `cellular_automaton_fighter`). A "Perfect" automaton standing watch in the
+# perfect-symmetry chamber, questioning your purpose.
+A('        // ---- The Perfect Cell-ular Automaton: dialogue-gated boss, guards the kernel. ----')
+A(entity("NpcSpawn", 596, 808, 48, 48, {
+    "prompt": '"Challenge the Perfect Cell-ular Automaton"',
+    "dialogue_id": '"perfect_cellular_automaton"',
+    "character_id": '"perfect_cellular_automaton"', "patrol_radius": "0"}))
+
 # Entrance furniture (the one symmetry-breaker) — inside the down arm floor.
 A('        // ---- Entrance (the only asymmetry): spawn, door, portal gun. ----')
 A(entity("PlayerStart", 470, 1202, 28, 46, {"name": '"symmetry_spawn"'}))

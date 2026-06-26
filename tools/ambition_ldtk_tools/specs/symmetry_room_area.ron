@@ -69,6 +69,8 @@
         ( type: "Solid", px: [1000, 498], size: [24, 132], fields: ( name: "right_step_b" ) ),
         ( type: "Solid", px: [880, 678], size: [24, 132], fields: ( name: "right_step_c" ) ),
         ( type: "NpcSpawn", px: [1206, 678], size: [42, 42], fields: ( prompt: "Talk to Emmy No-Ether (right)", dialogue_id: "emmy_noether_right", character_id: "npc_noether", patrol_radius: 0 ) ),
+        // ---- The Perfect Cell-ular Automaton: dialogue-gated boss, guards the kernel. ----
+        ( type: "NpcSpawn", px: [596, 808], size: [48, 48], fields: ( prompt: "Challenge the Perfect Cell-ular Automaton", dialogue_id: "perfect_cellular_automaton", character_id: "perfect_cellular_automaton", patrol_radius: 0 ) ),
         // ---- Entrance (the only asymmetry): spawn, door, portal gun. ----
         ( type: "PlayerStart", px: [470, 1202], size: [28, 46], fields: ( name: "symmetry_spawn" ) ),
         ( type: "PortalGunSpawn", px: [648, 1208], size: [40, 40], fields: ( id: "symmetry_portal_gun", name: "Portal Gun (4 colours)" ) ),

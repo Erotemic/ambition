@@ -1,0 +1,16 @@
+{
+  "level_id": "symmetry_room",
+  "entities": [
+    {
+      "type": "NpcSpawn",
+      "px": [596, 808],
+      "size": [48, 48],
+      "fields": {
+        "prompt": "Challenge the Perfect Cell-ular Automaton",
+        "dialogue_id": "perfect_cellular_automaton",
+        "character_id": "perfect_cellular_automaton",
+        "patrol_radius": 0
+      }
+    }
+  ]
+}

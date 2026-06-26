@@ -381,7 +381,7 @@
             fields: (
                 character_id: "player",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_player",
                 patrol_radius: 0,
             ),
         ),
@@ -414,7 +414,7 @@
             fields: (
                 character_id: "robot",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_robot",
                 patrol_radius: 0,
             ),
         ),
@@ -447,7 +447,7 @@
             fields: (
                 character_id: "goblin",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_goblin",
                 patrol_radius: 0,
             ),
         ),
@@ -480,7 +480,7 @@
             fields: (
                 character_id: "sandbag",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_sandbag",
                 patrol_radius: 0,
             ),
         ),
@@ -513,7 +513,7 @@
             fields: (
                 character_id: "npc_general",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_npc_general",
                 patrol_radius: 0,
             ),
         ),
@@ -546,7 +546,7 @@
             fields: (
                 character_id: "npc_goblin_cantina_chieftain",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_npc_goblin_cantina_chieftain",
                 patrol_radius: 0,
             ),
         ),
@@ -579,7 +579,7 @@
             fields: (
                 character_id: "npc_pulse_voyager_captain",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_npc_pulse_voyager_captain",
                 patrol_radius: 0,
             ),
         ),
@@ -612,7 +612,7 @@
             fields: (
                 character_id: "npc_tech_bro_disruptor",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_npc_tech_bro_disruptor",
                 patrol_radius: 0,
             ),
         ),
@@ -643,9 +643,9 @@
                 48,
             ],
             fields: (
-                character_id: "npc_pirate_admiral",
+                character_id: "npc_noether",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_npc_noether",
                 patrol_radius: 0,
             ),
         ),
@@ -653,6 +653,39 @@
             type: "DebugLabel",
             px: [
                 1028,
+                980,
+            ],
+            size: [
+                120,
+                20,
+            ],
+            fields: (
+                name: "hall_label_npc_noether",
+                text: "Emmy No-Ether",
+                category: "Custom",
+            ),
+        ),
+        (
+            type: "NpcSpawn",
+            px: [
+                1200,
+                1120,
+            ],
+            size: [
+                32,
+                48,
+            ],
+            fields: (
+                character_id: "npc_pirate_admiral",
+                prompt: "Inspect",
+                dialogue_id: "hall_pirate_admiral",
+                patrol_radius: 0,
+            ),
+        ),
+        (
+            type: "DebugLabel",
+            px: [
+                1156,
                 980,
             ],
             size: [
@@ -668,7 +701,7 @@
         (
             type: "NpcSpawn",
             px: [
-                1200,
+                1328,
                 1120,
             ],
             size: [
@@ -678,14 +711,14 @@
             fields: (
                 character_id: "npc_pirate_raider",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_npc_pirate_raider",
                 patrol_radius: 0,
             ),
         ),
         (
             type: "DebugLabel",
             px: [
-                1156,
+                1284,
                 980,
             ],
             size: [
@@ -701,7 +734,7 @@
         (
             type: "NpcSpawn",
             px: [
-                1328,
+                1456,
                 1120,
             ],
             size: [
@@ -711,14 +744,14 @@
             fields: (
                 character_id: "npc_pirate_quartermaster",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_npc_pirate_quartermaster",
                 patrol_radius: 0,
             ),
         ),
         (
             type: "DebugLabel",
             px: [
-                1284,
+                1412,
                 980,
             ],
             size: [
@@ -734,7 +767,7 @@
         (
             type: "NpcSpawn",
             px: [
-                1456,
+                1584,
                 1120,
             ],
             size: [
@@ -744,14 +777,14 @@
             fields: (
                 character_id: "npc_pirate_lookout",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_npc_pirate_lookout",
                 patrol_radius: 0,
             ),
         ),
         (
             type: "DebugLabel",
             px: [
-                1412,
+                1540,
                 980,
             ],
             size: [
@@ -767,7 +800,7 @@
         (
             type: "NpcSpawn",
             px: [
-                1584,
+                1712,
                 1120,
             ],
             size: [
@@ -777,14 +810,14 @@
             fields: (
                 character_id: "npc_pirate_navigator",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_npc_pirate_navigator",
                 patrol_radius: 0,
             ),
         ),
         (
             type: "DebugLabel",
             px: [
-                1540,
+                1668,
                 980,
             ],
             size: [
@@ -800,7 +833,7 @@
         (
             type: "NpcSpawn",
             px: [
-                1712,
+                1840,
                 1120,
             ],
             size: [
@@ -810,14 +843,14 @@
             fields: (
                 character_id: "stochastic_parrot",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_stochastic_parrot",
                 patrol_radius: 0,
             ),
         ),
         (
             type: "DebugLabel",
             px: [
-                1668,
+                1796,
                 980,
             ],
             size: [
@@ -833,39 +866,6 @@
         (
             type: "NpcSpawn",
             px: [
-                1840,
-                1120,
-            ],
-            size: [
-                32,
-                48,
-            ],
-            fields: (
-                character_id: "npc_pirate_heavy_broadside_bess",
-                prompt: "Inspect",
-                dialogue_id: "",
-                patrol_radius: 0,
-            ),
-        ),
-        (
-            type: "DebugLabel",
-            px: [
-                1796,
-                980,
-            ],
-            size: [
-                120,
-                20,
-            ],
-            fields: (
-                name: "hall_label_npc_pirate_heavy_broadside_bess",
-                text: "Broadside Bess",
-                category: "Custom",
-            ),
-        ),
-        (
-            type: "NpcSpawn",
-            px: [
                 1968,
                 1120,
             ],
@@ -874,9 +874,9 @@
                 48,
             ],
             fields: (
-                character_id: "npc_pirate_heavy_iron_mary",
+                character_id: "perfect_cellular_automaton",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_perfect_cellular_automaton",
                 patrol_radius: 0,
             ),
         ),
@@ -891,8 +891,8 @@
                 20,
             ],
             fields: (
-                name: "hall_label_npc_pirate_heavy_iron_mary",
-                text: "Iron Mary",
+                name: "hall_label_perfect_cellular_automaton",
+                text: "Perfect Cellular Automaton",
                 category: "Custom",
             ),
         ),
@@ -907,9 +907,9 @@
                 48,
             ],
             fields: (
-                character_id: "npc_pirate_heavy_salt_annet",
+                character_id: "imperfect_cellular_automaton",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_imperfect_cellular_automaton",
                 patrol_radius: 0,
             ),
         ),
@@ -917,6 +917,105 @@
             type: "DebugLabel",
             px: [
                 4,
+                788,
+            ],
+            size: [
+                120,
+                20,
+            ],
+            fields: (
+                name: "hall_label_imperfect_cellular_automaton",
+                text: "Imperfect Cellular Automaton",
+                category: "Custom",
+            ),
+        ),
+        (
+            type: "NpcSpawn",
+            px: [
+                176,
+                928,
+            ],
+            size: [
+                32,
+                48,
+            ],
+            fields: (
+                character_id: "npc_pirate_heavy_broadside_bess",
+                prompt: "Inspect",
+                dialogue_id: "hall_npc_pirate_heavy_broadside_bess",
+                patrol_radius: 0,
+            ),
+        ),
+        (
+            type: "DebugLabel",
+            px: [
+                132,
+                788,
+            ],
+            size: [
+                120,
+                20,
+            ],
+            fields: (
+                name: "hall_label_npc_pirate_heavy_broadside_bess",
+                text: "Broadside Bess",
+                category: "Custom",
+            ),
+        ),
+        (
+            type: "NpcSpawn",
+            px: [
+                304,
+                928,
+            ],
+            size: [
+                32,
+                48,
+            ],
+            fields: (
+                character_id: "npc_pirate_heavy_iron_mary",
+                prompt: "Inspect",
+                dialogue_id: "hall_npc_pirate_heavy_iron_mary",
+                patrol_radius: 0,
+            ),
+        ),
+        (
+            type: "DebugLabel",
+            px: [
+                260,
+                788,
+            ],
+            size: [
+                120,
+                20,
+            ],
+            fields: (
+                name: "hall_label_npc_pirate_heavy_iron_mary",
+                text: "Iron Mary",
+                category: "Custom",
+            ),
+        ),
+        (
+            type: "NpcSpawn",
+            px: [
+                432,
+                928,
+            ],
+            size: [
+                32,
+                48,
+            ],
+            fields: (
+                character_id: "npc_pirate_heavy_salt_annet",
+                prompt: "Inspect",
+                dialogue_id: "hall_npc_pirate_heavy_salt_annet",
+                patrol_radius: 0,
+            ),
+        ),
+        (
+            type: "DebugLabel",
+            px: [
+                388,
                 788,
             ],
             size: [
@@ -932,7 +1031,7 @@
         (
             type: "NpcSpawn",
             px: [
-                176,
+                560,
                 928,
             ],
             size: [
@@ -942,14 +1041,14 @@
             fields: (
                 character_id: "npc_burning_flying_shark",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_npc_burning_flying_shark",
                 patrol_radius: 0,
             ),
         ),
         (
             type: "DebugLabel",
             px: [
-                132,
+                516,
                 788,
             ],
             size: [
@@ -965,7 +1064,7 @@
         (
             type: "NpcSpawn",
             px: [
-                304,
+                688,
                 928,
             ],
             size: [
@@ -975,14 +1074,14 @@
             fields: (
                 character_id: "npc_puppy_slug",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_npc_puppy_slug",
                 patrol_radius: 0,
             ),
         ),
         (
             type: "DebugLabel",
             px: [
-                260,
+                644,
                 788,
             ],
             size: [
@@ -998,7 +1097,7 @@
         (
             type: "NpcSpawn",
             px: [
-                432,
+                816,
                 928,
             ],
             size: [
@@ -1008,14 +1107,14 @@
             fields: (
                 character_id: "npc_ninja_shadow_oni_leader",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_npc_ninja_shadow_oni_leader",
                 patrol_radius: 0,
             ),
         ),
         (
             type: "DebugLabel",
             px: [
-                388,
+                772,
                 788,
             ],
             size: [
@@ -1031,7 +1130,7 @@
         (
             type: "NpcSpawn",
             px: [
-                560,
+                944,
                 928,
             ],
             size: [
@@ -1041,14 +1140,14 @@
             fields: (
                 character_id: "npc_ninja_shadow_duelist",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_npc_ninja_shadow_duelist",
                 patrol_radius: 0,
             ),
         ),
         (
             type: "DebugLabel",
             px: [
-                516,
+                900,
                 788,
             ],
             size: [
@@ -1064,7 +1163,7 @@
         (
             type: "NpcSpawn",
             px: [
-                688,
+                1072,
                 928,
             ],
             size: [
@@ -1074,14 +1173,14 @@
             fields: (
                 character_id: "npc_architect",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_architect",
                 patrol_radius: 0,
             ),
         ),
         (
             type: "DebugLabel",
             px: [
-                644,
+                1028,
                 788,
             ],
             size: [
@@ -1097,7 +1196,7 @@
         (
             type: "NpcSpawn",
             px: [
-                816,
+                1200,
                 928,
             ],
             size: [
@@ -1107,14 +1206,14 @@
             fields: (
                 character_id: "npc_kernel_guide",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_npc_kernel_guide",
                 patrol_radius: 0,
             ),
         ),
         (
             type: "DebugLabel",
             px: [
-                772,
+                1156,
                 788,
             ],
             size: [
@@ -1130,7 +1229,7 @@
         (
             type: "NpcSpawn",
             px: [
-                944,
+                1328,
                 928,
             ],
             size: [
@@ -1140,14 +1239,14 @@
             fields: (
                 character_id: "npc_vault_keeper",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_npc_vault_keeper",
                 patrol_radius: 0,
             ),
         ),
         (
             type: "DebugLabel",
             px: [
-                900,
+                1284,
                 788,
             ],
             size: [
@@ -1163,7 +1262,7 @@
         (
             type: "NpcSpawn",
             px: [
-                1072,
+                1456,
                 928,
             ],
             size: [
@@ -1173,14 +1272,14 @@
             fields: (
                 character_id: "npc_merchant_prototype",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_npc_merchant_prototype",
                 patrol_radius: 0,
             ),
         ),
         (
             type: "DebugLabel",
             px: [
-                1028,
+                1412,
                 788,
             ],
             size: [
@@ -1196,7 +1295,7 @@
         (
             type: "NpcSpawn",
             px: [
-                1200,
+                1584,
                 928,
             ],
             size: [
@@ -1206,14 +1305,14 @@
             fields: (
                 character_id: "npc_alice",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_npc_alice",
                 patrol_radius: 0,
             ),
         ),
         (
             type: "DebugLabel",
             px: [
-                1156,
+                1540,
                 788,
             ],
             size: [
@@ -1229,7 +1328,7 @@
         (
             type: "NpcSpawn",
             px: [
-                1328,
+                1712,
                 928,
             ],
             size: [
@@ -1239,14 +1338,14 @@
             fields: (
                 character_id: "npc_bob",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_npc_bob",
                 patrol_radius: 0,
             ),
         ),
         (
             type: "DebugLabel",
             px: [
-                1284,
+                1668,
                 788,
             ],
             size: [
@@ -1262,7 +1361,7 @@
         (
             type: "NpcSpawn",
             px: [
-                1456,
+                1840,
                 928,
             ],
             size: [
@@ -1272,14 +1371,14 @@
             fields: (
                 character_id: "npc_creator",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_npc_creator",
                 patrol_radius: 0,
             ),
         ),
         (
             type: "DebugLabel",
             px: [
-                1412,
+                1796,
                 788,
             ],
             size: [
@@ -1295,7 +1394,7 @@
         (
             type: "NpcSpawn",
             px: [
-                1584,
+                1968,
                 928,
             ],
             size: [
@@ -1305,14 +1404,14 @@
             fields: (
                 character_id: "npc_creator_final",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_npc_creator_final",
                 patrol_radius: 0,
             ),
         ),
         (
             type: "DebugLabel",
             px: [
-                1540,
+                1924,
                 788,
             ],
             size: [
@@ -1328,8 +1427,8 @@
         (
             type: "NpcSpawn",
             px: [
-                1712,
-                928,
+                48,
+                736,
             ],
             size: [
                 32,
@@ -1338,15 +1437,15 @@
             fields: (
                 character_id: "npc_oiler",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_npc_oiler",
                 patrol_radius: 0,
             ),
         ),
         (
             type: "DebugLabel",
             px: [
-                1668,
-                788,
+                4,
+                596,
             ],
             size: [
                 120,
@@ -1361,8 +1460,8 @@
         (
             type: "NpcSpawn",
             px: [
-                1840,
-                928,
+                176,
+                736,
             ],
             size: [
                 32,
@@ -1371,15 +1470,15 @@
             fields: (
                 character_id: "npc_gate_janitor",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_npc_gate_janitor",
                 patrol_radius: 0,
             ),
         ),
         (
             type: "DebugLabel",
             px: [
-                1796,
-                788,
+                132,
+                596,
             ],
             size: [
                 120,
@@ -1394,8 +1493,8 @@
         (
             type: "NpcSpawn",
             px: [
-                1968,
-                928,
+                304,
+                736,
             ],
             size: [
                 32,
@@ -1404,15 +1503,15 @@
             fields: (
                 character_id: "npc_manifest_clerk",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_npc_manifest_clerk",
                 patrol_radius: 0,
             ),
         ),
         (
             type: "DebugLabel",
             px: [
-                1924,
-                788,
+                260,
+                596,
             ],
             size: [
                 120,
@@ -1427,7 +1526,7 @@
         (
             type: "NpcSpawn",
             px: [
-                48,
+                432,
                 736,
             ],
             size: [
@@ -1444,7 +1543,7 @@
         (
             type: "DebugLabel",
             px: [
-                4,
+                388,
                 596,
             ],
             size: [
@@ -1460,7 +1559,7 @@
         (
             type: "NpcSpawn",
             px: [
-                176,
+                560,
                 736,
             ],
             size: [
@@ -1470,14 +1569,14 @@
             fields: (
                 character_id: "npc_erdish",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_npc_erdish",
                 patrol_radius: 0,
             ),
         ),
         (
             type: "DebugLabel",
             px: [
-                132,
+                516,
                 596,
             ],
             size: [
@@ -1493,7 +1592,7 @@
         (
             type: "NpcSpawn",
             px: [
-                304,
+                688,
                 736,
             ],
             size: [
@@ -1503,14 +1602,14 @@
             fields: (
                 character_id: "npc_lab_raider",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_npc_lab_raider",
                 patrol_radius: 0,
             ),
         ),
         (
             type: "DebugLabel",
             px: [
-                260,
+                644,
                 596,
             ],
             size: [
@@ -1526,7 +1625,7 @@
         (
             type: "NpcSpawn",
             px: [
-                432,
+                816,
                 736,
             ],
             size: [
@@ -1536,14 +1635,14 @@
             fields: (
                 character_id: "npc_salvage_guard",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_npc_salvage_guard",
                 patrol_radius: 0,
             ),
         ),
         (
             type: "DebugLabel",
             px: [
-                388,
+                772,
                 596,
             ],
             size: [
@@ -1559,7 +1658,7 @@
         (
             type: "NpcSpawn",
             px: [
-                560,
+                944,
                 736,
             ],
             size: [
@@ -1569,14 +1668,14 @@
             fields: (
                 character_id: "npc_agent_swarm",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_npc_agent_swarm",
                 patrol_radius: 0,
             ),
         ),
         (
             type: "DebugLabel",
             px: [
-                516,
+                900,
                 596,
             ],
             size: [
@@ -1592,7 +1691,7 @@
         (
             type: "NpcSpawn",
             px: [
-                688,
+                1072,
                 736,
             ],
             size: [
@@ -1602,14 +1701,14 @@
             fields: (
                 character_id: "npc_ai_slop",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_npc_ai_slop",
                 patrol_radius: 0,
             ),
         ),
         (
             type: "DebugLabel",
             px: [
-                644,
+                1028,
                 596,
             ],
             size: [
@@ -1625,7 +1724,7 @@
         (
             type: "NpcSpawn",
             px: [
-                816,
+                1200,
                 736,
             ],
             size: [
@@ -1635,14 +1734,14 @@
             fields: (
                 character_id: "npc_colonial_statesman",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_npc_colonial_statesman",
                 patrol_radius: 0,
             ),
         ),
         (
             type: "DebugLabel",
             px: [
-                772,
+                1156,
                 596,
             ],
             size: [
@@ -1658,7 +1757,7 @@
         (
             type: "NpcSpawn",
             px: [
-                944,
+                1328,
                 736,
             ],
             size: [
@@ -1668,14 +1767,14 @@
             fields: (
                 character_id: "npc_craig",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_npc_craig",
                 patrol_radius: 0,
             ),
         ),
         (
             type: "DebugLabel",
             px: [
-                900,
+                1284,
                 596,
             ],
             size: [
@@ -1691,7 +1790,7 @@
         (
             type: "NpcSpawn",
             px: [
-                1072,
+                1456,
                 736,
             ],
             size: [
@@ -1701,14 +1800,14 @@
             fields: (
                 character_id: "npc_eve",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_npc_eve",
                 patrol_radius: 0,
             ),
         ),
         (
             type: "DebugLabel",
             px: [
-                1028,
+                1412,
                 596,
             ],
             size: [
@@ -1724,7 +1823,7 @@
         (
             type: "NpcSpawn",
             px: [
-                1200,
+                1584,
                 736,
             ],
             size: [
@@ -1734,14 +1833,14 @@
             fields: (
                 character_id: "npc_raid_enforcer",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_npc_raid_enforcer",
                 patrol_radius: 0,
             ),
         ),
         (
             type: "DebugLabel",
             px: [
-                1156,
+                1540,
                 596,
             ],
             size: [
@@ -1757,7 +1856,7 @@
         (
             type: "NpcSpawn",
             px: [
-                1328,
+                1712,
                 736,
             ],
             size: [
@@ -1767,14 +1866,14 @@
             fields: (
                 character_id: "npc_galwah",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_npc_galwah",
                 patrol_radius: 0,
             ),
         ),
         (
             type: "DebugLabel",
             px: [
-                1284,
+                1668,
                 596,
             ],
             size: [
@@ -1790,7 +1889,7 @@
         (
             type: "NpcSpawn",
             px: [
-                1456,
+                1840,
                 736,
             ],
             size: [
@@ -1800,14 +1899,14 @@
             fields: (
                 character_id: "npc_general_hero",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_npc_general_hero",
                 patrol_radius: 0,
             ),
         ),
         (
             type: "DebugLabel",
             px: [
-                1412,
+                1796,
                 596,
             ],
             size: [
@@ -1823,7 +1922,7 @@
         (
             type: "NpcSpawn",
             px: [
-                1584,
+                1968,
                 736,
             ],
             size: [
@@ -1833,14 +1932,14 @@
             fields: (
                 character_id: "npc_ghoul_skulker",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_npc_ghoul_skulker",
                 patrol_radius: 0,
             ),
         ),
         (
             type: "DebugLabel",
             px: [
-                1540,
+                1924,
                 596,
             ],
             size: [
@@ -1856,8 +1955,8 @@
         (
             type: "NpcSpawn",
             px: [
-                1712,
-                736,
+                48,
+                544,
             ],
             size: [
                 32,
@@ -1866,15 +1965,15 @@
             fields: (
                 character_id: "npc_girdle",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_npc_girdle",
                 patrol_radius: 0,
             ),
         ),
         (
             type: "DebugLabel",
             px: [
-                1668,
-                596,
+                4,
+                404,
             ],
             size: [
                 120,
@@ -1889,8 +1988,8 @@
         (
             type: "NpcSpawn",
             px: [
-                1840,
-                736,
+                176,
+                544,
             ],
             size: [
                 32,
@@ -1899,15 +1998,15 @@
             fields: (
                 character_id: "npc_goblin_brute_hammer",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_npc_goblin_brute_hammer",
                 patrol_radius: 0,
             ),
         ),
         (
             type: "DebugLabel",
             px: [
-                1796,
-                596,
+                132,
+                404,
             ],
             size: [
                 120,
@@ -1922,8 +2021,8 @@
         (
             type: "NpcSpawn",
             px: [
-                1968,
-                736,
+                304,
+                544,
             ],
             size: [
                 32,
@@ -1932,15 +2031,15 @@
             fields: (
                 character_id: "npc_goblin_cave_dagger",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_npc_goblin_cave_dagger",
                 patrol_radius: 0,
             ),
         ),
         (
             type: "DebugLabel",
             px: [
-                1924,
-                596,
+                260,
+                404,
             ],
             size: [
                 120,
@@ -1955,7 +2054,7 @@
         (
             type: "NpcSpawn",
             px: [
-                48,
+                432,
                 544,
             ],
             size: [
@@ -1965,14 +2064,14 @@
             fields: (
                 character_id: "npc_goblin_desert_bow",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_npc_goblin_desert_bow",
                 patrol_radius: 0,
             ),
         ),
         (
             type: "DebugLabel",
             px: [
-                4,
+                388,
                 404,
             ],
             size: [
@@ -1988,7 +2087,7 @@
         (
             type: "NpcSpawn",
             px: [
-                176,
+                560,
                 544,
             ],
             size: [
@@ -1998,14 +2097,14 @@
             fields: (
                 character_id: "npc_goblin_forest_spear",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_npc_goblin_forest_spear",
                 patrol_radius: 0,
             ),
         ),
         (
             type: "DebugLabel",
             px: [
-                132,
+                516,
                 404,
             ],
             size: [
@@ -2021,7 +2120,7 @@
         (
             type: "NpcSpawn",
             px: [
-                304,
+                688,
                 544,
             ],
             size: [
@@ -2031,14 +2130,14 @@
             fields: (
                 character_id: "npc_ranged_skirmisher",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_npc_ranged_skirmisher",
                 patrol_radius: 0,
             ),
         ),
         (
             type: "DebugLabel",
             px: [
-                260,
+                644,
                 404,
             ],
             size: [
@@ -2054,7 +2153,7 @@
         (
             type: "NpcSpawn",
             px: [
-                432,
+                816,
                 544,
             ],
             size: [
@@ -2064,14 +2163,14 @@
             fields: (
                 character_id: "npc_exploding_mite",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_npc_exploding_mite",
                 patrol_radius: 0,
             ),
         ),
         (
             type: "DebugLabel",
             px: [
-                388,
+                772,
                 404,
             ],
             size: [
@@ -2087,7 +2186,7 @@
         (
             type: "NpcSpawn",
             px: [
-                560,
+                944,
                 544,
             ],
             size: [
@@ -2097,14 +2196,14 @@
             fields: (
                 character_id: "npc_dividing_mite",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_npc_dividing_mite",
                 patrol_radius: 0,
             ),
         ),
         (
             type: "DebugLabel",
             px: [
-                516,
+                900,
                 404,
             ],
             size: [
@@ -2120,7 +2219,7 @@
         (
             type: "NpcSpawn",
             px: [
-                688,
+                1072,
                 544,
             ],
             size: [
@@ -2130,14 +2229,14 @@
             fields: (
                 character_id: "npc_goblin_frost_sword",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_npc_goblin_frost_sword",
                 patrol_radius: 0,
             ),
         ),
         (
             type: "DebugLabel",
             px: [
-                644,
+                1028,
                 404,
             ],
             size: [
@@ -2153,7 +2252,7 @@
         (
             type: "NpcSpawn",
             px: [
-                816,
+                1200,
                 544,
             ],
             size: [
@@ -2163,14 +2262,14 @@
             fields: (
                 character_id: "npc_goblin_shaman_staff",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_npc_goblin_shaman_staff",
                 patrol_radius: 0,
             ),
         ),
         (
             type: "DebugLabel",
             px: [
-                772,
+                1156,
                 404,
             ],
             size: [
@@ -2186,7 +2285,7 @@
         (
             type: "NpcSpawn",
             px: [
-                944,
+                1328,
                 544,
             ],
             size: [
@@ -2196,14 +2295,14 @@
             fields: (
                 character_id: "npc_hand_saint",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_npc_hand_saint",
                 patrol_radius: 0,
             ),
         ),
         (
             type: "DebugLabel",
             px: [
-                900,
+                1284,
                 404,
             ],
             size: [
@@ -2219,7 +2318,7 @@
         (
             type: "NpcSpawn",
             px: [
-                1072,
+                1456,
                 544,
             ],
             size: [
@@ -2229,14 +2328,14 @@
             fields: (
                 character_id: "npc_helpful_liar",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_npc_helpful_liar",
                 patrol_radius: 0,
             ),
         ),
         (
             type: "DebugLabel",
             px: [
-                1028,
+                1412,
                 404,
             ],
             size: [
@@ -2252,7 +2351,7 @@
         (
             type: "NpcSpawn",
             px: [
-                1200,
+                1584,
                 544,
             ],
             size: [
@@ -2262,14 +2361,14 @@
             fields: (
                 character_id: "npc_judy",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_npc_judy",
                 patrol_radius: 0,
             ),
         ),
         (
             type: "DebugLabel",
             px: [
-                1156,
+                1540,
                 404,
             ],
             size: [
@@ -2285,7 +2384,7 @@
         (
             type: "NpcSpawn",
             px: [
-                1328,
+                1712,
                 544,
             ],
             size: [
@@ -2295,14 +2394,14 @@
             fields: (
                 character_id: "npc_mallory",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_npc_mallory",
                 patrol_radius: 0,
             ),
         ),
         (
             type: "DebugLabel",
             px: [
-                1284,
+                1668,
                 404,
             ],
             size: [
@@ -2318,7 +2417,7 @@
         (
             type: "NpcSpawn",
             px: [
-                1456,
+                1840,
                 544,
             ],
             size: [
@@ -2328,14 +2427,14 @@
             fields: (
                 character_id: "npc_ninja_heavy",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_npc_ninja_heavy",
                 patrol_radius: 0,
             ),
         ),
         (
             type: "DebugLabel",
             px: [
-                1412,
+                1796,
                 404,
             ],
             size: [
@@ -2351,7 +2450,7 @@
         (
             type: "NpcSpawn",
             px: [
-                1584,
+                1968,
                 544,
             ],
             size: [
@@ -2361,14 +2460,14 @@
             fields: (
                 character_id: "npc_olivia",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_npc_olivia",
                 patrol_radius: 0,
             ),
         ),
         (
             type: "DebugLabel",
             px: [
-                1540,
+                1924,
                 404,
             ],
             size: [
@@ -2384,8 +2483,8 @@
         (
             type: "NpcSpawn",
             px: [
-                1712,
-                544,
+                48,
+                352,
             ],
             size: [
                 32,
@@ -2394,15 +2493,15 @@
             fields: (
                 character_id: "npc_peggy",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_npc_peggy",
                 patrol_radius: 0,
             ),
         ),
         (
             type: "DebugLabel",
             px: [
-                1668,
-                404,
+                4,
+                212,
             ],
             size: [
                 120,
@@ -2417,8 +2516,8 @@
         (
             type: "NpcSpawn",
             px: [
-                1840,
-                544,
+                176,
+                352,
             ],
             size: [
                 32,
@@ -2427,15 +2526,15 @@
             fields: (
                 character_id: "npc_pirate_cutlass_viper",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_npc_pirate_cutlass_viper",
                 patrol_radius: 0,
             ),
         ),
         (
             type: "DebugLabel",
             px: [
-                1796,
-                404,
+                132,
+                212,
             ],
             size: [
                 120,
@@ -2450,8 +2549,8 @@
         (
             type: "NpcSpawn",
             px: [
-                1968,
-                544,
+                304,
+                352,
             ],
             size: [
                 32,
@@ -2467,8 +2566,8 @@
         (
             type: "DebugLabel",
             px: [
-                1924,
-                404,
+                260,
+                212,
             ],
             size: [
                 120,
@@ -2483,7 +2582,7 @@
         (
             type: "NpcSpawn",
             px: [
-                48,
+                432,
                 352,
             ],
             size: [
@@ -2500,7 +2599,7 @@
         (
             type: "DebugLabel",
             px: [
-                4,
+                388,
                 212,
             ],
             size: [
@@ -2516,7 +2615,7 @@
         (
             type: "NpcSpawn",
             px: [
-                176,
+                560,
                 352,
             ],
             size: [
@@ -2533,7 +2632,7 @@
         (
             type: "DebugLabel",
             px: [
-                132,
+                516,
                 212,
             ],
             size: [
@@ -2549,7 +2648,7 @@
         (
             type: "NpcSpawn",
             px: [
-                304,
+                688,
                 352,
             ],
             size: [
@@ -2566,7 +2665,7 @@
         (
             type: "DebugLabel",
             px: [
-                260,
+                644,
                 212,
             ],
             size: [
@@ -2582,7 +2681,7 @@
         (
             type: "NpcSpawn",
             px: [
-                432,
+                816,
                 352,
             ],
             size: [
@@ -2599,7 +2698,7 @@
         (
             type: "DebugLabel",
             px: [
-                388,
+                772,
                 212,
             ],
             size: [
@@ -2615,7 +2714,7 @@
         (
             type: "NpcSpawn",
             px: [
-                560,
+                944,
                 352,
             ],
             size: [
@@ -2625,14 +2724,14 @@
             fields: (
                 character_id: "npc_puppy_slug_variant2",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_npc_puppy_slug_variant2",
                 patrol_radius: 0,
             ),
         ),
         (
             type: "DebugLabel",
             px: [
-                516,
+                900,
                 212,
             ],
             size: [
@@ -2648,7 +2747,7 @@
         (
             type: "NpcSpawn",
             px: [
-                688,
+                1072,
                 352,
             ],
             size: [
@@ -2658,14 +2757,14 @@
             fields: (
                 character_id: "npc_robot_archivist",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_npc_robot_archivist",
                 patrol_radius: 0,
             ),
         ),
         (
             type: "DebugLabel",
             px: [
-                644,
+                1028,
                 212,
             ],
             size: [
@@ -2681,7 +2780,7 @@
         (
             type: "NpcSpawn",
             px: [
-                816,
+                1200,
                 352,
             ],
             size: [
@@ -2691,14 +2790,14 @@
             fields: (
                 character_id: "npc_robot_caster",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_npc_robot_caster",
                 patrol_radius: 0,
             ),
         ),
         (
             type: "DebugLabel",
             px: [
-                772,
+                1156,
                 212,
             ],
             size: [
@@ -2714,7 +2813,7 @@
         (
             type: "NpcSpawn",
             px: [
-                944,
+                1328,
                 352,
             ],
             size: [
@@ -2724,14 +2823,14 @@
             fields: (
                 character_id: "npc_robot_diver",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_npc_robot_diver",
                 patrol_radius: 0,
             ),
         ),
         (
             type: "DebugLabel",
             px: [
-                900,
+                1284,
                 212,
             ],
             size: [
@@ -2747,7 +2846,7 @@
         (
             type: "NpcSpawn",
             px: [
-                1072,
+                1456,
                 352,
             ],
             size: [
@@ -2757,14 +2856,14 @@
             fields: (
                 character_id: "npc_robot_engineer",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_npc_robot_engineer",
                 patrol_radius: 0,
             ),
         ),
         (
             type: "DebugLabel",
             px: [
-                1028,
+                1412,
                 212,
             ],
             size: [
@@ -2780,7 +2879,7 @@
         (
             type: "NpcSpawn",
             px: [
-                1200,
+                1584,
                 352,
             ],
             size: [
@@ -2790,14 +2889,14 @@
             fields: (
                 character_id: "npc_robot_guardian",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_npc_robot_guardian",
                 patrol_radius: 0,
             ),
         ),
         (
             type: "DebugLabel",
             px: [
-                1156,
+                1540,
                 212,
             ],
             size: [
@@ -2813,7 +2912,7 @@
         (
             type: "NpcSpawn",
             px: [
-                1328,
+                1712,
                 352,
             ],
             size: [
@@ -2823,14 +2922,14 @@
             fields: (
                 character_id: "npc_robot_medic",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_npc_robot_medic",
                 patrol_radius: 0,
             ),
         ),
         (
             type: "DebugLabel",
             px: [
-                1284,
+                1668,
                 212,
             ],
             size: [
@@ -2846,7 +2945,7 @@
         (
             type: "NpcSpawn",
             px: [
-                1456,
+                1840,
                 352,
             ],
             size: [
@@ -2856,14 +2955,14 @@
             fields: (
                 character_id: "npc_robot_miner",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_npc_robot_miner",
                 patrol_radius: 0,
             ),
         ),
         (
             type: "DebugLabel",
             px: [
-                1412,
+                1796,
                 212,
             ],
             size: [
@@ -2879,7 +2978,7 @@
         (
             type: "NpcSpawn",
             px: [
-                1584,
+                1968,
                 352,
             ],
             size: [
@@ -2889,14 +2988,14 @@
             fields: (
                 character_id: "npc_robot_runner",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_npc_robot_runner",
                 patrol_radius: 0,
             ),
         ),
         (
             type: "DebugLabel",
             px: [
-                1540,
+                1924,
                 212,
             ],
             size: [
@@ -2912,105 +3011,6 @@
         (
             type: "NpcSpawn",
             px: [
-                1712,
-                352,
-            ],
-            size: [
-                32,
-                48,
-            ],
-            fields: (
-                character_id: "npc_sandbag_armored_review",
-                prompt: "Inspect",
-                dialogue_id: "",
-                patrol_radius: 0,
-            ),
-        ),
-        (
-            type: "DebugLabel",
-            px: [
-                1668,
-                212,
-            ],
-            size: [
-                120,
-                20,
-            ],
-            fields: (
-                name: "hall_label_npc_sandbag_armored_review",
-                text: "Sandbag Armored Review",
-                category: "Custom",
-            ),
-        ),
-        (
-            type: "NpcSpawn",
-            px: [
-                1840,
-                352,
-            ],
-            size: [
-                32,
-                48,
-            ],
-            fields: (
-                character_id: "npc_sandbag_full_review",
-                prompt: "Inspect",
-                dialogue_id: "",
-                patrol_radius: 0,
-            ),
-        ),
-        (
-            type: "DebugLabel",
-            px: [
-                1796,
-                212,
-            ],
-            size: [
-                120,
-                20,
-            ],
-            fields: (
-                name: "hall_label_npc_sandbag_full_review",
-                text: "Sandbag Full Review",
-                category: "Custom",
-            ),
-        ),
-        (
-            type: "NpcSpawn",
-            px: [
-                1968,
-                352,
-            ],
-            size: [
-                32,
-                48,
-            ],
-            fields: (
-                character_id: "npc_spaghetti_event",
-                prompt: "Inspect",
-                dialogue_id: "",
-                patrol_radius: 0,
-            ),
-        ),
-        (
-            type: "DebugLabel",
-            px: [
-                1924,
-                212,
-            ],
-            size: [
-                120,
-                20,
-            ],
-            fields: (
-                name: "hall_label_npc_spaghetti_event",
-                text: "Spaghetti Event",
-                category: "Custom",
-            ),
-        ),
-        (
-            type: "NpcSpawn",
-            px: [
                 48,
                 160,
             ],
@@ -3019,7 +3019,7 @@
                 48,
             ],
             fields: (
-                character_id: "npc_sybil",
+                character_id: "npc_sandbag_armored_review",
                 prompt: "Inspect",
                 dialogue_id: "",
                 patrol_radius: 0,
@@ -3036,8 +3036,8 @@
                 20,
             ],
             fields: (
-                name: "hall_label_npc_sybil",
-                text: "Sybil",
+                name: "hall_label_npc_sandbag_armored_review",
+                text: "Sandbag Armored Review",
                 category: "Custom",
             ),
         ),
@@ -3052,7 +3052,7 @@
                 48,
             ],
             fields: (
-                character_id: "npc_synthetic_friend",
+                character_id: "npc_sandbag_full_review",
                 prompt: "Inspect",
                 dialogue_id: "",
                 patrol_radius: 0,
@@ -3069,8 +3069,8 @@
                 20,
             ],
             fields: (
-                name: "hall_label_npc_synthetic_friend",
-                text: "Synthetic Friend",
+                name: "hall_label_npc_sandbag_full_review",
+                text: "Sandbag Full Review",
                 category: "Custom",
             ),
         ),
@@ -3085,9 +3085,9 @@
                 48,
             ],
             fields: (
-                character_id: "npc_trent",
+                character_id: "npc_spaghetti_event",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_npc_spaghetti_event",
                 patrol_radius: 0,
             ),
         ),
@@ -3095,6 +3095,105 @@
             type: "DebugLabel",
             px: [
                 260,
+                20,
+            ],
+            size: [
+                120,
+                20,
+            ],
+            fields: (
+                name: "hall_label_npc_spaghetti_event",
+                text: "Spaghetti Event",
+                category: "Custom",
+            ),
+        ),
+        (
+            type: "NpcSpawn",
+            px: [
+                432,
+                160,
+            ],
+            size: [
+                32,
+                48,
+            ],
+            fields: (
+                character_id: "npc_sybil",
+                prompt: "Inspect",
+                dialogue_id: "hall_npc_sybil",
+                patrol_radius: 0,
+            ),
+        ),
+        (
+            type: "DebugLabel",
+            px: [
+                388,
+                20,
+            ],
+            size: [
+                120,
+                20,
+            ],
+            fields: (
+                name: "hall_label_npc_sybil",
+                text: "Sybil",
+                category: "Custom",
+            ),
+        ),
+        (
+            type: "NpcSpawn",
+            px: [
+                560,
+                160,
+            ],
+            size: [
+                32,
+                48,
+            ],
+            fields: (
+                character_id: "npc_synthetic_friend",
+                prompt: "Inspect",
+                dialogue_id: "hall_npc_synthetic_friend",
+                patrol_radius: 0,
+            ),
+        ),
+        (
+            type: "DebugLabel",
+            px: [
+                516,
+                20,
+            ],
+            size: [
+                120,
+                20,
+            ],
+            fields: (
+                name: "hall_label_npc_synthetic_friend",
+                text: "Synthetic Friend",
+                category: "Custom",
+            ),
+        ),
+        (
+            type: "NpcSpawn",
+            px: [
+                688,
+                160,
+            ],
+            size: [
+                32,
+                48,
+            ],
+            fields: (
+                character_id: "npc_trent",
+                prompt: "Inspect",
+                dialogue_id: "hall_npc_trent",
+                patrol_radius: 0,
+            ),
+        ),
+        (
+            type: "DebugLabel",
+            px: [
+                644,
                 20,
             ],
             size: [
@@ -3110,7 +3209,7 @@
         (
             type: "NpcSpawn",
             px: [
-                432,
+                816,
                 160,
             ],
             size: [
@@ -3120,14 +3219,14 @@
             fields: (
                 character_id: "npc_trudy",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_npc_trudy",
                 patrol_radius: 0,
             ),
         ),
         (
             type: "DebugLabel",
             px: [
-                388,
+                772,
                 20,
             ],
             size: [
@@ -3143,7 +3242,7 @@
         (
             type: "NpcSpawn",
             px: [
-                560,
+                944,
                 160,
             ],
             size: [
@@ -3153,14 +3252,14 @@
             fields: (
                 character_id: "npc_victor",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_npc_victor",
                 patrol_radius: 0,
             ),
         ),
         (
             type: "DebugLabel",
             px: [
-                516,
+                900,
                 20,
             ],
             size: [
@@ -3176,7 +3275,7 @@
         (
             type: "NpcSpawn",
             px: [
-                688,
+                1072,
                 160,
             ],
             size: [
@@ -3186,14 +3285,14 @@
             fields: (
                 character_id: "npc_viking_heavy_shieldmaiden",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_npc_viking_heavy_shieldmaiden",
                 patrol_radius: 0,
             ),
         ),
         (
             type: "DebugLabel",
             px: [
-                644,
+                1028,
                 20,
             ],
             size: [
@@ -3209,7 +3308,7 @@
         (
             type: "NpcSpawn",
             px: [
-                816,
+                1200,
                 160,
             ],
             size: [
@@ -3219,14 +3318,14 @@
             fields: (
                 character_id: "npc_viking_heavy_warrior",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_npc_viking_heavy_warrior",
                 patrol_radius: 0,
             ),
         ),
         (
             type: "DebugLabel",
             px: [
-                772,
+                1156,
                 20,
             ],
             size: [
@@ -3242,7 +3341,7 @@
         (
             type: "NpcSpawn",
             px: [
-                944,
+                1328,
                 160,
             ],
             size: [
@@ -3252,14 +3351,14 @@
             fields: (
                 character_id: "npc_viking_shieldmaiden",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_npc_viking_shieldmaiden",
                 patrol_radius: 0,
             ),
         ),
         (
             type: "DebugLabel",
             px: [
-                900,
+                1284,
                 20,
             ],
             size: [
@@ -3275,7 +3374,7 @@
         (
             type: "NpcSpawn",
             px: [
-                1072,
+                1456,
                 160,
             ],
             size: [
@@ -3285,14 +3384,14 @@
             fields: (
                 character_id: "npc_viking_warrior",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_npc_viking_warrior",
                 patrol_radius: 0,
             ),
         ),
         (
             type: "DebugLabel",
             px: [
-                1028,
+                1412,
                 20,
             ],
             size: [
@@ -3308,7 +3407,7 @@
         (
             type: "NpcSpawn",
             px: [
-                1200,
+                1584,
                 160,
             ],
             size: [
@@ -3318,14 +3417,14 @@
             fields: (
                 character_id: "npc_walter",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_npc_walter",
                 patrol_radius: 0,
             ),
         ),
         (
             type: "DebugLabel",
             px: [
-                1156,
+                1540,
                 20,
             ],
             size: [
@@ -3341,7 +3440,7 @@
         (
             type: "NpcSpawn",
             px: [
-                1328,
+                1712,
                 160,
             ],
             size: [
@@ -3351,14 +3450,14 @@
             fields: (
                 character_id: "npc_weird_hermit",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_npc_weird_hermit",
                 patrol_radius: 0,
             ),
         ),
         (
             type: "DebugLabel",
             px: [
-                1284,
+                1668,
                 20,
             ],
             size: [
@@ -3384,7 +3483,7 @@
             fields: (
                 character_id: "npc_bear_mauler",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_npc_bear_mauler",
                 patrol_radius: 0,
             ),
         ),
@@ -3417,7 +3516,7 @@
             fields: (
                 character_id: "npc_boss",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_npc_boss",
                 patrol_radius: 0,
             ),
         ),
@@ -3450,7 +3549,7 @@
             fields: (
                 character_id: "npc_dark_lord",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_npc_dark_lord",
                 patrol_radius: 0,
             ),
         ),
@@ -3483,7 +3582,7 @@
             fields: (
                 character_id: "npc_flying_spaghetti_monster_boss",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_npc_flying_spaghetti_monster_boss",
                 patrol_radius: 0,
             ),
         ),
@@ -3516,7 +3615,7 @@
             fields: (
                 character_id: "npc_gnu_ton_boss",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_npc_gnu_ton_boss",
                 patrol_radius: 0,
             ),
         ),
@@ -3549,7 +3648,7 @@
             fields: (
                 character_id: "npc_mantis_lancer",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_npc_mantis_lancer",
                 patrol_radius: 0,
             ),
         ),
@@ -3582,7 +3681,7 @@
             fields: (
                 character_id: "npc_mockingbird_boss",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_npc_mockingbird_boss",
                 patrol_radius: 0,
             ),
         ),
@@ -3615,7 +3714,7 @@
             fields: (
                 character_id: "npc_raptor_stalker",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_npc_raptor_stalker",
                 patrol_radius: 0,
             ),
         ),
@@ -3648,7 +3747,7 @@
             fields: (
                 character_id: "npc_smart_house",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_npc_smart_house",
                 patrol_radius: 0,
             ),
         ),
@@ -3681,7 +3780,7 @@
             fields: (
                 character_id: "npc_trex_enemy",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_npc_trex_enemy",
                 patrol_radius: 0,
             ),
         ),

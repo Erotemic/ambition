@@ -252,6 +252,60 @@ mod tests {
         );
     }
 
+    /// Regression: a SECOND stimulus on an already-hostile actor must NOT rebuild
+    /// its brain. Re-deriving the brain on every stimulus zeroed all of its
+    /// `SmashState` cadences (ranged / dash / blink / footsies timers, mode-dwell
+    /// hysteresis) each hit — which is what turned the Perfect Cell-ular Automaton
+    /// into a per-tick glider spammer that never got to duel. The live brain (and
+    /// its accumulated state) must persist across repeat stimuli.
+    #[test]
+    fn a_repeat_stimulus_preserves_an_already_hostile_brain_state() {
+        use ambition_characters::brain::{Brain, StateMachineCfg};
+        let mut app = App::new();
+        app.add_message::<ActorStimulus>();
+        app.add_systems(Update, apply_actor_stimuli);
+        let npc = spawn_npc_with_strikes(&mut app, 0);
+        // First stimulus: the peaceful→hostile flip builds the (combatant Smash)
+        // brain exactly once.
+        app.world_mut().write_message(ActorStimulus::Challenged {
+            actor: npc,
+            challenger: None,
+        });
+        app.update();
+        // Advance a cadence on the LIVE brain, as a mid-duel shot would.
+        const SENTINEL: f32 = 0.9;
+        {
+            let mut brain = app
+                .world_mut()
+                .get_mut::<Brain>(npc)
+                .expect("the flip inserts a Brain");
+            let Brain::StateMachine(StateMachineCfg::Smash { state, .. }) = &mut *brain else {
+                panic!("the provoked combatant should be a Smash brain");
+            };
+            state.ranged_cooldown_remaining = SENTINEL;
+            state.mode_dwell_s = SENTINEL;
+        }
+        // A second stimulus on the now-hostile actor must leave the brain intact.
+        app.world_mut().write_message(ActorStimulus::DamagedBy {
+            actor: npc,
+            source: None,
+            damage: 1,
+        });
+        app.update();
+        let brain = app.world().get::<Brain>(npc).unwrap();
+        let Brain::StateMachine(StateMachineCfg::Smash { state, .. }) = brain else {
+            panic!("the brain should still be a Smash brain");
+        };
+        assert_eq!(
+            state.ranged_cooldown_remaining, SENTINEL,
+            "a repeat stimulus must not reset the ranged fire cadence (no brain rebuild)"
+        );
+        assert_eq!(
+            state.mode_dwell_s, SENTINEL,
+            "a repeat stimulus must not reset mode-dwell hysteresis"
+        );
+    }
+
     #[test]
     fn a_floating_npc_grounds_when_provoked_into_a_grounded_archetype() {
         // The Perfect Cell-ular Automaton path: a peaceful *Floating* NPC

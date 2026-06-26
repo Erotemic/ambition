@@ -172,13 +172,25 @@ pub(crate) fn provoke_actor_in_place(
         }
         commands.entity(entity).insert(spec.combat_capabilities());
         *disposition = ActorDisposition::Hostile;
+        // Build the hostile brain ONCE — on the peaceful→hostile flip. Re-deriving
+        // it on every later stimulus (each hit, each re-challenge) would overwrite
+        // the brain component with a FRESH one, zeroing all of its accumulated
+        // state every tick: the ranged/melee fire cadence, the footsies / dash /
+        // blink / neutral-jump timers, mode-dwell hysteresis. That is exactly what
+        // turned the Perfect Cell-ular Automaton from a varied duelist into a
+        // per-tick glider spammer — a continuously-struck (or re-challenged) actor
+        // never got to advance any cadence. An already-hostile actor keeps its
+        // live brain and its dueling state; only its target / chase mode update
+        // below. (Escalation that needs a genuinely different brain — e.g. a
+        // peaceful pirate forced into a Brute — flows through the archetype swap
+        // above, which only runs on the flip.)
+        let (brain, action_set) =
+            super::super::brain_builders::aggressive_brain_and_action_set_for_enemy(
+                em.config, combat_kit, held_item,
+            );
+        commands.entity(entity).insert((brain, action_set));
     }
     if chase {
         em.status.ai_mode = ambition_characters::actor::ai::CharacterAiMode::Chase;
     }
-    let (brain, action_set) =
-        super::super::brain_builders::aggressive_brain_and_action_set_for_enemy(
-            em.config, combat_kit, held_item,
-        );
-    commands.entity(entity).insert((brain, action_set));
 }

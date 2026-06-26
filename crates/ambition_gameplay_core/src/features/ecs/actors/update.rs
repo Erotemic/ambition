@@ -760,16 +760,21 @@ pub struct NpcIdleBarkState {
     rotations: std::collections::HashMap<String, u32>,
 }
 
-/// Deterministic ~6–10s ambient-bark interval keyed by NPC id + counter — a
-/// tiny FNV hash so we don't pull `rand` in for one cadence offset (mirrors the
-/// boss idle-bark jitter).
-fn npc_idle_bark_jitter(id: &str, counter: u32) -> f32 {
+/// Deterministic ambient-bark interval keyed by NPC id + counter — a tiny FNV
+/// hash so we don't pull `rand` in for one cadence offset (mirrors the boss
+/// idle-bark jitter). `base_s` is the floor and `span_ms` the jitter window:
+/// the result is `base_s..base_s + span_ms/1000` seconds.
+///
+/// Cadence is set by the caller per occasion: a lone ambient NPC mutters fairly
+/// often, but the Hall of Characters has ~100 pedestals barking at once, so it
+/// uses a much longer interval — otherwise the gallery is a wall of noise.
+fn npc_idle_bark_jitter(id: &str, counter: u32, base_s: f32, span_ms: u32) -> f32 {
     let mut h: u32 = 2166136261;
     for b in id.bytes() {
         h = (h ^ b as u32).wrapping_mul(16777619);
     }
     h ^= counter.wrapping_mul(2654435761);
-    6.0 + (h % 4000) as f32 / 1000.0
+    base_s + (h % span_ms.max(1)) as f32 / 1000.0
 }
 
 /// Ambient NPC chatter: a peaceful NPC carrying an idle-bark pool
@@ -806,6 +811,13 @@ pub fn tick_npc_idle_barks(
         }
         _ => ambition_characters::actor::character_catalog::BarkSituation::Idle,
     };
+    // Bark cadence per occasion. The Hall packs ~100 pedestals into one room, so
+    // it barks far less often than a lone ambient NPC to keep the gallery from
+    // becoming a wall of speech bubbles. (base seconds, jitter window in ms.)
+    let (bark_base_s, bark_span_ms) = match situation {
+        ambition_characters::actor::character_catalog::BarkSituation::Hall => (28.0, 24_000),
+        _ => (12.0, 8_000),
+    };
     for (kin, config, status, interaction, disposition) in &npcs {
         if disposition.is_hostile() || status.hit_flash > 0.0 {
             continue;
@@ -822,7 +834,7 @@ pub fn tick_npc_idle_barks(
         let timer = state
             .timers
             .entry(config.id.clone())
-            .or_insert_with(|| npc_idle_bark_jitter(&config.id, 0));
+            .or_insert_with(|| npc_idle_bark_jitter(&config.id, 0, bark_base_s, bark_span_ms));
         *timer -= dt;
         if *timer > 0.0 {
             continue;
@@ -834,8 +846,9 @@ pub fn tick_npc_idle_barks(
         });
         let next = rotation.wrapping_add(1);
         state.rotations.insert(config.id.clone(), next);
-        state
-            .timers
-            .insert(config.id.clone(), npc_idle_bark_jitter(&config.id, next));
+        state.timers.insert(
+            config.id.clone(),
+            npc_idle_bark_jitter(&config.id, next, bark_base_s, bark_span_ms),
+        );
     }
 }

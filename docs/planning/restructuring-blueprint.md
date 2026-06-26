@@ -37,6 +37,14 @@ landed record (compressed) follows for context. Each item links to its section.
 
 ### Remaining work (the actionable list)
 
+0. **KEYSTONE — collapse the `Player*`/`Actor*` dual hierarchy** (added 2026-06-26
+   after the crate-extraction spike). `crate::player` is a universal dependency
+   sink (20/28 modules import it), which is *why* the 83k-LOC `gameplay_core`
+   god-crate has no clean leaf to extract — so this collapse is the **prerequisite**
+   that unblocks crate-splitting (compile-time + agent-navigability), and it
+   subsumes §4 and the projectile source/faction split. Sliced, behaviour-preserving,
+   differential-harness-gated — NOT a big-bang rename. Full plan + slice order in the
+   new "**The keystone refactor**" section below.
 1. **Portal shot-placement adapter** (`content/portal/shot_adapter.rs`) — the last
    genuine collision reader still on bare `RoomGeometry`. Routing it onto the
    `CollisionWorld` view is a **design fork, not a sweep**: decide whether a portal
@@ -449,6 +457,114 @@ use case lands" trigger, not now.
 
 ---
 
+## The keystone refactor: collapse the `Player*`/`Actor*` dual hierarchy
+
+*Author: Claude Opus 4.8 (1M) · 2026-06-26 · status: PLANNED (slices below). This
+section was added after a dependency spike (the `(a)` crate-extraction prototype
+below) produced a result that reorders the whole roadmap.*
+
+### What the crate-extraction spike found (and why it changed the plan)
+
+The goal was to prove the compile-time / boundary win by extracting one leaf crate
+out of the 83k-LOC `ambition_gameplay_core` god-crate — `world` →
+`ambition_world_runtime` was the candidate. **The spike falsified its own premise,
+which is the valuable result:**
+
+- **`world` is not a clean leaf.** Its pure spatial geometry (`ae::World`,
+  collision semantics, the kinematic kernel) is *already* extracted into
+  `ambition_engine_core`; `RoomGeometry` is a 1-line `Resource` newtype over it.
+  What remains in `gameplay_core/src/world` is (1) a **6.4k-LOC LDtk→ECS authoring
+  fan-out** that depends on every gameplay domain it can spawn (`combat::DamageVolume`,
+  `player::PlayerInteractionState`, `features::HazardFeature`,
+  `encounter::SwitchActivation`, `portal::PortalChannelColor`, `items::GroundItem`,
+  `shrine::HealShrine`…) and (2) **Bevy visual block-spawning** (`physics.rs`/
+  `platforms` pull `config::WORLD_Z_BLOCK` render Z-layers + `RoomVisual`). Both are
+  legitimately *higher*-layer; neither is a foundation leaf.
+- **The root cause is singular: `crate::player` is a universal dependency sink.**
+  **20 of 28** non-player top-level modules import `crate::player` (`time`, `audio`,
+  `dialog`, `body_mode`, `abilities`, `enemy_projectile`, `combat`, `items`,
+  `encounter`, `portal`, `persistence`, `session`, …). Any leaf you try to extract
+  drags `player` — and therefore most of the crate — with it. **No clean leaf
+  exists today.**
+- The symbols pulled from `player` are exactly the duplicated sim-state mirrors:
+  `BodyKinematics` (35 refs), `PlayerEntity` (34), `PrimaryPlayer` (17),
+  `PlayerCombatState` (14), `PlayerSafetyState` (12), `PlayerInteractionState`,
+  `PlayerEnvironmentContact`, `PlayerWallet`, `PlayerShieldState`,
+  `PlayerGroundState`, `PlayerFlightState`, `PlayerDodgeState`, `PlayerDashState`,
+  `PlayerLedgeState`, `PlayerOffense`, `PlayerBaseSize`, …
+
+**Roadmap inversion.** An earlier draft suggested "split crates first, then collapse
+the player." The data says the opposite: **the `Player*`/`Actor*` collapse is the
+prerequisite that unblocks crate-splitting.** Once shared body/sim state lives on
+`Actor*` in a body/actor module (and `BodyKinematics`/`PlayerEntity` leave the
+`player` namespace), the 20 back-edges into `crate::player` dissolve and modules
+like `time`/`body_mode`/`audio` become genuinely extractable — banking the
+compile-time + agent-navigability win the god-crate currently blocks.
+
+**Stance change vs. "Do opportunistically."** The blueprint previously demoted the
+`Player*` rename to opportunistic, calling it "speculative churn justified by
+undesigned multiplayer." That justification is replaced: the collapse is now
+justified by **compile-time and agent-navigability (the #1 stated goal)** — present,
+measured needs, not multiplayer. It is therefore promoted to keystone. It still must
+NOT be a big-bang wave (that *would* be the wide tech-debt surface); it is **sliced,
+behaviour-preserving, differential-harness-gated**, below.
+
+### Three buckets (classify each `Player*` before touching it)
+
+1. **Namespace-only — already generic, just mis-homed (cheap, zero-semantics).**
+   Types that are already actor-agnostic but live under `crate::player::`:
+   `BodyKinematics`, `PlayerEntity`/`PrimaryPlayer` markers, `primary_player_scratch`.
+   *Move* them to an `actor`/`body` module; pure re-path, no behavior. This alone
+   retires a large share of the 20 back-edges.
+2. **Sim-state mirror — collapse onto the existing `Actor*` concept (the real work,
+   feel-y).** `PlayerCombatState`→`ActorCombatState`, `PlayerGroundState`→
+   `ActorSurfaceState`, `PlayerAttackState`→`ActorAttackState`,
+   `PlayerHealth`→`ActorHealth`, plus `PlayerSafetyState`/`PlayerWallet`/
+   `PlayerInteractionState`/`PlayerEnvironmentContact`/`PlayerShieldState` (some need a
+   new `Actor*` home). The player becomes *an actor carrying a `LocalControl` /
+   `PresentationFocus` marker*, not a special type family. Ability-specific states
+   (`PlayerDashState`/`PlayerDodgeState`/`PlayerFlightState`/`PlayerLedgeState`/
+   `PlayerBlinkState`) move to the actor/ability module and are gated by component
+   presence — the relativity principle says *any* actor with the ability can dash/
+   dodge/fly, so they are actor-capable, not player-exclusive.
+3. **Genuinely player-only — KEEP player-named (don't over-collapse).** Presentation
+   and local-only: `PlayerHudRoot`, `PlayerBlinkCameraState`, `PlayerDemoCfg`/
+   `PlayerDemoState`, camera/aim/HUD focus. These are correctly participant-scoped;
+   leave them as `Player*`/`LocalPresentationFocus`.
+
+### Slice plan (each slice compiles + is feel-verified before the next)
+
+- **Slice 0 — namespace move (bucket 1).** Relocate the already-generic body/marker
+  types out of `player`. No behavior change; differential harness must be byte-stable.
+  Immediately drops a chunk of back-edges; cheapest possible proof of the mechanism.
+- **Slices 1..k — one sim-state family per slice (bucket 2), ordered low→high feel
+  risk.** Economy/interaction first (`PlayerWallet`, `PlayerInteractionState`,
+  `PlayerEnvironmentContact`, `PlayerSafetyState` — non-feel-y), combat-state next
+  (`PlayerCombatState`/`PlayerAttackState`/`PlayerHealth`), **movement/ability state
+  LAST** (`Ground`/`Flight`/`Dodge`/`Dash`/`Ledge`/`Shield` — these *are* the
+  player's moment-to-moment feel; they need play-verification, not just headless).
+  Per slice: give the player entity the `Actor*` component, repoint readers, delete
+  the `Player*` type, run the differential harness + a play session.
+- **Slice final — bank the compile-time win.** Once a target module's back-edges into
+  `crate::player` are gone (`body_mode` is closest — 1 external referrer), extract it
+  as its own crate (`ambition_body_runtime` / `ambition_world_runtime` once world's
+  authoring fan-out is also addressed). This is the deferred `(a)` deliverable,
+  unblocked. This also subsumes **§4 (ControlFrame → actor-local intent)** and the
+  **projectile player/enemy → source/faction split** — all three are symptoms of the
+  same player-centrism, retired together rather than as separate items.
+
+### Why this is the elegant answer, not churn
+
+It is the relativity principle made structural: "player" stops being a type family
+and becomes "the actor a local participant controls." It deletes ~25–30 duplicated
+component types plus their parallel systems (real LOC reduction, not relocation), it
+is the *only* thing that makes the god-crate splittable, and every slice is
+behaviour-preserving and revertible at its named commit. The bar that keeps it from
+being the rejected big-bang wave: **it lands one component family at a time, gated by
+the differential harness, never as a mass rename.**
+
+---
+
 ## Domain-by-domain: current → target → first move
 
 Condensed orientation so an agent can work a domain without rediscovering it.
@@ -593,11 +709,16 @@ Portal remains the *exemplar*, not a candidate — it already has the shape.
 Right *direction*, wrong as a big up-front push — they'd be the wide tech-debt
 surface that's explicitly not the goal.
 
-- **`Player*` → actor/participant/viewpoint rename.** The taxonomy is correct and
-  *is* the relativity principle. But there are hundreds of sites; renaming all now,
-  justified largely by undesigned multiplayer, is speculative churn. **Rename
-  role-by-role in files you're already editing for items 1–4. No `legacy`/alias
-  module that doubles every name.** Preferred role mapping when you touch them:
+- **`Player*` → actor/participant/viewpoint rename.** ⚠️ **Stance updated
+  2026-06-26 — partially PROMOTED.** The *sim-state* half of this (the `Player*`/
+  `Actor*` dual-hierarchy collapse) is no longer merely opportunistic: the
+  dependency spike showed it is the keystone that unblocks crate-splitting and
+  compile-time, justified by present needs (not multiplayer). See the dedicated
+  "**The keystone refactor**" section — it is sliced, not a wave. What stays
+  genuinely opportunistic is the *presentation/UI-copy* renaming (bucket 3:
+  HUD/camera/demo) and cosmetic relabels in files you happen to touch. The taxonomy
+  is correct and *is* the relativity principle. **No `legacy`/alias module that
+  doubles every name.** Preferred role mapping when you touch them:
   `PrimaryPlayer`→`PrimaryControlledActor` (or `LocalPresentationFocus` for
   camera/HUD), `PlayerEntity`→`ActorBody`/`ControlledActorMarker`,
   `PlayerInputFrame`→`ActorInputFrame`, `PlayerMana`/`PlayerCombatState`/

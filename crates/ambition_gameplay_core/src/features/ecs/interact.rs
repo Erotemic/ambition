@@ -27,6 +27,7 @@ pub fn interact_ecs_actors_and_switches(
     // but its `ActorDisposition::Hostile` gates dialogue off.
     actors: Query<
         (
+            Entity,
             &CenteredAabb,
             &ActorDisposition,
             &ActorIdentity,
@@ -66,7 +67,7 @@ pub fn interact_ecs_actors_and_switches(
         }
         let player_aabb = player_kin.aabb();
         let mut consumed = false;
-        for (aabb, disposition, identity, interaction_payload) in &actors {
+        for (actor_entity, aabb, disposition, identity, interaction_payload) in &actors {
             if disposition.is_hostile() {
                 continue;
             }
@@ -86,6 +87,9 @@ pub fn interact_ecs_actors_and_switches(
                 &identity.id,
             );
             dialogue.start(&request.dialogue_id, &request.npc_name);
+            // Record which actor we're talking to so dialogue commands like
+            // `<<challenge>>` can provoke THIS NPC into a fight.
+            dialogue.set_speaker_entity(actor_entity);
             next_mode.set(crate::GameMode::Dialogue);
             quest_advance.write(QuestAdvanceRequested(
                 crate::quest::QuestAdvanceEvent::NpcTalked(identity.id.clone()),

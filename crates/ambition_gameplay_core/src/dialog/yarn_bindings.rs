@@ -225,6 +225,29 @@ pub fn cmd_clear_flag(In(name): In<String>, mut effects: MessageWriter<SetFlagRe
     });
 }
 
+/// `<<challenge>>` — provoke the NPC the player is currently talking to into
+/// a fight. The generic dialogue-gated combat trigger: it emits an
+/// [`ActorStimulus::Challenged`] for the conversation's speaker entity, which
+/// `apply_actor_stimuli` turns into the same in-place peaceful→hostile flip a
+/// strike would cause — but unconditionally, since picking "challenge" IS the
+/// consent to fight. Any content (the Perfect Cell-ular Automaton and beyond)
+/// arms a boss/duel by authoring this one command on a choice; no Rust per-NPC
+/// branch. Logs and no-ops if there's no in-world speaker (scripted dialogue).
+pub fn cmd_challenge(
+    dialogue: Res<crate::dialog::DialogState>,
+    player: Query<Entity, With<crate::player::PlayerEntity>>,
+    mut stimuli: MessageWriter<crate::features::ActorStimulus>,
+) {
+    let Some(actor) = dialogue.speaker_entity() else {
+        warn!("<<challenge>>: no speaker entity in dialogue context; ignoring");
+        return;
+    };
+    stimuli.write(crate::features::ActorStimulus::Challenged {
+        actor,
+        challenger: player.iter().next(),
+    });
+}
+
 /// `<<give_item "kind" count>>` — grant the player an item by adding
 /// to the live `OwnedItems` catalog resource. The kind string is
 /// resolved through [`crate::items::Item::from_dialog_id`]
@@ -458,6 +481,7 @@ fn normalize_item_id(raw: &str) -> String {
 pub fn register_commands(commands: &mut Commands, runner: &mut DialogueRunner) {
     let set_flag_id = commands.register_system(cmd_set_flag);
     let clear_flag_id = commands.register_system(cmd_clear_flag);
+    let challenge_id = commands.register_system(cmd_challenge);
     let give_item_id = commands.register_system(cmd_give_item);
     let buy_item_id = commands.register_system(cmd_buy_item);
     let sell_item_id = commands.register_system(cmd_sell_item);
@@ -468,6 +492,7 @@ pub fn register_commands(commands: &mut Commands, runner: &mut DialogueRunner) {
     let cmds = runner.commands_mut();
     cmds.add_command("set_flag", set_flag_id);
     cmds.add_command("clear_flag", clear_flag_id);
+    cmds.add_command("challenge", challenge_id);
     cmds.add_command("give_item", give_item_id);
     cmds.add_command("buy_item", buy_item_id);
     cmds.add_command("sell_item", sell_item_id);

@@ -135,6 +135,16 @@ pub enum ActorStimulus {
         source: Option<Entity>,
         damage: i32,
     },
+    /// The actor was explicitly challenged to a fight (e.g. the player picked
+    /// the "challenge" dialogue option). Provokes the actor into combat
+    /// unconditionally — bypassing the strike-threshold gate that `DamagedBy`
+    /// respects — because the challenge IS the deliberate consent to fight.
+    /// `challenger` is who threw down the gauntlet (the player), used as the
+    /// initial chase target.
+    Challenged {
+        actor: Entity,
+        challenger: Option<Entity>,
+    },
 }
 
 // Typed cross-system gameplay effects emitted by feature code.

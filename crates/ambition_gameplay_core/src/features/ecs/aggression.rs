@@ -40,11 +40,14 @@ pub fn apply_actor_stimuli(
     >,
 ) {
     for stimulus in stimuli.read().copied() {
-        let ActorStimulus::DamagedBy {
-            actor,
-            source,
-            damage: _,
-        } = stimulus;
+        // A `Challenged` stimulus is the player's explicit consent to fight, so
+        // it provokes unconditionally; `DamagedBy` defers to the actor's
+        // aggression policy (passive actors ignore it, retaliators need to cross
+        // their strike threshold). Both funnel into the SAME in-place flip.
+        let (actor, source, challenged) = match stimulus {
+            ActorStimulus::DamagedBy { actor, source, .. } => (actor, source, false),
+            ActorStimulus::Challenged { actor, challenger } => (actor, challenger, true),
+        };
         let Ok((
             entity,
             mut aggression,
@@ -63,20 +66,25 @@ pub fn apply_actor_stimuli(
             continue;
         };
 
-        if matches!(aggression.mode, AggressionMode::Passive) {
-            continue;
-        }
-        aggression.target = source.or(aggression.target);
-
-        let should_be_aggressive = match aggression.mode {
-            AggressionMode::RetaliatesWhenHit { strike_threshold } => {
-                aggression.strikes >= i32::from(strike_threshold)
+        // The challenge bypasses the passivity / threshold gates entirely.
+        if !challenged {
+            if matches!(aggression.mode, AggressionMode::Passive) {
+                continue;
             }
-            AggressionMode::HostileToPlayer => true,
-            AggressionMode::Passive => false,
-        };
-        if !should_be_aggressive {
-            continue;
+            aggression.target = source.or(aggression.target);
+
+            let should_be_aggressive = match aggression.mode {
+                AggressionMode::RetaliatesWhenHit { strike_threshold } => {
+                    aggression.strikes >= i32::from(strike_threshold)
+                }
+                AggressionMode::HostileToPlayer => true,
+                AggressionMode::Passive => false,
+            };
+            if !should_be_aggressive {
+                continue;
+            }
+        } else {
+            aggression.target = source.or(aggression.target);
         }
         aggression.mode = AggressionMode::HostileToPlayer;
 
@@ -94,7 +102,9 @@ pub fn apply_actor_stimuli(
             combat_kit,
             held_item,
             dialogue_id,
-            source.is_some(),
+            // Chase immediately when challenged (the duel is on), or when a
+            // damage source is known.
+            challenged || source.is_some(),
         );
         sync_actor_components_from_cluster(
             &em,
@@ -205,6 +215,62 @@ mod tests {
             *app.world().get::<ActorDisposition>(npc).unwrap(),
             ActorDisposition::Peaceful,
             "an NPC below the strike threshold should stay peaceful"
+        );
+    }
+
+    #[test]
+    fn a_challenge_flips_a_peaceful_npc_hostile_with_zero_strikes() {
+        // The dialogue-gated combat trigger: an explicit `Challenged`
+        // stimulus provokes the actor unconditionally — no strikes, no
+        // threshold — because picking "challenge" IS consent to fight. This
+        // is the gate the Perfect Cell-ular Automaton encounter rides on.
+        let mut app = App::new();
+        app.add_message::<ActorStimulus>();
+        app.add_systems(Update, apply_actor_stimuli);
+        let npc = spawn_npc_with_strikes(&mut app, 0);
+        app.world_mut().write_message(ActorStimulus::Challenged {
+            actor: npc,
+            challenger: None,
+        });
+        app.update();
+        assert_eq!(
+            *app.world().get::<ActorDisposition>(npc).unwrap(),
+            ActorDisposition::Hostile,
+            "a challenged NPC must flip hostile even with zero strikes"
+        );
+        // The flip swaps in a hostile combat brain (the generic provoked NPC
+        // resolves to the `combatant` Smash brawler). Pin that it's now a
+        // reactive fighter, not the peaceful stand-still brain.
+        let brain = app
+            .world()
+            .get::<ambition_characters::brain::Brain>(npc)
+            .expect("provoke inserts a Brain");
+        assert!(
+            brain.is_hostile(),
+            "the post-challenge brain should be hostile, got {}",
+            brain.label()
+        );
+    }
+
+    #[test]
+    fn an_un_challenged_passive_npc_ignores_damage() {
+        // Symmetric negative: without the explicit challenge, a passive
+        // actor stays peaceful when merely damaged — only the challenge (or
+        // crossing the retaliation threshold) arms the fight.
+        let mut app = App::new();
+        app.add_message::<ActorStimulus>();
+        app.add_systems(Update, apply_actor_stimuli);
+        let npc = spawn_npc_with_strikes(&mut app, 0);
+        // Force passive so DamagedBy is a no-op.
+        app.world_mut()
+            .get_mut::<ActorAggression>(npc)
+            .unwrap()
+            .mode = AggressionMode::Passive;
+        run(&mut app, npc);
+        assert_eq!(
+            *app.world().get::<ActorDisposition>(npc).unwrap(),
+            ActorDisposition::Peaceful,
+            "a passive, un-challenged NPC stays peaceful under damage"
         );
     }
 }

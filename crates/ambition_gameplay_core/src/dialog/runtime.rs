@@ -12,7 +12,7 @@
 //! The pending-request seam keeps UI/gameplay callers independent of Bevy runner
 //! queries while giving one system ownership of runner access.
 
-use bevy::prelude::{Component, Resource};
+use bevy::prelude::{Component, Entity, Resource};
 
 use super::content::DialogChoice;
 use ambition_engine_core::Vec2;
@@ -47,6 +47,14 @@ pub struct DialogState {
     /// Dialogue id (== Yarn root node name) for the active
     /// conversation. Empty when no conversation is active.
     dialogue_id: String,
+
+    /// The actor entity that opened this conversation, if it came from an
+    /// in-world NPC interaction. `None` for scripted / system-started
+    /// dialogue with no speaker actor. Yarn commands that act on "the NPC
+    /// I'm talking to" (e.g. `<<challenge>>` provoking it into a fight)
+    /// read this. Cleared on every `start()` so a stale entity from a
+    /// prior conversation can't leak into the next one.
+    pub(in crate::dialog) speaker_entity: Option<Entity>,
 
     /// Latest speaker from `PresentLine`. May differ from
     /// `npc_name` mid-conversation (e.g. an off-screen voice or a
@@ -140,6 +148,10 @@ impl DialogState {
         self.active = true;
         self.dialogue_id = dialogue_id.to_string();
         self.npc_name = npc_name.to_string();
+        // A fresh conversation has no known speaker actor until the caller
+        // sets one via `set_speaker_entity`. Clearing here prevents a stale
+        // entity from a prior dialogue leaking into a system-started one.
+        self.speaker_entity = None;
         self.current_speaker.clear();
         self.current_line.clear();
         self.line_reveal = LineRevealState::default();
@@ -187,6 +199,19 @@ impl DialogState {
     /// + the Yarn root node name). Empty when inactive.
     pub fn dialogue_id(&self) -> &str {
         &self.dialogue_id
+    }
+
+    /// Record the actor entity that opened this conversation. Called by the
+    /// interaction system right after `start()` so Yarn commands can act on
+    /// "the NPC I'm talking to".
+    pub fn set_speaker_entity(&mut self, entity: Entity) {
+        self.speaker_entity = Some(entity);
+    }
+
+    /// The actor entity that opened this conversation, if any. `None` for
+    /// scripted dialogue with no in-world speaker.
+    pub fn speaker_entity(&self) -> Option<Entity> {
+        self.speaker_entity
     }
 
     pub fn title(&self) -> String {

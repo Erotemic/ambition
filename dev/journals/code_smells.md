@@ -22,11 +22,11 @@ Entry format:
 
 ## Open
 
-## 2026-06-26 Enemy `BrainSnapshot.sim_time` hardcoded to 0.0 → reaction latency inert in-game
-- **Where:** `ambition_gameplay_core/src/features/ecs/actors/update.rs:689` (`build_enemy_brain_snapshot` sets `sim_time: 0.0`).
-- **Smell:** every enemy brain tick sees `sim_time == 0.0`. The Smash brain's reaction-latency mechanism (`SmashState.obs_history`, keyed on `sim_time`) pushes `(0.0, target_pos)` every tick, so `ObsHistory::delayed(now=0, delay)` can never find a sample older than `now - delay` and the lag collapses — **the never-cheats reaction latency is effectively inert in production** (it works only in the headless harness, which threads real sim_time). `SkirmisherState`/`SniperState` already document the same trap and worked around it by switching to a `dt`-countdown cooldown (see the long comment at `state_machine/mod.rs` `cooldown_remaining`). The duelist footsies/foray cadences I added also use `dt` accumulation for this reason, so they're fine — but anything sim_time-based is silently broken.
-- **Noticed while:** wiring the aerial PCA + auditing which brain behaviors actually resolve in-game.
-- **Suggested fix / size:** M — thread the scaled sim clock into `build_enemy_brain_snapshot` (a `Res<WorldTime>` or the actor-update system's accumulated time) instead of 0.0; then the reaction-latency obs_history works in-game. Guard with a test that two ticks produce distinct `sim_time`. Until then, prefer `dt`-based cadences in brain code and treat `obs_history.delayed` as headless-only.
+## 2026-06-26 Characters are defined by named `EnemyArchetype` rows, not by their movement kit
+- **Where:** `ambition_content/assets/data/enemy_archetypes.ron` + `EnemyArchetypeSpec` (`ambition_gameplay_core/src/features/enemies/mod.rs`); the spawn path resolves a string brain-key → a fixed archetype row that bundles HP + tuning + brain template + the capability flags (`smash_can_blink`, `smash_can_fly`, melee/ranged specs, …).
+- **Smell (Jon, 2026-06-26):** "There really shouldn't be archetypes; characters should be defined by what movements they have available to them." An archetype is a frozen bundle; the elegant model is a character = a **capability/kit set** (which verbs its body has: blink, fly, shield, dash, ledge, melee/ranged shapes, tilts, special) + tuning, composed freely, not picked from a closed roster of named rows. The S3 capability work is incrementally pushing this way (each verb is now a per-body `CombatCapabilities` flag projected from the spec into the body AND the brain), but the *source* is still a named archetype row rather than a kit the body simply HAS. The closed-archetype shape is the body-side analogue of the closed-`SpecialActionSpec`-enum tension already noted for the engine-for-other-games goal.
+- **Noticed while:** wiring blink (S3a) + fly (S3b) as body capabilities for the PCA — each verb needed a `smash_can_*` field threaded through the archetype row → spec → (brain cfg + body caps), which is the seam a kit-first model would make unnecessary.
+- **Suggested fix / size:** L, NOT now (explicitly deferred by Jon — "just a smell to log"). Direction: let a character author its capability set + tuning directly (data), drop the named-archetype indirection; the brain reads the kit, the body enforces it. Dovetails with the fighter-unification roadmap's "per-body capability set" and the engine-for-other-games keystone.
 
 ## 2026-06-26 `BrainSnapshot.wall_contact` is defined + read but NEVER populated in production
 - **Where:** field `ambition_characters/src/brain/snapshot.rs` (`wall_contact: Option<WallContact>`); read by `Wanderer` (`state_machine/mod.rs::tick_wanderer`); the ONLY `Some` constructions are in tests (grep `wall_contact: Some` → test files only).
@@ -123,6 +123,7 @@ are now gravity-relative. These four remain world-Y-locked — each is a DESIGN 
 
 ## Resolved
 
+- **2026-06-26 Enemy `BrainSnapshot.sim_time` hardcoded to 0.0 → reaction latency inert** — `update_ecs_actors` now threads a real accumulating sim clock (`GameplayElapsed`, summed from `WorldTime::scaled_dt`) into `build_enemy_brain_snapshot` instead of `0.0`, so the Smash brain's `obs_history` reaction latency works in-game. `518838df`; pinned by `gameplay_clock_accumulates_scaled_dt`.
 - **2026-06-17 Patrol wall-stop read screen-vel.x** — under sideways gravity the patrol "reverse facing" detection watched the zeroed gravity axis and never fired (enemy ground into the wall). Now watches the gravity-perpendicular side velocity in both grounded integrators. `5c29c4a9`; pinned by `patrol_enemy_reverses_facing_at_a_wall_under_sideways_gravity`.
 - **2026-06-17 Vestigial `PlayerPlatformRideState`** — write-only after riding became emergent; removed across the chain. `2a5aafde`.
 - **2026-06-15 Dual inventory bags** — `ItemKind`/`PlayerInventory` deleted, collapsed onto `OwnedItems`/`Item`; dialogue can now grant any of the 24 items.

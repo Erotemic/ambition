@@ -197,8 +197,34 @@ Author model: Opus 4.8 (1M). Wall-clock log at the bottom.
   every in-band tick; the body is the floor. Acceptance specs green: a 60 Hz spam
   controller fires at the body rate (2 shots / 2 s), output rate is bounded by the
   body not the attempt rate, idle controller never fires.
-- **S2–S5** — pending (see below). Next: unify the motor (movement into the
-  resolver, frame-agnostic).
+- **S2 (frame-agnostic motor/perception vectors)** ✅ *partial* — the Smash
+  brain's vertical reasoning no longer assumes screen `-y` is up. `ObservationFrame`
+  gained `down` + frame-local accessors (`up_axis` / `side_axis` / `to_target_up`
+  / `to_target_side` / `self_vel_up`, oriented so screen-down gravity is
+  byte-identical to the old reads); jump-to-chase, the up/down/forward melee pick,
+  decide_flight, the evade-up dodge, the aerial dive/perch arc, and the ranged aim
+  are all gravity-framed now (I10). Proven: the 49 existing smash tests still pass
+  (vertical byte-identity, incl. the flight-health arena) + 3 new C4 tests
+  (`evade_dodges_against_gravity_under_rotated_gravity`,
+  `target_above_is_gravity_relative`, `aerial_perch_climbs_against_gravity`).
+  **Deferred (deliberately):** (a) the grounded Walk dir still reads screen-x —
+  its sideways-gravity correctness depends on the engine spine's axis convention,
+  which wants verification; (b) the `locomotion`-vs-`velocity_target` vocabulary
+  merge ("one body-local desired velocity, two projections") touches
+  bosses/flyers/player/possession and changes feel — needs runtime verification,
+  not safe to fold blind.
+- **S4 (headless perception)** — *first step done:* real accumulating sim-time.
+  `GameplayElapsed` resource + `advance_gameplay_elapsed` (sums `WorldTime::scaled_dt`,
+  freezes on pause) threaded into `build_enemy_brain_snapshot` (was hardcoded
+  `0.0`). This **activates reaction latency in-engine** for the first time (the
+  `obs_history` lookback was inert). Test `gameplay_clock_accumulates_scaled_dt`;
+  full-app plugin test confirms the wiring. NOTE: in-world feel of active reaction
+  latency is unverified — wants a runtime check. The big S4 pieces (`WorldView` +
+  `WorldMemory`, line-of-fire / reachability over real collision, other-actor /
+  projectile / portal awareness) remain.
+- **S3, S5** — pending. S3 = full capability parity (blink/fly/shield/dash/ledge/
+  tilts/charge-fire/special into the resolver, PCA gets the full kit, integrator
+  stops special-casing the player). S5 = the strong universal brain (needs S4).
 
 Drift note for the next reader: the *player* fire path still uses its own
 `ProjectileSpawner` (cooldown + meter); S1 unified the **enemy/AI-driven** body
@@ -323,3 +349,5 @@ These are authored red in S0 and define completion:
 - S0 harness seed + S1 body-owns-fire-rate: 2026-06-26 (one session). Recon
   (parallel code map) → IntentOutcome seam + body ranged cooldown → delete brain
   cadence → real-ECS harness + 4 acceptance specs → green. Commit `b4039987`.
+- S2 frame-agnostic vectors (partial): same session. Commit `8a3541c6`.
+- S4 sim-time threading (first step): same session. Commit `518838df`.

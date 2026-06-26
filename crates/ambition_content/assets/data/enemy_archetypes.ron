@@ -101,21 +101,24 @@
     ),
     // Perfect Cell-ular Automaton — the dialogue-gated boss. Resolved when an
     // actor whose id/name reads "perfect cellular automaton" is provoked (see
-    // `hostile_brain_id_for_actor`). A beefy reactive Smash fighter: more HP
-    // than a grunt, dashes to close, a quick jab. The glider zoning special +
-    // blink verbs land in later PCA slices. Grounded (`is_aerial` defaults
-    // false): it floats peacefully as an NPC, then *descends* to fight on the
-    // ground via the tested grounded Smash path (provoke re-syncs gravity — see
-    // `provoke_actor_in_place`). Keeping it airborne + chasing in 2D (the "Fly"
-    // verb) is the deferred aerial-Smash enhancement.
+    // `hostile_brain_id_for_actor`). A FLYING reactive Smash duelist: `is_aerial`
+    // keeps it a free-mover when provoked, so the (now aerial-capable) Smash brain
+    // drives it via velocity_target — it perches above the player, zones with its
+    // glider (the `ranged` poke), and dives in for the jab. The aerial dive/perch
+    // + glider + dive-melee all resolve through existing integration (the floating-
+    // body integrator + the enemy ranged/melee paths), so this floats peacefully
+    // as an NPC and then FIGHTS in the air rather than descending. Blink / block /
+    // hybrid fly-toggle are emitted-but-inert in-engine until enemy bodies carry
+    // those abilities; the brain-level arena harness already exercises them.
     "cellular_automaton_fighter": (
         max_health: 18,
         patrol_speed: 96.0,
         chase_speed: 168.0,
-        aggro_radius: 480.0,
+        aggro_radius: 540.0,
         attack_range: 150.0,
         contact_strength: 0.75,
         damage_amount: 1,
+        is_aerial: true,
         brain_template: Smash,
         melee: Some(Swipe((
             windup_s: 0.24,
@@ -124,6 +127,10 @@
             damage: 1,
             reach_px: 30.0,
         ))),
+        // The glider: a cellular-automaton spaceship as the ranged zoning tool.
+        // Functional projectile now; the Conway-glider VISUAL is the deferred S4
+        // content-art pass.
+        ranged: Some(Rock(speed: 300.0, damage: 1)),
         smash_dash_to_close: true,
         move_style: Walk,
     ),

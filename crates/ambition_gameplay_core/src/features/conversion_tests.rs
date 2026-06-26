@@ -292,7 +292,21 @@ mod conversion_tests {
         );
         // The boss archetype is beefier than a grunt (18 HP vs the
         // combatant's 4) and is a hostile Smash fighter.
-        assert_eq!(test_spec("cellular_automaton_fighter").max_health, 18);
+        let spec = test_spec("cellular_automaton_fighter");
+        assert_eq!(spec.max_health, 18);
+        // It FLIES: `is_aerial` keeps it a free-mover when provoked, so the
+        // aerial-capable Smash brain drives it via velocity_target (perch/dive)
+        // instead of descending. (S4a's gravity re-sync now keeps it airborne
+        // because the archetype is aerial — the same mechanism, opposite outcome.)
+        assert!(
+            spec.is_aerial,
+            "the PCA boss should fly (is_aerial) so the aerial Smash brain drives it"
+        );
+        // It carries the glider as its ranged zoning tool.
+        assert!(
+            spec.ranged.is_some(),
+            "the PCA should have a ranged glider poke"
+        );
     }
 
     #[test]

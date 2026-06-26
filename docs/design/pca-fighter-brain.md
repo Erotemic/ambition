@@ -154,18 +154,42 @@ hand-authored (and future learned) policies. Two live guards: grounded duelist
 vs duelist, and the flying PCA vs a grounded robot. (Brain-level model — it
 proves the *policy* is non-degenerate; in-engine feel is verified separately.)
 
+## Hybrid fly/ground + reactive block
+
+- **Hybrid flight** (`can_fly` + `aerial_foray_cadence_s`/`_duration_s`): a body
+  that fights grounded (footsies + jump) *and* takes flight, choosing between
+  them. `decide_flight` takes off to contest an elevated target or mount a
+  proactive aerial foray, then lands to footsie; it emits `fly_toggle_pressed`
+  (the player's fly-toggle seam), with phase-timer hysteresis so it can't
+  chatter. The arena `two_hybrid_pcas_fight_healthily_in_the_symmetry_chamber`
+  test exercises two of these and asserts FLIGHT HEALTH (uses both modes, toggles
+  repeatedly, exercises vertical space) — the tool to inspect + iterate flight.
+- **Reactive block** (`can_shield`): the same perceivable-lunge read feeds a
+  layered choice — blink away if able (mobile), else a grounded fighter raises
+  `shield_held` and stands its ground for `SHIELD_HOLD_S` (the block spans the
+  attack instead of flickering).
+
 ## Status (PCA encounter)
 
-Done **in the brain crate** (all headless-tested): encounter gate (talk →
-challenge → fight), real 150 ms reaction latency, determinism, difficulty knobs;
-the duelist neutral game (footsies / neutral hops / platform-only vertical
-chase); aerial dive-perch flight; glider ranged zoning; reactive blink-evade;
-the non-degeneracy harness.
+Done **in the brain crate** (all headless-tested): encounter gate, real 150 ms
+reaction latency, determinism, difficulty knobs; the duelist neutral game
+(footsies / neutral hops / platform-only vertical chase); aerial dive-perch
+flight; glider ranged zoning; reactive blink-evade; reactive block; hybrid
+fly/ground toggle; the non-degeneracy + flight-health harness.
 
-Remaining (in-game wiring + content — not yet done):
-- point the PCA archetype at the duelist/aerial config and keep it Floating when
-  provoked (reverse the S4a grounding) so it flies in the Noether Chamber;
-- give the PCA body the glider (ranged ActionSet) + blink ability so those
-  emitted verbs *resolve* in-engine (capability wiring, like any actor);
-- **reactive block** (`shield_held` Defend mode) — the one verb still unbuilt;
-- GUI verification of the in-world feel (headless covers the policy only).
+Done **in-game** (data + brain path headless-tested; in-world feel wants a GUI
+check): the `cellular_automaton_fighter` archetype is `is_aerial: true` with a
+glider `ranged` poke, so the provoked PCA **flies** in the Noether Chamber —
+perch / dive / zone — via the existing floating-body integrator + enemy ranged/
+melee paths.
+
+Remaining:
+- **Capability wiring** so the in-engine PCA's blink / block / hybrid fly-toggle
+  *resolve* (enemy bodies don't carry those abilities yet — the verbs are
+  emitted-but-inert in-engine; the harness proves the policy).
+- The Conway-glider **visual** (S4 art) — the projectile is functional now.
+- **Frame-agnostic flight** for rotated (C4) gravity: `aerial_steer` / blink
+  currently treat `-y` as "up"; under sideways gravity they'd need the
+  acceleration-frame (gravity-local) like the grounded path. The chamber test
+  runs default down-gravity today.
+- GUI verification of the in-world feel.

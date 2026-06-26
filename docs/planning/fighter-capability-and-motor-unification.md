@@ -222,9 +222,17 @@ Author model: Opus 4.8 (1M). Wall-clock log at the bottom.
   latency is unverified — wants a runtime check. The big S4 pieces (`WorldView` +
   `WorldMemory`, line-of-fire / reachability over real collision, other-actor /
   projectile / portal awareness) remain.
-- **S3, S5** — pending. S3 = full capability parity (blink/fly/shield/dash/ledge/
-  tilts/charge-fire/special into the resolver, PCA gets the full kit, integrator
-  stops special-casing the player). S5 = the strong universal brain (needs S4).
+- **S3 (full capability parity)** — *in progress, verb by verb:*
+  - **S3a blink** ✅ — blink resolves on the actor body via the SAME
+    `blink::blink_target` rule the player uses, gated by `CombatCapabilities::can_blink`
+    (capability) + `ActorAttackState::try_blink`/`blink_cooldown` (the I3 floor —
+    binds a possessing human too). Data-driven: `EnemyArchetypeSpec.smash_can_blink`
+    projects into BOTH the brain's `SmashCfg.can_blink` (attempt) and the body caps
+    (enforce). PCA authors `smash_can_blink: true` → it blink-dodges a lunge.
+  - **S3b fly, S3c shield, S3d dash/tilts/special, integrator de-player-casing** —
+    pending. (PCA sprites for these verbs are being prepared by another agent; the
+    mechanics land here.)
+- **S5** — pending (needs S4). The strong universal brain.
 
 Drift note for the next reader: the *player* fire path still uses its own
 `ProjectileSpawner` (cooldown + meter); S1 unified the **enemy/AI-driven** body

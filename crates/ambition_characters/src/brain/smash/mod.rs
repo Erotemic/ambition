@@ -64,6 +64,13 @@ pub struct SmashCfg {
     /// Distance below which the actor retreats to avoid being
     /// pinned against a wall by the target.
     pub too_close_distance: f32,
+    /// Minimum *upward* gap (px) to the target before the actor jumps to
+    /// pursue it vertically. The grunt default (`60`) chases any target a
+    /// short hop above; a duelist sets this **above a hop's apex** so it
+    /// only climbs after a target genuinely standing on a platform, instead
+    /// of leapfrogging an opponent that is merely mid-hop (the flat-ground
+    /// air-juggle cascade). Replaces the former hardcoded threshold.
+    pub vertical_chase_min: f32,
     /// Movement speed while in Approach / Chase (px/s).
     pub chase_speed: f32,
     /// Movement speed while in Retreat / Reposition (px/s).
@@ -77,6 +84,21 @@ pub struct SmashCfg {
     /// archetype (goblins) so it doesn't silently change every melee
     /// enemy's feel.
     pub dash_to_close: bool,
+    /// Neutral-game footsies: amplitude (px) the actor weaves IN and OUT
+    /// around [`Self::engage_distance`] while spacing against a live
+    /// opponent. `0.0` (the grunt default) disables the weave entirely —
+    /// the actor closes and holds like before. A positive value makes a
+    /// *duelist*: it dips into poke range on a rhythm, then backs out to
+    /// bait a whiff, instead of camping point-blank and mashing. Uses only
+    /// the target-relative distance, so it's frame-agnostic.
+    pub footsies_amplitude: f32,
+    /// Seconds per full in→out footsies cycle. Ignored when
+    /// [`Self::footsies_amplitude`] is `0.0`.
+    pub footsies_period_s: f32,
+    /// Minimum seconds between *neutral hops* — short jumps the duelist
+    /// mixes into its approach to vary its attack vector and use vertical
+    /// space. `0.0` (the grunt default) disables neutral hops.
+    pub neutral_jump_cadence_s: f32,
     /// Difficulty profile applied at stage 4.
     pub difficulty: DifficultyProfile,
 }
@@ -90,10 +112,16 @@ impl SmashCfg {
         engage_distance: 70.0,
         attack_range: 56.0,
         too_close_distance: 30.0,
+        vertical_chase_min: 60.0,
         chase_speed: 170.0,
         retreat_speed: 130.0,
         crowding_threshold: 0.65,
         dash_to_close: false,
+        // Grunts don't play footsies — they close and hold. The neutral game
+        // is opt-in (duelists / bosses) so this doesn't change every enemy.
+        footsies_amplitude: 0.0,
+        footsies_period_s: 1.4,
+        neutral_jump_cadence_s: 0.0,
         difficulty: DifficultyProfile::MEDIUM,
     };
     /// Heavy brute tuning — slower, longer reach, less retreat.
@@ -102,10 +130,34 @@ impl SmashCfg {
         engage_distance: 90.0,
         attack_range: 70.0,
         too_close_distance: 24.0,
+        vertical_chase_min: 60.0,
         chase_speed: 118.0,
         retreat_speed: 80.0,
         crowding_threshold: 0.55,
         dash_to_close: false,
+        footsies_amplitude: 0.0,
+        footsies_period_s: 1.6,
+        neutral_jump_cadence_s: 0.0,
+        difficulty: DifficultyProfile::MEDIUM,
+    };
+    /// **Duelist** tuning — a 1v1 fighter with a real neutral game: it weaves
+    /// in and out of poke range (footsies), mixes in neutral hops, and dashes
+    /// to close large gaps. Aware of the whole arena (large aggro). This is the
+    /// base the Perfect Cell-ular Automaton and other "platform fighter"
+    /// opponents build on; grunts stay on [`Self::STRIKER_DEFAULT`].
+    pub const DUELIST_DEFAULT: Self = Self {
+        aggro_radius: 1100.0,
+        engage_distance: 78.0,
+        attack_range: 56.0,
+        too_close_distance: 30.0,
+        vertical_chase_min: 140.0,
+        chase_speed: 200.0,
+        retreat_speed: 175.0,
+        crowding_threshold: 0.65,
+        dash_to_close: true,
+        footsies_amplitude: 60.0,
+        footsies_period_s: 1.3,
+        neutral_jump_cadence_s: 1.7,
         difficulty: DifficultyProfile::MEDIUM,
     };
 }
@@ -206,6 +258,13 @@ pub struct SmashState {
     /// the difficulty profile's `reaction_delay_s` (the brain perceives a
     /// lagged opponent — it never reacts frame-perfectly). See [`ObsHistory`].
     pub obs_history: ObsHistory,
+    /// Footsies weave phase (radians), advanced each tick when the cfg enables
+    /// the neutral game. A per-actor offset (from `rng_seed`) is added at read
+    /// time so two duelists desync rather than mirror-lock.
+    pub spacing_phase: f32,
+    /// Seconds until the next neutral hop is allowed. Decremented each tick;
+    /// re-armed to `neutral_jump_cadence_s` when a hop fires.
+    pub neutral_jump_cooldown: f32,
 }
 
 /// Ranged-verb cadence (seconds). A ranged-capable Smash actor fires
@@ -245,6 +304,14 @@ pub fn tick_smash(
     // frame's verb selection can re-arm them.
     state.ranged_cooldown_remaining = (state.ranged_cooldown_remaining - snapshot.dt).max(0.0);
     state.dash_cooldown_remaining = (state.dash_cooldown_remaining - snapshot.dt).max(0.0);
+    state.neutral_jump_cooldown = (state.neutral_jump_cooldown - snapshot.dt).max(0.0);
+    // Advance the footsies weave phase (only meaningful when enabled).
+    if cfg.footsies_amplitude > 0.0 && cfg.footsies_period_s > 0.0 {
+        state.spacing_phase += snapshot.dt * std::f32::consts::TAU / cfg.footsies_period_s;
+        if state.spacing_phase > std::f32::consts::TAU {
+            state.spacing_phase -= std::f32::consts::TAU;
+        }
+    }
     // --- Reaction latency ---
     // Record the opponent's true position this tick, then build the snapshot the
     // brain is actually allowed to perceive: the opponent as it was
@@ -276,8 +343,92 @@ pub fn tick_smash(
     // after ranged so a mid-range poke wins over a dash (the actor
     // shoots, then dashes to close while the shot reloads).
     let action = maybe_substitute_dash(action, &obs, mode, cfg, state);
+    // Neutral game (duelists only — no-op when footsies are disabled): weave the
+    // spacing in/out around the engage band instead of camping point-blank, then
+    // mix in a neutral hop. Runs last among the movement refiners so it governs
+    // only the residual plain Walk/Idle; a committed poke / dash / ranged shot is
+    // never overridden.
+    let action = maybe_apply_footsies(action, &obs, mode, cfg, state);
+    let action = maybe_neutral_jump(action, &obs, cfg, state);
     let action = apply_difficulty(action, &cfg.difficulty, state);
     emit_inputs(action, &obs, out);
+}
+
+/// Per-actor footsies phase offset (radians) derived from the stable RNG seed,
+/// so two duelists with the same cfg weave out of phase instead of mirror-locking
+/// into a symmetric stalemate. Pure function of the seed → replay-safe.
+fn seed_phase_offset(rng_seed: u64) -> f32 {
+    ((rng_seed >> 40) & 0xFFFF) as f32 / 65535.0 * std::f32::consts::TAU
+}
+
+/// Footsies weave (duelist neutral game). Replaces a plain neutral `Walk`/`Idle`
+/// with movement that settles the actor around a *weaving* desired gap: it dips
+/// into poke range on a rhythm (where `choose_action` will commit a swing), then
+/// backs out to bait a whiff — instead of collapsing to point-blank and mashing.
+///
+/// Frame-agnostic: reads only the target-relative `distance_to_target` /
+/// `to_target_x`. Never overrides a committed attack, jump, dash, or ranged shot
+/// (those aren't `Walk`/`Idle`), so it can't suppress offense. No-op unless
+/// `cfg.footsies_amplitude > 0.0`.
+fn maybe_apply_footsies(
+    action: SpecificAction,
+    obs: &ObservationFrame,
+    mode: BroadMode,
+    cfg: &SmashCfg,
+    state: &SmashState,
+) -> SpecificAction {
+    if cfg.footsies_amplitude <= 0.0 {
+        return action;
+    }
+    // Only govern grounded neutral movement; leave attacks/jumps/dashes and the
+    // airborne / retreat-too-close / reposition / recover cases alone.
+    if !matches!(action, SpecificAction::Walk { .. } | SpecificAction::Idle)
+        || obs.self_attacking
+        || !obs.self_on_ground
+        || !matches!(mode, BroadMode::Approach | BroadMode::Engage)
+    {
+        return action;
+    }
+    let phase = state.spacing_phase + seed_phase_offset(state.rng_seed);
+    let desired_gap = cfg.engage_distance + cfg.footsies_amplitude * phase.sin();
+    let toward = if obs.to_target_x.abs() < 0.001 {
+        obs.self_facing
+    } else {
+        obs.to_target_x.signum()
+    };
+    // Small deadzone so the actor settles (holds, facing the foe) at the pocket
+    // rather than jittering one frame in / one frame out. Kept tight so the
+    // weave keeps the actor micro-repositioning rather than camping a spot.
+    let deadzone = 6.0;
+    if obs.distance_to_target > desired_gap + deadzone {
+        SpecificAction::Walk { dir: toward }
+    } else if obs.distance_to_target < desired_gap - deadzone {
+        SpecificAction::Walk { dir: -toward }
+    } else {
+        SpecificAction::Idle
+    }
+}
+
+/// Neutral hop (duelist mix-up). Converts an approach `Walk` into a `Jump` on a
+/// cadence so the actor varies its approach vector and uses vertical stage space
+/// rather than only shuffling on the floor. No-op unless
+/// `cfg.neutral_jump_cadence_s > 0.0`. Re-arms the cadence on commit.
+fn maybe_neutral_jump(
+    action: SpecificAction,
+    obs: &ObservationFrame,
+    cfg: &SmashCfg,
+    state: &mut SmashState,
+) -> SpecificAction {
+    if cfg.neutral_jump_cadence_s <= 0.0
+        || state.neutral_jump_cooldown > 0.0
+        || !obs.self_on_ground
+        || obs.self_attacking
+        || !matches!(action, SpecificAction::Walk { .. })
+    {
+        return action;
+    }
+    state.neutral_jump_cooldown = cfg.neutral_jump_cadence_s;
+    SpecificAction::Jump
 }
 
 /// Replace a *closing walk* over a large approach gap with a

@@ -184,6 +184,10 @@ pub fn brain_from_preset(preset: &BrainPreset, spawn_world_x: f32) -> Brain {
                     accuracy: *accuracy,
                     mash_speed_hz: *mash_speed_hz,
                 },
+                // Neutral-game knobs aren't part of the catalog preset schema
+                // yet; inherit the striker defaults (footsies off) until a
+                // duelist preset surfaces them.
+                ..crate::brain::smash::SmashCfg::STRIKER_DEFAULT
             },
             state: crate::brain::smash::SmashState::default(),
         },

@@ -91,7 +91,7 @@ pub fn choose_action(
             // AND we're still rising or stalled (vel.y >= ~0). The
             // rising-only gate prevents the brain from double-jumping
             // mid-descent, which would just reset gravity to zero.
-            if obs.to_target_y < -60.0 {
+            if obs.to_target_y < -cfg.vertical_chase_min {
                 if obs.self_on_ground {
                     return SpecificAction::Jump;
                 }
@@ -147,7 +147,7 @@ pub fn choose_action(
             if obs.distance_to_target > cfg.attack_range {
                 // Jump-to-close-vertical-gap (single or double).
                 // Same gate as Approach.
-                if obs.to_target_y < -60.0 {
+                if obs.to_target_y < -cfg.vertical_chase_min {
                     if obs.self_on_ground {
                         return SpecificAction::Jump;
                     }

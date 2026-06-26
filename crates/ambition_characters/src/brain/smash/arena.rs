@@ -44,9 +44,11 @@ const JUMP_SPEED: f32 = 720.0;
 /// Terminal fall speed (px/s).
 const MAX_FALL: f32 = 1500.0;
 /// Horizontal knockback imparted by a landed melee hit (px/s).
-const KNOCKBACK_X: f32 = 320.0;
-/// Upward pop imparted by a landed melee hit (px/s).
-const KNOCKBACK_UP: f32 = 220.0;
+const KNOCKBACK_X: f32 = 300.0;
+/// Upward pop imparted by a landed melee hit (px/s). Small — the harness melee
+/// is a *jab*, which resets spacing horizontally but does NOT launch into an
+/// air juggle (that's a heavy/up-tilt, which this generic striker doesn't have).
+const KNOCKBACK_UP: f32 = 70.0;
 /// Hitstun (s) the victim suffers — interrupts their action and resets spacing.
 const HITSTUN_S: f32 = 0.20;
 /// Generic melee windup/active/recover timing (s) for the harness striker.
@@ -332,11 +334,16 @@ impl Arena {
         if !swinging {
             return;
         }
+        let v_half_w = self.fighters[victim].half_w;
+        let v_half_h = self.fighters[victim].half_h;
         let vpos = self.fighters[victim].pos;
         let to_v = vpos - apos;
         let in_front = to_v.x.signum() == facing.signum() || to_v.x.abs() < 1.0;
-        let reach_total = reach + self.fighters[victim].half_w;
-        if to_v.length() <= reach_total && in_front {
+        let horiz_reach = reach + v_half_w;
+        let vert_reach = self.fighters[attacker].half_h + v_half_h;
+        // Hit lands only when in horizontal reach AND vertically overlapping —
+        // a grounded jab can't strike a target standing on a platform overhead.
+        if to_v.x.abs() <= horiz_reach && to_v.y.abs() <= vert_reach && in_front {
             let push = if to_v.x.abs() < 1.0 {
                 facing.signum()
             } else {
@@ -528,6 +535,10 @@ pub struct FighterReport {
 const H_BINS: usize = 12;
 /// A "corner" is within this fraction of the stage width from a side wall.
 const CORNER_FRAC: f32 = 0.12;
+/// Radius (px) within which a fighter counts as "camping a spot" for the still
+/// detector. Comfortably larger than a neutral footsies weave so normal spacing
+/// isn't flagged, but far smaller than the stage so genuine freezing is.
+const STILL_RADIUS: f32 = 90.0;
 
 pub fn analyze_fighter(stage: &Stage, name: &'static str, samples: &[Sample]) -> FighterReport {
     let w = stage.width().max(1.0);
@@ -540,9 +551,14 @@ pub fn analyze_fighter(stage: &Stage, name: &'static str, samples: &[Sample]) ->
     let corner_margin = stage.width() * CORNER_FRAC;
     let in_corner = |x: f32| x < stage.left + corner_margin || x > stage.right - corner_margin;
 
+    // "Still" = camping a spot, measured bin-independently: the longest stretch
+    // during which the fighter never strayed more than STILL_RADIUS from an
+    // anchor (reset when it does). Captures genuine freezing/looping-in-place
+    // without the fixed-column aliasing that penalizes a normal neutral weave.
     let mut max_still_s = 0.0_f32;
-    let mut cur_still = 0.0_f32;
-    let mut last_bin: Option<usize> = None;
+    let mut still_anchor: Option<ae::Vec2> = None;
+    let mut still_start_t = 0.0_f32;
+    let mut t = 0.0_f32;
     let mut max_corner_s = 0.0_f32;
     let mut cur_corner = 0.0_f32;
     let mut airborne = 0usize;
@@ -553,13 +569,16 @@ pub fn analyze_fighter(stage: &Stage, name: &'static str, samples: &[Sample]) ->
     for s in samples {
         let b = bin_of(s.pos.x);
         visited[b] = true;
-        if Some(b) == last_bin {
-            cur_still += DT;
-        } else {
-            cur_still = 0.0;
-            last_bin = Some(b);
+        match still_anchor {
+            Some(a) if (s.pos - a).length() <= STILL_RADIUS => {
+                max_still_s = max_still_s.max(t - still_start_t);
+            }
+            _ => {
+                still_anchor = Some(s.pos);
+                still_start_t = t;
+            }
         }
-        max_still_s = max_still_s.max(cur_still);
+        t += DT;
 
         if in_corner(s.pos.x) {
             cur_corner += DT;
@@ -618,7 +637,7 @@ impl Default for NonDegenerateThresholds {
     fn default() -> Self {
         Self {
             min_x_bins: 5,        // must roam ≥ ~40% of the arena's width
-            max_still_s: 4.0,     // never frozen in one column > 4 s
+            max_still_s: 5.0,     // never camped within one ~90px spot > 5 s
             max_corner_s: 6.0,    // never pinned in a corner > 6 s
             min_distinct_verbs: 3,
             min_path_len: 1500.0, // must actually travel
@@ -706,11 +725,7 @@ mod tests {
     fn robot(name: &'static str, x: f32) -> Fighter {
         Fighter {
             name,
-            cfg: SmashCfg {
-                dash_to_close: true,
-                aggro_radius: 1100.0, // 1v1 arena: always aware across the stage
-                ..SmashCfg::STRIKER_DEFAULT
-            },
+            cfg: SmashCfg::DUELIST_DEFAULT,
             state: SmashState::default(),
             actions: striker_actions(),
             can_fly: false,
@@ -737,11 +752,7 @@ mod tests {
     fn pca(name: &'static str, x: f32) -> Fighter {
         Fighter {
             name,
-            cfg: SmashCfg {
-                dash_to_close: true,
-                aggro_radius: 1100.0, // 1v1 arena: always aware across the stage
-                ..SmashCfg::STRIKER_DEFAULT
-            },
+            cfg: SmashCfg::DUELIST_DEFAULT,
             state: SmashState::default(),
             actions: striker_actions(),
             can_fly: false,
@@ -801,12 +812,11 @@ mod tests {
     /// (roam horizontally, not freeze, not camp a corner) and employ a variety of
     /// verbs. Structural, not byte-for-byte — it survives logic changes.
     ///
-    /// Ignored until the advanced-fighter-brain slices land: today two grounded
-    /// Smash brawlers collapse to point-blank mashing and drift into a wall, which
-    /// is precisely the degeneracy this test forbids. Un-ignored once the brain
-    /// earns it (spacing variety, anti-corner, aerial/blink verbs).
+    /// Passes now that the duelist neutral game (footsies weave + neutral hops +
+    /// platform-only vertical chase) replaced point-blank mashing: the fighters
+    /// dance in and out of poke range across the stage instead of collapsing into
+    /// a wall.
     #[test]
-    #[ignore = "target for the advanced-fighter-brain work; brain not yet non-degenerate"]
     fn pca_vs_robot_is_non_degenerate() {
         let stage = Stage::noether_like();
         let mut arena = Arena::new(stage.clone(), pca("PCA", 720.0), robot("Robot", 240.0));

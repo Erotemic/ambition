@@ -449,11 +449,23 @@ Author model: Opus 4.8 (1M). Wall-clock log at the bottom.
     the kit). NOTE: the id is descriptive; the lore rename of the LIVE player's
     roster id `"player"` is a separate identity-sensitive call (deferred). Tuning is
     a first-pass and **feel-unverified** (Jon checks in-game).
-  - **Remaining S6 (the feel-sensitive convergence):** fold the duplicated player
-    clusters (`PlayerShieldState` / `PlayerDashState` / `PlayerFlightState` /
-    `ProjectileSpawner`) onto the shared capability path; the live player becomes an
-    actor on the one resolver + perception path; possession wired in-game. Done
-    behind the differential trace harness, shipped blind+marked (Jon verifies feel).
+  - **S6b shield fold** ✅ (first cluster folded) — the shield **activation rule**
+    is now ONE implementation: `ae::resolve_shield` (ability-gated, dash-blocked,
+    rising-edge parry). The player's `apply_shield` is a thin wrapper over it, and
+    the actor resolver in `update_ecs_actors` calls the SAME rule instead of its
+    own `shield_raised = can_shield && held` one-liner. (The *damage* side —
+    `shield_blocks_hit` — was already shared; now the activation is too.) Player
+    behavior is byte-preserved (its 5 shield tests green, the parity net);
+    convergence behavior change: the actor now also can't raise its guard mid-dash,
+    exactly like the player. Full `ambition_app` compiles; `resolve_shield_is_the_one_rule`
+    contract test green. **Feel-unverified** (Jon checks in-game) — though the
+    player path is test-pinned, so risk is low.
+  - **Remaining S6b (feel-sensitive):** fold `PlayerDashState` (impulse vs
+    speed-cap divergence), `PlayerFlightState` (rich free-mover vs binary
+    gravity-toggle), and the player `ProjectileSpawner` (mana meter + charge) onto
+    the shared path; the live player becomes an actor on the one resolver +
+    perception path; possession wired in-game. Each its own blind+marked checkpoint
+    behind the differential trace harness (Jon verifies feel).
 
 Calibration outcome (2026-06-26): no pivot. S3 built actor-side parity correctly;
 the remaining work is **convergence debt-paydown** — see the "end state" + audit

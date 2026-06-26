@@ -35,6 +35,7 @@ mod player;
 mod simulation;
 mod tuning;
 
+pub use abilities::resolve_shield;
 pub use blink::{blink_destination_clusters, blink_destination_to_point_clusters};
 pub use events::{BlinkEvent, FrameEvents};
 pub use input::InputState;

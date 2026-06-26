@@ -465,8 +465,21 @@ pub fn update_ecs_actors(
                 // records it ONLY when it has the capability. The actor damage path
                 // reads `status.shield_raised` to negate a guarded hit from the
                 // faced side (the same directional rule the player's shield uses).
-                // A sustain: re-evaluated every tick, so releasing drops the guard.
-                em.status.shield_raised = em.caps.can_shield && frame.shield_held;
+                //
+                // S6b convergence: this is the SAME `resolve_shield` rule the
+                // player body runs (one implementation, not two) — so the actor
+                // also can't raise its guard mid-dash, exactly like the player. The
+                // parry window is tracked through a throwaway today (actors don't
+                // yet consume a parry counter; when they do it moves onto status).
+                let mut actor_parry = 0.0;
+                ae::resolve_shield(
+                    &mut em.status.shield_raised,
+                    &mut actor_parry,
+                    em.caps.can_shield,
+                    em.attack.dash_active(),
+                    frame.shield_held,
+                    0.0,
+                );
                 // Publish the actor's footprint ORIENTED to its reference frame —
                 // the single source of truth read by the debug overlay, player
                 // hurtbox, and target volumes, so the box matches the rotated

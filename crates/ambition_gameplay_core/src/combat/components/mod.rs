@@ -87,6 +87,12 @@ pub struct CombatCapabilities {
     /// "steal the enemy's weapon" rule), resolved from authored data
     /// at spawn.
     pub drops_held_item: Option<ambition_characters::brain::HeldItemSpec>,
+    /// Movement kit: this body can **blink** (short-range collision-clamped
+    /// teleport). The body-side gate for the `blink` intent (invariant I3) — the
+    /// controller (AI brain or possessing human) only *attempts* a blink; the
+    /// body resolves it only when this is set and its blink cooldown is ready, so
+    /// the player kit is a per-body capability, never gated on "is the player".
+    pub can_blink: bool,
 }
 
 /// Per-actor numeric/flag tuning the RUNTIME combat loops read each
@@ -241,6 +247,10 @@ pub struct EnemyBrainSpec {
     /// Smash-template dash-to-close: a richer action set that dashes to
     /// close a large gap (goblins).
     pub smash_dash_to_close: bool,
+    /// Movement kit: the Smash brain blink-evades a perceived lunge. Projected
+    /// into `SmashCfg::can_blink` (the controller's *attempt*); the body's
+    /// `CombatCapabilities::can_blink` is the matching *enforce* gate.
+    pub smash_can_blink: bool,
     /// When provoked from peaceful, force an aggressive MeleeBrute brain
     /// with at least this aggro radius (cove PirateHeavy crew).
     /// `None` = use the template's default aggressive brain.
@@ -260,6 +270,7 @@ impl Default for EnemyBrainSpec {
             smash_hit_band: Self::DEFAULT_SMASH_HIT_BAND,
             smash_heavy: false,
             smash_dash_to_close: false,
+            smash_can_blink: false,
             provoke_forced_brute_min_aggro: None,
         }
     }

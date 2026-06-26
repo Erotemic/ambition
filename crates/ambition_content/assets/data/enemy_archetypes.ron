@@ -134,6 +134,9 @@
         ranged: Some(Rock(speed: 300.0, damage: 1)),
         ranged_visual: Glider,
         smash_dash_to_close: true,
+        // Blink-evade: the PCA teleports out of a perceived lunge (body-enforced
+        // capability + cooldown; a possessing player gets the same blink).
+        smash_can_blink: true,
         move_style: Walk,
     ),
     "small_skitter": (

@@ -193,6 +193,14 @@ pub(crate) struct EnemyArchetypeSpec {
     /// close a large gap (goblins). Inert unless `brain_template` is `Smash`.
     #[serde(default)]
     pub smash_dash_to_close: bool,
+    /// Movement kit: this body can **blink** (short-range teleport). Authored
+    /// per archetype; projects into BOTH the Smash brain's blink-evade emission
+    /// (it *attempts* a blink on a perceived lunge) AND the body's
+    /// [`crate::combat::CombatCapabilities::can_blink`] gate (the body *enforces*
+    /// the capability + cooldown). One authored source, two projections —
+    /// attempt vs enforce (invariants I2/I3/I7).
+    #[serde(default)]
+    pub smash_can_blink: bool,
     /// When provoked from peaceful, force an aggressive MeleeBrute brain
     /// with at least this aggro radius (cove PirateHeavy crew). `None` =
     /// use the template's default aggressive brain.
@@ -324,7 +332,10 @@ impl EnemyRoster {
     /// Resolve the authored spec for a spawn `EnemyBrain` payload by its
     /// `Custom("…")` brain key, falling back to the roster's default for an
     /// unknown key or a non-`Custom` brain.
-    pub(crate) fn spec_for_brain(&self, brain: &ambition_characters::actor::EnemyBrain) -> EnemyArchetypeSpec {
+    pub(crate) fn spec_for_brain(
+        &self,
+        brain: &ambition_characters::actor::EnemyBrain,
+    ) -> EnemyArchetypeSpec {
         let key = match brain {
             ambition_characters::actor::EnemyBrain::Custom(name) => name.as_str(),
             _ => "",
@@ -419,7 +430,9 @@ pub(crate) fn spec_for_brain(brain: &ambition_characters::actor::EnemyBrain) -> 
 /// game authors.
 #[cfg(test)]
 pub(crate) fn test_spec(brain_key: &str) -> EnemyArchetypeSpec {
-    spec_for_brain(&ambition_characters::actor::EnemyBrain::Custom(brain_key.to_string()))
+    spec_for_brain(&ambition_characters::actor::EnemyBrain::Custom(
+        brain_key.to_string(),
+    ))
 }
 
 /// Every authored spawn brain key in the lib's fixture roster — the
@@ -478,6 +491,7 @@ impl EnemyArchetypeSpec {
                 .unwrap_or(crate::combat::EnemyBrainSpec::DEFAULT_SMASH_HIT_BAND),
             smash_heavy: self.smash_heavy,
             smash_dash_to_close: self.smash_dash_to_close,
+            smash_can_blink: self.smash_can_blink,
             provoke_forced_brute_min_aggro: self.provoke_forced_brute_min_aggro,
         }
     }
@@ -553,6 +567,7 @@ impl EnemyArchetypeSpec {
             respawn_in_place_seconds: self.respawn_in_place_seconds,
             respawn_policy: self.respawn_policy(),
             drops_held_item: self.held_item_spec(),
+            can_blink: self.smash_can_blink,
         }
     }
 }
@@ -586,7 +601,9 @@ pub fn enemy_visual_kind(payload: &ambition_characters::actor::EnemyBrain) -> Fe
 /// The mount+rider visual fan-out plan for a composite spawn payload,
 /// or `None` for ordinary single-entity spawns. Backed by the
 /// `composite_visual` rows in `enemy_archetypes.ron`.
-pub fn composite_visual_plan(payload: &ambition_characters::actor::EnemyBrain) -> Option<CompositeVisualPlan> {
+pub fn composite_visual_plan(
+    payload: &ambition_characters::actor::EnemyBrain,
+) -> Option<CompositeVisualPlan> {
     let spec = spec_for_brain(payload);
     let composite = spec.composite_visual.as_ref()?;
     let mount_brain = ambition_characters::actor::EnemyBrain::Custom(composite.mount_brain.clone());

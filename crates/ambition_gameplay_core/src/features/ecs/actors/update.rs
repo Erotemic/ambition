@@ -50,6 +50,14 @@ pub fn sync_actor_poses_from_feature_aabbs(
     }
 }
 
+/// How far a blink carries an actor body, walls permitting (matches the player's
+/// blink distance so a possessed body blinks identically — invariants I2/I7).
+const ACTOR_BLINK_DISTANCE: f32 = 150.0;
+/// Body-side blink refire floor (s). The physical cooldown a controller can't beat
+/// by attempting faster (invariant I3); the AI brain's own reactive cadence is
+/// longer, so this only binds a spamming possessing human.
+const ACTOR_BLINK_REFIRE_S: f32 = 0.6;
+
 /// Tick ECS actors. Peaceful and hostile actors share the same entity identity
 /// and can switch disposition in-place; dynamic encounter-spawned mobs use the
 /// same hostile path with an `EncounterMob` marker.
@@ -371,6 +379,40 @@ pub fn update_ecs_actors(
                         ignored_targets: Vec::new(),
                     });
                     frame = ambition_characters::actor::control::ActorControlFrame::neutral();
+                }
+                // Body resolves the blink intent (invariant I3): capability-gated
+                // (`caps.can_blink`) + cooldown-enforced (`try_blink`), then
+                // collision-clamped via the SAME `blink_target` rule the player
+                // uses (I2/I7). The controller — AI brain OR possessing human —
+                // only attempts; the body owns whether and where it teleports.
+                if em.caps.can_blink && frame.blink_pressed {
+                    let dir = frame.blink_quick_dir.normalize_or_zero();
+                    if dir != ae::Vec2::ZERO && em.attack.try_blink(ACTOR_BLINK_REFIRE_S).accepted()
+                    {
+                        let from = em.kin.pos;
+                        let to = crate::abilities::traversal::blink::blink_target(
+                            &feature_world,
+                            from,
+                            dir,
+                            ACTOR_BLINK_DISTANCE,
+                            em.kin.size * 0.5,
+                        );
+                        em.kin.pos = to;
+                        sfx.write(crate::audio::SfxMessage::Play {
+                            id: ambition_sfx::ids::PLAYER_BLINK,
+                            pos: to,
+                        });
+                        vfx.write(ambition_vfx::vfx::VfxMessage::Explosion {
+                            pos: from,
+                            kind: ambition_vfx::vfx::ExplosionKind::ClassicBurst,
+                            scale: 0.35,
+                        });
+                        vfx.write(ambition_vfx::vfx::VfxMessage::Explosion {
+                            pos: to,
+                            kind: ambition_vfx::vfx::ExplosionKind::ClassicBurst,
+                            scale: 0.5,
+                        });
+                    }
                 }
                 // Publish the actor's footprint ORIENTED to its reference frame —
                 // the single source of truth read by the debug overlay, player

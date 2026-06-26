@@ -321,6 +321,12 @@ pub struct ActorAttackState {
     /// Ranged has no windup/active timeline (it spawns instantly), so it needs
     /// only this one timer rather than the melee strike's three.
     pub ranged_cooldown: f32,
+    /// Body-side blink refire cooldown remaining (s). The physical floor on the
+    /// `blink` intent (invariant I3): a controller may *attempt* a blink every
+    /// tick, but the body teleports at most once per refire and re-arms this on
+    /// each accepted blink — so an AI brain and a possessing human blink at the
+    /// same rate. Gated together with `CombatCapabilities::can_blink`.
+    pub blink_cooldown: f32,
 }
 
 impl Default for ActorAttackState {
@@ -331,6 +337,7 @@ impl Default for ActorAttackState {
             cooldown: 0.2,
             pending_axis: ae::Vec2::new(-1.0, 0.0),
             ranged_cooldown: 0.0,
+            blink_cooldown: 0.0,
         }
     }
 }
@@ -356,6 +363,7 @@ impl ActorAttackState {
         self.active_timer = (self.active_timer - dt).max(0.0);
         self.cooldown = (self.cooldown - dt).max(0.0);
         self.ranged_cooldown = (self.ranged_cooldown - dt).max(0.0);
+        self.blink_cooldown = (self.blink_cooldown - dt).max(0.0);
         if was_winding_up && self.windup_timer <= 0.0 {
             self.active_timer = active_seconds.max(0.01);
         }
@@ -375,6 +383,19 @@ impl ActorAttackState {
             return IntentOutcome::Blocked(BlockReason::Cooldown);
         }
         self.ranged_cooldown = refire_seconds.max(0.0);
+        IntentOutcome::Accepted
+    }
+
+    /// Body-side blink enforcement (invariant I3), the movement analogue of
+    /// [`Self::try_fire_ranged`]. Accepts a blink only when off cooldown, arming
+    /// the refire on acceptance. The caller still gates on the body's
+    /// `CombatCapabilities::can_blink` (does this body have blink at all) and
+    /// performs the actual collision-clamped teleport on `Accepted`.
+    pub fn try_blink(&mut self, refire_seconds: f32) -> IntentOutcome {
+        if self.blink_cooldown > 0.0 {
+            return IntentOutcome::Blocked(BlockReason::Cooldown);
+        }
+        self.blink_cooldown = refire_seconds.max(0.0);
         IntentOutcome::Accepted
     }
 }

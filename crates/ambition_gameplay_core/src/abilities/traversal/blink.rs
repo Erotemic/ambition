@@ -14,9 +14,9 @@
 
 use bevy::prelude::*;
 
-use ambition_engine_core::{self as ae, AabbExt};
 use crate::features::HeldItem;
 use crate::player::{BodyKinematics, PlayerEntity, PlayerInputFrame, PrimaryPlayer};
+use ambition_engine_core::{self as ae, AabbExt};
 
 /// The held-item id the Blink ability grants.
 pub const BLINK_ID: &str = "blink";
@@ -32,6 +32,52 @@ const BLINK_COOLDOWN_S: f32 = 0.45;
 const BLINK_SHOCKWAVE_HALF: f32 = 36.0;
 /// Shockwave damage — modest; Blink is mobility first, a light strike second.
 const BLINK_SHOCKWAVE_DAMAGE: i32 = 2;
+
+/// Resolve a blink destination over `world`: teleport up to `distance` along the
+/// unit `dir`, stopping a body-half (`half`, measured in the blink direction)
+/// short of the first solid so the body never embeds, with a safety net that
+/// falls back to `from` if the landing box would still overlap a solid.
+///
+/// This is the **one teleport rule** shared by every controller: the player's
+/// held-item blink and any actor body that resolves a `blink` intent from its
+/// `ActorControlFrame` call the same function (invariants I2/I7 — a possessed or
+/// AI body blinks exactly as the player does, against the same collision world it
+/// physically occupies).
+pub fn blink_target(
+    world: &ae::World,
+    from: ae::Vec2,
+    dir: ae::Vec2,
+    distance: f32,
+    half: ae::Vec2,
+) -> ae::Vec2 {
+    // Pull-back must use the body's extent IN the blink direction — a vertical
+    // blink needs half-height, not half-width — or a diagonal blink embeds.
+    let margin = (half.x * dir.x.abs() + half.y * dir.y.abs()) + 2.0;
+    let mut target = match crate::platformer_runtime::collision::raycast_solids(
+        world,
+        from,
+        dir,
+        distance + margin,
+        false,
+    ) {
+        Some((hit, _normal)) => hit - dir * margin,
+        None => from + dir * distance,
+    };
+    // Safety net: the center-ray can miss a wall the body's perpendicular extent
+    // would clip (corners, grazing). If the landing box still overlaps a solid,
+    // fall back to the start so a blink never lands inside geometry.
+    let landing = ae::Aabb::new(target, half);
+    let embeds = world.blocks.iter().any(|b| {
+        matches!(
+            b.kind,
+            ae::BlockKind::Solid | ae::BlockKind::BlinkWall { .. }
+        ) && landing.strict_intersects(b.aabb)
+    });
+    if embeds {
+        target = from;
+    }
+    target
+}
 
 /// `Attack` while holding the Blink ability teleports the player up to
 /// [`BLINK_DISTANCE`] along the aim direction, stopping a body-half short of the
@@ -70,8 +116,9 @@ pub fn blink_system(
     // naturally world-space.
     let gravity_dir = gravity.dir_at(kin.pos);
     let modes = crate::items::pickup::control_frame_modes_from_settings(user_settings.as_deref());
-    let dir = crate::items::pickup::held_shot_aim_world(&input.frame, kin.facing, gravity_dir, modes)
-        .normalize_or_zero();
+    let dir =
+        crate::items::pickup::held_shot_aim_world(&input.frame, kin.facing, gravity_dir, modes)
+            .normalize_or_zero();
     if dir == ae::Vec2::ZERO {
         return;
     }
@@ -86,43 +133,15 @@ pub fn blink_system(
         return;
     }
     let from = kin.pos;
-    // Stop a body-half short of the wall so the player doesn't embed in it. The
-    // pull-back must use the body's extent IN THE BLINK DIRECTION -- a vertical
-    // blink needs half-HEIGHT, not half-width (the player is ~40 tall, ~24 wide),
-    // or an up/down/diagonal blink (common while flying + aiming) embeds in the
-    // floor/ceiling and trips the inside-solid OOB detector.
     let half = kin.size * 0.5;
-    let margin = (half.x * dir.x.abs() + half.y * dir.y.abs()) + 2.0;
-    // One composited collision view, shared by the clamp raycast and the embed
-    // safety net, so the blink is stopped by moving platforms / ECS solids too.
+    // One composited collision view (moving platforms + ECS solids included),
+    // shared by the clamp raycast and the embed safety net inside `blink_target`.
     let collision = world.solids();
-    let mut target = match collision.as_ref().and_then(|w| {
-        crate::platformer_runtime::collision::raycast_solids(
-            &**w,
-            from,
-            dir,
-            BLINK_DISTANCE + margin,
-            false,
-        )
-    }) {
-        Some((hit, _normal)) => hit - dir * margin,
+    let target = match collision.as_ref() {
+        Some(w) => blink_target(&**w, from, dir, BLINK_DISTANCE, half),
+        // No collision world (tests / degenerate) — blink the full distance.
         None => from + dir * BLINK_DISTANCE,
     };
-    // Safety net: the center-ray can miss a wall the body's *perpendicular* extent
-    // would clip (corners, grazing). If the landing box still overlaps a solid,
-    // fall back to the start so a blink never lands the player inside geometry.
-    if let Some(w) = collision.as_ref() {
-        let landing = ae::Aabb::new(target, half);
-        let embeds = w.blocks.iter().any(|b| {
-            matches!(
-                b.kind,
-                ae::BlockKind::Solid | ae::BlockKind::BlinkWall { .. }
-            ) && landing.strict_intersects(b.aabb)
-        });
-        if embeds {
-            target = from;
-        }
-    }
     kin.pos = target;
     // Offensive blink: a small player-side shockwave at the arrival point, so you
     // can blink *into* enemies to strike them (and the PlayerSlash source spares
@@ -157,6 +176,65 @@ pub fn blink_system(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// The shared teleport rule (used by both the player blink and any actor
+    /// body): full distance over open space, clamped a body-half short of a wall,
+    /// never embedding. This is the single invariant both controllers inherit.
+    #[test]
+    fn blink_target_travels_full_distance_then_clamps_at_a_wall() {
+        let half = ae::Vec2::new(12.0, 20.0);
+        // Open world (no blocks): blink the full distance to the right.
+        let empty = ae::World::new("t", ae::Vec2::new(2000.0, 600.0), ae::Vec2::ZERO, vec![]);
+        let from = ae::Vec2::new(0.0, 0.0);
+        let open = blink_target(&empty, from, ae::Vec2::new(1.0, 0.0), 150.0, half);
+        assert!(
+            (open.x - 150.0).abs() < 1e-3,
+            "open blink travels full distance: {open:?}"
+        );
+
+        // A wall whose left face is at x=100 (Block::solid takes the MIN corner):
+        // the body stops a half-width (+margin) short of it, never crossing in.
+        let walled = ae::World::new(
+            "t",
+            ae::Vec2::new(2000.0, 600.0),
+            ae::Vec2::ZERO,
+            vec![ae::Block::solid(
+                "wall",
+                ae::Vec2::new(100.0, -300.0),
+                ae::Vec2::new(120.0, 600.0),
+            )],
+        );
+        let clamped = blink_target(&walled, from, ae::Vec2::new(1.0, 0.0), 150.0, half);
+        assert!(
+            clamped.x + half.x <= 100.0 + 1e-3,
+            "clamped blink must not cross the wall's left face at x=100: right edge={}",
+            clamped.x + half.x
+        );
+        assert!(
+            clamped.x > 0.0,
+            "but it should still carry toward the wall: {clamped:?}"
+        );
+    }
+
+    /// Body-side blink cooldown (invariant I3): the first attempt is accepted and
+    /// arms the refire; a follow-up attempt while the cooldown is live is blocked.
+    /// This is the floor that makes an AI brain and a possessing human blink at the
+    /// same rate, regardless of how fast either attempts it.
+    #[test]
+    fn body_blink_is_cooldown_gated() {
+        use crate::features::ActorAttackState;
+        let mut attack = ActorAttackState::default();
+        assert!(attack.try_blink(0.6).accepted(), "first blink accepted");
+        assert!(
+            !attack.try_blink(0.6).accepted(),
+            "second blink blocked on cooldown"
+        );
+        attack.tick(0.7, 0.06); // elapse past the refire
+        assert!(
+            attack.try_blink(0.6).accepted(),
+            "blink available again after the cooldown"
+        );
+    }
 
     fn test_app() -> App {
         let mut app = App::new();

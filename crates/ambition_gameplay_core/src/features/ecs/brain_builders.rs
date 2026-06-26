@@ -10,12 +10,12 @@ use super::super::enemies::EnemyArchetypeSpec;
 use super::actor_clusters::ActorConfig;
 use super::variation::{five_f32s_from_seed, seed_from_id};
 use super::{CombatKit, HeldItem};
+use crate::combat::{ActorTuning, EnemyBrainSpec, EnemyBrainTemplate};
 use ambition_characters::brain::{
     ActionSet, Brain, MeleeBruteCfg, MeleeBruteState, SharkCfg, SharkState, SkirmisherCfg,
     SkirmisherState, SmashCfg, SmashState, SniperCfg, SniperState, StateMachineCfg, WandererCfg,
     WandererState,
 };
-use crate::combat::{ActorTuning, EnemyBrainSpec, EnemyBrainTemplate};
 
 /// Build the enemy's durable combat capability kit from archetype data.
 ///
@@ -53,7 +53,9 @@ fn apply_spec_held_item(spec: &EnemyArchetypeSpec, actions: &mut ActionSet) {
     }
 }
 
-pub(super) fn held_item_for_spec(spec: &EnemyArchetypeSpec) -> Option<ambition_characters::brain::HeldItemSpec> {
+pub(super) fn held_item_for_spec(
+    spec: &EnemyArchetypeSpec,
+) -> Option<ambition_characters::brain::HeldItemSpec> {
     spec.held_item_spec()
 }
 
@@ -357,6 +359,12 @@ fn smash_cfg_from_spec(spec: &EnemyBrainSpec, tuning: &ActorTuning) -> SmashCfg 
         // ranged + dash + jump). Kept off for the other strikers so it
         // doesn't blanket-change every melee enemy's feel.
         dash_to_close: spec.smash_dash_to_close,
+        // Blink-evade kit (authored per archetype). The brain *attempts* a blink
+        // on a perceived lunge; the body's `CombatCapabilities::can_blink` +
+        // blink cooldown *enforce* it. `blink_cooldown_s` here is the brain's
+        // reactive restraint (policy, I4); the body owns the physical floor (I3).
+        can_blink: spec.smash_can_blink,
+        blink_cooldown_s: if spec.smash_can_blink { 1.2 } else { 0.0 },
         ..base
     }
 }

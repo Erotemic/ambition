@@ -2,7 +2,10 @@
 //! JSON pair (`write_dump`, path/label helpers). The markdown is a human-readable
 //! tail summary; the JSON is the full payload the replay harness reads back.
 
-use crate::*;
+use crate::{
+    DumpReason, GameplayTraceBuffer, GameplayTraceEvent, GameplayTraceFrame, MARKDOWN_EVENT_TAIL,
+    MARKDOWN_FRAME_SUMMARY_TAIL,
+};
 use serde::Serialize;
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicU64, Ordering};

@@ -2,7 +2,10 @@
 //! snapshots and discrete events that the game's recorder systems push into. Owns
 //! capacity/tick/sequence bookkeeping; the dump writers live in `dump`.
 
-use crate::*;
+use crate::{
+    DumpReason, GameplayTraceEvent, GameplayTraceFrame, PreviousFrameSnapshot,
+    DEFAULT_EVENT_CAPACITY, DEFAULT_FRAME_CAPACITY,
+};
 use bevy::prelude::*;
 use std::collections::VecDeque;
 

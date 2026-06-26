@@ -274,8 +274,11 @@ pub struct PortalViewRig {
 
 mod geometry;
 mod mesh;
-use geometry::*;
-use mesh::*;
+use geometry::{
+    aperture_los_rays, aperture_los_targets, capture_dims, compute_cone, cone_render,
+    inset_viewer_corners, ApertureLosRay, ConeRender, RebuildKey, LOS_NEAR_SKIP,
+};
+use mesh::{apply_mesh, make_mesh, placeholder_mesh, proximity_z, smooth01};
 
 /// Maintain + update one rig per placed portal with a placed partner: spawn
 /// missing, despawn stale, and update every live rig's geometry in place each

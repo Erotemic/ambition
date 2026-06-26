@@ -180,4 +180,39 @@ mod tests {
             other => panic!("expected Patrol, got {other:?}"),
         }
     }
+
+    #[test]
+    fn brain_preset_smash_threads_cfg_and_difficulty() {
+        // The data-exposed Smash fighter preset must resolve to a
+        // StateMachineCfg::Smash with its tuning + difficulty floats
+        // threaded through — this is the seam the PCA encounter swaps in.
+        let preset = BrainPreset::Smash {
+            aggro_radius: 460.0,
+            engage_distance: 76.0,
+            attack_range: 52.0,
+            too_close_distance: 34.0,
+            chase_speed: 150.0,
+            retreat_speed: 120.0,
+            crowding_threshold: 0.65,
+            dash_to_close: true,
+            reaction_delay_s: 0.12,
+            commit_probability: 0.85,
+            accuracy: 0.9,
+            mash_speed_hz: 6.0,
+        };
+        let brain = brain_from_preset(&preset, 0.0);
+        match brain {
+            Brain::StateMachine(StateMachineCfg::Smash { cfg, .. }) => {
+                assert_eq!(cfg.attack_range, 52.0);
+                assert!(cfg.dash_to_close);
+                assert_eq!(cfg.difficulty.reaction_delay_s, 0.12);
+                assert_eq!(cfg.difficulty.commit_probability, 0.85);
+                assert_eq!(cfg.difficulty.accuracy, 0.9);
+            }
+            other => panic!("expected Smash, got {other:?}"),
+        }
+        // Smash brains are hostile by construction (the encounter only
+        // arms them on the explicit challenge choice).
+        assert!(brain_from_preset(&preset, 0.0).is_hostile());
+    }
 }

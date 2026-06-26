@@ -155,6 +155,38 @@ pub fn brain_from_preset(preset: &BrainPreset, spawn_world_x: f32) -> Brain {
             },
             state: BossPatternState::default(),
         },
+        BrainPreset::Smash {
+            aggro_radius,
+            engage_distance,
+            attack_range,
+            too_close_distance,
+            chase_speed,
+            retreat_speed,
+            crowding_threshold,
+            dash_to_close,
+            reaction_delay_s,
+            commit_probability,
+            accuracy,
+            mash_speed_hz,
+        } => StateMachineCfg::Smash {
+            cfg: crate::brain::smash::SmashCfg {
+                aggro_radius: *aggro_radius,
+                engage_distance: *engage_distance,
+                attack_range: *attack_range,
+                too_close_distance: *too_close_distance,
+                chase_speed: *chase_speed,
+                retreat_speed: *retreat_speed,
+                crowding_threshold: *crowding_threshold,
+                dash_to_close: *dash_to_close,
+                difficulty: crate::brain::smash::DifficultyProfile {
+                    reaction_delay_s: *reaction_delay_s,
+                    commit_probability: *commit_probability,
+                    accuracy: *accuracy,
+                    mash_speed_hz: *mash_speed_hz,
+                },
+            },
+            state: crate::brain::smash::SmashState::default(),
+        },
     };
     Brain::StateMachine(cfg)
 }

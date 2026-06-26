@@ -121,7 +121,27 @@ The brief's paths had drifted. Ground truth:
 Sprite/rig polish; training an RL policy (leave the seam); rebalancing player
 abilities.
 
+## Progress
+
+- **S0** ✅ design note + slice plan committed.
+- **S1a** ✅ consume PCA jab/punch/special clips: `CharacterAnim::Punch` +
+  `Special`, `from_name` aliases, `pick_enemy_anim` routing via new
+  `EnemyAnimState.attack_heavy`/`special_active` (false until S4/S5), non-looping
+  marks. Tests green.
+- **S1b** ✅ data-expose the Smash reactive fighter as `BrainPreset::Smash` +
+  resolver mapping; author `cellular_automaton_fighter` catalog preset (MEDIUM
+  difficulty, dash-to-close). Roster + resolver tests green.
+- **Next (S1c/S2)**: the Smash brain currently emits only ground locomotion +
+  melee/ranged/dash/dodge verbs. The PCA body is `Floating`, so a hostile Smash
+  PCA will footsie horizontally but not yet fly/blink/glide (those are S5
+  verbs). Decision: land the **encounter gate (S2)** next so there's a playable
+  talk→challenge→fight loop with the existing verbs, then deepen the brain
+  (S5) and add the glider (S4). Aerial verb integration on a Floating body is
+  the main open integration risk — flagged here.
+
 ## Wall-clock log
 - S0 design note: started 2026-06-26.
+- S1a + S1b: same session, 2026-06-26. Engine-side foundation (anim consumption
+  + data-exposed fighter brain), all incremental builds <20s, tests green.
 </content>
 </invoke>

@@ -232,7 +232,12 @@ chosen controllers, and ticks. The current brain-policy proxy (`smash/arena.rs`,
 own kinematics, no terrain) is retired in favor of it; the brain's pure-stage
 unit tests stay for fast checks but stop certifying "works in a fight."
 
-## Current state (starting point)
+## Current state (starting point — HISTORICAL, the S0 baseline)
+
+> This snapshot is the baseline the roadmap started from (pre-S1). For LIVE status
+> read the **Progress** section above; several leaks below are already fixed (the
+> brain-side fire cadence is deleted, sim-time is threaded, the actor kit is at
+> parity). Kept as the "before" picture.
 
 - **Input seam — present and correct.** `Brain` → `ActorControlFrame`
   (`ambition_characters::brain`, `actor/control.rs`); possession routes a player
@@ -522,9 +527,14 @@ Every later slice must move toward convergence, never away. Concrete rules:
    Tidying these into the relational path is not the convergence and breaks
    provoke / hazards. Leave them.
 5. **S6 is a checkpointed refactor, not a blind rewrite.** Get the shape right
-   first; verify player feel with the existing feel-trace + OOB-trace tooling
-   (diff before/after). Replay/feel may change — only the compile + the feel diff
-   gate it. Commit = checkpoint, then keep moving.
+   first; build the parity net BEFORE folding. The net is the existing trace
+   tooling: `crates/ambition_gameplay_trace/` (the per-frame player feel-trace ring
+   buffer + markdown dump) and `actor_trace.rs` in it (the non-player-centric OOB
+   flight recorder — one `Query<&BodyKinematics>` over every body). Capture a
+   player movement/combat trace before the fold and diff after. Replay/feel may
+   change — only the compile + the feel diff gate it. Commit = checkpoint, then
+   keep moving. (Jon verifies feel in-game; ship a feel-sensitive change blind in
+   its own marked commit and ask.)
 
 ## Acceptance scenarios (what "done" means)
 
@@ -565,21 +575,86 @@ the bar.
   onto every body.
 - **Coupling perception to rendering** — forbidden (I5); the game runs headless.
 
-## Pointers
+## Pointers (current as of S3e)
 
 - Input seam: `crates/ambition_characters/src/brain/` (`mod.rs`, `smash/`),
-  `actor/control.rs` (`ActorControlFrame`).
-- Body enforcement: `crates/ambition_gameplay_core/src/projectile/spawn.rs`
-  (`ProjectileSpawner` — the player-side resolution to generalize),
-  `features/enemies/integration.rs` (what an enemy body consumes today),
-  `features/ecs/brain_effects.rs` (the enemy fire path needing a body gate).
-- Perception: `build_enemy_brain_snapshot` (`features/ecs/actors/update.rs`),
-  `BrainSnapshot` / `ObservationFrame` (`brain/`), `RoomGeometry`, `portal/`.
-- Capabilities: the player ability clusters (blink / fly / shield / ledge / dash)
-  and `abilities/traversal/possession`.
-- Harness model: the Bevy world-assert pattern under `features/.../tests`;
-  `RoomGeometry` construction in `enemy_projectile/systems.rs` tests.
+  `actor/control.rs` (`ActorControlFrame`; the body→controller half is
+  `IntentOutcome` / `BlockReason`).
+- Body enforcement (the resolver, actor side): `features/enemies/integration.rs`
+  (`ActorMut::update` — grounded spine + dash burst), `features/ecs/actors/update.rs`
+  (`update_ecs_actors` — resolves blink/fly/shield/dash AFTER `em.update()`),
+  `combat/components/actors.rs` (`ActorAttackState` — per-verb cooldowns +
+  `try_fire_ranged`/`try_blink`/`try_dash`), `combat/components/mod.rs`
+  (`CombatCapabilities` — the per-body kit gate), `features/ecs/brain_effects.rs`
+  (the enemy fire body-gate — DONE in S1).
+- The player-side resolution still to FOLD (S6): `projectile/spawn.rs`
+  (`ProjectileSpawner`, cooldown + mana meter) and the player ability clusters
+  (`PlayerShieldState` / `PlayerDashState` / `PlayerFlightState`) in
+  `ambition_engine_core/src/movement/`. Shared core math the fold reuses:
+  `abilities/traversal/blink.rs::blink_target`, `combat/damage.rs::shield_blocks_hit`,
+  `ambition_engine_core::integrate_normal_spine`.
+- Relational damage (S3e): `combat/targeting.rs` (`FactionRelations` — the matrix +
+  `select_actor_targets`), `combat/events.rs` (`HitTarget::Actor`), `combat/hitbox/mod.rs`
+  (melee), `projectile/systems.rs` + `enemy_projectile/systems.rs` (projectiles),
+  `features/ecs/damage/` (the actor victim consumer), `combat/damage.rs` (the player
+  victim consumer + gate).
+- Perception (S4): `build_enemy_brain_snapshot` (`features/ecs/actors/update.rs`),
+  `BrainSnapshot` / `ObservationFrame` (`brain/`), `RoomGeometry`, `portal/`,
+  `features/mod.rs` (`GameplayElapsed` — the accumulating sim-time, threaded as the
+  snapshot's `sim_time`). Build `WorldView` body-generic (guardrail #1), not off the
+  `enemy`-named path.
+- Possession: `abilities/traversal/possession` + the possessed branch in
+  `update_ecs_actors` (player input → the body's `ActorControlFrame`). NOTE:
+  possession is NOT wired through in-game yet — deferred to S6 by choice.
+- Harness model: minimal-plugin Bevy `App` + manual `app.update()` + world asserts
+  (`features/.../tests`, `combat/hitbox/tests.rs`, `enemy_projectile/systems.rs` tests,
+  `features/ecs/fighter_harness.rs`). Runs in ms.
 - Exemplar character + encounter: `docs/planning/perfect-cellular-automaton-encounter.md`.
+
+## Implementation notes & gotchas (a memory-less agent will hit these)
+
+Hard-won this build-out; not obvious from the code. (Repo-wide rules — relativity,
+elegance, crate split, commit style — are in `AGENTS.md`; this is the slice-specific
+layer.)
+
+- **Build / test target.** `~/.cargo/bin/cargo`. The fast inner loop is
+  `cargo test -p ambition_gameplay_core --lib` (~20s, 1019 tests), plus
+  `-p ambition_characters --lib` and `-p ambition_content`. The full
+  `ambition_app` build needs system libs and is ~10 min — design for incremental
+  rebuilds; don't churn `lib.rs` or put `Reflect` on hot paths.
+- **Pre-existing unrelated failure:** `ambition_characters` lib test
+  `brain::player::tests::blink_precision_aim_is_screen_relative_by_default_quick_is_locomotion`
+  fails at baseline — NOT introduced by this work. Everything else is green.
+- **Bevy system-param ceiling (~16).** `update_ecs_actors` and `step_projectiles`
+  are AT it. To add a `Res`/`Query`, bundle several into one tuple param
+  (`(world_time, sim_clock): (Res<..>, Res<..>)`) rather than adding a slot.
+- **Bevy `.chain()` length ceiling (~17).** When a system chain is full, register
+  the extra system separately with an explicit `.before(...)`/`.after(...)` edge.
+- **`Block::solid(name, min_corner, size)` takes the MIN corner, not the center;**
+  `ae::World::new(name, size, spawn, blocks)` adds NO implicit boundary walls. Test
+  worlds must author their own floor/walls.
+- **Sim-time, not wall-time (ADR 0010/0011).** Perception/cooldown timers read
+  `WorldTime::scaled_dt` (or the accumulated `GameplayElapsed`) so bullet-time and
+  pause compose for free; `raw_dt` only for genuinely real-time things. S4's
+  reaction-latency lookback already rides `GameplayElapsed` as the snapshot
+  `sim_time`.
+- **Bevy 0.18 Message API.** Buffered events are `Message` (not `Event`):
+  `MessageReader` / `MessageWriter` / `app.add_message::<T>()`. The old `Event` is
+  observer-only now. S4/S5 will add message types — use the Message API.
+- **Determinism:** Bevy `Query` iteration order is NOT stable; sort any
+  order-sensitive pass by a stable id (e.g. `owner_id`/`config.id`), not `Entity`.
+- **Style/formatting hazard (UNRESOLVED — see note to Jon):** the working tree is
+  not clean under the current `rustfmt`, so `cargo fmt -p <crate>` and
+  `rustfmt <file>` (it follows `mod` decls) reflow whole unrelated files/trees.
+  Until a toolchain is pinned, match surrounding style by hand, stage explicit
+  paths, and `git diff` to confirm only your lines changed. (This contradicts
+  `AGENTS.md` "Style", which says to run `cargo fmt` — flagged for Jon to reconcile.)
+- **Unverified feel:** the dash tuning (`ActorAttackState::DASH_SPEED_MULT = 1.7`,
+  `DASH_TIME_S = 0.18`, refire `0.7s`) is headless-proven but NOT feel-checked.
+  Jon verifies feel in-game (he can't see agent-side GUIs). Ship a visual/feel/
+  unreproducible fix BLIND in its own marked commit and ask him to verify — round
+  trips are expensive, reverts are cheap. Don't speculate a "looks right" change as
+  done.
 
 ## Wall-clock log
 

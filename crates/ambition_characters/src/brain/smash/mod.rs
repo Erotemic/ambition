@@ -99,6 +99,15 @@ pub struct SmashCfg {
     /// mixes into its approach to vary its attack vector and use vertical
     /// space. `0.0` (the grunt default) disables neutral hops.
     pub neutral_jump_cadence_s: f32,
+    /// When true, the fighter may **blink-evade** a fast-closing opponent (a
+    /// perceivable lunge, read from the lagged target history — never from a
+    /// privileged attack flag). Capability gate only: the body still needs the
+    /// blink ability for the emitted intent to resolve, exactly like the player.
+    /// `false` for grunts.
+    pub can_blink: bool,
+    /// Minimum seconds between blink-evades. Ignored when [`Self::can_blink`]
+    /// is `false`.
+    pub blink_cooldown_s: f32,
     /// Difficulty profile applied at stage 4.
     pub difficulty: DifficultyProfile,
 }
@@ -122,6 +131,8 @@ impl SmashCfg {
         footsies_amplitude: 0.0,
         footsies_period_s: 1.4,
         neutral_jump_cadence_s: 0.0,
+        can_blink: false,
+        blink_cooldown_s: 0.0,
         difficulty: DifficultyProfile::MEDIUM,
     };
     /// Heavy brute tuning — slower, longer reach, less retreat.
@@ -138,6 +149,8 @@ impl SmashCfg {
         footsies_amplitude: 0.0,
         footsies_period_s: 1.6,
         neutral_jump_cadence_s: 0.0,
+        can_blink: false,
+        blink_cooldown_s: 0.0,
         difficulty: DifficultyProfile::MEDIUM,
     };
     /// **Duelist** tuning — a 1v1 fighter with a real neutral game: it weaves
@@ -158,6 +171,8 @@ impl SmashCfg {
         footsies_amplitude: 60.0,
         footsies_period_s: 1.3,
         neutral_jump_cadence_s: 1.7,
+        can_blink: true,
+        blink_cooldown_s: 1.2,
         difficulty: DifficultyProfile::MEDIUM,
     };
 }
@@ -265,7 +280,18 @@ pub struct SmashState {
     /// Seconds until the next neutral hop is allowed. Decremented each tick;
     /// re-armed to `neutral_jump_cadence_s` when a hop fires.
     pub neutral_jump_cooldown: f32,
+    /// Seconds until the next blink-evade is allowed. Decremented each tick;
+    /// re-armed to `blink_cooldown_s` when a blink fires.
+    pub blink_cooldown: f32,
 }
+
+/// Window (s) over which the perceived target velocity is estimated for the
+/// blink-evade lunge detector. Short enough to read a burst, long enough to be
+/// robust to a single-tick jitter.
+const THREAT_WINDOW_S: f32 = 0.08;
+/// Perceived closing speed (px/s) toward the fighter that counts as a "lunge"
+/// worth evading. Above a walk (~110) but a dash-in (~260) clears it easily.
+const THREAT_CLOSING_SPEED: f32 = 175.0;
 
 /// Ranged-verb cadence (seconds). A ranged-capable Smash actor fires
 /// at most once per this interval at mid-range, then closes for the
@@ -305,6 +331,7 @@ pub fn tick_smash(
     state.ranged_cooldown_remaining = (state.ranged_cooldown_remaining - snapshot.dt).max(0.0);
     state.dash_cooldown_remaining = (state.dash_cooldown_remaining - snapshot.dt).max(0.0);
     state.neutral_jump_cooldown = (state.neutral_jump_cooldown - snapshot.dt).max(0.0);
+    state.blink_cooldown = (state.blink_cooldown - snapshot.dt).max(0.0);
     // Advance the spacing phase — it drives the grounded footsies weave AND the
     // aerial dive/perch cycle, so a flyer needs it even with footsies disabled.
     if (cfg.footsies_amplitude > 0.0 || snapshot.actor_aerial) && cfg.footsies_period_s > 0.0 {
@@ -369,6 +396,53 @@ pub fn tick_smash(
         out.jump_pressed = false;
         out.velocity_target = aerial_steer(&obs, mode, cfg, state);
     }
+    // Reactive blink-evade (capability-gated). Reacts to a *perceivable* lunge —
+    // the opponent closing fast — not a privileged read of its attack flag, so a
+    // human could make the same read. The perceived target velocity comes from
+    // the SAME lagged history that enforces reaction latency, so the dodge can't
+    // beat the opponent's commitment frame-perfectly either. Overrides this tick's
+    // movement with the blink; attack verbs already emitted are left intact.
+    if cfg.can_blink && state.blink_cooldown <= 0.0 && !obs.self_attacking {
+        if let Some(away) = reactive_blink_evade(&obs, cfg, state, snapshot.sim_time) {
+            out.blink_pressed = true;
+            out.blink_quick_dir = away;
+            out.locomotion = ae::Vec2::ZERO;
+            out.velocity_target = ae::Vec2::ZERO;
+            state.blink_cooldown = cfg.blink_cooldown_s;
+        }
+    }
+}
+
+/// Decide whether to blink-evade this tick, returning the WORLD-space "away"
+/// direction if so. Threat = the opponent is *perceived* to be closing on us
+/// faster than a walk while already in danger range. Perception uses the lagged
+/// `obs_history` (reaction latency applies to defense too), so it's fair.
+fn reactive_blink_evade(
+    obs: &ObservationFrame,
+    cfg: &SmashCfg,
+    state: &SmashState,
+    now: f32,
+) -> Option<ae::Vec2> {
+    let delay = cfg.difficulty.reaction_delay_s;
+    let p_now = state.obs_history.delayed(now, delay)?;
+    let p_prev = state.obs_history.delayed(now, delay + THREAT_WINDOW_S)?;
+    let target_vel = (p_now - p_prev) / THREAT_WINDOW_S;
+    let to_me = obs.self_pos - p_now;
+    let dist = to_me.length();
+    if dist < 1.0 || dist > cfg.attack_range * 2.2 {
+        return None;
+    }
+    let closing = target_vel.dot(to_me / dist); // +ve = approaching us
+    if closing <= THREAT_CLOSING_SPEED {
+        return None;
+    }
+    // Evade UP-and-away. The away component breaks the opponent's line; the strong
+    // upward bias (engine `+y` = down, so up is `-y`) sends the dodge into the open
+    // vertical space rather than risking a blink straight into a side wall —
+    // wall-safe without needing wall geometry. For a flyer this also resets it to
+    // a fresh perch; for a grounded body it's an evasive air-reposition.
+    let horiz = (to_me.x / dist) * 0.5;
+    Some(ae::Vec2::new(horiz, -1.0).normalize_or_zero())
 }
 
 /// 2D steering for an aerial (free-mover) Smash fighter. Instead of grounded

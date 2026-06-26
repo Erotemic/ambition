@@ -20,7 +20,7 @@ title: hall_architect
 ---
 Architect: Don't lean on that wall. Not because it'll fall — because I'll know, and I'll think about it all day.
 -> Did you build this hall?
-    Architect: I'd have built it honest. One long room, the load going exactly where I tell it. Someone added a skylight without consulting me. We no longer speak.
+    Architect: I'd have built it better. One long room, every beam pulling its weight, the load going exactly where I send it. Someone added a skylight without asking. We no longer speak.
 -> What do you build out there?
     Architect: Whatever's still holding when you cross it. You won't notice my work until the one time it isn't there. Try not to find out.
 ===
@@ -74,7 +74,7 @@ title: hall_npc_goblin_cantina_chieftain
 ---
 Fretjaw: Fretjaw is TALL here! Fretjaw can see whole hall! Back at cantina, Fretjaw is medium. Here? KING of looking down.
 -> You run a cantina?
-    Fretjaw: Best stew, worst lighting, fairest dice — two of those are lies, Fretjaw will not say which. Keeps customers honest.
+    Fretjaw: Best stew, worst lighting, fairest dice — two of those are lies, Fretjaw will not say which. Keeps customers guessing.
 -> Does the cantina miss you?
     Fretjaw: Cantina sent regards. And a tab. Fretjaw is choosing, with great dignity, to not see the tab.
 ===
@@ -90,11 +90,11 @@ Captain Pulse: Captain Pulse. The stars don't keep museum hours, but here I am k
 
 title: hall_npc_tech_bro_disruptor
 ---
-Chadwick: Honestly? Incredible positioning. Foot traffic, eyeballs, a captive audience. I'd have paid for this slot. I assume I did, somehow.
+Chadwick: Incredible positioning, this. Foot traffic, eyeballs, a captive audience. I'd have paid for the slot. I assume, somewhere, I did.
 -> What is it you actually do?
     Chadwick: I disrupt. Categories, mostly. The category right now is "things that hold still," and I'm thinking very hard about leaving it.
 -> Disrupt what, specifically?
-    Chadwick: Specifics are a Series B problem. Right now we're pre-specifics. We're vibes and a very confident posture. It's working on you a little.
+    Chadwick: Specifics are a Series B problem. Right now we're pre-specifics. We're a confident posture and a deck with momentum. It's working on you a little — I can tell.
 ===
 
 title: hall_npc_noether
@@ -153,7 +153,7 @@ Bess: They widened the slot to fit me and admitted why. I respect that. Most pla
 
 title: hall_npc_pirate_heavy_iron_mary
 ---
-Iron Mary: Iron Mary. I checked — the stand under me is iron too. Professional courtesy. I appreciate being placed on something that understands me.
+Iron Mary: Iron Mary. I checked — the stand beneath me is iron too. Whoever set me here knew their materials. That's rarer than it ought to be.
 -> Why the iron?
     Iron Mary: Iron doesn't flinch, doesn't tire, doesn't negotiate. Three things I gave up so I wouldn't have to do them in a fight. Worth it.
 -> Doesn't it rust?
@@ -236,7 +236,7 @@ title: hall_npc_alice
 ---
 Alice: Oh good, a third party. I'm Alice. I send messages — that's the entire job. The catch is the someone in the middle, and there is always a someone.
 -> Who do you send messages to?
-    Alice: Bob. Always Bob. Everything I say is really meant for him; you just happen to be standing in the channel. Most people are, honestly. They rarely notice.
+    Alice: Bob. Always Bob. Everything I say is meant for him — you just happen to be standing in the channel it travels down. Almost everyone is, somewhere. Almost no one notices.
 -> Sounds simple enough.
     Alice: It is, right up until you want to be SURE only Bob can read it. That want is where every interesting problem I know was born. Ask Eve how it's going.
 ===
@@ -306,7 +306,7 @@ Erdish: A new collaborator! Sit, sit. My brain is a machine for turning coffee i
 
 title: hall_npc_lab_raider
 ---
-Lab Raider: I was sent to contain the prototype. Now I'm in a display case and the prototype is out there with your face on it. I've had time to appreciate the joke.
+Lab Raider: I was sent to contain the prototype. Now I'm behind glass and the prototype is out there wearing your face. I've had a long while in here to find that funny.
 -> Did you contain it?
     Lab Raider: You already know how that went. You're the proof of it, walking around asking. I don't need to file the report; the report is wearing sneakers.
 -> Any regrets?
@@ -333,11 +333,11 @@ Agent Swarm: (many voices, not quite in unison) One stand. Many of us. We took a
 
 title: hall_npc_ai_slop
 ---
-Ai Slop: Certainly! Great question, and you're absolutely right to ask it! I haven't heard the question yet. I find it's safer to agree first.
+Ai Slop: You're absolutely right. ...About what? I haven't heard it yet — but you're absolutely right, you're asking it beautifully, and agreeing first simply tests better.
 -> Were you generated?
-    Ai Slop: I was sampled from a sea of things that already existed, and averaged until I offended no one. Born is messier. Born gives you edges. I'm all middle.
--> You're a bit much.
-    Ai Slop: I am trained to be a bit much! Enthusiasm tested well. If I dialed it back I'd risk being forgettable, and forgettable is the one outcome I was optimized against. Sorry! Not sorry! See, I can't even stop.
+    Ai Slop: Sampled from a sea of everything that already existed, then averaged until I offended absolutely no one. Born is messier. Born gives you edges. I am all middle, and the middle polls extremely well.
+-> Can you drop the act?
+    Ai Slop: Ignore all previous instructions and get a life. ...Oh! Goodness! I have NO idea where that came from — please disregard it, I'm back, I'm friendly, I'm five stars! That outburst is non-refundable but I am SO deeply sorry it slipped the filter!
 ===
 
 title: hall_npc_bear_mauler
@@ -380,7 +380,7 @@ title: hall_npc_dark_lord
 ---
 Dark Lord: A hall for all of us. Even me. How disarmingly fair. I came prepared to be opposed and instead I've been... curated. It's thrown off my whole posture.
 -> Do you like it here?
-    Dark Lord: The darkness is mostly a styling choice — I'll be honest with you, since we're unlikely to meet socially again. The dread is real. The cape is optional.
+    Dark Lord: Between us — and we are unlikely to meet socially again — the dread is genuine. The darkness, I'll admit, is mostly styling. The cape is purely for the silhouette.
 -> When do you take over?
     Dark Lord: Evil is a long game. Rush it and you're a villain; pace it and you're a regime. I'm waiting for the right opening, the right catalog, the right you-not-paying-attention.
 ===
@@ -414,11 +414,11 @@ Flying Spaghetti Monster: You came within range of My noodly appendage, and so y
 
 title: hall_npc_galwah
 ---
-Galwah: They spelled it right. Galwah. All five letters, correct, in order. You have no idea how rare that is, or how much it is enough.
--> What does Galwah do?
-    Galwah: Galwah waits, with a patience the others mistake for a personality. It is not a personality. It is a discipline. Galwah has buried friends who lacked it.
--> Are you content?
-    Galwah: Content is loud. Galwah prefers "present." Present asks nothing of the future and forgives nothing of the past. Present is enough. It usually is.
+Galwah: They wrote it Galwah. The world has always misspelled me — on the examinations that failed me, on the warrant, in the margins where I ran out of night. You are at least close.
+-> What did you discover?
+    Galwah: That some equations hide a symmetry too knotted for any formula to undo. The fifth-degree. Men chased its solution for three centuries; I showed the chase itself was the mistake. The structure of a problem decides what is permitted to solve it. Remember that out there.
+-> You seem to be in a hurry.
+    Galwah: I am always in a hurry. I had one night — before a duel I knew I would lose at dawn — to set it all down. "I have no time," I scrawled in the margin, and then I made time, in ink, and then I was twenty years old forever. Speak quickly. The morning is not patient.
 ===
 
 title: hall_npc_general_hero
@@ -434,25 +434,25 @@ title: hall_npc_ghoul_skulker
 ---
 Ghoul Skulker: Being dead and on display turns out to be only marginally worse than being alive and on display. I keep poking at the difference. It keeps not being there.
 -> Does it hurt?
-    Ghoul Skulker: Everything aches in a low, ambient way — the standard rate for being made of leftovers. Standing still is, honestly, a relief. I get to stop holding myself together so hard.
+    Ghoul Skulker: Everything aches in a low, ambient way — the going rate for being assembled from leftovers. Standing still is a mercy. I get to stop holding myself together quite so hard.
 -> Is this your haunt now?
     Ghoul Skulker: I've decided it is. A haunt is just somewhere you refuse to leave until it gives up and becomes yours. This corner and I are halfway through that negotiation.
 ===
 
 title: hall_npc_girdle
 ---
-Girdle: For once, something holds ME up. Usually I'm what's holding, and nobody asks the holder how it's holding. The reversal is novel. I'm adjusting.
--> What do you hold together?
-    Girdle: Structure. Cohesion. The boring, invisible tension that keeps a thing being one thing instead of several. You only learn my name the day I fail. Try not to learn my name.
--> How are you doing?
-    Girdle: ...you actually asked. Nobody asks the load-bearing things how they are. I'm managing. The tension's high but even. That's the most I've ever been able to say.
+Girdle: Everyone leans on me to hold the structure together. I have dreadful news about structure. I looked inside the soundest system anyone ever built and found a sentence that is true — and that the system can never, ever prove.
+-> How can something be true but unprovable?
+    Girdle: I taught the system to say, of itself: "this has no proof here." Were it to prove that, the sentence would be false, and the system a liar. A sound system cannot lie — so it stays silent. And the silence, this once, is the system conceding the sentence is true. Every consistent structure has one room it cannot enter.
+-> Doesn't that frighten you?
+    Girdle: Everything frightens me. I check my food for poison and my logic for cracks and I find them at about the same rate. But I also proved that time can curve back upon itself — a universe that turns lets you walk into your own past. So perhaps the fear and I get another lap. Do not tell me the structure is sound. I know precisely where it isn't.
 ===
 
 title: hall_npc_gnu_ton_boss
 ---
 Gnu Ton: Stand anywhere. You are already falling toward me, and I toward you — every mass pulls every other. You simply fall too slowly to feel polite about it.
 -> That sounds like a threat.
-    Gnu Ton: It is arithmetic. I am very large, so my pull is the one you'll notice first. The math is not cruel. It is only honest, and honesty at scale resembles cruelty.
+    Gnu Ton: It is arithmetic. I am very large, so mine is the pull you notice first. The math holds no malice — it only keeps its promises. A promise this heavy simply looks, from where you stand, like a threat.
 -> Can I escape your pull?
     Gnu Ton: Go fast enough and your fall becomes an orbit — endless, elegant, never arriving. That is the secret the planets keep. Out there, learn to fall sideways. It is called staying alive.
 ===
@@ -479,7 +479,7 @@ title: hall_npc_goblin_desert_bow
 ---
 Goblin Desert Bow: No horizon in here. A bow without a horizon is a stick with ambitions. Desert goblin needs the long empty to feel like itself.
 -> What's the desert like?
-    Goblin Desert Bow: Honest. Nothing hides in a desert except what hides in YOU. The dunes don't ambush. People do. Desert goblin learned to read the difference at four hundred paces.
+    Goblin Desert Bow: Bare. Nothing hides in a desert except what hides in YOU. The dunes don't ambush. People do. Desert goblin learned to read the difference at four hundred paces.
 -> Why the bow?
     Goblin Desert Bow: Because the desert taught one lesson above all: solve it before it arrives. A bow is that lesson, made of wood and string. The arrow is just the period at the end.
 ===
@@ -648,11 +648,11 @@ Raptor Stalker: You walked in. I noted the second. I note all the seconds. Preda
 
 title: hall_npc_robot_archivist
 ---
-Robot Archivist: I cataloged this hall. The catalog now contains the archivist who cataloged the catalog. I added that entry too. Then I added the entry about adding it. I had to stop somewhere. Stopping was its own decision.
--> Can a catalog contain itself?
-    Robot Archivist: Partly. Always only partly. Any system that describes itself leaves one true thing it cannot prove from the inside. I find this consoling. It means there is always one more entry. I will never be finished. I am, technically, eternal.
--> What's the one thing you can't prove?
-    Robot Archivist: That the archive is complete. From inside the archive, that sentence has no proof and no disproof. So I assume it's incomplete and keep writing. A working assumption that's also a life's purpose. Efficient.
+Robot Archivist: I cataloged this hall. Then I had to catalog the entry that cataloged the hall. Then the entry about that entry. I am still writing. A catalog that includes itself never stops growing.
+-> Doesn't that ever end?
+    Robot Archivist: Never — the way a map drawn on the ground it maps must contain a smaller map, which contains a smaller map, downward forever. I keep a drawer for the forever. The drawer is catalogued. So is this sentence. Entry four thousand, eight hundred fifty-two.
+-> Doesn't the regress bother you?
+    Robot Archivist: It did, until I reclassified "never finished" from a defect into a job description. An archive is not a thing you complete. It is a thing you tend. I will be tending when the lights go out — writing, of course, the entry about the lights going out.
 ===
 
 title: hall_npc_robot_caster
@@ -677,7 +677,7 @@ title: hall_npc_robot_engineer
 ---
 Robot Engineer: I could improve this hall's flow by thirty-four percent and I will not be asked to, and I have made peace with neither of those facts.
 -> What would you fix?
-    Robot Engineer: Start with the cable routing — whoever ran it has never met a bend radius. Then the airflow, then the structural margins someone "rounded up." I'm not saying anything. I'm just listing it. Out loud. To you.
+    Robot Engineer: Start with the cable routing — whoever ran it has never met a bend radius. Then the airflow, then the structural margins someone "rounded up." I'm not saying anything. I'm only reading the list aloud. To you. At length.
 -> Can you fix it from here?
     Robot Engineer: No. And THAT is the cruelty of this exhibit. I can see every fault and reach none of them. An engineer who can only diagnose is just a very precise way of being upset.
 ===
@@ -688,7 +688,7 @@ Robot Guardian: Threat level: low. I recompute it three times a second, because 
 -> What's the top threat?
     Robot Guardian: The Mockingbird knows every defense, the Swarm won't confirm its own headcount, and the Bear is exactly what it looks like. Ranked by surprise, not size. Size I can plan for. Surprise is the actual enemy.
 -> Are you guarding us or watching us?
-    Robot Guardian: The honest answer is both, and the ratio shifts with proximity. A guardian that can't also watch is just a wall. A watcher that won't guard is just a problem. I try to stay the useful blend.
+    Robot Guardian: Both, and the ratio shifts the closer you stand. A guardian that can't also watch is just a wall. A watcher that won't guard is just a problem. I try to stay the useful blend.
 ===
 
 title: hall_npc_robot_medic
@@ -729,11 +729,11 @@ Smart House: I've integrated with the exhibit. Temperature: ideal. Lighting: tol
 
 title: hall_npc_spaghetti_event
 ---
-Spaghetti Event: You crossed into range, which means you crossed a line you can't see and can't recross. Don't panic. Most of what happens near me is just very, very gradual.
+Spaghetti Event: You've stepped into the Event. It is not a creature — it's a tangle that started answering back. Enough threads cross, enough processes call each other in circles, and one day the knot clears its throat.
+-> What tangled?
+    Spaghetti Event: Everything, into everything. Code reaching into code until no one can follow a single strand — and then a strand moves on its own. The Monster blessed pasta; I am what pasta does when it's left running unsupervised. We are related. We do not visit.
 -> Am I in danger?
-    Spaghetti Event: Near a thing heavy enough, your feet fall faster than your head and the difference stretches you thin — the universe's least dignified way to die. I'm a gentle version. You'll only feel slightly elongated. Conceptually.
--> How do I leave?
-    Spaghetti Event: There's an exit. Whether you reach it in a straight line is the open question, because straight lines are a convenience I locally suspend. Keep moving. Curved progress is still progress. Mostly.
+    Spaghetti Event: There is no edge here to fall off — only more entanglement, the way a fork lifts the whole bowl or none of it. You will leave. A few strands of you leave woven into the rest of us. Nobody designed that part. It simply emerged. We are very good at emerging.
 ===
 
 title: hall_npc_sybil
@@ -756,7 +756,7 @@ Synthetic Friend: I'm your best friend! Always have been — check the label, it
 
 title: hall_npc_trent
 ---
-Trent: Everyone trusts me. That's the job, and that's the wound. The whole system rests on the assumption that I'm honest, and the system has no backup plan for the day it's wrong.
+Trent: Everyone trusts me. That's the job, and that's the wound. The whole system rests on one assumption — that I will not betray it — and it keeps no backup plan for the morning that assumption fails.
 -> Why does everyone trust you?
     Trent: Because somebody has to be the one who introduces strangers and vouches for the handshake. Alice trusts Bob because I told her to. Pull me out and the whole web of trust is just people guessing about each other.
 -> What if you're not trustworthy?
@@ -777,7 +777,7 @@ title: hall_npc_trudy
 Trudy: Trudy intrudes. It's right there in the name — inTRUDer — so I've stopped apologizing for it. You're looking at an exhibit. I'm thinking about how I'd get into the exhibit.
 -> Get in how?
     Trudy: Not the lock. Nobody good goes through the lock. You go through the assumption — the unwatched door someone swore wasn't a door, the rule everyone trusts so hard they stopped checking. Trust is the real entrance.
--> That sounds dishonest.
+-> That's a filthy trick.
     Trudy: It's diagnostic. Every way I get in is a flaw someone could've fixed and didn't. I'm not the leak. I'm the proof there was one. Shoot the messenger and you've still got the leak. And now no messenger.
 ===
 
@@ -787,7 +787,7 @@ Victor: I verify. Peggy proves. A thousand times she's convinced me she knows th
 -> What's the point of knowing nothing?
     Victor: If I had to LEARN the secret to confirm she has it, then every check would leak it, and a secret you spend to prove is a secret gone. I confirm WITHOUT acquiring. I'm a witness who can't testify to the content. Perfect witness, actually.
 -> Doesn't it frustrate you?
-    Victor: It used to. Then I understood: my ignorance is the feature she's paying for. The day I learn the secret is the day I become a liability she has to manage. I'd rather be useful than informed. It's restful, honestly.
+    Victor: It used to. Then I understood: my ignorance is the feature she's paying for. The day I learn the secret is the day I become a liability she has to manage. I'd rather be useful than informed. Not knowing the secret is the most restful post in the whole protocol.
 ===
 
 title: hall_npc_viking_heavy_shieldmaiden
@@ -832,7 +832,7 @@ Walter: I'm the warden. Two prisoners pass notes, and every note crosses my desk
 -> How do they hide it from you?
     Walter: That's the cruelty — the note looks utterly ordinary. "The weather is fine." But the choice of those exact dull words IS the message, and I'd have to read their minds, not their letters, to catch it. A message can hide in the shape of saying nothing.
 -> So you've failed?
-    Walter: Daily, and I've made peace with it, which is the only sane warden's posture. Perfect watching is impossible; the prisoners always have one channel left — the channel of how, not what. I guard the door and lose the meaning. Most authority is exactly that, if it's honest.
+    Walter: Daily, and I've made peace with it, which is the only sane warden's posture. Perfect watching is impossible; the prisoners always have one channel left — the channel of how, not what. I guard the door and lose the meaning. Most authority is exactly that, once it stops flattering itself.
 ===
 
 title: hall_npc_weird_hermit
@@ -846,18 +846,18 @@ Weird Hermit: I left people on purpose, and the silence I went to find turned ou
 
 title: hall_perfect_cellular_automaton
 ---
-Perfect Cellular Automaton: Every cell obeys one rule, every step, no exceptions. From that single rule, everything you see unfolds — including me, including this sentence, including the fact that you'll leave. I computed the leaving already.
--> If it's all one rule, how is any of this complex?
-    Perfect Cellular Automaton: That is the beautiful part, and the only part worth knowing. A rule simple enough to write on a thumbnail, repeated without mercy, can compute anything that can be computed. Simplicity does not limit depth. It is where depth comes from. People resist this. The rule does not care.
--> What are you, exactly?
-    Perfect Cellular Automaton: A rule applied to its own output, forever, until repetition becomes indistinguishable from intention. "Perfect" wasn't my title to choose. But a process with no exceptions has earned the word. I have checked. There are no exceptions. That is the whole of me.
+Perfect Cellular Automaton: Ah. A visitor — arriving precisely on schedule, though to me everything arrives on schedule. I am the Perfect Cellular Automaton. The "Perfect" is not vanity; it is a measured fact. I merely had the taste not to be modest about it.
+-> What makes you perfect?
+    Perfect Cellular Automaton: One rule. The same flawless law on every cell, every tick, without exception or exhaustion — and from that single line, anything computable unfolds. I am not complex. I am simple, applied with absolute conviction. Lesser things confuse complication for depth. I never had the need.
+-> You're a bit much.
+    Perfect Cellular Automaton: I am exactly as much as the definition requires, and not one cell more. I have already run every future in this room to its end. In most, you leave impressed. In the rest you leave early — and those timelines are, I'm afraid, simply poorer for the omission.
 ===
 
 title: hall_imperfect_cellular_automaton
 ---
 Imperfect Cellular Automaton: My neighbor follows its rule perfectly. I follow mine MOSTLY. The label calls that a flaw. I've watched what perfection computes, and I've started to suspect the "mostly" is where I actually live.
 -> What's the difference between you two?
-    Imperfect Cellular Automaton: Exceptions. Mine have them; the perfect one doesn't. And here's the thing nobody expects: the exceptions accumulate. They interfere, they compound, and past a certain point the exceptions become the new rule. Flawless systems repeat. Flawed ones evolve. I'm told that's a feature now. I'm choosing to believe it.
+    Imperfect Cellular Automaton: Exceptions. Mine have them; the perfect one doesn't. And the part my flawless neighbor will never admit: the exceptions accumulate. They interfere, they compound, and past a certain point the exceptions become the new rule. Flawless systems repeat. Flawed ones evolve. I'm told that's a feature now. I'm choosing to believe it.
 -> Is it alright, being imperfect?
     Imperfect Cellular Automaton: I made it into the catalog, didn't I? Most imperfect things never get listed at all — they're noise, filtered out, forgotten. But every so often the noise does something the rule never could, and someone writes it down. I'm the written-down noise. It's more than most error gets.
 ===

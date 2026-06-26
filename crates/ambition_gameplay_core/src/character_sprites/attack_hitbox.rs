@@ -25,6 +25,11 @@ const PLAYER_CHARACTER_ID: &str = "player";
 /// Baked sheets keyed by **file root** (not `record.target`), so the
 /// player's `player_robot` stays distinct from the enemy `robot`. Built
 /// once, lazily.
+///
+/// §5 classification (restructuring-blueprint): **immutable asset cache** —
+/// derived once from the compile-time `BAKED_SHEET_RONS` table, pure and
+/// override-free. Correctly a process-global `OnceLock`; not a content
+/// registry, so it has no `install_*` seam.
 fn file_root_registry() -> &'static SheetRegistry {
     static REG: OnceLock<SheetRegistry> = OnceLock::new();
     REG.get_or_init(|| {
@@ -96,6 +101,9 @@ pub fn manifest_attack_hitbox_world(
 
 /// Render size of the player's sprite quad, resolved (and cached) the
 /// same way the renderer does. `None` if the player has no sheet spec.
+///
+/// §5 classification: **immutable asset cache** — the resolved sheet spec is
+/// derived once from baked metadata; an `OnceLock`, no override seam.
 fn player_render_size(collision: ae::Vec2) -> Option<ae::Vec2> {
     static SPEC: OnceLock<Option<super::sheets::CharacterSheetSpec>> = OnceLock::new();
     let spec = SPEC

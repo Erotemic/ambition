@@ -361,6 +361,14 @@ static EMBEDDED_ENEMY_ROSTER: std::sync::LazyLock<EnemyRoster> =
 
 /// Content-installed roster. Set once at plugin-build time; production
 /// resolution REQUIRES it (there is no production embedded default).
+///
+/// §5 classification (restructuring-blueprint): **content registry** —
+/// install-once seam, immutable after install, read from the pure
+/// `spec_for_brain` helper (called deep in non-system spawn code). Deliberately
+/// a process-global `OnceLock`, not a Bevy `Resource`: the spawn-path readers
+/// have no `World` access and a resource would couple pure spec resolution to
+/// the ECS. `install_enemy_roster` + the `cfg(test)` fixture ARE the
+/// test-override mechanism.
 static ENEMY_ROSTER_OVERRIDE: std::sync::OnceLock<EnemyRoster> = std::sync::OnceLock::new();
 
 /// Install the authored enemy roster — the content layer calls this at

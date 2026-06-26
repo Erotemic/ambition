@@ -21,6 +21,12 @@ use std::collections::HashMap;
 /// markers. This is the seam that keeps the engine's encounter loader from
 /// naming any specific encounter — the goblin (and future) wave data is content
 /// (`ambition_content/assets/data/encounters/*.ron`).
+///
+/// §5 classification (restructuring-blueprint): **content registry** —
+/// install-once seam, immutable after install, read from the pure
+/// `authored_encounter_waves` helper. Deliberately a process-global `OnceLock`,
+/// not a Bevy `Resource` (the reader is the non-system LDtk loader);
+/// `install_encounter_waves` + the `cfg(test)` fixture ARE the test-override.
 static ENCOUNTER_WAVE_BOOK: std::sync::OnceLock<HashMap<String, Vec<EncounterWaveSpec>>> =
     std::sync::OnceLock::new();
 

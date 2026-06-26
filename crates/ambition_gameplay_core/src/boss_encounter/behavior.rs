@@ -217,6 +217,14 @@ impl BossProfileRegistry {
 
 /// Content-installed boss-profile registry. Set once at plugin-build time;
 /// production resolution REQUIRES it (there is no production embedded default).
+///
+/// §5 classification (restructuring-blueprint): **content registry** — an
+/// install-once seam, immutable after install, read from pure resolution fns
+/// (`BossBehaviorProfile::from_data`, called deep in non-system spawn/profile
+/// code). Deliberately a process-global `OnceLock`, not a Bevy `Resource`: the
+/// readers have no `World` access and a resource would force an ECS dependency
+/// through pure spec resolution. `install_boss_profiles` + the `cfg(test)`
+/// fixture below ARE the test-override mechanism.
 static BOSS_PROFILE_OVERRIDE: std::sync::OnceLock<BossProfileRegistry> = std::sync::OnceLock::new();
 
 /// Install the authored boss-behavior registry — `ambition_content` calls this
@@ -231,6 +239,10 @@ pub fn install_boss_profiles(registry: BossProfileRegistry) {
 /// shows no special telegraph row, the strike still fires. This is what keeps
 /// the engine from naming `overfit_volley`/`minima_trap`/etc.: the key→rows
 /// mapping is content data, not a lib `match`.
+///
+/// §5 classification: **content registry** — same class as
+/// [`BOSS_PROFILE_OVERRIDE`]; install-once, read from the pure
+/// `special_anim_keys` helper. Kept an `OnceLock` for the same reason.
 static BOSS_SPECIAL_ANIM_KEYS: std::sync::OnceLock<
     std::collections::HashMap<String, &'static [&'static str]>,
 > = std::sync::OnceLock::new();

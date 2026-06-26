@@ -26,6 +26,13 @@ use crate::boss_encounter::BossEncounterSpec;
 /// `BossEncounterSpec` schema. Per ADR 0017 the RON owns the encounter numbers
 /// (HP / phase thresholds / timings / music ids); the `BossBehaviorProfile`
 /// (boss_profiles.ron) owns movement/attacks/rewards.
+///
+/// §5 classification (restructuring-blueprint): **content registry** —
+/// install-once seam, immutable after install, read from the pure
+/// `boss_encounter_specs` helper (called from non-system profile/roster code).
+/// Kept a process-global `OnceLock`, not a Bevy `Resource`, for the same reason
+/// as [`super::behavior`]'s registries; `install_boss_encounter_specs` + the
+/// `cfg(test)` directory fallback ARE the test-override mechanism.
 static BOSS_ENCOUNTER_SPEC_OVERRIDE: std::sync::OnceLock<Vec<BossEncounterSpec>> =
     std::sync::OnceLock::new();
 

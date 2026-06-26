@@ -1,6 +1,6 @@
 # Restructuring blueprint — actionable distillation
 
-*Author: Claude Opus 4.8 (1M) · 2026-06-25 · status: IN PROGRESS — see the Status log. §1 (shims) and §2 (collision dedup + collision-view API, bar the portal reader) done; §3 (app-drain) substantially done — the three first-movers + world_flow drains, the `BossSpecialContentPlugin` (boss specials + cut-rope onto `CombatSet` slots), `ActorDiedMessage` `DeathCause` attribution, and 2-of-3 world gates (encounter + intro lock walls → `gate_solids` overlay) all landed. Still open in §3: the generic-vs-named projectile split (feel-critical, deferred) and gnu_ton's subtractive arena gate (needs overlay-model extension). §4, §5 untouched.*
+*Author: Claude Opus 4.8 (1M) · 2026-06-25 · status: IN PROGRESS — see the Status log. §1 (shims), §2 (collision dedup + collision-view API, bar the portal reader), and most of §3 (app-drain) are done and feel-confirmed. **Remaining work: the portal shot-placement reader (a design fork), gnu_ton's subtractive arena gate (needs an overlay-model extension), §4 (ControlFrame → actor-local intent), and falling_sand → overlay (§5 OnceLock classification landed 2026-06-26).**  All landed feel-tests have been verified by Jon (2026-06-25).*
 
 This distils an externally-generated "restructuring blueprint v5" (static
 inspection only, no `cargo`) into a repo-canonical plan. It keeps two kinds of
@@ -30,145 +30,89 @@ Counts and smells below were re-verified against live `main` on 2026-06-25.
 
 ---
 
-## Status log — what has LANDED, and what is next (2026-06-25)
+## Status log — what is NEXT (2026-06-25)
 
-A fresh agent should read this first. Each item below links to the section with
-the full reasoning; the section is annotated **DONE** / **NEXT** / **OPEN** inline.
+A fresh agent should read this first. The remaining work is listed up top; the
+landed record (compressed) follows for context. Each item links to its section.
 
-**Landed (committed to `main`, all validated):**
+### Remaining work (the actionable list)
 
-- **All 7 compat shims removed** (§1 DONE). One canonical import path per concept.
-  `kinematic`/`ui_nav`/`interaction` (earlier session) + `input` (`4e9743a2`),
-  `engine_core` (`bf0daf5a`, `ae` alias kept), `actor` (`a4a63d73`), `brain`
-  (`c9f647a5`). `architecture_boundaries` now *guards against re-adding* the shim
-  (inverted assertion). Stale shim paths in docs swept (`6eb9b97d`, `2fa23bf0`).
-- **Collision-semantics dedup + drift unification** (§2 DONE). New
-  `ambition_engine_core::collision_semantics` is the single source of truth for
-  the gravity-relative support/surface kernel; `movement::collision` and
-  `platformer_primitives::kinematic` both delegate. Kernel extract `39313f26`,
-  drift unification `c732671c`. The 3 former drifts are unified on canonical rules
-  (1px `EDGE_OVERLAP_SLOP`, zero-gravity one-way guard, `body_on_support_side`).
-  FEEL-TEST owed: kinematic enemies now treat platform edges 1px more strictly.
-- **`GameWorld` → `RoomGeometry` rename** (§"Resolved decision" DONE). Pure
-  identifier rename, 155 sites, `90966244`. Names what it *is* (authored room
-  geometry), not what it isn't.
-- **`CollisionWorld` collision-view API** (§2/§"Resolved decision" — seam `b51ac38e`,
-  readers `0208bbb5`). Single composited collision read-API; traversal abilities,
-  body-mode clearance, and dropped-item physics routed off bare `RoomGeometry`.
-  FEEL-TEST owed (blind batch); portal shot-placement reader still pending (a
-  design fork — see below).
-- **Falling-sand world-model question RESOLVED** (`25fcb13a`) — confirms the
-  RoomGeometry model; no durable-overlay tier needed (see Open questions #1).
+1. **Portal shot-placement adapter** (`content/portal/shot_adapter.rs`) — the last
+   genuine collision reader still on bare `RoomGeometry`. Routing it onto the
+   `CollisionWorld` view is a **design fork, not a sweep**: decide whether a portal
+   may be placed on a moving platform / ECS solid (and whether carving the aperture
+   into the world the shot raycasts against creates feedback). Decide that first;
+   add a test. (§2)
+2. **gnu_ton's subtractive arena gate** (`content/bosses/gnu_ton.rs`) — the last
+   mid-room base mutator. It *removes* authored Ladder `climbable_regions` (stashed
+   on entry) and a floor-gate Solid block on defeat, relying on room-reload to
+   restore. The landed `FeatureEcsWorldOverlay::gate_solids` is additive-only, so
+   this needs an overlay-model extension: a way to *subtract* authored blocks (a
+   carve, like portals do) AND a climbable-region overlay (the overlay models
+   neither water nor climbable regions today). Invert cleanly under an immutable
+   base: the base always carries the ladders + floor-gate; the overlay removes them
+   based on gate state. (§3 world / write-map note below)
+3. **§4 ControlFrame → actor-local intent** — untouched. ~46 systems read global
+   `Res<ControlFrame>`; move *simulation* onto entity-local `ActorIntent`. See §4.
+4. **falling_sand → overlay** (Open question #1) — the other per-frame
+   `RoomGeometry` writer; behind a feature flag. Wants *additive* overlay sand
+   blocks, so it can likely push to `gate_solids` (or a sibling additive field), no
+   subtractive extension needed (unlike gnu_ton).
 
-**RoomGeometry collision-view API — mostly done; what remains:**
+**Remaining projectile/combat attribution work:** the generic/named projectile
+split is done, but two attribution seams are still open — replacing the
+player/enemy projectile split with source/faction, and entity-tracking
+enemy-projectile owners (`EnemyProjectile` is string-`ProjectileOwnerId`-owned, so
+its `DeathCause.attacker` is honestly `None` until the owner `Entity` is threaded
+through the effect/spawn pipeline). (§"Projectiles / combat")
 
-The `CollisionWorld` read-API exists (`combat::world_overlay`, via `features`):
-`solids()` / `carves_only()` / `base()`. The traversal abilities, body-mode
-clearance, and dropped-item physics are routed onto it; the boss-special /
-encounter readers were classified as bounds-metadata (room `size`, not collision)
-and correctly stay on the base. Two things are left:
+Guard when extending the collision-view: do NOT route render/layout/metadata
+readers or projectiles (projectiles pass through platforms → `carves_only`) — a
+reader that suddenly sees moving-platform / carve geometry is a silent feel
+regression.
 
-1. **Portal shot-placement adapter** (`content/portal/shot_adapter.rs`) is the
-   last genuine collision reader still on bare `RoomGeometry`. Routing it is a
-   **design fork, not a sweep**: deciding whether a portal may be placed on a
-   moving platform / ECS solid (and whether carving the aperture into the world
-   the shot raycasts against creates feedback). Decide that first; add a test.
-2. **Feel-check owed** on the routed batch (`0208bbb5`, blind): in a room with a
-   moving platform, confirm grapple latches it, blink/dive stop on it, and
-   unmorph is blocked under it. Revert that one commit if any feels wrong.
+### Landed record (compressed — committed to `main`, feel-confirmed)
 
-Guard when extending: do NOT route render/layout/metadata readers or projectiles
-(projectiles pass through platforms → `carves_only`) — a reader that suddenly
-sees moving-platform / carve geometry is a silent feel regression.
-
-**§3 app-drain — substantially landed (2026-06-25 session).** The three
-first-movers drained out of `ambition_app` into runtime crates, and several more
-followed. Where the drained code now lives (so a fresh agent doesn't hunt for it
-in the app):
-
-- `detect_room_transition_system` → `gameplay_core::rooms`.
-- attack-phase machine + `attack_advance_system` → `gameplay_core::combat::attack`.
-- victim-side damage resolution + `apply_player_hit_events` → `gameplay_core::combat::damage`.
-- room load split: sim half → `gameplay_core::rooms::load_room_geometry` (returns
-  a `RoomLoadResult`); render spawns + arrival VFX stay in the app's `load_room`.
-- movement-event Sfx/Vfx emission → `gameplay_core::player::movement_fx`.
-- `PlayerDiedMessage` → `ActorDiedMessage` (the death-fact vocabulary).
-- **`BossSpecialContentPlugin`** (`1bdb0cf7`'s parent `5a6f02f3`): the 11 named
-  boss-special Techniques + cut-rope flavor drained out of `app/combat_schedule.rs`
-  onto a new `CombatSet { ContentSpecials, ContentFlavor }` extension-slot enum
-  (mirrors `BossSteerSlot`). The app now configures only WHERE each slot sits in
-  the combat chain; the content plugins own the systems. State-component
-  registration moved with the specials into the new plugin.
-- **`ActorDiedMessage` source/cause attribution** (`1bdb0cf7`): added
-  `DeathCause { source: HitSource, attacker: Option<Entity> }`, threaded from the
-  killing `HitEvent` at the single death choke point. Reuses `HitSource` (no
-  parallel enum). The compact causality seam, landed ahead of any consumer.
-
-`app/world_flow.rs` is now just host glue (`RoomClock`, `sandbox_dt`,
-`ground_gap_below_feet`, the `room_flow` submodule). The whole `ambition_app::app`
-module is now explicit-import — the `use super::*`-family glob blocks and the
-module-level `allow(unused_imports)` are gone (a navigability win; do not
-reintroduce them).
-
-**Still open in §3+:** two deeper extractions remain, both larger/riskier than
-what has landed:
-
-1. **Generic-vs-named projectile split (combat) — DONE (2026-06-25).** The verified
-   leak (`ProjectileKind { Fireball, Hadouken, HadoukenSuper }` + stat tables in the
-   foundation crate `platformer_primitives`) is closed. What landed:
-   - **Foundation made generic.** `ProjectileSpec` / `ProjectileGameplay` carry only
-     generic data; `match kind` for the bounce budget became a `bounces: u8` field
-     (`from_spec` reads `spec.bounces`). `ProjectileKind`, `FireballChargeTuning`,
-     the stat tables, `ProjectileSpec::new(kind,..)` and `with_charge_tier` were all
-     removed from `platformer_primitives` (its now-unused `serde` dep dropped).
-   - **Named kit moved UP to `gameplay_core::projectile::kind`** (not content — the
-     player fire/charge/gesture systems that consume it can't reach content without
-     the §4 ControlFrame extraction; gameplay_core is "machinery" and a strict
-     improvement over the foundation leak). `ProjectileKind::spec()` lowers a kind
-     into the generic spec; `charged_spec()` applies the fireball tier ramp.
-   - **Kind rides as its own ECS component.** `ProjectileKind` is now a `Component`
-     attached to player shots at spawn (via a new `SpawnProjectile.kind` field).
-     `step_projectiles` queries `Option<&ProjectileKind>` for `HitSource` /
-     trace; render reads it for tint + sprite name. The engine body never names a
-     kind. Trace `Hit`/`Expired` now carry `Option<ProjectileKind>` (enemy shots are
-     genuinely kind-less → label "projectile" instead of the old fake "fireball").
-   - **Guard added.** `architecture_boundaries` now asserts the foundation projectile
-     module names no `ProjectileKind`/`Fireball`/`Hadouken` (regression fence).
-   All projectile/collision/charging/portal/arch tests green. Owed: Feel-test #4.
-   **Attacker-entity attribution — DONE (2026-06-25).** `HitEvent.attacker` is now
-   stamped on hostile sources wherever an entity exists: `BossAttack`/`BossBody`
-   (boss entity, added to the bosses query), `EnemyBody`/`EnemyChargeCrash` (enemy
-   entity). It flows into the victim's `DeathCause`. Honest `None` remains for
-   `Hazard` (environmental) and `EnemyProjectile` (string-`ProjectileOwnerId`-owned,
-   not entity-tracked — threading the owner `Entity` through the effect/spawn pipeline
-   is a separate step). **Still remaining in this domain:** replacing the player/enemy
-   projectile split with source/faction, and entity-tracking enemy-projectile owners.
-2. **World gate→overlay (world) — 2 of 3 gates DONE (2026-06-25).** The fork was
-   resolved toward the authored-base preference: gates contribute to the per-frame
-   collision overlay, not the base. New overlay category
-   `FeatureEcsWorldOverlay::gate_solids` (`4adf73f2`): authored-equivalent static
-   solids composited into EVERY base-reader (player/traversal/item collision via
-   `CollisionWorld::solids`, projectile collision via the new
-   `world_with_gate_solids_and_carves`, AND the render `LockWallVisual` reconcile)
-   — so a lock wall collides and draws exactly as a base wall while the base stays
-   immutable. The **encounter lock walls** (`4adf73f2`) and **intro flag gates**
-   (`3b26e7fb`) now derive onto `gate_solids` in WorldPrep contributors;
-   `update_encounters_from_world` and `sync_intro_flag_gated_lock_walls` no longer
-   take `ResMut<RoomGeometry>`. All headless-tested (gate solids in player + projectile
-   views; render reconcile; pure-fn derive).
-   **Remaining: gnu_ton's arena gate** (`content/bosses/gnu_ton.rs`) — the last
-   mid-room base mutator. It is *subtractive*: it removes authored Ladder
-   `climbable_regions` (stashed on entry) and a floor-gate Solid block on defeat,
-   relying on room-reload to restore. `gate_solids` is additive-only, so this needs
-   an overlay-model extension — a way to subtract authored blocks (a carve, like
-   portals do) AND a climbable-region overlay (the overlay models neither water nor
-   climbable regions today). Invert cleanly under an immutable base: the base always
-   carries the ladders + floor-gate; the overlay *removes* them based on gate state.
-   The geometry-swap writers (`load.rs`, `reset/mod.rs`, `dev_runtime.rs`) and
-   `falling_sand.rs` are classified in the write-map below and are NOT base-immutability
-   violations (boundary swaps / a system that snapshots its own base).
-
-§4 (ControlFrame→actor-local intent) and §5 (OnceLock classification) are untouched.
+- **All 7 compat shims removed** (§1). One canonical import path per concept;
+  `architecture_boundaries` guards against re-adding them.
+- **Collision-semantics dedup + drift unification** (§2). `ambition_engine_core::
+  collision_semantics` is the single kernel; `movement::collision` and
+  `platformer_primitives::kinematic` both delegate.
+- **`GameWorld` → `RoomGeometry` rename** (155 sites) + **`CollisionWorld`
+  collision-view API** (`combat::world_overlay`: `solids()`/`carves_only()`/
+  `base()`). Traversal abilities, body-mode clearance, and dropped-item physics
+  routed off bare `RoomGeometry` onto the view.
+- **§3 app-drain — substantially landed.** Where the drained code now lives:
+  `detect_room_transition_system` → `gameplay_core::rooms`; attack-phase machine +
+  `attack_advance_system` → `gameplay_core::combat::attack`; victim-side damage +
+  `apply_player_hit_events` → `gameplay_core::combat::damage`; room-load sim half →
+  `gameplay_core::rooms::load_room_geometry` (render tail stays in app's
+  `load_room`); movement-event Sfx/Vfx → `gameplay_core::player::movement_fx`;
+  `PlayerDiedMessage` → `ActorDiedMessage`. `app/world_flow.rs` is now host glue
+  and the whole `ambition_app::app` module is explicit-import (no `use super::*`
+  globs, no module-level `allow(unused_imports)` — do not reintroduce them).
+- **`BossSpecialContentPlugin`** — the 11 named boss-special Techniques + cut-rope
+  flavor drained out of `app/combat_schedule.rs` onto a new `CombatSet {
+  ContentSpecials, ContentFlavor }` extension-slot enum; the app configures only
+  WHERE each slot sits, content plugins own the systems.
+- **`ActorDiedMessage` `DeathCause { source: HitSource, attacker: Option<Entity> }`
+  attribution** — threaded from the killing `HitEvent`; reuses `HitSource`.
+  Attacker entity stamped on `BossAttack`/`BossBody`/`EnemyBody`/`EnemyChargeCrash`.
+- **Generic-vs-named projectile split.** Foundation `platformer_primitives` is now
+  generic (`bounces: u8` field instead of `match kind`; `ProjectileKind`/stat
+  tables/serde dep removed); the named kit lives in
+  `gameplay_core::projectile::kind` (`ProjectileKind::spec()`/`charged_spec()`);
+  `ProjectileKind` rides as its own ECS `Component` on player shots.
+  `architecture_boundaries` asserts the foundation projectile module names no
+  `ProjectileKind`/`Fireball`/`Hadouken`.
+- **World gate→overlay, 2 of 3.** `FeatureEcsWorldOverlay::gate_solids`:
+  authored-equivalent static solids composited into every base-reader (player/
+  traversal/item collision via `CollisionWorld::solids`, projectile collision via
+  `world_with_gate_solids_and_carves`, and the render `LockWallVisual` reconcile).
+  Encounter lock walls + intro flag gates now derive onto `gate_solids` instead of
+  mutating the base; neither system takes `ResMut<RoomGeometry>` anymore.
+- **Falling-sand world-model question RESOLVED** — confirms the RoomGeometry model;
+  no durable-overlay tier needed (Open questions #1).
 
 > Orientation — the `ResMut<RoomGeometry>` writer classification (verify against
 > `main` before acting):
@@ -186,54 +130,26 @@ what has landed:
 
 ---
 
-## Feel-test checklist (owed verification) + structural-work feel-risk
+## Structural-work feel-risk (for the remaining steps)
 
-**Working stance (Jon, 2026-06-25):** structural refactors may land *ahead* of
-feel/visual verification; feel regressions get fixed afterward and are not a
-blocker. So **nothing below gates further structural work.** This is the running
-ledger of owed visual/feel confirmations — clear them in a play session and, if
-one feels wrong, revert or patch the *named commit* (cheap; the changes are
-isolated). Headless tests already cover the *correctness* of each; what is owed is
-only the part a headless test cannot see (sprite draw, on-screen feel, timing).
+**Working stance (Jon):** structural refactors may land *ahead* of feel/visual
+verification; feel regressions get fixed afterward and are not a blocker. So
+**nothing here gates further structural work.** All feel-tests owed by the landed
+work (collision drift, collision-view batch, lock-wall draw, projectile
+generic/named split) were **verified by Jon on 2026-06-25** and are cleared.
 
-**Owed now (already landed, headless-correct, feel/visual unconfirmed):**
-
-1. **Collision drift, 1px stricter edge** (`c732671c`, §2). Kinematic enemies now
-   treat platform edges 1px more strictly. Look: enemies walking to a platform lip
-   don't teeter/fall differently than before.
-2. **Collision-view routed batch** (`0208bbb5`, §2, blind). In a room with a moving
-   platform: grapple latches it, blink/dive stop on it, unmorph is blocked under it.
-3. **Lock-wall visual draw** (`4adf73f2` encounter, `3b26e7fb` intro — gate→overlay).
-   Collision + the `LockWallVisual` ECS reconcile are headless-tested; the actual
-   on-screen sprite draw is not. Look: trigger an encounter (or an intro flag gate)
-   and confirm the seal wall still *draws* (it now sources from `gate_solids`, not
-   the base). Minor: the wall now appears 1 frame later than before (negligible).
-
-**Added to this checklist when the corresponding structural step lands:**
-
-4. **Projectile generic/named split** (LANDED 2026-06-25) — the feel-critical one,
-   now owed a play-session check: fireball arcs/bounce (2 bounces, then expire),
-   charge-tier ramps (size 1.0/1.4/1.8×, damage 1/4/16×), Hadouken vs HadoukenSuper
-   gesture timing, and projectile render tints (fireball warm-orange, Hadouken blue,
-   Super deep-blue) + the per-kind sprite name. Headless tests cover the mechanics;
-   what's owed is on-screen feel/tint. Revert/patch the named commit if any feels off.
-5. **falling_sand → overlay** (when done) — standing/climbing settled sand piles
-   (behind its feature flag, low exposure).
-
-**Structural-work feel-risk classification** (what is safe to bulldoze vs what adds
-to the checklist — none are *blocked*, this is just where to expect owed checks):
+Where to expect owed feel/visual checks on the *remaining* steps (clear them in a
+play session; if one feels wrong, revert or patch the *named commit* — cheap, the
+changes are isolated). Headless tests cover correctness; what a headless test
+cannot see (sprite draw, on-screen feel, timing) is what's owed.
 
 | Step | Feel risk | Notes |
 | --- | --- | --- |
-| §5 OnceLock classification | **none** | registry/resource reorg, no behavior |
-| ~~Cutscene runtime → `ambition_cutscene`~~ | **DONE** | the "bounded win" — landed 2026-06-25; runtime types→`ambition_cutscene`, systems→`gameplay_core::cutscene`, authored defaults→content, presentation stays in render |
 | Content module families reorg | **none** | module moves only |
-| ~~Attacker-entity attribution on enemy/boss `HitSource`s~~ | **DONE** | landed 2026-06-25; boss/enemy entity stamped on `HitEvent.attacker` → `DeathCause`. Hazard + enemy-projectile stay honest `None`. |
 | gnu_ton arena gate → overlay | **low** | collision headless-testable (ladder/floor-gate present-or-not); needs the subtractive overlay extension |
-| §4 ControlFrame → actor-local intent | **low–med** | behaviour-preserving by design; input is feel-y, so any drift shows → adds an owed input check |
+| §4 ControlFrame → actor-local intent | **low–med** | behaviour-preserving by design; input is feel-y, so any drift shows → owed input check |
 | Audio plugin split (backend/director/cue) | **low–med** | playback should be unchanged if careful → owed audio check |
-| falling_sand → overlay | **med** | sand collision projection; adds checklist #5 |
-| ~~**Projectile generic/named split**~~ | **DONE** | landed 2026-06-25; foundation now generic, named kit in `gameplay_core::projectile::kind`. Owed feel-check #4 below. |
+| falling_sand → overlay | **med** | sand collision projection; standing/climbing settled sand piles (behind its feature flag, low exposure) |
 
 ---
 
@@ -428,34 +344,14 @@ content/adapter package, host schedule mapping.**
 
 ## The plan, ordered by value
 
-### 1. Delete the compatibility shims (one canonical import per concept)
+### 1. Delete the compatibility shims (one canonical import per concept) — DONE
 
-> **DONE (2026-06-25).** All 7 shims removed; canonical imports everywhere; the
-> `architecture_boundaries` test guards against re-adding them. The original plan
-> and call-site table below are kept as the record of how it was done.
-
-`ambition_gameplay_core/src/lib.rs` re-exports already-extracted crates under
-historical paths, creating multiple valid import paths for one concept — directly
-against agent-navigability. Live call-site pressure (excluding gameplay_core):
-
-| shim | canonical | live hits |
-| --- | --- | --- |
-| `::kinematic` | `ambition_platformer_primitives::kinematic` | **0** |
-| `::ui_nav` | `ambition_ui_nav` | 3 |
-| `::interaction` | `ambition_interaction` | 6 |
-| `::actor` | `ambition_characters::actor` | 16 |
-| `::brain` | `ambition_characters::brain` | 37 |
-| `::engine_core` | `ambition_engine_core` | 68 |
-| `::input` | `ambition_input` | 70 |
-
-**Do:** delete each shim, fix imports, one commit per shim — **no facade, no
-allowlist, no deprecation window** (no external consumers). Start with `kinematic`
-(free) and `ui_nav`/`interaction`. Add an architecture-boundary test that fails on
-new internal use of these paths — keep the *test*, not an alias. Second batch
-(`actor`/`brain`/`interaction`) crosses content/render/boss code, so do it after
-those crates' imports are ready.
-
-**Validation:** `rg "ambition_gameplay_core::(input|engine_core|brain|actor|interaction|ui_nav|kinematic)" crates` → zero internal hits.
+All 7 `ambition_gameplay_core::lib.rs` re-export shims (`kinematic`, `ui_nav`,
+`interaction`, `actor`, `brain`, `engine_core`, `input`) removed; canonical
+imports everywhere; the `architecture_boundaries` test now *guards against
+re-adding* them (inverted assertion). Validation: `rg
+"ambition_gameplay_core::(input|engine_core|brain|actor|interaction|ui_nav|kinematic)"
+crates` → zero internal hits.
 
 ### 2. Collision/support-semantics dedup (+ RoomGeometry collision view)
 
@@ -474,31 +370,21 @@ items remain:
 ### 3. Drain simulation out of `ambition_app` into domain plugins
 
 The app should compose and host, not define domain meaning (see app contract).
-The three first-movers and the `app/world_flow` drains **landed (2026-06-25)** —
-see the Status log for where the code now lives. `app/world_flow.rs` is host glue
-and the `app` module is fully explicit-import.
+The first-movers, `app/world_flow` drains, `BossSpecialContentPlugin`,
+`ActorDiedMessage` attribution, the projectile generic/named split, and the
+encounter + intro lock-wall gate→overlay conversions all **landed** — see the
+Status-log "Landed record" for where the code now lives. `app/world_flow.rs` is
+host glue and the `app` module is fully explicit-import.
 
-The deeper extraction is mostly landed too (2026-06-25 — see the Status log for
-detail). What is DONE here:
+What STILL remains:
 
-- Combat: **`BossSpecialContentPlugin` DONE** — boss specials + cut-rope mounted on
-  the new `CombatSet { ContentSpecials, ContentFlavor }` extension slots.
-  **`ActorDiedMessage` `DeathCause` attribution DONE.** `combat::{attack, damage}`
-  are the runtime home.
-- World: **encounter + intro lock walls DONE** — converted off direct
-  `RoomGeometry` mutation onto the new `FeatureEcsWorldOverlay::gate_solids` overlay
-  category (the write-map classification is in the Status-log orientation note).
-
-What STILL remains (the two larger/riskier items):
-
-- Combat: **split generic projectile stepping from named kinds** — feel-critical,
-  6-crate, §4-entangled, but **safe to do structurally now** (land-then-feel-test;
-  adds Feel-test checklist #4). See Status-log item 1. The remaining attribution
-  work (attacker entity on enemy/boss-side `HitSource`s) rides with it.
 - World: **gnu_ton's subtractive arena gate** — the last mid-room base mutator;
   needs an overlay-model extension (authored-block carve + climbable-region overlay)
   beyond what additive `gate_solids` covers. `falling_sand.rs` is the other
   per-frame base writer (Open question #1).
+- Combat: the remaining projectile/combat attribution seams — replace the
+  player/enemy projectile split with source/faction, and entity-track
+  enemy-projectile owners (see the Status-log remaining list).
 
 Keep platform/device/Android/mobile/window systems in app. `ambition_game` is a
 *direction*, not a prerequisite — introduce it when the app file reads as two jobs
@@ -527,14 +413,39 @@ presentation consumers, not simulation authority.
 **Validation:** remaining direct `Res<ControlFrame>` uses cluster in input-source
 *writers*, tests, and presentation — not ability/item/combat sim.
 
-### 5. Classify the `OnceLock` global registries
+### 5. Classify the `OnceLock` global registries — DONE (2026-06-26)
 
-Eight `OnceLock`s (boss profiles/specs, enemy roster, encounter waves, sheet
-indices). Not automatically wrong. **Classify each** as content registry,
-immutable asset-metadata cache, or test-override seam. Promote content registries
-(`ENEMY_ROSTER_OVERRIDE`, `BOSS_PROFILE_OVERRIDE`, `BOSS_ENCOUNTER_SPEC_OVERRIDE`,
-`ENCOUNTER_WAVE_BOOK`) toward resources/contexts; keep pure immutable sheet/index
-caches but *name and document them as asset caches*. Low urgency relative to 1–4.
+Eight `OnceLock`s, classified inline at each `static` (search `§5 classification`).
+They split into exactly two populations:
+
+**Content registries (install-once seam — 5):** `BOSS_PROFILE_OVERRIDE`,
+`BOSS_SPECIAL_ANIM_KEYS` (`boss_encounter/behavior.rs`),
+`BOSS_ENCOUNTER_SPEC_OVERRIDE` (`boss_encounter/specs.rs`), `ENCOUNTER_WAVE_BOOK`
+(`encounter/loading.rs`), `ENEMY_ROSTER_OVERRIDE` (`features/enemies/mod.rs`).
+Each is installed by `ambition_content` at plugin-build time, immutable after,
+and read from a **pure resolution helper** with no `World` access
+(`BossBehaviorProfile::from_data`, `boss_encounter_specs`,
+`authored_encounter_waves`, `spec_for_brain`). The `install_*` fn + the
+`cfg(test)` fixture together ALREADY ARE the test-override seam.
+
+**Immutable asset caches (3):** `file_root_registry` / `player_render_size` SPEC
+(`character_sprites/attack_hitbox.rs`), `record_index`
+(`character_sprites/sheets/mod.rs`). Each is derived once from the compile-time
+`BAKED_SHEET_RONS` table; pure, override-free, no install seam.
+
+**Decision — the v5 "promote content registries toward resources" is REJECTED on
+inspection.** The reads are all in pure, non-system spawn/profile helpers
+(`spawn_enemy`, `BossProfile::from_id`, the LDtk encounter loader). A Bevy
+`Resource` would force threading `Res<…>`/`&World` through that pure spec/spawn
+layer — a wide ECS-coupling surface for zero behavioral gain, the exact tech-debt
+spread the narrow-types principle warns against. The install-once `OnceLock` +
+typed registry + `cfg(test)` fixture IS the elegant shape for "content data
+installed at startup, immutable after, resolved by pure functions." The work done
+here is the classification itself (made explicit + uniform in code so it isn't
+re-litigated), plus naming the sheet caches as asset caches per the original ask.
+If a future use case needs per-`World` content variants (e.g. multiplayer with
+divergent content packs), revisit then — that's the "add the seam when the second
+use case lands" trigger, not now.
 
 ---
 
@@ -578,29 +489,25 @@ Condensed orientation so an agent can work a domain without rediscovering it.
   attribution/save).
 
 ### Projectiles / combat
-- **Now:** `ambition_combat` has primitives; **`platformer_primitives` carries
-  named spell vocabulary (`Fireball`, `Hadouken`) — named content in an engine
-  crate (verified)**; gameplay_core `projectile`/`enemy_projectile` split by
-  player/enemy; `CombatSchedulePlugin` mixes actor actions, ~11 boss-special
-  consumers, effects, projectile stepping, hitboxes, content flavor.
+- **Now:** `ambition_combat` has primitives; the foundation `platformer_primitives`
+  is now generic (named-kind leak closed); the named kit lives in
+  `gameplay_core::projectile::kind` with `ProjectileKind` riding as an ECS
+  component; gameplay_core still has a `projectile`/`enemy_projectile` split by
+  player/enemy.
 - **Target:** `ProjectileRuntimePlugin` (generic body/lifecycle/messages + source
   actor/item/faction/authority-tick) + `CombatRuntimePlugin` (hitbox/damage/facts/
-  attribution) + content plugins for named projectile kinds and a
-  `BossSpecialContentPlugin` mounting specials into an explicit `CombatSet::
-  ContentSpecials` extension set; `EncounterFlavorContentPlugin` for cut-rope etc.
-- **Landed (2026-06-25):** the player attack-phase machine + `attack_advance_system`
-  → `combat::attack`; victim-side damage resolution + `apply_player_hit_events`
-  → `combat::damage`. **`BossSpecialContentPlugin` DONE** — the 11 boss-special
-  consumers + cut-rope flavor pulled out of `CombatSchedulePlugin` onto the new
-  `CombatSet { ContentSpecials, ContentFlavor }` extension slots (in
-  `gameplay_core::schedule`). **`ActorDiedMessage` `DeathCause { source, attacker }`
-  attribution DONE.**
-- **First move (what remains):** split generic projectile stepping from named kinds
-  (`ProjectileKind` Fireball/Hadouken leak in `platformer_primitives` — feel-critical
-  + 6-crate, but **safe to land structurally now** then feel-test; Feel-test checklist
-  #4, Status-log item 1); add attacker-entity attribution to enemy/boss-side
-  `HitSource`s; replace the player/enemy projectile split with source/faction. Keep
-  the projectile-spawn timing contracts (comments → tests).
+  attribution) + content plugins for named projectile kinds.
+- **Landed (2026-06-25):** attack-phase machine + `attack_advance_system` →
+  `combat::attack`; victim-side damage + `apply_player_hit_events` →
+  `combat::damage`; `BossSpecialContentPlugin` (specials + cut-rope onto `CombatSet
+  { ContentSpecials, ContentFlavor }`); `ActorDiedMessage` `DeathCause { source,
+  attacker }`; the generic/named projectile split (foundation generic, named kit in
+  `gameplay_core::projectile::kind`).
+- **First move (what remains):** replace the player/enemy projectile split with
+  source/faction; entity-track enemy-projectile owners (`EnemyProjectile`'s
+  `DeathCause.attacker` is honestly `None` until the owner `Entity` threads through
+  the effect/spawn pipeline). Keep the projectile-spawn timing contracts
+  (comments → tests).
 
 ### World / rooms / LDtk
 - **Now:** `RoomGeometry` (was `GameWorld`) is the per-room geometry; `world/
@@ -624,9 +531,8 @@ Condensed orientation so an agent can work a domain without rediscovering it.
 
 ### Content / adapters
 - **Now:** `ambition_content` mixes authored rows, install plugins, and runtime
-  adapters; **it imports `ambition_render::cutscene` runtime resources (verified
-  boundary leak)**; portal adapters still use global `ControlFrame` + gameplay-core
-  shims.
+  adapters; portal adapters still use global `ControlFrame` + gameplay-core shims.
+  (The former `ambition_render::cutscene` runtime leak is closed — see Cutscenes.)
 - **Target:** module families `content::{authored, install, adapters,
   presentation_bindings}`; adapters are explicit domain→domain translators mounted
   into extension sets.
@@ -634,34 +540,13 @@ Condensed orientation so an agent can work a domain without rediscovering it.
   split); move portal/boss adapters into explicit adapter modules; treat quest as
   facts/commands only.
 
-### Cutscenes / dialogue / render — a clean bounded win — **DONE (2026-06-25)**
-- **Now (was):** `ambition_cutscene` existed but cutscene runtime types
-  (`CutsceneLibrary`, `ActiveCutscene`, `CutsceneTriggerQueue`,
-  `CutsceneAdvanceRequest`, `RoomCutsceneBindings`, `CutsceneSchedulePlugin`) lived
-  in `ambition_render::cutscene`; content inserted those render resources.
-- **Target:** `ambition_cutscene` owns runtime vocab; the playback systems own the
-  drive; `render::cutscene` owns UI/render only; content installs scripts/bindings
-  into the *runtime*, not render.
-- **Landed (2026-06-25):** classified every type/system and split by the actual
-  dependency layering (`gameplay_core` → `ambition_cutscene`, so the
-  gameplay-coupled systems can't sink into the foundation crate):
-  - **Runtime types** `CutsceneLibrary` + `RoomCutsceneBindings` (pure, content-free)
-    → `ambition_cutscene` (joins `ActiveCutscene`/`CutsceneAdvanceRequest`/the
-    script+stepper already there).
-  - **Runtime systems + plugin** (`auto_trigger_room_cutscenes`,
-    `drain_cutscene_triggers`, `tick_active_cutscene`, `CutsceneSchedulePlugin` —
-    need `RoomSet`/`SandboxSave`/`SandboxSet`/`CutsceneTriggerQueue`) →
-    new `ambition_gameplay_core::cutscene` (sibling of `cutscene_trigger`).
-  - **Authored defaults** (`default_cutscene_library`, the room→cutscene bindings —
-    named Ambition scripts/rooms) → `ambition_content::dialogue::cutscene_defaults`
-    (`RoomCutsceneBindings::defaults()` → free fn `default_room_cutscene_bindings()`).
-  - **Presentation** (`CutsceneOverlayRoot`, `sync_cutscene_ui`) → stays in
-    `render::cutscene`, now presentation-only.
-  - Net: **content no longer imports `ambition_render` for cutscene runtime** (the
-    verified boundary leak is closed); the only remaining `render::cutscene`
-    references are the presentation overlay + accurate doc comments. No compat
-    shims/re-exports — all consumers repointed to canonical paths. Feel-risk: none
-    (type moves only; build + all cutscene/arch-boundary tests green).
+### Cutscenes / dialogue / render — **DONE (2026-06-25)**
+The render→content cutscene-runtime boundary leak is closed. Runtime types
+(`CutsceneLibrary`, `RoomCutsceneBindings`) → `ambition_cutscene`; runtime systems
++ `CutsceneSchedulePlugin` → `ambition_gameplay_core::cutscene`; authored defaults
+→ `ambition_content::dialogue::cutscene_defaults`; presentation
+(`CutsceneOverlayRoot`, `sync_cutscene_ui`) stays in `render::cutscene`,
+presentation-only. No compat shims — all consumers repointed to canonical paths.
 
 ### Audio / music / SFX / VFX
 - **Now:** `SandboxAudioPlugin` mixes backend, settings, content cue loading, and
@@ -693,11 +578,7 @@ Condensed orientation so an agent can work a domain without rediscovering it.
 3. **Combat runtime plugin** — hitboxes, damage, facts, attribution, faction rules.
 4. **Projectile runtime plugin** — generic body lifecycle + spawn/despawn messages;
    split from named spells/item abilities.
-5. ~~**Cutscene runtime plugin** — move runtime out of render (the bounded win).~~
-   **DONE (2026-06-25):** runtime types → `ambition_cutscene`, playback systems +
-   `CutsceneSchedulePlugin` → `ambition_gameplay_core::cutscene`, authored defaults →
-   `ambition_content::dialogue::cutscene_defaults`, presentation stays in
-   `render::cutscene`. Content/render cutscene-runtime leak closed.
+5. ~~**Cutscene runtime plugin**~~ — **DONE (2026-06-25)**; see Cutscenes section.
 6. **World/LDtk runtime plugin** — room load/reset/lifecycle + RoomGeometry contract.
 7. **Encounter runtime plugin** — scripts/phases/payloads; content specials mount
    into extension sets.

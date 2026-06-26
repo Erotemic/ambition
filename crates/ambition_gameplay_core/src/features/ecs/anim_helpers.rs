@@ -92,6 +92,11 @@ pub fn ecs_enemy_anim_state(
                 attack_windup: attack.is_winding_up(),
                 hit_flash: status.hit_flash > 0.0,
                 aerial: config.map(|c| c.tuning.is_aerial).unwrap_or(false),
+                // S1: the heavy-melee / special verbs aren't emitted by the
+                // brain yet (PCA slices S4/S5 wire them). Until then these
+                // read false so the picker keeps the legacy Slash/Walk path.
+                attack_heavy: false,
+                special_active: false,
             })
         })
 }

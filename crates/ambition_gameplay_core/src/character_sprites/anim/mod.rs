@@ -157,6 +157,17 @@ pub enum CharacterAnim {
     /// `interact`. Not yet auto-routed; needs an `interact_anim_timer`
     /// armed by the interact buffer firing.
     Interact = 42,
+    /// Committal heavy melee (generator row `punch`) — distinct from the
+    /// quick `jab` (which aliases to `Slash`). The Perfect Cell-ular
+    /// Automaton sheet ships both; the mechanical fast/heavy distinction
+    /// lives in the actor's `ActionSet` melee spec, while the sprite
+    /// distinguishes the two reads. Auto-routed by `pick_enemy_anim` when
+    /// the actor's active melee verb is the heavy one.
+    Punch = 43,
+    /// Charge→thrust "special" pose (kamehameha-style wind-up + release).
+    /// Generator row `special`. Drives the glider zoning verb. Auto-routed
+    /// by `pick_enemy_anim` while `EnemyAnimState::special_active` is set.
+    Special = 44,
 }
 
 impl CharacterAnim {
@@ -191,7 +202,13 @@ impl CharacterAnim {
             "run" | "closing" | "shockwave" => Self::Run,
             "jump" => Self::Jump,
             "fall" => Self::Fall,
-            "slash" | "starburst" => Self::Slash,
+            // `jab` is the quick poke; it shares the generic `Slash` read.
+            // `punch` is the committal heavy with its own row.
+            "slash" | "starburst" | "jab" => Self::Slash,
+            "punch" => Self::Punch,
+            // Charge→thrust special (glider release). Distinct from `Charge`
+            // (the held wind-up only) — `special` is the full beat.
+            "special" => Self::Special,
             "hit" | "hurt" | "smoke_burst" => Self::Hit,
             "death" => Self::Death,
             "blink_out" => Self::BlinkOut,
@@ -262,6 +279,8 @@ pub(super) fn non_looping(anim: CharacterAnim) -> bool {
             | CharacterAnim::DodgeRoll
             | CharacterAnim::WallJump
             | CharacterAnim::Interact
+            | CharacterAnim::Punch
+            | CharacterAnim::Special
     )
 }
 
@@ -479,6 +498,14 @@ pub struct EnemyAnimState {
     /// In a gravity-free flight state (`is_aerial` archetype — sky parrot,
     /// shark). Plays `Fly` while moving rather than `Walk`.
     pub aerial: bool,
+    /// The actor is committing a heavy/committal melee (vs the quick poke).
+    /// When set during an attack, the picker plays `Punch` instead of the
+    /// generic `Slash`. Inert for actors whose sheet lacks a `punch` row
+    /// (the sheet spec falls back to `Idle`/`Slash` via `resolve_anim`).
+    pub attack_heavy: bool,
+    /// The actor is in its charge→thrust special (glider zoning). Plays the
+    /// `Special` pose. Highest-priority combat read after death/hit.
+    pub special_active: bool,
 }
 
 pub fn pick_enemy_anim(state: EnemyAnimState) -> CharacterAnim {
@@ -488,8 +515,15 @@ pub fn pick_enemy_anim(state: EnemyAnimState) -> CharacterAnim {
     if state.hit_flash {
         return CharacterAnim::Hit;
     }
+    if state.special_active {
+        return CharacterAnim::Special;
+    }
     if state.attack_active || state.attack_windup {
-        return CharacterAnim::Slash;
+        return if state.attack_heavy {
+            CharacterAnim::Punch
+        } else {
+            CharacterAnim::Slash
+        };
     }
     // A flyer (aerial state) plays `Fly` while moving — the sky parrots /
     // sharks beat their wings instead of "walking" through the air.

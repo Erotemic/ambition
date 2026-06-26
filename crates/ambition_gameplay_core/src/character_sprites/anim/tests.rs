@@ -360,6 +360,10 @@ fn from_name_resolves_all_new_action_rows() {
         ("dodge_roll", CharacterAnim::DodgeRoll),
         ("wall_jump", CharacterAnim::WallJump),
         ("interact", CharacterAnim::Interact),
+        // PCA sheet rows that previously dropped silently.
+        ("jab", CharacterAnim::Slash),
+        ("punch", CharacterAnim::Punch),
+        ("special", CharacterAnim::Special),
     ] {
         assert_eq!(
             CharacterAnim::from_name(name),
@@ -412,6 +416,8 @@ fn aerial_actors_fly_when_moving_and_idle_when_still() {
         attack_windup: false,
         hit_flash: false,
         aerial: true,
+        attack_heavy: false,
+        special_active: false,
     };
     assert_eq!(pick_enemy_anim(enemy), CharacterAnim::Fly);
     // ...but an attack still wins (the dive peck plays its slash).
@@ -421,5 +427,23 @@ fn aerial_actors_fly_when_moving_and_idle_when_still() {
             ..enemy
         }),
         CharacterAnim::Slash,
+    );
+    // A heavy/committal melee plays Punch instead of the quick-poke Slash.
+    assert_eq!(
+        pick_enemy_anim(EnemyAnimState {
+            attack_active: true,
+            attack_heavy: true,
+            ..enemy
+        }),
+        CharacterAnim::Punch,
+    );
+    // The charge→thrust special outranks the melee read.
+    assert_eq!(
+        pick_enemy_anim(EnemyAnimState {
+            attack_active: true,
+            special_active: true,
+            ..enemy
+        }),
+        CharacterAnim::Special,
     );
 }

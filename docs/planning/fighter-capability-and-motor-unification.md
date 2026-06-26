@@ -480,6 +480,67 @@ path and shaped the seam. Folding the player path onto `try_fire_ranged` (and a
 shared resource gate) is **S6** (de-player-casing), feel-sensitive — done behind a
 differential harness with runtime verification, not blind.
 
+## DIRECTION CORRECTION (2026-06-26, Jon) — enemies RISE to the player
+
+A hard recalibration supersedes the "fold the player onto the actor path" framing
+below (and the incremental S6b cluster-folding). The corrected direction:
+
+- **Enemies/NPCs/bosses rise to the PLAYER's rich movement pipeline; we do NOT
+  drag the player down to the simpler actor integrator.** The player's movement is
+  the good, easy-to-polish base. The end-state win is: player feels ~the same,
+  enemies feel different but *more player-like* (they gain wall-cling, ledge-grab,
+  dodge, variable-jump, real dash, blink, flight — the full limb set).
+- **The unification is delete-heavy.** Make the composable limb pipeline
+  (`ambition_engine_core/movement` `update_player_*_clusters`) the ONE body
+  pipeline every body runs, and **delete `integrate_standard_enemy_body`** + the
+  bespoke per-verb actor resolution in `update_ecs_actors`. "Player"/"Enemy" become
+  DATA: a body = movement clusters + a capability/ability mask + combat/faction
+  components, driven by a **Controller** (Human input or a Brain emitting
+  `ActorControlFrame`) and observed via `WorldView`.
+- **The seam is ALREADY PROVEN.** `ambition_app/src/app/player_clone.rs` spawns a
+  NON-player entity carrying the 18 movement clusters + a Brain → `ActorControl`,
+  and the iterating `player_control_system` / `player_simulation_system` run it
+  through the EXACT shared player core (it's a `PlayerEntity`, not `PrimaryPlayer`,
+  not `PlayerSlot`). A Brain's `ActorControlFrame` already drives the player
+  pipeline. The clone IS an "enemy" minus faction/combat — so the work is to make
+  enemies player-bodied like the clone and retire the actor integrator. The
+  player-clone's own doc names this follow-up: "decouple the globals so ONE loop
+  drives every player-bodied entity."
+- **Behavior is NOT sacred (pre-polish, zero dependents).** No regression tests to
+  pin unpolished behavior. Refactor for elegance even when feel changes. Gates: it
+  compiles (incl. `ambition_app`) + invariants hold (strongest: gravity/portal
+  symmetry). Bit-identical/replay tests are canaries — re-baseline freely.
+- **Verify against the REAL headless sim.** `SandboxSim::new_with_options(..).step(AgentAction)`
+  runs the full real gameplay app headless; `ambition_app/tests/*` drive it
+  (build → step inputs → read `AgentObservation`). Stop building proxies; the
+  brain-arena's own-kinematics model is exactly the proxy to retire.
+
+### Phased convergence (the real path)
+
+1. **Tuning as data.** Give every body a `MovementTuning` derived from its
+   archetype (today enemies use hardcoded `ENEMY_GRAVITY`/`ENEMY_JUMP_SPEED`);
+   delete the constants. Prereq for enemies running the player spine with per-body
+   physics.
+2. **One body component set.** Enemies gain the movement clusters (or the cluster
+   set + combat components become the unified body); the Brain's `ActorControlFrame`
+   is the controller input (the player pipeline already consumes it — clone proof).
+3. **Route enemies through `update_player_*_clusters`; delete
+   `integrate_standard_enemy_body`** and the per-verb resolution bolted into
+   `update_ecs_actors`. Verify in the real headless sim (enemy still chases/fights;
+   now also wall-clings / ledge-grabs / dodges).
+4. **Collapse the player specialness.** The PRIMARY player keeps only the genuine
+   globals (world clock, camera, reset); everything else is the shared body path.
+   Possession becomes trivial (swap the controller). Retire `Player*`-only clusters
+   that duplicate body state.
+5. **Rename off type-names** where ids/types still say "player"/"enemy" for what is
+   now controller+capabilities data.
+
+The S0–S6 roadmap below is kept for history; read it through this correction. The
+already-shipped pieces (relational damage S3e, perception S4, the brain's LOF gate
+S5a, the `player_robot` archetype S6a, the shared `resolve_shield` rule) all stand
+and feed the corrected path — `resolve_shield` is exactly the "one rule both call"
+pattern, now applied wholesale by running ONE pipeline.
+
 ## Roadmap
 
 A dependency chain to the end state: each slice is built once and consumed by the

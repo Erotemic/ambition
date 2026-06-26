@@ -324,11 +324,11 @@ Salvage Guard: This exhibit is on the manifest. I verified. Everything in this h
 
 title: hall_npc_agent_swarm
 ---
-Agent Swarm: [MULTIPLE VOICES] The swarm cannot be housed on one plinth. This is a compromise. In aggregate: dissatisfied.
+Agent Swarm: (multiple voices, in unison) The swarm cannot be housed on one plinth. This is a compromise. In aggregate: dissatisfied.
 -> How many of you are there?
-    Agent Swarm: [MULTIPLE VOICES] More than the catalog suggests. The count is an underestimate. We accept this as a known limitation.
+    Agent Swarm: (multiple voices, in unison) More than the catalog suggests. The count is an underestimate. We accept this as a known limitation.
 -> What's your objective here?
-    Agent Swarm: [MULTIPLE VOICES] OBJECTIVE: BE ON DISPLAY. STATUS: COMPLIANT. ADDITIONAL OBJECTIVES: PENDING.
+    Agent Swarm: (multiple voices, in unison) OBJECTIVE: BE ON DISPLAY. STATUS: COMPLIANT. ADDITIONAL OBJECTIVES: PENDING.
 ===
 
 title: hall_npc_ai_slop

@@ -161,6 +161,12 @@ def cmd_generate(args, rest):
     return _todo(f"generate {args.generate_action}")
 
 
+def cmd_dialogue(args, rest):
+    if args.dialogue_action == "lint":
+        return _delegate("ambition_ldtk_tools.dialogue_lint", rest)
+    return _todo(f"dialogue {args.dialogue_action}")
+
+
 def cmd_diff(args, rest):
     if args.diff_action == "semantic":
         return _delegate("ambition_ldtk_tools.edit.semantic_diff", [args.diff_action, *rest])
@@ -439,6 +445,19 @@ def build_parser() -> argparse.ArgumentParser:
         ),
     )
     sp_generate.set_defaults(func=cmd_generate)
+
+    # dialogue {lint}
+    sp_dialogue = sub.add_parser("dialogue", help="Yarn dialogue helpers")
+    dialogue_sub = sp_dialogue.add_subparsers(dest="dialogue_action", required=True)
+    dialogue_sub.add_parser(
+        "lint",
+        help=(
+            "Lint Yarn files for malformed markup tags (e.g. a bracketed stage "
+            "direction the runtime parses as a tag and panics on). Usage: "
+            "dialogue lint [--root DIR]"
+        ),
+    )
+    sp_dialogue.set_defaults(func=cmd_dialogue)
 
     # diff {semantic}
     sp_diff = sub.add_parser("diff", help="Semantic LDtk diffs")

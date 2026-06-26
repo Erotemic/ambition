@@ -201,4 +201,143 @@ mod tests {
             files.len()
         );
     }
+
+    /// One scanned `[...]` span and whether it is a well-formed Yarn markup tag.
+    struct MarkupSpan {
+        text: String,
+        well_formed: bool,
+    }
+
+    /// Scan a line for `[...]` markup spans and classify each. Mirrors the
+    /// open/self-close grammar in `yarnspinner_runtime::markup::line_parser`:
+    /// inside `[name ...]`, after the tag name every whitespace-separated token
+    /// must be a `key=value` property (or the span ends in `]` / `/]`). A bare
+    /// word — the `[MULTIPLE VOICES]` stage-direction mistake — makes the
+    /// runtime parser panic with "Expected a = inside markup" the moment that
+    /// line is *delivered* (which the compile guard cannot see, since markup is
+    /// parsed lazily, not at compile time).
+    fn scan_markup_spans(line: &str) -> Vec<MarkupSpan> {
+        let bytes = line.as_bytes();
+        let mut spans = Vec::new();
+        let mut i = 0;
+        while i < bytes.len() {
+            if bytes[i] == b'[' && (i == 0 || bytes[i - 1] != b'\\') {
+                // Find the closing `]` (markup tags do not nest a literal `]`).
+                if let Some(rel) = line[i + 1..].find(']') {
+                    let inner = &line[i + 1..i + 1 + rel];
+                    spans.push(MarkupSpan {
+                        text: line[i..i + 1 + rel + 1].to_string(),
+                        well_formed: markup_inner_well_formed(inner),
+                    });
+                    i += 1 + rel + 1;
+                    continue;
+                }
+            }
+            // Advance by one full char to stay UTF-8 safe.
+            i += line[i..].chars().next().map_or(1, char::len_utf8);
+        }
+        spans
+    }
+
+    /// True if the content between `[` and `]` is a well-formed marker.
+    fn markup_inner_well_formed(inner: &str) -> bool {
+        // `[/]` close-all, or `[/name]` close tag (no properties allowed).
+        if inner == "/" {
+            return true;
+        }
+        if let Some(name) = inner.strip_prefix('/') {
+            return !name.is_empty() && !name.contains(char::is_whitespace);
+        }
+        // Open / self-closing tag: strip a trailing self-close slash.
+        let body = inner.strip_suffix('/').unwrap_or(inner).trim_end();
+        let mut tokens = body.split_whitespace();
+        // First token is the tag name (optionally `name=value`); subsequent
+        // tokens must each be a `key=value` property.
+        if tokens.next().is_none() {
+            return false; // `[]` is not a valid marker
+        }
+        tokens.all(|t| t.contains('='))
+    }
+
+    #[test]
+    fn markup_well_formed_classifier_matches_yarn_grammar() {
+        // Real markup the codebase uses — must pass.
+        for ok in ["shout", "/shout", "b", "/b", "/", "wave speed=10", "select 1=a 2=b", "x/"] {
+            assert!(
+                markup_inner_well_formed(ok),
+                "`[{ok}]` should be well-formed"
+            );
+        }
+        // The reported crash + relatives — bare words without `=`.
+        for bad in ["MULTIPLE VOICES", "STAGE DIRECTION", "a b c", ""] {
+            assert!(
+                !markup_inner_well_formed(bad),
+                "`[{bad}]` should be flagged (would panic at line delivery)"
+            );
+        }
+        // End-to-end: the scanner pulls the bad span out of a speaker line.
+        let spans = scan_markup_spans("Agent Swarm: [MULTIPLE VOICES] hello [shout]hi[/shout]");
+        assert_eq!(spans.len(), 3);
+        assert!(!spans[0].well_formed, "[MULTIPLE VOICES] is malformed");
+        assert!(spans[1].well_formed && spans[2].well_formed, "[shout]/[/shout] ok");
+        // Escaped brackets are literal text, not markup.
+        assert!(scan_markup_spans(r"a \[literal] b").is_empty());
+    }
+
+    #[test]
+    fn no_malformed_yarn_markup_tags() {
+        let mut files = Vec::new();
+        yarn_files(&dialogue_root(), &mut files);
+        assert!(!files.is_empty(), "found no .yarn files");
+
+        let mut violations = Vec::new();
+        let mut well_formed_seen = 0usize;
+        for file in &files {
+            let text = std::fs::read_to_string(file).expect("read yarn file");
+            let label = file
+                .strip_prefix(env!("CARGO_MANIFEST_DIR"))
+                .unwrap_or(file)
+                .to_string_lossy()
+                .into_owned();
+            for (n, line) in text.lines().enumerate() {
+                // Skip structural lines (no displayed markup): headers, the
+                // node delimiters, and `//` comments.
+                let trimmed = line.trim_start();
+                if trimmed.starts_with("title:")
+                    || trimmed == "---"
+                    || trimmed == "==="
+                    || trimmed.starts_with("//")
+                {
+                    continue;
+                }
+                for span in scan_markup_spans(line) {
+                    if span.well_formed {
+                        well_formed_seen += 1;
+                    } else {
+                        violations.push(format!(
+                            "{label}:{}: malformed Yarn markup tag `{}` — a bracketed token \
+                             without `=` makes the runtime panic (\"Expected a = inside markup\") \
+                             when this line is shown. Use `(parens)` for stage directions, escape \
+                             as `\\[...\\]`, or write a real `[tag]...[/tag]`.",
+                            n + 1,
+                            span.text,
+                        ));
+                    }
+                }
+            }
+        }
+
+        assert!(
+            violations.is_empty(),
+            "Yarn markup violations (each crashes the running game at line delivery):\n{}",
+            violations.join("\n")
+        );
+        // Guard the lint itself: we author real `[shout]`/`[whisper]`/`[b]`
+        // markup, so the scanner must keep finding well-formed spans.
+        assert!(
+            well_formed_seen >= 2,
+            "only {well_formed_seen} well-formed markup spans found — the scanner may have \
+             stopped matching `[...]`; verify scan_markup_spans"
+        );
+    }
 }

@@ -336,8 +336,9 @@ pub(crate) fn apply_player_knockback(
 /// mid-room-transition.
 #[allow(clippy::too_many_arguments)]
 pub fn apply_player_hit_events(
-    world: Res<RoomGeometry>,
-    moving_platforms: Res<MovingPlatformSet>,
+    // Bundled into one tuple param to stay under Bevy's 16-system-param ceiling
+    // (S3e's relational `relations` + `attacker_factions` pushed this to 17).
+    (world, moving_platforms): (Res<RoomGeometry>, Res<MovingPlatformSet>),
     editable_tuning: Res<EditableMovementTuning>,
     feel_tuning: Res<SandboxFeelTuning>,
     user_settings: Res<crate::persistence::settings::UserSettings>,

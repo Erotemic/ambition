@@ -494,6 +494,38 @@ resolver, one perception path, one damage model — measurably less code); posse
 the PCA → full moveset in-game; drop the player-robot as a boss → full moveset;
 one code path certified in the harness AND felt in-engine.
 
+### Guardrails — do not make the S6 convergence harder
+
+S4 and S5 land *before* the player is folded onto the shared path (S6). The trap is
+building them in a way that deepens the very player/actor split S6 has to undo.
+Every later slice must move toward convergence, never away. Concrete rules:
+
+1. **Build perception body-generic from day one.** `WorldView` / `WorldMemory` are
+   functions of a **body** (any faction), constructed for the player-robot body
+   exactly as for the PCA. Do NOT hang perception off the enemy-only
+   `build_enemy_brain_snapshot` / `ObservationFrame` path or key it on `EnemyBrain`.
+   The human player reads raw input today (no `ObservationFrame`); perception "for
+   the player" means *a brain driving the player-robot body* (the arena / boss-drop)
+   gets the same `WorldView` — so make construction take a body, not an "enemy."
+2. **The strong brain (S5) takes a body + its `WorldView`, never an actor-only or
+   enemy-only type.** It must already be drivable on the player-robot body — that
+   IS the I7 / mirror-match test. If it can't drive the player body, it's the wrong
+   shape.
+3. **Add no new `"player"`-string couplings or `Player*`-only clusters.** New
+   capability/state goes on the shared `CombatCapabilities` / `ActorAttackState` /
+   `ActorStatus` vocabulary. The damage model is already relational (S3e:
+   `FactionRelations` + `HitTarget::Actor`) — route through it; never reintroduce a
+   player-vs-enemy branch.
+4. **S3e is additive on purpose — don't "finish" it by ripping things out.** The
+   player's OWN attacks stay universal (so striking a peaceful NPC provokes it);
+   hazards / pogo / charge-crash / breakables are deliberately NOT faction-gated.
+   Tidying these into the relational path is not the convergence and breaks
+   provoke / hazards. Leave them.
+5. **S6 is a checkpointed refactor, not a blind rewrite.** Get the shape right
+   first; verify player feel with the existing feel-trace + OOB-trace tooling
+   (diff before/after). Replay/feel may change — only the compile + the feel diff
+   gate it. Commit = checkpoint, then keep moving.
+
 ## Acceptance scenarios (what "done" means)
 
 The behavioral scenarios below are **necessary but not sufficient**. The

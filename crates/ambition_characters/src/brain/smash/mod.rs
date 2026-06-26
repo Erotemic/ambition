@@ -108,6 +108,11 @@ pub struct SmashCfg {
     /// Minimum seconds between blink-evades. Ignored when [`Self::can_blink`]
     /// is `false`.
     pub blink_cooldown_s: f32,
+    /// When true, the (grounded) fighter may **reactive-block** a perceived lunge
+    /// it can't or won't blink away from — it raises `shield_held` and stands its
+    /// ground for a short window. Layered defense: blink is the mobile option,
+    /// block the stand-ground one. `false` for grunts.
+    pub can_shield: bool,
     /// When true, this is a **hybrid flyer**: a body that can both fight grounded
     /// (footsies + jump) and take flight (`fly_toggle_pressed`). The brain decides
     /// when to be airborne — to contest an elevated target, or to mount a proactive
@@ -147,6 +152,7 @@ impl SmashCfg {
         neutral_jump_cadence_s: 0.0,
         can_blink: false,
         blink_cooldown_s: 0.0,
+        can_shield: false,
         can_fly: false,
         aerial_foray_cadence_s: 0.0,
         aerial_foray_duration_s: 0.0,
@@ -168,6 +174,7 @@ impl SmashCfg {
         neutral_jump_cadence_s: 0.0,
         can_blink: false,
         blink_cooldown_s: 0.0,
+        can_shield: false,
         can_fly: false,
         aerial_foray_cadence_s: 0.0,
         aerial_foray_duration_s: 0.0,
@@ -193,6 +200,7 @@ impl SmashCfg {
         neutral_jump_cadence_s: 1.7,
         can_blink: true,
         blink_cooldown_s: 1.2,
+        can_shield: true,
         // Grounded duelist by default; hybrid flight is opt-in per fighter.
         can_fly: false,
         aerial_foray_cadence_s: 0.0,
@@ -311,7 +319,15 @@ pub struct SmashState {
     /// phase. Drives the proactive take-off/land cadence with hysteresis so the
     /// fighter doesn't chatter the fly toggle every tick.
     pub foray_timer: f32,
+    /// Seconds left holding a reactive block. Set when the fighter chooses to
+    /// shield a perceived lunge; while positive it keeps `shield_held` up so the
+    /// block spans the opponent's attack instead of flickering for one tick.
+    pub shield_hold_timer: f32,
 }
+
+/// How long a reactive block is held once triggered (s) — long enough to span a
+/// jab's active window.
+const SHIELD_HOLD_S: f32 = 0.32;
 
 /// Window (s) over which the perceived target velocity is estimated for the
 /// blink-evade lunge detector. Short enough to read a burst, long enough to be
@@ -424,19 +440,29 @@ pub fn tick_smash(
         out.jump_pressed = false;
         out.velocity_target = aerial_steer(&obs, mode, cfg, state);
     }
-    // Reactive blink-evade (capability-gated). Reacts to a *perceivable* lunge —
-    // the opponent closing fast — not a privileged read of its attack flag, so a
-    // human could make the same read. The perceived target velocity comes from
-    // the SAME lagged history that enforces reaction latency, so the dodge can't
-    // beat the opponent's commitment frame-perfectly either. Overrides this tick's
-    // movement with the blink; attack verbs already emitted are left intact.
-    if cfg.can_blink && state.blink_cooldown <= 0.0 && !obs.self_attacking {
-        if let Some(away) = reactive_blink_evade(&obs, cfg, state, snapshot.sim_time) {
-            out.blink_pressed = true;
-            out.blink_quick_dir = away;
+    // Reactive defense (capability-gated). Reacts to a *perceivable* lunge — the
+    // opponent closing fast — not a privileged read of its attack flag, so a human
+    // could make the same read. The perceived target velocity comes from the SAME
+    // lagged history that enforces reaction latency, so the defense can't beat the
+    // opponent's commitment frame-perfectly. Layered: blink away if able (mobile),
+    // else stand and block (shield). Attack verbs already emitted are left intact.
+    state.shield_hold_timer = (state.shield_hold_timer - snapshot.dt).max(0.0);
+    if !obs.self_attacking {
+        if let Some(away) = perceived_threat(&obs, cfg, state, snapshot.sim_time) {
+            if cfg.can_blink && state.blink_cooldown <= 0.0 {
+                out.blink_pressed = true;
+                out.blink_quick_dir = away;
+                out.locomotion = ae::Vec2::ZERO;
+                out.velocity_target = ae::Vec2::ZERO;
+                state.blink_cooldown = cfg.blink_cooldown_s;
+            } else if cfg.can_shield && obs.self_on_ground {
+                state.shield_hold_timer = SHIELD_HOLD_S;
+            }
+        }
+        // Hold the block up across its window: shield + stand ground.
+        if state.shield_hold_timer > 0.0 && obs.self_on_ground && !out.blink_pressed {
+            out.shield_held = true;
             out.locomotion = ae::Vec2::ZERO;
-            out.velocity_target = ae::Vec2::ZERO;
-            state.blink_cooldown = cfg.blink_cooldown_s;
         }
     }
     // Hybrid flight: decide whether to be airborne and emit the fly toggle when
@@ -479,11 +505,12 @@ fn decide_flight(obs: &ObservationFrame, cfg: &SmashCfg, state: &mut SmashState)
     currently
 }
 
-/// Decide whether to blink-evade this tick, returning the WORLD-space "away"
-/// direction if so. Threat = the opponent is *perceived* to be closing on us
-/// faster than a walk while already in danger range. Perception uses the lagged
-/// `obs_history` (reaction latency applies to defense too), so it's fair.
-fn reactive_blink_evade(
+/// Detect an incoming lunge worth defending against, returning the WORLD-space
+/// "away" direction (used by the blink). Threat = the opponent is *perceived* to
+/// be closing on us faster than a walk while already in danger range. Perception
+/// uses the lagged `obs_history` (reaction latency applies to defense too), so
+/// it's fair. Shared by the blink-evade and the reactive block.
+fn perceived_threat(
     obs: &ObservationFrame,
     cfg: &SmashCfg,
     state: &SmashState,

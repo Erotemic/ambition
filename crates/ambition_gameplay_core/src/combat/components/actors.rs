@@ -2,6 +2,7 @@
 //! aggression, health, attack/combat state, cooldowns, and boss phase state.
 
 use super::super::*;
+use ambition_characters::actor::control::{BlockReason, IntentOutcome};
 
 /// Actor-specific authored/runtime identity.
 ///
@@ -312,6 +313,14 @@ pub struct ActorAttackState {
     /// `(-facing, 0)` back-air. Persists across the whole strike so the
     /// swing doesn't re-aim mid-windup.
     pub pending_axis: ae::Vec2,
+    /// Body-side ranged refire cooldown remaining (s). The ranged analogue of
+    /// `cooldown`: it is the *body's* fire-rate floor (invariant I3), not the
+    /// brain's cadence. A controller may attempt `fire` every tick; the body
+    /// accepts a shot only when this is `<= 0` and re-arms it on each accepted
+    /// shot, so a spam controller and a human produce the same weapon rate.
+    /// Ranged has no windup/active timeline (it spawns instantly), so it needs
+    /// only this one timer rather than the melee strike's three.
+    pub ranged_cooldown: f32,
 }
 
 impl Default for ActorAttackState {
@@ -321,6 +330,7 @@ impl Default for ActorAttackState {
             active_timer: 0.0,
             cooldown: 0.2,
             pending_axis: ae::Vec2::new(-1.0, 0.0),
+            ranged_cooldown: 0.0,
         }
     }
 }
@@ -345,9 +355,27 @@ impl ActorAttackState {
         self.windup_timer = (self.windup_timer - dt).max(0.0);
         self.active_timer = (self.active_timer - dt).max(0.0);
         self.cooldown = (self.cooldown - dt).max(0.0);
+        self.ranged_cooldown = (self.ranged_cooldown - dt).max(0.0);
         if was_winding_up && self.windup_timer <= 0.0 {
             self.active_timer = active_seconds.max(0.01);
         }
+    }
+
+    /// Body-side ranged fire-rate enforcement (invariant I3).
+    ///
+    /// A controller attempts a shot; the body accepts it only when the ranged
+    /// weapon is off cooldown, re-arming the cooldown to `refire_seconds` on an
+    /// accepted shot. The controller is free to attempt every tick — this is the
+    /// floor that turns attempts into the body's weapon rate, identical for an AI
+    /// spam controller, a tactical brain, and a human. Returns the per-intent
+    /// outcome so the seam can route `Blocked`/`Accepted` feedback back to the
+    /// controller.
+    pub fn try_fire_ranged(&mut self, refire_seconds: f32) -> IntentOutcome {
+        if self.ranged_cooldown > 0.0 {
+            return IntentOutcome::Blocked(BlockReason::Cooldown);
+        }
+        self.ranged_cooldown = refire_seconds.max(0.0);
+        IntentOutcome::Accepted
     }
 }
 

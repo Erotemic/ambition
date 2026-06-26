@@ -289,13 +289,6 @@ pub struct SmashState {
     /// reaction delay variance). Set once at first tick from the
     /// actor id; survives reset_to_spawn via spawn-time init.
     pub rng_seed: u64,
-    /// Seconds until the actor's *ranged* verb is off cooldown. The
-    /// shared projectile pool doesn't rate-limit enemy fire, so the
-    /// ranged cadence lives here in brain state: decremented each
-    /// tick, gated against `> 0`, and reset to [`RANGED_COOLDOWN_S`]
-    /// when the brain commits a ranged shot. Melee keeps using the
-    /// integration-side attack cooldown (`attack_cooldown_remaining`).
-    pub ranged_cooldown_remaining: f32,
     /// Seconds until the actor's *dash-to-close* burst is off cooldown
     /// (only used when [`SmashCfg::dash_to_close`]). Same brain-side
     /// cadence shape as the ranged cooldown: decremented each tick,
@@ -337,12 +330,6 @@ const THREAT_WINDOW_S: f32 = 0.08;
 /// worth evading. Above a walk (~110) but a dash-in (~260) clears it easily.
 const THREAT_CLOSING_SPEED: f32 = 175.0;
 
-/// Ranged-verb cadence (seconds). A ranged-capable Smash actor fires
-/// at most once per this interval at mid-range, then closes for the
-/// melee finish. Module-level for now — promote to [`SmashCfg`] if
-/// archetypes ever want distinct ranged tempos.
-const RANGED_COOLDOWN_S: f32 = 1.1;
-
 /// Dash-to-close cadence (seconds) — a dash-capable actor bursts at
 /// most once per this interval, so it punctuates the chase rather than
 /// dashing every frame.
@@ -371,8 +358,9 @@ pub fn tick_smash(
     // Advance the dwell accumulator before any mode-flip check.
     state.mode_dwell_s += snapshot.dt;
     // Tick the brain-side cadences down (clamped at 0) before this
-    // frame's verb selection can re-arm them.
-    state.ranged_cooldown_remaining = (state.ranged_cooldown_remaining - snapshot.dt).max(0.0);
+    // frame's verb selection can re-arm them. Fire-rate is NOT among them:
+    // the body owns the ranged refire cooldown (invariant I3), so the brain
+    // attempts a shot whenever it wants one and the body enforces the rate.
     state.dash_cooldown_remaining = (state.dash_cooldown_remaining - snapshot.dt).max(0.0);
     state.neutral_jump_cooldown = (state.neutral_jump_cooldown - snapshot.dt).max(0.0);
     state.blink_cooldown = (state.blink_cooldown - snapshot.dt).max(0.0);
@@ -391,7 +379,9 @@ pub fn tick_smash(
     // pos/vel/ground/timers are read live. This is what stops the brain from
     // frame-perfectly countering a sudden dash or jump; it's also the single
     // place that makes the difficulty knob fair instead of omniscient.
-    state.obs_history.push(snapshot.sim_time, snapshot.target_pos);
+    state
+        .obs_history
+        .push(snapshot.sim_time, snapshot.target_pos);
     let perceived = {
         let mut s = *snapshot;
         if let Some(delayed_target) = state
@@ -410,7 +400,7 @@ pub fn tick_smash(
     // on its own cadence before committing to the melee finish.
     // Substituted *before* difficulty so the shot inherits the same
     // accuracy jitter / commit roll as a melee swing.
-    let action = maybe_substitute_ranged(action, &obs, mode, cfg, actions, state);
+    let action = maybe_substitute_ranged(action, &obs, mode, cfg, actions);
     // The grounded movement refiners (dash-to-close, footsies weave, neutral hop)
     // only make sense for a body that walks + jumps. A flyer skips them — its 2D
     // motion is steered below — but keeps the dimension-agnostic ranged poke.
@@ -569,15 +559,25 @@ fn aerial_steer(
     // crosses over the target (left-perch → dive → right-perch) instead of camping
     // one side. Falls back toward the target's side when it has no momentum.
     let cross = (phase * 0.5).sin();
-    let perch_side = if cross.abs() < 0.05 { toward } else { cross.signum() };
+    let perch_side = if cross.abs() < 0.05 {
+        toward
+    } else {
+        cross.signum()
+    };
     let perch = obs.target_pos
-        + ae::Vec2::new(perch_side * cfg.engage_distance, -cfg.engage_distance * 0.85);
+        + ae::Vec2::new(
+            perch_side * cfg.engage_distance,
+            -cfg.engage_distance * 0.85,
+        );
     let dive = obs.target_pos;
     let (desired, speed) = match mode {
         // Pressured / crowded: peel off to a higher, farther perch.
         BroadMode::Retreat | BroadMode::Reposition => (
             obs.target_pos
-                + ae::Vec2::new(-toward * cfg.engage_distance * 1.3, -cfg.engage_distance * 1.4),
+                + ae::Vec2::new(
+                    -toward * cfg.engage_distance * 1.3,
+                    -cfg.engage_distance * 1.4,
+                ),
             cfg.retreat_speed,
         ),
         // No engagement: hold station.
@@ -708,19 +708,22 @@ fn maybe_substitute_dash(
 /// Replace a *closing* action (`Walk`/`Idle` toward the target) with a
 /// ranged shot when the actor has a ranged verb, is at mid-range
 /// (inside aggro, outside melee reach), is approaching/holding (not
-/// retreating), isn't mid-swing, and the ranged cadence is ready.
-/// Re-arms the cadence on commit. Melee swings already in reach and
+/// retreating), and isn't mid-swing. Melee swings already in reach and
 /// retreats are never overridden — the actor still closes for the
 /// melee finish once the shot lands.
+///
+/// The brain does NOT rate-limit here: it attempts a ranged shot on every
+/// in-band tick and the **body** enforces the fire rate (invariant I3,
+/// `ActorAttackState::try_fire_ranged`). A blocked attempt simply spawns
+/// nothing; the controller never beats the weapon's rate by attempting faster.
 fn maybe_substitute_ranged(
     action: SpecificAction,
     obs: &ObservationFrame,
     mode: BroadMode,
     cfg: &SmashCfg,
     actions: &ActionSet,
-    state: &mut SmashState,
 ) -> SpecificAction {
-    if actions.ranged.is_none() || obs.self_attacking || state.ranged_cooldown_remaining > 0.0 {
+    if actions.ranged.is_none() || obs.self_attacking {
         return action;
     }
     let closing = matches!(action, SpecificAction::Walk { .. } | SpecificAction::Idle);
@@ -730,7 +733,6 @@ fn maybe_substitute_ranged(
     if !(closing && approaching && in_band) {
         return action;
     }
-    state.ranged_cooldown_remaining = RANGED_COOLDOWN_S;
     let dir_x = if obs.to_target_x.abs() < 0.001 {
         obs.self_facing
     } else {
@@ -843,12 +845,17 @@ mod tests {
         tick_smash(&cfg, &mut state, &actions, &snap, &mut frame);
         assert!(
             frame.fire.is_some(),
-            "ranged actor should fire at mid-range"
+            "ranged actor should attempt fire at mid-range"
         );
         assert!(!frame.melee_pressed, "should not also melee at mid-range");
+        // The brain no longer rate-limits: it attempts a shot on every in-band
+        // tick. A second tick still emits `fire` (the BODY throttles, not the
+        // brain — invariant I3). This is what a spam controller would also do.
+        let mut frame2 = crate::actor::control::ActorControlFrame::neutral();
+        tick_smash(&cfg, &mut state, &actions, &snap, &mut frame2);
         assert!(
-            state.ranged_cooldown_remaining > 0.0,
-            "ranged cadence armed after firing"
+            frame2.fire.is_some(),
+            "brain keeps attempting fire every in-band tick; the body enforces the rate"
         );
     }
 
@@ -873,38 +880,26 @@ mod tests {
     }
 
     #[test]
-    fn ranged_cadence_gates_back_to_back_shots() {
-        // Immediately after a shot the cadence blocks another; the actor
-        // closes (walks) instead. Once the cooldown elapses it fires again.
+    fn brain_does_not_self_rate_limit_fire_body_owns_the_rate() {
+        // Invariant I3: the brain no longer gates its own fire rate — it attempts
+        // a ranged shot on EVERY in-band tick. The body (`try_fire_ranged`) is
+        // the floor that turns those attempts into the weapon's rate. So back-to-
+        // back ticks both emit `fire`; nothing in the brain throttles them. (The
+        // body-side throttle is proven over real systems in the fighter harness.)
         let cfg = crisp_striker_cfg();
         let mut state = SmashState::default();
         let actions = ranged_actions();
         let mut snap = snap_with_target_at_x(300.0);
         snap.dt = 0.2;
 
-        let mut frame = crate::actor::control::ActorControlFrame::neutral();
-        tick_smash(&cfg, &mut state, &actions, &snap, &mut frame);
-        assert!(frame.fire.is_some(), "first tick fires");
-
-        let mut frame2 = crate::actor::control::ActorControlFrame::neutral();
-        tick_smash(&cfg, &mut state, &actions, &snap, &mut frame2);
-        assert!(frame2.fire.is_none(), "still on cooldown → no second shot");
-        assert!(
-            frame2.locomotion.x > 0.0,
-            "closes toward target while the ranged verb reloads"
-        );
-
-        // Advance past the cadence; it fires again.
-        let mut fired_again = false;
-        for _ in 0..((RANGED_COOLDOWN_S / snap.dt) as usize + 2) {
-            let mut f = crate::actor::control::ActorControlFrame::neutral();
-            tick_smash(&cfg, &mut state, &actions, &snap, &mut f);
-            if f.fire.is_some() {
-                fired_again = true;
-                break;
-            }
+        for tick in 0..8 {
+            let mut frame = crate::actor::control::ActorControlFrame::neutral();
+            tick_smash(&cfg, &mut state, &actions, &snap, &mut frame);
+            assert!(
+                frame.fire.is_some(),
+                "tick {tick}: brain keeps attempting fire — the body, not the brain, enforces cadence"
+            );
         }
-        assert!(fired_again, "fires again once the cadence elapses");
     }
 
     fn dash_striker_cfg() -> SmashCfg {
@@ -987,7 +982,13 @@ mod tests {
         }
     }
 
-    fn run_tick(cfg: &SmashCfg, state: &mut SmashState, actions: &ActionSet, target_x: f32, t: f32) -> ae::Vec2 {
+    fn run_tick(
+        cfg: &SmashCfg,
+        state: &mut SmashState,
+        actions: &ActionSet,
+        target_x: f32,
+        t: f32,
+    ) -> ae::Vec2 {
         let mut snap = snap_with_target_at_x(target_x);
         snap.sim_time = t;
         snap.dt = 1.0 / 60.0;

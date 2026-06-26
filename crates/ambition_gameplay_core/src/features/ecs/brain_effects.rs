@@ -20,9 +20,9 @@ use ambition_engine_core as ae;
 use bevy::prelude::*;
 
 use crate::audio::SfxMessage;
-use ambition_characters::brain::{action_set::ActionRequest, ActorActionMessage};
 use crate::enemy_projectile::EnemyProjectileSpawn;
 use crate::time::feel::SandboxFeelTuning;
+use ambition_characters::brain::{action_set::ActionRequest, ActorActionMessage};
 
 /// Recoil applied to the firing enemy along the negative fire
 /// direction. Per-archetype because PirateOnShark visibly knocks
@@ -35,6 +35,16 @@ const RANGED_RECOIL_DEFAULT: f32 = 60.0;
 /// will move this into an `ActionSet`-derived parameter.
 const PROJECTILE_HALF_EXTENT: ae::Vec2 = ae::Vec2::new(10.0, 8.0);
 const PROJECTILE_MAX_LIFETIME: f32 = 2.4;
+
+/// Body-side ranged refire interval (s) — the floor on every ranged-capable
+/// body's fire rate (invariant I3). The controller (AI brain, possessing human,
+/// or future RL policy) may attempt `fire` every tick; the body accepts a shot
+/// at most once per this interval. This was previously a *brain*-side cadence
+/// (`SmashState::ranged_cooldown_remaining`), which leaked the physical limit
+/// into the controller — a human could spam past it. It now lives on the body.
+/// Per-archetype tempos will move this onto an `ActionSet`-derived parameter,
+/// like the projectile envelope above.
+const RANGED_REFIRE_S: f32 = 1.1;
 
 /// Read every `ActorActionMessage::Ranged` and spawn the matching
 /// enemy projectile. Applies recoil to the firing actor's velocity.
@@ -81,6 +91,15 @@ pub fn spawn_enemy_projectiles_from_brain_actions(
         };
         let enemy = cq.as_actor_mut();
         if !enemy.status.alive {
+            continue;
+        }
+        // Body-side fire-rate enforcement (invariant I3): the controller attempts
+        // a shot every time it emits `fire`; the body accepts it only when the
+        // ranged weapon is off cooldown, re-arming on each accepted shot. A
+        // blocked attempt simply spawns nothing this tick. This is the single
+        // place the weapon rate is enforced, identical for an AI spam controller,
+        // a tactical brain, and a possessing human.
+        if !enemy.attack.try_fire_ranged(RANGED_REFIRE_S).accepted() {
             continue;
         }
         // Held-item muzzle: a gun-sword shot should originate at the actor's
@@ -224,11 +243,11 @@ fn default_combat_tuning() -> crate::features::events::FeatureCombatTuning {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use ambition_characters::brain::{ActionSet, RangedActionSpec};
     use crate::enemy_projectile::test_support::enemy_projectile_bodies;
     use crate::enemy_projectile::EnemyProjectileState;
     use crate::features::ecs::actor_clusters::ActorClusterSeed;
     use crate::projectile::ProjectileSeqCounter;
+    use ambition_characters::brain::{ActionSet, RangedActionSpec};
 
     /// Build a rider-shaped hostile actor: standalone PirateRaider
     /// archetype on the runtime side, but the caller is expected to
@@ -507,7 +526,10 @@ mod tests {
             attack.cooldown,
         );
         assert!(
-            matches!(status.ai_mode, ambition_characters::actor::ai::CharacterAiMode::Telegraph),
+            matches!(
+                status.ai_mode,
+                ambition_characters::actor::ai::CharacterAiMode::Telegraph
+            ),
             "ai_mode should flip to Telegraph; got {:?}",
             status.ai_mode,
         );
@@ -577,7 +599,10 @@ mod tests {
             "explicit melee message should start dismounted PirateHeavy windup"
         );
         assert!(
-            matches!(status.ai_mode, ambition_characters::actor::ai::CharacterAiMode::Telegraph),
+            matches!(
+                status.ai_mode,
+                ambition_characters::actor::ai::CharacterAiMode::Telegraph
+            ),
             "dismounted PirateHeavy should telegraph her melee attack"
         );
     }

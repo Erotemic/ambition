@@ -15,6 +15,55 @@
 
 use ambition_engine_core::{AccelerationFrame, GameplayFramePolicy, Vec2};
 
+/// The body→controller half of the intent-in seam.
+///
+/// A controller only *attempts* inputs; the **body** enforces its own physics
+/// (cooldown / stun / resource / which abilities exist) and reports, per intent,
+/// whether the attempt was accepted (and applied) or blocked, naming the reason.
+/// This is the floor that makes a spam controller and a human produce the *same*
+/// physical output on the same body (invariant I3): the controller cannot beat
+/// the body's rate by attempting more often.
+///
+/// Built once per migrated intent as the resolver grows (fire first); routed back
+/// to the controller through the world-view so a brain can react to a blocked
+/// attempt (e.g. reposition instead of firing into a cooldown).
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Default)]
+pub enum IntentOutcome {
+    /// The body accepted the attempt and applied its effect this tick.
+    #[default]
+    Accepted,
+    /// The body refused the attempt; the body's current physical state forbids
+    /// it. The reason is informational — a controller may use it to choose a
+    /// different intent next tick, but the body's decision is authoritative.
+    Blocked(BlockReason),
+}
+
+impl IntentOutcome {
+    /// True iff the body applied the attempted effect this tick.
+    pub fn accepted(self) -> bool {
+        matches!(self, IntentOutcome::Accepted)
+    }
+}
+
+/// Why a body blocked an attempted intent. Open to extension as more intents
+/// migrate into the resolver; each variant names a physical-state reason a human
+/// would also be subject to (never "you are not the player").
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum BlockReason {
+    /// The weapon / ability is still on its refire cooldown.
+    Cooldown,
+    /// The body is in hitstun / staggered and cannot act.
+    Stunned,
+    /// The body lacks the resource (meter / charge) the intent costs.
+    OutOfResource,
+    /// The body has no capability for this intent (it isn't in its kit).
+    NoCapability,
+    /// The intent is incompatible with the body's current locomotion mode.
+    WrongMode,
+    /// The body is dead.
+    Dead,
+}
+
 /// A request from a brain to fire a projectile this tick. Mirrors the
 /// existing `ChoreographyAction::FireProjectile { dir, speed }` but
 /// lives on the control-frame side of the seam so a future

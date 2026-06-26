@@ -89,7 +89,9 @@ pub fn apply_actor_stimuli(
         aggression.mode = AggressionMode::HostileToPlayer;
 
         let dialogue_id = interaction.and_then(|i| match &i.interactable.kind {
-            ambition_interaction::InteractionKind::Npc { dialogue_id, .. } => dialogue_id.as_deref(),
+            ambition_interaction::InteractionKind::Npc { dialogue_id, .. } => {
+                dialogue_id.as_deref()
+            }
             _ => None,
         });
 
@@ -121,9 +123,9 @@ pub fn apply_actor_stimuli(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use ambition_engine_core::{self as ae, AabbExt};
     use crate::features::NPC_HOSTILE_STRIKE_THRESHOLD;
     use crate::features::{CenteredAabb, FeatureId, FeatureSimEntity};
+    use ambition_engine_core::{self as ae, AabbExt};
     use bevy::prelude::{App, Update};
 
     fn spawn_npc_with_strikes(app: &mut App, strikes: i32) -> bevy::prelude::Entity {
@@ -282,7 +284,7 @@ mod tests {
             let Brain::StateMachine(StateMachineCfg::Smash { state, .. }) = &mut *brain else {
                 panic!("the provoked combatant should be a Smash brain");
             };
-            state.ranged_cooldown_remaining = SENTINEL;
+            state.dash_cooldown_remaining = SENTINEL;
             state.mode_dwell_s = SENTINEL;
         }
         // A second stimulus on the now-hostile actor must leave the brain intact.
@@ -297,8 +299,8 @@ mod tests {
             panic!("the brain should still be a Smash brain");
         };
         assert_eq!(
-            state.ranged_cooldown_remaining, SENTINEL,
-            "a repeat stimulus must not reset the ranged fire cadence (no brain rebuild)"
+            state.dash_cooldown_remaining, SENTINEL,
+            "a repeat stimulus must not reset the brain's dash cadence (no brain rebuild)"
         );
         assert_eq!(
             state.mode_dwell_s, SENTINEL,

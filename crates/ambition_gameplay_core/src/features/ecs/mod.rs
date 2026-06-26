@@ -47,6 +47,8 @@ mod damage;
 mod damage_drops;
 mod damage_predicates;
 mod encounter_rewards;
+#[cfg(test)]
+mod fighter_harness;
 mod interact;
 mod mount;
 pub use mount::{rider_hand_world_pos, rider_hand_world_pos_in_frame};

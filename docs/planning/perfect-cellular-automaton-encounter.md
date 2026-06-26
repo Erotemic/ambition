@@ -3,6 +3,45 @@
 Status: **in progress** (live progress window — Jon reads, can't ask).
 Author model: Opus 4.8 (1M).
 
+## Reconciliation (2026-06-26) — PCA is now the *exemplar*, and some ✅ drifted
+
+The deep architecture this encounter depends on moved to
+`docs/planning/fighter-capability-and-motor-unification.md` (unified character
+control & perception). PCA is its **exemplar second character**: the goal is that
+PCA has expressive parity with the player-robot (ledge-grab, blink, fly, dash,
+shield, tilts, special projectiles), that the player can possess PCA and want for
+nothing, and that the player-robot can be dropped in as an AI boss. The
+slice-by-slice work below stands, but several ✅ claims drifted from in-game
+reality — recorded here so the next reader doesn't trust them blindly:
+
+- **Reaction latency was inert in-engine.** S5 marked it ✅, but `sim_time` is
+  hardcoded `0.0` in `build_enemy_brain_snapshot` *and* (until 2026-06-26) the
+  brain was rebuilt every stimulus, zeroing `obs_history`. The policy is correct;
+  the integration didn't run it. Fixed-rebuild landed
+  (`a_repeat_stimulus_preserves_an_already_hostile_brain_state`); `sim_time`
+  threading is slice S4 (headless perception) in the architecture doc.
+- **The glider shipped as a data-driven `ranged` shot + `ProjectileVisualKind`,
+  not the `special` path** decision 3 proposed. That's fine and more general (art
+  is now a function of a projectile's visual kind, addable as one registry
+  record). Decision 3's `ActionSet.special` framing is **stale** — ignore it.
+- **The "stream of gliders" was a body/controller leak, not a brain bug.** The
+  brain's ranged cadence lived in the controller; a continuously-rebuilt
+  controller (and a controller is the wrong place for a physical limit anyway)
+  produced the stream. The principled fix — a **body-side fire cooldown**, brain
+  free to spam — is slice S1 (the body owns fire-rate) in the architecture doc.
+  The current brain-side `ranged_cooldown_remaining` is interim and is deleted
+  there.
+- **"Deferred depth" verbs are capabilities, not brain code.** glider / reactive
+  block / blink / fly are slice S3 (full capability parity on any body), not
+  bespoke PCA wiring. Author them as capabilities PCA *has*.
+- **The PCA gets dumb against terrain** (attacks through walls, wedges pushing
+  into them) because perception is a point-target with no viewport — slice S4
+  (headless perception).
+
+Net: keep this doc as the **content/encounter** record (dialogue, placement,
+tuning, theme); the **engine** capabilities + perception + harness live in the
+architecture doc, with PCA as the body that proves them.
+
 ## Goal
 
 An in-game encounter: the player meets the **Perfect Cell-ular Automaton** as a

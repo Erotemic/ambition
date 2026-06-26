@@ -476,7 +476,7 @@ fn decide_flight(obs: &ObservationFrame, cfg: &SmashCfg, state: &mut SmashState)
     // Forced take-off: a target genuinely above us (more than a hop) is better
     // contested in the air than by jump-chasing. Arms a minimum foray so we don't
     // immediately land again.
-    let target_above = obs.to_target_y < -cfg.vertical_chase_min;
+    let target_above = obs.to_target_up() > cfg.vertical_chase_min;
     if !currently && target_above {
         state.foray_timer = cfg.aerial_foray_duration_s.max(0.6);
         return true;
@@ -519,22 +519,27 @@ fn perceived_threat(
     if closing <= THREAT_CLOSING_SPEED {
         return None;
     }
-    // Evade UP-and-away. The away component breaks the opponent's line; the strong
-    // upward bias (engine `+y` = down, so up is `-y`) sends the dodge into the open
-    // vertical space rather than risking a blink straight into a side wall —
-    // wall-safe without needing wall geometry. For a flyer this also resets it to
-    // a fresh perch; for a grounded body it's an evasive air-reposition.
-    let horiz = (to_me.x / dist) * 0.5;
-    Some(ae::Vec2::new(horiz, -1.0).normalize_or_zero())
+    // Evade UP-and-away, framed against local gravity (I10). The side component
+    // (along the gravity-perpendicular axis) breaks the opponent's line; the
+    // strong "up" bias (against gravity) sends the dodge into the open vertical
+    // space rather than risking a blink straight into a side wall — wall-safe
+    // without needing wall geometry, under any gravity orientation. For a flyer
+    // this also resets it to a fresh perch; for a grounded body it's an evasive
+    // air-reposition. Under screen-down gravity this is byte-identical to the old
+    // `(to_me.x/dist * 0.5, -1)`.
+    let side = (to_me.dot(obs.side_axis()) / dist) * 0.5;
+    Some((side * obs.side_axis() + obs.up_axis()).normalize_or_zero())
 }
 
 /// 2D steering for an aerial (free-mover) Smash fighter. Instead of grounded
 /// footsies, it runs a **dive / perch** oscillation: it perches diagonally above-
 /// and-beside the target to bait + reset, then dives onto it to land a strike,
 /// using the vertical stage space a grounded brawler can't. Reuses the spacing
-/// phase (no extra state) and is frame-agnostic apart from the engine's
-/// `+y = down` convention, which it only uses to pick "above". Returns a desired
-/// world velocity for `velocity_target`.
+/// phase (no extra state). Fully frame-agnostic (I10): "above" and "beside" are
+/// the local `up_axis` / `side_axis`, so the dive/perch arc is correct under any
+/// gravity orientation — under screen-down gravity it is byte-identical to the
+/// old screen-space offsets. Returns a desired world velocity for
+/// `velocity_target`.
 fn aerial_steer(
     obs: &ObservationFrame,
     mode: BroadMode,
@@ -546,10 +551,12 @@ fn aerial_steer(
     if obs.self_attacking {
         return ae::Vec2::ZERO;
     }
-    let toward = if obs.to_target_x.abs() < 0.001 {
+    let side = obs.side_axis();
+    let up = obs.up_axis();
+    let toward = if obs.to_target_side().abs() < 0.001 {
         obs.self_facing
     } else {
-        obs.to_target_x.signum()
+        obs.to_target_side().signum()
     };
     let phase = state.spacing_phase + seed_phase_offset(state.rng_seed);
     // Dive/perch parameter in [0, 1]: 0 = dive onto the target (enter attack
@@ -565,19 +572,15 @@ fn aerial_steer(
         cross.signum()
     };
     let perch = obs.target_pos
-        + ae::Vec2::new(
-            perch_side * cfg.engage_distance,
-            -cfg.engage_distance * 0.85,
-        );
+        + side * (perch_side * cfg.engage_distance)
+        + up * (cfg.engage_distance * 0.85);
     let dive = obs.target_pos;
     let (desired, speed) = match mode {
         // Pressured / crowded: peel off to a higher, farther perch.
         BroadMode::Retreat | BroadMode::Reposition => (
             obs.target_pos
-                + ae::Vec2::new(
-                    -toward * cfg.engage_distance * 1.3,
-                    -cfg.engage_distance * 1.4,
-                ),
+                + side * (-toward * cfg.engage_distance * 1.3)
+                + up * (cfg.engage_distance * 1.4),
             cfg.retreat_speed,
         ),
         // No engagement: hold station.
@@ -733,10 +736,14 @@ fn maybe_substitute_ranged(
     if !(closing && approaching && in_band) {
         return action;
     }
-    let dir_x = if obs.to_target_x.abs() < 0.001 {
+    // Aim along the body-local side axis toward the target. `emit_inputs` wraps
+    // this as a `controlled_body_local` fire request whose `x` is the body's side
+    // axis, so the sign must come from the gravity-perpendicular `to_target_side`,
+    // not screen `x` (I10). Under screen-down gravity this equals `to_target_x`.
+    let dir_x = if obs.to_target_side().abs() < 0.001 {
         obs.self_facing
     } else {
-        obs.to_target_x.signum()
+        obs.to_target_side().signum()
     };
     SpecificAction::RangedAttack {
         dir: ae::Vec2::new(dir_x, 0.0),
@@ -1082,5 +1089,94 @@ mod tests {
         tick_smash(&cfg, &mut state, &actions, &snap, &mut frame);
         assert!(!frame.melee_pressed, "dead actor must not emit melee");
         assert_eq!(frame.locomotion, ae::Vec2::ZERO);
+    }
+
+    // --- S2: frame-agnostic motor / perception (invariant I10) ---
+
+    /// Build an idle snapshot with rotated gravity. `down` is the world gravity
+    /// direction; `target` the world target position.
+    fn snap_rotated(down: ae::Vec2, target: ae::Vec2) -> BrainSnapshot {
+        let mut s = BrainSnapshot::idle();
+        s.actor_pos = ae::Vec2::ZERO;
+        s.control_down = down;
+        s.target_pos = target;
+        s.target_alive = true;
+        s.actor_on_ground = false;
+        s.actor_aerial = true;
+        s
+    }
+
+    /// Under gravity rotated 90° (down = screen `+x`), the reactive evade points
+    /// AGAINST gravity (screen `-x`), not screen `-y`. The old code hard-coded
+    /// `-y`, which would dodge sideways into a wall under this orientation. The
+    /// dodge must climb the open vertical space whatever the gravity frame.
+    #[test]
+    fn evade_dodges_against_gravity_under_rotated_gravity() {
+        let cfg = crisp_striker_cfg(); // reaction_delay_s = 0
+        let down = ae::Vec2::new(1.0, 0.0);
+        // Target closing fast on the actor from the side, along screen -y.
+        let near = ae::Vec2::new(0.0, 40.0);
+        let far = ae::Vec2::new(0.0, 60.0);
+        let mut snap = snap_rotated(down, near);
+        let now = 1.0;
+        snap.sim_time = now;
+        let obs = observe(&snap);
+        let mut state = SmashState::default();
+        state.obs_history.push(now - THREAT_WINDOW_S, far);
+        state.obs_history.push(now, near);
+
+        let away = perceived_threat(&obs, &cfg, &state, now).expect("a fast lunge is a threat");
+        assert!(
+            away.dot(obs.up_axis()) > 0.5,
+            "evade must climb against gravity (up = -down); got {away:?}"
+        );
+        assert!(
+            away.dot(down) < 0.0,
+            "evade must never dive into gravity; got {away:?}"
+        );
+    }
+
+    /// `to_target_up` is frame-correct: a target offset against gravity reads as
+    /// "above" regardless of screen orientation. Under down = screen `+x`, a
+    /// target at screen `-x` is above.
+    #[test]
+    fn target_above_is_gravity_relative() {
+        // down = +x ⇒ up = -x. Target at screen -x (200 left) is "above".
+        let snap = snap_rotated(ae::Vec2::new(1.0, 0.0), ae::Vec2::new(-200.0, 0.0));
+        let obs = observe(&snap);
+        assert!(
+            obs.to_target_up() > 100.0,
+            "target opposite gravity must read as above; got {}",
+            obs.to_target_up()
+        );
+        // And a target *along* gravity (screen +x) reads as below.
+        let snap_below = snap_rotated(ae::Vec2::new(1.0, 0.0), ae::Vec2::new(200.0, 0.0));
+        assert!(
+            observe(&snap_below).to_target_up() < -100.0,
+            "target along gravity must read as below"
+        );
+    }
+
+    /// The aerial dive/perch steers into the gravity-relative "up" space: a flyer
+    /// engaging a target perches against gravity, not toward screen `-y`. Under
+    /// down = screen `+x`, the steered velocity carries the flyer to the up side.
+    #[test]
+    fn aerial_perch_climbs_against_gravity() {
+        let cfg = SmashCfg::DUELIST_DEFAULT; // a real neutral game / flyer cfg
+        let down = ae::Vec2::new(1.0, 0.0);
+        // Flyer sitting ON the target's gravity-line so the only steer is up/down.
+        let target = ae::Vec2::new(0.0, 0.0);
+        let mut snap = snap_rotated(down, target);
+        snap.actor_pos = ae::Vec2::new(0.0, 0.0);
+        let obs = observe(&snap);
+        let state = SmashState::default();
+        // Engage mode rides the dive→perch arc; perch sits above-and-beside.
+        let vel = aerial_steer(&obs, BroadMode::Engage, &cfg, &state);
+        // The desired point biases against gravity, so the steer has a positive
+        // up-component (it is not allowed to be a screen-`-y`-only push).
+        assert!(
+            vel.dot(obs.up_axis()) >= 0.0,
+            "aerial steer must not drive into gravity; got {vel:?} under down={down:?}"
+        );
     }
 }

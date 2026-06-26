@@ -129,6 +129,7 @@ mod tests {
             to_target_x: distance_x,
             to_target_y: 0.0,
             distance_to_target: distance_x.abs(),
+            down: ae::Vec2::new(0.0, 1.0),
             crowding: CrowdingSignal::default(),
             terrain: Default::default(),
             sim_time: 1.0,

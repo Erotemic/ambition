@@ -83,19 +83,18 @@ pub fn choose_action(
     match mode {
         BroadMode::Idle => SpecificAction::Idle,
         BroadMode::Approach => {
-            // Vertical gap: jump to close the vertical distance when
-            // the target is meaningfully above. Engine y grows
-            // downward, so "target above" means `to_target_y` is
-            // strongly negative. Trigger on the ground for the first
-            // jump, OR mid-air if a double-jump is still available
-            // AND we're still rising or stalled (vel.y >= ~0). The
-            // rising-only gate prevents the brain from double-jumping
-            // mid-descent, which would just reset gravity to zero.
-            if obs.to_target_y < -cfg.vertical_chase_min {
+            // Vertical gap: jump to close the vertical distance when the target
+            // is meaningfully above (against gravity). Framed against local
+            // gravity (`to_target_up`), not screen `-y`, so it is correct under
+            // any orientation (I10). Trigger on the ground for the first jump, OR
+            // mid-air if a double-jump is still available AND we're not already
+            // rising fast (`self_vel_up < 50`). The rising-gate prevents the
+            // brain from double-jumping mid-ascent and wasting the jump.
+            if obs.to_target_up() > cfg.vertical_chase_min {
                 if obs.self_on_ground {
                     return SpecificAction::Jump;
                 }
-                if obs.self_air_jumps_remaining > 0 && obs.self_vel.y > -50.0 {
+                if obs.self_air_jumps_remaining > 0 && obs.self_vel_up() < 50.0 {
                     return SpecificAction::DoubleJump;
                 }
             }
@@ -117,41 +116,36 @@ pub fn choose_action(
                 && obs.distance_to_target <= cfg.attack_range
                 && obs.attack_cooldown_remaining <= 0.0
             {
-                // Directional pick:
-                //   - Target meaningfully above (dy < -30): up-attack.
-                //   - We're above target (in air with target below):
-                //     down-air.
-                //   - Otherwise: forward swing along the target axis.
-                // Engine y grows downward, so `to_target_y < 0` means
-                // target is above; `to_target_y > 0` means below.
-                let dy = obs.to_target_y;
-                let above_target = dy > 28.0 && !obs.self_on_ground;
-                let target_above = dy < -28.0;
-                if above_target {
-                    return SpecificAction::MeleeAttack {
-                        dir: ae::Vec2::new(0.0, 1.0),
-                    };
+                // Directional pick, framed against local gravity (I10):
+                //   - Target meaningfully above me: up-attack (toward `up_axis`).
+                //   - I'm above the target, airborne: down-air (toward `down`).
+                //   - Otherwise: forward swing along the gravity-perpendicular
+                //     side axis toward the target.
+                // `to_target_up > 0` ⇒ target above; `< 0` ⇒ target below.
+                let up_amt = obs.to_target_up();
+                let i_am_above_target = up_amt < -28.0 && !obs.self_on_ground;
+                let target_above = up_amt > 28.0;
+                if i_am_above_target {
+                    return SpecificAction::MeleeAttack { dir: obs.down };
                 }
                 if target_above {
-                    return SpecificAction::MeleeAttack {
-                        dir: ae::Vec2::new(0.0, -1.0),
-                    };
+                    return SpecificAction::MeleeAttack { dir: obs.up_axis() };
                 }
-                let axis_x = signum_or(obs.to_target_x, obs.self_facing);
+                let toward_side = signum_or(obs.to_target_side(), obs.self_facing);
                 return SpecificAction::MeleeAttack {
-                    dir: ae::Vec2::new(axis_x, 0.0),
+                    dir: obs.side_axis() * toward_side,
                 };
             }
             // Out of swing range or on cooldown — close the rest of
             // the way at chase speed.
             if obs.distance_to_target > cfg.attack_range {
                 // Jump-to-close-vertical-gap (single or double).
-                // Same gate as Approach.
-                if obs.to_target_y < -cfg.vertical_chase_min {
+                // Same gravity-framed gate as Approach.
+                if obs.to_target_up() > cfg.vertical_chase_min {
                     if obs.self_on_ground {
                         return SpecificAction::Jump;
                     }
-                    if obs.self_air_jumps_remaining > 0 && obs.self_vel.y > -50.0 {
+                    if obs.self_air_jumps_remaining > 0 && obs.self_vel_up() < 50.0 {
                         return SpecificAction::DoubleJump;
                     }
                 }
@@ -227,6 +221,7 @@ mod tests {
             to_target_x: distance_x,
             to_target_y: 0.0,
             distance_to_target: distance_x.abs(),
+            down: ae::Vec2::new(0.0, 1.0),
             crowding: CrowdingSignal::default(),
             terrain: Default::default(),
             sim_time: 1.0,

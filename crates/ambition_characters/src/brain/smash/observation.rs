@@ -47,9 +47,19 @@ pub struct ObservationFrame {
     /// right. Cached so downstream stages don't recompute.
     pub to_target_x: f32,
     /// Signed offset target.y - self_pos.y. Positive = target below
-    /// (engine y grows downward).
+    /// (engine y grows downward). NOTE: `y` is screen-space, not
+    /// gravity-relative — use [`ObservationFrame::to_target_up`] for
+    /// "is the target above me" so the read stays correct under rotated
+    /// (C4) gravity (invariant I10).
     pub to_target_y: f32,
     pub distance_to_target: f32,
+    /// Local gravity direction (unit). The brain's vertical reasoning
+    /// (jump-to-chase, dive/perch, up/down attacks, evade-up) is framed
+    /// against this, not against screen `-y`, so it is correct under any
+    /// gravity orientation and through portals. Defaults to screen-down
+    /// `(0, 1)`, under which every frame-local accessor below reduces to
+    /// the screen-space reads it replaced.
+    pub down: ae::Vec2,
 
     // --- Crowding (anti-clump pressure) ---
     pub crowding: CrowdingSignal,
@@ -61,6 +71,45 @@ pub struct ObservationFrame {
     // --- Time ---
     pub sim_time: f32,
     pub dt: f32,
+}
+
+impl ObservationFrame {
+    /// Unit "up" — directly against local gravity. The direction an evade or a
+    /// perch climbs into the open vertical space, whatever the gravity
+    /// orientation. Under screen-down gravity this is `(0, -1)`.
+    pub fn up_axis(&self) -> ae::Vec2 {
+        -self.down
+    }
+
+    /// Unit "side" — the gravity-perpendicular walking/strafing axis, oriented so
+    /// that under screen-down gravity it is world `+x`. Chosen so every
+    /// screen-space `x` read the brain used to make reduces to the same value
+    /// here (byte-identical under vertical gravity), while staying correct when
+    /// gravity rotates.
+    pub fn side_axis(&self) -> ae::Vec2 {
+        ae::Vec2::new(self.down.y, -self.down.x)
+    }
+
+    /// Target offset projected onto [`Self::up_axis`]: `> 0` ⇒ the target is
+    /// *above* me (against gravity). The frame-agnostic replacement for the old
+    /// `to_target_y < 0` "above" test. Under screen-down gravity equals
+    /// `-to_target_y`.
+    pub fn to_target_up(&self) -> f32 {
+        ae::Vec2::new(self.to_target_x, self.to_target_y).dot(self.up_axis())
+    }
+
+    /// Target offset projected onto [`Self::side_axis`]: signed strafe distance
+    /// toward the target along the gravity-perpendicular axis. Under screen-down
+    /// gravity equals `to_target_x`.
+    pub fn to_target_side(&self) -> f32 {
+        ae::Vec2::new(self.to_target_x, self.to_target_y).dot(self.side_axis())
+    }
+
+    /// My own velocity projected onto [`Self::up_axis`]: `> 0` ⇒ I am rising
+    /// (moving against gravity). Under screen-down gravity equals `-self_vel.y`.
+    pub fn self_vel_up(&self) -> f32 {
+        self.self_vel.dot(self.up_axis())
+    }
 }
 
 /// Anti-clump signal. The driver system computes this once per tick
@@ -151,6 +200,7 @@ pub fn observe(snap: &BrainSnapshot) -> ObservationFrame {
         to_target_x: to_target.x,
         to_target_y: to_target.y,
         distance_to_target: distance,
+        down: snap.control_down.normalize_or(ae::Vec2::new(0.0, 1.0)),
         crowding: snap.crowding.unwrap_or_default(),
         terrain: snap.terrain.unwrap_or_default(),
         sim_time: snap.sim_time,

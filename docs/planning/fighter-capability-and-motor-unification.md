@@ -229,9 +229,21 @@ Author model: Opus 4.8 (1M). Wall-clock log at the bottom.
     binds a possessing human too). Data-driven: `EnemyArchetypeSpec.smash_can_blink`
     projects into BOTH the brain's `SmashCfg.can_blink` (attempt) and the body caps
     (enforce). PCA authors `smash_can_blink: true` → it blink-dodges a lunge.
-  - **S3b fly, S3c shield, S3d dash/tilts/special, integrator de-player-casing** —
-    pending. (PCA sprites for these verbs are being prepared by another agent; the
-    mechanics land here.)
+  - **S3b fly** ✅ — the PCA is now a grounded-base HYBRID: `decide_flight`
+    PREFERS grounded and flies only to cover a long traversal gap (hysteresis;
+    lands to brawl). Body resolves `fly_toggle` → flips `gravity_scale`
+    (capability-gated). Data: `smash_can_fly` projects into brain cfg + body caps;
+    PCA authored `is_aerial: false` + `smash_can_fly: true` (peaceful hover
+    preserved via the Floating catalog body). Flight is a brain *preference* (I4),
+    free for now — a resource cost comes later. Also fixed an S1 interaction the
+    policy exposed: a ranged poke now ADVANCES while firing (fire-while-closing)
+    instead of camping at range, so the fighter stays aggressive.
+  - **S3c shield, S3d dash/tilts/special, integrator de-player-casing** — pending.
+    (PCA sprites for these verbs are being prepared by another agent; the mechanics
+    land here.)
+
+  Smell logged (Jon, deferred): characters should be defined by their movement
+  *kit*, not by named `EnemyArchetype` rows — `dev/journals/code_smells.md`.
 - **S5** — pending (needs S4). The strong universal brain.
 
 Drift note for the next reader: the *player* fire path still uses its own

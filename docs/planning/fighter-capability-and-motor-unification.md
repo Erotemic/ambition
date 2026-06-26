@@ -356,8 +356,20 @@ Author model: Opus 4.8 (1M). Wall-clock log at the bottom.
 
   Smell logged (Jon, deferred): characters should be defined by their movement
   *kit*, not by named `EnemyArchetype` rows — `dev/journals/code_smells.md`.
-- **S3e (relational damage routing)** — pending. The missing non-player-centric
-  half (targeting is relational; damage is still bipartite). Prereq for the arena.
+- **S3e (relational damage routing)** ✅ (commits 524f67d6 melee, 05a7726e
+  projectile). `FactionRelations`' default now encodes the combat baseline
+  (Player↔Enemy/Boss), so it is the single damage authority with zero behavior
+  change. New `HitTarget::Actor` carries a pre-resolved non-player victim: an
+  Enemy/Boss melee swing and an enemy projectile both scan actor hurtboxes and
+  damage any body their faction is hostile to (projectiles route by the FIRER's
+  real faction, looked up from the owner — so both arena directions work, which
+  the binary `ProjectileFaction` couldn't). The player is now a GATED victim
+  (hitbox player-loop, player-damage consumer, projectile player-loop all skip a
+  hit whose attacker isn't hostile to Player) — so a spectator-arena fighter
+  spares the observer. The player's OWN attacks stay universal (NPC-provoke
+  intact). 8 new headless tests against the real systems; 1019 lib green. The
+  arena is now mechanically possible (needs S6's robot-as-actor for the second
+  combatant + a room that sets `Enemy↔Boss` hostile and clears `→ Player`).
 - **S4 (headless perception)** — first step done (sim-time); the big pieces remain.
 - **S5 (strong brain + spectator arena)** — pending (needs S4 + S3e + S6).
 - **S6 (convergence / de-player-casing)** — pending; the slice where "done" lands.

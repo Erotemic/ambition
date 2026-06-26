@@ -177,6 +177,34 @@ unit tests stay for fast checks but stop certifying "works in a fight."
   `velocity_target` are separate paths; aerial steering and blink assume `-y` is
   up (breaks under C4 / portals).
 
+## Progress (live — Jon reads, can't ask)
+
+Author model: Opus 4.8 (1M). Wall-clock log at the bottom.
+
+- **S0 (harness seed)** ✅ — `crates/ambition_gameplay_core/src/features/ecs/fighter_harness.rs`.
+  A real-ECS headless `App` over the *actual* fire pipeline (`emit_brain_action_messages`
+  → `spawn_enemy_projectiles_from_brain_actions` → `apply_projectile_effects`),
+  driving the body through the one `ActorControlFrame` seam any controller uses
+  (I1). Seeds the harness that retires the `smash/arena.rs` proxy for "works in a
+  fight"; it will grow to drop full bodies in a real room as S2–S5 land.
+- **S1 (body owns fire-rate)** ✅ — the intent-in seam's first migrated intent.
+  `IntentOutcome { Accepted | Blocked(BlockReason) }` added to `actor/control.rs`
+  (the body→controller half, shaped generically for the rest of the kit).
+  `ActorAttackState` gained a body-side `ranged_cooldown` + `try_fire_ranged()`
+  (the ranged analogue of the melee cooldown); the enemy fire path enforces it.
+  The brain-side cadence (`SmashState::ranged_cooldown_remaining` +
+  `maybe_substitute_ranged`'s gate) is **deleted** — the brain attempts a shot
+  every in-band tick; the body is the floor. Acceptance specs green: a 60 Hz spam
+  controller fires at the body rate (2 shots / 2 s), output rate is bounded by the
+  body not the attempt rate, idle controller never fires.
+- **S2–S5** — pending (see below). Next: unify the motor (movement into the
+  resolver, frame-agnostic).
+
+Drift note for the next reader: the *player* fire path still uses its own
+`ProjectileSpawner` (cooldown + meter); S1 unified the **enemy/AI-driven** body
+path and shaped the seam. Folding the player path onto `try_fire_ranged` (and a
+shared resource gate) is part of the S3 "stop special-casing the player" work.
+
 ## Roadmap
 
 A dependency chain to the end state: each slice is built once and consumed by the
@@ -289,3 +317,9 @@ These are authored red in S0 and define completion:
 - Harness model: the Bevy world-assert pattern under `features/.../tests`;
   `RoomGeometry` construction in `enemy_projectile/systems.rs` tests.
 - Exemplar character + encounter: `docs/planning/perfect-cellular-automaton-encounter.md`.
+
+## Wall-clock log
+
+- S0 harness seed + S1 body-owns-fire-rate: 2026-06-26 (one session). Recon
+  (parallel code map) → IntentOutcome seam + body ranged cooldown → delete brain
+  cadence → real-ECS harness + 4 acceptance specs → green. Commit `b4039987`.

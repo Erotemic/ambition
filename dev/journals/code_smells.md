@@ -22,6 +22,24 @@ Entry format:
 
 ## Open
 
+## 2026-06-26 Enemy `BrainSnapshot.sim_time` hardcoded to 0.0 → reaction latency inert in-game
+- **Where:** `ambition_gameplay_core/src/features/ecs/actors/update.rs:689` (`build_enemy_brain_snapshot` sets `sim_time: 0.0`).
+- **Smell:** every enemy brain tick sees `sim_time == 0.0`. The Smash brain's reaction-latency mechanism (`SmashState.obs_history`, keyed on `sim_time`) pushes `(0.0, target_pos)` every tick, so `ObsHistory::delayed(now=0, delay)` can never find a sample older than `now - delay` and the lag collapses — **the never-cheats reaction latency is effectively inert in production** (it works only in the headless harness, which threads real sim_time). `SkirmisherState`/`SniperState` already document the same trap and worked around it by switching to a `dt`-countdown cooldown (see the long comment at `state_machine/mod.rs` `cooldown_remaining`). The duelist footsies/foray cadences I added also use `dt` accumulation for this reason, so they're fine — but anything sim_time-based is silently broken.
+- **Noticed while:** wiring the aerial PCA + auditing which brain behaviors actually resolve in-game.
+- **Suggested fix / size:** M — thread the scaled sim clock into `build_enemy_brain_snapshot` (a `Res<WorldTime>` or the actor-update system's accumulated time) instead of 0.0; then the reaction-latency obs_history works in-game. Guard with a test that two ticks produce distinct `sim_time`. Until then, prefer `dt`-based cadences in brain code and treat `obs_history.delayed` as headless-only.
+
+## 2026-06-26 `BrainSnapshot.wall_contact` is defined + read but NEVER populated in production
+- **Where:** field `ambition_characters/src/brain/snapshot.rs` (`wall_contact: Option<WallContact>`); read by `Wanderer` (`state_machine/mod.rs::tick_wanderer`); the ONLY `Some` constructions are in tests (grep `wall_contact: Some` → test files only).
+- **Smell:** an aspirational seam. The Wanderer's climb-vs-reverse + chatter-pause logic keys on `wall_contact`, but every production snapshot builder sets it to `None`, so the puppy-slug's wall reactions never fire in-engine (it relies on a separate integrator-side facing flip, making the brain branch dead). It also looked like the natural seam for AI anti-corner during the duelist work — I deliberately did NOT use it precisely because it's unpopulated (would have been inert in-game).
+- **Noticed while:** looking for a production-faithful wall-awareness signal for the duelist neutral game (rejected it, used target-relative footsies instead).
+- **Suggested fix / size:** M — either populate `wall_contact` in the enemy snapshot builder from the integrator's already-computed wall-stop state (the `perp` side-speed stall check in `integration.rs`), or delete the field + the Wanderer branch if no consumer will wire it. Right now it's the worst of both: present, read, and dead.
+
+## 2026-06-26 `ObservationFrame` flat-struct field additions ripple to 3 test literals
+- **Where:** `ambition_characters/src/brain/smash/{action,mode,emit}.rs` each have an `obs_at(...)` test helper that builds a full `ObservationFrame { .. }` literal.
+- **Smell:** the same shape as the 2026-06-23 `BrainSnapshot` entry, one level down. Adding `self_aerial` forced edits to all three. There is no `ObservationFrame::idle()`-style constructor to `..` from.
+- **Noticed while:** adding the `self_aerial` field for the aerial brain.
+- **Suggested fix / size:** S — add a `#[cfg(test)] ObservationFrame::at(distance_x)` (or a `Default`) in `observation.rs` and have the three `obs_at` helpers delegate, so a new field touches one place.
+
 ## 2026-06-21 Dead `landed`/`killed` scaffold in `advance_attack` (+ possibly-broken pogo-off-enemy)
 - **Where:** crates/ambition_app/src/app/world_flow/attack.rs ~316-347 (`advance_attack`)
 - **Smell:** `let landed = false; let killed = false;` are hardcoded (synchronous hit resolution moved to the ECS damage queue), so every block gated on them is dead: the connect-sound `SfxMessage::Hit` (line ~321) AND — more worryingly — the pogo-impulse-on-landing block (`if landed && abilities.pogo && spec.can_pogo ...`, ~329-347). Pogo off the *orb* is a separate live path (~260-285); pogo off a *landed enemy hit* via this block can never fire. Either it's genuinely broken (needs migrating to the ECS damage queue like the connect sound was) or it's residue to delete. Found while answering "is there an attack-connect sound?" — answer: yes, the generic `SfxMessage::Hit` from `features/ecs/damage/mod.rs:307`, NOT this dead site; there is no *distinct* hit-confirm cue.

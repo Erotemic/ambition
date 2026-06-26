@@ -155,6 +155,47 @@
         smash_can_dash: true,
         move_style: Walk,
     ),
+    // The PROTAGONIST as an actor body (roadmap S6a / invariant I7): the player-
+    // robot's full movement kit authored as a droppable archetype, so the same
+    // body the human pilots can be dropped as a boss or fielded as the second
+    // combatant in the spectator arena. This is the actor expression of the player
+    // kit — blink / fly / shield / dash all resolve as body-enforced capabilities
+    // (the S3 verbs), and the signature ranged is the player's Hadouken. The id is
+    // descriptive for now; the lore rename of the LIVE player's roster id "player"
+    // (an AI whose abilities are theorems) is a separate, identity-sensitive call.
+    // Tuning is a first-pass and FEEL-UNVERIFIED (Jon checks in-game).
+    "player_robot": (
+        max_health: 20,
+        patrol_speed: 110.0,
+        chase_speed: 200.0,
+        aggro_radius: 560.0,
+        attack_range: 60.0,
+        contact_strength: 0.6,
+        damage_amount: 1,
+        // Grounded-base hybrid, exactly like the player: fights on the ground and
+        // takes to the air via the fly toggle when it needs the vertical space.
+        is_aerial: false,
+        brain_template: Smash,
+        // A snappy player-like strike.
+        melee: Some(Swipe((
+            windup_s: 0.16,
+            active_s: 0.06,
+            recover_s: 0.20,
+            damage: 1,
+            reach_px: 34.0,
+        ))),
+        // The player's signature projectile (the render layer reads the visual
+        // KIND, so the same Hadouken art the human fires).
+        ranged: Some(Rock(speed: 360.0, damage: 1)),
+        ranged_visual: Hadouken,
+        smash_dash_to_close: true,
+        // The full player kit, as body-enforced capabilities (S3a–d):
+        smash_can_blink: true,
+        smash_can_fly: true,
+        smash_can_shield: true,
+        smash_can_dash: true,
+        move_style: Walk,
+    ),
     "small_skitter": (
         max_health: 2,
         patrol_speed: 150.0,

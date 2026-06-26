@@ -863,6 +863,36 @@ mod capability_tests {
         assert_eq!(base, Default::default());
     }
 
+    /// The PROTAGONIST as an actor body (roadmap S6a / invariant I7): the
+    /// `player_robot` archetype carries the FULL player kit as body-enforced
+    /// capabilities — blink / fly / shield / dash all project into
+    /// `CombatCapabilities`, and it has both a melee strike and the player's
+    /// Hadouken ranged. This is what makes the player-robot droppable as a boss
+    /// and fieldable as the spectator-arena's second combatant. (Authoring this is
+    /// what forces the player kit to BE `CombatCapabilities`, per the convergence
+    /// audit; the live player folds onto this same actor path in S6b.)
+    #[test]
+    fn player_robot_archetype_carries_the_full_player_kit() {
+        let spec = crate::features::enemies::test_spec("player_robot");
+        let caps = spec.combat_capabilities();
+        assert!(
+            caps.can_blink && caps.can_fly && caps.can_shield && caps.can_dash,
+            "the player-robot body has the full movement kit as body capabilities: {caps:?}",
+        );
+        assert!(spec.melee.is_some(), "player-robot has a melee strike");
+        assert!(spec.ranged.is_some(), "player-robot has the Hadouken ranged verb");
+        assert_eq!(
+            spec.ranged_visual,
+            crate::projectile::ProjectileVisualKind::Hadouken,
+            "the player-robot fires the player's signature projectile",
+        );
+        assert_eq!(
+            spec.brain_template,
+            super::EnemyBrainTemplate::Smash,
+            "the player-robot is driven by the unified Smash brain (the strong brain)",
+        );
+    }
+
     /// The Stochastic Parrot's DUAL nature, proven from the authored data:
     ///   - the friendly cove bird is a catalog character (`stochastic_parrot`,
     ///     peaceful) — its sprite binds by `character_id`;

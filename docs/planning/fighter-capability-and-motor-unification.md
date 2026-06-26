@@ -426,9 +426,22 @@ Author model: Opus 4.8 (1M). Wall-clock log at the bottom.
   - **Remaining S5:** reposition (jump / go-around / blink / fly) when no LOF
     instead of only closing; off-viewport pursuit via `WorldMemory`; portal
     routing; **the spectator arena** (needs S6a robot-as-actor for the 2nd body).
-- **S6 (convergence / de-player-casing)** — pending; the slice where "done" lands.
-  The player becomes an actor, the duplicated player clusters fold, the
-  player-robot becomes a droppable boss archetype, and possession is wired in-game.
+- **S6 (convergence / de-player-casing)** — *in progress:*
+  - **S6a player-robot as an actor archetype** ✅ — the protagonist's full kit is
+    now authored as the `player_robot` archetype (`enemy_archetypes.ron`): blink /
+    fly / shield / dash all project into `CombatCapabilities` (the S3 body-enforced
+    verbs), a snappy melee strike, and the player's signature **Hadouken** ranged.
+    Droppable as a boss / fieldable as the arena's second combatant (I7). This is
+    what *forces* the player kit to BE `CombatCapabilities` (convergence audit).
+    Proven: `player_robot_archetype_carries_the_full_player_kit` (parses + projects
+    the kit). NOTE: the id is descriptive; the lore rename of the LIVE player's
+    roster id `"player"` is a separate identity-sensitive call (deferred). Tuning is
+    a first-pass and **feel-unverified** (Jon checks in-game).
+  - **Remaining S6 (the feel-sensitive convergence):** fold the duplicated player
+    clusters (`PlayerShieldState` / `PlayerDashState` / `PlayerFlightState` /
+    `ProjectileSpawner`) onto the shared capability path; the live player becomes an
+    actor on the one resolver + perception path; possession wired in-game. Done
+    behind the differential trace harness, shipped blind+marked (Jon verifies feel).
 
 Calibration outcome (2026-06-26): no pivot. S3 built actor-side parity correctly;
 the remaining work is **convergence debt-paydown** — see the "end state" + audit

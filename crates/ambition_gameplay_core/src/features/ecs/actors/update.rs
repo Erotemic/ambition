@@ -683,6 +683,9 @@ fn build_enemy_brain_snapshot(
         movement_frame_mode: ae::InputFrameMode::DEFAULT_MOVEMENT,
         aim_frame_mode: ae::InputFrameMode::DEFAULT_AIM,
         actor_on_ground: em.surface.on_ground,
+        // A floating body (gravity_scale == 0) is a free-mover: the brain steers
+        // 2D velocity_target. Same predicate the integrator uses for `is_aerial`.
+        actor_aerial: em.surface.gravity_scale <= 0.001,
         alive: em.status.alive,
         target_pos,
         target_alive: true,

@@ -24,6 +24,9 @@ pub struct ObservationFrame {
     pub self_vel: ae::Vec2,
     pub self_facing: f32,
     pub self_on_ground: bool,
+    /// This body is a gravity-free flyer — the brain steers 2D
+    /// `velocity_target` instead of grounded locomotion + jump.
+    pub self_aerial: bool,
     pub self_alive: bool,
     /// Mid-air jumps the actor has left until next landing. Reads
     /// straight off `BrainSnapshot.air_jumps_remaining`. The action
@@ -137,6 +140,7 @@ pub fn observe(snap: &BrainSnapshot) -> ObservationFrame {
         self_vel: snap.actor_vel,
         self_facing: snap.actor_facing,
         self_on_ground: snap.actor_on_ground,
+        self_aerial: snap.actor_aerial,
         self_alive: snap.alive,
         self_air_jumps_remaining: snap.air_jumps_remaining,
         self_attacking,

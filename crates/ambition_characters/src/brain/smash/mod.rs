@@ -305,8 +305,9 @@ pub fn tick_smash(
     state.ranged_cooldown_remaining = (state.ranged_cooldown_remaining - snapshot.dt).max(0.0);
     state.dash_cooldown_remaining = (state.dash_cooldown_remaining - snapshot.dt).max(0.0);
     state.neutral_jump_cooldown = (state.neutral_jump_cooldown - snapshot.dt).max(0.0);
-    // Advance the footsies weave phase (only meaningful when enabled).
-    if cfg.footsies_amplitude > 0.0 && cfg.footsies_period_s > 0.0 {
+    // Advance the spacing phase — it drives the grounded footsies weave AND the
+    // aerial dive/perch cycle, so a flyer needs it even with footsies disabled.
+    if (cfg.footsies_amplitude > 0.0 || snapshot.actor_aerial) && cfg.footsies_period_s > 0.0 {
         state.spacing_phase += snapshot.dt * std::f32::consts::TAU / cfg.footsies_period_s;
         if state.spacing_phase > std::f32::consts::TAU {
             state.spacing_phase -= std::f32::consts::TAU;
@@ -339,19 +340,89 @@ pub fn tick_smash(
     // Substituted *before* difficulty so the shot inherits the same
     // accuracy jitter / commit roll as a melee swing.
     let action = maybe_substitute_ranged(action, &obs, mode, cfg, actions, state);
-    // Then, if still just closing a *large* gap, burst a dash. Runs
-    // after ranged so a mid-range poke wins over a dash (the actor
-    // shoots, then dashes to close while the shot reloads).
-    let action = maybe_substitute_dash(action, &obs, mode, cfg, state);
-    // Neutral game (duelists only — no-op when footsies are disabled): weave the
-    // spacing in/out around the engage band instead of camping point-blank, then
-    // mix in a neutral hop. Runs last among the movement refiners so it governs
-    // only the residual plain Walk/Idle; a committed poke / dash / ranged shot is
-    // never overridden.
-    let action = maybe_apply_footsies(action, &obs, mode, cfg, state);
-    let action = maybe_neutral_jump(action, &obs, cfg, state);
+    // The grounded movement refiners (dash-to-close, footsies weave, neutral hop)
+    // only make sense for a body that walks + jumps. A flyer skips them — its 2D
+    // motion is steered below — but keeps the dimension-agnostic ranged poke.
+    let action = if obs.self_aerial {
+        action
+    } else {
+        // Then, if still just closing a *large* gap, burst a dash. Runs after
+        // ranged so a mid-range poke wins over a dash (shoot, then dash to close
+        // while the shot reloads).
+        let action = maybe_substitute_dash(action, &obs, mode, cfg, state);
+        // Neutral game (duelists only — no-op when footsies are disabled): weave
+        // the spacing in/out around the engage band instead of camping point-blank,
+        // then mix in a neutral hop. Runs last among the movement refiners so it
+        // governs only the residual plain Walk/Idle; a committed poke / dash /
+        // ranged shot is never overridden.
+        let action = maybe_apply_footsies(action, &obs, mode, cfg, state);
+        maybe_neutral_jump(action, &obs, cfg, state)
+    };
     let action = apply_difficulty(action, &cfg.difficulty, state);
     emit_inputs(action, &obs, out);
+    if obs.self_aerial {
+        // Flyer: the grounded motor outputs (locomotion throttle, jump edge) don't
+        // apply — discard them and steer a 2D velocity toward a dive/perch spacing
+        // point. The attack verbs emit_inputs wrote (melee / ranged / special) are
+        // dimension-agnostic and stay.
+        out.locomotion = ae::Vec2::ZERO;
+        out.jump_pressed = false;
+        out.velocity_target = aerial_steer(&obs, mode, cfg, state);
+    }
+}
+
+/// 2D steering for an aerial (free-mover) Smash fighter. Instead of grounded
+/// footsies, it runs a **dive / perch** oscillation: it perches diagonally above-
+/// and-beside the target to bait + reset, then dives onto it to land a strike,
+/// using the vertical stage space a grounded brawler can't. Reuses the spacing
+/// phase (no extra state) and is frame-agnostic apart from the engine's
+/// `+y = down` convention, which it only uses to pick "above". Returns a desired
+/// world velocity for `velocity_target`.
+fn aerial_steer(
+    obs: &ObservationFrame,
+    mode: BroadMode,
+    cfg: &SmashCfg,
+    state: &SmashState,
+) -> ae::Vec2 {
+    // Hold position through a swing so the strike connects rather than drifting
+    // back out of range mid-attack.
+    if obs.self_attacking {
+        return ae::Vec2::ZERO;
+    }
+    let toward = if obs.to_target_x.abs() < 0.001 {
+        obs.self_facing
+    } else {
+        obs.to_target_x.signum()
+    };
+    let phase = state.spacing_phase + seed_phase_offset(state.rng_seed);
+    // Dive/perch parameter in [0, 1]: 0 = dive onto the target (enter attack
+    // range), 1 = perch above-and-beside it.
+    let t = 0.5 + 0.5 * phase.sin();
+    // Cross-up: the perch side flips on a slower phase, so between dives the flyer
+    // crosses over the target (left-perch → dive → right-perch) instead of camping
+    // one side. Falls back toward the target's side when it has no momentum.
+    let cross = (phase * 0.5).sin();
+    let perch_side = if cross.abs() < 0.05 { toward } else { cross.signum() };
+    let perch = obs.target_pos
+        + ae::Vec2::new(perch_side * cfg.engage_distance, -cfg.engage_distance * 0.85);
+    let dive = obs.target_pos;
+    let (desired, speed) = match mode {
+        // Pressured / crowded: peel off to a higher, farther perch.
+        BroadMode::Retreat | BroadMode::Reposition => (
+            obs.target_pos
+                + ae::Vec2::new(-toward * cfg.engage_distance * 1.3, -cfg.engage_distance * 1.4),
+            cfg.retreat_speed,
+        ),
+        // No engagement: hold station.
+        BroadMode::Idle => (obs.self_pos, 0.0),
+        // Neutral / engage: ride the dive→perch arc.
+        _ => (dive.lerp(perch, t), cfg.chase_speed),
+    };
+    let to_desired = desired - obs.self_pos;
+    // Ease into the target point so the flyer settles instead of overshooting and
+    // oscillating around it.
+    let throttle = (to_desired.length() / 22.0).min(1.0);
+    to_desired.normalize_or_zero() * speed * throttle
 }
 
 /// Per-actor footsies phase offset (radians) derived from the stable RNG seed,

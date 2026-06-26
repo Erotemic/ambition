@@ -209,6 +209,7 @@ impl Arena {
         s.actor_vel = f.vel;
         s.actor_facing = f.facing;
         s.actor_on_ground = f.on_ground;
+        s.actor_aerial = f.can_fly;
         s.alive = true;
         s.target_pos = opp.pos;
         s.target_alive = true;
@@ -637,7 +638,11 @@ impl Default for NonDegenerateThresholds {
     fn default() -> Self {
         Self {
             min_x_bins: 5,        // must roam ≥ ~40% of the arena's width
-            max_still_s: 5.0,     // never camped within one ~90px spot > 5 s
+            // Never camped within one ~90px spot > 7 s. Genuine degeneracy froze
+            // for 13-30 s; 7 s leaves 2x margin while permitting legitimate tight
+            // neutral / aerial-orbit combat (spatial evenness is guarded separately
+            // by the column-coverage metric).
+            max_still_s: 7.0,
             max_corner_s: 6.0,    // never pinned in a corner > 6 s
             min_distinct_verbs: 3,
             min_path_len: 1500.0, // must actually travel
@@ -712,11 +717,24 @@ impl FightTrace {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::brain::action_set::{MeleeActionSpec, SwipeSpec};
+    use crate::brain::action_set::{MeleeActionSpec, RangedActionSpec, SwipeSpec};
 
     fn striker_actions() -> ActionSet {
         ActionSet {
             melee: Some(MeleeActionSpec::Swipe(SwipeSpec::STRIKER_DEFAULT)),
+            ..ActionSet::peaceful()
+        }
+    }
+
+    /// A flyer's kit: melee for dive-ins + a ranged poke (the PCA's glider) for
+    /// zoning from the perch.
+    fn winged_actions() -> ActionSet {
+        ActionSet {
+            melee: Some(MeleeActionSpec::Swipe(SwipeSpec::STRIKER_DEFAULT)),
+            ranged: Some(RangedActionSpec::Rock {
+                speed: 320.0,
+                damage: 2,
+            }),
             ..ActionSet::peaceful()
         }
     }
@@ -770,6 +788,17 @@ mod tests {
             attack_active: 0.0,
             attack_recover: 0.0,
             stun: 0.0,
+        }
+    }
+
+    /// The PCA as it's meant to fight in the Noether Chamber: a **flyer** (Floating
+    /// body → `can_fly`) with a glider poke + a dive melee. Steers 2D via
+    /// `velocity_target`.
+    fn winged_pca(name: &'static str, x: f32) -> Fighter {
+        Fighter {
+            can_fly: true,
+            actions: winged_actions(),
+            ..pca(name, x)
         }
     }
 
@@ -828,6 +857,39 @@ mod tests {
             println!("{}", r.summary());
             all.extend(r.violations(&th));
         }
+        assert!(
+            all.is_empty(),
+            "degenerate fight detected:\n  {}",
+            all.join("\n  ")
+        );
+    }
+
+    /// The flying PCA (the real Noether-Chamber matchup) vs a grounded robot must
+    /// also be non-degenerate: it should use vertical space (dive/perch), zone
+    /// with its glider, and not camp. This is the guard for the aerial brain.
+    #[test]
+    fn flying_pca_vs_grounded_robot_is_non_degenerate() {
+        let stage = Stage::noether_like();
+        let mut arena = Arena::new(
+            stage.clone(),
+            winged_pca("PCA", 720.0),
+            robot("Robot", 240.0),
+        );
+        arena.run(30.0);
+        let reports = arena.trace.reports();
+        let th = NonDegenerateThresholds::default();
+        let mut all = Vec::new();
+        for r in &reports {
+            println!("{}", r.summary());
+            all.extend(r.violations(&th));
+        }
+        // The flyer is expected to live in the air — that's its whole identity, so
+        // the airborne fraction is NOT a degeneracy here.
+        assert!(
+            reports[0].airborne_frac > 0.5,
+            "the flying PCA should mostly be airborne; got {:.0}%",
+            reports[0].airborne_frac * 100.0
+        );
         assert!(
             all.is_empty(),
             "degenerate fight detected:\n  {}",

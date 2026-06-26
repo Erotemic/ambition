@@ -50,6 +50,13 @@ pub struct BrainSnapshot {
     /// Whether the actor is grounded (touching a `Solid` / `OneWay`
     /// floor this tick).
     pub actor_on_ground: bool,
+    /// Whether this body is a gravity-free **free-mover** (a flyer: enemy
+    /// `is_aerial` / `gravity_scale == 0`, or a `Floating` NPC). When true the
+    /// brain steers in 2D via `velocity_target` instead of grounded
+    /// `locomotion` + jump. Body-derived truth, populated by the snapshot
+    /// builder from the body's gravity scale. Defaults `false` so grounded
+    /// brains and inert test snapshots are unaffected.
+    pub actor_aerial: bool,
     /// Whether the actor is alive. State-machine brain templates
     /// emit a neutral frame when `alive == false`; the player brain
     /// (`Brain::Player`) currently doesn't gate on this — dead
@@ -149,6 +156,7 @@ impl BrainSnapshot {
             movement_frame_mode: ae::ControlFrameModes::default().movement,
             aim_frame_mode: ae::ControlFrameModes::default().aim,
             actor_on_ground: true,
+            actor_aerial: false,
             alive: true,
             target_pos: ae::Vec2::ZERO,
             target_alive: true,

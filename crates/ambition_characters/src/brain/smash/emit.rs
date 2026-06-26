@@ -118,6 +118,7 @@ mod tests {
             self_vel: ae::Vec2::ZERO,
             self_facing: 1.0,
             self_on_ground: true,
+            self_aerial: false,
             self_alive: true,
             self_attacking: false,
             self_air_jumps_remaining: 0,

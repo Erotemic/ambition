@@ -85,6 +85,7 @@ mod conversion_tests {
             movement_frame_mode: ae::InputFrameMode::BodyRelativeAssist,
             aim_frame_mode: ae::InputFrameMode::ScreenRelative,
             actor_on_ground: seed.surface.on_ground,
+            actor_aerial: seed.surface.gravity_scale <= 0.001,
             alive: true,
             target_pos: target,
             target_alive: true,

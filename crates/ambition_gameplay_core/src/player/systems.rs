@@ -82,6 +82,9 @@ pub fn tick_player_brains(
             movement_frame_mode: control_frame_modes.movement,
             aim_frame_mode: control_frame_modes.aim,
             actor_on_ground: ground.on_ground,
+            // The player brain reads input, not the Smash aerial path; grounded
+            // locomotion semantics regardless of fly mode.
+            actor_aerial: false,
             alive: true,
             target_pos: kin.pos,
             target_alive: true,

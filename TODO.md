@@ -27,8 +27,34 @@ When you wake up here, pick the next task from this list and work on it without 
 
 ## Jon's Bug List
 
+- [ ] The attack hitbox direction is bugged in non-down gravity. 
+
 
 ## Jon's Polish List
+
+- [ ] Portraits for all sprite character need to be generated.
+
+- [ ] Need to hookup portraits in dialog.
+
+- [ ] Little character talking sounds for dialog
+
+- [ ] A better hit sfx for the player
+
+- [ ] A better swing sfx for the player 
+
+- [ ] A better footstep sfx for the player 
+
+- [ ] A better jump sfx for the player 
+
+- [ ] A better double jump sfx for the player 
+
+- [ ] Spritesheet packing (and spritesheet splitting so we keep sheets efficient packed for memory).
+
+- [ ] Cell-ular automata encounter that starts with encountering them and having to talk to them, only once you choose the challenge option does the fight / encounter begin. The boss has an advanced enemy fighter brain that we try to program to be smart and reactive (never cheating, we can improve the AI over time, but we should try to start with a strong candidate.). 
+
+- [ ] We need a way to orient generic props in LDTK so we can ensure the switches in the C4-symmetry room actually make a symmetry.
+
+- [ ] Make abilities like fly, blink, fireball cost mana. For now we can have the player character have an ability that constantly regenerates mana so we can still navigate and test things quickly in "god mode".
 
 - [x] **Tie-a-knot trail mechanic** `[V?/D?]` - Add a feature where the player emits a trail that can drape onto collision, be pulled taut, and work through portals.
 

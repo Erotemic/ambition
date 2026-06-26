@@ -7,3 +7,6 @@
 [submodule "tools/ambition_music_renderer"]
 	path = tools/ambition_music_renderer
 	url = https://github.com/Erotemic/ambition_music_renderer.git
+[submodule "tools/ambition_sprite2d_renderer"]
+	path = tools/ambition_sprite2d_renderer
+	url = https://github.com/Erotemic/ambition_sprite2d_renderer.git

@@ -290,10 +290,23 @@ fn npc_hostile_bark(key: &str, name: &str) -> &'static str {
 // per-family cluster. That keeps dialogue an actor capability (the
 // `ActorInteraction` seam): any talkable actor can drive them.
 
+use ambition_characters::actor::character_catalog::BarkSituation;
 use ambition_interaction::{Interactable, InteractionKind};
 
 pub(crate) fn npc_flag_id(id: &str) -> String {
     format!("npc_{id}_hostile")
+}
+
+/// The catalog `character_id` carried by an NPC interaction payload, if any.
+/// This is the identity key the catalog `barks` pools are authored against.
+fn npc_character_id(interactable: &Interactable) -> Option<&str> {
+    match &interactable.kind {
+        InteractionKind::Npc {
+            character_id: Some(cid),
+            ..
+        } => Some(cid.as_str()),
+        _ => None,
+    }
 }
 
 pub(crate) fn npc_dialogue_key(interactable: &Interactable, id: &str) -> String {
@@ -312,11 +325,21 @@ pub(crate) fn npc_hit_bark_line(
     id: &str,
     strikes: i32,
 ) -> &'static str {
+    let rotation = strikes.saturating_sub(1).max(0) as u32;
+    // Catalog-first: a character's voice lives in its catalog `barks` row.
+    if let Some(cid) = npc_character_id(interactable) {
+        if let Some(line) =
+            crate::character_roster::bark_line_for_character_id(cid, BarkSituation::OnHit, rotation)
+        {
+            return line;
+        }
+    }
+    // TEMP fallback — the hardcoded tables, until every catalog row's
+    // `barks.on_hit` is populated (then delete `npc_hit_barks`).
     let key = npc_dialogue_key(interactable, id);
     let name = name.to_ascii_lowercase();
-    let strike_index = strikes.saturating_sub(1).max(0) as usize;
     let lines = npc_hit_barks(&key, &name);
-    lines[strike_index.min(lines.len().saturating_sub(1))]
+    lines[(rotation as usize).min(lines.len().saturating_sub(1))]
 }
 
 pub(crate) fn npc_hostile_bark_line(
@@ -324,15 +347,56 @@ pub(crate) fn npc_hostile_bark_line(
     name: &str,
     id: &str,
 ) -> &'static str {
+    // Catalog-first (the `provoked` pool; one line, rotation 0).
+    if let Some(cid) = npc_character_id(interactable) {
+        if let Some(line) = crate::character_roster::bark_line_for_character_id(
+            cid,
+            BarkSituation::Provoked,
+            0,
+        ) {
+            return line;
+        }
+    }
+    // TEMP fallback — until every catalog row's `barks.provoked` is populated
+    // (then delete `npc_hostile_bark`).
     let key = npc_dialogue_key(interactable, id);
     let name = name.to_ascii_lowercase();
     npc_hostile_bark(&key, &name)
+}
+
+/// Ambient one-liner for the idle-bark ticker: the catalog pool for
+/// `situation` (`Idle` while roaming a normal room, `Hall` while on a Hall
+/// pedestal), falling back to the legacy idle table. `None` = nothing to say,
+/// so the ticker skips this actor. Rotation cycles the pool.
+pub(crate) fn npc_ambient_bark_line(
+    interactable: &Interactable,
+    id: &str,
+    situation: BarkSituation,
+    rotation: u32,
+) -> Option<&'static str> {
+    // Catalog-first.
+    if let Some(cid) = npc_character_id(interactable) {
+        if let Some(line) =
+            crate::character_roster::bark_line_for_character_id(cid, situation, rotation)
+        {
+            return Some(line);
+        }
+    }
+    // TEMP fallback — the legacy idle table only covers `Idle` (the parrot);
+    // `Hall` has no legacy table, so it's catalog-only by construction.
+    if situation == BarkSituation::Idle {
+        return npc_idle_bark_line(interactable, id, rotation);
+    }
+    None
 }
 
 /// Ambient "bark" one-liners a peaceful NPC mutters while idling (not the
 /// interact dialog). Returns `None` for NPCs with no ambient pool, so the
 /// idle-bark system skips them. Rotation cycles through the pool. The
 /// stochastic parrot riffs on the LLM "stochastic parrot" hypothesis.
+///
+/// TEMP fallback for [`npc_ambient_bark_line`] — delete once every catalog
+/// row's `barks.idle` is populated.
 pub(crate) fn npc_idle_bark_line(
     interactable: &Interactable,
     id: &str,

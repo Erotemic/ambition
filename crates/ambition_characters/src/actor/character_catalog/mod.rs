@@ -33,9 +33,9 @@ pub mod validator;
     reason = "public surface; downstream phases consume these as they land"
 )]
 pub use entry::{
-    ActionSetPreset, BrainPreset, CharacterBodyKind, CharacterCatalogData, CharacterCatalogEntry,
-    CharacterTier, CompositionLayer, MeleePreset, MoveStylePreset, RangedPreset, SpecialPreset,
-    SpriteTuningSpec,
+    ActionSetPreset, BarkSituation, BrainPreset, CharacterBarks, CharacterBodyKind,
+    CharacterCatalogData, CharacterCatalogEntry, CharacterTier, CompositionLayer, MeleePreset,
+    MoveStylePreset, RangedPreset, SpecialPreset, SpriteTuningSpec,
 };
 #[allow(
     unused_imports,
@@ -142,6 +142,21 @@ pub fn validate_catalog_on_startup(catalog: Res<CharacterCatalog>) {
 mod tests {
     use super::*;
     use crate::brain::{Brain, StateMachineCfg};
+
+    #[test]
+    fn character_barks_pick_rotates_and_empty_is_none() {
+        let barks = CharacterBarks {
+            on_hit: vec!["a".into(), "b".into()],
+            ..Default::default()
+        };
+        // Rotation cycles the pool.
+        assert_eq!(barks.pick(BarkSituation::OnHit, 0), Some("a"));
+        assert_eq!(barks.pick(BarkSituation::OnHit, 1), Some("b"));
+        assert_eq!(barks.pick(BarkSituation::OnHit, 2), Some("a"));
+        // An empty pool yields no line (caller falls back).
+        assert_eq!(barks.pick(BarkSituation::Hall, 0), None);
+        assert_eq!(barks.pick(BarkSituation::Idle, 7), None);
+    }
 
     #[test]
     fn brain_preset_patrol_offsets_spawn_world_x() {

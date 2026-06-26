@@ -75,6 +75,34 @@ pub fn default_brain_for_character_id(
     ))
 }
 
+/// Pick a bark line for a character id + situation, rotated by `rotation`
+/// (so repeated barks cycle the pool). Reads the character's catalog `barks`
+/// pools — the single source of truth for its voice. Returns `None` when the
+/// id is unknown or its pool for that situation is empty, so callers can fall
+/// back to the legacy bark tables during the catalog-population transition.
+pub fn bark_line_for_character_id(
+    character_id: &str,
+    situation: ambition_characters::actor::character_catalog::BarkSituation,
+    rotation: u32,
+) -> Option<&'static str> {
+    EMBEDDED_CATALOG
+        .characters
+        .get(character_id)?
+        .barks
+        .pick(situation, rotation)
+}
+
+/// The Hall-of-Characters dialogue node id authored for a character id, if
+/// any. The hall generator reads this to populate each pedestal's
+/// `dialogue_id`; the dialogue validator folds it into the known-id set.
+pub fn hall_dialogue_id_for_character_id(character_id: &str) -> Option<&'static str> {
+    EMBEDDED_CATALOG
+        .characters
+        .get(character_id)?
+        .hall_dialogue_id
+        .as_deref()
+}
+
 /// The catalog `body_kind` for a character id, if present. `Floating` means the
 /// actor is gravity-free (a flyer): the spawn zeroes its `gravity_scale` so the
 /// brain's full 2D `desired_vel` drives flight.
@@ -356,6 +384,65 @@ mod tests {
             missing.is_empty(),
             "renderer targets missing catalog entries: {missing:?}",
         );
+    }
+
+    #[test]
+    fn exemplar_barks_resolve_from_catalog() {
+        use ambition_characters::actor::character_catalog::BarkSituation;
+        // The Pirate Admiral scaffold exemplar carries an on_hit + provoked +
+        // hall pool. Catalog-first resolution must return them (the npcs.rs
+        // legacy table is now only a fallback for unmigrated rows).
+        assert_eq!(
+            bark_line_for_character_id("npc_pirate_admiral", BarkSituation::OnHit, 0),
+            Some("Belay that, ye barnacle!"),
+        );
+        // on_hit rotates with strike count.
+        assert_eq!(
+            bark_line_for_character_id("npc_pirate_admiral", BarkSituation::OnHit, 1),
+            Some("Mind the epaulettes, scallywag!"),
+        );
+        assert_eq!(
+            bark_line_for_character_id("npc_pirate_admiral", BarkSituation::Provoked, 0),
+            Some("Broadside, ye bilge rat!"),
+        );
+        assert!(
+            bark_line_for_character_id("npc_pirate_admiral", BarkSituation::Hall, 0).is_some(),
+            "admiral should have a Hall bark"
+        );
+        // A row with no authored pool for a situation returns None so the
+        // firing site falls back.
+        assert_eq!(
+            bark_line_for_character_id("npc_kernel_guide", BarkSituation::Idle, 0),
+            None,
+        );
+        // Unknown id is always None.
+        assert_eq!(
+            bark_line_for_character_id("npc_not_a_character", BarkSituation::OnHit, 0),
+            None,
+        );
+    }
+
+    #[test]
+    fn exemplar_hall_dialogue_ids_resolve_and_are_known() {
+        // hall_dialogue_id round-trips, and known_dialogue_ids() folds the
+        // catalog ids in so the LDtk validator accepts authored hall_<id>
+        // nodes without a second hand-maintained list.
+        assert_eq!(
+            hall_dialogue_id_for_character_id("npc_pirate_admiral"),
+            Some("hall_pirate_admiral"),
+        );
+        assert_eq!(hall_dialogue_id_for_character_id("npc_not_a_character"), None);
+        let known = crate::dialog::known_dialogue_ids();
+        for expected in [
+            "hall_pirate_admiral",
+            "hall_stochastic_parrot",
+            "hall_architect",
+        ] {
+            assert!(
+                known.contains(&expected),
+                "{expected} should be in known_dialogue_ids() via the catalog fold-in"
+            );
+        }
     }
 
     #[test]

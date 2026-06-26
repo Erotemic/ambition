@@ -745,6 +745,11 @@ pub fn sync_actor_components_from_cluster(
     };
 }
 
+/// Area id of the Hall of Characters (matches the generated level/area in
+/// `generate_hall_of_characters.py`). When this is the active area, the idle
+/// ticker switches NPC ambient barks to their `Hall` pool.
+const HALL_OF_CHARACTERS_AREA: &str = "hall_of_characters";
+
 /// Per-NPC ambient-bark timing (decremented by sim dt; deterministic jitter).
 #[derive(Default)]
 pub struct NpcIdleBarkState {
@@ -782,20 +787,33 @@ pub fn tick_npc_idle_barks(
         With<FeatureSimEntity>,
     >,
     mut vfx: MessageWriter<ambition_vfx::vfx::VfxMessage>,
+    room_set: Option<Res<crate::rooms::RoomSet>>,
     mut state: Local<NpcIdleBarkState>,
 ) {
     let dt = world_time.scaled_dt;
     if dt <= 0.0 {
         return;
     }
+    // While the player is touring the Hall of Characters, pedestals draw their
+    // `Hall` bark pool (the fun gallery lines); everywhere else NPCs mutter
+    // their `Idle` pool. Same ambient ticker, different occasion.
+    let situation = match room_set.as_deref() {
+        Some(rs) if rs.active_spec().id == HALL_OF_CHARACTERS_AREA => {
+            ambition_characters::actor::character_catalog::BarkSituation::Hall
+        }
+        _ => ambition_characters::actor::character_catalog::BarkSituation::Idle,
+    };
     for (kin, config, status, interaction, disposition) in &npcs {
         if disposition.is_hostile() || status.hit_flash > 0.0 {
             continue;
         }
         let rotation = *state.rotations.get(&config.id).unwrap_or(&0);
-        let Some(line) =
-            super::super::npcs::npc_idle_bark_line(&interaction.interactable, &config.id, rotation)
-        else {
+        let Some(line) = super::super::npcs::npc_ambient_bark_line(
+            &interaction.interactable,
+            &config.id,
+            situation,
+            rotation,
+        ) else {
             continue;
         };
         let timer = state

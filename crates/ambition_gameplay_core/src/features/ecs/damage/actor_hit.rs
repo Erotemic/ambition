@@ -112,14 +112,27 @@ pub(crate) fn apply_actor_hit(
         let should_bark = em.status.hit_flash < 0.05;
         em.status.hit_flash = 0.16;
         if should_bark {
-            if let Some(reg) = combat_banter {
-                let strikes = em.status.health.max - em.status.health.current;
-                if let Some(line) = reg.pick_hit_bark(&em.config.name, strikes.max(0) as u32) {
-                    writers.vfx.write(VfxMessage::SpeechBubble {
-                        pos: em.bark_anchor(),
-                        text: line.to_string(),
-                    });
-                }
+            let strikes = (em.status.health.max - em.status.health.current).max(0) as u32;
+            // Catalog-first: resolve the enemy's catalog id from its display
+            // name (the identity every actor carries) and read its `on_hit`
+            // pool. TEMP fallback to the CombatBanterRegistry until enemy rows
+            // are populated (then drop the registry + its content installers).
+            let line = crate::character_roster::character_id_for_display_name(&em.config.name)
+                .and_then(|cid| {
+                    crate::character_roster::bark_line_for_character_id(
+                        cid,
+                        ambition_characters::actor::character_catalog::BarkSituation::OnHit,
+                        strikes,
+                    )
+                })
+                .or_else(|| {
+                    combat_banter.and_then(|reg| reg.pick_hit_bark(&em.config.name, strikes))
+                });
+            if let Some(line) = line {
+                writers.vfx.write(VfxMessage::SpeechBubble {
+                    pos: em.bark_anchor(),
+                    text: line.to_string(),
+                });
             }
         }
         if let HitSource::PlayerSlash { knock_x } = &event.source {

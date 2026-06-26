@@ -66,6 +66,74 @@ pub struct SpriteTuningSpec {
     pub feet_anchor_y: Option<f32>,
 }
 
+/// An occasion on which a character may speak a one-line speech bubble.
+/// Each variant maps to a named pool on [`CharacterBarks`]; the firing
+/// system for that occasion picks (and rotates through) lines from the
+/// matching pool. Heterogeneous by design — some are events (struck,
+/// provoked), some are ambient states (idling, on display) — but the data
+/// model is uniform so all of a character's voice lives in one place.
+#[derive(Clone, Copy, Debug, Deserialize, PartialEq, Eq, Hash)]
+pub enum BarkSituation {
+    /// Struck in combat — a peaceful NPC's retaliation warning, or an
+    /// enemy/boss yelping under a hit. Event-driven; rotates with strikes.
+    OnHit,
+    /// The moment a peaceful NPC crosses its hostility threshold and turns
+    /// to fight. Event-driven; fires once.
+    Provoked,
+    /// Ambient muttering while idling — a peaceful NPC standing around, or a
+    /// boss between strikes. Timer-driven; rotates.
+    Idle,
+    /// On display in the Hall of Characters: the character's fun, often
+    /// self-aware gallery line. Timer-driven; rotates.
+    Hall,
+}
+
+/// Per-character speech-bubble pools, one list per [`BarkSituation`]. All
+/// pools default empty — an empty pool means "no authored line for that
+/// occasion", and the firing system falls back (generic mob lines for
+/// `OnHit` / `Provoked`, silence for `Idle` / `Hall`).
+///
+/// Authored in the catalog row so a character's voice lives with its
+/// identity: every system that spawns the character — a room placement, the
+/// peaceful→hostile flip, the Hall gallery — draws from the same lines.
+#[derive(Clone, Debug, Default, Deserialize, PartialEq)]
+pub struct CharacterBarks {
+    /// Lines when struck in combat. Rotates with strike count.
+    #[serde(default)]
+    pub on_hit: Vec<String>,
+    /// Line(s) when a peaceful NPC turns hostile. Usually one.
+    #[serde(default)]
+    pub provoked: Vec<String>,
+    /// Ambient idle muttering.
+    #[serde(default)]
+    pub idle: Vec<String>,
+    /// Hall-of-Characters gallery lines (fun / self-aware).
+    #[serde(default)]
+    pub hall: Vec<String>,
+}
+
+impl CharacterBarks {
+    /// The line pool for `situation` (possibly empty).
+    pub fn pool(&self, situation: BarkSituation) -> &[String] {
+        match situation {
+            BarkSituation::OnHit => &self.on_hit,
+            BarkSituation::Provoked => &self.provoked,
+            BarkSituation::Idle => &self.idle,
+            BarkSituation::Hall => &self.hall,
+        }
+    }
+
+    /// Pick a line for `situation`, rotating by `rotation` so repeated barks
+    /// cycle the pool. `None` when the pool is empty (caller falls back).
+    pub fn pick(&self, situation: BarkSituation, rotation: u32) -> Option<&str> {
+        let pool = self.pool(situation);
+        if pool.is_empty() {
+            return None;
+        }
+        Some(pool[(rotation as usize) % pool.len()].as_str())
+    }
+}
+
 /// One character entry in `character_catalog.ron`.
 #[allow(
     dead_code,
@@ -108,6 +176,20 @@ pub struct CharacterCatalogEntry {
     /// derive from this row's own `manifest` filename.
     #[serde(default)]
     pub sprite_target: Option<String>,
+    /// Speech-bubble lines for this character, keyed by occasion. Defaults
+    /// to all-empty (silent). The single source of truth for a character's
+    /// voice — supersedes the hardcoded `features::npcs` match tables and the
+    /// `CombatBanterRegistry` content installers, which remain only as a
+    /// fallback until every row is populated.
+    #[serde(default)]
+    pub barks: CharacterBarks,
+    /// Yarn node id for this character's Hall-of-Characters conversation (the
+    /// line shown when the player Inspects its pedestal). `None` = no hall
+    /// dialogue; the pedestal is inspect-silent. Folded into the dialogue
+    /// validator's known-id set so authored nodes are checked, and read by
+    /// the hall generator to populate each pedestal's `dialogue_id`.
+    #[serde(default)]
+    pub hall_dialogue_id: Option<String>,
 }
 
 impl CharacterCatalogEntry {
@@ -184,6 +266,27 @@ pub enum BrainPreset {
     BossPattern {
         aggressiveness: f32,
         encounter_id: String,
+    },
+    /// Smash-brawl reactive fighter (observe → mode → action → difficulty
+    /// → emit). The strong, never-cheats melee/zoner brain — it perceives
+    /// only a `BrainSnapshot` and acts only through the actor's `ActionSet`,
+    /// the same seam the player uses. Always hostile by construction; the
+    /// encounter swaps this in when the player picks "challenge". The
+    /// `difficulty` floats are the fairness knobs (reaction lag, commit
+    /// probability, aim accuracy).
+    Smash {
+        aggro_radius: f32,
+        engage_distance: f32,
+        attack_range: f32,
+        too_close_distance: f32,
+        chase_speed: f32,
+        retreat_speed: f32,
+        crowding_threshold: f32,
+        dash_to_close: bool,
+        reaction_delay_s: f32,
+        commit_probability: f32,
+        accuracy: f32,
+        mash_speed_hz: f32,
     },
 }
 

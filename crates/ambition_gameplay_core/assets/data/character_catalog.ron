@@ -284,6 +284,22 @@
             default_brain: "melee_brute_striker",
             default_action_set: "pirate_pistol",
             tags: ["pirate", "faction_leader"],
+            // SCAFFOLD exemplar (catalog-first overrides the legacy npcs.rs
+            // table). on_hit/provoked migrated from features::npcs.
+            barks: (
+                on_hit: [
+                    "Belay that, ye barnacle!",
+                    "Mind the epaulettes, scallywag!",
+                    "Avast — that be admiralty property!",
+                    "I'll keelhaul yer cooldowns!",
+                ],
+                provoked: ["Broadside, ye bilge rat!"],
+                hall: [
+                    "Stood on a plinth like a figurehead. The indignity.",
+                    "A whole hall of us, and not one tavern.",
+                ],
+            ),
+            hall_dialogue_id: Some("hall_pirate_admiral"),
         ),
         "npc_pirate_raider": (
             sprite_tuning: Some((collision_scale: 1.6, frame_sample_inset: 1)),
@@ -354,6 +370,24 @@
             default_brain: "parrot_lively",
             default_action_set: "peaceful",
             tags: ["pirate", "bird", "npc"],
+            // SCAFFOLD exemplar. idle migrated from features::npcs (the
+            // "parrot_cove" legacy pool, now keyed by catalog id).
+            barks: (
+                idle: [
+                    "Awk! Polly wants a corpus.",
+                    "Squawk! Next token... 'cracker'. High confidence.",
+                    "I contain multitudes. Mostly other people's.",
+                    "Pieces of prior! Pieces of prior!",
+                    "Awk! I'm not parroting, I'm GENERALIZING. ...mostly.",
+                    "Temperature's high today. Feeling creative. Brawk!",
+                    "Attention is all you need! And crackers.",
+                ],
+                hall: [
+                    "Awk! On display! Sampled, plinthed, labelled!",
+                    "Next exhibit... 'cracker'. Brawk!",
+                ],
+            ),
+            hall_dialogue_id: Some("hall_stochastic_parrot"),
         ),
 
         // ===== Perfect Cellular Automaton.
@@ -487,6 +521,20 @@
             default_brain: "patrol_peaceful",
             default_action_set: "peaceful",
             tags: ["hub", "guide"],
+            // SCAFFOLD exemplar. on_hit/provoked migrated from features::npcs.
+            barks: (
+                on_hit: [
+                    "Careful! I'm load-bearing.",
+                    "That was not in the blueprint.",
+                    "You're voiding the warranty.",
+                ],
+                provoked: ["Demolition protocol!"],
+                hall: [
+                    "This hall is load-bearing. Conceptually.",
+                    "I'd have added a fire exit to my own plinth.",
+                ],
+            ),
+            hall_dialogue_id: Some("hall_architect"),
         ),
         "npc_kernel_guide": (
             sprite_tuning: Some((collision_scale: 1.1, frame_sample_inset: 2)),

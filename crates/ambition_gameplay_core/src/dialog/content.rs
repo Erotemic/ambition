@@ -96,7 +96,17 @@ pub const KNOWN_DIALOGUE_IDS: &[&str] = &[
     "emmy_noether_right",
 ];
 
-/// Validator surface (LDtk content_validation reads this).
+/// Validator surface (LDtk content_validation reads this). Folds in the
+/// per-character Hall-of-Characters dialogue ids declared in the catalog
+/// (`hall_dialogue_id`), so authored `hall_<id>` nodes are accepted without a
+/// second hand-maintained list — the catalog is their single source of truth.
 pub fn known_dialogue_ids() -> Vec<&'static str> {
-    KNOWN_DIALOGUE_IDS.to_vec()
+    let mut ids = KNOWN_DIALOGUE_IDS.to_vec();
+    ids.extend(
+        crate::character_roster::EMBEDDED_CATALOG
+            .characters
+            .values()
+            .filter_map(|entry| entry.hall_dialogue_id.as_deref()),
+    );
+    ids
 }

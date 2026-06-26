@@ -108,13 +108,17 @@ def derived_dims() -> tuple[int, int]:
     return width, height
 
 
-def parse_catalog(catalog_text: str) -> tuple[list[str], list[str], dict[str, str]]:
+def parse_catalog(
+    catalog_text: str,
+) -> tuple[list[str], list[str], dict[str, str], dict[str, str]]:
     """Read the catalog file and return:
 
-      (main_hall_ids_in_order, basement_ids_in_order, display_name_for_id)
+      (main_hall_ids_in_order, basement_ids_in_order, display_name_for_id,
+       hall_dialogue_id_for_id)
 
     The pyron upstream loses Rust enum discriminators on unit
-    variants, so we regex `tier:` directly out of each entry block.
+    variants, so we regex `tier:` (and the optional `hall_dialogue_id:
+    Some("...")`) directly out of each entry block.
     """
     from .ron_parse import load as ron_load
 
@@ -124,19 +128,30 @@ def parse_catalog(catalog_text: str) -> tuple[list[str], list[str], dict[str, st
         cid: entry.get("display_name", cid) for cid, entry in data["characters"].items()
     }
     tiers: dict[str, str] = {}
+    hall_dialogue_ids: dict[str, str] = {}
     for cid in ids:
         key_pat = re.compile(r'"' + re.escape(cid) + r'"\s*:\s*\(', re.MULTILINE)
         m = key_pat.search(catalog_text)
         if not m:
             tiers[cid] = "MainHall"
             continue
-        window = catalog_text[m.end() : m.end() + 800]
+        # Bound the entry window at the next top-level character key (8-space
+        # indent) so a long `barks` list never pushes a trailing field
+        # (`hall_dialogue_id`) out of a fixed-size window.
+        rest = catalog_text[m.end() :]
+        next_key = re.search(r'\n {8}"[a-z0-9_]+"\s*:\s*\(', rest)
+        window = rest[: next_key.start()] if next_key else rest[:2000]
         tm = re.search(r"tier:\s*([A-Za-z_]+)", window)
         tiers[cid] = tm.group(1) if tm else "MainHall"
+        # Optional per-character Hall dialogue node. Regex the `Some("...")`
+        # so pyron's unit-variant blind spot doesn't drop it.
+        hm = re.search(r'hall_dialogue_id:\s*Some\(\s*"([^"]+)"\s*\)', window)
+        if hm:
+            hall_dialogue_ids[cid] = hm.group(1)
 
     main = [cid for cid in ids if tiers[cid] == "MainHall"]
     basement = [cid for cid in ids if tiers[cid] == "Basement"]
-    return main, basement, display_names
+    return main, basement, display_names, hall_dialogue_ids
 
 
 def make_entity(
@@ -151,8 +166,12 @@ def make_entity(
 
 
 def build_spec(
-    main_ids: list[str], basement_ids: list[str], display_names: dict[str, str]
+    main_ids: list[str],
+    basement_ids: list[str],
+    display_names: dict[str, str],
+    hall_dialogue_ids: dict[str, str] | None = None,
 ) -> dict:
+    hall_dialogue_ids = hall_dialogue_ids or {}
     px_wid, px_hei = derived_dims()
 
     # --- Compute slot positions ---
@@ -384,7 +403,7 @@ def build_spec(
                 {
                     "character_id": cid,
                     "prompt": "Inspect",
-                    "dialogue_id": "",
+                    "dialogue_id": hall_dialogue_ids.get(cid, ""),
                     "patrol_radius": 0,
                 },
             )
@@ -418,7 +437,7 @@ def build_spec(
                 {
                     "character_id": cid,
                     "prompt": "Inspect",
-                    "dialogue_id": "",
+                    "dialogue_id": hall_dialogue_ids.get(cid, ""),
                     "patrol_radius": 0,
                 },
             )
@@ -506,8 +525,8 @@ def main(argv: list[str] | None = None) -> int:
     from .ron_parse import dumps as ron_dumps
 
     text = args.catalog.read_text()
-    main_ids, basement_ids, display_names = parse_catalog(text)
-    spec = build_spec(main_ids, basement_ids, display_names)
+    main_ids, basement_ids, display_names, hall_dialogue_ids = parse_catalog(text)
+    spec = build_spec(main_ids, basement_ids, display_names, hall_dialogue_ids)
     out_text = HEADER + ron_dumps(spec)
     args.out.write_text(out_text)
 

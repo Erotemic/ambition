@@ -1,0 +1,43 @@
+// Hall of Characters — the "Inspect a pedestal" conversations.
+//
+// One `hall_<character_id>` node per character that authors a
+// `hall_dialogue_id` in character_catalog.ron. These are the fourth-wall
+// gallery beats: the character knows it is on a plinth in a hall of every
+// character the engine can spawn, and has fun with it. Keep them short —
+// a line or three, optionally one branch.
+//
+// Wiring: catalog `hall_dialogue_id: Some("hall_<id>")` -> the hall generator
+// stamps it onto that pedestal's NpcSpawn.dialogue_id -> Inspect starts this
+// node. `known_dialogue_ids()` folds the catalog ids in, so the LDtk
+// validator accepts them automatically.
+//
+// SCAFFOLD: three exemplars below prove the pipeline end to end. The
+// content-writing pass adds the rest (see
+// docs/planning/character-barks-and-hall-dialogue.md).
+
+title: hall_pirate_admiral
+---
+Admiral: So. A tourist. They line us up on plinths like figureheads pried off our own ships and call it a "hall."
+-> Is this a museum?
+    Admiral: It's a roster, landstrider. Every soul the world might throw at you, stood still and labelled so you can stare. I'd rather be at sea — but the lighting's good.
+-> Nice pedestal.
+    Admiral: Aye, and not a drop of grog on it. Move along before I press-gang you into dusting the others.
+===
+
+title: hall_stochastic_parrot
+---
+Parrot: Awk! Welcome to the hall! Next word... "exhibit". High confidence. Brawk!
+-> Are you a real parrot?
+    Parrot: I'm a REPRESENTATION of a parrot, sampled from many parrots, on a plinth between two other plinths. Very meta. Cracker?
+-> You're on display.
+    Parrot: We're ALL on display! Attention is all you need — and good gallery lighting. Squawk!
+===
+
+title: hall_architect
+---
+Architect: Ah — a visitor to the gallery. Mind the velvet rope. This whole hall is load-bearing, you know. Conceptually.
+-> Who built this place?
+    Architect: One pedestal per character the catalog knows. I'd have added handrails and a fire exit, but nobody consults the Architect for the Architect's own plinth.
+-> Looks structurally sound.
+    Architect: It is. I checked. Twice. The warranty, however, does not cover tourists.
+===

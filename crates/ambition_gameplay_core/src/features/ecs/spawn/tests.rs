@@ -432,7 +432,7 @@ fn pirate_heavy_action_set_swings_when_brain_is_forced_hostile() {
         air_jumps_remaining: 0,
     };
     let mut frame = ambition_characters::actor::control::ActorControlFrame::neutral();
-    brain.tick_with_actions(&actions, &snapshot, &mut frame);
+    brain.tick_with_actions(&actions, &snapshot, None, &mut frame);
     assert!(
         frame.melee_pressed,
         "provoked PirateHeavy should commit a melee swing when in range",

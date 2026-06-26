@@ -136,16 +136,22 @@ impl Brain {
     /// Smash brain uses this to gate `MeleeAttack` / `RangedAttack`
     /// emission on the actor's actual melee/ranged capability. Other
     /// brain backends ignore the ActionSet.
+    /// `perception` is the body's headless `WorldView` (the world-out port). The
+    /// Smash brain consumes it for tactical gates (line-of-fire); other backends
+    /// ignore it. Pass `None` from pure-stage tests / callers without perception.
     pub fn tick_with_actions(
         &mut self,
         actions: &action_set::ActionSet,
         snapshot: &BrainSnapshot,
+        perception: Option<&crate::perception::WorldView>,
         out: &mut crate::actor::control::ActorControlFrame,
     ) {
         match self {
             Brain::Player(slot) => player::tick_player_brain(*slot, snapshot, out),
             Brain::StateMachine(cfg) => {
-                state_machine::tick_state_machine_with_actions(cfg, actions, snapshot, out)
+                state_machine::tick_state_machine_with_actions(
+                    cfg, actions, snapshot, perception, out,
+                )
             }
         }
     }

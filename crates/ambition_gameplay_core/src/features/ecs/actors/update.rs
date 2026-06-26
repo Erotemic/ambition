@@ -336,10 +336,42 @@ pub fn update_ecs_actors(
                         sim_now,
                         enemy_gravity_dir,
                     );
+                    // Headless world-out view for this body (S4/S5): built over the
+                    // SAME derived collision world `feature_world` the body integrates
+                    // against, so the brain's line-of-fire gate is answered over real
+                    // geometry (never a parallel sensor). Body-generic (guardrail #1):
+                    // this is the same `build_world_view` the player-robot body will
+                    // use. Peers / projectiles are wired in when the strong brain
+                    // consumes them (S5); the terrain-only view today drives the LOF
+                    // gate, so the body faction is immaterial here.
+                    let world_view = super::super::perception::build_world_view(
+                        &super::super::perception::PerceptionBody {
+                            pos: em.kin.pos,
+                            vel: em.kin.vel,
+                            facing: em.kin.facing,
+                            half_extent: em.kin.size,
+                            faction: ambition_characters::actor::ActorFaction::Enemy,
+                            gravity_down: enemy_gravity_dir,
+                            on_ground: em.surface.on_ground,
+                            aerial: em.surface.gravity_scale <= 0.001,
+                            alive: em.status.alive,
+                            can_fire: true,
+                            can_blink: em.caps.can_blink,
+                            can_dash: em.caps.can_dash,
+                            can_shield: em.caps.can_shield,
+                        },
+                        &[],
+                        &[],
+                        &[],
+                        &feature_world,
+                        &crate::combat::targeting::FactionRelations::default(),
+                        super::super::perception::DEFAULT_VIEWPORT_HALF,
+                        sim_now,
+                    );
                     let mut bf = ambition_characters::actor::control::ActorControlFrame::neutral();
                     let peaceful = ambition_characters::brain::ActionSet::peaceful();
                     let actions = action_set.unwrap_or(&peaceful);
-                    brain_ref.tick_with_actions(actions, &snapshot, &mut bf);
+                    brain_ref.tick_with_actions(actions, &snapshot, Some(&world_view), &mut bf);
                     bf
                 } else {
                     ambition_characters::actor::control::ActorControlFrame::neutral()

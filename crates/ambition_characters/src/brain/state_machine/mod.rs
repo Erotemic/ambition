@@ -117,7 +117,7 @@ pub fn tick_state_machine(
     snapshot: &BrainSnapshot,
     out: &mut crate::actor::control::ActorControlFrame,
 ) {
-    tick_state_machine_with_actions(sm, &ActionSet::peaceful(), snapshot, out);
+    tick_state_machine_with_actions(sm, &ActionSet::peaceful(), snapshot, None, out);
 }
 
 /// Like [`tick_state_machine`] but threads the actor's `ActionSet`
@@ -126,6 +126,7 @@ pub fn tick_state_machine_with_actions(
     sm: &mut StateMachineCfg,
     actions: &ActionSet,
     snapshot: &BrainSnapshot,
+    perception: Option<&crate::perception::WorldView>,
     out: &mut crate::actor::control::ActorControlFrame,
 ) {
     if !snapshot.alive {
@@ -145,7 +146,9 @@ pub fn tick_state_machine_with_actions(
         StateMachineCfg::BossPattern { cfg, state } => {
             tick_boss_pattern_via_state_machine(cfg, state, snapshot, out)
         }
-        StateMachineCfg::Smash { cfg, state } => tick_smash(cfg, state, actions, snapshot, out),
+        StateMachineCfg::Smash { cfg, state } => {
+            tick_smash(cfg, state, actions, snapshot, perception, out)
+        }
         StateMachineCfg::Aerial { cfg, state } => tick_aerial(cfg, state, snapshot, out),
         StateMachineCfg::PlayerDemo { cfg, state } => tick_player_demo(cfg, state, snapshot, out),
     }

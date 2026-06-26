@@ -406,9 +406,26 @@ Author model: Opus 4.8 (1M). Wall-clock log at the bottom.
   arena is now mechanically possible (needs S6's robot-as-actor for the second
   combatant + a room that sets `Enemy↔Boss` hostile and clears `→ Player`).
 - **S4 (headless perception)** — sim-time + the `WorldView`/`WorldMemory` value &
-  body-generic builder done (above); portal awareness + live actor-loop wiring +
-  brain consumption (S5) remain.
-- **S5 (strong brain + spectator arena)** — pending (needs S4 + S3e + S6).
+  body-generic builder + portal awareness done (above); the view is now built
+  **live per-tick** and the brain consumes it (see S5a). Remaining: peers /
+  projectiles wired into the live view (today it's terrain-only) + `WorldMemory`
+  consumed for off-viewport pursuit.
+- **S5 (strong brain + spectator arena)** — *in progress:*
+  - **S5a brain consumes perception — line-of-fire gate** ✅ — the brain now takes
+    the body's `WorldView` (guardrail #2: `tick_smash`/`tick_state_machine_with_actions`/
+    `Brain::tick_with_actions` gained `perception: Option<&WorldView>`; threaded, NOT
+    stuffed into the enemy-only `BrainSnapshot` — guardrail #1). The decide stage
+    keeps a substituted ranged shot only if `WorldView::line_of_fire(target)` is
+    clear over the body's real terrain; otherwise it falls back to closing for a
+    clean line instead of firing into a wall. Wired live in `update_ecs_actors`:
+    the per-body view is built inline over the SAME derived `feature_world` the
+    body integrates against (no new system param — dodges the 16-param ceiling).
+    Proven headless against the real brain + real geometry
+    (`ranged_shot_suppressed_when_line_of_fire_blocked`); 1024 gameplay_core + 230
+    characters lib green.
+  - **Remaining S5:** reposition (jump / go-around / blink / fly) when no LOF
+    instead of only closing; off-viewport pursuit via `WorldMemory`; portal
+    routing; **the spectator arena** (needs S6a robot-as-actor for the 2nd body).
 - **S6 (convergence / de-player-casing)** — pending; the slice where "done" lands.
   The player becomes an actor, the duplicated player clusters fold, the
   player-robot becomes a droppable boss archetype, and possession is wired in-game.

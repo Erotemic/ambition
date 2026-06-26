@@ -281,7 +281,7 @@ impl Arena {
         let snap = self.snapshot_for(i);
         let mut frame = ActorControlFrame::neutral();
         let f = &mut self.fighters[i];
-        super::tick_smash(&f.cfg, &mut f.state, &f.actions, &snap, &mut frame);
+        super::tick_smash(&f.cfg, &mut f.state, &f.actions, &snap, None, &mut frame);
         frame
     }
 

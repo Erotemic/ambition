@@ -348,6 +348,7 @@ pub fn tick_smash(
     state: &mut SmashState,
     actions: &ActionSet,
     snapshot: &BrainSnapshot,
+    perception: Option<&crate::perception::WorldView>,
     out: &mut crate::actor::control::ActorControlFrame,
 ) {
     *out = crate::actor::control::ActorControlFrame::neutral();
@@ -400,7 +401,22 @@ pub fn tick_smash(
     // on its own cadence before committing to the melee finish.
     // Substituted *before* difficulty so the shot inherits the same
     // accuracy jitter / commit roll as a melee swing.
-    let action = maybe_substitute_ranged(action, &obs, mode, cfg, actions);
+    let ranged = maybe_substitute_ranged(action, &obs, mode, cfg, actions);
+    // Line-of-fire gate (S5, perception-driven): keep a substituted ranged shot
+    // only if the body can actually land it — if a solid occludes the path to the
+    // target, fall back to the movement action so the refiners below close /
+    // reposition into a clear line instead of firing into a wall. The check reuses
+    // the body's `WorldView` (the headless world-out port), so "do I have a shot"
+    // is answered over the SAME geometry a shot would physically fly through. With
+    // no perception (pure-stage tests) the gate is inert and the shot stands.
+    let action = match ranged {
+        SpecificAction::RangedAttack { .. }
+            if !perception.map_or(true, |view| view.line_of_fire(obs.target_pos)) =>
+        {
+            action
+        }
+        other => other,
+    };
     // The grounded movement refiners (dash-to-close, footsies weave, neutral hop)
     // only make sense for a body that walks + jumps. A flyer skips them — its 2D
     // motion is steered below — but keeps the dimension-agnostic ranged poke.
@@ -769,7 +785,7 @@ mod tests {
         let actions = ActionSet::peaceful();
         let snap = snap_with_target_at_x(2000.0);
         let mut frame = crate::actor::control::ActorControlFrame::neutral();
-        tick_smash(&cfg, &mut state, &actions, &snap, &mut frame);
+        tick_smash(&cfg, &mut state, &actions, &snap, None, &mut frame);
         assert_eq!(
             frame.locomotion.x, 0.0,
             "actor outside aggro_radius should not move"
@@ -785,7 +801,7 @@ mod tests {
         // Target at 300 px — inside aggro (460), outside engage (70).
         let snap = snap_with_target_at_x(300.0);
         let mut frame = crate::actor::control::ActorControlFrame::neutral();
-        tick_smash(&cfg, &mut state, &actions, &snap, &mut frame);
+        tick_smash(&cfg, &mut state, &actions, &snap, None, &mut frame);
         assert!(
             frame.locomotion.x > 0.0,
             "actor should approach a target to its right; got vel={:?}",
@@ -810,7 +826,7 @@ mod tests {
         // without ever swinging when the player was beside them.
         let snap = snap_with_target_at_x(20.0);
         let mut frame = crate::actor::control::ActorControlFrame::neutral();
-        tick_smash(&cfg, &mut state, &actions, &snap, &mut frame);
+        tick_smash(&cfg, &mut state, &actions, &snap, None, &mut frame);
         assert!(frame.melee_pressed, "point-blank melee actor should swing");
     }
 
@@ -848,7 +864,7 @@ mod tests {
         let actions = ranged_actions();
         let snap = snap_with_target_at_x(300.0);
         let mut frame = crate::actor::control::ActorControlFrame::neutral();
-        tick_smash(&cfg, &mut state, &actions, &snap, &mut frame);
+        tick_smash(&cfg, &mut state, &actions, &snap, None, &mut frame);
         assert!(
             frame.fire.is_some(),
             "ranged actor should attempt fire at mid-range"
@@ -858,10 +874,79 @@ mod tests {
         // tick. A second tick still emits `fire` (the BODY throttles, not the
         // brain — invariant I3). This is what a spam controller would also do.
         let mut frame2 = crate::actor::control::ActorControlFrame::neutral();
-        tick_smash(&cfg, &mut state, &actions, &snap, &mut frame2);
+        tick_smash(&cfg, &mut state, &actions, &snap, None, &mut frame2);
         assert!(
             frame2.fire.is_some(),
             "brain keeps attempting fire every in-band tick; the body enforces the rate"
+        );
+    }
+
+    /// A `WorldView` whose terrain is the given solids, with self at the origin —
+    /// the perception a body at (0,0) would have.
+    fn view_with_terrain(terrain: Vec<crate::perception::PerceivedSolid>) -> crate::perception::WorldView {
+        use crate::perception::{SelfView, Viewport, WorldView};
+        WorldView {
+            self_view: SelfView {
+                pos: ae::Vec2::ZERO,
+                vel: ae::Vec2::ZERO,
+                facing: 1.0,
+                half_extent: ae::Vec2::new(10.0, 16.0),
+                gravity_down: ae::Vec2::new(0.0, 1.0),
+                on_ground: true,
+                aerial: false,
+                alive: true,
+                faction: crate::actor::ActorFaction::Enemy,
+                can_fire: true,
+                can_blink: false,
+                can_dash: false,
+                can_shield: false,
+            },
+            viewport: Viewport::around(ae::Vec2::ZERO, ae::Vec2::splat(800.0)),
+            actors: vec![],
+            projectiles: vec![],
+            terrain,
+            portals: vec![],
+            sim_time: 0.0,
+        }
+    }
+
+    /// Line-of-fire gate (S5): the same mid-range body that fires with a clear
+    /// shot must NOT fire when a solid wall occludes the path to the target — it
+    /// falls back to closing instead of firing into a wall. Proven against the
+    /// REAL brain pipeline + REAL `WorldView::line_of_fire` over the carried solids.
+    #[test]
+    fn ranged_shot_suppressed_when_line_of_fire_blocked() {
+        use crate::perception::{PerceivedSolid, SolidKind};
+        let cfg = crisp_striker_cfg();
+        let actions = ranged_actions();
+        let snap = snap_with_target_at_x(300.0); // body (0,0) → target (300,0)
+
+        // Clear view: the body fires (matches the None-perception behavior).
+        let clear = view_with_terrain(vec![]);
+        let mut state = SmashState::default();
+        let mut frame = crate::actor::control::ActorControlFrame::neutral();
+        tick_smash(&cfg, &mut state, &actions, &snap, Some(&clear), &mut frame);
+        assert!(
+            frame.fire.is_some(),
+            "with a clear line of fire the body still shoots"
+        );
+
+        // Wall at x=150 squarely between the body and the target → no shot, and
+        // the body keeps closing (a movement intent) toward a clear line.
+        let blocked = view_with_terrain(vec![PerceivedSolid {
+            aabb: ae::Aabb::new(ae::Vec2::new(150.0, 0.0), ae::Vec2::new(8.0, 60.0)),
+            kind: SolidKind::Solid,
+        }]);
+        let mut state = SmashState::default();
+        let mut frame = crate::actor::control::ActorControlFrame::neutral();
+        tick_smash(&cfg, &mut state, &actions, &snap, Some(&blocked), &mut frame);
+        assert!(
+            frame.fire.is_none(),
+            "a wall between body and target suppresses the ranged shot (no firing into walls)"
+        );
+        assert!(
+            frame.locomotion.length() > 0.0,
+            "with the shot blocked the body falls back to closing for a clear line"
         );
     }
 
@@ -880,7 +965,7 @@ mod tests {
         };
         let snap = snap_with_target_at_x(20.0); // inside attack_range
         let mut frame = crate::actor::control::ActorControlFrame::neutral();
-        tick_smash(&cfg, &mut state, &actions, &snap, &mut frame);
+        tick_smash(&cfg, &mut state, &actions, &snap, None, &mut frame);
         assert!(frame.melee_pressed, "in-reach actor swings");
         assert!(frame.fire.is_none(), "does not fire ranged in melee reach");
     }
@@ -900,7 +985,7 @@ mod tests {
 
         for tick in 0..8 {
             let mut frame = crate::actor::control::ActorControlFrame::neutral();
-            tick_smash(&cfg, &mut state, &actions, &snap, &mut frame);
+            tick_smash(&cfg, &mut state, &actions, &snap, None, &mut frame);
             assert!(
                 frame.fire.is_some(),
                 "tick {tick}: brain keeps attempting fire — the body, not the brain, enforces cadence"
@@ -925,7 +1010,7 @@ mod tests {
         let actions = ActionSet::peaceful(); // no ranged → dash, not a poke
         let snap = snap_with_target_at_x(300.0);
         let mut frame = crate::actor::control::ActorControlFrame::neutral();
-        tick_smash(&cfg, &mut state, &actions, &snap, &mut frame);
+        tick_smash(&cfg, &mut state, &actions, &snap, None, &mut frame);
         assert!(
             frame.locomotion.x > 0.8,
             "dash burst should exceed walk speed; got {}",
@@ -945,7 +1030,7 @@ mod tests {
         let actions = ActionSet::peaceful();
         let snap = snap_with_target_at_x(120.0);
         let mut frame = crate::actor::control::ActorControlFrame::neutral();
-        tick_smash(&cfg, &mut state, &actions, &snap, &mut frame);
+        tick_smash(&cfg, &mut state, &actions, &snap, None, &mut frame);
         assert!(
             frame.locomotion.x > 0.0 && frame.locomotion.x < 0.8,
             "a small gap walks, not dashes; got {}",
@@ -966,7 +1051,7 @@ mod tests {
         let actions = ActionSet::peaceful();
         let snap = snap_with_target_at_x(300.0);
         let mut frame = crate::actor::control::ActorControlFrame::neutral();
-        tick_smash(&cfg, &mut state, &actions, &snap, &mut frame);
+        tick_smash(&cfg, &mut state, &actions, &snap, None, &mut frame);
         assert!(
             frame.locomotion.x > 0.0 && frame.locomotion.x < 0.8,
             "no dash capability → a walk; got {}",
@@ -999,7 +1084,7 @@ mod tests {
         snap.sim_time = t;
         snap.dt = 1.0 / 60.0;
         let mut frame = crate::actor::control::ActorControlFrame::neutral();
-        tick_smash(cfg, state, actions, &snap, &mut frame);
+        tick_smash(cfg, state, actions, &snap, None, &mut frame);
         frame.locomotion
     }
 
@@ -1085,7 +1170,7 @@ mod tests {
         // pre-existing frame state.
         frame.melee_pressed = true;
         frame.locomotion = ae::Vec2::new(999.0, 999.0);
-        tick_smash(&cfg, &mut state, &actions, &snap, &mut frame);
+        tick_smash(&cfg, &mut state, &actions, &snap, None, &mut frame);
         assert!(!frame.melee_pressed, "dead actor must not emit melee");
         assert_eq!(frame.locomotion, ae::Vec2::ZERO);
     }

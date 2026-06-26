@@ -55,7 +55,9 @@ pub fn sync_actor_poses_from_feature_aabbs(
 /// same hostile path with an `EncounterMob` marker.
 pub fn update_ecs_actors(
     mut commands: Commands,
-    world_time: Res<WorldTime>,
+    // Bundled into one SystemParam slot: this system is at Bevy's 16-param
+    // ceiling, so the accumulating sim clock rides alongside `WorldTime`.
+    (world_time, sim_clock): (Res<WorldTime>, Res<crate::features::GameplayElapsed>),
     world: Res<crate::RoomGeometry>,
     gravity: crate::physics::GravityCtx,
     user_settings: Option<Res<crate::persistence::settings::UserSettings>>,
@@ -151,6 +153,8 @@ pub fn update_ecs_actors(
     // gameplay clock so bullet-time / pause / hitstop freeze them
     // alongside the player. ADR 0010 + reference_lessons_learned.
     let dt = world_time.sim_dt();
+    // Accumulating sim-time for brain perception (reaction-latency lookback).
+    let sim_now = sim_clock.0;
     let feature_world = world_with_sandbox_solids(&world.0, &platform_set.0, &overlay);
     let control_frame_modes = user_settings
         .as_deref()
@@ -294,6 +298,7 @@ pub fn update_ecs_actors(
                         target_pos,
                         crowding,
                         dt,
+                        sim_now,
                         enemy_gravity_dir,
                     );
                     snapshot.control_down = enemy_gravity_dir;
@@ -320,6 +325,7 @@ pub fn update_ecs_actors(
                         target_pos,
                         crowding,
                         dt,
+                        sim_now,
                         enemy_gravity_dir,
                     );
                     let mut bf = ambition_characters::actor::control::ActorControlFrame::neutral();
@@ -500,7 +506,9 @@ pub fn update_ecs_actors(
                     && !target_shield.parrying()
                     && target_combat.vulnerable();
                 if target_vulnerable && em.status.alive && body_contact_damage_enabled {
-                    if let Some(damage) = em.body_contact_damage(actor_entity, target_entity, target_body) {
+                    if let Some(damage) =
+                        em.body_contact_damage(actor_entity, target_entity, target_body)
+                    {
                         let pos = damage
                             .knockback
                             .as_ref()
@@ -623,8 +631,10 @@ pub(crate) fn compute_crowding_by_id(
 ) -> std::collections::HashMap<String, ambition_characters::brain::CrowdingSignal> {
     const CROWDING_RADIUS_PX: f32 = 80.0;
     const AERIAL_CROWDING_RADIUS_PX: f32 = 220.0;
-    let mut crowding_by_id: std::collections::HashMap<String, ambition_characters::brain::CrowdingSignal> =
-        std::collections::HashMap::new();
+    let mut crowding_by_id: std::collections::HashMap<
+        String,
+        ambition_characters::brain::CrowdingSignal,
+    > = std::collections::HashMap::new();
     for (id_a, pos_a, kind_a) in requests {
         let mut count: u8 = 0;
         let mut centroid = ae::Vec2::ZERO;
@@ -655,7 +665,9 @@ pub(crate) fn compute_crowding_by_id(
                     same_faction_count: count,
                     other_faction_count: 0,
                     away_dir: away,
-                    pressure: ambition_characters::brain::CrowdingSignal::compute_pressure(count, 0),
+                    pressure: ambition_characters::brain::CrowdingSignal::compute_pressure(
+                        count, 0,
+                    ),
                 },
             );
         }
@@ -673,6 +685,7 @@ fn build_enemy_brain_snapshot(
     target_pos: ae::Vec2,
     crowding: Option<ambition_characters::brain::CrowdingSignal>,
     dt: f32,
+    sim_time: f32,
     gravity_dir: ae::Vec2,
 ) -> ambition_characters::brain::BrainSnapshot {
     ambition_characters::brain::BrainSnapshot {
@@ -689,7 +702,11 @@ fn build_enemy_brain_snapshot(
         alive: em.status.alive,
         target_pos,
         target_alive: true,
-        sim_time: 0.0,
+        // Real, accumulating sim-time (scaled by bullet-time / pause) — NOT a
+        // hardcoded 0.0. The Smash brain's reaction latency (`obs_history`
+        // lookback by `reaction_delay_s`) only functions when this advances, so
+        // threading it is what makes the difficulty knob live in-engine.
+        sim_time,
         dt,
         max_run_speed: em.config.tuning.max_run_speed,
         attack_cooldown_remaining: em.attack.cooldown,

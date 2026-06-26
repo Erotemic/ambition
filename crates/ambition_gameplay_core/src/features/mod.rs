@@ -114,8 +114,8 @@ pub use boss_attack_geometry::{
     BossVolumeContext, CombatGeometry, SimpleActorGeometry,
 };
 pub use bosses::{
-    boss_special_for_profile, BossAttackProfile, BossBehaviorProfile, BossMovementProfile,
-    BossRewardProfile, ActorSpriteMetrics, GNU_TON_APPLE_OWNER_PREFIX,
+    boss_special_for_profile, ActorSpriteMetrics, BossAttackProfile, BossBehaviorProfile,
+    BossMovementProfile, BossRewardProfile, GNU_TON_APPLE_OWNER_PREFIX,
     GRADIENT_SENTINEL_ENCOUNTER_ID,
 };
 pub use bus::{
@@ -211,6 +211,24 @@ impl bevy::prelude::Plugin for GameplayEffectsSchedulePlugin {
     }
 }
 
+/// Accumulating sim-time (seconds), advanced by the gameplay clock so it slows
+/// under bullet-time / freezes on pause alongside every other sim timer
+/// (ADR 0010/0011 time-domains discipline). This is the monotone "now" the
+/// per-actor brain perception reads: the Smash brain's reaction latency
+/// (`obs_history` lookback by `reaction_delay_s`) is inert without it. Distinct
+/// from `time_control::SimClock` (a time-*scale* request) — this is elapsed time.
+#[derive(bevy::prelude::Resource, Clone, Copy, Debug, Default, PartialEq)]
+pub struct GameplayElapsed(pub f32);
+
+/// Advance [`GameplayElapsed`] by the scaled gameplay dt each frame. Runs at the
+/// head of `WorldPrep`, before any actor brain reads the snapshot.
+pub fn advance_gameplay_elapsed(
+    mut elapsed: bevy::prelude::ResMut<GameplayElapsed>,
+    world_time: bevy::prelude::Res<crate::WorldTime>,
+) {
+    elapsed.0 += world_time.scaled_dt;
+}
+
 /// Schedules `WorldPrep`: LDtk hot-reload, feature-world overlay rebuild,
 /// and per-frame hazard/actor/boss ticks before player simulation reads them.
 pub struct WorldPrepSchedulePlugin;
@@ -221,6 +239,8 @@ impl bevy::prelude::Plugin for WorldPrepSchedulePlugin {
         // Relational targeting seam (default = today's behavior; stealth/bounty/
         // alliance systems mutate it). `select_actor_targets` reads it.
         app.init_resource::<FactionRelations>();
+        // Accumulating sim-time for brain perception (reaction latency).
+        app.init_resource::<GameplayElapsed>();
         app.add_systems(
             Update,
             (
@@ -264,6 +284,16 @@ impl bevy::prelude::Plugin for WorldPrepSchedulePlugin {
                 sync_actor_poses_from_feature_aabbs,
             )
                 .chain()
+                .in_set(crate::schedule::SandboxSet::WorldPrep),
+        );
+        // Advance the accumulating sim clock before any actor brain reads its
+        // perception snapshot, so reaction-latency lookback is live. Registered
+        // separately (not in the chain above) only because that tuple is already
+        // at Bevy's chain-length ceiling; the `.before` keeps the ordering exact.
+        app.add_systems(
+            Update,
+            advance_gameplay_elapsed
+                .before(select_actor_targets)
                 .in_set(crate::schedule::SandboxSet::WorldPrep),
         );
         app.configure_sets(
@@ -336,3 +366,45 @@ impl bevy::prelude::Plugin for FeatureViewSyncSchedulePlugin {
 
 #[cfg(test)]
 mod conversion_tests;
+
+#[cfg(test)]
+mod sim_clock_tests {
+    use super::{advance_gameplay_elapsed, GameplayElapsed};
+    use bevy::prelude::*;
+
+    /// `advance_gameplay_elapsed` accumulates the scaled gameplay dt: the brain's
+    /// perception clock is no longer the inert `0.0` it used to read. Bullet-time
+    /// scaling is honored because it sums `scaled_dt`, not wall-clock.
+    #[test]
+    fn gameplay_clock_accumulates_scaled_dt() {
+        let mut app = App::new();
+        app.insert_resource(crate::WorldTime {
+            raw_dt: 1.0 / 60.0,
+            scaled_dt: 1.0 / 60.0,
+        });
+        app.init_resource::<GameplayElapsed>();
+        app.add_systems(Update, advance_gameplay_elapsed);
+
+        app.update();
+        app.update();
+        app.update();
+        let elapsed = app.world().resource::<GameplayElapsed>().0;
+        assert!(
+            (elapsed - 3.0 / 60.0).abs() < 1e-6,
+            "three ticks at 1/60 s must accumulate 3/60 s; got {elapsed}"
+        );
+
+        // Paused (scaled_dt == 0) the clock freezes — reaction latency, hitstun,
+        // and every other sim timer that reads it stop together.
+        app.insert_resource(crate::WorldTime {
+            raw_dt: 1.0 / 60.0,
+            scaled_dt: 0.0,
+        });
+        app.update();
+        let after_pause = app.world().resource::<GameplayElapsed>().0;
+        assert_eq!(
+            elapsed, after_pause,
+            "a paused frame must not advance sim-time"
+        );
+    }
+}

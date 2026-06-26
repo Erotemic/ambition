@@ -114,6 +114,13 @@ are now gravity-relative. These four remain world-Y-locked — each is a DESIGN 
 - **Smell:** a new dialog command added without updating the table is silently un-linted. Manual parallel list, no guard.
 - **Suggested fix / size:** M — a test that scrapes the `cmd_*` signatures (or a registry the bindings already build) and cross-checks the table.
 
+## 2026-06-26 Glob-import seam map (from `clippy::wildcard_imports` sweep)
+- **Context:** `cargo clippy --fix -W clippy::wildcard_imports` over the workspace. Preludes are correctly exempt; only **4** named globs auto-expanded losslessly (committed `dbe143c4`). The rest are the smells.
+- **~93 named globs clippy *refuses* to auto-expand** — these are the seam-y ones: re-export façades, enum-variant globs (`use PortalChannelColor::*;`, `use Enum::*`), and names fed into macros. clippy marks them `MaybeIncorrect`, so they need manual judgement. This refusal set *is* the untangle worklist; expanding one often reveals a façade module that should be a curated `pub use`.
+- **Production `use super::*` is pervasive (143 non-test sites).** clippy's default only exempts `super::*` *inside test modules*, so it would expand all 143 production ones (out of scope for the named-only pass). Worst case observed: `ambition_content/src/bosses/specials/gradient_sentinel.rs` — `use super::*` expands to a 27-name grab-bag including std `vec`/`format`/`ToString`, i.e. `specials/mod.rs` is re-exporting a kitchen-sink prelude. That re-export hub is the real smell to break up.
+- **Tooling note:** `cargo clippy --fix` applies *every* active lint, not just the `-W` one — the broad run also silently did `derivable_impls` (lossy: collapsed a `#[cfg(target_os="android")]` `MenuTapMode::default()` into `#[derive(Default)]`, dropping the Android branch), `explicit_auto_deref`, and a `PHI_FRAC` float-precision rewrite. `-A warnings -W clippy::wildcard_imports` over-suppresses and fixes nothing. So: run broad, then revert every hunk that isn't a glob expansion. No clean single-lint `--fix` incantation found.
+- **Suggested fix / size:** L, incremental. Per façade module: expand the glob, see what leaks, convert the hub to an explicit curated `pub use`. Start with `bosses/specials/mod.rs`.
+
 ## Resolved
 
 - **2026-06-17 Patrol wall-stop read screen-vel.x** — under sideways gravity the patrol "reverse facing" detection watched the zeroed gravity axis and never fired (enemy ground into the wall). Now watches the gravity-perpendicular side velocity in both grounded integrators. `5c29c4a9`; pinned by `patrol_enemy_reverses_facing_at_a_wall_under_sideways_gravity`.

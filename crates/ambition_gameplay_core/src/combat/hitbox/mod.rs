@@ -55,6 +55,14 @@ pub use ambition_vfx::{Hitbox, HitboxAnchor, HitboxHits, HitboxLifetime};
 pub fn apply_hitbox_damage(
     mut hitboxes: Query<(Entity, &Hitbox, &mut HitboxHits)>,
     owners: Query<&super::components::CenteredAabb>,
+    // Relational damage authority (S3e). Optional so minimal headless tests that
+    // don't stand up the plugin still run (fall back to the combat-baseline
+    // default: Player ↔ Enemy/Boss hostile, nothing else).
+    relations: Option<Res<crate::features::FactionRelations>>,
+    // Non-player actor victims for the relational actor-vs-actor melee path: an
+    // Enemy/Boss swing damages any actor its faction is hostile to (e.g. a Boss in
+    // a spectator arena), and is gated OFF the player when not hostile to Player.
+    actor_victims: Query<(Entity, &super::components::CenteredAabb, &ActorFaction)>,
     // Iterate every player so a multi-player build hits each
     // overlapping player independently. Single-player behavior is
     // preserved because the iterator has exactly one entity today.
@@ -78,6 +86,7 @@ pub fn apply_hitbox_damage(
     mut debris: MessageWriter<DebrisBurstMessage>,
     mut hit_events: MessageWriter<HitEvent>,
 ) {
+    let relations = relations.map(|r| r.clone()).unwrap_or_default();
     for (_hitbox_entity, hitbox, mut hits) in &mut hitboxes {
         let owner_pos = match owners.get(hitbox.owner) {
             Ok(aabb) => aabb.center,
@@ -92,6 +101,51 @@ pub fn apply_hitbox_damage(
 
         match hitbox.source {
             ActorFaction::Enemy | ActorFaction::Boss => {
+                let source_kind = if matches!(hitbox.source, ActorFaction::Boss) {
+                    HitSource::BossAttack
+                } else {
+                    HitSource::EnemyAttack
+                };
+                // Relational actor-vs-actor (S3e): an Enemy/Boss swing damages any
+                // NON-player actor its faction is hostile to (default: none; a
+                // spectator arena sets, e.g., Enemy ↔ Boss). Pre-resolved here
+                // (overlap + faction checked) and stamped `HitTarget::Actor`, so
+                // the actor-damage consumer applies it to exactly that body — the
+                // attacker's own faction is skipped (it isn't hostile to itself).
+                for (victim_entity, victim_aabb, victim_faction) in &actor_victims {
+                    if victim_entity == hitbox.owner {
+                        continue;
+                    }
+                    if !relations.is_hostile(hitbox.source, *victim_faction) {
+                        continue;
+                    }
+                    if hits.hit.contains(&victim_entity) {
+                        continue;
+                    }
+                    if !world_volume.intersects_aabb(victim_aabb.aabb()) {
+                        continue;
+                    }
+                    let impact = midpoint(victim_aabb.center, world_volume.center());
+                    vfx.write(VfxMessage::Impact { pos: impact });
+                    hit_events.write(HitEvent {
+                        volume: world_volume.clone(),
+                        damage: hitbox.damage.max(1),
+                        source: source_kind.clone(),
+                        attacker: Some(hitbox.owner),
+                        target: HitTarget::Actor(victim_entity),
+                        mode: HitMode::Knockback,
+                        knockback: None,
+                        ignored_targets: Vec::new(),
+                    });
+                    hits.hit.insert(victim_entity);
+                }
+                // The observing/neutral player is spared when the attacker's
+                // faction isn't hostile to Player (the arena clears Enemy→Player);
+                // the default keeps Enemy/Boss hostile to Player, so normal combat
+                // is unchanged.
+                if !relations.is_hostile(hitbox.source, ActorFaction::Player) {
+                    continue;
+                }
                 // Iterate every player and emit one HitEvent per
                 // overlapping vulnerable player. `HitboxHits`
                 // tracks which players this hitbox has already
@@ -129,11 +183,6 @@ pub fn apply_hitbox_damage(
                     } else {
                         -1.0
                     };
-                    let source_kind = if matches!(hitbox.source, ActorFaction::Boss) {
-                        HitSource::BossAttack
-                    } else {
-                        HitSource::EnemyAttack
-                    };
                     sfx.write(SfxMessage::Play {
                         id: ambition_sfx::ids::PLAYER_DAMAGE,
                         pos: impact,
@@ -153,7 +202,7 @@ pub fn apply_hitbox_damage(
                     hit_events.write(HitEvent {
                         volume: world_volume.clone(),
                         damage: hitbox.damage.max(1),
-                        source: source_kind,
+                        source: source_kind.clone(),
                         // Enemy / boss hitboxes know their owner — the
                         // entity that spawned the hitbox is the
                         // attacker. Read on the player side to

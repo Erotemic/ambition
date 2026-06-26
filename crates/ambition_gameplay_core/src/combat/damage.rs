@@ -350,6 +350,13 @@ pub fn apply_player_hit_events(
     mut sfx_writer: MessageWriter<SfxMessage>,
     mut vfx_writer: MessageWriter<VfxMessage>,
     primary_q: Query<Entity, (With<PlayerEntity>, With<PrimaryPlayer>)>,
+    // Relational damage authority (S3e) + a faction lookup for the hit's attacker:
+    // a combatant whose faction is NOT hostile to the player (a spectator-arena
+    // fighter, the observing player marked neutral) does not damage the player even
+    // when its swing overlaps. The default keeps Enemy/Boss hostile to Player, so
+    // normal play is unchanged.
+    relations: Option<Res<features::FactionRelations>>,
+    attacker_factions: Query<&crate::combat::components::ActorFaction>,
     mut player_q: Query<
         (
             Entity,
@@ -368,9 +375,20 @@ pub fn apply_player_hit_events(
     // `apply_feature_hit_events`. The two consumers read the same
     // `HitEvent` channel from independent `MessageReader` positions
     // so both see every event but each filters by source-direction.
+    let relations = relations.map(|r| r.clone()).unwrap_or_default();
     let events: Vec<FeatureHitEvent> = hit_events
         .read()
         .filter(|e| !e.source.is_attacker_side())
+        // Relational gate (S3e): if the hit's attacker is a known actor whose
+        // faction isn't hostile to the player, the player is spared. Hits with no
+        // entity attacker (hazards, string-owned enemy projectiles) are
+        // environmental and always apply.
+        .filter(|e| match e.attacker.and_then(|a| attacker_factions.get(a).ok()) {
+            Some(faction) => {
+                relations.is_hostile(*faction, crate::combat::components::ActorFaction::Player)
+            }
+            None => true,
+        })
         .cloned()
         .collect();
 
@@ -397,7 +415,9 @@ pub fn apply_player_hit_events(
             let target = match e.target {
                 features::HitTarget::Player(entity) => Some(entity),
                 features::HitTarget::Volume => primary,
-                features::HitTarget::OrbMatch => None,
+                // Pre-resolved non-player actor victim + orb-match are not player
+                // hits — the actor / breakable consumers own them.
+                features::HitTarget::Actor(_) | features::HitTarget::OrbMatch => None,
             };
             target.map(|t| (t, e))
         })

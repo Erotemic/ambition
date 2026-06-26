@@ -356,6 +356,13 @@ pub enum HitTarget {
     /// iterated players and picked the overlapping one stamp this
     /// so the reader doesn't re-pick the primary by default.
     Player(bevy::prelude::Entity),
+    /// Single pre-resolved NON-player actor victim. Stamped by a producer that
+    /// already resolved overlap + faction hostility (`FactionRelations`) and
+    /// picked the actor to damage — the relational actor-vs-actor path (S3e). The
+    /// actor-damage consumer applies it to exactly this entity; the player-damage
+    /// consumer ignores it. This is how an Enemy-faction body's swing damages a
+    /// Boss-faction body without the bipartite player/enemy assumption.
+    Actor(bevy::prelude::Entity),
     /// Orb-AABB match (pogo). Only the breakable whose AABB
     /// approximately equals `volume` is hit; actors / bosses are
     /// skipped.

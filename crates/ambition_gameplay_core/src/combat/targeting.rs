@@ -30,11 +30,14 @@ const FACTION_COUNT: usize = 5;
 /// hostile to the player, an alliance clears two factions' mutual hostility — all
 /// without touching the brains or the actor spawn path.
 ///
-/// The default reproduces today's behavior exactly: no faction is hostile to
-/// another faction's actors yet (the player baseline is still carried by each
-/// actor's [`ActorAggression`] policy, so hostile enemies + retaliating NPCs keep
-/// chasing the player; nothing regresses). The matrix only ADDS actor-vs-actor
-/// hostility on top of that baseline.
+/// The default encodes the **combat baseline**: Player ↔ Enemy and Player ↔ Boss
+/// are mutually hostile (the player and the hostile world fight), and nothing else
+/// is — Npc / Neutral are peaceful, and same-faction actors don't fight. This is
+/// the single source of truth the damage paths consult (melee + projectile),
+/// so it reproduces today's player-vs-enemy combat with no behavior change while
+/// making actor-vs-actor hostility expressible (a room sets, e.g.,
+/// `set_mutual_hostile(Enemy, Boss, true)` for a spectator arena, and may *clear*
+/// `Enemy → Player` so the combatants ignore the observing player).
 #[derive(Resource, Clone, Debug)]
 pub struct FactionRelations {
     hostile: [[bool; FACTION_COUNT]; FACTION_COUNT],
@@ -42,9 +45,13 @@ pub struct FactionRelations {
 
 impl Default for FactionRelations {
     fn default() -> Self {
-        Self {
+        let mut relations = Self {
             hostile: [[false; FACTION_COUNT]; FACTION_COUNT],
-        }
+        };
+        // The combat baseline: the player and the hostile world are at war.
+        relations.set_mutual_hostile(ActorFaction::Player, ActorFaction::Enemy, true);
+        relations.set_mutual_hostile(ActorFaction::Player, ActorFaction::Boss, true);
+        relations
     }
 }
 

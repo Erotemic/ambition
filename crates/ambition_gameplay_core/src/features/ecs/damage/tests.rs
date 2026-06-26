@@ -679,3 +679,38 @@ fn a_raised_shield_does_not_guard_the_back() {
         "a hit from behind the guard still lands — the block is directional"
     );
 }
+
+// ── S3e: relational actor-vs-actor damage application ────────────────────────
+
+/// A `HitTarget::Actor(victim)` event (the pre-resolved actor-vs-actor hit an
+/// Enemy/Boss swing emits) damages EXACTLY that actor, even though its source is
+/// the victim-side `EnemyAttack` — and never spills onto other overlapping actors.
+#[test]
+fn an_actor_targeted_hit_damages_only_the_named_actor() {
+    let mut app = shield_test_app();
+    // Two hostile actors at the same spot (overlapping). HP 5 each.
+    let victim = spawn_hostile_actor(&mut app);
+    let bystander = spawn_hostile_actor(&mut app);
+    app.world_mut().write_message(HitEvent {
+        volume: ae::Aabb::new(ae::Vec2::ZERO, ae::Vec2::new(40.0, 50.0)).into(),
+        damage: 2,
+        // Victim-side source, yet the Actor target routes it to the actor consumer.
+        source: HitSource::EnemyAttack,
+        attacker: None,
+        target: HitTarget::Actor(victim),
+        mode: HitMode::Knockback,
+        knockback: None,
+        ignored_targets: Vec::new(),
+    });
+    app.update();
+    assert_eq!(
+        actor_hp(&app, victim),
+        3,
+        "the named actor takes the relational hit"
+    );
+    assert_eq!(
+        actor_hp(&app, bystander),
+        5,
+        "an overlapping non-target actor is untouched (pre-resolved, not broadcast)"
+    );
+}

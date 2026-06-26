@@ -257,6 +257,187 @@ fn player_faction_hitbox_emits_an_attacker_side_feature_hit() {
     assert_eq!(cap.0[0].damage, 5);
 }
 
+// ── S3e: relational actor-vs-actor melee ────────────────────────────────────
+
+use crate::features::FactionRelations;
+
+/// Spawn an Enemy-source hitbox at `center` (World anchor) dealing `damage`, plus
+/// an actor victim of `victim_faction` overlapping it. Returns (app, victim).
+fn arena_hitbox_app(
+    relations: FactionRelations,
+    victim_faction: ActorFaction,
+) -> (App, Entity) {
+    let mut app = App::new();
+    app.add_message::<HitEvent>();
+    app.add_message::<SfxMessage>();
+    app.add_message::<VfxMessage>();
+    app.add_message::<DebrisBurstMessage>();
+    app.init_resource::<CapturedHits>();
+    app.insert_resource(relations);
+    app.add_systems(Update, (apply_hitbox_damage, capture_hits).chain());
+    let owner = app
+        .world_mut()
+        .spawn(crate::features::CenteredAabb::new(
+            ae::Vec2::new(100.0, 100.0),
+            ae::Vec2::new(12.0, 16.0),
+        ))
+        .id();
+    app.world_mut().spawn((
+        Hitbox {
+            owner,
+            source: ActorFaction::Enemy,
+            anchor: HitboxAnchor::World {
+                center: ae::Vec2::new(100.0, 100.0),
+            },
+            half_extent: ae::Vec2::new(30.0, 30.0),
+            shape: None,
+            facing: 1.0,
+            damage: 4,
+            knockback_strength: 0.0,
+        },
+        HitboxLifetime { remaining_s: 0.2 },
+        HitboxHits::default(),
+    ));
+    let victim = app
+        .world_mut()
+        .spawn((
+            crate::features::CenteredAabb::new(
+                ae::Vec2::new(100.0, 100.0),
+                ae::Vec2::new(14.0, 20.0),
+            ),
+            victim_faction,
+        ))
+        .id();
+    (app, victim)
+}
+
+/// An Enemy swing damages a Boss-faction body when the relations matrix marks
+/// them mutually hostile (a spectator arena). The hit is PRE-RESOLVED to that
+/// exact body via `HitTarget::Actor`, so the actor-damage consumer lands it
+/// without the bipartite player/enemy assumption.
+#[test]
+fn enemy_hitbox_damages_a_relationally_hostile_actor() {
+    let mut relations = FactionRelations::default();
+    relations.set_mutual_hostile(ActorFaction::Enemy, ActorFaction::Boss, true);
+    let (mut app, victim) = arena_hitbox_app(relations, ActorFaction::Boss);
+    app.update();
+    let cap = &app.world().resource::<CapturedHits>().0;
+    assert_eq!(cap.len(), 1, "one relational actor-vs-actor hit");
+    assert_eq!(
+        cap[0].target,
+        HitTarget::Actor(victim),
+        "pre-resolved to the hostile body"
+    );
+    assert!(matches!(cap[0].source, HitSource::EnemyAttack));
+    assert_eq!(cap[0].damage, 4);
+}
+
+/// Same-faction actors don't fight: an Enemy swing does not hit another Enemy
+/// even with the arena relation set (it only adds Enemy ↔ Boss).
+#[test]
+fn enemy_hitbox_ignores_a_same_faction_actor() {
+    let mut relations = FactionRelations::default();
+    relations.set_mutual_hostile(ActorFaction::Enemy, ActorFaction::Boss, true);
+    let (mut app, _victim) = arena_hitbox_app(relations, ActorFaction::Enemy);
+    app.update();
+    assert!(
+        app.world().resource::<CapturedHits>().0.is_empty(),
+        "no friendly fire — an Enemy is not hostile to another Enemy"
+    );
+}
+
+/// The relational actor-vs-actor path is OPT-IN: with the default (combat-
+/// baseline) relations, an Enemy is not hostile to a Boss, so its swing produces
+/// no actor-vs-actor hit. Nothing regresses for ordinary play.
+#[test]
+fn default_relations_produce_no_actor_vs_actor_hit() {
+    let (mut app, _victim) = arena_hitbox_app(FactionRelations::default(), ActorFaction::Boss);
+    app.update();
+    assert!(
+        app.world().resource::<CapturedHits>().0.is_empty(),
+        "default relations add no actor-vs-actor hostility"
+    );
+}
+
+/// Spawn an Enemy-source hitbox over a vulnerable player; relations decide
+/// whether the player is hit. Returns (app, player).
+fn enemy_hitbox_over_player_app(relations: FactionRelations) -> (App, Entity) {
+    let mut app = App::new();
+    app.add_message::<HitEvent>();
+    app.add_message::<SfxMessage>();
+    app.add_message::<VfxMessage>();
+    app.add_message::<DebrisBurstMessage>();
+    app.init_resource::<CapturedHits>();
+    app.insert_resource(relations);
+    app.add_systems(Update, (apply_hitbox_damage, capture_hits).chain());
+    let owner = app
+        .world_mut()
+        .spawn(crate::features::CenteredAabb::new(
+            ae::Vec2::new(100.0, 100.0),
+            ae::Vec2::new(12.0, 16.0),
+        ))
+        .id();
+    app.world_mut().spawn((
+        Hitbox {
+            owner,
+            source: ActorFaction::Enemy,
+            anchor: HitboxAnchor::World {
+                center: ae::Vec2::new(100.0, 100.0),
+            },
+            half_extent: ae::Vec2::new(30.0, 30.0),
+            shape: None,
+            facing: 1.0,
+            damage: 3,
+            knockback_strength: 0.0,
+        },
+        HitboxLifetime { remaining_s: 0.2 },
+        HitboxHits::default(),
+    ));
+    let player = app
+        .world_mut()
+        .spawn((
+            crate::player::PlayerEntity,
+            crate::player::BodyKinematics {
+                pos: ae::Vec2::new(100.0, 100.0),
+                size: ae::Vec2::new(28.0, 46.0),
+                facing: 1.0,
+                ..Default::default()
+            },
+            crate::player::PlayerOffense::default(),
+            crate::player::PlayerDodgeState::default(),
+            crate::player::PlayerShieldState::default(),
+            crate::player::PlayerCombatState::default(),
+        ))
+        .id();
+    (app, player)
+}
+
+/// Default (combat-baseline) relations keep Enemy hostile to Player, so an enemy
+/// swing over the player lands — ordinary play is unchanged.
+#[test]
+fn enemy_hitbox_hits_the_player_by_default() {
+    let (mut app, player) = enemy_hitbox_over_player_app(FactionRelations::default());
+    app.update();
+    let cap = &app.world().resource::<CapturedHits>().0;
+    assert_eq!(cap.len(), 1, "the player takes the hit by default");
+    assert_eq!(cap[0].target, HitTarget::Player(player));
+    assert!(matches!(cap[0].source, HitSource::EnemyAttack));
+}
+
+/// A spectator-arena combatant whose faction is NOT hostile to the player spares
+/// the observer entirely — the non-player-centric "ignore the observer" property.
+#[test]
+fn enemy_hitbox_spares_a_non_hostile_player() {
+    let mut relations = FactionRelations::default();
+    relations.set_mutual_hostile(ActorFaction::Enemy, ActorFaction::Player, false);
+    let (mut app, _player) = enemy_hitbox_over_player_app(relations);
+    app.update();
+    assert!(
+        app.world().resource::<CapturedHits>().0.is_empty(),
+        "an Enemy not hostile to Player does not hit the observing player"
+    );
+}
+
 /// The AOE fires once, not every tick of its lifetime — the owner doubles
 /// as a fired-sentinel in `HitboxHits`.
 #[test]

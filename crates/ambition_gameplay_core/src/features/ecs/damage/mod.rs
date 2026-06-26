@@ -174,13 +174,21 @@ pub fn apply_feature_hit_events(
             }
             continue;
         }
+        // Relational actor-vs-actor (S3e): an event pre-resolved to a single
+        // non-player actor victim (`HitTarget::Actor`) is applied to exactly that
+        // body, whatever its source direction — this is how an Enemy/Boss swing
+        // damages another actor without flowing through the player path.
+        let actor_target = match event.target {
+            crate::combat::events::HitTarget::Actor(entity) => Some(entity),
+            _ => None,
+        };
         // Victim-side sources (enemy touch, enemy swings, boss body
         // contact, hazards) are consumed by the player-damage path.
         // The feature drain only applies attacker-side player hits
-        // here; otherwise an `EnemyBody` event would damage the same
-        // enemy that emitted it when the volume overlaps its own
-        // AABB.
-        if !event.source.is_attacker_side() {
+        // here (plus the pre-resolved actor-vs-actor hits above);
+        // otherwise an `EnemyBody` event would damage the same enemy
+        // that emitted it when the volume overlaps its own AABB.
+        if actor_target.is_none() && !event.source.is_attacker_side() {
             continue;
         }
         // Ignore-keys (`prefix:id`) of every target struck by THIS event, folded
@@ -203,6 +211,12 @@ pub fn apply_feature_hit_events(
             mut cq,
         ) in &mut actors
         {
+            // Pre-resolved actor victim: apply ONLY to that entity.
+            if let Some(target_entity) = actor_target {
+                if actor_entity != target_entity {
+                    continue;
+                }
+            }
             let prefix = if disposition.is_hostile() {
                 "enemy"
             } else {
@@ -241,7 +255,10 @@ pub fn apply_feature_hit_events(
             }
         }
         let mut boss_hit_this_event = false;
-        for (id, _aabb, mut feature, attack_state, animation_frame) in &mut bosses {
+        // A pre-resolved actor-vs-actor hit never spills onto bosses / breakables.
+        for (id, _aabb, mut feature, attack_state, animation_frame) in
+            bosses.iter_mut().filter(|_| actor_target.is_none())
+        {
             if target_is_ignored(&event.ignored_targets, "boss", id.as_str()) {
                 continue;
             }
@@ -286,7 +303,9 @@ pub fn apply_feature_hit_events(
             });
         }
 
-        for (entity, id, name, aabb, mut feature) in &mut breakables {
+        for (entity, id, name, aabb, mut feature) in
+            breakables.iter_mut().filter(|_| actor_target.is_none())
+        {
             if target_is_ignored(&event.ignored_targets, "breakable", id.as_str()) {
                 continue;
             }

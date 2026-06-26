@@ -305,6 +305,7 @@ dependencies = [
  "serde_json",
  "virtual_joystick",
  "wasm-bindgen",
+ "yarnspinner",
 ]
 
 [[package]]

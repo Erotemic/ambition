@@ -267,7 +267,7 @@ authored_audio = ["dep:bevy_kira_audio", "ambition_audio/kira"]
 # the entire audio runtime (no plugin install, no AudioContext
 # creation) even though `bevy_kira_audio` was in the dep graph.
 web_audio = ["audio"]
-ui = ["dep:bevy_material_ui", "dep:bevy_yarnspinner"]
+ui = ["dep:bevy_material_ui", "dep:bevy_yarnspinner", "dep:yarnspinner"]
 physics_debris = ["dep:avian2d"]
 input = ["dep:leafwing-input-manager", "ambition_input/input", "ambition_ui_nav/input"]
 # Mobile / Android touch input. Pulls `virtual_joystick` for the
@@ -414,6 +414,10 @@ bevy = { version = "0.18.1", default-features = false, features = [
 ] }
 bevy_common_assets = { version = "0.15", features = ["ron"] }
 bevy_yarnspinner = { version = "0.8", optional = true }
+# The standalone Yarn compiler (same version bevy_yarnspinner pulls). Used only
+# by the `ui`-gated yarn-compiles test so a malformed `.yarn` file fails at
+# `cargo test` instead of crashing the running game's asset loader.
+yarnspinner = { version = "0.8", optional = true }
 bevy_material_ui = { version = "0.2.7", default-features = false, features = ["bevy_minimal"], optional = true }
 bevy_asset_loader = { version = "0.26", optional = true }
 bevy_ecs_ldtk = { version = "0.14", optional = true }

@@ -17,6 +17,10 @@ Subcommands (those marked [TODO] are not yet wired and will print a hint):
     world init <target.ldtk>       Scaffold a new .ldtk file by cloning sandbox.ldtk defs.
     world auto-layout <ldtk>      Arrange Free-layout levels by LoadingZone graph
                                    (--strategy greedy/layered/clustered).
+
+    generate hall-of-characters    Rebuild the Hall of Characters area spec from
+                                   character_catalog.ron (pedestals, tiers, dialogue ids).
+
     diff semantic <before> <after> Review semantic LDtk changes without JSON noise.
     policy check|fix <ldtk>        Check/fix agent authoring policies.
     camera audit|auto-cover <ldtk> CameraZone placement and coverage helpers.
@@ -149,6 +153,12 @@ def cmd_world(args, rest):
             "ambition_ldtk_tools.edit.world_layout", [args.world_action, *rest]
         )
     return _todo(f"world {args.world_action}")
+
+
+def cmd_generate(args, rest):
+    if args.generate_action == "hall-of-characters":
+        return _delegate("ambition_ldtk_tools.generate_hall_of_characters", rest)
+    return _todo(f"generate {args.generate_action}")
 
 
 def cmd_diff(args, rest):
@@ -411,6 +421,22 @@ def build_parser() -> argparse.ArgumentParser:
         ),
     )
     sp_world.set_defaults(func=cmd_world)
+
+    # generate {hall-of-characters}
+    sp_generate = sub.add_parser(
+        "generate",
+        help="Regenerate procedurally-authored levels from their source-of-truth data",
+    )
+    generate_sub = sp_generate.add_subparsers(dest="generate_action", required=True)
+    generate_sub.add_parser(
+        "hall-of-characters",
+        help=(
+            "Rebuild the Hall of Characters area spec from character_catalog.ron "
+            "(pedestals, tiers, dialogue ids). Usage: generate hall-of-characters "
+            "[--catalog PATH] [--out PATH] [--print-summary]"
+        ),
+    )
+    sp_generate.set_defaults(func=cmd_generate)
 
     # diff {semantic}
     sp_diff = sub.add_parser("diff", help="Semantic LDtk diffs")

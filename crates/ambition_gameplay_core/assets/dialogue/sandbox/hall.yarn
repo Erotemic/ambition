@@ -1,20 +1,3 @@
-// Hall of Characters — the "Inspect a pedestal" conversations.
-//
-// One `hall_<character_id>` node per character that authors a
-// `hall_dialogue_id` in character_catalog.ron. These are the fourth-wall
-// gallery beats: the character knows it is on a plinth in a hall of every
-// character the engine can spawn, and has fun with it. Keep them short —
-// a line or three, optionally one branch.
-//
-// Wiring: catalog `hall_dialogue_id: Some("hall_<id>")` -> the hall generator
-// stamps it onto that pedestal's NpcSpawn.dialogue_id -> Inspect starts this
-// node. `known_dialogue_ids()` folds the catalog ids in, so the LDtk
-// validator accepts them automatically.
-//
-// SCAFFOLD: three exemplars below prove the pipeline end to end. The
-// content-writing pass adds the rest (see
-// docs/planning/character-barks-and-hall-dialogue.md).
-
 title: hall_pirate_admiral
 ---
 Admiral: So. A tourist. They line us up on plinths like figureheads pried off our own ships and call it a "hall."

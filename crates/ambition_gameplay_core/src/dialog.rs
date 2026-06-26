@@ -61,24 +61,33 @@ use bevy_yarnspinner::prelude::*;
 /// intentionally custom and game-feel oriented. Gated behind the `ui`
 /// feature; the rest of this module's dialogue runtime + custom Bevy UI
 /// view does not depend on Yarn Spinner.
+/// The Yarn dialogue files the game loads, as paths relative to Bevy's asset
+/// root (`crates/ambition_gameplay_core/assets/`). One file per zone — the
+/// content-swap unit for a future fork is the whole `dialogue/<game_id>/`
+/// directory.
+///
+/// Single source of truth: [`yarn_spinner_plugin`] registers exactly these, and
+/// the `dialog_yarn_compile` test compiles exactly these (as one project, the
+/// way startup does). A new `.yarn` added here is automatically covered; a file
+/// dropped on disk but not listed is intentionally unloaded.
+pub(crate) const YARN_SOURCES: &[&str] = &[
+    "dialogue/sandbox/intro.yarn",
+    "dialogue/sandbox/kernel.yarn",
+    "dialogue/sandbox/factions.yarn",
+    "dialogue/sandbox/cove.yarn",
+    "dialogue/sandbox/dojo.yarn",
+    "dialogue/sandbox/symmetry.yarn",
+    "dialogue/sandbox/hall.yarn",
+];
+
 #[cfg(feature = "ui")]
 pub fn yarn_spinner_plugin() -> YarnSpinnerPlugin {
     // Android cannot enumerate asset folders inside the APK, so use
     // explicit Yarn sources instead of `YarnSpinnerPlugin::new()`
-    // (which scans the dialogue folder on desktop builds). Paths
-    // relative to Bevy's asset root
-    // (`crates/ambition_gameplay_core/assets/`). One file per zone — the
-    // content-swap unit for a future fork is the whole
-    // `dialogue/<game_id>/` directory.
-    YarnSpinnerPlugin::with_yarn_sources([
-        YarnFileSource::file("dialogue/sandbox/intro.yarn"),
-        YarnFileSource::file("dialogue/sandbox/kernel.yarn"),
-        YarnFileSource::file("dialogue/sandbox/factions.yarn"),
-        YarnFileSource::file("dialogue/sandbox/cove.yarn"),
-        YarnFileSource::file("dialogue/sandbox/dojo.yarn"),
-        YarnFileSource::file("dialogue/sandbox/symmetry.yarn"),
-        YarnFileSource::file("dialogue/sandbox/hall.yarn"),
-    ])
+    // (which scans the dialogue folder on desktop builds).
+    YarnSpinnerPlugin::with_yarn_sources(
+        YARN_SOURCES.iter().map(|p| YarnFileSource::file(*p)),
+    )
 }
 
 #[cfg(test)]

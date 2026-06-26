@@ -446,6 +446,48 @@ mod tests {
     }
 
     #[test]
+    fn every_catalog_hall_dialogue_id_has_a_yarn_node() {
+        // The dangling-id bug: a catalog row authors `hall_dialogue_id:
+        // Some("hall_x")` but `hall.yarn` has no `title: hall_x` node, so
+        // Inspecting that pedestal starts an unknown node at runtime (silent
+        // in tests, broken in the game). Pure-text cross-check — no Yarn
+        // runtime — so it runs in every config and fails at `cargo test`.
+        let yarn = std::fs::read_to_string(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/assets/dialogue/sandbox/hall.yarn"
+        ))
+        .expect("read hall.yarn");
+        let nodes: std::collections::HashSet<&str> = yarn
+            .lines()
+            .filter_map(|l| l.strip_prefix("title:"))
+            .map(str::trim)
+            .collect();
+
+        let missing: Vec<(&String, &str)> = EMBEDDED_CATALOG
+            .characters
+            .iter()
+            .filter_map(|(id, entry)| {
+                entry
+                    .hall_dialogue_id
+                    .as_deref()
+                    .filter(|hid| !nodes.contains(hid))
+                    .map(|hid| (id, hid))
+            })
+            .collect();
+
+        assert!(
+            missing.is_empty(),
+            "catalog hall_dialogue_id(s) with no matching `title:` node in \
+             hall.yarn (Inspect would start an unknown node):\n{}",
+            missing
+                .iter()
+                .map(|(id, hid)| format!("  {id} -> {hid}"))
+                .collect::<Vec<_>>()
+                .join("\n"),
+        );
+    }
+
+    #[test]
     fn display_name_returns_none_for_unknown_id() {
         // Negative: callers fall back to the id itself when a lookup
         // misses. Pins the contract so a future panic-on-miss change

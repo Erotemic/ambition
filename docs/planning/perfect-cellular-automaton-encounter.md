@@ -147,18 +147,27 @@ abilities.
   Authored via `entity add` (surgical) + mirrored in the room generator. All 72
   LDtk load/validate tests green.
 
-**PAUSED here per Jon's request** (encounter gate + placement landed). Deferred:
-- **S4** glider projectile special (data-driven, CA-themed).
-- **S5** extend Smash brain: Block (reactive), Blink dodge, Fly reposition,
-  Special(glider) verbs + projectile-aware `ObservationFrame` + difficulty
-  knobs; headless non-cheating harness.
-- **S6** finalize design note (RL-policy seam).
+- **S4a** ✅ fix the float→ground desync on provoke. `provoke_actor_in_place`
+  overwrote tuning but not `surface.gravity_scale`, so the Floating PCA would
+  freeze mid-air when hostile (aerial integrator reads `velocity_target`, which
+  the grounded Smash brain never sets). Now provoke re-syncs gravity to the
+  hostile archetype's locomotion mode; the PCA descends and fights via the
+  tested grounded Smash path. Test pins it. **The encounter is now a fully
+  functional reactive melee boss.**
+- **S5 (reaction latency)** ✅ the never-cheats core. `reaction_delay_s` was
+  inert; now `SmashState.obs_history` makes the brain perceive a lagged opponent
+  (~150 ms for the PCA via MEDIUM). Headless tests prove it can't frame-perfectly
+  counter. Difficulty knobs documented.
+- **S6** ✅ design note `docs/design/pca-fighter-brain.md` (observation/action
+  interface, difficulty knobs, reaction-latency guarantee, RL-policy seam).
 
-Known integration risk (deferred to S5): the Smash brain emits only ground
-locomotion + melee/ranged/dash/dodge today; the PCA body is `Floating`, so the
-hostile PCA footsies horizontally but doesn't yet fly/blink/glide. It is a
-strong, fair melee brawler end-to-end now; aerial verb integration on a Floating
-body is the main open question for S5.
+**Deferred depth** (verbs whose `ActorControlFrame` bits already exist; tracked
+in the design note):
+- glider special (CA-themed diagonal projectile via the data-driven ranged path),
+- reactive block (`shield_held` + an incoming-threat read in `ObservationFrame`),
+- blink dodge (`blink_pressed`),
+- fly / aerial-Smash (emit `velocity_target` + 2D pursuit so the PCA fights
+  airborne instead of descending).
 
 ## How to try it
 Walk into the symmetry_room (Noether Chamber), approach the Perfect Cell-ular

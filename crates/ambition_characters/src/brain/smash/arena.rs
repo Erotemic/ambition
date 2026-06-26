@@ -96,6 +96,25 @@ impl Stage {
         }
     }
 
+    /// The **Noether Chamber** (C4 symmetry room) shape: a square room with a
+    /// central "kernel" platform and four symmetric ledges, default down-gravity
+    /// orientation. The arena hybrids fly/ground here to inspect flight health.
+    pub fn symmetry_chamber() -> Self {
+        Self {
+            left: 0.0,
+            right: 720.0,
+            floor: 540.0,
+            ceiling: 40.0,
+            platforms: vec![
+                Platform { x0: 300.0, x1: 420.0, y: 290.0 }, // central kernel
+                Platform { x0: 90.0, x1: 230.0, y: 200.0 },  // upper-left
+                Platform { x0: 490.0, x1: 630.0, y: 200.0 }, // upper-right
+                Platform { x0: 90.0, x1: 230.0, y: 400.0 },  // lower-left
+                Platform { x0: 490.0, x1: 630.0, y: 400.0 }, // lower-right
+            ],
+        }
+    }
+
     pub fn width(&self) -> f32 {
         self.right - self.left
     }
@@ -127,7 +146,9 @@ pub struct Fighter {
     pub cfg: SmashCfg,
     pub state: SmashState,
     pub actions: ActionSet,
-    /// Free-mover: ignores gravity, steers `velocity_target` in 2D.
+    /// Capability: this body CAN enter free-mover flight. A pure flyer starts (and
+    /// stays) airborne; a hybrid toggles via `fly_toggle_pressed`; a grounded
+    /// brawler leaves this `false` and never flies.
     pub can_fly: bool,
     pub max_air_jumps: u8,
     pub max_run_speed: f32,
@@ -139,6 +160,9 @@ pub struct Fighter {
     pub pos: ae::Vec2,
     pub vel: ae::Vec2,
     pub facing: f32,
+    /// Current free-mover state. For a hybrid this toggles in response to
+    /// `fly_toggle_pressed`; for a pure flyer it stays true; grounded false.
+    pub airborne: bool,
     pub on_ground: bool,
     pub air_jumps: u8,
     pub attack_cooldown: f32,
@@ -159,6 +183,8 @@ impl Fighter {
 pub struct Sample {
     pub pos: ae::Vec2,
     pub on_ground: bool,
+    /// Free-mover (flight) mode this tick — for the flight-health report.
+    pub airborne: bool,
     pub verb: Verb,
 }
 
@@ -183,7 +209,7 @@ impl Arena {
         // id (NOT a clock or Entity — replay-safe determinism, per the design).
         for (i, f) in [&mut a, &mut b].into_iter().enumerate() {
             f.pos.y = stage.floor;
-            f.on_ground = !f.can_fly;
+            f.on_ground = !f.airborne;
             f.air_jumps = f.max_air_jumps;
             f.state.rng_seed = 0x51ED_0000 ^ (i as u64 + 1).wrapping_mul(0x9E37_79B9_7F4A_7C15);
         }
@@ -209,7 +235,7 @@ impl Arena {
         s.actor_vel = f.vel;
         s.actor_facing = f.facing;
         s.actor_on_ground = f.on_ground;
-        s.actor_aerial = f.can_fly;
+        s.actor_aerial = f.airborne;
         s.alive = true;
         s.target_pos = opp.pos;
         s.target_alive = true;
@@ -244,6 +270,7 @@ impl Arena {
             self.trace.samples[i].push(Sample {
                 pos: f.pos,
                 on_ground: f.on_ground,
+                airborne: f.airborne,
                 verb,
             });
         }
@@ -266,11 +293,19 @@ impl Arena {
         if frame.facing.abs() > 0.001 {
             f.facing = frame.facing.signum();
         }
-        if f.can_fly {
-            // Free-mover: steer toward the commanded velocity directly. The Smash
-            // brain emits grounded `locomotion`; until the aerial verbs land we
-            // translate that throttle into a horizontal velocity and let the
-            // explicit `velocity_target` (when the brain sets it) win.
+        // Hybrid fly toggle: a capable body flips its free-mover mode. Taking off
+        // clears ground contact; landing intent lets gravity reclaim it (handled
+        // in integrate when it next touches a surface).
+        if frame.fly_toggle_pressed && f.can_fly {
+            f.airborne = !f.airborne;
+            if f.airborne {
+                f.on_ground = false;
+            }
+        }
+        if f.airborne {
+            // Free-mover: steer the commanded 2D velocity directly (the aerial
+            // brain writes velocity_target; a stray grounded throttle maps to
+            // horizontal motion as a fallback).
             let vt = if frame.velocity_target.length_squared() > 1.0 {
                 frame.velocity_target
             } else {
@@ -367,13 +402,13 @@ impl Arena {
     fn integrate(&mut self, i: usize) {
         let stage = &self.stage;
         let f = &mut self.fighters[i];
-        if !f.can_fly {
-            // Gravity unless standing.
+        if !f.airborne {
+            // Grounded mode: gravity unless standing.
             if !f.on_ground {
                 f.vel.y = (f.vel.y + GRAVITY * DT).min(MAX_FALL);
             }
         } else {
-            // Flyer: clamp ceiling/floor handled below; no gravity.
+            // Free-mover: no gravity, never grounded; ceiling/floor clamped below.
             f.on_ground = false;
         }
         let prev_y = f.pos.y;
@@ -403,14 +438,14 @@ impl Arena {
         // Floor.
         if f.pos.y >= stage.floor {
             f.pos.y = stage.floor;
-            if !f.can_fly {
+            if !f.airborne {
                 if !f.on_ground {
                     f.on_ground = true;
                     f.air_jumps = f.max_air_jumps;
                 }
                 f.vel.y = 0.0;
             }
-        } else if !f.can_fly {
+        } else if !f.airborne {
             // One-way platform landings: only when falling and crossing from above.
             if f.vel.y > 0.0 {
                 for p in &stage.platforms {
@@ -487,14 +522,14 @@ fn classify_verb(frame: &ActorControlFrame, f: &Fighter) -> Verb {
     if frame.jump_pressed {
         return Verb::Jump;
     }
-    if f.can_fly && frame.velocity_target.length_squared() > 1.0 {
-        return Verb::Fly;
+    if f.airborne {
+        // In flight, any steering reads as Fly; a near-still hover is Idle.
+        if frame.velocity_target.length_squared() > 1.0 {
+            return Verb::Fly;
+        }
+        return Verb::Idle;
     }
-    let x = if f.can_fly {
-        frame.velocity_target.x
-    } else {
-        frame.locomotion.x
-    };
+    let x = frame.locomotion.x;
     let mag = x.abs();
     if mag < 0.05 {
         return Verb::Idle;
@@ -525,6 +560,16 @@ pub struct FighterReport {
     pub max_corner_s: f32,
     /// Fraction of ticks spent airborne (off the ground) — vertical-space usage.
     pub airborne_frac: f32,
+    /// Fraction of ticks spent in free-mover FLIGHT mode (a hybrid that toggles
+    /// fly on/off). Distinct from `airborne_frac`, which also counts grounded
+    /// jumps. `0` for a body that never flies.
+    pub flight_frac: f32,
+    /// Number of take-off/land transitions over the bout — the flight-health
+    /// signal for a hybrid: it should use both modes, not stick in one.
+    pub flight_transitions: usize,
+    /// Vertical span (px) the fighter's feet covered — how much of the chamber's
+    /// height it actually used.
+    pub vertical_span: f32,
     /// Distinct verbs used over the bout.
     pub distinct_verbs: usize,
     pub verbs: Vec<(Verb, usize)>,
@@ -563,6 +608,11 @@ pub fn analyze_fighter(stage: &Stage, name: &'static str, samples: &[Sample]) ->
     let mut max_corner_s = 0.0_f32;
     let mut cur_corner = 0.0_f32;
     let mut airborne = 0usize;
+    let mut in_flight = 0usize;
+    let mut flight_transitions = 0usize;
+    let mut prev_flight: Option<bool> = None;
+    let mut y_min = f32::MAX;
+    let mut y_max = f32::MIN;
     let mut path_len = 0.0_f32;
     let mut verb_counts: std::collections::HashMap<Verb, usize> = std::collections::HashMap::new();
     let mut prev_x: Option<f32> = None;
@@ -591,6 +641,15 @@ pub fn analyze_fighter(stage: &Stage, name: &'static str, samples: &[Sample]) ->
         if !s.on_ground {
             airborne += 1;
         }
+        if s.airborne {
+            in_flight += 1;
+        }
+        if prev_flight.is_some_and(|p| p != s.airborne) {
+            flight_transitions += 1;
+        }
+        prev_flight = Some(s.airborne);
+        y_min = y_min.min(s.pos.y);
+        y_max = y_max.max(s.pos.y);
         if let Some(px) = prev_x {
             path_len += (s.pos.x - px).abs();
         }
@@ -604,11 +663,10 @@ pub fn analyze_fighter(stage: &Stage, name: &'static str, samples: &[Sample]) ->
     // "Distinct verbs" counts only meaningfully-used verbs (>= a few ticks), so a
     // single stray frame doesn't inflate variety.
     let distinct_verbs = verbs.iter().filter(|(v, c)| *c >= 3 && *v != Verb::Idle).count();
-    let airborne_frac = if samples.is_empty() {
-        0.0
-    } else {
-        airborne as f32 / samples.len() as f32
-    };
+    let n = samples.len().max(1) as f32;
+    let airborne_frac = airborne as f32 / n;
+    let flight_frac = in_flight as f32 / n;
+    let vertical_span = if y_max >= y_min { y_max - y_min } else { 0.0 };
 
     FighterReport {
         name,
@@ -617,6 +675,9 @@ pub fn analyze_fighter(stage: &Stage, name: &'static str, samples: &[Sample]) ->
         max_still_s,
         max_corner_s,
         airborne_frac,
+        flight_frac,
+        flight_transitions,
+        vertical_span,
         distinct_verbs,
         verbs,
         path_len,
@@ -689,13 +750,16 @@ impl FighterReport {
 
     pub fn summary(&self) -> String {
         format!(
-            "{:>8}: cols {}/{}  still {:.1}s  corner {:.1}s  air {:.0}%  verbs {} {:?}  path {:.0}px",
+            "{:>8}: cols {}/{}  still {:.1}s  corner {:.1}s  air {:.0}%  flight {:.0}%/{}x  vspan {:.0}px  verbs {} {:?}  path {:.0}px",
             self.name,
             self.x_bins_visited,
             self.x_bins_total,
             self.max_still_s,
             self.max_corner_s,
             self.airborne_frac * 100.0,
+            self.flight_frac * 100.0,
+            self.flight_transitions,
+            self.vertical_span,
             self.distinct_verbs,
             self.verbs.iter().map(|(v, _)| *v).collect::<Vec<_>>(),
             self.path_len,
@@ -754,6 +818,7 @@ mod tests {
             pos: ae::Vec2::new(x, 0.0),
             vel: ae::Vec2::ZERO,
             facing: 1.0,
+            airborne: false,
             on_ground: true,
             air_jumps: 1,
             attack_cooldown: 0.0,
@@ -781,6 +846,7 @@ mod tests {
             pos: ae::Vec2::new(x, 0.0),
             vel: ae::Vec2::ZERO,
             facing: -1.0,
+            airborne: false,
             on_ground: true,
             air_jumps: 1,
             attack_cooldown: 0.0,
@@ -797,9 +863,78 @@ mod tests {
     fn winged_pca(name: &'static str, x: f32) -> Fighter {
         Fighter {
             can_fly: true,
+            airborne: true,
             actions: winged_actions(),
             ..pca(name, x)
         }
+    }
+
+    /// A **hybrid** PCA: capable of both grounded footsies and flight, with the
+    /// glider poke + dive melee. The brain chooses when to take off (to contest an
+    /// elevated foe or mount a proactive aerial foray) and when to land.
+    fn hybrid_pca(name: &'static str, x: f32) -> Fighter {
+        let mut cfg = SmashCfg::DUELIST_DEFAULT;
+        cfg.can_fly = true;
+        cfg.aerial_foray_cadence_s = 3.0; // ~3s grounded between forays
+        cfg.aerial_foray_duration_s = 2.5; // ~2.5s airborne per foray
+        Fighter {
+            cfg,
+            can_fly: true,
+            airborne: false, // starts grounded; takes flight on its own
+            actions: winged_actions(),
+            ..pca(name, x)
+        }
+    }
+
+    /// The inspection bout the user asked for: **two hybrid PCAs** that can fly OR
+    /// ground, fighting in the C4 symmetry chamber. Beyond the usual non-degeneracy
+    /// guard, it asserts FLIGHT HEALTH — each fighter genuinely uses both modes
+    /// (doesn't stick airborne or glued to the floor), toggles repeatedly, and uses
+    /// the chamber's vertical space. Prints the full report so flight behavior can
+    /// be inspected and iterated.
+    #[test]
+    fn two_hybrid_pcas_fight_healthily_in_the_symmetry_chamber() {
+        let stage = Stage::symmetry_chamber();
+        let mut arena = Arena::new(
+            stage.clone(),
+            hybrid_pca("PCA-A", 540.0),
+            hybrid_pca("PCA-B", 180.0),
+        );
+        arena.run(40.0);
+        let reports = arena.trace.reports();
+        let th = NonDegenerateThresholds::default();
+        let mut violations = Vec::new();
+        println!("--- two hybrid PCAs in the symmetry chamber ---");
+        for r in &reports {
+            println!("{}", r.summary());
+            violations.extend(r.violations(&th));
+            // Flight health: uses BOTH modes (not stuck in one), toggles
+            // repeatedly, and exercises vertical space.
+            assert!(
+                r.flight_frac > 0.12 && r.flight_frac < 0.9,
+                "{}: unhealthy flight balance — {:.0}% in flight (want a real mix of fly + ground)",
+                r.name,
+                r.flight_frac * 100.0
+            );
+            assert!(
+                r.flight_transitions >= 4,
+                "{}: only {} fly/land transitions — should switch modes repeatedly over a 40s bout",
+                r.name,
+                r.flight_transitions
+            );
+            assert!(
+                r.vertical_span > stage.height() * 0.3,
+                "{}: only used {:.0}px of vertical space (chamber is {:.0}px tall)",
+                r.name,
+                r.vertical_span,
+                stage.height()
+            );
+        }
+        assert!(
+            violations.is_empty(),
+            "degenerate fight detected:\n  {}",
+            violations.join("\n  ")
+        );
     }
 
     /// Characterization: a bout runs to completion, stays in bounds, no NaNs, and

@@ -108,6 +108,20 @@ pub struct SmashCfg {
     /// Minimum seconds between blink-evades. Ignored when [`Self::can_blink`]
     /// is `false`.
     pub blink_cooldown_s: f32,
+    /// When true, this is a **hybrid flyer**: a body that can both fight grounded
+    /// (footsies + jump) and take flight (`fly_toggle_pressed`). The brain decides
+    /// when to be airborne — to contest an elevated target, or to mount a proactive
+    /// aerial foray — and lands again to footsie. `false` = the body never toggles
+    /// (a pure grounded brawler, or a pure flyer driven by its `actor_aerial`
+    /// body state). Capability gate: the body still needs the fly ability for the
+    /// toggle intent to resolve, like the player.
+    pub can_fly: bool,
+    /// Hybrid flyer: seconds spent grounded between proactive aerial forays.
+    /// Ignored unless [`Self::can_fly`].
+    pub aerial_foray_cadence_s: f32,
+    /// Hybrid flyer: seconds an aerial foray lasts before landing again.
+    /// Ignored unless [`Self::can_fly`].
+    pub aerial_foray_duration_s: f32,
     /// Difficulty profile applied at stage 4.
     pub difficulty: DifficultyProfile,
 }
@@ -133,6 +147,9 @@ impl SmashCfg {
         neutral_jump_cadence_s: 0.0,
         can_blink: false,
         blink_cooldown_s: 0.0,
+        can_fly: false,
+        aerial_foray_cadence_s: 0.0,
+        aerial_foray_duration_s: 0.0,
         difficulty: DifficultyProfile::MEDIUM,
     };
     /// Heavy brute tuning — slower, longer reach, less retreat.
@@ -151,6 +168,9 @@ impl SmashCfg {
         neutral_jump_cadence_s: 0.0,
         can_blink: false,
         blink_cooldown_s: 0.0,
+        can_fly: false,
+        aerial_foray_cadence_s: 0.0,
+        aerial_foray_duration_s: 0.0,
         difficulty: DifficultyProfile::MEDIUM,
     };
     /// **Duelist** tuning — a 1v1 fighter with a real neutral game: it weaves
@@ -173,6 +193,10 @@ impl SmashCfg {
         neutral_jump_cadence_s: 1.7,
         can_blink: true,
         blink_cooldown_s: 1.2,
+        // Grounded duelist by default; hybrid flight is opt-in per fighter.
+        can_fly: false,
+        aerial_foray_cadence_s: 0.0,
+        aerial_foray_duration_s: 0.0,
         difficulty: DifficultyProfile::MEDIUM,
     };
 }
@@ -283,6 +307,10 @@ pub struct SmashState {
     /// Seconds until the next blink-evade is allowed. Decremented each tick;
     /// re-armed to `blink_cooldown_s` when a blink fires.
     pub blink_cooldown: f32,
+    /// Hybrid flyer: seconds left in the current ground-dwell or aerial-foray
+    /// phase. Drives the proactive take-off/land cadence with hysteresis so the
+    /// fighter doesn't chatter the fly toggle every tick.
+    pub foray_timer: f32,
 }
 
 /// Window (s) over which the perceived target velocity is estimated for the
@@ -411,6 +439,44 @@ pub fn tick_smash(
             state.blink_cooldown = cfg.blink_cooldown_s;
         }
     }
+    // Hybrid flight: decide whether to be airborne and emit the fly toggle when
+    // that differs from the body's current mode. Movement this tick still runs in
+    // the *current* mode (above); the toggle takes effect next tick. No-op for a
+    // pure grounded brawler or a pure flyer (cfg.can_fly == false).
+    if cfg.can_fly && decide_flight(&obs, cfg, state) != obs.self_aerial {
+        out.fly_toggle_pressed = true;
+    }
+}
+
+/// Hybrid-flight decision: should the fighter be airborne right now? It fights
+/// grounded by default and either (a) takes off to contest a clearly-elevated
+/// target, or (b) mounts a proactive aerial foray on a cadence, then lands to
+/// footsie again. Phase timers give hysteresis so the fly toggle can't chatter.
+/// Returns the DESIRED airborne state; the caller toggles when it differs from
+/// the body's current `self_aerial`.
+fn decide_flight(obs: &ObservationFrame, cfg: &SmashCfg, state: &mut SmashState) -> bool {
+    let currently = obs.self_aerial;
+    state.foray_timer = (state.foray_timer - obs.dt).max(0.0);
+    // Forced take-off: a target genuinely above us (more than a hop) is better
+    // contested in the air than by jump-chasing. Arms a minimum foray so we don't
+    // immediately land again.
+    let target_above = obs.to_target_y < -cfg.vertical_chase_min;
+    if !currently && target_above {
+        state.foray_timer = cfg.aerial_foray_duration_s.max(0.6);
+        return true;
+    }
+    // Proactive cadence: when the current phase elapses, switch modes and arm the
+    // other phase's dwell.
+    if state.foray_timer <= 0.0 && cfg.aerial_foray_cadence_s > 0.0 {
+        let desired = !currently;
+        state.foray_timer = if desired {
+            cfg.aerial_foray_duration_s
+        } else {
+            cfg.aerial_foray_cadence_s
+        };
+        return desired;
+    }
+    currently
 }
 
 /// Decide whether to blink-evade this tick, returning the WORLD-space "away"

@@ -131,13 +131,41 @@ abilities.
 - **S1b** ✅ data-expose the Smash reactive fighter as `BrainPreset::Smash` +
   resolver mapping; author `cellular_automaton_fighter` catalog preset (MEDIUM
   difficulty, dash-to-close). Roster + resolver tests green.
-- **Next (S1c/S2)**: the Smash brain currently emits only ground locomotion +
-  melee/ranged/dash/dodge verbs. The PCA body is `Floating`, so a hostile Smash
-  PCA will footsie horizontally but not yet fly/blink/glide (those are S5
-  verbs). Decision: land the **encounter gate (S2)** next so there's a playable
-  talk→challenge→fight loop with the existing verbs, then deepen the brain
-  (S5) and add the glider (S4). Aerial verb integration on a Floating body is
-  the main open integration risk — flagged here.
+- **S2** ✅ encounter gate. The generic `<<challenge>>` Yarn command +
+  `ActorStimulus::Challenged` provoke the dialogue speaker unconditionally
+  through the existing `provoke_actor_in_place` flip. `DialogState` now records
+  the speaker entity. PCA dialogue authored in `symmetry.yarn`
+  (`perfect_cellular_automaton`: CA/glider/objective-function theme,
+  ethical-funding lore, a gating "Challenge it" + peaceful exit). Hostile
+  archetype `cellular_automaton_fighter` (content RON, Smash, 18 HP boss);
+  `hostile_brain_id_for_actor` PCA branch. Tests: challenge flips peaceful→
+  hostile-Smash with zero strikes; passive un-challenged NPC ignores damage;
+  PCA resolves to its boss archetype by id/name/dialogue.
+- **S3** ✅ LDtk placement. PCA NpcSpawn in `symmetry_room` (Noether Chamber)
+  at the kernel's down face — peaceful + stationary (catalog hostile Aerial
+  brain is correctly rejected by `npc_brain_from_catalog` → stand_still).
+  Authored via `entity add` (surgical) + mirrored in the room generator. All 72
+  LDtk load/validate tests green.
+
+**PAUSED here per Jon's request** (encounter gate + placement landed). Deferred:
+- **S4** glider projectile special (data-driven, CA-themed).
+- **S5** extend Smash brain: Block (reactive), Blink dodge, Fly reposition,
+  Special(glider) verbs + projectile-aware `ObservationFrame` + difficulty
+  knobs; headless non-cheating harness.
+- **S6** finalize design note (RL-policy seam).
+
+Known integration risk (deferred to S5): the Smash brain emits only ground
+locomotion + melee/ranged/dash/dodge today; the PCA body is `Floating`, so the
+hostile PCA footsies horizontally but doesn't yet fly/blink/glide. It is a
+strong, fair melee brawler end-to-end now; aerial verb integration on a Floating
+body is the main open question for S5.
+
+## How to try it
+Walk into the symmetry_room (Noether Chamber), approach the Perfect Cell-ular
+Automaton hovering at the kernel's down face, press Interact, and pick
+"Challenge it" — it flips to a hostile reactive Smash fighter. "Leave it in
+peace" exits without a fight. (Runtime-verify in the GUI; headless tests cover
+the gate logic + LDtk load, but the in-world feel is unverified by me.)
 
 ## Wall-clock log
 - S0 design note: started 2026-06-26.

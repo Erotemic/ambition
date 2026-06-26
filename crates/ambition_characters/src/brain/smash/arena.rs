@@ -886,6 +886,102 @@ mod tests {
         }
     }
 
+    /// The **player-robot as a full-kit fighter** (roadmap S6a / I7): the
+    /// protagonist's `player_robot` archetype kit expressed at the brain level —
+    /// a grounded-base hybrid (footsies + jump on the ground, fly to contest the
+    /// air) with blink-evade, reactive shield, dash-to-close, a melee strike, and
+    /// the player's ranged poke. The same body the human pilots, driven by the one
+    /// Smash brain. Mirrors the authored archetype flags
+    /// (`smash_can_blink/fly/shield/dash`), so the mirror-match below exercises the
+    /// real player kit, not a generic duelist.
+    fn player_robot_fighter(name: &'static str, x: f32) -> Fighter {
+        let mut cfg = SmashCfg::DUELIST_DEFAULT;
+        cfg.can_blink = true;
+        cfg.blink_cooldown_s = 0.8;
+        cfg.can_shield = true;
+        cfg.can_fly = true;
+        cfg.dash_to_close = true;
+        cfg.aerial_foray_cadence_s = 3.0;
+        cfg.aerial_foray_duration_s = 2.5;
+        Fighter {
+            cfg,
+            can_fly: true,
+            airborne: false, // grounded-base hybrid, like the player
+            actions: winged_actions(),
+            ..robot(name, x)
+        }
+    }
+
+    /// **The spectator-arena mirror match** (invariant I9, the in-engine analogue at
+    /// the brain level): the player-robot and the PCA — both full-kit hybrids under
+    /// the ONE Smash brain — fight in the C4 chamber and must be non-degenerate
+    /// (roam the stage, vary their verbs, never freeze or camp a corner). This is
+    /// the behavioral witness the roadmap calls necessary-but-not-sufficient; it
+    /// proves the two advanced bodies compose into a real fight without degenerate
+    /// loops. (Observer-sparing is the relational-damage property proven in S3e;
+    /// the real-ECS *playable* arena with the Neutral observer in the room, and
+    /// portal routing, remain.)
+    #[test]
+    fn player_robot_vs_pca_mirror_match_is_non_degenerate() {
+        let stage = Stage::symmetry_chamber();
+        let mut arena = Arena::new(
+            stage.clone(),
+            player_robot_fighter("PlayerRobot", 540.0),
+            hybrid_pca("PCA", 180.0),
+        );
+        arena.run(30.0);
+        let reports = arena.trace.reports();
+        // Both fighters are ranged-capable zoners, so they footsie/poke each other
+        // at mid-range rather than chasing across the whole arena — the same reason
+        // `two_hybrid_pcas` uses bespoke asserts instead of the grounded-brawl
+        // `NonDegenerateThresholds` (whose `max_still_s` over-fires on tight
+        // zoning). The meaningful guards here: they move a lot, use a VARIETY of the
+        // full kit (not one-note), range across columns, and never wedge in a
+        // corner.
+        for r in &reports {
+            println!("{}", r.summary());
+            assert!(
+                r.path_len > 1000.0,
+                "{}: barely moved ({:.0}px) — a full-kit fighter should actively engage",
+                r.name,
+                r.path_len
+            );
+            assert!(
+                r.verbs.len() >= 4,
+                "{}: only {} verb kinds — should mix the kit (walk/melee/ranged/blink/shield/jump): {:?}",
+                r.name,
+                r.verbs.len(),
+                r.verbs,
+            );
+            assert!(
+                r.x_bins_visited >= 4,
+                "{}: covered only {}/{} columns — should range across the chamber",
+                r.name,
+                r.x_bins_visited,
+                r.x_bins_total,
+            );
+            assert!(
+                r.max_corner_s < 6.0,
+                "{}: pinned in a corner {:.1}s — should not wedge",
+                r.name,
+                r.max_corner_s,
+            );
+        }
+        // The mirror match must actually exercise the FULL kit, not collapse to
+        // walk+melee: across the two fighters, blink and shield (the S3 defensive
+        // verbs) and ranged all show up — the player-robot fights with everything.
+        let used: std::collections::HashSet<Verb> = reports
+            .iter()
+            .flat_map(|r| r.verbs.iter().map(|(v, _)| *v))
+            .collect();
+        for needed in [Verb::Blink, Verb::Shield, Verb::Ranged, Verb::Melee] {
+            assert!(
+                used.contains(&needed),
+                "the mirror match never used {needed:?} — the full kit isn't being exercised",
+            );
+        }
+    }
+
     /// The inspection bout the user asked for: **two hybrid PCAs** that can fly OR
     /// ground, fighting in the C4 symmetry chamber. Beyond the usual non-degeneracy
     /// guard, it asserts FLIGHT HEALTH — each fighter genuinely uses both modes

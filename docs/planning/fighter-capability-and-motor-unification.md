@@ -423,9 +423,21 @@ Author model: Opus 4.8 (1M). Wall-clock log at the bottom.
     Proven headless against the real brain + real geometry
     (`ranged_shot_suppressed_when_line_of_fire_blocked`); 1024 gameplay_core + 230
     characters lib green.
+  - **S5b mirror match (behavioral witness)** ✅ — the **player-robot vs PCA**
+    mirror match, both full-kit hybrids under the ONE Smash brain, is proven
+    non-degenerate in the brain-level arena (`player_robot_vs_pca_mirror_match_is_non_degenerate`):
+    they roam the C4 chamber, never wedge a corner, and across the bout exercise
+    the FULL kit — blink + shield (the S3 defensive verbs) + ranged + melee all
+    fire. This is the in-engine analogue of I9's mirror match at the brain-contract
+    level (the roadmap's necessary-but-not-sufficient behavioral witness). Uses
+    bespoke asserts (not the grounded-brawl `NonDegenerateThresholds`, whose
+    `max_still_s` over-fires on ranged zoners — same precedent as `two_hybrid_pcas`).
   - **Remaining S5:** reposition (jump / go-around / blink / fly) when no LOF
     instead of only closing; off-viewport pursuit via `WorldMemory`; portal
-    routing; **the spectator arena** (needs S6a robot-as-actor for the 2nd body).
+    routing; the **real-ECS *playable* spectator arena** (the 3-body room with the
+    Neutral observer literally present — observer-sparing itself is the S3e
+    relational-damage property, already proven; this is the full-sim integration
+    that retires the proxy arena for "works in a fight").
 - **S6 (convergence / de-player-casing)** — *in progress:*
   - **S6a player-robot as an actor archetype** ✅ — the protagonist's full kit is
     now authored as the `player_robot` archetype (`enemy_archetypes.ron`): blink /

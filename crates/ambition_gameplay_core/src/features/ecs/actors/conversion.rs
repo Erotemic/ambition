@@ -149,6 +149,17 @@ pub(crate) fn provoke_actor_in_place(
             hostile_id.into(),
         ));
         em.config.tuning = spec.tuning();
+        // Re-sync the body's gravity to match the hostile archetype's locomotion
+        // mode — the same invariant `reset_to_spawn` enforces
+        // (`gravity_scale = if is_aerial { 0 } else { 1 }`). Without this, a
+        // peaceful *Floating* NPC (gravity_scale 0 at spawn) that provokes into a
+        // grounded archetype would keep `is_aerial`, so the integrator reads
+        // `velocity_target` (which the grounded Smash brain never sets) and the
+        // actor freezes in mid-air. The Perfect Cell-ular Automaton hits exactly
+        // this path: it floats peacefully, then descends to fight as a grounded
+        // brawler. (Aerial archetypes stay aerial; their brains drive
+        // `velocity_target`.)
+        em.surface.gravity_scale = if em.config.tuning.is_aerial { 0.0 } else { 1.0 };
         em.config.brain_spec = spec.brain_spec();
         em.config.brain = ambition_characters::actor::EnemyBrain::Custom(hostile_id.into());
         // Take on the hostile archetype's HP pool (the peaceful seed spawned with

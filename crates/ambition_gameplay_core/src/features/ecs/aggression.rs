@@ -253,6 +253,39 @@ mod tests {
     }
 
     #[test]
+    fn a_floating_npc_grounds_when_provoked_into_a_grounded_archetype() {
+        // The Perfect Cell-ular Automaton path: a peaceful *Floating* NPC
+        // (gravity_scale 0 at spawn) that challenges into a grounded Smash
+        // archetype must re-sync gravity_scale to 1.0 — otherwise the aerial
+        // integrator reads `velocity_target` (which the grounded brain never
+        // sets) and the actor freezes mid-air. Pins the provoke gravity sync.
+        use crate::features::enemies::ActorSurfaceState;
+        let mut app = App::new();
+        app.add_message::<ActorStimulus>();
+        app.add_systems(Update, apply_actor_stimuli);
+        let npc = spawn_npc_with_strikes(&mut app, 0);
+        // Force the spawned NPC to float, as a catalog `Floating` body would.
+        app.world_mut()
+            .get_mut::<ActorSurfaceState>(npc)
+            .unwrap()
+            .gravity_scale = 0.0;
+        app.world_mut().write_message(ActorStimulus::Challenged {
+            actor: npc,
+            challenger: None,
+        });
+        app.update();
+        let g = app
+            .world()
+            .get::<ActorSurfaceState>(npc)
+            .unwrap()
+            .gravity_scale;
+        assert_eq!(
+            g, 1.0,
+            "a floating NPC provoked into a grounded archetype must drop to the ground"
+        );
+    }
+
+    #[test]
     fn an_un_challenged_passive_npc_ignores_damage() {
         // Symmetric negative: without the explicit challenge, a passive
         // actor stays peaceful when merely damaged — only the challenge (or

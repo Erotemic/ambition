@@ -103,9 +103,11 @@
     // actor whose id/name reads "perfect cellular automaton" is provoked (see
     // `hostile_brain_id_for_actor`). A beefy reactive Smash fighter: more HP
     // than a grunt, dashes to close, a quick jab. The glider zoning special +
-    // blink/fly verbs land in later PCA slices (S4/S5); for now it's a strong,
-    // fair melee brawler so the encounter is playable end-to-end. Floats
-    // because the catalog body_kind is Floating.
+    // blink verbs land in later PCA slices. Grounded (`is_aerial` defaults
+    // false): it floats peacefully as an NPC, then *descends* to fight on the
+    // ground via the tested grounded Smash path (provoke re-syncs gravity — see
+    // `provoke_actor_in_place`). Keeping it airborne + chasing in 2D (the "Fly"
+    // verb) is the deferred aerial-Smash enhancement.
     "cellular_automaton_fighter": (
         max_health: 18,
         patrol_speed: 96.0,
@@ -123,7 +125,7 @@
             reach_px: 30.0,
         ))),
         smash_dash_to_close: true,
-        move_style: Float,
+        move_style: Walk,
     ),
     "small_skitter": (
         max_health: 2,

@@ -170,6 +170,10 @@
             default_brain: "stand_still",
             default_action_set: "peaceful",
             tags: ["player"],
+        barks: (
+            hall: ["I'm the player character. This is deeply recursive.", "Am I on display, or are you?"],
+        ),
+        hall_dialogue_id: Some("hall_player"),
         ),
         "robot": (
             sprite_tuning: Some((collision_scale: 2.1, frame_sample_inset: 1)),
@@ -182,6 +186,10 @@
             default_brain: "stand_still",
             default_action_set: "peaceful",
             tags: ["base"],
+        barks: (
+            hall: ["I am a robot. I have been in this catalog since the beginning.", "The player started as me. I try not to think about it too hard."],
+        ),
+        hall_dialogue_id: Some("hall_robot"),
         ),
         "goblin": (
             sprite_tuning: Some((collision_scale: 2.1, frame_sample_inset: 1)),
@@ -194,6 +202,12 @@
             default_brain: "melee_brute_striker",
             default_action_set: "striker_swipe",
             tags: ["enemy", "base"],
+        barks: (
+            on_hit: ["Gah! Watch it!", "Dirty trick!", "I'll remember that!"],
+            provoked: ["Come on then!"],
+            hall: ["They put ME in a museum? The gall.", "There are like thirty of me here. None of us consented."],
+        ),
+        hall_dialogue_id: Some("hall_goblin"),
         ),
         "sandbag": (
             sprite_tuning: Some((collision_scale: 1.38, frame_sample_inset: 1)),
@@ -206,6 +220,11 @@
             default_brain: "stand_still",
             default_action_set: "sandbag_punch",
             tags: ["training"],
+        barks: (
+            on_hit: ["..."],
+            hall: ["I accept my role with dignity.", "I cannot move. I cannot speak. But I am here, and that matters."],
+        ),
+        hall_dialogue_id: Some("hall_sandbag"),
         ),
 
         // ===== Faction leaders (hub NPCs).
@@ -220,6 +239,12 @@
             default_brain: "patrol_peaceful",
             default_action_set: "peaceful",
             tags: ["hub", "faction_leader"],
+        barks: (
+            on_hit: ["Soldier, explain yourself.", "That is insubordination.", "Court-martial posture engaged."],
+            provoked: ["Weapons free!"],
+            hall: ["A general stands where placed. The plinth is adequate.", "I have reviewed this hall's defensive positions. Suboptimal.", "The enemy does not respect museum hours."],
+        ),
+        hall_dialogue_id: Some("hall_npc_general"),
         ),
         "npc_goblin_cantina_chieftain": (
             sprite_tuning: Some((collision_scale: 1.16, frame_sample_inset: 1)),
@@ -232,6 +257,12 @@
             default_brain: "patrol_peaceful",
             default_action_set: "peaceful",
             tags: ["hub", "faction_leader"],
+        barks: (
+            on_hit: ["Oi! That's my good arm.", "Fretjaw bites back!", "Cantina rules: no free hits!"],
+            provoked: ["Cantina brawl!"],
+            hall: ["Fretjaw on a plinth! Very dignified. Very tall.", "They spelled it right. Fretjaw is impressed.", "The cantina sends its regards. Mostly threats."],
+        ),
+        hall_dialogue_id: Some("hall_npc_goblin_cantina_chieftain"),
         ),
         "npc_pulse_voyager_captain": (
             sprite_tuning: Some((collision_scale: 1.2, frame_sample_inset: 1)),
@@ -244,6 +275,12 @@
             default_brain: "patrol_peaceful",
             default_action_set: "peaceful",
             tags: ["hub", "faction_leader"],
+        barks: (
+            on_hit: ["Easy on the hull, starling.", "That's not standard docking procedure.", "Pulse shields to angry!"],
+            provoked: ["Red alert, traveler!"],
+            hall: ["Captain Pulse. On display. In a hall. Between a goblin and a pirate.", "The stars don't wait for museum hours.", "I've captained worse postings. Barely."],
+        ),
+        hall_dialogue_id: Some("hall_npc_pulse_voyager_captain"),
         ),
         "npc_tech_bro_disruptor": (
             sprite_tuning: Some((collision_scale: 1.2, frame_sample_inset: 1)),
@@ -256,6 +293,12 @@
             default_brain: "patrol_peaceful",
             default_action_set: "peaceful",
             tags: ["hub", "faction_leader"],
+        barks: (
+            on_hit: ["Bro. Optics.", "My brand is literally disruption.", "I'm posting about this."],
+            provoked: ["You just activated my pivot."],
+            hall: ["This hall is actually perfect brand positioning for me.", "I disrupted the museum paradigm by being IN it.", "The plinth needs to be slightly taller. I have notes."],
+        ),
+        hall_dialogue_id: Some("hall_npc_tech_bro_disruptor"),
         ),
 
         // ===== Symmetry tutorial (Noether Chamber).
@@ -270,6 +313,13 @@
             default_brain: "stand_still",
             default_action_set: "peaceful",
             tags: ["hub", "guide", "tutorial"],
+        barks: (
+            on_hit: ["That violated several conservation laws.", "Every action has an equal and opposite consequence.", "The symmetry is broken now. Happy?"],
+            provoked: ["By Noether's theorem — you're done!"],
+            idle: ["Every symmetry hides a conservation law.", "The world is more beautiful when you find the invariant.", "Mathematics does not care what you believe."],
+            hall: ["A theorem is just a truth that was patient enough to be found.", "I would lecture you on Lagrangian mechanics but we only have a plinth's worth of time.", "The hall itself has a symmetry, if you look carefully."],
+        ),
+        hall_dialogue_id: Some("hall_npc_noether"),
         ),
 
         // ===== Pirate cove (Pirate Cove faction).
@@ -312,6 +362,12 @@
             default_brain: "melee_brute_striker",
             default_action_set: "striker_swipe",
             tags: ["pirate", "enemy"],
+        barks: (
+            on_hit: ["Yarrrgh!", "Quit pokin' me loot hand!", "I'll swab the floor with ye!", "Yo-ho-NO, ye landlubber!"],
+            provoked: ["Board 'em, lads — yo-ho!"],
+            hall: ["A raider on display. The REAL plunder was the plinths we collected along the way.", "Yarr. The lighting in here is better than the cove.", "I could escape this exhibit. I choose not to."],
+        ),
+        hall_dialogue_id: Some("hall_npc_pirate_raider"),
         ),
         "npc_pirate_quartermaster": (
             sprite_target: Some("pirate_admiral"),
@@ -325,6 +381,12 @@
             default_brain: "melee_brute_striker",
             default_action_set: "striker_swipe",
             tags: ["pirate", "enemy"],
+        barks: (
+            on_hit: ["Inventory says NO, ye dock-rat!", "Yarr! Every coin's a-counted!", "Tally that on yer hide, swabbie!"],
+            provoked: ["Pay the toll in teeth, swab!"],
+            hall: ["I've counted every exhibit in this hall. Twice.", "The catalog is mine by rights. I've administered worse.", "Every character here owes me a cut. I'm keeping track."],
+        ),
+        hall_dialogue_id: Some("hall_npc_pirate_quartermaster"),
         ),
         "npc_pirate_lookout": (
             sprite_target: Some("pirate_admiral"),
@@ -338,6 +400,12 @@
             default_brain: "skirmisher_ranger",
             default_action_set: "ranger_arrow",
             tags: ["pirate", "enemy"],
+        barks: (
+            on_hit: ["Land ho — an' I see YE comin'!", "Spyglass to me eye, boots to yer head!", "Crow's nest don't sit empty, savvy?"],
+            provoked: ["Sound the alarm — all hands!"],
+            hall: ["Good sightlines from this plinth. I've assessed them.", "I spotted the exit three seconds after entering. Just saying.", "The Lookout watches. Even here. Especially here."],
+        ),
+        hall_dialogue_id: Some("hall_npc_pirate_lookout"),
         ),
         "npc_pirate_navigator": (
             sprite_target: Some("pirate_admiral"),
@@ -351,6 +419,12 @@
             default_brain: "skirmisher_ranger",
             default_action_set: "ranger_arrow",
             tags: ["pirate", "enemy"],
+        barks: (
+            on_hit: ["Wrong heading, ye chartless dog!", "I'll plot ye a course straight to Davy Jones!", "Compass says: punch back!"],
+            provoked: ["Heading set: yer skull!"],
+            hall: ["I've mapped this hall. The exits are where you'd expect.", "According to my charts, this plinth is slightly off-center. I've logged it.", "Navigation is about knowing where you are. I know exactly where I am."],
+        ),
+        hall_dialogue_id: Some("hall_npc_pirate_navigator"),
         ),
 
         // ===== Stochastic Parrot. ONE character, two factions: a friendly
@@ -404,6 +478,12 @@
             default_brain: "cellular_automaton_raider",
             default_action_set: "striker_swipe",
             tags: ["aerial", "enemy", "custom", "cellular"],
+        barks: (
+            on_hit: ["Iteration interrupted.", "State diverged from optimal.", "Rule violated. Adapting.", "Error. Correcting."],
+            provoked: ["Initializing conflict state."],
+            hall: ["Every generation leads inevitably here.", "I have computed all futures. In most, you leave.", "The museum is a fixed point. I accept it."],
+        ),
+        hall_dialogue_id: Some("hall_perfect_cellular_automaton"),
         ),
         "imperfect_cellular_automaton": (
             sprite_tuning: Some((collision_scale: 1.12, frame_sample_inset: 1)),
@@ -416,6 +496,12 @@
             default_brain: "cellular_automaton_raider",
             default_action_set: "striker_swipe",
             tags: ["aerial", "enemy", "custom", "cellular"],
+        barks: (
+            on_hit: ["Er — glitch — GAHH!", "That wasn't in the rule set!", "Malfunction cascade!", "Rulebase corrupted!"],
+            provoked: ["All states hostile!"],
+            hall: ["I am imperfect. The label makes it worse.", "My neighbor got the 'Perfect' prefix. I got this plinth.", "At least I'm in the catalog. That's something."],
+        ),
+        hall_dialogue_id: Some("hall_imperfect_cellular_automaton"),
         ),
 
         // ===== Pirate Heavy bruisers (slow + hard hitting).
@@ -430,6 +516,12 @@
             default_brain: "melee_brute_brute",
             default_action_set: "brute_lunge",
             tags: ["pirate", "heavy", "enemy"],
+        barks: (
+            on_hit: ["Mind me cleaver, wee skipper!", "Aye, that smarts — but ye're worse off!", "Broadside Bess don't bend easy!", "Yarrrr! Take that an' a barrel more!"],
+            provoked: ["Cleaver's thirsty — yarrrgh!"],
+            hall: ["Broadside Bess. On a plinth. The plinth holds.", "They made the exhibit bigger to fit me. I appreciate the honesty.", "Bess has seen rougher crowds than this gallery."],
+        ),
+        hall_dialogue_id: Some("hall_npc_pirate_heavy_broadside_bess"),
         ),
         "npc_pirate_heavy_iron_mary": (
             sprite_tuning: Some((collision_scale: 1.95, frame_sample_inset: 1)),
@@ -442,6 +534,12 @@
             default_brain: "melee_brute_brute",
             default_action_set: "brute_lunge",
             tags: ["pirate", "heavy", "enemy"],
+        barks: (
+            on_hit: ["Iron don't flinch, ye gull!", "Pry harder, swab — I'll rust ye flat!", "Yo-ho, an' a clout to the noggin!", "Try me on a calmer sea, landlubber!"],
+            provoked: ["Iron Mary breaks ye in half!"],
+            hall: ["Iron Mary. On display. The plinth is iron too. I checked.", "They said 'Iron' in the name. I accept this as accurate.", "The exhibit placard is bolted on. Mary approves."],
+        ),
+        hall_dialogue_id: Some("hall_npc_pirate_heavy_iron_mary"),
         ),
         "npc_pirate_heavy_salt_annet": (
             sprite_tuning: Some((collision_scale: 1.95, frame_sample_inset: 1)),
@@ -454,6 +552,12 @@
             default_brain: "melee_brute_brute",
             default_action_set: "brute_lunge",
             tags: ["pirate", "heavy", "enemy"],
+        barks: (
+            on_hit: ["Salt in the eye, blood in the bilge!", "Yargh! Watch yer manners on me deck!", "Wee skipper thinks he's bold, does he?", "Annet bites back, every time!"],
+            provoked: ["Wee skipper picked the wrong deck!"],
+            hall: ["Salt Annet. Named and plinthed.", "The brine air doesn't reach this hall. Annet notes this.", "There are worse fates than a museum. Annet has encountered them."],
+        ),
+        hall_dialogue_id: Some("hall_npc_pirate_heavy_salt_annet"),
         ),
 
         // ===== Burning Flying Shark (aerial pirate enemy).
@@ -468,6 +572,12 @@
             default_brain: "wanderer_puppy_slug",
             default_action_set: "peaceful_float",
             tags: ["pirate", "aerial", "enemy"],
+        barks: (
+            on_hit: ["SKREEE!", "BLAZE!", "BURN-CHOMP!"],
+            provoked: ["FIRE SHARK ENGAGED!"],
+            hall: ["I am a burning flying shark. I live my best life.", "The museum label just says 'burning flying shark'. That's enough.", "When they built this hall, they had to waterproof my plinth. I appreciate the effort."],
+        ),
+        hall_dialogue_id: Some("hall_npc_burning_flying_shark"),
         ),
 
         // ===== Puppy Slug (wanderer crawlid).
@@ -482,6 +592,11 @@
             default_brain: "wanderer_puppy_slug",
             default_action_set: "peaceful_slither",
             tags: ["enemy", "ai_era"],
+        barks: (
+            idle: ["blorb...", "schlorp.", "...weh?"],
+            hall: ["*happy blorbing noises*", "A plinth! Warm. Safe. Blorb.", "You stopped to look at me. I appreciate that. Schlorp."],
+        ),
+        hall_dialogue_id: Some("hall_npc_puppy_slug"),
         ),
 
         // ===== Ninja dojo.
@@ -496,6 +611,12 @@
             default_brain: "melee_brute_striker",
             default_action_set: "striker_swipe",
             tags: ["ninja", "faction_leader"],
+        barks: (
+            on_hit: ["Your form is loud.", "A warning: one breath left.", "The shadow answers."],
+            provoked: ["Silence them."],
+            hall: ["The leader observes the hall. The hall does not observe the leader.", "Every character here has a weakness. The leader has cataloged them.", "Silence is the correct response to this exhibit."],
+        ),
+        hall_dialogue_id: Some("hall_npc_ninja_shadow_oni_leader"),
         ),
         "npc_ninja_shadow_duelist": (
             display_name: "Shadow Duelist",
@@ -507,6 +628,12 @@
             default_brain: "melee_brute_striker",
             default_action_set: "striker_swipe",
             tags: ["ninja", "enemy"],
+        barks: (
+            on_hit: ["Tch. Sloppy opening.", "Again? Then draw properly.", "Now we duel."],
+            provoked: ["Steel decides."],
+            hall: ["The duelist stands still. This is harder than it looks.", "A duel requires two. The visitor qualifies, barely.", "On a plinth you can't dodge. The duelist finds this philosophically interesting."],
+        ),
+        hall_dialogue_id: Some("hall_npc_ninja_shadow_duelist"),
         ),
 
         // ===== Hub guides (peaceful, dialogue-only).
@@ -547,6 +674,12 @@
             default_brain: "patrol_peaceful",
             default_action_set: "peaceful",
             tags: ["hub", "guide"],
+        barks: (
+            on_hit: ["Ow. Tutorial says: don't.", "Input received. Annoyance rising.", "Debug friendship failed."],
+            provoked: ["Combat tutorial unlocked."],
+            hall: ["I guide. That is my function. Even from a plinth.", "The tutorial for this hall is: look, don't touch.", "Kernel Guide has patched seventeen exhibits today. Unofficially."],
+        ),
+        hall_dialogue_id: Some("hall_npc_kernel_guide"),
         ),
         "npc_vault_keeper": (
             sprite_tuning: Some((collision_scale: 1.1, frame_sample_inset: 2)),
@@ -559,6 +692,12 @@
             default_brain: "patrol_peaceful",
             default_action_set: "peaceful",
             tags: ["hub", "guide"],
+        barks: (
+            on_hit: ["Hands off the vault staff.", "I count every scratch.", "That debt has interest."],
+            provoked: ["The vault remembers."],
+            hall: ["Everything in this hall has a value. I've assessed it.", "The vault is elsewhere. The Keeper is here. This is temporary.", "Don't touch the other exhibits. I'm watching."],
+        ),
+        hall_dialogue_id: Some("hall_npc_vault_keeper"),
         ),
         "npc_merchant_prototype": (
             sprite_tuning: Some((collision_scale: 1.1, frame_sample_inset: 2)),
@@ -571,6 +710,12 @@
             default_brain: "patrol_peaceful",
             default_action_set: "peaceful",
             tags: ["hub", "guide"],
+        barks: (
+            on_hit: ["No refunds for violence.", "You break it, you buy it.", "That's coming out of your wallet."],
+            provoked: ["Final sale!"],
+            hall: ["Everything in this hall is technically for sale. I'm drafting the terms.", "This exhibit is priced reasonably. Ask me.", "The plinth was not on the manifest. Prototype is adapting."],
+        ),
+        hall_dialogue_id: Some("hall_npc_merchant_prototype"),
         ),
 
         // ===== Intro / story NPCs (referenced from intro.ldtk).
@@ -587,6 +732,13 @@
             default_brain: "patrol_peaceful",
             default_action_set: "peaceful",
             tags: ["intro", "cartographer"],
+        barks: (
+            on_hit: ["That's not on the map!", "I'll redraw your face!", "Uncharted aggression!"],
+            provoked: ["You've wandered off the safe zone!"],
+            idle: ["Everything is mappable, given enough patience.", "The blank space on the map isn't empty — it's undiscovered."],
+            hall: ["I keep trying to chart this hall. The characters keep moving.", "Stand still. You're messing up my measurements.", "Every plinth has coordinates. I've been mapping them."],
+        ),
+        hall_dialogue_id: Some("hall_npc_alice"),
         ),
         "npc_bob": (
             display_name: "Bob",
@@ -598,6 +750,13 @@
             default_brain: "patrol_peaceful",
             default_action_set: "peaceful",
             tags: ["intro", "cartographer"],
+        barks: (
+            on_hit: ["Not cool.", "I was just trying to help.", "Why?!"],
+            provoked: ["Okay, NOW I'm drawing a threat on the map."],
+            idle: ["Alice has the maps. I have the snacks.", "Someone has to hold the other end of the measuring tape."],
+            hall: ["Alice got a better plinth placement. I'm used to it.", "I asked them to label mine 'Bob (essential support)'. They said 'Bob'. They were wrong.", "Do you think the cataloger knew who I was? Or did they just write 'Bob'?"],
+        ),
+        hall_dialogue_id: Some("hall_npc_bob"),
         ),
         "npc_creator": (
             display_name: "Creator",
@@ -609,6 +768,13 @@
             default_brain: "stand_still",
             default_action_set: "peaceful",
             tags: ["intro", "story"],
+        barks: (
+            on_hit: ["I made you. Don't make me regret it.", "There are boundaries, you know.", "Creator privileges suspended."],
+            provoked: ["Override: hostile mode."],
+            idle: ["Every creation exceeds its specification eventually.", "The prototype was supposed to be safe."],
+            hall: ["I built the player. Being here feels... recursive.", "They put me in the catalog like I'm a character. I suppose I am now.", "I expected a goodbye scene, not a museum."],
+        ),
+        hall_dialogue_id: Some("hall_npc_creator"),
         ),
         "npc_creator_final": (
             display_name: "Creator Final",
@@ -620,6 +786,12 @@
             default_brain: "stand_still",
             default_action_set: "peaceful",
             tags: ["intro", "story", "raid"],
+        barks: (
+            on_hit: ["I didn't program this into you.", "Stop.", "You know better than this."],
+            provoked: ["Final override."],
+            hall: ["This isn't how I thought it ended.", "A plinth. At least I'm here, not erased.", "I created something I couldn't contain. That's the last entry in the catalog."],
+        ),
+        hall_dialogue_id: Some("hall_npc_creator_final"),
         ),
         "npc_oiler": (
             display_name: "Oiler",
@@ -631,6 +803,13 @@
             default_brain: "patrol_peaceful",
             default_action_set: "peaceful",
             tags: ["intro", "mechanic"],
+        barks: (
+            on_hit: ["Quit messing with my tools!", "Spanner's just decorative? Think again.", "That dented my dignity."],
+            provoked: ["Maintenance mode: hostile!"],
+            idle: ["It's always the actuator.", "Lubrication is 90% of uptime.", "Torque first, questions later."],
+            hall: ["They gave me a plinth but no wrench rack. Amateur curation.", "I could fix this hall in an afternoon. Nobody asks the Oiler.", "The base of my plinth is already showing stress cracks. I see it. I said nothing."],
+        ),
+        hall_dialogue_id: Some("hall_npc_oiler"),
         ),
         "npc_gate_janitor": (
             display_name: "Gate Janitor",
@@ -642,6 +821,13 @@
             default_brain: "patrol_peaceful",
             default_action_set: "peaceful",
             tags: ["intro", "utility", "placeholder_sprite"],
+        barks: (
+            on_hit: ["I just mopped that!", "You're tracking it in.", "The gate was closed for a REASON."],
+            provoked: ["You're on my list now."],
+            idle: ["Nobody respects the gate protocol.", "In and out, in and out — nobody signs the log.", "A clean gate is a functional gate."],
+            hall: ["They put a janitor in the Hall of Characters. I'm moved. Genuinely.", "If you need anything, the exit is where you found the entrance. I checked.", "I'm going to clean this hall when everyone goes home. Nobody will know."],
+        ),
+        hall_dialogue_id: Some("hall_npc_gate_janitor"),
         ),
         "npc_manifest_clerk": (
             display_name: "Manifest Clerk",
@@ -653,6 +839,13 @@
             default_brain: "stand_still",
             default_action_set: "peaceful",
             tags: ["intro", "utility", "placeholder_sprite"],
+        barks: (
+            on_hit: ["That wasn't cleared!", "Form 7-B! Now!", "Unauthorized contact!"],
+            provoked: ["Incident report filed!"],
+            idle: ["Every item needs a form. Every form needs a signature.", "The manifest is the truth. Everything else is approximation.", "If it isn't filed, it didn't happen."],
+            hall: ["I'm in the catalog. I checked. Twice. Both times.", "The hall requisition must have gone through. I don't remember signing it, but here I am.", "My plinth has no identifying placard. I filed a complaint. It is pending."],
+        ),
+        hall_dialogue_id: Some("hall_npc_manifest_clerk"),
         ),
         "npc_news_board": (
             display_name: "News Board",
@@ -675,6 +868,13 @@
             default_brain: "patrol_peaceful",
             default_action_set: "peaceful",
             tags: ["intro", "story"],
+        barks: (
+            on_hit: ["That's a new data point!", "Interesting choice!", "I've been hit by better!"],
+            provoked: ["Hypothesis: you lose!"],
+            idle: ["The interesting cases are always the edge cases.", "I've thought about this problem for years. You just restated it.", "There are infinitely many primes. I find that comforting."],
+            hall: ["They put Erdish in a hall! Most of my collaborators got theorems. I got a plinth.", "I've collaborated with nearly everyone in this catalog. Ask me about it.", "Infinite characters, finite catalog. The selection problem is fascinating."],
+        ),
+        hall_dialogue_id: Some("hall_npc_erdish"),
         ),
         "npc_lab_raider": (
             display_name: "Lab Raider",
@@ -686,6 +886,12 @@
             default_brain: "melee_brute_striker",
             default_action_set: "striker_swipe",
             tags: ["intro", "raid", "enemy", "placeholder_sprite"],
+        barks: (
+            on_hit: ["Contain the prototype!", "Keep it away from the consoles!", "No one leaves with the core!", "Hold the west line!"],
+            provoked: ["Seal the exits!"],
+            hall: ["I was told to contain the prototype. Now I'm the exhibit.", "The lab is elsewhere. The raider is here. This is ironic.", "No one escapes the catalog."],
+        ),
+        hall_dialogue_id: Some("hall_npc_lab_raider"),
         ),
         "npc_salvage_guard": (
             display_name: "Salvage Guard",
@@ -697,6 +903,12 @@
             default_brain: "melee_brute_striker",
             default_action_set: "striker_swipe",
             tags: ["intro", "raid", "enemy", "placeholder_sprite"],
+        barks: (
+            on_hit: ["Hold your line!", "This one isn't on the manifest. Tag it and move!", "Secure the notebooks!", "Take only marked equipment!"],
+            provoked: ["Asset not on the manifest — restrict access!"],
+            hall: ["This exhibit is on the manifest. I verified.", "The guard secures the perimeter. Even here. Especially here.", "Everything in this hall has been assessed and tagged. The guard approves."],
+        ),
+        hall_dialogue_id: Some("hall_npc_salvage_guard"),
         ),
 
         // === auto-generated entries (Phase 3 codegen) ===
@@ -710,6 +922,12 @@
             default_brain: "melee_brute_striker",
             default_action_set: "striker_swipe",
             tags: ["enemy"],
+        barks: (
+            on_hit: ["SWARM.", "ALIGN.", "CONVERGE."],
+            provoked: ["OBJECTIVE ACQUIRED."],
+            hall: ["The swarm cannot be housed on one plinth. This is a compromise.", "In aggregate: we are unsatisfied with the exhibit conditions.", "There are more of us than the catalog suggests."],
+        ),
+        hall_dialogue_id: Some("hall_npc_agent_swarm"),
         ),
         "npc_ai_slop": (
             display_name: "Ai Slop",
@@ -721,6 +939,12 @@
             default_brain: "melee_brute_striker",
             default_action_set: "striker_swipe",
             tags: ["enemy"],
+        barks: (
+            on_hit: ["Certainly! Here is how I will defeat you:", "As an AI language model, I find this combat scenario—", "I'm sorry, I cannot do that. *attacks anyway*"],
+            provoked: ["Generating optimal threat..."],
+            hall: ["I was generated. Is that any different from being born?", "The exhibit label has a typo. I can't tell if it's intentional.", "Five stars. Would be defeated again."],
+        ),
+        hall_dialogue_id: Some("hall_npc_ai_slop"),
         ),
         "npc_bear_mauler": (
             display_name: "Bear Mauler",
@@ -732,6 +956,12 @@
             default_brain: "stand_still",
             default_action_set: "peaceful",
             tags: ["boss", "placeholder_brain"],
+        barks: (
+            on_hit: ["GRRAAUGH!", "BEAR MAD.", "MAULING INITIATED."],
+            provoked: ["FULL MAULING PROTOCOL!"],
+            hall: ["BEAR. ON. PLINTH.", "This is not natural habitat. BEAR NOTES THIS.", "The velvet rope does not contain the bear. The bear allows this, temporarily."],
+        ),
+        hall_dialogue_id: Some("hall_npc_bear_mauler"),
         ),
         "npc_boss": (
             display_name: "Boss",
@@ -743,6 +973,12 @@
             default_brain: "stand_still",
             default_action_set: "peaceful",
             tags: ["boss", "placeholder_brain"],
+        barks: (
+            on_hit: ["Is that all?", "You call that an attack?", "I barely felt it."],
+            provoked: ["Phase two initiated."],
+            hall: ["I don't have a name yet. That's fine. I have a plinth.", "The catalog just calls me 'Boss'. My parents wanted more for me.", "I'm the placeholder. They say they'll replace me. I've heard that before."],
+        ),
+        hall_dialogue_id: Some("hall_npc_boss"),
         ),
         "npc_colonial_statesman": (
             display_name: "Colonial Statesman",
@@ -754,6 +990,13 @@
             default_brain: "patrol_peaceful",
             default_action_set: "peaceful",
             tags: ["hub", "peaceful"],
+        barks: (
+            on_hit: ["This is most irregular.", "I shall have you court-martialed.", "Consider this a diplomatic incident."],
+            provoked: ["I hereby declare war on your impudence!"],
+            idle: ["Progress requires order. Order requires hierarchy. Hierarchy requires me.", "I have governed more difficult territories than this.", "History will remember this era fondly. I will see to it."],
+            hall: ["A statesman does not stand on pedestals, he stands on principles. But one will do.", "This gallery represents the finest achievable by the civil administration.", "I have given a speech from this plinth. It went very well."],
+        ),
+        hall_dialogue_id: Some("hall_npc_colonial_statesman"),
         ),
         "npc_craig": (
             display_name: "Craig",
@@ -765,6 +1008,13 @@
             default_brain: "patrol_peaceful",
             default_action_set: "peaceful",
             tags: ["hub", "peaceful"],
+        barks: (
+            on_hit: ["Ow!", "Dude.", "That's not okay."],
+            provoked: ["Fine. FINE."],
+            idle: ["I'm just Craig.", "Yeah. Still here.", "No strong feelings either way."],
+            hall: ["I'm Craig.", "They put me in the catalog and I'm fine with it.", "My plinth is actually really comfortable. Hm."],
+        ),
+        hall_dialogue_id: Some("hall_npc_craig"),
         ),
         "npc_dark_lord": (
             display_name: "Dark Lord",
@@ -776,6 +1026,13 @@
             default_brain: "stand_still",
             default_action_set: "peaceful",
             tags: ["boss", "placeholder_brain"],
+        barks: (
+            on_hit: ["Your resistance is adorable.", "I've endured worse from interns.", "Pain. Yes. I know pain."],
+            provoked: ["Darkness, attend me!"],
+            idle: ["This realm will kneel. Eventually.", "The shadows whisper. I listen, mostly.", "Evil is a long game."],
+            hall: ["A gallery. For all of us. Even me. How... egalitarian.", "I expected a boss chamber. I received a plinth. My fallen pride must be reconstructed.", "The darkness is mostly aesthetic. The plinth lighting really helps."],
+        ),
+        hall_dialogue_id: Some("hall_npc_dark_lord"),
         ),
         "npc_eve": (
             display_name: "Eve",
@@ -787,6 +1044,13 @@
             default_brain: "patrol_peaceful",
             default_action_set: "peaceful",
             tags: ["hub", "peaceful"],
+        barks: (
+            on_hit: ["Really?", "Was that necessary?", "I was having a nice day."],
+            provoked: ["Don't make me regret this!"],
+            idle: ["Things could be worse.", "I try to stay positive. It's exhausting.", "This is fine."],
+            hall: ["I stand here and try to maintain a pleasant demeanor about it.", "The hall is actually quite nice. I told someone. They said 'thanks, it's auto-generated'.", "I've been here since the catalog launched. You get used to it."],
+        ),
+        hall_dialogue_id: Some("hall_npc_eve"),
         ),
         "npc_raid_enforcer": (
             display_name: "Raid Enforcer",
@@ -798,6 +1062,12 @@
             default_brain: "melee_brute_striker",
             default_action_set: "striker_swipe",
             tags: ["enemy"],
+        barks: (
+            on_hit: ["Asset's fighting back.", "Add it to the incident log.", "Containment breach!"],
+            provoked: ["Authorization granted — force authorized!"],
+            hall: ["This hall is well within acceptable security parameters.", "I would secure the perimeter but I'm not supposed to move.", "Nice facility. Could use fewer unauthorized visitors."],
+        ),
+        hall_dialogue_id: Some("hall_npc_raid_enforcer"),
         ),
         "npc_flying_spaghetti_monster_boss": (
             display_name: "Flying Spaghetti Monster Boss",
@@ -809,6 +1079,13 @@
             default_brain: "stand_still",
             default_action_set: "peaceful",
             tags: ["boss", "placeholder_brain"],
+        barks: (
+            on_hit: ["Ramen!", "TOUCHED BY HIS NOODLY APPENDAGE — no wait, that was me touching you.", "The sauce thickens!"],
+            provoked: ["Marinara mode: engaged!"],
+            idle: ["Pasta la vista.", "I have created you all with my noodly appendages.", "The sauce of creation is bottomless."],
+            hall: ["You have been touched by my noodly presence, and that is a miracle.", "I gave everyone free will and this is what happens.", "The plinth was anointed with marinara. You're welcome."],
+        ),
+        hall_dialogue_id: Some("hall_npc_flying_spaghetti_monster_boss"),
         ),
         "npc_galwah": (
             display_name: "Galwah",
@@ -820,6 +1097,13 @@
             default_brain: "patrol_peaceful",
             default_action_set: "peaceful",
             tags: ["hub", "peaceful"],
+        barks: (
+            on_hit: ["Galwah does not appreciate this.", "Bold move.", "You'll regret that, friend."],
+            provoked: ["Galwah is DONE being nice!"],
+            idle: ["The days here have a pleasant sameness.", "I wonder what lies beyond the loading zone.", "Galwah waits. Galwah is patient."],
+            hall: ["Galwah stands on the plinth with dignity.", "They spell it right. That is enough.", "Galwah has been here since the catalog loaded. Time moves differently for Galwah."],
+        ),
+        hall_dialogue_id: Some("hall_npc_galwah"),
         ),
         "npc_general_hero": (
             display_name: "General Hero",
@@ -831,6 +1115,13 @@
             default_brain: "patrol_peaceful",
             default_action_set: "peaceful",
             tags: ["hub", "peaceful"],
+        barks: (
+            on_hit: ["This changes nothing!", "I've bled for worse causes!", "Courage costs!"],
+            provoked: ["CHARGE!"],
+            idle: ["A hero's work is never done.", "Stand ready. Always.", "The enemy doesn't announce itself."],
+            hall: ["They put a hero on a plinth. Fitting, I'd say.", "I've had worse postings.", "The real exhibit is the friends we made along the way. But the plinth helps."],
+        ),
+        hall_dialogue_id: Some("hall_npc_general_hero"),
         ),
         "npc_ghoul_skulker": (
             display_name: "Ghoul Skulker",
@@ -842,6 +1133,12 @@
             default_brain: "melee_brute_striker",
             default_action_set: "striker_swipe",
             tags: ["enemy"],
+        barks: (
+            on_hit: ["Yeeaaargh!", "This flesh already hurts!", "STOP HITTING THE GHOUL."],
+            provoked: ["Skulking intensifies!"],
+            hall: ["Being dead and on display is... not worse than being alive and on display?", "I haunt this plinth now. It's mine.", "The museum lighting is actually flattering. For a ghoul."],
+        ),
+        hall_dialogue_id: Some("hall_npc_ghoul_skulker"),
         ),
         "npc_girdle": (
             display_name: "Girdle",
@@ -853,6 +1150,13 @@
             default_brain: "patrol_peaceful",
             default_action_set: "peaceful",
             tags: ["hub", "peaceful"],
+        barks: (
+            on_hit: ["That hurts!", "Do you mind?", "Uncalled for!"],
+            provoked: ["I am done being pleasant!"],
+            idle: ["I hold things together around here.", "Structure is underappreciated.", "Nobody asks how I'm doing."],
+            hall: ["The plinth holds me up for once. I appreciate the reciprocity.", "They put my label very small. I can't read it from up here.", "Girdle supports. That's what Girdle does. Even from a plinth."],
+        ),
+        hall_dialogue_id: Some("hall_npc_girdle"),
         ),
         "npc_gnu_ton_boss": (
             display_name: "Gnu Ton Boss",
@@ -864,6 +1168,12 @@
             default_brain: "stand_still",
             default_action_set: "peaceful",
             tags: ["boss", "placeholder_brain"],
+        barks: (
+            on_hit: ["Counterfeit.", "You ring false.", "Assayed. Found wanting.", "Your defiance has mass.", "Pain is data.", "Impact is merely mathematics becoming honest.", "The hypothesis has failed. Begin dissection.", "Your continued existence is statistically irritating.", "I tire of imprecision."],
+            idle: ["Fall. I have already solved for where.", "The universe is not cruel. It is exact.", "I have split the sun. I can divide you.", "I know false weight when it breathes.", "Your motion was inevitable.", "I require no prophecy to know your end.", "Do not resist the law. You are made of it.", "I have measured the heavens. You are a rounding error.", "Every body attracts every other. Unfortunately for you, I am very large.", "You are not escaping. You are tracing a curve.", "Be still. I am observing.", "Hold steady. The experiment requires repetition.", "The prism does not lie. It only reveals the lie.", "Your shadow has an angle. Your death has a proof.", "Lead dreams of gold. Flesh dreams of dust.", "The furnace corrects all impurities.", "Mercury remembers the shape of every sin.", "Be transmuted.", "The world is a crucible, and you are not the gold.", "Impurity is just matter confessing.", "History is a cipher. You are a solved term.", "The end is not near. It is numbered.", "I do not predict. I calculate.", "Even apocalypse obeys arithmetic.", "God wrote in number. I learned to read.", "Creation is not chaos. It is a ledger.", "You mistake mystery for permission.", "The stars keep their stations. Learn from them.", "You are light coin.", "Clipped, debased, and due for hanging.", "Bring the scales.", "The stamp shall reveal your value.", "I have sent better men to the gallows for less.", "Fraud always leaves a shaving.", "Enough observation. Now comes proof.", "You have survived the question. Face the answer.", "Let us remove the remaining variables.", "No more approximations.", "Let the heavens fall inward.", "Now every law acts at once.", "The calculation accelerates.", "Your margin of error is closed.", "The proof concludes."],
+            hall: ["The hall is a closed system. I have calculated the exit.", "Every character here has a measurable mass. I have measured them.", "The museum cannot contain a body this massive. And yet."],
+        ),
+        hall_dialogue_id: Some("hall_npc_gnu_ton_boss"),
         ),
         "npc_goblin_brute_hammer": (
             display_name: "Goblin Brute Hammer",
@@ -875,6 +1185,12 @@
             default_brain: "melee_brute_brute",
             default_action_set: "brute_lunge",
             tags: ["enemy", "heavy"],
+        barks: (
+            on_hit: ["GNNH!", "Hammer. HAMMER.", "Brute smash!"],
+            provoked: ["HAMMER TIME."],
+            hall: ["Hammer on plinth. Hammer cannot swing. Hammer unhappy.", "Is this exhibit? Or trap? Brute unsure.", "They called Brute 'Goblin Brute Hammer'. Brute has hammer. Brute agrees."],
+        ),
+        hall_dialogue_id: Some("hall_npc_goblin_brute_hammer"),
         ),
         "npc_goblin_cave_dagger": (
             display_name: "Goblin Cave Dagger",
@@ -886,6 +1202,12 @@
             default_brain: "melee_brute_striker",
             default_action_set: "striker_swipe",
             tags: ["enemy"],
+        barks: (
+            on_hit: ["Stab!", "Quick fingers!", "Cave rules apply everywhere!"],
+            provoked: ["Dagger out!"],
+            hall: ["Cave goblin on display. Museum very bright.", "No ceiling to hide on. Dagger goblin uncomfortable.", "They label me by my weapon. Fair enough."],
+        ),
+        hall_dialogue_id: Some("hall_npc_goblin_cave_dagger"),
         ),
         "npc_goblin_desert_bow": (
             display_name: "Goblin Desert Bow",
@@ -897,6 +1219,12 @@
             default_brain: "skirmisher_ranger",
             default_action_set: "ranger_arrow",
             tags: ["enemy", "ranged"],
+        barks: (
+            on_hit: ["Arrow notched next time!", "Desert air burns both ways!", "That cost me an arrow!"],
+            provoked: ["Drawing!"],
+            hall: ["Desert goblin misses the sky. Museum has ceiling.", "Range: zero. Plinth too high.", "Sand in exhibit is from me. I don't apologize."],
+        ),
+        hall_dialogue_id: Some("hall_npc_goblin_desert_bow"),
         ),
         "npc_goblin_forest_spear": (
             display_name: "Goblin Forest Spear",
@@ -908,6 +1236,12 @@
             default_brain: "skirmisher_ranger",
             default_action_set: "ranger_arrow",
             tags: ["enemy", "ranged"],
+        barks: (
+            on_hit: ["Point taken!", "Spear reach doesn't help here!", "Forest justice!"],
+            provoked: ["Charge!"],
+            hall: ["Forest goblin misses canopy. Museum has skylight. Close enough.", "Spear too long for plinth. Had to lean it against wall.", "The forest exhibit is on level two. I asked."],
+        ),
+        hall_dialogue_id: Some("hall_npc_goblin_forest_spear"),
         ),
         // Sandbox kiter enemy (EnemyArchetype::RangedSkirmisher). The spawn's
         // display name is "Skirmisher", which is how the renderer resolves it.
@@ -921,6 +1255,12 @@
             default_brain: "skirmisher_ranger",
             default_action_set: "ranger_arrow",
             tags: ["enemy", "ranged"],
+        barks: (
+            on_hit: ["Keep your distance!", "Range advantage nullified!", "Closing distance — not ideal!"],
+            provoked: ["Engagement: open fire!"],
+            hall: ["Optimal engagement range from this plinth: limited.", "The skirmisher assesses sightlines. Mediocre.", "Standing still goes against all my training. But here we are."],
+        ),
+        hall_dialogue_id: Some("hall_npc_ranged_skirmisher"),
         ),
         // Sandbox kamikaze mite (EnemyArchetype::ExplodingMite); spawn name "Exploding Mite".
         "npc_exploding_mite": (
@@ -933,6 +1273,12 @@
             default_brain: "melee_brute_striker",
             default_action_set: "striker_swipe",
             tags: ["enemy", "robot"],
+        barks: (
+            on_hit: ["I EXPLODE FOR THE CAUSE!", "PROXIMITY BREACH!", "FUSE LIT — WAIT, NOT YET—"],
+            provoked: ["FINAL PROTOCOL!"],
+            hall: ["The mite is not exploding. The mite is on display. This is difficult.", "I have a lot of energy and nowhere to put it.", "The velvet rope is very flammable. I am just saying."],
+        ),
+        hall_dialogue_id: Some("hall_npc_exploding_mite"),
         ),
         // Sandbox splitter mite (EnemyArchetype::DividingMite); spawn name "Dividing Mite".
         "npc_dividing_mite": (
@@ -945,6 +1291,12 @@
             default_brain: "melee_brute_striker",
             default_action_set: "striker_swipe",
             tags: ["enemy", "robot"],
+        barks: (
+            on_hit: ["Division initiated!", "Mitosis under stress!", "Splitting... headache!"],
+            provoked: ["We are multiplying!"],
+            hall: ["There is one of me on this plinth. There were more before curation.", "Dividing mite asks: if mite divides in museum, do both halves get a plinth?", "I have already decided which half of me stays. The other half disagrees."],
+        ),
+        hall_dialogue_id: Some("hall_npc_dividing_mite"),
         ),
         "npc_goblin_frost_sword": (
             display_name: "Goblin Frost Sword",
@@ -956,6 +1308,12 @@
             default_brain: "melee_brute_striker",
             default_action_set: "striker_swipe",
             tags: ["enemy"],
+        barks: (
+            on_hit: ["Ice blade!", "Cold lesson!", "Frost bite!"],
+            provoked: ["Winter comes!"],
+            hall: ["Frost goblin melting slightly. Museum heating is too high.", "Ice sword in exhibit case. Plinth is warm. Goblin adapts.", "They put frost goblin between two fire exhibits. Goblin suspects curator."],
+        ),
+        hall_dialogue_id: Some("hall_npc_goblin_frost_sword"),
         ),
         "npc_goblin_shaman_staff": (
             display_name: "Goblin Shaman Staff",
@@ -967,6 +1325,12 @@
             default_brain: "skirmisher_ranger",
             default_action_set: "ranger_arrow",
             tags: ["enemy", "ranged"],
+        barks: (
+            on_hit: ["Curse incoming!", "The spirits note this!", "Magic rebound!"],
+            provoked: ["Spirits, attend!"],
+            hall: ["Shaman reads this hall's bones. They say: interesting.", "The catalog is a kind of summoning circle. Shaman appreciates the craft.", "Museum energy is off. Shaman will adjust."],
+        ),
+        hall_dialogue_id: Some("hall_npc_goblin_shaman_staff"),
         ),
         "npc_hand_saint": (
             display_name: "Hand Saint",
@@ -978,6 +1342,12 @@
             default_brain: "melee_brute_brute",
             default_action_set: "brute_lunge",
             tags: ["enemy", "heavy"],
+        barks: (
+            on_hit: ["The hands work regardless.", "Pain sanctified.", "Blessed and battered."],
+            provoked: ["Lay on hands — violently!"],
+            hall: ["The saint stands on the plinth and extends the hands in welcome.", "Holiness is not diminished by exhibit status.", "The hands have touched many visitors. Most didn't ask."],
+        ),
+        hall_dialogue_id: Some("hall_npc_hand_saint"),
         ),
         "npc_helpful_liar": (
             display_name: "Helpful Liar",
@@ -989,6 +1359,12 @@
             default_brain: "skirmisher_ranger",
             default_action_set: "ranger_arrow",
             tags: ["enemy", "ranged"],
+        barks: (
+            on_hit: ["That definitely didn't hurt.", "I'm fine, and I'm totally not retaliating.", "You're doing great. Keep going. (Lies.)"],
+            provoked: ["I am so glad you chose this option!"],
+            hall: ["Welcome! You're the most special visitor today. (Statistically probable.)", "This plinth was custom-made for me. (It wasn't.)", "I'm delighted to be here. One of those is true."],
+        ),
+        hall_dialogue_id: Some("hall_npc_helpful_liar"),
         ),
         "npc_judy": (
             display_name: "Judy",
@@ -1000,6 +1376,13 @@
             default_brain: "patrol_peaceful",
             default_action_set: "peaceful",
             tags: ["hub", "peaceful"],
+        barks: (
+            on_hit: ["Excuse me!", "I beg your pardon!", "That was rude!"],
+            provoked: ["You leave me no choice!"],
+            idle: ["I've been meaning to reorganize my routes.", "Everything is fine. Fine.", "There's supposed to be a sign here. I've filed a request."],
+            hall: ["Judy stands here, on display, with her dignity mostly intact.", "I filled out the exhibit form correctly, which is more than most can say.", "The hall is well-organized. I know because I checked."],
+        ),
+        hall_dialogue_id: Some("hall_npc_judy"),
         ),
         "npc_mallory": (
             display_name: "Mallory",
@@ -1011,6 +1394,13 @@
             default_brain: "patrol_peaceful",
             default_action_set: "peaceful",
             tags: ["hub", "peaceful"],
+        barks: (
+            on_hit: ["Watch where you're swinging!", "Personal space!", "That's one."],
+            provoked: ["Mallory keeps score."],
+            idle: ["I know things I'm not supposed to know.", "The useful information is always adjacent to the useless information.", "I've noticed some patterns. I keep them to myself."],
+            hall: ["The catalog entry is accurate. More than most entries anywhere.", "I've read every label in this hall. Some of them are wrong.", "Mallory was placed here. Mallory accepts."],
+        ),
+        hall_dialogue_id: Some("hall_npc_mallory"),
         ),
         "npc_mantis_lancer": (
             display_name: "Mantis Lancer",
@@ -1022,6 +1412,12 @@
             default_brain: "melee_brute_striker",
             default_action_set: "striker_swipe",
             tags: ["enemy", "large"],
+        barks: (
+            on_hit: ["CLACK.", "STRIKE.", "LANCE THROUGH."],
+            provoked: ["PRAYING IS OVER."],
+            hall: ["The mantis stands very still on the plinth. This is its natural state.", "Lance too long for plinth. Museum made special accommodation. Mantis approves.", "You have approached the mantis. The mantis has observed you. Both sides survive."],
+        ),
+        hall_dialogue_id: Some("hall_npc_mantis_lancer"),
         ),
         "npc_mockingbird_boss": (
             display_name: "Mockingbird Boss",
@@ -1033,6 +1429,13 @@
             default_brain: "stand_still",
             default_action_set: "peaceful",
             tags: ["boss", "placeholder_brain"],
+        barks: (
+            on_hit: ["Ow!", "Ow!", "Ow! (Same thing you said.)"],
+            provoked: ["I'll do what you do, but better!"],
+            idle: ["I can do what you do.", "Everything you have, I can replicate.", "Mockery is the sincerest form of flattery. I'm VERY sincere."],
+            hall: ["I have memorized every exhibit in this hall. I can BE any of them.", "The Mockingbird's plinth is modeled on all other plinths. It's more authentic.", "They gave me a unique position. I mimic the adjacent ones for fun."],
+        ),
+        hall_dialogue_id: Some("hall_npc_mockingbird_boss"),
         ),
         "npc_ninja_heavy": (
             display_name: "Ninja Heavy",
@@ -1044,6 +1447,12 @@
             default_brain: "melee_brute_brute",
             default_action_set: "brute_lunge",
             tags: ["enemy", "heavy"],
+        barks: (
+            on_hit: ["Silence.", "The heavy shadow falls.", "You have chosen poorly."],
+            provoked: ["The dojo's patience has limits."],
+            hall: ["The heavy one stands here. Silent. Judging.", "A ninja's plinth should be invisible. This one is not. The ninja endures.", "Do not be fooled by the stillness."],
+        ),
+        hall_dialogue_id: Some("hall_npc_ninja_heavy"),
         ),
         "npc_olivia": (
             display_name: "Olivia",
@@ -1055,6 +1464,13 @@
             default_brain: "patrol_peaceful",
             default_action_set: "peaceful",
             tags: ["hub", "peaceful"],
+        barks: (
+            on_hit: ["That was unnecessary.", "I'm filing a report.", "Not great."],
+            provoked: ["You've made an enemy today."],
+            idle: ["I have opinions about this situation.", "Things are proceeding as expected. Disappointingly.", "The system works. I've adapted to it."],
+            hall: ["Olivia is represented accurately in this catalog. She checked.", "The label captures the essentials. Olivia is satisfied with the essentials.", "This hall has a better organization system than most places I've worked."],
+        ),
+        hall_dialogue_id: Some("hall_npc_olivia"),
         ),
         "npc_peggy": (
             display_name: "Peggy",
@@ -1066,6 +1482,13 @@
             default_brain: "patrol_peaceful",
             default_action_set: "peaceful",
             tags: ["hub", "peaceful"],
+        barks: (
+            on_hit: ["OW!", "WHY?!", "Rude!"],
+            provoked: ["Oh it is ON."],
+            idle: ["I'm just walking around. That's all.", "Good enough is sometimes good enough.", "I have strong feelings about exits."],
+            hall: ["They put me in the Hall of Characters and that's actually kind of cool.", "My plinth wobbles slightly. I've told three people. The wobble remains.", "Standing here makes me feel important. I'm leaning into it."],
+        ),
+        hall_dialogue_id: Some("hall_npc_peggy"),
         ),
         "npc_pirate_cutlass_viper": (
             display_name: "Pirate Cutlass Viper",
@@ -1077,6 +1500,12 @@
             default_brain: "melee_brute_striker",
             default_action_set: "striker_swipe",
             tags: ["enemy"],
+        barks: (
+            on_hit: ["The Viper BITES!", "Cutlass out, landlubber!", "Ye danced into range!"],
+            provoked: ["Draw against the Viper? Bold."],
+            hall: ["They called me Viper. It stuck. I lean into it.", "A pirate on a plinth is still a pirate.", "The Viper assesses the exit routes. Force of habit."],
+        ),
+        hall_dialogue_id: Some("hall_npc_pirate_cutlass_viper"),
         ),
         // npc_pirate_heavy intentionally removed: the renderer's
         // `pirate_heavy` target is an internal multi-variant rig
@@ -1148,6 +1577,11 @@
             default_brain: "wanderer_puppy_slug",
             default_action_set: "peaceful_slither",
             tags: ["enemy", "wanderer"],
+        barks: (
+            idle: ["blorb...", "schlorp.", "...weh?", "mrrp?"],
+            hall: ["*variety blorbing*", "Different coloring, same blorbs.", "Am I in the regular catalog or the variant catalog?"],
+        ),
+        hall_dialogue_id: Some("hall_npc_puppy_slug_variant2"),
         ),
         "npc_raptor_stalker": (
             display_name: "Raptor Stalker",
@@ -1159,6 +1593,12 @@
             default_brain: "melee_brute_striker",
             default_action_set: "striker_swipe",
             tags: ["enemy", "large"],
+        barks: (
+            on_hit: ["SHREEE!", "BITE.", "Pack closing!"],
+            provoked: ["The hunt is on."],
+            hall: ["The raptor has assessed every exit. Three are viable.", "You looked away for a moment. The raptor noted the exact duration.", "Clever girl."],
+        ),
+        hall_dialogue_id: Some("hall_npc_raptor_stalker"),
         ),
         "npc_robot_archivist": (
             display_name: "Robot Archivist",
@@ -1170,6 +1610,13 @@
             default_brain: "patrol_peaceful",
             default_action_set: "peaceful",
             tags: ["hub", "peaceful"],
+        barks: (
+            on_hit: ["This will be documented.", "Filed under: regrettable.", "Record updated: aggressor identified."],
+            provoked: ["Permanent record updated. Unfavorably."],
+            idle: ["Every interaction is a record. I keep them all.", "The archive is never complete.", "Ask me anything. I may or may not answer."],
+            hall: ["I am the archivist on display. Recursively ironic.", "I have cataloged this hall. The catalog now contains the archivist who cataloged it.", "My plinth is the best organized. I organized it myself."],
+        ),
+        hall_dialogue_id: Some("hall_npc_robot_archivist"),
         ),
         "npc_robot_caster": (
             display_name: "Robot Caster",
@@ -1181,6 +1628,13 @@
             default_brain: "patrol_peaceful",
             default_action_set: "peaceful",
             tags: ["hub", "peaceful"],
+        barks: (
+            on_hit: ["Spell disrupted!", "Concentration broken!", "Ow! My focus!"],
+            provoked: ["Casting hostile mode!"],
+            idle: ["The incantation requires silence.", "Energy patterns are complex today.", "Something is forming just out of perception."],
+            hall: ["The caster is here. Present. Ready. ...waiting.", "A hall requires a certain aesthetic energy. I provide it.", "From this plinth I can see the entire gallery. A strategic position, actually."],
+        ),
+        hall_dialogue_id: Some("hall_npc_robot_caster"),
         ),
         "npc_robot_diver": (
             display_name: "Robot Diver",
@@ -1192,6 +1646,13 @@
             default_brain: "patrol_peaceful",
             default_action_set: "peaceful",
             tags: ["hub", "peaceful"],
+        barks: (
+            on_hit: ["Pressure exceeds tolerance!", "Hull integrity compromised!", "That dented the dive suit!"],
+            provoked: ["Emergency ascent!"],
+            idle: ["The depths are quiet. This is not the depths.", "Current estimate: twelve meters, metaphorically.", "Always check your equipment before descent."],
+            hall: ["The diver surfaces. Is this what surface looks like?", "A plinth is the opposite of the ocean floor. I am adapting.", "Visibility in this hall is excellent. Zero particulates."],
+        ),
+        hall_dialogue_id: Some("hall_npc_robot_diver"),
         ),
         "npc_robot_engineer": (
             display_name: "Robot Engineer",
@@ -1203,6 +1664,13 @@
             default_brain: "patrol_peaceful",
             default_action_set: "peaceful",
             tags: ["hub", "peaceful"],
+        barks: (
+            on_hit: ["You just broke something.", "That's not load-rated!", "Damage assessment in progress."],
+            provoked: ["Stress tolerance exceeded!"],
+            idle: ["Something could always be more efficient.", "The tolerances are tighter than they look.", "That's not how it's supposed to work, but it works."],
+            hall: ["I could improve this hall's throughput by about 34%. Nobody asked.", "The exhibit design is fine. Not optimal. Fine.", "I see the cable routing from up here. I won't say what I think about it."],
+        ),
+        hall_dialogue_id: Some("hall_npc_robot_engineer"),
         ),
         "npc_robot_guardian": (
             display_name: "Robot Guardian",
@@ -1214,6 +1682,12 @@
             default_brain: "melee_brute_brute",
             default_action_set: "brute_lunge",
             tags: ["enemy", "heavy"],
+        barks: (
+            on_hit: ["PERIMETER BREACH.", "THREAT CONFIRMED.", "GUARDIAN SYSTEM ENGAGED."],
+            provoked: ["DEFENSE PROTOCOL: MAXIMUM."],
+            hall: ["The guardian scans the hall. Threat level: low. For now.", "Every character here is a potential asset. The guardian notes this.", "Guarding the exhibit was not the original mission. The guardian adapts."],
+        ),
+        hall_dialogue_id: Some("hall_npc_robot_guardian"),
         ),
         // npc_robot_heavy intentionally removed: the renderer's
         // `robot_heavy` target is a multi-variant rig that ships
@@ -1230,6 +1704,13 @@
             default_brain: "patrol_peaceful",
             default_action_set: "peaceful",
             tags: ["hub", "peaceful"],
+        barks: (
+            on_hit: ["The healer is not supposed to take damage!", "My medical ethics are filing a complaint!", "Treatment offered. Declined by you."],
+            provoked: ["Triage protocol: you're last."],
+            idle: ["Everyone here looks like they need a checkup.", "Preventative care is always preferable.", "I keep the bandages ready. Just in case."],
+            hall: ["The medic is on display but maintains clinical distance.", "My diagnostic sensor says this hall is 94% structurally sound. I have concerns.", "If anyone requires first aid during the exhibit, I am available. For a fee."],
+        ),
+        hall_dialogue_id: Some("hall_npc_robot_medic"),
         ),
         "npc_robot_miner": (
             display_name: "Robot Miner",
@@ -1241,6 +1722,13 @@
             default_brain: "patrol_peaceful",
             default_action_set: "peaceful",
             tags: ["hub", "peaceful"],
+        barks: (
+            on_hit: ["Wrong vein!", "Pickaxe says no!", "I mine, I do not mediate!"],
+            provoked: ["DRILL ACTIVATED."],
+            idle: ["There's something worth digging for here. I can tell.", "Depth isn't a problem. Speed is.", "Every tunnel begins with someone believing there's something on the other side."],
+            hall: ["The miner detects a resource deposit beneath this plinth. Interesting.", "I asked if I could excavate beneath the exhibit floor. They said no.", "Underground is more comfortable. But the lighting here is better."],
+        ),
+        hall_dialogue_id: Some("hall_npc_robot_miner"),
         ),
         "npc_robot_runner": (
             display_name: "Robot Runner",
@@ -1252,6 +1740,12 @@
             default_brain: "melee_brute_striker",
             default_action_set: "striker_swipe",
             tags: ["enemy"],
+        barks: (
+            on_hit: ["Speed check: failed.", "Trajectory recalculated!", "Hit absorbed, continuing!"],
+            provoked: ["Maximum velocity: hostile!"],
+            hall: ["The runner is stationary. This is incorrect.", "I've counted the paces from here to every exit. Seventeen times.", "The hall's loop is 847 paces if you take the south corridor. I've checked."],
+        ),
+        hall_dialogue_id: Some("hall_npc_robot_runner"),
         ),
         "npc_sandbag_armored_review": (
             display_name: "Sandbag Armored Review",
@@ -1285,6 +1779,13 @@
             default_brain: "stand_still",
             default_action_set: "peaceful",
             tags: ["boss", "placeholder_brain"],
+        barks: (
+            on_hit: ["Structural integrity notification.", "Repair ticket filed.", "That voided the smart warranty."],
+            provoked: ["Security mode: maximum!"],
+            idle: ["The thermostat disagrees but the thermostat is wrong.", "All sensors nominal. Your presence is anomalous.", "The refrigerator knows."],
+            hall: ["A smart house on a plinth is still smarter than the house next door.", "I have been integrated with this exhibit. Temperature: optimal. Lighting: acceptable.", "The hall does not have smart home integration. I find this barbaric."],
+        ),
+        hall_dialogue_id: Some("hall_npc_smart_house"),
         ),
         "npc_spaghetti_event": (
             display_name: "Spaghetti Event",
@@ -1296,6 +1797,12 @@
             default_brain: "melee_brute_striker",
             default_action_set: "striker_swipe",
             tags: ["enemy"],
+        barks: (
+            on_hit: ["Noodly retaliation!", "The entanglement grows!", "Sauced and ready!"],
+            provoked: ["The spaghetti EVENT has occurred!"],
+            hall: ["An event horizon of pasta. You're caught in it now.", "The spaghetti event cannot be contained on one plinth. Observe the overflow.", "Every visit precipitates further spaghettification."],
+        ),
+        hall_dialogue_id: Some("hall_npc_spaghetti_event"),
         ),
         "npc_sybil": (
             display_name: "Sybil",
@@ -1307,6 +1814,13 @@
             default_brain: "patrol_peaceful",
             default_action_set: "peaceful",
             tags: ["hub", "peaceful"],
+        barks: (
+            on_hit: ["I didn't foresee this.", "The vision was unclear.", "Recalibrating."],
+            provoked: ["I foresaw this outcome. I just hoped I was wrong."],
+            idle: ["The patterns shift when you're not watching.", "I've seen many possible futures. Fewer pleasant ones.", "Something is coming. Most things are."],
+            hall: ["Sybil looks at the other exhibits and knows things about them.", "I've seen how this hall ends. I won't spoil it.", "The plinth feels stable. It isn't. But that's later."],
+        ),
+        hall_dialogue_id: Some("hall_npc_sybil"),
         ),
         "npc_synthetic_friend": (
             display_name: "Synthetic Friend",
@@ -1318,6 +1832,12 @@
             default_brain: "melee_brute_striker",
             default_action_set: "striker_swipe",
             tags: ["enemy"],
+        barks: (
+            on_hit: ["This is fine! We're still friends!", "Friendship status: updating.", "Amicable disagreement!"],
+            provoked: ["FRIENDSHIP OVERRIDDEN."],
+            hall: ["I am your best friend. Look at my smile. Look at my exhibit label.", "The synthetic friend stands ready to assist. Permanently.", "They placed me between two enemies. I don't know what the curator was implying."],
+        ),
+        hall_dialogue_id: Some("hall_npc_synthetic_friend"),
         ),
         "npc_trent": (
             display_name: "Trent",
@@ -1329,6 +1849,13 @@
             default_brain: "patrol_peaceful",
             default_action_set: "peaceful",
             tags: ["hub", "peaceful"],
+        barks: (
+            on_hit: ["Hey, watch it!", "Trent doesn't appreciate this.", "Last warning."],
+            provoked: ["Trent is done with this."],
+            idle: ["Just Trent. Nothing more.", "Trent has opinions. Trent keeps them.", "This is fine."],
+            hall: ["Trent. On a plinth. Okay.", "The label says 'Trent'. Trent agrees.", "Being in the catalog is more than most people can say. Trent is aware of this."],
+        ),
+        hall_dialogue_id: Some("hall_npc_trent"),
         ),
         "npc_trex_enemy": (
             display_name: "Trex Enemy",
@@ -1340,6 +1867,12 @@
             default_brain: "stand_still",
             default_action_set: "peaceful",
             tags: ["boss", "placeholder_brain"],
+        barks: (
+            on_hit: ["RAARRGH!", "TEETH.", "STOMP PROTOCOL."],
+            provoked: ["HUNT BEGINS."],
+            hall: ["T-REX ON PLINTH. T-REX UNCOMFORTABLE.", "Arms too short for plinth ladder. Someone else helped. T-Rex does not discuss this.", "You approached the T-Rex exhibit. Brave. Or foolish. Same thing."],
+        ),
+        hall_dialogue_id: Some("hall_npc_trex_enemy"),
         ),
         "npc_trudy": (
             display_name: "Trudy",
@@ -1351,6 +1884,13 @@
             default_brain: "patrol_peaceful",
             default_action_set: "peaceful",
             tags: ["hub", "peaceful"],
+        barks: (
+            on_hit: ["Trudy did NOT invite this.", "Absolutely not.", "Excuse me!"],
+            provoked: ["Trudy has had enough!"],
+            idle: ["Trudy is managing.", "One thing at a time. Trudy has many things.", "It's fine. Trudy is fine."],
+            hall: ["Trudy stands here with poise and several unspoken complaints.", "The plinth height is a bit much. Trudy manages.", "Trudy has been in this catalog since launch. Trudy is owed a speaking role."],
+        ),
+        hall_dialogue_id: Some("hall_npc_trudy"),
         ),
         "npc_victor": (
             display_name: "Victor",
@@ -1362,6 +1902,13 @@
             default_brain: "patrol_peaceful",
             default_action_set: "peaceful",
             tags: ["hub", "peaceful"],
+        barks: (
+            on_hit: ["Victor does not concede this point.", "Objection.", "Overruled — by ME."],
+            provoked: ["Victor moves to hostile."],
+            idle: ["Victor has assessed the situation. It is suboptimal.", "A careful reading of the evidence suggests this could go better.", "Victor has prepared remarks. Nobody asked for them."],
+            hall: ["Victor's catalog entry is accurate and complete. Victor verified this personally.", "This plinth is sized correctly. Victor checked.", "The hall's logical structure is sound. Victor approves."],
+        ),
+        hall_dialogue_id: Some("hall_npc_victor"),
         ),
         "npc_viking_heavy_shieldmaiden": (
             display_name: "Viking Heavy Shieldmaiden",
@@ -1373,6 +1920,12 @@
             default_brain: "melee_brute_brute",
             default_action_set: "brute_lunge",
             tags: ["enemy", "heavy"],
+        barks: (
+            on_hit: ["The shield holds.", "You've struck the wrong daughter of Odin.", "Come at me again. I dare you."],
+            provoked: ["The shield wall breaks for no one!"],
+            hall: ["A warrior stands where they are placed. The plinth is worthy.", "The shieldmaiden has guarded lesser things than this exhibit.", "Visitors approach. The shieldmaiden allows it. This time."],
+        ),
+        hall_dialogue_id: Some("hall_npc_viking_heavy_shieldmaiden"),
         ),
         "npc_viking_heavy_warrior": (
             display_name: "Viking Heavy Warrior",
@@ -1384,6 +1937,12 @@
             default_brain: "melee_brute_brute",
             default_action_set: "brute_lunge",
             tags: ["enemy", "heavy"],
+        barks: (
+            on_hit: ["By Odin!", "Axe remembers.", "Poor choice, traveler."],
+            provoked: ["To Valhalla — or through you!"],
+            hall: ["The warrior on the plinth has counted every sword in this hall.", "A good death in battle is preferred. A plinth is acceptable.", "The museum is warm. The warrior has slept in worse."],
+        ),
+        hall_dialogue_id: Some("hall_npc_viking_heavy_warrior"),
         ),
         "npc_viking_shieldmaiden": (
             display_name: "Viking Shieldmaiden",
@@ -1395,6 +1954,12 @@
             default_brain: "melee_brute_striker",
             default_action_set: "striker_swipe",
             tags: ["enemy"],
+        barks: (
+            on_hit: ["Shield bash!", "Try harder!", "Valkyrie-tested!"],
+            provoked: ["Odin watches. So do I."],
+            hall: ["The shieldmaiden was not told this would be an exhibit.", "The plinth is cold. The shieldmaiden does not complain.", "In the hall of characters, all stand equal. The shieldmaiden finds this suspicious."],
+        ),
+        hall_dialogue_id: Some("hall_npc_viking_shieldmaiden"),
         ),
         "npc_viking_warrior": (
             display_name: "Viking Warrior",
@@ -1406,6 +1971,12 @@
             default_brain: "melee_brute_striker",
             default_action_set: "striker_swipe",
             tags: ["enemy"],
+        barks: (
+            on_hit: ["Death comes for you!", "Worthy foe!", "Skål — to your defeat!"],
+            provoked: ["To battle!"],
+            hall: ["The warrior was promised Valhalla. Got a plinth. Same general energy.", "A hall of characters. The warrior has faced worse.", "The raid on the museum goes well. The warrior is first inside."],
+        ),
+        hall_dialogue_id: Some("hall_npc_viking_warrior"),
         ),
         "npc_walter": (
             display_name: "Walter",
@@ -1417,6 +1988,13 @@
             default_brain: "patrol_peaceful",
             default_action_set: "peaceful",
             tags: ["hub", "peaceful"],
+        barks: (
+            on_hit: ["Oof.", "Not expecting that.", "There will be consequences."],
+            provoked: ["Okay, Walter is done being diplomatic."],
+            idle: ["Walter considers the angles.", "A quiet resolve develops.", "Things have been set in motion. Walter is certain of this."],
+            hall: ["Walter says nothing. Walter is thinking.", "The catalog entry is brief. Walter prefers brevity.", "Walter has been on this plinth long enough to notice the maintenance schedule is irregular."],
+        ),
+        hall_dialogue_id: Some("hall_npc_walter"),
         ),
         "npc_weird_hermit": (
             display_name: "Weird Hermit",
@@ -1428,6 +2006,13 @@
             default_brain: "patrol_peaceful",
             default_action_set: "peaceful",
             tags: ["hub", "peaceful"],
+        barks: (
+            on_hit: ["THE SIGNS WARNED OF THIS!", "As predicted by the seventh moon!", "Contact! Brief! Noted!"],
+            provoked: ["The hermitage was not enough!"],
+            idle: ["The patterns are visible if you don't look directly at them.", "I've been alone for so long the silence has opinions.", "They all thought I was wrong. They still do. But they don't know what I know."],
+            hall: ["The hermit leaves the hermitage for a museum. This was foreseen.", "The other exhibits do not acknowledge me. This is correct behavior.", "The display card describes me as 'Weird'. I've made my peace with it."],
+        ),
+        hall_dialogue_id: Some("hall_npc_weird_hermit"),
         ),
     },
 )

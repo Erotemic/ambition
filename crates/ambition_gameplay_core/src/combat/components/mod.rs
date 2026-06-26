@@ -107,6 +107,14 @@ pub struct CombatCapabilities {
     /// directional rule the player's shield uses, `shield_blocks_hit`). Never
     /// gated on "is the player".
     pub can_shield: bool,
+    /// Movement kit: this body can **dash** — a short burst above its walk speed.
+    /// The body-side gate for the `dash_pressed` intent (I3): the controller
+    /// decides WHEN to dash (the brain dashes to close a gap; a possessing human
+    /// presses it), the body owns the burst speed + window + cooldown
+    /// (`ActorAttackState::try_dash` / `DASH_SPEED_MULT`). A body WITHOUT this
+    /// capability still moves at its walk speed on a Dash action (graceful
+    /// fallback), it just doesn't get the burst.
+    pub can_dash: bool,
 }
 
 /// Per-actor numeric/flag tuning the RUNTIME combat loops read each

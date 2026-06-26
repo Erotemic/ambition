@@ -216,6 +216,13 @@ pub(crate) struct EnemyArchetypeSpec {
     /// source, two projections — attempt vs enforce (invariants I2/I3/I7).
     #[serde(default)]
     pub smash_can_shield: bool,
+    /// Movement kit: this body can **dash** — a short burst above walk speed when
+    /// the brain commits a Dash (it dashes to close a gap; see `smash_dash_to_close`
+    /// for the brain's *decision* to dash). Projects ONLY into the body's
+    /// [`crate::combat::CombatCapabilities::can_dash`] enforce gate — the brain
+    /// already attempts a dash via its Dash action, the body owns the burst.
+    #[serde(default)]
+    pub smash_can_dash: bool,
     /// When provoked from peaceful, force an aggressive MeleeBrute brain
     /// with at least this aggro radius (cove PirateHeavy crew). `None` =
     /// use the template's default aggressive brain.
@@ -587,6 +594,7 @@ impl EnemyArchetypeSpec {
             can_blink: self.smash_can_blink,
             can_fly: self.smash_can_fly,
             can_shield: self.smash_can_shield,
+            can_dash: self.smash_can_dash,
         }
     }
 }

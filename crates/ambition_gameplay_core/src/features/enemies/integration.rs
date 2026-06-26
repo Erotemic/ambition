@@ -94,6 +94,9 @@ fn integrate_standard_enemy_body(
     frame: &ambition_characters::actor::control::ActorControlFrame,
     dt: f32,
     gravity_dir: ae::Vec2,
+    // Multiplier on the grounded run-speed cap this tick (1.0 normally; raised
+    // while a dash burst window is open so the burst rides the spine).
+    run_speed_scale: f32,
 ) {
     let mut body = kinematic::KinematicBody {
         pos: kin.pos,
@@ -138,7 +141,7 @@ fn integrate_standard_enemy_body(
             air_accel: ENEMY_RUN_ACCEL,
             ground_friction: 0.0,
             air_friction: 0.0,
-            max_run_speed: tuning.max_run_speed,
+            max_run_speed: tuning.max_run_speed * run_speed_scale,
             max_fall_speed: ENEMY_MAX_FALL,
             ..ae::MovementTuning::default()
         };
@@ -253,6 +256,44 @@ impl<'a> ActorMut<'a> {
         let is_aerial = self.surface.gravity_scale <= 0.001;
         let is_surface_walker = self.config.tuning.surface_walker;
 
+        // Body resolves the dash intent (invariant I3): capability-gated
+        // (`caps.can_dash`) + cooldown/window-enforced (`try_dash`). On acceptance
+        // it BURSTS the body's side velocity to the boosted speed and opens the
+        // dash window; the grounded spine below keeps the raised speed cap for the
+        // window (`run_speed_scale`) so the burst rides the motor instead of being
+        // decelerated back to the walk cap. The controller — AI brain OR possessing
+        // human — only attempts; the body owns the burst. Grounded only for now
+        // (aerial bodies steer `velocity_target` directly).
+        if self.caps.can_dash
+            && frame.dash_pressed
+            && !is_aerial
+            && !is_surface_walker
+            && self.attack.try_dash(ACTOR_DASH_REFIRE_S).accepted()
+        {
+            let dir = if frame.locomotion.x.abs() > 0.001 {
+                frame.locomotion.x.signum()
+            } else {
+                self.kin.facing
+            };
+            let boosted = self.config.tuning.max_run_speed
+                * crate::combat::components::ActorAttackState::DASH_SPEED_MULT;
+            // Dash along the body-local side axis exactly as the spine interprets
+            // local +x (`AccelerationFrame::to_world`), so the burst is frame-
+            // agnostic and never inverted relative to the run. Replace only the side
+            // component; keep the gravity-axis component so a dash doesn't cancel an
+            // in-progress fall/rise.
+            let dash_dir = ae::AccelerationFrame::new(gravity_dir).to_world(ae::Vec2::new(dir, 0.0));
+            let along_g = self.kin.vel.dot(gravity_dir) * gravity_dir;
+            self.kin.vel = along_g + dash_dir * boosted;
+        }
+        // While the dash window is open the spine runs at the boosted cap so the
+        // burst is sustained; otherwise the normal walk cap.
+        let run_speed_scale = if self.attack.dash_active() {
+            crate::combat::components::ActorAttackState::DASH_SPEED_MULT
+        } else {
+            1.0
+        };
+
         if is_surface_walker {
             self.step_surface_walker(world, nearest_neighbor, dt, gravity_dir);
         } else {
@@ -267,6 +308,7 @@ impl<'a> ActorMut<'a> {
                 &frame,
                 dt,
                 gravity_dir,
+                run_speed_scale,
             );
         }
 
@@ -572,5 +614,139 @@ impl<'a> ActorMut<'a> {
             },
             air_jumps_remaining: MAX_ENEMY_AIR_JUMPS,
         };
+    }
+}
+
+#[cfg(test)]
+mod dash_tests {
+    //! S3d: dash as a body-enforced capability. These drive the REAL grounded
+    //! integration (`ActorMut::update` → the shared spine), so they prove the
+    //! body owns the burst — a possessing human and an AI brain dash identically
+    //! because both only set `dash_pressed` (invariants I2/I3).
+    use super::*;
+    use crate::features::ecs::actor_clusters::{ActorClusterSeed, ActorMut};
+    use ambition_characters::actor::control::ActorControlFrame;
+    use ambition_characters::actor::EnemyBrain;
+
+    /// A wide solid floor; bodies rest on its top face at y = 100.
+    fn floored_world() -> ae::World {
+        ae::World::new(
+            "dash_test",
+            ae::Vec2::new(4000.0, 800.0),
+            ae::Vec2::ZERO,
+            vec![ae::Block::solid(
+                "floor",
+                ae::Vec2::new(-2000.0, 100.0),
+                ae::Vec2::new(4000.0, 80.0),
+            )],
+        )
+    }
+
+    /// Drop a grounded body (dash-capable iff `can_dash`) and drive a full-right
+    /// dash for `ticks` steps; return how far it traveled along +x.
+    fn dash_run(can_dash: bool, ticks: u32) -> f32 {
+        let world = floored_world();
+        let aabb = ae::Aabb::new(ae::Vec2::ZERO, ae::Vec2::new(24.0, 40.0));
+        let mut seed = ActorClusterSeed::new(
+            "dasher".to_string(),
+            "Dasher".to_string(),
+            aabb,
+            EnemyBrain::Custom("cellular_automaton_fighter".into()),
+            &[],
+        );
+        // Rest the body on the floor top (y = 100): center a half-height above it.
+        let half_h = seed.kin.size.y * 0.5;
+        seed.kin.pos = ae::Vec2::new(0.0, 100.0 - half_h);
+        seed.kin.vel = ae::Vec2::ZERO;
+        seed.kin.facing = 1.0;
+        seed.surface.on_ground = true;
+        seed.surface.gravity_scale = 1.0;
+        seed.caps.can_dash = can_dash;
+        let start_x = seed.kin.pos.x;
+        let mut em = ActorMut {
+            kin: &mut seed.kin,
+            status: &mut seed.status,
+            surface: &mut seed.surface,
+            attack: &mut seed.attack,
+            config: &mut seed.config,
+            motion: &mut seed.motion,
+            caps: &seed.caps,
+        };
+        let mut frame = ActorControlFrame::neutral();
+        frame.locomotion = ae::Vec2::new(1.0, 0.0);
+        frame.dash_pressed = true;
+        frame.facing = 1.0;
+        let dt = 1.0 / 60.0;
+        for _ in 0..ticks {
+            em.update(
+                &world,
+                ae::Vec2::new(2000.0, em.kin.pos.y),
+                FeatureCombatTuning::default(),
+                None,
+                dt,
+                false,
+                frame,
+                ae::Vec2::new(0.0, 1.0),
+            );
+        }
+        em.kin.pos.x - start_x
+    }
+
+    #[test]
+    fn a_dash_capable_body_covers_more_ground_than_a_walker_over_the_window() {
+        // ~the dash window (DASH_TIME_S = 0.18 s ≈ 11 ticks), plus a tick of slack.
+        let dashed = dash_run(true, 12);
+        let walked = dash_run(false, 12);
+        assert!(
+            dashed > walked * 1.3,
+            "the dash burst should cover meaningfully more ground than a top-speed \
+             walk over the same window: dashed={dashed:.1}px walked={walked:.1}px"
+        );
+    }
+
+    #[test]
+    fn an_uncapable_body_does_not_burst_and_just_walks() {
+        // Sanity: with the capability off, `dash_pressed` never opens a window —
+        // the body's attack state stays dash-inert (the body enforces the kit).
+        let world = floored_world();
+        let aabb = ae::Aabb::new(ae::Vec2::ZERO, ae::Vec2::new(24.0, 40.0));
+        let mut seed = ActorClusterSeed::new(
+            "walker".to_string(),
+            "Walker".to_string(),
+            aabb,
+            EnemyBrain::Custom("cellular_automaton_fighter".into()),
+            &[],
+        );
+        let half_h = seed.kin.size.y * 0.5;
+        seed.kin.pos = ae::Vec2::new(0.0, 100.0 - half_h);
+        seed.surface.on_ground = true;
+        seed.surface.gravity_scale = 1.0;
+        seed.caps.can_dash = false;
+        let mut em = ActorMut {
+            kin: &mut seed.kin,
+            status: &mut seed.status,
+            surface: &mut seed.surface,
+            attack: &mut seed.attack,
+            config: &mut seed.config,
+            motion: &mut seed.motion,
+            caps: &seed.caps,
+        };
+        let mut frame = ActorControlFrame::neutral();
+        frame.locomotion = ae::Vec2::new(1.0, 0.0);
+        frame.dash_pressed = true;
+        em.update(
+            &world,
+            ae::Vec2::new(2000.0, em.kin.pos.y),
+            FeatureCombatTuning::default(),
+            None,
+            1.0 / 60.0,
+            false,
+            frame,
+            ae::Vec2::new(0.0, 1.0),
+        );
+        assert!(
+            !em.attack.dash_active(),
+            "a body without the dash capability must not open a dash window"
+        );
     }
 }

@@ -149,6 +149,10 @@
         // player gets the same shield). Body-enforced capability + the same
         // directional `shield_blocks_hit` rule the player's shield uses.
         smash_can_shield: true,
+        // Dash kit: the burst it uses to close (it already decides to dash via
+        // `smash_dash_to_close`; this lets the body turn that into a real burst
+        // above walk speed). Body-enforced capability + cooldown.
+        smash_can_dash: true,
         move_style: Walk,
     ),
     "small_skitter": (

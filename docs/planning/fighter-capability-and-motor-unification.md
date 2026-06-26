@@ -238,9 +238,45 @@ Author model: Opus 4.8 (1M). Wall-clock log at the bottom.
     free for now — a resource cost comes later. Also fixed an S1 interaction the
     policy exposed: a ranged poke now ADVANCES while firing (fire-while-closing)
     instead of camping at range, so the fighter stays aggressive.
-  - **S3c shield, S3d dash/tilts/special, integrator de-player-casing** — pending.
-    (PCA sprites for these verbs are being prepared by another agent; the mechanics
-    land here.)
+  - **S3c shield** ✅ — reactive block as a body capability. `shield_held`
+    (controller attempt) lands on a new body state `ActorStatus::shield_raised`,
+    gated by `CombatCapabilities::can_shield`; the actor damage path negates a
+    guarded hit from the faced side using the SAME `shield_blocks_hit` directional
+    rule the player uses (a hit from behind still lands). Data: one `smash_can_shield`
+    flag projects into BOTH `SmashCfg::can_shield` (the brain already raises the
+    guard on a lunge it won't blink) and the body's enforce gate. PCA authors it.
+    Proven against the REAL actor damage system: front-guard negates, lowered guard
+    takes it, back hit lands.
+  - **S3d dash** ✅ — dash as a body capability that RIDES the grounded spine: on
+    an accepted dash the body bursts its side velocity to `max_run_speed ×
+    DASH_SPEED_MULT` and opens a window during which the spine keeps the raised
+    speed cap (so the burst is sustained, not decelerated — it doesn't fight the
+    motor). Frame-agnostic (dash dir via `AccelerationFrame::to_world`, so it's
+    never inverted under rotated gravity). Body owns the cooldown + window
+    (`ActorAttackState::try_dash` / `dash_active`, the I3 floor); the brain just
+    sets `dash_pressed` on its existing Dash action (a body without `can_dash`
+    still closes at walk speed — graceful fallback). Data: `smash_can_dash` →
+    `CombatCapabilities::can_dash`; PCA authors it. Proven against the REAL
+    integration: a dash-capable body covers >1.3× the ground of a walker over the
+    window; refire-gated.
+    **Feel TBD in-engine** — `DASH_SPEED_MULT = 1.7`, `DASH_TIME_S = 0.18`,
+    refire `0.7 s` are first-pass numbers; the mechanics are proven headless but the
+    *feel* wants a runtime check (and i-frames / an instant top-speed burst rather
+    than a raised-cap ramp await the deferred S2 locomotion/velocity_target merge).
+  - **S3d tilts** ✅ *already covered* — directional melee (up-tilt / down-air /
+    back-air) already resolves on the actor body: the brain picks the attack axis
+    (`emit` sets `attack_axis`), and `update_ecs_actors` places the hitbox via
+    `enemy_melee_animation_for_axis` + `attack_aabb_dir`. No new code; the verb was
+    folded into the resolver when enemy melee became data-driven.
+  - **S3d special + integrator de-player-casing** — *deferred (rationale):*
+    *special* resolves to a body's signature, but no body authors one yet (the
+    PCA's signature is a design fork with the encounter doc / the sprite agent) —
+    adding one is "new ability" content (a non-goal of this unification), so the
+    `special_pressed` seam stays inert until a signature is authored. *Folding the
+    player `ProjectileSpawner` onto `try_fire_ranged`* (the "stop special-casing the
+    player" fire path) is feel-sensitive — it touches the player's mana meter +
+    charge-fire state machine, which changes player feel and wants runtime
+    verification, not a blind fold. Both are tracked in the drift note below.
 
   Smell logged (Jon, deferred): characters should be defined by their movement
   *kit*, not by named `EnemyArchetype` rows — `dev/journals/code_smells.md`.

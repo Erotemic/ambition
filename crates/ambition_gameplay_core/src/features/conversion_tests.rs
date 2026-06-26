@@ -326,6 +326,16 @@ mod conversion_tests {
             spec.brain_spec().smash_can_shield,
             "the authored shield kit must project onto the brain's attempt"
         );
+        // S3d: it carries the dash kit (the body turns its dash-to-close decision
+        // into a real burst). Projects onto the body's enforce gate.
+        assert!(
+            spec.smash_can_dash,
+            "the PCA boss has the dash kit so its dash-to-close becomes a real burst"
+        );
+        assert!(
+            spec.combat_capabilities().can_dash,
+            "the authored dash kit must project onto the body's enforce gate"
+        );
     }
 
     #[test]

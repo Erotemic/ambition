@@ -40,6 +40,11 @@ const ENEMY_JUMP_SPEED: f32 = 520.0;
 /// the second jump reads as a "boost" rather than a full re-launch
 /// — matches the player's `DOUBLE_JUMP_SPEED` shape (520 → 420 step).
 const ENEMY_DOUBLE_JUMP_SPEED: f32 = 430.0;
+/// Body-side dash refire (s) — the I3 floor on the `dash` intent for an actor
+/// body. A controller may attempt a dash every tick; the body bursts at most once
+/// per this interval (`ActorAttackState::try_dash`). Longer than the dash window
+/// (`DASH_TIME_S`) so a dash has recovery, not a hold-to-fly exploit.
+const ACTOR_DASH_REFIRE_S: f32 = 0.7;
 /// Mid-air jumps an enemy gets between landings. `1` = single
 /// double-jump (matches the player's default). Resets when the
 /// body transitions `on_ground: false → true` in `enemy.update()`.

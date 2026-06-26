@@ -60,7 +60,13 @@ pub fn emit_inputs(
         }
         SpecificAction::Dash { dir } => {
             let signed_dir = signum_or(dir, 0.0);
+            // Full-throttle locomotion is the body-agnostic floor (a body without
+            // the dash capability still closes at its top walk speed). `dash_pressed`
+            // is the intent edge the BODY turns into a burst when it has `can_dash`
+            // (invariant I3): the brain attempts, the body owns the burst speed +
+            // window + cooldown.
             out.locomotion = ae::Vec2::new(signed_dir, 0.0);
+            out.dash_pressed = true;
             if signed_dir.abs() > 0.001 {
                 out.facing = signed_dir;
             }

@@ -1,5 +1,0 @@
-# Iteration scratch: optimizer output, candidate sheets, diff images. Not committed.
-agent-scratch/
-
-# Generated sheets/diagnostics emitted next to experimental fitters.
-ambition_sprite2d_renderer/experimental/**/*.png

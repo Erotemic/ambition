@@ -50,6 +50,7 @@ impl CollisionWorld<'_> {
                 && o.portal_carves.is_empty()
                 && o.removed_block_names.is_empty()
                 && o.climbable_carves.is_empty()
+                && o.water_regions.is_empty()
         });
         if platforms.is_empty() && overlay_empty {
             return Some(Cow::Borrowed(&room.0));
@@ -104,6 +105,12 @@ pub fn world_with_sandbox_solids(
     collision_world
         .blocks
         .extend(ecs_overlay.gate_solids.iter().cloned());
+    // Additive liquid (falling-sand settled pools) folds in alongside the base
+    // water regions — keeps the authored base immutable while the projection is a
+    // per-frame overlay contribution like the solids above.
+    collision_world
+        .water_regions
+        .extend(ecs_overlay.water_regions.iter().cloned());
     // Carve portal apertures out of the host surface so a body can sink into a
     // portal (the "feet in, feet out" transit). Only the solid host kinds are
     // carved; the portal rim and surrounding geometry stay solid.

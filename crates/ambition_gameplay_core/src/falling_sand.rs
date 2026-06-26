@@ -74,8 +74,6 @@ const MAX_DYNAMIC_LIQUID_TILES: usize = 2500;
 struct FallingSandRoomState {
     active_room: bool,
     last_room_id: Option<String>,
-    base_blocks: Vec<ae::Block>,
-    base_water_regions: Vec<ae::WaterRegion>,
     /// Snapshot of the active player's swim ability at the moment the
     /// room was entered. Restored on exit so the room's forced-swim
     /// effect doesn't leak into other rooms.
@@ -183,6 +181,10 @@ impl Plugin for FallingSandRoomPlugin {
                     grant_room_swim_controls,
                 )
                     .chain()
+                    // The projection now contributes settled sand / liquid to the
+                    // collision overlay, which the rebuild clears each frame —
+                    // so run after it (the same WorldPrep contract the gates use).
+                    .after(crate::features::rebuild_feature_ecs_world_overlay)
                     .in_set(crate::schedule::SandboxSet::WorldPrep),
             )
             .add_systems(
@@ -304,7 +306,6 @@ fn setup_particle_types(mut commands: Commands) {
 fn sync_falling_sand_room_state(
     mut commands: Commands,
     room_set: Res<crate::rooms::RoomSet>,
-    world: Res<crate::RoomGeometry>,
     save: Res<crate::persistence::save::SandboxSave>,
     mut state: ResMut<FallingSandRoomState>,
     particles: Query<Entity, With<Particle>>,
@@ -325,14 +326,10 @@ fn sync_falling_sand_room_state(
     }
 
     if active_room {
-        state.base_blocks = world.0.blocks.clone();
-        state.base_water_regions = world.0.water_regions.clone();
         state.seeded_boundaries = false;
         state.spouts = FallingSandSpoutState::from_save(save.data());
         state.visual_emit_counter = 0;
     } else {
-        state.base_blocks.clear();
-        state.base_water_regions.clear();
         state.seeded_boundaries = false;
         state.spouts = FallingSandSpoutState::default();
         state.visual_emit_counter = 0;
@@ -862,7 +859,8 @@ fn project_particles_to_movement_world(
     mut commands: Commands,
     room_set: Res<crate::rooms::RoomSet>,
     state: Res<FallingSandRoomState>,
-    mut world: ResMut<crate::RoomGeometry>,
+    world: Res<crate::RoomGeometry>,
+    mut overlay: ResMut<crate::features::FeatureEcsWorldOverlay>,
     particles: Query<(&GridPosition, &Particle)>,
     visuals: Query<(Entity, &FallingSandMaterialVisual)>,
     mut scratch: Local<ProjectionScratch>,
@@ -872,12 +870,12 @@ fn project_particles_to_movement_world(
         return;
     }
 
-    // `clone_from` reuses the existing Vec capacity and the per-Block
-    // String allocations, instead of allocating fresh on every tick the
-    // way `world.0.blocks = state.base_blocks.clone()` did.
-    world.0.blocks.clone_from(&state.base_blocks);
-    world.0.water_regions.clone_from(&state.base_water_regions);
-
+    // The authored `RoomGeometry` base is immutable mid-room: settled sand /
+    // liquid is a per-frame derived OVERLAY contribution, not a base edit (the
+    // RoomGeometry-decision). Sand rides `gate_solids` (full collision
+    // composition, no lock-wall sprite — its name dodges the render reconcile);
+    // liquid rides `water_regions`. Both are cleared by the overlay rebuild this
+    // frame (we run after it in WorldPrep), so we just push.
     scratch.reset_per_frame();
 
     for (grid_position, particle) in &particles {
@@ -896,10 +894,10 @@ fn project_particles_to_movement_world(
         *tile_counts.entry((tile_x, tile_y)).or_default() += 1;
     }
 
-    project_sand(&mut world.0, &mut scratch);
+    project_sand(&mut overlay.gate_solids, &mut scratch);
     let mut liquid_added: usize = 0;
     project_liquid(
-        &mut world.0,
+        &mut overlay.water_regions,
         &mut scratch,
         &mut liquid_added,
         MaterialKind::Water,
@@ -907,7 +905,7 @@ fn project_particles_to_movement_world(
         falling_water_spec(),
     );
     project_liquid(
-        &mut world.0,
+        &mut overlay.water_regions,
         &mut scratch,
         &mut liquid_added,
         // Oil currently piggy-backs on Murky water until an engine-side
@@ -934,7 +932,7 @@ fn sorted_tiles_by_count_desc(tiles: &HashMap<(i32, i32), usize>) -> Vec<(i32, i
     keys
 }
 
-fn project_sand(world: &mut ae::World, scratch: &mut ProjectionScratch) {
+fn project_sand(out_blocks: &mut Vec<ae::Block>, scratch: &mut ProjectionScratch) {
     let keys = sorted_tiles_by_count_desc(&scratch.sand_tiles);
     let mut added = 0;
     for (tile_x, tile_y) in keys {
@@ -952,7 +950,7 @@ fn project_sand(world: &mut ae::World, scratch: &mut ProjectionScratch) {
             continue;
         }
         scratch.dense_sand.insert((tile_x, tile_y));
-        world.blocks.push(ae::Block::one_way(
+        out_blocks.push(ae::Block::one_way(
             format!("falling_sand:sand:{tile_x}:{tile_y}"),
             tile_min(tile_x, tile_y),
             tile_size_vec(),
@@ -962,7 +960,7 @@ fn project_sand(world: &mut ae::World, scratch: &mut ProjectionScratch) {
 }
 
 fn project_liquid(
-    world: &mut ae::World,
+    out_water: &mut Vec<ae::WaterRegion>,
     scratch: &mut ProjectionScratch,
     added: &mut usize,
     kind: MaterialKind,
@@ -1000,9 +998,7 @@ fn project_liquid(
         if scratch.dense_sand.contains(&(tile_x, tile_y)) {
             continue;
         }
-        world
-            .water_regions
-            .push(water_tile_region(tile_x, tile_y, water_kind, spec));
+        out_water.push(water_tile_region(tile_x, tile_y, water_kind, spec));
         *added += 1;
     }
 }

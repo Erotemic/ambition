@@ -24,7 +24,11 @@ pub struct FeatureEcsWorldOverlay {
     /// authored-immutable mid-room (the resolved RoomGeometry decision): a gate
     /// is a derived per-frame contribution, not a base edit. Cleared by
     /// [`rebuild_feature_ecs_world_overlay`] each frame, then re-extended by the
-    /// gate contributor systems that run after it in `WorldPrep`.
+    /// gate contributor systems that run after it in `WorldPrep`. Also carries
+    /// other per-frame additive statics that want full collision composition but
+    /// no lock-wall sprite (falling-sand settled tiles); the render reconcile
+    /// filters to `lockwall:` / `intro_lock:` names, so non-gate solids here are
+    /// collision-only.
     pub gate_solids: Vec<ae::Block>,
     /// Portal apertures to carve OUT of the host surface: the floor / wall a
     /// portal sits on becomes non-solid inside the opening so a body can sink
@@ -48,6 +52,13 @@ pub struct FeatureEcsWorldOverlay {
     /// projectiles never read climbable — so it composites in
     /// `world_with_sandbox_solids` alone.
     pub climbable_carves: Vec<ae::Aabb>,
+    /// Additive water/liquid regions contributed per-frame (falling-sand settled
+    /// pools), composited into the player/actor view alongside the base water.
+    /// Water-only — projectiles don't read water — so it composites in
+    /// `world_with_sandbox_solids` alone. The additive counterpart to `gate_solids`
+    /// for liquid, keeping the authored base immutable mid-room. Cleared + re-
+    /// extended each frame like the other contributions.
+    pub water_regions: Vec<ae::WaterRegion>,
 }
 
 /// Rebuild the transient collision blocks contributed by ECS-owned features.
@@ -75,6 +86,7 @@ pub fn rebuild_feature_ecs_world_overlay(
     overlay.gate_solids.clear();
     overlay.removed_block_names.clear();
     overlay.climbable_carves.clear();
+    overlay.water_regions.clear();
     for (id, name, aabb, feature) in &breakables {
         if feature.broken() {
             continue;

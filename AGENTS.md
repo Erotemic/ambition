@@ -7,6 +7,8 @@ This is the repository operating guide for coding agents. Keep it short, session
 * Avoid player-centrism. Value the principle of relativity.
 * Find the elegant solution. Jon will push back on hacks.
 * Correctness is emergent from elegance.
+* **Pre-release engine, zero dependents.** Behavior and feel are NOT sacred until a polish pass — optimize for the elegant unified design, not for preserving current output. Delete duplicates, compat shims, and bridges on sight. Never fold a richer path onto a simpler one to "preserve" it; make the richer/general path universal and delete the rest.
+* **Unified actors.** Every actor — the player included — is one body: kinematics + composable ability limbs + a capability mask, driven by a Controller (Human / Brain / RL) and observed via one `WorldView`. Player / Enemy / Boss / NPC are DATA (controller + capabilities), not types or code paths. The player's movement is the good base — make enemies and NPCs *rise to it* (adopt the rich limb pipeline), never drag the player down to a simpler path. Adding a character should be: author capabilities + pick a controller, zero core edits.
 
 ## Cold start
 
@@ -67,9 +69,28 @@ ordering), the layer boundaries (Rust=behavior, RON=content, LDtk=space, machine
 imports no named content), runtime efficiency, maintainability, and conciseness;
 refactor toward the better-scoring option rather than taking the easy path; prefer
 single-commit replacement over compatibility shims (pre-release); and on a timed
-or autonomous run, **infer and keep going — do not stall to ask.** A behavior-
-neutral change must keep replay bit-identical; a behavior fix ships with a focused
-test.
+or autonomous run, **infer and keep going — do not stall to ask.** Until a polish
+pass, output/feel is not a constraint — refactor for elegance even when behavior
+changes. The gates are: it compiles (including `ambition_app`) and invariants hold.
+
+## Verification
+
+* **Drive the real headless sim — don't say "I can't test it."** The game runs
+  headless (`ambition_app` `headless` / `trace_replay` binaries): step the actual
+  simulation from any state and observe how it progresses. The only thing you may
+  be unsure of is visuals (and those are headed for headless render-to-disk
+  spot-checks). If the real sim can't be exercised headlessly from some state,
+  fixing *that* is the priority — never settle for a proxy/approximation.
+* **Test invariants and properties, not tuned values or feel.** The strongest
+  tests are SYMMETRY / COVARIANCE under the relativity principle — an action
+  behaving identically under C4 gravity rotation and through portals — because
+  those survive feel tweaks. Also: no OOB / wedge / NaN, determinism, feature
+  composition. Do NOT write new regression tests to pin unpolished behavior.
+* **Bit-identical / replay tests are canaries, not cages.** Their job is to flag
+  when a change you *expected* to be behavior-neutral actually wasn't — a smell
+  worth a look. Expect them to fail over time as elegance changes behavior; when
+  the diff isn't egregious, just re-baseline the target (script the update if it's
+  tedious). A failing canary is information, not a wall.
 
 ## Spatial authoring discipline (LDtk, gates, hitboxes)
 

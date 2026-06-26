@@ -51,6 +51,7 @@ mod encounter_rewards;
 mod fighter_harness;
 mod interact;
 mod mount;
+pub mod perception;
 pub use mount::{rider_hand_world_pos, rider_hand_world_pos_in_frame};
 mod reset;
 mod save_sync;

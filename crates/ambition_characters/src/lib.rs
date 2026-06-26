@@ -23,3 +23,4 @@
 pub mod actor;
 pub mod boss_encounter;
 pub mod brain;
+pub mod perception;

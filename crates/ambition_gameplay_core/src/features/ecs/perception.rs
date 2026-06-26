@@ -1,0 +1,372 @@
+//! Body-generic [`WorldView`] builder — the gameplay-layer half of the world-out
+//! port (architecture roadmap S4).
+//!
+//! [`ambition_characters::perception`] owns the headless, controller-neutral
+//! *value* ([`WorldView`] / [`WorldMemory`]) and its pure tactical queries; this
+//! module owns the **construction** — reading real solids, other actor bodies, and
+//! live projectiles out of the gameplay world and packing them into the view.
+//!
+//! ### Body-generic by construction (guardrail #1)
+//!
+//! [`build_world_view`] takes a [`PerceptionBody`] — the minimal description of
+//! **any** body (player-robot, Perfect Cell-ular Automaton, NPC, boss) — never an
+//! `EnemyBrain`-keyed or `"player"`-keyed input. Perception "for the player" is a
+//! brain driving the player-robot body through this same function, so when S5/S6
+//! land there is no enemy-only path to undo. Hostility is resolved **relationally**
+//! against [`FactionRelations`] (the S3e seam), not by a player-vs-enemy branch.
+//!
+//! The peer / projectile lists are pre-collected before the per-body loop (the
+//! same shape the crowding pass uses), so a body perceives the others without a
+//! second mutable borrow of the actor query.
+
+use ambition_engine_core as ae;
+use ae::AabbExt;
+
+use ambition_characters::actor::ActorFaction;
+use ambition_characters::perception::{
+    PerceivedActor, PerceivedProjectile, PerceivedSolid, SelfView, SolidKind, Viewport, WorldView,
+};
+
+use crate::combat::targeting::FactionRelations;
+
+/// Default viewport half-extent (world px) — the AI analogue of the human's
+/// screen. Generous so a body perceives approaching threats with room to react;
+/// a per-body override can come later if a character wants keener or duller
+/// senses.
+pub const DEFAULT_VIEWPORT_HALF: ae::Vec2 = ae::Vec2::new(480.0, 320.0);
+
+/// The viewing body, described generically (any faction). Built for the
+/// player-robot body exactly as for an enemy (guardrail #1) — this struct names
+/// no character type.
+pub struct PerceptionBody {
+    pub pos: ae::Vec2,
+    pub vel: ae::Vec2,
+    pub facing: f32,
+    pub half_extent: ae::Vec2,
+    pub faction: ActorFaction,
+    /// Local gravity direction (unit) — carried so a brain can reason frame-local.
+    pub gravity_down: ae::Vec2,
+    pub on_ground: bool,
+    pub aerial: bool,
+    pub alive: bool,
+    pub can_fire: bool,
+    pub can_blink: bool,
+    pub can_dash: bool,
+    pub can_shield: bool,
+}
+
+/// A candidate other-body the viewer may perceive. Pre-collected (id +
+/// kinematics + faction + body-state) before the per-body loop.
+pub struct PerceptionPeer {
+    pub id: String,
+    pub pos: ae::Vec2,
+    pub vel: ae::Vec2,
+    pub facing: f32,
+    pub half_extent: ae::Vec2,
+    pub faction: ActorFaction,
+    pub alive: bool,
+    pub on_ground: bool,
+    pub shield_raised: bool,
+}
+
+/// A live projectile the viewer may perceive. `faction` is the **firer's**
+/// faction; the builder resolves whether it threatens the viewer relationally.
+pub struct PerceptionProjectile {
+    pub pos: ae::Vec2,
+    pub vel: ae::Vec2,
+    pub damage: i32,
+    pub faction: ActorFaction,
+}
+
+/// Build the headless [`WorldView`] for `body` from real world geometry, the
+/// pre-collected peers/projectiles, and the relational faction matrix.
+///
+/// The terrain carried into the view is clipped from the **same** `world.blocks`
+/// the body physically collides against (caller passes the derived collision
+/// world — moving platforms + ECS overlays already folded in), so the view's
+/// line-of-fire / reachability queries reuse the real geometry, never a parallel
+/// sensor.
+pub fn build_world_view(
+    body: &PerceptionBody,
+    peers: &[PerceptionPeer],
+    projectiles: &[PerceptionProjectile],
+    world: &ae::World,
+    relations: &FactionRelations,
+    viewport_half: ae::Vec2,
+    sim_time: f32,
+) -> WorldView {
+    let viewport = Viewport::around(body.pos, viewport_half);
+
+    let self_view = SelfView {
+        pos: body.pos,
+        vel: body.vel,
+        facing: body.facing,
+        half_extent: body.half_extent,
+        gravity_down: body.gravity_down,
+        on_ground: body.on_ground,
+        aerial: body.aerial,
+        alive: body.alive,
+        faction: body.faction,
+        can_fire: body.can_fire,
+        can_blink: body.can_blink,
+        can_dash: body.can_dash,
+        can_shield: body.can_shield,
+    };
+
+    let actors = peers
+        .iter()
+        .filter(|p| viewport.contains(p.pos))
+        .map(|p| PerceivedActor {
+            id: p.id.clone(),
+            pos: p.pos,
+            vel: p.vel,
+            facing: p.facing,
+            half_extent: p.half_extent,
+            faction: p.faction,
+            hostile_to_self: relations.is_hostile(body.faction, p.faction),
+            alive: p.alive,
+            on_ground: p.on_ground,
+            shield_raised: p.shield_raised,
+        })
+        .collect();
+
+    let projectiles = projectiles
+        .iter()
+        .filter(|pr| viewport.contains(pr.pos))
+        .map(|pr| PerceivedProjectile {
+            pos: pr.pos,
+            vel: pr.vel,
+            damage: pr.damage,
+            // A projectile threatens me iff its firer's faction is hostile to mine.
+            hostile_to_self: relations.is_hostile(pr.faction, body.faction),
+        })
+        .collect();
+
+    let viewport_aabb = viewport.as_aabb();
+    let terrain = world
+        .blocks
+        .iter()
+        .filter_map(|b| perceived_solid_kind(b.kind).map(|kind| (b, kind)))
+        .filter(|(b, _)| b.aabb.strict_intersects(viewport_aabb))
+        .map(|(b, kind)| PerceivedSolid { aabb: b.aabb, kind })
+        .collect();
+
+    WorldView {
+        self_view,
+        viewport,
+        actors,
+        projectiles,
+        terrain,
+        sim_time,
+    }
+}
+
+/// Distill an engine `BlockKind` to the perception `SolidKind`, or `None` for
+/// blocks perception doesn't model as terrain (pogo / rebound surfaces — they
+/// don't block sight or a straight path).
+fn perceived_solid_kind(kind: ae::BlockKind) -> Option<SolidKind> {
+    match kind {
+        ae::BlockKind::Solid => Some(SolidKind::Solid),
+        ae::BlockKind::BlinkWall { .. } => Some(SolidKind::BlinkWall),
+        ae::BlockKind::OneWay => Some(SolidKind::OneWay),
+        ae::BlockKind::Hazard => Some(SolidKind::Hazard),
+        ae::BlockKind::PogoOrb | ae::BlockKind::Rebound { .. } => None,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn body(pos: ae::Vec2, faction: ActorFaction) -> PerceptionBody {
+        PerceptionBody {
+            pos,
+            vel: ae::Vec2::ZERO,
+            facing: 1.0,
+            half_extent: ae::Vec2::new(12.0, 18.0),
+            faction,
+            gravity_down: ae::Vec2::new(0.0, 1.0),
+            on_ground: true,
+            aerial: false,
+            alive: true,
+            can_fire: true,
+            can_blink: false,
+            can_dash: false,
+            can_shield: false,
+        }
+    }
+
+    fn peer(id: &str, pos: ae::Vec2, faction: ActorFaction) -> PerceptionPeer {
+        PerceptionPeer {
+            id: id.to_string(),
+            pos,
+            vel: ae::Vec2::ZERO,
+            facing: -1.0,
+            half_extent: ae::Vec2::new(12.0, 18.0),
+            faction,
+            alive: true,
+            on_ground: true,
+            shield_raised: false,
+        }
+    }
+
+    /// A real room: a floor and a wall between two combatants standing on it.
+    fn arena_world() -> ae::World {
+        let blocks = vec![
+            ae::Block::solid("floor", ae::Vec2::new(-500.0, 200.0), ae::Vec2::new(1000.0, 40.0)),
+            // A wall at x≈300, between a body at x=100 and one at x=500.
+            ae::Block::solid("wall", ae::Vec2::new(292.0, 40.0), ae::Vec2::new(16.0, 160.0)),
+        ];
+        ae::World::new(
+            "perception_arena",
+            ae::Vec2::new(1000.0, 400.0),
+            ae::Vec2::new(100.0, 180.0),
+            blocks,
+        )
+    }
+
+    /// Body-generic + relational: an Enemy body and a Boss body, made mutually
+    /// hostile, each perceive the other as a hostile target — and the SAME builder
+    /// runs for a Player-faction body (guardrail #1: no enemy-only path).
+    #[test]
+    fn builds_relational_view_for_any_faction() {
+        let mut relations = FactionRelations::default();
+        relations.set_mutual_hostile(ActorFaction::Enemy, ActorFaction::Boss, true);
+        let world = arena_world();
+
+        let enemy = body(ae::Vec2::new(100.0, 180.0), ActorFaction::Enemy);
+        let peers = vec![peer("pca", ae::Vec2::new(180.0, 180.0), ActorFaction::Boss)];
+        let view = build_world_view(
+            &enemy,
+            &peers,
+            &[],
+            &world,
+            &relations,
+            DEFAULT_VIEWPORT_HALF,
+            0.0,
+        );
+        // The Boss peer is in view and resolved hostile to the Enemy viewer.
+        assert_eq!(view.actors.len(), 1);
+        assert!(view.actors[0].hostile_to_self);
+        assert_eq!(view.nearest_hostile().map(|a| a.id.as_str()), Some("pca"));
+        // The floor + wall are clipped into the local terrain.
+        assert!(
+            view.terrain.iter().any(|s| s.kind == SolidKind::Solid),
+            "the real floor/wall geometry is carried into the view"
+        );
+
+        // The exact same function builds a view for a PLAYER-faction body — the
+        // player-robot body perceives identically (no player-centric branch). It
+        // sees an Npc peer (which neither faction fights by default), and resolves
+        // it as NOT a target — proving hostility is data, not the viewer's type.
+        let player = body(ae::Vec2::new(100.0, 180.0), ActorFaction::Player);
+        let npc_peers = vec![peer("bystander", ae::Vec2::new(180.0, 180.0), ActorFaction::Npc)];
+        let player_view = build_world_view(
+            &player,
+            &npc_peers,
+            &[],
+            &world,
+            &relations,
+            DEFAULT_VIEWPORT_HALF,
+            0.0,
+        );
+        assert_eq!(player_view.actors.len(), 1);
+        assert!(!player_view.actors[0].hostile_to_self);
+        assert_eq!(player_view.nearest_hostile().count_or_none(), 0);
+    }
+
+    /// Line-of-fire over the REAL clipped geometry: a wall between two bodies
+    /// blocks the shot; an unobstructed shot is clear. This is the query reusing
+    /// the same solids the physics collides against.
+    #[test]
+    fn line_of_fire_uses_real_clipped_terrain() {
+        let relations = FactionRelations::default();
+        let world = arena_world();
+        let shooter = body(ae::Vec2::new(100.0, 120.0), ActorFaction::Enemy);
+        let view = build_world_view(
+            &shooter,
+            &[],
+            &[],
+            &world,
+            &relations,
+            DEFAULT_VIEWPORT_HALF,
+            0.0,
+        );
+        // Target on the far side of the x≈300 wall, same height → blocked.
+        assert!(!view.line_of_fire(ae::Vec2::new(500.0, 120.0)));
+        // Target straight up (clear of floor + wall) → in line of fire.
+        assert!(view.line_of_fire(ae::Vec2::new(100.0, 60.0)));
+    }
+
+    /// A body only perceives what is inside its viewport — a peer far outside is
+    /// not in the actor list (it would instead be retained by `WorldMemory`).
+    #[test]
+    fn peers_outside_viewport_are_not_perceived() {
+        let mut relations = FactionRelations::default();
+        relations.set_mutual_hostile(ActorFaction::Enemy, ActorFaction::Boss, true);
+        let world = arena_world();
+        let viewer = body(ae::Vec2::new(100.0, 180.0), ActorFaction::Enemy);
+        // Far beyond DEFAULT_VIEWPORT_HALF.x = 480.
+        let peers = vec![peer("far", ae::Vec2::new(2000.0, 180.0), ActorFaction::Boss)];
+        let view = build_world_view(
+            &viewer,
+            &peers,
+            &[],
+            &world,
+            &relations,
+            DEFAULT_VIEWPORT_HALF,
+            0.0,
+        );
+        assert!(view.actors.is_empty(), "an out-of-viewport peer is unseen");
+    }
+
+    /// A hostile projectile in view is flagged as a threat; a same-side one is not.
+    #[test]
+    fn projectile_threat_resolved_relationally() {
+        let relations = FactionRelations::default();
+        let world = arena_world();
+        let player = body(ae::Vec2::new(100.0, 180.0), ActorFaction::Player);
+        let shots = vec![
+            // Enemy shot near the player → threatens the player.
+            PerceptionProjectile {
+                pos: ae::Vec2::new(160.0, 180.0),
+                vel: ae::Vec2::new(-200.0, 0.0),
+                damage: 1,
+                faction: ActorFaction::Enemy,
+            },
+            // Player's own shot → does not threaten the player.
+            PerceptionProjectile {
+                pos: ae::Vec2::new(160.0, 180.0),
+                vel: ae::Vec2::new(200.0, 0.0),
+                damage: 1,
+                faction: ActorFaction::Player,
+            },
+        ];
+        let view = build_world_view(
+            &player,
+            &[],
+            &shots,
+            &world,
+            &relations,
+            DEFAULT_VIEWPORT_HALF,
+            0.0,
+        );
+        assert_eq!(view.projectiles.len(), 2);
+        assert_eq!(view.projectiles.iter().filter(|p| p.hostile_to_self).count(), 1);
+        assert_eq!(view.incoming_threats().count(), 1);
+    }
+}
+
+#[cfg(test)]
+trait CountOrNone {
+    /// Tiny test helper: count an `Option<&T>` as 0 or 1 without importing extra
+    /// machinery — keeps the `nearest_hostile() == None` assertion terse.
+    fn count_or_none(self) -> usize;
+}
+
+#[cfg(test)]
+impl<T> CountOrNone for Option<T> {
+    fn count_or_none(self) -> usize {
+        self.map(|_| 1).unwrap_or(0)
+    }
+}

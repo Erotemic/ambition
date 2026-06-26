@@ -294,15 +294,40 @@ Author model: Opus 4.8 (1M). Wall-clock log at the bottom.
   merge ("one body-local desired velocity, two projections") touches
   bosses/flyers/player/possession and changes feel — needs runtime verification,
   not safe to fold blind.
-- **S4 (headless perception)** — *first step done:* real accumulating sim-time.
-  `GameplayElapsed` resource + `advance_gameplay_elapsed` (sums `WorldTime::scaled_dt`,
-  freezes on pause) threaded into `build_enemy_brain_snapshot` (was hardcoded
-  `0.0`). This **activates reaction latency in-engine** for the first time (the
-  `obs_history` lookback was inert). Test `gameplay_clock_accumulates_scaled_dt`;
-  full-app plugin test confirms the wiring. NOTE: in-world feel of active reaction
-  latency is unverified — wants a runtime check. The big S4 pieces (`WorldView` +
-  `WorldMemory`, line-of-fire / reachability over real collision, other-actor /
-  projectile / portal awareness) remain.
+- **S4 (headless perception)** — *sim-time done; the world-out value now exists.*
+  - *(prior step) real accumulating sim-time:* `GameplayElapsed` resource +
+    `advance_gameplay_elapsed` (sums `WorldTime::scaled_dt`, freezes on pause)
+    threaded into `build_enemy_brain_snapshot` (was hardcoded `0.0`). This
+    **activates reaction latency in-engine** for the first time (the `obs_history`
+    lookback was inert). Test `gameplay_clock_accumulates_scaled_dt`; full-app
+    plugin test confirms the wiring. NOTE: in-world feel of active reaction latency
+    is unverified — wants a runtime check.
+  - **`WorldView` + `WorldMemory` (the world-out port)** ✅ — the headless,
+    controller-neutral perception value now exists, **body-generic from day one**
+    (guardrail #1). `ambition_characters::perception` owns the value
+    (`WorldView { self_view, viewport, actors, projectiles, terrain }` +
+    `WorldMemory`) and its **pure tactical queries** — `line_of_fire` /
+    `reachable` sweep the SAME `ae::Aabb`s the body physically collides against,
+    via the SAME `AabbExt::sweep_hit` parry primitive the physics step uses (no
+    parallel sensor); `nearest_hostile` / `incoming_threats` are relational
+    (non-player-centric). `WorldMemory` retains last-known actor positions with a
+    confidence that **decays once a target leaves the viewport** (I6: pursue the
+    vanished foe), dead-reckoned by last-known velocity, forgotten below a floor.
+    The **builder** is in gameplay_core (`features/ecs/perception.rs`):
+    `build_world_view(body: &PerceptionBody, peers, projectiles, world, relations,
+    …)` takes a BODY of **any faction** — the player-robot body is built by the
+    exact same call as the PCA (proven: a Player-faction view and an Enemy-faction
+    view from one function; hostility resolved from `FactionRelations`, not the
+    viewer's type). Terrain is clipped from the real collision `world.blocks`.
+    Proven headless: 7 perception-value tests (`ambition_characters`) + 4 builder
+    tests (`gameplay_core`) — line-of-fire blocked by a real wall / clear
+    otherwise, viewport clipping, relational projectile threat, memory
+    retain-then-forget. Zero render dependency (I5).
+  - **Remaining S4:** portal awareness in the view; **live per-tick construction
+    wired into the actor loop** (deferred: `update_ecs_actors` is at the 16-param
+    ceiling and no brain consumes `WorldView` until S5 — wiring it now would churn
+    a maxed system for a dead consumer; the harness proves the seam). The brain
+    *consuming* `WorldView`/`WorldMemory` (enriching `decide`) is S5 by design.
 - **S3 (full capability parity)** — *in progress, verb by verb:*
   - **S3a blink** ✅ — blink resolves on the actor body via the SAME
     `blink::blink_target` rule the player uses, gated by `CombatCapabilities::can_blink`
@@ -375,7 +400,9 @@ Author model: Opus 4.8 (1M). Wall-clock log at the bottom.
   intact). 8 new headless tests against the real systems; 1019 lib green. The
   arena is now mechanically possible (needs S6's robot-as-actor for the second
   combatant + a room that sets `Enemy↔Boss` hostile and clears `→ Player`).
-- **S4 (headless perception)** — first step done (sim-time); the big pieces remain.
+- **S4 (headless perception)** — sim-time + the `WorldView`/`WorldMemory` value &
+  body-generic builder done (above); portal awareness + live actor-loop wiring +
+  brain consumption (S5) remain.
 - **S5 (strong brain + spectator arena)** — pending (needs S4 + S3e + S6).
 - **S6 (convergence / de-player-casing)** — pending; the slice where "done" lands.
   The player becomes an actor, the duplicated player clusters fold, the
@@ -575,7 +602,7 @@ the bar.
   onto every body.
 - **Coupling perception to rendering** — forbidden (I5); the game runs headless.
 
-## Pointers (current as of S3e)
+## Pointers (current as of S4 world-out value)
 
 - Input seam: `crates/ambition_characters/src/brain/` (`mod.rs`, `smash/`),
   `actor/control.rs` (`ActorControlFrame`; the body→controller half is
@@ -598,11 +625,18 @@ the bar.
   (melee), `projectile/systems.rs` + `enemy_projectile/systems.rs` (projectiles),
   `features/ecs/damage/` (the actor victim consumer), `combat/damage.rs` (the player
   victim consumer + gate).
-- Perception (S4): `build_enemy_brain_snapshot` (`features/ecs/actors/update.rs`),
-  `BrainSnapshot` / `ObservationFrame` (`brain/`), `RoomGeometry`, `portal/`,
-  `features/mod.rs` (`GameplayElapsed` — the accumulating sim-time, threaded as the
-  snapshot's `sim_time`). Build `WorldView` body-generic (guardrail #1), not off the
-  `enemy`-named path.
+- Perception (S4): **the world-out value** is `ambition_characters::perception`
+  (`WorldView` / `WorldMemory` / `SelfView` / `PerceivedActor|Projectile|Solid` +
+  the pure `line_of_fire` / `reachable` / `nearest_hostile` queries); **the
+  body-generic builder** is `features/ecs/perception.rs`
+  (`build_world_view(body: &PerceptionBody, …)` — takes a body of any faction,
+  guardrail #1, NOT the `enemy`-named path). Construction reads `RoomGeometry`
+  (clip `world.blocks` to the viewport), `FactionRelations` (relational hostility),
+  and `features/mod.rs::GameplayElapsed` (the accumulating sim-time). The legacy
+  enemy snapshot is still `build_enemy_brain_snapshot` (`features/ecs/actors/update.rs`)
+  + `BrainSnapshot` / `ObservationFrame` (`brain/`) — the brain reads it today; S5
+  moves the brain onto `WorldView`. Remaining: `portal/` awareness in the view +
+  live per-tick wiring into `update_ecs_actors` (at the 16-param ceiling).
 - Possession: `abilities/traversal/possession` + the possessed branch in
   `update_ecs_actors` (player input → the body's `ActorControlFrame`). NOTE:
   possession is NOT wired through in-game yet — deferred to S6 by choice.
@@ -663,3 +697,9 @@ layer.)
   cadence → real-ECS harness + 4 acceptance specs → green. Commit `b4039987`.
 - S2 frame-agnostic vectors (partial): same session. Commit `8a3541c6`.
 - S4 sim-time threading (first step): same session. Commit `518838df`.
+- S4 `WorldView` + `WorldMemory` value & body-generic builder: 2026-06-26. Recon
+  (two parallel code-map agents: collision geometry + actor/projectile/portal data)
+  → `ambition_characters::perception` (value + pure line-of-fire/reachability/memory)
+  → `features/ecs/perception.rs` builder (body-generic, relational) → 11 headless
+  tests green; 1023 gameplay_core lib + 229 characters lib (the 1 pre-existing
+  blink-aim failure unchanged).

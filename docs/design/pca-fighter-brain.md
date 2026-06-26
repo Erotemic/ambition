@@ -101,17 +101,71 @@ Because perception and decision are decoupled from the actor's sim code, today's
 utility brain and a future policy are interchangeable behind one trait-shaped
 seam.
 
+## The duelist neutral game (`SmashCfg::DUELIST_DEFAULT`)
+
+Grunts close and mash; a *duelist* plays neutral. Three opt-in knobs (zero on
+the grunt defaults, so existing enemies are untouched) turn the Smash brain into
+a 1v1 fighter, all added as post-processors in the same seam as
+`maybe_substitute_ranged`/`dash` and all **frame-agnostic** (target-relative
+only):
+
+- **footsies weave** (`footsies_amplitude`/`_period_s`) — settle around a
+  sinusoidally-modulated desired gap: dip into poke range on a rhythm, then back
+  out to bait a whiff, instead of camping point-blank.
+- **neutral hops** (`neutral_jump_cadence_s`) — occasional jumps that vary the
+  approach vector and use vertical space.
+- **platform-only vertical chase** (`vertical_chase_min`) — promotes the former
+  hardcoded jump-to-close threshold to a knob. Duelists set it *above a hop's
+  apex* so they only climb after a target genuinely on a platform, killing the
+  flat-ground air-juggle cascade (two fighters leapfrogging each other's hops).
+
+## Aerial play (flying bodies)
+
+A new body-derived seam `BrainSnapshot.actor_aerial` (populated from the body's
+`gravity_scale` — the same predicate the integrator uses for `is_aerial`, so
+it's production-faithful, not inert) tells the brain to steer 2D
+`velocity_target` instead of grounded locomotion + jump. The aerial path skips
+the grounded movement refiners and runs `aerial_steer`: a **dive / perch**
+oscillation — perch diagonally above-and-beside the target to zone (glider
+ranged poke), then dive onto it for a melee, with a cross-up that flips the
+perch side between dives. Uses the vertical stage space a grounded brawler
+can't. Attack-verb selection stays shared with the grounded path.
+
+## Reactive blink-evade
+
+`can_blink` (capability-gated, cooldowned) lets the fighter dodge a **perceivable
+lunge** — the opponent closing faster than a walk, estimated from the *lagged*
+target history (reaction latency applies to defense too) — never a privileged
+read of the opponent's attack flag, so a human could make the same read. It
+blinks up-and-away (into open vertical space, wall-safe without wall geometry).
+The body still needs the blink ability for the intent to resolve (capability vs
+policy), exactly like the player.
+
+## The non-degeneracy harness (the anti-degenerate guard)
+
+`brain/smash/arena.rs` (test-only) runs two brains in a bounded kinematic arena
+(floor, ceiling, walls, platforms; gravity + jump arcs for grounded bodies, 2D
+`velocity_target` for flyers; melee knockback; **infinite health** — the bout
+studies *movement*, not who wins) and records a trace. It then asserts the trace
+is free of the degeneracy signatures: frozen/cornered, tiny looping path, dead
+stage columns, one-note verb use. Assertions are **structural/statistical, never
+byte-for-byte**, so they survive logic changes — the guard against degenerate
+hand-authored (and future learned) policies. Two live guards: grounded duelist
+vs duelist, and the flying PCA vs a grounded robot. (Brain-level model — it
+proves the *policy* is non-degenerate; in-engine feel is verified separately.)
+
 ## Status (PCA encounter)
 
-Done: encounter gate (talk → challenge → fight), grounded reactive Smash boss
-(footsies, whiff-punish spacing, jab, dash-to-close, ranged cadence when armed),
-real 150 ms reaction latency, determinism, difficulty knobs.
+Done **in the brain crate** (all headless-tested): encounter gate (talk →
+challenge → fight), real 150 ms reaction latency, determinism, difficulty knobs;
+the duelist neutral game (footsies / neutral hops / platform-only vertical
+chase); aerial dive-perch flight; glider ranged zoning; reactive blink-evade;
+the non-degeneracy harness.
 
-Deferred depth (verbs whose `ActorControlFrame` bits already exist):
-- **glider special** — CA-themed diagonal projectile via the data-driven
-  ranged/special path (`special_pressed` already emits).
-- **reactive block** — `shield_held` within the reaction window (needs an
-  incoming-threat read added to `ObservationFrame` + a Defend mode).
-- **blink dodge** — `blink_pressed` + `blink_quick_dir`.
-- **fly / aerial-Smash** — emit `velocity_target` for a Floating body + 2D
-  pursuit, so the PCA fights airborne instead of descending to the ground.
+Remaining (in-game wiring + content — not yet done):
+- point the PCA archetype at the duelist/aerial config and keep it Floating when
+  provoked (reverse the S4a grounding) so it flies in the Noether Chamber;
+- give the PCA body the glider (ranged ActionSet) + blink ability so those
+  emitted verbs *resolve* in-engine (capability wiring, like any actor);
+- **reactive block** (`shield_held` Defend mode) — the one verb still unbuilt;
+- GUI verification of the in-world feel (headless covers the policy only).

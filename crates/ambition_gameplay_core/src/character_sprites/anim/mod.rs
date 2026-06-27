@@ -311,7 +311,7 @@ pub fn pick_player_anim(
     combat: &crate::player::PlayerCombatState,
     blink_cam: &crate::player::PlayerBlinkCameraState,
     attack: Option<&crate::PlayerAttackState>,
-    kinematics: &crate::player::BodyKinematics,
+    kinematics: &crate::actor::BodyKinematics,
     ground: &crate::player::PlayerGroundState,
     wall: &crate::player::PlayerWallState,
     blink: &crate::player::PlayerBlinkState,

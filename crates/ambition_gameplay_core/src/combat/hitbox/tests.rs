@@ -397,7 +397,7 @@ fn enemy_hitbox_over_player_app(relations: FactionRelations) -> (App, Entity) {
         .world_mut()
         .spawn((
             crate::player::PlayerEntity,
-            crate::player::BodyKinematics {
+            crate::actor::BodyKinematics {
                 pos: ae::Vec2::new(100.0, 100.0),
                 size: ae::Vec2::new(28.0, 46.0),
                 facing: 1.0,

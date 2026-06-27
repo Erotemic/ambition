@@ -301,7 +301,7 @@ pub fn sync_developer_body_profile(
     developer: Res<DeveloperTools>,
     mut player_q: Query<
         (
-            &mut crate::player::BodyKinematics,
+            &mut crate::actor::BodyKinematics,
             &mut crate::player::PlayerBaseSize,
         ),
         crate::player::PrimaryPlayerOnly,
@@ -329,7 +329,7 @@ pub fn sync_developer_body_profile(
 /// [`sync_developer_body_profile`], which runs every frame, so the menu caller
 /// does not need to hold a `&mut PlayerBaseSize`.
 pub fn apply_player_body_profile(
-    kinematics: &mut crate::player::BodyKinematics,
+    kinematics: &mut crate::actor::BodyKinematics,
     profile: PlayerBodyProfile,
 ) {
     let new_size = profile.size();

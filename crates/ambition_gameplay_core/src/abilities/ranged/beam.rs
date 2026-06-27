@@ -22,7 +22,8 @@ use bevy::prelude::*;
 
 use ambition_engine_core as ae;
 use crate::features::{ActorFaction, HeldItem};
-use crate::player::{BodyKinematics, PlayerEntity, PlayerInputFrame, PlayerMana, PrimaryPlayer};
+use crate::player::{PlayerEntity, PlayerInputFrame, PlayerMana, PrimaryPlayer};
+use crate::actor::BodyKinematics;
 
 /// Held-item id of the focus-beam gauntlet.
 pub const BEAM_ID: &str = "beam";

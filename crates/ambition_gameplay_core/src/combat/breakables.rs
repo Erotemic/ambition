@@ -9,7 +9,7 @@ use super::*;
 pub fn update_ecs_breakables(
     mut commands: Commands,
     world_time: Res<WorldTime>,
-    player_body_q: Query<&crate::player::BodyKinematics, With<crate::player::PlayerEntity>>,
+    player_body_q: Query<&crate::actor::BodyKinematics, With<crate::player::PlayerEntity>>,
     mut banner: ResMut<GameplayBanner>,
     mut breakables: Query<
         (
@@ -90,7 +90,8 @@ mod breakable_tests {
     //! not. Drives sim time via a fixed WorldTime::scaled_dt.
     use super::*;
     use ambition_interaction::{Breakable, BreakableCollision, BreakableTrigger};
-    use crate::player::{BodyKinematics, PlayerBaseSize, PlayerEntity};
+    use crate::player::{PlayerBaseSize, PlayerEntity};
+use crate::actor::BodyKinematics;
     use crate::world::physics::DebrisBurstMessage;
     use crate::WorldTime;
     use bevy::prelude::{App, Entity, Update};

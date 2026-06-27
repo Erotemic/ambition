@@ -16,7 +16,8 @@
 use bevy::prelude::*;
 
 use ambition_input::ControlFrame;
-use crate::player::{BodyKinematics, PlayerEntity, PlayerInputFrame, PrimaryPlayer};
+use crate::player::{PlayerEntity, PlayerInputFrame, PrimaryPlayer};
+use crate::actor::BodyKinematics;
 
 /// Marker on the actor the player is currently possessing. Carries the latest
 /// player `ControlFrame`, synced each frame by [`sync_possession_input`] (which

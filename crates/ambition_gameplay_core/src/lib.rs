@@ -54,6 +54,8 @@ pub use persistence::save_data as save;
 // Themed module umbrellas. Each owns a coherent slice of the sandbox.
 pub mod abilities;
 pub mod ability_cooldown;
+/// Neutral actor-vocabulary home for shared sim-state (the keystone re-home target).
+pub mod actor;
 pub mod assets;
 pub mod body_mode;
 pub mod boss_encounter;

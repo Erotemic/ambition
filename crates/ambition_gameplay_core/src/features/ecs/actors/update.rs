@@ -79,7 +79,7 @@ pub fn update_ecs_actors(
     player_query: Query<
         (
             bevy::prelude::Entity,
-            &crate::player::BodyKinematics,
+            &crate::actor::BodyKinematics,
             &crate::player::PlayerOffense,
             &crate::player::PlayerDodgeState,
             &crate::player::PlayerShieldState,

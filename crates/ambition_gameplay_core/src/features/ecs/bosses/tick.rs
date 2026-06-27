@@ -266,7 +266,7 @@ pub fn update_ecs_bosses(
     // respond to multiple players) is a deeper redesign left for later.
     player_query: Query<
         (
-            &crate::player::BodyKinematics,
+            &crate::actor::BodyKinematics,
             &crate::player::PlayerOffense,
             &crate::player::PlayerDodgeState,
             &crate::player::PlayerShieldState,

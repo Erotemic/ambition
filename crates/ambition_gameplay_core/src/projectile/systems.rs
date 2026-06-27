@@ -19,7 +19,7 @@ use crate::features::{
     CenteredAabb, FactionRelations, FeatureId, FeatureSimEntity, HitEvent, HitKnockback, HitMode,
     HitSource, HitTarget,
 };
-use crate::player::BodyKinematics;
+use crate::actor::BodyKinematics;
 use crate::projectile::ProjectileGameplay;
 use crate::trace::GameplayTraceBuffer;
 use crate::RoomGeometry;
@@ -133,7 +133,7 @@ pub fn player_projectile_input(
     mut player_q: Query<
         (
             Entity,
-            &crate::player::BodyKinematics,
+            &crate::actor::BodyKinematics,
             &mut crate::projectile::PlayerProjectileState,
             &mut crate::player::PlayerAnimState,
         ),

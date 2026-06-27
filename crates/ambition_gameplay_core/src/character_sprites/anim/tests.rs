@@ -13,7 +13,7 @@ use crate::player::{PlayerBlinkCameraState, PlayerCombatState};
 /// Bundle of every cluster component `pick_player_anim` reads.
 /// Tests mutate just the fields relevant to the case under test.
 struct PickClusters {
-    kinematics: crate::player::BodyKinematics,
+    kinematics: crate::actor::BodyKinematics,
     ground: crate::player::PlayerGroundState,
     wall: crate::player::PlayerWallState,
     blink: crate::player::PlayerBlinkState,

@@ -22,7 +22,8 @@ use bevy::prelude::*;
 use crate::enemy_projectile::EnemyProjectileSpawn;
 use ambition_engine_core as ae;
 use crate::features::HeldItem;
-use crate::player::{BodyKinematics, PlayerEntity, PlayerInputFrame, PlayerMana, PrimaryPlayer};
+use crate::player::{PlayerEntity, PlayerInputFrame, PlayerMana, PrimaryPlayer};
+use crate::actor::BodyKinematics;
 use crate::projectile::ProjectileFaction;
 
 /// Held-item id of the meteor gauntlet.

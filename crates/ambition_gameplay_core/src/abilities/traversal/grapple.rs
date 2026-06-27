@@ -15,7 +15,8 @@ use bevy::prelude::*;
 
 use ambition_engine_core as ae;
 use crate::features::HeldItem;
-use crate::player::{BodyKinematics, PlayerEntity, PlayerInputFrame, PrimaryPlayer};
+use crate::player::{PlayerEntity, PlayerInputFrame, PrimaryPlayer};
+use crate::actor::BodyKinematics;
 
 /// The held-item id the Grapple ability grants.
 pub const GRAPPLE_ID: &str = "grapple";

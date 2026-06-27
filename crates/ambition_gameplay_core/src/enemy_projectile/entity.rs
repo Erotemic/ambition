@@ -1,7 +1,7 @@
 //! ECS entity components for the enemy/boss projectile pool.
 //!
 //! Each in-flight hostile or boss-authored projectile is one entity carrying shared
-//! [`crate::player::BodyKinematics`], shared
+//! [`crate::actor::BodyKinematics`], shared
 //! [`crate::projectile::ProjectileGameplay`], a deterministic
 //! [`crate::projectile::ProjectileSeq`], an owner-id string for visuals/traces, and
 //! the [`EnemyProjectile`] pool marker.

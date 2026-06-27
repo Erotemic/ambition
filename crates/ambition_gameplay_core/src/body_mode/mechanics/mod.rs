@@ -46,7 +46,7 @@ pub fn update_body_mode(
     user_settings: Option<Res<crate::persistence::settings::UserSettings>>,
     mut player_q: Query<
         (
-            &mut crate::player::BodyKinematics,
+            &mut crate::actor::BodyKinematics,
             &crate::player::PlayerBaseSize,
             &mut crate::player::PlayerBodyModeState,
             &mut crate::player::PlayerJumpState,

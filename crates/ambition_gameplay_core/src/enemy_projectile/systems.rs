@@ -18,7 +18,7 @@ use crate::projectile::{ProjectileOwner, ProjectileOwnerId, ProjectileSeqCounter
 /// substrate so the shared [`ProjectileSeq`] is assigned in emission order (its
 /// sort then reproduces the historical push order).
 ///
-/// Each entity carries the SHARED [`crate::player::BodyKinematics`] body + the
+/// Each entity carries the SHARED [`crate::actor::BodyKinematics`] body + the
 /// [`ProjectileGameplay`] marker/state + the [`ProjectileOwnerId`] string + the
 /// monotonic [`ProjectileSeq`]. When the request names a real firing actor
 /// (`req.owner != Entity::PLACEHOLDER`) the entity also carries
@@ -278,10 +278,8 @@ mod tests {
     /// boss's attack at it.
     #[test]
     fn a_parried_enemy_shot_flips_to_player_faction_and_reverses() {
-        use crate::player::{
-            BodyKinematics, PlayerBaseSize, PlayerCombatState, PlayerDodgeState, PlayerEntity,
-            PlayerOffense, PlayerShieldState,
-        };
+        use crate::player::{PlayerBaseSize, PlayerCombatState, PlayerDodgeState, PlayerEntity, PlayerOffense, PlayerShieldState};
+use crate::actor::BodyKinematics;
         let mut app = App::new();
         app.insert_resource(crate::RoomGeometry(ae::World::new(
             "phys",
@@ -371,10 +369,8 @@ mod tests {
     /// exercised.
     #[test]
     fn an_owned_enemy_shot_attributes_its_player_hit_to_the_firing_actor() {
-        use crate::player::{
-            BodyKinematics, PlayerBaseSize, PlayerCombatState, PlayerDodgeState, PlayerEntity,
-            PlayerOffense, PlayerShieldState,
-        };
+        use crate::player::{PlayerBaseSize, PlayerCombatState, PlayerDodgeState, PlayerEntity, PlayerOffense, PlayerShieldState};
+use crate::actor::BodyKinematics;
         let mut app = App::new();
         app.insert_resource(crate::RoomGeometry(ae::World::new(
             "phys",

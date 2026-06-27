@@ -54,7 +54,7 @@ pub(crate) fn enemy_projectile_bodies(app: &mut App) -> Vec<crate::projectile::I
     // projectile ever spawned" case the empty-pool tests assert. Treat that as
     // an empty pool rather than panicking.
     let Some(mut q) = world.try_query_filtered::<(
-        &crate::player::BodyKinematics,
+        &crate::actor::BodyKinematics,
         &ProjectileGameplay,
         &ProjectileOwnerId,
         &ProjectileSeq,

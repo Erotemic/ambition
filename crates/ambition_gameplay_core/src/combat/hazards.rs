@@ -14,7 +14,7 @@ pub fn update_ecs_hazards(
     player: Query<
         (
             Entity,
-            &crate::player::BodyKinematics,
+            &crate::actor::BodyKinematics,
             &crate::player::PlayerOffense,
             &crate::player::PlayerDodgeState,
             &crate::player::PlayerShieldState,
@@ -105,10 +105,8 @@ pub fn update_ecs_hazards(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::player::{
-        BodyKinematics, PlayerBaseSize, PlayerCombatState, PlayerDodgeState, PlayerEntity,
-        PlayerOffense, PlayerShieldState,
-    };
+    use crate::player::{PlayerBaseSize, PlayerCombatState, PlayerDodgeState, PlayerEntity, PlayerOffense, PlayerShieldState};
+use crate::actor::BodyKinematics;
     use bevy::prelude::{App, MessageReader, ResMut, Resource, Update};
 
     #[derive(Resource, Default)]

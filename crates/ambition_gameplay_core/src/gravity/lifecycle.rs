@@ -7,7 +7,8 @@ use bevy::prelude::*;
 
 use ambition_engine_core::{self as ae, AabbExt};
 use crate::physics::GravityField;
-use crate::player::{BodyKinematics, PlayerEntity, PrimaryPlayer};
+use crate::player::{PlayerEntity, PrimaryPlayer};
+use crate::actor::BodyKinematics;
 
 /// Reset gravity to the default (down) when the room resets, so a flipped /
 /// zoned room doesn't carry over.

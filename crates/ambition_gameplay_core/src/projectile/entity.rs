@@ -5,7 +5,7 @@
 //!
 //! - [`crate::projectile::ProjectileGameplay`] — the projectile gameplay marker
 //!   + state (kind / faction / lifetime / gravity / damage / bounces).
-//! - [`crate::player::BodyKinematics`] — the SHARED kinematic body. Carrying the
+//! - [`crate::actor::BodyKinematics`] — the SHARED kinematic body. Carrying the
 //!   exact component the player / enemy / boss carry is what lets Phase 4 plug
 //!   projectiles into the generic portal-transit machine "tag + go".
 //! - [`ProjectileOwner`] — the firing player entity (attacker attribution +

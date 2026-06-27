@@ -159,7 +159,7 @@ pub(in crate::projectile) fn projectile_bodies(
     let world = app.world_mut();
     let mut q = world
         .try_query::<(
-            &crate::player::BodyKinematics,
+            &crate::actor::BodyKinematics,
             &ProjectileGameplay,
             &ProjectileSeq,
         )>()

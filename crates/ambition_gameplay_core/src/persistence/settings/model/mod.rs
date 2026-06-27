@@ -728,7 +728,7 @@ pub fn apply_action(
     editable_tuning: &mut EditableMovementTuning,
     ldtk_reload: &mut LdtkHotReloadState,
     live_movement_refs: Option<(
-        &mut crate::player::BodyKinematics,
+        &mut crate::actor::BodyKinematics,
         &crate::player::PlayerAbilities,
         &mut crate::player::PlayerDashState,
         &mut crate::player::PlayerJumpState,

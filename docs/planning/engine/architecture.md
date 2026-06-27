@@ -87,11 +87,16 @@ By approximate reference count: `BodyKinematics` (~35), `PlayerEntity` (~34),
   (byte-stable, gameplay_core 1028 + app green). Remaining on the sink: the
   sim-STATE types (`PlayerCombatState`, `PlayerMana`, `PlayerHealth`,
   `PlayerWallet`, `PlayerInputFrame`, …) — those are the Bucket-2 slices below.
-- **Slices 1..k** — one sim-state family per slice (Bucket 2), ordered **low → high
-  feel-risk**: (1) economy / interaction first, (2) combat state next, (3)
-  **movement / ability state LAST** (the feel-sensitive `ProjectileSpawner` / shield /
-  dash / flight fold). Feel-risky slices get an in-game check between them; cheap ones
-  iterate fast.
+- **Slices 1..k** — one sim-state family per slice (Bucket 2). ✅ *health done:*
+  `PlayerHealth` + `ActorHealth` (identical `Health` wrappers) collapsed into one
+  `crate::actor::BodyHealth` on every body (~28 sites, gameplay_core + render + app).
+  *Next:* the combat/status state (`PlayerCombatState` ↔ `ActorCombatState` /
+  `ActorStatus`) into one vocabulary — a reconciliation (the field sets differ:
+  player control-lock timers vs actor attack-timeline + ai_mode), not a rename;
+  then the alive/faction status; then the actor's `ActorStatus.health`/`on_ground`/
+  `air_jumps` duplication retired now that `BodyHealth` + the pipeline clusters own
+  them. (Per Jon: the game is an untuned demo — drive to the pristine shape; the
+  gate is *compiles + tests*, measured on architecture, not feel.)
 - **Slice final** — bank the compile-time win: extract the now-unblocked leaf crates.
 
 Each slice gated on *it compiles* + the differential trace; behavior may change (often

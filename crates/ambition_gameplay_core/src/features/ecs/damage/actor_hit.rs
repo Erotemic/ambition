@@ -48,6 +48,17 @@ pub(crate) fn apply_actor_hit(
     combat_banter: Option<&crate::features::banter::CombatBanterRegistry>,
     writers: &mut FeatureHitWriters<'_, '_>,
 ) -> bool {
+    // Body-generic post-hit i-frame (the analogue of the player's
+    // `BodyCombat.vulnerable()` gate): a body that registered a hit within the last
+    // `ACTOR_DAMAGE_IFRAME_S` ignores further hits. Without this, a sustained
+    // overlap — a lingering attack volume, body contact, or a dialog-pinned body
+    // next to an enemy — re-registered a hit (damage + sound + particles) EVERY
+    // frame. The window collapses that to one hit per window for any body. Returns
+    // false so the caller's `actor_hit_this_event` stays unset (no sfx/hitstop, no
+    // per-swing dedup record).
+    if em.status.damage_invuln_timer > 0.0 {
+        return false;
+    }
     if disposition.is_peaceful() {
         // Peaceful actor (talkable NPC): accumulate strikes + barks and emit a
         // retaliation stimulus. No health damage — the flip to hostile is the
@@ -55,6 +66,7 @@ pub(crate) fn apply_actor_hit(
         let pos = em.kin.pos;
         let bark_anchor = em.bark_anchor();
         em.status.hit_flash = 0.18;
+        em.status.damage_invuln_timer = super::super::actor_clusters::ACTOR_DAMAGE_IFRAME_S;
         let impact = midpoint(event.volume.center(), pos);
         writers.vfx.write(VfxMessage::Impact { pos: impact });
         writers.actor_stimuli.write(ActorStimulus::DamagedBy {
@@ -111,6 +123,7 @@ pub(crate) fn apply_actor_hit(
         // zero before we re-set it below).
         let should_bark = em.status.hit_flash < 0.05;
         em.status.hit_flash = 0.16;
+        em.status.damage_invuln_timer = super::super::actor_clusters::ACTOR_DAMAGE_IFRAME_S;
         if should_bark {
             let strikes = (em.health.max() - em.health.current()).max(0) as u32;
             // Catalog-first: resolve the enemy's catalog id from its display

@@ -45,7 +45,25 @@ pub struct ActorStatus {
     pub respawn_timer: f32,
     pub hit_flash: f32,
     pub ai_mode: ambition_characters::actor::ai::CharacterAiMode,
+    /// Post-hit invulnerability window (seconds). Counts down each tick (in
+    /// [`ActorMut::update`]); while positive the body ignores incoming hits. This
+    /// is the body-generic analogue of the player's `BodyCombat.damage_invuln_timer`
+    /// — the player already gates re-hits on it (so a sustained overlap can't damage
+    /// it every frame), but actors had no such window, so a lingering attack volume,
+    /// body contact, or a dialog-pinned body next to an enemy re-registered a hit
+    /// (sound + particles) every frame. Set on a landed hit in `apply_actor_hit`,
+    /// gating further hits to ONE per window. (Convergence onto a single
+    /// `BodyCombat.damage_invuln_timer` for every body is the pending Bucket-2
+    /// combat-state collapse; until then the actor's reaction timers live here.)
+    pub damage_invuln_timer: f32,
 }
+
+/// Post-hit i-frame window for a body on the actor path (see
+/// [`ActorStatus::damage_invuln_timer`]). Deliberately shorter than the player's
+/// attack cadence (~0.4 s swipe) so it never eats an intended combo hit, yet long
+/// enough to collapse a 60 fps contact/overlap stream to a single hit per window.
+/// Feel-tunable.
+pub const ACTOR_DAMAGE_IFRAME_S: f32 = 0.2;
 
 /// Authored configuration + identity for an actor (any disposition). Archetype-
 /// free by construction: the named roster enum is resolved at spawn and projected
@@ -385,6 +403,7 @@ impl ActorClusterSeed {
                 respawn_timer: 0.0,
                 hit_flash: 0.0,
                 ai_mode: ambition_characters::actor::ai::CharacterAiMode::Idle,
+                damage_invuln_timer: 0.0,
             },
             health: crate::actor::BodyHealth::new(ambition_characters::actor::Health::new(
                 spec.max_health,
@@ -511,6 +530,7 @@ impl ActorClusterSeed {
                 respawn_timer: 0.0,
                 hit_flash: 0.0,
                 ai_mode: ambition_characters::actor::ai::CharacterAiMode::Idle,
+                damage_invuln_timer: 0.0,
             },
             health: crate::actor::BodyHealth::new(ambition_characters::actor::Health::new(1)),
             surface: ActorSurfaceState {

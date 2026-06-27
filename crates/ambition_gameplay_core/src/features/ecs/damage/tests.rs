@@ -171,6 +171,16 @@ fn player_slash_damages_and_can_kill_a_hostile_actor() {
         "the enemy should still be alive after one slash"
     );
 
+    // Two DISTINCT slashes: in real play ~0.2 s+ separates them, so the actor's
+    // post-hit i-frame (`ACTOR_DAMAGE_IFRAME_S`) has elapsed by the second swing.
+    // This minimal app runs no integration tick to decay it, so clear it here to
+    // model the gap between attacks (without it, the i-frame correctly gates the
+    // back-to-back second hit — that is the regression fix working).
+    app.world_mut()
+        .get_mut::<super::super::actor_clusters::ActorStatus>(actor_entity)
+        .unwrap()
+        .damage_invuln_timer = 0.0;
+
     // Lethal slash: 5 damage → dead through the normal kill path.
     app.world_mut().write_message(HitEvent {
         volume: event_volume.into(),
@@ -198,6 +208,63 @@ fn player_slash_damages_and_can_kill_a_hostile_actor() {
             .unwrap()
             .alive,
         "the killed enemy should be marked dead"
+    );
+}
+
+#[test]
+fn a_sustained_overlap_lands_one_hit_per_iframe_window_not_one_per_frame() {
+    // Regression (Jon, 2026-06-27): a body pinned in a damaging volume — a lingering
+    // attack volume, body contact, or a dialog-locked body next to an enemy — used to
+    // re-register a hit (damage + sound + particles) EVERY frame, because actors had
+    // no post-hit i-frame (the player did). With the body-generic
+    // `ActorStatus::damage_invuln_timer`, the SAME hit fired twice with the window
+    // still hot lands exactly once. (This minimal app runs no integration tick, so the
+    // window never decays between the two updates — exactly the sustained-overlap case.)
+    let mut app = App::new();
+    app.insert_resource(GameplayBanner::default());
+    app.add_message::<HitEvent>();
+    app.add_message::<SetFlagRequested>();
+    app.add_message::<SfxMessage>();
+    app.add_message::<VfxMessage>();
+    app.add_message::<DebrisBurstMessage>();
+    app.add_message::<ActorStimulus>();
+    app.add_systems(Update, apply_feature_hit_events);
+
+    let actor_entity = spawn_hostile_actor(&mut app); // HP 5
+    let event_volume = ae::Aabb::new(ae::Vec2::ZERO, ae::Vec2::new(24.0, 40.0));
+    let slash = || HitEvent {
+        volume: event_volume.into(),
+        damage: 2,
+        source: HitSource::PlayerSlash { knock_x: 120.0 },
+        attacker: None,
+        target: HitTarget::Volume,
+        mode: HitMode::Knockback,
+        knockback: None,
+        ignored_targets: Vec::new(),
+    };
+
+    app.world_mut().write_message(slash());
+    app.update();
+    let hp_after_first = app
+        .world()
+        .get::<BodyHealth>(actor_entity)
+        .unwrap()
+        .health
+        .current;
+    assert_eq!(hp_after_first, 3, "first hit lands (5 → 3)");
+
+    // Second identical hit while the i-frame is still hot (no tick decayed it):
+    // ignored, so HP is unchanged — the sustained-overlap stream is collapsed.
+    app.world_mut().write_message(slash());
+    app.update();
+    assert_eq!(
+        app.world()
+            .get::<BodyHealth>(actor_entity)
+            .unwrap()
+            .health
+            .current,
+        3,
+        "a re-hit within the i-frame window must be ignored (no per-frame stream)"
     );
 }
 

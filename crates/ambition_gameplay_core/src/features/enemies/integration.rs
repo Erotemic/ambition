@@ -134,17 +134,14 @@ fn integrate_standard_enemy_body(
         // own `max_run_speed` capability as the scale — no velocity→axis
         // decomposition, no per-actor-type branch.
         let axis_x = frame.locomotion.x;
-        let spine_tuning = ae::MovementTuning {
-            gravity: tuning.movement.gravity * surface.gravity_scale,
+        // One movement-physics source per body: the composed per-archetype tuning
+        // builds the spine's `MovementTuning` (the same bridge the full player
+        // pipeline this body adopts next will consume).
+        let spine_tuning = tuning.movement.spine_tuning(
+            tuning.max_run_speed * run_speed_scale,
             gravity_dir,
-            run_accel: tuning.movement.run_accel,
-            air_accel: tuning.movement.run_accel,
-            ground_friction: 0.0,
-            air_friction: 0.0,
-            max_run_speed: tuning.max_run_speed * run_speed_scale,
-            max_fall_speed: tuning.movement.max_fall_speed,
-            ..ae::MovementTuning::default()
-        };
+            surface.gravity_scale,
+        );
         // A grounded enemy carries no player ability components: the spine's
         // fast-fall / glide / water / blink gates are all off (pay-for-use).
         let mut fast_falling = false;

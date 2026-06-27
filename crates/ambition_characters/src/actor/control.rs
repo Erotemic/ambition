@@ -13,7 +13,7 @@
 //! - brains are pure functions of a snapshot plus their local state;
 //! - integration code reads only the frame, not the brain implementation.
 
-use ambition_engine_core::{AccelerationFrame, GameplayFramePolicy, Vec2};
+use ambition_engine_core::{AccelerationFrame, GameplayFramePolicy, InputState, Vec2};
 
 /// The body→controller half of the intent-in seam.
 ///
@@ -282,6 +282,42 @@ impl ActorControlFrame {
         Self::default()
     }
 
+    /// Map this controller intent into the engine's [`InputState`] — the input
+    /// representation the shared player movement pipeline consumes.
+    ///
+    /// This is the bridge that lets ANY controller (a Brain, a possessing human, a
+    /// future RL policy) drive the rich player limb pipeline, not just raw device
+    /// input: the actor-unification routes every body through
+    /// `update_player_*_clusters`, and this is the single place an
+    /// `ActorControlFrame` becomes the `InputState` those limbs read. The mapping
+    /// is near-identity — both are the body-local intent vocabulary — modulo names
+    /// (`locomotion` → `axis_*`, `melee_pressed` → `attack_pressed`). `reset` is
+    /// player-device-only (an actor never resets the room), and `control_dt` is a
+    /// presentation concern, so both are left at their defaults.
+    pub fn to_input_state(&self) -> InputState {
+        InputState {
+            axis_x: self.locomotion.x,
+            axis_y: self.locomotion.y,
+            jump_pressed: self.jump_pressed,
+            jump_held: self.jump_held,
+            jump_released: self.jump_released,
+            dash_pressed: self.dash_pressed,
+            fly_toggle_pressed: self.fly_toggle_pressed,
+            blink_pressed: self.blink_pressed,
+            blink_held: self.blink_held,
+            blink_released: self.blink_released,
+            blink_quick_dir: self.blink_quick_dir,
+            blink_aim_step: self.blink_aim_step,
+            fast_fall_pressed: self.fast_fall_pressed,
+            attack_pressed: self.melee_pressed,
+            pogo_pressed: self.pogo_pressed,
+            interact_pressed: self.interact_pressed,
+            reset_pressed: false,
+            shield_held: self.shield_held,
+            control_dt: 0.0,
+        }
+    }
+
     /// True iff any action verb (melee / fire / jump / dash /
     /// interact / shield / special) is requested this tick. Useful
     /// for debug HUD ("brain is asking for something"), perf
@@ -315,6 +351,30 @@ impl ActorControlFrame {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// The input bridge maps the body-local control vocabulary onto `InputState`
+    /// (the representation the shared player pipeline consumes): `locomotion` →
+    /// `axis_*`, `melee` → `attack`, the rest near-identity. A neutral frame maps
+    /// to neutral input; reset stays device-only.
+    #[test]
+    fn to_input_state_maps_the_control_vocabulary() {
+        let neutral = ActorControlFrame::neutral().to_input_state();
+        assert_eq!(neutral.axis_x, 0.0);
+        assert!(!neutral.jump_pressed && !neutral.attack_pressed);
+        assert!(!neutral.reset_pressed, "an actor never resets the room");
+
+        let mut frame = ActorControlFrame::neutral();
+        frame.locomotion = Vec2::new(0.6, -0.2);
+        frame.jump_pressed = true;
+        frame.dash_pressed = true;
+        frame.melee_pressed = true;
+        frame.shield_held = true;
+        let input = frame.to_input_state();
+        assert_eq!(input.axis_x, 0.6, "locomotion.x → axis_x");
+        assert_eq!(input.axis_y, -0.2, "locomotion.y → axis_y");
+        assert!(input.jump_pressed && input.dash_pressed && input.shield_held);
+        assert!(input.attack_pressed, "melee_pressed → attack_pressed");
+    }
 
     #[test]
     fn default_frame_is_neutral() {

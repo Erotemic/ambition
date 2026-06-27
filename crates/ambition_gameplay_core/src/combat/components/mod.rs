@@ -149,6 +149,31 @@ impl BodyMovementTuning {
         jump_speed: 520.0,
         double_jump_speed: 430.0,
     };
+
+    /// Build the engine `MovementTuning` the grounded **spine** runs on for this
+    /// body: the composed gravity/run/fall knobs over the bare default, with the
+    /// body's run cap and gravity frame, frictionless (a grounded actor carries no
+    /// friction limbs — friction lives in the rich pipeline this body adopts next).
+    /// `gravity_scale` lets a partially-floating body damp its gravity. One movement
+    /// source per body — the seam the unification's full pipeline also consumes.
+    pub fn spine_tuning(
+        &self,
+        max_run_speed: f32,
+        gravity_dir: ae::Vec2,
+        gravity_scale: f32,
+    ) -> ae::MovementTuning {
+        ae::MovementTuning {
+            gravity: self.gravity * gravity_scale,
+            gravity_dir,
+            run_accel: self.run_accel,
+            air_accel: self.run_accel,
+            ground_friction: 0.0,
+            air_friction: 0.0,
+            max_run_speed,
+            max_fall_speed: self.max_fall_speed,
+            ..ae::MovementTuning::default()
+        }
+    }
 }
 
 impl Default for BodyMovementTuning {

@@ -1,6 +1,6 @@
 //! Persist the player's inventory + wallet across save/load.
 //!
-//! `OwnedItems` (the 24-item OoT catalog) and the player's `PlayerWallet` are
+//! `OwnedItems` (the 24-item OoT catalog) and the player's `BodyWallet` are
 //! live state, not part of `SandboxSave` — so a session's earned items + money
 //! evaporated on restart. This module mirrors them into the save (which the
 //! existing autosave writes to disk) and restores them on load, keyed by stable
@@ -11,7 +11,7 @@ use bevy::prelude::*;
 
 use crate::items::OwnedItems;
 use crate::persistence::save::SandboxSave;
-use crate::player::{PlayerWallet};
+use crate::actor::BodyWallet;
 use crate::actor::{PlayerEntity, PrimaryPlayer};
 
 /// Set once the saved inventory has been applied to the live state (or skipped
@@ -27,7 +27,7 @@ pub fn restore_inventory_from_save(
     mut restored: ResMut<InventoryRestored>,
     save: Res<SandboxSave>,
     mut owned: ResMut<OwnedItems>,
-    mut wallet_q: Query<&mut PlayerWallet, (With<PlayerEntity>, With<PrimaryPlayer>)>,
+    mut wallet_q: Query<&mut BodyWallet, (With<PlayerEntity>, With<PrimaryPlayer>)>,
 ) {
     if restored.0 {
         return;
@@ -50,7 +50,7 @@ pub fn restore_inventory_from_save(
 pub fn persist_inventory_to_save(
     restored: Res<InventoryRestored>,
     owned: Res<OwnedItems>,
-    wallet_q: Query<&PlayerWallet, (With<PlayerEntity>, With<PrimaryPlayer>)>,
+    wallet_q: Query<&BodyWallet, (With<PlayerEntity>, With<PrimaryPlayer>)>,
     mut save: ResMut<SandboxSave>,
 ) {
     if !restored.0 {
@@ -89,7 +89,7 @@ mod tests {
             .spawn((
                 PlayerEntity,
                 PrimaryPlayer,
-                PlayerWallet { balance: wallet },
+                BodyWallet { balance: wallet },
             ))
             .id();
         (app, player)
@@ -121,7 +121,7 @@ mod tests {
             "the saved set REPLACES the starter"
         );
         assert_eq!(
-            app.world().get::<PlayerWallet>(player).unwrap().balance,
+            app.world().get::<BodyWallet>(player).unwrap().balance,
             137,
             "restored the saved wallet"
         );

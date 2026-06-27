@@ -36,15 +36,16 @@ pub mod trail;
 
 pub use bundles::{PlayerIdentityBundle, PlayerSimulationBundle};
 // NOTE: the body vocabulary — `PlayerEntity` / `PrimaryPlayer` (markers),
-// `PrimaryPlayerOnly` (filter), `BodyKinematics` + the 18 movement clusters — is
-// NOT re-exported here. Those are not player-specific; their single home is
+// `PrimaryPlayerOnly` (filter), `BodyKinematics` + the 18 movement clusters,
+// `BodyWallet` (economy — players AND currency-dropping NPCs) — is NOT
+// re-exported here. Those are not player-specific; their single home is
 // `crate::actor`. Keeping them off the `crate::player` surface enforces the
 // dependency direction (non-player code imports body state from `crate::actor`,
 // never through the player module). The genuinely player-only state stays below.
 pub use components::{
     ActivePlayerAttack, LocalPlayer, PlayerAnimState, PlayerBlinkCameraState,
     PlayerInputFrame, PlayerInteractionState, PlayerSafetyState,
-    PlayerSlot, PlayerWallet,
+    PlayerSlot,
 };
 pub use events::PlayerHealRequested;
 pub use movement_fx::handle_player_events;

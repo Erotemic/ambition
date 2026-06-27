@@ -47,7 +47,7 @@ pub fn collect_ecs_pickups(
         With<FeatureSimEntity>,
     >,
     mut heals: MessageWriter<crate::player::PlayerHealRequested>,
-    mut wallets: Query<&mut crate::player::PlayerWallet>,
+    mut wallets: Query<&mut crate::actor::BodyWallet>,
     mut sfx: MessageWriter<SfxMessage>,
     mut vfx: MessageWriter<VfxMessage>,
     mut set_flag: MessageWriter<SetFlagRequested>,
@@ -214,7 +214,7 @@ use crate::actor::BodyKinematics;
             .world_mut()
             .spawn((
                 PlayerEntity,
-                crate::player::PlayerWallet::default(),
+                crate::actor::BodyWallet::default(),
                 BodyKinematics {
                     pos: center,
                     size: ae::Vec2::new(28.0, 46.0),
@@ -240,7 +240,7 @@ use crate::actor::BodyKinematics;
         app.update();
         assert_eq!(
             app.world()
-                .get::<crate::player::PlayerWallet>(player)
+                .get::<crate::actor::BodyWallet>(player)
                 .unwrap()
                 .balance,
             25,
@@ -262,7 +262,7 @@ use crate::actor::BodyKinematics;
         let center = ae::Vec2::new(64.0, 64.0);
         app.world_mut().spawn((
             PlayerEntity,
-            crate::player::PlayerWallet::default(),
+            crate::actor::BodyWallet::default(),
             BodyKinematics {
                 pos: center,
                 size: ae::Vec2::new(28.0, 46.0),

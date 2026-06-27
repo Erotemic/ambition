@@ -132,6 +132,38 @@ impl AncillaryMovementBundle {
 /// uses to find the primary player (e.g. targeting, camera follow, HUD readouts).
 pub type PrimaryPlayerOnly = (With<PlayerEntity>, With<PrimaryPlayer>);
 
+/// A body's coin/credits balance — the spendable currency a body carries, used
+/// at merchants and credited by `PickupKind::Currency` collection. **Body
+/// vocabulary, not player-only:** the player carries one (per-player in
+/// multiplayer), and an NPC/enemy can carry one too (a body that drops currency
+/// on death holds it here). Pay-for-use — most bodies simply never spawn with a
+/// wallet. Was `PlayerWallet`; re-homed here so non-player economy (drops,
+/// trading NPCs) needs no `crate::player` dependency.
+///
+/// Decided (Jon): a coin/credits wallet, not item-as-currency.
+#[derive(bevy::prelude::Component, Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct BodyWallet {
+    pub balance: i32,
+}
+
+impl BodyWallet {
+    /// Credit the wallet (clamped at zero so a negative `amount` can't drive it
+    /// below zero).
+    pub fn add(&mut self, amount: i32) {
+        self.balance = (self.balance + amount).max(0);
+    }
+
+    /// Spend `amount` if affordable; returns `true` and debits on success.
+    pub fn try_spend(&mut self, amount: i32) -> bool {
+        if amount >= 0 && self.balance >= amount {
+            self.balance -= amount;
+            true
+        } else {
+            false
+        }
+    }
+}
+
 /// The ONE health component every body carries — the player, enemies, NPCs, and
 /// bosses. Wraps the shared [`ambition_characters::actor::Health`]. This is the
 /// keystone collapse of the identical parallel wrappers `PlayerHealth` /

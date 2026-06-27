@@ -6,9 +6,9 @@ use bevy::prelude::*;
 use super::components::{
     ActivePlayerAttack, LocalPlayer, PlayerAnimState, PlayerBlinkCameraState,
     PlayerEntity, PlayerInputFrame, PlayerInteractionState, PlayerSafetyState,
-    PlayerSlot, PlayerWallet, PrimaryPlayer,
+    PlayerSlot, PrimaryPlayer,
 };
-use crate::actor::{AncillaryMovementBundle, BodyCombat, BodyHealth};
+use crate::actor::{AncillaryMovementBundle, BodyCombat, BodyHealth, BodyWallet};
 use super::movement_components::BodyKinematics;
 use ambition_characters::brain::{ActionSet, ActorControl, Brain};
 use crate::features::{ActorFaction, ActorPose};
@@ -48,7 +48,7 @@ pub struct PlayerSimulationBundle {
     pub primary_body: ambition_platformer_primitives::body::PrimaryBody,
     pub local: LocalPlayer,
     pub health: BodyHealth,
-    pub wallet: PlayerWallet,
+    pub wallet: BodyWallet,
     pub combat: BodyCombat,
     pub interaction: PlayerInteractionState,
     pub anim: PlayerAnimState,
@@ -116,7 +116,7 @@ impl PlayerSimulationBundle {
             primary_body: ambition_platformer_primitives::body::PrimaryBody,
             local: LocalPlayer,
             health: BodyHealth::new(health),
-            wallet: PlayerWallet::default(),
+            wallet: BodyWallet::default(),
             combat: BodyCombat::default(),
             interaction: PlayerInteractionState::default(),
             anim: PlayerAnimState::default(),

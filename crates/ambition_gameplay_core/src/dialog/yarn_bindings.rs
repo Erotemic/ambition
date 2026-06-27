@@ -72,7 +72,7 @@ pub struct YarnStateMirrorData {
     /// Item `dialog_id()` → held count, mirrored from the live
     /// `OwnedItems` catalog resource so `inventory_has(...)` can read it.
     pub inventory_counts: std::collections::HashMap<String, u32>,
-    /// Player money, mirrored from the primary player's `PlayerWallet` so a
+    /// Player money, mirrored from the primary player's `BodyWallet` so a
     /// merchant dialogue can show the balance / gate purchases (`wallet_balance`,
     /// `can_afford`).
     pub wallet_balance: i32,
@@ -88,7 +88,7 @@ pub struct YarnStateMirror(pub Arc<RwLock<YarnStateMirrorData>>);
 pub fn refresh_yarn_state_mirror(
     save: Option<Res<SandboxSave>>,
     owned: Option<Res<crate::items::OwnedItems>>,
-    wallet: Query<&crate::player::PlayerWallet, With<crate::actor::PrimaryPlayer>>,
+    wallet: Query<&crate::actor::BodyWallet, With<crate::actor::PrimaryPlayer>>,
     mirror: Res<YarnStateMirror>,
 ) {
     let mut snap = mirror.0.write().expect("YarnStateMirror poisoned");
@@ -277,7 +277,7 @@ pub fn cmd_give_item(
 pub fn cmd_buy_item(
     In((id, price)): In<(String, f32)>,
     mut owned: ResMut<crate::items::OwnedItems>,
-    mut wallets: Query<&mut crate::player::PlayerWallet, With<crate::actor::PrimaryPlayer>>,
+    mut wallets: Query<&mut crate::actor::BodyWallet, With<crate::actor::PrimaryPlayer>>,
 ) {
     let Some(item) = crate::items::Item::from_dialog_id(&id) else {
         warn!(target: "ambition_gameplay_core::dialog::yarn", "buy_item: unknown item {id:?}");
@@ -298,7 +298,7 @@ pub fn cmd_buy_item(
 pub fn cmd_sell_item(
     In((id, price)): In<(String, f32)>,
     mut owned: ResMut<crate::items::OwnedItems>,
-    mut wallets: Query<&mut crate::player::PlayerWallet, With<crate::actor::PrimaryPlayer>>,
+    mut wallets: Query<&mut crate::actor::BodyWallet, With<crate::actor::PrimaryPlayer>>,
 ) {
     let Some(item) = crate::items::Item::from_dialog_id(&id) else {
         warn!(target: "ambition_gameplay_core::dialog::yarn", "sell_item: unknown item {id:?}");

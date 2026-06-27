@@ -8,12 +8,12 @@
 //! Mana is a real spendable resource: [`regen_player_mana`] refills the
 //! `BodyMana` meter over time so charge attacks / the fireball (which already
 //! spend it via the projectile spawner) draw it down and it recovers. Money is
-//! fed by `PickupKind::Currency` collection crediting [`ambition_gameplay_core::player::PlayerWallet`].
+//! fed by `PickupKind::Currency` collection crediting [`ambition_gameplay_core::actor::BodyWallet`].
 
 use bevy::prelude::*;
 
 use ambition_gameplay_core::actor::{PlayerEntity, PrimaryPlayer};
-use ambition_gameplay_core::player::{PlayerWallet};
+use ambition_gameplay_core::actor::BodyWallet;
 use ambition_gameplay_core::actor::{BodyMana};
 use ambition_gameplay_core::actor::BodyHealth;
 
@@ -158,7 +158,7 @@ pub fn spawn_player_hud(
 /// frame: bar fill widths track the fractions, labels show the numbers.
 pub fn update_player_hud(
     players: Query<
-        (&BodyHealth, &BodyMana, &PlayerWallet),
+        (&BodyHealth, &BodyMana, &BodyWallet),
         (With<PlayerEntity>, With<PrimaryPlayer>),
     >,
     mut fills: ParamSet<(
@@ -212,7 +212,7 @@ mod tests {
 
     #[test]
     fn wallet_add_clamps_and_spend_respects_balance() {
-        let mut wallet = PlayerWallet::default();
+        let mut wallet = BodyWallet::default();
         assert_eq!(wallet.balance, 0);
         wallet.add(50);
         wallet.add(-100); // can't drive below zero

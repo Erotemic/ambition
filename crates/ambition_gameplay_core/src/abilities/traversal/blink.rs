@@ -216,26 +216,6 @@ mod tests {
         );
     }
 
-    /// Body-side blink cooldown (invariant I3): the first attempt is accepted and
-    /// arms the refire; a follow-up attempt while the cooldown is live is blocked.
-    /// This is the floor that makes an AI brain and a possessing human blink at the
-    /// same rate, regardless of how fast either attempts it.
-    #[test]
-    fn body_blink_is_cooldown_gated() {
-        use crate::features::ActorAttackState;
-        let mut attack = ActorAttackState::default();
-        assert!(attack.try_blink(0.6).accepted(), "first blink accepted");
-        assert!(
-            !attack.try_blink(0.6).accepted(),
-            "second blink blocked on cooldown"
-        );
-        attack.tick(0.7, 0.06); // elapse past the refire
-        assert!(
-            attack.try_blink(0.6).accepted(),
-            "blink available again after the cooldown"
-        );
-    }
-
     fn test_app() -> App {
         let mut app = App::new();
         app.add_message::<crate::audio::SfxMessage>();

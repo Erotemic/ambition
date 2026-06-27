@@ -126,11 +126,16 @@ impl ActorBody {
     /// speed-cap burst). **fly** turns on for an aerial body (it lives in flight
     /// mode) OR a body that can toggle flight (`can_fly`); an aerial body also
     /// starts with `flight.fly_enabled` so it runs the shared flight limb from
-    /// spawn. blink / shield are still resolved on the actor's capability path.
+    /// spawn. **shield** turns on with `can_shield` (the pipeline's shield limb;
+    /// `update` bridges `status.shield_raised` back for the damage path). **blink**
+    /// turns on with `can_blink` (the pipeline's blink limb; the driver emits the
+    /// blink sfx/vfx from the returned `FrameEvents.blinks`).
     pub fn from_caps(caps: &crate::combat::CombatCapabilities, is_aerial: bool) -> Self {
         let mut abilities = Self::locomotion_abilities();
         abilities.dash = caps.can_dash;
         abilities.fly = is_aerial || caps.can_fly;
+        abilities.shield = caps.can_shield;
+        abilities.blink = caps.can_blink;
         let mut scratch =
             ae::PlayerClusterScratch::new_with_abilities(ae::Vec2::ZERO, abilities);
         scratch.flight.fly_enabled = is_aerial;
@@ -484,6 +489,7 @@ impl ActorClusterSeed {
             frame,
             gravity_dir,
         )
+        .0
     }
 
     /// The authoritative components as a spawnable Bundle.

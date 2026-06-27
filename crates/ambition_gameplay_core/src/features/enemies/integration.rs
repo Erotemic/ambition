@@ -99,7 +99,10 @@ impl<'a> ActorMut<'a> {
         // `GravityField`, so the enemy falls the way the player does under ANY
         // gravity — including left/right.
         gravity_dir: ae::Vec2,
-    ) -> ambition_characters::actor::control::ActorControlFrame {
+    ) -> (
+        ambition_characters::actor::control::ActorControlFrame,
+        ae::FrameEvents,
+    ) {
         self.status.hit_flash = (self.status.hit_flash - dt).max(0.0);
         if !self.status.alive {
             self.status.respawn_timer = (self.status.respawn_timer - dt).max(0.0);
@@ -111,7 +114,10 @@ impl<'a> ActorMut<'a> {
                 self.status.hit_flash = 0.24;
             }
             self.status.ai_mode = ambition_characters::actor::ai::CharacterAiMode::Dead;
-            return ambition_characters::actor::control::ActorControlFrame::neutral();
+            return (
+                ambition_characters::actor::control::ActorControlFrame::neutral(),
+                ae::FrameEvents::default(),
+            );
         }
 
         self.attack.tick(dt, tuning.enemy_attack_active);
@@ -135,15 +141,25 @@ impl<'a> ActorMut<'a> {
         // pipeline owns the burst. (blink / shield are still resolved below on the
         // capability path; folding them needs the aerial reconciliation too.)
 
-        if is_surface_walker {
+        let move_events = if is_surface_walker {
             self.step_surface_walker(world, nearest_neighbor, dt, gravity_dir);
+            ae::FrameEvents::default()
         } else {
             // Grounded AND aerial bodies run the ONE shared movement pipeline; it
             // picks the flight limb vs the grounded spine internally from
             // `flight.fly_enabled` (set for aerial bodies at spawn / by the fly
-            // toggle). The bespoke aerial integrator is gone.
-            self.integrate_body(world, ai.intent, &frame, dt, gravity_dir);
-        }
+            // toggle). The bespoke aerial integrator is gone. Its `FrameEvents`
+            // (blink teleports, etc.) flow out to the driver.
+            self.integrate_body(world, ai.intent, &frame, dt, gravity_dir)
+        };
+
+        // Shield is the shared pipeline limb now (folded off the actor's own
+        // `resolve_shield` call): `integrate_body`'s control phase resolved the
+        // `shield_held` intent on `body.shield` (ability-gated by the mask,
+        // dash-blocked by the pipeline dash). Bridge it back onto `status.shield_raised`
+        // — the bool the actor DAMAGE path reads to negate a guarded faced-side hit.
+        // (Surface-walkers don't run the pipeline; they never raise a guard.)
+        self.status.shield_raised = self.body.0.shield.active;
 
         // Face the brain's committed direction whenever it commits one. Hostile
         // chasers AND peaceful patrollers/flyers both set `frame.facing`; a
@@ -156,7 +172,7 @@ impl<'a> ActorMut<'a> {
         if frame.fire.is_some() {
             self.status.ai_mode = ambition_characters::actor::ai::CharacterAiMode::Attack;
         }
-        frame
+        (frame, move_events)
     }
 
     /// Integration through the **shared player movement pipeline**
@@ -175,8 +191,9 @@ impl<'a> ActorMut<'a> {
     /// bridge that lets aerial actors share the pipeline.
     ///
     /// The pipeline owns hazard/out-of-bounds as a *flag* (it never teleports an
-    /// actor to the player spawn); the actor's damage / OOB systems own the
-    /// reaction, so the returned events are intentionally dropped here.
+    /// actor to the player spawn); the actor's damage / OOB systems own that. The
+    /// pipeline `FrameEvents` are RETURNED so the driver can react to body events
+    /// it cares about (e.g. emit the blink sfx/vfx from `events.blinks`).
     fn integrate_body(
         &mut self,
         world: &ae::World,
@@ -184,7 +201,7 @@ impl<'a> ActorMut<'a> {
         frame: &ambition_characters::actor::control::ActorControlFrame,
         dt: f32,
         gravity_dir: ae::Vec2,
-    ) {
+    ) -> ae::FrameEvents {
         // Wall-stop detection on the gravity-PERPENDICULAR "side" axis the actor
         // walks along (so a patroller reverses when it stalls against a wall,
         // correctly under sideways gravity too).
@@ -256,7 +273,7 @@ impl<'a> ActorMut<'a> {
             lifetime: &mut body.lifetime,
             combo_trace: &mut body.combo_trace,
         };
-        let _events = ae::update_body_with_tuning_clusters(world, &mut clusters, input, dt, tuning);
+        let events = ae::update_body_with_tuning_clusters(world, &mut clusters, input, dt, tuning);
         // Reflect the pipeline's ground contact back onto the actor surface (the
         // surface state the rest of the actor systems + rendering read). A flying
         // body is never grounded.
@@ -276,6 +293,7 @@ impl<'a> ActorMut<'a> {
         {
             self.kin.facing *= -1.0;
         }
+        events
     }
 
     fn step_surface_walker(

@@ -50,14 +50,6 @@ pub fn sync_actor_poses_from_feature_aabbs(
     }
 }
 
-/// How far a blink carries an actor body, walls permitting (matches the player's
-/// blink distance so a possessed body blinks identically — invariants I2/I7).
-const ACTOR_BLINK_DISTANCE: f32 = 150.0;
-/// Body-side blink refire floor (s). The physical cooldown a controller can't beat
-/// by attempting faster (invariant I3); the AI brain's own reactive cadence is
-/// longer, so this only binds a spamming possessing human.
-const ACTOR_BLINK_REFIRE_S: f32 = 0.6;
-
 /// Tick ECS actors. Peaceful and hostile actors share the same entity identity
 /// and can switch disposition in-place; dynamic encounter-spawned mobs use the
 /// same hostile path with an `EncounterMob` marker.
@@ -386,7 +378,7 @@ pub fn update_ecs_actors(
                 brain_frame.body_contact_damage_enabled = body_contact_damage_enabled;
                 let shark_charge_vec = brain_frame.velocity_target;
 
-                let frame = em.update(
+                let (frame, move_events) = em.update(
                     &feature_world,
                     target_pos,
                     combat_tuning,
@@ -412,39 +404,27 @@ pub fn update_ecs_actors(
                     });
                     frame = ambition_characters::actor::control::ActorControlFrame::neutral();
                 }
-                // Body resolves the blink intent (invariant I3): capability-gated
-                // (`caps.can_blink`) + cooldown-enforced (`try_blink`), then
-                // collision-clamped via the SAME `blink_target` rule the player
-                // uses (I2/I7). The controller — AI brain OR possessing human —
-                // only attempts; the body owns whether and where it teleports.
-                if em.caps.can_blink && frame.blink_pressed {
-                    let dir = frame.blink_quick_dir.normalize_or_zero();
-                    if dir != ae::Vec2::ZERO && em.attack.try_blink(ACTOR_BLINK_REFIRE_S).accepted()
-                    {
-                        let from = em.kin.pos;
-                        let to = crate::abilities::traversal::blink::blink_target(
-                            &feature_world,
-                            from,
-                            dir,
-                            ACTOR_BLINK_DISTANCE,
-                            em.kin.size * 0.5,
-                        );
-                        em.kin.pos = to;
-                        sfx.write(crate::audio::SfxMessage::Play {
-                            id: ambition_sfx::ids::PLAYER_BLINK,
-                            pos: to,
-                        });
-                        vfx.write(ambition_vfx::vfx::VfxMessage::Explosion {
-                            pos: from,
-                            kind: ambition_vfx::vfx::ExplosionKind::ClassicBurst,
-                            scale: 0.35,
-                        });
-                        vfx.write(ambition_vfx::vfx::VfxMessage::Explosion {
-                            pos: to,
-                            kind: ambition_vfx::vfx::ExplosionKind::ClassicBurst,
-                            scale: 0.5,
-                        });
-                    }
+                // Blink is folded onto the shared pipeline limb: `em.update` ran the
+                // body's blink limb (ability-gated by the mask, collision-clamped by
+                // the SAME path the player uses) and TELEPORTED the body. The driver
+                // only reacts to the resulting `FrameEvents.blinks` with sfx/vfx —
+                // the same burst-at-`from` + flash-at-`to` the bespoke actor blink
+                // drew, now event-driven exactly like the player's blink feedback.
+                for blink in &move_events.blinks {
+                    sfx.write(crate::audio::SfxMessage::Play {
+                        id: ambition_sfx::ids::PLAYER_BLINK,
+                        pos: blink.to,
+                    });
+                    vfx.write(ambition_vfx::vfx::VfxMessage::Explosion {
+                        pos: blink.from,
+                        kind: ambition_vfx::vfx::ExplosionKind::ClassicBurst,
+                        scale: 0.35,
+                    });
+                    vfx.write(ambition_vfx::vfx::VfxMessage::Explosion {
+                        pos: blink.to,
+                        kind: ambition_vfx::vfx::ExplosionKind::ClassicBurst,
+                        scale: 0.5,
+                    });
                 }
                 // Body resolves the fly-toggle intent (invariant I3): capability-
                 // gated, flips the shared movement pipeline's flight mode
@@ -455,30 +435,11 @@ pub fn update_ecs_actors(
                 if em.caps.can_fly && frame.fly_toggle_pressed {
                     em.body.0.flight.fly_enabled = !em.body.0.flight.fly_enabled;
                 }
-                // Body resolves the shield-held intent (invariant I3): the
-                // controller only *attempts* a guard (the brain raises it on a
-                // perceived lunge; a possessing human holds the button); the body
-                // records it ONLY when it has the capability. The actor damage path
-                // reads `status.shield_raised` to negate a guarded hit from the
-                // faced side (the same directional rule the player's shield uses).
-                //
-                // S6b convergence: this is the SAME `resolve_shield` rule the
-                // player body runs (one implementation, not two) — so the actor
-                // also can't raise its guard mid-dash, exactly like the player. The
-                // parry window is tracked through a throwaway today (actors don't
-                // yet consume a parry counter; when they do it moves onto status).
-                let mut actor_parry = 0.0;
-                ae::resolve_shield(
-                    &mut em.status.shield_raised,
-                    &mut actor_parry,
-                    em.caps.can_shield,
-                    // Dash now lives on the shared pipeline's dash limb (folded off
-                    // the actor's bespoke burst): read the pipeline's dash window so
-                    // "no shield mid-dash" still holds.
-                    em.body.0.dash.timer > 0.0,
-                    frame.shield_held,
-                    0.0,
-                );
+                // Shield is folded onto the shared pipeline limb: `em.update` ran
+                // the body's `apply_shield` (the SAME `resolve_shield` rule the
+                // player uses, ability-gated by the mask, dash-blocked by the
+                // pipeline dash) and bridged `status.shield_raised` back. Nothing to
+                // resolve here.
                 // Publish the actor's footprint ORIENTED to its reference frame —
                 // the single source of truth read by the debug overlay, player
                 // hurtbox, and target volumes, so the box matches the rotated

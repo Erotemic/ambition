@@ -21,7 +21,8 @@
 //! `crates/ambition_gameplay_core/src/**/tests.rs`.
 
 use ambition_input::ControlFrame;
-use ambition_gameplay_core::player::{BodyKinematics, LocalPlayer, PlayerAnimState, PlayerBlinkCameraState, PlayerEntity, PlayerIdentityBundle, PlayerInteractionState, PlayerSlot, PrimaryPlayer};
+use ambition_gameplay_core::actor::{BodyKinematics, PlayerEntity, PrimaryPlayer};
+use ambition_gameplay_core::player::{LocalPlayer, PlayerAnimState, PlayerBlinkCameraState, PlayerIdentityBundle, PlayerInteractionState, PlayerSlot};
 use ambition_gameplay_core::actor::{BodyCombat, BodyHealth};
 use ambition_gameplay_core::rooms::RoomSet;
 use ambition_gameplay_core::{ClockState, GameMode, RoomGeometry, MovingPlatformSet, SandboxSimState};

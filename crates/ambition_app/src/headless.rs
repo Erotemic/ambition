@@ -327,7 +327,7 @@ mod tests {
     #[test]
     fn sim_spawns_player_with_brain_and_action_set() {
         use ambition_characters::brain::{ActionSet, ActorControl, Brain};
-        use ambition_gameplay_core::player::PlayerEntity;
+        use ambition_gameplay_core::actor::PlayerEntity;
         let mut app = initialized_sandbox_sim_app();
         let mut q = app
             .world_mut()

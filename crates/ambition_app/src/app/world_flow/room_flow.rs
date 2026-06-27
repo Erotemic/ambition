@@ -182,7 +182,7 @@ pub(crate) fn apply_room_transition_system(
         ),
         // PRIMARY-only: a room transition flips the one active room around the
         // camera body crossing an edge/door; the clone rides along in-room.
-        ambition_gameplay_core::player::PrimaryPlayerOnly,
+        ambition_gameplay_core::actor::PrimaryPlayerOnly,
     >,
     mut world: ResMut<RoomGeometry>,
     mut room_set: ResMut<rooms::RoomSet>,

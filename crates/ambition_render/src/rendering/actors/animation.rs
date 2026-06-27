@@ -47,7 +47,7 @@ pub fn animate_player(
             (
                 &mut Sprite,
                 &mut CharacterAnimator,
-                &ambition_gameplay_core::player::BodyKinematics,
+                &ambition_gameplay_core::actor::BodyKinematics,
                 &ambition_gameplay_core::actor::BodyGroundState,
                 &ambition_gameplay_core::actor::BodyWallState,
                 &ambition_gameplay_core::actor::BodyBlinkState,

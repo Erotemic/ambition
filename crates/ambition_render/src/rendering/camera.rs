@@ -88,7 +88,7 @@ impl Default for CameraViewState {
 /// the lone player today. A future co-op build needs to follow the
 /// player with `PrimaryPlayer` (or compute a midpoint between local
 /// players); the query should switch to
-/// `With<ambition_gameplay_core::player::PrimaryPlayer>` once a second player can
+/// `With<ambition_gameplay_core::actor::PrimaryPlayer>` once a second player can
 /// exist. See [`ambition_gameplay_core::player::queries::PrimaryPlayerOnly`].
 pub fn camera_follow(
     world: Res<ambition_gameplay_core::RoomGeometry>,
@@ -104,11 +104,11 @@ pub fn camera_follow(
     mut last_camera_room: Local<Option<String>>,
     player: Query<
         (
-            &ambition_gameplay_core::player::BodyKinematics,
+            &ambition_gameplay_core::actor::BodyKinematics,
             &ambition_gameplay_core::actor::BodyBaseSize,
             &ambition_gameplay_core::player::PlayerBlinkCameraState,
         ),
-        ambition_gameplay_core::player::PrimaryPlayerOnly,
+        ambition_gameplay_core::actor::PrimaryPlayerOnly,
     >,
     // While possessing, the camera follows the possessed actor (so the player
     // can see the body they're driving), resolved from its CenteredAabb.

@@ -29,7 +29,7 @@ use ambition_gameplay_core::boss_encounter::{BossEncounterPhase, EncounterDef, E
 use ambition_gameplay_core::combat::boss_clusters::{BossConfig, BossStatus};
 use ambition_gameplay_core::combat::{HitEvent, HitSource};
 use ambition_engine_core::{self as ae, AabbExt};
-use ambition_gameplay_core::player::{BodyKinematics, PrimaryPlayerOnly};
+use ambition_gameplay_core::actor::{BodyKinematics, PrimaryPlayerOnly};
 use ambition_gameplay_core::actor::{BodyCombat, BodyHealth};
 use bevy::ecs::message::Messages;
 use bevy::prelude::World;

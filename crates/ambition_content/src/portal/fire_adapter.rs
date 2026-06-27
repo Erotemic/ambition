@@ -12,7 +12,7 @@
 
 use bevy::prelude::*;
 
-use ambition_gameplay_core::player::{BodyKinematics, PlayerEntity, PrimaryPlayer};
+use ambition_gameplay_core::actor::{BodyKinematics, PlayerEntity, PrimaryPlayer};
 use ambition_gameplay_core::portal::{FirePortalGun, PortalFireIntent, PortalGun};
 
 /// Resolve a [`FirePortalGun`] gesture into a generic [`PortalFireIntent`] for

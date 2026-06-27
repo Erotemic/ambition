@@ -115,10 +115,10 @@ pub fn sync_bubble_shield_visual(
     world: Res<ambition_gameplay_core::RoomGeometry>,
     player_q: Query<
         (
-            &ambition_gameplay_core::player::BodyKinematics,
+            &ambition_gameplay_core::actor::BodyKinematics,
             &ambition_gameplay_core::actor::BodyShieldState,
         ),
-        ambition_gameplay_core::player::PrimaryPlayerOnly,
+        ambition_gameplay_core::actor::PrimaryPlayerOnly,
     >,
     mut shield_q: Query<(&mut Transform, &mut Sprite, &mut Visibility), With<BubbleShieldVisual>>,
 ) {

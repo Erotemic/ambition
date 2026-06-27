@@ -91,27 +91,27 @@ pub fn compute_player_affordances(
     pogo: Res<PogoTargetBelow>,
     #[cfg(feature = "portal")] player_q: Query<
         (
-            &crate::player::BodyGroundState,
-            &crate::player::BodyLedgeState,
-            &crate::player::BodyModeState,
-            &crate::player::BodyEnvironmentContact,
+            &crate::actor::BodyGroundState,
+            &crate::actor::BodyLedgeState,
+            &crate::actor::BodyModeState,
+            &crate::actor::BodyEnvironmentContact,
             Option<&crate::portal::PortalGun>,
         ),
         (
-            With<crate::player::PlayerEntity>,
-            With<crate::player::PrimaryPlayer>,
+            With<crate::actor::PlayerEntity>,
+            With<crate::actor::PrimaryPlayer>,
         ),
     >,
     #[cfg(not(feature = "portal"))] player_q: Query<
         (
-            &crate::player::BodyGroundState,
-            &crate::player::BodyLedgeState,
-            &crate::player::BodyModeState,
-            &crate::player::BodyEnvironmentContact,
+            &crate::actor::BodyGroundState,
+            &crate::actor::BodyLedgeState,
+            &crate::actor::BodyModeState,
+            &crate::actor::BodyEnvironmentContact,
         ),
         (
-            With<crate::player::PlayerEntity>,
-            With<crate::player::PrimaryPlayer>,
+            With<crate::actor::PlayerEntity>,
+            With<crate::actor::PrimaryPlayer>,
         ),
     >,
     mut affordances: ResMut<PlayerAffordances>,
@@ -217,10 +217,9 @@ mod tests {
     /// without pulling in the whole sandbox plugin graph.
     fn build_test_app() -> (App, Entity) {
         use ambition_input::ControlFrame;
-        use crate::player::{
-            BodyKinematics, BodyModeState, PlayerEntity, BodyEnvironmentContact,
-            BodyGroundState, PlayerInputFrame, BodyLedgeState, PrimaryPlayer,
-        };
+        use crate::actor::{BodyKinematics, PlayerEntity, PrimaryPlayer};
+        use crate::actor::{BodyModeState, BodyEnvironmentContact, BodyGroundState, BodyLedgeState};
+        use crate::player::{PlayerInputFrame};
 
         let mut app = App::new();
         // `detect_active_input_method` reads `Res<ButtonInput<KeyCode>>`
@@ -305,7 +304,7 @@ mod tests {
         // Side-stick (forward relative to right-facing) → SideSpecial.
         {
             let mut entity = app.world_mut().entity_mut(player_entity);
-            let mut kin = entity.get_mut::<crate::player::BodyKinematics>().unwrap();
+            let mut kin = entity.get_mut::<crate::actor::BodyKinematics>().unwrap();
             kin.facing = 1.0;
         }
         set_axis(&mut app, player_entity, 1.0, 0.0);
@@ -322,7 +321,7 @@ mod tests {
         {
             let mut entity = app.world_mut().entity_mut(player_entity);
             let mut ground = entity
-                .get_mut::<crate::player::BodyGroundState>()
+                .get_mut::<crate::actor::BodyGroundState>()
                 .unwrap();
             ground.on_ground = false;
         }
@@ -338,7 +337,7 @@ mod tests {
         let (mut app, player_entity) = build_test_app();
         {
             let mut entity = app.world_mut().entity_mut(player_entity);
-            let mut ledge = entity.get_mut::<crate::player::BodyLedgeState>().unwrap();
+            let mut ledge = entity.get_mut::<crate::actor::BodyLedgeState>().unwrap();
             ledge.grab = Some(ae::LedgeGrabState::hanging(ae::LedgeContact {
                 wall_normal_x: 1.0,
                 anchor: ae::Vec2::ZERO,
@@ -356,10 +355,10 @@ mod tests {
         let (mut app, player_entity) = build_test_app();
         {
             let mut ent = app.world_mut().entity_mut(player_entity);
-            ent.get_mut::<crate::player::BodyGroundState>()
+            ent.get_mut::<crate::actor::BodyGroundState>()
                 .unwrap()
                 .on_ground = false;
-            ent.get_mut::<crate::player::BodyKinematics>()
+            ent.get_mut::<crate::actor::BodyKinematics>()
                 .unwrap()
                 .facing = 1.0;
         }

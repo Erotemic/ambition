@@ -840,11 +840,11 @@ pub fn update_blink_preview(
     >,
     player_q: Query<
         (
-            &ambition_gameplay_core::player::BodyKinematics,
+            &ambition_gameplay_core::actor::BodyKinematics,
             &ambition_gameplay_core::actor::BodyAbilities,
             &ambition_gameplay_core::actor::BodyBlinkState,
         ),
-        ambition_gameplay_core::player::PrimaryPlayerOnly,
+        ambition_gameplay_core::actor::PrimaryPlayerOnly,
     >,
     mut existing: Query<(Entity, &BlinkPreviewVisual, &mut Transform, &mut Sprite)>,
 ) {

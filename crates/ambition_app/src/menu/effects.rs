@@ -10,7 +10,8 @@ use ambition_gameplay_core::items::pickup::{
     equip_held_spec, held_spec_for_item, unequip_held, StashedActionSet,
 };
 use ambition_gameplay_core::items::{Item, ItemCategory, OwnedItems};
-use ambition_gameplay_core::player::{PlayerEntity, PlayerHealRequested, PrimaryPlayer};
+use ambition_gameplay_core::actor::{PlayerEntity, PrimaryPlayer};
+use ambition_gameplay_core::player::{PlayerHealRequested};
 use ambition_gameplay_core::actor::{BodyMana};
 
 /// One health cell restores this much HP; one mana cell this much mana. Sandbox

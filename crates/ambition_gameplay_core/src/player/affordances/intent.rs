@@ -143,11 +143,11 @@ pub fn compute_controlled_actor_intent(
     player_q: Query<
         (
             &crate::player::PlayerInputFrame,
-            &crate::player::BodyKinematics,
+            &crate::actor::BodyKinematics,
         ),
         (
-            With<crate::player::PlayerEntity>,
-            With<crate::player::PrimaryPlayer>,
+            With<crate::actor::PlayerEntity>,
+            With<crate::actor::PrimaryPlayer>,
         ),
     >,
     mut intent: ResMut<PlayerIntent>,

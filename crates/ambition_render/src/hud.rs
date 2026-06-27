@@ -12,7 +12,8 @@
 
 use bevy::prelude::*;
 
-use ambition_gameplay_core::player::{PlayerEntity, PlayerWallet, PrimaryPlayer};
+use ambition_gameplay_core::actor::{PlayerEntity, PrimaryPlayer};
+use ambition_gameplay_core::player::{PlayerWallet};
 use ambition_gameplay_core::actor::{BodyMana};
 use ambition_gameplay_core::actor::BodyHealth;
 

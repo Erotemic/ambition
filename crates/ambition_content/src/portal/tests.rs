@@ -9,7 +9,7 @@ use ambition_input::ControlFrame;
 use ambition_gameplay_core::platformer_runtime::gravity::{gravity_upright_angle, GravityField};
 use ambition_gameplay_core::platformer_runtime::orientation::{update_actor_roll, ActorRoll};
 use ambition_gameplay_core::platformer_runtime::transit::rotate_velocity_between_normals as portal_transform_velocity;
-use ambition_gameplay_core::player::{BodyKinematics, PlayerEntity, PrimaryPlayer};
+use ambition_gameplay_core::actor::{BodyKinematics, PlayerEntity, PrimaryPlayer};
 use ambition_gameplay_core::actor::{BodyBaseSize};
 use ambition_gameplay_core::RoomGeometry;
 

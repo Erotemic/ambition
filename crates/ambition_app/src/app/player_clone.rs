@@ -66,8 +66,8 @@ pub fn spawn_requested_player_clone(
     // PRIMARY-only: spawn the clone relative to the camera body. Once a clone is
     // itself a PlayerEntity, a bare single() here would Err on the second spawn.
     player_q: Query<
-        &ambition_gameplay_core::player::BodyKinematics,
-        ambition_gameplay_core::player::PrimaryPlayerOnly,
+        &ambition_gameplay_core::actor::BodyKinematics,
+        ambition_gameplay_core::actor::PrimaryPlayerOnly,
     >,
 ) {
     if !request.0 {
@@ -140,7 +140,7 @@ pub fn spawn_requested_player_clone(
         // NOT a `PlayerSlot` (so the device-input `tick_player_brains` skips it — its
         // `PlayerDemo` brain is ticked by `tick_player_clone_brains` with real
         // sim-time/dt instead).
-        ambition_gameplay_core::player::PlayerEntity,
+        ambition_gameplay_core::actor::PlayerEntity,
         (
             ambition_gameplay_core::player::PlayerInteractionState::default(),
             ambition_gameplay_core::player::ActivePlayerAttack::default(),
@@ -198,7 +198,7 @@ pub fn tick_player_clone_brains(
     mut clock: ResMut<PlayerCloneClock>,
     mut clones: Query<
         (
-            &ambition_gameplay_core::player::BodyKinematics,
+            &ambition_gameplay_core::actor::BodyKinematics,
             &ambition_gameplay_core::actor::BodyGroundState,
             &mut Brain,
             &mut ActorControl,
@@ -251,7 +251,7 @@ pub fn sync_player_clone_transform(
     world: Res<RoomGeometry>,
     mut clones: Query<
         (
-            &ambition_gameplay_core::player::BodyKinematics,
+            &ambition_gameplay_core::actor::BodyKinematics,
             &mut Transform,
         ),
         With<PlayerClone>,

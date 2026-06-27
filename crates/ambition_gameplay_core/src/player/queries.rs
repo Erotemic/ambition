@@ -23,19 +23,13 @@
 use bevy::ecs::query::{QueryData, QueryFilter};
 use bevy::prelude::*;
 
-use super::components::{PlayerEntity, PlayerSlot, PrimaryPlayer};
+use super::components::PlayerSlot;
 
-/// Filter for "the primary player only" queries. Use this as the
-/// filter parameter on a Bevy `Query` when the system genuinely wants
-/// the camera/HUD/dev-tool target rather than any player.
-///
-/// Example:
-/// ```text
-/// fn camera_follow(
-///     primary: Query<&BodyKinematics, PrimaryPlayerOnly>,
-/// ) { /* … */ }
-/// ```
-pub type PrimaryPlayerOnly = (With<PlayerEntity>, With<PrimaryPlayer>);
+/// The "primary player only" query filter is body vocabulary now — it lives in
+/// [`crate::actor`] (its single definition). Re-exported here for the player
+/// module's own consumers; new non-player code should import it from
+/// `crate::actor` directly.
+pub use crate::actor::PrimaryPlayerOnly;
 
 /// Convenience: resolve the primary player's `Entity`. Returns `None`
 /// if no primary player exists yet (e.g. during pre-spawn startup) or

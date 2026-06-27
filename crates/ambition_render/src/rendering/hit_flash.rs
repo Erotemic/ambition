@@ -223,7 +223,7 @@ pub fn sync_hit_flash_overlays(
     bosses: Query<(&FeatureId, BossClusterRef)>,
     player_state: Query<
         &ambition_gameplay_core::actor::BodyCombat,
-        ambition_gameplay_core::player::PrimaryPlayerOnly,
+        ambition_gameplay_core::actor::PrimaryPlayerOnly,
     >,
     sources: Query<
         (
@@ -345,7 +345,7 @@ fn hit_flash_secs_for_source(
     bosses: &Query<(&FeatureId, BossClusterRef)>,
     player_state: &Query<
         &ambition_gameplay_core::actor::BodyCombat,
-        ambition_gameplay_core::player::PrimaryPlayerOnly,
+        ambition_gameplay_core::actor::PrimaryPlayerOnly,
     >,
 ) -> Option<f32> {
     // Player path: the entity that carries `PlayerVisual` is the

@@ -20,7 +20,7 @@ pub(super) struct HudCameraParams<'w, 's> {
         'w,
         's,
         (
-            &'static ambition_gameplay_core::player::BodyKinematics,
+            &'static ambition_gameplay_core::actor::BodyKinematics,
             &'static ambition_gameplay_core::actor::BodyGroundState,
             &'static ambition_gameplay_core::actor::BodyWallState,
             &'static ambition_gameplay_core::actor::BodyDashState,
@@ -35,7 +35,7 @@ pub(super) struct HudCameraParams<'w, 's> {
             &'static ambition_gameplay_core::actor::BodyCombat,
             &'static ambition_gameplay_core::player::ActivePlayerAttack,
         ),
-        ambition_gameplay_core::player::PrimaryPlayerOnly,
+        ambition_gameplay_core::actor::PrimaryPlayerOnly,
     >,
     ecs_actors: bevy::prelude::Query<
         'w,

@@ -948,7 +948,7 @@ pub fn update_button_glyph_from_active_input(
 pub fn update_button_pressed_from_actions(
     actions_q: Query<
         &leafwing_input_manager::prelude::ActionState<SandboxAction>,
-        With<ambition_gameplay_core::player::PrimaryPlayer>,
+        With<ambition_gameplay_core::actor::PrimaryPlayer>,
     >,
     touch_state: Res<MobileTouchState>,
     mut buttons: Query<(&TouchActionButton, &mut ButtonPressed)>,

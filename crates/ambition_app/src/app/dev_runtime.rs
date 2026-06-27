@@ -97,7 +97,7 @@ pub(super) fn handle_ldtk_hot_reload(
         ),
         // PRIMARY-only: LDtk hot-reload repositions the camera body to the
         // validated spawn — a single-player dev flow.
-        ambition_gameplay_core::player::PrimaryPlayerOnly,
+        ambition_gameplay_core::actor::PrimaryPlayerOnly,
     >,
     catalog: Res<ambition_gameplay_core::assets::sandbox_assets::SandboxAssetCatalog>,
 ) {

@@ -101,7 +101,7 @@ pub fn draw_debug_overlay(
         // not conflict with the `bosses`/`actors` feature queries that read
         // `BodyKinematics` under `With<FeatureSimEntity>` (B0001).
         (
-            ambition_gameplay_core::player::PrimaryPlayerOnly,
+            ambition_gameplay_core::actor::PrimaryPlayerOnly,
             Without<ambition_gameplay_core::features::FeatureSimEntity>,
         ),
     >,

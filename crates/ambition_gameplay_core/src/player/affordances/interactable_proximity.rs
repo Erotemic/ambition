@@ -40,10 +40,10 @@ pub struct NearestInteractable(pub InteractVariant);
 /// fire because both follow the same priority order.
 pub fn update_nearest_interactable(
     player: Query<
-        &crate::player::BodyKinematics,
+        &crate::actor::BodyKinematics,
         (
-            With<crate::player::PlayerEntity>,
-            With<crate::player::PrimaryPlayer>,
+            With<crate::actor::PlayerEntity>,
+            With<crate::actor::PrimaryPlayer>,
         ),
     >,
     actors: Query<(&CenteredAabb, &ActorDisposition, &ActorInteraction), With<FeatureSimEntity>>,

@@ -20,7 +20,7 @@ pub(crate) fn draw_held_projectiles<'a>(
     world: &ae::World,
     projectiles: impl Iterator<
         Item = (
-            &'a ambition_gameplay_core::player::BodyKinematics,
+            &'a ambition_gameplay_core::actor::BodyKinematics,
             &'a ambition_gameplay_core::items::pickup::HeldProjectile,
         ),
     >,
@@ -149,10 +149,10 @@ pub struct FeatureDebugQueries<'w, 's> {
         'w,
         's,
         (
-            &'static ambition_gameplay_core::player::BodyKinematics,
+            &'static ambition_gameplay_core::actor::BodyKinematics,
             &'static ambition_gameplay_core::items::pickup::HeldProjectile,
         ),
-        Without<ambition_gameplay_core::player::PlayerEntity>,
+        Without<ambition_gameplay_core::actor::PlayerEntity>,
     >,
     /// The player's resolved gravity, so the player debug box can rotate to
     /// match its (now gravity-oriented) collision box + sprite. Lives in this
@@ -166,20 +166,20 @@ pub struct FeatureDebugQueries<'w, 's> {
     pub player_projectiles: Query<
         'w,
         's,
-        &'static ambition_gameplay_core::player::BodyKinematics,
+        &'static ambition_gameplay_core::actor::BodyKinematics,
         (
             With<ambition_gameplay_core::projectile::PlayerProjectile>,
-            Without<ambition_gameplay_core::player::PlayerEntity>,
+            Without<ambition_gameplay_core::actor::PlayerEntity>,
         ),
     >,
     /// In-flight enemy projectiles (ECS entities); see `player_projectiles`.
     pub enemy_projectiles: Query<
         'w,
         's,
-        &'static ambition_gameplay_core::player::BodyKinematics,
+        &'static ambition_gameplay_core::actor::BodyKinematics,
         (
             With<ambition_gameplay_core::enemy_projectile::EnemyProjectile>,
-            Without<ambition_gameplay_core::player::PlayerEntity>,
+            Without<ambition_gameplay_core::actor::PlayerEntity>,
         ),
     >,
 }
@@ -822,8 +822,8 @@ pub(crate) fn draw_feature_debug(
 pub(crate) fn draw_projectile_debug<'a>(
     gizmos: &mut Gizmos,
     world: &ae::World,
-    player_bodies: impl IntoIterator<Item = &'a ambition_gameplay_core::player::BodyKinematics>,
-    enemy_bodies: impl IntoIterator<Item = &'a ambition_gameplay_core::player::BodyKinematics>,
+    player_bodies: impl IntoIterator<Item = &'a ambition_gameplay_core::actor::BodyKinematics>,
+    enemy_bodies: impl IntoIterator<Item = &'a ambition_gameplay_core::actor::BodyKinematics>,
     developer_tools: &DeveloperTools,
 ) {
     let player_color = Color::srgba(1.00, 0.74, 0.30, 0.92);

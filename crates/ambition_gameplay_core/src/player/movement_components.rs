@@ -5,7 +5,7 @@
 //! [`ambition_engine_core::player_clusters`] and `#[derive(Component)]`
 //! directly (engine is Bevy-native per ADR 0002). The sandbox just
 //! re-exports them under their original names — every consumer that
-//! imports `crate::player::BodyKinematics` etc. keeps working.
+//! imports `crate::actor::BodyKinematics` etc. keeps working.
 //!
 //! NOTE: [`BodyKinematics`] is re-exported here for player convenience
 //! but is the UNIVERSAL actor body (pos/size/vel/facing) — enemies,

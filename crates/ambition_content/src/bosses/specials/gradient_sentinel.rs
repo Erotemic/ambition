@@ -314,8 +314,8 @@ pub fn spawn_overfit_volley_from_special_messages(
     // system multi-player ready — single-player behavior is preserved
     // because there's only one player today.
     player_query: Query<
-        &ambition_gameplay_core::player::BodyKinematics,
-        With<ambition_gameplay_core::player::PlayerEntity>,
+        &ambition_gameplay_core::actor::BodyKinematics,
+        With<ambition_gameplay_core::actor::PlayerEntity>,
     >,
     mut bosses: Query<
         (
@@ -471,8 +471,8 @@ pub fn spawn_minima_trap_from_special_messages(
     // `select_actor_targets`); same multi-player-ready pattern as
     // the overfit-volley consumer above.
     player_query: Query<
-        &ambition_gameplay_core::player::BodyKinematics,
-        With<ambition_gameplay_core::player::PlayerEntity>,
+        &ambition_gameplay_core::actor::BodyKinematics,
+        With<ambition_gameplay_core::actor::PlayerEntity>,
     >,
     mut bosses: Query<
         (

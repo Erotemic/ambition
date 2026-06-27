@@ -14,7 +14,7 @@ use ambition_gameplay_core::features::{
     BodyCombat, BodyHealth, ActorIdentity, BossPhase, CenteredAabb, FeatureId,
     FeatureSimEntity, FeatureViewIndex,
 };
-use ambition_gameplay_core::player::PrimaryPlayerOnly;
+use ambition_gameplay_core::actor::PrimaryPlayerOnly;
 use ambition_gameplay_core::rooms::{ActiveRoomMetadata, RoomNameplatePolicy};
 use ambition_gameplay_core::{config::world_to_bevy, config::WORLD_Z_PLAYER};
 use bevy::prelude::*;

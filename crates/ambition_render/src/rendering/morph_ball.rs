@@ -138,10 +138,10 @@ pub fn sync_morph_ball_visual(
     entities: Res<ambition_gameplay_core::platformer_runtime::lifecycle::SceneEntities>,
     player_q: Query<
         (
-            &ambition_gameplay_core::player::BodyKinematics,
+            &ambition_gameplay_core::actor::BodyKinematics,
             &ambition_gameplay_core::actor::BodyModeState,
         ),
-        ambition_gameplay_core::player::PrimaryPlayerOnly,
+        ambition_gameplay_core::actor::PrimaryPlayerOnly,
     >,
     mut player_query: Query<
         &mut Visibility,

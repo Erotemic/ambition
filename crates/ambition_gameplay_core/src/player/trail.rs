@@ -551,10 +551,10 @@ pub fn ensure_player_trail(
     mut commands: Commands,
     enabled: Option<Res<PlayerTrailEnabled>>,
     players: Query<
-        (Entity, &crate::player::BodyKinematics),
+        (Entity, &crate::actor::BodyKinematics),
         (
-            With<crate::player::PlayerEntity>,
-            With<crate::player::PrimaryPlayer>,
+            With<crate::actor::PlayerEntity>,
+            With<crate::actor::PrimaryPlayer>,
             Without<PlayerTrail>,
         ),
     >,
@@ -580,8 +580,8 @@ pub fn update_player_trail(
     mut continuity_breaks: MessageReader<TrailContinuityBreak>,
     mut commands: Commands,
     mut players: Query<
-        (Entity, &crate::player::BodyKinematics, &mut PlayerTrail),
-        With<crate::player::PlayerEntity>,
+        (Entity, &crate::actor::BodyKinematics, &mut PlayerTrail),
+        With<crate::actor::PlayerEntity>,
     >,
 ) {
     let dt = world_time.sim_dt();
@@ -621,7 +621,7 @@ pub fn update_player_trail(
 /// The trail's sampling point: the player's centre. Keeping this as a helper lets
 /// future work move the emission point to a hand/hip socket without touching the
 /// trail state machine.
-fn trail_anchor(kin: &crate::player::BodyKinematics) -> ae::Vec2 {
+fn trail_anchor(kin: &crate::actor::BodyKinematics) -> ae::Vec2 {
     use ambition_engine_core::AabbExt;
     kin.aabb().center()
 }
@@ -637,7 +637,7 @@ const TRAIL_SELF_LOOP_COLLAPSING_COLOR: Color = Color::srgb(0.80, 0.56, 0.36);
 /// as a long straight line across the room.
 pub fn render_player_trail(
     world: Option<Res<crate::RoomGeometry>>,
-    ropes: Query<&PlayerTrail, With<crate::player::PlayerEntity>>,
+    ropes: Query<&PlayerTrail, With<crate::actor::PlayerEntity>>,
     mut gizmos: Gizmos,
 ) {
     let Some(world) = world.as_deref() else {

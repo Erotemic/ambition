@@ -19,7 +19,7 @@ use bevy::sprite::Anchor;
 use ambition_gameplay_core::assets::game_assets::{EntitySprite, GameAssets};
 use ambition_gameplay_core::physics::GravityCtx;
 use ambition_gameplay_core::platformer_runtime::gravity::gravity_upright_angle;
-use ambition_gameplay_core::player::BodyKinematics;
+use ambition_gameplay_core::actor::BodyKinematics;
 use ambition_gameplay_core::projectile::{
     LiveProjectile, ProjectileArtSource, ProjectileKind, ProjectileRenderSize, ProjectileRotation,
     ProjectileVisualKind,
@@ -340,7 +340,7 @@ pub fn sync_projectile_charge_visuals(
             &BodyKinematics,
             &ambition_gameplay_core::projectile::PlayerProjectileState,
         ),
-        With<ambition_gameplay_core::player::PlayerEntity>,
+        With<ambition_gameplay_core::actor::PlayerEntity>,
     >,
     existing_charge: Query<Entity, With<PlayerChargeVisual>>,
 ) {

@@ -35,21 +35,20 @@ pub mod systems;
 pub mod trail;
 
 pub use bundles::{PlayerIdentityBundle, PlayerSimulationBundle};
+// NOTE: the body vocabulary — `PlayerEntity` / `PrimaryPlayer` (markers),
+// `PrimaryPlayerOnly` (filter), `BodyKinematics` + the 18 movement clusters — is
+// NOT re-exported here. Those are not player-specific; their single home is
+// `crate::actor`. Keeping them off the `crate::player` surface enforces the
+// dependency direction (non-player code imports body state from `crate::actor`,
+// never through the player module). The genuinely player-only state stays below.
 pub use components::{
     ActivePlayerAttack, LocalPlayer, PlayerAnimState, PlayerBlinkCameraState,
-    PlayerEntity, PlayerInputFrame, PlayerInteractionState, PlayerSafetyState,
-    PlayerSlot, PlayerWallet, PrimaryPlayer,
+    PlayerInputFrame, PlayerInteractionState, PlayerSafetyState,
+    PlayerSlot, PlayerWallet,
 };
 pub use events::PlayerHealRequested;
 pub use movement_fx::handle_player_events;
-pub use movement_components::{
-    BodyKinematics, BodyAbilities, BodyActionBuffer, BodyBaseSize, BodyBlinkState,
-    BodyModeState, BodyComboTrace, BodyDashState, BodyDodgeState,
-    BodyEnvironmentContact, BodyFlightState, BodyGroundState, BodyJumpState,
-    BodyLedgeState, BodyLifetime, BodyMana, BodyOffense, BodyShieldState,
-    BodyWallState,
-};
-pub use queries::{primary_player_entity, sort_players_by_slot, PrimaryPlayerOnly};
+pub use queries::{primary_player_entity, sort_players_by_slot};
 pub use systems::{
     apply_player_heal_requests, sync_local_player_input_frame, sync_player_actor_poses,
     tick_player_brains, write_player_ecs_components,

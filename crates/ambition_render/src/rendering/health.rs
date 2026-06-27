@@ -139,10 +139,10 @@ pub fn sync_health_overlays(
     overlays: Query<Entity, With<HealthOverlayVisual>>,
     player: Query<
         (
-            &ambition_gameplay_core::player::BodyKinematics,
+            &ambition_gameplay_core::actor::BodyKinematics,
             &ambition_gameplay_core::actor::BodyHealth,
         ),
-        ambition_gameplay_core::player::PrimaryPlayerOnly,
+        ambition_gameplay_core::actor::PrimaryPlayerOnly,
     >,
     ecs_breakables: Query<(&FeatureName, &CenteredAabb, &BreakableFeature)>,
     ecs_actors: Query<

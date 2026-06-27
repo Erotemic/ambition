@@ -29,7 +29,7 @@ pub fn sync_live_player_dev_edits_system(
             &mut ambition_gameplay_core::actor::BodyDashState,
             &mut ambition_gameplay_core::actor::BodyJumpState,
         ),
-        ambition_gameplay_core::player::PrimaryPlayerOnly,
+        ambition_gameplay_core::actor::PrimaryPlayerOnly,
     >,
 ) {
     let Ok((mut abilities, mut flight, mut blink, mut dash, mut jump)) = player_q.single_mut()
@@ -78,7 +78,7 @@ pub fn input_timer_system(
             &mut ambition_gameplay_core::actor::BodyCombat,
             &mut ambition_gameplay_core::player::PlayerInteractionState,
         ),
-        ambition_gameplay_core::player::PrimaryPlayerOnly,
+        ambition_gameplay_core::actor::PrimaryPlayerOnly,
     >,
 ) {
     let frame_dt = time.delta_secs();
@@ -143,7 +143,7 @@ pub fn interaction_input_system(
             &ambition_gameplay_core::actor::BodyCombat,
             &mut ambition_gameplay_core::player::PlayerInteractionState,
         ),
-        ambition_gameplay_core::player::PrimaryPlayerOnly,
+        ambition_gameplay_core::actor::PrimaryPlayerOnly,
     >,
 ) {
     let frame_dt = time.delta_secs();
@@ -203,7 +203,7 @@ pub fn apply_player_reset_input_system(
             &mut ambition_gameplay_core::player::ActivePlayerAttack,
             &mut ambition_gameplay_core::player::PlayerSafetyState,
         ),
-        ambition_gameplay_core::player::PrimaryPlayerOnly,
+        ambition_gameplay_core::actor::PrimaryPlayerOnly,
     >,
 ) {
     if !control_frame.reset_pressed {
@@ -281,7 +281,7 @@ pub fn apply_cut_rope_room_replay_request_system(
             &mut ambition_gameplay_core::player::ActivePlayerAttack,
             &mut ambition_gameplay_core::player::PlayerSafetyState,
         ),
-        ambition_gameplay_core::player::PrimaryPlayerOnly,
+        ambition_gameplay_core::actor::PrimaryPlayerOnly,
     >,
 ) {
     if replay_requests.read().count() == 0 {
@@ -350,14 +350,14 @@ pub fn cleanup_timers_system(
     mut dev_state: ResMut<ambition_gameplay_core::SandboxDevState>,
     mut player_q: Query<
         (
-            &ambition_gameplay_core::player::BodyKinematics,
+            &ambition_gameplay_core::actor::BodyKinematics,
             &ambition_gameplay_core::actor::BodyGroundState,
             &ambition_gameplay_core::actor::BodyDashState,
             &mut ambition_gameplay_core::player::PlayerAnimState,
             &mut ambition_gameplay_core::actor::BodyCombat,
             &mut ambition_gameplay_core::player::PlayerBlinkCameraState,
         ),
-        ambition_gameplay_core::player::PrimaryPlayerOnly,
+        ambition_gameplay_core::actor::PrimaryPlayerOnly,
     >,
 ) {
     let frame_dt = time.delta_secs();

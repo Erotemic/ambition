@@ -13,7 +13,7 @@ mod common;
 use common::base;
 
 use ambition_app::app::{PlayerClone, SpawnPlayerCloneRequest};
-use ambition_gameplay_core::player::{BodyKinematics};
+use ambition_gameplay_core::actor::{BodyKinematics};
 use ambition_gameplay_core::actor::{BodyGroundState};
 use bevy::prelude::{With, World};
 

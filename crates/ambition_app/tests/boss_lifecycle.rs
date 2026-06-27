@@ -32,7 +32,7 @@ use ambition_gameplay_core::features::{
 };
 use ambition_gameplay_core::persistence::save::SandboxSave;
 use ambition_gameplay_core::persistence::save_data::PersistedEncounterState;
-use ambition_gameplay_core::player::{BodyKinematics, PrimaryPlayerOnly};
+use ambition_gameplay_core::actor::{BodyKinematics, PrimaryPlayerOnly};
 use bevy::prelude::World;
 
 const MOCKINGBIRD_TRACK: &str = "how_to_kill_a_mockingbird";

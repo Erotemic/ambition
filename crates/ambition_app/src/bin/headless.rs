@@ -114,7 +114,7 @@ fn run_with_trace_dump(max_ticks: u32, dump_dir: PathBuf, start_room: Option<Str
         let safety = {
             let mut safety_q = sim
                 .world_mut()
-                .query_filtered::<&PlayerSafetyState, ambition_gameplay_core::player::PrimaryPlayerOnly>();
+                .query_filtered::<&PlayerSafetyState, ambition_gameplay_core::actor::PrimaryPlayerOnly>();
             safety_q.single(sim.world()).copied().unwrap_or_default()
         };
 
@@ -124,7 +124,7 @@ fn run_with_trace_dump(max_ticks: u32, dump_dir: PathBuf, start_room: Option<Str
         let combat = {
             let mut combat_q = sim
                 .world_mut()
-                .query_filtered::<&ambition_gameplay_core::actor::BodyCombat, ambition_gameplay_core::player::PrimaryPlayerOnly>();
+                .query_filtered::<&ambition_gameplay_core::actor::BodyCombat, ambition_gameplay_core::actor::PrimaryPlayerOnly>();
             combat_q.single(sim.world()).cloned().unwrap_or_default()
         };
 
@@ -133,7 +133,7 @@ fn run_with_trace_dump(max_ticks: u32, dump_dir: PathBuf, start_room: Option<Str
         // recorder can read them through a `PlayerClustersMut` view.
         let mut cluster_q = sim
             .world_mut()
-            .query_filtered::<ambition_engine_core::PlayerClusterQueryData, ambition_gameplay_core::player::PrimaryPlayerOnly>();
+            .query_filtered::<ambition_engine_core::PlayerClusterQueryData, ambition_gameplay_core::actor::PrimaryPlayerOnly>();
         let Ok(mut cluster_item) = cluster_q.single_mut(sim.world_mut()) else {
             continue;
         };

@@ -197,25 +197,25 @@ impl SandboxSim {
         let mut cluster_query = self
             .app
             .world_mut()
-            .query_filtered::<ambition_engine_core::PlayerClusterQueryData, ambition_gameplay_core::player::PrimaryPlayerOnly>();
+            .query_filtered::<ambition_engine_core::PlayerClusterQueryData, ambition_gameplay_core::actor::PrimaryPlayerOnly>();
         let mut combat_query = self
             .app
             .world_mut()
-            .query_filtered::<&ambition_gameplay_core::actor::BodyCombat, ambition_gameplay_core::player::PrimaryPlayerOnly>(
+            .query_filtered::<&ambition_gameplay_core::actor::BodyCombat, ambition_gameplay_core::actor::PrimaryPlayerOnly>(
             );
         let mut health_query = self
             .app
             .world_mut()
-            .query_filtered::<&ambition_gameplay_core::actor::BodyHealth, ambition_gameplay_core::player::PrimaryPlayerOnly>();
+            .query_filtered::<&ambition_gameplay_core::actor::BodyHealth, ambition_gameplay_core::actor::PrimaryPlayerOnly>();
         let mut safety_query = self
             .app
             .world_mut()
-            .query_filtered::<&ambition_gameplay_core::player::PlayerSafetyState, ambition_gameplay_core::player::PrimaryPlayerOnly>(
+            .query_filtered::<&ambition_gameplay_core::player::PlayerSafetyState, ambition_gameplay_core::actor::PrimaryPlayerOnly>(
             );
         // World-side observability (enemies, pickups) for combat /
         // collection assertions. Read once per tick; cheap.
         let mut enemy_query = self.app.world_mut().query::<(
-            &ambition_gameplay_core::player::BodyKinematics,
+            &ambition_gameplay_core::actor::BodyKinematics,
             &ambition_gameplay_core::features::ActorStatus,
             &ambition_gameplay_core::actor::BodyHealth,
         )>();
@@ -392,7 +392,7 @@ impl SandboxSim {
         let mut q = self
             .app
             .world_mut()
-            .query_filtered::<&mut ambition_gameplay_core::player::BodyKinematics, ambition_gameplay_core::player::PrimaryPlayerOnly>();
+            .query_filtered::<&mut ambition_gameplay_core::actor::BodyKinematics, ambition_gameplay_core::actor::PrimaryPlayerOnly>();
         if let Ok(mut kin) = q.single_mut(self.app.world_mut()) {
             kin.pos = ae::Vec2::new(pos.0, pos.1);
             kin.vel = ae::Vec2::ZERO;
@@ -404,7 +404,7 @@ impl SandboxSim {
         let mut q = self
             .app
             .world_mut()
-            .query_filtered::<&mut ambition_gameplay_core::actor::BodyAbilities, ambition_gameplay_core::player::PrimaryPlayerOnly>();
+            .query_filtered::<&mut ambition_gameplay_core::actor::BodyAbilities, ambition_gameplay_core::actor::PrimaryPlayerOnly>();
         if let Ok(mut abilities) = q.single_mut(self.app.world_mut()) {
             abilities.abilities.pogo = true;
         }
@@ -419,7 +419,7 @@ impl SandboxSim {
         let mut q = self.app.world_mut().query_filtered::<(
             &mut ambition_gameplay_core::actor::BodyAbilities,
             &mut ambition_gameplay_core::actor::BodyFlightState,
-        ), ambition_gameplay_core::player::PrimaryPlayerOnly>(
+        ), ambition_gameplay_core::actor::PrimaryPlayerOnly>(
         );
         if let Ok((mut abilities, mut flight)) = q.single_mut(self.app.world_mut()) {
             abilities.abilities.fly = true;

@@ -7,7 +7,7 @@ use ambition_input::ControlFrame;
 use ambition_gameplay_core::items::pickup::{
     held_shot_aim, GroundItem, HeldProjectile, FIREBALL_ID,
 };
-use ambition_gameplay_core::player::{BodyKinematics, PlayerEntity, PrimaryPlayer};
+use ambition_gameplay_core::actor::{BodyKinematics, PlayerEntity, PrimaryPlayer};
 use bevy::prelude::*;
 use bevy::sprite::Anchor;
 

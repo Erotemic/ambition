@@ -22,7 +22,7 @@
 
 use bevy::prelude::*;
 
-use ambition_gameplay_core::player::{PlayerEntity, PrimaryPlayer};
+use ambition_gameplay_core::actor::{PlayerEntity, PrimaryPlayer};
 use ambition_gameplay_core::portal::pieces::portal_map_vec;
 use ambition_gameplay_core::portal::{
     PlayerMovementIntent, PortalEmission, PortalInputWarp, PortalTransit, PortalTuning,
@@ -165,7 +165,7 @@ mod tests {
     use bevy::prelude::*;
 
     use ambition_input::ControlFrame;
-    use ambition_gameplay_core::player::{PlayerEntity, PrimaryPlayer};
+    use ambition_gameplay_core::actor::{PlayerEntity, PrimaryPlayer};
     use ambition_gameplay_core::portal::{
         PlayerMovementIntent, PortalChannel, PortalEmission, PortalGunColor, PortalInputWarp,
         PortalTransit, PortalTuning,

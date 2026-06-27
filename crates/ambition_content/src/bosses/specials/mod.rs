@@ -25,7 +25,7 @@ use ambition_engine_core::{self as ae, AabbExt};
 use ambition_gameplay_core::features::{
     ActorFaction, ActorTarget, BossClusterRef, FeatureSimEntity,
 };
-use ambition_gameplay_core::player::{BodyKinematics, PlayerEntity};
+use ambition_gameplay_core::actor::{BodyKinematics, PlayerEntity};
 use ambition_gameplay_core::projectile::ProjectileFaction;
 use ambition_gameplay_core::WorldTime;
 

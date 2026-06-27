@@ -4,7 +4,7 @@
 
 use super::*;
 use ambition_engine_core as ae;
-use crate::player::PrimaryPlayerOnly;
+use crate::actor::PrimaryPlayerOnly;
 
 fn dummy_attack_spec() -> crate::combat::AttackSpec {
     // Construct via the live `attack_spec` builder; a minimal Player

@@ -81,9 +81,9 @@ pub fn player_control_system(
             &mut ambition_gameplay_core::player::PlayerSafetyState,
             &ambition_gameplay_core::player::PlayerInputFrame,
             &ambition_characters::brain::ActorControl,
-            Option<&ambition_gameplay_core::player::PrimaryPlayer>,
+            Option<&ambition_gameplay_core::actor::PrimaryPlayer>,
         ),
-        With<ambition_gameplay_core::player::PlayerEntity>,
+        With<ambition_gameplay_core::actor::PlayerEntity>,
     >,
 ) {
     let mut tuning = editable_tuning.as_engine();
@@ -181,9 +181,9 @@ pub fn player_simulation_system(
             &mut ambition_gameplay_core::player::PlayerSafetyState,
             &ambition_gameplay_core::player::PlayerInputFrame,
             &ambition_characters::brain::ActorControl,
-            Option<&ambition_gameplay_core::player::PrimaryPlayer>,
+            Option<&ambition_gameplay_core::actor::PrimaryPlayer>,
         ),
-        With<ambition_gameplay_core::player::PlayerEntity>,
+        With<ambition_gameplay_core::actor::PlayerEntity>,
     >,
 ) {
     if reset_this_frame.0 {
@@ -269,7 +269,7 @@ pub fn advance_moving_platforms(
     mut platforms: ResMut<ambition_gameplay_core::MovingPlatformSet>,
     primary_combat: Query<
         &ambition_gameplay_core::actor::BodyCombat,
-        ambition_gameplay_core::player::PrimaryPlayerOnly,
+        ambition_gameplay_core::actor::PrimaryPlayerOnly,
     >,
 ) {
     if reset_this_frame.0 {

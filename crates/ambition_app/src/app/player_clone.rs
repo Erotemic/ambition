@@ -89,33 +89,16 @@ pub fn spawn_requested_player_clone(
         ambition_gameplay_core::config::WORLD_Z_PLAYER,
     ));
 
-    // 18 cluster components are over Bevy's tuple-bundle arity, so nest them.
-    let clusters_a = (
-        scratch.abilities,
-        scratch.kinematics,
-        scratch.base_size,
-        scratch.ground,
-        scratch.wall,
-        scratch.jump,
-        scratch.dash,
-        scratch.flight,
-        scratch.blink,
-        scratch.ledge,
-        scratch.dodge,
-    );
-    let clusters_b = (
-        scratch.shield,
-        scratch.body_mode,
-        scratch.env_contact,
-        scratch.mana,
-        scratch.offense,
-        scratch.action_buffer,
-        scratch.lifetime,
-        scratch.combo_trace,
-    );
+    // The clone carries the IDENTICAL movement component set as the player and
+    // every actor: `BodyKinematics` (shared kinematic truth) + the shared
+    // `AncillaryMovementBundle` (the 18 ancillary clusters). Same bundle the
+    // player's `PlayerSimulationBundle` and `ActorClusterSeed::into_components`
+    // nest — the convergence the ActorBody-unwrap bought.
+    let kinematics = scratch.kinematics;
+    let movement = ambition_gameplay_core::actor::AncillaryMovementBundle::from_scratch(scratch);
     let mut clone = commands.spawn((
-        clusters_a,
-        clusters_b,
+        kinematics,
+        movement,
         Brain::StateMachine(StateMachineCfg::PlayerDemo {
             cfg: ambition_characters::brain::state_machine::PlayerDemoCfg::default(),
             state: Default::default(),

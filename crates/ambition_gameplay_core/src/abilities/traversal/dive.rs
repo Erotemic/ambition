@@ -25,7 +25,7 @@ use bevy::prelude::*;
 
 use ambition_engine_core::{self as ae, AabbExt};
 use crate::features::HeldItem;
-use crate::player::{PlayerInputFrame, PlayerMana};
+use crate::player::{PlayerInputFrame, BodyMana};
 use crate::actor::{PlayerEntity, PrimaryPlayer};
 use crate::actor::BodyKinematics;
 
@@ -88,7 +88,7 @@ pub fn fire_dive_system(
     user_settings: Option<Res<crate::persistence::settings::UserSettings>>,
     world: crate::features::CollisionWorld,
     mut players: Query<
-        (Entity, &PlayerInputFrame, &mut BodyKinematics, &HeldItem, &mut PlayerMana),
+        (Entity, &PlayerInputFrame, &mut BodyKinematics, &HeldItem, &mut BodyMana),
         (With<PlayerEntity>, With<PrimaryPlayer>),
     >,
     mut sfx: MessageWriter<crate::audio::SfxMessage>,
@@ -288,7 +288,7 @@ mod tests {
         app.add_systems(Update, capture_hits.after(fire_dive_system));
         let player = spawn_primary_player_holding(&mut app, DIVE_ID);
         app.world_mut()
-            .get_mut::<PlayerMana>(player)
+            .get_mut::<BodyMana>(player)
             .unwrap()
             .meter
             .current = 5.0;
@@ -310,7 +310,7 @@ mod tests {
         );
 
         app.world_mut()
-            .get_mut::<PlayerMana>(player)
+            .get_mut::<BodyMana>(player)
             .unwrap()
             .meter
             .current = 100.0;

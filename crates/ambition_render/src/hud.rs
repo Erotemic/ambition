@@ -6,13 +6,13 @@
 //! widget that's always on screen.
 //!
 //! Mana is a real spendable resource: [`regen_player_mana`] refills the
-//! `PlayerMana` meter over time so charge attacks / the fireball (which already
+//! `BodyMana` meter over time so charge attacks / the fireball (which already
 //! spend it via the projectile spawner) draw it down and it recovers. Money is
 //! fed by `PickupKind::Currency` collection crediting [`ambition_gameplay_core::player::PlayerWallet`].
 
 use bevy::prelude::*;
 
-use ambition_gameplay_core::player::{PlayerEntity, PlayerMana, PlayerWallet, PrimaryPlayer};
+use ambition_gameplay_core::player::{PlayerEntity, BodyMana, PlayerWallet, PrimaryPlayer};
 use ambition_gameplay_core::actor::BodyHealth;
 
 /// Bar width / height in logical px.
@@ -43,11 +43,11 @@ pub struct MoneyLabel;
 
 /// Mana slowly regenerates so it's a genuine spendable resource. Uses
 /// `ResourceMeter::refill` (clamped) rather than the meter's own `regen_rate`
-/// field so we don't change `PlayerMana::default` (and any test that relies on
+/// field so we don't change `BodyMana::default` (and any test that relies on
 /// it). Scaled by sim dt, so bullet-time / pause slow it with the world.
 pub fn regen_player_mana(
     time: Res<ambition_gameplay_core::WorldTime>,
-    mut players: Query<&mut PlayerMana, (With<PlayerEntity>, With<PrimaryPlayer>)>,
+    mut players: Query<&mut BodyMana, (With<PlayerEntity>, With<PrimaryPlayer>)>,
 ) {
     let dt = time.sim_dt();
     if dt <= 0.0 {
@@ -156,7 +156,7 @@ pub fn spawn_player_hud(
 /// frame: bar fill widths track the fractions, labels show the numbers.
 pub fn update_player_hud(
     players: Query<
-        (&BodyHealth, &PlayerMana, &PlayerWallet),
+        (&BodyHealth, &BodyMana, &PlayerWallet),
         (With<PlayerEntity>, With<PrimaryPlayer>),
     >,
     mut fills: ParamSet<(
@@ -232,17 +232,17 @@ mod tests {
         app.add_systems(Update, regen_player_mana);
         let player = app
             .world_mut()
-            .spawn((PlayerEntity, PrimaryPlayer, PlayerMana::default()))
+            .spawn((PlayerEntity, PrimaryPlayer, BodyMana::default()))
             .id();
         // Drain it, then let it tick back up.
         app.world_mut()
-            .get_mut::<PlayerMana>(player)
+            .get_mut::<BodyMana>(player)
             .unwrap()
             .meter
             .try_spend(60.0);
-        let before = app.world().get::<PlayerMana>(player).unwrap().meter.current;
+        let before = app.world().get::<BodyMana>(player).unwrap().meter.current;
         app.update();
-        let after = app.world().get::<PlayerMana>(player).unwrap().meter.current;
+        let after = app.world().get::<BodyMana>(player).unwrap().meter.current;
         assert!(
             after > before,
             "mana should regenerate ({before} -> {after})"
@@ -252,7 +252,7 @@ mod tests {
         for _ in 0..20 {
             app.update();
         }
-        let m = app.world().get::<PlayerMana>(player).unwrap().meter;
+        let m = app.world().get::<BodyMana>(player).unwrap().meter;
         assert!(m.current <= m.max + 1e-3, "mana clamps to max");
     }
 }

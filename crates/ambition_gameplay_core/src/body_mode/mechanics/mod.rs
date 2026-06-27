@@ -12,7 +12,7 @@
 //! so this driver does not push events itself.
 //!
 //! Body-mode mutations happen directly on `BodyKinematics` +
-//! `PlayerBodyModeState` cluster components via
+//! `BodyModeState` cluster components via
 //! `try_change_body_mode_clusters` — no `ae::Player` aggregate, no
 //! `engine_player_bridge` round-trip (both deleted 2026-05-28).
 //!
@@ -47,18 +47,18 @@ pub fn update_body_mode(
     mut player_q: Query<
         (
             &mut crate::actor::BodyKinematics,
-            &crate::player::PlayerBaseSize,
-            &mut crate::player::PlayerBodyModeState,
-            &mut crate::player::PlayerJumpState,
-            &crate::player::PlayerGroundState,
-            &crate::player::PlayerWallState,
-            &crate::player::PlayerDashState,
-            &crate::player::PlayerBlinkState,
-            &crate::player::PlayerLedgeState,
-            &crate::player::PlayerEnvironmentContact,
+            &crate::player::BodyBaseSize,
+            &mut crate::player::BodyModeState,
+            &mut crate::player::BodyJumpState,
+            &crate::player::BodyGroundState,
+            &crate::player::BodyWallState,
+            &crate::player::BodyDashState,
+            &crate::player::BodyBlinkState,
+            &crate::player::BodyLedgeState,
+            &crate::player::BodyEnvironmentContact,
             &mut crate::player::PlayerInteractionState,
             &crate::player::PlayerInputFrame,
-            &crate::player::PlayerFlightState,
+            &crate::player::BodyFlightState,
         ),
         // Per-body: every player body (primary + brain-driven clone) computes its
         // OWN crouch/morph/climb posture from its own input. Iterating keeps each

@@ -91,10 +91,10 @@ pub fn compute_player_affordances(
     pogo: Res<PogoTargetBelow>,
     #[cfg(feature = "portal")] player_q: Query<
         (
-            &crate::player::PlayerGroundState,
-            &crate::player::PlayerLedgeState,
-            &crate::player::PlayerBodyModeState,
-            &crate::player::PlayerEnvironmentContact,
+            &crate::player::BodyGroundState,
+            &crate::player::BodyLedgeState,
+            &crate::player::BodyModeState,
+            &crate::player::BodyEnvironmentContact,
             Option<&crate::portal::PortalGun>,
         ),
         (
@@ -104,10 +104,10 @@ pub fn compute_player_affordances(
     >,
     #[cfg(not(feature = "portal"))] player_q: Query<
         (
-            &crate::player::PlayerGroundState,
-            &crate::player::PlayerLedgeState,
-            &crate::player::PlayerBodyModeState,
-            &crate::player::PlayerEnvironmentContact,
+            &crate::player::BodyGroundState,
+            &crate::player::BodyLedgeState,
+            &crate::player::BodyModeState,
+            &crate::player::BodyEnvironmentContact,
         ),
         (
             With<crate::player::PlayerEntity>,
@@ -218,8 +218,8 @@ mod tests {
     fn build_test_app() -> (App, Entity) {
         use ambition_input::ControlFrame;
         use crate::player::{
-            BodyKinematics, PlayerBodyModeState, PlayerEntity, PlayerEnvironmentContact,
-            PlayerGroundState, PlayerInputFrame, PlayerLedgeState, PrimaryPlayer,
+            BodyKinematics, BodyModeState, PlayerEntity, BodyEnvironmentContact,
+            BodyGroundState, PlayerInputFrame, BodyLedgeState, PrimaryPlayer,
         };
 
         let mut app = App::new();
@@ -246,13 +246,13 @@ mod tests {
                 PrimaryPlayer,
                 PlayerInputFrame::default(),
                 BodyKinematics::default(),
-                PlayerGroundState {
+                BodyGroundState {
                     on_ground: true,
                     ..Default::default()
                 },
-                PlayerLedgeState::default(),
-                PlayerBodyModeState::default(),
-                PlayerEnvironmentContact::default(),
+                BodyLedgeState::default(),
+                BodyModeState::default(),
+                BodyEnvironmentContact::default(),
             ))
             .id();
         (app, entity)
@@ -322,7 +322,7 @@ mod tests {
         {
             let mut entity = app.world_mut().entity_mut(player_entity);
             let mut ground = entity
-                .get_mut::<crate::player::PlayerGroundState>()
+                .get_mut::<crate::player::BodyGroundState>()
                 .unwrap();
             ground.on_ground = false;
         }
@@ -338,7 +338,7 @@ mod tests {
         let (mut app, player_entity) = build_test_app();
         {
             let mut entity = app.world_mut().entity_mut(player_entity);
-            let mut ledge = entity.get_mut::<crate::player::PlayerLedgeState>().unwrap();
+            let mut ledge = entity.get_mut::<crate::player::BodyLedgeState>().unwrap();
             ledge.grab = Some(ae::LedgeGrabState::hanging(ae::LedgeContact {
                 wall_normal_x: 1.0,
                 anchor: ae::Vec2::ZERO,
@@ -356,7 +356,7 @@ mod tests {
         let (mut app, player_entity) = build_test_app();
         {
             let mut ent = app.world_mut().entity_mut(player_entity);
-            ent.get_mut::<crate::player::PlayerGroundState>()
+            ent.get_mut::<crate::player::BodyGroundState>()
                 .unwrap()
                 .on_ground = false;
             ent.get_mut::<crate::player::BodyKinematics>()

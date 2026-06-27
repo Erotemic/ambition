@@ -8,7 +8,7 @@ use super::components::{
 };
 use crate::actor::{BodyCombat, BodyHealth};
 use super::events::PlayerHealRequested;
-use super::movement_components::{BodyKinematics, PlayerGroundState};
+use super::movement_components::{BodyKinematics, BodyGroundState};
 use ambition_characters::brain::{ActorControl, Brain, BrainSnapshot};
 use ambition_engine_core as ae;
 use crate::features::ActorPose;
@@ -58,7 +58,7 @@ pub fn tick_player_brains(
         &PlayerSlot,
         &PlayerInputFrame,
         &BodyKinematics,
-        &PlayerGroundState,
+        &BodyGroundState,
         &mut Brain,
         &mut ActorControl,
     )>,

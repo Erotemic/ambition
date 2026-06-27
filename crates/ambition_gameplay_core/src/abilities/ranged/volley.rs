@@ -15,7 +15,7 @@ use bevy::prelude::*;
 use crate::enemy_projectile::EnemyProjectileSpawn;
 use ambition_engine_core as ae;
 use crate::features::HeldItem;
-use crate::player::{PlayerInputFrame, PlayerMana};
+use crate::player::{PlayerInputFrame, BodyMana};
 use crate::actor::{PlayerEntity, PrimaryPlayer};
 use crate::actor::BodyKinematics;
 use crate::projectile::ProjectileFaction;
@@ -67,7 +67,7 @@ pub fn fire_volley_system(
             &PlayerInputFrame,
             &BodyKinematics,
             &HeldItem,
-            &mut PlayerMana,
+            &mut BodyMana,
         ),
         (With<PlayerEntity>, With<PrimaryPlayer>),
     >,

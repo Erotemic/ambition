@@ -11,7 +11,7 @@ use ambition_gameplay_core::items::pickup::{
 };
 use ambition_gameplay_core::items::{Item, ItemCategory, OwnedItems};
 use ambition_gameplay_core::player::{
-    PlayerEntity, PlayerHealRequested, PlayerMana, PrimaryPlayer,
+    PlayerEntity, PlayerHealRequested, BodyMana, PrimaryPlayer,
 };
 
 /// One health cell restores this much HP; one mana cell this much mana. Sandbox
@@ -98,7 +98,7 @@ pub(crate) type MenuEffectPlayers<'w, 's> = Query<
 
 /// The player-mana query shape shared by every menu-effect dispatch.
 pub(crate) type MenuEffectManaQuery<'w, 's> =
-    Query<'w, 's, &'static mut PlayerMana, (With<PlayerEntity>, With<PrimaryPlayer>)>;
+    Query<'w, 's, &'static mut BodyMana, (With<PlayerEntity>, With<PrimaryPlayer>)>;
 
 /// Decide and apply the effect of confirming `item` (equip / unequip / use /
 /// inspect). The ONE place both menu backends turn an item confirmation into ECS

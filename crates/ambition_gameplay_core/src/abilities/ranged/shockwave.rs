@@ -13,7 +13,7 @@ use bevy::prelude::*;
 
 use ambition_engine_core as ae;
 use crate::features::HeldItem;
-use crate::player::{PlayerInputFrame, PlayerMana};
+use crate::player::{PlayerInputFrame, BodyMana};
 use crate::actor::{PlayerEntity, PrimaryPlayer};
 use crate::actor::BodyKinematics;
 
@@ -43,7 +43,7 @@ pub fn fire_shockwave_system(
             &PlayerInputFrame,
             &HeldItem,
             &BodyKinematics,
-            &mut PlayerMana,
+            &mut BodyMana,
         ),
         (With<PlayerEntity>, With<PrimaryPlayer>),
     >,
@@ -155,7 +155,7 @@ mod tests {
         let player = spawn_primary_player_holding(&mut app, SHOCKWAVE_ID);
         // Mana below the cost → the slam is blocked.
         app.world_mut()
-            .get_mut::<PlayerMana>(player)
+            .get_mut::<BodyMana>(player)
             .unwrap()
             .meter
             .current = 5.0;
@@ -165,13 +165,13 @@ mod tests {
 
         // Refill and fire → one slam, and mana drops by exactly the cost.
         app.world_mut()
-            .get_mut::<PlayerMana>(player)
+            .get_mut::<BodyMana>(player)
             .unwrap()
             .meter
             .current = 100.0;
         app.update();
         assert_eq!(shockwave_count(&mut app), 1, "fires once there's mana");
-        let mana = app.world().get::<PlayerMana>(player).unwrap().meter.current;
+        let mana = app.world().get::<BodyMana>(player).unwrap().meter.current;
         assert!(
             (mana - (100.0 - SHOCKWAVE_MANA_COST)).abs() < 0.01,
             "mana dropped by the cost: {mana}"

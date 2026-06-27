@@ -58,7 +58,7 @@ impl Plugin for AmbitionPortalAdaptersPlugin {
 
         // Suppress ledge-grab while transiting so the carved aperture edges are
         // not grabbed before movement integration probes for a ledge. Mutates the
-        // player's `PlayerAbilities`, so it is Ambition ability glue (Stage 19
+        // player's `BodyAbilities`, so it is Ambition ability glue (Stage 19
         // Phase 5a), registered in the same `PortalSet::TransitGuards` slot the
         // core used.
         app.add_systems(

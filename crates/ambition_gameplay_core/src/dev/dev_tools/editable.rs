@@ -302,7 +302,7 @@ pub fn sync_developer_body_profile(
     mut player_q: Query<
         (
             &mut crate::actor::BodyKinematics,
-            &mut crate::player::PlayerBaseSize,
+            &mut crate::player::BodyBaseSize,
         ),
         crate::actor::PrimaryPlayerOnly,
     >,
@@ -325,9 +325,9 @@ pub fn sync_developer_body_profile(
 /// Callers pass the player's `BodyKinematics` directly.
 ///
 /// This updates the live collider `size` + `pos`; the player's authored
-/// standing baseline (`PlayerBaseSize`) is reconciled to the selected profile by
+/// standing baseline (`BodyBaseSize`) is reconciled to the selected profile by
 /// [`sync_developer_body_profile`], which runs every frame, so the menu caller
-/// does not need to hold a `&mut PlayerBaseSize`.
+/// does not need to hold a `&mut BodyBaseSize`.
 pub fn apply_player_body_profile(
     kinematics: &mut crate::actor::BodyKinematics,
     profile: PlayerBodyProfile,
@@ -348,9 +348,9 @@ pub fn apply_movement_profile(
     editable_tuning: &mut EditableMovementTuning,
     profile: MovementProfile,
     live_movement_refs: Option<(
-        &crate::player::PlayerAbilities,
-        &mut crate::player::PlayerDashState,
-        &mut crate::player::PlayerJumpState,
+        &crate::player::BodyAbilities,
+        &mut crate::player::BodyDashState,
+        &mut crate::player::BodyJumpState,
     )>,
 ) {
     let tuning = profile.tuning();
@@ -362,14 +362,14 @@ pub fn apply_movement_profile(
 
 /// Apply live ability-flag edits without rebuilding the player every frame.
 ///
-/// Mutates `PlayerAbilities` + side-effects on `PlayerFlightState`,
-/// `PlayerBlinkState`, `PlayerDashState`, and `PlayerJumpState` directly.
+/// Mutates `BodyAbilities` + side-effects on `BodyFlightState`,
+/// `BodyBlinkState`, `BodyDashState`, and `BodyJumpState` directly.
 pub fn sync_live_ability_edits_clusters(
-    abilities: &mut crate::player::PlayerAbilities,
-    flight: &mut crate::player::PlayerFlightState,
-    blink: &mut crate::player::PlayerBlinkState,
-    dash: &mut crate::player::PlayerDashState,
-    jump: &mut crate::player::PlayerJumpState,
+    abilities: &mut crate::player::BodyAbilities,
+    flight: &mut crate::player::BodyFlightState,
+    blink: &mut crate::player::BodyBlinkState,
+    dash: &mut crate::player::BodyDashState,
+    jump: &mut crate::player::BodyJumpState,
     desired: ae::AbilitySet,
     tuning: ae::MovementTuning,
 ) {
@@ -464,8 +464,8 @@ pub fn sync_player_stats_with_inspector(
     mut snapshot: Local<PlayerStatsSyncSnapshot>,
     mut player_q: Query<
         (
-            &mut crate::player::PlayerMana,
-            &mut crate::player::PlayerOffense,
+            &mut crate::player::BodyMana,
+            &mut crate::player::BodyOffense,
         ),
         crate::actor::PrimaryPlayerOnly,
     >,

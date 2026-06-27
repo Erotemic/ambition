@@ -16,7 +16,7 @@ use bevy::prelude::*;
 
 use ambition_engine_core as ae;
 use crate::features::{ActorFaction, BodyKinematics, FeatureSimEntity, HeldItem};
-use crate::player::{PlayerInputFrame, PlayerMana};
+use crate::player::{PlayerInputFrame, BodyMana};
 use crate::actor::{PlayerEntity, PrimaryPlayer};
 
 /// Held-item id of the vortex gauntlet.
@@ -50,7 +50,7 @@ pub fn fire_vortex_system(
     gravity: crate::physics::GravityCtx,
     user_settings: Option<Res<crate::persistence::settings::UserSettings>>,
     mut players: Query<
-        (&PlayerInputFrame, &BodyKinematics, &HeldItem, &mut PlayerMana),
+        (&PlayerInputFrame, &BodyKinematics, &HeldItem, &mut BodyMana),
         (With<PlayerEntity>, With<PrimaryPlayer>),
     >,
     mut commands: Commands,

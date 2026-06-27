@@ -729,9 +729,9 @@ pub fn apply_action(
     ldtk_reload: &mut LdtkHotReloadState,
     live_movement_refs: Option<(
         &mut crate::actor::BodyKinematics,
-        &crate::player::PlayerAbilities,
-        &mut crate::player::PlayerDashState,
-        &mut crate::player::PlayerJumpState,
+        &crate::player::BodyAbilities,
+        &mut crate::player::BodyDashState,
+        &mut crate::player::BodyJumpState,
     )>,
 ) -> SettingsOutcome {
     // Page-navigation rows (Open* + Back) share identical behavior:

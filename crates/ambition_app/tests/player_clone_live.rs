@@ -13,12 +13,12 @@ mod common;
 use common::base;
 
 use ambition_app::app::{PlayerClone, SpawnPlayerCloneRequest};
-use ambition_gameplay_core::player::{BodyKinematics, PlayerGroundState};
+use ambition_gameplay_core::player::{BodyKinematics, BodyGroundState};
 use bevy::prelude::{With, World};
 
 /// (x, y, on_ground) of the single player clone, if it exists.
 fn clone_state(world: &mut World) -> Option<(f32, f32, bool)> {
-    let mut q = world.query_filtered::<(&BodyKinematics, &PlayerGroundState), With<PlayerClone>>();
+    let mut q = world.query_filtered::<(&BodyKinematics, &BodyGroundState), With<PlayerClone>>();
     q.iter(world)
         .next()
         .map(|(kin, ground)| (kin.pos.x, kin.pos.y, ground.on_ground))

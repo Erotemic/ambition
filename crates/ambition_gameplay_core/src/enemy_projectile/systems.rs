@@ -279,7 +279,7 @@ mod tests {
     /// boss's attack at it.
     #[test]
     fn a_parried_enemy_shot_flips_to_player_faction_and_reverses() {
-        use crate::player::{PlayerBaseSize, PlayerDodgeState, PlayerOffense, PlayerShieldState};
+        use crate::player::{BodyBaseSize, BodyDodgeState, BodyOffense, BodyShieldState};
 use crate::actor::BodyCombat;
 use crate::actor::{PlayerEntity};
 use crate::actor::BodyKinematics;
@@ -312,13 +312,13 @@ use crate::actor::BodyKinematics;
                 size: ae::Vec2::new(24.0, 40.0),
                 facing: 1.0,
             },
-            PlayerBaseSize {
+            BodyBaseSize {
                 base_size: ae::Vec2::new(24.0, 40.0),
             },
-            PlayerOffense::default(),
-            PlayerDodgeState::default(),
+            BodyOffense::default(),
+            BodyDodgeState::default(),
             // Parry window OPEN.
-            PlayerShieldState {
+            BodyShieldState {
                 active: true,
                 parry_window_timer: 0.2,
             },
@@ -372,7 +372,7 @@ use crate::actor::BodyKinematics;
     /// exercised.
     #[test]
     fn an_owned_enemy_shot_attributes_its_player_hit_to_the_firing_actor() {
-        use crate::player::{PlayerBaseSize, PlayerDodgeState, PlayerOffense, PlayerShieldState};
+        use crate::player::{BodyBaseSize, BodyDodgeState, BodyOffense, BodyShieldState};
 use crate::actor::BodyCombat;
 use crate::actor::{PlayerEntity};
 use crate::actor::BodyKinematics;
@@ -419,12 +419,12 @@ use crate::actor::BodyKinematics;
                 size: ae::Vec2::new(24.0, 40.0),
                 facing: 1.0,
             },
-            PlayerBaseSize {
+            BodyBaseSize {
                 base_size: ae::Vec2::new(24.0, 40.0),
             },
-            PlayerOffense::default(),
-            PlayerDodgeState::default(),
-            PlayerShieldState {
+            BodyOffense::default(),
+            BodyDodgeState::default(),
+            BodyShieldState {
                 active: false,
                 parry_window_timer: 0.0,
             },

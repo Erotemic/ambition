@@ -8,7 +8,7 @@
 //! - [`suppress_ledge_grab_during_transit`] — while a body carries the
 //!   portal-owned [`PortalTransit`] latch, suppress the player's wall abilities
 //!   (ledge-grab / cling / wall-jump / wall-climb) so they don't grab the carved
-//!   aperture edges. Touches `ambition_gameplay_core::player::PlayerAbilities`, so it is Ambition
+//!   aperture edges. Touches `ambition_gameplay_core::player::BodyAbilities`, so it is Ambition
 //!   glue, not crate core.
 //! - [`warp_portal_input`] — apply the portal-owned [`PortalInputWarp`] /
 //!   [`PortalEmission`] guards (both inserted by
@@ -50,7 +50,7 @@ impl Default for SuppressWallAbilitiesInPortal {
 /// ledges / climbable walls, so you'd cling "into" a portal and pop back out the
 /// entry instead of sinking through and crossing.
 ///
-/// IMPORTANT — this must re-apply EVERY frame, not set-once. `PlayerAbilities` is
+/// IMPORTANT — this must re-apply EVERY frame, not set-once. `BodyAbilities` is
 /// wholesale-reset to the editable loadout every frame
 /// (`sync_live_ability_edits_clusters`: `abilities.abilities = desired`), so a
 /// save-once/restore-on-exit pattern is clobbered after a single frame (that was
@@ -62,13 +62,13 @@ impl Default for SuppressWallAbilitiesInPortal {
 /// integration.
 ///
 /// Reads the portal-owned [`PortalTransit`] latch and writes the Ambition
-/// `PlayerAbilities` — so it is content glue, not portal core. Moved out of the
+/// `BodyAbilities` — so it is content glue, not portal core. Moved out of the
 /// portal crate (Stage 19 Phase 5a); identical-sim.
 pub fn suppress_ledge_grab_during_transit(
     tuning: Res<PortalTuning>,
     mut players: Query<
         (
-            &mut ambition_gameplay_core::player::PlayerAbilities,
+            &mut ambition_gameplay_core::player::BodyAbilities,
             Option<&PortalTransit>,
         ),
         (With<PlayerEntity>, With<PrimaryPlayer>),
@@ -245,12 +245,12 @@ mod tests {
 
     #[test]
     fn wall_ability_suppression_reapplies_every_frame_against_the_loadout_reset() {
-        use ambition_gameplay_core::player::PlayerAbilities;
+        use ambition_gameplay_core::player::BodyAbilities;
         let mut app = App::new();
         app.init_resource::<PortalTuning>();
         // Stand in for the per-frame loadout reset that clobbered the old
         // save-once suppression: re-enable ledge_grab BEFORE the suppressor runs.
-        fn reenable_ledge_grab(mut q: Query<&mut PlayerAbilities>) {
+        fn reenable_ledge_grab(mut q: Query<&mut BodyAbilities>) {
             for mut a in &mut q {
                 a.abilities.ledge_grab = true;
             }
@@ -261,10 +261,10 @@ mod tests {
         );
         let player = app
             .world_mut()
-            .spawn((PlayerEntity, PrimaryPlayer, PlayerAbilities::default()))
+            .spawn((PlayerEntity, PrimaryPlayer, BodyAbilities::default()))
             .id();
         app.world_mut()
-            .get_mut::<PlayerAbilities>(player)
+            .get_mut::<BodyAbilities>(player)
             .unwrap()
             .abilities
             .ledge_grab = true;
@@ -273,7 +273,7 @@ mod tests {
         app.update();
         assert!(
             app.world()
-                .get::<PlayerAbilities>(player)
+                .get::<BodyAbilities>(player)
                 .unwrap()
                 .abilities
                 .ledge_grab
@@ -289,7 +289,7 @@ mod tests {
             app.update();
             assert!(
                 !app.world()
-                    .get::<PlayerAbilities>(player)
+                    .get::<BodyAbilities>(player)
                     .unwrap()
                     .abilities
                     .ledge_grab,
@@ -302,7 +302,7 @@ mod tests {
         app.update();
         assert!(
             app.world()
-                .get::<PlayerAbilities>(player)
+                .get::<BodyAbilities>(player)
                 .unwrap()
                 .abilities
                 .ledge_grab

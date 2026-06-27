@@ -44,7 +44,7 @@ pub struct ActorStatus {
     /// `CombatCapabilities::can_shield` (the body enforces the capability; the
     /// controller only attempts). The actor damage path reads it to negate a
     /// guarded hit from the faced side — the body-enforced half of the shield
-    /// intent (invariant I3), the analogue of the player's `PlayerShieldState`.
+    /// intent (invariant I3), the analogue of the player's `BodyShieldState`.
     pub shield_raised: bool,
 }
 

@@ -72,12 +72,12 @@ impl LocomotionState {
     /// Project `LocomotionState` from cluster components. Mirrors the
     /// same priority order callers used to drive off of `&Player`.
     pub fn from_clusters(
-        ground: &crate::player_clusters::PlayerGroundState,
-        wall: &crate::player_clusters::PlayerWallState,
-        flight: &crate::player_clusters::PlayerFlightState,
-        dash: &crate::player_clusters::PlayerDashState,
-        blink: &crate::player_clusters::PlayerBlinkState,
-        ledge: &crate::player_clusters::PlayerLedgeState,
+        ground: &crate::player_clusters::BodyGroundState,
+        wall: &crate::player_clusters::BodyWallState,
+        flight: &crate::player_clusters::BodyFlightState,
+        dash: &crate::player_clusters::BodyDashState,
+        blink: &crate::player_clusters::BodyBlinkState,
+        ledge: &crate::player_clusters::BodyLedgeState,
     ) -> Self {
         if dash.timer > 0.0 {
             return LocomotionState::Dashing;
@@ -159,7 +159,7 @@ impl BodyMode {
 
     /// Read the player's authoritative body-mode field from cluster
     /// components.
-    pub fn from_clusters(body_mode: &crate::player_clusters::PlayerBodyModeState) -> Self {
+    pub fn from_clusters(body_mode: &crate::player_clusters::BodyModeState) -> Self {
         body_mode.body_mode
     }
 
@@ -277,8 +277,8 @@ impl BodyShape {
 /// current world geometry — e.g. a low ceiling rejecting a stand-up.
 pub fn try_change_body_mode_clusters<F>(
     kinematics: &mut crate::player_clusters::BodyKinematics,
-    base_size: &crate::player_clusters::PlayerBaseSize,
-    body_mode_state: &mut crate::player_clusters::PlayerBodyModeState,
+    base_size: &crate::player_clusters::BodyBaseSize,
+    body_mode_state: &mut crate::player_clusters::BodyModeState,
     new_mode: BodyMode,
     world: &crate::world::World,
     gravity_dir: Vec2,
@@ -858,25 +858,25 @@ mod tests {
     #[test]
     fn locomotion_from_clusters_matches_from_player_at_rest() {
         use crate::player_clusters::{
-            PlayerBlinkState, PlayerDashState, PlayerFlightState, PlayerGroundState,
-            PlayerLedgeState, PlayerWallState,
+            BodyBlinkState, BodyDashState, BodyFlightState, BodyGroundState,
+            BodyLedgeState, BodyWallState,
         };
-        let ground = PlayerGroundState {
+        let ground = BodyGroundState {
             on_ground: true,
             ..Default::default()
         };
-        let wall = PlayerWallState::default();
-        let flight = PlayerFlightState::default();
-        let dash = PlayerDashState::default();
-        let blink = PlayerBlinkState::default();
-        let ledge = PlayerLedgeState::default();
+        let wall = BodyWallState::default();
+        let flight = BodyFlightState::default();
+        let dash = BodyDashState::default();
+        let blink = BodyBlinkState::default();
+        let ledge = BodyLedgeState::default();
         assert_eq!(
             LocomotionState::from_clusters(&ground, &wall, &flight, &dash, &blink, &ledge),
             LocomotionState::Grounded
         );
 
-        let ground = PlayerGroundState::default();
-        let dash = PlayerDashState {
+        let ground = BodyGroundState::default();
+        let dash = BodyDashState {
             timer: 0.1,
             ..Default::default()
         };
@@ -889,8 +889,8 @@ mod tests {
 
     #[test]
     fn body_mode_from_clusters_reads_authoritative_field() {
-        use crate::player_clusters::PlayerBodyModeState;
-        let bm = PlayerBodyModeState {
+        use crate::player_clusters::BodyModeState;
+        let bm = BodyModeState {
             body_mode: BodyMode::Crouching,
         };
         assert_eq!(BodyMode::from_clusters(&bm), BodyMode::Crouching);

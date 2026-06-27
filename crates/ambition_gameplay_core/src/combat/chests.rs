@@ -86,7 +86,7 @@ mod chest_tests {
     //! a buffered interact over an overlapping, unopened chest inserts
     //! `Opened`; an unbuffered player or a non-overlapping chest does not.
     use super::*;
-    use crate::player::{PlayerAnimState, PlayerBaseSize, PlayerInteractionState};
+    use crate::player::{PlayerAnimState, BodyBaseSize, PlayerInteractionState};
 use crate::actor::{PlayerEntity};
 use crate::actor::BodyKinematics;
     use bevy::prelude::{App, Entity, Update};
@@ -111,7 +111,7 @@ use crate::actor::BodyKinematics;
                     facing: 1.0,
                     ..Default::default()
                 },
-                PlayerBaseSize {
+                BodyBaseSize {
                     base_size: ae::Vec2::new(28.0, 46.0),
                 },
                 PlayerInteractionState {

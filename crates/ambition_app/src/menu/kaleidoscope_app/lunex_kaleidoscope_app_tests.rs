@@ -6,7 +6,7 @@ use crate::menu::test_support::{
 };
 use ambition_characters::brain::ActionSet;
 use ambition_gameplay_core::game_mode::GameMode;
-use ambition_gameplay_core::player::{PlayerEntity, PlayerMana, PrimaryPlayer};
+use ambition_gameplay_core::player::{PlayerEntity, BodyMana, PrimaryPlayer};
 
 /// The cube's System list wraps vertically (closed list); the Grid clamps (its
 /// rows sit below the tab bar, a real UP target). Pins `step_system_row` so a
@@ -83,7 +83,7 @@ fn spawn_kaleidoscope_test_player(app: &mut App) -> Entity {
             PlayerEntity,
             PrimaryPlayer,
             ActionSet::default(),
-            PlayerMana::default(),
+            BodyMana::default(),
         ))
         .id()
 }
@@ -920,7 +920,7 @@ fn esc_backs_out_then_closes_the_kaleidoscope_via_real_input() {
         PlayerEntity,
         PrimaryPlayer,
         ActionSet::default(),
-        PlayerMana::default(),
+        BodyMana::default(),
         ActionState::<SandboxAction>::default(),
         map,
     ));

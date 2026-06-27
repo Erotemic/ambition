@@ -841,8 +841,8 @@ pub fn update_blink_preview(
     player_q: Query<
         (
             &ambition_gameplay_core::player::BodyKinematics,
-            &ambition_gameplay_core::player::PlayerAbilities,
-            &ambition_gameplay_core::player::PlayerBlinkState,
+            &ambition_gameplay_core::player::BodyAbilities,
+            &ambition_gameplay_core::player::BodyBlinkState,
         ),
         ambition_gameplay_core::player::PrimaryPlayerOnly,
     >,

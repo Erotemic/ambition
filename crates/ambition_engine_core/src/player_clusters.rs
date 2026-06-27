@@ -26,25 +26,25 @@ use crate::Vec2;
 /// sandbox callers build the view from a Bevy query without going
 /// through a separate bridge module.
 pub struct PlayerClustersMut<'a> {
-    pub abilities: &'a PlayerAbilities,
+    pub abilities: &'a BodyAbilities,
     pub kinematics: &'a mut BodyKinematics,
-    pub base_size: &'a mut PlayerBaseSize,
-    pub ground: &'a mut PlayerGroundState,
-    pub wall: &'a mut PlayerWallState,
-    pub jump: &'a mut PlayerJumpState,
-    pub dash: &'a mut PlayerDashState,
-    pub flight: &'a mut PlayerFlightState,
-    pub blink: &'a mut PlayerBlinkState,
-    pub ledge: &'a mut PlayerLedgeState,
-    pub dodge: &'a mut PlayerDodgeState,
-    pub shield: &'a mut PlayerShieldState,
-    pub body_mode: &'a mut PlayerBodyModeState,
-    pub env_contact: &'a mut PlayerEnvironmentContact,
-    pub mana: &'a mut PlayerMana,
-    pub offense: &'a mut PlayerOffense,
-    pub action_buffer: &'a mut PlayerActionBuffer,
-    pub lifetime: &'a mut PlayerLifetime,
-    pub combo_trace: &'a mut PlayerComboTrace,
+    pub base_size: &'a mut BodyBaseSize,
+    pub ground: &'a mut BodyGroundState,
+    pub wall: &'a mut BodyWallState,
+    pub jump: &'a mut BodyJumpState,
+    pub dash: &'a mut BodyDashState,
+    pub flight: &'a mut BodyFlightState,
+    pub blink: &'a mut BodyBlinkState,
+    pub ledge: &'a mut BodyLedgeState,
+    pub dodge: &'a mut BodyDodgeState,
+    pub shield: &'a mut BodyShieldState,
+    pub body_mode: &'a mut BodyModeState,
+    pub env_contact: &'a mut BodyEnvironmentContact,
+    pub mana: &'a mut BodyMana,
+    pub offense: &'a mut BodyOffense,
+    pub action_buffer: &'a mut BodyActionBuffer,
+    pub lifetime: &'a mut BodyLifetime,
+    pub combo_trace: &'a mut BodyComboTrace,
 }
 
 /// Bevy query data that matches [`PlayerClustersMut`]. Use in a system
@@ -53,25 +53,25 @@ pub struct PlayerClustersMut<'a> {
 #[derive(bevy_ecs::query::QueryData)]
 #[query_data(mutable)]
 pub struct PlayerClusterQueryData {
-    pub abilities: &'static PlayerAbilities,
+    pub abilities: &'static BodyAbilities,
     pub kinematics: &'static mut BodyKinematics,
-    pub base_size: &'static mut PlayerBaseSize,
-    pub ground: &'static mut PlayerGroundState,
-    pub wall: &'static mut PlayerWallState,
-    pub jump: &'static mut PlayerJumpState,
-    pub dash: &'static mut PlayerDashState,
-    pub flight: &'static mut PlayerFlightState,
-    pub blink: &'static mut PlayerBlinkState,
-    pub ledge: &'static mut PlayerLedgeState,
-    pub dodge: &'static mut PlayerDodgeState,
-    pub shield: &'static mut PlayerShieldState,
-    pub body_mode: &'static mut PlayerBodyModeState,
-    pub env_contact: &'static mut PlayerEnvironmentContact,
-    pub mana: &'static mut PlayerMana,
-    pub offense: &'static mut PlayerOffense,
-    pub action_buffer: &'static mut PlayerActionBuffer,
-    pub lifetime: &'static mut PlayerLifetime,
-    pub combo_trace: &'static mut PlayerComboTrace,
+    pub base_size: &'static mut BodyBaseSize,
+    pub ground: &'static mut BodyGroundState,
+    pub wall: &'static mut BodyWallState,
+    pub jump: &'static mut BodyJumpState,
+    pub dash: &'static mut BodyDashState,
+    pub flight: &'static mut BodyFlightState,
+    pub blink: &'static mut BodyBlinkState,
+    pub ledge: &'static mut BodyLedgeState,
+    pub dodge: &'static mut BodyDodgeState,
+    pub shield: &'static mut BodyShieldState,
+    pub body_mode: &'static mut BodyModeState,
+    pub env_contact: &'static mut BodyEnvironmentContact,
+    pub mana: &'static mut BodyMana,
+    pub offense: &'static mut BodyOffense,
+    pub action_buffer: &'static mut BodyActionBuffer,
+    pub lifetime: &'static mut BodyLifetime,
+    pub combo_trace: &'static mut BodyComboTrace,
 }
 
 impl<'w, 's> PlayerClusterQueryDataItem<'w, 's> {
@@ -107,11 +107,11 @@ impl<'w, 's> PlayerClusterQueryDataItem<'w, 's> {
 
 /// Active ability set for this player.
 #[derive(bevy_ecs::component::Component, Clone, Copy, Debug, Default)]
-pub struct PlayerAbilities {
+pub struct BodyAbilities {
     pub abilities: AbilitySet,
 }
 
-impl PlayerAbilities {
+impl BodyAbilities {
     pub fn new(abilities: AbilitySet) -> Self {
         Self { abilities }
     }
@@ -128,7 +128,7 @@ impl PlayerAbilities {
 ///
 /// The player shares this unified component with enemies / NPCs / bosses. The
 /// player-only "base / standing body size" lives separately on
-/// [`PlayerBaseSize`] so the shared component stays minimal.
+/// [`BodyBaseSize`] so the shared component stays minimal.
 ///
 /// ## Query-conflict discipline
 ///
@@ -187,11 +187,11 @@ impl BodyKinematics {
 /// bosses have no stance-baseline concept), so it rides in its own component
 /// alongside the rest of the player clusters.
 #[derive(bevy_ecs::component::Component, Clone, Copy, Debug, PartialEq)]
-pub struct PlayerBaseSize {
+pub struct BodyBaseSize {
     pub base_size: Vec2,
 }
 
-impl Default for PlayerBaseSize {
+impl Default for BodyBaseSize {
     fn default() -> Self {
         Self {
             base_size: crate::movement::default_player_body_size(),
@@ -202,7 +202,7 @@ impl Default for PlayerBaseSize {
 /// Ground contact + airborne grace timers (coyote, drop-through,
 /// pogo rebound).
 #[derive(bevy_ecs::component::Component, Clone, Copy, Debug, Default, PartialEq)]
-pub struct PlayerGroundState {
+pub struct BodyGroundState {
     pub on_ground: bool,
     pub coyote_timer: f32,
     pub drop_through_timer: f32,
@@ -212,7 +212,7 @@ pub struct PlayerGroundState {
 /// Wall contact + wall-cling / wall-climb state and the pre-wall
 /// momentum window the ledge-grab boost reads.
 #[derive(bevy_ecs::component::Component, Clone, Copy, Debug, Default, PartialEq)]
-pub struct PlayerWallState {
+pub struct BodyWallState {
     pub on_wall: bool,
     pub wall_normal_x: f32,
     pub wall_clinging: bool,
@@ -222,22 +222,22 @@ pub struct PlayerWallState {
 }
 
 /// Jump-cluster state. The jump buffer itself lives on
-/// [`PlayerActionBuffer`]; this component owns the air-jump charge
+/// [`BodyActionBuffer`]; this component owns the air-jump charge
 /// count plus the transient ladder-jump boost / ladder drop-through
 /// timers today.
 #[derive(bevy_ecs::component::Component, Clone, Copy, Debug, Default, PartialEq)]
-pub struct PlayerJumpState {
+pub struct BodyJumpState {
     pub air_jumps_available: u8,
     pub ladder_jump_boost: f32,
     pub ladder_drop_through_timer: f32,
     pub ladder_drop_through_hold_lock: bool,
 }
 
-/// Dash-cluster state. The dash buffer lives on [`PlayerActionBuffer`];
+/// Dash-cluster state. The dash buffer lives on [`BodyActionBuffer`];
 /// this owns the charge count, the active-dash countdown, and the
 /// cooldown.
 #[derive(bevy_ecs::component::Component, Clone, Copy, Debug, Default, PartialEq)]
-pub struct PlayerDashState {
+pub struct BodyDashState {
     pub charges_available: u8,
     pub timer: f32,
     pub cooldown: f32,
@@ -245,7 +245,7 @@ pub struct PlayerDashState {
 
 /// Free-flight, glide, and fast-fall flags + the idle hover-bob phase.
 #[derive(bevy_ecs::component::Component, Clone, Copy, Debug, Default, PartialEq)]
-pub struct PlayerFlightState {
+pub struct BodyFlightState {
     pub fly_enabled: bool,
     pub flight_phase: f32,
     pub gliding: bool,
@@ -255,7 +255,7 @@ pub struct PlayerFlightState {
 /// Blink cluster: cooldown, hold-to-aim state, precision aim offset,
 /// and the post-blink grace timer.
 #[derive(bevy_ecs::component::Component, Clone, Copy, Debug, PartialEq)]
-pub struct PlayerBlinkState {
+pub struct BodyBlinkState {
     pub cooldown: f32,
     pub hold_active: bool,
     pub hold_timer: f32,
@@ -264,7 +264,7 @@ pub struct PlayerBlinkState {
     pub grace_timer: f32,
 }
 
-impl Default for PlayerBlinkState {
+impl Default for BodyBlinkState {
     fn default() -> Self {
         Self {
             cooldown: 0.0,
@@ -279,7 +279,7 @@ impl Default for PlayerBlinkState {
 
 /// Engine-owned ledge hang / pull-up state + the re-grab cooldown.
 #[derive(bevy_ecs::component::Component, Clone, Copy, Debug, Default, PartialEq)]
-pub struct PlayerLedgeState {
+pub struct BodyLedgeState {
     pub grab: Option<LedgeGrabState>,
     pub release_cooldown: f32,
 }
@@ -288,7 +288,7 @@ pub struct PlayerLedgeState {
 /// fall with the knockback instead of instantly re-latching.
 pub const LEDGE_KNOCK_OFF_COOLDOWN: f32 = 0.35;
 
-impl PlayerLedgeState {
+impl BodyLedgeState {
     /// Drop any active ledge grab because the player was hit, arming a brief
     /// re-grab lockout. Returns true if the player was actually hanging (so the
     /// caller can react). A no-op when not grabbing.
@@ -317,7 +317,7 @@ mod ledge_knock_off_tests {
 
     #[test]
     fn getting_hit_knocks_the_player_off_a_ledge_grab() {
-        let mut ledge = PlayerLedgeState {
+        let mut ledge = BodyLedgeState {
             grab: Some(hanging()),
             release_cooldown: 0.0,
         };
@@ -337,7 +337,7 @@ mod ledge_knock_off_tests {
 
     #[test]
     fn knock_off_is_a_noop_when_not_grabbing() {
-        let mut ledge = PlayerLedgeState::default();
+        let mut ledge = BodyLedgeState::default();
         assert!(!ledge.knock_off_on_hit());
         assert!(ledge.grab.is_none());
         assert_eq!(
@@ -349,26 +349,26 @@ mod ledge_knock_off_tests {
 
 /// Dodge-roll i-frame timer + cooldown.
 #[derive(bevy_ecs::component::Component, Clone, Copy, Debug, Default, PartialEq)]
-pub struct PlayerDodgeState {
+pub struct BodyDodgeState {
     pub roll_timer: f32,
     pub cooldown: f32,
 }
 
 /// Shield/parry cluster.
 #[derive(bevy_ecs::component::Component, Clone, Copy, Debug, Default, PartialEq)]
-pub struct PlayerShieldState {
+pub struct BodyShieldState {
     pub active: bool,
     pub parry_window_timer: f32,
 }
 
-impl PlayerShieldState {
+impl BodyShieldState {
     pub fn parrying(self) -> bool {
         self.active && self.parry_window_timer > 0.0
     }
 }
 
 /// Reset a live player back to spawn while preserving the
-/// `PlayerAbilities` and incrementing the lifetime reset counter. The
+/// `BodyAbilities` and incrementing the lifetime reset counter. The
 /// combo trace is wiped and a fresh `MovementOp::Reset` mark is pushed.
 pub fn reset_player_clusters(clusters: &mut PlayerClustersMut<'_>, spawn: Vec2) {
     use crate::movement::{default_player_body_size, ComboMark, MovementOp, DEFAULT_TUNING};
@@ -385,30 +385,30 @@ pub fn reset_player_clusters(clusters: &mut PlayerClustersMut<'_>, spawn: Vec2) 
         size: body,
         facing: 1.0,
     };
-    *clusters.base_size = PlayerBaseSize { base_size: body };
-    *clusters.ground = PlayerGroundState::default();
-    *clusters.wall = PlayerWallState::default();
-    *clusters.jump = PlayerJumpState {
+    *clusters.base_size = BodyBaseSize { base_size: body };
+    *clusters.ground = BodyGroundState::default();
+    *clusters.wall = BodyWallState::default();
+    *clusters.jump = BodyJumpState {
         air_jumps_available: air_jumps,
         ladder_jump_boost: 0.0,
         ladder_drop_through_timer: 0.0,
         ladder_drop_through_hold_lock: false,
     };
-    *clusters.dash = PlayerDashState {
+    *clusters.dash = BodyDashState {
         charges_available: dash_charges,
         ..Default::default()
     };
-    *clusters.flight = PlayerFlightState::default();
-    *clusters.blink = PlayerBlinkState::default();
-    *clusters.ledge = PlayerLedgeState::default();
-    *clusters.dodge = PlayerDodgeState::default();
-    *clusters.shield = PlayerShieldState::default();
-    *clusters.body_mode = PlayerBodyModeState::default();
-    *clusters.env_contact = PlayerEnvironmentContact::default();
-    *clusters.mana = PlayerMana::default();
-    *clusters.offense = PlayerOffense::default();
-    *clusters.action_buffer = PlayerActionBuffer::default();
-    *clusters.lifetime = PlayerLifetime {
+    *clusters.flight = BodyFlightState::default();
+    *clusters.blink = BodyBlinkState::default();
+    *clusters.ledge = BodyLedgeState::default();
+    *clusters.dodge = BodyDodgeState::default();
+    *clusters.shield = BodyShieldState::default();
+    *clusters.body_mode = BodyModeState::default();
+    *clusters.env_contact = BodyEnvironmentContact::default();
+    *clusters.mana = BodyMana::default();
+    *clusters.offense = BodyOffense::default();
+    *clusters.action_buffer = BodyActionBuffer::default();
+    *clusters.lifetime = BodyLifetime {
         resets: new_resets,
         ..Default::default()
     };
@@ -420,11 +420,11 @@ pub fn reset_player_clusters(clusters: &mut PlayerClustersMut<'_>, spawn: Vec2) 
 }
 
 /// Refresh the dash charge count and air-jump count from the active
-/// `PlayerAbilities` + the caller's tuning.
+/// `BodyAbilities` + the caller's tuning.
 pub fn refresh_movement_resources_clusters(
-    abilities: &PlayerAbilities,
-    dash: &mut PlayerDashState,
-    jump: &mut PlayerJumpState,
+    abilities: &BodyAbilities,
+    dash: &mut BodyDashState,
+    jump: &mut BodyJumpState,
     tuning: crate::movement::MovementTuning,
 ) {
     dash.charges_available = abilities.abilities.dash_charge_count();
@@ -433,13 +433,13 @@ pub fn refresh_movement_resources_clusters(
 
 /// Authoritative body-shape stance.
 #[derive(bevy_ecs::component::Component, Clone, Copy, Debug, Default, PartialEq, Eq)]
-pub struct PlayerBodyModeState {
+pub struct BodyModeState {
     pub body_mode: BodyMode,
 }
 
 /// Per-frame world-contact cluster: water + climbable region overlap.
 #[derive(bevy_ecs::component::Component, Clone, Copy, Debug, Default, PartialEq)]
-pub struct PlayerEnvironmentContact {
+pub struct BodyEnvironmentContact {
     pub water: Option<WaterContact>,
     pub climbable: Option<ClimbableContact>,
 }
@@ -447,11 +447,11 @@ pub struct PlayerEnvironmentContact {
 /// Generic spendable meter the player draws on for charge attacks /
 /// special abilities.
 #[derive(bevy_ecs::component::Component, Clone, Copy, Debug, PartialEq)]
-pub struct PlayerMana {
+pub struct BodyMana {
     pub meter: ResourceMeter,
 }
 
-impl Default for PlayerMana {
+impl Default for BodyMana {
     fn default() -> Self {
         Self {
             meter: ResourceMeter::new(100.0, 0.0, 0.0),
@@ -461,12 +461,12 @@ impl Default for PlayerMana {
 
 /// Offensive scaling knobs.
 #[derive(bevy_ecs::component::Component, Clone, Copy, Debug, PartialEq, Eq)]
-pub struct PlayerOffense {
+pub struct BodyOffense {
     pub damage_multiplier: i32,
     pub invincible: bool,
 }
 
-impl Default for PlayerOffense {
+impl Default for BodyOffense {
     fn default() -> Self {
         Self {
             damage_multiplier: 1,
@@ -477,7 +477,7 @@ impl Default for PlayerOffense {
 
 /// Generic ECS-owned action buffer.
 #[derive(bevy_ecs::component::Component, Clone, Copy, Debug, Default, PartialEq)]
-pub struct PlayerActionBuffer {
+pub struct BodyActionBuffer {
     pub jump: f32,
     pub dash: f32,
     pub attack: f32,
@@ -486,7 +486,7 @@ pub struct PlayerActionBuffer {
     pub blink: f32,
 }
 
-impl PlayerActionBuffer {
+impl BodyActionBuffer {
     pub fn press_jump(&mut self, window: f32) {
         self.jump = window;
     }
@@ -529,7 +529,7 @@ impl PlayerActionBuffer {
 
 /// Lifetime + diagnostic counters.
 #[derive(bevy_ecs::component::Component, Clone, Copy, Debug, Default, PartialEq)]
-pub struct PlayerLifetime {
+pub struct BodyLifetime {
     pub time_alive: f32,
     pub resets: u32,
     pub max_speed: f32,
@@ -539,11 +539,11 @@ pub struct PlayerLifetime {
 /// engine-Player tick scratchpad so the HUD combo readout doesn't
 /// blank every frame.
 #[derive(bevy_ecs::component::Component, Clone, Debug, Default)]
-pub struct PlayerComboTrace {
+pub struct BodyComboTrace {
     pub combo: Vec<ComboMark>,
 }
 
-impl PlayerComboTrace {
+impl BodyComboTrace {
     pub fn symbols(&self) -> String {
         if self.combo.is_empty() {
             return "-".to_string();
@@ -563,25 +563,25 @@ impl PlayerComboTrace {
 /// via [`PlayerClusterScratch::as_mut`].
 #[derive(Clone, Debug)]
 pub struct PlayerClusterScratch {
-    pub abilities: PlayerAbilities,
+    pub abilities: BodyAbilities,
     pub kinematics: BodyKinematics,
-    pub base_size: PlayerBaseSize,
-    pub ground: PlayerGroundState,
-    pub wall: PlayerWallState,
-    pub jump: PlayerJumpState,
-    pub dash: PlayerDashState,
-    pub flight: PlayerFlightState,
-    pub blink: PlayerBlinkState,
-    pub ledge: PlayerLedgeState,
-    pub dodge: PlayerDodgeState,
-    pub shield: PlayerShieldState,
-    pub body_mode: PlayerBodyModeState,
-    pub env_contact: PlayerEnvironmentContact,
-    pub mana: PlayerMana,
-    pub offense: PlayerOffense,
-    pub action_buffer: PlayerActionBuffer,
-    pub lifetime: PlayerLifetime,
-    pub combo_trace: PlayerComboTrace,
+    pub base_size: BodyBaseSize,
+    pub ground: BodyGroundState,
+    pub wall: BodyWallState,
+    pub jump: BodyJumpState,
+    pub dash: BodyDashState,
+    pub flight: BodyFlightState,
+    pub blink: BodyBlinkState,
+    pub ledge: BodyLedgeState,
+    pub dodge: BodyDodgeState,
+    pub shield: BodyShieldState,
+    pub body_mode: BodyModeState,
+    pub env_contact: BodyEnvironmentContact,
+    pub mana: BodyMana,
+    pub offense: BodyOffense,
+    pub action_buffer: BodyActionBuffer,
+    pub lifetime: BodyLifetime,
+    pub combo_trace: BodyComboTrace,
 }
 
 impl PlayerClusterScratch {
@@ -595,29 +595,29 @@ impl PlayerClusterScratch {
         let dash_charges = abilities.dash_charge_count();
         let air_jumps = abilities.air_jump_count(DEFAULT_TUNING.air_jumps);
         Self {
-            abilities: PlayerAbilities { abilities },
+            abilities: BodyAbilities { abilities },
             kinematics: BodyKinematics {
                 pos: spawn,
                 vel: Vec2::ZERO,
                 size: body,
                 facing: 1.0,
             },
-            base_size: PlayerBaseSize { base_size: body },
-            ground: PlayerGroundState::default(),
-            wall: PlayerWallState::default(),
-            jump: PlayerJumpState {
+            base_size: BodyBaseSize { base_size: body },
+            ground: BodyGroundState::default(),
+            wall: BodyWallState::default(),
+            jump: BodyJumpState {
                 air_jumps_available: air_jumps,
                 ladder_jump_boost: 0.0,
                 ladder_drop_through_timer: 0.0,
                 ladder_drop_through_hold_lock: false,
             },
-            dash: PlayerDashState {
+            dash: BodyDashState {
                 charges_available: dash_charges,
                 timer: 0.0,
                 cooldown: 0.0,
             },
-            flight: PlayerFlightState::default(),
-            blink: PlayerBlinkState {
+            flight: BodyFlightState::default(),
+            blink: BodyBlinkState {
                 cooldown: 0.0,
                 hold_active: false,
                 hold_timer: 0.0,
@@ -625,21 +625,21 @@ impl PlayerClusterScratch {
                 aim_offset: Vec2::new(BLINK_DISTANCE, 0.0),
                 grace_timer: 0.0,
             },
-            ledge: PlayerLedgeState::default(),
-            dodge: PlayerDodgeState::default(),
-            shield: PlayerShieldState::default(),
-            body_mode: PlayerBodyModeState::default(),
-            env_contact: PlayerEnvironmentContact::default(),
-            mana: PlayerMana {
+            ledge: BodyLedgeState::default(),
+            dodge: BodyDodgeState::default(),
+            shield: BodyShieldState::default(),
+            body_mode: BodyModeState::default(),
+            env_contact: BodyEnvironmentContact::default(),
+            mana: BodyMana {
                 meter: ResourceMeter::new(100.0, 0.0, 0.0),
             },
-            offense: PlayerOffense {
+            offense: BodyOffense {
                 damage_multiplier: 1,
                 invincible: false,
             },
-            action_buffer: PlayerActionBuffer::default(),
-            lifetime: PlayerLifetime::default(),
-            combo_trace: PlayerComboTrace::default(),
+            action_buffer: BodyActionBuffer::default(),
+            lifetime: BodyLifetime::default(),
+            combo_trace: BodyComboTrace::default(),
         }
     }
 

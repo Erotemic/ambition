@@ -22,7 +22,7 @@ use bevy::prelude::*;
 use crate::enemy_projectile::EnemyProjectileSpawn;
 use ambition_engine_core as ae;
 use crate::features::HeldItem;
-use crate::player::{PlayerInputFrame, PlayerMana};
+use crate::player::{PlayerInputFrame, BodyMana};
 use crate::actor::{PlayerEntity, PrimaryPlayer};
 use crate::actor::BodyKinematics;
 use crate::projectile::ProjectileFaction;
@@ -91,7 +91,7 @@ pub fn fire_meteor_system(
             &PlayerInputFrame,
             &BodyKinematics,
             &HeldItem,
-            &mut PlayerMana,
+            &mut BodyMana,
         ),
         (With<PlayerEntity>, With<PrimaryPlayer>),
     >,
@@ -205,7 +205,7 @@ mod tests {
         let mut app = test_app();
         let player = spawn_primary_player_holding(&mut app, METEOR_ID);
         app.world_mut()
-            .get_mut::<PlayerMana>(player)
+            .get_mut::<BodyMana>(player)
             .unwrap()
             .meter
             .current = 5.0;
@@ -220,7 +220,7 @@ mod tests {
             "no meteors when mana < cost"
         );
         app.world_mut()
-            .get_mut::<PlayerMana>(player)
+            .get_mut::<BodyMana>(player)
             .unwrap()
             .meter
             .current = 100.0;

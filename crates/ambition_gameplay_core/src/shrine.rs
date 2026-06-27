@@ -14,7 +14,7 @@
 use bevy::prelude::*;
 
 use ambition_engine_core::{self as ae, AabbExt};
-use crate::player::{PlayerInputFrame, PlayerMana};
+use crate::player::{PlayerInputFrame, BodyMana};
 use crate::actor::BodyHealth;
 use crate::actor::{PlayerEntity, PrimaryPlayer};
 use crate::actor::BodyKinematics;
@@ -43,7 +43,7 @@ pub fn heal_save_shrine_system(
             &PlayerInputFrame,
             &BodyKinematics,
             &mut BodyHealth,
-            &mut PlayerMana,
+            &mut BodyMana,
         ),
         (With<PlayerEntity>, With<PrimaryPlayer>),
     >,
@@ -89,7 +89,7 @@ pub struct ShrineActivationPulse {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::player::PlayerBaseSize;
+    use crate::player::BodyBaseSize;
 
     #[test]
     fn interacting_at_the_shrine_heals_to_full() {
@@ -111,7 +111,7 @@ mod tests {
                     size: Vec2::new(24.0, 40.0),
                     facing: 1.0,
                 },
-                PlayerBaseSize {
+                BodyBaseSize {
                     base_size: Vec2::new(24.0, 40.0),
                 },
                 BodyHealth::new(ambition_characters::actor::Health {
@@ -119,12 +119,12 @@ mod tests {
                     max: 5,
                     invulnerable: false,
                 }),
-                PlayerMana::default(),
+                BodyMana::default(),
             ))
             .id();
         // Drain mana so we can see it refill.
         app.world_mut()
-            .get_mut::<PlayerMana>(player)
+            .get_mut::<BodyMana>(player)
             .unwrap()
             .meter
             .try_spend(40.0);
@@ -143,7 +143,7 @@ mod tests {
 
         let health = *app.world().get::<BodyHealth>(player).unwrap();
         assert_eq!(health.current(), health.max(), "health should be full");
-        let mana = app.world().get::<PlayerMana>(player).unwrap().meter;
+        let mana = app.world().get::<BodyMana>(player).unwrap().meter;
         assert!(
             mana.is_full(),
             "mana should be refilled, got {}",
@@ -170,7 +170,7 @@ mod tests {
                     size: Vec2::new(24.0, 40.0),
                     facing: 1.0,
                 },
-                PlayerBaseSize {
+                BodyBaseSize {
                     base_size: Vec2::new(24.0, 40.0),
                 },
                 BodyHealth::new(ambition_characters::actor::Health {
@@ -178,7 +178,7 @@ mod tests {
                     max: 5,
                     invulnerable: false,
                 }),
-                PlayerMana::default(),
+                BodyMana::default(),
             ))
             .id();
         // A shrine far away.

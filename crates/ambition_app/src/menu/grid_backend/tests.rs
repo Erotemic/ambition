@@ -3,7 +3,7 @@ use crate::menu::model::{build_inventory_pages, system_rows, SystemRow};
 use ambition_characters::brain::ActionSet;
 use ambition_gameplay_core::items::Item;
 use ambition_gameplay_core::persistence::settings::{SystemMenuEntryId, SystemMenuModel};
-use ambition_gameplay_core::player::{PlayerEntity, PlayerMana, PrimaryPlayer};
+use ambition_gameplay_core::player::{PlayerEntity, BodyMana, PrimaryPlayer};
 use ambition_gameplay_core::session::game_mode::GameMode;
 
 /// Switching the inventory frontend mid-session lands you on the SAME page in the
@@ -85,7 +85,7 @@ fn grid_app() -> App {
         PlayerEntity,
         PrimaryPlayer,
         ActionSet::default(),
-        PlayerMana::default(),
+        BodyMana::default(),
     ));
     app.update();
     app

@@ -7,7 +7,7 @@
 use ambition_characters::brain::{held_item_by_id, ActionSet};
 use ambition_engine_core as ae;
 use crate::features::HeldItem;
-use crate::player::{PlayerBaseSize, PlayerInputFrame, PlayerMana};
+use crate::player::{BodyBaseSize, PlayerInputFrame, BodyMana};
 use crate::actor::{PlayerEntity, PrimaryPlayer};
 use crate::actor::BodyKinematics;
 use bevy::prelude::*;
@@ -24,20 +24,20 @@ pub(crate) fn spawn_primary_player_holding(app: &mut App, held_item_id: &str) ->
                 size: ae::Vec2::new(24.0, 40.0),
                 facing: 1.0,
             },
-            PlayerBaseSize {
+            BodyBaseSize {
                 base_size: ae::Vec2::new(24.0, 40.0),
             },
             PlayerInputFrame::default(),
             ActionSet::default(),
             HeldItem::new(spec),
-            PlayerMana::default(),
+            BodyMana::default(),
         ))
         .id()
 }
 
 /// A primary player holding `held_item_id` at an explicit `pos` / `facing`, with
-/// NO `PlayerMana` — the minimal bundle the traversal-ability tests (blink /
-/// grapple / mark-recall) spawn. One definition so the body/`PlayerBaseSize`
+/// NO `BodyMana` — the minimal bundle the traversal-ability tests (blink /
+/// grapple / mark-recall) spawn. One definition so the body/`BodyBaseSize`
 /// bundle can't drift across those modules; each caller passes only the pos /
 /// facing it cares about.
 pub(crate) fn spawn_primary_player_holding_at(
@@ -57,7 +57,7 @@ pub(crate) fn spawn_primary_player_holding_at(
                 size: ae::Vec2::new(24.0, 40.0),
                 facing,
             },
-            PlayerBaseSize {
+            BodyBaseSize {
                 base_size: ae::Vec2::new(24.0, 40.0),
             },
             PlayerInputFrame::default(),

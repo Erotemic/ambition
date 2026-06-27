@@ -133,7 +133,7 @@ pub fn collect_ecs_pickups(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::player::{PlayerBaseSize, PlayerHealRequested};
+    use crate::player::{BodyBaseSize, PlayerHealRequested};
 use crate::actor::{PlayerEntity};
 use crate::actor::BodyKinematics;
     use bevy::prelude::{App, Update};
@@ -149,7 +149,7 @@ use crate::actor::BodyKinematics;
                     facing: 1.0,
                     ..Default::default()
                 },
-                PlayerBaseSize {
+                BodyBaseSize {
                     base_size: ae::Vec2::new(28.0, 46.0),
                 },
             ))
@@ -220,7 +220,7 @@ use crate::actor::BodyKinematics;
                     facing: 1.0,
                     ..Default::default()
                 },
-                PlayerBaseSize {
+                BodyBaseSize {
                     base_size: ae::Vec2::new(28.0, 46.0),
                 },
             ))
@@ -268,7 +268,7 @@ use crate::actor::BodyKinematics;
                 facing: 1.0,
                 ..Default::default()
             },
-            PlayerBaseSize {
+            BodyBaseSize {
                 base_size: ae::Vec2::new(28.0, 46.0),
             },
         ));

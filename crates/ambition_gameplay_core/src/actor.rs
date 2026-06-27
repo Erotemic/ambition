@@ -24,6 +24,27 @@ use bevy::prelude::With;
 pub use crate::platformer_runtime::body::BodyKinematics;
 pub use ambition_platformer_primitives::markers::{PlayerEntity, PrimaryPlayer};
 
+/// The shared **movement-cluster components** every body carries — the 18
+/// ancillary clusters (ground contact, wall, jump, dash, flight, blink, ledge,
+/// dodge, shield, body-mode, environment contact, mana, offense, action buffer,
+/// lifetime, combo trace, base size, ability mask) that, together with
+/// [`BodyKinematics`], form the authoritative movement aggregate the shared
+/// pipeline (`ae::update_body_with_tuning_clusters`) reads and writes.
+///
+/// These were historically named `Player*` and surfaced through `crate::player`,
+/// which made every non-player module that names a body component import the
+/// player. They are not player-specific — enemies, NPCs, and bosses all carry
+/// them — so they are re-homed here on the neutral actor vocabulary under the
+/// `Body*` convention (matching [`BodyKinematics`] / [`BodyHealth`] /
+/// [`BodyCombat`]). The types `#[derive(Component)]` in `ambition_engine_core`;
+/// this is the single import surface for them.
+pub use ambition_engine_core::{
+    BodyAbilities, BodyActionBuffer, BodyBaseSize, BodyBlinkState, BodyComboTrace, BodyDashState,
+    BodyDodgeState, BodyEnvironmentContact, BodyFlightState, BodyGroundState, BodyJumpState,
+    BodyLedgeState, BodyLifetime, BodyMana, BodyModeState, BodyOffense, BodyShieldState,
+    BodyWallState,
+};
+
 /// Query filter for "the one camera/HUD-owning player body" — `With<PlayerEntity>`
 /// + `With<PrimaryPlayer>`. The neutral home for the filter every non-player system
 /// uses to find the primary player (e.g. targeting, camera follow, HUD readouts).

@@ -6,7 +6,7 @@ use super::*;
 use ambition_engine_core::world::{ClimbableKind, ClimbableRegion, ClimbableSpec, World};
 use ambition_engine_core::Vec2;
 use ambition_input::ControlFrame;
-use crate::player::{PlayerBaseSize, PlayerBlinkState, PlayerBodyModeState, PlayerDashState, PlayerEnvironmentContact, PlayerGroundState, PlayerInputFrame, PlayerInteractionState, PlayerJumpState, PlayerLedgeState, PlayerWallState};
+use crate::player::{BodyBaseSize, BodyBlinkState, BodyModeState, BodyDashState, BodyEnvironmentContact, BodyGroundState, PlayerInputFrame, PlayerInteractionState, BodyJumpState, BodyLedgeState, BodyWallState};
 use crate::actor::{PlayerEntity, PrimaryPlayer};
 use crate::actor::BodyKinematics;
 use bevy::prelude::{App, Entity, Update};
@@ -48,23 +48,23 @@ fn build_body_mode_test_app() -> (App, Entity) {
                 facing: 1.0,
                 ..Default::default()
             },
-            PlayerBaseSize {
+            BodyBaseSize {
                 base_size: Vec2::new(30.0, 48.0),
             },
-            PlayerGroundState {
+            BodyGroundState {
                 on_ground: true,
                 ..Default::default()
             },
-            PlayerWallState::default(),
-            PlayerDashState::default(),
-            PlayerBlinkState::default(),
-            PlayerLedgeState::default(),
-            PlayerEnvironmentContact::default(),
+            BodyWallState::default(),
+            BodyDashState::default(),
+            BodyBlinkState::default(),
+            BodyLedgeState::default(),
+            BodyEnvironmentContact::default(),
             PlayerInteractionState::default(),
             PlayerInputFrame::default(),
-            PlayerBodyModeState::default(),
-            PlayerJumpState::default(),
-            crate::player::PlayerFlightState::default(),
+            BodyModeState::default(),
+            BodyJumpState::default(),
+            crate::player::BodyFlightState::default(),
         ))
         .id();
     (app, player)
@@ -93,7 +93,7 @@ fn place_player_on_test_ladder(app: &mut App, player: Entity, vel: Option<Vec2>)
         .0
         .climbable_at(app.world().get::<BodyKinematics>(player).unwrap().aabb());
     app.world_mut()
-        .get_mut::<PlayerEnvironmentContact>(player)
+        .get_mut::<BodyEnvironmentContact>(player)
         .unwrap()
         .climbable = contact;
 }
@@ -115,7 +115,7 @@ fn double_tap_down_on_ground_transitions_to_morph_ball() {
     app.update();
     let mode = app
         .world()
-        .get::<PlayerBodyModeState>(player)
+        .get::<BodyModeState>(player)
         .unwrap()
         .body_mode;
     assert_eq!(
@@ -134,7 +134,7 @@ fn jump_press_from_morph_ball_transitions_to_standing() {
     {
         let mut body_mode = app
             .world_mut()
-            .get_mut::<PlayerBodyModeState>(player)
+            .get_mut::<BodyModeState>(player)
             .unwrap();
         body_mode.body_mode = ae::BodyMode::MorphBall;
     }
@@ -152,7 +152,7 @@ fn jump_press_from_morph_ball_transitions_to_standing() {
     app.update();
     let mode = app
         .world()
-        .get::<PlayerBodyModeState>(player)
+        .get::<BodyModeState>(player)
         .unwrap()
         .body_mode;
     assert_eq!(
@@ -174,7 +174,7 @@ fn local_up_press_from_morph_ball_transitions_to_standing_under_sideways_screen_
     {
         let mut body_mode = app
             .world_mut()
-            .get_mut::<PlayerBodyModeState>(player)
+            .get_mut::<BodyModeState>(player)
             .unwrap();
         body_mode.body_mode = ae::BodyMode::MorphBall;
     }
@@ -196,7 +196,7 @@ fn local_up_press_from_morph_ball_transitions_to_standing_under_sideways_screen_
     app.update();
     let mode = app
         .world()
-        .get::<PlayerBodyModeState>(player)
+        .get::<BodyModeState>(player)
         .unwrap()
         .body_mode;
     assert_eq!(
@@ -217,7 +217,7 @@ fn dash_press_from_climbing_transitions_to_standing() {
     {
         let mut body_mode = app
             .world_mut()
-            .get_mut::<PlayerBodyModeState>(player)
+            .get_mut::<BodyModeState>(player)
             .unwrap();
         body_mode.body_mode = ae::BodyMode::Climbing;
     }
@@ -231,7 +231,7 @@ fn dash_press_from_climbing_transitions_to_standing() {
     app.update();
     let mode = app
         .world()
-        .get::<PlayerBodyModeState>(player)
+        .get::<BodyModeState>(player)
         .unwrap()
         .body_mode;
     assert_eq!(
@@ -250,7 +250,7 @@ fn jump_press_from_climbing_keeps_climbing_mode() {
     {
         let mut body_mode = app
             .world_mut()
-            .get_mut::<PlayerBodyModeState>(player)
+            .get_mut::<BodyModeState>(player)
             .unwrap();
         body_mode.body_mode = ae::BodyMode::Climbing;
     }
@@ -265,7 +265,7 @@ fn jump_press_from_climbing_keeps_climbing_mode() {
     app.update();
     let mode = app
         .world()
-        .get::<PlayerBodyModeState>(player)
+        .get::<BodyModeState>(player)
         .unwrap()
         .body_mode;
     assert_eq!(
@@ -284,7 +284,7 @@ fn down_jump_from_climbing_falls_off_ladder() {
     {
         let mut body_mode = app
             .world_mut()
-            .get_mut::<PlayerBodyModeState>(player)
+            .get_mut::<BodyModeState>(player)
             .unwrap();
         body_mode.body_mode = ae::BodyMode::Climbing;
     }
@@ -299,10 +299,10 @@ fn down_jump_from_climbing_falls_off_ladder() {
     app.update();
     let mode = app
         .world()
-        .get::<PlayerBodyModeState>(player)
+        .get::<BodyModeState>(player)
         .unwrap()
         .body_mode;
-    let jump_state = app.world().get::<PlayerJumpState>(player).unwrap();
+    let jump_state = app.world().get::<BodyJumpState>(player).unwrap();
     assert_eq!(
         mode,
         ae::BodyMode::Standing,
@@ -323,19 +323,19 @@ fn down_release_rearms_ladder_regrab() {
     {
         let mut body_mode = app
             .world_mut()
-            .get_mut::<PlayerBodyModeState>(player)
+            .get_mut::<BodyModeState>(player)
             .unwrap();
         body_mode.body_mode = ae::BodyMode::Standing;
     }
     {
         let mut ground = app
             .world_mut()
-            .get_mut::<PlayerGroundState>(player)
+            .get_mut::<BodyGroundState>(player)
             .unwrap();
         ground.on_ground = false;
     }
     {
-        let mut jump_state = app.world_mut().get_mut::<PlayerJumpState>(player).unwrap();
+        let mut jump_state = app.world_mut().get_mut::<BodyJumpState>(player).unwrap();
         jump_state.ladder_drop_through_timer = 0.0;
         jump_state.ladder_drop_through_hold_lock = true;
     }
@@ -349,7 +349,7 @@ fn down_release_rearms_ladder_regrab() {
     app.update();
     assert_eq!(
         app.world()
-            .get::<PlayerBodyModeState>(player)
+            .get::<BodyModeState>(player)
             .unwrap()
             .body_mode,
         ae::BodyMode::Standing,
@@ -366,7 +366,7 @@ fn down_release_rearms_ladder_regrab() {
     app.update();
     assert!(
         !app.world()
-            .get::<PlayerJumpState>(player)
+            .get::<BodyJumpState>(player)
             .unwrap()
             .ladder_drop_through_hold_lock,
         "releasing down should clear the ladder drop lock"
@@ -382,7 +382,7 @@ fn down_release_rearms_ladder_regrab() {
     app.update();
     assert_eq!(
         app.world()
-            .get::<PlayerBodyModeState>(player)
+            .get::<BodyModeState>(player)
             .unwrap()
             .body_mode,
         ae::BodyMode::Climbing,
@@ -406,14 +406,14 @@ fn flying_suppresses_ladder_auto_climb() {
     {
         let mut flight = app
             .world_mut()
-            .get_mut::<crate::player::PlayerFlightState>(player)
+            .get_mut::<crate::player::BodyFlightState>(player)
             .unwrap();
         flight.fly_enabled = true;
     }
     app.update();
     assert_eq!(
         app.world()
-            .get::<PlayerBodyModeState>(player)
+            .get::<BodyModeState>(player)
             .unwrap()
             .body_mode,
         ae::BodyMode::Standing,
@@ -424,14 +424,14 @@ fn flying_suppresses_ladder_auto_climb() {
     {
         let mut flight = app
             .world_mut()
-            .get_mut::<crate::player::PlayerFlightState>(player)
+            .get_mut::<crate::player::BodyFlightState>(player)
             .unwrap();
         flight.fly_enabled = false;
     }
     app.update();
     assert_eq!(
         app.world()
-            .get::<PlayerBodyModeState>(player)
+            .get::<BodyModeState>(player)
             .unwrap()
             .body_mode,
         ae::BodyMode::Climbing,

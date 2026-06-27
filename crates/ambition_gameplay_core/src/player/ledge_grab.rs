@@ -1,7 +1,7 @@
 //! Ledge grab sandbox presentation helpers.
 //!
 //! Gameplay ownership lives in `ambition_engine_core`:
-//! `PlayerLedgeState::grab` is advanced by
+//! `BodyLedgeState::grab` is advanced by
 //! `ae::update_player_simulation_with_clusters` alongside gravity,
 //! wall contact, moving platforms, and water. The sandbox keeps this
 //! module only as a stable place for presentation code/tests that

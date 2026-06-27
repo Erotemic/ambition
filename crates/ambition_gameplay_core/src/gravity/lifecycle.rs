@@ -77,7 +77,7 @@ pub fn gravity_flip_switch_system(
 mod tests {
     use super::*;
     use crate::physics::{BaseGravity, GravityField};
-    use crate::player::PlayerBaseSize;
+    use crate::player::BodyBaseSize;
 
     fn spawn_player(app: &mut App, pos: Vec2) -> Entity {
         app.world_mut()
@@ -90,7 +90,7 @@ mod tests {
                     size: Vec2::new(24.0, 40.0),
                     facing: 1.0,
                 },
-                PlayerBaseSize {
+                BodyBaseSize {
                     base_size: Vec2::new(24.0, 40.0),
                 },
             ))

@@ -4,7 +4,7 @@
 //! procedural helper, or the monolithic `ae::Player` aggregate. The
 //! ECS migration deleted these intentionally; the canonical
 //! replacements live on dedicated components and systems
-//! (`BodyKinematics`, `PlayerGroundState`, …, `PlayerComboTrace`,
+//! (`BodyKinematics`, `BodyGroundState`, …, `BodyComboTrace`,
 //! `PlayerClustersMut`, `PlayerClusterScratch`).
 //!
 //! This test walks the sandbox crate's `src/` tree and fails if any

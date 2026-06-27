@@ -7,7 +7,7 @@
 //! player movement, AABB collision semantics, ability gates, ledge-grab
 //! probes, world collision/water/climbable region data, gravity-relative
 //! reference frames, and the cluster components (`BodyKinematics`,
-//! `PlayerGroundState`, …, `PlayerComboTrace`) that make up the player ECS
+//! `BodyGroundState`, …, `BodyComboTrace`) that make up the player ECS
 //! entity. `ambition_characters` (minds/cast), `ambition_content` (named game
 //! content), and `ambition_gameplay_core` (machinery) all sit above it.
 //!
@@ -71,19 +71,12 @@ pub use movement::{
     WALL_CLIMB_SPEED, WALL_JUMP_X, WALL_SLIDE_SPEED,
 };
 pub use player_clusters::{
-    refresh_movement_resources_clusters, reset_player_clusters, BodyKinematics,
-    PlayerAbilities as EnginePlayerAbilities, PlayerActionBuffer as EnginePlayerActionBuffer,
-    PlayerBaseSize as EnginePlayerBaseSize, PlayerBlinkState as EnginePlayerBlinkState,
-    PlayerBodyModeState as EnginePlayerBodyModeState, PlayerClusterQueryData,
-    PlayerClusterQueryDataItem, PlayerClusterScratch, PlayerClustersMut,
-    PlayerComboTrace as EnginePlayerComboTrace, PlayerDashState as EnginePlayerDashState,
-    PlayerDodgeState as EnginePlayerDodgeState,
-    PlayerEnvironmentContact as EnginePlayerEnvironmentContact,
-    PlayerFlightState as EnginePlayerFlightState, PlayerGroundState as EnginePlayerGroundState,
-    PlayerJumpState as EnginePlayerJumpState, PlayerLedgeState as EnginePlayerLedgeState,
-    PlayerLifetime as EnginePlayerLifetime, PlayerMana as EnginePlayerMana,
-    PlayerOffense as EnginePlayerOffense, PlayerShieldState as EnginePlayerShieldState,
-    PlayerWallState as EnginePlayerWallState,
+    refresh_movement_resources_clusters, reset_player_clusters, BodyAbilities, BodyActionBuffer,
+    BodyBaseSize, BodyBlinkState, BodyComboTrace, BodyDashState, BodyDodgeState,
+    BodyEnvironmentContact, BodyFlightState, BodyGroundState, BodyJumpState, BodyKinematics,
+    BodyLedgeState, BodyLifetime, BodyMana, BodyModeState, BodyOffense, BodyShieldState,
+    BodyWallState, PlayerClusterQueryData, PlayerClusterQueryDataItem, PlayerClusterScratch,
+    PlayerClustersMut,
 };
 pub use player_state::{
     classify_safety_from_kinematics, try_change_body_mode_clusters, BodyMode, BodyShape,

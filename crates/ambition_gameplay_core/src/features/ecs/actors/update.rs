@@ -80,9 +80,9 @@ pub fn update_ecs_actors(
         (
             bevy::prelude::Entity,
             &crate::actor::BodyKinematics,
-            &crate::player::PlayerOffense,
-            &crate::player::PlayerDodgeState,
-            &crate::player::PlayerShieldState,
+            &crate::player::BodyOffense,
+            &crate::player::BodyDodgeState,
+            &crate::player::BodyShieldState,
             &crate::actor::BodyCombat,
         ),
         bevy::prelude::With<crate::actor::PlayerEntity>,

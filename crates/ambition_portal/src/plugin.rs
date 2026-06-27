@@ -146,7 +146,7 @@ impl Plugin for PortalSimulationPlugin {
         app.add_systems(Update, clear_portals_on_reset.in_set(PortalSet::RoomReset));
 
         // Ledge-grab suppression while transiting (it mutates the PLAYER's
-        // `PlayerAbilities`) is an Ambition ability adapter and lives in
+        // `BodyAbilities`) is an Ambition ability adapter and lives in
         // the host portal adapter (registered in
         // `PortalSet::TransitGuards` there). Portal core owns only the
         // `PortalTransit` latch it reads off.

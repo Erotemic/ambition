@@ -90,7 +90,7 @@ mod breakable_tests {
     //! not. Drives sim time via a fixed WorldTime::scaled_dt.
     use super::*;
     use ambition_interaction::{Breakable, BreakableCollision, BreakableTrigger};
-    use crate::player::{PlayerBaseSize};
+    use crate::player::{BodyBaseSize};
 use crate::actor::{PlayerEntity};
 use crate::actor::BodyKinematics;
     use crate::world::physics::DebrisBurstMessage;
@@ -138,7 +138,7 @@ use crate::actor::BodyKinematics;
                     facing: 1.0,
                     ..Default::default()
                 },
-                PlayerBaseSize {
+                BodyBaseSize {
                     base_size: ae::Vec2::new(28.0, 46.0),
                 },
             ))

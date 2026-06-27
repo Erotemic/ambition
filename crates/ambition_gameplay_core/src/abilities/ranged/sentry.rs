@@ -17,7 +17,7 @@ use bevy::prelude::*;
 use crate::enemy_projectile::EnemyProjectileSpawn;
 use ambition_engine_core as ae;
 use crate::features::{ActorFaction, CenteredAabb, FeatureSimEntity, HeldItem};
-use crate::player::{PlayerInputFrame, PlayerMana};
+use crate::player::{PlayerInputFrame, BodyMana};
 use crate::actor::{PlayerEntity, PrimaryPlayer};
 use crate::actor::BodyKinematics;
 use crate::projectile::ProjectileFaction;
@@ -52,7 +52,7 @@ pub struct Sentry {
 /// `UseSystem`).
 pub fn fire_sentry_system(
     mut players: Query<
-        (&PlayerInputFrame, &BodyKinematics, &HeldItem, &mut PlayerMana),
+        (&PlayerInputFrame, &BodyKinematics, &HeldItem, &mut BodyMana),
         (With<PlayerEntity>, With<PrimaryPlayer>),
     >,
     mut commands: Commands,

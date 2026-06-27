@@ -22,7 +22,7 @@ use bevy::prelude::*;
 
 use ambition_engine_core as ae;
 use crate::features::{ActorFaction, HeldItem};
-use crate::player::{PlayerInputFrame, PlayerMana};
+use crate::player::{PlayerInputFrame, BodyMana};
 use crate::actor::{PlayerEntity, PrimaryPlayer};
 use crate::actor::BodyKinematics;
 
@@ -82,7 +82,7 @@ pub fn fire_beam_system(
     gravity: crate::physics::GravityCtx,
     user_settings: Option<Res<crate::persistence::settings::UserSettings>>,
     mut players: Query<
-        (Entity, &PlayerInputFrame, &HeldItem, &BodyKinematics, &mut PlayerMana),
+        (Entity, &PlayerInputFrame, &HeldItem, &BodyKinematics, &mut BodyMana),
         (With<PlayerEntity>, With<PrimaryPlayer>),
     >,
     mut effects: MessageWriter<crate::effects::EffectRequest>,
@@ -197,7 +197,7 @@ mod tests {
         let mut app = test_app();
         let player = spawn_primary_player_holding(&mut app, BEAM_ID);
         app.world_mut()
-            .get_mut::<PlayerMana>(player)
+            .get_mut::<BodyMana>(player)
             .unwrap()
             .meter
             .current = 5.0;
@@ -210,13 +210,13 @@ mod tests {
         assert_eq!(hitboxes(&mut app).len(), 0, "no beam when mana < cost");
 
         app.world_mut()
-            .get_mut::<PlayerMana>(player)
+            .get_mut::<BodyMana>(player)
             .unwrap()
             .meter
             .current = 100.0;
         app.update();
         assert_eq!(hitboxes(&mut app).len(), 1, "fires once there's mana");
-        let mana = app.world().get::<PlayerMana>(player).unwrap().meter.current;
+        let mana = app.world().get::<BodyMana>(player).unwrap().meter.current;
         assert!(
             (mana - (100.0 - BEAM_MANA_COST)).abs() < 0.01,
             "mana dropped by the cost: {mana}"

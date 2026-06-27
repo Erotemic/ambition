@@ -411,8 +411,8 @@ pub fn is_precise_ledge_grab(player_pos: Vec2, player_size: Vec2, contact: Ledge
 /// Pick a side-face normal to probe for a ledge: the active wall-cling normal
 /// first, else a local side-axis press while airborne.
 fn requested_wall_normal_clusters(
-    wall: &crate::player_clusters::PlayerWallState,
-    ground: &crate::player_clusters::PlayerGroundState,
+    wall: &crate::player_clusters::BodyWallState,
+    ground: &crate::player_clusters::BodyGroundState,
     input: InputState,
     tuning: MovementTuning,
 ) -> Option<f32> {

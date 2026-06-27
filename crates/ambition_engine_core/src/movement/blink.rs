@@ -15,11 +15,11 @@ use super::tuning::MovementTuning;
 /// blink ops + the BlinkEvent.
 pub fn complete_blink_clusters(
     kinematics: &mut crate::player_clusters::BodyKinematics,
-    flight: &mut crate::player_clusters::PlayerFlightState,
-    wall: &mut crate::player_clusters::PlayerWallState,
-    dash: &mut crate::player_clusters::PlayerDashState,
-    blink: &mut crate::player_clusters::PlayerBlinkState,
-    combo_trace: &mut crate::player_clusters::PlayerComboTrace,
+    flight: &mut crate::player_clusters::BodyFlightState,
+    wall: &mut crate::player_clusters::BodyWallState,
+    dash: &mut crate::player_clusters::BodyDashState,
+    blink: &mut crate::player_clusters::BodyBlinkState,
+    combo_trace: &mut crate::player_clusters::BodyComboTrace,
     from: Vec2,
     to: Vec2,
     precision: bool,
@@ -70,7 +70,7 @@ pub fn complete_blink_clusters(
 pub fn blink_destination_clusters(
     world: &World,
     kinematics: &crate::player_clusters::BodyKinematics,
-    abilities: &crate::player_clusters::PlayerAbilities,
+    abilities: &crate::player_clusters::BodyAbilities,
     aim: Vec2,
     max_distance: f32,
 ) -> Vec2 {
@@ -89,7 +89,7 @@ pub fn blink_destination_clusters(
 pub fn blink_destination_to_point_clusters(
     world: &World,
     kinematics: &crate::player_clusters::BodyKinematics,
-    abilities: &crate::player_clusters::PlayerAbilities,
+    abilities: &crate::player_clusters::BodyAbilities,
     target: Vec2,
 ) -> Vec2 {
     blink_destination_to_point_internal(

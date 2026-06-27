@@ -290,11 +290,11 @@ pub(super) fn integrate_velocity_clusters(
 /// onto this spine (and the reason their Y-only `gravity_sign` fall bug vanishes).
 pub(super) fn integrate_normal_clusters(
     kinematics: &mut crate::player_clusters::BodyKinematics,
-    flight: &mut crate::player_clusters::PlayerFlightState,
-    ground: &crate::player_clusters::PlayerGroundState,
-    blink: &crate::player_clusters::PlayerBlinkState,
-    env_contact: &crate::player_clusters::PlayerEnvironmentContact,
-    abilities: &crate::player_clusters::PlayerAbilities,
+    flight: &mut crate::player_clusters::BodyFlightState,
+    ground: &crate::player_clusters::BodyGroundState,
+    blink: &crate::player_clusters::BodyBlinkState,
+    env_contact: &crate::player_clusters::BodyEnvironmentContact,
+    abilities: &crate::player_clusters::BodyAbilities,
     input: InputState,
     dt: f32,
     tuning: MovementTuning,
@@ -327,7 +327,7 @@ pub(super) fn integrate_normal_clusters(
 #[derive(Clone, Copy)]
 pub struct NormalSpineCtx {
     pub on_ground: bool,
-    /// Blink hang-time is active this frame (`PlayerBlinkState::grace_timer > 0`).
+    /// Blink hang-time is active this frame (`BodyBlinkState::grace_timer > 0`).
     pub blink_grace: bool,
     pub water: Option<crate::world::WaterContact>,
     pub can_fast_fall: bool,
@@ -443,10 +443,10 @@ pub fn integrate_normal_spine(
 
 pub(super) fn integrate_climb_clusters(
     kinematics: &mut crate::player_clusters::BodyKinematics,
-    env_contact: &crate::player_clusters::PlayerEnvironmentContact,
-    flight: &mut crate::player_clusters::PlayerFlightState,
-    wall: &mut crate::player_clusters::PlayerWallState,
-    jump: &mut crate::player_clusters::PlayerJumpState,
+    env_contact: &crate::player_clusters::BodyEnvironmentContact,
+    flight: &mut crate::player_clusters::BodyFlightState,
+    wall: &mut crate::player_clusters::BodyWallState,
+    jump: &mut crate::player_clusters::BodyJumpState,
     input: InputState,
     dt: f32,
     tuning: MovementTuning,
@@ -488,8 +488,8 @@ pub(super) fn integrate_climb_clusters(
 /// terminal speed. Clears fast-fall + wall-cling flags by mode.
 pub(super) fn integrate_flight_clusters(
     kinematics: &mut crate::player_clusters::BodyKinematics,
-    flight: &mut crate::player_clusters::PlayerFlightState,
-    wall: &mut crate::player_clusters::PlayerWallState,
+    flight: &mut crate::player_clusters::BodyFlightState,
+    wall: &mut crate::player_clusters::BodyWallState,
     input: InputState,
     dt: f32,
     tuning: MovementTuning,
@@ -537,10 +537,10 @@ pub(super) fn integrate_flight_clusters(
 ///
 pub(super) fn apply_wall_abilities_clusters(
     kinematics: &mut crate::player_clusters::BodyKinematics,
-    ground: &crate::player_clusters::PlayerGroundState,
-    wall: &mut crate::player_clusters::PlayerWallState,
-    abilities: &crate::player_clusters::PlayerAbilities,
-    combo_trace: &mut crate::player_clusters::PlayerComboTrace,
+    ground: &crate::player_clusters::BodyGroundState,
+    wall: &mut crate::player_clusters::BodyWallState,
+    abilities: &crate::player_clusters::BodyAbilities,
+    combo_trace: &mut crate::player_clusters::BodyComboTrace,
     input: InputState,
     tuning: MovementTuning,
     was_clinging: bool,

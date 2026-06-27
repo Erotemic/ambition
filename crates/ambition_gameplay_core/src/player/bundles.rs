@@ -10,11 +10,11 @@ use super::components::{
 };
 use crate::actor::{BodyCombat, BodyHealth};
 use super::movement_components::{
-    BodyKinematics, PlayerAbilities, PlayerActionBuffer, PlayerBaseSize, PlayerBlinkState,
-    PlayerBodyModeState, PlayerComboTrace, PlayerDashState, PlayerDodgeState,
-    PlayerEnvironmentContact, PlayerFlightState, PlayerGroundState, PlayerJumpState,
-    PlayerLedgeState, PlayerLifetime, PlayerMana, PlayerOffense, PlayerShieldState,
-    PlayerWallState,
+    BodyKinematics, BodyAbilities, BodyActionBuffer, BodyBaseSize, BodyBlinkState,
+    BodyModeState, BodyComboTrace, BodyDashState, BodyDodgeState,
+    BodyEnvironmentContact, BodyFlightState, BodyGroundState, BodyJumpState,
+    BodyLedgeState, BodyLifetime, BodyMana, BodyOffense, BodyShieldState,
+    BodyWallState,
 };
 use ambition_characters::brain::{ActionSet, ActorControl, Brain};
 use crate::features::{ActorFaction, ActorPose};
@@ -87,25 +87,25 @@ pub struct PlayerSimulationBundle {
     // every engine entry point reads / writes them through
     // `PlayerClustersMut`. See `engine_core/player_clusters.rs` for
     // the per-cluster shape.
-    pub abilities: PlayerAbilities,
+    pub abilities: BodyAbilities,
     pub kinematics: BodyKinematics,
-    pub base_size: PlayerBaseSize,
-    pub ground: PlayerGroundState,
-    pub wall: PlayerWallState,
-    pub jump: PlayerJumpState,
-    pub dash: PlayerDashState,
-    pub flight: PlayerFlightState,
-    pub blink: PlayerBlinkState,
-    pub ledge: PlayerLedgeState,
-    pub dodge: PlayerDodgeState,
-    pub shield: PlayerShieldState,
-    pub body_mode: PlayerBodyModeState,
-    pub env_contact: PlayerEnvironmentContact,
-    pub mana: PlayerMana,
-    pub offense: PlayerOffense,
-    pub action_buffer: PlayerActionBuffer,
-    pub lifetime: PlayerLifetime,
-    pub combo_trace: PlayerComboTrace,
+    pub base_size: BodyBaseSize,
+    pub ground: BodyGroundState,
+    pub wall: BodyWallState,
+    pub jump: BodyJumpState,
+    pub dash: BodyDashState,
+    pub flight: BodyFlightState,
+    pub blink: BodyBlinkState,
+    pub ledge: BodyLedgeState,
+    pub dodge: BodyDodgeState,
+    pub shield: BodyShieldState,
+    pub body_mode: BodyModeState,
+    pub env_contact: BodyEnvironmentContact,
+    pub mana: BodyMana,
+    pub offense: BodyOffense,
+    pub action_buffer: BodyActionBuffer,
+    pub lifetime: BodyLifetime,
+    pub combo_trace: BodyComboTrace,
     /// Per-player projectile state — spawner cooldowns, charge timer,
     /// motion-input buffer, in-flight body list. Was previously a
     /// global `Res<PlayerProjectileState>`; per-actor migration so

@@ -17,16 +17,13 @@
 //! `ae::Player` scratchpad or `engine_player_bridge` shim remains
 //! (both deleted 2026-05-28).
 
-pub use ambition_engine_core::{
-    BodyKinematics, EnginePlayerAbilities as PlayerAbilities,
-    EnginePlayerActionBuffer as PlayerActionBuffer, EnginePlayerBaseSize as PlayerBaseSize,
-    EnginePlayerBlinkState as PlayerBlinkState, EnginePlayerBodyModeState as PlayerBodyModeState,
-    EnginePlayerComboTrace as PlayerComboTrace, EnginePlayerDashState as PlayerDashState,
-    EnginePlayerDodgeState as PlayerDodgeState,
-    EnginePlayerEnvironmentContact as PlayerEnvironmentContact,
-    EnginePlayerFlightState as PlayerFlightState, EnginePlayerGroundState as PlayerGroundState,
-    EnginePlayerJumpState as PlayerJumpState, EnginePlayerLedgeState as PlayerLedgeState,
-    EnginePlayerLifetime as PlayerLifetime, EnginePlayerMana as PlayerMana,
-    EnginePlayerOffense as PlayerOffense, EnginePlayerShieldState as PlayerShieldState,
-    EnginePlayerWallState as PlayerWallState,
+// The shared body movement-cluster components now live on the neutral actor
+// vocabulary (`crate::actor`) under the `Body*` convention — they are not
+// player-specific. This facade re-exports them for player-internal convenience;
+// non-player code imports them straight from `crate::actor`.
+pub use crate::actor::{
+    BodyAbilities, BodyActionBuffer, BodyBaseSize, BodyBlinkState, BodyComboTrace, BodyDashState,
+    BodyDodgeState, BodyEnvironmentContact, BodyFlightState, BodyGroundState, BodyJumpState,
+    BodyKinematics, BodyLedgeState, BodyLifetime, BodyMana, BodyModeState, BodyOffense,
+    BodyShieldState, BodyWallState,
 };

@@ -75,7 +75,7 @@ fn axis_face_resolution(body: Aabb, block: Aabb, axis: Axis) -> (Vec2, Vec2) {
 }
 
 fn apply_side_contact(
-    wall: &mut crate::player_clusters::PlayerWallState,
+    wall: &mut crate::player_clusters::BodyWallState,
     world_normal: Vec2,
     gravity_dir: Vec2,
 ) {
@@ -88,8 +88,8 @@ fn apply_side_contact(
 }
 
 fn block_passable_during_climb_clusters(
-    body_mode: &crate::player_clusters::PlayerBodyModeState,
-    env_contact: &crate::player_clusters::PlayerEnvironmentContact,
+    body_mode: &crate::player_clusters::BodyModeState,
+    env_contact: &crate::player_clusters::BodyEnvironmentContact,
     block: &crate::world::Block,
 ) -> bool {
     if !matches!(body_mode.body_mode, crate::player_state::BodyMode::Climbing) {
@@ -121,9 +121,9 @@ pub(super) fn body_is_side_contact(body: Aabb, block: Aabb) -> bool {
 pub(super) fn sweep_player_x_clusters(
     world: &World,
     kinematics: &mut crate::player_clusters::BodyKinematics,
-    wall: &mut crate::player_clusters::PlayerWallState,
-    body_mode: &crate::player_clusters::PlayerBodyModeState,
-    env_contact: &crate::player_clusters::PlayerEnvironmentContact,
+    wall: &mut crate::player_clusters::BodyWallState,
+    body_mode: &crate::player_clusters::BodyModeState,
+    env_contact: &crate::player_clusters::BodyEnvironmentContact,
     delta_x: f32,
     drop_through: bool,
     gravity_dir: Vec2,
@@ -232,10 +232,10 @@ pub(super) fn sweep_player_x_clusters(
 pub(super) fn sweep_player_y_clusters(
     world: &World,
     kinematics: &mut crate::player_clusters::BodyKinematics,
-    ground: &mut crate::player_clusters::PlayerGroundState,
-    wall: &mut crate::player_clusters::PlayerWallState,
-    body_mode: &crate::player_clusters::PlayerBodyModeState,
-    env_contact: &crate::player_clusters::PlayerEnvironmentContact,
+    ground: &mut crate::player_clusters::BodyGroundState,
+    wall: &mut crate::player_clusters::BodyWallState,
+    body_mode: &crate::player_clusters::BodyModeState,
+    env_contact: &crate::player_clusters::BodyEnvironmentContact,
     delta_y: f32,
     prev_feet_coord: f32,
     drop_through: bool,
@@ -401,9 +401,9 @@ fn resolve_x_penetration(body: Aabb, block: Aabb, world_w: f32) -> Option<(f32, 
 fn resolve_axis_clusters(
     world: &World,
     kinematics: &mut crate::player_clusters::BodyKinematics,
-    wall: &mut crate::player_clusters::PlayerWallState,
-    _body_mode: &crate::player_clusters::PlayerBodyModeState,
-    _env_contact: &crate::player_clusters::PlayerEnvironmentContact,
+    wall: &mut crate::player_clusters::BodyWallState,
+    _body_mode: &crate::player_clusters::BodyModeState,
+    _env_contact: &crate::player_clusters::BodyEnvironmentContact,
     axis: Axis,
     gravity_dir: Vec2,
 ) {
@@ -459,10 +459,10 @@ fn resolve_axis_clusters(
 fn resolve_vertical_clusters(
     world: &World,
     kinematics: &mut crate::player_clusters::BodyKinematics,
-    ground: &mut crate::player_clusters::PlayerGroundState,
-    wall: &mut crate::player_clusters::PlayerWallState,
-    _body_mode: &crate::player_clusters::PlayerBodyModeState,
-    _env_contact: &crate::player_clusters::PlayerEnvironmentContact,
+    ground: &mut crate::player_clusters::BodyGroundState,
+    wall: &mut crate::player_clusters::BodyWallState,
+    _body_mode: &crate::player_clusters::BodyModeState,
+    _env_contact: &crate::player_clusters::BodyEnvironmentContact,
     prev_feet_coord: f32,
     drop_through: bool,
     gravity_dir: Vec2,

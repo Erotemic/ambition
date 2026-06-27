@@ -433,7 +433,7 @@ mod dispatch_parity {
     use ambition_gameplay_core::menu::backend::InventoryUiBackend;
     use ambition_gameplay_core::persistence::settings::{SystemMenuEntryId, UserSettings};
     use ambition_gameplay_core::player::{
-        PlayerEntity, PlayerHealRequested, PlayerMana, PrimaryPlayer,
+        PlayerEntity, PlayerHealRequested, BodyMana, PrimaryPlayer,
     };
     use ambition_gameplay_core::session::game_mode::GameMode;
 
@@ -480,7 +480,7 @@ mod dispatch_parity {
             PlayerEntity,
             PrimaryPlayer,
             ActionSet::default(),
-            PlayerMana::default(),
+            BodyMana::default(),
         ));
         app.update();
         app

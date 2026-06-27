@@ -1006,7 +1006,7 @@ fn project_liquid(
 fn grant_room_swim_controls(
     room_set: Res<crate::rooms::RoomSet>,
     mut state: ResMut<FallingSandRoomState>,
-    mut players: Query<(Entity, &mut crate::player::PlayerAbilities)>,
+    mut players: Query<(Entity, &mut crate::player::BodyAbilities)>,
 ) {
     if room_set.active_spec().id == ROOM_ID {
         for (entity, mut abilities) in &mut players {

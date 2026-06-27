@@ -14,9 +14,9 @@ use super::input::InputState;
 use super::ops::MovementOp;
 use super::tuning::MovementTuning;
 use crate::player_clusters::{
-    BodyKinematics, PlayerAbilities, PlayerActionBuffer, PlayerBlinkState, PlayerComboTrace,
-    PlayerDashState, PlayerDodgeState, PlayerFlightState, PlayerGroundState, PlayerShieldState,
-    PlayerWallState,
+    BodyKinematics, BodyAbilities, BodyActionBuffer, BodyBlinkState, BodyComboTrace,
+    BodyDashState, BodyDodgeState, BodyFlightState, BodyGroundState, BodyShieldState,
+    BodyWallState,
 };
 
 /// Facing + input buffering: turn to face the stick (only when grounded or
@@ -24,10 +24,10 @@ use crate::player_clusters::{
 /// consumes them in. The intent step at the head of the control phase.
 pub(super) fn apply_intent(
     kinematics: &mut BodyKinematics,
-    ground: &PlayerGroundState,
-    flight: &PlayerFlightState,
-    action_buffer: &mut PlayerActionBuffer,
-    abilities: &PlayerAbilities,
+    ground: &BodyGroundState,
+    flight: &BodyFlightState,
+    action_buffer: &mut BodyActionBuffer,
+    abilities: &BodyAbilities,
     input: InputState,
     tuning: MovementTuning,
 ) {
@@ -47,12 +47,12 @@ pub(super) fn apply_intent(
 /// Flight toggle: flip fly mode; on entering, clear transient ground/wall/dash/
 /// blink state so the body cleanly enters free flight.
 pub(super) fn apply_fly_toggle(
-    flight: &mut PlayerFlightState,
-    wall: &mut PlayerWallState,
-    dash: &mut PlayerDashState,
-    blink: &mut PlayerBlinkState,
-    abilities: &PlayerAbilities,
-    combo_trace: &mut PlayerComboTrace,
+    flight: &mut BodyFlightState,
+    wall: &mut BodyWallState,
+    dash: &mut BodyDashState,
+    blink: &mut BodyBlinkState,
+    abilities: &BodyAbilities,
+    combo_trace: &mut BodyComboTrace,
     input: InputState,
     events: &mut FrameEvents,
 ) {
@@ -73,11 +73,11 @@ pub(super) fn apply_fly_toggle(
 /// dodge ability claims the dash buffer before `apply_dash` would).
 pub(super) fn apply_dodge(
     kinematics: &mut BodyKinematics,
-    dodge: &mut PlayerDodgeState,
-    action_buffer: &mut PlayerActionBuffer,
-    ground: &PlayerGroundState,
-    abilities: &PlayerAbilities,
-    combo_trace: &mut PlayerComboTrace,
+    dodge: &mut BodyDodgeState,
+    action_buffer: &mut BodyActionBuffer,
+    ground: &BodyGroundState,
+    abilities: &BodyAbilities,
+    combo_trace: &mut BodyComboTrace,
     input: InputState,
     tuning: MovementTuning,
     events: &mut FrameEvents,
@@ -139,10 +139,10 @@ pub fn resolve_shield(
 /// Shield / parry hold. Can't raise while dashing; opens a parry window on the
 /// rising edge. Thin player-side wrapper over the shared [`resolve_shield`] rule.
 pub(super) fn apply_shield(
-    shield: &mut PlayerShieldState,
-    dash: &PlayerDashState,
-    abilities: &PlayerAbilities,
-    combo_trace: &mut PlayerComboTrace,
+    shield: &mut BodyShieldState,
+    dash: &BodyDashState,
+    abilities: &BodyAbilities,
+    combo_trace: &mut BodyComboTrace,
     input: InputState,
     tuning: MovementTuning,
     events: &mut FrameEvents,
@@ -163,7 +163,7 @@ pub(super) fn apply_shield(
 /// Variable jump height: cut the rising jump short on an early button release.
 pub(super) fn apply_jump_release(
     kinematics: &mut BodyKinematics,
-    abilities: &PlayerAbilities,
+    abilities: &BodyAbilities,
     input: InputState,
     tuning: MovementTuning,
 ) {
@@ -187,10 +187,10 @@ pub(super) fn apply_jump_release(
 /// after dodge (which consumes the same buffer on the ground first).
 pub(super) fn apply_dash(
     kinematics: &mut BodyKinematics,
-    dash: &mut PlayerDashState,
-    action_buffer: &mut PlayerActionBuffer,
-    abilities: &PlayerAbilities,
-    combo_trace: &mut PlayerComboTrace,
+    dash: &mut BodyDashState,
+    action_buffer: &mut BodyActionBuffer,
+    abilities: &BodyAbilities,
+    combo_trace: &mut BodyComboTrace,
     input: InputState,
     tuning: MovementTuning,
     events: &mut FrameEvents,

@@ -9,7 +9,7 @@ use ambition_input::ControlFrame;
 use ambition_gameplay_core::platformer_runtime::gravity::{gravity_upright_angle, GravityField};
 use ambition_gameplay_core::platformer_runtime::orientation::{update_actor_roll, ActorRoll};
 use ambition_gameplay_core::platformer_runtime::transit::rotate_velocity_between_normals as portal_transform_velocity;
-use ambition_gameplay_core::player::{BodyKinematics, PlayerBaseSize, PlayerEntity, PrimaryPlayer};
+use ambition_gameplay_core::player::{BodyKinematics, BodyBaseSize, PlayerEntity, PrimaryPlayer};
 use ambition_gameplay_core::RoomGeometry;
 
 #[allow(unused_imports)]
@@ -50,7 +50,7 @@ fn spawn_player(app: &mut App, pos: Vec2, facing: f32) -> Entity {
                 size: Vec2::new(24.0, 40.0),
                 facing,
             },
-            PlayerBaseSize {
+            BodyBaseSize {
                 base_size: Vec2::new(24.0, 40.0),
             },
             PortalGun::default(),
@@ -710,7 +710,7 @@ fn a_gunless_player_transits_an_authored_pair() {
                 size: Vec2::new(24.0, 40.0),
                 facing: 1.0,
             },
-            PlayerBaseSize {
+            BodyBaseSize {
                 base_size: Vec2::new(24.0, 40.0),
             },
             // No PortalGun on purpose.
@@ -916,7 +916,7 @@ fn partial_render_keeps_the_sprite_and_adds_the_exit_copy() {
                 size: Vec2::new(24.0, 40.0),
                 facing: 1.0,
             },
-            PlayerBaseSize {
+            BodyBaseSize {
                 base_size: Vec2::new(24.0, 40.0),
             },
             Sprite::from_color(Color::WHITE, Vec2::new(24.0, 40.0)),

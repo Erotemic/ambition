@@ -270,7 +270,7 @@ pub fn update_ecs_bosses(
             &crate::player::PlayerOffense,
             &crate::player::PlayerDodgeState,
             &crate::player::PlayerShieldState,
-            &crate::player::PlayerCombatState,
+            &crate::actor::BodyCombat,
         ),
         With<crate::actor::PlayerEntity>,
     >,

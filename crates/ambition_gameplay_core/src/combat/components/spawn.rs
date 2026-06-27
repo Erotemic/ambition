@@ -119,7 +119,7 @@ pub struct EnemyActorBundle {
     pub combat_kit: CombatKit,
     pub aggression: ActorAggression,
     pub health: BodyHealth,
-    pub combat: ActorCombatState,
+    pub combat: BodyCombat,
     pub intent: ActorIntent,
     pub cooldowns: ActorCooldowns,
     pub damageable_volumes: DamageableVolumes,
@@ -147,7 +147,7 @@ impl EnemyActorBundle {
         combat_kit: CombatKit,
         aggression: ActorAggression,
         health: BodyHealth,
-        combat: ActorCombatState,
+        combat: BodyCombat,
         intent: ActorIntent,
         cooldowns: ActorCooldowns,
     ) -> Self {

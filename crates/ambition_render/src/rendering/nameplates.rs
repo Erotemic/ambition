@@ -11,7 +11,7 @@ use std::collections::{HashMap, HashSet};
 
 use ambition_engine_core::{self as ae, AabbExt};
 use ambition_gameplay_core::features::{
-    ActorCombatState, BodyHealth, ActorIdentity, BossPhase, CenteredAabb, FeatureId,
+    BodyCombat, BodyHealth, ActorIdentity, BossPhase, CenteredAabb, FeatureId,
     FeatureSimEntity, FeatureViewIndex,
 };
 use ambition_gameplay_core::player::PrimaryPlayerOnly;
@@ -182,7 +182,7 @@ pub fn sync_actor_nameplates(
             &FeatureId,
             &ActorIdentity,
             &CenteredAabb,
-            Option<&ActorCombatState>,
+            Option<&BodyCombat>,
             Option<&BodyHealth>,
             Option<&BossPhase>,
         ),
@@ -315,7 +315,7 @@ fn collect_actor_candidates(
             &FeatureId,
             &ActorIdentity,
             &CenteredAabb,
-            Option<&ActorCombatState>,
+            Option<&BodyCombat>,
             Option<&BodyHealth>,
             Option<&BossPhase>,
         ),
@@ -455,7 +455,7 @@ fn camera_controlled_actor(
 }
 
 fn actor_nameplate_alive(
-    combat: Option<&ActorCombatState>,
+    combat: Option<&BodyCombat>,
     health: Option<&BodyHealth>,
     boss_phase: Option<&BossPhase>,
 ) -> bool {

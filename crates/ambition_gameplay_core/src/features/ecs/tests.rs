@@ -130,7 +130,7 @@ fn overlay_uses_published_pogo_volumes_instead_of_boss_body_aabb() {
 #[test]
 fn boss_classifies_as_boss_not_the_actor_enemy_fallback() {
     // Regression: bosses carry the shared actor read-models (`ActorDisposition`,
-    // `ActorCombatState`, …) synced by `sync_boss_actor_components`. The
+    // `BodyCombat`, …) synced by `sync_boss_actor_components`. The
     // view-index `actors` query keys on those, so without a
     // `Without<BossConfig>` exclusion a boss matches the actor family — which is
     // inserted BEFORE the boss family (first-wins priority) — and renders as the

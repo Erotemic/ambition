@@ -21,7 +21,7 @@ pub struct BossSpriteMetricsApplied;
 ///
 /// Bosses still own encounter-specific state through [`BossFeature`] and the
 /// boss encounter registry, but their generic combat shape is now exposed
-/// through the same `ActorIdentity` / `BodyHealth` / `ActorCombatState` /
+/// through the same `ActorIdentity` / `BodyHealth` / `BodyCombat` /
 /// `ActorIntent` components used by NPCs and enemies. This keeps future
 /// faction, targeting, HUD, and held-item work from needing to pattern-match
 /// directly on `BossFeature` for ordinary combat facts.
@@ -32,7 +32,7 @@ pub(crate) fn boss_component_snapshot(
     ActorIdentity,
     ActorDisposition,
     BodyHealth,
-    ActorCombatState,
+    BodyCombat,
     ActorIntent,
     ActorCooldowns,
 ) {
@@ -49,7 +49,7 @@ pub(crate) fn boss_component_snapshot(
         ActorIdentity::new(boss.config.id.clone(), boss.config.name.clone()),
         ActorDisposition::Hostile,
         BodyHealth::new(boss.status.health),
-        ActorCombatState::hostile(
+        BodyCombat::hostile(
             boss.status.alive,
             boss.status.hit_flash,
             attack_state.telegraph_remaining,
@@ -75,7 +75,7 @@ pub fn sync_boss_actor_components(
             &mut ActorIdentity,
             &mut ActorDisposition,
             &mut BodyHealth,
-            &mut ActorCombatState,
+            &mut BodyCombat,
             &mut ActorIntent,
             &mut ActorCooldowns,
         ),

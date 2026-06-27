@@ -297,7 +297,7 @@ pub(super) fn non_looping(anim: CharacterAnim) -> bool {
 /// time to sell the arrival.
 ///
 /// `anim` is the authoritative ECS component for presentation timers.
-/// `combat` provides `hitstun_timer` (now on `PlayerCombatState`).
+/// `combat` provides `hitstun_timer` (now on `BodyCombat`).
 /// `blink_cam` provides `blink_in_timer` (now on `PlayerBlinkCameraState`).
 /// `attack` is the active swing from `player::ActivePlayerAttack`; `None` when idle.
 ///
@@ -308,7 +308,7 @@ pub(super) fn non_looping(anim: CharacterAnim) -> bool {
 #[allow(clippy::too_many_arguments)]
 pub fn pick_player_anim(
     anim: &PlayerAnimState,
-    combat: &crate::player::PlayerCombatState,
+    combat: &crate::actor::BodyCombat,
     blink_cam: &crate::player::PlayerBlinkCameraState,
     attack: Option<&crate::PlayerAttackState>,
     kinematics: &crate::actor::BodyKinematics,

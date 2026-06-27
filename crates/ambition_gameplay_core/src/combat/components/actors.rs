@@ -369,46 +369,10 @@ impl ActorAttackState {
     }
 }
 
-/// ECS-visible combat/presentation state shared by NPCs, enemies, and bosses.
-#[derive(Component, Clone, Copy, Debug, PartialEq)]
-pub struct ActorCombatState {
-    pub alive: bool,
-    pub hit_flash: f32,
-    pub strike_count: i32,
-    pub attack_windup_timer: f32,
-    pub attack_timer: f32,
-    pub training_dummy: bool,
-}
-
-impl ActorCombatState {
-    pub fn peaceful(strike_count: i32, hit_flash: f32) -> Self {
-        Self {
-            alive: true,
-            hit_flash,
-            strike_count,
-            attack_windup_timer: 0.0,
-            attack_timer: 0.0,
-            training_dummy: false,
-        }
-    }
-
-    pub fn hostile(
-        alive: bool,
-        hit_flash: f32,
-        attack_windup_timer: f32,
-        attack_timer: f32,
-        training_dummy: bool,
-    ) -> Self {
-        Self {
-            alive,
-            hit_flash,
-            strike_count: 0,
-            attack_windup_timer,
-            attack_timer,
-            training_dummy,
-        }
-    }
-}
+/// Combat/presentation state is now the unified [`crate::actor::BodyCombat`] (the
+/// player, actors, and bosses share one component). Re-exported here so the actor
+/// systems + the `crate::features` facade keep surfacing it.
+pub use crate::actor::BodyCombat;
 
 /// ECS-visible actor AI intent. Mirrors `ambition_characters::actor::ai::CharacterAiMode` so rendering and
 /// HUD systems can branch on actor state without a per-family runtime.

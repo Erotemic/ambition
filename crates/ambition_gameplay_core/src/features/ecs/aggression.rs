@@ -9,7 +9,7 @@
 use bevy::prelude::*;
 
 use super::{
-    sync_actor_components_from_cluster, ActorAggression, ActorCombatState, ActorCooldowns,
+    sync_actor_components_from_cluster, ActorAggression, BodyCombat, ActorCooldowns,
     ActorDisposition, BodyHealth, ActorIdentity, ActorIntent, ActorInteraction, AggressionMode,
     CombatKit, FeatureSimEntity, HeldItem,
 };
@@ -31,7 +31,7 @@ pub fn apply_actor_stimuli(
             &mut ActorIdentity,
             &mut ActorDisposition,
             &mut BodyHealth,
-            &mut ActorCombatState,
+            &mut BodyCombat,
             &mut ActorIntent,
             &mut ActorCooldowns,
             super::actor_clusters::ActorClusterQueryData,

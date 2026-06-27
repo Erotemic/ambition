@@ -36,7 +36,7 @@ pub mod trail;
 
 pub use bundles::{PlayerIdentityBundle, PlayerSimulationBundle};
 pub use components::{
-    ActivePlayerAttack, LocalPlayer, PlayerAnimState, PlayerBlinkCameraState, PlayerCombatState,
+    ActivePlayerAttack, LocalPlayer, PlayerAnimState, PlayerBlinkCameraState,
     PlayerEntity, PlayerInputFrame, PlayerInteractionState, PlayerSafetyState,
     PlayerSlot, PlayerWallet, PrimaryPlayer,
 };

@@ -21,7 +21,7 @@ pub fn sync_ecs_actors_with_save(
             &mut ActorIdentity,
             &mut ActorDisposition,
             &mut BodyHealth,
-            &mut ActorCombatState,
+            &mut BodyCombat,
             &mut ActorIntent,
             &mut ActorCooldowns,
             &mut ActorAggression,

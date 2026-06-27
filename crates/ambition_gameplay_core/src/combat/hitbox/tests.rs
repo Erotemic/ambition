@@ -406,7 +406,7 @@ fn enemy_hitbox_over_player_app(relations: FactionRelations) -> (App, Entity) {
             crate::player::PlayerOffense::default(),
             crate::player::PlayerDodgeState::default(),
             crate::player::PlayerShieldState::default(),
-            crate::player::PlayerCombatState::default(),
+            crate::actor::BodyCombat::default(),
         ))
         .id();
     (app, player)

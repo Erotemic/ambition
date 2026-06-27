@@ -30,7 +30,7 @@ pub(crate) fn reset_sandbox(
     safety: &mut ambition_gameplay_core::player::PlayerSafetyState,
     attack: &mut Option<ambition_gameplay_core::PlayerAttackState>,
     anim: &mut ambition_gameplay_core::player::PlayerAnimState,
-    combat: &mut ambition_gameplay_core::player::PlayerCombatState,
+    combat: &mut ambition_gameplay_core::actor::BodyCombat,
     interaction: &mut ambition_gameplay_core::player::PlayerInteractionState,
     blink_cam: &mut ambition_gameplay_core::player::PlayerBlinkCameraState,
     tuning: ae::MovementTuning,
@@ -73,7 +73,7 @@ pub(crate) fn load_room(
     safety: &mut ambition_gameplay_core::player::PlayerSafetyState,
     moving_platforms: &mut Vec<ambition_gameplay_core::world::platforms::MovingPlatformState>,
     dialogue: &mut ambition_gameplay_core::dialog::DialogState,
-    combat: &mut ambition_gameplay_core::player::PlayerCombatState,
+    combat: &mut ambition_gameplay_core::actor::BodyCombat,
     interaction: &mut ambition_gameplay_core::player::PlayerInteractionState,
     blink_cam: &mut ambition_gameplay_core::player::PlayerBlinkCameraState,
     world: &mut RoomGeometry,
@@ -175,7 +175,7 @@ pub(crate) fn apply_room_transition_system(
     mut player_q: Query<
         (
             ae::PlayerClusterQueryData,
-            &mut ambition_gameplay_core::player::PlayerCombatState,
+            &mut ambition_gameplay_core::actor::BodyCombat,
             &mut ambition_gameplay_core::player::PlayerInteractionState,
             &mut ambition_gameplay_core::player::PlayerBlinkCameraState,
             &mut ambition_gameplay_core::player::PlayerSafetyState,

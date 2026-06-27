@@ -12,7 +12,7 @@ use super::*;
 pub fn record_simulation_frame(
     buffer: &mut GameplayTraceBuffer,
     clusters: &ae::PlayerClustersMut<'_>,
-    combat: &crate::player::PlayerCombatState,
+    combat: &crate::actor::BodyCombat,
     clock: &crate::time::clock_state::ClockState,
     safety: &crate::player::PlayerSafetyState,
     world: &ae::World,
@@ -133,7 +133,7 @@ pub fn record_frame_system(
             Option<&crate::actor::BodyHealth>,
             &crate::player::PlayerSafetyState,
             &crate::player::PlayerInputFrame,
-            &crate::player::PlayerCombatState,
+            &crate::actor::BodyCombat,
         ),
         crate::actor::PrimaryPlayerOnly,
     >,

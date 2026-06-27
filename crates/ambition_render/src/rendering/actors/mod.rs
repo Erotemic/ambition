@@ -47,7 +47,7 @@ pub fn sync_visuals(
             Option<&PlayerSpriteBaseline>,
             &ambition_gameplay_core::player::BodyKinematics,
             &ambition_gameplay_core::player::PlayerBaseSize,
-            &ambition_gameplay_core::player::PlayerCombatState,
+            &ambition_gameplay_core::actor::BodyCombat,
             Option<&ambition_gameplay_core::platformer_runtime::orientation::ActorRoll>,
         ),
         With<PlayerVisual>,

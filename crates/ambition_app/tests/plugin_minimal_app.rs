@@ -7,7 +7,7 @@
 //! - on the first tick exactly one player entity exists;
 //! - that entity carries the canonical simulation components
 //!   ([`PlayerEntity`], [`PlayerMovementAuthority`], [`PlayerBody`],
-//!   [`PlayerHealth`], [`PlayerCombatState`], [`PlayerAnimState`],
+//!   [`BodyHealth`], [`BodyCombat`], [`PlayerAnimState`],
 //!   [`PlayerInteractionState`], [`PlayerBlinkCameraState`]);
 //! - the canonical sim resources ([`SandboxSimState`], [`ControlFrame`],
 //!   [`RoomGeometry`], [`RoomSet`], [`MovingPlatformSet`]) are present;
@@ -21,11 +21,8 @@
 //! `crates/ambition_gameplay_core/src/**/tests.rs`.
 
 use ambition_input::ControlFrame;
-use ambition_gameplay_core::player::{
-    BodyKinematics, LocalPlayer, PlayerAnimState, PlayerBlinkCameraState, PlayerCombatState,
-    PlayerEntity, PlayerHealth, PlayerIdentityBundle, PlayerInteractionState, PlayerSlot,
-    PrimaryPlayer,
-};
+use ambition_gameplay_core::player::{BodyKinematics, LocalPlayer, PlayerAnimState, PlayerBlinkCameraState, PlayerEntity, PlayerIdentityBundle, PlayerInteractionState, PlayerSlot, PrimaryPlayer};
+use ambition_gameplay_core::actor::{BodyCombat, BodyHealth};
 use ambition_gameplay_core::rooms::RoomSet;
 use ambition_gameplay_core::{ClockState, GameMode, RoomGeometry, MovingPlatformSet, SandboxSimState};
 use bevy::asset::AssetPlugin;
@@ -105,8 +102,8 @@ fn player_entity_carries_canonical_sim_components() {
     // body geometry plus every presentation/state component.
     let mut q = app.world_mut().query_filtered::<(
         &BodyKinematics,
-        &PlayerHealth,
-        &PlayerCombatState,
+        &BodyHealth,
+        &BodyCombat,
         &PlayerAnimState,
         &PlayerInteractionState,
         &PlayerBlinkCameraState,
@@ -215,7 +212,7 @@ fn sandbox_simulation_plugin_advances_ticks_without_presentation() {
     // Player still exists and is alive.
     let mut q = app
         .world_mut()
-        .query_filtered::<&PlayerHealth, With<PlayerEntity>>();
+        .query_filtered::<&BodyHealth, With<PlayerEntity>>();
     let health = q
         .single(app.world())
         .expect("player must survive multiple idle ticks");

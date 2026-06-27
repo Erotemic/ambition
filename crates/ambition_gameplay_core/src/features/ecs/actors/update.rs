@@ -83,7 +83,7 @@ pub fn update_ecs_actors(
             &crate::player::PlayerOffense,
             &crate::player::PlayerDodgeState,
             &crate::player::PlayerShieldState,
-            &crate::player::PlayerCombatState,
+            &crate::actor::BodyCombat,
         ),
         bevy::prelude::With<crate::actor::PlayerEntity>,
     >,
@@ -101,7 +101,7 @@ pub fn update_ecs_actors(
             &mut ActorIdentity,
             &ActorDisposition,
             &mut BodyHealth,
-            &mut ActorCombatState,
+            &mut BodyCombat,
             &mut ActorIntent,
             &mut ActorCooldowns,
             &super::super::super::components::ActorTarget,
@@ -792,14 +792,14 @@ fn build_enemy_brain_snapshot(
 
 /// Mirror the authoritative actor cluster onto the ECS read-model components
 /// consumers read. Disposition is OWNED by spawn/provoke (not derived from the
-/// cluster), so it is read here (to pick peaceful vs hostile `ActorCombatState`)
+/// cluster), so it is read here (to pick peaceful vs hostile `BodyCombat`)
 /// but never written.
 pub fn sync_actor_components_from_cluster(
     em: &super::super::actor_clusters::ActorMut<'_>,
     disposition: ActorDisposition,
     identity: &mut ActorIdentity,
     health: &mut BodyHealth,
-    combat: &mut ActorCombatState,
+    combat: &mut BodyCombat,
     intent: &mut ActorIntent,
     cooldowns: &mut ActorCooldowns,
 ) {
@@ -816,7 +816,7 @@ pub fn sync_actor_components_from_cluster(
     }
     *health = BodyHealth::new(em.status.health);
     *combat = if disposition.is_hostile() {
-        ActorCombatState::hostile(
+        BodyCombat::hostile(
             em.status.alive,
             em.status.hit_flash,
             em.attack.windup_timer,
@@ -824,7 +824,7 @@ pub fn sync_actor_components_from_cluster(
             em.config.tuning.is_sandbag,
         )
     } else {
-        ActorCombatState::peaceful(0, em.status.hit_flash)
+        BodyCombat::peaceful(0, em.status.hit_flash)
     };
     *intent = ActorIntent::new(em.status.ai_mode);
     *cooldowns = ActorCooldowns {

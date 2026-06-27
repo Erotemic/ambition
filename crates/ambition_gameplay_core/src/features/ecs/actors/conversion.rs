@@ -71,7 +71,7 @@ pub(crate) fn hostile_spec_for_actor(
 }
 
 /// Build the read-model mirror components for an actor cluster seed at the given
-/// disposition. Peaceful actors get a peaceful `ActorCombatState`; hostile actors
+/// disposition. Peaceful actors get a peaceful `BodyCombat`; hostile actors
 /// the full hostile combat state.
 pub fn actor_component_snapshot(
     seed: &super::super::actor_clusters::ActorClusterSeed,
@@ -80,12 +80,12 @@ pub fn actor_component_snapshot(
     ActorIdentity,
     ActorDisposition,
     BodyHealth,
-    ActorCombatState,
+    BodyCombat,
     ActorIntent,
     ActorCooldowns,
 ) {
     let combat = if disposition.is_hostile() {
-        ActorCombatState::hostile(
+        BodyCombat::hostile(
             seed.status.alive,
             seed.status.hit_flash,
             seed.attack.windup_timer,
@@ -93,7 +93,7 @@ pub fn actor_component_snapshot(
             seed.config.tuning.is_sandbag,
         )
     } else {
-        ActorCombatState::peaceful(0, seed.status.hit_flash)
+        BodyCombat::peaceful(0, seed.status.hit_flash)
     };
     (
         ActorIdentity::new(seed.config.id.clone(), seed.config.name.clone())
@@ -116,7 +116,7 @@ pub fn enemy_component_snapshot(
     ActorIdentity,
     ActorDisposition,
     BodyHealth,
-    ActorCombatState,
+    BodyCombat,
     ActorIntent,
     ActorCooldowns,
 ) {

@@ -10,7 +10,7 @@
 //! state it mutates already lives.
 //!
 //! Player-centrism note: the bodies still name the controlled actor "player"
-//! because the component vocabulary (`PlayerCombatState`, `ae::PlayerClustersMut`)
+//! because the component vocabulary (`BodyCombat`, `ae::PlayerClustersMut`)
 //! does. The relativity-principle fix is the actor-unification rename of those
 //! types, tracked separately; this drain only relocates and de-render-couples.
 
@@ -22,7 +22,8 @@ use ambition_vfx::vfx::VfxMessage;
 use crate::audio::SfxMessage;
 use crate::dev::dev_tools::EditableMovementTuning;
 use crate::features::{self, GameplayBanner, HitEvent as FeatureHitEvent};
-use crate::player::{PlayerAnimState, PlayerCombatState, PlayerInputFrame, PlayerSafetyState};
+use crate::player::{PlayerAnimState, PlayerInputFrame, PlayerSafetyState};
+use crate::actor::BodyCombat;
 use crate::actor::BodyHealth;
 use crate::actor::{PlayerEntity, PrimaryPlayer, PrimaryPlayerOnly};
 use crate::time::clock_state::ClockState;
@@ -72,7 +73,7 @@ pub(crate) fn death_respawn_player(
     from: ae::Vec2,
     cause: crate::DeathCause,
     anim: &mut PlayerAnimState,
-    combat: &mut PlayerCombatState,
+    combat: &mut BodyCombat,
 ) {
     let to = world.spawn;
     ae::reset_player_clusters(clusters, world.spawn);
@@ -117,7 +118,7 @@ pub(crate) fn handle_player_damage_events(
     feel: SandboxFeelTuning,
     difficulty_multiplier: f32,
     anim: &mut PlayerAnimState,
-    combat: &mut PlayerCombatState,
+    combat: &mut BodyCombat,
 ) {
     let Some(mut damage) = damage_events.first().cloned() else {
         return;
@@ -216,7 +217,7 @@ pub(crate) fn safe_respawn_player(
     clusters: &mut ae::PlayerClustersMut<'_>,
     clock: &mut ClockState,
     safety: &PlayerSafetyState,
-    combat: &mut PlayerCombatState,
+    combat: &mut BodyCombat,
     tuning: ae::MovementTuning,
     feel: SandboxFeelTuning,
     from: ae::Vec2,
@@ -276,7 +277,7 @@ pub(crate) fn apply_player_knockback(
     sfx: &mut MessageWriter<SfxMessage>,
     vfx: &mut MessageWriter<VfxMessage>,
     clusters: &mut ae::PlayerClustersMut<'_>,
-    combat: &mut PlayerCombatState,
+    combat: &mut BodyCombat,
     tuning: ae::MovementTuning,
     feel: SandboxFeelTuning,
     damage: &features::HitEvent,
@@ -364,7 +365,7 @@ pub fn apply_player_hit_events(
             ae::PlayerClusterQueryData,
             Option<&mut BodyHealth>,
             &mut PlayerAnimState,
-            &mut PlayerCombatState,
+            &mut BodyCombat,
             &mut PlayerSafetyState,
         ),
         PrimaryPlayerOnly,

@@ -79,7 +79,7 @@ pub fn despawn_encounter_mobs(
         Entity,
         &super::EncounterMob,
         &super::FeatureId,
-        &super::ActorCombatState,
+        &super::BodyCombat,
     )>,
     encounter_id: &str,
 ) {

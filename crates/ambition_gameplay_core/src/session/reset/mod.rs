@@ -84,7 +84,7 @@ pub fn process_sandbox_reset_request(
         (
             ae::PlayerClusterQueryData,
             &mut crate::player::PlayerAnimState,
-            &mut crate::player::PlayerCombatState,
+            &mut crate::actor::BodyCombat,
             &mut crate::player::PlayerBlinkCameraState,
             &mut crate::player::ActivePlayerAttack,
             &mut crate::player::PlayerSafetyState,

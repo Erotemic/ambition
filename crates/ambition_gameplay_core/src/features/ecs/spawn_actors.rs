@@ -718,7 +718,7 @@ pub(super) fn spawn_encounter_mob(
 /// Despawn all ECS mobs owned by an encounter attempt.
 pub(super) fn despawn_encounter_mobs(
     commands: &mut Commands,
-    mobs: &Query<(Entity, &EncounterMob, &FeatureId, &ActorCombatState)>,
+    mobs: &Query<(Entity, &EncounterMob, &FeatureId, &BodyCombat)>,
     encounter_id: &str,
 ) {
     for (entity, mob, _, _) in mobs.iter() {

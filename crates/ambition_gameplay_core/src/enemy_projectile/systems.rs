@@ -123,13 +123,14 @@ mod tests {
             crate::features::FeatureId::new("test_enemy"),
             crate::features::CenteredAabb::new(enemy_pos, ae::Vec2::new(16.0, 24.0)),
             crate::features::ActorDisposition::Hostile,
-            crate::features::ActorCombatState {
+            crate::features::BodyCombat {
                 alive: true,
                 hit_flash: 0.0,
                 strike_count: 0,
                 attack_windup_timer: 0.0,
                 attack_timer: 0.0,
                 training_dummy: false,
+                ..Default::default()
             },
         ));
         // A player-faction shot already overlapping the enemy.
@@ -278,7 +279,8 @@ mod tests {
     /// boss's attack at it.
     #[test]
     fn a_parried_enemy_shot_flips_to_player_faction_and_reverses() {
-        use crate::player::{PlayerBaseSize, PlayerCombatState, PlayerDodgeState, PlayerOffense, PlayerShieldState};
+        use crate::player::{PlayerBaseSize, PlayerDodgeState, PlayerOffense, PlayerShieldState};
+use crate::actor::BodyCombat;
 use crate::actor::{PlayerEntity};
 use crate::actor::BodyKinematics;
         let mut app = App::new();
@@ -320,7 +322,7 @@ use crate::actor::BodyKinematics;
                 active: true,
                 parry_window_timer: 0.2,
             },
-            PlayerCombatState::default(),
+            BodyCombat::default(),
         ));
         // An enemy bolt overlapping the player, travelling left (toward where it
         // came from — at the player).
@@ -370,7 +372,8 @@ use crate::actor::BodyKinematics;
     /// exercised.
     #[test]
     fn an_owned_enemy_shot_attributes_its_player_hit_to_the_firing_actor() {
-        use crate::player::{PlayerBaseSize, PlayerCombatState, PlayerDodgeState, PlayerOffense, PlayerShieldState};
+        use crate::player::{PlayerBaseSize, PlayerDodgeState, PlayerOffense, PlayerShieldState};
+use crate::actor::BodyCombat;
 use crate::actor::{PlayerEntity};
 use crate::actor::BodyKinematics;
         let mut app = App::new();
@@ -425,7 +428,7 @@ use crate::actor::BodyKinematics;
                 active: false,
                 parry_window_timer: 0.0,
             },
-            PlayerCombatState::default(),
+            BodyCombat::default(),
         ));
 
         // Fire an enemy-faction shot owned by `attacker`, overlapping the player.

@@ -116,7 +116,7 @@ pub fn rebuild_feature_view_index(
         // `sync_boss_actor_components` (WorldPrep, before this rebuild).
         // Presentation reads alive / hit-flash from here instead of the
         // BossRuntime fields, the same component enemies/NPCs expose.
-        &super::super::components::ActorCombatState,
+        &super::super::components::BodyCombat,
         Option<&BossDeathAnimation>,
         Option<&BossPhase>,
         // Gravity-upright roll — the SAME `ActorRoll` the player / enemies / NPCs
@@ -255,7 +255,7 @@ pub fn rebuild_feature_view_index(
     }
     for (id, feature, attack_state, combat, death_anim, phase, roll) in &bosses {
         let boss = feature.as_boss_ref();
-        // `alive` reads the shared `ActorCombatState` mirror; pos / size
+        // `alive` reads the shared `BodyCombat` mirror; pos / size
         // still come from `BossRuntime` until the boss body migrates to
         // `CenteredAabb` (ecs-cleanup-plan #9).
         let visible = combat.alive

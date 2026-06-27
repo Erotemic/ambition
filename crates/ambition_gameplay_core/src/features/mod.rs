@@ -114,7 +114,7 @@ pub use ecs::actor_component_snapshot;
 pub(crate) use ecs::spawn_runtime_minion;
 
 pub use components::{
-    ActorAggression, ActorAttackState, ActorCombatState, ActorCooldowns, ActorDisposition,
+    ActorAggression, ActorAttackState, BodyCombat, ActorCooldowns, ActorDisposition,
     ActorFaction, BodyHealth, ActorIdentity, ActorIntent, ActorInteraction, ActorPose,
     ActorRenderSize, ActorTarget, AggressionMode, AggressionTarget, BossDeathAnimation,
     BossPatternTimer, BossPhase, BossRewardChest, BreakableFeature, CenteredAabb, ChestBundle,

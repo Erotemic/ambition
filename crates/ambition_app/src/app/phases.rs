@@ -75,7 +75,7 @@ pub(super) fn player_control_phase(
     reset_room_features: &mut MessageWriter<features::ResetRoomFeaturesEvent>,
     _hit_events: &mut MessageWriter<features::HitEvent>,
     anim: &mut ambition_gameplay_core::player::PlayerAnimState,
-    combat: &mut ambition_gameplay_core::player::PlayerCombatState,
+    combat: &mut ambition_gameplay_core::actor::BodyCombat,
     interaction: &mut ambition_gameplay_core::player::PlayerInteractionState,
     blink_cam: &mut ambition_gameplay_core::player::PlayerBlinkCameraState,
     // True only for the camera/HUD-owning primary player. A brain-driven clone (or
@@ -177,7 +177,7 @@ pub(super) fn player_simulation_phase(
     feature_ecs_overlay: &features::FeatureEcsWorldOverlay,
     reset_room_features: &mut MessageWriter<features::ResetRoomFeaturesEvent>,
     anim: &mut ambition_gameplay_core::player::PlayerAnimState,
-    combat: &mut ambition_gameplay_core::player::PlayerCombatState,
+    combat: &mut ambition_gameplay_core::actor::BodyCombat,
     interaction: &mut ambition_gameplay_core::player::PlayerInteractionState,
     blink_cam: &mut ambition_gameplay_core::player::PlayerBlinkCameraState,
     // True only for the camera/HUD-owning primary. Non-primary player bodies (the

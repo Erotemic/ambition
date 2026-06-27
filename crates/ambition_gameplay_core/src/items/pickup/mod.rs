@@ -735,7 +735,7 @@ pub fn held_projectile_step(
             &crate::features::FeatureId,
             &crate::features::CenteredAabb,
             &crate::features::ActorDisposition,
-            &crate::features::ActorCombatState,
+            &crate::features::BodyCombat,
         ),
         (
             With<crate::features::FeatureSimEntity>,

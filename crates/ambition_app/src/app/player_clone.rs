@@ -128,7 +128,7 @@ pub fn spawn_requested_player_clone(
         // `PlayerVisual` body, not just the primary.
         (
             ambition_gameplay_core::player::PlayerAnimState::default(),
-            ambition_gameplay_core::player::PlayerCombatState::default(),
+            ambition_gameplay_core::actor::BodyCombat::default(),
             ambition_gameplay_core::player::PlayerBlinkCameraState::default(),
         ),
         // The clone IS a `PlayerEntity` (3c-ii): the iterating

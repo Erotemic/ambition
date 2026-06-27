@@ -29,9 +29,8 @@ use ambition_gameplay_core::boss_encounter::{BossEncounterPhase, EncounterDef, E
 use ambition_gameplay_core::combat::boss_clusters::{BossConfig, BossStatus};
 use ambition_gameplay_core::combat::{HitEvent, HitSource};
 use ambition_engine_core::{self as ae, AabbExt};
-use ambition_gameplay_core::player::{
-    BodyKinematics, PlayerCombatState, PlayerHealth, PrimaryPlayerOnly,
-};
+use ambition_gameplay_core::player::{BodyKinematics, PrimaryPlayerOnly};
+use ambition_gameplay_core::actor::{BodyCombat, BodyHealth};
 use bevy::ecs::message::Messages;
 use bevy::prelude::World;
 
@@ -67,7 +66,7 @@ struct BossSnapshot {
 
 fn read_player(world: &mut World) -> PlayerSnapshot {
     let mut q = world
-        .query_filtered::<(&BodyKinematics, &PlayerCombatState, &PlayerHealth), PrimaryPlayerOnly>(
+        .query_filtered::<(&BodyKinematics, &BodyCombat, &BodyHealth), PrimaryPlayerOnly>(
         );
     let (kin, combat, health) = q.single(world).expect("primary player exists");
     PlayerSnapshot {
@@ -97,7 +96,7 @@ fn read_boss(world: &mut World) -> Option<BossSnapshot> {
 /// can't trip a death/respawn mid-trace (which would muddy the hp-delta
 /// signal we use to detect i-frame-gated damage).
 fn boost_player_health(world: &mut World, hp: i32) {
-    let mut q = world.query_filtered::<&mut PlayerHealth, PrimaryPlayerOnly>();
+    let mut q = world.query_filtered::<&mut BodyHealth, PrimaryPlayerOnly>();
     if let Ok(mut health) = q.single_mut(world) {
         health.health.max = hp;
         health.health.current = hp;

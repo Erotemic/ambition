@@ -14,7 +14,7 @@
 //! - **Actor (NPC / enemy)**: `ActorStatus::hit_flash` on the unified
 //!   `hit_flash: f32` (seconds remaining).
 //! - **Boss**: [`ambition_gameplay_core::features::BossStatus::hit_flash`].
-//! - **Player**: [`ambition_gameplay_core::player::PlayerCombatState::flash_timer`].
+//! - **Player**: [`ambition_gameplay_core::actor::BodyCombat::flash_timer`].
 //!
 //! Replaces the pink multiplicative tint that
 //! [`super::actors::animate_characters`] and
@@ -222,7 +222,7 @@ pub fn sync_hit_flash_overlays(
     actors: Query<ambition_gameplay_core::features::ActorSpriteData>,
     bosses: Query<(&FeatureId, BossClusterRef)>,
     player_state: Query<
-        &ambition_gameplay_core::player::PlayerCombatState,
+        &ambition_gameplay_core::actor::BodyCombat,
         ambition_gameplay_core::player::PrimaryPlayerOnly,
     >,
     sources: Query<
@@ -258,7 +258,7 @@ pub fn sync_hit_flash_overlays(
         // Single dispatch covers every character type the universal
         // Brain/ActorControl architecture knows about — player, NPC,
         // enemy, boss. Each routes through a different per-entity
-        // storage today (PlayerCombatState vs the actor cluster vs
+        // storage today (BodyCombat vs the actor cluster vs
         // the boss cluster components) but they all converge on one shader uniform
         // through this lookup. A future refactor that unifies them
         // into a single `HitFlash` component can collapse this to
@@ -334,7 +334,7 @@ pub fn cleanup_hit_flash_overlays(
 ///
 /// | type | timer storage | set by damage |
 /// |------|---------------|---------------|
-/// | player | `PlayerCombatState::flash_timer` | `world_flow` damage paths |
+/// | player | `BodyCombat::flash_timer` | `world_flow` damage paths |
 /// | enemy  | `ActorStatus::hit_flash` (unified cluster) | actor damage paths |
 /// | NPC    | `ActorStatus::hit_flash` (unified cluster) | actor damage paths |
 /// | boss   | `BossStatus::hit_flash` (boss cluster)   | boss damage paths |
@@ -344,12 +344,12 @@ fn hit_flash_secs_for_source(
     actors: &Query<ambition_gameplay_core::features::ActorSpriteData>,
     bosses: &Query<(&FeatureId, BossClusterRef)>,
     player_state: &Query<
-        &ambition_gameplay_core::player::PlayerCombatState,
+        &ambition_gameplay_core::actor::BodyCombat,
         ambition_gameplay_core::player::PrimaryPlayerOnly,
     >,
 ) -> Option<f32> {
     // Player path: the entity that carries `PlayerVisual` is the
-    // same one that carries `PlayerCombatState`, so the
+    // same one that carries `BodyCombat`, so the
     // `PrimaryPlayerOnly` filter picks up the only matching state.
     // Use `iter().next()` over `single()` so a future MP regime that
     // adds a secondary local player won't crash the overlay sync

@@ -74,7 +74,7 @@ pub fn player_control_system(
             Entity,
             ae::PlayerClusterQueryData,
             &mut ambition_gameplay_core::player::PlayerAnimState,
-            &mut ambition_gameplay_core::player::PlayerCombatState,
+            &mut ambition_gameplay_core::actor::BodyCombat,
             &mut ambition_gameplay_core::player::PlayerInteractionState,
             &mut ambition_gameplay_core::player::PlayerBlinkCameraState,
             &mut ambition_gameplay_core::player::ActivePlayerAttack,
@@ -174,7 +174,7 @@ pub fn player_simulation_system(
         (
             ae::PlayerClusterQueryData,
             &mut ambition_gameplay_core::player::PlayerAnimState,
-            &mut ambition_gameplay_core::player::PlayerCombatState,
+            &mut ambition_gameplay_core::actor::BodyCombat,
             &mut ambition_gameplay_core::player::PlayerInteractionState,
             &mut ambition_gameplay_core::player::PlayerBlinkCameraState,
             &mut ambition_gameplay_core::player::ActivePlayerAttack,
@@ -268,7 +268,7 @@ pub fn advance_moving_platforms(
     reset_this_frame: Res<SandboxResetThisFrame>,
     mut platforms: ResMut<ambition_gameplay_core::MovingPlatformSet>,
     primary_combat: Query<
-        &ambition_gameplay_core::player::PlayerCombatState,
+        &ambition_gameplay_core::actor::BodyCombat,
         ambition_gameplay_core::player::PrimaryPlayerOnly,
     >,
 ) {

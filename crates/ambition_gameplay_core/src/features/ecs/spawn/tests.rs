@@ -10,7 +10,7 @@ use ambition_characters::brain::{
 };
 use ambition_engine_core as ae;
 use crate::features::{
-    ActorAggression, ActorCombatState, ActorConfig, ActorCooldowns, ActorDisposition, BodyHealth,
+    ActorAggression, BodyCombat, ActorConfig, ActorCooldowns, ActorDisposition, BodyHealth,
     ActorIdentity, ActorIntent, AggressionMode, CombatKit, MountSlot, MountedSize, RidingOn,
 };
 use bevy::prelude::{App, Commands, Update, With};
@@ -115,7 +115,7 @@ fn boss_spawn_attaches_brain_components() {
         &ActorIdentity,
         &ActorDisposition,
         &BodyHealth,
-        &ActorCombatState,
+        &BodyCombat,
         &ActorIntent,
         &ActorCooldowns,
         &CombatKit,

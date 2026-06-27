@@ -70,3 +70,85 @@ impl BodyHealth {
         self.health.alive()
     }
 }
+
+/// The ONE combat / presentation-status component every body carries — the
+/// player, enemies, NPCs, and bosses. The keystone collapse of the parallel
+/// `PlayerCombatState` (the player's authoritative reaction/hit timers) and
+/// `ActorCombatState` (the actor presentation read-model) into a single type, so
+/// the HUD, nameplates, and animation read ONE component for any body.
+///
+/// The field sets were disjoint, so the union preserves both vocabularies: the
+/// player fills the reaction timers (`flash_timer` / `hitstop_timer` /
+/// `damage_invuln_timer` / `hitstun_timer` / `recoil_lock_timer` / `attacking`),
+/// while an actor fills the status/attack fields (`alive` / `hit_flash` /
+/// `strike_count` / `attack_windup_timer` / `attack_timer` / `training_dummy`,
+/// synced each frame from its authoritative cluster state). Deduplicating the two
+/// hit-flash fields (`flash_timer` vs `hit_flash`) is a follow-up.
+#[derive(bevy::prelude::Component, Clone, Copy, Debug, Default, PartialEq)]
+pub struct BodyCombat {
+    // ── Player reaction / control-lock timers ──
+    /// Presentation flash (damage hit-blink). Decays in `cleanup_timers_system`.
+    pub flash_timer: f32,
+    /// Hitstop: freezes `time_scale` to 0 while positive.
+    pub hitstop_timer: f32,
+    /// Invulnerability window after taking damage.
+    pub damage_invuln_timer: f32,
+    /// Partial-control penalty after knockback.
+    pub hitstun_timer: f32,
+    /// Short HARD control-lock at the start of a knockback (no input authority).
+    pub recoil_lock_timer: f32,
+    /// Mirrored each frame from `ActivePlayerAttack::is_active()`.
+    pub attacking: bool,
+    // ── Actor status / attack-timeline presentation ──
+    pub alive: bool,
+    pub hit_flash: f32,
+    pub strike_count: i32,
+    pub attack_windup_timer: f32,
+    pub attack_timer: f32,
+    pub training_dummy: bool,
+}
+
+impl BodyCombat {
+    pub fn vulnerable(&self) -> bool {
+        self.damage_invuln_timer <= 0.0
+    }
+
+    /// Reset the player reaction timers + attacking mirror (the actor status
+    /// fields are owned by the per-frame sync from the cluster).
+    pub fn reset(&mut self) {
+        self.flash_timer = 0.0;
+        self.hitstop_timer = 0.0;
+        self.damage_invuln_timer = 0.0;
+        self.hitstun_timer = 0.0;
+        self.recoil_lock_timer = 0.0;
+        self.attacking = false;
+    }
+
+    /// Presentation state for a peaceful actor (the former `ActorCombatState::peaceful`).
+    pub fn peaceful(strike_count: i32, hit_flash: f32) -> Self {
+        Self {
+            alive: true,
+            hit_flash,
+            strike_count,
+            ..Default::default()
+        }
+    }
+
+    /// Presentation state for a hostile actor (the former `ActorCombatState::hostile`).
+    pub fn hostile(
+        alive: bool,
+        hit_flash: f32,
+        attack_windup_timer: f32,
+        attack_timer: f32,
+        training_dummy: bool,
+    ) -> Self {
+        Self {
+            alive,
+            hit_flash,
+            attack_windup_timer,
+            attack_timer,
+            training_dummy,
+            ..Default::default()
+        }
+    }
+}

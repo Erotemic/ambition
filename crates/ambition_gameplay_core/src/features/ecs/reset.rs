@@ -24,7 +24,7 @@ pub fn reset_ecs_room_features(
             &mut ActorIdentity,
             &ActorDisposition,
             &mut BodyHealth,
-            &mut ActorCombatState,
+            &mut BodyCombat,
             &mut ActorIntent,
             &mut ActorCooldowns,
             &mut ActorAggression,

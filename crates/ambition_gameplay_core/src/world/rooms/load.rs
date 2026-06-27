@@ -17,9 +17,8 @@ use crate::audio::SfxMessage;
 use crate::dialog::DialogState;
 use crate::features;
 use crate::platformer_runtime::lifecycle::RoomScopedEntity;
-use crate::player::{
-    PlayerBlinkCameraState, PlayerCombatState, PlayerInteractionState, PlayerSafetyState,
-};
+use crate::player::{PlayerBlinkCameraState, PlayerInteractionState, PlayerSafetyState};
+use crate::actor::BodyCombat;
 use crate::time::clock_state::ClockState;
 use crate::time::feel::SandboxFeelTuning;
 use crate::world::physics::{self, PhysicsRoomEntity};
@@ -57,7 +56,7 @@ pub fn load_room_geometry(
     safety: &mut PlayerSafetyState,
     moving_platforms: &mut Vec<MovingPlatformState>,
     dialogue: &mut DialogState,
-    combat: &mut PlayerCombatState,
+    combat: &mut BodyCombat,
     interaction: &mut PlayerInteractionState,
     blink_cam: &mut PlayerBlinkCameraState,
     world: &mut RoomGeometry,

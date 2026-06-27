@@ -18,7 +18,7 @@ use bevy::prelude::{
 use super::super::util::{approximately_same_aabb, midpoint};
 use super::damage_drops::drop_currency_coin;
 use super::{
-    sync_actor_components_from_cluster, ActorCombatState, ActorCooldowns, ActorDisposition,
+    sync_actor_components_from_cluster, BodyCombat, ActorCooldowns, ActorDisposition,
     BodyHealth, ActorIdentity, ActorIntent, BreakableFeature, CenteredAabb, FeatureId,
     FeatureName, FeatureSimEntity, GameplayBanner, HitEvent, HitSource, SetFlagRequested,
 };
@@ -86,7 +86,7 @@ pub fn apply_feature_hit_events(
             &mut ActorIdentity,
             &ActorDisposition,
             &mut BodyHealth,
-            &mut ActorCombatState,
+            &mut BodyCombat,
             &mut ActorIntent,
             &mut ActorCooldowns,
             // Provoke accumulator (shared aggression component). `Option` so
@@ -99,10 +99,13 @@ pub fn apply_feature_hit_events(
         ),
         // Bosses are handled by the disjoint `bosses` query; both take
         // `&mut BodyKinematics` (the unified component), so exclude bosses
-        // here to keep the two queries provably non-aliasing.
+        // here to keep the two queries provably non-aliasing. `Without<PlayerEntity>`
+        // keeps this `&mut BodyCombat` actor query disjoint from the player
+        // `&mut BodyCombat` query below, now that both share the unified component.
         (
             With<FeatureSimEntity>,
             Without<super::boss_clusters::BossConfig>,
+            Without<crate::actor::PlayerEntity>,
         ),
     >,
     mut bosses: Query<
@@ -126,7 +129,7 @@ pub fn apply_feature_hit_events(
     mut player_combat_q: Query<
         (
             bevy::prelude::Entity,
-            &mut crate::player::PlayerCombatState,
+            &mut crate::actor::BodyCombat,
             // The attacker's live swing, so a multi-active-frame slash records
             // which targets it has already struck and never double-hits them.
             Option<&mut crate::player::ActivePlayerAttack>,

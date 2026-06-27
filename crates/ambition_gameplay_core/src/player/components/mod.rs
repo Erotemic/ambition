@@ -74,55 +74,16 @@ impl PlayerWallet {
     }
 }
 
-/// ECS-authoritative player combat/timer state.
-///
-/// The four timer fields are written directly by the phase helpers and
-/// `world_flow` functions that produce damage/hit/respawn events.
-/// `write_player_ecs_components` no longer touches them; it only syncs the
-/// `attacking` flag from the per-player `ActivePlayerAttack` component so
-/// rendering systems can check attack state without querying the runtime.
-#[derive(Component, Clone, Debug, Default, PartialEq)]
-pub struct PlayerCombatState {
-    /// Presentation flash (damage hit-blink). Decays in `cleanup_timers_system`.
-    pub flash_timer: f32,
-    /// Hitstop: freezes `time_scale` to 0 while positive. Decays in `input_timer_system`.
-    pub hitstop_timer: f32,
-    /// Invulnerability window after taking damage. Decays in `input_timer_system`.
-    pub damage_invuln_timer: f32,
-    /// Partial-control penalty after knockback. Decays in `input_timer_system`.
-    pub hitstun_timer: f32,
-    /// Short HARD control-lock at the start of a knockback (the recoil throw).
-    /// While positive, the player has NO input authority — it is the gate that
-    /// suppresses movement/flight steering and the attack-start, so the
-    /// knockback ejects the player before they can act. Set to
-    /// `SandboxFeelTuning::knockback_recoil_lock_time` on a knockback hit and
-    /// decayed in `input_timer_system`; once it hits zero the player can swing
-    /// again even though `hitstun_timer` / `damage_invuln_timer` are still up.
-    pub recoil_lock_timer: f32,
-    /// Mirrored each frame from `ActivePlayerAttack::is_active()`.
-    pub attacking: bool,
-}
-
-impl PlayerCombatState {
-    pub fn vulnerable(&self) -> bool {
-        self.damage_invuln_timer <= 0.0
-    }
-
-    pub fn reset(&mut self) {
-        self.flash_timer = 0.0;
-        self.hitstop_timer = 0.0;
-        self.damage_invuln_timer = 0.0;
-        self.hitstun_timer = 0.0;
-        self.recoil_lock_timer = 0.0;
-        self.attacking = false;
-    }
-}
+// Player combat/timer state is now the unified `crate::actor::BodyCombat` (the
+// keystone collapse of `BodyCombat` + the actor read-model into one body
+// combat component). The player fills the reaction-timer fields; the actor fills
+// the status/attack fields.
 
 /// Per-player active melee swing. `None` when no swing is in progress.
 ///
 /// Authoritative source: set/cleared by `start_attack` / `advance_attack`.
 /// `write_player_ecs_components` mirrors `is_some()` into
-/// `PlayerCombatState::attacking` each frame so rendering can branch on
+/// `BodyCombat::attacking` each frame so rendering can branch on
 /// attack state without a separate query.
 ///
 /// Replaces the global `CurrentPlayerAttack` resource (OVERNIGHT-TODO

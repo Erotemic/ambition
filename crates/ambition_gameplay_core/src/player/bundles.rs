@@ -4,11 +4,11 @@ use ambition_engine_core as ae;
 use bevy::prelude::*;
 
 use super::components::{
-    ActivePlayerAttack, LocalPlayer, PlayerAnimState, PlayerBlinkCameraState, PlayerCombatState,
+    ActivePlayerAttack, LocalPlayer, PlayerAnimState, PlayerBlinkCameraState,
     PlayerEntity, PlayerInputFrame, PlayerInteractionState, PlayerSafetyState,
     PlayerSlot, PlayerWallet, PrimaryPlayer,
 };
-use crate::actor::BodyHealth;
+use crate::actor::{BodyCombat, BodyHealth};
 use super::movement_components::{
     BodyKinematics, PlayerAbilities, PlayerActionBuffer, PlayerBaseSize, PlayerBlinkState,
     PlayerBodyModeState, PlayerComboTrace, PlayerDashState, PlayerDodgeState,
@@ -55,7 +55,7 @@ pub struct PlayerSimulationBundle {
     pub local: LocalPlayer,
     pub health: BodyHealth,
     pub wallet: PlayerWallet,
-    pub combat: PlayerCombatState,
+    pub combat: BodyCombat,
     pub interaction: PlayerInteractionState,
     pub anim: PlayerAnimState,
     pub blink_cam: PlayerBlinkCameraState,
@@ -155,7 +155,7 @@ impl PlayerSimulationBundle {
             local: LocalPlayer,
             health: BodyHealth::new(health),
             wallet: PlayerWallet::default(),
-            combat: PlayerCombatState::default(),
+            combat: BodyCombat::default(),
             interaction: PlayerInteractionState::default(),
             anim: PlayerAnimState::default(),
             blink_cam: PlayerBlinkCameraState::default(),

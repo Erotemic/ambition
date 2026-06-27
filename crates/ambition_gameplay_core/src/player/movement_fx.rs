@@ -18,14 +18,15 @@ use ambition_engine_core as ae;
 use ambition_vfx::vfx::{ParticleKind, VfxMessage};
 
 use crate::audio::SfxMessage;
-use crate::player::{PlayerAnimState, PlayerBlinkCameraState, PlayerCombatState};
+use crate::player::{PlayerAnimState, PlayerBlinkCameraState};
+use crate::actor::BodyCombat;
 
 #[allow(clippy::too_many_arguments)]
 pub fn handle_player_events(
     sfx: &mut MessageWriter<SfxMessage>,
     vfx: &mut MessageWriter<VfxMessage>,
     clusters: &ae::PlayerClustersMut<'_>,
-    combat: &mut PlayerCombatState,
+    combat: &mut BodyCombat,
     blink_cam: &mut PlayerBlinkCameraState,
     anim: &mut PlayerAnimState,
     events: ae::FrameEvents,

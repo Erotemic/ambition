@@ -75,7 +75,7 @@ pub fn input_timer_system(
     mut control_frame: ResMut<ControlFrame>,
     mut player_q: Query<
         (
-            &mut ambition_gameplay_core::player::PlayerCombatState,
+            &mut ambition_gameplay_core::actor::BodyCombat,
             &mut ambition_gameplay_core::player::PlayerInteractionState,
         ),
         ambition_gameplay_core::player::PrimaryPlayerOnly,
@@ -140,7 +140,7 @@ pub fn interaction_input_system(
     control_frame: Res<ControlFrame>,
     mut player_q: Query<
         (
-            &ambition_gameplay_core::player::PlayerCombatState,
+            &ambition_gameplay_core::actor::BodyCombat,
             &mut ambition_gameplay_core::player::PlayerInteractionState,
         ),
         ambition_gameplay_core::player::PrimaryPlayerOnly,
@@ -197,7 +197,7 @@ pub fn apply_player_reset_input_system(
         (
             ae::PlayerClusterQueryData,
             &mut ambition_gameplay_core::player::PlayerAnimState,
-            &mut ambition_gameplay_core::player::PlayerCombatState,
+            &mut ambition_gameplay_core::actor::BodyCombat,
             &mut ambition_gameplay_core::player::PlayerInteractionState,
             &mut ambition_gameplay_core::player::PlayerBlinkCameraState,
             &mut ambition_gameplay_core::player::ActivePlayerAttack,
@@ -275,7 +275,7 @@ pub fn apply_cut_rope_room_replay_request_system(
         (
             ae::PlayerClusterQueryData,
             &mut ambition_gameplay_core::player::PlayerAnimState,
-            &mut ambition_gameplay_core::player::PlayerCombatState,
+            &mut ambition_gameplay_core::actor::BodyCombat,
             &mut ambition_gameplay_core::player::PlayerInteractionState,
             &mut ambition_gameplay_core::player::PlayerBlinkCameraState,
             &mut ambition_gameplay_core::player::ActivePlayerAttack,
@@ -354,7 +354,7 @@ pub fn cleanup_timers_system(
             &ambition_gameplay_core::player::PlayerGroundState,
             &ambition_gameplay_core::player::PlayerDashState,
             &mut ambition_gameplay_core::player::PlayerAnimState,
-            &mut ambition_gameplay_core::player::PlayerCombatState,
+            &mut ambition_gameplay_core::actor::BodyCombat,
             &mut ambition_gameplay_core::player::PlayerBlinkCameraState,
         ),
         ambition_gameplay_core::player::PrimaryPlayerOnly,

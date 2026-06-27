@@ -3,10 +3,10 @@
 use bevy::prelude::*;
 
 use super::components::{
-    ActivePlayerAttack, LocalPlayer, PlayerCombatState, PlayerEntity,
+    ActivePlayerAttack, LocalPlayer, PlayerEntity,
     PlayerInputFrame, PlayerSlot, PrimaryPlayer,
 };
-use crate::actor::BodyHealth;
+use crate::actor::{BodyCombat, BodyHealth};
 use super::events::PlayerHealRequested;
 use super::movement_components::{BodyKinematics, PlayerGroundState};
 use ambition_characters::brain::{ActorControl, Brain, BrainSnapshot};
@@ -119,9 +119,9 @@ pub fn tick_player_brains(
 }
 
 /// Mirror `ActivePlayerAttack::is_active()` onto
-/// `PlayerCombatState::attacking` for rendering systems.
+/// `BodyCombat::attacking` for rendering systems.
 pub fn write_player_ecs_components(
-    mut players: Query<(&ActivePlayerAttack, &mut PlayerCombatState), With<PlayerEntity>>,
+    mut players: Query<(&ActivePlayerAttack, &mut BodyCombat), With<PlayerEntity>>,
 ) {
     for (attack, mut combat) in &mut players {
         combat.attacking = attack.is_active();

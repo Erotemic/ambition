@@ -54,7 +54,7 @@ pub fn animate_player(
                 &ambition_gameplay_core::player::PlayerFlightState,
                 &ambition_gameplay_core::player::PlayerDashState,
                 &ambition_gameplay_core::player::PlayerLedgeState,
-                &ambition_gameplay_core::player::PlayerCombatState,
+                &ambition_gameplay_core::actor::BodyCombat,
                 &ambition_gameplay_core::player::PlayerAnimState,
                 &ambition_gameplay_core::player::PlayerBlinkCameraState,
             ),
@@ -126,7 +126,7 @@ pub fn animate_player(
         );
         // Hit feedback is drawn by the white-silhouette overlay in
         // `presentation::rendering::hit_flash` — a sibling mesh that samples this
-        // atlas frame and outputs pure white modulated by `PlayerCombatState::
+        // atlas frame and outputs pure white modulated by `BodyCombat::
         // flash_timer`. The source sprite stays untinted (`WHITE`); the overlay flashes.
         apply_character_frame(
             &mut sprite,

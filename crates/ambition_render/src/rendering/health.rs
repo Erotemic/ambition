@@ -11,7 +11,7 @@ use super::primitives::HealthOverlayVisual;
 use crate::ui_fonts::{UiFontWeight, UiFonts};
 use ambition_gameplay_core::config::{world_to_bevy, WORLD_Z_PLAYER};
 use ambition_gameplay_core::features::{
-    ActorCombatState, ActorDisposition, BodyHealth, BossClusterRef, BossConfig, BreakableFeature,
+    BodyCombat, ActorDisposition, BodyHealth, BossClusterRef, BossConfig, BreakableFeature,
     CenteredAabb, FeatureName,
 };
 
@@ -151,7 +151,7 @@ pub fn sync_health_overlays(
             &CenteredAabb,
             &ActorDisposition,
             &BodyHealth,
-            &ActorCombatState,
+            &BodyCombat,
         ),
         Without<BossConfig>,
     >,

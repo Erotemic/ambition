@@ -27,7 +27,8 @@ use crate::combat::{
 };
 use crate::dev::dev_tools::EditableMovementTuning;
 use crate::features::{self, FeatureEcsWorldOverlay};
-use crate::player::{ActivePlayerAttack, PlayerAnimState, PlayerCombatState};
+use crate::player::{ActivePlayerAttack, PlayerAnimState};
+use crate::actor::BodyCombat;
 use crate::actor::{PrimaryPlayerOnly};
 use crate::time::feel::SandboxFeelTuning;
 use crate::world::platforms::MovingPlatformState;
@@ -287,7 +288,7 @@ pub fn advance_attack(
     clusters: &mut ae::PlayerClustersMut<'_>,
     attack: &mut Option<PlayerAttackState>,
     anim: &mut PlayerAnimState,
-    combat: &mut PlayerCombatState,
+    combat: &mut BodyCombat,
     tuning: ae::MovementTuning,
     feel: SandboxFeelTuning,
     frame_dt: f32,
@@ -463,7 +464,7 @@ pub fn attack_advance_system(
             Entity,
             ae::PlayerClusterQueryData,
             &mut PlayerAnimState,
-            &mut PlayerCombatState,
+            &mut BodyCombat,
             &mut ActivePlayerAttack,
             &ActorControl,
             Option<&features::HeldItem>,

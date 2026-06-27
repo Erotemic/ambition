@@ -65,7 +65,7 @@ pub fn update_encounters_from_world(
         Entity,
         &crate::features::EncounterMob,
         &crate::features::FeatureId,
-        &crate::features::ActorCombatState,
+        &crate::features::BodyCombat,
     )>,
     reward_chests: Query<
         (

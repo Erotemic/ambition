@@ -261,6 +261,7 @@ mod tests {
         super::super::actor_clusters::ActorMotionPath,
         crate::features::ActorSurfaceState,
         crate::features::ActorAttackState,
+        super::super::actor_clusters::ActorBody,
         crate::combat::CombatCapabilities,
     );
 

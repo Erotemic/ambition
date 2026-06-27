@@ -174,6 +174,26 @@ impl BodyMovementTuning {
             ..ae::MovementTuning::default()
         }
     }
+
+    /// Build the engine `MovementTuning` the **full player pipeline** runs on for
+    /// this body. Extends [`Self::spine_tuning`] with the body's jump speeds (the
+    /// rich pipeline owns jumping, where the bare spine left it to the caller), so
+    /// a body routed through `update_body_*_with_clusters` jumps with its OWN
+    /// authored impulse instead of the player default. Dash/blink/ledge distances
+    /// stay at the engine default for now — gated off until the body's ability
+    /// mask opts in.
+    pub fn body_tuning(
+        &self,
+        max_run_speed: f32,
+        gravity_dir: ae::Vec2,
+        gravity_scale: f32,
+    ) -> ae::MovementTuning {
+        ae::MovementTuning {
+            jump_speed: self.jump_speed,
+            double_jump_speed: self.double_jump_speed,
+            ..self.spine_tuning(max_run_speed, gravity_dir, gravity_scale)
+        }
+    }
 }
 
 impl Default for BodyMovementTuning {

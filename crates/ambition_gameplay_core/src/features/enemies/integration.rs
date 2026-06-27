@@ -82,21 +82,20 @@ fn evaluate_enemy_ai_output(
     })
 }
 
-#[allow(clippy::too_many_arguments)]
-fn integrate_standard_enemy_body(
+/// Aerial free-mover integration: floating bodies (NPC flyers, aerial enemies)
+/// steer `velocity_target` directly through the shared `step_floating_body`
+/// (also used by bosses). The grounded path went to the shared player movement
+/// pipeline (`ActorMut::integrate_grounded_body`); this aerial case is the one
+/// the unified-actors plan reconciles separately (a free-mover modality, not the
+/// grounded spine), so it stays a thin floating step for now.
+fn integrate_aerial_body(
     world: &ae::World,
     kin: &mut super::super::ecs::actor_clusters::BodyKinematics,
     surface: &mut ActorSurfaceState,
     motion: &mut super::super::ecs::actor_clusters::ActorMotionPath,
     tuning: &crate::combat::ActorTuning,
-    ai_intent: ambition_characters::actor::ai::CharacterAiIntent,
-    is_aerial: bool,
     frame: &ambition_characters::actor::control::ActorControlFrame,
     dt: f32,
-    gravity_dir: ae::Vec2,
-    // Multiplier on the grounded run-speed cap this tick (1.0 normally; raised
-    // while a dash burst window is open so the burst rides the spine).
-    run_speed_scale: f32,
 ) {
     let mut body = kinematic::KinematicBody {
         pos: kin.pos,
@@ -105,106 +104,22 @@ fn integrate_standard_enemy_body(
         on_ground: surface.on_ground,
         facing: kin.facing,
     };
-    // Wall-stop detection runs on the gravity-PERPENDICULAR "side" axis the enemy
-    // actually walks along (the spine projects run onto it). Under vertical gravity
-    // `perp = (-1, 0)` so this is `±vel.x` — byte-identical to the old `vel.x` read;
-    // under sideways gravity it correctly watches `vel.y`, so a patroller still
-    // reverses when it stalls against a wall.
-    let perp = ae::Vec2::new(-gravity_dir.y, gravity_dir.x);
-    let prev_side_speed = body.vel.dot(perp);
-    if is_aerial {
-        let target_speed = frame.velocity_target.length();
-        let archetype_chase = tuning.chase_speed;
-        let accel = (target_speed.max(archetype_chase) * 3.0).max(900.0) * dt;
-        // Aerial enemies are floating free-movers (shared with NPC flyers + bosses).
-        super::super::step_floating_body(
-            &mut body,
-            world,
-            frame.velocity_target,
-            Some(accel),
-            tuning.movement.max_fall_speed,
-            dt,
-        );
-    } else {
-        // Grounded walkers run the SHARED player physics spine: gravity + run +
-        // fall-cap, gravity-direction-relative. The spine projects `axis_x` onto
-        // the gravity-perpendicular "side" axis (so a wall-standing enemy walks
-        // ALONG the wall) and applies gravity along `gravity_dir`. Identical shape
-        // to the player run path: normalized local intent in `axis_x`, the body's
-        // own `max_run_speed` capability as the scale — no velocity→axis
-        // decomposition, no per-actor-type branch.
-        let axis_x = frame.locomotion.x;
-        // One movement-physics source per body: the composed per-archetype tuning
-        // builds the spine's `MovementTuning` (the same bridge the full player
-        // pipeline this body adopts next will consume).
-        let spine_tuning = tuning.movement.spine_tuning(
-            tuning.max_run_speed * run_speed_scale,
-            gravity_dir,
-            surface.gravity_scale,
-        );
-        // A grounded enemy carries no player ability components: the spine's
-        // fast-fall / glide / water / blink gates are all off (pay-for-use).
-        let mut fast_falling = false;
-        let mut gliding = false;
-        ae::integrate_normal_spine(
-            &mut body.vel,
-            &mut fast_falling,
-            &mut gliding,
-            ae::NormalSpineCtx::bare(body.on_ground),
-            ae::InputState {
-                axis_x,
-                ..Default::default()
-            },
-            dt,
-            spine_tuning,
-        );
-        if frame.jump_pressed {
-            // Jump opposes gravity (2D): keep the perpendicular component, set the
-            // gravity-axis component to -jump_speed. Vertical-identical.
-            let g = gravity_dir;
-            let jump_off = |vel: ae::Vec2, speed: f32| vel - vel.dot(g) * g - speed * g;
-            if body.on_ground {
-                body.vel = jump_off(body.vel, tuning.movement.jump_speed);
-                body.on_ground = false;
-            } else if surface.air_jumps_remaining > 0 {
-                body.vel = jump_off(body.vel, tuning.movement.double_jump_speed);
-                surface.air_jumps_remaining -= 1;
-            }
-        }
-        // Grounded sweep: the spine already applied gravity along `gravity_dir`,
-        // so this is pure collision resolution (the same intent/sweep split the
-        // player uses). The aerial branch did its own sweep via step_floating_body.
-        kinematic::step_kinematic(
-            &mut body,
-            world,
-            kinematic::KinematicTuning {
-                gravity: 0.0,
-                max_fall_speed: tuning.movement.max_fall_speed,
-                gravity_dir,
-            },
-            kinematic::KinematicInputs {
-                drop_through: frame.drop_through,
-            },
-            dt,
-        );
-    }
+    let target_speed = frame.velocity_target.length();
+    let archetype_chase = tuning.chase_speed;
+    let accel = (target_speed.max(archetype_chase) * 3.0).max(900.0) * dt;
+    super::super::step_floating_body(
+        &mut body,
+        world,
+        frame.velocity_target,
+        Some(accel),
+        tuning.movement.max_fall_speed,
+        dt,
+    );
     kin.pos = body.pos;
     kin.vel = body.vel;
-    surface.on_ground = if is_aerial { false } else { body.on_ground };
-    if surface.on_ground {
-        surface.air_jumps_remaining = MAX_ENEMY_AIR_JUMPS;
-    }
-
+    surface.on_ground = false;
     if let Some(motion) = &mut motion.0 {
         let _ = motion.advance(kin.pos, dt);
-    }
-
-    if !is_aerial
-        && matches!(ai_intent, ambition_characters::actor::ai::CharacterAiIntent::Patrol)
-        && prev_side_speed.abs() > 1.0
-        && kin.vel.dot(perp).abs() < 0.01
-    {
-        kin.facing *= -1.0;
     }
 }
 
@@ -293,20 +208,18 @@ impl<'a> ActorMut<'a> {
 
         if is_surface_walker {
             self.step_surface_walker(world, nearest_neighbor, dt, gravity_dir);
-        } else {
-            integrate_standard_enemy_body(
+        } else if is_aerial {
+            integrate_aerial_body(
                 world,
                 self.kin,
                 self.surface,
                 self.motion,
                 &self.config.tuning,
-                ai.intent,
-                is_aerial,
                 &frame,
                 dt,
-                gravity_dir,
-                run_speed_scale,
             );
+        } else {
+            self.integrate_grounded_body(world, ai.intent, &frame, dt, gravity_dir, run_speed_scale);
         }
 
         // Face the brain's committed direction whenever it commits one. Hostile
@@ -321,6 +234,93 @@ impl<'a> ActorMut<'a> {
             self.status.ai_mode = ambition_characters::actor::ai::CharacterAiMode::Attack;
         }
         frame
+    }
+
+    /// Grounded integration through the **shared player movement pipeline**
+    /// (`ae::update_body_with_tuning_clusters`) — the unification's core seam.
+    /// The actor's `kin` supplies the kinematics; its persistent [`ActorBody`]
+    /// supplies the 18 ancillary movement clusters. The brain's
+    /// `ActorControlFrame` becomes the body's `InputState` (locomotion → run,
+    /// jump_pressed → buffered jump), so an enemy now runs, jumps, coyote-grace-
+    /// jumps, and collides through the EXACT code the human player uses — no
+    /// parallel enemy integrator. Movement physics is the body's authored
+    /// `BodyMovementTuning` (`body_tuning`), with the dash-window run-cap scale
+    /// folded in (the actor's burst still rides the shared run cap).
+    ///
+    /// The pipeline owns hazard/out-of-bounds as a *flag* (it never teleports an
+    /// actor to the player spawn); the actor's damage / OOB systems own the
+    /// reaction, so the returned events are intentionally dropped here.
+    fn integrate_grounded_body(
+        &mut self,
+        world: &ae::World,
+        ai_intent: ambition_characters::actor::ai::CharacterAiIntent,
+        frame: &ambition_characters::actor::control::ActorControlFrame,
+        dt: f32,
+        gravity_dir: ae::Vec2,
+        run_speed_scale: f32,
+    ) {
+        // Wall-stop detection on the gravity-PERPENDICULAR "side" axis the actor
+        // walks along (so a patroller reverses when it stalls against a wall,
+        // correctly under sideways gravity too).
+        let perp = ae::Vec2::new(-gravity_dir.y, gravity_dir.x);
+        let prev_side_speed = self.kin.vel.dot(perp);
+
+        let tuning = self.config.tuning.movement.body_tuning(
+            self.config.tuning.max_run_speed * run_speed_scale,
+            gravity_dir,
+            self.surface.gravity_scale,
+        );
+        let input = frame.to_input_state();
+        let on_ground = self.surface.on_ground;
+        let air_jumps = self.surface.air_jumps_remaining;
+
+        // Borrow the actor's persistent movement clusters + the shared kinematics
+        // as ONE `PlayerClustersMut` view (kin = the single kinematic source; no
+        // duplication). Seed the pipeline's ground/jump state from the actor's
+        // surface truth so coyote + jump gates start correct.
+        let body = &mut self.body.0;
+        body.ground.on_ground = on_ground;
+        body.jump.air_jumps_available = air_jumps;
+        let mut clusters = ae::PlayerClustersMut {
+            kinematics: self.kin,
+            abilities: &body.abilities,
+            base_size: &mut body.base_size,
+            ground: &mut body.ground,
+            wall: &mut body.wall,
+            jump: &mut body.jump,
+            dash: &mut body.dash,
+            flight: &mut body.flight,
+            blink: &mut body.blink,
+            ledge: &mut body.ledge,
+            dodge: &mut body.dodge,
+            shield: &mut body.shield,
+            body_mode: &mut body.body_mode,
+            env_contact: &mut body.env_contact,
+            mana: &mut body.mana,
+            offense: &mut body.offense,
+            action_buffer: &mut body.action_buffer,
+            lifetime: &mut body.lifetime,
+            combo_trace: &mut body.combo_trace,
+        };
+        let _events = ae::update_body_with_tuning_clusters(world, &mut clusters, input, dt, tuning);
+        // Reflect the pipeline's ground contact back onto the actor surface (the
+        // surface state the rest of the actor systems + rendering read).
+        self.surface.on_ground = clusters.ground.on_ground;
+        self.surface.air_jumps_remaining = clusters.jump.air_jumps_available;
+        if self.surface.on_ground {
+            self.surface.air_jumps_remaining = MAX_ENEMY_AIR_JUMPS;
+        }
+
+        if let Some(motion) = &mut self.motion.0 {
+            let _ = motion.advance(self.kin.pos, dt);
+        }
+        // Patrol stall → reverse (a wall-stopped patroller turns around).
+        if matches!(ai_intent, ambition_characters::actor::ai::CharacterAiIntent::Patrol)
+            && prev_side_speed.abs() > 1.0
+            && self.kin.vel.dot(perp).abs() < 0.01
+        {
+            self.kin.facing *= -1.0;
+        }
     }
 
     fn step_surface_walker(
@@ -667,6 +667,7 @@ mod dash_tests {
             attack: &mut seed.attack,
             config: &mut seed.config,
             motion: &mut seed.motion,
+            body: &mut seed.body,
             caps: &seed.caps,
         };
         let mut frame = ActorControlFrame::neutral();
@@ -726,6 +727,7 @@ mod dash_tests {
             attack: &mut seed.attack,
             config: &mut seed.config,
             motion: &mut seed.motion,
+            body: &mut seed.body,
             caps: &seed.caps,
         };
         let mut frame = ActorControlFrame::neutral();

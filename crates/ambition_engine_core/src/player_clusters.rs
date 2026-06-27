@@ -561,7 +561,7 @@ impl PlayerComboTrace {
 /// `PlayerClustersMut` without a Bevy entity. Construct via
 /// [`PlayerClusterScratch::new_with_abilities`] and re-borrow as a view
 /// via [`PlayerClusterScratch::as_mut`].
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct PlayerClusterScratch {
     pub abilities: PlayerAbilities,
     pub kinematics: BodyKinematics,

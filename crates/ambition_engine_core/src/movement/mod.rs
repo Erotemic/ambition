@@ -367,6 +367,31 @@ pub fn update_player_with_tuning_clusters(
     events
 }
 
+/// Combined **body-generic** tick: control + simulation through the body
+/// mechanics, returning the `FrameEvents` (incl. a flagged `reset` on
+/// drown / hazard / out-of-bounds) WITHOUT any player respawn. This is the
+/// entry point an actor body uses: it owns its hazard reaction (the caller
+/// reads `events.hazard` / `events.reset` and applies its own policy), so an
+/// enemy never teleports to the player spawn. The player path uses
+/// [`update_player_with_tuning_clusters`] instead (= this + the respawn policy).
+pub fn update_body_with_tuning_clusters(
+    world: &World,
+    clusters: &mut crate::player_clusters::PlayerClustersMut<'_>,
+    input: InputState,
+    raw_dt: f32,
+    tuning: MovementTuning,
+) -> FrameEvents {
+    let control_dt = if input.control_dt > 0.0 {
+        input.control_dt
+    } else {
+        raw_dt
+    };
+    let mut events = update_body_control_with_clusters(world, clusters, input, control_dt, tuning);
+    let sim_events = update_body_simulation_with_clusters(world, clusters, input, raw_dt, tuning);
+    events.extend(sim_events);
+    events
+}
+
 /// `DEFAULT_TUNING` convenience wrapper for
 /// [`update_player_with_tuning_clusters`]. Useful in adapter sites
 /// (RL, headless drivers, lightweight integration tests) that don't

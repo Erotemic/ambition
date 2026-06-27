@@ -84,6 +84,61 @@ pub struct ActorConfig {
 #[derive(Component, Clone, Debug, Default)]
 pub struct ActorMotionPath(pub Option<PathMotion>);
 
+/// The actor's persistent **player-movement ability state** — the 18 ancillary
+/// movement clusters (ground/wall/jump/dash/flight/blink/ledge/dodge/shield/…),
+/// everything in the player cluster set EXCEPT [`BodyKinematics`] (the actor's
+/// shared `kin` stays the single source of kinematic truth — no duplication).
+///
+/// Carrying this lets a grounded actor run the EXACT shared player movement
+/// pipeline (`ae::update_body_with_tuning_clusters`): the per-frame integration
+/// borrows these as the non-kinematics half of a `PlayerClustersMut` view, with
+/// `kin` supplying the kinematics. The actor thus shares the player's coyote
+/// time, jump buffering, and collision sweep instead of a parallel integrator.
+///
+/// Its ability mask is deliberately **locomotion-only** for now (move + jump);
+/// the actor's dash / blink / fly / shield are still resolved on the
+/// `ActorAttackState` / capability path in the actor systems. Migrating those
+/// onto the pipeline's ability limbs (so the mask is derived from
+/// `CombatCapabilities`) is the step-4 cluster fold.
+#[derive(Component, Clone, Debug)]
+pub struct ActorBody(pub ae::PlayerClusterScratch);
+
+impl Default for ActorBody {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl ActorBody {
+    /// A fresh actor movement body with the locomotion-only ability mask. The
+    /// scratch's own `kinematics` field is inert (the integration uses the
+    /// actor's shared `kin`); only the ability state + ability-derived resources
+    /// (air-jump charge) matter.
+    pub fn new() -> Self {
+        Self(ae::PlayerClusterScratch::new_with_abilities(
+            ae::Vec2::ZERO,
+            Self::locomotion_abilities(),
+        ))
+    }
+
+    /// The grounded actor's ability mask: basic locomotion the shared movement
+    /// pipeline now owns (run + jump + double-jump). Everything else (dash, blink,
+    /// fly, shield, wall-cling, ledge-grab, dodge, swim) is OFF here — those are
+    /// either resolved on the actor's own combat/capability path or not yet
+    /// granted to actors. `reset` is OFF so the reset gesture never fires on an
+    /// actor body.
+    pub fn locomotion_abilities() -> ae::AbilitySet {
+        ae::AbilitySet {
+            move_horizontal: true,
+            jump: true,
+            variable_jump: true,
+            double_jump: true,
+            reset: false,
+            ..ae::AbilitySet::basic()
+        }
+    }
+}
+
 /// Mutable borrow of every component the enemy integration touches,
 /// assembled from a Bevy query via [`ActorClusterQueryData`].
 pub struct ActorMut<'a> {
@@ -93,6 +148,10 @@ pub struct ActorMut<'a> {
     pub attack: &'a mut ActorAttackState,
     pub config: &'a mut ActorConfig,
     pub motion: &'a mut ActorMotionPath,
+    /// Persistent player-movement ability state (the 18 non-kinematics clusters):
+    /// the grounded integration borrows these + `kin` as a `PlayerClustersMut`
+    /// view and runs the shared player movement pipeline.
+    pub body: &'a mut ActorBody,
     /// Spawn-resolved special-behavior flags (kit vocabulary). Read-only:
     /// the per-frame integration and the damage hook branch on these
     /// instead of calling back into the named archetype enum.
@@ -108,6 +167,7 @@ pub struct ActorClusterQueryData {
     pub attack: &'static mut ActorAttackState,
     pub config: &'static mut ActorConfig,
     pub motion: &'static mut ActorMotionPath,
+    pub body: &'static mut ActorBody,
     pub caps: &'static crate::combat::CombatCapabilities,
 }
 
@@ -125,6 +185,7 @@ impl<'w, 's> ActorClusterQueryDataItem<'w, 's> {
             attack: &mut self.attack,
             config: &mut self.config,
             motion: &mut self.motion,
+            body: &mut self.body,
             caps: self.caps,
         }
     }
@@ -140,6 +201,9 @@ pub struct ActorClusterSeed {
     pub attack: ActorAttackState,
     pub config: ActorConfig,
     pub motion: ActorMotionPath,
+    /// Persistent player-movement ability state, spawned alongside the clusters
+    /// by [`Self::into_components`].
+    pub body: ActorBody,
     /// Spawn-resolved special-behavior flags (kit vocabulary), spawned
     /// alongside the clusters by [`Self::into_components`].
     pub caps: crate::combat::CombatCapabilities,
@@ -233,6 +297,7 @@ impl ActorClusterSeed {
                 sprite_character_id,
             },
             motion: ActorMotionPath(motion),
+            body: ActorBody::new(),
             caps: spec.combat_capabilities(),
             spec,
         }
@@ -361,6 +426,7 @@ impl ActorClusterSeed {
                 sprite_character_id: character_id.map(String::from),
             },
             motion: ActorMotionPath(motion),
+            body: ActorBody::new(),
             caps: crate::combat::CombatCapabilities::default(),
             // Inert: peaceful actors never spawn through the archetype path that
             // reads `spec`. `Passive` resolves to the roster's fallback row.
@@ -389,6 +455,7 @@ impl ActorClusterSeed {
             attack: &mut self.attack,
             config: &mut self.config,
             motion: &mut self.motion,
+            body: &mut self.body,
             caps: &self.caps,
         }
         .update(
@@ -403,7 +470,7 @@ impl ActorClusterSeed {
         )
     }
 
-    /// The six authoritative components as a spawnable Bundle.
+    /// The authoritative components as a spawnable Bundle.
     pub fn into_components(
         self,
     ) -> (
@@ -413,6 +480,7 @@ impl ActorClusterSeed {
         ActorMotionPath,
         ActorSurfaceState,
         ActorAttackState,
+        ActorBody,
         crate::combat::CombatCapabilities,
     ) {
         (
@@ -422,6 +490,7 @@ impl ActorClusterSeed {
             self.motion,
             self.surface,
             self.attack,
+            self.body,
             self.caps,
         )
     }

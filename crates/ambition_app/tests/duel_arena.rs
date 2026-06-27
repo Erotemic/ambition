@@ -8,10 +8,12 @@
 //! relational targeting, and REAL actor-vs-actor damage — so a green run means the
 //! two fighters genuinely fight *in the engine*, not just at the brain-policy level.
 //!
-//! Setup: both fighters spawn as `Enemy` faction; `FactionRelations` is set so
-//! Enemy↔Enemy are mutually hostile (they TARGET each other) and Player↔Enemy is
-//! cleared (the observer is ignored by their targeting). Targeting (who a brain
-//! aims at) is the relational concern; damage is physical when it lands.
+//! Setup: the two fighters are DIFFERENT factions (PCA `Enemy`, robot `Boss`) so
+//! the physical damage rule lets them hurt each other (same-faction would be
+//! friendly-fire-safe). `FactionRelations` makes Enemy↔Boss hostile (they TARGET
+//! each other) and clears Player↔Enemy/Boss (the observer isn't targeted). Targeting
+//! (who a brain aims at) is the relational concern; damage is physical when it lands —
+//! so a stray could still catch the observer, which is fine.
 
 #![cfg(feature = "rl_sim")]
 
@@ -64,11 +66,12 @@ fn pca_vs_robot_duel_is_a_real_fight_in_the_engine() {
     let pca_spawn = origin + ae::Vec2::new(-260.0, 0.0);
     let robot_spawn = origin + ae::Vec2::new(-110.0, 0.0);
 
-    // Targeting relations: the two Enemy-faction fighters are hostile to EACH OTHER
-    // (so they target each other), and NOT hostile to the Player (observer ignored).
+    // Targeting relations: the two fighters (Enemy + Boss) are hostile to EACH
+    // OTHER (so they target each other), and NOT to the Player (observer ignored).
     let mut relations = FactionRelations::default();
-    relations.set_hostile(ActorFaction::Enemy, ActorFaction::Enemy, true);
+    relations.set_mutual_hostile(ActorFaction::Enemy, ActorFaction::Boss, true);
     relations.set_mutual_hostile(ActorFaction::Player, ActorFaction::Enemy, false);
+    relations.set_mutual_hostile(ActorFaction::Player, ActorFaction::Boss, false);
     sim.world_mut().insert_resource(relations);
 
     spawn_fighter(
@@ -89,6 +92,22 @@ fn pca_vs_robot_duel_is_a_real_fight_in_the_engine() {
     // A couple of frames for the spawn requests to materialize.
     for _ in 0..3 {
         sim.step(AgentAction::default());
+    }
+
+    // Put the robot on the Boss faction so the two fighters are DIFFERENT factions
+    // and the physical damage rule lets them hurt each other (same-faction allies
+    // are friendly-fire-safe). (In an authored room, faction comes from the spawn;
+    // here we override post-spawn.)
+    {
+        let world = sim.world_mut();
+        let robot = {
+            let mut q = world.query::<(bevy::prelude::Entity, &FeatureId)>();
+            q.iter(world)
+                .find(|(_, fid)| fid.as_str() == "duel_robot")
+                .map(|(e, _)| e)
+                .expect("robot spawned")
+        };
+        world.entity_mut(robot).insert(ActorFaction::Boss);
     }
     let pca0 = fighter_state(sim.world_mut(), "duel_pca").expect("PCA spawned");
     let robot0 = fighter_state(sim.world_mut(), "duel_robot").expect("robot spawned");

@@ -150,7 +150,7 @@ pub use ecs::{
     tick_and_despawn_hitboxes, tick_boss_brains_system, tick_gameplay_banner, tick_npc_idle_barks,
     update_ecs_actors, update_ecs_bosses, update_ecs_breakables, update_ecs_falling_chests,
     update_ecs_hazards, BossClusterQueryData, BossClusterRef, BossClusterScratch, BossConfig,
-    BossMut, BossOverrides, BossRef, BossStatus, FactionRelations, FeatureEcsWorldOverlay,
+    BossMut, BossOverrides, BossRef, BossStatus, FactionRelations, FriendlyFire, can_damage, FeatureEcsWorldOverlay,
     FeatureSimEntity, FeatureViewIndex, HazardFeature, HeldItem, Hitbox, HitboxAnchor, HitboxHits,
     HitboxLifetime, MountSlot, Mountable, Mounted, MountedBrainCache, MountedSize, RidingOn,
     SpawnActorKind, SpawnActorRequest,
@@ -232,6 +232,7 @@ impl bevy::prelude::Plugin for WorldPrepSchedulePlugin {
         // Relational targeting seam (default = today's behavior; stealth/bounty/
         // alliance systems mutate it). `select_actor_targets` reads it.
         app.init_resource::<FactionRelations>();
+        app.init_resource::<FriendlyFire>();
         // Accumulating sim-time for brain perception (reaction latency).
         app.init_resource::<GameplayElapsed>();
         app.add_systems(

@@ -255,21 +255,23 @@ mod tests {
         );
     }
 
-    /// Opt-in: with default (combat-baseline) relations, an Enemy is not hostile
-    /// to a Boss, so its glider passes a Boss-faction actor by — nothing regresses.
+    /// Damage is PHYSICAL, not relational: with default relations (no targeting
+    /// hostility set), an Enemy glider STILL damages a DIFFERENT-faction (Boss)
+    /// actor it overlaps. Targeting is the relational concern; a shot that LANDS
+    /// hurts any non-ally. (Friendly fire is off by default, so a same-faction
+    /// body would be spared.)
     #[test]
-    fn enemy_glider_ignores_a_non_hostile_actor_by_default() {
+    fn enemy_glider_damages_a_different_faction_actor_physically() {
         let mut app = arena_projectile_app(crate::features::FactionRelations::default());
         let pos = ae::Vec2::new(300.0, 100.0);
-        let _boss_actor = spawn_boss_actor(&mut app, pos);
+        let boss_actor = spawn_boss_actor(&mut app, pos);
         spawn_overlapping_enemy_glider(&mut app, pos);
         app.update();
         let cap = app.world().resource::<CapturedHits>();
         assert!(
-            !cap.0
-                .iter()
-                .any(|e| matches!(e.target, crate::features::HitTarget::Actor(_))),
-            "no actor-vs-actor hit without a relational hostility"
+            cap.0.iter().any(|e| matches!(e.source, HitSource::EnemyProjectile)
+                && e.target == crate::features::HitTarget::Actor(boss_actor)),
+            "a different-faction actor is hit regardless of relations (physical damage)"
         );
     }
 

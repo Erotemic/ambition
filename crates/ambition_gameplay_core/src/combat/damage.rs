@@ -351,12 +351,12 @@ pub fn apply_player_hit_events(
     mut sfx_writer: MessageWriter<SfxMessage>,
     mut vfx_writer: MessageWriter<VfxMessage>,
     primary_q: Query<Entity, (With<PlayerEntity>, With<PrimaryPlayer>)>,
-    // Relational damage authority (S3e) + a faction lookup for the hit's attacker:
-    // a combatant whose faction is NOT hostile to the player (a spectator-arena
-    // fighter, the observing player marked neutral) does not damage the player even
-    // when its swing overlaps. The default keeps Enemy/Boss hostile to Player, so
-    // normal play is unchanged.
-    relations: Option<Res<features::FactionRelations>>,
+    // Friendly-fire policy (the DAMAGE side) + a faction lookup for the hit's
+    // attacker: damage is physical, so any DIFFERENT-faction attacker's hit lands
+    // on the player — including a duel's stray that the observer walked into. Only
+    // a same-faction attacker (co-op ally) is spared, unless friendly fire is on.
+    // Whether an actor AIMS at the player is the separate targeting concern.
+    friendly_fire: Option<Res<features::FriendlyFire>>,
     attacker_factions: Query<&crate::combat::components::ActorFaction>,
     mut player_q: Query<
         (
@@ -376,18 +376,20 @@ pub fn apply_player_hit_events(
     // `apply_feature_hit_events`. The two consumers read the same
     // `HitEvent` channel from independent `MessageReader` positions
     // so both see every event but each filters by source-direction.
-    let relations = relations.map(|r| r.clone()).unwrap_or_default();
+    let friendly_fire = friendly_fire.map(|r| *r).unwrap_or_default();
     let events: Vec<FeatureHitEvent> = hit_events
         .read()
         .filter(|e| !e.source.is_attacker_side())
-        // Relational gate (S3e): if the hit's attacker is a known actor whose
-        // faction isn't hostile to the player, the player is spared. Hits with no
-        // entity attacker (hazards, string-owned enemy projectiles) are
-        // environmental and always apply.
+        // Friendly-fire gate: a same-faction attacker (co-op ally) doesn't damage
+        // the player unless friendly fire is on; any different-faction hit lands
+        // (the observer takes a duel's strays). Hits with no entity attacker
+        // (hazards, string-owned enemy projectiles) are environmental and always apply.
         .filter(|e| match e.attacker.and_then(|a| attacker_factions.get(a).ok()) {
-            Some(faction) => {
-                relations.is_hostile(*faction, crate::combat::components::ActorFaction::Player)
-            }
+            Some(faction) => crate::combat::targeting::can_damage(
+                *faction,
+                crate::combat::components::ActorFaction::Player,
+                friendly_fire,
+            ),
             None => true,
         })
         .cloned()

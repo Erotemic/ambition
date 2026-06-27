@@ -346,17 +346,22 @@ fn enemy_hitbox_ignores_a_same_faction_actor() {
     );
 }
 
-/// The relational actor-vs-actor path is OPT-IN: with the default (combat-
-/// baseline) relations, an Enemy is not hostile to a Boss, so its swing produces
-/// no actor-vs-actor hit. Nothing regresses for ordinary play.
+/// Damage is PHYSICAL, not relational: an Enemy swing damages a DIFFERENT-faction
+/// (Boss) body even with default relations — no targeting hostility required.
+/// Targeting (who a brain aims at) is relational; a hit that LANDS deals damage to
+/// any non-ally. (Friendly fire is off by default, so a SAME-faction body is spared
+/// — see `enemy_hitbox_ignores_a_same_faction_actor`.)
 #[test]
-fn default_relations_produce_no_actor_vs_actor_hit() {
-    let (mut app, _victim) = arena_hitbox_app(FactionRelations::default(), ActorFaction::Boss);
+fn actor_vs_actor_damage_is_physical_for_different_factions() {
+    let (mut app, victim) = arena_hitbox_app(FactionRelations::default(), ActorFaction::Boss);
     app.update();
-    assert!(
-        app.world().resource::<CapturedHits>().0.is_empty(),
-        "default relations add no actor-vs-actor hostility"
+    let cap = &app.world().resource::<CapturedHits>().0;
+    assert_eq!(
+        cap.len(),
+        1,
+        "a different-faction body is hit regardless of relations (physical damage)"
     );
+    assert_eq!(cap[0].target, HitTarget::Actor(victim));
 }
 
 /// Spawn an Enemy-source hitbox over a vulnerable player; relations decide
@@ -424,18 +429,25 @@ fn enemy_hitbox_hits_the_player_by_default() {
     assert!(matches!(cap[0].source, HitSource::EnemyAttack));
 }
 
-/// A spectator-arena combatant whose faction is NOT hostile to the player spares
-/// the observer entirely — the non-player-centric "ignore the observer" property.
+/// Damage is physical, so an Enemy swing that OVERLAPS the player hits them even
+/// when the Enemy is NOT hostile to Player (a duel combatant whose stray catches
+/// the observer). Sparing the observer is a TARGETING property (the duelist won't
+/// AIM at them), NOT a damage one — clearing hostility no longer makes the player
+/// damage-immune. The player is only spared by friendly fire (same faction) or by
+/// being out of range.
 #[test]
-fn enemy_hitbox_spares_a_non_hostile_player() {
+fn enemy_hitbox_hits_a_non_targeted_player_strays_are_physical() {
     let mut relations = FactionRelations::default();
     relations.set_mutual_hostile(ActorFaction::Enemy, ActorFaction::Player, false);
-    let (mut app, _player) = enemy_hitbox_over_player_app(relations);
+    let (mut app, player) = enemy_hitbox_over_player_app(relations);
     app.update();
-    assert!(
-        app.world().resource::<CapturedHits>().0.is_empty(),
-        "an Enemy not hostile to Player does not hit the observing player"
+    let cap = &app.world().resource::<CapturedHits>().0;
+    assert_eq!(
+        cap.len(),
+        1,
+        "a cross-faction swing over the player lands even with no targeting hostility"
     );
+    assert_eq!(cap[0].target, HitTarget::Player(player));
 }
 
 /// The AOE fires once, not every tick of its lifetime — the owner doubles

@@ -32,6 +32,7 @@ use ambition_engine_core as ae;
 use ambition_engine_core::AabbExt;
 
 use super::components::ActorFaction;
+use super::targeting::can_damage;
 use super::events::{HitEvent, HitKnockback, HitMode, HitSource, HitTarget};
 use super::util::midpoint;
 use crate::audio::SfxMessage;
@@ -55,13 +56,13 @@ pub use ambition_vfx::{Hitbox, HitboxAnchor, HitboxHits, HitboxLifetime};
 pub fn apply_hitbox_damage(
     mut hitboxes: Query<(Entity, &Hitbox, &mut HitboxHits)>,
     owners: Query<&super::components::CenteredAabb>,
-    // Relational damage authority (S3e). Optional so minimal headless tests that
-    // don't stand up the plugin still run (fall back to the combat-baseline
-    // default: Player ↔ Enemy/Boss hostile, nothing else).
-    relations: Option<Res<crate::features::FactionRelations>>,
-    // Non-player actor victims for the relational actor-vs-actor melee path: an
-    // Enemy/Boss swing damages any actor its faction is hostile to (e.g. a Boss in
-    // a spectator arena), and is gated OFF the player when not hostile to Player.
+    // Friendly-fire policy (the DAMAGE side; targeting is `FactionRelations`).
+    // Optional so minimal headless tests that don't stand up the plugin still run
+    // (fall back to the default: friendly fire OFF — same-faction allies safe).
+    friendly_fire: Option<Res<crate::features::FriendlyFire>>,
+    // Non-player actor victims for the actor-vs-actor melee path: an Enemy/Boss
+    // swing damages any DIFFERENT-faction actor it overlaps (e.g. a Boss vs an
+    // Enemy in a duel); same-faction allies are spared unless friendly fire is on.
     actor_victims: Query<(Entity, &super::components::CenteredAabb, &ActorFaction)>,
     // Iterate every player so a multi-player build hits each
     // overlapping player independently. Single-player behavior is
@@ -86,7 +87,7 @@ pub fn apply_hitbox_damage(
     mut debris: MessageWriter<DebrisBurstMessage>,
     mut hit_events: MessageWriter<HitEvent>,
 ) {
-    let relations = relations.map(|r| r.clone()).unwrap_or_default();
+    let friendly_fire = friendly_fire.map(|r| *r).unwrap_or_default();
     for (_hitbox_entity, hitbox, mut hits) in &mut hitboxes {
         let owner_pos = match owners.get(hitbox.owner) {
             Ok(aabb) => aabb.center,
@@ -106,17 +107,16 @@ pub fn apply_hitbox_damage(
                 } else {
                     HitSource::EnemyAttack
                 };
-                // Relational actor-vs-actor (S3e): an Enemy/Boss swing damages any
-                // NON-player actor its faction is hostile to (default: none; a
-                // spectator arena sets, e.g., Enemy ↔ Boss). Pre-resolved here
-                // (overlap + faction checked) and stamped `HitTarget::Actor`, so
-                // the actor-damage consumer applies it to exactly that body — the
-                // attacker's own faction is skipped (it isn't hostile to itself).
+                // Actor-vs-actor: an Enemy/Boss swing damages any DIFFERENT-faction
+                // actor it overlaps (e.g. a Boss vs an Enemy in a duel). Same-faction
+                // allies are spared unless friendly fire is on; the attacker never
+                // hits itself (owner check). Stamped `HitTarget::Actor` so the
+                // actor-damage consumer applies it to exactly that body.
                 for (victim_entity, victim_aabb, victim_faction) in &actor_victims {
                     if victim_entity == hitbox.owner {
                         continue;
                     }
-                    if !relations.is_hostile(hitbox.source, *victim_faction) {
+                    if !can_damage(hitbox.source, *victim_faction, friendly_fire) {
                         continue;
                     }
                     if hits.hit.contains(&victim_entity) {
@@ -139,11 +139,13 @@ pub fn apply_hitbox_damage(
                     });
                     hits.hit.insert(victim_entity);
                 }
-                // The observing/neutral player is spared when the attacker's
-                // faction isn't hostile to Player (the arena clears Enemy→Player);
-                // the default keeps Enemy/Boss hostile to Player, so normal combat
-                // is unchanged.
-                if !relations.is_hostile(hitbox.source, ActorFaction::Player) {
+                // Damage is physical: an Enemy/Boss swing that overlaps the player
+                // hits them — even a neutral observer caught in a duel's crossfire
+                // (Player is a different faction, so not an ally). Targeting is
+                // separate (`FactionRelations` decides whether they AIM at the
+                // player); this is just "the hit landed". Same-faction would be
+                // spared (co-op), unless friendly fire is on.
+                if !can_damage(hitbox.source, ActorFaction::Player, friendly_fire) {
                     continue;
                 }
                 // Iterate every player and emit one HitEvent per

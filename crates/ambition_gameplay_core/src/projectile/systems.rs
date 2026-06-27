@@ -15,8 +15,8 @@ use super::state::{PlayerProjectileState, ProjectileTraceEvent};
 use super::{resolve_world_collision, ProjectileFaction, WorldHitOutcome, WorldHitPolicy};
 use crate::audio::SfxMessage;
 use crate::features::{
-    BodyCombat, ActorDisposition, ActorFaction, BossClusterRef, BossConfig, BreakableFeature,
-    CenteredAabb, FactionRelations, FeatureId, FeatureSimEntity, HitEvent, HitKnockback, HitMode,
+    can_damage, BodyCombat, ActorDisposition, ActorFaction, BossClusterRef, BossConfig,
+    BreakableFeature, CenteredAabb, FeatureId, FeatureSimEntity, HitEvent, HitKnockback, HitMode,
     HitSource, HitTarget,
 };
 use crate::actor::BodyKinematics;
@@ -480,19 +480,19 @@ pub fn step_projectiles(
     mut heals: MessageWriter<crate::player::PlayerHealRequested>,
     mut trace: ResMut<GameplayTraceBuffer>,
     // Relational damage authority + non-player actor victims for actor-vs-actor
-    // projectile damage (S3e). A hostile shot routes off the FIRER's faction
-    // (looked up from its owner entity), so a PCA (Enemy) glider damages a
-    // robot (Boss) and a robot's glider damages the PCA — both directions, unlike
-    // the binary `ProjectileFaction`. Default relations keep enemy shots hostile
-    // to the player, so ordinary play is unchanged.
-    relations: Option<Res<FactionRelations>>,
+    // projectile damage. A shot damages any DIFFERENT-faction body it hits, routed
+    // off the FIRER's faction (looked up from its owner entity): a PCA (Enemy)
+    // glider hits a robot (Boss) and vice versa, and a stray hits a different-faction
+    // bystander (the observer). Same-faction allies are spared unless friendly fire
+    // is on — so a pirate's shot can't hit another pirate. (Targeting is separate.)
+    friendly_fire: Option<Res<crate::features::FriendlyFire>>,
     actor_victims: Query<
         (Entity, &CenteredAabb, &ActorFaction),
         (With<FeatureSimEntity>, Without<BossConfig>),
     >,
 ) {
     let dt = world_time.sim_dt();
-    let relations = relations.map(|r| r.clone()).unwrap_or_default();
+    let friendly_fire = friendly_fire.map(|r| *r).unwrap_or_default();
     let collision_world = carved.solids();
     let portal_list = carved.portal_list();
     let tick = trace.current_tick();
@@ -590,11 +590,14 @@ pub fn step_projectiles(
                     .unwrap_or(ActorFaction::Enemy);
                 let mut hit_any_player = false;
                 let mut reflected = false;
-                // The player is a GATED victim: a shot whose firer isn't hostile to
-                // the player (a spectator-arena combatant) passes the observer by.
-                let player_is_target = relations.is_hostile(firer_faction, ActorFaction::Player);
+                // Damage is physical: a shot hits the player if it's a different
+                // faction from the firer (so a duel's stray catches the observer);
+                // only a same-faction firer (co-op) passes them by, unless friendly
+                // fire is on. Whether the firer AIMED at the player is separate.
+                let can_hit_player =
+                    can_damage(firer_faction, ActorFaction::Player, friendly_fire);
                 for (player_entity, player_kin, offense, dodge, shield, combat) in &player_body_q {
-                    if !player_is_target {
+                    if !can_hit_player {
                         break;
                     }
                     if !kin.aabb().strict_intersects(player_kin.aabb()) {
@@ -668,7 +671,7 @@ pub fn step_projectiles(
                     if Some(victim_entity) == owner_entity {
                         continue;
                     }
-                    if !relations.is_hostile(firer_faction, *victim_faction) {
+                    if !can_damage(firer_faction, *victim_faction, friendly_fire) {
                         continue;
                     }
                     if !kin.aabb().strict_intersects(victim_aabb.aabb()) {

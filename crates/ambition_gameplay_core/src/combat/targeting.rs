@@ -76,6 +76,31 @@ impl FactionRelations {
     }
 }
 
+/// Friendly-fire policy — the DAMAGE-side counterpart to [`FactionRelations`]
+/// (which is the TARGETING side). Targeting decides whom a brain *aims at*;
+/// this decides whether a hit that *lands* deals damage.
+///
+/// Damage is physical: a hit damages any body it overlaps that is NOT the
+/// attacker (self is excluded at every call site by entity). The one default
+/// exclusion is **same-faction allies** — friendly fire is OFF by default, so a
+/// pirate's stray shot can't hurt another pirate. A different-faction bystander
+/// (e.g. the player observing a duel) IS hit by strays; that's deliberate.
+/// Set `enabled = true` to opt INTO friendly fire (free-for-all): same-faction
+/// bodies then damage each other too. Per-entity grudges/charm overrides would
+/// layer on top of this faction baseline later.
+#[derive(bevy::prelude::Resource, Clone, Copy, Debug, Default)]
+pub struct FriendlyFire {
+    pub enabled: bool,
+}
+
+/// Whether an `attacker`-faction hit may damage a `victim`-faction body. The
+/// engine rule (see [`FriendlyFire`]): damage lands on any DIFFERENT faction;
+/// same-faction is blocked unless friendly fire is enabled. Self-exclusion
+/// (attacker entity == victim entity) is handled by the caller.
+pub fn can_damage(attacker: ActorFaction, victim: ActorFaction, friendly_fire: FriendlyFire) -> bool {
+    friendly_fire.enabled || attacker != victim
+}
+
 /// Pick each non-player actor's `ActorTarget` for this frame.
 ///
 /// Selection is driven by each actor's [`ActorAggression`], not by its

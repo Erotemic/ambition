@@ -216,20 +216,29 @@ pub fn apply_gnu_ton_body_z(mut query: Query<&mut Transform, With<GnuTonBodyLaye
 /// (same rows + frame counts) because the generator emits them in
 /// lockstep, so the same flat index applies to both.
 pub fn sync_gnu_ton_hands(
-    parents: Query<(&Sprite, &BossAnimator, &Children), With<GnuTonBodyLayer>>,
-    mut hands: Query<(&mut Sprite, &GnuTonHandsLayer), Without<GnuTonBodyLayer>>,
+    parents: Query<(&Sprite, &BossAnimator, &bevy::sprite::Anchor, &Children), With<GnuTonBodyLayer>>,
+    mut hands: Query<
+        (&mut Sprite, &mut bevy::sprite::Anchor, &GnuTonHandsLayer),
+        Without<GnuTonBodyLayer>,
+    >,
 ) {
-    for (parent_sprite, animator, children) in &parents {
+    for (parent_sprite, animator, parent_anchor, children) in &parents {
         let Some(parent_atlas) = parent_sprite.texture_atlas.as_ref() else {
             continue;
         };
         let parent_index = parent_atlas.index;
         let parent_color = parent_sprite.color;
-        // The body + hands sheets are emitted in lockstep, so the parent's
-        // page-local flat index addresses the hands layout of the SAME page.
+        // The body + hands sheets pack in lockstep (shared per-frame rect, page,
+        // and alpha-trim), so EVERY per-frame render-basis value the parent
+        // computes — page, flat index, trimmed `custom_size`, anchor, and facing
+        // flip — applies verbatim to the hands overlay. Mirror them all so a
+        // trimmed gnu_ton sheet keeps the hands aligned with the body.
         let parent_page = animator.current_page();
+        let parent_size = parent_sprite.custom_size;
+        let parent_flip = parent_sprite.flip_x;
+        let parent_anchor_v = parent_anchor.0;
         for child in children.iter() {
-            if let Ok((mut child_sprite, layer)) = hands.get_mut(child) {
+            if let Ok((mut child_sprite, mut child_anchor, layer)) = hands.get_mut(child) {
                 if let Some(page) = layer.pages.get(parent_page as usize) {
                     child_sprite.image = page.texture.clone();
                     if let Some(child_atlas) = child_sprite.texture_atlas.as_mut() {
@@ -240,6 +249,9 @@ pub fn sync_gnu_ton_hands(
                     child_atlas.index = parent_index;
                 }
                 child_sprite.color = parent_color;
+                child_sprite.custom_size = parent_size;
+                child_sprite.flip_x = parent_flip;
+                child_anchor.0 = parent_anchor_v;
             }
         }
     }

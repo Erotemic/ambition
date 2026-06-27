@@ -136,6 +136,41 @@ fn boss_ron_target_strips_the_sheet_suffix() {
         boss_ron_target("sprites/gnu_ton_boss/gnu_ton_boss_spritesheet.png"),
         Some("gnu_ton_boss")
     );
+    // GNU-ton's split body/hands textures resolve back to the ONE packed
+    // `gnu_ton_boss` record (they share an atlas layout, lockstep-packed).
+    assert_eq!(
+        boss_ron_target("sprites/gnu_ton_boss/gnu_ton_boss_body_spritesheet.png"),
+        Some("gnu_ton_boss")
+    );
+    assert_eq!(
+        boss_ron_target("sprites/gnu_ton_boss/gnu_ton_boss_hands_spritesheet.png"),
+        Some("gnu_ton_boss")
+    );
+}
+
+#[test]
+fn gnu_ton_baked_record_drives_the_split_layers_packed() {
+    // End-to-end convergence guard: the regenerated `gnu_ton_boss` sheet is a
+    // lockstep alpha-trim/packed sheet (one shared atlas layout for the
+    // full/body/hands textures). The published record must (a) line up with the
+    // const so it drives the pixels, (b) be trimmed, and (c) stay single-page
+    // (the split-layer record carries one image per layer — multi-page siblings
+    // would resolve the wrong layer's filename).
+    let record = crate::character_sprites::record_for_target("gnu_ton_boss")
+        .expect("baked gnu_ton_boss record present (run regen_sprites.sh)");
+    assert!(
+        record_aligns_with_const(record, &GNU_TON_SHEET),
+        "packed gnu_ton record lines up with the const → drives body + hands pixels"
+    );
+    assert!(
+        record.is_trimmed(),
+        "gnu_ton sheet is alpha-trimmed/packed, not a raw grid"
+    );
+    assert_eq!(
+        record.page_count(),
+        1,
+        "split-layer lockstep record must stay on one page"
+    );
 }
 
 #[test]

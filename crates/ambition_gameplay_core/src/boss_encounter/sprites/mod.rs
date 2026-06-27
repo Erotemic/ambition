@@ -778,7 +778,17 @@ pub fn load_boss_sprite_in(
 /// `gnu_ton_boss`. This is the key [`crate::character_sprites::record_for_target`]
 /// indexes baked sheets by.
 fn boss_ron_target(path: &str) -> Option<&str> {
-    path.rsplit('/').next()?.strip_suffix("_spritesheet.png")
+    let stem = path.rsplit('/').next()?.strip_suffix("_spritesheet.png")?;
+    // GNU-ton renders a split body/hands pair whose two textures share ONE
+    // packed atlas layout (the generator emits them in lockstep). Both layer
+    // filenames (`..._body`, `..._hands`) resolve back to the single published
+    // `gnu_ton_boss` record, so the shared frame algebra addresses both
+    // textures with the same flat index + trim.
+    Some(
+        stem.strip_suffix("_body")
+            .or_else(|| stem.strip_suffix("_hands"))
+            .unwrap_or(stem),
+    )
 }
 
 /// True when a published sheet record lines up 1:1 with the const's row set, so

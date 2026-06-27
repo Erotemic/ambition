@@ -474,6 +474,8 @@ impl SandboxSim {
                 name: name.into(),
                 pos: ae::Vec2::new(pos.0, pos.1),
                 half_size: ae::Vec2::new(half_size.0, half_size.1),
+                // Ignored for the Boss kind (always faction Boss); set for completeness.
+                faction: ambition_gameplay_core::features::ActorFaction::Boss,
                 kind: ambition_gameplay_core::features::SpawnActorKind::Boss { brain, overrides },
             });
         self.app.update();

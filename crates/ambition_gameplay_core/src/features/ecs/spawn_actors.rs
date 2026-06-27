@@ -43,6 +43,12 @@ pub struct SpawnActorRequest {
     /// enemy archetype's `default_size` usually overrides it too — but it always
     /// seeds the kinematic body size.
     pub half_size: ae::Vec2,
+    /// Faction the spawned body takes. Applies to the [`SpawnActorKind::Enemy`]
+    /// path (a duel/arena spawns two fighters on DIFFERENT factions — e.g. one
+    /// `Enemy`, one `Boss` — so the physical damage rule lets them hurt each other);
+    /// the room-authored path uses `Enemy`. Ignored for [`SpawnActorKind::Boss`],
+    /// which is always `Boss`.
+    pub faction: super::ActorFaction,
     /// Which actor family to materialize.
     pub kind: SpawnActorKind,
 }
@@ -119,7 +125,7 @@ pub fn apply_spawn_actor_requests(
                     aabb,
                     brain.clone(),
                 );
-                spawn_enemy(&mut commands, &authored, &[]);
+                spawn_enemy_with_faction(&mut commands, &authored, &[], req.faction);
             }
         }
     }
@@ -611,6 +617,19 @@ pub(super) fn spawn_enemy(
     authored: &crate::rooms::Authored<ambition_characters::actor::EnemyBrain>,
     paths: &[(String, ambition_characters::actor::KinematicPath)],
 ) {
+    spawn_enemy_with_faction(commands, authored, paths, super::ActorFaction::Enemy);
+}
+
+/// Like [`spawn_enemy`] but the spawned body takes `faction` (the duel/arena path
+/// puts its two fighters on DIFFERENT factions so they can damage each other under
+/// the physical damage rule). Composite mounts ignore the override (they fan out
+/// their own factions); the duel fighters are solo.
+pub(super) fn spawn_enemy_with_faction(
+    commands: &mut Commands,
+    authored: &crate::rooms::Authored<ambition_characters::actor::EnemyBrain>,
+    paths: &[(String, ambition_characters::actor::KinematicPath)],
+    faction: super::ActorFaction,
+) {
     let spec = super::super::enemies::spec_for_brain(&authored.payload);
     if spec.is_composite() {
         super::spawn_mounts::spawn_composite_mount_rider(commands, authored, paths, &spec);
@@ -623,7 +642,7 @@ pub(super) fn spawn_enemy(
         authored.payload.clone(),
         paths,
     );
-    spawn_solo_enemy(commands, enemy, authored);
+    spawn_solo_enemy(commands, enemy, authored, faction);
 }
 
 /// Single-entity hostile spawn — the common path after composite
@@ -632,6 +651,7 @@ pub(super) fn spawn_solo_enemy(
     commands: &mut Commands,
     enemy: super::actor_clusters::ActorClusterSeed,
     authored: &crate::rooms::Authored<ambition_characters::actor::EnemyBrain>,
+    faction: super::ActorFaction,
 ) {
     let feature_aabb = CenteredAabb::from_aabb(authored.aabb);
     EnemyActorSpawnPlan::hostile(
@@ -641,6 +661,7 @@ pub(super) fn spawn_solo_enemy(
         feature_aabb,
         enemy,
     )
+    .with_faction(faction)
     .spawn(commands);
 }
 pub(super) fn spawn_interactable(

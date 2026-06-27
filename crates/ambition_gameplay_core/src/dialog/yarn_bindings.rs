@@ -255,6 +255,31 @@ pub fn cmd_challenge(
         });
 }
 
+/// `<<duel>>` — stage a SPECTATOR duel: spawn a second-instance PCA and the robot
+/// on opposing factions near the player and set them hostile to each other (not to
+/// the player), so the two AI fighters duel while the player watches. The reusable
+/// way to show off / iterate the advanced fighter brain in-game; it does NOT touch
+/// the dialog-challenged PCA (separate ids). The player can still take a stray —
+/// damage is physical — but is never targeted. See [`crate::features::arena`].
+pub fn cmd_duel(
+    player: Query<&crate::actor::BodyKinematics, crate::actor::PrimaryPlayerOnly>,
+    mut spawns: MessageWriter<crate::features::SpawnActorRequest>,
+    mut relations: ResMut<crate::features::FactionRelations>,
+) {
+    let Some(kin) = player.iter().next() else {
+        warn!("<<duel>>: no player to center the duel on; ignoring");
+        return;
+    };
+    // Stage the duel off to the side the player faces, so the two fighters are
+    // nearer to each other than to the player and target each other (the observer
+    // is at a distance). A player who walks in can still get caught.
+    let center = kin.pos + ae::Vec2::new(kin.facing.signum() * 220.0, 0.0);
+    crate::features::apply_duel_relations(&mut relations);
+    for req in crate::features::duel_spawn_requests(center) {
+        spawns.write(req);
+    }
+}
+
 /// `<<give_item "kind" count>>` — grant the player an item by adding
 /// to the live `OwnedItems` catalog resource. The kind string is
 /// resolved through [`crate::items::Item::from_dialog_id`]
@@ -481,7 +506,7 @@ fn normalize_item_id(raw: &str) -> String {
         .collect()
 }
 
-/// Register the nine generic custom commands on the runner. Called
+/// Register the generic custom dialogue commands on the runner. Called
 /// from `spawn_dialogue_runner`; content commands are installed right
 /// after via [`YarnContentBindings`]. Each command name maps to a
 /// Bevy system registered against the `World`.
@@ -489,6 +514,7 @@ pub fn register_commands(commands: &mut Commands, runner: &mut DialogueRunner) {
     let set_flag_id = commands.register_system(cmd_set_flag);
     let clear_flag_id = commands.register_system(cmd_clear_flag);
     let challenge_id = commands.register_system(cmd_challenge);
+    let duel_id = commands.register_system(cmd_duel);
     let give_item_id = commands.register_system(cmd_give_item);
     let buy_item_id = commands.register_system(cmd_buy_item);
     let sell_item_id = commands.register_system(cmd_sell_item);
@@ -500,6 +526,7 @@ pub fn register_commands(commands: &mut Commands, runner: &mut DialogueRunner) {
     cmds.add_command("set_flag", set_flag_id);
     cmds.add_command("clear_flag", clear_flag_id);
     cmds.add_command("challenge", challenge_id);
+    cmds.add_command("duel", duel_id);
     cmds.add_command("give_item", give_item_id);
     cmds.add_command("buy_item", buy_item_id);
     cmds.add_command("sell_item", sell_item_id);

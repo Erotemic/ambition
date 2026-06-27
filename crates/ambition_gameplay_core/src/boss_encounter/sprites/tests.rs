@@ -2,6 +2,22 @@
 
 use super::*;
 
+/// Page-local flat atlas index via the shared frame algebra over the const's
+/// grid-only synthetic record — the same path the runtime takes when no
+/// published sheet RON exists.
+fn const_flat(spec: &BossSheetSpec, anim: BossAnim, frame: usize) -> usize {
+    spec.synth_record("x.png")
+        .flat_index_in_page(spec.record_row(anim), frame)
+}
+
+/// Number of atlas cells the const's grid produces through the shared algebra.
+fn const_atlas_len(spec: &BossSheetSpec) -> usize {
+    spec.synth_record("x.png")
+        .atlas_page(0, spec.frame_sample_inset)
+        .rects
+        .len()
+}
+
 #[test]
 fn boss_sheet_has_seven_animation_rows() {
     // The enum has 7 variants and the spec has 7 rows; if these
@@ -29,12 +45,9 @@ fn fsm_and_trex_sheets_match_their_published_layouts() {
     );
     assert!(FLYING_SPAGHETTI_MONSTER_SHEET.body_centered, "FSM floats");
     // Rest is row 0; FloorSlam (meatball_volley) is row 3 → 6+8+7 frames before.
+    assert_eq!(const_flat(&FLYING_SPAGHETTI_MONSTER_SHEET, BossAnim::Rest, 0), 0);
     assert_eq!(
-        FLYING_SPAGHETTI_MONSTER_SHEET.flat_index(BossAnim::Rest, 0),
-        0
-    );
-    assert_eq!(
-        FLYING_SPAGHETTI_MONSTER_SHEET.flat_index(BossAnim::FloorSlam, 0),
+        const_flat(&FLYING_SPAGHETTI_MONSTER_SHEET, BossAnim::FloorSlam, 0),
         6 + 8 + 7
     );
 
@@ -46,10 +59,7 @@ fn fsm_and_trex_sheets_match_their_published_layouts() {
     assert!(!TREX_BOSS_SHEET.body_centered, "T-Rex is grounded");
     assert_eq!(TREX_BOSS_SHEET.frame_count(BossAnim::Rest), 6);
     // SideSweep (bite) is row 3, not the later tail_swipe dup at row 5.
-    assert_eq!(
-        TREX_BOSS_SHEET.flat_index(BossAnim::SideSweep, 0),
-        6 + 8 + 8
-    );
+    assert_eq!(const_flat(&TREX_BOSS_SHEET, BossAnim::SideSweep, 0), 6 + 8 + 8);
 
     // Both atlases build without panic and have one rect per frame.
     let fsm_frames: usize = FLYING_SPAGHETTI_MONSTER_SHEET
@@ -57,16 +67,13 @@ fn fsm_and_trex_sheets_match_their_published_layouts() {
         .iter()
         .map(|(_, r)| r.frame_count)
         .sum();
-    assert_eq!(
-        FLYING_SPAGHETTI_MONSTER_SHEET.build_atlas().len(),
-        fsm_frames
-    );
+    assert_eq!(const_atlas_len(&FLYING_SPAGHETTI_MONSTER_SHEET), fsm_frames);
     let trex_frames: usize = TREX_BOSS_SHEET
         .rows
         .iter()
         .map(|(_, r)| r.frame_count)
         .sum();
-    assert_eq!(TREX_BOSS_SHEET.build_atlas().len(), trex_frames);
+    assert_eq!(const_atlas_len(&TREX_BOSS_SHEET), trex_frames);
 }
 
 fn fsm_record(frame_w: u32, frame_h: u32, label_w: u32) -> ambition_sprite_sheet::SheetRecord {
@@ -139,14 +146,17 @@ fn boss_atlas_tracks_the_published_rects_not_the_const_grid() {
     // at the PUBLISHED rect stride. Use a deliberately DIFFERENT frame width
     // (300) from the const so a grid-from-const would land cells elsewhere.
     let record = fsm_record(300, 280, 100);
-    let layout = boss_atlas_from_record(&record, &FLYING_SPAGHETTI_MONSTER_SHEET)
-        .expect("aligned record builds an atlas");
+    assert!(
+        record_aligns_with_const(&record, &FLYING_SPAGHETTI_MONSTER_SHEET),
+        "aligned record drives the pixels"
+    );
+    let page = record.atlas_page(0, FLYING_SPAGHETTI_MONSTER_SHEET.frame_sample_inset);
     // One rect per frame (47 total for the FSM row set).
-    assert_eq!(layout.len(), 6 + 8 + 7 + 7 + 7 + 4 + 8);
+    assert_eq!(page.rects.len(), 6 + 8 + 7 + 7 + 7 + 4 + 8);
     // drift (row 1) frame 0 starts at label(100) + 0*300 = 100 on x and
     // 1*280 = 280 on y — proving the layout follows the record's 300/280 stride,
     // NOT the const's 393/344 grid.
-    let drift_frame0 = layout.textures[6]; // first frame after idle's 6
+    let drift_frame0 = page.rects[6]; // first frame after idle's 6
     assert_eq!(
         drift_frame0.min.y,
         280 + FLYING_SPAGHETTI_MONSTER_SHEET.frame_sample_inset
@@ -160,7 +170,10 @@ fn boss_atlas_falls_back_when_record_rows_dont_line_up() {
     use ambition_sprite_sheet::SheetRow;
     let mut record = fsm_record(393, 344, 100);
     record.rows.truncate(3);
-    assert!(boss_atlas_from_record(&record, &FLYING_SPAGHETTI_MONSTER_SHEET).is_none());
+    assert!(!record_aligns_with_const(
+        &record,
+        &FLYING_SPAGHETTI_MONSTER_SHEET
+    ));
     // A row with too few frames also declines.
     let mut record = fsm_record(393, 344, 100);
     record.rows[0] = SheetRow {
@@ -168,7 +181,10 @@ fn boss_atlas_falls_back_when_record_rows_dont_line_up() {
         rects: record.rows[0].rects[..1].to_vec(),
         ..record.rows[0].clone()
     };
-    assert!(boss_atlas_from_record(&record, &FLYING_SPAGHETTI_MONSTER_SHEET).is_none());
+    assert!(!record_aligns_with_const(
+        &record,
+        &FLYING_SPAGHETTI_MONSTER_SHEET
+    ));
 }
 
 #[test]
@@ -270,10 +286,10 @@ fn frame_count_matches_spec_rows() {
 fn flat_index_lays_rows_end_to_end() {
     // First frame of each row sits at the cumulative sum of prior
     // frame counts. The first row starts at 0.
-    assert_eq!(BOSS_SHEET.flat_index(BossAnim::Rest, 0), 0);
-    assert_eq!(BOSS_SHEET.flat_index(BossAnim::FloorSlam, 0), 8);
-    assert_eq!(BOSS_SHEET.flat_index(BossAnim::SideSweep, 0), 8 + 7);
-    assert_eq!(BOSS_SHEET.flat_index(BossAnim::SpikeHalo, 0), 8 + 7 + 7);
+    assert_eq!(const_flat(&BOSS_SHEET, BossAnim::Rest, 0), 0);
+    assert_eq!(const_flat(&BOSS_SHEET, BossAnim::FloorSlam, 0), 8);
+    assert_eq!(const_flat(&BOSS_SHEET, BossAnim::SideSweep, 0), 8 + 7);
+    assert_eq!(const_flat(&BOSS_SHEET, BossAnim::SpikeHalo, 0), 8 + 7 + 7);
 }
 
 #[test]
@@ -281,7 +297,7 @@ fn flat_index_clamps_to_last_frame_of_row() {
     // Asking for frame index past the end of a row clamps to the
     // last valid frame; this avoids out-of-bounds atlas reads when
     // an animation cursor overshoots due to a long delta-t.
-    let last_rest = BOSS_SHEET.flat_index(BossAnim::Rest, 999);
+    let last_rest = const_flat(&BOSS_SHEET, BossAnim::Rest, 999);
     assert_eq!(last_rest, BOSS_SHEET.frame_count(BossAnim::Rest) - 1);
 }
 

@@ -9,10 +9,10 @@
 //! animations. The split keeps both clean and makes it obvious which sheet
 //! a given pipeline expects.
 
-use bevy::math::URect;
 use bevy::prelude::*;
 use bevy::sprite::Anchor;
 
+use crate::character_sprites::{RenderBasis, SheetRecord};
 use crate::features::FeatureVisualKind;
 
 /// Boss animation rows in the order the generator emits them.
@@ -334,39 +334,48 @@ impl BossSheetSpec {
         self.rows[idx].1
     }
 
-    pub fn build_atlas(&self) -> TextureAtlasLayout {
-        let max_frames = self
-            .rows
-            .iter()
-            .map(|(_, r)| r.frame_count)
-            .max()
-            .unwrap_or(0) as u32;
-        let total_w = self.label_width + max_frames * self.frame_width;
-        let total_h = self.rows.len() as u32 * self.frame_height;
-        let mut layout = TextureAtlasLayout::new_empty(UVec2::new(total_w, total_h));
-        let inset = self
-            .frame_sample_inset
-            .min(self.frame_width.min(self.frame_height) / 4);
-        for (row_idx, (_, row)) in self.rows.iter().enumerate() {
-            for col in 0..row.frame_count {
-                let x = self.label_width + col as u32 * self.frame_width;
-                let y = row_idx as u32 * self.frame_height;
-                let min = UVec2::new(x + inset, y + inset);
-                let max = UVec2::new(x + self.frame_width - inset, y + self.frame_height - inset);
-                layout.add_texture(URect { min, max });
-            }
-        }
-        layout
+    /// Index into the backing [`SheetRecord`]'s rows for `anim` (after `Rest`
+    /// fallback). The boss const lists its rows in the exact PNG order the
+    /// generator emits, so a row's position in `self.rows` IS its record-row
+    /// index — the single key the shared frame algebra addresses pages, flat
+    /// indices, and trim by.
+    pub fn record_row(&self, anim: BossAnim) -> usize {
+        let resolved = self.resolve_anim(anim);
+        self.row_index(resolved)
+            .expect("boss sprite sheet must define a Rest row")
     }
 
-    pub fn flat_index(&self, anim: BossAnim, frame: usize) -> usize {
-        let resolved = self.resolve_anim(anim);
-        let row = self
-            .row_index(resolved)
-            .expect("boss sprite sheet must define a Rest row");
-        let frames_before: usize = self.rows[..row].iter().map(|(_, r)| r.frame_count).sum();
-        let max_frame = self.rows[row].1.frame_count.saturating_sub(1);
-        frames_before + frame.min(max_frame)
+    /// A [`SheetRecord`] view of this const grid, for the fallback path where no
+    /// published sheet RON exists (subdir bosses, headless/tests). Rows carry no
+    /// rects, so the shared frame algebra derives every cell from grid stride —
+    /// exactly the old `build_atlas` math, now through the one implementation.
+    pub fn synth_record(&self, image: &str) -> SheetRecord {
+        let rows = self
+            .rows
+            .iter()
+            .enumerate()
+            .map(|(i, (anim, row))| ambition_sprite_sheet::SheetRow {
+                animation: format!("{anim:?}"),
+                row_index: i as u32,
+                frame_count: row.frame_count as u32,
+                duration_ms: (row.duration_secs * 1000.0) as u32,
+                duration_secs: row.duration_secs,
+                page: 0,
+                rects: Vec::new(),
+            })
+            .collect();
+        SheetRecord {
+            target: String::new(),
+            image: image.to_string(),
+            images: Vec::new(),
+            label_width: self.label_width,
+            frame_width: self.frame_width,
+            frame_height: self.frame_height,
+            y_offset: 0,
+            body_metrics: None,
+            tuning: None,
+            rows,
+        }
     }
 
     pub fn frame_count(&self, anim: BossAnim) -> usize {
@@ -406,11 +415,43 @@ impl BossSheetSpec {
     }
 }
 
+/// One page image's texture + atlas layout for a boss sheet. Length-1 for the
+/// common single-PNG boss; one per page when the sheet is split to stay within
+/// the GPU texture limit. Mirrors `character_sprites::CharacterSpritePage`.
 #[derive(Clone)]
-pub struct BossSpriteAsset {
+pub struct BossSpritePage {
     pub texture: Handle<Image>,
     pub layout: Handle<TextureAtlasLayout>,
+}
+
+#[derive(Clone)]
+pub struct BossSpriteAsset {
+    /// Per-page texture + layout. `pages[0]` is the primary image; the renderer
+    /// swaps to the active frame's page for split sheets.
+    pub pages: Vec<BossSpritePage>,
+    /// The backing sheet record (published RON, or a grid-only synthetic view
+    /// of the const) — the single source the shared frame algebra reads pages,
+    /// flat indices, and trim from.
+    pub record: SheetRecord,
     pub spec: BossSheetSpec,
+}
+
+impl BossSpriteAsset {
+    /// Primary (page-0) texture handle — the spawn-time sprite image.
+    pub fn texture(&self) -> Handle<Image> {
+        self.pages[0].texture.clone()
+    }
+
+    /// Primary (page-0) atlas layout handle.
+    pub fn layout(&self) -> Handle<TextureAtlasLayout> {
+        self.pages[0].layout.clone()
+    }
+
+    /// Page-local flat atlas index of `(anim, frame)` via the shared algebra.
+    pub fn flat_index(&self, anim: BossAnim, frame: usize) -> usize {
+        self.record
+            .flat_index_in_page(self.spec.record_row(anim), frame)
+    }
 }
 
 pub(crate) const BOSS_FILENAME: &str = "boss_spritesheet.png";
@@ -740,65 +781,19 @@ fn boss_ron_target(path: &str) -> Option<&str> {
     path.rsplit('/').next()?.strip_suffix("_spritesheet.png")
 }
 
-/// Build a boss atlas layout from the published sheet RON's per-frame rects —
-/// the same data-driven path the character sheets use, so the atlas tracks the
-/// regenerated texture (resolution / crop / future packing) instead of a
-/// recomputed grid off the const's authored-at-first-pass dims.
-///
-/// Returns `None` (caller falls back to the const grid) when the record's rows
-/// don't line up 1:1 with the const spec — the const owns the gameplay row
-/// order + frame counts that [`BossSheetSpec::flat_index`] sums over, so the
-/// rects must be addable in that exact order with enough frames each, or we'd
-/// risk sampling the wrong cell.
-fn boss_atlas_from_record(
-    record: &crate::character_sprites::SheetRecord,
-    spec: &BossSheetSpec,
-) -> Option<TextureAtlasLayout> {
+/// True when a published sheet record lines up 1:1 with the const's row set, so
+/// it can drive the pixels: the const owns the [`BossAnim`] row order + frame
+/// counts the shared frame algebra addresses by position, so each const row
+/// must have a matching record row with enough frames + rects. Otherwise the
+/// boss renders from the const's grid (via [`BossSheetSpec::synth_record`]).
+fn record_aligns_with_const(record: &SheetRecord, spec: &BossSheetSpec) -> bool {
     if record.rows.len() < spec.rows.len() {
-        return None;
+        return false;
     }
-    for (i, (_, row)) in spec.rows.iter().enumerate() {
-        let rec_row = &record.rows[i];
-        if (rec_row.frame_count as usize) < row.frame_count || rec_row.rects.len() < row.frame_count
-        {
-            return None;
-        }
-    }
-    let inset = spec
-        .frame_sample_inset
-        .min(record.frame_width.min(record.frame_height) / 4);
-    let used = |r: &ambition_sprite_sheet::FrameRect| -> (u32, u32, u32, u32) {
-        let x0 = r.x.max(0) as u32;
-        let y0 = r.y.max(0) as u32;
-        (
-            (x0),
-            (y0),
-            ((r.x + r.w).max(0) as u32),
-            ((r.y + r.h).max(0) as u32),
-        )
-    };
-    let mut max_x = 1u32;
-    let mut max_y = 1u32;
-    for (i, (_, row)) in spec.rows.iter().enumerate() {
-        for r in record.rows[i].rects.iter().take(row.frame_count) {
-            let (_, _, x1, y1) = used(r);
-            max_x = max_x.max(x1);
-            max_y = max_y.max(y1);
-        }
-    }
-    let mut layout = TextureAtlasLayout::new_empty(UVec2::new(max_x, max_y));
-    for (i, (_, row)) in spec.rows.iter().enumerate() {
-        for r in record.rows[i].rects.iter().take(row.frame_count) {
-            let (x0, y0, x1, y1) = used(r);
-            let min = UVec2::new(x0 + inset, y0 + inset);
-            let max = UVec2::new(
-                x1.saturating_sub(inset).max(min.x + 1),
-                y1.saturating_sub(inset).max(min.y + 1),
-            );
-            layout.add_texture(URect { min, max });
-        }
-    }
-    Some(layout)
+    spec.rows.iter().enumerate().all(|(i, (_, row))| {
+        let rec = &record.rows[i];
+        (rec.frame_count as usize) >= row.frame_count && rec.rects.len() >= row.frame_count
+    })
 }
 
 pub(crate) fn load_named_boss_sprite_via_catalog(
@@ -816,31 +811,73 @@ pub(crate) fn load_named_boss_sprite_via_catalog(
         );
         return None;
     };
-    // Data-driven geometry: prefer the published sheet RON so the atlas + render
-    // aspect track the regenerated texture (resolution / crop) instead of the
-    // const's first-pass dims — a boss whose generator `FRAME_SIZE` changed (or
-    // that picked up the fleet `render_scale` bump) otherwise indexes the wrong
-    // cells and flickers. The const still owns the gameplay row mapping + tuning;
-    // only the pixel geometry comes from the RON. Falls back to the const grid
-    // when the sheet has no baked record (subdir bosses, headless/tests) or its
-    // rows don't line up with the const.
+    // Data-driven geometry: prefer the published sheet RON so the atlas, page
+    // splits, trim, and render aspect track the regenerated texture (resolution
+    // / crop / packing) instead of the const's first-pass dims. The const still
+    // owns the gameplay row mapping + tuning; the pixels come from the record,
+    // read through the ONE shared frame algebra. When no baked record exists
+    // (subdir bosses, headless/tests) or it doesn't line up with the const, we
+    // synthesize a grid-only record from the const — still the same algebra.
     let mut spec = spec;
-    let layout = boss_ron_target(&path)
+    let record = boss_ron_target(&path)
         .and_then(crate::character_sprites::record_for_target)
-        .and_then(|record| {
-            let layout = boss_atlas_from_record(record, &spec)?;
+        .filter(|record| record_aligns_with_const(record, &spec))
+        .map(|record| {
             spec.frame_width = record.frame_width;
             spec.frame_height = record.frame_height;
             spec.label_width = record.label_width;
-            Some(layout)
+            record.clone()
         })
-        .unwrap_or_else(|| spec.build_atlas());
-    let layout = layouts.add(layout);
+        .unwrap_or_else(|| spec.synth_record(&boss_filename_of(&path)));
+
+    let pages = build_boss_pages(&record, &spec, &path, asset_server, layouts);
     Some(BossSpriteAsset {
-        texture: asset_server.load(path),
-        layout,
+        pages,
+        record,
         spec,
     })
+}
+
+/// Final path component of a resolved boss PNG path (the synthetic record's
+/// `image`), e.g. `sprites/gnu_ton_boss/gnu_ton_boss_spritesheet.png` →
+/// `gnu_ton_boss_spritesheet.png`.
+fn boss_filename_of(path: &str) -> String {
+    path.rsplit('/').next().unwrap_or(path).to_string()
+}
+
+/// Build one `(texture, layout)` per page image, mirroring the character
+/// loader: page 0 uses the catalog-resolved path; sibling pages resolve their
+/// filename (from the record's `images` list) against page 0's directory. Each
+/// page's layout comes from the shared `atlas_page` algebra.
+fn build_boss_pages(
+    record: &SheetRecord,
+    spec: &BossSheetSpec,
+    path: &str,
+    asset_server: &AssetServer,
+    layouts: &mut Assets<TextureAtlasLayout>,
+) -> Vec<BossSpritePage> {
+    let parent = path.rsplit_once('/').map(|(dir, _)| dir).unwrap_or("");
+    let page_count = record.page_count().max(1);
+    (0..page_count)
+        .map(|page| {
+            let page_path = if page == 0 {
+                path.to_string()
+            } else {
+                let file = record.page_image(page);
+                if parent.is_empty() {
+                    file.to_string()
+                } else {
+                    format!("{parent}/{file}")
+                }
+            };
+            BossSpritePage {
+                texture: asset_server.load(page_path),
+                layout: layouts.add(crate::character_sprites::build_atlas_layout(
+                    &record.atlas_page(page, spec.frame_sample_inset),
+                )),
+            }
+        })
+        .collect()
 }
 
 /// Per-entity boss animation cursor. Same shape as `CharacterAnimator` but
@@ -848,23 +885,84 @@ pub(crate) fn load_named_boss_sprite_via_catalog(
 #[derive(Component)]
 pub struct BossAnimator {
     pub spec: BossSheetSpec,
+    /// Backing sheet record — the single source the shared frame algebra reads
+    /// flat indices, per-frame pages, and trim from. Cloned from the asset.
+    pub record: SheetRecord,
+    /// Per-page texture + layout handles, so the renderer can swap the sprite's
+    /// image + atlas layout when the playing frame lives on a different page of
+    /// a split sheet. Length 1 (no swap) for the common single-PNG boss.
+    pub pages: Vec<BossSpritePage>,
     pub current: BossAnim,
     pub drive_phase: BossAnimDrivePhase,
     pub frame: usize,
     pub elapsed: f32,
     pub clip_held: bool,
+    /// Base render size + feet anchor set at spawn, so a trimmed (alpha-packed)
+    /// boss sheet can recompute the per-frame `custom_size` + anchor that keeps
+    /// the logical frame fixed. `None` until provided.
+    pub render_basis: Option<RenderBasis>,
 }
 
 impl BossAnimator {
-    pub fn new(spec: BossSheetSpec) -> Self {
+    pub fn new(asset: &BossSpriteAsset) -> Self {
         Self {
-            spec,
+            spec: asset.spec,
+            record: asset.record.clone(),
+            pages: asset.pages.clone(),
             current: BossAnim::Rest,
             drive_phase: BossAnimDrivePhase::Rest,
             frame: 0,
             elapsed: 0.0,
             clip_held: false,
+            render_basis: None,
         }
+    }
+
+    /// Attach the base render size + feet anchor used to build the sprite, so a
+    /// trimmed sheet can recompute per-frame size/anchor. Builder-style.
+    pub fn with_render_basis(mut self, render_size: Vec2, feet_anchor: Vec2) -> Self {
+        self.render_basis = Some(RenderBasis {
+            render_size,
+            feet_anchor,
+        });
+        self
+    }
+
+    /// Page-local flat atlas index of `(anim, frame)` via the shared algebra.
+    fn flat_index(&self, anim: BossAnim, frame: usize) -> usize {
+        self.record
+            .flat_index_in_page(self.spec.record_row(anim), frame)
+    }
+
+    /// True when the sheet is split across more than one page image, so the
+    /// renderer must select the active frame's page. Single-page sheets skip it.
+    pub fn is_paged(&self) -> bool {
+        self.pages.len() > 1
+    }
+
+    /// The page image index the current frame draws from (per-frame: a packed
+    /// animation can span pages).
+    pub fn current_page(&self) -> u32 {
+        self.record
+            .frame_page_of(self.spec.record_row(self.current), self.frame)
+    }
+
+    /// Per-frame `(custom_size, anchor)` for the current frame, or `None` when
+    /// the sheet is untrimmed (or no basis is set) — callers then keep the fixed
+    /// spawn-time size/anchor, so untrimmed boss sheets are unaffected.
+    pub fn current_render(&self) -> Option<(Vec2, Vec2)> {
+        if !self.record.is_trimmed() {
+            return None;
+        }
+        let basis = self.render_basis.as_ref()?;
+        let trim = self
+            .record
+            .frame_trim(self.spec.record_row(self.current), self.frame);
+        Some(ambition_sprite_sheet::trimmed_render(
+            &trim,
+            basis.render_size,
+            basis.feet_anchor,
+        ))
     }
 
     pub fn request(&mut self, anim: BossAnim) {
@@ -891,10 +989,10 @@ impl BossAnimator {
     pub fn tick(&mut self, dt: f32) -> usize {
         let row = self.spec.row(self.current);
         if row.frame_count == 0 || row.duration_secs <= 0.0 {
-            return self.spec.flat_index(self.current, self.frame);
+            return self.flat_index(self.current, self.frame);
         }
         if self.clip_held {
-            return self.spec.flat_index(self.current, self.frame);
+            return self.flat_index(self.current, self.frame);
         }
         self.elapsed += dt;
         while self.elapsed >= row.duration_secs {
@@ -911,7 +1009,7 @@ impl BossAnimator {
                 self.frame += 1;
             }
         }
-        self.spec.flat_index(self.current, self.frame)
+        self.flat_index(self.current, self.frame)
     }
 }
 

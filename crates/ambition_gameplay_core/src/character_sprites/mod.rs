@@ -39,7 +39,7 @@ mod tests;
 pub use anim::{
     pick_enemy_anim, pick_npc_anim, pick_player_anim, CharacterAnim, EnemyAnimState, NpcAnimState,
 };
-pub use animator::CharacterAnimator;
+pub use animator::{CharacterAnimator, RenderBasis};
 #[allow(
     unused_imports,
     reason = "manifest_attack_hitbox_world is the reusable core; player_attack_hitbox_world is the live consumer (ambition_app advance_attack)."

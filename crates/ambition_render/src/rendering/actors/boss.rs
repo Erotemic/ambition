@@ -14,11 +14,15 @@ use super::*;
 pub struct GnuTonBodyLayer;
 
 /// Marks the hands overlay child entity spawned alongside a gnu_ton boss.
-/// A sync system mirrors the parent boss's atlas index + tint onto this
-/// child each frame, so both layers stay in lockstep without needing a
-/// second `BossAnimator`.
+/// A sync system mirrors the parent boss's atlas index, page, + tint onto
+/// this child each frame, so both layers stay in lockstep without needing a
+/// second `BossAnimator`. Carries the hands sheet's per-page handles so the
+/// child can follow the parent onto the same page of a split sheet (the body
+/// and hands sheets are emitted in lockstep, so a shared page index applies).
 #[derive(Component)]
-pub struct GnuTonHandsLayer;
+pub struct GnuTonHandsLayer {
+    pub pages: Vec<sprites::BossSpritePage>,
+}
 
 /// World-space z for the GNU-ton body silhouette — between block tiles
 /// (`WORLD_Z_BLOCK + 0.5 = 0.5`) and one-way platforms
@@ -111,8 +115,8 @@ pub fn upgrade_boss_sprites(
                 assets.boss_sprite("gnu_ton_hands"),
             ) {
                 (Some(body), Some(hands))
-                    if images.get(&body.texture).is_some()
-                        && images.get(&hands.texture).is_some() =>
+                    if images.get(&body.pages[0].texture).is_some()
+                        && images.get(&hands.pages[0].texture).is_some() =>
                 {
                     Some((body, hands))
                 }
@@ -144,22 +148,28 @@ pub fn upgrade_boss_sprites(
         } else {
             continue;
         };
-        if images.get(&boss_asset.texture).is_none() {
+        if images.get(&boss_asset.pages[0].texture).is_none() {
             continue;
         }
         let collision = BVec2::new(view.size.x, view.size.y);
         let render_size = boss_asset.spec.render_size(collision);
         let anchor = boss_asset.spec.collision_anchor(collision);
         let mut sprite = Sprite::from_atlas_image(
-            boss_asset.texture.clone(),
+            boss_asset.texture(),
             bevy::image::TextureAtlas {
-                layout: boss_asset.layout.clone(),
-                index: boss_asset.spec.flat_index(sprites::BossAnim::Rest, 0),
+                layout: boss_asset.layout(),
+                index: boss_asset.flat_index(sprites::BossAnim::Rest, 0),
             },
         );
         sprite.custom_size = Some(render_size);
         let mut entity_commands = commands.entity(entity);
-        entity_commands.insert((sprite, anchor, BossAnimator::new(boss_asset.spec)));
+        // `with_render_basis` lets a trimmed (alpha-packed) boss sheet recompute
+        // per-frame size/anchor in `animate_bosses`; untrimmed sheets ignore it.
+        entity_commands.insert((
+            sprite,
+            anchor,
+            BossAnimator::new(boss_asset).with_render_basis(render_size, anchor.0),
+        ));
         if let Some((_body, hands)) = split_layers {
             // Spawn the hands overlay as a Bevy child so it inherits the
             // parent's translation. The child's local z offset puts the
@@ -167,18 +177,19 @@ pub fn upgrade_boss_sprites(
             // the player) so incoming slams read as foreground danger.
             entity_commands.insert(GnuTonBodyLayer);
             let mut hands_sprite = Sprite::from_atlas_image(
-                hands.texture.clone(),
+                hands.texture(),
                 bevy::image::TextureAtlas {
-                    layout: hands.layout.clone(),
-                    index: hands.spec.flat_index(sprites::BossAnim::Rest, 0),
+                    layout: hands.layout(),
+                    index: hands.flat_index(sprites::BossAnim::Rest, 0),
                 },
             );
             hands_sprite.custom_size = Some(render_size);
+            let hands_pages = hands.pages.clone();
             entity_commands.with_children(|parent| {
                 parent.spawn((
                     hands_sprite,
                     anchor,
-                    GnuTonHandsLayer,
+                    GnuTonHandsLayer { pages: hands_pages },
                     // Local z offset relative to the parent body. The
                     // parent's absolute z is forced to `GNU_TON_BODY_Z` by
                     // `apply_gnu_ton_body_z` each frame, so this offset
@@ -205,17 +216,26 @@ pub fn apply_gnu_ton_body_z(mut query: Query<&mut Transform, With<GnuTonBodyLaye
 /// (same rows + frame counts) because the generator emits them in
 /// lockstep, so the same flat index applies to both.
 pub fn sync_gnu_ton_hands(
-    parents: Query<(&Sprite, &Children), With<GnuTonBodyLayer>>,
-    mut hands: Query<&mut Sprite, (With<GnuTonHandsLayer>, Without<GnuTonBodyLayer>)>,
+    parents: Query<(&Sprite, &BossAnimator, &Children), With<GnuTonBodyLayer>>,
+    mut hands: Query<(&mut Sprite, &GnuTonHandsLayer), Without<GnuTonBodyLayer>>,
 ) {
-    for (parent_sprite, children) in &parents {
+    for (parent_sprite, animator, children) in &parents {
         let Some(parent_atlas) = parent_sprite.texture_atlas.as_ref() else {
             continue;
         };
         let parent_index = parent_atlas.index;
         let parent_color = parent_sprite.color;
+        // The body + hands sheets are emitted in lockstep, so the parent's
+        // page-local flat index addresses the hands layout of the SAME page.
+        let parent_page = animator.current_page();
         for child in children.iter() {
-            if let Ok(mut child_sprite) = hands.get_mut(child) {
+            if let Ok((mut child_sprite, layer)) = hands.get_mut(child) {
+                if let Some(page) = layer.pages.get(parent_page as usize) {
+                    child_sprite.image = page.texture.clone();
+                    if let Some(child_atlas) = child_sprite.texture_atlas.as_mut() {
+                        child_atlas.layout = page.layout.clone();
+                    }
+                }
                 if let Some(child_atlas) = child_sprite.texture_atlas.as_mut() {
                     child_atlas.index = parent_index;
                 }
@@ -241,6 +261,7 @@ pub fn animate_bosses(
             &FeatureVisual,
             &mut Sprite,
             &mut BossAnimator,
+            Option<&mut bevy::sprite::Anchor>,
             Option<&ambition_gameplay_core::time::time_control::ProperTimeScale>,
         ),
         Without<PlayerVisual>,
@@ -255,7 +276,7 @@ pub fn animate_bosses(
     // here: a boss with ProperTimeScale > 1.0 keeps tickling its
     // own animation while the world is frozen by its SimClock
     // request.
-    for (visual, mut sprite, mut animator, scale) in &mut query {
+    for (visual, mut sprite, mut animator, anchor, scale) in &mut query {
         let dt = world_time.entity_dt(
             ambition_gameplay_core::time::time_control::ProperTimeScale::or_default(scale),
         );
@@ -284,6 +305,17 @@ pub fn animate_bosses(
                 .entity(boss_entity)
                 .remove::<ambition_gameplay_core::features::BossAnimationFrameSample>();
         }
+        // Split sheets: select the page image the active frame draws from
+        // before setting the (page-local) index. Single-page bosses skip this.
+        if animator.is_paged() {
+            let page = animator.current_page();
+            if let Some(pg) = animator.pages.get(page as usize) {
+                sprite.image = pg.texture.clone();
+                if let Some(atlas) = sprite.texture_atlas.as_mut() {
+                    atlas.layout = pg.layout.clone();
+                }
+            }
+        }
         if let Some(atlas) = sprite.texture_atlas.as_mut() {
             atlas.index = index;
         }
@@ -294,10 +326,22 @@ pub fn animate_bosses(
         // gravity it reduces to `spec.flip_x(facing)` (the gravity term is 0), and
         // under a flip it cancels the `ActorRoll` 180° mirror so the boss keeps
         // facing the player.
-        sprite.flip_x = ambition_gameplay_core::physics::gravity_aware_flip_x(
+        let flip = ambition_gameplay_core::physics::gravity_aware_flip_x(
             state.facing,
             gravity.dir_at(state.pos),
         ) ^ animator.spec.authored_faces_left;
+        sprite.flip_x = flip;
+        // Alpha-trimmed (atlas-packed) boss sheets: re-derive per-frame size +
+        // anchor so the logical frame stays fixed. `current_render` is `None`
+        // for untrimmed sheets, so those keep their spawn-time size/anchor. The
+        // anchor x mirrors with the same facing flip applied to the sprite.
+        if let (Some((size, mut anchor_v)), Some(mut anchor)) = (animator.current_render(), anchor) {
+            sprite.custom_size = Some(size);
+            if flip {
+                anchor_v.x = -anchor_v.x;
+            }
+            anchor.0 = anchor_v;
+        }
         // Same split as `animate_characters`: hit feedback rides on
         // the white-silhouette `hit_flash` overlay; the warm
         // attack tint stays on `sprite.color` so the player can

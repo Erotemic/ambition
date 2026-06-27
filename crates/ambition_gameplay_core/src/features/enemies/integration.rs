@@ -1,9 +1,12 @@
-//! Enemy physics/AI integration: the per-frame tick that drives enemy
+//! Actor physics/AI integration: the per-frame tick that drives actor
 //! movement + attack geometry through the [`ActorMut`] ECS view. Grounded
-//! enemies run the shared grounded movement spine (`integrate_normal_spine`
-//! + `step_kinematic` sweep); aerial enemies and the shark/rider composite
-//! go through [`super::super::step_floating_body`]. Attack AABBs are derived
-//! here; archetype tuning comes from the [`super::EnemyRoster`].
+//! actors run the EXACT shared player movement pipeline
+//! ([`ActorMut::integrate_grounded_body`] → `ae::update_body_with_tuning_clusters`,
+//! borrowing the actor's `kin` + [`ActorBody`] clusters as one `PlayerClustersMut`
+//! view); aerial free-movers go through [`integrate_aerial_body`]
+//! (`super::super::step_floating_body`); surface-walkers keep their glued crawl.
+//! Attack AABBs are derived here; archetype tuning comes from the
+//! [`super::EnemyRoster`].
 
 use super::super::ecs::actor_clusters::ActorMut;
 use super::super::*;

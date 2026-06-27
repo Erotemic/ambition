@@ -203,11 +203,16 @@ recognizable:
 - **Foundation — unified.** The movement spine, blink, the directional block rule,
   `AccelerationFrame` / `BodyKinematics`, frame-agnostic perception/motor. The proof
   the convergence is reachable.
-- **Orchestration — duplicated (the debt).** The player runs its own pipeline
-  (`ambition_engine_core/movement`, the `Player*State` clusters); actors run
-  `integrate_standard_enemy_body` + the parallel `CombatCapabilities` /
-  `ActorAttackState`. Blink/fly/shield/dash exist **twice**, sharing core math but not
-  implementation. This is the convergence work.
+- **Orchestration — grounded movement now CONVERGED; abilities still duplicated.**
+  The grounded actor runs the player movement pipeline directly
+  (`ActorMut::integrate_grounded_body` → `update_body_with_tuning_clusters`,
+  borrowing `kin` + the new `ActorBody` clusters); `integrate_standard_enemy_body`
+  is deleted. Still duplicated: blink/fly/shield/dash exist **twice** — the actor's
+  copies live on `ActorAttackState` / `CombatCapabilities`, NOT yet the pipeline's
+  ability limbs (so the actor ability mask stays locomotion-only). Folding those
+  onto the limbs + retiring `ActorSurfaceState`'s redundant ground/jump fields is
+  the step-4 collapse. Aerial free-movers + surface-walkers still run their own
+  steps by design.
 - **Targeting — relational.** `FactionRelations` + `select_actor_targets`; an Enemy
   targets an Npc with no player present. *Gap:* the player is still an unconditional
   candidate; `AggressionMode::HostileToPlayer` names the player.
@@ -250,16 +255,27 @@ Enemies rise to the player; delete-heavy. Each step is gated on *it compiles* (i
    physics, proven headless.
 2. **The bridges** ✅ — `to_input_state` + `spine_tuning`. *Done when:* both are
    tested and the spine runs off `spine_tuning` (byte-identical).
-3. **Route bodies through the player pipeline.** Actor bodies carry the player
-   movement clusters; the per-actor update calls `update_player_*_clusters(world,
-   clusters, frame.to_input_state(), dt, tuning)`; **delete
-   `integrate_standard_enemy_body`**. Reconcile the two cases that don't fit the
-   grounded mold: **surface-walkers** (the slug/parrot crawl path, a distinct surface-
-   glued sweep) and **aerial free-movers** (`gravity_scale` vs `PlayerFlightState`).
-   *Done when:* an enemy chases/fights through the player core in the real headless
-   sim and now also wall-clings / ledge-grabs / dodges; the enemy integrator is gone.
-   *Gotcha:* preserve `ActorMotionPath` (patrol) and set `gravity_scale` from the
-   catalog body-kind at spawn — both are easy to drop in the merge.
+3. **Route bodies through the player pipeline.** 🟡 *grounded done.* First the
+   movement core was made body-generic — `update_body_*_with_clusters` flag
+   hazard/drown/OOB as `FrameEvents` WITHOUT performing the player respawn; the
+   `update_player_*` entries are thin wrappers = body fn + the respawn policy, so
+   the core no longer teleports any body to the player spawn (the step-2
+   prerequisite, since an actor must own its hazard reaction). Then the grounded
+   actor was routed onto it: a new `ActorBody` component carries the 18 ancillary
+   player movement clusters (everything but `BodyKinematics`, which stays the
+   shared `kin` — no duplication); `ActorMut::integrate_grounded_body` borrows
+   `kin` + `ActorBody` as one `PlayerClustersMut` and drives
+   `update_body_with_tuning_clusters`. **`integrate_standard_enemy_body` is
+   deleted** — its aerial half is `integrate_aerial_body` (still
+   `step_floating_body`). A grounded enemy now runs / buffers-and-coyote-jumps /
+   collides through the EXACT player core. *Remaining:* (a) the ability mask is
+   locomotion-only — enabling wall-cling / ledge-grab / dodge for actors, and
+   folding the actor's own dash / blink / fly / shield onto the pipeline limbs
+   (currently still on the `ActorAttackState` path), is the step-4 cluster
+   collapse; (b) the **aerial free-mover** (`gravity_scale` vs `PlayerFlightState`)
+   and **surface-walker** modalities are still reconciled separately, as planned.
+   *Gotcha (held):* `ActorMotionPath` patrol + `gravity_scale`-from-catalog
+   survive the merge.
 4. **Collapse the `Player*` / `Actor*` dual hierarchy** — *the keystone* (see
    [`architecture.md`](architecture.md) for the slice plan + component buckets). Move
    shared sim-state onto the `Actor*` vocabulary; the ~20-module player dependency

@@ -28,3 +28,45 @@ pub use ambition_platformer_primitives::markers::{PlayerEntity, PrimaryPlayer};
 /// + `With<PrimaryPlayer>`. The neutral home for the filter every non-player system
 /// uses to find the primary player (e.g. targeting, camera follow, HUD readouts).
 pub type PrimaryPlayerOnly = (With<PlayerEntity>, With<PrimaryPlayer>);
+
+/// The ONE health component every body carries — the player, enemies, NPCs, and
+/// bosses. Wraps the shared [`ambition_characters::actor::Health`]. This is the
+/// keystone collapse of the identical parallel wrappers `PlayerHealth` /
+/// `ActorHealth` into one: every damage / heal / HUD / save / respawn system
+/// reads and writes a single component, so health is body vocabulary, not a
+/// per-actor-type concept.
+#[derive(bevy::prelude::Component, Clone, Copy, Debug, PartialEq, Eq)]
+pub struct BodyHealth {
+    pub health: ambition_characters::actor::Health,
+}
+
+impl BodyHealth {
+    pub fn new(health: ambition_characters::actor::Health) -> Self {
+        Self { health }
+    }
+
+    pub fn current(self) -> i32 {
+        self.health.current
+    }
+
+    pub fn max(self) -> i32 {
+        self.health.max
+    }
+
+    pub fn heal(&mut self, amount: i32) {
+        self.health.heal(amount);
+    }
+
+    /// Apply `amount` of damage; returns `true` if this killed the body.
+    pub fn damage(&mut self, amount: i32) -> bool {
+        self.health.damage(amount)
+    }
+
+    pub fn reset(&mut self) {
+        self.health.reset();
+    }
+
+    pub fn alive(self) -> bool {
+        self.health.alive()
+    }
+}

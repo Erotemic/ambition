@@ -273,22 +273,12 @@ pub enum AggressionTarget {
     NearestPlayer,
 }
 
-/// ECS-visible actor health. The behavior runtime is still the temporary home
-/// for AI details, but shared systems should read/write this component for HP.
-#[derive(Component, Clone, Copy, Debug, PartialEq, Eq)]
-pub struct ActorHealth {
-    pub health: ambition_characters::actor::Health,
-}
-
-impl ActorHealth {
-    pub fn new(health: ambition_characters::actor::Health) -> Self {
-        Self { health }
-    }
-
-    pub fn alive(self) -> bool {
-        self.health.alive()
-    }
-}
+/// ECS-visible body health. Re-exported here (the actor-components umbrella) so
+/// the actor systems + the `crate::features` facade surface the ONE unified
+/// [`crate::actor::BodyHealth`] — the player, enemies, NPCs, and bosses all carry
+/// the same health component (the keystone collapse of the former parallel
+/// `PlayerHealth` / `ActorHealth` wrappers).
+pub use crate::actor::BodyHealth;
 
 /// Melee attack timing + aim. The four interdependent values move as one
 /// coherent unit so combat systems can read strike progress from a single

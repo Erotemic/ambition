@@ -23,7 +23,7 @@ pub fn reset_ecs_room_features(
             &mut CenteredAabb,
             &mut ActorIdentity,
             &ActorDisposition,
-            &mut ActorHealth,
+            &mut BodyHealth,
             &mut ActorCombatState,
             &mut ActorIntent,
             &mut ActorCooldowns,

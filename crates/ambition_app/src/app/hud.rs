@@ -31,7 +31,7 @@ pub(super) struct HudCameraParams<'w, 's> {
             &'static ambition_gameplay_core::player::PlayerFlightState,
             &'static ambition_gameplay_core::player::PlayerBlinkState,
             &'static ambition_gameplay_core::player::PlayerComboTrace,
-            &'static ambition_gameplay_core::player::PlayerHealth,
+            &'static ambition_gameplay_core::actor::BodyHealth,
             &'static ambition_gameplay_core::player::PlayerCombatState,
             &'static ambition_gameplay_core::player::ActivePlayerAttack,
         ),
@@ -43,7 +43,7 @@ pub(super) struct HudCameraParams<'w, 's> {
         (
             &'static ambition_gameplay_core::features::FeatureName,
             &'static ambition_gameplay_core::features::ActorDisposition,
-            &'static ambition_gameplay_core::features::ActorHealth,
+            &'static ambition_gameplay_core::features::BodyHealth,
             &'static ambition_gameplay_core::features::ActorCombatState,
         ),
         bevy::prelude::Without<ambition_gameplay_core::features::BossConfig>,

@@ -69,7 +69,7 @@ fn victim_side_enemy_body_hit_does_not_damage_features() {
 
     let health = app
         .world()
-        .get::<ActorHealth>(actor_entity)
+        .get::<BodyHealth>(actor_entity)
         .expect("hostile actor exists");
     assert_eq!(
         health.health.current, 5,
@@ -106,7 +106,7 @@ fn enemy_charge_crash_is_processed_as_enemy_damage() {
 
     let health = app
         .world()
-        .get::<ActorHealth>(actor_entity)
+        .get::<BodyHealth>(actor_entity)
         .expect("hostile actor exists");
     assert_eq!(
         health.health.current, 0,
@@ -155,7 +155,7 @@ fn player_slash_damages_and_can_kill_a_hostile_actor() {
     app.update();
     assert_eq!(
         app.world()
-            .get::<ActorHealth>(actor_entity)
+            .get::<BodyHealth>(actor_entity)
             .unwrap()
             .health
             .current,
@@ -184,7 +184,7 @@ fn player_slash_damages_and_can_kill_a_hostile_actor() {
     app.update();
     assert_eq!(
         app.world()
-            .get::<ActorHealth>(actor_entity)
+            .get::<BodyHealth>(actor_entity)
             .unwrap()
             .health
             .current,
@@ -632,7 +632,7 @@ fn slash_at(center: ae::Vec2, damage: i32) -> HitEvent {
 
 fn actor_hp(app: &App, entity: bevy::prelude::Entity) -> i32 {
     app.world()
-        .get::<ActorHealth>(entity)
+        .get::<BodyHealth>(entity)
         .expect("actor exists")
         .health
         .current

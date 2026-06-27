@@ -191,7 +191,7 @@ impl SandboxSim {
     pub fn observation(&mut self) -> AgentObservation {
         // Single `PlayerClusterQueryData` query covers the 12 cluster
         // components the observation reads. Three sandbox-side
-        // components (`PlayerCombatState`, `PlayerHealth`,
+        // components (`PlayerCombatState`, `BodyHealth`,
         // `PlayerSafetyState`) live outside the engine's cluster
         // bundle and stay on their own queries.
         let mut cluster_query = self
@@ -206,7 +206,7 @@ impl SandboxSim {
         let mut health_query = self
             .app
             .world_mut()
-            .query_filtered::<&ambition_gameplay_core::player::PlayerHealth, ambition_gameplay_core::player::PrimaryPlayerOnly>();
+            .query_filtered::<&ambition_gameplay_core::actor::BodyHealth, ambition_gameplay_core::player::PrimaryPlayerOnly>();
         let mut safety_query = self
             .app
             .world_mut()

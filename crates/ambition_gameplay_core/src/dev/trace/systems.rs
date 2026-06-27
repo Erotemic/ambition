@@ -130,7 +130,7 @@ pub fn record_frame_system(
     mut player_q: Query<
         (
             ae::PlayerClusterQueryData,
-            Option<&crate::player::PlayerHealth>,
+            Option<&crate::actor::BodyHealth>,
             &crate::player::PlayerSafetyState,
             &crate::player::PlayerInputFrame,
             &crate::player::PlayerCombatState,

@@ -14,7 +14,8 @@
 use bevy::prelude::*;
 
 use ambition_engine_core::{self as ae, AabbExt};
-use crate::player::{PlayerHealth, PlayerInputFrame, PlayerMana};
+use crate::player::{PlayerInputFrame, PlayerMana};
+use crate::actor::BodyHealth;
 use crate::actor::{PlayerEntity, PrimaryPlayer};
 use crate::actor::BodyKinematics;
 
@@ -41,7 +42,7 @@ pub fn heal_save_shrine_system(
         (
             &PlayerInputFrame,
             &BodyKinematics,
-            &mut PlayerHealth,
+            &mut BodyHealth,
             &mut PlayerMana,
         ),
         (With<PlayerEntity>, With<PrimaryPlayer>),
@@ -113,7 +114,7 @@ mod tests {
                 PlayerBaseSize {
                     base_size: Vec2::new(24.0, 40.0),
                 },
-                PlayerHealth::new(ambition_characters::actor::Health {
+                BodyHealth::new(ambition_characters::actor::Health {
                     current: 1,
                     max: 5,
                     invulnerable: false,
@@ -140,7 +141,7 @@ mod tests {
             .interact_pressed = true;
         app.update();
 
-        let health = *app.world().get::<PlayerHealth>(player).unwrap();
+        let health = *app.world().get::<BodyHealth>(player).unwrap();
         assert_eq!(health.current(), health.max(), "health should be full");
         let mana = app.world().get::<PlayerMana>(player).unwrap().meter;
         assert!(
@@ -172,7 +173,7 @@ mod tests {
                 PlayerBaseSize {
                     base_size: Vec2::new(24.0, 40.0),
                 },
-                PlayerHealth::new(ambition_characters::actor::Health {
+                BodyHealth::new(ambition_characters::actor::Health {
                     current: 1,
                     max: 5,
                     invulnerable: false,
@@ -194,7 +195,7 @@ mod tests {
             .interact_pressed = true;
         app.update();
         assert_eq!(
-            app.world().get::<PlayerHealth>(player).unwrap().current(),
+            app.world().get::<BodyHealth>(player).unwrap().current(),
             1,
             "no heal when not at the shrine"
         );

@@ -12,9 +12,8 @@
 
 use bevy::prelude::*;
 
-use ambition_gameplay_core::player::{
-    PlayerEntity, PlayerHealth, PlayerMana, PlayerWallet, PrimaryPlayer,
-};
+use ambition_gameplay_core::player::{PlayerEntity, PlayerMana, PlayerWallet, PrimaryPlayer};
+use ambition_gameplay_core::actor::BodyHealth;
 
 /// Bar width / height in logical px.
 const BAR_W: f32 = 168.0;
@@ -157,7 +156,7 @@ pub fn spawn_player_hud(
 /// frame: bar fill widths track the fractions, labels show the numbers.
 pub fn update_player_hud(
     players: Query<
-        (&PlayerHealth, &PlayerMana, &PlayerWallet),
+        (&BodyHealth, &PlayerMana, &PlayerWallet),
         (With<PlayerEntity>, With<PrimaryPlayer>),
     >,
     mut fills: ParamSet<(

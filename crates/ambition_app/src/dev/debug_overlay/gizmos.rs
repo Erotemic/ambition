@@ -556,7 +556,7 @@ pub(crate) fn draw_health_bars(
     gizmos: &mut Gizmos,
     world: &ae::World,
     player_aabb: ae::Aabb,
-    player_health: Option<&ambition_gameplay_core::player::PlayerHealth>,
+    player_health: Option<&ambition_gameplay_core::actor::BodyHealth>,
 ) {
     let ratio = player_health.map_or(1.0, |h| h.health.ratio());
     draw_health_bar(gizmos, world, player_aabb, ratio, cyan());

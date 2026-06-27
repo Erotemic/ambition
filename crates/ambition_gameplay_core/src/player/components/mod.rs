@@ -44,37 +44,9 @@ pub struct PlayerInputFrame {
     pub frame: ControlFrame,
 }
 
-/// ECS-owned player health.
-#[derive(Component, Clone, Copy, Debug, PartialEq, Eq)]
-pub struct PlayerHealth {
-    pub health: ambition_characters::actor::Health,
-}
-
-impl PlayerHealth {
-    pub fn new(health: ambition_characters::actor::Health) -> Self {
-        Self { health }
-    }
-
-    pub fn current(self) -> i32 {
-        self.health.current
-    }
-
-    pub fn max(self) -> i32 {
-        self.health.max
-    }
-
-    pub fn heal(&mut self, amount: i32) {
-        self.health.heal(amount);
-    }
-
-    pub fn damage(&mut self, amount: i32) -> bool {
-        self.health.damage(amount)
-    }
-
-    pub fn reset(&mut self) {
-        self.health.reset();
-    }
-}
+// Player health is now the unified `crate::actor::BodyHealth` (the keystone
+// collapse of the identical `PlayerHealth` / `ActorHealth` wrappers into one
+// body-health component).
 
 /// Player money — abstract coin/credits balance shown on the HUD and spent at
 /// merchants. Fed by `PickupKind::Currency` collection (`collect_ecs_pickups`).

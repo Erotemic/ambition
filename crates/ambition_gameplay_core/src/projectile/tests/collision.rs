@@ -9,7 +9,7 @@ use bevy::prelude::*;
 use ambition_engine_core as ae;
 use crate::projectile::ProjectileKind;
 
-use super::{advance_time, min_app, projectile_test_app, ActorHealth, ActorIdentity};
+use super::{advance_time, min_app, projectile_test_app, BodyHealth, ActorIdentity};
 
 /// Pre-spawn a fireball directly into the body list and place it
 /// just beside an ECS-hostile actor. After one tick the fireball
@@ -52,7 +52,7 @@ fn fireball_damages_enemy_on_intersect() {
 
     let (enemy_health, enemy_max) = {
         let world = app.world_mut();
-        let mut query = world.query::<(&ActorIdentity, &ActorHealth)>();
+        let mut query = world.query::<(&ActorIdentity, &BodyHealth)>();
         let (_, health) = query
             .iter(world)
             .find(|(identity, _)| identity.id() == "test_enemy")

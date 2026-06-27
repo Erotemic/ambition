@@ -3,9 +3,10 @@
 use bevy::prelude::*;
 
 use super::components::{
-    ActivePlayerAttack, LocalPlayer, PlayerCombatState, PlayerEntity, PlayerHealth,
+    ActivePlayerAttack, LocalPlayer, PlayerCombatState, PlayerEntity,
     PlayerInputFrame, PlayerSlot, PrimaryPlayer,
 };
+use crate::actor::BodyHealth;
 use super::events::PlayerHealRequested;
 use super::movement_components::{BodyKinematics, PlayerGroundState};
 use ambition_characters::brain::{ActorControl, Brain, BrainSnapshot};
@@ -127,7 +128,7 @@ pub fn write_player_ecs_components(
     }
 }
 
-/// Apply heal messages to the authoritative `PlayerHealth` ECS component.
+/// Apply heal messages to the authoritative `BodyHealth` ECS component.
 ///
 /// A heal targets either a specific player entity (`heal.target ==
 /// Some(entity)`) or the primary player as a fallback (`None`). The
@@ -137,7 +138,7 @@ pub fn write_player_ecs_components(
 /// player who walked into the heart actually gets healed.
 pub fn apply_player_heal_requests(
     mut heals: MessageReader<PlayerHealRequested>,
-    mut players: Query<&mut PlayerHealth, With<PlayerEntity>>,
+    mut players: Query<&mut BodyHealth, With<PlayerEntity>>,
     primary_q: Query<Entity, (With<PlayerEntity>, With<PrimaryPlayer>)>,
 ) {
     let primary = primary_q.single().ok();

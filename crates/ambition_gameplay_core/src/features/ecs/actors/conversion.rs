@@ -79,7 +79,7 @@ pub fn actor_component_snapshot(
 ) -> (
     ActorIdentity,
     ActorDisposition,
-    ActorHealth,
+    BodyHealth,
     ActorCombatState,
     ActorIntent,
     ActorCooldowns,
@@ -99,7 +99,7 @@ pub fn actor_component_snapshot(
         ActorIdentity::new(seed.config.id.clone(), seed.config.name.clone())
             .with_sprite_override(seed.config.sprite_override_npc_name.clone()),
         disposition,
-        ActorHealth::new(seed.status.health),
+        BodyHealth::new(seed.status.health),
         combat,
         ActorIntent::new(seed.status.ai_mode),
         ActorCooldowns {
@@ -115,7 +115,7 @@ pub fn enemy_component_snapshot(
 ) -> (
     ActorIdentity,
     ActorDisposition,
-    ActorHealth,
+    BodyHealth,
     ActorCombatState,
     ActorIntent,
     ActorCooldowns,

@@ -22,7 +22,8 @@ use ambition_vfx::vfx::VfxMessage;
 use crate::audio::SfxMessage;
 use crate::dev::dev_tools::EditableMovementTuning;
 use crate::features::{self, GameplayBanner, HitEvent as FeatureHitEvent};
-use crate::player::{PlayerAnimState, PlayerCombatState, PlayerHealth, PlayerInputFrame, PlayerSafetyState};
+use crate::player::{PlayerAnimState, PlayerCombatState, PlayerInputFrame, PlayerSafetyState};
+use crate::actor::BodyHealth;
 use crate::actor::{PlayerEntity, PrimaryPlayer, PrimaryPlayerOnly};
 use crate::time::clock_state::ClockState;
 use crate::time::feel::SandboxFeelTuning;
@@ -65,7 +66,7 @@ pub(crate) fn death_respawn_player(
     clock: &mut ClockState,
     safety: &mut PlayerSafetyState,
     banner: &mut GameplayBanner,
-    player_health: Option<&mut PlayerHealth>,
+    player_health: Option<&mut BodyHealth>,
     tuning: ae::MovementTuning,
     feel: SandboxFeelTuning,
     from: ae::Vec2,
@@ -110,7 +111,7 @@ pub(crate) fn handle_player_damage_events(
     clock: &mut ClockState,
     safety: &mut PlayerSafetyState,
     banner: &mut GameplayBanner,
-    mut player_health: Option<&mut PlayerHealth>,
+    mut player_health: Option<&mut BodyHealth>,
     damage_events: &[features::HitEvent],
     tuning: ae::MovementTuning,
     feel: SandboxFeelTuning,
@@ -361,7 +362,7 @@ pub fn apply_player_hit_events(
             Entity,
             &PlayerInputFrame,
             ae::PlayerClusterQueryData,
-            Option<&mut PlayerHealth>,
+            Option<&mut BodyHealth>,
             &mut PlayerAnimState,
             &mut PlayerCombatState,
             &mut PlayerSafetyState,

@@ -100,7 +100,7 @@ pub fn update_ecs_actors(
             &mut CenteredAabb,
             &mut ActorIdentity,
             &ActorDisposition,
-            &mut ActorHealth,
+            &mut BodyHealth,
             &mut ActorCombatState,
             &mut ActorIntent,
             &mut ActorCooldowns,
@@ -798,7 +798,7 @@ pub fn sync_actor_components_from_cluster(
     em: &super::super::actor_clusters::ActorMut<'_>,
     disposition: ActorDisposition,
     identity: &mut ActorIdentity,
-    health: &mut ActorHealth,
+    health: &mut BodyHealth,
     combat: &mut ActorCombatState,
     intent: &mut ActorIntent,
     cooldowns: &mut ActorCooldowns,
@@ -814,7 +814,7 @@ pub fn sync_actor_components_from_cluster(
         *identity = ActorIdentity::new(em.config.id.clone(), em.config.name.clone())
             .with_sprite_override(em.config.sprite_override_npc_name.clone());
     }
-    *health = ActorHealth::new(em.status.health);
+    *health = BodyHealth::new(em.status.health);
     *combat = if disposition.is_hostile() {
         ActorCombatState::hostile(
             em.status.alive,

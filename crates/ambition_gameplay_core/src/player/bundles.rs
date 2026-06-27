@@ -5,9 +5,10 @@ use bevy::prelude::*;
 
 use super::components::{
     ActivePlayerAttack, LocalPlayer, PlayerAnimState, PlayerBlinkCameraState, PlayerCombatState,
-    PlayerEntity, PlayerHealth, PlayerInputFrame, PlayerInteractionState, PlayerSafetyState,
+    PlayerEntity, PlayerInputFrame, PlayerInteractionState, PlayerSafetyState,
     PlayerSlot, PlayerWallet, PrimaryPlayer,
 };
+use crate::actor::BodyHealth;
 use super::movement_components::{
     BodyKinematics, PlayerAbilities, PlayerActionBuffer, PlayerBaseSize, PlayerBlinkState,
     PlayerBodyModeState, PlayerComboTrace, PlayerDashState, PlayerDodgeState,
@@ -52,7 +53,7 @@ pub struct PlayerSimulationBundle {
     /// the gravity layer stays content-free.
     pub primary_body: ambition_platformer_primitives::body::PrimaryBody,
     pub local: LocalPlayer,
-    pub health: PlayerHealth,
+    pub health: BodyHealth,
     pub wallet: PlayerWallet,
     pub combat: PlayerCombatState,
     pub interaction: PlayerInteractionState,
@@ -152,7 +153,7 @@ impl PlayerSimulationBundle {
             primary: PrimaryPlayer,
             primary_body: ambition_platformer_primitives::body::PrimaryBody,
             local: LocalPlayer,
-            health: PlayerHealth::new(health),
+            health: BodyHealth::new(health),
             wallet: PlayerWallet::default(),
             combat: PlayerCombatState::default(),
             interaction: PlayerInteractionState::default(),

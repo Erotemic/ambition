@@ -231,7 +231,8 @@ fn clear_is_per_entity() {
 /// the heart instead of always to primary.
 #[test]
 fn targeted_heal_routes_to_named_entity_not_primary() {
-    use crate::player::{apply_player_heal_requests, PlayerHealRequested, PlayerHealth};
+    use crate::player::{apply_player_heal_requests, PlayerHealRequested};
+use crate::actor::BodyHealth;
 
     let mut app = App::new();
     app.add_message::<PlayerHealRequested>();
@@ -243,7 +244,7 @@ fn targeted_heal_routes_to_named_entity_not_primary() {
             PlayerEntity,
             PlayerSlot(0),
             PrimaryPlayer,
-            PlayerHealth::new(ambition_characters::actor::Health {
+            BodyHealth::new(ambition_characters::actor::Health {
                 current: 1,
                 max: 5,
                 invulnerable: false,
@@ -255,7 +256,7 @@ fn targeted_heal_routes_to_named_entity_not_primary() {
         .spawn((
             PlayerEntity,
             PlayerSlot(1),
-            PlayerHealth::new(ambition_characters::actor::Health {
+            BodyHealth::new(ambition_characters::actor::Health {
                 current: 1,
                 max: 5,
                 invulnerable: false,
@@ -268,8 +269,8 @@ fn targeted_heal_routes_to_named_entity_not_primary() {
         .write(PlayerHealRequested::for_target(2, p2));
     app.update();
 
-    let p1_health = app.world().entity(p1).get::<PlayerHealth>().unwrap();
-    let p2_health = app.world().entity(p2).get::<PlayerHealth>().unwrap();
+    let p1_health = app.world().entity(p1).get::<BodyHealth>().unwrap();
+    let p2_health = app.world().entity(p2).get::<BodyHealth>().unwrap();
     assert_eq!(p1_health.current(), 1, "primary must not pick up p2's heal");
     assert_eq!(p2_health.current(), 3, "p2 must be healed by 2");
 }
@@ -280,7 +281,8 @@ fn targeted_heal_routes_to_named_entity_not_primary() {
 /// silently break when other code starts using `for_target`.
 #[test]
 fn untargeted_heal_routes_to_primary() {
-    use crate::player::{apply_player_heal_requests, PlayerHealRequested, PlayerHealth};
+    use crate::player::{apply_player_heal_requests, PlayerHealRequested};
+use crate::actor::BodyHealth;
 
     let mut app = App::new();
     app.add_message::<PlayerHealRequested>();
@@ -292,7 +294,7 @@ fn untargeted_heal_routes_to_primary() {
             PlayerEntity,
             PlayerSlot(0),
             PrimaryPlayer,
-            PlayerHealth::new(ambition_characters::actor::Health {
+            BodyHealth::new(ambition_characters::actor::Health {
                 current: 1,
                 max: 5,
                 invulnerable: false,
@@ -304,7 +306,7 @@ fn untargeted_heal_routes_to_primary() {
         .spawn((
             PlayerEntity,
             PlayerSlot(1),
-            PlayerHealth::new(ambition_characters::actor::Health {
+            BodyHealth::new(ambition_characters::actor::Health {
                 current: 1,
                 max: 5,
                 invulnerable: false,
@@ -317,8 +319,8 @@ fn untargeted_heal_routes_to_primary() {
         .write(PlayerHealRequested::new(3));
     app.update();
 
-    let p1_health = app.world().entity(p1).get::<PlayerHealth>().unwrap();
-    let p2_health = app.world().entity(p2).get::<PlayerHealth>().unwrap();
+    let p1_health = app.world().entity(p1).get::<BodyHealth>().unwrap();
+    let p2_health = app.world().entity(p2).get::<BodyHealth>().unwrap();
     assert_eq!(p1_health.current(), 4, "primary picks up untargeted heal");
     assert_eq!(p2_health.current(), 1, "p2 not touched by untargeted heal");
 }

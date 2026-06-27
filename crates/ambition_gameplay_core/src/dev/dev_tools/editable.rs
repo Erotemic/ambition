@@ -469,7 +469,7 @@ pub fn sync_player_stats_with_inspector(
         ),
         crate::actor::PrimaryPlayerOnly,
     >,
-    mut health_q: Query<&mut crate::player::PlayerHealth, crate::actor::PrimaryPlayerOnly>,
+    mut health_q: Query<&mut crate::actor::BodyHealth, crate::actor::PrimaryPlayerOnly>,
 ) {
     if !snapshot.initialized {
         snapshot.health = stats.health;

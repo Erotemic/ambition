@@ -10,7 +10,7 @@ use bevy::prelude::*;
 
 use super::{
     sync_actor_components_from_cluster, ActorAggression, ActorCombatState, ActorCooldowns,
-    ActorDisposition, ActorHealth, ActorIdentity, ActorIntent, ActorInteraction, AggressionMode,
+    ActorDisposition, BodyHealth, ActorIdentity, ActorIntent, ActorInteraction, AggressionMode,
     CombatKit, FeatureSimEntity, HeldItem,
 };
 use crate::features::ActorStimulus;
@@ -30,7 +30,7 @@ pub fn apply_actor_stimuli(
             Option<&ActorInteraction>,
             &mut ActorIdentity,
             &mut ActorDisposition,
-            &mut ActorHealth,
+            &mut BodyHealth,
             &mut ActorCombatState,
             &mut ActorIntent,
             &mut ActorCooldowns,

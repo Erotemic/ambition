@@ -20,7 +20,7 @@ pub fn sync_ecs_actors_with_save(
             Entity,
             &mut ActorIdentity,
             &mut ActorDisposition,
-            &mut ActorHealth,
+            &mut BodyHealth,
             &mut ActorCombatState,
             &mut ActorIntent,
             &mut ActorCooldowns,

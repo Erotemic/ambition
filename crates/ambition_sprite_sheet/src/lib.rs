@@ -27,6 +27,9 @@ use bevy::prelude::*;
 use serde::Deserialize;
 use tracing::{info, warn};
 
+mod frames;
+pub use frames::{trimmed_render, AtlasPage, FrameTrim};
+
 /// One sprite-sheet's metadata as serialized by the generator. Field
 /// names mirror the RON shape exactly; reorder cautiously.
 ///
@@ -83,9 +86,20 @@ pub struct SheetRecord {
 impl SheetRecord {
     /// Number of distinct page images this sheet addresses. `1` for the
     /// common single-PNG case (`images` empty) and for any sheet whose rows
-    /// all reference page 0.
+    /// all reference page 0. A freely-packed sheet may carry per-frame pages
+    /// beyond the `images` list length, so this takes the max of both.
     pub fn page_count(&self) -> u32 {
-        self.images.len().max(1) as u32
+        let by_frames = self
+            .rows
+            .iter()
+            .map(|row| {
+                let rect_max = row.rects.iter().map(|r| r.page).max().unwrap_or(0);
+                row.page.max(rect_max)
+            })
+            .max()
+            .map(|p| p + 1)
+            .unwrap_or(1);
+        (self.images.len() as u32).max(by_frames)
     }
 
     /// Filename of the PNG holding `page`. Falls back to the single `image`

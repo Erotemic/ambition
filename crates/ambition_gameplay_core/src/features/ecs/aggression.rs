@@ -200,6 +200,16 @@ mod tests {
             ActorDisposition::Hostile,
             "an NPC at the strike threshold should flip hostile when provoked"
         );
+        // Its FACTION must flip to Enemy too, not just its disposition — otherwise
+        // `FactionRelations` (Npc↔Player NOT hostile) relationally filters its hits,
+        // so its contact FX streams every frame while no damage / i-frame ever lands.
+        assert_eq!(
+            *app.world()
+                .get::<crate::combat::components::ActorFaction>(npc)
+                .unwrap(),
+            crate::combat::components::ActorFaction::Enemy,
+            "a provoked NPC must become faction Enemy so its hits are relationally hostile to the player"
+        );
     }
 
     #[test]

@@ -12,6 +12,12 @@ use super::super::*;
 use super::*;
 use ambition_platformer_primitives::kinematic;
 
+/// Minimum knockback strength a body-contact hit imparts on the struck body, even
+/// when the archetype authored `contact_strength = 0`. Guarantees a body that
+/// overlaps an enemy is pushed back OUT of its box rather than sitting inside it
+/// taking a hit every i-frame window. Feel-tunable.
+const BODY_CONTACT_MIN_KNOCKBACK: f32 = 0.6;
+
 /// Enemy physics/AI integration, operating directly on the authoritative
 /// ECS components through the [`ActorMut`] view.
 pub(crate) fn enemy_attack_aabb_dir(
@@ -534,7 +540,16 @@ impl<'a> ActorMut<'a> {
             mode: HitMode::Knockback,
             knockback: Some(HitKnockback {
                 dir: (player_body.center().x - self.kin.pos.x).signum_or(self.kin.facing),
-                strength: self.config.tuning.contact_strength,
+                // Body contact ALWAYS imparts a separating push: a body that runs into
+                // an enemy is shoved out of its box, so it doesn't sit inside taking
+                // a hit every i-frame window. Most archetypes author `contact_strength
+                // = 0` (it tuned the OLD knockback-scaling, not "no knockback"), which
+                // read as "you stick to the enemy" — the floor fixes that. Feel-tunable.
+                strength: self
+                    .config
+                    .tuning
+                    .contact_strength
+                    .max(BODY_CONTACT_MIN_KNOCKBACK),
                 source_pos: self.kin.pos,
                 impact_pos: impact,
             }),

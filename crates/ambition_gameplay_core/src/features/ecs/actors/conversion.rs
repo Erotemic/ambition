@@ -171,6 +171,18 @@ pub(crate) fn provoke_actor_in_place(
         }
         commands.entity(entity).insert(spec.combat_capabilities());
         *disposition = ActorDisposition::Hostile;
+        // A provoked NPC is now a COMBATANT: flip its faction to `Enemy`, not just
+        // its disposition. Leaving it `Npc` was a hostility-model bifurcation —
+        // `FactionRelations` marks Player↔Enemy hostile but NOT Npc↔Player, so the
+        // provoked actor's hits were RELATIONALLY FILTERED in `apply_player_hit_events`:
+        // its body-contact FX fired every frame at emission (gated only by the
+        // player's vulnerability) yet no damage ever landed, so the player's post-hit
+        // i-frame was never set and nothing gated the stream (the "Kernel Guide hits
+        // me continuously, no knockback" bug). Faction `Enemy` makes the hit real →
+        // damage + knockback + the 0.75 s i-frame that gates re-hits.
+        commands
+            .entity(entity)
+            .insert(crate::combat::components::ActorFaction::Enemy);
         // Build the hostile brain ONCE — on the peaceful→hostile flip. Re-deriving
         // it on every later stimulus (each hit, each re-challenge) would overwrite
         // the brain component with a FRESH one, zeroing all of its accumulated

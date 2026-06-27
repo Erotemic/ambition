@@ -236,16 +236,23 @@ pub fn cmd_clear_flag(In(name): In<String>, mut effects: MessageWriter<SetFlagRe
 pub fn cmd_challenge(
     dialogue: Res<crate::dialog::DialogState>,
     player: Query<Entity, With<crate::actor::PlayerEntity>>,
-    mut stimuli: MessageWriter<crate::features::ActorStimulus>,
+    mut commands: Commands,
 ) {
     let Some(actor) = dialogue.speaker_entity() else {
         warn!("<<challenge>>: no speaker entity in dialogue context; ignoring");
         return;
     };
-    stimuli.write(crate::features::ActorStimulus::Challenged {
-        actor,
-        challenger: player.iter().next(),
-    });
+    // ARM a deferred challenge rather than flipping hostile this instant: the
+    // player is still in the dialog box (and likely overlapping the NPC) when
+    // `<<challenge>>` fires. `tick_pending_challenges` emits the actual
+    // `Challenged` stimulus only after the box closes + a grace period, so the
+    // fight doesn't start point-blank-in-the-body. See [`PendingChallenge`].
+    commands
+        .entity(actor)
+        .insert(crate::features::PendingChallenge {
+            challenger: player.iter().next(),
+            grace: crate::features::CHALLENGE_GRACE_S,
+        });
 }
 
 /// `<<give_item "kind" count>>` — grant the player an item by adding

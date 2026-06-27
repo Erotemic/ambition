@@ -117,6 +117,48 @@ pub fn apply_actor_stimuli(
     }
 }
 
+/// Grace period (seconds, gameplay time) between a dialog-gated `<<challenge>>`
+/// closing and the actor actually flipping hostile. Lets the player step out of
+/// the NPC's body before the fight starts.
+pub const CHALLENGE_GRACE_S: f32 = 2.0;
+
+/// An ARMED `<<challenge>>`: the player consented to fight this actor, but the
+/// hostile flip is deferred until the dialog box has closed AND `grace` seconds
+/// of gameplay have elapsed. Without the delay the actor turned hostile mid-dialog
+/// while the player was still reading the box and overlapping its body — and
+/// because the victim-side damage system is gated off during dialog, the player's
+/// post-hit i-frame never got set, so the actor's body-contact FX streamed every
+/// frame with no separation. The grace gives the player a chance to move away.
+#[derive(Component, Clone, Copy, Debug)]
+pub struct PendingChallenge {
+    pub challenger: Option<Entity>,
+    pub grace: f32,
+}
+
+/// Count down each armed [`PendingChallenge`] and, once its grace elapses, emit the
+/// `Challenged` stimulus that `apply_actor_stimuli` turns into the hostile flip.
+/// Gated on `gameplay_allowed`, so the grace only ticks in `Playing` — i.e. AFTER
+/// the dialog box closes (dialog/cutscene/pause suspend gameplay), exactly matching
+/// "flip hostile after the box closes and a few seconds pass".
+pub fn tick_pending_challenges(
+    world_time: Res<crate::time::world_time::WorldTime>,
+    mut commands: Commands,
+    mut pending: Query<(Entity, &mut PendingChallenge)>,
+    mut stimuli: MessageWriter<ActorStimulus>,
+) {
+    let dt = world_time.scaled_dt;
+    for (entity, mut pc) in &mut pending {
+        pc.grace -= dt;
+        if pc.grace <= 0.0 {
+            stimuli.write(ActorStimulus::Challenged {
+                actor: entity,
+                challenger: pc.challenger,
+            });
+            commands.entity(entity).remove::<PendingChallenge>();
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -209,6 +251,58 @@ mod tests {
                 .unwrap(),
             crate::combat::components::ActorFaction::Enemy,
             "a provoked NPC must become faction Enemy so its hits are relationally hostile to the player"
+        );
+    }
+
+    #[test]
+    fn a_pending_challenge_defers_the_flip_until_its_grace_elapses() {
+        // `<<challenge>>` arms a `PendingChallenge`; the hostile flip must NOT fire
+        // until the grace (counted only in `Playing`, i.e. after the dialog box
+        // closes) elapses — so the player isn't attacked point-blank mid-dialog.
+        let mut app = App::new();
+        app.insert_resource(crate::WorldTime {
+            scaled_dt: 1.0,
+            ..Default::default()
+        });
+        app.add_message::<ActorStimulus>();
+        app.add_systems(Update, tick_pending_challenges);
+        let actor = app
+            .world_mut()
+            .spawn(PendingChallenge {
+                challenger: None,
+                grace: CHALLENGE_GRACE_S, // 2.0
+            })
+            .id();
+
+        // One 1.0 s tick (grace 2.0 → 1.0): still armed, no stimulus yet.
+        app.update();
+        assert!(
+            app.world().get::<PendingChallenge>(actor).is_some(),
+            "still armed before the grace elapses"
+        );
+        assert!(
+            app.world_mut()
+                .resource_mut::<bevy::ecs::message::Messages<ActorStimulus>>()
+                .drain()
+                .next()
+                .is_none(),
+            "no Challenged stimulus before the grace elapses"
+        );
+
+        // Second 1.0 s tick (grace 1.0 → 0.0): fires + the armed marker is consumed.
+        app.update();
+        assert!(
+            app.world().get::<PendingChallenge>(actor).is_none(),
+            "the armed challenge is consumed once it fires"
+        );
+        let fired: Vec<_> = app
+            .world_mut()
+            .resource_mut::<bevy::ecs::message::Messages<ActorStimulus>>()
+            .drain()
+            .collect();
+        assert!(
+            matches!(fired.as_slice(), [ActorStimulus::Challenged { actor: a, .. }] if *a == actor),
+            "the deferred challenge emits exactly one Challenged for the actor"
         );
     }
 

@@ -74,7 +74,9 @@ pub use actors::{
 // Crate-internal: the dialogue-gated boss resolver reuses this; tests pin it.
 pub(crate) use actors::hostile_brain_id_for_actor;
 pub use actors::{sync_actor_poses_from_feature_aabbs, tick_npc_idle_barks, update_ecs_actors};
-pub use aggression::apply_actor_stimuli;
+pub use aggression::{
+    apply_actor_stimuli, tick_pending_challenges, PendingChallenge, CHALLENGE_GRACE_S,
+};
 pub use anim_helpers::{
     ecs_actor_render_size, ecs_boss_anim_state, ecs_boss_anim_state_and_entity,
     ecs_boss_animation_frame_sample, ecs_boss_name, ecs_breakable_state, ecs_chest_opened,

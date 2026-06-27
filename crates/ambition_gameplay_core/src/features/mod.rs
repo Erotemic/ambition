@@ -129,7 +129,8 @@ pub use ecs::actor_clusters::{
 };
 pub use ecs::ActorSpriteData;
 pub use ecs::{
-    apply_actor_stimuli, apply_feature_hit_events, apply_gameplay_banner_requests,
+    apply_actor_stimuli, tick_pending_challenges, PendingChallenge, CHALLENGE_GRACE_S,
+    apply_feature_hit_events, apply_gameplay_banner_requests,
     apply_hitbox_damage, apply_spawn_actor_requests, apply_summon_effects, boss_is_cleared,
     boss_spawn_hurtboxes, clear_encounter_reward_ecs, collect_ecs_pickups,
     derive_boss_sprite_metrics, derive_pogo_target_volumes, despawn_encounter_mobs,
@@ -189,6 +190,11 @@ impl bevy::prelude::Plugin for GameplayEffectsSchedulePlugin {
                 bus::apply_flag_effects,
                 bus::apply_quest_effects,
                 bus::apply_switch_effects,
+                // Deferred-challenge grace runs only in `Playing` (after the dialog
+                // box closes), then emits the `Challenged` stimulus the next system
+                // consumes.
+                ecs::tick_pending_challenges
+                    .run_if(crate::session::game_mode::gameplay_allowed),
                 ecs::apply_actor_stimuli,
                 bus::apply_gameplay_sfx_effects,
             )

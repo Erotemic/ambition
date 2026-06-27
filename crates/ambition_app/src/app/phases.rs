@@ -60,7 +60,7 @@ pub(super) fn player_control_phase(
     _player_entity: bevy::prelude::Entity,
     actor_control: ambition_characters::actor::control::ActorControlFrame,
     world: &ae::World,
-    clusters: &mut ae::PlayerClustersMut<'_>,
+    clusters: &mut ae::BodyClustersMut<'_>,
     sim_state: &mut ambition_gameplay_core::SandboxSimState,
     clock: &mut ambition_gameplay_core::time::clock_state::ClockState,
     safety: &mut ambition_gameplay_core::player::PlayerSafetyState,
@@ -161,7 +161,7 @@ pub(super) fn player_control_phase(
 pub(super) fn player_simulation_phase(
     actor_control: ambition_characters::actor::control::ActorControlFrame,
     world: &ae::World,
-    clusters: &mut ae::PlayerClustersMut<'_>,
+    clusters: &mut ae::BodyClustersMut<'_>,
     dev_state: &ambition_gameplay_core::SandboxDevState,
     sim_state: &mut ambition_gameplay_core::SandboxSimState,
     clock: &mut ambition_gameplay_core::time::clock_state::ClockState,

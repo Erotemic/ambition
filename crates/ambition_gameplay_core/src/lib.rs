@@ -350,7 +350,7 @@ impl PlayerAttackState {
 /// teleport polluted `last_safe_player_pos` with `(62, -23)`.
 pub fn remember_safe_player_position(
     safety: &mut crate::player::PlayerSafetyState,
-    clusters: &ae::PlayerClustersMut<'_>,
+    clusters: &ae::BodyClustersMut<'_>,
     world: &ae::World,
     ctx: SafePositionContext,
 ) {
@@ -369,7 +369,7 @@ pub fn remember_safe_player_position(
 /// that already hold the four kinematic facts the safety classifier
 /// reads. The cluster wrapper above is the natural production path;
 /// this tuple form is exposed for tests that build a
-/// `PlayerClusterScratch` and pass individual fields.
+/// `BodyClusterScratch` and pass individual fields.
 pub fn remember_safe_player_position_from_kinematics(
     safety: &mut crate::player::PlayerSafetyState,
     pos: ae::Vec2,
@@ -417,7 +417,7 @@ mod safe_pos_tests {
     fn player_at(
         world: &ae::World,
         pos: ae::Vec2,
-    ) -> (ae::PlayerClusterScratch, crate::player::PlayerSafetyState) {
+    ) -> (ae::BodyClusterScratch, crate::player::PlayerSafetyState) {
         let mut scratch =
             crate::player::primary_player_scratch(world.spawn, ae::AbilitySet::sandbox_all());
         ae::refresh_movement_resources_clusters(

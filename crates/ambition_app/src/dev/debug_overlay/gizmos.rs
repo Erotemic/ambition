@@ -331,7 +331,7 @@ pub(crate) fn draw_ldtk_runtime_spine(
 pub(crate) fn draw_player_debug(
     gizmos: &mut Gizmos,
     world: &ae::World,
-    clusters: &ae::PlayerClustersMut<'_>,
+    clusters: &ae::BodyClustersMut<'_>,
     moving_platforms: &[ambition_gameplay_core::world::platforms::MovingPlatformState],
     attack: Option<&ambition_gameplay_core::PlayerAttackState>,
     actions: Option<&ActionState<SandboxAction>>,

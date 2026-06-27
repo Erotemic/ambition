@@ -5,12 +5,12 @@
 use super::super::*;
 use super::{step_scratch, test_world};
 use crate::geometry::AabbExt;
-use crate::player_clusters::PlayerClusterScratch;
+use crate::body_clusters::BodyClusterScratch;
 use crate::world::Block;
 use crate::{Aabb, AbilitySet, Vec2, World};
 
-fn scratch_with(abilities: AbilitySet, spawn: Vec2) -> PlayerClusterScratch {
-    PlayerClusterScratch::new_with_abilities(spawn, abilities)
+fn scratch_with(abilities: AbilitySet, spawn: Vec2) -> BodyClusterScratch {
+    BodyClusterScratch::new_with_abilities(spawn, abilities)
 }
 
 #[test]
@@ -648,7 +648,7 @@ fn one_way_drop_through_works_under_inverted_gravity() {
         gravity_sign: -1.0,
         ..DEFAULT_TUNING
     };
-    let step = |world: &World, scratch: &mut PlayerClusterScratch, input: InputState| {
+    let step = |world: &World, scratch: &mut BodyClusterScratch, input: InputState| {
         update_player_with_tuning_scratch(world, scratch, input, 1.0 / 60.0, tuning);
     };
 
@@ -921,7 +921,7 @@ fn deeply_embedded_player_is_not_pushout_teleported_under_sideways_gravity() {
             ..DEFAULT_TUNING
         };
         let mut scratch =
-            PlayerClusterScratch::new_with_abilities(world.spawn, AbilitySet::sandbox_all());
+            BodyClusterScratch::new_with_abilities(world.spawn, AbilitySet::sandbox_all());
         scratch.kinematics.pos = start;
         scratch.kinematics.vel = Vec2::ZERO;
         let cap = scratch.kinematics.aabb_oriented(dir).half_size().length() + 1.0;
@@ -949,7 +949,7 @@ fn deeply_embedded_player_is_not_pushout_teleported_under_sideways_gravity() {
         ..DEFAULT_TUNING
     };
     let mut scratch =
-        PlayerClusterScratch::new_with_abilities(world.spawn, AbilitySet::sandbox_all());
+        BodyClusterScratch::new_with_abilities(world.spawn, AbilitySet::sandbox_all());
     scratch.kinematics.pos = start;
     scratch.kinematics.vel = Vec2::ZERO;
     for tick in 0..240 {

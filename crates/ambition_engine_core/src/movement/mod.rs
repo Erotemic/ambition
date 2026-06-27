@@ -11,10 +11,10 @@
 //! - [`update_player_control_with_clusters`] — control-phase only
 //! - [`update_player_simulation_with_clusters`] — simulation-phase only
 //! - [`update_player_*_scratch`] — test wrappers that take a
-//!   `PlayerClusterScratch` instead of a `PlayerClustersMut` view
+//!   `BodyClusterScratch` instead of a `BodyClustersMut` view
 //!
 //! Each entry point consumes an [`InputState`], mutates the player's
-//! cluster components through a [`crate::PlayerClustersMut`]
+//! cluster components through a [`crate::BodyClustersMut`]
 //! view, and returns [`FrameEvents`] for the Bevy layer to translate
 //! into particles, hitstop, sound, or debug overlays. Implementation
 //! details live in focused child modules so movement actions,
@@ -86,7 +86,7 @@ use collision::body_is_side_contact;
 /// spawn.
 pub fn update_body_control_with_clusters(
     world: &World,
-    clusters: &mut crate::player_clusters::PlayerClustersMut<'_>,
+    clusters: &mut crate::body_clusters::BodyClustersMut<'_>,
     input: InputState,
     control_dt: f32,
     tuning: MovementTuning,
@@ -189,14 +189,14 @@ pub fn update_body_control_with_clusters(
 /// to the historical inline reset; actors deliberately do NOT use this wrapper.
 pub fn update_player_control_with_clusters(
     world: &World,
-    clusters: &mut crate::player_clusters::PlayerClustersMut<'_>,
+    clusters: &mut crate::body_clusters::BodyClustersMut<'_>,
     input: InputState,
     control_dt: f32,
     tuning: MovementTuning,
 ) -> FrameEvents {
     let events = update_body_control_with_clusters(world, clusters, input, control_dt, tuning);
     if events.reset {
-        crate::player_clusters::reset_player_clusters(clusters, world.spawn);
+        crate::body_clusters::reset_body_clusters(clusters, world.spawn);
     }
     events
 }
@@ -208,7 +208,7 @@ pub fn update_player_control_with_clusters(
 /// All state lives on cluster components.
 pub fn update_body_simulation_with_clusters(
     world: &World,
-    clusters: &mut crate::player_clusters::PlayerClustersMut<'_>,
+    clusters: &mut crate::body_clusters::BodyClustersMut<'_>,
     input: InputState,
     raw_dt: f32,
     tuning: MovementTuning,
@@ -268,7 +268,7 @@ pub fn update_body_simulation_with_clusters(
         }
         if clusters.ground.on_ground {
             clusters.ground.coyote_timer = tuning.coyote_time;
-            crate::player_clusters::refresh_movement_resources_clusters(
+            crate::body_clusters::refresh_movement_resources_clusters(
                 clusters.abilities,
                 clusters.dash,
                 clusters.jump,
@@ -328,14 +328,14 @@ pub fn update_body_simulation_with_clusters(
 /// deliberately do NOT use this wrapper (they own their hazard reaction).
 pub fn update_player_simulation_with_clusters(
     world: &World,
-    clusters: &mut crate::player_clusters::PlayerClustersMut<'_>,
+    clusters: &mut crate::body_clusters::BodyClustersMut<'_>,
     input: InputState,
     raw_dt: f32,
     tuning: MovementTuning,
 ) -> FrameEvents {
     let events = update_body_simulation_with_clusters(world, clusters, input, raw_dt, tuning);
     if events.reset {
-        crate::player_clusters::reset_player_clusters(clusters, world.spawn);
+        crate::body_clusters::reset_body_clusters(clusters, world.spawn);
     }
     events
 }
@@ -350,7 +350,7 @@ fn dec(value: f32, dt: f32) -> f32 {
 /// gravity does not slow input).
 pub fn update_player_with_tuning_clusters(
     world: &World,
-    clusters: &mut crate::player_clusters::PlayerClustersMut<'_>,
+    clusters: &mut crate::body_clusters::BodyClustersMut<'_>,
     input: InputState,
     raw_dt: f32,
     tuning: MovementTuning,
@@ -376,7 +376,7 @@ pub fn update_player_with_tuning_clusters(
 /// [`update_player_with_tuning_clusters`] instead (= this + the respawn policy).
 pub fn update_body_with_tuning_clusters(
     world: &World,
-    clusters: &mut crate::player_clusters::PlayerClustersMut<'_>,
+    clusters: &mut crate::body_clusters::BodyClustersMut<'_>,
     input: InputState,
     raw_dt: f32,
     tuning: MovementTuning,
@@ -398,18 +398,18 @@ pub fn update_body_with_tuning_clusters(
 /// need custom tuning knobs.
 pub fn update_player_clusters(
     world: &World,
-    clusters: &mut crate::player_clusters::PlayerClustersMut<'_>,
+    clusters: &mut crate::body_clusters::BodyClustersMut<'_>,
     input: InputState,
     raw_dt: f32,
 ) -> FrameEvents {
     update_player_with_tuning_clusters(world, clusters, input, raw_dt, DEFAULT_TUNING)
 }
 
-/// `PlayerClusterScratch`-based test wrapper: builds the cluster view
+/// `BodyClusterScratch`-based test wrapper: builds the cluster view
 /// in-place and dispatches to `update_player_with_tuning_clusters`.
 pub fn update_player_with_tuning_scratch(
     world: &World,
-    scratch: &mut crate::player_clusters::PlayerClusterScratch,
+    scratch: &mut crate::body_clusters::BodyClusterScratch,
     input: InputState,
     raw_dt: f32,
     tuning: MovementTuning,
@@ -421,17 +421,17 @@ pub fn update_player_with_tuning_scratch(
 /// Convenience wrapper using `DEFAULT_TUNING`.
 pub fn update_player_scratch(
     world: &World,
-    scratch: &mut crate::player_clusters::PlayerClusterScratch,
+    scratch: &mut crate::body_clusters::BodyClusterScratch,
     input: InputState,
     raw_dt: f32,
 ) -> FrameEvents {
     update_player_with_tuning_scratch(world, scratch, input, raw_dt, DEFAULT_TUNING)
 }
 
-/// `PlayerClusterScratch`-based control-phase wrapper for tests.
+/// `BodyClusterScratch`-based control-phase wrapper for tests.
 pub fn update_player_control_with_tuning_scratch(
     world: &World,
-    scratch: &mut crate::player_clusters::PlayerClusterScratch,
+    scratch: &mut crate::body_clusters::BodyClusterScratch,
     input: InputState,
     control_dt: f32,
     tuning: MovementTuning,
@@ -442,17 +442,17 @@ pub fn update_player_control_with_tuning_scratch(
 
 pub fn update_player_control_scratch(
     world: &World,
-    scratch: &mut crate::player_clusters::PlayerClusterScratch,
+    scratch: &mut crate::body_clusters::BodyClusterScratch,
     input: InputState,
     control_dt: f32,
 ) -> FrameEvents {
     update_player_control_with_tuning_scratch(world, scratch, input, control_dt, DEFAULT_TUNING)
 }
 
-/// `PlayerClusterScratch`-based simulation-phase wrapper for tests.
+/// `BodyClusterScratch`-based simulation-phase wrapper for tests.
 pub fn update_player_simulation_with_tuning_scratch(
     world: &World,
-    scratch: &mut crate::player_clusters::PlayerClusterScratch,
+    scratch: &mut crate::body_clusters::BodyClusterScratch,
     input: InputState,
     raw_dt: f32,
     tuning: MovementTuning,
@@ -463,7 +463,7 @@ pub fn update_player_simulation_with_tuning_scratch(
 
 pub fn update_player_simulation_scratch(
     world: &World,
-    scratch: &mut crate::player_clusters::PlayerClusterScratch,
+    scratch: &mut crate::body_clusters::BodyClusterScratch,
     input: InputState,
     raw_dt: f32,
 ) -> FrameEvents {

@@ -11,7 +11,7 @@ use super::*;
 #[allow(clippy::too_many_arguments)]
 pub fn record_simulation_frame(
     buffer: &mut GameplayTraceBuffer,
-    clusters: &ae::PlayerClustersMut<'_>,
+    clusters: &ae::BodyClustersMut<'_>,
     combat: &crate::actor::BodyCombat,
     clock: &crate::time::clock_state::ClockState,
     safety: &crate::player::PlayerSafetyState,
@@ -129,7 +129,7 @@ pub fn record_frame_system(
     feature_ecs_overlay: Res<crate::features::FeatureEcsWorldOverlay>,
     mut player_q: Query<
         (
-            ae::PlayerClusterQueryData,
+            ae::BodyClusterQueryData,
             Option<&crate::actor::BodyHealth>,
             &crate::player::PlayerSafetyState,
             &crate::player::PlayerInputFrame,
@@ -153,7 +153,7 @@ pub fn record_frame_system(
         return;
     };
     // Trace recording is read-only. Walks the cluster components
-    // directly through `PlayerClustersMut`.
+    // directly through `BodyClustersMut`.
     let clusters = cluster_item.as_clusters_mut();
     let control_frame = input.frame;
     let real_dt = time.delta_secs();

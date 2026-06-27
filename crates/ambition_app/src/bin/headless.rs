@@ -129,11 +129,11 @@ fn run_with_trace_dump(max_ticks: u32, dump_dir: PathBuf, start_room: Option<Str
         };
 
         // Query the player's 18 cluster components in one shot via
-        // `PlayerClusterQueryData::as_clusters_mut()` so the trace
-        // recorder can read them through a `PlayerClustersMut` view.
+        // `BodyClusterQueryData::as_clusters_mut()` so the trace
+        // recorder can read them through a `BodyClustersMut` view.
         let mut cluster_q = sim
             .world_mut()
-            .query_filtered::<ambition_engine_core::PlayerClusterQueryData, ambition_gameplay_core::actor::PrimaryPlayerOnly>();
+            .query_filtered::<ambition_engine_core::BodyClusterQueryData, ambition_gameplay_core::actor::PrimaryPlayerOnly>();
         let Ok(mut cluster_item) = cluster_q.single_mut(sim.world_mut()) else {
             continue;
         };

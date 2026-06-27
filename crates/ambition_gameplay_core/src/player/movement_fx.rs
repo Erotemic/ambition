@@ -25,7 +25,7 @@ use crate::actor::BodyCombat;
 pub fn handle_player_events(
     sfx: &mut MessageWriter<SfxMessage>,
     vfx: &mut MessageWriter<VfxMessage>,
-    clusters: &ae::PlayerClustersMut<'_>,
+    clusters: &ae::BodyClustersMut<'_>,
     combat: &mut BodyCombat,
     blink_cam: &mut PlayerBlinkCameraState,
     anim: &mut PlayerAnimState,

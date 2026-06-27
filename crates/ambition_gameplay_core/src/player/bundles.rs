@@ -82,7 +82,7 @@ pub struct PlayerSimulationBundle {
     // clusters spawn through the shared `AncillaryMovementBundle` — the SAME
     // bundle every actor nests, so player and actor carry the identical real
     // component set. Every engine entry point reads / writes them through
-    // `PlayerClustersMut`. See `engine_core/player_clusters.rs` for the
+    // `BodyClustersMut`. See `engine_core/body_clusters.rs` for the
     // per-cluster shape.
     pub kinematics: BodyKinematics,
     pub movement: AncillaryMovementBundle,
@@ -95,7 +95,7 @@ pub struct PlayerSimulationBundle {
 
 impl PlayerSimulationBundle {
     /// Build the canonical local-primary player bundle from a
-    /// `PlayerClusterScratch` and initial `Health`. The result spawns
+    /// `BodyClusterScratch` and initial `Health`. The result spawns
     /// with `PlayerSlot(0)`, `PrimaryPlayer`, and `LocalPlayer` — the
     /// single-player default.
     ///
@@ -104,7 +104,7 @@ impl PlayerSimulationBundle {
     /// with the simulation components manually rather than calling
     /// this helper, since the second player should not inherit
     /// `PrimaryPlayer` and may not be `LocalPlayer`.
-    pub fn from_scratch(scratch: ae::PlayerClusterScratch, health: ambition_characters::actor::Health) -> Self {
+    pub fn from_scratch(scratch: ae::BodyClusterScratch, health: ambition_characters::actor::Health) -> Self {
         let action_set = default_player_action_set(scratch.abilities.abilities);
         let initial_safe_pos = scratch.kinematics.pos;
         // `BodyKinematics` is the shared kinematic truth (its own component);

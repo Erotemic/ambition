@@ -13,13 +13,13 @@ use super::tuning::MovementTuning;
 #[allow(clippy::too_many_arguments)]
 pub fn handle_blink_clusters(
     world: &World,
-    kinematics: &mut crate::player_clusters::BodyKinematics,
-    abilities: &crate::player_clusters::BodyAbilities,
-    flight: &mut crate::player_clusters::BodyFlightState,
-    wall: &mut crate::player_clusters::BodyWallState,
-    dash: &mut crate::player_clusters::BodyDashState,
-    blink: &mut crate::player_clusters::BodyBlinkState,
-    combo_trace: &mut crate::player_clusters::BodyComboTrace,
+    kinematics: &mut crate::body_clusters::BodyKinematics,
+    abilities: &crate::body_clusters::BodyAbilities,
+    flight: &mut crate::body_clusters::BodyFlightState,
+    wall: &mut crate::body_clusters::BodyWallState,
+    dash: &mut crate::body_clusters::BodyDashState,
+    blink: &mut crate::body_clusters::BodyBlinkState,
+    combo_trace: &mut crate::body_clusters::BodyComboTrace,
     input: InputState,
     dt: f32,
     tuning: MovementTuning,
@@ -116,9 +116,9 @@ pub fn handle_blink_clusters(
 /// `world.blocks` check, same `set_jump_velocity`, same `PogoBounce` event) and
 /// was removed (2026-06-16).
 pub fn handle_attacks_clusters(
-    kinematics: &mut crate::player_clusters::BodyKinematics,
-    abilities: &crate::player_clusters::BodyAbilities,
-    combo_trace: &mut crate::player_clusters::BodyComboTrace,
+    kinematics: &mut crate::body_clusters::BodyKinematics,
+    abilities: &crate::body_clusters::BodyAbilities,
+    combo_trace: &mut crate::body_clusters::BodyComboTrace,
     input: InputState,
     tuning: MovementTuning,
     events: &mut FrameEvents,

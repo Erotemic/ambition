@@ -2,7 +2,7 @@
 //! movement + attack geometry through the [`ActorMut`] ECS view. Grounded AND
 //! aerial actors run the EXACT shared player movement pipeline
 //! ([`ActorMut::integrate_body`] → `ae::update_body_with_tuning_clusters`,
-//! borrowing the actor's `kin` + [`ActorBody`] clusters as one `PlayerClustersMut`
+//! borrowing the actor's `kin` + [`ActorBody`] clusters as one `BodyClustersMut`
 //! view) — the pipeline picks the flight limb vs the grounded spine from
 //! `flight.fly_enabled`; surface-walkers keep their glued crawl. Attack AABBs are
 //! derived here; archetype tuning comes from the [`super::EnemyRoster`].
@@ -247,7 +247,7 @@ impl<'a> ActorMut<'a> {
 
         // Seed the pipeline's ground/jump state from the actor's surface truth so
         // coyote + jump gates start correct, then borrow `kin` + the 18 ancillary
-        // clusters (all real components now) as ONE `PlayerClustersMut` view — the
+        // clusters (all real components now) as ONE `BodyClustersMut` view — the
         // exact aggregate the player builds, no parallel integrator.
         self.ground.on_ground = on_ground;
         self.jump.air_jumps_available = air_jumps;

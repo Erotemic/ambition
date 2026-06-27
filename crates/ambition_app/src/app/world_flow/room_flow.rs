@@ -24,7 +24,7 @@ pub(crate) fn reset_sandbox(
     world: &ae::World,
     sfx: &mut MessageWriter<SfxMessage>,
     vfx: &mut MessageWriter<VfxMessage>,
-    clusters: &mut ae::PlayerClustersMut<'_>,
+    clusters: &mut ae::BodyClustersMut<'_>,
     sim_state: &mut ambition_gameplay_core::SandboxSimState,
     clock: &mut ambition_gameplay_core::time::clock_state::ClockState,
     safety: &mut ambition_gameplay_core::player::PlayerSafetyState,
@@ -37,7 +37,7 @@ pub(crate) fn reset_sandbox(
     feel: SandboxFeelTuning,
 ) {
     let reset_from = clusters.kinematics.pos;
-    ae::reset_player_clusters(clusters, world.spawn);
+    ae::reset_body_clusters(clusters, world.spawn);
     ae::refresh_movement_resources_clusters(
         clusters.abilities,
         &mut *clusters.dash,
@@ -66,7 +66,7 @@ pub(crate) fn load_room(
     commands: &mut Commands,
     sfx: &mut MessageWriter<SfxMessage>,
     vfx: &mut MessageWriter<VfxMessage>,
-    clusters: &mut ae::PlayerClustersMut<'_>,
+    clusters: &mut ae::BodyClustersMut<'_>,
     dev_state: &mut ambition_gameplay_core::SandboxDevState,
     sim_state: &mut ambition_gameplay_core::SandboxSimState,
     clock: &mut ambition_gameplay_core::time::clock_state::ClockState,
@@ -174,7 +174,7 @@ pub(crate) fn apply_room_transition_system(
     mut event_writers: SandboxEventWriters,
     mut player_q: Query<
         (
-            ae::PlayerClusterQueryData,
+            ae::BodyClusterQueryData,
             &mut ambition_gameplay_core::actor::BodyCombat,
             &mut ambition_gameplay_core::player::PlayerInteractionState,
             &mut ambition_gameplay_core::player::PlayerBlinkCameraState,

@@ -1,15 +1,17 @@
-//! Authoritative player cluster types.
+//! Authoritative **body** cluster types — the movement aggregate every actor
+//! carries, the player included (NOT player-specific).
 //!
-//! Each Bevy `Component` carries one tightly related slice of player state
+//! Each Bevy `Component` carries one tightly related slice of body state
 //! (kinematics, ground contact, dash timers, …). Together they form the
-//! authoritative player aggregate.
+//! authoritative movement aggregate every body — player, enemy, NPC, boss —
+//! shares.
 //!
-//! [`PlayerClustersMut`] is a struct-of-`&mut` view assembled from a
-//! `Query<PlayerClusterQueryData, …>::as_clusters_mut()` call; every
+//! [`BodyClustersMut`] is a struct-of-`&mut` view assembled from a
+//! `Query<BodyClusterQueryData, …>::as_clusters_mut()` call; every
 //! engine entry point in `crate::movement` takes one.
 //! Tests that need a non-ECS scratchpad construct
-//! [`PlayerClusterScratch::new_with_abilities`] and re-borrow via
-//! `PlayerClusterScratch::as_mut`.
+//! [`BodyClusterScratch::new_with_abilities`] and re-borrow via
+//! `BodyClusterScratch::as_mut`.
 
 use crate::abilities::AbilitySet;
 use crate::ledge_grab::LedgeGrabState;
@@ -25,7 +27,7 @@ use crate::Vec2;
 /// signatures from accumulating 20+ positional parameters and lets
 /// sandbox callers build the view from a Bevy query without going
 /// through a separate bridge module.
-pub struct PlayerClustersMut<'a> {
+pub struct BodyClustersMut<'a> {
     pub abilities: &'a BodyAbilities,
     pub kinematics: &'a mut BodyKinematics,
     pub base_size: &'a mut BodyBaseSize,
@@ -47,12 +49,12 @@ pub struct PlayerClustersMut<'a> {
     pub combo_trace: &'a mut BodyComboTrace,
 }
 
-/// Bevy query data that matches [`PlayerClustersMut`]. Use in a system
-/// signature as `Query<PlayerClusterQueryData, ...>` and call
-/// [`PlayerClusterQueryDataItem::as_clusters_mut`] to borrow the view.
+/// Bevy query data that matches [`BodyClustersMut`]. Use in a system
+/// signature as `Query<BodyClusterQueryData, ...>` and call
+/// [`BodyClusterQueryDataItem::as_clusters_mut`] to borrow the view.
 #[derive(bevy_ecs::query::QueryData)]
 #[query_data(mutable)]
-pub struct PlayerClusterQueryData {
+pub struct BodyClusterQueryData {
     pub abilities: &'static BodyAbilities,
     pub kinematics: &'static mut BodyKinematics,
     pub base_size: &'static mut BodyBaseSize,
@@ -74,14 +76,14 @@ pub struct PlayerClusterQueryData {
     pub combo_trace: &'static mut BodyComboTrace,
 }
 
-impl<'w, 's> PlayerClusterQueryDataItem<'w, 's> {
-    /// Borrow the query item as a [`PlayerClustersMut`].
-    pub fn as_clusters_mut<'a>(&'a mut self) -> PlayerClustersMut<'a>
+impl<'w, 's> BodyClusterQueryDataItem<'w, 's> {
+    /// Borrow the query item as a [`BodyClustersMut`].
+    pub fn as_clusters_mut<'a>(&'a mut self) -> BodyClustersMut<'a>
     where
         'w: 'a,
         's: 'a,
     {
-        PlayerClustersMut {
+        BodyClustersMut {
             abilities: &*self.abilities,
             kinematics: &mut *self.kinematics,
             base_size: &mut *self.base_size,
@@ -370,7 +372,7 @@ impl BodyShieldState {
 /// Reset a live player back to spawn while preserving the
 /// `BodyAbilities` and incrementing the lifetime reset counter. The
 /// combo trace is wiped and a fresh `MovementOp::Reset` mark is pushed.
-pub fn reset_player_clusters(clusters: &mut PlayerClustersMut<'_>, spawn: Vec2) {
+pub fn reset_body_clusters(clusters: &mut BodyClustersMut<'_>, spawn: Vec2) {
     use crate::movement::{default_player_body_size, ComboMark, MovementOp, DEFAULT_TUNING};
 
     let new_resets = clusters.lifetime.resets + 1;
@@ -558,11 +560,11 @@ impl BodyComboTrace {
 
 /// Owned bag of all 18 player cluster components, used by unit tests
 /// and the non-ECS call sites that need to assemble a
-/// `PlayerClustersMut` without a Bevy entity. Construct via
-/// [`PlayerClusterScratch::new_with_abilities`] and re-borrow as a view
-/// via [`PlayerClusterScratch::as_mut`].
+/// `BodyClustersMut` without a Bevy entity. Construct via
+/// [`BodyClusterScratch::new_with_abilities`] and re-borrow as a view
+/// via [`BodyClusterScratch::as_mut`].
 #[derive(Clone, Debug)]
-pub struct PlayerClusterScratch {
+pub struct BodyClusterScratch {
     pub abilities: BodyAbilities,
     pub kinematics: BodyKinematics,
     pub base_size: BodyBaseSize,
@@ -584,8 +586,8 @@ pub struct PlayerClusterScratch {
     pub combo_trace: BodyComboTrace,
 }
 
-impl PlayerClusterScratch {
-    /// Build a `PlayerClusterScratch` for a fresh player at `spawn`
+impl BodyClusterScratch {
+    /// Build a `BodyClusterScratch` for a fresh player at `spawn`
     /// with the given `AbilitySet` — same defaults as
     /// `Player::new_with_abilities` but without materializing the
     /// monolithic `Player` aggregate.
@@ -643,8 +645,8 @@ impl PlayerClusterScratch {
         }
     }
 
-    pub fn as_mut(&mut self) -> PlayerClustersMut<'_> {
-        PlayerClustersMut {
+    pub fn as_mut(&mut self) -> BodyClustersMut<'_> {
+        BodyClustersMut {
             abilities: &self.abilities,
             kinematics: &mut self.kinematics,
             base_size: &mut self.base_size,

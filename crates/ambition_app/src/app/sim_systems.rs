@@ -195,7 +195,7 @@ pub fn apply_player_reset_input_system(
     mut vfx_writer: MessageWriter<VfxMessage>,
     mut player_q: Query<
         (
-            ae::PlayerClusterQueryData,
+            ae::BodyClusterQueryData,
             &mut ambition_gameplay_core::player::PlayerAnimState,
             &mut ambition_gameplay_core::actor::BodyCombat,
             &mut ambition_gameplay_core::player::PlayerInteractionState,
@@ -273,7 +273,7 @@ pub fn apply_cut_rope_room_replay_request_system(
     mut vfx_writer: MessageWriter<VfxMessage>,
     mut player_q: Query<
         (
-            ae::PlayerClusterQueryData,
+            ae::BodyClusterQueryData,
             &mut ambition_gameplay_core::player::PlayerAnimState,
             &mut ambition_gameplay_core::actor::BodyCombat,
             &mut ambition_gameplay_core::player::PlayerInteractionState,

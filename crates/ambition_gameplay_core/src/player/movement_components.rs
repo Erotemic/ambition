@@ -2,7 +2,7 @@
 //! components, under their original (un-prefixed) names.
 //!
 //! The 18 cluster types live in
-//! [`ambition_engine_core::player_clusters`] and `#[derive(Component)]`
+//! [`ambition_engine_core::body_clusters`] and `#[derive(Component)]`
 //! directly (engine is Bevy-native per ADR 0002). The sandbox just
 //! re-exports them under their original names — every consumer that
 //! imports `crate::actor::BodyKinematics` etc. keeps working.
@@ -13,7 +13,7 @@
 //! player-specific; only the other 17 `Player*` clusters here are.
 //!
 //! Every engine `update_player_*` helper consumes these cluster refs
-//! directly through [`ambition_engine_core::PlayerClustersMut`]; no
+//! directly through [`ambition_engine_core::BodyClustersMut`]; no
 //! `ae::Player` scratchpad or `engine_player_bridge` shim remains
 //! (both deleted 2026-05-28).
 

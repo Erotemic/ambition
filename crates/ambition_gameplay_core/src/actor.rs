@@ -53,7 +53,7 @@ pub use ambition_engine_core::{
 /// This is the single spawn surface for the ancillary clusters, nested by BOTH
 /// the player (`PlayerSimulationBundle`) and every actor
 /// (`ActorClusterSeed::into_components`). Carrying the identical real components
-/// on both is what lets one query ([`ambition_engine_core::PlayerClusterQueryData`])
+/// on both is what lets one query ([`ambition_engine_core::BodyClusterQueryData`])
 /// — and ultimately one movement driver — serve the player and the actors alike,
 /// instead of the actor wrapping them in a non-ECS scratch blob.
 #[derive(bevy::prelude::Bundle)]
@@ -79,11 +79,11 @@ pub struct AncillaryMovementBundle {
 }
 
 impl AncillaryMovementBundle {
-    /// Split the 18 ancillary clusters out of a [`PlayerClusterScratch`],
+    /// Split the 18 ancillary clusters out of a [`BodyClusterScratch`],
     /// dropping its vestigial `kinematics` field (the body's authoritative
     /// [`BodyKinematics`] is spawned separately).
-    pub fn from_scratch(scratch: ambition_engine_core::PlayerClusterScratch) -> Self {
-        let ambition_engine_core::PlayerClusterScratch {
+    pub fn from_scratch(scratch: ambition_engine_core::BodyClusterScratch) -> Self {
+        let ambition_engine_core::BodyClusterScratch {
             abilities,
             kinematics: _,
             base_size,

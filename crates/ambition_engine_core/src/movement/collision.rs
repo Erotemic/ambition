@@ -15,7 +15,7 @@ use crate::Vec2;
 /// [`is_contact_range_snap`] — the engine's shared no-artificial-pushout guard.
 #[must_use]
 fn apply_bounded_resolution(
-    kinematics: &mut crate::player_clusters::BodyKinematics,
+    kinematics: &mut crate::body_clusters::BodyKinematics,
     gravity_dir: Vec2,
     delta: Vec2,
 ) -> bool {
@@ -75,7 +75,7 @@ fn axis_face_resolution(body: Aabb, block: Aabb, axis: Axis) -> (Vec2, Vec2) {
 }
 
 fn apply_side_contact(
-    wall: &mut crate::player_clusters::BodyWallState,
+    wall: &mut crate::body_clusters::BodyWallState,
     world_normal: Vec2,
     gravity_dir: Vec2,
 ) {
@@ -88,8 +88,8 @@ fn apply_side_contact(
 }
 
 fn block_passable_during_climb_clusters(
-    body_mode: &crate::player_clusters::BodyModeState,
-    env_contact: &crate::player_clusters::BodyEnvironmentContact,
+    body_mode: &crate::body_clusters::BodyModeState,
+    env_contact: &crate::body_clusters::BodyEnvironmentContact,
     block: &crate::world::Block,
 ) -> bool {
     if !matches!(body_mode.body_mode, crate::player_state::BodyMode::Climbing) {
@@ -120,10 +120,10 @@ pub(super) fn body_is_side_contact(body: Aabb, block: Aabb) -> bool {
 /// pre-existing penetrations.
 pub(super) fn sweep_player_x_clusters(
     world: &World,
-    kinematics: &mut crate::player_clusters::BodyKinematics,
-    wall: &mut crate::player_clusters::BodyWallState,
-    body_mode: &crate::player_clusters::BodyModeState,
-    env_contact: &crate::player_clusters::BodyEnvironmentContact,
+    kinematics: &mut crate::body_clusters::BodyKinematics,
+    wall: &mut crate::body_clusters::BodyWallState,
+    body_mode: &crate::body_clusters::BodyModeState,
+    env_contact: &crate::body_clusters::BodyEnvironmentContact,
     delta_x: f32,
     drop_through: bool,
     gravity_dir: Vec2,
@@ -231,11 +231,11 @@ pub(super) fn sweep_player_x_clusters(
 /// positional repair.
 pub(super) fn sweep_player_y_clusters(
     world: &World,
-    kinematics: &mut crate::player_clusters::BodyKinematics,
-    ground: &mut crate::player_clusters::BodyGroundState,
-    wall: &mut crate::player_clusters::BodyWallState,
-    body_mode: &crate::player_clusters::BodyModeState,
-    env_contact: &crate::player_clusters::BodyEnvironmentContact,
+    kinematics: &mut crate::body_clusters::BodyKinematics,
+    ground: &mut crate::body_clusters::BodyGroundState,
+    wall: &mut crate::body_clusters::BodyWallState,
+    body_mode: &crate::body_clusters::BodyModeState,
+    env_contact: &crate::body_clusters::BodyEnvironmentContact,
     delta_y: f32,
     prev_feet_coord: f32,
     drop_through: bool,
@@ -342,7 +342,7 @@ pub(super) fn grounded_against_gravity(
 /// carrying a stale fall velocity.
 pub(super) fn stabilize_on_support(
     world: &World,
-    kinematics: &mut crate::player_clusters::BodyKinematics,
+    kinematics: &mut crate::body_clusters::BodyKinematics,
     gravity_dir: Vec2,
     drop_through: bool,
 ) -> bool {
@@ -400,10 +400,10 @@ fn resolve_x_penetration(body: Aabb, block: Aabb, world_w: f32) -> Option<(f32, 
 /// the local side axis.
 fn resolve_axis_clusters(
     world: &World,
-    kinematics: &mut crate::player_clusters::BodyKinematics,
-    wall: &mut crate::player_clusters::BodyWallState,
-    _body_mode: &crate::player_clusters::BodyModeState,
-    _env_contact: &crate::player_clusters::BodyEnvironmentContact,
+    kinematics: &mut crate::body_clusters::BodyKinematics,
+    wall: &mut crate::body_clusters::BodyWallState,
+    _body_mode: &crate::body_clusters::BodyModeState,
+    _env_contact: &crate::body_clusters::BodyEnvironmentContact,
     axis: Axis,
     gravity_dir: Vec2,
 ) {
@@ -458,11 +458,11 @@ fn resolve_axis_clusters(
 /// but also owns grounding because the Y sweep receives `ground`.
 fn resolve_vertical_clusters(
     world: &World,
-    kinematics: &mut crate::player_clusters::BodyKinematics,
-    ground: &mut crate::player_clusters::BodyGroundState,
-    wall: &mut crate::player_clusters::BodyWallState,
-    _body_mode: &crate::player_clusters::BodyModeState,
-    _env_contact: &crate::player_clusters::BodyEnvironmentContact,
+    kinematics: &mut crate::body_clusters::BodyKinematics,
+    ground: &mut crate::body_clusters::BodyGroundState,
+    wall: &mut crate::body_clusters::BodyWallState,
+    _body_mode: &crate::body_clusters::BodyModeState,
+    _env_contact: &crate::body_clusters::BodyEnvironmentContact,
     prev_feet_coord: f32,
     drop_through: bool,
     gravity_dir: Vec2,

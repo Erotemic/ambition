@@ -3,16 +3,16 @@
 
 use super::super::*;
 use super::{step_scratch, test_world};
-use crate::player_clusters::PlayerClusterScratch;
+use crate::body_clusters::BodyClusterScratch;
 use crate::world::{Block, ClimbableKind, ClimbableRegion, ClimbableSpec};
 use crate::{Aabb, AbilitySet, Vec2, World};
 
-fn scratch_at(spawn: Vec2) -> PlayerClusterScratch {
-    PlayerClusterScratch::new_with_abilities(spawn, AbilitySet::sandbox_all())
+fn scratch_at(spawn: Vec2) -> BodyClusterScratch {
+    BodyClusterScratch::new_with_abilities(spawn, AbilitySet::sandbox_all())
 }
 
-fn scratch_with(abilities: AbilitySet, spawn: Vec2) -> PlayerClusterScratch {
-    PlayerClusterScratch::new_with_abilities(spawn, abilities)
+fn scratch_with(abilities: AbilitySet, spawn: Vec2) -> BodyClusterScratch {
+    BodyClusterScratch::new_with_abilities(spawn, abilities)
 }
 
 #[test]

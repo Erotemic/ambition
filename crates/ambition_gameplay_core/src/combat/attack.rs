@@ -9,7 +9,7 @@
 //! in the combat runtime with the `AttackSpec`/`AttackView` model it consumes.
 //!
 //! Player-centrism note: the bodies still name the controlled actor "player"
-//! because the component vocabulary (`PlayerAttackState`, `ae::PlayerClustersMut`,
+//! because the component vocabulary (`PlayerAttackState`, `ae::BodyClustersMut`,
 //! `ActivePlayerAttack`) does. The relativity-principle fix is the actor-
 //! unification rename of those types, tracked separately.
 
@@ -130,7 +130,7 @@ fn pogo_target_for_attack_hitbox(world: &ae::World, attack: ae::Aabb) -> Option<
 pub fn start_attack(
     sfx: &mut MessageWriter<SfxMessage>,
     vfx: &mut MessageWriter<VfxMessage>,
-    clusters: &mut ae::PlayerClustersMut<'_>,
+    clusters: &mut ae::BodyClustersMut<'_>,
     attack: &mut Option<PlayerAttackState>,
     anim: &mut PlayerAnimState,
     actor: ActorControlFrame,
@@ -285,7 +285,7 @@ pub fn advance_attack(
     vfx: &mut MessageWriter<VfxMessage>,
     world: &ae::World,
     moving_platforms: &[MovingPlatformState],
-    clusters: &mut ae::PlayerClustersMut<'_>,
+    clusters: &mut ae::BodyClustersMut<'_>,
     attack: &mut Option<PlayerAttackState>,
     anim: &mut PlayerAnimState,
     combat: &mut BodyCombat,
@@ -462,7 +462,7 @@ pub fn attack_advance_system(
     mut player_q: Query<
         (
             Entity,
-            ae::PlayerClusterQueryData,
+            ae::BodyClusterQueryData,
             &mut PlayerAnimState,
             &mut BodyCombat,
             &mut ActivePlayerAttack,

@@ -31,8 +31,8 @@ mod tests {
         world
     }
 
-    fn scratch_with(abilities: ae::AbilitySet, spawn: ae::Vec2) -> ae::PlayerClusterScratch {
-        ae::PlayerClusterScratch::new_with_abilities(spawn, abilities)
+    fn scratch_with(abilities: ae::AbilitySet, spawn: ae::Vec2) -> ae::BodyClusterScratch {
+        ae::BodyClusterScratch::new_with_abilities(spawn, abilities)
     }
 
     /// Without the `swim` ability, contacting water triggers the same

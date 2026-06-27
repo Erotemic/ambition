@@ -72,12 +72,12 @@ impl LocomotionState {
     /// Project `LocomotionState` from cluster components. Mirrors the
     /// same priority order callers used to drive off of `&Player`.
     pub fn from_clusters(
-        ground: &crate::player_clusters::BodyGroundState,
-        wall: &crate::player_clusters::BodyWallState,
-        flight: &crate::player_clusters::BodyFlightState,
-        dash: &crate::player_clusters::BodyDashState,
-        blink: &crate::player_clusters::BodyBlinkState,
-        ledge: &crate::player_clusters::BodyLedgeState,
+        ground: &crate::body_clusters::BodyGroundState,
+        wall: &crate::body_clusters::BodyWallState,
+        flight: &crate::body_clusters::BodyFlightState,
+        dash: &crate::body_clusters::BodyDashState,
+        blink: &crate::body_clusters::BodyBlinkState,
+        ledge: &crate::body_clusters::BodyLedgeState,
     ) -> Self {
         if dash.timer > 0.0 {
             return LocomotionState::Dashing;
@@ -159,7 +159,7 @@ impl BodyMode {
 
     /// Read the player's authoritative body-mode field from cluster
     /// components.
-    pub fn from_clusters(body_mode: &crate::player_clusters::BodyModeState) -> Self {
+    pub fn from_clusters(body_mode: &crate::body_clusters::BodyModeState) -> Self {
         body_mode.body_mode
     }
 
@@ -276,9 +276,9 @@ impl BodyShape {
 /// leaves state unchanged) when the target shape doesn't fit in the
 /// current world geometry — e.g. a low ceiling rejecting a stand-up.
 pub fn try_change_body_mode_clusters<F>(
-    kinematics: &mut crate::player_clusters::BodyKinematics,
-    base_size: &crate::player_clusters::BodyBaseSize,
-    body_mode_state: &mut crate::player_clusters::BodyModeState,
+    kinematics: &mut crate::body_clusters::BodyKinematics,
+    base_size: &crate::body_clusters::BodyBaseSize,
+    body_mode_state: &mut crate::body_clusters::BodyModeState,
     new_mode: BodyMode,
     world: &crate::world::World,
     gravity_dir: Vec2,
@@ -472,11 +472,11 @@ mod tests {
     use crate::movement::default_player_body_size;
     use crate::world::{Block, BlockKind, World};
 
-    fn scratch_at(pos: Vec2) -> crate::PlayerClusterScratch {
-        crate::PlayerClusterScratch::new_with_abilities(pos, crate::AbilitySet::sandbox_all())
+    fn scratch_at(pos: Vec2) -> crate::BodyClusterScratch {
+        crate::BodyClusterScratch::new_with_abilities(pos, crate::AbilitySet::sandbox_all())
     }
 
-    fn locomotion(s: &crate::PlayerClusterScratch) -> LocomotionState {
+    fn locomotion(s: &crate::BodyClusterScratch) -> LocomotionState {
         LocomotionState::from_clusters(&s.ground, &s.wall, &s.flight, &s.dash, &s.blink, &s.ledge)
     }
 
@@ -857,7 +857,7 @@ mod tests {
     /// trip a CI test if they diverge.
     #[test]
     fn locomotion_from_clusters_matches_from_player_at_rest() {
-        use crate::player_clusters::{
+        use crate::body_clusters::{
             BodyBlinkState, BodyDashState, BodyFlightState, BodyGroundState,
             BodyLedgeState, BodyWallState,
         };
@@ -889,7 +889,7 @@ mod tests {
 
     #[test]
     fn body_mode_from_clusters_reads_authoritative_field() {
-        use crate::player_clusters::BodyModeState;
+        use crate::body_clusters::BodyModeState;
         let bm = BodyModeState {
             body_mode: BodyMode::Crouching,
         };

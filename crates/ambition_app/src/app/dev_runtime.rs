@@ -91,7 +91,7 @@ pub(super) fn handle_ldtk_hot_reload(
     game_assets: Option<Res<ambition_gameplay_core::assets::game_assets::GameAssets>>,
     mut player_q: Query<
         (
-            ae::PlayerClusterQueryData,
+            ae::BodyClusterQueryData,
             &mut ambition_gameplay_core::actor::BodyCombat,
             &mut ambition_gameplay_core::player::PlayerSafetyState,
         ),
@@ -231,7 +231,7 @@ pub(super) fn reload_ldtk_world_from_disk(
     commands: &mut Commands,
     world: &mut RoomGeometry,
     room_set: &mut rooms::RoomSet,
-    clusters: &mut ae::PlayerClustersMut<'_>,
+    clusters: &mut ae::BodyClustersMut<'_>,
     dev_state: &mut SandboxDevState,
     sim_state: &mut ambition_gameplay_core::SandboxSimState,
     safety: &mut ambition_gameplay_core::player::PlayerSafetyState,

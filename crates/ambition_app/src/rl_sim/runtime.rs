@@ -189,7 +189,7 @@ impl SandboxSim {
     /// Returns the current observation without advancing the simulation.
     /// Useful for inspecting state mid-episode without burning a tick.
     pub fn observation(&mut self) -> AgentObservation {
-        // Single `PlayerClusterQueryData` query covers the 12 cluster
+        // Single `BodyClusterQueryData` query covers the 12 cluster
         // components the observation reads. Three sandbox-side
         // components (`BodyCombat`, `BodyHealth`,
         // `PlayerSafetyState`) live outside the engine's cluster
@@ -197,7 +197,7 @@ impl SandboxSim {
         let mut cluster_query = self
             .app
             .world_mut()
-            .query_filtered::<ambition_engine_core::PlayerClusterQueryData, ambition_gameplay_core::actor::PrimaryPlayerOnly>();
+            .query_filtered::<ambition_engine_core::BodyClusterQueryData, ambition_gameplay_core::actor::PrimaryPlayerOnly>();
         let mut combat_query = self
             .app
             .world_mut()

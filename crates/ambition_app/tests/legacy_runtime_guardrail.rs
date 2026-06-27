@@ -5,7 +5,7 @@
 //! ECS migration deleted these intentionally; the canonical
 //! replacements live on dedicated components and systems
 //! (`BodyKinematics`, `BodyGroundState`, …, `BodyComboTrace`,
-//! `PlayerClustersMut`, `PlayerClusterScratch`).
+//! `BodyClustersMut`, `BodyClusterScratch`).
 //!
 //! This test walks the sandbox crate's `src/` tree and fails if any
 //! identifier matches. Test files and historical/archived docs are
@@ -28,11 +28,11 @@ const FORBIDDEN: &[&str] = &[
     "runtime.player",
     // Player ECS migration final step (2026-05-28): the monolithic
     // `ae::Player` aggregate is gone. The cluster components on the
-    // player entity (and `PlayerClusterScratch` for tests) are the
+    // player entity (and `BodyClusterScratch` for tests) are the
     // only path. Re-introducing any of these spellings means a
     // shadow scratchpad has crept back in.
     "ae::Player::new",
-    "PlayerClustersMut::to_player",
+    "BodyClustersMut::to_player",
     "::from_player(",
     "update_player_with_tuning(",
     "update_player_control_with_tuning(",
@@ -141,7 +141,7 @@ pub fn touch_runtime() { let _ = runtime.player; }
 fn feature_runtime_phase() {}
 mod thing { struct FeatureRuntime; }
 let p = ae::Player::new(spawn);
-let snap = PlayerClustersMut::to_player(&clusters);
+let snap = BodyClustersMut::to_player(&clusters);
 let scratch = PlayerKinematics::from_player(&p);
 let e = update_player_with_tuning(&world, &mut p, input, dt, tuning);
 let e = update_player_control_with_tuning(&world, &mut p, input, dt, tuning);

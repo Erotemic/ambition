@@ -90,14 +90,14 @@ pub fn draw_debug_overlay(
     action_query: Query<&ActionState<SandboxAction>, With<PlayerVisual>>,
     mut player_q: Query<
         (
-            ae::PlayerClusterQueryData,
+            ae::BodyClusterQueryData,
             Option<&ambition_gameplay_core::actor::BodyHealth>,
             &ambition_gameplay_core::player::ActivePlayerAttack,
         ),
         // The primary player never carries `FeatureSimEntity` (player vs
         // feature-sim entities are mutually exclusive — see the kinematics
         // unification). Spell that disjointness out with `Without` so Bevy can
-        // prove this `&mut BodyKinematics` (PlayerClusterQueryData) query does
+        // prove this `&mut BodyKinematics` (BodyClusterQueryData) query does
         // not conflict with the `bosses`/`actors` feature queries that read
         // `BodyKinematics` under `With<FeatureSimEntity>` (B0001).
         (

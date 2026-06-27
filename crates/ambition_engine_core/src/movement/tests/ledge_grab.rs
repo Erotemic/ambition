@@ -3,12 +3,12 @@
 
 use super::super::*;
 use super::test_world;
-use crate::player_clusters::PlayerClusterScratch;
+use crate::body_clusters::BodyClusterScratch;
 use crate::world::{BlinkWallTier, Block};
 use crate::{AbilitySet, Vec2};
 
-fn scratch_with(abilities: AbilitySet, spawn: Vec2) -> PlayerClusterScratch {
-    PlayerClusterScratch::new_with_abilities(spawn, abilities)
+fn scratch_with(abilities: AbilitySet, spawn: Vec2) -> BodyClusterScratch {
+    BodyClusterScratch::new_with_abilities(spawn, abilities)
 }
 
 #[test]

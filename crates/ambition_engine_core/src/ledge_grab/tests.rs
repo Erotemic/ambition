@@ -444,16 +444,16 @@ fn finds_ledge_at_l_corner_when_clinging_to_upper_block() {
     );
 }
 
-use crate::player_clusters::PlayerClusterScratch;
+use crate::body_clusters::BodyClusterScratch;
 
-fn make_hanging_player(contact: LedgeContact) -> PlayerClusterScratch {
+fn make_hanging_player(contact: LedgeContact) -> BodyClusterScratch {
     make_hanging_player_with_momentum(contact, Vec2::ZERO)
 }
 
 fn make_hanging_player_with_momentum(
     contact: LedgeContact,
     momentum: Vec2,
-) -> PlayerClusterScratch {
+) -> BodyClusterScratch {
     let mut scratch = scratch_at(Vec2::ZERO);
     scratch.abilities.abilities.ledge_grab = true;
     scratch.abilities.abilities.shield = true;
@@ -471,8 +471,8 @@ fn make_hanging_player_with_momentum(
     scratch
 }
 
-fn scratch_at(pos: Vec2) -> PlayerClusterScratch {
-    PlayerClusterScratch::new_with_abilities(pos, crate::AbilitySet::sandbox_all())
+fn scratch_at(pos: Vec2) -> BodyClusterScratch {
+    BodyClusterScratch::new_with_abilities(pos, crate::AbilitySet::sandbox_all())
 }
 
 #[test]

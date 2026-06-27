@@ -100,13 +100,13 @@ pub struct ActorMotionPath(pub Option<PathMotion>);
 /// This is **not** a spawned component: a spawned actor carries the 18 clusters
 /// as real ECS components (via [`crate::actor::AncillaryMovementBundle`], the
 /// SAME bundle the player nests), so the per-frame integration borrows them as
-/// the non-kinematics half of a `PlayerClustersMut` view exactly like the player.
+/// the non-kinematics half of a `BodyClustersMut` view exactly like the player.
 /// `ActorBody` only holds the scratch while a [`ActorClusterSeed`] is being
 /// assembled (so [`Self::from_caps`] can derive the ability mask before the
 /// entity exists); [`ActorClusterSeed::into_components`] then explodes it into
 /// the real components.
 #[derive(Clone, Debug)]
-pub struct ActorBody(pub ae::PlayerClusterScratch);
+pub struct ActorBody(pub ae::BodyClusterScratch);
 
 impl Default for ActorBody {
     fn default() -> Self {
@@ -118,7 +118,7 @@ impl ActorBody {
     /// A fresh actor movement body with the locomotion-only ability mask (no
     /// capability verbs). Used for the `Default` impl + bodies with no kit.
     pub fn new() -> Self {
-        Self(ae::PlayerClusterScratch::new_with_abilities(
+        Self(ae::BodyClusterScratch::new_with_abilities(
             ae::Vec2::ZERO,
             Self::locomotion_abilities(),
         ))
@@ -142,7 +142,7 @@ impl ActorBody {
         abilities.shield = caps.can_shield;
         abilities.blink = caps.can_blink;
         let mut scratch =
-            ae::PlayerClusterScratch::new_with_abilities(ae::Vec2::ZERO, abilities);
+            ae::BodyClusterScratch::new_with_abilities(ae::Vec2::ZERO, abilities);
         scratch.flight.fly_enabled = is_aerial;
         Self(scratch)
     }
@@ -169,7 +169,7 @@ impl ActorBody {
 /// The 18 ancillary movement clusters are borrowed as individual real-component
 /// refs (`ground`, `wall`, …) — the same components the player carries — so
 /// [`Self::clusters_mut`] can hand the shared movement pipeline a
-/// [`ae::PlayerClustersMut`] view built from `kin` + these refs, exactly like
+/// [`ae::BodyClustersMut`] view built from `kin` + these refs, exactly like
 /// the player's own query item does.
 pub struct ActorMut<'a> {
     pub kin: &'a mut BodyKinematics,
@@ -208,10 +208,10 @@ pub struct ActorMut<'a> {
 
 impl<'a> ActorMut<'a> {
     /// Borrow `kin` + the 18 ancillary clusters as the shared
-    /// [`ae::PlayerClustersMut`] view the movement pipeline consumes — the exact
+    /// [`ae::BodyClustersMut`] view the movement pipeline consumes — the exact
     /// aggregate the player builds, so the actor runs the identical code.
-    pub fn clusters_mut(&mut self) -> ae::PlayerClustersMut<'_> {
-        ae::PlayerClustersMut {
+    pub fn clusters_mut(&mut self) -> ae::BodyClustersMut<'_> {
+        ae::BodyClustersMut {
             kinematics: &mut *self.kin,
             abilities: &*self.abilities,
             base_size: &mut *self.base_size,

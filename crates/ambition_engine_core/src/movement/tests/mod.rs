@@ -12,17 +12,17 @@
 //!
 //! Shared fixtures (`step_scratch`, `test_world`) live here;
 //! submodules reach them via `super::`. Each test constructs a
-//! `PlayerClusterScratch` via
-//! `PlayerClusterScratch::new_with_abilities(spawn, abilities)` and
+//! `BodyClusterScratch` via
+//! `BodyClusterScratch::new_with_abilities(spawn, abilities)` and
 //! drives it through the cluster-native `_scratch` entry points.
 
 use super::*;
-use crate::player_clusters::PlayerClusterScratch;
+use crate::body_clusters::BodyClusterScratch;
 use crate::{Vec2, World};
 
 pub(super) fn step_scratch(
     world: &World,
-    scratch: &mut PlayerClusterScratch,
+    scratch: &mut BodyClusterScratch,
     input: InputState,
 ) -> FrameEvents {
     update_player_with_tuning_scratch(world, scratch, input, 1.0 / 60.0, DEFAULT_TUNING)

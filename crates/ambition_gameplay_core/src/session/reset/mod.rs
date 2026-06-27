@@ -82,7 +82,7 @@ pub fn process_sandbox_reset_request(
     room_visuals: Query<(Entity, Option<&physics::PhysicsRoomEntity>), With<RoomScopedEntity>>,
     mut player_q: Query<
         (
-            ae::PlayerClusterQueryData,
+            ae::BodyClusterQueryData,
             &mut crate::player::PlayerAnimState,
             &mut crate::actor::BodyCombat,
             &mut crate::player::PlayerBlinkCameraState,
@@ -146,8 +146,8 @@ pub fn process_sandbox_reset_request(
         player_q.single_mut()
     {
         let mut clusters = cluster_item.as_clusters_mut();
-        ae::reset_player_clusters(&mut clusters, world.0.spawn);
-        // reset_player_clusters uses DEFAULT_TUNING for the post-reset
+        ae::reset_body_clusters(&mut clusters, world.0.spawn);
+        // reset_body_clusters uses DEFAULT_TUNING for the post-reset
         // dash/jump refresh; redo with the live tuning so a F3
         // editable-tuning session sees its overridden air_jumps /
         // dash_charge_count immediately after a reset.

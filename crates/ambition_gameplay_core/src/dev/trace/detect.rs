@@ -16,7 +16,7 @@ use super::*;
 /// `crate::remember_safe_player_position` use the same definition.
 /// The recorder layers the trace-only "absurd velocity" rule on top.
 pub fn detect_oob_scratch(
-    scratch: &ae::PlayerClusterScratch,
+    scratch: &ae::BodyClusterScratch,
     world: &ae::World,
     margin: f32,
 ) -> Option<OobReason> {
@@ -113,7 +113,7 @@ fn nearby_collision_around(
 /// ledge and snapped to its anchor" attribution).
 fn collect_state_flips(
     prev: &PreviousFrameSnapshot,
-    clusters: &ae::PlayerClustersMut<'_>,
+    clusters: &ae::BodyClustersMut<'_>,
 ) -> Vec<String> {
     let mut flips = Vec::new();
     let cur_ledge = clusters.ledge.grab.is_some();
@@ -181,7 +181,7 @@ fn nearby_collision(world: &ae::World, player_pos: ae::Vec2) -> Vec<CollisionTra
 /// can call it once per player tick.
 #[allow(clippy::too_many_arguments)]
 pub fn build_frame(
-    clusters: &ae::PlayerClustersMut<'_>,
+    clusters: &ae::BodyClustersMut<'_>,
     combat: &crate::actor::BodyCombat,
     clock: &crate::time::clock_state::ClockState,
     safety: &crate::player::PlayerSafetyState,
@@ -243,7 +243,7 @@ pub fn build_frame(
 
 /// Snapshot all active moving platforms into trace shapes.
 fn build_moving_platform_states(
-    clusters: &ae::PlayerClustersMut<'_>,
+    clusters: &ae::BodyClustersMut<'_>,
     moving_platforms: &[crate::world::platforms::MovingPlatformState],
 ) -> Vec<MovingPlatformTraceState> {
     let player_pos = clusters.kinematics.pos;
@@ -291,7 +291,7 @@ fn build_moving_platform_states(
 /// timeline without touching every phase helper.
 pub(crate) fn synthesize_events_from_diff(
     buffer: &mut GameplayTraceBuffer,
-    clusters: &ae::PlayerClustersMut<'_>,
+    clusters: &ae::BodyClustersMut<'_>,
     hp_current: i32,
     controls: ControlFrame,
     real_dt: f32,
@@ -520,7 +520,7 @@ pub fn record_frame(
 /// tick's `synthesize_events_from_diff` sees an up-to-date baseline.
 pub(crate) fn update_previous_snapshot(
     buffer: &mut GameplayTraceBuffer,
-    clusters: &ae::PlayerClustersMut<'_>,
+    clusters: &ae::BodyClustersMut<'_>,
     hp_current: i32,
     controls: ControlFrame,
     active_area: &str,

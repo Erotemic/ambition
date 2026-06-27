@@ -3,11 +3,11 @@
 
 use super::super::*;
 use super::test_world;
-use crate::player_clusters::PlayerClusterScratch;
+use crate::body_clusters::BodyClusterScratch;
 use crate::Vec2;
 
-fn scratch_at(spawn: Vec2) -> PlayerClusterScratch {
-    PlayerClusterScratch::new_with_abilities(spawn, crate::AbilitySet::sandbox_all())
+fn scratch_at(spawn: Vec2) -> BodyClusterScratch {
+    BodyClusterScratch::new_with_abilities(spawn, crate::AbilitySet::sandbox_all())
 }
 
 #[test]
@@ -90,8 +90,8 @@ fn control_clock_can_aim_blink_while_sim_clock_is_nearly_frozen() {
 
 /// Direct cluster-mut callable: pins that `update_player_clusters`
 /// (DEFAULT_TUNING convenience wrapper) can be driven from a
-/// `PlayerClusterScratch::as_mut()` view, mirroring the production
-/// code path that takes a `Query<PlayerClusterQueryData>`.
+/// `BodyClusterScratch::as_mut()` view, mirroring the production
+/// code path that takes a `Query<BodyClusterQueryData>`.
 #[test]
 fn update_player_clusters_runs_one_frame() {
     let world = test_world();

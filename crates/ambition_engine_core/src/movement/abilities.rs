@@ -13,7 +13,7 @@ use super::events::FrameEvents;
 use super::input::InputState;
 use super::ops::MovementOp;
 use super::tuning::MovementTuning;
-use crate::player_clusters::{
+use crate::body_clusters::{
     BodyKinematics, BodyAbilities, BodyActionBuffer, BodyBlinkState, BodyComboTrace,
     BodyDashState, BodyDodgeState, BodyFlightState, BodyGroundState, BodyShieldState,
     BodyWallState,

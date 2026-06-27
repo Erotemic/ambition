@@ -80,7 +80,7 @@ pub fn spawn_requested_player_clone(
     // Spawn a little to the left of the player so it reads as a separate body.
     let spawn = player_kin.pos + ae::Vec2::new(-90.0, -20.0);
     let scratch =
-        ae::PlayerClusterScratch::new_with_abilities(spawn, ae::AbilitySet::sandbox_all());
+        ae::BodyClusterScratch::new_with_abilities(spawn, ae::AbilitySet::sandbox_all());
 
     let size = scratch.kinematics.size;
     let transform = Transform::from_translation(ambition_gameplay_core::config::world_to_bevy(

@@ -27,7 +27,7 @@ mod tests {
         );
         let mut abilities = ae::AbilitySet::sandbox_all();
         abilities.ledge_grab = true;
-        let mut scratch = ae::PlayerClusterScratch::new_with_abilities(world.spawn, abilities);
+        let mut scratch = ae::BodyClusterScratch::new_with_abilities(world.spawn, abilities);
         scratch.kinematics.pos = ae::Vec2::new(86.0, 110.0);
         scratch.kinematics.vel = ae::Vec2::new(30.0, 20.0);
         scratch.wall.wall_clinging = true;

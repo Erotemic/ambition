@@ -3,7 +3,7 @@
 //!
 //! This is the headless proof of the universal-brain seam for the PLAYER path
 //! specifically. We assemble the 18 player movement clusters
-//! ([`PlayerClusterScratch`]) with the full ability set, attach a
+//! ([`BodyClusterScratch`]) with the full ability set, attach a
 //! [`StateMachineCfg::PlayerDemo`] brain (which emits the player's own
 //! run/jump/dash/fly verbs on the shared `ActorControlFrame`), and drive it
 //! through the exact same `update_player_clusters` integration the human player
@@ -58,7 +58,7 @@ fn a_brain_drives_a_full_player_body_through_the_player_movement() {
         vec![floor],
     );
 
-    let mut scratch = ae::PlayerClusterScratch::new_with_abilities(
+    let mut scratch = ae::BodyClusterScratch::new_with_abilities(
         Vec2::new(0.0, 460.0),
         ae::AbilitySet::sandbox_all(),
     );

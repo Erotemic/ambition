@@ -136,7 +136,7 @@ fn min_app() -> App {
     app.insert_resource(crate::features::GameplayBanner::default());
     // Spawn the player entity so process_sandbox_reset_request can query it.
     // Uses the full simulation bundle so every cluster component lands
-    // — the reset path queries `PlayerClusterQueryData` which needs all
+    // — the reset path queries `BodyClusterQueryData` which needs all
     // of them present.
     {
         let mut initial =

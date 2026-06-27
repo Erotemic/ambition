@@ -171,7 +171,7 @@ pub fn probe_ledge_grab(
 /// true to indicate that the normal movement integrator should not run this
 /// frame.
 pub fn tick_active_ledge_grab_clusters(
-    clusters: &mut crate::player_clusters::PlayerClustersMut<'_>,
+    clusters: &mut crate::body_clusters::BodyClustersMut<'_>,
     input: InputState,
     dt: f32,
     tuning: MovementTuning,
@@ -276,7 +276,7 @@ pub fn tick_active_ledge_grab_clusters(
         clusters.ledge.grab = None;
         clusters.ledge.release_cooldown = LEDGE_REGRAB_COOLDOWN;
         clusters.kinematics.vel = launch_away_from_feet(tuning, away_x, tuning.wall_jump_x);
-        crate::player_clusters::refresh_movement_resources_clusters(
+        crate::body_clusters::refresh_movement_resources_clusters(
             clusters.abilities,
             &mut *clusters.dash,
             &mut *clusters.jump,
@@ -296,7 +296,7 @@ pub fn tick_active_ledge_grab_clusters(
         let mut launch = launch_away_from_feet(tuning, into_x, tuning.jump_speed * 0.35);
         launch += ledge_boost_for_state(state, &tuning);
         clusters.kinematics.vel = launch;
-        crate::player_clusters::refresh_movement_resources_clusters(
+        crate::body_clusters::refresh_movement_resources_clusters(
             clusters.abilities,
             &mut *clusters.dash,
             &mut *clusters.jump,
@@ -411,8 +411,8 @@ pub fn is_precise_ledge_grab(player_pos: Vec2, player_size: Vec2, contact: Ledge
 /// Pick a side-face normal to probe for a ledge: the active wall-cling normal
 /// first, else a local side-axis press while airborne.
 fn requested_wall_normal_clusters(
-    wall: &crate::player_clusters::BodyWallState,
-    ground: &crate::player_clusters::BodyGroundState,
+    wall: &crate::body_clusters::BodyWallState,
+    ground: &crate::body_clusters::BodyGroundState,
     input: InputState,
     tuning: MovementTuning,
 ) -> Option<f32> {
@@ -549,7 +549,7 @@ const FALL_SNAP_MIN_VY: f32 = 45.0;
 /// captures the pre-wall momentum + arms the post-grab invuln.
 pub fn try_start_ledge_grab_clusters(
     world: &World,
-    clusters: &mut crate::player_clusters::PlayerClustersMut<'_>,
+    clusters: &mut crate::body_clusters::BodyClustersMut<'_>,
     input: InputState,
     tuning: MovementTuning,
     events: &mut crate::movement::FrameEvents,
@@ -639,7 +639,7 @@ pub fn try_start_ledge_grab_clusters(
 /// engine ledge_grab tests use this so they can keep the
 /// "build a Player → assert against it" pattern.
 pub fn tick_active_ledge_grab_scratch(
-    scratch: &mut crate::player_clusters::PlayerClusterScratch,
+    scratch: &mut crate::body_clusters::BodyClusterScratch,
     input: InputState,
     dt: f32,
     tuning: MovementTuning,
@@ -652,7 +652,7 @@ pub fn tick_active_ledge_grab_scratch(
 /// Scratch-based wrapper around [`try_start_ledge_grab_clusters`].
 pub fn try_start_ledge_grab_scratch(
     world: &World,
-    scratch: &mut crate::player_clusters::PlayerClusterScratch,
+    scratch: &mut crate::body_clusters::BodyClusterScratch,
     input: InputState,
     events: &mut crate::movement::FrameEvents,
 ) -> bool {

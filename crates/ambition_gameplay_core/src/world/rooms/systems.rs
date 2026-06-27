@@ -265,7 +265,7 @@ pub fn detect_room_transition_system(
     mut transition_writer: MessageWriter<RoomTransitionRequested>,
     mut player_q: Query<
         (
-            ae::PlayerClusterQueryData,
+            ae::BodyClusterQueryData,
             &mut crate::player::PlayerInteractionState,
         ),
         crate::actor::PrimaryPlayerOnly,

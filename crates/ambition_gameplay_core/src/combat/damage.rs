@@ -10,7 +10,7 @@
 //! state it mutates already lives.
 //!
 //! Player-centrism note: the bodies still name the controlled actor "player"
-//! because the component vocabulary (`BodyCombat`, `ae::PlayerClustersMut`)
+//! because the component vocabulary (`BodyCombat`, `ae::BodyClustersMut`)
 //! does. The relativity-principle fix is the actor-unification rename of those
 //! types, tracked separately; this drain only relocates and de-render-couples.
 
@@ -62,7 +62,7 @@ pub(crate) fn death_respawn_player(
     sfx: &mut MessageWriter<SfxMessage>,
     vfx: &mut MessageWriter<VfxMessage>,
     died: &mut MessageWriter<ActorDiedMessage>,
-    clusters: &mut ae::PlayerClustersMut<'_>,
+    clusters: &mut ae::BodyClustersMut<'_>,
     sim_state: &mut SandboxSimState,
     clock: &mut ClockState,
     safety: &mut PlayerSafetyState,
@@ -76,7 +76,7 @@ pub(crate) fn death_respawn_player(
     combat: &mut BodyCombat,
 ) {
     let to = world.spawn;
-    ae::reset_player_clusters(clusters, world.spawn);
+    ae::reset_body_clusters(clusters, world.spawn);
     ae::refresh_movement_resources_clusters(
         clusters.abilities,
         &mut *clusters.dash,
@@ -107,7 +107,7 @@ pub(crate) fn handle_player_damage_events(
     sfx: &mut MessageWriter<SfxMessage>,
     vfx: &mut MessageWriter<VfxMessage>,
     died: &mut MessageWriter<ActorDiedMessage>,
-    clusters: &mut ae::PlayerClustersMut<'_>,
+    clusters: &mut ae::BodyClustersMut<'_>,
     sim_state: &mut SandboxSimState,
     clock: &mut ClockState,
     safety: &mut PlayerSafetyState,
@@ -214,7 +214,7 @@ pub(crate) fn handle_player_damage_events(
 pub(crate) fn safe_respawn_player(
     sfx: &mut MessageWriter<SfxMessage>,
     vfx: &mut MessageWriter<VfxMessage>,
-    clusters: &mut ae::PlayerClustersMut<'_>,
+    clusters: &mut ae::BodyClustersMut<'_>,
     clock: &mut ClockState,
     safety: &PlayerSafetyState,
     combat: &mut BodyCombat,
@@ -223,7 +223,7 @@ pub(crate) fn safe_respawn_player(
     from: ae::Vec2,
 ) {
     let to = safety.last_safe_pos;
-    ae::reset_player_clusters(clusters, to);
+    ae::reset_body_clusters(clusters, to);
     ae::refresh_movement_resources_clusters(
         clusters.abilities,
         &mut *clusters.dash,
@@ -276,7 +276,7 @@ fn resolved_player_knockback_velocity(
 pub(crate) fn apply_player_knockback(
     sfx: &mut MessageWriter<SfxMessage>,
     vfx: &mut MessageWriter<VfxMessage>,
-    clusters: &mut ae::PlayerClustersMut<'_>,
+    clusters: &mut ae::BodyClustersMut<'_>,
     combat: &mut BodyCombat,
     tuning: ae::MovementTuning,
     feel: SandboxFeelTuning,
@@ -362,7 +362,7 @@ pub fn apply_player_hit_events(
         (
             Entity,
             &PlayerInputFrame,
-            ae::PlayerClusterQueryData,
+            ae::BodyClusterQueryData,
             Option<&mut BodyHealth>,
             &mut PlayerAnimState,
             &mut BodyCombat,

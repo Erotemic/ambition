@@ -24,7 +24,7 @@ impl FrameEvents {
     /// to the cluster-side combo trace.
     pub fn op_clusters(
         &mut self,
-        combo_trace: &mut crate::player_clusters::BodyComboTrace,
+        combo_trace: &mut crate::body_clusters::BodyComboTrace,
         op: MovementOp,
     ) {
         self.operations.push(op);

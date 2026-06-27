@@ -69,7 +69,7 @@ use super::tuning::MovementTuning;
 /// bookkeeping. Reads and writes every relevant cluster directly.
 pub(super) fn integrate_velocity_clusters(
     world: &World,
-    clusters: &mut crate::player_clusters::PlayerClustersMut<'_>,
+    clusters: &mut crate::body_clusters::BodyClustersMut<'_>,
     input: InputState,
     dt: f32,
     tuning: MovementTuning,
@@ -139,7 +139,7 @@ pub(super) fn integrate_velocity_clusters(
     let drop_through = wants_drop_through(tuning.stick(&input).y, input.jump_pressed)
         || clusters.ground.drop_through_timer > 0.0;
 
-    let sweep_x = |clusters: &mut crate::player_clusters::PlayerClustersMut<'_>| {
+    let sweep_x = |clusters: &mut crate::body_clusters::BodyClustersMut<'_>| {
         let dt_x = clusters.kinematics.vel.x * dt;
         super::collision::sweep_player_x_clusters(
             world,
@@ -153,7 +153,7 @@ pub(super) fn integrate_velocity_clusters(
         );
     };
 
-    let sweep_y = |clusters: &mut crate::player_clusters::PlayerClustersMut<'_>| {
+    let sweep_y = |clusters: &mut crate::body_clusters::BodyClustersMut<'_>| {
         let prev_feet_coord = clusters
             .kinematics
             .aabb_oriented(tuning.gravity_dir)
@@ -238,7 +238,7 @@ pub(super) fn integrate_velocity_clusters(
     }
 
     if clusters.ground.on_ground {
-        crate::player_clusters::refresh_movement_resources_clusters(
+        crate::body_clusters::refresh_movement_resources_clusters(
             clusters.abilities,
             &mut *clusters.dash,
             &mut *clusters.jump,
@@ -258,7 +258,7 @@ pub(super) fn integrate_velocity_clusters(
             clusters.kinematics.aabb_oriented(tuning.gravity_dir),
         ) {
             clusters.kinematics.vel = impulse;
-            crate::player_clusters::refresh_movement_resources_clusters(
+            crate::body_clusters::refresh_movement_resources_clusters(
                 clusters.abilities,
                 &mut *clusters.dash,
                 &mut *clusters.jump,
@@ -289,12 +289,12 @@ pub(super) fn integrate_velocity_clusters(
 /// flipped gravity Just Works — the property enemies/NPCs inherit when they move
 /// onto this spine (and the reason their Y-only `gravity_sign` fall bug vanishes).
 pub(super) fn integrate_normal_clusters(
-    kinematics: &mut crate::player_clusters::BodyKinematics,
-    flight: &mut crate::player_clusters::BodyFlightState,
-    ground: &crate::player_clusters::BodyGroundState,
-    blink: &crate::player_clusters::BodyBlinkState,
-    env_contact: &crate::player_clusters::BodyEnvironmentContact,
-    abilities: &crate::player_clusters::BodyAbilities,
+    kinematics: &mut crate::body_clusters::BodyKinematics,
+    flight: &mut crate::body_clusters::BodyFlightState,
+    ground: &crate::body_clusters::BodyGroundState,
+    blink: &crate::body_clusters::BodyBlinkState,
+    env_contact: &crate::body_clusters::BodyEnvironmentContact,
+    abilities: &crate::body_clusters::BodyAbilities,
     input: InputState,
     dt: f32,
     tuning: MovementTuning,
@@ -442,11 +442,11 @@ pub fn integrate_normal_spine(
 }
 
 pub(super) fn integrate_climb_clusters(
-    kinematics: &mut crate::player_clusters::BodyKinematics,
-    env_contact: &crate::player_clusters::BodyEnvironmentContact,
-    flight: &mut crate::player_clusters::BodyFlightState,
-    wall: &mut crate::player_clusters::BodyWallState,
-    jump: &mut crate::player_clusters::BodyJumpState,
+    kinematics: &mut crate::body_clusters::BodyKinematics,
+    env_contact: &crate::body_clusters::BodyEnvironmentContact,
+    flight: &mut crate::body_clusters::BodyFlightState,
+    wall: &mut crate::body_clusters::BodyWallState,
+    jump: &mut crate::body_clusters::BodyJumpState,
     input: InputState,
     dt: f32,
     tuning: MovementTuning,
@@ -487,9 +487,9 @@ pub(super) fn integrate_climb_clusters(
 /// bob phase when sticks are centered, hard clamp to the flight
 /// terminal speed. Clears fast-fall + wall-cling flags by mode.
 pub(super) fn integrate_flight_clusters(
-    kinematics: &mut crate::player_clusters::BodyKinematics,
-    flight: &mut crate::player_clusters::BodyFlightState,
-    wall: &mut crate::player_clusters::BodyWallState,
+    kinematics: &mut crate::body_clusters::BodyKinematics,
+    flight: &mut crate::body_clusters::BodyFlightState,
+    wall: &mut crate::body_clusters::BodyWallState,
     input: InputState,
     dt: f32,
     tuning: MovementTuning,
@@ -536,11 +536,11 @@ pub(super) fn integrate_flight_clusters(
 /// `WallCling` / `WallClimb` exactly once per engagement.
 ///
 pub(super) fn apply_wall_abilities_clusters(
-    kinematics: &mut crate::player_clusters::BodyKinematics,
-    ground: &crate::player_clusters::BodyGroundState,
-    wall: &mut crate::player_clusters::BodyWallState,
-    abilities: &crate::player_clusters::BodyAbilities,
-    combo_trace: &mut crate::player_clusters::BodyComboTrace,
+    kinematics: &mut crate::body_clusters::BodyKinematics,
+    ground: &crate::body_clusters::BodyGroundState,
+    wall: &mut crate::body_clusters::BodyWallState,
+    abilities: &crate::body_clusters::BodyAbilities,
+    combo_trace: &mut crate::body_clusters::BodyComboTrace,
     input: InputState,
     tuning: MovementTuning,
     was_clinging: bool,

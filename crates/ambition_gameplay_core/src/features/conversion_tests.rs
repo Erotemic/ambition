@@ -20,7 +20,7 @@ mod conversion_tests {
         ae::World,
         super::ecs::actor_clusters::ActorClusterSeed,
         ambition_characters::brain::Brain,
-        ae::PlayerClusterScratch,
+        ae::BodyClusterScratch,
     ) {
         let world = ae::World::new(
             String::from("patrol_test"),

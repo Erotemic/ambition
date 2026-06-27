@@ -16,7 +16,7 @@
 //!    sim-clock player update.
 //!
 //! The systems query the 18 player cluster components through
-//! [`ambition_engine_core::PlayerClusterQueryData`] and call the
+//! [`ambition_engine_core::BodyClusterQueryData`] and call the
 //! cluster-native engine entry points
 //! (`player_control_phase` / `player_simulation_phase`) directly.
 //! The legacy `PlayerMovementAuthority` wrapper + tick-local
@@ -72,7 +72,7 @@ pub fn player_control_system(
     mut player_q: Query<
         (
             Entity,
-            ae::PlayerClusterQueryData,
+            ae::BodyClusterQueryData,
             &mut ambition_gameplay_core::player::PlayerAnimState,
             &mut ambition_gameplay_core::actor::BodyCombat,
             &mut ambition_gameplay_core::player::PlayerInteractionState,
@@ -172,7 +172,7 @@ pub fn player_simulation_system(
     gravity_field: Option<Res<ambition_gameplay_core::physics::GravityField>>,
     mut player_q: Query<
         (
-            ae::PlayerClusterQueryData,
+            ae::BodyClusterQueryData,
             &mut ambition_gameplay_core::player::PlayerAnimState,
             &mut ambition_gameplay_core::actor::BodyCombat,
             &mut ambition_gameplay_core::player::PlayerInteractionState,

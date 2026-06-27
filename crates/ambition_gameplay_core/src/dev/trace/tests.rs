@@ -20,11 +20,11 @@ fn dummy_world() -> World {
     )
 }
 
-fn dummy_player(at: ae::Vec2) -> ae::PlayerClusterScratch {
+fn dummy_player(at: ae::Vec2) -> ae::BodyClusterScratch {
     crate::player::primary_player_scratch(at, ae::AbilitySet::sandbox_all())
 }
 
-fn scratch_from(scratch: &ae::PlayerClusterScratch) -> ae::PlayerClusterScratch {
+fn scratch_from(scratch: &ae::BodyClusterScratch) -> ae::BodyClusterScratch {
     scratch.clone()
 }
 

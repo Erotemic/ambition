@@ -4,26 +4,27 @@
 //! This is the foundation crate: a deterministic, mostly Bevy-free
 //! kinematic platformer simulation with no game-specific content. It owns
 //! the testable gameplay rules every sibling crate reuses — kinematic
-//! player movement, AABB collision semantics, ability gates, ledge-grab
+//! body movement, AABB collision semantics, ability gates, ledge-grab
 //! probes, world collision/water/climbable region data, gravity-relative
 //! reference frames, and the cluster components (`BodyKinematics`,
-//! `BodyGroundState`, …, `BodyComboTrace`) that make up the player ECS
-//! entity. `ambition_characters` (minds/cast), `ambition_content` (named game
-//! content), and `ambition_gameplay_core` (machinery) all sit above it.
+//! `BodyGroundState`, …, `BodyComboTrace`) that make up an actor's ECS
+//! body (the player included). `ambition_characters` (minds/cast),
+//! `ambition_content` (named game content), and `ambition_gameplay_core`
+//! (machinery) all sit above it.
 //!
 //! Top-level modules: [`abilities`] (capability flags), [`config`]
 //! (coordinate/layer constants), [`geometry`] (Aabb2d-backed collision
 //! primitives), [`ledge_grab`] (ledge probe + state), [`movement`] (the
-//! player movement spine + tuning), [`player_clusters`] (the authoritative
-//! cluster components + the `PlayerClustersMut` view), [`player_state`]
+//! body movement spine + tuning), [`body_clusters`] (the authoritative
+//! cluster components + the `BodyClustersMut` view), [`player_state`]
 //! (locomotion/body-mode/resource-meter vocabulary), [`reference_frame`]
 //! (gravity-relative frame transforms), and [`world`] (room block data).
 //!
-//! There is no monolithic player aggregate: the cluster components are the
-//! only player state, and every entry point in [`movement`] operates on a
-//! [`player_clusters::PlayerClustersMut`] view natively. Tests build a
+//! There is no monolithic body aggregate: the cluster components are the
+//! only body state, and every entry point in [`movement`] operates on a
+//! [`body_clusters::BodyClustersMut`] view natively. Tests build a
 //! non-ECS scratchpad via
-//! [`player_clusters::PlayerClusterScratch::new_with_abilities`].
+//! [`body_clusters::BodyClusterScratch::new_with_abilities`].
 
 pub mod abilities;
 pub mod collision_semantics;
@@ -33,7 +34,7 @@ pub mod volume_shape;
 pub mod geometry;
 pub mod ledge_grab;
 pub mod movement;
-pub mod player_clusters;
+pub mod body_clusters;
 pub mod player_state;
 pub mod reference_frame;
 pub mod world;
@@ -70,13 +71,13 @@ pub use movement::{
     POGO_SPEED, PRECISION_BLINK_AIM_SPEED, PRECISION_BLINK_DISTANCE, RUN_ACCEL, SLASH_RECOIL,
     WALL_CLIMB_SPEED, WALL_JUMP_X, WALL_SLIDE_SPEED,
 };
-pub use player_clusters::{
-    refresh_movement_resources_clusters, reset_player_clusters, BodyAbilities, BodyActionBuffer,
+pub use body_clusters::{
+    refresh_movement_resources_clusters, reset_body_clusters, BodyAbilities, BodyActionBuffer,
     BodyBaseSize, BodyBlinkState, BodyComboTrace, BodyDashState, BodyDodgeState,
     BodyEnvironmentContact, BodyFlightState, BodyGroundState, BodyJumpState, BodyKinematics,
     BodyLedgeState, BodyLifetime, BodyMana, BodyModeState, BodyOffense, BodyShieldState,
-    BodyWallState, PlayerClusterQueryData, PlayerClusterQueryDataItem, PlayerClusterScratch,
-    PlayerClustersMut,
+    BodyWallState, BodyClusterQueryData, BodyClusterQueryDataItem, BodyClusterScratch,
+    BodyClustersMut,
 };
 pub use player_state::{
     classify_safety_from_kinematics, try_change_body_mode_clusters, BodyMode, BodyShape,

@@ -165,6 +165,19 @@
     // (an AI whose abilities are theorems) is a separate, identity-sensitive call.
     // Tuning is a first-pass and FEEL-UNVERIFIED (Jon checks in-game).
     "player_robot": (
+        // The protagonist's body should MOVE like the player (roadmap: enemies
+        // rise to the player). Override the generic body baseline with the player's
+        // own snappier physics — higher gravity + fall cap + jump, near-instant run
+        // accel. (Composes via the hierarchical movement patch; unspecified knobs
+        // inherit the baseline.) When this body runs the real player pipeline
+        // (later roadmap phase) the feel becomes exact; for now this nudges it.
+        movement: (
+            gravity: Some(2250.0),
+            max_fall_speed: Some(1900.0),
+            run_accel: Some(5200.0),
+            jump_speed: Some(630.0),
+            double_jump_speed: Some(520.0),
+        ),
         max_health: 20,
         patrol_speed: 110.0,
         chase_speed: 200.0,

@@ -99,6 +99,21 @@ pub struct CompositeVisualSpec {
 
 #[derive(Clone, Debug, serde::Deserialize)]
 pub(crate) struct EnemyArchetypeSpec {
+    /// Optional parent archetype id to inherit movement tuning from. The resolver
+    /// folds `BASELINE ← parent (resolved) ← this row's `movement` patch`, so an
+    /// archetype can extend another and override only what differs. `None` =
+    /// inherit straight from the generic baseline.
+    #[serde(default)]
+    pub inherits: Option<String>,
+    /// Authored movement overrides (a partial patch; every knob optional). Layered
+    /// onto the resolved parent/baseline at roster-build time.
+    #[serde(default)]
+    pub movement: crate::combat::BodyMovementPatch,
+    /// Resolved movement physics — filled by the roster's inheritance pass, NOT
+    /// authored. Defaults to the baseline so a spec used outside the roster still
+    /// has sane physics.
+    #[serde(skip)]
+    pub movement_resolved: crate::combat::BodyMovementTuning,
     pub max_health: i32,
     #[serde(default)]
     pub rider_max_health: Option<i32>,
@@ -373,8 +388,13 @@ impl EnemyRoster {
     /// `from_brain` default). This is the roster-enum-free construction path:
     /// the map keys ARE the spawn brain keys, so no `EnemyArchetype` is named.
     pub(crate) fn from_map(
-        by_brain: std::collections::HashMap<String, EnemyArchetypeSpec>,
+        mut by_brain: std::collections::HashMap<String, EnemyArchetypeSpec>,
     ) -> Self {
+        // Resolve each archetype's movement tuning by folding its patch along the
+        // inheritance chain. Done HERE — the single chokepoint every roster passes
+        // through — because inheritance needs sibling specs the per-row `tuning()`
+        // builder can't see.
+        resolve_movement_inheritance(&mut by_brain);
         let fallback = by_brain
             .get("combatant")
             .cloned()
@@ -383,12 +403,61 @@ impl EnemyRoster {
     }
 
     /// Parse a brain-keyed roster RON document — the content layer's entry
-    /// point: `install_enemy_roster(EnemyRoster::from_ron(MY_RON))`.
+    /// point: `install_enemy_roster(EnemyRoster::from_ron(MY_RON))`. Movement
+    /// inheritance is resolved by `from_map`.
     pub fn from_ron(ron: &str) -> Self {
         let by_brain: std::collections::HashMap<String, EnemyArchetypeSpec> = ron::from_str(ron)
             .unwrap_or_else(|err| panic!("enemy roster RON failed to deserialize: {err}"));
         Self::from_map(by_brain)
     }
+}
+
+/// Fold every archetype's authored movement patch along its inheritance chain and
+/// store the resolved [`crate::combat::BodyMovementTuning`] back on each spec.
+/// `BASELINE ← parent (resolved) ← this row's patch`; a missing parent or a cycle
+/// falls back to the baseline rather than panicking (a malformed `inherits` is a
+/// data smell, not a crash).
+fn resolve_movement_inheritance(
+    specs: &mut std::collections::HashMap<String, EnemyArchetypeSpec>,
+) {
+    // Snapshot the authored (patch, parent) so resolution reads immutable data
+    // while we write resolved values back into the same map.
+    let raw: std::collections::HashMap<String, (crate::combat::BodyMovementPatch, Option<String>)> =
+        specs
+            .iter()
+            .map(|(k, s)| (k.clone(), (s.movement, s.inherits.clone())))
+            .collect();
+    let resolved: std::collections::HashMap<String, crate::combat::BodyMovementTuning> = raw
+        .keys()
+        .map(|k| (k.clone(), resolve_movement_for(&raw, k, &mut vec![k.clone()])))
+        .collect();
+    for (k, spec) in specs.iter_mut() {
+        if let Some(tuning) = resolved.get(k) {
+            spec.movement_resolved = *tuning;
+        }
+    }
+}
+
+/// Recursively resolve one archetype's movement tuning. `seen` carries the chain
+/// so a cycle (or self-reference) stops at the baseline instead of recursing
+/// forever.
+fn resolve_movement_for(
+    raw: &std::collections::HashMap<String, (crate::combat::BodyMovementPatch, Option<String>)>,
+    id: &str,
+    seen: &mut Vec<String>,
+) -> crate::combat::BodyMovementTuning {
+    let Some((patch, parent)) = raw.get(id) else {
+        return crate::combat::BodyMovementTuning::BASELINE;
+    };
+    let base = match parent {
+        Some(parent_id) if !seen.iter().any(|s| s == parent_id) => {
+            seen.push(parent_id.clone());
+            resolve_movement_for(raw, parent_id, seen)
+        }
+        // No parent, or a cycle/unknown parent → start from the generic baseline.
+        _ => crate::combat::BodyMovementTuning::BASELINE,
+    };
+    patch.apply_onto(base)
 }
 
 /// Test-only fallback roster, parsed from the lib's bundled fixture RON so
@@ -557,6 +626,9 @@ impl EnemyArchetypeSpec {
     /// Project the per-frame runtime tuning carried on `ActorConfig.tuning`.
     pub(crate) fn tuning(&self) -> crate::combat::ActorTuning {
         crate::combat::ActorTuning {
+            // Resolved at roster-build time from the archetype hierarchy
+            // (BASELINE <- inherits-chain <- this row's `movement` patch).
+            movement: self.movement_resolved,
             max_health: self.max_health,
             patrol_speed: self.patrol_speed,
             chase_speed: self.chase_speed,
@@ -891,6 +963,17 @@ mod capability_tests {
             super::EnemyBrainTemplate::Smash,
             "the player-robot is driven by the unified Smash brain (the strong brain)",
         );
+        // Its authored `movement` patch resolves to the PLAYER's snappier physics
+        // (enemies rise to the player) — proving the per-archetype tuning data flows
+        // RON patch -> hierarchy resolution -> the runtime `ActorTuning`.
+        let movement = spec.tuning().movement;
+        assert_eq!(movement.gravity, 2250.0, "player-robot falls like the player");
+        assert_eq!(movement.jump_speed, 630.0, "player-robot jumps like the player");
+        assert_ne!(
+            movement,
+            crate::combat::BodyMovementTuning::BASELINE,
+            "the authored override differs from the generic baseline",
+        );
     }
 
     /// The Stochastic Parrot's DUAL nature, proven from the authored data:
@@ -1014,5 +1097,94 @@ mod capability_tests {
                 "{key} provoke_forced_brute_min_aggro"
             );
         }
+    }
+}
+
+#[cfg(test)]
+mod movement_tuning_tests {
+    use super::{resolve_movement_for, EnemyRoster};
+    use crate::combat::{BodyMovementPatch, BodyMovementTuning};
+    use ambition_characters::actor::EnemyBrain;
+    use std::collections::HashMap;
+
+    /// The composition primitive: `Some` knobs override, `None` knobs inherit.
+    #[test]
+    fn patch_apply_onto_overrides_only_specified_knobs() {
+        let patch = BodyMovementPatch {
+            gravity: Some(700.0),
+            ..Default::default()
+        };
+        let r = patch.apply_onto(BodyMovementTuning::BASELINE);
+        assert_eq!(r.gravity, 700.0, "specified knob overrides");
+        assert_eq!(
+            r.max_fall_speed,
+            BodyMovementTuning::BASELINE.max_fall_speed,
+            "unspecified knob inherits the base",
+        );
+    }
+
+    /// The hierarchy folds BASELINE <- parent <- child: a child inherits its
+    /// parent's overrides AND the baseline, then layers its own.
+    #[test]
+    fn inheritance_chain_composes() {
+        let mut raw: HashMap<String, (BodyMovementPatch, Option<String>)> = HashMap::new();
+        raw.insert(
+            "parent".to_string(),
+            (
+                BodyMovementPatch {
+                    gravity: Some(700.0),
+                    ..Default::default()
+                },
+                None,
+            ),
+        );
+        raw.insert(
+            "child".to_string(),
+            (
+                BodyMovementPatch {
+                    jump_speed: Some(900.0),
+                    ..Default::default()
+                },
+                Some("parent".to_string()),
+            ),
+        );
+        let child = resolve_movement_for(&raw, "child", &mut vec!["child".to_string()]);
+        assert_eq!(child.gravity, 700.0, "inherited from the parent's override");
+        assert_eq!(child.jump_speed, 900.0, "the child's own override");
+        assert_eq!(
+            child.run_accel,
+            BodyMovementTuning::BASELINE.run_accel,
+            "knob neither set inherits the baseline",
+        );
+    }
+
+    /// A cyclic / self-referential `inherits` resolves to the baseline instead of
+    /// recursing forever (a data smell, not a crash).
+    #[test]
+    fn inheritance_cycle_falls_back_to_baseline() {
+        let mut raw: HashMap<String, (BodyMovementPatch, Option<String>)> = HashMap::new();
+        raw.insert(
+            "a".to_string(),
+            (BodyMovementPatch::default(), Some("a".to_string())),
+        );
+        let a = resolve_movement_for(&raw, "a", &mut vec!["a".to_string()]);
+        assert_eq!(a, BodyMovementTuning::BASELINE);
+    }
+
+    /// End-to-end through the real roster loader: an archetype with no movement
+    /// overrides resolves to the baseline (behavior-preserving data move), and the
+    /// resolved tuning is what the runtime `ActorTuning` carries.
+    #[test]
+    fn roster_resolves_baseline_for_unauthored_movement() {
+        let roster = EnemyRoster::from_map(super::ENEMY_ARCHETYPE_REGISTRY.clone());
+        let combatant = roster
+            .spec_for_brain(&EnemyBrain::Custom("combatant".to_string()))
+            .tuning()
+            .movement;
+        assert_eq!(
+            combatant,
+            BodyMovementTuning::BASELINE,
+            "a row without a `movement` patch resolves to the generic baseline",
+        );
     }
 }

@@ -122,7 +122,7 @@ fn integrate_standard_enemy_body(
             world,
             frame.velocity_target,
             Some(accel),
-            ENEMY_MAX_FALL,
+            tuning.movement.max_fall_speed,
             dt,
         );
     } else {
@@ -135,14 +135,14 @@ fn integrate_standard_enemy_body(
         // decomposition, no per-actor-type branch.
         let axis_x = frame.locomotion.x;
         let spine_tuning = ae::MovementTuning {
-            gravity: ENEMY_GRAVITY * surface.gravity_scale,
+            gravity: tuning.movement.gravity * surface.gravity_scale,
             gravity_dir,
-            run_accel: ENEMY_RUN_ACCEL,
-            air_accel: ENEMY_RUN_ACCEL,
+            run_accel: tuning.movement.run_accel,
+            air_accel: tuning.movement.run_accel,
             ground_friction: 0.0,
             air_friction: 0.0,
             max_run_speed: tuning.max_run_speed * run_speed_scale,
-            max_fall_speed: ENEMY_MAX_FALL,
+            max_fall_speed: tuning.movement.max_fall_speed,
             ..ae::MovementTuning::default()
         };
         // A grounded enemy carries no player ability components: the spine's
@@ -167,10 +167,10 @@ fn integrate_standard_enemy_body(
             let g = gravity_dir;
             let jump_off = |vel: ae::Vec2, speed: f32| vel - vel.dot(g) * g - speed * g;
             if body.on_ground {
-                body.vel = jump_off(body.vel, ENEMY_JUMP_SPEED);
+                body.vel = jump_off(body.vel, tuning.movement.jump_speed);
                 body.on_ground = false;
             } else if surface.air_jumps_remaining > 0 {
-                body.vel = jump_off(body.vel, ENEMY_DOUBLE_JUMP_SPEED);
+                body.vel = jump_off(body.vel, tuning.movement.double_jump_speed);
                 surface.air_jumps_remaining -= 1;
             }
         }
@@ -182,7 +182,7 @@ fn integrate_standard_enemy_body(
             world,
             kinematic::KinematicTuning {
                 gravity: 0.0,
-                max_fall_speed: ENEMY_MAX_FALL,
+                max_fall_speed: tuning.movement.max_fall_speed,
                 gravity_dir,
             },
             kinematic::KinematicInputs {
@@ -462,8 +462,8 @@ impl<'a> ActorMut<'a> {
             &mut body,
             world,
             kinematic::KinematicTuning {
-                gravity: ENEMY_GRAVITY,
-                max_fall_speed: ENEMY_MAX_FALL,
+                gravity: self.config.tuning.movement.gravity,
+                max_fall_speed: self.config.tuning.movement.max_fall_speed,
                 // Detached surface-walkers fall toward the active acceleration frame,
                 // then reattach with their surface normal opposite local down.
                 gravity_dir,

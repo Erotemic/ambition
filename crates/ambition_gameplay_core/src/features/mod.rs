@@ -21,25 +21,12 @@ use ambition_engine_core::AabbExt;
 use ambition_platformer_primitives::kinematic;
 use bevy::prelude::*;
 
-const ENEMY_GRAVITY: f32 = 1450.0;
-const ENEMY_MAX_FALL: f32 = 760.0;
-/// Run acceleration (px/s²) a grounded enemy approaches its desired velocity at,
-/// fed to the shared movement spine as both `run_accel` and `air_accel`. Matches
-/// the historical hand-rolled `approach(.., 650.0 * dt)` enemy run so routing
-/// enemies through the player spine is byte-identical under vertical gravity.
-const ENEMY_RUN_ACCEL: f32 = 650.0;
-/// Vertical impulse (px/s) applied when a grounded enemy's
-/// `ActorControlFrame.jump_pressed` is true. Slightly under the
-/// player's `JUMP_SPEED` (630) so goblins jump a touch lower than
-/// the player — enough to clear a head-height target and commit
-/// an air attack, not enough to out-arc a player jumping straight
-/// up. Engine y grows downward; the integration applies
-/// `body.vel.y = -ENEMY_JUMP_SPEED`.
-const ENEMY_JUMP_SPEED: f32 = 520.0;
-/// Mid-air jump impulse (px/s). Slightly under the ground jump so
-/// the second jump reads as a "boost" rather than a full re-launch
-/// — matches the player's `DOUBLE_JUMP_SPEED` shape (520 → 420 step).
-const ENEMY_DOUBLE_JUMP_SPEED: f32 = 430.0;
+// Movement physics (gravity / fall cap / run accel / jump / double-jump) used to
+// be the hardcoded `ENEMY_*` constants here. They are now per-archetype DATA,
+// composed hierarchically — see `crate::combat::BodyMovementTuning` (whose
+// `BASELINE` carries these exact historical values) and the archetype `movement`
+// patch + `inherits` resolution in `features/enemies/mod.rs`. The integrator reads
+// `tuning.movement.*`.
 /// Body-side dash refire (s) — the I3 floor on the `dash` intent for an actor
 /// body. A controller may attempt a dash every tick; the body bursts at most once
 /// per this interval (`ActorAttackState::try_dash`). Longer than the dash window

@@ -117,6 +117,75 @@ pub struct CombatCapabilities {
     pub can_dash: bool,
 }
 
+/// Composable per-body movement knobs (gravity, run, jump, fall cap) — the
+/// physics every body's spine runs on. Resolved hierarchically per archetype:
+/// `BASELINE ← inherited archetype's resolved tuning ← this archetype's patch`
+/// (see [`BodyMovementPatch`]). Today this feeds the actor integrator (replacing
+/// the old hardcoded `ENEMY_*` constants); the roadmap's unification consumes it
+/// as the per-body physics when actors run the shared player pipeline, so a heavy
+/// brute can fall harder and a floaty wisp drift, all from data.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct BodyMovementTuning {
+    /// Downward acceleration along the local gravity axis (px/s²).
+    pub gravity: f32,
+    /// Terminal fall speed cap (px/s).
+    pub max_fall_speed: f32,
+    /// Ground/air run acceleration toward the locomotion target (px/s²).
+    pub run_accel: f32,
+    /// Launch speed of a grounded jump, opposite gravity (px/s).
+    pub jump_speed: f32,
+    /// Launch speed of a mid-air (double) jump (px/s).
+    pub double_jump_speed: f32,
+}
+
+impl BodyMovementTuning {
+    /// The generic body baseline — the values every actor used to hardcode. An
+    /// archetype that authors no movement overrides resolves to exactly this, so
+    /// the data move is behavior-preserving until a row opts to differ.
+    pub const BASELINE: Self = Self {
+        gravity: 1450.0,
+        max_fall_speed: 760.0,
+        run_accel: 650.0,
+        jump_speed: 520.0,
+        double_jump_speed: 430.0,
+    };
+}
+
+impl Default for BodyMovementTuning {
+    fn default() -> Self {
+        Self::BASELINE
+    }
+}
+
+/// A partial override layer authored on an archetype (RON). Every knob is
+/// `Option`: `None` inherits (from the parent archetype or the baseline), `Some`
+/// overrides. This is what makes the tuning COMPOSE — a row specifies only what
+/// differs, and `inherits` lets one archetype extend another.
+#[derive(Clone, Copy, Debug, Default, PartialEq, serde::Deserialize)]
+#[serde(default)]
+pub struct BodyMovementPatch {
+    pub gravity: Option<f32>,
+    pub max_fall_speed: Option<f32>,
+    pub run_accel: Option<f32>,
+    pub jump_speed: Option<f32>,
+    pub double_jump_speed: Option<f32>,
+}
+
+impl BodyMovementPatch {
+    /// Layer this patch onto a resolved base: each `Some` knob overrides, each
+    /// `None` keeps the base. The single composition primitive the hierarchical
+    /// resolver folds along the inheritance chain.
+    pub fn apply_onto(&self, base: BodyMovementTuning) -> BodyMovementTuning {
+        BodyMovementTuning {
+            gravity: self.gravity.unwrap_or(base.gravity),
+            max_fall_speed: self.max_fall_speed.unwrap_or(base.max_fall_speed),
+            run_accel: self.run_accel.unwrap_or(base.run_accel),
+            jump_speed: self.jump_speed.unwrap_or(base.jump_speed),
+            double_jump_speed: self.double_jump_speed.unwrap_or(base.double_jump_speed),
+        }
+    }
+}
+
 /// Per-actor numeric/flag tuning the RUNTIME combat loops read each
 /// frame, derived from the actor's authored archetype DATA at spawn
 /// (like [`CombatCapabilities`], but plain tuning rather than special
@@ -124,6 +193,9 @@ pub struct CombatCapabilities {
 /// the per-frame systems never call back into a named archetype enum.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct ActorTuning {
+    /// Resolved movement physics for this body (composed from the archetype
+    /// hierarchy). The spine reads gravity/run/jump/fall from here, not constants.
+    pub movement: BodyMovementTuning,
     /// Full health pool at spawn / respawn-reset.
     pub max_health: i32,
     /// Patrol walking speed (px/s).
@@ -179,6 +251,7 @@ pub struct ActorTuning {
 impl Default for ActorTuning {
     fn default() -> Self {
         Self {
+            movement: BodyMovementTuning::default(),
             max_health: 0,
             patrol_speed: 0.0,
             chase_speed: 0.0,

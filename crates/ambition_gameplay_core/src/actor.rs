@@ -78,17 +78,18 @@ impl BodyHealth {
 /// the HUD, nameplates, and animation read ONE component for any body.
 ///
 /// The field sets were disjoint, so the union preserves both vocabularies: the
-/// player fills the reaction timers (`flash_timer` / `hitstop_timer` /
-/// `damage_invuln_timer` / `hitstun_timer` / `recoil_lock_timer` / `attacking`),
-/// while an actor fills the status/attack fields (`alive` / `hit_flash` /
-/// `strike_count` / `attack_windup_timer` / `attack_timer` / `training_dummy`,
-/// synced each frame from its authoritative cluster state). Deduplicating the two
-/// hit-flash fields (`flash_timer` vs `hit_flash`) is a follow-up.
+/// player fills the reaction timers (`hitstop_timer` / `damage_invuln_timer` /
+/// `hitstun_timer` / `recoil_lock_timer` / `attacking`), while an actor fills the
+/// status/attack fields (`alive` / `strike_count` / `attack_windup_timer` /
+/// `attack_timer` / `training_dummy`, synced each frame from its authoritative
+/// cluster state). `hit_flash` is the ONE damage-blink field, shared by both.
 #[derive(bevy::prelude::Component, Clone, Copy, Debug, Default, PartialEq)]
 pub struct BodyCombat {
+    /// Presentation flash (damage hit-blink) — the one field for every body.
+    /// Decays in the player `cleanup_timers_system`; for an actor it is synced
+    /// from the cluster each frame.
+    pub hit_flash: f32,
     // ── Player reaction / control-lock timers ──
-    /// Presentation flash (damage hit-blink). Decays in `cleanup_timers_system`.
-    pub flash_timer: f32,
     /// Hitstop: freezes `time_scale` to 0 while positive.
     pub hitstop_timer: f32,
     /// Invulnerability window after taking damage.
@@ -101,7 +102,6 @@ pub struct BodyCombat {
     pub attacking: bool,
     // ── Actor status / attack-timeline presentation ──
     pub alive: bool,
-    pub hit_flash: f32,
     pub strike_count: i32,
     pub attack_windup_timer: f32,
     pub attack_timer: f32,
@@ -116,7 +116,7 @@ impl BodyCombat {
     /// Reset the player reaction timers + attacking mirror (the actor status
     /// fields are owned by the per-frame sync from the cluster).
     pub fn reset(&mut self) {
-        self.flash_timer = 0.0;
+        self.hit_flash = 0.0;
         self.hitstop_timer = 0.0;
         self.damage_invuln_timer = 0.0;
         self.hitstun_timer = 0.0;

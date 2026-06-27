@@ -105,7 +105,7 @@ pub fn load_room_geometry(
     } else {
         ROOM_DOOR_CAMERA_SNAP_TIME
     };
-    combat.flash_timer = if edge_exit {
+    combat.hit_flash = if edge_exit {
         feel.edge_transition_flash
     } else {
         feel.door_transition_flash

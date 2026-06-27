@@ -51,7 +51,7 @@ pub(crate) fn reset_sandbox(
     *attack = None;
     anim.reset();
     combat.reset();
-    combat.flash_timer = feel.reset_flash_time;
+    combat.hit_flash = feel.reset_flash_time;
     interaction.reset();
     blink_cam.reset();
     let reset_to = clusters.kinematics.pos;

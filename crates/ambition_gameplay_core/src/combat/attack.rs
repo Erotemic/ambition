@@ -411,7 +411,7 @@ pub fn advance_attack(
                 sfx.write(SfxMessage::Hit { pos: player_pos });
             }
             combat.hitstop_timer = feel.attack_hitstop_time;
-            combat.flash_timer = 0.16;
+            combat.hit_flash = 0.16;
         }
         if killed {
             sfx.write(SfxMessage::Death { pos: player_pos });

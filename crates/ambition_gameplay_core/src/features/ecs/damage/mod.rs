@@ -285,7 +285,7 @@ pub fn apply_feature_hit_events(
                         continue;
                     }
                     combat.hitstop_timer = combat.hitstop_timer.max(0.06);
-                    combat.flash_timer = combat.flash_timer.max(0.10);
+                    combat.hit_flash = combat.hit_flash.max(0.10);
                     // Record the targets this slash just struck so the next active
                     // frame's emit ignores them (one hit per target per swing).
                     if record_dedup {

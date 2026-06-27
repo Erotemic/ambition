@@ -70,7 +70,7 @@ pub fn sync_visuals(
             // size and tint by flash. Textured sprites (atlas OR plain image)
             // keep their authored size and are tinted in the animation system.
             sprite.custom_size = Some(BVec2::new(body.size.x, body.size.y));
-            let alpha = if player_combat.flash_timer > 0.0 {
+            let alpha = if player_combat.hit_flash > 0.0 {
                 0.72
             } else {
                 1.0

@@ -181,7 +181,7 @@ pub fn handle_player_events(
         });
     }
     if events.hazard || !events.operations.is_empty() {
-        combat.flash_timer = 0.12;
+        combat.hit_flash = 0.12;
     }
     if let Some(was_grounded) = was_grounded {
         if !was_grounded && on_ground {

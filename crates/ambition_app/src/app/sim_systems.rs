@@ -341,7 +341,7 @@ pub fn apply_cut_rope_room_replay_request_system(
 ///
 /// Runs every frame (including paused/dialogue) so visual flash and
 /// animation pose timers wind down continuously, not just during
-/// gameplay. Owns: real-time decay of `flash_timer`, `preset_flash`,
+/// gameplay. Owns: real-time decay of `hit_flash`, `preset_flash`,
 /// `slash_anim_timer`, `blink_in_timer`, `camera_snap_timer`. New
 /// presentation-flash timers belong here; gameplay timers belong in
 /// `input_timer_system`.
@@ -365,7 +365,7 @@ pub fn cleanup_timers_system(
     else {
         return;
     };
-    combat.flash_timer = (combat.flash_timer - frame_dt).max(0.0);
+    combat.hit_flash = (combat.hit_flash - frame_dt).max(0.0);
     dev_state.preset_flash = (dev_state.preset_flash - frame_dt).max(0.0);
     anim.slash_anim_timer = (anim.slash_anim_timer - frame_dt).max(0.0);
     anim.shoot_anim_timer = (anim.shoot_anim_timer - frame_dt).max(0.0);

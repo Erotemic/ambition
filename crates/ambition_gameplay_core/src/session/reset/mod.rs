@@ -160,7 +160,7 @@ pub fn process_sandbox_reset_request(
         clusters.mana.meter.refill_full();
         anim.reset();
         combat.reset();
-        combat.flash_timer = 0.18;
+        combat.hit_flash = 0.18;
         blink_cam.reset();
         attack.clear();
         safety.last_safe_pos = world.0.spawn;

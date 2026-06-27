@@ -14,7 +14,7 @@
 //! - **Actor (NPC / enemy)**: `ActorStatus::hit_flash` on the unified
 //!   `hit_flash: f32` (seconds remaining).
 //! - **Boss**: [`ambition_gameplay_core::features::BossStatus::hit_flash`].
-//! - **Player**: [`ambition_gameplay_core::actor::BodyCombat::flash_timer`].
+//! - **Player**: [`ambition_gameplay_core::actor::BodyCombat::hit_flash`].
 //!
 //! Replaces the pink multiplicative tint that
 //! [`super::actors::animate_characters`] and
@@ -334,7 +334,7 @@ pub fn cleanup_hit_flash_overlays(
 ///
 /// | type | timer storage | set by damage |
 /// |------|---------------|---------------|
-/// | player | `BodyCombat::flash_timer` | `world_flow` damage paths |
+/// | player | `BodyCombat::hit_flash` | `world_flow` damage paths |
 /// | enemy  | `ActorStatus::hit_flash` (unified cluster) | actor damage paths |
 /// | NPC    | `ActorStatus::hit_flash` (unified cluster) | actor damage paths |
 /// | boss   | `BossStatus::hit_flash` (boss cluster)   | boss damage paths |
@@ -355,7 +355,7 @@ fn hit_flash_secs_for_source(
     // adds a secondary local player won't crash the overlay sync
     // — first match wins for SP today.
     if player.is_some() {
-        return player_state.iter().next().map(|state| state.flash_timer);
+        return player_state.iter().next().map(|state| state.hit_flash);
     }
     let visual = feature?;
     let id = visual.id.as_str();

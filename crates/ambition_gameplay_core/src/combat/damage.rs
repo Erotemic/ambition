@@ -93,7 +93,7 @@ pub(crate) fn death_respawn_player(
         health.reset();
     }
     combat.damage_invuln_timer = feel.hazard_respawn_invulnerability_time;
-    combat.flash_timer = feel.reset_flash_time.max(0.35);
+    combat.hit_flash = feel.reset_flash_time.max(0.35);
     banner.show("PLAYER DOWN: respawned at room start with full HP", 2.4);
     sfx.write(SfxMessage::Death { pos: from });
     vfx.write(VfxMessage::ResetEffects { from, to });
@@ -234,7 +234,7 @@ pub(crate) fn safe_respawn_player(
     combat.hitstun_timer = 0.0;
     combat.recoil_lock_timer = 0.0;
     combat.hitstop_timer = 0.0;
-    combat.flash_timer = feel.reset_flash_time;
+    combat.hit_flash = feel.reset_flash_time;
     clock.time_scale = 1.0;
     sfx.write(SfxMessage::Reset { pos: to });
     vfx.write(VfxMessage::ResetEffects { from, to });
@@ -317,7 +317,7 @@ pub(crate) fn apply_player_knockback(
     combat.recoil_lock_timer = feel.knockback_recoil_lock_time;
     combat.damage_invuln_timer = feel.knockback_invulnerability_time;
     combat.hitstop_timer = feel.player_damage_hitstop_time;
-    combat.flash_timer = 0.20;
+    combat.hit_flash = 0.20;
     sfx.write(SfxMessage::Hit { pos: impact_pos });
     vfx.write(VfxMessage::Impact { pos: impact_pos });
 }

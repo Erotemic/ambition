@@ -127,7 +127,7 @@ pub fn animate_player(
         // Hit feedback is drawn by the white-silhouette overlay in
         // `presentation::rendering::hit_flash` — a sibling mesh that samples this
         // atlas frame and outputs pure white modulated by `BodyCombat::
-        // flash_timer`. The source sprite stays untinted (`WHITE`); the overlay flashes.
+        // hit_flash`. The source sprite stays untinted (`WHITE`); the overlay flashes.
         apply_character_frame(
             &mut sprite,
             &mut animator,

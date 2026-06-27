@@ -110,10 +110,8 @@ impl Default for ActorBody {
 }
 
 impl ActorBody {
-    /// A fresh actor movement body with the locomotion-only ability mask. The
-    /// scratch's own `kinematics` field is inert (the integration uses the
-    /// actor's shared `kin`); only the ability state + ability-derived resources
-    /// (air-jump charge) matter.
+    /// A fresh actor movement body with the locomotion-only ability mask (no
+    /// capability verbs). Used for the `Default` impl + bodies with no kit.
     pub fn new() -> Self {
         Self(ae::PlayerClusterScratch::new_with_abilities(
             ae::Vec2::ZERO,
@@ -121,12 +119,26 @@ impl ActorBody {
         ))
     }
 
-    /// The grounded actor's ability mask: basic locomotion the shared movement
-    /// pipeline now owns (run + jump + double-jump). Everything else (dash, blink,
-    /// fly, shield, wall-cling, ledge-grab, dodge, swim) is OFF here — those are
-    /// either resolved on the actor's own combat/capability path or not yet
-    /// granted to actors. `reset` is OFF so the reset gesture never fires on an
-    /// actor body.
+    /// Build the movement body whose ability mask is DERIVED from the actor's
+    /// [`CombatCapabilities`] — the verbs the shared movement pipeline owns for
+    /// this body. Locomotion (run + jump) is always on; **dash** turns on with
+    /// `can_dash` (the pipeline's real dash impulse replaces the actor's old
+    /// speed-cap burst). blink / fly / shield are still resolved on the actor's
+    /// own capability path (`update_ecs_actors`) — enabling their pipeline limbs
+    /// here too would double-fire; folding them is the remaining step-4 work.
+    pub fn from_caps(caps: &crate::combat::CombatCapabilities) -> Self {
+        let mut abilities = Self::locomotion_abilities();
+        abilities.dash = caps.can_dash;
+        Self(ae::PlayerClusterScratch::new_with_abilities(
+            ae::Vec2::ZERO,
+            abilities,
+        ))
+    }
+
+    /// The grounded actor's locomotion ability mask: run + jump + double-jump the
+    /// shared movement pipeline owns. Capability verbs are layered on by
+    /// [`Self::from_caps`]. `reset` is OFF so the reset gesture never fires on an
+    /// actor body; wall-cling / ledge-grab / dodge / swim stay OFF for now.
     pub fn locomotion_abilities() -> ae::AbilitySet {
         ae::AbilitySet {
             move_horizontal: true,
@@ -297,7 +309,7 @@ impl ActorClusterSeed {
                 sprite_character_id,
             },
             motion: ActorMotionPath(motion),
-            body: ActorBody::new(),
+            body: ActorBody::from_caps(&spec.combat_capabilities()),
             caps: spec.combat_capabilities(),
             spec,
         }

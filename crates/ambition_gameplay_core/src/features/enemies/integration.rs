@@ -171,43 +171,12 @@ impl<'a> ActorMut<'a> {
         let is_aerial = self.surface.gravity_scale <= 0.001;
         let is_surface_walker = self.config.tuning.surface_walker;
 
-        // Body resolves the dash intent (invariant I3): capability-gated
-        // (`caps.can_dash`) + cooldown/window-enforced (`try_dash`). On acceptance
-        // it BURSTS the body's side velocity to the boosted speed and opens the
-        // dash window; the grounded spine below keeps the raised speed cap for the
-        // window (`run_speed_scale`) so the burst rides the motor instead of being
-        // decelerated back to the walk cap. The controller — AI brain OR possessing
-        // human — only attempts; the body owns the burst. Grounded only for now
-        // (aerial bodies steer `velocity_target` directly).
-        if self.caps.can_dash
-            && frame.dash_pressed
-            && !is_aerial
-            && !is_surface_walker
-            && self.attack.try_dash(ACTOR_DASH_REFIRE_S).accepted()
-        {
-            let dir = if frame.locomotion.x.abs() > 0.001 {
-                frame.locomotion.x.signum()
-            } else {
-                self.kin.facing
-            };
-            let boosted = self.config.tuning.max_run_speed
-                * crate::combat::components::ActorAttackState::DASH_SPEED_MULT;
-            // Dash along the body-local side axis exactly as the spine interprets
-            // local +x (`AccelerationFrame::to_world`), so the burst is frame-
-            // agnostic and never inverted relative to the run. Replace only the side
-            // component; keep the gravity-axis component so a dash doesn't cancel an
-            // in-progress fall/rise.
-            let dash_dir = ae::AccelerationFrame::new(gravity_dir).to_world(ae::Vec2::new(dir, 0.0));
-            let along_g = self.kin.vel.dot(gravity_dir) * gravity_dir;
-            self.kin.vel = along_g + dash_dir * boosted;
-        }
-        // While the dash window is open the spine runs at the boosted cap so the
-        // burst is sustained; otherwise the normal walk cap.
-        let run_speed_scale = if self.attack.dash_active() {
-            crate::combat::components::ActorAttackState::DASH_SPEED_MULT
-        } else {
-            1.0
-        };
+        // Dash is no longer a bespoke actor mechanic: the grounded body runs the
+        // SHARED player dash limb (the real dash impulse + window), gated by the
+        // `ActorBody` ability mask (`from_caps`, dash = `can_dash`) and driven by
+        // the brain's `dash_pressed` through `to_input_state` — invariant I3, the
+        // pipeline owns the burst. (blink / fly / shield are still resolved below
+        // on the capability path; folding them is the remaining step-4 work.)
 
         if is_surface_walker {
             self.step_surface_walker(world, nearest_neighbor, dt, gravity_dir);
@@ -222,7 +191,7 @@ impl<'a> ActorMut<'a> {
                 dt,
             );
         } else {
-            self.integrate_grounded_body(world, ai.intent, &frame, dt, gravity_dir, run_speed_scale);
+            self.integrate_grounded_body(world, ai.intent, &frame, dt, gravity_dir);
         }
 
         // Face the brain's committed direction whenever it commits one. Hostile
@@ -247,8 +216,8 @@ impl<'a> ActorMut<'a> {
     /// jump_pressed → buffered jump), so an enemy now runs, jumps, coyote-grace-
     /// jumps, and collides through the EXACT code the human player uses — no
     /// parallel enemy integrator. Movement physics is the body's authored
-    /// `BodyMovementTuning` (`body_tuning`), with the dash-window run-cap scale
-    /// folded in (the actor's burst still rides the shared run cap).
+    /// `BodyMovementTuning` (`body_tuning`); dash (when the ability mask grants
+    /// it) is the pipeline's own dash limb, no per-actor run-cap scaling.
     ///
     /// The pipeline owns hazard/out-of-bounds as a *flag* (it never teleports an
     /// actor to the player spawn); the actor's damage / OOB systems own the
@@ -260,7 +229,6 @@ impl<'a> ActorMut<'a> {
         frame: &ambition_characters::actor::control::ActorControlFrame,
         dt: f32,
         gravity_dir: ae::Vec2,
-        run_speed_scale: f32,
     ) {
         // Wall-stop detection on the gravity-PERPENDICULAR "side" axis the actor
         // walks along (so a patroller reverses when it stalls against a wall,
@@ -269,7 +237,7 @@ impl<'a> ActorMut<'a> {
         let prev_side_speed = self.kin.vel.dot(perp);
 
         let tuning = self.config.tuning.movement.body_tuning(
-            self.config.tuning.max_run_speed * run_speed_scale,
+            self.config.tuning.max_run_speed,
             gravity_dir,
             self.surface.gravity_scale,
         );
@@ -624,7 +592,7 @@ mod dash_tests {
     //! body owns the burst — a possessing human and an AI brain dash identically
     //! because both only set `dash_pressed` (invariants I2/I3).
     use super::*;
-    use crate::features::ecs::actor_clusters::{ActorClusterSeed, ActorMut};
+    use crate::features::ecs::actor_clusters::{ActorBody, ActorClusterSeed, ActorMut};
     use ambition_characters::actor::control::ActorControlFrame;
     use ambition_characters::actor::EnemyBrain;
 
@@ -662,6 +630,9 @@ mod dash_tests {
         seed.surface.on_ground = true;
         seed.surface.gravity_scale = 1.0;
         seed.caps.can_dash = can_dash;
+        // The dash ability lives on the movement body's mask (derived from caps);
+        // rebuild it after overriding the cap so the pipeline dash limb matches.
+        seed.body = ActorBody::from_caps(&seed.caps);
         let start_x = seed.kin.pos.x;
         let mut em = ActorMut {
             kin: &mut seed.kin,
@@ -723,6 +694,7 @@ mod dash_tests {
         seed.surface.on_ground = true;
         seed.surface.gravity_scale = 1.0;
         seed.caps.can_dash = false;
+        seed.body = ActorBody::from_caps(&seed.caps);
         let mut em = ActorMut {
             kin: &mut seed.kin,
             status: &mut seed.status,
@@ -747,7 +719,7 @@ mod dash_tests {
             ae::Vec2::new(0.0, 1.0),
         );
         assert!(
-            !em.attack.dash_active(),
+            em.body.0.dash.timer <= 0.0,
             "a body without the dash capability must not open a dash window"
         );
     }

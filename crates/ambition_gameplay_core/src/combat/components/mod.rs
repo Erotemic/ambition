@@ -110,10 +110,11 @@ pub struct CombatCapabilities {
     /// Movement kit: this body can **dash** — a short burst above its walk speed.
     /// The body-side gate for the `dash_pressed` intent (I3): the controller
     /// decides WHEN to dash (the brain dashes to close a gap; a possessing human
-    /// presses it), the body owns the burst speed + window + cooldown
-    /// (`ActorAttackState::try_dash` / `DASH_SPEED_MULT`). A body WITHOUT this
-    /// capability still moves at its walk speed on a Dash action (graceful
-    /// fallback), it just doesn't get the burst.
+    /// presses it), the body owns the burst. For a grounded actor this enables the
+    /// **shared movement pipeline's dash limb** (the same real dash impulse the
+    /// player runs — `ActorBody::from_caps` flips on the `dash` ability), not a
+    /// bespoke actor burst. A body WITHOUT this capability still moves at its walk
+    /// speed on a Dash action (graceful fallback), it just doesn't dash.
     pub can_dash: bool,
 }
 

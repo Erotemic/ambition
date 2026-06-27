@@ -476,7 +476,10 @@ pub fn update_ecs_actors(
                     &mut em.status.shield_raised,
                     &mut actor_parry,
                     em.caps.can_shield,
-                    em.attack.dash_active(),
+                    // Dash now lives on the shared pipeline's dash limb (folded off
+                    // the actor's bespoke burst): read the pipeline's dash window so
+                    // "no shield mid-dash" still holds.
+                    em.body.0.dash.timer > 0.0,
                     frame.shield_held,
                     0.0,
                 );

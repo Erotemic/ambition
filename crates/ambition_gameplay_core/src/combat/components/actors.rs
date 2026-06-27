@@ -327,17 +327,6 @@ pub struct ActorAttackState {
     /// each accepted blink — so an AI brain and a possessing human blink at the
     /// same rate. Gated together with `CombatCapabilities::can_blink`.
     pub blink_cooldown: f32,
-    /// Body-side dash refire cooldown remaining (s). The I3 floor on the `dash`
-    /// intent: a controller may attempt a dash every tick, but the body bursts at
-    /// most once per refire and re-arms this on each accepted dash. Gated together
-    /// with `CombatCapabilities::can_dash`.
-    pub dash_cooldown: f32,
-    /// Body-side dash WINDOW remaining (s). Positive while a dash burst is active:
-    /// the grounded spine raises its speed cap by [`Self::DASH_SPEED_MULT`] for the
-    /// duration so the burst rides the motor (it does not fight it). Distinct from
-    /// `dash_cooldown` (refire) the way the melee `active_timer` is distinct from
-    /// `cooldown`. Decays in `tick`.
-    pub dash_timer: f32,
 }
 
 impl Default for ActorAttackState {
@@ -349,8 +338,6 @@ impl Default for ActorAttackState {
             pending_axis: ae::Vec2::new(-1.0, 0.0),
             ranged_cooldown: 0.0,
             blink_cooldown: 0.0,
-            dash_cooldown: 0.0,
-            dash_timer: 0.0,
         }
     }
 }
@@ -377,8 +364,6 @@ impl ActorAttackState {
         self.cooldown = (self.cooldown - dt).max(0.0);
         self.ranged_cooldown = (self.ranged_cooldown - dt).max(0.0);
         self.blink_cooldown = (self.blink_cooldown - dt).max(0.0);
-        self.dash_cooldown = (self.dash_cooldown - dt).max(0.0);
-        self.dash_timer = (self.dash_timer - dt).max(0.0);
         if was_winding_up && self.windup_timer <= 0.0 {
             self.active_timer = active_seconds.max(0.01);
         }
@@ -413,35 +398,6 @@ impl ActorAttackState {
         self.blink_cooldown = refire_seconds.max(0.0);
         IntentOutcome::Accepted
     }
-
-    /// Body-side dash enforcement (invariant I3), the locomotion analogue of
-    /// [`Self::try_blink`]. Accepts a dash only when off cooldown; on acceptance it
-    /// arms BOTH the refire cooldown and the dash window ([`Self::DASH_TIME_S`]).
-    /// The caller still gates on `CombatCapabilities::can_dash` and performs the
-    /// burst (sets the body's side velocity to the boosted speed); the integration
-    /// reads [`Self::dash_active`] to keep the raised speed cap for the window.
-    pub fn try_dash(&mut self, refire_seconds: f32) -> IntentOutcome {
-        if self.dash_cooldown > 0.0 || self.dash_timer > 0.0 {
-            return IntentOutcome::Blocked(BlockReason::Cooldown);
-        }
-        self.dash_cooldown = refire_seconds.max(0.0);
-        self.dash_timer = Self::DASH_TIME_S;
-        IntentOutcome::Accepted
-    }
-
-    /// True while a dash burst window is active — the integration raises the
-    /// grounded speed cap by [`Self::DASH_SPEED_MULT`] for this window so the burst
-    /// rides the motor instead of being decelerated back to the walk cap.
-    pub fn dash_active(&self) -> bool {
-        self.dash_timer > 0.0
-    }
-
-    /// Multiplier the dash burst applies to the body's `max_run_speed` while the
-    /// dash window is active. Conservative; a body that dashes covers more ground
-    /// than one that only walks at top speed. Feel TBD in-engine.
-    pub const DASH_SPEED_MULT: f32 = 1.7;
-    /// How long a dash burst rides the raised speed cap (s).
-    pub const DASH_TIME_S: f32 = 0.18;
 }
 
 /// ECS-visible combat/presentation state shared by NPCs, enemies, and bosses.
@@ -649,29 +605,3 @@ pub struct PostBossNpc;
 // required components are expressed in one place and tests/editors can match
 // the exact shape without rediscovering the tuple.
 
-#[cfg(test)]
-mod attack_state_tests {
-    use super::*;
-
-    /// The dash refire is a body-side I3 floor: a controller that attempts a dash
-    /// every tick gets exactly one burst per refire, not one per attempt.
-    #[test]
-    fn try_dash_is_refire_gated_and_opens_a_window() {
-        let mut a = ActorAttackState::default();
-        // First attempt accepted; opens the dash window + arms the refire.
-        assert!(a.try_dash(0.7).accepted());
-        assert!(a.dash_active(), "an accepted dash opens its window");
-        // Spamming during the window/cooldown is blocked.
-        assert!(!a.try_dash(0.7).accepted(), "no second dash mid-cooldown");
-        // Tick past the window but not the refire: still blocked.
-        a.tick(ActorAttackState::DASH_TIME_S + 0.01, 0.06);
-        assert!(!a.dash_active(), "the window closes after DASH_TIME_S");
-        assert!(
-            !a.try_dash(0.7).accepted(),
-            "still on refire cooldown after the window closes"
-        );
-        // Tick past the full refire: a fresh dash is accepted again.
-        a.tick(0.7, 0.06);
-        assert!(a.try_dash(0.7).accepted(), "dash re-arms after the refire");
-    }
-}

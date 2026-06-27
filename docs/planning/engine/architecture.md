@@ -81,6 +81,12 @@ By approximate reference count: `BodyKinematics` (~35), `PlayerEntity` (~34),
 
 - **Slice 0** — a namespace move only (Bucket 1). Zero behavior; the differential
   headless trace must be **byte-stable**. Proves the harness + the move mechanic.
+  ✅ *done:* `crate::actor` is the neutral home; `BodyKinematics` + the
+  `PlayerEntity`/`PrimaryPlayer` markers + `PrimaryPlayerOnly` are re-homed there
+  and the ~90 non-player import references migrated off `crate::player`
+  (byte-stable, gameplay_core 1028 + app green). Remaining on the sink: the
+  sim-STATE types (`PlayerCombatState`, `PlayerMana`, `PlayerHealth`,
+  `PlayerWallet`, `PlayerInputFrame`, …) — those are the Bucket-2 slices below.
 - **Slices 1..k** — one sim-state family per slice (Bucket 2), ordered **low → high
   feel-risk**: (1) economy / interaction first, (2) combat state next, (3)
   **movement / ability state LAST** (the feel-sensitive `ProjectileSpawner` / shield /

@@ -57,9 +57,9 @@ fn flat_index_zero_for_first_frame_of_first_row() {
 
 #[test]
 fn frame_count_positive_for_every_row() {
-    for (anim, _) in &robot_sheet().rows {
+    for anim in robot_sheet().mapped_anims() {
         assert!(
-            robot_sheet().frame_count(*anim) > 0,
+            robot_sheet().frame_count(anim) > 0,
             "anim {:?} has zero frames",
             anim
         );
@@ -100,9 +100,9 @@ fn robot_sheet_has_fly_row() {
 fn frame_duration_positive_for_every_row() {
     // Zero or negative duration would wedge the animation cursor
     // (advance_anim divides by it). Pin the contract.
-    for (anim, _) in &robot_sheet().rows {
+    for anim in robot_sheet().mapped_anims() {
         assert!(
-            robot_sheet().frame_duration(*anim) > 0.0,
+            robot_sheet().frame_duration(anim) > 0.0,
             "anim {:?} has non-positive duration",
             anim
         );
@@ -129,7 +129,10 @@ fn every_reachable_sheet_loads() {
         checked += 1;
         assert!(spec.frame_width > 0, "{cid}: frame_width == 0");
         assert!(spec.frame_height > 0, "{cid}: frame_height == 0");
-        assert!(!spec.rows.is_empty(), "{cid}: zero rows after load");
+        assert!(
+            spec.mapped_anims().next().is_some(),
+            "{cid}: zero mapped rows after load"
+        );
     }
     assert!(
         checked >= 20,
@@ -319,10 +322,7 @@ fn every_catalog_sprite_spec_has_idle_row_if_loaded() {
         let Some(spec) = sheet_for_character_id(cid) else {
             continue;
         };
-        let has_idle = spec
-            .rows
-            .iter()
-            .any(|(anim, _)| matches!(anim, CharacterAnim::Idle,));
+        let has_idle = spec.maps(CharacterAnim::Idle);
         assert!(
             has_idle,
             "catalog id '{cid}' loaded a spec without an Idle row; \

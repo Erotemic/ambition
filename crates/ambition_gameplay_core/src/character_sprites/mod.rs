@@ -69,7 +69,8 @@ pub use registry::{SheetRecord, SheetRegistry};
     reason = "Public sheet constants are consumed by tests and future spawn-site callers."
 )]
 pub use sheets::{
-    build_character_sprite, build_character_sprite_with_render_size, feet_anchor_for,
-    feet_anchor_for_render_size, player_placeholder_render_size, record_for_target,
-    sprite_render_size, try_load_spec_for_target, CharacterSheetSpec, SheetTuning,
+    build_atlas_layout, build_character_sprite, build_character_sprite_with_render_size,
+    feet_anchor_for, feet_anchor_for_render_size, player_placeholder_render_size,
+    record_for_target, sprite_render_size, try_load_spec_for_target, CharacterSheetSpec,
+    SheetTuning,
 };

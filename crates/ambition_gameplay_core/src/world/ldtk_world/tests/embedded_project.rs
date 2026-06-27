@@ -376,11 +376,7 @@ fn embedded_ldtk_hall_of_characters_every_npc_resolves_a_safe_sprite_state() {
             // Some(spec) MUST include an Idle row — otherwise
             // `flat_index` would panic at first frame.
             if let Some(spec) = sheet_for_character_id(&cid) {
-                if !spec
-                    .rows
-                    .iter()
-                    .any(|(anim, _)| matches!(anim, CharacterAnim::Idle))
-                {
+                if !spec.maps(CharacterAnim::Idle) {
                     bad_specs.push((cid, "spec has no Idle row".to_string()));
                 }
             }

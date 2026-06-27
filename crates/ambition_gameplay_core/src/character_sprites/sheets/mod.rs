@@ -17,48 +17,20 @@ use bevy::sprite::Anchor;
 
 use super::anim::CharacterAnim;
 use super::assets::CharacterSpriteAsset;
-use super::registry::{NormPoint, SheetRecord};
+use super::registry::{AtlasPage, NormPoint, SheetRecord};
+// Re-exported from the foundational crate so `super::sheets::{trimmed_render,
+// FrameTrim}` paths (the animator, renderer) keep resolving after the trim
+// algebra moved into `ambition_sprite_sheet`.
+pub use super::registry::{trimmed_render, FrameTrim};
 
-#[derive(Clone, Debug)]
-pub struct AnimRow {
+/// One animation row's runtime metadata. The pixel geometry (rects, pages,
+/// trim) lives in the underlying [`SheetRecord`] and is read through the shared
+/// [`ambition_sprite_sheet`] frame algebra; this is just the per-row timing the
+/// animator advances on.
+#[derive(Clone, Copy, Debug)]
+pub struct RowInfo {
     pub frame_count: usize,
     pub duration_secs: f32,
-    /// Row's y-position in the PNG, measured in row units (multiply
-    /// by `frame_height` to get pixels). Copied verbatim from the
-    /// RON manifest so the atlas builder can address each row by
-    /// its authored y even when intermediate rows were filtered
-    /// out by `CharacterAnim::from_name`. Kept as a fallback for
-    /// when the RON omits `frame_rects` — the primary atlas-build
-    /// path uses `frame_rects` directly to honor inter-frame
-    /// padding (which uniform grid math misses).
-    pub row_index: u32,
-    /// Which page image this row's frames live in (index into the sheet's
-    /// page list). `0` for single-page sheets and the first page of a split
-    /// sheet. The atlas builder groups rows by page so each page gets its own
-    /// `TextureAtlasLayout`, and `frame_rects` are in that page's pixel space.
-    pub page: u32,
-    /// Per-frame source rectangles in the PNG, copied verbatim from
-    /// the RON `rects` field. Used as the authoritative atlas-cell
-    /// coordinates: many generated sheets pad between frames (the
-    /// toon target's row pitch is 93 even though frame_height = 89),
-    /// so deriving x/y from grid stride alone misaligns every cell
-    /// by the padding amount and the GPU samples adjacent-frame
-    /// pixels → visible tearing. `None` for legacy sheets that
-    /// pre-date the rects field — the builder falls back to grid
-    /// math (with `row_index`) for those.
-    pub frame_rects: Option<Vec<URect>>,
-    /// Per-frame trim offset within the LOGICAL frame, in logical pixels,
-    /// parallel to `frame_rects`. `None` (or all-zero) for untrimmed sheets.
-    /// When the atlas packer trims a frame to its alpha box, the stored rect
-    /// (`frame_rects`) is the trimmed size and this is where it sat inside the
-    /// `frame_width`×`frame_height` logical frame — the runtime adds it back so
-    /// the trimmed pixels draw where the full frame would have.
-    pub frame_offsets: Option<Vec<IVec2>>,
-    /// Per-frame page image index, parallel to `frame_rects`. `None` means
-    /// every frame is on the row's `page` (unpacked / unpacked-multipage
-    /// layout); `Some` carries the per-frame page of a freely-packed sheet,
-    /// where frames of one animation can live on different page images.
-    pub frame_pages: Option<Vec<u32>>,
 }
 
 /// Frame layout for one of the generated sheets.
@@ -90,9 +62,18 @@ pub struct CharacterSheetSpec {
     pub frame_height: u32,
     /// Page image filenames (just the file name, resolved against the page-0
     /// image's directory at load time). `[record.image]` for a single-page
-    /// sheet; one entry per page for a split sheet. Indexed by `AnimRow::page`.
+    /// sheet; one entry per page for a split sheet. Indexed by frame page.
     pub page_images: Vec<String>,
-    pub rows: Vec<(CharacterAnim, AnimRow)>,
+    /// Which `record.rows` index each [`CharacterAnim`] this sheet maps
+    /// resolves to. Rows the enum doesn't name (animations authored ahead of
+    /// the gameplay logic that will drive them) stay in `record` and still
+    /// occupy atlas cells — they're just not selectable through this enum yet.
+    anim_rows: Vec<(CharacterAnim, usize)>,
+    /// The published sheet record: the single source of per-frame rects, page
+    /// assignment, and trim. Every atlas / flat-index / trim query delegates to
+    /// its [`ambition_sprite_sheet`] frame algebra, so the character path shares
+    /// one implementation with the boss, prop, and projectile readers.
+    record: SheetRecord,
     /// Multiplier applied to the entity's collision-box max dimension to
     /// derive the rendered sprite's height. Width is derived from the
     /// cropped frame's aspect ratio so the character isn't squashed.
@@ -198,11 +179,7 @@ pub fn record_for_target(target: &str) -> Option<&'static SheetRecord> {
 pub fn try_load_spec_for_target(target: &str, tuning: &SheetTuning) -> Option<CharacterSheetSpec> {
     let record = record_index().get(target)?;
     let spec = spec_from_record(record, tuning);
-    if spec
-        .rows
-        .iter()
-        .any(|(anim, _)| *anim == CharacterAnim::Idle)
-    {
+    if spec.maps(CharacterAnim::Idle) {
         Some(spec)
     } else {
         bevy::log::warn!(
@@ -228,18 +205,14 @@ pub fn try_load_spec_for_character_id(character_id: &str) -> Option<CharacterShe
     // here — caller falls back to the colored-rectangle visual.
     // The renderer-side fix is to ensure every published sheet
     // exposes an `idle` row; until then we drop them safely.
-    if spec
-        .rows
-        .iter()
-        .any(|(anim, _)| *anim == CharacterAnim::Idle)
-    {
+    if spec.maps(CharacterAnim::Idle) {
         Some(spec)
     } else {
         bevy::log::warn!(
             target: "ambition::character_sprites",
             "character_sprites: skip spec for catalog id '{character_id}' \
              (manifest has no recognized Idle row; rows = {:?})",
-            spec.rows.iter().map(|(a, _)| a).collect::<Vec<_>>(),
+            spec.mapped_anims().collect::<Vec<_>>(),
         );
         None
     }
@@ -259,71 +232,16 @@ fn spec_from_record(record: &SheetRecord, tuning: &SheetTuning) -> CharacterShee
         Some(t) => (t.collision_scale, t.frame_sample_inset),
         None => (tuning.collision_scale, tuning.frame_sample_inset),
     };
-    let rows: Vec<(CharacterAnim, AnimRow)> = record
+    // Map the rows this enum names to their `record.rows` index. Rows the enum
+    // doesn't recognize stay in `record` (and still occupy atlas cells via the
+    // shared frame algebra) but aren't selectable through `CharacterAnim`. The
+    // per-frame rect / trim / page handling all lives in the algebra now, so
+    // there is nothing to copy here.
+    let anim_rows: Vec<(CharacterAnim, usize)> = record
         .rows
         .iter()
-        .filter_map(|row| {
-            let anim = CharacterAnim::from_name(&row.animation)?;
-            // Convert RON `FrameRect` (i32 fields, may include
-            // negative authoring values for off-canvas placement)
-            // into UVec2-backed URects. Drop the whole vector if
-            // any rect has negative coords — fall back to grid
-            // math in `build_atlas` rather than panicking on the
-            // cast.
-            let frame_rects = if row.rects.is_empty() {
-                None
-            } else if row
-                .rects
-                .iter()
-                .any(|r| r.x < 0 || r.y < 0 || r.w <= 0 || r.h <= 0)
-            {
-                None
-            } else {
-                Some(
-                    row.rects
-                        .iter()
-                        .map(|r| URect {
-                            min: UVec2::new(r.x as u32, r.y as u32),
-                            max: UVec2::new((r.x + r.w) as u32, (r.y + r.h) as u32),
-                        })
-                        .collect(),
-                )
-            };
-            // Per-frame trim offsets (logical-frame pixels), parallel to rects.
-            // Only carried when at least one frame is actually trimmed, so
-            // untrimmed sheets keep `None` and the legacy uniform path.
-            let frame_offsets = if frame_rects.is_some() && row.rects.iter().any(|r| r.off != (0, 0))
-            {
-                Some(
-                    row.rects
-                        .iter()
-                        .map(|r| IVec2::new(r.off.0, r.off.1))
-                        .collect(),
-                )
-            } else {
-                None
-            };
-            // Per-frame page, only when a freely-packed sheet spread this row's
-            // frames across pages. Otherwise every frame uses the row's `page`.
-            let frame_pages = if frame_rects.is_some() && row.rects.iter().any(|r| r.page != row.page)
-            {
-                Some(row.rects.iter().map(|r| r.page).collect())
-            } else {
-                None
-            };
-            Some((
-                anim,
-                AnimRow {
-                    frame_count: row.frame_count as usize,
-                    duration_secs: row.duration_secs,
-                    row_index: row.row_index as u32,
-                    page: row.page,
-                    frame_rects,
-                    frame_offsets,
-                    frame_pages,
-                },
-            ))
-        })
+        .enumerate()
+        .filter_map(|(idx, row)| CharacterAnim::from_name(&row.animation).map(|anim| (anim, idx)))
         .collect();
     let feet_anchor_y = tuning.feet_anchor_y_override.unwrap_or_else(|| {
         record
@@ -347,7 +265,8 @@ fn spec_from_record(record: &SheetRecord, tuning: &SheetTuning) -> CharacterShee
         frame_width: record.frame_width,
         frame_height: record.frame_height,
         page_images,
-        rows,
+        anim_rows,
+        record: record.clone(),
         collision_scale,
         feet_anchor_y,
         frame_sample_inset,

@@ -144,7 +144,7 @@ pub(crate) fn apply_actor_hit(
         // The guard costs nothing here but consumes the hit: no damage, no
         // knockback, just a clang. A blocked hit still counts as "took the hit"
         // (returns true) so the caller plays the shared hitstop.
-        if em.status.shield_raised {
+        if em.shield.active {
             let gravity_dir = -em
                 .surface
                 .surface_normal

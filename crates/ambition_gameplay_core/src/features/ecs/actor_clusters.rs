@@ -45,13 +45,6 @@ pub struct ActorStatus {
     pub respawn_timer: f32,
     pub hit_flash: f32,
     pub ai_mode: ambition_characters::actor::ai::CharacterAiMode,
-    /// Body-side reactive-block state: the shield is raised this tick. Set by the
-    /// frame resolver in `update_ecs_actors` from `frame.shield_held`, gated by
-    /// `CombatCapabilities::can_shield` (the body enforces the capability; the
-    /// controller only attempts). The actor damage path reads it to negate a
-    /// guarded hit from the faced side — the body-enforced half of the shield
-    /// intent (invariant I3), the analogue of the player's `BodyShieldState`.
-    pub shield_raised: bool,
 }
 
 /// Authored configuration + identity for an actor (any disposition). Archetype-
@@ -132,7 +125,7 @@ impl ActorBody {
     /// mode) OR a body that can toggle flight (`can_fly`); an aerial body also
     /// starts with `flight.fly_enabled` so it runs the shared flight limb from
     /// spawn. **shield** turns on with `can_shield` (the pipeline's shield limb;
-    /// `update` bridges `status.shield_raised` back for the damage path). **blink**
+    /// the damage path reads `shield.active` off that ONE component). **blink**
     /// turns on with `can_blink` (the pipeline's blink limb; the driver emits the
     /// blink sfx/vfx from the returned `FrameEvents.blinks`).
     pub fn from_caps(caps: &crate::combat::CombatCapabilities, is_aerial: bool) -> Self {
@@ -392,7 +385,6 @@ impl ActorClusterSeed {
                 respawn_timer: 0.0,
                 hit_flash: 0.0,
                 ai_mode: ambition_characters::actor::ai::CharacterAiMode::Idle,
-                shield_raised: false,
             },
             health: crate::actor::BodyHealth::new(ambition_characters::actor::Health::new(
                 spec.max_health,
@@ -519,7 +511,6 @@ impl ActorClusterSeed {
                 respawn_timer: 0.0,
                 hit_flash: 0.0,
                 ai_mode: ambition_characters::actor::ai::CharacterAiMode::Idle,
-                shield_raised: false,
             },
             health: crate::actor::BodyHealth::new(ambition_characters::actor::Health::new(1)),
             surface: ActorSurfaceState {

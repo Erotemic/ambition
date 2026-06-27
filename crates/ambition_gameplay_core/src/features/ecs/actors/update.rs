@@ -436,8 +436,8 @@ pub fn update_ecs_actors(
                 // Shield is folded onto the shared pipeline limb: `em.update` ran
                 // the body's `apply_shield` (the SAME `resolve_shield` rule the
                 // player uses, ability-gated by the mask, dash-blocked by the
-                // pipeline dash) and bridged `status.shield_raised` back. Nothing to
-                // resolve here.
+                // pipeline dash), resolving onto the body's ONE `BodyShieldState`.
+                // The damage path reads `shield.active` off it — nothing to resolve here.
                 // Publish the actor's footprint ORIENTED to its reference frame —
                 // the single source of truth read by the debug overlay, player
                 // hurtbox, and target volumes, so the box matches the rotated

@@ -155,11 +155,11 @@ impl<'a> ActorMut<'a> {
 
         // Shield is the shared pipeline limb now (folded off the actor's own
         // `resolve_shield` call): `integrate_body`'s control phase resolved the
-        // `shield_held` intent on `body.shield` (ability-gated by the mask,
-        // dash-blocked by the pipeline dash). Bridge it back onto `status.shield_raised`
-        // — the bool the actor DAMAGE path reads to negate a guarded faced-side hit.
-        // (Surface-walkers don't run the pipeline; they never raise a guard.)
-        self.status.shield_raised = self.shield.active;
+        // `shield_held` intent directly onto the body's `BodyShieldState`
+        // (ability-gated by the mask, dash-blocked by the pipeline dash). The actor
+        // DAMAGE path reads `shield.active` off that ONE component to negate a
+        // guarded faced-side hit — no `status.shield_raised` mirror. (Surface-walkers
+        // don't run the pipeline; their shield stays inactive, so they never guard.)
 
         // Face the brain's committed direction whenever it commits one. Hostile
         // chasers AND peaceful patrollers/flyers both set `frame.facing`; a

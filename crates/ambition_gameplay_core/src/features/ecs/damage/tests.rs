@@ -584,7 +584,9 @@ fn spawn_shielding_actor(app: &mut App, shield_raised: bool) -> bevy::prelude::E
     // Body capability + raised guard — the two halves the resolver normally fills
     // from `caps.can_shield && frame.shield_held`.
     enemy.caps.can_shield = true;
-    enemy.status.shield_raised = shield_raised;
+    // The damage path reads the body's ONE shield component (`BodyShieldState`)
+    // now — set it directly, the way the pipeline shield limb would.
+    enemy.body.0.shield.active = shield_raised;
     let (identity, disposition, combat, intent, cooldowns) =
         enemy_component_snapshot(&enemy);
     app.world_mut()

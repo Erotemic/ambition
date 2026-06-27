@@ -118,7 +118,8 @@ pub struct EnemyActorBundle {
     pub pose: ActorPose,
     pub combat_kit: CombatKit,
     pub aggression: ActorAggression,
-    pub health: BodyHealth,
+    // Health (`BodyHealth`) spawns with the actor CLUSTER (`into_components`), the
+    // one health authority — not on this combat bundle.
     pub combat: BodyCombat,
     pub intent: ActorIntent,
     pub cooldowns: ActorCooldowns,
@@ -146,7 +147,6 @@ impl EnemyActorBundle {
         pose: ActorPose,
         combat_kit: CombatKit,
         aggression: ActorAggression,
-        health: BodyHealth,
         combat: BodyCombat,
         intent: ActorIntent,
         cooldowns: ActorCooldowns,
@@ -160,7 +160,6 @@ impl EnemyActorBundle {
             pose,
             combat_kit,
             aggression,
-            health,
             combat,
             intent,
             cooldowns,

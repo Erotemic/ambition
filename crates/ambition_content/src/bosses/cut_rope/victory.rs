@@ -98,7 +98,7 @@ fn spawn_victory_npc_entity(commands: &mut Commands, pos: ae::Vec2) -> Entity {
         interactable: interactable.clone(),
         talk_radius: ambition_gameplay_core::features::NPC_TALK_RADIUS,
     };
-    let (identity, disposition, health, combat, intent, cooldowns) =
+    let (identity, disposition, combat, intent, cooldowns) =
         ambition_gameplay_core::features::actor_component_snapshot(
             &seed,
             ambition_gameplay_core::features::ActorDisposition::Peaceful,
@@ -122,7 +122,6 @@ fn spawn_victory_npc_entity(commands: &mut Commands, pos: ae::Vec2) -> Entity {
                 pose: ActorPose::from_parts(aabb.center(), aabb.half_size(), facing),
                 combat_kit,
                 aggression: ambition_gameplay_core::features::ActorAggression::passive(),
-                health,
                 combat,
                 intent,
                 cooldowns,

@@ -20,7 +20,6 @@ pub fn sync_ecs_actors_with_save(
             Entity,
             &mut ActorIdentity,
             &mut ActorDisposition,
-            &mut BodyHealth,
             &mut BodyCombat,
             &mut ActorIntent,
             &mut ActorCooldowns,
@@ -40,7 +39,6 @@ pub fn sync_ecs_actors_with_save(
         entity,
         mut identity,
         mut disposition,
-        mut health,
         mut combat,
         mut intent,
         mut cooldowns,
@@ -81,7 +79,7 @@ pub fn sync_ecs_actors_with_save(
             );
             if dead_on_load {
                 em.status.alive = false;
-                em.status.health.current = 0;
+                em.health.health.current = 0;
             }
         } else if interaction.is_none() {
             // Authored enemy: respect both `_dead` (Never policy) and
@@ -94,7 +92,7 @@ pub fn sync_ecs_actors_with_save(
                 && dead_on_load
             {
                 em.status.alive = false;
-                em.status.health.current = 0;
+                em.health.health.current = 0;
             }
         }
 
@@ -103,7 +101,6 @@ pub fn sync_ecs_actors_with_save(
             &em,
             *disposition,
             &mut identity,
-            &mut health,
             &mut combat,
             &mut intent,
             &mut cooldowns,

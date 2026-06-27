@@ -108,7 +108,7 @@ impl<'a> ActorMut<'a> {
             self.status.respawn_timer = (self.status.respawn_timer - dt).max(0.0);
             if self.config.tuning.revives_in_place && self.status.respawn_timer <= 0.0 {
                 self.status.alive = true;
-                self.status.health.reset();
+                self.health.reset();
                 self.kin.pos = self.config.spawn.pos;
                 self.kin.vel = ae::Vec2::ZERO;
                 self.status.hit_flash = 0.24;
@@ -568,7 +568,7 @@ impl<'a> ActorMut<'a> {
         self.kin.pos = self.config.spawn.pos;
         self.kin.vel = ae::Vec2::ZERO;
         self.status.alive = true;
-        self.status.health = ambition_characters::actor::Health::new(self.config.tuning.max_health);
+        *self.health = crate::actor::BodyHealth::new(ambition_characters::actor::Health::new(self.config.tuning.max_health));
         *self.attack = ActorAttackState::default();
         self.status.respawn_timer = 0.0;
         self.status.hit_flash = 0.0;
@@ -639,6 +639,7 @@ mod dash_tests {
         let mut em = ActorMut {
             kin: &mut seed.kin,
             status: &mut seed.status,
+            health: &mut seed.health,
             surface: &mut seed.surface,
             attack: &mut seed.attack,
             config: &mut seed.config,
@@ -700,6 +701,7 @@ mod dash_tests {
         let mut em = ActorMut {
             kin: &mut seed.kin,
             status: &mut seed.status,
+            health: &mut seed.health,
             surface: &mut seed.surface,
             attack: &mut seed.attack,
             config: &mut seed.config,
@@ -752,6 +754,7 @@ mod dash_tests {
         let mut em = ActorMut {
             kin: &mut seed.kin,
             status: &mut seed.status,
+            health: &mut seed.health,
             surface: &mut seed.surface,
             attack: &mut seed.attack,
             config: &mut seed.config,

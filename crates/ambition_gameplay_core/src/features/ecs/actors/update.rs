@@ -100,7 +100,6 @@ pub fn update_ecs_actors(
             &mut CenteredAabb,
             &mut ActorIdentity,
             &ActorDisposition,
-            &mut BodyHealth,
             &mut BodyCombat,
             &mut ActorIntent,
             &mut ActorCooldowns,
@@ -178,7 +177,7 @@ pub fn update_ecs_actors(
     // enemies are allowed to commit to an attack this tick; the
     // others hold at the outer ring. This is the anti-clump layer.
     let mut requests: Vec<(String, ae::Vec2, crate::combat::slots::SlotKind)> = Vec::new();
-    for (_, _, _, disposition, _, _, _, _, _, _, _, _, _, (clusters, _)) in &actors {
+    for (_, _, _, disposition, _, _, _, _, _, _, _, _, (clusters, _)) in &actors {
         // Only hostile actors compete for combat slots; peaceful actors don't
         // crowd the board ("enemy" == hostile disposition now).
         if disposition.is_hostile() {
@@ -219,7 +218,6 @@ pub fn update_ecs_actors(
         mut aabb,
         mut identity,
         disposition,
-        mut health,
         mut combat,
         mut intent,
         mut cooldowns,
@@ -394,7 +392,7 @@ pub fn update_ecs_actors(
                 if shark_crashed {
                     hit_events.write(HitEvent {
                         volume: em.aabb().into(),
-                        damage: em.status.health.current.max(1),
+                        damage: em.health.current().max(1),
                         source: HitSource::EnemyChargeCrash,
                         attacker: Some(actor_entity),
                         target: HitTarget::Volume,
@@ -538,7 +536,6 @@ pub fn update_ecs_actors(
                     &em,
                     *disposition,
                     &mut identity,
-                    &mut health,
                     &mut combat,
                     &mut intent,
                     &mut cooldowns,
@@ -798,7 +795,6 @@ pub fn sync_actor_components_from_cluster(
     em: &super::super::actor_clusters::ActorMut<'_>,
     disposition: ActorDisposition,
     identity: &mut ActorIdentity,
-    health: &mut BodyHealth,
     combat: &mut BodyCombat,
     intent: &mut ActorIntent,
     cooldowns: &mut ActorCooldowns,
@@ -814,7 +810,8 @@ pub fn sync_actor_components_from_cluster(
         *identity = ActorIdentity::new(em.config.id.clone(), em.config.name.clone())
             .with_sprite_override(em.config.sprite_override_npc_name.clone());
     }
-    *health = BodyHealth::new(em.status.health);
+    // Health is no longer synced — it lives on the shared `BodyHealth` the cluster
+    // (`em.health`) reads/writes directly; there is no separate copy to mirror.
     *combat = if disposition.is_hostile() {
         BodyCombat::hostile(
             em.status.alive,

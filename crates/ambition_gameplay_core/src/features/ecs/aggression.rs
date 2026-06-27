@@ -10,7 +10,7 @@ use bevy::prelude::*;
 
 use super::{
     sync_actor_components_from_cluster, ActorAggression, BodyCombat, ActorCooldowns,
-    ActorDisposition, BodyHealth, ActorIdentity, ActorIntent, ActorInteraction, AggressionMode,
+    ActorDisposition, ActorIdentity, ActorIntent, ActorInteraction, AggressionMode,
     CombatKit, FeatureSimEntity, HeldItem,
 };
 use crate::features::ActorStimulus;
@@ -30,7 +30,6 @@ pub fn apply_actor_stimuli(
             Option<&ActorInteraction>,
             &mut ActorIdentity,
             &mut ActorDisposition,
-            &mut BodyHealth,
             &mut BodyCombat,
             &mut ActorIntent,
             &mut ActorCooldowns,
@@ -56,7 +55,6 @@ pub fn apply_actor_stimuli(
             interaction,
             mut identity,
             mut disposition,
-            mut health,
             mut combat,
             mut intent,
             mut cooldowns,
@@ -112,7 +110,6 @@ pub fn apply_actor_stimuli(
             &em,
             *disposition,
             &mut identity,
-            &mut health,
             &mut combat,
             &mut intent,
             &mut cooldowns,
@@ -149,7 +146,7 @@ mod tests {
             &interactable,
             &[],
         );
-        let (identity, disposition, health, combat, intent, cooldowns) =
+        let (identity, disposition, combat, intent, cooldowns) =
             super::super::actors::actor_component_snapshot(&seed, ActorDisposition::Peaceful);
         // Provoke accumulator lives on `ActorAggression` now.
         let aggression = ActorAggression {
@@ -173,8 +170,7 @@ mod tests {
                 },
                 identity,
                 disposition,
-                health,
-                combat,
+                                combat,
                 intent,
                 cooldowns,
             ))

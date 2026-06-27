@@ -210,7 +210,7 @@ impl EnemyActorSpawnPlan {
 
     pub(super) fn spawn(self, commands: &mut Commands) -> Entity {
         let facing = self.enemy.kin.facing;
-        let (identity, disposition, health, combat, intent, cooldowns) =
+        let (identity, disposition, combat, intent, cooldowns) =
             enemy_component_snapshot(&self.enemy);
         let cluster_bundle = self.enemy.into_components();
         let entity = commands
@@ -228,8 +228,7 @@ impl EnemyActorSpawnPlan {
                     ),
                     self.combat_kit,
                     self.aggression,
-                    health,
-                    combat,
+                                        combat,
                     intent,
                     cooldowns,
                 ),
@@ -338,7 +337,7 @@ impl NpcActorSpawnPlan {
             interactable: self.interactable,
             talk_radius: super::super::npcs::NPC_TALK_RADIUS,
         };
-        let (identity, disposition, health, combat, intent, cooldowns) =
+        let (identity, disposition, combat, intent, cooldowns) =
             super::actors::actor_component_snapshot(&self.seed, super::ActorDisposition::Peaceful);
         let cluster_bundle = self.seed.into_components();
         let mut entity = commands.spawn((
@@ -355,8 +354,7 @@ impl NpcActorSpawnPlan {
                 ),
                 self.combat_kit,
                 self.aggression,
-                health,
-                combat,
+                                combat,
                 intent,
                 cooldowns,
             ),

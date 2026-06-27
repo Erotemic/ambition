@@ -19,7 +19,7 @@ use super::super::util::{approximately_same_aabb, midpoint};
 use super::damage_drops::drop_currency_coin;
 use super::{
     sync_actor_components_from_cluster, BodyCombat, ActorCooldowns, ActorDisposition,
-    BodyHealth, ActorIdentity, ActorIntent, BreakableFeature, CenteredAabb, FeatureId,
+    ActorIdentity, ActorIntent, BreakableFeature, CenteredAabb, FeatureId,
     FeatureName, FeatureSimEntity, GameplayBanner, HitEvent, HitSource, SetFlagRequested,
 };
 // Only the exploding-mite blast test pins this drop tuning constant; the drop
@@ -85,7 +85,6 @@ pub fn apply_feature_hit_events(
             &CenteredAabb,
             &mut ActorIdentity,
             &ActorDisposition,
-            &mut BodyHealth,
             &mut BodyCombat,
             &mut ActorIntent,
             &mut ActorCooldowns,
@@ -205,7 +204,6 @@ pub fn apply_feature_hit_events(
             aabb,
             mut identity,
             disposition,
-            mut health,
             mut combat,
             mut intent,
             mut cooldowns,
@@ -250,7 +248,6 @@ pub fn apply_feature_hit_events(
                     &em,
                     *disposition,
                     &mut identity,
-                    &mut health,
                     &mut combat,
                     &mut intent,
                     &mut cooldowns,

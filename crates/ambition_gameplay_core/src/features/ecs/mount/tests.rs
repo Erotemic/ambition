@@ -8,6 +8,7 @@ use bevy::prelude::*;
 type ActorClusterBundle = (
     super::super::actor_clusters::BodyKinematics,
     super::super::actor_clusters::ActorStatus,
+    crate::actor::BodyHealth,
     super::super::actor_clusters::ActorConfig,
     super::super::actor_clusters::ActorMotionPath,
     crate::features::ActorSurfaceState,
@@ -176,9 +177,9 @@ fn spawn_pair(app: &mut App, mount_alive: bool, rider_alive: bool) -> (Entity, E
     let rider_pos = ae::Vec2::new(0.0, -40.0);
     let rider_size = ae::Vec2::new(44.0, 78.0);
     let mut rider_actor = hostile("rider", "pirate_raider", rider_pos, rider_size);
-    // .1.1 = ActorStatus, .1.4 = ActorSurfaceState.
+    // .1.1 = ActorStatus, .1.5 = ActorSurfaceState (BodyHealth at .1.2 now).
     rider_actor.1 .1.alive = rider_alive;
-    rider_actor.1 .4.gravity_scale = 0.0;
+    rider_actor.1 .5.gravity_scale = 0.0;
     let rider = app
         .world_mut()
         .spawn((

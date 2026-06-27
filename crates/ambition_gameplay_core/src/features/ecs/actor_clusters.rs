@@ -29,14 +29,16 @@ use ambition_engine_core::AabbExt;
 pub use crate::platformer_runtime::body::BodyKinematics;
 
 /// Liveness + per-tick status scalars: alive flag, respawn countdown,
-/// hit-flash timer, last-evaluated AI mode, and current health.
+/// hit-flash timer, last-evaluated AI mode. Health lives on the shared
+/// [`crate::actor::BodyHealth`] component now (one health authority for every
+/// body) — the cluster reads/writes it through [`ActorMut::health`], no cluster
+/// copy + per-frame sync.
 #[derive(Component, Clone, Copy, Debug, PartialEq)]
 pub struct ActorStatus {
     pub alive: bool,
     pub respawn_timer: f32,
     pub hit_flash: f32,
     pub ai_mode: ambition_characters::actor::ai::CharacterAiMode,
-    pub health: ambition_characters::actor::Health,
     /// Body-side reactive-block state: the shield is raised this tick. Set by the
     /// frame resolver in `update_ecs_actors` from `frame.shield_held`, gated by
     /// `CombatCapabilities::can_shield` (the body enforces the capability; the
@@ -163,6 +165,9 @@ impl ActorBody {
 pub struct ActorMut<'a> {
     pub kin: &'a mut BodyKinematics,
     pub status: &'a mut ActorStatus,
+    /// The body's shared health (the one `BodyHealth` component every actor
+    /// carries) — the authoritative HP the damage / respawn / banter paths use.
+    pub health: &'a mut crate::actor::BodyHealth,
     pub surface: &'a mut ActorSurfaceState,
     pub attack: &'a mut ActorAttackState,
     pub config: &'a mut ActorConfig,
@@ -182,6 +187,7 @@ pub struct ActorMut<'a> {
 pub struct ActorClusterQueryData {
     pub kin: &'static mut BodyKinematics,
     pub status: &'static mut ActorStatus,
+    pub health: &'static mut crate::actor::BodyHealth,
     pub surface: &'static mut ActorSurfaceState,
     pub attack: &'static mut ActorAttackState,
     pub config: &'static mut ActorConfig,
@@ -200,6 +206,7 @@ impl<'w, 's> ActorClusterQueryDataItem<'w, 's> {
         ActorMut {
             kin: &mut self.kin,
             status: &mut self.status,
+            health: &mut self.health,
             surface: &mut self.surface,
             attack: &mut self.attack,
             config: &mut self.config,
@@ -216,6 +223,9 @@ impl<'w, 's> ActorClusterQueryDataItem<'w, 's> {
 pub struct ActorClusterSeed {
     pub kin: BodyKinematics,
     pub status: ActorStatus,
+    /// The body's shared health (drives the spawned `BodyHealth` + the seed-based
+    /// test harness's `ActorMut::health`).
+    pub health: crate::actor::BodyHealth,
     pub surface: ActorSurfaceState,
     pub attack: ActorAttackState,
     pub config: ActorConfig,
@@ -295,9 +305,11 @@ impl ActorClusterSeed {
                 respawn_timer: 0.0,
                 hit_flash: 0.0,
                 ai_mode: ambition_characters::actor::ai::CharacterAiMode::Idle,
-                health: ambition_characters::actor::Health::new(spec.max_health),
                 shield_raised: false,
             },
+            health: crate::actor::BodyHealth::new(ambition_characters::actor::Health::new(
+                spec.max_health,
+            )),
             surface: ActorSurfaceState {
                 on_ground: false,
                 surface_normal: ae::Vec2::new(0.0, -1.0),
@@ -420,9 +432,9 @@ impl ActorClusterSeed {
                 respawn_timer: 0.0,
                 hit_flash: 0.0,
                 ai_mode: ambition_characters::actor::ai::CharacterAiMode::Idle,
-                health: ambition_characters::actor::Health::new(1),
                 shield_raised: false,
             },
+            health: crate::actor::BodyHealth::new(ambition_characters::actor::Health::new(1)),
             surface: ActorSurfaceState {
                 on_ground: false,
                 surface_normal: ae::Vec2::new(0.0, -1.0),
@@ -472,6 +484,7 @@ impl ActorClusterSeed {
         ActorMut {
             kin: &mut self.kin,
             status: &mut self.status,
+            health: &mut self.health,
             surface: &mut self.surface,
             attack: &mut self.attack,
             config: &mut self.config,
@@ -492,12 +505,15 @@ impl ActorClusterSeed {
         .0
     }
 
-    /// The authoritative components as a spawnable Bundle.
+    /// The authoritative components as a spawnable Bundle. Includes the body's
+    /// shared [`crate::actor::BodyHealth`] (the one health authority — spawned with
+    /// the cluster, not the combat bundle).
     pub fn into_components(
         self,
     ) -> (
         BodyKinematics,
         ActorStatus,
+        crate::actor::BodyHealth,
         ActorConfig,
         ActorMotionPath,
         ActorSurfaceState,
@@ -508,6 +524,7 @@ impl ActorClusterSeed {
         (
             self.kin,
             self.status,
+            self.health,
             self.config,
             self.motion,
             self.surface,

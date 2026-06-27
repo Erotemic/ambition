@@ -79,7 +79,6 @@ pub fn actor_component_snapshot(
 ) -> (
     ActorIdentity,
     ActorDisposition,
-    BodyHealth,
     BodyCombat,
     ActorIntent,
     ActorCooldowns,
@@ -99,7 +98,6 @@ pub fn actor_component_snapshot(
         ActorIdentity::new(seed.config.id.clone(), seed.config.name.clone())
             .with_sprite_override(seed.config.sprite_override_npc_name.clone()),
         disposition,
-        BodyHealth::new(seed.status.health),
         combat,
         ActorIntent::new(seed.status.ai_mode),
         ActorCooldowns {
@@ -115,7 +113,6 @@ pub fn enemy_component_snapshot(
 ) -> (
     ActorIdentity,
     ActorDisposition,
-    BodyHealth,
     BodyCombat,
     ActorIntent,
     ActorCooldowns,
@@ -164,7 +161,9 @@ pub(crate) fn provoke_actor_in_place(
         em.config.brain = ambition_characters::actor::EnemyBrain::Custom(hostile_id.into());
         // Take on the hostile archetype's HP pool (the peaceful seed spawned with
         // health=1; a provoked actor should fight at full archetype HP).
-        em.status.health = ambition_characters::actor::Health::new(spec.max_health);
+        *em.health = crate::actor::BodyHealth::new(ambition_characters::actor::Health::new(
+            spec.max_health,
+        ));
         // Keep the actor's own sprite sheet (its NPC name) when hostile — except
         // the Kernel Guide, which uses the default enemy sheet (legacy quirk).
         if em.config.name != "Kernel Guide NPC" {

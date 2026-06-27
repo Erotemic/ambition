@@ -21,8 +21,8 @@ fn spawn_hostile_actor(app: &mut App) -> bevy::prelude::Entity {
         ambition_characters::actor::EnemyBrain::Custom("medium_striker".into()),
         &[],
     );
-    enemy.status.health = ambition_characters::actor::Health::new(5);
-    let (identity, disposition, health, combat, intent, cooldowns) =
+    enemy.health = crate::actor::BodyHealth::new(ambition_characters::actor::Health::new(5));
+    let (identity, disposition, combat, intent, cooldowns) =
         enemy_component_snapshot(&enemy);
     app.world_mut()
         .spawn((
@@ -32,7 +32,7 @@ fn spawn_hostile_actor(app: &mut App) -> bevy::prelude::Entity {
             enemy.into_components(),
             identity,
             disposition,
-            health,
+
             combat,
             intent,
             cooldowns,
@@ -578,13 +578,13 @@ fn spawn_shielding_actor(app: &mut App, shield_raised: bool) -> bevy::prelude::E
         ambition_characters::actor::EnemyBrain::Custom("cellular_automaton_fighter".into()),
         &[],
     );
-    enemy.status.health = ambition_characters::actor::Health::new(5);
+    enemy.health = crate::actor::BodyHealth::new(ambition_characters::actor::Health::new(5));
     enemy.kin.facing = 1.0;
     // Body capability + raised guard — the two halves the resolver normally fills
     // from `caps.can_shield && frame.shield_held`.
     enemy.caps.can_shield = true;
     enemy.status.shield_raised = shield_raised;
-    let (identity, disposition, health, combat, intent, cooldowns) =
+    let (identity, disposition, combat, intent, cooldowns) =
         enemy_component_snapshot(&enemy);
     app.world_mut()
         .spawn((
@@ -594,7 +594,7 @@ fn spawn_shielding_actor(app: &mut App, shield_raised: bool) -> bevy::prelude::E
             enemy.into_components(),
             identity,
             disposition,
-            health,
+
             combat,
             intent,
             cooldowns,

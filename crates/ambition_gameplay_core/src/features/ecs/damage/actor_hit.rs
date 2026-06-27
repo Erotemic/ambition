@@ -112,7 +112,7 @@ pub(crate) fn apply_actor_hit(
         let should_bark = em.status.hit_flash < 0.05;
         em.status.hit_flash = 0.16;
         if should_bark {
-            let strikes = (em.status.health.max - em.status.health.current).max(0) as u32;
+            let strikes = (em.health.max() - em.health.current()).max(0) as u32;
             // Catalog-first: resolve the enemy's catalog id from its display
             // name (the identity every actor carries) and read its `on_hit`
             // pool. TEMP fallback to the CombatBanterRegistry until enemy rows
@@ -188,7 +188,7 @@ pub(crate) fn apply_actor_hit(
         let killed = if caps.never_dies {
             false
         } else {
-            em.status.health.damage(damage_amount)
+            em.health.damage(damage_amount)
         };
         let impact = midpoint(event.volume.center(), em.kin.pos);
         writers.vfx.write(VfxMessage::Impact { pos: impact });

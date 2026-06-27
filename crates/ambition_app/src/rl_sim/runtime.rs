@@ -217,6 +217,7 @@ impl SandboxSim {
         let mut enemy_query = self.app.world_mut().query::<(
             &ambition_gameplay_core::player::BodyKinematics,
             &ambition_gameplay_core::features::ActorStatus,
+            &ambition_gameplay_core::actor::BodyHealth,
         )>();
         let mut pickup_query = self
             .app
@@ -230,10 +231,10 @@ impl SandboxSim {
             .unwrap_or((0.0, 1.0));
         let enemies: Vec<EnemyObs> = enemy_query
             .iter(world)
-            .map(|(kin, status)| EnemyObs {
+            .map(|(kin, status, health)| EnemyObs {
                 pos: (kin.pos.x, kin.pos.y),
-                hp: status.health.current,
-                hp_max: status.health.max,
+                hp: health.current(),
+                hp_max: health.max(),
                 alive: status.alive,
             })
             .collect();

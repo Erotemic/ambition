@@ -257,6 +257,7 @@ mod tests {
     type ActorClusterBundle = (
         super::super::actor_clusters::BodyKinematics,
         super::super::actor_clusters::ActorStatus,
+        crate::actor::BodyHealth,
         super::super::actor_clusters::ActorConfig,
         super::super::actor_clusters::ActorMotionPath,
         crate::features::ActorSurfaceState,
@@ -368,7 +369,7 @@ mod tests {
         );
         let mut bundle = enemy_actor(enemy);
         // Author the ranged visual as the runtime archetype projection would.
-        bundle.1 .2.tuning.ranged_visual = crate::projectile::ProjectileVisualKind::Glider;
+        bundle.1 .3.tuning.ranged_visual = crate::projectile::ProjectileVisualKind::Glider;
         let actor = app.world_mut().spawn(bundle).id();
         app.world_mut()
             .resource_mut::<bevy::ecs::message::Messages<ActorActionMessage>>()
@@ -412,7 +413,7 @@ mod tests {
         // surface_normal points away from the support; gravity_dir is its
         // negative. Here local down is world +X, so local side/right maps to
         // world -Y under the arbitrary AccelerationFrame transform.
-        actor_bundle.1 .4.surface_normal = ae::Vec2::new(-1.0, 0.0);
+        actor_bundle.1 .5.surface_normal = ae::Vec2::new(-1.0, 0.0);
         let actor = app.world_mut().spawn(actor_bundle).id();
         app.world_mut()
             .resource_mut::<bevy::ecs::message::Messages<ActorActionMessage>>()

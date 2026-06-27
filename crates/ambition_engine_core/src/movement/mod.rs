@@ -76,7 +76,15 @@ use collision::body_is_side_contact;
 /// jump-buffer / dash-buffer intent, fly toggle, blink hold + release,
 /// melee + pogo, dodge roll, dash, shield, variable jump release.
 /// All state lives on cluster components.
-pub fn update_player_control_with_clusters(
+///
+/// **Body-generic** (the non-player-centric movement seam): this performs the
+/// pure body mechanics and *flags* a reset request in [`FrameEvents::reset`]
+/// (e.g. the reset gesture) WITHOUT performing any respawn — respawn-to-spawn is
+/// a player *policy*, applied by the [`update_player_control_with_clusters`]
+/// wrapper. An actor body calls this directly and handles a reset request with
+/// its own policy (take damage / die / ignore), never a teleport to the player
+/// spawn.
+pub fn update_body_control_with_clusters(
     world: &World,
     clusters: &mut crate::player_clusters::PlayerClustersMut<'_>,
     input: InputState,
@@ -85,9 +93,9 @@ pub fn update_player_control_with_clusters(
 ) -> FrameEvents {
     let mut events = FrameEvents::default();
 
-    // Reset on edge press, cluster-native.
+    // Reset on edge press: the body only FLAGS the request; the player wrapper
+    // performs the respawn (an actor body applies its own reset policy).
     if input.reset_pressed && clusters.abilities.abilities.reset {
-        crate::player_clusters::reset_player_clusters(clusters, world.spawn);
         events.reset = true;
         return events;
     }
@@ -175,12 +183,30 @@ pub fn update_player_control_with_clusters(
     events
 }
 
+/// Player-flavored control phase: the body-generic
+/// [`update_body_control_with_clusters`] plus the player respawn *policy* — a
+/// flagged reset teleports the player body to `world.spawn`. Behavior-identical
+/// to the historical inline reset; actors deliberately do NOT use this wrapper.
+pub fn update_player_control_with_clusters(
+    world: &World,
+    clusters: &mut crate::player_clusters::PlayerClustersMut<'_>,
+    input: InputState,
+    control_dt: f32,
+    tuning: MovementTuning,
+) -> FrameEvents {
+    let events = update_body_control_with_clusters(world, clusters, input, control_dt, tuning);
+    if events.reset {
+        crate::player_clusters::reset_player_clusters(clusters, world.spawn);
+    }
+    events
+}
+
 /// Run the simulation phase for one frame: cache water/climbable
 /// contact, age timers + combo trace, advance the active ledge grab,
 /// handle the buffered jump, integrate velocity through collision,
 /// re-probe ledge starts, and finally fire the hazard reset gate.
 /// All state lives on cluster components.
-pub fn update_player_simulation_with_clusters(
+pub fn update_body_simulation_with_clusters(
     world: &World,
     clusters: &mut crate::player_clusters::PlayerClustersMut<'_>,
     input: InputState,
@@ -202,9 +228,8 @@ pub fn update_player_simulation_with_clusters(
         clusters.ledge.grab = None;
     }
 
-    // Drowning gate — cluster-native reset.
+    // Drowning gate — body flags hazard + reset; the player wrapper respawns.
     if clusters.env_contact.water.is_some() && !clusters.abilities.abilities.swim {
-        crate::player_clusters::reset_player_clusters(clusters, world.spawn);
         events.hazard = true;
         events.reset = true;
         return events;
@@ -284,15 +309,34 @@ pub fn update_player_simulation_with_clusters(
     // recovery path (slow drifts ignore this; fast falls latch).
     crate::ledge_grab::try_start_ledge_grab_clusters(world, clusters, input, tuning, &mut events);
 
-    // Hazard reset — cluster-native.
+    // Hazard / out-of-bounds gate — body flags hazard + reset; the player
+    // wrapper respawns. An actor body reads the flag and applies its own policy.
     if collision::touching_hazard_aabb(world, clusters.kinematics.aabb())
         || clusters.kinematics.pos.y > world.size.y + 200.0
     {
-        crate::player_clusters::reset_player_clusters(clusters, world.spawn);
         events.hazard = true;
         events.reset = true;
     }
 
+    events
+}
+
+/// Player-flavored simulation phase: the body-generic
+/// [`update_body_simulation_with_clusters`] plus the player respawn *policy* — a
+/// flagged reset (drown / hazard / out-of-bounds) teleports the player body to
+/// `world.spawn`. Behavior-identical to the historical inline resets; actors
+/// deliberately do NOT use this wrapper (they own their hazard reaction).
+pub fn update_player_simulation_with_clusters(
+    world: &World,
+    clusters: &mut crate::player_clusters::PlayerClustersMut<'_>,
+    input: InputState,
+    raw_dt: f32,
+    tuning: MovementTuning,
+) -> FrameEvents {
+    let events = update_body_simulation_with_clusters(world, clusters, input, raw_dt, tuning);
+    if events.reset {
+        crate::player_clusters::reset_player_clusters(clusters, world.spawn);
+    }
     events
 }
 

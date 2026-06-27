@@ -321,6 +321,40 @@ Enemies rise to the player; delete-heavy. Each step is gated on *it compiles* (i
   machine) onto `try_fire_ranged` — feel-sensitive (changes player feel); part of the
   step-4 collapse, done behind the differential trace, not blind.
 
+These next ones are **features we are NOT building yet** — but the architecture must be
+shaped *now* so that when we do, they land on the shared body vocabulary instead of
+forking a fourth/fifth player/NPC/enemy/boss path. Each entry names the body-generic
+seam the future feature MUST use:
+
+- **NPC agency — body-generic interaction (the consumer side).** The interaction
+  *intent* is already non-player-centric: `ActorControlFrame.interact_pressed` exists
+  ("brain wants to interact with whatever is nearby"), so any brain can emit it. What is
+  still player-only is the **consumer**: `PlayerInteractionState` is a human double-tap /
+  button *input buffer* (genuinely controller-side, keep it there), and the affordance /
+  interaction systems (doors, NPCs, pickups, ground items) run only for the player. *When
+  we add NPC world-interaction:* lift those systems to act on **any body whose intent has
+  `interact_pressed`**, resolving against the same affordance proximity model — NOT a new
+  `Npc*` interaction path. The human's double-tap buffer simply *produces* `interact_pressed`
+  like any other controller; the resolver downstream is body-generic.
+- **Barks / ambient dialog (no time-stop).** `VfxMessage::SpeechBubble` already renders a
+  line over any body (used by the actor hit-bark path). *When we add NPC↔world / NPC↔NPC
+  conversation:* model it as a **body-level bark channel driven by a brain**, not a
+  player-gated dialog. Time pauses **only** for an explicit cutscene; ambient barks never
+  pause. The blocking Yarn runner stays the cutscene path; ambient lines are a separate
+  non-blocking emit. (Open design fork — queued line on the body vs. a lightweight
+  two-brain "conversation" pairing vs. a non-blocking Yarn mode — decide before building.)
+- **Economy as a body concern.** `BodyWallet` is now body vocabulary (commit landed). *When
+  we add drops / trading NPCs / multiplayer currency:* an NPC that drops currency carries a
+  `BodyWallet`; currency pickups credit **a body** (proximity / owner-resolved in MP), not a
+  global "the player". Do not reintroduce a player-only economy resource.
+- **Multiplayer — per-body, never global-singular.** Per-player state (`BodyWallet`,
+  camera, device input, `PlayerSlot`) is already per-entity; the remaining single-player
+  assumptions are *global resources / `.single()` player queries* (e.g. currency pickup
+  attribution, the global `ControlFrame` — see step 5's `ActorIntent`). *When we add a
+  second player:* it is just another `PlayerEntity` body with its own controller; nothing
+  in the sim may assume one. This is the same shape as possession (a human controller on
+  any body), so building one builds the other.
+
 ## Guardrails — do not make the keystone harder
 
 Every later step must move toward convergence, never away:
@@ -343,6 +377,15 @@ Every later step must move toward convergence, never away:
    only the compile + the feel diff gate it. Commit = checkpoint, keep moving. Jon
    verifies feel in-game; ship a feel-sensitive change blind in its own marked commit
    and ask.
+6. **Body-generic *consumers*, not just body-generic *state*.** A unified component is
+   only half the win — the SYSTEMS that read it must run for any body too. The recurring
+   trap: the intent/state is already shared (`ActorControlFrame.interact_pressed`,
+   `BodyWallet`, `SpeechBubble`) but its consumer system is gated `With<PlayerEntity>` or
+   keyed on the primary player. Before adding a feature on a shared component, check its
+   consumer: if it's player-gated, the feature would fork an `Npc*` twin. Lift the
+   consumer to query the body vocabulary (faction-filter where hostility matters) instead
+   of adding a parallel path. "Could an NPC brain trigger this with no new system?" is the
+   test — if no, the consumer is the bifurcation, fix it first.
 
 ## Pointers (verify before trusting — code moves)
 
@@ -351,9 +394,10 @@ Every later step must move toward convergence, never away:
 - Body resolver (actor side): `features/enemies/integration.rs` (`ActorMut::update`,
   the spine), `features/ecs/actors/update.rs` (`update_ecs_actors`), `combat/components`
   (`ActorAttackState`, `CombatCapabilities`, `ActorTuning`, `BodyMovementTuning`).
-- Player pipeline to raise enemies onto: `ambition_engine_core/movement`
-  (`update_player_*_clusters`, the `apply_*` limbs, `integrate_normal_spine`,
-  `PlayerClustersMut`).
+- Body pipeline both run on: `ambition_engine_core/movement`
+  (`update_body_with_tuning_clusters` + the `update_player_*_clusters` wrappers = body fn +
+  respawn policy, the `apply_*` limbs, `integrate_normal_spine`, `BodyClustersMut` — the
+  view both the player query and `ActorMut::clusters_mut` build; module `body_clusters`).
 - Relational damage: `combat/targeting.rs` (`FactionRelations`), `combat/events.rs`
   (`HitTarget::Actor`), `combat/hitbox`, the projectile systems.
 - Perception: `ambition_characters::perception` (`WorldView`, `WorldMemory`,

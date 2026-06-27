@@ -206,7 +206,7 @@ pub fn release_possession_if_target_lost(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::player::BodyBaseSize;
+    use crate::actor::BodyBaseSize;
 
     fn vec2(x: f32, y: f32) -> ambition_engine_core::Vec2 {
         ambition_engine_core::Vec2::new(x, y)

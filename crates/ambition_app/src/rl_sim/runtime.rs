@@ -404,7 +404,7 @@ impl SandboxSim {
         let mut q = self
             .app
             .world_mut()
-            .query_filtered::<&mut ambition_gameplay_core::player::BodyAbilities, ambition_gameplay_core::player::PrimaryPlayerOnly>();
+            .query_filtered::<&mut ambition_gameplay_core::actor::BodyAbilities, ambition_gameplay_core::player::PrimaryPlayerOnly>();
         if let Ok(mut abilities) = q.single_mut(self.app.world_mut()) {
             abilities.abilities.pogo = true;
         }
@@ -417,8 +417,8 @@ impl SandboxSim {
     /// own fly-toggle input, so it persists across steps.
     pub fn grant_flight(&mut self) {
         let mut q = self.app.world_mut().query_filtered::<(
-            &mut ambition_gameplay_core::player::BodyAbilities,
-            &mut ambition_gameplay_core::player::BodyFlightState,
+            &mut ambition_gameplay_core::actor::BodyAbilities,
+            &mut ambition_gameplay_core::actor::BodyFlightState,
         ), ambition_gameplay_core::player::PrimaryPlayerOnly>(
         );
         if let Ok((mut abilities, mut flight)) = q.single_mut(self.app.world_mut()) {

@@ -65,7 +65,7 @@ pub enum AudioEnvironmentMode {
 /// ECS resource describing "what should the world sound like right
 /// now". `target` is set by gameplay (typically
 /// [`detect_audio_environment`] reading the player's
-/// [`crate::player::BodyEnvironmentContact::water`] cluster field).
+/// [`crate::actor::BodyEnvironmentContact::water`] cluster field).
 /// `wetness` is smoothed toward `target_wetness()` by
 /// [`smooth_audio_environment`] using wall-clock dt, so the transition
 /// keeps progressing while the world is paused or in bullet-time
@@ -153,7 +153,7 @@ fn lerp(a: f32, b: f32, t: f32) -> f32 {
 #[cfg(feature = "audio")]
 pub fn detect_audio_environment(
     mut env: ResMut<AudioEnvironment>,
-    primary: Query<&crate::player::BodyEnvironmentContact, With<crate::actor::PrimaryPlayer>>,
+    primary: Query<&crate::actor::BodyEnvironmentContact, With<crate::actor::PrimaryPlayer>>,
 ) {
     let underwater = primary
         .iter()
@@ -355,7 +355,7 @@ mod tests {
         app.world_mut().spawn((
             crate::actor::PlayerEntity,
             crate::actor::PrimaryPlayer,
-            crate::player::BodyEnvironmentContact::default(),
+            crate::actor::BodyEnvironmentContact::default(),
         ));
         app.add_systems(Update, detect_audio_environment);
 
@@ -377,7 +377,7 @@ mod tests {
         };
         {
             let mut q = app.world_mut().query_filtered::<
-                &mut crate::player::BodyEnvironmentContact,
+                &mut crate::actor::BodyEnvironmentContact,
                 With<crate::actor::PrimaryPlayer>,
             >();
             for mut env_contact in q.iter_mut(app.world_mut()) {
@@ -393,7 +393,7 @@ mod tests {
         // Shallow contact (below threshold) → Normal again.
         {
             let mut q = app.world_mut().query_filtered::<
-                &mut crate::player::BodyEnvironmentContact,
+                &mut crate::actor::BodyEnvironmentContact,
                 With<crate::actor::PrimaryPlayer>,
             >();
             for mut env_contact in q.iter_mut(app.world_mut()) {

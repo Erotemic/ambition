@@ -15,17 +15,17 @@ use crate::actor::BodyCombat;
 /// Tests mutate just the fields relevant to the case under test.
 struct PickClusters {
     kinematics: crate::actor::BodyKinematics,
-    ground: crate::player::BodyGroundState,
-    wall: crate::player::BodyWallState,
-    blink: crate::player::BodyBlinkState,
-    flight: crate::player::BodyFlightState,
-    dash: crate::player::BodyDashState,
-    ledge: crate::player::BodyLedgeState,
-    body_mode: crate::player::BodyModeState,
-    env_contact: crate::player::BodyEnvironmentContact,
-    abilities: crate::player::BodyAbilities,
-    dodge: crate::player::BodyDodgeState,
-    shield: crate::player::BodyShieldState,
+    ground: crate::actor::BodyGroundState,
+    wall: crate::actor::BodyWallState,
+    blink: crate::actor::BodyBlinkState,
+    flight: crate::actor::BodyFlightState,
+    dash: crate::actor::BodyDashState,
+    ledge: crate::actor::BodyLedgeState,
+    body_mode: crate::actor::BodyModeState,
+    env_contact: crate::actor::BodyEnvironmentContact,
+    abilities: crate::actor::BodyAbilities,
+    dodge: crate::actor::BodyDodgeState,
+    shield: crate::actor::BodyShieldState,
 }
 
 impl PickClusters {

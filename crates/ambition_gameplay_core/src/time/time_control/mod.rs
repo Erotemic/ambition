@@ -233,7 +233,7 @@ fn write_target(target: &mut RequestedClockScale, domain: ClockDomain, scale: f3
 /// Step 3's per-entity `ProperTimeScale` component + `entity_dt`
 /// accessor are the seam where future MP / RL regimes diverge.
 pub fn emit_player_time_intent_system(
-    primary: Query<(&crate::player::BodyBlinkState, &BodyCombat), With<PrimaryPlayer>>,
+    primary: Query<(&crate::actor::BodyBlinkState, &BodyCombat), With<PrimaryPlayer>>,
     dev_state: Res<SandboxDevState>,
     feel: Res<SandboxFeelTuning>,
     mut writer: MessageWriter<ClockScaleRequest>,

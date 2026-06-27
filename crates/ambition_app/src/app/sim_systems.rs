@@ -23,11 +23,11 @@ pub fn sync_live_player_dev_edits_system(
     editable_abilities: Res<EditableAbilitySet>,
     mut player_q: Query<
         (
-            &mut ambition_gameplay_core::player::BodyAbilities,
-            &mut ambition_gameplay_core::player::BodyFlightState,
-            &mut ambition_gameplay_core::player::BodyBlinkState,
-            &mut ambition_gameplay_core::player::BodyDashState,
-            &mut ambition_gameplay_core::player::BodyJumpState,
+            &mut ambition_gameplay_core::actor::BodyAbilities,
+            &mut ambition_gameplay_core::actor::BodyFlightState,
+            &mut ambition_gameplay_core::actor::BodyBlinkState,
+            &mut ambition_gameplay_core::actor::BodyDashState,
+            &mut ambition_gameplay_core::actor::BodyJumpState,
         ),
         ambition_gameplay_core::player::PrimaryPlayerOnly,
     >,
@@ -351,8 +351,8 @@ pub fn cleanup_timers_system(
     mut player_q: Query<
         (
             &ambition_gameplay_core::player::BodyKinematics,
-            &ambition_gameplay_core::player::BodyGroundState,
-            &ambition_gameplay_core::player::BodyDashState,
+            &ambition_gameplay_core::actor::BodyGroundState,
+            &ambition_gameplay_core::actor::BodyDashState,
             &mut ambition_gameplay_core::player::PlayerAnimState,
             &mut ambition_gameplay_core::actor::BodyCombat,
             &mut ambition_gameplay_core::player::PlayerBlinkCameraState,

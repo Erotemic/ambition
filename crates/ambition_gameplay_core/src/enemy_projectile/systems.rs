@@ -279,7 +279,7 @@ mod tests {
     /// boss's attack at it.
     #[test]
     fn a_parried_enemy_shot_flips_to_player_faction_and_reverses() {
-        use crate::player::{BodyBaseSize, BodyDodgeState, BodyOffense, BodyShieldState};
+        use crate::actor::{BodyBaseSize, BodyDodgeState, BodyOffense, BodyShieldState};
 use crate::actor::BodyCombat;
 use crate::actor::{PlayerEntity};
 use crate::actor::BodyKinematics;
@@ -372,7 +372,7 @@ use crate::actor::BodyKinematics;
     /// exercised.
     #[test]
     fn an_owned_enemy_shot_attributes_its_player_hit_to_the_firing_actor() {
-        use crate::player::{BodyBaseSize, BodyDodgeState, BodyOffense, BodyShieldState};
+        use crate::actor::{BodyBaseSize, BodyDodgeState, BodyOffense, BodyShieldState};
 use crate::actor::BodyCombat;
 use crate::actor::{PlayerEntity};
 use crate::actor::BodyKinematics;

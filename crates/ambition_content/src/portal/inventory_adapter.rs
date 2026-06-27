@@ -23,7 +23,7 @@ use ambition_gameplay_core::items::pickup::StashedActionSet;
 use ambition_gameplay_core::items::{Item, OwnedItems};
 use ambition_gameplay_core::platformer_runtime::prelude::SpawnScopedExt;
 #[cfg(test)]
-use ambition_gameplay_core::player::BodyBaseSize;
+use ambition_gameplay_core::actor::BodyBaseSize;
 use ambition_gameplay_core::player::{BodyKinematics, PlayerEntity, PrimaryPlayer};
 use ambition_gameplay_core::portal::{
     DropPortalGun, PickUpPortalGun, PortalGun, PortalGunEquipped, PortalGunPickup,

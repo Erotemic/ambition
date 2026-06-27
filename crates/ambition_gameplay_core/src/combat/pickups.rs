@@ -133,7 +133,8 @@ pub fn collect_ecs_pickups(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::player::{BodyBaseSize, PlayerHealRequested};
+    use crate::player::{PlayerHealRequested};
+    use crate::actor::{BodyBaseSize};
 use crate::actor::{PlayerEntity};
 use crate::actor::BodyKinematics;
     use bevy::prelude::{App, Update};

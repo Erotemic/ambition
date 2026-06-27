@@ -47,18 +47,18 @@ pub fn update_body_mode(
     mut player_q: Query<
         (
             &mut crate::actor::BodyKinematics,
-            &crate::player::BodyBaseSize,
-            &mut crate::player::BodyModeState,
-            &mut crate::player::BodyJumpState,
-            &crate::player::BodyGroundState,
-            &crate::player::BodyWallState,
-            &crate::player::BodyDashState,
-            &crate::player::BodyBlinkState,
-            &crate::player::BodyLedgeState,
-            &crate::player::BodyEnvironmentContact,
+            &crate::actor::BodyBaseSize,
+            &mut crate::actor::BodyModeState,
+            &mut crate::actor::BodyJumpState,
+            &crate::actor::BodyGroundState,
+            &crate::actor::BodyWallState,
+            &crate::actor::BodyDashState,
+            &crate::actor::BodyBlinkState,
+            &crate::actor::BodyLedgeState,
+            &crate::actor::BodyEnvironmentContact,
             &mut crate::player::PlayerInteractionState,
             &crate::player::PlayerInputFrame,
-            &crate::player::BodyFlightState,
+            &crate::actor::BodyFlightState,
         ),
         // Per-body: every player body (primary + brain-driven clone) computes its
         // OWN crouch/morph/climb posture from its own input. Iterating keeps each

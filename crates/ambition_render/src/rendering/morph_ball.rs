@@ -139,7 +139,7 @@ pub fn sync_morph_ball_visual(
     player_q: Query<
         (
             &ambition_gameplay_core::player::BodyKinematics,
-            &ambition_gameplay_core::player::BodyModeState,
+            &ambition_gameplay_core::actor::BodyModeState,
         ),
         ambition_gameplay_core::player::PrimaryPlayerOnly,
     >,

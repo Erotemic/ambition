@@ -116,7 +116,7 @@ pub fn sync_bubble_shield_visual(
     player_q: Query<
         (
             &ambition_gameplay_core::player::BodyKinematics,
-            &ambition_gameplay_core::player::BodyShieldState,
+            &ambition_gameplay_core::actor::BodyShieldState,
         ),
         ambition_gameplay_core::player::PrimaryPlayerOnly,
     >,

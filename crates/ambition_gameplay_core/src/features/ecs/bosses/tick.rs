@@ -267,9 +267,9 @@ pub fn update_ecs_bosses(
     player_query: Query<
         (
             &crate::actor::BodyKinematics,
-            &crate::player::BodyOffense,
-            &crate::player::BodyDodgeState,
-            &crate::player::BodyShieldState,
+            &crate::actor::BodyOffense,
+            &crate::actor::BodyDodgeState,
+            &crate::actor::BodyShieldState,
             &crate::actor::BodyCombat,
         ),
         With<crate::actor::PlayerEntity>,

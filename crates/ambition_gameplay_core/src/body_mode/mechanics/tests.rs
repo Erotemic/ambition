@@ -6,7 +6,8 @@ use super::*;
 use ambition_engine_core::world::{ClimbableKind, ClimbableRegion, ClimbableSpec, World};
 use ambition_engine_core::Vec2;
 use ambition_input::ControlFrame;
-use crate::player::{BodyBaseSize, BodyBlinkState, BodyModeState, BodyDashState, BodyEnvironmentContact, BodyGroundState, PlayerInputFrame, PlayerInteractionState, BodyJumpState, BodyLedgeState, BodyWallState};
+use crate::player::{PlayerInputFrame, PlayerInteractionState};
+use crate::actor::{BodyBaseSize, BodyBlinkState, BodyDashState, BodyEnvironmentContact, BodyGroundState, BodyJumpState, BodyLedgeState, BodyModeState, BodyWallState};
 use crate::actor::{PlayerEntity, PrimaryPlayer};
 use crate::actor::BodyKinematics;
 use bevy::prelude::{App, Entity, Update};
@@ -64,7 +65,7 @@ fn build_body_mode_test_app() -> (App, Entity) {
             PlayerInputFrame::default(),
             BodyModeState::default(),
             BodyJumpState::default(),
-            crate::player::BodyFlightState::default(),
+            crate::actor::BodyFlightState::default(),
         ))
         .id();
     (app, player)
@@ -406,7 +407,7 @@ fn flying_suppresses_ladder_auto_climb() {
     {
         let mut flight = app
             .world_mut()
-            .get_mut::<crate::player::BodyFlightState>(player)
+            .get_mut::<crate::actor::BodyFlightState>(player)
             .unwrap();
         flight.fly_enabled = true;
     }
@@ -424,7 +425,7 @@ fn flying_suppresses_ladder_auto_climb() {
     {
         let mut flight = app
             .world_mut()
-            .get_mut::<crate::player::BodyFlightState>(player)
+            .get_mut::<crate::actor::BodyFlightState>(player)
             .unwrap();
         flight.fly_enabled = false;
     }

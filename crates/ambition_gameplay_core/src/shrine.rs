@@ -14,7 +14,8 @@
 use bevy::prelude::*;
 
 use ambition_engine_core::{self as ae, AabbExt};
-use crate::player::{PlayerInputFrame, BodyMana};
+use crate::player::{PlayerInputFrame};
+use crate::actor::{BodyMana};
 use crate::actor::BodyHealth;
 use crate::actor::{PlayerEntity, PrimaryPlayer};
 use crate::actor::BodyKinematics;
@@ -89,7 +90,7 @@ pub struct ShrineActivationPulse {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::player::BodyBaseSize;
+    use crate::actor::BodyBaseSize;
 
     #[test]
     fn interacting_at_the_shrine_heals_to_full() {

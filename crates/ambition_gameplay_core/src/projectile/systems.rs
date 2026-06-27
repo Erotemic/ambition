@@ -447,9 +447,9 @@ pub fn step_projectiles(
         (
             Entity,
             &BodyKinematics,
-            &crate::player::BodyOffense,
-            &crate::player::BodyDodgeState,
-            &crate::player::BodyShieldState,
+            &crate::actor::BodyOffense,
+            &crate::actor::BodyDodgeState,
+            &crate::actor::BodyShieldState,
             &crate::actor::BodyCombat,
         ),
         (With<crate::actor::PlayerEntity>, Without<LiveProjectile>),

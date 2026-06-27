@@ -2,7 +2,7 @@
 //! ranged swap, attack-press consume, and thrown-item gravity settling.
 
 use super::*;
-use crate::player::BodyBaseSize;
+use crate::actor::BodyBaseSize;
 
 fn spawn_player(app: &mut App, pos: Vec2) -> Entity {
     app.world_mut()

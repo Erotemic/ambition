@@ -15,9 +15,9 @@ pub fn update_ecs_hazards(
         (
             Entity,
             &crate::actor::BodyKinematics,
-            &crate::player::BodyOffense,
-            &crate::player::BodyDodgeState,
-            &crate::player::BodyShieldState,
+            &crate::actor::BodyOffense,
+            &crate::actor::BodyDodgeState,
+            &crate::actor::BodyShieldState,
             &crate::actor::BodyCombat,
         ),
         With<crate::actor::PlayerEntity>,
@@ -105,7 +105,7 @@ pub fn update_ecs_hazards(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::player::{BodyBaseSize, BodyDodgeState, BodyOffense, BodyShieldState};
+    use crate::actor::{BodyBaseSize, BodyDodgeState, BodyOffense, BodyShieldState};
 use crate::actor::BodyCombat;
 use crate::actor::{PlayerEntity};
 use crate::actor::BodyKinematics;

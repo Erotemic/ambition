@@ -105,7 +105,7 @@ pub fn camera_follow(
     player: Query<
         (
             &ambition_gameplay_core::player::BodyKinematics,
-            &ambition_gameplay_core::player::BodyBaseSize,
+            &ambition_gameplay_core::actor::BodyBaseSize,
             &ambition_gameplay_core::player::PlayerBlinkCameraState,
         ),
         ambition_gameplay_core::player::PrimaryPlayerOnly,

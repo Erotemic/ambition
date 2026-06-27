@@ -7,7 +7,8 @@
 use ambition_characters::brain::{held_item_by_id, ActionSet};
 use ambition_engine_core as ae;
 use crate::features::HeldItem;
-use crate::player::{BodyBaseSize, PlayerInputFrame, BodyMana};
+use crate::player::{PlayerInputFrame};
+use crate::actor::{BodyBaseSize, BodyMana};
 use crate::actor::{PlayerEntity, PrimaryPlayer};
 use crate::actor::BodyKinematics;
 use bevy::prelude::*;

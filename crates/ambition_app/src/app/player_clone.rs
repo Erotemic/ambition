@@ -199,7 +199,7 @@ pub fn tick_player_clone_brains(
     mut clones: Query<
         (
             &ambition_gameplay_core::player::BodyKinematics,
-            &ambition_gameplay_core::player::BodyGroundState,
+            &ambition_gameplay_core::actor::BodyGroundState,
             &mut Brain,
             &mut ActorControl,
         ),

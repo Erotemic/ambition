@@ -86,9 +86,10 @@ impl CharacterAnimator {
         self.pages.len() > 1
     }
 
-    /// The page image index the currently-playing animation draws from.
+    /// The page image index the current frame draws from (per-frame, since a
+    /// packed animation can span pages).
     pub fn current_page(&self) -> u32 {
-        self.spec.page_of(self.current)
+        self.spec.page_of(self.current, self.frame)
     }
 
     pub fn request(&mut self, anim: CharacterAnim) {

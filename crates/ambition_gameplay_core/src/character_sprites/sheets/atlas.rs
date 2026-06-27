@@ -31,56 +31,65 @@ impl CharacterSheetSpec {
     }
 
     /// Number of distinct page images this sheet addresses. `1` for the
-    /// common single-PNG case; larger when the generator split the animation
-    /// rows across several page images to stay within the GPU texture limit.
+    /// common single-PNG case; larger when the generator split the sheet
+    /// across several page images to stay within the GPU texture limit.
     pub fn page_count(&self) -> u32 {
         self.rows
             .iter()
-            .map(|(_, row)| row.page)
+            .map(|(_, row)| {
+                let frame_max = row
+                    .frame_pages
+                    .as_ref()
+                    .and_then(|p| p.iter().copied().max())
+                    .unwrap_or(0);
+                row.page.max(frame_max)
+            })
             .max()
             .map(|p| p + 1)
             .unwrap_or(1)
     }
 
-    /// Which page image the given animation's frames live in (after
-    /// `resolve_anim` fallback). `0` for single-page sheets.
-    pub fn page_of(&self, anim: CharacterAnim) -> u32 {
+    /// Which page image `(anim, frame)` lives in (after `resolve_anim`
+    /// fallback). `0` for single-page sheets. Per-frame because a freely-packed
+    /// sheet can place frames of one animation on different pages.
+    pub fn page_of(&self, anim: CharacterAnim, frame: usize) -> u32 {
         let resolved = self.resolve_anim(anim);
-        self.row_index(resolved)
-            .map(|idx| self.rows[idx].1.page)
-            .unwrap_or(0)
+        match self.row_index(resolved) {
+            Some(idx) => {
+                let row = &self.rows[idx].1;
+                frame_page_of(row, frame.min(row.frame_count.saturating_sub(1)))
+            }
+            None => 0,
+        }
     }
 
-    /// Build the atlas layout for one page image. Each page is its own
-    /// texture, so only the rows on that page contribute cells, and the
-    /// flat index returned by [`Self::flat_index`] is page-local (it counts
-    /// only same-page rows before it). Accounts for `y_offset` so multiple
-    /// specs can still share one PNG (e.g. lab-props) within a page.
+    /// Build the atlas layout for one page image. Each page is its own texture,
+    /// so only the FRAMES on that page contribute cells (a packed animation may
+    /// span pages), and [`Self::flat_index`] returns a page-local index. Frames
+    /// are added in `(row, frame)` order so the index matches. Accounts for
+    /// `y_offset` so multiple specs can still share one PNG within a page.
     pub fn build_atlas_for_page(&self, page: u32) -> TextureAtlasLayout {
-        // Atlas image size has to cover every cell on this page — derive it
-        // from the rects when we have them (so inter-frame padding is
-        // included), and fall back to grid math (cells = frame_w × frame_h,
-        // label inset on the left) otherwise.
         let (total_w, total_h) = atlas_extent_for_page(self, page);
         let mut layout = TextureAtlasLayout::new_empty(UVec2::new(total_w.max(1), total_h.max(1)));
         let inset = self
             .frame_sample_inset
             .min(self.frame_width.min(self.frame_height) / 4);
-        for (_, row) in self.rows.iter().filter(|(_, r)| r.page == page) {
-            // Authoritative path: use the RON's per-frame rects. The
-            // generator emits the EXACT pixel coords of every frame
-            // (including padding between cells), so any drift caused
-            // by inter-frame padding, label-column width changes, or
-            // row-stride ≠ frame_height vanishes.
+        for (_, row) in self.rows.iter() {
+            // Authoritative path: the RON's exact per-frame rects, filtered to
+            // this page (frame by frame).
             if let Some(rects) = row.frame_rects.as_ref() {
-                for r in rects.iter().take(row.frame_count) {
-                    layout.add_texture(inset_rect(*r, inset));
+                for (f, r) in rects.iter().take(row.frame_count).enumerate() {
+                    if frame_page_of(row, f) == page {
+                        layout.add_texture(inset_rect(*r, inset));
+                    }
                 }
                 continue;
             }
-            // Legacy path: grid math, using the AUTHORED `row_index`
-            // so dropping intermediate rows doesn't shift later rows
-            // upward into the wrong band of pixels.
+            // Legacy grid path: a grid sheet is never packed, so the whole row
+            // shares `row.page`. Add its cells only when this is that page.
+            if row.page != page {
+                continue;
+            }
             for col in 0..row.frame_count {
                 let x = self.label_width + col as u32 * self.frame_width;
                 let y = self.y_offset + row.row_index * self.frame_height;
@@ -102,23 +111,32 @@ impl CharacterSheetSpec {
     }
 
     /// Page-local flat atlas index for `(anim, frame)`: the position of this
-    /// frame among all frames on the *same page*, in spec order. For a
-    /// single-page sheet (every row on page 0) this is identical to the old
-    /// global index, so existing sheets are unaffected. The returned index
-    /// addresses the layout built by `build_atlas_for_page(page_of(anim))`.
+    /// frame among all frames on the *same page*, in `(row, frame)` order. For
+    /// a single-page sheet (every frame on page 0) this is the old global
+    /// index, so existing sheets are unaffected. Addresses the layout built by
+    /// `build_atlas_for_page(page_of(anim, frame))`.
     pub fn flat_index(&self, anim: CharacterAnim, frame: usize) -> usize {
         let resolved = self.resolve_anim(anim);
-        let row = self
+        let row_idx = self
             .row_index(resolved)
             .expect("character sprite sheet must define an Idle row");
-        let page = self.rows[row].1.page;
-        let frames_before: usize = self.rows[..row]
-            .iter()
-            .filter(|(_, r)| r.page == page)
-            .map(|(_, r)| r.frame_count)
-            .sum();
-        let max_frame = self.rows[row].1.frame_count.saturating_sub(1);
-        frames_before + frame.min(max_frame)
+        let row = &self.rows[row_idx].1;
+        let f = frame.min(row.frame_count.saturating_sub(1));
+        let page = frame_page_of(row, f);
+        let mut count = 0usize;
+        for (_, r) in self.rows[..row_idx].iter() {
+            for g in 0..r.frame_count {
+                if frame_page_of(r, g) == page {
+                    count += 1;
+                }
+            }
+        }
+        for g in 0..f {
+            if frame_page_of(row, g) == page {
+                count += 1;
+            }
+        }
+        count
     }
 
     /// Pixel extent of page 0's atlas texture addressed by this sheet spec.
@@ -226,12 +244,14 @@ fn atlas_extent_for_page(spec: &CharacterSheetSpec, page: u32) -> (u32, u32) {
     let mut max_x = 0u32;
     let mut max_y = 0u32;
     let mut any_rect = false;
-    for (_, row) in spec.rows.iter().filter(|(_, r)| r.page == page) {
+    for (_, row) in spec.rows.iter() {
         if let Some(rects) = row.frame_rects.as_ref() {
-            for r in rects.iter().take(row.frame_count) {
-                max_x = max_x.max(r.max.x);
-                max_y = max_y.max(r.max.y);
-                any_rect = true;
+            for (f, r) in rects.iter().take(row.frame_count).enumerate() {
+                if frame_page_of(row, f) == page {
+                    max_x = max_x.max(r.max.x);
+                    max_y = max_y.max(r.max.y);
+                    any_rect = true;
+                }
             }
         }
     }
@@ -260,6 +280,96 @@ fn atlas_extent_for_page(spec: &CharacterSheetSpec, page: u32) -> (u32, u32) {
     let w = spec.label_width + max_frames * spec.frame_width;
     let h = spec.y_offset + max_row_index_plus_one * spec.frame_height;
     (w, h)
+}
+
+/// Page image index for frame `f` of `row`: the per-frame page when the sheet
+/// was freely packed, else the row's page (unpacked / grid / unpacked-multipage).
+fn frame_page_of(row: &AnimRow, f: usize) -> u32 {
+    row.frame_pages
+        .as_ref()
+        .and_then(|p| p.get(f))
+        .copied()
+        .unwrap_or(row.page)
+}
+
+#[cfg(test)]
+mod per_frame_page_tests {
+    use super::*;
+
+    fn row(page: u32, frame_pages: Vec<u32>, n: usize) -> AnimRow {
+        // Distinct dummy rects per frame so the atlas layout has the right len.
+        let rects = (0..n)
+            .map(|i| URect {
+                min: UVec2::new(i as u32 * 10, 0),
+                max: UVec2::new(i as u32 * 10 + 8, 8),
+            })
+            .collect();
+        AnimRow {
+            frame_count: n,
+            duration_secs: 0.1,
+            row_index: 0,
+            page,
+            frame_rects: Some(rects),
+            frame_offsets: None,
+            frame_pages: Some(frame_pages),
+        }
+    }
+
+    fn spec(rows: Vec<(CharacterAnim, AnimRow)>) -> CharacterSheetSpec {
+        CharacterSheetSpec {
+            label_width: 0,
+            y_offset: 0,
+            frame_width: 8,
+            frame_height: 8,
+            page_images: vec!["a.png".into(), "b.png".into()],
+            rows,
+            collision_scale: 1.0,
+            feet_anchor_y: -0.5,
+            frame_sample_inset: 0,
+        }
+    }
+
+    /// `flat_index` must be a page-local index that exactly addresses the layout
+    /// `build_atlas_for_page` produces — even when one animation's frames are
+    /// scattered across pages by the free packer.
+    #[test]
+    fn flat_index_agrees_with_per_page_layout() {
+        // Idle: frame0→page0, frame1→page1. Walk: frame0→page1, frame1→page0.
+        let s = spec(vec![
+            (CharacterAnim::Idle, row(0, vec![0, 1], 2)),
+            (CharacterAnim::Walk, row(1, vec![1, 0], 2)),
+        ]);
+        assert_eq!(s.page_count(), 2);
+
+        // Each page's layout holds exactly the frames assigned to it.
+        let n0 = s.build_atlas_for_page(0).len();
+        let n1 = s.build_atlas_for_page(1).len();
+        assert_eq!(n0, 2, "page 0: idle.f0 + walk.f1");
+        assert_eq!(n1, 2, "page 1: idle.f1 + walk.f0");
+
+        // Every (anim, frame): page_of matches, flat_index is in range + unique
+        // within its page.
+        let cases = [
+            (CharacterAnim::Idle, 0, 0u32),
+            (CharacterAnim::Idle, 1, 1u32),
+            (CharacterAnim::Walk, 0, 1u32),
+            (CharacterAnim::Walk, 1, 0u32),
+        ];
+        let mut seen_per_page: std::collections::HashMap<u32, Vec<usize>> = Default::default();
+        for (anim, frame, want_page) in cases {
+            assert_eq!(s.page_of(anim, frame), want_page, "{anim:?} f{frame}");
+            let idx = s.flat_index(anim, frame);
+            let len = if want_page == 0 { n0 } else { n1 };
+            assert!(idx < len, "{anim:?} f{frame} index {idx} out of range {len}");
+            seen_per_page.entry(want_page).or_default().push(idx);
+        }
+        for (page, mut idxs) in seen_per_page {
+            idxs.sort();
+            idxs.dedup();
+            let len = if page == 0 { n0 } else { n1 };
+            assert_eq!(idxs.len(), len, "page {page}: indices must be unique + cover the layout");
+        }
+    }
 }
 
 /// Shrink a cell by `inset` on every side so bilinear filtering at

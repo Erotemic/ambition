@@ -316,6 +316,13 @@ pub struct FrameRect {
     pub y: i32,
     pub w: i32,
     pub h: i32,
+    /// Page image (index into [`SheetRecord::images`]) this frame lives in.
+    /// `0` by default. The atlas packer places frames freely for best fill, so
+    /// frames of one animation may land on different pages — this is the
+    /// authoritative per-frame page for packed sheets ([`SheetRow::page`] is
+    /// only a per-row default kept for the unpacked multi-page layout).
+    #[serde(default)]
+    pub page: u32,
     /// Trim offset of this rect within the LOGICAL frame, in logical-frame
     /// pixels `(off_x, off_y)`. The atlas packer trims each frame to its opaque
     /// alpha bounding box for storage; `w`/`h` are then the trimmed size and

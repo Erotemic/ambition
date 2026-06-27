@@ -54,6 +54,11 @@ pub struct AnimRow {
     /// `frame_width`×`frame_height` logical frame — the runtime adds it back so
     /// the trimmed pixels draw where the full frame would have.
     pub frame_offsets: Option<Vec<IVec2>>,
+    /// Per-frame page image index, parallel to `frame_rects`. `None` means
+    /// every frame is on the row's `page` (unpacked / unpacked-multipage
+    /// layout); `Some` carries the per-frame page of a freely-packed sheet,
+    /// where frames of one animation can live on different page images.
+    pub frame_pages: Option<Vec<u32>>,
 }
 
 /// Frame layout for one of the generated sheets.
@@ -298,6 +303,14 @@ fn spec_from_record(record: &SheetRecord, tuning: &SheetTuning) -> CharacterShee
             } else {
                 None
             };
+            // Per-frame page, only when a freely-packed sheet spread this row's
+            // frames across pages. Otherwise every frame uses the row's `page`.
+            let frame_pages = if frame_rects.is_some() && row.rects.iter().any(|r| r.page != row.page)
+            {
+                Some(row.rects.iter().map(|r| r.page).collect())
+            } else {
+                None
+            };
             Some((
                 anim,
                 AnimRow {
@@ -307,6 +320,7 @@ fn spec_from_record(record: &SheetRecord, tuning: &SheetTuning) -> CharacterShee
                     page: row.page,
                     frame_rects,
                     frame_offsets,
+                    frame_pages,
                 },
             ))
         })

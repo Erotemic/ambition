@@ -91,6 +91,7 @@ fn fsm_record(frame_w: u32, frame_h: u32, label_w: u32) -> ambition_sprite_sheet
             frame_count: *n,
             duration_ms: 100,
             duration_secs: 0.1,
+            page: 0,
             rects: (0..*n)
                 .map(|col| FrameRect {
                     x: (label_w + col * frame_w) as i32,
@@ -105,6 +106,7 @@ fn fsm_record(frame_w: u32, frame_h: u32, label_w: u32) -> ambition_sprite_sheet
     ambition_sprite_sheet::SheetRecord {
         target: "flying_spaghetti_monster_boss".to_string(),
         image: "flying_spaghetti_monster_boss_spritesheet.png".to_string(),
+        images: Vec::new(),
         label_width: label_w,
         frame_width: frame_w,
         frame_height: frame_h,

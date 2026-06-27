@@ -23,6 +23,19 @@ pub(crate) fn apply_character_frame(
 ) {
     animator.request(anim);
     let index = animator.tick(dt);
+    // Split sheets: select the page image the active animation draws from.
+    // Single-page sheets (the common case) skip this entirely, so their
+    // sprite image + layout stay exactly as built. `index` is already
+    // page-local, so it addresses the swapped-in page's layout.
+    if animator.is_paged() {
+        let page = animator.current_page();
+        if let Some(pg) = animator.pages.get(page as usize) {
+            sprite.image = pg.texture.clone();
+            if let Some(atlas) = sprite.texture_atlas.as_mut() {
+                atlas.layout = pg.layout.clone();
+            }
+        }
+    }
     if let Some(atlas) = sprite.texture_atlas.as_mut() {
         atlas.index = index;
     }

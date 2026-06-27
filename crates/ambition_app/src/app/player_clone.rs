@@ -149,7 +149,7 @@ pub fn spawn_requested_player_clone(
         clone.insert((
             build_character_sprite_with_render_size(asset, render),
             feet_anchor_for_render_size(&asset.spec, collision, render),
-            CharacterAnimator::new(&asset.spec),
+            CharacterAnimator::new(asset),
             PlayerSpriteBaseline {
                 standing_render: render,
                 standing_collision: collision,

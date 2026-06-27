@@ -45,8 +45,17 @@ pub struct SheetRecord {
     /// PNG filename, relative to the sprites asset dir. May be shared
     /// across multiple records when several targets pack onto the same
     /// sheet image (in which case `y_offset` selects each target's row
-    /// band).
+    /// band). For multi-page sheets this is page 0 (same as `images[0]`).
     pub image: String,
+    /// Page image filenames for sheets split across multiple PNGs. A sheet
+    /// with one animation per row can grow taller than the GPU texture limit
+    /// (16384px); the generator then splits the animation rows across several
+    /// page images so each PNG stays within the limit. Each [`SheetRow::page`]
+    /// indexes into this list, and that row's `rects` are in that page image's
+    /// own coordinate space (each page starts at y=0). Empty (the common case)
+    /// ⇒ the whole sheet is the single `image` and every row is page 0.
+    #[serde(default)]
+    pub images: Vec<String>,
     pub label_width: u32,
     pub frame_width: u32,
     pub frame_height: u32,
@@ -69,6 +78,25 @@ pub struct SheetRecord {
     #[serde(default)]
     pub tuning: Option<SheetTuningSpec>,
     pub rows: Vec<SheetRow>,
+}
+
+impl SheetRecord {
+    /// Number of distinct page images this sheet addresses. `1` for the
+    /// common single-PNG case (`images` empty) and for any sheet whose rows
+    /// all reference page 0.
+    pub fn page_count(&self) -> u32 {
+        self.images.len().max(1) as u32
+    }
+
+    /// Filename of the PNG holding `page`. Falls back to the single `image`
+    /// when `images` is empty or the index is out of range, so single-page
+    /// callers can ignore paging entirely.
+    pub fn page_image(&self, page: u32) -> &str {
+        self.images
+            .get(page as usize)
+            .map(String::as_str)
+            .unwrap_or(self.image.as_str())
+    }
 }
 
 /// Per-target gameplay-tuning fields embedded in the spritesheet manifest.
@@ -272,6 +300,12 @@ pub struct SheetRow {
     pub frame_count: u32,
     pub duration_ms: u32,
     pub duration_secs: f32,
+    /// Which page image (index into [`SheetRecord::images`]) this row's frames
+    /// live in. `0` (the default) for single-page sheets and for the first
+    /// page of a split sheet. The row's `rects` are in that page's own pixel
+    /// space, so two rows on different pages may legitimately share `y` values.
+    #[serde(default)]
+    pub page: u32,
     #[serde(default)]
     pub rects: Vec<FrameRect>,
 }
@@ -391,6 +425,70 @@ impl SheetRegistry {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// A split (multi-page) sheet round-trips: the generator emits an
+    /// `images: [...]` list and a `page:` per row, with each page's rects in
+    /// that page's own pixel space. Regressing the `#[serde(default)]` on
+    /// either field would silently collapse every row onto page 0 and address
+    /// the wrong texture.
+    #[test]
+    fn multi_page_sheet_round_trips() {
+        let ron_text = r#"
+        [(
+            target: "huge_boss",
+            image: "huge_boss_spritesheet.png",
+            images: ["huge_boss_spritesheet.png", "huge_boss_spritesheet.1.png"],
+            label_width: 100,
+            frame_width: 384,
+            frame_height: 529,
+            rows: [
+                (animation: "idle", row_index: 0, frame_count: 2, duration_ms: 120, duration_secs: 0.12,
+                 rects: [(x: 100, y: 0, w: 384, h: 529), (x: 484, y: 0, w: 384, h: 529)]),
+                (animation: "charge", row_index: 1, frame_count: 1, duration_ms: 90, duration_secs: 0.09,
+                 page: 1,
+                 rects: [(x: 100, y: 0, w: 384, h: 529)]),
+            ],
+        )]
+        "#;
+        let records: Vec<SheetRecord> =
+            ron::from_str(ron_text).expect("multi-page SheetRecord should deserialize");
+        let record = &records[0];
+        assert_eq!(record.page_count(), 2);
+        assert_eq!(record.page_image(0), "huge_boss_spritesheet.png");
+        assert_eq!(record.page_image(1), "huge_boss_spritesheet.1.png");
+        // Out-of-range page falls back to the primary image.
+        assert_eq!(record.page_image(9), "huge_boss_spritesheet.png");
+        assert_eq!(record.rows[0].page, 0, "idle defaults to page 0");
+        assert_eq!(record.rows[1].page, 1, "charge lives on page 1");
+        // The two rows share y=0 because each page is its own coordinate space.
+        assert_eq!(record.rows[0].rects[0].y, 0);
+        assert_eq!(record.rows[1].rects[0].y, 0);
+    }
+
+    /// A legacy single-page sheet (no `images`, no `page`) still parses and
+    /// reports one page addressing the single `image`.
+    #[test]
+    fn single_page_sheet_defaults_to_one_page() {
+        let ron_text = r#"
+        [(
+            target: "goblin",
+            image: "goblin_spritesheet.png",
+            label_width: 0,
+            frame_width: 128,
+            frame_height: 128,
+            rows: [
+                (animation: "idle", row_index: 0, frame_count: 1, duration_ms: 120, duration_secs: 0.12,
+                 rects: [(x: 0, y: 0, w: 128, h: 128)]),
+            ],
+        )]
+        "#;
+        let records: Vec<SheetRecord> =
+            ron::from_str(ron_text).expect("single-page SheetRecord should deserialize");
+        let record = &records[0];
+        assert_eq!(record.page_count(), 1);
+        assert_eq!(record.page_image(0), "goblin_spritesheet.png");
+        assert_eq!(record.rows[0].page, 0);
+    }
 
     /// The Python renderer emits `body_metrics.animations` as a
     /// map keyed by animation name. This test pins that the

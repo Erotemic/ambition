@@ -198,7 +198,7 @@ pub fn spawn_room_prop(
         entity.insert((
             sprite,
             feet_anchor_for(&asset.spec, collision),
-            CharacterAnimator::new(&asset.spec),
+            CharacterAnimator::new(asset),
         ));
     } else {
         // Fallback: a translucent placeholder rectangle so authors

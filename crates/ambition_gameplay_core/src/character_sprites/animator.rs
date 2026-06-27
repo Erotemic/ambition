@@ -9,12 +9,18 @@
 use bevy::prelude::*;
 
 use super::anim::{non_looping, CharacterAnim};
+use super::assets::{CharacterSpriteAsset, CharacterSpritePage};
 use super::sheets::CharacterSheetSpec;
 
 /// Per-character animation cursor.
 #[derive(Component)]
 pub struct CharacterAnimator {
     pub spec: CharacterSheetSpec,
+    /// Per-page texture + layout handles, cloned from the source asset so the
+    /// renderer can swap the `Sprite`'s image + atlas layout when the playing
+    /// animation lives on a different page of a split sheet. Length 1 for the
+    /// common single-PNG sheet (the renderer then never swaps).
+    pub pages: Vec<CharacterSpritePage>,
     pub current: CharacterAnim,
     pub frame: usize,
     pub elapsed: f32,
@@ -24,14 +30,27 @@ pub struct CharacterAnimator {
 }
 
 impl CharacterAnimator {
-    pub fn new(spec: &CharacterSheetSpec) -> Self {
+    pub fn new(asset: &CharacterSpriteAsset) -> Self {
         Self {
-            spec: spec.clone(),
+            spec: asset.spec.clone(),
+            pages: asset.pages.clone(),
             current: CharacterAnim::Idle,
             frame: 0,
             elapsed: 0.0,
             clip_held: false,
         }
+    }
+
+    /// True when the sheet is split across more than one page image, so the
+    /// renderer must select the active animation's page each frame. Single-page
+    /// sheets (the common case) skip the swap entirely.
+    pub fn is_paged(&self) -> bool {
+        self.pages.len() > 1
+    }
+
+    /// The page image index the currently-playing animation draws from.
+    pub fn current_page(&self) -> u32 {
+        self.spec.page_of(self.current)
     }
 
     pub fn request(&mut self, anim: CharacterAnim) {

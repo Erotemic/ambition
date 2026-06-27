@@ -37,11 +37,26 @@ use crate::character_roster::EMBEDDED_CATALOG;
 use ambition_engine_core as ae;
 use crate::features::FeatureVisualKind;
 
+/// One page image of a (possibly split) character sheet: its texture handle
+/// plus the [`TextureAtlasLayout`] addressing only that page's frames.
 #[derive(Clone)]
-pub struct CharacterSpriteAsset {
+pub struct CharacterSpritePage {
     pub texture: Handle<Image>,
     pub layout: Handle<TextureAtlasLayout>,
+}
+
+#[derive(Clone)]
+pub struct CharacterSpriteAsset {
+    /// Page-0 texture. Kept as the canonical handle the initial `Sprite` is
+    /// built from (the Idle row is always on page 0); equals `pages[0].texture`.
+    pub texture: Handle<Image>,
+    /// Page-0 atlas layout; equals `pages[0].layout`.
+    pub layout: Handle<TextureAtlasLayout>,
     pub spec: CharacterSheetSpec,
+    /// One entry per page image. Length 1 for the common single-PNG sheet.
+    /// The animator carries a clone so it can swap the `Sprite`'s image +
+    /// layout when the playing animation lives on a different page.
+    pub pages: Vec<CharacterSpritePage>,
 }
 
 /// Holds optional spritesheet handles. A missing PNG produces a
@@ -355,11 +370,42 @@ fn build_optional_via_catalog(
         }
         return None;
     };
-    let layout = layouts.add(spec.build_atlas());
+    // Build one (texture, layout) per page image. The catalog resolves the
+    // page-0 path; sibling pages live in the same directory, named by the
+    // spec's `page_images` list (which came from the RON `images` field).
+    let parent = path.rsplit_once('/').map(|(dir, _)| dir).unwrap_or("");
+    let page_count = spec.page_count().max(1);
+    let pages: Vec<CharacterSpritePage> = (0..page_count)
+        .map(|page| {
+            // Page 0 uses the catalog-resolved path verbatim (profile-gated);
+            // later pages resolve their filename against page 0's directory.
+            let page_path = if page == 0 {
+                path.clone()
+            } else {
+                let file = spec
+                    .page_images
+                    .get(page as usize)
+                    .cloned()
+                    .unwrap_or_else(|| format!("page_{page}.png"));
+                if parent.is_empty() {
+                    file
+                } else {
+                    format!("{parent}/{file}")
+                }
+            };
+            CharacterSpritePage {
+                texture: asset_server.load(page_path),
+                layout: layouts.add(spec.build_atlas_for_page(page)),
+            }
+        })
+        .collect();
+    let texture = pages[0].texture.clone();
+    let layout = pages[0].layout.clone();
     Some(CharacterSpriteAsset {
-        texture: asset_server.load(path),
+        texture,
         layout,
         spec: spec.clone(),
+        pages,
     })
 }
 

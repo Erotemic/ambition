@@ -345,7 +345,7 @@ fn apply_cut_rope_heavy_object_sprite(
     prop.kind = desired_kind.to_string();
     *sprite = build_character_sprite(asset, Vec2::new(collision.x, collision.y));
     if let Some(mut animator) = animator {
-        *animator = CharacterAnimator::new(&asset.spec);
+        *animator = CharacterAnimator::new(asset);
     }
     if let Some(mut anchor) = anchor {
         *anchor = feet_anchor_for(&asset.spec, Vec2::new(collision.x, collision.y));

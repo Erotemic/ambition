@@ -32,6 +32,11 @@ pub struct AnimRow {
     /// path uses `frame_rects` directly to honor inter-frame
     /// padding (which uniform grid math misses).
     pub row_index: u32,
+    /// Which page image this row's frames live in (index into the sheet's
+    /// page list). `0` for single-page sheets and the first page of a split
+    /// sheet. The atlas builder groups rows by page so each page gets its own
+    /// `TextureAtlasLayout`, and `frame_rects` are in that page's pixel space.
+    pub page: u32,
     /// Per-frame source rectangles in the PNG, copied verbatim from
     /// the RON `rects` field. Used as the authoritative atlas-cell
     /// coordinates: many generated sheets pad between frames (the
@@ -71,6 +76,10 @@ pub struct CharacterSheetSpec {
     /// Authoritative value lives in the paired `*_spritesheet.ron`.
     pub frame_width: u32,
     pub frame_height: u32,
+    /// Page image filenames (just the file name, resolved against the page-0
+    /// image's directory at load time). `[record.image]` for a single-page
+    /// sheet; one entry per page for a split sheet. Indexed by `AnimRow::page`.
+    pub page_images: Vec<String>,
     pub rows: Vec<(CharacterAnim, AnimRow)>,
     /// Multiplier applied to the entity's collision-box max dimension to
     /// derive the rendered sprite's height. Width is derived from the
@@ -274,6 +283,7 @@ fn spec_from_record(record: &SheetRecord, tuning: &SheetTuning) -> CharacterShee
                     frame_count: row.frame_count as usize,
                     duration_secs: row.duration_secs,
                     row_index: row.row_index as u32,
+                    page: row.page,
                     frame_rects,
                 },
             ))
@@ -287,11 +297,20 @@ fn spec_from_record(record: &SheetRecord, tuning: &SheetTuning) -> CharacterShee
             .map(|p: NormPoint| p.y)
             .unwrap_or(-0.5)
     });
+    // Page image filenames: the explicit `images` list when the sheet was
+    // split, else the single `image` as the sole page-0 entry. Resolved
+    // against the page-0 image's directory at load time.
+    let page_images = if record.images.is_empty() {
+        vec![record.image.clone()]
+    } else {
+        record.images.clone()
+    };
     CharacterSheetSpec {
         label_width: record.label_width,
         y_offset: record.y_offset,
         frame_width: record.frame_width,
         frame_height: record.frame_height,
+        page_images,
         rows,
         collision_scale,
         feet_anchor_y,

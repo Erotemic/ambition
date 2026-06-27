@@ -322,7 +322,7 @@ pub fn upgrade_enemy_sprites(
         commands.entity(entity).insert((
             sprite,
             anchor,
-            CharacterAnimator::new(&character_asset.spec),
+            CharacterAnimator::new(character_asset),
             BoundFeatureKind::new(view.kind, collision),
         ));
     }
@@ -396,7 +396,7 @@ pub fn upgrade_npc_sprites(
         commands.entity(entity).insert((
             sprite,
             anchor,
-            CharacterAnimator::new(&character_asset.spec),
+            CharacterAnimator::new(character_asset),
             BoundFeatureKind::new(view.kind, collision),
         ));
     }

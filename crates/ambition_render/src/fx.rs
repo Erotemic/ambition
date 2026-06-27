@@ -335,7 +335,7 @@ fn spawn_explosion(
     let scale = scale.max(0.1);
     let render_size = BVec2::splat(132.0 * scale);
     let mut sprite = build_character_sprite_with_render_size(asset, render_size);
-    let mut animator = CharacterAnimator::new(&asset.spec);
+    let mut animator = CharacterAnimator::new(asset);
     animator.request(explosion_anim(kind));
     let index = animator.tick(0.0);
     if let Some(atlas) = sprite.texture_atlas.as_mut() {

@@ -447,17 +447,13 @@ pub fn update_ecs_actors(
                     }
                 }
                 // Body resolves the fly-toggle intent (invariant I3): capability-
-                // gated, flips the body's gravity mode (grounded spine <-> free-
-                // mover). The integrator reads the new mode next tick (the brain
-                // already steered this tick's motion in the old mode). The
-                // controller decides WHEN — the brain prefers grounded and toggles
-                // up only to traverse a long gap; a possessing human presses it.
+                // gated, flips the shared movement pipeline's flight mode
+                // (`flight.fly_enabled` — grounded spine <-> flight limb). The
+                // integrator reads the new mode next tick. The controller decides
+                // WHEN — the brain prefers grounded and toggles up only to traverse
+                // a long gap; a possessing human presses it.
                 if em.caps.can_fly && frame.fly_toggle_pressed {
-                    em.surface.gravity_scale = if em.surface.gravity_scale <= 0.001 {
-                        1.0
-                    } else {
-                        0.0
-                    };
+                    em.body.0.flight.fly_enabled = !em.body.0.flight.fly_enabled;
                 }
                 // Body resolves the shield-held intent (invariant I3): the
                 // controller only *attempts* a guard (the brain raises it on a

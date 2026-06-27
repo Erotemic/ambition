@@ -1,12 +1,11 @@
 //! Actor physics/AI integration: the per-frame tick that drives actor
-//! movement + attack geometry through the [`ActorMut`] ECS view. Grounded
-//! actors run the EXACT shared player movement pipeline
-//! ([`ActorMut::integrate_grounded_body`] → `ae::update_body_with_tuning_clusters`,
+//! movement + attack geometry through the [`ActorMut`] ECS view. Grounded AND
+//! aerial actors run the EXACT shared player movement pipeline
+//! ([`ActorMut::integrate_body`] → `ae::update_body_with_tuning_clusters`,
 //! borrowing the actor's `kin` + [`ActorBody`] clusters as one `PlayerClustersMut`
-//! view); aerial free-movers go through [`integrate_aerial_body`]
-//! (`super::super::step_floating_body`); surface-walkers keep their glued crawl.
-//! Attack AABBs are derived here; archetype tuning comes from the
-//! [`super::EnemyRoster`].
+//! view) — the pipeline picks the flight limb vs the grounded spine from
+//! `flight.fly_enabled`; surface-walkers keep their glued crawl. Attack AABBs are
+//! derived here; archetype tuning comes from the [`super::EnemyRoster`].
 
 use super::super::ecs::actor_clusters::ActorMut;
 use super::super::*;
@@ -85,47 +84,6 @@ fn evaluate_enemy_ai_output(
     })
 }
 
-/// Aerial free-mover integration: floating bodies (NPC flyers, aerial enemies)
-/// steer `velocity_target` directly through the shared `step_floating_body`
-/// (also used by bosses). The grounded path went to the shared player movement
-/// pipeline (`ActorMut::integrate_grounded_body`); this aerial case is the one
-/// the unified-actors plan reconciles separately (a free-mover modality, not the
-/// grounded spine), so it stays a thin floating step for now.
-fn integrate_aerial_body(
-    world: &ae::World,
-    kin: &mut super::super::ecs::actor_clusters::BodyKinematics,
-    surface: &mut ActorSurfaceState,
-    motion: &mut super::super::ecs::actor_clusters::ActorMotionPath,
-    tuning: &crate::combat::ActorTuning,
-    frame: &ambition_characters::actor::control::ActorControlFrame,
-    dt: f32,
-) {
-    let mut body = kinematic::KinematicBody {
-        pos: kin.pos,
-        vel: kin.vel,
-        size: kin.size,
-        on_ground: surface.on_ground,
-        facing: kin.facing,
-    };
-    let target_speed = frame.velocity_target.length();
-    let archetype_chase = tuning.chase_speed;
-    let accel = (target_speed.max(archetype_chase) * 3.0).max(900.0) * dt;
-    super::super::step_floating_body(
-        &mut body,
-        world,
-        frame.velocity_target,
-        Some(accel),
-        tuning.movement.max_fall_speed,
-        dt,
-    );
-    kin.pos = body.pos;
-    kin.vel = body.vel;
-    surface.on_ground = false;
-    if let Some(motion) = &mut motion.0 {
-        let _ = motion.advance(kin.pos, dt);
-    }
-}
-
 impl<'a> ActorMut<'a> {
     #[allow(clippy::too_many_arguments)]
     pub fn update(
@@ -168,30 +126,23 @@ impl<'a> ActorMut<'a> {
         );
         self.status.ai_mode = ai.mode;
 
-        let is_aerial = self.surface.gravity_scale <= 0.001;
         let is_surface_walker = self.config.tuning.surface_walker;
 
-        // Dash is no longer a bespoke actor mechanic: the grounded body runs the
-        // SHARED player dash limb (the real dash impulse + window), gated by the
+        // Dash is no longer a bespoke actor mechanic: the body runs the SHARED
+        // player dash limb (the real dash impulse + window), gated by the
         // `ActorBody` ability mask (`from_caps`, dash = `can_dash`) and driven by
         // the brain's `dash_pressed` through `to_input_state` — invariant I3, the
-        // pipeline owns the burst. (blink / fly / shield are still resolved below
-        // on the capability path; folding them is the remaining step-4 work.)
+        // pipeline owns the burst. (blink / shield are still resolved below on the
+        // capability path; folding them needs the aerial reconciliation too.)
 
         if is_surface_walker {
             self.step_surface_walker(world, nearest_neighbor, dt, gravity_dir);
-        } else if is_aerial {
-            integrate_aerial_body(
-                world,
-                self.kin,
-                self.surface,
-                self.motion,
-                &self.config.tuning,
-                &frame,
-                dt,
-            );
         } else {
-            self.integrate_grounded_body(world, ai.intent, &frame, dt, gravity_dir);
+            // Grounded AND aerial bodies run the ONE shared movement pipeline; it
+            // picks the flight limb vs the grounded spine internally from
+            // `flight.fly_enabled` (set for aerial bodies at spawn / by the fly
+            // toggle). The bespoke aerial integrator is gone.
+            self.integrate_body(world, ai.intent, &frame, dt, gravity_dir);
         }
 
         // Face the brain's committed direction whenever it commits one. Hostile
@@ -208,21 +159,25 @@ impl<'a> ActorMut<'a> {
         frame
     }
 
-    /// Grounded integration through the **shared player movement pipeline**
-    /// (`ae::update_body_with_tuning_clusters`) — the unification's core seam.
-    /// The actor's `kin` supplies the kinematics; its persistent [`ActorBody`]
-    /// supplies the 18 ancillary movement clusters. The brain's
-    /// `ActorControlFrame` becomes the body's `InputState` (locomotion → run,
-    /// jump_pressed → buffered jump), so an enemy now runs, jumps, coyote-grace-
-    /// jumps, and collides through the EXACT code the human player uses — no
-    /// parallel enemy integrator. Movement physics is the body's authored
-    /// `BodyMovementTuning` (`body_tuning`); dash (when the ability mask grants
-    /// it) is the pipeline's own dash limb, no per-actor run-cap scaling.
+    /// Integration through the **shared player movement pipeline**
+    /// (`ae::update_body_with_tuning_clusters`) — the unification's core seam, for
+    /// BOTH grounded and aerial bodies. The actor's `kin` supplies the kinematics;
+    /// its persistent [`ActorBody`] supplies the 18 ancillary movement clusters.
+    /// The brain's `ActorControlFrame` becomes the body's `InputState`, so an actor
+    /// runs / jumps / coyote-grace-jumps / dashes / **flies** and collides through
+    /// the EXACT code the human player uses — no parallel enemy integrator.
+    ///
+    /// **Grounded** bodies map `locomotion → run` + `jump_pressed → buffered jump`.
+    /// **Flying** bodies (`flight.fly_enabled`) are steered by the brain's exact
+    /// `velocity_target` (the free-mover command): it is projected into the body
+    /// frame and normalised by the flight terminal so the shared flight limb steers
+    /// toward it at the body's own flight speed — the `velocity_target`→intent
+    /// bridge that lets aerial actors share the pipeline.
     ///
     /// The pipeline owns hazard/out-of-bounds as a *flag* (it never teleports an
     /// actor to the player spawn); the actor's damage / OOB systems own the
     /// reaction, so the returned events are intentionally dropped here.
-    fn integrate_grounded_body(
+    fn integrate_body(
         &mut self,
         world: &ae::World,
         ai_intent: ambition_characters::actor::ai::CharacterAiIntent,
@@ -236,12 +191,40 @@ impl<'a> ActorMut<'a> {
         let perp = ae::Vec2::new(-gravity_dir.y, gravity_dir.x);
         let prev_side_speed = self.kin.vel.dot(perp);
 
-        let tuning = self.config.tuning.movement.body_tuning(
+        let flying = self.body.0.flight.fly_enabled;
+        let mut tuning = self.config.tuning.movement.body_tuning(
             self.config.tuning.max_run_speed,
             gravity_dir,
             self.surface.gravity_scale,
         );
-        let input = frame.to_input_state();
+        // Flight tuning from the actor's chase speed: the body flies at its own
+        // speed, steers responsively (matching the old floating accel), and does
+        // NOT idle-bob like the player (hover speed 0) — an AI flyer holds station.
+        let flight_speed = self
+            .config
+            .tuning
+            .chase_speed
+            .max(self.config.tuning.max_run_speed)
+            .max(1.0);
+        tuning.flight_terminal_speed = flight_speed;
+        tuning.flight_accel = (flight_speed * 3.0).max(900.0);
+        tuning.flight_drag = (flight_speed * 3.0).max(900.0);
+        tuning.flight_hover_speed = 0.0;
+        tuning.flight_hover_hz = 0.0;
+
+        let input = if flying {
+            // `velocity_target` (world px/s) → flight stick intent: project onto the
+            // body frame the flight limb integrates in, normalise by the terminal so
+            // a full-speed command maps to a full-deflection stick.
+            let fref = ae::AccelerationFrame::new(gravity_dir);
+            let vt = frame.velocity_target;
+            let mut i = frame.to_input_state();
+            i.axis_x = (vt.dot(fref.side) / flight_speed).clamp(-1.0, 1.0);
+            i.axis_y = (vt.dot(fref.down) / flight_speed).clamp(-1.0, 1.0);
+            i
+        } else {
+            frame.to_input_state()
+        };
         let on_ground = self.surface.on_ground;
         let air_jumps = self.surface.air_jumps_remaining;
 
@@ -275,8 +258,9 @@ impl<'a> ActorMut<'a> {
         };
         let _events = ae::update_body_with_tuning_clusters(world, &mut clusters, input, dt, tuning);
         // Reflect the pipeline's ground contact back onto the actor surface (the
-        // surface state the rest of the actor systems + rendering read).
-        self.surface.on_ground = clusters.ground.on_ground;
+        // surface state the rest of the actor systems + rendering read). A flying
+        // body is never grounded.
+        self.surface.on_ground = !flying && clusters.ground.on_ground;
         self.surface.air_jumps_remaining = clusters.jump.air_jumps_available;
         if self.surface.on_ground {
             self.surface.air_jumps_remaining = MAX_ENEMY_AIR_JUMPS;
@@ -632,7 +616,7 @@ mod dash_tests {
         seed.caps.can_dash = can_dash;
         // The dash ability lives on the movement body's mask (derived from caps);
         // rebuild it after overriding the cap so the pipeline dash limb matches.
-        seed.body = ActorBody::from_caps(&seed.caps);
+        seed.body = ActorBody::from_caps(&seed.caps, false);
         let start_x = seed.kin.pos.x;
         let mut em = ActorMut {
             kin: &mut seed.kin,
@@ -694,7 +678,7 @@ mod dash_tests {
         seed.surface.on_ground = true;
         seed.surface.gravity_scale = 1.0;
         seed.caps.can_dash = false;
-        seed.body = ActorBody::from_caps(&seed.caps);
+        seed.body = ActorBody::from_caps(&seed.caps, false);
         let mut em = ActorMut {
             kin: &mut seed.kin,
             status: &mut seed.status,
@@ -721,6 +705,73 @@ mod dash_tests {
         assert!(
             em.body.0.dash.timer <= 0.0,
             "a body without the dash capability must not open a dash window"
+        );
+    }
+
+    /// Witness for the aerial reconciliation: an aerial body (fly_enabled) is
+    /// steered by the brain's world-space `velocity_target` THROUGH the shared
+    /// pipeline's flight limb (the `velocity_target`→stick-intent bridge). It flies
+    /// toward the command and holds altitude (gravity-free flight, no idle bob).
+    #[test]
+    fn an_aerial_body_steers_toward_its_velocity_target_through_the_flight_limb() {
+        let world = floored_world();
+        // Hover in open air well above the floor (floor top is y = 100).
+        let aabb = ae::Aabb::new(ae::Vec2::new(0.0, -200.0), ae::Vec2::new(24.0, 24.0));
+        let mut seed = ActorClusterSeed::new(
+            "flyer".to_string(),
+            "Flyer".to_string(),
+            aabb,
+            EnemyBrain::Custom("cellular_automaton_fighter".into()),
+            &[],
+        );
+        seed.kin.pos = ae::Vec2::new(0.0, -200.0);
+        seed.kin.vel = ae::Vec2::ZERO;
+        seed.surface.gravity_scale = 0.0;
+        seed.surface.on_ground = false;
+        // Aerial body: fly ability + fly_enabled from spawn.
+        seed.body = ActorBody::from_caps(&seed.caps, true);
+        let start = seed.kin.pos;
+        let mut em = ActorMut {
+            kin: &mut seed.kin,
+            status: &mut seed.status,
+            surface: &mut seed.surface,
+            attack: &mut seed.attack,
+            config: &mut seed.config,
+            motion: &mut seed.motion,
+            body: &mut seed.body,
+            caps: &seed.caps,
+        };
+        let mut frame = ActorControlFrame::neutral();
+        // Command a pure +x world velocity (the free-mover modality).
+        frame.velocity_target = ae::Vec2::new(300.0, 0.0);
+        let dt = 1.0 / 60.0;
+        for _ in 0..60 {
+            em.update(
+                &world,
+                ae::Vec2::new(2000.0, em.kin.pos.y),
+                FeatureCombatTuning::default(),
+                None,
+                dt,
+                false,
+                frame,
+                ae::Vec2::new(0.0, 1.0),
+            );
+        }
+        assert!(
+            em.kin.pos.x - start.x > 100.0,
+            "an aerial body should fly toward its +x velocity_target through the \
+             shared flight limb; moved {:.1}px",
+            em.kin.pos.x - start.x
+        );
+        assert!(
+            (em.kin.pos.y - start.y).abs() < 50.0,
+            "gravity-free flight holds altitude (no fall, no idle hover bob); \
+             drifted {:.1}px on y",
+            em.kin.pos.y - start.y
+        );
+        assert!(
+            !em.surface.on_ground,
+            "a flying body is never grounded"
         );
     }
 }

@@ -123,16 +123,18 @@ impl ActorBody {
     /// [`CombatCapabilities`] — the verbs the shared movement pipeline owns for
     /// this body. Locomotion (run + jump) is always on; **dash** turns on with
     /// `can_dash` (the pipeline's real dash impulse replaces the actor's old
-    /// speed-cap burst). blink / fly / shield are still resolved on the actor's
-    /// own capability path (`update_ecs_actors`) — enabling their pipeline limbs
-    /// here too would double-fire; folding them is the remaining step-4 work.
-    pub fn from_caps(caps: &crate::combat::CombatCapabilities) -> Self {
+    /// speed-cap burst). **fly** turns on for an aerial body (it lives in flight
+    /// mode) OR a body that can toggle flight (`can_fly`); an aerial body also
+    /// starts with `flight.fly_enabled` so it runs the shared flight limb from
+    /// spawn. blink / shield are still resolved on the actor's capability path.
+    pub fn from_caps(caps: &crate::combat::CombatCapabilities, is_aerial: bool) -> Self {
         let mut abilities = Self::locomotion_abilities();
         abilities.dash = caps.can_dash;
-        Self(ae::PlayerClusterScratch::new_with_abilities(
-            ae::Vec2::ZERO,
-            abilities,
-        ))
+        abilities.fly = is_aerial || caps.can_fly;
+        let mut scratch =
+            ae::PlayerClusterScratch::new_with_abilities(ae::Vec2::ZERO, abilities);
+        scratch.flight.fly_enabled = is_aerial;
+        Self(scratch)
     }
 
     /// The grounded actor's locomotion ability mask: run + jump + double-jump the
@@ -309,7 +311,7 @@ impl ActorClusterSeed {
                 sprite_character_id,
             },
             motion: ActorMotionPath(motion),
-            body: ActorBody::from_caps(&spec.combat_capabilities()),
+            body: ActorBody::from_caps(&spec.combat_capabilities(), spec.is_aerial),
             caps: spec.combat_capabilities(),
             spec,
         }
@@ -438,7 +440,9 @@ impl ActorClusterSeed {
                 sprite_character_id: character_id.map(String::from),
             },
             motion: ActorMotionPath(motion),
-            body: ActorBody::new(),
+            // A floating catalog body (the stochastic parrot) flies through the
+            // shared flight limb from spawn; a grounded NPC runs the grounded spine.
+            body: ActorBody::from_caps(&crate::combat::CombatCapabilities::default(), is_aerial),
             caps: crate::combat::CombatCapabilities::default(),
             // Inert: peaceful actors never spawn through the archetype path that
             // reads `spec`. `Passive` resolves to the roster's fallback row.

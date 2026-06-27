@@ -135,7 +135,7 @@ pub fn record_frame_system(
             &crate::player::PlayerInputFrame,
             &crate::player::PlayerCombatState,
         ),
-        crate::player::PrimaryPlayerOnly,
+        crate::actor::PrimaryPlayerOnly,
     >,
     #[cfg(feature = "portal")] mut teleported: MessageReader<crate::portal::BodyTeleported>,
 ) {

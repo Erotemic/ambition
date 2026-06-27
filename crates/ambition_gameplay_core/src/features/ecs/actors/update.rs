@@ -85,13 +85,13 @@ pub fn update_ecs_actors(
             &crate::player::PlayerShieldState,
             &crate::player::PlayerCombatState,
         ),
-        bevy::prelude::With<crate::player::PlayerEntity>,
+        bevy::prelude::With<crate::actor::PlayerEntity>,
     >,
     primary_q: bevy::prelude::Query<
         bevy::prelude::Entity,
         (
-            bevy::prelude::With<crate::player::PlayerEntity>,
-            bevy::prelude::With<crate::player::PrimaryPlayer>,
+            bevy::prelude::With<crate::actor::PlayerEntity>,
+            bevy::prelude::With<crate::actor::PrimaryPlayer>,
         ),
     >,
     mut actors: Query<
@@ -144,7 +144,7 @@ pub fn update_ecs_actors(
         // tick. The deleted `ActorRuntime` tag used to keep them out implicitly.
         (
             With<FeatureSimEntity>,
-            Without<crate::player::PlayerEntity>,
+            Without<crate::actor::PlayerEntity>,
             Without<super::super::boss_clusters::BossConfig>,
         ),
     >,

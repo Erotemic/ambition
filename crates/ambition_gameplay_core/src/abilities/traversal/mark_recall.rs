@@ -26,7 +26,8 @@ use bevy::prelude::*;
 
 use ambition_engine_core as ae;
 use crate::features::HeldItem;
-use crate::player::{PlayerEntity, PlayerInputFrame, PrimaryPlayer};
+use crate::player::{PlayerInputFrame};
+use crate::actor::{PlayerEntity, PrimaryPlayer};
 use crate::actor::BodyKinematics;
 
 /// The held-item id the Mark/Recall ability grants (see `brain::action_set`

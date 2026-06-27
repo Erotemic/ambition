@@ -88,7 +88,7 @@ pub struct YarnStateMirror(pub Arc<RwLock<YarnStateMirrorData>>);
 pub fn refresh_yarn_state_mirror(
     save: Option<Res<SandboxSave>>,
     owned: Option<Res<crate::items::OwnedItems>>,
-    wallet: Query<&crate::player::PlayerWallet, With<crate::player::PrimaryPlayer>>,
+    wallet: Query<&crate::player::PlayerWallet, With<crate::actor::PrimaryPlayer>>,
     mirror: Res<YarnStateMirror>,
 ) {
     let mut snap = mirror.0.write().expect("YarnStateMirror poisoned");
@@ -235,7 +235,7 @@ pub fn cmd_clear_flag(In(name): In<String>, mut effects: MessageWriter<SetFlagRe
 /// branch. Logs and no-ops if there's no in-world speaker (scripted dialogue).
 pub fn cmd_challenge(
     dialogue: Res<crate::dialog::DialogState>,
-    player: Query<Entity, With<crate::player::PlayerEntity>>,
+    player: Query<Entity, With<crate::actor::PlayerEntity>>,
     mut stimuli: MessageWriter<crate::features::ActorStimulus>,
 ) {
     let Some(actor) = dialogue.speaker_entity() else {
@@ -277,7 +277,7 @@ pub fn cmd_give_item(
 pub fn cmd_buy_item(
     In((id, price)): In<(String, f32)>,
     mut owned: ResMut<crate::items::OwnedItems>,
-    mut wallets: Query<&mut crate::player::PlayerWallet, With<crate::player::PrimaryPlayer>>,
+    mut wallets: Query<&mut crate::player::PlayerWallet, With<crate::actor::PrimaryPlayer>>,
 ) {
     let Some(item) = crate::items::Item::from_dialog_id(&id) else {
         warn!(target: "ambition_gameplay_core::dialog::yarn", "buy_item: unknown item {id:?}");
@@ -298,7 +298,7 @@ pub fn cmd_buy_item(
 pub fn cmd_sell_item(
     In((id, price)): In<(String, f32)>,
     mut owned: ResMut<crate::items::OwnedItems>,
-    mut wallets: Query<&mut crate::player::PlayerWallet, With<crate::player::PrimaryPlayer>>,
+    mut wallets: Query<&mut crate::player::PlayerWallet, With<crate::actor::PrimaryPlayer>>,
 ) {
     let Some(item) = crate::items::Item::from_dialog_id(&id) else {
         warn!(target: "ambition_gameplay_core::dialog::yarn", "sell_item: unknown item {id:?}");
@@ -356,7 +356,7 @@ pub fn cmd_play_sfx(In(id_str): In<String>, mut sfx: MessageWriter<crate::audio:
 /// can verify the explosion pipeline without entering a boss room.
 pub fn cmd_spawn_fireworks(
     mut fireworks: MessageWriter<ambition_vfx::vfx::FireworksRequest>,
-    player_q: Query<&crate::actor::BodyKinematics, crate::player::PrimaryPlayerOnly>,
+    player_q: Query<&crate::actor::BodyKinematics, crate::actor::PrimaryPlayerOnly>,
 ) {
     let origin = player_q
         .single()

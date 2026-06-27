@@ -272,7 +272,7 @@ pub fn update_ecs_bosses(
             &crate::player::PlayerShieldState,
             &crate::player::PlayerCombatState,
         ),
-        With<crate::player::PlayerEntity>,
+        With<crate::actor::PlayerEntity>,
     >,
     mut bosses: Query<
         (
@@ -291,7 +291,7 @@ pub fn update_ecs_bosses(
         // The player carries the unified `BodyKinematics`, and `player_query`
         // above reads it; exclude the player here so this `&mut BodyKinematics`
         // boss query is provably disjoint from it.
-        (With<FeatureSimEntity>, Without<crate::player::PlayerEntity>),
+        (With<FeatureSimEntity>, Without<crate::actor::PlayerEntity>),
     >,
     // Per-position gravity, so a grounded boss's footprint AABB orients to its
     // reference frame (matches the rotated sprite + the actor/player footprints).

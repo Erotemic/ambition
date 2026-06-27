@@ -22,10 +22,8 @@ use ambition_vfx::vfx::VfxMessage;
 use crate::audio::SfxMessage;
 use crate::dev::dev_tools::EditableMovementTuning;
 use crate::features::{self, GameplayBanner, HitEvent as FeatureHitEvent};
-use crate::player::{
-    PlayerAnimState, PlayerCombatState, PlayerEntity, PlayerHealth, PlayerInputFrame,
-    PlayerSafetyState, PrimaryPlayer, PrimaryPlayerOnly,
-};
+use crate::player::{PlayerAnimState, PlayerCombatState, PlayerHealth, PlayerInputFrame, PlayerSafetyState};
+use crate::actor::{PlayerEntity, PrimaryPlayer, PrimaryPlayerOnly};
 use crate::time::clock_state::ClockState;
 use crate::time::feel::SandboxFeelTuning;
 use crate::{

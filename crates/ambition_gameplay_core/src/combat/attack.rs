@@ -27,7 +27,8 @@ use crate::combat::{
 };
 use crate::dev::dev_tools::EditableMovementTuning;
 use crate::features::{self, FeatureEcsWorldOverlay};
-use crate::player::{ActivePlayerAttack, PlayerAnimState, PlayerCombatState, PrimaryPlayerOnly};
+use crate::player::{ActivePlayerAttack, PlayerAnimState, PlayerCombatState};
+use crate::actor::{PrimaryPlayerOnly};
 use crate::time::feel::SandboxFeelTuning;
 use crate::world::platforms::MovingPlatformState;
 use crate::{physics, MovingPlatformSet, PlayerAttackState, RoomGeometry};

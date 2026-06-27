@@ -56,7 +56,7 @@ pub fn update_encounters_from_world(
     mut switch_activations: ResMut<SwitchActivationQueue>,
     switch_index: Res<EncounterSwitchIndex>,
     mut trace: ResMut<crate::trace::GameplayTraceBuffer>,
-    player_body_q: Query<&crate::actor::BodyKinematics, With<crate::player::PlayerEntity>>,
+    player_body_q: Query<&crate::actor::BodyKinematics, With<crate::actor::PlayerEntity>>,
     mut music_request: ResMut<EncounterMusicRequest>,
     mut quests: ResMut<crate::quest::QuestRegistry>,
     mut banner_requests: MessageWriter<crate::features::GameplayBannerRequested>,

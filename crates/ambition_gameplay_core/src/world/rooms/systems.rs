@@ -268,7 +268,7 @@ pub fn detect_room_transition_system(
             ae::PlayerClusterQueryData,
             &mut crate::player::PlayerInteractionState,
         ),
-        crate::player::PrimaryPlayerOnly,
+        crate::actor::PrimaryPlayerOnly,
     >,
 ) {
     if sim_state.room_transition_cooldown > 0.0 {

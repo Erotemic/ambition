@@ -278,7 +278,8 @@ mod tests {
     /// boss's attack at it.
     #[test]
     fn a_parried_enemy_shot_flips_to_player_faction_and_reverses() {
-        use crate::player::{PlayerBaseSize, PlayerCombatState, PlayerDodgeState, PlayerEntity, PlayerOffense, PlayerShieldState};
+        use crate::player::{PlayerBaseSize, PlayerCombatState, PlayerDodgeState, PlayerOffense, PlayerShieldState};
+use crate::actor::{PlayerEntity};
 use crate::actor::BodyKinematics;
         let mut app = App::new();
         app.insert_resource(crate::RoomGeometry(ae::World::new(
@@ -369,7 +370,8 @@ use crate::actor::BodyKinematics;
     /// exercised.
     #[test]
     fn an_owned_enemy_shot_attributes_its_player_hit_to_the_firing_actor() {
-        use crate::player::{PlayerBaseSize, PlayerCombatState, PlayerDodgeState, PlayerEntity, PlayerOffense, PlayerShieldState};
+        use crate::player::{PlayerBaseSize, PlayerCombatState, PlayerDodgeState, PlayerOffense, PlayerShieldState};
+use crate::actor::{PlayerEntity};
 use crate::actor::BodyKinematics;
         let mut app = App::new();
         app.insert_resource(crate::RoomGeometry(ae::World::new(

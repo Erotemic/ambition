@@ -11,7 +11,8 @@ use bevy::prelude::*;
 
 use crate::items::OwnedItems;
 use crate::persistence::save::SandboxSave;
-use crate::player::{PlayerEntity, PlayerWallet, PrimaryPlayer};
+use crate::player::{PlayerWallet};
+use crate::actor::{PlayerEntity, PrimaryPlayer};
 
 /// Set once the saved inventory has been applied to the live state (or skipped
 /// for a fresh save), so the write-back can't fire before the restore and

@@ -15,7 +15,7 @@ const PICKUP_MAGNET_SPEED: f32 = 340.0;
 /// pulled into overlap is collected the same frame.
 pub fn magnetize_pickups(
     time: Res<crate::WorldTime>,
-    players: Query<&crate::actor::BodyKinematics, With<crate::player::PrimaryPlayer>>,
+    players: Query<&crate::actor::BodyKinematics, With<crate::actor::PrimaryPlayer>>,
     mut pickups: Query<&mut CenteredAabb, (With<PickupFeature>, Without<Collected>)>,
 ) {
     let dt = time.scaled_dt;
@@ -35,7 +35,7 @@ pub fn magnetize_pickups(
 pub fn collect_ecs_pickups(
     mut commands: Commands,
     mut banner: ResMut<GameplayBanner>,
-    player: Query<(Entity, &crate::actor::BodyKinematics), With<crate::player::PlayerEntity>>,
+    player: Query<(Entity, &crate::actor::BodyKinematics), With<crate::actor::PlayerEntity>>,
     pickups: Query<
         (
             Entity,
@@ -133,7 +133,8 @@ pub fn collect_ecs_pickups(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::player::{PlayerBaseSize, PlayerEntity, PlayerHealRequested};
+    use crate::player::{PlayerBaseSize, PlayerHealRequested};
+use crate::actor::{PlayerEntity};
 use crate::actor::BodyKinematics;
     use bevy::prelude::{App, Update};
 
@@ -141,7 +142,7 @@ use crate::actor::BodyKinematics;
         app.world_mut()
             .spawn((
                 PlayerEntity,
-                crate::player::PrimaryPlayer,
+                crate::actor::PrimaryPlayer,
                 BodyKinematics {
                     pos,
                     size: ae::Vec2::new(28.0, 46.0),

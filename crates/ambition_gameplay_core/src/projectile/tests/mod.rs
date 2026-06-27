@@ -140,7 +140,7 @@ pub(in crate::projectile) fn projectile_state_mut(
 pub(in crate::projectile) fn primary_player_entity(app: &mut App) -> Entity {
     let world = app.world_mut();
     let mut q = world
-        .try_query_filtered::<Entity, With<crate::player::PlayerEntity>>()
+        .try_query_filtered::<Entity, With<crate::actor::PlayerEntity>>()
         .unwrap();
     q.iter(world)
         .next()

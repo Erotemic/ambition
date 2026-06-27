@@ -8,7 +8,7 @@
 
 use bevy::prelude::*;
 
-use crate::player::{PlayerEntity, PrimaryPlayer};
+use crate::actor::{PlayerEntity, PrimaryPlayer};
 
 /// Per-player movement-ability cooldown (seconds remaining until the next use).
 #[derive(Component, Clone, Copy, Debug, Default)]

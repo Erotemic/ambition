@@ -231,7 +231,7 @@ fn interact_buffered_opens_adjacent_chest() {
     );
     let interaction = app
         .world_mut()
-        .query_filtered::<&crate::player::PlayerInteractionState, With<crate::player::PlayerEntity>>()
+        .query_filtered::<&crate::player::PlayerInteractionState, With<crate::actor::PlayerEntity>>()
         .single(app.world())
         .expect("player entity must exist");
     assert!(

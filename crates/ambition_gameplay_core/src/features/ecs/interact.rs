@@ -19,7 +19,7 @@ pub fn interact_ecs_actors_and_switches(
             &mut crate::player::PlayerInteractionState,
             &mut crate::player::PlayerAnimState,
         ),
-        With<crate::player::PlayerEntity>,
+        With<crate::actor::PlayerEntity>,
     >,
     // Talkable actors carry the shared `ActorInteraction` payload (dialogue
     // is an actor capability, not an NPC type). Dialogue is offered only to a

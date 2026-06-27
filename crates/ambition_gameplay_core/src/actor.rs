@@ -13,8 +13,18 @@
 //! actor vocabulary, never on a `Player*`-named component. Genuinely player-only
 //! state (camera, HUD, device input, wallet) stays in `crate::player`.
 //!
-//! Slice 0 re-homes [`BodyKinematics`] (the single position / velocity / size /
-//! facing component the player, enemies, NPCs, and bosses all share). Subsequent
-//! slices move the entity markers and the combat/economy sim-state here.
+//! Slice 0 re-homed [`BodyKinematics`] (the single position / velocity / size /
+//! facing component the player, enemies, NPCs, and bosses all share). Slice 0b
+//! re-homes the entity markers [`PlayerEntity`] / [`PrimaryPlayer`] (already
+//! foundation types) + the [`PrimaryPlayerOnly`] filter. Subsequent slices move
+//! the combat/economy sim-state here.
+
+use bevy::prelude::With;
 
 pub use crate::platformer_runtime::body::BodyKinematics;
+pub use ambition_platformer_primitives::markers::{PlayerEntity, PrimaryPlayer};
+
+/// Query filter for "the one camera/HUD-owning player body" — `With<PlayerEntity>`
+/// + `With<PrimaryPlayer>`. The neutral home for the filter every non-player system
+/// uses to find the primary player (e.g. targeting, camera follow, HUD readouts).
+pub type PrimaryPlayerOnly = (With<PlayerEntity>, With<PrimaryPlayer>);

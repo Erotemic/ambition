@@ -131,13 +131,13 @@ pub fn apply_feature_hit_events(
             // which targets it has already struck and never double-hits them.
             Option<&mut crate::player::ActivePlayerAttack>,
         ),
-        bevy::prelude::With<crate::player::PlayerEntity>,
+        bevy::prelude::With<crate::actor::PlayerEntity>,
     >,
     primary_q: bevy::prelude::Query<
         bevy::prelude::Entity,
         (
-            bevy::prelude::With<crate::player::PlayerEntity>,
-            bevy::prelude::With<crate::player::PrimaryPlayer>,
+            bevy::prelude::With<crate::actor::PlayerEntity>,
+            bevy::prelude::With<crate::actor::PrimaryPlayer>,
         ),
     >,
     mut writers: FeatureHitWriters,

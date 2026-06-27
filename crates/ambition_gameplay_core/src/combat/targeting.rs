@@ -15,7 +15,7 @@ use super::components::{
     ActorAggression, ActorFaction, ActorTarget, AggressionTarget, CenteredAabb,
 };
 use super::FeatureSimEntity;
-use crate::player::{PlayerEntity};
+use crate::actor::{PlayerEntity};
 use crate::actor::BodyKinematics;
 
 /// Number of [`ActorFaction`] variants (Player / Enemy / Npc / Boss / Neutral).
@@ -184,7 +184,8 @@ fn distance_squared(a: ae::Vec2, b: ae::Vec2) -> f32 {
 mod tests {
     use super::*;
     use crate::combat::components::{ActorAggression, ActorTarget, CenteredAabb};
-    use crate::player::{PlayerEntity, PlayerSlot, PrimaryPlayer};
+    use crate::player::{PlayerSlot};
+use crate::actor::{PlayerEntity, PrimaryPlayer};
 use crate::actor::BodyKinematics;
 
     fn dummy_player_body(pos: ae::Vec2) -> BodyKinematics {

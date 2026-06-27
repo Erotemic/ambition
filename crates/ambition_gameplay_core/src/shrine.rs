@@ -14,7 +14,8 @@
 use bevy::prelude::*;
 
 use ambition_engine_core::{self as ae, AabbExt};
-use crate::player::{PlayerEntity, PlayerHealth, PlayerInputFrame, PlayerMana, PrimaryPlayer};
+use crate::player::{PlayerHealth, PlayerInputFrame, PlayerMana};
+use crate::actor::{PlayerEntity, PrimaryPlayer};
 use crate::actor::BodyKinematics;
 
 /// A healing / save-point shrine the player can `Interact` with.

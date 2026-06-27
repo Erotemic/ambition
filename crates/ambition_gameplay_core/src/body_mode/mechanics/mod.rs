@@ -63,7 +63,7 @@ pub fn update_body_mode(
         // Per-body: every player body (primary + brain-driven clone) computes its
         // OWN crouch/morph/climb posture from its own input. Iterating keeps each
         // body's body-mode independent — the clone runs the same shared system.
-        With<crate::player::PlayerEntity>,
+        With<crate::actor::PlayerEntity>,
     >,
 ) {
     // Body-mode changes test overhead/standing clearance against the composited

@@ -6,7 +6,8 @@ use super::*;
 use ambition_engine_core::world::{ClimbableKind, ClimbableRegion, ClimbableSpec, World};
 use ambition_engine_core::Vec2;
 use ambition_input::ControlFrame;
-use crate::player::{PlayerBaseSize, PlayerBlinkState, PlayerBodyModeState, PlayerDashState, PlayerEntity, PlayerEnvironmentContact, PlayerGroundState, PlayerInputFrame, PlayerInteractionState, PlayerJumpState, PlayerLedgeState, PlayerWallState, PrimaryPlayer};
+use crate::player::{PlayerBaseSize, PlayerBlinkState, PlayerBodyModeState, PlayerDashState, PlayerEnvironmentContact, PlayerGroundState, PlayerInputFrame, PlayerInteractionState, PlayerJumpState, PlayerLedgeState, PlayerWallState};
+use crate::actor::{PlayerEntity, PrimaryPlayer};
 use crate::actor::BodyKinematics;
 use bevy::prelude::{App, Entity, Update};
 

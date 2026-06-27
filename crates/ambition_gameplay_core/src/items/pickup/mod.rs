@@ -17,7 +17,8 @@ use ambition_engine_core::{self as ae, AabbExt};
 use crate::features::HeldItem;
 use ambition_input::ControlFrame;
 use crate::platformer_runtime::prelude::SpawnScopedExt;
-use crate::player::{PlayerEntity, PlayerInputFrame, PrimaryPlayer};
+use crate::player::{PlayerInputFrame};
+use crate::actor::{PlayerEntity, PrimaryPlayer};
 use crate::actor::BodyKinematics;
 #[cfg(feature = "portal")]
 use crate::portal::PortalGun;

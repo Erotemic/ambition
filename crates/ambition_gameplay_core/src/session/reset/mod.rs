@@ -92,7 +92,7 @@ pub fn process_sandbox_reset_request(
         // PRIMARY-only: the reset warps THE player to the start-room spawn. A
         // brain-driven clone is a transient demo body; scoping to the primary keeps
         // the reset working once a second PlayerEntity exists (bare single_mut would Err).
-        crate::player::PrimaryPlayerOnly,
+        crate::actor::PrimaryPlayerOnly,
     >,
 ) {
     if !request.request {
@@ -219,7 +219,7 @@ pub fn clear_transient_on_sandbox_reset(
             &mut ambition_characters::brain::ActionSet,
             Option<&crate::items::pickup::StashedActionSet>,
         ),
-        With<crate::player::PlayerEntity>,
+        With<crate::actor::PlayerEntity>,
     >,
 ) {
     if !request.request {

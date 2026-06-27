@@ -304,7 +304,7 @@ pub fn sync_developer_body_profile(
             &mut crate::actor::BodyKinematics,
             &mut crate::player::PlayerBaseSize,
         ),
-        crate::player::PrimaryPlayerOnly,
+        crate::actor::PrimaryPlayerOnly,
     >,
 ) {
     let desired = developer.player_body_profile.size();
@@ -467,9 +467,9 @@ pub fn sync_player_stats_with_inspector(
             &mut crate::player::PlayerMana,
             &mut crate::player::PlayerOffense,
         ),
-        crate::player::PrimaryPlayerOnly,
+        crate::actor::PrimaryPlayerOnly,
     >,
-    mut health_q: Query<&mut crate::player::PlayerHealth, crate::player::PrimaryPlayerOnly>,
+    mut health_q: Query<&mut crate::player::PlayerHealth, crate::actor::PrimaryPlayerOnly>,
 ) {
     if !snapshot.initialized {
         snapshot.health = stats.health;

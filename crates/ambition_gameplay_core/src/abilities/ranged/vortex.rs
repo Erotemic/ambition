@@ -16,7 +16,8 @@ use bevy::prelude::*;
 
 use ambition_engine_core as ae;
 use crate::features::{ActorFaction, BodyKinematics, FeatureSimEntity, HeldItem};
-use crate::player::{PlayerEntity, PlayerInputFrame, PlayerMana, PrimaryPlayer};
+use crate::player::{PlayerInputFrame, PlayerMana};
+use crate::actor::{PlayerEntity, PrimaryPlayer};
 
 /// Held-item id of the vortex gauntlet.
 pub const VORTEX_ID: &str = "vortex";

@@ -75,7 +75,7 @@ pub fn apply_hitbox_damage(
             &crate::player::PlayerShieldState,
             &crate::player::PlayerCombatState,
         ),
-        bevy::prelude::With<crate::player::PlayerEntity>,
+        bevy::prelude::With<crate::actor::PlayerEntity>,
     >,
     // Orient the player's hurtbox to its (zone-aware) gravity frame — the same
     // box the debug overlay draws and enemies/bosses resolve through

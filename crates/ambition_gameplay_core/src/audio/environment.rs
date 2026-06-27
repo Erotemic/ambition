@@ -153,7 +153,7 @@ fn lerp(a: f32, b: f32, t: f32) -> f32 {
 #[cfg(feature = "audio")]
 pub fn detect_audio_environment(
     mut env: ResMut<AudioEnvironment>,
-    primary: Query<&crate::player::PlayerEnvironmentContact, With<crate::player::PrimaryPlayer>>,
+    primary: Query<&crate::player::PlayerEnvironmentContact, With<crate::actor::PrimaryPlayer>>,
 ) {
     let underwater = primary
         .iter()
@@ -353,8 +353,8 @@ mod tests {
         // Spawn a minimal primary player with the env-contact cluster
         // component the detect system reads.
         app.world_mut().spawn((
-            crate::player::PlayerEntity,
-            crate::player::PrimaryPlayer,
+            crate::actor::PlayerEntity,
+            crate::actor::PrimaryPlayer,
             crate::player::PlayerEnvironmentContact::default(),
         ));
         app.add_systems(Update, detect_audio_environment);
@@ -378,7 +378,7 @@ mod tests {
         {
             let mut q = app.world_mut().query_filtered::<
                 &mut crate::player::PlayerEnvironmentContact,
-                With<crate::player::PrimaryPlayer>,
+                With<crate::actor::PrimaryPlayer>,
             >();
             for mut env_contact in q.iter_mut(app.world_mut()) {
                 env_contact.water = Some(contact);
@@ -394,7 +394,7 @@ mod tests {
         {
             let mut q = app.world_mut().query_filtered::<
                 &mut crate::player::PlayerEnvironmentContact,
-                With<crate::player::PrimaryPlayer>,
+                With<crate::actor::PrimaryPlayer>,
             >();
             for mut env_contact in q.iter_mut(app.world_mut()) {
                 env_contact.water = Some(ae::WaterContact {

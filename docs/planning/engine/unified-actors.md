@@ -207,10 +207,11 @@ recognizable:
   The grounded actor runs the player movement pipeline directly
   (`ActorMut::integrate_grounded_body` → `update_body_with_tuning_clusters`,
   borrowing `kin` + the new `ActorBody` clusters); `integrate_standard_enemy_body`
-  is deleted. Still duplicated: blink/fly/shield/dash exist **twice** — the actor's
-  copies live on `ActorAttackState` / `CombatCapabilities`, NOT yet the pipeline's
-  ability limbs (so the actor ability mask stays locomotion-only). Folding those
-  onto the limbs + retiring `ActorSurfaceState`'s redundant ground/jump fields is
+  is deleted. **Dash converged** — the actor's bespoke burst is deleted; the
+  grounded body dashes via the pipeline's `dash` limb (`ActorBody::from_caps`).
+  Still duplicated: **blink / fly / shield** — the actor's copies live on
+  `ActorAttackState` / the actor resolver, NOT yet the pipeline's ability limbs.
+  Folding those + retiring `ActorSurfaceState`'s redundant ground/jump fields is
   the step-4 collapse. Aerial free-movers + surface-walkers still run their own
   steps by design.
 - **Targeting — relational.** `FactionRelations` + `select_actor_targets`; an Enemy
@@ -268,14 +269,22 @@ Enemies rise to the player; delete-heavy. Each step is gated on *it compiles* (i
    `update_body_with_tuning_clusters`. **`integrate_standard_enemy_body` is
    deleted** — its aerial half is `integrate_aerial_body` (still
    `step_floating_body`). A grounded enemy now runs / buffers-and-coyote-jumps /
-   collides through the EXACT player core. *Remaining:* (a) the ability mask is
-   locomotion-only — enabling wall-cling / ledge-grab / dodge for actors, and
-   folding the actor's own dash / blink / fly / shield onto the pipeline limbs
-   (currently still on the `ActorAttackState` path), is the step-4 cluster
-   collapse; (b) the **aerial free-mover** (`gravity_scale` vs `PlayerFlightState`)
-   and **surface-walker** modalities are still reconciled separately, as planned.
-   *Gotcha (held):* `ActorMotionPath` patrol + `gravity_scale`-from-catalog
-   survive the merge.
+   collides through the EXACT player core. **Dash is folded** too: the actor's
+   bespoke speed-cap burst (the divergent `ActorAttackState::try_dash` /
+   `DASH_SPEED_MULT`, now deleted) is gone — `ActorBody::from_caps` flips on the
+   pipeline's `dash` ability from `can_dash`, so a grounded enemy dashes with the
+   player's real impulse. *Remaining:* (a) fold the actor's still-bespoke **blink /
+   fly / shield** onto the pipeline limbs (blink is already the shared `blink_target`
+   rule — folding it needs the body's `FrameEvents.blinks` surfaced for sfx/vfx;
+   fly is coupled to the aerial reconciliation below; shield is already the shared
+   `resolve_shield` rule, just called actor-side), and enable wall-cling / ledge-
+   grab / dodge for actors (needs a `CombatCapabilities` cap each — they're
+   contact-triggered, so all-or-nothing without a gate) — all step-4 cluster
+   collapse; (b) the **aerial free-mover** modality is **blocked** on the
+   `velocity_target` → flight-intent merge (S2 vocab, feel-risky — the brain steers
+   aerial bodies by `velocity_target`, the pipeline flight by `axis_*` intent);
+   **surface-walkers** stay a separate glued crawl by design. *Gotcha (held):*
+   `ActorMotionPath` patrol + `gravity_scale`-from-catalog survive the merge.
 4. **Collapse the `Player*` / `Actor*` dual hierarchy** — *the keystone* (see
    [`architecture.md`](architecture.md) for the slice plan + component buckets). Move
    shared sim-state onto the `Actor*` vocabulary; the ~20-module player dependency

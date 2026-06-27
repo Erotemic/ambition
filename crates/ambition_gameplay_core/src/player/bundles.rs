@@ -8,14 +8,8 @@ use super::components::{
     PlayerEntity, PlayerInputFrame, PlayerInteractionState, PlayerSafetyState,
     PlayerSlot, PlayerWallet, PrimaryPlayer,
 };
-use crate::actor::{BodyCombat, BodyHealth};
-use super::movement_components::{
-    BodyKinematics, BodyAbilities, BodyActionBuffer, BodyBaseSize, BodyBlinkState,
-    BodyModeState, BodyComboTrace, BodyDashState, BodyDodgeState,
-    BodyEnvironmentContact, BodyFlightState, BodyGroundState, BodyJumpState,
-    BodyLedgeState, BodyLifetime, BodyMana, BodyOffense, BodyShieldState,
-    BodyWallState,
-};
+use crate::actor::{AncillaryMovementBundle, BodyCombat, BodyHealth};
+use super::movement_components::BodyKinematics;
 use ambition_characters::brain::{ActionSet, ActorControl, Brain};
 use crate::features::{ActorFaction, ActorPose};
 
@@ -83,29 +77,15 @@ pub struct PlayerSimulationBundle {
     /// non-player actors. Synced from `BodyKinematics`, not from any
     /// presentation `Transform`.
     pub actor_pose: ActorPose,
-    // The 18 player cluster components. Authoritative player state —
-    // every engine entry point reads / writes them through
-    // `PlayerClustersMut`. See `engine_core/player_clusters.rs` for
-    // the per-cluster shape.
-    pub abilities: BodyAbilities,
+    // The authoritative movement-cluster components. `kinematics` is the
+    // shared kinematic truth (its own component); the other 18 ancillary
+    // clusters spawn through the shared `AncillaryMovementBundle` — the SAME
+    // bundle every actor nests, so player and actor carry the identical real
+    // component set. Every engine entry point reads / writes them through
+    // `PlayerClustersMut`. See `engine_core/player_clusters.rs` for the
+    // per-cluster shape.
     pub kinematics: BodyKinematics,
-    pub base_size: BodyBaseSize,
-    pub ground: BodyGroundState,
-    pub wall: BodyWallState,
-    pub jump: BodyJumpState,
-    pub dash: BodyDashState,
-    pub flight: BodyFlightState,
-    pub blink: BodyBlinkState,
-    pub ledge: BodyLedgeState,
-    pub dodge: BodyDodgeState,
-    pub shield: BodyShieldState,
-    pub body_mode: BodyModeState,
-    pub env_contact: BodyEnvironmentContact,
-    pub mana: BodyMana,
-    pub offense: BodyOffense,
-    pub action_buffer: BodyActionBuffer,
-    pub lifetime: BodyLifetime,
-    pub combo_trace: BodyComboTrace,
+    pub movement: AncillaryMovementBundle,
     /// Per-player projectile state — spawner cooldowns, charge timer,
     /// motion-input buffer, in-flight body list. Was previously a
     /// global `Res<PlayerProjectileState>`; per-actor migration so
@@ -127,27 +107,9 @@ impl PlayerSimulationBundle {
     pub fn from_scratch(scratch: ae::PlayerClusterScratch, health: ambition_characters::actor::Health) -> Self {
         let action_set = default_player_action_set(scratch.abilities.abilities);
         let initial_safe_pos = scratch.kinematics.pos;
-        let ae::PlayerClusterScratch {
-            abilities,
-            kinematics,
-            base_size,
-            ground,
-            wall,
-            jump,
-            dash,
-            flight,
-            blink,
-            ledge,
-            dodge,
-            shield,
-            body_mode,
-            env_contact,
-            mana,
-            offense,
-            action_buffer,
-            lifetime,
-            combo_trace,
-        } = scratch;
+        // `BodyKinematics` is the shared kinematic truth (its own component);
+        // copy it out before the rest folds into the shared movement bundle.
+        let kinematics = scratch.kinematics;
         Self {
             identity: PlayerIdentityBundle::new(PlayerSlot::PRIMARY),
             primary: PrimaryPlayer,
@@ -180,25 +142,8 @@ impl PlayerSimulationBundle {
                 kinematics.size * 0.5,
                 kinematics.facing,
             ),
-            abilities,
             kinematics,
-            base_size,
-            ground,
-            wall,
-            jump,
-            dash,
-            flight,
-            blink,
-            ledge,
-            dodge,
-            shield,
-            body_mode,
-            env_contact,
-            mana,
-            offense,
-            action_buffer,
-            lifetime,
-            combo_trace,
+            movement: AncillaryMovementBundle::from_scratch(scratch),
             projectile: crate::projectile::PlayerProjectileState::default(),
         }
     }

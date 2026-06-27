@@ -45,6 +45,88 @@ pub use ambition_engine_core::{
     BodyWallState,
 };
 
+/// The 18 **ancillary movement clusters** every body spawns with as real ECS
+/// components — everything in the movement aggregate EXCEPT [`BodyKinematics`]
+/// (the shared kinematic truth, spawned as its own component so rendering /
+/// gravity / targeting can read one position without the movement set).
+///
+/// This is the single spawn surface for the ancillary clusters, nested by BOTH
+/// the player (`PlayerSimulationBundle`) and every actor
+/// (`ActorClusterSeed::into_components`). Carrying the identical real components
+/// on both is what lets one query ([`ambition_engine_core::PlayerClusterQueryData`])
+/// — and ultimately one movement driver — serve the player and the actors alike,
+/// instead of the actor wrapping them in a non-ECS scratch blob.
+#[derive(bevy::prelude::Bundle)]
+pub struct AncillaryMovementBundle {
+    pub abilities: BodyAbilities,
+    pub base_size: BodyBaseSize,
+    pub ground: BodyGroundState,
+    pub wall: BodyWallState,
+    pub jump: BodyJumpState,
+    pub dash: BodyDashState,
+    pub flight: BodyFlightState,
+    pub blink: BodyBlinkState,
+    pub ledge: BodyLedgeState,
+    pub dodge: BodyDodgeState,
+    pub shield: BodyShieldState,
+    pub body_mode: BodyModeState,
+    pub env_contact: BodyEnvironmentContact,
+    pub mana: BodyMana,
+    pub offense: BodyOffense,
+    pub action_buffer: BodyActionBuffer,
+    pub lifetime: BodyLifetime,
+    pub combo_trace: BodyComboTrace,
+}
+
+impl AncillaryMovementBundle {
+    /// Split the 18 ancillary clusters out of a [`PlayerClusterScratch`],
+    /// dropping its vestigial `kinematics` field (the body's authoritative
+    /// [`BodyKinematics`] is spawned separately).
+    pub fn from_scratch(scratch: ambition_engine_core::PlayerClusterScratch) -> Self {
+        let ambition_engine_core::PlayerClusterScratch {
+            abilities,
+            kinematics: _,
+            base_size,
+            ground,
+            wall,
+            jump,
+            dash,
+            flight,
+            blink,
+            ledge,
+            dodge,
+            shield,
+            body_mode,
+            env_contact,
+            mana,
+            offense,
+            action_buffer,
+            lifetime,
+            combo_trace,
+        } = scratch;
+        Self {
+            abilities,
+            base_size,
+            ground,
+            wall,
+            jump,
+            dash,
+            flight,
+            blink,
+            ledge,
+            dodge,
+            shield,
+            body_mode,
+            env_contact,
+            mana,
+            offense,
+            action_buffer,
+            lifetime,
+            combo_trace,
+        }
+    }
+}
+
 /// Query filter for "the one camera/HUD-owning player body" — `With<PlayerEntity>`
 /// + `With<PrimaryPlayer>`. The neutral home for the filter every non-player system
 /// uses to find the primary player (e.g. targeting, camera follow, HUD readouts).

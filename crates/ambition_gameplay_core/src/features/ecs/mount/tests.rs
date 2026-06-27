@@ -13,7 +13,7 @@ type ActorClusterBundle = (
     super::super::actor_clusters::ActorMotionPath,
     crate::features::ActorSurfaceState,
     crate::features::ActorAttackState,
-    super::super::actor_clusters::ActorBody,
+    crate::actor::AncillaryMovementBundle,
     crate::combat::CombatCapabilities,
 );
 

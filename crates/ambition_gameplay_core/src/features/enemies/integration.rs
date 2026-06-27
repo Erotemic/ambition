@@ -159,7 +159,7 @@ impl<'a> ActorMut<'a> {
         // dash-blocked by the pipeline dash). Bridge it back onto `status.shield_raised`
         // — the bool the actor DAMAGE path reads to negate a guarded faced-side hit.
         // (Surface-walkers don't run the pipeline; they never raise a guard.)
-        self.status.shield_raised = self.body.0.shield.active;
+        self.status.shield_raised = self.shield.active;
 
         // Face the brain's committed direction whenever it commits one. Hostile
         // chasers AND peaceful patrollers/flyers both set `frame.facing`; a
@@ -208,7 +208,7 @@ impl<'a> ActorMut<'a> {
         let perp = ae::Vec2::new(-gravity_dir.y, gravity_dir.x);
         let prev_side_speed = self.kin.vel.dot(perp);
 
-        let flying = self.body.0.flight.fly_enabled;
+        let flying = self.flight.fly_enabled;
         let mut tuning = self.config.tuning.movement.body_tuning(
             self.config.tuning.max_run_speed,
             gravity_dir,
@@ -245,40 +245,22 @@ impl<'a> ActorMut<'a> {
         let on_ground = self.surface.on_ground;
         let air_jumps = self.surface.air_jumps_remaining;
 
-        // Borrow the actor's persistent movement clusters + the shared kinematics
-        // as ONE `PlayerClustersMut` view (kin = the single kinematic source; no
-        // duplication). Seed the pipeline's ground/jump state from the actor's
-        // surface truth so coyote + jump gates start correct.
-        let body = &mut self.body.0;
-        body.ground.on_ground = on_ground;
-        body.jump.air_jumps_available = air_jumps;
-        let mut clusters = ae::PlayerClustersMut {
-            kinematics: self.kin,
-            abilities: &body.abilities,
-            base_size: &mut body.base_size,
-            ground: &mut body.ground,
-            wall: &mut body.wall,
-            jump: &mut body.jump,
-            dash: &mut body.dash,
-            flight: &mut body.flight,
-            blink: &mut body.blink,
-            ledge: &mut body.ledge,
-            dodge: &mut body.dodge,
-            shield: &mut body.shield,
-            body_mode: &mut body.body_mode,
-            env_contact: &mut body.env_contact,
-            mana: &mut body.mana,
-            offense: &mut body.offense,
-            action_buffer: &mut body.action_buffer,
-            lifetime: &mut body.lifetime,
-            combo_trace: &mut body.combo_trace,
-        };
+        // Seed the pipeline's ground/jump state from the actor's surface truth so
+        // coyote + jump gates start correct, then borrow `kin` + the 18 ancillary
+        // clusters (all real components now) as ONE `PlayerClustersMut` view — the
+        // exact aggregate the player builds, no parallel integrator.
+        self.ground.on_ground = on_ground;
+        self.jump.air_jumps_available = air_jumps;
+        let mut clusters = self.clusters_mut();
         let events = ae::update_body_with_tuning_clusters(world, &mut clusters, input, dt, tuning);
         // Reflect the pipeline's ground contact back onto the actor surface (the
         // surface state the rest of the actor systems + rendering read). A flying
         // body is never grounded.
-        self.surface.on_ground = !flying && clusters.ground.on_ground;
-        self.surface.air_jumps_remaining = clusters.jump.air_jumps_available;
+        let pipeline_on_ground = clusters.ground.on_ground;
+        let pipeline_air_jumps = clusters.jump.air_jumps_available;
+        drop(clusters);
+        self.surface.on_ground = !flying && pipeline_on_ground;
+        self.surface.air_jumps_remaining = pipeline_air_jumps;
         if self.surface.on_ground {
             self.surface.air_jumps_remaining = MAX_ENEMY_AIR_JUMPS;
         }
@@ -594,7 +576,7 @@ mod dash_tests {
     //! body owns the burst — a possessing human and an AI brain dash identically
     //! because both only set `dash_pressed` (invariants I2/I3).
     use super::*;
-    use crate::features::ecs::actor_clusters::{ActorBody, ActorClusterSeed, ActorMut};
+    use crate::features::ecs::actor_clusters::{ActorBody, ActorClusterSeed};
     use ambition_characters::actor::control::ActorControlFrame;
     use ambition_characters::actor::EnemyBrain;
 
@@ -636,17 +618,7 @@ mod dash_tests {
         // rebuild it after overriding the cap so the pipeline dash limb matches.
         seed.body = ActorBody::from_caps(&seed.caps, false);
         let start_x = seed.kin.pos.x;
-        let mut em = ActorMut {
-            kin: &mut seed.kin,
-            status: &mut seed.status,
-            health: &mut seed.health,
-            surface: &mut seed.surface,
-            attack: &mut seed.attack,
-            config: &mut seed.config,
-            motion: &mut seed.motion,
-            body: &mut seed.body,
-            caps: &seed.caps,
-        };
+        let mut em = seed.as_actor_mut();
         let mut frame = ActorControlFrame::neutral();
         frame.locomotion = ae::Vec2::new(1.0, 0.0);
         frame.dash_pressed = true;
@@ -698,17 +670,7 @@ mod dash_tests {
         seed.surface.gravity_scale = 1.0;
         seed.caps.can_dash = false;
         seed.body = ActorBody::from_caps(&seed.caps, false);
-        let mut em = ActorMut {
-            kin: &mut seed.kin,
-            status: &mut seed.status,
-            health: &mut seed.health,
-            surface: &mut seed.surface,
-            attack: &mut seed.attack,
-            config: &mut seed.config,
-            motion: &mut seed.motion,
-            body: &mut seed.body,
-            caps: &seed.caps,
-        };
+        let mut em = seed.as_actor_mut();
         let mut frame = ActorControlFrame::neutral();
         frame.locomotion = ae::Vec2::new(1.0, 0.0);
         frame.dash_pressed = true;
@@ -723,7 +685,7 @@ mod dash_tests {
             ae::Vec2::new(0.0, 1.0),
         );
         assert!(
-            em.body.0.dash.timer <= 0.0,
+            em.dash.timer <= 0.0,
             "a body without the dash capability must not open a dash window"
         );
     }
@@ -751,17 +713,7 @@ mod dash_tests {
         // Aerial body: fly ability + fly_enabled from spawn.
         seed.body = ActorBody::from_caps(&seed.caps, true);
         let start = seed.kin.pos;
-        let mut em = ActorMut {
-            kin: &mut seed.kin,
-            status: &mut seed.status,
-            health: &mut seed.health,
-            surface: &mut seed.surface,
-            attack: &mut seed.attack,
-            config: &mut seed.config,
-            motion: &mut seed.motion,
-            body: &mut seed.body,
-            caps: &seed.caps,
-        };
+        let mut em = seed.as_actor_mut();
         let mut frame = ActorControlFrame::neutral();
         // Command a pure +x world velocity (the free-mover modality).
         frame.velocity_target = ae::Vec2::new(300.0, 0.0);

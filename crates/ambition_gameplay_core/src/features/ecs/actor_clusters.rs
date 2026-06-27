@@ -27,6 +27,12 @@ use ambition_engine_core as ae;
 use ambition_engine_core::AabbExt;
 
 pub use crate::platformer_runtime::body::BodyKinematics;
+use crate::actor::{
+    AncillaryMovementBundle, BodyAbilities, BodyActionBuffer, BodyBaseSize, BodyBlinkState,
+    BodyComboTrace, BodyDashState, BodyDodgeState, BodyEnvironmentContact, BodyFlightState,
+    BodyGroundState, BodyJumpState, BodyLedgeState, BodyLifetime, BodyMana, BodyModeState,
+    BodyOffense, BodyShieldState, BodyWallState,
+};
 
 /// Liveness + per-tick status scalars: alive flag, respawn countdown,
 /// hit-flash timer, last-evaluated AI mode. Health lives on the shared
@@ -86,23 +92,20 @@ pub struct ActorConfig {
 #[derive(Component, Clone, Debug, Default)]
 pub struct ActorMotionPath(pub Option<PathMotion>);
 
-/// The actor's persistent **player-movement ability state** — the 18 ancillary
-/// movement clusters (ground/wall/jump/dash/flight/blink/ledge/dodge/shield/…),
+/// Seed-side **construction helper** for an actor's 18 ancillary movement
+/// clusters (ground/wall/jump/dash/flight/blink/ledge/dodge/shield/…) —
 /// everything in the player cluster set EXCEPT [`BodyKinematics`] (the actor's
-/// shared `kin` stays the single source of kinematic truth — no duplication).
+/// shared `kin` is the single source of kinematic truth).
 ///
-/// Carrying this lets a grounded actor run the EXACT shared player movement
-/// pipeline (`ae::update_body_with_tuning_clusters`): the per-frame integration
-/// borrows these as the non-kinematics half of a `PlayerClustersMut` view, with
-/// `kin` supplying the kinematics. The actor thus shares the player's coyote
-/// time, jump buffering, and collision sweep instead of a parallel integrator.
-///
-/// Its ability mask is deliberately **locomotion-only** for now (move + jump);
-/// the actor's dash / blink / fly / shield are still resolved on the
-/// `ActorAttackState` / capability path in the actor systems. Migrating those
-/// onto the pipeline's ability limbs (so the mask is derived from
-/// `CombatCapabilities`) is the step-4 cluster fold.
-#[derive(Component, Clone, Debug)]
+/// This is **not** a spawned component: a spawned actor carries the 18 clusters
+/// as real ECS components (via [`crate::actor::AncillaryMovementBundle`], the
+/// SAME bundle the player nests), so the per-frame integration borrows them as
+/// the non-kinematics half of a `PlayerClustersMut` view exactly like the player.
+/// `ActorBody` only holds the scratch while a [`ActorClusterSeed`] is being
+/// assembled (so [`Self::from_caps`] can derive the ability mask before the
+/// entity exists); [`ActorClusterSeed::into_components`] then explodes it into
+/// the real components.
+#[derive(Clone, Debug)]
 pub struct ActorBody(pub ae::PlayerClusterScratch);
 
 impl Default for ActorBody {
@@ -162,6 +165,12 @@ impl ActorBody {
 
 /// Mutable borrow of every component the enemy integration touches,
 /// assembled from a Bevy query via [`ActorClusterQueryData`].
+///
+/// The 18 ancillary movement clusters are borrowed as individual real-component
+/// refs (`ground`, `wall`, …) — the same components the player carries — so
+/// [`Self::clusters_mut`] can hand the shared movement pipeline a
+/// [`ae::PlayerClustersMut`] view built from `kin` + these refs, exactly like
+/// the player's own query item does.
 pub struct ActorMut<'a> {
     pub kin: &'a mut BodyKinematics,
     pub status: &'a mut ActorStatus,
@@ -172,14 +181,58 @@ pub struct ActorMut<'a> {
     pub attack: &'a mut ActorAttackState,
     pub config: &'a mut ActorConfig,
     pub motion: &'a mut ActorMotionPath,
-    /// Persistent player-movement ability state (the 18 non-kinematics clusters):
-    /// the grounded integration borrows these + `kin` as a `PlayerClustersMut`
-    /// view and runs the shared player movement pipeline.
-    pub body: &'a mut ActorBody,
     /// Spawn-resolved special-behavior flags (kit vocabulary). Read-only:
     /// the per-frame integration and the damage hook branch on these
     /// instead of calling back into the named archetype enum.
     pub caps: &'a crate::combat::CombatCapabilities,
+    // ── The 18 ancillary movement clusters (real components) ──
+    pub abilities: &'a BodyAbilities,
+    pub base_size: &'a mut BodyBaseSize,
+    pub ground: &'a mut BodyGroundState,
+    pub wall: &'a mut BodyWallState,
+    pub jump: &'a mut BodyJumpState,
+    pub dash: &'a mut BodyDashState,
+    pub flight: &'a mut BodyFlightState,
+    pub blink: &'a mut BodyBlinkState,
+    pub ledge: &'a mut BodyLedgeState,
+    pub dodge: &'a mut BodyDodgeState,
+    pub shield: &'a mut BodyShieldState,
+    pub body_mode: &'a mut BodyModeState,
+    pub env_contact: &'a mut BodyEnvironmentContact,
+    pub mana: &'a mut BodyMana,
+    pub offense: &'a mut BodyOffense,
+    pub action_buffer: &'a mut BodyActionBuffer,
+    pub lifetime: &'a mut BodyLifetime,
+    pub combo_trace: &'a mut BodyComboTrace,
+}
+
+impl<'a> ActorMut<'a> {
+    /// Borrow `kin` + the 18 ancillary clusters as the shared
+    /// [`ae::PlayerClustersMut`] view the movement pipeline consumes — the exact
+    /// aggregate the player builds, so the actor runs the identical code.
+    pub fn clusters_mut(&mut self) -> ae::PlayerClustersMut<'_> {
+        ae::PlayerClustersMut {
+            kinematics: &mut *self.kin,
+            abilities: &*self.abilities,
+            base_size: &mut *self.base_size,
+            ground: &mut *self.ground,
+            wall: &mut *self.wall,
+            jump: &mut *self.jump,
+            dash: &mut *self.dash,
+            flight: &mut *self.flight,
+            blink: &mut *self.blink,
+            ledge: &mut *self.ledge,
+            dodge: &mut *self.dodge,
+            shield: &mut *self.shield,
+            body_mode: &mut *self.body_mode,
+            env_contact: &mut *self.env_contact,
+            mana: &mut *self.mana,
+            offense: &mut *self.offense,
+            action_buffer: &mut *self.action_buffer,
+            lifetime: &mut *self.lifetime,
+            combo_trace: &mut *self.combo_trace,
+        }
+    }
 }
 
 #[derive(QueryData)]
@@ -192,8 +245,25 @@ pub struct ActorClusterQueryData {
     pub attack: &'static mut ActorAttackState,
     pub config: &'static mut ActorConfig,
     pub motion: &'static mut ActorMotionPath,
-    pub body: &'static mut ActorBody,
     pub caps: &'static crate::combat::CombatCapabilities,
+    pub abilities: &'static BodyAbilities,
+    pub base_size: &'static mut BodyBaseSize,
+    pub ground: &'static mut BodyGroundState,
+    pub wall: &'static mut BodyWallState,
+    pub jump: &'static mut BodyJumpState,
+    pub dash: &'static mut BodyDashState,
+    pub flight: &'static mut BodyFlightState,
+    pub blink: &'static mut BodyBlinkState,
+    pub ledge: &'static mut BodyLedgeState,
+    pub dodge: &'static mut BodyDodgeState,
+    pub shield: &'static mut BodyShieldState,
+    pub body_mode: &'static mut BodyModeState,
+    pub env_contact: &'static mut BodyEnvironmentContact,
+    pub mana: &'static mut BodyMana,
+    pub offense: &'static mut BodyOffense,
+    pub action_buffer: &'static mut BodyActionBuffer,
+    pub lifetime: &'static mut BodyLifetime,
+    pub combo_trace: &'static mut BodyComboTrace,
 }
 
 impl<'w, 's> ActorClusterQueryDataItem<'w, 's> {
@@ -211,8 +281,25 @@ impl<'w, 's> ActorClusterQueryDataItem<'w, 's> {
             attack: &mut self.attack,
             config: &mut self.config,
             motion: &mut self.motion,
-            body: &mut self.body,
             caps: self.caps,
+            abilities: &*self.abilities,
+            base_size: &mut self.base_size,
+            ground: &mut self.ground,
+            wall: &mut self.wall,
+            jump: &mut self.jump,
+            dash: &mut self.dash,
+            flight: &mut self.flight,
+            blink: &mut self.blink,
+            ledge: &mut self.ledge,
+            dodge: &mut self.dodge,
+            shield: &mut self.shield,
+            body_mode: &mut self.body_mode,
+            env_contact: &mut self.env_contact,
+            mana: &mut self.mana,
+            offense: &mut self.offense,
+            action_buffer: &mut self.action_buffer,
+            lifetime: &mut self.lifetime,
+            combo_trace: &mut self.combo_trace,
         }
     }
 }
@@ -468,6 +555,42 @@ impl ActorClusterSeed {
         (seed, render_size)
     }
 
+    /// Borrow the seed's fields (and the scratch's 18 ancillary clusters) as an
+    /// [`ActorMut`] view, for the test / pre-spawn paths that drive the
+    /// integration without a live ECS entity. The runtime path borrows the SAME
+    /// view from real components via [`ActorClusterQueryDataItem::as_actor_mut`].
+    pub fn as_actor_mut(&mut self) -> ActorMut<'_> {
+        let body = &mut self.body.0;
+        ActorMut {
+            kin: &mut self.kin,
+            status: &mut self.status,
+            health: &mut self.health,
+            surface: &mut self.surface,
+            attack: &mut self.attack,
+            config: &mut self.config,
+            motion: &mut self.motion,
+            caps: &self.caps,
+            abilities: &body.abilities,
+            base_size: &mut body.base_size,
+            ground: &mut body.ground,
+            wall: &mut body.wall,
+            jump: &mut body.jump,
+            dash: &mut body.dash,
+            flight: &mut body.flight,
+            blink: &mut body.blink,
+            ledge: &mut body.ledge,
+            dodge: &mut body.dodge,
+            shield: &mut body.shield,
+            body_mode: &mut body.body_mode,
+            env_contact: &mut body.env_contact,
+            mana: &mut body.mana,
+            offense: &mut body.offense,
+            action_buffer: &mut body.action_buffer,
+            lifetime: &mut body.lifetime,
+            combo_trace: &mut body.combo_trace,
+        }
+    }
+
     #[cfg(test)]
     #[allow(clippy::too_many_arguments)]
     pub fn update_for_test(
@@ -481,17 +604,7 @@ impl ActorClusterSeed {
         frame: ambition_characters::actor::control::ActorControlFrame,
         gravity_dir: ae::Vec2,
     ) -> ambition_characters::actor::control::ActorControlFrame {
-        ActorMut {
-            kin: &mut self.kin,
-            status: &mut self.status,
-            health: &mut self.health,
-            surface: &mut self.surface,
-            attack: &mut self.attack,
-            config: &mut self.config,
-            motion: &mut self.motion,
-            body: &mut self.body,
-            caps: &self.caps,
-        }
+        self.as_actor_mut()
         .update(
             world,
             target_pos,
@@ -518,7 +631,7 @@ impl ActorClusterSeed {
         ActorMotionPath,
         ActorSurfaceState,
         ActorAttackState,
-        ActorBody,
+        AncillaryMovementBundle,
         crate::combat::CombatCapabilities,
     ) {
         (
@@ -529,7 +642,7 @@ impl ActorClusterSeed {
             self.motion,
             self.surface,
             self.attack,
-            self.body,
+            AncillaryMovementBundle::from_scratch(self.body.0),
             self.caps,
         )
     }

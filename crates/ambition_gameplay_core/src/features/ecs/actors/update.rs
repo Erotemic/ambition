@@ -431,7 +431,7 @@ pub fn update_ecs_actors(
                 // WHEN — the brain prefers grounded and toggles up only to traverse
                 // a long gap; a possessing human presses it.
                 if em.caps.can_fly && frame.fly_toggle_pressed {
-                    em.body.0.flight.fly_enabled = !em.body.0.flight.fly_enabled;
+                    em.flight.fly_enabled = !em.flight.fly_enabled;
                 }
                 // Shield is folded onto the shared pipeline limb: `em.update` ran
                 // the body's `apply_shield` (the SAME `resolve_shield` rule the

@@ -175,6 +175,39 @@ impl CharacterSheetSpec {
         None
     }
 
+    /// True when any frame of this sheet was alpha-trimmed by the atlas packer
+    /// (so the renderer must adjust the sprite size + anchor per frame). False
+    /// for legacy uniform sheets, which keep the cheap fixed-anchor path.
+    pub fn is_trimmed(&self) -> bool {
+        self.rows.iter().any(|(_, r)| r.frame_offsets.is_some())
+    }
+
+    /// Trim geometry for `(anim, frame)`: the trimmed rect size + its offset
+    /// within the logical `frame_width`×`frame_height` frame. Untrimmed frames
+    /// report offset `(0,0)` and the full logical size.
+    pub fn frame_trim(&self, anim: CharacterAnim, frame: usize) -> FrameTrim {
+        let logical = UVec2::new(self.frame_width, self.frame_height);
+        let resolved = self.resolve_anim(anim);
+        let Some(idx) = self.row_index(resolved) else {
+            return FrameTrim { offset: IVec2::ZERO, trimmed: logical, logical };
+        };
+        let row = &self.rows[idx].1;
+        let f = frame.min(row.frame_count.saturating_sub(1));
+        let trimmed = row
+            .frame_rects
+            .as_ref()
+            .and_then(|r| r.get(f))
+            .map(|r| UVec2::new(r.width(), r.height()))
+            .unwrap_or(logical);
+        let offset = row
+            .frame_offsets
+            .as_ref()
+            .and_then(|o| o.get(f))
+            .copied()
+            .unwrap_or(IVec2::ZERO);
+        FrameTrim { offset, trimmed, logical }
+    }
+
     pub fn frame_count(&self, anim: CharacterAnim) -> usize {
         self.row(anim).frame_count
     }

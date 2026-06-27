@@ -146,10 +146,11 @@ pub fn spawn_requested_player_clone(
         .and_then(|g| g.characters.player.as_ref().or(g.characters.robot.as_ref()));
     if let Some(asset) = asset {
         let render = player_placeholder_render_size(&asset.spec, collision);
+        let clone_anchor = feet_anchor_for_render_size(&asset.spec, collision, render);
         clone.insert((
             build_character_sprite_with_render_size(asset, render),
-            feet_anchor_for_render_size(&asset.spec, collision, render),
-            CharacterAnimator::new(asset),
+            clone_anchor,
+            CharacterAnimator::new(asset).with_render_basis(render, clone_anchor.0),
             PlayerSpriteBaseline {
                 standing_render: render,
                 standing_collision: collision,

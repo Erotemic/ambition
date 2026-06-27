@@ -10,7 +10,18 @@ use bevy::prelude::*;
 
 use super::anim::{non_looping, CharacterAnim};
 use super::assets::{CharacterSpriteAsset, CharacterSpritePage};
-use super::sheets::CharacterSheetSpec;
+use super::sheets::{trimmed_render, CharacterSheetSpec};
+
+/// The untrimmed render size + feet anchor a character's sprite was built with.
+/// Cached so a trimmed (alpha-packed) sheet can recompute the per-frame
+/// `custom_size` + anchor that keeps the logical frame fixed (see
+/// [`super::sheets::trimmed_render`]). Set at spawn from the same values used to
+/// build the `Sprite` and `Anchor`.
+#[derive(Clone, Copy, Debug)]
+pub struct RenderBasis {
+    pub render_size: Vec2,
+    pub feet_anchor: Vec2,
+}
 
 /// Per-character animation cursor.
 #[derive(Component)]
@@ -27,6 +38,10 @@ pub struct CharacterAnimator {
     /// Once a non-looping clip (Slash/Hit/Death) finishes its last frame
     /// we hold there until `set` switches to a new animation.
     pub clip_held: bool,
+    /// Base render size + anchor, set at spawn. `None` until provided; required
+    /// for trimmed sheets (the renderer falls back to the fixed spawn-time
+    /// size/anchor when absent or when the sheet is untrimmed).
+    pub render_basis: Option<RenderBasis>,
 }
 
 impl CharacterAnimator {
@@ -38,7 +53,30 @@ impl CharacterAnimator {
             frame: 0,
             elapsed: 0.0,
             clip_held: false,
+            render_basis: None,
         }
+    }
+
+    /// Attach the base render size + feet anchor used to build the sprite, so a
+    /// trimmed sheet can recompute per-frame size/anchor. Builder-style.
+    pub fn with_render_basis(mut self, render_size: Vec2, feet_anchor: Vec2) -> Self {
+        self.render_basis = Some(RenderBasis {
+            render_size,
+            feet_anchor,
+        });
+        self
+    }
+
+    /// Per-frame `(custom_size, anchor)` for the CURRENT frame, or `None` when
+    /// the sheet is untrimmed (or no basis is set) — callers then keep the
+    /// fixed spawn-time size/anchor, so untrimmed sheets are unaffected.
+    pub fn current_render(&self) -> Option<(Vec2, Vec2)> {
+        if !self.spec.is_trimmed() {
+            return None;
+        }
+        let basis = self.render_basis.as_ref()?;
+        let trim = self.spec.frame_trim(self.current, self.frame);
+        Some(trimmed_render(&trim, basis.render_size, basis.feet_anchor))
     }
 
     /// True when the sheet is split across more than one page image, so the

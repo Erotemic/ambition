@@ -319,10 +319,14 @@ pub fn upgrade_enemy_sprites(
         // 1-D anchor that rotates WITH the sprite, so for a surface-walker clung to
         // a wall it correctly plants the contact edge once the collision box itself
         // is oriented (see `update_enemy_actors`). No per-family special-casing.
+        // Cache the base render size + anchor so a trimmed (alpha-packed) sheet
+        // can recompute per-frame size/anchor; untrimmed sheets ignore it.
+        let basis_size = sprite.custom_size.unwrap_or(BVec2::new(1.0, 1.0));
+        let basis_anchor = anchor.0;
         commands.entity(entity).insert((
             sprite,
             anchor,
-            CharacterAnimator::new(character_asset),
+            CharacterAnimator::new(character_asset).with_render_basis(basis_size, basis_anchor),
             BoundFeatureKind::new(view.kind, collision),
         ));
     }
@@ -393,10 +397,14 @@ pub fn upgrade_npc_sprites(
                 feet_anchor_for(&character_asset.spec, collision),
             ),
         };
+        // Cache the base render size + anchor so a trimmed (alpha-packed) sheet
+        // can recompute per-frame size/anchor; untrimmed sheets ignore it.
+        let basis_size = sprite.custom_size.unwrap_or(BVec2::new(1.0, 1.0));
+        let basis_anchor = anchor.0;
         commands.entity(entity).insert((
             sprite,
             anchor,
-            CharacterAnimator::new(character_asset),
+            CharacterAnimator::new(character_asset).with_render_basis(basis_size, basis_anchor),
             BoundFeatureKind::new(view.kind, collision),
         ));
     }

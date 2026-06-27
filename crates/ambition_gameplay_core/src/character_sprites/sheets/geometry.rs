@@ -48,6 +48,87 @@ pub fn player_placeholder_render_size(spec: &CharacterSheetSpec, collision: Vec2
     sprite_render_size_scaled(spec, collision, PLAYER_PLACEHOLDER_VISUAL_SCALE)
 }
 
+#[cfg(test)]
+mod trim_tests {
+    use super::*;
+
+    /// World position of a logical-frame point when a sprite draws the sub-rect
+    /// `[ox,oy,tw,th]` of the logical frame at size `S` with anchor `A`, placed
+    /// at the origin. Mirrors Bevy's `sprite_center = -anchor * size`.
+    fn world_of_logical_point(
+        px: f32,
+        py: f32, // logical pixel, py from top
+        logical: Vec2,
+        sub: (f32, f32, f32, f32), // ox, oy, tw, th
+        size: Vec2,
+        anchor: Vec2,
+    ) -> Vec2 {
+        let (ox, oy, tw, th) = sub;
+        let _ = logical;
+        let nx = (px - ox) / tw - 0.5;
+        let ny = 0.5 - (py - oy) / th;
+        let center = -anchor * size;
+        center + Vec2::new(nx * size.x, ny * size.y)
+    }
+
+    #[test]
+    fn trimmed_render_is_identity_for_untrimmed_frame() {
+        let logical = UVec2::new(384, 529);
+        let trim = FrameTrim { offset: IVec2::ZERO, trimmed: logical, logical };
+        let base_size = Vec2::new(120.0, 165.0);
+        let base_anchor = Vec2::new(0.0, -0.3);
+        let (size, anchor) = trimmed_render(&trim, base_size, base_anchor);
+        assert!((size - base_size).length() < 1e-3, "{size:?}");
+        assert!((anchor - base_anchor).length() < 1e-4, "{anchor:?}");
+    }
+
+    #[test]
+    fn trimmed_render_keeps_logical_points_fixed() {
+        // A frame trimmed to an off-center sub-rect must still map every logical
+        // point to the same world position the full frame would.
+        let logical = UVec2::new(384, 529);
+        let (ox, oy, tw, th) = (100i32, 80i32, 180u32, 360u32);
+        let trim = FrameTrim {
+            offset: IVec2::new(ox, oy),
+            trimmed: UVec2::new(tw, th),
+            logical,
+        };
+        let base_size = Vec2::new(120.0, 165.0);
+        let base_anchor = Vec2::new(0.0, -0.3);
+        let (size, anchor) = trimmed_render(&trim, base_size, base_anchor);
+
+        let lw = logical.x as f32;
+        let lh = logical.y as f32;
+        // Sample several logical points that lie inside the trimmed sub-rect.
+        for &(px, py) in &[
+            (ox as f32 + 1.0, oy as f32 + 1.0),
+            (ox as f32 + tw as f32 / 2.0, oy as f32 + th as f32 / 2.0),
+            (ox as f32 + tw as f32 - 1.0, oy as f32 + th as f32 - 1.0),
+        ] {
+            let full = world_of_logical_point(
+                px,
+                py,
+                Vec2::new(lw, lh),
+                (0.0, 0.0, lw, lh),
+                base_size,
+                base_anchor,
+            );
+            let trimmed = world_of_logical_point(
+                px,
+                py,
+                Vec2::new(lw, lh),
+                (ox as f32, oy as f32, tw as f32, th as f32),
+                size,
+                anchor,
+            );
+            assert!(
+                (full - trimmed).length() < 1e-2,
+                "logical point ({px},{py}) moved: full={full:?} trimmed={trimmed:?}"
+            );
+        }
+    }
+}
+
 /// Sprite anchor that places the rendered character's feet on the bottom
 /// of the collision box (rather than at its centre).
 pub fn feet_anchor_for(spec: &CharacterSheetSpec, collision: Vec2) -> Anchor {
@@ -65,6 +146,55 @@ pub fn feet_anchor_for_render_size(
     let half_collision_y = collision.y * 0.5;
     let ay = spec.feet_anchor_y + half_collision_y / render_height;
     Anchor(Vec2::new(0.0, ay))
+}
+
+/// Per-frame trim geometry (see [`CharacterSheetSpec::frame_trim`]).
+#[derive(Clone, Copy, Debug)]
+pub struct FrameTrim {
+    /// Offset of the trimmed rect within the logical frame, in logical pixels.
+    pub offset: IVec2,
+    /// Size of the trimmed rect (== the atlas rect size), in logical pixels.
+    pub trimmed: UVec2,
+    /// Logical (untrimmed) frame size.
+    pub logical: UVec2,
+}
+
+impl FrameTrim {
+    /// True when this frame carries no trim (drawn the legacy uniform way).
+    pub fn is_identity(&self) -> bool {
+        self.offset == IVec2::ZERO && self.trimmed == self.logical
+    }
+}
+
+/// Given a frame's trim geometry plus the base (untrimmed) render size and feet
+/// anchor, return the `(custom_size, anchor)` that draws the trimmed sub-rect so
+/// the logical frame's anchor point lands at the SAME world position the
+/// untrimmed frame would have used.
+///
+/// Derivation: the full logical sprite has size `base_render_size` and anchor
+/// `base_anchor`; render only the trimmed sub-region at the proportional size
+/// and solve for the anchor that keeps the logical-frame mapping fixed. The
+/// formula reduces to `(base_render_size, base_anchor)` for an untrimmed frame
+/// (`offset == 0`, `trimmed == logical`), so untrimmed sheets are unchanged.
+/// Pinned by `trimmed_anchor_*` unit tests.
+pub fn trimmed_render(
+    trim: &FrameTrim,
+    base_render_size: Vec2,
+    base_anchor: Vec2,
+) -> (Vec2, Vec2) {
+    let fw = trim.logical.x.max(1) as f32;
+    let fh = trim.logical.y.max(1) as f32;
+    let tw = trim.trimmed.x.max(1) as f32;
+    let th = trim.trimmed.y.max(1) as f32;
+    let ox = trim.offset.x as f32;
+    let oy = trim.offset.y as f32;
+    let (ax, ay) = (base_anchor.x, base_anchor.y);
+    let custom = Vec2::new(tw / fw * base_render_size.x, th / fh * base_render_size.y);
+    let anchor = Vec2::new(
+        ((ax + 0.5) * fw - ox - tw * 0.5) / tw,
+        ((ay - 0.5) * fh + oy + th * 0.5) / th,
+    );
+    (custom, anchor)
 }
 
 /// Build the textured sprite for a character given its collision-box size.

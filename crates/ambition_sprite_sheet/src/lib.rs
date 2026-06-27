@@ -316,6 +316,15 @@ pub struct FrameRect {
     pub y: i32,
     pub w: i32,
     pub h: i32,
+    /// Trim offset of this rect within the LOGICAL frame, in logical-frame
+    /// pixels `(off_x, off_y)`. The atlas packer trims each frame to its opaque
+    /// alpha bounding box for storage; `w`/`h` are then the trimmed size and
+    /// `off` is where that trimmed box sat inside the full
+    /// `frame_width`×`frame_height` logical frame. `(0, 0)` (the default) means
+    /// the frame is untrimmed (`w`/`h` == the logical frame size). The runtime
+    /// adds `off` back so trimmed pixels draw exactly where the full frame did.
+    #[serde(default)]
+    pub off: (i32, i32),
     /// Per-frame named anchors emitted by `frame_meta_fn` (e.g.
     /// `hand_anchor`, `muzzle_anchor`). Generators that don't use
     /// `frame_meta_fn` leave this empty.
@@ -463,6 +472,36 @@ mod tests {
         // The two rows share y=0 because each page is its own coordinate space.
         assert_eq!(record.rows[0].rects[0].y, 0);
         assert_eq!(record.rows[1].rects[0].y, 0);
+    }
+
+    /// An alpha-trimmed frame round-trips its `off` (trim offset within the
+    /// logical frame). Frames without `off` default to `(0, 0)` = untrimmed, so
+    /// pre-packer RON stays byte-identical.
+    #[test]
+    fn trimmed_frame_offset_round_trips() {
+        let ron_text = r#"
+        [(
+            target: "packed",
+            image: "packed_spritesheet.png",
+            label_width: 0,
+            frame_width: 384,
+            frame_height: 529,
+            rows: [
+                (animation: "idle", row_index: 0, frame_count: 2, duration_ms: 120, duration_secs: 0.12,
+                 rects: [
+                    (x: 2, y: 2, w: 180, h: 420, off: (100, 80)),
+                    (x: 190, y: 2, w: 175, h: 410),
+                 ]),
+            ],
+        )]
+        "#;
+        let records: Vec<SheetRecord> =
+            ron::from_str(ron_text).expect("trimmed SheetRecord should deserialize");
+        let row = &records[0].rows[0];
+        assert_eq!(row.rects[0].off, (100, 80), "trimmed frame keeps its offset");
+        assert_eq!(row.rects[1].off, (0, 0), "frame without `off` defaults to untrimmed");
+        // The stored rect is the TRIMMED size, smaller than the logical frame.
+        assert!(row.rects[0].w < records[0].frame_width as i32);
     }
 
     /// A legacy single-page sheet (no `images`, no `page`) still parses and

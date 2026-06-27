@@ -15,6 +15,7 @@ use super::*;
 pub(crate) fn apply_character_frame(
     sprite: &mut Sprite,
     animator: &mut CharacterAnimator,
+    anchor: Option<&mut bevy::sprite::Anchor>,
     anim: ambition_gameplay_core::character_sprites::CharacterAnim,
     dt: f32,
     facing: f32,
@@ -41,8 +42,22 @@ pub(crate) fn apply_character_frame(
     }
     // Gravity-aware facing flip: a ~180° up-gravity roll already mirrors the
     // sprite, so the flip inverts (fixes #33 "move left, face right upside down").
-    sprite.flip_x = ambition_gameplay_core::physics::gravity_aware_flip_x(facing, gravity_dir);
+    let flip = ambition_gameplay_core::physics::gravity_aware_flip_x(facing, gravity_dir);
+    sprite.flip_x = flip;
     sprite.color = color;
+    // Alpha-trimmed (atlas-packed) sheets: each frame is stored at its own
+    // trimmed size + offset, so re-derive the sprite size + anchor per frame to
+    // keep the logical frame fixed. `current_render` returns `None` for
+    // untrimmed sheets, so those keep their fixed spawn-time size/anchor and are
+    // byte-identical. The anchor x mirrors with the facing flip so an
+    // off-centre trim stays consistent left/right.
+    if let (Some((size, mut anchor_v)), Some(anchor)) = (animator.current_render(), anchor) {
+        sprite.custom_size = Some(size);
+        if flip {
+            anchor_v.x = -anchor_v.x;
+        }
+        anchor.0 = anchor_v;
+    }
 }
 
 /// Drive the player sprite's animation state, atlas index, and facing flip.
@@ -79,6 +94,7 @@ pub fn animate_player(
                 &ambition_gameplay_core::actor::BodyShieldState,
                 Option<&ambition_gameplay_core::player::ActivePlayerAttack>,
                 Option<&ambition_gameplay_core::time::time_control::ProperTimeScale>,
+                Option<&mut bevy::sprite::Anchor>,
             ),
         ),
         With<PlayerVisual>,
@@ -109,7 +125,7 @@ pub fn animate_player(
             anim_state,
             blink_cam,
         ),
-        (body_mode, env_contact, abilities, dodge, shield, active_attack, scale),
+        (body_mode, env_contact, abilities, dodge, shield, active_attack, scale, anchor),
     ) in &mut query
     {
         let attack_state = active_attack.and_then(|a| a.0.as_ref());
@@ -144,6 +160,7 @@ pub fn animate_player(
         apply_character_frame(
             &mut sprite,
             &mut animator,
+            anchor.map(|a| a.into_inner()),
             anim,
             dt,
             kinematics.facing,
@@ -172,6 +189,7 @@ pub fn animate_characters(
             &mut Sprite,
             &mut CharacterAnimator,
             Option<&ambition_gameplay_core::time::time_control::ProperTimeScale>,
+            Option<&mut bevy::sprite::Anchor>,
         ),
         (
             Without<PlayerVisual>,
@@ -189,7 +207,7 @@ pub fn animate_characters(
     // every actor ticks at the world rate. The seam matters once a
     // boss freezes the world but leaves the player un-frozen, or
     // future MP boosts one player's proper time.
-    for (visual, mut sprite, mut animator, scale) in &mut query {
+    for (visual, mut sprite, mut animator, scale, anchor) in &mut query {
         let dt = world_time.entity_dt(
             ambition_gameplay_core::time::time_control::ProperTimeScale::or_default(scale),
         );
@@ -230,6 +248,7 @@ pub fn animate_characters(
         apply_character_frame(
             &mut sprite,
             &mut animator,
+            anchor.map(|a| a.into_inner()),
             anim,
             dt,
             facing,

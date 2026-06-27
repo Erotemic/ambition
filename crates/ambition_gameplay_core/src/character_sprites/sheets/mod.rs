@@ -47,6 +47,13 @@ pub struct AnimRow {
     /// pre-date the rects field — the builder falls back to grid
     /// math (with `row_index`) for those.
     pub frame_rects: Option<Vec<URect>>,
+    /// Per-frame trim offset within the LOGICAL frame, in logical pixels,
+    /// parallel to `frame_rects`. `None` (or all-zero) for untrimmed sheets.
+    /// When the atlas packer trims a frame to its alpha box, the stored rect
+    /// (`frame_rects`) is the trimmed size and this is where it sat inside the
+    /// `frame_width`×`frame_height` logical frame — the runtime adds it back so
+    /// the trimmed pixels draw where the full frame would have.
+    pub frame_offsets: Option<Vec<IVec2>>,
 }
 
 /// Frame layout for one of the generated sheets.
@@ -277,6 +284,20 @@ fn spec_from_record(record: &SheetRecord, tuning: &SheetTuning) -> CharacterShee
                         .collect(),
                 )
             };
+            // Per-frame trim offsets (logical-frame pixels), parallel to rects.
+            // Only carried when at least one frame is actually trimmed, so
+            // untrimmed sheets keep `None` and the legacy uniform path.
+            let frame_offsets = if frame_rects.is_some() && row.rects.iter().any(|r| r.off != (0, 0))
+            {
+                Some(
+                    row.rects
+                        .iter()
+                        .map(|r| IVec2::new(r.off.0, r.off.1))
+                        .collect(),
+                )
+            } else {
+                None
+            };
             Some((
                 anim,
                 AnimRow {
@@ -285,6 +306,7 @@ fn spec_from_record(record: &SheetRecord, tuning: &SheetTuning) -> CharacterShee
                     row_index: row.row_index as u32,
                     page: row.page,
                     frame_rects,
+                    frame_offsets,
                 },
             ))
         })

@@ -98,6 +98,7 @@ fn fsm_record(frame_w: u32, frame_h: u32, label_w: u32) -> ambition_sprite_sheet
                     y: (row_idx as u32 * frame_h) as i32,
                     w: frame_w as i32,
                     h: frame_h as i32,
+                    off: (0, 0),
                     anchors: Default::default(),
                 })
                 .collect(),

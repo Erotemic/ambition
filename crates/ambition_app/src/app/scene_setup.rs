@@ -318,10 +318,12 @@ fn presentation_world_inner(
     {
         let player_render = player_placeholder_render_size(&asset.spec, player_collision);
         let sprite = build_character_sprite_with_render_size(asset, player_render);
+        let player_anchor =
+            feet_anchor_for_render_size(&asset.spec, player_collision, player_render);
         commands.entity(player).insert((
             sprite,
-            feet_anchor_for_render_size(&asset.spec, player_collision, player_render),
-            CharacterAnimator::new(asset),
+            player_anchor,
+            CharacterAnimator::new(asset).with_render_basis(player_render, player_anchor.0),
             PlayerSpriteBaseline {
                 standing_render: player_render,
                 standing_collision: player_collision,

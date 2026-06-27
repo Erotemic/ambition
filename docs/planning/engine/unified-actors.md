@@ -203,17 +203,18 @@ recognizable:
 - **Foundation — unified.** The movement spine, blink, the directional block rule,
   `AccelerationFrame` / `BodyKinematics`, frame-agnostic perception/motor. The proof
   the convergence is reachable.
-- **Orchestration — grounded movement now CONVERGED; abilities still duplicated.**
-  The grounded actor runs the player movement pipeline directly
-  (`ActorMut::integrate_grounded_body` → `update_body_with_tuning_clusters`,
-  borrowing `kin` + the new `ActorBody` clusters); `integrate_standard_enemy_body`
-  is deleted. **Dash converged** — the actor's bespoke burst is deleted; the
-  grounded body dashes via the pipeline's `dash` limb (`ActorBody::from_caps`).
-  Still duplicated: **blink / fly / shield** — the actor's copies live on
-  `ActorAttackState` / the actor resolver, NOT yet the pipeline's ability limbs.
-  Folding those + retiring `ActorSurfaceState`'s redundant ground/jump fields is
-  the step-4 collapse. Aerial free-movers + surface-walkers still run their own
-  steps by design.
+- **Orchestration — movement CONVERGED.** Every actor (grounded AND aerial) runs
+  the ONE shared player movement pipeline (`ActorMut::integrate_body` →
+  `update_body_with_tuning_clusters`, borrowing `kin` + the `ActorBody` clusters);
+  `integrate_standard_enemy_body` AND `integrate_aerial_body` are both deleted. All
+  the movement verbs that used to exist **twice** — run, jump, **dash, blink, fly,
+  shield** — are folded onto the pipeline's ability limbs, gated by an ability mask
+  derived from `CombatCapabilities` (`ActorBody::from_caps`); the bespoke
+  `ActorAttackState` dash/blink machinery is deleted, and `update_ecs_actors` no
+  longer resolves any movement verb. Aerial bodies steer the flight limb via the
+  `velocity_target`→intent bridge. **Remaining duplication is sim-STATE, not
+  movement**: `ActorSurfaceState`'s on_ground/air_jumps mirror the pipeline clusters
+  (retire in step 4); surface-walkers keep a separate glued crawl by design.
 - **Targeting — relational.** `FactionRelations` + `select_actor_targets`; an Enemy
   targets an Npc with no player present. *Gap:* the player is still an unconditional
   candidate; `AggressionMode::HostileToPlayer` names the player.
@@ -256,7 +257,14 @@ Enemies rise to the player; delete-heavy. Each step is gated on *it compiles* (i
    physics, proven headless.
 2. **The bridges** ✅ — `to_input_state` + `spine_tuning`. *Done when:* both are
    tested and the spine runs off `spine_tuning` (byte-identical).
-3. **Route bodies through the player pipeline.** 🟡 *grounded done.* First the
+3. **Route bodies through the player pipeline.** ✅ *movement converged.* Every
+   actor (grounded + aerial) runs the ONE pipeline; both bespoke integrators are
+   deleted; dash/blink/fly/shield are folded onto the ability limbs (mask from
+   `CombatCapabilities`); the aerial `velocity_target`→intent bridge lets flyers
+   share the flight limb. What's left is *state* convergence + the keystone (step
+   4), plus the additive wall-cling/ledge-grab/dodge caps. Original detail below.
+
+   *(historical)* 🟡 *grounded done.* First the
    movement core was made body-generic — `update_body_*_with_clusters` flag
    hazard/drown/OOB as `FrameEvents` WITHOUT performing the player respawn; the
    `update_player_*` entries are thin wrappers = body fn + the respawn policy, so

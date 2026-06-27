@@ -273,18 +273,19 @@ Enemies rise to the player; delete-heavy. Each step is gated on *it compiles* (i
    bespoke speed-cap burst (the divergent `ActorAttackState::try_dash` /
    `DASH_SPEED_MULT`, now deleted) is gone — `ActorBody::from_caps` flips on the
    pipeline's `dash` ability from `can_dash`, so a grounded enemy dashes with the
-   player's real impulse. *Remaining:* (a) fold the actor's still-bespoke **blink /
-   fly / shield** onto the pipeline limbs (blink is already the shared `blink_target`
-   rule — folding it needs the body's `FrameEvents.blinks` surfaced for sfx/vfx;
-   fly is coupled to the aerial reconciliation below; shield is already the shared
-   `resolve_shield` rule, just called actor-side), and enable wall-cling / ledge-
-   grab / dodge for actors (needs a `CombatCapabilities` cap each — they're
-   contact-triggered, so all-or-nothing without a gate) — all step-4 cluster
-   collapse; (b) the **aerial free-mover** modality is **blocked** on the
-   `velocity_target` → flight-intent merge (S2 vocab, feel-risky — the brain steers
-   aerial bodies by `velocity_target`, the pipeline flight by `axis_*` intent);
-   **surface-walkers** stay a separate glued crawl by design. *Gotcha (held):*
-   `ActorMotionPath` patrol + `gravity_scale`-from-catalog survive the merge.
+   player's real impulse. *Remaining:* (a) folding the actor's still-bespoke
+   **blink / fly / shield** onto the pipeline limbs is **gated on the aerial
+   reconciliation** — unlike the actor dash (which was already grounded-only),
+   aerial actors blink and shield *today*, so folding those into the grounded-only
+   pipeline would regress an aerial blinker/shielder. (b) the **aerial free-mover**
+   modality is itself **blocked** on the `velocity_target` → flight-intent merge
+   (S2 vocab, feel-risky — the brain steers aerial bodies by `velocity_target`, the
+   pipeline flight by `axis_*` intent). So `velocity_target`→intent is the real
+   unblock for the rest of the movement-verb convergence. (c) enable wall-cling /
+   ledge-grab / dodge for actors (needs a `CombatCapabilities` cap each — they're
+   contact-triggered, so all-or-nothing without a gate). **Surface-walkers** stay a
+   separate glued crawl by design. *Gotcha (held):* `ActorMotionPath` patrol +
+   `gravity_scale`-from-catalog survive the merge.
 4. **Collapse the `Player*` / `Actor*` dual hierarchy** — *the keystone* (see
    [`architecture.md`](architecture.md) for the slice plan + component buckets). Move
    shared sim-state onto the `Actor*` vocabulary; the ~20-module player dependency

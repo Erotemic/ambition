@@ -22,7 +22,10 @@
 
 use ambition_app::{AgentAction, SandboxSim, SandboxSimOptions, TimestepMode};
 use ambition_characters::brain::ActorControl;
-use ambition_gameplay_core::actor::{BodyHealth, BodyKinematics};
+use ambition_gameplay_core::actor::{
+    BodyAbilities, BodyBlinkState, BodyDashState, BodyFlightState, BodyHealth, BodyKinematics,
+    BodyShieldState,
+};
 use ambition_gameplay_core::features::{FeatureId, DUEL_PCA_ID, DUEL_ROBOT_ID};
 use bevy::prelude::World;
 
@@ -109,6 +112,123 @@ fn observe(world: &mut World, id: &str, log: &mut FighterLog) {
     // Authored geometry is y-down, so a smaller y is higher: rise = spawn_y - y.
     log.max_rise = log.max_rise.max(log.spawn_y - kin.pos.y);
     log.last_hp = hp.current();
+}
+
+/// Body-side ability ENACTMENT tally — proves the brain's emitted intents
+/// actually resolve on the body (caps reached it + the shared pipeline enacted
+/// them), not just that the brain pressed the button. This is the "are they
+/// hooked up" witness.
+#[derive(Debug, Default)]
+struct AbilityLog {
+    caps_blink: bool,
+    caps_shield: bool,
+    caps_dash: bool,
+    caps_fly: bool,
+    shield_active_frames: u32,
+    dash_window_frames: u32,
+    fly_frames: u32,
+    blink_events: u32,
+    prev_blink_cd: f32,
+    present: bool,
+}
+
+fn observe_abilities(world: &mut World, id: &str, log: &mut AbilityLog) {
+    let mut q = world.query::<(
+        &FeatureId,
+        &BodyAbilities,
+        &BodyShieldState,
+        &BodyDashState,
+        &BodyFlightState,
+        &BodyBlinkState,
+    )>();
+    let Some((_, abil, shield, dash, flight, blink)) =
+        q.iter(world).find(|(f, ..)| f.as_str() == id)
+    else {
+        return;
+    };
+    log.present = true;
+    log.caps_blink = abil.abilities.blink;
+    log.caps_shield = abil.abilities.shield;
+    log.caps_dash = abil.abilities.dash;
+    log.caps_fly = abil.abilities.fly;
+    if shield.active {
+        log.shield_active_frames += 1;
+    }
+    if dash.timer > 0.0 {
+        log.dash_window_frames += 1;
+    }
+    if flight.fly_enabled {
+        log.fly_frames += 1;
+    }
+    // A blink fires the cooldown from 0 → positive: count that rising edge.
+    if blink.cooldown > log.prev_blink_cd + 0.01 {
+        log.blink_events += 1;
+    }
+    log.prev_blink_cd = blink.cooldown;
+}
+
+/// The brain emits shield/blink/dash/fly — but does the BODY enact them in the
+/// real sim? This pins that the archetype capabilities reach the body AND the
+/// shared movement pipeline resolves each ability (no player-only gate). Without
+/// this the abilities would be "pressed but inert" — exactly the failure mode the
+/// user reported ("I don't see any shield, dash, or blink, fly").
+#[test]
+fn duel_fighters_actually_enact_their_abilities_on_the_body() {
+    let mut sim = SandboxSim::new_with_options(
+        SandboxSimOptions::default()
+            .with_timestep(TimestepMode::fixed_60hz())
+            .with_start_room("duel_arena"),
+    )
+    .expect("sandbox sim builds in the duel arena");
+    for _ in 0..3 {
+        sim.step(AgentAction::default());
+    }
+
+    let mut pca = AbilityLog::default();
+    let mut robot = AbilityLog::default();
+    // ~30s — long enough to observe the slower abilities (dash-to-close, a fly
+    // foray) on top of the frequent block.
+    for _ in 0..1800 {
+        sim.step(AgentAction::default());
+        observe_abilities(sim.world_mut(), DUEL_PCA_ID, &mut pca);
+        observe_abilities(sim.world_mut(), DUEL_ROBOT_ID, &mut robot);
+    }
+
+    for (who, log) in [("PCA", &pca), ("robot", &robot)] {
+        println!(
+            "{who}: caps[blink={} shield={} dash={} fly={}]  shield_frames={}  dash_frames={}  fly_frames={}  blinks={}",
+            log.caps_blink, log.caps_shield, log.caps_dash, log.caps_fly,
+            log.shield_active_frames, log.dash_window_frames, log.fly_frames, log.blink_events,
+        );
+        assert!(log.present, "{who} present");
+        // The archetype capabilities must reach the BODY (not just the brain cfg).
+        assert!(
+            log.caps_blink && log.caps_shield && log.caps_dash && log.caps_fly,
+            "{who} body must carry all four abilities (blink={} shield={} dash={} fly={})",
+            log.caps_blink, log.caps_shield, log.caps_dash, log.caps_fly,
+        );
+        // And the body must actually RESOLVE the defensive abilities in the real
+        // sim — these fire frequently in a fight, so require them from each fighter.
+        assert!(
+            log.shield_active_frames > 0,
+            "{who}: shield must actually go up on the body (got {} frames)",
+            log.shield_active_frames
+        );
+    }
+    // Blink resolves on a body (the quick-blink tap commits, not arm-then-cancel).
+    // Situational (a committed lunge), so require it across the pair.
+    assert!(
+        pca.blink_events + robot.blink_events > 0,
+        "a blink-evade should resolve on a body at least once (PCA {} + robot {})",
+        pca.blink_events,
+        robot.blink_events
+    );
+    // NOTE: dash + fly are WIRED (caps on the body, proven above + by the
+    // integration tests) but not yet USED in this tight arena — the brain only
+    // dashes a large gap and only flies a long traversal, neither of which the
+    // fighters reach while glued in footsies. Damage-triggered regroup (which
+    // dashes/flies to gain distance + high ground) is the follow-up that makes
+    // these enact; this test tightens to require them once that lands.
 }
 
 /// Walking into the authored duel arena yields a real brain-vs-brain platform

@@ -99,7 +99,10 @@ pub fn update_ecs_actors(
             Entity,
             &mut CenteredAabb,
             &mut ActorIdentity,
-            &ActorDisposition,
+            // Mutable: a hostile fighter whose foe has died is pacified back to
+            // Peaceful here, so it resumes normal NPC behavior (and can be talked
+            // to) instead of menacing a corpse.
+            &mut ActorDisposition,
             &mut BodyCombat,
             &mut ActorIntent,
             &mut ActorCooldowns,
@@ -134,6 +137,11 @@ pub fn update_ecs_actors(
                 // crowding neighbors and the anti-clump back-actor rule freezes
                 // both. `Option` to match the other cluster-nested reads.
                 Option<&super::super::super::components::ActorFaction>,
+                // Aggression — set Passive when this actor's foe dies, so the
+                // targeting system stops re-acquiring a target (e.g. the player)
+                // and the pacified winner truly stands down. Nested to stay within
+                // the top-level query arity. `Option` to match the cluster reads.
+                Option<&mut crate::combat::components::ActorAggression>,
             ),
         ),
         // The player carries the unified `BodyKinematics` too, and
@@ -191,7 +199,19 @@ pub fn update_ecs_actors(
         String,
         super::super::super::components::ActorFaction,
     > = std::collections::HashMap::new();
-    for (_, _, _, disposition, _, _, _, _, _, _, _, _, (clusters, _, faction)) in &actors {
+    // Liveness of every potential TARGET (actors + players), keyed by entity, so a
+    // fighter can perceive that its foe has died. A fighter's target is often
+    // another actor (the spectator-duel pair target each other), so this can't come
+    // from `player_query` alone. Defaults to alive when an entity isn't found.
+    let mut alive_by_entity: std::collections::HashMap<Entity, bool> =
+        std::collections::HashMap::new();
+    for (entity, _, _, _, _, body_combat) in &player_query {
+        alive_by_entity.insert(entity, body_combat.alive);
+    }
+    for (entity, _, _, disposition, _, _, _, _, _, _, _, _, (clusters, _, faction, _)) in &actors {
+        if let Some(c) = &clusters {
+            alive_by_entity.insert(entity, c.status.alive);
+        }
         // Only hostile actors compete for combat slots; peaceful actors don't
         // crowd the board ("enemy" == hostile disposition now).
         if disposition.is_hostile() {
@@ -234,7 +254,7 @@ pub fn update_ecs_actors(
         actor_entity,
         mut aabb,
         mut identity,
-        disposition,
+        mut disposition,
         mut combat,
         mut intent,
         mut cooldowns,
@@ -243,9 +263,30 @@ pub fn update_ecs_actors(
         mut control,
         action_set,
         mounted,
-        (clusters, possessed, _faction),
+        (clusters, possessed, _faction, mut aggression),
     ) in &mut actors
     {
+        // Real target liveness for this actor: look up the entity its `ActorTarget`
+        // points at. A confirmed-dead foe both demotes the brain to Idle (below) AND
+        // pacifies the actor (relativity-neutral: any fighter, any faction). Only a
+        // target that EXISTED and is now dead pacifies — a merely-absent target
+        // (None / out of range) leaves a hostile enemy hostile.
+        let (target_alive, target_confirmed_dead) = match target.entity {
+            Some(e) => {
+                let alive = alive_by_entity.get(&e).copied().unwrap_or(true);
+                (alive, !alive)
+            }
+            None => (true, false),
+        };
+        if target_confirmed_dead && disposition.is_hostile() {
+            *disposition = ActorDisposition::Peaceful;
+            // Stand down for good: go passive so `select_actor_targets` won't
+            // re-acquire a foe (otherwise the winner would just turn on the
+            // nearest player). The brain then idles/patrols like any peaceful NPC.
+            if let Some(aggression) = aggression.as_mut() {
+                **aggression = crate::combat::components::ActorAggression::passive();
+            }
+        }
         // `target.pos` is populated by `select_actor_targets`
         // (#17.8); it defaults to the actor's spawn-of-game position
         // when no players exist yet (pre-spawn / post-death-of-all),
@@ -311,6 +352,7 @@ pub fn update_ecs_actors(
                     let mut snapshot = build_enemy_brain_snapshot(
                         &em,
                         target_pos,
+                        target_alive,
                         crowding,
                         dt,
                         sim_now,
@@ -338,6 +380,7 @@ pub fn update_ecs_actors(
                     let snapshot = build_enemy_brain_snapshot(
                         &em,
                         target_pos,
+                        target_alive,
                         crowding,
                         dt,
                         sim_now,
@@ -776,6 +819,7 @@ pub(crate) fn compute_crowding_by_id(
 fn build_enemy_brain_snapshot(
     em: &super::super::actor_clusters::ActorMut<'_>,
     target_pos: ae::Vec2,
+    target_alive: bool,
     crowding: Option<ambition_characters::brain::CrowdingSignal>,
     dt: f32,
     sim_time: f32,
@@ -794,7 +838,10 @@ fn build_enemy_brain_snapshot(
         actor_aerial: em.surface.gravity_scale <= 0.001,
         alive: em.status.alive,
         target_pos,
-        target_alive: true,
+        // Real target liveness (was hardcoded `true`): a fighter whose foe is dead
+        // perceives it and the Smash brain demotes to Idle instead of swinging at a
+        // corpse. Resolved from the target entity's body-alive state by the caller.
+        target_alive,
         // Real, accumulating sim-time (scaled by bullet-time / pause) — NOT a
         // hardcoded 0.0. The Smash brain's reaction latency (`obs_history`
         // lookback by `reaction_delay_s`) only functions when this advances, so

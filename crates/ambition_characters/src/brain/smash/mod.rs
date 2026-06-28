@@ -536,7 +536,14 @@ pub fn tick_smash(
                 // is the layered defensive game.
                 let is_lunge = closing >= cfg.blink_closing_speed;
                 if cfg.can_blink && is_lunge && state.blink_cooldown <= 0.0 {
+                    // Emit a one-frame quick-blink TAP: the body's blink limb arms
+                    // on `blink_pressed` but only commits on `blink_released`, and
+                    // cancels in-frame if it sees neither held nor released. A human
+                    // taps press→release across frames; the AI compresses that to a
+                    // single frame by emitting BOTH edges, so the body actually
+                    // teleports instead of arming-then-cancelling.
                     out.blink_pressed = true;
+                    out.blink_released = true;
                     out.blink_quick_dir = away;
                     out.locomotion = ae::Vec2::ZERO;
                     out.velocity_target = ae::Vec2::ZERO;

@@ -290,10 +290,10 @@ mod conversion_tests {
             hostile_brain_id_for_actor("npc_unknown", "Mystery", Some("perfect_cellular_automaton")),
             "cellular_automaton_fighter",
         );
-        // The boss archetype is beefier than a grunt (18 HP vs the
-        // combatant's 4) and is a hostile Smash fighter.
+        // The boss archetype is beefier than a grunt (60 HP — bumped so the duel
+        // bout breathes — vs the combatant's 4) and is a hostile Smash fighter.
         let spec = test_spec("cellular_automaton_fighter");
-        assert_eq!(spec.max_health, 18);
+        assert_eq!(spec.max_health, 60);
         // It is a grounded-base HYBRID (S3b): it prefers to fight on the ground
         // (so on provoke its gravity re-syncs to grounded and it descends), but
         // carries the `can_fly` kit to take to the air and cover a long traversal

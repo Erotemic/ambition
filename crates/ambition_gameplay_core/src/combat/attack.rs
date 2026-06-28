@@ -218,12 +218,13 @@ pub fn start_attack(
     // everything else arcs). A shared starting point; each attack can graduate
     // to a bespoke effect later.
     let slash_dir = spec.hitbox_offset;
-    vfx.write(VfxMessage::Slash {
-        center: view.pos + slash_dir,
-        size: slash_effect_size(spec.hitbox_half_size),
-        kind: slash_kind(spec.intent),
-        dir: slash_dir,
-    });
+    emit_melee_slash(
+        vfx,
+        view.pos + slash_dir,
+        spec.hitbox_half_size,
+        slash_kind(spec.intent),
+        slash_dir,
+    );
 }
 
 /// Pick the slash ART for an attack: down-tilt is a grounded horizontal poke;
@@ -243,6 +244,31 @@ fn slash_kind(intent: AttackIntent) -> SlashKind {
 fn slash_effect_size(hitbox_half_size: ae::Vec2) -> f32 {
     const SLASH_EFFECT_SCALE: f32 = 2.0;
     ((hitbox_half_size * 2.0).max_element() * SLASH_EFFECT_SCALE).max(24.0)
+}
+
+/// THE single melee-slash effect emit. EVERY body's melee — the player AND any
+/// brain-driven actor — draws its swing through this one function, so the slash
+/// visual has exactly ONE definition (size curve + message shape). `center` is the
+/// world hitbox center, `half_size` its half-extent, `dir` the gravity-relative
+/// body→strike offset (the renderer rotates the art along it).
+///
+/// ONE BODY, ONE PATH: do NOT add another `VfxMessage::Slash` site — call this. (The
+/// two melee STATE MACHINES that call it — `PlayerAttackState` here and
+/// `ActorAttackState` in `update_ecs_actors` — are the next fork to collapse; see
+/// the `BIFURCATION:` note in dev/journals/code_smells.md.)
+pub fn emit_melee_slash(
+    vfx: &mut MessageWriter<VfxMessage>,
+    center: ae::Vec2,
+    half_size: ae::Vec2,
+    kind: SlashKind,
+    dir: ae::Vec2,
+) {
+    vfx.write(VfxMessage::Slash {
+        center,
+        size: slash_effect_size(half_size),
+        kind,
+        dir,
+    });
 }
 
 /// Source the player's melee hitbox from the sprite manifest — the box authored

@@ -582,10 +582,11 @@ pub fn update_ecs_actors(
                         1.0,
                         em.attack.active_timer,
                     );
-                    // Draw the swing — the SAME `Slash` flourish the player emits, so
-                    // an AI fighter's attack reads identically (it previously drew
-                    // NOTHING). Forward swings arc; a down-tilt pokes. `local_offset`
-                    // is the body→hitbox direction, already gravity-relative.
+                    // Draw the swing through THE ONE shared melee-slash emitter the
+                    // player uses (`combat::attack::emit_melee_slash`) — same visual
+                    // definition, no second `VfxMessage::Slash` site. Forward swings
+                    // arc; a down-tilt pokes. `local_offset` is the gravity-relative
+                    // body→hitbox direction.
                     let slash_kind = if enemy_melee_animation_for_axis(em.attack.pending_axis)
                         == "attack_down"
                     {
@@ -593,14 +594,13 @@ pub fn update_ecs_actors(
                     } else {
                         ambition_vfx::vfx::SlashKind::Arc
                     };
-                    let slash_size =
-                        ((attack_box.half_size() * 2.0).max_element() * 2.0).max(24.0);
-                    vfx.write(ambition_vfx::vfx::VfxMessage::Slash {
-                        center: attack_box.center(),
-                        size: slash_size,
-                        kind: slash_kind,
-                        dir: local_offset,
-                    });
+                    crate::combat::attack::emit_melee_slash(
+                        &mut vfx,
+                        attack_box.center(),
+                        attack_box.half_size(),
+                        slash_kind,
+                        local_offset,
+                    );
                 }
                 // Mirror the cluster state onto the ECS read-model
                 // components consumers still read (identity / health /

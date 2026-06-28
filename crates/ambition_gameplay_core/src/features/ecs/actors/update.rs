@@ -137,11 +137,6 @@ pub fn update_ecs_actors(
                 // crowding neighbors and the anti-clump back-actor rule freezes
                 // both. `Option` to match the other cluster-nested reads.
                 Option<&super::super::super::components::ActorFaction>,
-                // Aggression — set Passive when this actor's foe dies, so the
-                // targeting system stops re-acquiring a target (e.g. the player)
-                // and the pacified winner truly stands down. Nested to stay within
-                // the top-level query arity. `Option` to match the cluster reads.
-                Option<&mut crate::combat::components::ActorAggression>,
             ),
         ),
         // The player carries the unified `BodyKinematics` too, and
@@ -208,7 +203,7 @@ pub fn update_ecs_actors(
     for (entity, _, _, _, _, body_combat) in &player_query {
         alive_by_entity.insert(entity, body_combat.alive);
     }
-    for (entity, _, _, disposition, _, _, _, _, _, _, _, _, (clusters, _, faction, _)) in &actors {
+    for (entity, _, _, disposition, _, _, _, _, _, _, _, _, (clusters, _, faction)) in &actors {
         if let Some(c) = &clusters {
             alive_by_entity.insert(entity, c.status.alive);
         }
@@ -263,29 +258,28 @@ pub fn update_ecs_actors(
         mut control,
         action_set,
         mounted,
-        (clusters, possessed, _faction, mut aggression),
+        (clusters, possessed, _faction),
     ) in &mut actors
     {
-        // Real target liveness for this actor: look up the entity its `ActorTarget`
-        // points at. A confirmed-dead foe both demotes the brain to Idle (below) AND
-        // pacifies the actor (relativity-neutral: any fighter, any faction). Only a
-        // target that EXISTED and is now dead pacifies — a merely-absent target
-        // (None / out of range) leaves a hostile enemy hostile.
-        let (target_alive, target_confirmed_dead) = match target.entity {
-            Some(e) => {
-                let alive = alive_by_entity.get(&e).copied().unwrap_or(true);
-                (alive, !alive)
-            }
-            None => (true, false),
+        // This actor's combat-target liveness. `select_actor_targets` already
+        // dropped a dead/absent foe (it only ever targets a LIVE candidate, and a
+        // faction-feud fighter has no target once its foe is gone), so `entity ==
+        // None` here means "no one to fight" → the brain idles (peaceful behavior).
+        let target_alive = match target.entity {
+            Some(e) => alive_by_entity.get(&e).copied().unwrap_or(true),
+            None => false,
         };
-        if target_confirmed_dead && disposition.is_hostile() {
+        // Disposition is DERIVED from having a combat target: an aggressive actor
+        // with NO target stands down to Peaceful — it stops attacking empty air,
+        // relabels as peaceful, and is re-provokable (strike it past the threshold)
+        // again — but KEEPS its aggression mode, so it re-acquires and re-engages the
+        // instant a foe reappears (retreat → escape → peaceful; reacquire →
+        // fighting). A HostileToPlayer enemy keeps the live player as its target, so
+        // it never spuriously stands down. Relativity-neutral (any fighter, any
+        // faction). This REPLACES the former hard pacify-to-passive, which dead-ended
+        // a duel winner (couldn't be talked to or re-provoked, and mislabeled it).
+        if disposition.is_hostile() && target.entity.is_none() {
             *disposition = ActorDisposition::Peaceful;
-            // Stand down for good: go passive so `select_actor_targets` won't
-            // re-acquire a foe (otherwise the winner would just turn on the
-            // nearest player). The brain then idles/patrols like any peaceful NPC.
-            if let Some(aggression) = aggression.as_mut() {
-                **aggression = crate::combat::components::ActorAggression::passive();
-            }
         }
         // `target.pos` is populated by `select_actor_targets`
         // (#17.8); it defaults to the actor's spawn-of-game position

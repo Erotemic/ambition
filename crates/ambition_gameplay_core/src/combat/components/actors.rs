@@ -216,8 +216,26 @@ impl ActorAggression {
         }
     }
 
+    /// Hostile to its relational faction-foes ONLY — never the player baseline.
+    /// A fighter in a faction feud (e.g. the spectator duel: Enemy vs Boss) targets
+    /// whoever `FactionRelations` says it's hostile to, and goes target-less the
+    /// moment that foe is gone — it does NOT fall back to hunting the observing
+    /// player. The player can still be caught by a stray (PHYSICAL damage) or
+    /// PROVOKE it the normal way (strike it past the retaliation threshold, which
+    /// flips it to [`AggressionMode::HostileToPlayer`]).
+    pub fn hostile_to_faction() -> Self {
+        Self {
+            mode: AggressionMode::HostileToFaction,
+            target: None,
+            strikes: 0,
+        }
+    }
+
     pub fn is_aggressive(self) -> bool {
-        matches!(self.mode, AggressionMode::HostileToPlayer)
+        matches!(
+            self.mode,
+            AggressionMode::HostileToPlayer | AggressionMode::HostileToFaction
+        )
     }
 
     /// Who this actor wants to look at / chase this frame, derived from
@@ -239,6 +257,8 @@ impl ActorAggression {
             AggressionMode::RetaliatesWhenHit { .. } | AggressionMode::HostileToPlayer => {
                 AggressionTarget::NearestPlayer
             }
+            // Relational feud: target nearest faction-foe, never the player baseline.
+            AggressionMode::HostileToFaction => AggressionTarget::NearestFoe,
         }
     }
 }
@@ -254,6 +274,9 @@ pub enum AggressionMode {
     Passive,
     RetaliatesWhenHit { strike_threshold: u8 },
     HostileToPlayer,
+    /// Hostile to its relational faction-foes only (never the player baseline).
+    /// See [`ActorAggression::hostile_to_faction`].
+    HostileToFaction,
 }
 
 /// Resolved targeting policy for one frame, produced by
@@ -269,8 +292,13 @@ pub enum AggressionTarget {
     /// direction (keep current facing) instead of snapping toward the
     /// world origin.
     None,
-    /// Track the nearest alive player-faction entity.
+    /// Track the nearest alive player-faction entity (plus any relationally-hostile
+    /// actor — the player baseline is always a candidate).
     NearestPlayer,
+    /// Track the nearest alive RELATIONAL faction-foe ONLY — the player baseline is
+    /// NOT a candidate. A faction-feud fighter that goes target-less once its foe is
+    /// gone (it does not fall back to the observing player).
+    NearestFoe,
 }
 
 /// ECS-visible body health. Re-exported here (the actor-components umbrella) so

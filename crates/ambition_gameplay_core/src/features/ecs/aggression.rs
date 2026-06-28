@@ -76,6 +76,14 @@ pub fn apply_actor_stimuli(
                     aggression.strikes >= i32::from(strike_threshold)
                 }
                 AggressionMode::HostileToPlayer => true,
+                // A faction-feud fighter (e.g. a duel winner that stood down to
+                // peaceful once its foe died) is re-provokable by the player the
+                // same way an NPC is: strike it past the threshold and it turns on
+                // the attacker (the flip to `HostileToPlayer` below adds the player
+                // to its targets). Below the threshold a stray hit is shrugged off.
+                AggressionMode::HostileToFaction => {
+                    aggression.strikes >= crate::features::NPC_HOSTILE_STRIKE_THRESHOLD
+                }
                 AggressionMode::Passive => false,
             };
             if !should_be_aggressive {

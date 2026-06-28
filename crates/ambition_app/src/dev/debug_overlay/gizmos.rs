@@ -96,6 +96,7 @@ pub struct FeatureDebugQueries<'w, 's> {
         's,
         (
             &'static ambition_gameplay_core::features::ActorDisposition,
+            &'static ambition_gameplay_core::features::ActorAggression,
             &'static ambition_gameplay_core::features::CenteredAabb,
             Option<&'static ambition_gameplay_core::features::BodyKinematics>,
             Option<&'static ambition_gameplay_core::features::ActorAttackState>,
@@ -611,23 +612,40 @@ pub(crate) fn draw_feature_debug(
     let telegraph_color = Color::srgba(1.00, 0.95, 0.20, 0.60); // yellow
     let active_color = Color::srgba(1.00, 0.12, 0.12, 0.95); // bright red
 
-    for (disposition, aabb, kin, attack, _surface) in feature_q.actors.iter() {
-        // Color/label key off disposition now — "enemy" is hostile state, not a
-        // type (a provoked NPC turns red automatically).
-        let hostile = disposition.is_hostile();
-        let color = if hostile { enemy_color } else { npc_color };
+    // "fighting" (in a faction feud) is amber — distinct from "hostile" (after a
+    // controlled character) red and "peaceful" green.
+    let fighting_color = Color::srgba(1.00, 0.78, 0.20, 0.88);
+    for (disposition, aggression, aabb, kin, attack, _surface) in feature_q.actors.iter() {
+        // State is DERIVED, not a stored actor TYPE: an actor is "fighting" while it
+        // has a combat target (the disposition stands down to peaceful the instant
+        // the target is gone — a duel winner, an enemy that lost the player). The
+        // label refines that: "hostile" when the target is a controlled character
+        // (mode HostileToPlayer — debug-label convenience, true for any controlled
+        // char incl. co-op), "fighting" when it's a faction-foe (HostileToFaction),
+        // "peaceful" when it has no target. ("enemy"/"npc" was a misnomer — these are
+        // states, not classes.)
+        let fighting = disposition.is_hostile();
+        let (actor_label, color) = if !fighting {
+            ("peaceful", npc_color)
+        } else if matches!(
+            aggression.mode,
+            ambition_gameplay_core::features::AggressionMode::HostileToFaction
+        ) {
+            ("fighting", fighting_color)
+        } else {
+            ("hostile", enemy_color)
+        };
         // `CenteredAabb` is already oriented to the actor's surface (a clung
         // surface-walker swaps width<->height onto a wall — see
         // `update_ecs_actors`), so the drawn box matches the rotated sprite.
         draw_aabb_styled(gizmos, world, aabb.aabb(), color, developer_tools);
-        let actor_label = if hostile { "enemy" } else { "npc" };
         label_box(labels, aabb.aabb(), actor_label, color, LabelSpot::TopLeft);
-        // Hostile actors (and turned-hostile NPCs like the Kernel Guide)
-        // own an attack volume that becomes active during a swing — draw
-        // it whenever windup or strike timer is live so the player can
-        // see exactly where the hit will land. Telegraph wins when both
-        // are zero so a frame on the edge still reads as "incoming".
-        if hostile {
+        // A FIGHTING actor (hostile to the player or in a faction feud) owns an
+        // attack volume that becomes active during a swing — draw it whenever windup
+        // or strike timer is live so the player can see exactly where the hit will
+        // land. Telegraph wins when both are zero so a frame on the edge still reads
+        // as "incoming".
+        if fighting {
             if let (Some(kin), Some(attack)) = (kin, attack) {
                 // Forward-swing hitbox geometry (matches
                 // ActorMut::attack_aabb): offset by facing.

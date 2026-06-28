@@ -15,8 +15,9 @@ use super::components::{
     ActorAggression, ActorFaction, ActorTarget, AggressionTarget, CenteredAabb,
 };
 use super::FeatureSimEntity;
-use crate::actor::{PlayerEntity};
+use crate::actor::BodyHealth;
 use crate::actor::BodyKinematics;
+use crate::actor::PlayerEntity;
 
 /// Number of [`ActorFaction`] variants (Player / Enemy / Npc / Boss / Neutral).
 /// The relations matrix is indexed by `faction as usize`.
@@ -122,11 +123,11 @@ pub fn can_damage(attacker: ActorFaction, victim: ActorFaction, friendly_fire: F
 /// index here without changing the consumer side.
 pub fn select_actor_targets(
     relations: Option<Res<FactionRelations>>,
-    players: Query<(Entity, &BodyKinematics), With<PlayerEntity>>,
+    players: Query<(Entity, &BodyKinematics, &BodyHealth), With<PlayerEntity>>,
     // Non-player actors are candidate targets too (the relational, non-player-
     // centric part): an actor can target another actor whose faction it's hostile
     // to. Snapshotted, so this read-only borrow ends before the mutable pass.
-    others: Query<(Entity, &CenteredAabb, &ActorFaction), With<FeatureSimEntity>>,
+    others: Query<(Entity, &CenteredAabb, &ActorFaction, &BodyHealth), With<FeatureSimEntity>>,
     mut actors: Query<
         (
             Entity,
@@ -139,11 +140,20 @@ pub fn select_actor_targets(
     >,
 ) {
     let relations = relations.map(|r| r.clone()).unwrap_or_default();
-    let player_snapshots: Vec<(Entity, ae::Vec2)> =
-        players.iter().map(|(e, kin)| (e, kin.pos)).collect();
+    // ALIVE candidates only: a dead body (health drained to 0) is never a valid
+    // target. So the instant a foe dies the actor goes target-less — it stops
+    // swinging at the corpse and (downstream) stands down — instead of chasing a
+    // dead entity until it despawns. Death zeroes `BodyHealth` on every body
+    // (player + actor), so this is the one uniform liveness gate.
+    let player_snapshots: Vec<(Entity, ae::Vec2)> = players
+        .iter()
+        .filter(|(_, _, hp)| hp.current() > 0)
+        .map(|(e, kin, _)| (e, kin.pos))
+        .collect();
     let candidates: Vec<(Entity, ae::Vec2, ActorFaction)> = others
         .iter()
-        .map(|(e, aabb, faction)| (e, aabb.center, *faction))
+        .filter(|(_, _, _, hp)| hp.current() > 0)
+        .map(|(e, aabb, faction, _)| (e, aabb.center, *faction))
         .collect();
     // Nothing to point at: leave every actor's target untouched so downstream
     // ticks keep last frame's value instead of zeroing (matches old behavior
@@ -153,48 +163,51 @@ pub fn select_actor_targets(
     }
     for (self_entity, aabb, mut target, aggression, faction) in actors.iter_mut() {
         let actor_pos = aabb.center;
-        match aggression.target_policy() {
-            AggressionTarget::None => {
-                // Passive: no combat target. Point at self so a
-                // zero direction keeps the actor's current facing.
-                target.pos = actor_pos;
-                target.entity = None;
+        let policy = aggression.target_policy();
+        if policy == AggressionTarget::None {
+            // Passive: no combat target. Point at self so a zero direction keeps
+            // the actor's current facing.
+            target.pos = actor_pos;
+            target.entity = None;
+            continue;
+        }
+        // The player baseline is a candidate ONLY for `NearestPlayer` (hostile
+        // enemies + retaliating NPCs that chase/face the player). `NearestFoe`
+        // (a faction-feud fighter, e.g. the duel) tracks relational foes ONLY —
+        // it never falls back to the observing player, so it goes target-less the
+        // moment its foe is gone. Either way, relational faction-foes are always
+        // candidates; nearest wins.
+        let include_players = matches!(policy, AggressionTarget::NearestPlayer);
+        let mut best: Option<(Entity, ae::Vec2, f32)> = None;
+        let mut consider = |entity: Entity, pos: ae::Vec2| {
+            if entity == self_entity {
+                return;
             }
-            AggressionTarget::NearestPlayer => {
-                // Candidate pool = the player baseline (so hostile enemies +
-                // retaliating NPCs keep chasing/facing the player) PLUS any
-                // non-player actor this actor's faction is relationally hostile
-                // to (the seam — empty by default). Nearest wins.
-                let mut best: Option<(Entity, ae::Vec2, f32)> = None;
-                let mut consider = |entity: Entity, pos: ae::Vec2| {
-                    if entity == self_entity {
-                        return;
-                    }
-                    let d = distance_squared(pos, actor_pos);
-                    if best.map(|(_, _, bd)| d < bd).unwrap_or(true) {
-                        best = Some((entity, pos, d));
-                    }
-                };
-                for (entity, pos) in &player_snapshots {
+            let d = distance_squared(pos, actor_pos);
+            if best.map(|(_, _, bd)| d < bd).unwrap_or(true) {
+                best = Some((entity, pos, d));
+            }
+        };
+        if include_players {
+            for (entity, pos) in &player_snapshots {
+                consider(*entity, *pos);
+            }
+        }
+        if let Some(faction) = faction {
+            for (entity, pos, other_faction) in &candidates {
+                if relations.is_hostile(*faction, *other_faction) {
                     consider(*entity, *pos);
                 }
-                if let Some(faction) = faction {
-                    for (entity, pos, other_faction) in &candidates {
-                        if relations.is_hostile(*faction, *other_faction) {
-                            consider(*entity, *pos);
-                        }
-                    }
-                }
-                if let Some((entity, pos, _)) = best {
-                    target.pos = pos;
-                    target.entity = Some(entity);
-                } else {
-                    // No valid target (e.g. no players + no relational foes):
-                    // keep facing by pointing at self.
-                    target.pos = actor_pos;
-                    target.entity = None;
-                }
             }
+        }
+        if let Some((entity, pos, _)) = best {
+            target.pos = pos;
+            target.entity = Some(entity);
+        } else {
+            // No valid target (foe dead/gone, or no players for a player-hunter):
+            // point at self so facing math reads a zero direction (hold facing).
+            target.pos = actor_pos;
+            target.entity = None;
         }
     }
 }
@@ -222,6 +235,12 @@ use crate::actor::BodyKinematics;
         }
     }
 
+    /// Live `BodyHealth` — every candidate body needs it now that targeting filters
+    /// out the dead (a drained body is never a target).
+    fn alive() -> BodyHealth {
+        BodyHealth::new(ambition_characters::actor::Health::new(10))
+    }
+
     fn enemy_at(app: &mut App, pos: ae::Vec2) -> Entity {
         app.world_mut()
             .spawn((
@@ -229,6 +248,7 @@ use crate::actor::BodyKinematics;
                 CenteredAabb::from_center_size(pos, ae::Vec2::new(20.0, 20.0)),
                 ActorTarget::default(),
                 ActorAggression::hostile_to_player(),
+                alive(),
             ))
             .id()
     }
@@ -243,6 +263,7 @@ use crate::actor::BodyKinematics;
                 PlayerSlot(0),
                 PrimaryPlayer,
                 dummy_player_body(ae::Vec2::new(300.0, 100.0)),
+                alive(),
             ))
             .id();
         let enemy = enemy_at(&mut app, ae::Vec2::new(100.0, 100.0));
@@ -263,6 +284,7 @@ use crate::actor::BodyKinematics;
             PlayerSlot(0),
             PrimaryPlayer,
             dummy_player_body(ae::Vec2::new(100.0, 100.0)),
+                alive(),
         ));
         let p2 = app
             .world_mut()
@@ -270,6 +292,7 @@ use crate::actor::BodyKinematics;
                 PlayerEntity,
                 PlayerSlot(1),
                 dummy_player_body(ae::Vec2::new(500.0, 100.0)),
+                alive(),
             ))
             .id();
         let enemy = enemy_at(&mut app, ae::Vec2::new(450.0, 100.0));
@@ -288,6 +311,7 @@ use crate::actor::BodyKinematics;
             PlayerSlot(0),
             PrimaryPlayer,
             dummy_player_body(ae::Vec2::new(999.0, 999.0)),
+                alive(),
         ));
         let actor_pos = ae::Vec2::new(40.0, 60.0);
         let passive = app
@@ -319,6 +343,7 @@ use crate::actor::BodyKinematics;
                 PlayerSlot(0),
                 PrimaryPlayer,
                 dummy_player_body(ae::Vec2::new(200.0, 100.0)),
+                alive(),
             ))
             .id();
         // A RetaliatesWhenHit NPC still tracks the player (for facing /
@@ -384,6 +409,7 @@ use crate::actor::BodyKinematics;
                 ActorTarget::default(),
                 ActorAggression::hostile_to_player(),
                 ActorFaction::Enemy,
+                alive(),
             ))
             .id();
         // ... and an Npc-faction actor it's now relationally hostile to.
@@ -396,6 +422,7 @@ use crate::actor::BodyKinematics;
                     ae::Vec2::new(20.0, 20.0),
                 ),
                 ActorFaction::Npc,
+                alive(),
             ))
             .id();
 
@@ -430,12 +457,14 @@ use crate::actor::BodyKinematics;
                 ActorTarget::default(),
                 ActorAggression::hostile_to_player(),
                 ActorFaction::Enemy,
+                alive(),
             ))
             .id();
         app.world_mut().spawn((
             FeatureSimEntity,
             CenteredAabb::from_center_size(ae::Vec2::new(160.0, 100.0), ae::Vec2::new(20.0, 20.0)),
             ActorFaction::Npc,
+            alive(),
         ));
         app.add_systems(Update, select_actor_targets);
         app.update();
@@ -445,5 +474,108 @@ use crate::actor::BodyKinematics;
             "no relation + no player → no combat target by default"
         );
         assert_eq!(target.pos, ae::Vec2::new(100.0, 100.0));
+    }
+
+    /// A drained body (health 0) for the dead-candidate filter.
+    fn dead() -> BodyHealth {
+        let mut h = BodyHealth::new(ambition_characters::actor::Health::new(10));
+        h.damage(10);
+        h
+    }
+
+    /// A `HostileToFaction` fighter (the duel mode) targets its relational
+    /// faction-foe and NEVER the player baseline — even a player standing right on
+    /// top of it. This is the fix for "the duel winner hunts the observer": the
+    /// player can only be caught by a stray (physical damage) or by provoking the
+    /// fighter (strikes), not by being the nearest body.
+    #[test]
+    fn relational_fighter_ignores_the_player_baseline() {
+        use crate::combat::components::ActorFaction;
+        let mut app = App::new();
+        let mut relations = FactionRelations::default();
+        relations.set_hostile(ActorFaction::Enemy, ActorFaction::Boss, true);
+        app.insert_resource(relations);
+        // A player stands RIGHT NEXT to the fighter (nearest body by far)...
+        app.world_mut().spawn((
+            PlayerEntity,
+            PlayerSlot(0),
+            PrimaryPlayer,
+            dummy_player_body(ae::Vec2::new(105.0, 100.0)),
+            alive(),
+        ));
+        let fighter = app
+            .world_mut()
+            .spawn((
+                FeatureSimEntity,
+                CenteredAabb::from_center_size(ae::Vec2::new(100.0, 100.0), ae::Vec2::new(20.0, 20.0)),
+                ActorTarget::default(),
+                ActorAggression::hostile_to_faction(),
+                ActorFaction::Enemy,
+                alive(),
+            ))
+            .id();
+        // ... but the fighter targets its (much farther) Boss foe, not the player.
+        let foe = app
+            .world_mut()
+            .spawn((
+                FeatureSimEntity,
+                CenteredAabb::from_center_size(ae::Vec2::new(300.0, 100.0), ae::Vec2::new(20.0, 20.0)),
+                ActorFaction::Boss,
+                alive(),
+            ))
+            .id();
+        app.add_systems(Update, select_actor_targets);
+        app.update();
+        let target = app.world().entity(fighter).get::<ActorTarget>().unwrap();
+        assert_eq!(
+            target.entity,
+            Some(foe),
+            "a HostileToFaction fighter targets its faction-foe, never the nearer player baseline"
+        );
+    }
+
+    /// A dead foe is never targeted: once the foe's health is drained, the fighter
+    /// goes target-less (→ stands down to peaceful downstream) instead of swinging
+    /// at the corpse. Replaces the old manual pacify-on-death hack.
+    #[test]
+    fn a_dead_foe_is_dropped_so_the_fighter_goes_target_less() {
+        use crate::combat::components::ActorFaction;
+        let mut app = App::new();
+        let mut relations = FactionRelations::default();
+        relations.set_hostile(ActorFaction::Enemy, ActorFaction::Boss, true);
+        app.insert_resource(relations);
+        let fighter = app
+            .world_mut()
+            .spawn((
+                FeatureSimEntity,
+                CenteredAabb::from_center_size(ae::Vec2::new(100.0, 100.0), ae::Vec2::new(20.0, 20.0)),
+                ActorTarget::default(),
+                ActorAggression::hostile_to_faction(),
+                ActorFaction::Enemy,
+                alive(),
+            ))
+            .id();
+        // The only foe is DEAD (health 0) — and a live player is present too, but a
+        // HostileToFaction fighter never falls back to it.
+        app.world_mut().spawn((
+            PlayerEntity,
+            PlayerSlot(0),
+            PrimaryPlayer,
+            dummy_player_body(ae::Vec2::new(120.0, 100.0)),
+            alive(),
+        ));
+        app.world_mut().spawn((
+            FeatureSimEntity,
+            CenteredAabb::from_center_size(ae::Vec2::new(300.0, 100.0), ae::Vec2::new(20.0, 20.0)),
+            ActorFaction::Boss,
+            dead(),
+        ));
+        app.add_systems(Update, select_actor_targets);
+        app.update();
+        let target = app.world().entity(fighter).get::<ActorTarget>().unwrap();
+        assert_eq!(
+            target.entity, None,
+            "a dead foe is dropped and the relational fighter goes target-less (stands down)"
+        );
     }
 }

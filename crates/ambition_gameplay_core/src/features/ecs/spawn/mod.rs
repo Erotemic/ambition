@@ -83,7 +83,16 @@ pub fn spawn_room_feature_entities(commands: &mut Commands, room: &crate::rooms:
                 ) {
                     commands
                         .entity(entity)
-                        .insert(crate::features::RuntimeStagedActor);
+                        .insert(crate::features::RuntimeStagedActor)
+                        // Duel fighters feud with EACH OTHER (relational), never the
+                        // observing player: override the default `hostile_to_player`
+                        // with `hostile_to_faction`, so once a fighter's foe dies it
+                        // goes target-less and stands down to peaceful instead of
+                        // turning on the player. The player can still be caught by a
+                        // stray (physical damage) or PROVOKE a stood-down fighter by
+                        // striking it past the retaliation threshold. This loop only
+                        // ever stages duel fighters, so the override is unconditional.
+                        .insert(crate::features::ActorAggression::hostile_to_faction());
                 }
             }
         }

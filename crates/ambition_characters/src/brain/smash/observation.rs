@@ -39,6 +39,9 @@ pub struct ObservationFrame {
     pub self_attacking: bool,
     pub attack_cooldown_remaining: f32,
     pub stun_remaining: f32,
+    /// Own health fraction in `[0, 1]`, carried through so the regroup trigger can
+    /// watch it drop. See [`BrainSnapshot::health_fraction`].
+    pub self_health_fraction: f32,
 
     // --- Target ---
     pub target_pos: ae::Vec2,
@@ -195,6 +198,7 @@ pub fn observe(snap: &BrainSnapshot) -> ObservationFrame {
         self_attacking,
         attack_cooldown_remaining: snap.attack_cooldown_remaining,
         stun_remaining: snap.stun_remaining,
+        self_health_fraction: snap.health_fraction,
         target_pos: snap.target_pos,
         target_alive: snap.target_alive,
         to_target_x: to_target.x,

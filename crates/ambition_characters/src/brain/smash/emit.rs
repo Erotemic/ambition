@@ -138,6 +138,7 @@ mod tests {
             self_air_jumps_remaining: 0,
             attack_cooldown_remaining: 0.0,
             stun_remaining: 0.0,
+            self_health_fraction: 1.0,
             target_pos: ae::Vec2::new(distance_x, 0.0),
             target_alive: true,
             to_target_x: distance_x,

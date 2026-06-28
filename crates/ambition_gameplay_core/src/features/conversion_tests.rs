@@ -89,6 +89,7 @@ mod conversion_tests {
             alive: true,
             target_pos: target,
             target_alive: true,
+            health_fraction: 1.0,
             sim_time: 0.0,
             dt,
             max_run_speed: ambition_characters::brain::NPC_PATROL_SPEED,

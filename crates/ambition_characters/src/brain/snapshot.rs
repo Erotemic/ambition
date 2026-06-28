@@ -72,6 +72,12 @@ pub struct BrainSnapshot {
     /// brain to Idle/Patrol.
     pub target_alive: bool,
 
+    /// This actor's own health as a fraction of its max in `[0, 1]`. The Smash
+    /// brain watches this for DROPS (damage taken) to trigger a regroup — it backs
+    /// off and resets after taking a beating instead of trading forever. `1.0`
+    /// (full health) for snapshots that don't care.
+    pub health_fraction: f32,
+
     /// Sim time at the start of this tick (seconds, scaled clock).
     pub sim_time: f32,
     /// Scaled dt for this tick (seconds).
@@ -160,6 +166,7 @@ impl BrainSnapshot {
             alive: true,
             target_pos: ae::Vec2::ZERO,
             target_alive: true,
+            health_fraction: 1.0,
             sim_time: 0.0,
             dt: 1.0 / 60.0,
             max_run_speed: 120.0,

@@ -99,6 +99,20 @@ pub struct SmashCfg {
     /// mixes into its approach to vary its attack vector and use vertical
     /// space. `0.0` (the grunt default) disables neutral hops.
     pub neutral_jump_cadence_s: f32,
+    /// **Regroup** trigger: accumulated recent damage (as a fraction of max HP,
+    /// decaying over a couple seconds) that makes the fighter break off and reset
+    /// after taking a beating — instead of trading hits forever at one spacing. It
+    /// retreats a real distance (dashing to cover ground, taking to the air for high
+    /// ground if it can fly), then re-engages. `0.0` (the grunt default) disables it.
+    pub regroup_damage_threshold: f32,
+    /// How long a regroup lasts (s) before the fighter returns to neutral. Ignored
+    /// when [`Self::regroup_damage_threshold`] is `0.0`.
+    pub regroup_duration_s: f32,
+    /// Target separation (px) a regroup opens up: once the fighter has backed off at
+    /// least this far it has "regrouped" and re-engages early. Large enough that the
+    /// retreat — and the re-approach — cross a real gap (so the dash/fly traversal
+    /// actually fires). Ignored when regroup is disabled.
+    pub regroup_distance: f32,
     /// **Poke-and-reset discipline** (whiff-punish footsies). Seconds the fighter
     /// suppresses offense after a melee swing completes — letting the neutral weave
     /// reset its spacing — before it may re-commit. `0.0` (the grunt default)
@@ -177,6 +191,9 @@ impl SmashCfg {
         footsies_amplitude: 0.0,
         footsies_period_s: 1.4,
         neutral_jump_cadence_s: 0.0,
+        regroup_damage_threshold: 0.0,
+        regroup_duration_s: 0.0,
+        regroup_distance: 0.0,
         poke_reset_s: 0.0,
         can_blink: false,
         blink_cooldown_s: 0.0,
@@ -203,6 +220,9 @@ impl SmashCfg {
         footsies_amplitude: 0.0,
         footsies_period_s: 1.6,
         neutral_jump_cadence_s: 0.0,
+        regroup_damage_threshold: 0.0,
+        regroup_duration_s: 0.0,
+        regroup_distance: 0.0,
         poke_reset_s: 0.0,
         can_blink: false,
         blink_cooldown_s: 0.0,
@@ -233,6 +253,12 @@ impl SmashCfg {
         footsies_amplitude: 60.0,
         footsies_period_s: 1.3,
         neutral_jump_cadence_s: 1.7,
+        // After taking ~5% of max HP since the last break-off (a few clean hits),
+        // regroup: dash/fly out to a real distance, then re-engage — spatial depth
+        // instead of a glued trade.
+        regroup_damage_threshold: 0.05,
+        regroup_duration_s: 1.6,
+        regroup_distance: 300.0,
         // After every poke, suppress offense and let the weave reset spacing before
         // re-committing — the heart of the neutral game (no point-blank mashing).
         poke_reset_s: 0.38,
@@ -373,6 +399,15 @@ pub struct SmashState {
     /// falling edge (swing → not-swinging) so the neutral reset arms exactly once
     /// per poke. Pure tick-stream bookkeeping → replay-safe.
     pub was_attacking: bool,
+    /// Seconds left in the current regroup (break-off-and-reset after a beating).
+    /// While positive the fighter retreats a real distance — dashing, and taking to
+    /// the air for high ground if able — instead of trading. `0` outside a regroup.
+    pub regroup_timer: f32,
+    /// Own health fraction observed last tick, to detect DROPS (damage taken).
+    pub last_health_fraction: f32,
+    /// Decaying memory of recent damage taken (sum of health-fraction drops, bled
+    /// off over a couple seconds). Arms a regroup when it crosses the threshold.
+    pub damage_accum: f32,
 }
 
 /// How long a reactive block is held once triggered (s) — long enough to span a
@@ -420,6 +455,7 @@ pub fn tick_smash(
     state.neutral_jump_cooldown = (state.neutral_jump_cooldown - snapshot.dt).max(0.0);
     state.blink_cooldown = (state.blink_cooldown - snapshot.dt).max(0.0);
     state.neutral_reset_timer = (state.neutral_reset_timer - snapshot.dt).max(0.0);
+    state.regroup_timer = (state.regroup_timer - snapshot.dt).max(0.0);
     // Advance the spacing phase — it drives the grounded footsies weave AND the
     // aerial dive/perch cycle, so a flyer needs it even with footsies disabled.
     if (cfg.footsies_amplitude > 0.0 || snapshot.actor_aerial) && cfg.footsies_period_s > 0.0 {
@@ -456,6 +492,29 @@ pub fn tick_smash(
         state.neutral_reset_timer = cfg.poke_reset_s;
     }
     state.was_attacking = obs.self_attacking;
+    // Regroup trigger: accumulate recent damage (health-fraction DROPS), bleed it
+    // off over ~2s, and break off when it crosses the threshold. Health is a scalar,
+    // so this is gravity-frame-agnostic. The first tick (last == 0.0 default) reads
+    // as a rise, not a drop, so it never false-triggers.
+    let hp = obs.self_health_fraction;
+    let drop = (state.last_health_fraction - hp).max(0.0);
+    state.last_health_fraction = hp;
+    // Accumulate damage taken SINCE the last regroup (reset on trigger). The bleed
+    // is deliberately tiny — far below the real in-fight damage rate (good defense
+    // means hits are sparse) — so a "bunch of hits" actually accumulates instead of
+    // being cancelled; it only forgives ancient chip damage over minutes.
+    state.damage_accum = (state.damage_accum - snapshot.dt * 0.001).max(0.0) + drop;
+    if cfg.regroup_damage_threshold > 0.0
+        && state.regroup_timer <= 0.0
+        && state.damage_accum >= cfg.regroup_damage_threshold
+    {
+        state.regroup_timer = cfg.regroup_duration_s;
+        state.damage_accum = 0.0;
+    }
+    // Regrouped: once we've opened up the target separation, re-engage early.
+    if state.regroup_timer > 0.0 && obs.distance_to_target >= cfg.regroup_distance {
+        state.regroup_timer = 0.0;
+    }
     let mode = choose_mode(&obs, cfg, state);
     let action = choose_action(&obs, mode, cfg, actions);
     // Verb selection by range (the player/enemy unification flex): a
@@ -484,6 +543,12 @@ pub fn tick_smash(
     // motion is steered below — but keeps the dimension-agnostic ranged poke.
     let action = if obs.self_aerial {
         action
+    } else if state.regroup_timer > 0.0 {
+        // REGROUP (grounded): break off and cover ground — dash away if the burst is
+        // ready (exercises the body dash), else walk away. Taking to the air for high
+        // ground is decided below (after a ground dash). Frame-agnostic: "away" is the
+        // sign along the gravity-perpendicular side axis.
+        regroup_ground_action(&obs, cfg, state)
     } else if state.neutral_reset_timer > 0.0 {
         // Post-poke neutral reset (duelist whiff-punish footsies): suppress all
         // offense (start from Idle, ignoring this tick's melee / ranged / dash) and
@@ -515,7 +580,14 @@ pub fn tick_smash(
         // dimension-agnostic and stay.
         out.locomotion = ae::Vec2::ZERO;
         out.jump_pressed = false;
-        out.velocity_target = aerial_steer(&obs, mode, cfg, state);
+        out.velocity_target = if state.regroup_timer > 0.0 {
+            // Regrouping in the air: peel AWAY and UP to a high, far perch — the
+            // "gain high ground while resetting" the design calls for. Frame-agnostic
+            // (side / up axes).
+            regroup_aerial_steer(&obs, cfg)
+        } else {
+            aerial_steer(&obs, mode, cfg, state)
+        };
     }
     // Reactive defense (capability-gated). Reacts to a *perceivable* lunge — the
     // opponent closing fast — not a privileged read of its attack flag, so a human
@@ -563,8 +635,18 @@ pub fn tick_smash(
     // that differs from the body's current mode. Movement this tick still runs in
     // the *current* mode (above); the toggle takes effect next tick. No-op for a
     // pure grounded brawler or a pure flyer (cfg.can_fly == false).
-    if cfg.can_fly && decide_flight(&obs, cfg, state) != obs.self_aerial {
-        out.fly_toggle_pressed = true;
+    if cfg.can_fly {
+        // During a regroup, take to the air for HIGH GROUND — but only once the
+        // ground dash has fired (dash on cooldown), so the break-off reads as
+        // "dash out, then rise" rather than launching on frame one.
+        let want_air = if state.regroup_timer > 0.0 && state.dash_cooldown_remaining > 0.0 {
+            true
+        } else {
+            decide_flight(&obs, cfg, state)
+        };
+        if want_air != obs.self_aerial {
+            out.fly_toggle_pressed = true;
+        }
     }
 }
 
@@ -789,6 +871,47 @@ fn maybe_neutral_jump(
     }
     state.neutral_jump_cooldown = cfg.neutral_jump_cadence_s;
     SpecificAction::Jump
+}
+
+/// Grounded regroup movement: retreat AWAY from the target — dashing to cover
+/// ground when the burst is ready (the body enforces the dash capability), else
+/// walking. Re-arms the dash cadence on a dash, which the fly toggle then keys off
+/// to rise to high ground. Frame-agnostic: "away" is the sign along the
+/// gravity-perpendicular side axis (`to_target_side`), so it's correct under any
+/// gravity orientation — a duel where the player flips gravity stays sensible.
+fn regroup_ground_action(
+    obs: &ObservationFrame,
+    cfg: &SmashCfg,
+    state: &mut SmashState,
+) -> SpecificAction {
+    let toward = if obs.to_target_side().abs() < 0.001 {
+        obs.self_facing
+    } else {
+        obs.to_target_side().signum()
+    };
+    let away = -toward;
+    if cfg.dash_to_close && obs.self_on_ground && state.dash_cooldown_remaining <= 0.0 {
+        state.dash_cooldown_remaining = DASH_COOLDOWN_S;
+        SpecificAction::Dash { dir: away }
+    } else {
+        SpecificAction::Walk { dir: away }
+    }
+}
+
+/// Aerial regroup steering: drive AWAY from the target and UP, to a high far perch —
+/// gaining high ground while resetting. Frame-agnostic via the gravity-relative
+/// side / up axes (byte-identical to screen `away`+`up` under screen-down gravity).
+fn regroup_aerial_steer(obs: &ObservationFrame, cfg: &SmashCfg) -> ae::Vec2 {
+    let toward = if obs.to_target_side().abs() < 0.001 {
+        obs.self_facing
+    } else {
+        obs.to_target_side().signum()
+    };
+    let desired = obs.target_pos
+        + obs.side_axis() * (-toward * cfg.regroup_distance)
+        + obs.up_axis() * (cfg.engage_distance * 1.6);
+    let to_desired = desired - obs.self_pos;
+    to_desired.normalize_or_zero() * cfg.chase_speed
 }
 
 /// Replace a *closing walk* over a large approach gap with a
@@ -1407,6 +1530,49 @@ mod tests {
         assert!(
             !blinked && !shielded,
             "reactivity 0 must never blink or shield"
+        );
+    }
+
+    /// Damage-triggered regroup: after taking a bunch of hits a duelist breaks off —
+    /// arms the regroup window and DASHES away (exercising the body dash) instead of
+    /// trading at point-blank.
+    #[test]
+    fn duelist_regroups_and_dashes_after_taking_damage() {
+        let cfg = crisp_duelist(); // dash_to_close + regroup enabled
+        let mut state = SmashState {
+            rng_seed: 11,
+            ..Default::default()
+        };
+        let actions = melee_actions();
+        let dt = 1.0 / 60.0;
+        let mut t = 0.0;
+        let mut hp = 1.0_f32;
+        let mut dashed = false;
+        let mut regrouped = false;
+        // Target point-blank to the right; bleed health a bit each tick (a beating).
+        for i in 0..120 {
+            let mut snap = snap_with_target_at_x(30.0);
+            snap.sim_time = t;
+            snap.dt = dt;
+            snap.health_fraction = hp;
+            let mut f = crate::actor::control::ActorControlFrame::neutral();
+            tick_smash(&cfg, &mut state, &actions, &snap, None, &mut f);
+            if state.regroup_timer > 0.0 {
+                regrouped = true;
+            }
+            if f.dash_pressed {
+                dashed = true;
+            }
+            // Take ~2% of max HP every few ticks for the first ~0.5s (a flurry).
+            if i < 30 && i % 5 == 0 {
+                hp -= 0.02;
+            }
+            t += dt;
+        }
+        assert!(regrouped, "a beaten duelist should enter a regroup");
+        assert!(
+            dashed,
+            "the regroup should DASH away to cover ground (exercises the body dash)"
         );
     }
 

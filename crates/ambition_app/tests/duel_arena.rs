@@ -127,6 +127,7 @@ struct AbilityLog {
     shield_active_frames: u32,
     dash_window_frames: u32,
     fly_frames: u32,
+    fly_toggles: u32,
     blink_events: u32,
     prev_blink_cd: f32,
     present: bool,
@@ -140,12 +141,16 @@ fn observe_abilities(world: &mut World, id: &str, log: &mut AbilityLog) {
         &BodyDashState,
         &BodyFlightState,
         &BodyBlinkState,
+        &ActorControl,
     )>();
-    let Some((_, abil, shield, dash, flight, blink)) =
+    let Some((_, abil, shield, dash, flight, blink, control)) =
         q.iter(world).find(|(f, ..)| f.as_str() == id)
     else {
         return;
     };
+    if control.0.fly_toggle_pressed {
+        log.fly_toggles += 1;
+    }
     log.present = true;
     log.caps_blink = abil.abilities.blink;
     log.caps_shield = abil.abilities.shield;
@@ -229,9 +234,9 @@ fn duel_fighters_actually_enact_their_abilities_on_the_body() {
 
     for (who, log) in [("PCA", &pca), ("robot", &robot)] {
         println!(
-            "{who}: caps[blink={} shield={} dash={} fly={}]  shield_frames={}  dash_frames={}  fly_frames={}  blinks={}",
+            "{who}: caps[blink={} shield={} dash={} fly={}]  shield_frames={}  dash_frames={}  fly_frames={}  fly_toggles={}  blinks={}",
             log.caps_blink, log.caps_shield, log.caps_dash, log.caps_fly,
-            log.shield_active_frames, log.dash_window_frames, log.fly_frames, log.blink_events,
+            log.shield_active_frames, log.dash_window_frames, log.fly_frames, log.fly_toggles, log.blink_events,
         );
         assert!(log.present, "{who} present");
         // The archetype capabilities must reach the BODY (not just the brain cfg).
@@ -240,12 +245,23 @@ fn duel_fighters_actually_enact_their_abilities_on_the_body() {
             "{who} body must carry all four abilities (blink={} shield={} dash={} fly={})",
             log.caps_blink, log.caps_shield, log.caps_dash, log.caps_fly,
         );
-        // And the body must actually RESOLVE the defensive abilities in the real
-        // sim — these fire frequently in a fight, so require them from each fighter.
+        // And the body must actually RESOLVE every ability in the real sim — the
+        // defensive ones fire frequently, and the damage-triggered regroup makes the
+        // fighter dash away and take to the air for high ground.
         assert!(
             log.shield_active_frames > 0,
             "{who}: shield must actually go up on the body (got {} frames)",
             log.shield_active_frames
+        );
+        assert!(
+            log.dash_window_frames > 0,
+            "{who}: dash must open a burst window on the body (regroup dash) (got {} frames)",
+            log.dash_window_frames
+        );
+        assert!(
+            log.fly_frames > 0,
+            "{who}: flight must engage on the body (regroup high-ground) (got {} frames)",
+            log.fly_frames
         );
     }
     // Blink resolves on a body (the quick-blink tap commits, not arm-then-cancel).
@@ -256,12 +272,6 @@ fn duel_fighters_actually_enact_their_abilities_on_the_body() {
         pca.blink_events,
         robot.blink_events
     );
-    // NOTE: dash + fly are WIRED (caps on the body, proven above + by the
-    // integration tests) but not yet USED in this tight arena — the brain only
-    // dashes a large gap and only flies a long traversal, neither of which the
-    // fighters reach while glued in footsies. Damage-triggered regroup (which
-    // dashes/flies to gain distance + high ground) is the follow-up that makes
-    // these enact; this test tightens to require them once that lands.
 }
 
 /// Walking into the authored duel arena yields a real brain-vs-brain platform
@@ -288,9 +298,11 @@ fn duel_arena_room_is_a_real_neutral_attack_defense_fight() {
     assert!(pca.present, "PCA auto-spawned on room load");
     assert!(robot.present, "robot auto-spawned on room load");
 
-    // ~20s of sim time — long enough for a full neutral/attack/defense rhythm to
-    // repeat many times now that the fighters carry real (60 hp) health bars.
-    for _ in 0..1200 {
+    // ~40s of sim time — the fighters now play a deep spatial game (regroup, fly to
+    // high ground, big spacing), so they defend more and the bout breathes; a longer
+    // observation lets the full neutral/attack/defense rhythm repeat many times and
+    // accumulate a decisive amount of damage.
+    for _ in 0..2400 {
         sim.step(AgentAction::default());
         observe(sim.world_mut(), DUEL_PCA_ID, &mut pca);
         observe(sim.world_mut(), DUEL_ROBOT_ID, &mut robot);

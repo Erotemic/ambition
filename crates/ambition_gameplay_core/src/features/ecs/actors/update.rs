@@ -484,15 +484,13 @@ pub fn update_ecs_actors(
                         scale: 0.5,
                     });
                 }
-                // Body resolves the fly-toggle intent (invariant I3): capability-
-                // gated, flips the shared movement pipeline's flight mode
-                // (`flight.fly_enabled` — grounded spine <-> flight limb). The
-                // integrator reads the new mode next tick. The controller decides
-                // WHEN — the brain prefers grounded and toggles up only to traverse
-                // a long gap; a possessing human presses it.
-                if em.caps.can_fly && frame.fly_toggle_pressed {
-                    em.flight.fly_enabled = !em.flight.fly_enabled;
-                }
+                // Fly-toggle is resolved INSIDE the shared pipeline (invariant I3):
+                // `em.update`'s control phase ran `apply_fly_toggle`, which flips
+                // `flight.fly_enabled` from the brain's `fly_toggle_pressed` (gated by
+                // the ability mask) exactly like the player. A manual toggle here used
+                // to run too — a SECOND flip on the same intent that cancelled the
+                // pipeline's, so a hybrid could never actually take off. Removed; the
+                // pipeline is the one owner.
                 // Shield is folded onto the shared pipeline limb: `em.update` ran
                 // the body's `apply_shield` (the SAME `resolve_shield` rule the
                 // player uses, ability-gated by the mask, dash-blocked by the
@@ -833,15 +831,25 @@ fn build_enemy_brain_snapshot(
         movement_frame_mode: ae::InputFrameMode::DEFAULT_MOVEMENT,
         aim_frame_mode: ae::InputFrameMode::DEFAULT_AIM,
         actor_on_ground: em.surface.on_ground,
-        // A floating body (gravity_scale == 0) is a free-mover: the brain steers
-        // 2D velocity_target. Same predicate the integrator uses for `is_aerial`.
-        actor_aerial: em.surface.gravity_scale <= 0.001,
+        // The brain steers 2D `velocity_target` whenever the body is in FLIGHT — a
+        // pure free-mover (gravity_scale == 0) OR a grounded-base hybrid that has
+        // toggled flight on (`flight.fly_enabled`). Without the `fly_enabled` half a
+        // hybrid that takes off keeps perceiving itself grounded and re-toggles the
+        // fly intent every tick (flip-flop) instead of sustaining flight. Matches the
+        // integrator's flight-limb predicate (`fly_enabled && abilities.fly`).
+        actor_aerial: em.surface.gravity_scale <= 0.001 || em.flight.fly_enabled,
         alive: em.status.alive,
         target_pos,
         // Real target liveness (was hardcoded `true`): a fighter whose foe is dead
         // perceives it and the Smash brain demotes to Idle instead of swinging at a
         // corpse. Resolved from the target entity's body-alive state by the caller.
         target_alive,
+        // Own health fraction — the Smash brain watches it drop to trigger a regroup
+        // (back off + reset after taking a beating).
+        health_fraction: {
+            let max = em.health.max().max(1) as f32;
+            (em.health.current() as f32 / max).clamp(0.0, 1.0)
+        },
         // Real, accumulating sim-time (scaled by bullet-time / pause) — NOT a
         // hardcoded 0.0. The Smash brain's reaction latency (`obs_history`
         // lookback by `reaction_delay_s`) only functions when this advances, so

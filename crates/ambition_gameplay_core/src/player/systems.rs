@@ -89,6 +89,8 @@ pub fn tick_player_brains(
             alive: true,
             target_pos: kin.pos,
             target_alive: true,
+            // The player brain doesn't regroup on damage; full-health is inert here.
+            health_fraction: 1.0,
             sim_time: 0.0,
             dt: 0.0,
             // Player brain emits an already-normalized stick; capability is

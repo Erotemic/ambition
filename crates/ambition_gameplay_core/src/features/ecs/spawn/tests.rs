@@ -417,6 +417,7 @@ fn pirate_heavy_action_set_swings_when_brain_is_forced_hostile() {
         alive: true,
         target_pos: ae::Vec2::new(72.0, 0.0),
         target_alive: true,
+        health_fraction: 1.0,
         sim_time: 0.0,
         dt: 1.0 / 60.0,
         max_run_speed: 120.0,

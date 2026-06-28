@@ -76,7 +76,30 @@ pub fn build_bubble_shield_sprite(mut commands: Commands, mut images: ResMut<Ass
     commands.insert_resource(BubbleShieldSprite { handle });
 }
 
-/// Spawn the shield sibling sprite. Runs each frame until one exists.
+/// One pooled bubble-ring sprite (hidden until `sync` assigns it to a shielder).
+fn new_ring_sprite(handle: Handle<Image>) -> impl Bundle {
+    (
+        Sprite {
+            image: handle,
+            custom_size: Some(bevy::math::Vec2::new(48.0, 64.0)),
+            color: Color::srgba(0.5, 0.8, 1.0, 0.0),
+            ..default()
+        },
+        // Render behind the body sprite so the ring feels like a field around the
+        // body rather than a foreground overlay.
+        Transform::from_xyz(
+            0.0,
+            0.0,
+            ambition_gameplay_core::config::WORLD_Z_PLAYER - 0.05,
+        ),
+        Visibility::Hidden,
+        BubbleShieldVisual,
+        Name::new("Bubble Shield Visual"),
+    )
+}
+
+/// Seed the pool with one ring. `sync` grows it on demand when several bodies
+/// shield at once.
 pub fn spawn_bubble_shield_visual(
     mut commands: Commands,
     sprite: Option<Res<BubbleShieldSprite>>,
@@ -89,71 +112,71 @@ pub fn spawn_bubble_shield_visual(
     if sprite.handle == Handle::default() {
         return;
     }
-    commands.spawn((
-        Sprite {
-            image: sprite.handle.clone(),
-            custom_size: Some(bevy::math::Vec2::new(48.0, 64.0)),
-            color: Color::srgba(0.5, 0.8, 1.0, 0.0),
-            ..default()
-        },
-        // Render behind the player sprite so the ring feels like a field
-        // around the body rather than a foreground overlay.
-        Transform::from_xyz(
-            0.0,
-            0.0,
-            ambition_gameplay_core::config::WORLD_Z_PLAYER - 0.05,
-        ),
-        Visibility::Hidden,
-        BubbleShieldVisual,
-        Name::new("Bubble Shield Visual"),
-    ));
+    commands.spawn(new_ring_sprite(sprite.handle.clone()));
 }
 
-/// Show / hide and tint the shield ring based on `BodyShieldState`.
-/// Position and scale track the player body size.
-pub fn sync_bubble_shield_visual(
-    world: Res<ambition_gameplay_core::RoomGeometry>,
-    player_q: Query<
-        (
-            &ambition_gameplay_core::actor::BodyKinematics,
-            &ambition_gameplay_core::actor::BodyShieldState,
-        ),
-        ambition_gameplay_core::actor::PrimaryPlayerOnly,
-    >,
-    mut shield_q: Query<(&mut Transform, &mut Sprite, &mut Visibility), With<BubbleShieldVisual>>,
-) {
-    let Ok((kin, shield)) = player_q.single() else {
-        return;
-    };
-    let Ok((mut transform, mut sprite, mut vis)) = shield_q.single_mut() else {
-        return;
-    };
-
-    if !shield.active {
-        *vis = Visibility::Hidden;
-        return;
-    }
-
-    // Position centered on the player body.
-    transform.translation = ambition_gameplay_core::config::world_to_bevy(
-        &world.0,
-        kin.pos,
-        ambition_gameplay_core::config::WORLD_Z_PLAYER - 0.05,
-    );
-
-    // Scale the ring to be slightly larger than the player collider so it
-    // reads as surrounding the body without clipping into it.
-    let render = bevy::math::Vec2::new(kin.size.x * 1.55, kin.size.y * 1.25);
-    sprite.custom_size = Some(render);
-
-    // Parry window: gold glow. Held but expired: soft cyan.
-    sprite.color = if shield.parrying() {
+/// Parry window: gold glow. Held but expired: soft cyan.
+fn shield_ring_color(parrying: bool) -> Color {
+    if parrying {
         Color::srgba(1.0, 0.95, 0.40, 0.90)
     } else {
         Color::srgba(0.50, 0.80, 1.0, 0.55)
-    };
+    }
+}
 
-    *vis = Visibility::Visible;
+/// Show / hide + tint a bubble ring around EVERY body whose shield is up — the
+/// player AND any brain-controlled actor (the duel fighters). One pooled ring per
+/// active shielder; unused rings hide, and the pool grows on demand. So an AI
+/// shield now reads IDENTICALLY to the player's (it previously drew nothing for
+/// actors — the ring was `PrimaryPlayer`-only). Scale tracks each body's size.
+pub fn sync_bubble_shield_visual(
+    mut commands: Commands,
+    sprite: Option<Res<BubbleShieldSprite>>,
+    world: Res<ambition_gameplay_core::RoomGeometry>,
+    bodies: Query<(
+        &ambition_gameplay_core::actor::BodyKinematics,
+        &ambition_gameplay_core::actor::BodyShieldState,
+    )>,
+    mut rings: Query<(&mut Transform, &mut Sprite, &mut Visibility), With<BubbleShieldVisual>>,
+) {
+    // Every body (player + actor) whose shield is currently raised.
+    let active: Vec<_> = bodies
+        .iter()
+        .filter(|(_, shield)| shield.active)
+        .map(|(kin, shield)| (kin.pos, kin.size, shield.parrying()))
+        .collect();
+
+    let ring_count = rings.iter().count();
+    let mut assigned = 0usize;
+    for (mut transform, mut sprite, mut vis) in &mut rings {
+        if let Some((pos, size, parrying)) = active.get(assigned).copied() {
+            transform.translation = ambition_gameplay_core::config::world_to_bevy(
+                &world.0,
+                pos,
+                ambition_gameplay_core::config::WORLD_Z_PLAYER - 0.05,
+            );
+            // Slightly larger than the collider so it surrounds the body.
+            sprite.custom_size = Some(bevy::math::Vec2::new(size.x * 1.55, size.y * 1.25));
+            sprite.color = shield_ring_color(parrying);
+            *vis = Visibility::Visible;
+            assigned += 1;
+        } else {
+            *vis = Visibility::Hidden;
+        }
+    }
+
+    // More bodies shielding than rings in the pool → grow it (the new rings get
+    // positioned next frame). Spawn-on-demand keeps the common 0-1 shielder case at
+    // a single sprite.
+    if active.len() > ring_count {
+        if let Some(sprite) = sprite {
+            if sprite.handle != Handle::default() {
+                for _ in ring_count..active.len() {
+                    commands.spawn(new_ring_sprite(sprite.handle.clone()));
+                }
+            }
+        }
+    }
 }
 
 #[cfg(test)]

@@ -20,6 +20,8 @@ use ambition_characters::brain::{ActorActionMessage, ActorControl, MeleeActionSp
 use ambition_engine_core::{self as ae, AabbExt};
 use ambition_vfx::vfx::{SlashKind, VfxMessage};
 
+use crate::actor::BodyCombat;
+use crate::actor::PrimaryPlayerOnly;
 use crate::audio::SfxMessage;
 use crate::combat::{
     attack_hitbox_from_view, attack_spec_from_view, resolve_attack_intent_from_view, AttackIntent,
@@ -28,8 +30,6 @@ use crate::combat::{
 use crate::dev::dev_tools::EditableMovementTuning;
 use crate::features::{self, FeatureEcsWorldOverlay};
 use crate::player::{ActivePlayerAttack, PlayerAnimState};
-use crate::actor::BodyCombat;
-use crate::actor::{PrimaryPlayerOnly};
 use crate::time::feel::SandboxFeelTuning;
 use crate::world::platforms::MovingPlatformState;
 use crate::{physics, MovingPlatformSet, PlayerAttackState, RoomGeometry};
@@ -197,11 +197,7 @@ pub fn start_attack(
     // punch through one-way platforms. Skip when the body was already pogo-bounced
     // this frame (the bounce is real even when a 1hp orb shatters instantly, so
     // startup must not overwrite the away-from-feet velocity).
-    if !actor.pogo_pressed
-        && intent == AttackIntent::AirDown
-        && descend >= 0.0
-        && descend < 80.0
-    {
+    if !actor.pogo_pressed && intent == AttackIntent::AirDown && descend >= 0.0 && descend < 80.0 {
         frame.ensure_descend_speed(&mut clusters.kinematics.vel, 80.0);
     }
 
@@ -231,7 +227,7 @@ pub fn start_attack(
 /// every other swing (forward, up, and the down-AIR sweep) is the arc.
 /// Direction is handled separately from the hitbox, so these point correctly
 /// under any gravity.
-fn slash_kind(intent: AttackIntent) -> SlashKind {
+pub fn slash_kind(intent: AttackIntent) -> SlashKind {
     match intent {
         AttackIntent::Down => SlashKind::Poke,
         _ => SlashKind::Arc,

@@ -272,7 +272,9 @@ impl Default for ActorAggression {
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum AggressionMode {
     Passive,
-    RetaliatesWhenHit { strike_threshold: u8 },
+    RetaliatesWhenHit {
+        strike_threshold: u8,
+    },
     HostileToPlayer,
     /// Hostile to its relational faction-foes only (never the player baseline).
     /// See [`ActorAggression::hostile_to_faction`].
@@ -339,6 +341,14 @@ pub struct ActorAttackState {
     /// Ranged has no windup/active timeline (it spawns instantly), so it needs
     /// only this one timer rather than the melee strike's three.
     pub ranged_cooldown: f32,
+    /// The in-flight swing's resolved [`AttackSpec`], in the body's LOCAL frame
+    /// (rotated to world at the spawn edge). This is the SAME spec the player's
+    /// melee uses (`attack_spec_from_view`) — committed on `begin_melee_attack`
+    /// so an actor's swing has the player's exact timing, reach, knockback, and
+    /// art instead of the old bespoke windup/active timers + `attack_aabb_dir`
+    /// box. `None` between swings. (ONE BODY ONE PATH: the swing geometry/feel is
+    /// the player's spec, not a parallel enemy model.)
+    pub swing_spec: Option<crate::combat::AttackSpec>,
 }
 
 impl Default for ActorAttackState {
@@ -349,6 +359,7 @@ impl Default for ActorAttackState {
             cooldown: 0.2,
             pending_axis: ae::Vec2::new(-1.0, 0.0),
             ranged_cooldown: 0.0,
+            swing_spec: None,
         }
     }
 }
@@ -577,4 +588,3 @@ pub struct PostBossNpc;
 // entity is spawned. Spawn calls in features/ecs.rs use these bundles so the
 // required components are expressed in one place and tests/editors can match
 // the exact shape without rediscovering the tuple.
-

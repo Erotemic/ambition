@@ -536,6 +536,15 @@ pub fn update_ecs_actors(
                     // sheet authors none. Gated to upright gravity: the manifest
                     // box is screen-axis, while the fallback rotates with a
                     // wall-clinger's frame, so a clung enemy keeps its oriented box.
+                    // The swing's player-frame `AttackSpec`, rotated into the
+                    // actor's live gravity frame — the SAME spec the human player
+                    // uses. Its box is the fallback when the sprite sheet authors
+                    // no per-anim hitbox, replacing the old bespoke
+                    // `attack_aabb_dir`, so reach + placement match the player.
+                    let frame = ae::AccelerationFrame::new(down);
+                    let world_spec = em.attack.swing_spec.map(|s| s.into_world_frame(frame));
+                    let spec_box = world_spec
+                        .map(|s| ae::Aabb::new(em.kin.pos + s.hitbox_offset, s.hitbox_half_size));
                     let upright = down.x.abs() < 0.01 && down.y > 0.0;
                     let attack_box = em
                         .config
@@ -555,6 +564,7 @@ pub fn update_ecs_actors(
                             // melee is a later step).
                             .map(|v| v.bounds())
                         })
+                        .or(spec_box)
                         .unwrap_or_else(|| em.attack_aabb_dir(em.attack.pending_axis));
                     let local_offset = attack_box.center() - em.kin.pos;
                     // The hitbox carries the attacker's OWN faction so the physical-
@@ -584,16 +594,13 @@ pub fn update_ecs_actors(
                     );
                     // Draw the swing through THE ONE shared melee-slash emitter the
                     // player uses (`combat::attack::emit_melee_slash`) — same visual
-                    // definition, no second `VfxMessage::Slash` site. Forward swings
-                    // arc; a down-tilt pokes. `local_offset` is the gravity-relative
-                    // body→hitbox direction.
-                    let slash_kind = if enemy_melee_animation_for_axis(em.attack.pending_axis)
-                        == "attack_down"
-                    {
-                        ambition_vfx::vfx::SlashKind::Poke
-                    } else {
-                        ambition_vfx::vfx::SlashKind::Arc
-                    };
+                    // definition, no second `VfxMessage::Slash` site. The art KIND
+                    // comes from the swing spec's intent via the SAME `slash_kind`
+                    // mapping the player uses (down-tilt pokes, everything else
+                    // arcs). `local_offset` is the gravity-relative body→hitbox dir.
+                    let slash_kind = world_spec
+                        .map(|s| crate::combat::attack::slash_kind(s.intent))
+                        .unwrap_or(ambition_vfx::vfx::SlashKind::Arc);
                     crate::combat::attack::emit_melee_slash(
                         &mut vfx,
                         attack_box.center(),

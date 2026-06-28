@@ -76,18 +76,21 @@ fn evaluate_enemy_ai_output(
         ambition_characters::actor::EnemyBrain::Guard { leash_radius } => *leash_radius,
         _ => tuning.aggro_radius,
     };
-    ambition_characters::actor::ai::evaluate_character_ai_output(ambition_characters::actor::ai::CharacterAiSnapshot {
-        actor_pos: pos,
-        player_pos: target_pos,
-        aggro_radius: effective_aggro_radius,
-        attack_range: tuning.attack_range,
-        attack_windup_remaining: attack.windup_timer,
-        attack_active_remaining: attack.active_timer,
-        attack_recover_remaining: recover_remaining,
-        stun_remaining: 0.0,
-        alive,
-        patrol_enabled: !tuning.is_sandbag && !matches!(brain, ambition_characters::actor::EnemyBrain::Passive),
-    })
+    ambition_characters::actor::ai::evaluate_character_ai_output(
+        ambition_characters::actor::ai::CharacterAiSnapshot {
+            actor_pos: pos,
+            player_pos: target_pos,
+            aggro_radius: effective_aggro_radius,
+            attack_range: tuning.attack_range,
+            attack_windup_remaining: attack.windup_timer,
+            attack_active_remaining: attack.active_timer,
+            attack_recover_remaining: recover_remaining,
+            stun_remaining: 0.0,
+            alive,
+            patrol_enabled: !tuning.is_sandbag
+                && !matches!(brain, ambition_characters::actor::EnemyBrain::Passive),
+        },
+    )
 }
 
 impl<'a> ActorMut<'a> {
@@ -127,7 +130,23 @@ impl<'a> ActorMut<'a> {
             );
         }
 
-        self.attack.tick(dt, tuning.enemy_attack_active);
+        // Active-window length is the player spec's `active_seconds` (the swing
+        // hitbox lifetime), so the actor's strike lasts exactly as long as the
+        // player's. Falls back to the tuning value only if no swing is armed.
+        let active_seconds = self
+            .attack
+            .swing_spec
+            .map(|s| s.active_seconds)
+            .unwrap_or(tuning.enemy_attack_active);
+        self.attack.tick(dt, active_seconds);
+        // Drop the spent swing once windup + active have both elapsed (the
+        // cooldown floor keeps ticking independently to pace the AI).
+        if self.attack.swing_spec.is_some()
+            && !self.attack.is_winding_up()
+            && !self.attack.is_active()
+        {
+            self.attack.swing_spec = None;
+        }
 
         let ai = evaluate_enemy_ai_output(
             self.kin.pos,
@@ -276,8 +295,10 @@ impl<'a> ActorMut<'a> {
             let _ = motion.advance(self.kin.pos, dt);
         }
         // Patrol stall → reverse (a wall-stopped patroller turns around).
-        if matches!(ai_intent, ambition_characters::actor::ai::CharacterAiIntent::Patrol)
-            && prev_side_speed.abs() > 1.0
+        if matches!(
+            ai_intent,
+            ambition_characters::actor::ai::CharacterAiIntent::Patrol
+        ) && prev_side_speed.abs() > 1.0
             && self.kin.vel.dot(perp).abs() < 0.01
         {
             self.kin.facing *= -1.0;
@@ -502,8 +523,37 @@ impl<'a> ActorMut<'a> {
         if self.attack.cooldown > 0.0 || !self.status.alive {
             return false;
         }
-        self.attack.windup_timer = tuning.enemy_attack_windup.max(0.01);
+        // Resolve the swing through the EXACT player melee pipeline
+        // (`resolve_attack_intent_from_view` → `attack_spec_from_view`) so an
+        // actor's strike has the player's timing, reach, knockback, and art —
+        // ONE BODY ONE PATH. The body-local spec is stored and rotated to world
+        // at the spawn edge (where the live gravity frame is known). The old
+        // bespoke `enemy_attack_windup`/`enemy_attack_active` timers + the
+        // `attack_aabb_dir` box are gone: the windup is now the player's tiny
+        // `startup_seconds`, so the long "telegraph" pose effectively disappears
+        // (deliberate — the telegraph box was slated for removal).
+        let view = crate::combat::AttackView {
+            pos: self.kin.pos,
+            size: self.kin.size,
+            facing: self.kin.facing,
+            on_ground: self.surface.on_ground,
+            // Actors don't wall-cling or dash-cancel into attacks today; the
+            // directional-primary capability gates back/air-back tilts, which an
+            // AI never aims for, so the forward/up/down resolution is unaffected.
+            wall_clinging: false,
+            dash_timer: 0.0,
+            abilities_directional_primary: true,
+        };
+        let intent = crate::combat::resolve_attack_intent_from_view(
+            &view,
+            attack_axis.x,
+            attack_axis.y,
+            false,
+        );
+        let spec = crate::combat::attack_spec_from_view(&view, intent);
+        self.attack.windup_timer = spec.startup_seconds.max(0.01);
         self.attack.cooldown = ENEMY_ATTACK_COOLDOWN * self.config.tuning.attack_cooldown_mult;
+        self.attack.swing_spec = Some(spec);
         self.status.ai_mode = ambition_characters::actor::ai::CharacterAiMode::Telegraph;
         self.attack.pending_axis = if attack_axis.length_squared() > 0.01 {
             attack_axis.normalize_or_zero()
@@ -566,7 +616,9 @@ impl<'a> ActorMut<'a> {
         self.kin.pos = self.config.spawn.pos;
         self.kin.vel = ae::Vec2::ZERO;
         self.status.alive = true;
-        *self.health = crate::actor::BodyHealth::new(ambition_characters::actor::Health::new(self.config.tuning.max_health));
+        *self.health = crate::actor::BodyHealth::new(ambition_characters::actor::Health::new(
+            self.config.tuning.max_health,
+        ));
         *self.attack = ActorAttackState::default();
         self.status.respawn_timer = 0.0;
         self.status.hit_flash = 0.0;
@@ -758,9 +810,6 @@ mod dash_tests {
              drifted {:.1}px on y",
             em.kin.pos.y - start.y
         );
-        assert!(
-            !em.surface.on_ground,
-            "a flying body is never grounded"
-        );
+        assert!(!em.surface.on_ground, "a flying body is never grounded");
     }
 }

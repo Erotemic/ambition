@@ -22,7 +22,7 @@ pub fn reset_ecs_room_features(
         (
             &mut CenteredAabb,
             &mut ActorIdentity,
-            &ActorDisposition,
+            &mut ActorDisposition,
             &mut BodyCombat,
             &mut ActorIntent,
             &mut ActorCooldowns,
@@ -95,7 +95,7 @@ pub fn reset_ecs_room_features(
     for (
         mut aabb,
         mut identity,
-        disposition,
+        mut disposition,
         mut combat,
         mut intent,
         mut cooldowns,
@@ -112,6 +112,17 @@ pub fn reset_ecs_room_features(
         em.reset_to_spawn();
         aabb.center = em.kin.pos;
         aabb.half_size = em.kin.size * 0.5;
+        // Restore the SPAWN disposition (it is derived from targeting at runtime, so
+        // a stood-down fighter would otherwise stay peaceful after the reset and
+        // never re-engage): a talkable NPC resets to Peaceful (a provoked one calms
+        // back down), a combatant (enemy / duel fighter) resets to Hostile so a duel
+        // winner re-fights the freshly-revived loser. `reset_to_spawn` already
+        // restored HP + position; this restores the fight state too.
+        *disposition = if interaction.is_some() {
+            ActorDisposition::Peaceful
+        } else {
+            ActorDisposition::Hostile
+        };
         // Talkable actors (NPCs): clear the provoke accumulator + last attacker
         // so a struck-but-not-yet-hostile NPC starts the retried room fresh.
         if interaction.is_some() {

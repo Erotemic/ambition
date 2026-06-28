@@ -177,6 +177,65 @@ fn observe_abilities(world: &mut World, id: &str, log: &mut AbilityLog) {
 /// the duel hands in. This pins the "same character, consistent body" fix: the
 /// duel staging passes a 14x23 half-box, so a body still that small would mean the
 /// sprite metadata never applied.
+/// Resetting the room must RESET the duel fighters — they should be re-staged
+/// fresh (full HP, original spawn positions), not keep the mid-fight state. The
+/// reset warps to the start room and re-runs `spawn_room_feature_entities`, which
+/// re-stages the duel when the start room IS the duel arena (as here). Pins that a
+/// reset actually rebuilds the fighters rather than leaving the drained/displaced
+/// bodies in place.
+#[test]
+fn resetting_the_room_restages_the_duel_fighters_fresh() {
+    use ambition_gameplay_core::actor::BodyKinematics as Kin;
+    let mut sim = SandboxSim::new_with_options(
+        SandboxSimOptions::default()
+            .with_timestep(TimestepMode::fixed_60hz())
+            .with_start_room("duel_arena"),
+    )
+    .expect("sandbox sim builds in the duel arena");
+    for _ in 0..3 {
+        sim.step(AgentAction::default());
+    }
+
+    // Capture each fighter's spawn HP + position, then let them fight for a while so
+    // HP drains and they roam away from spawn.
+    fn fighter(world: &mut World, id: &str) -> Option<(i32, f32)> {
+        let mut q = world.query::<(&FeatureId, &BodyHealth, &Kin)>();
+        q.iter(world)
+            .find(|(f, _, _)| f.as_str() == id)
+            .map(|(_, hp, kin)| (hp.current(), kin.pos.x))
+    }
+    let (pca_hp0, pca_x0) = fighter(sim.world_mut(), DUEL_PCA_ID).expect("PCA present");
+    for _ in 0..600 {
+        sim.step(AgentAction::default());
+    }
+    let (pca_hp_mid, pca_x_mid) = fighter(sim.world_mut(), DUEL_PCA_ID).expect("PCA still present");
+    assert!(
+        pca_hp_mid < pca_hp0 || (pca_x_mid - pca_x0).abs() > 20.0,
+        "the fight should have changed the PCA's HP or position (hp {pca_hp0}->{pca_hp_mid}, x {pca_x0:.0}->{pca_x_mid:.0})"
+    );
+
+    // Press the in-game RESET (the key the player uses) and let it process.
+    sim.step(AgentAction::reset());
+    for _ in 0..6 {
+        sim.step(AgentAction::default());
+    }
+
+    // The fighter is back at its spawn HP and near its spawn position — a fresh
+    // duel. (A few post-reset frames of fighting let it drift a little from the exact
+    // spawn x, so compare against the ~600px it roamed during the bout, not 0.)
+    let (pca_hp_after, pca_x_after) =
+        fighter(sim.world_mut(), DUEL_PCA_ID).expect("PCA re-staged after reset");
+    assert_eq!(
+        pca_hp_after, pca_hp0,
+        "reset must restore the PCA to full spawn HP (was {pca_hp_mid}, spawn {pca_hp0})"
+    );
+    assert!(
+        (pca_x_after - pca_x0).abs() < 40.0,
+        "reset must return the PCA to ~its spawn x (spawn {pca_x0:.0}, after reset {pca_x_after:.0}, \
+         mid-fight {pca_x_mid:.0})"
+    );
+}
+
 #[test]
 fn duel_pca_body_is_sprite_authored_not_the_tiny_ldtk_box() {
     let mut sim = SandboxSim::new_with_options(

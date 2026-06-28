@@ -367,32 +367,50 @@ mod tests {
     }
 
     #[test]
-    fn blink_precision_aim_is_screen_relative_by_default_quick_is_locomotion() {
-        // The two forms of blink steer the same locomotion stick but resolve
-        // through different default frame policies. Sideways gravity (feet point
-        // screen-right) is within ±90°, where the default movement mode (Hybrid)
-        // is body-relative while the default aim mode (Screen) stays
-        // screen-directed — so the two world vectors must diverge.
+    fn blink_both_forms_screen_relative_by_default_quick_rotates_under_body_relative_movement() {
+        // The two blink forms steer different sticks and so resolve through the two
+        // independent default policies: quick blink follows the LOCOMOTION mode,
+        // precision blink follows the AIM mode. BOTH default to ScreenRelative
+        // (`InputFrameMode::DEFAULT_MOVEMENT` / `DEFAULT_AIM`), which is exactly why
+        // in-game blink always points where the stick points on screen at any
+        // gravity. The seam still EXISTS — flipping the locomotion mode to a
+        // body-relative policy rotates quick blink with gravity while precision
+        // blink stays screen-directed — so this pins both the default and the seam.
         let input = input_with(|c| {
             c.axis_y = -1.0; // screen-up on the locomotion stick
         });
-        let mut s = BrainSnapshot::idle(); // movement = Hybrid, aim = Screen (defaults)
-        s.control_down = ae::Vec2::new(1.0, 0.0);
+        let mut s = BrainSnapshot::idle(); // movement = Screen, aim = Screen (defaults)
+        s.control_down = ae::Vec2::new(1.0, 0.0); // sideways gravity (feet point screen-right)
         s.actor_facing = 1.0;
         let mut out = crate::actor::control::ActorControlFrame::default();
         tick_player_brain_from_control(&input, &s, &mut out);
 
-        // Precision blink: screen-up stays screen-up in WORLD at any gravity.
+        // DEFAULT: both forms screen-relative — screen-up stays screen-up in WORLD.
         assert!(
             (out.blink_aim_step - ae::Vec2::new(0.0, -1.0)).length() < 1e-5,
             "precision blink must be screen-relative by default; got {:?}",
             out.blink_aim_step
         );
-        // Quick blink: follows the locomotion frame, so it rotates with gravity
-        // and is NOT screen-up.
+        assert!(
+            (out.blink_quick_dir - ae::Vec2::new(0.0, -1.0)).length() < 1e-5,
+            "quick blink is screen-relative under the default movement mode; got {:?}",
+            out.blink_quick_dir
+        );
+
+        // SEAM: switch ONLY the locomotion mode to strict body-relative. Quick blink
+        // now rotates with gravity (screen-up → the body's local up = screen-left at
+        // this orientation); precision blink, still on the aim mode, stays screen-up.
+        s.movement_frame_mode = ae::InputFrameMode::BodyRelativeStrict;
+        let mut out = crate::actor::control::ActorControlFrame::default();
+        tick_player_brain_from_control(&input, &s, &mut out);
+        assert!(
+            (out.blink_aim_step - ae::Vec2::new(0.0, -1.0)).length() < 1e-5,
+            "precision blink stays screen-relative regardless of movement mode; got {:?}",
+            out.blink_aim_step
+        );
         assert!(
             (out.blink_quick_dir - ae::Vec2::new(-1.0, 0.0)).length() < 1e-5,
-            "quick blink should be locomotion-framed; got {:?}",
+            "quick blink should be locomotion-framed under body-relative movement; got {:?}",
             out.blink_quick_dir
         );
     }

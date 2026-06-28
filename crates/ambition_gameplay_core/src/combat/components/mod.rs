@@ -388,6 +388,13 @@ pub struct EnemyBrainSpec {
     /// Smash-template dash-to-close: a richer action set that dashes to
     /// close a large gap (goblins).
     pub smash_dash_to_close: bool,
+    /// Smash-template **duelist neutral game** (`SmashCfg::DUELIST_DEFAULT` base):
+    /// footsies (weave in/out of poke range), neutral hops, and a real retreat /
+    /// spacing rhythm, instead of the grunt's close-and-camp. The per-flag kit
+    /// (`smash_can_blink/_shield/_dash/_fly`) still layers on top. This is what
+    /// makes a "platform fighter" (the PCA, the player-robot) move and space
+    /// rather than mash at point-blank.
+    pub smash_duelist: bool,
     /// Movement kit: the Smash brain blink-evades a perceived lunge. Projected
     /// into `SmashCfg::can_blink` (the controller's *attempt*); the body's
     /// `CombatCapabilities::can_blink` is the matching *enforce* gate.
@@ -420,6 +427,7 @@ impl Default for EnemyBrainSpec {
             smash_hit_band: Self::DEFAULT_SMASH_HIT_BAND,
             smash_heavy: false,
             smash_dash_to_close: false,
+            smash_duelist: false,
             smash_can_blink: false,
             smash_can_fly: false,
             smash_can_shield: false,

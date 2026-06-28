@@ -128,6 +128,12 @@ pub fn update_ecs_actors(
             (
                 Option<super::super::actor_clusters::ActorClusterQueryData>,
                 Option<&crate::abilities::traversal::possession::Possessed>,
+                // Faction — read to scope the anti-clump crowding signal to
+                // SAME-faction allies. Without this, two hostiles of different
+                // factions (the spectator-duel fighters) count each other as
+                // crowding neighbors and the anti-clump back-actor rule freezes
+                // both. `Option` to match the other cluster-nested reads.
+                Option<&super::super::super::components::ActorFaction>,
             ),
         ),
         // The player carries the unified `BodyKinematics` too, and
@@ -177,13 +183,24 @@ pub fn update_ecs_actors(
     // enemies are allowed to commit to an attack this tick; the
     // others hold at the outer ring. This is the anti-clump layer.
     let mut requests: Vec<(String, ae::Vec2, crate::combat::slots::SlotKind)> = Vec::new();
-    for (_, _, _, disposition, _, _, _, _, _, _, _, _, (clusters, _)) in &actors {
+    // Faction per actor id, so the anti-clump crowding signal counts only
+    // same-faction allies (fanning a swarm out) and never a different-faction
+    // opponent — the spectator-duel fighters are hostile to each other and must
+    // close, not anti-clump apart.
+    let mut faction_by_id: std::collections::HashMap<
+        String,
+        super::super::super::components::ActorFaction,
+    > = std::collections::HashMap::new();
+    for (_, _, _, disposition, _, _, _, _, _, _, _, _, (clusters, _, faction)) in &actors {
         // Only hostile actors compete for combat slots; peaceful actors don't
         // crowd the board ("enemy" == hostile disposition now).
         if disposition.is_hostile() {
             if let Some(c) = clusters {
                 if c.status.alive {
                     requests.push((c.config.id.clone(), c.kin.pos, c.config.tuning.slot_kind()));
+                    if let Some(faction) = faction {
+                        faction_by_id.insert(c.config.id.clone(), *faction);
+                    }
                 }
             }
         }
@@ -207,7 +224,7 @@ pub fn update_ecs_actors(
     let neighbor_by_id = compute_nearest_neighbors(&requests);
 
     // Per-actor crowding signal for brains that need personal space.
-    let crowding_by_id = compute_crowding_by_id(&requests);
+    let crowding_by_id = compute_crowding_by_id(&requests, &faction_by_id);
 
     // Pass 2: tick each actor with its assigned slot position. Falls
     // back to the slot's holding-ring position when this actor didn't
@@ -226,7 +243,7 @@ pub fn update_ecs_actors(
         mut control,
         action_set,
         mounted,
-        (clusters, possessed),
+        (clusters, possessed, _faction),
     ) in &mut actors
     {
         // `target.pos` is populated by `select_actor_targets`
@@ -693,6 +710,10 @@ pub(crate) fn compute_holding_positions(
 /// unit-testable in isolation from the actor tick.
 pub(crate) fn compute_crowding_by_id(
     requests: &[(String, ae::Vec2, crate::combat::slots::SlotKind)],
+    faction_by_id: &std::collections::HashMap<
+        String,
+        super::super::super::components::ActorFaction,
+    >,
 ) -> std::collections::HashMap<String, ambition_characters::brain::CrowdingSignal> {
     const CROWDING_RADIUS_PX: f32 = 80.0;
     const AERIAL_CROWDING_RADIUS_PX: f32 = 220.0;
@@ -709,8 +730,15 @@ pub(crate) fn compute_crowding_by_id(
         } else {
             CROWDING_RADIUS_PX
         };
+        let faction_a = faction_by_id.get(id_a);
         for (id_b, pos_b, kind_b) in requests {
             if id_a == id_b {
+                continue;
+            }
+            // Anti-clump is for SAME-faction allies spreading out — a
+            // different-faction body is an opponent to fight, not a neighbor to
+            // avoid. Counting it freezes hostiles who should close (the duel).
+            if faction_a != faction_by_id.get(id_b) {
                 continue;
             }
             if aerial && *kind_b != crate::combat::slots::SlotKind::Aerial {

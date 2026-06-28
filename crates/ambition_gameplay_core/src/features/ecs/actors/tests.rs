@@ -114,6 +114,19 @@ fn unassigned_actors_spread_across_distinct_holding_positions() {
     );
 }
 
+/// Same-faction (Enemy) map for the given ids — the common case where anti-clump
+/// should fire. Crowding only counts same-faction allies now.
+fn same_faction(ids: &[&str]) -> std::collections::HashMap<String, super::super::super::components::ActorFaction> {
+    ids.iter()
+        .map(|id| {
+            (
+                id.to_string(),
+                super::super::super::components::ActorFaction::Enemy,
+            )
+        })
+        .collect()
+}
+
 #[test]
 fn crowding_pushes_clustered_ground_actors_apart() {
     use crate::combat::slots::SlotKind;
@@ -121,7 +134,7 @@ fn crowding_pushes_clustered_ground_actors_apart() {
         ("a".to_string(), ae::Vec2::new(0.0, 0.0), SlotKind::Melee),
         ("b".to_string(), ae::Vec2::new(20.0, 0.0), SlotKind::Melee), // within 80px
     ];
-    let crowding = compute_crowding_by_id(&reqs);
+    let crowding = compute_crowding_by_id(&reqs, &same_faction(&["a", "b"]));
     let a = crowding.get("a").expect("a is crowded by b");
     let b = crowding.get("b").expect("b is crowded by a");
     assert_eq!(a.same_faction_count, 1);
@@ -146,8 +159,34 @@ fn crowding_ignores_actors_outside_the_radius() {
         ("b".to_string(), ae::Vec2::new(500.0, 0.0), SlotKind::Melee), // > 80px
     ];
     assert!(
-        compute_crowding_by_id(&reqs).is_empty(),
+        compute_crowding_by_id(&reqs, &same_faction(&["a", "b"])).is_empty(),
         "actors farther apart than the crowding radius get no signal"
+    );
+}
+
+#[test]
+fn crowding_ignores_a_different_faction_opponent() {
+    // The spectator-duel stall: two hostiles of DIFFERENT factions stand within
+    // the crowding radius. Anti-clump is for same-faction allies fanning out, so
+    // a different-faction opponent must NOT register as crowding — otherwise the
+    // back-actor hold rule freezes both fighters instead of letting them close.
+    use crate::combat::slots::SlotKind;
+    let reqs = vec![
+        ("pca".to_string(), ae::Vec2::new(0.0, 0.0), SlotKind::Melee),
+        ("robot".to_string(), ae::Vec2::new(20.0, 0.0), SlotKind::Melee), // within 80px
+    ];
+    let mut factions = std::collections::HashMap::new();
+    factions.insert(
+        "pca".to_string(),
+        super::super::super::components::ActorFaction::Enemy,
+    );
+    factions.insert(
+        "robot".to_string(),
+        super::super::super::components::ActorFaction::Boss,
+    );
+    assert!(
+        compute_crowding_by_id(&reqs, &factions).is_empty(),
+        "different-faction opponents must not crowd each other"
     );
 }
 
@@ -166,7 +205,7 @@ fn aerial_actors_crowd_at_a_wider_radius_than_ground() {
         ),
     ];
     assert!(
-        !compute_crowding_by_id(&aerial).is_empty(),
+        !compute_crowding_by_id(&aerial, &same_faction(&["f1", "f2"])).is_empty(),
         "aerial actors crowd at 150px (aerial radius 220)"
     );
     let ground = vec![
@@ -174,7 +213,7 @@ fn aerial_actors_crowd_at_a_wider_radius_than_ground() {
         ("g2".to_string(), ae::Vec2::new(150.0, 0.0), SlotKind::Melee),
     ];
     assert!(
-        compute_crowding_by_id(&ground).is_empty(),
+        compute_crowding_by_id(&ground, &same_faction(&["g1", "g2"])).is_empty(),
         "ground actors don't crowd at 150px (>80px ground radius)"
     );
 }

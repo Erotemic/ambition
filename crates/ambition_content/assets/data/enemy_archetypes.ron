@@ -138,6 +138,9 @@
         ranged: Some(Rock(speed: 300.0, damage: 1)),
         ranged_visual: Glider,
         smash_dash_to_close: true,
+        // Platform-fighter neutral game: footsies + neutral hops + spacing, so the
+        // PCA weaves and moves instead of camping at point-blank.
+        smash_duelist: true,
         // Blink-evade: the PCA teleports out of a perceived lunge (body-enforced
         // capability + cooldown; a possessing player gets the same blink).
         smash_can_blink: true,
@@ -202,6 +205,8 @@
         ranged: Some(Rock(speed: 360.0, damage: 1)),
         ranged_visual: Hadouken,
         smash_dash_to_close: true,
+        // Platform-fighter neutral game (the player kit moves and spaces).
+        smash_duelist: true,
         // The full player kit, as body-enforced capabilities (S3a–d):
         smash_can_blink: true,
         smash_can_fly: true,

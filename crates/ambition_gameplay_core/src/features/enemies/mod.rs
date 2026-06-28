@@ -208,6 +208,14 @@ pub(crate) struct EnemyArchetypeSpec {
     /// close a large gap (goblins). Inert unless `brain_template` is `Smash`.
     #[serde(default)]
     pub smash_dash_to_close: bool,
+    /// Smash-template **duelist neutral game**: footsies (weave in/out of poke
+    /// range), neutral hops, and a real spacing/retreat rhythm instead of the
+    /// grunt's close-and-camp (`SmashCfg::DUELIST_DEFAULT` base). Set for the
+    /// "platform fighter" archetypes (the PCA, the player-robot) so they MOVE
+    /// and space rather than mash at point-blank. Inert unless `brain_template`
+    /// is `Smash`; the per-flag kit (blink/shield/dash/fly) still layers on top.
+    #[serde(default)]
+    pub smash_duelist: bool,
     /// Movement kit: this body can **blink** (short-range teleport). Authored
     /// per archetype; projects into BOTH the Smash brain's blink-evade emission
     /// (it *attempts* a blink on a perceived lunge) AND the body's
@@ -582,6 +590,7 @@ impl EnemyArchetypeSpec {
                 .unwrap_or(crate::combat::EnemyBrainSpec::DEFAULT_SMASH_HIT_BAND),
             smash_heavy: self.smash_heavy,
             smash_dash_to_close: self.smash_dash_to_close,
+            smash_duelist: self.smash_duelist,
             smash_can_blink: self.smash_can_blink,
             smash_can_fly: self.smash_can_fly,
             smash_can_shield: self.smash_can_shield,

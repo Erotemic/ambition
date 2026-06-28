@@ -337,7 +337,14 @@ fn smash_cfg_from_spec(spec: &EnemyBrainSpec, tuning: &ActorTuning) -> SmashCfg 
     // `smash_heavy`, `smash_dash_to_close`), so this builder reads generic
     // data rather than matching the roster enum. The 36 px hit-band
     // fallback lives in the projection.
-    let base = if spec.smash_heavy {
+    // Duelist > heavy > striker. The duelist base brings the neutral game
+    // (footsies / neutral hops / spacing + retreat) that makes a platform
+    // fighter MOVE instead of camping point-blank; `attack_range` /
+    // `engage_distance` are still overridden from the body's hit band below, so
+    // the spacing weaves around the body's real reach.
+    let base = if spec.smash_duelist {
+        SmashCfg::DUELIST_DEFAULT
+    } else if spec.smash_heavy {
         SmashCfg::BRUTE_DEFAULT
     } else {
         SmashCfg::STRIKER_DEFAULT

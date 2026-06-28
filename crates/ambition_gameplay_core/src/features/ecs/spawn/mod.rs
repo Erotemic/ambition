@@ -55,6 +55,33 @@ pub fn spawn_room_feature_entities(commands: &mut Commands, room: &crate::rooms:
     // DebugLabel and DestinationLabel are presentation-only and don't
     // spawn ECS feature entities today. The presentation layer reads
     // them off `RoomSpec` directly.
+
+    // Room-scoped faction targeting: reset to the combat baseline every room
+    // load, then let room features augment it. The spectator duel arena makes
+    // its two fighters mutually hostile and auto-spawns them (on DIFFERENT
+    // factions, so the physical-damage rule lets them hurt each other) — already
+    // fighting the instant the player walks in, no trigger. Reinserting the
+    // resource each load means one room's overrides never linger into the next.
+    let mut relations = crate::features::FactionRelations::default();
+    if let Some(requests) = crate::features::stage_room_duel(room, &mut relations) {
+        for req in requests {
+            if let crate::features::SpawnActorKind::Enemy { brain } = &req.kind {
+                let authored = crate::rooms::Authored::new(
+                    req.id.clone(),
+                    req.name.clone(),
+                    ambition_engine_core::Aabb::new(req.pos, req.half_size),
+                    brain.clone(),
+                );
+                super::spawn_actors::spawn_enemy_with_faction(
+                    commands,
+                    &authored,
+                    &[],
+                    req.faction,
+                );
+            }
+        }
+    }
+    commands.insert_resource(relations);
 }
 
 /// Spawn one hostile actor for an encounter wave.

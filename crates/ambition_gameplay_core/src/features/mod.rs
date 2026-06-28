@@ -78,7 +78,10 @@ const ENEMY_ATTACK_COOLDOWN: f32 = 1.05;
 // Boss/profile and combat-kit data own their own cooldown/timing constants.
 
 pub mod arena;
-pub use arena::{apply_duel_relations, duel_spawn_requests, DUEL_PCA_ID, DUEL_ROBOT_ID};
+pub use arena::{
+    apply_duel_relations, duel_spawn_requests, stage_room_duel, DUEL_ARENA_ROOM_ID, DUEL_PCA_ID,
+    DUEL_ROBOT_ID,
+};
 pub mod banter;
 // Stable facade for boss attack geometry.
 pub use crate::boss_encounter::attack_geometry as boss_attack_geometry;

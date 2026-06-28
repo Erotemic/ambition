@@ -67,3 +67,33 @@ pub fn duel_spawn_requests(center: ae::Vec2) -> [SpawnActorRequest; 2] {
 pub fn apply_duel_relations(relations: &mut FactionRelations) {
     relations.set_mutual_hostile(ActorFaction::Enemy, ActorFaction::Boss, true);
 }
+
+/// Level id of the spectator duel arena room (authored in `sandbox.ldtk`). When a
+/// room with this id loads, [`stage_room_duel`] auto-stages the fight so the two
+/// fighters are already battling the instant the player walks in — no trigger.
+pub const DUEL_ARENA_ROOM_ID: &str = "duel_arena";
+
+/// How far ahead of the room's player-arrival point the duel is centered, so the
+/// fight sits on-screen the moment the player enters.
+const DUEL_ARENA_OFFSET_X: f32 = 360.0;
+
+/// If `room` is the spectator duel arena, mark the two fighter factions mutually
+/// hostile in `relations` and return the pair of fighter spawn requests (staged
+/// ahead of the room's arrival point, in view). Returns `None` for any other room
+/// and leaves `relations` untouched.
+///
+/// This stays a pure data helper — it does NOT touch the ECS. The per-room-load
+/// spawn path ([`crate::features::spawn_room_feature_entities`]) calls it, applies
+/// the returned requests through the normal feature-spawn path, and reinserts
+/// `relations` so one room's overrides never linger into the next.
+pub fn stage_room_duel(
+    room: &crate::rooms::RoomSpec,
+    relations: &mut FactionRelations,
+) -> Option<[SpawnActorRequest; 2]> {
+    if room.id != DUEL_ARENA_ROOM_ID {
+        return None;
+    }
+    apply_duel_relations(relations);
+    let center = room.world.spawn + ae::Vec2::new(DUEL_ARENA_OFFSET_X, 0.0);
+    Some(duel_spawn_requests(center))
+}

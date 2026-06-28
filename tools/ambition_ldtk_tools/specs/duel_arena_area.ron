@@ -1,0 +1,46 @@
+// duel_arena — a spectator chamber where a Perfect Cell-ular Automaton and a
+// robot copy of the player fight each other through the real engine sim.
+//
+//   area create specs/duel_arena_area.ron --replace-existing
+//
+// The two fighters are NOT authored here as EnemySpawns: they must sit on
+// DIFFERENT factions so the physical-damage rule lets them hurt each other,
+// which an EnemySpawn (always `Enemy` faction) can't express. Instead the engine
+// auto-stages the duel the instant this room loads
+// (`ambition_gameplay_core::features::stage_room_duel`, keyed on this level id
+// `duel_arena`) — so the fight is already underway when the player walks in, no
+// trigger. This file is just the stage: a closed box, two perches for the flyer,
+// an entry door, and the reciprocal door in the basement door-gallery.
+(
+    id: "duel_arena",
+    level_id: "duel_arena",
+    world_x: 9008,
+    world_y: 0,
+    px_wid: 1280,
+    px_hei: 720,
+    fill_collision: "empty",
+    bg_color: "#141019",
+    biome: "hub",
+    entities: [
+        // Closed box so the flyer can't wander out.
+        ( type: "Solid", px: [0, 688], size: [1280, 32], fields: ( name: "floor" ) ),
+        ( type: "Solid", px: [0, 0], size: [1280, 16], fields: ( name: "ceiling" ) ),
+        ( type: "Solid", px: [0, 16], size: [16, 672], fields: ( name: "left_wall" ) ),
+        ( type: "Solid", px: [1264, 16], size: [16, 672], fields: ( name: "right_wall" ) ),
+        // Two perches — the smash brain's platform-vertical-chase wants ledges,
+        // and the aerial PCA uses them to perch/dive.
+        ( type: "Solid", px: [320, 520], size: [220, 18], fields: ( name: "left_perch" ) ),
+        ( type: "Solid", px: [740, 400], size: [220, 18], fields: ( name: "right_perch" ) ),
+        // Player arrives on the left; the duel auto-stages mid-room, ahead and in view.
+        ( type: "PlayerStart", px: [80, 642], size: [28, 46], fields: ( name: "duel_arena_spawn" ) ),
+        ( type: "LoadingZone", px: [16, 592], size: [48, 96], fields: ( id: "duel_arena_entry", name: "duel_arena_entry", activation: "Door", target_room: "central_hub_complex", target_zone: "duel_arena_basement_door", bidirectional: true ) ),
+        ( type: "DebugLabel", px: [96, 80], size: [760, 24], fields: ( name: "duel_arena_intro", text: "Two minds, one objective function. They were fighting before you arrived.", category: "Custom" ) ),
+        // No CameraZone: the default follow-camera lets the player walk the
+        // arena and keep both fighters in view (the basement does the same).
+    ],
+    // Reciprocal door in the basement door-gallery (floor row, y=832) so the
+    // player can reach the arena without hand-editing central_hub_basement.
+    connect_to: [
+        ( target_room: "central_hub_basement", px: [40, 832], size: [48, 96], id: "duel_arena_basement_door", target_zone: "duel_arena_entry", activation: "Door", bidirectional: true ),
+    ],
+)

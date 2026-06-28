@@ -139,11 +139,6 @@ pub struct FeatureDebugQueries<'w, 's> {
     /// their current world-space rectangle. World-anchored
     /// hitboxes don't need this — their AABB is fixed at spawn.
     pub hitbox_owners: Query<'w, 's, &'static ambition_gameplay_core::features::CenteredAabb>,
-    /// Body-kinematics owner-pos fallback for a FollowOwner hitbox whose owner is
-    /// the PLAYER (which has no `CenteredAabb` — its `BodyKinematics.pos` IS its
-    /// box center). Mirrors `apply_hitbox_damage`'s owner-pos resolution, so the
-    /// player's melee strike draws at the player, not at the world origin.
-    pub hitbox_owner_kin: Query<'w, 's, &'static ambition_gameplay_core::actor::BodyKinematics>,
     /// In-flight held-item shots (gun-sword bolt / Fireball). Their
     /// contact + splash boxes were previously undrawn, so a Fireball
     /// read as "hitting before it touches the visible box". Lives in
@@ -587,6 +582,11 @@ pub(crate) fn draw_feature_debug(
     gizmos: &mut Gizmos,
     world: &ae::World,
     feature_q: &FeatureDebugQueries,
+    // The primary player's (entity, box-center) — resolves the owner position of a
+    // player-owned FollowOwner strike, which has no `CenteredAabb`. Passed in (not
+    // queried here) because the player's `BodyKinematics` is borrowed `&mut` by the
+    // overlay's cluster query, so a second read here would be a B0001 conflict.
+    primary_player: Option<(bevy::prelude::Entity, ae::Vec2)>,
     developer_tools: &DeveloperTools,
     labels: &mut DebugOverlayLabels,
 ) {
@@ -801,8 +801,8 @@ pub(crate) fn draw_feature_debug(
         // World-anchored hitboxes carry their own center, so owner pos is moot.
         let owner_pos = if let Ok(aabb) = feature_q.hitbox_owners.get(hitbox.owner) {
             Some(aabb.center)
-        } else if let Ok(kin) = feature_q.hitbox_owner_kin.get(hitbox.owner) {
-            Some(kin.pos)
+        } else if let Some((player_entity, player_pos)) = primary_player {
+            (hitbox.owner == player_entity).then_some(player_pos)
         } else {
             None
         };

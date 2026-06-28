@@ -188,6 +188,7 @@ pub fn draw_debug_overlay(
             &mut gizmos,
             world,
             &feature_q,
+            Some((entities.player, clusters.kinematics.pos)),
             &developer_tools,
             &mut overlay_labels,
         );

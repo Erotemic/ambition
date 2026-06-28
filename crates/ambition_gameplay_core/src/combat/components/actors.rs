@@ -310,83 +310,134 @@ pub enum AggressionTarget {
 /// `PlayerHealth` / `ActorHealth` wrappers).
 pub use crate::actor::BodyHealth;
 
-/// Melee attack timing + aim. The four interdependent values move as one
-/// coherent unit so combat systems can read strike progress from a single
-/// place.
+/// One in-flight melee swing, driven by the player's [`AttackSpec`] model.
 ///
-/// Timeline of a strike: `begin_attack` arms `windup_timer` + `cooldown`
-/// and commits `pending_axis`; `tick` counts windup down and, on the
-/// windup→active edge, arms `active_timer` (the hitbox window); the
-/// active window then counts down while `cooldown` keeps ticking so a
-/// fresh attack can't start until recovery passes.
-#[derive(Component, Clone, Copy, Debug, PartialEq)]
-pub struct ActorAttackState {
-    /// Telegraph/windup remaining before the strike goes active.
-    pub windup_timer: f32,
-    /// Active hitbox window remaining once windup completes.
-    pub active_timer: f32,
-    /// Recovery remaining before another attack can begin.
-    pub cooldown: f32,
-    /// Direction of the in-flight melee attack — committed on
-    /// `begin_attack`, read on the windup→active edge to place the
-    /// hitbox. `(facing, 0)` forward, `(0, -1)` up, `(0, +1)` down-air,
-    /// `(-facing, 0)` back-air. Persists across the whole strike so the
-    /// swing doesn't re-aim mid-windup.
-    pub pending_axis: ae::Vec2,
-    /// Body-side ranged refire cooldown remaining (s). The ranged analogue of
-    /// `cooldown`: it is the *body's* fire-rate floor (invariant I3), not the
-    /// brain's cadence. A controller may attempt `fire` every tick; the body
-    /// accepts a shot only when this is `<= 0` and re-arms it on each accepted
-    /// shot, so a spam controller and a human produce the same weapon rate.
-    /// Ranged has no windup/active timeline (it spawns instantly), so it needs
-    /// only this one timer rather than the melee strike's three.
-    pub ranged_cooldown: f32,
-    /// The in-flight swing's resolved [`AttackSpec`], in the body's LOCAL frame
-    /// (rotated to world at the spawn edge). This is the SAME spec the player's
-    /// melee uses (`attack_spec_from_view`) — committed on `begin_melee_attack`
-    /// so an actor's swing has the player's exact timing, reach, knockback, and
-    /// art instead of the old bespoke windup/active timers + `attack_aabb_dir`
-    /// box. `None` between swings. (ONE BODY ONE PATH: the swing geometry/feel is
-    /// the player's spec, not a parallel enemy model.)
-    pub swing_spec: Option<crate::combat::AttackSpec>,
+/// This is THE swing state for EVERY body — the human player and every
+/// brain-driven actor — so a swing's lifecycle (startup → active → recovery),
+/// per-swing hit dedup, and pogo bookkeeping have a single definition. The spec
+/// is stored already rotated into the body's world frame (the player does this
+/// at `start_attack`; an actor at `begin_melee_attack`), so `phase_at(elapsed)`
+/// and the hitbox geometry are read directly without re-rotating.
+#[derive(Clone, Debug, PartialEq)]
+pub struct MeleeSwing {
+    /// Resolved swing parameters in WORLD frame (timing, reach, knockback, art).
+    pub spec: crate::combat::AttackSpec,
+    /// Seconds since the swing began.
+    pub elapsed: f32,
+    /// `prefix:id` keys of every target already struck this swing, so an
+    /// every-active-frame hitbox only damages each target once. Used by the
+    /// universal hit resolver (`apply_feature_hit_events`).
+    pub hit_targets: Vec<String>,
+    /// True once the active window has begun (first-active-frame edge latch).
+    pub active_started: bool,
+    /// True once a downward/pogo active-frame attack has produced its bounce, so
+    /// one long active window can't bounce every frame.
+    pub pogo_applied: bool,
 }
 
-impl Default for ActorAttackState {
-    fn default() -> Self {
+impl MeleeSwing {
+    pub fn new(spec: crate::combat::AttackSpec) -> Self {
         Self {
-            windup_timer: 0.0,
-            active_timer: 0.0,
-            cooldown: 0.2,
-            pending_axis: ae::Vec2::new(-1.0, 0.0),
-            ranged_cooldown: 0.0,
-            swing_spec: None,
+            spec,
+            elapsed: 0.0,
+            hit_targets: Vec::new(),
+            active_started: false,
+            pogo_applied: false,
         }
     }
+
+    pub fn phase(&self) -> Option<crate::combat::AttackPhase> {
+        self.spec.phase_at(self.elapsed)
+    }
+
+    pub fn progress(&self) -> f32 {
+        (self.elapsed / self.spec.total_seconds().max(0.001)).clamp(0.0, 1.0)
+    }
 }
 
-impl ActorAttackState {
-    pub fn is_winding_up(self) -> bool {
-        self.windup_timer > 0.0
+/// Unified body melee state — the ONE component every body (player + actors)
+/// carries for melee. The in-flight [`MeleeSwing`] is the player's spec model;
+/// `cooldown` is the AI/recovery pacing floor a brain reads to time its next
+/// swing (independent of the swing so a body can be in recovery with no swing
+/// armed); `ranged_cooldown` is the body-side ranged fire-rate floor (invariant
+/// I3, orthogonal to melee); `pending_axis` is the last committed aim for anim
+/// selection. (ONE BODY ONE PATH: this REPLACES the former parallel
+/// `PlayerAttackState`/`ActivePlayerAttack` and the timer-based actor state.)
+#[derive(Component, Clone, Debug, Default, PartialEq)]
+pub struct BodyMelee {
+    pub swing: Option<MeleeSwing>,
+    /// Recovery/AI pacing floor before another swing may begin (s).
+    pub cooldown: f32,
+    /// Body-side ranged refire cooldown remaining (s). The body's fire-rate
+    /// floor (invariant I3), not the brain's cadence: a controller may attempt
+    /// `fire` every tick; the body accepts a shot only when this is `<= 0` and
+    /// re-arms it on each accepted shot, so a spam controller and a human
+    /// produce the same weapon rate.
+    pub ranged_cooldown: f32,
+    /// Direction of the in-flight melee attack, committed when the swing begins
+    /// (`(facing,0)` forward, `(0,-1)` up, `(0,+1)` down-air, `(-facing,0)`
+    /// back-air). Persists across the swing so it doesn't re-aim mid-windup.
+    pub pending_axis: ae::Vec2,
+}
+
+impl BodyMelee {
+    /// Begin a swing: commit the world-frame `spec`, aim, and recovery floor.
+    pub fn begin(
+        &mut self,
+        spec: crate::combat::AttackSpec,
+        pending_axis: ae::Vec2,
+        cooldown: f32,
+    ) {
+        self.pending_axis = pending_axis;
+        self.cooldown = cooldown.max(0.0);
+        self.swing = Some(MeleeSwing::new(spec));
     }
 
-    pub fn is_active(self) -> bool {
-        self.active_timer > 0.0
+    pub fn phase(&self) -> Option<crate::combat::AttackPhase> {
+        self.swing.as_ref().and_then(|s| s.phase())
     }
 
-    pub fn on_cooldown(self) -> bool {
+    pub fn is_winding_up(&self) -> bool {
+        matches!(self.phase(), Some(crate::combat::AttackPhase::Startup))
+    }
+
+    pub fn is_active(&self) -> bool {
+        matches!(self.phase(), Some(crate::combat::AttackPhase::Active))
+    }
+
+    pub fn on_cooldown(&self) -> bool {
         self.cooldown > 0.0
     }
 
-    /// Advance all timers by `dt`. On the windup→active edge, arm the
-    /// active window to `active_seconds` (the hitbox lifetime).
-    pub fn tick(&mut self, dt: f32, active_seconds: f32) {
-        let was_winding_up = self.windup_timer > 0.0;
-        self.windup_timer = (self.windup_timer - dt).max(0.0);
-        self.active_timer = (self.active_timer - dt).max(0.0);
+    /// Seconds of windup (startup) remaining, for the AI telegraph snapshot.
+    pub fn windup_remaining(&self) -> f32 {
+        match &self.swing {
+            Some(s) if self.is_winding_up() => (s.spec.startup_seconds - s.elapsed).max(0.0),
+            _ => 0.0,
+        }
+    }
+
+    /// Seconds of active (hitbox) window remaining, for the AI snapshot.
+    pub fn active_remaining(&self) -> f32 {
+        match &self.swing {
+            Some(s) if self.is_active() => {
+                (s.spec.startup_seconds + s.spec.active_seconds - s.elapsed).max(0.0)
+            }
+            _ => 0.0,
+        }
+    }
+
+    /// Advance the swing + the cooldown floors by `dt`. Drops a spent swing once
+    /// it passes recovery (the cooldown floor keeps ticking independently).
+    pub fn tick(&mut self, dt: f32) {
+        let dt = dt.max(0.0);
         self.cooldown = (self.cooldown - dt).max(0.0);
         self.ranged_cooldown = (self.ranged_cooldown - dt).max(0.0);
-        if was_winding_up && self.windup_timer <= 0.0 {
-            self.active_timer = active_seconds.max(0.01);
+        if let Some(swing) = &mut self.swing {
+            swing.elapsed += dt;
+            if swing.phase().is_none() {
+                self.swing = None;
+            }
         }
     }
 
@@ -394,11 +445,8 @@ impl ActorAttackState {
     ///
     /// A controller attempts a shot; the body accepts it only when the ranged
     /// weapon is off cooldown, re-arming the cooldown to `refire_seconds` on an
-    /// accepted shot. The controller is free to attempt every tick — this is the
-    /// floor that turns attempts into the body's weapon rate, identical for an AI
-    /// spam controller, a tactical brain, and a human. Returns the per-intent
-    /// outcome so the seam can route `Blocked`/`Accepted` feedback back to the
-    /// controller.
+    /// accepted shot. Identical for an AI spam controller, a tactical brain, and
+    /// a human. Returns the per-intent outcome for the seam to route back.
     pub fn try_fire_ranged(&mut self, refire_seconds: f32) -> IntentOutcome {
         if self.ranged_cooldown > 0.0 {
             return IntentOutcome::Blocked(BlockReason::Cooldown);

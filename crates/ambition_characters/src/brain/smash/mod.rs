@@ -1015,7 +1015,7 @@ fn maybe_substitute_dash(
 ///
 /// The brain does NOT rate-limit here: it attempts a ranged shot on every
 /// in-band tick and the **body** enforces the fire rate (invariant I3,
-/// `ActorAttackState::try_fire_ranged`). A blocked attempt simply spawns
+/// `BodyMelee::try_fire_ranged`). A blocked attempt simply spawns
 /// nothing; the controller never beats the weapon's rate by attempting faster.
 fn maybe_substitute_ranged(
     action: SpecificAction,
@@ -1299,7 +1299,9 @@ mod tests {
 
     /// A `WorldView` whose terrain is the given solids, with self at the origin —
     /// the perception a body at (0,0) would have.
-    fn view_with_terrain(terrain: Vec<crate::perception::PerceivedSolid>) -> crate::perception::WorldView {
+    fn view_with_terrain(
+        terrain: Vec<crate::perception::PerceivedSolid>,
+    ) -> crate::perception::WorldView {
         use crate::perception::{SelfView, Viewport, WorldView};
         WorldView {
             self_view: SelfView {
@@ -1355,7 +1357,14 @@ mod tests {
         }]);
         let mut state = SmashState::default();
         let mut frame = crate::actor::control::ActorControlFrame::neutral();
-        tick_smash(&cfg, &mut state, &actions, &snap, Some(&blocked), &mut frame);
+        tick_smash(
+            &cfg,
+            &mut state,
+            &actions,
+            &snap,
+            Some(&blocked),
+            &mut frame,
+        );
         assert!(
             frame.fire.is_none(),
             "a wall between body and target suppresses the ranged shot (no firing into walls)"

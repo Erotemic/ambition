@@ -99,7 +99,7 @@ pub struct FeatureDebugQueries<'w, 's> {
             &'static ambition_gameplay_core::features::ActorAggression,
             &'static ambition_gameplay_core::features::CenteredAabb,
             Option<&'static ambition_gameplay_core::features::BodyKinematics>,
-            Option<&'static ambition_gameplay_core::features::ActorAttackState>,
+            Option<&'static ambition_gameplay_core::features::BodyMelee>,
             Option<&'static ambition_gameplay_core::features::ActorSurfaceState>,
         ),
         With<ambition_gameplay_core::features::FeatureSimEntity>,
@@ -445,10 +445,11 @@ pub(crate) fn draw_player_debug(
             let frame = ae::AccelerationFrame::new(gravity_dir);
             let spec = ambition_gameplay_core::combat::attack_spec_from_view(&view, intent)
                 .into_world_frame(frame);
-            let volume = ambition_gameplay_core::combat::attack::player_attack_hitbox(&view, intent)
-                .unwrap_or_else(|| {
-                    ambition_gameplay_core::combat::attack_hitbox_from_view(&view, spec).into()
-                });
+            let volume =
+                ambition_gameplay_core::combat::attack::player_attack_hitbox(&view, intent)
+                    .unwrap_or_else(|| {
+                        ambition_gameplay_core::combat::attack_hitbox_from_view(&view, spec).into()
+                    });
             draw_combat_volume(gizmos, world, &volume, yellow());
         }
     }

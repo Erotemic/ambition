@@ -90,7 +90,7 @@ pub fn rebuild_feature_view_index(
             &CenteredAabb,
             &ActorDisposition,
             Option<&super::actor_clusters::ActorStatus>,
-            Option<&ActorAttackState>,
+            Option<&BodyMelee>,
             Option<&super::actor_clusters::ActorConfig>,
             Option<&ActorSurfaceState>,
             // Portal aerial-roll (same component the player uses) so actors

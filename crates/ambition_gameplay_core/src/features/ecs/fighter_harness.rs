@@ -46,14 +46,14 @@ use crate::projectile::ProjectileSeqCounter;
 pub const HARNESS_DT: f32 = 1.0 / 60.0;
 
 /// Tick the body's per-frame attack timers, exactly as the real integrator does
-/// (`em.update()` → `ActorAttackState::tick`). Isolated here so the harness
+/// (`em.update()` → `BodyMelee::tick`). Isolated here so the harness
 /// advances body cooldowns without standing up the full integration system; the
 /// fire-rate enforcement under test reads the same `ranged_cooldown` this decays.
-fn tick_body_cooldowns(mut q: Query<&mut crate::features::ActorAttackState>) {
+fn tick_body_cooldowns(mut q: Query<&mut crate::features::BodyMelee>) {
     for mut attack in &mut q {
-        // `active_seconds` only matters on the melee windup→active edge, which the
-        // fire path never triggers; any positive value is inert here.
-        attack.tick(HARNESS_DT, 0.06);
+        // Advances the melee swing (none armed on the fire path) and the
+        // `ranged_cooldown` floor the fire-rate test reads.
+        attack.tick(HARNESS_DT);
     }
 }
 

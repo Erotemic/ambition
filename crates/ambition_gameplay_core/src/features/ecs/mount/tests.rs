@@ -12,7 +12,7 @@ type ActorClusterBundle = (
     super::super::actor_clusters::ActorConfig,
     super::super::actor_clusters::ActorMotionPath,
     crate::features::ActorSurfaceState,
-    crate::features::ActorAttackState,
+    crate::features::BodyMelee,
     crate::actor::AncillaryMovementBundle,
     crate::combat::CombatCapabilities,
 );
@@ -235,7 +235,9 @@ fn dead_mount_dissolves_link_keeping_records() {
     assert!(
         matches!(
             brain,
-            ambition_characters::brain::Brain::StateMachine(ambition_characters::brain::StateMachineCfg::MeleeBrute { .. }),
+            ambition_characters::brain::Brain::StateMachine(
+                ambition_characters::brain::StateMachineCfg::MeleeBrute { .. }
+            ),
         ),
         "after dismount the rider should be MeleeBrute (explicit chase + swipe)",
     );
@@ -286,7 +288,9 @@ fn reviving_mount_re_arms_rider_to_mounted_brain() {
     assert!(
         matches!(
             brain,
-            ambition_characters::brain::Brain::StateMachine(ambition_characters::brain::StateMachineCfg::Skirmisher { .. }),
+            ambition_characters::brain::Brain::StateMachine(
+                ambition_characters::brain::StateMachineCfg::Skirmisher { .. }
+            ),
         ),
         "after revive the rider's mounted brain (Skirmisher) should be restored",
     );

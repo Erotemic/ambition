@@ -119,15 +119,14 @@ pub use ecs::actor_component_snapshot;
 pub(crate) use ecs::spawn_runtime_minion;
 
 pub use components::{
-    ActorAggression, ActorAttackState, BodyCombat, ActorCooldowns, ActorDisposition,
-    ActorFaction, BodyHealth, ActorIdentity, ActorIntent, ActorInteraction, ActorPose,
-    ActorRenderSize, ActorTarget, AggressionMode, AggressionTarget, BossDeathAnimation,
-    BossPatternTimer, BossPhase, BossRewardChest, BreakableFeature, CenteredAabb, ChestBundle,
-    ChestFeature, Collected, CombatKit, DamageableVolumes, EncounterMob, EncounterRewardChest,
-    RuntimeStagedActor,
-    EnemyActorBundle, FallingChest, FeatureBaseBundle, FeatureId, FeatureLifecycleBundle,
-    FeatureName, FeatureRenderedBundle, Opened, PersistKey, PickupBundle, PickupFeature,
-    PogoPolicy, PogoTargetContributor, PogoTargetVolumes, PostBossNpc, RespawnTimer,
+    ActorAggression, ActorCooldowns, ActorDisposition, ActorFaction, ActorIdentity, ActorIntent,
+    ActorInteraction, ActorPose, ActorRenderSize, ActorTarget, AggressionMode, AggressionTarget,
+    BodyCombat, BodyHealth, BodyMelee, BossDeathAnimation, BossPatternTimer, BossPhase,
+    BossRewardChest, BreakableFeature, CenteredAabb, ChestBundle, ChestFeature, Collected,
+    CombatKit, DamageableVolumes, EncounterMob, EncounterRewardChest, EnemyActorBundle,
+    FallingChest, FeatureBaseBundle, FeatureId, FeatureLifecycleBundle, FeatureName,
+    FeatureRenderedBundle, MeleeSwing, Opened, PersistKey, PickupBundle, PickupFeature, PogoPolicy,
+    PogoTargetContributor, PogoTargetVolumes, PostBossNpc, RespawnTimer, RuntimeStagedActor,
     SandboxSolidContributor, StandTimer, SwitchFeature, SwitchOn,
 };
 pub use ecs::actor_clusters::{
@@ -135,10 +134,9 @@ pub use ecs::actor_clusters::{
 };
 pub use ecs::ActorSpriteData;
 pub use ecs::{
-    apply_actor_stimuli, tick_pending_challenges, PendingChallenge, CHALLENGE_GRACE_S,
-    apply_feature_hit_events, apply_gameplay_banner_requests,
+    apply_actor_stimuli, apply_feature_hit_events, apply_gameplay_banner_requests,
     apply_hitbox_damage, apply_spawn_actor_requests, apply_summon_effects, boss_is_cleared,
-    boss_spawn_hurtboxes, clear_encounter_reward_ecs, collect_ecs_pickups,
+    boss_spawn_hurtboxes, can_damage, clear_encounter_reward_ecs, collect_ecs_pickups,
     derive_boss_sprite_metrics, derive_pogo_target_volumes, despawn_encounter_mobs,
     ecs_actor_render_size, ecs_boss_anim_state, ecs_boss_anim_state_and_entity,
     ecs_boss_animation_frame_sample, ecs_boss_name, ecs_breakable_state, ecs_chest_opened,
@@ -154,12 +152,13 @@ pub use ecs::{
     sync_boss_reward_chests_ecs, sync_ecs_actors_with_save, sync_ecs_bosses_with_save,
     sync_ecs_switches_from_save, sync_encounter_reward_chests_ecs, sync_riders_to_mounts,
     tick_and_despawn_hitboxes, tick_boss_brains_system, tick_gameplay_banner, tick_npc_idle_barks,
-    update_ecs_actors, update_ecs_bosses, update_ecs_breakables, update_ecs_falling_chests,
-    update_ecs_hazards, BossClusterQueryData, BossClusterRef, BossClusterScratch, BossConfig,
-    BossMut, BossOverrides, BossRef, BossStatus, FactionRelations, FriendlyFire, can_damage, FeatureEcsWorldOverlay,
-    FeatureSimEntity, FeatureViewIndex, HazardFeature, HeldItem, Hitbox, HitboxAnchor, HitboxHits,
-    HitboxLifetime, MountSlot, Mountable, Mounted, MountedBrainCache, MountedSize, RidingOn,
-    SpawnActorKind, SpawnActorRequest,
+    tick_pending_challenges, update_ecs_actors, update_ecs_bosses, update_ecs_breakables,
+    update_ecs_falling_chests, update_ecs_hazards, BossClusterQueryData, BossClusterRef,
+    BossClusterScratch, BossConfig, BossMut, BossOverrides, BossRef, BossStatus, FactionRelations,
+    FeatureEcsWorldOverlay, FeatureSimEntity, FeatureViewIndex, FriendlyFire, HazardFeature,
+    HeldItem, Hitbox, HitboxAnchor, HitboxHits, HitboxLifetime, MountSlot, Mountable, Mounted,
+    MountedBrainCache, MountedSize, PendingChallenge, RidingOn, SpawnActorKind, SpawnActorRequest,
+    CHALLENGE_GRACE_S,
 };
 pub use enemies::{
     composite_visual_plan, enemy_visual_kind, install_enemy_roster, ActorSpawnState,
@@ -199,8 +198,7 @@ impl bevy::prelude::Plugin for GameplayEffectsSchedulePlugin {
                 // Deferred-challenge grace runs only in `Playing` (after the dialog
                 // box closes), then emits the `Challenged` stimulus the next system
                 // consumes.
-                ecs::tick_pending_challenges
-                    .run_if(crate::session::game_mode::gameplay_allowed),
+                ecs::tick_pending_challenges.run_if(crate::session::game_mode::gameplay_allowed),
                 ecs::apply_actor_stimuli,
                 bus::apply_gameplay_sfx_effects,
             )

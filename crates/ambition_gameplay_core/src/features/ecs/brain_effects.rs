@@ -21,6 +21,7 @@ use bevy::prelude::*;
 
 use crate::audio::SfxMessage;
 use crate::enemy_projectile::EnemyProjectileSpawn;
+#[cfg(test)]
 use crate::time::feel::SandboxFeelTuning;
 use ambition_characters::brain::{action_set::ActionRequest, ActorActionMessage};
 
@@ -197,13 +198,11 @@ pub fn spawn_enemy_projectiles_from_brain_actions(
 /// `apply_hitbox_damage` resolves the overlap once per strike.
 pub fn start_enemy_melee_from_brain_actions(
     mut messages: MessageReader<ActorActionMessage>,
-    feel_tuning: Res<SandboxFeelTuning>,
     mut actors: Query<(
         &super::super::components::ActorDisposition,
         Option<super::actor_clusters::ActorClusterQueryData>,
     )>,
 ) {
-    let combat_tuning = feel_tuning.feature_combat_tuning();
     for msg in messages.read() {
         let ActionRequest::Melee { attack_axis, .. } = msg.request else {
             continue;
@@ -228,7 +227,7 @@ pub fn start_enemy_melee_from_brain_actions(
         // Thread the brain's attack axis through to the runtime so
         // the windup → active edge spawns the hitbox in the same
         // direction the brain committed to (forward / up / down / back).
-        enemy.begin_melee_attack(combat_tuning, attack_axis);
+        enemy.begin_melee_attack(attack_axis);
     }
 }
 
@@ -261,7 +260,7 @@ mod tests {
         super::super::actor_clusters::ActorConfig,
         super::super::actor_clusters::ActorMotionPath,
         crate::features::ActorSurfaceState,
-        crate::features::ActorAttackState,
+        crate::features::BodyMelee,
         crate::actor::AncillaryMovementBundle,
         crate::combat::CombatCapabilities,
     );
@@ -495,7 +494,7 @@ mod tests {
             &[],
         );
         enemy.attack.cooldown = 0.0;
-        let pre_windup = enemy.attack.windup_timer;
+        assert!(!enemy.attack.is_winding_up());
         let actor = app.world_mut().spawn(enemy_actor(enemy)).id();
         app.world_mut()
             .resource_mut::<bevy::ecs::message::Messages<ActorActionMessage>>()
@@ -509,18 +508,18 @@ mod tests {
                 },
             });
         app.update();
-        let attack = *app
+        let attack = app
             .world()
-            .get::<crate::features::ActorAttackState>(actor)
+            .get::<crate::features::BodyMelee>(actor)
             .unwrap();
         let status = *app
             .world()
             .get::<crate::features::ActorStatus>(actor)
             .unwrap();
         assert!(
-            attack.windup_timer > pre_windup,
-            "windup timer should start after the message: was {pre_windup}, now {}",
-            attack.windup_timer,
+            attack.is_winding_up(),
+            "a swing should be winding up after the message: swing armed = {}",
+            attack.swing.is_some(),
         );
         assert!(
             attack.cooldown > 0.0,
@@ -588,16 +587,16 @@ mod tests {
 
         app.update();
 
-        let attack = *app
+        let attack = app
             .world()
-            .get::<crate::features::ActorAttackState>(actor)
+            .get::<crate::features::BodyMelee>(actor)
             .unwrap();
         let status = *app
             .world()
             .get::<crate::features::ActorStatus>(actor)
             .unwrap();
         assert!(
-            attack.windup_timer > 0.0,
+            attack.is_winding_up(),
             "explicit melee message should start dismounted PirateHeavy windup"
         );
         assert!(
@@ -632,7 +631,6 @@ mod tests {
         );
         // Pre-set cooldown so begin_melee_attack refuses.
         enemy.attack.cooldown = 0.5;
-        let pre_windup = enemy.attack.windup_timer;
         let actor = app.world_mut().spawn(enemy_actor(enemy)).id();
         app.world_mut()
             .resource_mut::<bevy::ecs::message::Messages<ActorActionMessage>>()
@@ -646,13 +644,13 @@ mod tests {
                 },
             });
         app.update();
-        let attack = *app
+        let attack = app
             .world()
-            .get::<crate::features::ActorAttackState>(actor)
+            .get::<crate::features::BodyMelee>(actor)
             .unwrap();
-        assert_eq!(
-            attack.windup_timer, pre_windup,
-            "cooldown should prevent the windup from starting",
+        assert!(
+            !attack.is_winding_up() && attack.swing.is_none(),
+            "cooldown should prevent the swing from starting",
         );
     }
 

@@ -221,18 +221,22 @@ fn resetting_the_room_restages_the_duel_fighters_fresh() {
     }
 
     // The fighter is back at its spawn HP and near its spawn position — a fresh
-    // duel. (A few post-reset frames of fighting let it drift a little from the exact
-    // spawn x, so compare against the ~600px it roamed during the bout, not 0.)
+    // duel. The reset re-stages it AT spawn; a few post-reset frames of fighting
+    // then let it drift (the more so now that the swing moves at player speed), so
+    // assert the INVARIANT — it's re-staged MUCH closer to spawn than the distance
+    // it had roamed mid-fight — rather than a brittle exact-pixel tolerance.
     let (pca_hp_after, pca_x_after) =
         fighter(sim.world_mut(), DUEL_PCA_ID).expect("PCA re-staged after reset");
     assert_eq!(
         pca_hp_after, pca_hp0,
         "reset must restore the PCA to full spawn HP (was {pca_hp_mid}, spawn {pca_hp0})"
     );
+    let roamed = (pca_x_mid - pca_x0).abs().max(1.0);
+    let after_gap = (pca_x_after - pca_x0).abs();
     assert!(
-        (pca_x_after - pca_x0).abs() < 40.0,
-        "reset must return the PCA to ~its spawn x (spawn {pca_x0:.0}, after reset {pca_x_after:.0}, \
-         mid-fight {pca_x_mid:.0})"
+        after_gap < roamed * 0.3,
+        "reset must re-stage the PCA near its spawn x (spawn {pca_x0:.0}, after reset \
+         {pca_x_after:.0} = {after_gap:.0}px away, vs {roamed:.0}px roamed mid-fight)"
     );
 }
 
@@ -302,7 +306,10 @@ fn duel_fighters_actually_enact_their_abilities_on_the_body() {
         assert!(
             log.caps_blink && log.caps_shield && log.caps_dash && log.caps_fly,
             "{who} body must carry all four abilities (blink={} shield={} dash={} fly={})",
-            log.caps_blink, log.caps_shield, log.caps_dash, log.caps_fly,
+            log.caps_blink,
+            log.caps_shield,
+            log.caps_dash,
+            log.caps_fly,
         );
         // And the body must actually RESOLVE every ability in the real sim — the
         // defensive ones fire frequently, and the damage-triggered regroup makes the

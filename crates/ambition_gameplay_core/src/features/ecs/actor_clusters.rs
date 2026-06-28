@@ -9,7 +9,7 @@
 //! Field → component map:
 //! - pos/vel/size/facing      → [`BodyKinematics`]
 //! - on_ground/normal/gravity/air_jumps → [`ActorSurfaceState`] (component)
-//! - attack windup/active/cooldown/axis → [`ActorAttackState`] (component)
+//! - attack windup/active/cooldown/axis → [`BodyMelee`] (component)
 //! - alive/respawn/hit_flash/ai_mode/health → [`ActorStatus`]
 //! - tuning/brain_spec/brain/spawn baseline/sprite override/id/name → [`ActorConfig`]
 //! - patrol path             → [`ActorMotionPath`]
@@ -17,7 +17,7 @@
 use bevy::ecs::query::QueryData;
 use bevy::prelude::Component;
 
-use super::super::components::ActorAttackState;
+use super::super::components::BodyMelee;
 use super::super::enemies::{
     spec_for_brain, ActorSpawnState, ActorSurfaceState, EnemyArchetypeSpec,
 };
@@ -26,13 +26,13 @@ use super::super::MAX_ENEMY_AIR_JUMPS;
 use ambition_engine_core as ae;
 use ambition_engine_core::AabbExt;
 
-pub use crate::platformer_runtime::body::BodyKinematics;
 use crate::actor::{
     AncillaryMovementBundle, BodyAbilities, BodyActionBuffer, BodyBaseSize, BodyBlinkState,
     BodyComboTrace, BodyDashState, BodyDodgeState, BodyEnvironmentContact, BodyFlightState,
     BodyGroundState, BodyJumpState, BodyLedgeState, BodyLifetime, BodyMana, BodyModeState,
     BodyOffense, BodyShieldState, BodyWallState,
 };
+pub use crate::platformer_runtime::body::BodyKinematics;
 
 /// Liveness + per-tick status scalars: alive flag, respawn countdown,
 /// hit-flash timer, last-evaluated AI mode. Health lives on the shared
@@ -152,8 +152,7 @@ impl ActorBody {
         abilities.fly = is_aerial || caps.can_fly;
         abilities.shield = caps.can_shield;
         abilities.blink = caps.can_blink;
-        let mut scratch =
-            ae::BodyClusterScratch::new_with_abilities(ae::Vec2::ZERO, abilities);
+        let mut scratch = ae::BodyClusterScratch::new_with_abilities(ae::Vec2::ZERO, abilities);
         scratch.flight.fly_enabled = is_aerial;
         Self(scratch)
     }
@@ -189,7 +188,7 @@ pub struct ActorMut<'a> {
     /// carries) — the authoritative HP the damage / respawn / banter paths use.
     pub health: &'a mut crate::actor::BodyHealth,
     pub surface: &'a mut ActorSurfaceState,
-    pub attack: &'a mut ActorAttackState,
+    pub attack: &'a mut BodyMelee,
     pub config: &'a mut ActorConfig,
     pub motion: &'a mut ActorMotionPath,
     /// Spawn-resolved special-behavior flags (kit vocabulary). Read-only:
@@ -253,7 +252,7 @@ pub struct ActorClusterQueryData {
     pub status: &'static mut ActorStatus,
     pub health: &'static mut crate::actor::BodyHealth,
     pub surface: &'static mut ActorSurfaceState,
-    pub attack: &'static mut ActorAttackState,
+    pub attack: &'static mut BodyMelee,
     pub config: &'static mut ActorConfig,
     pub motion: &'static mut ActorMotionPath,
     pub caps: &'static crate::combat::CombatCapabilities,
@@ -325,7 +324,7 @@ pub struct ActorClusterSeed {
     /// test harness's `ActorMut::health`).
     pub health: crate::actor::BodyHealth,
     pub surface: ActorSurfaceState,
-    pub attack: ActorAttackState,
+    pub attack: BodyMelee,
     pub config: ActorConfig,
     pub motion: ActorMotionPath,
     /// Persistent player-movement ability state, spawned alongside the clusters
@@ -442,7 +441,7 @@ impl ActorClusterSeed {
                 gravity_scale: if spec.is_aerial { 0.0 } else { 1.0 },
                 air_jumps_remaining: MAX_ENEMY_AIR_JUMPS,
             },
-            attack: ActorAttackState::default(),
+            attack: BodyMelee::default(),
             config: ActorConfig {
                 id: id.into(),
                 name,
@@ -504,17 +503,18 @@ impl ActorClusterSeed {
         // A `Floating` catalog body = a gravity-free flyer (the stochastic
         // parrot): zero gravity so the brain's full 2D velocity drives flight
         // through the shared aerial integrator.
-        let gravity_scale = match character_id {
-            Some(cid)
-                if matches!(
+        let gravity_scale =
+            match character_id {
+                Some(cid)
+                    if matches!(
                     crate::character_roster::body_kind_for_character_id(cid),
                     Some(ambition_characters::actor::character_catalog::CharacterBodyKind::Floating)
                 ) =>
-            {
-                0.0
-            }
-            _ => 1.0,
-        };
+                {
+                    0.0
+                }
+                _ => 1.0,
+            };
         let is_aerial = gravity_scale <= 0.001;
         // Sprite metadata supersedes the LDtk spawn box (see the old
         // `NpcClusterScratch`): size the collision to the visible body and
@@ -568,7 +568,7 @@ impl ActorClusterSeed {
                 gravity_scale,
                 air_jumps_remaining: 0,
             },
-            attack: ActorAttackState::default(),
+            attack: BodyMelee::default(),
             config: ActorConfig {
                 id: id.into(),
                 name: name.into(),
@@ -645,17 +645,17 @@ impl ActorClusterSeed {
         gravity_dir: ae::Vec2,
     ) -> ambition_characters::actor::control::ActorControlFrame {
         self.as_actor_mut()
-        .update(
-            world,
-            target_pos,
-            tuning,
-            nearest_neighbor,
-            dt,
-            is_mounted,
-            frame,
-            gravity_dir,
-        )
-        .0
+            .update(
+                world,
+                target_pos,
+                tuning,
+                nearest_neighbor,
+                dt,
+                is_mounted,
+                frame,
+                gravity_dir,
+            )
+            .0
     }
 
     /// The authoritative components as a spawnable Bundle. Includes the body's
@@ -670,7 +670,7 @@ impl ActorClusterSeed {
         ActorConfig,
         ActorMotionPath,
         ActorSurfaceState,
-        ActorAttackState,
+        BodyMelee,
         AncillaryMovementBundle,
         crate::combat::CombatCapabilities,
     ) {

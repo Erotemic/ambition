@@ -62,11 +62,11 @@ fn evaluate_enemy_ai_output(
     target_pos: ae::Vec2,
     brain: &ambition_characters::actor::EnemyBrain,
     tuning: &crate::combat::ActorTuning,
-    attack: &crate::features::ActorAttackState,
+    attack: &crate::features::BodyMelee,
     alive: bool,
 ) -> ambition_characters::actor::ai::CharacterAiOutput {
     let recover_remaining =
-        if attack.cooldown > 0.0 && attack.windup_timer <= 0.0 && attack.active_timer <= 0.0 {
+        if attack.on_cooldown() && !attack.is_winding_up() && !attack.is_active() {
             attack.cooldown.min(0.30)
         } else {
             0.0
@@ -82,8 +82,8 @@ fn evaluate_enemy_ai_output(
             player_pos: target_pos,
             aggro_radius: effective_aggro_radius,
             attack_range: tuning.attack_range,
-            attack_windup_remaining: attack.windup_timer,
-            attack_active_remaining: attack.active_timer,
+            attack_windup_remaining: attack.windup_remaining(),
+            attack_active_remaining: attack.active_remaining(),
             attack_recover_remaining: recover_remaining,
             stun_remaining: 0.0,
             alive,
@@ -130,23 +130,12 @@ impl<'a> ActorMut<'a> {
             );
         }
 
-        // Active-window length is the player spec's `active_seconds` (the swing
-        // hitbox lifetime), so the actor's strike lasts exactly as long as the
-        // player's. Falls back to the tuning value only if no swing is armed.
-        let active_seconds = self
-            .attack
-            .swing_spec
-            .map(|s| s.active_seconds)
-            .unwrap_or(tuning.enemy_attack_active);
-        self.attack.tick(dt, active_seconds);
-        // Drop the spent swing once windup + active have both elapsed (the
-        // cooldown floor keeps ticking independently to pace the AI).
-        if self.attack.swing_spec.is_some()
-            && !self.attack.is_winding_up()
-            && !self.attack.is_active()
-        {
-            self.attack.swing_spec = None;
-        }
+        // ONE swing model: advance the body's [`BodyMelee`] — the spec's
+        // `phase_at(elapsed)` drives windup→active→recovery (player timing), and
+        // the cooldown floor ticks independently to pace the AI. `tuning` no
+        // longer feeds the active window; the swing spec owns it.
+        let _ = tuning.enemy_attack_active;
+        self.attack.tick(dt);
 
         let ai = evaluate_enemy_ai_output(
             self.kin.pos,
@@ -515,11 +504,7 @@ impl<'a> ActorMut<'a> {
         )
     }
 
-    pub fn begin_melee_attack(
-        &mut self,
-        tuning: FeatureCombatTuning,
-        attack_axis: ae::Vec2,
-    ) -> bool {
+    pub fn begin_melee_attack(&mut self, attack_axis: ae::Vec2) -> bool {
         if self.attack.cooldown > 0.0 || !self.status.alive {
             return false;
         }
@@ -550,16 +535,24 @@ impl<'a> ActorMut<'a> {
             attack_axis.y,
             false,
         );
-        let spec = crate::combat::attack_spec_from_view(&view, intent);
-        self.attack.windup_timer = spec.startup_seconds.max(0.01);
-        self.attack.cooldown = ENEMY_ATTACK_COOLDOWN * self.config.tuning.attack_cooldown_mult;
-        self.attack.swing_spec = Some(spec);
-        self.status.ai_mode = ambition_characters::actor::ai::CharacterAiMode::Telegraph;
-        self.attack.pending_axis = if attack_axis.length_squared() > 0.01 {
+        // Rotate the body-local spec into the actor's world frame NOW (gravity =
+        // opposite its support surface), the same conversion the player applies
+        // at `start_attack`, so `BodyMelee.swing.spec` is world-frame for every
+        // body and the spawn edge reads its box directly.
+        let gravity_dir = -self
+            .surface
+            .surface_normal
+            .normalize_or(ae::Vec2::new(0.0, -1.0));
+        let spec = crate::combat::attack_spec_from_view(&view, intent)
+            .into_world_frame(ae::AccelerationFrame::new(gravity_dir));
+        let pending_axis = if attack_axis.length_squared() > 0.01 {
             attack_axis.normalize_or_zero()
         } else {
             ae::Vec2::new(self.kin.facing, 0.0)
         };
+        let cooldown = ENEMY_ATTACK_COOLDOWN * self.config.tuning.attack_cooldown_mult;
+        self.attack.begin(spec, pending_axis, cooldown);
+        self.status.ai_mode = ambition_characters::actor::ai::CharacterAiMode::Telegraph;
         true
     }
 
@@ -619,7 +612,7 @@ impl<'a> ActorMut<'a> {
         *self.health = crate::actor::BodyHealth::new(ambition_characters::actor::Health::new(
             self.config.tuning.max_health,
         ));
-        *self.attack = ActorAttackState::default();
+        *self.attack = BodyMelee::default();
         self.status.respawn_timer = 0.0;
         self.status.hit_flash = 0.0;
         self.status.ai_mode = ambition_characters::actor::ai::CharacterAiMode::Idle;

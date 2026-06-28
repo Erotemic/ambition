@@ -536,13 +536,12 @@ pub fn update_ecs_actors(
                     // sheet authors none. Gated to upright gravity: the manifest
                     // box is screen-axis, while the fallback rotates with a
                     // wall-clinger's frame, so a clung enemy keeps its oriented box.
-                    // The swing's player-frame `AttackSpec`, rotated into the
-                    // actor's live gravity frame — the SAME spec the human player
-                    // uses. Its box is the fallback when the sprite sheet authors
-                    // no per-anim hitbox, replacing the old bespoke
-                    // `attack_aabb_dir`, so reach + placement match the player.
-                    let frame = ae::AccelerationFrame::new(down);
-                    let world_spec = em.attack.swing_spec.map(|s| s.into_world_frame(frame));
+                    // The swing's world-frame `AttackSpec` (the SAME spec the human
+                    // player uses, rotated to world at `begin_melee_attack`). Its
+                    // box is the fallback when the sprite sheet authors no per-anim
+                    // hitbox, replacing the old bespoke `attack_aabb_dir`, so reach
+                    // + placement match the player.
+                    let world_spec = em.attack.swing.as_ref().map(|s| s.spec);
                     let spec_box = world_spec
                         .map(|s| ae::Aabb::new(em.kin.pos + s.hitbox_offset, s.hitbox_half_size));
                     let upright = down.x.abs() < 0.01 && down.y > 0.0;
@@ -590,7 +589,7 @@ pub fn update_ecs_actors(
                         attack_box.half_size(),
                         1,
                         1.0,
-                        em.attack.active_timer,
+                        em.attack.active_remaining(),
                     );
                     // Draw the swing through THE ONE shared melee-slash emitter the
                     // player uses (`combat::attack::emit_melee_slash`) — same visual
@@ -882,8 +881,8 @@ fn build_enemy_brain_snapshot(
         dt,
         max_run_speed: em.config.tuning.max_run_speed,
         attack_cooldown_remaining: em.attack.cooldown,
-        attack_windup_remaining: em.attack.windup_timer,
-        attack_active_remaining: em.attack.active_timer,
+        attack_windup_remaining: em.attack.windup_remaining(),
+        attack_active_remaining: em.attack.active_remaining(),
         attack_recover_remaining: 0.0,
         stun_remaining: 0.0,
         wall_contact: None,
@@ -923,8 +922,8 @@ pub fn sync_actor_components_from_cluster(
         BodyCombat::hostile(
             em.status.alive,
             em.status.hit_flash,
-            em.attack.windup_timer,
-            em.attack.active_timer,
+            em.attack.windup_remaining(),
+            em.attack.active_remaining(),
             em.config.tuning.is_sandbag,
         )
     } else {

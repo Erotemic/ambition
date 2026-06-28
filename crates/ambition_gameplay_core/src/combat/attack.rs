@@ -250,7 +250,7 @@ fn slash_effect_size(hitbox_half_size: ae::Vec2) -> f32 {
 ///
 /// ONE BODY, ONE PATH: do NOT add another `VfxMessage::Slash` site — call this. (The
 /// two melee STATE MACHINES that call it — `PlayerAttackState` here and
-/// `ActorAttackState` in `update_ecs_actors` — are the next fork to collapse; see
+/// `BodyMelee` in `update_ecs_actors` — are the next fork to collapse; see
 /// the `BIFURCATION:` note in dev/journals/code_smells.md.)
 pub fn emit_melee_slash(
     vfx: &mut MessageWriter<VfxMessage>,

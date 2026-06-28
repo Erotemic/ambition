@@ -15,7 +15,7 @@ pub type ActorSpriteData = (
     &'static FeatureId,
     Option<&'static super::actor_clusters::BodyKinematics>,
     Option<&'static super::actor_clusters::ActorStatus>,
-    Option<&'static ActorAttackState>,
+    Option<&'static BodyMelee>,
     Option<&'static super::actor_clusters::ActorConfig>,
 );
 

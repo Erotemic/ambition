@@ -65,8 +65,9 @@ pub(crate) fn hostile_spec_for_actor(
     name: &str,
     dialogue_id: Option<&str>,
 ) -> super::super::super::enemies::EnemyArchetypeSpec {
-    let brain =
-        ambition_characters::actor::EnemyBrain::Custom(hostile_brain_id_for_actor(id, name, dialogue_id).into());
+    let brain = ambition_characters::actor::EnemyBrain::Custom(
+        hostile_brain_id_for_actor(id, name, dialogue_id).into(),
+    );
     super::super::super::enemies::spec_for_brain(&brain)
 }
 
@@ -87,8 +88,8 @@ pub fn actor_component_snapshot(
         BodyCombat::hostile(
             seed.status.alive,
             seed.status.hit_flash,
-            seed.attack.windup_timer,
-            seed.attack.active_timer,
+            seed.attack.windup_remaining(),
+            seed.attack.active_remaining(),
             seed.config.tuning.is_sandbag,
         )
     } else {
@@ -142,9 +143,9 @@ pub(crate) fn provoke_actor_in_place(
 ) {
     if disposition.is_peaceful() {
         let hostile_id = hostile_brain_id_for_actor(&em.config.id, &em.config.name, dialogue_id);
-        let spec = super::super::super::enemies::spec_for_brain(&ambition_characters::actor::EnemyBrain::Custom(
-            hostile_id.into(),
-        ));
+        let spec = super::super::super::enemies::spec_for_brain(
+            &ambition_characters::actor::EnemyBrain::Custom(hostile_id.into()),
+        );
         em.config.tuning = spec.tuning();
         // Re-sync the body's gravity to match the hostile archetype's locomotion
         // mode — the same invariant `reset_to_spawn` enforces
@@ -161,9 +162,8 @@ pub(crate) fn provoke_actor_in_place(
         em.config.brain = ambition_characters::actor::EnemyBrain::Custom(hostile_id.into());
         // Take on the hostile archetype's HP pool (the peaceful seed spawned with
         // health=1; a provoked actor should fight at full archetype HP).
-        *em.health = crate::actor::BodyHealth::new(ambition_characters::actor::Health::new(
-            spec.max_health,
-        ));
+        *em.health =
+            crate::actor::BodyHealth::new(ambition_characters::actor::Health::new(spec.max_health));
         // Keep the actor's own sprite sheet (its NPC name) when hostile — except
         // the Kernel Guide, which uses the default enemy sheet (legacy quirk).
         if em.config.name != "Kernel Guide NPC" {

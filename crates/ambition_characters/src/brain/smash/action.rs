@@ -98,14 +98,18 @@ pub fn choose_action(
                     return SpecificAction::DoubleJump;
                 }
             }
-            let dir = signum_or(obs.to_target_x, obs.self_facing);
+            // Run direction along the gravity-perpendicular SIDE axis (the body
+            // consumes `locomotion.x` as a local-side scalar), so the actor walks
+            // toward the target under ANY gravity orientation — not just screen-down.
+            // Byte-identical to `to_target_x` under screen-down gravity.
+            let dir = signum_or(obs.to_target_side(), obs.self_facing);
             SpecificAction::Walk {
                 dir: dir * (cfg.chase_speed / cfg.chase_speed.max(1.0)),
             }
         }
         BroadMode::Retreat => {
-            // Move directly away from target.
-            let dir = signum_or(-obs.to_target_x, -obs.self_facing);
+            // Move directly away from target, along the local side axis (I10).
+            let dir = signum_or(-obs.to_target_side(), -obs.self_facing);
             SpecificAction::Walk { dir }
         }
         BroadMode::Engage => {
@@ -149,7 +153,7 @@ pub fn choose_action(
                         return SpecificAction::DoubleJump;
                     }
                 }
-                let dir = signum_or(obs.to_target_x, obs.self_facing);
+                let dir = signum_or(obs.to_target_side(), obs.self_facing);
                 return SpecificAction::Walk { dir };
             }
             // In range but on cooldown — hold ground, face target.

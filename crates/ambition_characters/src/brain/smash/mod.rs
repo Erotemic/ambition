@@ -826,10 +826,12 @@ fn maybe_apply_footsies(
     // a pure outward retreat would drift the pressured fighter into the corner and
     // freeze it (the brain has no wall geometry to back away from).
     let desired_gap = cfg.engage_distance + cfg.footsies_amplitude * phase.sin();
-    let toward = if obs.to_target_x.abs() < 0.001 {
+    // Weave direction along the local SIDE axis (I10) so footsies stay correct under
+    // rotated gravity. Byte-identical to `to_target_x` under screen-down.
+    let toward = if obs.to_target_side().abs() < 0.001 {
         obs.self_facing
     } else {
-        obs.to_target_x.signum()
+        obs.to_target_side().signum()
     };
     // Small deadzone so the actor settles (holds, facing the foe) at the pocket
     // rather than jittering one frame in / one frame out. Kept tight so the
@@ -942,10 +944,12 @@ fn maybe_substitute_dash(
         return action;
     }
     state.dash_cooldown_remaining = DASH_COOLDOWN_S;
-    let dir = if obs.to_target_x.abs() < 0.001 {
+    // Dash along the local SIDE axis (I10) toward the target — correct under any
+    // gravity; byte-identical to `to_target_x` under screen-down.
+    let dir = if obs.to_target_side().abs() < 0.001 {
         obs.self_facing
     } else {
-        obs.to_target_x.signum()
+        obs.to_target_side().signum()
     };
     SpecificAction::Dash { dir }
 }
@@ -1637,6 +1641,33 @@ mod tests {
         assert!(
             away.dot(down) < 0.0,
             "evade must never dive into gravity; got {away:?}"
+        );
+    }
+
+    /// Grounded APPROACH is gravity-relative: under gravity rotated 90° (down =
+    /// screen `+x`), the run axis is screen-vertical, so a target offset along
+    /// screen `+y` must drive `locomotion.x` (the body's local-side run scalar)
+    /// toward it. The old code keyed the run on screen `to_target_x` (here 0), so it
+    /// would NOT pursue — this pins the relativity fix for the player's gravity flip.
+    #[test]
+    fn grounded_approach_runs_toward_target_under_rotated_gravity() {
+        let cfg = crisp_striker_cfg(); // reaction_delay 0, grounded striker
+        let mut state = SmashState::default();
+        let actions = ActionSet::peaceful();
+        let mut snap = BrainSnapshot::idle();
+        snap.control_down = ae::Vec2::new(1.0, 0.0); // down = +x → side = (0,-1)
+        snap.actor_pos = ae::Vec2::ZERO;
+        snap.target_pos = ae::Vec2::new(0.0, 300.0); // purely screen-vertical (no screen-x)
+        snap.actor_on_ground = true;
+        snap.target_alive = true;
+        let mut f = crate::actor::control::ActorControlFrame::neutral();
+        tick_smash(&cfg, &mut state, &actions, &snap, None, &mut f);
+        // to_target_side = (0,300)·(0,-1) = -300 ⇒ run toward it is negative.
+        assert!(
+            f.locomotion.x < 0.0,
+            "should run toward the target along the LOCAL side axis under rotated \
+             gravity; got {:?} (the old screen-x code would stall here)",
+            f.locomotion
         );
     }
 

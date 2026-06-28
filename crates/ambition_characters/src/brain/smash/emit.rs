@@ -40,9 +40,11 @@ pub fn emit_inputs(
     obs: &ObservationFrame,
     out: &mut crate::actor::control::ActorControlFrame,
 ) {
-    // Facing is set unconditionally toward the target (when one
-    // exists) so even Idle mid-engagement faces the threat.
-    let face_x = signum_or(obs.to_target_x, obs.self_facing);
+    // Facing is set unconditionally toward the target (when one exists) so even Idle
+    // mid-engagement faces the threat. Facing is a LOCAL +1/-1 (the body writes
+    // `kin.facing`), so it tracks the gravity-perpendicular side sign toward the
+    // target — correct under any gravity; byte-identical to `to_target_x` screen-down.
+    let face_x = signum_or(obs.to_target_side(), obs.self_facing);
     out.facing = face_x;
 
     match action {
@@ -106,7 +108,7 @@ pub fn emit_inputs(
             // stands and pokes forever once it enters the ranged band — an
             // aggressive fighter keeps coming (the body, not a brain camp, paces
             // the shots; invariants I3/I4).
-            let toward = signum_or(obs.to_target_x, obs.self_facing);
+            let toward = signum_or(obs.to_target_side(), obs.self_facing);
             out.locomotion = ae::Vec2::new(toward * (WALK_SPEED_PX_S / DASH_SPEED_PX_S), 0.0);
         }
         SpecificAction::Special => {

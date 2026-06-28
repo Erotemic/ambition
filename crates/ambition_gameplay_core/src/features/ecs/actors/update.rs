@@ -544,12 +544,14 @@ pub fn update_ecs_actors(
                     let world_spec = em.attack.swing.as_ref().map(|s| s.spec);
                     let spec_box = world_spec
                         .map(|s| ae::Aabb::new(em.kin.pos + s.hitbox_offset, s.hitbox_half_size));
-                    let upright = down.x.abs() < 0.01 && down.y > 0.0;
+                    // The authored sprite-manifest box is now gravity-aware (it
+                    // rotates into the actor's frame), so use it under ANY gravity —
+                    // no upright gate. Falls back to the spec box when the sheet
+                    // authors no per-anim hitbox.
                     let attack_box = em
                         .config
                         .sprite_character_id
                         .as_deref()
-                        .filter(|_| upright)
                         .and_then(|cid| {
                             crate::character_sprites::actor_attack_hitbox_world(
                                 cid,
@@ -557,6 +559,7 @@ pub fn update_ecs_actors(
                                 em.kin.pos,
                                 em.kin.size,
                                 em.kin.facing,
+                                down,
                             )
                             // Enemy melee spawns a box hitbox today; collapse a
                             // shaped manifest volume to its bounds (shaped enemy

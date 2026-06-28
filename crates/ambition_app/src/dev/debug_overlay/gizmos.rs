@@ -139,6 +139,11 @@ pub struct FeatureDebugQueries<'w, 's> {
     /// their current world-space rectangle. World-anchored
     /// hitboxes don't need this — their AABB is fixed at spawn.
     pub hitbox_owners: Query<'w, 's, &'static ambition_gameplay_core::features::CenteredAabb>,
+    /// Body-kinematics owner-pos fallback for a FollowOwner hitbox whose owner is
+    /// the PLAYER (which has no `CenteredAabb` — its `BodyKinematics.pos` IS its
+    /// box center). Mirrors `apply_hitbox_damage`'s owner-pos resolution, so the
+    /// player's melee strike draws at the player, not at the world origin.
+    pub hitbox_owner_kin: Query<'w, 's, &'static ambition_gameplay_core::actor::BodyKinematics>,
     /// In-flight held-item shots (gun-sword bolt / Fireball). Their
     /// contact + splash boxes were previously undrawn, so a Fireball
     /// read as "hitting before it touches the visible box". Lives in
@@ -394,17 +399,10 @@ pub(crate) fn draw_player_debug(
         }
     }
 
-    // Combat preview: active attacks show their real phase hitbox. When no
-    // swing is active, holding the button previews the resolved directional
-    // intent from the live input axes. Colors mirror the attack lifecycle:
-    // startup = yellow, active = red, recovery = gray.
+    // Combat preview: an ACTIVE swing draws its real phase hitbox (startup =
+    // yellow, active = red, recovery = gray). `controls` also feeds the blink-aim
+    // debug below.
     let controls = actions.map(ControlFrame::read_gameplay).unwrap_or_default();
-    let attack_held = actions
-        .map(|actions| actions.pressed(&SandboxAction::Attack))
-        .unwrap_or(false);
-    let dedicated_pogo_held = actions
-        .map(|actions| actions.pressed(&SandboxAction::Pogo))
-        .unwrap_or(false);
     if gameplay_active && developer_tools.show_combat_preview {
         let view = ambition_gameplay_core::combat::AttackView {
             pos,
@@ -422,6 +420,7 @@ pub(crate) fn draw_player_debug(
             let volume = ambition_gameplay_core::combat::attack::player_attack_hitbox(
                 &view,
                 attack_state.spec.intent,
+                gravity_dir,
             )
             .unwrap_or_else(|| {
                 ambition_gameplay_core::combat::attack_hitbox_from_view(&view, attack_state.spec)
@@ -435,23 +434,11 @@ pub(crate) fn draw_player_debug(
             };
             draw_combat_volume(gizmos, world, &volume, color);
             label_box(labels, volume.bounds(), "atk", color, LabelSpot::TopRight);
-        } else if attack_held || dedicated_pogo_held {
-            let intent = ambition_gameplay_core::combat::resolve_attack_intent_from_view(
-                &view,
-                controls.axis_x,
-                controls.axis_y,
-                dedicated_pogo_held || controls.pogo_pressed,
-            );
-            let frame = ae::AccelerationFrame::new(gravity_dir);
-            let spec = ambition_gameplay_core::combat::attack_spec_from_view(&view, intent)
-                .into_world_frame(frame);
-            let volume =
-                ambition_gameplay_core::combat::attack::player_attack_hitbox(&view, intent)
-                    .unwrap_or_else(|| {
-                        ambition_gameplay_core::combat::attack_hitbox_from_view(&view, spec).into()
-                    });
-            draw_combat_volume(gizmos, world, &volume, yellow());
         }
+        // (The old yellow "where the swing WOULD land" preview that drew while
+        // merely HOLDING attack between swings was removed — it dealt no damage
+        // and read as a confusing stray box. The active swing above draws its real
+        // gravity-correct hitbox, which is the only box that matters.)
     }
 
     // Ledge grab / climb debug.
@@ -806,14 +793,25 @@ pub(crate) fn draw_feature_debug(
     let boss_hitbox_color = Color::srgba(1.00, 0.55, 0.10, 0.90); // bright orange
     let npc_hitbox_color = Color::srgba(0.60, 1.00, 0.45, 0.85); // light green
     for hitbox in feature_q.hitboxes.iter() {
-        let owner_pos = match feature_q.hitbox_owners.get(hitbox.owner) {
-            Ok(aabb) => aabb.center,
-            // Owner despawned or never had a CenteredAabb — for
-            // World-anchored hitboxes this doesn't matter (the
-            // anchor carries the center). For FollowOwner with a
-            // dead owner the draw position is ambiguous; fall back
-            // to ZERO and the rect will appear at the origin.
-            Err(_) => ae::Vec2::ZERO,
+        // Resolve the owner's box center: actors carry `CenteredAabb`, the player
+        // carries `BodyKinematics` (same fallback the damage system uses). A
+        // FollowOwner hitbox with NO resolvable owner pos is SKIPPED rather than
+        // drawn at the world origin — drawing it at ZERO was the "stray hit:player
+        // box in the top-left" smell (the player's strike, owner-pos unresolved).
+        // World-anchored hitboxes carry their own center, so owner pos is moot.
+        let owner_pos = if let Ok(aabb) = feature_q.hitbox_owners.get(hitbox.owner) {
+            Some(aabb.center)
+        } else if let Ok(kin) = feature_q.hitbox_owner_kin.get(hitbox.owner) {
+            Some(kin.pos)
+        } else {
+            None
+        };
+        let owner_pos = match (owner_pos, hitbox.anchor) {
+            (Some(p), _) => p,
+            // World-anchored: center is fixed at spawn, owner pos unused.
+            (None, ambition_gameplay_core::features::HitboxAnchor::World { .. }) => ae::Vec2::ZERO,
+            // FollowOwner with a dead/unknown owner: don't draw a ghost at origin.
+            (None, ambition_gameplay_core::features::HitboxAnchor::FollowOwner { .. }) => continue,
         };
         let aabb = hitbox.world_aabb(owner_pos);
         let (color, tag) = match hitbox.source {

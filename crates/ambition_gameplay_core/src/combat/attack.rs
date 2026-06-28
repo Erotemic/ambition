@@ -263,13 +263,18 @@ pub fn emit_melee_slash(
 /// (`character_sprites::player_attack_hitbox_world`). Returns `None` when the
 /// current swing's animation has no authored hitbox, so callers fall back to the
 /// hardcoded `AttackSpec` volume.
-pub fn player_attack_hitbox(view: &AttackView, intent: AttackIntent) -> Option<ae::CombatVolume> {
+pub fn player_attack_hitbox(
+    view: &AttackView,
+    intent: AttackIntent,
+    gravity_dir: ae::Vec2,
+) -> Option<ae::CombatVolume> {
     let animation = attack_intent_animation(intent);
     crate::character_sprites::player_attack_hitbox_world(
         animation,
         view.pos,
         view.size,
         view.facing,
+        gravity_dir,
     )
 }
 
@@ -329,23 +334,17 @@ pub fn advance_attack(
             dash_timer: clusters.dash.timer,
             abilities_directional_primary: clusters.abilities.abilities.directional_primary,
         };
-        // THE gravity-resolved strike box. `attack_state.spec` is already
-        // `into_world_frame`d, so `attack_hitbox_from_view` lands the box toward
-        // the swing's forward under ANY gravity. The authored sprite-manifest box
-        // (`player_attack_hitbox`) is screen-axis, so it is used ONLY upright
-        // (where screen == gravity frame) — the fix for the player's hitbox
-        // pointing the wrong way under rotated C4 gravity. ONE box drives BOTH the
-        // damage hitbox AND the slash VFX (via `spawn_melee_strike`), so they can
-        // never diverge again.
+        // THE gravity-resolved strike box. The authored sprite-manifest box
+        // (`player_attack_hitbox`) is now gravity-aware (it rotates the screen-axis
+        // hull into the body's frame), so it is correct under ANY gravity — no more
+        // upright special-casing. Falls back to the hardcoded `AttackSpec` box
+        // (also `into_world_frame`d) when the swing's animation authors none. ONE
+        // box drives BOTH the damage hitbox AND the slash VFX (via
+        // `spawn_melee_strike`), so they can never diverge again.
         let spec_box = attack_hitbox_from_view(&view, attack_state.spec);
-        let upright = tuning.gravity_dir.x.abs() < 0.01 && tuning.gravity_dir.y > 0.0;
-        let world_box = if upright {
-            player_attack_hitbox(&view, attack_state.spec.intent)
-                .map(|v| v.bounds())
-                .unwrap_or(spec_box)
-        } else {
-            spec_box
-        };
+        let world_box = player_attack_hitbox(&view, attack_state.spec.intent, tuning.gravity_dir)
+            .map(|v| v.bounds())
+            .unwrap_or(spec_box);
 
         let first_active_frame = !attack_state.active_started;
         if first_active_frame {

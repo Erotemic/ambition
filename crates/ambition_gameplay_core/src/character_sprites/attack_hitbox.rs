@@ -56,6 +56,13 @@ pub fn manifest_attack_hitbox_world(
     collision: ae::Vec2,
     facing: f32,
     render_size: ae::Vec2,
+    // Live gravity DIRECTION at the body. The manifest authors the hitbox in the
+    // sprite's screen frame (x = side, y = toward-feet); this rotates it into the
+    // body's reference frame so the box lands toward the swing's forward under ANY
+    // gravity — the SAME rotation `AttackSpec::into_world_frame` applies to the
+    // slash, so the damage box and the VFX point the same way. Identity under
+    // screen-down gravity (upright is byte-stable).
+    gravity_dir: ae::Vec2,
 ) -> Option<ae::CombatVolume> {
     let metrics = record.body_metrics.as_ref()?;
     let hitbox = metrics.animations.get(animation)?.hitbox.as_ref()?;
@@ -73,16 +80,26 @@ pub fn manifest_attack_hitbox_world(
         .map(|p| (p.x, p.y))
         .unwrap_or((fw * 0.5, fh));
     let face = if facing < 0.0 { -1.0 } else { 1.0 };
+    let frame = ae::AccelerationFrame::new(gravity_dir);
     let pixel_to_world = |px: f32, py: f32| {
         let off_x = (px - feet_x) * scale.x * face;
         let off_y = (py - feet_y) * scale.y;
-        ae::Vec2::new(body_pos.x + off_x, body_pos.y + collision.y * 0.5 + off_y)
+        // Body-LOCAL offset: x = gravity-perpendicular side (facing-signed),
+        // y = toward-feet (the `+collision.y/2` plants the box's anchor at the
+        // body's toward-gravity face). Rotate into world by the gravity frame so
+        // the authored screen-axis box tracks gravity. Identity when gravity is
+        // screen-down (`to_world` is the identity there), so upright is unchanged.
+        body_pos + frame.to_world(ae::Vec2::new(off_x, collision.y * 0.5 + off_y))
     };
 
     // Authored convex polygon wins: a hitbox shape that conforms to the effect
     // (a blade arc, a cone) instead of the coarse bbox.
     if !hitbox.poly.is_empty() {
-        let points: Vec<ae::Vec2> = hitbox.poly.iter().map(|(x, y)| pixel_to_world(*x, *y)).collect();
+        let points: Vec<ae::Vec2> = hitbox
+            .poly
+            .iter()
+            .map(|(x, y)| pixel_to_world(*x, *y))
+            .collect();
         return Some(ae::CombatVolume::convex(points));
     }
 
@@ -127,10 +144,19 @@ pub fn player_attack_hitbox_world(
     body_pos: ae::Vec2,
     collision: ae::Vec2,
     facing: f32,
+    gravity_dir: ae::Vec2,
 ) -> Option<ae::CombatVolume> {
     let record = file_root_registry().get(PLAYER_FILE_ROOT)?;
     let render_size = player_render_size(collision)?;
-    manifest_attack_hitbox_world(record, animation, body_pos, collision, facing, render_size)
+    manifest_attack_hitbox_world(
+        record,
+        animation,
+        body_pos,
+        collision,
+        facing,
+        render_size,
+        gravity_dir,
+    )
 }
 
 /// Resolve ANY catalog actor's melee attack hitbox for `animation` from its
@@ -152,6 +178,7 @@ pub fn actor_attack_hitbox_world(
     body_pos: ae::Vec2,
     collision: ae::Vec2,
     facing: f32,
+    gravity_dir: ae::Vec2,
 ) -> Option<ae::CombatVolume> {
     let file_root = crate::character_roster::EMBEDDED_CATALOG
         .characters
@@ -160,10 +187,19 @@ pub fn actor_attack_hitbox_world(
     let record = file_root_registry().get(file_root)?;
     // Scale by the actor's rendered sprite size (same derivation its collision
     // came from); fall back to the collision box when no sheet spec resolves.
-    let render_size = super::assets::sprite_body_collision_for_character_id(character_id, collision)
-        .map(|b| b.render_size)
-        .unwrap_or(collision);
-    manifest_attack_hitbox_world(record, animation, body_pos, collision, facing, render_size)
+    let render_size =
+        super::assets::sprite_body_collision_for_character_id(character_id, collision)
+            .map(|b| b.render_size)
+            .unwrap_or(collision);
+    manifest_attack_hitbox_world(
+        record,
+        animation,
+        body_pos,
+        collision,
+        facing,
+        render_size,
+        gravity_dir,
+    )
 }
 
 #[cfg(test)]
@@ -174,10 +210,54 @@ mod tests {
         ae::Vec2::new(30.0, 48.0)
     }
 
+    /// Screen-down gravity (`(0,1)`) — the upright reference frame.
+    fn down() -> ae::Vec2 {
+        ae::Vec2::new(0.0, 1.0)
+    }
+
     fn player_box(facing: f32) -> ae::Aabb {
-        player_attack_hitbox_world("attack_side", ae::Vec2::new(0.0, 0.0), collision(), facing)
-            .expect("player_robot/attack_side has an authored manifest hitbox")
-            .bounds()
+        player_attack_hitbox_world(
+            "attack_side",
+            ae::Vec2::new(0.0, 0.0),
+            collision(),
+            facing,
+            down(),
+        )
+        .expect("player_robot/attack_side has an authored manifest hitbox")
+        .bounds()
+    }
+
+    /// REGRESSION (Jon's gravity report): the manifest attack hitbox is authored
+    /// in the sprite's screen frame, but the swing happens in the BODY's gravity
+    /// frame — so the damage box MUST covary with gravity exactly as the slash VFX
+    /// does (`AttackSpec::into_world_frame`), or the polygon points one way while
+    /// the VFX points another (the bug: VFX correct, "atk" polygon wrong under
+    /// every non-down gravity). This pins that covariance: the hitbox offset under
+    /// gravity `g` is the screen-down offset rotated into `g`'s frame.
+    #[test]
+    fn attack_hitbox_covaries_with_gravity_like_the_slash_vfx() {
+        let body = ae::Vec2::new(100.0, 100.0);
+        let center = |g: ae::Vec2| {
+            let b = player_attack_hitbox_world("attack_side", body, collision(), 1.0, g)
+                .expect("attack_side authored")
+                .bounds();
+            (b.min + b.max) * 0.5
+        };
+        let down_off = center(down()) - body;
+        for g in [
+            ae::Vec2::new(0.0, -1.0), // screen-up
+            ae::Vec2::new(1.0, 0.0),  // screen-right
+            ae::Vec2::new(-1.0, 0.0), // screen-left
+        ] {
+            let off = center(g) - body;
+            let expected = ae::AccelerationFrame::new(g).to_world(down_off);
+            assert!(
+                (off - expected).length() < 1.0,
+                "gravity {g:?}: hitbox offset {off:?} should be the down offset \
+                 {down_off:?} rotated into the gravity frame ({expected:?}) — \
+                 the box must track gravity like the slash VFX",
+            );
+        }
     }
 
     #[test]
@@ -225,8 +305,9 @@ mod tests {
     fn player_attack_side_is_an_authored_convex_blade() {
         // The robot's attack_side authors a poly (blade arc), so the player
         // slash resolves a Convex volume — not a box.
-        let vol = player_attack_hitbox_world("attack_side", ae::Vec2::ZERO, collision(), 1.0)
-            .expect("attack_side authored");
+        let vol =
+            player_attack_hitbox_world("attack_side", ae::Vec2::ZERO, collision(), 1.0, down())
+                .expect("attack_side authored");
         assert!(
             matches!(vol, ae::CombatVolume::Convex { .. }),
             "expected a Convex blade, got {vol:?}"
@@ -245,6 +326,7 @@ mod tests {
             ae::Vec2::new(0.0, 0.0),
             collision(),
             1.0,
+            down(),
         );
         assert!(
             aabb.is_some(),
@@ -260,6 +342,7 @@ mod tests {
             ae::Vec2::ZERO,
             collision(),
             1.0,
+            down(),
         )
         .is_none());
     }

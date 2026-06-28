@@ -466,22 +466,19 @@ pub fn update_ecs_actors(
                 // body's blink limb (ability-gated by the mask, collision-clamped by
                 // the SAME path the player uses) and TELEPORTED the body. The driver
                 // only reacts to the resulting `FrameEvents.blinks` with sfx/vfx —
-                // the same burst-at-`from` + flash-at-`to` the bespoke actor blink
-                // drew, now event-driven exactly like the player's blink feedback.
+                // and it emits the SAME feedback the player does: the clean
+                // `BlinkEffects` flash (the quick / precision blink look), NOT the
+                // `ClassicBurst` explosion that belongs to the held *item* blink. An
+                // AI fighter blinking should read identically to the player blinking.
                 for blink in &move_events.blinks {
                     sfx.write(crate::audio::SfxMessage::Play {
                         id: ambition_sfx::ids::PLAYER_BLINK,
                         pos: blink.to,
                     });
-                    vfx.write(ambition_vfx::vfx::VfxMessage::Explosion {
-                        pos: blink.from,
-                        kind: ambition_vfx::vfx::ExplosionKind::ClassicBurst,
-                        scale: 0.35,
-                    });
-                    vfx.write(ambition_vfx::vfx::VfxMessage::Explosion {
-                        pos: blink.to,
-                        kind: ambition_vfx::vfx::ExplosionKind::ClassicBurst,
-                        scale: 0.5,
+                    vfx.write(ambition_vfx::vfx::VfxMessage::BlinkEffects {
+                        from: blink.from,
+                        to: blink.to,
+                        precision: blink.precision,
                     });
                 }
                 // Fly-toggle is resolved INSIDE the shared pipeline (invariant I3):

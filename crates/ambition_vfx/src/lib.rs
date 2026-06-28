@@ -51,6 +51,11 @@ pub struct Hitbox {
     pub facing: f32,
     pub damage: i32,
     pub knockback_strength: f32,
+    /// Signed horizontal slash impulse (gravity-relative, victim-local x) carried
+    /// by a Player-faction melee strike — the unified analogue of the old
+    /// per-frame `HitSource::PlayerSlash { knock_x }`. `0.0` for aggressor strikes
+    /// (Enemy/Boss/Npc), which knock back via position-derived `knockback_strength`.
+    pub knock_x: f32,
 }
 
 #[derive(Clone, Copy, Debug)]
@@ -142,6 +147,7 @@ pub fn spawn_damage_box(
             facing: 1.0,
             damage: dbox.damage,
             knockback_strength: dbox.knockback,
+            knock_x: 0.0,
         },
         HitboxLifetime {
             remaining_s: dbox.lifetime_s,
@@ -255,6 +261,7 @@ mod hitbox_shape_tests {
             facing: 1.0,
             damage: 1,
             knockback_strength: 0.0,
+            knock_x: 0.0,
         };
         match hb.world_volume(ae::Vec2::new(100.0, 50.0)) {
             ae::CombatVolume::Circle { center, radius } => {
@@ -278,6 +285,7 @@ mod hitbox_shape_tests {
             facing: 1.0,
             damage: 1,
             knockback_strength: 0.0,
+            knock_x: 0.0,
         };
         assert!(matches!(
             hb.world_volume(ae::Vec2::ZERO),

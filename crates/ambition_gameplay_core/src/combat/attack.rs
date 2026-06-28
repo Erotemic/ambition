@@ -205,22 +205,12 @@ pub fn start_attack(
     sfx.write(SfxMessage::Slash { pos: player_pos });
     anim.slash_anim_timer = spec.total_seconds().max(0.20);
     *attack = Some(MeleeSwing::new(spec));
-    // Slash effect, oriented + placed in the PLAYER'S reference frame. `spec`
-    // is already `into_world_frame`d, so `spec.hitbox_offset` is the
-    // gravity-rotated player→strike vector — feed THAT to the effect (NOT the
-    // manifest `player_attack_hitbox`, which is screen-axis and so points the
-    // wrong way under rotated C4 gravity). The renderer rotates the art along
-    // `dir`; only the art KIND comes from the intent (down-tilt pokes,
-    // everything else arcs). A shared starting point; each attack can graduate
-    // to a bespoke effect later.
-    let slash_dir = spec.hitbox_offset;
-    emit_melee_slash(
-        vfx,
-        view.pos + slash_dir,
-        spec.hitbox_half_size,
-        slash_kind(spec.intent),
-        slash_dir,
-    );
+    // The slash VFX is NO LONGER emitted here. It is spawned at the active edge by
+    // the ONE shared `spawn_melee_strike` (in `advance_attack`), from the SAME
+    // gravity-resolved box as the damage hitbox — so the slash and the hitbox can
+    // never point in different directions under rotated gravity. `vfx` is unused
+    // by `start_attack` now; the swing-start whoosh stays on the `sfx` channel.
+    let _ = vfx;
 }
 
 /// Pick the slash ART for an attack: down-tilt is a grounded horizontal poke;
@@ -302,6 +292,7 @@ fn attack_intent_animation(intent: AttackIntent) -> &'static str {
 
 #[allow(clippy::too_many_arguments)]
 pub fn advance_attack(
+    commands: &mut bevy::prelude::Commands,
     player_entity: Entity,
     sfx: &mut MessageWriter<SfxMessage>,
     vfx: &mut MessageWriter<VfxMessage>,
@@ -317,10 +308,7 @@ pub fn advance_attack(
     feature_ecs_overlay: &FeatureEcsWorldOverlay,
     hit_events: &mut MessageWriter<features::HitEvent>,
 ) {
-    // `vfx` is unused today — the slash effect is spawned once in `start_attack`;
-    // the active phase only drives the damage hitbox. Kept for the callsite shape
-    // and a future per-frame attack VFX.
-    let _ = vfx;
+    let _ = (combat, feel);
     let Some(mut attack_state) = attack.take() else {
         return;
     };
@@ -341,24 +329,70 @@ pub fn advance_attack(
             dash_timer: clusters.dash.timer,
             abilities_directional_primary: clusters.abilities.abilities.directional_primary,
         };
-        let attack = player_attack_hitbox(&view, attack_state.spec.intent)
-            .unwrap_or_else(|| attack_hitbox_from_view(&view, attack_state.spec).into());
+        // THE gravity-resolved strike box. `attack_state.spec` is already
+        // `into_world_frame`d, so `attack_hitbox_from_view` lands the box toward
+        // the swing's forward under ANY gravity. The authored sprite-manifest box
+        // (`player_attack_hitbox`) is screen-axis, so it is used ONLY upright
+        // (where screen == gravity frame) — the fix for the player's hitbox
+        // pointing the wrong way under rotated C4 gravity. ONE box drives BOTH the
+        // damage hitbox AND the slash VFX (via `spawn_melee_strike`), so they can
+        // never diverge again.
+        let spec_box = attack_hitbox_from_view(&view, attack_state.spec);
+        let upright = tuning.gravity_dir.x.abs() < 0.01 && tuning.gravity_dir.y > 0.0;
+        let world_box = if upright {
+            player_attack_hitbox(&view, attack_state.spec.intent)
+                .map(|v| v.bounds())
+                .unwrap_or(spec_box)
+        } else {
+            spec_box
+        };
+
         let first_active_frame = !attack_state.active_started;
         if first_active_frame {
             attack_state.active_started = true;
-            // The slash effect is spawned once at swing start (start_attack);
-            // the active phase only drives the damage hitbox below.
+            // Spawn ONE Player-faction melee strike (damage hitbox + slash VFX)
+            // through the shared `spawn_melee_strike` — the SAME path every actor
+            // uses. The FollowOwner hitbox tracks the player for the active window;
+            // `apply_hitbox_damage`'s Player branch emits the Volume `HitEvent`
+            // each tick (so it connects on whatever frame it reaches a target),
+            // deduped per-swing via `MeleeSwing.hit_targets`. The damage multiplier
+            // and the signed slash `knock_x` ride the strike.
+            let slash_damage = attack_state
+                .spec
+                .damage_override
+                .unwrap_or_else(|| clusters.offense.damage_multiplier.max(1))
+                .max(1);
+            let knock_x = if attack_state.spec.knockback.x.abs() > 0.0 {
+                attack_state.spec.knockback.x
+            } else {
+                clusters.kinematics.facing * 300.0
+            };
+            super::hitbox::spawn_melee_strike(
+                commands,
+                vfx,
+                player_entity,
+                features::ActorFaction::Player,
+                clusters.kinematics.pos,
+                world_box,
+                slash_damage,
+                0.0,
+                knock_x,
+                attack_state.spec.active_seconds,
+                slash_kind(attack_state.spec.intent),
+            );
         }
 
         let player_pos = clusters.kinematics.pos;
-        let mut pogo_landed = false;
+        // Pogo stays in the player path (player-only physics): an active down-spike
+        // that reaches an authored pogo target bounces the player + damages the orb.
+        // Checked every active frame (like the strike's per-tick hit resolution).
         if clusters.abilities.abilities.pogo
             && attack_state.spec.can_pogo
             && !attack_state.pogo_applied
         {
             let attack_world =
                 features::world_with_sandbox_solids(world, moving_platforms, feature_ecs_overlay);
-            if let Some(orb_aabb) = pogo_target_for_attack_hitbox(&attack_world, attack.bounds()) {
+            if let Some(orb_aabb) = pogo_target_for_attack_hitbox(&attack_world, world_box) {
                 ae::movement::set_jump_velocity(
                     &mut clusters.kinematics.vel,
                     tuning.gravity_dir,
@@ -372,16 +406,11 @@ pub fn advance_attack(
                 );
                 clusters.ground.on_ground = false;
                 attack_state.pogo_applied = true;
-                pogo_landed = true;
                 sfx.write(SfxMessage::Pogo { pos: player_pos });
                 hit_events.write(features::HitEvent {
                     volume: orb_aabb.into(),
                     damage: 1,
                     source: features::HitSource::PogoBounce,
-                    // Player melee-driven pogo: this player's
-                    // downward strike landed on the orb. The hit
-                    // belongs to them; stamp for multi-player
-                    // attribution.
                     attacker: Some(player_entity),
                     target: features::HitTarget::OrbMatch,
                     mode: features::HitMode::Knockback,
@@ -389,73 +418,6 @@ pub fn advance_attack(
                     ignored_targets: Vec::new(),
                 });
             }
-        }
-        let slash_damage = attack_state
-            .spec
-            .damage_override
-            .unwrap_or_else(|| clusters.offense.damage_multiplier.max(1))
-            .max(1);
-        let knock_x = if attack_state.spec.knockback.x.abs() > 0.0 {
-            attack_state.spec.knockback.x
-        } else {
-            clusters.kinematics.facing * 300.0
-        };
-        // Emit the slash hit on EVERY active frame, not just the first — the
-        // hitbox tracks the player as it moves, so a strike at the edge of reach
-        // (or mid-descent on a pogo) connects on whatever active frame the box
-        // actually reaches the target, matching the every-frame pogo-bounce
-        // check. `ignored_targets` (the per-swing `hit_targets`, accumulated by
-        // `apply_feature_hit_events` as each target is struck) keeps it to one
-        // hit per target across the active window.
-        let _ = first_active_frame;
-        hit_events.write(features::HitEvent {
-            volume: attack,
-            damage: slash_damage,
-            source: features::HitSource::PlayerSlash { knock_x },
-            // Slash hits attribute to the player whose attack
-            // landed — the feature-side consumer reads this
-            // to apply hitstop / flash to the right player
-            // rather than always landing it on primary.
-            attacker: Some(player_entity),
-            target: features::HitTarget::Volume,
-            mode: features::HitMode::Knockback,
-            knockback: None,
-            ignored_targets: attack_state.hit_targets.clone(),
-        });
-        // Damage is resolved by the ECS damage queue after the player tick.
-        // Keep this phase responsible only for spawning the one-frame hitbox
-        // and for immediate pogo/world-contact feedback.
-        let landed = false;
-        let killed = false;
-
-        if landed || pogo_landed {
-            if landed {
-                sfx.write(SfxMessage::Hit { pos: player_pos });
-            }
-            combat.hitstop_timer = feel.attack_hitstop_time;
-            combat.hit_flash = 0.16;
-        }
-        if killed {
-            sfx.write(SfxMessage::Death { pos: player_pos });
-        }
-        if landed
-            && clusters.abilities.abilities.pogo
-            && attack_state.spec.can_pogo
-            && !attack_state.pogo_applied
-        {
-            ae::movement::set_jump_velocity(
-                &mut clusters.kinematics.vel,
-                tuning.gravity_dir,
-                tuning.pogo_speed,
-            );
-            ae::refresh_movement_resources_clusters(
-                clusters.abilities,
-                &mut *clusters.dash,
-                &mut *clusters.jump,
-                tuning,
-            );
-            attack_state.pogo_applied = true;
-            sfx.write(SfxMessage::Pogo { pos: player_pos });
         }
     }
 
@@ -474,6 +436,7 @@ pub fn advance_attack(
 /// Runs after transition detection so ordering remains detect → attack → apply.
 #[allow(clippy::too_many_arguments)]
 pub fn attack_advance_system(
+    mut commands: bevy::prelude::Commands,
     time: Res<Time>,
     world: Res<RoomGeometry>,
     moving_platforms: Res<MovingPlatformSet>,
@@ -552,6 +515,7 @@ pub fn attack_advance_system(
         );
     }
     advance_attack(
+        &mut commands,
         player_entity,
         &mut sfx_writer,
         &mut vfx_writer,

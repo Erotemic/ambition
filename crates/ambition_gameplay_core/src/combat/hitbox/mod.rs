@@ -32,8 +32,8 @@ use ambition_engine_core as ae;
 use ambition_engine_core::AabbExt;
 
 use super::components::ActorFaction;
-use super::targeting::can_damage;
 use super::events::{HitEvent, HitKnockback, HitMode, HitSource, HitTarget};
+use super::targeting::can_damage;
 use super::util::midpoint;
 use crate::audio::SfxMessage;
 use crate::world::physics::{DebrisBurstMessage, PhysicsDebrisCue};
@@ -56,6 +56,9 @@ pub use ambition_vfx::{Hitbox, HitboxAnchor, HitboxHits, HitboxLifetime};
 pub fn apply_hitbox_damage(
     mut hitboxes: Query<(Entity, &Hitbox, &mut HitboxHits)>,
     owners: Query<&super::components::CenteredAabb>,
+    // Owner-position fallback for a player-owned strike (the player has no
+    // `CenteredAabb`; its `BodyKinematics.pos` IS its collision-box center).
+    owner_kin: Query<&crate::actor::BodyKinematics>,
     // Friendly-fire policy (the DAMAGE side; targeting is `FactionRelations`).
     // Optional so minimal headless tests that don't stand up the plugin still run
     // (fall back to the default: friendly fire OFF — same-faction allies safe).
@@ -64,6 +67,10 @@ pub fn apply_hitbox_damage(
     // swing damages any DIFFERENT-faction actor it overlaps (e.g. a Boss vs an
     // Enemy in a duel); same-faction allies are spared unless friendly fire is on.
     actor_victims: Query<(Entity, &super::components::CenteredAabb, &ActorFaction)>,
+    // The owner's melee swing, so a Player-faction FollowOwner strike (the player's
+    // slash — and a possessed actor's) reads the per-swing `hit_targets` for
+    // one-hit-per-target dedup and emits only while the swing is live.
+    melee_owners: Query<&super::components::BodyMelee>,
     // Iterate every player so a multi-player build hits each
     // overlapping player independently. Single-player behavior is
     // preserved because the iterator has exactly one entity today.
@@ -89,14 +96,18 @@ pub fn apply_hitbox_damage(
 ) {
     let friendly_fire = friendly_fire.map(|r| *r).unwrap_or_default();
     for (_hitbox_entity, hitbox, mut hits) in &mut hitboxes {
-        let owner_pos = match owners.get(hitbox.owner) {
-            Ok(aabb) => aabb.center,
-            // Owner despawned this frame — leave the hitbox as a
-            // ghost; `tick_and_despawn_hitboxes` will clean it up
-            // when its lifetime expires. Don't apply damage from
-            // an owner-less hitbox; the source position can't be
-            // resolved sensibly.
-            Err(_) => continue,
+        // Resolve the owner's collision-box center for FollowOwner tracking.
+        // Actors carry `CenteredAabb`; the PLAYER (a melee strike owner now) does
+        // NOT — it carries `BodyKinematics` (pos = box center). Try the actor box,
+        // then fall back to body kinematics, so a player-owned strike tracks too.
+        // If neither resolves (owner despawned), leave the hitbox a harmless ghost
+        // for `tick_and_despawn_hitboxes` — an owner-less hitbox has no source pos.
+        let owner_pos = if let Ok(aabb) = owners.get(hitbox.owner) {
+            aabb.center
+        } else if let Ok(kin) = owner_kin.get(hitbox.owner) {
+            kin.pos
+        } else {
+            continue;
         };
         let world_volume = hitbox.world_volume(owner_pos);
 
@@ -240,23 +251,58 @@ pub fn apply_hitbox_damage(
             // only difference. Fires once per strike (the owner doubles as a
             // "already fired" sentinel in `HitboxHits`, harmless since a hitbox
             // never targets its own owner).
-            ActorFaction::Player => {
-                if hits.hit.insert(hitbox.owner) {
-                    vfx.write(VfxMessage::Impact {
-                        pos: world_volume.center(),
-                    });
+            ActorFaction::Player => match hitbox.anchor {
+                // A FollowOwner Player strike is a MELEE SWING (the player's slash,
+                // or a possessed actor's) — the unified counterpart of the old
+                // per-frame `advance_attack` Volume emit. Emit the Volume `HitEvent`
+                // every active tick (the hitbox tracks the owner, so it connects on
+                // whatever frame it reaches the target), deduped per-swing via the
+                // owner's accumulating `MeleeSwing.hit_targets` (the universal
+                // resolver folds landed keys back in). The slash's signed `knock_x`
+                // rides the strike. No swing armed ⇒ no strike.
+                HitboxAnchor::FollowOwner { .. } => {
+                    let Some(swing) = melee_owners
+                        .get(hitbox.owner)
+                        .ok()
+                        .and_then(|m| m.swing.as_ref())
+                    else {
+                        continue;
+                    };
                     hit_events.write(HitEvent {
                         volume: world_volume.clone(),
                         damage: hitbox.damage.max(1),
-                        source: HitSource::PlayerSlash { knock_x: 0.0 },
+                        source: HitSource::PlayerSlash {
+                            knock_x: hitbox.knock_x,
+                        },
                         attacker: Some(hitbox.owner),
                         target: HitTarget::Volume,
                         mode: HitMode::Knockback,
                         knockback: None,
-                        ignored_targets: Vec::new(),
+                        ignored_targets: swing.hit_targets.clone(),
                     });
                 }
-            }
+                // A World-anchored Player strike is a fixed AOE (the wielded boss-
+                // style shockwave). Fire ONCE per strike via the owner sentinel.
+                HitboxAnchor::World { .. } => {
+                    if hits.hit.insert(hitbox.owner) {
+                        vfx.write(VfxMessage::Impact {
+                            pos: world_volume.center(),
+                        });
+                        hit_events.write(HitEvent {
+                            volume: world_volume.clone(),
+                            damage: hitbox.damage.max(1),
+                            source: HitSource::PlayerSlash {
+                                knock_x: hitbox.knock_x,
+                            },
+                            attacker: Some(hitbox.owner),
+                            target: HitTarget::Volume,
+                            mode: HitMode::Knockback,
+                            knockback: None,
+                            ignored_targets: Vec::new(),
+                        });
+                    }
+                }
+            },
             // Neutral never spawns a damaging hitbox (a provoked Npc is handled by
             // the aggressor branch above with its real faction).
             ActorFaction::Neutral => {}
@@ -283,7 +329,10 @@ pub fn tick_and_despawn_hitboxes(
 
 /// Spawn helper: emit a fresh hitbox entity for a melee strike. The
 /// caller picks the local offset / half-extent / damage / faction
-/// based on the strike's archetype + facing.
+/// based on the strike's archetype + facing. `knock_x` is the signed
+/// horizontal slash impulse for Player-faction strikes (0 for aggressor
+/// strikes, which knock via position-derived `knockback_strength`).
+#[allow(clippy::too_many_arguments)]
 pub fn spawn_melee_hitbox(
     commands: &mut Commands,
     owner: Entity,
@@ -292,6 +341,7 @@ pub fn spawn_melee_hitbox(
     half_extent: ae::Vec2,
     damage: i32,
     knockback_strength: f32,
+    knock_x: f32,
     active_s: f32,
 ) -> Entity {
     commands
@@ -305,6 +355,7 @@ pub fn spawn_melee_hitbox(
                 facing: 1.0,
                 damage,
                 knockback_strength,
+                knock_x,
             },
             HitboxLifetime {
                 remaining_s: active_s.max(0.0),
@@ -312,6 +363,53 @@ pub fn spawn_melee_hitbox(
             HitboxHits::default(),
         ))
         .id()
+}
+
+/// THE ONE melee strike spawn — every body (player AND brain-driven actor) turns
+/// its active-frame swing into a damage hitbox AND its slash VFX through this one
+/// function, from a SINGLE gravity-resolved `world_box`. Because the hitbox and
+/// the slash are both derived from that one box, they can NEVER point in different
+/// directions (the bug where the player's screen-axis hitbox diverged from its
+/// gravity-rotated slash under rotated gravity). Debug the box once, here, and it
+/// is right for every character under every gravity.
+///
+/// `world_box` is the strike's damage AABB already rotated into the body's world
+/// frame (so it lands toward "forward" under any gravity). `knock_x` is the signed
+/// slash impulse (Player strikes); `knockback_strength` the aggressor push.
+#[allow(clippy::too_many_arguments)]
+pub fn spawn_melee_strike(
+    commands: &mut Commands,
+    vfx: &mut MessageWriter<VfxMessage>,
+    owner: Entity,
+    source: ActorFaction,
+    body_pos: ae::Vec2,
+    world_box: ae::Aabb,
+    damage: i32,
+    knockback_strength: f32,
+    knock_x: f32,
+    active_s: f32,
+    slash_kind: ambition_vfx::vfx::SlashKind,
+) -> Entity {
+    let local_offset = world_box.center() - body_pos;
+    let entity = spawn_melee_hitbox(
+        commands,
+        owner,
+        source,
+        local_offset,
+        world_box.half_size(),
+        damage,
+        knockback_strength,
+        knock_x,
+        active_s,
+    );
+    crate::combat::attack::emit_melee_slash(
+        vfx,
+        world_box.center(),
+        world_box.half_size(),
+        slash_kind,
+        local_offset,
+    );
+    entity
 }
 
 #[cfg(test)]

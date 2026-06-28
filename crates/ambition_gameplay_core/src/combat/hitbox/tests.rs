@@ -22,6 +22,7 @@ fn follow_owner_hitbox_aabb_tracks_owner_position() {
         facing: 1.0,
         damage: 1,
         knockback_strength: 0.0,
+        knock_x: 0.0,
     };
     let aabb_a = hitbox.world_aabb(ae::Vec2::new(100.0, 100.0));
     let aabb_b = hitbox.world_aabb(ae::Vec2::new(200.0, 100.0));
@@ -46,6 +47,7 @@ fn world_anchor_hitbox_ignores_owner_position() {
         facing: 1.0,
         damage: 1,
         knockback_strength: 0.0,
+        knock_x: 0.0,
     };
     let aabb_a = hitbox.world_aabb(ae::Vec2::new(0.0, 0.0));
     let aabb_b = hitbox.world_aabb(ae::Vec2::new(9999.0, 9999.0));
@@ -88,6 +90,7 @@ fn tick_and_despawn_drops_expired_hitboxes() {
                 facing: 1.0,
                 damage: 1,
                 knockback_strength: 0.0,
+                knock_x: 0.0,
             },
             HitboxLifetime { remaining_s: 0.01 },
             HitboxHits::default(),
@@ -121,6 +124,7 @@ fn tick_and_despawn_keeps_live_hitboxes() {
                 facing: 1.0,
                 damage: 1,
                 knockback_strength: 0.0,
+                knock_x: 0.0,
             },
             HitboxLifetime { remaining_s: 5.0 },
             HitboxHits::default(),
@@ -164,6 +168,7 @@ fn spawn_melee_hitbox_attaches_full_component_set() {
                 ae::Vec2::new(20.0, 14.0),
                 3,
                 1.5,
+                0.0,
                 0.42,
             );
             store.0 = Some(entity);
@@ -234,6 +239,7 @@ fn player_faction_hitbox_emits_an_attacker_side_feature_hit() {
             facing: 1.0,
             damage: 5,
             knockback_strength: 1.0,
+            knock_x: 0.0,
         },
         HitboxLifetime { remaining_s: 0.2 },
         HitboxHits::default(),
@@ -263,10 +269,7 @@ use crate::features::FactionRelations;
 
 /// Spawn an Enemy-source hitbox at `center` (World anchor) dealing `damage`, plus
 /// an actor victim of `victim_faction` overlapping it. Returns (app, victim).
-fn arena_hitbox_app(
-    relations: FactionRelations,
-    victim_faction: ActorFaction,
-) -> (App, Entity) {
+fn arena_hitbox_app(relations: FactionRelations, victim_faction: ActorFaction) -> (App, Entity) {
     let mut app = App::new();
     app.add_message::<HitEvent>();
     app.add_message::<SfxMessage>();
@@ -294,6 +297,7 @@ fn arena_hitbox_app(
             facing: 1.0,
             damage: 4,
             knockback_strength: 0.0,
+            knock_x: 0.0,
         },
         HitboxLifetime { remaining_s: 0.2 },
         HitboxHits::default(),
@@ -394,6 +398,7 @@ fn enemy_hitbox_over_player_app(relations: FactionRelations) -> (App, Entity) {
             facing: 1.0,
             damage: 3,
             knockback_strength: 0.0,
+            knock_x: 0.0,
         },
         HitboxLifetime { remaining_s: 0.2 },
         HitboxHits::default(),
@@ -480,6 +485,7 @@ fn player_faction_hitbox_only_fires_once() {
             facing: 1.0,
             damage: 3,
             knockback_strength: 0.0,
+            knock_x: 0.0,
         },
         HitboxLifetime { remaining_s: 1.0 },
         HitboxHits::default(),
@@ -491,5 +497,119 @@ fn player_faction_hitbox_only_fires_once() {
         app.world().resource::<CapturedHits>().0.len(),
         1,
         "the AOE emits its hit once across multiple live ticks"
+    );
+}
+
+/// The unified player MELEE strike: a Player-faction FollowOwner hitbox owned by
+/// a body that has NO `CenteredAabb` (the player carries `BodyKinematics`) emits a
+/// `PlayerSlash` Volume hit each active tick, carrying the strike's signed
+/// `knock_x`, gated on the owner having an armed `MeleeSwing`. This is the path
+/// `advance_attack` now spawns through (replacing the per-frame Volume emit) — it
+/// pins owner-pos-via-kinematics + knock_x carriage + the swing gate.
+#[test]
+fn player_followowner_melee_strike_emits_player_slash_with_knock_x() {
+    let mut app = App::new();
+    app.add_message::<HitEvent>();
+    app.add_message::<SfxMessage>();
+    app.add_message::<VfxMessage>();
+    app.add_message::<DebrisBurstMessage>();
+    app.init_resource::<CapturedHits>();
+    app.add_systems(Update, (apply_hitbox_damage, capture_hits).chain());
+
+    let view = crate::combat::AttackView {
+        pos: ae::Vec2::new(100.0, 100.0),
+        size: ae::Vec2::new(20.0, 40.0),
+        facing: 1.0,
+        on_ground: true,
+        wall_clinging: false,
+        dash_timer: 0.0,
+        abilities_directional_primary: true,
+    };
+    let spec = crate::combat::attack_spec_from_view(&view, crate::combat::AttackIntent::Forward);
+
+    // Owner = a player-like body: BodyKinematics (NOT CenteredAabb) + armed swing.
+    let owner = app
+        .world_mut()
+        .spawn((
+            crate::actor::BodyKinematics {
+                pos: ae::Vec2::new(100.0, 100.0),
+                ..Default::default()
+            },
+            crate::features::BodyMelee {
+                swing: Some(crate::features::MeleeSwing::new(spec)),
+                ..Default::default()
+            },
+        ))
+        .id();
+    app.world_mut().spawn((
+        Hitbox {
+            owner,
+            source: ActorFaction::Player,
+            anchor: HitboxAnchor::FollowOwner {
+                local_offset: ae::Vec2::new(30.0, 0.0),
+            },
+            half_extent: ae::Vec2::new(20.0, 20.0),
+            shape: None,
+            facing: 1.0,
+            damage: 4,
+            knockback_strength: 0.0,
+            knock_x: 250.0,
+        },
+        HitboxLifetime { remaining_s: 0.2 },
+        HitboxHits::default(),
+    ));
+
+    app.update();
+    let cap = app.world().resource::<CapturedHits>();
+    assert_eq!(cap.0.len(), 1, "the player FollowOwner strike emits a hit");
+    assert!(
+        matches!(cap.0[0].source, HitSource::PlayerSlash { knock_x } if (knock_x - 250.0).abs() < 0.01),
+        "carries the strike's signed knock_x (was {:?})",
+        cap.0[0].source,
+    );
+    assert!(matches!(cap.0[0].target, HitTarget::Volume));
+    assert_eq!(cap.0[0].damage, 4);
+}
+
+/// No armed swing on the owner ⇒ a Player FollowOwner hitbox deals NO damage (the
+/// swing is the strike's authority; a stray hitbox with no swing is inert).
+#[test]
+fn player_followowner_strike_without_a_swing_is_inert() {
+    let mut app = App::new();
+    app.add_message::<HitEvent>();
+    app.add_message::<SfxMessage>();
+    app.add_message::<VfxMessage>();
+    app.add_message::<DebrisBurstMessage>();
+    app.init_resource::<CapturedHits>();
+    app.add_systems(Update, (apply_hitbox_damage, capture_hits).chain());
+    let owner = app
+        .world_mut()
+        .spawn((
+            crate::actor::BodyKinematics::default(),
+            crate::features::BodyMelee::default(), // swing = None
+        ))
+        .id();
+    app.world_mut().spawn((
+        Hitbox {
+            owner,
+            source: ActorFaction::Player,
+            anchor: HitboxAnchor::FollowOwner {
+                local_offset: ae::Vec2::ZERO,
+            },
+            half_extent: ae::Vec2::splat(20.0),
+            shape: None,
+            facing: 1.0,
+            damage: 4,
+            knockback_strength: 0.0,
+            knock_x: 250.0,
+        },
+        HitboxLifetime { remaining_s: 0.2 },
+        HitboxHits::default(),
+    ));
+    app.update();
+    assert_eq!(
+        app.world().resource::<CapturedHits>().0.len(),
+        0,
+        "a Player FollowOwner hitbox with no armed swing emits nothing"
     );
 }

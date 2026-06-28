@@ -565,15 +565,12 @@ pub fn update_ecs_actors(
                         })
                         .or(spec_box)
                         .unwrap_or_else(|| em.attack_aabb_dir(em.attack.pending_axis));
-                    let local_offset = attack_box.center() - em.kin.pos;
-                    // The hitbox carries the attacker's OWN faction so the physical-
+                    // The strike carries the attacker's OWN faction so the physical-
                     // damage rule (`can_damage`) resolves correctly: a Boss-faction
                     // duel robot's swing must be able to hit the Enemy-faction PCA.
-                    // The old hardcoded `Enemy` mislabeled every actor's swing, so a
-                    // Boss-vs-Enemy duel could never connect in melee (both read as
-                    // Enemy → same-faction → spared). A POSSESSED actor swings for the
-                    // player's side, so its hitbox is Player (damages its former
-                    // allies through the player-faction branch instead of you).
+                    // A POSSESSED actor swings for the player's side, so its strike
+                    // is Player (damages its former allies through the player-faction
+                    // branch instead of you).
                     let hitbox_faction = if possessed.is_some() {
                         super::super::super::components::ActorFaction::Player
                     } else {
@@ -581,31 +578,26 @@ pub fn update_ecs_actors(
                             .copied()
                             .unwrap_or(super::super::super::components::ActorFaction::Enemy)
                     };
-                    super::super::hitbox::spawn_melee_hitbox(
-                        &mut commands,
-                        actor_entity,
-                        hitbox_faction,
-                        local_offset,
-                        attack_box.half_size(),
-                        1,
-                        1.0,
-                        em.attack.active_remaining(),
-                    );
-                    // Draw the swing through THE ONE shared melee-slash emitter the
-                    // player uses (`combat::attack::emit_melee_slash`) — same visual
-                    // definition, no second `VfxMessage::Slash` site. The art KIND
-                    // comes from the swing spec's intent via the SAME `slash_kind`
-                    // mapping the player uses (down-tilt pokes, everything else
-                    // arcs). `local_offset` is the gravity-relative body→hitbox dir.
+                    // ONE strike spawn — the SAME `spawn_melee_strike` the player
+                    // uses derives BOTH the damage hitbox AND the slash VFX from this
+                    // one `attack_box`, so they can never diverge. Art KIND from the
+                    // swing spec's intent (the SAME `slash_kind` mapping the player
+                    // uses). Actors knock via `knockback_strength`; `knock_x` is 0.
                     let slash_kind = world_spec
                         .map(|s| crate::combat::attack::slash_kind(s.intent))
                         .unwrap_or(ambition_vfx::vfx::SlashKind::Arc);
-                    crate::combat::attack::emit_melee_slash(
+                    super::super::hitbox::spawn_melee_strike(
+                        &mut commands,
                         &mut vfx,
-                        attack_box.center(),
-                        attack_box.half_size(),
+                        actor_entity,
+                        hitbox_faction,
+                        em.kin.pos,
+                        attack_box,
+                        1,
+                        1.0,
+                        0.0,
+                        em.attack.active_remaining(),
                         slash_kind,
-                        local_offset,
                     );
                 }
                 // Mirror the cluster state onto the ECS read-model

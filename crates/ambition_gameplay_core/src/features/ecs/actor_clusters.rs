@@ -361,6 +361,21 @@ fn actor_spawn_center_for_collision(authored: ae::Aabb, collision_size: ae::Vec2
     )
 }
 
+/// The authored sprite RENDER size (the full sprite quad) for a named catalog
+/// character, or `None` for a generic enemy whose display `name` isn't a catalog
+/// character. Lifted onto the shared `ActorRenderSize` at the hostile spawn sites
+/// so a named character draws at its authored scale — the same render size the
+/// peaceful-NPC path resolves — making e.g. the PCA identical whether it spawns
+/// peaceful (symmetry room) or hostile (duel). `ldtk_fallback` only seeds the
+/// collision fallback inside the resolver; the render size comes from the sheet.
+pub fn sprite_render_size_for_name(name: &str, ldtk_fallback: ae::Vec2) -> Option<ae::Vec2> {
+    crate::character_roster::character_id_for_display_name(name)
+        .and_then(|cid| {
+            crate::character_sprites::sprite_body_collision_for_character_id(cid, ldtk_fallback)
+        })
+        .map(|b| b.render_size)
+}
+
 impl ActorClusterSeed {
     /// Build enemy component seed state from authored spawn inputs.
     pub fn new(
@@ -386,12 +401,25 @@ impl ActorClusterSeed {
                 .map(|(_, path)| PathMotion::new(path.clone())),
             _ => None,
         };
-        let size = spec.default_size.unwrap_or_else(|| aabb.half_size() * 2.0);
+        // A NAMED catalog character sizes its body to the authored sprite — the
+        // SAME `sprite_body_collision_for_character_id` resolution a peaceful NPC
+        // uses — so e.g. the Perfect Cellular Automaton has ONE consistent body /
+        // hitbox whether it spawns peaceful (waiting in the symmetry room) or
+        // hostile (the duel). A generic enemy with no catalog character keeps the
+        // archetype `default_size` / LDtk spawn box, exactly as before. The matching
+        // sprite RENDER size is lifted onto `ActorRenderSize` at the spawn sites via
+        // [`sprite_render_size_for_name`] (the per-frame `CenteredAabb` sync then
+        // follows this collision so the visual and hitbox stay together).
+        let ldtk_size = spec.default_size.unwrap_or_else(|| aabb.half_size() * 2.0);
+        let sprite_body = sprite_character_id.as_deref().and_then(|cid| {
+            crate::character_sprites::sprite_body_collision_for_character_id(cid, ldtk_size)
+        });
+        let size = sprite_body.map_or(ldtk_size, |b| b.collision);
         let pos = motion
             .as_ref()
             .and_then(PathMotion::start_pos)
             .unwrap_or_else(|| actor_spawn_center_for_collision(aabb, size));
-        Self {
+        let seed = Self {
             kin: BodyKinematics {
                 pos,
                 vel: ae::Vec2::ZERO,
@@ -429,7 +457,8 @@ impl ActorClusterSeed {
             body: ActorBody::from_caps(&spec.combat_capabilities(), spec.is_aerial),
             caps: spec.combat_capabilities(),
             spec,
-        }
+        };
+        seed
     }
     /// Build a PEACEFUL actor seed from catalog/NPC spawn inputs — the unified
     /// replacement for `NpcClusterScratch::new_with_paths`. A peaceful actor is

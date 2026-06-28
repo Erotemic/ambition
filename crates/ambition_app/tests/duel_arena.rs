@@ -167,6 +167,39 @@ fn observe_abilities(world: &mut World, id: &str, log: &mut AbilityLog) {
     log.prev_blink_cd = blink.cooldown;
 }
 
+/// The PCA's body/hitbox must come from its AUTHORED sprite metadata — the same
+/// resolution the peaceful symmetry-room PCA uses — not the tiny LDtk spawn box
+/// the duel hands in. This pins the "same character, consistent body" fix: the
+/// duel staging passes a 14x23 half-box, so a body still that small would mean the
+/// sprite metadata never applied.
+#[test]
+fn duel_pca_body_is_sprite_authored_not_the_tiny_ldtk_box() {
+    let mut sim = SandboxSim::new_with_options(
+        SandboxSimOptions::default()
+            .with_timestep(TimestepMode::fixed_60hz())
+            .with_start_room("duel_arena"),
+    )
+    .expect("sandbox sim builds in the duel arena");
+    for _ in 0..5 {
+        sim.step(AgentAction::default());
+    }
+    let world = sim.world_mut();
+    let mut q = world.query::<(&FeatureId, &BodyKinematics)>();
+    let pca = q
+        .iter(world)
+        .find(|(f, _)| f.as_str() == DUEL_PCA_ID)
+        .map(|(_, kin)| kin.size)
+        .expect("duel PCA present");
+    // The authored duel box is 14x23 half → 28x46 full. The PCA sprite body is much
+    // taller than that; require the body to have grown past the LDtk box, proving
+    // the authored sprite collision resolved.
+    println!("duel PCA body size = {pca:?}");
+    assert!(
+        pca.y > 60.0,
+        "PCA body should be sprite-authored (tall), not the 46px LDtk box; got {pca:?}"
+    );
+}
+
 /// The brain emits shield/blink/dash/fly — but does the BODY enact them in the
 /// real sim? This pins that the archetype capabilities reach the body AND the
 /// shared movement pipeline resolves each ability (no player-only gate). Without

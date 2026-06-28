@@ -616,6 +616,13 @@ pub(crate) fn spawn_runtime_minion(
     commands
         .entity(entity)
         .insert(super::EncounterMob::new(encounter_id));
+    if let Some(rs) =
+        super::actor_clusters::sprite_render_size_for_name(&name, aabb.half_size() * 2.0)
+    {
+        commands
+            .entity(entity)
+            .insert(crate::features::ActorRenderSize(rs));
+    }
     entity
 }
 
@@ -663,7 +670,7 @@ pub(super) fn spawn_solo_enemy(
     faction: super::ActorFaction,
 ) -> bevy::ecs::entity::Entity {
     let feature_aabb = CenteredAabb::from_aabb(authored.aabb);
-    EnemyActorSpawnPlan::hostile(
+    let entity = EnemyActorSpawnPlan::hostile(
         format!("Feature actor enemy: {}", authored.name),
         authored.id.clone(),
         authored.name.clone(),
@@ -671,7 +678,20 @@ pub(super) fn spawn_solo_enemy(
         enemy,
     )
     .with_faction(faction)
-    .spawn(commands)
+    .spawn(commands);
+    // A named catalog character carries its authored sprite render size on the
+    // shared `ActorRenderSize` (the same component the peaceful-NPC path sets), so
+    // the sprite draws at the authored scale and matches the body the per-frame
+    // `CenteredAabb` sync derives from the sprite-sized collision.
+    if let Some(rs) = super::actor_clusters::sprite_render_size_for_name(
+        &authored.name,
+        authored.aabb.half_size() * 2.0,
+    ) {
+        commands
+            .entity(entity)
+            .insert(crate::features::ActorRenderSize(rs));
+    }
+    entity
 }
 pub(super) fn spawn_interactable(
     commands: &mut Commands,
@@ -741,6 +761,11 @@ pub(super) fn spawn_encounter_mob(
     commands
         .entity(entity)
         .insert(EncounterMob::new(encounter_id));
+    if let Some(rs) = super::actor_clusters::sprite_render_size_for_name(&id, size * 0.5 * 2.0) {
+        commands
+            .entity(entity)
+            .insert(crate::features::ActorRenderSize(rs));
+    }
 }
 
 /// Despawn all ECS mobs owned by an encounter attempt.

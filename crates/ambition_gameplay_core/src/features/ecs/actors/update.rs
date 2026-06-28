@@ -258,7 +258,7 @@ pub fn update_ecs_actors(
         mut control,
         action_set,
         mounted,
-        (clusters, possessed, _faction),
+        (clusters, possessed, faction),
     ) in &mut actors
     {
         // This actor's combat-target liveness. `select_actor_targets` already
@@ -557,13 +557,20 @@ pub fn update_ecs_actors(
                         })
                         .unwrap_or_else(|| em.attack_aabb_dir(em.attack.pending_axis));
                     let local_offset = attack_box.center() - em.kin.pos;
-                    // A POSSESSED enemy swings for the player's side, so its
-                    // hitbox damages its former allies (through the player-
-                    // faction branch of `apply_hitbox_damage`) instead of you.
+                    // The hitbox carries the attacker's OWN faction so the physical-
+                    // damage rule (`can_damage`) resolves correctly: a Boss-faction
+                    // duel robot's swing must be able to hit the Enemy-faction PCA.
+                    // The old hardcoded `Enemy` mislabeled every actor's swing, so a
+                    // Boss-vs-Enemy duel could never connect in melee (both read as
+                    // Enemy → same-faction → spared). A POSSESSED actor swings for the
+                    // player's side, so its hitbox is Player (damages its former
+                    // allies through the player-faction branch instead of you).
                     let hitbox_faction = if possessed.is_some() {
                         super::super::super::components::ActorFaction::Player
                     } else {
-                        super::super::super::components::ActorFaction::Enemy
+                        faction
+                            .copied()
+                            .unwrap_or(super::super::super::components::ActorFaction::Enemy)
                     };
                     super::super::hitbox::spawn_melee_hitbox(
                         &mut commands,
@@ -575,6 +582,25 @@ pub fn update_ecs_actors(
                         1.0,
                         em.attack.active_timer,
                     );
+                    // Draw the swing — the SAME `Slash` flourish the player emits, so
+                    // an AI fighter's attack reads identically (it previously drew
+                    // NOTHING). Forward swings arc; a down-tilt pokes. `local_offset`
+                    // is the body→hitbox direction, already gravity-relative.
+                    let slash_kind = if enemy_melee_animation_for_axis(em.attack.pending_axis)
+                        == "attack_down"
+                    {
+                        ambition_vfx::vfx::SlashKind::Poke
+                    } else {
+                        ambition_vfx::vfx::SlashKind::Arc
+                    };
+                    let slash_size =
+                        ((attack_box.half_size() * 2.0).max_element() * 2.0).max(24.0);
+                    vfx.write(ambition_vfx::vfx::VfxMessage::Slash {
+                        center: attack_box.center(),
+                        size: slash_size,
+                        kind: slash_kind,
+                        dir: local_offset,
+                    });
                 }
                 // Mirror the cluster state onto the ECS read-model
                 // components consumers still read (identity / health /

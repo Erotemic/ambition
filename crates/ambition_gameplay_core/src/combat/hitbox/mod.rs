@@ -101,7 +101,13 @@ pub fn apply_hitbox_damage(
         let world_volume = hitbox.world_volume(owner_pos);
 
         match hitbox.source {
-            ActorFaction::Enemy | ActorFaction::Boss => {
+            // Aggressor melee: Enemy, Boss, OR a PROVOKED Npc (a peaceful NPC turned
+            // hostile keeps its Npc faction but fights like any aggressor). All three
+            // damage different-faction actors + an overlapping player under the
+            // physical rule; same-faction allies are spared via `can_damage`. (A
+            // PEACEFUL NPC never reaches here — with no combat target it spawns no
+            // hitbox.) Only `Neutral` is truly inert.
+            ActorFaction::Enemy | ActorFaction::Boss | ActorFaction::Npc => {
                 let source_kind = if matches!(hitbox.source, ActorFaction::Boss) {
                     HitSource::BossAttack
                 } else {
@@ -251,8 +257,9 @@ pub fn apply_hitbox_damage(
                     });
                 }
             }
-            // Peaceful NPC / neutral factions don't spawn damaging hitboxes.
-            ActorFaction::Npc | ActorFaction::Neutral => {}
+            // Neutral never spawns a damaging hitbox (a provoked Npc is handled by
+            // the aggressor branch above with its real faction).
+            ActorFaction::Neutral => {}
         }
     }
 }

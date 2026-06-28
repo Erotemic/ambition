@@ -51,7 +51,18 @@ pub fn choose_mode(obs: &ObservationFrame, cfg: &SmashCfg, state: &mut SmashStat
         return commit(state, BroadMode::Recover);
     }
     if obs.distance_to_target > cfg.aggro_radius {
-        return commit(state, BroadMode::Idle);
+        // A relentless fighter (committed duelist) never disengages while its foe
+        // lives — it CHASES at distance instead of idling out, so the bout can't go
+        // inert just because the two drifted (or were flung by gravity) apart. An
+        // ambient enemy idles as before once the target leaves its sensing radius.
+        return commit(
+            state,
+            if cfg.relentless {
+                BroadMode::Approach
+            } else {
+                BroadMode::Idle
+            },
+        );
     }
 
     // --- Candidate mode ---

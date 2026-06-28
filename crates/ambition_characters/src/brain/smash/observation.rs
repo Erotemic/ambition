@@ -113,7 +113,50 @@ impl ObservationFrame {
     pub fn self_vel_up(&self) -> f32 {
         self.self_vel.dot(self.up_axis())
     }
+
+    /// Signed lateral RUN step toward the target along the side axis: `-1`, `0`,
+    /// or `+1`. Returns `0` inside [`SIDE_ALIGN_DEADZONE_PX`] — the target is
+    /// essentially stacked on the gravity axis, so a grounded run can't close the
+    /// gap laterally and must NOT jitter its sign (the gravity-axis component is
+    /// the jump-to-chase / fall's job). This is the single seam the grounded run /
+    /// footsies / dash read for "which way is the target", so none of them
+    /// rapid-flip when gravity rotates and two fighters collapse into a vertical
+    /// stack. Frame-agnostic (built on [`Self::to_target_side`]); byte-identical
+    /// to the old `signum` whenever the side offset exceeds the deadzone — i.e. in
+    /// all normal screen-down spacing (fighters engage at 50-80 px, well outside
+    /// the band).
+    pub fn side_run_toward_target(&self) -> f32 {
+        let s = self.to_target_side();
+        if s.abs() < SIDE_ALIGN_DEADZONE_PX {
+            0.0
+        } else {
+            s.signum()
+        }
+    }
+
+    /// Signed lateral FACING toward the target: like [`Self::side_run_toward_target`]
+    /// but never `0` — inside the alignment deadzone it HOLDS the current facing
+    /// instead of flipping. For verbs that always need a direction (facing, a melee
+    /// swing, a dash, a retreat). Holding (rather than flipping on jitter) is what
+    /// kills the rapid side-to-side flip when the target aligns on the gravity axis.
+    pub fn side_face_toward_target(&self) -> f32 {
+        let s = self.side_run_toward_target();
+        if s != 0.0 {
+            s
+        } else if self.self_facing >= 0.0 {
+            1.0
+        } else {
+            -1.0
+        }
+    }
 }
+
+/// Body-scale lateral deadzone (px). Inside this side-offset band the target is
+/// stacked on the gravity axis; a grounded fighter holds its facing / run sign
+/// rather than flipping on sub-body jitter. Comfortably above physics jitter, far
+/// below the engage band so normal screen-down spacing is unaffected. See
+/// [`ObservationFrame::side_run_toward_target`].
+pub const SIDE_ALIGN_DEADZONE_PX: f32 = 22.0;
 
 /// Anti-clump signal. The driver system computes this once per tick
 /// per actor and feeds it through [`BrainSnapshot`]; the brain

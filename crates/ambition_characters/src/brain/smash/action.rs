@@ -101,15 +101,18 @@ pub fn choose_action(
             // Run direction along the gravity-perpendicular SIDE axis (the body
             // consumes `locomotion.x` as a local-side scalar), so the actor walks
             // toward the target under ANY gravity orientation — not just screen-down.
-            // Byte-identical to `to_target_x` under screen-down gravity.
-            let dir = signum_or(obs.to_target_side(), obs.self_facing);
+            // Byte-identical to `to_target_x` under screen-down gravity. Uses the
+            // HELD facing inside the alignment deadzone, so the run sign doesn't
+            // rapid-flip when the target stacks on the gravity axis (e.g. a foe
+            // airborne directly up-gravity) — the per-frame side-to-side flip fix.
+            let dir = obs.side_face_toward_target();
             SpecificAction::Walk {
                 dir: dir * (cfg.chase_speed / cfg.chase_speed.max(1.0)),
             }
         }
         BroadMode::Retreat => {
             // Move directly away from target, along the local side axis (I10).
-            let dir = signum_or(-obs.to_target_side(), -obs.self_facing);
+            let dir = -obs.side_face_toward_target();
             SpecificAction::Walk { dir }
         }
         BroadMode::Engage => {
@@ -135,6 +138,10 @@ pub fn choose_action(
                 if target_above {
                     return SpecificAction::MeleeAttack { dir: obs.up_axis() };
                 }
+                // A melee swing aims at the foe's ACTUAL side (tight deadzone), even
+                // at point-blank cross-up range inside the facing/run alignment band —
+                // otherwise the swing would face the held direction and whiff when the
+                // foe crosses to the other side. Facing can hold; the strike tracks.
                 let toward_side = signum_or(obs.to_target_side(), obs.self_facing);
                 return SpecificAction::MeleeAttack {
                     dir: obs.side_axis() * toward_side,
@@ -153,7 +160,7 @@ pub fn choose_action(
                         return SpecificAction::DoubleJump;
                     }
                 }
-                let dir = signum_or(obs.to_target_side(), obs.self_facing);
+                let dir = obs.side_face_toward_target();
                 return SpecificAction::Walk { dir };
             }
             // In range but on cooldown — hold ground, face target.

@@ -44,7 +44,10 @@ pub fn emit_inputs(
     // mid-engagement faces the threat. Facing is a LOCAL +1/-1 (the body writes
     // `kin.facing`), so it tracks the gravity-perpendicular side sign toward the
     // target — correct under any gravity; byte-identical to `to_target_x` screen-down.
-    let face_x = signum_or(obs.to_target_side(), obs.self_facing);
+    // Held facing toward the target (gravity-perpendicular side sign). Uses the
+    // alignment deadzone, so when the target stacks on the gravity axis the facing
+    // HOLDS instead of flipping every frame — the rotated-gravity flip fix.
+    let face_x = obs.side_face_toward_target();
     out.facing = face_x;
 
     match action {
@@ -108,7 +111,7 @@ pub fn emit_inputs(
             // stands and pokes forever once it enters the ranged band — an
             // aggressive fighter keeps coming (the body, not a brain camp, paces
             // the shots; invariants I3/I4).
-            let toward = signum_or(obs.to_target_side(), obs.self_facing);
+            let toward = obs.side_face_toward_target();
             out.locomotion = ae::Vec2::new(toward * (WALK_SPEED_PX_S / DASH_SPEED_PX_S), 0.0);
         }
         SpecificAction::Special => {

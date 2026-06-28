@@ -168,6 +168,20 @@ pub struct SmashCfg {
     /// Hybrid flyer: seconds an aerial foray lasts before landing again.
     /// Ignored unless [`Self::can_fly`].
     pub aerial_foray_duration_s: f32,
+    /// **Relentless** engagement: when true, the fighter never disengages while its
+    /// foe lives — beyond [`Self::aggro_radius`] it CHASES (Approach) instead of
+    /// idling out. This is the committed-duelist property: a platform-fighter
+    /// opponent pursues across the whole stage and re-acquires after the player
+    /// flings it away with gravity, rather than going inert at distance. `false`
+    /// (the grunt default) keeps ambient enemies idling once the player leaves.
+    pub relentless: bool,
+    /// **Stale-fight re-aggression**: seconds of the fighter's own offense-drought
+    /// (no swing / shot committed) after which it forces an offensive push —
+    /// suppressing its reactive defense and neutral-game patience to close and
+    /// attack, the way two platform-fighter players break a passive standoff. Resets
+    /// whenever it attacks, so it only fires during a genuine lull, never mid-trade.
+    /// `0.0` (the grunt default) disables it.
+    pub stale_fight_s: f32,
     /// Difficulty profile applied at stage 4.
     pub difficulty: DifficultyProfile,
 }
@@ -204,6 +218,9 @@ impl SmashCfg {
         can_fly: false,
         aerial_foray_cadence_s: 0.0,
         aerial_foray_duration_s: 0.0,
+        // Ambient grunt: idles out when the player leaves; no stale-fight push.
+        relentless: false,
+        stale_fight_s: 0.0,
         difficulty: DifficultyProfile::MEDIUM,
     };
     /// Heavy brute tuning — slower, longer reach, less retreat.
@@ -233,6 +250,8 @@ impl SmashCfg {
         can_fly: false,
         aerial_foray_cadence_s: 0.0,
         aerial_foray_duration_s: 0.0,
+        relentless: false,
+        stale_fight_s: 0.0,
         difficulty: DifficultyProfile::MEDIUM,
     };
     /// **Duelist** tuning — a 1v1 fighter with a real neutral game: it weaves
@@ -275,6 +294,11 @@ impl SmashCfg {
         can_fly: false,
         aerial_foray_cadence_s: 0.0,
         aerial_foray_duration_s: 0.0,
+        // A committed 1v1 fighter: chases its foe across the whole stage (never idles
+        // out at distance) and, after ~2.5 s of its own inaction, forces an offensive
+        // push so the bout never stalls into a passive standoff.
+        relentless: true,
+        stale_fight_s: 2.5,
         // A fair human reaction lag (no frame-perfect counters). Competence is
         // expressed through the neutral game + layered defense above, NOT through
         // crisper reactions: a twitchier profile locks the fight into a shielding
@@ -408,6 +432,12 @@ pub struct SmashState {
     /// Decaying memory of recent damage taken (sum of health-fraction drops, bled
     /// off over a couple seconds). Arms a regroup when it crosses the threshold.
     pub damage_accum: f32,
+    /// Seconds since this fighter last committed an attack (swing or shot). Drives
+    /// the **stale-fight re-aggression** ([`SmashCfg::stale_fight_s`]): once it
+    /// exceeds the threshold the fighter forces an offensive push instead of waiting
+    /// out a passive standoff. Reset to `0` on every attack, so it only grows during
+    /// a genuine lull. Pure tick-stream bookkeeping → replay-safe.
+    pub time_since_offense: f32,
 }
 
 /// How long a reactive block is held once triggered (s) — long enough to span a
@@ -456,6 +486,8 @@ pub fn tick_smash(
     state.blink_cooldown = (state.blink_cooldown - snapshot.dt).max(0.0);
     state.neutral_reset_timer = (state.neutral_reset_timer - snapshot.dt).max(0.0);
     state.regroup_timer = (state.regroup_timer - snapshot.dt).max(0.0);
+    // Grows during an offense-drought; reset at the end of the tick on any attack.
+    state.time_since_offense += snapshot.dt;
     // Advance the spacing phase — it drives the grounded footsies weave AND the
     // aerial dive/perch cycle, so a flyer needs it even with footsies disabled.
     if (cfg.footsies_amplitude > 0.0 || snapshot.actor_aerial) && cfg.footsies_period_s > 0.0 {
@@ -515,6 +547,15 @@ pub fn tick_smash(
     if state.regroup_timer > 0.0 && obs.distance_to_target >= cfg.regroup_distance {
         state.regroup_timer = 0.0;
     }
+    // Stale-fight re-aggression: after a long enough drought of our OWN offense,
+    // force an offensive push this tick — drop the reactive defense and the
+    // neutral-game patience (footsies hold / post-poke reset) and just close and
+    // swing, the way two platform-fighter players break a passive standoff instead
+    // of both waiting forever. A regroup (deliberate break-off) outranks it. Resets
+    // when we attack (end of tick), so it only fires during a genuine lull.
+    let force_offense = cfg.stale_fight_s > 0.0
+        && state.regroup_timer <= 0.0
+        && state.time_since_offense >= cfg.stale_fight_s;
     let mode = choose_mode(&obs, cfg, state);
     let action = choose_action(&obs, mode, cfg, actions);
     // Verb selection by range (the player/enemy unification flex): a
@@ -549,13 +590,17 @@ pub fn tick_smash(
         // ground is decided below (after a ground dash). Frame-agnostic: "away" is the
         // sign along the gravity-perpendicular side axis.
         regroup_ground_action(&obs, cfg, state)
-    } else if state.neutral_reset_timer > 0.0 {
+    } else if state.neutral_reset_timer > 0.0 && !force_offense {
         // Post-poke neutral reset (duelist whiff-punish footsies): suppress all
         // offense (start from Idle, ignoring this tick's melee / ranged / dash) and
         // let the in/out neutral weave reset the spacing — then allow a spacing hop.
         // This is what stops point-blank mashing and opens the approach phase where
         // the opponent's re-entry becomes a perceivable, defendable threat, without
-        // a forced retreat that would wall-pin a cornered fighter.
+        // a forced retreat that would wall-pin a cornered fighter. SKIPPED while
+        // forcing offense — a stalled fighter re-commits its poke immediately rather
+        // than patiently resetting — but the footsies weave below still runs in BOTH
+        // branches, so a forced push never collapses the spacing into a wall (it's
+        // the loss of footsies, not the reset, that corner-pins a fighter).
         let action = maybe_apply_footsies(SpecificAction::Idle, &obs, mode, cfg, state);
         maybe_neutral_jump(action, &obs, cfg, state)
     } else {
@@ -596,7 +641,8 @@ pub fn tick_smash(
     // opponent's commitment frame-perfectly. Layered: blink away if able (mobile),
     // else stand and block (shield). Attack verbs already emitted are left intact.
     state.shield_hold_timer = (state.shield_hold_timer - snapshot.dt).max(0.0);
-    if !obs.self_attacking {
+    // A forced offensive push drops reactive defense — go in rather than turtle.
+    if !obs.self_attacking && !force_offense {
         if let Some((away, closing)) = perceived_threat(&obs, cfg, state, snapshot.sim_time) {
             // Imperfect reaction (the "no perfect blocks" knob): only commit to a
             // defense some of the time, so some swings land and the bout doesn't
@@ -647,6 +693,12 @@ pub fn tick_smash(
         if want_air != obs.self_aerial {
             out.fly_toggle_pressed = true;
         }
+    }
+    // Stale-fight bookkeeping: any committed attack (this tick's swing/shot, or a
+    // swing still in progress) resets the offense-drought clock, so `force_offense`
+    // only ever triggers during a real lull — never mid-trade.
+    if out.melee_pressed || out.fire.is_some() || obs.self_attacking {
+        state.time_since_offense = 0.0;
     }
 }
 
@@ -743,6 +795,10 @@ fn aerial_steer(
     }
     let side = obs.side_axis();
     let up = obs.up_axis();
+    // Aerial steering is velocity-target based (not grounded locomotion), so it uses
+    // the TIGHT alignment test, not the grounded run/facing deadzone: a flyer wants
+    // its perch side to track the target's true side even at small offsets, and the
+    // wider grounded deadzone would freeze its perch on one wall.
     let toward = if obs.to_target_side().abs() < 0.001 {
         obs.self_facing
     } else {
@@ -827,12 +883,11 @@ fn maybe_apply_footsies(
     // freeze it (the brain has no wall geometry to back away from).
     let desired_gap = cfg.engage_distance + cfg.footsies_amplitude * phase.sin();
     // Weave direction along the local SIDE axis (I10) so footsies stay correct under
-    // rotated gravity. Byte-identical to `to_target_x` under screen-down.
-    let toward = if obs.to_target_side().abs() < 0.001 {
-        obs.self_facing
-    } else {
-        obs.to_target_side().signum()
-    };
+    // rotated gravity. Byte-identical to `to_target_x` under screen-down. Uses the
+    // HELD facing inside the alignment deadzone so the weave keeps a stable in/out
+    // direction (the gap-band logic, not a jittering sign, governs in/out) — and a
+    // grounded fighter doesn't rapid-flip when the target stacks on the gravity axis.
+    let toward = obs.side_face_toward_target();
     // Small deadzone so the actor settles (holds, facing the foe) at the pocket
     // rather than jittering one frame in / one frame out. Kept tight so the
     // weave keeps the actor micro-repositioning rather than camping a spot.
@@ -945,12 +1000,9 @@ fn maybe_substitute_dash(
     }
     state.dash_cooldown_remaining = DASH_COOLDOWN_S;
     // Dash along the local SIDE axis (I10) toward the target — correct under any
-    // gravity; byte-identical to `to_target_x` under screen-down.
-    let dir = if obs.to_target_side().abs() < 0.001 {
-        obs.self_facing
-    } else {
-        obs.to_target_side().signum()
-    };
+    // gravity; byte-identical to `to_target_x` under screen-down. Held facing inside
+    // the alignment deadzone so the burst direction doesn't flip on a stacked target.
+    let dir = obs.side_face_toward_target();
     SpecificAction::Dash { dir }
 }
 
@@ -986,11 +1038,9 @@ fn maybe_substitute_ranged(
     // this as a `controlled_body_local` fire request whose `x` is the body's side
     // axis, so the sign must come from the gravity-perpendicular `to_target_side`,
     // not screen `x` (I10). Under screen-down gravity this equals `to_target_x`.
-    let dir_x = if obs.to_target_side().abs() < 0.001 {
-        obs.self_facing
-    } else {
-        obs.to_target_side().signum()
-    };
+    // Held facing when the target aligns on the gravity axis (a shot always needs a
+    // direction — at the ranged band the deadzone effectively never applies).
+    let dir_x = obs.side_face_toward_target();
     SpecificAction::RangedAttack {
         dir: ae::Vec2::new(dir_x, 0.0),
     }
@@ -1022,6 +1072,141 @@ mod tests {
             "actor outside aggro_radius should not move"
         );
         assert!(!frame.melee_pressed);
+    }
+
+    /// A **relentless** duelist never idles out: with a live foe well beyond
+    /// `aggro_radius` it still runs toward it (chases) instead of going inert. This
+    /// is the fix for "the fight just stops when they get far apart" — a committed
+    /// 1v1 fighter pursues across any distance and re-acquires after a gravity fling.
+    #[test]
+    fn relentless_duelist_chases_a_foe_past_aggro_radius() {
+        let cfg = crisp_duelist(); // DUELIST base → relentless = true
+        assert!(cfg.relentless, "duelist is relentless");
+        let mut state = SmashState::default();
+        let actions = melee_actions();
+        let snap = snap_with_target_at_x(cfg.aggro_radius + 400.0);
+        let mut f = crate::actor::control::ActorControlFrame::neutral();
+        tick_smash(&cfg, &mut state, &actions, &snap, None, &mut f);
+        assert!(
+            f.locomotion.x > 0.0,
+            "a relentless fighter chases a far live foe; got {:?}",
+            f.locomotion
+        );
+    }
+
+    /// …but an **ambient** (non-relentless) striker still idles out beyond its
+    /// sensing radius, so a patrol enemy doesn't chase the player across the world.
+    #[test]
+    fn ambient_striker_still_idles_past_aggro_radius() {
+        let cfg = SmashCfg::STRIKER_DEFAULT; // relentless = false
+        assert!(!cfg.relentless);
+        let mut state = SmashState::default();
+        let actions = melee_actions();
+        let snap = snap_with_target_at_x(cfg.aggro_radius + 400.0);
+        let mut f = crate::actor::control::ActorControlFrame::neutral();
+        tick_smash(&cfg, &mut state, &actions, &snap, None, &mut f);
+        assert_eq!(
+            f.locomotion.x, 0.0,
+            "a non-relentless enemy idles out beyond aggro; got {:?}",
+            f.locomotion
+        );
+    }
+
+    /// **Stale-fight re-aggression**: after a long enough drought of its own offense,
+    /// a duelist drops the neutral-game patience and re-commits. Here the post-poke
+    /// reset window is armed (which normally suppresses the swing), but the
+    /// stale-fight push swings anyway — breaking a passive standoff instead of both
+    /// fighters waiting forever. Committing then resets the drought clock.
+    #[test]
+    fn stale_fight_forces_an_offensive_push_after_a_lull() {
+        let cfg = crisp_duelist();
+        let mut state = SmashState {
+            rng_seed: 1,
+            neutral_reset_timer: 0.3, // would normally suppress this tick's offense
+            time_since_offense: cfg.stale_fight_s + 0.1, // drought exceeded
+            ..Default::default()
+        };
+        let actions = melee_actions();
+        let snap = snap_with_target_at_x(40.0); // inside attack_range
+        let mut f = crate::actor::control::ActorControlFrame::neutral();
+        tick_smash(&cfg, &mut state, &actions, &snap, None, &mut f);
+        assert!(
+            f.melee_pressed,
+            "the stale-fight push re-commits a swing despite the armed reset window"
+        );
+        assert_eq!(
+            state.time_since_offense, 0.0,
+            "committing offense resets the offense-drought clock"
+        );
+    }
+
+    /// Without the lull, the duelist keeps its patience: the same armed reset window
+    /// suppresses the swing (no premature stale-fight push).
+    #[test]
+    fn no_stale_push_while_offense_is_fresh() {
+        let cfg = crisp_duelist();
+        let mut state = SmashState {
+            rng_seed: 1,
+            neutral_reset_timer: 0.3,
+            time_since_offense: 0.2, // fresh — well under the stale threshold
+            ..Default::default()
+        };
+        let actions = melee_actions();
+        let snap = snap_with_target_at_x(40.0);
+        let mut f = crate::actor::control::ActorControlFrame::neutral();
+        tick_smash(&cfg, &mut state, &actions, &snap, None, &mut f);
+        assert!(
+            !f.melee_pressed,
+            "with offense still fresh, the post-poke reset keeps suppressing the swing"
+        );
+    }
+
+    /// The rotated-gravity flip fix: under sideways gravity a foe stacked on the
+    /// gravity axis has a side offset ≈ 0 that physics jitter nudges across zero. The
+    /// old 0.001 px deadzone re-derived the facing sign from that jitter EVERY frame
+    /// — the rapid side-to-side flip the user saw when flipping gravity. The
+    /// alignment deadzone HOLDS facing across the jitter, so the sign is stable.
+    #[test]
+    fn grounded_facing_does_not_rapid_flip_on_a_gravity_axis_stacked_foe() {
+        // Footsies off so this isolates the per-frame JITTER flip (the "very fast"
+        // one the deadzone fixes), not the deliberate ~1 Hz in/out weave.
+        let cfg = SmashCfg {
+            footsies_amplitude: 0.0,
+            neutral_jump_cadence_s: 0.0,
+            ..crisp_duelist()
+        };
+        let mut state = SmashState {
+            rng_seed: 3,
+            ..Default::default()
+        };
+        let actions = melee_actions();
+        let down = ae::Vec2::new(1.0, 0.0); // gravity points screen-right
+        let mut prev_facing = 1.0_f32;
+        let mut flips = 0;
+        for i in 0..120 {
+            // Foe 80 px up-gravity (screen -x), with a small side (screen-y) jitter
+            // INSIDE the alignment deadzone (±8 px < 22 px) flipping each frame.
+            let jitter = if i % 2 == 0 { 8.0 } else { -8.0 };
+            let mut snap = BrainSnapshot::idle();
+            snap.control_down = down;
+            snap.actor_pos = ae::Vec2::ZERO;
+            snap.actor_facing = prev_facing;
+            snap.target_pos = ae::Vec2::new(-80.0, jitter);
+            snap.actor_on_ground = true;
+            snap.target_alive = true;
+            snap.sim_time = i as f32 / 60.0;
+            let mut f = crate::actor::control::ActorControlFrame::neutral();
+            tick_smash(&cfg, &mut state, &actions, &snap, None, &mut f);
+            if f.facing.signum() != prev_facing.signum() {
+                flips += 1;
+            }
+            prev_facing = f.facing;
+        }
+        assert!(
+            flips <= 2,
+            "facing must not rapid-flip across gravity-axis jitter; flipped {flips}/120 frames \
+             (the old code flipped nearly every frame)"
+        );
     }
 
     #[test]

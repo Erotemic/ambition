@@ -92,7 +92,7 @@ pub fn animate_player(
                 &ambition_gameplay_core::actor::BodyAbilities,
                 &ambition_gameplay_core::actor::BodyDodgeState,
                 &ambition_gameplay_core::actor::BodyShieldState,
-                Option<&ambition_gameplay_core::player::ActivePlayerAttack>,
+                Option<&ambition_gameplay_core::player::BodyMelee>,
                 Option<&ambition_gameplay_core::time::time_control::ProperTimeScale>,
                 Option<&mut bevy::sprite::Anchor>,
             ),
@@ -102,7 +102,7 @@ pub fn animate_player(
 ) {
     // Iterate EVERY player-bodied visual, not just the primary: the human player
     // and any brain-driven player clone animate through the identical picker. The
-    // active-attack swing is per-entity (`Option<&ActivePlayerAttack>`) — the
+    // active-attack swing is per-entity (`Option<&BodyMelee>`) — the
     // primary carries one and gets its attack rows; a clone has None and animates
     // from movement alone. (Generalized from a `get_mut(entities.player)` single
     // lookup as part of the non-player-centric peel: the player body is not special
@@ -128,7 +128,7 @@ pub fn animate_player(
         (body_mode, env_contact, abilities, dodge, shield, active_attack, scale, anchor),
     ) in &mut query
     {
-        let attack_state = active_attack.and_then(|a| a.0.as_ref());
+        let attack_state = active_attack.and_then(|a| a.swing.as_ref());
         let anim = ambition_gameplay_core::character_sprites::pick_player_anim(
             anim_state,
             player_combat,

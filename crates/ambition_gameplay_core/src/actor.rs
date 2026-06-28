@@ -233,7 +233,7 @@ pub struct BodyCombat {
     pub hitstun_timer: f32,
     /// Short HARD control-lock at the start of a knockback (no input authority).
     pub recoil_lock_timer: f32,
-    /// Mirrored each frame from `ActivePlayerAttack::is_active()`.
+    /// Mirrored each frame from `BodyMelee::is_active()`.
     pub attacking: bool,
     // ── Actor status / attack-timeline presentation ──
     pub alive: bool,

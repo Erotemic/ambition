@@ -28,7 +28,7 @@ pub(crate) fn reset_sandbox(
     sim_state: &mut ambition_gameplay_core::SandboxSimState,
     clock: &mut ambition_gameplay_core::time::clock_state::ClockState,
     safety: &mut ambition_gameplay_core::player::PlayerSafetyState,
-    attack: &mut Option<ambition_gameplay_core::PlayerAttackState>,
+    attack: &mut Option<ambition_gameplay_core::MeleeSwing>,
     anim: &mut ambition_gameplay_core::player::PlayerAnimState,
     combat: &mut ambition_gameplay_core::actor::BodyCombat,
     interaction: &mut ambition_gameplay_core::player::PlayerInteractionState,

@@ -299,7 +299,7 @@ pub(super) fn non_looping(anim: CharacterAnim) -> bool {
 /// `anim` is the authoritative ECS component for presentation timers.
 /// `combat` provides `hitstun_timer` (now on `BodyCombat`).
 /// `blink_cam` provides `blink_in_timer` (now on `PlayerBlinkCameraState`).
-/// `attack` is the active swing from `player::ActivePlayerAttack`; `None` when idle.
+/// `attack` is the active swing from `player::BodyMelee`; `None` when idle.
 ///
 /// Phase 2 migration: the remaining player state (velocity, ground,
 /// wall, blink/aim, flight, dash, ledge) comes in as five cluster
@@ -310,7 +310,7 @@ pub fn pick_player_anim(
     anim: &PlayerAnimState,
     combat: &crate::actor::BodyCombat,
     blink_cam: &crate::player::PlayerBlinkCameraState,
-    attack: Option<&crate::PlayerAttackState>,
+    attack: Option<&crate::MeleeSwing>,
     kinematics: &crate::actor::BodyKinematics,
     ground: &crate::actor::BodyGroundState,
     wall: &crate::actor::BodyWallState,
@@ -461,7 +461,7 @@ pub fn pick_player_anim(
 /// The engine's `AttackIntent` is finer-grained than the visible swing
 /// shapes — multiple intents share one row because the sprite already
 /// flips with the player's facing.
-fn directional_attack_anim(attack: Option<&crate::PlayerAttackState>) -> CharacterAnim {
+fn directional_attack_anim(attack: Option<&crate::MeleeSwing>) -> CharacterAnim {
     use crate::combat::AttackIntent;
     let Some(attack) = attack else {
         // Defensive fallback: slash_anim_timer is set but no attack

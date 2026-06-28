@@ -33,7 +33,7 @@ pub(super) struct HudCameraParams<'w, 's> {
             &'static ambition_gameplay_core::actor::BodyComboTrace,
             &'static ambition_gameplay_core::actor::BodyHealth,
             &'static ambition_gameplay_core::actor::BodyCombat,
-            &'static ambition_gameplay_core::player::ActivePlayerAttack,
+            &'static ambition_gameplay_core::player::BodyMelee,
         ),
         ambition_gameplay_core::actor::PrimaryPlayerOnly,
     >,
@@ -237,7 +237,7 @@ pub(super) fn update_hud(
     let body_mode = hud_body_mode.body_mode.label();
     let movement_line = format!("\nLOCO: {locomotion}  BODY: {body_mode}");
     let attack_line = hud_attack
-        .0
+        .swing
         .as_ref()
         .map(|attack| {
             let intent = attack.spec.intent.label();

@@ -3,15 +3,14 @@
 use bevy::prelude::*;
 
 use super::components::{
-    ActivePlayerAttack, LocalPlayer, PlayerEntity,
-    PlayerInputFrame, PlayerSlot, PrimaryPlayer,
+    BodyMelee, LocalPlayer, PlayerEntity, PlayerInputFrame, PlayerSlot, PrimaryPlayer,
 };
-use crate::actor::{BodyCombat, BodyHealth};
 use super::events::PlayerHealRequested;
-use super::movement_components::{BodyKinematics, BodyGroundState};
+use super::movement_components::{BodyGroundState, BodyKinematics};
+use crate::actor::{BodyCombat, BodyHealth};
+use crate::features::ActorPose;
 use ambition_characters::brain::{ActorControl, Brain, BrainSnapshot};
 use ambition_engine_core as ae;
-use crate::features::ActorPose;
 use ambition_input::ControlFrame;
 
 /// Mirror the finalized global [`ControlFrame`] onto the local player's
@@ -120,13 +119,13 @@ pub fn tick_player_brains(
     }
 }
 
-/// Mirror `ActivePlayerAttack::is_active()` onto
+/// Mirror `BodyMelee::is_swinging()` (a swing is in flight, any phase) onto
 /// `BodyCombat::attacking` for rendering systems.
 pub fn write_player_ecs_components(
-    mut players: Query<(&ActivePlayerAttack, &mut BodyCombat), With<PlayerEntity>>,
+    mut players: Query<(&BodyMelee, &mut BodyCombat), With<PlayerEntity>>,
 ) {
     for (attack, mut combat) in &mut players {
-        combat.attacking = attack.is_active();
+        combat.attacking = attack.is_swinging();
     }
 }
 
@@ -217,7 +216,9 @@ mod tests {
     /// can rely on these slots being filled.
     #[test]
     fn player_action_set_has_full_moveset_with_sandbox_all_abilities() {
-        use ambition_characters::brain::{ActionSet, MeleeActionSpec, RangedActionSpec, SpecialActionSpec};
+        use ambition_characters::brain::{
+            ActionSet, MeleeActionSpec, RangedActionSpec, SpecialActionSpec,
+        };
         let player = crate::player::primary_player_scratch(
             ae::Vec2::new(0.0, 0.0),
             ae::AbilitySet::sandbox_all(),

@@ -57,30 +57,13 @@ pub struct PlayerInputFrame {
 // combat component). The player fills the reaction-timer fields; the actor fills
 // the status/attack fields.
 
-/// Per-player active melee swing. `None` when no swing is in progress.
-///
-/// Authoritative source: set/cleared by `start_attack` / `advance_attack`.
-/// `write_player_ecs_components` mirrors `is_some()` into
-/// `BodyCombat::attacking` each frame so rendering can branch on
-/// attack state without a separate query.
-///
-/// Replaces the global `CurrentPlayerAttack` resource (OVERNIGHT-TODO
-/// #17.4 / the multiplayer caveat that used to live in `lib.rs`). Each
-/// player entity carries its own attack state, so a future co-op /
-/// split-screen build can spawn additional players whose swings tick
-/// independently.
-#[derive(Component, Clone, Debug, Default)]
-pub struct ActivePlayerAttack(pub Option<super::super::PlayerAttackState>);
-
-impl ActivePlayerAttack {
-    pub fn is_active(&self) -> bool {
-        self.0.is_some()
-    }
-
-    pub fn clear(&mut self) {
-        self.0 = None;
-    }
-}
+// The player's per-player active melee swing is now the unified
+// [`crate::features::BodyMelee`] — the SAME component every brain-driven actor
+// carries (`swing: Option<MeleeSwing>`, `None` between swings). The player is an
+// actor; its swing ticks through the SAME spec model. `write_player_ecs_components`
+// mirrors `is_swinging()` into `BodyCombat::attacking`. (This deletes the former
+// player-only `ActivePlayerAttack` wrapper — ONE BODY ONE PATH.)
+pub use crate::features::BodyMelee;
 
 /// ECS-owned player animation signal timers.
 ///

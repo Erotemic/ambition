@@ -9,8 +9,8 @@
 //! in the combat runtime with the `AttackSpec`/`AttackView` model it consumes.
 //!
 //! Player-centrism note: the bodies still name the controlled actor "player"
-//! because the component vocabulary (`PlayerAttackState`, `ae::BodyClustersMut`,
-//! `ActivePlayerAttack`) does. The relativity-principle fix is the actor-
+//! because the component vocabulary (`MeleeSwing`, `ae::BodyClustersMut`,
+//! `BodyMelee`) does. The relativity-principle fix is the actor-
 //! unification rename of those types, tracked separately.
 
 use bevy::prelude::{Entity, MessageReader, MessageWriter, Query, Res, Time};
@@ -29,10 +29,10 @@ use crate::combat::{
 };
 use crate::dev::dev_tools::EditableMovementTuning;
 use crate::features::{self, FeatureEcsWorldOverlay};
-use crate::player::{ActivePlayerAttack, PlayerAnimState};
+use crate::player::{BodyMelee, PlayerAnimState};
 use crate::time::feel::SandboxFeelTuning;
 use crate::world::platforms::MovingPlatformState;
-use crate::{physics, MovingPlatformSet, PlayerAttackState, RoomGeometry};
+use crate::{physics, MeleeSwing, MovingPlatformSet, RoomGeometry};
 
 /// Build the engine's `InputState` purely from `ActorControl` —
 /// the player's brain output is the single source of truth for
@@ -131,7 +131,7 @@ pub fn start_attack(
     sfx: &mut MessageWriter<SfxMessage>,
     vfx: &mut MessageWriter<VfxMessage>,
     clusters: &mut ae::BodyClustersMut<'_>,
-    attack: &mut Option<PlayerAttackState>,
+    attack: &mut Option<MeleeSwing>,
     anim: &mut PlayerAnimState,
     actor: ActorControlFrame,
     // When the player is holding a melee weapon (axe etc.), its `ActionSet`
@@ -204,7 +204,7 @@ pub fn start_attack(
     let player_pos = clusters.kinematics.pos;
     sfx.write(SfxMessage::Slash { pos: player_pos });
     anim.slash_anim_timer = spec.total_seconds().max(0.20);
-    *attack = Some(PlayerAttackState::new(spec));
+    *attack = Some(MeleeSwing::new(spec));
     // Slash effect, oriented + placed in the PLAYER'S reference frame. `spec`
     // is already `into_world_frame`d, so `spec.hitbox_offset` is the
     // gravity-rotated player→strike vector — feed THAT to the effect (NOT the
@@ -249,7 +249,7 @@ fn slash_effect_size(hitbox_half_size: ae::Vec2) -> f32 {
 /// body→strike offset (the renderer rotates the art along it).
 ///
 /// ONE BODY, ONE PATH: do NOT add another `VfxMessage::Slash` site — call this. (The
-/// two melee STATE MACHINES that call it — `PlayerAttackState` here and
+/// two melee STATE MACHINES that call it — `MeleeSwing` here and
 /// `BodyMelee` in `update_ecs_actors` — are the next fork to collapse; see
 /// the `BIFURCATION:` note in dev/journals/code_smells.md.)
 pub fn emit_melee_slash(
@@ -308,7 +308,7 @@ pub fn advance_attack(
     world: &ae::World,
     moving_platforms: &[MovingPlatformState],
     clusters: &mut ae::BodyClustersMut<'_>,
-    attack: &mut Option<PlayerAttackState>,
+    attack: &mut Option<MeleeSwing>,
     anim: &mut PlayerAnimState,
     combat: &mut BodyCombat,
     tuning: ae::MovementTuning,
@@ -487,7 +487,7 @@ pub fn attack_advance_system(
             ae::BodyClusterQueryData,
             &mut PlayerAnimState,
             &mut BodyCombat,
-            &mut ActivePlayerAttack,
+            &mut BodyMelee,
             &ActorControl,
             Option<&features::HeldItem>,
         ),
@@ -544,7 +544,7 @@ pub fn attack_advance_system(
             &mut sfx_writer,
             &mut vfx_writer,
             &mut clusters,
-            &mut attack.0,
+            &mut attack.swing,
             &mut anim,
             actor_frame,
             held_melee,
@@ -558,7 +558,7 @@ pub fn attack_advance_system(
         &world.0,
         &moving_platforms.0,
         &mut clusters,
-        &mut attack.0,
+        &mut attack.swing,
         &mut anim,
         &mut combat,
         tuning,

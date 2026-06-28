@@ -18,13 +18,13 @@
 
 use bevy::prelude::*;
 
-use ambition_gameplay_core::assets::game_assets::GameAssets;
 use ambition_characters::brain::{ActorControl, Brain, BrainSnapshot, StateMachineCfg};
+use ambition_engine_core as ae;
+use ambition_gameplay_core::assets::game_assets::GameAssets;
 use ambition_gameplay_core::character_sprites::{
     build_character_sprite_with_render_size, feet_anchor_for_render_size,
     player_placeholder_render_size, CharacterAnimator,
 };
-use ambition_engine_core as ae;
 use ambition_gameplay_core::RoomGeometry;
 use ambition_render::rendering::{PlayerSpriteBaseline, PlayerVisual};
 
@@ -79,8 +79,7 @@ pub fn spawn_requested_player_clone(
     };
     // Spawn a little to the left of the player so it reads as a separate body.
     let spawn = player_kin.pos + ae::Vec2::new(-90.0, -20.0);
-    let scratch =
-        ae::BodyClusterScratch::new_with_abilities(spawn, ae::AbilitySet::sandbox_all());
+    let scratch = ae::BodyClusterScratch::new_with_abilities(spawn, ae::AbilitySet::sandbox_all());
 
     let size = scratch.kinematics.size;
     let transform = Transform::from_translation(ambition_gameplay_core::config::world_to_bevy(
@@ -126,7 +125,7 @@ pub fn spawn_requested_player_clone(
         ambition_gameplay_core::actor::PlayerEntity,
         (
             ambition_gameplay_core::player::PlayerInteractionState::default(),
-            ambition_gameplay_core::player::ActivePlayerAttack::default(),
+            ambition_gameplay_core::player::BodyMelee::default(),
             ambition_gameplay_core::player::PlayerSafetyState::default(),
             ambition_gameplay_core::player::PlayerInputFrame::default(),
         ),

@@ -11,9 +11,9 @@ use bevy::prelude::*;
 use ambition_gameplay_core::audio::SfxMessage;
 use ambition_gameplay_core::dev::dev_tools::{self, EditableAbilitySet, EditableMovementTuning};
 use ambition_gameplay_core::features;
-use ambition_input::ControlFrame;
 use ambition_gameplay_core::time::feel::SandboxFeelTuning;
 use ambition_gameplay_core::{RoomGeometry, SandboxSimState};
+use ambition_input::ControlFrame;
 use ambition_render::fx::VfxMessage;
 
 /// Push live dev-tools ability/tuning edits onto the authoritative player.
@@ -98,7 +98,9 @@ pub fn input_timer_system(
         ambition_gameplay_core::physics::gravity_dir_or_default(gravity_field.as_deref());
     let movement_mode = user_settings
         .as_deref()
-        .map_or(ae::InputFrameMode::DEFAULT_MOVEMENT, |s| s.gameplay.movement_frame_mode);
+        .map_or(ae::InputFrameMode::DEFAULT_MOVEMENT, |s| {
+            s.gameplay.movement_frame_mode
+        });
     let resolved = ae::AccelerationFrame::new(gravity_dir).resolve_control(
         movement_mode,
         control_frame.axis_x,
@@ -200,7 +202,7 @@ pub fn apply_player_reset_input_system(
             &mut ambition_gameplay_core::actor::BodyCombat,
             &mut ambition_gameplay_core::player::PlayerInteractionState,
             &mut ambition_gameplay_core::player::PlayerBlinkCameraState,
-            &mut ambition_gameplay_core::player::ActivePlayerAttack,
+            &mut ambition_gameplay_core::player::BodyMelee,
             &mut ambition_gameplay_core::player::PlayerSafetyState,
         ),
         ambition_gameplay_core::actor::PrimaryPlayerOnly,
@@ -235,7 +237,7 @@ pub fn apply_player_reset_input_system(
         &mut sim_state,
         &mut clock,
         &mut safety,
-        &mut attack.0,
+        &mut attack.swing,
         &mut anim,
         &mut combat,
         &mut interaction,
@@ -278,7 +280,7 @@ pub fn apply_cut_rope_room_replay_request_system(
             &mut ambition_gameplay_core::actor::BodyCombat,
             &mut ambition_gameplay_core::player::PlayerInteractionState,
             &mut ambition_gameplay_core::player::PlayerBlinkCameraState,
-            &mut ambition_gameplay_core::player::ActivePlayerAttack,
+            &mut ambition_gameplay_core::player::BodyMelee,
             &mut ambition_gameplay_core::player::PlayerSafetyState,
         ),
         ambition_gameplay_core::actor::PrimaryPlayerOnly,
@@ -324,7 +326,7 @@ pub fn apply_cut_rope_room_replay_request_system(
         &mut sim_state,
         &mut clock,
         &mut safety,
-        &mut attack.0,
+        &mut attack.swing,
         &mut anim,
         &mut combat,
         &mut interaction,

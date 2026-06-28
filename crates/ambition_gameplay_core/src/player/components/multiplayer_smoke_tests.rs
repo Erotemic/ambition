@@ -3,14 +3,14 @@
 //! singleton queries / heal routing stay independent and correct.
 
 use super::*;
-use ambition_engine_core as ae;
 use crate::actor::PrimaryPlayerOnly;
+use ambition_engine_core as ae;
 
 fn dummy_attack_spec() -> crate::combat::AttackSpec {
     // Construct via the live `attack_spec` builder; a minimal Player
     // is enough — only the `intent` field is meaningful for these
     // tests, and the builder gives us a well-formed spec with
-    // non-zero timings so the `PlayerAttackState::done()` path
+    // non-zero timings so the `MeleeSwing::done()` path
     // doesn't short-circuit.
     let world = ae::World::new(
         "smoke",
@@ -31,10 +31,10 @@ fn dummy_attack_spec() -> crate::combat::AttackSpec {
     crate::combat::attack_spec_from_view(&view, crate::combat::AttackIntent::Forward)
 }
 
-/// Two player entities each carry their own `ActivePlayerAttack`,
+/// Two player entities each carry their own `BodyMelee`,
 /// so a swing on one player does not silently affect the other.
 /// Regression guard for the old shared-resource shape — if a
-/// future patch turns `ActivePlayerAttack` back into a global
+/// future patch turns `BodyMelee` back into a global
 /// `Resource`, this test stops being meaningful and should fail
 /// loudly when it tries to read two values.
 #[test]
@@ -46,36 +46,36 @@ fn two_players_have_independent_active_attacks() {
             PlayerEntity,
             PlayerSlot(0),
             PrimaryPlayer,
-            ActivePlayerAttack::default(),
+            BodyMelee::default(),
         ))
         .id();
     let p2 = app
         .world_mut()
-        .spawn((PlayerEntity, PlayerSlot(1), ActivePlayerAttack::default()))
+        .spawn((PlayerEntity, PlayerSlot(1), BodyMelee::default()))
         .id();
 
     // Start an attack on player 1 only.
     let attack_spec = dummy_attack_spec();
     app.world_mut()
         .entity_mut(p1)
-        .get_mut::<ActivePlayerAttack>()
+        .get_mut::<BodyMelee>()
         .expect("p1 has the component")
-        .0 = Some(crate::PlayerAttackState::new(attack_spec));
+        .swing = Some(crate::MeleeSwing::new(attack_spec));
 
     let p1_attack = app
         .world()
         .entity(p1)
-        .get::<ActivePlayerAttack>()
+        .get::<BodyMelee>()
         .expect("p1 has the component");
     let p2_attack = app
         .world()
         .entity(p2)
-        .get::<ActivePlayerAttack>()
+        .get::<BodyMelee>()
         .expect("p2 has the component");
 
-    assert!(p1_attack.is_active(), "p1 should be mid-attack");
+    assert!(p1_attack.is_swinging(), "p1 should be mid-attack");
     assert!(
-        !p2_attack.is_active(),
+        !p2_attack.is_swinging(),
         "p2's attack must not pick up p1's swing — that's the whole \
              point of moving CurrentPlayerAttack onto the player entity \
              (OVERNIGHT-TODO #17.4)"
@@ -180,7 +180,7 @@ fn player_entity_query_iterates_all_spawned_players() {
     assert_eq!(slots, vec![0, 1, 2]);
 }
 
-/// `ActivePlayerAttack::clear` zeroes the attack on its own
+/// `BodyMelee::clear` zeroes the attack on its own
 /// entity without touching sibling players.
 #[test]
 fn clear_is_per_entity() {
@@ -191,7 +191,10 @@ fn clear_is_per_entity() {
         .spawn((
             PlayerEntity,
             PlayerSlot(0),
-            ActivePlayerAttack(Some(crate::PlayerAttackState::new(attack_spec.clone()))),
+            BodyMelee {
+                swing: Some(crate::MeleeSwing::new(attack_spec.clone())),
+                ..Default::default()
+            },
         ))
         .id();
     let p2 = app
@@ -199,28 +202,31 @@ fn clear_is_per_entity() {
         .spawn((
             PlayerEntity,
             PlayerSlot(1),
-            ActivePlayerAttack(Some(crate::PlayerAttackState::new(attack_spec))),
+            BodyMelee {
+                swing: Some(crate::MeleeSwing::new(attack_spec)),
+                ..Default::default()
+            },
         ))
         .id();
 
     app.world_mut()
         .entity_mut(p1)
-        .get_mut::<ActivePlayerAttack>()
+        .get_mut::<BodyMelee>()
         .unwrap()
         .clear();
 
     assert!(!app
         .world()
         .entity(p1)
-        .get::<ActivePlayerAttack>()
+        .get::<BodyMelee>()
         .unwrap()
-        .is_active());
+        .is_swinging());
     assert!(
         app.world()
             .entity(p2)
-            .get::<ActivePlayerAttack>()
+            .get::<BodyMelee>()
             .unwrap()
-            .is_active(),
+            .is_swinging(),
         "clearing p1's attack must not touch p2's component"
     );
 }
@@ -231,8 +237,8 @@ fn clear_is_per_entity() {
 /// the heart instead of always to primary.
 #[test]
 fn targeted_heal_routes_to_named_entity_not_primary() {
+    use crate::actor::BodyHealth;
     use crate::player::{apply_player_heal_requests, PlayerHealRequested};
-use crate::actor::BodyHealth;
 
     let mut app = App::new();
     app.add_message::<PlayerHealRequested>();
@@ -281,8 +287,8 @@ use crate::actor::BodyHealth;
 /// silently break when other code starts using `for_target`.
 #[test]
 fn untargeted_heal_routes_to_primary() {
+    use crate::actor::BodyHealth;
     use crate::player::{apply_player_heal_requests, PlayerHealRequested};
-use crate::actor::BodyHealth;
 
     let mut app = App::new();
     app.add_message::<PlayerHealRequested>();

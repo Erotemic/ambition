@@ -18,9 +18,9 @@ use bevy::prelude::{
 use super::super::util::{approximately_same_aabb, midpoint};
 use super::damage_drops::drop_currency_coin;
 use super::{
-    sync_actor_components_from_cluster, BodyCombat, ActorCooldowns, ActorDisposition,
-    ActorIdentity, ActorIntent, BreakableFeature, CenteredAabb, FeatureId,
-    FeatureName, FeatureSimEntity, GameplayBanner, HitEvent, HitSource, SetFlagRequested,
+    sync_actor_components_from_cluster, ActorCooldowns, ActorDisposition, ActorIdentity,
+    ActorIntent, BodyCombat, BreakableFeature, CenteredAabb, FeatureId, FeatureName,
+    FeatureSimEntity, GameplayBanner, HitEvent, HitSource, SetFlagRequested,
 };
 // Only the exploding-mite blast test pins this drop tuning constant; the drop
 // tests query `PickupFeature` directly. Both are test-only now that the drop
@@ -131,7 +131,7 @@ pub fn apply_feature_hit_events(
             &mut crate::actor::BodyCombat,
             // The attacker's live swing, so a multi-active-frame slash records
             // which targets it has already struck and never double-hits them.
-            Option<&mut crate::player::ActivePlayerAttack>,
+            Option<&mut crate::player::BodyMelee>,
         ),
         bevy::prelude::With<crate::actor::PlayerEntity>,
     >,
@@ -290,7 +290,7 @@ pub fn apply_feature_hit_events(
                     // frame's emit ignores them (one hit per target per swing).
                     if record_dedup {
                         if let Some(mut active) = active_attack {
-                            if let Some(state) = active.0.as_mut() {
+                            if let Some(state) = active.swing.as_mut() {
                                 state.hit_targets.extend(landed_keys.iter().cloned());
                             }
                         }

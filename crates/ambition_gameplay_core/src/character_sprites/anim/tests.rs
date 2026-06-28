@@ -5,8 +5,8 @@
 //! loop correctly.
 
 use super::*;
-use crate::player::{PlayerBlinkCameraState};
 use crate::actor::BodyCombat;
+use crate::player::PlayerBlinkCameraState;
 
 /// Build a player + the three default state inputs that
 /// `pick_player_anim` consumes. Tests then mutate just the
@@ -65,7 +65,7 @@ fn pick(
     anim: &PlayerAnimState,
     combat: &BodyCombat,
     blink_cam: &PlayerBlinkCameraState,
-    attack: Option<&crate::PlayerAttackState>,
+    attack: Option<&crate::MeleeSwing>,
     c: &PickClusters,
 ) -> CharacterAnim {
     pick_player_anim(

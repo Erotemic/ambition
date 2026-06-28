@@ -86,7 +86,7 @@ pub fn process_sandbox_reset_request(
             &mut crate::player::PlayerAnimState,
             &mut crate::actor::BodyCombat,
             &mut crate::player::PlayerBlinkCameraState,
-            &mut crate::player::ActivePlayerAttack,
+            &mut crate::player::BodyMelee,
             &mut crate::player::PlayerSafetyState,
         ),
         // PRIMARY-only: the reset warps THE player to the start-room spawn. A

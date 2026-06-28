@@ -43,9 +43,8 @@ pub use bundles::{PlayerIdentityBundle, PlayerSimulationBundle};
 // dependency direction (non-player code imports body state from `crate::actor`,
 // never through the player module). The genuinely player-only state stays below.
 pub use components::{
-    ActivePlayerAttack, LocalPlayer, PlayerAnimState, PlayerBlinkCameraState,
-    PlayerInputFrame, PlayerInteractionState, PlayerSafetyState,
-    PlayerSlot,
+    BodyMelee, LocalPlayer, PlayerAnimState, PlayerBlinkCameraState, PlayerInputFrame,
+    PlayerInteractionState, PlayerSafetyState, PlayerSlot,
 };
 pub use events::PlayerHealRequested;
 pub use movement_fx::handle_player_events;

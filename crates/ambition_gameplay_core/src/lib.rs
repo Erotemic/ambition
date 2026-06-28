@@ -43,11 +43,11 @@
 pub mod audio;
 pub mod character_roster;
 pub mod debug_label;
-pub mod schedule;
 pub mod host;
 pub mod platformer_runtime;
 pub mod player;
 pub mod quest;
+pub mod schedule;
 // Stable facade for save-game data shapes used by dialogue bindings.
 pub use persistence::save_data as save;
 
@@ -301,41 +301,11 @@ impl SandboxDevState {
     }
 }
 
-/// Sandbox-side state for one active player melee swing.
-#[derive(Clone, Debug)]
-pub struct PlayerAttackState {
-    pub spec: crate::combat::AttackSpec,
-    pub elapsed: f32,
-    pub hit_targets: Vec<String>,
-    pub active_started: bool,
-    /// True once a downward/pogo active-frame attack has produced its bounce.
-    /// Prevents one long active window from repeatedly bouncing every frame.
-    pub pogo_applied: bool,
-}
-
-impl PlayerAttackState {
-    pub fn new(spec: crate::combat::AttackSpec) -> Self {
-        Self {
-            spec,
-            elapsed: 0.0,
-            hit_targets: Vec::new(),
-            active_started: false,
-            pogo_applied: false,
-        }
-    }
-
-    pub fn phase(&self) -> Option<crate::combat::AttackPhase> {
-        self.spec.phase_at(self.elapsed)
-    }
-
-    pub fn done(&self) -> bool {
-        self.phase().is_none()
-    }
-
-    pub fn progress(&self) -> f32 {
-        (self.elapsed / self.spec.total_seconds().max(0.001)).clamp(0.0, 1.0)
-    }
-}
+/// The state of one in-flight player melee swing is now the unified
+/// [`crate::features::MeleeSwing`] — the SAME swing every brain-driven actor
+/// carries (the player is an actor). Re-exported at the crate root so existing
+/// `crate::MeleeSwing` / `ambition_gameplay_core::MeleeSwing` paths resolve.
+pub use crate::features::MeleeSwing;
 
 /// Record the current player position as "the last known safe spot"
 /// when (and only when) every predicate of safety holds. Call sites pass

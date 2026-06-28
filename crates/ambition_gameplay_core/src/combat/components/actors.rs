@@ -350,6 +350,10 @@ impl MeleeSwing {
         self.spec.phase_at(self.elapsed)
     }
 
+    pub fn done(&self) -> bool {
+        self.phase().is_none()
+    }
+
     pub fn progress(&self) -> f32 {
         (self.elapsed / self.spec.total_seconds().max(0.001)).clamp(0.0, 1.0)
     }
@@ -403,6 +407,18 @@ impl BodyMelee {
 
     pub fn is_active(&self) -> bool {
         matches!(self.phase(), Some(crate::combat::AttackPhase::Active))
+    }
+
+    /// True while ANY swing is in flight (startup, active, OR recovery) — the
+    /// "is the body mid-swing" signal the player mirrors onto `BodyCombat`
+    /// (distinct from `is_active`, which is only the hitbox window).
+    pub fn is_swinging(&self) -> bool {
+        self.swing.is_some()
+    }
+
+    /// Cancel any in-flight swing (room transition / reset).
+    pub fn clear(&mut self) {
+        self.swing = None;
     }
 
     pub fn on_cooldown(&self) -> bool {

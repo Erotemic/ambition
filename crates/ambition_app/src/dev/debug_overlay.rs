@@ -13,12 +13,12 @@ use bevy::prelude::*;
 
 use ambition_gameplay_core::config::world_to_bevy;
 use ambition_gameplay_core::dev::dev_tools::DeveloperTools;
-use ambition_input::ControlFrame;
-#[cfg(feature = "input")]
-use ambition_input::SandboxAction;
 use ambition_gameplay_core::rooms::{LoadingZone, LoadingZoneActivation, RoomSet};
 use ambition_gameplay_core::world::platforms;
 use ambition_gameplay_core::{GameMode, RoomGeometry, SandboxDevState};
+use ambition_input::ControlFrame;
+#[cfg(feature = "input")]
+use ambition_input::SandboxAction;
 #[cfg(feature = "input")]
 use ambition_render::rendering::PlayerVisual;
 use ambition_render::rendering::{CameraViewState, SceneEntities};
@@ -92,7 +92,7 @@ pub fn draw_debug_overlay(
         (
             ae::BodyClusterQueryData,
             Option<&ambition_gameplay_core::actor::BodyHealth>,
-            &ambition_gameplay_core::player::ActivePlayerAttack,
+            &ambition_gameplay_core::player::BodyMelee,
         ),
         // The primary player never carries `FeatureSimEntity` (player vs
         // feature-sim entities are mutually exclusive — see the kinematics
@@ -168,7 +168,7 @@ pub fn draw_debug_overlay(
         world,
         &clusters,
         &platform_set.0,
-        attack.0.as_ref(),
+        attack.swing.as_ref(),
         actions,
         gameplay_active,
         &developer_tools,

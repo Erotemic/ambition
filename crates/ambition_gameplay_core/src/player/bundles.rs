@@ -4,14 +4,13 @@ use ambition_engine_core as ae;
 use bevy::prelude::*;
 
 use super::components::{
-    ActivePlayerAttack, LocalPlayer, PlayerAnimState, PlayerBlinkCameraState,
-    PlayerEntity, PlayerInputFrame, PlayerInteractionState, PlayerSafetyState,
-    PlayerSlot, PrimaryPlayer,
+    BodyMelee, LocalPlayer, PlayerAnimState, PlayerBlinkCameraState, PlayerEntity,
+    PlayerInputFrame, PlayerInteractionState, PlayerSafetyState, PlayerSlot, PrimaryPlayer,
 };
-use crate::actor::{AncillaryMovementBundle, BodyCombat, BodyHealth, BodyWallet};
 use super::movement_components::BodyKinematics;
-use ambition_characters::brain::{ActionSet, ActorControl, Brain};
+use crate::actor::{AncillaryMovementBundle, BodyCombat, BodyHealth, BodyWallet};
 use crate::features::{ActorFaction, ActorPose};
+use ambition_characters::brain::{ActionSet, ActorControl, Brain};
 
 /// All simulation components required on the player entity.
 ///
@@ -53,7 +52,7 @@ pub struct PlayerSimulationBundle {
     pub interaction: PlayerInteractionState,
     pub anim: PlayerAnimState,
     pub blink_cam: PlayerBlinkCameraState,
-    pub attack: ActivePlayerAttack,
+    pub attack: BodyMelee,
     pub safety: PlayerSafetyState,
     pub input: PlayerInputFrame,
     pub faction: ActorFaction,
@@ -104,7 +103,10 @@ impl PlayerSimulationBundle {
     /// with the simulation components manually rather than calling
     /// this helper, since the second player should not inherit
     /// `PrimaryPlayer` and may not be `LocalPlayer`.
-    pub fn from_scratch(scratch: ae::BodyClusterScratch, health: ambition_characters::actor::Health) -> Self {
+    pub fn from_scratch(
+        scratch: ae::BodyClusterScratch,
+        health: ambition_characters::actor::Health,
+    ) -> Self {
         let action_set = default_player_action_set(scratch.abilities.abilities);
         let initial_safe_pos = scratch.kinematics.pos;
         // `BodyKinematics` is the shared kinematic truth (its own component);
@@ -121,7 +123,7 @@ impl PlayerSimulationBundle {
             interaction: PlayerInteractionState::default(),
             anim: PlayerAnimState::default(),
             blink_cam: PlayerBlinkCameraState::default(),
-            attack: ActivePlayerAttack::default(),
+            attack: BodyMelee::default(),
             safety: PlayerSafetyState::new(initial_safe_pos),
             input: PlayerInputFrame::default(),
             faction: ActorFaction::Player,

@@ -125,7 +125,7 @@ pub struct PlayerTraceState {
     /// `CollisionCorrection` tick coincides with a `false → true`
     /// transition of this flag.
     pub ledge_grabbing: bool,
-    /// True iff a melee swing is currently active (`ActivePlayerAttack`
+    /// True iff a melee swing is currently active (`BodyMelee`
     /// is `Some`). Cross-referenced with the `attack_pressed` input edge
     /// this is the canonical "did the swing actually START" signal: a
     /// frame with `attack_pressed = true` that never flips `attacking`

@@ -334,7 +334,7 @@ pub(crate) fn draw_player_debug(
     world: &ae::World,
     clusters: &ae::BodyClustersMut<'_>,
     moving_platforms: &[ambition_gameplay_core::world::platforms::MovingPlatformState],
-    attack: Option<&ambition_gameplay_core::PlayerAttackState>,
+    attack: Option<&ambition_gameplay_core::MeleeSwing>,
     actions: Option<&ActionState<SandboxAction>>,
     gameplay_active: bool,
     developer_tools: &DeveloperTools,

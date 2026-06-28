@@ -112,7 +112,7 @@
     // now (resolved in `update_ecs_actors` / the actor damage path), so a
     // possessing player inherits the same kit.
     "cellular_automaton_fighter": (
-        max_health: 18,
+        max_health: 60,
         patrol_speed: 96.0,
         chase_speed: 168.0,
         aggro_radius: 540.0,
@@ -181,7 +181,7 @@
             jump_speed: Some(630.0),
             double_jump_speed: Some(520.0),
         ),
-        max_health: 20,
+        max_health: 60,
         patrol_speed: 110.0,
         chase_speed: 200.0,
         aggro_radius: 560.0,

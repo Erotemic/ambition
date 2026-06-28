@@ -115,8 +115,9 @@ pub fn apply_difficulty(
 
 /// Tiny LCG roll in `[0, 1)`. Stateful via `SmashState.rng_seed` so
 /// each actor has an independent stream and ticks advance the seed
-/// deterministically (replay-safe).
-fn roll_unit(state: &mut SmashState) -> f32 {
+/// deterministically (replay-safe). `pub(super)` so the reactive-defense
+/// gate in the parent module shares the same per-actor RNG stream.
+pub(super) fn roll_unit(state: &mut SmashState) -> f32 {
     if state.rng_seed == 0 {
         // Seed-zero fallback: avoid the LCG fixed point. The driver
         // system pre-seeds from the actor id; this branch only

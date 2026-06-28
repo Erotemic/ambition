@@ -99,6 +99,16 @@ pub struct SmashCfg {
     /// mixes into its approach to vary its attack vector and use vertical
     /// space. `0.0` (the grunt default) disables neutral hops.
     pub neutral_jump_cadence_s: f32,
+    /// **Poke-and-reset discipline** (whiff-punish footsies). Seconds the fighter
+    /// suppresses offense after a melee swing completes — letting the neutral weave
+    /// reset its spacing — before it may re-commit. `0.0` (the grunt default)
+    /// disables it: the actor stays in range and re-swings the instant its cooldown
+    /// clears (point-blank mashing). A positive value makes a real neutral game —
+    /// poke, reset, re-approach — instead of two bodies glued together trading
+    /// hits. Frame-agnostic (uses only target-relative spacing); the in/out weave,
+    /// not a forced retreat, does the spacing so a cornered fighter never pins
+    /// itself against a wall.
+    pub poke_reset_s: f32,
     /// When true, the fighter may **blink-evade** a fast-closing opponent (a
     /// perceivable lunge, read from the lagged target history — never from a
     /// privileged attack flag). Capability gate only: the body still needs the
@@ -108,6 +118,23 @@ pub struct SmashCfg {
     /// Minimum seconds between blink-evades. Ignored when [`Self::can_blink`]
     /// is `false`.
     pub blink_cooldown_s: f32,
+    /// `[0, 1]` — probability the fighter actually reacts to a perceived threat
+    /// this tick (blink or block). `< 1.0` models imperfect defense: it does NOT
+    /// block every swing, so some attacks land and the fight never turtles into a
+    /// stalemate. `0.0` (the grunt default) disables reactive defense entirely.
+    /// This is the "no perfect reactions" knob layered on top of `reaction_delay_s`
+    /// (which already makes it perceive the lunge late).
+    pub defense_reactivity: f32,
+    /// Perceived closing speed (px/s, toward the fighter) at or above which a
+    /// threat is met with a **blink** (the mobile evade for a committed lunge /
+    /// dash-in). Below it — but above [`Self::shield_closing_speed`] — the fighter
+    /// **blocks** instead (the stand-ground option for ordinary approach pressure).
+    /// Splitting the two is what gives the layered, readable defensive game.
+    pub blink_closing_speed: f32,
+    /// Minimum perceived closing speed (px/s) that counts as a threat worth
+    /// reacting to at all. Above a slow drift, below a walk-in so the fighter
+    /// guards an opponent stepping into poke range.
+    pub shield_closing_speed: f32,
     /// When true, the (grounded) fighter may **reactive-block** a perceived lunge
     /// it can't or won't blink away from — it raises `shield_held` and stands its
     /// ground for a short window. Layered defense: blink is the mobile option,
@@ -150,8 +177,12 @@ impl SmashCfg {
         footsies_amplitude: 0.0,
         footsies_period_s: 1.4,
         neutral_jump_cadence_s: 0.0,
+        poke_reset_s: 0.0,
         can_blink: false,
         blink_cooldown_s: 0.0,
+        defense_reactivity: 0.0,
+        blink_closing_speed: 175.0,
+        shield_closing_speed: 175.0,
         can_shield: false,
         can_fly: false,
         aerial_foray_cadence_s: 0.0,
@@ -172,8 +203,12 @@ impl SmashCfg {
         footsies_amplitude: 0.0,
         footsies_period_s: 1.6,
         neutral_jump_cadence_s: 0.0,
+        poke_reset_s: 0.0,
         can_blink: false,
         blink_cooldown_s: 0.0,
+        defense_reactivity: 0.0,
+        blink_closing_speed: 175.0,
+        shield_closing_speed: 175.0,
         can_shield: false,
         can_fly: false,
         aerial_foray_cadence_s: 0.0,
@@ -198,13 +233,26 @@ impl SmashCfg {
         footsies_amplitude: 60.0,
         footsies_period_s: 1.3,
         neutral_jump_cadence_s: 1.7,
+        // After every poke, suppress offense and let the weave reset spacing before
+        // re-committing — the heart of the neutral game (no point-blank mashing).
+        poke_reset_s: 0.38,
         can_blink: true,
-        blink_cooldown_s: 1.2,
+        blink_cooldown_s: 1.1,
+        // A real defensive game: react to ~60% of perceived threats (imperfect —
+        // some hits land), blink a committed lunge (≥230 px/s closing), block the
+        // ordinary walk-in pressure (≥70 px/s).
+        defense_reactivity: 0.6,
+        blink_closing_speed: 230.0,
+        shield_closing_speed: 70.0,
         can_shield: true,
         // Grounded duelist by default; hybrid flight is opt-in per fighter.
         can_fly: false,
         aerial_foray_cadence_s: 0.0,
         aerial_foray_duration_s: 0.0,
+        // A fair human reaction lag (no frame-perfect counters). Competence is
+        // expressed through the neutral game + layered defense above, NOT through
+        // crisper reactions: a twitchier profile locks the fight into a shielding
+        // standoff (the arena non-degeneracy harness catches it).
         difficulty: DifficultyProfile::MEDIUM,
     };
 }
@@ -316,6 +364,15 @@ pub struct SmashState {
     /// shield a perceived lunge; while positive it keeps `shield_held` up so the
     /// block spans the opponent's attack instead of flickering for one tick.
     pub shield_hold_timer: f32,
+    /// Seconds left in the post-poke neutral reset (whiff-punish footsies). Armed
+    /// to [`SmashCfg::poke_reset_s`] on the falling edge of a swing; while positive
+    /// the fighter suppresses offense and weaves out to its outer spacing pocket
+    /// instead of re-swinging point-blank. `0` outside the window / for grunts.
+    pub neutral_reset_timer: f32,
+    /// Whether the actor was mid-swing last tick. Used to detect the swing's
+    /// falling edge (swing → not-swinging) so the neutral reset arms exactly once
+    /// per poke. Pure tick-stream bookkeeping → replay-safe.
+    pub was_attacking: bool,
 }
 
 /// How long a reactive block is held once triggered (s) — long enough to span a
@@ -326,9 +383,6 @@ const SHIELD_HOLD_S: f32 = 0.32;
 /// blink-evade lunge detector. Short enough to read a burst, long enough to be
 /// robust to a single-tick jitter.
 const THREAT_WINDOW_S: f32 = 0.08;
-/// Perceived closing speed (px/s) toward the fighter that counts as a "lunge"
-/// worth evading. Above a walk (~110) but a dash-in (~260) clears it easily.
-const THREAT_CLOSING_SPEED: f32 = 175.0;
 
 /// Dash-to-close cadence (seconds) — a dash-capable actor bursts at
 /// most once per this interval, so it punctuates the chase rather than
@@ -365,6 +419,7 @@ pub fn tick_smash(
     state.dash_cooldown_remaining = (state.dash_cooldown_remaining - snapshot.dt).max(0.0);
     state.neutral_jump_cooldown = (state.neutral_jump_cooldown - snapshot.dt).max(0.0);
     state.blink_cooldown = (state.blink_cooldown - snapshot.dt).max(0.0);
+    state.neutral_reset_timer = (state.neutral_reset_timer - snapshot.dt).max(0.0);
     // Advance the spacing phase — it drives the grounded footsies weave AND the
     // aerial dive/perch cycle, so a flyer needs it even with footsies disabled.
     if (cfg.footsies_amplitude > 0.0 || snapshot.actor_aerial) && cfg.footsies_period_s > 0.0 {
@@ -394,6 +449,13 @@ pub fn tick_smash(
         s
     };
     let obs = observe(&perceived);
+    // Poke-and-reset: arm the neutral-reset window on the swing's falling edge
+    // (mid-swing last tick, done this tick). The fighter then disengages to its
+    // outer spacing pocket before re-committing, instead of re-swinging in place.
+    if state.was_attacking && !obs.self_attacking {
+        state.neutral_reset_timer = cfg.poke_reset_s;
+    }
+    state.was_attacking = obs.self_attacking;
     let mode = choose_mode(&obs, cfg, state);
     let action = choose_action(&obs, mode, cfg, actions);
     // Verb selection by range (the player/enemy unification flex): a
@@ -422,6 +484,15 @@ pub fn tick_smash(
     // motion is steered below — but keeps the dimension-agnostic ranged poke.
     let action = if obs.self_aerial {
         action
+    } else if state.neutral_reset_timer > 0.0 {
+        // Post-poke neutral reset (duelist whiff-punish footsies): suppress all
+        // offense (start from Idle, ignoring this tick's melee / ranged / dash) and
+        // let the in/out neutral weave reset the spacing — then allow a spacing hop.
+        // This is what stops point-blank mashing and opens the approach phase where
+        // the opponent's re-entry becomes a perceivable, defendable threat, without
+        // a forced retreat that would wall-pin a cornered fighter.
+        let action = maybe_apply_footsies(SpecificAction::Idle, &obs, mode, cfg, state);
+        maybe_neutral_jump(action, &obs, cfg, state)
     } else {
         // Then, if still just closing a *large* gap, burst a dash. Runs after
         // ranged so a mid-range poke wins over a dash (shoot, then dash to close
@@ -454,15 +525,25 @@ pub fn tick_smash(
     // else stand and block (shield). Attack verbs already emitted are left intact.
     state.shield_hold_timer = (state.shield_hold_timer - snapshot.dt).max(0.0);
     if !obs.self_attacking {
-        if let Some(away) = perceived_threat(&obs, cfg, state, snapshot.sim_time) {
-            if cfg.can_blink && state.blink_cooldown <= 0.0 {
-                out.blink_pressed = true;
-                out.blink_quick_dir = away;
-                out.locomotion = ae::Vec2::ZERO;
-                out.velocity_target = ae::Vec2::ZERO;
-                state.blink_cooldown = cfg.blink_cooldown_s;
-            } else if cfg.can_shield && obs.self_on_ground {
-                state.shield_hold_timer = SHIELD_HOLD_S;
+        if let Some((away, closing)) = perceived_threat(&obs, cfg, state, snapshot.sim_time) {
+            // Imperfect reaction (the "no perfect blocks" knob): only commit to a
+            // defense some of the time, so some swings land and the bout doesn't
+            // turtle into a stalemate. Layered on top of the reaction latency that
+            // already makes the lunge perceived late.
+            if difficulty::roll_unit(state) < cfg.defense_reactivity {
+                // A committed lunge (fast closing) gets the mobile blink; ordinary
+                // walk-in pressure gets the stand-ground block. Splitting the two
+                // is the layered defensive game.
+                let is_lunge = closing >= cfg.blink_closing_speed;
+                if cfg.can_blink && is_lunge && state.blink_cooldown <= 0.0 {
+                    out.blink_pressed = true;
+                    out.blink_quick_dir = away;
+                    out.locomotion = ae::Vec2::ZERO;
+                    out.velocity_target = ae::Vec2::ZERO;
+                    state.blink_cooldown = cfg.blink_cooldown_s;
+                } else if cfg.can_shield && obs.self_on_ground {
+                    state.shield_hold_timer = SHIELD_HOLD_S;
+                }
             }
         }
         // Hold the block up across its window: shield + stand ground.
@@ -520,18 +601,20 @@ fn perceived_threat(
     cfg: &SmashCfg,
     state: &SmashState,
     now: f32,
-) -> Option<ae::Vec2> {
+) -> Option<(ae::Vec2, f32)> {
     let delay = cfg.difficulty.reaction_delay_s;
     let p_now = state.obs_history.delayed(now, delay)?;
     let p_prev = state.obs_history.delayed(now, delay + THREAT_WINDOW_S)?;
     let target_vel = (p_now - p_prev) / THREAT_WINDOW_S;
     let to_me = obs.self_pos - p_now;
     let dist = to_me.length();
-    if dist < 1.0 || dist > cfg.attack_range * 2.2 {
+    // Danger range: react as the opponent steps into ~2.5× poke range (wide enough
+    // to guard an approach, not so wide it flinches at nothing).
+    if dist < 1.0 || dist > cfg.attack_range * 2.5 {
         return None;
     }
     let closing = target_vel.dot(to_me / dist); // +ve = approaching us
-    if closing <= THREAT_CLOSING_SPEED {
+    if closing < cfg.shield_closing_speed {
         return None;
     }
     // Evade UP-and-away, framed against local gravity (I10). The side component
@@ -543,7 +626,10 @@ fn perceived_threat(
     // air-reposition. Under screen-down gravity this is byte-identical to the old
     // `(to_me.x/dist * 0.5, -1)`.
     let side = (to_me.dot(obs.side_axis()) / dist) * 0.5;
-    Some((side * obs.side_axis() + obs.up_axis()).normalize_or_zero())
+    Some((
+        (side * obs.side_axis() + obs.up_axis()).normalize_or_zero(),
+        closing,
+    ))
 }
 
 /// 2D steering for an aerial (free-mover) Smash fighter. Instead of grounded
@@ -646,6 +732,10 @@ fn maybe_apply_footsies(
         return action;
     }
     let phase = state.spacing_phase + seed_phase_offset(state.rng_seed);
+    // Weave in and out on the sine to bait and whiff-punish. The in-half of the
+    // cycle is what keeps a cornered fighter from pinning itself against a wall —
+    // a pure outward retreat would drift the pressured fighter into the corner and
+    // freeze it (the brain has no wall geometry to back away from).
     let desired_gap = cfg.engage_distance + cfg.footsies_amplitude * phase.sin();
     let toward = if obs.to_target_x.abs() < 0.001 {
         obs.self_facing
@@ -681,6 +771,13 @@ fn maybe_neutral_jump(
         || obs.self_attacking
         || !matches!(action, SpecificAction::Walk { .. })
     {
+        return action;
+    }
+    // Only hop within the neutral band — a spacing hop that inherits the weave
+    // direction (often a back-hop), NOT a leap across the stage straight into the
+    // opponent. Beyond the band the actor closes on the ground (walk / dash).
+    let neutral_band = cfg.engage_distance + cfg.footsies_amplitude * 1.5;
+    if obs.distance_to_target > neutral_band {
         return action;
     }
     state.neutral_jump_cooldown = cfg.neutral_jump_cadence_s;
@@ -1157,6 +1254,155 @@ mod tests {
         );
     }
 
+    /// Crisp duelist: a real neutral-game cfg with reaction lag and commit jitter
+    /// stripped, and full defense reactivity, so the post-poke + defense tests are
+    /// deterministic regardless of seed.
+    fn crisp_duelist() -> SmashCfg {
+        SmashCfg {
+            difficulty: DifficultyProfile {
+                reaction_delay_s: 0.0,
+                commit_probability: 1.0,
+                accuracy: 1.0,
+                ..DifficultyProfile::HARD
+            },
+            defense_reactivity: 1.0,
+            ..SmashCfg::DUELIST_DEFAULT
+        }
+    }
+
+    fn melee_actions() -> ActionSet {
+        ActionSet {
+            melee: Some(crate::brain::MeleeActionSpec::Swipe(
+                crate::brain::SwipeSpec::STRIKER_DEFAULT,
+            )),
+            ..ActionSet::peaceful()
+        }
+    }
+
+    /// The keystone neutral-game behavior: after a poke completes, a duelist does
+    /// NOT re-swing point-blank — it arms the reset and backs out toward its outer
+    /// spacing pocket. This is the fix for "they smack into each other and never
+    /// move away."
+    #[test]
+    fn duelist_resets_to_neutral_after_a_poke() {
+        let cfg = crisp_duelist();
+        let mut state = SmashState {
+            rng_seed: 7,
+            ..Default::default()
+        };
+        let actions = melee_actions();
+
+        // Tick 1: mid-swing (active window) at point-blank → the swing latches.
+        let mut swinging = snap_with_target_at_x(20.0);
+        swinging.attack_active_remaining = 0.05;
+        let mut f1 = crate::actor::control::ActorControlFrame::neutral();
+        tick_smash(&cfg, &mut state, &actions, &swinging, None, &mut f1);
+        assert!(state.was_attacking, "the swing should latch was_attacking");
+        assert!(!f1.melee_pressed, "no new swing is committed mid-swing");
+
+        // Suppress the neutral hop so we isolate the ground back-out (a hop would
+        // also be a valid disengage, but we want to pin the spacing direction).
+        state.neutral_jump_cooldown = 1.0;
+
+        // Tick 2: swing done (timers clear) but target still point-blank. The
+        // falling edge arms the reset, and the duelist backs AWAY instead of
+        // re-swinging.
+        let done = snap_with_target_at_x(20.0);
+        let mut f2 = crate::actor::control::ActorControlFrame::neutral();
+        tick_smash(&cfg, &mut state, &actions, &done, None, &mut f2);
+        assert!(
+            state.neutral_reset_timer > 0.0,
+            "the reset window arms on the swing's falling edge"
+        );
+        assert!(
+            !f2.melee_pressed,
+            "a duelist does not immediately re-swing — it resets to neutral first"
+        );
+        assert!(
+            f2.locomotion.x < 0.0,
+            "the duelist backs out of point-blank (target on the right → move left); got {:?}",
+            f2.locomotion
+        );
+    }
+
+    /// A grunt (no poke_reset) is unaffected: it stays in range. Pins that the
+    /// reset is strictly opt-in and doesn't change every melee enemy's feel.
+    #[test]
+    fn grunt_has_no_neutral_reset() {
+        let cfg = SmashCfg::STRIKER_DEFAULT; // poke_reset_s = 0
+        let mut state = SmashState::default();
+        let actions = melee_actions();
+        let mut swinging = snap_with_target_at_x(20.0);
+        swinging.attack_active_remaining = 0.05;
+        let mut f1 = crate::actor::control::ActorControlFrame::neutral();
+        tick_smash(&cfg, &mut state, &actions, &swinging, None, &mut f1);
+        let done = snap_with_target_at_x(20.0);
+        let mut f2 = crate::actor::control::ActorControlFrame::neutral();
+        tick_smash(&cfg, &mut state, &actions, &done, None, &mut f2);
+        assert_eq!(
+            state.neutral_reset_timer, 0.0,
+            "a grunt has no neutral reset window"
+        );
+    }
+
+    /// Run `ticks` with the target closing from the right at `closing_px_s`, and
+    /// report whether the fighter ever blinked / shielded. Drives the real defense
+    /// path (obs_history → perceived_threat → blink/shield split).
+    fn defense_over_approach(cfg: &SmashCfg, closing_px_s: f32, start_x: f32) -> (bool, bool) {
+        let mut state = SmashState {
+            rng_seed: 5,
+            ..Default::default()
+        };
+        let actions = melee_actions();
+        let dt = 1.0 / 60.0;
+        let mut t = 0.0;
+        let mut x = start_x;
+        let (mut blinked, mut shielded) = (false, false);
+        for _ in 0..40 {
+            let mut snap = snap_with_target_at_x(x);
+            snap.sim_time = t;
+            snap.dt = dt;
+            let mut f = crate::actor::control::ActorControlFrame::neutral();
+            tick_smash(cfg, &mut state, &actions, &snap, None, &mut f);
+            blinked |= f.blink_pressed;
+            shielded |= f.shield_held;
+            x -= closing_px_s * dt;
+            t += dt;
+        }
+        (blinked, shielded)
+    }
+
+    /// Layered defense: a fast committed lunge is met with a BLINK; an ordinary
+    /// walk-in is met with a BLOCK. This is the readable defensive game the duel
+    /// was missing.
+    #[test]
+    fn defense_blinks_a_lunge_and_blocks_a_walk_in() {
+        let cfg = crisp_duelist(); // blink ≥ 230, shield ≥ 70
+                                   // A 360 px/s dash-in clears the blink threshold.
+        let (blinked, _) = defense_over_approach(&cfg, 360.0, 130.0);
+        assert!(blinked, "a fast lunge should be blinked");
+        // A 120 px/s walk-in is below the blink threshold but above shield → block.
+        let (lunge_blinked, shielded) = defense_over_approach(&cfg, 120.0, 130.0);
+        assert!(shielded, "an ordinary walk-in should be blocked");
+        assert!(
+            !lunge_blinked,
+            "a mere walk-in should NOT trigger the blink (that's reserved for lunges)"
+        );
+    }
+
+    /// `defense_reactivity = 0` disables reactive defense entirely (grunt parity),
+    /// even under a clear lunge — the imperfect-defense knob bottoms out cleanly.
+    #[test]
+    fn defense_reactivity_zero_never_defends() {
+        let mut cfg = crisp_duelist();
+        cfg.defense_reactivity = 0.0;
+        let (blinked, shielded) = defense_over_approach(&cfg, 360.0, 130.0);
+        assert!(
+            !blinked && !shielded,
+            "reactivity 0 must never blink or shield"
+        );
+    }
+
     #[test]
     fn dead_actor_emits_neutral_frame() {
         let cfg = SmashCfg::STRIKER_DEFAULT;
@@ -1209,7 +1455,8 @@ mod tests {
         state.obs_history.push(now - THREAT_WINDOW_S, far);
         state.obs_history.push(now, near);
 
-        let away = perceived_threat(&obs, &cfg, &state, now).expect("a fast lunge is a threat");
+        let (away, _closing) =
+            perceived_threat(&obs, &cfg, &state, now).expect("a fast lunge is a threat");
         assert!(
             away.dot(obs.up_axis()) > 0.5,
             "evade must climb against gravity (up = -down); got {away:?}"

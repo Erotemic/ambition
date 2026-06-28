@@ -22,7 +22,6 @@
 
 use ambition_app::{AgentAction, SandboxSim, SandboxSimOptions, TimestepMode};
 use ambition_characters::brain::ActorControl;
-use ambition_engine_core as ae;
 use ambition_gameplay_core::actor::{BodyHealth, BodyKinematics};
 use ambition_gameplay_core::features::{FeatureId, DUEL_PCA_ID, DUEL_ROBOT_ID};
 use bevy::prelude::World;
@@ -36,6 +35,8 @@ struct FighterLog {
     jump: u32,
     melee: u32,
     defense: u32, // blink + shield frames (the reactive defensive verbs)
+    blink: u32,   // blink-evade presses (the mobile defensive option)
+    shield: u32,  // reactive-block frames (the stand-ground option)
     min_x: f32,
     max_x: f32,
     max_rise: f32, // peak height gained above spawn (against gravity) — proves hops
@@ -52,6 +53,8 @@ impl Default for FighterLog {
             jump: 0,
             melee: 0,
             defense: 0,
+            blink: 0,
+            shield: 0,
             min_x: f32::MAX,
             max_x: f32::MIN,
             max_rise: 0.0,
@@ -95,6 +98,12 @@ fn observe(world: &mut World, id: &str, log: &mut FighterLog) {
     if f.blink_pressed || f.shield_held {
         log.defense += 1;
     }
+    if f.blink_pressed {
+        log.blink += 1;
+    }
+    if f.shield_held {
+        log.shield += 1;
+    }
     log.min_x = log.min_x.min(kin.pos.x);
     log.max_x = log.max_x.max(kin.pos.x);
     // Authored geometry is y-down, so a smaller y is higher: rise = spawn_y - y.
@@ -126,11 +135,27 @@ fn duel_arena_room_is_a_real_neutral_attack_defense_fight() {
     assert!(pca.present, "PCA auto-spawned on room load");
     assert!(robot.present, "robot auto-spawned on room load");
 
-    // ~12s of sim time — long enough for a full neutral/attack/defense rhythm.
-    for _ in 0..720 {
+    // ~20s of sim time — long enough for a full neutral/attack/defense rhythm to
+    // repeat many times now that the fighters carry real (60 hp) health bars.
+    for _ in 0..1200 {
         sim.step(AgentAction::default());
         observe(sim.world_mut(), DUEL_PCA_ID, &mut pca);
         observe(sim.world_mut(), DUEL_ROBOT_ID, &mut robot);
+    }
+
+    for (who, log) in [("PCA", &pca), ("robot", &robot)] {
+        println!(
+            "{who}: x-range {:.0}px  walk {}  jump {}  melee {}  blink {}  shield {}  rise {:.0}px  hp {}->{}",
+            log.x_range(),
+            log.walk,
+            log.jump,
+            log.melee,
+            log.blink,
+            log.shield,
+            log.max_rise,
+            log.start_hp,
+            log.last_hp,
+        );
     }
 
     for (who, log) in [("PCA", &pca), ("robot", &robot)] {
@@ -169,18 +194,26 @@ fn duel_arena_room_is_a_real_neutral_attack_defense_fight() {
         pca.max_rise.max(robot.max_rise)
     );
 
-    // DEFENSE: the reactive defensive game (blink-evade / reactive shield) fires —
-    // a real fighter doesn't just walk into every swing. Both fighters carry the
-    // kit, so require defense from each.
+    // DEFENSE: the LAYERED reactive game (stand-ground block + mobile blink-evade)
+    // fires — a real fighter doesn't just walk into every swing. Both fighters carry
+    // the full kit, so require the bread-and-butter BLOCK from each…
     assert!(
-        pca.defense >= 1,
-        "PCA should defend (blink/shield) at least once (got {})",
-        pca.defense
+        pca.shield >= 5,
+        "PCA should reactively block the opponent's pressure (got {} frames)",
+        pca.shield
     );
     assert!(
-        robot.defense >= 1,
-        "robot should defend (blink/shield) at least once (got {})",
-        robot.defense
+        robot.shield >= 5,
+        "robot should reactively block the opponent's pressure (got {} frames)",
+        robot.shield
+    );
+    // …and at least one BLINK-evade across the duel (the mobile option, reserved for
+    // a committed lunge — rarer than the block by design).
+    assert!(
+        pca.blink + robot.blink >= 2,
+        "the duel should show blink-evades against committed lunges (PCA {} + robot {})",
+        pca.blink,
+        robot.blink
     );
 
     // RESOLUTION: the duel is decisive, not an endless stalemate — substantial

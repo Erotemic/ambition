@@ -29,7 +29,11 @@ pub fn duel_spawn_requests(center: ae::Vec2) -> [SpawnActorRequest; 2] {
     [
         SpawnActorRequest {
             id: DUEL_PCA_ID.to_string(),
-            name: "Perfect Cell-ular Automaton".to_string(),
+            // Display name MUST match the character-catalog `display_name` — the
+            // sprite sheet AND the authored hitbox metadata both resolve from it
+            // (`character_id_for_display_name`). "Perfect Cellular Automaton" →
+            // the PCA sheet; a mismatch falls back to a generic placeholder.
+            name: "Perfect Cellular Automaton".to_string(),
             pos: center + ae::Vec2::new(-75.0, 0.0),
             half_size: ae::Vec2::new(14.0, 23.0),
             faction: ActorFaction::Enemy,
@@ -41,7 +45,11 @@ pub fn duel_spawn_requests(center: ae::Vec2) -> [SpawnActorRequest; 2] {
         },
         SpawnActorRequest {
             id: DUEL_ROBOT_ID.to_string(),
-            name: "Player Robot".to_string(),
+            // The robot copy of the player uses the player-robot body sheet, which
+            // lives under the catalog's "Player" display_name (player_robot
+            // spritesheet, proportionate scale). Actor display names aren't shown
+            // in-game, so this drives only sprite + hitbox-metadata resolution.
+            name: "Player".to_string(),
             pos: center + ae::Vec2::new(75.0, 0.0),
             half_size: ae::Vec2::new(14.0, 23.0),
             faction: ActorFaction::Boss,

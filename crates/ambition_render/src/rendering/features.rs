@@ -51,6 +51,19 @@ pub fn spawn_dynamic_feature_visuals(
         (&FeatureId, &CenteredAabb, &ChestFeature),
         Or<(With<EncounterRewardChest>, With<BossRewardChest>)>,
     >,
+    // Hostile actors staged imperatively at room load OUTSIDE the authored
+    // `spec.enemy_spawns` (the spectator-duel fighters). They aren't in the static
+    // render pass and aren't encounter mobs, so without this they render
+    // invisibly. `upgrade_enemy_sprites` swaps in the real character sheet next.
+    staged_actors: Query<
+        (
+            &FeatureId,
+            &CenteredAabb,
+            &ActorDisposition,
+            Option<&ambition_gameplay_core::features::ActorConfig>,
+        ),
+        With<ambition_gameplay_core::features::RuntimeStagedActor>,
+    >,
 ) {
     let known: std::collections::HashSet<&str> = existing.iter().map(|v| v.id.as_str()).collect();
     let assets_ref = assets.as_deref();
@@ -77,6 +90,35 @@ pub fn spawn_dynamic_feature_visuals(
             sprite,
             Transform::from_translation(world_to_bevy(&world.0, aabb.center, feature_z(kind))),
             Name::new(format!("Encounter mob: {}", config.name)),
+            FeatureVisual {
+                id: id.as_str().to_string(),
+            },
+            RoomVisual,
+        ));
+    }
+    for (id, aabb, disposition, config) in &staged_actors {
+        if known.contains(id.as_str()) {
+            continue;
+        }
+        // Staged duel fighters are hostile by construction; skip a peaceful one.
+        let (false, Some(config)) = (disposition.is_peaceful(), config) else {
+            continue;
+        };
+        let kind = if config.tuning.is_sandbag {
+            FeatureVisualKind::TrainingDummy
+        } else {
+            FeatureVisualKind::Enemy
+        };
+        let render = BVec2::new(aabb.size().x, aabb.size().y);
+        let entity_key = game_assets::entity_sprite_for_enemy(&config.brain);
+        let sprite = match assets_ref {
+            Some(a) => entity_sprite_or_color(a, entity_key, render, feature_color(kind, false)),
+            None => Sprite::from_color(feature_color(kind, false), render),
+        };
+        commands.spawn((
+            sprite,
+            Transform::from_translation(world_to_bevy(&world.0, aabb.center, feature_z(kind))),
+            Name::new(format!("Staged actor: {}", config.name)),
             FeatureVisual {
                 id: id.as_str().to_string(),
             },

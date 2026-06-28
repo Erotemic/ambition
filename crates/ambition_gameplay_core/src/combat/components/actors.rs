@@ -492,6 +492,18 @@ impl EncounterMob {
     }
 }
 
+/// Marker for hostile actors spawned imperatively at room load OUTSIDE the
+/// authored `RoomSpec` lists (today: the spectator-duel fighters staged by
+/// `features::stage_room_duel`). The authored render pass only spawns visuals for
+/// `spec.enemy_spawns`, and the dynamic pass only for [`EncounterMob`] / reward
+/// chests, so a directly-staged actor would render invisibly. This marker lets
+/// the renderer's runtime-visual discovery give it the same sprite pipeline every
+/// other hostile actor gets — so "spawning a character" always shows the
+/// character. Carries no lifecycle of its own (unlike `EncounterMob`); room-scope
+/// despawn cleans it up.
+#[derive(Component, Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct RuntimeStagedActor;
+
 /// Marker for encounter reward chests spawned after a mob encounter clears.
 #[derive(Component, Clone, Debug, PartialEq, Eq)]
 pub struct EncounterRewardChest {

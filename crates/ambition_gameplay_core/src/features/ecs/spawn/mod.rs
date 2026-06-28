@@ -72,12 +72,19 @@ pub fn spawn_room_feature_entities(commands: &mut Commands, room: &crate::rooms:
                     ambition_engine_core::Aabb::new(req.pos, req.half_size),
                     brain.clone(),
                 );
-                super::spawn_actors::spawn_enemy_with_faction(
+                // Mark the staged fighter so the renderer's runtime-visual
+                // discovery gives it a sprite — it isn't in the authored
+                // `spec.enemy_spawns` the static render pass iterates.
+                if let Some(entity) = super::spawn_actors::spawn_enemy_with_faction(
                     commands,
                     &authored,
                     &[],
                     req.faction,
-                );
+                ) {
+                    commands
+                        .entity(entity)
+                        .insert(crate::features::RuntimeStagedActor);
+                }
             }
         }
     }

@@ -125,7 +125,14 @@ pub fn apply_spawn_actor_requests(
                     aabb,
                     brain.clone(),
                 );
-                spawn_enemy_with_faction(&mut commands, &authored, &[], req.faction);
+                // Runtime spawn (outside the authored RoomSpec lists): mark it so
+                // the renderer's runtime-visual discovery gives it a sprite, the
+                // same as any authored enemy.
+                if let Some(entity) =
+                    spawn_enemy_with_faction(&mut commands, &authored, &[], req.faction)
+                {
+                    commands.entity(entity).insert(super::RuntimeStagedActor);
+                }
             }
         }
     }
@@ -617,23 +624,25 @@ pub(super) fn spawn_enemy(
     authored: &crate::rooms::Authored<ambition_characters::actor::EnemyBrain>,
     paths: &[(String, ambition_characters::actor::KinematicPath)],
 ) {
-    spawn_enemy_with_faction(commands, authored, paths, super::ActorFaction::Enemy);
+    let _ = spawn_enemy_with_faction(commands, authored, paths, super::ActorFaction::Enemy);
 }
 
 /// Like [`spawn_enemy`] but the spawned body takes `faction` (the duel/arena path
 /// puts its two fighters on DIFFERENT factions so they can damage each other under
 /// the physical damage rule). Composite mounts ignore the override (they fan out
-/// their own factions); the duel fighters are solo.
+/// their own factions); the duel fighters are solo. Returns the spawned solo
+/// body's entity so a caller (the duel staging) can attach extra markers; `None`
+/// for the composite mount/rider path (it fans out two of its own entities).
 pub(super) fn spawn_enemy_with_faction(
     commands: &mut Commands,
     authored: &crate::rooms::Authored<ambition_characters::actor::EnemyBrain>,
     paths: &[(String, ambition_characters::actor::KinematicPath)],
     faction: super::ActorFaction,
-) {
+) -> Option<bevy::ecs::entity::Entity> {
     let spec = super::super::enemies::spec_for_brain(&authored.payload);
     if spec.is_composite() {
         super::spawn_mounts::spawn_composite_mount_rider(commands, authored, paths, &spec);
-        return;
+        return None;
     }
     let enemy = super::actor_clusters::ActorClusterSeed::new(
         authored.id.clone(),
@@ -642,17 +651,17 @@ pub(super) fn spawn_enemy_with_faction(
         authored.payload.clone(),
         paths,
     );
-    spawn_solo_enemy(commands, enemy, authored, faction);
+    Some(spawn_solo_enemy(commands, enemy, authored, faction))
 }
 
 /// Single-entity hostile spawn — the common path after composite
-/// mount/rider fan-out has been handled.
+/// mount/rider fan-out has been handled. Returns the spawned body entity.
 pub(super) fn spawn_solo_enemy(
     commands: &mut Commands,
     enemy: super::actor_clusters::ActorClusterSeed,
     authored: &crate::rooms::Authored<ambition_characters::actor::EnemyBrain>,
     faction: super::ActorFaction,
-) {
+) -> bevy::ecs::entity::Entity {
     let feature_aabb = CenteredAabb::from_aabb(authored.aabb);
     EnemyActorSpawnPlan::hostile(
         format!("Feature actor enemy: {}", authored.name),
@@ -662,7 +671,7 @@ pub(super) fn spawn_solo_enemy(
         enemy,
     )
     .with_faction(faction)
-    .spawn(commands);
+    .spawn(commands)
 }
 pub(super) fn spawn_interactable(
     commands: &mut Commands,

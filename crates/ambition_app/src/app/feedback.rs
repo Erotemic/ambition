@@ -5,14 +5,14 @@ use ambition_gameplay_core::audio::SfxMessage;
 use ambition_render::fx::VfxMessage;
 
 /// Bundled `MessageWriter`s for the sim → presentation event channels
-/// the player tick (and the inline `*_phase` helpers it calls) writes
+/// the player tick (and the `player_body_phase` helper it calls) writes
 /// to during the gameplay tick.
 ///
 /// Bundling them in a single `SystemParam` keeps the player tick's
-/// signature under Bevy's 16-`SystemParam` budget. The inline phase
-/// helpers (`player_control_phase`, `player_simulation_phase`) take
-/// `&mut event_writers.sfx` / `&mut event_writers.vfx` via split
-/// borrows and write directly — no intermediate Vec collectors. Other
+/// signature under Bevy's 16-`SystemParam` budget. The phase helper
+/// (`player_body_phase`) takes `&mut event_writers.sfx` /
+/// `&mut event_writers.vfx` via split borrows and writes directly — no
+/// intermediate Vec collectors. Other
 /// channels (`ActorDiedMessage`, `DebrisBurstMessage`,
 /// `RoomTransitionRequested`) are written directly from their own
 /// extracted systems' `MessageWriter` params.
@@ -109,15 +109,4 @@ pub struct ProgressionResources<'w> {
     pub encounters: Res<'w, ambition_gameplay_core::encounter::EncounterRegistry>,
     pub map: Res<'w, ambition_gameplay_core::menu::map::MapMenuState>,
     pub banner: Res<'w, ambition_gameplay_core::features::GameplayBanner>,
-}
-
-/// Local control-flow signal for the player tick's inline `*_phase`
-/// helpers. `Return` means the phase wants the player tick to stop the
-/// frame here; `Continue` means proceed to the next phase. Only used
-/// by the two-clock inline phases that can short-circuit on an
-/// engine-driven reset.
-#[must_use]
-pub(super) enum PhaseOutcome {
-    Continue,
-    Return,
 }

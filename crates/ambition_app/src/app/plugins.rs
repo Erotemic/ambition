@@ -16,19 +16,19 @@ use ambition_gameplay_core::game_mode::{gameplay_allowed, gameplay_suspended};
 use ambition_gameplay_core::inventory_ui;
 use ambition_gameplay_core::ldtk_world;
 use ambition_gameplay_core::rooms;
-use ambition_gameplay_core::schedule::{
-    attach_player_input_components, configure_sandbox_sets,
-    toggle_player_trail_emission_from_actions, SandboxSet,
-};
 #[cfg(feature = "input")]
 use ambition_gameplay_core::schedule::{
     apply_menu_frame_to_cutscene_request, populate_control_frame_from_actions,
     populate_menu_control_frame_from_actions,
 };
+use ambition_gameplay_core::schedule::{
+    attach_player_input_components, configure_sandbox_sets,
+    toggle_player_trail_emission_from_actions, SandboxSet,
+};
 use ambition_gameplay_core::time::feel::SandboxFeelTuning;
+use ambition_gameplay_core::world::physics;
 #[cfg(feature = "physics_debris")]
 use ambition_gameplay_core::world::physics::physics_spawn_debris_messages;
-use ambition_gameplay_core::world::physics;
 use ambition_input::MenuControlFrame;
 #[cfg(feature = "input")]
 use ambition_input::{MenuInputState, PlayerDashTriggerState, SandboxAction};
@@ -41,10 +41,7 @@ use crate::host::windowing;
 
 use super::dev_runtime::{handle_debug_hotkeys, handle_ldtk_hot_reload, sync_preset_input_map};
 use super::hud::{update_hud, update_quest_panel};
-use super::player_tick::{
-    advance_moving_platforms, clear_sandbox_reset_this_frame, player_control_system,
-    player_simulation_system,
-};
+use super::player_tick::{advance_moving_platforms, player_body_tick};
 use super::resources::init_sandbox_resources;
 use super::setup_systems::{setup_presentation_system, setup_simulation_system};
 use super::sim_systems::{
@@ -187,7 +184,7 @@ fn wire_portal_schedule(app: &mut App) {
         Update,
         PortalSet::TransitGuards
             .in_set(SandboxSet::PlayerSimulation)
-            .before(crate::app::player_simulation_system)
+            .before(crate::app::player_body_tick)
             .run_if(ambition_gameplay_core::gameplay_allowed),
     );
 
@@ -198,7 +195,7 @@ fn wire_portal_schedule(app: &mut App) {
         Update,
         PortalSet::Transit
             .in_set(SandboxSet::PlayerSimulation)
-            .after(crate::app::player_simulation_system)
+            .after(crate::app::player_body_tick)
             .after(ambition_gameplay_core::items::pickup::ItemPickupSet::CoreHeldItems)
             .run_if(ambition_gameplay_core::gameplay_allowed),
     );
@@ -313,7 +310,6 @@ fn register_player_input_systems(app: &mut App) {
 /// then drain damage. Simulation short-circuits when control already reset
 /// the player so same-frame respawns are not clobbered.
 fn register_player_simulation_systems(app: &mut App) {
-    app.init_resource::<crate::app::SandboxResetThisFrame>();
     // Brain-driven player clone (press K): a `PlayerEntity` body driven by a
     // PlayerDemo brain through the SAME shared player systems as the human player.
     // Spawn lands in `WorldPrep` (the earliest set) so the new body exists before
@@ -355,7 +351,6 @@ fn register_player_simulation_systems(app: &mut App) {
     app.add_systems(
         Update,
         (
-            clear_sandbox_reset_this_frame,
             // Possession: Down+Interact takes over a nearby actor. The trigger +
             // input sync run before the player tick so the possessed actor reads
             // fresh input; the player's own control is gated OFF while possessing
@@ -364,15 +359,17 @@ fn register_player_simulation_systems(app: &mut App) {
                 .run_if(gameplay_allowed),
             ambition_gameplay_core::abilities::traversal::possession::release_possession_if_target_lost,
             ambition_gameplay_core::abilities::traversal::possession::sync_possession_input,
-            player_control_system
+            // Advance the world's moving platforms once, BEFORE the body tick, so
+            // every body (player + actors) reads this frame's platform positions —
+            // the same ordering the actor ticks already see.
+            advance_moving_platforms.run_if(gameplay_allowed),
+            // THE unified player body tick: control + simulation in one combined
+            // engine call (the actor's body entry), the two-clock split carried by
+            // `InputState::control_dt`. Replaced the former control/simulation
+            // two-system split + its `SandboxResetThisFrame` flag.
+            player_body_tick
                 .run_if(gameplay_allowed)
                 .run_if(ambition_gameplay_core::abilities::traversal::possession::not_possessing),
-            // Advance the world's moving platforms once, after the control phase and
-            // before the simulation phase (the order they were advanced in when the
-            // advance lived inside `player_simulation_system`), so every body rides
-            // this frame's platform positions.
-            advance_moving_platforms.run_if(gameplay_allowed),
-            player_simulation_system.run_if(gameplay_allowed),
             ambition_gameplay_core::combat::damage::apply_player_hit_events
                 .run_if(gameplay_allowed),
         )
@@ -388,8 +385,7 @@ fn register_room_transition_systems(app: &mut App) {
     app.add_systems(
         Update,
         (
-            ambition_gameplay_core::rooms::detect_room_transition_system
-                .run_if(gameplay_allowed),
+            ambition_gameplay_core::rooms::detect_room_transition_system.run_if(gameplay_allowed),
             ensure_requested_room_parallax_system,
             apply_room_transition_system,
             // One reset over the unified actor cluster (NPCs + enemies).
@@ -907,8 +903,7 @@ pub(super) fn add_input_plugins(app: &mut App) {
         // mobile_input plugin flips it to `Touch` itself.
         .add_systems(
             Update,
-            ambition_input::update_active_input_kind
-                .in_set(ambition_input::InputSet::Populate),
+            ambition_input::update_active_input_kind.in_set(ambition_input::InputSet::Populate),
         )
         .add_systems(
             Startup,
@@ -935,8 +930,7 @@ pub(super) fn add_input_plugins(app: &mut App) {
             Update,
             (
                 populate_menu_control_frame_from_actions,
-                populate_control_frame_from_actions
-                    .in_set(ambition_input::InputSet::Populate),
+                populate_control_frame_from_actions.in_set(ambition_input::InputSet::Populate),
                 toggle_player_trail_emission_from_actions,
                 apply_menu_frame_to_cutscene_request,
                 dialog::dialog_pointer_input,

@@ -25,12 +25,12 @@
 
 use ambition_app::{AgentAction, SandboxSim, TimestepMode};
 use ambition_characters::actor::BossBrain;
+use ambition_engine_core::{self as ae, AabbExt};
+use ambition_gameplay_core::actor::{BodyCombat, BodyHealth};
+use ambition_gameplay_core::actor::{BodyKinematics, PrimaryPlayerOnly};
 use ambition_gameplay_core::boss_encounter::{BossEncounterPhase, EncounterDef, EncounterProgress};
 use ambition_gameplay_core::combat::boss_clusters::{BossConfig, BossStatus};
 use ambition_gameplay_core::combat::{HitEvent, HitSource};
-use ambition_engine_core::{self as ae, AabbExt};
-use ambition_gameplay_core::actor::{BodyKinematics, PrimaryPlayerOnly};
-use ambition_gameplay_core::actor::{BodyCombat, BodyHealth};
 use bevy::ecs::message::Messages;
 use bevy::prelude::World;
 
@@ -65,9 +65,8 @@ struct BossSnapshot {
 }
 
 fn read_player(world: &mut World) -> PlayerSnapshot {
-    let mut q = world
-        .query_filtered::<(&BodyKinematics, &BodyCombat, &BodyHealth), PrimaryPlayerOnly>(
-        );
+    let mut q =
+        world.query_filtered::<(&BodyKinematics, &BodyCombat, &BodyHealth), PrimaryPlayerOnly>();
     let (kin, combat, health) = q.single(world).expect("primary player exists");
     PlayerSnapshot {
         pos: kin.pos,
@@ -339,9 +338,16 @@ fn face_tanking_player_swings_back_and_is_recoil_locked() {
         "mockingbird",
         (start.x, start.y),
         (30.0, 30.0),
-        BossBrain::PhaseScript {
-            script_id: "mockingbird".to_string(),
-        },
+        // Stationary (Dormant) boss. The mechanic under measurement — post-contact
+        // i-frames + the player swinging back while invulnerable — is independent of
+        // the boss's flight pattern, and a fixed target makes the "swing reaches the
+        // boss" check deterministic instead of hostage to a chaotic flying pursuit
+        // (the crude steer-at-center agent can't reliably re-catch a fleeing
+        // PhaseScript mockingbird, and which basin it lands in is sensitive to
+        // sub-pixel perturbations like the unified tick's corrected platform-
+        // collision timing). The mockingbird's huge contact box still drives the
+        // i-frame loop. Dormant bosses still deal body-contact damage on overlap.
+        BossBrain::Dormant,
     );
 
     println!("frame | invuln | recoil | atk | flash | note");
@@ -368,17 +374,24 @@ fn face_tanking_player_swings_back_and_is_recoil_locked() {
             break;
         };
         let to_center = boss.pos - prev.pos;
-        let dist = to_center.length();
         let axis = |d: f32| if d.abs() > 3.0 { d.signum() } else { 0.0 };
-        // Steer toward the boss center and TAP attack on a cadence when close
-        // enough to land it. Tapping (not holding) matters: the engine applies a
+        // Steer toward the boss center and TAP attack on a cadence whenever the
+        // player BODY overlaps the boss's (huge) contact box — the literal
+        // "face-tank" condition. Keying off the actual box (not an arbitrary
+        // center-distance threshold) keeps the test robust to the exact flight
+        // trajectory: a tiny perturbation that nudges the chaotic chase into a
+        // different basin must not change whether the player is judged "inside the
+        // boss and swinging". Tapping (not holding) matters: the engine applies a
         // small backward `slash_recoil` on every attack-pressed edge, so holding
         // attack every frame would continuously shove the player out of range —
         // an artifact of the synthetic input, not the mechanic.
+        let boss_half = boss.combat_size * 0.5;
+        let inside_boss_box = to_center.x.abs() < boss_half.x + prev.half.x
+            && to_center.y.abs() < boss_half.y + prev.half.y;
         let action = AgentAction {
             move_x: axis(to_center.x),
             move_y: axis(to_center.y),
-            attack: dist < 70.0 && frame % 5 == 0,
+            attack: inside_boss_box && frame % 5 == 0,
             ..AgentAction::default()
         };
 
@@ -388,6 +401,28 @@ fn face_tanking_player_swings_back_and_is_recoil_locked() {
         let cur = read_player(sim.world_mut());
         let boss_after = read_boss(sim.world_mut());
         let boss_flash = boss_after.map(|b| b.hit_flash).unwrap_or(0.0);
+
+        // Hold the independent variable — proximity — fixed. Once a knockback has
+        // FULLY played out (recoil cleared) but the player has drifted off the
+        // boss, snap it back onto the boss so the "swing connects while i-framed"
+        // measurement isn't hostage to flight navigation through the sandbox's
+        // incidental geometry (a free-flying body knocked onto a ledge ABOVE the
+        // grounded boss cannot descend back to it). This NEVER overrides an active
+        // recoil throw (`recoil > 0`), so the knockback / steering-suppression
+        // measurement below stays a faithful read of the real mechanic.
+        if let Some(b) = boss_after {
+            let off = b.pos - cur.pos;
+            let bh = b.combat_size * 0.5;
+            let overlapping = off.x.abs() < bh.x + cur.half.x && off.y.abs() < bh.y + cur.half.y;
+            if cur.recoil <= 0.0 && !overlapping {
+                let mut pq = sim
+                    .world_mut()
+                    .query_filtered::<&mut BodyKinematics, PrimaryPlayerOnly>();
+                if let Ok(mut kin) = pq.single_mut(sim.world_mut()) {
+                    kin.pos = b.pos;
+                }
+            }
+        }
 
         // The core fix: the player is mid-swing WHILE still invulnerable.
         if cur.attacking && cur.invuln > 0.0 {

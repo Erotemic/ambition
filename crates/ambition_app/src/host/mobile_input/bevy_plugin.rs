@@ -15,8 +15,8 @@ use super::layout::{
 use super::menu_bridge::{fold_to_control_frame, fold_to_menu_control_frame};
 use super::state::TouchInputState;
 use ambition_input::{ControlFrame, KeyboardPreset, MenuInputState, SandboxAction};
-use ambition_ui_nav::DragScrollState;
 use ambition_render::ui_fonts::{UiFontWeight, UiFonts};
+use ambition_ui_nav::DragScrollState;
 
 /// Global z-band for the on-screen touch HUD (joystick + action /
 /// menu buttons + bezel).
@@ -193,7 +193,7 @@ impl Plugin for TouchControlsPlugin {
                         // happened to work only because `held` and
                         // `released` persist across frames in the
                         // touch state, masking the ordering bug.
-                        .before(crate::app::player_control_system)
+                        .before(crate::app::player_body_tick)
                         // ALSO run before the unified menu's nav consumers so
                         // the touch Start press is in ControlFrame before the
                         // menu open-routing / nav reads it. The fold runs after
@@ -384,7 +384,9 @@ fn position_frame_axis_glyphs(
     let gdir = ambition_gameplay_core::physics::gravity_dir_or_default(gravity.as_deref());
     let mode = user_settings
         .as_deref()
-        .map_or(InputFrameMode::DEFAULT_MOVEMENT, |s| s.gameplay.movement_frame_mode);
+        .map_or(InputFrameMode::DEFAULT_MOVEMENT, |s| {
+            s.gameplay.movement_frame_mode
+        });
     let frame = AccelerationFrame::new(gdir);
     let layout = movement_joystick_layout();
     let center = layout.base_size * 0.5;

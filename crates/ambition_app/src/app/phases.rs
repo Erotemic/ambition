@@ -8,7 +8,6 @@ use ambition_gameplay_core::player::handle_player_events;
 use ambition_gameplay_core::time::feel::SandboxFeelTuning;
 use ambition_render::fx::VfxMessage;
 
-use super::feedback::PhaseOutcome;
 use super::world_flow::{reset_sandbox, sandbox_dt};
 
 /// How a ledge-grabbing player should react to the moving platform that carries
@@ -44,125 +43,35 @@ pub(super) fn ledge_platform_carry(
     }
 }
 
-/// Phase 4 — control-clock half of the two-clock player update.
+/// The unified player body tick — control phase **and** simulation phase in ONE
+/// combined engine call (`ae::update_player_with_tuning_clusters`), the exact
+/// shape the actor path uses (`ActorMut::integrate_body` →
+/// `update_body_with_tuning_clusters`). The player and a brain-driven actor now
+/// run the SAME body-tick entry; the only difference is the input frame.
 ///
-/// Owns: hitstun-filtered control snapshot, real-time `frame_dt`
-/// `update_player_control_with_clusters` call, pogo-bounce → feature-event
-/// routing, `handle_player_events` for the control-clock pass.
+/// THE TWO-CLOCK SPLIT IS AN INPUT AFFORDANCE, NOT A SIMULATION STRUCTURE.
+/// Precision-blink bullet-time keeps the player's aim responsive while the world
+/// slows. That used to be two separate Bevy systems (control@real-dt then
+/// sim@scaled-dt). It is now carried entirely by `InputState::control_dt`: the
+/// human sets `control_dt = real frame_dt` (so the engine runs the control phase
+/// at real time and the simulation phase at `sim_dt`), while a brain leaves
+/// `control_dt = 0` and runs everything at sim time — it needs no think-time to
+/// aim. Same body, same engine entry; the affordance lives in the input.
 ///
-/// Should not own: gravity/platform/AI ticks (those run on `sim_dt` in
-/// `player_simulation_phase`). New responsive-input mechanics that need
-/// real time (jump buffers, blink aim, dash chains) belong here. Returns
-/// `Return` if the engine asked for a sandbox reset.
-pub(super) fn player_control_phase(
-    // Vestigial since the engine `pogo_hits` path was removed (orb damage now
-    // flows from the sandbox attack pogo). Kept on the signature for now.
-    _player_entity: bevy::prelude::Entity,
+/// `ActorControl` is the single source of truth for player input — the player
+/// brain translates every verb the simulation consumes (movement, jump, dash,
+/// attack, interact, shield, pogo, blink, fly_toggle, fast_fall,
+/// projectile-charge, aim). The hitstun gate applies inside
+/// `engine_input_from_actor_control`.
+///
+/// Returns `Return` if the engine asked for a sandbox reset (drown / hazard /
+/// out-of-bounds / death). The non-primary player clone runs the same core but
+/// never triggers the world-global reset / camera shake — those are primary-only.
+#[allow(clippy::too_many_arguments)]
+pub(super) fn player_body_phase(
     actor_control: ambition_characters::actor::control::ActorControlFrame,
     world: &ae::World,
     clusters: &mut ae::BodyClustersMut<'_>,
-    sim_state: &mut ambition_gameplay_core::SandboxSimState,
-    clock: &mut ambition_gameplay_core::time::clock_state::ClockState,
-    safety: &mut ambition_gameplay_core::player::PlayerSafetyState,
-    moving_platforms: &[ambition_gameplay_core::world::platforms::MovingPlatformState],
-    attack: &mut Option<ambition_gameplay_core::MeleeSwing>,
-    sfx_writer: &mut MessageWriter<SfxMessage>,
-    vfx_writer: &mut MessageWriter<VfxMessage>,
-    tuning: ae::MovementTuning,
-    feel: SandboxFeelTuning,
-    frame_dt: f32,
-    feature_ecs_overlay: &features::FeatureEcsWorldOverlay,
-    reset_room_features: &mut MessageWriter<features::ResetRoomFeaturesEvent>,
-    _hit_events: &mut MessageWriter<features::HitEvent>,
-    anim: &mut ambition_gameplay_core::player::PlayerAnimState,
-    combat: &mut ambition_gameplay_core::actor::BodyCombat,
-    interaction: &mut ambition_gameplay_core::player::PlayerInteractionState,
-    blink_cam: &mut ambition_gameplay_core::player::PlayerBlinkCameraState,
-    // True only for the camera/HUD-owning primary player. A brain-driven clone (or
-    // any other player-bodied entity) runs the SAME per-entity movement core but must
-    // NOT trigger the world-global sandbox reset — that is the primary's concern.
-    is_primary: bool,
-) -> PhaseOutcome {
-    // Two-clock update:
-    // - control_dt is real time for responsive inputs and precision-blink aim;
-    // - sim_dt is scaled game time for gravity, platforms, enemies, particles.
-    //
-    // Per the actor/brain migration, `ActorControl` is the single
-    // source of truth for player input. The player brain translates
-    // every `ControlFrame` verb the simulation needs (movement, jump,
-    // dash, attack, interact, shield, pogo, blink, fly_toggle,
-    // fast_fall, projectile-charge, aim) so this phase never reads
-    // raw input. Hitstun gate applies inside the helper.
-    let input = engine_input_from_actor_control(
-        actor_control,
-        feel,
-        combat.hitstun_timer,
-        combat.recoil_lock_timer,
-        frame_dt,
-    );
-    let control_world =
-        features::world_with_sandbox_solids(world, moving_platforms, feature_ecs_overlay);
-    let control_events =
-        ae::update_player_control_with_clusters(&control_world, clusters, input, frame_dt, tuning);
-    if control_events.reset && is_primary {
-        reset_sandbox(
-            world,
-            sfx_writer,
-            vfx_writer,
-            clusters,
-            sim_state,
-            clock,
-            safety,
-            attack,
-            anim,
-            combat,
-            interaction,
-            blink_cam,
-            tuning,
-            feel,
-        );
-        reset_room_features.write(features::ResetRoomFeaturesEvent {
-            reason: features::RoomResetReason::PlayerDeath,
-        });
-        return PhaseOutcome::Return;
-    }
-    // (Breakable pogo-orb damage now flows solely from the sandbox attack pogo
-    // (`advance_attack` → `PogoBounce` HitEvent); the engine `pogo_hits` path was
-    // a redundant duplicate and was removed.)
-    handle_player_events(
-        sfx_writer,
-        vfx_writer,
-        clusters,
-        combat,
-        blink_cam,
-        anim,
-        control_events,
-        None,
-    );
-    PhaseOutcome::Continue
-}
-
-/// Phase 5 — sim-clock half of the two-clock player update.
-///
-/// Owns: scaled `sim_dt`, moving-platform tick + ride-along,
-/// sandbox-side solid rebuild, `update_player_simulation_with_clusters`,
-/// landing-dust feedback through `handle_player_events`.
-///
-/// Should not own: feature-runtime ticks or interact-buffering. New
-/// game-time-affected motion (gravity tweaks, platform AI, knockback
-/// resolution) belongs here. Returns `Return` if simulation asked for a
-/// sandbox reset.
-///
-/// Time-scale authority moved out of this phase in ADR 0010 step 4
-/// — see `ambition_gameplay_core::time::time_control::{emit_player_time_intent_system,
-/// apply_clock_scale_requests, smooth_sim_clock_toward_target_system}`.
-/// This phase observes the smoothed `sim_state.time_scale` set by
-/// the PlayerInput pipeline.
-pub(super) fn player_simulation_phase(
-    actor_control: ambition_characters::actor::control::ActorControlFrame,
-    world: &ae::World,
-    clusters: &mut ae::BodyClustersMut<'_>,
-    dev_state: &ambition_gameplay_core::SandboxDevState,
     sim_state: &mut ambition_gameplay_core::SandboxSimState,
     clock: &mut ambition_gameplay_core::time::clock_state::ClockState,
     safety: &mut ambition_gameplay_core::player::PlayerSafetyState,
@@ -180,30 +89,33 @@ pub(super) fn player_simulation_phase(
     combat: &mut ambition_gameplay_core::actor::BodyCombat,
     interaction: &mut ambition_gameplay_core::player::PlayerInteractionState,
     blink_cam: &mut ambition_gameplay_core::player::PlayerBlinkCameraState,
-    // True only for the camera/HUD-owning primary. Non-primary player bodies (the
-    // clone) run the same per-entity sim but must not shake the camera or reset the
-    // world — those are primary-only.
     is_primary: bool,
-) -> PhaseOutcome {
+) {
+    // ONE input frame. `control_dt = frame_dt` (real time) IS the precision-blink
+    // affordance: the combined entry below runs the control phase at this rate and
+    // the simulation phase at the scaled `sim_dt`. `sim_state.time_scale` /
+    // `clock.time_scale` were set this frame by the time-control pipeline in
+    // SandboxSet::PlayerInput (emit → apply → smooth). The hitstun gate applies
+    // inside the helper.
     let input = engine_input_from_actor_control(
         actor_control,
         feel,
-        combat.hitstop_timer,
+        combat.hitstun_timer,
         combat.recoil_lock_timer,
         frame_dt,
     );
-
-    // sim_state.time_scale was set this frame by the time-control
-    // pipeline in SandboxSet::PlayerInput (emit → apply → smooth).
-    // The local `dev_state` reference + `feel` parameter are kept so
-    // tests + tuning hooks still compile, even though the smoothing
-    // is no longer driven from here.
-    let _ = dev_state; // intentional: the dev slowmo intent is consumed by the time-control pipeline.
     let sim_dt = sandbox_dt(combat.hitstop_timer, clock.time_scale, frame_dt);
 
+    // Pre-sim LEDGE-platform carry. Platforms are advanced once (by
+    // `advance_moving_platforms`) ahead of this whole tick, so we read this frame's
+    // delta. Standing-on-platform RIDING is EMERGENT in the movement sweep
+    // (`integrate_velocity_clusters` carries any grounded body by its support's
+    // velocity — the same rule enemies ride by), so there is no player-specific ride
+    // code. What stays player-specific is the LEDGE carry: hanging off a moving
+    // platform's edge (only the player ledge-grabs) leaves the body un-grounded, so
+    // the sweep carry can't apply.
     let player_aabb_pre = clusters.kinematics.aabb();
     let player_size_pre = clusters.kinematics.size;
-    let on_ground_pre = clusters.ground.on_ground;
     let active_ledge_platform = clusters.ledge.grab.and_then(|grab| {
         moving_platforms.iter().position(|platform| {
             platform.matches_ledge_contact_in_frame(
@@ -213,18 +125,9 @@ pub(super) fn player_simulation_phase(
             )
         })
     });
-    // Standing-on-platform RIDING is no longer here — it is EMERGENT in the movement
-    // sweep (`integrate_velocity_clusters` carries any grounded body by the supporting
-    // solid's velocity, the same rule `step_kinematic` applies to enemies), so the
-    // player rides like every other body, with no player-specific ride code. What
-    // stays is the LEDGE-platform carry: hanging off a moving platform's edge is
-    // player-specific (only the player ledge-grabs) AND the body isn't grounded
-    // then, so the sweep carry can't apply.
-    let _ = on_ground_pre;
     if let Some(platform_delta) =
         active_ledge_platform.map(|idx| moving_platforms[idx].last_delta())
     {
-        // Ledge grabs can latch to the temporary moving-platform collision block.
         match ledge_platform_carry(world, player_aabb_pre, platform_delta) {
             // #126: the platform is about to carry the hanging player INTO a wall.
             // Don't ride into it (that clips through) — knock off the ledge and fall.
@@ -242,21 +145,22 @@ pub(super) fn player_simulation_phase(
             }
         }
     }
+
     let collision_world =
         features::world_with_sandbox_solids(world, moving_platforms, feature_ecs_overlay);
-
     let was_grounded = clusters.ground.on_ground;
     let pre_sim_vy = clusters.kinematics.vel.y;
-    let sim_events = ae::update_player_simulation_with_clusters(
-        &collision_world,
-        clusters,
-        input,
-        sim_dt,
-        tuning,
-    );
-    // Hard-fall screen shake: pure trigger function in
-    // `time::camera_ease`. Avoids tiny hops, saturates above
-    // terminal velocity via the `kick()` cap.
+
+    // THE single combined body tick: control phase (at `input.control_dt`, the real
+    // clock) then simulation phase (at `sim_dt`, the scaled clock) — the same entry
+    // the actor body uses, plus the player respawn POLICY below.
+    let events =
+        ae::update_player_with_tuning_clusters(&collision_world, clusters, input, sim_dt, tuning);
+
+    // Hard-fall screen shake: pure trigger in `time::camera_ease`. Avoids tiny hops,
+    // saturates above terminal velocity via `kick()`'s cap. `pre_sim_vy` is the
+    // velocity entering the combined tick (the control phase rarely changes a
+    // falling body's descent, so the landing read is unchanged in practice).
     let shake_amplitude = ambition_gameplay_core::time::camera_ease::hard_fall_shake_amplitude(
         was_grounded,
         clusters.ground.on_ground,
@@ -269,7 +173,10 @@ pub(super) fn player_simulation_phase(
             pos: clusters.kinematics.pos,
         });
     }
-    if sim_events.reset && is_primary {
+    // Player respawn POLICY — the one thing the actor path does NOT do (an actor
+    // owns its own hazard reaction; it never teleports to the player spawn). A
+    // flagged reset from either the control or simulation half lands here.
+    if events.reset && is_primary {
         reset_sandbox(
             world,
             sfx_writer,
@@ -289,7 +196,7 @@ pub(super) fn player_simulation_phase(
         reset_room_features.write(features::ResetRoomFeaturesEvent {
             reason: features::RoomResetReason::PlayerDeath,
         });
-        return PhaseOutcome::Return;
+        return;
     }
     handle_player_events(
         sfx_writer,
@@ -298,10 +205,9 @@ pub(super) fn player_simulation_phase(
         combat,
         blink_cam,
         anim,
-        sim_events,
+        events,
         Some(was_grounded),
     );
-    PhaseOutcome::Continue
 }
 
 #[cfg(test)]

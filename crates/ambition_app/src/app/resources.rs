@@ -2,7 +2,6 @@ use bevy::prelude::*;
 use bevy_ecs_ldtk::prelude::{IntGridRendering, LdtkSettings, LevelBackground};
 
 use ambition_content::content_validation;
-use ambition_gameplay_core::RoomGeometry;
 use ambition_gameplay_core::dev::dev_tools::{
     DeveloperTools, EditableAbilitySet, EditableMovementTuning, EditablePlayerStats,
 };
@@ -11,6 +10,7 @@ use ambition_gameplay_core::rooms;
 use ambition_gameplay_core::session::data;
 use ambition_gameplay_core::time::feel::SandboxFeelTuning;
 use ambition_gameplay_core::world::physics;
+use ambition_gameplay_core::RoomGeometry;
 use ambition_input::ControlFrame;
 
 use super::cli::cli_start_room_arg;
@@ -22,20 +22,6 @@ use super::cli::cli_start_room_arg;
 /// `std::env::args` to pin a starting room.
 #[derive(Resource, Clone, Debug)]
 pub struct StartRoomOverride(pub String);
-
-/// Per-frame flag set by `player_control_system` when an engine-
-/// driven reset fired (control or simulation phase asked for one).
-/// `player_simulation_system` reads it; when set, the simulation
-/// phase short-circuits this frame so the reset's state changes
-/// don't get clobbered by a same-frame sim integration.
-///
-/// Cleared at the start of each frame by
-/// `clear_sandbox_reset_this_frame` in the PlayerInput set.
-///
-/// Replaces the early-return short-circuit that the deleted
-/// `sandbox_update` orchestrator used to express via control flow.
-#[derive(Resource, Clone, Copy, Debug, Default)]
-pub struct SandboxResetThisFrame(pub bool);
 
 #[cfg(test)]
 fn sandbox_init_failed() -> ! {

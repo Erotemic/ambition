@@ -12,6 +12,7 @@ repo_root="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 python_bin="${PYTHON:-python}"
 
 release=0
+clean_coverage=0
 coverage=0
 hot_reload=0
 validate_before_run=0
@@ -63,6 +64,7 @@ Common commands:
 Options and mode aliases:
   -h, --help              Show this help.
   -r, --release, release  Use cargo --release.
+  --cov, coverage         Run through cargo llvm-cov run --no-report.
   --debug, debug, dev     Force dev/debug cargo profile.
   --hot-reload, --hot,
   hot, hot-reload         Enable the dev_hot_reload feature.
@@ -157,6 +159,9 @@ while [[ $# -gt 0 ]]; do
         --cov|coverage)
             coverage=1
             ;;
+        --clean-cov|clean-coverage)
+            clean_coverage=1
+            ;;
         --hot|--hot-reload|--dev-hot-reload|hot|hot-reload|dev-hot-reload)
             hot_reload=1
             ;;
@@ -226,13 +231,20 @@ if [[ "$validate_only" -eq 1 ]]; then
     exit 0
 fi
 
+if [[ "$clean_coverage" -eq 1 ]]; then
+    cd "$repo_root"
+    cargo llvm-cov clean --workspace
+fi
+
 cargo_args=()
 
 if [[ "$coverage" -eq 1 ]]; then
-    cargo_args+=(llvm-cov)
+    cargo_args+=(llvm-cov run --no-report)
+else
+    cargo_args+=(run)
 fi
 
-cargo_args+=(run -p ambition_app --bin ambition_game_bin)
+cargo_args+=(-p ambition_app --bin ambition_game_bin)
 
 if [[ "$no_default_features" -eq 1 ]]; then
     cargo_args+=(--no-default-features)

@@ -143,10 +143,16 @@ impl bevy::prelude::Plugin for PlayerVisualSchedulePlugin {
         {
             use ambition_portal_presentation::{PortalPresentationPlugin, PortalPresentationSet};
             app.add_plugins(PortalPresentationPlugin::default());
-            // Portal visuals run after the character sync — the partial-transit
-            // pieces ("feet in, feet out") override the player's visibility
-            // while crossing, so they must see this frame's mirrored sprite.
-            app.configure_sets(Update, PortalPresentationSet.after(actors::sync_visuals));
+            // Portal body-copy visuals must run after the player animator, not
+            // only after `sync_visuals`: trimmed sprites can update
+            // `Sprite::custom_size` and `Anchor` during animation, and the
+            // portal exit copy must clone that final per-frame render basis.
+            app.configure_sets(
+                Update,
+                PortalPresentationSet
+                    .after(actors::animate_player)
+                    .after(camera::camera_follow),
+            );
             app.add_systems(Startup, ambition_gameplay_core::portal::load_portal_gun_art)
                 .add_systems(
                     Update,
@@ -155,6 +161,9 @@ impl bevy::prelude::Plugin for PlayerVisualSchedulePlugin {
                             .before(PortalPresentationSet),
                         ambition_gameplay_core::portal::sync_portal_viewer
                             .before(PortalPresentationSet),
+                        ambition_gameplay_core::portal::sync_portal_camera_continuity_focus
+                            .before(PortalPresentationSet)
+                            .before(ambition_gameplay_core::portal::apply_portal_camera_continuity),
                         ambition_gameplay_core::portal::sync_portal_debug_overlay_to_f1
                             .before(PortalPresentationSet),
                         ambition_gameplay_core::portal::tag_portal_scene_bodies

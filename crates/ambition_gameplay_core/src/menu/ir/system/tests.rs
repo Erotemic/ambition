@@ -259,7 +259,7 @@ fn system_screens_surface_every_player_facing_setting() {
 }
 
 #[test]
-fn developer_screen_surfaces_the_three_extra_resource_toggles() {
+fn developer_screen_surfaces_resource_backed_extra_toggles() {
     // The F1/F2/F12 rows (sourced from SandboxDevState / LdtkHotReloadState, not
     // DeveloperTools) are now part of the Developer screen vocabulary.
     for id in [
@@ -273,11 +273,18 @@ fn developer_screen_surfaces_the_three_extra_resource_toggles() {
         );
         assert!(!id.is_cycle(), "{id:?} is a toggle, not a cycle");
     }
-    // Gravity (sourced from BaseGravity) is a CYCLE surfaced on the Developer
-    // screen — the in-menu equivalent of the `\` hotkey, for mobile testing.
-    assert!(DevToggleId::ALL.contains(&DevToggleId::Gravity));
-    assert!(DevToggleId::Gravity.is_cycle());
-    assert_eq!(DevToggleId::ALL.len(), 21);
+    // Resource-backed cycles surfaced on the Developer screen. These are not
+    // mirrored into `DeveloperTools`; each owning resource remains the single
+    // source of truth for its default/current value.
+    for id in [
+        DevToggleId::PortalEffect,
+        DevToggleId::PortalCamera,
+        DevToggleId::Gravity,
+    ] {
+        assert!(DevToggleId::ALL.contains(&id));
+        assert!(id.is_cycle(), "{id:?} is a cycle");
+    }
+    assert_eq!(DevToggleId::ALL.len(), 22);
 }
 
 #[test]

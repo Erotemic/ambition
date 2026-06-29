@@ -373,6 +373,8 @@ pub(crate) struct SystemMenuParams<'w> {
     // no-ops and reads "n/a".
     #[cfg(feature = "portal_render")]
     portal_effect: Option<ResMut<'w, ambition_gameplay_core::portal::PortalEffectSelection>>,
+    #[cfg(feature = "portal_render")]
+    portal_camera: Option<ResMut<'w, ambition_gameplay_core::portal::PortalCameraContinuitySelection>>,
     // The Gravity cycle's target (ambient gravity). Option so the System nav stays
     // B0002-safe and fixtures without the resource render the row as "n/a".
     base_gravity: Option<ResMut<'w, ambition_gameplay_core::physics::BaseGravity>>,
@@ -466,6 +468,8 @@ impl SystemMenuParams<'_> {
                         backend: &mut self.backend,
                         #[cfg(feature = "portal_render")]
                         portal_effect: self.portal_effect.as_deref_mut(),
+                        #[cfg(feature = "portal_render")]
+                        portal_camera: self.portal_camera.as_deref_mut(),
                         base_gravity: self.base_gravity.as_deref_mut(),
                     },
                     id,
@@ -493,6 +497,8 @@ impl SystemMenuParams<'_> {
                         backend: &mut self.backend,
                         #[cfg(feature = "portal_render")]
                         portal_effect: self.portal_effect.as_deref_mut(),
+                        #[cfg(feature = "portal_render")]
+                        portal_camera: self.portal_camera.as_deref_mut(),
                         base_gravity: self.base_gravity.as_deref_mut(),
                     },
                     id,
@@ -549,6 +555,8 @@ impl SystemMenuParams<'_> {
             backend: *self.backend,
             #[cfg(feature = "portal_render")]
             portal_effect: self.portal_effect.as_deref(),
+            #[cfg(feature = "portal_render")]
+            portal_camera: self.portal_camera.as_deref(),
             base_gravity: self.base_gravity.as_deref(),
         })
     }
@@ -580,6 +588,8 @@ pub(crate) struct SystemMenuSnapshotParams<'w> {
     backend: Res<'w, InventoryUiBackend>,
     #[cfg(feature = "portal_render")]
     portal_effect: Option<Res<'w, ambition_gameplay_core::portal::PortalEffectSelection>>,
+    #[cfg(feature = "portal_render")]
+    portal_camera: Option<Res<'w, ambition_gameplay_core::portal::PortalCameraContinuitySelection>>,
     base_gravity: Option<Res<'w, ambition_gameplay_core::physics::BaseGravity>>,
     #[cfg(feature = "audio")]
     library: Option<Res<'w, ambition_gameplay_core::audio::AudioLibrary>>,
@@ -611,6 +621,8 @@ impl SystemMenuSnapshotParams<'_> {
             backend: *self.backend,
             #[cfg(feature = "portal_render")]
             portal_effect: self.portal_effect.as_deref(),
+            #[cfg(feature = "portal_render")]
+            portal_camera: self.portal_camera.as_deref(),
             base_gravity: self.base_gravity.as_deref(),
         })
     }

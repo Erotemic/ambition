@@ -62,6 +62,14 @@ fn install_egui_inspectors(app: &mut App) {
             .run_if(inspector_visible),
     )
     .add_plugins(
+        ResourceInspectorPlugin::<ambition_gameplay_core::portal::PortalCameraContinuitySelection>::default()
+            .run_if(inspector_visible),
+    )
+    .add_plugins(
+        ResourceInspectorPlugin::<ambition_gameplay_core::portal::PortalCameraContinuityConfig>::default()
+            .run_if(inspector_visible),
+    )
+    .add_plugins(
         ResourceInspectorPlugin::<ambition_gameplay_core::portal::PortalViewConeConfig>::default()
             .run_if(inspector_visible),
     );

@@ -12,7 +12,11 @@ use crate::view_cones;
 use crate::visuals;
 #[cfg(feature = "effect_view_cones")]
 use crate::PortalDebugOverlay;
-use crate::{PortalAimHint, PortalEffectSelection, PortalWorldFrame};
+use crate::{
+    PortalAimHint, PortalCameraContinuityConfig, PortalCameraContinuityHostView,
+    PortalCameraContinuitySelection, PortalCameraContinuityState, PortalEffectSelection,
+    PortalWorldFrame,
+};
 
 /// The one schedule label every portal visual runs in. Hosts order this set
 /// against their own presentation systems (e.g. `.after(sync_visuals)`); the
@@ -71,6 +75,13 @@ impl Plugin for PortalPresentationPlugin {
         // The live effect choice (view cones / transit masks / off), cycled
         // from the host's developer menu for in-session A/B profiling.
         app.init_resource::<PortalEffectSelection>();
+        // Optional camera/viewpoint continuity is controlled by this resource.
+        // It is the single source of truth surfaced by hosts; its resource
+        // default currently enables Continuous for portal-lab debugging.
+        app.init_resource::<PortalCameraContinuitySelection>();
+        app.init_resource::<PortalCameraContinuityConfig>();
+        app.init_resource::<PortalCameraContinuityState>();
+        app.init_resource::<PortalCameraContinuityHostView>();
 
         if self.portal_quads {
             app.add_systems(

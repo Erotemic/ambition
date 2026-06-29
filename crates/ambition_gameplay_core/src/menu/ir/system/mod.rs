@@ -79,6 +79,10 @@ pub enum DevToggleId {
     // compiled-in effects (view cones / legacy masks / off) for in-session
     // A/B comparison and profiling.
     PortalEffect,
+    // Optional camera continuity mode for portal transits. Sourced from the
+    // portal presentation crate's `PortalCameraContinuitySelection` resource,
+    // not `DeveloperTools`, so the resource default is the only default.
+    PortalCamera,
     // Ambient gravity direction (sourced from `BaseGravity`, not `DeveloperTools`):
     // cycles down → left → up → right. The in-menu equivalent of the `\` hotkey, so
     // sideways/inverted gravity is testable on mobile (no keyboard).
@@ -91,7 +95,7 @@ impl DevToggleId {
     /// (DebugOverlay/SlowMotion) and the trailing LdtkAutoApply are sourced from
     /// `SandboxDevState` / `LdtkHotReloadState` (not `DeveloperTools`); they mirror
     /// the pause-menu Developer page's F1 / F2 / F12 rows.
-    pub const ALL: [Self; 21] = [
+    pub const ALL: [Self; 22] = [
         // Pinned FIRST so it lands under the cursor the instant you drill into
         // Developer — the menu-frontend toggle is the one developers flip most.
         Self::MenuBackend,
@@ -114,6 +118,7 @@ impl DevToggleId {
         Self::MovementProfile,
         Self::LdtkAutoApply,
         Self::PortalEffect,
+        Self::PortalCamera,
         Self::Gravity,
     ];
 
@@ -139,6 +144,7 @@ impl DevToggleId {
             Self::LdtkAutoApply => "LDtk Auto-Reload (F12)",
             Self::MenuBackend => "Menu Backend",
             Self::PortalEffect => "Portal FX",
+            Self::PortalCamera => "Portal Camera",
             Self::Gravity => "Gravity",
         }
     }
@@ -169,6 +175,9 @@ impl DevToggleId {
             Self::PortalEffect => {
                 "Cycle the portal transit visual (view cones / masks / off) for A/B profiling."
             }
+            Self::PortalCamera => {
+                "Cycle portal camera transit behavior: Pop / Continuous. Presentation-only."
+            }
             Self::Gravity => "Cycle ambient gravity: Down / Left / Up / Right. Same as the \\ key.",
         }
     }
@@ -188,6 +197,8 @@ impl DevToggleId {
                 // PortalEffect cycles the compiled-in portal transit visuals
                 // (view cones / masks / off) for A/B profiling.
                 | Self::PortalEffect
+                // PortalCamera cycles Pop ↔ Continuous from the portal presentation resource.
+                | Self::PortalCamera
                 // Gravity cycles the ambient direction (down/left/up/right).
                 | Self::Gravity
         )

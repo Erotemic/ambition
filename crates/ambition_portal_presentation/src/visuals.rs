@@ -7,6 +7,7 @@
 //! transient entities each frame, so the visuals can never desync from the sim.
 
 use bevy::prelude::*;
+use bevy::sprite::Anchor;
 
 use ambition_engine_core as ae;
 #[cfg(feature = "effect_transit_masks")]
@@ -17,7 +18,7 @@ use ambition_platformer_primitives::orientation::ActorRoll;
 
 use ambition_portal::pieces as pp;
 use ambition_portal::{
-    copy_transform, find_portal, PlacedPortal, PortalGun, PortalGunColor, PortalGunPickup,
+    copy_transform, find_portal, PlacedPortal, PortalGun, PortalGunPickup,
     PortalInputWarp, PortalShot, PortalTransit, PORTAL_VISUAL_THICKNESS,
 };
 
@@ -106,6 +107,8 @@ pub fn sync_portal_body_pieces(
             Option<&PortalTransit>,
             Option<&ActorRoll>,
             &Sprite,
+            Option<&Anchor>,
+            &Transform,
             &mut Visibility,
         ),
         With<PortalSceneBody>,
@@ -114,7 +117,9 @@ pub fn sync_portal_body_pieces(
     for entity in &pieces {
         commands.entity(entity).despawn();
     }
-    let Ok((kin, transit, roll, sprite, mut visibility)) = body_visual.single_mut() else {
+    let Ok((kin, transit, roll, sprite, source_anchor, source_transform, mut visibility)) =
+        body_visual.single_mut()
+    else {
         return;
     };
     // The real character sprite always shows; the exit copy is additive.
@@ -148,17 +153,31 @@ pub fn sync_portal_body_pieces(
     let copy = copy_transform(&enter, &exit);
     let exit_roll = base_roll + copy.roll;
     let mut exit_sprite = sprite.clone();
+    let mut exit_anchor = source_anchor.cloned();
     if copy.flip_x {
+        // `apply_character_frame` has already mirrored the anchor to match the
+        // source sprite's current `flip_x` value. If the portal copy toggles the
+        // sprite flip, mirror the anchor too; otherwise trimmed/off-centre frames
+        // render from the wrong basis and can look stretched or scaled as the
+        // copy emerges.
         exit_sprite.flip_x = !exit_sprite.flip_x;
+        if let Some(anchor) = exit_anchor.as_mut() {
+            anchor.0.x = -anchor.0.x;
+        }
     }
     let exit_translation = frame.to_render(exit_center, ae::config::WORLD_Z_PLAYER);
-    commands.spawn((
+    let exit_transform = Transform::from_translation(exit_translation)
+        .with_rotation(Quat::from_rotation_z(exit_roll))
+        .with_scale(source_transform.scale);
+    let mut spawned = commands.spawn((
         PortalBodyPiece,
         exit_sprite,
-        Transform::from_translation(exit_translation)
-            .with_rotation(Quat::from_rotation_z(exit_roll)),
+        exit_transform,
         Name::new("Portal body copy (exit)"),
     ));
+    if let Some(anchor) = exit_anchor {
+        spawned.insert(anchor);
+    }
 
     // Legacy Transit Masks effect: opaque boxes over the invisible slice of
     // each chart — the part of the real sprite sunk through the entry plane,

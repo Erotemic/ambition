@@ -23,6 +23,10 @@ pub(crate) struct DevToggleRead<'a> {
     // fixtures without the resource still render the row (as "n/a").
     #[cfg(feature = "portal_render")]
     pub(crate) portal_effect: Option<&'a ambition_gameplay_core::portal::PortalEffectSelection>,
+    // Portal camera continuity's live mode. Option so fixtures/non-portal
+    // builds render the row as unavailable without storing a duplicate default.
+    #[cfg(feature = "portal_render")]
+    pub(crate) portal_camera: Option<&'a ambition_gameplay_core::portal::PortalCameraContinuitySelection>,
     // The Gravity row's ambient direction (down/left/up/right). Option so
     // fixtures without the resource still render the row (as "n/a").
     pub(crate) base_gravity: Option<&'a ambition_gameplay_core::physics::BaseGravity>,
@@ -35,6 +39,8 @@ pub(crate) struct DevToggleWrite<'a> {
     pub(crate) backend: &'a mut InventoryUiBackend,
     #[cfg(feature = "portal_render")]
     pub(crate) portal_effect: Option<&'a mut ambition_gameplay_core::portal::PortalEffectSelection>,
+    #[cfg(feature = "portal_render")]
+    pub(crate) portal_camera: Option<&'a mut ambition_gameplay_core::portal::PortalCameraContinuitySelection>,
     pub(crate) base_gravity: Option<&'a mut ambition_gameplay_core::physics::BaseGravity>,
 }
 
@@ -103,6 +109,15 @@ pub(crate) fn dev_snapshot(ctx: DevToggleRead<'_>) -> DevSnapshot {
     ));
     #[cfg(not(feature = "portal_render"))]
     values.push(DevSnapshot::cycle(D::PortalEffect, "not compiled"));
+    // Portal camera continuity (PortalCameraContinuitySelection) — separate from
+    // Portal FX so seamless/pop camera behavior can be A/B'd independently.
+    #[cfg(feature = "portal_render")]
+    values.push(DevSnapshot::cycle(
+        D::PortalCamera,
+        ctx.portal_camera.map_or("n/a", |s| s.mode.label()),
+    ));
+    #[cfg(not(feature = "portal_render"))]
+    values.push(DevSnapshot::cycle(D::PortalCamera, "not compiled"));
     // Gravity (BaseGravity) — the `\`-hotkey row, a cycle whose value label is the
     // active ambient direction (Down / Left / Up / Right).
     values.push(DevSnapshot::cycle(
@@ -192,6 +207,16 @@ pub(crate) fn apply_dev_toggle(ctx: DevToggleWrite<'_>, id: DevToggleId, dir: i3
         D::PortalEffect => {
             #[cfg(feature = "portal_render")]
             if let Some(selection) = ctx.portal_effect {
+                selection.cycle(dir);
+            }
+            #[cfg(not(feature = "portal_render"))]
+            let _ = dir;
+        }
+        // Portal camera continuity: cycle the crate-owned selection resource.
+        // This is intentionally NOT mirrored into DeveloperTools.
+        D::PortalCamera => {
+            #[cfg(feature = "portal_render")]
+            if let Some(selection) = ctx.portal_camera {
                 selection.cycle(dir);
             }
             #[cfg(not(feature = "portal_render"))]

@@ -281,13 +281,15 @@ pub(crate) fn aperture_occluded(eye: Vec2, enter: &PortalFrame, occluders: &[ae:
 
 /// One frame's window plan for a pair: the minimum cone, the (full) visible
 /// wedge, and the target blend between them — the fraction of the viewer's
-/// body corners with clear sight to the faced aperture. The renderer
-/// approaches `target` temporally and blends per-corner, so partial cover and
-/// approach/retreat all read as a smooth opening, not a pop.
+/// body corners with clear sight to the faced aperture. The renderer normally
+/// approaches `target` temporally for distant previews; `immediate` bypasses
+/// that when the viewer is at the doorway and the half-plane must cover the
+/// portal chart handoff this frame.
 pub(crate) struct ConePlan {
     pub(crate) min: ViewCone,
     pub(crate) wedge: ViewCone,
     pub(crate) target: f32,
+    pub(crate) immediate: bool,
 }
 
 /// The window plan for one portal pair this frame. Every portal always shows
@@ -313,6 +315,7 @@ pub(crate) fn compute_cone(
             min: c,
             wedge: c,
             target: 1.0,
+            immediate: true,
         };
     }
     // The minimum cone, always shown when nothing better exists.
@@ -321,6 +324,7 @@ pub(crate) fn compute_cone(
         min,
         wedge: min,
         target: 0.0,
+        immediate: false,
     };
     let Some(v) = viewer.filter(|v| v.present) else {
         return closed(min);
@@ -336,6 +340,9 @@ pub(crate) fn compute_cone(
     // midpoint between a pair (no hard direct↔wormhole eye switch).
     let mut eyes: Vec<Vec2> = corners.to_vec();
     for &c in &corners {
+        if let Some((resolved, _)) = window_eye(&enter, &exit, c) {
+            eyes.push(resolved);
+        }
         if (c - exit.pos).dot(exit.normal) < 0.0 {
             eyes.push(ambition_portal::pieces::map_point(c, &exit, &enter));
         }
@@ -345,7 +352,14 @@ pub(crate) fn compute_cone(
     let dist = v.eye.distance(enter.pos).min(v.eye.distance(exit.pos));
     let dt = ((dist - config.dist_close) / (config.dist_far - config.dist_close).max(1.0))
         .clamp(0.0, 1.0);
-    let depth = config.depth_close + (config.depth_far - config.depth_close) * smooth01(dt);
+    // Near the aperture, the honest limit is a half-plane: as the viewer enters
+    // the doorway, the two aperture endpoint rays become parallel to the host
+    // surface and the visible wedge should fan out until only world bounds clip
+    // it. Use world-scale depth for the near endpoint and ease down to the far
+    // depth with distance. The capture texture is still capped separately, so
+    // this trades sharpness for seam continuity only in the near-portal case.
+    let near_depth = config.depth_close.max(world_size.x + world_size.y);
+    let depth = near_depth + (config.depth_far - near_depth) * smooth01(dt);
     // Visibility fraction: real corners ray-test to the nearer finite aperture
     // using the configured quality. The doorway case is still skipped because
     // rays there would graze the host blocks and sight is trivially clear.
@@ -354,7 +368,8 @@ pub(crate) fn compute_cone(
     } else {
         &exit
     };
-    let target = if v.eye.distance(faced.pos) <= LOS_NEAR_SKIP {
+    let immediate = v.eye.distance(faced.pos) <= LOS_NEAR_SKIP;
+    let target = if immediate {
         1.0
     } else {
         corners
@@ -378,6 +393,7 @@ pub(crate) fn compute_cone(
         min,
         wedge,
         target: target * config.viewer_blend.clamp(0.0, 1.0),
+        immediate,
     }
 }
 
@@ -402,9 +418,11 @@ pub(crate) fn cone_render(
     enter: &PortalFrame,
     exit: &PortalFrame,
     frame: &PortalWorldFrame,
+    clip_min: Vec2,
+    clip_max: Vec2,
     z: f32,
 ) -> Option<ConeRender> {
-    let poly = clip_polygon_to_rect(&cone.entry_quad, Vec2::ZERO, frame.size);
+    let poly = clip_polygon_to_rect(&cone.entry_quad, clip_min, clip_max);
     if poly.len() < 3 {
         return None;
     }
@@ -453,6 +471,7 @@ pub(crate) fn cone_render(
 mod tests {
     use super::*;
     use ambition_portal::pieces::PortalFrame;
+    use ambition_portal::{PortalChannelColor, PortalGunColor};
 
     /// Pin the flip-free UV convention: the source-rect corner with MINIMAL
     /// world coords (left, world-top) is texture (0,0); maximal is (1,1).
@@ -617,11 +636,11 @@ mod tests {
         assert_eq!(corners[3], Vec2::new(82.0, 110.0));
     }
 
-    /// World clipping: a half-plane-sized wedge clips to the world rect, the
+    /// Rect clipping: a half-plane-sized wedge clips to the world rect, the
     /// clipped polygon stays convex-fan renderable, and a fully-outside quad
     /// clips away entirely.
     #[test]
-    fn wedge_clips_to_world_bounds() {
+    fn wedge_clips_to_rect_bounds() {
         let world = Vec2::new(800.0, 600.0);
         // A huge trapezoid wildly exceeding the world.
         let quad = [
@@ -646,5 +665,132 @@ mod tests {
             Vec2::new(-100.0, -50.0),
         ];
         assert!(clip_polygon_to_rect(&outside, Vec2::ZERO, world).is_empty());
+    }
+
+    #[test]
+    fn wedge_clip_rect_can_extend_outside_the_room() {
+        let clip_min = Vec2::new(500.0, -122.0);
+        let clip_max = Vec2::new(1300.0, 328.0);
+        let quad = [
+            Vec2::new(854.0, 220.0),
+            Vec2::new(946.0, 220.0),
+            Vec2::new(4000.0, -4000.0),
+            Vec2::new(-4000.0, -4000.0),
+        ];
+        let poly = clip_polygon_to_rect(&quad, clip_min, clip_max);
+        assert!(poly.len() >= 3, "clipped poly: {poly:?}");
+        assert!(
+            poly.iter().any(|p| p.y < 0.0),
+            "portal half-plane should be allowed to fill the out-of-room viewport: {poly:?}"
+        );
+        for p in &poly {
+            assert!(
+                p.x >= clip_min.x - 1e-3
+                    && p.x <= clip_max.x + 1e-3
+                    && p.y >= clip_min.y - 1e-3
+                    && p.y <= clip_max.y + 1e-3,
+                "inside viewport clip: {p:?}"
+            );
+        }
+    }
+
+    fn placed(
+        channel: ambition_portal::PortalChannel,
+        pos: Vec2,
+        normal: Vec2,
+    ) -> PlacedPortal {
+        PlacedPortal {
+            channel,
+            pos,
+            normal,
+            half_extent: ambition_portal::portal_half_extent(normal),
+        }
+    }
+
+    #[test]
+    fn doorway_view_cone_forces_immediate_half_plane() {
+        let world = Vec2::new(1600.0, 900.0);
+        let enter = placed(
+            PortalGunColor::BLUE.channel(),
+            Vec2::new(900.0, 820.0),
+            Vec2::new(0.0, -1.0),
+        );
+        let exit = placed(
+            PortalGunColor::ORANGE.channel(),
+            Vec2::new(900.0, 180.0),
+            Vec2::new(0.0, 1.0),
+        );
+        let config = PortalViewConeConfig::default();
+        let viewer = PortalViewer {
+            present: true,
+            eye: enter.pos + enter.normal * 0.5,
+            half_size: Vec2::ZERO,
+            occluders: Vec::new(),
+        };
+
+        let plan = compute_cone(&enter, &exit, &config, Some(&viewer), world);
+        assert!(plan.immediate, "doorway cone must not ease toward the handoff half-plane");
+        assert_eq!(plan.target, 1.0);
+        let min_x = plan
+            .wedge
+            .entry_quad
+            .iter()
+            .map(|p| p.x)
+            .fold(f32::INFINITY, f32::min);
+        let max_x = plan
+            .wedge
+            .entry_quad
+            .iter()
+            .map(|p| p.x)
+            .fold(f32::NEG_INFINITY, f32::max);
+        assert!(
+            min_x <= -world.x + 1e-3 && max_x >= world.x * 2.0 - 1e-3,
+            "near-doorway cone should expand to the viewport-clipped half-plane, x span {min_x}..{max_x}",
+        );
+    }
+
+    #[test]
+    fn just_behind_doorway_still_contributes_to_half_plane() {
+        let world = Vec2::new(1600.0, 900.0);
+        let enter = placed(
+            PortalChannelColor::Indexed(140).channel(),
+            Vec2::new(2552.0, 248.0),
+            Vec2::new(1.0, 0.0),
+        );
+        let exit = placed(
+            PortalChannelColor::Indexed(141).channel(),
+            Vec2::new(2792.0, 248.0),
+            Vec2::new(-1.0, 0.0),
+        );
+        let config = PortalViewConeConfig::default();
+        let viewer = PortalViewer {
+            present: true,
+            eye: enter.pos - enter.normal * 0.5,
+            half_size: Vec2::ZERO,
+            occluders: Vec::new(),
+        };
+
+        let plan = compute_cone(&enter, &exit, &config, Some(&viewer), world);
+        assert!(
+            plan.target > 0.99,
+            "a just-crossed doorway viewer should still see the full portal chart, target={}",
+            plan.target,
+        );
+        let min_y = plan
+            .wedge
+            .entry_quad
+            .iter()
+            .map(|p| p.y)
+            .fold(f32::INFINITY, f32::min);
+        let max_y = plan
+            .wedge
+            .entry_quad
+            .iter()
+            .map(|p| p.y)
+            .fold(f32::NEG_INFINITY, f32::max);
+        assert!(
+            min_y < -world.y && max_y > world.y * 2.0,
+            "just-behind doorway cone should still expand to the vertical half-plane, y span {min_y}..{max_y}",
+        );
     }
 }

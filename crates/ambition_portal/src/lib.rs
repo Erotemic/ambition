@@ -75,8 +75,8 @@ pub use types::{
 };
 pub use view::{
     aperture_wedge, aperture_wedge_multi, blend_cones, copy_roll, copy_transform,
-    copy_transform_for_convention, view_cone, view_point, visible_cone, window_eye,
-    PortalCopyTransform, PortalViewMap, ViewCone,
+    copy_transform_for_convention, map_viewpoint_frame, view_cone, view_point, visible_cone,
+    window_eye, PortalCopyTransform, PortalViewMap, PortalViewpointFrame, ViewCone,
 };
 
 pub use plugin::{PortalPlugin, PortalSimulationPlugin};

@@ -120,6 +120,8 @@ fn extra_dev_toggles_flip_their_non_developer_resources() {
                 backend: &mut backend,
                 #[cfg(feature = "portal_render")]
                 portal_effect: None,
+                #[cfg(feature = "portal_render")]
+                portal_camera: None,
                 base_gravity: None,
             },
             id,
@@ -147,6 +149,8 @@ fn extra_dev_toggles_flip_their_non_developer_resources() {
         backend: InventoryUiBackend::default(),
         #[cfg(feature = "portal_render")]
         portal_effect: None,
+        #[cfg(feature = "portal_render")]
+        portal_camera: None,
         base_gravity: None,
     });
     let read = |id: DevToggleId| snap.values.iter().find(|(d, _, _)| *d == id).unwrap().1;
@@ -179,6 +183,8 @@ fn menu_backend_dev_row_cycles_inventory_backend() {
             backend: b,
             #[cfg(feature = "portal_render")]
             portal_effect: None,
+            #[cfg(feature = "portal_render")]
+            portal_camera: None,
             base_gravity: None,
         })
         .values
@@ -200,6 +206,8 @@ fn menu_backend_dev_row_cycles_inventory_backend() {
             backend: &mut backend,
             #[cfg(feature = "portal_render")]
             portal_effect: None,
+            #[cfg(feature = "portal_render")]
+            portal_camera: None,
             base_gravity: None,
         },
         DevToggleId::MenuBackend,
@@ -215,6 +223,8 @@ fn menu_backend_dev_row_cycles_inventory_backend() {
             backend: &mut backend,
             #[cfg(feature = "portal_render")]
             portal_effect: None,
+            #[cfg(feature = "portal_render")]
+            portal_camera: None,
             base_gravity: None,
         },
         DevToggleId::MenuBackend,
@@ -243,6 +253,8 @@ fn show_hitboxes_toggles_feature_and_player_fields_like_pause() {
             backend: &mut backend,
             #[cfg(feature = "portal_render")]
             portal_effect: None,
+            #[cfg(feature = "portal_render")]
+            portal_camera: None,
             base_gravity: None,
         },
         DevToggleId::ShowHitboxes,
@@ -261,6 +273,8 @@ fn show_hitboxes_toggles_feature_and_player_fields_like_pause() {
         backend: InventoryUiBackend::default(),
         #[cfg(feature = "portal_render")]
         portal_effect: None,
+        #[cfg(feature = "portal_render")]
+        portal_camera: None,
         base_gravity: None,
     });
     let on = snap
@@ -1271,6 +1285,8 @@ fn scroll_total_rows(app: &App) -> usize {
         backend,
         #[cfg(feature = "portal_render")]
         portal_effect: None,
+        #[cfg(feature = "portal_render")]
+        portal_camera: None,
         base_gravity: None,
     });
     let model = SystemMenuModel::build(settings, &RadioSnapshot::default(), &snap);

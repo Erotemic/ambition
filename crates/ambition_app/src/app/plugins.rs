@@ -563,6 +563,10 @@ fn install_presentation_resources_and_subplugins(app: &mut App) {
     #[cfg(feature = "portal_render")]
     app.register_type::<ambition_gameplay_core::portal::PortalVisualEffect>()
         .register_type::<ambition_gameplay_core::portal::PortalEffectSelection>()
+        .register_type::<ambition_gameplay_core::portal::PortalCameraTransitMode>()
+        .register_type::<ambition_gameplay_core::portal::PortalCameraContinuitySelection>()
+        .register_type::<ambition_gameplay_core::portal::PortalCameraContinuityConfig>()
+        .register_type::<ambition_gameplay_core::portal::PortalCameraContinuityState>()
         .register_type::<ambition_gameplay_core::portal::PortalViewConeConfig>();
 
     app.add_plugins(crate::host::platform::PlatformPlugin);
@@ -668,6 +672,21 @@ fn install_camera_and_debug_overlay_systems(app: &mut App) {
         )
             .chain()
             .after(animate_bosses),
+    );
+    #[cfg(feature = "portal_render")]
+    app.add_systems(
+        Update,
+        ambition_gameplay_core::portal::apply_portal_camera_continuity
+            .after(SandboxSet::CoreSimulation)
+            .after(ambition_gameplay_core::portal::sync_portal_camera_continuity_focus)
+            .before(camera_follow),
+    );
+    #[cfg(feature = "portal_render")]
+    app.add_systems(
+        Update,
+        ambition_gameplay_core::portal::tag_portal_camera_continuity_camera
+            .after(camera_follow)
+            .before(debug_overlay::draw_debug_overlay),
     );
 }
 

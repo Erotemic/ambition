@@ -14,12 +14,18 @@ use bevy::prelude::*;
 
 use ambition_engine_core as ae;
 
+mod camera_continuity;
 mod effects;
 mod plugin;
 #[cfg(feature = "effect_view_cones")]
 mod view_cones;
 mod visuals;
 
+pub use camera_continuity::{
+    camera_roll_for_portal_transit, PortalCameraContinuityCamera, PortalCameraContinuityConfig,
+    PortalCameraContinuityFocus, PortalCameraContinuityHostView, PortalCameraContinuitySelection,
+    PortalCameraContinuityState, PortalCameraTransitMode,
+};
 pub use effects::{PortalEffectSelection, PortalVisualEffect};
 pub use plugin::{PortalPresentationPlugin, PortalPresentationSet};
 #[cfg(feature = "effect_view_cones")]

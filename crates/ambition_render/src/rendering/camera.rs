@@ -3,6 +3,7 @@
 
 use ambition_engine_core as ae;
 use ambition_engine_core::AabbExt;
+use bevy::ecs::system::SystemParam;
 use bevy::prelude::*;
 use bevy::window::PrimaryWindow;
 
@@ -72,6 +73,28 @@ impl Default for CameraViewState {
     }
 }
 
+#[derive(SystemParam)]
+pub struct CameraFollowResources<'w> {
+    world: Res<'w, ambition_gameplay_core::RoomGeometry>,
+    room_set: Res<'w, RoomSet>,
+    time: Res<'w, Time>,
+    developer_tools: Res<'w, ambition_gameplay_core::dev::dev_tools::DeveloperTools>,
+    encounter_registry: Res<'w, ambition_gameplay_core::encounter::EncounterRegistry>,
+    user_settings: Res<'w, ambition_gameplay_core::persistence::settings::UserSettings>,
+    camera_state: ResMut<'w, ambition_gameplay_core::CameraEaseState>,
+    view_state: ResMut<'w, CameraViewState>,
+    ease_tuning: Res<'w, ambition_gameplay_core::CameraEaseTuning>,
+    shake: Res<'w, ambition_gameplay_core::time::camera_ease::CameraShakeState>,
+}
+
+#[cfg(feature = "portal_render")]
+#[derive(SystemParam)]
+pub struct PortalCameraContinuityParams<'w> {
+    selection: Option<Res<'w, ambition_portal_presentation::PortalCameraContinuitySelection>>,
+    state: Option<ResMut<'w, ambition_portal_presentation::PortalCameraContinuityState>>,
+    host_view: Option<ResMut<'w, ambition_portal_presentation::PortalCameraContinuityHostView>>,
+}
+
 /// Follow the player in rooms larger than the window.
 ///
 /// The simulation uses top-left world coordinates, while Bevy renders around a
@@ -91,16 +114,8 @@ impl Default for CameraViewState {
 /// `With<ambition_gameplay_core::actor::PrimaryPlayer>` once a second player can
 /// exist. See [`ambition_gameplay_core::player::queries::PrimaryPlayerOnly`].
 pub fn camera_follow(
-    world: Res<ambition_gameplay_core::RoomGeometry>,
-    room_set: Res<RoomSet>,
-    time: Res<Time>,
-    developer_tools: Res<ambition_gameplay_core::dev::dev_tools::DeveloperTools>,
-    encounter_registry: Res<ambition_gameplay_core::encounter::EncounterRegistry>,
-    user_settings: Res<ambition_gameplay_core::persistence::settings::UserSettings>,
-    mut camera_state: ResMut<ambition_gameplay_core::CameraEaseState>,
-    mut view_state: ResMut<CameraViewState>,
-    ease_tuning: Res<ambition_gameplay_core::CameraEaseTuning>,
-    shake: Res<ambition_gameplay_core::time::camera_ease::CameraShakeState>,
+    resources: CameraFollowResources,
+    #[cfg(feature = "portal_render")] mut portal_continuity: PortalCameraContinuityParams,
     mut last_camera_room: Local<Option<String>>,
     player: Query<
         (
@@ -130,6 +145,19 @@ pub fn camera_follow(
         ),
     >,
 ) {
+    let CameraFollowResources {
+        world,
+        room_set,
+        time,
+        developer_tools,
+        encounter_registry,
+        user_settings,
+        mut camera_state,
+        mut view_state,
+        ease_tuning,
+        shake,
+    } = resources;
+
     // DeveloperTools can temporarily replace that input.
     let (base_view_w, base_view_h) = if developer_tools.camera_view_override_enabled {
         (
@@ -317,15 +345,96 @@ pub fn camera_follow(
     let bounds = active_zone
         .map(|zone| zone.clamp_mode)
         .unwrap_or_default();
-    let (x, y) = clamp_camera_target(
+    #[cfg(feature = "portal_render")]
+    let (portal_continuity_enabled, portal_clamp_padding_center_world) = {
+        let enabled = portal_continuity
+            .selection
+            .as_deref()
+            .is_some_and(|selection| {
+                selection.mode == ambition_portal_presentation::PortalCameraTransitMode::Continuous
+            });
+        let padding = enabled
+            .then(|| {
+                portal_continuity
+                    .state
+                    .as_deref()
+                    .and_then(|state| state.clamp_padding_center_world)
+            })
+            .flatten();
+        (enabled, padding)
+    };
+
+    let (normal_host_x, normal_host_y) = clamp_camera_target(
         &world.0,
         target,
         half_view_w,
         half_view_h,
         bounds,
         active_zone,
+        None,
     );
-    let center_world = ae::Vec2::new(x + world.0.size.x * 0.5, world.0.size.y * 0.5 - y);
+    #[cfg(feature = "portal_render")]
+    let (host_x, host_y) = if let Some(padding_center) = portal_clamp_padding_center_world {
+        clamp_camera_target(
+            &world.0,
+            target,
+            half_view_w,
+            half_view_h,
+            bounds,
+            active_zone,
+            Some(padding_center),
+        )
+    } else {
+        (normal_host_x, normal_host_y)
+    };
+    #[cfg(not(feature = "portal_render"))]
+    let (host_x, host_y) = (normal_host_x, normal_host_y);
+    let ordinary_center_world =
+        ae::Vec2::new(host_x + world.0.size.x * 0.5, world.0.size.y * 0.5 - host_y);
+    #[cfg(feature = "portal_render")]
+    let ordinary_without_portal_padding = ae::Vec2::new(
+        normal_host_x + world.0.size.x * 0.5,
+        world.0.size.y * 0.5 - normal_host_y,
+    );
+    #[cfg(feature = "portal_render")]
+    let portal_clamp_padding_still_needed =
+        (ordinary_center_world - ordinary_without_portal_padding).length() > 0.5;
+    let mut center_world = ordinary_center_world;
+    let mut camera_roll = 0.0;
+
+    #[cfg(feature = "portal_render")]
+    {
+        if let Some(portal_state) = portal_continuity.state.as_deref_mut() {
+            if portal_continuity_enabled {
+                let weight = portal_state.active_weight();
+                if weight > 0.0 {
+                    let screen_offset = portal_state.body_screen_offset_world.unwrap_or(Vec2::ZERO);
+                    center_world = player_body.pos - screen_offset;
+                    portal_state.target_camera_world = Some(center_world);
+                    camera_roll = portal_state.roll_radians;
+                } else if !portal_clamp_padding_still_needed {
+                    portal_state.clear_clamp_padding();
+                }
+            } else {
+                portal_state.clear();
+            }
+        }
+        if let Some(mut host_view) = portal_continuity.host_view {
+            host_view.capture(
+                center_world,
+                ordinary_center_world,
+                target_world,
+                visible_view,
+                active_camera_zones,
+                active_zone.map(|zone| zone.id.clone()),
+            );
+        }
+        if let Some(portal_state) = portal_continuity.state.as_deref_mut() {
+            portal_state.last_host_camera_world = Some(center_world);
+        }
+    }
+    let x = center_world.x - world.0.size.x * 0.5;
+    let y = world.0.size.y * 0.5 - center_world.y;
 
     *view_state = CameraViewState {
         base_view,
@@ -346,6 +455,7 @@ pub fn camera_follow(
         }
         transform.translation.x = x + shake_offset.x;
         transform.translation.y = y + shake_offset.y;
+        transform.rotation = Quat::from_rotation_z(camera_roll);
     }
 }
 
@@ -361,24 +471,45 @@ fn clamp_camera_target(
     half_view_h: f32,
     mode: CameraClampMode,
     zone: Option<&CameraZoneSpec>,
+    portal_padding_center_world: Option<ae::Vec2>,
 ) -> (f32, f32) {
     match mode {
         CameraClampMode::None => (target.x, target.y),
         CameraClampMode::ZoneBounds => {
             let Some(zone) = zone else {
-                return clamp_to_world_bounds(world, target, half_view_w, half_view_h);
+                return clamp_to_world_bounds(
+                    world,
+                    target,
+                    half_view_w,
+                    half_view_h,
+                    portal_padding_center_world,
+                );
             };
             let min_x = zone.aabb.left() + half_view_w - world.size.x * 0.5;
             let max_x = zone.aabb.right() - half_view_w - world.size.x * 0.5;
             let min_y = world.size.y * 0.5 - (zone.aabb.bottom() - half_view_h);
             let max_y = world.size.y * 0.5 - (zone.aabb.top() + half_view_h);
+            let (min_x, max_x, min_y, max_y) = expand_clamp_bounds_for_portal_padding(
+                world,
+                min_x,
+                max_x,
+                min_y,
+                max_y,
+                portal_padding_center_world,
+            );
             (
                 clamp_or_center(target.x, min_x, max_x),
                 clamp_or_center(target.y, min_y, max_y),
             )
         }
         CameraClampMode::RoomBounds => {
-            clamp_to_world_bounds(world, target, half_view_w, half_view_h)
+            clamp_to_world_bounds(
+                world,
+                target,
+                half_view_w,
+                half_view_h,
+                portal_padding_center_world,
+            )
         }
     }
 }
@@ -388,15 +519,40 @@ fn clamp_to_world_bounds(
     target: Vec3,
     half_view_w: f32,
     half_view_h: f32,
+    portal_padding_center_world: Option<ae::Vec2>,
 ) -> (f32, f32) {
     let min_x = -world.size.x * 0.5 + half_view_w;
     let max_x = world.size.x * 0.5 - half_view_w;
     let min_y = -world.size.y * 0.5 + half_view_h;
     let max_y = world.size.y * 0.5 - half_view_h;
+    let (min_x, max_x, min_y, max_y) = expand_clamp_bounds_for_portal_padding(
+        world,
+        min_x,
+        max_x,
+        min_y,
+        max_y,
+        portal_padding_center_world,
+    );
     (
         clamp_or_center(target.x, min_x, max_x),
         clamp_or_center(target.y, min_y, max_y),
     )
+}
+
+fn expand_clamp_bounds_for_portal_padding(
+    world: &ae::World,
+    min_x: f32,
+    max_x: f32,
+    min_y: f32,
+    max_y: f32,
+    portal_padding_center_world: Option<ae::Vec2>,
+) -> (f32, f32, f32, f32) {
+    let Some(center_world) = portal_padding_center_world else {
+        return (min_x, max_x, min_y, max_y);
+    };
+    let x = center_world.x - world.size.x * 0.5;
+    let y = world.size.y * 0.5 - center_world.y;
+    (min_x.min(x), max_x.max(x), min_y.min(y), max_y.max(y))
 }
 
 fn clamp_or_center(value: f32, min: f32, max: f32) -> f32 {

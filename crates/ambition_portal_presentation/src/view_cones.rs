@@ -51,10 +51,10 @@ use bevy::sprite_render::AlphaMode2d;
 use ambition_engine_core as ae;
 use ambition_platformer_primitives::world_query::{raycast_solids, SolidWorldQuery};
 use ambition_portal::pieces::PortalFrame;
-use ambition_portal::view::{aperture_wedge_multi, blend_cones, view_cone, ViewCone};
+use ambition_portal::view::{aperture_wedge_multi, blend_cones, view_cone, window_eye, ViewCone};
 use ambition_portal::{find_portal, PlacedPortal, PortalChannel};
 
-use crate::PortalWorldFrame;
+use crate::{PortalCameraContinuityHostView, PortalWorldFrame};
 
 /// Clear color of an offscreen capture: a dark tone shows through wherever the
 /// exit room has no geometry (rare — parallax usually fills it). Opaque windows
@@ -272,6 +272,23 @@ pub struct PortalViewRig {
     cone: Entity,
 }
 
+fn portal_window_clip_rect(
+    frame: &PortalWorldFrame,
+    host_view: Option<&PortalCameraContinuityHostView>,
+) -> (Vec2, Vec2) {
+    if let Some(host_view) = host_view.filter(|view| {
+        view.initialized && view.visible_view.x > 0.0 && view.visible_view.y > 0.0
+    }) {
+        let half = host_view.visible_view * 0.5;
+        (
+            host_view.current_center_world - half,
+            host_view.current_center_world + half,
+        )
+    } else {
+        (Vec2::ZERO, frame.size)
+    }
+}
+
 mod geometry;
 mod mesh;
 use geometry::{
@@ -294,6 +311,7 @@ pub fn sync_portal_view_cones(
     config: Res<PortalViewConeConfig>,
     viewer: Option<Res<PortalViewer>>,
     frame: Res<PortalWorldFrame>,
+    host_view: Option<Res<PortalCameraContinuityHostView>>,
     mut images: ResMut<Assets<Image>>,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<ColorMaterial>>,
@@ -324,6 +342,7 @@ pub fn sync_portal_view_cones(
     }
     let all: Vec<PlacedPortal> = portals.iter().copied().collect();
     let viewer = viewer.as_deref();
+    let (clip_min, clip_max) = portal_window_clip_rect(&frame, host_view.as_deref());
 
     // First pass: update each live rig in place, or despawn it if its pair is
     // gone / it needs a full rebuild.
@@ -352,11 +371,15 @@ pub fn sync_portal_view_cones(
         let (enter, exit) = (portal.frame(), partner.frame());
         let plan = compute_cone(&portal, &partner, &config, viewer, frame.size);
         // Temporal approach to the visibility fraction, smoothstep-shaped.
-        let step = (config.blend_rate * time.delta_secs()).clamp(0.0, 1.0);
-        rig.blend += (plan.target - rig.blend) * step;
+        if plan.immediate {
+            rig.blend = plan.target;
+        } else {
+            let step = (config.blend_rate * time.delta_secs()).clamp(0.0, 1.0);
+            rig.blend += (plan.target - rig.blend) * step;
+        }
         let cone = blend_cones(&plan.min, &plan.wedge, smooth01(rig.blend), &enter, &exit);
         let z = proximity_z(&config, viewer, portal.pos);
-        let render = cone_render(&cone, &enter, &exit, &frame, z);
+        let render = cone_render(&cone, &enter, &exit, &frame, clip_min, clip_max, z);
         match render {
             Some(r) => {
                 if let Some(mesh) = meshes.get_mut(&rig.mesh) {
@@ -408,7 +431,7 @@ pub fn sync_portal_view_cones(
         // Spawn at the target blend (no opening animation on appear).
         let cone = blend_cones(&plan.min, &plan.wedge, smooth01(plan.target), &enter, &exit);
         let z = proximity_z(&config, viewer, portal.pos);
-        let render = cone_render(&cone, &enter, &exit, &frame, z);
+        let render = cone_render(&cone, &enter, &exit, &frame, clip_min, clip_max, z);
         let mesh = meshes.add(match &render {
             Some(r) => make_mesh(r),
             None => placeholder_mesh(),

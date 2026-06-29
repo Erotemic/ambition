@@ -142,6 +142,36 @@ pub fn view_point(p: Vec2, enter: &PortalFrame, exit: &PortalFrame) -> Vec2 {
     PortalViewMap::between(enter, exit).apply(p)
 }
 
+/// A camera/viewpoint frame in portal world coordinates.
+///
+/// `rotation` is the 2D z-rotation in the same world-space convention as the
+/// caller uses for the view basis. The helper below composes it with the shared
+/// portal VIEW map so camera continuity, view windows, and body/copy math do
+/// not grow separate angle-difference shortcuts.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct PortalViewpointFrame {
+    pub pos: Vec2,
+    pub rotation: f32,
+}
+
+/// Map a camera/viewpoint frame through a portal pair using the portal VIEW map.
+///
+/// This is intentionally tiny: it does not decide when a host camera should use
+/// continuity, how long to blend, or what entity the camera follows. It only
+/// exposes the same map that recursive windows use as a reusable pure helper for
+/// presentation layers.
+pub fn map_viewpoint_frame(
+    frame: PortalViewpointFrame,
+    enter: &PortalFrame,
+    exit: &PortalFrame,
+) -> PortalViewpointFrame {
+    let map = PortalViewMap::between(enter, exit);
+    PortalViewpointFrame {
+        pos: map.apply(frame.pos),
+        rotation: frame.rotation + map.angle(),
+    }
+}
+
 /// The view cone of one portal, **window semantics**: a trapezoid receding
 /// from the entry face INTO the host surface (you look "through" the portal a
 /// little way), displaying the world in front of the exit via the body

@@ -1,19 +1,19 @@
-//! The player-held [`PortalGun`]: active/next-color state and the color toggle.
+//! Compatibility state for Ambition's held portal gun.
 //!
-//! The Ambition equip/unequip glue (action-set stashing for the inventory menu)
-//! lives in the host portal adapter; core keeps only
-//! the gun component and the message-driven color toggle.
+//! This module is deliberately small and isolated: the portal crate's core
+//! concern is linked apertures, transit, and view math, not the fact that one
+//! Ambition opener happens to be a gun. Equip/unequip, inventory, and input
+//! gesture policy remain host-side.
 
 use bevy::prelude::*;
 
 use super::color::PortalGunColor;
 use super::messages::TogglePortalGun;
 
-/// Player-held portal gun state.
+/// Held portal-gun state for the current Ambition compatibility workflow.
 #[derive(Component, Clone, Copy, Debug)]
 pub struct PortalGun {
-    /// When false the gun ignores input (stand-in for "not equipped" until
-    /// held-item equip exists).
+    /// When false the gun ignores input.
     pub active: bool,
     /// Gun color the next `Attack` will place.
     pub next_color: PortalGunColor,
@@ -30,11 +30,14 @@ impl Default for PortalGun {
 
 /// Advance the gun to the next color, on a [`TogglePortalGun`] intent. One
 /// press walks through every end of every pair (blue₀ → orange₀ → blue₁ → …),
-/// so the player can place up to [`PortalGunColor::PAIRS`] independent pairs
+/// so the holder can place up to [`PortalGunColor::PAIRS`] independent pairs
 /// with a single toggle control. The adapter decides *whether* a press is a
 /// portal toggle (vs. a door / NPC interaction); core just applies the step.
-/// Operates on the [`PortalGun`] component generically (the gun mechanic) — it
-/// never names the player, so it stays in the crate.
+/// Operates on the [`PortalGun`] component generically and never names the
+/// controlling actor.
+///
+/// FIXME(portal-gun-seam): move this behind an optional gun plugin once generic
+/// portal-opening emitters are first-class.
 pub fn portal_toggle_system(
     mut toggles: MessageReader<TogglePortalGun>,
     mut guns: Query<&mut PortalGun>,

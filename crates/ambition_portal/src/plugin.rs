@@ -43,37 +43,33 @@ impl Plugin for PortalSimulationPlugin {
     fn build(&self, app: &mut App) {
         app.add_message::<BodyTeleported>();
         // Emitted by the generic `portal_transit` core on every Transfer; the
-        // Ambition player-input adapter reads it to reproduce the player's
+        // Host input adapters read it to reproduce the transiting body's
         // input/trace bits (BodyTeleported, PortalEmission, PortalInputWarp).
         app.add_message::<PortalBodyTransited>();
-        // Reusable portal intent / outcome messages — the Ambition input and
-        // inventory adapters (crate::ambition_content::portal) write these; core
-        // consumes them, staying content-agnostic.
+        // Reusable portal intent / outcome messages. Host input/inventory
+        // adapters write these; core consumes them, staying content-agnostic.
         app.add_message::<FirePortalGun>();
         // Generic fire intent the core fire system consumes (origin/dir/channel);
-        // the Ambition resolver maps `FirePortalGun` → this from the player + gun.
+        // a host may map a gun gesture, script, AI, or moving emitter into this.
         app.add_message::<PortalFireIntent>();
         app.add_message::<TogglePortalGun>();
         app.add_message::<DropPortalGun>();
         app.add_message::<PickUpPortalGun>();
-        // Portal-owned reset signal; the Ambition room-reset adapter emits it
-        // from `ResetRoomFeaturesEvent` so core never names that event.
+        // Portal-owned reset signal; the host room-reset adapter emits it so
+        // core never names the host reset event.
         app.add_message::<ClearPortals>();
         app.add_message::<PortalGunEquipped>();
         // Portal-owned audio SIGNALS (not sfx): the crate emits these on a fire /
-        // aperture entry; an Ambition audio adapter
-        // (the host portal adapter) maps them to the
-        // sfx vocabulary. The EXIT cue rides `PortalBodyTransited` (`exit_pos`).
+        // aperture entry; a host audio adapter maps them to the sfx vocabulary. The EXIT cue rides `PortalBodyTransited` (`exit_pos`).
         app.add_message::<PortalShotFired>();
         app.add_message::<PortalBodyEntered>();
         // Portal-owned carve output. `publish_portal_carves` writes the aperture
-        // geometry here; the Ambition bridge copies it into the host collision
-        // overlay each frame (portal core never names `FeatureEcsWorldOverlay`).
+        // geometry here; the host bridge copies it into the host collision
+        // overlay each frame (portal core never names the concrete overlay).
         app.init_resource::<PortalCarves>();
         // Content-agnostic movement intent: portal core's transit + input warp
-        // read/mutate this instead of the Ambition `ControlFrame`; the content
-        // input adapter (the host portal adapter) mirrors it to/from
-        // `ControlFrame` each frame.
+        // read/mutate this instead of a concrete host input frame; the host
+        // input adapter mirrors it to/from that input frame each frame.
         app.init_resource::<PlayerMovementIntent>();
         app.init_resource::<PortalTuning>();
         // NOTE: the held-gun aim hint (`PortalAimHint`) is a render-only resource
@@ -96,16 +92,16 @@ impl Plugin for PortalSimulationPlugin {
         // `CoreSimulation`); that cross-set placement is declared sandbox-side.
         app.add_systems(Update, publish_portal_carves.in_set(PortalSet::Carves));
 
-        // The Ambition input warp (`warp_portal_input`) is an INPUT-shaping
-        // adapter and lives in the host portal adapter
+        // The host input warp (`warp_portal_input`) is an INPUT-shaping adapter
+        // and lives in the host portal adapter
         // (registered in `PortalSet::InputWarp` there). Portal core owns only the
         // marker components it sets on a crossing (`PortalInputWarp` /
         // `PortalEmission`).
 
-        // The Ambition input adapter (which translates ControlFrame into portal
-        // intents) runs in PortalSet::InputAdapter, ordered before this set, so
-        // these consumers see the intents the same frame. The drop consumer
-        // lives in the inventory adapter (it touches Ambition item state).
+        // The host input adapter translates concrete controls into portal
+        // intents in PortalSet::InputAdapter, ordered before this set, so these
+        // consumers see the intents the same frame. The drop consumer lives in
+        // the inventory adapter while it touches host item state.
         app.configure_sets(
             Update,
             PortalSet::InputAdapter.before(PortalSet::WeaponAndProjectiles),
@@ -136,7 +132,7 @@ impl Plugin for PortalSimulationPlugin {
             (
                 // Portals must not outlive their gun (the "destroyed" case).
                 despawn_orphaned_portals,
-                // Make sure the player can carry an aerial roll through portals.
+                // Make sure a transiting actor can carry an aerial roll through portals.
                 ensure_actor_roll,
             )
                 .chain()
@@ -145,13 +141,11 @@ impl Plugin for PortalSimulationPlugin {
 
         app.add_systems(Update, clear_portals_on_reset.in_set(PortalSet::RoomReset));
 
-        // Ledge-grab suppression while transiting (it mutates the PLAYER's
-        // `BodyAbilities`) is an Ambition ability adapter and lives in
-        // the host portal adapter (registered in
-        // `PortalSet::TransitGuards` there). Portal core owns only the
-        // `PortalTransit` latch it reads off.
+        // Ledge-grab suppression while transiting mutates host ability state, so
+        // it remains a host ability adapter registered in `PortalSet::TransitGuards`.
+        // Portal core owns only the `PortalTransit` latch it reads off.
 
-        // Teleports run after player and ground-item integration so this frame's
+        // Teleports run after actor and ground-item integration so this frame's
         // integrated body positions are what cross the portal.
         app.init_resource::<crate::PortalFrameHistory>();
         app.add_systems(

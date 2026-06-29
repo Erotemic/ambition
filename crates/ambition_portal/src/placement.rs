@@ -2,7 +2,7 @@
 //!
 //! Plain solid raycasts live in `ambition_platformer_primitives::world_query`; this
 //! module keeps only the portal-specific traversal, the fit check, and the pure
-//! `transit_step` decision machine shared by player + actor transit.
+//! `transit_step` decision machine shared by all opted-in actor transit.
 
 use bevy::prelude::*;
 
@@ -236,8 +236,8 @@ pub(crate) fn capture_box(portal: &PlacedPortal) -> ae::Aabb {
 /// opening — **without knowing that frame's dt** (a dt-dependent sweep is
 /// unfixably fragile: the carve publishes before the frame's clock refresh, so
 /// any dt it reads is stale, and a frame hitch at re-entry under-sweeps and
-/// grounds the body, killing its momentum). Budget: the player clamps its sim
-/// step to 1/30 s (`movement::update`), so 950 px/s terminal fall ⇒ ~32px/frame;
+/// grounds the body, killing its momentum). Budget: Ambition clamps controlled
+/// actor sim steps to 1/30 s, so 950 px/s terminal fall ⇒ ~32px/frame;
 /// projectiles do NOT clamp, so a ~700 px/s shot on a 100ms hitch ⇒ ~70px.
 /// 96px covers both with slack. Opening a few frames early is harmless: the
 /// approach carve is gated on the body MOVING INTO the portal, and a hole only
@@ -260,9 +260,8 @@ pub(crate) fn approach_box(portal: &PlacedPortal) -> ae::Aabb {
 
 /// One step of the aperture / centroid-crossing transit machine for ANY body.
 /// Pure: given the body's geometry + current transit/cooldown state + the portal
-/// pair, it returns the action the caller applies. Shared by the player and
-/// every non-player actor so they all cross a portal identically (the
-/// unification the design calls for).
+/// pair, it returns the action the caller applies. Shared by every opted-in
+/// actor/body so portal crossings use one invariant path.
 #[derive(Clone, Copy, Debug)]
 pub enum TransitStep {
     /// Not touching a portal (or latched) — do nothing.
@@ -276,7 +275,7 @@ pub enum TransitStep {
     /// `roll_delta` to its roll (the somersault), latch the cooldown, flip the
     /// straddled portal to `exit_channel`, mark crossed, play EXIT sfx. `warp_rot`
     /// is the `(cos, sin)` portal map (same rotation applied to velocity) — the
-    /// player layer warps the held movement input by it so the held direction
+    /// host input layer warps held movement input by it so the held direction
     /// keeps carrying the body OUT instead of fighting the warped velocity.
     Transfer {
         pos: Vec2,
@@ -349,7 +348,7 @@ fn transfer_step(
 }
 
 /// Compute the transit step for a body. See [`TransitStep`]. `cooldown` is the
-/// body's post-jump latch (player gun cooldown / actor [`super::types::PortalTransitCooldown`]);
+/// body's post-jump latch ([`super::types::PortalTransitCooldown`]);
 /// `gravity_dir` selects whether a transit tumbles or just turns around.
 pub fn transit_step(
     center: Vec2,

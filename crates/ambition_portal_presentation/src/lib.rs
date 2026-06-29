@@ -1,7 +1,8 @@
 //! Default renderer for the headless [`ambition_portal`] mechanic.
 //!
-//! Provides placed-portal visuals, gun sprites, mid-transit body pieces,
-//! disorientation indicators, and through-portal view windows. Hosts sync the
+//! Provides placed-portal visuals, mid-transit body pieces, disorientation
+//! indicators, through-portal view windows, and a sequestered compatibility
+//! module for Ambition's portal-gun sprites. Hosts sync the
 //! crate-owned seams ([`PortalWorldFrame`], [`PortalSceneBody`],
 //! [`PortalGunArt`], [`PortalAimHint`]) and may replace any visual by disabling
 //! that [`PortalPresentationPlugin`] flag and registering an alternative system.
@@ -16,6 +17,7 @@ use ambition_engine_core as ae;
 
 mod camera_continuity;
 mod effects;
+mod gun_visuals;
 mod plugin;
 #[cfg(feature = "effect_view_cones")]
 mod view_cones;
@@ -34,10 +36,10 @@ pub use view_cones::{
     PortalDebugOverlay, PortalViewConeConfig, PortalViewRig, PortalViewer,
     PORTAL_WINDOW_RENDER_LAYER,
 };
+pub use gun_visuals::{sync_portal_mode_indicator, PortalModeIndicator};
 pub use visuals::{
-    sync_portal_body_pieces, sync_portal_disorientation_indicator, sync_portal_mode_indicator,
-    sync_portal_visuals, PortalBodyPiece, PortalDisorientIndicator, PortalModeIndicator,
-    PortalVisual,
+    sync_portal_body_pieces, sync_portal_disorientation_indicator, sync_portal_visuals,
+    PortalBodyPiece, PortalDisorientIndicator, PortalVisual,
 };
 
 /// The host-world half of the render transform: the world's size, copied from

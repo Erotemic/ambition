@@ -8,13 +8,20 @@ use crate::pieces::PortalFrame;
 use super::color::PortalChannel;
 
 /// One placed portal. The pair is linked implicitly by `channel` — two portals
-/// pair iff they share a channel (the gun's Blue/Orange, or an authored pair).
+/// pair iff their channels are partners.
+///
+/// FIXME(portal-api): this is still Ambition's compact runtime component. A
+/// standalone crate should expose a less-opinionated portal descriptor that can
+/// represent authored/static portals, runtime-opened portals, moving portals,
+/// arbitrary aperture bases, and host-defined link keys.
 #[derive(Component, Clone, Copy, Debug)]
 pub struct PlacedPortal {
     pub channel: PortalChannel,
     /// World-space center (on the hit surface).
     pub pos: Vec2,
-    /// Unit surface normal, pointing out of the wall into the room.
+    /// Unit surface normal, pointing out of the host surface into the room.
+    /// Current collision/render helpers are cardinal-first; future APIs should
+    /// make the tangent/aperture basis explicit for non-axis-aligned portals.
     pub normal: Vec2,
     /// Half-extent of the portal's overlap region.
     pub half_extent: Vec2,
@@ -61,13 +68,15 @@ pub const MIN_EXIT_SPEED: f32 = 220.0;
 /// matched to the capture box so the player warps right at the drawn face.
 pub const PORTAL_VISUAL_THICKNESS: f32 = PORTAL_THICKNESS_HALF * 2.0;
 
-/// Oriented half-extent for a portal on a surface with the given `normal`:
+/// AABB half-extent for a portal on a surface with the given `normal`:
 /// `PORTAL_OPENING_HALF` along the surface (perpendicular to the normal) and
 /// `PORTAL_THICKNESS_HALF` through it. So the opening (face) is the same length
 /// in every orientation and the box is thin in the normal direction. An
 /// axis-aligned normal gives an exact thin box; a slanted normal gives the
-/// axis-aligned box that bounds the tilted face (good enough until slanted
-/// portals are real).
+/// axis-aligned box that bounds the tilted face.
+///
+/// FIXME(portal-api): keep this helper for Ambition's AABB world, but do not
+/// make bounding boxes the only public representation of slanted portals.
 pub fn portal_half_extent(normal: Vec2) -> Vec2 {
     portal_half_extent_with_length(normal, PORTAL_OPENING_HALF)
 }

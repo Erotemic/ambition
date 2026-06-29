@@ -15,9 +15,14 @@
 //! ([`subtract_aabb`]). It has no ECS, no Bevy systems, no RNG — so the headless
 //! sim and the unit tests exercise the exact same geometry the game runs.
 //!
-//! Restricted to **axis-aligned portals** (normal is ±x or ±y) for now, per the
-//! design note: floor / wall / ceiling portals compose cleanly with AABB
-//! collision; arbitrary angles need clipped polygons and are deferred.
+//! Current implementation note: gameplay pieces are still AABB-backed, so
+//! production use is restricted to cardinal floor / wall / ceiling portals. The
+//! frame math already names normals/tangents, but arbitrary-angle portals need
+//! polygon clipping and non-AABB body pieces before this can be a fully general
+//! standalone portal crate.
+//!
+//! FIXME(portal-api): promote an oriented `PortalFrame` / aperture basis as the
+//! public shape, then keep AABB helpers as Ambition-specific convenience paths.
 
 use ambition_engine_core::{self as ae, AabbExt};
 use bevy::math::Vec2;
@@ -33,17 +38,20 @@ pub use ambition_platformer_primitives::math::{
     portal_rotation, portal_tangent, rotate, set_portal_map_rotation,
 };
 
-/// An axis-aligned portal as the piece math sees it: where the doorway is, the
-/// outward surface normal, and the oriented opening half-extent. Decoupled from
-/// the ECS `Portal` component so this module stays pure and testable.
+/// Portal frame as the piece math sees it: where the doorway is, the outward
+/// surface normal, and the current AABB-backed opening half-extent. Decoupled
+/// from the ECS `Portal` component so this module stays pure and testable.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct PortalFrame {
     /// World-space center of the doorway, on the host surface.
     pub pos: Vec2,
-    /// Unit outward normal (axis-aligned: ±x or ±y), pointing into the room.
+    /// Unit outward normal, pointing into the room. Current gameplay collision
+    /// expects cardinal directions; future public API should permit arbitrary
+    /// normalized directions with an explicit tangent/aperture basis.
     pub normal: Vec2,
-    /// Oriented AABB half-extent of the doorway (opening along the surface,
-    /// thin through it). See `portal::portal_half_extent`.
+    /// AABB half-extent of the doorway (opening along the surface, thin through
+    /// it). This is an Ambition/cardinal convenience representation, not the
+    /// final expressive portal-shape API.
     pub half_extent: Vec2,
 }
 

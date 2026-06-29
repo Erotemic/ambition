@@ -9,6 +9,7 @@ use bevy::prelude::*;
 
 #[cfg(feature = "effect_view_cones")]
 use crate::view_cones;
+use crate::gun_visuals;
 use crate::visuals;
 #[cfg(feature = "effect_view_cones")]
 use crate::PortalDebugOverlay;
@@ -30,8 +31,9 @@ pub struct PortalPresentationSet;
 /// not by forking.
 #[derive(Clone, Copy, Debug)]
 pub struct PortalPresentationPlugin {
-    /// Placed-portal quads + channel labels, the in-flight shot streak, and
-    /// the ground-pickup sprite ([`visuals::sync_portal_visuals`]).
+    /// Placed-portal quads + channel labels. For compatibility, this system
+    /// still calls sequestered gun helpers for in-flight shot and pickup
+    /// markers; split that flag after behavior is stable.
     pub portal_quads: bool,
     /// The mid-transit **exit copy** of the body over the host-tagged
     /// [`crate::PortalSceneBody`] ([`visuals::sync_portal_body_pieces`]): a
@@ -40,7 +42,7 @@ pub struct PortalPresentationPlugin {
     /// show the emerging slice and the copy overlays it.
     pub body_pieces: bool,
     /// The held portal-gun sprite aimed by [`PortalAimHint`]
-    /// ([`visuals::sync_portal_mode_indicator`]).
+    /// ([`gun_visuals::sync_portal_mode_indicator`]).
     pub gun_indicator: bool,
     /// The input-warp disorientation glyph
     /// ([`visuals::sync_portal_disorientation_indicator`]).
@@ -98,7 +100,7 @@ impl Plugin for PortalPresentationPlugin {
         if self.gun_indicator {
             app.add_systems(
                 Update,
-                visuals::sync_portal_mode_indicator.in_set(PortalPresentationSet),
+                gun_visuals::sync_portal_mode_indicator.in_set(PortalPresentationSet),
             );
         }
         if self.disorientation {

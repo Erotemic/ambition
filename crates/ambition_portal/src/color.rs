@@ -1,25 +1,27 @@
-//! Portal pair-linking identity, split into two distinct domain types plus the
-//! unifying [`PortalChannel`] that the shared transit/pairing core operates on.
+//! Portal pair-linking identity.
 //!
-//! Two portals pair iff they share the same [`PortalChannel`]. The distinction
-//! between gun colors and authored channel colors is REAL at the boundaries:
+//! The shared transit/pairing core operates on [`PortalChannel`]: two portals
+//! pair iff their channels are partners. Ambition currently has two channel
+//! origins at the boundary:
 //!
-//! - [`PortalGunColor`] — the gun's two-slot pair (Blue↔Orange). Used by the
-//!   gun, its aim/mode indicator, and the gun's place-replace logic.
-//! - [`PortalChannelColor`] — the authored channel pairs (Purple↔Yellow,
-//!   Teal↔Red, Green↔Magenta, Cyan↔Rose). Used by LDtk authoring + the gate
-//!   registry.
+//! - [`PortalGunColor`] — compatibility slots for Ambition's current gun-owned
+//!   portal workflow.
+//! - [`PortalChannelColor`] — authored/runtime channel colors for level-placed
+//!   and scriptable portals.
 //!
 //! Both map into [`PortalChannel`], over which [`PlacedPortal`], `transit_step`,
 //! `find_portal`, the carve/registry, and `portal_teleport_ground_items` are
-//! generic — so the shared machinery never needs to know whether a portal came
-//! from the gun or from authoring.
+//! generic.
+//!
+//! FIXME(portal-api): a standalone crate should likely expose an opaque
+//! host-defined channel/key type plus optional color helpers, instead of baking
+//! Ambition's gun palette into the public core API.
 //!
 //! [`PlacedPortal`]: super::types::PlacedPortal
 
 use bevy::prelude::Color;
 
-/// A gun-owned portal end. The gun owns up to [`PAIRS`](Self::PAIRS) pairs at
+/// Compatibility gun-owned portal end. The gun owns up to [`PAIRS`](Self::PAIRS) pairs at
 /// once; each pair has two complementary ends. `slot` packs them: `pair =
 /// slot / 2`, end = `slot & 1` (0 = the "blue"/A end, 1 = the "orange"/B end).
 /// Two ends of the SAME pair are [`other`](Self::other) partners (they link);
@@ -69,7 +71,7 @@ impl PortalGunColor {
     }
 }
 
-/// An authored channel-pair color. LDtk test rooms place these pairs
+/// An authored/runtime channel-pair color. LDtk test rooms place these pairs
 /// (Purple↔Yellow, Teal↔Red, Green↔Magenta, Cyan↔Rose) so it's clear at a glance
 /// which two portals are linked. Authored pairs are NOT gun-owned, so they
 /// persist even with no gun around.

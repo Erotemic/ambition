@@ -1,5 +1,5 @@
-//! Portal-specific transit systems: drive the player, non-player actors, and
-//! in-flight items through a placed portal pair via the shared
+//! Portal-specific transit systems: drive opted-in actors and in-flight items
+//! through a placed portal pair via the shared
 //! [`super::placement::transit_step`] aperture machine, plus the carve / input /
 //! ability-suppression guards that make a crossing feel right.
 
@@ -22,27 +22,26 @@ use super::types::{find_portal, portal_exit_clearance, PlacedPortal, PortalTrans
 /// position-delta detector) read this instead of polling a shared mutable flag,
 /// so portal transit no longer owns trace simulation state. Carries the
 /// teleported entity so a consumer can scope to a specific body (e.g. the
-/// primary player).
+/// locally focused body).
 #[derive(Message, Clone, Copy, Debug)]
 pub struct BodyTeleported {
     /// The body whose position snapped to a portal exit this frame.
     pub body: Entity,
 }
 
-/// Content-agnostic movement intent the portal transit reads in place of the
-/// Ambition `ControlFrame`. The content/input layer syncs this from its own
-/// input each frame BEFORE transit runs (see the host portal adapter),
-/// so portal core never imports the Ambition input type. Holds the primary
-/// player's current held movement direction (raw, un-warped): transit uses it as
-/// the anchor for the same-wall held-input warp.
+/// Content-agnostic movement intent the portal transit reads in place of a
+/// concrete host input frame. The host input layer syncs this from its own
+/// input each frame BEFORE transit runs, so portal core never imports that input
+/// type. Holds the focused actor's current held movement direction (raw,
+/// un-warped): transit uses it as the anchor for same-wall held-input warp.
 #[derive(Resource, Clone, Copy, Debug, Default)]
 pub struct PlayerMovementIntent {
     /// Raw held movement direction this frame (x = horizontal, y = vertical;
-    /// `ZERO` when the player isn't pushing a direction).
+    /// `ZERO` when no movement direction is held.
     pub dir: Vec2,
 }
 
-/// Per-player transit state: the aperture latch / centroid-crossing machine
+/// Per-body transit state: the aperture latch / centroid-crossing machine
 /// that replaces "touch = teleport". A body is mid-transit while any part of it
 /// straddles a portal plane; the authoritative body transfers to the exit when
 /// the CENTROID crosses, and transit ends (re-arming after a clear) once the
@@ -59,12 +58,10 @@ pub struct PortalTransit {
 
 /// Portal-owned output of [`publish_portal_carves`]: the aperture rectangles to
 /// carve OUT of the host surface this frame, in publish order. Portal core writes
-/// the geometry here; an Ambition bridge
-/// (the host portal adapter) copies it into the
-/// host's `FeatureEcsWorldOverlay.portal_carves` each frame, ordered identically,
-/// so the collision world sees the same carves the same frame. Portal core thus
-/// never names `FeatureEcsWorldOverlay` — it owns the carve geometry, Ambition
-/// owns how a carve alters its collision representation.
+/// the geometry here; a host bridge copies it into the host collision overlay
+/// each frame, ordered identically, so the collision world sees the same carves
+/// the same frame. Portal core owns the carve geometry; the host owns how a
+/// carve alters its collision representation.
 #[derive(Resource, Clone, Debug, Default)]
 pub struct PortalCarves {
     /// Aperture rectangles to carve this frame, in publish order.

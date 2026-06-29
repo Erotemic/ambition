@@ -15,7 +15,7 @@ pub enum PortalSet {
     /// Publish portal collision carves (the host orders this against any
     /// early-world snapshot it needs, e.g. a gravity-zone snapshot).
     Carves,
-    /// Input rewrites that happen before the player input frame is synced.
+    /// Input rewrites that happen before the host input frame is synced.
     InputWarp,
     /// Host input → portal intent translation (a host adapter), run
     /// before the weapon/projectile consumers so the intents are visible the
@@ -27,7 +27,7 @@ pub enum PortalSet {
     /// (orphan-portal cleanup + aerial-roll readiness). Chained after
     /// [`PortalSet::WeaponAndProjectiles`]; the host does NOT gate this set,
     /// preserving the pre-extraction behavior where `despawn_orphaned_portals`
-    /// and `ensure_actor_roll` ran unconditionally inside `PlayerSimulation`.
+    /// and `ensure_actor_roll` ran unconditionally inside the host simulation.
     WeaponMaintenance,
     /// Reset-time portal and gravity cleanup.
     RoomReset,

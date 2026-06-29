@@ -1,9 +1,14 @@
 //! Reusable, content-free portal mechanic.
 //!
-//! Owns portals, gun state, placement, transit math, carves, lifecycle,
-//! events, and schedule labels. Hosts provide input/inventory bindings,
-//! collision-world application, room-reset policy, rendering/audio/VFX,
-//! and content-specific behavior through adapters around [`PortalPlugin`].
+//! Owns portal topology, placement, transit math, carves, lifecycle, events,
+//! and schedule labels. Hosts provide input/inventory bindings, collision-world
+//! application, room-reset policy, rendering/audio/VFX, and content-specific
+//! behavior through adapters around [`PortalPlugin`].
+//!
+//! The current Ambition portal-gun workflow is kept in clearly named
+//! `gun_*` compatibility modules. It is not the conceptual core of this crate:
+//! games should be able to use static portals, scripted emitters, arbitrary
+//! portal openers, and moving portals without adopting a gun.
 //!
 //! Any entity with [`BodyKinematics`](ambition_platformer_primitives::body::BodyKinematics),
 //! [`PortalBody`], and a [`PortalPolicy`] can use the generic
@@ -14,17 +19,18 @@
 mod color;
 mod eviction;
 mod gun;
+mod gun_lifecycle;
 mod lifecycle;
 mod link;
 mod messages;
-mod pickup;
+mod gun_pickup;
 /// Pure portal-piece geometry — the Core invariant. Public because a host's
 /// world-overlay carve and debug overlay read `pieces` directly.
 pub mod pieces;
 mod placement;
 mod plugin;
 mod schedule;
-mod shot;
+mod gun_projectile;
 mod transit;
 mod tuning;
 mod types;
@@ -45,13 +51,14 @@ pub use ambition_platformer_primitives::world_query::raycast_solids;
 pub use color::{PortalChannel, PortalChannelColor, PortalGunColor};
 pub use eviction::{evict_straddlers_on_portal_change, PortalFrameHistory};
 pub use gun::{portal_toggle_system, PortalGun};
-pub use lifecycle::{clear_portals_on_reset, despawn_orphaned_portals};
+pub use gun_lifecycle::despawn_orphaned_portals;
+pub use lifecycle::clear_portals_on_reset;
 pub use link::{equalize_pair_apertures, link_hash, resolve_portal_links, PortalLink};
 pub use messages::{
     ClearPortals, DropPortalGun, FirePortalGun, PickUpPortalGun, PortalBodyEntered,
     PortalFireIntent, PortalGunEquipped, PortalShotFired, TogglePortalGun,
 };
-pub use pickup::{arm_portal_pickups, PortalGunPickup};
+pub use gun_pickup::{arm_portal_pickups, PortalGunPickup};
 pub use pieces::{portal_map_rotation, set_portal_map_rotation};
 pub use placement::{
     portal_facing_flips, portal_facing_flips_for_convention, portal_fits,
@@ -59,7 +66,7 @@ pub use placement::{
     portal_transit_roll, raycast_through_portals, raycast_through_portals_tuned, somersault_roll,
     somersault_roll_for_convention, transit_step, transit_step_with_tuning, TransitStep,
 };
-pub use shot::{
+pub use gun_projectile::{
     is_portal_placeable, portal_fire_system, step_portal_shot, PortalShot, PortalShotStep,
     PortalShotWorld,
 };

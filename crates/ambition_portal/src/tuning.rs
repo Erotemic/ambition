@@ -56,7 +56,7 @@ pub struct PortalTuning {
     pub input_held_epsilon: f32,
     /// Cosine threshold before a changed held direction drops the input warp.
     pub input_warp_keep_cos: f32,
-    /// While a player is in a portal aperture, disable wall movement abilities
+    /// While an actor is in a portal aperture, disable wall movement abilities
     /// so carved aperture edges cannot catch them.
     pub suppress_wall_abilities: bool,
     /// Whether a same-wall turn-around transit re-orients the body's `facing`
@@ -64,8 +64,8 @@ pub struct PortalTuning {
     /// This is a global gate ANDed with the per-body [`PortalPolicy`]'s `reorient`
     /// flag, so it only ever suppresses the flip — bodies whose policy already
     /// keeps facing (bosses, projectiles) are unaffected either way. The portal
-    /// crate defaults it ON to preserve standalone behavior; Ambition mirrors the
-    /// `portal_reverses_facing` gameplay setting into it (defaulting OFF).
+    /// crate defaults it ON to preserve standalone behavior; a host can mirror
+    /// its own gameplay setting into it.
     ///
     /// [`PortalPolicy`]: crate::transit::PortalPolicy
     pub reorient_facing: bool,

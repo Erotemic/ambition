@@ -1,10 +1,13 @@
-//! The default portal visuals, moved verbatim from the Ambition sandbox's
-//! render-gated `portal/presentation.rs` (host types swapped for the crate
-//! seams): portal quads + labels, the held / pickup gun sprite, the body-piece
-//! decomposition mid-transit, and the disorientation indicator.
+//! Default portal-seam visuals: portal quads + labels, mid-transit body-piece
+//! decomposition, and the disorientation indicator.
 //!
-//! Every system here is read-only over the portal sim and rebuilds its
-//! transient entities each frame, so the visuals can never desync from the sim.
+//! Gun-specific sprites and shot/pickup markers live in `gun_visuals.rs` so the
+//! reusable portal presentation surface can move toward static portals, scripted
+//! emitters, moving portals, and other non-gun use cases without inheriting
+//! Ambition's current portal-gun workflow.
+//!
+//! Every system here is read-only over the portal sim and rebuilds its transient
+//! entities each frame, so visuals cannot desync from the sim.
 
 use bevy::prelude::*;
 use bevy::sprite::Anchor;
@@ -18,11 +21,11 @@ use ambition_platformer_primitives::orientation::ActorRoll;
 
 use ambition_portal::pieces as pp;
 use ambition_portal::{
-    copy_transform, find_portal, PlacedPortal, PortalGun, PortalGunPickup, PortalInputWarp,
-    PortalShot, PortalTransit, PORTAL_VISUAL_THICKNESS,
+    copy_transform, find_portal, PlacedPortal, PortalGunPickup, PortalInputWarp, PortalShot,
+    PortalTransit, PORTAL_VISUAL_THICKNESS,
 };
 
-use crate::{PortalAimHint, PortalGunArt, PortalSceneBody, PortalWorldFrame};
+use crate::{gun_visuals, PortalGunArt, PortalSceneBody, PortalWorldFrame};
 
 /// Marks a sprite entity that visualizes a [`PlacedPortal`]. Rebuilt each frame from
 /// the sim portals, so it never drifts.
@@ -34,16 +37,20 @@ pub struct PortalVisual;
 #[derive(Component)]
 pub struct PortalBodyPiece;
 
-/// Marks the transient "portal disorientation" indicator above the player —
-/// visible exactly while the held movement input is portal-warped.
+/// Marks the transient "portal disorientation" indicator above the controlled
+/// body — visible exactly while held movement input is portal-warped.
 #[derive(Component)]
 pub struct PortalDisorientIndicator;
 
-/// Show a small indicator over the player whenever their movement input is
-/// portal-warped ([`PortalInputWarp`]) — so the "I'm holding left but moving
-/// right" state is legible, and it disappears the instant the warp drops (on
-/// release / redirect). Placeholder dot+glyph for now; a nicer effect (incl. on
-/// the joystick visual) can replace it later.
+/// Show a small indicator over the controlled body whenever movement input is
+/// portal-warped ([`PortalInputWarp`]) — so the "held left but moving right"
+/// state is legible, and it disappears the instant the warp drops (on release /
+/// redirect). Placeholder dot+glyph for now; a nicer effect (incl. on the
+/// joystick visual) can replace it later.
+///
+/// FIXME(host-seam): this still queries Ambition's primary-player marker pair.
+/// Isolate that dependency behind a host-supplied focus marker before publishing
+/// this as a less-opinionated portal presentation crate.
 pub fn sync_portal_disorientation_indicator(
     mut commands: Commands,
     frame: Res<PortalWorldFrame>,
@@ -210,83 +217,14 @@ pub fn sync_portal_body_pieces(
     }
 }
 
-/// Marks the held portal-gun sprite carried in the player's hand.
-#[derive(Component)]
-pub struct PortalModeIndicator;
-
-/// On-screen size of the portal-gun sprite, used for BOTH the held gun and the
-/// ground pickup so it doesn't change size when you pick it up (keeps the
-/// 140×64 sprite aspect ≈ 2.19).
-const PORTAL_GUN_DISPLAY: Vec2 = Vec2::new(52.0, 24.0);
-
-/// Draw the portal-gun sprite **in the player's hand**, rotated to point where
-/// you're AIMING (the same direction the host fires the portal — like a wielded
-/// weapon), tinted to the active mode color so toggling visibly swaps
-/// blue↔orange.
-pub fn sync_portal_mode_indicator(
-    mut commands: Commands,
-    aim_hint: Option<Res<PortalAimHint>>,
-    frame: Res<PortalWorldFrame>,
-    art: Option<Res<PortalGunArt>>,
-    visuals: Query<Entity, With<PortalModeIndicator>>,
-    players: Query<(&BodyKinematics, &PortalGun), (With<PlayerEntity>, With<PrimaryPlayer>)>,
-) {
-    for entity in &visuals {
-        commands.entity(entity).despawn();
-    }
-    let Ok((kin, gun)) = players.single() else {
-        return;
-    };
-    if !gun.active {
-        return;
-    }
-    let Some(art) = art else {
-        return;
-    };
-    // The gun cycles through several pairs; we only have two held-gun arts, so
-    // the B end of every pair shows the "orange" art and the A end the "blue"
-    // art. The placed portals carry the per-pair display colour themselves.
-    let image = if gun.next_color.slot & 1 == 1 {
-        art.orange.clone()
-    } else {
-        art.blue.clone()
-    };
-    let facing = if kin.facing >= 0.0 { 1.0 } else { -1.0 };
-    // In the player's hand: just in front of the body at roughly hand height
-    // (y-down world, so a small +y is slightly below centre). z=12 keeps it
-    // in front of the player sprite.
-    let pos = kin.pos + Vec2::new(facing * (kin.size.x * 0.45 + 6.0), kin.size.y * 0.06);
-    let translation = frame.to_render(pos, 12.0);
-    // Aim the barrel where the shot will go (same aim the host's input adapter
-    // resolves for `FirePortalGun`: right-stick aim, else move axis, else
-    // facing). World y-down → render y-up; aiming left flips vertically so the
-    // gun stays upright rather than upside-down. The aim is supplied by the
-    // host via `PortalAimHint` (so portal presentation stays content-agnostic);
-    // a zero hint (or no hint) falls back to facing.
-    let hinted = aim_hint.as_deref().map_or(Vec2::ZERO, |h| h.aim);
-    let aim = if hinted.length() > 0.0 {
-        hinted
-    } else {
-        Vec2::new(if kin.facing >= 0.0 { 1.0 } else { -1.0 }, 0.0)
-    }
-    .normalize_or_zero();
-    let angle = (-aim.y).atan2(aim.x);
-    commands.spawn((
-        PortalModeIndicator,
-        Sprite {
-            image,
-            custom_size: Some(PORTAL_GUN_DISPLAY),
-            flip_y: aim.x < 0.0,
-            ..default()
-        },
-        Transform::from_translation(translation).with_rotation(Quat::from_rotation_z(angle)),
-        Name::new("Held portal gun"),
-    ));
-}
-
-/// Colored quad per portal so the player can actually see them. Clear-and-
-/// rebuild each frame — there are at most two portals, so the churn is
-/// negligible and the visuals can never desync from the sim entities.
+/// Colored quad per portal so linked apertures are legible. Clear-and-rebuild
+/// each frame — portal counts are expected to stay small in ordinary rooms, and
+/// rebuilding from sim entities avoids presentation drift.
+///
+/// FIXME(portal-api): this visual is intentionally simple and currently assumes
+/// a 2D side-profile doorway. The data model should be ready for authored,
+/// runtime-opened, moving, and eventually non-axis-aligned portals, with richer
+/// renderers allowed to replace this system.
 pub fn sync_portal_visuals(
     mut commands: Commands,
     frame: Res<PortalWorldFrame>,
@@ -299,39 +237,8 @@ pub fn sync_portal_visuals(
     for entity in &visuals {
         commands.entity(entity).despawn();
     }
-    // In-flight portal shots: a small bright streak in the shot's color.
-    for proj in &projectiles {
-        let color = proj.channel.display().1;
-        let translation = frame.to_render(proj.pos, 9.5);
-        commands.spawn((
-            PortalVisual,
-            Sprite::from_color(color, Vec2::new(16.0, 8.0)),
-            Transform::from_translation(translation),
-            Name::new("Portal shot visual"),
-        ));
-    }
-    // Uncollected portal-gun pickup: a purple marker quad.
-    for pickup in &pickups {
-        let translation = frame.to_render(pickup.pos, 9.0);
-        // The world pickup shows the actual gun sprite (blue mode by default);
-        // falls back to a marker quad before the art has loaded.
-        let sprite = match art.as_ref() {
-            Some(art) => Sprite {
-                image: art.blue.clone(),
-                // Same display size as the held gun so it doesn't visibly
-                // resize when you pick it up.
-                custom_size: Some(PORTAL_GUN_DISPLAY),
-                ..default()
-            },
-            None => Sprite::from_color(Color::srgb(0.66, 0.36, 0.92), pickup.half_extent * 2.0),
-        };
-        commands.spawn((
-            PortalVisual,
-            sprite,
-            Transform::from_translation(translation),
-            Name::new("Portal gun pickup visual"),
-        ));
-    }
+    gun_visuals::spawn_portal_shot_visuals(&mut commands, &frame, &projectiles);
+    gun_visuals::spawn_portal_gun_pickup_visuals(&mut commands, &frame, art.as_deref(), &pickups);
     let all_portals: Vec<PlacedPortal> = portals.iter().copied().collect();
     for portal in &all_portals {
         let partner = find_portal(&all_portals, portal.channel.partner());

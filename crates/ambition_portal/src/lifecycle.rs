@@ -1,5 +1,4 @@
-//! Portal lifecycle / persistence policy: clear portals on room reset and
-//! despawn gun-orphaned portals.
+//! Portal lifecycle / persistence policy for placed portals and transit cooldowns.
 //!
 //! The gravity-zone mechanic (room-reset gravity reset + the ambient
 //! gravity-flip switch) moved to `crate::gravity` (Stage 6 follow-up):
@@ -7,22 +6,18 @@
 
 use bevy::prelude::*;
 
-use super::gun::PortalGun;
 use super::messages::ClearPortals;
-use super::pickup::PortalGunPickup;
-use super::shot::PortalShot;
 use super::types::{PlacedPortal, PortalTransitCooldown};
 
-/// Despawn the GUN's portals on a [`ClearPortals`] signal, and clear any body's
-/// transit cooldown. AUTHORED portals are level content and are spared — a room
-/// reset (death or the manual delete-key) must not wipe the purple/yellow/etc.
-/// portals the level placed; only the player's gun-spawned Blue/Orange pair is
-/// disposable. (Authored portals can't be repositioned yet, so leaving them in
-/// place is the same as "reset to their original position"; when they become
-/// movable, the manual reset should additionally snap them back to their authored
-/// spec — TODO.) Portal core consumes the portal-owned `ClearPortals` message;
-/// the Ambition room-reset adapter emits it from `ResetRoomFeaturesEvent`, so core
-/// never names the Ambition reset.
+/// Despawn disposable gun-owned portals on a [`ClearPortals`] signal, and clear
+/// any body's transit cooldown. Authored portals are level content and are
+/// spared — a room reset must not wipe the purple/yellow/etc. portals the level
+/// placed.
+///
+/// FIXME(portal-api): when authored portals become movable, reset should snap
+/// them back to their authored spec instead of merely sparing their current
+/// entity. The host emits this portal-owned message; core never names the
+/// host's reset event.
 pub fn clear_portals_on_reset(
     mut commands: Commands,
     mut resets: MessageReader<ClearPortals>,
@@ -33,7 +28,7 @@ pub fn clear_portals_on_reset(
         return;
     }
     for (entity, portal) in &portals {
-        // Spare authored level portals; only the gun's ephemeral pair is cleared.
+        // Spare authored level portals; only gun-owned ephemeral pairs clear.
         if portal.channel.is_gun_pair() {
             commands.entity(entity).despawn();
         }
@@ -43,37 +38,15 @@ pub fn clear_portals_on_reset(
     }
 }
 
-/// The GUN's portals must not outlive the gun that made them: despawn the
-/// gun-pair portals (blue/orange) + in-flight shots when **no** portal gun is
-/// present in the room — neither held (`PortalGun`) nor lying as a
-/// `PortalGunPickup`. This is the "gun is destroyed" case. Authored pairs (other
-/// colors, e.g. a test room's portals) are NOT gun-owned, so they persist even
-/// with no gun around. A merely *dropped* gun still exists as a pickup, so its
-/// portals persist; leaving the room is handled by [`clear_portals_on_reset`].
-pub fn despawn_orphaned_portals(
-    mut commands: Commands,
-    guns: Query<(), With<PortalGun>>,
-    pickups: Query<(), With<PortalGunPickup>>,
-    portals: Query<(Entity, &PlacedPortal)>,
-    shots: Query<Entity, With<PortalShot>>,
-) {
-    if !guns.is_empty() || !pickups.is_empty() {
-        return;
-    }
-    for (entity, portal) in &portals {
-        if portal.channel.is_gun_pair() {
-            commands.entity(entity).despawn();
-        }
-    }
-    for entity in &shots {
-        commands.entity(entity).despawn();
-    }
-}
+// Gun-owned portal cleanup lives in `gun_lifecycle.rs` so the core lifecycle
+// module remains about portal state and room-reset policy, not the current
+// Ambition gun ownership model.
+
 
 #[cfg(test)]
 mod reset_tests {
-    //! `clear_portals_on_reset` clears the disposable GUN pair but SPARES authored
-    //! level portals — a room reset must never wipe the level's placed portals.
+    //! `clear_portals_on_reset` clears disposable gun-owned pairs but spares
+    //! authored level portals — a reset must never wipe level-placed portals.
     use super::*;
     use crate::color::{PortalChannel, PortalChannelColor, PortalGunColor};
     use crate::types::{portal_half_extent, PlacedPortal};

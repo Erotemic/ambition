@@ -383,9 +383,12 @@ pub(crate) fn compute_cone(
     if target <= 0.0 {
         return closed(min);
     }
-    // The wedge runs to the half-plane: far extent past every world bound (the
-    // renderer clips to the world rect afterwards).
-    let far_extent = world_size.x + world_size.y;
+    // The wedge runs to the half-plane: make lateral reach much larger than
+    // depth so the doorway limit's side rays are effectively parallel to the
+    // portal surface. The renderer clips this oversized strip to the current
+    // viewport/world rect before building the mesh, so this affects coverage
+    // without inflating the rendered capture rect.
+    let far_extent = (world_size.x + world_size.y) * 64.0;
     let Some(wedge) = aperture_wedge_multi(&enter, &exit, &eyes, depth, far_extent) else {
         return closed(min);
     };
@@ -746,6 +749,12 @@ mod tests {
             min_x <= -world.x + 1e-3 && max_x >= world.x * 2.0 - 1e-3,
             "near-doorway cone should expand to the viewport-clipped half-plane, x span {min_x}..{max_x}",
         );
+        let far_depth = plan.wedge.entry_quad[2].y - enter.pos.y;
+        let far_span = max_x - min_x;
+        assert!(
+            far_span > far_depth * 32.0,
+            "half-plane side rays should be nearly parallel to the surface, not a 45-degree cone: far_span={far_span}, far_depth={far_depth}",
+        );
     }
 
     #[test]
@@ -790,6 +799,12 @@ mod tests {
         assert!(
             min_y < -world.y && max_y > world.y * 2.0,
             "just-behind doorway cone should still expand to the vertical half-plane, y span {min_y}..{max_y}",
+        );
+        let far_depth = enter.pos.x - plan.wedge.entry_quad[2].x;
+        let far_span = max_y - min_y;
+        assert!(
+            far_span > far_depth * 32.0,
+            "just-behind doorway side rays should be nearly parallel to the surface, not a 45-degree cone: far_span={far_span}, far_depth={far_depth}",
         );
     }
 }

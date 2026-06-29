@@ -411,15 +411,12 @@ pub fn aperture_wedge_multi(
         let lat_eye = v.dot(t);
         let far_lat = |lat_a: f32| -> f32 {
             if front < MIN_FRONT {
-                // Limit continuation: on the plane the endpoint ray runs
-                // parallel to the surface — the strip extends to the clamp,
-                // away from the eye (outward if dead-centered).
-                let dir = if (lat_a - lat_eye).abs() < 1e-3 {
-                    lat_a.signum()
-                } else {
-                    (lat_a - lat_eye).signum()
-                };
-                dir * max_lateral
+                // Limit continuation: on the plane, both endpoint rays are
+                // parallel to the surface, so the visible set is the entire
+                // half-plane behind the aperture. Give each aperture endpoint
+                // its own side of the lateral clamp; the renderer clips the
+                // oversized strip back to the current viewport/world rect.
+                lat_a.signum() * max_lateral
             } else {
                 (lat_a + (lat_a - lat_eye) * (max_depth / front)).clamp(-max_lateral, max_lateral)
             }

@@ -358,13 +358,15 @@ pub fn window_eye(enter: &PortalFrame, exit: &PortalFrame, eye: Vec2) -> Option<
 ///
 /// In the (normal, tangent) frame each far corner sits at depth exactly
 /// `max_depth` with lateral offset `lat_A + (lat_A − lat_eye)·(max_depth/front)`.
-/// As `front → 0` that diverges — but the LIMIT shape is well-defined: the
-/// full half-plane strip of depth `max_depth`. So instead of bounding the
-/// denominator, the lateral offset is **clamped to ±`max_lateral`** and the
-/// near-plane case (`front < 1`) switches to the limit directly: far corners
-/// at the clamp, away from the eye. The wedge therefore grows smoothly into
-/// the (bounded) half-plane as the viewer reaches the portal — no blow-up, no
-/// NaN, and a capture rect a fixed-size texture can actually frame.
+/// As `front → 0` that diverges. If the eye is laterally inside the aperture
+/// span, the limit shape is the full half-plane strip of depth `max_depth`.
+/// If the eye is off to the side, the limit is a one-sided grazing cone, not a
+/// full strip. So the near-plane branch only switches to the half-plane for
+/// eyes inside the finite aperture; other eyes use the projective formula with
+/// a minimum denominator and clamp the lateral offset to ±`max_lateral`. The
+/// wedge therefore grows smoothly into the bounded half-plane only as the
+/// viewer reaches the portal opening — no blow-up, no NaN, and a capture rect a
+/// fixed-size texture can actually frame.
 ///
 /// `None` if `eye` is behind the plane. Pure geometry — line-of-sight
 /// occlusion is the caller's check.
@@ -410,14 +412,16 @@ pub fn aperture_wedge_multi(
         }
         let lat_eye = v.dot(t);
         let far_lat = |lat_a: f32| -> f32 {
-            if front < MIN_FRONT {
+            if front < MIN_FRONT && lat_eye.abs() <= h {
                 // Limit continuation: on the plane, both endpoint rays are
-                // parallel to the surface, so the visible set is the entire
-                // half-plane behind the aperture. Give each aperture endpoint
-                // its own side of the lateral clamp; the renderer clips the
-                // oversized strip back to the current viewport/world rect.
+                // parallel to the surface only when the eye is inside the
+                // aperture span, so the visible set is the entire half-plane
+                // behind the aperture. Give each aperture endpoint its own side
+                // of the lateral clamp; the renderer clips the oversized strip
+                // back to the current viewport/world rect.
                 lat_a.signum() * max_lateral
             } else {
+                let front = front.max(MIN_FRONT);
                 (lat_a + (lat_a - lat_eye) * (max_depth / front)).clamp(-max_lateral, max_lateral)
             }
         };
@@ -720,6 +724,33 @@ mod tests {
             assert!((cone.entry_quad[2].y - 380.0).abs() < 1e-3);
             assert!((cone.entry_quad[3].y - 380.0).abs() < 1e-3);
         }
+    }
+
+    #[test]
+    fn near_plane_eye_outside_aperture_is_not_full_half_plane() {
+        let enter = floor(Vec2::new(100.0, 300.0));
+        let exit = right_wall(Vec2::new(400.0, 200.0));
+        let max_lateral = 400.0;
+        let cone = aperture_wedge(
+            &enter,
+            &exit,
+            Vec2::new(300.0, 299.5),
+            80.0,
+            max_lateral,
+        )
+        .unwrap();
+        let [_, _, f1, f0] = cone.entry_quad;
+
+        assert!(
+            f0.x < enter.pos.x - enter.aperture_half()
+                && f1.x < enter.pos.x - enter.aperture_half(),
+            "near-plane eye to the right of the aperture should see a left-skewed grazing cone, got {f0:?} {f1:?}",
+        );
+        assert!(
+            !((f0.x - (enter.pos.x - max_lateral)).abs() < 1e-3
+                && (f1.x - (enter.pos.x + max_lateral)).abs() < 1e-3),
+            "off-aperture near-plane eyes must not receive the centered full half-plane",
+        );
     }
 
     /// The far edge sits exactly `max_depth` behind the surface, and a head-on

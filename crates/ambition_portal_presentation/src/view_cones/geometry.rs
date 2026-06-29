@@ -108,10 +108,6 @@ impl SolidWorldQuery for SliceSolids<'_> {
     }
 }
 
-/// Skip the line-of-sight test when the real eye is within this distance of
-/// the faced aperture: at/in the doorway the ray would only graze the host
-/// surface's own (uncarved) blocks and false-positive.
-pub(crate) const LOS_NEAR_SKIP: f32 = 70.0;
 /// Pull LOS sample points slightly inward from the body corners so a corner
 /// that is flush against a wall does not sneak through as "clear" by exact
 /// point geometry.
@@ -214,8 +210,8 @@ pub(crate) fn aperture_los_ray_to(
 }
 
 /// Original low-quality LOS ray helper: one ray from `eye` to the lifted center
-/// of the finite aperture. Kept for tests and debug callers that want the
-/// previous center-only behavior.
+/// of the finite aperture. Kept for tests that pin the center-only behavior.
+#[cfg(test)]
 pub(crate) fn aperture_los_ray(
     eye: Vec2,
     enter: &PortalFrame,
@@ -274,17 +270,17 @@ pub(crate) fn inset_viewer_corners(eye: Vec2, half_size: Vec2) -> [Vec2; 4] {
 /// never has to land exactly on the host face — a grazing ray along a shared
 /// floor line would otherwise clip the (uncarved) host blocks themselves —
 /// and the cast still stops short of the lifted point. Uses the original
-/// low-quality center ray for compatibility with existing tests/callers.
+/// low-quality center ray for compatibility with existing tests.
+#[cfg(test)]
 pub(crate) fn aperture_occluded(eye: Vec2, enter: &PortalFrame, occluders: &[ae::Aabb]) -> bool {
     aperture_visibility_fraction(eye, enter, occluders, PortalApertureLosQuality::Low) <= 0.0
 }
 
-/// One frame's window plan for a pair: the minimum cone, the (full) visible
-/// wedge, and the target blend between them — the fraction of the viewer's
-/// body corners with clear sight to the faced aperture. The renderer normally
-/// approaches `target` temporally; `immediate` is reserved for non-viewer-gated
-/// static fallback windows. Doorway half-plane coverage is now eased spatially
-/// and temporally instead of bypassing the blend.
+/// One frame's window plan for a pair: the minimum cone, the visible wedge, and
+/// the target blend between them. `target == 0` means no viewer sample has LOS
+/// into either relevant aperture chart, so the renderer hides the capture
+/// window outright. The minimum cone is only a visible lower bound once LOS has
+/// admitted the window.
 pub(crate) struct ConePlan {
     pub(crate) min: ViewCone,
     pub(crate) wedge: ViewCone,
@@ -292,14 +288,77 @@ pub(crate) struct ConePlan {
     pub(crate) immediate: bool,
 }
 
-/// The window plan for one portal pair this frame. Every portal always shows
-/// at least the minimum cone; the wedge opens (smoothly, via `target`) when
-/// the character is in front of (or in the doorway of) EITHER end of the pair
-/// — the wormhole: being "in" one end is being in the other — in proportion
-/// to how many of its body corners have clear sight to the faced aperture.
-/// The wedge itself runs to the half-plane limit; the WORLD bounds are its
-/// only clip (renderer-side). `viewer_gated == false` ⇒ the static always-on
-/// window at full blend.
+#[derive(Clone, Copy)]
+struct VisibleEyeCandidate {
+    wedge_eye: Vec2,
+    los_origin: Vec2,
+    los_frame: PortalFrame,
+}
+
+fn push_unique_eye(eyes: &mut Vec<Vec2>, eye: Vec2) {
+    const EPS2: f32 = 1.0e-4;
+    if !eyes.iter().any(|e| e.distance_squared(eye) <= EPS2) {
+        eyes.push(eye);
+    }
+}
+
+fn visible_candidate_fraction(
+    candidate: VisibleEyeCandidate,
+    enter: &PortalFrame,
+    occluders: &[ae::Aabb],
+    quality: PortalApertureLosQuality,
+) -> Option<f32> {
+    if (candidate.wedge_eye - enter.pos).dot(enter.normal) <= 0.0 {
+        return None;
+    }
+    let fraction =
+        aperture_visibility_fraction(candidate.los_origin, &candidate.los_frame, occluders, quality);
+    if fraction > 0.0 {
+        Some(fraction)
+    } else {
+        None
+    }
+}
+
+fn body_edge_distance_to_aperture(viewer: &PortalViewer, frame: &PortalFrame) -> f32 {
+    let center_front = (viewer.eye - frame.pos).dot(frame.normal);
+    let tangent = aperture_tangent(frame);
+    let center_lateral = (viewer.eye - frame.pos).dot(tangent).abs();
+    let normal_radius = viewer
+        .half_size
+        .dot(Vec2::new(frame.normal.x.abs(), frame.normal.y.abs()));
+    let lateral_radius = viewer
+        .half_size
+        .dot(Vec2::new(tangent.x.abs(), tangent.y.abs()));
+    let front_gap = (center_front - normal_radius).max(0.0);
+    let lateral_gap = (center_lateral - aperture_half_width(frame) - lateral_radius).max(0.0);
+    Vec2::new(front_gap, lateral_gap).length()
+}
+
+fn preview_half_plane_alpha(edge_distance: f32, config: &PortalViewConeConfig) -> f32 {
+    let full = config.half_plane_preview_full_distance.max(0.0);
+    if full <= f32::EPSILON {
+        return 0.0;
+    }
+    let blend = config.half_plane_preview_blend_distance.max(0.0);
+    let raw = if edge_distance <= full {
+        1.0
+    } else if blend <= f32::EPSILON {
+        0.0
+    } else {
+        ((full + blend - edge_distance) / blend).clamp(0.0, 1.0)
+    };
+    let eased = smooth01(raw);
+    eased * eased
+}
+
+/// The window plan for one portal pair this frame. LOS is the hard admission
+/// gate: body-corner samples may contribute a direct eye, a wormhole/window eye,
+/// and a crossed shadow eye, but only candidates with clear aperture LOS feed
+/// the wedge. The optional half-plane preview is an art-directed assist layered
+/// on top of visible LOS geometry; setting
+/// [`PortalViewConeConfig::half_plane_preview_full_distance`] to `0.0` leaves
+/// only exact LOS-derived geometry at the configured ray fidelity.
 pub(crate) fn compute_cone(
     portal: &PlacedPortal,
     partner: &PlacedPortal,
@@ -318,7 +377,8 @@ pub(crate) fn compute_cone(
             immediate: true,
         };
     }
-    // The minimum cone, always shown when nothing better exists.
+    // Lower bound for an admitted window. If LOS admits nothing, the renderer
+    // hides the window rather than showing this cone through blocked space.
     let min = view_cone(&enter, &exit, config.min_depth, config.min_spread);
     let closed = |min: ViewCone| ConePlan {
         min,
@@ -329,83 +389,68 @@ pub(crate) fn compute_cone(
     let Some(v) = viewer.filter(|v| v.present) else {
         return closed(min);
     };
-    let h = v.half_size;
-    let corners = inset_viewer_corners(v.eye, h);
-    // Eye set for this end's wedge: the viewer's REAL AABB corners (those in
-    // front of `enter` contribute) PLUS, for any corner that has crossed the
-    // partner plane, its sprite-trick SHADOW (the body-map image, which emerges
-    // in front of `enter`). A straddling viewer has presence at both ends, so
-    // both sets feed the wedge — and as a corner crosses, its real contribution
-    // hands off to its shadow continuously, removing the abrupt flip at the
-    // midpoint between a pair (no hard direct↔wormhole eye switch).
-    let mut eyes: Vec<Vec2> = corners.to_vec();
-    for &c in &corners {
-        if let Some((resolved, _)) = window_eye(&enter, &exit, c) {
-            eyes.push(resolved);
+    let corners = inset_viewer_corners(v.eye, v.half_size);
+    let mut eyes: Vec<Vec2> = Vec::with_capacity(corners.len() * 3);
+    let mut coverage: f32 = 0.0;
+    for &corner in &corners {
+        let mut best: f32 = 0.0;
+        let mut candidates = Vec::with_capacity(3);
+        candidates.push(VisibleEyeCandidate {
+            wedge_eye: corner,
+            los_origin: corner,
+            los_frame: enter,
+        });
+        if let Some((resolved, via_partner)) = window_eye(&enter, &exit, corner) {
+            candidates.push(VisibleEyeCandidate {
+                wedge_eye: resolved,
+                los_origin: corner,
+                los_frame: if via_partner { exit } else { enter },
+            });
         }
-        if (c - exit.pos).dot(exit.normal) < 0.0 {
-            eyes.push(ambition_portal::pieces::map_point(c, &exit, &enter));
+        if (corner - exit.pos).dot(exit.normal) < 0.0 {
+            candidates.push(VisibleEyeCandidate {
+                wedge_eye: ambition_portal::pieces::map_point(corner, &exit, &enter),
+                los_origin: corner,
+                los_frame: exit,
+            });
         }
-    }
-    // Proximity-proportional depth from the NEAREST aperture — the distance is
-    // continuous across the midpoint even as which-is-nearer flips.
-    let dist = v.eye.distance(enter.pos).min(v.eye.distance(exit.pos));
-    let half_plane_full_dist = config.dist_close.max(LOS_NEAR_SKIP).min(config.dist_far);
-    let half_plane_start_dist =
-        (half_plane_full_dist + config.half_plane_ease_distance.max(0.0)).min(config.dist_far);
-    let half_plane_t = if half_plane_start_dist <= half_plane_full_dist + f32::EPSILON {
-        if dist <= half_plane_full_dist {
-            1.0
-        } else {
-            0.0
-        }
-    } else {
-        ((half_plane_start_dist - dist) / (half_plane_start_dist - half_plane_full_dist))
-            .clamp(0.0, 1.0)
-    };
-    let half_plane_alpha = smooth01(half_plane_t);
 
-    let dt = ((dist - half_plane_start_dist)
-        / (config.dist_far - half_plane_start_dist).max(1.0))
-        .clamp(0.0, 1.0);
-    // Near the aperture, the honest limit is a half-plane: as the viewer enters
-    // the doorway, the two aperture endpoint rays become parallel to the host
-    // surface and the visible wedge should fan out until only world bounds clip
-    // it. Build both an ordinary finite wedge and the true half-plane wedge,
-    // then blend between them by distance. This removes the old snap where the
-    // plan switched from an acute cone directly to a 180-degree half-plane.
-    let near_depth = config.depth_close.max(world_size.x + world_size.y);
-    let finite_depth = config.depth_close + (config.depth_far - config.depth_close) * smooth01(dt);
-    let half_depth = near_depth + (config.depth_far - near_depth) * smooth01(dt);
-    // Visibility fraction: real corners ray-test to the nearer finite aperture
-    // using the configured quality. The near-doorway case is still treated as
-    // visible even if rays would graze the host blocks, but it no longer bypasses
-    // temporal/spatial easing.
+        for candidate in candidates {
+            if let Some(fraction) = visible_candidate_fraction(
+                candidate,
+                &enter,
+                &v.occluders,
+                config.aperture_los_quality,
+            ) {
+                best = best.max(fraction);
+                push_unique_eye(&mut eyes, candidate.wedge_eye);
+            }
+        }
+        coverage += best;
+    }
+    let target = coverage / corners.len() as f32;
+    if target <= 0.0 || eyes.is_empty() {
+        return closed(min);
+    }
+
+    // Proximity-proportional depth and preview distance use the body-edge gap
+    // to the nearer finite aperture, not the aperture's infinite host plane.
+    // Being close in Y while far away laterally should still read as a cone,
+    // not as the doorway half-plane limit.
     let faced = if v.eye.distance(enter.pos) <= v.eye.distance(exit.pos) {
         &enter
     } else {
         &exit
     };
-    let los_target = if v.eye.distance(faced.pos) <= half_plane_full_dist {
-        1.0
-    } else {
-        corners
-            .iter()
-            .map(|c| {
-                aperture_visibility_fraction(*c, faced, &v.occluders, config.aperture_los_quality)
-            })
-            .sum::<f32>()
-            / corners.len() as f32
-    };
-    let target = los_target.max(half_plane_alpha);
-    if target <= 0.0 {
-        return closed(min);
-    }
-    // The half-plane wedge uses a synthetic eye infinitesimally in front of the
-    // aperture. `aperture_wedge_multi` treats that as the parallel-ray limit.
+    let edge_distance = body_edge_distance_to_aperture(v, faced);
+    let dt = ((edge_distance - config.dist_close) / (config.dist_far - config.dist_close).max(1.0))
+        .clamp(0.0, 1.0);
+    let near_depth = config.depth_close.max(world_size.x + world_size.y);
+    let finite_depth = config.depth_close + (config.depth_far - config.depth_close) * smooth01(dt);
+    let half_depth = near_depth + (config.depth_far - near_depth) * smooth01(dt);
     let far_extent = (world_size.x + world_size.y) * 64.0;
-    let finite_lateral = (finite_depth * config.spread.max(config.min_spread)).max(1.0);
-    let finite_wedge = aperture_wedge_multi(&enter, &exit, &eyes, finite_depth, finite_lateral);
+    let finite_wedge = aperture_wedge_multi(&enter, &exit, &eyes, finite_depth, far_extent);
+    let half_plane_alpha = preview_half_plane_alpha(edge_distance, config) * target.clamp(0.0, 1.0);
     let mut half_plane_eyes = eyes.clone();
     if half_plane_alpha > 0.0 {
         half_plane_eyes.push(enter.pos + enter.normal * 0.5);
@@ -739,6 +784,27 @@ mod tests {
         }
     }
 
+    fn span_x(cone: &ViewCone) -> f32 {
+        let min_x = cone
+            .entry_quad
+            .iter()
+            .map(|p| p.x)
+            .fold(f32::INFINITY, f32::min);
+        let max_x = cone
+            .entry_quad
+            .iter()
+            .map(|p| p.x)
+            .fold(f32::NEG_INFINITY, f32::max);
+        max_x - min_x
+    }
+
+    fn rendered_span_x(plan: &ConePlan, enter: &PlacedPortal, exit: &PlacedPortal) -> f32 {
+        let enter = enter.frame();
+        let exit = exit.frame();
+        let cone = blend_cones(&plan.min, &plan.wedge, smooth01(plan.target), &enter, &exit);
+        span_x(&cone)
+    }
+
     #[test]
     fn doorway_view_cone_reaches_half_plane_without_immediate_snap() {
         let world = Vec2::new(1600.0, 900.0);
@@ -804,8 +870,8 @@ mod tests {
             Vec2::new(0.0, 1.0),
         );
         let config = PortalViewConeConfig::default();
-        let full_dist = config.dist_close.max(LOS_NEAR_SKIP);
-        let start_dist = full_dist + config.half_plane_ease_distance;
+        let full_dist = config.half_plane_preview_full_distance;
+        let start_dist = full_dist + config.half_plane_preview_blend_distance;
 
         let span_at = |dist: f32| {
             let viewer = PortalViewer {
@@ -815,19 +881,7 @@ mod tests {
                 occluders: Vec::new(),
             };
             let plan = compute_cone(&enter, &exit, &config, Some(&viewer), world);
-            let min_x = plan
-                .wedge
-                .entry_quad
-                .iter()
-                .map(|p| p.x)
-                .fold(f32::INFINITY, f32::min);
-            let max_x = plan
-                .wedge
-                .entry_quad
-                .iter()
-                .map(|p| p.x)
-                .fold(f32::NEG_INFINITY, f32::max);
-            (max_x - min_x, plan.target, plan.immediate)
+            (span_x(&plan.wedge), plan.target, plan.immediate)
         };
 
         let (start_span, _, start_immediate) = span_at(start_dist + 1.0);
@@ -848,6 +902,162 @@ mod tests {
             "mid-ease target should be valid, got {mid_target}"
         );
         assert_eq!(full_target, 1.0);
+    }
+
+    #[test]
+    fn blocked_los_hides_near_portal_cone_inside_preview_range() {
+        let world = Vec2::new(1600.0, 900.0);
+        let enter = placed(
+            PortalGunColor::BLUE.channel(),
+            Vec2::new(900.0, 820.0),
+            Vec2::new(0.0, -1.0),
+        );
+        let exit = placed(
+            PortalGunColor::ORANGE.channel(),
+            Vec2::new(900.0, 180.0),
+            Vec2::new(0.0, 1.0),
+        );
+        let config = PortalViewConeConfig::default();
+        let blocker = ae::Aabb::new(Vec2::new(900.0, 780.0), Vec2::new(120.0, 3.0));
+        let viewer = PortalViewer {
+            present: true,
+            eye: enter.pos
+                + enter.normal
+                    * (config.half_plane_preview_full_distance
+                        + config.half_plane_preview_blend_distance * 0.5),
+            half_size: Vec2::ZERO,
+            occluders: vec![blocker],
+        };
+
+        let plan = compute_cone(&enter, &exit, &config, Some(&viewer), world);
+        assert_eq!(
+            plan.target, 0.0,
+            "preview proximity must not admit a portal window when LOS is blocked",
+        );
+        assert_eq!(plan.wedge.entry_quad, plan.min.entry_quad);
+    }
+
+    #[test]
+    fn exact_mode_uses_los_geometry_without_preview_half_plane() {
+        let world = Vec2::new(1600.0, 900.0);
+        let enter = placed(
+            PortalGunColor::BLUE.channel(),
+            Vec2::new(900.0, 820.0),
+            Vec2::new(0.0, -1.0),
+        );
+        let exit = placed(
+            PortalGunColor::ORANGE.channel(),
+            Vec2::new(900.0, 180.0),
+            Vec2::new(0.0, 1.0),
+        );
+        let default_config = PortalViewConeConfig::default();
+        let mut exact_config = default_config.clone();
+        exact_config.half_plane_preview_full_distance = 0.0;
+        let viewer = PortalViewer {
+            present: true,
+            eye: enter.pos + enter.normal * (default_config.half_plane_preview_full_distance * 0.5),
+            half_size: Vec2::ZERO,
+            occluders: Vec::new(),
+        };
+
+        let exact = compute_cone(&enter, &exit, &exact_config, Some(&viewer), world);
+        let preview = compute_cone(&enter, &exit, &default_config, Some(&viewer), world);
+        let exact_span = span_x(&exact.wedge);
+        let preview_span = span_x(&preview.wedge);
+
+        assert_eq!(exact.target, 1.0);
+        assert!(
+            preview_span > exact_span * 10.0,
+            "default preview should approach the half-plane, while exact mode stays on LOS geometry: exact={exact_span}, preview={preview_span}",
+        );
+    }
+
+    #[test]
+    fn off_axis_near_plane_viewer_does_not_get_half_plane_preview() {
+        let world = Vec2::new(1600.0, 900.0);
+        let enter = placed(
+            PortalGunColor::BLUE.channel(),
+            Vec2::new(900.0, 820.0),
+            Vec2::new(0.0, -1.0),
+        );
+        let exit = placed(
+            PortalGunColor::ORANGE.channel(),
+            Vec2::new(900.0, 180.0),
+            Vec2::new(0.0, 1.0),
+        );
+        let config = PortalViewConeConfig::default();
+        let centered_viewer = PortalViewer {
+            present: true,
+            eye: enter.pos + enter.normal * (config.half_plane_preview_full_distance * 0.5),
+            half_size: Vec2::ZERO,
+            occluders: Vec::new(),
+        };
+        let off_axis_viewer = PortalViewer {
+            present: true,
+            eye: enter.pos
+                + Vec2::X * 500.0
+                + enter.normal * (config.half_plane_preview_full_distance * 0.5),
+            half_size: Vec2::ZERO,
+            occluders: Vec::new(),
+        };
+
+        let centered = compute_cone(&enter, &exit, &config, Some(&centered_viewer), world);
+        let off_axis = compute_cone(&enter, &exit, &config, Some(&off_axis_viewer), world);
+        let centered_span = span_x(&centered.wedge);
+        let off_axis_span = span_x(&off_axis.wedge);
+
+        assert_eq!(off_axis.target, 1.0);
+        assert!(
+            centered_span > off_axis_span * 10.0,
+            "being close to the infinite portal plane is not enough for the half-plane preview: centered={centered_span}, off_axis={off_axis_span}",
+        );
+    }
+
+    #[test]
+    fn partial_los_reduces_window_growth() {
+        let world = Vec2::new(1600.0, 900.0);
+        let enter = placed(
+            PortalGunColor::BLUE.channel(),
+            Vec2::new(900.0, 820.0),
+            Vec2::new(0.0, -1.0),
+        );
+        let exit = placed(
+            PortalGunColor::ORANGE.channel(),
+            Vec2::new(900.0, 180.0),
+            Vec2::new(0.0, 1.0),
+        );
+        let mut config = PortalViewConeConfig::default();
+        config.aperture_los_quality = PortalApertureLosQuality::Medium;
+        let eye = enter.pos + enter.normal * 200.0;
+        let left_blocker = ae::Aabb::new(Vec2::new(875.5, 720.0), Vec2::new(5.0, 8.0));
+        let right_blocker = ae::Aabb::new(Vec2::new(924.5, 720.0), Vec2::new(5.0, 8.0));
+        let partial_viewer = PortalViewer {
+            present: true,
+            eye,
+            half_size: Vec2::ZERO,
+            occluders: vec![left_blocker, right_blocker],
+        };
+        let clear_viewer = PortalViewer {
+            present: true,
+            eye,
+            half_size: Vec2::ZERO,
+            occluders: Vec::new(),
+        };
+
+        let partial = compute_cone(&enter, &exit, &config, Some(&partial_viewer), world);
+        let clear = compute_cone(&enter, &exit, &config, Some(&clear_viewer), world);
+        let partial_span = rendered_span_x(&partial, &enter, &exit);
+        let clear_span = rendered_span_x(&clear, &enter, &exit);
+
+        assert!(
+            partial.target > 0.0 && partial.target < 1.0,
+            "endpoint blockers should leave the aperture partially visible, target={}",
+            partial.target,
+        );
+        assert!(
+            partial_span < clear_span,
+            "partial LOS should not inflate to the clear window width: partial={partial_span}, clear={clear_span}",
+        );
     }
 
     #[test]

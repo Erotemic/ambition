@@ -6,6 +6,7 @@
 //! recorder (written by sim code), and `profiling` (read by audio).
 pub mod debug_overlay;
 pub mod fps_overlay;
+pub mod portal_inspector;
 
 use bevy::prelude::*;
 
@@ -35,7 +36,6 @@ fn install_egui_inspectors(app: &mut App) {
         inspector_visible, world_inspector_visible, DeveloperTools, EditableAbilitySet,
         EditableMovementTuning, EditablePlayerStats,
     };
-    use ambition_gameplay_core::portal::PortalTuning;
     use ambition_gameplay_core::time::feel::SandboxFeelTuning;
     use bevy_inspector_egui::bevy_egui::EguiPlugin;
     use bevy_inspector_egui::quick::{ResourceInspectorPlugin, WorldInspectorPlugin};
@@ -54,25 +54,7 @@ fn install_egui_inspectors(app: &mut App) {
         .add_plugins(
             ResourceInspectorPlugin::<SandboxFeelTuning>::default().run_if(inspector_visible),
         )
-        .add_plugins(ResourceInspectorPlugin::<PortalTuning>::default().run_if(inspector_visible));
-
-    #[cfg(feature = "portal_render")]
-    app.add_plugins(
-        ResourceInspectorPlugin::<ambition_gameplay_core::portal::PortalEffectSelection>::default()
-            .run_if(inspector_visible),
-    )
-    .add_plugins(
-        ResourceInspectorPlugin::<ambition_gameplay_core::portal::PortalCameraContinuitySelection>::default()
-            .run_if(inspector_visible),
-    )
-    .add_plugins(
-        ResourceInspectorPlugin::<ambition_gameplay_core::portal::PortalCameraContinuityConfig>::default()
-            .run_if(inspector_visible),
-    )
-    .add_plugins(
-        ResourceInspectorPlugin::<ambition_gameplay_core::portal::PortalViewConeConfig>::default()
-            .run_if(inspector_visible),
-    );
+        .add_plugins(portal_inspector::PortalInspectorPlugin);
 
     app.add_plugins(WorldInspectorPlugin::new().run_if(world_inspector_visible));
 }

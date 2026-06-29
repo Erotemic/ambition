@@ -11,8 +11,9 @@
 //! (`aperture_wedge_multi` unions them), with no abrupt flip at the midpoint of
 //! a pair. Depth scales with proximity to the nearer aperture; line of sight is
 //! a 4-corner × aperture-sample raycast fraction (partial cover ⇒ partial
-//! window). Set [`PortalViewConeConfig::viewer_gated`] to `false` (or leave the
-//! viewer unset) to fall back to the static, always-on `view_cone`.
+//! window). If LOS admits no viewer sample, the live window is hidden; the rim
+//! stays visible. Set [`PortalViewConeConfig::viewer_gated`] to `false` (or
+//! leave the viewer unset) to fall back to the static, always-on `view_cone`.
 //!
 //! ## How a rig works
 //! Per placed portal with a placed partner, a **rig**: one offscreen image, a
@@ -176,12 +177,13 @@ pub struct PortalViewConeConfig {
     pub dist_close: f32,
     /// Viewer→aperture distance (world px) at/beyond which depth = `depth_far`.
     pub dist_far: f32,
-    /// Extra distance before the near-doorway limit over which the portal window
-    /// eases from the ordinary finite wedge into the full half-plane. The
-    /// half-plane still finishes at `dist_close.max(LOS_NEAR_SKIP)`, but the
-    /// transition starts this many world pixels earlier so the portal does not
-    /// snap from an acute cone to a 180-degree sheet on the handoff frame.
-    pub half_plane_ease_distance: f32,
+    /// Body-edge distance to the finite aperture where the art-directed
+    /// half-plane preview is fully applied. Set to `0.0` for exact LOS
+    /// geometry with no preview assist.
+    pub half_plane_preview_full_distance: f32,
+    /// Extra directed distance before [`Self::half_plane_preview_full_distance`]
+    /// over which exact LOS geometry eases toward the half-plane preview.
+    pub half_plane_preview_blend_distance: f32,
     /// Z range over which nearer portals' windows draw ON TOP of farther ones
     /// (added to `z` by an inverse-distance bias). Kept under the rim gap.
     pub z_proximity_span: f32,
@@ -189,9 +191,9 @@ pub struct PortalViewConeConfig {
     /// visible wedge (per second, exponential approach) — the temporal half of
     /// the smooth blend; the spatial half is the 4-corner visibility fraction.
     pub blend_rate: f32,
-    /// The **minimum cone** every portal always shows (depth into the surface,
-    /// world px), so a portal is never blank even when the character is behind
-    /// both ends or its sight line is occluded.
+    /// The **minimum cone** shown once LOS admits the window (depth into the
+    /// surface, world px). Blocked LOS hides the capture window instead of
+    /// drawing the minimum through walls.
     pub min_depth: f32,
     /// Minimum-cone side widening per px of depth.
     pub min_spread: f32,
@@ -255,7 +257,8 @@ impl Default for PortalViewConeConfig {
             depth_far: 44.0,
             dist_close: 70.0,
             dist_far: 900.0,
-            half_plane_ease_distance: 140.0,
+            half_plane_preview_full_distance: 18.0,
+            half_plane_preview_blend_distance: 96.0,
             z_proximity_span: 0.35,
             blend_rate: 10.0,
             min_depth: 22.0,
@@ -338,8 +341,8 @@ fn portal_window_clip_rect(
 mod geometry;
 mod mesh;
 use geometry::{
-    aperture_los_rays, aperture_los_targets, capture_dims, compute_cone, cone_render,
-    inset_viewer_corners, ApertureLosRay, ConeRender, RebuildKey, LOS_NEAR_SKIP,
+    aperture_los_rays, capture_dims, compute_cone, cone_render, inset_viewer_corners,
+    ApertureLosRay, ConeRender, RebuildKey,
 };
 use mesh::{apply_mesh, make_mesh, placeholder_mesh, proximity_z, smooth01};
 
@@ -415,6 +418,14 @@ pub fn sync_portal_view_cones(
 
         let (enter, exit) = (portal.frame(), partner.frame());
         let plan = compute_cone(&portal, &partner, &config, viewer, frame.size);
+        if plan.target <= 0.0 {
+            rig.blend = 0.0;
+            cam.is_active = false;
+            if let Ok((_, mut vis)) = cones.get_mut(rig.cone) {
+                *vis = Visibility::Hidden;
+            }
+            continue;
+        }
         // Temporal approach to the visibility fraction, smoothstep-shaped.
         if plan.immediate {
             rig.blend = plan.target;
@@ -474,9 +485,21 @@ pub fn sync_portal_view_cones(
         let (enter, exit) = (portal.frame(), partner.frame());
         let plan = compute_cone(portal, &partner, &config, viewer, frame.size);
         // Spawn at the target blend (no opening animation on appear).
-        let cone = blend_cones(&plan.min, &plan.wedge, smooth01(plan.target), &enter, &exit);
+        let cone = if plan.target > 0.0 {
+            Some(blend_cones(
+                &plan.min,
+                &plan.wedge,
+                smooth01(plan.target),
+                &enter,
+                &exit,
+            ))
+        } else {
+            None
+        };
         let z = proximity_z(&config, viewer, portal.pos);
-        let render = cone_render(&cone, &enter, &exit, &frame, clip_min, clip_max, z);
+        let render = cone
+            .as_ref()
+            .and_then(|cone| cone_render(cone, &enter, &exit, &frame, clip_min, clip_max, z));
         let mesh = meshes.add(match &render {
             Some(r) => make_mesh(r),
             None => placeholder_mesh(),
@@ -558,7 +581,7 @@ pub fn sync_portal_view_cones(
                 channel: portal.channel,
                 parallax_layer: portal_capture_parallax_layer(portal.channel),
                 rebuild,
-                blend: plan.target,
+                blend: if plan.target > 0.0 { plan.target } else { 0.0 },
                 _image: image,
                 mesh,
                 cone: cone_entity,
@@ -601,10 +624,10 @@ pub fn debug_portal_view_zones(
         };
         let (enter, exit) = (portal.frame(), partner.frame());
         let plan = compute_cone(portal, &partner, &config, viewer, frame.size);
-        let cone = blend_cones(&plan.min, &plan.wedge, smooth01(plan.target), &enter, &exit);
         let (_, core) = portal.channel.display();
 
-        if config.debug_outline {
+        if config.debug_outline && plan.target > 0.0 {
+            let cone = blend_cones(&plan.min, &plan.wedge, smooth01(plan.target), &enter, &exit);
             // Exit sample zone: the source rect (axis-aligned in world stays
             // axis-aligned through the y-flip). Bright channel color.
             let s = cone.source;
@@ -638,27 +661,13 @@ pub fn debug_portal_view_zones(
             } else {
                 &exit
             };
-            let near = viewer.eye.distance(faced.pos) <= LOS_NEAR_SKIP;
             for origin in corners {
-                let rays: Vec<ApertureLosRay> = if near {
-                    aperture_los_targets(faced, config.aperture_los_quality)
-                        .as_slice()
-                        .iter()
-                        .copied()
-                        .map(|target| ApertureLosRay {
-                            origin,
-                            target,
-                            hit: None,
-                        })
-                        .collect()
-                } else {
-                    aperture_los_rays(
-                        origin,
-                        faced,
-                        &viewer.occluders,
-                        config.aperture_los_quality,
-                    )
-                };
+                let rays: Vec<ApertureLosRay> = aperture_los_rays(
+                    origin,
+                    faced,
+                    &viewer.occluders,
+                    config.aperture_los_quality,
+                );
                 for ray in rays {
                     let clear = ray.hit.is_none();
                     let end = ray.hit.unwrap_or(ray.target);

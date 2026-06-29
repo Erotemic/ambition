@@ -232,14 +232,14 @@ impl Default for PortalViewConeConfig {
             depth: 90.0,
             spread: 0.20,
             texels_per_world_px: 1.0,
-            max_resolution: 2048,
+            max_resolution: 4096,
             recursion_depth: 1,
             z: 8.55,
             // Slightly below white: opaque, but each recursion level multiplies
             // the tint so facing/door portals fade into a tunnel rather than a
             // full-brightness chaotic fractal (see the field docs). 1.0 brings
             // back the chaos; lower fades faster.
-            tint: Color::srgb(0.8, 0.8, 0.8),
+            tint: Color::srgb(1.0, 1.0, 1.0),
             debug_outline: true,
             debug_los_rays: false,
         }

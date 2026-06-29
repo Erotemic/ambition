@@ -64,6 +64,10 @@ pub struct DialogState {
     pub(in crate::dialog) current_line: String,
     /// Typewriter reveal state for the current line.
     pub(in crate::dialog) line_reveal: LineRevealState,
+    /// Presentation style for the current line, derived from Yarn markup.
+    /// Normal speech can use speaker voiceprints; styled speech uses generic
+    /// whisper/shout blips until per-speaker styled variants are authored.
+    pub(in crate::dialog) speech_style: DialogSpeechStyle,
     /// Whether the line was marked by Yarn as the last line before
     /// an options block. This is the explicit "auto-advance into
     /// options" signal, so plain lines still require a confirm.
@@ -117,6 +121,26 @@ pub struct DialogState {
     pub(in crate::dialog) runner_done_pending_close: bool,
 }
 
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub(in crate::dialog) enum DialogSpeechStyle {
+    #[default]
+    Normal,
+    Whisper,
+    Shout,
+}
+
+impl DialogSpeechStyle {
+    pub(in crate::dialog) fn from_markup(shout: bool, whisper: bool) -> Self {
+        if shout {
+            Self::Shout
+        } else if whisper {
+            Self::Whisper
+        } else {
+            Self::Normal
+        }
+    }
+}
+
 #[derive(Clone, Debug)]
 pub(in crate::dialog) struct LineRevealState {
     full_line_byte_ends: Vec<usize>,
@@ -155,6 +179,7 @@ impl DialogState {
         self.current_speaker.clear();
         self.current_line.clear();
         self.line_reveal = LineRevealState::default();
+        self.speech_style = DialogSpeechStyle::Normal;
         self.line_last_before_options = false;
         self.current_options.clear();
         self.options_reveal = OptionsRevealState::default();
@@ -181,6 +206,7 @@ impl DialogState {
         self.current_speaker.clear();
         self.current_line.clear();
         self.line_reveal = LineRevealState::default();
+        self.speech_style = DialogSpeechStyle::Normal;
         self.line_last_before_options = false;
         self.current_options.clear();
         self.options_reveal = OptionsRevealState::default();
@@ -255,6 +281,14 @@ impl DialogState {
         } else {
             &self.current_speaker
         }
+    }
+
+    pub(in crate::dialog) fn set_speech_style(&mut self, style: DialogSpeechStyle) {
+        self.speech_style = style;
+    }
+
+    pub(in crate::dialog) fn speech_style(&self) -> DialogSpeechStyle {
+        self.speech_style
     }
 
     pub(in crate::dialog) fn reveal_full_line(&mut self) {

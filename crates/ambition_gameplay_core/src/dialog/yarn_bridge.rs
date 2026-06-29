@@ -20,7 +20,8 @@ use bevy_yarnspinner::events::*;
 use bevy_yarnspinner::prelude::*;
 
 use super::content::DialogChoice;
-use super::runtime::DialogState;
+use super::runtime::{DialogSpeechStyle, DialogState};
+use crate::audio::SfxMessage;
 use super::yarn_bindings::{
     register_commands, register_functions, YarnContentBindings, YarnPresentationCue,
     YarnStateMirror,
@@ -226,6 +227,7 @@ fn on_present_line(
     event: On<PresentLine>,
     mut state: ResMut<DialogState>,
     mut cue: ResMut<YarnPresentationCue>,
+    mut sfx: MessageWriter<SfxMessage>,
 ) {
     // PresentLine is now the hand-off point for the typewriter
     // reveal. Store the raw line text here; the UI reads the
@@ -241,14 +243,33 @@ fn on_present_line(
     state.options_reveal = crate::dialog::runtime::OptionsRevealState::default();
     state.yarn_option_ids.clear();
     state.selected_option = 0;
-    // Markup cue capture for [shout] / [whisper] hooks.
+    // Markup cue capture for [shout] / [whisper] hooks. Shout wins for
+    // typewriter tone if both attributes are present; the one-shot markup
+    // accents still play for every authored attribute.
+    let mut saw_shout = false;
+    let mut saw_whisper = false;
     for attr in &event.line.attributes {
         match attr.name.as_str() {
-            "shout" => cue.shout = true,
-            "whisper" => cue.whisper = true,
+            "shout" => {
+                cue.shout = true;
+                saw_shout = true;
+                sfx.write(SfxMessage::Play {
+                    id: ambition_sfx::ids::DIALOGUE_MARKUP_SHOUT,
+                    pos: ambition_engine_core::Vec2::ZERO,
+                });
+            }
+            "whisper" => {
+                cue.whisper = true;
+                saw_whisper = true;
+                sfx.write(SfxMessage::Play {
+                    id: ambition_sfx::ids::DIALOGUE_MARKUP_WHISPER,
+                    pos: ambition_engine_core::Vec2::ZERO,
+                });
+            }
             _ => {}
         }
     }
+    state.set_speech_style(DialogSpeechStyle::from_markup(saw_shout, saw_whisper));
 }
 
 fn on_present_options(event: On<PresentOptions>, mut state: ResMut<DialogState>) {

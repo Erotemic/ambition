@@ -77,6 +77,10 @@ pub const UI_ERROR: SfxId = SfxId::from_static("ui.error");
 // `tools/ambition_sfx_renderer/sounds/active/dialogue.*.sfx.yaml` and
 // play through the open-ended `SfxMessage::Play { id, .. }` path.
 pub const DIALOGUE_BLIP_GENERIC: SfxId = SfxId::from_static("dialogue.blip.generic");
+pub const DIALOGUE_BLIP_WHISPER_GENERIC: SfxId =
+    SfxId::from_static("dialogue.blip.whisper.generic");
+pub const DIALOGUE_BLIP_SHOUT_GENERIC: SfxId =
+    SfxId::from_static("dialogue.blip.shout.generic");
 pub const DIALOGUE_BLIP_ALICE: SfxId = SfxId::from_static("dialogue.blip.alice");
 pub const DIALOGUE_BLIP_ARCHITECT: SfxId = SfxId::from_static("dialogue.blip.architect");
 pub const DIALOGUE_BLIP_BOB: SfxId = SfxId::from_static("dialogue.blip.bob");

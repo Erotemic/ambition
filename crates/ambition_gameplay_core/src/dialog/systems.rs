@@ -44,6 +44,7 @@ pub fn dialog_reveal_tick(
                 id: talk_blip_id_for_speaker(
                     dialogue.speaker_label_for_sfx(),
                     dialogue.dialogue_id(),
+                    dialogue.speech_style(),
                 ),
                 pos: Vec2::ZERO,
             });

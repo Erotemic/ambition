@@ -2,6 +2,7 @@
 //! confirm/advance, option selection, and the visible-window math.
 
 use super::*;
+use super::runtime::DialogSpeechStyle;
 use ambition_ui_nav::visible_window_start;
 
 const DIALOG_VISIBLE_OPTIONS: usize = 4;
@@ -152,4 +153,35 @@ fn visible_dialog_window_keeps_selected_option_in_range() {
     assert_eq!(visible_window_start(0, 8, DIALOG_VISIBLE_OPTIONS), 0);
     assert_eq!(visible_window_start(4, 8, DIALOG_VISIBLE_OPTIONS), 2);
     assert_eq!(visible_window_start(7, 8, DIALOG_VISIBLE_OPTIONS), 4);
+}
+
+
+#[test]
+fn dialogue_speech_style_resets_between_lines_and_sessions() {
+    let mut s = DialogState::default();
+    s.start("guide", "Guide");
+    s.set_speech_style(DialogSpeechStyle::Whisper);
+    assert_eq!(s.speech_style(), DialogSpeechStyle::Whisper);
+
+    s.close();
+    assert_eq!(s.speech_style(), DialogSpeechStyle::Normal);
+
+    s.start("guide", "Guide");
+    assert_eq!(s.speech_style(), DialogSpeechStyle::Normal);
+}
+
+#[test]
+fn shout_markup_takes_typewriter_priority_over_whisper() {
+    assert_eq!(
+        DialogSpeechStyle::from_markup(false, false),
+        DialogSpeechStyle::Normal,
+    );
+    assert_eq!(
+        DialogSpeechStyle::from_markup(false, true),
+        DialogSpeechStyle::Whisper,
+    );
+    assert_eq!(
+        DialogSpeechStyle::from_markup(true, true),
+        DialogSpeechStyle::Shout,
+    );
 }

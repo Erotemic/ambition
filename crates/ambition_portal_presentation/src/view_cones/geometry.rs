@@ -26,9 +26,11 @@ pub(crate) fn capture_dims(
     let density = config.texels_per_world_px.max(0.05);
     let long = ((world_size.x.max(world_size.y) * density) as u32)
         .clamp(256, config.max_resolution.max(256));
-    let short = (((config.depth_close.max(config.min_depth) * 2.0 * density) as u32)
-        .next_power_of_two())
-    .clamp(64, 512);
+    let max_depth = config
+        .dynamic_depth_close
+        .max(config.static_depth)
+        .max(config.min_depth);
+    let short = (((max_depth * 2.0 * density) as u32).next_power_of_two()).clamp(64, 512);
     if exit_normal.x.abs() > 0.5 {
         UVec2::new(short, long) // wall exit: lateral runs vertically
     } else {
@@ -45,6 +47,8 @@ pub(crate) struct ConeRender {
     pub(crate) indices: Vec<u32>,
     pub(crate) centroid: Vec3,
     pub(crate) cam_center: Vec3,
+    pub(crate) source_min: Vec2,
+    pub(crate) source_max: Vec2,
     pub(crate) source_size: Vec2,
 }
 
@@ -295,6 +299,27 @@ struct VisibleEyeCandidate {
     los_frame: PortalFrame,
 }
 
+/// Per-portal, per-frame visibility-route evidence used by the debug dump.
+/// Fractions are averaged over the same inset body corners that feed
+/// [`compute_cone`]. They are diagnostics, not a second source of truth.
+#[derive(Clone, Copy, Debug, Default)]
+pub(crate) struct VisibilityRouteSummary {
+    pub(crate) face_los_fraction: f32,
+    pub(crate) through_portal_los_fraction: f32,
+    pub(crate) exit_side_los_fraction: f32,
+    pub(crate) face_eye_count: usize,
+    pub(crate) through_portal_eye_count: usize,
+    pub(crate) exit_side_eye_count: usize,
+}
+
+impl VisibilityRouteSummary {
+    pub(crate) fn admitted(self) -> bool {
+        self.face_los_fraction > 0.0
+            || self.through_portal_los_fraction > 0.0
+            || self.exit_side_los_fraction > 0.0
+    }
+}
+
 fn push_unique_eye(eyes: &mut Vec<Vec2>, eye: Vec2) {
     const EPS2: f32 = 1.0e-4;
     if !eyes.iter().any(|e| e.distance_squared(eye) <= EPS2) {
@@ -352,11 +377,96 @@ fn preview_half_plane_alpha(edge_distance: f32, config: &PortalViewConeConfig) -
     eased * eased
 }
 
+pub(crate) fn visibility_route_summary(
+    portal: &PlacedPortal,
+    partner: &PlacedPortal,
+    config: &PortalViewConeConfig,
+    viewer: Option<&PortalViewer>,
+) -> VisibilityRouteSummary {
+    let Some(v) = viewer.filter(|v| v.present) else {
+        return VisibilityRouteSummary::default();
+    };
+    let enter = portal.frame();
+    let exit = partner.frame();
+    let corners = inset_viewer_corners(v.eye, v.half_size);
+    let mut summary = VisibilityRouteSummary::default();
+    for &corner in &corners {
+        let direct_candidate = VisibleEyeCandidate {
+            wedge_eye: corner,
+            los_origin: corner,
+            los_frame: enter,
+        };
+        let direct_fraction = visible_candidate_fraction(
+            direct_candidate,
+            &enter,
+            &v.occluders,
+            config.aperture_los_quality,
+        )
+        .unwrap_or(0.0);
+        summary.face_los_fraction += direct_fraction;
+        if direct_fraction > 0.0 {
+            summary.face_eye_count += 1;
+        }
+
+        if let Some((resolved, via_partner)) = window_eye(&enter, &exit, corner) {
+            if config
+                .visibility_mode
+                .admit_through_portal(direct_fraction, via_partner)
+            {
+                let candidate = VisibleEyeCandidate {
+                    wedge_eye: resolved,
+                    los_origin: corner,
+                    los_frame: if via_partner { exit } else { enter },
+                };
+                let fraction = visible_candidate_fraction(
+                    candidate,
+                    &enter,
+                    &v.occluders,
+                    config.aperture_los_quality,
+                )
+                .unwrap_or(0.0);
+                summary.through_portal_los_fraction += fraction;
+                if fraction > 0.0 {
+                    summary.through_portal_eye_count += 1;
+                }
+            }
+        }
+
+        if config.visibility_mode.admit_exit_side(direct_fraction)
+            && (corner - exit.pos).dot(exit.normal) < 0.0
+        {
+            let candidate = VisibleEyeCandidate {
+                wedge_eye: ambition_portal::pieces::map_point(corner, &exit, &enter),
+                los_origin: corner,
+                los_frame: exit,
+            };
+            let fraction = visible_candidate_fraction(
+                candidate,
+                &enter,
+                &v.occluders,
+                config.aperture_los_quality,
+            )
+            .unwrap_or(0.0);
+            summary.exit_side_los_fraction += fraction;
+            if fraction > 0.0 {
+                summary.exit_side_eye_count += 1;
+            }
+        }
+    }
+
+    let denom = corners.len() as f32;
+    summary.face_los_fraction /= denom;
+    summary.through_portal_los_fraction /= denom;
+    summary.exit_side_los_fraction /= denom;
+    summary
+}
+
 /// The window plan for one portal pair this frame. LOS is the hard admission
-/// gate: body-corner samples may contribute a direct eye, a wormhole/window eye,
-/// and a crossed shadow eye, but only candidates with clear aperture LOS feed
-/// the wedge. The optional half-plane preview is an art-directed assist layered
-/// on top of visible LOS geometry; setting
+/// gate in dynamic mode, but [`PortalViewConeVisibilityMode`] controls which
+/// evidence routes can admit and shape the visible wedge. Static mode bypasses
+/// viewer LOS and uses the authored static cone; off mode closes the window.
+/// The optional half-plane preview is an art-directed assist layered on top of
+/// visible LOS geometry; setting
 /// [`PortalViewConeConfig::half_plane_preview_full_distance`] to `0.0` leaves
 /// only exact LOS-derived geometry at the configured ray fidelity.
 pub(crate) fn compute_cone(
@@ -368,15 +478,30 @@ pub(crate) fn compute_cone(
 ) -> ConePlan {
     let enter = portal.frame();
     let exit = partner.frame();
-    if !config.viewer_gated {
-        let c = view_cone(&enter, &exit, config.depth, config.spread);
-        return ConePlan {
-            min: c,
-            wedge: c,
-            target: 1.0,
-            immediate: true,
-        };
+    let closed = || {
+        let min = view_cone(&enter, &exit, config.min_depth, config.min_spread);
+        ConePlan {
+            min,
+            wedge: min,
+            target: 0.0,
+            immediate: false,
+        }
+    };
+
+    match config.mode {
+        PortalViewConeMode::Off => return closed(),
+        PortalViewConeMode::Static => {
+            let c = view_cone(&enter, &exit, config.static_depth, config.static_spread);
+            return ConePlan {
+                min: c,
+                wedge: c,
+                target: 1.0,
+                immediate: true,
+            };
+        }
+        PortalViewConeMode::Dynamic => {}
     }
+
     // Lower bound for an admitted window. If LOS admits nothing, the renderer
     // hides the window rather than showing this cone through blocked space.
     let min = view_cone(&enter, &exit, config.min_depth, config.min_spread);
@@ -394,28 +519,53 @@ pub(crate) fn compute_cone(
     let mut coverage: f32 = 0.0;
     for &corner in &corners {
         let mut best: f32 = 0.0;
-        let mut candidates = Vec::with_capacity(3);
-        candidates.push(VisibleEyeCandidate {
+        let direct_candidate = VisibleEyeCandidate {
             wedge_eye: corner,
             los_origin: corner,
             los_frame: enter,
-        });
-        if let Some((resolved, via_partner)) = window_eye(&enter, &exit, corner) {
-            candidates.push(VisibleEyeCandidate {
-                wedge_eye: resolved,
-                los_origin: corner,
-                los_frame: if via_partner { exit } else { enter },
-            });
+        };
+        let direct_fraction = visible_candidate_fraction(
+            direct_candidate,
+            &enter,
+            &v.occluders,
+            config.aperture_los_quality,
+        )
+        .unwrap_or(0.0);
+        if direct_fraction > 0.0 {
+            best = best.max(direct_fraction);
+            push_unique_eye(&mut eyes, direct_candidate.wedge_eye);
         }
-        if (corner - exit.pos).dot(exit.normal) < 0.0 {
-            candidates.push(VisibleEyeCandidate {
+
+        if let Some((resolved, via_partner)) = window_eye(&enter, &exit, corner) {
+            if config
+                .visibility_mode
+                .admit_through_portal(direct_fraction, via_partner)
+            {
+                let candidate = VisibleEyeCandidate {
+                    wedge_eye: resolved,
+                    los_origin: corner,
+                    los_frame: if via_partner { exit } else { enter },
+                };
+                if let Some(fraction) = visible_candidate_fraction(
+                    candidate,
+                    &enter,
+                    &v.occluders,
+                    config.aperture_los_quality,
+                ) {
+                    best = best.max(fraction);
+                    push_unique_eye(&mut eyes, candidate.wedge_eye);
+                }
+            }
+        }
+
+        if config.visibility_mode.admit_exit_side(direct_fraction)
+            && (corner - exit.pos).dot(exit.normal) < 0.0
+        {
+            let candidate = VisibleEyeCandidate {
                 wedge_eye: ambition_portal::pieces::map_point(corner, &exit, &enter),
                 los_origin: corner,
                 los_frame: exit,
-            });
-        }
-
-        for candidate in candidates {
+            };
             if let Some(fraction) = visible_candidate_fraction(
                 candidate,
                 &enter,
@@ -426,6 +576,7 @@ pub(crate) fn compute_cone(
                 push_unique_eye(&mut eyes, candidate.wedge_eye);
             }
         }
+
         coverage += best;
     }
     let target = coverage / corners.len() as f32;
@@ -443,11 +594,13 @@ pub(crate) fn compute_cone(
         &exit
     };
     let edge_distance = body_edge_distance_to_aperture(v, faced);
-    let dt = ((edge_distance - config.dist_close) / (config.dist_far - config.dist_close).max(1.0))
+    let dt = ((edge_distance - config.dynamic_dist_close)
+        / (config.dynamic_dist_far - config.dynamic_dist_close).max(1.0))
         .clamp(0.0, 1.0);
-    let near_depth = config.depth_close.max(world_size.x + world_size.y);
-    let finite_depth = config.depth_close + (config.depth_far - config.depth_close) * smooth01(dt);
-    let half_depth = near_depth + (config.depth_far - near_depth) * smooth01(dt);
+    let near_depth = config.dynamic_depth_close.max(world_size.x + world_size.y);
+    let finite_depth = config.dynamic_depth_close
+        + (config.dynamic_depth_far - config.dynamic_depth_close) * smooth01(dt);
+    let half_depth = near_depth + (config.dynamic_depth_far - near_depth) * smooth01(dt);
     let far_extent = (world_size.x + world_size.y) * 64.0;
     let finite_wedge = aperture_wedge_multi(&enter, &exit, &eyes, finite_depth, far_extent);
     let half_plane_alpha = preview_half_plane_alpha(edge_distance, config) * target.clamp(0.0, 1.0);
@@ -544,6 +697,8 @@ pub(crate) fn cone_render(
         indices,
         centroid: centroid.extend(z),
         cam_center: frame.to_render((smin + smax) * 0.5, 0.0),
+        source_min: smin,
+        source_max: smax,
         source_size,
     })
 }

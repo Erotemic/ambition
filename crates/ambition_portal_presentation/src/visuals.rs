@@ -242,16 +242,12 @@ pub fn sync_portal_visuals(
     let all_portals: Vec<PlacedPortal> = portals.iter().copied().collect();
     for portal in &all_portals {
         let partner = find_portal(&all_portals, portal.channel.partner());
-        let (negative_channel, positive_channel) = partner.map_or(
-            (portal.channel, portal.channel),
-            |partner| {
-                if portal.channel.name() <= partner.channel.name() {
-                    (portal.channel, partner.channel)
-                } else {
-                    (partner.channel, portal.channel)
-                }
-            },
-        );
+        // Draw this portal's OWN channel on the side its normal points toward,
+        // and the paired channel on the back side. That makes every individual
+        // aperture read the same way: the front/entering side is named by the
+        // portal's own color, regardless of pair name ordering.
+        let negative_channel = partner.map_or(portal.channel, |partner| partner.channel);
+        let positive_channel = portal.channel;
         // A portal is a thin doorway seen in side profile (2D): a bar lying
         // ALONG the wall (perpendicular to the surface normal), thin in the
         // normal direction. `along` rotates with the normal, so a slanted
@@ -272,8 +268,8 @@ pub fn sync_portal_visuals(
         // Split ACROSS the portal face (along the normal), not along the portal's
         // long axis. For a wall portal this gives left/right halves instead of
         // top/bottom halves, so the color sheet that the actor enters lines up
-        // with the mapped exit-side portal texture. The color order remains
-        // pair-canonical rather than "this end first."
+        // with the mapped exit-side portal texture. The positive-normal side
+        // is this portal's own channel; the negative-normal side is its partner.
         for (channel, sign, side) in [
             (negative_channel, -1.0, "negative-normal"),
             (positive_channel, 1.0, "positive-normal"),

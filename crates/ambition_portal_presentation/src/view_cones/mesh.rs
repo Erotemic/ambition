@@ -29,6 +29,8 @@ pub(crate) fn placeholder_mesh() -> Mesh {
         indices: vec![0, 1, 2],
         centroid: Vec3::ZERO,
         cam_center: Vec3::ZERO,
+        source_min: Vec2::ZERO,
+        source_max: Vec2::ONE,
         source_size: Vec2::ONE,
     })
 }

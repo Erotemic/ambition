@@ -32,8 +32,10 @@ pub use effects::{PortalEffectSelection, PortalVisualEffect};
 pub use plugin::{PortalPresentationPlugin, PortalPresentationSet};
 #[cfg(feature = "effect_view_cones")]
 pub use view_cones::{
-    debug_portal_view_zones, sync_portal_view_cones, PortalApertureLosQuality, PortalConeMesh,
-    PortalDebugOverlay, PortalViewConeConfig, PortalViewRig, PortalViewer,
+    debug_portal_view_zones, flush_portal_view_cone_debug_dump,
+    handle_portal_view_cone_dump_hotkey, sync_portal_view_cones, PortalApertureLosQuality,
+    PortalConeMesh, PortalDebugOverlay, PortalViewConeConfig, PortalViewConeDebugDumpRequest,
+    PortalViewConeMode, PortalViewConeVisibilityMode, PortalViewRig, PortalViewer,
     PORTAL_WINDOW_RENDER_LAYER,
 };
 pub use gun_visuals::{sync_portal_mode_indicator, PortalModeIndicator};

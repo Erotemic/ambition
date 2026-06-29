@@ -144,7 +144,7 @@ pub fn populate_control_frame_from_actions(
     // Cutscene takes precedence over gameplay input. We snapshot
     // interact_pressed into the dismiss request and zero out the
     // gameplay frame so movement / attack can't fire while a beat
-    // plays. Holding `Reset` (Backspace/Delete/pad-Select) for
+    // plays. Holding `Reset` (Delete/pad-Select) for
     // `SKIP_HOLD_THRESHOLD_SECS` requests a full cutscene skip so a
     // mistap can't burn through scripted content. Reset is chosen
     // (not Start) so the pause toggle still works during cutscenes

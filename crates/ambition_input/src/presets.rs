@@ -271,7 +271,6 @@ impl KeyboardPreset {
             .with(SandboxAction::Dash, GamepadButton::RightTrigger2)
             .with(SandboxAction::Reset, self.actions.select_reset)
             .with(SandboxAction::Reset, KeyCode::Delete)
-            .with(SandboxAction::Reset, KeyCode::Backspace)
             .with(SandboxAction::Reset, GamepadButton::Select)
             .with(SandboxAction::Start, self.actions.pause)
             .with(SandboxAction::Start, GamepadButton::Start);

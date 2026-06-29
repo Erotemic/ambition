@@ -245,6 +245,18 @@ impl DialogState {
         self.line_reveal.tick(delta_s, &self.current_line);
     }
 
+    pub(in crate::dialog) fn visible_line_char_count(&self) -> usize {
+        self.line_reveal.revealed_char_count()
+    }
+
+    pub(in crate::dialog) fn speaker_label_for_sfx(&self) -> &str {
+        if self.current_speaker.is_empty() {
+            &self.npc_name
+        } else {
+            &self.current_speaker
+        }
+    }
+
     pub(in crate::dialog) fn reveal_full_line(&mut self) {
         self.line_reveal.reveal_full_line(&self.current_line);
     }
@@ -378,6 +390,10 @@ impl LineRevealState {
         if line.is_empty() {
             self.revealed_chars = 0;
         }
+    }
+
+    fn revealed_char_count(&self) -> usize {
+        self.revealed_chars
     }
 
     fn complete(&self, line: &str) -> bool {

@@ -12,6 +12,8 @@ use bevy::prelude::*;
 
 use super::runtime::DialogChoiceSlot;
 use super::runtime::DialogState;
+use super::speech_sfx::{should_play_talk_blip, talk_blip_id_for_speaker};
+use crate::audio::SfxMessage;
 use crate::game_mode::GameMode;
 #[cfg(feature = "input")]
 use ambition_input::MenuControlFrame;
@@ -25,12 +27,27 @@ use bevy::window::PrimaryWindow;
 /// This is presentation only: Yarn still owns the line/option state
 /// machine, while the Bevy side owns the timing of what substring is
 /// visible right now.
-pub fn dialog_reveal_tick(time: Res<Time>, mut dialogue: ResMut<DialogState>) {
+pub fn dialog_reveal_tick(
+    time: Res<Time>,
+    mut dialogue: ResMut<DialogState>,
+    mut sfx: MessageWriter<SfxMessage>,
+) {
     if !dialogue.active() || dialogue.current_line.is_empty() {
         return;
     }
     if !dialogue.line_reveal_complete() {
+        let previous_visible_chars = dialogue.visible_line_char_count();
         dialogue.tick_reveal(time.delta_secs());
+        let visible_chars = dialogue.visible_line_char_count();
+        if should_play_talk_blip(&dialogue.current_line, previous_visible_chars, visible_chars) {
+            sfx.write(SfxMessage::Play {
+                id: talk_blip_id_for_speaker(
+                    dialogue.speaker_label_for_sfx(),
+                    dialogue.dialogue_id(),
+                ),
+                pos: Vec2::ZERO,
+            });
+        }
         return;
     }
     if dialogue.current_options.is_empty() {

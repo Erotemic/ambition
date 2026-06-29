@@ -350,8 +350,9 @@ pub(crate) fn compute_cone(
     // Proximity-proportional depth from the NEAREST aperture — the distance is
     // continuous across the midpoint even as which-is-nearer flips.
     let dist = v.eye.distance(enter.pos).min(v.eye.distance(exit.pos));
-    let dt = ((dist - config.dist_close) / (config.dist_far - config.dist_close).max(1.0))
-        .clamp(0.0, 1.0);
+    let half_plane_dist = (config.dist_close.max(LOS_NEAR_SKIP) * 2.0).min(config.dist_far);
+    let dt =
+        ((dist - half_plane_dist) / (config.dist_far - half_plane_dist).max(1.0)).clamp(0.0, 1.0);
     // Near the aperture, the honest limit is a half-plane: as the viewer enters
     // the doorway, the two aperture endpoint rays become parallel to the host
     // surface and the visible wedge should fan out until only world bounds clip
@@ -368,7 +369,7 @@ pub(crate) fn compute_cone(
     } else {
         &exit
     };
-    let immediate = v.eye.distance(faced.pos) <= LOS_NEAR_SKIP;
+    let immediate = v.eye.distance(faced.pos) <= half_plane_dist;
     let target = if immediate {
         1.0
     } else {
@@ -382,6 +383,9 @@ pub(crate) fn compute_cone(
     };
     if target <= 0.0 {
         return closed(min);
+    }
+    if immediate {
+        eyes.push(enter.pos + enter.normal * 0.5);
     }
     // The wedge runs to the half-plane: make lateral reach much larger than
     // depth so the doorway limit's side rays are effectively parallel to the
@@ -754,6 +758,51 @@ mod tests {
         assert!(
             far_span > far_depth * 32.0,
             "half-plane side rays should be nearly parallel to the surface, not a 45-degree cone: far_span={far_span}, far_depth={far_depth}",
+        );
+    }
+
+    #[test]
+    fn near_doorway_view_cone_reaches_half_plane_before_contact() {
+        let world = Vec2::new(1600.0, 900.0);
+        let enter = placed(
+            PortalGunColor::BLUE.channel(),
+            Vec2::new(900.0, 820.0),
+            Vec2::new(0.0, -1.0),
+        );
+        let exit = placed(
+            PortalGunColor::ORANGE.channel(),
+            Vec2::new(900.0, 180.0),
+            Vec2::new(0.0, 1.0),
+        );
+        let config = PortalViewConeConfig::default();
+        let viewer = PortalViewer {
+            present: true,
+            eye: enter.pos + enter.normal * (config.dist_close * 1.7),
+            half_size: Vec2::ZERO,
+            occluders: Vec::new(),
+        };
+
+        let plan = compute_cone(&enter, &exit, &config, Some(&viewer), world);
+        assert!(
+            plan.immediate,
+            "near-doorway cone should finish opening before contact"
+        );
+        assert_eq!(plan.target, 1.0);
+        let min_x = plan
+            .wedge
+            .entry_quad
+            .iter()
+            .map(|p| p.x)
+            .fold(f32::INFINITY, f32::min);
+        let max_x = plan
+            .wedge
+            .entry_quad
+            .iter()
+            .map(|p| p.x)
+            .fold(f32::NEG_INFINITY, f32::max);
+        assert!(
+            min_x <= -world.x + 1e-3 && max_x >= world.x * 2.0 - 1e-3,
+            "near-doorway cone should already be the half-plane, x span {min_x}..{max_x}",
         );
     }
 

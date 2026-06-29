@@ -409,10 +409,10 @@ pub fn camera_follow(
                     let screen_offset = portal_state.body_screen_offset_world.unwrap_or(Vec2::ZERO);
                     center_world = player_body.pos - screen_offset;
                     portal_state.target_camera_world = Some(center_world);
-                    camera_roll = portal_state.roll_radians;
                 } else if !portal_clamp_padding_still_needed {
                     portal_state.clear_clamp_padding();
                 }
+                camera_roll = portal_state.roll_radians;
             } else {
                 portal_state.clear();
             }

@@ -3,7 +3,8 @@
 //! Three render passes stack on the window during the pause menu:
 //!
 //! * order 0  — [`MainCamera`] (`Camera2d`): the gameplay world (sprites on the
-//!   default `RenderLayers::layer(0)`), plus the cube's dim-scrim (explicitly
+//!   default `RenderLayers::layer(0)`) plus camera-relative parallax sprites on
+//!   [`PARALLAX_BACKGROUND_LAYER`], plus the cube's dim-scrim (explicitly
 //!   retargeted to it via `UiTargetCamera`).
 //! * order 8  — the cube-menu `Camera3d` (`ambition_menu::kaleidoscope::KaleidoscopePauseCamera`).
 //! * order 9  — [`FrontHudCamera`] (`Camera2d`, `clear_color: None`): the DEFAULT UI
@@ -21,6 +22,14 @@ use bevy::prelude::*;
 /// front camera from double-drawing the world over the cube. (No sprites are placed
 /// on this layer; the front camera only carries UI.)
 pub const FRONT_HUD_LAYER: usize = 1;
+
+/// `RenderLayers` index for camera-relative parallax panels.
+///
+/// Portal capture cameras intentionally do not render this layer: the current
+/// parallax implementation has one shared sprite transform per layer, synced to
+/// the main camera, so rendering it into portal captures samples the background
+/// from the wrong eye.
+pub const PARALLAX_BACKGROUND_LAYER: usize = 2;
 
 /// Marks the main gameplay camera (order 0). The cube's dim-scrim looks this up to
 /// retarget itself BEHIND the cube.

@@ -64,9 +64,34 @@ const CAPTURE_CLEAR: Color = Color::srgb(0.03, 0.04, 0.05);
 const WORLD_RENDER_LAYER: usize = 0;
 /// Dedicated layer for portal view-window meshes.
 pub const PORTAL_WINDOW_RENDER_LAYER: usize = 5;
+const PORTAL_CAPTURE_PARALLAX_LAYER_BASE: usize = 32;
 
-fn capture_render_layers(config: &PortalViewConeConfig) -> RenderLayers {
-    let layers = RenderLayers::layer(WORLD_RENDER_LAYER);
+fn portal_capture_parallax_layer(channel: PortalChannel) -> usize {
+    PORTAL_CAPTURE_PARALLAX_LAYER_BASE + portal_channel_render_slot(channel)
+}
+
+fn portal_channel_render_slot(channel: PortalChannel) -> usize {
+    match channel {
+        PortalChannel::Gun(color) => color.slot as usize,
+        PortalChannel::Authored(color) => {
+            use ambition_portal::PortalChannelColor::*;
+            8 + match color {
+                Purple => 0,
+                Yellow => 1,
+                Teal => 2,
+                Red => 3,
+                Green => 4,
+                Magenta => 5,
+                Cyan => 6,
+                Rose => 7,
+                Indexed(n) => 8 + n as usize,
+            }
+        }
+    }
+}
+
+fn capture_render_layers(config: &PortalViewConeConfig, parallax_layer: usize) -> RenderLayers {
+    let layers = RenderLayers::layer(WORLD_RENDER_LAYER).with(parallax_layer);
     if config.recursion_depth == 0 {
         layers
     } else {
@@ -259,6 +284,7 @@ pub struct PortalConeMesh;
 #[derive(Component)]
 pub struct PortalViewRig {
     channel: PortalChannel,
+    parallax_layer: usize,
     rebuild: RebuildKey,
     /// Temporal blend state, 0 = minimum cone, 1 = full visible wedge;
     /// approaches the 4-corner visibility fraction at `blend_rate`/s and is
@@ -270,6 +296,19 @@ pub struct PortalViewRig {
     _image: Handle<Image>,
     mesh: Handle<Mesh>,
     cone: Entity,
+}
+
+impl PortalViewRig {
+    /// Portal channel served by this capture rig.
+    pub fn channel(&self) -> PortalChannel {
+        self.channel
+    }
+
+    /// Private `RenderLayers` index for parallax sprites that should render
+    /// only into this rig's capture texture.
+    pub fn parallax_layer(&self) -> usize {
+        self.parallax_layer
+    }
 }
 
 fn portal_window_clip_rect(
@@ -347,7 +386,6 @@ pub fn sync_portal_view_cones(
     // First pass: update each live rig in place, or despawn it if its pair is
     // gone / it needs a full rebuild.
     let mut served: Vec<PortalChannel> = Vec::new();
-    let capture_layers = capture_render_layers(&config);
     for (entity, mut rig, mut cam_tf, mut proj, mut cam, mut layers) in &mut rigs {
         let portal = all.iter().find(|p| p.channel == rig.channel).copied();
         let partner = portal.and_then(|p| find_portal(&all, p.channel.partner()));
@@ -366,7 +404,7 @@ pub fn sync_portal_view_cones(
             continue;
         }
         served.push(rig.channel);
-        *layers = capture_layers.clone();
+        *layers = capture_render_layers(&config, rig.parallax_layer);
 
         let (enter, exit) = (portal.frame(), partner.frame());
         let plan = compute_cone(&portal, &partner, &config, viewer, frame.size);
@@ -503,7 +541,7 @@ pub fn sync_portal_view_cones(
             // history): a default 4×-MSAA camera renders nothing into it.
             Msaa::Off,
             RenderTarget::Image(ImageRenderTarget::from(image.clone())),
-            capture_render_layers(&config),
+            capture_render_layers(&config, portal_capture_parallax_layer(portal.channel)),
             Projection::Orthographic(OrthographicProjection {
                 scaling_mode: scaling,
                 ..OrthographicProjection::default_2d()
@@ -511,6 +549,7 @@ pub fn sync_portal_view_cones(
             cam_tf,
             PortalViewRig {
                 channel: portal.channel,
+                parallax_layer: portal_capture_parallax_layer(portal.channel),
                 rebuild,
                 blend: plan.target,
                 _image: image,

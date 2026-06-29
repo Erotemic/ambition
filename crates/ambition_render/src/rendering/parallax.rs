@@ -7,8 +7,11 @@
 //! an external API.
 
 use ambition_engine_core as ae;
+use bevy::camera::visibility::RenderLayers;
 use bevy::math::Vec2 as BVec2;
 use bevy::prelude::*;
+#[cfg(feature = "portal_render")]
+use std::collections::HashSet;
 
 use super::primitives::RoomVisual;
 use ambition_gameplay_core::assets::game_assets::{GameAssets, ParallaxLayerAsset, ParallaxTheme};
@@ -25,6 +28,12 @@ pub struct ParallaxLayerVisual {
     /// budget based on camera position inside the room.
     pub travel: Vec2,
     pub world_size: Vec2,
+}
+
+#[derive(Component, Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub struct PortalCaptureParallaxLayerVisual {
+    rig: Entity,
+    source: Entity,
 }
 
 #[derive(Clone, Copy)]
@@ -95,6 +104,9 @@ pub fn spawn_parallax_layers(
                 travel: Vec2::new(travel.x, travel.y),
                 world_size: Vec2::new(world.size.x.max(1.0), world.size.y.max(1.0)),
             },
+            RenderLayers::layer(
+                ambition_gameplay_core::session::camera_layers::PARALLAX_BACKGROUND_LAYER,
+            ),
             RoomVisual,
             Name::new(format!(
                 "Background parallax layer: {} {}",
@@ -116,30 +128,139 @@ pub fn sync_parallax_layers(
             Without<ParallaxLayerVisual>,
         ),
     >,
-    mut layers: Query<(&mut Transform, &ParallaxLayerVisual), Without<Camera>>,
+    mut layers: Query<
+        (&mut Transform, &ParallaxLayerVisual),
+        (Without<Camera>, Without<PortalCaptureParallaxLayerVisual>),
+    >,
 ) {
     let Ok(camera_transform) = camera.single() else {
         return;
     };
     let camera_xy = camera_transform.translation.truncate();
     for (mut transform, layer) in &mut layers {
-        let tx = if layer.world_size.x > 1.0 {
-            (camera_xy.x / layer.world_size.x).clamp(0.0, 1.0)
-        } else {
-            0.5
+        sync_parallax_transform_to_camera(&mut transform, layer, camera_xy);
+    }
+}
+
+#[cfg(feature = "portal_render")]
+pub fn sync_portal_capture_parallax_layers(
+    mut commands: Commands,
+    sources: Query<
+        (Entity, &Sprite, &ParallaxLayerVisual),
+        Without<PortalCaptureParallaxLayerVisual>,
+    >,
+    rigs: Query<
+        (
+            Entity,
+            &Transform,
+            &ambition_portal_presentation::PortalViewRig,
+        ),
+        Without<PortalCaptureParallaxLayerVisual>,
+    >,
+    mut copies: Query<(
+        Entity,
+        &PortalCaptureParallaxLayerVisual,
+        &mut Sprite,
+        &mut Transform,
+        &mut RenderLayers,
+    )>,
+) {
+    let mut live: HashSet<(Entity, Entity)> = HashSet::new();
+    for (entity, copy, mut sprite, mut transform, mut render_layers) in &mut copies {
+        let Ok((_, source_sprite, source_layer)) = sources.get(copy.source) else {
+            commands.entity(entity).despawn();
+            continue;
         };
-        let ty = if layer.world_size.y > 1.0 {
-            (camera_xy.y / layer.world_size.y).clamp(0.0, 1.0)
-        } else {
-            0.5
+        let Ok((_, rig_transform, rig)) = rigs.get(copy.rig) else {
+            commands.entity(entity).despawn();
+            continue;
         };
-        let centered = Vec2::new(tx * 2.0 - 1.0, ty * 2.0 - 1.0);
-        let offset = Vec2::new(
-            -centered.x * layer.travel.x * layer.factor.x,
-            -centered.y * layer.travel.y * layer.factor.y,
+        live.insert((copy.rig, copy.source));
+        *sprite = source_sprite.clone();
+        *render_layers = RenderLayers::none().with(rig.parallax_layer());
+        sync_parallax_transform_to_camera(
+            &mut transform,
+            source_layer,
+            rig_transform.translation.truncate(),
         );
-        transform.translation.x = camera_xy.x + offset.x;
-        transform.translation.y = camera_xy.y + offset.y;
-        transform.translation.z = layer.z;
+    }
+
+    for (rig_entity, rig_transform, rig) in &rigs {
+        for (source_entity, source_sprite, source_layer) in &sources {
+            if live.contains(&(rig_entity, source_entity)) {
+                continue;
+            }
+            let mut transform = Transform::default();
+            sync_parallax_transform_to_camera(
+                &mut transform,
+                source_layer,
+                rig_transform.translation.truncate(),
+            );
+            commands.spawn((
+                source_sprite.clone(),
+                transform,
+                *source_layer,
+                PortalCaptureParallaxLayerVisual {
+                    rig: rig_entity,
+                    source: source_entity,
+                },
+                RenderLayers::none().with(rig.parallax_layer()),
+                RoomVisual,
+                Name::new(format!(
+                    "Portal capture parallax layer {} ({})",
+                    rig.parallax_layer(),
+                    rig.channel().name()
+                )),
+            ));
+        }
+    }
+}
+
+fn sync_parallax_transform_to_camera(
+    transform: &mut Transform,
+    layer: &ParallaxLayerVisual,
+    camera_xy: Vec2,
+) {
+    let tx = if layer.world_size.x > 1.0 {
+        (camera_xy.x / layer.world_size.x).clamp(0.0, 1.0)
+    } else {
+        0.5
+    };
+    let ty = if layer.world_size.y > 1.0 {
+        (camera_xy.y / layer.world_size.y).clamp(0.0, 1.0)
+    } else {
+        0.5
+    };
+    let centered = Vec2::new(tx * 2.0 - 1.0, ty * 2.0 - 1.0);
+    let offset = Vec2::new(
+        -centered.x * layer.travel.x * layer.factor.x,
+        -centered.y * layer.travel.y * layer.factor.y,
+    );
+    transform.translation.x = camera_xy.x + offset.x;
+    transform.translation.y = camera_xy.y + offset.y;
+    transform.translation.z = layer.z;
+}
+
+#[cfg(all(test, feature = "portal_render"))]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn portal_capture_parallax_system_params_are_disjoint() {
+        let mut app = App::new();
+        app.add_plugins(MinimalPlugins);
+        app.add_systems(Update, sync_portal_capture_parallax_layers);
+
+        app.update();
+    }
+
+    #[test]
+    fn portal_capture_parallax_layers_use_dynamic_masks() {
+        let private_layer = 32 + 255;
+        let copy_layers = RenderLayers::none().with(private_layer);
+        let capture_layers = RenderLayers::layer(0).with(private_layer);
+
+        assert!(copy_layers.intersects(&capture_layers));
+        assert!(!copy_layers.intersects(&RenderLayers::layer(0)));
     }
 }

@@ -332,8 +332,19 @@ pub fn sync_portal_visuals(
             Name::new("Portal gun pickup visual"),
         ));
     }
-    for portal in &portals {
-        let (rim, core) = portal.channel.display();
+    let all_portals: Vec<PlacedPortal> = portals.iter().copied().collect();
+    for portal in &all_portals {
+        let partner = find_portal(&all_portals, portal.channel.partner());
+        let (negative_channel, positive_channel) = partner.map_or(
+            (portal.channel, portal.channel),
+            |partner| {
+                if portal.channel.name() <= partner.channel.name() {
+                    (portal.channel, partner.channel)
+                } else {
+                    (partner.channel, portal.channel)
+                }
+            },
+        );
         // A portal is a thin doorway seen in side profile (2D): a bar lying
         // ALONG the wall (perpendicular to the surface normal), thin in the
         // normal direction. `along` rotates with the normal, so a slanted
@@ -350,29 +361,43 @@ pub fn sync_portal_visuals(
         // direction of the bar's long axis, then rotate the sprite to match.
         let angle = (-along.y).atan2(along.x);
         let rotation = Quat::from_rotation_z(angle);
-        // Rim (outer) + brighter thin core, both oriented along the wall.
-        let rim_translation = frame.to_render(portal.pos, 9.0);
-        let core_translation = frame.to_render(portal.pos, 9.1);
-        commands.spawn((
-            PortalVisual,
-            Sprite::from_color(rim, Vec2::new(length, PORTAL_VISUAL_THICKNESS)),
-            Transform::from_translation(rim_translation).with_rotation(rotation),
-            Name::new("Portal visual (rim)"),
-        ));
-        commands.spawn((
-            PortalVisual,
-            Sprite::from_color(
-                core,
-                Vec2::new(length * 0.86, PORTAL_VISUAL_THICKNESS * 0.42),
-            ),
-            Transform::from_translation(core_translation).with_rotation(rotation),
-            Name::new("Portal visual (core)"),
-        ));
+        // Rim (outer) + brighter thin core, both split into pair-colored halves.
+        // The split is pair-canonical (not "this end's color first"), so the
+        // exit-side texture maps onto the same half-colors the entry portal
+        // draws locally.
+        for (channel, sign, side) in [
+            (negative_channel, -1.0, "negative"),
+            (positive_channel, 1.0, "positive"),
+        ] {
+            let (rim, core) = channel.display();
+            let rim_center = portal.pos + along * (sign * length * 0.25);
+            let rim_translation = frame.to_render(rim_center, 9.0);
+            commands.spawn((
+                PortalVisual,
+                Sprite::from_color(rim, Vec2::new(length * 0.5, PORTAL_VISUAL_THICKNESS)),
+                Transform::from_translation(rim_translation).with_rotation(rotation),
+                Name::new(format!("Portal visual (rim {side})")),
+            ));
+
+            let core_length = length * 0.86;
+            let core_center = portal.pos + along * (sign * core_length * 0.25);
+            let core_translation = frame.to_render(core_center, 9.1);
+            commands.spawn((
+                PortalVisual,
+                Sprite::from_color(
+                    core,
+                    Vec2::new(core_length * 0.5, PORTAL_VISUAL_THICKNESS * 0.42),
+                ),
+                Transform::from_translation(core_translation).with_rotation(rotation),
+                Name::new(format!("Portal visual (core {side})")),
+            ));
+        }
         // A small color-name label just out in front of the face, so portals can
         // be referred to precisely (each linked pair is a distinct complementary
         // color: purple↔yellow, teal↔red, …). The color name IS the identifier.
         let label_pos = portal.pos + n * 24.0;
         let label_translation = frame.to_render(label_pos, 9.2);
+        let (_, core) = portal.channel.display();
         commands.spawn((
             PortalVisual,
             Text2d::new(portal.channel.name()),

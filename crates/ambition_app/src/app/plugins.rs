@@ -735,6 +735,13 @@ fn install_fx_and_hud_systems(app: &mut App) {
 /// quest panel. Each system is its own `add_systems` call because the
 /// big presentation tuple is already at Bevy's 20-system arity ceiling.
 fn install_misc_visual_sync_systems(app: &mut App) {
+    #[cfg(feature = "portal_render")]
+    app.add_systems(
+        Update,
+        ambition_render::rendering::sync_portal_capture_parallax_layers
+            .after(ambition_gameplay_core::portal::PortalPresentationSet),
+    );
+
     app.add_systems(
         Update,
         ambition_render::rendering::sync_health_overlays.after(sync_visuals),

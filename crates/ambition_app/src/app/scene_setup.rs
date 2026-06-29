@@ -232,19 +232,26 @@ fn presentation_world_inner(
     let ui_fonts: Option<&UiFonts> = None;
     let character_sprites = &game_assets.characters;
 
-    // The MAIN camera (order 0) renders the gameplay world (sprites on the default
-    // RenderLayers::layer(0)). It NO LONGER carries `IsDefaultUiCamera`: the default
-    // UI camera is now the dedicated FRONT camera below (order 9), so all bevy_ui
-    // draws IN FRONT of the order-8 cube-menu `Camera3d`. The cube's dim-scrim is the
-    // one exception and is explicitly retargeted back to this camera (see
+    // The MAIN camera (order 0) renders the gameplay world (sprites on layer 0),
+    // portal-window meshes, and the main-camera-only parallax layer. It NO LONGER
+    // carries `IsDefaultUiCamera`: the default UI camera is now the dedicated
+    // FRONT camera below (order 9), so all bevy_ui draws IN FRONT of the order-8
+    // cube-menu `Camera3d`. The cube's dim-scrim is the one exception and is
+    // explicitly retargeted back to this camera (see
     // `lunex_kaleidoscope_app::spawn_kaleidoscope_scrim`) so it stays BEHIND the cube.
+    let mut main_camera_layers = bevy::camera::visibility::RenderLayers::layer(0).with(
+        ambition_gameplay_core::session::camera_layers::PARALLAX_BACKGROUND_LAYER,
+    );
+    #[cfg(feature = "portal_render")]
+    {
+        main_camera_layers =
+            main_camera_layers.with(ambition_gameplay_core::portal::PORTAL_WINDOW_RENDER_LAYER);
+    }
     let main_camera = commands
         .spawn((
             Camera2d,
             ambition_gameplay_core::session::camera_layers::MainCamera,
-            #[cfg(feature = "portal_render")]
-            bevy::camera::visibility::RenderLayers::layer(0)
-                .with(ambition_gameplay_core::portal::PORTAL_WINDOW_RENDER_LAYER),
+            main_camera_layers,
             ambition_render::screen_effects::ScreenEffectSettings::default(),
             Name::new("Main Camera"),
         ))

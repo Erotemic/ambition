@@ -200,7 +200,7 @@ mod host_adapter {
         gravity: Option<Res<ambition_platformer_primitives::gravity::GravityField>>,
         focus: Query<(), With<PortalCameraContinuityFocus>>,
         active_focus_transits: Query<
-            (),
+            (&BodyKinematics, &ambition_portal::PortalTransit),
             (
                 With<PortalCameraContinuityFocus>,
                 With<ambition_portal::PortalTransit>,
@@ -524,10 +524,65 @@ mod host_adapter {
             }
         }
 
-        if state.active_weight() > 0.0 && active_focus_transits.is_empty() {
+        if active_focus_transits.is_empty() {
             state.clear_effect();
+        } else if let Some(roll) = active_focus_transits.iter().find_map(|(body, transit)| {
+            portal_camera_roll_at_progress(
+                body,
+                transit,
+                &portal_list,
+                gravity_dir,
+                config.roll_epsilon_radians,
+            )
+        }) {
+            state.roll_radians = roll;
         }
         state.last_host_camera_world = Some(previous_host_camera_world);
+    }
+
+    fn portal_camera_roll_at_progress(
+        body: &BodyKinematics,
+        transit: &ambition_portal::PortalTransit,
+        portals: &[ambition_portal::PlacedPortal],
+        gravity_dir: Vec2,
+        roll_epsilon_radians: f32,
+    ) -> Option<f32> {
+        let (enter_channel, exit_channel) = if transit.crossed {
+            (transit.straddling.partner(), transit.straddling)
+        } else {
+            (transit.straddling, transit.straddling.partner())
+        };
+        let enter = ambition_portal::find_portal(portals, enter_channel)?;
+        let exit = ambition_portal::find_portal(portals, exit_channel)?;
+        let raw_roll = ambition_portal_presentation::camera_roll_for_portal_transit(
+            enter.normal,
+            exit.normal,
+            gravity_dir,
+        );
+        if raw_roll.abs() <= roll_epsilon_radians {
+            return Some(0.0);
+        }
+
+        let frame = if transit.crossed {
+            exit.frame()
+        } else {
+            enter.frame()
+        };
+        let normal_half_extent = (body.size * 0.5).dot(frame.normal.abs()).max(1.0);
+        let front = ambition_portal::pieces::front_distance(body.pos, &frame);
+        let progress = if transit.crossed {
+            0.5 + front / (normal_half_extent * 2.0)
+        } else {
+            (normal_half_extent - front) / (normal_half_extent * 2.0)
+        }
+        .clamp(0.0, 1.0);
+
+        Some(raw_roll * smoothstep01(progress))
+    }
+
+    fn smoothstep01(t: f32) -> f32 {
+        let t = t.clamp(0.0, 1.0);
+        t * t * (3.0 - 2.0 * t)
     }
 
     #[derive(Clone, Copy, Debug, Default)]

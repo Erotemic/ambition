@@ -12,6 +12,7 @@ repo_root="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 python_bin="${PYTHON:-python}"
 
 release=0
+coverage=0
 hot_reload=0
 validate_before_run=0
 validate_only=0
@@ -153,6 +154,9 @@ while [[ $# -gt 0 ]]; do
         --debug|debug|dev)
             release=0
             ;;
+        --cov|coverage)
+            coverage=1
+            ;;
         --hot|--hot-reload|--dev-hot-reload|hot|hot-reload|dev-hot-reload)
             hot_reload=1
             ;;
@@ -222,7 +226,13 @@ if [[ "$validate_only" -eq 1 ]]; then
     exit 0
 fi
 
-cargo_args=(run -p ambition_app --bin ambition_game_bin)
+cargo_args=()
+
+if [[ "$coverage" -eq 1 ]]; then
+    cargo_args+=(llvm-cov)
+fi
+
+cargo_args+=(run -p ambition_app --bin ambition_game_bin)
 
 if [[ "$no_default_features" -eq 1 ]]; then
     cargo_args+=(--no-default-features)

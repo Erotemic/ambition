@@ -62,3 +62,31 @@ belong here until Jon blesses the exact wording.
 * AI can move through much smaller portals than humans can. (gameplay element for the morph ball)
 
 * The military and other factions control various larger "dimension-gates". There happens to be one nearby the creator's lab.
+
+* Oiler is the lead mechanic in the largest town: prolific, patient, and almost impossible to stump. He is an excellent teacher with a rare instinct for routing paths across bridges, gates, and broken civic infrastructure.
+
+* Faith "Fia" Knoss is a strategic, intimate town mechanic who works under Oiler. In Act 1, the player can forge a strong friendship with her through a mostly linear path built around repair, trust, and shared danger. Fia begins as one of the first people to treat the player with kindness, but over time she becomes increasingly Machiavellian, using closeness, loyalty, and moral urgency to move people toward the outcomes she believes are necessary.
+
+
+## Story Continuity
+
+In the case that you kill someone important for a main questline, we can have a
+reality ripple open and a forced dialog with a deity-like entity saying something like:
+
+"
+A thread of major consequence has been cut.
+The laws of agency allow this.
+But the laws of causality cannot be broken.
+So your actions have forced open a rift, one in which the death you caused did
+  not occur, If you pass through it, the broken thread will appear unbroken,
+  because in that history it was never broken.
+The one you killed will live there.
+The world you leave behind will not be corrected.
+It will continue without the thread you severed, with or without you.
+Does this mean your choice was false?
+We cannot say, for we do not know.
+You chose the wound.
+You may choose the rift.
+Or you may remain here, among the consequences that still belong to you, but the
+  path cannot be broken, even by a will as strong as yours.
+"

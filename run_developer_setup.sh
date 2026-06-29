@@ -186,8 +186,12 @@ ensure_rust() {
     rustup toolchain install stable
     rustup default stable
     rustup component add rustfmt clippy
+    rustup component add llvm-tools-preview
 
     have cargo || fatal "cargo is not on PATH after Rust setup"
+
+    cargo install cargo-llvm-cov
+
     log "Rust ready: $(rustc --version)"
 }
 

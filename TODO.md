@@ -32,6 +32,8 @@ When you wake up here, pick the next task from this list and work on it without 
 
 ## Jon's Polish List
 
+- [ ] I should be able to swap my starting character for PCA or a pirate or any other character instead of using player-robot and nothing in the game should change except my abilities. We could imagine the game has a choose your character list. This shouldn't be swapping a skin onto a bespoke player box. This should just be spawning the character and making its brain the keyboard input.
+
 - [ ] Portraits for all sprite character need to be generated.
 
 - [ ] Need to hookup portraits in dialog.

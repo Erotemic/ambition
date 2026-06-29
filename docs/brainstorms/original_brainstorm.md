@@ -590,3 +590,17 @@ The world is or can be viewed as a cell-complex.
 
 Going to need to have "Perfect Cell-ular Automaton" as an actor. One of his
 attacks will be shooting a game-of-life glider.
+
+---
+
+Funny line: Someone asks a robot: Will you ever stop? And we make some halting
+joke. Or: I wish I could tell if machines like you will ever shut up. 
+
+ambition theme: a story arc that displays the value of logic (moral judgement)
+over (blind) loyalty, and exploring the flaws of loyalty-first attitudes.
+
+Might include a quantum odyssey style puzzle that incorporates John Bell and
+Bell states to unlock some optional item. 
+
+Include Tuberculosis as a preventable killer of people in the world? Maybe the
+green bros come into play. TB bench maybe.

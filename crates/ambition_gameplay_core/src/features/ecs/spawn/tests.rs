@@ -5,14 +5,14 @@ use super::super::brain_builders::{enemy_default_action_set, enemy_default_brain
 use super::super::spawn_actors::spawn_boss;
 use super::super::spawn_mounts::spawn_composite_mount_rider;
 use super::*;
+use crate::features::{
+    ActorAggression, ActorConfig, ActorCooldowns, ActorDisposition, ActorIdentity, ActorIntent,
+    AggressionMode, BodyCombat, BodyHealth, CombatKit, MountSlot, MountedSize, RidingOn,
+};
 use ambition_characters::brain::{
     ActionSet, ActorControl, Brain, MeleeActionSpec, MoveStyleSpec, StateMachineCfg,
 };
 use ambition_engine_core as ae;
-use crate::features::{
-    ActorAggression, BodyCombat, ActorConfig, ActorCooldowns, ActorDisposition, BodyHealth,
-    ActorIdentity, ActorIntent, AggressionMode, CombatKit, MountSlot, MountedSize, RidingOn,
-};
 use bevy::prelude::{App, Commands, Update, With};
 
 fn make_enemy(brain_key: &str) -> ActorConfig {
@@ -129,7 +129,10 @@ fn boss_spawn_attaches_brain_components() {
     assert_eq!(*disposition, ActorDisposition::Hostile);
     assert!(health.alive());
     assert!(combat.alive);
-    assert_eq!(intent.mode(), ambition_characters::actor::ai::CharacterAiMode::Chase);
+    assert_eq!(
+        intent.mode(),
+        ambition_characters::actor::ai::CharacterAiMode::Chase
+    );
     assert_eq!(cooldowns.attack_cooldown, 0.0);
     assert!(kit.can_ranged(None));
     assert_eq!(aggression.mode, AggressionMode::HostileToPlayer);

@@ -3,8 +3,8 @@
 
 use super::super::*;
 use super::{step_scratch, test_world};
-use crate::geometry::AabbExt;
 use crate::body_clusters::BodyClusterScratch;
+use crate::geometry::AabbExt;
 use crate::{AbilitySet, Vec2};
 
 fn scratch_with(abilities: AbilitySet, spawn: Vec2) -> BodyClusterScratch {

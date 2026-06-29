@@ -14,14 +14,14 @@
 
 use bevy::prelude::*;
 
-use crate::enemy_projectile::EnemyProjectileSpawn;
-use ambition_engine_core as ae;
-use crate::features::{ActorFaction, CenteredAabb, FeatureSimEntity, HeldItem};
-use crate::player::{PlayerInputFrame};
-use crate::actor::{BodyMana};
-use crate::actor::{PlayerEntity, PrimaryPlayer};
 use crate::actor::BodyKinematics;
+use crate::actor::BodyMana;
+use crate::actor::{PlayerEntity, PrimaryPlayer};
+use crate::enemy_projectile::EnemyProjectileSpawn;
+use crate::features::{ActorFaction, CenteredAabb, FeatureSimEntity, HeldItem};
+use crate::player::PlayerInputFrame;
 use crate::projectile::ProjectileFaction;
+use ambition_engine_core as ae;
 
 /// Held-item id of the sentry gauntlet.
 pub const SENTRY_ID: &str = "sentry";

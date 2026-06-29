@@ -159,11 +159,10 @@ pub fn compute_controlled_actor_intent(
         return;
     };
     let gravity_dir = crate::physics::gravity_dir_or_default(gravity_field.as_deref());
-    let movement_mode = user_settings
-        .as_deref()
-        .map_or(ambition_engine_core::InputFrameMode::DEFAULT_MOVEMENT, |s| {
-            s.gameplay.movement_frame_mode
-        });
+    let movement_mode = user_settings.as_deref().map_or(
+        ambition_engine_core::InputFrameMode::DEFAULT_MOVEMENT,
+        |s| s.gameplay.movement_frame_mode,
+    );
     let local_axis = ambition_engine_core::AccelerationFrame::new(gravity_dir).resolve_input(
         movement_mode,
         input.frame.axis_x,

@@ -27,9 +27,8 @@ use crate::menu::model::{
     system_detail_slot_text, system_effective_window_start, system_max_window_start, system_rows,
     MenuFocus, MenuPage, MenuPageAction, SystemRow, SYSTEM_VISIBLE_ROWS,
 };
-use ambition_gameplay_core::audio::SfxMessage;
 use ambition_engine_core::Vec2;
-use ambition_input::MenuControlFrame;
+use ambition_gameplay_core::audio::SfxMessage;
 use ambition_gameplay_core::items::{Item, OwnedItems, ITEM_GRID_COLS, ITEM_GRID_ROWS};
 use ambition_gameplay_core::persistence::settings::{
     apply_settings_option, settings_menu_model, DevSnapshot, DevToggleId, RadioSnapshot,
@@ -37,6 +36,7 @@ use ambition_gameplay_core::persistence::settings::{
     SystemOptionId, UserSettings,
 };
 use ambition_gameplay_core::player::PlayerHealRequested;
+use ambition_input::MenuControlFrame;
 
 /// Play a one-shot UI sound for the cube menu: `Play { id, pos }` with `pos = ZERO`.
 /// `Play` is non-spatialized (see `audio::runtime::audio_play_sfx_messages` — it
@@ -374,7 +374,8 @@ pub(crate) struct SystemMenuParams<'w> {
     #[cfg(feature = "portal_render")]
     portal_effect: Option<ResMut<'w, ambition_gameplay_core::portal::PortalEffectSelection>>,
     #[cfg(feature = "portal_render")]
-    portal_camera: Option<ResMut<'w, ambition_gameplay_core::portal::PortalCameraContinuitySelection>>,
+    portal_camera:
+        Option<ResMut<'w, ambition_gameplay_core::portal::PortalCameraContinuitySelection>>,
     // The Gravity cycle's target (ambient gravity). Option so the System nav stays
     // B0002-safe and fixtures without the resource render the row as "n/a".
     base_gravity: Option<ResMut<'w, ambition_gameplay_core::physics::BaseGravity>>,

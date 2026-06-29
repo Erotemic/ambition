@@ -45,7 +45,10 @@ fn fsm_and_trex_sheets_match_their_published_layouts() {
     );
     assert!(FLYING_SPAGHETTI_MONSTER_SHEET.body_centered, "FSM floats");
     // Rest is row 0; FloorSlam (meatball_volley) is row 3 → 6+8+7 frames before.
-    assert_eq!(const_flat(&FLYING_SPAGHETTI_MONSTER_SHEET, BossAnim::Rest, 0), 0);
+    assert_eq!(
+        const_flat(&FLYING_SPAGHETTI_MONSTER_SHEET, BossAnim::Rest, 0),
+        0
+    );
     assert_eq!(
         const_flat(&FLYING_SPAGHETTI_MONSTER_SHEET, BossAnim::FloorSlam, 0),
         6 + 8 + 7
@@ -59,7 +62,10 @@ fn fsm_and_trex_sheets_match_their_published_layouts() {
     assert!(!TREX_BOSS_SHEET.body_centered, "T-Rex is grounded");
     assert_eq!(TREX_BOSS_SHEET.frame_count(BossAnim::Rest), 6);
     // SideSweep (bite) is row 3, not the later tail_swipe dup at row 5.
-    assert_eq!(const_flat(&TREX_BOSS_SHEET, BossAnim::SideSweep, 0), 6 + 8 + 8);
+    assert_eq!(
+        const_flat(&TREX_BOSS_SHEET, BossAnim::SideSweep, 0),
+        6 + 8 + 8
+    );
 
     // Both atlases build without panic and have one rect per frame.
     let fsm_frames: usize = FLYING_SPAGHETTI_MONSTER_SHEET

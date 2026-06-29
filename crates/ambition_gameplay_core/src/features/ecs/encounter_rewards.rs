@@ -185,8 +185,8 @@ mod reward_sync_tests {
     //! /&Query helper.
     use super::*;
     use crate::encounter::{EncounterPhase, EncounterRegistry, EncounterSpec, EncounterState};
-    use ambition_interaction::PickupKind;
     use crate::persistence::save::SandboxSave;
+    use ambition_interaction::PickupKind;
     use bevy::prelude::{App, Update};
 
     fn cleared_registry() -> EncounterRegistry {

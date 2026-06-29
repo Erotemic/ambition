@@ -255,7 +255,6 @@ impl PortalCameraContinuityState {
     }
 }
 
-
 /// Camera roll to use for a portal-continuity crossing.
 ///
 /// This deliberately follows the same somersault roll policy as the transiting
@@ -300,10 +299,16 @@ mod tests {
         let eps = 1.0e-5;
 
         let ceiling_to_floor = camera_roll_for_portal_transit(Vec2::Y, -Vec2::Y, gravity_down);
-        assert!(ceiling_to_floor.abs() < eps, "ceiling->floor roll = {ceiling_to_floor}");
+        assert!(
+            ceiling_to_floor.abs() < eps,
+            "ceiling->floor roll = {ceiling_to_floor}"
+        );
 
         let floor_to_ceiling = camera_roll_for_portal_transit(-Vec2::Y, Vec2::Y, gravity_down);
-        assert!(floor_to_ceiling.abs() < eps, "floor->ceiling roll = {floor_to_ceiling}");
+        assert!(
+            floor_to_ceiling.abs() < eps,
+            "floor->ceiling roll = {floor_to_ceiling}"
+        );
 
         let right_wall_to_left_wall =
             camera_roll_for_portal_transit(-Vec2::X, Vec2::X, gravity_down);
@@ -324,6 +329,9 @@ mod tests {
     fn quarter_turn_portal_pair_has_camera_roll() {
         let gravity_down = Vec2::Y;
         let roll = camera_roll_for_portal_transit(Vec2::Y, Vec2::X, gravity_down);
-        assert!(roll.abs() > std::f32::consts::FRAC_PI_4, "quarter-turn roll = {roll}");
+        assert!(
+            roll.abs() > std::f32::consts::FRAC_PI_4,
+            "quarter-turn roll = {roll}"
+        );
     }
 }

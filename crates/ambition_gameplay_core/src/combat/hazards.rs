@@ -105,10 +105,10 @@ pub fn update_ecs_hazards(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::actor::BodyCombat;
+    use crate::actor::BodyKinematics;
+    use crate::actor::PlayerEntity;
     use crate::actor::{BodyBaseSize, BodyDodgeState, BodyOffense, BodyShieldState};
-use crate::actor::BodyCombat;
-use crate::actor::{PlayerEntity};
-use crate::actor::BodyKinematics;
     use bevy::prelude::{App, MessageReader, ResMut, Resource, Update};
 
     #[derive(Resource, Default)]

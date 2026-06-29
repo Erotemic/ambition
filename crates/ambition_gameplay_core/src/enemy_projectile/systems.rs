@@ -65,8 +65,8 @@ pub fn apply_projectile_effects(
 mod tests {
     use super::*;
     use crate::audio::SfxMessage;
-    use ambition_engine_core as ae;
     use crate::features::{HitEvent, HitSource};
+    use ambition_engine_core as ae;
     use ambition_vfx::vfx::VfxMessage;
 
     use crate::enemy_projectile::test_support::{enemy_projectile_bodies, spawn_enemy_projectile};
@@ -249,8 +249,10 @@ mod tests {
         app.update();
         let cap = app.world().resource::<CapturedHits>();
         assert!(
-            cap.0.iter().any(|e| matches!(e.source, HitSource::EnemyProjectile)
-                && e.target == crate::features::HitTarget::Actor(boss_actor)),
+            cap.0
+                .iter()
+                .any(|e| matches!(e.source, HitSource::EnemyProjectile)
+                    && e.target == crate::features::HitTarget::Actor(boss_actor)),
             "the enemy glider lands a pre-resolved hit on the hostile Boss actor"
         );
     }
@@ -269,8 +271,10 @@ mod tests {
         app.update();
         let cap = app.world().resource::<CapturedHits>();
         assert!(
-            cap.0.iter().any(|e| matches!(e.source, HitSource::EnemyProjectile)
-                && e.target == crate::features::HitTarget::Actor(boss_actor)),
+            cap.0
+                .iter()
+                .any(|e| matches!(e.source, HitSource::EnemyProjectile)
+                    && e.target == crate::features::HitTarget::Actor(boss_actor)),
             "a different-faction actor is hit regardless of relations (physical damage)"
         );
     }
@@ -281,10 +285,10 @@ mod tests {
     /// boss's attack at it.
     #[test]
     fn a_parried_enemy_shot_flips_to_player_faction_and_reverses() {
+        use crate::actor::BodyCombat;
+        use crate::actor::BodyKinematics;
+        use crate::actor::PlayerEntity;
         use crate::actor::{BodyBaseSize, BodyDodgeState, BodyOffense, BodyShieldState};
-use crate::actor::BodyCombat;
-use crate::actor::{PlayerEntity};
-use crate::actor::BodyKinematics;
         let mut app = App::new();
         app.insert_resource(crate::RoomGeometry(ae::World::new(
             "phys",
@@ -374,10 +378,10 @@ use crate::actor::BodyKinematics;
     /// exercised.
     #[test]
     fn an_owned_enemy_shot_attributes_its_player_hit_to_the_firing_actor() {
+        use crate::actor::BodyCombat;
+        use crate::actor::BodyKinematics;
+        use crate::actor::PlayerEntity;
         use crate::actor::{BodyBaseSize, BodyDodgeState, BodyOffense, BodyShieldState};
-use crate::actor::BodyCombat;
-use crate::actor::{PlayerEntity};
-use crate::actor::BodyKinematics;
         let mut app = App::new();
         app.insert_resource(crate::RoomGeometry(ae::World::new(
             "phys",
@@ -478,23 +482,24 @@ use crate::actor::BodyKinematics;
         app.add_message::<crate::effects::EffectRequest>();
         app.init_resource::<ProjectileSeqCounter>();
         app.add_systems(Update, apply_projectile_effects);
-        app.world_mut().write_message(crate::effects::EffectRequest {
-            owner: Entity::PLACEHOLDER,
-            effect: crate::effects::Effect::Projectiles {
-                faction: ProjectileFaction::Enemy,
-                shots: vec![EnemyProjectileSpawn {
-                    origin: ae::Vec2::ZERO,
-                    dir: ae::Vec2::new(1.0, 0.0),
-                    speed: 100.0,
-                    damage: 1,
-                    max_lifetime: 1.0,
-                    half_extent: ae::Vec2::new(8.0, 8.0),
-                    owner_id: "pca".into(),
-                    gravity: 0.0,
-                    visual_tag: ProjectileVisualKind::Glider.to_tag(),
-                }],
-            },
-        });
+        app.world_mut()
+            .write_message(crate::effects::EffectRequest {
+                owner: Entity::PLACEHOLDER,
+                effect: crate::effects::Effect::Projectiles {
+                    faction: ProjectileFaction::Enemy,
+                    shots: vec![EnemyProjectileSpawn {
+                        origin: ae::Vec2::ZERO,
+                        dir: ae::Vec2::new(1.0, 0.0),
+                        speed: 100.0,
+                        damage: 1,
+                        max_lifetime: 1.0,
+                        half_extent: ae::Vec2::new(8.0, 8.0),
+                        owner_id: "pca".into(),
+                        gravity: 0.0,
+                        visual_tag: ProjectileVisualKind::Glider.to_tag(),
+                    }],
+                },
+            });
         app.update();
         let mut q = app.world_mut().query::<&ProjectileVisualKind>();
         let kinds: Vec<_> = q.iter(app.world()).copied().collect();

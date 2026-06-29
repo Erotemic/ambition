@@ -23,10 +23,10 @@
 use std::path::PathBuf;
 
 use ambition_app::rl_sim::{SandboxSim, SandboxSimOptions, TimestepMode};
-use ambition_input::ControlFrame;
 use ambition_gameplay_core::trace::{
     self, record_simulation_frame, DumpReason, GameplayTraceBuffer,
 };
+use ambition_input::ControlFrame;
 
 fn parse_max_ticks(args: &[String]) -> u32 {
     // First positional non-flag arg is the tick count.
@@ -146,8 +146,7 @@ fn run_with_trace_dump(max_ticks: u32, dump_dir: PathBuf, start_room: Option<Str
             clusters.blink,
             clusters.ledge,
         );
-        let body_mode_state =
-            ambition_engine_core::BodyMode::from_clusters(clusters.body_mode);
+        let body_mode_state = ambition_engine_core::BodyMode::from_clusters(clusters.body_mode);
         record_simulation_frame(
             &mut buffer,
             &clusters,

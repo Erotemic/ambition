@@ -21,6 +21,7 @@
 
 use ambition_app::{AgentAction, SandboxSim, TimestepMode};
 use ambition_characters::actor::BossBrain;
+use ambition_gameplay_core::actor::{BodyKinematics, PrimaryPlayerOnly};
 use ambition_gameplay_core::boss_encounter::{
     BossEncounterPhase, EncounterBeat, EncounterDef, EncounterEffect, EncounterGate,
     EncounterScript, EncounterTrigger,
@@ -32,7 +33,6 @@ use ambition_gameplay_core::features::{
 };
 use ambition_gameplay_core::persistence::save::SandboxSave;
 use ambition_gameplay_core::persistence::save_data::PersistedEncounterState;
-use ambition_gameplay_core::actor::{BodyKinematics, PrimaryPlayerOnly};
 use bevy::prelude::World;
 
 const MOCKINGBIRD_TRACK: &str = "how_to_kill_a_mockingbird";

@@ -26,7 +26,8 @@ pub(crate) struct DevToggleRead<'a> {
     // Portal camera continuity's live mode. Option so fixtures/non-portal
     // builds render the row as unavailable without storing a duplicate default.
     #[cfg(feature = "portal_render")]
-    pub(crate) portal_camera: Option<&'a ambition_gameplay_core::portal::PortalCameraContinuitySelection>,
+    pub(crate) portal_camera:
+        Option<&'a ambition_gameplay_core::portal::PortalCameraContinuitySelection>,
     // The Gravity row's ambient direction (down/left/up/right). Option so
     // fixtures without the resource still render the row (as "n/a").
     pub(crate) base_gravity: Option<&'a ambition_gameplay_core::physics::BaseGravity>,
@@ -40,7 +41,8 @@ pub(crate) struct DevToggleWrite<'a> {
     #[cfg(feature = "portal_render")]
     pub(crate) portal_effect: Option<&'a mut ambition_gameplay_core::portal::PortalEffectSelection>,
     #[cfg(feature = "portal_render")]
-    pub(crate) portal_camera: Option<&'a mut ambition_gameplay_core::portal::PortalCameraContinuitySelection>,
+    pub(crate) portal_camera:
+        Option<&'a mut ambition_gameplay_core::portal::PortalCameraContinuitySelection>,
     pub(crate) base_gravity: Option<&'a mut ambition_gameplay_core::physics::BaseGravity>,
 }
 

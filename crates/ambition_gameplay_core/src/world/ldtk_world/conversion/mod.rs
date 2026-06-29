@@ -134,9 +134,12 @@ impl LdtkProject {
             Vec::new();
         let mut pickups: Vec<crate::rooms::Authored<ambition_interaction::Pickup>> = Vec::new();
         let mut chests: Vec<crate::rooms::Authored<ambition_interaction::Chest>> = Vec::new();
-        let mut breakables: Vec<crate::rooms::Authored<ambition_interaction::Breakable>> = Vec::new();
-        let mut enemy_spawns: Vec<crate::rooms::Authored<ambition_characters::actor::EnemyBrain>> = Vec::new();
-        let mut boss_spawns: Vec<crate::rooms::Authored<ambition_characters::actor::BossBrain>> = Vec::new();
+        let mut breakables: Vec<crate::rooms::Authored<ambition_interaction::Breakable>> =
+            Vec::new();
+        let mut enemy_spawns: Vec<crate::rooms::Authored<ambition_characters::actor::EnemyBrain>> =
+            Vec::new();
+        let mut boss_spawns: Vec<crate::rooms::Authored<ambition_characters::actor::BossBrain>> =
+            Vec::new();
         let mut debug_labels: Vec<crate::rooms::Authored<crate::debug_label::DebugLabel>> =
             Vec::new();
         let mut metadata = crate::rooms::RoomMetadata::default();
@@ -484,7 +487,9 @@ impl RuntimeEntityEmission {
         }
     }
 
-    fn enemy_spawn(authored: crate::rooms::Authored<ambition_characters::actor::EnemyBrain>) -> Self {
+    fn enemy_spawn(
+        authored: crate::rooms::Authored<ambition_characters::actor::EnemyBrain>,
+    ) -> Self {
         Self {
             enemy_spawns: vec![authored],
             ..Self::default()

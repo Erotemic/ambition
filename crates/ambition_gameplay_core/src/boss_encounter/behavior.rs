@@ -10,7 +10,9 @@
 //! `boss_animation_keys_for_profile` (attack-profile -> sprite-row keys) and
 //! `canonical_boss_id_from` (resolves the boss kind from LDtk name + brain).
 
-use ambition_characters::brain::boss_pattern::{BossAttackPattern, BossAttackProfile, BossMovementProfile};
+use ambition_characters::brain::boss_pattern::{
+    BossAttackPattern, BossAttackProfile, BossMovementProfile,
+};
 use ambition_engine_core as ae;
 
 /// Live sandbox-side behavior tuning for a boss. This is deliberately separate
@@ -402,7 +404,9 @@ impl BossBehaviorProfile {
 /// 3. `encounter_id_from_name(authored_name)` — legacy fallback.
 pub fn canonical_boss_id_from(name: &str, brain: &ambition_characters::actor::BossBrain) -> String {
     match brain {
-        ambition_characters::actor::BossBrain::PhaseScript { script_id } if !script_id.is_empty() => {
+        ambition_characters::actor::BossBrain::PhaseScript { script_id }
+            if !script_id.is_empty() =>
+        {
             script_id.clone()
         }
         ambition_characters::actor::BossBrain::Custom(label) if !label.is_empty() => {

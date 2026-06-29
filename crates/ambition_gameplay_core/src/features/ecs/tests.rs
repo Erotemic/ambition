@@ -20,8 +20,10 @@ fn spawn_interaction_player(app: &mut App, player_pos: ae::Vec2) {
     let mut scratch =
         crate::player::primary_player_scratch(player_pos, ae::AbilitySet::sandbox_all());
     scratch.ground.on_ground = true;
-    let mut bundle =
-        crate::player::PlayerSimulationBundle::from_scratch(scratch, ambition_characters::actor::Health::new(10));
+    let mut bundle = crate::player::PlayerSimulationBundle::from_scratch(
+        scratch,
+        ambition_characters::actor::Health::new(10),
+    );
     bundle.interaction.interact_buffer_timer = 0.15;
     app.world_mut().spawn(bundle);
 }
@@ -144,8 +146,10 @@ fn boss_classifies_as_boss_not_the_actor_enemy_fallback() {
         boss_body,
         ambition_characters::actor::BossBrain::Dormant,
     );
-    let (identity, disposition, health, combat, intent, cooldowns) =
-        boss_component_snapshot(boss.as_ref(), &ambition_characters::brain::BossAttackState::default());
+    let (identity, disposition, health, combat, intent, cooldowns) = boss_component_snapshot(
+        boss.as_ref(),
+        &ambition_characters::brain::BossAttackState::default(),
+    );
 
     let mut app = App::new();
     app.init_resource::<FeatureViewIndex>();
@@ -231,7 +235,8 @@ fn interact_buffered_opens_adjacent_chest() {
     );
     let interaction = app
         .world_mut()
-        .query_filtered::<&crate::player::PlayerInteractionState, With<crate::actor::PlayerEntity>>()
+        .query_filtered::<&crate::player::PlayerInteractionState, With<crate::actor::PlayerEntity>>(
+        )
         .single(app.world())
         .expect("player entity must exist");
     assert!(

@@ -14,9 +14,8 @@ use super::input::InputState;
 use super::ops::MovementOp;
 use super::tuning::MovementTuning;
 use crate::body_clusters::{
-    BodyKinematics, BodyAbilities, BodyActionBuffer, BodyBlinkState, BodyComboTrace,
-    BodyDashState, BodyDodgeState, BodyFlightState, BodyGroundState, BodyShieldState,
-    BodyWallState,
+    BodyAbilities, BodyActionBuffer, BodyBlinkState, BodyComboTrace, BodyDashState, BodyDodgeState,
+    BodyFlightState, BodyGroundState, BodyKinematics, BodyShieldState, BodyWallState,
 };
 
 /// Facing + input buffering: turn to face the stick (only when grounded or
@@ -235,7 +234,10 @@ mod resolve_shield_tests {
         // the parry window.
         let (mut active, mut parry) = (false, 0.0);
         let fresh = resolve_shield(&mut active, &mut parry, true, false, true, 0.2);
-        assert!(active && parry == 0.2 && fresh, "rising edge opens a fresh parry");
+        assert!(
+            active && parry == 0.2 && fresh,
+            "rising edge opens a fresh parry"
+        );
 
         // Held across a second tick: still raised, but NOT a fresh edge (no re-arm).
         let fresh = resolve_shield(&mut active, &mut parry, true, false, true, 0.2);

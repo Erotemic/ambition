@@ -150,10 +150,10 @@ pub fn interact_ecs_actors_and_switches(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use ambition_engine_core as ae;
     use crate::features::{
         CenteredAabb, FeatureId, FeatureName, FeatureSimEntity, SwitchFeature, SwitchOn,
     };
+    use ambition_engine_core as ae;
     use bevy::prelude::{App, NextState, Update};
 
     fn spawn_interaction_player(app: &mut App, pos: ae::Vec2) {

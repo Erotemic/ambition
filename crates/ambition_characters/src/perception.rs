@@ -41,8 +41,8 @@
 
 use std::collections::HashMap;
 
-use ambition_engine_core as ae;
 use ae::AabbExt;
+use ambition_engine_core as ae;
 
 use crate::actor::ActorFaction;
 
@@ -240,9 +240,7 @@ impl WorldView {
     /// Hostile, alive actors in view — the candidate targets, relationally
     /// resolved (non-player-centric).
     pub fn hostiles(&self) -> impl Iterator<Item = &PerceivedActor> {
-        self.actors
-            .iter()
-            .filter(|a| a.hostile_to_self && a.alive)
+        self.actors.iter().filter(|a| a.hostile_to_self && a.alive)
     }
 
     /// Nearest hostile, alive actor in view, by straight-line distance from self.
@@ -375,7 +373,8 @@ impl WorldMemory {
                 mem.pos += mem.vel * dt;
             }
         }
-        self.actors.retain(|_, m| m.confidence >= Self::FORGET_BELOW);
+        self.actors
+            .retain(|_, m| m.confidence >= Self::FORGET_BELOW);
         // Refresh everything in view to full confidence.
         for a in &view.actors {
             self.actors.insert(
@@ -599,10 +598,7 @@ mod tests {
             sim_time: 0.0,
         };
         // Entering blue_a emerges at blue_b (same channel, other aperture).
-        assert_eq!(
-            view.linked_portal(&blue_a).map(|p| p.pos),
-            Some(blue_b.pos)
-        );
+        assert_eq!(view.linked_portal(&blue_a).map(|p| p.pos), Some(blue_b.pos));
         // The orange aperture has no pair in view → no linked exit.
         assert!(view.linked_portal(&orange).is_none());
     }

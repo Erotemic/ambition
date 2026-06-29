@@ -450,10 +450,7 @@ fn make_hanging_player(contact: LedgeContact) -> BodyClusterScratch {
     make_hanging_player_with_momentum(contact, Vec2::ZERO)
 }
 
-fn make_hanging_player_with_momentum(
-    contact: LedgeContact,
-    momentum: Vec2,
-) -> BodyClusterScratch {
+fn make_hanging_player_with_momentum(contact: LedgeContact, momentum: Vec2) -> BodyClusterScratch {
     let mut scratch = scratch_at(Vec2::ZERO);
     scratch.abilities.abilities.ledge_grab = true;
     scratch.abilities.abilities.shield = true;

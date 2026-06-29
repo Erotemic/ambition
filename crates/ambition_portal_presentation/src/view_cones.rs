@@ -276,9 +276,9 @@ fn portal_window_clip_rect(
     frame: &PortalWorldFrame,
     host_view: Option<&PortalCameraContinuityHostView>,
 ) -> (Vec2, Vec2) {
-    if let Some(host_view) = host_view.filter(|view| {
-        view.initialized && view.visible_view.x > 0.0 && view.visible_view.y > 0.0
-    }) {
+    if let Some(host_view) = host_view
+        .filter(|view| view.initialized && view.visible_view.x > 0.0 && view.visible_view.y > 0.0)
+    {
         let half = host_view.visible_view * 0.5;
         (
             host_view.current_center_world - half,

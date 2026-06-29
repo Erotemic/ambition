@@ -259,7 +259,8 @@ fn released_fireball_uses_controlled_body_local_aim_under_sideways_gravity() {
         shot.vel
     );
 
-    let frame = ambition_engine_core::AccelerationFrame::new(ambition_engine_core::Vec2::new(1.0, 0.0));
+    let frame =
+        ambition_engine_core::AccelerationFrame::new(ambition_engine_core::Vec2::new(1.0, 0.0));
     let local_offset = frame.to_local(shot.pos - player_pos);
     assert!(
         local_offset.y < -20.0,

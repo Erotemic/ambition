@@ -189,8 +189,10 @@ impl GameplaySettings {
     /// third mode (`InputFrameMode::BodyRelativeStrict`, fully body-relative with no
     /// accommodation) stays dev-only and is reachable through the F3 tuning editor.
     /// Shared by both the locomotion and the precision-aim cycle.
-    pub const FRAME_MODES: [InputFrameMode; 2] =
-        [InputFrameMode::BodyRelativeAssist, InputFrameMode::ScreenRelative];
+    pub const FRAME_MODES: [InputFrameMode; 2] = [
+        InputFrameMode::BodyRelativeAssist,
+        InputFrameMode::ScreenRelative,
+    ];
 
     /// Short, user-facing label for a frame mode.
     pub fn frame_mode_label(mode: InputFrameMode) -> &'static str {

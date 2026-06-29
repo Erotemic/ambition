@@ -1,10 +1,10 @@
 use super::*;
 use crate::menu::model::{build_inventory_pages, system_rows, SystemRow};
 use ambition_characters::brain::ActionSet;
+use ambition_gameplay_core::actor::BodyMana;
+use ambition_gameplay_core::actor::{PlayerEntity, PrimaryPlayer};
 use ambition_gameplay_core::items::Item;
 use ambition_gameplay_core::persistence::settings::{SystemMenuEntryId, SystemMenuModel};
-use ambition_gameplay_core::actor::{PlayerEntity, PrimaryPlayer};
-use ambition_gameplay_core::actor::{BodyMana};
 use ambition_gameplay_core::session::game_mode::GameMode;
 
 /// Switching the inventory frontend mid-session lands you on the SAME page in the
@@ -831,8 +831,8 @@ fn hover_control(app: &mut App, action: MenuPageAction) {
 /// rebuilt the menu → fired `Over` → snapped the cursor back to the mouse.
 #[test]
 fn hover_is_gated_on_active_input_being_mouse() {
-    use ambition_input::ActiveInputKind;
     use ambition_gameplay_core::items::Item;
+    use ambition_input::ActiveInputKind;
 
     let mut app = grid_app();
     // Open the menu so the hover handler's `overlay.visible` guard passes.
@@ -1000,8 +1000,7 @@ fn grid_override_survives_hover_and_clears_on_keyboard() {
     // A hover (cursor-follow) moves the CURSOR but, with the override set, the
     // EFFECTIVE window stays at the override — hovering does not scroll the list.
     *app.world_mut()
-        .resource_mut::<ambition_input::ActiveInputKind>() =
-        ambition_input::ActiveInputKind::Mouse;
+        .resource_mut::<ambition_input::ActiveInputKind>() = ambition_input::ActiveInputKind::Mouse;
     app.world_mut()
         .resource_mut::<KaleidoscopeCursor>()
         .mark_keyboard(MenuFocus::System(0));

@@ -4,10 +4,10 @@
 
 use super::super::*;
 
-use ambition_characters::brain::{BossAttackState, Brain, StateMachineCfg};
-use ambition_engine_core::AabbExt;
 use crate::features::bosses::ActorSpriteMetrics;
 use crate::features::bounding_aabb;
+use ambition_characters::brain::{BossAttackState, Brain, StateMachineCfg};
+use ambition_engine_core::AabbExt;
 use ambition_sprite_sheet::SheetRegistry;
 use bevy::prelude::Commands;
 

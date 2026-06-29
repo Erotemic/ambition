@@ -17,9 +17,9 @@ use bevy::prelude::MessageWriter;
 use ambition_engine_core as ae;
 use ambition_vfx::vfx::{ParticleKind, VfxMessage};
 
+use crate::actor::BodyCombat;
 use crate::audio::SfxMessage;
 use crate::player::{PlayerAnimState, PlayerBlinkCameraState};
-use crate::actor::BodyCombat;
 
 #[allow(clippy::too_many_arguments)]
 pub fn handle_player_events(

@@ -111,7 +111,9 @@ pub fn update_body_mode(
         let gravity_dir = crate::physics::gravity_dir_or_default(gravity_field.as_deref());
         let movement_mode = user_settings
             .as_deref()
-            .map_or(ae::InputFrameMode::DEFAULT_MOVEMENT, |s| s.gameplay.movement_frame_mode);
+            .map_or(ae::InputFrameMode::DEFAULT_MOVEMENT, |s| {
+                s.gameplay.movement_frame_mode
+            });
         let frame = ae::AccelerationFrame::new(gravity_dir);
         let resolved = frame.resolve_control(movement_mode, controls.axis_x, controls.axis_y);
         let local_axis = resolved.local_axis;

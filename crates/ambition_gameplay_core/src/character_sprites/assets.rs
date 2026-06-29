@@ -34,8 +34,8 @@ use super::registry::BodyMetrics;
 use super::sheets::CharacterSheetSpec;
 use crate::assets::sandbox_assets::{ids, SandboxAssetCatalog};
 use crate::character_roster::EMBEDDED_CATALOG;
-use ambition_engine_core as ae;
 use crate::features::FeatureVisualKind;
+use ambition_engine_core as ae;
 
 /// One page image of a (possibly split) character sheet: its texture handle
 /// plus the [`TextureAtlasLayout`] addressing only that page's frames.

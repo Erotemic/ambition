@@ -11,12 +11,12 @@
 
 use bevy::prelude::*;
 
-use ambition_engine_core as ae;
-use crate::features::HeldItem;
-use crate::player::{PlayerInputFrame};
-use crate::actor::{BodyMana};
-use crate::actor::{PlayerEntity, PrimaryPlayer};
 use crate::actor::BodyKinematics;
+use crate::actor::BodyMana;
+use crate::actor::{PlayerEntity, PrimaryPlayer};
+use crate::features::HeldItem;
+use crate::player::PlayerInputFrame;
+use ambition_engine_core as ae;
 
 /// Held-item id of the shockwave gauntlet.
 pub const SHOCKWAVE_ID: &str = "shockwave";

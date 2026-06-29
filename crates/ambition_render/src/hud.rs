@@ -12,10 +12,10 @@
 
 use bevy::prelude::*;
 
-use ambition_gameplay_core::actor::{PlayerEntity, PrimaryPlayer};
-use ambition_gameplay_core::actor::BodyWallet;
-use ambition_gameplay_core::actor::{BodyMana};
 use ambition_gameplay_core::actor::BodyHealth;
+use ambition_gameplay_core::actor::BodyMana;
+use ambition_gameplay_core::actor::BodyWallet;
+use ambition_gameplay_core::actor::{PlayerEntity, PrimaryPlayer};
 
 /// Bar width / height in logical px.
 const BAR_W: f32 = 168.0;

@@ -425,9 +425,7 @@ impl EnemyRoster {
 /// `BASELINE ← parent (resolved) ← this row's patch`; a missing parent or a cycle
 /// falls back to the baseline rather than panicking (a malformed `inherits` is a
 /// data smell, not a crash).
-fn resolve_movement_inheritance(
-    specs: &mut std::collections::HashMap<String, EnemyArchetypeSpec>,
-) {
+fn resolve_movement_inheritance(specs: &mut std::collections::HashMap<String, EnemyArchetypeSpec>) {
     // Snapshot the authored (patch, parent) so resolution reads immutable data
     // while we write resolved values back into the same map.
     let raw: std::collections::HashMap<String, (crate::combat::BodyMovementPatch, Option<String>)> =
@@ -437,7 +435,12 @@ fn resolve_movement_inheritance(
             .collect();
     let resolved: std::collections::HashMap<String, crate::combat::BodyMovementTuning> = raw
         .keys()
-        .map(|k| (k.clone(), resolve_movement_for(&raw, k, &mut vec![k.clone()])))
+        .map(|k| {
+            (
+                k.clone(),
+                resolve_movement_for(&raw, k, &mut vec![k.clone()]),
+            )
+        })
         .collect();
     for (k, spec) in specs.iter_mut() {
         if let Some(tuning) = resolved.get(k) {
@@ -961,7 +964,10 @@ mod capability_tests {
             "the player-robot body has the full movement kit as body capabilities: {caps:?}",
         );
         assert!(spec.melee.is_some(), "player-robot has a melee strike");
-        assert!(spec.ranged.is_some(), "player-robot has the Hadouken ranged verb");
+        assert!(
+            spec.ranged.is_some(),
+            "player-robot has the Hadouken ranged verb"
+        );
         assert_eq!(
             spec.ranged_visual,
             crate::projectile::ProjectileVisualKind::Hadouken,
@@ -976,8 +982,14 @@ mod capability_tests {
         // (enemies rise to the player) — proving the per-archetype tuning data flows
         // RON patch -> hierarchy resolution -> the runtime `ActorTuning`.
         let movement = spec.tuning().movement;
-        assert_eq!(movement.gravity, 2250.0, "player-robot falls like the player");
-        assert_eq!(movement.jump_speed, 630.0, "player-robot jumps like the player");
+        assert_eq!(
+            movement.gravity, 2250.0,
+            "player-robot falls like the player"
+        );
+        assert_eq!(
+            movement.jump_speed, 630.0,
+            "player-robot jumps like the player"
+        );
         assert_ne!(
             movement,
             crate::combat::BodyMovementTuning::BASELINE,

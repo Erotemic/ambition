@@ -5,10 +5,10 @@
 
 use bevy::prelude::*;
 
-use ambition_engine_core::{self as ae, AabbExt};
-use crate::physics::GravityField;
-use crate::actor::{PlayerEntity, PrimaryPlayer};
 use crate::actor::BodyKinematics;
+use crate::actor::{PlayerEntity, PrimaryPlayer};
+use crate::physics::GravityField;
+use ambition_engine_core::{self as ae, AabbExt};
 
 /// Reset gravity to the default (down) when the room resets, so a flipped /
 /// zoned room doesn't carry over.
@@ -76,8 +76,8 @@ pub fn gravity_flip_switch_system(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::physics::{BaseGravity, GravityField};
     use crate::actor::BodyBaseSize;
+    use crate::physics::{BaseGravity, GravityField};
 
     fn spawn_player(app: &mut App, pos: Vec2) -> Entity {
         app.world_mut()

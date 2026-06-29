@@ -72,7 +72,7 @@ pub const GRADIENT_SENTINEL_ENCOUNTER_ID: &str = "gradient_sentinel";
 #[cfg(test)]
 use crate::boss_encounter::behavior::canonical_boss_id_from;
 pub use crate::boss_encounter::behavior::{
-    boss_animation_keys_for_profile, BossBehaviorProfile, BossRewardProfile, ActorSpriteMetrics,
+    boss_animation_keys_for_profile, ActorSpriteMetrics, BossBehaviorProfile, BossRewardProfile,
 };
 
 /// Boss-side resolver for `Special`-flavored `BossAttackProfile`s.
@@ -198,7 +198,10 @@ mod canonical_boss_id_tests {
     /// Dormant brain falls back to the display name.
     #[test]
     fn dormant_brain_falls_back_to_name() {
-        let id = canonical_boss_id_from("Clockwork Warden", &ambition_characters::actor::BossBrain::Dormant);
+        let id = canonical_boss_id_from(
+            "Clockwork Warden",
+            &ambition_characters::actor::BossBrain::Dormant,
+        );
         assert_eq!(id, "clockwork_warden");
     }
 
@@ -291,10 +294,10 @@ mod boss_special_resolver_tests {
 #[cfg(test)]
 mod scripted_pattern_tests {
     use super::*;
+    use crate::features::FeatureCombatTuning;
     use ambition_characters::brain::boss_pattern::BossPatternStep;
     use ambition_engine_core as ae;
     use ambition_engine_core::AabbExt;
-    use crate::features::FeatureCombatTuning;
 
     fn gnu_ton_runtime() -> super::super::ecs::boss_clusters::BossClusterScratch {
         let behavior = BossBehaviorProfile::gnu_ton();
@@ -509,8 +512,13 @@ mod scripted_pattern_tests {
         let synthetic_player =
             bevy::prelude::Entity::from_raw_u32(1).expect("nonzero raw entity index");
         assert!(
-            crate::features::boss_attack_damage(&ctx, synthetic_boss, synthetic_player, player_body)
-                .is_none(),
+            crate::features::boss_attack_damage(
+                &ctx,
+                synthetic_boss,
+                synthetic_player,
+                player_body
+            )
+            .is_none(),
             "gnu_ton must not deal contact damage when body_damage = 0"
         );
     }
@@ -528,12 +536,12 @@ mod scripted_pattern_tests {
         // A player body covering the boss center overlaps the body-contact zone
         // regardless of the sprite combat offset.
         let player_body = ae::Aabb::new(boss.kin.pos, boss.as_ref().combat_size());
-        let boss_entity =
-            bevy::prelude::Entity::from_raw_u32(7).expect("nonzero raw entity index");
+        let boss_entity = bevy::prelude::Entity::from_raw_u32(7).expect("nonzero raw entity index");
         let player_entity =
             bevy::prelude::Entity::from_raw_u32(1).expect("nonzero raw entity index");
-        let hit = crate::features::boss_attack_damage(&ctx, boss_entity, player_entity, player_body)
-            .expect("a body-damage boss overlapping the player must produce a hit");
+        let hit =
+            crate::features::boss_attack_damage(&ctx, boss_entity, player_entity, player_body)
+                .expect("a body-damage boss overlapping the player must produce a hit");
         assert_eq!(hit.source, crate::features::HitSource::BossBody);
         assert_eq!(
             hit.attacker,

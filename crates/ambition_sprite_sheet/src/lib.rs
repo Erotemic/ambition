@@ -519,8 +519,16 @@ mod tests {
         let records: Vec<SheetRecord> =
             ron::from_str(ron_text).expect("trimmed SheetRecord should deserialize");
         let row = &records[0].rows[0];
-        assert_eq!(row.rects[0].off, (100, 80), "trimmed frame keeps its offset");
-        assert_eq!(row.rects[1].off, (0, 0), "frame without `off` defaults to untrimmed");
+        assert_eq!(
+            row.rects[0].off,
+            (100, 80),
+            "trimmed frame keeps its offset"
+        );
+        assert_eq!(
+            row.rects[1].off,
+            (0, 0),
+            "frame without `off` defaults to untrimmed"
+        );
         // The stored rect is the TRIMMED size, smaller than the logical frame.
         assert!(row.rects[0].w < records[0].frame_width as i32);
     }

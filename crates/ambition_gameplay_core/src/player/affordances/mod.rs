@@ -131,7 +131,10 @@ pub fn compute_player_affordances(
     let body = PlayerBodyView {
         is_aerial: !ground.on_ground,
         on_ledge: ledge.grab.is_some(),
-        is_morphed: matches!(body_mode.body_mode, ambition_engine_core::BodyMode::MorphBall),
+        is_morphed: matches!(
+            body_mode.body_mode,
+            ambition_engine_core::BodyMode::MorphBall
+        ),
         is_swimming: env_contact.water.is_some(),
     };
     let world = WorldView {
@@ -216,10 +219,12 @@ mod tests {
     /// `app.update()` so the affordance compute chain runs end-to-end
     /// without pulling in the whole sandbox plugin graph.
     fn build_test_app() -> (App, Entity) {
-        use ambition_input::ControlFrame;
+        use crate::actor::{
+            BodyEnvironmentContact, BodyGroundState, BodyLedgeState, BodyModeState,
+        };
         use crate::actor::{BodyKinematics, PlayerEntity, PrimaryPlayer};
-        use crate::actor::{BodyModeState, BodyEnvironmentContact, BodyGroundState, BodyLedgeState};
-        use crate::player::{PlayerInputFrame};
+        use crate::player::PlayerInputFrame;
+        use ambition_input::ControlFrame;
 
         let mut app = App::new();
         // `detect_active_input_method` reads `Res<ButtonInput<KeyCode>>`
@@ -320,9 +325,7 @@ mod tests {
         // Lift the player off the ground.
         {
             let mut entity = app.world_mut().entity_mut(player_entity);
-            let mut ground = entity
-                .get_mut::<crate::actor::BodyGroundState>()
-                .unwrap();
+            let mut ground = entity.get_mut::<crate::actor::BodyGroundState>().unwrap();
             ground.on_ground = false;
         }
         app.update();

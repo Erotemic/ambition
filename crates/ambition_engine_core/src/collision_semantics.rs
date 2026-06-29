@@ -263,7 +263,11 @@ mod tests {
         for dir in CARDINALS {
             let g = gravity_axis(dir);
             assert!(is_solid_for_axis(BlockKind::OneWay, g, dir));
-            assert!(!is_solid_for_axis(BlockKind::OneWay, g.perpendicular(), dir));
+            assert!(!is_solid_for_axis(
+                BlockKind::OneWay,
+                g.perpendicular(),
+                dir
+            ));
             // Full solids block both axes in every frame.
             assert!(is_solid_for_axis(BlockKind::Solid, g, dir));
             assert!(is_solid_for_axis(BlockKind::Solid, g.perpendicular(), dir));
@@ -297,9 +301,18 @@ mod tests {
     fn moving_toward_feet_is_gravity_relative() {
         // Toward feet means along +gravity_dir in every frame.
         assert!(moving_toward_feet(Vec2::new(0.0, 5.0), Vec2::new(0.0, 1.0)));
-        assert!(!moving_toward_feet(Vec2::new(0.0, -5.0), Vec2::new(0.0, 1.0)));
-        assert!(moving_toward_feet(Vec2::new(-5.0, 0.0), Vec2::new(-1.0, 0.0)));
-        assert!(!moving_toward_feet(Vec2::new(5.0, 0.0), Vec2::new(-1.0, 0.0)));
+        assert!(!moving_toward_feet(
+            Vec2::new(0.0, -5.0),
+            Vec2::new(0.0, 1.0)
+        ));
+        assert!(moving_toward_feet(
+            Vec2::new(-5.0, 0.0),
+            Vec2::new(-1.0, 0.0)
+        ));
+        assert!(!moving_toward_feet(
+            Vec2::new(5.0, 0.0),
+            Vec2::new(-1.0, 0.0)
+        ));
     }
 
     // --- Canonical resolutions of the three former player/enemy drifts ---

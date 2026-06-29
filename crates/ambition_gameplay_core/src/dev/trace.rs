@@ -7,12 +7,12 @@
 //! See `docs/systems/gameplay-trace-recorder.md` for the workflow and bug-reporting
 //! checklist.
 
-use ambition_engine_core as ae;
 use ae::AabbExt;
+use ambition_engine_core as ae;
 use bevy::prelude::*;
 
-use ambition_input::ControlFrame;
 use crate::RoomGeometry;
+use ambition_input::ControlFrame;
 
 const NEARBY_COLLISION_RADIUS: f32 = 220.0;
 const MAX_NEARBY_COLLISION: usize = 32;

@@ -7,8 +7,8 @@
 use super::cutscene::{install_intro_cutscenes, intro_room_cutscene_bindings};
 use super::dialog::intro_dialogue_ids;
 use super::sprites::intro_npc_sprite_rows;
-use ambition_gameplay_core::dialog::DialogState;
 use ambition_cutscene::CutsceneLibrary;
+use ambition_gameplay_core::dialog::DialogState;
 
 #[test]
 fn every_intro_dialogue_id_is_registered_with_validator() {

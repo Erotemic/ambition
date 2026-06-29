@@ -5,10 +5,10 @@
 
 use super::*;
 use crate::encounter::switches::{EncounterSwitchIndex, EncounterSwitchLink};
-use ambition_engine_core as ae;
-use ambition_engine_core::AabbExt;
 use crate::ldtk_world::LdtkProject;
 use crate::persistence::save_data::PersistedEncounterState;
+use ambition_engine_core as ae;
+use ambition_engine_core::AabbExt;
 
 /// Drive an EncounterState past `Starting` into the first wave's
 /// `Active` phase. The lab_spec uses `intro_seconds: 0.0` so a
@@ -569,15 +569,11 @@ fn lock_wall_is_derived_while_active_and_dropped_when_inactive() {
     state.maybe_start(ae::Vec2::new(50.0, 50.0), ae::Vec2::new(20.0, 30.0));
     // Starting/Active phase → the gate solid is derived this frame.
     let blocks = desired_lock_wall_blocks(&reg);
-    assert!(blocks
-        .iter()
-        .any(|b| b.name == "lockwall:goblin_encounter"));
+    assert!(blocks.iter().any(|b| b.name == "lockwall:goblin_encounter"));
     // Force back to Inactive — the overlay clears each frame, so "removal" is
     // simply the wall no longer being derived (no reconcile against a base).
     let state = reg.ensure("goblin_encounter");
     state.phase = EncounterPhase::Inactive;
     let blocks = desired_lock_wall_blocks(&reg);
-    assert!(!blocks
-        .iter()
-        .any(|b| b.name == "lockwall:goblin_encounter"));
+    assert!(!blocks.iter().any(|b| b.name == "lockwall:goblin_encounter"));
 }

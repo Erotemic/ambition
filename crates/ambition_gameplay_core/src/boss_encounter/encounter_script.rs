@@ -27,9 +27,9 @@ use bevy::prelude::*;
 
 use super::encounter_entity::EncounterDef;
 use crate::combat::boss_clusters::{BossClusterRef, BossStatus};
+use crate::features::CenteredAabb;
 use ambition_engine_core as ae;
 use ambition_engine_core::AabbExt;
-use crate::features::CenteredAabb;
 
 /// A named gate fired by gameplay code (rope cut, hazard impact, cutscene cue,
 /// "all adds dead") to advance an [`EncounterScript`] beat waiting on it. The

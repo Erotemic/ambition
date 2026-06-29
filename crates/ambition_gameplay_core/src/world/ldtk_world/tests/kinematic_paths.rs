@@ -224,7 +224,10 @@ fn synthetic_kinematic_path_reaches_room_spec_with_area_offset() {
     let spec = &room.kinematic_paths[0];
     assert_eq!(spec.id, "patrol_alpha");
     assert_eq!(spec.name, "patrol_alpha");
-    assert_eq!(spec.path.mode, ambition_characters::actor::KinematicPathMode::Loop);
+    assert_eq!(
+        spec.path.mode,
+        ambition_characters::actor::KinematicPathMode::Loop
+    );
     assert_eq!(spec.path.speed, 90.0);
     assert_eq!(
         spec.path.points,

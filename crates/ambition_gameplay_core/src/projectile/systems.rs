@@ -13,13 +13,13 @@ use super::entity::{
 use super::spawn_message::{ProjectilePool, SpawnProjectile};
 use super::state::{PlayerProjectileState, ProjectileTraceEvent};
 use super::{resolve_world_collision, ProjectileFaction, WorldHitOutcome, WorldHitPolicy};
+use crate::actor::BodyKinematics;
 use crate::audio::SfxMessage;
 use crate::features::{
-    can_damage, BodyCombat, ActorDisposition, ActorFaction, BossClusterRef, BossConfig,
+    can_damage, ActorDisposition, ActorFaction, BodyCombat, BossClusterRef, BossConfig,
     BreakableFeature, CenteredAabb, FeatureId, FeatureSimEntity, HitEvent, HitKnockback, HitMode,
     HitSource, HitTarget,
 };
-use crate::actor::BodyKinematics;
 use crate::projectile::ProjectileGameplay;
 use crate::trace::GameplayTraceBuffer;
 use crate::RoomGeometry;
@@ -457,12 +457,7 @@ pub fn step_projectiles(
     mut feature_damage: MessageWriter<HitEvent>,
     ecs_breakables: Query<(&FeatureId, &CenteredAabb, &BreakableFeature), With<FeatureSimEntity>>,
     ecs_actors: Query<
-        (
-            &FeatureId,
-            &CenteredAabb,
-            &ActorDisposition,
-            &BodyCombat,
-        ),
+        (&FeatureId, &CenteredAabb, &ActorDisposition, &BodyCombat),
         (With<FeatureSimEntity>, Without<BossConfig>),
     >,
     ecs_bosses: Query<
@@ -530,9 +525,7 @@ pub fn step_projectiles(
                     pos: kin.pos,
                 });
             } else {
-                trace.push_event(
-                    ProjectileTraceEvent::Expired { kind }.into_trace_event(tick),
-                );
+                trace.push_event(ProjectileTraceEvent::Expired { kind }.into_trace_event(tick));
             }
             commands.entity(proj_entity).despawn();
             continue;
@@ -594,8 +587,7 @@ pub fn step_projectiles(
                 // faction from the firer (so a duel's stray catches the observer);
                 // only a same-faction firer (co-op) passes them by, unless friendly
                 // fire is on. Whether the firer AIMED at the player is separate.
-                let can_hit_player =
-                    can_damage(firer_faction, ActorFaction::Player, friendly_fire);
+                let can_hit_player = can_damage(firer_faction, ActorFaction::Player, friendly_fire);
                 for (player_entity, player_kin, offense, dodge, shield, combat) in &player_body_q {
                     if !can_hit_player {
                         break;

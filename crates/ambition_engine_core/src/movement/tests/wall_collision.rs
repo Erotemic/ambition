@@ -4,8 +4,8 @@
 
 use super::super::*;
 use super::{step_scratch, test_world};
-use crate::geometry::AabbExt;
 use crate::body_clusters::BodyClusterScratch;
+use crate::geometry::AabbExt;
 use crate::world::Block;
 use crate::{Aabb, AbilitySet, Vec2, World};
 
@@ -897,7 +897,11 @@ fn deeply_embedded_player_is_not_pushout_teleported_under_sideways_gravity() {
             // Containing walls (like the hub's perimeter) so a body falling
             // sideways out of the slab is CAUGHT, never flung out of the world.
             Block::solid("left wall", Vec2::new(0.0, 0.0), Vec2::new(48.0, 2004.0)),
-            Block::solid("right wall", Vec2::new(1852.0, 0.0), Vec2::new(48.0, 2004.0)),
+            Block::solid(
+                "right wall",
+                Vec2::new(1852.0, 0.0),
+                Vec2::new(48.0, 2004.0),
+            ),
         ],
         water_regions: Vec::new(),
         climbable_regions: Vec::new(),

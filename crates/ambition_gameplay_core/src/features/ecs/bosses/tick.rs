@@ -3,12 +3,12 @@
 
 use super::super::*;
 
+use crate::features::{boss_attack_damage, boss_special_for_profile, BossVolumeContext};
 use ambition_characters::brain::{
     action_set::ActionRequest, boss_pattern::tick_boss_pattern, ActorActionMessage, ActorControl,
     BossAttackState, BossPatternContext, Brain, StateMachineCfg,
 };
 use ambition_engine_core::AabbExt;
-use crate::features::{boss_attack_damage, boss_special_for_profile, BossVolumeContext};
 use bevy::prelude::MessageWriter;
 
 /// Sync each boss's `encounter_phase` mirror from the entity-local
@@ -371,7 +371,8 @@ pub fn update_ecs_bosses(
         if player_vulnerable && feature.status.alive {
             let ctx = BossVolumeContext::from_ref(feature.as_boss_ref(), attack_state)
                 .with_animation_frame(animation_frame);
-            if let Some(damage) = boss_attack_damage(&ctx, boss_entity, target_entity, player_body) {
+            if let Some(damage) = boss_attack_damage(&ctx, boss_entity, target_entity, player_body)
+            {
                 let pos = damage
                     .knockback
                     .as_ref()

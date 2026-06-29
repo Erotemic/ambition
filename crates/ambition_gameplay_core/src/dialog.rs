@@ -85,9 +85,7 @@ pub fn yarn_spinner_plugin() -> YarnSpinnerPlugin {
     // Android cannot enumerate asset folders inside the APK, so use
     // explicit Yarn sources instead of `YarnSpinnerPlugin::new()`
     // (which scans the dialogue folder on desktop builds).
-    YarnSpinnerPlugin::with_yarn_sources(
-        YARN_SOURCES.iter().map(|p| YarnFileSource::file(*p)),
-    )
+    YarnSpinnerPlugin::with_yarn_sources(YARN_SOURCES.iter().map(|p| YarnFileSource::file(*p)))
 }
 
 #[cfg(test)]

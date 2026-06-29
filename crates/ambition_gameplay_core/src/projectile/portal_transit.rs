@@ -13,8 +13,8 @@
 //! skips collision for the tick (so it neither explodes on the entry face nor
 //! double-tests a hit).
 
-use ambition_engine_core::{self as ae, AabbExt};
 use crate::portal::{find_portal, portal_transform_velocity, PlacedPortal};
+use ambition_engine_core::{self as ae, AabbExt};
 
 /// Margin (px) past the exit face so a transited shot clears the thin portal
 /// plane and isn't immediately re-tested as "entering" the exit. Matches the

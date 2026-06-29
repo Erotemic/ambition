@@ -69,10 +69,7 @@ pub fn default_brain_for_character_id(
 ) -> Option<ambition_characters::brain::Brain> {
     let entry = EMBEDDED_CATALOG.characters.get(character_id)?;
     let preset = EMBEDDED_CATALOG.brain_presets.get(&entry.default_brain)?;
-    Some(ambition_characters::actor::character_catalog::brain_from_preset(
-        preset,
-        spawn_world_x,
-    ))
+    Some(ambition_characters::actor::character_catalog::brain_from_preset(preset, spawn_world_x))
 }
 
 /// Pick a bark line for a character id + situation, rotated by `rotation`
@@ -245,10 +242,9 @@ mod tests {
         for (id, entry) in &EMBEDDED_CATALOG.characters {
             // Skip ids that share a display name with another entry — the
             // reverse lookup can only return one, and uniqueness isn't promised.
-            let shares_name = EMBEDDED_CATALOG
-                .characters
-                .iter()
-                .any(|(other_id, other)| other_id != id && other.display_name == entry.display_name);
+            let shares_name = EMBEDDED_CATALOG.characters.iter().any(|(other_id, other)| {
+                other_id != id && other.display_name == entry.display_name
+            });
             if shares_name {
                 continue;
             }
@@ -259,7 +255,10 @@ mod tests {
                 entry.display_name,
             );
         }
-        assert_eq!(character_id_for_display_name("Definitely Not A Character"), None);
+        assert_eq!(
+            character_id_for_display_name("Definitely Not A Character"),
+            None
+        );
     }
 
     /// Snapshot of every renderer-registered character_id at the
@@ -431,7 +430,10 @@ mod tests {
             hall_dialogue_id_for_character_id("npc_pirate_admiral"),
             Some("hall_pirate_admiral"),
         );
-        assert_eq!(hall_dialogue_id_for_character_id("npc_not_a_character"), None);
+        assert_eq!(
+            hall_dialogue_id_for_character_id("npc_not_a_character"),
+            None
+        );
         let known = crate::dialog::known_dialogue_ids();
         for expected in [
             "hall_pirate_admiral",

@@ -89,9 +89,21 @@ impl Stage {
             floor: 540.0,
             ceiling: 40.0,
             platforms: vec![
-                Platform { x0: 180.0, x1: 380.0, y: 380.0 },
-                Platform { x0: 580.0, x1: 780.0, y: 380.0 },
-                Platform { x0: 360.0, x1: 600.0, y: 240.0 },
+                Platform {
+                    x0: 180.0,
+                    x1: 380.0,
+                    y: 380.0,
+                },
+                Platform {
+                    x0: 580.0,
+                    x1: 780.0,
+                    y: 380.0,
+                },
+                Platform {
+                    x0: 360.0,
+                    x1: 600.0,
+                    y: 240.0,
+                },
             ],
         }
     }
@@ -106,11 +118,31 @@ impl Stage {
             floor: 540.0,
             ceiling: 40.0,
             platforms: vec![
-                Platform { x0: 300.0, x1: 420.0, y: 290.0 }, // central kernel
-                Platform { x0: 90.0, x1: 230.0, y: 200.0 },  // upper-left
-                Platform { x0: 490.0, x1: 630.0, y: 200.0 }, // upper-right
-                Platform { x0: 90.0, x1: 230.0, y: 400.0 },  // lower-left
-                Platform { x0: 490.0, x1: 630.0, y: 400.0 }, // lower-right
+                Platform {
+                    x0: 300.0,
+                    x1: 420.0,
+                    y: 290.0,
+                }, // central kernel
+                Platform {
+                    x0: 90.0,
+                    x1: 230.0,
+                    y: 200.0,
+                }, // upper-left
+                Platform {
+                    x0: 490.0,
+                    x1: 630.0,
+                    y: 200.0,
+                }, // upper-right
+                Platform {
+                    x0: 90.0,
+                    x1: 230.0,
+                    y: 400.0,
+                }, // lower-left
+                Platform {
+                    x0: 490.0,
+                    x1: 630.0,
+                    y: 400.0,
+                }, // lower-right
             ],
         }
     }
@@ -465,7 +497,9 @@ impl Arena {
             // Walked off the side of whatever we were standing on.
             if f.on_ground && f.pos.y < stage.floor {
                 let still_supported = stage.platforms.iter().any(|p| {
-                    (f.pos.y - p.y).abs() < 1.0 && f.pos.x >= p.x0 - f.half_w && f.pos.x <= p.x1 + f.half_w
+                    (f.pos.y - p.y).abs() < 1.0
+                        && f.pos.x >= p.x0 - f.half_w
+                        && f.pos.x <= p.x1 + f.half_w
                 });
                 if !still_supported {
                     f.on_ground = false;
@@ -662,7 +696,10 @@ pub fn analyze_fighter(stage: &Stage, name: &'static str, samples: &[Sample]) ->
     verbs.sort_by_key(|(_, c)| std::cmp::Reverse(*c));
     // "Distinct verbs" counts only meaningfully-used verbs (>= a few ticks), so a
     // single stray frame doesn't inflate variety.
-    let distinct_verbs = verbs.iter().filter(|(v, c)| *c >= 3 && *v != Verb::Idle).count();
+    let distinct_verbs = verbs
+        .iter()
+        .filter(|(v, c)| *c >= 3 && *v != Verb::Idle)
+        .count();
     let n = samples.len().max(1) as f32;
     let airborne_frac = airborne as f32 / n;
     let flight_frac = in_flight as f32 / n;
@@ -698,13 +735,13 @@ pub struct NonDegenerateThresholds {
 impl Default for NonDegenerateThresholds {
     fn default() -> Self {
         Self {
-            min_x_bins: 5,        // must roam ≥ ~40% of the arena's width
+            min_x_bins: 5, // must roam ≥ ~40% of the arena's width
             // Never camped within one ~90px spot > 7 s. Genuine degeneracy froze
             // for 13-30 s; 7 s leaves 2x margin while permitting legitimate tight
             // neutral / aerial-orbit combat (spatial evenness is guarded separately
             // by the column-coverage metric).
             max_still_s: 7.0,
-            max_corner_s: 6.0,    // never pinned in a corner > 6 s
+            max_corner_s: 6.0, // never pinned in a corner > 6 s
             min_distinct_verbs: 3,
             min_path_len: 1500.0, // must actually travel
         }
@@ -1070,7 +1107,11 @@ mod tests {
         }
         // Observe the trace (the user asked to be able to see it).
         let [ra, rb] = arena.trace.reports();
-        println!("--- characterization bout ---\n{}\n{}", ra.summary(), rb.summary());
+        println!(
+            "--- characterization bout ---\n{}\n{}",
+            ra.summary(),
+            rb.summary()
+        );
     }
 
     /// The degeneracy guard the user asked for. Both fighters must use the stage

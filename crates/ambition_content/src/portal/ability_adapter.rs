@@ -164,12 +164,12 @@ mod tests {
     //! drive the REAL adapters + the portal-owned marker components.
     use bevy::prelude::*;
 
-    use ambition_input::ControlFrame;
     use ambition_gameplay_core::actor::{PlayerEntity, PrimaryPlayer};
     use ambition_gameplay_core::portal::{
         PlayerMovementIntent, PortalChannel, PortalEmission, PortalGunColor, PortalInputWarp,
         PortalTransit, PortalTuning,
     };
+    use ambition_input::ControlFrame;
 
     use super::{suppress_ledge_grab_during_transit, warp_portal_input};
 

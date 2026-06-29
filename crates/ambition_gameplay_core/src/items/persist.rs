@@ -9,10 +9,10 @@
 
 use bevy::prelude::*;
 
-use crate::items::OwnedItems;
-use crate::persistence::save::SandboxSave;
 use crate::actor::BodyWallet;
 use crate::actor::{PlayerEntity, PrimaryPlayer};
+use crate::items::OwnedItems;
+use crate::persistence::save::SandboxSave;
 
 /// Set once the saved inventory has been applied to the live state (or skipped
 /// for a fresh save), so the write-back can't fire before the restore and
@@ -86,11 +86,7 @@ mod tests {
         );
         let player = app
             .world_mut()
-            .spawn((
-                PlayerEntity,
-                PrimaryPlayer,
-                BodyWallet { balance: wallet },
-            ))
+            .spawn((PlayerEntity, PrimaryPlayer, BodyWallet { balance: wallet }))
             .id();
         (app, player)
     }

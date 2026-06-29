@@ -8,8 +8,8 @@
 //! with inventory, prices, requirements, consequences"). A bespoke shop overlay
 //! UI can later wrap the same primitives.
 
-use crate::items::{Item, OwnedItems};
 use crate::actor::BodyWallet;
+use crate::items::{Item, OwnedItems};
 
 /// Outcome of a buy/sell attempt, for logging + (future) UI feedback.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]

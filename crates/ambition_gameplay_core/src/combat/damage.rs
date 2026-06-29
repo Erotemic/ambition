@@ -19,17 +19,17 @@ use bevy::prelude::{Entity, MessageReader, MessageWriter, Query, Res, ResMut, Wi
 use ambition_engine_core as ae;
 use ambition_vfx::vfx::VfxMessage;
 
+use crate::actor::BodyCombat;
+use crate::actor::BodyHealth;
+use crate::actor::{PlayerEntity, PrimaryPlayer, PrimaryPlayerOnly};
 use crate::audio::SfxMessage;
 use crate::dev::dev_tools::EditableMovementTuning;
 use crate::features::{self, GameplayBanner, HitEvent as FeatureHitEvent};
 use crate::player::{PlayerAnimState, PlayerInputFrame, PlayerSafetyState};
-use crate::actor::BodyCombat;
-use crate::actor::BodyHealth;
-use crate::actor::{PlayerEntity, PrimaryPlayer, PrimaryPlayerOnly};
 use crate::time::clock_state::ClockState;
 use crate::time::feel::SandboxFeelTuning;
 use crate::{
-    remember_safe_player_position, MovingPlatformSet, ActorDiedMessage, RoomGeometry,
+    remember_safe_player_position, ActorDiedMessage, MovingPlatformSet, RoomGeometry,
     SafePositionContext, SandboxSimState,
 };
 
@@ -384,14 +384,16 @@ pub fn apply_player_hit_events(
         // the player unless friendly fire is on; any different-faction hit lands
         // (the observer takes a duel's strays). Hits with no entity attacker
         // (hazards, string-owned enemy projectiles) are environmental and always apply.
-        .filter(|e| match e.attacker.and_then(|a| attacker_factions.get(a).ok()) {
-            Some(faction) => crate::combat::targeting::can_damage(
-                *faction,
-                crate::combat::components::ActorFaction::Player,
-                friendly_fire,
-            ),
-            None => true,
-        })
+        .filter(
+            |e| match e.attacker.and_then(|a| attacker_factions.get(a).ok()) {
+                Some(faction) => crate::combat::targeting::can_damage(
+                    *faction,
+                    crate::combat::components::ActorFaction::Player,
+                    friendly_fire,
+                ),
+                None => true,
+            },
+        )
         .cloned()
         .collect();
 

@@ -89,12 +89,12 @@ mod breakable_tests {
     //! past BREAK_ON_STAND_SECONDS, collapses it; standing elsewhere does
     //! not. Drives sim time via a fixed WorldTime::scaled_dt.
     use super::*;
-    use ambition_interaction::{Breakable, BreakableCollision, BreakableTrigger};
-    use crate::actor::{BodyBaseSize};
-use crate::actor::{PlayerEntity};
-use crate::actor::BodyKinematics;
+    use crate::actor::BodyBaseSize;
+    use crate::actor::BodyKinematics;
+    use crate::actor::PlayerEntity;
     use crate::world::physics::DebrisBurstMessage;
     use crate::WorldTime;
+    use ambition_interaction::{Breakable, BreakableCollision, BreakableTrigger};
     use bevy::prelude::{App, Entity, Update};
 
     const THRESHOLD: f32 = BREAK_ON_STAND_SECONDS;

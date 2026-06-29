@@ -1,9 +1,9 @@
 //! Reproduce the exact square_arena wall-cling teleport against engine
 //! collision routines.
 
-use ae::{AbilitySet, Block, InputState, BodyClusterScratch, World, DEFAULT_TUNING};
-use ambition_gameplay_core as sb;
+use ae::{AbilitySet, Block, BodyClusterScratch, InputState, World, DEFAULT_TUNING};
 use ambition_engine_core as ae;
+use ambition_gameplay_core as sb;
 
 fn scratch_at(spawn: ae::Vec2) -> BodyClusterScratch {
     sb::player::primary_player_scratch(spawn, AbilitySet::sandbox_all())

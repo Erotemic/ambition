@@ -13,8 +13,8 @@ mod common;
 use common::base;
 
 use ambition_app::app::{PlayerClone, SpawnPlayerCloneRequest};
-use ambition_gameplay_core::actor::{BodyKinematics};
-use ambition_gameplay_core::actor::{BodyGroundState};
+use ambition_gameplay_core::actor::BodyGroundState;
+use ambition_gameplay_core::actor::BodyKinematics;
 use bevy::prelude::{With, World};
 
 /// (x, y, on_ground) of the single player clone, if it exists.

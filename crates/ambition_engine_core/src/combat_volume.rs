@@ -86,9 +86,7 @@ impl CombatVolume {
                 half,
                 rotation,
             } => bounds_of_points(&obb_corners(*center, *half, *rotation)),
-            CombatVolume::Circle { center, radius } => {
-                Aabb::new(*center, Vec2::splat(*radius))
-            }
+            CombatVolume::Circle { center, radius } => Aabb::new(*center, Vec2::splat(*radius)),
             CombatVolume::Convex { bounds, .. } => *bounds,
         }
     }
@@ -243,10 +241,7 @@ fn bounds_of_points(points: &[Vec2]) -> Aabb {
         min = min.min(*p);
         max = max.max(*p);
     }
-    Aabb {
-        min,
-        max,
-    }
+    Aabb { min, max }
 }
 
 fn pv(x: f32, y: f32) -> Vector {
@@ -279,14 +274,24 @@ mod tests {
         // rotated box's own AABB would also overlap — but here we check a case
         // where rotation matters: the OBB corner reaches a point the unrotated
         // footprint shares, confirming the polygon path runs.
-        let obb = CombatVolume::obb(Vec2::new(0.0, 0.0), Vec2::new(10.0, 2.0), std::f32::consts::FRAC_PI_4);
+        let obb = CombatVolume::obb(
+            Vec2::new(0.0, 0.0),
+            Vec2::new(10.0, 2.0),
+            std::f32::consts::FRAC_PI_4,
+        );
         // Box near the rotated box's far diagonal tip (~ (8.5, 8.5)).
         let near_tip = CombatVolume::from(aabb(8.0, 8.0, 1.5, 1.5));
-        assert!(obb.intersects(&near_tip), "rotated box's diagonal should reach the tip box");
+        assert!(
+            obb.intersects(&near_tip),
+            "rotated box's diagonal should reach the tip box"
+        );
         // Same box position but the UNROTATED footprint (half 10x2) would not
         // reach (8,8): confirm the rotation is what made the hit.
         let flat = CombatVolume::obb(Vec2::new(0.0, 0.0), Vec2::new(10.0, 2.0), 0.0);
-        assert!(!flat.intersects(&near_tip), "flat box must not reach the tip");
+        assert!(
+            !flat.intersects(&near_tip),
+            "flat box must not reach the tip"
+        );
     }
 
     #[test]

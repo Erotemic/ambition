@@ -5,9 +5,9 @@ use crate::menu::test_support::{
     click_control, pointer_location, spawn_control, trigger_move, trigger_press, trigger_release,
 };
 use ambition_characters::brain::ActionSet;
-use ambition_gameplay_core::game_mode::GameMode;
+use ambition_gameplay_core::actor::BodyMana;
 use ambition_gameplay_core::actor::{PlayerEntity, PrimaryPlayer};
-use ambition_gameplay_core::actor::{BodyMana};
+use ambition_gameplay_core::game_mode::GameMode;
 
 /// The cube's System list wraps vertically (closed list); the Grid clamps (its
 /// rows sit below the tab bar, a real UP target). Pins `step_system_row` so a

@@ -148,11 +148,9 @@ impl Brain {
     ) {
         match self {
             Brain::Player(slot) => player::tick_player_brain(*slot, snapshot, out),
-            Brain::StateMachine(cfg) => {
-                state_machine::tick_state_machine_with_actions(
-                    cfg, actions, snapshot, perception, out,
-                )
-            }
+            Brain::StateMachine(cfg) => state_machine::tick_state_machine_with_actions(
+                cfg, actions, snapshot, perception, out,
+            ),
         }
     }
 

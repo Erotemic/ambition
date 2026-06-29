@@ -16,11 +16,11 @@ use bevy::prelude::*;
 use super::state::PlayerProjectileState;
 use super::systems::{player_projectile_input, step_projectiles};
 use crate::audio::SfxMessage;
-use crate::features::{BodyHealth, ActorIdentity, GameplayBanner, HitEvent, SetFlagRequested};
-use ambition_input::ControlFrame;
+use crate::features::{ActorIdentity, BodyHealth, GameplayBanner, HitEvent, SetFlagRequested};
 use crate::trace::GameplayTraceBuffer;
 use crate::world::physics::DebrisBurstMessage;
 use crate::RoomGeometry;
+use ambition_input::ControlFrame;
 use ambition_vfx::vfx::VfxMessage;
 
 mod charging;
@@ -48,8 +48,10 @@ fn spawn_player(app: &mut App, pos: ae::Vec2, facing: f32) {
     let mut scratch = crate::player::primary_player_scratch(pos, ae::AbilitySet::sandbox_all());
     scratch.kinematics.facing = facing;
     scratch.ground.on_ground = true;
-    let bundle =
-        crate::player::PlayerSimulationBundle::from_scratch(scratch, ambition_characters::actor::Health::new(10));
+    let bundle = crate::player::PlayerSimulationBundle::from_scratch(
+        scratch,
+        ambition_characters::actor::Health::new(10),
+    );
     app.world_mut().spawn(bundle);
 }
 
@@ -189,8 +191,10 @@ pub(in crate::projectile) fn projectile_kinds(
     let mut q = world
         .try_query::<(&ProjectileSeq, Option<&ProjectileKind>)>()
         .unwrap();
-    let mut rows: Vec<(ProjectileSeq, Option<ProjectileKind>)> =
-        q.iter(world).map(|(seq, kind)| (*seq, kind.copied())).collect();
+    let mut rows: Vec<(ProjectileSeq, Option<ProjectileKind>)> = q
+        .iter(world)
+        .map(|(seq, kind)| (*seq, kind.copied()))
+        .collect();
     rows.sort_by_key(|(seq, _)| *seq);
     rows.into_iter().map(|(_, kind)| kind).collect()
 }

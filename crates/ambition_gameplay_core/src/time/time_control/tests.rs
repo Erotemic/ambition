@@ -258,10 +258,7 @@ fn gameplay_systems_must_not_read_res_time_directly() {
         // wall clock so banner/fade beats advance independent of any
         // sim time-scale. The playback system moved here from
         // `ambition_render::cutscene` (runtime extraction, 2026-06-25).
-        (
-            "cutscene.rs",
-            "cutscene beats are wall-clock by design",
-        ),
+        ("cutscene.rs", "cutscene beats are wall-clock by design"),
         // VFX particles are presentation; the design decision
         // is wall-clock so juice survives bullet-time. Revisit
         // if you want VFX to slow alongside the sim.

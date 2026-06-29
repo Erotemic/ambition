@@ -6,10 +6,10 @@
 
 use bevy::prelude::*;
 
-use ambition_engine_core as ae;
 use crate::projectile::ProjectileKind;
+use ambition_engine_core as ae;
 
-use super::{advance_time, min_app, projectile_test_app, BodyHealth, ActorIdentity};
+use super::{advance_time, min_app, projectile_test_app, ActorIdentity, BodyHealth};
 
 /// Pre-spawn a fireball directly into the body list and place it
 /// just beside an ECS-hostile actor. After one tick the fireball

@@ -355,7 +355,9 @@ impl AccelerationFrame {
         facing: f32,
     ) -> Vec2 {
         if aim.length() > STICK_SELECT_DEADZONE {
-            return self.resolve_input(modes.aim, aim.x, aim.y).normalize_or_zero();
+            return self
+                .resolve_input(modes.aim, aim.x, aim.y)
+                .normalize_or_zero();
         }
         if movement.length() > STICK_SELECT_DEADZONE {
             return self
@@ -654,7 +656,10 @@ mod tests {
             "screen-directed: local down labels raw right when feet point screen-right"
         );
         assert_eq!(
-            right.raw_axis_for_resolved_input(InputFrameMode::BodyRelativeAssist, Vec2::new(0.0, 1.0)),
+            right.raw_axis_for_resolved_input(
+                InputFrameMode::BodyRelativeAssist,
+                Vec2::new(0.0, 1.0)
+            ),
             Vec2::new(0.0, 1.0),
             "body-relative assist: local down stays on raw down for side gravity"
         );
@@ -712,7 +717,7 @@ mod tests {
         let up = AccelerationFrame::new(Vec2::new(0.0, -1.0));
         let modes = ControlFrameModes {
             movement: InputFrameMode::BodyRelativeStrict, // strict body-relative locomotion
-            aim: InputFrameMode::ScreenRelative,      // screen-directed precision aim
+            aim: InputFrameMode::ScreenRelative,          // screen-directed precision aim
         };
 
         // Aim stick pushed screen-up (-y). Screen aim → world stays screen-up

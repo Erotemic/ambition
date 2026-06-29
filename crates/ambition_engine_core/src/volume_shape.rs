@@ -115,11 +115,8 @@ mod tests {
 
     #[test]
     fn box_upright_is_a_plain_aabb_at_origin() {
-        let vol = VolumeShape::box_half(Vec2::new(10.0, 20.0)).place_at(
-            Vec2::new(5.0, 7.0),
-            1.0,
-            DOWN,
-        );
+        let vol =
+            VolumeShape::box_half(Vec2::new(10.0, 20.0)).place_at(Vec2::new(5.0, 7.0), 1.0, DOWN);
         match vol {
             CombatVolume::Aabb(a) => {
                 assert_eq!(a.center(), Vec2::new(5.0, 7.0));
@@ -133,8 +130,11 @@ mod tests {
     fn box_under_sideways_gravity_rotates() {
         // Gravity points +x: the box should rotate ~90°, so a tall box (half
         // 4x20) now reaches far in x and little in y.
-        let vol =
-            VolumeShape::box_half(Vec2::new(4.0, 20.0)).place_at(Vec2::ZERO, 1.0, Vec2::new(1.0, 0.0));
+        let vol = VolumeShape::box_half(Vec2::new(4.0, 20.0)).place_at(
+            Vec2::ZERO,
+            1.0,
+            Vec2::new(1.0, 0.0),
+        );
         let b = vol.bounds();
         assert!(b.half_size().x > 19.0, "rotated box should be wide in x");
         assert!(b.half_size().y < 5.0, "rotated box should be short in y");

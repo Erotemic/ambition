@@ -858,8 +858,8 @@ mod tests {
     #[test]
     fn locomotion_from_clusters_matches_from_player_at_rest() {
         use crate::body_clusters::{
-            BodyBlinkState, BodyDashState, BodyFlightState, BodyGroundState,
-            BodyLedgeState, BodyWallState,
+            BodyBlinkState, BodyDashState, BodyFlightState, BodyGroundState, BodyLedgeState,
+            BodyWallState,
         };
         let ground = BodyGroundState {
             on_ground: true,

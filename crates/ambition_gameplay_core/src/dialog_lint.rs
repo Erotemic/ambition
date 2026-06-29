@@ -262,7 +262,16 @@ mod tests {
     #[test]
     fn markup_well_formed_classifier_matches_yarn_grammar() {
         // Real markup the codebase uses — must pass.
-        for ok in ["shout", "/shout", "b", "/b", "/", "wave speed=10", "select 1=a 2=b", "x/"] {
+        for ok in [
+            "shout",
+            "/shout",
+            "b",
+            "/b",
+            "/",
+            "wave speed=10",
+            "select 1=a 2=b",
+            "x/",
+        ] {
             assert!(
                 markup_inner_well_formed(ok),
                 "`[{ok}]` should be well-formed"
@@ -279,7 +288,10 @@ mod tests {
         let spans = scan_markup_spans("Agent Swarm: [MULTIPLE VOICES] hello [shout]hi[/shout]");
         assert_eq!(spans.len(), 3);
         assert!(!spans[0].well_formed, "[MULTIPLE VOICES] is malformed");
-        assert!(spans[1].well_formed && spans[2].well_formed, "[shout]/[/shout] ok");
+        assert!(
+            spans[1].well_formed && spans[2].well_formed,
+            "[shout]/[/shout] ok"
+        );
         // Escaped brackets are literal text, not markup.
         assert!(scan_markup_spans(r"a \[literal] b").is_empty());
     }

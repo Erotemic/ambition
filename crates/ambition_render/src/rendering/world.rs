@@ -643,9 +643,7 @@ fn spawn_authored_chest(
 fn spawn_authored_interactable(
     commands: &mut Commands,
     world: &ae::World,
-    authored: &ambition_gameplay_core::rooms::Authored<
-        ambition_interaction::Interactable,
-    >,
+    authored: &ambition_gameplay_core::rooms::Authored<ambition_interaction::Interactable>,
     assets: Option<&GameAssets>,
 ) {
     let interactable = &authored.payload;

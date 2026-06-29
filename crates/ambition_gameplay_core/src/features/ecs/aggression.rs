@@ -9,9 +9,9 @@
 use bevy::prelude::*;
 
 use super::{
-    sync_actor_components_from_cluster, ActorAggression, BodyCombat, ActorCooldowns,
-    ActorDisposition, ActorIdentity, ActorIntent, ActorInteraction, AggressionMode,
-    CombatKit, FeatureSimEntity, HeldItem,
+    sync_actor_components_from_cluster, ActorAggression, ActorCooldowns, ActorDisposition,
+    ActorIdentity, ActorIntent, ActorInteraction, AggressionMode, BodyCombat, CombatKit,
+    FeatureSimEntity, HeldItem,
 };
 use crate::features::ActorStimulus;
 
@@ -220,7 +220,7 @@ mod tests {
                 },
                 identity,
                 disposition,
-                                combat,
+                combat,
                 intent,
                 cooldowns,
             ))

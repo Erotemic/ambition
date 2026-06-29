@@ -694,11 +694,7 @@ mod tests {
         }
     }
 
-    fn placed(
-        channel: ambition_portal::PortalChannel,
-        pos: Vec2,
-        normal: Vec2,
-    ) -> PlacedPortal {
+    fn placed(channel: ambition_portal::PortalChannel, pos: Vec2, normal: Vec2) -> PlacedPortal {
         PlacedPortal {
             channel,
             pos,
@@ -729,7 +725,10 @@ mod tests {
         };
 
         let plan = compute_cone(&enter, &exit, &config, Some(&viewer), world);
-        assert!(plan.immediate, "doorway cone must not ease toward the handoff half-plane");
+        assert!(
+            plan.immediate,
+            "doorway cone must not ease toward the handoff half-plane"
+        );
         assert_eq!(plan.target, 1.0);
         let min_x = plan
             .wedge

@@ -14,8 +14,8 @@
 //! player tunnelling a one-way platform.
 
 use super::*;
-use crate::combat::components::{ActorFaction, ActorIdentity};
 use crate::actor::PlayerEntity;
+use crate::combat::components::{ActorFaction, ActorIdentity};
 
 fn body_kind(is_player: bool, faction: Option<&ActorFaction>) -> String {
     if is_player {

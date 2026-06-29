@@ -72,8 +72,7 @@ impl HeadlessCameraHarness {
                 ambition_gameplay_core::portal::apply_portal_camera_continuity
                     .after(SandboxSet::CoreSimulation)
                     .before(camera_follow),
-                camera_follow
-                    .after(ambition_gameplay_core::portal::apply_portal_camera_continuity),
+                camera_follow.after(ambition_gameplay_core::portal::apply_portal_camera_continuity),
             ),
         );
         app.world_mut().spawn((
@@ -102,8 +101,8 @@ impl HeadlessCameraHarness {
 
     fn sample(&mut self) -> CameraSample {
         let world = self.app.world_mut();
-        let mut player = world
-            .query_filtered::<&BodyKinematics, (With<PlayerEntity>, With<PrimaryPlayer>)>();
+        let mut player =
+            world.query_filtered::<&BodyKinematics, (With<PlayerEntity>, With<PrimaryPlayer>)>();
         let kin = *player.single(world).expect("primary player body");
         let active_transit = {
             let mut transit =
@@ -111,9 +110,7 @@ impl HeadlessCameraHarness {
             transit.single(world).is_ok()
         };
         let view = world.resource::<CameraViewState>();
-        let camera_roll = world
-            .resource::<PortalCameraContinuityState>()
-            .roll_radians;
+        let camera_roll = world.resource::<PortalCameraContinuityState>().roll_radians;
         CameraSample {
             player_pos: kin.pos,
             player_vel: kin.vel,
@@ -135,9 +132,7 @@ impl HeadlessCameraHarness {
             ambition_gameplay_core::CameraEaseState::default();
         *world.resource_mut::<PortalCameraContinuityHostView>() =
             PortalCameraContinuityHostView::default();
-        world
-            .resource_mut::<PortalCameraContinuityState>()
-            .clear();
+        world.resource_mut::<PortalCameraContinuityState>().clear();
     }
 
     fn portal_near(&mut self, pos: Vec2) -> PlacedPortal {
@@ -213,7 +208,12 @@ fn c141_to_c140_preserves_screen_position_and_continues_right() {
             );
             let screen_before = body_before - previous.camera_center;
             let screen_after = current.player_pos - current.camera_center;
-            assert_near_vec("body screen-space continuity", screen_after, screen_before, 1.5);
+            assert_near_vec(
+                "body screen-space continuity",
+                screen_after,
+                screen_before,
+                1.5,
+            );
 
             let entry_portal_screen_before = entry.pos - previous.camera_center;
             let exit_portal_screen_after = exit.pos - current.camera_center;
@@ -245,8 +245,8 @@ fn c141_to_c140_preserves_screen_position_and_continues_right() {
             let mut clear_frame = None;
             for follow_frame in 0..45 {
                 let next = harness.step(hold_right());
-                max_visible_step = max_visible_step
-                    .max((next.screen_pos() - last.screen_pos()).length());
+                max_visible_step =
+                    max_visible_step.max((next.screen_pos() - last.screen_pos()).length());
                 if clear_frame.is_none() && !next.active_transit {
                     clear_frame = Some(follow_frame);
                 }
@@ -278,7 +278,10 @@ fn c141_to_c140_preserves_screen_position_and_continues_right() {
         previous = current;
     }
 
-    assert!(crossed, "the player should transit c141 -> c140 while holding right");
+    assert!(
+        crossed,
+        "the player should transit c141 -> c140 while holding right"
+    );
 }
 
 #[test]
@@ -310,7 +313,12 @@ fn c135_to_c134_preserves_screen_position_and_keeps_falling() {
             );
             let screen_before = body_before - previous.camera_center;
             let screen_after = current.player_pos - current.camera_center;
-            assert_near_vec("body screen-space continuity", screen_after, screen_before, 1.5);
+            assert_near_vec(
+                "body screen-space continuity",
+                screen_after,
+                screen_before,
+                1.5,
+            );
 
             let entry_portal_screen_before = entry.pos - previous.camera_center;
             let exit_portal_screen_after = exit.pos - current.camera_center;
@@ -342,8 +350,8 @@ fn c135_to_c134_preserves_screen_position_and_keeps_falling() {
             let mut clear_frame = None;
             for follow_frame in 0..45 {
                 let next = harness.step(base());
-                max_visible_step = max_visible_step
-                    .max((next.screen_pos() - last.screen_pos()).length());
+                max_visible_step =
+                    max_visible_step.max((next.screen_pos() - last.screen_pos()).length());
                 if clear_frame.is_none() && !next.active_transit {
                     clear_frame = Some(follow_frame);
                 }
@@ -370,5 +378,8 @@ fn c135_to_c134_preserves_screen_position_and_keeps_falling() {
         previous = current;
     }
 
-    assert!(crossed, "the player should transit c135 -> c134 while falling");
+    assert!(
+        crossed,
+        "the player should transit c135 -> c134 while falling"
+    );
 }

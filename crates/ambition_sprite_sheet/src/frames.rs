@@ -160,7 +160,10 @@ impl SheetRecord {
     /// sheets. Per-frame because a freely-packed sheet can scatter one
     /// animation's frames across pages.
     pub fn frame_page_of(&self, row_idx: usize, frame: usize) -> u32 {
-        self.rows.get(row_idx).map(|r| r.cell_page(frame)).unwrap_or(0)
+        self.rows
+            .get(row_idx)
+            .map(|r| r.cell_page(frame))
+            .unwrap_or(0)
     }
 
     /// Build one page image's atlas cells in `(row, frame)` flat order, applying
@@ -330,19 +333,13 @@ mod tests {
                     "idle",
                     0,
                     0,
-                    vec![
-                        rect(0, 0, 8, 8, 0, (0, 0)),
-                        rect(0, 0, 8, 8, 1, (0, 0)),
-                    ],
+                    vec![rect(0, 0, 8, 8, 0, (0, 0)), rect(0, 0, 8, 8, 1, (0, 0))],
                 ),
                 row(
                     "walk",
                     1,
                     0,
-                    vec![
-                        rect(8, 0, 8, 8, 1, (0, 0)),
-                        rect(8, 0, 8, 8, 0, (0, 0)),
-                    ],
+                    vec![rect(8, 0, 8, 8, 1, (0, 0)), rect(8, 0, 8, 8, 0, (0, 0))],
                 ),
             ],
         );
@@ -404,7 +401,10 @@ mod tests {
                 "idle",
                 0,
                 0,
-                vec![rect(2, 2, 80, 100, 0, (20, 14)), rect(90, 2, 128, 128, 0, (0, 0))],
+                vec![
+                    rect(2, 2, 80, 100, 0, (20, 14)),
+                    rect(90, 2, 128, 128, 0, (0, 0)),
+                ],
             )],
         );
         assert!(rec.is_trimmed());
@@ -453,6 +453,9 @@ mod tests {
             px,
             py,
         );
-        assert!((full - trimmed).length() < 1e-2, "full={full:?} trimmed={trimmed:?}");
+        assert!(
+            (full - trimmed).length() < 1e-2,
+            "full={full:?} trimmed={trimmed:?}"
+        );
     }
 }

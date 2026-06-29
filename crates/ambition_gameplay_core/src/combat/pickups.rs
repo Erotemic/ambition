@@ -123,7 +123,9 @@ pub fn collect_ecs_pickups(
             ambition_interaction::PickupKind::Health { .. } => {
                 ambition_sfx::ids::WORLD_HEALTH_COLLECT
             }
-            ambition_interaction::PickupKind::Currency { .. } => ambition_sfx::ids::WORLD_COIN_PICKUP,
+            ambition_interaction::PickupKind::Currency { .. } => {
+                ambition_sfx::ids::WORLD_COIN_PICKUP
+            }
             _ => ambition_sfx::ids::WORLD_PICKUP_GENERIC,
         };
         sfx.write(SfxMessage::Play { id, pos });
@@ -133,10 +135,10 @@ pub fn collect_ecs_pickups(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::player::{PlayerHealRequested};
-    use crate::actor::{BodyBaseSize};
-use crate::actor::{PlayerEntity};
-use crate::actor::BodyKinematics;
+    use crate::actor::BodyBaseSize;
+    use crate::actor::BodyKinematics;
+    use crate::actor::PlayerEntity;
+    use crate::player::PlayerHealRequested;
     use bevy::prelude::{App, Update};
 
     fn player_at(app: &mut App, pos: ae::Vec2) -> bevy::prelude::Entity {

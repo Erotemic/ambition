@@ -31,9 +31,7 @@ use ambition_platformer_primitives::projectile::ProjectileSpec;
 ///   - `HadoukenSuper`: the traditional 3-step quarter-circle
 ///     (`Down → DownRight → Right`) plus fire. Strongest
 ///     projectile in the basic kit, costs the most resource.
-#[derive(
-    Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize, Deserialize, Component,
-)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize, Deserialize, Component)]
 pub enum ProjectileKind {
     /// Cheap, bouncing fireball with a mild arc. Charges via hold-
     /// then-release; tier scales size and damage on `ProjectileSpec`.
@@ -139,7 +137,9 @@ impl ProjectileKind {
         ProjectileSpec {
             origin,
             direction: direction.normalize_or(Vec2::new(1.0, 0.0)),
-            damage: ((self.damage() as f32) * damage_multiplier).round().max(1.0) as i32,
+            damage: ((self.damage() as f32) * damage_multiplier)
+                .round()
+                .max(1.0) as i32,
             speed: self.speed(),
             max_lifetime: self.max_lifetime(),
             half_extent: self.half_extent(),

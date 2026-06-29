@@ -199,7 +199,8 @@ pub fn apply_placeholder_sprites_override(
     )>,
 ) {
     if developer_tools.placeholder_sprites {
-        for (entity, mut sprite, original, feature, player, player_body, proj_kind) in &mut sprites {
+        for (entity, mut sprite, original, feature, player, player_body, proj_kind) in &mut sprites
+        {
             // Record original state once so we can restore on toggle-off.
             if original.is_none() {
                 commands.entity(entity).insert(SpriteOriginalState {

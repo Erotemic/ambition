@@ -17,13 +17,13 @@
 //! `single_mut()`-keyed to the one `PlayerEntity` — see the player-clone probe
 //! in `docs/journals/content-authoring-pain-points.md`.)
 
+use ae::movement::{update_player_clusters, InputState};
+use ae::world::{Block, World};
+use ae::Vec2;
 use ambition_characters::actor::control::ActorControlFrame;
 use ambition_characters::brain::state_machine::PlayerDemoCfg;
 use ambition_characters::brain::{Brain, BrainSnapshot, StateMachineCfg};
 use ambition_engine_core as ae;
-use ae::movement::{update_player_clusters, InputState};
-use ae::world::{Block, World};
-use ae::Vec2;
 
 /// Mirror of `engine_input_from_actor_control` (ambition_app): for the PLAYER
 /// path, `desired_vel` is the normalized stick axis, fed straight into the

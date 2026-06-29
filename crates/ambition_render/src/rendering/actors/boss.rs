@@ -216,7 +216,10 @@ pub fn apply_gnu_ton_body_z(mut query: Query<&mut Transform, With<GnuTonBodyLaye
 /// (same rows + frame counts) because the generator emits them in
 /// lockstep, so the same flat index applies to both.
 pub fn sync_gnu_ton_hands(
-    parents: Query<(&Sprite, &BossAnimator, &bevy::sprite::Anchor, &Children), With<GnuTonBodyLayer>>,
+    parents: Query<
+        (&Sprite, &BossAnimator, &bevy::sprite::Anchor, &Children),
+        With<GnuTonBodyLayer>,
+    >,
     mut hands: Query<
         (&mut Sprite, &mut bevy::sprite::Anchor, &GnuTonHandsLayer),
         Without<GnuTonBodyLayer>,
@@ -347,7 +350,8 @@ pub fn animate_bosses(
         // anchor so the logical frame stays fixed. `current_render` is `None`
         // for untrimmed sheets, so those keep their spawn-time size/anchor. The
         // anchor x mirrors with the same facing flip applied to the sprite.
-        if let (Some((size, mut anchor_v)), Some(mut anchor)) = (animator.current_render(), anchor) {
+        if let (Some((size, mut anchor_v)), Some(mut anchor)) = (animator.current_render(), anchor)
+        {
             sprite.custom_size = Some(size);
             if flip {
                 anchor_v.x = -anchor_v.x;

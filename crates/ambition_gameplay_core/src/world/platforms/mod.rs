@@ -421,7 +421,11 @@ fn advance_path_position(
     pos
 }
 
-fn advance_path_segment(path: &ambition_characters::actor::KinematicPath, segment: &mut usize, dir: &mut i32) {
+fn advance_path_segment(
+    path: &ambition_characters::actor::KinematicPath,
+    segment: &mut usize,
+    dir: &mut i32,
+) {
     let last_segment = path.points.len().saturating_sub(2);
     match path.mode {
         ambition_characters::actor::KinematicPathMode::Once => {

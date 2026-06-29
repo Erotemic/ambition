@@ -342,9 +342,7 @@ pub fn camera_follow(
         (world_to_bevy(&world.0, target_world, 0.0), target_world)
     };
 
-    let bounds = active_zone
-        .map(|zone| zone.clamp_mode)
-        .unwrap_or_default();
+    let bounds = active_zone.map(|zone| zone.clamp_mode).unwrap_or_default();
     #[cfg(feature = "portal_render")]
     let (portal_continuity_enabled, portal_clamp_padding_center_world) = {
         let enabled = portal_continuity
@@ -502,15 +500,13 @@ fn clamp_camera_target(
                 clamp_or_center(target.y, min_y, max_y),
             )
         }
-        CameraClampMode::RoomBounds => {
-            clamp_to_world_bounds(
-                world,
-                target,
-                half_view_w,
-                half_view_h,
-                portal_padding_center_world,
-            )
-        }
+        CameraClampMode::RoomBounds => clamp_to_world_bounds(
+            world,
+            target,
+            half_view_w,
+            half_view_h,
+            portal_padding_center_world,
+        ),
     }
 }
 

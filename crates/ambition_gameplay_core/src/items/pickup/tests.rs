@@ -172,8 +172,7 @@ fn pickup_consumes_the_attack_press() {
         "the item should be picked up"
     );
     assert!(
-        !app
-            .world()
+        !app.world()
             .get::<PlayerInputFrame>(player)
             .unwrap()
             .frame

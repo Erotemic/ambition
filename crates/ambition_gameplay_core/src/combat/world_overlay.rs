@@ -258,7 +258,9 @@ mod collision_world_tests {
     }
 
     fn probe_solids(world: CollisionWorld, mut out: ResMut<SolidsProbe>) {
-        out.0 = world.solids().map(|w| (matches!(w, Cow::Owned(_)), w.blocks.len()));
+        out.0 = world
+            .solids()
+            .map(|w| (matches!(w, Cow::Owned(_)), w.blocks.len()));
     }
 
     fn run(app: &mut App) -> Option<(bool, usize)> {

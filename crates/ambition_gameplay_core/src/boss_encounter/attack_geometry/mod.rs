@@ -234,12 +234,14 @@ impl CombatGeometry for BossVolumeContext<'_> {
         };
         // A live frame sample overrides elapsed derivation only when it matches
         // the pose being sampled (same profile, or an idle sample for rest).
-        let live_frame_index = self.animation_frame.and_then(|sample| match active_profile {
-            Some(profile) => {
-                (sample.profile.as_ref() == Some(profile)).then_some(sample.frame_index)
-            }
-            None => sample.profile.is_none().then_some(sample.frame_index),
-        });
+        let live_frame_index = self
+            .animation_frame
+            .and_then(|sample| match active_profile {
+                Some(profile) => {
+                    (sample.profile.as_ref() == Some(profile)).then_some(sample.frame_index)
+                }
+                None => sample.profile.is_none().then_some(sample.frame_index),
+            });
         AnimationSelection {
             keys,
             elapsed_s,

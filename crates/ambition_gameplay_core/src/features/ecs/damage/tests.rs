@@ -6,11 +6,11 @@ use super::super::damage_drops::{
     spawn_split_offspring,
 };
 use super::*;
-use ambition_engine_core as ae;
-use ambition_engine_core::AabbExt;
 use crate::actor::BodyHealth;
 use crate::features::ecs::enemy_component_snapshot;
 use crate::features::{HitMode, HitTarget};
+use ambition_engine_core as ae;
+use ambition_engine_core::AabbExt;
 use bevy::prelude::{App, Update};
 
 fn spawn_hostile_actor(app: &mut App) -> bevy::prelude::Entity {
@@ -23,8 +23,7 @@ fn spawn_hostile_actor(app: &mut App) -> bevy::prelude::Entity {
         &[],
     );
     enemy.health = crate::actor::BodyHealth::new(ambition_characters::actor::Health::new(5));
-    let (identity, disposition, combat, intent, cooldowns) =
-        enemy_component_snapshot(&enemy);
+    let (identity, disposition, combat, intent, cooldowns) = enemy_component_snapshot(&enemy);
     app.world_mut()
         .spawn((
             FeatureSimEntity,
@@ -33,7 +32,6 @@ fn spawn_hostile_actor(app: &mut App) -> bevy::prelude::Entity {
             enemy.into_components(),
             identity,
             disposition,
-
             combat,
             intent,
             cooldowns,
@@ -654,8 +652,7 @@ fn spawn_shielding_actor(app: &mut App, shield_raised: bool) -> bevy::prelude::E
     // The damage path reads the body's ONE shield component (`BodyShieldState`)
     // now — set it directly, the way the pipeline shield limb would.
     enemy.body.0.shield.active = shield_raised;
-    let (identity, disposition, combat, intent, cooldowns) =
-        enemy_component_snapshot(&enemy);
+    let (identity, disposition, combat, intent, cooldowns) = enemy_component_snapshot(&enemy);
     app.world_mut()
         .spawn((
             FeatureSimEntity,
@@ -664,7 +661,6 @@ fn spawn_shielding_actor(app: &mut App, shield_raised: bool) -> bevy::prelude::E
             enemy.into_components(),
             identity,
             disposition,
-
             combat,
             intent,
             cooldowns,
@@ -714,7 +710,8 @@ fn raised_shield_negates_a_hit_from_the_faced_side() {
     let actor = spawn_shielding_actor(&mut app, true);
     // Body faces +x; the slash comes from the front (+x). The hitbox is wide
     // enough to overlap the body at the origin while its center sits forward.
-    app.world_mut().write_message(slash_at(ae::Vec2::new(14.0, 0.0), 2));
+    app.world_mut()
+        .write_message(slash_at(ae::Vec2::new(14.0, 0.0), 2));
     app.update();
     assert_eq!(
         actor_hp(&app, actor),
@@ -727,7 +724,8 @@ fn raised_shield_negates_a_hit_from_the_faced_side() {
 fn a_lowered_shield_does_not_block() {
     let mut app = shield_test_app();
     let actor = spawn_shielding_actor(&mut app, false);
-    app.world_mut().write_message(slash_at(ae::Vec2::new(14.0, 0.0), 2));
+    app.world_mut()
+        .write_message(slash_at(ae::Vec2::new(14.0, 0.0), 2));
     app.update();
     assert_eq!(
         actor_hp(&app, actor),
@@ -741,7 +739,8 @@ fn a_raised_shield_does_not_guard_the_back() {
     let mut app = shield_test_app();
     let actor = spawn_shielding_actor(&mut app, true);
     // Body faces +x; this hit comes from BEHIND (-x). You can't guard your back.
-    app.world_mut().write_message(slash_at(ae::Vec2::new(-14.0, 0.0), 2));
+    app.world_mut()
+        .write_message(slash_at(ae::Vec2::new(-14.0, 0.0), 2));
     app.update();
     assert_eq!(
         actor_hp(&app, actor),

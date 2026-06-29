@@ -12,14 +12,14 @@
 
 use bevy::prelude::*;
 
-use crate::enemy_projectile::EnemyProjectileSpawn;
-use ambition_engine_core as ae;
-use crate::features::HeldItem;
-use crate::player::{PlayerInputFrame};
-use crate::actor::{BodyMana};
-use crate::actor::{PlayerEntity, PrimaryPlayer};
 use crate::actor::BodyKinematics;
+use crate::actor::BodyMana;
+use crate::actor::{PlayerEntity, PrimaryPlayer};
+use crate::enemy_projectile::EnemyProjectileSpawn;
+use crate::features::HeldItem;
+use crate::player::PlayerInputFrame;
 use crate::projectile::ProjectileFaction;
+use ambition_engine_core as ae;
 
 /// Held-item id of the volley gauntlet.
 pub const VOLLEY_ID: &str = "volley";
@@ -189,7 +189,11 @@ mod tests {
             .iter(app.world())
             .map(|o| o.0)
             .collect();
-        assert_eq!(owners.len(), VOLLEY_SHOT_COUNT, "every bolt carries an owner");
+        assert_eq!(
+            owners.len(),
+            VOLLEY_SHOT_COUNT,
+            "every bolt carries an owner"
+        );
         assert!(
             owners.iter().all(|&o| o == player),
             "bolts are owned by the firing player, got {owners:?} (player {player:?})"

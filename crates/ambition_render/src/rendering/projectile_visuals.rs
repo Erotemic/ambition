@@ -16,10 +16,10 @@ use bevy::math::{Rect, Vec2};
 use bevy::prelude::*;
 use bevy::sprite::Anchor;
 
+use ambition_gameplay_core::actor::BodyKinematics;
 use ambition_gameplay_core::assets::game_assets::{EntitySprite, GameAssets};
 use ambition_gameplay_core::physics::GravityCtx;
 use ambition_gameplay_core::platformer_runtime::gravity::gravity_upright_angle;
-use ambition_gameplay_core::actor::BodyKinematics;
 use ambition_gameplay_core::projectile::{
     LiveProjectile, ProjectileArtSource, ProjectileKind, ProjectileRenderSize, ProjectileRotation,
     ProjectileVisualKind,
@@ -99,10 +99,9 @@ fn render_size(size: ProjectileRenderSize, body: Vec2, frame_aspect: f32) -> Vec
 fn pommel_anchor(rect: &ambition_sprite_sheet::FrameRect) -> Anchor {
     let (fw, fh) = (rect.w as f32, rect.h as f32);
     match rect.anchors.get("pommel") {
-        Some(p) if fw > 0.0 && fh > 0.0 => Anchor(Vec2::new(
-            (p.x - fw * 0.5) / fw,
-            -(p.y - fh * 0.5) / fh,
-        )),
+        Some(p) if fw > 0.0 && fh > 0.0 => {
+            Anchor(Vec2::new((p.x - fw * 0.5) / fw, -(p.y - fh * 0.5) / fh))
+        }
         _ => Anchor::CENTER,
     }
 }
@@ -174,7 +173,16 @@ fn build_visual(
             target,
             animation,
             animate,
-        } => build_sheet_visual(art.size, art.rotation, target, animation, animate, kin, asset_server, sheets),
+        } => build_sheet_visual(
+            art.size,
+            art.rotation,
+            target,
+            animation,
+            animate,
+            kin,
+            asset_server,
+            sheets,
+        ),
     }
 }
 
@@ -212,7 +220,11 @@ fn build_sheet_visual(
     ));
     let frame_aspect = (first.width() / first.height()).max(0.0001);
     let mut sprite = Sprite::from_image(asset_server.load(format!("sprites/{}", record.image)));
-    sprite.custom_size = Some(render_size(size, Vec2::new(kin.size.x, kin.size.y), frame_aspect));
+    sprite.custom_size = Some(render_size(
+        size,
+        Vec2::new(kin.size.x, kin.size.y),
+        frame_aspect,
+    ));
     sprite.rect = Some(first);
 
     let anchor = matches!(rotation, ProjectileRotation::VelocityAligned)

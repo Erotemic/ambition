@@ -18,8 +18,8 @@ use ambition_platformer_primitives::orientation::ActorRoll;
 
 use ambition_portal::pieces as pp;
 use ambition_portal::{
-    copy_transform, find_portal, PlacedPortal, PortalGun, PortalGunPickup,
-    PortalInputWarp, PortalShot, PortalTransit, PORTAL_VISUAL_THICKNESS,
+    copy_transform, find_portal, PlacedPortal, PortalGun, PortalGunPickup, PortalInputWarp,
+    PortalShot, PortalTransit, PORTAL_VISUAL_THICKNESS,
 };
 
 use crate::{PortalAimHint, PortalGunArt, PortalSceneBody, PortalWorldFrame};

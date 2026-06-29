@@ -16,13 +16,13 @@ use leafwing_input_manager::prelude::ActionState;
 
 use crate::game_mode::GameMode;
 #[cfg(feature = "input")]
+use crate::platformer_runtime::lifecycle::PlayerVisual;
+use crate::SandboxDevState;
+#[cfg(feature = "input")]
 use ambition_input::SandboxAction;
 use ambition_input::{
     analog_to_dir, ControlFrame, MenuControlFrame, MenuInputState, PlayerDashTriggerState,
 };
-#[cfg(feature = "input")]
-use crate::platformer_runtime::lifecycle::PlayerVisual;
-use crate::SandboxDevState;
 
 /// Item 3 (optional guard): whether input should be SUPPRESSED this frame because
 /// the "Pause input when window unfocused" setting is ON and the OS window is not

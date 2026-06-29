@@ -67,7 +67,9 @@ pub enum SpawnActorKind {
     },
     /// A hostile enemy, resolved through `EnemyArchetype::from_brain` — the same
     /// path a room `EnemySpawn` takes.
-    Enemy { brain: ambition_characters::actor::EnemyBrain },
+    Enemy {
+        brain: ambition_characters::actor::EnemyBrain,
+    },
 }
 
 /// Per-spawn boss "tweaks Z" — the data that makes "spawn boss X (with tweaks Z)
@@ -201,7 +203,10 @@ impl EnemyActorSpawnPlan {
         self
     }
 
-    pub(super) fn with_action_set(mut self, action_set: ambition_characters::brain::ActionSet) -> Self {
+    pub(super) fn with_action_set(
+        mut self,
+        action_set: ambition_characters::brain::ActionSet,
+    ) -> Self {
         self.action_set = action_set;
         self
     }
@@ -211,7 +216,10 @@ impl EnemyActorSpawnPlan {
         self
     }
 
-    pub(super) fn with_held_item(mut self, held_item: Option<ambition_characters::brain::HeldItemSpec>) -> Self {
+    pub(super) fn with_held_item(
+        mut self,
+        held_item: Option<ambition_characters::brain::HeldItemSpec>,
+    ) -> Self {
         self.held_item = held_item;
         self
     }
@@ -241,7 +249,7 @@ impl EnemyActorSpawnPlan {
                     ),
                     self.combat_kit,
                     self.aggression,
-                                        combat,
+                    combat,
                     intent,
                     cooldowns,
                 ),
@@ -294,7 +302,9 @@ impl NpcActorSpawnPlan {
         let id = id.into();
         let name = name.into();
         let dialogue_id = match &interactable.kind {
-            ambition_interaction::InteractionKind::Npc { dialogue_id, .. } => dialogue_id.as_deref(),
+            ambition_interaction::InteractionKind::Npc { dialogue_id, .. } => {
+                dialogue_id.as_deref()
+            }
             _ => None,
         };
         // The hostile archetype this actor becomes when provoked: feeds its
@@ -367,7 +377,7 @@ impl NpcActorSpawnPlan {
                 ),
                 self.combat_kit,
                 self.aggression,
-                                combat,
+                combat,
                 intent,
                 cooldowns,
             ),
@@ -472,10 +482,12 @@ pub(super) fn spawn_boss_with_overrides(
         apple_rain_dodge_freq,
         macro_tuning: boss.config.behavior.macro_tuning,
     };
-    let brain = ambition_characters::brain::Brain::StateMachine(ambition_characters::brain::StateMachineCfg::BossPattern {
-        cfg: brain_cfg,
-        state: ambition_characters::brain::BossPatternState::default(),
-    });
+    let brain = ambition_characters::brain::Brain::StateMachine(
+        ambition_characters::brain::StateMachineCfg::BossPattern {
+            cfg: brain_cfg,
+            state: ambition_characters::brain::BossPatternState::default(),
+        },
+    );
     // Bosses spawn with an offensive ActionSet — Bolt ranged +
     // empty special slot. Per-boss specials (including GNU-ton's
     // apple rain) are now emitted by `tick_boss_brains_system` via
@@ -497,7 +509,10 @@ pub(super) fn spawn_boss_with_overrides(
     };
     let boss_combat_kit = CombatKit::from_action_set(&boss_action_set);
     let (boss_identity, boss_disposition, boss_health, boss_combat, boss_intent, boss_cooldowns) =
-        boss_component_snapshot(boss.as_ref(), &ambition_characters::brain::BossAttackState::default());
+        boss_component_snapshot(
+            boss.as_ref(),
+            &ambition_characters::brain::BossAttackState::default(),
+        );
     let boss_facing = boss.kin.facing;
     let boss_components = boss.into_components();
     let mut entity = commands.spawn((

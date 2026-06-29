@@ -361,7 +361,9 @@ pub fn compile_surface(spec: &LdtkSurfaceSpec) -> Result<SurfaceCompiled, String
             breakable.collision = collision;
             breakable.trigger = match breakable_kind {
                 SurfaceBreakability::BreakOnHit => ambition_interaction::BreakableTrigger::OnHit,
-                SurfaceBreakability::BreakOnStand => ambition_interaction::BreakableTrigger::OnStand,
+                SurfaceBreakability::BreakOnStand => {
+                    ambition_interaction::BreakableTrigger::OnStand
+                }
                 SurfaceBreakability::BreakOnHitOrStand => {
                     ambition_interaction::BreakableTrigger::Either
                 }
@@ -369,7 +371,9 @@ pub fn compile_surface(spec: &LdtkSurfaceSpec) -> Result<SurfaceCompiled, String
             };
             breakable.respawn = match spec.respawn {
                 SurfaceRespawn::Never => ambition_characters::actor::RespawnPolicy::Never,
-                SurfaceRespawn::OnRoomReload => ambition_characters::actor::RespawnPolicy::OnRoomReload,
+                SurfaceRespawn::OnRoomReload => {
+                    ambition_characters::actor::RespawnPolicy::OnRoomReload
+                }
                 SurfaceRespawn::AfterSeconds(seconds) => {
                     ambition_characters::actor::RespawnPolicy::AfterSeconds(seconds)
                 }

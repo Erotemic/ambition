@@ -19,8 +19,8 @@
 //! same shape the crowding pass uses), so a body perceives the others without a
 //! second mutable borrow of the actor query.
 
-use ambition_engine_core as ae;
 use ae::AabbExt;
+use ambition_engine_core as ae;
 
 use ambition_characters::actor::ActorFaction;
 use ambition_characters::perception::{
@@ -238,9 +238,17 @@ mod tests {
     /// A real room: a floor and a wall between two combatants standing on it.
     fn arena_world() -> ae::World {
         let blocks = vec![
-            ae::Block::solid("floor", ae::Vec2::new(-500.0, 200.0), ae::Vec2::new(1000.0, 40.0)),
+            ae::Block::solid(
+                "floor",
+                ae::Vec2::new(-500.0, 200.0),
+                ae::Vec2::new(1000.0, 40.0),
+            ),
             // A wall at x≈300, between a body at x=100 and one at x=500.
-            ae::Block::solid("wall", ae::Vec2::new(292.0, 40.0), ae::Vec2::new(16.0, 160.0)),
+            ae::Block::solid(
+                "wall",
+                ae::Vec2::new(292.0, 40.0),
+                ae::Vec2::new(16.0, 160.0),
+            ),
         ];
         ae::World::new(
             "perception_arena",
@@ -286,7 +294,11 @@ mod tests {
         // sees an Npc peer (which neither faction fights by default), and resolves
         // it as NOT a target — proving hostility is data, not the viewer's type.
         let player = body(ae::Vec2::new(100.0, 180.0), ActorFaction::Player);
-        let npc_peers = vec![peer("bystander", ae::Vec2::new(180.0, 180.0), ActorFaction::Npc)];
+        let npc_peers = vec![peer(
+            "bystander",
+            ae::Vec2::new(180.0, 180.0),
+            ActorFaction::Npc,
+        )];
         let player_view = build_world_view(
             &player,
             &npc_peers,
@@ -335,7 +347,11 @@ mod tests {
         let world = arena_world();
         let viewer = body(ae::Vec2::new(100.0, 180.0), ActorFaction::Enemy);
         // Far beyond DEFAULT_VIEWPORT_HALF.x = 480.
-        let peers = vec![peer("far", ae::Vec2::new(2000.0, 180.0), ActorFaction::Boss)];
+        let peers = vec![peer(
+            "far",
+            ae::Vec2::new(2000.0, 180.0),
+            ActorFaction::Boss,
+        )];
         let view = build_world_view(
             &viewer,
             &peers,
@@ -382,7 +398,13 @@ mod tests {
             0.0,
         );
         assert_eq!(view.projectiles.len(), 2);
-        assert_eq!(view.projectiles.iter().filter(|p| p.hostile_to_self).count(), 1);
+        assert_eq!(
+            view.projectiles
+                .iter()
+                .filter(|p| p.hostile_to_self)
+                .count(),
+            1
+        );
         assert_eq!(view.incoming_threats().count(), 1);
     }
 
@@ -422,7 +444,11 @@ mod tests {
             DEFAULT_VIEWPORT_HALF,
             0.0,
         );
-        assert_eq!(view.portals.len(), 2, "the far portal is clipped out of view");
+        assert_eq!(
+            view.portals.len(),
+            2,
+            "the far portal is clipped out of view"
+        );
         let entry = view
             .portals
             .iter()

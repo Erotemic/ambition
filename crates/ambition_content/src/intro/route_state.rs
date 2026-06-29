@@ -139,14 +139,8 @@ pub fn compute_intro_flag_gated_lock_walls(
             if save.flag(flag) {
                 continue;
             }
-            let min = ambition_engine_core::Vec2::new(
-                entity.px[0] as f32,
-                entity.px[1] as f32,
-            );
-            let size = ambition_engine_core::Vec2::new(
-                entity.width as f32,
-                entity.height as f32,
-            );
+            let min = ambition_engine_core::Vec2::new(entity.px[0] as f32, entity.px[1] as f32);
+            let size = ambition_engine_core::Vec2::new(entity.width as f32, entity.height as f32);
             out.push((id_trim.to_string(), min, size));
         }
     }
@@ -179,13 +173,11 @@ pub fn sync_intro_flag_gated_lock_walls(
     let active_room_id = room_set.active_spec().id.clone();
     let desired = compute_intro_flag_gated_lock_walls(&project.0, &active_room_id, save.data());
     for (id, min, size) in desired {
-        overlay
-            .gate_solids
-            .push(ambition_engine_core::Block::solid(
-                format!("intro_lock:{id}"),
-                min,
-                size,
-            ));
+        overlay.gate_solids.push(ambition_engine_core::Block::solid(
+            format!("intro_lock:{id}"),
+            min,
+            size,
+        ));
     }
 }
 
@@ -281,14 +273,8 @@ mod tests {
         assert_eq!(walls.len(), 1, "expected one lock wall");
         let (id, min, size) = &walls[0];
         assert_eq!(id, "alice_private_return_lock");
-        assert_eq!(
-            *min,
-            ambition_engine_core::Vec2::new(800.0, 624.0)
-        );
-        assert_eq!(
-            *size,
-            ambition_engine_core::Vec2::new(96.0, 112.0)
-        );
+        assert_eq!(*min, ambition_engine_core::Vec2::new(800.0, 624.0));
+        assert_eq!(*size, ambition_engine_core::Vec2::new(96.0, 112.0));
     }
 
     /// Once the unlock flag flips, compute should drop the LockWall

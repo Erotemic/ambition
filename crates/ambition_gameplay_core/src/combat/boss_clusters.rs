@@ -20,7 +20,7 @@ use bevy::ecs::query::QueryData;
 use bevy::prelude::Component;
 
 use crate::boss_encounter::behavior::{
-    canonical_boss_id_from, BossBehaviorProfile, ActorSpriteMetrics,
+    canonical_boss_id_from, ActorSpriteMetrics, BossBehaviorProfile,
 };
 use crate::boss_encounter::BossEncounterPhase;
 use ambition_engine_core as ae;

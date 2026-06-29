@@ -42,17 +42,17 @@ mod host_adapter {
 
     use ambition_platformer_primitives::world_query::SolidWorldQuery;
     use ambition_portal_presentation::{
-        PortalCameraContinuityCamera, PortalCameraContinuityConfig,
-        PortalCameraContinuityFocus, PortalCameraContinuityHostView, PortalCameraContinuitySelection,
+        PortalCameraContinuityCamera, PortalCameraContinuityConfig, PortalCameraContinuityFocus,
+        PortalCameraContinuityHostView, PortalCameraContinuitySelection,
         PortalCameraContinuityState, PortalCameraTransitMode, PortalDebugOverlay, PortalGunArt,
         PortalSceneBody, PortalViewer, PortalWorldFrame,
     };
 
     use crate::abilities::traversal::possession::PossessionState;
+    use crate::actor::{PlayerEntity, PrimaryPlayer};
     use crate::features::CenteredAabb;
     use crate::platformer_runtime::body::BodyKinematics;
     use crate::platformer_runtime::lifecycle::PlayerVisual;
-    use crate::actor::{PlayerEntity, PrimaryPlayer};
     use crate::RoomGeometry;
 
     /// Bridge the controlled character + the collision world → the crate-owned
@@ -135,7 +135,6 @@ mod host_adapter {
         }
     }
 
-
     /// Bridge Ambition's current primary controlled body to the portal
     /// presentation crate's actor-neutral camera-continuity focus seam. The
     /// portal presentation crate never names `PrimaryPlayer`; the host adapter
@@ -144,7 +143,11 @@ mod host_adapter {
         mut commands: Commands,
         untagged_primary: Query<
             Entity,
-            (With<PlayerEntity>, With<PrimaryPlayer>, Without<PortalCameraContinuityFocus>),
+            (
+                With<PlayerEntity>,
+                With<PrimaryPlayer>,
+                Without<PortalCameraContinuityFocus>,
+            ),
         >,
         tagged: Query<(Entity, Has<PrimaryPlayer>), With<PortalCameraContinuityFocus>>,
     ) {
@@ -153,7 +156,9 @@ mod host_adapter {
         }
         for (entity, still_primary) in &tagged {
             if !still_primary {
-                commands.entity(entity).remove::<PortalCameraContinuityFocus>();
+                commands
+                    .entity(entity)
+                    .remove::<PortalCameraContinuityFocus>();
             }
         }
     }
@@ -194,8 +199,13 @@ mod host_adapter {
         mut transited: MessageReader<ambition_portal::PortalBodyTransited>,
         gravity: Option<Res<ambition_platformer_primitives::gravity::GravityField>>,
         focus: Query<(), With<PortalCameraContinuityFocus>>,
-        active_focus_transits:
-            Query<(), (With<PortalCameraContinuityFocus>, With<ambition_portal::PortalTransit>)>,
+        active_focus_transits: Query<
+            (),
+            (
+                With<PortalCameraContinuityFocus>,
+                With<ambition_portal::PortalTransit>,
+            ),
+        >,
         body_kinematics: Query<&BodyKinematics>,
         body_transits: Query<&ambition_portal::PortalTransit>,
         portals: Query<&ambition_portal::PlacedPortal>,
@@ -229,8 +239,12 @@ mod host_adapter {
             .map(|sample| sample.ordinary_center_world)
             .unwrap_or(previous_host_camera_world);
         let host_sample_index = host_sample.map(|sample| sample.sample_index).unwrap_or(0);
-        let host_target_world = host_sample.map(|sample| sample.target_world).unwrap_or(Vec2::ZERO);
-        let host_visible_view = host_sample.map(|sample| sample.visible_view).unwrap_or(Vec2::ZERO);
+        let host_target_world = host_sample
+            .map(|sample| sample.target_world)
+            .unwrap_or(Vec2::ZERO);
+        let host_visible_view = host_sample
+            .map(|sample| sample.visible_view)
+            .unwrap_or(Vec2::ZERO);
         let host_active_camera_zones = host_sample
             .map(|sample| sample.active_camera_zones)
             .unwrap_or(0);
@@ -259,9 +273,8 @@ mod host_adapter {
             return;
         };
 
-        let gravity_dir = ambition_platformer_primitives::gravity::gravity_dir_or_default(
-            gravity.as_deref(),
-        );
+        let gravity_dir =
+            ambition_platformer_primitives::gravity::gravity_dir_or_default(gravity.as_deref());
         let portal_list: Vec<ambition_portal::PlacedPortal> = portals.iter().copied().collect();
         let mut camera_state = camera_state;
         for ev in transited.read() {
@@ -279,7 +292,8 @@ mod host_adapter {
             let Some(exit_portal) = ambition_portal::find_portal(&portal_list, exit_channel) else {
                 continue;
             };
-            let Some(enter_portal) = ambition_portal::find_portal(&portal_list, enter_channel) else {
+            let Some(enter_portal) = ambition_portal::find_portal(&portal_list, enter_channel)
+            else {
                 continue;
             };
 
@@ -356,11 +370,8 @@ mod host_adapter {
             // moved to the exit side; reverse-map it to estimate the pre-transfer
             // body center, then compare screen offsets around the mapped camera.
             let body_after = body.pos;
-            let body_before = ambition_portal::pieces::map_point(
-                body_after,
-                &exit_frame,
-                &enter_frame,
-            );
+            let body_before =
+                ambition_portal::pieces::map_point(body_after, &exit_frame, &enter_frame);
             let screen_before = body_before - previous_host_camera_world;
             let screen_after = body_after - desired_camera_world;
             let screen_error = screen_after - screen_before;
@@ -456,11 +467,7 @@ mod host_adapter {
                     );
                 }
             }
-            state.start_screen_anchor(
-                desired_camera_world,
-                body_screen_offset_world,
-                roll,
-            );
+            state.start_screen_anchor(desired_camera_world, body_screen_offset_world, roll);
             if config.debug_log {
                 bevy::log::info!(
                     target: "ambition::portal::camera",
@@ -536,7 +543,11 @@ mod host_adapter {
         visible_view: Vec2,
         world_size: Vec2,
     ) -> CameraRoomPaddingNeeded {
-        if visible_view.x <= 0.0 || visible_view.y <= 0.0 || world_size.x <= 0.0 || world_size.y <= 0.0 {
+        if visible_view.x <= 0.0
+            || visible_view.y <= 0.0
+            || world_size.x <= 0.0
+            || world_size.y <= 0.0
+        {
             return CameraRoomPaddingNeeded::default();
         }
         let half = visible_view * 0.5;
@@ -608,7 +619,7 @@ mod host_adapter {
 #[cfg(feature = "portal_render")]
 pub use host_adapter::{
     apply_portal_camera_continuity, load_portal_gun_art, portal_convention_toggle_system,
-    portal_dev_toggle_system, sync_portal_camera_continuity_focus,
-    sync_portal_debug_overlay_to_f1, sync_portal_viewer, sync_portal_world_frame,
-    tag_portal_camera_continuity_camera, tag_portal_scene_bodies,
+    portal_dev_toggle_system, sync_portal_camera_continuity_focus, sync_portal_debug_overlay_to_f1,
+    sync_portal_viewer, sync_portal_world_frame, tag_portal_camera_continuity_camera,
+    tag_portal_scene_bodies,
 };

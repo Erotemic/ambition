@@ -15,11 +15,11 @@
 
 use bevy::prelude::*;
 
-use ambition_engine_core as ae;
-use crate::features::{ActorAggression, ActorFaction, HeldItem};
-use crate::player::{PlayerInputFrame};
-use crate::actor::{PlayerEntity, PrimaryPlayer};
 use crate::actor::BodyKinematics;
+use crate::actor::{PlayerEntity, PrimaryPlayer};
+use crate::features::{ActorAggression, ActorFaction, HeldItem};
+use crate::player::PlayerInputFrame;
+use ambition_engine_core as ae;
 
 /// Marks a summoned, player-allied puppy slug (so the cap can count them and a
 /// future system can manage them).

@@ -68,10 +68,12 @@ pub(crate) fn npc_brain_from_catalog(
         let mut cfg = ambition_characters::brain::PatrolCfg::NPC_DEFAULT;
         cfg.lane = ambition_characters::brain::AuthoredWorldPatrolLane::new(spawn_x, patrol_radius);
         cfg.aggro_radius = talk_radius;
-        ambition_characters::brain::Brain::StateMachine(ambition_characters::brain::StateMachineCfg::Patrol {
-            cfg,
-            state: ambition_characters::brain::PatrolState::default(),
-        })
+        ambition_characters::brain::Brain::StateMachine(
+            ambition_characters::brain::StateMachineCfg::Patrol {
+                cfg,
+                state: ambition_characters::brain::PatrolState::default(),
+            },
+        )
     } else {
         ambition_characters::brain::Brain::stand_still()
     }
@@ -349,11 +351,9 @@ pub(crate) fn npc_hostile_bark_line(
 ) -> &'static str {
     // Catalog-first (the `provoked` pool; one line, rotation 0).
     if let Some(cid) = npc_character_id(interactable) {
-        if let Some(line) = crate::character_roster::bark_line_for_character_id(
-            cid,
-            BarkSituation::Provoked,
-            0,
-        ) {
+        if let Some(line) =
+            crate::character_roster::bark_line_for_character_id(cid, BarkSituation::Provoked, 0)
+        {
             return line;
         }
     }

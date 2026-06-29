@@ -29,9 +29,7 @@ use super::ProjectileKind;
 /// Player kinds map 1:1 from [`ProjectileKind`] (gameplay tier) via [`From`];
 /// enemy kinds are authored in archetype / item / boss-special data. New kinds
 /// are added here + a single arm in [`ProjectileVisualKind::art`].
-#[derive(
-    Clone, Copy, Debug, PartialEq, Eq, Hash, Default, Serialize, Deserialize, Component,
-)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Default, Serialize, Deserialize, Component)]
 pub enum ProjectileVisualKind {
     /// Player fireball — warm energy ball, mild arc, flips to travel.
     Fireball,
@@ -134,7 +132,10 @@ impl ProjectileVisualKind {
                 source: EnergyTinted {
                     rgba: [1.0, 0.74, 0.30, 0.95],
                 },
-                size: Body { min: 8.0, scale: 1.0 },
+                size: Body {
+                    min: 8.0,
+                    scale: 1.0,
+                },
                 rotation: FlipToTravel,
                 debug_tint: [1.0, 0.74, 0.30, 1.0],
                 label: "fireball",
@@ -143,7 +144,10 @@ impl ProjectileVisualKind {
                 source: EnergyTinted {
                     rgba: [0.45, 0.78, 1.0, 0.96],
                 },
-                size: Body { min: 8.0, scale: 1.0 },
+                size: Body {
+                    min: 8.0,
+                    scale: 1.0,
+                },
                 rotation: FlipToTravel,
                 debug_tint: [0.45, 0.78, 1.0, 1.0],
                 label: "hadouken",
@@ -152,7 +156,10 @@ impl ProjectileVisualKind {
                 source: EnergyTinted {
                     rgba: [0.30, 0.55, 1.0, 1.0],
                 },
-                size: Body { min: 8.0, scale: 1.0 },
+                size: Body {
+                    min: 8.0,
+                    scale: 1.0,
+                },
                 rotation: FlipToTravel,
                 debug_tint: [0.30, 0.55, 1.0, 1.0],
                 label: "hadouken_super",
@@ -203,7 +210,10 @@ impl ProjectileVisualKind {
                 source: SolidColor {
                     rgba: [1.0, 0.45, 0.18, 0.95],
                 },
-                size: Body { min: 8.0, scale: 1.0 },
+                size: Body {
+                    min: 8.0,
+                    scale: 1.0,
+                },
                 rotation: FlipToTravel,
                 debug_tint: [1.0, 0.45, 0.18, 1.0],
                 label: "enemy_default",

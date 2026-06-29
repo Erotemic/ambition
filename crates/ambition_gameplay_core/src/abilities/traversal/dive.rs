@@ -23,12 +23,12 @@
 
 use bevy::prelude::*;
 
-use ambition_engine_core::{self as ae, AabbExt};
-use crate::features::HeldItem;
-use crate::player::{PlayerInputFrame};
-use crate::actor::{BodyMana};
-use crate::actor::{PlayerEntity, PrimaryPlayer};
 use crate::actor::BodyKinematics;
+use crate::actor::BodyMana;
+use crate::actor::{PlayerEntity, PrimaryPlayer};
+use crate::features::HeldItem;
+use crate::player::PlayerInputFrame;
+use ambition_engine_core::{self as ae, AabbExt};
 
 /// Held-item id of the dive gauntlet.
 pub const DIVE_ID: &str = "dive";
@@ -89,7 +89,13 @@ pub fn fire_dive_system(
     user_settings: Option<Res<crate::persistence::settings::UserSettings>>,
     world: crate::features::CollisionWorld,
     mut players: Query<
-        (Entity, &PlayerInputFrame, &mut BodyKinematics, &HeldItem, &mut BodyMana),
+        (
+            Entity,
+            &PlayerInputFrame,
+            &mut BodyKinematics,
+            &HeldItem,
+            &mut BodyMana,
+        ),
         (With<PlayerEntity>, With<PrimaryPlayer>),
     >,
     mut sfx: MessageWriter<crate::audio::SfxMessage>,
@@ -227,7 +233,8 @@ mod tests {
         );
         // The corridor spans the dash: from start (100) to landing (240) along x.
         assert!(
-            hits[0].volume.bounds().min.x <= 100.0 && hits[0].volume.bounds().max.x >= 100.0 + DIVE_LUNGE,
+            hits[0].volume.bounds().min.x <= 100.0
+                && hits[0].volume.bounds().max.x >= 100.0 + DIVE_LUNGE,
             "corridor covers start..landing: {:?}",
             hits[0].volume
         );

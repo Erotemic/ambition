@@ -128,11 +128,7 @@ fn projectile_spawner_blocks_when_out_of_resource() {
 
 #[test]
 fn projectile_body_expires_after_max_lifetime() {
-    let spec = ProjectileKind::Fireball.spec(
-        Vec2::ZERO,
-        Vec2::new(1.0, 0.0),
-        1.0,
-    );
+    let spec = ProjectileKind::Fireball.spec(Vec2::ZERO, Vec2::new(1.0, 0.0), 1.0);
     let mut body = ProjectileBody::from_spec(spec);
     let mut alive = true;
     for _ in 0..200 {
@@ -147,11 +143,7 @@ fn projectile_body_expires_after_max_lifetime() {
 
 #[test]
 fn fireball_arcs_downward() {
-    let spec = ProjectileKind::Fireball.spec(
-        Vec2::ZERO,
-        Vec2::new(1.0, 0.0),
-        1.0,
-    );
+    let spec = ProjectileKind::Fireball.spec(Vec2::ZERO, Vec2::new(1.0, 0.0), 1.0);
     let mut body = ProjectileBody::from_spec(spec);
     for _ in 0..30 {
         body.tick(0.016, Vec2::new(0.0, 1.0));
@@ -166,11 +158,7 @@ fn fireball_arcs_downward() {
 
 #[test]
 fn hadouken_travels_straight_horizontally() {
-    let spec = ProjectileKind::Hadouken.spec(
-        Vec2::ZERO,
-        Vec2::new(1.0, 0.0),
-        1.0,
-    );
+    let spec = ProjectileKind::Hadouken.spec(Vec2::ZERO, Vec2::new(1.0, 0.0), 1.0);
     let mut body = ProjectileBody::from_spec(spec);
     for _ in 0..30 {
         body.tick(0.016, Vec2::new(0.0, 1.0));
@@ -189,11 +177,7 @@ fn block_aabb(min: Vec2, size: Vec2) -> Aabb {
 /// decrements.
 #[test]
 fn fireball_bounces_off_floor_top() {
-    let spec = ProjectileKind::Fireball.spec(
-        Vec2::new(100.0, 100.0),
-        Vec2::new(1.0, 0.0),
-        1.0,
-    );
+    let spec = ProjectileKind::Fireball.spec(Vec2::new(100.0, 100.0), Vec2::new(1.0, 0.0), 1.0);
     let mut body = ProjectileBody::from_spec(spec);
     // Force the body downward so the contact is unambiguously
     // "from above" (test the geometric branch independent of
@@ -220,11 +204,7 @@ fn fireball_bounces_off_floor_top() {
 /// re-overlaps a ceiling.
 #[test]
 fn fireball_expires_on_non_floor_contact() {
-    let spec = ProjectileKind::Fireball.spec(
-        Vec2::ZERO,
-        Vec2::new(1.0, 0.0),
-        1.0,
-    );
+    let spec = ProjectileKind::Fireball.spec(Vec2::ZERO, Vec2::new(1.0, 0.0), 1.0);
     let mut body = ProjectileBody::from_spec(spec);
     // Side wall: body center is to the LEFT of the block center.
     // Side contact never bounces in this model.
@@ -239,11 +219,7 @@ fn fireball_expires_on_non_floor_contact() {
 /// contact returns Expired — the fireball has used its budget.
 #[test]
 fn fireball_expires_when_bounce_budget_exhausted() {
-    let spec = ProjectileKind::Fireball.spec(
-        Vec2::ZERO,
-        Vec2::new(1.0, 0.0),
-        1.0,
-    );
+    let spec = ProjectileKind::Fireball.spec(Vec2::ZERO, Vec2::new(1.0, 0.0), 1.0);
     let mut body = ProjectileBody::from_spec(spec);
     body.game.bounces_remaining = 0;
     body.kin.vel = Vec2::new(200.0, 240.0);
@@ -259,11 +235,7 @@ fn fireball_expires_when_bounce_budget_exhausted() {
 /// feels arbitrary.
 #[test]
 fn fireball_bounces_off_one_way_platform_top() {
-    let spec = ProjectileKind::Fireball.spec(
-        Vec2::new(100.0, 100.0),
-        Vec2::new(1.0, 0.0),
-        1.0,
-    );
+    let spec = ProjectileKind::Fireball.spec(Vec2::new(100.0, 100.0), Vec2::new(1.0, 0.0), 1.0);
     let mut body = ProjectileBody::from_spec(spec);
     body.kin.vel = Vec2::new(200.0, 240.0);
     body.kin.pos = Vec2::new(150.0, 195.0);
@@ -282,11 +254,7 @@ fn fireball_bounces_off_one_way_platform_top() {
 /// into one from below shouldn't be stopped or expired.
 #[test]
 fn fireball_passes_through_one_way_on_non_top_contact() {
-    let spec = ProjectileKind::Fireball.spec(
-        Vec2::ZERO,
-        Vec2::new(1.0, 0.0),
-        1.0,
-    );
+    let spec = ProjectileKind::Fireball.spec(Vec2::ZERO, Vec2::new(1.0, 0.0), 1.0);
     let mut body = ProjectileBody::from_spec(spec);
     // From below, moving upward — not a landing.
     body.kin.pos = Vec2::new(150.0, 220.0);
@@ -307,11 +275,7 @@ fn fireball_passes_through_one_way_on_non_top_contact() {
 /// keeps the platform feeling non-solid from any non-bounce angle.
 #[test]
 fn fireball_with_no_bounces_passes_through_one_way_top() {
-    let spec = ProjectileKind::Fireball.spec(
-        Vec2::ZERO,
-        Vec2::new(1.0, 0.0),
-        1.0,
-    );
+    let spec = ProjectileKind::Fireball.spec(Vec2::ZERO, Vec2::new(1.0, 0.0), 1.0);
     let mut body = ProjectileBody::from_spec(spec);
     body.game.bounces_remaining = 0;
     body.kin.vel = Vec2::new(200.0, 240.0);
@@ -326,11 +290,7 @@ fn fireball_with_no_bounces_passes_through_one_way_top() {
 /// "horizontal projectile that disappears on first wall" UX.
 #[test]
 fn hadouken_expires_on_first_solid_hit() {
-    let spec = ProjectileKind::Hadouken.spec(
-        Vec2::new(50.0, 100.0),
-        Vec2::new(1.0, 0.0),
-        1.0,
-    );
+    let spec = ProjectileKind::Hadouken.spec(Vec2::new(50.0, 100.0), Vec2::new(1.0, 0.0), 1.0);
     let mut body = ProjectileBody::from_spec(spec);
     assert_eq!(body.game.bounces_remaining, 0);
     let wall = block_aabb(Vec2::new(60.0, 0.0), Vec2::new(32.0, 400.0));
@@ -506,11 +466,7 @@ fn motion_direction_quantization() {
 
 #[test]
 fn outgoing_damage_multiplier_scales_damage() {
-    let spec = ProjectileKind::Hadouken.spec(
-        Vec2::ZERO,
-        Vec2::new(1.0, 0.0),
-        2.0,
-    );
+    let spec = ProjectileKind::Hadouken.spec(Vec2::ZERO, Vec2::new(1.0, 0.0), 2.0);
     // Hadouken default is 3 damage; 2x = 6.
     assert_eq!(spec.damage, 6);
 }
@@ -522,27 +478,22 @@ fn projectile_faction_default_is_player() {
 
 #[test]
 fn from_spec_defaults_faction_to_player() {
-    let spec = ProjectileKind::Fireball.spec(
-        Vec2::ZERO,
-        Vec2::new(1.0, 0.0),
-        1.0,
-    );
+    let spec = ProjectileKind::Fireball.spec(Vec2::ZERO, Vec2::new(1.0, 0.0), 1.0);
     let body = ProjectileBody::from_spec(spec);
     assert_eq!(body.game.faction, ProjectileFaction::Player);
 }
 
 #[test]
 fn from_spec_with_faction_carries_enemy_tag_through_to_body() {
-    let spec = ProjectileKind::Fireball.spec(
-        Vec2::ZERO,
-        Vec2::new(1.0, 0.0),
-        1.0,
-    );
+    let spec = ProjectileKind::Fireball.spec(Vec2::ZERO, Vec2::new(1.0, 0.0), 1.0);
     let body = ProjectileBody::from_spec_with_faction(spec, ProjectileFaction::Enemy);
     assert_eq!(body.game.faction, ProjectileFaction::Enemy);
     // All other body fields land as if `from_spec` had been called. The named
     // kind no longer rides the (generic) body; its lowered data does — Fireball
     // authors a 2-bounce budget.
-    assert_eq!(body.game.bounces_remaining, ProjectileKind::Fireball.bounces());
+    assert_eq!(
+        body.game.bounces_remaining,
+        ProjectileKind::Fireball.bounces()
+    );
     assert_eq!(body.kin.pos, Vec2::ZERO);
 }

@@ -313,10 +313,10 @@ mod schedule_tests {
     //! pure round-trip).
     use bevy::prelude::*;
 
-    use ambition_input::ControlFrame;
     use ambition_gameplay_core::actor::{PlayerEntity, PrimaryPlayer};
     use ambition_gameplay_core::portal::PlayerMovementIntent;
     use ambition_gameplay_core::schedule::{configure_sandbox_sets, SandboxSet};
+    use ambition_input::ControlFrame;
 
     use super::super::ability_adapter::warp_portal_input;
     use super::super::transit_adapter::{
@@ -408,8 +408,10 @@ mod schedule_tests {
     /// written axis there proves the populate ran first.
     #[test]
     fn input_set_populate_runs_before_the_real_consumer() {
-        use ambition_gameplay_core::actor::{PlayerEntity};
-        use ambition_gameplay_core::player::{sync_local_player_input_frame, LocalPlayer, PlayerInputFrame};
+        use ambition_gameplay_core::actor::PlayerEntity;
+        use ambition_gameplay_core::player::{
+            sync_local_player_input_frame, LocalPlayer, PlayerInputFrame,
+        };
 
         let mut app = App::new();
         configure_sandbox_sets(&mut app);

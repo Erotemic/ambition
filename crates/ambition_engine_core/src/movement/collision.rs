@@ -1,7 +1,7 @@
 use crate::collision_semantics::{
     axis_role, body_on_support_side, is_contact_range_snap, is_full_collision_surface,
-    is_solid_for_axis, moving_toward_feet, one_way_landing_from_previous_feet, snap_feet_to_surface,
-    supporting_block, surface_supports_body_at_rest, Axis, AxisRole,
+    is_solid_for_axis, moving_toward_feet, one_way_landing_from_previous_feet,
+    snap_feet_to_surface, supporting_block, surface_supports_body_at_rest, Axis, AxisRole,
 };
 use crate::geometry::{Aabb, AabbExt};
 use crate::world::{BlockKind, World};

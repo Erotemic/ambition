@@ -20,12 +20,12 @@
 
 use bevy::prelude::*;
 
-use ambition_engine_core as ae;
-use crate::features::{ActorFaction, HeldItem};
-use crate::player::{PlayerInputFrame};
-use crate::actor::{BodyMana};
-use crate::actor::{PlayerEntity, PrimaryPlayer};
 use crate::actor::BodyKinematics;
+use crate::actor::BodyMana;
+use crate::actor::{PlayerEntity, PrimaryPlayer};
+use crate::features::{ActorFaction, HeldItem};
+use crate::player::PlayerInputFrame;
+use ambition_engine_core as ae;
 
 /// Held-item id of the focus-beam gauntlet.
 pub const BEAM_ID: &str = "beam";
@@ -83,7 +83,13 @@ pub fn fire_beam_system(
     gravity: crate::physics::GravityCtx,
     user_settings: Option<Res<crate::persistence::settings::UserSettings>>,
     mut players: Query<
-        (Entity, &PlayerInputFrame, &HeldItem, &BodyKinematics, &mut BodyMana),
+        (
+            Entity,
+            &PlayerInputFrame,
+            &HeldItem,
+            &BodyKinematics,
+            &mut BodyMana,
+        ),
         (With<PlayerEntity>, With<PrimaryPlayer>),
     >,
     mut effects: MessageWriter<crate::effects::EffectRequest>,

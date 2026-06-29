@@ -45,13 +45,13 @@ pub use entity::{
 };
 pub use kind::{FireballChargeTuning, ProjectileKind};
 pub use spawn_message::{ProjectilePool, SpawnProjectile};
-pub use visual_kind::{
-    ProjectileArt, ProjectileArtSource, ProjectileRenderSize, ProjectileRotation,
-    ProjectileVisualKind,
-};
 pub use state::PlayerProjectileState;
 pub use systems::{
     apply_player_spawn_projectile_messages, player_projectile_input, step_projectiles,
+};
+pub use visual_kind::{
+    ProjectileArt, ProjectileArtSource, ProjectileRenderSize, ProjectileRotation,
+    ProjectileVisualKind,
 };
 #[allow(unused_imports)]
 #[cfg(test)]

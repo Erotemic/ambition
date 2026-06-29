@@ -6,13 +6,13 @@
 use bevy::prelude::*;
 
 use ambition_characters::brain::ActionSet;
+use ambition_gameplay_core::actor::BodyMana;
+use ambition_gameplay_core::actor::{PlayerEntity, PrimaryPlayer};
 use ambition_gameplay_core::items::pickup::{
     equip_held_spec, held_spec_for_item, unequip_held, StashedActionSet,
 };
 use ambition_gameplay_core::items::{Item, ItemCategory, OwnedItems};
-use ambition_gameplay_core::actor::{PlayerEntity, PrimaryPlayer};
-use ambition_gameplay_core::player::{PlayerHealRequested};
-use ambition_gameplay_core::actor::{BodyMana};
+use ambition_gameplay_core::player::PlayerHealRequested;
 
 /// One health cell restores this much HP; one mana cell this much mana. Sandbox
 /// values — a real balance pass is just a number change.

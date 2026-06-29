@@ -42,15 +42,17 @@ fn sandbox_reset_clears_portals_held_items_and_summons() {
         .world_mut()
         .spawn(crate::abilities::thrown::puppy_slug_gun::PuppySlugAlly)
         .id();
-    let player = app
-        .world_mut()
-        .spawn((
-            crate::actor::PlayerEntity,
-            ambition_characters::brain::ActionSet::default(),
-            crate::items::pickup::StashedActionSet(ambition_characters::brain::ActionSet::default()),
-            crate::features::HeldItem::new(crate::items::pickup::axe_spec()),
-        ))
-        .id();
+    let player =
+        app.world_mut()
+            .spawn((
+                crate::actor::PlayerEntity,
+                ambition_characters::brain::ActionSet::default(),
+                crate::items::pickup::StashedActionSet(
+                    ambition_characters::brain::ActionSet::default(),
+                ),
+                crate::features::HeldItem::new(crate::items::pickup::axe_spec()),
+            ))
+            .id();
     #[cfg(feature = "portal")]
     app.world_mut()
         .entity_mut(player)
@@ -293,9 +295,9 @@ fn processor_warps_player_to_start_spawn() {
     let mut app = min_app();
     {
         let mut q = app
-                .world_mut()
-                .query_filtered::<&mut crate::actor::BodyKinematics, With<crate::actor::PlayerEntity>>(
-                );
+            .world_mut()
+            .query_filtered::<&mut crate::actor::BodyKinematics, With<crate::actor::PlayerEntity>>(
+            );
         if let Ok(mut kin) = q.single_mut(app.world_mut()) {
             kin.pos = ae::Vec2::new(1234.0, 1234.0);
         }

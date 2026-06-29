@@ -15,10 +15,10 @@
 
 use bevy::prelude::*;
 
-use ambition_input::ControlFrame;
-use crate::player::{PlayerInputFrame};
-use crate::actor::{PlayerEntity, PrimaryPlayer};
 use crate::actor::BodyKinematics;
+use crate::actor::{PlayerEntity, PrimaryPlayer};
+use crate::player::PlayerInputFrame;
+use ambition_input::ControlFrame;
 
 /// Marker on the actor the player is currently possessing. Carries the latest
 /// player `ControlFrame`, synced each frame by [`sync_possession_input`] (which
@@ -103,11 +103,10 @@ pub fn possession_trigger_system(
     // No primary player yet → neutral input (no possession gesture).
     let frame = player_input.single().map(|i| i.frame).unwrap_or_default();
     let gravity_dir = crate::physics::gravity_dir_or_default(gravity_field.as_deref());
-    let movement_mode = user_settings
-        .as_deref()
-        .map_or(ambition_engine_core::InputFrameMode::DEFAULT_MOVEMENT, |s| {
-            s.gameplay.movement_frame_mode
-        });
+    let movement_mode = user_settings.as_deref().map_or(
+        ambition_engine_core::InputFrameMode::DEFAULT_MOVEMENT,
+        |s| s.gameplay.movement_frame_mode,
+    );
     let descend = ambition_engine_core::AccelerationFrame::new(gravity_dir)
         .resolve_input(movement_mode, frame.axis_x, frame.axis_y)
         .y;

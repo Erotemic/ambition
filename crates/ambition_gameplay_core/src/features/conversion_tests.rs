@@ -241,7 +241,9 @@ mod conversion_tests {
             crate::features::NPC_TALK_RADIUS,
             false,
         ) {
-            ambition_characters::brain::Brain::StateMachine(ambition_characters::brain::StateMachineCfg::StandStill) => {}
+            ambition_characters::brain::Brain::StateMachine(
+                ambition_characters::brain::StateMachineCfg::StandStill,
+            ) => {}
             other => panic!("expected StandStill for zero-radius NPC, got {other:?}"),
         }
         match crate::features::npcs::npc_brain_from_catalog(
@@ -251,10 +253,9 @@ mod conversion_tests {
             crate::features::NPC_TALK_RADIUS,
             false,
         ) {
-            ambition_characters::brain::Brain::StateMachine(ambition_characters::brain::StateMachineCfg::Patrol {
-                cfg,
-                ..
-            }) => {
+            ambition_characters::brain::Brain::StateMachine(
+                ambition_characters::brain::StateMachineCfg::Patrol { cfg, .. },
+            ) => {
                 assert_eq!(cfg.lane.radius_px, 64.0);
                 assert_eq!(cfg.aggressiveness, 0.0);
                 assert!(cfg.aggro_radius > 0.0);
@@ -284,11 +285,19 @@ mod conversion_tests {
         use crate::features::ecs::hostile_brain_id_for_actor;
         use crate::features::enemies::test_spec;
         assert_eq!(
-            hostile_brain_id_for_actor("perfect_cellular_automaton", "Perfect Cellular Automaton", None),
+            hostile_brain_id_for_actor(
+                "perfect_cellular_automaton",
+                "Perfect Cellular Automaton",
+                None
+            ),
             "cellular_automaton_fighter",
         );
         assert_eq!(
-            hostile_brain_id_for_actor("npc_unknown", "Mystery", Some("perfect_cellular_automaton")),
+            hostile_brain_id_for_actor(
+                "npc_unknown",
+                "Mystery",
+                Some("perfect_cellular_automaton")
+            ),
             "cellular_automaton_fighter",
         );
         // The boss archetype is beefier than a grunt (60 HP — bumped so the duel

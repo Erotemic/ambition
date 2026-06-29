@@ -98,7 +98,11 @@ pub struct FriendlyFire {
 /// engine rule (see [`FriendlyFire`]): damage lands on any DIFFERENT faction;
 /// same-faction is blocked unless friendly fire is enabled. Self-exclusion
 /// (attacker entity == victim entity) is handled by the caller.
-pub fn can_damage(attacker: ActorFaction, victim: ActorFaction, friendly_fire: FriendlyFire) -> bool {
+pub fn can_damage(
+    attacker: ActorFaction,
+    victim: ActorFaction,
+    friendly_fire: FriendlyFire,
+) -> bool {
     friendly_fire.enabled || attacker != victim
 }
 
@@ -221,10 +225,10 @@ fn distance_squared(a: ae::Vec2, b: ae::Vec2) -> f32 {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::actor::BodyKinematics;
+    use crate::actor::{PlayerEntity, PrimaryPlayer};
     use crate::combat::components::{ActorAggression, ActorTarget, CenteredAabb};
-    use crate::player::{PlayerSlot};
-use crate::actor::{PlayerEntity, PrimaryPlayer};
-use crate::actor::BodyKinematics;
+    use crate::player::PlayerSlot;
 
     fn dummy_player_body(pos: ae::Vec2) -> BodyKinematics {
         BodyKinematics {
@@ -284,7 +288,7 @@ use crate::actor::BodyKinematics;
             PlayerSlot(0),
             PrimaryPlayer,
             dummy_player_body(ae::Vec2::new(100.0, 100.0)),
-                alive(),
+            alive(),
         ));
         let p2 = app
             .world_mut()
@@ -311,7 +315,7 @@ use crate::actor::BodyKinematics;
             PlayerSlot(0),
             PrimaryPlayer,
             dummy_player_body(ae::Vec2::new(999.0, 999.0)),
-                alive(),
+            alive(),
         ));
         let actor_pos = ae::Vec2::new(40.0, 60.0);
         let passive = app
@@ -507,7 +511,10 @@ use crate::actor::BodyKinematics;
             .world_mut()
             .spawn((
                 FeatureSimEntity,
-                CenteredAabb::from_center_size(ae::Vec2::new(100.0, 100.0), ae::Vec2::new(20.0, 20.0)),
+                CenteredAabb::from_center_size(
+                    ae::Vec2::new(100.0, 100.0),
+                    ae::Vec2::new(20.0, 20.0),
+                ),
                 ActorTarget::default(),
                 ActorAggression::hostile_to_faction(),
                 ActorFaction::Enemy,
@@ -519,7 +526,10 @@ use crate::actor::BodyKinematics;
             .world_mut()
             .spawn((
                 FeatureSimEntity,
-                CenteredAabb::from_center_size(ae::Vec2::new(300.0, 100.0), ae::Vec2::new(20.0, 20.0)),
+                CenteredAabb::from_center_size(
+                    ae::Vec2::new(300.0, 100.0),
+                    ae::Vec2::new(20.0, 20.0),
+                ),
                 ActorFaction::Boss,
                 alive(),
             ))
@@ -548,7 +558,10 @@ use crate::actor::BodyKinematics;
             .world_mut()
             .spawn((
                 FeatureSimEntity,
-                CenteredAabb::from_center_size(ae::Vec2::new(100.0, 100.0), ae::Vec2::new(20.0, 20.0)),
+                CenteredAabb::from_center_size(
+                    ae::Vec2::new(100.0, 100.0),
+                    ae::Vec2::new(20.0, 20.0),
+                ),
                 ActorTarget::default(),
                 ActorAggression::hostile_to_faction(),
                 ActorFaction::Enemy,

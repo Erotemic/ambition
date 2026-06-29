@@ -8,7 +8,7 @@
 use bevy::prelude::{Query, With, Without};
 
 use super::{
-    BodyCombat, ActorDisposition, BossConfig, BreakableFeature, CenteredAabb, FeatureId,
+    ActorDisposition, BodyCombat, BossConfig, BreakableFeature, CenteredAabb, FeatureId,
     FeatureSimEntity, HitEvent,
 };
 
@@ -46,12 +46,7 @@ pub fn ecs_hit_event_hits_breakable(
 pub fn ecs_hit_event_hits_actor(
     event: &HitEvent,
     actors: &Query<
-        (
-            &FeatureId,
-            &CenteredAabb,
-            &ActorDisposition,
-            &BodyCombat,
-        ),
+        (&FeatureId, &CenteredAabb, &ActorDisposition, &BodyCombat),
         (With<FeatureSimEntity>, Without<BossConfig>),
     >,
 ) -> bool {

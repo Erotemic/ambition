@@ -54,7 +54,8 @@ impl Plugin for CombatSchedulePlugin {
                 // happens upstream in `update_ecs_actors` (the runtime is
                 // the only place that owns the windup → active transition);
                 // `apply_hitbox_damage` below resolves the overlap.
-                ambition_gameplay_core::features::start_enemy_melee_from_brain_actions.run_if(gameplay_allowed),
+                ambition_gameplay_core::features::start_enemy_melee_from_brain_actions
+                    .run_if(gameplay_allowed),
                 // The 11 per-boss special-attack Techniques (apple rain,
                 // eye beam, the Gradient Sentinel barrage family, …) used
                 // to sit inline here. They are now content-owned and run
@@ -110,8 +111,7 @@ impl Plugin for CombatSchedulePlugin {
                 // overlapping an actor while a conversation runs keeps registering
                 // hits (strikes, FX) on it — the dialog half of the "continuous hit"
                 // report. No combat lands in any non-`Playing` mode now.
-                ambition_gameplay_core::features::apply_feature_hit_events
-                    .run_if(gameplay_allowed),
+                ambition_gameplay_core::features::apply_feature_hit_events.run_if(gameplay_allowed),
                 // Cut-rope flavor (rope-cut detection → gate, hazard→visual
                 // mirror + impact flavor, prop visuals) used to sit inline
                 // here. It is now content-owned and runs in

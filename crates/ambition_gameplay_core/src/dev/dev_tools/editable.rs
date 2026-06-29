@@ -463,10 +463,7 @@ pub fn sync_player_stats_with_inspector(
     mut stats: ResMut<EditablePlayerStats>,
     mut snapshot: Local<PlayerStatsSyncSnapshot>,
     mut player_q: Query<
-        (
-            &mut crate::actor::BodyMana,
-            &mut crate::actor::BodyOffense,
-        ),
+        (&mut crate::actor::BodyMana, &mut crate::actor::BodyOffense),
         crate::actor::PrimaryPlayerOnly,
     >,
     mut health_q: Query<&mut crate::actor::BodyHealth, crate::actor::PrimaryPlayerOnly>,

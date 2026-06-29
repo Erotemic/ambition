@@ -116,7 +116,9 @@ fn unassigned_actors_spread_across_distinct_holding_positions() {
 
 /// Same-faction (Enemy) map for the given ids — the common case where anti-clump
 /// should fire. Crowding only counts same-faction allies now.
-fn same_faction(ids: &[&str]) -> std::collections::HashMap<String, super::super::super::components::ActorFaction> {
+fn same_faction(
+    ids: &[&str],
+) -> std::collections::HashMap<String, super::super::super::components::ActorFaction> {
     ids.iter()
         .map(|id| {
             (
@@ -173,7 +175,11 @@ fn crowding_ignores_a_different_faction_opponent() {
     use crate::combat::slots::SlotKind;
     let reqs = vec![
         ("pca".to_string(), ae::Vec2::new(0.0, 0.0), SlotKind::Melee),
-        ("robot".to_string(), ae::Vec2::new(20.0, 0.0), SlotKind::Melee), // within 80px
+        (
+            "robot".to_string(),
+            ae::Vec2::new(20.0, 0.0),
+            SlotKind::Melee,
+        ), // within 80px
     ];
     let mut factions = std::collections::HashMap::new();
     factions.insert(

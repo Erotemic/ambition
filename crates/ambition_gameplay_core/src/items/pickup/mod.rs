@@ -12,16 +12,18 @@
 
 use bevy::prelude::*;
 
-use ambition_characters::brain::{ActionSet, HeldItemSpec, HeldUseBehavior, MeleeActionSpec, SwipeSpec};
-use ambition_engine_core::{self as ae, AabbExt};
-use crate::features::HeldItem;
-use ambition_input::ControlFrame;
-use crate::platformer_runtime::prelude::SpawnScopedExt;
-use crate::player::{PlayerInputFrame};
-use crate::actor::{PlayerEntity, PrimaryPlayer};
 use crate::actor::BodyKinematics;
+use crate::actor::{PlayerEntity, PrimaryPlayer};
+use crate::features::HeldItem;
+use crate::platformer_runtime::prelude::SpawnScopedExt;
+use crate::player::PlayerInputFrame;
 #[cfg(feature = "portal")]
 use crate::portal::PortalGun;
+use ambition_characters::brain::{
+    ActionSet, HeldItemSpec, HeldUseBehavior, MeleeActionSpec, SwipeSpec,
+};
+use ambition_engine_core::{self as ae, AabbExt};
+use ambition_input::ControlFrame;
 
 /// Public schedule labels for held-item and ground-item simulation.
 ///
@@ -256,7 +258,8 @@ pub fn javelin_spec() -> HeldItemSpec {
 /// laser bolt instead of swinging — the unification the pirates will share once
 /// their dedicated sniper mode is dropped (see TODO).
 pub fn gunsword_spec() -> HeldItemSpec {
-    ambition_characters::brain::held_item_by_id("gun_sword").expect("gun_sword is a built-in held item")
+    ambition_characters::brain::held_item_by_id("gun_sword")
+        .expect("gun_sword is a built-in held item")
 }
 
 /// Resolve a catalog [`crate::items::Item`]'s held-item spec, for equipping from
@@ -268,7 +271,9 @@ pub fn held_spec_for_item(item: crate::items::Item) -> Option<HeldItemSpec> {
         Item::Axe => Some(axe_spec()),
         Item::Javelin => Some(javelin_spec()),
         Item::GunSword => Some(gunsword_spec()),
-        _ => item.held_item_id().and_then(ambition_characters::brain::held_item_by_id),
+        _ => item
+            .held_item_id()
+            .and_then(ambition_characters::brain::held_item_by_id),
     }
 }
 
@@ -349,7 +354,12 @@ pub fn pickup_held_item_system(
     // One item at a time (Smash-style): can't grab a ground item while already
     // holding one, or while holding the portal gun (portal builds only).
     #[cfg(feature = "portal")] mut players: Query<
-        (Entity, &mut PlayerInputFrame, &BodyKinematics, &mut ActionSet),
+        (
+            Entity,
+            &mut PlayerInputFrame,
+            &BodyKinematics,
+            &mut ActionSet,
+        ),
         (
             With<PlayerEntity>,
             With<PrimaryPlayer>,
@@ -358,7 +368,12 @@ pub fn pickup_held_item_system(
         ),
     >,
     #[cfg(not(feature = "portal"))] mut players: Query<
-        (Entity, &mut PlayerInputFrame, &BodyKinematics, &mut ActionSet),
+        (
+            Entity,
+            &mut PlayerInputFrame,
+            &BodyKinematics,
+            &mut ActionSet,
+        ),
         (With<PlayerEntity>, With<PrimaryPlayer>, Without<HeldItem>),
     >,
     grounds: Query<(Entity, &GroundItem)>,

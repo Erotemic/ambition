@@ -194,7 +194,7 @@ fn bounding_aabb_returns_none_for_empty_input() {
 /// `body_pixel_bbox` (~106 wide).
 #[test]
 fn damageable_volumes_uses_per_animation_hurtbox_during_attack() {
-    use crate::boss_encounter::behavior::{BossBehaviorProfile, ActorSpriteMetrics};
+    use crate::boss_encounter::behavior::{ActorSpriteMetrics, BossBehaviorProfile};
     use ambition_characters::brain::{BossAttackProfile, BossAttackState};
     use ambition_sprite_sheet::{AnimationBox, AnimationMetrics, PixelRect};
     use std::collections::HashMap;
@@ -281,7 +281,7 @@ fn damageable_volumes_uses_per_animation_hurtbox_during_attack() {
 /// but the hurtbox would scale by `boss.size` only.
 #[test]
 fn damageable_volumes_samples_per_frame_hurtbox_from_animation_elapsed() {
-    use crate::boss_encounter::behavior::{BossBehaviorProfile, ActorSpriteMetrics};
+    use crate::boss_encounter::behavior::{ActorSpriteMetrics, BossBehaviorProfile};
     use ambition_characters::brain::{BossAttackProfile, BossAttackState};
     use ambition_sprite_sheet::{
         AnimationBox, AnimationBoxFrame, AnimationMetrics, NamedPixelRect,
@@ -368,7 +368,7 @@ fn damageable_volumes_samples_per_frame_hurtbox_from_animation_elapsed() {
 
 #[test]
 fn animation_frame_sample_overrides_elapsed_frame_for_authored_boxes() {
-    use crate::boss_encounter::behavior::{BossBehaviorProfile, ActorSpriteMetrics};
+    use crate::boss_encounter::behavior::{ActorSpriteMetrics, BossBehaviorProfile};
     use ambition_characters::brain::{BossAttackProfile, BossAttackState};
     use ambition_sprite_sheet::{
         AnimationBox, AnimationBoxFrame, AnimationMetrics, NamedPixelRect,
@@ -457,7 +457,7 @@ fn idle_rest_hurtbox_follows_the_live_animation_frame() {
     // animation at elapsed 0 → frame 0 forever, even as the
     // rendered breathing pose bobbed. An idle `BossAnimationFrameSample`
     // (`profile: None`) now feeds the live frame index through.
-    use crate::boss_encounter::behavior::{BossBehaviorProfile, ActorSpriteMetrics};
+    use crate::boss_encounter::behavior::{ActorSpriteMetrics, BossBehaviorProfile};
     use ambition_characters::brain::BossAttackState;
     use ambition_sprite_sheet::{
         AnimationBox, AnimationBoxFrame, AnimationMetrics, NamedPixelRect,
@@ -552,7 +552,7 @@ fn idle_rest_hurtbox_follows_the_live_animation_frame() {
 
 #[test]
 fn gnu_head_descent_accepts_visual_row_alias_for_runtime_boxes() {
-    use crate::boss_encounter::behavior::{BossBehaviorProfile, ActorSpriteMetrics};
+    use crate::boss_encounter::behavior::{ActorSpriteMetrics, BossBehaviorProfile};
     use ambition_characters::brain::{BossAttackProfile, BossAttackState};
     use ambition_sprite_sheet::{
         AnimationBox, AnimationBoxFrame, AnimationMetrics, NamedPixelRect,
@@ -664,7 +664,7 @@ fn gnu_head_descent_accepts_visual_row_alias_for_runtime_boxes() {
 
 #[test]
 fn damageable_volumes_scales_to_sprite_render_size() {
-    use crate::boss_encounter::behavior::{BossBehaviorProfile, ActorSpriteMetrics};
+    use crate::boss_encounter::behavior::{ActorSpriteMetrics, BossBehaviorProfile};
     use ambition_characters::brain::BossAttackState;
     use ambition_engine_core::AabbExt;
     use ambition_sprite_sheet::PixelRect;
@@ -861,7 +861,7 @@ fn attack_fully_inside_boss_volume_still_registers() {
 /// An authored hurtbox covering the visible sprite (as GNU-ton has) fixes it.
 #[test]
 fn mockingbird_combat_size_fallback_undershoots_the_visible_sprite() {
-    use crate::boss_encounter::behavior::{BossBehaviorProfile, ActorSpriteMetrics};
+    use crate::boss_encounter::behavior::{ActorSpriteMetrics, BossBehaviorProfile};
     use ambition_characters::brain::BossAttackState;
     use std::collections::HashMap;
 

@@ -28,11 +28,11 @@ use crate::menu::model::{
     SYSTEM_VISIBLE_ROWS,
 };
 use ambition_gameplay_core::audio::SfxMessage;
-use ambition_input::MenuControlFrame;
 use ambition_gameplay_core::items::{OwnedItems, ITEM_GRID_COLS, ITEM_GRID_ROWS};
 use ambition_gameplay_core::menu::backend::{InventoryUiBackend, BEVY_UI_MENU_BACKEND_ENABLED};
 use ambition_gameplay_core::persistence::settings::{SystemMenuModel, UserSettings};
 use ambition_gameplay_core::player::PlayerHealRequested;
+use ambition_input::MenuControlFrame;
 
 /// The effect/dispatch resources shared by [`grid_menu_nav`] and
 /// [`grid_menu_pointer_release`], bundled into one [`SystemParam`] so each stays

@@ -362,32 +362,33 @@ pub fn sync_portal_visuals(
         let angle = (-along.y).atan2(along.x);
         let rotation = Quat::from_rotation_z(angle);
         // Rim (outer) + brighter thin core, both split into pair-colored halves.
-        // The split is pair-canonical (not "this end's color first"), so the
-        // exit-side texture maps onto the same half-colors the entry portal
-        // draws locally.
+        // Split ACROSS the portal face (along the normal), not along the portal's
+        // long axis. For a wall portal this gives left/right halves instead of
+        // top/bottom halves, so the color sheet that the actor enters lines up
+        // with the mapped exit-side portal texture. The color order remains
+        // pair-canonical rather than "this end first."
         for (channel, sign, side) in [
-            (negative_channel, -1.0, "negative"),
-            (positive_channel, 1.0, "positive"),
+            (negative_channel, -1.0, "negative-normal"),
+            (positive_channel, 1.0, "positive-normal"),
         ] {
             let (rim, core) = channel.display();
-            let rim_center = portal.pos + along * (sign * length * 0.25);
+            let rim_thickness = PORTAL_VISUAL_THICKNESS;
+            let rim_center = portal.pos + n * (sign * rim_thickness * 0.25);
             let rim_translation = frame.to_render(rim_center, 9.0);
             commands.spawn((
                 PortalVisual,
-                Sprite::from_color(rim, Vec2::new(length * 0.5, PORTAL_VISUAL_THICKNESS)),
+                Sprite::from_color(rim, Vec2::new(length, rim_thickness * 0.5)),
                 Transform::from_translation(rim_translation).with_rotation(rotation),
                 Name::new(format!("Portal visual (rim {side})")),
             ));
 
             let core_length = length * 0.86;
-            let core_center = portal.pos + along * (sign * core_length * 0.25);
+            let core_thickness = PORTAL_VISUAL_THICKNESS * 0.42;
+            let core_center = portal.pos + n * (sign * core_thickness * 0.25);
             let core_translation = frame.to_render(core_center, 9.1);
             commands.spawn((
                 PortalVisual,
-                Sprite::from_color(
-                    core,
-                    Vec2::new(core_length * 0.5, PORTAL_VISUAL_THICKNESS * 0.42),
-                ),
+                Sprite::from_color(core, Vec2::new(core_length, core_thickness * 0.5)),
                 Transform::from_translation(core_translation).with_rotation(rotation),
                 Name::new(format!("Portal visual (core {side})")),
             ));

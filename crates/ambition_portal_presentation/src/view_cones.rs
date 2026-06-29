@@ -176,6 +176,12 @@ pub struct PortalViewConeConfig {
     pub dist_close: f32,
     /// Viewer→aperture distance (world px) at/beyond which depth = `depth_far`.
     pub dist_far: f32,
+    /// Extra distance before the near-doorway limit over which the portal window
+    /// eases from the ordinary finite wedge into the full half-plane. The
+    /// half-plane still finishes at `dist_close.max(LOS_NEAR_SKIP)`, but the
+    /// transition starts this many world pixels earlier so the portal does not
+    /// snap from an acute cone to a 180-degree sheet on the handoff frame.
+    pub half_plane_ease_distance: f32,
     /// Z range over which nearer portals' windows draw ON TOP of farther ones
     /// (added to `z` by an inverse-distance bias). Kept under the rim gap.
     pub z_proximity_span: f32,
@@ -249,6 +255,7 @@ impl Default for PortalViewConeConfig {
             depth_far: 44.0,
             dist_close: 70.0,
             dist_far: 900.0,
+            half_plane_ease_distance: 140.0,
             z_proximity_span: 0.35,
             blend_rate: 10.0,
             min_depth: 22.0,

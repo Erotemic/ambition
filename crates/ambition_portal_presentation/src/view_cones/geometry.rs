@@ -282,9 +282,9 @@ pub(crate) fn aperture_occluded(eye: Vec2, enter: &PortalFrame, occluders: &[ae:
 /// One frame's window plan for a pair: the minimum cone, the (full) visible
 /// wedge, and the target blend between them — the fraction of the viewer's
 /// body corners with clear sight to the faced aperture. The renderer normally
-/// approaches `target` temporally for distant previews; `immediate` bypasses
-/// that when the viewer is at the doorway and the half-plane must cover the
-/// portal chart handoff this frame.
+/// approaches `target` temporally; `immediate` is reserved for non-viewer-gated
+/// static fallback windows. Doorway half-plane coverage is now eased spatially
+/// and temporally instead of bypassing the blend.
 pub(crate) struct ConePlan {
     pub(crate) min: ViewCone,
     pub(crate) wedge: ViewCone,
@@ -350,27 +350,43 @@ pub(crate) fn compute_cone(
     // Proximity-proportional depth from the NEAREST aperture — the distance is
     // continuous across the midpoint even as which-is-nearer flips.
     let dist = v.eye.distance(enter.pos).min(v.eye.distance(exit.pos));
-    let half_plane_dist = (config.dist_close.max(LOS_NEAR_SKIP) * 2.0).min(config.dist_far);
-    let dt =
-        ((dist - half_plane_dist) / (config.dist_far - half_plane_dist).max(1.0)).clamp(0.0, 1.0);
+    let half_plane_full_dist = config.dist_close.max(LOS_NEAR_SKIP).min(config.dist_far);
+    let half_plane_start_dist =
+        (half_plane_full_dist + config.half_plane_ease_distance.max(0.0)).min(config.dist_far);
+    let half_plane_t = if half_plane_start_dist <= half_plane_full_dist + f32::EPSILON {
+        if dist <= half_plane_full_dist {
+            1.0
+        } else {
+            0.0
+        }
+    } else {
+        ((half_plane_start_dist - dist) / (half_plane_start_dist - half_plane_full_dist))
+            .clamp(0.0, 1.0)
+    };
+    let half_plane_alpha = smooth01(half_plane_t);
+
+    let dt = ((dist - half_plane_start_dist)
+        / (config.dist_far - half_plane_start_dist).max(1.0))
+        .clamp(0.0, 1.0);
     // Near the aperture, the honest limit is a half-plane: as the viewer enters
     // the doorway, the two aperture endpoint rays become parallel to the host
     // surface and the visible wedge should fan out until only world bounds clip
-    // it. Use world-scale depth for the near endpoint and ease down to the far
-    // depth with distance. The capture texture is still capped separately, so
-    // this trades sharpness for seam continuity only in the near-portal case.
+    // it. Build both an ordinary finite wedge and the true half-plane wedge,
+    // then blend between them by distance. This removes the old snap where the
+    // plan switched from an acute cone directly to a 180-degree half-plane.
     let near_depth = config.depth_close.max(world_size.x + world_size.y);
-    let depth = near_depth + (config.depth_far - near_depth) * smooth01(dt);
+    let finite_depth = config.depth_close + (config.depth_far - config.depth_close) * smooth01(dt);
+    let half_depth = near_depth + (config.depth_far - near_depth) * smooth01(dt);
     // Visibility fraction: real corners ray-test to the nearer finite aperture
-    // using the configured quality. The doorway case is still skipped because
-    // rays there would graze the host blocks and sight is trivially clear.
+    // using the configured quality. The near-doorway case is still treated as
+    // visible even if rays would graze the host blocks, but it no longer bypasses
+    // temporal/spatial easing.
     let faced = if v.eye.distance(enter.pos) <= v.eye.distance(exit.pos) {
         &enter
     } else {
         &exit
     };
-    let immediate = v.eye.distance(faced.pos) <= half_plane_dist;
-    let target = if immediate {
+    let los_target = if v.eye.distance(faced.pos) <= half_plane_full_dist {
         1.0
     } else {
         corners
@@ -381,26 +397,39 @@ pub(crate) fn compute_cone(
             .sum::<f32>()
             / corners.len() as f32
     };
+    let target = los_target.max(half_plane_alpha);
     if target <= 0.0 {
         return closed(min);
     }
-    if immediate {
-        eyes.push(enter.pos + enter.normal * 0.5);
-    }
-    // The wedge runs to the half-plane: make lateral reach much larger than
-    // depth so the doorway limit's side rays are effectively parallel to the
-    // portal surface. The renderer clips this oversized strip to the current
-    // viewport/world rect before building the mesh, so this affects coverage
-    // without inflating the rendered capture rect.
+    // The half-plane wedge uses a synthetic eye infinitesimally in front of the
+    // aperture. `aperture_wedge_multi` treats that as the parallel-ray limit.
     let far_extent = (world_size.x + world_size.y) * 64.0;
-    let Some(wedge) = aperture_wedge_multi(&enter, &exit, &eyes, depth, far_extent) else {
-        return closed(min);
+    let finite_lateral = (finite_depth * config.spread.max(config.min_spread)).max(1.0);
+    let finite_wedge = aperture_wedge_multi(&enter, &exit, &eyes, finite_depth, finite_lateral);
+    let mut half_plane_eyes = eyes.clone();
+    if half_plane_alpha > 0.0 {
+        half_plane_eyes.push(enter.pos + enter.normal * 0.5);
+    }
+    let half_wedge = aperture_wedge_multi(&enter, &exit, &half_plane_eyes, half_depth, far_extent);
+    let wedge = match (finite_wedge, half_wedge) {
+        (Some(finite), Some(half)) => {
+            blend_cones(&finite, &half, half_plane_alpha, &enter, &exit)
+        }
+        (Some(finite), None) => finite,
+        (None, Some(half)) => {
+            if half_plane_alpha > 0.0 {
+                blend_cones(&min, &half, half_plane_alpha, &enter, &exit)
+            } else {
+                return closed(min);
+            }
+        }
+        (None, None) => return closed(min),
     };
     ConePlan {
         min,
         wedge,
         target: target * config.viewer_blend.clamp(0.0, 1.0),
-        immediate,
+        immediate: false,
     }
 }
 
@@ -711,7 +740,7 @@ mod tests {
     }
 
     #[test]
-    fn doorway_view_cone_forces_immediate_half_plane() {
+    fn doorway_view_cone_reaches_half_plane_without_immediate_snap() {
         let world = Vec2::new(1600.0, 900.0);
         let enter = placed(
             PortalGunColor::BLUE.channel(),
@@ -733,8 +762,8 @@ mod tests {
 
         let plan = compute_cone(&enter, &exit, &config, Some(&viewer), world);
         assert!(
-            plan.immediate,
-            "doorway cone must not ease toward the handoff half-plane"
+            !plan.immediate,
+            "doorway cone should now use the continuous spatial/temporal ease"
         );
         assert_eq!(plan.target, 1.0);
         let min_x = plan
@@ -751,7 +780,7 @@ mod tests {
             .fold(f32::NEG_INFINITY, f32::max);
         assert!(
             min_x <= -world.x + 1e-3 && max_x >= world.x * 2.0 - 1e-3,
-            "near-doorway cone should expand to the viewport-clipped half-plane, x span {min_x}..{max_x}",
+            "at the doorway the eased cone should have reached the viewport-clipped half-plane, x span {min_x}..{max_x}",
         );
         let far_depth = plan.wedge.entry_quad[2].y - enter.pos.y;
         let far_span = max_x - min_x;
@@ -762,7 +791,7 @@ mod tests {
     }
 
     #[test]
-    fn near_doorway_view_cone_reaches_half_plane_before_contact() {
+    fn near_doorway_view_cone_eases_toward_half_plane_before_contact() {
         let world = Vec2::new(1600.0, 900.0);
         let enter = placed(
             PortalGunColor::BLUE.channel(),
@@ -775,35 +804,50 @@ mod tests {
             Vec2::new(0.0, 1.0),
         );
         let config = PortalViewConeConfig::default();
-        let viewer = PortalViewer {
-            present: true,
-            eye: enter.pos + enter.normal * (config.dist_close * 1.7),
-            half_size: Vec2::ZERO,
-            occluders: Vec::new(),
+        let full_dist = config.dist_close.max(LOS_NEAR_SKIP);
+        let start_dist = full_dist + config.half_plane_ease_distance;
+
+        let span_at = |dist: f32| {
+            let viewer = PortalViewer {
+                present: true,
+                eye: enter.pos + enter.normal * dist,
+                half_size: Vec2::ZERO,
+                occluders: Vec::new(),
+            };
+            let plan = compute_cone(&enter, &exit, &config, Some(&viewer), world);
+            let min_x = plan
+                .wedge
+                .entry_quad
+                .iter()
+                .map(|p| p.x)
+                .fold(f32::INFINITY, f32::min);
+            let max_x = plan
+                .wedge
+                .entry_quad
+                .iter()
+                .map(|p| p.x)
+                .fold(f32::NEG_INFINITY, f32::max);
+            (max_x - min_x, plan.target, plan.immediate)
         };
 
-        let plan = compute_cone(&enter, &exit, &config, Some(&viewer), world);
+        let (start_span, _, start_immediate) = span_at(start_dist + 1.0);
+        let (mid_span, mid_target, mid_immediate) = span_at((start_dist + full_dist) * 0.5);
+        let (full_span, full_target, full_immediate) = span_at(full_dist * 0.5);
+
+        assert!(!start_immediate && !mid_immediate && !full_immediate);
         assert!(
-            plan.immediate,
-            "near-doorway cone should finish opening before contact"
+            mid_span > start_span,
+            "mid-ease span should be wider than the ordinary finite cone: start={start_span}, mid={mid_span}"
         );
-        assert_eq!(plan.target, 1.0);
-        let min_x = plan
-            .wedge
-            .entry_quad
-            .iter()
-            .map(|p| p.x)
-            .fold(f32::INFINITY, f32::min);
-        let max_x = plan
-            .wedge
-            .entry_quad
-            .iter()
-            .map(|p| p.x)
-            .fold(f32::NEG_INFINITY, f32::max);
         assert!(
-            min_x <= -world.x + 1e-3 && max_x >= world.x * 2.0 - 1e-3,
-            "near-doorway cone should already be the half-plane, x span {min_x}..{max_x}",
+            full_span > mid_span,
+            "doorway span should finish wider than the mid-ease cone: mid={mid_span}, full={full_span}"
         );
+        assert!(
+            mid_target > 0.0 && mid_target <= 1.0,
+            "mid-ease target should be valid, got {mid_target}"
+        );
+        assert_eq!(full_target, 1.0);
     }
 
     #[test]

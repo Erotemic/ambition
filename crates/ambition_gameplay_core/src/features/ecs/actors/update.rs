@@ -84,6 +84,13 @@ pub fn update_ecs_actors(
             &crate::actor::BodyDodgeState,
             &crate::actor::BodyShieldState,
             &crate::actor::BodyCombat,
+            // The player's liveness AUTHORITY is its health (the single BodyHealth
+            // source), NOT `BodyCombat.alive` — that field is an actor-cluster
+            // mirror that is never synced for the player, so it reads `false` and
+            // made every enemy treat a live player as dead (→ the Smash brain idled
+            // instead of engaging). Read health here, consistent with how
+            // `select_actor_targets` decides the player is a valid target.
+            &crate::actor::BodyHealth,
         ),
         bevy::prelude::With<crate::actor::PlayerEntity>,
     >,
@@ -176,7 +183,7 @@ pub fn update_ecs_actors(
     let slot_anchor_pos = primary_entity
         .and_then(|e| player_query.get(e).ok())
         .or_else(|| player_query.iter().next())
-        .map(|(_, kin, _, _, _, _)| kin.pos);
+        .map(|(_, kin, _, _, _, _, _)| kin.pos);
     let Some(player_pos) = slot_anchor_pos else {
         return;
     };
@@ -200,8 +207,8 @@ pub fn update_ecs_actors(
     // from `player_query` alone. Defaults to alive when an entity isn't found.
     let mut alive_by_entity: std::collections::HashMap<Entity, bool> =
         std::collections::HashMap::new();
-    for (entity, _, _, _, _, body_combat) in &player_query {
-        alive_by_entity.insert(entity, body_combat.alive);
+    for (entity, _, _, _, _, _, health) in &player_query {
+        alive_by_entity.insert(entity, health.current() > 0);
     }
     for (entity, _, _, disposition, _, _, _, _, _, _, _, _, (clusters, _, faction)) in &actors {
         if let Some(c) = &clusters {
@@ -635,8 +642,15 @@ pub fn update_ecs_actors(
                 let Some(target_entity) = target.entity else {
                     continue;
                 };
-                let Ok((_, target_kin, target_offense, target_dodge, target_shield, target_combat)) =
-                    player_query.get(target_entity)
+                let Ok((
+                    _,
+                    target_kin,
+                    target_offense,
+                    target_dodge,
+                    target_shield,
+                    target_combat,
+                    _,
+                )) = player_query.get(target_entity)
                 else {
                     continue;
                 };

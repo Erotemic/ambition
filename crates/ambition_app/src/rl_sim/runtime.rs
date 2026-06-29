@@ -10,9 +10,9 @@ use ambition_engine_core as ae;
 
 use crate::app::{SandboxSimulationPlugin, StartRoomOverride};
 use ambition_gameplay_core::game_mode::GameMode;
-use ambition_input::ControlFrame;
 use ambition_gameplay_core::ldtk_world;
 use ambition_gameplay_core::rooms::RoomSet;
+use ambition_input::ControlFrame;
 
 use super::action::AgentAction;
 use super::observation::{AgentObservation, EnemyObs, PickupObs};
@@ -477,6 +477,34 @@ impl SandboxSim {
                 // Ignored for the Boss kind (always faction Boss); set for completeness.
                 faction: ambition_gameplay_core::features::ActorFaction::Boss,
                 kind: ambition_gameplay_core::features::SpawnActorKind::Boss { brain, overrides },
+            });
+        self.app.update();
+    }
+
+    /// Spawn a normal hostile ENEMY into the live sim at `pos` via the same
+    /// [`SpawnActorRequest`] seam room load uses — `ActorFaction::Enemy`,
+    /// `hostile_to_player` aggression, `Hostile` disposition. The enemy archetype
+    /// + its brain/ActionSet resolve from `brain` (e.g.
+    /// `EnemyBrain::Custom("cellular_automaton_fighter")`). Steps one frame so the
+    /// spawn command flushes and the entity exists. Counterpart to
+    /// [`Self::spawn_boss_at`] for the actor (non-boss) path.
+    pub fn spawn_enemy_at(
+        &mut self,
+        id: impl Into<String>,
+        name: impl Into<String>,
+        pos: (f32, f32),
+        half_size: (f32, f32),
+        brain: ambition_characters::actor::EnemyBrain,
+    ) {
+        self.app
+            .world_mut()
+            .write_message(ambition_gameplay_core::features::SpawnActorRequest {
+                id: id.into(),
+                name: name.into(),
+                pos: ae::Vec2::new(pos.0, pos.1),
+                half_size: ae::Vec2::new(half_size.0, half_size.1),
+                faction: ambition_gameplay_core::features::ActorFaction::Enemy,
+                kind: ambition_gameplay_core::features::SpawnActorKind::Enemy { brain },
             });
         self.app.update();
     }

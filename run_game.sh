@@ -285,4 +285,52 @@ fi
 cd "$repo_root"
 export RUST_BACKTRACE="${RUST_BACKTRACE:-full}"
 print_cmd cargo "${cargo_args[@]}"
-exec cargo "${cargo_args[@]}"
+
+# Mian cargo run
+cargo "${cargo_args[@]}"
+
+
+# Update coverage files if we are doing that.
+if [[ "$coverage" -eq 1 ]]; then
+
+    cd "$repo_root"
+    echo "repo_root = $repo_root"
+
+    export COVERAGE_REPORT_DIR="$repo_root/coverage-reports/ambition-manual"
+
+    # Programatic way to get the target dir if we need to
+    target_dir="$(cargo metadata --format-version=1 --no-deps |
+            python -c 'import json,sys; print(json.load(sys.stdin)["target_directory"])'
+        )"
+    echo "$target_dir"
+
+    # Use the same target dir that contains llvm-cov-target.
+    export CARGO_TARGET_DIR="$target_dir"
+
+    mkdir -p "$COVERAGE_REPORT_DIR"
+    echo "COVERAGE_REPORT_DIR = $COVERAGE_REPORT_DIR"
+
+    # Compact machine-readable full coverage.
+    cargo llvm-cov report \
+        --lcov \
+        --output-path "$COVERAGE_REPORT_DIR"/manual-game.lcov
+
+    # Smaller per-file summary. Good for quick ranking.
+    cargo llvm-cov report \
+        --json \
+        --summary-only \
+        --output-path "$COVERAGE_REPORT_DIR"/manual-game-summary.json
+
+    # Optional: full JSON. Can be large, but useful if upload size is OK.
+    cargo llvm-cov report \
+        --json \
+        --output-path "$COVERAGE_REPORT_DIR"/manual-game-full.json
+
+    # Optional: browsable local report. Useful for you; may be big to upload.
+    cargo llvm-cov report \
+        --html \
+        --output-dir "$COVERAGE_REPORT_DIR"/html
+
+    echo "Coverage reports updated in: $COVERAGE_REPORT_DIR"
+
+fi

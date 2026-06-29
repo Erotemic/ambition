@@ -236,6 +236,11 @@ pub struct BodyCombat {
     /// Mirrored each frame from `BodyMelee::is_active()`.
     pub attacking: bool,
     // ── Actor status / attack-timeline presentation ──
+    /// Liveness MIRROR of the body's `BodyHealth` authority, written every frame:
+    /// for an actor from its cluster `status.alive` (`sync_actor_components_from_cluster`),
+    /// for the player from `health.current() > 0` (`write_player_ecs_components`).
+    /// Read-model for presentation/AI; liveness-critical gameplay reads `BodyHealth`
+    /// directly to avoid a tick of mirror lag.
     pub alive: bool,
     pub strike_count: i32,
     pub attack_windup_timer: f32,

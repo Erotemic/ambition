@@ -119,13 +119,25 @@ pub fn tick_player_brains(
     }
 }
 
-/// Mirror `BodyMelee::is_swinging()` (a swing is in flight, any phase) onto
-/// `BodyCombat::attacking` for rendering systems.
+/// Write the player's read-model fields on [`BodyCombat`] each frame — the
+/// symmetric counterpart to the actor's `sync_actor_components_from_cluster`.
+///
+/// - `attacking` mirrors `BodyMelee::is_swinging()` (a swing in flight, any phase).
+/// - `alive` mirrors the body's liveness AUTHORITY, `BodyHealth`. For actors this
+///   field is owned by the per-frame sync from their cluster `status.alive`; the
+///   player has no such cluster, so without this it kept its spawn default
+///   (`false`) forever — a silent "the player is dead" that made every enemy's
+///   `target_alive` read false and idle their brain. Owning it here keeps the
+///   field correct for every `BodyCombat` reader (HUD / nameplate / health bar /
+///   perception / damage gates), so none of them are a footgun for the player.
+///   (Liveness-CRITICAL gameplay should still read `BodyHealth` directly — the
+///   authority — rather than this once-per-frame mirror, to avoid a tick of lag.)
 pub fn write_player_ecs_components(
-    mut players: Query<(&BodyMelee, &mut BodyCombat), With<PlayerEntity>>,
+    mut players: Query<(&BodyMelee, &BodyHealth, &mut BodyCombat), With<PlayerEntity>>,
 ) {
-    for (attack, mut combat) in &mut players {
+    for (attack, health, mut combat) in &mut players {
         combat.attacking = attack.is_swinging();
+        combat.alive = health.current() > 0;
     }
 }
 

@@ -175,7 +175,7 @@ pub enum PortalApertureLosQuality {
 
 impl Default for PortalApertureLosQuality {
     fn default() -> Self {
-        Self::Medium
+        Self::Low
     }
 }
 
@@ -256,6 +256,40 @@ impl Default for PortalViewConeVisibilityMode {
     }
 }
 
+/// Policy for reconciling the planned portal source rect with the final source
+/// rect the mesh/UV/capture camera can sample this frame.
+#[derive(Clone, Copy, Debug, Reflect, PartialEq, Eq)]
+pub enum PortalViewConeSourceClipPolicy {
+    /// Build the mesh from the planned entry quad, even if it reaches outside
+    /// the active view rect. Useful only as a diagnostic escape hatch.
+    AllowClip,
+    /// Clip the entry polygon to the active frame before mapping to source
+    /// space, then build mesh, UVs, and camera framing from that same final
+    /// source rect.
+    ClampToFrame,
+    /// Preserve the same coherent final-source path as [`Self::ClampToFrame`].
+    /// Kept as an explicit tuning label for future aspect-preserving fitting.
+    FitToFrame,
+}
+
+impl PortalViewConeSourceClipPolicy {
+    pub const ALL: [Self; 3] = [Self::AllowClip, Self::ClampToFrame, Self::FitToFrame];
+
+    pub fn label(self) -> &'static str {
+        match self {
+            Self::AllowClip => "AllowClip",
+            Self::ClampToFrame => "ClampToFrame",
+            Self::FitToFrame => "FitToFrame",
+        }
+    }
+}
+
+impl Default for PortalViewConeSourceClipPolicy {
+    fn default() -> Self {
+        Self::ClampToFrame
+    }
+}
+
 /// Tuning for the view windows. A host overwrites the resource to retune; set
 /// [`PortalPresentationPlugin::view_cones`](crate::PortalPresentationPlugin)
 /// to `false` to drop the feature (and its capture passes) entirely.
@@ -272,9 +306,14 @@ pub struct PortalViewConeConfig {
     /// the cone after face LOS exists or while crossing this portal's doorway.
     pub visibility_mode: PortalViewConeVisibilityMode,
     /// Aperture LOS quality. `Low` is the original single center ray per viewer
-    /// corner. `Medium` is the default finite-aperture heuristic: sample the
-    /// left endpoint, center, and right endpoint, then average visible samples.
+    /// corner. `Medium` samples the left endpoint, center, and right endpoint,
+    /// then averages visible samples.
     pub aperture_los_quality: PortalApertureLosQuality,
+    /// Source clipping/fitting policy. The default clamps the final entry
+    /// polygon to the active frame before deriving mesh vertices, UVs, and the
+    /// capture camera source rect, so the visible window never samples one rect
+    /// while the camera captures another.
+    pub source_clip_policy: PortalViewConeSourceClipPolicy,
     /// Max dynamic window depth behind the surface (world px), reached when the
     /// viewer is within `dynamic_dist_close` of the aperture. The world bounds
     /// still clip it.
@@ -368,7 +407,8 @@ impl Default for PortalViewConeConfig {
         Self {
             mode: PortalViewConeMode::Dynamic,
             visibility_mode: PortalViewConeVisibilityMode::FaceLosWithContinuity,
-            aperture_los_quality: PortalApertureLosQuality::Medium,
+            aperture_los_quality: PortalApertureLosQuality::Low,
+            source_clip_policy: PortalViewConeSourceClipPolicy::ClampToFrame,
             // Large but not so deep it punches through thin "door" walls into
             // the far room (which is what drives the heaviest recursion); also
             // keeps the near-face↔deep-content parallax modest.
@@ -565,7 +605,7 @@ pub fn sync_portal_view_cones(
         }
         let cone = blend_cones(&plan.min, &plan.wedge, smooth01(rig.blend), &enter, &exit);
         let z = proximity_z(&config, viewer, portal.pos);
-        let render = cone_render(&cone, &enter, &exit, &frame, clip_min, clip_max, z);
+        let render = cone_render(&cone, &enter, &exit, &frame, &config, clip_min, clip_max, z);
         match render {
             Some(r) => {
                 if let Some(mesh) = meshes.get_mut(&rig.mesh) {
@@ -627,9 +667,9 @@ pub fn sync_portal_view_cones(
             None
         };
         let z = proximity_z(&config, viewer, portal.pos);
-        let render = cone
-            .as_ref()
-            .and_then(|cone| cone_render(cone, &enter, &exit, &frame, clip_min, clip_max, z));
+        let render = cone.as_ref().and_then(|cone| {
+            cone_render(cone, &enter, &exit, &frame, &config, clip_min, clip_max, z)
+        });
         let mesh = meshes.add(match &render {
             Some(r) => make_mesh(r),
             None => placeholder_mesh(),
@@ -849,6 +889,7 @@ fn portal_view_cone_debug_dump_text(
         "  aperture_los_quality: {:?}",
         config.aperture_los_quality
     );
+    let _ = writeln!(out, "  source_clip_policy: {:?}", config.source_clip_policy);
     let _ = writeln!(
         out,
         "  dynamic_depth_close: {:.3}",
@@ -1124,12 +1165,18 @@ fn portal_view_cone_debug_dump_text(
                 &enter,
                 &exit,
                 frame,
+                config,
                 clip_min,
                 clip_max,
                 proximity_z(config, viewer, portal.pos),
             ) {
                 Some(render) => {
                     let _ = writeln!(out, "  render.present: true");
+                    let _ = writeln!(
+                        out,
+                        "  render.source_clip_policy: {:?}",
+                        config.source_clip_policy
+                    );
                     let clip = source_clip_debug(
                         plan.wedge.source.min,
                         plan.wedge.source.max,
@@ -1258,6 +1305,176 @@ fn source_clip_debug(
         source_clip_loss_total,
         source_clip_loss_fraction,
     }
+}
+
+/// One read-only row for a host debug UI. Labels intentionally use dump/Rust
+/// variable paths; explanatory text belongs in `help`.
+#[derive(Clone, Debug)]
+pub struct PortalViewConeDebugRow {
+    pub label: String,
+    pub value: String,
+    pub units: &'static str,
+    pub help: &'static str,
+}
+
+impl PortalViewConeDebugRow {
+    fn new(
+        label: impl Into<String>,
+        value: impl Into<String>,
+        units: &'static str,
+        help: &'static str,
+    ) -> Self {
+        Self {
+            label: label.into(),
+            value: value.into(),
+            units,
+            help,
+        }
+    }
+}
+
+/// Build compact selected-portal-pair diagnostics for the F3 inspector from
+/// the same compute/render path used by the F8 dump.
+pub fn selected_portal_view_cone_debug_rows(
+    config: &PortalViewConeConfig,
+    viewer: Option<&PortalViewer>,
+    frame: &PortalWorldFrame,
+    host_view: Option<&PortalCameraContinuityHostView>,
+    portals: &[PlacedPortal],
+) -> Vec<PortalViewConeDebugRow> {
+    let mut rows = Vec::new();
+    rows.push(PortalViewConeDebugRow::new(
+        "recursion_includes_portal_windows",
+        (config.recursion_depth > 0).to_string(),
+        "derived",
+        "Derived runtime value from recursion_depth. False means capture cameras exclude portal-window meshes.",
+    ));
+
+    let filter = config.debug_dump_portal.trim();
+    if filter.is_empty() {
+        rows.push(PortalViewConeDebugRow::new(
+            "selected_pair.resolved_pair",
+            "<debug_dump_portal empty>",
+            "portal pair",
+            "Set debug_dump_portal to a portal name such as c136 to show selected-pair diagnostics.",
+        ));
+        return rows;
+    }
+
+    let selected = selected_portals_for_dump(portals, filter);
+    if selected.is_empty() {
+        rows.push(PortalViewConeDebugRow::new(
+            "selected_pair.resolved_pair",
+            "<no match>",
+            "portal pair",
+            "No live portal matched debug_dump_portal.",
+        ));
+        return rows;
+    }
+
+    let pair = selected
+        .iter()
+        .map(|p| p.channel.name())
+        .collect::<Vec<_>>()
+        .join(" <-> ");
+    rows.push(PortalViewConeDebugRow::new(
+        "selected_pair.resolved_pair",
+        pair,
+        "portal pair",
+        "Resolved portal pair for debug_dump_portal.",
+    ));
+
+    let (clip_min, clip_max) = portal_window_clip_rect(frame, host_view);
+    for portal in &selected {
+        let name = portal.channel.name();
+        let Some(partner) = find_portal(portals, portal.channel.partner()) else {
+            rows.push(PortalViewConeDebugRow::new(
+                format!("selected_pair.{name}.partner"),
+                "<missing>",
+                "portal",
+                "The selected portal has no live partner.",
+            ));
+            continue;
+        };
+        let enter = portal.frame();
+        let exit = partner.frame();
+        let plan = compute_cone(portal, &partner, config, viewer, frame.size);
+        rows.push(PortalViewConeDebugRow::new(
+            format!("selected_pair.{name}.plan.target"),
+            format!("{:.3}", plan.target),
+            "0..1",
+            "Current target visibility blend for this portal plan.",
+        ));
+        rows.push(PortalViewConeDebugRow::new(
+            format!("selected_pair.{name}.plan.wedge.source_size"),
+            fmt_vec2(plan.wedge.source.max - plan.wedge.source.min),
+            "world px",
+            "Planned source rect size before final frame/policy reconciliation.",
+        ));
+        if plan.target <= 0.0 {
+            rows.push(PortalViewConeDebugRow::new(
+                format!("selected_pair.{name}.render.present"),
+                "false",
+                "derived",
+                "No render data is built because plan.target is zero.",
+            ));
+            continue;
+        }
+        let cone = blend_cones(&plan.min, &plan.wedge, smooth01(plan.target), &enter, &exit);
+        match cone_render(
+            &cone,
+            &enter,
+            &exit,
+            frame,
+            config,
+            clip_min,
+            clip_max,
+            proximity_z(config, viewer, portal.pos),
+        ) {
+            Some(render) => {
+                let clip = source_clip_debug(
+                    plan.wedge.source.min,
+                    plan.wedge.source.max,
+                    render.source_min,
+                    render.source_max,
+                );
+                rows.push(PortalViewConeDebugRow::new(
+                    format!("selected_pair.{name}.render.present"),
+                    "true",
+                    "derived",
+                    "True when final mesh/camera render data exists for this portal.",
+                ));
+                rows.push(PortalViewConeDebugRow::new(
+                    format!("selected_pair.{name}.render.source_size"),
+                    fmt_vec2(render.source_size),
+                    "world px",
+                    "Final source rect size used by mesh UVs and capture-camera scaling.",
+                ));
+                rows.push(PortalViewConeDebugRow::new(
+                    format!("selected_pair.{name}.render.source_clipped_by_plan"),
+                    clip.source_clipped_by_plan.to_string(),
+                    "derived",
+                    "True when the final source rect lost area relative to plan.wedge.source.",
+                ));
+                rows.push(PortalViewConeDebugRow::new(
+                    format!("selected_pair.{name}.render.source_clip_loss_fraction"),
+                    fmt_vec2(clip.source_clip_loss_fraction),
+                    "fraction",
+                    "Per-axis fraction of the planned source rect lost by the final render source rect.",
+                ));
+            }
+            None => {
+                rows.push(PortalViewConeDebugRow::new(
+                    format!("selected_pair.{name}.render.present"),
+                    "false",
+                    "derived",
+                    "No render data remains after final clipping/policy reconciliation.",
+                ));
+            }
+        }
+    }
+
+    rows
 }
 
 fn selected_portals_for_dump(all: &[PlacedPortal], filter: &str) -> Vec<PlacedPortal> {

@@ -713,11 +713,18 @@ pub(crate) fn cone_render(
     enter: &PortalFrame,
     exit: &PortalFrame,
     frame: &PortalWorldFrame,
+    config: &PortalViewConeConfig,
     clip_min: Vec2,
     clip_max: Vec2,
     z: f32,
 ) -> Option<ConeRender> {
-    let poly = clip_polygon_to_rect(&cone.entry_quad, clip_min, clip_max);
+    let poly = match config.source_clip_policy {
+        PortalViewConeSourceClipPolicy::AllowClip => cone.entry_quad.to_vec(),
+        PortalViewConeSourceClipPolicy::ClampToFrame
+        | PortalViewConeSourceClipPolicy::FitToFrame => {
+            clip_polygon_to_rect(&cone.entry_quad, clip_min, clip_max)
+        }
+    };
     if poly.len() < 3 {
         return None;
     }
@@ -1024,6 +1031,14 @@ mod tests {
     }
 
     #[test]
+    fn view_cone_defaults_to_low_aperture_los() {
+        assert_eq!(
+            PortalViewConeConfig::default().aperture_los_quality,
+            PortalApertureLosQuality::Low
+        );
+    }
+
+    #[test]
     fn doorway_view_cone_reaches_half_plane_without_immediate_snap() {
         let world = Vec2::new(1600.0, 900.0);
         let enter = placed(
@@ -1036,7 +1051,8 @@ mod tests {
             Vec2::new(900.0, 180.0),
             Vec2::new(0.0, 1.0),
         );
-        let config = PortalViewConeConfig::default();
+        let mut config = PortalViewConeConfig::default();
+        config.aperture_los_quality = PortalApertureLosQuality::Medium;
         let viewer = PortalViewer {
             present: true,
             eye: enter.pos + enter.normal * 0.5,
@@ -1062,15 +1078,15 @@ mod tests {
             .iter()
             .map(|p| p.x)
             .fold(f32::NEG_INFINITY, f32::max);
-        assert!(
-            min_x <= -world.x + 1e-3 && max_x >= world.x * 2.0 - 1e-3,
-            "at the doorway the eased cone should have reached the viewport-clipped half-plane, x span {min_x}..{max_x}",
-        );
-        let far_depth = plan.wedge.entry_quad[2].y - enter.pos.y;
         let far_span = max_x - min_x;
         assert!(
-            far_span > far_depth * 32.0,
-            "half-plane side rays should be nearly parallel to the surface, not a 45-degree cone: far_span={far_span}, far_depth={far_depth}",
+            far_span <= config.half_plane_preview_max_lateral * 2.0 + 1e-3,
+            "at the doorway the eased cone should respect half_plane_preview_max_lateral, x span {min_x}..{max_x}",
+        );
+        let far_depth = plan.wedge.entry_quad[2].y - enter.pos.y;
+        assert!(
+            far_span > far_depth,
+            "bounded half-plane preview should still be wider than a 45-degree cone: far_span={far_span}, far_depth={far_depth}",
         );
     }
 
@@ -1087,7 +1103,8 @@ mod tests {
             Vec2::new(900.0, 180.0),
             Vec2::new(0.0, 1.0),
         );
-        let config = PortalViewConeConfig::default();
+        let mut config = PortalViewConeConfig::default();
+        config.aperture_los_quality = PortalApertureLosQuality::Medium;
         let full_dist = config.half_plane_preview_full_distance;
         let start_dist = full_dist + config.half_plane_preview_blend_distance;
 
@@ -1156,7 +1173,7 @@ mod tests {
     }
 
     #[test]
-    fn exact_mode_uses_los_geometry_without_preview_half_plane() {
+    fn exact_mode_uses_los_geometry_without_bounded_preview() {
         let world = Vec2::new(1600.0, 900.0);
         let enter = placed(
             PortalGunColor::BLUE.channel(),
@@ -1168,7 +1185,8 @@ mod tests {
             Vec2::new(900.0, 180.0),
             Vec2::new(0.0, 1.0),
         );
-        let default_config = PortalViewConeConfig::default();
+        let mut default_config = PortalViewConeConfig::default();
+        default_config.aperture_los_quality = PortalApertureLosQuality::Medium;
         let mut exact_config = default_config.clone();
         exact_config.half_plane_preview_full_distance = 0.0;
         let viewer = PortalViewer {
@@ -1184,9 +1202,11 @@ mod tests {
         let preview_span = span_x(&preview.wedge);
 
         assert_eq!(exact.target, 1.0);
+        assert_eq!(exact.debug.half_plane_preview_alpha, 0.0);
+        assert!(preview.debug.half_plane_preview_alpha > 0.0);
         assert!(
-            preview_span > exact_span * 10.0,
-            "default preview should approach the half-plane, while exact mode stays on LOS geometry: exact={exact_span}, preview={preview_span}",
+            preview_span <= default_config.half_plane_preview_max_lateral * 2.0 + 1e-3,
+            "default preview should respect half_plane_preview_max_lateral: exact={exact_span}, preview={preview_span}",
         );
     }
 
@@ -1203,7 +1223,8 @@ mod tests {
             Vec2::new(900.0, 180.0),
             Vec2::new(0.0, 1.0),
         );
-        let config = PortalViewConeConfig::default();
+        let mut config = PortalViewConeConfig::default();
+        config.aperture_los_quality = PortalApertureLosQuality::Medium;
         let centered_viewer = PortalViewer {
             present: true,
             eye: enter.pos + enter.normal * (config.half_plane_preview_full_distance * 0.5),
@@ -1225,9 +1246,11 @@ mod tests {
         let off_axis_span = span_x(&off_axis.wedge);
 
         assert_eq!(off_axis.target, 1.0);
+        assert!(centered.debug.half_plane_preview_alpha > 0.0);
+        assert_eq!(off_axis.debug.half_plane_preview_alpha, 0.0);
         assert!(
-            centered_span > off_axis_span * 10.0,
-            "being close to the infinite portal plane is not enough for the half-plane preview: centered={centered_span}, off_axis={off_axis_span}",
+            centered_span <= config.half_plane_preview_max_lateral * 2.0 + 1e-3,
+            "centered half-plane preview should stay bounded: centered={centered_span}, off_axis={off_axis_span}",
         );
     }
 
@@ -1291,7 +1314,8 @@ mod tests {
             Vec2::new(2792.0, 248.0),
             Vec2::new(-1.0, 0.0),
         );
-        let config = PortalViewConeConfig::default();
+        let mut config = PortalViewConeConfig::default();
+        config.aperture_los_quality = PortalApertureLosQuality::Medium;
         let viewer = PortalViewer {
             present: true,
             eye: enter.pos - enter.normal * 0.5,
@@ -1317,15 +1341,15 @@ mod tests {
             .iter()
             .map(|p| p.y)
             .fold(f32::NEG_INFINITY, f32::max);
-        assert!(
-            min_y < -world.y && max_y > world.y * 2.0,
-            "just-behind doorway cone should still expand to the vertical half-plane, y span {min_y}..{max_y}",
-        );
-        let far_depth = enter.pos.x - plan.wedge.entry_quad[2].x;
         let far_span = max_y - min_y;
         assert!(
-            far_span > far_depth * 32.0,
-            "just-behind doorway side rays should be nearly parallel to the surface, not a 45-degree cone: far_span={far_span}, far_depth={far_depth}",
+            far_span <= config.half_plane_preview_max_lateral * 2.0 + 1e-3,
+            "just-behind doorway cone should respect half_plane_preview_max_lateral, y span {min_y}..{max_y}",
+        );
+        let far_depth = enter.pos.x - plan.wedge.entry_quad[2].x;
+        assert!(
+            far_span > far_depth,
+            "bounded just-behind doorway preview should still be wider than a 45-degree cone: far_span={far_span}, far_depth={far_depth}",
         );
     }
 }

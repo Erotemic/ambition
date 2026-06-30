@@ -11,10 +11,12 @@ mod enabled {
     use ambition_gameplay_core::dev::dev_tools::inspector_visible;
     #[cfg(feature = "portal_render")]
     use ambition_gameplay_core::portal::{
-        PortalApertureLosQuality, PortalCameraContinuityConfig, PortalCameraContinuitySelection,
-        PortalCameraTransitMode, PortalEffectSelection, PortalViewConeConfig,
-        PortalViewConeDebugDumpRequest, PortalViewConeMode, PortalViewConeVisibilityMode,
-        PortalVisualEffect,
+        selected_portal_view_cone_debug_rows, PlacedPortal, PortalApertureLosQuality,
+        PortalCameraContinuityConfig, PortalCameraContinuityHostView,
+        PortalCameraContinuitySelection, PortalCameraTransitMode, PortalEffectSelection,
+        PortalViewConeConfig, PortalViewConeDebugDumpRequest, PortalViewConeMode,
+        PortalViewConeSourceClipPolicy, PortalViewConeVisibilityMode, PortalViewer,
+        PortalVisualEffect, PortalWorldFrame,
     };
     use ambition_gameplay_core::portal::{PortalConvention, PortalTuning};
     use bevy::prelude::*;
@@ -260,7 +262,7 @@ mod enabled {
             .default_open(true)
             .show(ui, |ui| {
                 let mut request_dump = false;
-                {
+                let debug_config = {
                     let Some(mut config) = world.get_resource_mut::<PortalViewConeConfig>() else {
                         missing_resource(ui, "PortalViewConeConfig");
                         return;
@@ -298,6 +300,12 @@ mod enabled {
                                 "aperture_los_quality",
                                 &mut config.aperture_los_quality,
                                 "Aperture LOS quality. Low is the original single center ray per viewer corner. Medium samples the left endpoint, center, and right endpoint, then averages visible samples.",
+                            );
+                            source_clip_policy_row(
+                                ui,
+                                "source_clip_policy",
+                                &mut config.source_clip_policy,
+                                "Policy for reconciling plan.wedge.source with the final source rect used by mesh UVs and the capture camera.",
                             );
                         });
                 });
@@ -527,6 +535,34 @@ mod enabled {
                             request_dump = true;
                         }
                     });
+                    config.clone()
+                };
+
+                let viewer = world.get_resource::<PortalViewer>().cloned();
+                let frame = world.get_resource::<PortalWorldFrame>().copied();
+                let host_view = world.get_resource::<PortalCameraContinuityHostView>().cloned();
+                let portals: Vec<PlacedPortal> =
+                    world.query::<&PlacedPortal>().iter(world).copied().collect();
+                if let Some(frame) = frame {
+                    ui.collapsing("Debug Selected Pair", |ui| {
+                        egui::Grid::new("portal_view_cones_selected_pair_debug_grid")
+                            .num_columns(3)
+                            .spacing([14.0, 4.0])
+                            .min_col_width(300.0)
+                            .show(ui, |ui| {
+                                for row in selected_portal_view_cone_debug_rows(
+                                    &debug_config,
+                                    viewer.as_ref(),
+                                    &frame,
+                                    host_view.as_ref(),
+                                    &portals,
+                                ) {
+                                    read_only_text_row(
+                                        ui, &row.label, &row.value, row.units, row.help,
+                                    );
+                                }
+                            });
+                    });
                 }
 
                 if request_dump {
@@ -545,6 +581,10 @@ mod enabled {
     }
 
     fn field_label(ui: &mut egui::Ui, label: &'static str, help: &'static str) {
+        field_label_text(ui, label, help);
+    }
+
+    fn field_label_text(ui: &mut egui::Ui, label: &str, help: &str) {
         ui.horizontal(|ui| {
             ui.label(label).on_hover_text(help);
             ui.label(egui::RichText::new("?").small())
@@ -562,6 +602,20 @@ mod enabled {
     ) {
         field_label(ui, label, help);
         ui.add(egui::DragValue::new(value).speed(speed))
+            .on_hover_text(help);
+        ui.label(units).on_hover_text(help);
+        ui.end_row();
+    }
+
+    fn read_only_text_row(
+        ui: &mut egui::Ui,
+        label: &str,
+        value: &str,
+        units: &'static str,
+        help: &'static str,
+    ) {
+        field_label_text(ui, label, help);
+        ui.add_enabled(false, egui::Label::new(value))
             .on_hover_text(help);
         ui.label(units).on_hover_text(help);
         ui.end_row();
@@ -849,6 +903,38 @@ mod enabled {
                     .on_hover_text("One line-of-sight ray per viewer corner, aimed at the lifted aperture center.");
                 ui.selectable_value(value, PortalApertureLosQuality::Medium, "Medium")
                     .on_hover_text("Three line-of-sight rays per viewer corner: left endpoint, center, and right endpoint.");
+            })
+            .response
+            .on_hover_text(help);
+        ui.label("");
+        ui.end_row();
+    }
+
+    #[cfg(feature = "portal_render")]
+    fn source_clip_policy_row(
+        ui: &mut egui::Ui,
+        label: &'static str,
+        value: &mut PortalViewConeSourceClipPolicy,
+        help: &'static str,
+    ) {
+        field_label(ui, label, help);
+        egui::ComboBox::from_id_salt("portal_source_clip_policy_combo")
+            .selected_text((*value).label())
+            .show_ui(ui, |ui| {
+                for policy in PortalViewConeSourceClipPolicy::ALL {
+                    ui.selectable_value(value, policy, policy.label())
+                        .on_hover_text(match policy {
+                            PortalViewConeSourceClipPolicy::AllowClip => {
+                                "Diagnostic escape hatch: build from the planned entry quad even when it extends outside the active frame."
+                            }
+                            PortalViewConeSourceClipPolicy::ClampToFrame => {
+                                "Default: clip the final entry polygon to the active frame, then derive mesh UVs and camera source rect from the same final source."
+                            }
+                            PortalViewConeSourceClipPolicy::FitToFrame => {
+                                "Explicit fitting label for future aspect-preserving behavior; currently uses the coherent clamp-to-frame source path."
+                            }
+                        });
+                }
             })
             .response
             .on_hover_text(help);

@@ -170,12 +170,6 @@ pub struct CharacterCatalogEntry {
     /// hardcoded `*_SHEET` statics in `character_sprites/sheets.rs`.
     #[serde(default)]
     pub sprite_tuning: Option<SpriteTuningSpec>,
-    /// Explicit sheet-manifest record key when this character renders
-    /// with ANOTHER character's sheet (the four standard pirates share
-    /// the admiral's; the oni leader shares the duelist's). `None` =
-    /// derive from this row's own `manifest` filename.
-    #[serde(default)]
-    pub sprite_target: Option<String>,
     /// Speech-bubble lines for this character, keyed by occasion. Defaults
     /// to all-empty (silent). The single source of truth for a character's
     /// voice — supersedes the hardcoded `features::npcs` match tables and the
@@ -195,12 +189,13 @@ pub struct CharacterCatalogEntry {
 impl CharacterCatalogEntry {
     /// The sheet-manifest record key for this character: the manifest
     /// filename root (e.g. `sprites/pirate_admiral_spritesheet.ron`
-    /// -> `pirate_admiral`). This is how multiple catalog ids (the
-    /// four standard pirates) share one generated sheet.
+    /// -> `pirate_admiral`). Multiple catalog ids that point at the SAME
+    /// `manifest` path share one generated sheet (texture + record both);
+    /// each character with its own art reads its own manifest. (Cross-id
+    /// atlas borrowing was removed — it broke once sheets became
+    /// per-frame alpha-trimmed: own texture + a foreign sheet's rects
+    /// misaligned the animation.)
     pub fn manifest_target(&self) -> Option<&str> {
-        if let Some(target) = self.sprite_target.as_deref() {
-            return Some(target);
-        }
         let file = self.manifest.rsplit('/').next()?;
         file.strip_suffix("_spritesheet.ron")
     }

@@ -207,9 +207,11 @@ fn every_spritesheet_ron_parses_into_sheet_record() {
 /// Transcription oracle for the Stage 20 / B3 catalog-tuning migration:
 /// the data-driven `sheet_for_character_id` must reproduce EXACTLY the
 /// tuning the old hardcoded `*_SHEET` statics carried (values
-/// transcribed here from the deleted sheets.rs constants). Shared-sheet
-/// ids (standard pirates -> admiral, oni leader -> duelist) must keep
-/// resolving the SHARED manifest record via `sprite_target`.
+/// transcribed here from the deleted sheets.rs constants). Each character
+/// must index its OWN published sheet: the former cross-id atlas borrow
+/// (`sprite_target`: standard pirates -> admiral, oni leader -> duelist)
+/// was removed because it misaligned the animation once sheets became
+/// per-frame alpha-trimmed (own texture + a foreign sheet's rects).
 #[test]
 fn catalog_tuning_reproduces_the_old_hardcoded_sheets() {
     // (id, collision_scale, frame_sample_inset)
@@ -253,25 +255,35 @@ fn catalog_tuning_reproduces_the_old_hardcoded_sheets() {
         );
     }
 
-    // Shared-sheet resolution: the standard pirates must render the
-    // ADMIRAL's sheet (identical frame geometry), not per-variant ones.
-    let admiral = sheet_for_character_id("npc_pirate_admiral").unwrap();
+    // Own-sheet resolution (regression guard for the removed `sprite_target`
+    // atlas borrow): each of these characters must index its OWN packed sheet,
+    // not the representative's. The idle frame-0 atlas rect is read from the
+    // resolved record, so borrowing the admiral's/duelist's rects (which trim
+    // to different widths) would make these rects equal the representative's.
+    let idle_rect = |id: &str| {
+        sheet_for_character_id(id)
+            .unwrap_or_else(|| panic!("{id} must resolve a sheet spec"))
+            .texture_rect_for_flat_index(0)
+            .unwrap_or_else(|| panic!("{id} idle frame 0 must have an atlas rect"))
+    };
+    let admiral_idle = idle_rect("npc_pirate_admiral");
     for id in [
         "npc_pirate_quartermaster",
         "npc_pirate_lookout",
         "npc_pirate_navigator",
     ] {
-        let spec = sheet_for_character_id(id).unwrap();
-        assert_eq!(
-            spec.frame_width, admiral.frame_width,
-            "{id} must share the admiral's sheet geometry"
+        assert_ne!(
+            idle_rect(id),
+            admiral_idle,
+            "{id} must index its own packed sheet, not the admiral's \
+             (cross-id atlas borrow regressed)",
         );
-        assert_eq!(spec.frame_height, admiral.frame_height);
     }
-    let duelist = sheet_for_character_id("npc_ninja_shadow_duelist").unwrap();
-    let oni = sheet_for_character_id("npc_ninja_shadow_oni_leader").unwrap();
-    assert_eq!(oni.frame_width, duelist.frame_width);
-    assert_eq!(oni.frame_height, duelist.frame_height);
+    assert_ne!(
+        idle_rect("npc_ninja_shadow_oni_leader"),
+        idle_rect("npc_ninja_shadow_duelist"),
+        "oni leader must index its own packed sheet, not the duelist's",
+    );
 }
 
 // Catalog<->sheet integration tests, moved from actor::character_catalog

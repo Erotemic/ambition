@@ -367,7 +367,6 @@
         hall_dialogue_id: Some("hall_npc_pirate_raider"),
         ),
         "npc_pirate_quartermaster": (
-            sprite_target: Some("pirate_admiral"),
             sprite_tuning: Some((collision_scale: 1.6, frame_sample_inset: 1)),
             display_name: "Pirate Quartermaster",
             spritesheet: "sprites/pirate_quartermaster_spritesheet.png",
@@ -386,7 +385,6 @@
         hall_dialogue_id: Some("hall_npc_pirate_quartermaster"),
         ),
         "npc_pirate_lookout": (
-            sprite_target: Some("pirate_admiral"),
             sprite_tuning: Some((collision_scale: 1.6, frame_sample_inset: 1)),
             display_name: "Pirate Lookout",
             spritesheet: "sprites/pirate_lookout_spritesheet.png",
@@ -405,7 +403,6 @@
         hall_dialogue_id: Some("hall_npc_pirate_lookout"),
         ),
         "npc_pirate_navigator": (
-            sprite_target: Some("pirate_admiral"),
             sprite_tuning: Some((collision_scale: 1.6, frame_sample_inset: 1)),
             display_name: "Pirate Navigator",
             spritesheet: "sprites/pirate_navigator_spritesheet.png",
@@ -595,7 +592,6 @@
 
         // ===== Ninja dojo.
         "npc_ninja_shadow_oni_leader": (
-            sprite_target: Some("ninja_shadow_duelist"),
             display_name: "Shadow Oni Leader",
             spritesheet: "sprites/ninja_shadow_oni_leader_spritesheet.png",
             manifest: "sprites/ninja_shadow_oni_leader_spritesheet.ron",

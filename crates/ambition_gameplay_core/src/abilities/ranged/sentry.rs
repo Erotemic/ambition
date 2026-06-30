@@ -16,10 +16,9 @@ use bevy::prelude::*;
 
 use crate::actor::BodyKinematics;
 use crate::actor::BodyMana;
-use crate::actor::{PlayerEntity, PrimaryPlayer};
 use crate::enemy_projectile::EnemyProjectileSpawn;
 use crate::features::{ActorFaction, CenteredAabb, FeatureSimEntity, HeldItem};
-use crate::player::PlayerInputFrame;
+use ambition_characters::brain::ActorControl;
 use ambition_engine_core as ae;
 
 /// Held-item id of the sentry gauntlet.
@@ -47,42 +46,43 @@ pub struct Sentry {
     pub fire_cooldown: f32,
 }
 
-/// `Attack` while holding the sentry gauntlet drops a [`Sentry`] at the player's
-/// feet. Plain Attack only — `Shield + Attack` drops the item (the id is
+/// `Attack` while holding the sentry gauntlet drops a [`Sentry`] at the wielding
+/// body's feet. Plain Attack only — `Shield + Attack` drops the item (the id is
 /// `UseSystem`).
+///
+/// Body-generic: gated on the body's own resolved intent ([`ActorControl`], the
+/// same frame an NPC brain writes) and iterating every wielder, so a
+/// possessed/robot body holding the gauntlet deploys through this exact path.
+/// `BodyMana` is the implicit gate (player-only today).
 pub fn fire_sentry_system(
-    mut players: Query<
-        (&PlayerInputFrame, &BodyKinematics, &HeldItem, &mut BodyMana),
-        (With<PlayerEntity>, With<PrimaryPlayer>),
-    >,
+    mut wielders: Query<(&ActorControl, &BodyKinematics, &HeldItem, &mut BodyMana)>,
     mut commands: Commands,
     mut sfx: MessageWriter<crate::audio::SfxMessage>,
 ) {
-    let Ok((input, kin, held, mut mana)) = players.single_mut() else {
-        return;
-    };
-    if !input.frame.attack_pressed || input.frame.shield_held {
-        return;
-    }
-    if held.spec.id != SENTRY_ID {
-        return;
-    }
-    if !mana.meter.try_spend(SENTRY_MANA_COST) {
-        return;
-    }
-    commands.spawn((
-        Sentry {
+    for (control, kin, held, mut mana) in &mut wielders {
+        if !control.0.melee_pressed || control.0.shield_held {
+            continue;
+        }
+        if held.spec.id != SENTRY_ID {
+            continue;
+        }
+        if !mana.meter.try_spend(SENTRY_MANA_COST) {
+            continue;
+        }
+        commands.spawn((
+            Sentry {
+                pos: kin.pos,
+                remaining_s: SENTRY_LIFETIME_S,
+                // A short arm delay before the first shot.
+                fire_cooldown: 0.25,
+            },
+            Name::new("Sentry turret"),
+        ));
+        sfx.write(crate::audio::SfxMessage::Play {
+            id: ambition_sfx::ids::WORLD_ROCK_HIT,
             pos: kin.pos,
-            remaining_s: SENTRY_LIFETIME_S,
-            // A short arm delay before the first shot.
-            fire_cooldown: 0.25,
-        },
-        Name::new("Sentry turret"),
-    ));
-    sfx.write(crate::audio::SfxMessage::Play {
-        id: ambition_sfx::ids::WORLD_ROCK_HIT,
-        pos: kin.pos,
-    });
+        });
+    }
 }
 
 /// Tick every sentry: age it out, and when its cadence is ready, fire one
@@ -199,16 +199,16 @@ mod tests {
             ActorFaction::Enemy,
         ));
         app.world_mut()
-            .get_mut::<PlayerInputFrame>(player)
+            .get_mut::<ActorControl>(player)
             .unwrap()
-            .frame
-            .attack_pressed = true;
+            .0
+            .melee_pressed = true;
         app.update(); // deploy (arm delay 0.25; dt 0.1 → not yet firing)
         app.world_mut()
-            .get_mut::<PlayerInputFrame>(player)
+            .get_mut::<ActorControl>(player)
             .unwrap()
-            .frame
-            .attack_pressed = false;
+            .0
+            .melee_pressed = false;
         // Tick until past the arm delay + a fire interval.
         for _ in 0..10 {
             app.update();
@@ -231,16 +231,16 @@ mod tests {
             ActorFaction::Enemy,
         ));
         app.world_mut()
-            .get_mut::<PlayerInputFrame>(player)
+            .get_mut::<ActorControl>(player)
             .unwrap()
-            .frame
-            .attack_pressed = true;
+            .0
+            .melee_pressed = true;
         app.update();
         app.world_mut()
-            .get_mut::<PlayerInputFrame>(player)
+            .get_mut::<ActorControl>(player)
             .unwrap()
-            .frame
-            .attack_pressed = false;
+            .0
+            .melee_pressed = false;
         for _ in 0..5 {
             app.update();
         }

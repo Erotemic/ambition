@@ -13,9 +13,8 @@ use bevy::prelude::*;
 
 use crate::actor::BodyKinematics;
 use crate::actor::BodyMana;
-use crate::actor::{PlayerEntity, PrimaryPlayer};
 use crate::features::HeldItem;
-use crate::player::PlayerInputFrame;
+use ambition_characters::brain::ActorControl;
 use ambition_engine_core as ae;
 
 /// Held-item id of the shockwave gauntlet.
@@ -33,55 +32,51 @@ const SHOCKWAVE_LIFETIME_S: f32 = 0.18;
 const SHOCKWAVE_KNOCKBACK: f32 = 1.3;
 
 /// `Attack` while holding the shockwave gauntlet emits a `DamageBox` effect from
-/// the **player**. Plain Attack only — `Shield + Attack` is the throw/drop
+/// the **wielding body**. Plain Attack only — `Shield + Attack` is the throw/drop
 /// gesture (handled by `item_pickup::throw_held_item_system`, which excludes
 /// this id from throw-on-plain-Attack).
+///
+/// Body-generic: the trigger reads the body's own resolved intent
+/// ([`ActorControl`], the same frame an NPC brain writes) rather than the
+/// player's raw input, and iterates every wielder. `BodyMana` is the implicit
+/// gate (player-only today), so a possessed/robot body that gains mana + this
+/// gauntlet slams through this exact path — no player-casing.
 pub fn fire_shockwave_system(
     gravity: crate::physics::GravityCtx,
-    mut players: Query<
-        (
-            Entity,
-            &PlayerInputFrame,
-            &HeldItem,
-            &BodyKinematics,
-            &mut BodyMana,
-        ),
-        (With<PlayerEntity>, With<PrimaryPlayer>),
-    >,
+    mut wielders: Query<(Entity, &ActorControl, &HeldItem, &BodyKinematics, &mut BodyMana)>,
     mut effects: MessageWriter<crate::effects::EffectRequest>,
     mut sfx: MessageWriter<crate::audio::SfxMessage>,
 ) {
-    let Ok((entity, input, held, kin, mut mana)) = players.single_mut() else {
-        return;
-    };
-    if !input.frame.attack_pressed || input.frame.shield_held {
-        return;
+    for (entity, control, held, kin, mut mana) in &mut wielders {
+        if !control.0.melee_pressed || control.0.shield_held {
+            continue;
+        }
+        if held.spec.id != SHOCKWAVE_ID {
+            continue;
+        }
+        // Costs mana — out of mana, no slam (the sandbox's fast regen tops it back up).
+        if !mana.meter.try_spend(SHOCKWAVE_MANA_COST) {
+            continue;
+        }
+        let gravity_dir = gravity.dir_at(kin.pos);
+        let half_extent = ae::AccelerationFrame::new(gravity_dir).to_world_half(SHOCKWAVE_HALF);
+        effects.write(crate::effects::EffectRequest {
+            owner: entity,
+            effect: crate::effects::Effect::DamageBox(crate::effects::DamageBoxEffect {
+                center: kin.pos,
+                faction: crate::features::ActorFaction::Player,
+                half_extent,
+                damage: SHOCKWAVE_DAMAGE,
+                knockback: SHOCKWAVE_KNOCKBACK,
+                lifetime_s: SHOCKWAVE_LIFETIME_S,
+                name: Some("Shockwave AOE"),
+            }),
+        });
+        sfx.write(crate::audio::SfxMessage::Play {
+            id: ambition_sfx::ids::WORLD_ROCK_HIT,
+            pos: kin.pos,
+        });
     }
-    if held.spec.id != SHOCKWAVE_ID {
-        return;
-    }
-    // Costs mana — out of mana, no slam (the sandbox's fast regen tops it back up).
-    if !mana.meter.try_spend(SHOCKWAVE_MANA_COST) {
-        return;
-    }
-    let gravity_dir = gravity.dir_at(kin.pos);
-    let half_extent = ae::AccelerationFrame::new(gravity_dir).to_world_half(SHOCKWAVE_HALF);
-    effects.write(crate::effects::EffectRequest {
-        owner: entity,
-        effect: crate::effects::Effect::DamageBox(crate::effects::DamageBoxEffect {
-            center: kin.pos,
-            faction: crate::features::ActorFaction::Player,
-            half_extent,
-            damage: SHOCKWAVE_DAMAGE,
-            knockback: SHOCKWAVE_KNOCKBACK,
-            lifetime_s: SHOCKWAVE_LIFETIME_S,
-            name: Some("Shockwave AOE"),
-        }),
-    });
-    sfx.write(crate::audio::SfxMessage::Play {
-        id: ambition_sfx::ids::WORLD_ROCK_HIT,
-        pos: kin.pos,
-    });
 }
 
 #[cfg(test)]
@@ -101,14 +96,15 @@ mod tests {
         app
     }
 
-    /// Stamp `attack_pressed` onto the actor-local input frame (the
-    /// shockwave system reads `PlayerInputFrame`, not `Res<ControlFrame>`).
+    /// Stamp `melee_pressed` onto the body's resolved intent (the shockwave
+    /// system reads the body-generic `ActorControl`, not `PlayerInputFrame` or
+    /// `Res<ControlFrame>`).
     fn press_attack(app: &mut App, player: Entity) {
         app.world_mut()
-            .get_mut::<PlayerInputFrame>(player)
+            .get_mut::<ActorControl>(player)
             .unwrap()
-            .frame
-            .attack_pressed = true;
+            .0
+            .melee_pressed = true;
     }
 
     fn shockwave_count(app: &mut App) -> usize {

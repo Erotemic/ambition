@@ -171,6 +171,75 @@ mod tests {
         );
     }
 
+    /// An OWNERLESS shot (orphaned firer, or a truly ownerless volley) is
+    /// INDISCRIMINATE — it hurts every body it overlaps, even one a faction-owned
+    /// shot would spare. Pins it against an Enemy actor: an Enemy-OWNED shot would
+    /// pass a fellow Enemy by (`can_damage(Enemy, Enemy) == false`), but an
+    /// ownerless one has no ally to spare, so it lands.
+    #[test]
+    fn an_ownerless_shot_damages_a_same_faction_actor_indiscriminately() {
+        use crate::enemy_projectile::test_support::spawn_ownerless_projectile;
+        let mut app = App::new();
+        app.insert_resource(crate::RoomGeometry(ae::World::new(
+            "phys",
+            ae::Vec2::new(800.0, 800.0),
+            ae::Vec2::new(400.0, 400.0),
+            vec![],
+        )));
+        app.insert_resource(crate::WorldTime {
+            raw_dt: 1.0 / 60.0,
+            scaled_dt: 1.0 / 60.0,
+        });
+        app.add_message::<HitEvent>();
+        app.add_message::<SfxMessage>();
+        app.add_message::<VfxMessage>();
+        app.add_message::<crate::player::PlayerHealRequested>();
+        app.init_resource::<ProjectileSeqCounter>();
+        app.init_resource::<CapturedHits>();
+        app.init_resource::<crate::features::FeatureEcsWorldOverlay>();
+        app.init_resource::<crate::trace::GameplayTraceBuffer>();
+        app.add_systems(
+            Update,
+            (crate::projectile::step_projectiles, capture_hits).chain(),
+        );
+
+        let actor_pos = ae::Vec2::new(300.0, 100.0);
+        let enemy = app
+            .world_mut()
+            .spawn((
+                crate::features::FeatureSimEntity,
+                crate::features::FeatureId::new("enemy_bystander"),
+                crate::features::CenteredAabb::new(actor_pos, ae::Vec2::new(16.0, 24.0)),
+                crate::combat::components::ActorFaction::Enemy,
+            ))
+            .id();
+        // An OWNERLESS shot already overlapping the Enemy actor.
+        spawn_ownerless_projectile(
+            &mut app,
+            EnemyProjectileSpawn {
+                origin: actor_pos,
+                dir: ae::Vec2::new(1.0, 0.0),
+                speed: 200.0,
+                damage: 3,
+                max_lifetime: 2.0,
+                half_extent: ae::Vec2::new(8.0, 8.0),
+                owner_id: String::new(),
+                gravity: 0.0,
+                visual_tag: 0,
+            },
+        );
+
+        app.update();
+
+        let cap = app.world().resource::<CapturedHits>();
+        assert!(
+            cap.0
+                .iter()
+                .any(|e| matches!(e.target, crate::features::HitTarget::Actor(a) if a == enemy)),
+            "an ownerless shot hits the Enemy actor a faction-owned Enemy shot would spare"
+        );
+    }
+
     // ── S3e: relational actor-vs-actor projectiles ──────────────────────────
 
     /// Build a headless app wired for `step_projectiles` with the given relations.

@@ -523,13 +523,15 @@ pub fn step_projectiles(
         let visual_kind = visual_kind.copied().unwrap_or_default();
         let owner_entity = owner.map(|o| o.0);
         // The firer's real faction — the OWNER's, not the shot's stored label.
-        // Ownerless volleys (string-`ProjectileOwnerId`-owned) fall back to Enemy,
-        // preserving today's hostile-volley behavior. A Player-faction firer's shot
-        // is the player's universal attack (hits breakables/actors/bosses); any
-        // other firer's shot is a hostile shot (damages the player + relational foes).
-        let firer_faction = owner_entity
-            .and_then(|e| owner_factions.get(e).ok().copied())
-            .unwrap_or(ActorFaction::Enemy);
+        // `None` = OWNERLESS (a truly ownerless volley, or a shot whose firer
+        // despawned mid-flight): there is no one to be friendly to, so it becomes
+        // INDISCRIMINATE — environmental damage that hurts every body it overlaps,
+        // friend or foe. A Player-faction firer's shot is the player's universal
+        // attack (hits breakables/actors/bosses); any other firer's shot is hostile
+        // (damages the player + relational foes).
+        let firer_faction: Option<ActorFaction> =
+            owner_entity.and_then(|e| owner_factions.get(e).ok().copied());
+        let indiscriminate = firer_faction.is_none();
 
         // Tick + lifetime. A dead lasersword detonates; everything else logs an
         // Expired trace event.
@@ -557,8 +559,9 @@ pub fn step_projectiles(
 
         // Damage routed by the FIRER's real faction (the owner's), not a label on
         // the shot. A Player-faction firer's shot is the player's universal attack;
-        // any other firer's shot is hostile (damages the player + relational foes).
-        if firer_faction == ActorFaction::Player {
+        // any other firer's shot (or an OWNERLESS, indiscriminate one) damages the
+        // player + actors.
+        if firer_faction == Some(ActorFaction::Player) {
             let hit_event = HitEvent {
                 volume: kin.aabb().into(),
                 damage: game.damage.max(1),
@@ -590,16 +593,20 @@ pub fn step_projectiles(
                 continue;
             }
         } else {
-            // A hostile shot (fired by any non-Player faction): it damages the
-            // player it overlaps (`can_damage` different-faction) + any relational
-            // actor-foe of the firer. `firer_faction` is the loop-level lookup.
+            // A hostile shot (any non-Player firer) OR an OWNERLESS indiscriminate
+            // shot. It damages the player it overlaps + actors. With a firer, the
+            // `can_damage` (different-faction) rule decides who; an indiscriminate
+            // shot bypasses that — it hurts everyone, there is no ally to spare.
             let mut hit_any_player = false;
             let mut reflected = false;
             // Damage is physical: a shot hits the player if it's a different
             // faction from the firer (so a duel's stray catches the observer);
             // only a same-faction firer (co-op) passes them by, unless friendly
-            // fire is on. Whether the firer AIMED at the player is separate.
-            let can_hit_player = can_damage(firer_faction, ActorFaction::Player, friendly_fire);
+            // fire is on. An ownerless shot always can (indiscriminate).
+            let can_hit_player = indiscriminate
+                || firer_faction.is_some_and(|f| {
+                    can_damage(f, ActorFaction::Player, friendly_fire)
+                });
             for (player_entity, player_kin, offense, dodge, shield, combat) in &player_body_q {
                 if !can_hit_player {
                     break;
@@ -680,7 +687,12 @@ pub fn step_projectiles(
                 if Some(victim_entity) == owner_entity {
                     continue;
                 }
-                if !can_damage(firer_faction, *victim_faction, friendly_fire) {
+                // An owned shot damages a faction-foe (or any different faction);
+                // an indiscriminate (ownerless) shot damages every actor it overlaps.
+                let can_hit = indiscriminate
+                    || firer_faction
+                        .is_some_and(|f| can_damage(f, *victim_faction, friendly_fire));
+                if !can_hit {
                     continue;
                 }
                 if !kin.aabb().strict_intersects(victim_aabb.aabb()) {

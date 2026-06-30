@@ -53,6 +53,31 @@ pub(crate) fn spawn_enemy_projectile(
     ));
 }
 
+/// Spawn an OWNERLESS in-flight projectile (no `ProjectileOwner`) — an orphaned /
+/// truly-ownerless shot. Damage routing treats it as INDISCRIMINATE (it hurts every
+/// body it overlaps, friend or foe), since there is no firer faction to be friendly
+/// to. Used to pin that behavior distinct from a faction-owned shot.
+pub(crate) fn spawn_ownerless_projectile(app: &mut App, request: EnemyProjectileSpawn) {
+    // The faction passed to `build` only sets the now-vestigial `game.faction`
+    // label; routing ignores it (no owner → indiscriminate).
+    let projectile = EnemyProjectileState::build(request, ProjectileFaction::Enemy);
+    let seq = {
+        let mut counter = app
+            .world_mut()
+            .get_resource_or_insert_with(ProjectileSeqCounter::default);
+        counter.next()
+    };
+    app.world_mut().spawn((
+        projectile.body.kin,
+        projectile.body.game,
+        seq,
+        ProjectileOwnerId(projectile.owner_id),
+        crate::projectile::LiveProjectile,
+        EnemyProjectile,
+        Name::new("Ownerless projectile (test)"),
+    ));
+}
+
 /// Collect the in-flight enemy projectile bodies, sorted by spawn sequence
 /// (oldest first) — the same order the old `EnemyProjectileState.bodies` Vec
 /// presented. Recomposes an [`crate::projectile::InFlightProjectile`] from the

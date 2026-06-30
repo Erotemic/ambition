@@ -161,12 +161,18 @@ pub enum CharacterAnim {
     /// quick `jab` (which aliases to `Slash`). The Perfect Cell-ular
     /// Automaton sheet ships both; the mechanical fast/heavy distinction
     /// lives in the actor's `ActionSet` melee spec, while the sprite
-    /// distinguishes the two reads. Auto-routed by `pick_actor_anim` when
-    /// the actor's active melee verb is the heavy one.
+    /// distinguishes the two reads. Not yet auto-routed: `BodyMelee`/`AttackSpec`
+    /// carry the swing's directional intent but no per-swing heavy tag, so the
+    /// picker reads the directional swing (→ `Slash` after the anim-set walk for a
+    /// `jab`-only sheet). The row lives on the sheet so a future heavy melee verb
+    /// lights it up with zero picker change.
     Punch = 43,
     /// Charge→thrust "special" pose (kamehameha-style wind-up + release).
-    /// Generator row `special`. Drives the glider zoning verb. Auto-routed
-    /// by `pick_actor_anim` while `ActorAnimState::special_active` is set.
+    /// Generator row `special`. Drives the glider zoning verb. Not yet
+    /// auto-routed: no actor cluster carries a "special active" flag today (the
+    /// brain emits the verb as a one-shot `ActorActionMessage`); the `special`
+    /// field on [`BodyAnimView`] is wired into the ladder so the moment that state
+    /// surfaces on a cluster the picker reads it.
     Special = 44,
 }
 
@@ -573,6 +579,90 @@ pub fn pick_body_anim(v: &BodyAnimView) -> CharacterAnim {
     }
 }
 
+/// Resolve a [`BodyLedgeState`] into the visual ledge read (`None` ⇒ not on a
+/// ledge): a held hang is `Grab`; once committed the getup-kind selects the
+/// climb / roll / attack getup. SHARED by every body — the player and any actor
+/// that grows a ledge-grab limb route through this one mapping.
+fn ledge_read(ledge: &crate::actor::BodyLedgeState) -> Option<LedgeRead> {
+    ledge.grab.as_ref().map(|s| {
+        if !s.climbing {
+            LedgeRead::Grab
+        } else {
+            match s.getup_kind {
+                ae::LedgeGetupKind::Climb => LedgeRead::Getup,
+                ae::LedgeGetupKind::Roll => LedgeRead::Roll,
+                ae::LedgeGetupKind::Attack => LedgeRead::GetupAttack,
+            }
+        }
+    })
+}
+
+/// Map the engine `BodyMode` subset that owns a compact-silhouette sprite row.
+fn compact_from_mode(mode: ambition_engine_core::player_state::BodyMode) -> CompactBody {
+    use ambition_engine_core::player_state::BodyMode;
+    match mode {
+        BodyMode::Sliding => CompactBody::Slide,
+        BodyMode::Crawling => CompactBody::Crawl,
+        BodyMode::Crouching => CompactBody::Crouch,
+        _ => CompactBody::None,
+    }
+}
+
+/// Fill every [`BodyAnimView`] field that is derived purely from the shared
+/// `Body*` movement/ability clusters — the reads that are IDENTICAL for every
+/// body, player or brain-driven actor. This is the convergence seam: whatever
+/// state a body's brain drives its real clusters into (a dash, a blink, flight,
+/// a shield, a ladder climb, a wall-grab, a crouch/slide) animates the same way
+/// for everyone, because everyone reads it here.
+///
+/// The per-archetype adapter ([`pick_player_anim`] / [`pick_actor_anim`]) then
+/// overlays the fields this builder deliberately leaves at their inert defaults:
+/// the `dead` / `hit` source (player combat-cluster vs actor status), the melee
+/// row, the presentation-timer reads the player feeds itself (shoot / aim /
+/// wall-jump / interact / dash-startup / landing / blink-in), and the locomotion
+/// metric + speed thresholds. `speed` is seeded with the grounded metric
+/// (`|vx|`); an aerial adapter overrides it with total speed.
+pub fn body_view_from_clusters(
+    kinematics: &crate::actor::BodyKinematics,
+    ground: &crate::actor::BodyGroundState,
+    wall: &crate::actor::BodyWallState,
+    blink: &crate::actor::BodyBlinkState,
+    flight: &crate::actor::BodyFlightState,
+    dash: &crate::actor::BodyDashState,
+    ledge: &crate::actor::BodyLedgeState,
+    body_mode: &crate::actor::BodyModeState,
+    env_contact: &crate::actor::BodyEnvironmentContact,
+    abilities: &crate::actor::BodyAbilities,
+    dodge: &crate::actor::BodyDodgeState,
+    shield: &crate::actor::BodyShieldState,
+) -> BodyAnimView {
+    use ambition_engine_core::player_state::BodyMode;
+    BodyAnimView {
+        // The dodge↔ledge guard: a roll that is part of a ledge getup keeps the
+        // dedicated `LedgeRoll` row instead of the grounded `DodgeRoll`.
+        dodge_roll: dodge.roll_timer > 0.0 && ledge.grab.is_none(),
+        blocking: shield.active && abilities.abilities.shield,
+        blink_out: blink.aiming || blink.hold_active,
+        ledge: ledge_read(ledge),
+        flying: flight.fly_enabled,
+        swimming: env_contact.water.is_some() && abilities.abilities.swim,
+        dashing: dash.timer > 0.0,
+        // High-priority climb (ladder/vine) vs the low-priority compact silhouette
+        // (slide/crawl/crouch) are distinct fields checked at distinct priorities.
+        ladder_climbing: matches!(body_mode.body_mode, BodyMode::Climbing),
+        wall_grab: !ground.on_ground
+            && wall.wall_clinging
+            && !wall.wall_climbing
+            && kinematics.vel.y.abs() < 40.0,
+        gliding: flight.gliding,
+        airborne: !ground.on_ground,
+        moving_up: kinematics.vel.y < -10.0, // top-left coords: vel.y < 0 = up
+        compact: compact_from_mode(body_mode.body_mode),
+        speed: kinematics.vel.x.abs(),
+        ..Default::default()
+    }
+}
+
 #[allow(clippy::too_many_arguments)]
 pub fn pick_player_anim(
     anim: &PlayerAnimState,
@@ -592,64 +682,37 @@ pub fn pick_player_anim(
     dodge: &crate::actor::BodyDodgeState,
     shield: &crate::actor::BodyShieldState,
 ) -> CharacterAnim {
-    use ambition_engine_core::player_state::BodyMode;
-    // The player fills the FULL view from its Body* clusters; the shared
-    // `pick_body_anim` ladder owns the priority ordering. Every field below is
-    // the exact predicate the old per-branch ladder used — gates (the dodge↔ledge
-    // guard) and thresholds preserved. Two reads that were checked at different
-    // priorities map to distinct fields: `ladder_climbing` (BodyMode::Climbing,
-    // high) vs `compact` (Slide/Crawl/Crouch, low).
-    let ledge_read = ledge.grab.as_ref().map(|s| {
-        if !s.climbing {
-            LedgeRead::Grab
-        } else {
-            match s.getup_kind {
-                ae::LedgeGetupKind::Climb => LedgeRead::Getup,
-                ae::LedgeGetupKind::Roll => LedgeRead::Roll,
-                ae::LedgeGetupKind::Attack => LedgeRead::GetupAttack,
-            }
-        }
-    });
-    let compact = match body_mode.body_mode {
-        BodyMode::Sliding => CompactBody::Slide,
-        BodyMode::Crawling => CompactBody::Crawl,
-        BodyMode::Crouching => CompactBody::Crouch,
-        _ => CompactBody::None,
-    };
-    pick_body_anim(&BodyAnimView {
-        dead: false,
-        hit: combat.hitstun_timer > 0.05,
-        dodge_roll: dodge.roll_timer > 0.0 && ledge.grab.is_none(),
-        blink_in: blink_cam.blink_in_timer > 0.0,
-        blocking: shield.active && abilities.abilities.shield,
-        special: false,
-        shooting: anim.shoot_anim_timer > 0.0,
-        melee_attack: (anim.slash_anim_timer > 0.0).then(|| directional_attack_anim(attack)),
-        aiming: anim.aim_anim_active,
-        wall_jump: anim.wall_jump_anim_timer > 0.0,
-        interacting: anim.interact_anim_timer > 0.0,
-        blink_out: blink.aiming || blink.hold_active,
-        ledge: ledge_read,
-        flying: flight.fly_enabled,
-        swimming: env_contact.water.is_some() && abilities.abilities.swim,
-        dash_startup: anim.dash_startup_timer > 0.0,
-        dashing: dash.timer > 0.0,
-        ladder_climbing: matches!(body_mode.body_mode, BodyMode::Climbing),
-        wall_grab: !ground.on_ground
-            && wall.wall_clinging
-            && !wall.wall_climbing
-            && kinematics.vel.y.abs() < 40.0,
-        gliding: flight.gliding,
-        airborne: !ground.on_ground,
-        moving_up: kinematics.vel.y < -10.0, // top-left coords: vel.y < 0 = up
-        landing: (anim.land_anim_timer > 0.0).then_some(anim.land_anim_hard),
-        compact,
-        locomotion: Locomotion::Grounded,
-        speed: kinematics.vel.x.abs(),
-        idle_below: 12.0,
-        run_above: Some(220.0),
-        fly_above: 0.0,
-    })
+    // Movement/ability fields come from the shared cluster builder (identical to
+    // every actor); the player overlays its combat-cluster hit read, its own
+    // presentation-timer reads, and its grounded thresholds. Each line below is
+    // the exact predicate the old per-branch ladder used.
+    let mut v = body_view_from_clusters(
+        kinematics,
+        ground,
+        wall,
+        blink,
+        flight,
+        dash,
+        ledge,
+        body_mode,
+        env_contact,
+        abilities,
+        dodge,
+        shield,
+    );
+    v.hit = combat.hitstun_timer > 0.05;
+    v.blink_in = blink_cam.blink_in_timer > 0.0;
+    v.shooting = anim.shoot_anim_timer > 0.0;
+    v.melee_attack = (anim.slash_anim_timer > 0.0).then(|| directional_attack_anim(attack));
+    v.aiming = anim.aim_anim_active;
+    v.wall_jump = anim.wall_jump_anim_timer > 0.0;
+    v.interacting = anim.interact_anim_timer > 0.0;
+    v.dash_startup = anim.dash_startup_timer > 0.0;
+    v.landing = (anim.land_anim_timer > 0.0).then_some(anim.land_anim_hard);
+    v.idle_below = 12.0;
+    v.run_above = Some(220.0);
+    v.fly_above = 0.0;
+    pick_body_anim(&v)
 }
 
 /// Map the active player attack intent onto the directional swing rows.
@@ -679,65 +742,97 @@ fn directional_attack_anim(attack: Option<&crate::MeleeSwing>) -> CharacterAnim 
     }
 }
 
-/// Per-frame state for ANY brain-driven actor's animation — "enemy" and "NPC"
-/// were never different animation contracts, just dispositions. Both can walk,
-/// attack, fly, take a hit, and die; what an actor shows is driven by its real
-/// ECS state, not its label. (The old split actively dropped reads: the NPC path
-/// ignored `BodyMelee`, so an NPC that swung never animated its attack — this
-/// unifies them and fixes that.)
-/// This is the actor's "action set" projected onto the shared anim vocabulary:
-/// each field is set only when the actor's real ECS state expresses it, so a
-/// walker never asks for a flyer's `Fly`, and a non-combatant simply has no
-/// active melee this frame.
+/// The actor-only animation facts that DON'T live in the shared movement
+/// clusters — the disposition reads ([`pick_actor_anim`] pulls everything else,
+/// the rich movement/ability state, straight from the actor's real `Body*`
+/// clusters via [`body_view_from_clusters`], exactly like the player). "Enemy"
+/// and "NPC" were never different animation contracts, just dispositions: both
+/// walk, attack, fly, take a hit, and die from the SAME cluster reads, so what an
+/// actor shows is its real ECS state, not its label.
 #[derive(Clone, Copy, Debug)]
 pub struct ActorAnimState {
-    /// World position — resolves this actor's *localized* gravity so the sprite
-    /// flips the right way when it's wall-walking / on a flipped-gravity ceiling.
-    pub pos: ae::Vec2,
-    pub vel: ae::Vec2,
-    pub facing: f32,
+    /// Liveness (from `ActorStatus.alive`) → `Death`. The body's combat cluster
+    /// drives the player's death; an actor's liveness lives on its status.
     pub alive: bool,
+    /// Recent-hit flash (from `ActorStatus.hit_flash`) → `Hit`. The actor's
+    /// damage path uses `hit_flash` where the player uses `BodyCombat.hitstun`.
     pub hit_flash: bool,
-    pub attack_active: bool,
-    pub attack_windup: bool,
-    /// Committal heavy melee (vs the quick poke) → `Punch` instead of `Slash`.
-    pub attack_heavy: bool,
-    /// Charge→thrust "special" (glider zoning) → `Special`.
-    pub special_active: bool,
-    /// Gravity-free FLIGHT archetype (sky parrot / shark): `Fly` while moving,
-    /// hover→`Idle`. A non-aerial actor knocked airborne is NOT aerial.
+    /// Gravity-free FLIGHT archetype (sky parrot / shark): the locomotion tail
+    /// reads `Fly` while moving and `Idle` while hovering, and the airborne
+    /// (Jump/Fall) gate is suppressed. A non-aerial actor knocked off the ground
+    /// is NOT aerial — it falls through to the Jump/Fall gate like the player.
     pub aerial: bool,
 }
 
-/// Pick any actor's animation through the shared [`pick_body_anim`] ladder.
-/// Aerial flyers measure total speed (`Fly` while moving, hover→`Idle`);
-/// grounded walkers use |vx| and cap at `Walk` (`run_above: None`). The
-/// player-only states stay inert (the actor never carries those components), so
-/// the actor's action set — not the picker — decides how rich its read is.
-pub fn pick_actor_anim(state: ActorAnimState) -> CharacterAnim {
-    let (locomotion, speed) = if state.aerial {
-        (Locomotion::Aerial, state.vel.length())
-    } else {
-        (Locomotion::Grounded, state.vel.x.abs())
-    };
-    pick_body_anim(&BodyAnimView {
-        dead: !state.alive,
-        hit: state.hit_flash,
-        special: state.special_active,
-        melee_attack: (state.attack_active || state.attack_windup).then(|| {
-            if state.attack_heavy {
-                CharacterAnim::Punch
-            } else {
-                CharacterAnim::Slash
-            }
-        }),
-        locomotion,
-        speed,
-        idle_below: 8.0,
-        run_above: None,
-        fly_above: 12.0,
-        ..Default::default()
-    })
+/// Pick any brain-driven actor's animation through the shared [`pick_body_anim`]
+/// ladder, building the FULL [`BodyAnimView`] from the actor's real `Body*`
+/// clusters — the same clusters and the same builder the player uses. So any
+/// ability a brain (or an LLM) drives an actor's clusters into — dash, blink,
+/// flight, shield, ladder climb, wall-grab, dodge-roll, crouch/slide — animates
+/// with no per-archetype branch; the sheet's anim set ([`CharacterSheetSpec::
+/// resolve_anim`]) decides how richly each pose reads.
+///
+/// The actor overlays only what isn't in those clusters: liveness / hit-flash
+/// (from `ActorStatus`), its melee row (the swing's own intent, shared with the
+/// player via [`directional_attack_anim`]), and the aerial locomotion metric +
+/// thresholds (total speed, `Walk`-capped on the ground via `run_above: None`).
+pub fn pick_actor_anim(
+    kinematics: &crate::actor::BodyKinematics,
+    ground: &crate::actor::BodyGroundState,
+    wall: &crate::actor::BodyWallState,
+    blink: &crate::actor::BodyBlinkState,
+    flight: &crate::actor::BodyFlightState,
+    dash: &crate::actor::BodyDashState,
+    ledge: &crate::actor::BodyLedgeState,
+    body_mode: &crate::actor::BodyModeState,
+    env_contact: &crate::actor::BodyEnvironmentContact,
+    abilities: &crate::actor::BodyAbilities,
+    dodge: &crate::actor::BodyDodgeState,
+    shield: &crate::actor::BodyShieldState,
+    swing: Option<&crate::MeleeSwing>,
+    state: ActorAnimState,
+) -> CharacterAnim {
+    let mut v = body_view_from_clusters(
+        kinematics,
+        ground,
+        wall,
+        blink,
+        flight,
+        dash,
+        ledge,
+        body_mode,
+        env_contact,
+        abilities,
+        dodge,
+        shield,
+    );
+    v.dead = !state.alive;
+    v.hit = state.hit_flash;
+    // Melee shares the player's directional mapping: the in-flight swing's own
+    // intent picks the row, and `resolve_anim` walks it down to whatever swing
+    // pose the actor's sheet actually owns (a slash-only sheet still reads its
+    // slash; a sheet that drew `attack_up` reads the up-tilt distinctly). Gated to
+    // the telegraph + hit window (startup/active), like the old actor read — the
+    // recovery tail falls back to locomotion rather than holding the swing pose.
+    v.melee_attack = swing
+        .filter(|s| {
+            matches!(
+                s.phase(),
+                Some(crate::combat::AttackPhase::Startup | crate::combat::AttackPhase::Active)
+            )
+        })
+        .map(|s| directional_attack_anim(Some(s)));
+    if state.aerial {
+        // A flyer reads Fly/Idle from the locomotion tail; suppress the airborne
+        // Jump/Fall gate (it floats — `on_ground` is false but it isn't falling).
+        v.airborne = false;
+        v.locomotion = Locomotion::Aerial;
+        v.speed = kinematics.vel.length();
+    }
+    v.idle_below = 8.0;
+    v.run_above = None;
+    v.fly_above = 12.0;
+    pick_body_anim(&v)
 }
 
 #[cfg(test)]

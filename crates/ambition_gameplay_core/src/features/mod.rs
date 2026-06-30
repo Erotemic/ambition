@@ -132,7 +132,7 @@ pub use components::{
 pub use ecs::actor_clusters::{
     ActorClusterSeed, ActorConfig, ActorMotionPath, ActorMut, ActorStatus, BodyKinematics,
 };
-pub use ecs::ActorSpriteData;
+pub use ecs::{ActorAnimFrame, ActorSpriteData};
 pub use ecs::{
     apply_actor_stimuli, apply_feature_hit_events, apply_gameplay_banner_requests,
     apply_hitbox_damage, apply_spawn_actor_requests, apply_summon_effects, boss_is_cleared,

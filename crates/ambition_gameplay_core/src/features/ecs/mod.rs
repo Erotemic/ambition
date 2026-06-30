@@ -80,7 +80,8 @@ pub use aggression::{
 pub use anim_helpers::{
     ecs_actor_render_size, ecs_boss_anim_state, ecs_boss_anim_state_and_entity,
     ecs_boss_animation_frame_sample, ecs_boss_name, ecs_breakable_state, ecs_chest_opened,
-    ecs_actor_anim_state, ecs_enemy_name, ecs_enemy_sprite_override, ecs_npc_name, ActorSpriteData,
+    ecs_actor_anim_state, ecs_enemy_name, ecs_enemy_sprite_override, ecs_npc_name, ActorAnimFrame,
+    ActorSpriteData,
 };
 pub use banner::{apply_gameplay_banner_requests, tick_gameplay_banner};
 pub use boss_clusters::{

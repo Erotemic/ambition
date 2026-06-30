@@ -6,26 +6,54 @@
 
 use super::*;
 
-/// QueryData tuple for actor-sprite lookups: the unified actor cluster
-/// components every actor (was-NPC + was-enemy) carries. Systems declare
-/// `Query<ActorSpriteData>`; the helpers take `&Query<ActorSpriteData>`. The
-/// caller already filtered by `FeatureVisualKind` (derived from disposition), so
-/// these read the cluster directly without a per-actor type tag.
-pub type ActorSpriteData = (
-    &'static FeatureId,
-    Option<&'static super::actor_clusters::BodyKinematics>,
-    Option<&'static super::actor_clusters::ActorStatus>,
-    Option<&'static BodyMelee>,
-    Option<&'static super::actor_clusters::ActorConfig>,
-);
+/// Read-only query of the unified actor cluster every actor (was-NPC, was-enemy,
+/// encounter mob, mount/rider) carries — the SAME `Body*` movement/ability
+/// clusters the player reads, plus the actor's identity/status/config. Systems
+/// declare `Query<ActorSpriteData>`; the helpers take `&Query<ActorSpriteData>`.
+///
+/// All fields are required (not `Option`): every spawned actor carries the full
+/// [`crate::actor::AncillaryMovementBundle`] (the same bundle the player nests)
+/// plus `ActorStatus` / `ActorConfig` / `BodyMelee`, so an entity that is missing
+/// any of them — a boss (its own cluster + anim path) or a prop — correctly does
+/// not match and is skipped, instead of half-resolving from a sparse read. This
+/// is what lets [`ecs_actor_anim_state`] build the player's FULL `BodyAnimView`
+/// from an actor's real clusters, so any ability a brain drives animates.
+#[derive(bevy::ecs::query::QueryData)]
+pub struct ActorSpriteData {
+    pub feature_id: &'static FeatureId,
+    pub kin: &'static super::actor_clusters::BodyKinematics,
+    pub status: &'static super::actor_clusters::ActorStatus,
+    pub config: &'static super::actor_clusters::ActorConfig,
+    pub attack: &'static BodyMelee,
+    pub ground: &'static crate::actor::BodyGroundState,
+    pub wall: &'static crate::actor::BodyWallState,
+    pub blink: &'static crate::actor::BodyBlinkState,
+    pub flight: &'static crate::actor::BodyFlightState,
+    pub dash: &'static crate::actor::BodyDashState,
+    pub ledge: &'static crate::actor::BodyLedgeState,
+    pub body_mode: &'static crate::actor::BodyModeState,
+    pub env_contact: &'static crate::actor::BodyEnvironmentContact,
+    pub abilities: &'static crate::actor::BodyAbilities,
+    pub dodge: &'static crate::actor::BodyDodgeState,
+    pub shield: &'static crate::actor::BodyShieldState,
+}
+
+/// One actor's resolved animation frame for the renderer: the chosen anim plus
+/// the bits the per-frame apply needs that aren't in the anim itself — world
+/// position (for localized-gravity facing), facing sign, and whether the actor
+/// is mid-swing (for the warm outgoing-attack tint).
+#[derive(Clone, Copy, Debug)]
+pub struct ActorAnimFrame {
+    pub anim: crate::character_sprites::CharacterAnim,
+    pub pos: ambition_engine_core::Vec2,
+    pub facing: f32,
+    pub attacking: bool,
+}
 
 pub fn ecs_npc_name(id: &str, actors: &Query<ActorSpriteData>) -> Option<String> {
-    actors.iter().find_map(|(feature_id, _, _, _, config)| {
-        if feature_id.as_str() != id {
-            return None;
-        }
-        config.map(|c| c.name.clone())
-    })
+    actors
+        .iter()
+        .find_map(|a| (a.feature_id.as_str() == id).then(|| a.config.name.clone()))
 }
 
 /// Explicit sprite render-quad size for an actor whose collision was derived
@@ -46,11 +74,11 @@ pub fn ecs_actor_render_size(
 }
 
 pub fn ecs_enemy_sprite_override(id: &str, actors: &Query<ActorSpriteData>) -> Option<String> {
-    actors.iter().find_map(|(feature_id, _, _, _, config)| {
-        if feature_id.as_str() != id {
+    actors.iter().find_map(|a| {
+        if a.feature_id.as_str() != id {
             return None;
         }
-        config.and_then(|c| c.sprite_override_npc_name.clone())
+        a.config.sprite_override_npc_name.clone()
     })
 }
 
@@ -62,48 +90,57 @@ pub fn ecs_enemy_sprite_override(id: &str, actors: &Query<ActorSpriteData>) -> O
 /// via the intro NPC sprite registry without authors having to
 /// double-register them as an `enemy_sprite_registry`.
 pub fn ecs_enemy_name(id: &str, actors: &Query<ActorSpriteData>) -> Option<String> {
-    actors.iter().find_map(|(feature_id, _, _, _, config)| {
-        if feature_id.as_str() != id {
-            return None;
-        }
-        config.map(|c| c.name.clone())
-    })
+    actors
+        .iter()
+        .find_map(|a| (a.feature_id.as_str() == id).then(|| a.config.name.clone()))
 }
 
-/// Animation state for ANY brain-driven actor (enemy or NPC) read straight from
-/// its ECS clusters. One path, disposition-agnostic: an actor attacks when its
-/// `BodyMelee` is active — NPC or not. (The previous NPC-specific path didn't
-/// read `BodyMelee` at all, so a swinging NPC never animated its attack; reading
-/// it for every actor fixes that.) `BodyMelee` is optional only because an actor
-/// that never fights may not carry the component.
+/// Resolve ANY brain-driven actor's animation frame from its REAL ECS clusters —
+/// the SAME `Body*` movement/ability clusters, and the SAME picker, the player
+/// uses ([`crate::character_sprites::pick_actor_anim`] → `body_view_from_clusters`).
+/// One path, disposition-agnostic: an enemy and an NPC animate from identical
+/// reads. Whatever a brain (or an LLM) drives the actor's clusters into — a dash,
+/// a blink, flight, a shield, a ladder climb, a wall-grab, a dodge-roll, a
+/// crouch/slide, an in-flight swing — animates with no per-archetype branch; the
+/// sheet's anim set decides how richly each pose reads.
 pub fn ecs_actor_anim_state(
     id: &str,
     actors: &Query<ActorSpriteData>,
-) -> Option<crate::character_sprites::ActorAnimState> {
-    actors
-        .iter()
-        .find_map(|(feature_id, kin, status, attack, config)| {
-            if feature_id.as_str() != id {
-                return None;
-            }
-            let kin = kin?;
-            let status = status?;
-            Some(crate::character_sprites::ActorAnimState {
-                pos: kin.pos,
-                vel: kin.vel,
-                facing: kin.facing,
-                alive: status.alive,
-                hit_flash: status.hit_flash > 0.0,
-                attack_active: attack.is_some_and(|a| a.is_active()),
-                attack_windup: attack.is_some_and(|a| a.is_winding_up()),
-                // S1: the heavy-melee / special verbs aren't emitted by the
-                // brain yet (PCA slices S4/S5 wire them). Until then these
-                // read false so the picker keeps the legacy Slash/Walk path.
-                attack_heavy: false,
-                special_active: false,
-                aerial: config.map(|c| c.tuning.is_aerial).unwrap_or(false),
-            })
+) -> Option<ActorAnimFrame> {
+    actors.iter().find_map(|a| {
+        if a.feature_id.as_str() != id {
+            return None;
+        }
+        let attacking = a.attack.is_active() || a.attack.is_winding_up();
+        let anim = crate::character_sprites::pick_actor_anim(
+            a.kin,
+            a.ground,
+            a.wall,
+            a.blink,
+            a.flight,
+            a.dash,
+            a.ledge,
+            a.body_mode,
+            a.env_contact,
+            a.abilities,
+            a.dodge,
+            a.shield,
+            a.attack.swing.as_ref(),
+            crate::character_sprites::ActorAnimState {
+                alive: a.status.alive,
+                hit_flash: a.status.hit_flash > 0.0,
+                // Gravity-free FLIGHT archetype (parrot / shark): the locomotion
+                // tail reads Fly/Idle and the airborne gate is suppressed.
+                aerial: a.config.tuning.is_aerial,
+            },
+        );
+        Some(ActorAnimFrame {
+            anim,
+            pos: a.kin.pos,
+            facing: a.kin.facing,
+            attacking,
         })
+    })
 }
 
 /// ECS chest-opened lookup for sprite swapping.

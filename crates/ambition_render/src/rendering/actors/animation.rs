@@ -218,20 +218,19 @@ pub fn animate_characters(
         let dt = world_time.entity_dt(
             ambition_gameplay_core::time::time_control::ProperTimeScale::or_default(scale),
         );
-        // ONE actor path — enemy and NPC alike read the same clusters. An actor
+        // ONE actor path — enemy and NPC alike resolve through the SAME picker the
+        // player uses, built from the actor's real `Body*` clusters. An actor
         // attacks when its `BodyMelee` is active, whatever its disposition.
-        let Some(state) =
+        let Some(frame) =
             ambition_gameplay_core::features::ecs_actor_anim_state(&visual.id, &ecs_actors)
         else {
             continue;
         };
-        let anim = ambition_gameplay_core::character_sprites::pick_actor_anim(state);
-        let attacking = state.attack_active || state.attack_windup;
         // Hit feedback is drawn by the white-silhouette overlay in
         // `presentation::rendering::hit_flash`. Keep the warm attack tint on the
         // multiplicative `sprite.color` channel — it's a separate signal
         // (telegraphing the actor's outgoing swing, not its own damage).
-        let color = if attacking {
+        let color = if frame.attacking {
             Color::srgba(1.0, 0.85, 0.55, 1.0)
         } else {
             Color::WHITE
@@ -240,10 +239,10 @@ pub fn animate_characters(
             &mut sprite,
             &mut animator,
             anchor.map(|a| a.into_inner()),
-            anim,
+            frame.anim,
             dt,
-            state.facing,
-            gravity.dir_at(state.pos),
+            frame.facing,
+            gravity.dir_at(frame.pos),
             color,
         );
     }

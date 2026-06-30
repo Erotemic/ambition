@@ -374,81 +374,136 @@ fn from_name_resolves_all_new_action_rows() {
     }
 }
 
-#[test]
-fn actors_animate_from_real_state_regardless_of_disposition() {
-    use super::{pick_actor_anim, ActorAnimState};
-
-    // One actor path; disposition (hostile/peaceful) is not an animation fork.
-    let base = ActorAnimState {
-        pos: ae::Vec2::ZERO,
-        vel: ae::Vec2::ZERO,
-        facing: 1.0,
+/// A grounded, alive, not-swinging actor disposition — the inert baseline tests
+/// flip one fact off.
+fn actor_state() -> ActorAnimState {
+    ActorAnimState {
         alive: true,
         hit_flash: false,
-        attack_active: false,
-        attack_windup: false,
-        attack_heavy: false,
-        special_active: false,
         aerial: false,
-    };
+    }
+}
+
+/// Build a one-frame melee swing with the given intent, sitting in its startup
+/// (telegraph) phase so the picker reads it as an active swing.
+fn swing_with_intent(intent: crate::combat::AttackIntent) -> crate::MeleeSwing {
+    crate::MeleeSwing::new(crate::combat::AttackSpec {
+        intent,
+        startup_seconds: 0.1,
+        active_seconds: 0.1,
+        recovery_seconds: 0.1,
+        hitbox_offset: ae::Vec2::ZERO,
+        hitbox_half_size: ae::Vec2::new(8.0, 8.0),
+        self_impulse: ae::Vec2::ZERO,
+        knockback: ae::Vec2::ZERO,
+        damage_kind: crate::combat::DamageKind::Slash,
+        can_pogo: false,
+        damage_override: None,
+    })
+}
+
+fn pick_actor(c: &PickClusters, swing: Option<&crate::MeleeSwing>, state: ActorAnimState) -> CharacterAnim {
+    pick_actor_anim(
+        &c.kinematics,
+        &c.ground,
+        &c.wall,
+        &c.blink,
+        &c.flight,
+        &c.dash,
+        &c.ledge,
+        &c.body_mode,
+        &c.env_contact,
+        &c.abilities,
+        &c.dodge,
+        &c.shield,
+        swing,
+        state,
+    )
+}
+
+#[test]
+fn actors_animate_from_real_state_regardless_of_disposition() {
+    // One actor path; disposition (hostile/peaceful) is not an animation fork —
+    // every read below is the actor's REAL ECS state, not its label.
 
     // Flyer (parrot): Fly while moving, Idle while hovering/perched.
+    let mut c = PickClusters::defaults();
+    c.kinematics.vel = ae::Vec2::new(40.0, -30.0);
     assert_eq!(
-        pick_actor_anim(ActorAnimState {
-            aerial: true,
-            vel: ae::Vec2::new(40.0, -30.0),
-            ..base
-        }),
+        pick_actor(&c, None, ActorAnimState { aerial: true, ..actor_state() }),
         CharacterAnim::Fly,
     );
+    let c = PickClusters::defaults();
     assert_eq!(
-        pick_actor_anim(ActorAnimState { aerial: true, ..base }),
+        pick_actor(&c, None, ActorAnimState { aerial: true, ..actor_state() }),
         CharacterAnim::Idle,
         "a still hover / landed perch is Idle, not Fly",
     );
-    // A grounded (non-aerial) actor launched upward plays Walk, never Fly —
-    // airborne-but-not-flight must not fly-anim.
+    // A grounded (non-aerial) actor launched upward now reads the airborne
+    // Jump/Fall gate (it shares the player's full ladder) — never Fly.
+    let mut c = PickClusters::defaults();
+    c.kinematics.vel = ae::Vec2::new(40.0, -200.0); // top-left coords: up
     assert_eq!(
-        pick_actor_anim(ActorAnimState {
-            vel: ae::Vec2::new(40.0, -200.0),
-            ..base
-        }),
-        CharacterAnim::Walk,
+        pick_actor(&c, None, actor_state()),
+        CharacterAnim::Jump,
     );
     // An active melee wins over locomotion — and a PEACEFUL-disposition actor
     // that swings animates its attack too (the old NPC path dropped this read).
+    // The swing's own intent picks the directional row (Forward → AttackSide,
+    // which `resolve_anim` later walks down to a slash-only sheet's slash).
+    let c = PickClusters::defaults();
     assert_eq!(
-        pick_actor_anim(ActorAnimState {
-            attack_active: true,
-            ..base
-        }),
-        CharacterAnim::Slash,
+        pick_actor(&c, Some(&swing_with_intent(crate::combat::AttackIntent::Forward)), actor_state()),
+        CharacterAnim::AttackSide,
     );
-    // A heavy/committal melee plays Punch instead of the quick-poke Slash.
     assert_eq!(
-        pick_actor_anim(ActorAnimState {
-            attack_active: true,
-            attack_heavy: true,
-            ..base
-        }),
-        CharacterAnim::Punch,
-    );
-    // The charge→thrust special outranks the melee read.
-    assert_eq!(
-        pick_actor_anim(ActorAnimState {
-            attack_active: true,
-            special_active: true,
-            ..base
-        }),
-        CharacterAnim::Special,
+        pick_actor(&c, Some(&swing_with_intent(crate::combat::AttackIntent::Up)), actor_state()),
+        CharacterAnim::AttackUp,
+        "an up-tilt swing reads the up row — actors share the player's swing map",
     );
     // Death reads from real state for ANY actor, moving or not.
+    let mut c = PickClusters::defaults();
+    c.kinematics.vel = ae::Vec2::new(50.0, 0.0);
     assert_eq!(
-        pick_actor_anim(ActorAnimState {
-            alive: false,
-            vel: ae::Vec2::new(50.0, 0.0),
-            ..base
-        }),
+        pick_actor(&c, None, ActorAnimState { alive: false, ..actor_state() }),
         CharacterAnim::Death,
+    );
+}
+
+/// The whole point of the cluster wiring: an actor animates the RICH movement
+/// abilities its brain drives its real `Body*` clusters into — the same clusters,
+/// read through the same builder, as the player. No per-archetype branch; a
+/// brain (or an LLM) flipping a cluster is all it takes.
+#[test]
+fn actors_animate_rich_cluster_abilities() {
+    // Dash: a brain that fires the body's dash limb → Dash, mid-air or not.
+    let mut c = PickClusters::defaults();
+    c.dash.timer = 0.2;
+    assert_eq!(pick_actor(&c, None, actor_state()), CharacterAnim::Dash);
+
+    // Flight toggled on (not the aerial archetype flag — the real flight cluster)
+    // → Fly.
+    let mut c = PickClusters::defaults();
+    c.flight.fly_enabled = true;
+    assert_eq!(pick_actor(&c, None, actor_state()), CharacterAnim::Fly);
+
+    // Shield raised, with the ability enabled → Block.
+    let mut c = PickClusters::defaults();
+    c.abilities.abilities.shield = true;
+    c.shield.active = true;
+    assert_eq!(pick_actor(&c, None, actor_state()), CharacterAnim::Block);
+
+    // Ladder climb from body mode → LadderClimb.
+    let mut c = PickClusters::defaults();
+    c.body_mode.body_mode = ambition_engine_core::player_state::BodyMode::Climbing;
+    assert_eq!(pick_actor(&c, None, actor_state()), CharacterAnim::LadderClimb);
+
+    // A hit-flashing actor reads Hit over its locomotion.
+    let mut c = PickClusters::defaults();
+    c.kinematics.vel = ae::Vec2::new(80.0, 0.0);
+    c.ground.on_ground = true;
+    assert_eq!(
+        pick_actor(&c, None, ActorAnimState { hit_flash: true, ..actor_state() }),
+        CharacterAnim::Hit,
     );
 }

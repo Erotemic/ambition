@@ -290,11 +290,11 @@ fn puppy_slug_seed(
 ) -> Option<f32> {
     actors
         .iter()
-        .find_map(|(feature_id, _kin, _status, _attack, config)| {
-            if feature_id.as_str() != id {
+        .find_map(|a| {
+            if a.feature_id.as_str() != id {
                 return None;
             }
-            let c = config?;
+            let c = a.config;
             // Name + dream participation both come from the unified cluster.
             // Peaceful actors carry the peaceful default tuning (dream_seed = None),
             // so reading it directly already excludes them from the dream pass.

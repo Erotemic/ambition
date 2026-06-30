@@ -67,10 +67,33 @@ const POSSESS_HOLD_S: f32 = 2.0;
 /// to a real speed or the body crawls. Shared by the enemy + NPC drive paths.
 pub const POSSESSED_MOVE_SPEED: f32 = 180.0;
 
+/// Stick deflection (gravity-resolved "down") past which the player counts as
+/// holding **Down** for the possession gesture — the same threshold drop-through
+/// uses.
+pub const POSSESS_DOWN_THRESHOLD: f32 = 0.35;
+
+/// True iff the player's stick is held "down" in the GRAVITY-resolved frame past
+/// [`POSSESS_DOWN_THRESHOLD`]. The possession gesture is **Down + Interact**;
+/// exposed so the interaction system can SUPPRESS a normal interact while Down is
+/// held — i.e. Down+Interact is *claimed* by possession and never opens a door /
+/// NPC. Sharing it keeps both systems agreeing on what "down" means under any
+/// gravity orientation.
+pub fn holding_descend(
+    axis_x: f32,
+    axis_y: f32,
+    gravity_dir: ambition_engine_core::Vec2,
+    movement_mode: ambition_engine_core::InputFrameMode,
+) -> bool {
+    ambition_engine_core::AccelerationFrame::new(gravity_dir)
+        .resolve_input(movement_mode, axis_x, axis_y)
+        .y
+        > POSSESS_DOWN_THRESHOLD
+}
+
 /// `Down + Interact` controls possession: **hold ~2s** (with a candidate in
 /// range) to take over the nearest non-boss actor; press it again to release.
-/// `Down` is `axis_y > 0.35` (the same threshold drop-through uses). The hold
-/// runs on real time (`raw_dt`) so bullet-time doesn't change the feel.
+/// `Down` is the gravity-resolved descend axis past [`POSSESS_DOWN_THRESHOLD`].
+/// The hold runs on real time (`raw_dt`) so bullet-time doesn't change the feel.
 pub fn possession_trigger_system(
     gravity_field: Option<Res<crate::physics::GravityField>>,
     // Optional: headless / unit-test apps may omit the settings resource. Absent →
@@ -107,15 +130,13 @@ pub fn possession_trigger_system(
         ambition_engine_core::InputFrameMode::DEFAULT_MOVEMENT,
         |s| s.gameplay.movement_frame_mode,
     );
-    let descend = ambition_engine_core::AccelerationFrame::new(gravity_dir)
-        .resolve_input(movement_mode, frame.axis_x, frame.axis_y)
-        .y;
+    let down = holding_descend(frame.axis_x, frame.axis_y, gravity_dir, movement_mode);
     // The gesture is a HOLD, so it accumulates on the interact button being
     // HELD — not the single-frame `interact_pressed` rising edge (which is also
     // consumed by doors / the heal-shrine and would reset the hold timer every
     // frame, so the 2s threshold was never reached in-game). The release is the
     // rising edge of (down + held), tracked via `prev_down_interact`.
-    let down_interact = descend > 0.35 && frame.interact_held;
+    let down_interact = down && frame.interact_held;
     let release_edge = down_interact && !*prev_down_interact;
     *prev_down_interact = down_interact;
 

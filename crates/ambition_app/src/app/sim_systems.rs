@@ -140,6 +140,8 @@ pub fn interaction_input_system(
     time: Res<Time>,
     feel_tuning: Res<SandboxFeelTuning>,
     control_frame: Res<ControlFrame>,
+    gravity_field: Option<Res<ambition_gameplay_core::physics::GravityField>>,
+    user_settings: Option<Res<ambition_gameplay_core::persistence::settings::UserSettings>>,
     mut player_q: Query<
         (
             &ambition_gameplay_core::actor::BodyCombat,
@@ -154,6 +156,25 @@ pub fn interaction_input_system(
         return;
     };
     let door_double_tap_up = std::mem::take(&mut interaction.double_tap_up_pending);
+    // Down + Interact is the possession gesture (`abilities::traversal::possession`),
+    // so a held-Down interact is CLAIMED by possession and must NOT also trigger a
+    // normal interaction (open a door / start an NPC dialog) — otherwise the press
+    // that begins a possession hold also opens whatever's adjacent. Suppress the
+    // interact EDGE while Down is held, using the SAME gravity-resolved "down" the
+    // possession trigger uses so they agree under any gravity. The double-tap-UP
+    // door request is an Up gesture, so it is never suppressed.
+    let gravity_dir =
+        ambition_gameplay_core::physics::gravity_dir_or_default(gravity_field.as_deref());
+    let movement_mode = user_settings.as_deref().map_or(
+        ambition_engine_core::InputFrameMode::DEFAULT_MOVEMENT,
+        |s| s.gameplay.movement_frame_mode,
+    );
+    let down_held = ambition_gameplay_core::abilities::traversal::possession::holding_descend(
+        control_frame.axis_x,
+        control_frame.axis_y,
+        gravity_dir,
+        movement_mode,
+    );
     // Reads `Res<ControlFrame>` directly rather than `PlayerInputFrame`
     // because this system runs mid-input-chain — `input_timer_system`
     // writes `fast_fall_pressed` to the resource and the per-player
@@ -163,7 +184,7 @@ pub fn interaction_input_system(
     let raw_interact_pressed = if combat.hitstun_timer > 0.0 {
         false
     } else {
-        control_frame.interact_pressed || door_double_tap_up
+        (control_frame.interact_pressed && !down_held) || door_double_tap_up
     };
     let _live =
         interaction.buffered_interact(raw_interact_pressed, frame_dt, feel.interaction_buffer_time);
@@ -553,5 +574,68 @@ mod suspended_time_tests {
             "gameplay frame must produce a non-zero scaled_dt; got {}",
             wt.scaled_dt
         );
+    }
+}
+
+#[cfg(test)]
+mod interaction_suppression_tests {
+    use super::*;
+    use ambition_gameplay_core::actor::{BodyCombat, PlayerEntity, PrimaryPlayer};
+    use ambition_gameplay_core::player::PlayerInteractionState;
+
+    /// Build a minimal app with `interaction_input_system` and one primary
+    /// player, set the control frame, run a frame, and report whether the
+    /// interaction buffer went live.
+    fn buffered_after(interact: bool, axis_y: f32) -> bool {
+        let mut app = App::new();
+        app.insert_resource(Time::<()>::default());
+        app.insert_resource(SandboxFeelTuning::default());
+        app.insert_resource(ControlFrame {
+            interact_pressed: interact,
+            axis_y,
+            ..Default::default()
+        });
+        let player = app
+            .world_mut()
+            .spawn((
+                PlayerEntity,
+                PrimaryPlayer,
+                BodyCombat::default(),
+                PlayerInteractionState::default(),
+            ))
+            .id();
+        app.add_systems(Update, interaction_input_system);
+        app.update();
+        app.world()
+            .get::<PlayerInteractionState>(player)
+            .unwrap()
+            .buffered()
+    }
+
+    /// A plain Interact (no Down) registers a normal interaction.
+    #[test]
+    fn plain_interact_registers() {
+        assert!(
+            buffered_after(true, 0.0),
+            "Interact with no Down must trigger a normal interaction"
+        );
+    }
+
+    /// Down + Interact is the possession gesture and must NOT register a normal
+    /// interaction (the in-game bug Jon hit: starting a possession hold next to
+    /// an NPC opened its dialog). The Down-held interact edge is suppressed.
+    #[test]
+    fn down_interact_is_claimed_by_possession_not_a_normal_interact() {
+        assert!(
+            !buffered_after(true, 1.0),
+            "Down+Interact must be claimed by possession, not open a door/NPC"
+        );
+    }
+
+    /// Sanity: no interact press → nothing buffered, with or without Down.
+    #[test]
+    fn no_press_buffers_nothing() {
+        assert!(!buffered_after(false, 0.0));
+        assert!(!buffered_after(false, 1.0));
     }
 }

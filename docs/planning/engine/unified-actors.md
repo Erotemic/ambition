@@ -159,11 +159,18 @@ modalities, not different actor types**:
 ### Relational hostility, in-place provoke
 
 Hostility is `FactionRelations` (`hostile[from][to]`), the single authority both
-targeting and damage consult; the player-vs-world baseline is just its default.
-Provoking a peaceful actor is **in-place** (`provoke_actor_in_place`): swap its
-`Brain` + `ActionSet` and flip its disposition — **no entity churn**, no cluster
-migration, sprite + `ActorRenderSize` preserved (the balloon-bug class is gone by
-construction). Dialogue / bark / interaction gate off a shared `ActorInteraction`
+targeting and damage consult; the player-vs-world baseline is just its default. The
+player is just `ActorFaction::Player` — **not** an unconditional targeting candidate
+(B1 end-state): an actor targets the nearest member of any faction it opposes, full
+stop. The two old modes (`HostileToPlayer` / `HostileToFaction`) collapse into that
+one relational policy; the "spared observer" falls out of relations simply not making
+the observer a foe. Provoking a peaceful actor is **in-place**
+(`provoke_actor_in_place`): swap its `Brain` + `ActionSet`, flip its disposition, and
+record a **per-actor grudge** against the attacker (generalize the existing `strikes`
+accumulator off the hardcoded player) — **no entity churn**, no cluster migration, no
+faction-identity mutation, sprite + `ActorRenderSize` preserved (the balloon-bug class
+is gone by construction). Grudges are friendly-fire-gated: FF-off means allies never
+land a hit to provoke from, FF-on lets an actor hold a grudge against whoever hit it. Dialogue / bark / interaction gate off a shared `ActorInteraction`
 seam (`Interactable` + `talk_radius`) + `ActorDisposition::Peaceful`, never an actor
 type. Visual identity derives from state (`is_sandbag → TrainingDummy`, `hostile →
 Enemy`, else `Npc`), so a provoked NPC turns red automatically.
@@ -205,21 +212,34 @@ recognizable:
   the convergence is reachable.
 - **Orchestration — movement CONVERGED.** Every actor (grounded AND aerial) runs
   the ONE shared player movement pipeline (`ActorMut::integrate_body` →
-  `update_body_with_tuning_clusters`, borrowing `kin` + the `ActorBody` clusters);
-  `integrate_standard_enemy_body` AND `integrate_aerial_body` are both deleted. All
-  the movement verbs that used to exist **twice** — run, jump, **dash, blink, fly,
-  shield** — are folded onto the pipeline's ability limbs, gated by an ability mask
-  derived from `CombatCapabilities` (`ActorBody::from_caps`); the bespoke
-  `ActorAttackState` dash/blink machinery is deleted, and `update_ecs_actors` no
-  longer resolves any movement verb. Aerial bodies steer the flight limb via the
-  `velocity_target`→intent bridge. **Remaining duplication is sim-STATE, not
-  movement**: `ActorSurfaceState`'s on_ground/air_jumps mirror the pipeline clusters
-  (retire in step 4); surface-walkers keep a separate glued crawl by design.
-- **Targeting — relational.** `FactionRelations` + `select_actor_targets`; an Enemy
-  targets an Npc with no player present. *Gap:* the player is still an unconditional
-  candidate; `AggressionMode::HostileToPlayer` names the player.
+  `update_body_with_tuning_clusters`); both bespoke integrators are deleted; run /
+  jump / dash / blink / fly / shield are folded onto the pipeline's ability limbs
+  (mask from `CombatCapabilities`); `update_ecs_actors` resolves no movement verb;
+  aerial bodies steer the flight limb via the `velocity_target`→intent bridge.
+  Surface-walkers keep a separate glued crawl by design.
+- **Sim-state — CONVERGED (Phase A, step 4).** Every body-fact now has ONE authority
+  on the shared body: `ActorStatus`'s parallel `alive` / `damage_invuln_timer` /
+  `hit_flash` retired onto `BodyHealth` / `BodyCombat` (the SAME fields the player
+  carries), and `ActorSurfaceState`'s `on_ground` / `air_jumps` retired onto
+  `BodyGroundState` / `BodyJumpState`. `ActorStatus` is down to `{respawn_timer,
+  ai_mode}` (genuinely actor-only). Bosses keep a separate `BossStatus` (its own
+  alive/health/hit_flash) — a parallel island, a later slice.
+- **Targeting — relational, decision made (step 5/B1).** `FactionRelations` +
+  `select_actor_targets`; an Enemy targets an Npc with no player present. *Player-
+  centrism to remove:* the player is an unconditional candidate and
+  `AggressionMode::HostileToPlayer` names the player. **Decision:** collapse to ONE
+  relational policy (target nearest member of any faction I oppose; player is just
+  `ActorFaction::Player`); provoke is a **per-actor grudge** (generalize the existing
+  `strikes` accumulator from the hardcoded player to the attacker). Grudges are
+  naturally gated by friendly-fire: with FF off, allies/observers never land a hit, so
+  no spurious grudge forms; with FF on, an actor can hold a grudge against whoever hit
+  it.
 - **Damage routing — relational** (`HitTarget::Actor`, projectiles by firer faction);
-  the player is a *gated* victim.
+  the player is a *gated* victim. **Projectile world-hit decision (step 5/B2):**
+  `WorldHitPolicy` moves onto the projectile **spec** (authored per ability), not the
+  binary `Player`/`Enemy` faction — so a Hadouken behaves identically whoever fires it
+  (the player or the player-robot boss). Retire `ProjectileFaction` (owner entity →
+  faction for damage, already there).
 - **Player-robot as an actor — exists** (`player_robot` archetype, full kit). Building
   it is what *forced* the player kit to become `CombatCapabilities`.
 - **Naming — still player-centric.** `enemy_archetypes.ron` / `EnemyArchetypeSpec` /
@@ -261,53 +281,36 @@ Enemies rise to the player; delete-heavy. Each step is gated on *it compiles* (i
    actor (grounded + aerial) runs the ONE pipeline; both bespoke integrators are
    deleted; dash/blink/fly/shield are folded onto the ability limbs (mask from
    `CombatCapabilities`); the aerial `velocity_target`→intent bridge lets flyers
-   share the flight limb. What's left is *state* convergence + the keystone (step
-   4), plus the additive wall-cling/ledge-grab/dodge caps. Original detail below.
-
-   *(historical)* 🟡 *grounded done.* First the
-   movement core was made body-generic — `update_body_*_with_clusters` flag
-   hazard/drown/OOB as `FrameEvents` WITHOUT performing the player respawn; the
-   `update_player_*` entries are thin wrappers = body fn + the respawn policy, so
-   the core no longer teleports any body to the player spawn (the step-2
-   prerequisite, since an actor must own its hazard reaction). Then the grounded
-   actor was routed onto it: a new `ActorBody` component carries the 18 ancillary
-   player movement clusters (everything but `BodyKinematics`, which stays the
-   shared `kin` — no duplication); `ActorMut::integrate_grounded_body` borrows
-   `kin` + `ActorBody` as one `PlayerClustersMut` and drives
-   `update_body_with_tuning_clusters`. **`integrate_standard_enemy_body` is
-   deleted** — its aerial half is `integrate_aerial_body` (still
-   `step_floating_body`). A grounded enemy now runs / buffers-and-coyote-jumps /
-   collides through the EXACT player core. **Dash is folded** too: the actor's
-   bespoke speed-cap burst (the divergent `ActorAttackState::try_dash` /
-   `DASH_SPEED_MULT`, now deleted) is gone — `ActorBody::from_caps` flips on the
-   pipeline's `dash` ability from `can_dash`, so a grounded enemy dashes with the
-   player's real impulse. *Remaining:* (a) folding the actor's still-bespoke
-   **blink / fly / shield** onto the pipeline limbs is **gated on the aerial
-   reconciliation** — unlike the actor dash (which was already grounded-only),
-   aerial actors blink and shield *today*, so folding those into the grounded-only
-   pipeline would regress an aerial blinker/shielder. (b) the **aerial free-mover**
-   modality is itself **blocked** on the `velocity_target` → flight-intent merge
-   (S2 vocab, feel-risky — the brain steers aerial bodies by `velocity_target`, the
-   pipeline flight by `axis_*` intent). So `velocity_target`→intent is the real
-   unblock for the rest of the movement-verb convergence. (c) enable wall-cling /
-   ledge-grab / dodge for actors (needs a `CombatCapabilities` cap each — they're
-   contact-triggered, so all-or-nothing without a gate). **Surface-walkers** stay a
-   separate glued crawl by design. *Gotcha (held):* `ActorMotionPath` patrol +
-   `gravity_scale`-from-catalog survive the merge.
-4. **Collapse the `Player*` / `Actor*` dual hierarchy** — *the keystone* (see
-   [`architecture.md`](architecture.md) for the slice plan + component buckets). Move
-   shared sim-state onto the `Actor*` vocabulary; the ~20-module player dependency
-   sink dissolves and crate extraction unblocks. **Sliced, not big-bang** — one
-   component family per slice, ordered low→high feel-risk (economy/interaction first,
-   combat state next, movement/ability state **last**), each gated on compile + a
-   byte-stable differential trace. *Done when:* the duplication in the audit is
-   provably gone (one resolver, one perception path, one damage model — measurably
-   less code); possession works in-game; the player-robot drops as a boss.
-5. **De-player-center the remaining surface** — `ControlFrame` (global input) →
-   entity-local `ActorIntent` (~46 systems read the global today; the sim reads the
-   body's intent, rendering / input-sources stay presentation consumers); projectile
-   attribution → source/faction (track enemy-projectile owners by entity);
-   `AggressionMode` names a faction, not "the player".
+   share the flight limb. Surface-walkers stay a separate glued crawl by design.
+   *Still additive (not blocking):* wall-cling / ledge-grab / dodge for actors —
+   each needs a `CombatCapabilities` cap (contact-triggered → all-or-nothing without
+   a gate); actors already *animate* these poses (anim picker converged), so flipping
+   the caps makes them mechanically real.
+4. **Collapse the `Player*` / `Actor*` dual hierarchy** — *the keystone*. 🟢 **State
+   collapse (Phase A) DONE** — the body-vocab types (`BodyKinematics`, the 18 movement
+   clusters, `BodyHealth`, `BodyCombat`, `BodyWallet`) were re-homed off `crate::player`
+   in prior work, and Phase A retired the last duplicated actor-only STATE fields:
+   `ActorStatus.{alive,damage_invuln_timer,hit_flash}` → `BodyHealth`/`BodyCombat`,
+   `ActorSurfaceState.{on_ground,air_jumps}` → `BodyGroundState`/`BodyJumpState`. One
+   authority per body-fact. *Remaining for full step-4 done:* the broad `crate::player`
+   importer-sink metric + possession working in-game + the player-robot dropping as a
+   boss (these are largely VERIFICATION now — possession systems + the `player_robot`
+   archetype already exist; confirm end-to-end + measure the LOC/importer delta). See
+   [`architecture.md`](architecture.md) for the component buckets.
+5. **De-player-center the remaining surface** — decisions settled with Jon (2026-06-30):
+   - **`ControlFrame` → entity-local `ActorIntent` (B3).** *Boundary principle (agreed):*
+     sim/body systems read the body's entity-local intent; only input-source adapters
+     and presentation read the global `ControlFrame`. Per-reader audit + repoint of the
+     ~22 `Res<ControlFrame>` sim readers (MIGRATE: shrine, shockwave, affordances/intent,
+     possession; KEEP: dialog, menus, mobile-input, portal input-adapter, rl_sim,
+     item_visuals), each gated on the byte-stable player replay trace. **Put `ActorIntent`
+     on the player too** (Jon's call) — the player and an NPC expose the SAME intent
+     component, so migrated sim reads consume one body-generic seam, not `PlayerInputFrame`.
+   - **Projectile attribution → spec + owner (B2).** `WorldHitPolicy` moves onto the
+     projectile spec (per-ability, firer-agnostic); retire the binary `ProjectileFaction`
+     (owner entity → faction for damage).
+   - **`AggressionMode` → fully relational (B1).** One policy via `FactionRelations`;
+     provoke = per-actor grudge (FF-gated). See "Relational hostility" above.
 6. **Rename off type-names** — `enemy_archetypes.ron` / `EnemyArchetypeSpec` /
    `EnemyBrain` → *character* archetypes. A mechanical pass on its own; update the
    `architecture_boundaries` guard test if it asserts names.
@@ -424,8 +427,10 @@ Every later step must move toward convergence, never away:
 - **The cluster merge is atomic.** Routing through the player pipeline (step 3) and the
   step-4 collapse produce no intermediate green tree until the family is fully moved —
   budget for a long compile-error chase; don't commit a half-merged tree.
-- **Feel-unverified flags Jon must check in-game after a change:** the dash tuning
-  (`ActorAttackState::DASH_SPEED_MULT = 1.7`, `DASH_TIME_S = 0.18`, refire `0.7s`); the
-  `player_robot` archetype movement tuning; the shield-fold; a same-room reset keeps a
-  provoked NPC hostile (the in-place peaceful-revert is a noted follow-up, not a bug);
-  idle/hit/hostile barks still fire (parrot cove).
+- **Feel-unverified flags Jon must check in-game after a change:** the `player_robot`
+  archetype movement tuning; the shield-fold; a same-room reset keeps a provoked NPC
+  hostile (the in-place peaceful-revert is a noted follow-up, not a bug); idle/hit/
+  hostile barks still fire (parrot cove). *(Verified by Jon 2026-06-30:* the Phase-A
+  hit-flash collapse — enemy/NPC damage-blink + respawn blink read fine.*)*  After
+  Phase A's A3, grounded-actor air-jump refresh + the flying-never-grounded guard apply
+  same-tick on the shared cluster (no behavior regression observed in headless).

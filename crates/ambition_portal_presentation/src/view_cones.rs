@@ -314,7 +314,7 @@ impl PortalCaptureCameraMode {
 
 impl Default for PortalCaptureCameraMode {
     fn default() -> Self {
-        Self::ConeRect
+        Self::MappedCameraSnapshot
     }
 }
 
@@ -360,16 +360,18 @@ pub struct PortalViewConeConfig {
     /// `dynamic_depth_far`.
     pub dynamic_dist_far: f32,
     /// Body-edge distance to the finite aperture where the art-directed
-    /// half-plane preview is fully applied. Set to `0.0` for exact LOS
-    /// geometry with no preview assist.
+    /// half-plane preview is fully applied. Keep near zero: the full 180-degree
+    /// half-plane should arrive only when the viewer is essentially touching
+    /// the aperture. Set to `0.0` for exact LOS geometry with no half-plane
+    /// shape assist.
     pub half_plane_preview_full_distance: f32,
     /// Extra directed distance before [`Self::half_plane_preview_full_distance`]
-    /// over which exact LOS geometry eases toward the half-plane preview.
+    /// over which the view window opens from nothing to raw LOS geometry and
+    /// eases toward the half-plane preview.
     pub half_plane_preview_blend_distance: f32,
     /// Maximum lateral reach of the half-plane preview behind the portal face
-    /// (world px). This bounds the near-plane assist so a viewer close to an
-    /// aperture cannot project a tens-of-thousands-of-pixels source rect that
-    /// then gets clipped into a misleading texture sample.
+    /// (world px). `0.0` asks the renderer for a full-view half-plane that is
+    /// clipped by the active camera frame.
     pub half_plane_preview_max_lateral: f32,
     /// Z range over which nearer portals' windows draw ON TOP of farther ones
     /// (added to `z` by an inverse-distance bias). Kept under the rim gap.
@@ -441,7 +443,7 @@ impl Default for PortalViewConeConfig {
             visibility_mode: PortalViewConeVisibilityMode::FaceLosWithContinuity,
             aperture_los_quality: PortalApertureLosQuality::Low,
             source_clip_policy: PortalViewConeSourceClipPolicy::ClampToFrame,
-            capture_camera_mode: PortalCaptureCameraMode::ConeRect,
+            capture_camera_mode: PortalCaptureCameraMode::MappedCameraSnapshot,
             // Large but not so deep it punches through thin "door" walls into
             // the far room (which is what drives the heaviest recursion); also
             // keeps the near-face↔deep-content parallax modest.
@@ -449,9 +451,9 @@ impl Default for PortalViewConeConfig {
             dynamic_depth_far: 44.0,
             dynamic_dist_close: 70.0,
             dynamic_dist_far: 900.0,
-            half_plane_preview_full_distance: 18.0,
-            half_plane_preview_blend_distance: 96.0,
-            half_plane_preview_max_lateral: 360.0,
+            half_plane_preview_full_distance: 1.0,
+            half_plane_preview_blend_distance: 120.0,
+            half_plane_preview_max_lateral: 0.0,
             z_proximity_span: 0.35,
             blend_rate: 10.0,
             min_depth: 22.0,
@@ -625,9 +627,12 @@ pub fn sync_portal_view_cones(
             commands.entity(rig.cone).despawn();
             continue;
         };
+        let (enter, exit) = (portal.frame(), partner.frame());
+        let capture_frame =
+            portal_capture_camera_frame(&config, host_view.as_deref(), &enter, &exit);
         let rebuild = RebuildKey {
             world_size: frame.size,
-            tex: capture_dims(&config, frame.size, partner.normal),
+            tex: capture_dims(&config, frame.size, partner.normal, capture_frame),
         };
         if rig.rebuild != rebuild {
             commands.entity(entity).despawn();
@@ -638,7 +643,6 @@ pub fn sync_portal_view_cones(
         *layers = capture_render_layers(&config, rig.parallax_layer);
         sync_cone_material_tint(&cone_materials, &mut materials, rig.cone, config.tint);
 
-        let (enter, exit) = (portal.frame(), partner.frame());
         let plan = compute_cone(&portal, &partner, &config, viewer, frame.size);
         if plan.target <= 0.0 {
             rig.blend = 0.0;
@@ -657,8 +661,6 @@ pub fn sync_portal_view_cones(
         }
         let cone = blend_cones(&plan.min, &plan.wedge, smooth01(rig.blend), &enter, &exit);
         let z = proximity_z(&config, viewer, portal.pos);
-        let capture_frame =
-            portal_capture_camera_frame(&config, host_view.as_deref(), &enter, &exit);
         let render = cone_render(
             &cone,
             &enter,
@@ -706,9 +708,12 @@ pub fn sync_portal_view_cones(
         if served.contains(&portal.channel) {
             continue;
         }
+        let (enter, exit) = (portal.frame(), partner.frame());
+        let capture_frame =
+            portal_capture_camera_frame(&config, host_view.as_deref(), &enter, &exit);
         let rebuild = RebuildKey {
             world_size: frame.size,
-            tex: capture_dims(&config, frame.size, partner.normal),
+            tex: capture_dims(&config, frame.size, partner.normal, capture_frame),
         };
         let image = images.add(Image::new_target_texture(
             rebuild.tex.x,
@@ -716,7 +721,6 @@ pub fn sync_portal_view_cones(
             TextureFormat::Rgba8UnormSrgb,
             None,
         ));
-        let (enter, exit) = (portal.frame(), partner.frame());
         let plan = compute_cone(portal, &partner, &config, viewer, frame.size);
         // Spawn at the target blend (no opening animation on appear).
         let cone = if plan.target > 0.0 {
@@ -732,8 +736,6 @@ pub fn sync_portal_view_cones(
         };
         let z = proximity_z(&config, viewer, portal.pos);
         let render = cone.as_ref().and_then(|cone| {
-            let capture_frame =
-                portal_capture_camera_frame(&config, host_view.as_deref(), &enter, &exit);
             cone_render(
                 cone,
                 &enter,
@@ -1097,9 +1099,10 @@ fn portal_view_cone_debug_dump_text(
 
         let enter = portal.frame();
         let exit = partner.frame();
+        let capture_frame = portal_capture_camera_frame(config, host_view, &enter, &exit);
         let rebuild = RebuildKey {
             world_size: frame.size,
-            tex: capture_dims(config, frame.size, partner.normal),
+            tex: capture_dims(config, frame.size, partner.normal, capture_frame),
         };
         let route = visibility_route_summary(portal, &partner, config, viewer);
         let _ = writeln!(

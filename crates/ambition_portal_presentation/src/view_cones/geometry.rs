@@ -22,7 +22,23 @@ pub(crate) fn capture_dims(
     config: &PortalViewConeConfig,
     world_size: Vec2,
     exit_normal: Vec2,
+    capture_frame: Option<CaptureCameraFrame>,
 ) -> UVec2 {
+    if config.capture_camera_mode == PortalCaptureCameraMode::MappedCameraSnapshot {
+        let source_size = capture_frame
+            .map(|frame| frame.size)
+            .unwrap_or(Vec2::new(800.0, 450.0))
+            .max(Vec2::splat(1.0));
+        let density = config.texels_per_world_px.max(0.05);
+        let max_side = config.max_resolution.max(256);
+        let width = (source_size.x * density).round() as u32;
+        let height = (source_size.y * density).round() as u32;
+        let scale = (max_side as f32 / width.max(height).max(1) as f32).min(1.0);
+        return UVec2::new(
+            ((width as f32 * scale).round() as u32).clamp(256, max_side),
+            ((height as f32 * scale).round() as u32).clamp(144, max_side),
+        );
+    }
     let density = config.texels_per_world_px.max(0.05);
     let long = ((world_size.x.max(world_size.y) * density) as u32)
         .clamp(256, config.max_resolution.max(256));
@@ -408,11 +424,50 @@ fn preview_half_plane_alpha(edge_distance: f32, config: &PortalViewConeConfig) -
     eased * eased
 }
 
+fn preview_proximity_alpha(edge_distance: f32, config: &PortalViewConeConfig) -> f32 {
+    let full = config.half_plane_preview_full_distance.max(0.0);
+    let blend = config.half_plane_preview_blend_distance.max(0.0);
+    let start = full + blend;
+    if start <= f32::EPSILON {
+        return if edge_distance <= full { 1.0 } else { 0.0 };
+    }
+    let raw = if edge_distance <= full {
+        1.0
+    } else if blend <= f32::EPSILON {
+        0.0
+    } else {
+        ((start - edge_distance) / blend).clamp(0.0, 1.0)
+    };
+    smooth01(raw)
+}
+
 fn dynamic_lateral_limit(enter: &PortalFrame, depth: f32, world_size: Vec2) -> f32 {
     let aperture = aperture_half_width(enter);
     let bounded_depth = depth.max(1.0);
     let world_bound = world_size.x.max(world_size.y).max(aperture + bounded_depth);
     (aperture + bounded_depth * 4.0).clamp(aperture + 1.0, world_bound)
+}
+
+fn view_strip(enter: &PortalFrame, exit: &PortalFrame, depth: f32, half_lateral: f32) -> ViewCone {
+    let n = enter.normal;
+    let t = Vec2::new(-n.y, n.x);
+    let entry_quad = [
+        enter.pos - t * half_lateral,
+        enter.pos + t * half_lateral,
+        enter.pos + t * half_lateral - n * depth,
+        enter.pos - t * half_lateral - n * depth,
+    ];
+    let source_quad = entry_quad.map(|p| ambition_portal::pieces::map_point(p, enter, exit));
+    let (mut min, mut max) = (source_quad[0], source_quad[0]);
+    for p in &source_quad[1..] {
+        min = min.min(*p);
+        max = max.max(*p);
+    }
+    ViewCone {
+        entry_quad,
+        source_quad,
+        source: ae::Aabb::new((min + max) * 0.5, (max - min) * 0.5),
+    }
 }
 
 pub(crate) fn visibility_route_summary(
@@ -620,8 +675,8 @@ pub(crate) fn compute_cone(
 
         coverage += best;
     }
-    let target = coverage / corners.len() as f32;
-    if target <= 0.0 || eyes.is_empty() {
+    let los_target = coverage / corners.len() as f32;
+    if los_target <= 0.0 || eyes.is_empty() {
         return closed(min);
     }
 
@@ -635,29 +690,53 @@ pub(crate) fn compute_cone(
         &exit
     };
     let edge_distance = body_edge_distance_to_aperture(v, faced);
+    let proximity_alpha = preview_proximity_alpha(edge_distance, config);
+    let target = los_target * proximity_alpha;
+    if target <= 0.0 {
+        return closed(min);
+    }
     let dt = ((edge_distance - config.dynamic_dist_close)
         / (config.dynamic_dist_far - config.dynamic_dist_close).max(1.0))
     .clamp(0.0, 1.0);
     let finite_depth = config.dynamic_depth_close
         + (config.dynamic_depth_far - config.dynamic_depth_close) * smooth01(dt);
-    // The half-plane preview is a *shape assist*, not an infinite capture.
-    // Keep its depth on the same bounded dynamic-depth curve as the finite LOS
-    // wedge. The old world-size depth made near-plane eyes project source rects
-    // tens of thousands of world px tall before clipping, which produced the
-    // misleading c136/c137 previews.
-    let half_depth = finite_depth;
+    // The half-plane preview is the aperture-limit view. In the default full
+    // mode, make it large enough that the render stage clips it to the active
+    // camera frame; explicit positive max-lateral values keep the old bounded
+    // tuning path for diagnostics.
+    let full_half_plane = config.half_plane_preview_max_lateral <= 0.0;
+    let half_depth = if full_half_plane {
+        world_size.x.max(world_size.y).max(finite_depth)
+    } else {
+        finite_depth
+    };
     let finite_lateral_limit = dynamic_lateral_limit(&enter, finite_depth, world_size);
-    let half_plane_lateral_limit = config
-        .half_plane_preview_max_lateral
-        .max(aperture_half_width(&enter) + 1.0);
+    let half_plane_lateral_limit = if full_half_plane {
+        world_size
+            .x
+            .max(world_size.y)
+            .max(aperture_half_width(&enter) + 1.0)
+    } else {
+        config
+            .half_plane_preview_max_lateral
+            .max(aperture_half_width(&enter) + 1.0)
+    };
     let finite_wedge =
         aperture_wedge_multi(&enter, &exit, &eyes, finite_depth, finite_lateral_limit);
-    let half_plane_alpha = preview_half_plane_alpha(edge_distance, config) * target.clamp(0.0, 1.0);
+    let half_plane_alpha =
+        preview_half_plane_alpha(edge_distance, config) * los_target.clamp(0.0, 1.0);
     let mut half_plane_eyes = eyes.clone();
     if half_plane_alpha > 0.0 {
         half_plane_eyes.push(enter.pos + enter.normal * 0.5);
     }
-    let half_wedge = if half_plane_alpha > 0.0 {
+    let half_wedge = if half_plane_alpha > 0.0 && full_half_plane {
+        Some(view_strip(
+            &enter,
+            &exit,
+            half_depth,
+            half_plane_lateral_limit,
+        ))
+    } else if half_plane_alpha > 0.0 {
         aperture_wedge_multi(
             &enter,
             &exit,
@@ -1036,6 +1115,12 @@ mod tests {
         max_x - min_x
     }
 
+    fn poly_span_x(poly: &[Vec2]) -> f32 {
+        let min_x = poly.iter().map(|p| p.x).fold(f32::INFINITY, f32::min);
+        let max_x = poly.iter().map(|p| p.x).fold(f32::NEG_INFINITY, f32::max);
+        max_x - min_x
+    }
+
     fn rendered_span_x(plan: &ConePlan, enter: &PlacedPortal, exit: &PlacedPortal) -> f32 {
         let enter = enter.frame();
         let exit = exit.frame();
@@ -1048,6 +1133,87 @@ mod tests {
         assert_eq!(
             PortalViewConeConfig::default().aperture_los_quality,
             PortalApertureLosQuality::Low
+        );
+    }
+
+    #[test]
+    fn view_cone_defaults_to_mapped_camera_and_full_half_plane() {
+        let config = PortalViewConeConfig::default();
+        assert_eq!(
+            config.capture_camera_mode,
+            PortalCaptureCameraMode::MappedCameraSnapshot
+        );
+        assert_eq!(config.half_plane_preview_max_lateral, 0.0);
+        assert!(config.half_plane_preview_full_distance > 0.0);
+        assert!(config.half_plane_preview_full_distance <= 1.0);
+    }
+
+    #[test]
+    fn full_half_plane_render_clips_to_the_full_active_frame_at_the_aperture() {
+        let world = Vec2::new(3488.0, 1056.0);
+        let enter = placed(
+            PortalGunColor::BLUE.channel(),
+            Vec2::new(300.0, 900.0),
+            Vec2::new(0.0, -1.0),
+        );
+        let exit = placed(
+            PortalGunColor::ORANGE.channel(),
+            Vec2::new(600.0, 900.0),
+            Vec2::new(0.0, -1.0),
+        );
+        let config = PortalViewConeConfig::default();
+        let viewer = PortalViewer {
+            present: true,
+            eye: Vec2::new(303.45, 875.5),
+            half_size: Vec2::new(15.0, 24.0),
+            occluders: Vec::new(),
+        };
+        let clip_min = Vec2::new(-96.55, 626.10);
+        let clip_max = Vec2::new(703.45, 1076.10);
+
+        let plan = compute_cone(&enter, &exit, &config, Some(&viewer), world);
+        assert_eq!(plan.target, 1.0);
+        assert_eq!(plan.debug.half_plane_preview_alpha, 1.0);
+        let enter_frame = enter.frame();
+        let exit_frame = exit.frame();
+        let cone = blend_cones(
+            &plan.min,
+            &plan.wedge,
+            smooth01(plan.target),
+            &enter_frame,
+            &exit_frame,
+        );
+        let render = cone_render(
+            &cone,
+            &enter_frame,
+            &exit_frame,
+            &PortalWorldFrame { size: world },
+            &config,
+            clip_min,
+            clip_max,
+            config.z,
+            None,
+        )
+        .expect("full half-plane should render after viewport clipping");
+
+        let clip_width = clip_max.x - clip_min.x;
+        let render_width = poly_span_x(&render.entry_poly_world);
+        assert!(
+            render_width >= clip_width * 0.999,
+            "full half-plane should reach both sides of the active frame after clipping: render_width={render_width}, clip_width={clip_width}, poly={:?}",
+            render.entry_poly_world
+        );
+        assert!(
+            render
+                .entry_poly_world
+                .iter()
+                .any(|p| (p.x - clip_min.x).abs() < 1e-3)
+                && render
+                    .entry_poly_world
+                    .iter()
+                    .any(|p| (p.x - clip_max.x).abs() < 1e-3),
+            "full half-plane polygon should touch both clip edges: {:?}",
+            render.entry_poly_world
         );
     }
 
@@ -1093,8 +1259,8 @@ mod tests {
             .fold(f32::NEG_INFINITY, f32::max);
         let far_span = max_x - min_x;
         assert!(
-            far_span <= config.half_plane_preview_max_lateral * 2.0 + 1e-3,
-            "at the doorway the eased cone should respect half_plane_preview_max_lateral, x span {min_x}..{max_x}",
+            far_span > world.x * 0.9,
+            "at the doorway the default half-plane should be full-view width, x span {min_x}..{max_x}",
         );
         let far_depth = plan.wedge.entry_quad[2].y - enter.pos.y;
         assert!(
@@ -1104,7 +1270,7 @@ mod tests {
     }
 
     #[test]
-    fn near_doorway_view_cone_eases_toward_half_plane_before_contact() {
+    fn near_doorway_view_cone_opens_only_inside_the_proximity_band() {
         let world = Vec2::new(1600.0, 900.0);
         let enter = placed(
             PortalGunColor::BLUE.channel(),
@@ -1129,27 +1295,45 @@ mod tests {
                 occluders: Vec::new(),
             };
             let plan = compute_cone(&enter, &exit, &config, Some(&viewer), world);
-            (span_x(&plan.wedge), plan.target, plan.immediate)
+            (
+                span_x(&plan.wedge),
+                plan.target,
+                plan.immediate,
+                plan.debug.half_plane_preview_alpha,
+            )
         };
 
-        let (start_span, _, start_immediate) = span_at(start_dist + 1.0);
-        let (mid_span, mid_target, mid_immediate) = span_at((start_dist + full_dist) * 0.5);
-        let (full_span, full_target, full_immediate) = span_at(full_dist * 0.5);
+        let (far_span, far_target, far_immediate, far_half) = span_at(start_dist + 1.0);
+        let (mid_span, mid_target, mid_immediate, mid_half) =
+            span_at((start_dist + full_dist) * 0.5);
+        let (full_span, full_target, full_immediate, full_half) = span_at(full_dist * 0.5);
 
-        assert!(!start_immediate && !mid_immediate && !full_immediate);
+        assert!(!far_immediate && !mid_immediate && !full_immediate);
+        assert_eq!(far_target, 0.0);
+        assert_eq!(far_half, 0.0);
         assert!(
-            mid_span > start_span,
-            "mid-ease span should be wider than the ordinary finite cone: start={start_span}, mid={mid_span}"
+            mid_target > far_target && mid_target < full_target,
+            "proximity target should open smoothly: far={far_target}, mid={mid_target}, full={full_target}"
+        );
+        assert!(
+            mid_half > far_half && mid_half < full_half,
+            "half-plane shape should ease only near contact: far={far_half}, mid={mid_half}, full={full_half}"
         );
         assert!(
             full_span > mid_span,
             "doorway span should finish wider than the mid-ease cone: mid={mid_span}, full={full_span}"
         );
-        assert!(
-            mid_target > 0.0 && mid_target <= 1.0,
-            "mid-ease target should be valid, got {mid_target}"
+        assert_eq!(
+            far_span,
+            span_x(&view_cone(
+                &enter.frame(),
+                &exit.frame(),
+                config.min_depth,
+                config.min_spread
+            ))
         );
         assert_eq!(full_target, 1.0);
+        assert_eq!(full_half, 1.0);
     }
 
     #[test]
@@ -1214,12 +1398,43 @@ mod tests {
         let exact_span = span_x(&exact.wedge);
         let preview_span = span_x(&preview.wedge);
 
-        assert_eq!(exact.target, 1.0);
+        assert!(exact.target > 0.99);
         assert_eq!(exact.debug.half_plane_preview_alpha, 0.0);
         assert!(preview.debug.half_plane_preview_alpha > 0.0);
         assert!(
-            preview_span <= default_config.half_plane_preview_max_lateral * 2.0 + 1e-3,
-            "default preview should respect half_plane_preview_max_lateral: exact={exact_span}, preview={preview_span}",
+            preview_span > exact_span,
+            "default preview should expand beyond exact LOS geometry: exact={exact_span}, preview={preview_span}",
+        );
+    }
+
+    #[test]
+    fn positive_half_plane_max_lateral_keeps_bounded_diagnostic_mode() {
+        let world = Vec2::new(1600.0, 900.0);
+        let enter = placed(
+            PortalGunColor::BLUE.channel(),
+            Vec2::new(900.0, 820.0),
+            Vec2::new(0.0, -1.0),
+        );
+        let exit = placed(
+            PortalGunColor::ORANGE.channel(),
+            Vec2::new(900.0, 180.0),
+            Vec2::new(0.0, 1.0),
+        );
+        let mut config = PortalViewConeConfig::default();
+        config.half_plane_preview_max_lateral = 360.0;
+        config.aperture_los_quality = PortalApertureLosQuality::Medium;
+        let viewer = PortalViewer {
+            present: true,
+            eye: enter.pos + enter.normal * (config.half_plane_preview_full_distance * 0.5),
+            half_size: Vec2::ZERO,
+            occluders: Vec::new(),
+        };
+
+        let plan = compute_cone(&enter, &exit, &config, Some(&viewer), world);
+        let span = span_x(&plan.wedge);
+        assert!(
+            span <= config.half_plane_preview_max_lateral * 2.0 + 1e-3,
+            "positive half_plane_preview_max_lateral should keep bounded mode: span={span}",
         );
     }
 
@@ -1258,12 +1473,12 @@ mod tests {
         let centered_span = span_x(&centered.wedge);
         let off_axis_span = span_x(&off_axis.wedge);
 
-        assert_eq!(off_axis.target, 1.0);
+        assert_eq!(off_axis.target, 0.0);
         assert!(centered.debug.half_plane_preview_alpha > 0.0);
         assert_eq!(off_axis.debug.half_plane_preview_alpha, 0.0);
         assert!(
-            centered_span <= config.half_plane_preview_max_lateral * 2.0 + 1e-3,
-            "centered half-plane preview should stay bounded: centered={centered_span}, off_axis={off_axis_span}",
+            centered_span > off_axis_span,
+            "centered near-plane preview should expand beyond off-axis LOS geometry: centered={centered_span}, off_axis={off_axis_span}",
         );
     }
 
@@ -1282,9 +1497,10 @@ mod tests {
         );
         let mut config = PortalViewConeConfig::default();
         config.aperture_los_quality = PortalApertureLosQuality::Medium;
-        let eye = enter.pos + enter.normal * 200.0;
-        let left_blocker = ae::Aabb::new(Vec2::new(875.5, 720.0), Vec2::new(5.0, 8.0));
-        let right_blocker = ae::Aabb::new(Vec2::new(924.5, 720.0), Vec2::new(5.0, 8.0));
+        config.half_plane_preview_blend_distance = 240.0;
+        let eye = enter.pos + enter.normal * 60.0;
+        let left_blocker = ae::Aabb::new(Vec2::new(871.0, 790.0), Vec2::new(5.0, 8.0));
+        let right_blocker = ae::Aabb::new(Vec2::new(929.0, 790.0), Vec2::new(5.0, 8.0));
         let partial_viewer = PortalViewer {
             present: true,
             eye,
@@ -1356,8 +1572,8 @@ mod tests {
             .fold(f32::NEG_INFINITY, f32::max);
         let far_span = max_y - min_y;
         assert!(
-            far_span <= config.half_plane_preview_max_lateral * 2.0 + 1e-3,
-            "just-behind doorway cone should respect half_plane_preview_max_lateral, y span {min_y}..{max_y}",
+            far_span > world.y * 0.9,
+            "just-behind doorway cone should get the default full half-plane, y span {min_y}..{max_y}",
         );
         let far_depth = enter.pos.x - plan.wedge.entry_quad[2].x;
         assert!(

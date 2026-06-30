@@ -154,6 +154,21 @@ pub fn sheet_for_character_id(character_id: &str) -> Option<CharacterSheetSpec> 
     spec
 }
 
+/// The manifest target + resolution-independent tuning for a catalog `cid`,
+/// when it has a catalog row that names a sheet. This is what
+/// [`build_optional_via_catalog`] needs to fetch the **scaled-variant** record
+/// keyed `<target>.<suffix>`. `None` for ids resolved through the manifest-by-id
+/// fallback (they stay at base resolution — acceptable, they render fine).
+fn character_variant_tuning(cid: &str) -> Option<(&'static str, super::sheets::SheetTuning)> {
+    let entry = EMBEDDED_CATALOG.characters.get(cid)?;
+    let target = entry.manifest_target()?;
+    let tuning = entry
+        .sprite_tuning
+        .map(super::sheets::SheetTuning::from_spec)
+        .unwrap_or_default();
+    Some((target, tuning))
+}
+
 /// Collision footprint derived from a character's *published sprite body
 /// metrics*, plus the render-quad size that keeps the on-screen sprite
 /// identical to the legacy `collision_scale` render.
@@ -282,12 +297,15 @@ pub fn load_character_sprites_in(
             continue;
         };
         let asset_id = ids::character_sprite(cid);
+        let variant_tuning = character_variant_tuning(cid);
+        let variant = variant_tuning.as_ref().map(|(t, tn)| (*t, tn));
         let Some(asset) = build_optional_via_catalog(
             catalog,
             asset_server,
             layouts,
             &asset_id,
             &sheet_spec,
+            variant,
             Some(cid),
             quality,
         ) else {
@@ -356,25 +374,54 @@ pub fn load_character_sprites_in(
 /// `try_path_for_load`, and call `asset_server.load(...)` if the gate
 /// passes. Logs a single line to `stderr` when a labeled sprite is
 /// missing (matches the prior loader's noise level).
+/// Choose the (spec, image id) pair under the quality budget. Upgrades to a
+/// scaled variant **only when both** the variant record was baked *and* the
+/// variant image resolves under the active asset profile — so the atlas rects
+/// (from the spec) always address the PNG that actually loads. Returns the base
+/// pair otherwise (and always for props / `variant: None`). Gameplay collision
+/// is untouched; it reads the base record separately.
+fn resolve_variant_pair(
+    catalog: &SandboxAssetCatalog,
+    base_id: &AssetId,
+    base_spec: &CharacterSheetSpec,
+    variant: Option<(&str, &super::sheets::SheetTuning)>,
+    quality: Option<&VisualQualityBudget>,
+) -> (CharacterSheetSpec, AssetId) {
+    if let (Some((target, tuning)), Some(q)) = (variant, quality) {
+        if q.sprites.prefer_scaled_variants {
+            let scale = q.sprites.resolution_scale;
+            if scale != crate::persistence::settings::TextureResolutionScale::Full {
+                if let Some(variant_id) =
+                    crate::assets::sandbox_assets::scaled_asset_id(base_id, scale)
+                {
+                    if catalog.try_path_for_load(&variant_id).is_some() {
+                        if let Some(spec) =
+                            super::sheets::try_load_spec_for_target_scaled(target, tuning, scale)
+                        {
+                            return (spec, variant_id);
+                        }
+                    }
+                }
+            }
+        }
+    }
+    (base_spec.clone(), base_id.clone())
+}
+
 fn build_optional_via_catalog(
     catalog: &SandboxAssetCatalog,
     asset_server: &AssetServer,
     layouts: &mut Assets<TextureAtlasLayout>,
-    id: &AssetId,
-    spec: &CharacterSheetSpec,
+    base_id: &AssetId,
+    base_spec: &CharacterSheetSpec,
+    variant: Option<(&str, &super::sheets::SheetTuning)>,
     log_label: Option<&str>,
     quality: Option<&VisualQualityBudget>,
 ) -> Option<CharacterSpriteAsset> {
-    let Some(path) = quality
-        .and_then(|q| {
-            catalog.try_quality_path_for_load(
-                id,
-                q.sprites.resolution_scale,
-                q.sprites.prefer_scaled_variants,
-            )
-        })
-        .or_else(|| catalog.try_path_for_load(id))
-    else {
+    // Pick base-or-variant atomically so the spec rects match the loaded PNG.
+    let (spec, id) = resolve_variant_pair(catalog, base_id, base_spec, variant, quality);
+    let (spec, id) = (&spec, &id);
+    let Some(path) = catalog.try_path_for_load(id) else {
         if let Some(label) = log_label {
             eprintln!(
                 "[character_sprites] {label} spritesheet missing under {} profile (id {id}) — falling back to colored rectangle",
@@ -438,7 +485,7 @@ pub fn build_npc_sprite_asset(
     id: &AssetId,
     spec: &CharacterSheetSpec,
 ) -> Option<CharacterSpriteAsset> {
-    build_optional_via_catalog(catalog, asset_server, layouts, id, spec, None, None)
+    build_optional_via_catalog(catalog, asset_server, layouts, id, spec, None, None, None)
 }
 
 /// Build a single Prop sprite asset. Same shape as
@@ -453,7 +500,7 @@ pub fn build_prop_sprite_asset(
     id: &AssetId,
     spec: &CharacterSheetSpec,
 ) -> Option<CharacterSpriteAsset> {
-    build_optional_via_catalog(catalog, asset_server, layouts, id, spec, None, None)
+    build_optional_via_catalog(catalog, asset_server, layouts, id, spec, None, None, None)
 }
 
 #[cfg(test)]

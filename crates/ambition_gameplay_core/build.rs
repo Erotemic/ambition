@@ -11,8 +11,8 @@
 //!
 //! Mirrors the runtime scan: root `assets/sprites/` plus one level of
 //! subdirs (the boss multi-sheet packages live there), and the sibling
-//! quality-variant folders (`sprites_0_5x`, `sprites_0_25x`) so packaged
-//! Android/web builds can resolve variant manifests too.
+//! quality-variant folders (`sprites_0_5x`, `sprites_0_25x`, `sprites_potato`)
+//! so packaged Android/web builds can resolve variant manifests too.
 
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -28,6 +28,7 @@ fn main() {
         manifest_dir.join("assets/sprites"),
         manifest_dir.join("assets/sprites_0_5x"),
         manifest_dir.join("assets/sprites_0_25x"),
+        manifest_dir.join("assets/sprites_potato"),
     ];
 
     // Re-run if the directory contents shift. Cargo watches recursively
@@ -97,6 +98,7 @@ fn baked_key_for_path(root: &str, path: &Path) -> String {
         .find_map(|component| match component {
             "sprites_0_5x" => Some("0_5x"),
             "sprites_0_25x" => Some("0_25x"),
+            "sprites_potato" => Some("potato"),
             _ => None,
         });
     match marker {

@@ -157,9 +157,9 @@ fn record_index() -> &'static HashMap<String, SheetRecord> {
                 record.target = (*filename_root).to_owned();
                 index.insert((*filename_root).to_owned(), record);
             } else {
-                let scale_suffix = filename_root
-                    .rsplit_once('.')
-                    .and_then(|(_, suffix)| matches!(suffix, "0_5x" | "0_25x").then_some(suffix));
+                let scale_suffix = filename_root.rsplit_once('.').and_then(|(_, suffix)| {
+                    matches!(suffix, "0_5x" | "0_25x" | "potato").then_some(suffix)
+                });
                 for mut record in records {
                     if let Some(scale_suffix) = scale_suffix {
                         record.target = format!("{}.{}", record.target, scale_suffix);
@@ -196,6 +196,28 @@ pub fn try_load_spec_for_target(target: &str, tuning: &SheetTuning) -> Option<Ch
         );
         None
     }
+}
+
+/// Load the **scaled-variant** spec for a manifest target, when its variant
+/// record was baked (the generator produced `sprites_<suffix>/…` and `build.rs`
+/// embedded it). Returns `None` for `Full` or when no variant record exists, so
+/// the caller falls back to the base spec — keeping the atlas rects matched to
+/// whichever PNG actually loads.
+///
+/// The variant record carries scaled frame rects / frame size / body metrics;
+/// `tuning` (collision_scale, frame-sample inset, feet anchor) is
+/// resolution-independent and is reused verbatim. Gameplay collision is
+/// unaffected — it reads the base record via
+/// `sprite_body_collision_for_character_id`.
+pub fn try_load_spec_for_target_scaled(
+    target: &str,
+    tuning: &SheetTuning,
+    scale: crate::persistence::settings::TextureResolutionScale,
+) -> Option<CharacterSheetSpec> {
+    let suffix = scale.asset_id_suffix()?;
+    let record = record_index().get(&format!("{target}.{suffix}"))?;
+    let spec = spec_from_record(record, tuning);
+    spec.maps(CharacterAnim::Idle).then_some(spec)
 }
 
 pub fn try_load_spec_for_character_id(character_id: &str) -> Option<CharacterSheetSpec> {

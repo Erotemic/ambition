@@ -230,10 +230,7 @@ pub fn sandbox_image_manifest(sprite_folder: &str) -> AssetManifest {
             entry
         };
         manifest.insert(entry);
-        for scale in [
-            TextureResolutionScale::Half,
-            TextureResolutionScale::Quarter,
-        ] {
+        for scale in TextureResolutionScale::MANIFEST_VARIANTS {
             insert_scaled_image_entry(
                 &mut manifest,
                 &entity_sprite_asset_id(sprite),
@@ -256,10 +253,7 @@ pub fn sandbox_image_manifest(sprite_folder: &str) -> AssetManifest {
                     .with_missing_policy(MissingAssetPolicy::SilentPlaceholder)
                     .with_preload_group(PreloadGroup::Zone),
             );
-            for scale in [
-                TextureResolutionScale::Half,
-                TextureResolutionScale::Quarter,
-            ] {
+            for scale in TextureResolutionScale::MANIFEST_VARIANTS {
                 let variant_path = format!(
                     "{}/{}_{}.png",
                     scale.parallax_subdir(),

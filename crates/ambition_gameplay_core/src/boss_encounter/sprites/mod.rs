@@ -794,6 +794,25 @@ fn boss_ron_target(path: &str) -> Option<&str> {
     )
 }
 
+/// The baked record key for a resolved boss PNG path, carrying the quality
+/// variant suffix when the path lives in a `sprites_<suffix>/` folder. A base
+/// path yields `<stem>`; a variant path yields `<stem>.<suffix>` so
+/// [`crate::character_sprites::record_for_target`] resolves the matching scaled
+/// record (whose rects address the resized PNG).
+fn boss_record_key(path: &str) -> Option<String> {
+    let stem = boss_ron_target(path)?;
+    let suffix = path.split('/').find_map(|segment| match segment {
+        "sprites_0_5x" => Some("0_5x"),
+        "sprites_0_25x" => Some("0_25x"),
+        "sprites_potato" => Some("potato"),
+        _ => None,
+    });
+    Some(match suffix {
+        Some(suffix) => format!("{stem}.{suffix}"),
+        None => stem.to_string(),
+    })
+}
+
 /// True when a published sheet record lines up 1:1 with the const's row set, so
 /// it can drive the pixels: the const owns the [`BossAnim`] row order + frame
 /// counts the shared frame algebra addresses by position, so each const row
@@ -818,16 +837,24 @@ pub(crate) fn load_named_boss_sprite_via_catalog(
     quality: Option<&VisualQualityBudget>,
 ) -> Option<BossSpriteAsset> {
     let id = crate::assets::sandbox_assets::ids::boss_sprite(label);
-    let Some(path) = quality
-        .and_then(|q| {
-            catalog.try_quality_path_for_load(
-                &id,
-                q.sprites.resolution_scale,
-                q.sprites.prefer_scaled_variants,
-            )
-        })
-        .or_else(|| catalog.try_path_for_load(&id))
-    else {
+    // Prefer a scaled variant PNG, but only when its matching variant record was
+    // also baked AND aligns with the const — so the atlas rects address the
+    // resolution that actually loads. Otherwise use the base PNG + base record.
+    // (Atomic pairing; gameplay geometry is unaffected — it reads the base
+    // record.) `boss_record_key` carries the scale suffix when `path` is a
+    // variant folder, so the record derivation below resolves the right record.
+    let variant_path = quality
+        .filter(|q| q.sprites.prefer_scaled_variants)
+        .map(|q| q.sprites.resolution_scale)
+        .filter(|scale| *scale != crate::persistence::settings::TextureResolutionScale::Full)
+        .and_then(|scale| {
+            let variant_id = crate::assets::sandbox_assets::scaled_asset_id(&id, scale)?;
+            let path = catalog.try_path_for_load(&variant_id)?;
+            let record =
+                crate::character_sprites::record_for_target(boss_record_key(&path)?.as_str())?;
+            record_aligns_with_const(record, &spec).then_some(path)
+        });
+    let Some(path) = variant_path.or_else(|| catalog.try_path_for_load(&id)) else {
         eprintln!(
             "[boss_sprites] {label} spritesheet missing under {} profile (id {id}) — falling back to entity sprite",
             catalog.profile().label(),
@@ -842,7 +869,8 @@ pub(crate) fn load_named_boss_sprite_via_catalog(
     // (subdir bosses, headless/tests) or it doesn't line up with the const, we
     // synthesize a grid-only record from the const — still the same algebra.
     let mut spec = spec;
-    let record = boss_ron_target(&path)
+    let record = boss_record_key(&path)
+        .as_deref()
         .and_then(crate::character_sprites::record_for_target)
         .filter(|record| record_aligns_with_const(record, &spec))
         .map(|record| {

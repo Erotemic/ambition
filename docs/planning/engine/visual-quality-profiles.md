@@ -4,13 +4,17 @@ A single global **quality profile** that resolves to a structured **runtime/devi
 budget** every visual subsystem reads. The immediate driver is Android performance —
 40 FPS baseline, diving to 10–20 in portal rooms — but the profile is not portal-only.
 
-> Status: **first implementation landed** (folded onto `main` 2026-06-30). The profile
-> spine (`VisualQualityProfile` / `VisualQualityBudget` / `VisualQualitySettings`,
-> `ResolvedVisualQuality`), portal static caps + scheduling, the parallax budget, the
-> variant generate/select/`build.rs`-embed pipeline, the menu/settings/parity rows, and
-> the F3 inspector readout are all in. This doc remains the design of record; it
-> supersedes the looser external draft it grew from. Numbers below are still a starting
-> point, to be re-grounded against on-device measurement.
+> Status: **implemented** (folded onto `main` 2026-06-30; texture pipeline completed +
+> `Potato` tier added same day). The profile spine (`VisualQualityProfile` /
+> `VisualQualityBudget` / `VisualQualitySettings`, `ResolvedVisualQuality`), portal
+> static caps + scheduling, the parallax budget, the menu/settings/parity rows, and the
+> F3 inspector readout are all in. The **variant texture pipeline is now complete end to
+> end**: the generator rescales every pixel-space RON field (frame rects, trim, body /
+> hit / hurt boxes, feet pixel) to match the resized PNG — not just the PNG — and the
+> runtime **pairs the variant `_spritesheet.ron` with the variant PNG** (character +
+> boss load paths) so a low profile actually loads smaller, self-consistent atlases.
+> `Potato` is the new bare-minimum tier. This doc remains the design of record; numbers
+> are still a starting point, to be re-grounded against on-device measurement.
 
 ---
 
@@ -95,7 +99,7 @@ per-asset fallback + manifest variants), with the asset-reload cost made explici
 ## The shape
 
 ```rust
-enum VisualQualityProfile { Low, Medium, High /*default desktop*/, Ultra, Custom }
+enum VisualQualityProfile { Potato, Low, Medium, High /*default desktop*/, Ultra, Custom }
 
 struct VisualQualityBudget {
     portal:      PortalCaptureBudget,
@@ -137,31 +141,37 @@ that doesn't exist yet.
 
 ## The budget, by profile
 
-`TextureResolutionScale { Quarter, Half, Full }` with `folder_suffix()` /
-`asset_subdir()` / `parallax_subdir()` / `scale_factor()` helpers (see
-[Variant pipeline](#variant-pipeline)).
+`TextureResolutionScale { Potato, Quarter, Half, Full }` with `folder_suffix()` /
+`asset_subdir()` / `parallax_subdir()` / `asset_id_suffix()` / `scale_factor()`
+helpers, plus `MANIFEST_VARIANTS` (the below-`Full` tiers — single source of truth
+for the manifest-registration loops; see [Variant pipeline](#variant-pipeline)).
 
-| field | Low | Medium | High | Ultra |
-| --- | --- | --- | --- | --- |
-| `portal.max_resolution` | 384 | 512 | 1024 | 2048 |
-| `portal.texels_per_world_px` | 0.25 | 0.50 | 1.00 | 1.00 |
-| `portal.recursion_depth` | 0 | 0 | 1 | 1 |
-| `portal.max_active_captures` | 1 | 1 | 2 | 4 |
-| `portal.max_updates_per_frame` | 1 | 1 | 2 | 4 |
-| `portal.min_refresh_interval_s` | 0.100 | 0.050 | 0.000 | 0.000 |
-| `portal.include_parallax` | false | false | true | true |
-| `sprites.resolution_scale` | Half | Half | Full | Full |
-| `sprites.prefer_scaled_variants` | true | true | false | false |
-| `backgrounds.resolution_scale` | Half | Half | Full | Full |
-| `backgrounds.max_texture_resolution` | 1024 | 1536 | 2048 | 4096 |
-| `backgrounds.prefer_scaled_variants` | true | true | false | false |
-| `parallax.enabled` | true | true | true | true |
-| `parallax.max_layers` | Some(2) | Some(3) | None | None |
-| `parallax.resolution_scale` | Half | Half | Full | Full |
-| `shaders.screen_shader_scale` | 0.5 | 0.75 | 1.0 | 1.0 |
-| `shaders.allow_expensive_materials` | false | true | true | true |
-| `particles.max_particles` | 128 | 256 | 512 | 1024 |
-| `particles.spawn_rate_scale` | 0.5 | 0.75 | 1.0 | 1.0 |
+| field | Potato | Low | Medium | High | Ultra |
+| --- | --- | --- | --- | --- | --- |
+| `portal.max_resolution` | 128 | 384 | 512 | 1024 | 2048 |
+| `portal.texels_per_world_px` | 0.05 | 0.25 | 0.50 | 1.00 | 1.00 |
+| `portal.recursion_depth` | 0 | 0 | 0 | 1 | 1 |
+| `portal.max_active_captures` | 1 | 1 | 1 | 2 | 4 |
+| `portal.max_updates_per_frame` | 1 | 1 | 1 | 2 | 4 |
+| `portal.min_refresh_interval_s` | 0.250 | 0.100 | 0.050 | 0.000 | 0.000 |
+| `portal.include_parallax` | false | false | false | true | true |
+| `sprites.resolution_scale` | Potato | Half | Half | Full | Full |
+| `sprites.prefer_scaled_variants` | true | true | true | false | false |
+| `backgrounds.resolution_scale` | Potato | Half | Half | Full | Full |
+| `backgrounds.max_texture_resolution` | 256 | 1024 | 1536 | 2048 | 4096 |
+| `backgrounds.prefer_scaled_variants` | true | true | true | false | false |
+| `parallax.enabled` | **false** | true | true | true | true |
+| `parallax.max_layers` | Some(0) | Some(2) | Some(3) | None | None |
+| `parallax.resolution_scale` | Potato | Half | Half | Full | Full |
+| `shaders.screen_shader_scale` | 0.0 | 0.5 | 0.75 | 1.0 | 1.0 |
+| `shaders.allow_expensive_materials` | false | false | true | true | true |
+| `particles.max_particles` | 16 | 128 | 256 | 512 | 1024 |
+| `particles.spawn_rate_scale` | 0.1 | 0.5 | 0.75 | 1.0 | 1.0 |
+
+**Potato** is the deliberate floor — "runs on a literal potato," and a bit of a
+joke. Everything is stripped, and its textures are shrunk toward ~1% of the
+authored size with a per-sheet **8px frame floor** (so `player_robot`'s sheet
+goes 2638² ≈ 28 MB VRAM → 82² ≈ 0.03 MB). It is *meant* to look bad.
 
 `Custom` resolves to its stored budget verbatim. Numbers are a starting point — the
 portal row and the sprite `resolution_scale` are the two that actually move Android
@@ -359,29 +369,38 @@ The enum + menu path is the well-worn ~7-touchpoint pattern (cf. the existing
 
 ---
 
-## Generators
+## Generators — `scripts/generate_visual_quality_variants.py` (landed)
 
-The runtime loads variants; the generators must **produce** them. Existing
-`render_scale` (default 2) is the native lever — variants are "publish the same
-geometry at a lower scale," preserving collision-driven display size and manifest
-invariants.
+The runtime loads variants; the generator **produces** them. Implemented as a
+deterministic **post-publish** helper (chosen over re-rendering at a lower
+`render_scale`, which would shift auto-crop boxes per sheet): full-resolution
+publish stays byte-for-byte unchanged, then this mirrors `sprites/` →
+`sprites_0_5x/` / `sprites_0_25x/` / `sprites_potato/` and
+`backgrounds/parallax_layers/` → its `_0_5x` / `_0_25x` / `_potato` siblings.
 
-**Sprites** (`tools/ambition_sprite2d_renderer/`): a publish path that also writes
-`sprites_0_5x/` (Half is the priority; Quarter if cheap). Variant RON `image`/`images`
-entries point at variant PNGs **in the same variant folder**; page-split sheets keep
-page filenames consistent per folder. Full publish and existing commands stay byte-for-
-byte unchanged. Flag shape TBD (`--quality-variants` / `--variant-scales 0.5 0.25` /
-`publish-quality-variants`) — document the final one. Prefer the route that keeps
-geometry/manifest stable and passes `test_render_scale` / `test_core_pipeline` /
-`test_packer`; deterministic post-resize with carefully scaled frame/rect/body metrics
-is the fallback if a lower `render_scale` shifts crop boxes.
+The piece the first scaffold got wrong (and this fixes): a packed
+`*_spritesheet.ron` carries **pixel coordinates** that index the PNG. So the
+generator rescales the PNG **and** every pixel-space RON field by one consistent
+per-sheet factor — `frame_width/height`, `label_width`, `y_offset`, each frame
+rect's `x/y/w/h` + trim `off`, and the `body_metrics` body / hit / hurt boxes
+(`bbox`, `parts`, `poly`, per-frame `frames`) + `feet_pixel`. Normalized data
+(`feet_anchor_norm`, per-frame `anchors`, durations, `collision_scale`) is left
+untouched. Scaled rects are clamped into the resized page bounds so per-field
+rounding can't push an atlas cell off the texture. The RON parse/serialize is a
+small purpose-built reader (Python RON libs mangle `None`/unit variants — see
+[[feedback_pyron_unit_variants]]); the **drift guard** is the Rust-side
+`every_spritesheet_ron_parses_into_sheet_record` test, which now also walks the
+variant folders when present and deserializes them via the real `ron` crate.
 
-**Parallax** (`tools/ambition_parallax_renderer/`, `regen_backgrounds.sh`): full output
-unchanged; add variant output to `parallax_layers_0_5x/` (+ `_0_25x`) via deterministic
-high-quality resize.
+`Potato` aims for ~1% but **floors each sheet at an 8px frame** so atlases stay
+loadable; the effective factor is therefore per-sheet and is baked into the
+variant RON, so the runtime never needs to know it.
 
-Both must keep `regen_sprites.sh` / `regen_backgrounds.sh` working on a fresh clone.
-Variant PNGs are **generated, never committed** — the generators reproduce them.
+Both `regen_sprites.sh` / `regen_backgrounds.sh` keep working on a fresh clone;
+variant PNGs/RONs are **generated, never committed** (gitignored) — re-run
+`python3 scripts/generate_visual_quality_variants.py` to reproduce them. The
+sprite2d / parallax renderers still own full-res output; this script is the
+variant tack-on.
 
 ---
 

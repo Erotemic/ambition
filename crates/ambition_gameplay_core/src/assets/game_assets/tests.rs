@@ -109,9 +109,11 @@ fn every_parallax_layer_has_a_unique_asset_id() {
 #[test]
 fn sandbox_image_manifest_registers_every_entity_and_parallax_entry() {
     let manifest = sandbox_image_manifest("sprites");
-    // Each base image also registers its Half + Quarter resolution variants
-    // (see `insert_scaled_image_entry`), so every base contributes 3 entries.
-    const ENTRIES_PER_BASE: usize = 3;
+    // Each base image also registers one entry per generated resolution variant
+    // (see `insert_scaled_image_entry` + `TextureResolutionScale::MANIFEST_VARIANTS`),
+    // so every base contributes 1 + N_variants entries.
+    const ENTRIES_PER_BASE: usize =
+        1 + crate::persistence::settings::TextureResolutionScale::MANIFEST_VARIANTS.len();
     let base_count =
         EntitySprite::ALL.len() + ParallaxTheme::ALL.len() * ParallaxLayerAsset::ALL.len();
     let expected = base_count * ENTRIES_PER_BASE;

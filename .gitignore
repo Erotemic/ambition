@@ -121,8 +121,10 @@ crates/ambition_gameplay_core/assets/sprites/*.yaml
 crates/ambition_gameplay_core/assets/sprites/**/*.yaml
 crates/ambition_gameplay_core/assets/sprites_0_5x/
 crates/ambition_gameplay_core/assets/sprites_0_25x/
+crates/ambition_gameplay_core/assets/sprites_potato/
 crates/ambition_gameplay_core/assets/backgrounds/parallax_layers_0_5x/
 crates/ambition_gameplay_core/assets/backgrounds/parallax_layers_0_25x/
+crates/ambition_gameplay_core/assets/backgrounds/parallax_layers_potato/
 
 # Agent/worktree scratch (must never be committed)
 .worktrees/

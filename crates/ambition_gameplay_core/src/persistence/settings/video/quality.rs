@@ -9,6 +9,12 @@ use super::{cycle_next, cycle_prev};
 
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum VisualQualityProfile {
+    /// Absolute bare minimum — for the slowest hardware imaginable (and a
+    /// little bit of a joke). Everything is stripped: no portal recursion or
+    /// parallax, shaders off, near-zero particles, and textures shrunk to a
+    /// per-sheet 8px floor (~1% of the authored size). It is *meant* to look
+    /// bad; the goal is "it runs at all," not "it's pretty."
+    Potato,
     Low,
     Medium,
     #[default]
@@ -18,7 +24,8 @@ pub enum VisualQualityProfile {
 }
 
 impl VisualQualityProfile {
-    pub const ALL: [Self; 5] = [
+    pub const ALL: [Self; 6] = [
+        Self::Potato,
         Self::Low,
         Self::Medium,
         Self::High,
@@ -28,6 +35,7 @@ impl VisualQualityProfile {
 
     pub fn label(self) -> &'static str {
         match self {
+            Self::Potato => "potato",
             Self::Low => "low",
             Self::Medium => "medium",
             Self::High => "high",
@@ -37,11 +45,12 @@ impl VisualQualityProfile {
     }
 
     pub fn next(self) -> Self {
-        cycle_next(&Self::ALL, self, 2)
+        // Fallback index = High (the desktop default) if `self` isn't found.
+        cycle_next(&Self::ALL, self, 3)
     }
 
     pub fn prev(self) -> Self {
-        cycle_prev(&Self::ALL, self, 2)
+        cycle_prev(&Self::ALL, self, 3)
     }
 }
 
@@ -55,6 +64,10 @@ pub fn default_visual_quality_profile() -> VisualQualityProfile {
 
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum TextureResolutionScale {
+    /// Bare-minimum "potato" textures. The generator shrinks each sheet toward
+    /// ~1% of its authored size but floors every frame at 8px so atlases stay
+    /// loadable; the exact per-sheet factor is baked into the variant manifest.
+    Potato,
     Quarter,
     Half,
     #[default]
@@ -62,10 +75,19 @@ pub enum TextureResolutionScale {
 }
 
 impl TextureResolutionScale {
-    pub const ALL: [Self; 3] = [Self::Quarter, Self::Half, Self::Full];
+    pub const ALL: [Self; 4] = [Self::Potato, Self::Quarter, Self::Half, Self::Full];
+
+    /// The scales that get *generated as variants* (everything below `Full`).
+    /// Single source of truth for the manifest-registration loops so a new
+    /// tier can never be half-wired into only some asset families.
+    pub const MANIFEST_VARIANTS: [Self; 3] = [Self::Half, Self::Quarter, Self::Potato];
 
     pub fn scale_factor(self) -> f32 {
         match self {
+            // Nominal only — `Potato` is floored per-sheet in the generator, so
+            // its effective factor varies by sheet. Nothing reads this at
+            // runtime (the real scaling is baked into the variant PNG + RON).
+            Self::Potato => 0.1,
             Self::Quarter => 0.25,
             Self::Half => 0.5,
             Self::Full => 1.0,
@@ -74,6 +96,7 @@ impl TextureResolutionScale {
 
     pub fn folder_suffix(self) -> &'static str {
         match self {
+            Self::Potato => "_potato",
             Self::Quarter => "_0_25x",
             Self::Half => "_0_5x",
             Self::Full => "",
@@ -82,6 +105,7 @@ impl TextureResolutionScale {
 
     pub fn asset_id_suffix(self) -> Option<&'static str> {
         match self {
+            Self::Potato => Some("potato"),
             Self::Quarter => Some("0_25x"),
             Self::Half => Some("0_5x"),
             Self::Full => None,
@@ -94,6 +118,7 @@ impl TextureResolutionScale {
 
     pub fn parallax_subdir(self) -> &'static str {
         match self {
+            Self::Potato => "backgrounds/parallax_layers_potato",
             Self::Quarter => "backgrounds/parallax_layers_0_25x",
             Self::Half => "backgrounds/parallax_layers_0_5x",
             Self::Full => "backgrounds/parallax_layers",
@@ -157,6 +182,44 @@ pub struct VisualQualityBudget {
 impl VisualQualityBudget {
     pub fn for_profile(profile: VisualQualityProfile) -> Self {
         match profile {
+            // Potato: strip everything. Smallest possible portal capture,
+            // refreshed at most ~4×/sec; no recursion, no parallax, no shaders,
+            // almost no particles; sprites + backgrounds at the `Potato` texture
+            // tier (per-sheet 8px floor). The point is to run on a literal
+            // potato, not to look good.
+            VisualQualityProfile::Potato => Self {
+                portal: PortalCaptureBudget {
+                    max_resolution: 128,
+                    texels_per_world_px: 0.05,
+                    recursion_depth: 0,
+                    max_active_captures: 1,
+                    max_updates_per_frame: 1,
+                    min_refresh_interval_s: 0.250,
+                    include_parallax: false,
+                },
+                sprites: SpriteTextureBudget {
+                    resolution_scale: TextureResolutionScale::Potato,
+                    prefer_scaled_variants: true,
+                },
+                backgrounds: BackgroundTextureBudget {
+                    resolution_scale: TextureResolutionScale::Potato,
+                    max_texture_resolution: 256,
+                    prefer_scaled_variants: true,
+                },
+                parallax: ParallaxBudget {
+                    enabled: false,
+                    max_layers: Some(0),
+                    resolution_scale: TextureResolutionScale::Potato,
+                },
+                shaders: ShaderBudget {
+                    screen_shader_scale: 0.0,
+                    allow_expensive_materials: false,
+                },
+                particles: ParticleBudget {
+                    max_particles: 16,
+                    spawn_rate_scale: 0.1,
+                },
+            },
             VisualQualityProfile::Low => Self {
                 portal: PortalCaptureBudget {
                     max_resolution: 384,

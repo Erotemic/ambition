@@ -13,7 +13,54 @@ fn robot_sheet() -> super::sheets::CharacterSheetSpec {
     sheet_for_character_id("robot").expect("robot catalog row resolves a sheet")
 }
 use super::registry::SheetRecord;
-use super::sheets::{sprite_render_size, try_load_spec_for_target, SheetTuning};
+use super::sheets::{
+    record_for_target, sprite_render_size, try_load_spec_for_target,
+    try_load_spec_for_target_scaled, SheetTuning,
+};
+
+/// When the quality-variant sheets have been generated (gitignored, so only at
+/// build time after running `generate_visual_quality_variants.py`), the scaled
+/// records must carry SMALLER frame geometry than the base — and the
+/// scaled-spec lookup must return a usable spec paired to that variant. This is
+/// the runtime half of the variant pipeline; it no-ops on a fresh clone.
+#[test]
+fn scaled_variant_specs_pair_smaller_geometry_when_generated() {
+    use crate::persistence::settings::TextureResolutionScale;
+    let mut checked = 0usize;
+    for target in [
+        "player_robot_spritesheet",
+        "bob_spritesheet",
+        "goblin_spritesheet",
+    ] {
+        let Some(base) = record_for_target(target) else {
+            continue;
+        };
+        for (suffix, scale) in [
+            ("0_5x", TextureResolutionScale::Half),
+            ("potato", TextureResolutionScale::Potato),
+        ] {
+            let Some(variant) = record_for_target(&format!("{target}.{suffix}")) else {
+                continue;
+            };
+            checked += 1;
+            assert!(variant.frame_width > 0 && variant.frame_height > 0);
+            assert!(
+                variant.frame_width <= base.frame_width
+                    && variant.frame_height <= base.frame_height,
+                "{target}.{suffix}: variant {}x{} not <= base {}x{}",
+                variant.frame_width,
+                variant.frame_height,
+                base.frame_width,
+                base.frame_height,
+            );
+            // The scaled-spec lookup the loader uses returns the variant spec.
+            let spec = try_load_spec_for_target_scaled(target, &SheetTuning::default(), scale)
+                .expect("baked variant record yields a spec");
+            assert_eq!(spec.frame_width, variant.frame_width);
+        }
+    }
+    let _ = checked; // zero is acceptable (no variants generated in this build)
+}
 
 #[test]
 fn sprite_render_size_uses_max_collision_axis() {
@@ -151,15 +198,56 @@ fn every_reachable_sheet_loads() {
 /// time instead of at game startup.
 #[test]
 fn every_spritesheet_ron_parses_into_sheet_record() {
-    let assets_dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("assets/sprites");
-    let entries = std::fs::read_dir(&assets_dir)
-        .unwrap_or_else(|e| panic!("read {}: {e}", assets_dir.display()));
+    let base = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("assets/sprites");
 
-    let mut parsed_records = 0usize;
     let mut parsed_files = 0usize;
     let mut failures: Vec<String> = Vec::new();
+    parse_spritesheets_under(&base, true, &mut parsed_files, &mut failures);
+
+    // Quality-variant folders are generated (gitignored), so only validate them
+    // when present — a fresh clone without `generate_visual_quality_variants.py`
+    // run still passes, but once generated their RON must deserialize too (the
+    // generator rescales pixel rects; this is the drift guard on that output).
+    for suffix in ["_0_5x", "_0_25x", "_potato"] {
+        let dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join(format!("assets/sprites{suffix}"));
+        if dir.is_dir() {
+            parse_spritesheets_under(&dir, false, &mut parsed_files, &mut failures);
+        }
+    }
+
+    assert!(
+        parsed_files > 0,
+        "no *_spritesheet.ron found under {}",
+        base.display()
+    );
+    if !failures.is_empty() {
+        panic!(
+            "{} RON manifest(s) failed to parse:\n  {}",
+            failures.len(),
+            failures.join("\n  "),
+        );
+    }
+}
+
+/// Recursively parse every `*_spritesheet.ron` under `dir` into
+/// `Vec<SheetRecord>`, asserting the basic invariants. `recurse` walks one level
+/// of subdirs (boss multi-sheet packages live there).
+fn parse_spritesheets_under(
+    dir: &std::path::Path,
+    recurse: bool,
+    parsed_files: &mut usize,
+    failures: &mut Vec<String>,
+) {
+    let Ok(entries) = std::fs::read_dir(dir) else {
+        return;
+    };
     for entry in entries.flatten() {
         let path = entry.path();
+        if recurse && path.is_dir() {
+            parse_spritesheets_under(&path, false, parsed_files, failures);
+            continue;
+        }
         let Some(name) = path.file_name().and_then(|n| n.to_str()) else {
             continue;
         };
@@ -170,32 +258,16 @@ fn every_spritesheet_ron_parses_into_sheet_record() {
             .unwrap_or_else(|e| panic!("read {}: {e}", path.display()));
         match ron::from_str::<Vec<SheetRecord>>(&text) {
             Ok(records) => {
-                parsed_files += 1;
+                *parsed_files += 1;
                 assert!(!records.is_empty(), "{name}: zero records in file");
                 for record in &records {
-                    parsed_records += 1;
                     assert!(!record.target.is_empty(), "{name}: empty target");
                     assert!(record.frame_width > 0, "{name}: frame_width == 0");
                     assert!(record.frame_height > 0, "{name}: frame_height == 0");
                 }
             }
-            Err(err) => {
-                failures.push(format!("{name}: {err}"));
-            }
+            Err(err) => failures.push(format!("{}: {err}", path.display())),
         }
-    }
-    assert!(
-        parsed_files > 0,
-        "no *_spritesheet.ron found under {}",
-        assets_dir.display()
-    );
-    assert!(parsed_records >= parsed_files);
-    if !failures.is_empty() {
-        panic!(
-            "{} RON manifest(s) failed to parse:\n  {}",
-            failures.len(),
-            failures.join("\n  "),
-        );
     }
 }
 
@@ -385,15 +457,27 @@ fn resolve_anim_renders_most_specific_pose_in_the_actor_anim_set() {
     let spec = sheet_for_character_id("npc_pirate_admiral").expect("admiral resolves a sheet");
     // Directional / aerial / heavy swings are refinements of the generic slash
     // it DOES have → render slash, not Idle.
-    assert_eq!(spec.resolve_anim(CharacterAnim::AttackUp), CharacterAnim::Slash);
-    assert_eq!(spec.resolve_anim(CharacterAnim::AirDown), CharacterAnim::Slash);
-    assert_eq!(spec.resolve_anim(CharacterAnim::Punch), CharacterAnim::Slash);
+    assert_eq!(
+        spec.resolve_anim(CharacterAnim::AttackUp),
+        CharacterAnim::Slash
+    );
+    assert_eq!(
+        spec.resolve_anim(CharacterAnim::AirDown),
+        CharacterAnim::Slash
+    );
+    assert_eq!(
+        spec.resolve_anim(CharacterAnim::Punch),
+        CharacterAnim::Slash
+    );
     // Dash / Slide refine down to the locomotion base it has (walk).
     assert_eq!(spec.resolve_anim(CharacterAnim::Dash), CharacterAnim::Walk);
     assert_eq!(spec.resolve_anim(CharacterAnim::Slide), CharacterAnim::Walk);
     // A pose it has resolves to itself.
     assert_eq!(spec.resolve_anim(CharacterAnim::Walk), CharacterAnim::Walk);
-    assert_eq!(spec.resolve_anim(CharacterAnim::Death), CharacterAnim::Death);
+    assert_eq!(
+        spec.resolve_anim(CharacterAnim::Death),
+        CharacterAnim::Death
+    );
     // A pose with no relative in the set is the only case that floors at Idle.
     assert_eq!(spec.resolve_anim(CharacterAnim::Fly), CharacterAnim::Idle);
     assert_eq!(spec.resolve_anim(CharacterAnim::Jump), CharacterAnim::Idle);

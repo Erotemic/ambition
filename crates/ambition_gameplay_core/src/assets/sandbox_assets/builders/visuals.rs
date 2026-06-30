@@ -100,10 +100,7 @@ pub(in super::super) fn extend_with_character_entries(
             entry = with_embedded_core_candidate(entry, embedded_url);
         }
         manifest.insert(entry);
-        for scale in [
-            TextureResolutionScale::Half,
-            TextureResolutionScale::Quarter,
-        ] {
+        for scale in TextureResolutionScale::MANIFEST_VARIANTS {
             insert_scaled_image_entry(
                 manifest,
                 &ids::character_sprite(&name),
@@ -141,10 +138,7 @@ pub(in super::super) fn extend_with_boss_entries(
                 .with_missing_policy(MissingAssetPolicy::SilentPlaceholder)
                 .with_preload_group(PreloadGroup::SandboxCore),
         );
-        for scale in [
-            TextureResolutionScale::Half,
-            TextureResolutionScale::Quarter,
-        ] {
+        for scale in TextureResolutionScale::MANIFEST_VARIANTS {
             insert_scaled_image_entry(
                 manifest,
                 &ids::boss_sprite(name),

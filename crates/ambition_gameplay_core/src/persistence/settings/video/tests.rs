@@ -123,6 +123,55 @@ fn visual_quality_profile_table_matches_android_starting_budget() {
 }
 
 #[test]
+fn potato_profile_strips_everything_to_the_bare_minimum() {
+    let potato = VisualQualityBudget::for_profile(VisualQualityProfile::Potato);
+    // Smallest possible portal capture, no recursion / parallax, throttled hard.
+    assert_eq!(potato.portal.max_resolution, 128);
+    assert_eq!(potato.portal.recursion_depth, 0);
+    assert!(!potato.portal.include_parallax);
+    assert!(potato.portal.min_refresh_interval_s > 0.0);
+    // Tiniest textures for sprites + backgrounds.
+    assert_eq!(
+        potato.sprites.resolution_scale,
+        TextureResolutionScale::Potato
+    );
+    assert!(potato.sprites.prefer_scaled_variants);
+    assert_eq!(
+        potato.backgrounds.resolution_scale,
+        TextureResolutionScale::Potato
+    );
+    // Parallax off, shaders off, almost no particles.
+    assert!(!potato.parallax.enabled);
+    assert_eq!(potato.shaders.screen_shader_scale, 0.0);
+    assert!(!potato.shaders.allow_expensive_materials);
+    assert!(potato.particles.max_particles <= 32);
+
+    // Potato is the floor: it is no heavier than Low on the levers that matter.
+    let low = VisualQualityBudget::for_profile(VisualQualityProfile::Low);
+    assert!(potato.portal.max_resolution <= low.portal.max_resolution);
+    assert!(potato.particles.max_particles <= low.particles.max_particles);
+}
+
+#[test]
+fn visual_quality_profile_cycles_through_all_including_potato() {
+    assert!(VisualQualityProfile::ALL.contains(&VisualQualityProfile::Potato));
+    let mut visited: Vec<VisualQualityProfile> = Vec::new();
+    let mut cur = VisualQualityProfile::High;
+    for _ in 0..VisualQualityProfile::ALL.len() {
+        if !visited.contains(&cur) {
+            visited.push(cur);
+        }
+        cur = cur.next();
+    }
+    assert_eq!(visited.len(), VisualQualityProfile::ALL.len());
+    // next/prev round-trips around the new first variant.
+    assert_eq!(
+        VisualQualityProfile::Potato.next().prev(),
+        VisualQualityProfile::Potato
+    );
+}
+
+#[test]
 fn custom_visual_quality_resolves_to_stored_budget() {
     let mut settings = VisualQualitySettings::default();
     settings.profile = VisualQualityProfile::Custom;
@@ -148,4 +197,20 @@ fn texture_resolution_scale_owns_variant_folder_names() {
         TextureResolutionScale::Full.asset_subdir("sprites"),
         "sprites"
     );
+    assert_eq!(
+        TextureResolutionScale::Potato.asset_subdir("sprites"),
+        "sprites_potato"
+    );
+    assert_eq!(
+        TextureResolutionScale::Potato.parallax_subdir(),
+        "backgrounds/parallax_layers_potato"
+    );
+    assert_eq!(
+        TextureResolutionScale::Potato.asset_id_suffix(),
+        Some("potato")
+    );
+    // Every below-Full tier is a generated variant; Full is never in the list.
+    assert_eq!(TextureResolutionScale::MANIFEST_VARIANTS.len(), 3);
+    assert!(TextureResolutionScale::MANIFEST_VARIANTS.contains(&TextureResolutionScale::Potato));
+    assert!(!TextureResolutionScale::MANIFEST_VARIANTS.contains(&TextureResolutionScale::Full));
 }

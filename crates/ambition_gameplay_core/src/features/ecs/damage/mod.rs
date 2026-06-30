@@ -236,6 +236,7 @@ pub fn apply_feature_hit_events(
                 actor_entity,
                 *disposition,
                 &mut em,
+                &mut combat,
                 aggression.as_deref_mut(),
                 interactable,
                 &mut banner,

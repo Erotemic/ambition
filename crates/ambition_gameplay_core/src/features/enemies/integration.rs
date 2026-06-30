@@ -113,7 +113,8 @@ impl<'a> ActorMut<'a> {
         ae::FrameEvents,
     ) {
         self.status.hit_flash = (self.status.hit_flash - dt).max(0.0);
-        self.status.damage_invuln_timer = (self.status.damage_invuln_timer - dt).max(0.0);
+        // (post-hit i-frame lives on the body's `BodyCombat.damage_invuln_timer`
+        // now — decremented in the actor driver, not here)
         if !self.health.alive() {
             self.status.respawn_timer = (self.status.respawn_timer - dt).max(0.0);
             if self.config.tuning.revives_in_place && self.status.respawn_timer <= 0.0 {

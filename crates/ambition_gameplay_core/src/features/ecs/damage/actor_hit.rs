@@ -42,6 +42,9 @@ pub(crate) fn apply_actor_hit(
     actor_entity: Entity,
     disposition: ActorDisposition,
     em: &mut super::super::actor_clusters::ActorMut<'_>,
+    // The body's combat state — the ONE post-hit i-frame authority for every
+    // body (the player gates re-hits on the same `BodyCombat.damage_invuln_timer`).
+    combat: &mut crate::actor::BodyCombat,
     aggression: Option<&mut crate::features::ActorAggression>,
     interactable: Option<&ambition_interaction::Interactable>,
     banner: &mut GameplayBanner,
@@ -56,7 +59,7 @@ pub(crate) fn apply_actor_hit(
     // frame. The window collapses that to one hit per window for any body. Returns
     // false so the caller's `actor_hit_this_event` stays unset (no sfx/hitstop, no
     // per-swing dedup record).
-    if em.status.damage_invuln_timer > 0.0 {
+    if !combat.vulnerable() {
         return false;
     }
     if disposition.is_peaceful() {
@@ -66,7 +69,7 @@ pub(crate) fn apply_actor_hit(
         let pos = em.kin.pos;
         let bark_anchor = em.bark_anchor();
         em.status.hit_flash = 0.18;
-        em.status.damage_invuln_timer = super::super::actor_clusters::ACTOR_DAMAGE_IFRAME_S;
+        combat.damage_invuln_timer = super::super::actor_clusters::ACTOR_DAMAGE_IFRAME_S;
         let impact = midpoint(event.volume.center(), pos);
         writers.vfx.write(VfxMessage::Impact { pos: impact });
         writers.actor_stimuli.write(ActorStimulus::DamagedBy {
@@ -123,7 +126,7 @@ pub(crate) fn apply_actor_hit(
         // zero before we re-set it below).
         let should_bark = em.status.hit_flash < 0.05;
         em.status.hit_flash = 0.16;
-        em.status.damage_invuln_timer = super::super::actor_clusters::ACTOR_DAMAGE_IFRAME_S;
+        combat.damage_invuln_timer = super::super::actor_clusters::ACTOR_DAMAGE_IFRAME_S;
         if should_bark {
             let strikes = (em.health.max() - em.health.current()).max(0) as u32;
             // Catalog-first: resolve the enemy's catalog id from its display

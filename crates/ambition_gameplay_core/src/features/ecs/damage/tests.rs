@@ -175,7 +175,7 @@ fn player_slash_damages_and_can_kill_a_hostile_actor() {
     // model the gap between attacks (without it, the i-frame correctly gates the
     // back-to-back second hit — that is the regression fix working).
     app.world_mut()
-        .get_mut::<super::super::actor_clusters::ActorStatus>(actor_entity)
+        .get_mut::<crate::actor::BodyCombat>(actor_entity)
         .unwrap()
         .damage_invuln_timer = 0.0;
 

@@ -268,6 +268,11 @@ pub fn update_ecs_actors(
         (clusters, possessed, faction),
     ) in &mut actors
     {
+        // Body-generic post-hit i-frame: decrement the body's authoritative
+        // reaction timer (the same `BodyCombat.damage_invuln_timer` the player
+        // gates re-hits on). Runs for every actor each tick, alive or dead.
+        combat.damage_invuln_timer = (combat.damage_invuln_timer - dt).max(0.0);
+
         // This actor's combat-target liveness. `select_actor_targets` already
         // dropped a dead/absent foe (it only ever targets a LIVE candidate, and a
         // faction-feud fighter has no target once its foe is gone), so `entity ==
@@ -927,6 +932,13 @@ pub fn sync_actor_components_from_cluster(
     }
     // Health is no longer synced — it lives on the shared `BodyHealth` the cluster
     // (`em.health`) reads/writes directly; there is no separate copy to mirror.
+    //
+    // `BodyCombat` is otherwise a per-frame read-model rebuilt from the cluster's
+    // derived presentation fields — EXCEPT the post-hit i-frame, which is now the
+    // body's authoritative reaction timer (set on a landed hit, decremented in the
+    // actor tick). Carry it across the rebuild so the read-model refresh can't wipe
+    // it. (A4 lifts `hit_flash` onto the same authority and retires this rebuild.)
+    let damage_invuln_timer = combat.damage_invuln_timer;
     *combat = if disposition.is_hostile() {
         BodyCombat::hostile(
             em.health.alive(),
@@ -938,6 +950,7 @@ pub fn sync_actor_components_from_cluster(
     } else {
         BodyCombat::peaceful(0, em.status.hit_flash)
     };
+    combat.damage_invuln_timer = damage_invuln_timer;
     *intent = ActorIntent::new(em.status.ai_mode);
     *cooldowns = ActorCooldowns {
         attack_cooldown: em.attack.cooldown,

@@ -22,13 +22,13 @@
 
 use ambition_engine_core::{self as ae, AabbExt};
 use ambition_gameplay_core as sb;
+use image::{Rgba, RgbaImage};
 use sb::camera_snapshot::{
-    resolve_follow_camera_snapshot, CameraFocus2d, CameraSnapshot2d,
-    CameraSnapshotResolveInput, CameraSnapshotResolveMode,
+    resolve_follow_camera_snapshot, CameraFocus2d, CameraSnapshot2d, CameraSnapshotResolveInput,
+    CameraSnapshotResolveMode,
 };
 use sb::persistence::settings::video::CameraFramingPreset;
 use sb::persistence::settings::CameraAspectPolicy;
-use image::{Rgba, RgbaImage};
 
 /// Longest edge of the output image, in pixels. Worlds scale down to fit.
 const MAX_CANVAS_PX: u32 = 1000;
@@ -299,16 +299,13 @@ fn render_room_projected(
     img
 }
 
-
 fn parse_vec2(text: &str) -> Option<ae::Vec2> {
     let (x, y) = text.split_once(',')?;
     Some(ae::Vec2::new(x.parse().ok()?, y.parse().ok()?))
 }
 
 fn parse_image_size(text: &str) -> Option<(u32, u32)> {
-    let (w, h) = text
-        .split_once('x')
-        .or_else(|| text.split_once('X'))?;
+    let (w, h) = text.split_once('x').or_else(|| text.split_once('X'))?;
     Some((w.parse().ok()?, h.parse().ok()?))
 }
 
@@ -470,14 +467,21 @@ fn main() {
     // no-GPU version of "what would the scene look like if the camera followed
     // this point?" and is the same camera-policy seam future portal capture
     // requests can consume.
-    if matches!(args.first().map(String::as_str), Some("capture" | "snapshot")) {
+    if matches!(
+        args.first().map(String::as_str),
+        Some("capture" | "snapshot")
+    ) {
         args.remove(0);
         let Some(room_id) = args.first().cloned() else {
-            eprintln!("Usage: render_room_geometry capture <ROOM_ID> <X,Y> [OUT.png] [WIDTHxHEIGHT]");
+            eprintln!(
+                "Usage: render_room_geometry capture <ROOM_ID> <X,Y> [OUT.png] [WIDTHxHEIGHT]"
+            );
             std::process::exit(2);
         };
         let Some(focus_text) = args.get(1).cloned() else {
-            eprintln!("Usage: render_room_geometry capture <ROOM_ID> <X,Y> [OUT.png] [WIDTHxHEIGHT]");
+            eprintln!(
+                "Usage: render_room_geometry capture <ROOM_ID> <X,Y> [OUT.png] [WIDTHxHEIGHT]"
+            );
             std::process::exit(2);
         };
         let Some(focus) = parse_vec2(&focus_text) else {

@@ -239,9 +239,8 @@ fn presentation_world_inner(
     // cube-menu `Camera3d`. The cube's dim-scrim is the one exception and is
     // explicitly retargeted back to this camera (see
     // `lunex_kaleidoscope_app::spawn_kaleidoscope_scrim`) so it stays BEHIND the cube.
-    let mut main_camera_layers = bevy::camera::visibility::RenderLayers::layer(0).with(
-        ambition_gameplay_core::session::camera_layers::PARALLAX_BACKGROUND_LAYER,
-    );
+    let mut main_camera_layers = bevy::camera::visibility::RenderLayers::layer(0)
+        .with(ambition_gameplay_core::session::camera_layers::PARALLAX_BACKGROUND_LAYER);
     #[cfg(feature = "portal_render")]
     {
         main_camera_layers =

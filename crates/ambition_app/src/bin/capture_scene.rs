@@ -120,10 +120,7 @@ fn main() {
             active_profile,
         ),
     );
-    app.add_systems(
-        Startup,
-        setup_capture_target.after(PresentationSetupSet),
-    );
+    app.add_systems(Startup, setup_capture_target.after(PresentationSetupSet));
     app.add_systems(
         Update,
         (
@@ -352,10 +349,7 @@ fn finish_after_capture(
     }
 }
 
-fn fail_after_timeout(
-    mut commands: Commands,
-    runtime: Res<SceneCaptureRuntime>,
-) {
+fn fail_after_timeout(mut commands: Commands, runtime: Res<SceneCaptureRuntime>) {
     if runtime.completed {
         return;
     }

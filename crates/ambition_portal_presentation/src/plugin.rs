@@ -7,9 +7,9 @@
 
 use bevy::prelude::*;
 
+use crate::gun_visuals;
 #[cfg(feature = "effect_view_cones")]
 use crate::view_cones;
-use crate::gun_visuals;
 use crate::visuals;
 #[cfg(feature = "effect_view_cones")]
 use crate::PortalDebugOverlay;

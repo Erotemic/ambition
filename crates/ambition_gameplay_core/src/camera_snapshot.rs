@@ -224,11 +224,10 @@ pub fn resolve_follow_camera_snapshot(
         input.focus.stable_center()
     } else {
         let mut desired = input.focus.stable_center();
-        let (bias_x, bias_y) = input.framing.target_offset(
-            target_view_w,
-            target_view_h,
-            input.focus.facing,
-        );
+        let (bias_x, bias_y) =
+            input
+                .framing
+                .target_offset(target_view_w, target_view_h, input.focus.facing);
         desired.x += bias_x;
         desired.y += bias_y;
 
@@ -241,8 +240,7 @@ pub fn resolve_follow_camera_snapshot(
 
         if let Some(blink) = input.blink {
             if blink.blink_in_timer > 0.0 && blink.blink_in_duration > 0.0 {
-                let raw_t =
-                    1.0 - (blink.blink_in_timer / blink.blink_in_duration).clamp(0.0, 1.0);
+                let raw_t = 1.0 - (blink.blink_in_timer / blink.blink_in_duration).clamp(0.0, 1.0);
                 let t = raw_t * raw_t * (3.0 - 2.0 * raw_t);
                 desired = blink.blink_camera_from + (desired - blink.blink_camera_from) * t;
             }

@@ -1,8 +1,8 @@
 //! `DialogState` unit tests: activation, typewriter reveal (multibyte-safe),
 //! confirm/advance, option selection, and the visible-window math.
 
-use super::*;
 use super::runtime::DialogSpeechStyle;
+use super::*;
 use ambition_ui_nav::visible_window_start;
 
 const DIALOG_VISIBLE_OPTIONS: usize = 4;
@@ -154,7 +154,6 @@ fn visible_dialog_window_keeps_selected_option_in_range() {
     assert_eq!(visible_window_start(4, 8, DIALOG_VISIBLE_OPTIONS), 2);
     assert_eq!(visible_window_start(7, 8, DIALOG_VISIBLE_OPTIONS), 4);
 }
-
 
 #[test]
 fn dialogue_speech_style_resets_between_lines_and_sessions() {

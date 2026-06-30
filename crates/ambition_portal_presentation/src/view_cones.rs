@@ -42,7 +42,6 @@
 //! recursive feedback path.
 
 #![allow(unused_imports)]
-use std::fmt::Write as _;
 use bevy::asset::RenderAssetUsages;
 use bevy::camera::visibility::RenderLayers;
 use bevy::camera::{ImageRenderTarget, RenderTarget, ScalingMode};
@@ -50,6 +49,7 @@ use bevy::mesh::{Indices, PrimitiveTopology};
 use bevy::prelude::*;
 use bevy::render::render_resource::TextureFormat;
 use bevy::sprite_render::AlphaMode2d;
+use std::fmt::Write as _;
 
 use ambition_engine_core as ae;
 use ambition_platformer_primitives::world_query::{raycast_solids, SolidWorldQuery};
@@ -721,7 +721,6 @@ pub fn sync_portal_view_cones(
     }
 }
 
-
 /// F8 requests a portal view-cone dump. This intentionally shares the existing
 /// trace-dump hotkey: for portal rendering bugs, the gameplay trace and the
 /// portal presentation snapshot are most useful as a pair.
@@ -745,7 +744,12 @@ pub fn flush_portal_view_cone_debug_dump(
     frame: Res<PortalWorldFrame>,
     host_view: Option<Res<PortalCameraContinuityHostView>>,
     portals: Query<&PlacedPortal>,
-    rigs: Query<(&PortalViewRig, &Camera, &Projection, Option<&GlobalTransform>)>,
+    rigs: Query<(
+        &PortalViewRig,
+        &Camera,
+        &Projection,
+        Option<&GlobalTransform>,
+    )>,
     cone_visibility: Query<(&Visibility, Option<&GlobalTransform>), With<PortalConeMesh>>,
 ) {
     if !request.pending {
@@ -813,7 +817,12 @@ fn portal_view_cone_debug_dump_text(
     frame: &PortalWorldFrame,
     host_view: Option<&PortalCameraContinuityHostView>,
     portals: &Query<&PlacedPortal>,
-    rigs: &Query<(&PortalViewRig, &Camera, &Projection, Option<&GlobalTransform>)>,
+    rigs: &Query<(
+        &PortalViewRig,
+        &Camera,
+        &Projection,
+        Option<&GlobalTransform>,
+    )>,
     cone_visibility: &Query<(&Visibility, Option<&GlobalTransform>), With<PortalConeMesh>>,
 ) -> String {
     let mut out = String::new();
@@ -824,29 +833,66 @@ fn portal_view_cone_debug_dump_text(
     let _ = writeln!(out, "reason: {reason}");
     let _ = writeln!(out, "selection.active: {:?}", selection.active);
     let _ = writeln!(out, "frame.size: {}", fmt_vec2(frame.size));
-    let _ = writeln!(out, "clip_rect: {} -> {}", fmt_vec2(clip_min), fmt_vec2(clip_max));
+    let _ = writeln!(
+        out,
+        "clip_rect: {} -> {}",
+        fmt_vec2(clip_min),
+        fmt_vec2(clip_max)
+    );
     let _ = writeln!(out, "portal_count: {}", all.len());
     let _ = writeln!(out);
     let _ = writeln!(out, "config:");
     let _ = writeln!(out, "  mode: {:?}", config.mode);
     let _ = writeln!(out, "  visibility_mode: {:?}", config.visibility_mode);
-    let _ = writeln!(out, "  aperture_los_quality: {:?}", config.aperture_los_quality);
-    let _ = writeln!(out, "  dynamic_depth_close: {:.3}", config.dynamic_depth_close);
+    let _ = writeln!(
+        out,
+        "  aperture_los_quality: {:?}",
+        config.aperture_los_quality
+    );
+    let _ = writeln!(
+        out,
+        "  dynamic_depth_close: {:.3}",
+        config.dynamic_depth_close
+    );
     let _ = writeln!(out, "  dynamic_depth_far: {:.3}", config.dynamic_depth_far);
-    let _ = writeln!(out, "  dynamic_dist_close: {:.3}", config.dynamic_dist_close);
+    let _ = writeln!(
+        out,
+        "  dynamic_dist_close: {:.3}",
+        config.dynamic_dist_close
+    );
     let _ = writeln!(out, "  dynamic_dist_far: {:.3}", config.dynamic_dist_far);
-    let _ = writeln!(out, "  half_plane_preview_full_distance: {:.3}", config.half_plane_preview_full_distance);
-    let _ = writeln!(out, "  half_plane_preview_blend_distance: {:.3}", config.half_plane_preview_blend_distance);
-    let _ = writeln!(out, "  half_plane_preview_max_lateral: {:.3}", config.half_plane_preview_max_lateral);
+    let _ = writeln!(
+        out,
+        "  half_plane_preview_full_distance: {:.3}",
+        config.half_plane_preview_full_distance
+    );
+    let _ = writeln!(
+        out,
+        "  half_plane_preview_blend_distance: {:.3}",
+        config.half_plane_preview_blend_distance
+    );
+    let _ = writeln!(
+        out,
+        "  half_plane_preview_max_lateral: {:.3}",
+        config.half_plane_preview_max_lateral
+    );
     let _ = writeln!(out, "  min_depth: {:.3}", config.min_depth);
     let _ = writeln!(out, "  min_spread: {:.3}", config.min_spread);
     let _ = writeln!(out, "  viewer_blend: {:.3}", config.viewer_blend);
     let _ = writeln!(out, "  static_depth: {:.3}", config.static_depth);
     let _ = writeln!(out, "  static_spread: {:.3}", config.static_spread);
-    let _ = writeln!(out, "  texels_per_world_px: {:.3}", config.texels_per_world_px);
+    let _ = writeln!(
+        out,
+        "  texels_per_world_px: {:.3}",
+        config.texels_per_world_px
+    );
     let _ = writeln!(out, "  max_resolution: {}", config.max_resolution);
     let _ = writeln!(out, "  recursion_depth: {}", config.recursion_depth);
-    let _ = writeln!(out, "  recursion_includes_portal_windows: {}", config.recursion_depth > 0);
+    let _ = writeln!(
+        out,
+        "  recursion_includes_portal_windows: {}",
+        config.recursion_depth > 0
+    );
     let _ = writeln!(out, "  z: {:.3}", config.z);
     let _ = writeln!(out, "  z_proximity_span: {:.3}", config.z_proximity_span);
     let _ = writeln!(out, "  blend_rate: {:.3}", config.blend_rate);
@@ -868,8 +914,17 @@ fn portal_view_cone_debug_dump_text(
             let _ = writeln!(out, "  eye: {}", fmt_vec2(viewer.eye));
             let _ = writeln!(out, "  player_position_estimate: {}", fmt_vec2(viewer.eye));
             let _ = writeln!(out, "  half_size: {}", fmt_vec2(viewer.half_size));
-            let _ = writeln!(out, "  body_aabb: {} -> {}", fmt_vec2(viewer.eye - viewer.half_size), fmt_vec2(viewer.eye + viewer.half_size));
-            let _ = writeln!(out, "  inset_corners: {}", fmt_points(&inset_viewer_corners(viewer.eye, viewer.half_size)));
+            let _ = writeln!(
+                out,
+                "  body_aabb: {} -> {}",
+                fmt_vec2(viewer.eye - viewer.half_size),
+                fmt_vec2(viewer.eye + viewer.half_size)
+            );
+            let _ = writeln!(
+                out,
+                "  inset_corners: {}",
+                fmt_points(&inset_viewer_corners(viewer.eye, viewer.half_size))
+            );
             let _ = writeln!(out, "  occluder_count: {}", viewer.occluders.len());
         }
         None => {
@@ -885,7 +940,11 @@ fn portal_view_cone_debug_dump_text(
     } else if selected.is_empty() {
         let _ = writeln!(out, "debug_dump.filter: {:?}", filter);
         let _ = writeln!(out, "debug_dump.resolved_pair: <no match>");
-        let _ = writeln!(out, "debug_dump.available_portals: {}", fmt_portal_names(&all));
+        let _ = writeln!(
+            out,
+            "debug_dump.available_portals: {}",
+            fmt_portal_names(&all)
+        );
         return out;
     } else {
         let pair = selected
@@ -921,26 +980,87 @@ fn portal_view_cone_debug_dump_text(
             tex: capture_dims(config, frame.size, partner.normal),
         };
         let route = visibility_route_summary(portal, &partner, config, viewer);
-        let _ = writeln!(out, "  route.face_los_fraction: {:.3} eyes={}", route.face_los_fraction, route.face_eye_count);
-        let _ = writeln!(out, "  route.through_portal_los_fraction: {:.3} eyes={}", route.through_portal_los_fraction, route.through_portal_eye_count);
-        let _ = writeln!(out, "  route.exit_side_los_fraction: {:.3} eyes={}", route.exit_side_los_fraction, route.exit_side_eye_count);
+        let _ = writeln!(
+            out,
+            "  route.face_los_fraction: {:.3} eyes={}",
+            route.face_los_fraction, route.face_eye_count
+        );
+        let _ = writeln!(
+            out,
+            "  route.through_portal_los_fraction: {:.3} eyes={}",
+            route.through_portal_los_fraction, route.through_portal_eye_count
+        );
+        let _ = writeln!(
+            out,
+            "  route.exit_side_los_fraction: {:.3} eyes={}",
+            route.exit_side_los_fraction, route.exit_side_eye_count
+        );
         let _ = writeln!(out, "  route.any_admitted: {}", route.admitted());
 
         let plan = compute_cone(portal, &partner, config, viewer, frame.size);
         let _ = writeln!(out, "  plan.target: {:.3}", plan.target);
         let _ = writeln!(out, "  plan.immediate: {}", plan.immediate);
-        let _ = writeln!(out, "  plan.min.entry_quad: {}", fmt_quad(plan.min.entry_quad));
-        let _ = writeln!(out, "  plan.wedge.entry_quad: {}", fmt_quad(plan.wedge.entry_quad));
-        let _ = writeln!(out, "  plan.wedge.source: {} -> {}", fmt_vec2(plan.wedge.source.min), fmt_vec2(plan.wedge.source.max));
-        let _ = writeln!(out, "  plan.wedge.source_size: {}", fmt_vec2(plan.wedge.source.max - plan.wedge.source.min));
-        let _ = writeln!(out, "  plan.debug.edge_distance_to_aperture: {}", fmt_option_f32(plan.debug.edge_distance_to_aperture));
-        let _ = writeln!(out, "  plan.debug.half_plane_preview_alpha: {:.3}", plan.debug.half_plane_preview_alpha);
-        let _ = writeln!(out, "  plan.debug.finite_depth: {}", fmt_option_f32(plan.debug.finite_depth));
-        let _ = writeln!(out, "  plan.debug.half_plane_depth: {}", fmt_option_f32(plan.debug.half_plane_depth));
-        let _ = writeln!(out, "  plan.debug.finite_lateral_limit: {}", fmt_option_f32(plan.debug.finite_lateral_limit));
-        let _ = writeln!(out, "  plan.debug.half_plane_lateral_limit: {}", fmt_option_f32(plan.debug.half_plane_lateral_limit));
-        let _ = writeln!(out, "  plan.debug.finite_wedge.source_size: {}", fmt_option_vec2(plan.debug.finite_wedge_source_size));
-        let _ = writeln!(out, "  plan.debug.half_plane_wedge.source_size: {}", fmt_option_vec2(plan.debug.half_plane_wedge_source_size));
+        let _ = writeln!(
+            out,
+            "  plan.min.entry_quad: {}",
+            fmt_quad(plan.min.entry_quad)
+        );
+        let _ = writeln!(
+            out,
+            "  plan.wedge.entry_quad: {}",
+            fmt_quad(plan.wedge.entry_quad)
+        );
+        let _ = writeln!(
+            out,
+            "  plan.wedge.source: {} -> {}",
+            fmt_vec2(plan.wedge.source.min),
+            fmt_vec2(plan.wedge.source.max)
+        );
+        let _ = writeln!(
+            out,
+            "  plan.wedge.source_size: {}",
+            fmt_vec2(plan.wedge.source.max - plan.wedge.source.min)
+        );
+        let _ = writeln!(
+            out,
+            "  plan.debug.edge_distance_to_aperture: {}",
+            fmt_option_f32(plan.debug.edge_distance_to_aperture)
+        );
+        let _ = writeln!(
+            out,
+            "  plan.debug.half_plane_preview_alpha: {:.3}",
+            plan.debug.half_plane_preview_alpha
+        );
+        let _ = writeln!(
+            out,
+            "  plan.debug.finite_depth: {}",
+            fmt_option_f32(plan.debug.finite_depth)
+        );
+        let _ = writeln!(
+            out,
+            "  plan.debug.half_plane_depth: {}",
+            fmt_option_f32(plan.debug.half_plane_depth)
+        );
+        let _ = writeln!(
+            out,
+            "  plan.debug.finite_lateral_limit: {}",
+            fmt_option_f32(plan.debug.finite_lateral_limit)
+        );
+        let _ = writeln!(
+            out,
+            "  plan.debug.half_plane_lateral_limit: {}",
+            fmt_option_f32(plan.debug.half_plane_lateral_limit)
+        );
+        let _ = writeln!(
+            out,
+            "  plan.debug.finite_wedge.source_size: {}",
+            fmt_option_vec2(plan.debug.finite_wedge_source_size)
+        );
+        let _ = writeln!(
+            out,
+            "  plan.debug.half_plane_wedge.source_size: {}",
+            fmt_option_vec2(plan.debug.half_plane_wedge_source_size)
+        );
         let _ = writeln!(out, "  rebuild.tex: {}x{}", rebuild.tex.x, rebuild.tex.y);
         write_capture_texture_debug(&mut out, config, frame.size, partner.normal);
 
@@ -952,11 +1072,23 @@ fn portal_view_cone_debug_dump_text(
                 let _ = writeln!(out, "  rig.present: true");
                 let _ = writeln!(out, "  rig.blend: {:.3}", rig.blend);
                 let _ = writeln!(out, "  rig.parallax_layer: {}", rig.parallax_layer);
-                let _ = writeln!(out, "  rig.rebuild.world_size: {}", fmt_vec2(rig.rebuild.world_size));
-                let _ = writeln!(out, "  rig.rebuild.tex: {}x{}", rig.rebuild.tex.x, rig.rebuild.tex.y);
+                let _ = writeln!(
+                    out,
+                    "  rig.rebuild.world_size: {}",
+                    fmt_vec2(rig.rebuild.world_size)
+                );
+                let _ = writeln!(
+                    out,
+                    "  rig.rebuild.tex: {}x{}",
+                    rig.rebuild.tex.x, rig.rebuild.tex.y
+                );
                 let _ = writeln!(out, "  camera.is_active: {}", cam.is_active);
                 if let Some(global) = cam_global {
-                    let _ = writeln!(out, "  camera.global_translation: {}", fmt_vec3(global.translation()));
+                    let _ = writeln!(
+                        out,
+                        "  camera.global_translation: {}",
+                        fmt_vec3(global.translation())
+                    );
                 }
                 if let Projection::Orthographic(o) = proj {
                     let _ = writeln!(out, "  camera.scaling_mode: {:?}", o.scaling_mode);
@@ -965,7 +1097,11 @@ fn portal_view_cone_debug_dump_text(
                     Ok((vis, cone_global)) => {
                         let _ = writeln!(out, "  cone.visibility: {:?}", vis);
                         if let Some(global) = cone_global {
-                            let _ = writeln!(out, "  cone.global_translation: {}", fmt_vec3(global.translation()));
+                            let _ = writeln!(
+                                out,
+                                "  cone.global_translation: {}",
+                                fmt_vec3(global.translation())
+                            );
                         }
                     }
                     Err(_) => {
@@ -1000,14 +1136,47 @@ fn portal_view_cone_debug_dump_text(
                         render.source_min,
                         render.source_max,
                     );
-                    let _ = writeln!(out, "  render.source_rect: {} -> {}", fmt_vec2(render.source_min), fmt_vec2(render.source_max));
-                    let _ = writeln!(out, "  render.source_size: {}", fmt_vec2(render.source_size));
-                    let _ = writeln!(out, "  render.source_clipped_by_plan: {}", clip.source_clipped_by_plan);
-                    let _ = writeln!(out, "  render.source_plan_size: {}", fmt_vec2(clip.source_plan_size));
-                    let _ = writeln!(out, "  render.source_clip_loss_min: {}", fmt_vec2(clip.source_clip_loss_min));
-                    let _ = writeln!(out, "  render.source_clip_loss_max: {}", fmt_vec2(clip.source_clip_loss_max));
-                    let _ = writeln!(out, "  render.source_clip_loss_total: {}", fmt_vec2(clip.source_clip_loss_total));
-                    let _ = writeln!(out, "  render.source_clip_loss_fraction: {}", fmt_vec2(clip.source_clip_loss_fraction));
+                    let _ = writeln!(
+                        out,
+                        "  render.source_rect: {} -> {}",
+                        fmt_vec2(render.source_min),
+                        fmt_vec2(render.source_max)
+                    );
+                    let _ = writeln!(
+                        out,
+                        "  render.source_size: {}",
+                        fmt_vec2(render.source_size)
+                    );
+                    let _ = writeln!(
+                        out,
+                        "  render.source_clipped_by_plan: {}",
+                        clip.source_clipped_by_plan
+                    );
+                    let _ = writeln!(
+                        out,
+                        "  render.source_plan_size: {}",
+                        fmt_vec2(clip.source_plan_size)
+                    );
+                    let _ = writeln!(
+                        out,
+                        "  render.source_clip_loss_min: {}",
+                        fmt_vec2(clip.source_clip_loss_min)
+                    );
+                    let _ = writeln!(
+                        out,
+                        "  render.source_clip_loss_max: {}",
+                        fmt_vec2(clip.source_clip_loss_max)
+                    );
+                    let _ = writeln!(
+                        out,
+                        "  render.source_clip_loss_total: {}",
+                        fmt_vec2(clip.source_clip_loss_total)
+                    );
+                    let _ = writeln!(
+                        out,
+                        "  render.source_clip_loss_fraction: {}",
+                        fmt_vec2(clip.source_clip_loss_fraction)
+                    );
                     let texels_per_world = Vec2::new(
                         rebuild.tex.x as f32 / render.source_size.x.max(1.0),
                         rebuild.tex.y as f32 / render.source_size.y.max(1.0),
@@ -1016,14 +1185,30 @@ fn portal_view_cone_debug_dump_text(
                     let source_aspect = render.source_size.x / render.source_size.y.max(1.0);
                     let _ = writeln!(out, "  render.texture_aspect: {:.3}", texture_aspect);
                     let _ = writeln!(out, "  render.source_aspect: {:.3}", source_aspect);
-                    let _ = writeln!(out, "  render.source_to_texture_texels_per_world: {}", fmt_vec2(texels_per_world));
+                    let _ = writeln!(
+                        out,
+                        "  render.source_to_texture_texels_per_world: {}",
+                        fmt_vec2(texels_per_world)
+                    );
                     let _ = writeln!(out, "  render.centroid: {}", fmt_vec3(render.centroid));
                     let _ = writeln!(out, "  render.cam_center: {}", fmt_vec3(render.cam_center));
                     let _ = writeln!(out, "  render.vertex_count: {}", render.positions.len());
                     let _ = writeln!(out, "  render.index_count: {}", render.indices.len());
-                    let _ = writeln!(out, "  render.entry_poly_world: {}", fmt_points(&render.entry_poly_world));
-                    let _ = writeln!(out, "  render.mapped_source_vertices: {}", fmt_points(&render.mapped_source_vertices));
-                    let _ = writeln!(out, "  render.positions: {}", fmt_positions(&render.positions));
+                    let _ = writeln!(
+                        out,
+                        "  render.entry_poly_world: {}",
+                        fmt_points(&render.entry_poly_world)
+                    );
+                    let _ = writeln!(
+                        out,
+                        "  render.mapped_source_vertices: {}",
+                        fmt_points(&render.mapped_source_vertices)
+                    );
+                    let _ = writeln!(
+                        out,
+                        "  render.positions: {}",
+                        fmt_positions(&render.positions)
+                    );
                     let _ = writeln!(out, "  render.uvs: {}", fmt_uvs(&render.uvs));
                     let _ = writeln!(out, "  render.indices: {:?}", render.indices);
                 }
@@ -1039,7 +1224,6 @@ fn portal_view_cone_debug_dump_text(
 
     out
 }
-
 
 #[derive(Clone, Copy, Debug)]
 struct SourceClipDebug {
@@ -1065,8 +1249,7 @@ fn source_clip_debug(
         source_clip_loss_total.x / source_plan_size.x.max(1.0),
         source_clip_loss_total.y / source_plan_size.y.max(1.0),
     );
-    let source_clipped_by_plan = source_clip_loss_total.x > 0.01
-        || source_clip_loss_total.y > 0.01;
+    let source_clipped_by_plan = source_clip_loss_total.x > 0.01 || source_clip_loss_total.y > 0.01;
     SourceClipDebug {
         source_clipped_by_plan,
         source_plan_size,
@@ -1082,7 +1265,10 @@ fn selected_portals_for_dump(all: &[PlacedPortal], filter: &str) -> Vec<PlacedPo
     if filter.is_empty() {
         return all.to_vec();
     }
-    let Some(portal) = all.iter().find(|portal| portal_name_matches(portal, filter)) else {
+    let Some(portal) = all
+        .iter()
+        .find(|portal| portal_name_matches(portal, filter))
+    else {
         return Vec::new();
     };
     let mut selected = vec![*portal];
@@ -1099,7 +1285,10 @@ fn portal_name_matches(portal: &PlacedPortal, filter: &str) -> bool {
     if name.eq_ignore_ascii_case(filter) {
         return true;
     }
-    match (name.strip_prefix('c'), filter.strip_prefix('c').or(Some(filter))) {
+    match (
+        name.strip_prefix('c'),
+        filter.strip_prefix('c').or(Some(filter)),
+    ) {
         (Some(name_index), Some(filter_index)) => name_index == filter_index,
         _ => false,
     }
@@ -1142,8 +1331,16 @@ fn write_capture_texture_debug(
     let _ = writeln!(out, "  texture.long_texels_uncapped: {:.3}", long_uncapped);
     let _ = writeln!(out, "  texture.long_texels_final: {}", long_tex);
     let _ = writeln!(out, "  texture.max_depth_for_short_axis: {:.3}", max_depth);
-    let _ = writeln!(out, "  texture.short_world_extent: {:.3}", short_world_extent);
-    let _ = writeln!(out, "  texture.short_texels_uncapped: {:.3}", short_uncapped);
+    let _ = writeln!(
+        out,
+        "  texture.short_world_extent: {:.3}",
+        short_world_extent
+    );
+    let _ = writeln!(
+        out,
+        "  texture.short_texels_uncapped: {:.3}",
+        short_uncapped
+    );
     let _ = writeln!(out, "  texture.short_texels_power2_final: {}", short_tex);
 }
 
@@ -1210,7 +1407,6 @@ fn fmt_uvs(uvs: &[[f32; 2]]) -> String {
             .join(", ")
     )
 }
-
 
 fn sync_cone_material_tint(
     cone_materials: &Query<&MeshMaterial2d<ColorMaterial>, With<PortalConeMesh>>,

@@ -42,7 +42,6 @@ pub fn clear_portals_on_reset(
 // module remains about portal state and room-reset policy, not the current
 // Ambition gun ownership model.
 
-
 #[cfg(test)]
 mod reset_tests {
     //! `clear_portals_on_reset` clears disposable gun-owned pairs but spares

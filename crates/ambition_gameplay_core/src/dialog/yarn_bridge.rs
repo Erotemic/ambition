@@ -21,11 +21,11 @@ use bevy_yarnspinner::prelude::*;
 
 use super::content::DialogChoice;
 use super::runtime::{DialogSpeechStyle, DialogState};
-use crate::audio::SfxMessage;
 use super::yarn_bindings::{
     register_commands, register_functions, YarnContentBindings, YarnPresentationCue,
     YarnStateMirror,
 };
+use crate::audio::SfxMessage;
 use crate::persistence::save::SandboxSave;
 
 /// Bevy resource: entity id of the singleton `DialogueRunner`.

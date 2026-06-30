@@ -9,14 +9,14 @@
 #[cfg(all(feature = "dev_tools", feature = "portal"))]
 mod enabled {
     use ambition_gameplay_core::dev::dev_tools::inspector_visible;
-    use ambition_gameplay_core::portal::{PortalConvention, PortalTuning};
     #[cfg(feature = "portal_render")]
     use ambition_gameplay_core::portal::{
-        PortalApertureLosQuality, PortalCameraContinuityConfig,
-        PortalCameraContinuitySelection, PortalCameraTransitMode, PortalEffectSelection,
-        PortalViewConeConfig, PortalViewConeDebugDumpRequest, PortalViewConeMode,
-        PortalViewConeVisibilityMode, PortalVisualEffect,
+        PortalApertureLosQuality, PortalCameraContinuityConfig, PortalCameraContinuitySelection,
+        PortalCameraTransitMode, PortalEffectSelection, PortalViewConeConfig,
+        PortalViewConeDebugDumpRequest, PortalViewConeMode, PortalViewConeVisibilityMode,
+        PortalVisualEffect,
     };
+    use ambition_gameplay_core::portal::{PortalConvention, PortalTuning};
     use bevy::prelude::*;
     use bevy_inspector_egui::bevy_egui::{
         egui, EguiContext, EguiPrimaryContextPass, PrimaryEguiContext,
@@ -547,7 +547,8 @@ mod enabled {
     fn field_label(ui: &mut egui::Ui, label: &'static str, help: &'static str) {
         ui.horizontal(|ui| {
             ui.label(label).on_hover_text(help);
-            ui.label(egui::RichText::new("?").small()).on_hover_text(help);
+            ui.label(egui::RichText::new("?").small())
+                .on_hover_text(help);
         });
     }
 
@@ -701,9 +702,13 @@ mod enabled {
             })
             .show_ui(ui, |ui| {
                 ui.selectable_value(value, PortalConvention::Reflection, "Reflection")
-                    .on_hover_text("Historical det -1 portal map: tangents are preserved and normals flip.");
+                    .on_hover_text(
+                        "Historical det -1 portal map: tangents are preserved and normals flip.",
+                    );
                 ui.selectable_value(value, PortalConvention::Rotation, "Rotation")
-                    .on_hover_text("Proper det +1 portal map: the entry-facing chart rotates into the exit.");
+                    .on_hover_text(
+                        "Proper det +1 portal map: the entry-facing chart rotates into the exit.",
+                    );
             })
             .response
             .on_hover_text(help);

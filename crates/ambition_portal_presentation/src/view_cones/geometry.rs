@@ -356,8 +356,12 @@ fn visible_candidate_fraction(
     if (candidate.wedge_eye - enter.pos).dot(enter.normal) <= 0.0 {
         return None;
     }
-    let fraction =
-        aperture_visibility_fraction(candidate.los_origin, &candidate.los_frame, occluders, quality);
+    let fraction = aperture_visibility_fraction(
+        candidate.los_origin,
+        &candidate.los_frame,
+        occluders,
+        quality,
+    );
     if fraction > 0.0 {
         Some(fraction)
     } else {
@@ -626,7 +630,7 @@ pub(crate) fn compute_cone(
     let edge_distance = body_edge_distance_to_aperture(v, faced);
     let dt = ((edge_distance - config.dynamic_dist_close)
         / (config.dynamic_dist_far - config.dynamic_dist_close).max(1.0))
-        .clamp(0.0, 1.0);
+    .clamp(0.0, 1.0);
     let finite_depth = config.dynamic_depth_close
         + (config.dynamic_depth_far - config.dynamic_depth_close) * smooth01(dt);
     // The half-plane preview is a *shape assist*, not an infinite capture.
@@ -639,7 +643,8 @@ pub(crate) fn compute_cone(
     let half_plane_lateral_limit = config
         .half_plane_preview_max_lateral
         .max(aperture_half_width(&enter) + 1.0);
-    let finite_wedge = aperture_wedge_multi(&enter, &exit, &eyes, finite_depth, finite_lateral_limit);
+    let finite_wedge =
+        aperture_wedge_multi(&enter, &exit, &eyes, finite_depth, finite_lateral_limit);
     let half_plane_alpha = preview_half_plane_alpha(edge_distance, config) * target.clamp(0.0, 1.0);
     let mut half_plane_eyes = eyes.clone();
     if half_plane_alpha > 0.0 {
@@ -667,9 +672,7 @@ pub(crate) fn compute_cone(
         half_plane_wedge_source_size: half_wedge.map(|w| w.source.max - w.source.min),
     };
     let wedge = match (finite_wedge, half_wedge) {
-        (Some(finite), Some(half)) => {
-            blend_cones(&finite, &half, half_plane_alpha, &enter, &exit)
-        }
+        (Some(finite), Some(half)) => blend_cones(&finite, &half, half_plane_alpha, &enter, &exit),
         (Some(finite), None) => finite,
         (None, Some(half)) => {
             if half_plane_alpha > 0.0 {

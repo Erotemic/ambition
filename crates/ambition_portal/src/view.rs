@@ -731,14 +731,8 @@ mod tests {
         let enter = floor(Vec2::new(100.0, 300.0));
         let exit = right_wall(Vec2::new(400.0, 200.0));
         let max_lateral = 400.0;
-        let cone = aperture_wedge(
-            &enter,
-            &exit,
-            Vec2::new(300.0, 299.5),
-            80.0,
-            max_lateral,
-        )
-        .unwrap();
+        let cone =
+            aperture_wedge(&enter, &exit, Vec2::new(300.0, 299.5), 80.0, max_lateral).unwrap();
         let [_, _, f1, f0] = cone.entry_quad;
 
         assert!(

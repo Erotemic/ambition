@@ -49,19 +49,16 @@ pub(in crate::dialog) fn talk_blip_id_for_speaker(
     style: DialogSpeechStyle,
 ) -> SfxId {
     match style {
-        DialogSpeechStyle::Whisper => styled_blip_for_speaker(
-            speaker_label,
-            dialogue_id,
-            DialogSpeechStyle::Whisper,
-        )
-        .unwrap_or(ids::DIALOGUE_BLIP_WHISPER_GENERIC),
+        DialogSpeechStyle::Whisper => {
+            styled_blip_for_speaker(speaker_label, dialogue_id, DialogSpeechStyle::Whisper)
+                .unwrap_or(ids::DIALOGUE_BLIP_WHISPER_GENERIC)
+        }
         DialogSpeechStyle::Shout => {
             styled_blip_for_speaker(speaker_label, dialogue_id, DialogSpeechStyle::Shout)
                 .unwrap_or(ids::DIALOGUE_BLIP_SHOUT_GENERIC)
         }
-        DialogSpeechStyle::Normal => {
-            normal_blip_for_speaker(speaker_label, dialogue_id).unwrap_or(ids::DIALOGUE_BLIP_GENERIC)
-        }
+        DialogSpeechStyle::Normal => normal_blip_for_speaker(speaker_label, dialogue_id)
+            .unwrap_or(ids::DIALOGUE_BLIP_GENERIC),
     }
 }
 
@@ -91,7 +88,11 @@ fn styled_blip_for_speaker(
 fn normal_blip_for_speaker(speaker_label: &str, dialogue_id: &str) -> Option<SfxId> {
     let speaker = normalized_key(speaker_label);
     let dialogue = normalized_key(dialogue_id);
-    let key = if speaker.is_empty() { &dialogue } else { &speaker };
+    let key = if speaker.is_empty() {
+        &dialogue
+    } else {
+        &speaker
+    };
 
     exact_normal_blip(key)
         .or_else(|| alias_normal_blip(key))
@@ -185,7 +186,11 @@ fn alias_normal_blip(key: &str) -> Option<SfxId> {
     if key.contains("news") || key.contains("bulletin") {
         return Some(ids::DIALOGUE_BLIP_NEWS_BOARD);
     }
-    if key.contains("ninja") || key.contains("shadow") || key.contains("oni") || key.contains("duelist") {
+    if key.contains("ninja")
+        || key.contains("shadow")
+        || key.contains("oni")
+        || key.contains("duelist")
+    {
         return Some(ids::DIALOGUE_BLIP_NINJA);
     }
     if key.contains("oiler") {

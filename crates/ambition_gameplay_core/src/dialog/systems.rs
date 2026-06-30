@@ -39,7 +39,11 @@ pub fn dialog_reveal_tick(
         let previous_visible_chars = dialogue.visible_line_char_count();
         dialogue.tick_reveal(time.delta_secs());
         let visible_chars = dialogue.visible_line_char_count();
-        if should_play_talk_blip(&dialogue.current_line, previous_visible_chars, visible_chars) {
+        if should_play_talk_blip(
+            &dialogue.current_line,
+            previous_visible_chars,
+            visible_chars,
+        ) {
             sfx.write(SfxMessage::Play {
                 id: talk_blip_id_for_speaker(
                     dialogue.speaker_label_for_sfx(),

@@ -71,9 +71,9 @@ pub use nameplates::{
 // origins at the same hand position the visual lays the gun-sword on.
 // Keeps "where the muzzle is" defined in one module.
 pub use ambition_gameplay_core::features::rider_hand_world_pos;
-pub use parallax::{spawn_parallax_layers, sync_parallax_layers};
 #[cfg(feature = "portal_render")]
 pub use parallax::sync_portal_capture_parallax_layers;
+pub use parallax::{spawn_parallax_layers, sync_parallax_layers};
 pub use primitives::{
     HudText, LoadingZoneVisual, PlayerSpriteBaseline, PlayerVisual, PropVisual, QuestPanelText,
     RoomScopedEntity, RoomVisual, SceneEntities,

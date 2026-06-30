@@ -59,8 +59,8 @@ pub mod actor;
 pub mod assets;
 pub mod body_mode;
 pub mod boss_encounter;
-pub mod character_sprites;
 pub mod camera_snapshot;
+pub mod character_sprites;
 pub mod config;
 pub mod cutscene;
 pub mod cutscene_trigger;
@@ -107,13 +107,13 @@ pub use world::{ldtk_world, rooms};
 
 // Crate-root types/consts whose definitions moved into themed modules but
 // still need to surface at `crate::WorldTime` / `ambition_gameplay_core::WorldTime`.
-pub use time::camera_ease::{
-    CameraEaseState, CameraEaseTuning, DEFAULT_CAMERA_ZOOM_IN_RATE, DEFAULT_CAMERA_ZOOM_OUT_RATE,
-    DEFAULT_CAMERA_ZOOM_SNAP_EPSILON,
-};
 pub use camera_snapshot::{
     resolve_follow_camera_snapshot, CameraBlinkInput, CameraFocus2d, CameraSnapshot2d,
     CameraSnapshotResolveInput, CameraSnapshotResolveMode, MAX_CAMERA_SMOOTH_DT,
+};
+pub use time::camera_ease::{
+    CameraEaseState, CameraEaseTuning, DEFAULT_CAMERA_ZOOM_IN_RATE, DEFAULT_CAMERA_ZOOM_OUT_RATE,
+    DEFAULT_CAMERA_ZOOM_SNAP_EPSILON,
 };
 pub use time::clock_state::ClockState;
 pub use time::move_toward;

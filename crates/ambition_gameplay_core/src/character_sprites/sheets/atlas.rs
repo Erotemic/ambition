@@ -45,13 +45,22 @@ impl CharacterSheetSpec {
     }
 
     pub fn resolve_anim(&self, anim: CharacterAnim) -> CharacterAnim {
-        if self.maps(anim) {
-            return anim;
+        // Render the most-specific pose in THIS actor's anim set — the rows the
+        // sprite generator wrote into the manifest ([`Self::maps`]). Walk the
+        // structural pose taxonomy toward the base until the sheet has a row for
+        // it; `Idle` (guaranteed present) is the floor. So a body can be driven
+        // into any state by its brain and the sheet decides how richly it reads,
+        // without ever snapping to `Idle` for a pose it has a relative of.
+        let mut cur = anim;
+        loop {
+            if self.maps(cur) {
+                return cur;
+            }
+            match cur.base_pose() {
+                Some(next) => cur = next,
+                None => return CharacterAnim::Idle,
+            }
         }
-        if matches!(anim, CharacterAnim::LedgeClimb) && self.maps(CharacterAnim::LedgeGrab) {
-            return CharacterAnim::LedgeGrab;
-        }
-        CharacterAnim::Idle
     }
 
     /// Per-row timing for the animator (frame count + per-frame duration).

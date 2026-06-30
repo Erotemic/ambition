@@ -250,6 +250,82 @@ impl CharacterAnim {
             _ => return None,
         })
     }
+
+    /// The next *less-specific* pose in the same family — the fixed structural
+    /// shape of the pose space (`AttackUp` is a refinement of `AttackSide` is a
+    /// refinement of `Slash`; `Dash`→`Run`→`Walk`; airborne→`Fall`). `None` once
+    /// `Idle` is the floor.
+    ///
+    /// This is NOT a list of who-falls-back-to-what authored by hand, and it is
+    /// NOT a second source of truth about which poses an actor *has* — that's the
+    /// actor's **anim set**, the rows the sprite generator wrote into the
+    /// manifest RON ([`CharacterSheetSpec::maps`]). [`CharacterSheetSpec::
+    /// resolve_anim`] walks this taxonomy to render the most-specific pose the
+    /// actor's set actually contains: an actor whose sheet only drew `slash`
+    /// shows `slash` for an up-tilt; author an `attack_up` row and up-tilts read
+    /// distinctly, with zero code change. Expressiveness is opt-in per sheet;
+    /// a lean set never snaps to `Idle`.
+    pub fn base_pose(self) -> Option<Self> {
+        use CharacterAnim::*;
+        Some(match self {
+            Idle => return None,
+            // Ground locomotion.
+            Walk => Idle,
+            Run => Walk,
+            Crouch => Idle,
+            Crawl => Walk,
+            Slide => Run,
+            // Air.
+            Jump => Fall,
+            Fall => Idle,
+            FloatGlide => Fall,
+            Fly => Idle,
+            WallJump => Jump,
+            WallGrab => Idle,
+            // Dash.
+            DashStartup => Dash,
+            Dash => Run,
+            // Melee — the directional / aerial swings are refinements of the
+            // side swing, then the generic slash.
+            AttackUp => AttackSide,
+            AttackDown => AttackSide,
+            AttackSide => Slash,
+            AirNeutral => Slash,
+            AirForward => AttackSide,
+            AirBack => AttackSide,
+            AirUp => AttackUp,
+            AirDown => AttackDown,
+            Punch => Slash,
+            Special => Slash,
+            Slash => Idle,
+            LedgeGetupAttack => LedgeGetup,
+            // Ranged / charge.
+            Shoot => Idle,
+            Charge => Aim,
+            Aim => Idle,
+            // Defensive / utility.
+            Block => Idle,
+            DodgeRoll => Idle,
+            Interact => Idle,
+            Swim => Idle,
+            LadderClimb => Idle,
+            // Ledge.
+            LedgeClimb => LedgeGrab,
+            LedgeGetup => LedgeGrab,
+            LedgeRoll => DodgeRoll,
+            LedgeGrab => Idle,
+            // Blink.
+            BlinkIn => Idle,
+            BlinkOut => Idle,
+            // Reactions.
+            Death => Hit,
+            Hit => Idle,
+            LandHard => LandRecovery,
+            LandRecovery => Idle,
+            // Idle-variant gesture.
+            Taunt => Idle,
+        })
+    }
 }
 
 pub(super) fn non_looping(anim: CharacterAnim) -> bool {

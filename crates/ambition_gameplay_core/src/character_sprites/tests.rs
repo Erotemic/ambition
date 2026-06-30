@@ -371,3 +371,30 @@ fn sprite_loader_resolves_a_sheet_for_most_catalog_entries() {
              or manifest); got {covered}",
     );
 }
+
+/// `resolve_anim` renders the most-specific pose in the actor's OWN anim set
+/// (the rows the generator wrote into the manifest), walking the pose taxonomy
+/// toward the base — never snapping to `Idle` for a pose it has a relative of.
+/// This is what lets every body run the one shared ladder: the body can be
+/// driven into any state, and its sheet decides how richly it reads.
+#[test]
+fn resolve_anim_renders_most_specific_pose_in_the_actor_anim_set() {
+    use super::CharacterAnim;
+    // The admiral's generated set is idle / walk / slash / taunt / hurt / death —
+    // no dash / run / jump / fly / directional-tilt rows.
+    let spec = sheet_for_character_id("npc_pirate_admiral").expect("admiral resolves a sheet");
+    // Directional / aerial / heavy swings are refinements of the generic slash
+    // it DOES have → render slash, not Idle.
+    assert_eq!(spec.resolve_anim(CharacterAnim::AttackUp), CharacterAnim::Slash);
+    assert_eq!(spec.resolve_anim(CharacterAnim::AirDown), CharacterAnim::Slash);
+    assert_eq!(spec.resolve_anim(CharacterAnim::Punch), CharacterAnim::Slash);
+    // Dash / Slide refine down to the locomotion base it has (walk).
+    assert_eq!(spec.resolve_anim(CharacterAnim::Dash), CharacterAnim::Walk);
+    assert_eq!(spec.resolve_anim(CharacterAnim::Slide), CharacterAnim::Walk);
+    // A pose it has resolves to itself.
+    assert_eq!(spec.resolve_anim(CharacterAnim::Walk), CharacterAnim::Walk);
+    assert_eq!(spec.resolve_anim(CharacterAnim::Death), CharacterAnim::Death);
+    // A pose with no relative in the set is the only case that floors at Idle.
+    assert_eq!(spec.resolve_anim(CharacterAnim::Fly), CharacterAnim::Idle);
+    assert_eq!(spec.resolve_anim(CharacterAnim::Jump), CharacterAnim::Idle);
+}

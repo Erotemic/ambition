@@ -292,11 +292,38 @@ Enemies rise to the player; delete-heavy. Each step is gated on *it compiles* (i
    in prior work, and Phase A retired the last duplicated actor-only STATE fields:
    `ActorStatus.{alive,damage_invuln_timer,hit_flash}` → `BodyHealth`/`BodyCombat`,
    `ActorSurfaceState.{on_ground,air_jumps}` → `BodyGroundState`/`BodyJumpState`. One
-   authority per body-fact. *Remaining for full step-4 done:* the broad `crate::player`
-   importer-sink metric + possession working in-game + the player-robot dropping as a
-   boss (these are largely VERIFICATION now — possession systems + the `player_robot`
-   archetype already exist; confirm end-to-end + measure the LOC/importer delta). See
-   [`architecture.md`](architecture.md) for the component buckets.
+   authority per body-fact. 🟢 **Phase C (payoff VERIFICATION) DONE (2026-06-30):**
+   - **C1 — possession in-game, end-to-end.** `tests/possession_end_to_end.rs` drives REAL
+     inputs through `SandboxSim::step`: hold Down+Interact ~2s next to an actor → it becomes
+     `Possessed` + flips to the player's faction; `move_x` then drives the POSSESSED body
+     through its OWN update path (`tick_player_brain_from_control` → `ActorControlFrame` →
+     `update_ecs_actors`) while the player's own body is frozen (`player_body_tick` gated
+     `not_possessing` — its x doesn't track the input); a fresh press releases + reverts
+     faction. The infrastructure (trigger, faction flip, input-sync, camera/nameplate follow)
+     was already wired — this is the missing end-to-end pin, not new behavior.
+   - **C2 — player-robot fights the player with its own full kit (I7).**
+     `tests/player_robot_fights_player.rs` drops the `player_robot` archetype as a hostile
+     combatant beside the human: it stays hostile + targets the player, swings melee (56
+     frames), fires its signature Hadouken ranged (175 projectile-frames), closes to ~8px,
+     and lands damage (hp 20→14) — all through the ONE actor path. Post-duel-reframe,
+     combatant role is faction DATA, not a special "boss" type (a hostile Enemy-faction
+     player_robot IS the player-faces-its-own-kit demo); the kit itself was already pinned at
+     the spec level.
+   - **C3 — convergence metric.** The `crate::player` importer SINK in `ambition_gameplay_core`
+     (non-player files) is **62 → 50 → 43** (−31% from the documented baseline); the remaining
+     names are genuine controller/player concepts (`PlayerInputFrame`, `PlayerInteractionState`,
+     `PlayerSlot`, camera/anim/composition), not body vocabulary. **8 parallel authorities
+     collapsed to single `Body*` authorities** (each verified absent): `PlayerHealth`+`ActorHealth`
+     →`BodyHealth`, `PlayerCombatState`+`ActorCombatState`→`BodyCombat`, melee→`BodyMelee`,
+     economy→`BodyWallet`, `PlayerShieldState`→`BodyShieldState`, the `ActorStatus` duplicated
+     fields retired; `integrate_standard_enemy_body`+`integrate_aerial_body` DELETED (one body
+     pipeline), the two player movement systems → one (−228 LOC), the binary `ProjectileFaction`
+     enum RETIRED. **Honest LOC caveat:** arc-wide gross LOC is NOT net-negative — the arc
+     deliberately GREW capability (WorldView/perception, relational `FactionRelations`+grudge,
+     possession, the `player_robot` archetype, body-generic actor clusters) while deduplicating.
+     Convergence here is *structural dedup + dependency-sink dissolution* (one authority per
+     fact, importer sink shrinking), not a smaller line count. **Step 4 / the keystone is DONE.**
+   See [`architecture.md`](architecture.md) for the component buckets.
 5. **De-player-center the remaining surface** — decisions settled with Jon (2026-06-30);
    **B1 (incl. duel reframe) + B2 + B3 DONE; phase-B complete, Phase C (payoff verification) remains**:
    - 🟢 **B2a (projectile world-hit) DONE** — `WorldHitPolicy` is on the projectile spec

@@ -297,6 +297,7 @@ pub fn animate_props(
             &mut CharacterAnimator,
             &PropVisual,
             Option<&ambition_gameplay_core::time::time_control::ProperTimeScale>,
+            Option<&mut bevy::sprite::Anchor>,
         ),
         Without<ambition_gameplay_core::rooms::PortalSprite>,
     >,
@@ -304,25 +305,30 @@ pub fn animate_props(
     // ADR 0011 — per-entity proper time. Props that need to keep
     // ticking when the world freezes (a clock prop in a frozen
     // boss arena, say) get a non-1.0 ProperTimeScale.
-    for (mut sprite, mut animator, prop, scale) in &mut query {
-        if PROP_KINDS_STATIC_UNTIL_MOVING.contains(&prop.kind.as_str()) {
-            // Force-rest at frame 0 of the Idle row. `request` selects
-            // the row; ticking with dt=0 holds the row's current frame
-            // and matches the asset's first frame on entry.
-            animator.request(ambition_gameplay_core::character_sprites::CharacterAnim::Idle);
-            let index = animator.tick(0.0);
-            if let Some(atlas) = sprite.texture_atlas.as_mut() {
-                atlas.index = index;
-            }
-            continue;
-        }
-        let dt = world_time.entity_dt(
-            ambition_gameplay_core::time::time_control::ProperTimeScale::or_default(scale),
+    for (mut sprite, mut animator, prop, scale, anchor) in &mut query {
+        // Static-until-moving props hold frame 0 (dt = 0, so `tick` doesn't
+        // advance); everything else ticks at its proper time.
+        let dt = if PROP_KINDS_STATIC_UNTIL_MOVING.contains(&prop.kind.as_str()) {
+            0.0
+        } else {
+            world_time.entity_dt(
+                ambition_gameplay_core::time::time_control::ProperTimeScale::or_default(scale),
+            )
+        };
+        // Route through the SAME frame-apply chokepoint as actors so a trimmed
+        // prop sheet gets the self-captured trim basis too (props used to skip
+        // it and rendered a trimmed cell at full-frame size — misaligned).
+        // Props don't face or tint: facing = 1.0 is unflipped under normal
+        // gravity (`Vec2::Y` is +y/down here), tint stays WHITE.
+        apply_character_frame(
+            &mut sprite,
+            &mut animator,
+            anchor.map(|a| a.into_inner()),
+            ambition_gameplay_core::character_sprites::CharacterAnim::Idle,
+            dt,
+            1.0,
+            ambition_engine_core::Vec2::Y,
+            Color::WHITE,
         );
-        animator.request(ambition_gameplay_core::character_sprites::CharacterAnim::Idle);
-        let index = animator.tick(dt);
-        if let Some(atlas) = sprite.texture_atlas.as_mut() {
-            atlas.index = index;
-        }
     }
 }

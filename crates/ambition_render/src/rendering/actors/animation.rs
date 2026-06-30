@@ -218,35 +218,19 @@ pub fn animate_characters(
         let dt = world_time.entity_dt(
             ambition_gameplay_core::time::time_control::ProperTimeScale::or_default(scale),
         );
-        let (anim, facing, pos, hit_flash, attacking) = if let Some(state) =
-            ambition_gameplay_core::features::ecs_enemy_anim_state(&visual.id, &ecs_actors)
-        {
-            (
-                ambition_gameplay_core::character_sprites::pick_enemy_anim(state),
-                state.facing,
-                state.pos,
-                state.hit_flash,
-                state.attack_active || state.attack_windup,
-            )
-        } else if let Some(state) =
-            ambition_gameplay_core::features::ecs_npc_anim_state(&visual.id, &ecs_actors)
-        {
-            (
-                ambition_gameplay_core::character_sprites::pick_npc_anim(state),
-                state.facing,
-                state.pos,
-                state.hit_flash,
-                false,
-            )
-        } else {
+        // ONE actor path — enemy and NPC alike read the same clusters. An actor
+        // attacks when its `BodyMelee` is active, whatever its disposition.
+        let Some(state) =
+            ambition_gameplay_core::features::ecs_actor_anim_state(&visual.id, &ecs_actors)
+        else {
             continue;
         };
+        let anim = ambition_gameplay_core::character_sprites::pick_actor_anim(state);
+        let attacking = state.attack_active || state.attack_windup;
         // Hit feedback is drawn by the white-silhouette overlay in
         // `presentation::rendering::hit_flash`. Keep the warm attack tint on the
         // multiplicative `sprite.color` channel — it's a separate signal
-        // (telegraphing the actor's outgoing swing, not its own damage). The
-        // hit_flash boolean still feeds anim selection upstream so the `hit` row
-        // plays.
+        // (telegraphing the actor's outgoing swing, not its own damage).
         let color = if attacking {
             Color::srgba(1.0, 0.85, 0.55, 1.0)
         } else {
@@ -258,11 +242,10 @@ pub fn animate_characters(
             anchor.map(|a| a.into_inner()),
             anim,
             dt,
-            facing,
-            gravity.dir_at(pos),
+            state.facing,
+            gravity.dir_at(state.pos),
             color,
         );
-        let _ = hit_flash;
     }
 }
 

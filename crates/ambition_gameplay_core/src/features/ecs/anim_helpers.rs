@@ -70,10 +70,16 @@ pub fn ecs_enemy_name(id: &str, actors: &Query<ActorSpriteData>) -> Option<Strin
     })
 }
 
-pub fn ecs_enemy_anim_state(
+/// Animation state for ANY brain-driven actor (enemy or NPC) read straight from
+/// its ECS clusters. One path, disposition-agnostic: an actor attacks when its
+/// `BodyMelee` is active — NPC or not. (The previous NPC-specific path didn't
+/// read `BodyMelee` at all, so a swinging NPC never animated its attack; reading
+/// it for every actor fixes that.) `BodyMelee` is optional only because an actor
+/// that never fights may not carry the component.
+pub fn ecs_actor_anim_state(
     id: &str,
     actors: &Query<ActorSpriteData>,
-) -> Option<crate::character_sprites::EnemyAnimState> {
+) -> Option<crate::character_sprites::ActorAnimState> {
     actors
         .iter()
         .find_map(|(feature_id, kin, status, attack, config)| {
@@ -82,42 +88,19 @@ pub fn ecs_enemy_anim_state(
             }
             let kin = kin?;
             let status = status?;
-            let attack = attack?;
-            Some(crate::character_sprites::EnemyAnimState {
+            Some(crate::character_sprites::ActorAnimState {
                 pos: kin.pos,
                 vel: kin.vel,
                 facing: kin.facing,
                 alive: status.alive,
-                attack_active: attack.is_active(),
-                attack_windup: attack.is_winding_up(),
                 hit_flash: status.hit_flash > 0.0,
-                aerial: config.map(|c| c.tuning.is_aerial).unwrap_or(false),
+                attack_active: attack.is_some_and(|a| a.is_active()),
+                attack_windup: attack.is_some_and(|a| a.is_winding_up()),
                 // S1: the heavy-melee / special verbs aren't emitted by the
                 // brain yet (PCA slices S4/S5 wire them). Until then these
                 // read false so the picker keeps the legacy Slash/Walk path.
                 attack_heavy: false,
                 special_active: false,
-            })
-        })
-}
-
-pub fn ecs_npc_anim_state(
-    id: &str,
-    actors: &Query<ActorSpriteData>,
-) -> Option<crate::character_sprites::NpcAnimState> {
-    actors
-        .iter()
-        .find_map(|(feature_id, kin, status, _, config)| {
-            if feature_id.as_str() != id {
-                return None;
-            }
-            let kin = kin?;
-            let status = status?;
-            Some(crate::character_sprites::NpcAnimState {
-                pos: kin.pos,
-                vel: kin.vel,
-                facing: kin.facing,
-                hit_flash: status.hit_flash > 0.0,
                 aerial: config.map(|c| c.tuning.is_aerial).unwrap_or(false),
             })
         })

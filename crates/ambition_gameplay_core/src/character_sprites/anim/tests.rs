@@ -375,76 +375,80 @@ fn from_name_resolves_all_new_action_rows() {
 }
 
 #[test]
-fn aerial_actors_fly_when_moving_and_idle_when_still() {
-    use super::{pick_enemy_anim, pick_npc_anim, EnemyAnimState, NpcAnimState};
+fn actors_animate_from_real_state_regardless_of_disposition() {
+    use super::{pick_actor_anim, ActorAnimState};
 
-    // Flyer NPC (parrot): Fly while moving, Idle while hovering/perched.
-    let flying = NpcAnimState {
+    // One actor path; disposition (hostile/peaceful) is not an animation fork.
+    let base = ActorAnimState {
         pos: ae::Vec2::ZERO,
-        vel: ae::Vec2::new(40.0, -30.0),
+        vel: ae::Vec2::ZERO,
         facing: 1.0,
+        alive: true,
         hit_flash: false,
-        aerial: true,
+        attack_active: false,
+        attack_windup: false,
+        attack_heavy: false,
+        special_active: false,
+        aerial: false,
     };
-    assert_eq!(pick_npc_anim(flying), CharacterAnim::Fly);
+
+    // Flyer (parrot): Fly while moving, Idle while hovering/perched.
     assert_eq!(
-        pick_npc_anim(NpcAnimState {
-            vel: ae::Vec2::ZERO,
-            ..flying
+        pick_actor_anim(ActorAnimState {
+            aerial: true,
+            vel: ae::Vec2::new(40.0, -30.0),
+            ..base
         }),
+        CharacterAnim::Fly,
+    );
+    assert_eq!(
+        pick_actor_anim(ActorAnimState { aerial: true, ..base }),
         CharacterAnim::Idle,
         "a still hover / landed perch is Idle, not Fly",
     );
-
-    // A grounded (non-aerial) NPC moving plays Walk, never Fly — a jump or
-    // knockback (airborne but not flight) must not fly-anim.
+    // A grounded (non-aerial) actor launched upward plays Walk, never Fly —
+    // airborne-but-not-flight must not fly-anim.
     assert_eq!(
-        pick_npc_anim(NpcAnimState {
-            aerial: false,
-            vel: ae::Vec2::new(40.0, -200.0), // launched upward, NOT flying
-            ..flying
+        pick_actor_anim(ActorAnimState {
+            vel: ae::Vec2::new(40.0, -200.0),
+            ..base
         }),
         CharacterAnim::Walk,
     );
-
-    // Aerial enemy (sky parrot) flies while cruising.
-    let enemy = EnemyAnimState {
-        pos: ae::Vec2::ZERO,
-        vel: ae::Vec2::new(50.0, 0.0),
-        facing: 1.0,
-        alive: true,
-        attack_active: false,
-        attack_windup: false,
-        hit_flash: false,
-        aerial: true,
-        attack_heavy: false,
-        special_active: false,
-    };
-    assert_eq!(pick_enemy_anim(enemy), CharacterAnim::Fly);
-    // ...but an attack still wins (the dive peck plays its slash).
+    // An active melee wins over locomotion — and a PEACEFUL-disposition actor
+    // that swings animates its attack too (the old NPC path dropped this read).
     assert_eq!(
-        pick_enemy_anim(EnemyAnimState {
+        pick_actor_anim(ActorAnimState {
             attack_active: true,
-            ..enemy
+            ..base
         }),
         CharacterAnim::Slash,
     );
     // A heavy/committal melee plays Punch instead of the quick-poke Slash.
     assert_eq!(
-        pick_enemy_anim(EnemyAnimState {
+        pick_actor_anim(ActorAnimState {
             attack_active: true,
             attack_heavy: true,
-            ..enemy
+            ..base
         }),
         CharacterAnim::Punch,
     );
     // The charge→thrust special outranks the melee read.
     assert_eq!(
-        pick_enemy_anim(EnemyAnimState {
+        pick_actor_anim(ActorAnimState {
             attack_active: true,
             special_active: true,
-            ..enemy
+            ..base
         }),
         CharacterAnim::Special,
+    );
+    // Death reads from real state for ANY actor, moving or not.
+    assert_eq!(
+        pick_actor_anim(ActorAnimState {
+            alive: false,
+            vel: ae::Vec2::new(50.0, 0.0),
+            ..base
+        }),
+        CharacterAnim::Death,
     );
 }

@@ -9,9 +9,9 @@
 //!
 //! ## Submodule layout
 //!
-//! - [`anim`] — `CharacterAnim` enum + per-actor animation pickers
-//!   (`pick_player_anim`, `pick_enemy_anim`, `pick_npc_anim`,
-//!   `EnemyAnimState`, `NpcAnimState`).
+//! - [`anim`] — `CharacterAnim` enum, the one shared `pick_body_anim` priority
+//!   ladder over a `BodyAnimView`, and the thin per-body adapters that build it
+//!   (`pick_player_anim`, `pick_actor_anim` + `ActorAnimState`).
 //! - [`sheets`] — `CharacterSheetSpec`, `AnimRow`, atlas/geometry
 //!   helpers (`sprite_render_size`, `feet_anchor_for`,
 //!   `build_character_sprite`); the `*_SHEET` constants now come from
@@ -36,9 +36,7 @@ mod sheets;
 #[cfg(test)]
 mod tests;
 
-pub use anim::{
-    pick_enemy_anim, pick_npc_anim, pick_player_anim, CharacterAnim, EnemyAnimState, NpcAnimState,
-};
+pub use anim::{pick_actor_anim, pick_player_anim, ActorAnimState, CharacterAnim};
 pub use animator::{CharacterAnimator, RenderBasis};
 #[allow(
     unused_imports,

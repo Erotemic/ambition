@@ -161,12 +161,12 @@ pub enum CharacterAnim {
     /// quick `jab` (which aliases to `Slash`). The Perfect Cell-ular
     /// Automaton sheet ships both; the mechanical fast/heavy distinction
     /// lives in the actor's `ActionSet` melee spec, while the sprite
-    /// distinguishes the two reads. Auto-routed by `pick_enemy_anim` when
+    /// distinguishes the two reads. Auto-routed by `pick_actor_anim` when
     /// the actor's active melee verb is the heavy one.
     Punch = 43,
     /// Charge→thrust "special" pose (kamehameha-style wind-up + release).
     /// Generator row `special`. Drives the glider zoning verb. Auto-routed
-    /// by `pick_enemy_anim` while `EnemyAnimState::special_active` is set.
+    /// by `pick_actor_anim` while `ActorAnimState::special_active` is set.
     Special = 44,
 }
 
@@ -351,10 +351,10 @@ pub enum Locomotion {
 /// richer animation as it gains state, instead of each archetype carrying its
 /// own priority ladder — the relativity principle, applied to presentation.
 ///
-/// Built per frame by [`pick_player_anim`] / [`pick_enemy_anim`] /
-/// [`pick_npc_anim`] (the three thin adapters), which is also where the
-/// per-archetype quirks live: the attack row a swing maps to, the locomotion
-/// speed metric (|vx| grounded vs |v| aerial), and the speed thresholds.
+/// Built per frame by [`pick_player_anim`] / [`pick_actor_anim`] (the thin
+/// per-body adapters), which is also where the per-body quirks live: the attack
+/// row a swing maps to, the locomotion speed metric (|vx| grounded vs |v|
+/// aerial), and the speed thresholds.
 #[derive(Clone, Copy, Debug, Default)]
 pub struct BodyAnimView {
     pub dead: bool,
@@ -603,38 +603,42 @@ fn directional_attack_anim(attack: Option<&crate::MeleeSwing>) -> CharacterAnim 
     }
 }
 
-/// Snapshot of an enemy's per-frame state used to drive its animation.
+/// Per-frame state for ANY brain-driven actor's animation — "enemy" and "NPC"
+/// were never different animation contracts, just dispositions. Both can walk,
+/// attack, fly, take a hit, and die; what an actor shows is driven by its real
+/// ECS state, not its label. (The old split actively dropped reads: the NPC path
+/// ignored `BodyMelee`, so an NPC that swung never animated its attack — this
+/// unifies them and fixes that.)
+/// This is the actor's "action set" projected onto the shared anim vocabulary:
+/// each field is set only when the actor's real ECS state expresses it, so a
+/// walker never asks for a flyer's `Fly`, and a non-combatant simply has no
+/// active melee this frame.
 #[derive(Clone, Copy, Debug)]
-pub struct EnemyAnimState {
+pub struct ActorAnimState {
     /// World position — resolves this actor's *localized* gravity so the sprite
     /// flips the right way when it's wall-walking / on a flipped-gravity ceiling.
     pub pos: ae::Vec2,
     pub vel: ae::Vec2,
     pub facing: f32,
     pub alive: bool,
+    pub hit_flash: bool,
     pub attack_active: bool,
     pub attack_windup: bool,
-    pub hit_flash: bool,
-    /// In a gravity-free flight state (`is_aerial` archetype — sky parrot,
-    /// shark). Plays `Fly` while moving rather than `Walk`.
-    pub aerial: bool,
-    /// The actor is committing a heavy/committal melee (vs the quick poke).
-    /// When set during an attack, the picker plays `Punch` instead of the
-    /// generic `Slash`. Inert for actors whose sheet lacks a `punch` row
-    /// (the sheet spec falls back to `Idle`/`Slash` via `resolve_anim`).
+    /// Committal heavy melee (vs the quick poke) → `Punch` instead of `Slash`.
     pub attack_heavy: bool,
-    /// The actor is in its charge→thrust special (glider zoning). Plays the
-    /// `Special` pose. Highest-priority combat read after death/hit.
+    /// Charge→thrust "special" (glider zoning) → `Special`.
     pub special_active: bool,
+    /// Gravity-free FLIGHT archetype (sky parrot / shark): `Fly` while moving,
+    /// hover→`Idle`. A non-aerial actor knocked airborne is NOT aerial.
+    pub aerial: bool,
 }
 
-pub fn pick_enemy_anim(state: EnemyAnimState) -> CharacterAnim {
-    // Sparse view: an enemy fills death / hit / special / the swing row + its
-    // locomotion; everything the player has and an enemy doesn't stays inert, so
-    // it falls through to the shared tail. Aerial flyers measure total speed
-    // (`Fly` while moving, hover→Idle); grounded walkers use |vx|. `run_above:
-    // None` caps actors at Walk (no Run row). The shared `pick_body_anim` ladder
-    // keeps the death→hit→special→swing→…→locomotion order this used to inline.
+/// Pick any actor's animation through the shared [`pick_body_anim`] ladder.
+/// Aerial flyers measure total speed (`Fly` while moving, hover→`Idle`);
+/// grounded walkers use |vx| and cap at `Walk` (`run_above: None`). The
+/// player-only states stay inert (the actor never carries those components), so
+/// the actor's action set — not the picker — decides how rich its read is.
+pub fn pick_actor_anim(state: ActorAnimState) -> CharacterAnim {
     let (locomotion, speed) = if state.aerial {
         (Locomotion::Aerial, state.vel.length())
     } else {
@@ -651,48 +655,6 @@ pub fn pick_enemy_anim(state: EnemyAnimState) -> CharacterAnim {
                 CharacterAnim::Slash
             }
         }),
-        locomotion,
-        speed,
-        idle_below: 8.0,
-        run_above: None,
-        fly_above: 12.0,
-        ..Default::default()
-    })
-}
-
-/// Snapshot of a peaceful NPC's per-frame state for animation.
-///
-/// Smaller than `EnemyAnimState` because NPCs do not carry attack /
-/// alive state. Once an NPC flips hostile, the entity flows through
-/// `pick_enemy_anim` instead.
-#[derive(Clone, Copy, Debug)]
-pub struct NpcAnimState {
-    /// World position — see [`EnemyAnimState::pos`] (localized-gravity flip).
-    pub pos: ae::Vec2,
-    pub vel: ae::Vec2,
-    pub facing: f32,
-    pub hit_flash: bool,
-    /// In a gravity-free FLIGHT state (a `Floating` flyer — the parrot). Picks
-    /// `Fly` while moving through the air. NOT "off the ground": a jump or
-    /// knockback is airborne but not flight, so a non-aerial NPC never flies.
-    pub aerial: bool,
-}
-
-/// Pick an NPC's animation. Hit-flash flickers `Hit` for a frame
-/// after a strike. A FLYER (aerial flight state) plays `Fly` while moving
-/// and `Idle` while hovering/perched. A grounded NPC plays `Walk` on
-/// non-zero horizontal speed, else `Idle`. Sheets without the chosen row
-/// fall back to Idle via `CharacterSheetSpec::resolve_anim`.
-pub fn pick_npc_anim(state: NpcAnimState) -> CharacterAnim {
-    // Even sparser than an enemy (no death / attack / special): just hit + the
-    // locomotion tail, through the same shared ladder.
-    let (locomotion, speed) = if state.aerial {
-        (Locomotion::Aerial, state.vel.length())
-    } else {
-        (Locomotion::Grounded, state.vel.x.abs())
-    };
-    pick_body_anim(&BodyAnimView {
-        hit: state.hit_flash,
         locomotion,
         speed,
         idle_below: 8.0,

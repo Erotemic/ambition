@@ -90,6 +90,7 @@ pub fn rebuild_feature_view_index(
             &CenteredAabb,
             &ActorDisposition,
             Option<&super::actor_clusters::ActorStatus>,
+            Option<&crate::actor::BodyHealth>,
             Option<&BodyMelee>,
             Option<&super::actor_clusters::ActorConfig>,
             Option<&ActorSurfaceState>,
@@ -182,14 +183,14 @@ pub fn rebuild_feature_view_index(
             },
         );
     }
-    for (id, aabb, disposition, status, attack, config, surface, roll) in &actors {
+    for (id, aabb, disposition, status, health, attack, config, surface, roll) in &actors {
         let roll_rad = roll.map_or(0.0, |r| r.angle);
         // Visual kind is now a FUNCTION OF STATE, not an actor type: a sandbag
         // tuning renders as a training dummy; a hostile disposition as an enemy;
         // everything peaceful as an NPC. A provoked NPC (now `Hostile`) therefore
         // renders red automatically, with no separate type flip.
         let hostile = disposition.is_hostile();
-        let alive = status.is_some_and(|s| s.alive);
+        let alive = health.is_some_and(|h| h.alive());
         let kind = if config.is_some_and(|c| c.tuning.is_sandbag) {
             FeatureVisualKind::TrainingDummy
         } else if hostile {

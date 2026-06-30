@@ -91,7 +91,7 @@ pub fn spawn_enemy_projectiles_from_brain_actions(
             continue;
         };
         let enemy = cq.as_actor_mut();
-        if !enemy.status.alive {
+        if !enemy.health.alive() {
             continue;
         }
         // Body-side fire-rate enforcement (invariant I3): the controller attempts
@@ -443,8 +443,8 @@ mod tests {
         let mut app = build_app();
         let actor_pos = ae::Vec2::new(300.0, 300.0);
         let mut actor_runtime = pirate_rider_actor(actor_pos);
-        // .1 = cluster bundle, .1.1 = ActorStatus.
-        actor_runtime.1 .1.alive = false;
+        // .1 = cluster bundle; BodyHealth (liveness authority) is at .1.2.
+        actor_runtime.1 .2.health.current = 0;
         let actor = app.world_mut().spawn(actor_runtime).id();
         app.world_mut()
             .resource_mut::<bevy::ecs::message::Messages<ActorActionMessage>>()

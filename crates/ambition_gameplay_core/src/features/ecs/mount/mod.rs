@@ -164,7 +164,7 @@ pub fn sync_riders_to_mounts(
         let Some(mount_c) = mount_clusters else {
             continue;
         };
-        if !mount_c.status.alive {
+        if !mount_c.health.alive() {
             continue;
         }
         if !rider_actor.is_hostile() {
@@ -174,7 +174,7 @@ pub fn sync_riders_to_mounts(
             continue;
         };
         let rider = rider_cq.as_actor_mut();
-        if !rider.status.alive {
+        if !rider.health.alive() {
             continue;
         }
         // Sky-rider size: keep the authored rider footprint stable while the
@@ -261,7 +261,7 @@ pub fn enforce_mount_rider_link(
         (
             Entity,
             &ActorDisposition,
-            Option<&super::actor_clusters::ActorStatus>,
+            Option<&crate::actor::BodyHealth>,
         ),
         With<MountSlot>,
     >,
@@ -270,8 +270,8 @@ pub fn enforce_mount_rider_link(
     // this is O(R+M) per frame and the hashmap stays small.
     use std::collections::HashMap;
     let mut mount_alive: HashMap<Entity, bool> = HashMap::new();
-    for (mount_entity, mount_actor, mount_status) in &mounts {
-        let alive = mount_actor.is_hostile() && mount_status.is_some_and(|s| s.alive);
+    for (mount_entity, mount_actor, mount_health) in &mounts {
+        let alive = mount_actor.is_hostile() && mount_health.is_some_and(|h| h.alive());
         mount_alive.insert(mount_entity, alive);
     }
 
@@ -294,7 +294,7 @@ pub fn enforce_mount_rider_link(
             continue;
         };
         let rider = rider_cq.as_actor_mut();
-        if !rider.status.alive {
+        if !rider.health.alive() {
             continue;
         }
         let alive = mount_alive.get(&riding.mount).copied().unwrap_or(false);

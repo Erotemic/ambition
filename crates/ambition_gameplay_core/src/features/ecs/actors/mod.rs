@@ -15,7 +15,7 @@ fn shark_charge_crashed(
 ) -> bool {
     shark_charge_crashed_parts(
         em.caps,
-        em.status.alive,
+        em.health.alive(),
         em.kin.pos,
         em.kin.vel,
         em.config.tuning.chase_speed,

@@ -23,6 +23,7 @@ pub struct ActorSpriteData {
     pub feature_id: &'static FeatureId,
     pub kin: &'static super::actor_clusters::BodyKinematics,
     pub status: &'static super::actor_clusters::ActorStatus,
+    pub health: &'static crate::actor::BodyHealth,
     pub config: &'static super::actor_clusters::ActorConfig,
     pub attack: &'static BodyMelee,
     pub ground: &'static crate::actor::BodyGroundState,
@@ -127,7 +128,7 @@ pub fn ecs_actor_anim_state(
             a.shield,
             a.attack.swing.as_ref(),
             crate::character_sprites::ActorAnimState {
-                alive: a.status.alive,
+                alive: a.health.alive(),
                 hit_flash: a.status.hit_flash > 0.0,
                 // Gravity-free FLIGHT archetype (parrot / shark): the locomotion
                 // tail reads Fly/Idle and the airborne gate is suppressed.

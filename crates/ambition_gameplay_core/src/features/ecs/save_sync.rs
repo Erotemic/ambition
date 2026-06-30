@@ -78,7 +78,7 @@ pub fn sync_ecs_actors_with_save(
                 false,
             );
             if dead_on_load {
-                em.status.alive = false;
+                // Zeroing HP is the single liveness authority — `alive()` reads it.
                 em.health.health.current = 0;
             }
         } else if interaction.is_none() {
@@ -91,7 +91,6 @@ pub fn sync_ecs_actors_with_save(
                 && !em.config.tuning.is_sandbag
                 && dead_on_load
             {
-                em.status.alive = false;
                 em.health.health.current = 0;
             }
         }

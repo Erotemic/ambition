@@ -20,7 +20,7 @@ pub fn refresh_actor_damageable_volumes(
         (
             &CenteredAabb,
             &ActorDisposition,
-            Option<&super::actor_clusters::ActorStatus>,
+            Option<&crate::actor::BodyHealth>,
             &mut DamageableVolumes,
         ),
         // Exclude bosses: they ALSO carry `DamageableVolumes` + the shared
@@ -34,10 +34,10 @@ pub fn refresh_actor_damageable_volumes(
         ),
     >,
 ) {
-    for (aabb, disposition, status, mut damageable) in &mut actors {
+    for (aabb, disposition, health, mut damageable) in &mut actors {
         // Peaceful actors are always a valid player-strike target; hostile actors
         // only while alive.
-        if disposition.is_peaceful() || status.is_some_and(|s| s.alive) {
+        if disposition.is_peaceful() || health.is_some_and(|h| h.alive()) {
             damageable.set_single(aabb.aabb());
         } else {
             damageable.clear();

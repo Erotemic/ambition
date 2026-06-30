@@ -111,12 +111,12 @@ fn enemy_charge_crash_is_processed_as_enemy_damage() {
         health.health.current, 0,
         "enemy charge crash should damage and kill the crashing enemy"
     );
-    let status = app
+    let health = app
         .world()
-        .get::<super::super::actor_clusters::ActorStatus>(actor_entity)
-        .expect("hostile actor cluster status exists");
+        .get::<crate::actor::BodyHealth>(actor_entity)
+        .expect("hostile actor cluster health exists");
     assert!(
-        !status.alive,
+        !health.alive(),
         "charge crash should mark the enemy dead through the normal kill path"
     );
 }
@@ -163,9 +163,9 @@ fn player_slash_damages_and_can_kill_a_hostile_actor() {
     );
     assert!(
         app.world()
-            .get::<super::super::actor_clusters::ActorStatus>(actor_entity)
+            .get::<BodyHealth>(actor_entity)
             .unwrap()
-            .alive,
+            .alive(),
         "the enemy should still be alive after one slash"
     );
 
@@ -202,9 +202,9 @@ fn player_slash_damages_and_can_kill_a_hostile_actor() {
     );
     assert!(
         !app.world()
-            .get::<super::super::actor_clusters::ActorStatus>(actor_entity)
+            .get::<BodyHealth>(actor_entity)
             .unwrap()
-            .alive,
+            .alive(),
         "the killed enemy should be marked dead"
     );
 }

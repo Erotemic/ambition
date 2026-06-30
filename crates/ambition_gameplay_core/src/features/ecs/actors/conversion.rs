@@ -86,7 +86,7 @@ pub fn actor_component_snapshot(
 ) {
     let combat = if disposition.is_hostile() {
         BodyCombat::hostile(
-            seed.status.alive,
+            seed.health.alive(),
             seed.status.hit_flash,
             seed.attack.windup_remaining(),
             seed.attack.active_remaining(),

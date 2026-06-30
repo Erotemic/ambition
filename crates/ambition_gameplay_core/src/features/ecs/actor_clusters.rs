@@ -34,14 +34,14 @@ use crate::actor::{
 };
 pub use crate::platformer_runtime::body::BodyKinematics;
 
-/// Liveness + per-tick status scalars: alive flag, respawn countdown,
-/// hit-flash timer, last-evaluated AI mode. Health lives on the shared
-/// [`crate::actor::BodyHealth`] component now (one health authority for every
-/// body) — the cluster reads/writes it through [`ActorMut::health`], no cluster
-/// copy + per-frame sync.
+/// Per-tick status scalars: respawn countdown, hit-flash timer, last-evaluated
+/// AI mode. Health *and liveness* live on the shared [`crate::actor::BodyHealth`]
+/// component now (one health authority for every body) — `alive` is derived as
+/// `health.alive()` (`current > 0`), not a shadow flag the kill/revive paths had
+/// to keep in lockstep. The cluster reads/writes health through
+/// [`ActorMut::health`], no cluster copy + per-frame sync.
 #[derive(Component, Clone, Copy, Debug, PartialEq)]
 pub struct ActorStatus {
-    pub alive: bool,
     pub respawn_timer: f32,
     pub hit_flash: f32,
     pub ai_mode: ambition_characters::actor::ai::CharacterAiMode,
@@ -426,7 +426,6 @@ impl ActorClusterSeed {
                 facing: -1.0,
             },
             status: ActorStatus {
-                alive: true,
                 respawn_timer: 0.0,
                 hit_flash: 0.0,
                 ai_mode: ambition_characters::actor::ai::CharacterAiMode::Idle,
@@ -555,7 +554,6 @@ impl ActorClusterSeed {
                 facing: 1.0,
             },
             status: ActorStatus {
-                alive: true,
                 respawn_timer: 0.0,
                 hit_flash: 0.0,
                 ai_mode: ambition_characters::actor::ai::CharacterAiMode::Idle,

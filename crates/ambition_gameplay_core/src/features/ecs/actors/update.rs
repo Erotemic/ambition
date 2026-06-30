@@ -212,13 +212,13 @@ pub fn update_ecs_actors(
     }
     for (entity, _, _, disposition, _, _, _, _, _, _, _, _, (clusters, _, faction)) in &actors {
         if let Some(c) = &clusters {
-            alive_by_entity.insert(entity, c.status.alive);
+            alive_by_entity.insert(entity, c.health.alive());
         }
         // Only hostile actors compete for combat slots; peaceful actors don't
         // crowd the board ("enemy" == hostile disposition now).
         if disposition.is_hostile() {
             if let Some(c) = clusters {
-                if c.status.alive {
+                if c.health.alive() {
                     requests.push((c.config.id.clone(), c.kin.pos, c.config.tuning.slot_kind()));
                     if let Some(faction) = faction {
                         faction_by_id.insert(c.config.id.clone(), *faction);
@@ -306,7 +306,7 @@ pub fn update_ecs_actors(
                 let mut em = cq.as_actor_mut();
                 let slot_pos = if let Some(slot) = slot_board.0.slot_for(&em.config.id) {
                     Some(slot.world_pos(target_pos))
-                } else if em.status.alive {
+                } else if em.health.alive() {
                     // No slot assigned — fall back to the per-actor
                     // holding-ring position computed above. Multiple
                     // unassigned actors of the same kind are spread
@@ -405,7 +405,7 @@ pub fn update_ecs_actors(
                             gravity_down: enemy_gravity_dir,
                             on_ground: em.surface.on_ground,
                             aerial: em.surface.gravity_scale <= 0.001,
-                            alive: em.status.alive,
+                            alive: em.health.alive(),
                             can_fire: true,
                             can_blink: em.caps.can_blink,
                             can_dash: em.caps.can_dash,
@@ -530,7 +530,7 @@ pub fn update_ecs_actors(
                     && !em.attack.is_winding_up()
                     && em.attack.is_active()
                     && !was_active
-                    && em.status.alive
+                    && em.health.alive()
                 {
                     // Directional swing: read the axis the brain
                     // committed to in `begin_melee_attack`. Forward
@@ -660,7 +660,7 @@ pub fn update_ecs_actors(
                     && !target_dodge_rolling
                     && !target_shield.parrying()
                     && target_combat.vulnerable();
-                if target_vulnerable && em.status.alive && body_contact_damage_enabled {
+                if target_vulnerable && em.health.alive() && body_contact_damage_enabled {
                     if let Some(damage) =
                         em.body_contact_damage(actor_entity, target_entity, target_body)
                     {
@@ -870,7 +870,7 @@ fn build_enemy_brain_snapshot(
         // fly intent every tick (flip-flop) instead of sustaining flight. Matches the
         // integrator's flight-limb predicate (`fly_enabled && abilities.fly`).
         actor_aerial: em.surface.gravity_scale <= 0.001 || em.flight.fly_enabled,
-        alive: em.status.alive,
+        alive: em.health.alive(),
         target_pos,
         // Real target liveness (was hardcoded `true`): a fighter whose foe is dead
         // perceives it and the Smash brain demotes to Idle instead of swinging at a
@@ -929,7 +929,7 @@ pub fn sync_actor_components_from_cluster(
     // (`em.health`) reads/writes directly; there is no separate copy to mirror.
     *combat = if disposition.is_hostile() {
         BodyCombat::hostile(
-            em.status.alive,
+            em.health.alive(),
             em.status.hit_flash,
             em.attack.windup_remaining(),
             em.attack.active_remaining(),

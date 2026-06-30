@@ -33,7 +33,7 @@ fn hostile(
     );
     enemy.kin.size = size;
     enemy.kin.pos = pos;
-    enemy.status.alive = true;
+    enemy.health.reset();
     (
         crate::features::ActorDisposition::Hostile,
         enemy.into_components(),
@@ -161,8 +161,10 @@ fn spawn_pair(app: &mut App, mount_alive: bool, rider_alive: bool) -> (Entity, E
     let mount_pos = ae::Vec2::new(0.0, 0.0);
     let mount_size = ae::Vec2::new(126.0, 52.0);
     let mut mount_actor = hostile("mount", "burning_flying_shark", mount_pos, mount_size);
-    // .1 = ActorClusterBundle, .1.1 = ActorStatus.
-    mount_actor.1 .1.alive = mount_alive;
+    // .1 = ActorClusterBundle; BodyHealth (the liveness authority) is at .1.2.
+    if !mount_alive {
+        mount_actor.1 .2.health.current = 0;
+    }
     let mount = app
         .world_mut()
         .spawn((
@@ -177,8 +179,10 @@ fn spawn_pair(app: &mut App, mount_alive: bool, rider_alive: bool) -> (Entity, E
     let rider_pos = ae::Vec2::new(0.0, -40.0);
     let rider_size = ae::Vec2::new(44.0, 78.0);
     let mut rider_actor = hostile("rider", "pirate_raider", rider_pos, rider_size);
-    // .1.1 = ActorStatus, .1.5 = ActorSurfaceState (BodyHealth at .1.2 now).
-    rider_actor.1 .1.alive = rider_alive;
+    // BodyHealth (liveness) at .1.2; ActorSurfaceState at .1.5.
+    if !rider_alive {
+        rider_actor.1 .2.health.current = 0;
+    }
     rider_actor.1 .5.gravity_scale = 0.0;
     let rider = app
         .world_mut()
@@ -262,13 +266,13 @@ fn reviving_mount_re_arms_rider_to_mounted_brain() {
     app.update();
     assert!(app.world().entity(rider).get::<Mounted>().is_none());
 
-    // Simulate the same-room reset: flip mount.alive back to
-    // true (reset_to_spawn would do this). The enforcer should
+    // Simulate the same-room reset: restore the mount's HP (liveness
+    // authority) the way reset_to_spawn would. The enforcer should
     // re-arm the link on the next tick.
     app.world_mut()
-        .get_mut::<crate::features::ActorStatus>(mount)
+        .get_mut::<crate::actor::BodyHealth>(mount)
         .unwrap()
-        .alive = true;
+        .reset();
     app.update();
 
     assert!(
@@ -317,9 +321,9 @@ fn dead_rider_does_not_disturb_mount_records() {
     assert!(
         app.world()
             .entity(mount)
-            .get::<crate::features::ActorStatus>()
+            .get::<crate::actor::BodyHealth>()
             .unwrap()
-            .alive,
+            .alive(),
         "mount stays alive when rider dies"
     );
 }

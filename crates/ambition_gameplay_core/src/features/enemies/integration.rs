@@ -114,10 +114,10 @@ impl<'a> ActorMut<'a> {
     ) {
         self.status.hit_flash = (self.status.hit_flash - dt).max(0.0);
         self.status.damage_invuln_timer = (self.status.damage_invuln_timer - dt).max(0.0);
-        if !self.status.alive {
+        if !self.health.alive() {
             self.status.respawn_timer = (self.status.respawn_timer - dt).max(0.0);
             if self.config.tuning.revives_in_place && self.status.respawn_timer <= 0.0 {
-                self.status.alive = true;
+                // `health.reset()` IS the revive — restoring HP makes `alive()` true.
                 self.health.reset();
                 self.kin.pos = self.config.spawn.pos;
                 self.kin.vel = ae::Vec2::ZERO;
@@ -143,7 +143,7 @@ impl<'a> ActorMut<'a> {
             &self.config.brain,
             &self.config.tuning,
             self.attack,
-            self.status.alive,
+            self.health.alive(),
         );
         self.status.ai_mode = ai.mode;
 
@@ -505,7 +505,7 @@ impl<'a> ActorMut<'a> {
     }
 
     pub fn begin_melee_attack(&mut self, attack_axis: ae::Vec2) -> bool {
-        if self.attack.cooldown > 0.0 || !self.status.alive {
+        if self.attack.cooldown > 0.0 || !self.health.alive() {
             return false;
         }
         // Resolve the swing through the EXACT player melee pipeline
@@ -608,7 +608,7 @@ impl<'a> ActorMut<'a> {
         self.kin.size = self.config.spawn.size;
         self.kin.pos = self.config.spawn.pos;
         self.kin.vel = ae::Vec2::ZERO;
-        self.status.alive = true;
+        // Fresh full-HP body → `alive()` is true; no separate liveness flag.
         *self.health = crate::actor::BodyHealth::new(ambition_characters::actor::Health::new(
             self.config.tuning.max_health,
         ));

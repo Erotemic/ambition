@@ -115,7 +115,7 @@ pub(crate) fn apply_actor_hit(
         }
         true
     } else {
-        if !em.status.alive {
+        if !em.health.alive() {
             return false;
         }
         // Combat banter — fire a speech bubble only on
@@ -218,7 +218,7 @@ pub(crate) fn apply_actor_hit(
             em.kin.vel += peel;
         }
         if killed {
-            em.status.alive = false;
+            // `health.damage` already zeroed HP → `alive()` is false; no flag to flip.
             if let Some(respawn_s) = caps.respawn_in_place_seconds {
                 em.status.respawn_timer = respawn_s;
                 banner.show(format!("{} dropped; respawning", em.config.name), 2.6);

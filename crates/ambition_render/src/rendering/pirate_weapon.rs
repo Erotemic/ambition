@@ -92,7 +92,7 @@ pub fn sync_pirate_weapon_visuals(
         &ambition_gameplay_core::features::ActorDisposition,
         &HeldItem,
         Option<&ambition_gameplay_core::features::BodyKinematics>,
-        Option<&ambition_gameplay_core::features::ActorStatus>,
+        Option<&ambition_gameplay_core::actor::BodyHealth>,
     )>,
     player_q: Query<
         &ambition_gameplay_core::actor::BodyKinematics,
@@ -112,17 +112,17 @@ pub fn sync_pirate_weapon_visuals(
     };
     let art = art.get_or_insert_with(|| PirateWeaponVisualArt::load(&asset_server));
 
-    for (_id, disposition, held_item, kin, status) in &rider_actors {
+    for (_id, disposition, held_item, kin, health) in &rider_actors {
         if held_item.id() != "gun_sword" {
             continue;
         }
         if disposition.is_peaceful() {
             continue;
         }
-        let (Some(kin), Some(status)) = (kin, status) else {
+        let (Some(kin), Some(health)) = (kin, health) else {
             continue;
         };
-        if !status.alive {
+        if !health.alive() {
             continue;
         }
 

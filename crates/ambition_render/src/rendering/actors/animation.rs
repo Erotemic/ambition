@@ -45,6 +45,13 @@ pub(crate) fn apply_character_frame(
     let flip = ambition_gameplay_core::physics::gravity_aware_flip_x(facing, gravity_dir);
     sprite.flip_x = flip;
     sprite.color = color;
+    // Self-capture the trim basis from the spawn-built sprite the first time we
+    // see this animator: its `custom_size` + feet anchor ARE the full-logical
+    // render basis, so no spawn site has to thread it in (a forgotten call would
+    // silently misalign a trimmed sheet). No-op once set / when untrimmed.
+    if let (Some(size), Some(a)) = (sprite.custom_size, anchor.as_deref()) {
+        animator.ensure_render_basis(size, a.0);
+    }
     // Alpha-trimmed (atlas-packed) sheets: each frame is stored at its own
     // trimmed size + offset, so re-derive the sprite size + anchor per frame to
     // keep the logical frame fixed. `current_render` returns `None` for

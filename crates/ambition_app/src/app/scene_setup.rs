@@ -329,7 +329,7 @@ fn presentation_world_inner(
         commands.entity(player).insert((
             sprite,
             player_anchor,
-            CharacterAnimator::new(asset).with_render_basis(player_render, player_anchor.0),
+            CharacterAnimator::new(asset),
             PlayerSpriteBaseline {
                 standing_render: player_render,
                 standing_collision: player_collision,

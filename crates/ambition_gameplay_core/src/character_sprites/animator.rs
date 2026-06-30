@@ -57,14 +57,24 @@ impl CharacterAnimator {
         }
     }
 
-    /// Attach the base render size + feet anchor used to build the sprite, so a
-    /// trimmed sheet can recompute per-frame size/anchor. Builder-style.
-    pub fn with_render_basis(mut self, render_size: Vec2, feet_anchor: Vec2) -> Self {
-        self.render_basis = Some(RenderBasis {
-            render_size,
-            feet_anchor,
-        });
-        self
+    /// Initialize the trim basis from the spawn-built sprite's size + anchor the
+    /// first time the renderer applies a frame — and only then (no-op once set).
+    ///
+    /// The basis a trimmed sheet needs to recompute per-frame size/anchor IS the
+    /// sprite's own full-logical `custom_size` + feet anchor; every spawn site
+    /// built it that way (the actor path even reconstructed this arg from
+    /// `sprite.custom_size`). So instead of threading it through every
+    /// `CharacterAnimator::new` call site — where a forgotten call silently
+    /// misaligns a trimmed sheet — the single `apply_character_frame` chokepoint
+    /// captures it from the sprite. A sprite + anchor + animator is now
+    /// sufficient; no spawn site can desync the basis because none provides it.
+    pub fn ensure_render_basis(&mut self, render_size: Vec2, feet_anchor: Vec2) {
+        if self.render_basis.is_none() {
+            self.render_basis = Some(RenderBasis {
+                render_size,
+                feet_anchor,
+            });
+        }
     }
 
     /// Per-frame `(custom_size, anchor)` for the CURRENT frame, or `None` when

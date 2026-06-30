@@ -12,6 +12,7 @@ pub fn settings_menu_model(settings: &UserSettings) -> SettingsMenuModel {
     use crate::persistence::settings::gameplay::Difficulty;
     use crate::persistence::settings::video::{
         CameraAspectPolicy, CameraFramingPreset, ColorblindMode, FlashIntensity, FramePaceCap,
+        VisualQualityProfile,
     };
 
     let v = &settings.video;
@@ -109,6 +110,17 @@ pub fn settings_menu_model(settings: &UserSettings) -> SettingsMenuModel {
                     i,
                     n,
                     "Cap the frame rate to save battery/heat (auto = display refresh; or 120/60/30/24).",
+                )
+            },
+            {
+                let (i, n) = enum_index(&VisualQualityProfile::ALL, v.quality.profile);
+                cycle(
+                    SettingsOptionId::VisualQuality,
+                    "Quality Profile",
+                    v.quality.profile.label(),
+                    i,
+                    n,
+                    "Global visual quality budget for captures, textures, parallax, shaders, and particles.",
                 )
             },
         ],

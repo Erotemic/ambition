@@ -84,6 +84,7 @@ pub(crate) fn load_room(
     feel: SandboxFeelTuning,
     physics_settings: physics::PhysicsSandboxSettings,
     assets: Option<&ambition_gameplay_core::assets::game_assets::GameAssets>,
+    quality: Option<&ambition_render::quality::ResolvedVisualQuality>,
 ) {
     // Runtime half: swap geometry, reset the body, rebuild platforms, spawn
     // feature entities. Lives in the world runtime (`ambition_gameplay_core`) so
@@ -116,7 +117,13 @@ pub(crate) fn load_room(
     // Presentation half (host-only): render-side spawns + arrival VFX. These name
     // `ambition_render`, which the world runtime is forbidden from importing, so
     // they stay here in the app where composition with render is allowed.
-    ambition_render::rendering::spawn_parallax_layers(commands, &world.0, &spec.metadata, assets);
+    ambition_render::rendering::spawn_parallax_layers(
+        commands,
+        &world.0,
+        &spec.metadata,
+        assets,
+        quality.map(|q| &q.budget.parallax),
+    );
     spawn_room_visuals(commands, &spec, physics_settings, assets);
     if edge_exit {
         // Edge exits should feel like contiguous room scrolling, not a death-like
@@ -152,6 +159,7 @@ pub fn ensure_requested_room_parallax_system(
     room_set: Res<rooms::RoomSet>,
     sandbox_catalog: Res<ambition_gameplay_core::assets::sandbox_assets::SandboxAssetCatalog>,
     asset_server: Res<AssetServer>,
+    quality: Option<Res<ambition_render::quality::ResolvedVisualQuality>>,
 ) {
     let Some(assets) = game_assets.as_deref_mut() else {
         return;
@@ -163,6 +171,7 @@ pub fn ensure_requested_room_parallax_system(
                 &sandbox_catalog,
                 &asset_server,
                 &target_spec.metadata,
+                quality.as_deref().map(|q| &q.budget),
             );
         }
     }
@@ -194,7 +203,11 @@ pub(crate) fn apply_room_transition_system(
     editable_tuning: Res<EditableMovementTuning>,
     feel_tuning: Res<SandboxFeelTuning>,
     physics_settings: Res<physics::PhysicsSandboxSettings>,
-    game_assets: Option<Res<ambition_gameplay_core::assets::game_assets::GameAssets>>,
+    // Bundled into one tuple param to stay within Bevy's 16-param system limit.
+    visual_assets: (
+        Option<Res<ambition_gameplay_core::assets::game_assets::GameAssets>>,
+        Option<Res<ambition_render::quality::ResolvedVisualQuality>>,
+    ),
     mut combat_reset: super::super::feedback::CombatRoomReset,
 ) {
     for request in requests.read() {
@@ -241,7 +254,8 @@ pub(crate) fn apply_room_transition_system(
             editable_tuning.as_engine(),
             *feel_tuning,
             *physics_settings,
-            game_assets.as_deref(),
+            visual_assets.0.as_deref(),
+            visual_assets.1.as_deref(),
         );
         log_room_transition_landing(
             target_room,

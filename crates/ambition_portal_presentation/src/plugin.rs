@@ -112,6 +112,7 @@ impl Plugin for PortalPresentationPlugin {
         #[cfg(feature = "effect_view_cones")]
         if self.view_cones {
             app.init_resource::<view_cones::PortalViewConeConfig>();
+            app.init_resource::<view_cones::PortalCaptureQualityBudget>();
             app.init_resource::<view_cones::PortalViewConeDebugDumpRequest>();
             // The viewer seam (host-synced each frame); empty/absent ⇒ static
             // window fallback. Init here so the host can `ResMut` it.

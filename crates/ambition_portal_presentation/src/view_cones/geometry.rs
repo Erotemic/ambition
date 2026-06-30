@@ -12,6 +12,8 @@ use super::*;
 pub(crate) struct RebuildKey {
     pub(crate) world_size: Vec2,
     pub(crate) tex: UVec2,
+    pub(crate) recursion_depth: u32,
+    pub(crate) include_parallax: bool,
 }
 
 /// The capture texture dims for a rig: the LONG side covers the exit's
@@ -19,6 +21,7 @@ pub(crate) struct RebuildKey {
 /// SHORT side covers the bounded window depth. A wall exit is tall-thin, a
 /// floor/ceiling exit wide-short.
 pub(crate) fn capture_dims(
+    budget: &EffectivePortalCaptureBudget,
     config: &PortalViewConeConfig,
     world_size: Vec2,
     exit_normal: Vec2,
@@ -29,8 +32,8 @@ pub(crate) fn capture_dims(
             .map(|frame| frame.size)
             .unwrap_or(Vec2::new(800.0, 450.0))
             .max(Vec2::splat(1.0));
-        let density = config.texels_per_world_px.max(0.05);
-        let max_side = config.max_resolution.max(256);
+        let density = budget.texels_per_world_px.max(0.05);
+        let max_side = budget.max_resolution.max(256);
         let width = (source_size.x * density).round() as u32;
         let height = (source_size.y * density).round() as u32;
         let scale = (max_side as f32 / width.max(height).max(1) as f32).min(1.0);
@@ -39,9 +42,9 @@ pub(crate) fn capture_dims(
             ((height as f32 * scale).round() as u32).clamp(144, max_side),
         );
     }
-    let density = config.texels_per_world_px.max(0.05);
+    let density = budget.texels_per_world_px.max(0.05);
     let long = ((world_size.x.max(world_size.y) * density) as u32)
-        .clamp(256, config.max_resolution.max(256));
+        .clamp(256, budget.max_resolution.max(256));
     let max_depth = config
         .dynamic_depth_close
         .max(config.static_depth)

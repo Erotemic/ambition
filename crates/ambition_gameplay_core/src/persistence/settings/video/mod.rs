@@ -9,6 +9,9 @@ use serde::{Deserialize, Serialize};
 
 use crate::host::windowing::DisplayModeKind;
 
+mod quality;
+pub use quality::*;
+
 fn cycle_next<T: Copy + PartialEq, const N: usize>(all: &[T; N], current: T, fallback: usize) -> T {
     let idx = all.iter().position(|p| *p == current).unwrap_or(fallback);
     all[(idx + 1) % all.len()]
@@ -643,6 +646,8 @@ pub struct VideoSettings {
     #[serde(default)]
     pub frame_cap: FramePaceCap,
     #[serde(default)]
+    pub quality: VisualQualitySettings,
+    #[serde(default)]
     pub shaders: ScreenShaderSettings,
 }
 
@@ -657,6 +662,7 @@ impl Default for VideoSettings {
             colorblind: ColorblindMode::default(),
             show_fps: default_show_fps(),
             frame_cap: FramePaceCap::default(),
+            quality: VisualQualitySettings::default(),
             shaders: ScreenShaderSettings::default(),
         }
     }
@@ -664,6 +670,7 @@ impl Default for VideoSettings {
 
 impl VideoSettings {
     pub fn clamp_all(&mut self) {
+        self.quality.clamp_all();
         self.shaders.clamp_all();
     }
 }

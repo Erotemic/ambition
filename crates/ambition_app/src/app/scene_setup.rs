@@ -44,6 +44,7 @@ pub struct PresentationSetup<'a> {
     pub room_set: &'a RoomSet,
     pub physics_settings: PhysicsSandboxSettings,
     pub game_assets: &'a GameAssets,
+    pub quality: Option<&'a ambition_render::quality::ResolvedVisualQuality>,
     #[cfg(feature = "audio")]
     pub music_registry: &'a MusicRegistry,
     #[cfg(feature = "audio")]
@@ -226,6 +227,7 @@ fn presentation_world_inner(
     let room_set = params.room_set;
     let physics_settings = params.physics_settings;
     let game_assets = params.game_assets;
+    let quality = params.quality;
     #[cfg(feature = "audio")]
     let ui_fonts = params.ui_fonts;
     #[cfg(not(feature = "audio"))]
@@ -293,6 +295,7 @@ fn presentation_world_inner(
         &world.0,
         &room_set.active_spec().metadata,
         Some(game_assets),
+        quality.map(|q| &q.budget.parallax),
     );
     spawn_room_visuals(
         commands,

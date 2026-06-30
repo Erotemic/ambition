@@ -10,6 +10,7 @@ use ambition_asset_manager::{
 };
 
 use super::*;
+use crate::persistence::settings::TextureResolutionScale;
 
 /// Single-frame entity sprites keyed off the gen2d manifest.
 ///
@@ -229,19 +230,70 @@ pub fn sandbox_image_manifest(sprite_folder: &str) -> AssetManifest {
             entry
         };
         manifest.insert(entry);
+        for scale in [
+            TextureResolutionScale::Half,
+            TextureResolutionScale::Quarter,
+        ] {
+            insert_scaled_image_entry(
+                &mut manifest,
+                &entity_sprite_asset_id(sprite),
+                &format!(
+                    "{}/{}",
+                    scale.asset_subdir(sprite_folder),
+                    sprite.relative_path()
+                ),
+                scale,
+                PreloadGroup::SandboxCore,
+            );
+        }
     }
     for &theme in ParallaxTheme::ALL {
         for &layer in ParallaxLayerAsset::ALL {
             let id = parallax_layer_asset_id(theme, layer);
             let logical_path = layer.relative_path(theme);
             manifest.insert(
-                AssetEntry::new(id, AssetKind::Image, logical_path)
+                AssetEntry::new(id.clone(), AssetKind::Image, logical_path)
                     .with_missing_policy(MissingAssetPolicy::SilentPlaceholder)
                     .with_preload_group(PreloadGroup::Zone),
             );
+            for scale in [
+                TextureResolutionScale::Half,
+                TextureResolutionScale::Quarter,
+            ] {
+                let variant_path = format!(
+                    "{}/{}_{}.png",
+                    scale.parallax_subdir(),
+                    theme.key(),
+                    layer.key()
+                );
+                insert_scaled_image_entry(
+                    &mut manifest,
+                    &id,
+                    &variant_path,
+                    scale,
+                    PreloadGroup::Zone,
+                );
+            }
         }
     }
     manifest
+}
+
+pub(crate) fn insert_scaled_image_entry(
+    manifest: &mut AssetManifest,
+    base_id: &AssetId,
+    logical_path: &str,
+    scale: TextureResolutionScale,
+    preload_group: PreloadGroup,
+) {
+    let Some(id) = crate::assets::sandbox_assets::scaled_asset_id(base_id, scale) else {
+        return;
+    };
+    manifest.insert(
+        AssetEntry::new(id, AssetKind::Image, logical_path)
+            .with_missing_policy(MissingAssetPolicy::SilentPlaceholder)
+            .with_preload_group(preload_group),
+    );
 }
 
 /// Return the embedded-core URL for an [`EntitySprite`] when that

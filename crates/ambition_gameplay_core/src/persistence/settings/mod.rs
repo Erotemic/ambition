@@ -82,7 +82,12 @@ pub use crate::menu::ir::system::{
     DevSnapshot, DevToggleId, RadioSnapshot, SystemMenuAction, SystemMenuEntryId, SystemMenuModel,
     SystemMenuTarget, SystemOptionId,
 };
-pub use video::{CameraAspectPolicy, ScreenShaderSettings, VideoSettings};
+pub use video::{
+    BackgroundTextureBudget, CameraAspectPolicy, ParallaxBudget, ParticleBudget,
+    PortalCaptureBudget, ScreenShaderSettings, ShaderBudget, SpriteTextureBudget,
+    TextureResolutionScale, VideoSettings, VisualQualityBudget, VisualQualityProfile,
+    VisualQualitySettings,
+};
 
 #[cfg(test)]
 pub(crate) use gameplay::Difficulty;

@@ -35,6 +35,7 @@ use ambition_asset_manager::AssetProfile;
 
 use crate::boss_encounter::sprites::{self, BossSpriteAsset};
 use crate::character_sprites::{self, CharacterSpriteAssets};
+use crate::persistence::settings::VisualQualityBudget;
 use crate::rooms::RoomMetadata;
 
 /// Pick a sensible default [`AssetProfile`] for the current build target.
@@ -306,6 +307,7 @@ impl ParallaxLayerSet {
         catalog: &crate::assets::sandbox_assets::SandboxAssetCatalog,
         asset_server: &AssetServer,
         theme: ParallaxTheme,
+        quality: Option<&VisualQualityBudget>,
     ) -> usize {
         let mut added = 0usize;
         for &layer in ParallaxLayerAsset::ALL {
@@ -313,7 +315,16 @@ impl ParallaxLayerSet {
                 continue;
             }
             let id = parallax_layer_asset_id(theme, layer);
-            let Some(path) = catalog.try_path_for_load(&id) else {
+            let Some(path) = quality
+                .and_then(|q| {
+                    catalog.try_quality_path_for_load(
+                        &id,
+                        q.backgrounds.resolution_scale,
+                        q.backgrounds.prefer_scaled_variants,
+                    )
+                })
+                .or_else(|| catalog.try_path_for_load(&id))
+            else {
                 continue;
             };
             self.handles.insert((theme, layer), asset_server.load(path));
@@ -383,29 +394,36 @@ pub fn load_game_assets(
     asset_server: &AssetServer,
     layouts: &mut Assets<TextureAtlasLayout>,
     active_room_metadata: &RoomMetadata,
+    quality: Option<&VisualQualityBudget>,
 ) -> GameAssets {
     if config.no_assets {
         eprintln!("[game_assets] --no-assets in effect: rendering with colored-rectangle placeholders only");
         return GameAssets::default();
     }
 
-    let characters = character_sprites::load_character_sprites_in(catalog, asset_server, layouts);
-    let entities = load_entity_sprites(catalog, asset_server);
-    let boss = sprites::load_boss_sprite_in(catalog, asset_server, layouts);
+    let characters =
+        character_sprites::load_character_sprites_in(catalog, asset_server, layouts, quality);
+    let entities = load_entity_sprites(catalog, asset_server, quality);
+    let boss = sprites::load_boss_sprite_in(catalog, asset_server, layouts, quality);
     // Dedicated per-boss sheets, driven by the `(boss_key, BossSheetSpec)` data
     // table in `boss_encounter::sprites` — the machinery names each boss only
     // there, not in a per-boss loader fn or a struct field.
     let mut boss_sprites: HashMap<&'static str, BossSpriteAsset> = HashMap::new();
     for (key, spec) in sprites::dedicated_boss_sheets() {
-        if let Some(sheet) =
-            sprites::load_named_boss_sprite_via_catalog(catalog, asset_server, layouts, key, spec)
-        {
+        if let Some(sheet) = sprites::load_named_boss_sprite_via_catalog(
+            catalog,
+            asset_server,
+            layouts,
+            key,
+            spec,
+            quality,
+        ) {
             boss_sprites.insert(key, sheet);
         }
     }
     let active_parallax_theme = ParallaxTheme::from_room_metadata(active_room_metadata);
     let parallax_layers =
-        load_parallax_layers_for_theme(catalog, asset_server, active_parallax_theme);
+        load_parallax_layers_for_theme(catalog, asset_server, active_parallax_theme, quality);
 
     let missing = EntitySprite::ALL.len() - entities.len();
     if missing > 0 {
@@ -428,11 +446,21 @@ pub fn load_game_assets(
 fn load_entity_sprites(
     catalog: &crate::assets::sandbox_assets::SandboxAssetCatalog,
     asset_server: &AssetServer,
+    quality: Option<&VisualQualityBudget>,
 ) -> EntitySpriteSet {
     let mut handles = HashMap::with_capacity(EntitySprite::ALL.len());
     for &key in EntitySprite::ALL {
         let id = entity_sprite_asset_id(key);
-        let Some(path) = catalog.try_path_for_load(&id) else {
+        let Some(path) = quality
+            .and_then(|q| {
+                catalog.try_quality_path_for_load(
+                    &id,
+                    q.sprites.resolution_scale,
+                    q.sprites.prefer_scaled_variants,
+                )
+            })
+            .or_else(|| catalog.try_path_for_load(&id))
+        else {
             continue;
         };
         handles.insert(key, asset_server.load(path));
@@ -444,9 +472,10 @@ fn load_parallax_layers_for_theme(
     catalog: &crate::assets::sandbox_assets::SandboxAssetCatalog,
     asset_server: &AssetServer,
     theme: ParallaxTheme,
+    quality: Option<&VisualQualityBudget>,
 ) -> ParallaxLayerSet {
     let mut set = ParallaxLayerSet::default();
-    let added = set.ensure_theme_loaded(catalog, asset_server, theme);
+    let added = set.ensure_theme_loaded(catalog, asset_server, theme, quality);
     if added > 0 {
         eprintln!(
             "[game_assets] loaded {added}/{} generated background/parallax layers for '{}' under assets/backgrounds/parallax_layers/ (other themes lazy-load on room transition)",
@@ -466,11 +495,12 @@ pub fn ensure_parallax_layers_for_room(
     catalog: &crate::assets::sandbox_assets::SandboxAssetCatalog,
     asset_server: &AssetServer,
     metadata: &RoomMetadata,
+    quality: Option<&VisualQualityBudget>,
 ) {
     let theme = ParallaxTheme::from_room_metadata(metadata);
     let added = assets
         .parallax_layers
-        .ensure_theme_loaded(catalog, asset_server, theme);
+        .ensure_theme_loaded(catalog, asset_server, theme, quality);
     if added > 0 {
         bevy::log::debug!(
             target: "ambition::assets",

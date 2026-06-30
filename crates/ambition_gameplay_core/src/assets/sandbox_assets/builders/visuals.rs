@@ -7,6 +7,8 @@ use ambition_asset_manager::{
 
 use super::super::{embedded_core, ids};
 use super::with_embedded_core_candidate;
+use crate::assets::game_assets::insert_scaled_image_entry;
+use crate::persistence::settings::TextureResolutionScale;
 
 /// UI font entries — the bundled fonts that ship with the sandbox
 /// (Inter Display + JetBrains Mono) plus the legacy `font.*.legacy`
@@ -98,6 +100,18 @@ pub(in super::super) fn extend_with_character_entries(
             entry = with_embedded_core_candidate(entry, embedded_url);
         }
         manifest.insert(entry);
+        for scale in [
+            TextureResolutionScale::Half,
+            TextureResolutionScale::Quarter,
+        ] {
+            insert_scaled_image_entry(
+                manifest,
+                &ids::character_sprite(&name),
+                &format!("{}/{}", scale.asset_subdir(sprite_folder), filename),
+                scale,
+                PreloadGroup::SandboxCore,
+            );
+        }
     }
 }
 
@@ -127,6 +141,18 @@ pub(in super::super) fn extend_with_boss_entries(
                 .with_missing_policy(MissingAssetPolicy::SilentPlaceholder)
                 .with_preload_group(PreloadGroup::SandboxCore),
         );
+        for scale in [
+            TextureResolutionScale::Half,
+            TextureResolutionScale::Quarter,
+        ] {
+            insert_scaled_image_entry(
+                manifest,
+                &ids::boss_sprite(name),
+                &format!("{}/{}", scale.asset_subdir(sprite_folder), filename),
+                scale,
+                PreloadGroup::SandboxCore,
+            );
+        }
     }
 }
 

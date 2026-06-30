@@ -7,6 +7,7 @@ use ambition_gameplay_core::assets::game_assets::{self, GameAssetConfig};
 use ambition_gameplay_core::assets::loading;
 use ambition_gameplay_core::dev::dev_tools::{EditableAbilitySet, EditableMovementTuning};
 use ambition_gameplay_core::ldtk_world;
+use ambition_gameplay_core::persistence::settings::TextureResolutionScale;
 use ambition_gameplay_core::rooms;
 use ambition_gameplay_core::session::{data, setup};
 use ambition_gameplay_core::world::physics;
@@ -75,6 +76,7 @@ pub(crate) fn setup_presentation_system(
     asset_config: Res<GameAssetConfig>,
     scene_entities: Res<SceneEntities>,
     ui_fonts: Option<Res<ui_fonts::UiFonts>>,
+    quality: Option<Res<ambition_render::quality::ResolvedVisualQuality>>,
     mut profiler: ResMut<ambition_gameplay_core::dev::profiling::StartupProfiler>,
 ) {
     // `std::time::Instant::now()` panics on `wasm32-unknown-unknown`
@@ -89,6 +91,7 @@ pub(crate) fn setup_presentation_system(
         &asset_server,
         &mut atlas_layouts,
         &room_set.active_spec().metadata,
+        quality.as_deref().map(|q| &q.budget),
     );
     #[cfg(not(target_arch = "wasm32"))]
     {
@@ -108,6 +111,7 @@ pub(crate) fn setup_presentation_system(
                 room_set: &room_set,
                 physics_settings: *physics_settings,
                 game_assets: &game_assets,
+                quality: quality.as_deref(),
                 music_registry: &music_registry,
                 sfx_registry: &sfx_registry,
                 ui_fonts: ui_fonts.as_deref(),
@@ -139,6 +143,7 @@ pub(crate) fn setup_presentation_system(
                 room_set: &room_set,
                 physics_settings: *physics_settings,
                 game_assets: &game_assets,
+                quality: quality.as_deref(),
                 music_registry: &music_registry,
                 sfx_registry: &sfx_registry,
                 ui_fonts: ui_fonts.as_deref(),
@@ -147,6 +152,41 @@ pub(crate) fn setup_presentation_system(
         );
     }
     commands.insert_resource(game_assets);
+}
+
+pub(crate) fn reload_visual_quality_assets_on_scale_change(
+    quality: Res<ambition_render::quality::ResolvedVisualQuality>,
+    asset_config: Res<GameAssetConfig>,
+    sandbox_catalog: Res<ambition_gameplay_core::assets::sandbox_assets::SandboxAssetCatalog>,
+    asset_server: Res<AssetServer>,
+    room_set: Res<rooms::RoomSet>,
+    mut atlas_layouts: ResMut<Assets<TextureAtlasLayout>>,
+    mut game_assets: Option<ResMut<game_assets::GameAssets>>,
+    mut last_scales: Local<Option<(TextureResolutionScale, TextureResolutionScale)>>,
+) {
+    let scales = (
+        quality.budget.sprites.resolution_scale,
+        quality.budget.backgrounds.resolution_scale,
+    );
+    if last_scales.is_none() {
+        *last_scales = Some(scales);
+        return;
+    }
+    if *last_scales == Some(scales) {
+        return;
+    }
+    *last_scales = Some(scales);
+    let Some(mut game_assets) = game_assets.as_deref_mut() else {
+        return;
+    };
+    *game_assets = game_assets::load_game_assets(
+        &asset_config,
+        &sandbox_catalog,
+        &asset_server,
+        &mut atlas_layouts,
+        &room_set.active_spec().metadata,
+        Some(&quality.budget),
+    );
 }
 
 #[cfg(not(feature = "audio"))]
@@ -160,6 +200,7 @@ pub(crate) fn setup_presentation_system(
     mut atlas_layouts: ResMut<Assets<TextureAtlasLayout>>,
     asset_config: Res<GameAssetConfig>,
     scene_entities: Res<SceneEntities>,
+    quality: Option<Res<ambition_render::quality::ResolvedVisualQuality>>,
 ) {
     let game_assets = game_assets::load_game_assets(
         &asset_config,
@@ -167,6 +208,7 @@ pub(crate) fn setup_presentation_system(
         &asset_server,
         &mut atlas_layouts,
         &room_set.active_spec().metadata,
+        quality.as_deref().map(|q| &q.budget),
     );
     scene_setup::presentation_world(
         &mut commands,
@@ -175,6 +217,7 @@ pub(crate) fn setup_presentation_system(
             room_set: &room_set,
             physics_settings: *physics_settings,
             game_assets: &game_assets,
+            quality: quality.as_deref(),
         },
         scene_entities.player,
     );

@@ -43,7 +43,10 @@ use super::dev_runtime::{handle_debug_hotkeys, handle_ldtk_hot_reload, sync_pres
 use super::hud::{update_hud, update_quest_panel};
 use super::player_tick::{advance_moving_platforms, player_body_tick};
 use super::resources::init_sandbox_resources;
-use super::setup_systems::{setup_presentation_system, setup_simulation_system};
+use super::setup_systems::{
+    reload_visual_quality_assets_on_scale_change, setup_presentation_system,
+    setup_simulation_system,
+};
 use super::sim_systems::{
     apply_cut_rope_room_replay_request_system, apply_player_reset_input_system,
     apply_suspended_time_scale_system, cleanup_timers_system, input_timer_system,
@@ -549,6 +552,7 @@ pub fn add_presentation_plugins(app: &mut App) {
 /// FPS overlay, font loader).
 fn install_presentation_resources_and_subplugins(app: &mut App) {
     app.insert_resource(ClearColor(Color::srgb(0.020, 0.024, 0.035)))
+        .init_resource::<ambition_render::quality::ResolvedVisualQuality>()
         .insert_resource(windowing::DisplayModeState::default())
         .register_type::<DeveloperTools>()
         .register_type::<PlayerBodyProfile>()
@@ -587,6 +591,16 @@ fn install_presentation_resources_and_subplugins(app: &mut App) {
     app.add_plugins(crate::host::framepace::FramePacePlugin);
 
     app.add_systems(Startup, ui_fonts::load_ui_fonts);
+    app.add_systems(
+        Update,
+        (
+            ambition_render::quality::sync_resolved_visual_quality,
+            reload_visual_quality_assets_on_scale_change,
+        )
+            .chain(),
+    );
+    #[cfg(feature = "portal_render")]
+    app.add_systems(Update, ambition_render::quality::sync_portal_quality_budget);
 }
 
 /// Pause menu, inventory, map menu, presentation startup, dev/dialog

@@ -16,6 +16,7 @@ use std::collections::HashSet;
 use super::primitives::RoomVisual;
 use ambition_gameplay_core::assets::game_assets::{GameAssets, ParallaxLayerAsset, ParallaxTheme};
 use ambition_gameplay_core::config::{WINDOW_H, WINDOW_W};
+use ambition_gameplay_core::persistence::settings::ParallaxBudget;
 use ambition_gameplay_core::rooms::RoomMetadata;
 
 #[derive(Component, Clone, Copy, Debug)]
@@ -76,6 +77,7 @@ pub fn spawn_parallax_layers(
     world: &ae::World,
     metadata: &RoomMetadata,
     assets: Option<&GameAssets>,
+    quality: Option<&ParallaxBudget>,
 ) {
     let Some(assets) = assets else {
         return;
@@ -83,10 +85,14 @@ pub fn spawn_parallax_layers(
     if assets.parallax_layers.is_empty() {
         return;
     }
+    if quality.is_some_and(|q| !q.enabled) {
+        return;
+    }
     let theme = ParallaxTheme::from_room_metadata(metadata);
     let viewport = BVec2::new(WINDOW_W as f32, WINDOW_H as f32);
     let panel_base = viewport.x.max(viewport.y);
-    for spec in RUNTIME_PARALLAX_LAYERS {
+    let max_layers = quality.and_then(|q| q.max_layers).unwrap_or(usize::MAX);
+    for spec in RUNTIME_PARALLAX_LAYERS.iter().take(max_layers) {
         let Some(image) = assets.parallax_layers.get(theme, spec.asset) else {
             continue;
         };

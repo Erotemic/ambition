@@ -28,7 +28,7 @@ pub fn apply_settings_option(id: SettingsOptionId, dir: i32, settings: &mut User
     use crate::persistence::settings::gameplay::Difficulty;
     use crate::persistence::settings::video::{
         CameraAspectPolicy, CameraFramingPreset, ColorblindMode, FlashIntensity, FramePaceCap,
-        ScreenShaderSettings, SerializableDisplayMode,
+        ScreenShaderSettings, SerializableDisplayMode, VisualQualityProfile,
     };
 
     // Cycle helper: dir<0 -> prev, otherwise next (confirm advances like next).
@@ -69,6 +69,9 @@ pub fn apply_settings_option(id: SettingsOptionId, dir: i32, settings: &mut User
         SettingsOptionId::Colorblind => cyc!(settings.video.colorblind, ColorblindMode),
         SettingsOptionId::ShowFps => tog!(settings.video.show_fps),
         SettingsOptionId::FramePacing => cyc!(settings.video.frame_cap, FramePaceCap),
+        SettingsOptionId::VisualQuality => {
+            cyc!(settings.video.quality.profile, VisualQualityProfile)
+        }
 
         // Shaders. Each nudge replicates the pause menu's `nudge_shader_unit` /
         // `nudge_shader_range` with the SAME step (UNIT_STEP / FINE_STEP, or the

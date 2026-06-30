@@ -106,3 +106,46 @@ fn flash_intensity_prev_next_round_trip() {
     let f = FlashIntensity::Reduced;
     assert_eq!(f.next().prev(), f);
 }
+
+#[test]
+fn visual_quality_profile_table_matches_android_starting_budget() {
+    let low = VisualQualityBudget::for_profile(VisualQualityProfile::Low);
+    assert_eq!(low.portal.max_resolution, 384);
+    assert_eq!(low.portal.recursion_depth, 0);
+    assert!(!low.portal.include_parallax);
+    assert_eq!(low.sprites.resolution_scale, TextureResolutionScale::Half);
+    assert_eq!(low.parallax.max_layers, Some(2));
+
+    let ultra = VisualQualityBudget::for_profile(VisualQualityProfile::Ultra);
+    assert_eq!(ultra.portal.max_active_captures, 4);
+    assert_eq!(ultra.backgrounds.max_texture_resolution, 4096);
+    assert_eq!(ultra.particles.max_particles, 1024);
+}
+
+#[test]
+fn custom_visual_quality_resolves_to_stored_budget() {
+    let mut settings = VisualQualitySettings::default();
+    settings.profile = VisualQualityProfile::Custom;
+    settings.custom.portal.max_resolution = 333;
+    assert_eq!(settings.resolved_budget().portal.max_resolution, 333);
+}
+
+#[test]
+fn texture_resolution_scale_owns_variant_folder_names() {
+    assert_eq!(
+        TextureResolutionScale::Half.asset_subdir("custom_sprites"),
+        "custom_sprites_0_5x"
+    );
+    assert_eq!(
+        TextureResolutionScale::Quarter.asset_subdir("sprites"),
+        "sprites_0_25x"
+    );
+    assert_eq!(
+        TextureResolutionScale::Half.parallax_subdir(),
+        "backgrounds/parallax_layers_0_5x"
+    );
+    assert_eq!(
+        TextureResolutionScale::Full.asset_subdir("sprites"),
+        "sprites"
+    );
+}

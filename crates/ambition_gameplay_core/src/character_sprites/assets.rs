@@ -35,6 +35,7 @@ use super::sheets::CharacterSheetSpec;
 use crate::assets::sandbox_assets::{ids, SandboxAssetCatalog};
 use crate::character_roster::EMBEDDED_CATALOG;
 use crate::features::FeatureVisualKind;
+use crate::persistence::settings::VisualQualityBudget;
 use ambition_engine_core as ae;
 
 /// One page image of a (possibly split) character sheet: its texture handle
@@ -263,6 +264,7 @@ pub fn load_character_sprites_in(
     catalog: &SandboxAssetCatalog,
     asset_server: &AssetServer,
     layouts: &mut Assets<TextureAtlasLayout>,
+    quality: Option<&VisualQualityBudget>,
 ) -> CharacterSpriteAssets {
     let mut out = CharacterSpriteAssets::default();
     let mut total = 0usize;
@@ -287,6 +289,7 @@ pub fn load_character_sprites_in(
             &asset_id,
             &sheet_spec,
             Some(cid),
+            quality,
         ) else {
             skipped_no_path.push(cid.as_str());
             continue;
@@ -360,8 +363,18 @@ fn build_optional_via_catalog(
     id: &AssetId,
     spec: &CharacterSheetSpec,
     log_label: Option<&str>,
+    quality: Option<&VisualQualityBudget>,
 ) -> Option<CharacterSpriteAsset> {
-    let Some(path) = catalog.try_path_for_load(id) else {
+    let Some(path) = quality
+        .and_then(|q| {
+            catalog.try_quality_path_for_load(
+                id,
+                q.sprites.resolution_scale,
+                q.sprites.prefer_scaled_variants,
+            )
+        })
+        .or_else(|| catalog.try_path_for_load(id))
+    else {
         if let Some(label) = log_label {
             eprintln!(
                 "[character_sprites] {label} spritesheet missing under {} profile (id {id}) — falling back to colored rectangle",
@@ -425,7 +438,7 @@ pub fn build_npc_sprite_asset(
     id: &AssetId,
     spec: &CharacterSheetSpec,
 ) -> Option<CharacterSpriteAsset> {
-    build_optional_via_catalog(catalog, asset_server, layouts, id, spec, None)
+    build_optional_via_catalog(catalog, asset_server, layouts, id, spec, None, None)
 }
 
 /// Build a single Prop sprite asset. Same shape as
@@ -440,7 +453,7 @@ pub fn build_prop_sprite_asset(
     id: &AssetId,
     spec: &CharacterSheetSpec,
 ) -> Option<CharacterSpriteAsset> {
-    build_optional_via_catalog(catalog, asset_server, layouts, id, spec, None)
+    build_optional_via_catalog(catalog, asset_server, layouts, id, spec, None, None)
 }
 
 #[cfg(test)]

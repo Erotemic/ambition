@@ -93,9 +93,16 @@ fn portal_channel_render_slot(channel: PortalChannel) -> usize {
     }
 }
 
-fn capture_render_layers(config: &PortalViewConeConfig, parallax_layer: usize) -> RenderLayers {
-    let layers = RenderLayers::layer(WORLD_RENDER_LAYER).with(parallax_layer);
-    if config.recursion_depth == 0 {
+fn capture_render_layers(
+    recursion_depth: u32,
+    include_parallax: bool,
+    parallax_layer: usize,
+) -> RenderLayers {
+    let mut layers = RenderLayers::layer(WORLD_RENDER_LAYER);
+    if include_parallax {
+        layers = layers.with(parallax_layer);
+    }
+    if recursion_depth == 0 {
         layers
     } else {
         layers.with(PORTAL_WINDOW_RENDER_LAYER)
@@ -205,6 +212,62 @@ impl PortalViewConeMode {
 impl Default for PortalViewConeMode {
     fn default() -> Self {
         Self::Dynamic
+    }
+}
+
+/// Host-supplied quality budget for portal capture rigs.
+///
+/// This resource is deliberately profile-free. The Ambition host resolves
+/// Low/Medium/High into concrete fields once, then copies the portal slice here.
+#[derive(Resource, Clone, Debug, Reflect, PartialEq)]
+#[reflect(Resource)]
+pub struct PortalCaptureQualityBudget {
+    pub max_resolution: u32,
+    pub texels_per_world_px: f32,
+    pub recursion_depth: u32,
+    pub max_active_captures: u32,
+    pub max_updates_per_frame: u32,
+    pub min_refresh_interval_s: f32,
+    pub include_parallax: bool,
+}
+
+impl Default for PortalCaptureQualityBudget {
+    fn default() -> Self {
+        Self {
+            max_resolution: 1024,
+            texels_per_world_px: 1.0,
+            recursion_depth: 1,
+            max_active_captures: 2,
+            max_updates_per_frame: 2,
+            min_refresh_interval_s: 0.0,
+            include_parallax: true,
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct EffectivePortalCaptureBudget {
+    pub max_resolution: u32,
+    pub texels_per_world_px: f32,
+    pub recursion_depth: u32,
+    pub max_active_captures: u32,
+    pub max_updates_per_frame: u32,
+    pub min_refresh_interval_s: f32,
+    pub include_parallax: bool,
+}
+
+pub fn effective_portal_capture_budget(
+    config: &PortalViewConeConfig,
+    quality: &PortalCaptureQualityBudget,
+) -> EffectivePortalCaptureBudget {
+    EffectivePortalCaptureBudget {
+        max_resolution: config.max_resolution.min(quality.max_resolution),
+        texels_per_world_px: config.texels_per_world_px.min(quality.texels_per_world_px),
+        recursion_depth: config.recursion_depth.min(quality.recursion_depth),
+        max_active_captures: quality.max_active_captures.max(1),
+        max_updates_per_frame: quality.max_updates_per_frame.max(1),
+        min_refresh_interval_s: quality.min_refresh_interval_s.max(0.0),
+        include_parallax: quality.include_parallax,
     }
 }
 
@@ -502,6 +565,7 @@ pub struct PortalViewRig {
     _image: Handle<Image>,
     mesh: Handle<Mesh>,
     cone: Entity,
+    last_capture_update_s: f32,
 }
 
 impl PortalViewRig {
@@ -573,6 +637,7 @@ pub fn sync_portal_view_cones(
     mut commands: Commands,
     selection: Res<crate::PortalEffectSelection>,
     config: Res<PortalViewConeConfig>,
+    quality: Res<PortalCaptureQualityBudget>,
     viewer: Option<Res<PortalViewer>>,
     frame: Res<PortalWorldFrame>,
     host_view: Option<Res<PortalCameraContinuityHostView>>,
@@ -615,6 +680,10 @@ pub fn sync_portal_view_cones(
     let all: Vec<PlacedPortal> = portals.iter().copied().collect();
     let viewer = viewer.as_deref();
     let (clip_min, clip_max) = portal_window_clip_rect(&frame, host_view.as_deref());
+    let effective = effective_portal_capture_budget(&config, &quality);
+    let now_s = time.elapsed_secs();
+    let mut active_captures = 0u32;
+    let mut updates_this_frame = 0u32;
 
     // First pass: update each live rig in place, or despawn it if its pair is
     // gone / it needs a full rebuild.
@@ -632,7 +701,15 @@ pub fn sync_portal_view_cones(
             portal_capture_camera_frame(&config, host_view.as_deref(), &enter, &exit);
         let rebuild = RebuildKey {
             world_size: frame.size,
-            tex: capture_dims(&config, frame.size, partner.normal, capture_frame),
+            tex: capture_dims(
+                &effective,
+                &config,
+                frame.size,
+                partner.normal,
+                capture_frame,
+            ),
+            recursion_depth: effective.recursion_depth,
+            include_parallax: effective.include_parallax,
         };
         if rig.rebuild != rebuild {
             commands.entity(entity).despawn();
@@ -640,7 +717,11 @@ pub fn sync_portal_view_cones(
             continue;
         }
         served.push(rig.channel);
-        *layers = capture_render_layers(&config, rig.parallax_layer);
+        *layers = capture_render_layers(
+            effective.recursion_depth,
+            effective.include_parallax,
+            rig.parallax_layer,
+        );
         sync_cone_material_tint(&cone_materials, &mut materials, rig.cone, config.tint);
 
         let plan = compute_cone(&portal, &partner, &config, viewer, frame.size);
@@ -684,7 +765,16 @@ pub fn sync_portal_view_cones(
                         height: r.source_size.y,
                     };
                 }
-                cam.is_active = true;
+                let refresh_due =
+                    now_s - rig.last_capture_update_s >= effective.min_refresh_interval_s;
+                let has_active_slot = active_captures < effective.max_active_captures;
+                let has_update_slot = updates_this_frame < effective.max_updates_per_frame;
+                cam.is_active = refresh_due && has_active_slot && has_update_slot;
+                if cam.is_active {
+                    active_captures += 1;
+                    updates_this_frame += 1;
+                    rig.last_capture_update_s = now_s;
+                }
                 if let Ok((mut ctf, mut vis)) = cones.get_mut(rig.cone) {
                     ctf.translation = r.centroid;
                     *vis = Visibility::Inherited;
@@ -713,7 +803,15 @@ pub fn sync_portal_view_cones(
             portal_capture_camera_frame(&config, host_view.as_deref(), &enter, &exit);
         let rebuild = RebuildKey {
             world_size: frame.size,
-            tex: capture_dims(&config, frame.size, partner.normal, capture_frame),
+            tex: capture_dims(
+                &effective,
+                &config,
+                frame.size,
+                partner.normal,
+                capture_frame,
+            ),
+            recursion_depth: effective.recursion_depth,
+            include_parallax: effective.include_parallax,
         };
         let image = images.add(Image::new_target_texture(
             rebuild.tex.x,
@@ -789,7 +887,7 @@ pub fn sync_portal_view_cones(
                 Name::new(format!("Portal view window ({})", portal.channel.name())),
             ))
             .id();
-        let (cam_tf, active, scaling) = match &render {
+        let (cam_tf, requested_active, scaling) = match &render {
             Some(r) => (
                 Transform::from_translation(r.cam_center),
                 true,
@@ -807,6 +905,13 @@ pub fn sync_portal_view_cones(
                 },
             ),
         };
+        let active = requested_active
+            && active_captures < effective.max_active_captures
+            && updates_this_frame < effective.max_updates_per_frame;
+        if active {
+            active_captures += 1;
+            updates_this_frame += 1;
+        }
         commands.spawn((
             Camera2d,
             Camera {
@@ -819,7 +924,11 @@ pub fn sync_portal_view_cones(
             // history): a default 4×-MSAA camera renders nothing into it.
             Msaa::Off,
             RenderTarget::Image(ImageRenderTarget::from(image.clone())),
-            capture_render_layers(&config, portal_capture_parallax_layer(portal.channel)),
+            capture_render_layers(
+                effective.recursion_depth,
+                effective.include_parallax,
+                portal_capture_parallax_layer(portal.channel),
+            ),
             Projection::Orthographic(OrthographicProjection {
                 scaling_mode: scaling,
                 ..OrthographicProjection::default_2d()
@@ -833,6 +942,7 @@ pub fn sync_portal_view_cones(
                 _image: image,
                 mesh,
                 cone: cone_entity,
+                last_capture_update_s: if active { now_s } else { f32::NEG_INFINITY },
             },
             Name::new(format!("Portal view capture ({})", portal.channel.name())),
         ));
@@ -858,6 +968,7 @@ pub fn flush_portal_view_cone_debug_dump(
     mut request: ResMut<PortalViewConeDebugDumpRequest>,
     selection: Res<crate::PortalEffectSelection>,
     config: Res<PortalViewConeConfig>,
+    quality: Res<PortalCaptureQualityBudget>,
     viewer: Option<Res<PortalViewer>>,
     frame: Res<PortalWorldFrame>,
     host_view: Option<Res<PortalCameraContinuityHostView>>,
@@ -885,6 +996,7 @@ pub fn flush_portal_view_cone_debug_dump(
         &reason,
         &selection,
         &config,
+        &quality,
         viewer.as_deref(),
         &frame,
         host_view.as_deref(),
@@ -931,6 +1043,7 @@ fn portal_view_cone_debug_dump_text(
     reason: &str,
     selection: &crate::PortalEffectSelection,
     config: &PortalViewConeConfig,
+    quality: &PortalCaptureQualityBudget,
     viewer: Option<&PortalViewer>,
     frame: &PortalWorldFrame,
     host_view: Option<&PortalCameraContinuityHostView>,
@@ -946,6 +1059,7 @@ fn portal_view_cone_debug_dump_text(
     let mut out = String::new();
     let all: Vec<PlacedPortal> = portals.iter().copied().collect();
     let (clip_min, clip_max) = portal_window_clip_rect(frame, host_view);
+    let effective = effective_portal_capture_budget(config, quality);
 
     let _ = writeln!(out, "Portal view-cone debug dump");
     let _ = writeln!(out, "reason: {reason}");
@@ -1030,6 +1144,55 @@ fn portal_view_cone_debug_dump_text(
     let _ = writeln!(out, "  debug_los_rays: {}", config.debug_los_rays);
     let _ = writeln!(out, "  debug_dump_portal: {:?}", config.debug_dump_portal);
     let _ = writeln!(out);
+    let _ = writeln!(out, "effective_quality_budget:");
+    let _ = writeln!(out, "  portal.max_resolution: {}", quality.max_resolution);
+    let _ = writeln!(
+        out,
+        "  portal.texels_per_world_px: {:.3}",
+        quality.texels_per_world_px
+    );
+    let _ = writeln!(out, "  portal.recursion_depth: {}", quality.recursion_depth);
+    let _ = writeln!(
+        out,
+        "  portal.max_active_captures: {}",
+        quality.max_active_captures
+    );
+    let _ = writeln!(
+        out,
+        "  portal.max_updates_per_frame: {}",
+        quality.max_updates_per_frame
+    );
+    let _ = writeln!(
+        out,
+        "  portal.min_refresh_interval_s: {:.3}",
+        quality.min_refresh_interval_s
+    );
+    let _ = writeln!(
+        out,
+        "  portal.include_parallax: {}",
+        quality.include_parallax
+    );
+    let _ = writeln!(
+        out,
+        "  effective_max_resolution: {}",
+        effective.max_resolution
+    );
+    let _ = writeln!(
+        out,
+        "  effective_texels_per_world_px: {:.3}",
+        effective.texels_per_world_px
+    );
+    let _ = writeln!(
+        out,
+        "  effective_recursion_depth: {}",
+        effective.recursion_depth
+    );
+    let _ = writeln!(
+        out,
+        "  effective_include_parallax: {}",
+        effective.include_parallax
+    );
+    let _ = writeln!(out);
 
     match viewer {
         Some(viewer) => {
@@ -1102,7 +1265,15 @@ fn portal_view_cone_debug_dump_text(
         let capture_frame = portal_capture_camera_frame(config, host_view, &enter, &exit);
         let rebuild = RebuildKey {
             world_size: frame.size,
-            tex: capture_dims(config, frame.size, partner.normal, capture_frame),
+            tex: capture_dims(
+                &effective,
+                config,
+                frame.size,
+                partner.normal,
+                capture_frame,
+            ),
+            recursion_depth: effective.recursion_depth,
+            include_parallax: effective.include_parallax,
         };
         let route = visibility_route_summary(portal, &partner, config, viewer);
         let _ = writeln!(

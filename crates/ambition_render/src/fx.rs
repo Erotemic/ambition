@@ -715,6 +715,9 @@ pub fn spawn_burst(
     color_rgba: [f32; 4],
     kind: ParticleKind,
 ) {
+    // TODO(quality): thread `ResolvedVisualQuality.budget.particles` into the
+    // central VFX spawn API, then clamp `count` and spawn-rate here instead of
+    // letting individual gameplay emitters interpret quality profiles.
     let count = count.max(1);
     for i in 0..count {
         let t = i as f32 / count as f32;

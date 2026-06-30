@@ -18,6 +18,7 @@ pub mod dialog_ui;
 pub mod fx;
 /// The in-world HUD overlay: health/mana bars, ability pips, banner text.
 pub mod hud;
+pub mod quality;
 pub mod rendering;
 pub mod screen_effects;
 pub mod ui_fonts;

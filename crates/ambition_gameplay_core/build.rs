@@ -1,4 +1,4 @@
-//! Embed every `*_spritesheet.ron` under `assets/sprites/` into the
+//! Embed every `*_spritesheet.ron` under `assets/sprites*/` into the
 //! built binary as a `&[(&str, &str)]` table.
 //!
 //! Why a build script: the runtime registry + the `LazyLock<CharacterSheetSpec>`
@@ -10,7 +10,9 @@
 //! `load_spec("goblin")` (or any character sheet) was forced.
 //!
 //! Mirrors the runtime scan: root `assets/sprites/` plus one level of
-//! subdirs (the boss multi-sheet packages live there).
+//! subdirs (the boss multi-sheet packages live there), and the sibling
+//! quality-variant folders (`sprites_0_5x`, `sprites_0_25x`) so packaged
+//! Android/web builds can resolve variant manifests too.
 
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -22,16 +24,25 @@ fn main() {
 
     let manifest_dir = PathBuf::from(std::env::var("CARGO_MANIFEST_DIR").unwrap());
 
-    let sprites_dir = manifest_dir.join("assets/sprites");
+    let sprite_dirs = [
+        manifest_dir.join("assets/sprites"),
+        manifest_dir.join("assets/sprites_0_5x"),
+        manifest_dir.join("assets/sprites_0_25x"),
+    ];
 
     // Re-run if the directory contents shift. Cargo watches recursively
     // when handed a directory.
-    println!("cargo:rerun-if-changed={}", sprites_dir.display());
+    for dir in &sprite_dirs {
+        println!("cargo:rerun-if-changed={}", dir.display());
+    }
 
     let mut entries: Vec<(String, PathBuf)> = Vec::new();
-    if sprites_dir.is_dir() {
-        collect_spritesheet_rons(&sprites_dir, &mut entries);
-        if let Ok(subdirs) = fs::read_dir(&sprites_dir) {
+    for sprites_dir in &sprite_dirs {
+        if !sprites_dir.is_dir() {
+            continue;
+        }
+        collect_spritesheet_rons(sprites_dir, &mut entries);
+        if let Ok(subdirs) = fs::read_dir(sprites_dir) {
             for sub in subdirs.flatten() {
                 let path = sub.path();
                 if path.is_dir() {
@@ -75,6 +86,21 @@ fn collect_spritesheet_rons(dir: &Path, out: &mut Vec<(String, PathBuf)>) {
         let Some(root) = name.strip_suffix("_spritesheet.ron") else {
             continue;
         };
-        out.push((root.to_owned(), path));
+        out.push((baked_key_for_path(root, &path), path));
+    }
+}
+
+fn baked_key_for_path(root: &str, path: &Path) -> String {
+    let marker = path
+        .components()
+        .filter_map(|component| component.as_os_str().to_str())
+        .find_map(|component| match component {
+            "sprites_0_5x" => Some("0_5x"),
+            "sprites_0_25x" => Some("0_25x"),
+            _ => None,
+        });
+    match marker {
+        Some(marker) => format!("{root}.{marker}"),
+        None => root.to_owned(),
     }
 }

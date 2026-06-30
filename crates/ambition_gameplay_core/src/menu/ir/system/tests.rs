@@ -149,6 +149,7 @@ fn shaders_screen_reaches_every_shader_option() {
                     | SettingsOptionId::Colorblind
                     | SettingsOptionId::ShowFps
                     | SettingsOptionId::FramePacing
+                    | SettingsOptionId::VisualQuality
             )
         })
         .collect();
@@ -180,9 +181,10 @@ fn shaders_screen_reaches_every_shader_option() {
         ]
     );
     // Each shader option carries a live slider value label (e.g. "0%") so the
-    // cube renders the same control the grid does. (The leading 8 basic Video
-    // rows are cycles/toggles, so only the shader tail is checked.)
-    for o in options.iter().skip(8) {
+    // cube renders the same control the grid does. (The leading 9 basic Video
+    // rows — 7 basic + FramePacing + VisualQuality — are cycles/toggles, so only
+    // the shader tail is checked.)
+    for o in options.iter().skip(9) {
         assert!(matches!(o.kind, SettingsOptionKind::Slider { .. }));
     }
 }
@@ -213,6 +215,7 @@ fn system_screens_surface_every_player_facing_setting() {
         SettingsOptionId::Flashes,
         SettingsOptionId::Colorblind,
         SettingsOptionId::ShowFps,
+        SettingsOptionId::VisualQuality,
     ] {
         assert!(video.contains(&id), "Video screen is missing {id:?}");
     }

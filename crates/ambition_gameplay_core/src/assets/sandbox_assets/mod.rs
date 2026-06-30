@@ -27,6 +27,7 @@ use ambition_asset_manager::{
 use ambition_asset_manager::{AssetKind, AssetLocation, MissingAssetPolicy, PreloadGroup};
 
 use crate::assets::game_assets::{sandbox_image_manifest, GameAssetConfig};
+use crate::persistence::settings::TextureResolutionScale;
 use crate::session::data::MusicRegistry;
 
 mod builders;
@@ -130,6 +131,25 @@ impl SandboxAssetCatalog {
         } else {
             None
         }
+    }
+
+    /// Resolve a scaled visual variant first, then silently fall back to the
+    /// canonical full-resolution asset id. This is the runtime quality-profile
+    /// seam for optional images and spritesheets.
+    pub fn try_quality_path_for_load(
+        &self,
+        id: &AssetId,
+        scale: TextureResolutionScale,
+        prefer_scaled_variant: bool,
+    ) -> Option<String> {
+        if prefer_scaled_variant {
+            if let Some(variant_id) = scaled_asset_id(id, scale) {
+                if let Some(path) = self.try_path_for_load(&variant_id) {
+                    return Some(path);
+                }
+            }
+        }
+        self.try_path_for_load(id)
     }
 
     /// Per-profile load gate keyed on a fully-resolved entry.
@@ -237,6 +257,12 @@ impl SandboxAssetCatalog {
             .into_iter()
             .find(|p| p.exists())
     }
+}
+
+pub fn scaled_asset_id(id: &AssetId, scale: TextureResolutionScale) -> Option<AssetId> {
+    scale
+        .asset_id_suffix()
+        .map(|suffix| AssetId::new(format!("{}.{}", id.as_str(), suffix)))
 }
 
 /// Build the ordered candidate roots for `rel_path` on desktop / Steam

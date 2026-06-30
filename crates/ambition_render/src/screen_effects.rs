@@ -261,11 +261,17 @@ impl ScreenEffectSettings {
 
 fn sync_screen_effect_settings_from_video_settings(
     settings: Res<UserSettings>,
+    quality: Option<Res<crate::quality::ResolvedVisualQuality>>,
     time: Res<Time>,
     mut cameras: Query<&mut ScreenEffectSettings>,
 ) {
-    let next =
-        ScreenEffectSettings::for_shader_settings(&settings.video.shaders, time.elapsed_secs());
+    let mut shaders = settings.video.shaders.clone();
+    if let Some(quality) = quality {
+        shaders.strength = shaders
+            .strength
+            .min(quality.budget.shaders.screen_shader_scale);
+    }
+    let next = ScreenEffectSettings::for_shader_settings(&shaders, time.elapsed_secs());
     for mut camera_settings in &mut cameras {
         *camera_settings = next;
     }

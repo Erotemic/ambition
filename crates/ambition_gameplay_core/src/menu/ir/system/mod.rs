@@ -439,6 +439,7 @@ fn curated_options(id: SystemMenuEntryId) -> &'static [SettingsOptionId] {
             SettingsOptionId::Colorblind,
             SettingsOptionId::ShowFps,
             SettingsOptionId::FramePacing,
+            SettingsOptionId::VisualQuality,
             SettingsOptionId::ShaderStrength,
             SettingsOptionId::ShaderCrtStrength,
             SettingsOptionId::ShaderCrtScanlines,

@@ -88,7 +88,11 @@ pub(super) fn handle_ldtk_hot_reload(
     physics_settings: Res<physics::PhysicsSandboxSettings>,
     mut platform_set: ResMut<ambition_gameplay_core::MovingPlatformSet>,
     room_visuals: Query<(Entity, Option<&physics::PhysicsRoomEntity>), With<RoomScopedEntity>>,
-    game_assets: Option<Res<ambition_gameplay_core::assets::game_assets::GameAssets>>,
+    // Bundled into one tuple param to stay within Bevy's 16-param system limit.
+    visual_assets: (
+        Option<Res<ambition_gameplay_core::assets::game_assets::GameAssets>>,
+        Option<Res<ambition_render::quality::ResolvedVisualQuality>>,
+    ),
     mut player_q: Query<
         (
             ae::BodyClusterQueryData,
@@ -149,7 +153,8 @@ pub(super) fn handle_ldtk_hot_reload(
             *physics_settings,
             &mut platform_set.0,
             &room_visuals,
-            game_assets.as_deref(),
+            visual_assets.0.as_deref(),
+            visual_assets.1.as_deref(),
             &watch_path,
             &catalog,
         );
@@ -243,6 +248,7 @@ pub(super) fn reload_ldtk_world_from_disk(
     moving_platforms: &mut Vec<ambition_gameplay_core::world::platforms::MovingPlatformState>,
     room_visuals: &Query<(Entity, Option<&physics::PhysicsRoomEntity>), With<RoomScopedEntity>>,
     assets: Option<&ambition_gameplay_core::assets::game_assets::GameAssets>,
+    quality: Option<&ambition_render::quality::ResolvedVisualQuality>,
     watch_path: &std::path::Path,
     catalog: &ambition_gameplay_core::assets::sandbox_assets::SandboxAssetCatalog,
 ) -> Result<String, Vec<String>> {
@@ -296,6 +302,7 @@ pub(super) fn reload_ldtk_world_from_disk(
         &world.0,
         &room_set.active_spec().metadata,
         assets,
+        quality.map(|q| &q.budget.parallax),
     );
     spawn_room_visuals(commands, room_set.active_spec(), physics_settings, assets);
     platforms::spawn_moving_platforms(commands, &world.0, moving_platforms);

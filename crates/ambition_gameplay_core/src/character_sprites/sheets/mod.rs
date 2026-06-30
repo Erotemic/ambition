@@ -157,7 +157,13 @@ fn record_index() -> &'static HashMap<String, SheetRecord> {
                 record.target = (*filename_root).to_owned();
                 index.insert((*filename_root).to_owned(), record);
             } else {
-                for record in records {
+                let scale_suffix = filename_root
+                    .rsplit_once('.')
+                    .and_then(|(_, suffix)| matches!(suffix, "0_5x" | "0_25x").then_some(suffix));
+                for mut record in records {
+                    if let Some(scale_suffix) = scale_suffix {
+                        record.target = format!("{}.{}", record.target, scale_suffix);
+                    }
                     index.insert(record.target.clone(), record);
                 }
             }

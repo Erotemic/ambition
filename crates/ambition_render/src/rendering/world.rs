@@ -38,6 +38,7 @@ pub fn respawn_room_visuals_on_request(
     room_set: Res<ambition_gameplay_core::rooms::RoomSet>,
     physics_settings: Res<physics::PhysicsSandboxSettings>,
     assets: Option<Res<GameAssets>>,
+    quality: Option<Res<crate::quality::ResolvedVisualQuality>>,
 ) {
     if requests.is_empty() {
         return;
@@ -49,6 +50,7 @@ pub fn respawn_room_visuals_on_request(
         &spec.world,
         &spec.metadata,
         assets.as_deref(),
+        quality.as_deref().map(|q| &q.budget.parallax),
     );
     spawn_room_visuals(&mut commands, spec, *physics_settings, assets.as_deref());
 }

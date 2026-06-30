@@ -4,9 +4,13 @@ A single global **quality profile** that resolves to a structured **runtime/devi
 budget** every visual subsystem reads. The immediate driver is Android performance —
 40 FPS baseline, diving to 10–20 in portal rooms — but the profile is not portal-only.
 
-> Status: **planning** (no code yet). This doc is the design of record; it supersedes
-> the looser external draft it grew from. Sequence and numbers below are the starting
-> point, to be re-grounded against measurement as each stage lands.
+> Status: **first implementation landed** (folded onto `main` 2026-06-30). The profile
+> spine (`VisualQualityProfile` / `VisualQualityBudget` / `VisualQualitySettings`,
+> `ResolvedVisualQuality`), portal static caps + scheduling, the parallax budget, the
+> variant generate/select/`build.rs`-embed pipeline, the menu/settings/parity rows, and
+> the F3 inspector readout are all in. This doc remains the design of record; it
+> supersedes the looser external draft it grew from. Numbers below are still a starting
+> point, to be re-grounded against on-device measurement.
 
 ---
 

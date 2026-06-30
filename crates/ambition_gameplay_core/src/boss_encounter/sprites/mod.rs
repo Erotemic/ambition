@@ -14,6 +14,7 @@ use bevy::sprite::Anchor;
 
 use crate::character_sprites::{RenderBasis, SheetRecord};
 use crate::features::FeatureVisualKind;
+use crate::persistence::settings::VisualQualityBudget;
 
 /// Boss animation rows in the order the generator emits them.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -759,6 +760,7 @@ pub fn load_boss_sprite_in(
     catalog: &crate::assets::sandbox_assets::SandboxAssetCatalog,
     asset_server: &AssetServer,
     layouts: &mut Assets<TextureAtlasLayout>,
+    quality: Option<&VisualQualityBudget>,
 ) -> Option<BossSpriteAsset> {
     load_named_boss_sprite_via_catalog(
         catalog,
@@ -766,6 +768,7 @@ pub fn load_boss_sprite_in(
         layouts,
         "gradient_sentinel",
         BOSS_SHEET,
+        quality,
     )
 }
 
@@ -812,9 +815,19 @@ pub(crate) fn load_named_boss_sprite_via_catalog(
     layouts: &mut Assets<TextureAtlasLayout>,
     label: &str,
     spec: BossSheetSpec,
+    quality: Option<&VisualQualityBudget>,
 ) -> Option<BossSpriteAsset> {
     let id = crate::assets::sandbox_assets::ids::boss_sprite(label);
-    let Some(path) = catalog.try_path_for_load(&id) else {
+    let Some(path) = quality
+        .and_then(|q| {
+            catalog.try_quality_path_for_load(
+                &id,
+                q.sprites.resolution_scale,
+                q.sprites.prefer_scaled_variants,
+            )
+        })
+        .or_else(|| catalog.try_path_for_load(&id))
+    else {
         eprintln!(
             "[boss_sprites] {label} spritesheet missing under {} profile (id {id}) — falling back to entity sprite",
             catalog.profile().label(),

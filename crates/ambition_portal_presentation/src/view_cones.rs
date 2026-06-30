@@ -983,15 +983,46 @@ fn portal_view_cone_debug_dump_text(
                 .map(|(rig, _, _, _)| rig.blend)
                 .unwrap_or(plan.target);
             let cone = blend_cones(&plan.min, &plan.wedge, smooth01(blend), &enter, &exit);
-            match cone_render(&cone, &enter, &exit, frame, clip_min, clip_max, proximity_z(config, viewer, portal.pos)) {
+            match cone_render(
+                &cone,
+                &enter,
+                &exit,
+                frame,
+                clip_min,
+                clip_max,
+                proximity_z(config, viewer, portal.pos),
+            ) {
                 Some(render) => {
                     let _ = writeln!(out, "  render.present: true");
+                    let clip = source_clip_debug(
+                        plan.wedge.source.min,
+                        plan.wedge.source.max,
+                        render.source_min,
+                        render.source_max,
+                    );
                     let _ = writeln!(out, "  render.source_rect: {} -> {}", fmt_vec2(render.source_min), fmt_vec2(render.source_max));
                     let _ = writeln!(out, "  render.source_size: {}", fmt_vec2(render.source_size));
+                    let _ = writeln!(out, "  render.source_clipped_by_plan: {}", clip.source_clipped_by_plan);
+                    let _ = writeln!(out, "  render.source_plan_size: {}", fmt_vec2(clip.source_plan_size));
+                    let _ = writeln!(out, "  render.source_clip_loss_min: {}", fmt_vec2(clip.source_clip_loss_min));
+                    let _ = writeln!(out, "  render.source_clip_loss_max: {}", fmt_vec2(clip.source_clip_loss_max));
+                    let _ = writeln!(out, "  render.source_clip_loss_total: {}", fmt_vec2(clip.source_clip_loss_total));
+                    let _ = writeln!(out, "  render.source_clip_loss_fraction: {}", fmt_vec2(clip.source_clip_loss_fraction));
+                    let texels_per_world = Vec2::new(
+                        rebuild.tex.x as f32 / render.source_size.x.max(1.0),
+                        rebuild.tex.y as f32 / render.source_size.y.max(1.0),
+                    );
+                    let texture_aspect = rebuild.tex.x as f32 / (rebuild.tex.y as f32).max(1.0);
+                    let source_aspect = render.source_size.x / render.source_size.y.max(1.0);
+                    let _ = writeln!(out, "  render.texture_aspect: {:.3}", texture_aspect);
+                    let _ = writeln!(out, "  render.source_aspect: {:.3}", source_aspect);
+                    let _ = writeln!(out, "  render.source_to_texture_texels_per_world: {}", fmt_vec2(texels_per_world));
                     let _ = writeln!(out, "  render.centroid: {}", fmt_vec3(render.centroid));
                     let _ = writeln!(out, "  render.cam_center: {}", fmt_vec3(render.cam_center));
                     let _ = writeln!(out, "  render.vertex_count: {}", render.positions.len());
                     let _ = writeln!(out, "  render.index_count: {}", render.indices.len());
+                    let _ = writeln!(out, "  render.entry_poly_world: {}", fmt_points(&render.entry_poly_world));
+                    let _ = writeln!(out, "  render.mapped_source_vertices: {}", fmt_points(&render.mapped_source_vertices));
                     let _ = writeln!(out, "  render.positions: {}", fmt_positions(&render.positions));
                     let _ = writeln!(out, "  render.uvs: {}", fmt_uvs(&render.uvs));
                     let _ = writeln!(out, "  render.indices: {:?}", render.indices);
@@ -1007,6 +1038,43 @@ fn portal_view_cone_debug_dump_text(
     }
 
     out
+}
+
+
+#[derive(Clone, Copy, Debug)]
+struct SourceClipDebug {
+    source_clipped_by_plan: bool,
+    source_plan_size: Vec2,
+    source_clip_loss_min: Vec2,
+    source_clip_loss_max: Vec2,
+    source_clip_loss_total: Vec2,
+    source_clip_loss_fraction: Vec2,
+}
+
+fn source_clip_debug(
+    plan_min: Vec2,
+    plan_max: Vec2,
+    render_min: Vec2,
+    render_max: Vec2,
+) -> SourceClipDebug {
+    let source_plan_size = (plan_max - plan_min).max(Vec2::ZERO);
+    let source_clip_loss_min = (render_min - plan_min).max(Vec2::ZERO);
+    let source_clip_loss_max = (plan_max - render_max).max(Vec2::ZERO);
+    let source_clip_loss_total = source_clip_loss_min + source_clip_loss_max;
+    let source_clip_loss_fraction = Vec2::new(
+        source_clip_loss_total.x / source_plan_size.x.max(1.0),
+        source_clip_loss_total.y / source_plan_size.y.max(1.0),
+    );
+    let source_clipped_by_plan = source_clip_loss_total.x > 0.01
+        || source_clip_loss_total.y > 0.01;
+    SourceClipDebug {
+        source_clipped_by_plan,
+        source_plan_size,
+        source_clip_loss_min,
+        source_clip_loss_max,
+        source_clip_loss_total,
+        source_clip_loss_fraction,
+    }
 }
 
 fn selected_portals_for_dump(all: &[PlacedPortal], filter: &str) -> Vec<PlacedPortal> {

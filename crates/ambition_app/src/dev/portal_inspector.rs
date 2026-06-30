@@ -521,7 +521,7 @@ mod enabled {
                             });
                         if ui
                             .button("dump_portal_view_cone_state")
-                            .on_hover_text("Request one portal view-cone debug dump. Set debug_dump_portal to c136, c137, or another portal name to print only that portal pair; leave it empty to print every portal.")
+                            .on_hover_text("Request one portal view-cone debug dump. Set debug_dump_portal to c136, c137, or another portal name to print only that portal pair; leave it empty to print every portal. The dump includes render.source_clipped_by_plan, render.source_clip_loss_fraction, render.entry_poly_world, and render.mapped_source_vertices.")
                             .clicked()
                         {
                             request_dump = true;

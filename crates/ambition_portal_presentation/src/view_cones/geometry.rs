@@ -47,6 +47,10 @@ pub(crate) struct ConeRender {
     pub(crate) indices: Vec<u32>,
     pub(crate) centroid: Vec3,
     pub(crate) cam_center: Vec3,
+    /// Entry-side world polygon after clipping to the active portal view rect.
+    pub(crate) entry_poly_world: Vec<Vec2>,
+    /// Source-side world vertices after mapping `entry_poly_world` through the portal pair.
+    pub(crate) mapped_source_vertices: Vec<Vec2>,
     pub(crate) source_min: Vec2,
     pub(crate) source_max: Vec2,
     pub(crate) source_size: Vec2,
@@ -751,6 +755,8 @@ pub(crate) fn cone_render(
         indices,
         centroid: centroid.extend(z),
         cam_center: frame.to_render((smin + smax) * 0.5, 0.0),
+        entry_poly_world: poly,
+        mapped_source_vertices: mapped,
         source_min: smin,
         source_max: smax,
         source_size,

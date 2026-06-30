@@ -305,6 +305,198 @@ pub(super) fn non_looping(anim: CharacterAnim) -> bool {
 /// wall, blink/aim, flight, dash, ledge) comes in as five cluster
 /// component references so this helper has no dependency on the
 /// legacy `ae::Player` aggregate.
+/// Compact-body silhouette mode the picker reads at low priority (mirrors the
+/// engine `BodyMode` subset that has its own sprite row).
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum CompactBody {
+    #[default]
+    None,
+    Slide,
+    Crawl,
+    Crouch,
+}
+
+/// A resolved ledge read (already mapped from hang/getup-kind to its row).
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum LedgeRead {
+    Grab,
+    Getup,
+    Roll,
+    GetupAttack,
+}
+
+impl LedgeRead {
+    fn anim(self) -> CharacterAnim {
+        match self {
+            LedgeRead::Grab => CharacterAnim::LedgeGrab,
+            LedgeRead::Getup => CharacterAnim::LedgeGetup,
+            LedgeRead::Roll => CharacterAnim::LedgeRoll,
+            LedgeRead::GetupAttack => CharacterAnim::LedgeGetupAttack,
+        }
+    }
+}
+
+/// Whether the locomotion tail reads as a ground walker or an aerial flyer.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum Locomotion {
+    #[default]
+    Grounded,
+    Aerial,
+}
+
+/// Archetype-agnostic animation facts: everything the ONE anim-priority ladder
+/// ([`pick_body_anim`]) reads, in no particular field order. A player fills the
+/// rich set from its `Body*` clusters; an enemy/NPC fills a sparse set (the
+/// states it can't be in stay at their inert defaults). So an actor "rises" to a
+/// richer animation as it gains state, instead of each archetype carrying its
+/// own priority ladder — the relativity principle, applied to presentation.
+///
+/// Built per frame by [`pick_player_anim`] / [`pick_enemy_anim`] /
+/// [`pick_npc_anim`] (the three thin adapters), which is also where the
+/// per-archetype quirks live: the attack row a swing maps to, the locomotion
+/// speed metric (|vx| grounded vs |v| aerial), and the speed thresholds.
+#[derive(Clone, Copy, Debug, Default)]
+pub struct BodyAnimView {
+    pub dead: bool,
+    pub hit: bool,
+    pub dodge_roll: bool,
+    pub blink_in: bool,
+    pub blocking: bool,
+    /// Actor charge→thrust special (glider zoning); highest combat read after hit.
+    pub special: bool,
+    pub shooting: bool,
+    /// The melee row to play while mid-swing (directional for the player,
+    /// Punch/Slash for actors). `None` ⇒ not attacking.
+    pub melee_attack: Option<CharacterAnim>,
+    pub aiming: bool,
+    pub wall_jump: bool,
+    pub interacting: bool,
+    pub blink_out: bool,
+    pub ledge: Option<LedgeRead>,
+    pub flying: bool,
+    pub swimming: bool,
+    pub dash_startup: bool,
+    pub dashing: bool,
+    pub ladder_climbing: bool,
+    pub wall_grab: bool,
+    pub gliding: bool,
+    pub airborne: bool,
+    /// Only read while `airborne`: up ⇒ Jump, else Fall.
+    pub moving_up: bool,
+    /// `Some(hard)` while a landing-recovery pose is held (grounded only).
+    pub landing: Option<bool>,
+    pub compact: CompactBody,
+    pub locomotion: Locomotion,
+    /// Locomotion speed in the metric the style uses (|vx| grounded, |v| aerial).
+    pub speed: f32,
+    /// Grounded: `speed < idle_below` ⇒ Idle.
+    pub idle_below: f32,
+    /// Grounded: `Some(t)` ⇒ `speed >= t` is Run; `None` ⇒ caps at Walk.
+    pub run_above: Option<f32>,
+    /// Aerial: `speed > fly_above` ⇒ Fly, else Idle (hover).
+    pub fly_above: f32,
+}
+
+/// The single animation-priority ladder every body runs. Each archetype's
+/// adapter builds a [`BodyAnimView`] and calls this; the ordering here is the
+/// player's full ladder, with the actor-only reads (`dead`, `special`, the
+/// Punch swing row) folded in at their priorities. Inert states (a `None`
+/// ledge, `false` flags) fall straight through, so a sparse actor view lands on
+/// the shared locomotion tail.
+pub fn pick_body_anim(v: &BodyAnimView) -> CharacterAnim {
+    use CharacterAnim::*;
+    if v.dead {
+        return Death;
+    }
+    if v.hit {
+        return Hit;
+    }
+    if v.dodge_roll {
+        return DodgeRoll;
+    }
+    if v.blink_in {
+        return BlinkIn;
+    }
+    if v.blocking {
+        return Block;
+    }
+    if v.special {
+        return Special;
+    }
+    if v.shooting {
+        return Shoot;
+    }
+    if let Some(swing) = v.melee_attack {
+        return swing;
+    }
+    if v.aiming {
+        return Aim;
+    }
+    if v.wall_jump {
+        return WallJump;
+    }
+    if v.interacting {
+        return Interact;
+    }
+    if v.blink_out {
+        return BlinkOut;
+    }
+    if let Some(ledge) = v.ledge {
+        return ledge.anim();
+    }
+    if v.flying {
+        return Fly;
+    }
+    if v.swimming {
+        return Swim;
+    }
+    if v.dash_startup {
+        return DashStartup;
+    }
+    if v.dashing {
+        return Dash;
+    }
+    if v.ladder_climbing {
+        return LadderClimb;
+    }
+    if v.wall_grab {
+        return WallGrab;
+    }
+    if v.gliding {
+        return FloatGlide;
+    }
+    if v.airborne {
+        return if v.moving_up { Jump } else { Fall };
+    }
+    if let Some(hard) = v.landing {
+        return if hard { LandHard } else { LandRecovery };
+    }
+    match v.compact {
+        CompactBody::Slide => return Slide,
+        CompactBody::Crawl => return Crawl,
+        CompactBody::Crouch => return Crouch,
+        CompactBody::None => {}
+    }
+    match v.locomotion {
+        Locomotion::Aerial => {
+            if v.speed > v.fly_above {
+                Fly
+            } else {
+                Idle
+            }
+        }
+        Locomotion::Grounded => {
+            if v.speed < v.idle_below {
+                Idle
+            } else if v.run_above.map_or(true, |t| v.speed < t) {
+                Walk
+            } else {
+                Run
+            }
+        }
+    }
+}
+
 #[allow(clippy::too_many_arguments)]
 pub fn pick_player_anim(
     anim: &PlayerAnimState,
@@ -324,136 +516,64 @@ pub fn pick_player_anim(
     dodge: &crate::actor::BodyDodgeState,
     shield: &crate::actor::BodyShieldState,
 ) -> CharacterAnim {
-    if combat.hitstun_timer > 0.05 {
-        return CharacterAnim::Hit;
-    }
-    // Dodge roll wins over slash / blink-aim — once the player commits
-    // to a ground roll the curl-pose carries the i-frames; nothing else
-    // should clobber the read until the timer drains.
-    //
-    // Gated on `ledge.grab.is_none()` because ledge_roll +
-    // ledge_getup_attack also set `dodge.roll_timer` (the same timer
-    // drives their i-frames). Without the gate, every ledge roll
-    // would visibly play the grounded-roll pose instead of the
-    // dedicated `LedgeRoll` / `LedgeGetupAttack` rows.
-    if dodge.roll_timer > 0.0 && ledge.grab.is_none() {
-        return CharacterAnim::DodgeRoll;
-    }
-    if blink_cam.blink_in_timer > 0.0 {
-        return CharacterAnim::BlinkIn;
-    }
-    // Shield held wins over slash so the bubble-up posture stays
-    // legible while the parry window is open.
-    if shield.active && abilities.abilities.shield {
-        return CharacterAnim::Block;
-    }
-    // Projectile release fires for ~SHOOT_ANIM_HOLD_SECS, set by the
-    // projectile system on spawn. Held above slash so the muzzle-flash
-    // pose isn't immediately stomped by a same-frame swing.
-    if anim.shoot_anim_timer > 0.0 {
-        return CharacterAnim::Shoot;
-    }
-    if anim.slash_anim_timer > 0.0 {
-        return directional_attack_anim(attack);
-    }
-    // Held charge — only relevant while the player is actually charging
-    // a projectile and no other action is in flight. Below slash so a
-    // mid-charge swing breaks the aim pose immediately.
-    if anim.aim_anim_active {
-        return CharacterAnim::Aim;
-    }
-    // Wall-jump push-off pose. Triggered on the WallJump op edge and
-    // held briefly so the kick reads even as the player is already
-    // arcing away from the wall. Above the airborne Jump/Fall block.
-    if anim.wall_jump_anim_timer > 0.0 {
-        return CharacterAnim::WallJump;
-    }
-    // Interact gesture (door tap, NPC talk, pickup). Brief one-shot
-    // held while the interaction commits.
-    if anim.interact_anim_timer > 0.0 {
-        return CharacterAnim::Interact;
-    }
-    if blink.aiming || blink.hold_active {
-        return CharacterAnim::BlinkOut;
-    }
-    if let Some(ledge_state) = ledge.grab.as_ref() {
-        if !ledge_state.climbing {
-            return CharacterAnim::LedgeGrab;
-        }
-        return match ledge_state.getup_kind {
-            ae::LedgeGetupKind::Climb => CharacterAnim::LedgeGetup,
-            ae::LedgeGetupKind::Roll => CharacterAnim::LedgeRoll,
-            ae::LedgeGetupKind::Attack => CharacterAnim::LedgeGetupAttack,
-        };
-    }
-    if flight.fly_enabled {
-        return CharacterAnim::Fly;
-    }
-    // Submerged + swim-capable overrides ground locomotion. Body shape
-    // doesn't change but the stroke pose is distinct from walk/run.
-    if env_contact.water.is_some() && abilities.abilities.swim {
-        return CharacterAnim::Swim;
-    }
-    if anim.dash_startup_timer > 0.0 {
-        return CharacterAnim::DashStartup;
-    }
-    if dash.timer > 0.0 {
-        return CharacterAnim::Dash;
-    }
-    // Ladder climb pose: BodyMode::Climbing is set by the body-mode
-    // driver when the player is on a climbable contact and pushes
-    // up/down. Suppresses gravity; needs its own row distinct from
-    // wall-climb on solid blocks.
-    if matches!(
-        body_mode.body_mode,
-        ambition_engine_core::player_state::BodyMode::Climbing
-    ) {
-        return CharacterAnim::LadderClimb;
-    }
-    // Wall pin (held against the wall, neither sliding nor climbing) reads
-    // distinct from the engine's downward `wall_slide` integration.
-    if !ground.on_ground
-        && wall.wall_clinging
-        && !wall.wall_climbing
-        && kinematics.vel.y.abs() < 40.0
-    {
-        return CharacterAnim::WallGrab;
-    }
-    if flight.gliding {
-        return CharacterAnim::FloatGlide;
-    }
-    if !ground.on_ground {
-        // Engine uses top-left coords: vel.y < 0 = moving up.
-        if kinematics.vel.y < -10.0 {
-            return CharacterAnim::Jump;
-        }
-        return CharacterAnim::Fall;
-    }
-    if anim.land_anim_timer > 0.0 {
-        return if anim.land_anim_hard {
-            CharacterAnim::LandHard
-        } else {
-            CharacterAnim::LandRecovery
-        };
-    }
-    // Compact body modes — same shape as the engine collision change,
-    // distinct silhouette read. Sliding wins over Crawl/Crouch because
-    // it usually carries kinetic momentum and the pose differs.
     use ambition_engine_core::player_state::BodyMode;
-    match body_mode.body_mode {
-        BodyMode::Sliding => return CharacterAnim::Slide,
-        BodyMode::Crawling => return CharacterAnim::Crawl,
-        BodyMode::Crouching => return CharacterAnim::Crouch,
-        _ => {}
-    }
-    let speed = kinematics.vel.x.abs();
-    if speed < 12.0 {
-        CharacterAnim::Idle
-    } else if speed < 220.0 {
-        CharacterAnim::Walk
-    } else {
-        CharacterAnim::Run
-    }
+    // The player fills the FULL view from its Body* clusters; the shared
+    // `pick_body_anim` ladder owns the priority ordering. Every field below is
+    // the exact predicate the old per-branch ladder used — gates (the dodge↔ledge
+    // guard) and thresholds preserved. Two reads that were checked at different
+    // priorities map to distinct fields: `ladder_climbing` (BodyMode::Climbing,
+    // high) vs `compact` (Slide/Crawl/Crouch, low).
+    let ledge_read = ledge.grab.as_ref().map(|s| {
+        if !s.climbing {
+            LedgeRead::Grab
+        } else {
+            match s.getup_kind {
+                ae::LedgeGetupKind::Climb => LedgeRead::Getup,
+                ae::LedgeGetupKind::Roll => LedgeRead::Roll,
+                ae::LedgeGetupKind::Attack => LedgeRead::GetupAttack,
+            }
+        }
+    });
+    let compact = match body_mode.body_mode {
+        BodyMode::Sliding => CompactBody::Slide,
+        BodyMode::Crawling => CompactBody::Crawl,
+        BodyMode::Crouching => CompactBody::Crouch,
+        _ => CompactBody::None,
+    };
+    pick_body_anim(&BodyAnimView {
+        dead: false,
+        hit: combat.hitstun_timer > 0.05,
+        dodge_roll: dodge.roll_timer > 0.0 && ledge.grab.is_none(),
+        blink_in: blink_cam.blink_in_timer > 0.0,
+        blocking: shield.active && abilities.abilities.shield,
+        special: false,
+        shooting: anim.shoot_anim_timer > 0.0,
+        melee_attack: (anim.slash_anim_timer > 0.0).then(|| directional_attack_anim(attack)),
+        aiming: anim.aim_anim_active,
+        wall_jump: anim.wall_jump_anim_timer > 0.0,
+        interacting: anim.interact_anim_timer > 0.0,
+        blink_out: blink.aiming || blink.hold_active,
+        ledge: ledge_read,
+        flying: flight.fly_enabled,
+        swimming: env_contact.water.is_some() && abilities.abilities.swim,
+        dash_startup: anim.dash_startup_timer > 0.0,
+        dashing: dash.timer > 0.0,
+        ladder_climbing: matches!(body_mode.body_mode, BodyMode::Climbing),
+        wall_grab: !ground.on_ground
+            && wall.wall_clinging
+            && !wall.wall_climbing
+            && kinematics.vel.y.abs() < 40.0,
+        gliding: flight.gliding,
+        airborne: !ground.on_ground,
+        moving_up: kinematics.vel.y < -10.0, // top-left coords: vel.y < 0 = up
+        landing: (anim.land_anim_timer > 0.0).then_some(anim.land_anim_hard),
+        compact,
+        locomotion: Locomotion::Grounded,
+        speed: kinematics.vel.x.abs(),
+        idle_below: 12.0,
+        run_above: Some(220.0),
+        fly_above: 0.0,
+    })
 }
 
 /// Map the active player attack intent onto the directional swing rows.
@@ -509,36 +629,35 @@ pub struct EnemyAnimState {
 }
 
 pub fn pick_enemy_anim(state: EnemyAnimState) -> CharacterAnim {
-    if !state.alive {
-        return CharacterAnim::Death;
-    }
-    if state.hit_flash {
-        return CharacterAnim::Hit;
-    }
-    if state.special_active {
-        return CharacterAnim::Special;
-    }
-    if state.attack_active || state.attack_windup {
-        return if state.attack_heavy {
-            CharacterAnim::Punch
-        } else {
-            CharacterAnim::Slash
-        };
-    }
-    // A flyer (aerial state) plays `Fly` while moving — the sky parrots /
-    // sharks beat their wings instead of "walking" through the air.
-    if state.aerial {
-        return if state.vel.length() > 12.0 {
-            CharacterAnim::Fly
-        } else {
-            CharacterAnim::Idle
-        };
-    }
-    if state.vel.x.abs() > 8.0 {
-        CharacterAnim::Walk
+    // Sparse view: an enemy fills death / hit / special / the swing row + its
+    // locomotion; everything the player has and an enemy doesn't stays inert, so
+    // it falls through to the shared tail. Aerial flyers measure total speed
+    // (`Fly` while moving, hover→Idle); grounded walkers use |vx|. `run_above:
+    // None` caps actors at Walk (no Run row). The shared `pick_body_anim` ladder
+    // keeps the death→hit→special→swing→…→locomotion order this used to inline.
+    let (locomotion, speed) = if state.aerial {
+        (Locomotion::Aerial, state.vel.length())
     } else {
-        CharacterAnim::Idle
-    }
+        (Locomotion::Grounded, state.vel.x.abs())
+    };
+    pick_body_anim(&BodyAnimView {
+        dead: !state.alive,
+        hit: state.hit_flash,
+        special: state.special_active,
+        melee_attack: (state.attack_active || state.attack_windup).then(|| {
+            if state.attack_heavy {
+                CharacterAnim::Punch
+            } else {
+                CharacterAnim::Slash
+            }
+        }),
+        locomotion,
+        speed,
+        idle_below: 8.0,
+        run_above: None,
+        fly_above: 12.0,
+        ..Default::default()
+    })
 }
 
 /// Snapshot of a peaceful NPC's per-frame state for animation.
@@ -565,23 +684,22 @@ pub struct NpcAnimState {
 /// non-zero horizontal speed, else `Idle`. Sheets without the chosen row
 /// fall back to Idle via `CharacterSheetSpec::resolve_anim`.
 pub fn pick_npc_anim(state: NpcAnimState) -> CharacterAnim {
-    if state.hit_flash {
-        return CharacterAnim::Hit;
-    }
-    if state.aerial {
-        // Only flies when actually moving through the air; a still hover /
-        // landed perch reads as Idle (the authored perched pose).
-        return if state.vel.length() > 12.0 {
-            CharacterAnim::Fly
-        } else {
-            CharacterAnim::Idle
-        };
-    }
-    if state.vel.x.abs() > 8.0 {
-        CharacterAnim::Walk
+    // Even sparser than an enemy (no death / attack / special): just hit + the
+    // locomotion tail, through the same shared ladder.
+    let (locomotion, speed) = if state.aerial {
+        (Locomotion::Aerial, state.vel.length())
     } else {
-        CharacterAnim::Idle
-    }
+        (Locomotion::Grounded, state.vel.x.abs())
+    };
+    pick_body_anim(&BodyAnimView {
+        hit: state.hit_flash,
+        locomotion,
+        speed,
+        idle_below: 8.0,
+        run_above: None,
+        fly_above: 12.0,
+        ..Default::default()
+    })
 }
 
 #[cfg(test)]

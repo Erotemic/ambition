@@ -128,7 +128,6 @@ pub fn spawn_eye_beam_from_special_messages(
             effects.write(EffectRequest {
                 owner: entity,
                 effect: Effect::Projectiles {
-                    faction: ProjectileFaction::Enemy,
                     shots: vec![EnemyProjectileSpawn {
                         origin: beam_origin,
                         dir,

@@ -101,7 +101,6 @@ pub fn spawn_echo_fan_from_special_messages(
             effects.write(EffectRequest {
                 owner: entity,
                 effect: Effect::Projectiles {
-                    faction: ProjectileFaction::Enemy,
                     shots: vec![EnemyProjectileSpawn {
                         origin,
                         dir,

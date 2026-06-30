@@ -93,10 +93,10 @@ pub enum ActorFaction {
 }
 
 impl ActorFaction {
-    /// True iff `self` is on the player's side. Projectile faction
-    /// (`ProjectileFaction` (ambition_gameplay_core)) and actor faction agree on this:
-    /// player projectiles damage non-player factions, enemy
-    /// projectiles damage player factions only.
+    /// True iff `self` is on the player's side. Projectile damage routes
+    /// off the firer's `ActorFaction` (looked up from the projectile's
+    /// owner entity): player-fired projectiles damage non-player factions,
+    /// enemy-fired projectiles damage player factions only.
     pub fn is_player_side(self) -> bool {
         matches!(self, Self::Player)
     }

@@ -1,14 +1,14 @@
 //! Volley — a player-wielded **ranged** boss attack: a fan of bolts that damage
-//! enemies, fired through the now faction-aware shared projectile pool
-//! (`EnemyProjectileState::spawn_with_faction`).
+//! enemies, fired through the shared projectile pool.
 //!
 //! This is the ranged counterpart to `crate::abilities::ranged::shockwave` (the wielded AOE). The
 //! pool used to be faction-segregated — `update_enemy_projectiles` only ever
 //! damaged the player — so a player-fired bolt in it would hit the player. Now
-//! the body's `ProjectileFaction` routes its damage: a `Player` shot damages
-//! enemies/bosses and expires on contact, an `Enemy` shot still hits the player.
-//! Same pool, same step system, faction is the only difference — the projectile
-//! analog of the shockwave's faction-tagged `Hitbox`.
+//! damage routes off the FIRER's real `ActorFaction` (looked up from the
+//! projectile's owner entity): a player-owned shot damages enemies/bosses and
+//! expires on contact, an enemy-owned shot still hits the player. Same pool,
+//! same step system — the projectile analog of the shockwave's faction-tagged
+//! `Hitbox`.
 
 use bevy::prelude::*;
 
@@ -18,7 +18,6 @@ use crate::actor::{PlayerEntity, PrimaryPlayer};
 use crate::enemy_projectile::EnemyProjectileSpawn;
 use crate::features::HeldItem;
 use crate::player::PlayerInputFrame;
-use crate::projectile::ProjectileFaction;
 use ambition_engine_core as ae;
 
 /// Held-item id of the volley gauntlet.
@@ -114,7 +113,6 @@ pub fn fire_volley_system(
             // player (the executor stamps `ProjectileOwner` from this entity).
             owner: entity,
             effect: crate::effects::Effect::Projectiles {
-                faction: ProjectileFaction::Player,
                 shots: vec![EnemyProjectileSpawn {
                     origin,
                     dir,
@@ -173,14 +171,6 @@ mod tests {
         app.update();
         let bodies = enemy_projectile_bodies(&mut app);
         assert_eq!(bodies.len(), VOLLEY_SHOT_COUNT, "one bolt per fan slot");
-        // Every bolt is Player-faction so the faction-aware pool routes its
-        // damage to enemies, not the player who fired it.
-        assert!(
-            bodies
-                .iter()
-                .all(|b| b.body.game.faction == ProjectileFaction::Player),
-            "the wielded volley fires player-faction bolts"
-        );
         // Every bolt is owned by the firing player entity, so a kill attributes
         // back to them (the executor stamps `ProjectileOwner` from the request).
         let owners: Vec<_> = app

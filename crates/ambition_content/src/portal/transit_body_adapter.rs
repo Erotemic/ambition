@@ -212,7 +212,7 @@ mod projectile_transit_tests {
     use ambition_gameplay_core::portal::{
         portal_half_extent, portal_transit, PlacedPortal, PortalBody, PortalChannel, PortalGunColor,
     };
-    use ambition_gameplay_core::projectile::{ProjectileFaction, ProjectileGameplay};
+    use ambition_gameplay_core::projectile::ProjectileGameplay;
 
     use super::ensure_projectile_portal_bodies;
 
@@ -225,12 +225,12 @@ mod projectile_transit_tests {
     /// bounce, no arc) so the test isolates the portal velocity rotation.
     fn straight_projectile() -> ProjectileGameplay {
         ProjectileGameplay {
-            faction: ProjectileFaction::Player,
             age: 0.0,
             max_lifetime: 100.0,
             gravity: 0.0,
             damage: 1,
             bounces_remaining: 0,
+            world_hit: ambition_gameplay_core::projectile::WorldHitPolicy::ExpireOnContact,
         }
     }
 

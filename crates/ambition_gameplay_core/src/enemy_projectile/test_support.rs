@@ -9,8 +9,7 @@ use crate::combat::components::ActorFaction;
 use crate::enemy_projectile::entity::EnemyProjectile;
 use crate::enemy_projectile::{EnemyProjectileSpawn, EnemyProjectileState};
 use crate::projectile::{
-    ProjectileFaction, ProjectileGameplay, ProjectileOwner, ProjectileOwnerId, ProjectileSeq,
-    ProjectileSeqCounter,
+    ProjectileGameplay, ProjectileOwner, ProjectileOwnerId, ProjectileSeq, ProjectileSeqCounter,
 };
 use bevy::prelude::*;
 
@@ -23,9 +22,9 @@ use bevy::prelude::*;
 pub(crate) fn spawn_enemy_projectile(
     app: &mut App,
     request: EnemyProjectileSpawn,
-    faction: ProjectileFaction,
+    faction: ActorFaction,
 ) {
-    let projectile = EnemyProjectileState::build(request, faction);
+    let projectile = EnemyProjectileState::build(request);
     let seq = {
         let mut counter = app
             .world_mut()
@@ -33,14 +32,10 @@ pub(crate) fn spawn_enemy_projectile(
         counter.next()
     };
     // Damage routes off the FIRER's real faction (looked up from the projectile's
-    // owner), not the stored `game.faction`. So a `ProjectileFaction::Player` test
-    // shot must carry a Player-faction OWNER to route as a player shot — spawn a
-    // bare faction-carrier entity and own the projectile to it.
-    let owner_faction = match faction {
-        ProjectileFaction::Player => ActorFaction::Player,
-        ProjectileFaction::Enemy => ActorFaction::Enemy,
-    };
-    let owner = app.world_mut().spawn(owner_faction).id();
+    // owner). So an `ActorFaction::Player` test shot must carry a Player-faction
+    // OWNER to route as a player shot — spawn a bare faction-carrier entity and
+    // own the projectile to it.
+    let owner = app.world_mut().spawn(faction).id();
     app.world_mut().spawn((
         projectile.body.kin,
         projectile.body.game,
@@ -58,9 +53,7 @@ pub(crate) fn spawn_enemy_projectile(
 /// body it overlaps, friend or foe), since there is no firer faction to be friendly
 /// to. Used to pin that behavior distinct from a faction-owned shot.
 pub(crate) fn spawn_ownerless_projectile(app: &mut App, request: EnemyProjectileSpawn) {
-    // The faction passed to `build` only sets the now-vestigial `game.faction`
-    // label; routing ignores it (no owner → indiscriminate).
-    let projectile = EnemyProjectileState::build(request, ProjectileFaction::Enemy);
+    let projectile = EnemyProjectileState::build(request);
     let seq = {
         let mut counter = app
             .world_mut()

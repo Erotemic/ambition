@@ -166,7 +166,6 @@ pub fn spawn_gnu_apple_rain_from_special_messages(
             effects.write(ambition_gameplay_core::effects::EffectRequest {
                 owner: entity,
                 effect: ambition_gameplay_core::effects::Effect::Projectiles {
-                    faction: ambition_gameplay_core::projectile::ProjectileFaction::Enemy,
                     shots: vec![EnemyProjectileSpawn {
                         origin: ae::Vec2::new(spawn_x, spawn_y),
                         // Downward initial velocity so the apple commits to
@@ -405,7 +404,6 @@ pub fn spawn_overfit_volley_from_special_messages(
                     effects.write(ambition_gameplay_core::effects::EffectRequest {
                         owner: entity,
                         effect: ambition_gameplay_core::effects::Effect::Projectiles {
-                            faction: ambition_gameplay_core::projectile::ProjectileFaction::Enemy,
                             shots: vec![EnemyProjectileSpawn {
                                 origin,
                                 dir,

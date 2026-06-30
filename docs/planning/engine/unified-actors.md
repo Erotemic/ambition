@@ -305,10 +305,14 @@ Enemies rise to the player; delete-heavy. Each step is gated on *it compiles* (i
      `ActorFaction` (looked up from the projectile's `ProjectileOwner`), not the stored
      `game.faction`. A Player-firer's shot is the player's universal attack; any other
      firer's shot is hostile. The parry RE-OWNS the bolt to the player instead of flipping a
-     faction label. *Remaining B2b-cleanup (mechanical):* `game.faction` is now read only by
-     test assertions + the accessor; removing the field + the `ProjectileFaction` enum + the
-     spawn-faction plumbing (the `Effect::Projectiles.faction` arg authored across boss
-     specials + abilities) is a ~76-ref sweep across crates — dead-code removal, deferred.
+     faction label. **Ownerless = indiscriminate** (Jon's call): `firer_faction` is
+     `Option<ActorFaction>`; `None` (orphaned firer / truly ownerless) hurts EVERY body it
+     overlaps, friend or foe (bypasses `can_damage`) — more correct than a hostile-volley
+     fallback. 🟢 **B2b-cleanup DONE** — the dead `ProjectileFaction` enum + `game.faction`
+     field + the `from_spec_with_faction` constructors + the `Effect::Projectiles.faction`
+     arg (across boss specials + abilities) are fully removed (~76 refs, 25 files, 5 crates);
+     `world_hit` kept. The binary `ProjectileFaction` is RETIRED — projectile faction is now
+     purely the firer's, owner-derived.
    - **DUEL REFRAME (Jon's call — supersedes the per-room-relations-scoping follow-up):** the
      duelists shouldn't be Enemy/Boss (Player-hostile by default). They should be normal NPCs
      **aggressive to each other** — each holds a GRUDGE against the other duelist entity (the

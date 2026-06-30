@@ -25,7 +25,6 @@ use crate::actor::{PlayerEntity, PrimaryPlayer};
 use crate::enemy_projectile::EnemyProjectileSpawn;
 use crate::features::HeldItem;
 use crate::player::PlayerInputFrame;
-use crate::projectile::ProjectileFaction;
 use ambition_engine_core as ae;
 
 /// Held-item id of the meteor gauntlet.
@@ -121,7 +120,6 @@ pub fn fire_meteor_system(
             // the player (the executor stamps `ProjectileOwner` from this entity).
             owner: entity,
             effect: crate::effects::Effect::Projectiles {
-                faction: ProjectileFaction::Player,
                 shots: vec![EnemyProjectileSpawn {
                     origin,
                     // Straight toward local feet/down; gravity accelerates it in the same frame.
@@ -184,12 +182,6 @@ mod tests {
             bodies.len(),
             METEOR_COUNT,
             "one volley = METEOR_COUNT meteors"
-        );
-        assert!(
-            bodies
-                .iter()
-                .all(|b| b.body.game.faction == ProjectileFaction::Player),
-            "meteors are player-faction (damage enemies, spare the player)"
         );
     }
 

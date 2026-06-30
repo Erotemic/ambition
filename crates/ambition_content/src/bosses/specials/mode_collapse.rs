@@ -120,7 +120,6 @@ pub fn spawn_mode_collapse_converge_from_special_messages(
             effects.write(EffectRequest {
                 owner: entity,
                 effect: Effect::Projectiles {
-                    faction: ProjectileFaction::Enemy,
                     shots: vec![EnemyProjectileSpawn {
                         origin,
                         dir,

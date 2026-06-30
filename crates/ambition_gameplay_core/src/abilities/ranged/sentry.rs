@@ -20,7 +20,6 @@ use crate::actor::{PlayerEntity, PrimaryPlayer};
 use crate::enemy_projectile::EnemyProjectileSpawn;
 use crate::features::{ActorFaction, CenteredAabb, FeatureSimEntity, HeldItem};
 use crate::player::PlayerInputFrame;
-use crate::projectile::ProjectileFaction;
 use ambition_engine_core as ae;
 
 /// Held-item id of the sentry gauntlet.
@@ -136,7 +135,6 @@ pub fn update_sentries(
         effects.write(crate::effects::EffectRequest {
             owner: entity,
             effect: crate::effects::Effect::Projectiles {
-                faction: ProjectileFaction::Player,
                 shots: vec![EnemyProjectileSpawn {
                     origin: sentry.pos,
                     dir,
@@ -219,12 +217,6 @@ mod tests {
         assert!(
             !bodies.is_empty(),
             "the sentry should have fired at the enemy"
-        );
-        assert!(
-            bodies
-                .iter()
-                .all(|b| b.body.game.faction == ProjectileFaction::Player),
-            "sentry bolts are player-faction (damage enemies, not the player)"
         );
     }
 

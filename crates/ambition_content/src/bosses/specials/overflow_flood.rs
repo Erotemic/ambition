@@ -117,7 +117,6 @@ pub fn spawn_overflow_flood_from_special_messages(
             effects.write(EffectRequest {
                 owner: entity,
                 effect: Effect::Projectiles {
-                    faction: ProjectileFaction::Enemy,
                     shots: vec![EnemyProjectileSpawn {
                         origin: ae::Vec2::new(x, spawn_y),
                         dir: ae::Vec2::new(0.0, 1.0),

@@ -9,7 +9,7 @@ use ambition_engine_core::Vec2;
 use super::spawn::{ProjectileSpawner, SpawnFailure};
 use super::{FireballChargeTuning, ProjectileKind, ProjectileSpec};
 use super::{MotionDirection, MotionInputBuffer};
-use super::{ProjectileBody, ProjectileFaction, ProjectileSolidHit};
+use super::{ProjectileBody, ProjectileSolidHit};
 use ambition_engine_core::{aabb_from_min_size, Aabb, AabbExt};
 
 #[test]
@@ -472,25 +472,11 @@ fn outgoing_damage_multiplier_scales_damage() {
 }
 
 #[test]
-fn projectile_faction_default_is_player() {
-    assert_eq!(ProjectileFaction::default(), ProjectileFaction::Player);
-}
-
-#[test]
-fn from_spec_defaults_faction_to_player() {
+fn from_spec_lowers_kind_data_onto_body() {
     let spec = ProjectileKind::Fireball.spec(Vec2::ZERO, Vec2::new(1.0, 0.0), 1.0);
     let body = ProjectileBody::from_spec(spec);
-    assert_eq!(body.game.faction, ProjectileFaction::Player);
-}
-
-#[test]
-fn from_spec_with_faction_carries_enemy_tag_through_to_body() {
-    let spec = ProjectileKind::Fireball.spec(Vec2::ZERO, Vec2::new(1.0, 0.0), 1.0);
-    let body = ProjectileBody::from_spec_with_faction(spec, ProjectileFaction::Enemy);
-    assert_eq!(body.game.faction, ProjectileFaction::Enemy);
-    // All other body fields land as if `from_spec` had been called. The named
-    // kind no longer rides the (generic) body; its lowered data does — Fireball
-    // authors a 2-bounce budget.
+    // The named kind no longer rides the (generic) body; its lowered data does —
+    // Fireball authors a 2-bounce budget.
     assert_eq!(
         body.game.bounces_remaining,
         ProjectileKind::Fireball.bounces()

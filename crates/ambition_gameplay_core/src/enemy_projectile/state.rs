@@ -25,17 +25,14 @@ pub use ambition_platformer_primitives::projectile::EnemyProjectileSpawn;
 pub struct EnemyProjectileState;
 
 impl EnemyProjectileState {
-    /// Build (but do not store) the in-flight projectile for `request` +
-    /// `faction`. The single place the spawn-request → body mapping lives;
+    /// Build (but do not store) the in-flight projectile for `request`.
+    /// The single place the spawn-request → body mapping lives;
     /// the fire paths emit it inside a
     /// [`crate::projectile::SpawnProjectile`] message that
     /// `apply_projectile_effects` later spawns as an entity, and
     /// tests build it directly. The mapping is unchanged from the pre-entity
     /// pool.
-    pub fn build(
-        request: EnemyProjectileSpawn,
-        faction: crate::projectile::ProjectileFaction,
-    ) -> crate::projectile::InFlightProjectile {
+    pub fn build(request: EnemyProjectileSpawn) -> crate::projectile::InFlightProjectile {
         let speed = request.speed.max(1.0);
         let dir = if request.dir.length() < 1.0e-4 {
             ae::Vec2::new(1.0, 0.0)
@@ -58,7 +55,7 @@ impl EnemyProjectileState {
             world_hit: crate::projectile::WorldHitPolicy::ExpireOnContact,
             charge_tier: 0,
         };
-        let body = crate::projectile::ProjectileBody::from_spec_with_faction(spec, faction);
+        let body = crate::projectile::ProjectileBody::from_spec(spec);
         crate::projectile::InFlightProjectile {
             body,
             owner_id: request.owner_id,
@@ -69,7 +66,6 @@ impl EnemyProjectileState {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::projectile::ProjectileFaction;
 
     fn spawn_request(speed: f32, damage: i32) -> EnemyProjectileSpawn {
         EnemyProjectileSpawn {
@@ -86,14 +82,8 @@ mod tests {
     }
 
     #[test]
-    fn build_tags_body_with_enemy_faction() {
-        let proj = EnemyProjectileState::build(spawn_request(120.0, 1), ProjectileFaction::Enemy);
-        assert_eq!(proj.body.game.faction, ProjectileFaction::Enemy);
-    }
-
-    #[test]
     fn build_records_owner_id_for_self_filter() {
-        let proj = EnemyProjectileState::build(spawn_request(120.0, 1), ProjectileFaction::Enemy);
+        let proj = EnemyProjectileState::build(spawn_request(120.0, 1));
         assert_eq!(proj.owner_id, "pirate_1");
     }
 
@@ -104,7 +94,7 @@ mod tests {
         // first contact. `from_spec` would normally give Fireball
         // two bounces, but `build` zeroes the counter so the engine
         // sees the no-bounce policy.
-        let proj = EnemyProjectileState::build(spawn_request(120.0, 1), ProjectileFaction::Enemy);
+        let proj = EnemyProjectileState::build(spawn_request(120.0, 1));
         assert_eq!(proj.body.game.bounces_remaining, 0);
     }
 
@@ -122,7 +112,6 @@ mod tests {
                 gravity: 0.0,
                 visual_tag: 0,
             },
-            ProjectileFaction::Enemy,
         );
         // A zero-length direction would NaN the initial_velocity; build
         // defaults to (1, 0) so the projectile has a sensible direction.
@@ -132,7 +121,7 @@ mod tests {
 
     #[test]
     fn build_clamps_zero_speed_and_damage_to_minimums() {
-        let proj = EnemyProjectileState::build(spawn_request(0.0, 0), ProjectileFaction::Enemy);
+        let proj = EnemyProjectileState::build(spawn_request(0.0, 0));
         let body = &proj.body;
         assert!(body.kin.vel.length() >= 1.0, "speed clamped to >= 1.0");
         assert!(body.game.damage >= 1, "damage clamped to >= 1");

@@ -12,22 +12,6 @@ use ambition_engine_core::Vec2;
 use super::spec::ProjectileSpec;
 use ambition_engine_core::{Aabb, AabbExt};
 
-/// Which side of the combat faction a projectile belongs to.
-///
-/// `Player` projectiles hit enemies / bosses / breakables; `Enemy`
-/// projectiles hit the player. Damage routing is a function of
-/// `(projectile.faction, target.faction)`.
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
-pub enum ProjectileFaction {
-    /// Player-owned projectile (fireball, hadouken). Hits hostile
-    /// actors; the player's own hurtbox is filtered out.
-    #[default]
-    Player,
-    /// Enemy-owned projectile (pirate volley, future boss shots).
-    /// Hits the player; does not damage other enemies.
-    Enemy,
-}
-
 /// One live projectile: the kinematic [`BodyKinematics`] plus the
 /// projectile [`ProjectileGameplay`] state plus optional owner
 /// attribution. This is the single in-flight representation for both
@@ -38,25 +22,20 @@ pub enum ProjectileFaction {
 /// `owner_id` carries the spawning actor's id for self-friendly-fire
 /// ignore lists and sprite routing (GNU-ton's apple rain, the lasersword
 /// rider). It is empty for player projectiles, which are attributed via
-/// `HitEvent::attacker` instead. The gameplay `faction` distinguishes
-/// player vs enemy routing.
+/// `HitEvent::attacker` instead.
 #[derive(Clone, Debug)]
 pub struct InFlightProjectile {
     pub body: ProjectileBody,
     pub owner_id: String,
 }
 
-/// Projectile gameplay state: identity (kind/faction), lifetime, gravity,
-/// damage, and bounce budget.
+/// Projectile gameplay state: lifetime, gravity, damage, and bounce budget.
 ///
 /// This component is also the projectile marker. Actor-generic systems that
 /// query [`BodyKinematics`] exclude `ProjectileGameplay` so projectile bodies
 /// are never swept into actor behavior such as auto-righting or AI.
 #[derive(Clone, Copy, Debug, PartialEq, bevy::prelude::Component)]
 pub struct ProjectileGameplay {
-    /// Combat faction (who fired this projectile, which targets it
-    /// may damage). Set at spawn time; the engine never mutates it.
-    pub faction: ProjectileFaction,
     pub age: f32,
     pub max_lifetime: f32,
     pub gravity: f32,
@@ -86,10 +65,9 @@ fn perpendicular_overlap(body: Aabb, surface: Aabb, gravity_dir: Vec2) -> bool {
 }
 
 impl ProjectileGameplay {
-    /// Build the gameplay half from `spec` with an explicit faction.
-    fn from_spec_with_faction(spec: ProjectileSpec, faction: ProjectileFaction) -> Self {
+    /// Build the gameplay half from `spec`.
+    fn from_spec(spec: ProjectileSpec) -> Self {
         Self {
-            faction,
             age: 0.0,
             max_lifetime: spec.max_lifetime,
             gravity: spec.gravity,
@@ -254,23 +232,15 @@ pub struct ProjectileBody {
     /// with the player / enemy / boss; `facing` is unused for
     /// projectiles (kept `1.0`). `size = half_extent * 2`.
     pub kin: BodyKinematics,
-    /// Projectile gameplay state (kind / faction / lifetime / gravity /
-    /// damage / bounce budget).
+    /// Projectile gameplay state (lifetime / gravity / damage / bounce budget).
     pub game: ProjectileGameplay,
 }
 
 impl ProjectileBody {
-    /// Build a player-owned projectile body from `spec`.
+    /// Build a projectile body from `spec`. Damage routing is a function
+    /// of the firer's real `ActorFaction` (looked up from the projectile's
+    /// owner entity), not anything stored on the body.
     pub fn from_spec(spec: ProjectileSpec) -> Self {
-        Self::from_spec_with_faction(spec, ProjectileFaction::Player)
-    }
-
-    /// Build a projectile body from `spec` with an explicit
-    /// [`ProjectileFaction`]. Enemy-fired projectiles (pirate
-    /// volleys, future boss shots) pass `ProjectileFaction::Enemy`
-    /// so the unified projectile pipeline knows which target side
-    /// to test against.
-    pub fn from_spec_with_faction(spec: ProjectileSpec, faction: ProjectileFaction) -> Self {
         Self {
             kin: BodyKinematics {
                 pos: spec.origin,
@@ -282,7 +252,7 @@ impl ProjectileBody {
                 // at the player-flavored default so the field is sane.
                 facing: 1.0,
             },
-            game: ProjectileGameplay::from_spec_with_faction(spec, faction),
+            game: ProjectileGameplay::from_spec(spec),
         }
     }
 
@@ -333,9 +303,6 @@ impl ProjectileBody {
     pub fn half_extent(&self) -> Vec2 {
         self.kin.size * 0.5
     }
-    pub fn faction(&self) -> ProjectileFaction {
-        self.game.faction
-    }
     pub fn world_hit(&self) -> super::WorldHitPolicy {
         self.game.world_hit
     }
@@ -377,7 +344,6 @@ mod tests {
                 facing: 1.0,
             },
             game: ProjectileGameplay {
-                faction: ProjectileFaction::Player,
                 age: 0.0,
                 max_lifetime: 1.0,
                 gravity: 0.0,

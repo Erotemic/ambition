@@ -123,10 +123,7 @@ mod tests {
         w
     }
 
-    fn straight_projectile(
-        faction: crate::projectile::ProjectileFaction,
-        pos: ae::Vec2,
-    ) -> crate::projectile::ProjectileBody {
+    fn straight_projectile(pos: ae::Vec2) -> crate::projectile::ProjectileBody {
         let spec = crate::projectile::ProjectileSpec {
             origin: pos,
             direction: ae::Vec2::new(1.0, 0.0),
@@ -139,7 +136,7 @@ mod tests {
             world_hit: crate::projectile::WorldHitPolicy::ExpireOnContact,
             charge_tier: 0,
         };
-        let mut body = crate::projectile::ProjectileBody::from_spec_with_faction(spec, faction);
+        let mut body = crate::projectile::ProjectileBody::from_spec(spec);
         body.game.bounces_remaining = 0; // baseline: no bouncing
         body
     }
@@ -151,10 +148,7 @@ mod tests {
             ae::Vec2::new(100.0, 100.0),
             ae::Vec2::new(50.0, 50.0),
         );
-        let mut body = straight_projectile(
-            crate::projectile::ProjectileFaction::Enemy,
-            ae::Vec2::new(100.0, 100.0),
-        );
+        let mut body = straight_projectile(ae::Vec2::new(100.0, 100.0));
         let outcome = resolve_world_collision(
             &mut body.kin,
             &mut body.game,
@@ -175,10 +169,7 @@ mod tests {
             ae::Vec2::new(100.0, 100.0),
             ae::Vec2::new(50.0, 4.0),
         );
-        let mut body = straight_projectile(
-            crate::projectile::ProjectileFaction::Enemy,
-            ae::Vec2::new(100.0, 100.0),
-        );
+        let mut body = straight_projectile(ae::Vec2::new(100.0, 100.0));
         let outcome = resolve_world_collision(
             &mut body.kin,
             &mut body.game,
@@ -196,10 +187,7 @@ mod tests {
             ae::Vec2::new(100.0, 100.0),
             ae::Vec2::new(50.0, 50.0),
         );
-        let mut body = straight_projectile(
-            crate::projectile::ProjectileFaction::Player,
-            ae::Vec2::new(100.0, 100.0),
-        );
+        let mut body = straight_projectile(ae::Vec2::new(100.0, 100.0));
         // bounces_remaining = 0 (straight shot)
         let outcome = resolve_world_collision(
             &mut body.kin,
@@ -221,10 +209,7 @@ mod tests {
             ae::Vec2::new(100.0, 100.0),
             ae::Vec2::new(50.0, 4.0),
         );
-        let mut body = straight_projectile(
-            crate::projectile::ProjectileFaction::Player,
-            ae::Vec2::new(100.0, 100.0),
-        );
+        let mut body = straight_projectile(ae::Vec2::new(100.0, 100.0));
         let outcome = resolve_world_collision(
             &mut body.kin,
             &mut body.game,
@@ -238,7 +223,7 @@ mod tests {
     /// A player projectile with bounce budget that lands on the support face of
     /// a one-way platform should skip off it exactly like a solid support.
     fn falling_player_projectile(pos: ae::Vec2, bounces: u8) -> crate::projectile::ProjectileBody {
-        let mut body = straight_projectile(crate::projectile::ProjectileFaction::Player, pos);
+        let mut body = straight_projectile(pos);
         body.kin.pos = pos;
         body.kin.vel = ae::Vec2::new(0.0, 80.0); // toward world +Y, normal down-gravity case
         body.game.bounces_remaining = bounces;
@@ -285,10 +270,8 @@ mod tests {
                 ae::Vec2::new(50.0, 50.0),
             );
             let origin = ae::Vec2::new(300.0, 300.0);
-            let mut body = straight_projectile(
-                crate::projectile::ProjectileFaction::Player,
-                origin + local_to_world(frame, ae::Vec2::new(0.0, 48.0)),
-            );
+            let mut body =
+                straight_projectile(origin + local_to_world(frame, ae::Vec2::new(0.0, 48.0)));
             body.kin.vel = local_to_world(frame, ae::Vec2::new(-15.0, 80.0));
             body.game.bounces_remaining = 2;
 
@@ -319,10 +302,8 @@ mod tests {
                 ae::Vec2::new(50.0, 4.0),
             );
             let origin = ae::Vec2::new(300.0, 300.0);
-            let mut body = straight_projectile(
-                crate::projectile::ProjectileFaction::Player,
-                origin + local_to_world(frame, ae::Vec2::new(0.0, 94.0)),
-            );
+            let mut body =
+                straight_projectile(origin + local_to_world(frame, ae::Vec2::new(0.0, 94.0)));
             body.kin.vel = local_to_world(frame, ae::Vec2::new(20.0, 80.0));
             body.game.bounces_remaining = 2;
 
@@ -359,10 +340,8 @@ mod tests {
                 ae::Vec2::new(50.0, 4.0),
             );
             let origin = ae::Vec2::new(300.0, 300.0);
-            let mut body = straight_projectile(
-                crate::projectile::ProjectileFaction::Player,
-                origin + local_to_world(frame, ae::Vec2::new(0.0, 106.0)),
-            );
+            let mut body =
+                straight_projectile(origin + local_to_world(frame, ae::Vec2::new(0.0, 106.0)));
             body.kin.vel = local_to_world(frame, ae::Vec2::new(0.0, -80.0));
             body.game.bounces_remaining = 2;
 
@@ -422,10 +401,7 @@ mod tests {
             ae::Vec2::new(100.0, 100.0),
             ae::Vec2::new(50.0, 4.0),
         );
-        let mut body = straight_projectile(
-            crate::projectile::ProjectileFaction::Player,
-            ae::Vec2::new(100.0, 106.0),
-        );
+        let mut body = straight_projectile(ae::Vec2::new(100.0, 106.0));
         body.kin.vel = ae::Vec2::new(0.0, -80.0); // upward
         body.game.bounces_remaining = 2;
         let outcome = resolve_world_collision(
@@ -476,10 +452,7 @@ mod tests {
             ae::Vec2::new(500.0, 500.0),
             ae::Vec2::new(10.0, 10.0),
         );
-        let mut body = straight_projectile(
-            crate::projectile::ProjectileFaction::Player,
-            ae::Vec2::new(100.0, 100.0),
-        );
+        let mut body = straight_projectile(ae::Vec2::new(100.0, 100.0));
         let outcome = resolve_world_collision(
             &mut body.kin,
             &mut body.game,

@@ -17,7 +17,7 @@ use bevy::prelude::*;
 
 use ambition_characters::actor::ActorFaction;
 use ambition_engine_core as ae;
-use ambition_platformer_primitives::projectile::{EnemyProjectileSpawn, ProjectileFaction};
+use ambition_platformer_primitives::projectile::EnemyProjectileSpawn;
 
 pub mod vfx;
 pub use vfx::{
@@ -199,7 +199,6 @@ pub enum Effect {
     DamageBox(DamageBoxEffect),
     Summon(SummonSpec),
     Projectiles {
-        faction: ProjectileFaction,
         shots: Vec<EnemyProjectileSpawn>,
     },
 }

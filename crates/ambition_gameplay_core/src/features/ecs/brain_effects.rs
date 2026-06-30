@@ -62,9 +62,6 @@ pub fn spawn_enemy_projectiles_from_brain_actions(
         Option<super::actor_clusters::ActorClusterQueryData>,
     )>,
     held_items: Query<&super::HeldItem>,
-    // A possessed actor fires player-faction shots (the faction-aware pool then
-    // routes them at the enemies, not the player) — `crate::abilities::traversal::possession`.
-    possessed: Query<(), bevy::prelude::With<crate::abilities::traversal::possession::Possessed>>,
 ) {
     for msg in messages.read() {
         let ActionRequest::Ranged {
@@ -162,15 +159,9 @@ pub fn spawn_enemy_projectiles_from_brain_actions(
                 pos: spawn.origin,
             });
         }
-        let shot_faction = if possessed.get(msg.actor).is_ok() {
-            crate::projectile::ProjectileFaction::Player
-        } else {
-            crate::projectile::ProjectileFaction::Enemy
-        };
         effects.write(crate::effects::EffectRequest {
             owner: msg.actor,
             effect: crate::effects::Effect::Projectiles {
-                faction: shot_faction,
                 shots: vec![spawn],
             },
         });

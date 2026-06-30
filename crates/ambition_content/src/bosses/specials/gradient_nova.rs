@@ -77,7 +77,6 @@ pub fn spawn_gradient_nova_from_special_messages(
             effects.write(EffectRequest {
                 owner: entity,
                 effect: Effect::Projectiles {
-                    faction: ProjectileFaction::Enemy,
                     shots: vec![EnemyProjectileSpawn {
                         origin: origin + dir * NOVA_SPAWN_RADIUS,
                         dir,

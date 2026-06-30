@@ -33,7 +33,7 @@ pub fn apply_projectile_effects(
     mut requests: MessageReader<crate::effects::EffectRequest>,
 ) {
     for req in requests.read() {
-        let crate::effects::Effect::Projectiles { faction, shots } = &req.effect else {
+        let crate::effects::Effect::Projectiles { shots } = &req.effect else {
             continue;
         };
         for shot in shots {
@@ -42,8 +42,7 @@ pub fn apply_projectile_effects(
             // shot's visual identity. The render layer reads THIS component —
             // not the owner-id string — to pick the projectile's art.
             let visual_kind = crate::projectile::ProjectileVisualKind::from_tag(shot.visual_tag);
-            let projectile =
-                crate::enemy_projectile::EnemyProjectileState::build(shot.clone(), *faction);
+            let projectile = crate::enemy_projectile::EnemyProjectileState::build(shot.clone());
             let mut entity = commands.spawn((
                 projectile.body.kin,
                 projectile.body.game,
@@ -70,8 +69,8 @@ mod tests {
     use ambition_vfx::vfx::VfxMessage;
 
     use crate::enemy_projectile::test_support::{enemy_projectile_bodies, spawn_enemy_projectile};
+    use crate::combat::components::ActorFaction;
     use crate::enemy_projectile::EnemyProjectileSpawn;
-    use crate::projectile::ProjectileFaction;
 
     #[derive(Resource, Default)]
     struct CapturedHits(Vec<HitEvent>);
@@ -147,7 +146,7 @@ mod tests {
                 gravity: 0.0,
                 visual_tag: 0,
             },
-            ProjectileFaction::Player,
+            ActorFaction::Player,
         );
 
         app.update();
@@ -296,7 +295,7 @@ mod tests {
                 gravity: 0.0,
                 visual_tag: 0,
             },
-            ProjectileFaction::Enemy,
+            ActorFaction::Enemy,
         );
     }
 
@@ -419,7 +418,7 @@ mod tests {
                 gravity: 0.0,
                 visual_tag: 0,
             },
-            ProjectileFaction::Enemy,
+            ActorFaction::Enemy,
         );
 
         app.update();
@@ -524,7 +523,6 @@ mod tests {
             .write_message(crate::effects::EffectRequest {
                 owner: attacker,
                 effect: crate::effects::Effect::Projectiles {
-                    faction: ProjectileFaction::Enemy,
                     shots: vec![EnemyProjectileSpawn {
                         origin: player_pos,
                         dir: ae::Vec2::new(1.0, 0.0),
@@ -568,7 +566,6 @@ mod tests {
             .write_message(crate::effects::EffectRequest {
                 owner: Entity::PLACEHOLDER,
                 effect: crate::effects::Effect::Projectiles {
-                    faction: ProjectileFaction::Enemy,
                     shots: vec![EnemyProjectileSpawn {
                         origin: ae::Vec2::ZERO,
                         dir: ae::Vec2::new(1.0, 0.0),

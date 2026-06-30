@@ -145,6 +145,11 @@ impl ProjectileKind {
             half_extent: self.half_extent(),
             gravity: self.gravity(),
             bounces: self.bounces(),
+            // Ambition's player kinds are arcing/bouncing shots (pass through
+            // one-ways, bounce off supports per budget). Authored here, not
+            // derived from who fires — so the player-robot boss firing this
+            // same kind behaves identically.
+            world_hit: crate::projectile::WorldHitPolicy::Bouncing,
             charge_tier: 0,
         }
     }

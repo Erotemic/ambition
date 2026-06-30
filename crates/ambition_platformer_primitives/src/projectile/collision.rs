@@ -9,20 +9,22 @@ use ambition_engine_core::BodyKinematics;
 
 use super::body::ProjectileGameplay;
 
-/// Per-faction world-collision policy for projectile bodies.
+/// How a projectile interacts with world geometry — a property of the
+/// projectile (its ability/spec), **not** of who fired it: the same shot
+/// behaves identically whether the player, an enemy, or the player-robot boss
+/// fires it.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum WorldHitPolicy {
-    /// Player-fired projectile. Bounces off solid + blink-wall
-    /// surfaces using `bounces_remaining` (an arcing shot); a 0-bounce
-    /// shot expires on first solid hit. One-way platforms only block
-    /// from above when the body would normally bounce — otherwise the
-    /// projectile passes through (so a horizontal 0-bounce shot doesn't
-    /// get stopped by a thin platform).
-    PlayerBouncing,
-    /// Enemy-fired projectile. Treats any solid / blink-wall / one-way
-    /// contact as expiry; no bouncing (a bouncing volley reads as a
-    /// pinball and confuses the player about the hostile path).
-    EnemyExpireOnAnyContact,
+    /// An arcing shot. Bounces off solid + blink-wall surfaces using
+    /// `bounces_remaining`; a 0-bounce shot expires on first solid hit. One-way
+    /// platforms only block from above when the body would normally bounce —
+    /// otherwise the projectile passes through (so a horizontal 0-bounce shot
+    /// doesn't get stopped by a thin platform).
+    Bouncing,
+    /// A straight shot that dies on first world contact: any solid / blink-wall
+    /// / one-way contact is expiry, no bouncing (a bouncing volley reads as a
+    /// pinball and confuses the reader about the projectile's path).
+    ExpireOnContact,
 }
 
 /// Outcome of a single per-tick world-block resolution call.
@@ -40,8 +42,8 @@ pub enum WorldHitOutcome {
 /// Resolve a projectile against the world's blocks for this tick,
 /// dispatching on the per-faction collision policy.
 ///
-/// The halves are mutably borrowed because `PlayerBouncing` may decrement
-/// `bounces_remaining` and reposition the body; `EnemyExpireOnAnyContact`
+/// The halves are mutably borrowed because `Bouncing` may decrement
+/// `bounces_remaining` and reposition the body; `ExpireOnContact`
 /// only reads.
 pub fn resolve_world_collision(
     kin: &mut BodyKinematics,
@@ -52,7 +54,7 @@ pub fn resolve_world_collision(
 ) -> WorldHitOutcome {
     let aabb = kin.aabb();
     match policy {
-        WorldHitPolicy::PlayerBouncing => {
+        WorldHitPolicy::Bouncing => {
             // Solids first so a bouncing shot overlapping both kinds in the
             // same frame resolves against the harder surface (matches
             // the priority used by player physics).
@@ -90,7 +92,7 @@ pub fn resolve_world_collision(
             }
             WorldHitOutcome::Continue
         }
-        WorldHitPolicy::EnemyExpireOnAnyContact => {
+        WorldHitPolicy::ExpireOnContact => {
             let any_hit = world.blocks.iter().any(|block| {
                 matches!(
                     block.kind,
@@ -134,6 +136,7 @@ mod tests {
             half_extent: ae::Vec2::new(6.0, 6.0),
             gravity: 0.0,
             bounces: 0,
+            world_hit: crate::projectile::WorldHitPolicy::ExpireOnContact,
             charge_tier: 0,
         };
         let mut body = crate::projectile::ProjectileBody::from_spec_with_faction(spec, faction);
@@ -156,7 +159,7 @@ mod tests {
             &mut body.kin,
             &mut body.game,
             &world,
-            WorldHitPolicy::EnemyExpireOnAnyContact,
+            WorldHitPolicy::ExpireOnContact,
             ae::Vec2::new(0.0, 1.0),
         );
         assert!(matches!(outcome, WorldHitOutcome::Expired { .. }));
@@ -180,7 +183,7 @@ mod tests {
             &mut body.kin,
             &mut body.game,
             &world,
-            WorldHitPolicy::EnemyExpireOnAnyContact,
+            WorldHitPolicy::ExpireOnContact,
             ae::Vec2::new(0.0, 1.0),
         );
         assert!(matches!(outcome, WorldHitOutcome::Expired { .. }));
@@ -202,7 +205,7 @@ mod tests {
             &mut body.kin,
             &mut body.game,
             &world,
-            WorldHitPolicy::PlayerBouncing,
+            WorldHitPolicy::Bouncing,
             ae::Vec2::new(0.0, 1.0),
         );
         assert!(matches!(outcome, WorldHitOutcome::Expired { .. }));
@@ -226,7 +229,7 @@ mod tests {
             &mut body.kin,
             &mut body.game,
             &world,
-            WorldHitPolicy::PlayerBouncing,
+            WorldHitPolicy::Bouncing,
             ae::Vec2::new(0.0, 1.0),
         );
         assert!(matches!(outcome, WorldHitOutcome::Continue));
@@ -293,7 +296,7 @@ mod tests {
                 &mut body.kin,
                 &mut body.game,
                 &world,
-                WorldHitPolicy::PlayerBouncing,
+                WorldHitPolicy::Bouncing,
                 gravity_dir,
             );
             assert!(
@@ -327,7 +330,7 @@ mod tests {
                 &mut body.kin,
                 &mut body.game,
                 &world,
-                WorldHitPolicy::PlayerBouncing,
+                WorldHitPolicy::Bouncing,
                 gravity_dir,
             );
             assert!(
@@ -367,7 +370,7 @@ mod tests {
                 &mut body.kin,
                 &mut body.game,
                 &world,
-                WorldHitPolicy::PlayerBouncing,
+                WorldHitPolicy::Bouncing,
                 gravity_dir,
             );
             assert!(
@@ -392,7 +395,7 @@ mod tests {
             &mut body.kin,
             &mut body.game,
             &world,
-            WorldHitPolicy::PlayerBouncing,
+            WorldHitPolicy::Bouncing,
             ae::Vec2::new(0.0, 1.0),
         );
         assert!(
@@ -429,7 +432,7 @@ mod tests {
             &mut body.kin,
             &mut body.game,
             &world,
-            WorldHitPolicy::PlayerBouncing,
+            WorldHitPolicy::Bouncing,
             ae::Vec2::new(0.0, 1.0),
         );
         assert!(
@@ -456,7 +459,7 @@ mod tests {
             &mut body.kin,
             &mut body.game,
             &world,
-            WorldHitPolicy::PlayerBouncing,
+            WorldHitPolicy::Bouncing,
             ae::Vec2::new(0.0, 1.0),
         );
         assert!(
@@ -481,7 +484,7 @@ mod tests {
             &mut body.kin,
             &mut body.game,
             &world,
-            WorldHitPolicy::PlayerBouncing,
+            WorldHitPolicy::Bouncing,
             ae::Vec2::new(0.0, 1.0),
         );
         assert!(matches!(outcome, WorldHitOutcome::Continue));

@@ -62,6 +62,9 @@ pub struct ProjectileGameplay {
     pub gravity: f32,
     pub damage: i32,
     pub bounces_remaining: u8,
+    /// How this shot resolves against world geometry — authored on the spec
+    /// (a property of the ability, firer-agnostic), NOT derived from `faction`.
+    pub world_hit: super::WorldHitPolicy,
 }
 
 fn projectile_down(gravity_dir: Vec2) -> Vec2 {
@@ -94,6 +97,8 @@ impl ProjectileGameplay {
             // Bounce budget is authored on the spec (e.g. Ambition's fireball
             // bounces twice; straight shots set 0). The engine never names kinds.
             bounces_remaining: spec.bounces,
+            // World-hit policy is the spec's (the ability's), firer-agnostic.
+            world_hit: spec.world_hit,
         }
     }
 
@@ -331,6 +336,9 @@ impl ProjectileBody {
     pub fn faction(&self) -> ProjectileFaction {
         self.game.faction
     }
+    pub fn world_hit(&self) -> super::WorldHitPolicy {
+        self.game.world_hit
+    }
     pub fn damage(&self) -> i32 {
         self.game.damage
     }
@@ -375,6 +383,7 @@ mod tests {
                 gravity: 0.0,
                 damage: 2,
                 bounces_remaining: bounces,
+                world_hit: crate::projectile::WorldHitPolicy::Bouncing,
             },
         }
     }

@@ -687,6 +687,10 @@ pub fn fire_held_ranged_system(
             gravity: 0.0,
             damage: ranged.damage(),
             bounces_remaining: 0,
+            // Stepped by `held_projectile_step` (keyed on `HeldProjectile`), not
+            // the ECS projectile world-collision path, so this is inert here; a
+            // detonate-on-contact bolt is `ExpireOnContact` in spirit.
+            world_hit: crate::projectile::WorldHitPolicy::ExpireOnContact,
         },
         HeldProjectile {
             damage: ranged.damage(),

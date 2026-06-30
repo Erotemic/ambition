@@ -12,7 +12,7 @@ use super::entity::{
 };
 use super::spawn_message::{ProjectilePool, SpawnProjectile};
 use super::state::{PlayerProjectileState, ProjectileTraceEvent};
-use super::{resolve_world_collision, ProjectileFaction, WorldHitOutcome, WorldHitPolicy};
+use super::{resolve_world_collision, ProjectileFaction, WorldHitOutcome};
 use crate::actor::BodyKinematics;
 use crate::audio::SfxMessage;
 use crate::features::{
@@ -408,7 +408,7 @@ struct PlayerProjectileTickInfo {
 /// [`ProjectileGameplay::faction`]:
 ///
 /// - **Player-faction** shots damage enemies / bosses / breakables (one hit =
-///   one despawn) and bounce on solids per `WorldHitPolicy::PlayerBouncing`.
+///   one despawn) and bounce on solids per `WorldHitPolicy::Bouncing`.
 /// - **Enemy-faction** shots can be parried (flip to Player-faction + reflect),
 ///   else damage the first vulnerable overlapping player, and expire on any
 ///   solid contact.
@@ -691,13 +691,12 @@ pub fn step_projectiles(
             }
         }
 
-        // World collision: faction picks the policy. Player fireballs bounce;
-        // enemy shots expire on any contact. A lasersword detonates on the wall.
-        let policy = match game.faction {
-            ProjectileFaction::Player => WorldHitPolicy::PlayerBouncing,
-            ProjectileFaction::Enemy => WorldHitPolicy::EnemyExpireOnAnyContact,
-        };
-        match resolve_world_collision(&mut kin, &mut game, &collision_world, policy, gravity_dir) {
+        // World collision: the policy is the projectile's own (authored on its
+        // spec/ability, firer-agnostic) — NOT a function of who fired it. A
+        // bouncing fireball arcs whoever throws it; a lasersword detonates on
+        // the wall. (B2: retires the faction→policy fork.)
+        let world_hit = game.world_hit;
+        match resolve_world_collision(&mut kin, &mut game, &collision_world, world_hit, gravity_dir) {
             WorldHitOutcome::Bounced { pos } => {
                 sfx.write(SfxMessage::Hit { pos });
             }

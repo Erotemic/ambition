@@ -32,6 +32,10 @@ pub struct ProjectileSpec {
     /// How many times the projectile bounces off support faces before it
     /// expires on a solid hit. 0 = expire on first solid contact.
     pub bounces: u8,
+    /// How this shot interacts with world geometry (bounce/passthrough vs
+    /// expire-on-any-contact). A property of the ability, not the firer — so a
+    /// shot behaves the same whoever fires it ([`super::WorldHitPolicy`]).
+    pub world_hit: super::WorldHitPolicy,
     /// Opaque charge tier (0 = light, higher = more charged). Carried for the
     /// trace + visual layer; the engine does not interpret it. A game's charge
     /// mechanic stamps it when it scales `damage` / `half_extent`.
@@ -85,6 +89,7 @@ mod tests {
             half_extent: Vec2::new(12.0, 9.0),
             gravity: 360.0,
             bounces: 2,
+            world_hit: crate::projectile::WorldHitPolicy::Bouncing,
             charge_tier: 0,
         };
         let v = s.initial_velocity();

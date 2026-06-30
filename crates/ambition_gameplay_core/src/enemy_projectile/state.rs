@@ -50,10 +50,12 @@ impl EnemyProjectileState {
             max_lifetime: request.max_lifetime.max(0.2),
             half_extent: request.half_extent,
             gravity: request.gravity.max(0.0),
-            // Enemy projectiles travel in a straight line (no bouncing —
-            // a bouncing volley reads as a pinball and confuses the
-            // player about the hostile path).
+            // Pool projectiles travel in a straight line and die on contact (a
+            // bouncing volley reads as a pinball and confuses the reader about
+            // the path). Authored on the spec, firer-agnostic — a per-ability
+            // bouncing pool shot is now expressible by setting these differently.
             bounces: 0,
+            world_hit: crate::projectile::WorldHitPolicy::ExpireOnContact,
             charge_tier: 0,
         };
         let body = crate::projectile::ProjectileBody::from_spec_with_faction(spec, faction);

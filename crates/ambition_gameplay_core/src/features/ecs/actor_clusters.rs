@@ -8,7 +8,9 @@
 //!
 //! Field → component map:
 //! - pos/vel/size/facing      → [`BodyKinematics`]
-//! - on_ground/normal/gravity/air_jumps → [`ActorSurfaceState`] (component)
+//! - surface cling normal/gravity_scale → [`ActorSurfaceState`] (component;
+//!   on_ground → [`crate::actor::BodyGroundState`], air jumps →
+//!   [`crate::actor::BodyJumpState`])
 //! - attack windup/active/cooldown/axis → [`BodyMelee`] (component)
 //! - respawn/hit_flash/ai_mode      → [`ActorStatus`] (liveness → [`crate::actor::BodyHealth`],
 //!   post-hit i-frame → [`crate::actor::BodyCombat::damage_invuln_timer`])
@@ -23,7 +25,6 @@ use super::super::enemies::{
     spec_for_brain, ActorSpawnState, ActorSurfaceState, EnemyArchetypeSpec,
 };
 use super::super::path_motion::PathMotion;
-use super::super::MAX_ENEMY_AIR_JUMPS;
 use ambition_engine_core as ae;
 use ambition_engine_core::AabbExt;
 
@@ -425,10 +426,8 @@ impl ActorClusterSeed {
                 spec.max_health,
             )),
             surface: ActorSurfaceState {
-                on_ground: false,
                 surface_normal: ae::Vec2::new(0.0, -1.0),
                 gravity_scale: if spec.is_aerial { 0.0 } else { 1.0 },
-                air_jumps_remaining: MAX_ENEMY_AIR_JUMPS,
             },
             attack: BodyMelee::default(),
             config: ActorConfig {
@@ -550,10 +549,8 @@ impl ActorClusterSeed {
             },
             health: crate::actor::BodyHealth::new(ambition_characters::actor::Health::new(1)),
             surface: ActorSurfaceState {
-                on_ground: false,
                 surface_normal: ae::Vec2::new(0.0, -1.0),
                 gravity_scale,
-                air_jumps_remaining: 0,
             },
             attack: BodyMelee::default(),
             config: ActorConfig {

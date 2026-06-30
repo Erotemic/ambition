@@ -206,7 +206,7 @@ pub fn sync_riders_to_mounts(
         rider.kin.facing = mount_c.kin.facing;
         rider.kin.vel = ae::Vec2::ZERO;
         rider.surface.gravity_scale = 0.0;
-        rider.surface.on_ground = false;
+        rider.ground.on_ground = false;
         // Keep the CenteredAabb mirror in sync so damage / spatial
         // queries on the same tick see the rider where it visually
         // sits. update_ecs_actors writes this from rider.kin.pos at the

@@ -45,14 +45,17 @@ pub struct ActorSpawnState {
     pub size: ae::Vec2,
 }
 
-/// An actor's locomotion contact + vertical-control state, maintained
-/// by the kinematic integration each tick.
+/// An actor's surface-cling state for the glued surface-walker crawl.
+///
+/// Ground contact (`on_ground`) and air-jump budget now live on the shared
+/// movement clusters — [`crate::actor::BodyGroundState::on_ground`] and
+/// [`crate::actor::BodyJumpState::air_jumps_available`] — the SAME components the
+/// player carries, so there is one ground/jump authority for every body (the
+/// grounded/aerial pipeline writes them directly; the surface-walker crawl writes
+/// `ground.on_ground` too). This component keeps only the surface-walker's cling
+/// geometry, which the shared clusters don't model.
 #[derive(bevy::prelude::Component, Clone, Copy, Debug, PartialEq)]
 pub struct ActorSurfaceState {
-    /// Set by [`crate::kinematic::step_kinematic`](ambition_engine_core::step_kinematic)
-    /// each tick. Used by chase-drop-through (enemy must be standing on
-    /// something before it tries to fall through it) and by jump AI.
-    pub on_ground: bool,
     /// Outward-pointing unit normal of the surface the actor is
     /// currently clinging to. Used by surface-walking archetypes
     /// (`PuppySlug`) to crawl floors, walls, and ceilings; every other
@@ -62,12 +65,6 @@ pub struct ActorSurfaceState {
     pub surface_normal: ae::Vec2,
     /// 0.0 = ignores gravity (flying); 1.0 = full gravity.
     pub gravity_scale: f32,
-    /// Mid-air jumps the actor has left until next landing. Reset to
-    /// `MAX_ENEMY_AIR_JUMPS` when `on_ground` transitions false → true
-    /// in the integration step. Decremented when `frame.jump_pressed`
-    /// fires while airborne AND a jump remains; the grounded-jump path
-    /// doesn't touch this counter.
-    pub air_jumps_remaining: u8,
 }
 
 // `EnemyRespawnPolicy` moved to the combat kit (generic death/respawn

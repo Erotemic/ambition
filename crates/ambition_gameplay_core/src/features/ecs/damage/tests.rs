@@ -289,12 +289,14 @@ fn slash_clung_surface_walker(cling_breaks_on_hit: bool) -> (App, bevy::prelude:
         cfg.tuning.cling_breaks_on_hit = cling_breaks_on_hit;
     }
     {
-        let mut surf = app
-            .world_mut()
+        app.world_mut()
+            .get_mut::<crate::actor::BodyGroundState>(actor)
+            .unwrap()
+            .on_ground = true;
+        app.world_mut()
             .get_mut::<crate::features::ActorSurfaceState>(actor)
-            .unwrap();
-        surf.on_ground = true;
-        surf.surface_normal = ae::Vec2::new(1.0, 0.0);
+            .unwrap()
+            .surface_normal = ae::Vec2::new(1.0, 0.0);
     }
     app.world_mut().write_message(HitEvent {
         volume: ae::Aabb::new(ae::Vec2::ZERO, ae::Vec2::new(24.0, 40.0)).into(),
@@ -322,7 +324,10 @@ fn struck_cling_breaker_loses_its_surface_and_falls() {
         .get::<crate::features::ActorSurfaceState>(actor)
         .unwrap();
     assert!(
-        !surf.on_ground,
+        !app.world()
+            .get::<crate::actor::BodyGroundState>(actor)
+            .unwrap()
+            .on_ground,
         "a struck cling-breaker should leave its surface and fall"
     );
     assert_eq!(
@@ -350,7 +355,13 @@ fn struck_surface_walker_holds_on_when_cling_does_not_break() {
         .world()
         .get::<crate::features::ActorSurfaceState>(actor)
         .unwrap();
-    assert!(surf.on_ground, "a non-breaking crawler keeps its footing");
+    assert!(
+        app.world()
+            .get::<crate::actor::BodyGroundState>(actor)
+            .unwrap()
+            .on_ground,
+        "a non-breaking crawler keeps its footing"
+    );
     assert_eq!(
         surf.surface_normal,
         ae::Vec2::new(1.0, 0.0),

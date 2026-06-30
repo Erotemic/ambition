@@ -217,7 +217,7 @@ pub(crate) fn apply_actor_hit(
         // the active acceleration frame on the next support contact.
         if !killed && em.config.tuning.surface_walker && em.config.tuning.cling_breaks_on_hit {
             let peel = em.surface.surface_normal * CLING_DETACH_POP_SPEED;
-            em.surface.on_ground = false;
+            em.ground.on_ground = false;
             em.kin.vel += peel;
         }
         if killed {

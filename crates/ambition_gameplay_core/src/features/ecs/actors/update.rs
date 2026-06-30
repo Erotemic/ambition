@@ -408,7 +408,7 @@ pub fn update_ecs_actors(
                             half_extent: em.kin.size,
                             faction: ambition_characters::actor::ActorFaction::Enemy,
                             gravity_down: enemy_gravity_dir,
-                            on_ground: em.surface.on_ground,
+                            on_ground: em.ground.on_ground,
                             aerial: em.surface.gravity_scale <= 0.001,
                             alive: em.health.alive(),
                             can_fire: true,
@@ -867,7 +867,7 @@ fn build_enemy_brain_snapshot(
         control_down: gravity_dir,
         movement_frame_mode: ae::InputFrameMode::DEFAULT_MOVEMENT,
         aim_frame_mode: ae::InputFrameMode::DEFAULT_AIM,
-        actor_on_ground: em.surface.on_ground,
+        actor_on_ground: em.ground.on_ground,
         // The brain steers 2D `velocity_target` whenever the body is in FLIGHT — a
         // pure free-mover (gravity_scale == 0) OR a grounded-base hybrid that has
         // toggled flight on (`flight.fly_enabled`). Without the `fly_enabled` half a
@@ -903,7 +903,7 @@ fn build_enemy_brain_snapshot(
         player_input: None,
         crowding,
         terrain: None,
-        air_jumps_remaining: em.surface.air_jumps_remaining,
+        air_jumps_remaining: em.jump.air_jumps_available,
     }
 }
 

@@ -258,27 +258,23 @@ impl<'a> ActorMut<'a> {
         } else {
             frame.to_input_state()
         };
-        let on_ground = self.surface.on_ground;
-        let air_jumps = self.surface.air_jumps_remaining;
-
-        // Seed the pipeline's ground/jump state from the actor's surface truth so
-        // coyote + jump gates start correct, then borrow `kin` + the 18 ancillary
-        // clusters (all real components now) as ONE `BodyClustersMut` view — the
-        // exact aggregate the player builds, no parallel integrator.
-        self.ground.on_ground = on_ground;
-        self.jump.air_jumps_available = air_jumps;
+        // The cluster's ground/jump state persists between ticks (real components,
+        // exactly like the player), so the pipeline reads coyote + jump gates from
+        // it and writes back the contact directly — no `surface` round-trip. Borrow
+        // `kin` + the 18 ancillary clusters as ONE `BodyClustersMut` view, the exact
+        // aggregate the player builds.
         let mut clusters = self.clusters_mut();
         let events = ae::update_body_with_tuning_clusters(world, &mut clusters, input, dt, tuning);
-        // Reflect the pipeline's ground contact back onto the actor surface (the
-        // surface state the rest of the actor systems + rendering read). A flying
-        // body is never grounded.
-        let pipeline_on_ground = clusters.ground.on_ground;
-        let pipeline_air_jumps = clusters.jump.air_jumps_available;
         drop(clusters);
-        self.surface.on_ground = !flying && pipeline_on_ground;
-        self.surface.air_jumps_remaining = pipeline_air_jumps;
-        if self.surface.on_ground {
-            self.surface.air_jumps_remaining = MAX_ENEMY_AIR_JUMPS;
+        // Two actor policies applied on the ONE ground/jump authority: a flying body
+        // is never grounded (the collision sweep can still find support under a
+        // hovering flyer), and a grounded body refreshes its air jumps each tick
+        // (more forgiving than the player's jump-only refresh — an actor tuning).
+        if flying {
+            self.ground.on_ground = false;
+        }
+        if self.ground.on_ground {
+            self.jump.air_jumps_available = MAX_ENEMY_AIR_JUMPS;
         }
 
         if let Some(motion) = &mut self.motion.0 {
@@ -303,7 +299,7 @@ impl<'a> ActorMut<'a> {
         dt: f32,
         gravity_dir: ae::Vec2,
     ) {
-        if !self.surface.on_ground {
+        if !self.ground.on_ground {
             self.fall_until_landed(world, dt, gravity_dir);
             return;
         }
@@ -342,7 +338,7 @@ impl<'a> ActorMut<'a> {
             self.surface.surface_normal = -tangent;
             if self.snap_pos_to_surface(world) {
                 self.kin.vel = ae::Vec2::ZERO;
-                self.surface.on_ground = true;
+                self.ground.on_ground = true;
                 return;
             }
             self.surface.surface_normal = n;
@@ -353,7 +349,7 @@ impl<'a> ActorMut<'a> {
         self.kin.vel = tangent * speed;
 
         if self.snap_pos_to_surface(world) {
-            self.surface.on_ground = true;
+            self.ground.on_ground = true;
             return;
         }
 
@@ -363,7 +359,7 @@ impl<'a> ActorMut<'a> {
         self.surface.surface_normal = new_normal;
         if self.snap_pos_to_surface(world) {
             self.kin.vel = ae::Vec2::ZERO;
-            self.surface.on_ground = true;
+            self.ground.on_ground = true;
             return;
         }
 
@@ -371,13 +367,13 @@ impl<'a> ActorMut<'a> {
         self.surface.surface_normal = -tangent;
         if self.snap_pos_to_surface(world) {
             self.kin.vel = ae::Vec2::ZERO;
-            self.surface.on_ground = true;
+            self.ground.on_ground = true;
             return;
         }
 
         self.surface.surface_normal = n;
         self.kin.pos = original_pos;
-        self.surface.on_ground = false;
+        self.ground.on_ground = false;
         self.fall_until_landed(world, dt, gravity_dir);
     }
 
@@ -425,7 +421,7 @@ impl<'a> ActorMut<'a> {
             pos: self.kin.pos,
             vel: self.kin.vel,
             size: self.kin.size,
-            on_ground: self.surface.on_ground,
+            on_ground: self.ground.on_ground,
             facing: self.kin.facing,
         };
         kinematic::step_kinematic(
@@ -445,7 +441,7 @@ impl<'a> ActorMut<'a> {
         );
         self.kin.pos = body.pos;
         self.kin.vel = body.vel;
-        self.surface.on_ground = body.on_ground;
+        self.ground.on_ground = body.on_ground;
         if body.on_ground {
             self.surface.surface_normal = -gravity_dir.normalize_or(ae::Vec2::new(0.0, 1.0));
         }
@@ -522,7 +518,7 @@ impl<'a> ActorMut<'a> {
             pos: self.kin.pos,
             size: self.kin.size,
             facing: self.kin.facing,
-            on_ground: self.surface.on_ground,
+            on_ground: self.ground.on_ground,
             // Actors don't wall-cling or dash-cancel into attacks today; the
             // directional-primary capability gates back/air-back tilts, which an
             // AI never aims for, so the forward/up/down resolution is unaffected.
@@ -619,15 +615,16 @@ impl<'a> ActorMut<'a> {
         self.status.ai_mode = ambition_characters::actor::ai::CharacterAiMode::Idle;
         self.kin.facing = -1.0;
         *self.surface = ActorSurfaceState {
-            on_ground: false,
             surface_normal: ae::Vec2::new(0.0, -1.0),
             gravity_scale: if self.config.tuning.is_aerial {
                 0.0
             } else {
                 1.0
             },
-            air_jumps_remaining: MAX_ENEMY_AIR_JUMPS,
         };
+        // Ground/jump authority is the shared cluster now — reset it too.
+        self.ground.on_ground = false;
+        self.jump.air_jumps_available = MAX_ENEMY_AIR_JUMPS;
     }
 }
 
@@ -673,12 +670,12 @@ mod dash_tests {
         seed.kin.pos = ae::Vec2::new(0.0, 100.0 - half_h);
         seed.kin.vel = ae::Vec2::ZERO;
         seed.kin.facing = 1.0;
-        seed.surface.on_ground = true;
         seed.surface.gravity_scale = 1.0;
         seed.caps.can_dash = can_dash;
         // The dash ability lives on the movement body's mask (derived from caps);
         // rebuild it after overriding the cap so the pipeline dash limb matches.
         seed.body = ActorBody::from_caps(&seed.caps, false);
+        seed.body.0.ground.on_ground = true;
         let start_x = seed.kin.pos.x;
         let mut em = seed.as_actor_mut();
         let mut frame = ActorControlFrame::neutral();
@@ -728,10 +725,10 @@ mod dash_tests {
         );
         let half_h = seed.kin.size.y * 0.5;
         seed.kin.pos = ae::Vec2::new(0.0, 100.0 - half_h);
-        seed.surface.on_ground = true;
         seed.surface.gravity_scale = 1.0;
         seed.caps.can_dash = false;
         seed.body = ActorBody::from_caps(&seed.caps, false);
+        seed.body.0.ground.on_ground = true;
         let mut em = seed.as_actor_mut();
         let mut frame = ActorControlFrame::neutral();
         frame.locomotion = ae::Vec2::new(1.0, 0.0);
@@ -771,7 +768,6 @@ mod dash_tests {
         seed.kin.pos = ae::Vec2::new(0.0, -200.0);
         seed.kin.vel = ae::Vec2::ZERO;
         seed.surface.gravity_scale = 0.0;
-        seed.surface.on_ground = false;
         // Aerial body: fly ability + fly_enabled from spawn.
         seed.body = ActorBody::from_caps(&seed.caps, true);
         let start = seed.kin.pos;
@@ -804,6 +800,6 @@ mod dash_tests {
              drifted {:.1}px on y",
             em.kin.pos.y - start.y
         );
-        assert!(!em.surface.on_ground, "a flying body is never grounded");
+        assert!(!em.ground.on_ground, "a flying body is never grounded");
     }
 }

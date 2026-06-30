@@ -84,7 +84,7 @@ mod conversion_tests {
             control_down: gravity,
             movement_frame_mode: ae::InputFrameMode::BodyRelativeAssist,
             aim_frame_mode: ae::InputFrameMode::ScreenRelative,
-            actor_on_ground: seed.surface.on_ground,
+            actor_on_ground: seed.body.0.ground.on_ground,
             actor_aerial: seed.surface.gravity_scale <= 0.001,
             alive: true,
             target_pos: target,
@@ -137,7 +137,7 @@ mod conversion_tests {
             );
         }
         assert!(
-            npc.surface.on_ground,
+            npc.body.0.ground.on_ground,
             "NPC must land on the floor under gravity"
         );
         let body_bottom = npc.kin.pos.y + npc.kin.size.y * 0.5;
@@ -760,7 +760,7 @@ mod conversion_tests {
         // Force the surface-walker grounded state directly (independent of which
         // archetype the brain resolves to): glued to the platform top.
         enemy.config.tuning.surface_walker = true;
-        enemy.surface.on_ground = true;
+        enemy.body.0.ground.on_ground = true;
         enemy.surface.surface_normal = ae::Vec2::new(0.0, -1.0);
         let x0 = enemy.kin.pos.x;
         enemy.update_for_test(

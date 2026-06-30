@@ -298,7 +298,7 @@ Enemies rise to the player; delete-heavy. Each step is gated on *it compiles* (i
    archetype already exist; confirm end-to-end + measure the LOC/importer delta). See
    [`architecture.md`](architecture.md) for the component buckets.
 5. **De-player-center the remaining surface** — decisions settled with Jon (2026-06-30);
-   **B1 (incl. duel reframe) + B2 DONE; B3 remains**:
+   **B1 (incl. duel reframe) + B2 + B3 DONE; phase-B complete, Phase C (payoff verification) remains**:
    - 🟢 **B2a (projectile world-hit) DONE** — `WorldHitPolicy` is on the projectile spec
      (firer-agnostic; variants de-player-cased to `Bouncing`/`ExpireOnContact`).
    - 🟢 **B2b-core (projectile damage) DONE** — damage routes off the FIRER's real
@@ -337,14 +337,29 @@ Enemies rise to the player; delete-heavy. Each step is gated on *it compiles* (i
      AND anti-clump (a grudge foe is an opponent, not an ally) AND dissolves when settled.
      **FEEL-CHECK for Jon:** peaceful NPCs no longer stalk the player before being provoked
      (they hold facing, then hunt their grudge).
-   - **`ControlFrame` → entity-local `ActorIntent` (B3).** *Boundary principle (agreed):*
-     sim/body systems read the body's entity-local intent; only input-source adapters
-     and presentation read the global `ControlFrame`. Per-reader audit + repoint of the
-     ~22 `Res<ControlFrame>` sim readers (MIGRATE: shrine, shockwave, affordances/intent,
-     possession; KEEP: dialog, menus, mobile-input, portal input-adapter, rl_sim,
-     item_visuals), each gated on the byte-stable player replay trace. **Put `ActorIntent`
-     on the player too** (Jon's call) — the player and an NPC expose the SAME intent
-     component, so migrated sim reads consume one body-generic seam, not `PlayerInputFrame`.
+   - 🟢 **B3 (de-player-center the control surface) DONE.** *Audit conclusion:* the stated
+     violation — sim/body logic reading the **global** `Res<ControlFrame>` — was already
+     resolved by prior slices. Inside `ambition_gameplay_core` the ONLY `Res<ControlFrame>`
+     holders are the two input-bridge **writers** (`populate_control_frame_from_actions`
+     device→frame, `sync_local_player_input_frame` frame→`PlayerInputFrame`); every sim
+     reader already consumes an **entity-local** component (`PlayerInputFrame` or
+     `ActorControl`), so relativity is honored. The remaining global-frame holders
+     (mobile-input, menu_bridge, portal transit/input adapters, render `item_visuals`) are
+     all legitimately KEEP (input / menu / presentation). *Note:* `ActorIntent` turned out to
+     be `CharacterAiMode` (AI-mode), **not** an intent frame — the real body-generic intent
+     seam is **`ActorControl`** (the brain's `ActorControlFrame`), which the player already
+     carries. So B3 reduced to the convergence: fold the player's residual reads onto
+     `ActorControl`. **Done for the button-only held-ability triggers** (`shockwave`,
+     `sentry`): they now read the body's own `ActorControl` (`melee_pressed`/`shield_held`,
+     which the player brain passes through 1:1), drop the `With<PlayerEntity>` filter, and
+     iterate every wielder — `BodyMana` is the implicit gate (player-only today), so a
+     possessed/robot body gaining mana + the gauntlet triggers through this exact path.
+     **KEPT raw (documented):** the aim-resolving abilities
+     (`beam`/`meteor`/`volley`/`dive`/`blink`/`grapple`/`vortex`) read the settings-aware
+     `held_shot_aim_local(&PlayerInputFrame)` seam with a facing fallback the brain's
+     `out.aim` doesn't replicate; converging them would duplicate the aim resolver into the
+     brain (wide change vs narrow-beats-wide). They're already entity-local. `shrine` stays
+     player-semantic (heal **+ checkpoint save**). Player differential trace: zero divergence.
    - **Projectile attribution → spec + owner (B2).** `WorldHitPolicy` moves onto the
      projectile spec (per-ability, firer-agnostic); retire the binary `ProjectileFaction`
      (owner entity → faction for damage).

@@ -60,6 +60,7 @@ pub use ambition_gameplay_core::combat::BoundFeatureKind;
 // module-private; the schedule registration uses
 // `actors::manage_gradient_lane_visual` directly so no outside
 // callers need a re-export.
+pub use ambition_gameplay_core::camera_snapshot::CameraSnapshot2d;
 pub use camera::{camera_follow, CameraViewState};
 pub use health::{sync_boss_health_bar_overlay, sync_health_overlays};
 pub use nameplates::{

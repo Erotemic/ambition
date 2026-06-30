@@ -2,40 +2,16 @@
 //! transitions and an overview-camera dev mode.
 
 use ambition_engine_core as ae;
-use ambition_engine_core::AabbExt;
 use bevy::ecs::system::SystemParam;
 use bevy::prelude::*;
 use bevy::window::PrimaryWindow;
 
-/// Upper bound on `dt` for camera scale + target easing.
-///
-/// Smoothing is dt-correct in steady state — per-second movement is
-/// identical regardless of frame rate — but the eye perceives motion
-/// as deltas-per-rendered-frame, not deltas-per-second. A single
-/// 33 ms hitch (one 30 FPS frame in an otherwise 60 FPS session)
-/// makes the camera take a step that's roughly twice the size of a
-/// nominal frame's step. That's the "jump" Jon observed even when
-/// mean FPS was steady: the worst-frame `min` in the FPS overlay
-/// correlates exactly with the camera flick.
-///
-/// Capping `dt` at ~30 FPS' worth (33 ms) means a hitched frame
-/// produces *at most* the same camera step as a nominal frame. The
-/// camera lags by the unconsumed wall-clock fraction for one frame
-/// and recovers seamlessly over the next several frames as `dt`
-/// returns to nominal — that lag is below the visual threshold,
-/// the avoided jump is not.
-///
-/// Keep this small enough that genuine slowdowns (e.g. the player
-/// is actually running at 30 FPS) still produce per-frame motion;
-/// raise it if the camera starts to feel laggy on intentional
-/// slow-motion or bullet-time states (those go through
-/// `WorldTime::scaled_dt`, not this path, but worth flagging).
-const MAX_CAMERA_SMOOTH_DT: f32 = 1.0 / 30.0;
-
 use super::primitives::PlayerVisual;
-use ambition_gameplay_core::config::world_to_bevy;
-use ambition_gameplay_core::persistence::settings::CameraAspectPolicy;
-use ambition_gameplay_core::rooms::{CameraClampMode, CameraZoneSpec, RoomSet};
+use ambition_gameplay_core::camera_snapshot::{
+    resolve_follow_camera_snapshot, CameraBlinkInput, CameraFocus2d, CameraSnapshot2d,
+    CameraSnapshotResolveInput, CameraSnapshotResolveMode,
+};
+use ambition_gameplay_core::rooms::RoomSet;
 
 /// Live camera diagnostics and feel-lab data.
 ///
@@ -59,16 +35,22 @@ pub struct CameraViewState {
 
 impl Default for CameraViewState {
     fn default() -> Self {
+        Self::from(&CameraSnapshot2d::default())
+    }
+}
+
+impl From<&CameraSnapshot2d> for CameraViewState {
+    fn from(snapshot: &CameraSnapshot2d) -> Self {
         Self {
-            base_view: ae::Vec2::new(800.0, 450.0),
-            requested_view: ae::Vec2::new(800.0, 450.0),
-            visible_view: ae::Vec2::new(800.0, 450.0),
-            zoom_multiplier: 1.0,
-            orthographic_scale: 1.0,
-            target_world: ae::Vec2::ZERO,
-            center_world: ae::Vec2::ZERO,
-            active_camera_zones: 0,
-            active_camera_zone: None,
+            base_view: snapshot.base_view,
+            requested_view: snapshot.requested_view,
+            visible_view: snapshot.visible_view,
+            zoom_multiplier: snapshot.zoom_multiplier,
+            orthographic_scale: snapshot.orthographic_scale,
+            target_world: snapshot.target_world,
+            center_world: snapshot.center_world,
+            active_camera_zones: snapshot.active_camera_zones,
+            active_camera_zone: snapshot.active_camera_zone.clone(),
         }
     }
 }
@@ -158,17 +140,15 @@ pub fn camera_follow(
         shake,
     } = resources;
 
-    // DeveloperTools can temporarily replace that input.
+    // DeveloperTools can temporarily replace the authored/default camera view.
     let (base_view_w, base_view_h) = if developer_tools.camera_view_override_enabled {
         (
             developer_tools.camera_view_w.max(64.0),
             developer_tools.camera_view_h.max(64.0),
         )
     } else {
-        // UserSettings defines the normal authored/default camera.
         user_settings.video.camera_zoom.base_view()
     };
-
     let base_view = ae::Vec2::new(base_view_w, base_view_h);
 
     let overview_scale = developer_tools.overview_camera_scale.max(1.0);
@@ -179,36 +159,16 @@ pub fn camera_follow(
         return;
     };
     // Possession override: point the camera at the possessed actor's body
-    // instead of the (vacated) player body. Only the follow position is
-    // borrowed — size/blink stay the player's, which is fine for framing.
+    // instead of the vacated controlled body. Only the follow position is
+    // borrowed — size/blink stay the original controlled body, which is fine
+    // for framing.
     if let Some(entity) = possession.possessed {
         if let Ok(aabb) = feature_aabbs.get(entity) {
             player_body.pos = aabb.center;
         }
     }
-    let player_aabb = player_body.aabb();
+
     let active_spec = room_set.active_spec();
-    let mut active_camera_zones = 0usize;
-    let active_zone = active_spec
-        .camera_zones
-        .iter()
-        .filter(|zone| player_aabb.strict_intersects(zone.aabb))
-        .inspect(|_| active_camera_zones += 1)
-        .max_by(|a, b| {
-            a.priority
-                .cmp(&b.priority)
-                .then_with(|| zone_area(a).total_cmp(&zone_area(b)))
-        });
-    let camera_zone_scale = active_zone
-        .map(CameraZoneSpec::effective_zoom)
-        .unwrap_or(1.0);
-
-    let target_scale = if developer_tools.overview_camera {
-        overview_scale
-    } else {
-        encounter_scale.max(camera_zone_scale)
-    };
-
     let room_changed = last_camera_room.as_deref() != Some(active_spec.id.as_str());
     if room_changed {
         *last_camera_room = Some(active_spec.id.clone());
@@ -216,45 +176,8 @@ pub fn camera_follow(
         // Reset the presentation-only camera target immediately so target easing
         // does not interpolate through unrelated world coordinates.
         camera_state.target_initialized = false;
-        camera_state.live_scale = target_scale;
     }
     let snap_camera = blink_cam.camera_snap_timer > 0.0 || room_changed;
-
-    // Ease the live scale toward the target. Different rates for
-    // zoom-in (encounter starts; tighter, faster — players want
-    // immediate "you're in it") vs. zoom-out (encounter ends;
-    // slower, breathy "you survived"). Overview camera snaps because
-    // it's a debug tool.
-    //
-    // `dt` is clamped at `MAX_CAMERA_SMOOTH_DT` so a single hitched
-    // frame can't blow through the smoothing — see the constant's
-    // docs. Both the zoom easing below and the target easing in the
-    // follow branch consume this same `dt`.
-    let dt = time.delta_secs().clamp(0.0, MAX_CAMERA_SMOOTH_DT);
-    let camera_scale = if developer_tools.overview_camera || snap_camera {
-        camera_state.live_scale = target_scale;
-        target_scale
-    } else {
-        let rate = if target_scale > camera_state.live_scale {
-            ease_tuning.zoom_out_rate
-        } else {
-            ease_tuning.zoom_in_rate
-        };
-        let delta = (target_scale - camera_state.live_scale).abs();
-        let step = (rate * dt).min(delta);
-        camera_state.live_scale = if target_scale > camera_state.live_scale {
-            camera_state.live_scale + step
-        } else {
-            camera_state.live_scale - step
-        };
-        if (camera_state.live_scale - target_scale).abs() < ease_tuning.snap_epsilon {
-            camera_state.live_scale = target_scale;
-        }
-        camera_state.live_scale.max(1.0)
-    };
-
-    let target_view_w = base_view_w * camera_scale;
-    let target_view_h = base_view_h * camera_scale;
 
     let (window_w, window_h) = windows
         .single()
@@ -264,85 +187,6 @@ pub fn camera_follow(
             ambition_gameplay_core::config::WINDOW_H as f32,
         ));
 
-    let scale_by_height = target_view_h / window_h;
-    let scale_by_width = target_view_w / window_w;
-    let orthographic_scale = match user_settings.video.camera_aspect {
-        CameraAspectPolicy::FitDesign => scale_by_height.max(scale_by_width),
-        CameraAspectPolicy::FixedHeight => scale_by_height,
-        CameraAspectPolicy::FixedWidth => scale_by_width,
-    };
-    let half_view_w = window_w * orthographic_scale * 0.5;
-    let half_view_h = window_h * orthographic_scale * 0.5;
-    let visible_view = ae::Vec2::new(half_view_w * 2.0, half_view_h * 2.0);
-
-    let (target, target_world) = if developer_tools.overview_camera {
-        // Overview still follows the player — the zoom handles the wider view.
-        // Previously locked to world center, making large rooms unnavigable in F5 mode.
-        let resize_offset = (player_base_size.base_size.y - player_body.size.y) * 0.5;
-        let target_world = ae::Vec2::new(player_body.pos.x, player_body.pos.y - resize_offset);
-        camera_state.live_target_world = target_world;
-        camera_state.target_initialized = true;
-        (world_to_bevy(&world.0, target_world, 0.0), target_world)
-    } else {
-        // AMBITION_REVIEW(spatial): camera follows a stable "standing-pose center"
-        // that doesn't pop when the body resizes. `try_change_body_mode` keeps
-        // feet planted by adjusting `pos.y` (+Y down) by half the height delta,
-        // so on crouch/morph/slide entry the player's *center* shifts down by
-        // `(base_size.y - size.y) * 0.5`. Cancelling that offset here gives the
-        // camera a fixed virtual point — entering a slide mid-dash no longer
-        // produces a 10px vertical pop.
-        let resize_offset = (player_base_size.base_size.y - player_body.size.y) * 0.5;
-        let mut desired_target_world =
-            ae::Vec2::new(player_body.pos.x, player_body.pos.y - resize_offset);
-        let (bias_x, bias_y) = user_settings.video.camera_framing.target_offset(
-            target_view_w,
-            target_view_h,
-            player_body.facing,
-        );
-        desired_target_world.x += bias_x;
-        desired_target_world.y += bias_y;
-
-        if let Some(zone) = active_zone {
-            if zone.cinematic_lock {
-                desired_target_world = zone.aabb.center();
-            }
-            desired_target_world += zone.target_offset;
-        }
-
-        if blink_cam.blink_in_timer > 0.0 && blink_cam.blink_in_duration > 0.0 {
-            let raw_t =
-                1.0 - (blink_cam.blink_in_timer / blink_cam.blink_in_duration).clamp(0.0, 1.0);
-            let t = raw_t * raw_t * (3.0 - 2.0 * raw_t);
-            desired_target_world = blink_cam.blink_camera_from
-                + (desired_target_world - blink_cam.blink_camera_from) * t;
-        }
-
-        // Smooth the target itself, not just the zoom. Phase 4 introduced
-        // look-ahead framing; without a target ease, flipping facing in open
-        // space teleports the camera target by 10-30% of the viewport width.
-        // Room-boundary clamping hides that near walls, which made the snap
-        // feel inconsistent. Keep this state presentation-only so physics and
-        // hit tests remain frame-exact.
-        let target_world = if snap_camera || !camera_state.target_initialized {
-            camera_state.target_initialized = true;
-            camera_state.live_target_world = desired_target_world;
-            desired_target_world
-        } else {
-            let target_ease_hz = active_zone
-                .and_then(|zone| zone.easing_hz)
-                .unwrap_or(8.0)
-                .max(0.0);
-            let alpha = (1.0 - (-target_ease_hz * dt).exp()).clamp(0.0, 1.0);
-            let previous_target_world = camera_state.live_target_world;
-            let eased_target_world =
-                previous_target_world + (desired_target_world - previous_target_world) * alpha;
-            camera_state.live_target_world = eased_target_world;
-            eased_target_world
-        };
-        (world_to_bevy(&world.0, target_world, 0.0), target_world)
-    };
-
-    let bounds = active_zone.map(|zone| zone.clamp_mode).unwrap_or_default();
     #[cfg(feature = "portal_render")]
     let (portal_continuity_enabled, portal_clamp_padding_center_world) = {
         let enabled = portal_continuity
@@ -361,44 +205,47 @@ pub fn camera_follow(
             .flatten();
         (enabled, padding)
     };
-
-    let (normal_host_x, normal_host_y) = clamp_camera_target(
-        &world.0,
-        target,
-        half_view_w,
-        half_view_h,
-        bounds,
-        active_zone,
-        None,
-    );
-    #[cfg(feature = "portal_render")]
-    let (host_x, host_y) = if let Some(padding_center) = portal_clamp_padding_center_world {
-        clamp_camera_target(
-            &world.0,
-            target,
-            half_view_w,
-            half_view_h,
-            bounds,
-            active_zone,
-            Some(padding_center),
-        )
-    } else {
-        (normal_host_x, normal_host_y)
-    };
     #[cfg(not(feature = "portal_render"))]
-    let (host_x, host_y) = (normal_host_x, normal_host_y);
-    let ordinary_center_world =
-        ae::Vec2::new(host_x + world.0.size.x * 0.5, world.0.size.y * 0.5 - host_y);
-    #[cfg(feature = "portal_render")]
-    let ordinary_without_portal_padding = ae::Vec2::new(
-        normal_host_x + world.0.size.x * 0.5,
-        world.0.size.y * 0.5 - normal_host_y,
+    let portal_clamp_padding_center_world = None;
+
+    let focus = CameraFocus2d {
+        center_world: player_body.pos,
+        size: player_body.size,
+        base_size: player_base_size.base_size,
+        facing: player_body.facing,
+    };
+    let blink = CameraBlinkInput {
+        blink_in_timer: blink_cam.blink_in_timer,
+        blink_in_duration: blink_cam.blink_in_duration,
+        blink_camera_from: blink_cam.blink_camera_from,
+    };
+    let mut snapshot = resolve_follow_camera_snapshot(
+        CameraSnapshotResolveInput {
+            world: &world.0,
+            camera_zones: &active_spec.camera_zones,
+            focus,
+            base_view,
+            viewport_px: ae::Vec2::new(window_w, window_h),
+            aspect_policy: user_settings.video.camera_aspect,
+            framing: user_settings.video.camera_framing,
+            overview_scale,
+            encounter_scale,
+            overview_camera: developer_tools.overview_camera,
+            snap_camera,
+            blink: Some(blink),
+            dt: time.delta_secs(),
+            mode: CameraSnapshotResolveMode::Eased,
+            extra_clamp_center_world: portal_clamp_padding_center_world,
+            ease_tuning: *ease_tuning,
+        },
+        Some(&mut *camera_state),
     );
+
+    #[cfg(feature = "portal_render")]
+    let ordinary_center_world = snapshot.center_world;
     #[cfg(feature = "portal_render")]
     let portal_clamp_padding_still_needed =
-        (ordinary_center_world - ordinary_without_portal_padding).length() > 0.5;
-    let mut center_world = ordinary_center_world;
-    let mut camera_roll = 0.0;
+        (ordinary_center_world - snapshot.unpadded_center_world).length() > 0.5;
 
     #[cfg(feature = "portal_render")]
     {
@@ -407,154 +254,43 @@ pub fn camera_follow(
                 let weight = portal_state.active_weight();
                 if weight > 0.0 {
                     let screen_offset = portal_state.body_screen_offset_world.unwrap_or(Vec2::ZERO);
-                    center_world = player_body.pos - screen_offset;
-                    portal_state.target_camera_world = Some(center_world);
+                    snapshot.center_world = player_body.pos - screen_offset;
+                    portal_state.target_camera_world = Some(snapshot.center_world);
                 } else if !portal_clamp_padding_still_needed {
                     portal_state.clear_clamp_padding();
                 }
-                camera_roll = portal_state.roll_radians;
+                snapshot.rotation_radians = portal_state.roll_radians;
             } else {
                 portal_state.clear();
             }
         }
         if let Some(mut host_view) = portal_continuity.host_view {
             host_view.capture(
-                center_world,
+                snapshot.center_world,
                 ordinary_center_world,
-                target_world,
-                visible_view,
-                active_camera_zones,
-                active_zone.map(|zone| zone.id.clone()),
+                snapshot.target_world,
+                snapshot.visible_view,
+                snapshot.active_camera_zones,
+                snapshot.active_camera_zone.clone(),
             );
         }
         if let Some(portal_state) = portal_continuity.state.as_deref_mut() {
-            portal_state.last_host_camera_world = Some(center_world);
+            portal_state.last_host_camera_world = Some(snapshot.center_world);
         }
     }
-    let x = center_world.x - world.0.size.x * 0.5;
-    let y = world.0.size.y * 0.5 - center_world.y;
 
-    *view_state = CameraViewState {
-        base_view,
-        requested_view: ae::Vec2::new(target_view_w, target_view_h),
-        visible_view,
-        zoom_multiplier: camera_scale,
-        orthographic_scale,
-        target_world,
-        center_world,
-        active_camera_zones,
-        active_camera_zone: active_zone.map(|zone| zone.id.clone()),
-    };
+    let x = snapshot.center_world.x - world.0.size.x * 0.5;
+    let y = world.0.size.y * 0.5 - snapshot.center_world.y;
+
+    *view_state = CameraViewState::from(&snapshot);
 
     let shake_offset = shake.offset();
     for (mut transform, mut projection) in &mut query {
         if let Projection::Orthographic(orthographic) = &mut *projection {
-            orthographic.scale = orthographic_scale;
+            orthographic.scale = snapshot.orthographic_scale;
         }
         transform.translation.x = x + shake_offset.x;
         transform.translation.y = y + shake_offset.y;
-        transform.rotation = Quat::from_rotation_z(camera_roll);
-    }
-}
-
-fn zone_area(zone: &CameraZoneSpec) -> f32 {
-    let half = zone.aabb.half_size();
-    (half.x * 2.0).max(0.0) * (half.y * 2.0).max(0.0)
-}
-
-fn clamp_camera_target(
-    world: &ae::World,
-    target: Vec3,
-    half_view_w: f32,
-    half_view_h: f32,
-    mode: CameraClampMode,
-    zone: Option<&CameraZoneSpec>,
-    portal_padding_center_world: Option<ae::Vec2>,
-) -> (f32, f32) {
-    match mode {
-        CameraClampMode::None => (target.x, target.y),
-        CameraClampMode::ZoneBounds => {
-            let Some(zone) = zone else {
-                return clamp_to_world_bounds(
-                    world,
-                    target,
-                    half_view_w,
-                    half_view_h,
-                    portal_padding_center_world,
-                );
-            };
-            let min_x = zone.aabb.left() + half_view_w - world.size.x * 0.5;
-            let max_x = zone.aabb.right() - half_view_w - world.size.x * 0.5;
-            let min_y = world.size.y * 0.5 - (zone.aabb.bottom() - half_view_h);
-            let max_y = world.size.y * 0.5 - (zone.aabb.top() + half_view_h);
-            let (min_x, max_x, min_y, max_y) = expand_clamp_bounds_for_portal_padding(
-                world,
-                min_x,
-                max_x,
-                min_y,
-                max_y,
-                portal_padding_center_world,
-            );
-            (
-                clamp_or_center(target.x, min_x, max_x),
-                clamp_or_center(target.y, min_y, max_y),
-            )
-        }
-        CameraClampMode::RoomBounds => clamp_to_world_bounds(
-            world,
-            target,
-            half_view_w,
-            half_view_h,
-            portal_padding_center_world,
-        ),
-    }
-}
-
-fn clamp_to_world_bounds(
-    world: &ae::World,
-    target: Vec3,
-    half_view_w: f32,
-    half_view_h: f32,
-    portal_padding_center_world: Option<ae::Vec2>,
-) -> (f32, f32) {
-    let min_x = -world.size.x * 0.5 + half_view_w;
-    let max_x = world.size.x * 0.5 - half_view_w;
-    let min_y = -world.size.y * 0.5 + half_view_h;
-    let max_y = world.size.y * 0.5 - half_view_h;
-    let (min_x, max_x, min_y, max_y) = expand_clamp_bounds_for_portal_padding(
-        world,
-        min_x,
-        max_x,
-        min_y,
-        max_y,
-        portal_padding_center_world,
-    );
-    (
-        clamp_or_center(target.x, min_x, max_x),
-        clamp_or_center(target.y, min_y, max_y),
-    )
-}
-
-fn expand_clamp_bounds_for_portal_padding(
-    world: &ae::World,
-    min_x: f32,
-    max_x: f32,
-    min_y: f32,
-    max_y: f32,
-    portal_padding_center_world: Option<ae::Vec2>,
-) -> (f32, f32, f32, f32) {
-    let Some(center_world) = portal_padding_center_world else {
-        return (min_x, max_x, min_y, max_y);
-    };
-    let x = center_world.x - world.size.x * 0.5;
-    let y = world.size.y * 0.5 - center_world.y;
-    (min_x.min(x), max_x.max(x), min_y.min(y), max_y.max(y))
-}
-
-fn clamp_or_center(value: f32, min: f32, max: f32) -> f32 {
-    if min <= max {
-        value.clamp(min, max)
-    } else {
-        (min + max) * 0.5
+        transform.rotation = Quat::from_rotation_z(snapshot.rotation_radians);
     }
 }

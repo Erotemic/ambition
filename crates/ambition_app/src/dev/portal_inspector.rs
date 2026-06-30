@@ -397,6 +397,14 @@ mod enabled {
                                 "world px",
                                 "Extra directed distance before half_plane_preview_full_distance over which exact LOS geometry eases toward the half-plane preview.",
                             );
+                            f32_row(
+                                ui,
+                                "half_plane_preview_max_lateral",
+                                &mut config.half_plane_preview_max_lateral,
+                                1.0,
+                                "world px",
+                                "Maximum lateral reach of the half-plane preview behind the portal face. This bounds near-plane preview geometry so it cannot create enormous source rects that clip into misleading textures.",
+                            );
                         });
                 });
 
@@ -452,6 +460,13 @@ mod enabled {
                                 &mut config.recursion_depth,
                                 "capture levels",
                                 "Portal-window capture recursion. Zero makes capture cameras see only the world layer; positive values include other portal windows and preserve current one-frame-lag recursive feedback.",
+                            );
+                            read_only_bool_row(
+                                ui,
+                                "recursion_includes_portal_windows",
+                                config.recursion_depth > 0,
+                                "derived",
+                                "Derived runtime value from recursion_depth. False means capture cameras exclude the portal-window render layer; true means capture cameras include portal windows and can show one-frame-lag recursive feedback.",
                             );
                             f32_row(
                                 ui,
@@ -569,6 +584,21 @@ mod enabled {
         field_label(ui, label, help);
         ui.checkbox(value, "").on_hover_text(help);
         ui.label("");
+        ui.end_row();
+    }
+
+    fn read_only_bool_row(
+        ui: &mut egui::Ui,
+        label: &'static str,
+        value: bool,
+        units: &'static str,
+        help: &'static str,
+    ) {
+        let mut shown = value;
+        field_label(ui, label, help);
+        ui.add_enabled(false, egui::Checkbox::new(&mut shown, ""))
+            .on_hover_text(help);
+        ui.label(units).on_hover_text(help);
         ui.end_row();
     }
 

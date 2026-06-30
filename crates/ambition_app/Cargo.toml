@@ -144,6 +144,12 @@ getrandom_04 = { package = "getrandom", version = "=0.4.2", features = ["wasm_js
 name = "ambition_game_bin"
 path = "src/bin/ambition_game_bin.rs"
 
+
+[[bin]]
+name = "capture_scene"
+path = "src/bin/capture_scene.rs"
+required-features = ["visible"]
+
 [[bin]]
 name = "headless"
 required-features = ["rl_sim"]

@@ -290,6 +290,22 @@ pub(crate) struct ConePlan {
     pub(crate) wedge: ViewCone,
     pub(crate) target: f32,
     pub(crate) immediate: bool,
+    pub(crate) debug: ConePlanDebug,
+}
+
+/// Derived per-frame geometry diagnostics for a [`ConePlan`]. These values are
+/// mirrored into the F8/debug-dump text using the same field names so that UI,
+/// dump, and code stay grep-compatible during portal tuning.
+#[derive(Clone, Copy, Debug, Default)]
+pub(crate) struct ConePlanDebug {
+    pub(crate) edge_distance_to_aperture: Option<f32>,
+    pub(crate) half_plane_preview_alpha: f32,
+    pub(crate) finite_depth: Option<f32>,
+    pub(crate) half_plane_depth: Option<f32>,
+    pub(crate) finite_lateral_limit: Option<f32>,
+    pub(crate) half_plane_lateral_limit: Option<f32>,
+    pub(crate) finite_wedge_source_size: Option<Vec2>,
+    pub(crate) half_plane_wedge_source_size: Option<Vec2>,
 }
 
 #[derive(Clone, Copy)]
@@ -375,6 +391,13 @@ fn preview_half_plane_alpha(edge_distance: f32, config: &PortalViewConeConfig) -
     };
     let eased = smooth01(raw);
     eased * eased
+}
+
+fn dynamic_lateral_limit(enter: &PortalFrame, depth: f32, world_size: Vec2) -> f32 {
+    let aperture = aperture_half_width(enter);
+    let bounded_depth = depth.max(1.0);
+    let world_bound = world_size.x.max(world_size.y).max(aperture + bounded_depth);
+    (aperture + bounded_depth * 4.0).clamp(aperture + 1.0, world_bound)
 }
 
 pub(crate) fn visibility_route_summary(
@@ -485,6 +508,7 @@ pub(crate) fn compute_cone(
             wedge: min,
             target: 0.0,
             immediate: false,
+            debug: ConePlanDebug::default(),
         }
     };
 
@@ -497,6 +521,7 @@ pub(crate) fn compute_cone(
                 wedge: c,
                 target: 1.0,
                 immediate: true,
+                debug: ConePlanDebug::default(),
             };
         }
         PortalViewConeMode::Dynamic => {}
@@ -510,6 +535,7 @@ pub(crate) fn compute_cone(
         wedge: min,
         target: 0.0,
         immediate: false,
+        debug: ConePlanDebug::default(),
     };
     let Some(v) = viewer.filter(|v| v.present) else {
         return closed(min);
@@ -597,18 +623,45 @@ pub(crate) fn compute_cone(
     let dt = ((edge_distance - config.dynamic_dist_close)
         / (config.dynamic_dist_far - config.dynamic_dist_close).max(1.0))
         .clamp(0.0, 1.0);
-    let near_depth = config.dynamic_depth_close.max(world_size.x + world_size.y);
     let finite_depth = config.dynamic_depth_close
         + (config.dynamic_depth_far - config.dynamic_depth_close) * smooth01(dt);
-    let half_depth = near_depth + (config.dynamic_depth_far - near_depth) * smooth01(dt);
-    let far_extent = (world_size.x + world_size.y) * 64.0;
-    let finite_wedge = aperture_wedge_multi(&enter, &exit, &eyes, finite_depth, far_extent);
+    // The half-plane preview is a *shape assist*, not an infinite capture.
+    // Keep its depth on the same bounded dynamic-depth curve as the finite LOS
+    // wedge. The old world-size depth made near-plane eyes project source rects
+    // tens of thousands of world px tall before clipping, which produced the
+    // misleading c136/c137 previews.
+    let half_depth = finite_depth;
+    let finite_lateral_limit = dynamic_lateral_limit(&enter, finite_depth, world_size);
+    let half_plane_lateral_limit = config
+        .half_plane_preview_max_lateral
+        .max(aperture_half_width(&enter) + 1.0);
+    let finite_wedge = aperture_wedge_multi(&enter, &exit, &eyes, finite_depth, finite_lateral_limit);
     let half_plane_alpha = preview_half_plane_alpha(edge_distance, config) * target.clamp(0.0, 1.0);
     let mut half_plane_eyes = eyes.clone();
     if half_plane_alpha > 0.0 {
         half_plane_eyes.push(enter.pos + enter.normal * 0.5);
     }
-    let half_wedge = aperture_wedge_multi(&enter, &exit, &half_plane_eyes, half_depth, far_extent);
+    let half_wedge = if half_plane_alpha > 0.0 {
+        aperture_wedge_multi(
+            &enter,
+            &exit,
+            &half_plane_eyes,
+            half_depth,
+            half_plane_lateral_limit,
+        )
+    } else {
+        None
+    };
+    let debug = ConePlanDebug {
+        edge_distance_to_aperture: Some(edge_distance),
+        half_plane_preview_alpha: half_plane_alpha,
+        finite_depth: Some(finite_depth),
+        half_plane_depth: Some(half_depth),
+        finite_lateral_limit: Some(finite_lateral_limit),
+        half_plane_lateral_limit: Some(half_plane_lateral_limit),
+        finite_wedge_source_size: finite_wedge.map(|w| w.source.max - w.source.min),
+        half_plane_wedge_source_size: half_wedge.map(|w| w.source.max - w.source.min),
+    };
     let wedge = match (finite_wedge, half_wedge) {
         (Some(finite), Some(half)) => {
             blend_cones(&finite, &half, half_plane_alpha, &enter, &exit)
@@ -628,6 +681,7 @@ pub(crate) fn compute_cone(
         wedge,
         target: target * config.viewer_blend.clamp(0.0, 1.0),
         immediate: false,
+        debug,
     }
 }
 

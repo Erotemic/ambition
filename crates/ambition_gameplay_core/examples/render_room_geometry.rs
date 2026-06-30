@@ -15,12 +15,19 @@
 //!
 //! Usage:
 //!   cargo run -p ambition_gameplay_core --example render_room_geometry -- [ROOM_ID] [OUT.png]
+//!   cargo run -p ambition_gameplay_core --example render_room_geometry -- capture <ROOM_ID> <X,Y> [OUT.png] [WIDTHxHEIGHT]
 //!
 //! With no ROOM_ID it lists every room id and exits. Default output is
 //! `/tmp/room_<id>.png`.
 
 use ambition_engine_core::{self as ae, AabbExt};
 use ambition_gameplay_core as sb;
+use sb::camera_snapshot::{
+    resolve_follow_camera_snapshot, CameraFocus2d, CameraSnapshot2d,
+    CameraSnapshotResolveInput, CameraSnapshotResolveMode,
+};
+use sb::persistence::settings::video::CameraFramingPreset;
+use sb::persistence::settings::CameraAspectPolicy;
 use image::{Rgba, RgbaImage};
 
 /// Longest edge of the output image, in pixels. Worlds scale down to fit.
@@ -44,6 +51,7 @@ fn color_for(kind: &ae::BlockKind) -> Rgba<u8> {
 struct Projection {
     scale: f32,
     world_min: ae::Vec2,
+    image_offset: ae::Vec2,
 }
 
 impl Projection {
@@ -56,14 +64,37 @@ impl Projection {
             Self {
                 scale,
                 world_min: ae::Vec2::ZERO,
+                image_offset: ae::Vec2::splat(MARGIN_PX as f32),
             },
             w.max(1),
             h.max(1),
         )
     }
+
+    fn from_snapshot(snapshot: &CameraSnapshot2d, image_size: (u32, u32)) -> (Self, u32, u32) {
+        let (w, h) = (image_size.0.max(1), image_size.1.max(1));
+        let scale_x = w as f32 / snapshot.visible_view.x.max(1.0);
+        let scale_y = h as f32 / snapshot.visible_view.y.max(1.0);
+        let scale = scale_x.min(scale_y);
+        let draw_size = snapshot.visible_view * scale;
+        let image_offset = ae::Vec2::new(
+            ((w as f32 - draw_size.x) * 0.5).max(0.0),
+            ((h as f32 - draw_size.y) * 0.5).max(0.0),
+        );
+        (
+            Self {
+                scale,
+                world_min: snapshot.center_world - snapshot.visible_view * 0.5,
+                image_offset,
+            },
+            w,
+            h,
+        )
+    }
+
     fn px(&self, p: ae::Vec2) -> (i64, i64) {
-        let x = MARGIN_PX as f32 + (p.x - self.world_min.x) * self.scale;
-        let y = MARGIN_PX as f32 + (p.y - self.world_min.y) * self.scale;
+        let x = self.image_offset.x + (p.x - self.world_min.x) * self.scale;
+        let y = self.image_offset.y + (p.y - self.world_min.y) * self.scale;
         (x as i64, y as i64)
     }
 }
@@ -167,6 +198,26 @@ fn overlay_aabb(img: &mut RgbaImage, proj: &Projection, aabb: ae::Aabb, color: R
 fn render_room(room: &sb::rooms::RoomSpec) -> RgbaImage {
     let world = &room.world;
     let (proj, w, h) = Projection::new(world.size);
+    render_room_projected(room, &proj, w, h, None)
+}
+
+fn render_room_snapshot(
+    room: &sb::rooms::RoomSpec,
+    snapshot: &CameraSnapshot2d,
+    image_size: (u32, u32),
+) -> RgbaImage {
+    let (proj, w, h) = Projection::from_snapshot(snapshot, image_size);
+    render_room_projected(room, &proj, w, h, Some(snapshot.target_world))
+}
+
+fn render_room_projected(
+    room: &sb::rooms::RoomSpec,
+    proj: &Projection,
+    w: u32,
+    h: u32,
+    focus_marker: Option<ae::Vec2>,
+) -> RgbaImage {
+    let world = &room.world;
     let mut img = RgbaImage::from_pixel(w, h, Rgba([24, 26, 30, 255]));
 
     // World bounds outline.
@@ -184,14 +235,14 @@ fn render_room(room: &sb::rooms::RoomSpec) -> RgbaImage {
     // Camera zones (thin dim-violet outline) — drawn first as
     // background context so gameplay overlays sit on top.
     for cz in &room.camera_zones {
-        overlay_aabb(&mut img, &proj, cz.aabb, Rgba([120, 90, 160, 180]));
+        overlay_aabb(&mut img, proj, cz.aabb, Rgba([120, 90, 160, 180]));
     }
 
     // Kinematic paths (platform/patrol/camera-rail routes): bright
     // green polyline + waypoint dots, plus the authored path AABB.
     for kp in &room.kinematic_paths {
-        overlay_path(&mut img, &proj, &kp.path.points, Rgba([90, 230, 120, 255]));
-        overlay_aabb(&mut img, &proj, kp.aabb, Rgba([90, 230, 120, 160]));
+        overlay_path(&mut img, proj, &kp.path.points, Rgba([90, 230, 120, 255]));
+        overlay_aabb(&mut img, proj, kp.aabb, Rgba([90, 230, 120, 160]));
     }
 
     // Moving platforms: filled tan (they're solid riding surfaces) at
@@ -206,42 +257,93 @@ fn render_room(room: &sb::rooms::RoomSpec) -> RgbaImage {
     // Authored entity families (outlined, drawn over the collision so
     // both stay legible). Colors echo the in-game debug overlay.
     for e in &room.enemy_spawns {
-        overlay_aabb(&mut img, &proj, e.aabb, Rgba([235, 70, 70, 255])); // red
+        overlay_aabb(&mut img, proj, e.aabb, Rgba([235, 70, 70, 255])); // red
     }
     for b in &room.boss_spawns {
         // Orange: the authored spawn / collision envelope.
-        overlay_aabb(&mut img, &proj, b.aabb, Rgba([255, 140, 30, 255]));
+        overlay_aabb(&mut img, proj, b.aabb, Rgba([255, 140, 30, 255]));
         // Bright cyan: the actual rest-pose damageable hurtbox(es) the
         // player must hit — derived from the boss's sprite metrics, so a
         // boss whose hurtbox is a small head inside a big body envelope
         // reads correctly.
         for hb in sb::features::boss_spawn_hurtboxes(&b.id, &b.name, b.aabb, b.payload.clone()) {
-            overlay_aabb(&mut img, &proj, hb, Rgba([60, 240, 255, 255]));
+            overlay_aabb(&mut img, proj, hb, Rgba([60, 240, 255, 255]));
         }
     }
     for it in &room.interactables {
-        overlay_aabb(&mut img, &proj, it.aabb, Rgba([70, 230, 120, 255])); // green (NPC/switch)
+        overlay_aabb(&mut img, proj, it.aabb, Rgba([70, 230, 120, 255])); // green (NPC/switch)
     }
     for p in &room.pickups {
-        overlay_aabb(&mut img, &proj, p.aabb, Rgba([90, 210, 230, 255])); // cyan
+        overlay_aabb(&mut img, proj, p.aabb, Rgba([90, 210, 230, 255])); // cyan
     }
     for c in &room.chests {
-        overlay_aabb(&mut img, &proj, c.aabb, Rgba([240, 205, 70, 255])); // gold
+        overlay_aabb(&mut img, proj, c.aabb, Rgba([240, 205, 70, 255])); // gold
     }
     for br in &room.breakables {
-        overlay_aabb(&mut img, &proj, br.aabb, Rgba([150, 190, 240, 255])); // light blue
+        overlay_aabb(&mut img, proj, br.aabb, Rgba([150, 190, 240, 255])); // light blue
     }
     for hz in &room.hazards {
-        overlay_aabb(&mut img, &proj, hz.aabb, Rgba([235, 80, 220, 255])); // magenta
+        overlay_aabb(&mut img, proj, hz.aabb, Rgba([235, 80, 220, 255])); // magenta
     }
     for lz in &room.loading_zones {
-        overlay_aabb(&mut img, &proj, lz.aabb, Rgba([230, 230, 235, 255])); // white (door/exit)
+        overlay_aabb(&mut img, proj, lz.aabb, Rgba([230, 230, 235, 255])); // white (door/exit)
     }
 
     // Spawn point (green cross) on top of everything.
     marker(&mut img, proj.px(world.spawn), 8, Rgba([60, 230, 90, 255]));
+    // Optional focus marker (blue cross) for snapshot captures.
+    if let Some(focus) = focus_marker {
+        marker(&mut img, proj.px(focus), 6, Rgba([80, 170, 255, 255]));
+    }
 
     img
+}
+
+
+fn parse_vec2(text: &str) -> Option<ae::Vec2> {
+    let (x, y) = text.split_once(',')?;
+    Some(ae::Vec2::new(x.parse().ok()?, y.parse().ok()?))
+}
+
+fn parse_image_size(text: &str) -> Option<(u32, u32)> {
+    let (w, h) = text
+        .split_once('x')
+        .or_else(|| text.split_once('X'))?;
+    Some((w.parse().ok()?, h.parse().ok()?))
+}
+
+fn resolve_headless_snapshot(
+    room: &sb::rooms::RoomSpec,
+    focus_world: ae::Vec2,
+    image_size: (u32, u32),
+) -> CameraSnapshot2d {
+    let body = ae::default_player_body_size();
+    resolve_follow_camera_snapshot(
+        CameraSnapshotResolveInput {
+            world: &room.world,
+            camera_zones: &room.camera_zones,
+            focus: CameraFocus2d {
+                center_world: focus_world,
+                size: body,
+                base_size: body,
+                facing: 1.0,
+            },
+            base_view: ae::Vec2::new(800.0, 450.0),
+            viewport_px: ae::Vec2::new(image_size.0 as f32, image_size.1 as f32),
+            aspect_policy: CameraAspectPolicy::FitDesign,
+            framing: CameraFramingPreset::Combat,
+            overview_scale: 1.0,
+            encounter_scale: 1.0,
+            overview_camera: false,
+            snap_camera: true,
+            blink: None,
+            dt: 0.0,
+            mode: CameraSnapshotResolveMode::Instant,
+            extra_clamp_center_world: None,
+            ease_tuning: sb::CameraEaseTuning::default(),
+        },
+        None,
+    )
 }
 
 /// Scan every room's lowered `RoomSpec` for spatial anomalies that
@@ -325,9 +427,7 @@ fn run_anomaly_report(room_set: &sb::rooms::RoomSet) {
 }
 
 fn main() {
-    let mut args = std::env::args().skip(1);
-    let room_id = args.next();
-    let out_path = args.next();
+    let mut args: Vec<String> = std::env::args().skip(1).collect();
 
     let project =
         sb::ldtk_world::LdtkProject::load_default_for_dev().expect("sandbox LDtk should load");
@@ -340,15 +440,18 @@ fn main() {
     // `report` mode: scan every room's RUNTIME projection for spatial
     // anomalies the LDtk validator can't see (it validates LDtk-level
     // data, not the lowered `RoomSpec`). Pure text, no PNGs.
-    if room_id.as_deref() == Some("report") {
+    if args.first().map(String::as_str) == Some("report") {
         run_anomaly_report(&room_set);
         return;
     }
 
     // `all` mode: render every room into a directory so an agent can
     // review the whole map at once.
-    if room_id.as_deref() == Some("all") {
-        let dir = out_path.unwrap_or_else(|| "/tmp/rooms".to_string());
+    if args.first().map(String::as_str) == Some("all") {
+        let dir = args
+            .get(1)
+            .cloned()
+            .unwrap_or_else(|| "/tmp/rooms".to_string());
         std::fs::create_dir_all(&dir).expect("create output dir");
         for room in &room_set.rooms {
             let img = render_room(room);
@@ -362,6 +465,60 @@ fn main() {
         return;
     }
 
+    // `capture` / `snapshot` mode: resolve CameraSnapshot2d for an arbitrary
+    // follow point, then render the room through that snapshot. This is the
+    // no-GPU version of "what would the scene look like if the camera followed
+    // this point?" and is the same camera-policy seam future portal capture
+    // requests can consume.
+    if matches!(args.first().map(String::as_str), Some("capture" | "snapshot")) {
+        args.remove(0);
+        let Some(room_id) = args.first().cloned() else {
+            eprintln!("Usage: render_room_geometry capture <ROOM_ID> <X,Y> [OUT.png] [WIDTHxHEIGHT]");
+            std::process::exit(2);
+        };
+        let Some(focus_text) = args.get(1).cloned() else {
+            eprintln!("Usage: render_room_geometry capture <ROOM_ID> <X,Y> [OUT.png] [WIDTHxHEIGHT]");
+            std::process::exit(2);
+        };
+        let Some(focus) = parse_vec2(&focus_text) else {
+            eprintln!("focus must be X,Y world coordinates, got '{focus_text}'");
+            std::process::exit(2);
+        };
+        let image_size = args
+            .get(3)
+            .and_then(|text| parse_image_size(text))
+            .unwrap_or((1280, 720));
+        let Some(room) = room_set.rooms.iter().find(|r| r.id == room_id) else {
+            eprintln!("room '{room_id}' not found. Known rooms:");
+            for r in &room_set.rooms {
+                eprintln!("  {}", r.id);
+            }
+            std::process::exit(1);
+        };
+        let snapshot = resolve_headless_snapshot(room, focus, image_size);
+        let img = render_room_snapshot(room, &snapshot, image_size);
+        let out = args
+            .get(2)
+            .cloned()
+            .unwrap_or_else(|| format!("/tmp/room_{room_id}_capture.png"));
+        img.save(&out).expect("PNG save should succeed");
+        println!(
+            "captured '{room_id}' focus=({:.1},{:.1}) center=({:.1},{:.1}) visible=({:.1},{:.1}) -> {out} [{}x{} px]",
+            focus.x,
+            focus.y,
+            snapshot.center_world.x,
+            snapshot.center_world.y,
+            snapshot.visible_view.x,
+            snapshot.visible_view.y,
+            img.width(),
+            img.height(),
+        );
+        return;
+    }
+
+    let room_id = args.first().cloned();
+    let out_path = args.get(1).cloned();
+
     let Some(room_id) = room_id else {
         println!("Available rooms ({}):", room_set.rooms.len());
         for r in &room_set.rooms {
@@ -373,6 +530,7 @@ fn main() {
             );
         }
         println!("\nUsage: render_room_geometry <ROOM_ID | all> [OUT.png | OUT_DIR]");
+        println!("       render_room_geometry capture <ROOM_ID> <X,Y> [OUT.png] [WIDTHxHEIGHT]");
         return;
     };
 
@@ -410,6 +568,6 @@ fn main() {
         room.camera_zones.len(),
     );
     println!(
-        "legend: FILLED collision (gray=Solid blue=OneWay red=Hazard gold=PogoOrb) tan=moving-platform | OUTLINES red=enemy orange=boss green=NPC/switch cyan=pickup gold=chest lightblue=breakable magenta=hazard-vol white=door violet=camera-zone | green-line=kinematic-path | green-cross=spawn"
+        "legend: FILLED collision (gray=Solid blue=OneWay red=Hazard gold=PogoOrb) tan=moving-platform | OUTLINES red=enemy orange=boss green=NPC/switch cyan=pickup gold=chest lightblue=breakable magenta=hazard-vol white=door violet=camera-zone | green-line=kinematic-path | green-cross=spawn blue-cross=snapshot-focus"
     );
 }

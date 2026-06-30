@@ -295,6 +295,11 @@ pub struct PortalViewConeConfig {
     /// Extra directed distance before [`Self::half_plane_preview_full_distance`]
     /// over which exact LOS geometry eases toward the half-plane preview.
     pub half_plane_preview_blend_distance: f32,
+    /// Maximum lateral reach of the half-plane preview behind the portal face
+    /// (world px). This bounds the near-plane assist so a viewer close to an
+    /// aperture cannot project a tens-of-thousands-of-pixels source rect that
+    /// then gets clipped into a misleading texture sample.
+    pub half_plane_preview_max_lateral: f32,
     /// Z range over which nearer portals' windows draw ON TOP of farther ones
     /// (added to `z` by an inverse-distance bias). Kept under the rim gap.
     pub z_proximity_span: f32,
@@ -373,6 +378,7 @@ impl Default for PortalViewConeConfig {
             dynamic_dist_far: 900.0,
             half_plane_preview_full_distance: 18.0,
             half_plane_preview_blend_distance: 96.0,
+            half_plane_preview_max_lateral: 360.0,
             z_proximity_span: 0.35,
             blend_rate: 10.0,
             min_depth: 22.0,
@@ -831,6 +837,7 @@ fn portal_view_cone_debug_dump_text(
     let _ = writeln!(out, "  dynamic_dist_far: {:.3}", config.dynamic_dist_far);
     let _ = writeln!(out, "  half_plane_preview_full_distance: {:.3}", config.half_plane_preview_full_distance);
     let _ = writeln!(out, "  half_plane_preview_blend_distance: {:.3}", config.half_plane_preview_blend_distance);
+    let _ = writeln!(out, "  half_plane_preview_max_lateral: {:.3}", config.half_plane_preview_max_lateral);
     let _ = writeln!(out, "  min_depth: {:.3}", config.min_depth);
     let _ = writeln!(out, "  min_spread: {:.3}", config.min_spread);
     let _ = writeln!(out, "  viewer_blend: {:.3}", config.viewer_blend);
@@ -926,6 +933,14 @@ fn portal_view_cone_debug_dump_text(
         let _ = writeln!(out, "  plan.wedge.entry_quad: {}", fmt_quad(plan.wedge.entry_quad));
         let _ = writeln!(out, "  plan.wedge.source: {} -> {}", fmt_vec2(plan.wedge.source.min), fmt_vec2(plan.wedge.source.max));
         let _ = writeln!(out, "  plan.wedge.source_size: {}", fmt_vec2(plan.wedge.source.max - plan.wedge.source.min));
+        let _ = writeln!(out, "  plan.debug.edge_distance_to_aperture: {}", fmt_option_f32(plan.debug.edge_distance_to_aperture));
+        let _ = writeln!(out, "  plan.debug.half_plane_preview_alpha: {:.3}", plan.debug.half_plane_preview_alpha);
+        let _ = writeln!(out, "  plan.debug.finite_depth: {}", fmt_option_f32(plan.debug.finite_depth));
+        let _ = writeln!(out, "  plan.debug.half_plane_depth: {}", fmt_option_f32(plan.debug.half_plane_depth));
+        let _ = writeln!(out, "  plan.debug.finite_lateral_limit: {}", fmt_option_f32(plan.debug.finite_lateral_limit));
+        let _ = writeln!(out, "  plan.debug.half_plane_lateral_limit: {}", fmt_option_f32(plan.debug.half_plane_lateral_limit));
+        let _ = writeln!(out, "  plan.debug.finite_wedge.source_size: {}", fmt_option_vec2(plan.debug.finite_wedge_source_size));
+        let _ = writeln!(out, "  plan.debug.half_plane_wedge.source_size: {}", fmt_option_vec2(plan.debug.half_plane_wedge_source_size));
         let _ = writeln!(out, "  rebuild.tex: {}x{}", rebuild.tex.x, rebuild.tex.y);
         write_capture_texture_debug(&mut out, config, frame.size, partner.normal);
 
@@ -1066,6 +1081,20 @@ fn write_capture_texture_debug(
 
 fn fmt_vec2(v: Vec2) -> String {
     format!("({:.2}, {:.2})", v.x, v.y)
+}
+
+fn fmt_option_vec2(v: Option<Vec2>) -> String {
+    match v {
+        Some(v) => fmt_vec2(v),
+        None => "None".to_string(),
+    }
+}
+
+fn fmt_option_f32(v: Option<f32>) -> String {
+    match v {
+        Some(v) => format!("{v:.3}"),
+        None => "None".to_string(),
+    }
 }
 
 fn fmt_vec3(v: Vec3) -> String {

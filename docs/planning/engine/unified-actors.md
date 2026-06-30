@@ -297,7 +297,21 @@ Enemies rise to the player; delete-heavy. Each step is gated on *it compiles* (i
    boss (these are largely VERIFICATION now — possession systems + the `player_robot`
    archetype already exist; confirm end-to-end + measure the LOC/importer delta). See
    [`architecture.md`](architecture.md) for the component buckets.
-5. **De-player-center the remaining surface** — decisions settled with Jon (2026-06-30):
+5. **De-player-center the remaining surface** — decisions settled with Jon (2026-06-30);
+   **B1 + B2a DONE**:
+   - 🟢 **B2a (projectile world-hit) DONE** — `WorldHitPolicy` is on the projectile spec
+     (firer-agnostic; variants de-player-cased to `Bouncing`/`ExpireOnContact`). *Remaining
+     B2b:* retiring the binary `ProjectileFaction` for DAMAGE routing is a parry/breakable-
+     sensitive relational-damage unification (the `faction` field is the damage-path selector
+     the parry mutates) — a careful follow-up, not a rename.
+   - 🟢 **B1 (relational targeting + grudge) DONE** — one rule (`is_hostile(faction, cand)
+     || grudge == Some(cand)`); `AggressionMode` → {Passive, RetaliatesWhenHit, Hostile};
+     provoke sets a per-actor grudge (attacker Entity) instead of flipping faction. **FEEL-
+     CHECK for Jon:** (a) peaceful NPCs no longer stalk the player before being provoked
+     (they hold facing, then hunt their grudge); (b) the duel observer-sparing is now
+     DISTANCE-based — a player who walks into the fight gets caught (the documented `<<duel>>`
+     behavior). *Follow-up:* strict duel observer-immunity wants per-room `FactionRelations`
+     scoping (clear Enemy→Player only in the arena; global clear would break normal enemies).
    - **`ControlFrame` → entity-local `ActorIntent` (B3).** *Boundary principle (agreed):*
      sim/body systems read the body's entity-local intent; only input-source adapters
      and presentation read the global `ControlFrame`. Per-reader audit + repoint of the

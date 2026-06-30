@@ -8,6 +8,7 @@
 
 use ambition_engine_core as ae;
 use ambition_engine_core::AabbExt;
+use bevy_math::UVec2;
 
 use crate::persistence::settings::video::CameraFramingPreset;
 use crate::persistence::settings::CameraAspectPolicy;
@@ -55,6 +56,35 @@ pub struct CameraSnapshot2d {
     pub active_camera_zones: usize,
     /// Highest-priority active camera-zone id, when any zone applies.
     pub active_camera_zone: Option<String>,
+}
+
+/// Concrete scene-capture request: camera policy produces the snapshot, and
+/// render backends consume this data to fill a target.
+#[derive(Clone, Debug, PartialEq)]
+pub struct SceneCaptureRequest {
+    pub snapshot: CameraSnapshot2d,
+    pub target_size_px: UVec2,
+    pub include_world: bool,
+    pub include_backgrounds_or_parallax: bool,
+    pub include_actors: bool,
+    pub include_ui: bool,
+    pub capture_depth: u32,
+    pub debug_name: Option<String>,
+}
+
+impl SceneCaptureRequest {
+    pub fn new(snapshot: CameraSnapshot2d, target_size_px: UVec2) -> Self {
+        Self {
+            snapshot,
+            target_size_px,
+            include_world: true,
+            include_backgrounds_or_parallax: true,
+            include_actors: true,
+            include_ui: false,
+            capture_depth: 0,
+            debug_name: None,
+        }
+    }
 }
 
 impl Default for CameraSnapshot2d {

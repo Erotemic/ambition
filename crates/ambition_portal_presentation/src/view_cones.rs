@@ -290,6 +290,34 @@ impl Default for PortalViewConeSourceClipPolicy {
     }
 }
 
+/// Camera model used by portal view-window capture rigs.
+#[derive(Clone, Copy, Debug, Reflect, PartialEq, Eq)]
+pub enum PortalCaptureCameraMode {
+    /// Frame the exact cone source rect computed from viewer visibility.
+    ConeRect,
+    /// Frame a destination-side camera snapshot by mapping the host view
+    /// through the portal pair. The cone mesh still controls admission and
+    /// shape; the capture texture is sampled from the mapped camera frame.
+    MappedCameraSnapshot,
+}
+
+impl PortalCaptureCameraMode {
+    pub const ALL: [Self; 2] = [Self::ConeRect, Self::MappedCameraSnapshot];
+
+    pub fn label(self) -> &'static str {
+        match self {
+            Self::ConeRect => "ConeRect",
+            Self::MappedCameraSnapshot => "MappedCameraSnapshot",
+        }
+    }
+}
+
+impl Default for PortalCaptureCameraMode {
+    fn default() -> Self {
+        Self::ConeRect
+    }
+}
+
 /// Tuning for the view windows. A host overwrites the resource to retune; set
 /// [`PortalPresentationPlugin::view_cones`](crate::PortalPresentationPlugin)
 /// to `false` to drop the feature (and its capture passes) entirely.
@@ -314,6 +342,10 @@ pub struct PortalViewConeConfig {
     /// capture camera source rect, so the visible window never samples one rect
     /// while the camera captures another.
     pub source_clip_policy: PortalViewConeSourceClipPolicy,
+    /// Capture camera policy. `ConeRect` preserves the current tight source
+    /// rectangle; `MappedCameraSnapshot` lets portal preview request a
+    /// destination-side capture frame derived from the host camera snapshot.
+    pub capture_camera_mode: PortalCaptureCameraMode,
     /// Max dynamic window depth behind the surface (world px), reached when the
     /// viewer is within `dynamic_dist_close` of the aperture. The world bounds
     /// still clip it.
@@ -409,6 +441,7 @@ impl Default for PortalViewConeConfig {
             visibility_mode: PortalViewConeVisibilityMode::FaceLosWithContinuity,
             aperture_los_quality: PortalApertureLosQuality::Low,
             source_clip_policy: PortalViewConeSourceClipPolicy::ClampToFrame,
+            capture_camera_mode: PortalCaptureCameraMode::ConeRect,
             // Large but not so deep it punches through thin "door" walls into
             // the far room (which is what drives the heaviest recursion); also
             // keeps the near-face↔deep-content parallax modest.
@@ -497,6 +530,25 @@ fn portal_window_clip_rect(
     } else {
         (Vec2::ZERO, frame.size)
     }
+}
+
+fn portal_capture_camera_frame(
+    config: &PortalViewConeConfig,
+    host_view: Option<&PortalCameraContinuityHostView>,
+    enter: &PortalFrame,
+    exit: &PortalFrame,
+) -> Option<geometry::CaptureCameraFrame> {
+    if config.capture_camera_mode != PortalCaptureCameraMode::MappedCameraSnapshot {
+        return None;
+    }
+    let host_view = host_view.filter(|view| {
+        view.initialized && view.visible_view.x >= 1.0 && view.visible_view.y >= 1.0
+    })?;
+    let center = ambition_portal::pieces::map_point(host_view.current_center_world, enter, exit);
+    Some(geometry::CaptureCameraFrame {
+        center,
+        size: host_view.visible_view,
+    })
 }
 
 mod geometry;
@@ -605,7 +657,19 @@ pub fn sync_portal_view_cones(
         }
         let cone = blend_cones(&plan.min, &plan.wedge, smooth01(rig.blend), &enter, &exit);
         let z = proximity_z(&config, viewer, portal.pos);
-        let render = cone_render(&cone, &enter, &exit, &frame, &config, clip_min, clip_max, z);
+        let capture_frame =
+            portal_capture_camera_frame(&config, host_view.as_deref(), &enter, &exit);
+        let render = cone_render(
+            &cone,
+            &enter,
+            &exit,
+            &frame,
+            &config,
+            clip_min,
+            clip_max,
+            z,
+            capture_frame,
+        );
         match render {
             Some(r) => {
                 if let Some(mesh) = meshes.get_mut(&rig.mesh) {
@@ -668,7 +732,19 @@ pub fn sync_portal_view_cones(
         };
         let z = proximity_z(&config, viewer, portal.pos);
         let render = cone.as_ref().and_then(|cone| {
-            cone_render(cone, &enter, &exit, &frame, &config, clip_min, clip_max, z)
+            let capture_frame =
+                portal_capture_camera_frame(&config, host_view.as_deref(), &enter, &exit);
+            cone_render(
+                cone,
+                &enter,
+                &exit,
+                &frame,
+                &config,
+                clip_min,
+                clip_max,
+                z,
+                capture_frame,
+            )
         });
         let mesh = meshes.add(match &render {
             Some(r) => make_mesh(r),
@@ -890,6 +966,11 @@ fn portal_view_cone_debug_dump_text(
         config.aperture_los_quality
     );
     let _ = writeln!(out, "  source_clip_policy: {:?}", config.source_clip_policy);
+    let _ = writeln!(
+        out,
+        "  capture_camera_mode: {:?}",
+        config.capture_camera_mode
+    );
     let _ = writeln!(
         out,
         "  dynamic_depth_close: {:.3}",
@@ -1160,6 +1241,7 @@ fn portal_view_cone_debug_dump_text(
                 .map(|(rig, _, _, _)| rig.blend)
                 .unwrap_or(plan.target);
             let cone = blend_cones(&plan.min, &plan.wedge, smooth01(blend), &enter, &exit);
+            let capture_frame = portal_capture_camera_frame(config, host_view, &enter, &exit);
             match cone_render(
                 &cone,
                 &enter,
@@ -1169,6 +1251,7 @@ fn portal_view_cone_debug_dump_text(
                 clip_min,
                 clip_max,
                 proximity_z(config, viewer, portal.pos),
+                capture_frame,
             ) {
                 Some(render) => {
                     let _ = writeln!(out, "  render.present: true");
@@ -1421,6 +1504,7 @@ pub fn selected_portal_view_cone_debug_rows(
             continue;
         }
         let cone = blend_cones(&plan.min, &plan.wedge, smooth01(plan.target), &enter, &exit);
+        let capture_frame = portal_capture_camera_frame(config, host_view, &enter, &exit);
         match cone_render(
             &cone,
             &enter,
@@ -1430,6 +1514,7 @@ pub fn selected_portal_view_cone_debug_rows(
             clip_min,
             clip_max,
             proximity_z(config, viewer, portal.pos),
+            capture_frame,
         ) {
             Some(render) => {
                 let clip = source_clip_debug(

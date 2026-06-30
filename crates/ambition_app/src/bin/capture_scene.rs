@@ -28,11 +28,13 @@ use ambition_gameplay_core::game_mode::GameMode;
 use ambition_gameplay_core::session::camera_layers::{FrontHudCamera, MainCamera};
 use ambition_render::rendering::{camera_follow, sync_parallax_layers, CameraViewState};
 use bevy::app::AppExit;
+use bevy::app::{PluginGroup, ScheduleRunnerPlugin};
 use bevy::camera::{ImageRenderTarget, RenderTarget};
 use bevy::prelude::*;
-use bevy::render::render_resource::TextureFormat;
-use bevy::render::view::screenshot::{save_to_disk, Captured, Screenshot};
+use bevy::render::gpu_readback::{Readback, ReadbackComplete};
+use bevy::render::render_resource::{TextureFormat, TextureUsages};
 use bevy::window::{ExitCondition, Window, WindowPlugin, WindowResolution};
+use std::time::Duration;
 
 #[derive(Resource, Clone, Debug)]
 struct SceneCaptureConfig {
@@ -53,8 +55,10 @@ struct SceneCaptureTarget {
 #[derive(Resource, Debug, Default)]
 struct SceneCaptureRuntime {
     frames: u32,
+    wait_frames: u32,
     requested: bool,
     completed: bool,
+    failed: bool,
 }
 
 fn main() {
@@ -83,28 +87,37 @@ fn main() {
         asset_root,
     );
 
+    let show_window = config.show_window;
     let mut app = App::new();
-    app.add_plugins(
-        DefaultPlugins
-            .set(bevy::asset::AssetPlugin {
-                file_path: asset_root,
-                ..default()
-            })
-            .set(WindowPlugin {
-                // The default WindowPlugin exits as soon as there are no open
-                // windows. This tool primarily renders to an offscreen Image, so
-                // keep the app alive until `finish_after_capture` or
-                // `fail_after_timeout` sends AppExit explicitly. `--show-window`
-                // is still available when a visible debugging window is useful.
-                primary_window: config.show_window.then(|| Window {
-                    title: "Ambition capture_scene".into(),
-                    resolution: WindowResolution::new(config.size.x, config.size.y),
-                    ..default()
-                }),
-                exit_condition: ExitCondition::DontExit,
+    let plugins = DefaultPlugins.set(bevy::asset::AssetPlugin {
+        file_path: asset_root,
+        ..default()
+    });
+    if show_window {
+        app.add_plugins(plugins.set(WindowPlugin {
+            primary_window: Some(Window {
+                title: "Ambition capture_scene".into(),
+                resolution: WindowResolution::new(config.size.x, config.size.y),
                 ..default()
             }),
-    );
+            exit_condition: ExitCondition::DontExit,
+            ..default()
+        }));
+    } else {
+        // Default capture is a faithful offscreen render to an Image target.
+        // Camera policy produces snapshots; the render backend consumes the
+        // snapshot without a primary window or Winit event loop.
+        app.add_plugins(
+            plugins
+                .set(WindowPlugin {
+                    primary_window: None,
+                    exit_condition: ExitCondition::DontExit,
+                    ..default()
+                })
+                .disable::<bevy::winit::WinitPlugin>(),
+        );
+        app.add_plugins(ScheduleRunnerPlugin::run_loop(Duration::from_millis(0)));
+    }
     app.init_state::<GameMode>();
     app.insert_resource(asset_config);
     app.insert_resource(StartRoomOverride(config.room_id.clone()));
@@ -224,12 +237,14 @@ fn setup_capture_target(
         }
     }
 
-    let image = images.add(Image::new_target_texture(
+    let mut capture_image = Image::new_target_texture(
         config.size.x.max(1),
         config.size.y.max(1),
         TextureFormat::Rgba8UnormSrgb,
         None,
-    ));
+    );
+    capture_image.texture_descriptor.usage |= TextureUsages::COPY_SRC;
+    let image = images.add(capture_image);
     let target = RenderTarget::Image(ImageRenderTarget::from(image.clone()));
 
     for (entity, mut camera) in &mut main_cameras {
@@ -311,6 +326,9 @@ fn request_capture(
     mut runtime: ResMut<SceneCaptureRuntime>,
 ) {
     if runtime.requested || runtime.completed {
+        if runtime.requested {
+            runtime.wait_frames = runtime.wait_frames.saturating_add(1);
+        }
         return;
     }
     runtime.frames += 1;
@@ -320,41 +338,89 @@ fn request_capture(
     let Some(target) = target else {
         return;
     };
-    let path = config.output.to_string_lossy().into_owned();
     commands
-        .spawn(Screenshot::image(target.image.clone()))
-        .observe(save_to_disk(path.clone()));
+        .spawn(Readback::texture(target.image.clone()))
+        .observe(save_readback_to_disk);
     runtime.requested = true;
-    eprintln!("capture_scene: screenshot requested -> {path}");
+    eprintln!(
+        "capture_scene: texture readback requested -> {}",
+        config.output.display()
+    );
 }
 
 fn finish_after_capture(
     mut commands: Commands,
     config: Res<SceneCaptureConfig>,
-    captured: Query<Entity, With<Captured>>,
-    mut runtime: ResMut<SceneCaptureRuntime>,
+    runtime: Res<SceneCaptureRuntime>,
 ) {
-    if runtime.completed || !runtime.requested {
+    if !runtime.completed || runtime.failed {
         return;
     }
-    if captured.iter().next().is_some() {
-        runtime.completed = true;
-        println!(
-            "capture_scene: wrote {} ({}x{} px)",
-            config.output.display(),
-            config.size.x,
-            config.size.y,
+    println!(
+        "capture_scene: wrote {} ({}x{} px)",
+        config.output.display(),
+        config.size.x,
+        config.size.y,
+    );
+    commands.write_message(AppExit::Success);
+}
+
+fn save_readback_to_disk(
+    event: On<ReadbackComplete>,
+    mut commands: Commands,
+    config: Res<SceneCaptureConfig>,
+    mut runtime: ResMut<SceneCaptureRuntime>,
+) {
+    commands.entity(event.entity).despawn();
+    let width = config.size.x.max(1);
+    let height = config.size.y.max(1);
+    let row_bytes = width as usize * 4;
+    let padded_row_bytes = row_bytes.div_ceil(256) * 256;
+    let expected = padded_row_bytes * height as usize;
+    if event.data.len() < expected {
+        eprintln!(
+            "capture_scene: readback returned {} bytes, expected at least {expected}",
+            event.data.len()
         );
-        commands.write_message(AppExit::Success);
+        runtime.failed = true;
+        runtime.completed = true;
+        commands.write_message(AppExit::from_code(1));
+        return;
     }
+
+    let mut pixels = vec![0u8; row_bytes * height as usize];
+    for y in 0..height as usize {
+        let src = y * padded_row_bytes;
+        let dst = y * row_bytes;
+        pixels[dst..dst + row_bytes].copy_from_slice(&event.data[src..src + row_bytes]);
+    }
+
+    let Some(image) = image::RgbaImage::from_raw(width, height, pixels) else {
+        eprintln!("capture_scene: failed to build PNG buffer");
+        runtime.failed = true;
+        runtime.completed = true;
+        commands.write_message(AppExit::from_code(1));
+        return;
+    };
+    if let Err(error) = image.save(&config.output) {
+        eprintln!(
+            "capture_scene: failed to save '{}': {error}",
+            config.output.display()
+        );
+        runtime.failed = true;
+        runtime.completed = true;
+        commands.write_message(AppExit::from_code(1));
+        return;
+    }
+    runtime.completed = true;
 }
 
 fn fail_after_timeout(mut commands: Commands, runtime: Res<SceneCaptureRuntime>) {
     if runtime.completed {
         return;
     }
-    if runtime.frames > 600 {
-        eprintln!("capture_scene: timed out waiting for screenshot capture");
+    if runtime.frames > 600 || runtime.wait_frames > 600 {
+        eprintln!("capture_scene: timed out waiting for texture readback");
         commands.write_message(AppExit::from_code(1));
     }
 }

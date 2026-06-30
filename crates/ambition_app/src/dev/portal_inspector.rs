@@ -13,10 +13,10 @@ mod enabled {
     use ambition_gameplay_core::portal::{
         selected_portal_view_cone_debug_rows, PlacedPortal, PortalApertureLosQuality,
         PortalCameraContinuityConfig, PortalCameraContinuityHostView,
-        PortalCameraContinuitySelection, PortalCameraTransitMode, PortalEffectSelection,
-        PortalViewConeConfig, PortalViewConeDebugDumpRequest, PortalViewConeMode,
-        PortalViewConeSourceClipPolicy, PortalViewConeVisibilityMode, PortalViewer,
-        PortalVisualEffect, PortalWorldFrame,
+        PortalCameraContinuitySelection, PortalCameraTransitMode, PortalCaptureCameraMode,
+        PortalEffectSelection, PortalViewConeConfig, PortalViewConeDebugDumpRequest,
+        PortalViewConeMode, PortalViewConeSourceClipPolicy, PortalViewConeVisibilityMode,
+        PortalViewer, PortalVisualEffect, PortalWorldFrame,
     };
     use ambition_gameplay_core::portal::{PortalConvention, PortalTuning};
     use bevy::prelude::*;
@@ -306,6 +306,12 @@ mod enabled {
                                 "source_clip_policy",
                                 &mut config.source_clip_policy,
                                 "Policy for reconciling plan.wedge.source with the final source rect used by mesh UVs and the capture camera.",
+                            );
+                            capture_camera_mode_row(
+                                ui,
+                                "capture_camera_mode",
+                                &mut config.capture_camera_mode,
+                                "Capture camera policy. ConeRect frames the tight cone source rect; MappedCameraSnapshot samples from the destination-side host camera frame mapped through the portal.",
                             );
                         });
                 });
@@ -932,6 +938,35 @@ mod enabled {
                             }
                             PortalViewConeSourceClipPolicy::FitToFrame => {
                                 "Explicit fitting label for future aspect-preserving behavior; currently uses the coherent clamp-to-frame source path."
+                            }
+                        });
+                }
+            })
+            .response
+            .on_hover_text(help);
+        ui.label("");
+        ui.end_row();
+    }
+
+    #[cfg(feature = "portal_render")]
+    fn capture_camera_mode_row(
+        ui: &mut egui::Ui,
+        label: &'static str,
+        value: &mut PortalCaptureCameraMode,
+        help: &'static str,
+    ) {
+        field_label(ui, label, help);
+        egui::ComboBox::from_id_salt("portal_capture_camera_mode_combo")
+            .selected_text((*value).label())
+            .show_ui(ui, |ui| {
+                for mode in PortalCaptureCameraMode::ALL {
+                    ui.selectable_value(value, mode, mode.label())
+                        .on_hover_text(match mode {
+                            PortalCaptureCameraMode::ConeRect => {
+                                "Frame the exact cone source rect computed from viewer visibility."
+                            }
+                            PortalCaptureCameraMode::MappedCameraSnapshot => {
+                                "Frame the destination-side camera snapshot by mapping the host view through the portal pair."
                             }
                         });
                 }

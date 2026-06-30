@@ -109,7 +109,8 @@ pub use world::{ldtk_world, rooms};
 // still need to surface at `crate::WorldTime` / `ambition_gameplay_core::WorldTime`.
 pub use camera_snapshot::{
     resolve_follow_camera_snapshot, CameraBlinkInput, CameraFocus2d, CameraSnapshot2d,
-    CameraSnapshotResolveInput, CameraSnapshotResolveMode, MAX_CAMERA_SMOOTH_DT,
+    CameraSnapshotResolveInput, CameraSnapshotResolveMode, SceneCaptureRequest,
+    MAX_CAMERA_SMOOTH_DT,
 };
 pub use time::camera_ease::{
     CameraEaseState, CameraEaseTuning, DEFAULT_CAMERA_ZOOM_IN_RATE, DEFAULT_CAMERA_ZOOM_OUT_RATE,

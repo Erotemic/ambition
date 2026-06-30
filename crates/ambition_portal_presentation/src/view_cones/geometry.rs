@@ -56,6 +56,13 @@ pub(crate) struct ConeRender {
     pub(crate) source_size: Vec2,
 }
 
+/// Destination-side camera frame for snapshot-driven capture.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub(crate) struct CaptureCameraFrame {
+    pub(crate) center: Vec2,
+    pub(crate) size: Vec2,
+}
+
 /// Sutherland–Hodgman clip of a convex polygon to an axis-aligned rect. The
 /// wedge legitimately reaches the half-plane limit; the WORLD bounds are its
 /// only honest clip (no arbitrary lateral clamp), and clipping before building
@@ -717,6 +724,7 @@ pub(crate) fn cone_render(
     clip_min: Vec2,
     clip_max: Vec2,
     z: f32,
+    capture_frame: Option<CaptureCameraFrame>,
 ) -> Option<ConeRender> {
     let poly = match config.source_clip_policy {
         PortalViewConeSourceClipPolicy::AllowClip => cone.entry_quad.to_vec(),
@@ -737,6 +745,11 @@ pub(crate) fn cone_render(
     for m in &mapped[1..] {
         smin = smin.min(*m);
         smax = smax.max(*m);
+    }
+    if let Some(capture_frame) = capture_frame {
+        let half = capture_frame.size.max(Vec2::splat(1.0)) * 0.5;
+        smin = capture_frame.center - half;
+        smax = capture_frame.center + half;
     }
     let source_size = smax - smin;
     if source_size.x < 1.0 || source_size.y < 1.0 {

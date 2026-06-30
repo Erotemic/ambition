@@ -300,10 +300,24 @@ Enemies rise to the player; delete-heavy. Each step is gated on *it compiles* (i
 5. **De-player-center the remaining surface** — decisions settled with Jon (2026-06-30);
    **B1 + B2a DONE**:
    - 🟢 **B2a (projectile world-hit) DONE** — `WorldHitPolicy` is on the projectile spec
-     (firer-agnostic; variants de-player-cased to `Bouncing`/`ExpireOnContact`). *Remaining
-     B2b:* retiring the binary `ProjectileFaction` for DAMAGE routing is a parry/breakable-
-     sensitive relational-damage unification (the `faction` field is the damage-path selector
-     the parry mutates) — a careful follow-up, not a rename.
+     (firer-agnostic; variants de-player-cased to `Bouncing`/`ExpireOnContact`).
+   - 🟢 **B2b-core (projectile damage) DONE** — damage routes off the FIRER's real
+     `ActorFaction` (looked up from the projectile's `ProjectileOwner`), not the stored
+     `game.faction`. A Player-firer's shot is the player's universal attack; any other
+     firer's shot is hostile. The parry RE-OWNS the bolt to the player instead of flipping a
+     faction label. *Remaining B2b-cleanup (mechanical):* `game.faction` is now read only by
+     test assertions + the accessor; removing the field + the `ProjectileFaction` enum + the
+     spawn-faction plumbing (the `Effect::Projectiles.faction` arg authored across boss
+     specials + abilities) is a ~76-ref sweep across crates — dead-code removal, deferred.
+   - **DUEL REFRAME (Jon's call — supersedes the per-room-relations-scoping follow-up):** the
+     duelists shouldn't be Enemy/Boss (Player-hostile by default). They should be normal NPCs
+     **aggressive to each other** — each holds a GRUDGE against the other duelist entity (the
+     B1 grudge model) on two DIFFERENT non-Player-hostile factions (so `can_damage` lets them
+     hurt each other). The observer (Player) is never a foe by construction; when one dies the
+     survivor's grudge target is gone → it stands down to a normal NPC, no relations to
+     restore. Needs a two-pass spawn (spawn both, then cross-set grudges) + dropping
+     `apply_duel_relations`. Avoids ANY global `FactionRelations` mutation (the lingering
+     problem). Not yet implemented.
    - 🟢 **B1 (relational targeting + grudge) DONE** — one rule (`is_hostile(faction, cand)
      || grudge == Some(cand)`); `AggressionMode` → {Passive, RetaliatesWhenHit, Hostile};
      provoke sets a per-actor grudge (attacker Entity) instead of flipping faction. **FEEL-

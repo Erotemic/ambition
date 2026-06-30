@@ -16,9 +16,9 @@ use super::{resolve_world_collision, WorldHitOutcome};
 use crate::actor::BodyKinematics;
 use crate::audio::SfxMessage;
 use crate::features::{
-    can_damage, ActorDisposition, ActorFaction, BodyCombat, BossClusterRef, BossConfig,
-    BreakableFeature, CenteredAabb, FeatureId, FeatureSimEntity, HitEvent, HitKnockback, HitMode,
-    HitSource, HitTarget,
+    can_damage, damage_lands, ActorAggression, ActorDisposition, ActorFaction, BodyCombat,
+    BossClusterRef, BossConfig, BreakableFeature, CenteredAabb, FeatureId, FeatureSimEntity,
+    HitEvent, HitKnockback, HitMode, HitSource, HitTarget,
 };
 use crate::projectile::ProjectileGameplay;
 use crate::trace::GameplayTraceBuffer;
@@ -483,16 +483,18 @@ pub fn step_projectiles(
     friendly_fire: Option<Res<crate::features::FriendlyFire>>,
     // Bundled into ONE tuple slot to stay under Bevy's 16-param ceiling:
     // - `actor_victims` — non-boss actors a hostile shot can damage (actor-vs-actor).
-    // - `owner_factions` — the firer's REAL faction, looked up from the projectile's
-    //   owner entity (player / enemy / boss / player-robot). This RETIRES the binary
-    //   `ProjectileGameplay.faction`: damage routes off the owner's faction, not a
-    //   side label baked onto the shot. Read-only, so it may overlap `actor_victims`.
-    (actor_victims, owner_factions): (
+    // - `owner_combat` — the firer's REAL faction + optional grudge, looked up from
+    //   the projectile's owner entity (player / enemy / boss / player-robot). The
+    //   faction RETIRES the binary `ProjectileGameplay.faction` (damage routes off the
+    //   owner, not a side label); the grudge is the per-entity DAMAGE override that
+    //   lets a shot hit a same-faction body its firer feuds with (an `Npc` duelist's
+    //   bolt). Read-only, so it may overlap `actor_victims`.
+    (actor_victims, owner_combat): (
         Query<
             (Entity, &CenteredAabb, &ActorFaction),
             (With<FeatureSimEntity>, Without<BossConfig>),
         >,
-        Query<&ActorFaction>,
+        Query<(&ActorFaction, Option<&ActorAggression>)>,
     ),
 ) {
     let dt = world_time.sim_dt();
@@ -529,8 +531,13 @@ pub fn step_projectiles(
         // friend or foe. A Player-faction firer's shot is the player's universal
         // attack (hits breakables/actors/bosses); any other firer's shot is hostile
         // (damages the player + relational foes).
-        let firer_faction: Option<ActorFaction> =
-            owner_entity.and_then(|e| owner_factions.get(e).ok().copied());
+        let owner_combat_data = owner_entity.and_then(|e| owner_combat.get(e).ok());
+        let firer_faction: Option<ActorFaction> = owner_combat_data.map(|(f, _)| *f);
+        // The firer's personal grudge — the per-entity damage override (a duelist's
+        // shot lands on the rival it feuds with even at the same faction).
+        let firer_grudge: Option<Entity> = owner_combat_data
+            .and_then(|(_, agg)| agg)
+            .and_then(|a| a.grudge);
         let indiscriminate = firer_faction.is_none();
 
         // Tick + lifetime. A dead lasersword detonates; everything else logs an
@@ -604,9 +611,8 @@ pub fn step_projectiles(
             // only a same-faction firer (co-op) passes them by, unless friendly
             // fire is on. An ownerless shot always can (indiscriminate).
             let can_hit_player = indiscriminate
-                || firer_faction.is_some_and(|f| {
-                    can_damage(f, ActorFaction::Player, friendly_fire)
-                });
+                || firer_faction
+                    .is_some_and(|f| can_damage(f, ActorFaction::Player, friendly_fire));
             for (player_entity, player_kin, offense, dodge, shield, combat) in &player_body_q {
                 if !can_hit_player {
                     break;
@@ -687,11 +693,20 @@ pub fn step_projectiles(
                 if Some(victim_entity) == owner_entity {
                     continue;
                 }
-                // An owned shot damages a faction-foe (or any different faction);
-                // an indiscriminate (ownerless) shot damages every actor it overlaps.
+                // An owned shot damages a faction-foe (any different faction) OR a
+                // same-faction body its firer holds a grudge against (an `Npc`
+                // duelist's bolt); an indiscriminate (ownerless) shot damages every
+                // actor it overlaps.
                 let can_hit = indiscriminate
-                    || firer_faction
-                        .is_some_and(|f| can_damage(f, *victim_faction, friendly_fire));
+                    || firer_faction.is_some_and(|f| {
+                        damage_lands(
+                            f,
+                            *victim_faction,
+                            friendly_fire,
+                            firer_grudge,
+                            victim_entity,
+                        )
+                    });
                 if !can_hit {
                     continue;
                 }

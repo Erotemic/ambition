@@ -78,10 +78,10 @@ pub use aggression::{
     apply_actor_stimuli, tick_pending_challenges, PendingChallenge, CHALLENGE_GRACE_S,
 };
 pub use anim_helpers::{
-    ecs_actor_render_size, ecs_boss_anim_state, ecs_boss_anim_state_and_entity,
-    ecs_boss_animation_frame_sample, ecs_boss_name, ecs_breakable_state, ecs_chest_opened,
-    ecs_actor_anim_state, ecs_enemy_name, ecs_enemy_sprite_override, ecs_npc_name, ActorAnimFrame,
-    ActorSpriteData,
+    ecs_actor_anim_state, ecs_actor_render_size, ecs_boss_anim_state,
+    ecs_boss_anim_state_and_entity, ecs_boss_animation_frame_sample, ecs_boss_name,
+    ecs_breakable_state, ecs_chest_opened, ecs_enemy_name, ecs_enemy_sprite_override, ecs_npc_name,
+    ActorAnimFrame, ActorSpriteData,
 };
 pub use banner::{apply_gameplay_banner_requests, tick_gameplay_banner};
 pub use boss_clusters::{
@@ -138,7 +138,10 @@ pub use target_volumes::{
     derive_pogo_target_volumes, refresh_actor_damageable_volumes, refresh_boss_damageable_volumes,
     refresh_breakable_damageable_volumes,
 };
-pub use targeting::{can_damage, select_actor_targets, FactionRelations, FriendlyFire};
+pub use targeting::{
+    can_damage, damage_lands, dissolve_settled_grudges, select_actor_targets, FactionRelations,
+    FriendlyFire,
+};
 pub use view_index::{rebuild_feature_view_index, FeatureViewIndex};
 
 // `FeatureSimEntity` is a generic entity-marker queried by the reusable

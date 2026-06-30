@@ -1,11 +1,14 @@
 //! Spectator-duel staging — two brain fighters dueling while the player observes.
 //!
 //! The reusable mechanism behind the `<<duel>>` dialog command and the headless
-//! duel test: it spawns the PCA and the robot on DIFFERENT factions (so the
-//! physical damage rule lets them hurt each other — same-faction would be
-//! friendly-fire-safe) and configures targeting so the two fighters aim at each
-//! other and NEITHER aims at the player. Damage stays physical, so a stray can
-//! still catch the observer who walks into the crossfire.
+//! duel test. The two fighters are **normal `Npc`s** — not a hostile faction —
+//! that hold a mutual **grudge** against each other: relational targeting hunts a
+//! grudge entity, and the per-entity `damage_lands` override lets a same-faction hit
+//! land, so the two duel WITHOUT either being tagged Enemy/Boss. Because they aren't
+//! hostile to the Player faction (and grudge only each other), they never aim at the
+//! observing player — yet damage stays physical, so a stray still catches a player
+//! who wades into the crossfire (Player is a different faction). Once a fighter's
+//! grudge foe dies it goes target-less and stands down like any other NPC.
 //!
 //! This is the "second instance" duel: it spawns its own fighters with their own
 //! ids and does not touch the dialog-challenged PCA. Both share the smash brain,
@@ -14,7 +17,6 @@
 use ambition_engine_core as ae;
 
 use crate::combat::components::ActorFaction;
-use crate::combat::targeting::FactionRelations;
 use crate::features::{SpawnActorKind, SpawnActorRequest};
 
 /// Feature id of the duel's PCA fighter.
@@ -23,8 +25,10 @@ pub const DUEL_PCA_ID: &str = "duel_pca";
 pub const DUEL_ROBOT_ID: &str = "duel_robot";
 
 /// The two fighter spawn requests for a PCA-vs-robot duel centered at `center`.
-/// PCA spawns to the left as `Enemy`, the robot to the right as `Boss` — DIFFERENT
-/// factions, the prerequisite for them to damage each other under the physical rule.
+/// Both spawn as plain `Npc`s holding a mutual grudge (each names the other's id in
+/// `grudge_against`); the spawn path cross-wires the grudges once both entities
+/// exist. The grudge — not a hostile faction — is what makes them fight: it drives
+/// relational targeting AND authorizes same-faction damage (`damage_lands`).
 pub fn duel_spawn_requests(center: ae::Vec2) -> [SpawnActorRequest; 2] {
     [
         SpawnActorRequest {
@@ -36,7 +40,8 @@ pub fn duel_spawn_requests(center: ae::Vec2) -> [SpawnActorRequest; 2] {
             name: "Perfect Cellular Automaton".to_string(),
             pos: center + ae::Vec2::new(-75.0, 0.0),
             half_size: ae::Vec2::new(14.0, 23.0),
-            faction: ActorFaction::Enemy,
+            faction: ActorFaction::Npc,
+            grudge_against: Some(DUEL_ROBOT_ID.to_string()),
             kind: SpawnActorKind::Enemy {
                 brain: ambition_characters::actor::EnemyBrain::Custom(
                     "cellular_automaton_fighter".to_string(),
@@ -52,28 +57,13 @@ pub fn duel_spawn_requests(center: ae::Vec2) -> [SpawnActorRequest; 2] {
             name: "Player".to_string(),
             pos: center + ae::Vec2::new(75.0, 0.0),
             half_size: ae::Vec2::new(14.0, 23.0),
-            faction: ActorFaction::Boss,
+            faction: ActorFaction::Npc,
+            grudge_against: Some(DUEL_PCA_ID.to_string()),
             kind: SpawnActorKind::Enemy {
                 brain: ambition_characters::actor::EnemyBrain::Custom("player_robot".to_string()),
             },
         },
     ]
-}
-
-/// Configure faction TARGETING for a duel: the two fighters (Enemy + Boss) are
-/// hostile to EACH OTHER so they aim at each other. The player's relations are left
-/// at the combat baseline ON PURPOSE — the fighters target each other by proximity
-/// (stage them near each other, away from the observer), but a player who wades into
-/// the duel becomes the nearest target and gets caught, which is the intended "you
-/// can get in the way" behavior. Damage is unaffected (physical) — a stray hits any
-/// different-faction bystander regardless.
-///
-/// NOTE: this mutates the GLOBAL relations resource (adds Enemy↔Boss hostility),
-/// which lingers after the duel. That's benign in practice (a normal room rarely has
-/// both an Enemy and a Boss), but a dedicated arena room should set+restore its
-/// relations per-room — the clean scoping is a follow-up.
-pub fn apply_duel_relations(relations: &mut FactionRelations) {
-    relations.set_mutual_hostile(ActorFaction::Enemy, ActorFaction::Boss, true);
 }
 
 /// Level id of the spectator duel arena room (authored in `sandbox.ldtk`). When a
@@ -85,23 +75,19 @@ pub const DUEL_ARENA_ROOM_ID: &str = "duel_arena";
 /// fight sits on-screen the moment the player enters.
 const DUEL_ARENA_OFFSET_X: f32 = 360.0;
 
-/// If `room` is the spectator duel arena, mark the two fighter factions mutually
-/// hostile in `relations` and return the pair of fighter spawn requests (staged
-/// ahead of the room's arrival point, in view). Returns `None` for any other room
-/// and leaves `relations` untouched.
+/// If `room` is the spectator duel arena, return the pair of fighter spawn requests
+/// (staged ahead of the room's arrival point, in view); `None` for any other room.
 ///
-/// This stays a pure data helper — it does NOT touch the ECS. The per-room-load
-/// spawn path ([`crate::features::spawn_room_feature_entities`]) calls it, applies
-/// the returned requests through the normal feature-spawn path, and reinserts
-/// `relations` so one room's overrides never linger into the next.
-pub fn stage_room_duel(
-    room: &crate::rooms::RoomSpec,
-    relations: &mut FactionRelations,
-) -> Option<[SpawnActorRequest; 2]> {
+/// This stays a pure data helper — it does NOT touch the ECS or any global resource.
+/// The duel needs no faction-relations mutation: the fighters are plain `Npc`s whose
+/// mutual grudge (carried on each request, cross-wired at spawn) drives the fight.
+/// The per-room-load spawn path ([`crate::features::spawn_room_feature_entities`])
+/// calls this, applies the returned requests through the normal feature-spawn path,
+/// and cross-wires their grudges once both entities exist.
+pub fn stage_room_duel(room: &crate::rooms::RoomSpec) -> Option<[SpawnActorRequest; 2]> {
     if room.id != DUEL_ARENA_ROOM_ID {
         return None;
     }
-    apply_duel_relations(relations);
     let center = room.world.spawn + ae::Vec2::new(DUEL_ARENA_OFFSET_X, 0.0);
     Some(duel_spawn_requests(center))
 }

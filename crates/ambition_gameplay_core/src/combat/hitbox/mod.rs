@@ -31,9 +31,10 @@ use bevy::prelude::{Commands, Entity, MessageWriter, Query, Res, With};
 use ambition_engine_core as ae;
 use ambition_engine_core::AabbExt;
 
+use super::components::ActorAggression;
 use super::components::ActorFaction;
 use super::events::{HitEvent, HitKnockback, HitMode, HitSource, HitTarget};
-use super::targeting::can_damage;
+use super::targeting::{can_damage, damage_lands};
 use super::util::midpoint;
 use crate::audio::SfxMessage;
 use crate::world::physics::{DebrisBurstMessage, PhysicsDebrisCue};
@@ -67,6 +68,11 @@ pub fn apply_hitbox_damage(
     // swing damages any DIFFERENT-faction actor it overlaps (e.g. a Boss vs an
     // Enemy in a duel); same-faction allies are spared unless friendly fire is on.
     actor_victims: Query<(Entity, &super::components::CenteredAabb, &ActorFaction)>,
+    // The attacker's grudge, looked up from the swing owner — the DAMAGE-side
+    // per-entity override. Lets a hit land on a same-faction body the owner has a
+    // personal grudge against (two `Npc` duelists), without re-tagging factions.
+    // Read-only, so it may overlap the other actor queries.
+    attacker_aggression: Query<&ActorAggression>,
     // The owner's melee swing, so a Player-faction FollowOwner strike (the player's
     // slash — and a possessed actor's) reads the per-swing `hit_targets` for
     // one-hit-per-target dedup and emits only while the swing is live.
@@ -124,16 +130,27 @@ pub fn apply_hitbox_damage(
                 } else {
                     HitSource::EnemyAttack
                 };
-                // Actor-vs-actor: an Enemy/Boss swing damages any DIFFERENT-faction
-                // actor it overlaps (e.g. a Boss vs an Enemy in a duel). Same-faction
-                // allies are spared unless friendly fire is on; the attacker never
-                // hits itself (owner check). Stamped `HitTarget::Actor` so the
-                // actor-damage consumer applies it to exactly that body.
+                // Actor-vs-actor: a swing damages any DIFFERENT-faction actor it
+                // overlaps, OR a same-faction actor the owner holds a personal grudge
+                // against (two `Npc` duelists feuding). Same-faction non-grudged allies
+                // are spared unless friendly fire is on; the attacker never hits itself
+                // (owner check). Stamped `HitTarget::Actor` so the actor-damage consumer
+                // applies it to exactly that body.
+                let owner_grudge = attacker_aggression
+                    .get(hitbox.owner)
+                    .ok()
+                    .and_then(|a| a.grudge);
                 for (victim_entity, victim_aabb, victim_faction) in &actor_victims {
                     if victim_entity == hitbox.owner {
                         continue;
                     }
-                    if !can_damage(hitbox.source, *victim_faction, friendly_fire) {
+                    if !damage_lands(
+                        hitbox.source,
+                        *victim_faction,
+                        friendly_fire,
+                        owner_grudge,
+                        victim_entity,
+                    ) {
                         continue;
                     }
                     if hits.hit.contains(&victim_entity) {

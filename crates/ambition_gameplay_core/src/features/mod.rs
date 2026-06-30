@@ -79,8 +79,7 @@ const ENEMY_ATTACK_COOLDOWN: f32 = 1.05;
 
 pub mod arena;
 pub use arena::{
-    apply_duel_relations, duel_spawn_requests, stage_room_duel, DUEL_ARENA_ROOM_ID, DUEL_PCA_ID,
-    DUEL_ROBOT_ID,
+    duel_spawn_requests, stage_room_duel, DUEL_ARENA_ROOM_ID, DUEL_PCA_ID, DUEL_ROBOT_ID,
 };
 pub mod banter;
 // Stable facade for boss attack geometry.
@@ -132,16 +131,15 @@ pub use components::{
 pub use ecs::actor_clusters::{
     ActorClusterSeed, ActorConfig, ActorMotionPath, ActorMut, ActorStatus, BodyKinematics,
 };
-pub use ecs::{ActorAnimFrame, ActorSpriteData};
 pub use ecs::{
     apply_actor_stimuli, apply_feature_hit_events, apply_gameplay_banner_requests,
     apply_hitbox_damage, apply_spawn_actor_requests, apply_summon_effects, boss_is_cleared,
     boss_spawn_hurtboxes, can_damage, clear_encounter_reward_ecs, collect_ecs_pickups,
-    derive_boss_sprite_metrics, derive_pogo_target_volumes, despawn_encounter_mobs,
-    ecs_actor_render_size, ecs_boss_anim_state, ecs_boss_anim_state_and_entity,
-    ecs_boss_animation_frame_sample, ecs_boss_name, ecs_breakable_state, ecs_chest_opened,
-    ecs_actor_anim_state, ecs_enemy_name, ecs_enemy_sprite_override, ecs_hit_event_hits_actor,
-    ecs_hit_event_hits_boss, ecs_hit_event_hits_breakable, ecs_npc_name,
+    damage_lands, derive_boss_sprite_metrics, derive_pogo_target_volumes, despawn_encounter_mobs,
+    dissolve_settled_grudges, ecs_actor_anim_state, ecs_actor_render_size, ecs_boss_anim_state,
+    ecs_boss_anim_state_and_entity, ecs_boss_animation_frame_sample, ecs_boss_name,
+    ecs_breakable_state, ecs_chest_opened, ecs_enemy_name, ecs_enemy_sprite_override,
+    ecs_hit_event_hits_actor, ecs_hit_event_hits_boss, ecs_hit_event_hits_breakable, ecs_npc_name,
     enforce_mount_rider_link, interact_ecs_actors_and_switches, magnetize_pickups, open_ecs_chests,
     pirate_on_shark_rider_offset, rebuild_feature_ecs_world_overlay, rebuild_feature_view_index,
     refresh_actor_damageable_volumes, refresh_boss_damageable_volumes,
@@ -160,6 +158,7 @@ pub use ecs::{
     MountedBrainCache, MountedSize, PendingChallenge, RidingOn, SpawnActorKind, SpawnActorRequest,
     CHALLENGE_GRACE_S,
 };
+pub use ecs::{ActorAnimFrame, ActorSpriteData};
 pub use enemies::{
     composite_visual_plan, enemy_visual_kind, install_enemy_roster, ActorSpawnState,
     ActorSurfaceState, CompositeVisualPlan, EnemyRespawnPolicy, EnemyRoster,
@@ -291,6 +290,16 @@ impl bevy::prelude::Plugin for WorldPrepSchedulePlugin {
         app.add_systems(
             Update,
             advance_gameplay_elapsed
+                .before(select_actor_targets)
+                .in_set(crate::schedule::SandboxSet::WorldPrep),
+        );
+        // Settle decided feuds before targeting reads grudges: a body forgets a slain
+        // foe (won't re-aggro if it revives) and a defeated body forgets its own feud
+        // (revives as a normal NPC). Registered separately — the WorldPrep chain tuple
+        // is already at Bevy's chain-length ceiling — with `.before` to keep the order.
+        app.add_systems(
+            Update,
+            dissolve_settled_grudges
                 .before(select_actor_targets)
                 .in_set(crate::schedule::SandboxSet::WorldPrep),
         );

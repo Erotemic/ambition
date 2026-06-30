@@ -129,6 +129,12 @@ fn same_faction(
         .collect()
 }
 
+/// No active grudges/targets — the common case for the crowding tests below, which
+/// exercise plain same-faction anti-clump (no one is fighting anyone in particular).
+fn no_opponents() -> std::collections::HashMap<String, String> {
+    std::collections::HashMap::new()
+}
+
 #[test]
 fn crowding_pushes_clustered_ground_actors_apart() {
     use crate::combat::slots::SlotKind;
@@ -136,7 +142,7 @@ fn crowding_pushes_clustered_ground_actors_apart() {
         ("a".to_string(), ae::Vec2::new(0.0, 0.0), SlotKind::Melee),
         ("b".to_string(), ae::Vec2::new(20.0, 0.0), SlotKind::Melee), // within 80px
     ];
-    let crowding = compute_crowding_by_id(&reqs, &same_faction(&["a", "b"]));
+    let crowding = compute_crowding_by_id(&reqs, &same_faction(&["a", "b"]), &no_opponents());
     let a = crowding.get("a").expect("a is crowded by b");
     let b = crowding.get("b").expect("b is crowded by a");
     assert_eq!(a.same_faction_count, 1);
@@ -161,7 +167,7 @@ fn crowding_ignores_actors_outside_the_radius() {
         ("b".to_string(), ae::Vec2::new(500.0, 0.0), SlotKind::Melee), // > 80px
     ];
     assert!(
-        compute_crowding_by_id(&reqs, &same_faction(&["a", "b"])).is_empty(),
+        compute_crowding_by_id(&reqs, &same_faction(&["a", "b"]), &no_opponents()).is_empty(),
         "actors farther apart than the crowding radius get no signal"
     );
 }
@@ -191,8 +197,34 @@ fn crowding_ignores_a_different_faction_opponent() {
         super::super::super::components::ActorFaction::Boss,
     );
     assert!(
-        compute_crowding_by_id(&reqs, &factions).is_empty(),
+        compute_crowding_by_id(&reqs, &factions, &no_opponents()).is_empty(),
         "different-faction opponents must not crowd each other"
+    );
+}
+
+#[test]
+fn crowding_ignores_a_same_faction_grudge_opponent() {
+    // The grudge-duel stall: two SAME-faction `Npc`s feuding via a mutual grudge
+    // stand within the crowding radius. Each is actively TARGETING the other, so —
+    // even though they share a faction — neither must register the other as a
+    // crowding ally, or the back-actor hold rule freezes the duel (the exact regress
+    // the duel reframe hit). The `opponent_id_by_id` map (id → the id it's fighting)
+    // overrides the same-faction default.
+    use crate::combat::slots::SlotKind;
+    let reqs = vec![
+        ("pca".to_string(), ae::Vec2::new(0.0, 0.0), SlotKind::Melee),
+        (
+            "robot".to_string(),
+            ae::Vec2::new(20.0, 0.0),
+            SlotKind::Melee,
+        ), // within 80px
+    ];
+    let mut opponents = std::collections::HashMap::new();
+    opponents.insert("pca".to_string(), "robot".to_string());
+    opponents.insert("robot".to_string(), "pca".to_string());
+    assert!(
+        compute_crowding_by_id(&reqs, &same_faction(&["pca", "robot"]), &opponents).is_empty(),
+        "two same-faction bodies fighting EACH OTHER must not anti-clump apart"
     );
 }
 
@@ -211,7 +243,7 @@ fn aerial_actors_crowd_at_a_wider_radius_than_ground() {
         ),
     ];
     assert!(
-        !compute_crowding_by_id(&aerial, &same_faction(&["f1", "f2"])).is_empty(),
+        !compute_crowding_by_id(&aerial, &same_faction(&["f1", "f2"]), &no_opponents()).is_empty(),
         "aerial actors crowd at 150px (aerial radius 220)"
     );
     let ground = vec![
@@ -219,7 +251,7 @@ fn aerial_actors_crowd_at_a_wider_radius_than_ground() {
         ("g2".to_string(), ae::Vec2::new(150.0, 0.0), SlotKind::Melee),
     ];
     assert!(
-        compute_crowding_by_id(&ground, &same_faction(&["g1", "g2"])).is_empty(),
+        compute_crowding_by_id(&ground, &same_faction(&["g1", "g2"]), &no_opponents()).is_empty(),
         "ground actors don't crowd at 150px (>80px ground radius)"
     );
 }

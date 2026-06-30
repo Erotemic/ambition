@@ -255,26 +255,26 @@ pub fn cmd_challenge(
         });
 }
 
-/// `<<duel>>` — stage a SPECTATOR duel: spawn a second-instance PCA and the robot
-/// on opposing factions near the player and set them hostile to each other (not to
-/// the player), so the two AI fighters duel while the player watches. The reusable
-/// way to show off / iterate the advanced fighter brain in-game; it does NOT touch
-/// the dialog-challenged PCA (separate ids). The player can still take a stray —
-/// damage is physical — but is never targeted. See [`crate::features::arena`].
+/// `<<duel>>` — stage a SPECTATOR duel: spawn a second-instance PCA and a robot copy
+/// of the player near the observer, as two plain `Npc`s holding a mutual grudge, so
+/// the two AI fighters duel while the player watches. The reusable way to show off /
+/// iterate the advanced fighter brain in-game; it does NOT touch the dialog-challenged
+/// PCA (separate ids). The grudge — not a hostile faction — makes them fight (and only
+/// each other), so they never target the observer; the player can still take a stray
+/// (damage is physical). See [`crate::features::arena`].
 pub fn cmd_duel(
     player: Query<&crate::actor::BodyKinematics, crate::actor::PrimaryPlayerOnly>,
     mut spawns: MessageWriter<crate::features::SpawnActorRequest>,
-    mut relations: ResMut<crate::features::FactionRelations>,
 ) {
     let Some(kin) = player.iter().next() else {
         warn!("<<duel>>: no player to center the duel on; ignoring");
         return;
     };
-    // Stage the duel off to the side the player faces, so the two fighters are
-    // nearer to each other than to the player and target each other (the observer
-    // is at a distance). A player who walks in can still get caught.
+    // Stage the duel off to the side the player faces; the mutual grudge (carried on
+    // the requests, cross-wired at spawn) makes the pair target each other regardless
+    // of where the observer stands. A player who walks in can still get caught by a
+    // stray.
     let center = kin.pos + ae::Vec2::new(kin.facing.signum() * 220.0, 0.0);
-    crate::features::apply_duel_relations(&mut relations);
     for req in crate::features::duel_spawn_requests(center) {
         spawns.write(req);
     }

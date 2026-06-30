@@ -6,10 +6,11 @@
 //! fighter brain. It builds the full `SandboxSim` app with `start_room =
 //! "duel_arena"`, so the room's normal load path (`spawn_room_feature_entities` →
 //! `features::stage_room_duel`) auto-stages the fight — a Perfect Cell-ular
-//! Automaton (`Enemy`) vs a robot copy of the player (`Boss`), on different
-//! factions so the physical-damage rule lets them hurt each other, hostile to
-//! each other but not to the observing player. No trigger, no manual staging: the
-//! fight is already underway the instant the room exists.
+//! Automaton vs a robot copy of the player, both plain `Npc`s holding a mutual
+//! GRUDGE against each other (not a hostile faction). The grudge drives relational
+//! targeting AND authorizes same-faction damage, so they fight each other — and only
+//! each other, never the observing player. No trigger, no manual staging: the fight
+//! is already underway the instant the room exists.
 //!
 //! It then steps the real game loop for many timesteps and asserts the brain
 //! plays a real **neutral / attack / defense** game in the actual engine — both

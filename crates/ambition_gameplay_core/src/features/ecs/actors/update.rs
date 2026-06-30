@@ -207,12 +207,23 @@ pub fn update_ecs_actors(
     // from `player_query` alone. Defaults to alive when an entity isn't found.
     let mut alive_by_entity: std::collections::HashMap<Entity, bool> =
         std::collections::HashMap::new();
+    // Entity → actor id, so a fighter's CURRENT TARGET entity (its foe this frame —
+    // a faction-opponent OR a personal grudge) can be resolved to an id for the
+    // anti-clump rule: a body you're actively fighting is an opponent to close on,
+    // not an ally to spread away from. This is what lets two SAME-faction `Npc`
+    // duelists (feuding via a grudge) close instead of mutually anti-clumping apart.
+    let mut entity_to_id: std::collections::HashMap<Entity, String> =
+        std::collections::HashMap::new();
+    let mut target_entity_by_id: std::collections::HashMap<String, Entity> =
+        std::collections::HashMap::new();
     for (entity, _, _, _, _, _, health) in &player_query {
         alive_by_entity.insert(entity, health.current() > 0);
     }
-    for (entity, _, _, disposition, _, _, _, _, _, _, _, _, (clusters, _, faction)) in &actors {
+    for (entity, _, _, disposition, _, _, _, target, _, _, _, _, (clusters, _, faction)) in &actors
+    {
         if let Some(c) = &clusters {
             alive_by_entity.insert(entity, c.health.alive());
+            entity_to_id.insert(entity, c.config.id.clone());
         }
         // Only hostile actors compete for combat slots; peaceful actors don't
         // crowd the board ("enemy" == hostile disposition now).
@@ -223,10 +234,20 @@ pub fn update_ecs_actors(
                     if let Some(faction) = faction {
                         faction_by_id.insert(c.config.id.clone(), *faction);
                     }
+                    if let Some(foe) = target.entity {
+                        target_entity_by_id.insert(c.config.id.clone(), foe);
+                    }
                 }
             }
         }
     }
+    // Resolve each fighter's target ENTITY to the target's id (dropping targets that
+    // aren't crowd actors — e.g. the player). The anti-clump builder reads this to
+    // treat the body you're fighting as an opponent, never a neighbor to flee.
+    let opponent_id_by_id: std::collections::HashMap<String, String> = target_entity_by_id
+        .iter()
+        .filter_map(|(id, foe)| entity_to_id.get(foe).map(|fid| (id.clone(), fid.clone())))
+        .collect();
     let slot_requests: Vec<crate::combat::slots::SlotRequest> = requests
         .iter()
         .map(|(id, pos, kind)| crate::combat::slots::SlotRequest {
@@ -246,7 +267,7 @@ pub fn update_ecs_actors(
     let neighbor_by_id = compute_nearest_neighbors(&requests);
 
     // Per-actor crowding signal for brains that need personal space.
-    let crowding_by_id = compute_crowding_by_id(&requests, &faction_by_id);
+    let crowding_by_id = compute_crowding_by_id(&requests, &faction_by_id, &opponent_id_by_id);
 
     // Pass 2: tick each actor with its assigned slot position. Falls
     // back to the slot's holding-ring position when this actor didn't
@@ -802,6 +823,10 @@ pub(crate) fn compute_crowding_by_id(
         String,
         super::super::super::components::ActorFaction,
     >,
+    // id → the id of the body it's actively fighting (its `ActorTarget`), so a foe is
+    // never mistaken for an ally to spread from — even a SAME-faction one (two `Npc`
+    // duelists feuding via a grudge).
+    opponent_id_by_id: &std::collections::HashMap<String, String>,
 ) -> std::collections::HashMap<String, ambition_characters::brain::CrowdingSignal> {
     const CROWDING_RADIUS_PX: f32 = 80.0;
     const AERIAL_CROWDING_RADIUS_PX: f32 = 220.0;
@@ -823,10 +848,14 @@ pub(crate) fn compute_crowding_by_id(
             if id_a == id_b {
                 continue;
             }
-            // Anti-clump is for SAME-faction allies spreading out — a
-            // different-faction body is an opponent to fight, not a neighbor to
-            // avoid. Counting it freezes hostiles who should close (the duel).
-            if faction_a != faction_by_id.get(id_b) {
+            // Anti-clump is for ALLIES spreading out — an OPPONENT is to fight, not a
+            // neighbor to avoid. Counting one freezes hostiles who should close (the
+            // duel). A body is an opponent if it's a different faction OR it's the one
+            // this fighter is actively targeting (its grudge foe in a same-faction
+            // duel) — either way, don't anti-clump away from it.
+            let different_faction = faction_a != faction_by_id.get(id_b);
+            let is_my_target = opponent_id_by_id.get(id_a) == Some(id_b);
+            if different_faction || is_my_target {
                 continue;
             }
             if aerial && *kind_b != crate::combat::slots::SlotKind::Aerial {

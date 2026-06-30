@@ -56,14 +56,21 @@ pub fn spawn_room_feature_entities(commands: &mut Commands, room: &crate::rooms:
     // spawn ECS feature entities today. The presentation layer reads
     // them off `RoomSpec` directly.
 
-    // Room-scoped faction targeting: reset to the combat baseline every room
-    // load, then let room features augment it. The spectator duel arena makes
-    // its two fighters mutually hostile and auto-spawns them (on DIFFERENT
-    // factions, so the physical-damage rule lets them hurt each other) — already
-    // fighting the instant the player walks in, no trigger. Reinserting the
-    // resource each load means one room's overrides never linger into the next.
-    let mut relations = crate::features::FactionRelations::default();
-    if let Some(requests) = crate::features::stage_room_duel(room, &mut relations) {
+    // Room-scoped faction targeting: reset to the combat baseline every room load
+    // so one room's relations overrides never linger into the next. The spectator
+    // duel arena needs NO relations mutation — its two fighters are plain `Npc`s
+    // whose mutual grudge (cross-wired below) drives the fight — but other rooms may
+    // still augment relations, so the per-load reset stays.
+    commands.insert_resource(crate::features::FactionRelations::default());
+
+    // The spectator duel arena auto-spawns its two fighters (already fighting the
+    // instant the player walks in, no trigger). They feud with EACH OTHER via a
+    // mutual grudge, never the observing player: once a fighter's grudge foe dies it
+    // goes target-less and stands down like any NPC. The player can still be caught
+    // by a stray (physical damage, different faction) or PROVOKE a stood-down fighter
+    // by striking it past the retaliation threshold.
+    if let Some(requests) = crate::features::stage_room_duel(room) {
+        let mut staged = Vec::new();
         for req in requests {
             if let crate::features::SpawnActorKind::Enemy { brain } = &req.kind {
                 let authored = crate::rooms::Authored::new(
@@ -83,21 +90,14 @@ pub fn spawn_room_feature_entities(commands: &mut Commands, room: &crate::rooms:
                 ) {
                     commands
                         .entity(entity)
-                        .insert(crate::features::RuntimeStagedActor)
-                        // Duel fighters feud with EACH OTHER (relational), never the
-                        // observing player: override the default `hostile_to_player`
-                        // with `hostile_to_faction`, so once a fighter's foe dies it
-                        // goes target-less and stands down to peaceful instead of
-                        // turning on the player. The player can still be caught by a
-                        // stray (physical damage) or PROVOKE a stood-down fighter by
-                        // striking it past the retaliation threshold. This loop only
-                        // ever stages duel fighters, so the override is unconditional.
-                        .insert(crate::features::ActorAggression::hostile());
+                        .insert(crate::features::RuntimeStagedActor);
+                    staged.push((req.id.clone(), entity, req.grudge_against.clone()));
                 }
             }
         }
+        // Cross-wire the mutual grudge now that both fighters exist.
+        super::spawn_actors::wire_staged_grudges(commands, &staged);
     }
-    commands.insert_resource(relations);
 }
 
 /// Spawn one hostile actor for an encounter wave.

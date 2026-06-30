@@ -106,6 +106,30 @@ pub fn can_damage(
     friendly_fire.enabled || attacker != victim
 }
 
+/// Whether an `attacker`-faction body's landed hit DAMAGES a specific `victim`
+/// body — the faction baseline ([`can_damage`]) PLUS the per-entity grudge override.
+///
+/// A grudge is the DAMAGE-side counterpart to a [`FactionRelations`] entry: just as
+/// relations make two FACTIONS hostile, a grudge makes one body hostile to one exact
+/// ENTITY. So a grudge authorizes a hit even between SAME-faction bodies that
+/// `can_damage` would otherwise spare — the mechanism behind two normal NPCs dueling
+/// (both `Npc`, each grudging the other) without either being re-tagged a hostile
+/// faction. Self-exclusion (`attacker_entity == victim_entity`) stays the caller's.
+///
+/// `attacker_grudge` is the firing body's [`ActorAggression::grudge`]; `None` (no
+/// grudge, or a grudge-less attacker like the environment) falls straight back to the
+/// faction rule. This is a strict SUPERSET of `can_damage`, so it never spares a hit
+/// the faction baseline would have landed.
+pub fn damage_lands(
+    attacker: ActorFaction,
+    victim: ActorFaction,
+    friendly_fire: FriendlyFire,
+    attacker_grudge: Option<Entity>,
+    victim_entity: Entity,
+) -> bool {
+    can_damage(attacker, victim, friendly_fire) || attacker_grudge == Some(victim_entity)
+}
+
 /// Pick each non-player actor's `ActorTarget` for this frame.
 ///
 /// Selection is driven by each actor's [`ActorAggression`], not by its
@@ -210,6 +234,43 @@ pub fn select_actor_targets(
             // point at self so facing math reads a zero direction (hold facing).
             target.pos = actor_pos;
             target.entity = None;
+        }
+    }
+}
+
+/// Dissolve grudges that have SETTLED, so a feud resolves to peace on its own.
+///
+/// A grudge is a per-entity hostility (the duel mechanism); like any feud it should
+/// END once it's decided. Two rules, both keyed off the one uniform liveness
+/// authority ([`BodyHealth`]):
+///
+/// - **You forget a slain foe.** When a body's grudge target is no longer alive, the
+///   grudge clears. The targeting filter already drops a dead foe so the holder stands
+///   down ([`select_actor_targets`]); clearing the grudge too means it won't re-aggro
+///   if that foe later revives — the duel survivor settles into a normal NPC for good.
+/// - **A defeated body forgets its feud.** When a body itself is down (health 0,
+///   awaiting respawn), its own grudge clears, so it **revives grudgeless** — a
+///   defeated duel fighter comes back behaving like a normal NPC, exactly as a loser
+///   should, rather than resuming the fight the instant it's back on its feet.
+///
+/// Together these make a duel between two grudge-feuding `Npc`s resolve to mutual
+/// peace with no bespoke "end the duel" code. Runs just before
+/// [`select_actor_targets`] so a cleared grudge takes effect the same frame. The
+/// `&BodyHealth` read overlaps the mutable-aggression query only on the (immutable)
+/// health component, so there is no access conflict.
+pub fn dissolve_settled_grudges(
+    mut actors: Query<(&BodyHealth, &mut ActorAggression)>,
+    healths: Query<&BodyHealth>,
+) {
+    for (self_health, mut aggression) in &mut actors {
+        let Some(foe) = aggression.grudge else {
+            continue;
+        };
+        let self_down = self_health.current() == 0;
+        // An absent foe entity (despawned) counts as gone, so a grudge never dangles.
+        let foe_down = healths.get(foe).map(|h| h.current() == 0).unwrap_or(true);
+        if self_down || foe_down {
+            aggression.grudge = None;
         }
     }
 }
@@ -355,7 +416,11 @@ mod tests {
             target.entity, None,
             "an unprovoked peaceful NPC has no foe — it does not track the player"
         );
-        assert_eq!(target.pos, ae::Vec2::new(100.0, 100.0), "holds its own position");
+        assert_eq!(
+            target.pos,
+            ae::Vec2::new(100.0, 100.0),
+            "holds its own position"
+        );
 
         // Provoke it: a grudge against the player makes it hunt that entity.
         app.world_mut()
@@ -388,7 +453,11 @@ mod tests {
         app.add_systems(Update, select_actor_targets);
         app.update();
         let target = app.world().entity(enemy).get::<ActorTarget>().unwrap();
-        assert_eq!(target.pos, ae::Vec2::new(100.0, 100.0), "no foe → point at self");
+        assert_eq!(
+            target.pos,
+            ae::Vec2::new(100.0, 100.0),
+            "no foe → point at self"
+        );
         assert_eq!(target.entity, None);
     }
 
@@ -483,6 +552,109 @@ mod tests {
         assert_eq!(target.pos, ae::Vec2::new(100.0, 100.0));
     }
 
+    #[test]
+    fn a_grudge_lands_a_hit_between_same_faction_bodies() {
+        // The duel mechanism: two `Npc` bodies normally can't hurt each other
+        // (`can_damage(Npc, Npc)` is false with friendly fire off), but a grudge
+        // against the exact victim entity authorizes the hit anyway — without
+        // re-tagging either as a hostile faction.
+        let mut app = App::new();
+        let rival = app.world_mut().spawn_empty().id();
+        let bystander = app.world_mut().spawn_empty().id();
+        let ff = FriendlyFire { enabled: false };
+
+        // Same faction, no grudge → spared.
+        assert!(
+            !damage_lands(ActorFaction::Npc, ActorFaction::Npc, ff, None, rival),
+            "same-faction non-grudged allies are spared (friendly fire off)"
+        );
+        // Same faction, grudge against THIS victim → lands.
+        assert!(
+            damage_lands(ActorFaction::Npc, ActorFaction::Npc, ff, Some(rival), rival),
+            "a grudge against the victim authorizes a same-faction hit"
+        );
+        // Grudge against someone ELSE → this victim still spared.
+        assert!(
+            !damage_lands(
+                ActorFaction::Npc,
+                ActorFaction::Npc,
+                ff,
+                Some(bystander),
+                rival
+            ),
+            "a grudge against a different entity does not authorize hitting this one"
+        );
+    }
+
+    #[test]
+    fn a_settled_grudge_dissolves_so_a_duel_ends_in_peace() {
+        // Two `Npc` duelists grudging each other. When one is defeated (health 0),
+        // BOTH grudges must dissolve: the slain fighter forgets its feud (revives
+        // grudgeless → normal NPC), and the survivor forgets a foe it can no longer
+        // see (won't re-aggro if the loser revives). The feud resolves to peace with
+        // no bespoke duel-end code.
+        let mut app = App::new();
+        let a = app
+            .world_mut()
+            .spawn((alive(), ActorAggression::hostile()))
+            .id();
+        let b = app
+            .world_mut()
+            .spawn((alive(), ActorAggression::hostile()))
+            .id();
+        // Cross-wire the mutual grudge.
+        app.world_mut()
+            .get_mut::<ActorAggression>(a)
+            .unwrap()
+            .grudge = Some(b);
+        app.world_mut()
+            .get_mut::<ActorAggression>(b)
+            .unwrap()
+            .grudge = Some(a);
+        app.add_systems(Update, dissolve_settled_grudges);
+
+        // Both alive → grudges persist (the fight is on).
+        app.update();
+        assert_eq!(
+            app.world().get::<ActorAggression>(a).unwrap().grudge,
+            Some(b)
+        );
+        assert_eq!(
+            app.world().get::<ActorAggression>(b).unwrap().grudge,
+            Some(a)
+        );
+
+        // Defeat B (drain its health to 0).
+        app.world_mut().get_mut::<BodyHealth>(b).unwrap().damage(10);
+        app.update();
+        assert_eq!(
+            app.world().get::<ActorAggression>(a).unwrap().grudge,
+            None,
+            "the survivor forgets a slain foe (won't re-aggro if it revives)"
+        );
+        assert_eq!(
+            app.world().get::<ActorAggression>(b).unwrap().grudge,
+            None,
+            "the defeated fighter forgets its own feud (revives a normal NPC)"
+        );
+    }
+
+    #[test]
+    fn damage_lands_is_a_strict_superset_of_can_damage() {
+        // Every cross-faction hit the faction baseline lands, `damage_lands` also
+        // lands — regardless of grudge. The grudge can only ADD authorization, never
+        // remove it.
+        let ff = FriendlyFire { enabled: false };
+        let mut app = App::new();
+        let some = app.world_mut().spawn_empty().id();
+        for grudge in [None, Some(some)] {
+            assert!(
+                damage_lands(ActorFaction::Enemy, ActorFaction::Player, ff, grudge, some),
+                "a cross-faction hit always lands (grudge={grudge:?})"
+            );
+        }
+    }
+
     /// A drained body (health 0) for the dead-candidate filter.
     fn dead() -> BodyHealth {
         let mut h = BodyHealth::new(ambition_characters::actor::Health::new(10));
@@ -490,11 +662,12 @@ mod tests {
         h
     }
 
-    /// A `HostileToFaction` fighter (the duel mode) targets its relational
-    /// faction-foe and NEVER the player baseline — even a player standing right on
-    /// top of it. This is the fix for "the duel winner hunts the observer": the
-    /// fighter (a grudge), not by the mode. The real duel stages the two fighters
-    /// NEAR each other and the observer at a DISTANCE, so each targets the other.
+    /// The general relational-targeting path: a fighter whose faction is hostile to
+    /// another faction (here Enemy↔Boss, via `FactionRelations`) targets the nearest
+    /// such foe, and a non-hostile bystander (the player, when relations don't oppose
+    /// it) is only caught if it becomes the NEAREST candidate. (The spectator duel no
+    /// longer rides this faction path — it uses a mutual grudge between two `Npc`s —
+    /// but actor-vs-actor faction hostility is still a real capability, pinned here.)
     #[test]
     fn relational_fighter_targets_nearest_foe_observer_spared_by_distance() {
         let mut app = App::new();
@@ -539,7 +712,11 @@ mod tests {
         // behavior. Strict observer-immunity would need per-room relations scoping
         // (clear Enemy→Player only in the arena) — a separate follow-up.
         assert_eq!(
-            app.world().entity(fighter).get::<ActorTarget>().unwrap().entity,
+            app.world()
+                .entity(fighter)
+                .get::<ActorTarget>()
+                .unwrap()
+                .entity,
             Some(foe),
             "the fighter duels its nearer Boss foe, not the distant observer"
         );
@@ -551,7 +728,11 @@ mod tests {
             .pos = ae::Vec2::new(101.0, 100.0);
         app.update();
         assert_eq!(
-            app.world().entity(fighter).get::<ActorTarget>().unwrap().entity,
+            app.world()
+                .entity(fighter)
+                .get::<ActorTarget>()
+                .unwrap()
+                .entity,
             Some(player),
             "a player who walks into the duel (nearest foe) gets caught"
         );

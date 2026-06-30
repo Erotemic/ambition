@@ -44,11 +44,18 @@ pub struct SpawnActorRequest {
     /// seeds the kinematic body size.
     pub half_size: ae::Vec2,
     /// Faction the spawned body takes. Applies to the [`SpawnActorKind::Enemy`]
-    /// path (a duel/arena spawns two fighters on DIFFERENT factions — e.g. one
-    /// `Enemy`, one `Boss` — so the physical damage rule lets them hurt each other);
-    /// the room-authored path uses `Enemy`. Ignored for [`SpawnActorKind::Boss`],
-    /// which is always `Boss`.
+    /// path; the room-authored path uses `Enemy`. Ignored for [`SpawnActorKind::Boss`],
+    /// which is always `Boss`. A spectator duel stages both fighters as plain `Npc`
+    /// and lets a mutual `grudge_against` (below) — not a hostile faction — drive the
+    /// fight.
     pub faction: super::ActorFaction,
+    /// Feature id of another actor in the SAME spawn batch this body should hold a
+    /// personal grudge against. Resolved post-spawn (once both entities exist) into
+    /// an [`ActorAggression::grudge`](crate::combat::components::ActorAggression),
+    /// which drives relational targeting AND authorizes same-faction damage
+    /// (`damage_lands`) — the mechanism behind two `Npc` duelists feuding without a
+    /// hostile faction. `None` ⇒ no grudge (fights on faction lines only).
+    pub grudge_against: Option<String>,
     /// Which actor family to materialize.
     pub kind: SpawnActorKind,
 }
@@ -108,6 +115,11 @@ pub fn apply_spawn_actor_requests(
     mut commands: bevy::prelude::Commands,
     mut requests: bevy::prelude::MessageReader<SpawnActorRequest>,
 ) {
+    // Collect (feature id, entity, grudge-target id) for the Enemy spawns this batch
+    // so a mutual grudge (a staged duel pair) can be cross-wired once both entities
+    // exist — `grudge_against` names a foe by id, resolvable only after the whole
+    // batch has reserved its entities.
+    let mut staged: Vec<(String, bevy::prelude::Entity, Option<String>)> = Vec::new();
     for req in requests.read() {
         let aabb = ae::Aabb::new(req.pos, req.half_size);
         match &req.kind {
@@ -134,9 +146,39 @@ pub fn apply_spawn_actor_requests(
                     spawn_enemy_with_faction(&mut commands, &authored, &[], req.faction)
                 {
                     commands.entity(entity).insert(super::RuntimeStagedActor);
+                    staged.push((req.id.clone(), entity, req.grudge_against.clone()));
                 }
             }
         }
+    }
+    wire_staged_grudges(&mut commands, &staged);
+}
+
+/// Cross-wire mutual grudges for a freshly-staged feuding set. `staged` pairs each
+/// new entity with the feature id of the foe it should grudge (from
+/// [`SpawnActorRequest::grudge_against`]). Each id is resolved against the SAME batch
+/// and that fighter's [`ActorAggression`](super::ActorAggression) is stamped with a
+/// grudge against its rival — so two same-faction `Npc` duelists hunt AND damage each
+/// other (relational targeting + the `damage_lands` override) without either being
+/// re-tagged a hostile faction. An unresolved id is skipped (grudge stays `None` → the
+/// actor fights on faction lines only). Re-inserting `ActorAggression` is safe: the
+/// fighters spawn `hostile()` already, so this only adds the grudge.
+pub(super) fn wire_staged_grudges(
+    commands: &mut bevy::prelude::Commands,
+    staged: &[(String, bevy::prelude::Entity, Option<String>)],
+) {
+    use std::collections::HashMap;
+    let by_id: HashMap<&str, bevy::prelude::Entity> =
+        staged.iter().map(|(id, e, _)| (id.as_str(), *e)).collect();
+    for (_id, entity, foe_id) in staged {
+        let Some(foe_id) = foe_id else { continue };
+        let Some(&foe) = by_id.get(foe_id.as_str()) else {
+            continue;
+        };
+        commands.entity(*entity).insert(super::ActorAggression {
+            grudge: Some(foe),
+            ..super::ActorAggression::hostile()
+        });
     }
 }
 

@@ -311,6 +311,21 @@ Enemies rise to the player; delete-heavy. Each step is gated on *it compiles* (i
      (owner entity → faction for damage).
    - **`AggressionMode` → fully relational (B1).** One policy via `FactionRelations`;
      provoke = per-actor grudge (FF-gated). See "Relational hostility" above.
+     *Concrete design (scoped 2026-06-30):* add `grudge: Option<ActorFaction>` to
+     `ActorAggression`. Collapse `AggressionMode` → `{Passive, RetaliatesWhenHit, Hostile}`
+     and `AggressionTarget` → `{None, Foe}`. The hostility test becomes
+     `is_hostile(from, to) || grudge == Some(to)`, consulted at the TWO sites the
+     provoke faction-flip currently feeds: `select_actor_targets` (so the actor
+     *chases* the foe) and `apply_player_hit_events` (the player-victim gate, so its
+     hits *land*). Provoke (`apply_actor_stimuli`) sets `grudge = attacker faction` +
+     disposition Hostile instead of flipping the NPC's faction to Enemy (no identity
+     mutation). FF-gating is emergent: with FF off, `can_damage` blocks ally-on-ally
+     hits → no `DamagedBy` stimulus → grudges only ever form against real attackers
+     (the player, via its universal attacks). A born-hostile Enemy needs no grudge
+     (faction relations already make it hunt the player). *Open micro-decision:*
+     grudge keyed by **faction** (simplest, correct single-player; over-generalizes in
+     MP — provoking one NPC angers it at all Player-faction bodies) vs by **entity**
+     (precise, but the player-victim gate is faction-based so it needs a small bridge).
 6. **Rename off type-names** — `enemy_archetypes.ron` / `EnemyArchetypeSpec` /
    `EnemyBrain` → *character* archetypes. A mechanical pass on its own; update the
    `architecture_boundaries` guard test if it asserts names.

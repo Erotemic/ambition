@@ -366,8 +366,9 @@ fn hit_flash_secs_for_source(
         if a.feature_id.as_str() != id {
             return None;
         }
-        // Hit-flash lives on the shared `ActorStatus` for every actor now.
-        Some(a.status.hit_flash)
+        // Damage-blink lives on the shared `BodyCombat` for every body now (the
+        // SAME field the player carries).
+        Some(a.combat.hit_flash)
     }) {
         return Some(secs);
     }

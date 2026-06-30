@@ -12,8 +12,8 @@
 //!   on_ground → [`crate::actor::BodyGroundState`], air jumps →
 //!   [`crate::actor::BodyJumpState`])
 //! - attack windup/active/cooldown/axis → [`BodyMelee`] (component)
-//! - respawn/hit_flash/ai_mode      → [`ActorStatus`] (liveness → [`crate::actor::BodyHealth`],
-//!   post-hit i-frame → [`crate::actor::BodyCombat::damage_invuln_timer`])
+//! - respawn/ai_mode          → [`ActorStatus`] (liveness → [`crate::actor::BodyHealth`];
+//!   damage-blink + post-hit i-frame → [`crate::actor::BodyCombat`])
 //! - tuning/brain_spec/brain/spawn baseline/sprite override/id/name → [`ActorConfig`]
 //! - patrol path             → [`ActorMotionPath`]
 
@@ -36,16 +36,17 @@ use crate::actor::{
 };
 pub use crate::platformer_runtime::body::BodyKinematics;
 
-/// Per-tick status scalars: respawn countdown, hit-flash timer, last-evaluated
-/// AI mode. Health *and liveness* live on the shared [`crate::actor::BodyHealth`]
-/// component now (one health authority for every body) — `alive` is derived as
-/// `health.alive()` (`current > 0`), not a shadow flag the kill/revive paths had
-/// to keep in lockstep. The cluster reads/writes health through
-/// [`ActorMut::health`], no cluster copy + per-frame sync.
+/// Per-tick actor-control scalars: respawn countdown + last-evaluated AI mode.
+///
+/// Every body-generic fact has moved to the shared body components: liveness +
+/// health → [`crate::actor::BodyHealth`] (`alive` is `health.alive()`, not a shadow
+/// flag); the reaction timers (damage-blink `hit_flash` + post-hit i-frame) →
+/// [`crate::actor::BodyCombat`], the SAME fields the player carries. What remains
+/// here is genuinely actor-only (the player respawns via its own SafetyState; AI
+/// mode is a brain concept).
 #[derive(Component, Clone, Copy, Debug, PartialEq)]
 pub struct ActorStatus {
     pub respawn_timer: f32,
-    pub hit_flash: f32,
     pub ai_mode: ambition_characters::actor::ai::CharacterAiMode,
 }
 
@@ -419,7 +420,6 @@ impl ActorClusterSeed {
             },
             status: ActorStatus {
                 respawn_timer: 0.0,
-                hit_flash: 0.0,
                 ai_mode: ambition_characters::actor::ai::CharacterAiMode::Idle,
             },
             health: crate::actor::BodyHealth::new(ambition_characters::actor::Health::new(
@@ -544,7 +544,6 @@ impl ActorClusterSeed {
             },
             status: ActorStatus {
                 respawn_timer: 0.0,
-                hit_flash: 0.0,
                 ai_mode: ambition_characters::actor::ai::CharacterAiMode::Idle,
             },
             health: crate::actor::BodyHealth::new(ambition_characters::actor::Health::new(1)),

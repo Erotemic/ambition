@@ -89,7 +89,7 @@ pub fn rebuild_feature_view_index(
             &FeatureId,
             &CenteredAabb,
             &ActorDisposition,
-            Option<&super::actor_clusters::ActorStatus>,
+            Option<&crate::actor::BodyCombat>,
             Option<&crate::actor::BodyHealth>,
             Option<&BodyMelee>,
             Option<&super::actor_clusters::ActorConfig>,
@@ -183,7 +183,7 @@ pub fn rebuild_feature_view_index(
             },
         );
     }
-    for (id, aabb, disposition, status, health, attack, config, surface, roll) in &actors {
+    for (id, aabb, disposition, combat, health, attack, config, surface, roll) in &actors {
         let roll_rad = roll.map_or(0.0, |r| r.angle);
         // Visual kind is now a FUNCTION OF STATE, not an actor type: a sandbag
         // tuning renders as a training dummy; a hostile disposition as an enemy;
@@ -201,7 +201,7 @@ pub fn rebuild_feature_view_index(
         // Peaceful actors are always visible (they don't die); hostile actors are
         // visible while alive.
         let visible = !hostile || alive;
-        let flash = status.is_some_and(|s| s.hit_flash > 0.0)
+        let flash = combat.is_some_and(|c| c.hit_flash > 0.0)
             || (hostile && attack.is_some_and(|a| a.is_winding_up() || a.is_active()));
         // Sprite rotation. A *surface-walker* (PuppySlug) orients to the surface it
         // clings to (its `surface_normal` encodes floor/wall/ceiling + gravity

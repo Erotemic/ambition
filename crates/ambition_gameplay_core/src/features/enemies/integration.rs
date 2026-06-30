@@ -112,9 +112,9 @@ impl<'a> ActorMut<'a> {
         ambition_characters::actor::control::ActorControlFrame,
         ae::FrameEvents,
     ) {
-        self.status.hit_flash = (self.status.hit_flash - dt).max(0.0);
-        // (post-hit i-frame lives on the body's `BodyCombat.damage_invuln_timer`
-        // now — decremented in the actor driver, not here)
+        // Reaction timers (hit_flash, post-hit i-frame) live on the body's
+        // `BodyCombat` now — decremented + the respawn blink applied in the actor
+        // driver, where that component is in scope.
         if !self.health.alive() {
             self.status.respawn_timer = (self.status.respawn_timer - dt).max(0.0);
             if self.config.tuning.revives_in_place && self.status.respawn_timer <= 0.0 {
@@ -122,7 +122,6 @@ impl<'a> ActorMut<'a> {
                 self.health.reset();
                 self.kin.pos = self.config.spawn.pos;
                 self.kin.vel = ae::Vec2::ZERO;
-                self.status.hit_flash = 0.24;
             }
             self.status.ai_mode = ambition_characters::actor::ai::CharacterAiMode::Dead;
             return (
@@ -611,7 +610,6 @@ impl<'a> ActorMut<'a> {
         ));
         *self.attack = BodyMelee::default();
         self.status.respawn_timer = 0.0;
-        self.status.hit_flash = 0.0;
         self.status.ai_mode = ambition_characters::actor::ai::CharacterAiMode::Idle;
         self.kin.facing = -1.0;
         *self.surface = ActorSurfaceState {

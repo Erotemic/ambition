@@ -268,10 +268,12 @@ pub fn update_ecs_actors(
         (clusters, possessed, faction),
     ) in &mut actors
     {
-        // Body-generic post-hit i-frame: decrement the body's authoritative
-        // reaction timer (the same `BodyCombat.damage_invuln_timer` the player
-        // gates re-hits on). Runs for every actor each tick, alive or dead.
+        // Body-generic reaction timers on the body's authoritative `BodyCombat`
+        // (the same fields the player carries): the post-hit i-frame the actor
+        // gates re-hits on, and the damage-blink the renderer reads. Decremented
+        // for every actor each tick, alive or dead.
         combat.damage_invuln_timer = (combat.damage_invuln_timer - dt).max(0.0);
+        combat.hit_flash = (combat.hit_flash - dt).max(0.0);
 
         // This actor's combat-target liveness. `select_actor_targets` already
         // dropped a dead/absent foe (it only ever targets a LIVE candidate, and a
@@ -442,6 +444,11 @@ pub fn update_ecs_actors(
                 brain_frame.body_contact_damage_enabled = body_contact_damage_enabled;
                 let shark_charge_vec = brain_frame.velocity_target;
 
+                // Respawn blink: `em.update` revives a dead body in place (HP reset)
+                // when its respawn timer elapses. The damage-blink lives on the
+                // body's `BodyCombat` now, so apply the revive flash here in the
+                // driver (where it's in scope) on the dead→alive transition.
+                let was_dead = !em.health.alive();
                 let (frame, move_events) = em.update(
                     &feature_world,
                     target_pos,
@@ -452,6 +459,9 @@ pub fn update_ecs_actors(
                     brain_frame,
                     enemy_gravity_dir,
                 );
+                if was_dead && em.health.alive() {
+                    combat.hit_flash = 0.24;
+                }
                 let shark_crashed =
                     shark_charge_crashed(&em, is_mounted, shark_charge_vec, previous_pos);
                 let mut frame = frame;
@@ -934,22 +944,25 @@ pub fn sync_actor_components_from_cluster(
     // (`em.health`) reads/writes directly; there is no separate copy to mirror.
     //
     // `BodyCombat` is otherwise a per-frame read-model rebuilt from the cluster's
-    // derived presentation fields — EXCEPT the post-hit i-frame, which is now the
-    // body's authoritative reaction timer (set on a landed hit, decremented in the
-    // actor tick). Carry it across the rebuild so the read-model refresh can't wipe
-    // it. (A4 lifts `hit_flash` onto the same authority and retires this rebuild.)
+    // derived presentation fields — EXCEPT the reaction timers (post-hit i-frame +
+    // damage-blink), which are now the body's authoritative state (set on a landed
+    // hit, decremented in the actor tick), the SAME fields the player carries. Carry
+    // them across the read-model rebuild so the refresh can't wipe them.
     let damage_invuln_timer = combat.damage_invuln_timer;
+    let hit_flash = combat.hit_flash;
     *combat = if disposition.is_hostile() {
         BodyCombat::hostile(
             em.health.alive(),
-            em.status.hit_flash,
+            hit_flash,
             em.attack.windup_remaining(),
             em.attack.active_remaining(),
             em.config.tuning.is_sandbag,
         )
     } else {
-        BodyCombat::peaceful(0, em.status.hit_flash)
+        BodyCombat::peaceful(0, hit_flash)
     };
+    // (`hit_flash` is carried through the rebuild via the constructor param above;
+    // `damage_invuln_timer` isn't a constructor field, so restore it explicitly.)
     combat.damage_invuln_timer = damage_invuln_timer;
     *intent = ActorIntent::new(em.status.ai_mode);
     *cooldowns = ActorCooldowns {
@@ -998,7 +1011,7 @@ pub fn tick_npc_idle_barks(
         (
             &super::super::actor_clusters::BodyKinematics,
             &super::super::actor_clusters::ActorConfig,
-            &super::super::actor_clusters::ActorStatus,
+            &crate::actor::BodyCombat,
             &ActorInteraction,
             &ActorDisposition,
         ),
@@ -1028,8 +1041,8 @@ pub fn tick_npc_idle_barks(
         ambition_characters::actor::character_catalog::BarkSituation::Hall => (28.0, 24_000),
         _ => (12.0, 8_000),
     };
-    for (kin, config, status, interaction, disposition) in &npcs {
-        if disposition.is_hostile() || status.hit_flash > 0.0 {
+    for (kin, config, combat, interaction, disposition) in &npcs {
+        if disposition.is_hostile() || combat.hit_flash > 0.0 {
             continue;
         }
         let rotation = *state.rotations.get(&config.id).unwrap_or(&0);

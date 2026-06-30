@@ -84,16 +84,18 @@ pub fn actor_component_snapshot(
     ActorIntent,
     ActorCooldowns,
 ) {
+    // A freshly-seeded body has no damage-blink; the reaction timers (hit_flash /
+    // i-frame) live on the spawned `BodyCombat` and start at 0.
     let combat = if disposition.is_hostile() {
         BodyCombat::hostile(
             seed.health.alive(),
-            seed.status.hit_flash,
+            0.0,
             seed.attack.windup_remaining(),
             seed.attack.active_remaining(),
             seed.config.tuning.is_sandbag,
         )
     } else {
-        BodyCombat::peaceful(0, seed.status.hit_flash)
+        BodyCombat::peaceful(0, 0.0)
     };
     (
         ActorIdentity::new(seed.config.id.clone(), seed.config.name.clone())

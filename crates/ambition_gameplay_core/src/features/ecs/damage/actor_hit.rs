@@ -68,7 +68,7 @@ pub(crate) fn apply_actor_hit(
         // consequence, handled by `apply_actor_stimuli`.
         let pos = em.kin.pos;
         let bark_anchor = em.bark_anchor();
-        em.status.hit_flash = 0.18;
+        combat.hit_flash = 0.18;
         combat.damage_invuln_timer = super::super::actor_clusters::ACTOR_DAMAGE_IFRAME_S;
         let impact = midpoint(event.volume.center(), pos);
         writers.vfx.write(VfxMessage::Impact { pos: impact });
@@ -124,8 +124,8 @@ pub(crate) fn apply_actor_hit(
         // Combat banter — fire a speech bubble only on
         // the first non-overlapping hit (hit_flash near
         // zero before we re-set it below).
-        let should_bark = em.status.hit_flash < 0.05;
-        em.status.hit_flash = 0.16;
+        let should_bark = combat.hit_flash < 0.05;
+        combat.hit_flash = 0.16;
         combat.damage_invuln_timer = super::super::actor_clusters::ACTOR_DAMAGE_IFRAME_S;
         if should_bark {
             let strikes = (em.health.max() - em.health.current()).max(0) as u32;

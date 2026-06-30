@@ -12,7 +12,7 @@ use super::entity::{
 };
 use super::spawn_message::{ProjectilePool, SpawnProjectile};
 use super::state::{PlayerProjectileState, ProjectileTraceEvent};
-use super::{resolve_world_collision, ProjectileFaction, WorldHitOutcome};
+use super::{resolve_world_collision, WorldHitOutcome};
 use crate::actor::BodyKinematics;
 use crate::audio::SfxMessage;
 use crate::features::{
@@ -481,10 +481,19 @@ pub fn step_projectiles(
     // bystander (the observer). Same-faction allies are spared unless friendly fire
     // is on — so a pirate's shot can't hit another pirate. (Targeting is separate.)
     friendly_fire: Option<Res<crate::features::FriendlyFire>>,
-    actor_victims: Query<
-        (Entity, &CenteredAabb, &ActorFaction),
-        (With<FeatureSimEntity>, Without<BossConfig>),
-    >,
+    // Bundled into ONE tuple slot to stay under Bevy's 16-param ceiling:
+    // - `actor_victims` — non-boss actors a hostile shot can damage (actor-vs-actor).
+    // - `owner_factions` — the firer's REAL faction, looked up from the projectile's
+    //   owner entity (player / enemy / boss / player-robot). This RETIRES the binary
+    //   `ProjectileGameplay.faction`: damage routes off the owner's faction, not a
+    //   side label baked onto the shot. Read-only, so it may overlap `actor_victims`.
+    (actor_victims, owner_factions): (
+        Query<
+            (Entity, &CenteredAabb, &ActorFaction),
+            (With<FeatureSimEntity>, Without<BossConfig>),
+        >,
+        Query<&ActorFaction>,
+    ),
 ) {
     let dt = world_time.sim_dt();
     let friendly_fire = friendly_fire.map(|r| *r).unwrap_or_default();
@@ -513,6 +522,14 @@ pub fn step_projectiles(
         // pick — by kind, not by sniffing the owner-id string.
         let visual_kind = visual_kind.copied().unwrap_or_default();
         let owner_entity = owner.map(|o| o.0);
+        // The firer's real faction — the OWNER's, not the shot's stored label.
+        // Ownerless volleys (string-`ProjectileOwnerId`-owned) fall back to Enemy,
+        // preserving today's hostile-volley behavior. A Player-faction firer's shot
+        // is the player's universal attack (hits breakables/actors/bosses); any
+        // other firer's shot is a hostile shot (damages the player + relational foes).
+        let firer_faction = owner_entity
+            .and_then(|e| owner_factions.get(e).ok().copied())
+            .unwrap_or(ActorFaction::Enemy);
 
         // Tick + lifetime. A dead lasersword detonates; everything else logs an
         // Expired trace event.
@@ -538,156 +555,155 @@ pub fn step_projectiles(
             continue;
         }
 
-        // Faction-routed damage.
-        match game.faction {
-            ProjectileFaction::Player => {
-                let hit_event = HitEvent {
+        // Damage routed by the FIRER's real faction (the owner's), not a label on
+        // the shot. A Player-faction firer's shot is the player's universal attack;
+        // any other firer's shot is hostile (damages the player + relational foes).
+        if firer_faction == ActorFaction::Player {
+            let hit_event = HitEvent {
+                volume: kin.aabb().into(),
+                damage: game.damage.max(1),
+                // Player shots always carry the kind component; default is
+                // unreachable (kept total for the engine-generic body).
+                source: HitSource::PlayerProjectile {
+                    kind: kind.unwrap_or(crate::projectile::ProjectileKind::Fireball),
+                },
+                attacker: owner_entity,
+                target: HitTarget::Volume,
+                mode: HitMode::Knockback,
+                knockback: None,
+                ignored_targets: Vec::new(),
+            };
+            let hit = crate::features::ecs_hit_event_hits_breakable(&hit_event, &ecs_breakables)
+                || crate::features::ecs_hit_event_hits_actor(&hit_event, &ecs_actors)
+                || crate::features::ecs_hit_event_hits_boss(&hit_event, &ecs_bosses);
+            if hit {
+                feature_damage.write(hit_event);
+                sfx.write(SfxMessage::Hit { pos: kin.pos });
+                trace.push_event(
+                    ProjectileTraceEvent::Hit {
+                        kind,
+                        damage: game.damage,
+                    }
+                    .into_trace_event(tick),
+                );
+                commands.entity(proj_entity).despawn();
+                continue;
+            }
+        } else {
+            // A hostile shot (fired by any non-Player faction): it damages the
+            // player it overlaps (`can_damage` different-faction) + any relational
+            // actor-foe of the firer. `firer_faction` is the loop-level lookup.
+            let mut hit_any_player = false;
+            let mut reflected = false;
+            // Damage is physical: a shot hits the player if it's a different
+            // faction from the firer (so a duel's stray catches the observer);
+            // only a same-faction firer (co-op) passes them by, unless friendly
+            // fire is on. Whether the firer AIMED at the player is separate.
+            let can_hit_player = can_damage(firer_faction, ActorFaction::Player, friendly_fire);
+            for (player_entity, player_kin, offense, dodge, shield, combat) in &player_body_q {
+                if !can_hit_player {
+                    break;
+                }
+                if !kin.aabb().strict_intersects(player_kin.aabb()) {
+                    continue;
+                }
+                // Parry: a timed shield RE-OWNS the shot to the player (so its
+                // firer faction becomes Player next tick → it routes as the
+                // player's own shot, back at the enemies) and reverses (+boosts)
+                // its velocity. Re-owning, not flipping a faction label, is how a
+                // reflected shot becomes the player's attack now that damage is
+                // owner-driven.
+                if shield.parrying() {
+                    commands
+                        .entity(proj_entity)
+                        .insert(ProjectileOwner(player_entity));
+                    kin.vel = -kin.vel * PROJECTILE_REFLECT_SPEED_SCALE;
+                    sfx.write(SfxMessage::Play {
+                        id: ambition_sfx::ids::WORLD_ROCK_HIT,
+                        pos: kin.pos,
+                    });
+                    vfx.write(VfxMessage::Impact { pos: kin.pos });
+                    heals.write(crate::player::PlayerHealRequested::new(PARRY_HEAL));
+                    reflected = true;
+                    break;
+                }
+                let dodge_rolling = dodge.roll_timer > 0.0;
+                let vulnerable = !offense.invincible && !dodge_rolling && combat.vulnerable();
+                if !vulnerable {
+                    continue;
+                }
+                let knock_dir = (player_kin.pos.x - kin.pos.x).signum();
+                let knock_dir = if knock_dir.abs() < 0.001 {
+                    1.0
+                } else {
+                    knock_dir
+                };
+                let impact_pos = ae::Vec2::new(
+                    (player_kin.pos.x + kin.pos.x) * 0.5,
+                    (player_kin.pos.y + kin.pos.y) * 0.5,
+                );
+                feature_damage.write(HitEvent {
                     volume: kin.aabb().into(),
                     damage: game.damage.max(1),
-                    // Player shots always carry the kind component; default is
-                    // unreachable (kept total for the engine-generic body).
-                    source: HitSource::PlayerProjectile {
-                        kind: kind.unwrap_or(crate::projectile::ProjectileKind::Fireball),
-                    },
+                    source: HitSource::EnemyProjectile,
+                    // The firing actor (enemy / boss), when the shot was
+                    // spawned with a real owner — `None` for ownerless shots.
                     attacker: owner_entity,
-                    target: HitTarget::Volume,
+                    target: HitTarget::Player(player_entity),
+                    mode: HitMode::Knockback,
+                    knockback: Some(HitKnockback {
+                        dir: knock_dir,
+                        strength: 0.85,
+                        source_pos: kin.pos,
+                        impact_pos,
+                    }),
+                    ignored_targets: Vec::new(),
+                });
+                sfx.write(SfxMessage::Hit { pos: kin.pos });
+                vfx.write(VfxMessage::Impact { pos: kin.pos });
+                hit_any_player = true;
+                break;
+            }
+            // A parried shot survives as a player-faction bolt (keep in flight).
+            if reflected {
+                continue;
+            }
+            if hit_any_player {
+                commands.entity(proj_entity).despawn();
+                continue;
+            }
+            // Relational actor-vs-actor (S3e): the shot damages the first
+            // overlapping actor its firer is hostile to (e.g. a Boss-faction
+            // body in a spectator arena), pre-resolved to that exact entity.
+            let mut hit_any_actor = false;
+            for (victim_entity, victim_aabb, victim_faction) in &actor_victims {
+                if Some(victim_entity) == owner_entity {
+                    continue;
+                }
+                if !can_damage(firer_faction, *victim_faction, friendly_fire) {
+                    continue;
+                }
+                if !kin.aabb().strict_intersects(victim_aabb.aabb()) {
+                    continue;
+                }
+                feature_damage.write(HitEvent {
+                    volume: kin.aabb().into(),
+                    damage: game.damage.max(1),
+                    source: HitSource::EnemyProjectile,
+                    attacker: owner_entity,
+                    target: HitTarget::Actor(victim_entity),
                     mode: HitMode::Knockback,
                     knockback: None,
                     ignored_targets: Vec::new(),
-                };
-                let hit =
-                    crate::features::ecs_hit_event_hits_breakable(&hit_event, &ecs_breakables)
-                        || crate::features::ecs_hit_event_hits_actor(&hit_event, &ecs_actors)
-                        || crate::features::ecs_hit_event_hits_boss(&hit_event, &ecs_bosses);
-                if hit {
-                    feature_damage.write(hit_event);
-                    sfx.write(SfxMessage::Hit { pos: kin.pos });
-                    trace.push_event(
-                        ProjectileTraceEvent::Hit {
-                            kind,
-                            damage: game.damage,
-                        }
-                        .into_trace_event(tick),
-                    );
-                    commands.entity(proj_entity).despawn();
-                    continue;
-                }
+                });
+                sfx.write(SfxMessage::Hit { pos: kin.pos });
+                vfx.write(VfxMessage::Impact { pos: kin.pos });
+                hit_any_actor = true;
+                break;
             }
-            ProjectileFaction::Enemy => {
-                // Route damage by the FIRER's real faction (looked up from the
-                // owner), not the binary `ProjectileFaction` — so actor-vs-actor
-                // works in both directions. Ownerless volleys (string-owned) fall
-                // back to Enemy, preserving today's enemy-shoots-player behavior.
-                let firer_faction = owner_entity
-                    .and_then(|e| actor_victims.get(e).ok().map(|(_, _, f)| *f))
-                    .unwrap_or(ActorFaction::Enemy);
-                let mut hit_any_player = false;
-                let mut reflected = false;
-                // Damage is physical: a shot hits the player if it's a different
-                // faction from the firer (so a duel's stray catches the observer);
-                // only a same-faction firer (co-op) passes them by, unless friendly
-                // fire is on. Whether the firer AIMED at the player is separate.
-                let can_hit_player = can_damage(firer_faction, ActorFaction::Player, friendly_fire);
-                for (player_entity, player_kin, offense, dodge, shield, combat) in &player_body_q {
-                    if !can_hit_player {
-                        break;
-                    }
-                    if !kin.aabb().strict_intersects(player_kin.aabb()) {
-                        continue;
-                    }
-                    // Parry: a timed shield flips the shot to the player's faction
-                    // and reverses (+boosts) its velocity, so next tick's routing
-                    // sends it back at the enemies.
-                    if shield.parrying() {
-                        game.faction = ProjectileFaction::Player;
-                        kin.vel = -kin.vel * PROJECTILE_REFLECT_SPEED_SCALE;
-                        sfx.write(SfxMessage::Play {
-                            id: ambition_sfx::ids::WORLD_ROCK_HIT,
-                            pos: kin.pos,
-                        });
-                        vfx.write(VfxMessage::Impact { pos: kin.pos });
-                        heals.write(crate::player::PlayerHealRequested::new(PARRY_HEAL));
-                        reflected = true;
-                        break;
-                    }
-                    let dodge_rolling = dodge.roll_timer > 0.0;
-                    let vulnerable = !offense.invincible && !dodge_rolling && combat.vulnerable();
-                    if !vulnerable {
-                        continue;
-                    }
-                    let knock_dir = (player_kin.pos.x - kin.pos.x).signum();
-                    let knock_dir = if knock_dir.abs() < 0.001 {
-                        1.0
-                    } else {
-                        knock_dir
-                    };
-                    let impact_pos = ae::Vec2::new(
-                        (player_kin.pos.x + kin.pos.x) * 0.5,
-                        (player_kin.pos.y + kin.pos.y) * 0.5,
-                    );
-                    feature_damage.write(HitEvent {
-                        volume: kin.aabb().into(),
-                        damage: game.damage.max(1),
-                        source: HitSource::EnemyProjectile,
-                        // The firing actor (enemy / boss), when the shot was
-                        // spawned with a real owner — `None` for ownerless shots.
-                        attacker: owner_entity,
-                        target: HitTarget::Player(player_entity),
-                        mode: HitMode::Knockback,
-                        knockback: Some(HitKnockback {
-                            dir: knock_dir,
-                            strength: 0.85,
-                            source_pos: kin.pos,
-                            impact_pos,
-                        }),
-                        ignored_targets: Vec::new(),
-                    });
-                    sfx.write(SfxMessage::Hit { pos: kin.pos });
-                    vfx.write(VfxMessage::Impact { pos: kin.pos });
-                    hit_any_player = true;
-                    break;
-                }
-                // A parried shot survives as a player-faction bolt (keep in flight).
-                if reflected {
-                    continue;
-                }
-                if hit_any_player {
-                    commands.entity(proj_entity).despawn();
-                    continue;
-                }
-                // Relational actor-vs-actor (S3e): the shot damages the first
-                // overlapping actor its firer is hostile to (e.g. a Boss-faction
-                // body in a spectator arena), pre-resolved to that exact entity.
-                let mut hit_any_actor = false;
-                for (victim_entity, victim_aabb, victim_faction) in &actor_victims {
-                    if Some(victim_entity) == owner_entity {
-                        continue;
-                    }
-                    if !can_damage(firer_faction, *victim_faction, friendly_fire) {
-                        continue;
-                    }
-                    if !kin.aabb().strict_intersects(victim_aabb.aabb()) {
-                        continue;
-                    }
-                    feature_damage.write(HitEvent {
-                        volume: kin.aabb().into(),
-                        damage: game.damage.max(1),
-                        source: HitSource::EnemyProjectile,
-                        attacker: owner_entity,
-                        target: HitTarget::Actor(victim_entity),
-                        mode: HitMode::Knockback,
-                        knockback: None,
-                        ignored_targets: Vec::new(),
-                    });
-                    sfx.write(SfxMessage::Hit { pos: kin.pos });
-                    vfx.write(VfxMessage::Impact { pos: kin.pos });
-                    hit_any_actor = true;
-                    break;
-                }
-                if hit_any_actor {
-                    commands.entity(proj_entity).despawn();
-                    continue;
-                }
+            if hit_any_actor {
+                commands.entity(proj_entity).despawn();
+                continue;
             }
         }
 
@@ -696,7 +712,13 @@ pub fn step_projectiles(
         // bouncing fireball arcs whoever throws it; a lasersword detonates on
         // the wall. (B2: retires the faction→policy fork.)
         let world_hit = game.world_hit;
-        match resolve_world_collision(&mut kin, &mut game, &collision_world, world_hit, gravity_dir) {
+        match resolve_world_collision(
+            &mut kin,
+            &mut game,
+            &collision_world,
+            world_hit,
+            gravity_dir,
+        ) {
             WorldHitOutcome::Bounced { pos } => {
                 sfx.write(SfxMessage::Hit { pos });
             }

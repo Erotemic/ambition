@@ -310,26 +310,30 @@ mod tests {
         app.add_systems(Update, crate::projectile::step_projectiles);
 
         let player_pos = ae::Vec2::new(200.0, 200.0);
-        app.world_mut().spawn((
-            PlayerEntity,
-            BodyKinematics {
-                pos: player_pos,
-                vel: ae::Vec2::ZERO,
-                size: ae::Vec2::new(24.0, 40.0),
-                facing: 1.0,
-            },
-            BodyBaseSize {
-                base_size: ae::Vec2::new(24.0, 40.0),
-            },
-            BodyOffense::default(),
-            BodyDodgeState::default(),
-            // Parry window OPEN.
-            BodyShieldState {
-                active: true,
-                parry_window_timer: 0.2,
-            },
-            BodyCombat::default(),
-        ));
+        let player = app
+            .world_mut()
+            .spawn((
+                PlayerEntity,
+                crate::combat::components::ActorFaction::Player,
+                BodyKinematics {
+                    pos: player_pos,
+                    vel: ae::Vec2::ZERO,
+                    size: ae::Vec2::new(24.0, 40.0),
+                    facing: 1.0,
+                },
+                BodyBaseSize {
+                    base_size: ae::Vec2::new(24.0, 40.0),
+                },
+                BodyOffense::default(),
+                BodyDodgeState::default(),
+                // Parry window OPEN.
+                BodyShieldState {
+                    active: true,
+                    parry_window_timer: 0.2,
+                },
+                BodyCombat::default(),
+            ))
+            .id();
         // An enemy bolt overlapping the player, travelling left (toward where it
         // came from — at the player).
         let incoming = ae::Vec2::new(-300.0, 0.0);
@@ -354,10 +358,19 @@ mod tests {
         let bodies = enemy_projectile_bodies(&mut app);
         assert_eq!(bodies.len(), 1, "the parried bolt stays in flight");
         let body = &bodies[0].body;
+        // Parry RE-OWNS the bolt to the player (so its firer faction is Player next
+        // tick → it routes as the player's own shot, back at the enemies) — it does
+        // NOT mutate a faction label.
+        let owner = app
+            .world_mut()
+            .query::<&crate::projectile::ProjectileOwner>()
+            .iter(app.world())
+            .next()
+            .map(|o| o.0);
         assert_eq!(
-            body.game.faction,
-            crate::projectile::ProjectileFaction::Player,
-            "parry flips the bolt to the player's faction"
+            owner,
+            Some(player),
+            "parry re-owns the bolt to the player"
         );
         assert!(
             body.kin.vel.x > 0.0,

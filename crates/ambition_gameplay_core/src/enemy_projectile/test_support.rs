@@ -5,10 +5,12 @@
 //! `EnemyProjectileState::spawn(..)` go through these instead. Mirrors the
 //! player pool's `spawn_player_projectile` / `projectile_bodies` test helpers.
 
+use crate::combat::components::ActorFaction;
 use crate::enemy_projectile::entity::EnemyProjectile;
 use crate::enemy_projectile::{EnemyProjectileSpawn, EnemyProjectileState};
 use crate::projectile::{
-    ProjectileFaction, ProjectileGameplay, ProjectileOwnerId, ProjectileSeq, ProjectileSeqCounter,
+    ProjectileFaction, ProjectileGameplay, ProjectileOwner, ProjectileOwnerId, ProjectileSeq,
+    ProjectileSeqCounter,
 };
 use bevy::prelude::*;
 
@@ -30,11 +32,21 @@ pub(crate) fn spawn_enemy_projectile(
             .get_resource_or_insert_with(ProjectileSeqCounter::default);
         counter.next()
     };
+    // Damage routes off the FIRER's real faction (looked up from the projectile's
+    // owner), not the stored `game.faction`. So a `ProjectileFaction::Player` test
+    // shot must carry a Player-faction OWNER to route as a player shot — spawn a
+    // bare faction-carrier entity and own the projectile to it.
+    let owner_faction = match faction {
+        ProjectileFaction::Player => ActorFaction::Player,
+        ProjectileFaction::Enemy => ActorFaction::Enemy,
+    };
+    let owner = app.world_mut().spawn(owner_faction).id();
     app.world_mut().spawn((
         projectile.body.kin,
         projectile.body.game,
         seq,
         ProjectileOwnerId(projectile.owner_id),
+        ProjectileOwner(owner),
         crate::projectile::LiveProjectile,
         EnemyProjectile,
         Name::new("Enemy projectile (test)"),

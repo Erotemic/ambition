@@ -99,6 +99,9 @@ impl From<RecordedControls> for AgentAction {
             blink_released: c.blink_released,
             pogo: c.pogo_pressed,
             interact: c.interact_pressed,
+            // The trace format records only the interact edge; replay it as a
+            // single-frame held (possession holds aren't captured in fixtures).
+            interact_held: c.interact_pressed,
             projectile: false,
             projectile_held: false,
             projectile_released: false,

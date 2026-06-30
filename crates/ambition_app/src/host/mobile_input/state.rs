@@ -155,6 +155,7 @@ pub fn fold_touch_into_control_frame(
         pogo_pressed: false,
         fly_toggle_pressed: state.fly_toggle.pressed_this_frame,
         interact_pressed: state.interact.pressed_this_frame,
+        interact_held: state.interact.held,
         reset_pressed: state.reset.pressed_this_frame,
         start_pressed: state.start.pressed_this_frame,
         projectile_pressed: state.projectile.pressed_this_frame,

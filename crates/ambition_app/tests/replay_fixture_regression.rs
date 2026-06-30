@@ -53,6 +53,7 @@ fn agent_action_from_json_controls(c: &serde_json::Value) -> AgentAction {
         blink_released: bool_field(c, "blink_released"),
         pogo: bool_field(c, "pogo_pressed"),
         interact: bool_field(c, "interact_pressed"),
+        interact_held: bool_field(c, "interact_pressed"),
         projectile: false,
         projectile_held: false,
         projectile_released: false,

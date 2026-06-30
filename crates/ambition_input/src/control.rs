@@ -55,6 +55,11 @@ pub struct ControlFrame {
     /// Generic context interaction. This is a dedicated interact action plus
     /// the sandbox double-tap-up gesture, not raw held/up movement.
     pub interact_pressed: bool,
+    /// Interact button currently HELD (sustain), distinct from the
+    /// `interact_pressed` rising edge. Hold gestures (e.g. possession's
+    /// ~2s Down+Interact) accumulate on this; single-shot interactions
+    /// (doors / heal-shrine) use the edge so one press = one action.
+    pub interact_held: bool,
     pub reset_pressed: bool,
     pub start_pressed: bool,
     /// Player projectile / spell action — newly pressed this frame.
@@ -186,6 +191,7 @@ impl ControlFrame {
             pogo_pressed: actions.just_pressed(&SandboxAction::Pogo),
             fly_toggle_pressed: actions.just_pressed(&SandboxAction::Utility),
             interact_pressed: actions.just_pressed(&SandboxAction::Interact),
+            interact_held: actions.pressed(&SandboxAction::Interact),
             reset_pressed: actions.just_pressed(&SandboxAction::Reset),
             start_pressed: actions.just_pressed(&SandboxAction::Start),
             projectile_pressed: actions.just_pressed(&SandboxAction::Projectile),

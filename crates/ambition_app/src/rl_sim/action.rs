@@ -42,6 +42,11 @@ pub struct AgentAction {
     pub blink_released: bool,
     pub pogo: bool,
     pub interact: bool,
+    /// Interact button HELD this frame (sustain), distinct from the `interact`
+    /// rising edge. Hold gestures (e.g. possession's ~2s Down+Interact) read the
+    /// held state; a real held button reports both (edge on frame one, held
+    /// throughout). RL/scripted agents that only tap leave this false.
+    pub interact_held: bool,
     pub projectile: bool,
     pub projectile_held: bool,
     pub projectile_released: bool,
@@ -119,6 +124,7 @@ impl From<AgentAction> for ControlFrame {
             pogo_pressed: a.pogo,
             fly_toggle_pressed: a.fly_toggle,
             interact_pressed: a.interact,
+            interact_held: a.interact_held,
             reset_pressed: a.reset,
             start_pressed: a.start,
             projectile_pressed: a.projectile,

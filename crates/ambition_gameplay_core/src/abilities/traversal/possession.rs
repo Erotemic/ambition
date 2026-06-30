@@ -110,7 +110,12 @@ pub fn possession_trigger_system(
     let descend = ambition_engine_core::AccelerationFrame::new(gravity_dir)
         .resolve_input(movement_mode, frame.axis_x, frame.axis_y)
         .y;
-    let down_interact = descend > 0.35 && frame.interact_pressed;
+    // The gesture is a HOLD, so it accumulates on the interact button being
+    // HELD — not the single-frame `interact_pressed` rising edge (which is also
+    // consumed by doors / the heal-shrine and would reset the hold timer every
+    // frame, so the 2s threshold was never reached in-game). The release is the
+    // rising edge of (down + held), tracked via `prev_down_interact`.
+    let down_interact = descend > 0.35 && frame.interact_held;
     let release_edge = down_interact && !*prev_down_interact;
     *prev_down_interact = down_interact;
 
@@ -261,7 +266,9 @@ mod tests {
     fn hold_down_interact(app: &mut App, player: Entity, held: bool) {
         let mut input = app.world_mut().get_mut::<PlayerInputFrame>(player).unwrap();
         input.frame.axis_y = if held { 1.0 } else { 0.0 };
-        input.frame.interact_pressed = held;
+        // The gesture accumulates on the HELD interact button (the trigger reads
+        // `interact_held`, not the single-frame `interact_pressed` edge).
+        input.frame.interact_held = held;
     }
 
     fn possessed(app: &App) -> Option<Entity> {

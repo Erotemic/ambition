@@ -29,6 +29,7 @@ pub fn base() -> AgentAction {
         blink_released: false,
         pogo: false,
         interact: false,
+        interact_held: false,
         projectile: false,
         projectile_held: false,
         projectile_released: false,

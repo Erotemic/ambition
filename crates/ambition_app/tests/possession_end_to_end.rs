@@ -48,11 +48,15 @@ fn faction(world: &mut World, e: Entity) -> ActorFaction {
     *world.get::<ActorFaction>(e).expect("actor faction")
 }
 
-/// Hold Down (`move_y > 0.35`) + Interact — the possession gesture.
-fn down_interact() -> AgentAction {
+/// Hold Down (`move_y > 0.35`) + Interact — the possession gesture. The HOLD
+/// accumulates on `interact_held` (the real binding is `pressed`, i.e. held);
+/// the single-frame `interact` edge fires only when `edge` is set (frame one of
+/// a press), exactly as the device pipeline reports a real button hold.
+fn down_interact(edge: bool) -> AgentAction {
     AgentAction {
         move_y: 1.0,
-        interact: true,
+        interact: edge,
+        interact_held: true,
         ..AgentAction::default()
     }
 }
@@ -81,8 +85,8 @@ fn a_player_can_possess_drive_and_release_an_actor_end_to_end() {
 
     // 1. Hold Down+Interact past the ~2s commit threshold (fixed 60hz → ~120
     //    frames; hold 150 for margin). The trigger runs on real time.
-    for _ in 0..150 {
-        sim.step(down_interact());
+    for i in 0..150 {
+        sim.step(down_interact(i == 0));
     }
     assert_eq!(
         possessed(&mut sim),
@@ -125,7 +129,7 @@ fn a_player_can_possess_drive_and_release_an_actor_end_to_end() {
 
     // 3. A fresh Down+Interact press releases possession. `prev_down_interact` is
     //    false after the move phase, so this frame is the rising edge.
-    sim.step(down_interact());
+    sim.step(down_interact(true));
     assert_eq!(
         possessed(&mut sim),
         None,

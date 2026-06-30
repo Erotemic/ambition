@@ -15,6 +15,10 @@ use super::*;
 pub fn sync_ecs_actors_with_save(
     mut commands: Commands,
     save: Res<crate::persistence::save::SandboxSave>,
+    // A persisted-hostile NPC re-establishes its grudge against the current primary
+    // player on load (the original attacker entity doesn't survive a save round-trip;
+    // single-player has exactly one player to be angry at).
+    primary_player: Query<Entity, (With<crate::actor::PlayerEntity>, With<crate::actor::PrimaryPlayer>)>,
     mut actors: Query<
         (
             Entity,
@@ -65,7 +69,8 @@ pub fn sync_ecs_actors_with_save(
                 }
                 _ => None,
             });
-            aggression.mode = AggressionMode::HostileToPlayer;
+            aggression.mode = AggressionMode::Hostile;
+            aggression.grudge = primary_player.iter().next();
             let mut em = cq.as_actor_mut();
             super::actors::provoke_actor_in_place(
                 &mut commands,

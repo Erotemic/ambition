@@ -94,7 +94,7 @@ pub(super) fn spawn_split_offspring(commands: &mut Commands, parent_id: &str, po
             "SmallSkitter",
             format!("{parent_id}:split"),
             crate::features::ActorFaction::Enemy,
-            crate::features::ActorAggression::hostile_to_player(),
+            crate::features::ActorAggression::hostile(),
         );
     }
 }

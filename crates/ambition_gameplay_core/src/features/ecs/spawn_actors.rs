@@ -180,7 +180,7 @@ impl EnemyActorSpawnPlan {
             feature_aabb,
             enemy,
             faction: super::ActorFaction::Enemy,
-            aggression: super::ActorAggression::hostile_to_player(),
+            aggression: super::ActorAggression::hostile(),
             brain,
             action_set,
             combat_kit,
@@ -552,7 +552,7 @@ pub(super) fn spawn_boss_with_overrides(
         boss_intent,
         boss_cooldowns,
         boss_combat_kit,
-        ActorAggression::hostile_to_player(),
+        ActorAggression::hostile(),
     ));
     entity.insert((
         // The brain bundle stays grouped because each piece is required
@@ -815,7 +815,7 @@ pub fn apply_summon_effects(
                 &s.archetype_id,
                 s.encounter_id.clone(),
                 s.faction,
-                super::ActorAggression::hostile_to_player(),
+                super::ActorAggression::hostile(),
             );
         }
     }

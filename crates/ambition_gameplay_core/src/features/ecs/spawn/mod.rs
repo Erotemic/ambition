@@ -92,7 +92,7 @@ pub fn spawn_room_feature_entities(commands: &mut Commands, room: &crate::rooms:
                         // stray (physical damage) or PROVOKE a stood-down fighter by
                         // striking it past the retaliation threshold. This loop only
                         // ever stages duel fighters, so the override is unconditional.
-                        .insert(crate::features::ActorAggression::hostile_to_faction());
+                        .insert(crate::features::ActorAggression::hostile());
                 }
             }
         }

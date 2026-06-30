@@ -189,6 +189,15 @@ pub struct ActorAggression {
     /// per-family status component, so the provoke accumulator survives the
     /// NPC→one-actor cluster merge and the in-place hostile flip.
     pub strikes: i32,
+    /// Per-actor grudge: a SPECIFIC entity this actor has decided to oppose
+    /// beyond its `FactionRelations` baseline (set when provoked — the attacker
+    /// that struck it past its threshold). Targeting treats a grudge entity as a
+    /// foe just like a relational faction-foe, so a provoked NPC chases its
+    /// attacker without mutating its `ActorFaction` identity. `None` = no grudge;
+    /// the actor fights purely along faction lines. Grudges only form against
+    /// real attackers — with friendly-fire off, `can_damage` blocks ally-on-ally
+    /// hits, so no spurious `DamagedBy` stimulus (and no grudge) ever forms.
+    pub grudge: Option<Entity>,
 }
 
 impl ActorAggression {
@@ -197,6 +206,7 @@ impl ActorAggression {
             mode: AggressionMode::Passive,
             target: None,
             strikes: 0,
+            grudge: None,
         }
     }
 
@@ -205,37 +215,27 @@ impl ActorAggression {
             mode: AggressionMode::RetaliatesWhenHit { strike_threshold },
             target: None,
             strikes: 0,
+            grudge: None,
         }
     }
 
-    pub fn hostile_to_player() -> Self {
+    /// Actively hostile: targets the nearest body of any faction it opposes
+    /// (`FactionRelations`) PLUS any entity it holds a grudge against. Whom that
+    /// turns out to be — the player (a born Enemy whose faction opposes Player),
+    /// a faction-foe in a duel (Enemy vs Boss, the observing player spared because
+    /// relations don't make it a foe), or a specific attacker (a provoked NPC's
+    /// grudge) — is decided by relations + faction + grudge, never named here.
+    pub fn hostile() -> Self {
         Self {
-            mode: AggressionMode::HostileToPlayer,
+            mode: AggressionMode::Hostile,
             target: None,
             strikes: 0,
-        }
-    }
-
-    /// Hostile to its relational faction-foes ONLY — never the player baseline.
-    /// A fighter in a faction feud (e.g. the spectator duel: Enemy vs Boss) targets
-    /// whoever `FactionRelations` says it's hostile to, and goes target-less the
-    /// moment that foe is gone — it does NOT fall back to hunting the observing
-    /// player. The player can still be caught by a stray (PHYSICAL damage) or
-    /// PROVOKE it the normal way (strike it past the retaliation threshold, which
-    /// flips it to [`AggressionMode::HostileToPlayer`]).
-    pub fn hostile_to_faction() -> Self {
-        Self {
-            mode: AggressionMode::HostileToFaction,
-            target: None,
-            strikes: 0,
+            grudge: None,
         }
     }
 
     pub fn is_aggressive(self) -> bool {
-        matches!(
-            self.mode,
-            AggressionMode::HostileToPlayer | AggressionMode::HostileToFaction
-        )
+        matches!(self.mode, AggressionMode::Hostile)
     }
 
     /// Who this actor wants to look at / chase this frame, derived from
@@ -254,11 +254,13 @@ impl ActorAggression {
     pub fn target_policy(self) -> AggressionTarget {
         match self.mode {
             AggressionMode::Passive => AggressionTarget::None,
-            AggressionMode::RetaliatesWhenHit { .. } | AggressionMode::HostileToPlayer => {
-                AggressionTarget::NearestPlayer
+            // One relational policy: track the nearest foe — any faction this actor
+            // opposes (`FactionRelations`) OR its grudge entity. A peaceful
+            // `RetaliatesWhenHit` actor (faction Npc, no grudge) has no foe, so this
+            // is inert until it's provoked into `Hostile` with a grudge.
+            AggressionMode::RetaliatesWhenHit { .. } | AggressionMode::Hostile => {
+                AggressionTarget::Foe
             }
-            // Relational feud: target nearest faction-foe, never the player baseline.
-            AggressionMode::HostileToFaction => AggressionTarget::NearestFoe,
         }
     }
 }
@@ -271,14 +273,17 @@ impl Default for ActorAggression {
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum AggressionMode {
+    /// Never fights — no combat target, ignores being hit.
     Passive,
-    RetaliatesWhenHit {
-        strike_threshold: u8,
-    },
-    HostileToPlayer,
-    /// Hostile to its relational faction-foes only (never the player baseline).
-    /// See [`ActorAggression::hostile_to_faction`].
-    HostileToFaction,
+    /// Peaceful until struck past `strike_threshold`, then provoked into `Hostile`
+    /// with a grudge against the attacker (see [`ActorAggression::grudge`]).
+    RetaliatesWhenHit { strike_threshold: u8 },
+    /// Actively hostile — one relational policy. Targets the nearest body of any
+    /// faction it opposes (`FactionRelations`) plus its grudge entity. There is no
+    /// player-named mode: a born Enemy hunts the player because its faction opposes
+    /// Player; a duel fighter hunts its faction-foe; a provoked NPC hunts its
+    /// grudge — all the same mode, the difference is in relations/faction/grudge.
+    Hostile,
 }
 
 /// Resolved targeting policy for one frame, produced by
@@ -294,13 +299,10 @@ pub enum AggressionTarget {
     /// direction (keep current facing) instead of snapping toward the
     /// world origin.
     None,
-    /// Track the nearest alive player-faction entity (plus any relationally-hostile
-    /// actor — the player baseline is always a candidate).
-    NearestPlayer,
-    /// Track the nearest alive RELATIONAL faction-foe ONLY — the player baseline is
-    /// NOT a candidate. A faction-feud fighter that goes target-less once its foe is
-    /// gone (it does not fall back to the observing player).
-    NearestFoe,
+    /// Track the nearest alive FOE: any faction this actor opposes
+    /// (`FactionRelations`) OR its grudge entity. The player is a relational
+    /// candidate like any other faction — never an unconditional special case.
+    Foe,
 }
 
 /// ECS-visible body health. Re-exported here (the actor-components umbrella) so

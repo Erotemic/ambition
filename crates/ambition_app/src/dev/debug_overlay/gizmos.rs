@@ -615,10 +615,10 @@ pub(crate) fn draw_feature_debug(
         let fighting = disposition.is_hostile();
         let (actor_label, color) = if !fighting {
             ("peaceful", npc_color)
-        } else if matches!(
-            aggression.mode,
-            ambition_gameplay_core::features::AggressionMode::HostileToFaction
-        ) {
+        } else if aggression.grudge.is_none() {
+            // Fighting along faction lines only (a duel combatant / born enemy),
+            // no personal grudge — distinct from a provoked actor hunting the
+            // specific entity that struck it.
             ("fighting", fighting_color)
         } else {
             ("hostile", enemy_color)

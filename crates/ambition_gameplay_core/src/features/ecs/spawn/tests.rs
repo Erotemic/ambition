@@ -135,7 +135,7 @@ fn boss_spawn_attaches_brain_components() {
     );
     assert_eq!(cooldowns.attack_cooldown, 0.0);
     assert!(kit.can_ranged(None));
-    assert_eq!(aggression.mode, AggressionMode::HostileToPlayer);
+    assert_eq!(aggression.mode, AggressionMode::Hostile);
 }
 
 /// Regression net: every encounter-spawned hostile actor lands

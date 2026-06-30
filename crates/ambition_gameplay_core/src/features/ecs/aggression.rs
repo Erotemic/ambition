@@ -75,15 +75,11 @@ pub fn apply_actor_stimuli(
                 AggressionMode::RetaliatesWhenHit { strike_threshold } => {
                     aggression.strikes >= i32::from(strike_threshold)
                 }
-                AggressionMode::HostileToPlayer => true,
-                // A faction-feud fighter (e.g. a duel winner that stood down to
-                // peaceful once its foe died) is re-provokable by the player the
-                // same way an NPC is: strike it past the threshold and it turns on
-                // the attacker (the flip to `HostileToPlayer` below adds the player
-                // to its targets). Below the threshold a stray hit is shrugged off.
-                AggressionMode::HostileToFaction => {
-                    aggression.strikes >= crate::features::NPC_HOSTILE_STRIKE_THRESHOLD
-                }
+                // Already hostile (incl. a faction-feud fighter that stood down to
+                // peaceful once its foe died): a landed hit re-engages it + records a
+                // grudge against the attacker. With friendly-fire off, only a real
+                // foe's hit lands here, so this never spuriously re-aggros on an ally.
+                AggressionMode::Hostile => true,
                 AggressionMode::Passive => false,
             };
             if !should_be_aggressive {
@@ -92,7 +88,14 @@ pub fn apply_actor_stimuli(
         } else {
             aggression.target = source.or(aggression.target);
         }
-        aggression.mode = AggressionMode::HostileToPlayer;
+        aggression.mode = AggressionMode::Hostile;
+        // Hold a grudge against the attacker (the entity that struck / challenged
+        // it). Targeting hunts a grudge entity exactly like a relational faction-foe,
+        // so a provoked NPC chases its attacker WITHOUT mutating its `ActorFaction`
+        // identity (the old in-place flip to `Enemy`). `None` source (a test, or a
+        // hazard with no attacker) leaves the grudge unset → it fights along faction
+        // lines only.
+        aggression.grudge = source.or(aggression.grudge);
 
         let dialogue_id = interaction.and_then(|i| match &i.interactable.kind {
             ambition_interaction::InteractionKind::Npc { dialogue_id, .. } => {
@@ -205,6 +208,7 @@ mod tests {
             },
             target: None,
             strikes,
+            grudge: None,
         };
         app.world_mut()
             .spawn((
@@ -237,28 +241,39 @@ mod tests {
     }
 
     #[test]
-    fn npc_flips_hostile_once_strikes_reach_the_threshold() {
+    fn npc_flips_hostile_with_a_grudge_against_its_attacker() {
         let mut app = App::new();
         app.add_message::<ActorStimulus>();
         app.add_systems(Update, apply_actor_stimuli);
         // Already at the strike threshold (the damage system increments
         // strikes; this stimulus is the provocation that re-evaluates).
         let npc = spawn_npc_with_strikes(&mut app, NPC_HOSTILE_STRIKE_THRESHOLD);
-        run(&mut app, npc);
+        let attacker = app.world_mut().spawn_empty().id();
+        app.world_mut().write_message(ActorStimulus::DamagedBy {
+            actor: npc,
+            source: Some(attacker),
+            damage: 1,
+        });
+        app.update();
         assert_eq!(
             *app.world().get::<ActorDisposition>(npc).unwrap(),
             ActorDisposition::Hostile,
             "an NPC at the strike threshold should flip hostile when provoked"
         );
-        // Its FACTION must flip to Enemy too, not just its disposition — otherwise
-        // `FactionRelations` (Npc↔Player NOT hostile) relationally filters its hits,
-        // so its contact FX streams every frame while no damage / i-frame ever lands.
+        // It hunts its attacker through a per-actor GRUDGE — NOT by mutating its
+        // faction identity (the old in-place flip to Enemy is gone). Targeting
+        // treats the grudge entity as a foe; the victim-side damage gate is
+        // different-faction (`can_damage`), which an Npc→Player hit already passes.
         assert_eq!(
-            *app.world()
+            app.world().get::<ActorAggression>(npc).unwrap().grudge,
+            Some(attacker),
+            "a provoked NPC holds a grudge against the entity that struck it"
+        );
+        assert!(
+            app.world()
                 .get::<crate::combat::components::ActorFaction>(npc)
-                .unwrap(),
-            crate::combat::components::ActorFaction::Enemy,
-            "a provoked NPC must become faction Enemy so its hits are relationally hostile to the player"
+                .is_none(),
+            "provoke must NOT insert an Enemy faction — identity is preserved, the grudge does the work"
         );
     }
 

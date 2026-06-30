@@ -127,7 +127,10 @@ pub fn can_damage(
 /// index here without changing the consumer side.
 pub fn select_actor_targets(
     relations: Option<Res<FactionRelations>>,
-    players: Query<(Entity, &BodyKinematics, &BodyHealth), With<PlayerEntity>>,
+    // The player carries an `ActorFaction` (Player) like every body — read it so the
+    // player is a RELATIONAL candidate (a foe only if this actor's faction opposes
+    // Player, or it holds a grudge against this player), never an unconditional one.
+    players: Query<(Entity, &BodyKinematics, &BodyHealth, &ActorFaction), With<PlayerEntity>>,
     // Non-player actors are candidate targets too (the relational, non-player-
     // centric part): an actor can target another actor whose faction it's hostile
     // to. Snapshotted, so this read-only borrow ends before the mutable pass.
@@ -149,20 +152,23 @@ pub fn select_actor_targets(
     // swinging at the corpse and (downstream) stands down — instead of chasing a
     // dead entity until it despawns. Death zeroes `BodyHealth` on every body
     // (player + actor), so this is the one uniform liveness gate.
-    let player_snapshots: Vec<(Entity, ae::Vec2)> = players
+    // ONE candidate set — the player is just another body, carrying faction Player.
+    // No unconditional player special-case; nearest foe wins.
+    let candidates: Vec<(Entity, ae::Vec2, ActorFaction)> = players
         .iter()
-        .filter(|(_, _, hp)| hp.current() > 0)
-        .map(|(e, kin, _)| (e, kin.pos))
-        .collect();
-    let candidates: Vec<(Entity, ae::Vec2, ActorFaction)> = others
-        .iter()
-        .filter(|(_, _, _, hp)| hp.current() > 0)
-        .map(|(e, aabb, faction, _)| (e, aabb.center, *faction))
+        .filter(|(_, _, hp, _)| hp.current() > 0)
+        .map(|(e, kin, _, faction)| (e, kin.pos, *faction))
+        .chain(
+            others
+                .iter()
+                .filter(|(_, _, _, hp)| hp.current() > 0)
+                .map(|(e, aabb, faction, _)| (e, aabb.center, *faction)),
+        )
         .collect();
     // Nothing to point at: leave every actor's target untouched so downstream
     // ticks keep last frame's value instead of zeroing (matches old behavior
-    // when no players existed).
-    if player_snapshots.is_empty() && candidates.is_empty() {
+    // when no candidates existed).
+    if candidates.is_empty() {
         return;
     }
     for (self_entity, aabb, mut target, aggression, faction) in actors.iter_mut() {
@@ -175,40 +181,32 @@ pub fn select_actor_targets(
             target.entity = None;
             continue;
         }
-        // The player baseline is a candidate ONLY for `NearestPlayer` (hostile
-        // enemies + retaliating NPCs that chase/face the player). `NearestFoe`
-        // (a faction-feud fighter, e.g. the duel) tracks relational foes ONLY —
-        // it never falls back to the observing player, so it goes target-less the
-        // moment its foe is gone. Either way, relational faction-foes are always
-        // candidates; nearest wins.
-        let include_players = matches!(policy, AggressionTarget::NearestPlayer);
+        // One relational rule: a candidate is a FOE iff this actor's faction is
+        // hostile to it (`FactionRelations`) OR this actor holds a grudge against
+        // that exact entity (a provoked NPC chasing its attacker). The player is a
+        // candidate like any other — it's hunted because the actor's faction opposes
+        // Player (a born Enemy) or it's the grudge target (a provoked NPC), never
+        // because it is "the player". Nearest foe wins.
         let mut best: Option<(Entity, ae::Vec2, f32)> = None;
-        let mut consider = |entity: Entity, pos: ae::Vec2| {
-            if entity == self_entity {
-                return;
+        for (entity, pos, cand_faction) in &candidates {
+            if *entity == self_entity {
+                continue;
             }
-            let d = distance_squared(pos, actor_pos);
+            let is_foe = faction.is_some_and(|f| relations.is_hostile(*f, *cand_faction))
+                || aggression.grudge == Some(*entity);
+            if !is_foe {
+                continue;
+            }
+            let d = distance_squared(*pos, actor_pos);
             if best.map(|(_, _, bd)| d < bd).unwrap_or(true) {
-                best = Some((entity, pos, d));
-            }
-        };
-        if include_players {
-            for (entity, pos) in &player_snapshots {
-                consider(*entity, *pos);
-            }
-        }
-        if let Some(faction) = faction {
-            for (entity, pos, other_faction) in &candidates {
-                if relations.is_hostile(*faction, *other_faction) {
-                    consider(*entity, *pos);
-                }
+                best = Some((*entity, *pos, d));
             }
         }
         if let Some((entity, pos, _)) = best {
             target.pos = pos;
             target.entity = Some(entity);
         } else {
-            // No valid target (foe dead/gone, or no players for a player-hunter):
+            // No valid foe (faction-neutral with no grudge, or its foe is gone):
             // point at self so facing math reads a zero direction (hold facing).
             target.pos = actor_pos;
             target.entity = None;
@@ -227,7 +225,7 @@ mod tests {
     use super::*;
     use crate::actor::BodyKinematics;
     use crate::actor::{PlayerEntity, PrimaryPlayer};
-    use crate::combat::components::{ActorAggression, ActorTarget, CenteredAabb};
+    use crate::combat::components::{ActorAggression, ActorFaction, ActorTarget, CenteredAabb};
     use crate::player::PlayerSlot;
 
     fn dummy_player_body(pos: ae::Vec2) -> BodyKinematics {
@@ -245,31 +243,42 @@ mod tests {
         BodyHealth::new(ambition_characters::actor::Health::new(10))
     }
 
+    // A born-hostile enemy: faction Enemy (relationally hostile to Player by the
+    // FactionRelations default), so it hunts the player along faction lines — no
+    // grudge, no player-named mode.
     fn enemy_at(app: &mut App, pos: ae::Vec2) -> Entity {
         app.world_mut()
             .spawn((
                 FeatureSimEntity,
                 CenteredAabb::from_center_size(pos, ae::Vec2::new(20.0, 20.0)),
                 ActorTarget::default(),
-                ActorAggression::hostile_to_player(),
+                ActorAggression::hostile(),
+                ActorFaction::Enemy,
                 alive(),
             ))
             .id()
     }
 
+    // Spawn a player body carrying faction Player — a relational candidate like any
+    // other body (the production player always has this faction).
+    fn spawn_player(app: &mut App, slot: u8, primary: bool, pos: ae::Vec2) -> Entity {
+        let mut e = app.world_mut().spawn((
+            PlayerEntity,
+            PlayerSlot(slot),
+            dummy_player_body(pos),
+            ActorFaction::Player,
+            alive(),
+        ));
+        if primary {
+            e.insert(PrimaryPlayer);
+        }
+        e.id()
+    }
+
     #[test]
     fn target_points_at_only_player_when_one_present() {
         let mut app = App::new();
-        let player = app
-            .world_mut()
-            .spawn((
-                PlayerEntity,
-                PlayerSlot(0),
-                PrimaryPlayer,
-                dummy_player_body(ae::Vec2::new(300.0, 100.0)),
-                alive(),
-            ))
-            .id();
+        let player = spawn_player(&mut app, 0, true, ae::Vec2::new(300.0, 100.0));
         let enemy = enemy_at(&mut app, ae::Vec2::new(100.0, 100.0));
         app.add_systems(Update, select_actor_targets);
         app.update();
@@ -283,22 +292,8 @@ mod tests {
         let mut app = App::new();
         // p1 at (100, 100), p2 at (500, 100). Enemy at (450, 100)
         // → nearest is p2.
-        app.world_mut().spawn((
-            PlayerEntity,
-            PlayerSlot(0),
-            PrimaryPlayer,
-            dummy_player_body(ae::Vec2::new(100.0, 100.0)),
-            alive(),
-        ));
-        let p2 = app
-            .world_mut()
-            .spawn((
-                PlayerEntity,
-                PlayerSlot(1),
-                dummy_player_body(ae::Vec2::new(500.0, 100.0)),
-                alive(),
-            ))
-            .id();
+        spawn_player(&mut app, 0, true, ae::Vec2::new(100.0, 100.0));
+        let p2 = spawn_player(&mut app, 1, false, ae::Vec2::new(500.0, 100.0));
         let enemy = enemy_at(&mut app, ae::Vec2::new(450.0, 100.0));
         app.add_systems(Update, select_actor_targets);
         app.update();
@@ -310,13 +305,7 @@ mod tests {
     #[test]
     fn passive_aggression_targets_self_not_player() {
         let mut app = App::new();
-        app.world_mut().spawn((
-            PlayerEntity,
-            PlayerSlot(0),
-            PrimaryPlayer,
-            dummy_player_body(ae::Vec2::new(999.0, 999.0)),
-            alive(),
-        ));
+        spawn_player(&mut app, 0, true, ae::Vec2::new(999.0, 999.0));
         let actor_pos = ae::Vec2::new(40.0, 60.0);
         let passive = app
             .world_mut()
@@ -338,21 +327,14 @@ mod tests {
     }
 
     #[test]
-    fn retaliating_actor_tracks_nearest_player() {
+    fn a_peaceful_npc_ignores_the_player_until_it_holds_a_grudge() {
+        // Relational targeting: a faction-Npc `RetaliatesWhenHit` NPC is NOT hostile
+        // to Player (FactionRelations baseline), so before it's provoked it has no
+        // foe and takes no target — it patrols/idles, it does not stalk the player.
+        // Provoking it sets a GRUDGE against the attacker, and THEN it hunts that
+        // exact entity (no faction-identity mutation).
         let mut app = App::new();
-        let player = app
-            .world_mut()
-            .spawn((
-                PlayerEntity,
-                PlayerSlot(0),
-                PrimaryPlayer,
-                dummy_player_body(ae::Vec2::new(200.0, 100.0)),
-                alive(),
-            ))
-            .id();
-        // A RetaliatesWhenHit NPC still tracks the player (for facing /
-        // approach) even before it has been provoked — this reproduces
-        // the old `faction.needs_target()` behavior for peaceful NPCs.
+        let player = spawn_player(&mut app, 0, true, ae::Vec2::new(200.0, 100.0));
         let npc = app
             .world_mut()
             .spawn((
@@ -363,21 +345,41 @@ mod tests {
                 ),
                 ActorTarget::default(),
                 ActorAggression::retaliates_when_hit(3),
+                ActorFaction::Npc,
             ))
             .id();
         app.add_systems(Update, select_actor_targets);
         app.update();
         let target = app.world().entity(npc).get::<ActorTarget>().unwrap();
-        assert_eq!(target.pos, ae::Vec2::new(200.0, 100.0));
-        assert_eq!(target.entity, Some(player));
+        assert_eq!(
+            target.entity, None,
+            "an unprovoked peaceful NPC has no foe — it does not track the player"
+        );
+        assert_eq!(target.pos, ae::Vec2::new(100.0, 100.0), "holds its own position");
+
+        // Provoke it: a grudge against the player makes it hunt that entity.
+        app.world_mut()
+            .get_mut::<ActorAggression>(npc)
+            .unwrap()
+            .grudge = Some(player);
+        app.update();
+        let target = app.world().entity(npc).get::<ActorTarget>().unwrap();
+        assert_eq!(
+            target.entity,
+            Some(player),
+            "once it holds a grudge it hunts that exact entity (the player)"
+        );
     }
 
     #[test]
-    fn no_players_leaves_target_unchanged() {
+    fn an_actor_with_no_foe_points_at_itself() {
+        // A born-hostile Enemy alone in the world (no player, no faction-foe) has no
+        // one to chase: it points at itself so facing math holds (a zero direction),
+        // and clears any stale target entity. (The "leave targets untouched" early
+        // return only fires for a genuinely EMPTY candidate set — no body carries a
+        // faction — a degenerate pre-spawn case.)
         let mut app = App::new();
         let enemy = enemy_at(&mut app, ae::Vec2::new(100.0, 100.0));
-        // Prime the target to a known sentinel so we can prove the
-        // selector didn't touch it.
         app.world_mut()
             .entity_mut(enemy)
             .get_mut::<ActorTarget>()
@@ -386,7 +388,8 @@ mod tests {
         app.add_systems(Update, select_actor_targets);
         app.update();
         let target = app.world().entity(enemy).get::<ActorTarget>().unwrap();
-        assert_eq!(target.pos, ae::Vec2::new(42.0, 42.0));
+        assert_eq!(target.pos, ae::Vec2::new(100.0, 100.0), "no foe → point at self");
+        assert_eq!(target.entity, None);
     }
 
     /// The relational seam: with no player present, an actor targets the nearest
@@ -411,7 +414,7 @@ mod tests {
                     ae::Vec2::new(20.0, 20.0),
                 ),
                 ActorTarget::default(),
-                ActorAggression::hostile_to_player(),
+                ActorAggression::hostile(),
                 ActorFaction::Enemy,
                 alive(),
             ))
@@ -459,7 +462,7 @@ mod tests {
                     ae::Vec2::new(20.0, 20.0),
                 ),
                 ActorTarget::default(),
-                ActorAggression::hostile_to_player(),
+                ActorAggression::hostile(),
                 ActorFaction::Enemy,
                 alive(),
             ))
@@ -490,23 +493,16 @@ mod tests {
     /// A `HostileToFaction` fighter (the duel mode) targets its relational
     /// faction-foe and NEVER the player baseline — even a player standing right on
     /// top of it. This is the fix for "the duel winner hunts the observer": the
-    /// player can only be caught by a stray (physical damage) or by provoking the
-    /// fighter (strikes), not by being the nearest body.
+    /// fighter (a grudge), not by the mode. The real duel stages the two fighters
+    /// NEAR each other and the observer at a DISTANCE, so each targets the other.
     #[test]
-    fn relational_fighter_ignores_the_player_baseline() {
-        use crate::combat::components::ActorFaction;
+    fn relational_fighter_targets_nearest_foe_observer_spared_by_distance() {
         let mut app = App::new();
         let mut relations = FactionRelations::default();
         relations.set_hostile(ActorFaction::Enemy, ActorFaction::Boss, true);
         app.insert_resource(relations);
-        // A player stands RIGHT NEXT to the fighter (nearest body by far)...
-        app.world_mut().spawn((
-            PlayerEntity,
-            PlayerSlot(0),
-            PrimaryPlayer,
-            dummy_player_body(ae::Vec2::new(105.0, 100.0)),
-            alive(),
-        ));
+        // The duel: fighter (Enemy) + its Boss foe stand NEAR each other; the
+        // observing player is far off to the side (the real `<<duel>>` staging).
         let fighter = app
             .world_mut()
             .spawn((
@@ -516,31 +512,48 @@ mod tests {
                     ae::Vec2::new(20.0, 20.0),
                 ),
                 ActorTarget::default(),
-                ActorAggression::hostile_to_faction(),
+                ActorAggression::hostile(),
                 ActorFaction::Enemy,
                 alive(),
             ))
             .id();
-        // ... but the fighter targets its (much farther) Boss foe, not the player.
         let foe = app
             .world_mut()
             .spawn((
                 FeatureSimEntity,
                 CenteredAabb::from_center_size(
-                    ae::Vec2::new(300.0, 100.0),
+                    ae::Vec2::new(140.0, 100.0),
                     ae::Vec2::new(20.0, 20.0),
                 ),
                 ActorFaction::Boss,
                 alive(),
             ))
             .id();
+        let player = spawn_player(&mut app, 0, true, ae::Vec2::new(600.0, 100.0));
         app.add_systems(Update, select_actor_targets);
         app.update();
-        let target = app.world().entity(fighter).get::<ActorTarget>().unwrap();
+        // The Boss foe (40px away) is nearer than the far observer (500px) → the
+        // fighter duels the Boss, sparing the distant player. The player IS a
+        // relational candidate (Enemy opposes Player by default), so a player who
+        // walks INTO the fight (becomes nearest) gets caught — the documented duel
+        // behavior. Strict observer-immunity would need per-room relations scoping
+        // (clear Enemy→Player only in the arena) — a separate follow-up.
         assert_eq!(
-            target.entity,
+            app.world().entity(fighter).get::<ActorTarget>().unwrap().entity,
             Some(foe),
-            "a HostileToFaction fighter targets its faction-foe, never the nearer player baseline"
+            "the fighter duels its nearer Boss foe, not the distant observer"
+        );
+
+        // Move the player on top of the fighter → it becomes the nearest foe.
+        app.world_mut()
+            .get_mut::<BodyKinematics>(player)
+            .unwrap()
+            .pos = ae::Vec2::new(101.0, 100.0);
+        app.update();
+        assert_eq!(
+            app.world().entity(fighter).get::<ActorTarget>().unwrap().entity,
+            Some(player),
+            "a player who walks into the duel (nearest foe) gets caught"
         );
     }
 
@@ -563,7 +576,7 @@ mod tests {
                     ae::Vec2::new(20.0, 20.0),
                 ),
                 ActorTarget::default(),
-                ActorAggression::hostile_to_faction(),
+                ActorAggression::hostile(),
                 ActorFaction::Enemy,
                 alive(),
             ))

@@ -298,7 +298,7 @@ Enemies rise to the player; delete-heavy. Each step is gated on *it compiles* (i
    archetype already exist; confirm end-to-end + measure the LOC/importer delta). See
    [`architecture.md`](architecture.md) for the component buckets.
 5. **De-player-center the remaining surface** — decisions settled with Jon (2026-06-30);
-   **B1 + B2a DONE**:
+   **B1 (incl. duel reframe) + B2 DONE; B3 remains**:
    - 🟢 **B2a (projectile world-hit) DONE** — `WorldHitPolicy` is on the projectile spec
      (firer-agnostic; variants de-player-cased to `Bouncing`/`ExpireOnContact`).
    - 🟢 **B2b-core (projectile damage) DONE** — damage routes off the FIRER's real
@@ -313,23 +313,30 @@ Enemies rise to the player; delete-heavy. Each step is gated on *it compiles* (i
      arg (across boss specials + abilities) are fully removed (~76 refs, 25 files, 5 crates);
      `world_hit` kept. The binary `ProjectileFaction` is RETIRED — projectile faction is now
      purely the firer's, owner-derived.
-   - **DUEL REFRAME (Jon's call — supersedes the per-room-relations-scoping follow-up):** the
-     duelists shouldn't be Enemy/Boss (Player-hostile by default). They should be normal NPCs
-     **aggressive to each other** — each holds a GRUDGE against the other duelist entity (the
-     B1 grudge model) on two DIFFERENT non-Player-hostile factions (so `can_damage` lets them
-     hurt each other). The observer (Player) is never a foe by construction; when one dies the
-     survivor's grudge target is gone → it stands down to a normal NPC, no relations to
-     restore. Needs a two-pass spawn (spawn both, then cross-set grudges) + dropping
-     `apply_duel_relations`. Avoids ANY global `FactionRelations` mutation (the lingering
-     problem). Not yet implemented.
+   - 🟢 **DUEL REFRAME DONE (Jon's call)** — the duelists are now **two normal `Npc`s holding a
+     mutual GRUDGE** against each other, not Enemy/Boss. The elegant resolution (the
+     two-different-faction idea was non-viable: `Neutral` melee is inert and the only
+     non-Player-hostile *fighting* faction is `Npc`, forcing both onto the SAME faction) was to
+     make the **grudge authorize DAMAGE too** — `damage_lands` = `can_damage || grudge ==
+     victim`, the per-entity counterpart to `FactionRelations`. So two same-faction `Npc`s
+     target AND damage each other via the grudge alone. `grudge_against` (foe feature id) rides
+     `SpawnActorRequest`; `wire_staged_grudges` cross-wires post-spawn. `apply_duel_relations` +
+     the global Enemy↔Boss mutation are RETIRED — the duel touches no shared resource. Observer-
+     sparing is now EXACT (grudge ≠ player, Npc not faction-hostile to Player), not distance-
+     based; a stray still catches a player who wades in (physical, different faction).
+     **"Defeated → normal NPC again"** emerges from `dissolve_settled_grudges` (clear a grudge
+     when its foe is dead OR the holder is down) + the existing target-less standdown — the duel
+     resolves to mutual peace, no bespoke end-code. Also fixed the re-triggered anti-clump
+     freeze: crowding now excludes whoever a fighter is actively targeting (`ActorTarget`), so
+     same-faction duelists close instead of spreading apart. All 4 `duel_arena` headless tests
+     green.
    - 🟢 **B1 (relational targeting + grudge) DONE** — one rule (`is_hostile(faction, cand)
      || grudge == Some(cand)`); `AggressionMode` → {Passive, RetaliatesWhenHit, Hostile};
-     provoke sets a per-actor grudge (attacker Entity) instead of flipping faction. **FEEL-
-     CHECK for Jon:** (a) peaceful NPCs no longer stalk the player before being provoked
-     (they hold facing, then hunt their grudge); (b) the duel observer-sparing is now
-     DISTANCE-based — a player who walks into the fight gets caught (the documented `<<duel>>`
-     behavior). *Follow-up:* strict duel observer-immunity wants per-room `FactionRelations`
-     scoping (clear Enemy→Player only in the arena; global clear would break normal enemies).
+     provoke sets a per-actor grudge (attacker Entity) instead of flipping faction. The grudge
+     is now a FULL per-entity hostility relation: it drives targeting AND damage (`damage_lands`)
+     AND anti-clump (a grudge foe is an opponent, not an ally) AND dissolves when settled.
+     **FEEL-CHECK for Jon:** peaceful NPCs no longer stalk the player before being provoked
+     (they hold facing, then hunt their grudge).
    - **`ControlFrame` → entity-local `ActorIntent` (B3).** *Boundary principle (agreed):*
      sim/body systems read the body's entity-local intent; only input-source adapters
      and presentation read the global `ControlFrame`. Per-reader audit + repoint of the

@@ -402,16 +402,21 @@ the texture grows with the square; a 400px-body boss is already ~30 MB, a truly
 crisp 600px-body one is ~130 MB, so there's a VRAM ceiling — that's where
 splitting / packing earns its keep).
 
-**⚠ Latent: 3 sheets already exceed the 8192 GPU texture limit** — `player_robot`
-**2148×10752**, `player_extended` 2168×8960, `sandbag_full_review` 2190×8960.
-They're tall because the sheet layout stacks every animation **row** in a single
-column, so `frame_height × num_rows` blows the height. Works on this desktop GPU
-(16384 cap) but would fail on WebGL2 / many mobile GPUs. The clean fix is the
-**grid-packing** you mentioned: lay frames out in 2D instead of one column of
-rows. The RON already records explicit per-frame `rects` and the Rust atlas
-builder uses them directly when present, so a 2D packer needs **no Rust change** —
-just emit a grid + correct rects. Say the word and I'll do it (it also unblocks
-pushing boss resolution higher without hitting the dimension cap).
+**✅ RESOLVED (was: 3 sheets exceed the 8192 GPU texture limit).** This is now
+**done** and superseded — do not treat it as open. The generator alpha-trims +
+MaxRects-packs every frame into pages capped at `page_size` (default 4096), policy
+data-driven per target in `registry/pack_groups.py`; the old one-column-of-rows
+layout is gone (now "the legacy grid" fallback for untrimmed targets only). The
+16384-px dimension crash is guarded by `page_size`/`max_dim`. The Rust atlas
+builder consumes per-frame `rects` + trim offsets (`with_render_basis`), so no Rust
+change was needed for the layout. See `docs/planning/engine/visual-quality-profiles.md`
+("Sheet packing — already done") for the current state; the remaining VRAM lever is
+*render resolution*, not packing.
+
+  *Historical note (the original latent finding):* `player_robot` **2148×10752**,
+  `player_extended` 2168×8960, `sandbag_full_review` 2190×8960 were tall because the
+  layout stacked every animation **row** in one column (`frame_height × num_rows`).
+  That layout no longer ships.
 
 ---
 

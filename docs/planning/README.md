@@ -82,6 +82,10 @@ The full statements live in [`AGENTS.md`](../../AGENTS.md); the spine:
   headless sim as the verification substrate; invariants over tuned values; symmetry.
 - **[`engine/sprite-renderer.md`](engine/sprite-renderer.md)** — measure-by-default
   sprite metadata.
+- **[`engine/visual-quality-profiles.md`](engine/visual-quality-profiles.md)** — one
+  global quality profile → a structured runtime/device budget every visual subsystem
+  reads; the Android FPS fix (portal-capture throttle + live-switchable texture-res
+  variants).
 - **[`engine/boss-system.md`](engine/boss-system.md)** — bosses as entity-local actors
   + content.
 

@@ -163,11 +163,21 @@ pub enum SandboxSet {
 /// `.after(CoreSimulation)` without joining the chain.
 pub fn configure_sandbox_sets(app: &mut App) {
     // Sub-sets inside CoreSimulation, ordered.
+    //
+    // CONTROL-SEAM ORDERING: `PlayerInput` runs BEFORE `WorldPrep`. This is the
+    // slot-input invariant — `PlayerInput` finalizes this frame's device input,
+    // publishes it into `SlotControls`, and resolves `ControlledSubject`; only
+    // THEN does `WorldPrep` tick the actor/boss brains (`update_ecs_actors` /
+    // `tick_boss_brains_system`). So a possessed body carrying `Brain::Player`
+    // reads THIS frame's input, not last frame's. The `ActorActionMessage`
+    // emitters were moved out of `PlayerInput` to run after `WorldPrep` (see
+    // `register_player_input_systems`) so they observe both the player's and the
+    // actors' freshly-ticked `ActorControl`.
     app.configure_sets(
         Update,
         (
-            SandboxSet::WorldPrep,
             SandboxSet::PlayerInput,
+            SandboxSet::WorldPrep,
             SandboxSet::PlayerSimulation,
             SandboxSet::RoomTransition,
             SandboxSet::Combat,

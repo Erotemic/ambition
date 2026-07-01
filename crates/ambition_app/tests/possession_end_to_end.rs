@@ -22,6 +22,7 @@
 
 use ambition_app::{AgentAction, SandboxSim, TimestepMode};
 use ambition_characters::actor::EnemyBrain;
+use ambition_characters::brain::ActorControl;
 use ambition_engine_core as ae;
 use ambition_gameplay_core::abilities::traversal::possession::PossessionState;
 use ambition_gameplay_core::actor::{BodyKinematics, PrimaryPlayerOnly};
@@ -49,6 +50,58 @@ fn possessed(sim: &mut SandboxSim) -> Option<Entity> {
 
 fn faction(world: &mut World, e: Entity) -> ActorFaction {
     *world.get::<ActorFaction>(e).expect("actor faction")
+}
+
+/// Possess the actor `stride` px to the player's right, returning its entity.
+/// Shared setup for the possession tests below.
+fn spawn_and_possess(sim: &mut SandboxSim) -> Entity {
+    let p = player_pos(sim.world_mut());
+    sim.spawn_enemy_at(
+        ACTOR_ID,
+        "Perfect Cellular Automaton",
+        (p.x + 60.0, p.y),
+        (14.0, 23.0),
+        EnemyBrain::Custom("cellular_automaton_fighter".to_string()),
+    );
+    let actor = actor_entity(sim.world_mut());
+    for i in 0..150 {
+        sim.step(down_interact(i == 0));
+    }
+    assert_eq!(
+        possessed(sim),
+        Some(actor),
+        "setup: the ~2s hold should have possessed the actor"
+    );
+    actor
+}
+
+/// SAME-FRAME slot input (schedule invariant): a possessed actor ticks inside
+/// `WorldPrep`, which runs BEFORE `PlayerInput`. `SlotControls` +
+/// `ControlledSubject` must be published even earlier (before `WorldPrep`), so a
+/// SINGLE `move_x` step must show up in the possessed body's `ActorControl` THIS
+/// frame — not next frame. Before the schedule fix this read last frame's input.
+#[test]
+fn possessed_actor_reads_this_frame_slot_input() {
+    let mut sim =
+        SandboxSim::new_with_timestep(TimestepMode::fixed_60hz()).expect("sandbox sim builds");
+    let actor = spawn_and_possess(&mut sim);
+
+    // The possess gesture drove `move_y` (down); horizontal was zero, so the
+    // actor's control x is ~0 going into this step. ONE step of move_x(1.0):
+    sim.step(AgentAction::move_x(1.0));
+
+    let control = sim
+        .world_mut()
+        .get::<ActorControl>(actor)
+        .expect("possessed actor carries ActorControl")
+        .0;
+    assert!(
+        control.locomotion.x > 0.5,
+        "the possessed actor's ActorControl must reflect THIS frame's move_x \
+         (same-frame slot input); got locomotion.x = {} — the WorldPrep actor tick \
+         read a stale SlotControls",
+        control.locomotion.x,
+    );
 }
 
 /// Hold Down (`move_y > 0.35`) + Interact — the possession gesture. The HOLD

@@ -298,30 +298,32 @@ fn register_player_input_systems(app: &mut App) {
             // (see `engine_input_from_actor_control`).
             ambition_gameplay_core::player::tick_player_brains,
             ambition_gameplay_core::player::sync_player_actor_poses,
-            // Universal-brain effects resolver: walk every actor's
-            // ActionSet against the actor's ActorControl frame and
-            // emit ActorActionMessage entries for each concrete
-            // request. Live consumers read the emitted stream in
-            // Combat: enemy ranged, enemy melee start, player
-            // melee + pogo start gating, GNU-ton apple rain, and
-            // Gradient Sentinel specials.
-            ambition_characters::brain::emit_brain_action_messages,
-            // Sibling emitter: for every player-brain actor, surface
-            // the per-tick projectile state (axis sample + press /
-            // held / released edges) into the same ActorActionMessage
-            // channel under `ActionRequest::PlayerProjectileTick`.
-            // `ambition_gameplay_core::projectile::update_projectiles` consumes this
-            // stream instead of reading `PlayerInputFrame` directly,
-            // so player projectile charging now flows through the
-            // universal action seam.
-            ambition_characters::brain::emit_player_projectile_tick_messages,
-            // Observe the resolver output into a per-frame counter
-            // so the HUD + debug tooling have a quick "any brain
-            // wants something this tick" signal.
-            ambition_characters::brain::observe_brain_action_counter,
         )
             .chain()
             .in_set(SandboxSet::PlayerInput),
+    );
+    // Universal-brain effects resolver — moved OUT of `PlayerInput` to run AFTER
+    // `WorldPrep`. `PlayerInput` now precedes `WorldPrep`, so this must run after
+    // the actor/boss brain ticks (`update_ecs_actors` / `tick_boss_brains_system`)
+    // to observe THIS frame's actor `ActorControl` (not last frame's) — otherwise
+    // every enemy's melee/ranged would lag a frame. It still runs before `Combat`
+    // (where the consumers spawn hitboxes/projectiles), same frame.
+    //   - `emit_brain_action_messages`: ActionSet × ActorControl → per-request
+    //     `ActorActionMessage` (enemy ranged, enemy melee start, player melee/pogo
+    //     gating, boss specials).
+    //   - `emit_player_projectile_tick_messages`: per-tick charge axis/edges for
+    //     charge-capable bodies → `PlayerProjectileTick`.
+    //   - `observe_brain_action_counter`: HUD/debug "any brain wants something".
+    app.add_systems(
+        Update,
+        (
+            ambition_characters::brain::emit_brain_action_messages,
+            ambition_characters::brain::emit_player_projectile_tick_messages,
+            ambition_characters::brain::observe_brain_action_counter,
+        )
+            .chain()
+            .after(SandboxSet::WorldPrep)
+            .before(SandboxSet::PlayerSimulation),
     );
 }
 

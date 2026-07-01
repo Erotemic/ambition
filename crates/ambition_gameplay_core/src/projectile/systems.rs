@@ -120,24 +120,31 @@ impl ProjectileCollisionWorld<'_, '_> {
     }
 }
 
-/// Player projectile INPUT: per-player charge / Hadouken-motion recognition /
-/// fire. Emits [`SpawnProjectile`] into the shared pool; the actual flight is
-/// stepped by [`step_projectiles`] (the unified faction-general stepper). Split
-/// out of the former `update_projectiles` when the player + enemy step loops
-/// were merged.
+/// Charge-projectile INPUT: per-BODY charge / Hadouken-motion recognition / fire.
+/// Emits [`SpawnProjectile`] into the shared pool; the actual flight is stepped by
+/// [`step_projectiles`] (the unified faction-general stepper).
+///
+/// Body/ability-subject, NOT player-marker: it iterates any body carrying the
+/// chargeable-projectile CAPABILITY ([`ambition_characters::brain::ChargesProjectiles`])
+/// plus its charge state — the SAME capability gate the emitter
+/// (`emit_player_projectile_tick_messages`) uses, so the two sides are symmetric.
+/// The projectile origin is the EMITTING body's own muzzle (`kin.pos`), so a
+/// possessed body that adopts the player's kit fires from ITSELF, not the home
+/// avatar. Only the home body carries the charge state today; the player-flavoured
+/// anim pulse is therefore OPTIONAL (a non-home charge body has no `PlayerAnimState`).
 #[allow(clippy::too_many_arguments)]
-pub fn player_projectile_input(
+pub fn charge_projectile_input(
     world_time: Res<crate::WorldTime>,
-    // Per-player projectile state lives on the player entity itself. Iterates
-    // every player so co-op / possession builds get one independent charge timer.
-    mut player_q: Query<
+    // Per-BODY projectile state lives on the charge-capable body itself. Iterates
+    // every such body so co-op / possession builds get one independent charge timer.
+    mut charge_body_q: Query<
         (
             Entity,
             &crate::actor::BodyKinematics,
             &mut crate::projectile::PlayerProjectileState,
-            &mut crate::player::PlayerAnimState,
+            Option<&mut crate::player::PlayerAnimState>,
         ),
-        With<crate::actor::PlayerEntity>,
+        With<ambition_characters::brain::ChargesProjectiles>,
     >,
     mut brain_actions: MessageReader<ambition_characters::brain::ActorActionMessage>,
     user_settings: Res<crate::persistence::settings::UserSettings>,
@@ -179,8 +186,8 @@ pub fn player_projectile_input(
         .collect();
 
     let damage_mult = user_settings.gameplay.player_damage_multiplier;
-    for (player_entity, kin, mut state, mut anim) in &mut player_q {
-        let tick_info = tick_infos.get(&player_entity).copied().unwrap_or_default();
+    for (body_entity, kin, mut state, mut anim) in &mut charge_body_q {
+        let tick_info = tick_infos.get(&body_entity).copied().unwrap_or_default();
         state.clock += dt;
         state.spawner.tick(dt);
 
@@ -250,7 +257,7 @@ pub fn player_projectile_input(
                 // start a charge for this press.
                 fired_this_frame += try_fire_projectile(
                     &mut state,
-                    player_entity,
+                    body_entity,
                     kind,
                     origin,
                     direction,
@@ -275,7 +282,7 @@ pub fn player_projectile_input(
                 let tier = state.charge_tuning.tier_for_hold(hold);
                 fired_this_frame += try_fire_projectile(
                     &mut state,
-                    player_entity,
+                    body_entity,
                     crate::projectile::ProjectileKind::Fireball,
                     origin,
                     direction,
@@ -295,11 +302,15 @@ pub fn player_projectile_input(
         // out the locomotion read.
         const SHOOT_ANIM_HOLD_SECS: f32 = 0.18;
         let charging = state.charging.is_some();
-        if anim.aim_anim_active != charging {
-            anim.aim_anim_active = charging;
-        }
-        if fired_this_frame > 0 {
-            anim.shoot_anim_timer = SHOOT_ANIM_HOLD_SECS;
+        // The player-flavoured anim pulse only exists on a home body; a possessed
+        // charge body drives its own actor anim, so this is optional.
+        if let Some(anim) = anim.as_mut() {
+            if anim.aim_anim_active != charging {
+                anim.aim_anim_active = charging;
+            }
+            if fired_this_frame > 0 {
+                anim.shoot_anim_timer = SHOOT_ANIM_HOLD_SECS;
+            }
         }
 
         let tick = trace.current_tick();

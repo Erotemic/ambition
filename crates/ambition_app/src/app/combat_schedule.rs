@@ -105,7 +105,7 @@ impl Plugin for CombatSchedulePlugin {
                 // frame — the old asymmetric spawn timing, preserved).
                 ambition_gameplay_core::projectile::step_projectiles.run_if(gameplay_allowed),
                 // Player projectile INPUT: charge / Hadouken / fire → SpawnProjectile.
-                ambition_gameplay_core::projectile::player_projectile_input,
+                ambition_gameplay_core::projectile::charge_projectile_input,
                 // Phase 3b player-pool spawn consumer: materializes player-fired
                 // bodies AFTER the step, so the new body first ticks next frame.
                 ambition_gameplay_core::projectile::apply_player_spawn_projectile_messages,

@@ -14,7 +14,7 @@ use ambition_engine_core::{Block, World};
 use bevy::prelude::*;
 
 use super::state::PlayerProjectileState;
-use super::systems::{player_projectile_input, step_projectiles};
+use super::systems::{charge_projectile_input, step_projectiles};
 use crate::audio::SfxMessage;
 use crate::features::{ActorIdentity, BodyHealth, GameplayBanner, HitEvent, SetFlagRequested};
 use crate::trace::GameplayTraceBuffer;
@@ -95,7 +95,7 @@ fn projectile_test_app(world: World, player_pos: ae::Vec2, facing: f32) -> App {
             // shots, THEN input fires + the pool consumer materializes (so a
             // shot fired this frame first ticks next frame), then feature hits.
             step_projectiles,
-            player_projectile_input,
+            charge_projectile_input,
             super::systems::apply_player_spawn_projectile_messages,
             crate::features::apply_feature_hit_events,
         )

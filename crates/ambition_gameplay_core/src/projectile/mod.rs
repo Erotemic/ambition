@@ -19,7 +19,7 @@
 //! - [`entity`] — the per-projectile ECS components (`LiveProjectile`,
 //!   `PlayerProjectile`, `ProjectileOwner`, `ProjectileSeq`, …).
 //! - [`systems`] — `step_projectiles` (the unified stepper),
-//!   `player_projectile_input`, and the spawn-message consumer.
+//!   `charge_projectile_input`, and the spawn-message consumer.
 //! - [`spawn`] — `ProjectileSpawner`: cooldown + resource-meter gating.
 //! - [`spawn_message`] — `SpawnProjectile` / `ProjectilePool`: decouples fire
 //!   sites from per-pool storage.
@@ -47,7 +47,7 @@ pub use kind::{FireballChargeTuning, ProjectileKind};
 pub use spawn_message::{ProjectilePool, SpawnProjectile};
 pub use state::PlayerProjectileState;
 pub use systems::{
-    apply_player_spawn_projectile_messages, player_projectile_input, step_projectiles,
+    apply_player_spawn_projectile_messages, charge_projectile_input, step_projectiles,
 };
 pub use visual_kind::{
     ProjectileArt, ProjectileArtSource, ProjectileRenderSize, ProjectileRotation,

@@ -590,7 +590,7 @@ fn spawn_authored_basic(
 fn spawn_composite_visuals(
     commands: &mut Commands,
     world: &ae::World,
-    enemy: &ambition_gameplay_core::rooms::Authored<ambition_characters::actor::EnemyBrain>,
+    enemy: &ambition_gameplay_core::rooms::Authored<ambition_characters::actor::CharacterBrain>,
     kind: FeatureVisualKind,
     assets: Option<&GameAssets>,
     plan: &ambition_gameplay_core::features::CompositeVisualPlan,

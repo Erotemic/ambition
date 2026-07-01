@@ -335,7 +335,7 @@ pub(super) fn convert_enemy_spawn(
         field_string(entity, "path_id").or_else(|| field_string(entity, "patrol_path_id"))
     {
         if !path_id.trim().is_empty() {
-            brain = ambition_characters::actor::EnemyBrain::Patrol {
+            brain = ambition_characters::actor::CharacterBrain::Patrol {
                 path_id: Some(path_id.trim().to_string()),
             };
         }

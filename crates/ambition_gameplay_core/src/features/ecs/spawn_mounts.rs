@@ -4,7 +4,7 @@
 //! module owns the fan-out from a composite authored enemy into separate
 //! mount and rider ECS actors.
 
-use super::super::enemies::{spec_for_brain, EnemyArchetypeSpec};
+use super::super::enemies::{spec_for_brain, CharacterArchetypeSpec};
 use super::brain_builders::{
     enemy_combat_kit_for_spec, enemy_default_action_set, held_item_for_spec,
     mounted_rider_brain_and_action_set, skirmisher_brain_for_enemy,
@@ -36,9 +36,9 @@ use super::*;
 /// under her.
 pub(super) fn spawn_composite_mount_rider(
     commands: &mut Commands,
-    authored: &crate::rooms::Authored<ambition_characters::actor::EnemyBrain>,
+    authored: &crate::rooms::Authored<ambition_characters::actor::CharacterBrain>,
     paths: &[(String, ambition_characters::actor::KinematicPath)],
-    composite_spec: &EnemyArchetypeSpec,
+    composite_spec: &CharacterArchetypeSpec,
 ) {
     // The whole fan-out is driven by the composite's authored
     // `composite_visual` row (mount/rider brain keys + names): no named
@@ -53,11 +53,11 @@ pub(super) fn spawn_composite_mount_rider(
     // `pirate_on_shark_rider_offset(mount.size, rider.size)`.
     let center = authored.aabb.center();
     let mount_brain_payload =
-        ambition_characters::actor::EnemyBrain::Custom(cv.mount_brain.clone());
+        ambition_characters::actor::CharacterBrain::Custom(cv.mount_brain.clone());
     let mount_spec = spec_for_brain(&mount_brain_payload);
     let mount_size = mount_spec
         .default_size
-        .expect("composite mount has a default_size in enemy_archetypes.ron");
+        .expect("composite mount has a default_size in character_archetypes.ron");
     let mount_aabb = ae::Aabb::new(center, mount_size * 0.5);
 
     // Mount HP: take the composite spec's body HP rather than the
@@ -87,7 +87,7 @@ pub(super) fn spawn_composite_mount_rider(
     // falling back to the authored `rider_fallback_name`; light variants
     // always use the fallback.
     let rider_brain_payload =
-        ambition_characters::actor::EnemyBrain::Custom(cv.rider_brain.clone());
+        ambition_characters::actor::CharacterBrain::Custom(cv.rider_brain.clone());
     let rider_spec = spec_for_brain(&rider_brain_payload);
     let rider_variant_name = if cv.rider_name_from_spawn {
         authored

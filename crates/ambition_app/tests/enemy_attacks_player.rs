@@ -12,7 +12,7 @@
 #![cfg(feature = "rl_sim")]
 
 use ambition_app::{AgentAction, SandboxSim, TimestepMode};
-use ambition_characters::actor::EnemyBrain;
+use ambition_characters::actor::CharacterBrain;
 use ambition_characters::brain::{ActionSet, ActorControl};
 use ambition_engine_core as ae;
 use ambition_gameplay_core::actor::{BodyKinematics, PrimaryPlayerOnly};
@@ -89,7 +89,7 @@ fn a_hostile_enemy_next_to_the_player_attacks_it() {
         "Perfect Cellular Automaton",
         (p.x + 60.0, p.y),
         (14.0, 23.0),
-        EnemyBrain::Custom("cellular_automaton_fighter".to_string()),
+        CharacterBrain::Custom("cellular_automaton_fighter".to_string()),
     );
 
     let mut t = EnemyTally::default();

@@ -61,7 +61,7 @@ mod tests {
 }
 
 /// Per-actor combat capabilities, derived from the actor's authored
-/// archetype DATA at spawn (`enemy_archetypes.ron`) and attached as a
+/// archetype DATA at spawn (`character_archetypes.ron`) and attached as a
 /// component so generic combat systems can branch on capabilities
 /// instead of matching named archetype enums. The content layer
 /// derives it; the kit only defines the vocabulary.
@@ -338,10 +338,10 @@ impl ActorTuning {
 /// abstraction and shouldn't know named enemies, and the runtime brain
 /// rebuild (provoke-to-hostile, dismount) must reconstruct a brain from
 /// projected data without naming the content archetype enum. Authored
-/// per archetype in `enemy_archetypes.ron` and projected onto
-/// [`EnemyBrainSpec`] at spawn.
+/// per archetype in `character_archetypes.ron` and projected onto
+/// [`CharacterBrainSpec`] at spawn.
 #[derive(Clone, Copy, Debug, PartialEq, serde::Deserialize)]
-pub enum EnemyBrainTemplate {
+pub enum CharacterBrainTemplate {
     /// No motion / no AI — the actor only reacts to events (sandbag's
     /// PunchWeak counter, dialogue-only NPCs that become hostile).
     StandStill,
@@ -375,9 +375,9 @@ pub enum EnemyBrainTemplate {
 /// numeric inputs (aggro/chase/attack/attacks_player) live in
 /// [`ActorTuning`]; this carries the structural choices.
 #[derive(Clone, Copy, Debug, PartialEq)]
-pub struct EnemyBrainSpec {
+pub struct CharacterBrainSpec {
     /// Which motion / AI policy template the brain instantiates.
-    pub template: EnemyBrainTemplate,
+    pub template: CharacterBrainTemplate,
     /// Smash-template hit band (px) — the radius the brain closes to
     /// before emitting MeleeAttack. Authored per archetype; legacy
     /// fallback is 36 px.
@@ -414,16 +414,16 @@ pub struct EnemyBrainSpec {
     pub provoke_forced_brute_min_aggro: Option<f32>,
 }
 
-impl EnemyBrainSpec {
+impl CharacterBrainSpec {
     /// Default melee smash hit-band (px) when an archetype authors none. Single
-    /// source of truth shared with `EnemyArchetypeSpec::brain_spec`.
+    /// source of truth shared with `CharacterArchetypeSpec::brain_spec`.
     pub const DEFAULT_SMASH_HIT_BAND: f32 = 36.0;
 }
 
-impl Default for EnemyBrainSpec {
+impl Default for CharacterBrainSpec {
     fn default() -> Self {
         Self {
-            template: EnemyBrainTemplate::MeleeBrute,
+            template: CharacterBrainTemplate::MeleeBrute,
             smash_hit_band: Self::DEFAULT_SMASH_HIT_BAND,
             smash_heavy: false,
             smash_dash_to_close: false,

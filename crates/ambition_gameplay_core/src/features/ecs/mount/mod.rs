@@ -36,7 +36,7 @@ use ambition_engine_core as ae;
 /// Physical mass of an actor, used to weight a mount+rider pair's center of
 /// gravity. A heavy mount (the shark) keeps the COG near itself so the lighter
 /// rider orbits it when the pair rolls under a gravity flip. Authored from the
-/// archetype RON (`EnemyArchetypeSpec::mass`), defaulting to 1.0. Lives here with
+/// archetype RON (`CharacterArchetypeSpec::mass`), defaulting to 1.0. Lives here with
 /// the mount coupling for now; promote to a shared physics location if other
 /// systems start consuming it.
 #[derive(Component, Clone, Copy, Debug)]

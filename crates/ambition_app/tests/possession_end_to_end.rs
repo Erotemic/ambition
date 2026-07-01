@@ -21,7 +21,7 @@
 #![cfg(feature = "rl_sim")]
 
 use ambition_app::{AgentAction, SandboxSim, TimestepMode};
-use ambition_characters::actor::EnemyBrain;
+use ambition_characters::actor::CharacterBrain;
 use ambition_characters::brain::ActorControl;
 use ambition_engine_core as ae;
 use ambition_gameplay_core::abilities::traversal::possession::PossessionState;
@@ -61,7 +61,7 @@ fn spawn_and_possess(sim: &mut SandboxSim) -> Entity {
         "Perfect Cellular Automaton",
         (p.x + 60.0, p.y),
         (14.0, 23.0),
-        EnemyBrain::Custom("cellular_automaton_fighter".to_string()),
+        CharacterBrain::Custom("cellular_automaton_fighter".to_string()),
     );
     let actor = actor_entity(sim.world_mut());
     for i in 0..150 {
@@ -209,7 +209,7 @@ fn a_player_can_possess_drive_and_release_an_actor_end_to_end() {
         "Perfect Cellular Automaton",
         (p.x + 60.0, p.y),
         (14.0, 23.0),
-        EnemyBrain::Custom("cellular_automaton_fighter".to_string()),
+        CharacterBrain::Custom("cellular_automaton_fighter".to_string()),
     );
     let actor = actor_entity(sim.world_mut());
     assert_eq!(

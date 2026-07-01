@@ -79,7 +79,7 @@ pub fn entity_sprite_for_interactable(
 }
 
 pub fn entity_sprite_for_enemy(
-    brain: &ambition_characters::actor::EnemyBrain,
+    brain: &ambition_characters::actor::CharacterBrain,
 ) -> Option<EntitySprite> {
     // Training dummies use a dedicated static sprite (authored
     // archetype data); other enemies use animated spritesheets, not a

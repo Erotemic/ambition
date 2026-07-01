@@ -1219,7 +1219,7 @@ fn architecture_boundaries_combat_kit_stays_content_free() {
         &[
             "crate::content",
             "crate::ambition_content",
-            "EnemyArchetype",
+            "CharacterArchetype",
             "CutRope",
             "cut_rope",
             "GnuTon",
@@ -1240,7 +1240,7 @@ fn architecture_boundaries_combat_kit_stays_content_free() {
 fn architecture_boundaries_presentation_does_not_use_the_archetype_enum() {
     assert_code_refs_filtered(
         &[crate_src().join("presentation")],
-        &["EnemyArchetype", "is_composite_spawn", "sandbag_"],
+        &["CharacterArchetype", "is_composite_spawn", "sandbag_"],
         |file| !is_test_file(file),
         |_, _| false,
         "presentation should consume authored visual data, not the archetype enum",
@@ -1264,7 +1264,7 @@ fn architecture_boundaries_enemy_sim_reads_data_not_the_archetype_enum() {
     ];
     assert_production_lines_have_no_refs(
         &files,
-        &["EnemyArchetype", ".archetype"],
+        &["CharacterArchetype", ".archetype"],
         "per-frame enemy sim should read projected tuning/capabilities, not named archetypes",
     );
 }
@@ -1276,7 +1276,7 @@ fn architecture_boundaries_enemy_config_is_archetype_free() {
     // kit data — `tuning`, `brain_spec`, and the `CombatCapabilities`
     // component — so neither the per-frame integration nor the runtime
     // brain rebuilds (provoke, dismount) call back into the named roster.
-    // That is what lets the roster (`EnemyArchetype` + specs + RON) leave
+    // That is what lets the roster (`CharacterArchetype` + specs + RON) leave
     // the machinery lib for `ambition_content`. The spawn-time
     // `ActorClusterSeed` is allowed to carry the enum (it is consumed
     // before the entity exists), so this guards only the durable structs.
@@ -1296,7 +1296,7 @@ fn architecture_boundaries_enemy_config_is_archetype_free() {
             .lines()
             .map(str::trim)
             .filter(|line| !is_comment_line(line))
-            .filter(|line| line.contains("EnemyArchetype") || line.contains("archetype:"))
+            .filter(|line| line.contains("CharacterArchetype") || line.contains("archetype:"))
             .collect();
         assert!(
             violations.is_empty(),
@@ -1371,7 +1371,7 @@ fn architecture_boundaries_actor_crate_is_content_free_and_foundation_clean() {
             "BurningFlyingShark",
             "PuppySlug",
             "clockwork_warden",
-            "EnemyArchetype",
+            "CharacterArchetype",
         ],
         "ambition_characters must stay content-free with no upward imports",
     );

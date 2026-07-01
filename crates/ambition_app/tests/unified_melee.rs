@@ -21,7 +21,7 @@
 #![cfg(feature = "rl_sim")]
 
 use ambition_app::{AgentAction, SandboxSim, TimestepMode};
-use ambition_characters::actor::EnemyBrain;
+use ambition_characters::actor::CharacterBrain;
 use ambition_gameplay_core::actor::{BodyKinematics, PrimaryPlayerOnly};
 use ambition_gameplay_core::features::{BodyMelee, FeatureId, Hitbox};
 use bevy::prelude::{Entity, World};
@@ -95,7 +95,7 @@ fn a_hostile_actor_enters_the_same_body_melee_lifecycle() {
         "Perfect Cellular Automaton",
         (p.x + 60.0, p.y),
         (14.0, 23.0),
-        EnemyBrain::Custom("cellular_automaton_fighter".to_string()),
+        CharacterBrain::Custom("cellular_automaton_fighter".to_string()),
     );
     let enemy = {
         let mut q = sim.world_mut().query::<(Entity, &FeatureId)>();

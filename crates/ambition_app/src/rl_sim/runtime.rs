@@ -485,7 +485,7 @@ impl SandboxSim {
     /// [`SpawnActorRequest`] seam room load uses — `ActorFaction::Enemy`,
     /// `hostile_to_player` aggression, `Hostile` disposition. The enemy archetype
     /// + its brain/ActionSet resolve from `brain` (e.g.
-    /// `EnemyBrain::Custom("cellular_automaton_fighter")`). Steps one frame so the
+    /// `CharacterBrain::Custom("cellular_automaton_fighter")`). Steps one frame so the
     /// spawn command flushes and the entity exists. Counterpart to
     /// [`Self::spawn_boss_at`] for the actor (non-boss) path.
     pub fn spawn_enemy_at(
@@ -494,7 +494,7 @@ impl SandboxSim {
         name: impl Into<String>,
         pos: (f32, f32),
         half_size: (f32, f32),
-        brain: ambition_characters::actor::EnemyBrain,
+        brain: ambition_characters::actor::CharacterBrain,
     ) {
         self.app
             .world_mut()

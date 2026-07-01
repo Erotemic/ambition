@@ -146,22 +146,22 @@ pub(super) fn parse_pickup_kind(value: &str) -> ambition_interaction::PickupKind
     }
 }
 
-pub(super) fn parse_enemy_brain(value: &str) -> ambition_characters::actor::EnemyBrain {
+pub(super) fn parse_enemy_brain(value: &str) -> ambition_characters::actor::CharacterBrain {
     if let Some(path_id) = value.strip_prefix("Patrol:") {
-        ambition_characters::actor::EnemyBrain::Patrol {
+        ambition_characters::actor::CharacterBrain::Patrol {
             path_id: Some(path_id.to_string()),
         }
     } else if let Some(radius) = value
         .strip_prefix("Guard:")
         .and_then(|text| text.parse::<f32>().ok())
     {
-        ambition_characters::actor::EnemyBrain::Guard {
+        ambition_characters::actor::CharacterBrain::Guard {
             leash_radius: radius,
         }
     } else {
         match value {
-            "Passive" => ambition_characters::actor::EnemyBrain::Passive,
-            other => ambition_characters::actor::EnemyBrain::Custom(other.to_string()),
+            "Passive" => ambition_characters::actor::CharacterBrain::Passive,
+            other => ambition_characters::actor::CharacterBrain::Custom(other.to_string()),
         }
     }
 }
@@ -195,7 +195,7 @@ pub(super) fn parse_debug_label_kind(value: &str) -> crate::debug_label::DebugLa
 #[cfg(test)]
 mod tests {
     use super::*;
-    use ambition_characters::actor::{BossBrain, EnemyBrain, KinematicPathMode};
+    use ambition_characters::actor::{BossBrain, CharacterBrain, KinematicPathMode};
     use ambition_interaction::PickupKind;
 
     #[test]
@@ -263,16 +263,16 @@ mod tests {
     fn parse_enemy_brain_dispatches_prefixes_and_falls_back_to_custom() {
         assert!(matches!(
             parse_enemy_brain("Patrol:loop_a"),
-            EnemyBrain::Patrol { path_id: Some(p) } if p == "loop_a"
+            CharacterBrain::Patrol { path_id: Some(p) } if p == "loop_a"
         ));
         assert!(matches!(
             parse_enemy_brain("Guard:120"),
-            EnemyBrain::Guard { leash_radius } if (leash_radius - 120.0).abs() < 1e-3
+            CharacterBrain::Guard { leash_radius } if (leash_radius - 120.0).abs() < 1e-3
         ));
-        assert!(matches!(parse_enemy_brain("Passive"), EnemyBrain::Passive));
+        assert!(matches!(parse_enemy_brain("Passive"), CharacterBrain::Passive));
         assert!(matches!(
             parse_enemy_brain("Goblin"),
-            EnemyBrain::Custom(s) if s == "Goblin"
+            CharacterBrain::Custom(s) if s == "Goblin"
         ));
     }
 

@@ -38,7 +38,7 @@ pub use ambition_characters::brain::NPC_PATROL_SPEED;
 /// by being struck past its retaliation threshold.)
 ///
 /// Drives the actor's movement at the unified tick; the cluster `config.brain`
-/// (an `EnemyBrain`) only feeds the integrator's patrol-stall intent.
+/// (an `CharacterBrain`) only feeds the integrator's patrol-stall intent.
 pub(crate) fn npc_brain_from_catalog(
     interactable: &ambition_interaction::Interactable,
     spawn_x: f32,

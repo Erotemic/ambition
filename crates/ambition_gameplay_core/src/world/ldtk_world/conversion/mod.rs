@@ -136,7 +136,7 @@ impl LdtkProject {
         let mut chests: Vec<crate::rooms::Authored<ambition_interaction::Chest>> = Vec::new();
         let mut breakables: Vec<crate::rooms::Authored<ambition_interaction::Breakable>> =
             Vec::new();
-        let mut enemy_spawns: Vec<crate::rooms::Authored<ambition_characters::actor::EnemyBrain>> =
+        let mut enemy_spawns: Vec<crate::rooms::Authored<ambition_characters::actor::CharacterBrain>> =
             Vec::new();
         let mut boss_spawns: Vec<crate::rooms::Authored<ambition_characters::actor::BossBrain>> =
             Vec::new();
@@ -349,7 +349,7 @@ pub(super) struct RuntimeEntityEmission {
     pub(super) pickups: Vec<crate::rooms::Authored<ambition_interaction::Pickup>>,
     pub(super) chests: Vec<crate::rooms::Authored<ambition_interaction::Chest>>,
     pub(super) breakables: Vec<crate::rooms::Authored<ambition_interaction::Breakable>>,
-    pub(super) enemy_spawns: Vec<crate::rooms::Authored<ambition_characters::actor::EnemyBrain>>,
+    pub(super) enemy_spawns: Vec<crate::rooms::Authored<ambition_characters::actor::CharacterBrain>>,
     pub(super) boss_spawns: Vec<crate::rooms::Authored<ambition_characters::actor::BossBrain>>,
     pub(super) debug_labels: Vec<crate::rooms::Authored<crate::debug_label::DebugLabel>>,
     pub(super) ignored: bool,
@@ -488,7 +488,7 @@ impl RuntimeEntityEmission {
     }
 
     fn enemy_spawn(
-        authored: crate::rooms::Authored<ambition_characters::actor::EnemyBrain>,
+        authored: crate::rooms::Authored<ambition_characters::actor::CharacterBrain>,
     ) -> Self {
         Self {
             enemy_spawns: vec![authored],

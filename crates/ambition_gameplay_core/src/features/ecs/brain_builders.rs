@@ -6,11 +6,11 @@
 //! hand-rolling a slightly different mix of archetype tuning, aggressiveness,
 //! and per-actor jitter.
 
-use super::super::enemies::EnemyArchetypeSpec;
+use super::super::enemies::CharacterArchetypeSpec;
 use super::actor_clusters::ActorConfig;
 use super::variation::{five_f32s_from_seed, seed_from_id};
 use super::{CombatKit, HeldItem};
-use crate::combat::{ActorTuning, EnemyBrainSpec, EnemyBrainTemplate};
+use crate::combat::{ActorTuning, CharacterBrainSpec, CharacterBrainTemplate};
 use ambition_characters::brain::{
     ActionSet, Brain, MeleeBruteCfg, MeleeBruteState, SharkCfg, SharkState, SkirmisherCfg,
     SkirmisherState, SmashCfg, SmashState, SniperCfg, SniperState, StateMachineCfg, WandererCfg,
@@ -22,7 +22,7 @@ use ambition_characters::brain::{
 /// The kit intentionally does **not** include held item overlays; a held item is
 /// a separate component and can be dropped/swapped later. `ActionSet` is derived
 /// from `CombatKit + HeldItem` for whichever aggression state is currently live.
-pub(super) fn enemy_combat_kit_for_spec(spec: &EnemyArchetypeSpec) -> CombatKit {
+pub(super) fn enemy_combat_kit_for_spec(spec: &CharacterArchetypeSpec) -> CombatKit {
     CombatKit {
         innate_melee: spec.melee_spec(),
         innate_ranged: spec.ranged_spec(),
@@ -40,48 +40,48 @@ pub(super) fn action_set_from_combat_kit(
 /// Build the enemy's default `ActionSet` from its authored spec.
 ///
 /// Reads `melee_spec()` / `ranged_spec()` / `move_style()` straight off the
-/// data-driven `EnemyArchetypeSpec` — every spec value (timings, damage,
-/// reach) lives in `enemy_archetypes.ron`. Spawn-time only: the spec is
+/// data-driven `CharacterArchetypeSpec` — every spec value (timings, damage,
+/// reach) lives in `character_archetypes.ron`. Spawn-time only: the spec is
 /// resolved on the spawn seed before the entity exists, so the spawn path
 /// never names the roster enum.
-pub(super) fn enemy_default_action_set(spec: &EnemyArchetypeSpec) -> ActionSet {
+pub(super) fn enemy_default_action_set(spec: &CharacterArchetypeSpec) -> ActionSet {
     enemy_combat_kit_for_spec(spec).to_action_set(spec.held_item_spec().as_ref())
 }
-fn apply_spec_held_item(spec: &EnemyArchetypeSpec, actions: &mut ActionSet) {
+fn apply_spec_held_item(spec: &CharacterArchetypeSpec, actions: &mut ActionSet) {
     if let Some(item) = spec.held_item_spec() {
         item.apply_to_action_set(actions);
     }
 }
 
 pub(super) fn held_item_for_spec(
-    spec: &EnemyArchetypeSpec,
+    spec: &CharacterArchetypeSpec,
 ) -> Option<ambition_characters::brain::HeldItemSpec> {
     spec.held_item_spec()
 }
 
 /// Build the enemy's default `Brain` from its archetype spec.
 ///
-/// Reads `brain_template()` off the consolidated `EnemyArchetypeSpec` so adding
+/// Reads `brain_template()` off the consolidated `CharacterArchetypeSpec` so adding
 /// a new archetype is a single row, not a parallel match.
 pub(in crate::features) fn enemy_default_brain(enemy: &ActorConfig) -> Brain {
     match enemy.brain_spec.template {
-        EnemyBrainTemplate::StandStill => Brain::StateMachine(StateMachineCfg::StandStill),
-        EnemyBrainTemplate::Wanderer => Brain::StateMachine(StateMachineCfg::Wanderer {
+        CharacterBrainTemplate::StandStill => Brain::StateMachine(StateMachineCfg::StandStill),
+        CharacterBrainTemplate::Wanderer => Brain::StateMachine(StateMachineCfg::Wanderer {
             cfg: WandererCfg::PUPPY_SLUG_DEFAULT,
             state: WandererState::default(),
         }),
-        EnemyBrainTemplate::MeleeBrute => melee_brute_brain_for_enemy(enemy),
-        EnemyBrainTemplate::Shark => shark_brain_for_enemy(enemy),
-        EnemyBrainTemplate::Skirmisher => skirmisher_brain_for_enemy(enemy),
-        EnemyBrainTemplate::Sniper => sniper_brain_for_enemy(enemy),
-        EnemyBrainTemplate::Smash => Brain::StateMachine(StateMachineCfg::Smash {
+        CharacterBrainTemplate::MeleeBrute => melee_brute_brain_for_enemy(enemy),
+        CharacterBrainTemplate::Shark => shark_brain_for_enemy(enemy),
+        CharacterBrainTemplate::Skirmisher => skirmisher_brain_for_enemy(enemy),
+        CharacterBrainTemplate::Sniper => sniper_brain_for_enemy(enemy),
+        CharacterBrainTemplate::Smash => Brain::StateMachine(StateMachineCfg::Smash {
             cfg: smash_cfg_from_spec(&enemy.brain_spec, &enemy.tuning),
             state: SmashState {
                 rng_seed: seed_from_id(&enemy.id) as u64,
                 ..Default::default()
             },
         }),
-        EnemyBrainTemplate::Aerial => aerial_brain_for_enemy(enemy),
+        CharacterBrainTemplate::Aerial => aerial_brain_for_enemy(enemy),
     }
 }
 
@@ -237,8 +237,8 @@ fn shark_brain_for_enemy(enemy: &ActorConfig) -> Brain {
 /// the composite archetype's ranged spec and variation keyed by the rider id.
 pub(super) fn mounted_rider_brain_and_action_set(
     rider_id: &str,
-    rider_spec: &EnemyArchetypeSpec,
-    composite_spec: &EnemyArchetypeSpec,
+    rider_spec: &CharacterArchetypeSpec,
+    composite_spec: &CharacterArchetypeSpec,
 ) -> (Brain, ActionSet) {
     let brain = skirmisher_brain_from_tuning(rider_id, &composite_spec.tuning(), true);
     let mut action_set = ActionSet {
@@ -269,7 +269,7 @@ pub(super) fn dismounted_rider_brain_and_action_set(
     let mut action_set = kit.to_action_set(held_item);
     if action_set.melee.is_none() {
         action_set.melee = super::super::enemies::spec_for_brain(
-            &ambition_characters::actor::EnemyBrain::Custom("pirate_raider".into()),
+            &ambition_characters::actor::CharacterBrain::Custom("pirate_raider".into()),
         )
         .melee_spec();
     }
@@ -324,16 +324,16 @@ fn skirmisher_brain_from_tuning(
 /// (Brute) get a longer attack reach + slower chase; lighter archetypes
 /// (Skitter / Lurker) get a tighter engage band.
 ///
-/// IMPORTANT: the archetype's `attack_range` in `enemy_archetypes.ron` is the
+/// IMPORTANT: the archetype's `attack_range` in `character_archetypes.ron` is the
 /// AI-decision aggro distance (~150 px for goblins). That's the radius at which
 /// the brain commits to "I'm attacking this target", NOT the distance at which
 /// the swing actually hits. The melee swing's reach is in the `SwipeSpec::reach_px`
 /// (~28 px); the brain needs to close to roughly `body_half_width +
 /// swing_reach` before emitting MeleeAttack, otherwise the windup fires from too
 /// far away and the player walks out of the active window.
-fn smash_cfg_from_spec(spec: &EnemyBrainSpec, tuning: &ActorTuning) -> SmashCfg {
+fn smash_cfg_from_spec(spec: &CharacterBrainSpec, tuning: &ActorTuning) -> SmashCfg {
     // Heavy vs striker base + per-archetype hit band + dash-to-close are
-    // projected onto `EnemyBrainSpec` at spawn (`smash_hit_band`,
+    // projected onto `CharacterBrainSpec` at spawn (`smash_hit_band`,
     // `smash_heavy`, `smash_dash_to_close`), so this builder reads generic
     // data rather than matching the roster enum. The 36 px hit-band
     // fallback lives in the projection.
@@ -394,7 +394,7 @@ mod tests {
             "e",
             "E",
             ae::Aabb::new(ae::Vec2::ZERO, ae::Vec2::new(24.0, 40.0)),
-            ambition_characters::actor::EnemyBrain::Custom(brain_key.into()),
+            ambition_characters::actor::CharacterBrain::Custom(brain_key.into()),
             &[],
         )
     }

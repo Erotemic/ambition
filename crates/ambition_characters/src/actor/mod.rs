@@ -183,11 +183,11 @@ pub enum KinematicPathMode {
 }
 
 /// Authored enemy behavior tag. The sandbox maps `Custom(name)` to its
-/// own `EnemyArchetype` via `EnemyArchetype::from_brain`; the engine
+/// own `CharacterArchetype` via `CharacterArchetype::from_brain`; the engine
 /// only carries this enum as a typed payload between LDtk authoring
 /// and sandbox dispatch.
 #[derive(Clone, Debug, PartialEq)]
-pub enum EnemyBrain {
+pub enum CharacterBrain {
     Passive,
     Patrol { path_id: Option<String> },
     Guard { leash_radius: f32 },
@@ -195,7 +195,7 @@ pub enum EnemyBrain {
 }
 
 /// Authored boss behavior tag. Same shape and contract as
-/// `EnemyBrain`: the engine doesn't simulate against the variants;
+/// `CharacterBrain`: the engine doesn't simulate against the variants;
 /// the sandbox decides per-boss behavior from the payload.
 #[derive(Clone, Debug, PartialEq)]
 pub enum BossBrain {

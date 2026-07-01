@@ -5,7 +5,7 @@
 //! borrowing the actor's `kin` + [`ActorBody`] clusters as one `BodyClustersMut`
 //! view) — the pipeline picks the flight limb vs the grounded spine from
 //! `flight.fly_enabled`; surface-walkers keep their glued crawl. Attack AABBs are
-//! derived here; archetype tuning comes from the [`super::EnemyRoster`].
+//! derived here; archetype tuning comes from the [`super::CharacterRoster`].
 
 use super::super::ecs::actor_clusters::ActorMut;
 use super::super::*;
@@ -60,7 +60,7 @@ pub(crate) fn enemy_attack_aabb_dir(
 fn evaluate_enemy_ai_output(
     pos: ae::Vec2,
     target_pos: ae::Vec2,
-    brain: &ambition_characters::actor::EnemyBrain,
+    brain: &ambition_characters::actor::CharacterBrain,
     tuning: &crate::combat::ActorTuning,
     attack: &crate::features::BodyMelee,
     alive: bool,
@@ -72,8 +72,8 @@ fn evaluate_enemy_ai_output(
             0.0
         };
     let effective_aggro_radius = match brain {
-        ambition_characters::actor::EnemyBrain::Passive => 0.0,
-        ambition_characters::actor::EnemyBrain::Guard { leash_radius } => *leash_radius,
+        ambition_characters::actor::CharacterBrain::Passive => 0.0,
+        ambition_characters::actor::CharacterBrain::Guard { leash_radius } => *leash_radius,
         _ => tuning.aggro_radius,
     };
     ambition_characters::actor::ai::evaluate_character_ai_output(
@@ -88,7 +88,7 @@ fn evaluate_enemy_ai_output(
             stun_remaining: 0.0,
             alive,
             patrol_enabled: !tuning.is_sandbag
-                && !matches!(brain, ambition_characters::actor::EnemyBrain::Passive),
+                && !matches!(brain, ambition_characters::actor::CharacterBrain::Passive),
         },
     )
 }
@@ -590,7 +590,7 @@ mod dash_tests {
     use super::*;
     use crate::features::ecs::actor_clusters::{ActorBody, ActorClusterSeed};
     use ambition_characters::actor::control::ActorControlFrame;
-    use ambition_characters::actor::EnemyBrain;
+    use ambition_characters::actor::CharacterBrain;
 
     /// A wide solid floor; bodies rest on its top face at y = 100.
     fn floored_world() -> ae::World {
@@ -615,7 +615,7 @@ mod dash_tests {
             "dasher".to_string(),
             "Dasher".to_string(),
             aabb,
-            EnemyBrain::Custom("cellular_automaton_fighter".into()),
+            CharacterBrain::Custom("cellular_automaton_fighter".into()),
             &[],
         );
         // Rest the body on the floor top (y = 100): center a half-height above it.
@@ -673,7 +673,7 @@ mod dash_tests {
             "walker".to_string(),
             "Walker".to_string(),
             aabb,
-            EnemyBrain::Custom("cellular_automaton_fighter".into()),
+            CharacterBrain::Custom("cellular_automaton_fighter".into()),
             &[],
         );
         let half_h = seed.kin.size.y * 0.5;
@@ -715,7 +715,7 @@ mod dash_tests {
             "flyer".to_string(),
             "Flyer".to_string(),
             aabb,
-            EnemyBrain::Custom("cellular_automaton_fighter".into()),
+            CharacterBrain::Custom("cellular_automaton_fighter".into()),
             &[],
         );
         seed.kin.pos = ae::Vec2::new(0.0, -200.0);

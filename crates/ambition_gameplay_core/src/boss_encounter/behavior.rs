@@ -196,7 +196,7 @@ mod boss_vec2_required {
 /// holder + the `BossBehaviorProfile` schema. Held as an installable global
 /// (not a Bevy `Resource`) because `from_data` is called from many non-system
 /// contexts (spawn sites, profile clones) — the same rationale as the enemy
-/// `EnemyRoster`.
+/// `CharacterRoster`.
 #[derive(Clone, Debug, Default)]
 pub struct BossProfileRegistry {
     by_id: std::collections::HashMap<String, BossBehaviorProfile>,

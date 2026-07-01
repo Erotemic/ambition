@@ -163,7 +163,7 @@ pub use ecs::{
 pub use ecs::{ActorAnimFrame, ActorSpriteData};
 pub use enemies::{
     composite_visual_plan, enemy_visual_kind, install_enemy_roster, ActorSpawnState,
-    ActorSurfaceState, CompositeVisualPlan, EnemyRespawnPolicy, EnemyRoster,
+    ActorSurfaceState, CompositeVisualPlan, EnemyRespawnPolicy, CharacterRoster,
     ENEMY_DEAD_UNTIL_REST_SUFFIX,
 };
 pub use events::{

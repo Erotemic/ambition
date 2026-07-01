@@ -1,9 +1,9 @@
 //! THE Ambition enemy roster — the named, authored enemy DATA.
 //!
 //! The machinery lib (`ambition_gameplay_core`) owns the generic spawn pipeline and
-//! the `EnemyArchetypeSpec` schema, but the actual roster (which enemies exist,
+//! the `CharacterArchetypeSpec` schema, but the actual roster (which enemies exist,
 //! their HP / speeds / brain template / weapons) is named game content and
-//! lives here. The brain-keyed RON is installed into the lib's `EnemyRoster`
+//! lives here. The brain-keyed RON is installed into the lib's `CharacterRoster`
 //! at content-plugin build time via [`install`], so every spawn resolves
 //! against this table — never a lib-embedded default.
 //!
@@ -11,17 +11,17 @@
 //! the ordering is structural: resolution can never observe the lib's
 //! standalone fallback in a content build.
 
-use ambition_gameplay_core::features::{install_enemy_roster, EnemyRoster};
+use ambition_gameplay_core::features::{install_enemy_roster, CharacterRoster};
 
 /// The authored enemy roster, embedded at compile time. Top-level keys are the
 /// spawn brain keys a `LoadingZone` / encounter authors as `Brain::Custom("…")`;
 /// `"combatant"` is the reserved fallback row.
-pub const ENEMY_ROSTER_RON: &str = include_str!("../assets/data/enemy_archetypes.ron");
+pub const CHARACTER_ROSTER_RON: &str = include_str!("../assets/data/character_archetypes.ron");
 
 /// Install the Ambition enemy roster into the machinery lib. Called once from
 /// [`crate::AmbitionContentPlugin`].
 pub fn install() {
-    install_enemy_roster(EnemyRoster::from_ron(ENEMY_ROSTER_RON));
+    install_enemy_roster(CharacterRoster::from_ron(CHARACTER_ROSTER_RON));
 }
 
 #[cfg(test)]
@@ -34,7 +34,7 @@ mod tests {
     #[test]
     fn embedded_roster_parses_and_installs() {
         // `from_ron` panics on a parse error or a missing `combatant` row.
-        let _ = EnemyRoster::from_ron(ENEMY_ROSTER_RON);
+        let _ = CharacterRoster::from_ron(CHARACTER_ROSTER_RON);
     }
 
     /// A practice-target ("sandbag") archetype is a PASSIVE dummy — it must not
@@ -42,7 +42,7 @@ mod tests {
     /// against re-adding a counter-attack.
     #[test]
     fn sandbag_archetypes_are_passive() {
-        let roster = EnemyRoster::from_ron(ENEMY_ROSTER_RON);
+        let roster = CharacterRoster::from_ron(CHARACTER_ROSTER_RON);
         assert!(
             roster.sandbags_are_passive(),
             "a sandbag/training-dummy archetype carries a melee attack — passive \

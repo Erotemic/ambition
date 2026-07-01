@@ -46,7 +46,7 @@ pub use observation::{observe, CrowdingSignal, ObservationFrame, TerrainAwarenes
 /// Tuning knobs for a [`StateMachineCfg::Smash`] brain. Per-actor
 /// state lives in [`SmashState`]. Designer-facing today — eventually
 /// migrates to data so per-archetype variants live in
-/// `enemy_archetypes.ron`.
+/// `character_archetypes.ron`.
 #[derive(Clone, Copy, Debug)]
 pub struct SmashCfg {
     /// Maximum sensing distance (px). Outside this radius the brain

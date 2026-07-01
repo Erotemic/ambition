@@ -4,7 +4,7 @@
 //! `ambition_characters::character_catalog` owns the catalog SCHEMA +
 //! parser + preset resolver (machinery, content-free); this module
 //! owns Ambition's actual roster DATA — the same machinery/data split
-//! as `enemy_archetypes.ron` and the sprite-sheet tuning. The RON
+//! as `character_archetypes.ron` and the sprite-sheet tuning. The RON
 //! lives under this crate's `assets/data/` so it ships with the game
 //! and stays readable by the Python tools
 //! (`ambition_ldtk_tools.codegen_character_catalog`, hall generator).

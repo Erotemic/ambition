@@ -10,7 +10,7 @@
 //!
 //! [`build_world_view`] takes a [`PerceptionBody`] — the minimal description of
 //! **any** body (player-robot, Perfect Cell-ular Automaton, NPC, boss) — never an
-//! `EnemyBrain`-keyed or `"player"`-keyed input. Perception "for the player" is a
+//! `CharacterBrain`-keyed or `"player"`-keyed input. Perception "for the player" is a
 //! brain driving the player-robot body through this same function, so when S5/S6
 //! land there is no enemy-only path to undo. Hostility is resolved **relationally**
 //! against [`FactionRelations`] (the S3e seam), not by a player-vs-enemy branch.

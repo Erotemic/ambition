@@ -89,13 +89,13 @@ in `app/plugins.rs` because they must chain after sandbox input systems:
 |---|---|---|---|
 | **Player** | `Brain::Player(slot)` | `player.rs` — *pure translation* of `PlayerInputFrame` → frame; makes **no** gameplay decisions | player spawn |
 | **NPC (peaceful)** | `StateMachine(Patrol{aggressiveness:0})` / `StandStill` | `state_machine/mod.rs` (`tick_patrol`, `tick_stand_still`) | `features/npcs.rs` |
-| **Enemy (common)** | `StateMachine(MeleeBrute/Skirmisher/Sniper/Shark/Wanderer)` | `state_machine/mod.rs` (`tick_*` per template) | `features/ecs/brain_builders.rs` (`enemy_default_brain`, archetype-driven from `enemy_archetypes.ron`) |
+| **Enemy (common)** | `StateMachine(MeleeBrute/Skirmisher/Sniper/Shark/Wanderer)` | `state_machine/mod.rs` (`tick_*` per template) | `features/ecs/brain_builders.rs` (`enemy_default_brain`, archetype-driven from `character_archetypes.ron`) |
 | **Enemy (brawler)** | `StateMachine(Smash{..})` | `smash/` 5-stage pipeline | `brain_builders.rs` (`smash_cfg_for_archetype`) |
 | **Boss** | `StateMachine(BossPattern{..})` | `boss_pattern.rs` | `features/ecs/spawn_actors.rs`, `bosses.rs` |
 
 > **To improve a specific enemy's behavior**, start at its template's `tick_*`
 > function in `state_machine/mod.rs` (or the `smash/` stage for brawlers), and at
-> its archetype row in `enemy_archetypes.ron` + `brain_builders.rs` for tuning.
+> its archetype row in `character_archetypes.ron` + `brain_builders.rs` for tuning.
 > The *capability* (which attacks exist) is the `ActionSet` built in
 > `brain_builders.rs`; the *policy* (when to use them) is the `tick_*`.
 
@@ -187,7 +187,7 @@ change contract of the structural run). Each note says where it would plug in.
 
 3. **Richer windup telegraphs.** Telegraph timing is already owned per-attack by
    the `*Spec` windup→active→recover (`action_set/mod.rs`) — no brain change needed
-   to *lengthen* a telegraph (data-only via `enemy_archetypes.ron`). For a
+   to *lengthen* a telegraph (data-only via `character_archetypes.ron`). For a
    *behavioral* telegraph (back-step before a lunge, flash, audio cue), add a
    pre-strike beat: for bosses that's a `BossPatternStep::Telegraph` already
    (`boss_pattern.rs`); for common enemies add a `Windup` micro-state to the
@@ -229,6 +229,6 @@ change contract of the structural run). Each note says where it would plug in.
 
 When implementing any of these: add the *capability* (new `*Spec` / `ActionSet`
 field) in `action_set/mod.rs`, the *policy* in the relevant `tick_*` / smash stage,
-and the *tuning* in `enemy_archetypes.ron` + `brain_builders.rs`. Verify against
+and the *tuning* in `character_archetypes.ron` + `brain_builders.rs`. Verify against
 `scripted_gameplay` + `replay_fixture_regression` (a behavior change will and
 should move those — regenerate fixtures intentionally, with the owner watching).

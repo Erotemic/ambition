@@ -303,7 +303,7 @@ fn enemy_spawn_uses_room_spec_kinematic_path_aliases() {
         .enemy_spawns
         .iter()
         .find_map(|authored| match &authored.payload {
-            ambition_characters::actor::EnemyBrain::Patrol {
+            ambition_characters::actor::CharacterBrain::Patrol {
                 path_id: Some(path_id),
             } => Some(path_id.as_str()),
             _ => None,

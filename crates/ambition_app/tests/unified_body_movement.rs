@@ -13,7 +13,7 @@
 #![cfg(feature = "rl_sim")]
 
 use ambition_app::{AgentAction, SandboxSim, TimestepMode};
-use ambition_characters::actor::EnemyBrain;
+use ambition_characters::actor::CharacterBrain;
 use ambition_gameplay_core::actor::{BodyKinematics, PrimaryPlayerOnly};
 use ambition_gameplay_core::features::FeatureId;
 use ambition_gameplay_core::player::PlayerInputFrame;
@@ -60,7 +60,7 @@ fn home_body_and_actor_body_move_through_the_same_integration_phase() {
         "Perfect Cellular Automaton",
         (p.x + 160.0, p.y),
         (14.0, 23.0),
-        EnemyBrain::Custom("cellular_automaton_fighter".to_string()),
+        CharacterBrain::Custom("cellular_automaton_fighter".to_string()),
     );
     let enemy = enemy_entity(sim.world_mut());
     let enemy_x_before = sim.world_mut().get::<BodyKinematics>(enemy).unwrap().pos.x;

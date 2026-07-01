@@ -108,7 +108,7 @@ pub fn spawn_encounter_mob(
     commands: &mut Commands,
     encounter_id: impl Into<String>,
     id: String,
-    brain: ambition_characters::actor::EnemyBrain,
+    brain: ambition_characters::actor::CharacterBrain,
     pos: ambition_engine_core::Vec2,
     size: ambition_engine_core::Vec2,
 ) {

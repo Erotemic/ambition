@@ -19,7 +19,7 @@ fn spawn_hostile_actor(app: &mut App) -> bevy::prelude::Entity {
         "kernel_guide".to_string(),
         "Kernel Guide".to_string(),
         aabb,
-        ambition_characters::actor::EnemyBrain::Custom("medium_striker".into()),
+        ambition_characters::actor::CharacterBrain::Custom("medium_striker".into()),
         &[],
     );
     enemy.health = crate::actor::BodyHealth::new(ambition_characters::actor::Health::new(5));
@@ -646,7 +646,7 @@ fn spawn_shielding_actor(app: &mut App, shield_raised: bool) -> bevy::prelude::E
         "guard".to_string(),
         "Guard".to_string(),
         aabb,
-        ambition_characters::actor::EnemyBrain::Custom("cellular_automaton_fighter".into()),
+        ambition_characters::actor::CharacterBrain::Custom("cellular_automaton_fighter".into()),
         &[],
     );
     enemy.health = crate::actor::BodyHealth::new(ambition_characters::actor::Health::new(5));

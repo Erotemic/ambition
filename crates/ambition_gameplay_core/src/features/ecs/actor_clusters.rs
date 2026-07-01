@@ -22,7 +22,7 @@ use bevy::prelude::Component;
 
 use super::super::components::BodyMelee;
 use super::super::enemies::{
-    spec_for_brain, ActorSpawnState, ActorSurfaceState, EnemyArchetypeSpec,
+    spec_for_brain, ActorSpawnState, ActorSurfaceState, CharacterArchetypeSpec,
 };
 use super::super::path_motion::PathMotion;
 use ambition_engine_core as ae;
@@ -74,8 +74,8 @@ pub struct ActorConfig {
     /// Generic brain-construction inputs (kit vocabulary), projected
     /// from the archetype at spawn so the runtime brain rebuilds
     /// reconstruct a brain without naming the roster enum.
-    pub brain_spec: crate::combat::EnemyBrainSpec,
-    pub brain: ambition_characters::actor::EnemyBrain,
+    pub brain_spec: crate::combat::CharacterBrainSpec,
+    pub brain: ambition_characters::actor::CharacterBrain,
     pub spawn: ActorSpawnState,
     /// LDtk display name of the original NPC when this enemy was spawned
     /// by migrating a hostile NPC (keeps its own sprite sheet). `None`
@@ -336,11 +336,11 @@ pub struct ActorClusterSeed {
     /// brain). Spawn-time ONLY: brain / combat-kit / held-item construction
     /// reads it here before the entity exists; it is deliberately NOT
     /// carried onto any spawned component, so the persisted [`ActorConfig`]
-    /// stays roster-free. The named `EnemyArchetype` enum never reaches the
+    /// stays roster-free. The named `CharacterArchetype` enum never reaches the
     /// spawn path — only this data does. `pub(crate)`: the seed type itself is
     /// publicly re-exported (content builds peaceful seeds) but this archetype
     /// field is internal-only.
-    pub(crate) spec: EnemyArchetypeSpec,
+    pub(crate) spec: CharacterArchetypeSpec,
 }
 
 /// Convert an authored LDtk actor rectangle plus a possibly sprite-derived
@@ -380,7 +380,7 @@ impl ActorClusterSeed {
         id: impl Into<String>,
         name: impl Into<String>,
         aabb: ae::Aabb,
-        brain: ambition_characters::actor::EnemyBrain,
+        brain: ambition_characters::actor::CharacterBrain,
         paths: &[(String, ambition_characters::actor::KinematicPath)],
     ) -> Self {
         let spec = spec_for_brain(&brain);
@@ -391,7 +391,7 @@ impl ActorClusterSeed {
         let sprite_character_id =
             crate::character_roster::character_id_for_display_name(&name).map(String::from);
         let motion = match &brain {
-            ambition_characters::actor::EnemyBrain::Patrol {
+            ambition_characters::actor::CharacterBrain::Patrol {
                 path_id: Some(path_id),
             } if !spec.is_sandbag => paths
                 .iter()
@@ -462,7 +462,7 @@ impl ActorClusterSeed {
     /// (which only feeds the integrator's patrol-stall intent). The seed's `spec`
     /// field is filled with an inert default (peaceful actors never spawn through
     /// the archetype path), so callers — including the content crate — need no
-    /// `EnemyArchetypeSpec`. Returns the seed plus the optional sprite render size
+    /// `CharacterArchetypeSpec`. Returns the seed plus the optional sprite render size
     /// (lifted onto the shared `ActorRenderSize` at spawn so it survives a flip).
     pub fn new_peaceful_npc(
         id: impl Into<String>,
@@ -545,11 +545,11 @@ impl ActorClusterSeed {
             ..Default::default()
         };
         let config_brain = if has_patrol {
-            ambition_characters::actor::EnemyBrain::Patrol {
+            ambition_characters::actor::CharacterBrain::Patrol {
                 path_id: patrol_path_id,
             }
         } else {
-            ambition_characters::actor::EnemyBrain::Passive
+            ambition_characters::actor::CharacterBrain::Passive
         };
         let seed = Self {
             kin: BodyKinematics {
@@ -572,7 +572,7 @@ impl ActorClusterSeed {
                 id: id.into(),
                 name: name.into(),
                 tuning,
-                brain_spec: crate::combat::EnemyBrainSpec::default(),
+                brain_spec: crate::combat::CharacterBrainSpec::default(),
                 brain: config_brain,
                 spawn: ActorSpawnState {
                     pos,
@@ -589,7 +589,7 @@ impl ActorClusterSeed {
             caps: crate::combat::CombatCapabilities::default(),
             // Inert: peaceful actors never spawn through the archetype path that
             // reads `spec`. `Passive` resolves to the roster's fallback row.
-            spec: spec_for_brain(&ambition_characters::actor::EnemyBrain::Passive),
+            spec: spec_for_brain(&ambition_characters::actor::CharacterBrain::Passive),
         };
         (seed, render_size)
     }

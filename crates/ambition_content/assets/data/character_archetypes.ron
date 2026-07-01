@@ -1,6 +1,6 @@
 // Enemy roster — single source of truth for the numbers that decide
-// how each archetype fights. Parsed into `EnemyRoster` (a brain-key →
-// `EnemyArchetypeSpec` table) and resolved by the spawn brain key; the
+// how each archetype fights. Parsed into `CharacterRoster` (a brain-key →
+// `CharacterArchetypeSpec` table) and resolved by the spawn brain key; the
 // reserved `"combatant"` row is the fallback for any unknown brain key.
 //
 // Each top-level key IS the spawn brain key — the string a `LoadingZone`
@@ -11,7 +11,7 @@
 // changes needed.
 //
 // To add an archetype: add a row keyed by the spawn brain key. (The
-// `EnemyArchetype` enum is a typed handle for tests/tooling and mirrors
+// `CharacterArchetype` enum is a typed handle for tests/tooling and mirrors
 // these keys via `archetype_data_key`.)
 //
 // Field reference:
@@ -580,7 +580,7 @@
         move_style: Float,
     ),
     // Cove crew. Peaceful by default because aggro_radius stays 0 and
-    // `EnemyArchetype::attacks_player()` is false, but the archetype now
+    // `CharacterArchetype::attacks_player()` is false, but the archetype now
     // still carries its own melee capability. That lets systems that
     // explicitly force a PirateHeavy hostile (provoked cove crew or a
     // shark rider after dismount) reuse the same body/action tuning instead

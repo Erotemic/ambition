@@ -72,10 +72,10 @@ pub enum SpawnActorKind {
         brain: ambition_characters::actor::BossBrain,
         overrides: BossOverrides,
     },
-    /// A hostile enemy, resolved through `EnemyArchetype::from_brain` — the same
+    /// A hostile enemy, resolved through `CharacterArchetype::from_brain` — the same
     /// path a room `EnemySpawn` takes.
     Enemy {
-        brain: ambition_characters::actor::EnemyBrain,
+        brain: ambition_characters::actor::CharacterBrain,
     },
 }
 
@@ -629,7 +629,7 @@ pub(super) fn spawn_boss_with_overrides(
 /// Runtime minion spawner — used by boss EFFECTS consumers (e.g.
 /// PitTrap puppy_slug spawn, MinionCascade slop adds). Mirrors
 /// `spawn_encounter_mob` but takes plain values from a Bevy system
-/// so callers don't have to wrap them in an `Authored<EnemyBrain>`.
+/// so callers don't have to wrap them in an `Authored<CharacterBrain>`.
 /// The resulting entity carries the same component set as authored
 /// encounter mobs — crucially including the `EncounterMob` marker
 /// so `spawn_dynamic_feature_visuals` picks it up next frame and
@@ -638,7 +638,7 @@ pub(super) fn spawn_boss_with_overrides(
 ///
 /// `archetype_id` matches one of the strings in `BRAIN_NAME_TO_ARCHETYPE`
 /// (`"puppy_slug"`, `"small_lurker"`, …); unknown strings fall back
-/// to `Combatant` via `EnemyArchetype::from_brain`. `half_size` is
+/// to `Combatant` via `CharacterArchetype::from_brain`. `half_size` is
 /// the spawn AABB half-extent (the archetype spec's `default_size`
 /// usually overrides this anyway). `id` should be unique per spawn
 /// so per-entity systems don't collide on identity. `encounter_id`
@@ -664,7 +664,7 @@ pub(crate) fn spawn_runtime_minion(
     let name = name.into();
     let encounter_id = encounter_id.into();
     let aabb = ae::Aabb::new(world_pos, half_size);
-    let brain = ambition_characters::actor::EnemyBrain::Custom(archetype_id.into());
+    let brain = ambition_characters::actor::CharacterBrain::Custom(archetype_id.into());
     let mut enemy =
         super::actor_clusters::ActorClusterSeed::new(id.clone(), name.clone(), aabb, brain, &[]);
     // `ActorClusterSeed::new` already sets HP from the resolved spec.
@@ -697,7 +697,7 @@ pub(crate) fn spawn_runtime_minion(
 
 pub(super) fn spawn_enemy(
     commands: &mut Commands,
-    authored: &crate::rooms::Authored<ambition_characters::actor::EnemyBrain>,
+    authored: &crate::rooms::Authored<ambition_characters::actor::CharacterBrain>,
     paths: &[(String, ambition_characters::actor::KinematicPath)],
 ) {
     let _ = spawn_enemy_with_faction(commands, authored, paths, super::ActorFaction::Enemy);
@@ -711,7 +711,7 @@ pub(super) fn spawn_enemy(
 /// for the composite mount/rider path (it fans out two of its own entities).
 pub(super) fn spawn_enemy_with_faction(
     commands: &mut Commands,
-    authored: &crate::rooms::Authored<ambition_characters::actor::EnemyBrain>,
+    authored: &crate::rooms::Authored<ambition_characters::actor::CharacterBrain>,
     paths: &[(String, ambition_characters::actor::KinematicPath)],
     faction: super::ActorFaction,
 ) -> Option<bevy::ecs::entity::Entity> {
@@ -735,7 +735,7 @@ pub(super) fn spawn_enemy_with_faction(
 pub(super) fn spawn_solo_enemy(
     commands: &mut Commands,
     enemy: super::actor_clusters::ActorClusterSeed,
-    authored: &crate::rooms::Authored<ambition_characters::actor::EnemyBrain>,
+    authored: &crate::rooms::Authored<ambition_characters::actor::CharacterBrain>,
     faction: super::ActorFaction,
 ) -> bevy::ecs::entity::Entity {
     let feature_aabb = CenteredAabb::from_aabb(authored.aabb);
@@ -807,7 +807,7 @@ pub(super) fn spawn_encounter_mob(
     commands: &mut Commands,
     encounter_id: impl Into<String>,
     id: String,
-    brain: ambition_characters::actor::EnemyBrain,
+    brain: ambition_characters::actor::CharacterBrain,
     pos: ae::Vec2,
     size: ae::Vec2,
 ) {

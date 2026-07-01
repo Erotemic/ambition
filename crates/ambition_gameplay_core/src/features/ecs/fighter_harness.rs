@@ -102,7 +102,7 @@ impl FighterHarness {
             "harness_ranged",
             "Harness Ranged Body",
             aabb,
-            ambition_characters::actor::EnemyBrain::Custom("cellular_automaton_fighter".into()),
+            ambition_characters::actor::CharacterBrain::Custom("cellular_automaton_fighter".into()),
             &[],
         );
         let action_set = ActionSet {

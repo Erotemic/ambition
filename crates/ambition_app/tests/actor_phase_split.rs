@@ -21,7 +21,7 @@
 #![cfg(feature = "rl_sim")]
 
 use ambition_app::{AgentAction, SandboxSim, TimestepMode};
-use ambition_characters::actor::EnemyBrain;
+use ambition_characters::actor::CharacterBrain;
 use ambition_characters::brain::ActorControl;
 use ambition_gameplay_core::actor::{BodyKinematics, PrimaryPlayerOnly};
 use ambition_gameplay_core::features::FeatureId;
@@ -57,7 +57,7 @@ fn brain_intent_lands_in_actor_control_and_the_movement_phase_consumes_it() {
         "Perfect Cellular Automaton",
         (p.x + 120.0, p.y),
         (14.0, 23.0),
-        EnemyBrain::Custom("cellular_automaton_fighter".to_string()),
+        CharacterBrain::Custom("cellular_automaton_fighter".to_string()),
     );
     let enemy = enemy_entity(sim.world_mut());
     let x_before = sim.world_mut().get::<BodyKinematics>(enemy).unwrap().pos.x;

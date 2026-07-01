@@ -1,5 +1,5 @@
-//! Enemy data + state for the actor simulation: the [`EnemyRoster`] of
-//! archetype specs (loaded from `enemy_archetypes.ron`, installed via
+//! Enemy data + state for the actor simulation: the [`CharacterRoster`] of
+//! archetype specs (loaded from `character_archetypes.ron`, installed via
 //! [`install_enemy_roster`]), per-actor locomotion state ([`ActorSpawnState`],
 //! [`ActorSurfaceState`]), surface-walker (PuppySlug) cling/wall predicates,
 //! and composite-visual planning. The per-frame physics/AI tick lives in the
@@ -78,7 +78,7 @@ pub use crate::combat::EnemyRespawnPolicy;
 pub const ENEMY_DEAD_UNTIL_REST_SUFFIX: &str = "_dead_until_rest";
 
 /// Authored mount+rider visual fan-out for a composite spawn (see
-/// [`EnemyArchetypeSpec::composite_visual`]). `mount_brain` / `rider_brain`
+/// [`CharacterArchetypeSpec::composite_visual`]). `mount_brain` / `rider_brain`
 /// are spawn brain keys into the roster; the names are display fallbacks for
 /// the spawned visuals.
 #[derive(Clone, Debug, serde::Deserialize)]
@@ -95,7 +95,7 @@ pub struct CompositeVisualSpec {
 }
 
 #[derive(Clone, Debug, serde::Deserialize)]
-pub(crate) struct EnemyArchetypeSpec {
+pub(crate) struct CharacterArchetypeSpec {
     /// Optional parent archetype id to inherit movement tuning from. The resolver
     /// folds `BASELINE ← parent (resolved) ← this row's `movement` patch`, so an
     /// archetype can extend another and override only what differs. `None` =
@@ -172,7 +172,7 @@ pub(crate) struct EnemyArchetypeSpec {
     /// MeleeBrute reads the archetype's tunings (chase_speed,
     /// aggro_radius, attack_range) for its cfg; Wanderer + StandStill
     /// ignore them.
-    pub brain_template: EnemyBrainTemplate,
+    pub brain_template: CharacterBrainTemplate,
     /// Concrete melee action this archetype's `ActionSet` carries.
     /// `None` = no melee capability (peaceful patrollers, ranged-only
     /// actors).
@@ -296,13 +296,13 @@ mod vec2_option {
     }
 }
 
-/// Brain template choice keyed off `EnemyArchetype`. The definition is
+/// Brain template choice keyed off `CharacterArchetype`. The definition is
 /// generic kit vocabulary — re-exported here so the archetype spec row
 /// (`brain_template`) and the spawn-site projection keep their existing
-/// path. See [`crate::combat::EnemyBrainTemplate`].
-pub(super) use crate::combat::EnemyBrainTemplate;
+/// path. See [`crate::combat::CharacterBrainTemplate`].
+pub(super) use crate::combat::CharacterBrainTemplate;
 
-/// Serde default for [`EnemyArchetypeSpec::attack_cooldown_mult`]: the
+/// Serde default for [`CharacterArchetypeSpec::attack_cooldown_mult`]: the
 /// multiplicative identity (most archetypes use the shared cooldown).
 fn default_attack_cooldown_mult() -> f32 {
     1.0
@@ -320,43 +320,43 @@ fn default_mass() -> f32 {
 /// keeps one roster file instead of a guarded duplicate.
 #[cfg(test)]
 static ENEMY_ARCHETYPE_REGISTRY: std::sync::LazyLock<
-    std::collections::HashMap<String, EnemyArchetypeSpec>,
+    std::collections::HashMap<String, CharacterArchetypeSpec>,
 > = std::sync::LazyLock::new(|| {
     const ENEMY_ARCHETYPES_RON: &str =
-        include_str!("../../../../ambition_content/assets/data/enemy_archetypes.ron");
+        include_str!("../../../../ambition_content/assets/data/character_archetypes.ron");
     ron::from_str(ENEMY_ARCHETYPES_RON).unwrap_or_else(|err| {
-        panic!("ambition_content enemy_archetypes.ron failed to deserialize: {err}")
+        panic!("ambition_content character_archetypes.ron failed to deserialize: {err}")
     })
 });
 
 /// The installed enemy roster: a brain-key → spec table plus the fallback
 /// spec used for unknown brain keys and non-`Custom` brains. This is the
 /// spawn path's only resolution surface and it is **roster-enum-free** — a
-/// pure string lookup, so the named `EnemyArchetype` enum / RON / brain-name
+/// pure string lookup, so the named `CharacterArchetype` enum / RON / brain-name
 /// table can be owned and installed by the content layer.
 ///
 /// Held as an installable global (not a Bevy `Resource`) because spec
 /// resolution is read from many non-system contexts — plain constructors
 /// (`ActorClusterSeed::new`), presentation sprite-binding
 /// (`presentation::rendering::world`), and asset resolution
-/// (`assets::game_assets`) — where threading `Res<EnemyRoster>` would be a
+/// (`assets::game_assets`) — where threading `Res<CharacterRoster>` would be a
 /// pervasive, ugly ripple. The content layer installs the real table at
 /// startup via [`install_enemy_roster`]; the lib ships an embedded default
 /// (built from the bundled RON) so lib tests and the headless bin resolve
 /// standalone.
 #[derive(Clone, Debug)]
-pub struct EnemyRoster {
-    by_brain: std::collections::HashMap<String, EnemyArchetypeSpec>,
-    fallback: EnemyArchetypeSpec,
+pub struct CharacterRoster {
+    by_brain: std::collections::HashMap<String, CharacterArchetypeSpec>,
+    fallback: CharacterArchetypeSpec,
 }
 
-impl EnemyRoster {
+impl CharacterRoster {
     /// Build a roster from a brain-key → spec table and the fallback spec
     /// (resolved for any unknown brain key, mirroring `from_brain`'s
     /// `Combatant` default).
     pub(crate) fn new(
-        by_brain: std::collections::HashMap<String, EnemyArchetypeSpec>,
-        fallback: EnemyArchetypeSpec,
+        by_brain: std::collections::HashMap<String, CharacterArchetypeSpec>,
+        fallback: CharacterArchetypeSpec,
     ) -> Self {
         Self { by_brain, fallback }
     }
@@ -371,15 +371,15 @@ impl EnemyRoster {
             .all(|spec| !spec.is_sandbag || spec.melee.is_none())
     }
 
-    /// Resolve the authored spec for a spawn `EnemyBrain` payload by its
+    /// Resolve the authored spec for a spawn `CharacterBrain` payload by its
     /// `Custom("…")` brain key, falling back to the roster's default for an
     /// unknown key or a non-`Custom` brain.
     pub(crate) fn spec_for_brain(
         &self,
-        brain: &ambition_characters::actor::EnemyBrain,
-    ) -> EnemyArchetypeSpec {
+        brain: &ambition_characters::actor::CharacterBrain,
+    ) -> CharacterArchetypeSpec {
         let key = match brain {
-            ambition_characters::actor::EnemyBrain::Custom(name) => name.as_str(),
+            ambition_characters::actor::CharacterBrain::Custom(name) => name.as_str(),
             _ => "",
         };
         self.by_brain
@@ -391,9 +391,9 @@ impl EnemyRoster {
     /// Build a roster from a brain-keyed spec map. The reserved `"combatant"`
     /// row is the fallback for unknown brain keys (mirroring the legacy
     /// `from_brain` default). This is the roster-enum-free construction path:
-    /// the map keys ARE the spawn brain keys, so no `EnemyArchetype` is named.
+    /// the map keys ARE the spawn brain keys, so no `CharacterArchetype` is named.
     pub(crate) fn from_map(
-        mut by_brain: std::collections::HashMap<String, EnemyArchetypeSpec>,
+        mut by_brain: std::collections::HashMap<String, CharacterArchetypeSpec>,
     ) -> Self {
         // Resolve each archetype's movement tuning by folding its patch along the
         // inheritance chain. Done HERE — the single chokepoint every roster passes
@@ -408,10 +408,10 @@ impl EnemyRoster {
     }
 
     /// Parse a brain-keyed roster RON document — the content layer's entry
-    /// point: `install_enemy_roster(EnemyRoster::from_ron(MY_RON))`. Movement
+    /// point: `install_enemy_roster(CharacterRoster::from_ron(MY_RON))`. Movement
     /// inheritance is resolved by `from_map`.
     pub fn from_ron(ron: &str) -> Self {
-        let by_brain: std::collections::HashMap<String, EnemyArchetypeSpec> = ron::from_str(ron)
+        let by_brain: std::collections::HashMap<String, CharacterArchetypeSpec> = ron::from_str(ron)
             .unwrap_or_else(|err| panic!("enemy roster RON failed to deserialize: {err}"));
         Self::from_map(by_brain)
     }
@@ -422,7 +422,7 @@ impl EnemyRoster {
 /// `BASELINE ← parent (resolved) ← this row's patch`; a missing parent or a cycle
 /// falls back to the baseline rather than panicking (a malformed `inherits` is a
 /// data smell, not a crash).
-fn resolve_movement_inheritance(specs: &mut std::collections::HashMap<String, EnemyArchetypeSpec>) {
+fn resolve_movement_inheritance(specs: &mut std::collections::HashMap<String, CharacterArchetypeSpec>) {
     // Snapshot the authored (patch, parent) so resolution reads immutable data
     // while we write resolved values back into the same map.
     let raw: std::collections::HashMap<String, (crate::combat::BodyMovementPatch, Option<String>)> =
@@ -473,8 +473,8 @@ fn resolve_movement_for(
 /// plugin). In a real build the named roster is owned and installed by
 /// `ambition_content`; the production binary embeds no enemy data here.
 #[cfg(test)]
-static EMBEDDED_ENEMY_ROSTER: std::sync::LazyLock<EnemyRoster> =
-    std::sync::LazyLock::new(|| EnemyRoster::from_map(ENEMY_ARCHETYPE_REGISTRY.clone()));
+static EMBEDDED_ENEMY_ROSTER: std::sync::LazyLock<CharacterRoster> =
+    std::sync::LazyLock::new(|| CharacterRoster::from_map(ENEMY_ARCHETYPE_REGISTRY.clone()));
 
 /// Content-installed roster. Set once at plugin-build time; production
 /// resolution REQUIRES it (there is no production embedded default).
@@ -486,17 +486,17 @@ static EMBEDDED_ENEMY_ROSTER: std::sync::LazyLock<EnemyRoster> =
 /// have no `World` access and a resource would couple pure spec resolution to
 /// the ECS. `install_enemy_roster` + the `cfg(test)` fixture ARE the
 /// test-override mechanism.
-static ENEMY_ROSTER_OVERRIDE: std::sync::OnceLock<EnemyRoster> = std::sync::OnceLock::new();
+static ENEMY_ROSTER_OVERRIDE: std::sync::OnceLock<CharacterRoster> = std::sync::OnceLock::new();
 
 /// Install the authored enemy roster — the content layer calls this at
 /// plugin-build time (before any spawn system runs). First install wins; later
 /// calls are ignored, so a mid-run call can't clobber the live roster.
-pub fn install_enemy_roster(roster: EnemyRoster) {
+pub fn install_enemy_roster(roster: CharacterRoster) {
     let _ = ENEMY_ROSTER_OVERRIDE.set(roster);
 }
 
 #[cfg(test)]
-fn roster_fallback() -> &'static EnemyRoster {
+fn roster_fallback() -> &'static CharacterRoster {
     &EMBEDDED_ENEMY_ROSTER
 }
 
@@ -504,38 +504,38 @@ fn roster_fallback() -> &'static EnemyRoster {
 /// roster at build time. Reaching here means `AmbitionContentPlugin` was not
 /// mounted before the first enemy spawn.
 #[cfg(not(test))]
-fn roster_fallback() -> &'static EnemyRoster {
+fn roster_fallback() -> &'static CharacterRoster {
     panic!(
         "enemy roster not installed — AmbitionContentPlugin must call \
          install_enemy_roster() at build time before any enemy spawns"
     )
 }
 
-fn enemy_roster() -> &'static EnemyRoster {
+fn enemy_roster() -> &'static CharacterRoster {
     ENEMY_ROSTER_OVERRIDE.get().unwrap_or_else(roster_fallback)
 }
 
-/// Resolve the authored spec for a spawn `EnemyBrain` payload — a pure
-/// string lookup against the installed [`EnemyRoster`]. The spawn path holds
+/// Resolve the authored spec for a spawn `CharacterBrain` payload — a pure
+/// string lookup against the installed [`CharacterRoster`]. The spawn path holds
 /// the returned spec; the roster enum never appears here.
-pub(crate) fn spec_for_brain(brain: &ambition_characters::actor::EnemyBrain) -> EnemyArchetypeSpec {
+pub(crate) fn spec_for_brain(brain: &ambition_characters::actor::CharacterBrain) -> CharacterArchetypeSpec {
     enemy_roster().spec_for_brain(brain)
 }
 
 /// Resolve a spec by its spawn brain key against the lib's `#[cfg(test)]`
 /// fixture roster — the test-side replacement for the deleted
-/// `EnemyArchetype::X.spec()`. Tests are roster-string-keyed now: the named
+/// `CharacterArchetype::X.spec()`. Tests are roster-string-keyed now: the named
 /// enum is gone, so they reference enemies by the same `Custom("…")` key the
 /// game authors.
 #[cfg(test)]
-pub(crate) fn test_spec(brain_key: &str) -> EnemyArchetypeSpec {
-    spec_for_brain(&ambition_characters::actor::EnemyBrain::Custom(
+pub(crate) fn test_spec(brain_key: &str) -> CharacterArchetypeSpec {
+    spec_for_brain(&ambition_characters::actor::CharacterBrain::Custom(
         brain_key.to_string(),
     ))
 }
 
 /// Every authored spawn brain key in the lib's fixture roster — the
-/// string-keyed replacement for the deleted `EnemyArchetype` iteration
+/// string-keyed replacement for the deleted `CharacterArchetype` iteration
 /// constants. `COMBAT_*` excludes the training-dummy + raw-mite rows that
 /// don't run the standard combat AI loop (was `COMBAT_ALL`).
 #[cfg(test)]
@@ -579,15 +579,15 @@ pub(crate) const ALL_BRAIN_KEYS: &[&str] = &[
     "ranged_skirmisher",
 ];
 
-impl EnemyArchetypeSpec {
+impl CharacterArchetypeSpec {
     /// Project the generic brain-construction inputs (kit vocabulary) the
     /// runtime brain rebuilds reconstruct without naming the roster.
-    pub(super) fn brain_spec(&self) -> crate::combat::EnemyBrainSpec {
-        crate::combat::EnemyBrainSpec {
+    pub(super) fn brain_spec(&self) -> crate::combat::CharacterBrainSpec {
+        crate::combat::CharacterBrainSpec {
             template: self.brain_template,
             smash_hit_band: self
                 .smash_hit_band
-                .unwrap_or(crate::combat::EnemyBrainSpec::DEFAULT_SMASH_HIT_BAND),
+                .unwrap_or(crate::combat::CharacterBrainSpec::DEFAULT_SMASH_HIT_BAND),
             smash_heavy: self.smash_heavy,
             smash_dash_to_close: self.smash_dash_to_close,
             smash_duelist: self.smash_duelist,
@@ -687,8 +687,8 @@ impl EnemyArchetypeSpec {
 pub struct CompositeVisualPlan {
     pub rider_name_from_spawn: bool,
     pub mount_name: String,
-    pub mount_brain: ambition_characters::actor::EnemyBrain,
-    pub rider_brain: ambition_characters::actor::EnemyBrain,
+    pub mount_brain: ambition_characters::actor::CharacterBrain,
+    pub rider_brain: ambition_characters::actor::CharacterBrain,
     pub rider_fallback_name: String,
     /// Rider's standalone body size (the visual renders at half while
     /// mounted, mirroring the sim's `MountedSize`).
@@ -698,7 +698,7 @@ pub struct CompositeVisualPlan {
 
 /// Visual kind for an enemy spawn payload (training dummies render as
 /// sandbags; everything else as a standard enemy).
-pub fn enemy_visual_kind(payload: &ambition_characters::actor::EnemyBrain) -> FeatureVisualKind {
+pub fn enemy_visual_kind(payload: &ambition_characters::actor::CharacterBrain) -> FeatureVisualKind {
     if spec_for_brain(payload).is_sandbag {
         FeatureVisualKind::TrainingDummy
     } else {
@@ -708,14 +708,14 @@ pub fn enemy_visual_kind(payload: &ambition_characters::actor::EnemyBrain) -> Fe
 
 /// The mount+rider visual fan-out plan for a composite spawn payload,
 /// or `None` for ordinary single-entity spawns. Backed by the
-/// `composite_visual` rows in `enemy_archetypes.ron`.
+/// `composite_visual` rows in `character_archetypes.ron`.
 pub fn composite_visual_plan(
-    payload: &ambition_characters::actor::EnemyBrain,
+    payload: &ambition_characters::actor::CharacterBrain,
 ) -> Option<CompositeVisualPlan> {
     let spec = spec_for_brain(payload);
     let composite = spec.composite_visual.as_ref()?;
-    let mount_brain = ambition_characters::actor::EnemyBrain::Custom(composite.mount_brain.clone());
-    let rider_brain = ambition_characters::actor::EnemyBrain::Custom(composite.rider_brain.clone());
+    let mount_brain = ambition_characters::actor::CharacterBrain::Custom(composite.mount_brain.clone());
+    let rider_brain = ambition_characters::actor::CharacterBrain::Custom(composite.rider_brain.clone());
     let rider_standalone_size = spec_for_brain(&rider_brain)
         .default_size
         .unwrap_or(ae::Vec2::new(44.0, 78.0));
@@ -738,27 +738,27 @@ mod enemy_archetype_data_tests {
     use super::integration::enemy_attack_aabb_dir;
     use super::*;
 
-    /// The installable [`EnemyRoster`] holder resolves a known brain key to
+    /// The installable [`CharacterRoster`] holder resolves a known brain key to
     /// its spec and falls back for an unknown / non-`Custom` brain, and the
     /// lib's embedded default reproduces `from_brain` exactly (the
     /// replay-identity guarantee for the resolution inversion). Built
     /// locally so it doesn't touch the process-global override.
     #[test]
     fn enemy_roster_resolves_brain_keys_with_fallback() {
-        use ambition_characters::actor::EnemyBrain;
+        use ambition_characters::actor::CharacterBrain;
         let mut by_brain = std::collections::HashMap::new();
         by_brain.insert("pirate_heavy".to_string(), test_spec("pirate_heavy"));
-        let roster = EnemyRoster::new(by_brain, test_spec("combatant"));
+        let roster = CharacterRoster::new(by_brain, test_spec("combatant"));
         // Known key → its spec (PirateHeavy is peaceful by default).
         assert!(
             !roster
-                .spec_for_brain(&EnemyBrain::Custom("pirate_heavy".into()))
+                .spec_for_brain(&CharacterBrain::Custom("pirate_heavy".into()))
                 .attacks_player
         );
         // Unknown key + non-Custom → fallback (Combatant is hostile).
         assert!(
             roster
-                .spec_for_brain(&EnemyBrain::Custom("does_not_exist".into()))
+                .spec_for_brain(&CharacterBrain::Custom("does_not_exist".into()))
                 .attacks_player
         );
     }
@@ -771,7 +771,7 @@ mod enemy_archetype_data_tests {
         for key in ALL_BRAIN_KEYS {
             assert!(
                 ENEMY_ARCHETYPE_REGISTRY.contains_key(*key),
-                "enemy_archetypes.ron missing row for brain key '{key}'",
+                "character_archetypes.ron missing row for brain key '{key}'",
             );
         }
     }
@@ -795,7 +795,7 @@ mod enemy_archetype_data_tests {
         assert_eq!(slug.max_health, 2);
         assert!((slug.patrol_speed - 55.0).abs() < f32::EPSILON);
         assert_eq!(slug.aggro_radius, 0.0);
-        assert_eq!(slug.brain_template, EnemyBrainTemplate::Wanderer);
+        assert_eq!(slug.brain_template, CharacterBrainTemplate::Wanderer);
         assert!(slug.melee.is_none());
         assert!(slug.ranged.is_none());
     }
@@ -916,7 +916,7 @@ mod enemy_archetype_data_tests {
 mod capability_tests {
     use super::{test_spec, ALL_BRAIN_KEYS};
 
-    /// Pin the authored capability rows in `enemy_archetypes.ron` to the
+    /// Pin the authored capability rows in `character_archetypes.ron` to the
     /// behavior the actor layer used to hardcode by archetype identity
     /// (Stage 20: the named checks became data-driven capabilities).
     #[test]
@@ -972,7 +972,7 @@ mod capability_tests {
         );
         assert_eq!(
             spec.brain_template,
-            super::EnemyBrainTemplate::Smash,
+            super::CharacterBrainTemplate::Smash,
             "the player-robot is driven by the unified Smash brain (the strong brain)",
         );
         // Its authored `movement` patch resolves to the PLAYER's snappier physics
@@ -1007,7 +1007,7 @@ mod capability_tests {
     ///     side, the sky parrots silently lose their sprite; this test screams.
     #[test]
     fn stochastic_parrot_is_friendly_in_the_cove_and_hostile_in_the_sky() {
-        use super::EnemyBrainTemplate;
+        use super::CharacterBrainTemplate;
 
         // Aggressive sky form.
         let sky = test_spec("sky_parrot");
@@ -1016,7 +1016,7 @@ mod capability_tests {
         assert!(sky.melee.is_some(), "sky_parrot has a dive/peck melee");
         assert_eq!(
             sky.brain_template,
-            EnemyBrainTemplate::Aerial,
+            CharacterBrainTemplate::Aerial,
             "sky_parrot uses the aerial dive-bomber brain",
         );
 
@@ -1120,9 +1120,9 @@ mod capability_tests {
 
 #[cfg(test)]
 mod movement_tuning_tests {
-    use super::{resolve_movement_for, EnemyRoster};
+    use super::{resolve_movement_for, CharacterRoster};
     use crate::combat::{BodyMovementPatch, BodyMovementTuning};
-    use ambition_characters::actor::EnemyBrain;
+    use ambition_characters::actor::CharacterBrain;
     use std::collections::HashMap;
 
     /// The composition primitive: `Some` knobs override, `None` knobs inherit.
@@ -1194,9 +1194,9 @@ mod movement_tuning_tests {
     /// resolved tuning is what the runtime `ActorTuning` carries.
     #[test]
     fn roster_resolves_baseline_for_unauthored_movement() {
-        let roster = EnemyRoster::from_map(super::ENEMY_ARCHETYPE_REGISTRY.clone());
+        let roster = CharacterRoster::from_map(super::ENEMY_ARCHETYPE_REGISTRY.clone());
         let combatant = roster
-            .spec_for_brain(&EnemyBrain::Custom("combatant".to_string()))
+            .spec_for_brain(&CharacterBrain::Custom("combatant".to_string()))
             .tuning()
             .movement;
         assert_eq!(

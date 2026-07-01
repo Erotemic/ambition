@@ -369,7 +369,7 @@ mod conversion_tests {
     }
 
     /// Every combat archetype reports finite, non-NaN tunings. A regression
-    /// here would mean a numerical typo in the authored `enemy_archetypes.ron`
+    /// here would mean a numerical typo in the authored `character_archetypes.ron`
     /// row (most likely an `f32::NAN` slipped in). Hostile archetypes
     /// additionally must have positive `attack_range` + `contact_strength`;
     /// peaceful rows (puppy_slug, pirate_heavy) may have `attack_range == 0.0`
@@ -527,7 +527,7 @@ mod conversion_tests {
             "shark_a",
             "Burning Flying Shark",
             aabb,
-            ambition_characters::actor::EnemyBrain::Custom("pirate_on_shark".into()),
+            ambition_characters::actor::CharacterBrain::Custom("pirate_on_shark".into()),
             &[],
         );
         enemy.attack.cooldown = 0.0;
@@ -596,7 +596,7 @@ mod conversion_tests {
             "path_skitter",
             "path_skitter",
             aabb,
-            ambition_characters::actor::EnemyBrain::Patrol {
+            ambition_characters::actor::CharacterBrain::Patrol {
                 path_id: Some("skitter_path".into()),
             },
             &paths,
@@ -674,7 +674,7 @@ mod conversion_tests {
             "sideways_patroller",
             "sideways_patroller",
             aabb,
-            ambition_characters::actor::EnemyBrain::Patrol { path_id: None },
+            ambition_characters::actor::CharacterBrain::Patrol { path_id: None },
             &paths,
         );
         enemy.attack.cooldown = 0.0;
@@ -760,7 +760,7 @@ mod conversion_tests {
             "slug",
             "PuppySlug",
             aabb,
-            ambition_characters::actor::EnemyBrain::Passive,
+            ambition_characters::actor::CharacterBrain::Passive,
             &[],
         );
         // Force the surface-walker grounded state directly (independent of which

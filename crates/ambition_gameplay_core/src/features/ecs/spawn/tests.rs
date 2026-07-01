@@ -21,7 +21,7 @@ fn make_enemy(brain_key: &str) -> ActorConfig {
         "test".to_string(),
         "test".to_string(),
         aabb,
-        ambition_characters::actor::EnemyBrain::Custom(brain_key.to_string()),
+        ambition_characters::actor::CharacterBrain::Custom(brain_key.to_string()),
         &[],
     )
     .config
@@ -29,7 +29,7 @@ fn make_enemy(brain_key: &str) -> ActorConfig {
 
 /// Regression net: spawning an encounter mob attaches a
 /// per-archetype Brain. `medium_striker` migrated from
-/// `MeleeBrute` to `Smash` in `enemy_archetypes.ron`; the test
+/// `MeleeBrute` to `Smash` in `character_archetypes.ron`; the test
 /// follows that and pins the Smash variant instead.
 #[test]
 fn encounter_mob_brain_is_per_archetype_melee_brute() {
@@ -40,7 +40,7 @@ fn encounter_mob_brain_is_per_archetype_melee_brute() {
             &mut commands,
             "test_encounter",
             "test_mob".to_string(),
-            ambition_characters::actor::EnemyBrain::Custom("medium_striker".into()),
+            ambition_characters::actor::CharacterBrain::Custom("medium_striker".into()),
             ae::Vec2::new(100.0, 100.0),
             ae::Vec2::new(20.0, 30.0),
         );
@@ -150,7 +150,7 @@ fn encounter_mob_spawns_with_brain_components() {
             &mut commands,
             "test_encounter",
             "test_mob".to_string(),
-            ambition_characters::actor::EnemyBrain::Custom("medium_striker".into()),
+            ambition_characters::actor::CharacterBrain::Custom("medium_striker".into()),
             ae::Vec2::new(100.0, 100.0),
             ae::Vec2::new(20.0, 30.0),
         );
@@ -191,7 +191,7 @@ fn enemy_default_brain_picks_per_archetype_template() {
     ));
 
     // `MediumStriker` was migrated to the Smash brain template in
-    // `enemy_archetypes.ron` — assert against the live data path
+    // `character_archetypes.ron` — assert against the live data path
     // rather than reverting to MeleeBrute. The chase_speed pin
     // moves over to the `SmashCfg` row.
     let striker = make_enemy("medium_striker");
@@ -243,7 +243,7 @@ fn shark_composite_mount_brain_stays_skirmisher() {
             id: "test_shark_on_shark".to_string(),
             name: "Test Shark on Shark".to_string(),
             aabb: ae::Aabb::new(ae::Vec2::new(200.0, 120.0), ae::Vec2::new(40.0, 32.0)),
-            payload: ambition_characters::actor::EnemyBrain::Custom("pirate_on_shark".into()),
+            payload: ambition_characters::actor::CharacterBrain::Custom("pirate_on_shark".into()),
         };
         spawn_composite_mount_rider(
             &mut commands,
@@ -275,7 +275,7 @@ fn pirate_raider_shark_rider_keeps_compact_dismounted_size() {
             id: "pirate_raider_sky".to_string(),
             name: "Pirate Raider on Shark".to_string(),
             aabb: ae::Aabb::new(ae::Vec2::new(200.0, 120.0), ae::Vec2::new(40.0, 32.0)),
-            payload: ambition_characters::actor::EnemyBrain::Custom("pirate_on_shark".into()),
+            payload: ambition_characters::actor::CharacterBrain::Custom("pirate_on_shark".into()),
         };
         spawn_composite_mount_rider(
             &mut commands,
@@ -315,7 +315,7 @@ fn pirate_heavy_shark_rider_keeps_compact_dismounted_size() {
             id: "iron_mary_sky".to_string(),
             name: "Iron Mary on Shark".to_string(),
             aabb: ae::Aabb::new(ae::Vec2::new(200.0, 120.0), ae::Vec2::new(40.0, 32.0)),
-            payload: ambition_characters::actor::EnemyBrain::Custom("pirate_heavy_on_shark".into()),
+            payload: ambition_characters::actor::CharacterBrain::Custom("pirate_heavy_on_shark".into()),
         };
         spawn_composite_mount_rider(
             &mut commands,

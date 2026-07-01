@@ -14,7 +14,7 @@
 #![cfg(feature = "rl_sim")]
 
 use ambition_app::{AgentAction, SandboxSim, TimestepMode};
-use ambition_characters::actor::EnemyBrain;
+use ambition_characters::actor::CharacterBrain;
 use ambition_characters::brain::ActorControl;
 use ambition_engine_core as ae;
 use ambition_gameplay_core::actor::{BodyHealth, BodyKinematics, PrimaryPlayerOnly};
@@ -89,7 +89,7 @@ fn the_player_robot_fights_the_player_with_its_own_full_kit() {
         "Player",
         (p.x + 200.0, p.y),
         (14.0, 23.0),
-        EnemyBrain::Custom("player_robot".to_string()),
+        CharacterBrain::Custom("player_robot".to_string()),
     );
 
     let mut t = Tally::default();

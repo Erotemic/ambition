@@ -945,7 +945,7 @@ mod tests {
     /// the resolver translates that — gated by the actor's ranged
     /// `ActionSet` — into a concrete `ActionRequest::Ranged`. Pins
     /// the seam shark-rider archetypes rely on: without it, the
-    /// `ranged: Some(Bolt(...))` row in `enemy_archetypes.ron` is
+    /// `ranged: Some(Bolt(...))` row in `character_archetypes.ron` is
     /// silently inert. This test was added when the legacy
     /// choreography path was deleted (which previously kept
     /// shark-riders firing even though their `MeleeBrute` brain

@@ -20,7 +20,7 @@ use super::SmashState;
 
 /// Per-actor difficulty tuning. Authored today via
 /// [`SmashCfg::difficulty`]; an upcoming pass lifts this into
-/// `enemy_archetypes.ron` so designers can tune per-archetype
+/// `character_archetypes.ron` so designers can tune per-archetype
 /// without code edits.
 #[derive(Clone, Copy, Debug)]
 pub struct DifficultyProfile {

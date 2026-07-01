@@ -232,7 +232,7 @@ mod tests {
             "rider_a",
             "Pirate Raider",
             aabb,
-            ambition_characters::actor::EnemyBrain::Custom("pirate_raider".into()),
+            ambition_characters::actor::CharacterBrain::Custom("pirate_raider".into()),
             &[],
         );
         enemy_actor(enemy)
@@ -271,7 +271,7 @@ mod tests {
             "skitter_a",
             "Skitter",
             aabb,
-            ambition_characters::actor::EnemyBrain::Custom("small_skitter".into()),
+            ambition_characters::actor::CharacterBrain::Custom("small_skitter".into()),
             &[],
         );
         let actor = app.world_mut().spawn(enemy_actor(enemy)).id();
@@ -312,7 +312,7 @@ mod tests {
             "pca_test",
             "Perfect Cell-ular Automaton",
             aabb,
-            ambition_characters::actor::EnemyBrain::Custom("cellular_automaton_fighter".into()),
+            ambition_characters::actor::CharacterBrain::Custom("cellular_automaton_fighter".into()),
             &[],
         );
         let mut bundle = enemy_actor(enemy);
@@ -354,7 +354,7 @@ mod tests {
             "side_gravity_shooter",
             "Skitter",
             aabb,
-            ambition_characters::actor::EnemyBrain::Custom("small_skitter".into()),
+            ambition_characters::actor::CharacterBrain::Custom("small_skitter".into()),
             &[],
         );
         let mut actor_bundle = enemy_actor(enemy);

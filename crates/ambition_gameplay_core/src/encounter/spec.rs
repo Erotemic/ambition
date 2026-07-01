@@ -11,7 +11,7 @@ use ambition_engine_core as ae;
 /// One mob to spawn during a wave.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct EncounterMobSpec {
-    /// `EnemyBrain::Custom(kind)` payload — picks the archetype
+    /// `CharacterBrain::Custom(kind)` payload — picks the archetype
     /// (`small_skitter`, `medium_striker`, `large_brute`, ...).
     pub kind: String,
     /// Spawn position in active-area-local coordinates (the mob's

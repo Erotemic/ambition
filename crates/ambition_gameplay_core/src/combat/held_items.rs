@@ -8,7 +8,7 @@
 use bevy::prelude::Component;
 
 /// Runtime component attached to actors that are visibly / mechanically holding
-/// an item. The spec is data-authored in `enemy_archetypes.ron` and cloned onto
+/// an item. The spec is data-authored in `character_archetypes.ron` and cloned onto
 /// the actor when it spawns or changes state.
 #[derive(Component, Clone, Debug, PartialEq)]
 pub struct HeldItem {

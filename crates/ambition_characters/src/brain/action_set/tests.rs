@@ -162,7 +162,11 @@ fn resolve_emits_a_melee_request_for_a_dedicated_pogo_press() {
         "a pogo-only frame genuinely wants an action"
     );
     let reqs = resolve(&actions, &frame, ae::Vec2::ZERO);
-    assert_eq!(reqs.len(), 1, "the dedicated pogo press emits one Melee request");
+    assert_eq!(
+        reqs.len(),
+        1,
+        "the dedicated pogo press emits one Melee request"
+    );
     assert!(
         matches!(reqs[0], ActionRequest::Melee { .. }),
         "the pogo press resolves to a Melee swing (its AirDown intent is set downstream)"

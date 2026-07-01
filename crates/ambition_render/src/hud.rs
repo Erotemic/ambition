@@ -297,7 +297,9 @@ mod tests {
         app.add_systems(Update, update_player_hud);
         app.update();
 
-        let mut labels = app.world_mut().query::<(&Text, Option<&HealthLabel>, Option<&MoneyLabel>)>();
+        let mut labels = app
+            .world_mut()
+            .query::<(&Text, Option<&HealthLabel>, Option<&MoneyLabel>)>();
         let mut hp_text = None;
         let mut money_text = None;
         for (text, is_hp, is_money) in labels.iter(app.world()) {

@@ -200,6 +200,57 @@ fn pickup_consumes_the_attack_press() {
     );
 }
 
+/// Fork E — pickup/throw are SUBJECT-generic: they act on the `ControlledSubject`
+/// (the body you drive), not a `PrimaryPlayer` marker. A controlled body carrying
+/// NEITHER `PlayerEntity` NOR `PrimaryPlayer` (the shape a possessed actor takes)
+/// still picks the item up and OWNS it. Pins "inventory ownership is explicit
+/// (the controlled body), not accidental primary-player".
+#[test]
+fn pickup_targets_the_controlled_subject_not_a_primary_player_marker() {
+    let mut app = App::new();
+    app.insert_resource(ControlFrame::default());
+    app.add_systems(Update, (pickup_held_item_system, throw_held_item_system));
+    // A driven body with NO PlayerEntity / PrimaryPlayer / PlayerInputFrame — just
+    // the body-generic control + kinematics + action set.
+    let body = app
+        .world_mut()
+        .spawn((
+            BodyKinematics {
+                pos: Vec2::new(100.0, 100.0),
+                vel: Vec2::ZERO,
+                size: Vec2::new(24.0, 40.0),
+                facing: 1.0,
+            },
+            ActionSet::default(),
+            ambition_characters::brain::ActorControl::default(),
+        ))
+        .id();
+    app.insert_resource(crate::abilities::traversal::possession::ControlledSubject(
+        Some(body),
+    ));
+    app.world_mut().spawn(GroundItem {
+        spec: axe_spec(),
+        pos: Vec2::new(100.0, 100.0),
+        vel: Vec2::ZERO,
+        half_extent: Vec2::splat(PICKUP_HALF),
+    });
+    // Drive an Attack on the body's OWN control frame (not a PlayerInputFrame).
+    app.world_mut()
+        .get_mut::<ambition_characters::brain::ActorControl>(body)
+        .unwrap()
+        .0
+        .melee_pressed = true;
+    app.update();
+    assert!(
+        app.world().get::<HeldItem>(body).is_some(),
+        "the controlled body (no PrimaryPlayer marker) picks the item up and owns it"
+    );
+    assert!(
+        app.world().get::<ActionSet>(body).unwrap().melee.is_some(),
+        "the axe grants its swing to the controlled body"
+    );
+}
+
 #[test]
 fn fireball_shot_is_tagged_to_explode_unlike_a_plain_bolt() {
     let mut app = App::new();

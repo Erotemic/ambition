@@ -350,45 +350,50 @@ pub fn unequip_portal_gun(
 
 /// `Attack` while empty-handed and overlapping a `GroundItem` picks it up:
 /// stash the current action set, overlay the item's verbs, attach `HeldItem`.
+///
+/// SUBJECT-GENERIC (like `fire_held_ranged_system`): it acts on the
+/// [`ControlledSubject`](crate::abilities::traversal::possession::ControlledSubject)
+/// — the body you are DRIVING physically grabs the item — reading that body's own
+/// `ActorControl` (brain output), NOT `PlayerInputFrame` + `PrimaryPlayer`. The
+/// held item is EXPLICITLY owned by the controlled body; the catalog grant lands
+/// on the global `OwnedItems` home inventory. One item at a time: a body already
+/// holding an item (or the portal gun) can't grab another.
 pub fn pickup_held_item_system(
     mut commands: Commands,
-    // One item at a time (Smash-style): can't grab a ground item while already
-    // holding one, or while holding the portal gun (portal builds only).
-    #[cfg(feature = "portal")] mut players: Query<
-        (
-            Entity,
-            &mut PlayerInputFrame,
-            &mut ActorControl,
-            &BodyKinematics,
-            &mut ActionSet,
-        ),
-        (
-            With<PlayerEntity>,
-            With<PrimaryPlayer>,
-            Without<HeldItem>,
-            Without<PortalGun>,
-        ),
-    >,
-    #[cfg(not(feature = "portal"))] mut players: Query<
-        (
-            Entity,
-            &mut PlayerInputFrame,
-            &mut ActorControl,
-            &BodyKinematics,
-            &mut ActionSet,
-        ),
-        (With<PlayerEntity>, With<PrimaryPlayer>, Without<HeldItem>),
-    >,
+    controlled: Res<crate::abilities::traversal::possession::ControlledSubject>,
+    mut bodies: Query<(
+        &mut ActorControl,
+        &BodyKinematics,
+        &mut ActionSet,
+        Option<&HeldItem>,
+        Option<&mut PlayerInputFrame>,
+    )>,
+    // Holding the portal gun blocks a pickup (portal builds only).
+    #[cfg(feature = "portal")] portal_guns: Query<&PortalGun>,
     grounds: Query<(Entity, &GroundItem)>,
     mut owned: Option<ResMut<crate::items::OwnedItems>>,
 ) {
-    let Ok((player, mut input, mut control, kin, mut action_set)) = players.single_mut() else {
+    let Some(player) = controlled.0 else {
         return;
     };
-    if !input.frame.attack_pressed {
+    let Ok((mut control, kin, mut action_set, held, input)) = bodies.get_mut(player) else {
+        return;
+    };
+    // One item at a time: already holding a physical item, or the portal gun.
+    if held.is_some() {
+        return;
+    }
+    #[cfg(feature = "portal")]
+    if portal_guns.get(player).is_ok() {
+        return;
+    }
+    // Gameplay authority is the body's brain-resolved `ActorControl`, not the
+    // `PlayerInputFrame` compat mirror.
+    if !control.0.melee_pressed {
         return;
     }
     let player_aabb = ae::Aabb::new(kin.pos, kin.size * 0.5);
+    let mut input = input;
     for (ground_entity, ground) in &grounds {
         let ground_aabb = ae::Aabb::new(ground.pos, ground.half_extent);
         if player_aabb.strict_intersects(ground_aabb) {
@@ -413,12 +418,15 @@ pub fn pickup_held_item_system(
                 }
             }
             // The Attack press is *consumed* by the pickup so the same press
-            // doesn't also fire the just-equipped item this frame. Clear it on
-            // BOTH the actor-local input frame (portal-gun gesture adapter) AND the
+            // doesn't also fire the just-equipped item this frame. Clear the
             // brain-resolved `ActorControl` (the subject-generic held-item / ability
-            // systems — blink/grapple/gun — now read `melee_pressed` there).
-            input.frame.attack_pressed = false;
+            // systems — blink/grapple/gun — read `melee_pressed` there) AND, if this
+            // body carries one, the `PlayerInputFrame` compat mirror (the portal-gun
+            // gesture adapter still reads it).
             control.0.melee_pressed = false;
+            if let Some(input) = input.as_deref_mut() {
+                input.frame.attack_pressed = false;
+            }
             commands.entity(ground_entity).despawn();
             break;
         }
@@ -428,31 +436,36 @@ pub fn pickup_held_item_system(
 /// Throw the held item: restore the stashed action set, detach `HeldItem`,
 /// and drop a `GroundItem` ahead of the player. Fires on `Shield + Attack`
 /// for any item, or on a plain `Attack` for a pure throwable (throw-on-use).
+///
+/// SUBJECT-GENERIC: acts on the
+/// [`ControlledSubject`](crate::abilities::traversal::possession::ControlledSubject)
+/// — the body you drive throws the item it holds — reading that body's own
+/// `ActorControl`, not `PlayerInputFrame` + `PrimaryPlayer`.
 pub fn throw_held_item_system(
     mut commands: Commands,
-    mut players: Query<
-        (
-            Entity,
-            &PlayerInputFrame,
-            &BodyKinematics,
-            &mut ActionSet,
-            &HeldItem,
-            Option<&StashedActionSet>,
-        ),
-        (With<PlayerEntity>, With<PrimaryPlayer>),
-    >,
+    controlled: Res<crate::abilities::traversal::possession::ControlledSubject>,
+    mut bodies: Query<(
+        &ActorControl,
+        &BodyKinematics,
+        &mut ActionSet,
+        &HeldItem,
+        Option<&StashedActionSet>,
+    )>,
     mut owned: Option<ResMut<crate::items::OwnedItems>>,
 ) {
-    let Ok((player, input, kin, mut action_set, held, stashed)) = players.single_mut() else {
+    let Some(player) = controlled.0 else {
         return;
     };
-    if !input.frame.attack_pressed {
+    let Ok((control, kin, mut action_set, held, stashed)) = bodies.get_mut(player) else {
+        return;
+    };
+    if !control.0.melee_pressed {
         return;
     }
     // Shield+Attack throws anything; plain Attack throws only items whose
     // authored `use_behavior` opts in, leaving `UseSystem` abilities to their
     // own systems.
-    if !(input.frame.shield_held || held.spec.throws_on_plain_attack()) {
+    if !(control.0.shield_held || held.spec.throws_on_plain_attack()) {
         return;
     }
     if let Some(stash) = stashed {

@@ -167,7 +167,10 @@ fn a_non_home_charge_body_fires_from_its_own_muzzle_not_the_home_avatar() {
          input fires nothing"
     );
     let (origin, owner) = shots[0];
-    assert_eq!(owner, body, "the shot is owned by the emitting (non-home) body");
+    assert_eq!(
+        owner, body,
+        "the shot is owned by the emitting (non-home) body"
+    );
     assert!(
         origin.x > 0.0 && (origin - body_pos).length() < 120.0,
         "origin is the non-home body's OWN muzzle (~{body_pos:?}), not the home \

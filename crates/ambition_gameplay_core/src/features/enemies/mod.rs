@@ -411,8 +411,9 @@ impl CharacterRoster {
     /// point: `install_enemy_roster(CharacterRoster::from_ron(MY_RON))`. Movement
     /// inheritance is resolved by `from_map`.
     pub fn from_ron(ron: &str) -> Self {
-        let by_brain: std::collections::HashMap<String, CharacterArchetypeSpec> = ron::from_str(ron)
-            .unwrap_or_else(|err| panic!("enemy roster RON failed to deserialize: {err}"));
+        let by_brain: std::collections::HashMap<String, CharacterArchetypeSpec> =
+            ron::from_str(ron)
+                .unwrap_or_else(|err| panic!("enemy roster RON failed to deserialize: {err}"));
         Self::from_map(by_brain)
     }
 }
@@ -422,7 +423,9 @@ impl CharacterRoster {
 /// `BASELINE ← parent (resolved) ← this row's patch`; a missing parent or a cycle
 /// falls back to the baseline rather than panicking (a malformed `inherits` is a
 /// data smell, not a crash).
-fn resolve_movement_inheritance(specs: &mut std::collections::HashMap<String, CharacterArchetypeSpec>) {
+fn resolve_movement_inheritance(
+    specs: &mut std::collections::HashMap<String, CharacterArchetypeSpec>,
+) {
     // Snapshot the authored (patch, parent) so resolution reads immutable data
     // while we write resolved values back into the same map.
     let raw: std::collections::HashMap<String, (crate::combat::BodyMovementPatch, Option<String>)> =
@@ -518,7 +521,9 @@ fn enemy_roster() -> &'static CharacterRoster {
 /// Resolve the authored spec for a spawn `CharacterBrain` payload — a pure
 /// string lookup against the installed [`CharacterRoster`]. The spawn path holds
 /// the returned spec; the roster enum never appears here.
-pub(crate) fn spec_for_brain(brain: &ambition_characters::actor::CharacterBrain) -> CharacterArchetypeSpec {
+pub(crate) fn spec_for_brain(
+    brain: &ambition_characters::actor::CharacterBrain,
+) -> CharacterArchetypeSpec {
     enemy_roster().spec_for_brain(brain)
 }
 
@@ -698,7 +703,9 @@ pub struct CompositeVisualPlan {
 
 /// Visual kind for an enemy spawn payload (training dummies render as
 /// sandbags; everything else as a standard enemy).
-pub fn enemy_visual_kind(payload: &ambition_characters::actor::CharacterBrain) -> FeatureVisualKind {
+pub fn enemy_visual_kind(
+    payload: &ambition_characters::actor::CharacterBrain,
+) -> FeatureVisualKind {
     if spec_for_brain(payload).is_sandbag {
         FeatureVisualKind::TrainingDummy
     } else {
@@ -714,8 +721,10 @@ pub fn composite_visual_plan(
 ) -> Option<CompositeVisualPlan> {
     let spec = spec_for_brain(payload);
     let composite = spec.composite_visual.as_ref()?;
-    let mount_brain = ambition_characters::actor::CharacterBrain::Custom(composite.mount_brain.clone());
-    let rider_brain = ambition_characters::actor::CharacterBrain::Custom(composite.rider_brain.clone());
+    let mount_brain =
+        ambition_characters::actor::CharacterBrain::Custom(composite.mount_brain.clone());
+    let rider_brain =
+        ambition_characters::actor::CharacterBrain::Custom(composite.rider_brain.clone());
     let rider_standalone_size = spec_for_brain(&rider_brain)
         .default_size
         .unwrap_or(ae::Vec2::new(44.0, 78.0));

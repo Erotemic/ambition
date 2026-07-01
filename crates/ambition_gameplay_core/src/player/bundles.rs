@@ -5,10 +5,11 @@ use bevy::prelude::*;
 
 use super::components::{
     BodyMelee, LocalPlayer, PlayerAnimState, PlayerBlinkCameraState, PlayerEntity,
-    PlayerInputFrame, PlayerInteractionState, PlayerSafetyState, PlayerSlot, PrimaryPlayer,
+    PlayerInputFrame, PlayerSafetyState, PlayerSlot, PrimaryPlayer,
 };
 use super::movement_components::BodyKinematics;
 use crate::actor::{AncillaryMovementBundle, BodyCombat, BodyHealth, BodyWallet};
+use crate::body_mode::BodyModeCapabilities;
 use crate::features::{ActorFaction, ActorPose};
 use ambition_characters::brain::{ActionSet, ActorControl, Brain};
 
@@ -49,7 +50,9 @@ pub struct PlayerSimulationBundle {
     pub health: BodyHealth,
     pub wallet: BodyWallet,
     pub combat: BodyCombat,
-    pub interaction: PlayerInteractionState,
+    /// Body-mode kit: the home player can crouch / morph / climb. A possessed
+    /// actor uses ITS OWN capabilities (this is the home body's).
+    pub body_mode_caps: BodyModeCapabilities,
     pub anim: PlayerAnimState,
     pub blink_cam: PlayerBlinkCameraState,
     pub attack: BodyMelee,
@@ -120,7 +123,7 @@ impl PlayerSimulationBundle {
             health: BodyHealth::new(health),
             wallet: BodyWallet::default(),
             combat: BodyCombat::default(),
-            interaction: PlayerInteractionState::default(),
+            body_mode_caps: BodyModeCapabilities::full(),
             anim: PlayerAnimState::default(),
             blink_cam: PlayerBlinkCameraState::default(),
             attack: BodyMelee::default(),

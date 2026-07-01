@@ -7,14 +7,20 @@ use super::*;
 pub fn open_ecs_chests(
     mut commands: Commands,
     mut banner: ResMut<GameplayBanner>,
-    mut player: Query<
+    controlled: Option<Res<crate::abilities::traversal::possession::ControlledSubject>>,
+    // The local controller's buffered interact (published from the device onto its
+    // slot); consumed for whatever body it currently drives.
+    mut slot_gestures: ResMut<crate::player::SlotInteractionState>,
+    // Interact-gesture pose + startup-frame fallback subject.
+    mut input_surface: Query<
+        (Entity, &mut crate::player::PlayerAnimState),
         (
-            &crate::actor::BodyKinematics,
-            &mut crate::player::PlayerInteractionState,
-            &mut crate::player::PlayerAnimState,
+            With<crate::actor::PlayerEntity>,
+            With<crate::actor::PrimaryPlayer>,
         ),
-        With<crate::actor::PlayerEntity>,
     >,
+    // The driven body's kinematics — reach is measured from the controlled subject.
+    bodies: Query<&crate::actor::BodyKinematics>,
     chests: Query<
         (
             Entity,
@@ -43,18 +49,28 @@ pub fn open_ecs_chests(
     // so the player's reach-and-open animation feels uniform across
     // every interactable kind.
     const INTERACT_ANIM_HOLD_SECS: f32 = 0.28;
-    for (player_kin, mut interaction, mut anim) in &mut player {
-        if !interaction.buffered() {
-            continue;
-        }
-        let player_aabb = player_kin.aabb();
+    let Ok((primary_entity, mut anim)) = input_surface.single_mut() else {
+        return;
+    };
+    if !slot_gestures.primary().buffered() {
+        return;
+    }
+    // Reach is measured from the controlled subject — a possessed actor opens the
+    // chest IT is standing on, not one the vacated home avatar is next to.
+    let subject = controlled
+        .and_then(|subject| subject.0)
+        .unwrap_or(primary_entity);
+    let Ok(subject_kin) = bodies.get(subject) else {
+        return;
+    };
+    let reach_aabb = subject_kin.aabb();
+    {
         for (entity, id, name, aabb, opened, falling) in &chests {
-            if falling.is_some() || opened.is_some() || !aabb.aabb().strict_intersects(player_aabb)
-            {
+            if falling.is_some() || opened.is_some() || !aabb.aabb().strict_intersects(reach_aabb) {
                 continue;
             }
             commands.entity(entity).insert(Opened);
-            interaction.clear();
+            slot_gestures.primary_mut().clear();
             anim.interact_anim_timer = INTERACT_ANIM_HOLD_SECS;
             banner.show(format!("opened {}", name.0.as_str()), 2.6);
             let pos = aabb.center;
@@ -86,15 +102,17 @@ mod chest_tests {
     //! a buffered interact over an overlapping, unopened chest inserts
     //! `Opened`; an unbuffered player or a non-overlapping chest does not.
     use super::*;
+    use crate::abilities::traversal::possession::ControlledSubject;
     use crate::actor::BodyBaseSize;
     use crate::actor::BodyKinematics;
-    use crate::actor::PlayerEntity;
-    use crate::player::{PlayerAnimState, PlayerInteractionState};
+    use crate::actor::{PlayerEntity, PrimaryPlayer};
+    use crate::player::{PlayerAnimState, SlotInteractionState};
     use bevy::prelude::{App, Entity, Update};
 
     fn app() -> App {
         let mut app = App::new();
         app.insert_resource(GameplayBanner::default());
+        app.init_resource::<SlotInteractionState>();
         app.add_message::<SetFlagRequested>();
         app.add_message::<SfxMessage>();
         app.add_message::<VfxMessage>();
@@ -103,9 +121,18 @@ mod chest_tests {
     }
 
     fn player(app: &mut App, pos: ae::Vec2, buffered: bool) -> Entity {
-        app.world_mut()
+        // The buffered interact is SLOT state now, not a per-body component.
+        if buffered {
+            app.world_mut()
+                .resource_mut::<SlotInteractionState>()
+                .primary_mut()
+                .interact_buffer_timer = 0.5;
+        }
+        let entity = app
+            .world_mut()
             .spawn((
                 PlayerEntity,
+                PrimaryPlayer,
                 BodyKinematics {
                     pos,
                     size: ae::Vec2::new(28.0, 46.0),
@@ -115,13 +142,12 @@ mod chest_tests {
                 BodyBaseSize {
                     base_size: ae::Vec2::new(28.0, 46.0),
                 },
-                PlayerInteractionState {
-                    interact_buffer_timer: if buffered { 0.5 } else { 0.0 },
-                    ..Default::default()
-                },
                 PlayerAnimState::default(),
             ))
-            .id()
+            .id();
+        app.world_mut()
+            .insert_resource(ControlledSubject(Some(entity)));
+        entity
     }
 
     fn chest(app: &mut App, id: &str, pos: ae::Vec2) -> Entity {

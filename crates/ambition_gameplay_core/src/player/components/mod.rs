@@ -115,9 +115,15 @@ impl PlayerAnimState {
     }
 }
 
-/// ECS-visible player interaction buffer state.
-#[derive(Component, Clone, Copy, Debug, Default, PartialEq)]
-pub struct PlayerInteractionState {
+/// One controller slot's gesture/buffer state: double-tap timers, the interact
+/// buffer, and the pending double-tap edges. This is SLOT-level state (it belongs
+/// to a controller, not to any one body) — the local input systems publish it from
+/// the device each frame, and gameplay systems (body-mode, interaction) consume it
+/// for whatever body that slot currently controls. Held in [`SlotInteractionState`],
+/// keyed by [`PlayerSlot`]; deliberately NOT a `Component`, so no body privately
+/// owns "the interaction state".
+#[derive(Clone, Copy, Debug, Default, PartialEq)]
+pub struct SlotGestures {
     /// Counts down after a double-tap-down edge; non-zero means morph-ball
     /// entry is pending for the body-mode driver.
     pub down_tap_timer: f32,
@@ -137,7 +143,7 @@ pub struct PlayerInteractionState {
     pub double_tap_up_pending: bool,
 }
 
-impl PlayerInteractionState {
+impl SlotGestures {
     /// Advance timers and detect a double-tap-down edge. Returns `true` when
     /// two taps arrive within `window` seconds.
     pub fn register_down_tap(&mut self, down_pressed: bool, frame_dt: f32, window: f32) -> bool {
@@ -190,6 +196,43 @@ impl PlayerInteractionState {
     pub fn reset(&mut self) {
         *self = Self::default();
     }
+}
+
+/// Slot-keyed gesture/buffer state — the explicit authority for "which controller
+/// wants to interact / morph / double-tap", replacing the old per-body
+/// `PlayerInteractionState` component. Local input publishes into the slot; body
+/// mode, interaction, and room transitions consume the slot of the body they act
+/// on (defaulting to the controlled subject's slot), so a possessed body's gestures
+/// come from the controller driving it, never from a privileged home avatar.
+#[derive(Resource, Clone, Copy, Debug, Default)]
+pub struct SlotInteractionState {
+    slots: [SlotGestures; ambition_characters::brain::SlotControls::MAX_SLOTS],
+}
+
+impl SlotInteractionState {
+    /// This slot's gestures (default for an out-of-range slot).
+    pub fn get(&self, slot: PlayerSlot) -> SlotGestures {
+        self.slots.get(slot.0 as usize).copied().unwrap_or_default()
+    }
+
+    /// Mutable access to a slot's gestures; out-of-range slots fall back to slot 0
+    /// so a bad index can never panic mid-frame.
+    pub fn get_mut(&mut self, slot: PlayerSlot) -> &mut SlotGestures {
+        let idx = (slot.0 as usize).min(Self::LAST);
+        &mut self.slots[idx]
+    }
+
+    /// The local primary controller's gestures — the single-player default.
+    pub fn primary(&self) -> SlotGestures {
+        self.get(PlayerSlot::PRIMARY)
+    }
+
+    /// Mutable primary-controller gestures.
+    pub fn primary_mut(&mut self) -> &mut SlotGestures {
+        self.get_mut(PlayerSlot::PRIMARY)
+    }
+
+    const LAST: usize = ambition_characters::brain::SlotControls::MAX_SLOTS - 1;
 }
 
 /// Camera easing and blink-in presentation state. Authoritative ECS component;

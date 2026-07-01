@@ -22,9 +22,9 @@
 
 use ambition_gameplay_core::actor::{BodyCombat, BodyHealth};
 use ambition_gameplay_core::actor::{BodyKinematics, PlayerEntity, PrimaryPlayer};
+use ambition_gameplay_core::body_mode::BodyModeCapabilities;
 use ambition_gameplay_core::player::{
-    LocalPlayer, PlayerAnimState, PlayerBlinkCameraState, PlayerIdentityBundle,
-    PlayerInteractionState, PlayerSlot,
+    LocalPlayer, PlayerAnimState, PlayerBlinkCameraState, PlayerIdentityBundle, PlayerSlot,
 };
 use ambition_gameplay_core::rooms::RoomSet;
 use ambition_gameplay_core::{
@@ -111,13 +111,13 @@ fn player_entity_carries_canonical_sim_components() {
         &BodyHealth,
         &BodyCombat,
         &PlayerAnimState,
-        &PlayerInteractionState,
+        &BodyModeCapabilities,
         &PlayerBlinkCameraState,
     ), With<PlayerEntity>>();
     let row = q
         .single(app.world())
         .expect("player entity should carry every PlayerSimulationBundle component");
-    let (kinematics, health, combat, _anim, _interaction, _blink_cam) = row;
+    let (kinematics, health, combat, _anim, _caps, _blink_cam) = row;
     assert!(
         health.current() > 0,
         "player should start at >0 HP, got {}",

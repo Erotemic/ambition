@@ -149,10 +149,15 @@ pub fn integrate_home_body(
     let player_size_pre = clusters.kinematics.size;
     let active_ledge_platform = clusters.ledge.grab.and_then(|grab| {
         moving_platforms.iter().position(|platform| {
-            platform.matches_ledge_contact_in_frame(grab.contact, player_size_pre, tuning.gravity_dir)
+            platform.matches_ledge_contact_in_frame(
+                grab.contact,
+                player_size_pre,
+                tuning.gravity_dir,
+            )
         })
     });
-    if let Some(platform_delta) = active_ledge_platform.map(|idx| moving_platforms[idx].last_delta())
+    if let Some(platform_delta) =
+        active_ledge_platform.map(|idx| moving_platforms[idx].last_delta())
     {
         match ledge_platform_carry(world, player_aabb_pre, platform_delta) {
             // #126: the platform is about to carry the hanging player INTO a wall.
@@ -169,8 +174,7 @@ pub fn integrate_home_body(
         }
     }
 
-    let collision_world =
-        world_with_sandbox_solids(world, moving_platforms, feature_ecs_overlay);
+    let collision_world = world_with_sandbox_solids(world, moving_platforms, feature_ecs_overlay);
     let was_grounded = clusters.ground.on_ground;
     let pre_sim_vy = clusters.kinematics.vel.y;
 

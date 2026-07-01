@@ -124,7 +124,7 @@ pub fn spawn_requested_player_clone(
         // sim-time/dt instead).
         ambition_gameplay_core::actor::PlayerEntity,
         (
-            ambition_gameplay_core::player::PlayerInteractionState::default(),
+            ambition_gameplay_core::body_mode::BodyModeCapabilities::full(),
             ambition_gameplay_core::player::BodyMelee::default(),
             ambition_gameplay_core::player::PlayerSafetyState::default(),
             ambition_gameplay_core::player::PlayerInputFrame::default(),

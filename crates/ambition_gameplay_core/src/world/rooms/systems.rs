@@ -263,23 +263,25 @@ pub fn detect_room_transition_system(
     sim_state: Res<crate::SandboxSimState>,
     portals: Res<GatePortalRegistry>,
     mut transition_writer: MessageWriter<RoomTransitionRequested>,
-    mut player_q: Query<
-        (
-            ae::BodyClusterQueryData,
-            &mut crate::player::PlayerInteractionState,
-        ),
-        crate::actor::PrimaryPlayerOnly,
-    >,
+    // The transition subject is the CONTROLLED body: if the driven body (home
+    // avatar or possessed actor) enters an exit/door, THAT body transitions. Future
+    // door restrictions gate on body properties (size/shape/locomotion), never on
+    // "is this the home avatar". Falls back to the primary player at startup.
+    controlled: Option<Res<crate::abilities::traversal::possession::ControlledSubject>>,
+    mut slot_gestures: ResMut<crate::player::SlotInteractionState>,
+    bodies: Query<&crate::actor::BodyKinematics>,
+    primary_q: Query<Entity, crate::actor::PrimaryPlayerOnly>,
 ) {
     if sim_state.room_transition_cooldown > 0.0 {
         return;
     }
-    let Ok((mut cluster_item, mut interaction)) = player_q.single_mut() else {
+    let subject = controlled
+        .and_then(|subject| subject.0)
+        .or_else(|| primary_q.single().ok());
+    let Some(kin) = subject.and_then(|subject| bodies.get(subject).ok()) else {
         return;
     };
-    let clusters = cluster_item.as_clusters_mut();
-    let Some(zone) =
-        room_set.transition_for_player(clusters.kinematics.aabb(), interaction.buffered())
+    let Some(zone) = room_set.transition_for_player(kin.aabb(), slot_gestures.primary().buffered())
     else {
         return;
     };
@@ -302,6 +304,6 @@ pub fn detect_room_transition_system(
     };
     // Clear the interact buffer so the same press doesn't re-trigger
     // a transition next frame before `load_room` resets it.
-    interaction.clear();
+    slot_gestures.primary_mut().clear();
     transition_writer.write(RoomTransitionRequested::new(zone, zone_sfx));
 }

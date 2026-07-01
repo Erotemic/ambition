@@ -315,7 +315,9 @@ fn pirate_heavy_shark_rider_keeps_compact_dismounted_size() {
             id: "iron_mary_sky".to_string(),
             name: "Iron Mary on Shark".to_string(),
             aabb: ae::Aabb::new(ae::Vec2::new(200.0, 120.0), ae::Vec2::new(40.0, 32.0)),
-            payload: ambition_characters::actor::CharacterBrain::Custom("pirate_heavy_on_shark".into()),
+            payload: ambition_characters::actor::CharacterBrain::Custom(
+                "pirate_heavy_on_shark".into(),
+            ),
         };
         spawn_composite_mount_rider(
             &mut commands,

@@ -41,30 +41,30 @@ const CROUCH_AXIS_Y_THRESHOLD: f32 = 0.4;
 pub fn update_body_mode(
     world: crate::features::CollisionWorld,
     gravity_field: Option<Res<crate::physics::GravityField>>,
-    // Optional: headless / unit-test apps may omit the settings resource. Absent →
-    // Hybrid (the historical behavior).
-    user_settings: Option<Res<crate::persistence::settings::UserSettings>>,
-    mut player_q: Query<
-        (
-            &mut crate::actor::BodyKinematics,
-            &crate::actor::BodyBaseSize,
-            &mut crate::actor::BodyModeState,
-            &mut crate::actor::BodyJumpState,
-            &crate::actor::BodyGroundState,
-            &crate::actor::BodyWallState,
-            &crate::actor::BodyDashState,
-            &crate::actor::BodyBlinkState,
-            &crate::actor::BodyLedgeState,
-            &crate::actor::BodyEnvironmentContact,
-            &mut crate::player::PlayerInteractionState,
-            &crate::player::PlayerInputFrame,
-            &crate::actor::BodyFlightState,
-        ),
-        // Per-body: every player body (primary + brain-driven clone) computes its
-        // OWN crouch/morph/climb posture from its own input. Iterating keeps each
-        // body's body-mode independent — the clone runs the same shared system.
-        With<crate::actor::PlayerEntity>,
-    >,
+    // Slot gestures (double-tap-down → morph) keyed by the controlling slot. The
+    // body reads ITS controller's gesture, never a privileged home avatar's.
+    mut slot_gestures: ResMut<crate::player::SlotInteractionState>,
+    // Every CONTROLLED body (carrying `Brain::Player(slot)`) that has body-mode
+    // capability + posture clusters. Not `With<PlayerEntity>`: a possessed actor with
+    // the capability body-modes through the same system; a vacated home body has no
+    // `Brain` so it never matches. Presence of `BodyModeCapabilities` gates it —
+    // a body without the kit is skipped entirely.
+    mut bodies: Query<(
+        &ambition_characters::brain::Brain,
+        &mut crate::actor::BodyKinematics,
+        &crate::actor::BodyBaseSize,
+        &mut crate::actor::BodyModeState,
+        &mut crate::actor::BodyJumpState,
+        &crate::actor::BodyGroundState,
+        &crate::actor::BodyWallState,
+        &crate::actor::BodyDashState,
+        &crate::actor::BodyBlinkState,
+        &crate::actor::BodyLedgeState,
+        &crate::actor::BodyEnvironmentContact,
+        &ambition_characters::brain::ActorControl,
+        &crate::body_mode::BodyModeCapabilities,
+        &crate::actor::BodyFlightState,
+    )>,
 ) {
     // Body-mode changes test overhead/standing clearance against the composited
     // collision world so a moving platform / ECS solid blocks unmorphing the same
@@ -73,6 +73,7 @@ pub fn update_body_mode(
         return;
     };
     for (
+        brain,
         mut kinematics,
         base_size,
         mut body_mode_state,
@@ -83,12 +84,21 @@ pub fn update_body_mode(
         blink,
         ledge,
         env_contact,
-        mut interaction,
-        input,
+        control,
+        caps,
         flight,
-    ) in &mut player_q
+    ) in &mut bodies
     {
-        let controls = &input.frame;
+        // Only bodies a controller is DRIVING act — the entity carrying
+        // `Brain::Player(slot)`. An AI-brained body (or a vacated home body) is
+        // skipped; body mode is a controlled-body concern here.
+        let Some(slot) = brain.player_slot() else {
+            continue;
+        };
+        // Intent comes from the body's own `ActorControl` (already gravity/mode
+        // resolved by the brain), and the double-tap-down morph gesture from the
+        // controller's slot — never raw `ControlFrame` or a `PlayerInputFrame`.
+        let control = &control.0;
 
         // Mid-action mechanics own the body shape — don't fight them.
         if dash.timer > 0.0 || blink.aiming {
@@ -105,33 +115,31 @@ pub fn update_body_mode(
         }
 
         // "Descend" gate: crouch is "press toward the controlled body's feet".
-        // Gravity- AND input-mode-relative via the resolved local stick `y`, so it honors
-        // the Screen/Hybrid setting exactly like the engine movement core (under
-        // Hybrid this is the old `gravity_descend(axis_y)`).
+        // The brain already resolved raw device axes into `locomotion` (local frame,
+        // gravity- and input-mode-relative), so we consume THAT directly — no second
+        // resolve, no `PlayerInputFrame`. `up_held` replaces the old raw up-edge for
+        // the unmorph gesture: a held-up (or jump) stands the body up.
         let gravity_dir = crate::physics::gravity_dir_or_default(gravity_field.as_deref());
-        let movement_mode = user_settings
-            .as_deref()
-            .map_or(ae::InputFrameMode::DEFAULT_MOVEMENT, |s| {
-                s.gameplay.movement_frame_mode
-            });
         let frame = ae::AccelerationFrame::new(gravity_dir);
-        let resolved = frame.resolve_control(movement_mode, controls.axis_x, controls.axis_y);
-        let local_axis = resolved.local_axis;
+        let local_axis = control.locomotion;
         let descend = local_axis.y;
         let down_held = descend > CROUCH_AXIS_Y_THRESHOLD;
         let up_held = descend < -CROUCH_AXIS_Y_THRESHOLD;
         let climb_axis = frame.to_world(local_axis).y;
         let climb_axis_held = climb_axis.abs() > CROUCH_AXIS_Y_THRESHOLD;
         let climb_axis_down = climb_axis > CROUCH_AXIS_Y_THRESHOLD;
-        let local_up_pressed = resolved.local_up_pressed(controls.raw_direction_edges());
+        let jump_pressed = control.jump_pressed;
+        let dash_pressed = control.dash_pressed;
+        let stand_up_gesture = jump_pressed || up_held;
         let on_ground = ground.on_ground;
         let mode = body_mode_state.body_mode;
         let solid = |b: &ae::Block| matches!(b.kind, ae::BlockKind::Solid);
         let climbable_contact_present = env_contact.climbable.is_some();
 
-        // Consume the double-tap-down edge regardless of branch so we
-        // don't latch a stale signal across frames or gameplay states.
-        let double_tap_down = std::mem::take(&mut interaction.double_tap_down_pending);
+        // Consume the double-tap-down edge (from the controller's slot) regardless of
+        // branch so we don't latch a stale signal across frames or gameplay states.
+        let double_tap_down =
+            std::mem::take(&mut slot_gestures.get_mut(slot).double_tap_down_pending);
 
         if !down_held {
             jump_state.ladder_drop_through_hold_lock = false;
@@ -145,7 +153,7 @@ pub fn update_body_mode(
         // one-frame velocity stall before this driver flips back to
         // Standing — acceptable for the first slice.
         if mode == ae::BodyMode::Climbing {
-            if controls.jump_pressed && down_held {
+            if jump_pressed && down_held {
                 jump_state.ladder_drop_through_timer = ae::movement::ONE_WAY_DROP_THROUGH_GRACE;
                 let _ = ae::try_change_body_mode_clusters(
                     &mut kinematics,
@@ -158,8 +166,8 @@ pub fn update_body_mode(
                 );
                 continue;
             }
-            let exit_via_jump = controls.jump_pressed && !up_held;
-            let exit_via_dash = controls.dash_pressed;
+            let exit_via_jump = jump_pressed && !up_held;
+            let exit_via_dash = dash_pressed;
             let exit_via_lost_contact = !climbable_contact_present;
             if exit_via_jump || exit_via_dash || exit_via_lost_contact {
                 let _ = ae::try_change_body_mode_clusters(
@@ -188,9 +196,9 @@ pub fn update_body_mode(
         // While flying, holding a climb direction is "fly", not "grab the ladder"
         // — flight suppresses ladder auto-climb so you can fly past / over a
         // ladder without snapping onto it. (Land or disable flight to climb.)
-        let climb_initiator =
-            climb_axis_held && !(climb_axis_down && on_ground && !controls.jump_pressed);
-        if climbable_contact_present
+        let climb_initiator = climb_axis_held && !(climb_axis_down && on_ground && !jump_pressed);
+        if caps.can_climb
+            && climbable_contact_present
             && climb_initiator
             && !flight.fly_enabled
             && jump_state.ladder_drop_through_timer <= 0.0
@@ -217,7 +225,7 @@ pub fn update_body_mode(
         // physical key can still escape the ball without committing to a
         // jump arc.
         if mode == ae::BodyMode::MorphBall {
-            if controls.jump_pressed || local_up_pressed {
+            if stand_up_gesture {
                 let _ = ae::try_change_body_mode_clusters(
                     &mut kinematics,
                     base_size,
@@ -232,8 +240,8 @@ pub fn update_body_mode(
         }
 
         // Double-tap-down on the ground from Standing or Crouching curls
-        // into MorphBall.
-        if on_ground && double_tap_down {
+        // into MorphBall — only if this body can morph.
+        if caps.can_morph && on_ground && double_tap_down {
             let _ = ae::try_change_body_mode_clusters(
                 &mut kinematics,
                 base_size,
@@ -246,7 +254,8 @@ pub fn update_body_mode(
             continue;
         }
 
-        let target = if down_held && on_ground {
+        // Crouch only if this body can crouch; otherwise it stays Standing.
+        let target = if caps.can_crouch && down_held && on_ground {
             ae::BodyMode::Crouching
         } else {
             ae::BodyMode::Standing

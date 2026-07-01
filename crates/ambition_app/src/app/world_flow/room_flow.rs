@@ -31,7 +31,7 @@ pub(crate) fn reset_sandbox(
     attack: &mut Option<ambition_gameplay_core::MeleeSwing>,
     anim: &mut ambition_gameplay_core::player::PlayerAnimState,
     combat: &mut ambition_gameplay_core::actor::BodyCombat,
-    interaction: &mut ambition_gameplay_core::player::PlayerInteractionState,
+    interaction: &mut ambition_gameplay_core::player::SlotGestures,
     blink_cam: &mut ambition_gameplay_core::player::PlayerBlinkCameraState,
     tuning: ae::MovementTuning,
     feel: SandboxFeelTuning,
@@ -74,7 +74,6 @@ pub(crate) fn load_room(
     moving_platforms: &mut Vec<ambition_gameplay_core::world::platforms::MovingPlatformState>,
     dialogue: &mut ambition_gameplay_core::dialog::DialogState,
     combat: &mut ambition_gameplay_core::actor::BodyCombat,
-    interaction: &mut ambition_gameplay_core::player::PlayerInteractionState,
     blink_cam: &mut ambition_gameplay_core::player::PlayerBlinkCameraState,
     world: &mut RoomGeometry,
     room_set: &mut rooms::RoomSet,
@@ -104,7 +103,6 @@ pub(crate) fn load_room(
         moving_platforms,
         dialogue,
         combat,
-        interaction,
         blink_cam,
         world,
         room_set,
@@ -185,7 +183,6 @@ pub(crate) fn apply_room_transition_system(
         (
             ae::BodyClusterQueryData,
             &mut ambition_gameplay_core::actor::BodyCombat,
-            &mut ambition_gameplay_core::player::PlayerInteractionState,
             &mut ambition_gameplay_core::player::PlayerBlinkCameraState,
             &mut ambition_gameplay_core::player::PlayerSafetyState,
         ),
@@ -211,8 +208,7 @@ pub(crate) fn apply_room_transition_system(
     mut combat_reset: super::super::feedback::CombatRoomReset,
 ) {
     for request in requests.read() {
-        let Ok((mut cluster_item, mut combat, mut interaction, mut blink_cam, mut safety)) =
-            player_q.single_mut()
+        let Ok((mut cluster_item, mut combat, mut blink_cam, mut safety)) = player_q.single_mut()
         else {
             continue;
         };
@@ -245,7 +241,6 @@ pub(crate) fn apply_room_transition_system(
             &mut moving_platforms.0,
             &mut dialogue,
             &mut combat,
-            &mut interaction,
             &mut blink_cam,
             &mut world,
             &mut room_set,

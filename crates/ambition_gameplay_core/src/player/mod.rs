@@ -49,7 +49,7 @@ pub use bundles::{PlayerIdentityBundle, PlayerSimulationBundle};
 // never through the player module). The genuinely player-only state stays below.
 pub use components::{
     BodyMelee, LocalPlayer, PlayerAnimState, PlayerBlinkCameraState, PlayerInputFrame,
-    PlayerInteractionState, PlayerSafetyState, PlayerSlot,
+    PlayerSafetyState, PlayerSlot, SlotGestures, SlotInteractionState,
 };
 pub use events::PlayerHealRequested;
 pub use movement_fx::handle_player_events;

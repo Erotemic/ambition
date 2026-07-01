@@ -269,7 +269,10 @@ mod tests {
             parse_enemy_brain("Guard:120"),
             CharacterBrain::Guard { leash_radius } if (leash_radius - 120.0).abs() < 1e-3
         ));
-        assert!(matches!(parse_enemy_brain("Passive"), CharacterBrain::Passive));
+        assert!(matches!(
+            parse_enemy_brain("Passive"),
+            CharacterBrain::Passive
+        ));
         assert!(matches!(
             parse_enemy_brain("Goblin"),
             CharacterBrain::Custom(s) if s == "Goblin"

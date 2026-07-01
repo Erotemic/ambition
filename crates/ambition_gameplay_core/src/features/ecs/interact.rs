@@ -24,16 +24,14 @@ pub fn interact_ecs_actors_and_switches(
     mut next_mode: ResMut<NextState<crate::GameMode>>,
     mut banner: ResMut<GameplayBanner>,
     controlled: Option<Res<crate::abilities::traversal::possession::ControlledSubject>>,
-    // Slot-0 input surface: the primary player's buffered-interact state + the
-    // interact-gesture anim. The device writes this even while the home avatar
-    // is vacated, so it's the right source for "the local player wants to
-    // interact" independent of which body is being driven.
+    // The local controller's buffered interact lives on its SLOT, published from the
+    // device even while the home avatar is vacated — the right source for "the local
+    // player wants to interact" independent of which body is being driven.
+    mut slot_gestures: ResMut<crate::player::SlotInteractionState>,
+    // Interact-gesture pose on the primary player's presentation anim (+ the
+    // startup-frame fallback subject).
     mut input_surface: Query<
-        (
-            Entity,
-            &mut crate::player::PlayerInteractionState,
-            &mut crate::player::PlayerAnimState,
-        ),
+        (Entity, &mut crate::player::PlayerAnimState),
         (
             With<crate::actor::PlayerEntity>,
             With<crate::actor::PrimaryPlayer>,
@@ -75,10 +73,10 @@ pub fn interact_ecs_actors_and_switches(
     // commits. Short enough that the gesture clears before dialogue UI
     // or the room transition takes camera focus.
     const INTERACT_ANIM_HOLD_SECS: f32 = 0.28;
-    let Ok((primary_entity, mut interaction, mut anim)) = input_surface.single_mut() else {
+    let Ok((primary_entity, mut anim)) = input_surface.single_mut() else {
         return;
     };
-    if !interaction.buffered() {
+    if !slot_gestures.primary().buffered() {
         return;
     }
     // The body actually doing the interacting: the controlled subject (the body
@@ -99,7 +97,7 @@ pub fn interact_ecs_actors_and_switches(
         if !aabb.aabb().strict_intersects(reach_aabb) {
             continue;
         }
-        interaction.clear();
+        slot_gestures.primary_mut().clear();
         anim.interact_anim_timer = INTERACT_ANIM_HOLD_SECS;
         banner.show(
             super::super::npcs::npc_message(interactable, &identity.name, false),
@@ -138,7 +136,7 @@ pub fn interact_ecs_actors_and_switches(
         if !aabb.aabb().strict_intersects(reach_aabb) {
             continue;
         }
-        interaction.clear();
+        slot_gestures.primary_mut().clear();
         anim.interact_anim_timer = INTERACT_ANIM_HOLD_SECS;
         banner.show(format!("activated {}", name.0.as_str()), 2.6);
         on.0 = true;
@@ -168,14 +166,18 @@ mod tests {
     use bevy::prelude::{App, NextState, Update};
 
     fn spawn_interaction_player(app: &mut App, pos: ae::Vec2) {
-        let mut scratch = crate::player::primary_player_scratch(pos, ae::AbilitySet::sandbox_all());
-        scratch.ground.on_ground = true;
-        let mut bundle = crate::player::PlayerSimulationBundle::from_scratch(
+        let scratch = crate::player::primary_player_scratch(pos, ae::AbilitySet::sandbox_all());
+        let bundle = crate::player::PlayerSimulationBundle::from_scratch(
             scratch,
             ambition_characters::actor::Health::new(10),
         );
-        bundle.interaction.interact_buffer_timer = 0.15;
         app.world_mut().spawn(bundle);
+        // The interact buffer is SLOT state now (published from the device); prime
+        // the primary controller's slot so the system sees a live buffered interact.
+        app.world_mut()
+            .get_resource_or_insert_with(crate::player::SlotInteractionState::default)
+            .primary_mut()
+            .interact_buffer_timer = 0.15;
     }
 
     #[test]

@@ -58,14 +58,20 @@ pub fn apply_suspended_time_scale_system(
     target.sim_clock = 0.0;
 }
 
-/// Tick per-frame gameplay timers and detect double-tap gestures.
+/// Tick per-frame gameplay timers and publish the primary controller's slot
+/// gestures from the local device.
+///
+/// Two concerns, deliberately separated by ownership:
+/// - **Home-body reaction timers** (`hitstun` / `hitstop` / `damage-invuln` /
+///   `recoil`): the home/player body isn't in the actor tick, so it ticks its OWN
+///   reaction timers here. This is the home body's own state, NOT authority over the
+///   controlled subject — a possessed actor ticks its own timers in the actor path.
+/// - **Slot gestures** (double-tap down/up): published from `Res<ControlFrame>` into
+///   `SlotInteractionState` for the primary controller slot. Body mode / interaction
+///   consume THAT (keyed by the controlled body's slot), never a per-body component.
 ///
 /// Registered with `run_if(gameplay_allowed)` so it only runs in
-/// `GameMode::Playing`. Writes `fast_fall_pressed` back to
-/// `Res<ControlFrame>` so the player tick sees the updated flag.
-/// Sets `PlayerInteractionState::double_tap_up_pending` so the
-/// subsequent interaction phase inside the player tick can activate
-/// doors/NPCs.
+/// `GameMode::Playing`. Writes `fast_fall_pressed` back to `Res<ControlFrame>`.
 pub fn input_timer_system(
     time: Res<Time>,
     feel_tuning: Res<SandboxFeelTuning>,
@@ -73,23 +79,24 @@ pub fn input_timer_system(
     user_settings: Option<Res<ambition_gameplay_core::persistence::settings::UserSettings>>,
     mut sim_state: ResMut<ambition_gameplay_core::SandboxSimState>,
     mut control_frame: ResMut<ControlFrame>,
-    mut player_q: Query<
-        (
-            &mut ambition_gameplay_core::actor::BodyCombat,
-            &mut ambition_gameplay_core::player::PlayerInteractionState,
-        ),
-        ambition_gameplay_core::actor::PrimaryPlayerOnly,
+    mut slot_gestures: ResMut<ambition_gameplay_core::player::SlotInteractionState>,
+    // Home/player bodies tick their OWN reaction timers here (they aren't in the
+    // actor tick). Iterates every player body so a co-op / clone body ticks its own.
+    mut home_feel_q: Query<
+        &mut ambition_gameplay_core::actor::BodyCombat,
+        With<ambition_gameplay_core::actor::PlayerEntity>,
     >,
 ) {
     let frame_dt = time.delta_secs();
     let feel = *feel_tuning;
-    let Ok((mut combat, mut interaction)) = player_q.single_mut() else {
-        return;
-    };
     sim_state.room_transition_cooldown = (sim_state.room_transition_cooldown - frame_dt).max(0.0);
-    combat.damage_invuln_timer = (combat.damage_invuln_timer - frame_dt).max(0.0);
-    combat.hitstun_timer = (combat.hitstun_timer - frame_dt).max(0.0);
-    combat.recoil_lock_timer = (combat.recoil_lock_timer - frame_dt).max(0.0);
+    for mut combat in &mut home_feel_q {
+        combat.damage_invuln_timer = (combat.damage_invuln_timer - frame_dt).max(0.0);
+        combat.hitstun_timer = (combat.hitstun_timer - frame_dt).max(0.0);
+        combat.recoil_lock_timer = (combat.recoil_lock_timer - frame_dt).max(0.0);
+        combat.hitstop_timer = (combat.hitstop_timer - frame_dt).max(0.0);
+    }
+    let interaction = slot_gestures.primary_mut();
     // Fast-fall = double-tap local-down for the controlled body. Raw cardinal
     // edges are resolved through the same input mapping policy as locomotion,
     // so ScreenDirected sideways gravity can map raw-right/raw-left into local
@@ -120,41 +127,52 @@ pub fn input_timer_system(
     if door_double_tap_up {
         interaction.double_tap_up_pending = true;
     }
-    combat.hitstop_timer = (combat.hitstop_timer - frame_dt).max(0.0);
 }
 
 /// Fold the explicit `Interact` action together with the
-/// `double_tap_up_pending` gesture, gate the result on hit-stun, and
-/// advance the per-frame interact buffer on
-/// [`ambition_gameplay_core::player::PlayerInteractionState`].
+/// `double_tap_up_pending` gesture, gate the result on the CONTROLLED body's
+/// hit-stun, and advance the per-frame interact buffer on the primary
+/// controller's slot (`SlotInteractionState`).
 ///
 /// Downstream consumers read the buffered signal from
-/// `PlayerInteractionState::buffered()`. Gated by `gameplay_allowed` so the
-/// buffer does not tick down while paused, in dialogue, or mid-cutscene.
+/// `SlotInteractionState::primary().buffered()` (or the controlled body's slot).
+/// Gated by `gameplay_allowed` so the buffer does not tick down while paused, in
+/// dialogue, or mid-cutscene.
 ///
-/// Ordering: must run after `input_timer_system` (which decrements
-/// `combat.hitstun_timer` and sets `double_tap_up_pending` from
-/// `register_up_tap`) and before `detect_room_transition_system`
-/// (which consumes the buffered signal post-player-tick).
+/// Ordering: must run after `input_timer_system` (which decrements the controlled
+/// body's `combat.hitstun_timer` and sets `double_tap_up_pending` from
+/// `register_up_tap`) and before `detect_room_transition_system` (which consumes
+/// the buffered signal post-player-tick).
 pub fn interaction_input_system(
     time: Res<Time>,
     feel_tuning: Res<SandboxFeelTuning>,
     control_frame: Res<ControlFrame>,
     gravity_field: Option<Res<ambition_gameplay_core::physics::GravityField>>,
     user_settings: Option<Res<ambition_gameplay_core::persistence::settings::UserSettings>>,
-    mut player_q: Query<
+    controlled: Option<
+        Res<ambition_gameplay_core::abilities::traversal::possession::ControlledSubject>,
+    >,
+    mut slot_gestures: ResMut<ambition_gameplay_core::player::SlotInteractionState>,
+    // Hit-stun gate reads the CONTROLLED body's reaction state — the body actually
+    // being driven, home avatar or possessed actor.
+    combat_q: Query<&ambition_gameplay_core::actor::BodyCombat>,
+    primary_q: Query<
+        Entity,
         (
-            &ambition_gameplay_core::actor::BodyCombat,
-            &mut ambition_gameplay_core::player::PlayerInteractionState,
+            With<ambition_gameplay_core::actor::PlayerEntity>,
+            With<ambition_gameplay_core::actor::PrimaryPlayer>,
         ),
-        ambition_gameplay_core::actor::PrimaryPlayerOnly,
     >,
 ) {
     let frame_dt = time.delta_secs();
     let feel = *feel_tuning;
-    let Ok((combat, mut interaction)) = player_q.single_mut() else {
-        return;
-    };
+    let subject = controlled
+        .and_then(|subject| subject.0)
+        .or_else(|| primary_q.single().ok());
+    let hitstun = subject
+        .and_then(|subject| combat_q.get(subject).ok())
+        .map_or(0.0, |combat| combat.hitstun_timer);
+    let interaction = slot_gestures.primary_mut();
     let door_double_tap_up = std::mem::take(&mut interaction.double_tap_up_pending);
     // Down + Interact is the possession gesture (`abilities::traversal::possession`),
     // so a held-Down interact is CLAIMED by possession and must NOT also trigger a
@@ -175,13 +193,11 @@ pub fn interaction_input_system(
         gravity_dir,
         movement_mode,
     );
-    // Reads `Res<ControlFrame>` directly rather than `PlayerInputFrame`
-    // because this system runs mid-input-chain — `input_timer_system`
-    // writes `fast_fall_pressed` to the resource and the per-player
-    // `sync_local_player_input_frame` mirror only fires at the END of
-    // the chain. Switching to `PlayerInputFrame` here would read the
-    // previous frame's snapshot.
-    let raw_interact_pressed = if combat.hitstun_timer > 0.0 {
+    // Reads `Res<ControlFrame>` directly (local input publication is exactly
+    // where raw device state is allowed): this system runs mid-input-chain and
+    // publishes the device's interact into the slot buffer. The hit-stun gate uses
+    // the CONTROLLED body's `hitstun`, resolved above.
+    let raw_interact_pressed = if hitstun > 0.0 {
         false
     } else {
         (control_frame.interact_pressed && !down_held) || door_double_tap_up
@@ -221,26 +237,21 @@ pub fn apply_player_reset_input_system(
             ae::BodyClusterQueryData,
             &mut ambition_gameplay_core::player::PlayerAnimState,
             &mut ambition_gameplay_core::actor::BodyCombat,
-            &mut ambition_gameplay_core::player::PlayerInteractionState,
             &mut ambition_gameplay_core::player::PlayerBlinkCameraState,
             &mut ambition_gameplay_core::player::BodyMelee,
             &mut ambition_gameplay_core::player::PlayerSafetyState,
         ),
         ambition_gameplay_core::actor::PrimaryPlayerOnly,
     >,
+    // Reset zeroes the local controller's slot gestures (reset/save identity is a
+    // sanctioned PrimaryPlayer concern).
+    mut slot_gestures: ResMut<ambition_gameplay_core::player::SlotInteractionState>,
 ) {
     if !control_frame.reset_pressed {
         return;
     }
-    let Ok((
-        mut cluster_item,
-        mut anim,
-        mut combat,
-        mut interaction,
-        mut blink_cam,
-        mut attack,
-        mut safety,
-    )) = player_q.single_mut()
+    let Ok((mut cluster_item, mut anim, mut combat, mut blink_cam, mut attack, mut safety)) =
+        player_q.single_mut()
     else {
         return;
     };
@@ -261,7 +272,7 @@ pub fn apply_player_reset_input_system(
         &mut attack.swing,
         &mut anim,
         &mut combat,
-        &mut interaction,
+        slot_gestures.primary_mut(),
         &mut blink_cam,
         editable_tuning.as_engine(),
         *feel_tuning,
@@ -299,13 +310,13 @@ pub fn apply_cut_rope_room_replay_request_system(
             ae::BodyClusterQueryData,
             &mut ambition_gameplay_core::player::PlayerAnimState,
             &mut ambition_gameplay_core::actor::BodyCombat,
-            &mut ambition_gameplay_core::player::PlayerInteractionState,
             &mut ambition_gameplay_core::player::PlayerBlinkCameraState,
             &mut ambition_gameplay_core::player::BodyMelee,
             &mut ambition_gameplay_core::player::PlayerSafetyState,
         ),
         ambition_gameplay_core::actor::PrimaryPlayerOnly,
     >,
+    mut slot_gestures: ResMut<ambition_gameplay_core::player::SlotInteractionState>,
 ) {
     if replay_requests.read().count() == 0 {
         return;
@@ -322,15 +333,8 @@ pub fn apply_cut_rope_room_replay_request_system(
         &cut_rope_placements,
     );
 
-    let Ok((
-        mut cluster_item,
-        mut anim,
-        mut combat,
-        mut interaction,
-        mut blink_cam,
-        mut attack,
-        mut safety,
-    )) = player_q.single_mut()
+    let Ok((mut cluster_item, mut anim, mut combat, mut blink_cam, mut attack, mut safety)) =
+        player_q.single_mut()
     else {
         reset_room_features.write(features::ResetRoomFeaturesEvent {
             reason: features::RoomResetReason::Manual,
@@ -350,7 +354,7 @@ pub fn apply_cut_rope_room_replay_request_system(
         &mut attack.swing,
         &mut anim,
         &mut combat,
-        &mut interaction,
+        slot_gestures.primary_mut(),
         &mut blink_cam,
         editable_tuning.as_engine(),
         *feel_tuning,
@@ -581,34 +585,28 @@ mod suspended_time_tests {
 mod interaction_suppression_tests {
     use super::*;
     use ambition_gameplay_core::actor::{BodyCombat, PlayerEntity, PrimaryPlayer};
-    use ambition_gameplay_core::player::PlayerInteractionState;
+    use ambition_gameplay_core::player::SlotInteractionState;
 
     /// Build a minimal app with `interaction_input_system` and one primary
     /// player, set the control frame, run a frame, and report whether the
-    /// interaction buffer went live.
+    /// primary controller's slot interaction buffer went live.
     fn buffered_after(interact: bool, axis_y: f32) -> bool {
         let mut app = App::new();
         app.insert_resource(Time::<()>::default());
         app.insert_resource(SandboxFeelTuning::default());
+        app.init_resource::<SlotInteractionState>();
         app.insert_resource(ControlFrame {
             interact_pressed: interact,
             axis_y,
             ..Default::default()
         });
-        let player = app
-            .world_mut()
-            .spawn((
-                PlayerEntity,
-                PrimaryPlayer,
-                BodyCombat::default(),
-                PlayerInteractionState::default(),
-            ))
-            .id();
+        app.world_mut()
+            .spawn((PlayerEntity, PrimaryPlayer, BodyCombat::default()));
         app.add_systems(Update, interaction_input_system);
         app.update();
         app.world()
-            .get::<PlayerInteractionState>(player)
-            .unwrap()
+            .resource::<SlotInteractionState>()
+            .primary()
             .buffered()
     }
 

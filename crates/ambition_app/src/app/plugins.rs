@@ -41,7 +41,6 @@ use crate::host::windowing;
 
 use super::dev_runtime::{handle_debug_hotkeys, handle_ldtk_hot_reload, sync_preset_input_map};
 use super::hud::{update_hud, update_quest_panel};
-use ambition_gameplay_core::player::PlayerBodyFrameOutput;
 use super::player_tick::{apply_home_reset_policy, sync_player_presentation};
 use super::resources::init_sandbox_resources;
 use super::setup_systems::{
@@ -54,6 +53,7 @@ use super::sim_systems::{
     interaction_input_system, sync_live_player_dev_edits_system,
 };
 use super::world_flow::{apply_room_transition_system, ensure_requested_room_parallax_system};
+use ambition_gameplay_core::player::PlayerBodyFrameOutput;
 
 /// Register core simulation plugins, message types, and the gameplay
 /// schedule. Headless and visible both call this.
@@ -78,6 +78,10 @@ pub fn add_simulation_plugins(app: &mut App) {
     // `.chain()` ordering is still expressed per-system.
     configure_sandbox_sets(app);
     app.init_resource::<ambition_gameplay_core::shrine::ShrineActivationPulse>();
+    // Slot-keyed gesture/buffer authority (double-tap, interact buffer). Local
+    // input publishes it; body mode / interaction / transitions consume it for the
+    // controlled body's slot — no privileged per-body interaction component.
+    app.init_resource::<ambition_gameplay_core::player::SlotInteractionState>();
 
     app.add_plugins(super::sim_resources::SandboxSimulationResourcesPlugin);
 
@@ -288,17 +292,17 @@ fn register_player_input_systems(app: &mut App) {
                 ambition_gameplay_core::player::sync_local_player_input_frame,
             )
                 .chain(),
-            // Ladder body-mode policy needs the freshly mirrored input
-            // frame, but it must still run before the player tick so
-            // climb/jump/dash exits land on the same frame as the edge.
-            ambition_gameplay_core::body_mode::update_body_mode,
-            // Universal-brain seam: translate PlayerInputFrame into
-            // the player's ActorControl frame. Runs after the input
-            // sync so the brain sees this frame's inputs. The
-            // ActorControl output is the polarity-flip authority for
-            // `player_control_system` / `player_simulation_system`
-            // (see `engine_input_from_actor_control`).
+            // Universal-brain seam: translate this frame's slot input into each
+            // controlled body's ActorControl frame. Runs after the input sync so the
+            // brain sees this frame's inputs. The ActorControl output is the
+            // polarity-flip authority for `player_control_system` /
+            // `player_simulation_system` (see `engine_input_from_actor_control`).
             ambition_gameplay_core::player::tick_player_brains,
+            // Body-mode policy (crouch / morph / climb) consumes the CONTROLLED
+            // body's freshly-produced ActorControl + its slot gestures, so it must run
+            // AFTER `tick_player_brains` and still before WorldPrep movement so the
+            // resize/mode change lands on the same frame as the edge.
+            ambition_gameplay_core::body_mode::update_body_mode,
             ambition_gameplay_core::player::sync_player_actor_poses,
         )
             .chain()

@@ -9,11 +9,30 @@ use crate::actor::{
     BodyJumpState, BodyLedgeState, BodyModeState, BodyWallState,
 };
 use crate::actor::{PlayerEntity, PrimaryPlayer};
-use crate::player::{PlayerInputFrame, PlayerInteractionState};
+use crate::body_mode::BodyModeCapabilities;
+use crate::player::SlotInteractionState;
+use ambition_characters::actor::control::ActorControlFrame;
+use ambition_characters::brain::{ActorControl, Brain, PlayerSlot};
 use ambition_engine_core::world::{ClimbableKind, ClimbableRegion, ClimbableSpec, World};
 use ambition_engine_core::Vec2;
-use ambition_input::ControlFrame;
 use bevy::prelude::{App, Entity, Update};
+
+/// Set the controlled body's `ActorControl` — the body-generic intent the driver
+/// consumes (already-resolved locomotion + jump/dash edges), replacing the old
+/// per-body `PlayerInputFrame`.
+fn set_control(app: &mut App, body: Entity, f: impl FnOnce(&mut ActorControlFrame)) {
+    let mut control = app.world_mut().get_mut::<ActorControl>(body).unwrap();
+    control.0 = ActorControlFrame::neutral();
+    f(&mut control.0);
+}
+
+/// Prime the primary controller slot's double-tap-down morph gesture.
+fn arm_double_tap_down(app: &mut App) {
+    app.world_mut()
+        .resource_mut::<SlotInteractionState>()
+        .primary_mut()
+        .double_tap_down_pending = true;
+}
 
 /// Minimal world with enough headroom that both Standing (~48 px
 /// tall) and MorphBall (14 px) shapes fit at the spawn position. No
@@ -39,6 +58,7 @@ fn open_world() -> ae::World {
 fn build_body_mode_test_app() -> (App, Entity) {
     let mut app = App::new();
     app.insert_resource(crate::RoomGeometry(open_world()));
+    app.init_resource::<SlotInteractionState>();
     let world_spawn = app.world().resource::<crate::RoomGeometry>().0.spawn;
     app.add_systems(Update, super::update_body_mode);
     let player = app
@@ -46,6 +66,11 @@ fn build_body_mode_test_app() -> (App, Entity) {
         .spawn((
             PlayerEntity,
             PrimaryPlayer,
+            // Controlled by the primary slot, with the full body-mode kit — the
+            // driver keys on `Brain::Player` + `BodyModeCapabilities`, not `PlayerEntity`.
+            Brain::Player(PlayerSlot::PRIMARY),
+            ActorControl::default(),
+            BodyModeCapabilities::full(),
             BodyKinematics {
                 pos: world_spawn,
                 size: Vec2::new(30.0, 48.0),
@@ -59,16 +84,16 @@ fn build_body_mode_test_app() -> (App, Entity) {
                 on_ground: true,
                 ..Default::default()
             },
-            BodyWallState::default(),
-            BodyDashState::default(),
-            BodyBlinkState::default(),
-            BodyLedgeState::default(),
-            BodyEnvironmentContact::default(),
-            PlayerInteractionState::default(),
-            PlayerInputFrame::default(),
-            BodyModeState::default(),
-            BodyJumpState::default(),
-            crate::actor::BodyFlightState::default(),
+            (
+                BodyWallState::default(),
+                BodyDashState::default(),
+                BodyBlinkState::default(),
+                BodyLedgeState::default(),
+                BodyEnvironmentContact::default(),
+                BodyModeState::default(),
+                BodyJumpState::default(),
+                crate::actor::BodyFlightState::default(),
+            ),
         ))
         .id();
     (app, player)
@@ -110,12 +135,8 @@ fn place_player_on_test_ladder(app: &mut App, player: Entity, vel: Option<Vec2>)
 #[test]
 fn double_tap_down_on_ground_transitions_to_morph_ball() {
     let (mut app, player) = build_body_mode_test_app();
-    // Pre-poison so a missing transition trips loudly.
-    let mut interaction = app
-        .world_mut()
-        .get_mut::<PlayerInteractionState>(player)
-        .unwrap();
-    interaction.double_tap_down_pending = true;
+    // Double-tap-down morph gesture arrives on the controller's slot.
+    arm_double_tap_down(&mut app);
     app.update();
     let mode = app.world().get::<BodyModeState>(player).unwrap().body_mode;
     assert_eq!(
@@ -139,13 +160,7 @@ fn jump_press_from_morph_ball_transitions_to_standing() {
         let mut kin = app.world_mut().get_mut::<BodyKinematics>(player).unwrap();
         kin.size = Vec2::new(14.0, 14.0);
     }
-    {
-        let mut input = app.world_mut().get_mut::<PlayerInputFrame>(player).unwrap();
-        input.frame = ControlFrame {
-            jump_pressed: true,
-            ..Default::default()
-        };
-    }
+    set_control(&mut app, player, |c| c.jump_pressed = true);
     app.update();
     let mode = app.world().get::<BodyModeState>(player).unwrap().body_mode;
     assert_eq!(
@@ -155,15 +170,12 @@ fn jump_press_from_morph_ball_transitions_to_standing() {
     );
 }
 
+/// Holding local-up (toward the head) also unmorphs, independent of jump. The
+/// brain resolves raw device axes into `locomotion` (so gravity/input-mode
+/// relativity is the brain's job now); the driver just reads local-up intent.
 #[test]
-fn local_up_press_from_morph_ball_transitions_to_standing_under_sideways_screen_directed() {
+fn local_up_intent_from_morph_ball_transitions_to_standing() {
     let (mut app, player) = build_body_mode_test_app();
-    app.insert_resource(crate::physics::GravityField {
-        dir: Vec2::new(1.0, 0.0),
-    });
-    let mut settings = crate::persistence::settings::UserSettings::default();
-    settings.gameplay.movement_frame_mode = ae::InputFrameMode::ScreenRelative;
-    app.insert_resource(settings);
     {
         let mut body_mode = app.world_mut().get_mut::<BodyModeState>(player).unwrap();
         body_mode.body_mode = ae::BodyMode::MorphBall;
@@ -172,23 +184,14 @@ fn local_up_press_from_morph_ball_transitions_to_standing_under_sideways_screen_
         let mut kin = app.world_mut().get_mut::<BodyKinematics>(player).unwrap();
         kin.size = Vec2::new(14.0, 14.0);
     }
-    {
-        let mut input = app.world_mut().get_mut::<PlayerInputFrame>(player).unwrap();
-        // Gravity points screen-right, so in screen-directed mode local up maps
-        // to raw/screen-left. This should unmorph just like raw Up does under
-        // normal gravity.
-        input.frame = ControlFrame {
-            axis_x: -1.0,
-            left_pressed: true,
-            ..Default::default()
-        };
-    }
+    // Local-up (toward the head) = negative local-down axis.
+    set_control(&mut app, player, |c| c.locomotion = Vec2::new(0.0, -1.0));
     app.update();
     let mode = app.world().get::<BodyModeState>(player).unwrap().body_mode;
     assert_eq!(
         mode,
         ae::BodyMode::Standing,
-        "local-up press should transition MorphBall -> Standing under sideways gravity",
+        "local-up intent should transition MorphBall -> Standing",
     );
 }
 
@@ -204,13 +207,7 @@ fn dash_press_from_climbing_transitions_to_standing() {
         let mut body_mode = app.world_mut().get_mut::<BodyModeState>(player).unwrap();
         body_mode.body_mode = ae::BodyMode::Climbing;
     }
-    {
-        let mut input = app.world_mut().get_mut::<PlayerInputFrame>(player).unwrap();
-        input.frame = ControlFrame {
-            dash_pressed: true,
-            ..Default::default()
-        };
-    }
+    set_control(&mut app, player, |c| c.dash_pressed = true);
     app.update();
     let mode = app.world().get::<BodyModeState>(player).unwrap().body_mode;
     assert_eq!(
@@ -230,14 +227,10 @@ fn jump_press_from_climbing_keeps_climbing_mode() {
         let mut body_mode = app.world_mut().get_mut::<BodyModeState>(player).unwrap();
         body_mode.body_mode = ae::BodyMode::Climbing;
     }
-    {
-        let mut input = app.world_mut().get_mut::<PlayerInputFrame>(player).unwrap();
-        input.frame = ControlFrame {
-            jump_pressed: true,
-            axis_y: -1.0,
-            ..Default::default()
-        };
-    }
+    set_control(&mut app, player, |c| {
+        c.jump_pressed = true;
+        c.locomotion = Vec2::new(0.0, -1.0); // up
+    });
     app.update();
     let mode = app.world().get::<BodyModeState>(player).unwrap().body_mode;
     assert_eq!(
@@ -257,14 +250,10 @@ fn down_jump_from_climbing_falls_off_ladder() {
         let mut body_mode = app.world_mut().get_mut::<BodyModeState>(player).unwrap();
         body_mode.body_mode = ae::BodyMode::Climbing;
     }
-    {
-        let mut input = app.world_mut().get_mut::<PlayerInputFrame>(player).unwrap();
-        input.frame = ControlFrame {
-            jump_pressed: true,
-            axis_y: 1.0,
-            ..Default::default()
-        };
-    }
+    set_control(&mut app, player, |c| {
+        c.jump_pressed = true;
+        c.locomotion = Vec2::new(0.0, 1.0); // down
+    });
     app.update();
     let mode = app.world().get::<BodyModeState>(player).unwrap().body_mode;
     let jump_state = app.world().get::<BodyJumpState>(player).unwrap();
@@ -298,13 +287,7 @@ fn down_release_rearms_ladder_regrab() {
         jump_state.ladder_drop_through_timer = 0.0;
         jump_state.ladder_drop_through_hold_lock = true;
     }
-    {
-        let mut input = app.world_mut().get_mut::<PlayerInputFrame>(player).unwrap();
-        input.frame = ControlFrame {
-            axis_y: 1.0,
-            ..Default::default()
-        };
-    }
+    set_control(&mut app, player, |c| c.locomotion = Vec2::new(0.0, 1.0)); // down
     app.update();
     assert_eq!(
         app.world().get::<BodyModeState>(player).unwrap().body_mode,
@@ -312,13 +295,7 @@ fn down_release_rearms_ladder_regrab() {
         "holding down should not re-grab the ladder while the release lock is active",
     );
 
-    {
-        let mut input = app.world_mut().get_mut::<PlayerInputFrame>(player).unwrap();
-        input.frame = ControlFrame {
-            axis_y: 0.0,
-            ..Default::default()
-        };
-    }
+    set_control(&mut app, player, |c| c.locomotion = Vec2::ZERO); // release
     app.update();
     assert!(
         !app.world()
@@ -328,13 +305,7 @@ fn down_release_rearms_ladder_regrab() {
         "releasing down should clear the ladder drop lock"
     );
 
-    {
-        let mut input = app.world_mut().get_mut::<PlayerInputFrame>(player).unwrap();
-        input.frame = ControlFrame {
-            axis_y: 1.0,
-            ..Default::default()
-        };
-    }
+    set_control(&mut app, player, |c| c.locomotion = Vec2::new(0.0, 1.0)); // down again
     app.update();
     assert_eq!(
         app.world().get::<BodyModeState>(player).unwrap().body_mode,
@@ -349,13 +320,7 @@ fn flying_suppresses_ladder_auto_climb() {
     // A ladder column the player is standing in.
     place_player_on_test_ladder(&mut app, player, None);
     // Hold Up + enable flight.
-    {
-        let mut input = app.world_mut().get_mut::<PlayerInputFrame>(player).unwrap();
-        input.frame = ControlFrame {
-            axis_y: -1.0,
-            ..Default::default()
-        };
-    }
+    set_control(&mut app, player, |c| c.locomotion = Vec2::new(0.0, -1.0));
     {
         let mut flight = app
             .world_mut()

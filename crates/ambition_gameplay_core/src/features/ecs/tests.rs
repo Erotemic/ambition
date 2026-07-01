@@ -20,12 +20,21 @@ fn spawn_interaction_player(app: &mut App, player_pos: ae::Vec2) {
     let mut scratch =
         crate::player::primary_player_scratch(player_pos, ae::AbilitySet::sandbox_all());
     scratch.ground.on_ground = true;
-    let mut bundle = crate::player::PlayerSimulationBundle::from_scratch(
+    let bundle = crate::player::PlayerSimulationBundle::from_scratch(
         scratch,
         ambition_characters::actor::Health::new(10),
     );
-    bundle.interaction.interact_buffer_timer = 0.15;
-    app.world_mut().spawn(bundle);
+    let entity = app.world_mut().spawn(bundle).id();
+    // The interact buffer is SLOT state now; prime the primary controller slot and
+    // point the controlled subject at this body.
+    app.world_mut()
+        .get_resource_or_insert_with(crate::player::SlotInteractionState::default)
+        .primary_mut()
+        .interact_buffer_timer = 0.15;
+    app.world_mut()
+        .insert_resource(crate::abilities::traversal::possession::ControlledSubject(
+            Some(entity),
+        ));
 }
 
 #[test]
@@ -233,14 +242,11 @@ fn interact_buffered_opens_adjacent_chest() {
         app.world().get::<Opened>(chest_entity).is_some(),
         "chest should have Opened marker after interact"
     );
-    let interaction = app
-        .world_mut()
-        .query_filtered::<&crate::player::PlayerInteractionState, With<crate::actor::PlayerEntity>>(
-        )
-        .single(app.world())
-        .expect("player entity must exist");
     assert!(
-        !interaction.buffered(),
+        !app.world()
+            .resource::<crate::player::SlotInteractionState>()
+            .primary()
+            .buffered(),
         "interact buffer should be cleared after opening chest"
     );
 }

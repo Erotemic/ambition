@@ -41,9 +41,8 @@ use crate::host::windowing;
 
 use super::dev_runtime::{handle_debug_hotkeys, handle_ldtk_hot_reload, sync_preset_input_map};
 use super::hud::{update_hud, update_quest_panel};
-use super::player_tick::{
-    advance_moving_platforms, player_body_tick, sync_player_presentation, PlayerBodyFrameOutput,
-};
+use ambition_gameplay_core::player::PlayerBodyFrameOutput;
+use super::player_tick::{apply_home_reset_policy, sync_player_presentation};
 use super::resources::init_sandbox_resources;
 use super::setup_systems::{
     reload_visual_quality_assets_on_scale_change, setup_presentation_system,
@@ -183,24 +182,25 @@ fn wire_portal_schedule(app: &mut App) {
             .after(ambition_gameplay_core::session::reset::ContentRoomResetSet),
     );
 
-    // TransitGuards: suppress ledge-grab while transiting, before player
-    // simulation integrates movement, gated to gameplay.
+    // TransitGuards: suppress ledge-grab while transiting, BEFORE the unified body
+    // integration reads it. Movement moved into `WorldPrep` (`integrate_sim_bodies`),
+    // so the guard runs there too, ahead of it. Gated to gameplay.
     app.configure_sets(
         Update,
         PortalSet::TransitGuards
-            .in_set(SandboxSet::PlayerSimulation)
-            .before(crate::app::player_body_tick)
+            .in_set(SandboxSet::WorldPrep)
+            .before(ambition_gameplay_core::features::integrate_sim_bodies)
             .run_if(ambition_gameplay_core::gameplay_allowed),
     );
 
-    // Transit: teleports run after player + ground-item integration so this
-    // frame's integrated body positions are what cross the portal, gated to
-    // gameplay.
+    // Transit: teleports run after body + ground-item integration so this frame's
+    // integrated body positions are what cross the portal. Body integration now
+    // completes in `WorldPrep`; `PlayerSimulation` runs after it, so membership +
+    // the CoreHeldItems edge are enough. Gated to gameplay.
     app.configure_sets(
         Update,
         PortalSet::Transit
             .in_set(SandboxSet::PlayerSimulation)
-            .after(crate::app::player_body_tick)
             .after(ambition_gameplay_core::items::pickup::ItemPickupSet::CoreHeldItems)
             .run_if(ambition_gameplay_core::gameplay_allowed),
     );
@@ -383,24 +383,19 @@ fn register_player_simulation_systems(app: &mut App) {
         (
             // Possession: Down+Interact hold transfers the player brain onto the
             // nearest non-boss actor; a press releases. Brain transfer + the
-            // target-lost safety both run before the body ticks so the handover
-            // is visible this frame.
+            // target-lost safety run here; the actual body movement already happened
+            // in `WorldPrep` (`integrate_sim_bodies`), one frame's-worth of latency
+            // across the handover, exactly as before.
             ambition_gameplay_core::abilities::traversal::possession::possession_trigger_system
                 .run_if(gameplay_allowed),
             ambition_gameplay_core::abilities::traversal::possession::release_possession_if_target_lost,
-            // Advance the world's moving platforms once, BEFORE the body tick, so
-            // every body (player + actors) reads this frame's platform positions —
-            // the same ordering the actor ticks already see.
-            advance_moving_platforms.run_if(gameplay_allowed),
-            // The player body MOVEMENT phase, run for EVERY player-cluster body. A
-            // vacated home avatar ticks too, but with a neutral `ActorControl`, so
-            // it simply stands still — no possession run-condition needed. Movement
-            // integrates through the SAME engine entry actors use and writes the
-            // `PlayerBodyFrameOutput` hand-off.
-            player_body_tick.run_if(gameplay_allowed),
-            // The player body PRESENTATION phase — screen shake + landing SFX + the
-            // per-op anim/SFX/VFX — reads that hand-off. A separate scheduled system
-            // from movement, mirroring the actor `sync_actor_read_model` split.
+            // HOME RESET POLICY. Movement already integrated the home body in
+            // `WorldPrep` and flagged any reset in `PlayerBodyFrameOutput`; this owns
+            // the home-only sandbox + room reset on that flag (an actor never
+            // teleports to the player spawn). Moves no body.
+            apply_home_reset_policy.run_if(gameplay_allowed),
+            // HOME PRESENTATION — screen shake + landing SFX + the per-op
+            // anim/SFX/VFX — reads the same hand-off. Moves no body.
             sync_player_presentation.run_if(gameplay_allowed),
             ambition_gameplay_core::combat::damage::apply_player_hit_events
                 .run_if(gameplay_allowed),

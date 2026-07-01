@@ -2,7 +2,6 @@
 //!
 //! What remains here after the world-runtime / combat-runtime drains:
 //! - [`RoomClock`] — a two-resource bundle for the room-transition apply system.
-//! - [`sandbox_dt`] — the hit-stop-aware sim dt used by the player-tick phases.
 //! - [`ground_gap_below_feet`] — the room-transition landing diagnostic helper.
 //! - the [`room_flow`] submodule (sandbox reset, room load, transition apply).
 //!
@@ -26,14 +25,6 @@ use ambition_gameplay_core::features::FeatureEcsWorldOverlay;
 pub(crate) struct RoomClock<'w> {
     pub sim_state: ResMut<'w, ambition_gameplay_core::SandboxSimState>,
     pub clock: ResMut<'w, ambition_gameplay_core::time::clock_state::ClockState>,
-}
-
-pub(super) fn sandbox_dt(hitstop_timer: f32, time_scale: f32, frame_dt: f32) -> f32 {
-    if hitstop_timer > 0.0 {
-        0.0
-    } else {
-        frame_dt * time_scale
-    }
 }
 
 mod room_flow;

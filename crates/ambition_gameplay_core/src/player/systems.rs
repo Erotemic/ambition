@@ -58,24 +58,28 @@ pub fn sync_player_actor_poses(
     }
 }
 
-/// Translate each player's input frame into their `ActorControl`
-/// frame via `ambition_characters::brain::player::tick_player_brain_from_control`.
+/// Translate each controlled home body's slot frame into its `ActorControl`
+/// frame.
 ///
-/// This is the producer for the universal-brain seam on the player
-/// side. Player control/simulation reads the resulting `ActorControl`,
-/// and the action resolver turns the same frame into melee/projectile
-/// requests for downstream combat/effects systems.
+/// This is the producer for the universal-brain seam on the home/player side —
+/// the direct analogue of the `Brain::Player` branch in `tick_actor_brains`.
+/// The INPUT AUTHORITY is [`SlotControls`] read by the body's own
+/// `Brain::Player(slot)`, NOT `PlayerInputFrame`: the home body is controlled
+/// because it carries the player brain for that slot, exactly like a possessed
+/// actor. `PlayerInputFrame` is now only a compatibility mirror for player-
+/// flavoured ability/UI systems (held item, heal shrine, portal gun) written by
+/// `sync_local_player_input_frame`; gameplay brain input no longer depends on it.
 ///
-/// Runs after `sync_local_player_input_frame` so the input frame is
-/// already current. Iterates every PlayerEntity with a Brain — the
-/// system shape is multi-player ready even though only one player
+/// The query requires `&mut Brain`, so a vacated home avatar (its player brain
+/// transferred to a possessed actor by `possession`) carries no `Brain` and is
+/// skipped — it stays inert with a neutral `ActorControl`. Iterates every home
+/// body carrying a player brain; multi-player ready even though only one slot
 /// exists today.
 pub fn tick_player_brains(
     gravity_field: Option<Res<crate::physics::GravityField>>,
     user_settings: Option<Res<crate::persistence::settings::UserSettings>>,
+    slots: Res<SlotControls>,
     mut players: Query<(
-        &PlayerSlot,
-        &PlayerInputFrame,
         &BodyKinematics,
         &BodyGroundState,
         &mut Brain,
@@ -89,9 +93,17 @@ pub fn tick_player_brains(
             s.gameplay.control_frame_modes()
         });
 
-    for (slot, input, kin, ground, mut brain, mut control) in &mut players {
+    for (kin, ground, mut brain, mut control) in &mut players {
+        // INPUT AUTHORITY: this body's OWN slot frame, keyed by the brain it
+        // carries — the SAME `Brain::Player(slot)` → `SlotControls` path a
+        // possessed actor reads. A body whose brain isn't a player brain is
+        // skipped (its `ActorControl` is owned by an AI tick, not this one).
+        let Some(slot) = brain.player_slot() else {
+            continue;
+        };
+        let input = slots.get(slot);
         // Build the snapshot from the player's cluster components plus
-        // the per-tick input frame. The input is what makes
+        // the per-tick slot frame. The input is what makes
         // Brain::Player's translation deterministic: same input +
         // same body snapshot → same ActorControlFrame.
         let snapshot = BrainSnapshot {
@@ -121,7 +133,7 @@ pub fn tick_player_brains(
             attack_recover_remaining: 0.0,
             stun_remaining: 0.0,
             wall_contact: None,
-            player_input: Some(input.frame),
+            player_input: Some(input),
             // Player brain doesn't consult these fields; leave them
             // None so the snapshot builder doesn't pay for queries
             // the brain ignores.
@@ -134,8 +146,6 @@ pub fn tick_player_brains(
         let mut frame = ambition_characters::actor::control::ActorControlFrame::neutral();
         brain.tick(&snapshot, &mut frame);
         control.0 = frame;
-        // Silence unused-var: slot is part of the multi-player seam.
-        let _ = slot;
     }
 }
 

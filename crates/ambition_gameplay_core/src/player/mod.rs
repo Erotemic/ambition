@@ -21,6 +21,7 @@
 //!   ledge-grab and water mechanics (constants + end-to-end test fixtures).
 
 pub mod affordances;
+pub mod body_integration;
 pub mod bundles;
 #[cfg(test)]
 mod clone_probe_tests;
@@ -34,6 +35,10 @@ pub mod swim;
 pub mod systems;
 pub mod trail;
 
+pub use body_integration::{
+    advance_moving_platforms, integrate_home_body, ledge_platform_carry, LedgePlatformCarry,
+    PlayerBodyFrameOutput,
+};
 pub use bundles::{PlayerIdentityBundle, PlayerSimulationBundle};
 // NOTE: the body vocabulary — `PlayerEntity` / `PrimaryPlayer` (markers),
 // `PrimaryPlayerOnly` (filter), `BodyKinematics` + the 18 movement clusters,

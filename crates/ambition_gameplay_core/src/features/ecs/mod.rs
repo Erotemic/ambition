@@ -74,7 +74,7 @@ pub use actors::{
 // Crate-internal: the dialogue-gated boss resolver reuses this; tests pin it.
 pub(crate) use actors::hostile_brain_id_for_actor;
 pub use actors::{
-    apply_actor_contact_damage, integrate_actor_bodies, sync_actor_poses_from_feature_aabbs,
+    apply_actor_contact_damage, integrate_sim_bodies, sync_actor_poses_from_feature_aabbs,
     sync_actor_read_model, tick_actor_brains, tick_npc_idle_barks, ActorSteering,
 };
 pub use aggression::{

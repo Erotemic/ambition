@@ -141,7 +141,7 @@ pub use ecs::{
     ecs_boss_anim_state_and_entity, ecs_boss_animation_frame_sample, ecs_boss_name,
     ecs_breakable_state, ecs_chest_opened, ecs_enemy_name, ecs_enemy_sprite_override,
     ecs_hit_event_hits_actor, ecs_hit_event_hits_boss, ecs_hit_event_hits_breakable, ecs_npc_name,
-    enforce_mount_rider_link, integrate_actor_bodies, interact_ecs_actors_and_switches,
+    enforce_mount_rider_link, integrate_sim_bodies, interact_ecs_actors_and_switches,
     magnetize_pickups, open_ecs_chests, pirate_on_shark_rider_offset,
     rebuild_feature_ecs_world_overlay, rebuild_feature_view_index,
     refresh_actor_damageable_volumes, refresh_boss_damageable_volumes,
@@ -308,7 +308,16 @@ impl bevy::prelude::Plugin for WorldPrepSchedulePlugin {
             Update,
             (
                 tick_actor_brains,
-                integrate_actor_bodies,
+                // Advance moving platforms ONCE before any body integrates, so every
+                // body (home + actors) rides THIS frame's platform positions — the
+                // home body used to advance them in `PlayerSimulation`, after the
+                // actors integrated, so actors read stale positions; unifying the
+                // movement phase unifies this too.
+                crate::player::advance_moving_platforms,
+                // The ONE movement phase for every non-boss sim body: actor bodies
+                // AND home/player bodies integrate here, through the same engine
+                // entry. (`player_body_tick` in `PlayerSimulation` is gone.)
+                integrate_sim_bodies,
                 sync_actor_read_model,
                 apply_actor_contact_damage,
             )

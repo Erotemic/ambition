@@ -416,15 +416,24 @@ pub fn tick_actor_brains(
     }
 }
 
-/// PHASE — integrate actor bodies. Reads each actor's brain-produced
-/// `ActorControl` (written by `tick_actor_brains`) and moves the body: the shared
-/// movement pipeline (`ActorMut::update` → run / jump / fly / dash / blink /
-/// shield limbs + collision), the resulting blink SFX/VFX, the shark-charge crash,
-/// and the frame-oriented `CenteredAabb` publish. It integrates position ONLY — it
-/// ticks no brain and mirrors no read-model. Surface-walker anti-clump steering
-/// reads the neighbor index `tick_actor_brains` published to [`ActorSteering`].
+/// PHASE — integrate sim bodies. The ONE scheduled movement phase for every
+/// non-boss sim body: it reads each body's brain-produced `ActorControl` and moves
+/// it through the shared movement pipeline (`ae::update_body_with_tuning_clusters`).
+///
+/// It integrates TWO body species in one system so there is no separate home/player
+/// movement route:
+/// - ACTOR bodies (`FeatureSimEntity`, not player, not boss): `ActorMut::update`
+///   (run / jump / fly / dash / blink / shield limbs + collision) plus the blink
+///   SFX/VFX, the shark-charge crash, and the frame-oriented `CenteredAabb` publish.
+/// - HOME/PLAYER bodies (`PlayerEntity`): [`crate::player::integrate_home_body`],
+///   the LITERAL same engine entry, writing the `PlayerBodyFrameOutput` hand-off the
+///   home reset-policy + presentation phases consume.
+///
+/// It integrates position ONLY — it ticks no brain and mirrors no read-model.
+/// Surface-walker anti-clump steering reads the neighbor index `tick_actor_brains`
+/// published to [`ActorSteering`].
 #[allow(clippy::too_many_arguments)]
-pub fn integrate_actor_bodies(
+pub fn integrate_sim_bodies(
     world_time: Res<WorldTime>,
     world: Res<crate::RoomGeometry>,
     gravity: crate::physics::GravityCtx,
@@ -432,6 +441,8 @@ pub fn integrate_actor_bodies(
     feel_tuning: Res<crate::time::feel::SandboxFeelTuning>,
     overlay: Res<FeatureEcsWorldOverlay>,
     steering: Res<ActorSteering>,
+    editable_tuning: Res<crate::dev::dev_tools::EditableMovementTuning>,
+    user_settings: Option<Res<crate::persistence::settings::UserSettings>>,
     mut sfx: MessageWriter<crate::audio::SfxMessage>,
     mut vfx: MessageWriter<ambition_vfx::vfx::VfxMessage>,
     mut hit_events: MessageWriter<HitEvent>,
@@ -450,6 +461,19 @@ pub fn integrate_actor_bodies(
             Without<crate::actor::PlayerEntity>,
             Without<super::super::boss_clusters::BossConfig>,
         ),
+    >,
+    // Home/player bodies (primary + any brain-driven clone). Disjoint from the
+    // actor query (`With<PlayerEntity>` vs `Without<PlayerEntity>`), so both borrow
+    // in the same system. Each carries the SAME movement clusters an actor does; the
+    // home body just also owns the `PlayerBodyFrameOutput` reset/presentation seam.
+    mut players: Query<
+        (
+            ae::BodyClusterQueryData,
+            &BodyCombat,
+            &ambition_characters::brain::ActorControl,
+            &mut crate::player::PlayerBodyFrameOutput,
+        ),
+        With<crate::actor::PlayerEntity>,
     >,
 ) {
     let dt = world_time.sim_dt();
@@ -542,6 +566,40 @@ pub fn integrate_actor_bodies(
         if let Some(control) = control.as_deref_mut() {
             control.0 = frame;
         }
+    }
+
+    // ── HOME/PLAYER bodies, integrated in this SAME phase ──────────────────────
+    // The home body is not a separate gameplay species: it runs the LITERAL same
+    // engine entry through `integrate_home_body`, right here beside the actor
+    // bodies. The tuning is built once (gravity direction + control-frame mode) and
+    // shared by every player body (primary + clone); the two-clock precision-blink
+    // affordance rides on `control_dt` inside the helper. No sandbox/room reset and
+    // no presentation happen here — those are the home reset-POLICY and
+    // PRESENTATION phases, which read the `PlayerBodyFrameOutput` this writes.
+    let mut player_tuning = editable_tuning.as_engine();
+    let player_gravity_dir = gravity.field_dir();
+    crate::physics::apply_gravity_dir(&mut player_tuning, player_gravity_dir);
+    if let Some(settings) = user_settings.as_deref() {
+        player_tuning.movement_frame_mode = settings.gameplay.movement_frame_mode;
+    }
+    let player_feel = *feel_tuning;
+    let frame_dt = world_time.raw_dt;
+    let scaled_dt = world_time.scaled_dt;
+    for (mut cluster_item, combat, control, mut frame_out) in &mut players {
+        let mut clusters = cluster_item.as_clusters_mut();
+        crate::player::integrate_home_body(
+            control.0,
+            &world.0,
+            &mut clusters,
+            combat,
+            &mut frame_out,
+            &platform_set.0,
+            player_tuning,
+            player_feel,
+            frame_dt,
+            scaled_dt,
+            &overlay,
+        );
     }
 }
 

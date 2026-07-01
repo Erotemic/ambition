@@ -188,12 +188,14 @@ impl Plugin for TouchControlsPlugin {
                         // Start) never reach the engine -- they vanish
                         // when populate resets ControlFrame the next
                         // frame. Held axes have the same issue:
-                        // the player tick sees axis_x = 0 because the
+                        // the sim sees axis_x = 0 because the
                         // touch fold hasn't written yet. Projectile
                         // happened to work only because `held` and
                         // `released` persist across frames in the
                         // touch state, masking the ordering bug.
-                        .before(crate::app::player_body_tick)
+                        // The consume boundary is `populate_slot_controls` (the
+                        // first reader of the finalized `ControlFrame`).
+                        .before(ambition_gameplay_core::player::populate_slot_controls)
                         // ALSO run before the unified menu's nav consumers so
                         // the touch Start press is in ControlFrame before the
                         // menu open-routing / nav reads it. The fold runs after

@@ -51,7 +51,7 @@ pub use cli::run_web;
 pub use feedback::{ProgressionResources, SandboxEventWriters, SandboxQueues};
 pub use hud::update_quest_panel;
 pub use player_clone::{PlayerClone, SpawnPlayerCloneRequest};
-pub use player_tick::player_body_tick;
+pub use player_tick::{player_body_tick, sync_player_presentation, PlayerBodyFrameOutput};
 pub use plugins::{
     add_ldtk_runtime_plugin, add_presentation_plugins, add_simulation_plugins, SandboxLdtkPlugin,
     SandboxPresentationPlugin, SandboxSimulationPlugin,

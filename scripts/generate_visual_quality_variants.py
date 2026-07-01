@@ -576,6 +576,29 @@ def page_filenames(record: Struct) -> list[str]:
     return [image.value] if isinstance(image, Str) else []
 
 
+# Diagnostic filename suffixes / gallery dirs the sprite generators emit next to
+# runtime art. Mirrors DIAGNOSTIC_SUFFIXES / DIAGNOSTIC_DIRS in
+# scripts/sweep_runtime_diagnostics.py and asset_publish::classify.rs. The
+# variant generator's loose-png pass must skip these so downscaled diagnostics
+# never leak into the (gitignored) quality-variant roots.
+_DIAGNOSTIC_SUFFIXES = (
+    "_canonical.png",
+    "_canonical_transparent.png",
+    "_preview_labeled.png",
+    "_parts_debug.png",
+    "_debug.png",
+)
+_DIAGNOSTIC_DIRS = ("canonicals", "diagnostics")
+
+
+def is_diagnostic_png(rel_path: Path) -> bool:
+    """True if a png (relative to the sprites root) is a visual diagnostic."""
+    if any(part in _DIAGNOSTIC_DIRS for part in rel_path.parts):
+        return True
+    name = rel_path.name
+    return name == "canonicals_contact_sheet.png" or name.endswith(_DIAGNOSTIC_SUFFIXES)
+
+
 def _resized_dim(original: int, scale: float, min_px: int) -> int:
     return max(min_px, round(original * scale))
 
@@ -914,6 +937,8 @@ def generate_sprite_variants(asset_root: Path) -> None:
         for png in sorted(src.rglob("*.png")):
             if png.resolve() in sheet_pngs:
                 continue
+            if is_diagnostic_png(png.relative_to(src)):
+                continue  # human-only diagnostic: never ships in a variant root
             # Loose props/icons still load as standalone images. A future prop
             # atlas should be added at this seam and reuse the renderer packer,
             # but character-sheet variants above must remain pre-pack frame

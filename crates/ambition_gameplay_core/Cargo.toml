@@ -448,3 +448,6 @@ proptest = "1"
 # (examples/render_room_geometry.rs). Already in the lock via Bevy, so no
 # new crate build — dev-only so it never touches the shipping binary.
 image = { version = "0.25", default-features = false, features = ["png"] }
+# Isolated scratch dirs for the asset-publish fixture tests. Already in the
+# workspace lock (transitive), so this adds no new crate build.
+tempfile = "3"

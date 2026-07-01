@@ -722,6 +722,21 @@ if [ "${#missing[@]}" -gt 0 ]; then
 fi
 echo "  ok: ${#expected_files[@]} expected files present"
 
+# --- Publish boundary: sweep diagnostics out of the runtime roots ---------
+# The sprite generators emit human-only diagnostics (canonical poses, labeled
+# previews, debug overlays) next to the runtime sheets. Relocate them out of
+# the runtime asset roots into target/ambition_publish/diagnostics so the game
+# bundle ships runtime artifacts only. This is what keeps the Rust
+# `shipped_runtime_roots_have_no_leaked_diagnostics` test green after a regen.
+# See docs/planning/engine/data-driven-sprites-and-characters.md.
+echo "==> Publish boundary: sweeping diagnostics out of runtime roots:"
+if command -v "$python_bin" >/dev/null 2>&1; then
+    "$python_bin" "$repo_root/scripts/sweep_runtime_diagnostics.py" \
+        --repo-root "$repo_root" 2>&1 | sed 's/^/  /' || true
+else
+    echo "  (skipped — no python interpreter)"
+fi
+
 # --- Hall-of-Characters sprite census ------------------------------------
 # Quick check of which catalog entries the Hall will render vs fall
 # back to the colored-rectangle placeholder. Helpful as a final

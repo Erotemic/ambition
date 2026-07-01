@@ -1,22 +1,22 @@
-//! Per-frame player tick: the single scheduled system that integrates every
-//! player-bodied entity each frame.
+//! Per-frame player body pipeline — the home/player body decomposed into the SAME
+//! phases as actors (`tick_actor_brains` / `integrate_actor_bodies` /
+//! `sync_actor_read_model`), not a separate gameplay tick.
 //!
-//! One system lives here:
+//! - [`player_body_tick`] — MOVEMENT phase. Reads `ActorControl` (the brain's
+//!   intent frame) + engine tuning and runs [`player_body_phase`]: the combined
+//!   control+simulation body tick through `ae::update_body_with_tuning_clusters` —
+//!   the LITERAL same engine entry a brain-driven actor uses — plus the player
+//!   respawn POLICY hook. Writes the [`PlayerBodyFrameOutput`] hand-off. The
+//!   two-clock split (responsive aim during precision-blink bullet-time) is carried
+//!   entirely by `InputState::control_dt`, an input affordance.
+//! - [`sync_player_presentation`] — PRESENTATION phase (separate scheduled system,
+//!   mirroring `sync_actor_read_model`). Reads the hand-off and emits screen shake /
+//!   landing SFX / per-op anim/SFX/VFX. Moves no body.
+//! - [`advance_moving_platforms`] — advances platforms once, ahead of every body.
 //!
-//! [`player_body_tick`] — reads `ActorControl` (the brain's intent frame) and the
-//! engine tuning, then runs the unified [`player_body_phase`]: ONE combined body
-//! tick (control phase at the real clock, simulation phase at the scaled clock)
-//! through `ae::update_player_with_tuning_clusters`, the same engine entry the
-//! actor path uses. The two-clock split (responsive aim during precision-blink
-//! bullet-time) is carried entirely by `InputState::control_dt` — an input
-//! affordance, not a separate simulation system. Triggers the world-global
-//! sandbox reset when the engine flags one (primary player only).
-//!
-//! The system queries the 18 player cluster components through
-//! [`ambition_engine_core::BodyClusterQueryData`] and calls the cluster-native
-//! engine entry point directly. The legacy two-system control/simulation split
-//! (and its `SandboxResetThisFrame` cross-system flag) collapsed into this single
-//! tick when the player adopted the actor's combined body entry — 2026-06-28.
+//! The system queries the 18 body cluster components through
+//! [`ambition_engine_core::BodyClusterQueryData`] — the exact aggregate the actor
+//! path borrows — so player and actor bodies integrate through one function.
 
 use bevy::prelude::*;
 

@@ -106,6 +106,24 @@ pub fn can_damage(
     friendly_fire.enabled || attacker != victim
 }
 
+/// Effective combat allegiance: a body currently under player control (it carries
+/// [`ambition_characters::brain::Brain::Player`]) fights as [`ActorFaction::Player`]
+/// regardless of its AUTHORED faction. This is why possession never overwrites
+/// `ActorFaction` (no flip, no restore bookkeeping): every combat faction read —
+/// targeting, damage gates, hitbox stamps — resolves through this, so a possessed
+/// body attacks its former allies and is targeted by them, then reverts the
+/// instant control leaves (the authored faction was never touched).
+pub fn effective_faction(
+    authored: ActorFaction,
+    brain: Option<&ambition_characters::brain::Brain>,
+) -> ActorFaction {
+    if brain.is_some_and(ambition_characters::brain::Brain::is_player) {
+        ActorFaction::Player
+    } else {
+        authored
+    }
+}
+
 /// Whether an `attacker`-faction body's landed hit DAMAGES a specific `victim`
 /// body — the faction baseline ([`can_damage`]) PLUS the per-entity grudge override.
 ///
@@ -158,7 +176,20 @@ pub fn select_actor_targets(
     // Non-player actors are candidate targets too (the relational, non-player-
     // centric part): an actor can target another actor whose faction it's hostile
     // to. Snapshotted, so this read-only borrow ends before the mutable pass.
-    others: Query<(Entity, &CenteredAabb, &ActorFaction, &BodyHealth), With<FeatureSimEntity>>,
+    // `Option<&Brain>` on both candidate and acting queries: a possessed body
+    // (carrying `Brain::Player`) is a Player-EFFECTIVE candidate/actor without
+    // its authored `ActorFaction` being mutated — so former allies target it and
+    // it targets them, purely through effective allegiance.
+    others: Query<
+        (
+            Entity,
+            &CenteredAabb,
+            &ActorFaction,
+            &BodyHealth,
+            Option<&ambition_characters::brain::Brain>,
+        ),
+        With<FeatureSimEntity>,
+    >,
     mut actors: Query<
         (
             Entity,
@@ -166,6 +197,7 @@ pub fn select_actor_targets(
             &mut ActorTarget,
             &ActorAggression,
             Option<&ActorFaction>,
+            Option<&ambition_characters::brain::Brain>,
         ),
         With<FeatureSimEntity>,
     >,
@@ -185,8 +217,10 @@ pub fn select_actor_targets(
         .chain(
             others
                 .iter()
-                .filter(|(_, _, _, hp)| hp.current() > 0)
-                .map(|(e, aabb, faction, _)| (e, aabb.center, *faction)),
+                .filter(|(_, _, _, hp, _)| hp.current() > 0)
+                .map(|(e, aabb, faction, _, brain)| {
+                    (e, aabb.center, effective_faction(*faction, brain))
+                }),
         )
         .collect();
     // Nothing to point at: leave every actor's target untouched so downstream
@@ -195,8 +229,15 @@ pub fn select_actor_targets(
     if candidates.is_empty() {
         return;
     }
-    for (self_entity, aabb, mut target, aggression, faction) in actors.iter_mut() {
+    for (self_entity, aabb, mut target, aggression, faction, brain) in actors.iter_mut() {
         let actor_pos = aabb.center;
+        // The acting body's OWN effective allegiance (Player while possessed). A
+        // body with neither an authored faction nor player control has no
+        // faction-relational foes (only a personal grudge can point it) — same as
+        // the old `faction.is_some()` gate.
+        let player_controlled = brain.is_some_and(ambition_characters::brain::Brain::is_player);
+        let has_allegiance = faction.is_some() || player_controlled;
+        let self_faction = effective_faction(faction.copied().unwrap_or_default(), brain);
         let policy = aggression.target_policy();
         if policy == AggressionTarget::None {
             // Passive: no combat target. Point at self so a zero direction keeps
@@ -216,7 +257,7 @@ pub fn select_actor_targets(
             if *entity == self_entity {
                 continue;
             }
-            let is_foe = faction.is_some_and(|f| relations.is_hostile(*f, *cand_faction))
+            let is_foe = (has_allegiance && relations.is_hostile(self_faction, *cand_faction))
                 || aggression.grudge == Some(*entity);
             if !is_foe {
                 continue;
@@ -288,6 +329,31 @@ mod tests {
     use crate::actor::{PlayerEntity, PrimaryPlayer};
     use crate::combat::components::{ActorAggression, ActorFaction, ActorTarget, CenteredAabb};
     use crate::player::PlayerSlot;
+    use ambition_characters::brain::{Brain, StateMachineCfg};
+
+    /// Effective allegiance: a body carrying `Brain::Player` fights as `Player`
+    /// regardless of its authored faction (that's why possession never mutates
+    /// `ActorFaction`); any other brain — or none — keeps the authored faction.
+    #[test]
+    fn effective_faction_maps_player_brain_to_player_side() {
+        let player_brain = Brain::Player(PlayerSlot::PRIMARY);
+        let ai_brain = Brain::StateMachine(StateMachineCfg::StandStill);
+        // A possessed enemy: authored Enemy, but player-controlled ⇒ Player.
+        assert_eq!(
+            effective_faction(ActorFaction::Enemy, Some(&player_brain)),
+            ActorFaction::Player,
+        );
+        // Same body, autonomous AI brain ⇒ keeps authored Enemy.
+        assert_eq!(
+            effective_faction(ActorFaction::Enemy, Some(&ai_brain)),
+            ActorFaction::Enemy,
+        );
+        // No brain ⇒ authored faction unchanged.
+        assert_eq!(
+            effective_faction(ActorFaction::Boss, None),
+            ActorFaction::Boss,
+        );
+    }
 
     fn dummy_player_body(pos: ae::Vec2) -> BodyKinematics {
         BodyKinematics {

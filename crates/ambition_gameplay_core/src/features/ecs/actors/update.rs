@@ -603,16 +603,18 @@ pub fn update_ecs_actors(
                         })
                         .or(spec_box)
                         .unwrap_or_else(|| em.attack_aabb_dir(em.attack.pending_axis));
-                    // The strike carries the attacker's OWN faction so the physical-
-                    // damage rule (`can_damage`) resolves correctly: a Boss-faction
-                    // duel robot's swing must be able to hit the Enemy-faction PCA.
-                    // A possessed actor's faction is flipped to `Player` at transfer
-                    // time (effective allegiance), so reading the component here also
-                    // covers possession — its swing damages its former allies through
-                    // the player-faction branch, with no possession special-case.
-                    let hitbox_faction = faction
-                        .copied()
-                        .unwrap_or(super::super::super::components::ActorFaction::Enemy);
+                    // The strike carries the attacker's EFFECTIVE allegiance so the
+                    // physical-damage rule (`can_damage`) resolves correctly: a
+                    // Boss-faction duel robot's swing hits the Enemy-faction PCA, and
+                    // a POSSESSED body (carrying `Brain::Player`) swings as `Player`
+                    // and damages its former allies — WITHOUT its authored
+                    // `ActorFaction` ever being mutated (no flip, no restore).
+                    let hitbox_faction = crate::combat::targeting::effective_faction(
+                        faction
+                            .copied()
+                            .unwrap_or(super::super::super::components::ActorFaction::Enemy),
+                        brain.as_deref(),
+                    );
                     // ONE strike spawn — the SAME `spawn_melee_strike` the player
                     // uses derives BOTH the damage hitbox AND the slash VFX from this
                     // one `attack_box`, so they can never diverge. Art KIND from the

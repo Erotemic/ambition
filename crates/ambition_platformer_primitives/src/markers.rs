@@ -21,9 +21,17 @@ use bevy::prelude::*;
 #[derive(Component, Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub struct PlayerEntity;
 
-/// Marks the player that the camera, HUD, dev tools, and pause menu
-/// follow by default. Exactly one entity in the world should carry
-/// this component; today every spawned player is also primary.
+/// Marks the **home avatar** / respawn identity — the ORIGINAL body, its save
+/// identity, respawn anchor, and inventory owner. Exactly one entity carries it.
+///
+/// IMPORTANT: `PrimaryPlayer` does NOT mean "the currently controlled body". The
+/// controlled body is whichever entity carries `Brain::Player(PlayerSlot::PRIMARY)`
+/// — during possession that is a DIFFERENT entity (the possessed actor). Input,
+/// abilities, camera, portal viewer, and the melee lifecycle derive from the
+/// `ControlledSubject` resource (`abilities::traversal::possession`), not from this
+/// marker. Reserve `PrimaryPlayer` for genuinely home-body concerns: respawn,
+/// sandbox reset, save sync, spawn-clone-relative-to, heal fallback, and the HUD /
+/// debug subject (which still show the home avatar's stats by design).
 ///
 /// Distinct from `LocalPlayer` because in a future split-screen
 /// build the local players would each be `LocalPlayer` but only one

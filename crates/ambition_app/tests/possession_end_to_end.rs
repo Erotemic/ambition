@@ -1,19 +1,22 @@
 //! Phase C / C1 — possession works END-TO-END through the real headless sim.
 //!
-//! The keystone payoff of the actor-unification arc: a human can take over a
-//! normal actor and drive it through the SAME body code path the actor's own
-//! brain uses (`tick_player_brain_from_control` → its own `ActorControlFrame` →
-//! `update_ecs_actors`), while the player's own body is suppressed. The trigger
-//! gesture, faction flip, input-sync, and camera-follow are all already wired;
-//! this pins the whole loop driving REAL inputs through `SandboxSim::step`:
+//! The keystone payoff of the control-unification arc: a human can take over a
+//! normal actor because possession is BRAIN TRANSFER — `Brain::Player(PRIMARY)`
+//! moves onto the actor, which then reads slot input through the SAME universal
+//! brain path every controlled body uses (`SlotControls` → its own
+//! `ActorControlFrame` → `update_ecs_actors`). The vacated home avatar has no
+//! player brain, so it is inert. This pins the whole loop driving REAL inputs
+//! through `SandboxSim::step`:
 //!
-//! 1. Hold Down+Interact ~2s next to an actor → it becomes `Possessed` and flips
-//!    to the player's faction.
-//! 2. Driving `move_x` then moves the POSSESSED body (its own update path) while
-//!    the player's own body stays frozen (`player_body_tick` is gated
-//!    `not_possessing`).
-//! 3. A fresh Down+Interact press releases — the actor reverts to its own faction
-//!    and its own brain.
+//! 1. Hold Down+Interact ~2s next to an actor → its brain is replaced with
+//!    `Brain::Player(PRIMARY)` (recorded in `PossessionState.possessed`). Its
+//!    AUTHORED faction is NOT mutated — effective allegiance makes combat treat it
+//!    as player-aligned while it carries the player brain.
+//! 2. Driving `move_x` then moves the POSSESSED body (its own body path at its own
+//!    run capability) while the vacated home avatar stays put (it has neutral
+//!    input, no player brain — no `not_possessing` gate needed).
+//! 3. A fresh Down+Interact press releases — the actor's authored brain is
+//!    restored and the home avatar reclaims `Brain::Player`.
 
 #![cfg(feature = "rl_sim")]
 
@@ -95,8 +98,9 @@ fn a_player_can_possess_drive_and_release_an_actor_end_to_end() {
     );
     assert_eq!(
         faction(sim.world_mut(), actor),
-        ActorFaction::Player,
-        "the possessed actor flips to the player's side"
+        ActorFaction::Enemy,
+        "possession does NOT mutate the authored faction — effective allegiance \
+         (carrying Brain::Player) is what makes combat treat it as player-aligned"
     );
 
     // 2. Drive right. The POSSESSED body should move (its own update path); the
@@ -104,7 +108,7 @@ fn a_player_can_possess_drive_and_release_an_actor_end_to_end() {
     let player_before = player_pos(sim.world_mut());
     let actor_before = sim.world_mut().get::<BodyKinematics>(actor).unwrap().pos;
     // A short burst — long enough to clearly travel, short enough to stay on the
-    // platform (driven far enough at POSSESSED_MOVE_SPEED it would walk off a
+    // platform (driven far enough at the body's own run speed it would walk off a
     // ledge and despawn OOB, which is realistic but not what this test isolates).
     for _ in 0..30 {
         sim.step(AgentAction::move_x(1.0));
@@ -116,11 +120,12 @@ fn a_player_can_possess_drive_and_release_an_actor_end_to_end() {
         actor_after.x - actor_before.x > 20.0,
         "the possessed body moves right under player input: {actor_before:?} -> {actor_after:?}"
     );
-    // The guarantee is "the same input doesn't drive BOTH bodies": the player's
-    // own body does NOT run right with `move_x` (its control is gated off while
-    // possessing). Its x stays put while the possessed body travels. (Vertically
-    // the abandoned body may settle a little under gravity / ground-snap — that's
-    // not input-driven, so we pin the horizontal axis the input actually targets.)
+    // The guarantee is "the same input doesn't drive BOTH bodies": the vacated
+    // home avatar does NOT run right with `move_x` — it has no `Brain::Player`, so
+    // its `ActorControl` is neutral. Its x stays put while the possessed body
+    // travels. (Vertically the abandoned body may settle a little under gravity /
+    // ground-snap — not input-driven, so we pin the horizontal axis the input
+    // actually targets.)
     assert!(
         (player_after.x - player_before.x).abs() < 1.0,
         "the player's OWN body does not respond to the drive input while possessing: \

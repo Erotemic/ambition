@@ -127,9 +127,14 @@ impl AncillaryMovementBundle {
     }
 }
 
-/// Query filter for "the one camera/HUD-owning player body" — `With<PlayerEntity>`
-/// + `With<PrimaryPlayer>`. The neutral home for the filter every non-player system
-/// uses to find the primary player (e.g. targeting, camera follow, HUD readouts).
+/// Query filter for the **home avatar** — `With<PlayerEntity>` + `With<PrimaryPlayer>`.
+///
+/// Use this ONLY for genuine home-body concerns (respawn, save sync, sandbox
+/// reset, HUD/debug subject). It does NOT identify the currently CONTROLLED body:
+/// during possession the controlled body is a different entity (the one carrying
+/// `Brain::Player(PlayerSlot::PRIMARY)`). Systems that act on "whoever the player
+/// is driving" — camera, portal viewer, abilities, melee — read the
+/// `ControlledSubject` resource instead of this filter.
 pub type PrimaryPlayerOnly = (With<PlayerEntity>, With<PrimaryPlayer>);
 
 /// A body's coin/credits balance — the spendable currency a body carries, used

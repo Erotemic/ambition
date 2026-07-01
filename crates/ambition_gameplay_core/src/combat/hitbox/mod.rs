@@ -34,7 +34,7 @@ use ambition_engine_core::AabbExt;
 use super::components::ActorAggression;
 use super::components::ActorFaction;
 use super::events::{HitEvent, HitKnockback, HitMode, HitSource, HitTarget};
-use super::targeting::{can_damage, damage_lands};
+use super::targeting::{can_damage, damage_lands, effective_faction};
 use super::util::midpoint;
 use crate::audio::SfxMessage;
 use crate::world::physics::{DebrisBurstMessage, PhysicsDebrisCue};
@@ -67,7 +67,15 @@ pub fn apply_hitbox_damage(
     // Non-player actor victims for the actor-vs-actor melee path: an Enemy/Boss
     // swing damages any DIFFERENT-faction actor it overlaps (e.g. a Boss vs an
     // Enemy in a duel); same-faction allies are spared unless friendly fire is on.
-    actor_victims: Query<(Entity, &super::components::CenteredAabb, &ActorFaction)>,
+    // `Option<&Brain>`: a possessed victim (carrying `Brain::Player`) is a
+    // Player-EFFECTIVE body, so a former ally's Enemy swing lands on it — via
+    // effective allegiance, without its authored faction being mutated.
+    actor_victims: Query<(
+        Entity,
+        &super::components::CenteredAabb,
+        &ActorFaction,
+        Option<&ambition_characters::brain::Brain>,
+    )>,
     // The attacker's grudge, looked up from the swing owner — the DAMAGE-side
     // per-entity override. Lets a hit land on a same-faction body the owner has a
     // personal grudge against (two `Npc` duelists), without re-tagging factions.
@@ -140,13 +148,14 @@ pub fn apply_hitbox_damage(
                     .get(hitbox.owner)
                     .ok()
                     .and_then(|a| a.grudge);
-                for (victim_entity, victim_aabb, victim_faction) in &actor_victims {
+                for (victim_entity, victim_aabb, victim_faction, victim_brain) in &actor_victims {
                     if victim_entity == hitbox.owner {
                         continue;
                     }
+                    let victim_faction = effective_faction(*victim_faction, victim_brain);
                     if !damage_lands(
                         hitbox.source,
-                        *victim_faction,
+                        victim_faction,
                         friendly_fire,
                         owner_grudge,
                         victim_entity,

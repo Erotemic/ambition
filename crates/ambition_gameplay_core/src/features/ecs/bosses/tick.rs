@@ -75,6 +75,12 @@ pub fn tick_boss_brains_system(
     world: Res<crate::RoomGeometry>,
     platform_set: Res<crate::MovingPlatformSet>,
     overlay: Res<FeatureEcsWorldOverlay>,
+    // A possessed boss carries `Brain::Player(slot)` and reads its controller
+    // frame from here, through the SAME universal-brain path every controlled
+    // body uses. Bosses are valid controllable bodies (architecturally); design
+    // gating of WHICH boss is possessable lives above, in the possession target
+    // filter — not as a "bosses can never be controlled" barrier in this tick.
+    slot_controls: Res<ambition_characters::brain::SlotControls>,
     mut bosses: Query<
         (
             bevy::ecs::entity::Entity,
@@ -100,7 +106,30 @@ pub fn tick_boss_brains_system(
             continue;
         }
 
-        let StateMachineCfg::BossPattern { cfg, state } = pattern_brain_mut(&mut brain) else {
+        // POSSESSED BOSS: driven from slot input through the player brain, the
+        // same universal path every controlled body uses. It steers by
+        // `velocity_target` (bosses float / SNAP-integrate in `update_ecs_bosses`)
+        // at the shared body run capability. The scripted boss pattern +
+        // attack_state are suspended while the player drives it; player-triggered
+        // boss specials are a follow-up (needs input→special mapping).
+        if let Some(slot) = brain.player_slot() {
+            let mut snapshot = ambition_characters::brain::BrainSnapshot::idle();
+            snapshot.actor_pos = boss.kin.pos;
+            snapshot.actor_vel = boss.kin.vel;
+            snapshot.actor_facing = boss.kin.facing;
+            snapshot.actor_aerial = true;
+            snapshot.max_run_speed = ae::MAX_RUN_SPEED;
+            snapshot.dt = dt;
+            snapshot.player_input = Some(slot_controls.get(slot));
+            let mut frame = ambition_characters::actor::control::ActorControlFrame::neutral();
+            brain.tick(&snapshot, &mut frame);
+            control.0 = frame;
+            attack_state.clear();
+            continue;
+        }
+
+        let Some(StateMachineCfg::BossPattern { cfg, state }) = pattern_brain_mut(&mut brain)
+        else {
             // Boss has a non-BossPattern brain (test fixture). Leave
             // ActorControl + BossAttackState neutral so a future
             // brain swap doesn't leak stale intent.
@@ -232,10 +261,14 @@ pub(crate) fn horizontal_front_wall_clearance(
 /// Helper: dig out the `&mut StateMachineCfg` from a `Brain`.
 /// Bosses never spawn with `Brain::Player`; the `unreachable!` arm
 /// is a safety net for that invariant.
-fn pattern_brain_mut(brain: &mut Brain) -> &mut StateMachineCfg {
+fn pattern_brain_mut(brain: &mut Brain) -> Option<&mut StateMachineCfg> {
     match brain {
-        Brain::StateMachine(cfg) => cfg,
-        Brain::Player(_) => unreachable!("Boss entities are never spawned with Brain::Player"),
+        Brain::StateMachine(cfg) => Some(cfg),
+        // A player-controlled boss (possessed) is handled by the `Brain::Player`
+        // arm in the tick loop BEFORE this is called; returning `None` here keeps
+        // a stray call inert instead of panicking — bosses are valid controllable
+        // bodies, so `Brain::Player` on a boss is legal, not `unreachable!`.
+        Brain::Player(_) => None,
     }
 }
 

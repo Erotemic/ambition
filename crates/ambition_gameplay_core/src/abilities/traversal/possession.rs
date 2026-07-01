@@ -28,7 +28,7 @@ use ambition_characters::brain::{ActorControl, Brain, PlayerSlot};
 
 use crate::actor::BodyKinematics;
 use crate::actor::{PlayerEntity, PrimaryPlayer};
-use crate::features::{ActorFaction, BossConfig, CenteredAabb, FeatureSimEntity};
+use crate::features::{CenteredAabb, FeatureSimEntity};
 
 /// Brain-transfer bookkeeping for possession.
 ///
@@ -46,8 +46,6 @@ pub struct PossessionState {
     pub home: Option<Entity>,
     /// The possessed actor's brain before transfer, restored on release.
     pub restore_brain: Option<Brain>,
-    /// The possessed actor's faction before transfer, restored on release.
-    pub restore_faction: Option<ActorFaction>,
 }
 
 /// The entity carrying `Brain::Player(PlayerSlot::PRIMARY)` this frame — the body
@@ -70,10 +68,33 @@ pub fn resolve_controlled_subject(
     brains: Query<(Entity, &Brain)>,
     mut subject: ResMut<ControlledSubject>,
 ) {
-    subject.0 = brains
-        .iter()
-        .find(|(_, brain)| brain.player_slot() == Some(PlayerSlot::PRIMARY))
-        .map(|(entity, _)| entity);
+    // HARD INVARIANT: exactly one entity carries `Brain::Player(PRIMARY)` during
+    // normal play (zero only during a load/transition frame). Two is a bug the
+    // whole architecture rests on NOT happening — a stale home brain that wasn't
+    // vacated, or a double-assigned slot. Surface it loudly instead of silently
+    // picking one and diverging.
+    let mut chosen = None;
+    let mut count = 0u32;
+    for (entity, brain) in &brains {
+        if brain.player_slot() == Some(PlayerSlot::PRIMARY) {
+            count += 1;
+            if chosen.is_none() {
+                chosen = Some(entity);
+            }
+        }
+    }
+    debug_assert!(
+        count <= 1,
+        "control invariant violated: {count} entities carry Brain::Player(PRIMARY) \
+         (expected exactly one); possession/vacate left a stale player brain"
+    );
+    if count > 1 {
+        bevy::log::error!(
+            "control invariant: {count} entities carry Brain::Player(PRIMARY); \
+             using the first as the controlled subject"
+        );
+    }
+    subject.0 = chosen;
 }
 
 /// Possession reach (px): Down+Interact possesses the nearest candidate within this.
@@ -130,19 +151,25 @@ pub fn possession_trigger_system(
     // Home avatar kinematics: its position seeds the candidate search, and on
     // release it steps out to the vacated actor's spot (camera continuity).
     mut home_q: Query<(Entity, &mut BodyKinematics), (With<PlayerEntity>, With<PrimaryPlayer>)>,
-    // Possession candidates: non-boss, brain-driven feature bodies.
+    // Possession candidates: any brain-driven feature body — INCLUDING bosses.
+    // Bosses are valid controllable bodies (their tick consumes `Brain::Player`),
+    // so there is no `Without<BossConfig>` barrier here. Restricting WHICH boss is
+    // possessable (progression/design) is a targeting-policy gate to add above
+    // this, not a "bosses can never be controlled" exclusion in the body model.
     candidates: Query<
         (Entity, &CenteredAabb),
         (
             With<FeatureSimEntity>,
             With<ActorControl>,
             With<Brain>,
-            Without<BossConfig>,
             Without<PlayerEntity>,
         ),
     >,
-    // The target's authored brain + faction, snapshotted for restore on release.
-    target_data: Query<(&Brain, &ActorFaction)>,
+    // The target's authored brain, snapshotted for restore on release. Its
+    // faction is NOT touched — effective allegiance (`Brain::Player` ⇒ combat
+    // treats it as Player) makes the possessed body fight its former allies
+    // without mutating `ActorFaction`.
+    target_data: Query<&Brain>,
     // Read-only AABB lookup for the vacate exit on release.
     actor_aabbs: Query<&CenteredAabb>,
 ) {
@@ -192,17 +219,17 @@ pub fn possession_trigger_system(
     let Some((target, _)) = nearest else {
         return;
     };
-    let Ok((target_brain, target_faction)) = target_data.get(target) else {
+    let Ok(target_brain) = target_data.get(target) else {
         return;
     };
 
-    // BRAIN TRANSFER. Remember what to restore, then move the player brain from
-    // the home avatar to the target. Both bodies get a fresh neutral
-    // `ActorControl` so no stale edge-triggered intent (a held jump, a pressed
-    // attack) leaks across the handover.
+    // BRAIN TRANSFER. Remember the target's brain to restore, then move the
+    // player brain from the home avatar to the target. Both bodies get a fresh
+    // neutral `ActorControl` so no stale edge-triggered intent (a held jump, a
+    // pressed attack) leaks across the handover. The target's `ActorFaction` is
+    // left untouched — effective allegiance handles its player-side combat.
     state.home = Some(home_entity);
     state.restore_brain = Some(target_brain.clone());
-    state.restore_faction = Some(*target_faction);
     state.possessed = Some(target);
 
     commands
@@ -212,12 +239,7 @@ pub fn possession_trigger_system(
     commands
         .entity(target)
         .insert(Brain::Player(PlayerSlot::PRIMARY))
-        .insert(ActorControl::default())
-        // Effective allegiance: while controlled by the player, the body IS
-        // player-aligned — it fights its former allies and they fight it,
-        // resolved entirely through the existing `ActorFaction` +
-        // `FactionRelations` damage/targeting system. Restored on release.
-        .insert(ActorFaction::Player);
+        .insert(ActorControl::default());
 }
 
 /// Restore the home avatar's player brain and the target's authored brain +
@@ -232,15 +254,11 @@ fn release_possession(
 ) {
     state.possessed = None;
 
-    // Restore the actor's authored brain + faction, clearing stale edges.
+    // Restore the actor's authored brain, clearing stale edges. Its faction was
+    // never touched (effective allegiance), so there is nothing to restore.
     if let Some(brain) = state.restore_brain.take() {
         if let Ok(mut ec) = commands.get_entity(target) {
             ec.insert(brain).insert(ActorControl::default());
-        }
-    }
-    if let Some(faction) = state.restore_faction.take() {
-        if let Ok(mut ec) = commands.get_entity(target) {
-            ec.insert(faction);
         }
     }
 
@@ -280,13 +298,13 @@ pub fn release_possession_if_target_lost(
     }
     state.possessed = None;
     state.restore_brain = None;
-    state.restore_faction = None;
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
     use crate::actor::BodyBaseSize;
+    use crate::features::ActorFaction;
     use ambition_characters::brain::{PlayerSlot, StateMachineCfg};
 
     fn vec2(x: f32, y: f32) -> ambition_engine_core::Vec2 {
@@ -382,7 +400,15 @@ mod tests {
             "home avatar's player brain is vacated"
         );
         assert!(app.world().get::<Brain>(home).is_none());
-        assert_eq!(faction_of(&app, actor), ActorFaction::Player);
+        // Effective allegiance: the target's AUTHORED faction is NOT mutated by
+        // possession (it stays Enemy). Combat treats it as Player because it
+        // carries `Brain::Player` — verified by the targeting/damage tests — so
+        // there is no flip to bookkeep and no restore on release.
+        assert_eq!(
+            faction_of(&app, actor),
+            ActorFaction::Enemy,
+            "possession must NOT overwrite the authored faction"
+        );
         assert_eq!(
             app.world().resource::<PossessionState>().possessed,
             Some(actor)
@@ -413,7 +439,11 @@ mod tests {
             None,
             "release restores the actor's autonomous brain"
         );
-        assert_eq!(faction_of(&app, actor), ActorFaction::Enemy);
+        assert_eq!(
+            faction_of(&app, actor),
+            ActorFaction::Enemy,
+            "authored faction unchanged across the whole possess/release cycle"
+        );
         assert!(app
             .world()
             .resource::<PossessionState>()

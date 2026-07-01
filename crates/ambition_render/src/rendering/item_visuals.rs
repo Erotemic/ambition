@@ -2,12 +2,11 @@
 //! ground-item quads, the held-item sprite, and held-projectile sprites. Render
 //! systems that read the item SIM state in `ambition_gameplay_core::items::pickup`.
 
-use ambition_gameplay_core::actor::{BodyKinematics, PlayerEntity, PrimaryPlayer};
+use ambition_characters::brain::ActorControl;
+use ambition_gameplay_core::abilities::traversal::possession::ControlledSubject;
+use ambition_gameplay_core::actor::BodyKinematics;
 use ambition_gameplay_core::features::HeldItem;
-use ambition_gameplay_core::items::pickup::{
-    held_shot_aim, GroundItem, HeldProjectile, FIREBALL_ID,
-};
-use ambition_input::ControlFrame;
+use ambition_gameplay_core::items::pickup::{GroundItem, HeldProjectile, FIREBALL_ID};
 use bevy::prelude::*;
 use bevy::sprite::Anchor;
 
@@ -180,32 +179,46 @@ pub fn sync_ground_item_visuals(
 #[derive(Component)]
 pub struct HeldItemVisual;
 
-/// Draw a small quad in the player's hand for whatever they're holding, tinted
-/// per item (axe / javelin). Clear-and-rebuild each frame.
+/// Draw a small quad in the CONTROLLED SUBJECT's hand for whatever they're
+/// holding, tinted per item (axe / javelin). Clear-and-rebuild each frame.
+///
+/// Keyed on [`ControlledSubject`] (the body carrying `Brain::Player(PRIMARY)`),
+/// not `PrimaryPlayer`: while possessing, the held-item sprite draws on the body
+/// you are DRIVING (reading ITS own `HeldItem`), never lingering on the vacated
+/// home avatar — the same rule the blink reticle, camera, and nameplate follow.
+/// Aim comes from the subject's brain-resolved `ActorControl`, not raw device
+/// input, so a possessed body's ranged item points where THAT body aims.
 pub fn sync_held_item_visual(
     mut commands: Commands,
-    control: Res<ControlFrame>,
     world: Res<ambition_gameplay_core::RoomGeometry>,
     art: Option<Res<ItemArt>>,
+    controlled: Res<ControlledSubject>,
     visuals: Query<Entity, With<HeldItemVisual>>,
-    players: Query<(&BodyKinematics, &HeldItem), (With<PlayerEntity>, With<PrimaryPlayer>)>,
+    bodies: Query<(&BodyKinematics, &HeldItem, &ActorControl)>,
 ) {
     for entity in &visuals {
         commands.entity(entity).despawn();
     }
-    let Ok((kin, held)) = players.single() else {
+    let Ok((kin, held, control)) = controlled.0.and_then(|e| bodies.get(e).ok()).ok_or(()) else {
         return;
     };
     let facing = if kin.facing >= 0.0 { 1.0 } else { -1.0 };
-    // In the player's hand: just in front at hand height (y-down → small +y).
+    // In the subject's hand: just in front at hand height (y-down → small +y).
     let hand = kin.pos + Vec2::new(facing * (kin.size.x * 0.45 + 4.0), kin.size.y * 0.06);
     let translation = ambition_gameplay_core::config::world_to_bevy(&world.0, hand, 12.0);
 
     // A ranged held item (the gun-sword) points where you're AIMING — the same
     // direction it fires — just like the pirates' wielded gun-sword. Melee /
-    // thrown items keep the simple facing flip.
+    // thrown items keep the simple facing flip. Aim from the subject's
+    // brain-resolved frame (screen-relative fallback to facing), so a possessed
+    // body's item tracks ITS aim, not the home avatar's device stick.
     let (rotation, flip_x, flip_y) = if held.spec.ranged.is_some() {
-        let aim = held_shot_aim(&control, kin.facing);
+        let f = control.0;
+        let aim = if f.aim.length_squared() > 1e-4 {
+            f.aim.normalize()
+        } else {
+            Vec2::new(kin.facing, 0.0)
+        };
         // World is y-down, render space y-up. Aiming left flips vertically so
         // the gun stays upright instead of rotating upside-down.
         let angle = (-aim.y).atan2(aim.x);

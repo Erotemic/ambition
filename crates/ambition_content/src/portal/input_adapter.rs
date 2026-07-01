@@ -16,9 +16,10 @@
 
 use bevy::prelude::*;
 
+use ambition_characters::brain::{Brain, PlayerSlot, SlotControls};
+use ambition_gameplay_core::abilities::traversal::possession::ControlledSubject;
 use ambition_gameplay_core::actor::{BodyKinematics, PlayerEntity, PrimaryPlayer};
 use ambition_gameplay_core::player::affordances::{InteractVariant, NearestInteractable};
-use ambition_gameplay_core::player::PlayerInputFrame;
 #[cfg(feature = "portal_render")]
 use ambition_gameplay_core::portal::PortalAimHint;
 use ambition_gameplay_core::portal::{
@@ -42,29 +43,40 @@ pub fn pick_aim(control: &ControlFrame, facing: f32) -> Vec2 {
     Vec2::new(if facing >= 0.0 { 1.0 } else { -1.0 }, 0.0)
 }
 
-/// Translate this frame's `ControlFrame` into portal-gun intents for the primary
-/// player. Runs in the portal weapon set so the intents are visible to the core
+/// Translate this frame's controller input into portal-gun intents for the body
+/// the local player is DRIVING (the controlled subject — home avatar or possessed
+/// actor). The gun is a `PortalGun` held BY that body, so gestures come from the
+/// controlled body's slot and the aim/holder from its own kinematics: possess an
+/// actor holding the gun and it fires from that actor, not the vacated home avatar.
+/// Runs in the portal weapon set so the intents are visible to the core
 /// fire/toggle/pickup/drop systems the same frame.
 #[allow(clippy::too_many_arguments)]
 pub fn portal_input_adapter_system(
     nearest: Option<Res<NearestInteractable>>,
-    // The gun's gestures are the primary player's own intent — read their
-    // actor-local `PlayerInputFrame`, not the global `Res<ControlFrame>`
-    // (relativity principle / §4 of the restructuring blueprint).
-    players: Query<
-        (&PlayerInputFrame, &BodyKinematics, Option<&PortalGun>),
-        (With<PlayerEntity>, With<PrimaryPlayer>),
-    >,
+    controlled: Option<Res<ControlledSubject>>,
+    // The controller's slot frame (the sanctioned per-slot input source).
+    slots: Res<SlotControls>,
+    // The controlled body: its brain (→ slot), position, and held gun (if any).
+    holders: Query<(&Brain, &BodyKinematics, Option<&PortalGun>)>,
+    primary_fallback: Query<Entity, (With<PlayerEntity>, With<PrimaryPlayer>)>,
     #[cfg(feature = "portal_render")] mut aim_hint: Option<ResMut<PortalAimHint>>,
     mut fire: MessageWriter<FirePortalGun>,
     mut toggle: MessageWriter<TogglePortalGun>,
     mut drop: MessageWriter<DropPortalGun>,
     mut pickup: MessageWriter<PickUpPortalGun>,
 ) {
-    let Ok((input, kin, gun)) = players.single() else {
+    let Some(subject) = controlled
+        .and_then(|subject| subject.0)
+        .or_else(|| primary_fallback.single().ok())
+    else {
         return;
     };
-    let control = &input.frame;
+    let Ok((brain, kin, gun)) = holders.get(subject) else {
+        return;
+    };
+    let slot = brain.player_slot().unwrap_or(PlayerSlot::PRIMARY);
+    let control = slots.get(slot);
+    let control = &control;
     // Color toggle: Interact, but only when no genuine interactable (door / NPC /
     // switch) claims the press — matching the HUD label.
     if control.interact_pressed {

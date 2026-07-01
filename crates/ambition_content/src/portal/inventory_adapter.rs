@@ -19,9 +19,11 @@ use bevy::prelude::*;
 
 use ambition_characters::brain::ActionSet;
 use ambition_engine_core::{self as ae, AabbExt};
+use ambition_gameplay_core::abilities::traversal::possession::ControlledSubject;
 #[cfg(test)]
 use ambition_gameplay_core::actor::BodyBaseSize;
 use ambition_gameplay_core::actor::{BodyKinematics, PlayerEntity, PrimaryPlayer};
+use ambition_gameplay_core::features::HeldItem;
 use ambition_gameplay_core::items::pickup::StashedActionSet;
 use ambition_gameplay_core::items::{Item, OwnedItems};
 use ambition_gameplay_core::platformer_runtime::prelude::SpawnScopedExt;
@@ -44,26 +46,26 @@ pub use ambition_gameplay_core::items::pickup::{equip_portal_gun, unequip_portal
 pub fn drop_portal_gun_system(
     mut drops: MessageReader<DropPortalGun>,
     mut commands: Commands,
-    mut players: Query<
-        (
-            Entity,
-            &BodyKinematics,
-            &mut ActionSet,
-            Option<&StashedActionSet>,
-        ),
-        (
-            With<PlayerEntity>,
-            With<PrimaryPlayer>,
-            With<PortalGun>,
-            Without<ambition_gameplay_core::features::HeldItem>,
-        ),
+    controlled: Option<Res<ControlledSubject>>,
+    // The body HOLDING the gun (the controlled subject); no drop if it isn't
+    // holding one, or is holding a throwable (that throw takes precedence).
+    mut holders: Query<
+        (&BodyKinematics, &mut ActionSet, Option<&StashedActionSet>),
+        (With<PortalGun>, Without<HeldItem>),
     >,
+    primary_fallback: Query<Entity, (With<PlayerEntity>, With<PrimaryPlayer>)>,
     mut sfx: MessageWriter<ambition_gameplay_core::audio::SfxMessage>,
 ) {
     if drops.read().next().is_none() {
         return;
     }
-    let Ok((player, kin, mut action_set, stashed)) = players.single_mut() else {
+    let Some(player) = controlled
+        .and_then(|subject| subject.0)
+        .or_else(|| primary_fallback.single().ok())
+    else {
+        return;
+    };
+    let Ok((kin, mut action_set, stashed)) = holders.get_mut(player) else {
         return;
     };
     commands.entity(player).remove::<PortalGun>();
@@ -98,32 +100,37 @@ pub fn drop_portal_gun_system(
 pub fn pickup_portal_gun_system(
     mut picks: MessageReader<PickUpPortalGun>,
     mut commands: Commands,
-    mut players: Query<
-        (Entity, &BodyKinematics, &mut ActionSet),
-        (With<PlayerEntity>, With<PrimaryPlayer>),
-    >,
-    already_have: Query<(), (With<PlayerEntity>, With<PrimaryPlayer>, With<PortalGun>)>,
-    // One item at a time (Smash-style): can't grab the portal gun while holding
-    // a ground item (axe / gun-sword / javelin).
-    holding_item: Query<
-        (),
-        (
-            With<PlayerEntity>,
-            With<PrimaryPlayer>,
-            With<ambition_gameplay_core::features::HeldItem>,
-        ),
-    >,
+    controlled: Option<Res<ControlledSubject>>,
+    // The controlled body attempts the pickup. `Has` flags gate on ITS state: it
+    // can't grab a gun it already holds, nor while holding a ground item.
+    mut bodies: Query<(
+        &BodyKinematics,
+        &mut ActionSet,
+        Has<PortalGun>,
+        Has<HeldItem>,
+    )>,
+    primary_fallback: Query<Entity, (With<PlayerEntity>, With<PrimaryPlayer>)>,
     pickups: Query<(Entity, &PortalGunPickup)>,
     mut owned: Option<ResMut<OwnedItems>>,
     mut equipped: MessageWriter<PortalGunEquipped>,
     mut sfx: MessageWriter<ambition_gameplay_core::audio::SfxMessage>,
 ) {
-    if picks.read().next().is_none() || !already_have.is_empty() || !holding_item.is_empty() {
+    if picks.read().next().is_none() {
         return;
     }
-    let Ok((player, kin, mut action_set)) = players.single_mut() else {
+    let Some(player) = controlled
+        .and_then(|subject| subject.0)
+        .or_else(|| primary_fallback.single().ok())
+    else {
         return;
     };
+    let Ok((kin, mut action_set, has_gun, has_held)) = bodies.get_mut(player) else {
+        return;
+    };
+    // Already holding the gun, or holding a ground item → no pickup.
+    if has_gun || has_held {
+        return;
+    }
     let player_aabb = ae::Aabb::new(kin.pos, kin.size * 0.5);
     for (entity, pickup) in &pickups {
         if pickup.arm_timer > 0.0 {

@@ -99,6 +99,116 @@ fn build_body_mode_test_app() -> (App, Entity) {
     (app, player)
 }
 
+/// Spawn a body-mode-capable body at `pos`. `slot = Some` → it carries
+/// `Brain::Player(slot)` (a controlled body); `None` → no brain (a vacated / inert
+/// body the driver must skip).
+fn spawn_mode_body(app: &mut App, pos: Vec2, slot: Option<PlayerSlot>) -> Entity {
+    let mut body = app.world_mut().spawn((
+        BodyModeCapabilities::full(),
+        ActorControl::default(),
+        BodyKinematics {
+            pos,
+            size: Vec2::new(30.0, 48.0),
+            facing: 1.0,
+            ..Default::default()
+        },
+        BodyBaseSize {
+            base_size: Vec2::new(30.0, 48.0),
+        },
+        BodyGroundState {
+            on_ground: true,
+            ..Default::default()
+        },
+        (
+            BodyWallState::default(),
+            BodyDashState::default(),
+            BodyBlinkState::default(),
+            BodyLedgeState::default(),
+            BodyEnvironmentContact::default(),
+            BodyModeState::default(),
+            BodyJumpState::default(),
+            crate::actor::BodyFlightState::default(),
+        ),
+    ));
+    if let Some(slot) = slot {
+        body.insert(Brain::Player(slot));
+    }
+    body.id()
+}
+
+/// The headline controlled-body guarantee: while a controller drives a non-player
+/// ACTOR body, its body-mode input curls THAT body — and the vacated home body,
+/// which no longer carries a player brain, is untouched.
+#[test]
+fn controlled_actor_body_mode_input_does_not_affect_home_body() {
+    let mut app = App::new();
+    app.insert_resource(crate::RoomGeometry(open_world()));
+    app.init_resource::<SlotInteractionState>();
+    app.add_systems(Update, super::update_body_mode);
+    let spawn = app.world().resource::<crate::RoomGeometry>().0.spawn;
+    // Vacated home body: has the kit, but NO player brain (someone else is driving).
+    let home = spawn_mode_body(&mut app, spawn, None);
+    // The possessed actor the primary controller is driving.
+    let actor = spawn_mode_body(
+        &mut app,
+        spawn + Vec2::new(120.0, 0.0),
+        Some(PlayerSlot::PRIMARY),
+    );
+    // Body-mode input (double-tap-down morph) arrives on the primary slot.
+    arm_double_tap_down(&mut app);
+    app.update();
+    assert_eq!(
+        app.world().get::<BodyModeState>(actor).unwrap().body_mode,
+        ae::BodyMode::MorphBall,
+        "the CONTROLLED actor curls into a morph ball",
+    );
+    assert_eq!(
+        app.world().get::<BodyModeState>(home).unwrap().body_mode,
+        ae::BodyMode::Standing,
+        "the vacated home body must NOT change mode from another body's control",
+    );
+}
+
+/// Symmetric case: during normal play the home body IS the controlled body (it
+/// carries `Brain::Player`), so its body mode still changes through the new path.
+#[test]
+fn home_body_mode_still_works_when_home_is_controlled() {
+    let (mut app, home) = build_body_mode_test_app();
+    // The home body carries PlayerEntity + PrimaryPlayer + Brain::Player(PRIMARY).
+    arm_double_tap_down(&mut app);
+    app.update();
+    assert_eq!(
+        app.world().get::<BodyModeState>(home).unwrap().body_mode,
+        ae::BodyMode::MorphBall,
+        "the home body morphs when it is the controlled body",
+    );
+}
+
+/// `PlayerInputFrame` is no longer body-mode authority: with a stale/neutral input
+/// frame on the body but a live crouch intent on its `ActorControl` (what the brain
+/// produces from the slot), the body follows `ActorControl`.
+#[test]
+fn player_input_frame_is_not_body_mode_authority() {
+    let mut app = App::new();
+    app.insert_resource(crate::RoomGeometry(open_world()));
+    app.init_resource::<SlotInteractionState>();
+    app.add_systems(Update, super::update_body_mode);
+    let spawn = app.world().resource::<crate::RoomGeometry>().0.spawn;
+    let body = spawn_mode_body(&mut app, spawn, Some(PlayerSlot::PRIMARY));
+    // A NEUTRAL PlayerInputFrame — if the driver still read it, the body would never
+    // crouch. The live crouch intent lives only on ActorControl.
+    app.world_mut()
+        .entity_mut(body)
+        .insert(crate::player::PlayerInputFrame::default());
+    set_control(&mut app, body, |c| c.locomotion = Vec2::new(0.0, 1.0));
+    app.update();
+    assert_eq!(
+        app.world().get::<BodyModeState>(body).unwrap().body_mode,
+        ae::BodyMode::Crouching,
+        "body mode must follow ActorControl (slot-derived), not a neutral PlayerInputFrame",
+    );
+}
+
 fn place_player_on_test_ladder(app: &mut App, player: Entity, vel: Option<Vec2>) {
     app.world_mut()
         .resource_mut::<crate::RoomGeometry>()

@@ -22,6 +22,12 @@ Entry format:
 
 ## Open
 
+## 2026-07-01 Portal TRANSIT-feel adapters still key on `PrimaryPlayer`, not the controlled body
+- **Where:** `ambition_content/src/portal/ability_adapter.rs` (`suppress_ledge_grab_during_transit`, `warp_portal_input`) + `transit_body_adapter.rs::portal_player_input_adapter` — all `(With<PlayerEntity>, With<PrimaryPlayer>)`.
+- **Smell:** the portal-gun USE path (input/fire/drop/pickup) now follows the controlled subject / holder (2026-07-01), but the transit-FEEL side effects (wall-ability suppression during transit, input warp on emergence, `PortalEmission`/`TrailContinuityBreak` traces) still only apply to the primary player. A possessed actor crossing a portal transits physically (transit_body_adapter tags every body generically ✓) but gets none of these input/feel guards, so possession-through-a-portal feels wrong. Not a gun-USE bug, so it was scoped out of the use-path pass.
+- **Noticed while:** the controlled-body pass (portal gun → holder).
+- **Suggested fix / size:** M — resolve `ControlledSubject` (fallback primary) and gate these on the transited body being the controlled subject, mirroring the input/fire adapters. Needs the transit event to carry / be matched against the controlled body.
+
 ## 2026-07-01 Docs reference a removed `CharacterArchetype` (né `EnemyArchetype`) ENUM
 - **Where:** 8 sites — `features/ecs/spawn_actors.rs:75,641`, `features/enemies/mod.rs:527`, `ambition_characters/src/actor/mod.rs:186`, and comments in `character_catalog.ron` / `character_archetypes.ron`.
 - **Smell:** doc comments call methods on a `CharacterArchetype` enum (`::from_brain`, `::attacks_player`, `::RangedSkirmisher`, `::X.spec()`) that no longer exists — the named-archetype enum was removed in an earlier refactor; only the `CharacterArchetypeSpec` STRUCT + a brain-key string map (`CharacterRoster`) remain. Classic docs-describe-dead-things (per the standing rule). Surfaced during the step-6 roster rename (the `Enemy*`→`Character*` sed renamed the dead refs in place, so they now read `CharacterArchetype::…`).

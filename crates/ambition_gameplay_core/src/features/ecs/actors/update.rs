@@ -56,8 +56,14 @@ pub fn sync_actor_poses_from_feature_aabbs(
 pub fn update_ecs_actors(
     mut commands: Commands,
     // Bundled into one SystemParam slot: this system is at Bevy's 16-param
-    // ceiling, so the accumulating sim clock rides alongside `WorldTime`.
-    (world_time, sim_clock): (Res<WorldTime>, Res<crate::features::GameplayElapsed>),
+    // ceiling, so the accumulating sim clock + the slot-based controller input
+    // ride alongside `WorldTime`. `SlotControls` feeds any actor carrying a
+    // `Brain::Player(slot)` (a possessed body) its controller frame.
+    (world_time, sim_clock, slot_controls): (
+        Res<WorldTime>,
+        Res<crate::features::GameplayElapsed>,
+        Res<ambition_characters::brain::SlotControls>,
+    ),
     world: Res<crate::RoomGeometry>,
     gravity: crate::physics::GravityCtx,
     user_settings: Option<Res<crate::persistence::settings::UserSettings>>,
@@ -131,13 +137,13 @@ pub fn update_ecs_actors(
             // The unified actor cluster — every actor (was-NPC + was-enemy)
             // carries it. The tick integrates through it via `ActorMut`.
             //
-            // `Possessed` is nested with the cluster data (not a new top-level
-            // tuple field) to stay within Bevy's query-tuple arity: when set,
-            // the actor is driven from the player's input instead of its brain
-            // (`crate::abilities::traversal::possession`).
+            // A possessed body needs no special query field: it simply carries
+            // `Brain::Player(slot)` (transferred by
+            // `crate::abilities::traversal::possession`) and is driven through
+            // the SAME brain tick every actor uses, reading its slot's frame
+            // from `SlotControls`.
             (
                 Option<super::super::actor_clusters::ActorClusterQueryData>,
-                Option<&crate::abilities::traversal::possession::Possessed>,
                 // Faction — read to scope the anti-clump crowding signal to
                 // SAME-faction allies. Without this, two hostiles of different
                 // factions (the spectator-duel fighters) count each other as
@@ -219,8 +225,7 @@ pub fn update_ecs_actors(
     for (entity, _, _, _, _, _, health) in &player_query {
         alive_by_entity.insert(entity, health.current() > 0);
     }
-    for (entity, _, _, disposition, _, _, _, target, _, _, _, _, (clusters, _, faction)) in &actors
-    {
+    for (entity, _, _, disposition, _, _, _, target, _, _, _, _, (clusters, faction)) in &actors {
         if let Some(c) = &clusters {
             alive_by_entity.insert(entity, c.health.alive());
             entity_to_id.insert(entity, c.config.id.clone());
@@ -286,7 +291,7 @@ pub fn update_ecs_actors(
         mut control,
         action_set,
         mounted,
-        (clusters, possessed, faction),
+        (clusters, faction),
     ) in &mut actors
     {
         // Body-generic reaction timers on the body's authoritative `BodyCombat`
@@ -373,10 +378,7 @@ pub fn update_ecs_actors(
                 // Localized gravity: each enemy feels the gravity of the column
                 // it is standing in (its own position), not one global field.
                 let enemy_gravity_dir = gravity.dir_at(em.kin.pos);
-                let brain_frame = if let Some(p) = possessed {
-                    // POSSESSED: drive this actor from the player's input through
-                    // its OWN ActorControlFrame — the same translation the player
-                    // brain uses — so it moves/attacks via its own update path.
+                let brain_frame = if let Some(brain_ref) = brain.as_deref_mut() {
                     let crowding = crowding_by_id.get(&em.config.id).copied();
                     let mut snapshot = build_enemy_brain_snapshot(
                         &em,
@@ -387,34 +389,21 @@ pub fn update_ecs_actors(
                         sim_now,
                         enemy_gravity_dir,
                     );
-                    snapshot.control_down = enemy_gravity_dir;
-                    snapshot.movement_frame_mode = control_frame_modes.movement;
-                    snapshot.aim_frame_mode = control_frame_modes.aim;
-                    let mut bf = ambition_characters::actor::control::ActorControlFrame::neutral();
-                    ambition_characters::brain::player::tick_player_brain_from_control(
-                        &p.control, &snapshot, &mut bf,
-                    );
-                    // The player brain emits normalized `locomotion`. A possessed
-                    // body should move at POSSESSED_MOVE_SPEED regardless of its
-                    // native capability: encode that as intent for the grounded
-                    // path (a throttle of the body's own max), and as a direct
-                    // world velocity for the aerial / free-mover path.
-                    let possess_speed =
-                        crate::abilities::traversal::possession::POSSESSED_MOVE_SPEED;
-                    bf.velocity_target = bf.locomotion * possess_speed;
-                    bf.locomotion *= possess_speed / em.config.tuning.max_run_speed.max(1.0);
-                    bf
-                } else if let Some(brain_ref) = brain.as_deref_mut() {
-                    let crowding = crowding_by_id.get(&em.config.id).copied();
-                    let snapshot = build_enemy_brain_snapshot(
-                        &em,
-                        target_pos,
-                        target_alive,
-                        crowding,
-                        dt,
-                        sim_now,
-                        enemy_gravity_dir,
-                    );
+                    // POSSESSION IS BRAIN TRANSFER: a body carrying
+                    // `Brain::Player(slot)` (transferred by possession) reads its
+                    // slot's controller frame from `SlotControls` through the SAME
+                    // brain tick every actor uses — no special-case branch, no
+                    // input-copy component. The player brain translates that frame
+                    // in the body's own gravity + control frames, then the body
+                    // moves/attacks/fires via its own ActionSet + update path
+                    // exactly like any brain-driven actor. AI brains leave
+                    // `player_input` `None` and ignore the control-frame modes.
+                    if let Some(slot) = brain_ref.player_slot() {
+                        snapshot.player_input = Some(slot_controls.get(slot));
+                        snapshot.control_down = enemy_gravity_dir;
+                        snapshot.movement_frame_mode = control_frame_modes.movement;
+                        snapshot.aim_frame_mode = control_frame_modes.aim;
+                    }
                     // Headless world-out view for this body (S4/S5): built over the
                     // SAME derived collision world `feature_world` the body integrates
                     // against, so the brain's line-of-fire gate is answered over real
@@ -455,12 +444,15 @@ pub fn update_ecs_actors(
                 } else {
                     ambition_characters::actor::control::ActorControlFrame::neutral()
                 };
-                let body_contact_damage_enabled = !brain.as_deref().is_some_and(ambition_characters::brain::Brain::is_player)
-                        // A POSSESSED actor is on your side — its body never hurts
-                        // you on contact (its melee + ranged already redirect at
-                        // its former allies; contact just stops harming the player).
-                        && possessed.is_none()
-                        && em.config.tuning.body_contact_damage;
+                // Body-contact hazard is off for any player-controlled body: a
+                // possessed actor carries `Brain::Player`, is on your side (its
+                // melee + ranged redirect at its former allies), and its body
+                // must not harm you on contact. Derived from the brain, so the
+                // possession special-case (`possessed.is_none()`) is gone.
+                let body_contact_damage_enabled = !brain
+                    .as_deref()
+                    .is_some_and(ambition_characters::brain::Brain::is_player)
+                    && em.config.tuning.body_contact_damage;
                 let mut brain_frame = brain_frame;
                 brain_frame.body_contact_damage_enabled = body_contact_damage_enabled;
                 let shark_charge_vec = brain_frame.velocity_target;
@@ -614,16 +606,13 @@ pub fn update_ecs_actors(
                     // The strike carries the attacker's OWN faction so the physical-
                     // damage rule (`can_damage`) resolves correctly: a Boss-faction
                     // duel robot's swing must be able to hit the Enemy-faction PCA.
-                    // A POSSESSED actor swings for the player's side, so its strike
-                    // is Player (damages its former allies through the player-faction
-                    // branch instead of you).
-                    let hitbox_faction = if possessed.is_some() {
-                        super::super::super::components::ActorFaction::Player
-                    } else {
-                        faction
-                            .copied()
-                            .unwrap_or(super::super::super::components::ActorFaction::Enemy)
-                    };
+                    // A possessed actor's faction is flipped to `Player` at transfer
+                    // time (effective allegiance), so reading the component here also
+                    // covers possession — its swing damages its former allies through
+                    // the player-faction branch, with no possession special-case.
+                    let hitbox_faction = faction
+                        .copied()
+                        .unwrap_or(super::super::super::components::ActorFaction::Enemy);
                     // ONE strike spawn — the SAME `spawn_melee_strike` the player
                     // uses derives BOTH the damage hitbox AND the slash VFX from this
                     // one `attack_box`, so they can never diverge. Art KIND from the

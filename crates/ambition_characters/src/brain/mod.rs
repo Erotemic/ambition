@@ -79,6 +79,40 @@ impl PlayerSlot {
     }
 }
 
+/// The canonical slot-based controller input model: `PlayerSlot -> ControlFrame`.
+///
+/// This is the SINGLE source of player control. The body that consumes slot
+/// `S`'s frame is whichever entity carries [`Brain::Player`]`(S)` — the home
+/// avatar, a possessed NPC, or any future controlled body. Local
+/// keyboard/gamepad input populates [`PlayerSlot::PRIMARY`]; co-op /
+/// split-screen / netcode will fill higher slots via their own adapters.
+///
+/// Control authority flows THROUGH the brain: nothing reads "the primary
+/// player's input" to decide who acts. The universal-brain path looks up this
+/// resource by the ticking brain's slot, so possession is just brain transfer —
+/// no input-copy component, no possession-specific override.
+#[derive(bevy::ecs::resource::Resource, Clone, Copy, Debug, Default)]
+pub struct SlotControls {
+    slots: [ambition_input::ControlFrame; Self::MAX_SLOTS],
+}
+
+impl SlotControls {
+    /// Supported controller slots. Bumped when local multiplayer lands.
+    pub const MAX_SLOTS: usize = 4;
+
+    /// This slot's current controller frame (neutral for an unfilled slot).
+    pub fn get(&self, slot: PlayerSlot) -> ambition_input::ControlFrame {
+        self.slots.get(slot.0 as usize).copied().unwrap_or_default()
+    }
+
+    /// Publish a slot's controller frame. Out-of-range slots are ignored.
+    pub fn set(&mut self, slot: PlayerSlot, frame: ambition_input::ControlFrame) {
+        if let Some(entry) = self.slots.get_mut(slot.0 as usize) {
+            *entry = frame;
+        }
+    }
+}
+
 /// Identifies which brain backend drives an actor this tick.
 ///
 /// Brains are dispatched via enum match (not trait objects) to keep
@@ -242,6 +276,9 @@ impl bevy::app::Plugin for BrainPlugin {
     fn build(&self, app: &mut bevy::app::App) {
         app.add_message::<ActorActionMessage>();
         app.init_resource::<BrainActionCounter>();
+        // The slot-based controller input model. One entry per participant
+        // slot; the body carrying `Brain::Player(slot)` reads its frame.
+        app.init_resource::<SlotControls>();
     }
 }
 

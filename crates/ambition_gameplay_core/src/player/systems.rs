@@ -9,19 +9,39 @@ use super::events::PlayerHealRequested;
 use super::movement_components::{BodyGroundState, BodyKinematics};
 use crate::actor::{BodyCombat, BodyHealth};
 use crate::features::ActorPose;
-use ambition_characters::brain::{ActorControl, Brain, BrainSnapshot};
+use ambition_characters::brain::{ActorControl, Brain, BrainSnapshot, SlotControls};
 use ambition_engine_core as ae;
 use ambition_input::ControlFrame;
 
-/// Mirror the finalized global [`ControlFrame`] onto the local player's
-/// [`PlayerInputFrame`] component after the input pipeline finishes writing it.
+/// Publish the local device's finalized [`ControlFrame`] into the slot-based
+/// controller model as [`PlayerSlot::PRIMARY`]. This is the ONE place local
+/// input enters the canonical [`SlotControls`] resource; every controlled body
+/// reads its slot's frame from there via `Brain::Player`. Co-op / netcode add
+/// their own writers for higher slots without touching this one.
+pub fn populate_slot_controls(frame: Res<ControlFrame>, mut slots: ResMut<SlotControls>) {
+    slots.set(PlayerSlot::PRIMARY, *frame);
+}
+
+/// Mirror a controlled body's slot frame onto its [`PlayerInputFrame`] component.
+///
+/// `PlayerInputFrame` is the per-body view of "the input THIS body is receiving
+/// as a controlled body" — read by player-specific ability systems (held-item
+/// use, heal shrine, portal gun). It is sourced from [`SlotControls`] and gated
+/// on brain ownership: a body only receives its slot's frame while it carries
+/// `Brain::Player(slot)`. A vacated home avatar (its player brain transferred to
+/// a possessed actor) therefore sees NEUTRAL input and has no local attack
+/// authority — the mandate's "the vacated body must not act", derived from the
+/// brain rather than a possession run-condition.
 pub fn sync_local_player_input_frame(
-    frame: Res<ControlFrame>,
-    mut players: Query<&mut PlayerInputFrame, (With<PlayerEntity>, With<LocalPlayer>)>,
+    slots: Res<SlotControls>,
+    mut players: Query<(&mut PlayerInputFrame, Option<&Brain>), With<LocalPlayer>>,
 ) {
-    let snapshot = *frame;
-    for mut player_input in &mut players {
-        player_input.frame = snapshot;
+    for (mut player_input, brain) in &mut players {
+        player_input.frame = match brain.and_then(Brain::player_slot) {
+            Some(slot) => slots.get(slot),
+            // No player brain (vacated during possession): no local control.
+            None => ControlFrame::default(),
+        };
     }
 }
 
@@ -263,6 +283,7 @@ mod tests {
         use bevy::transform::components::Transform;
         let mut app = App::new();
         app.init_resource::<ControlFrame>();
+        app.init_resource::<SlotControls>();
         app.add_message::<ActorActionMessage>();
         let mut player = crate::player::primary_player_scratch(
             ae::Vec2::new(40.0, 60.0),
@@ -283,6 +304,7 @@ mod tests {
         app.add_systems(
             Update,
             (
+                populate_slot_controls,
                 sync_local_player_input_frame,
                 tick_player_brains,
                 emit_brain_action_messages,
@@ -335,6 +357,7 @@ mod tests {
         use bevy::transform::components::Transform;
         let mut app = App::new();
         app.init_resource::<ControlFrame>();
+        app.init_resource::<SlotControls>();
         app.add_message::<ActorActionMessage>();
         let mut player = crate::player::primary_player_scratch(
             ae::Vec2::new(40.0, 60.0),
@@ -358,6 +381,7 @@ mod tests {
         app.add_systems(
             Update,
             (
+                populate_slot_controls,
                 sync_local_player_input_frame,
                 tick_player_brains,
                 emit_brain_action_messages,
@@ -398,6 +422,7 @@ mod tests {
     fn player_brain_seam_translates_control_frame_to_actor_control() {
         let mut app = App::new();
         app.init_resource::<ControlFrame>();
+        app.init_resource::<SlotControls>();
         let mut player = crate::player::primary_player_scratch(
             ae::Vec2::new(100.0, 100.0),
             ae::AbilitySet::sandbox_all(),
@@ -419,7 +444,12 @@ mod tests {
         app.world_mut().spawn(bundle);
         app.add_systems(
             Update,
-            (sync_local_player_input_frame, tick_player_brains).chain(),
+            (
+                populate_slot_controls,
+                sync_local_player_input_frame,
+                tick_player_brains,
+            )
+                .chain(),
         );
 
         // Stamp the control frame with a known input.

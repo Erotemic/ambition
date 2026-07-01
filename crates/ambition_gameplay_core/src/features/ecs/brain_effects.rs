@@ -57,10 +57,7 @@ pub fn spawn_enemy_projectiles_from_brain_actions(
     mut messages: MessageReader<ActorActionMessage>,
     mut effects: MessageWriter<crate::effects::EffectRequest>,
     mut sfx: MessageWriter<SfxMessage>,
-    mut actors: Query<(
-        &super::super::components::ActorDisposition,
-        Option<super::actor_clusters::ActorClusterQueryData>,
-    )>,
+    mut actors: Query<Option<super::actor_clusters::ActorClusterQueryData>>,
     held_items: Query<&super::HeldItem>,
 ) {
     for msg in messages.read() {
@@ -73,17 +70,17 @@ pub fn spawn_enemy_projectiles_from_brain_actions(
         else {
             continue;
         };
-        let Ok((disposition, clusters)) = actors.get_mut(msg.actor) else {
+        let Ok(clusters) = actors.get_mut(msg.actor) else {
             // Message references an actor that no longer exists
             // (despawned this frame). Skip silently.
             continue;
         };
-        if disposition.is_peaceful() {
-            // Peaceful actor emitting a Ranged action — would happen
-            // only via test fixtures or a future "possessed-NPC"
-            // path. Not in scope for this consumer.
-            continue;
-        }
+        // Capability, not AI policy: the actor fires because it OWNS a ranged
+        // `ActionSet` slot (the upstream resolver only emits `Ranged` for a body
+        // whose `ActionSet.ranged.is_some()`). A player possessing a peaceful NPC
+        // fires its authored weapon; an autonomous peaceful NPC has no ranged
+        // slot, so it emits nothing. Disposition (attack-or-not while autonomous)
+        // is the BRAIN's business, not this effect consumer's.
         let Some(mut cq) = clusters else {
             continue;
         };
@@ -187,23 +184,22 @@ pub fn spawn_enemy_projectiles_from_brain_actions(
 /// `apply_hitbox_damage` resolves the overlap once per strike.
 pub fn start_enemy_melee_from_brain_actions(
     mut messages: MessageReader<ActorActionMessage>,
-    mut actors: Query<(
-        &super::super::components::ActorDisposition,
-        Option<super::actor_clusters::ActorClusterQueryData>,
-    )>,
+    mut actors: Query<Option<super::actor_clusters::ActorClusterQueryData>>,
 ) {
     for msg in messages.read() {
         let ActionRequest::Melee { attack_axis, .. } = msg.request else {
             continue;
         };
-        let Ok((disposition, clusters)) = actors.get_mut(msg.actor) else {
+        let Ok(clusters) = actors.get_mut(msg.actor) else {
             continue;
         };
-        if disposition.is_peaceful() {
-            // Peaceful actors never produce Melee messages today
-            // (their ActionSet is empty); skip defensively.
-            continue;
-        }
+        // Capability, not AI policy: a body with a melee `ActionSet` slot swings
+        // when its controller (AI brain, or a possessing human) presses attack.
+        // The upstream resolver only emits `Melee` for a body whose
+        // `ActionSet.melee.is_some()`, and `begin_melee_attack` keeps the
+        // cooldown/alive gate — so a possessed peaceful NPC can throw its
+        // authored punch, while an autonomous peaceful NPC (empty ActionSet)
+        // emits nothing. Disposition is the brain's concern, not this consumer's.
         let Some(mut cq) = clusters else {
             continue;
         };

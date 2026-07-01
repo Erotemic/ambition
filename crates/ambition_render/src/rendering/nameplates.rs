@@ -172,8 +172,8 @@ pub fn sync_actor_nameplates(
     camera: Option<Res<CameraViewState>>,
     feature_views: Option<Res<FeatureViewIndex>>,
     ui_fonts: Option<Res<UiFonts>>,
-    possession: Option<
-        Res<ambition_gameplay_core::abilities::traversal::possession::PossessionState>,
+    controlled: Option<
+        Res<ambition_gameplay_core::abilities::traversal::possession::ControlledSubject>,
     >,
     primary_player: Query<Entity, PrimaryPlayerOnly>,
     actors: Query<
@@ -212,7 +212,7 @@ pub fn sync_actor_nameplates(
             .as_deref()
             .map(|active| &active.0.nameplate_policy),
     );
-    let controlled_actor = camera_controlled_actor(possession.as_deref(), &primary_player);
+    let controlled_actor = camera_controlled_actor(controlled.as_deref(), &primary_player);
     let focus_world = camera
         .as_deref()
         .map_or(ae::Vec2::ZERO, |camera| camera.target_world);
@@ -442,15 +442,18 @@ fn hide_all_nameplates(
 }
 
 fn camera_controlled_actor(
-    possession: Option<&ambition_gameplay_core::abilities::traversal::possession::PossessionState>,
+    controlled: Option<
+        &ambition_gameplay_core::abilities::traversal::possession::ControlledSubject,
+    >,
     primary_player: &Query<Entity, PrimaryPlayerOnly>,
 ) -> Option<Entity> {
-    // Current presentation has one main camera: it follows the possessed actor
-    // when possession is active, otherwise the primary player body. When the
-    // game gains per-camera associations, this function is the only resolver
-    // that should need to change.
-    possession
-        .and_then(|state| state.possessed)
+    // The main camera follows the CONTROLLED SUBJECT — the body carrying
+    // `Brain::Player(PRIMARY)` (the possessed actor while possessing, else the
+    // home avatar). The primary-player fallback covers the startup frame before
+    // the subject resolver has run. When the game gains per-camera associations,
+    // this resolver is the only place that should need to change.
+    controlled
+        .and_then(|subject| subject.0)
         .or_else(|| primary_player.single().ok())
 }
 

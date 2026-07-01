@@ -219,17 +219,20 @@ pub fn configure_sandbox_sets(app: &mut App) {
 
     // Input populate contract (ambition_input::InputSet): every system that
     // WRITES the `ControlFrame` resource lives in `InputSet::Populate`, and the
-    // whole set is pinned BEFORE the gameplay consume boundary
-    // (`sync_local_player_input_frame`, which snapshots `ControlFrame` into the
-    // player's `PlayerInputFrame`). This is ADDITIVE: every tagged writer
-    // already ran before that consumer (device populate + touch fold run
-    // `.before(CoreSimulation)`; the portal write-back and edge-derived flags
-    // run earlier in the `PlayerInput` chain `.before` the consumer). Naming the
+    // whole set is pinned BEFORE the gameplay consume boundary. That boundary is
+    // now `populate_slot_controls` — the FIRST reader of the finalized
+    // `ControlFrame`, publishing it into the slot-based controller model
+    // (`SlotControls[PRIMARY]`). `sync_local_player_input_frame` (SlotControls →
+    // the controlled body's `PlayerInputFrame`) is chained after it, so it
+    // inherits the ordering. This is ADDITIVE: every tagged writer already ran
+    // before that consumer (device populate + touch fold run
+    // `.before(CoreSimulation)`; the portal write-back and edge-derived flags run
+    // earlier in the `PlayerInput` chain `.before` the consumer). Naming the
     // window makes it structurally impossible for a `ControlFrame` writer to
     // float past the consume and stamp stale input over the fresh frame — the
     // Move-axis regression this contract exists to prevent.
     app.configure_sets(
         Update,
-        ambition_input::InputSet::Populate.before(crate::player::sync_local_player_input_frame),
+        ambition_input::InputSet::Populate.before(crate::player::populate_slot_controls),
     );
 }

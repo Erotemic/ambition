@@ -1,55 +1,79 @@
-//! Possession — Down + Interact takes over a nearby non-boss actor.
+//! Possession — Down + Interact transfers the player's controller brain onto a
+//! nearby non-boss actor.
 //!
-//! The possessed actor's **own** `ActorControlFrame` is driven from the player's
-//! `ControlFrame` (via [`ambition_characters::brain::player::tick_player_brain_from_control`]),
-//! so it moves and attacks through its own update path in `update_ecs_actors` —
-//! the honest "drive any actor's control path" unification the universal-brain
-//! seam was built for (an `ActorControlFrame` field's doc literally calls out
-//! "a possessed goblin"). The player's own control phase is suppressed while
-//! possessing so input drives the possessed actor, not both bodies.
+//! Possession is NOT input-copying. It is **brain transfer**. On possess we move
+//! [`Brain::Player`]`(PlayerSlot::PRIMARY)` off the home avatar and onto the
+//! target actor. The target then reads slot-0 input through the SAME
+//! universal-brain path every player-controlled body uses:
+//! `Brain::Player` → [`SlotControls`] → its own `ActorControl` → its own
+//! `ActionSet`. It moves, attacks, and fires through its own body path — no
+//! `Possessed` marker, no input mirror, no possession-specific override in the
+//! actor tick.
+//!
+//! The home avatar, now without a player brain, is inert (a neutral
+//! `ActorControl`, no local attack authority) until release restores its brain.
+//!
+//! Everything downstream — camera, portal viewer, nameplates, the melee
+//! lifecycle — derives from [`ControlledSubject`], i.e. "who carries
+//! `Brain::Player(PRIMARY)` this frame", never from a possession flag. That is
+//! the whole point: possession is proof that control is actor-generic.
 //!
 //! Bounded to **non-boss** actors: bosses still `unreachable!()` on
 //! `Brain::Player` (`crate::features::ecs::bosses::tick`), so they're excluded
-//! from the candidate set. The 2s hold, camera follow, and body-vacate visuals from
-//! the TODO are a handoff; this is the control slice + its verification.
+//! from the candidate set.
 
 use bevy::prelude::*;
 
+use ambition_characters::brain::{ActorControl, Brain, PlayerSlot};
+
 use crate::actor::BodyKinematics;
 use crate::actor::{PlayerEntity, PrimaryPlayer};
-use crate::player::PlayerInputFrame;
-use ambition_input::ControlFrame;
+use crate::features::{ActorFaction, BossConfig, CenteredAabb, FeatureSimEntity};
 
-/// Marker on the actor the player is currently possessing. Carries the latest
-/// player `ControlFrame`, synced each frame by [`sync_possession_input`] (which
-/// holds `Res<ControlFrame>`), so the already-large `update_ecs_actors` reads it
-/// as a query field instead of growing another top-level system param.
+/// Brain-transfer bookkeeping for possession.
 ///
-/// `original_faction` is the actor's faction before possession; while possessed
-/// the actor is flipped to [`ActorFaction::Player`] so it fights its former
-/// allies (its attacks become player-faction through the shared
-/// `apply_hitbox_damage` / faction-aware projectile paths), restored on release.
-#[derive(Component, Clone, Copy)]
-pub struct Possessed {
-    pub control: ControlFrame,
-    pub original_faction: crate::features::ActorFaction,
-}
-
-/// Who the player is possessing (`None` = controlling their own body).
+/// `controlled == None` means the local player drives the home avatar;
+/// `Some(actor)` means slot-0's brain has been transferred to `actor`. The
+/// remaining fields remember what to restore on release. This resource is
+/// possession-INTERNAL: no gameplay/presentation system branches on it. Ask
+/// [`ControlledSubject`] instead.
 #[derive(Resource, Default)]
 pub struct PossessionState {
+    /// The actor currently possessed (its `Brain::Player(PRIMARY)` was
+    /// transferred here), or `None` while driving the home avatar.
     pub possessed: Option<Entity>,
+    /// The home avatar whose player brain was vacated, restored on release.
+    pub home: Option<Entity>,
+    /// The possessed actor's brain before transfer, restored on release.
+    pub restore_brain: Option<Brain>,
+    /// The possessed actor's faction before transfer, restored on release.
+    pub restore_faction: Option<ActorFaction>,
 }
 
-/// True while the player is possessing another actor.
-pub fn possession_active(state: Res<PossessionState>) -> bool {
-    state.possessed.is_some()
-}
+/// The entity carrying `Brain::Player(PlayerSlot::PRIMARY)` this frame — the body
+/// the local player is driving. Derived from ECS brain state each frame by
+/// [`resolve_controlled_subject`]; the camera, portal viewer, nameplate resolver,
+/// and player melee lifecycle read THIS, not `PrimaryPlayer` + a possession
+/// override.
+///
+/// `None` only in the startup window before any player brain exists.
+#[derive(Resource, Default, Clone, Copy)]
+pub struct ControlledSubject(pub Option<Entity>);
 
-/// Inverse of [`possession_active`] — the player's own control phase runs only
-/// while NOT possessing, so the same input doesn't drive both bodies.
-pub fn not_possessing(state: Res<PossessionState>) -> bool {
-    state.possessed.is_none()
+/// Derive [`ControlledSubject`] from the ECS: the entity carrying
+/// `Brain::Player(PRIMARY)`. Runs early each frame; there is exactly one such
+/// entity during normal play (the home avatar, or the possessed actor while
+/// possessing). A one-frame lag across a possess/release transition (commands
+/// apply at a later sync point) is benign — no consumer double-acts, because
+/// each body only emits actions for itself and only when it carries the brain.
+pub fn resolve_controlled_subject(
+    brains: Query<(Entity, &Brain)>,
+    mut subject: ResMut<ControlledSubject>,
+) {
+    subject.0 = brains
+        .iter()
+        .find(|(_, brain)| brain.player_slot() == Some(PlayerSlot::PRIMARY))
+        .map(|(entity, _)| entity);
 }
 
 /// Possession reach (px): Down+Interact possesses the nearest candidate within this.
@@ -59,13 +83,6 @@ const POSSESS_RADIUS: f32 = 150.0;
 /// commit a possession. A deliberate gesture so you don't possess by brushing
 /// the button mid-fight; releasing fully is instant (a single press).
 const POSSESS_HOLD_S: f32 = 2.0;
-
-/// Walk speed (px/s) a possessed actor moves at. `tick_player_brain_from_control`
-/// emits `desired_vel` as a *direction* (the player's input axis, in `[-1, 1]`)
-/// because the player's own integration scales it — but an enemy/NPC integration
-/// approaches `desired_vel` directly, so the possession path must scale the axis
-/// to a real speed or the body crawls. Shared by the enemy + NPC drive paths.
-pub const POSSESSED_MOVE_SPEED: f32 = 180.0;
 
 /// Stick deflection (gravity-resolved "down") past which the player counts as
 /// holding **Down** for the possession gesture — the same threshold drop-through
@@ -91,78 +108,63 @@ pub fn holding_descend(
 }
 
 /// `Down + Interact` controls possession: **hold ~2s** (with a candidate in
-/// range) to take over the nearest non-boss actor; press it again to release.
-/// `Down` is the gravity-resolved descend axis past [`POSSESS_DOWN_THRESHOLD`].
-/// The hold runs on real time (`raw_dt`) so bullet-time doesn't change the feel.
+/// range) to transfer your controller brain onto the nearest non-boss actor;
+/// press it again to release. `Down` is the gravity-resolved descend axis past
+/// [`POSSESS_DOWN_THRESHOLD`]. The hold runs on real time (`raw_dt`) so
+/// bullet-time doesn't change the feel.
+///
+/// The gesture belongs to slot 0, so it reads the local device frame
+/// (`Res<ControlFrame>`) directly rather than any body's input — the home avatar
+/// is inert (neutral input) while vacated, but the local device still drives the
+/// release.
+#[allow(clippy::too_many_arguments)]
 pub fn possession_trigger_system(
+    control: Res<ambition_input::ControlFrame>,
     gravity_field: Option<Res<crate::physics::GravityField>>,
-    // Optional: headless / unit-test apps may omit the settings resource. Absent →
-    // Hybrid (the historical behavior).
     user_settings: Option<Res<crate::persistence::settings::UserSettings>>,
     world_time: Res<crate::WorldTime>,
     mut hold_timer: Local<f32>,
     mut prev_down_interact: Local<bool>,
     mut state: ResMut<PossessionState>,
     mut commands: Commands,
-    // The possessor's own intent: the gesture belongs to the primary player, so
-    // read their actor-local `PlayerInputFrame` rather than the global frame.
-    player_input: Query<&PlayerInputFrame, (With<PlayerEntity>, With<PrimaryPlayer>)>,
-    mut players: Query<&mut BodyKinematics, (With<PlayerEntity>, With<PrimaryPlayer>)>,
+    // Home avatar kinematics: its position seeds the candidate search, and on
+    // release it steps out to the vacated actor's spot (camera continuity).
+    mut home_q: Query<(Entity, &mut BodyKinematics), (With<PlayerEntity>, With<PrimaryPlayer>)>,
+    // Possession candidates: non-boss, brain-driven feature bodies.
     candidates: Query<
-        (Entity, &crate::features::CenteredAabb),
+        (Entity, &CenteredAabb),
         (
-            With<crate::features::FeatureSimEntity>,
-            With<ambition_characters::brain::ActorControl>,
-            Without<crate::features::BossConfig>,
+            With<FeatureSimEntity>,
+            With<ActorControl>,
+            With<Brain>,
+            Without<BossConfig>,
+            Without<PlayerEntity>,
         ),
     >,
-    mut factions: Query<&mut crate::features::ActorFaction>,
-    possessed_q: Query<&Possessed>,
-    // Read-only AABB lookup for the *vacate exit*: on release the player steps
-    // out where the possessed actor stands, so the camera (which follows the
-    // actor while possessing) doesn't snap back to the abandoned body.
-    actor_aabb: Query<&crate::features::CenteredAabb>,
+    // The target's authored brain + faction, snapshotted for restore on release.
+    target_data: Query<(&Brain, &ActorFaction)>,
+    // Read-only AABB lookup for the vacate exit on release.
+    actor_aabbs: Query<&CenteredAabb>,
 ) {
-    // No primary player yet → neutral input (no possession gesture).
-    let frame = player_input.single().map(|i| i.frame).unwrap_or_default();
     let gravity_dir = crate::physics::gravity_dir_or_default(gravity_field.as_deref());
     let movement_mode = user_settings.as_deref().map_or(
         ambition_engine_core::InputFrameMode::DEFAULT_MOVEMENT,
         |s| s.gameplay.movement_frame_mode,
     );
-    let down = holding_descend(frame.axis_x, frame.axis_y, gravity_dir, movement_mode);
+    let down = holding_descend(control.axis_x, control.axis_y, gravity_dir, movement_mode);
     // The gesture is a HOLD, so it accumulates on the interact button being
-    // HELD — not the single-frame `interact_pressed` rising edge (which is also
-    // consumed by doors / the heal-shrine and would reset the hold timer every
-    // frame, so the 2s threshold was never reached in-game). The release is the
-    // rising edge of (down + held), tracked via `prev_down_interact`.
-    let down_interact = down && frame.interact_held;
+    // HELD — not the single-frame `interact_pressed` edge (which doors / the
+    // heal-shrine also consume, resetting the hold every frame). The release is
+    // the rising edge of (down + held), tracked via `prev_down_interact`.
+    let down_interact = down && control.interact_held;
     let release_edge = down_interact && !*prev_down_interact;
     *prev_down_interact = down_interact;
 
     // Already possessing → a fresh Down+Interact press releases (no hold).
-    if state.possessed.is_some() {
+    if let Some(target) = state.possessed {
         *hold_timer = 0.0;
         if release_edge {
-            if let Some(entity) = state.possessed.take() {
-                // Vacate exit: step the player's body out where the possessed
-                // actor stands. The camera was following the actor, so without
-                // this the view (and your body) would snap back to wherever you
-                // first possessed from — jarring if the actor roamed. You leave
-                // the actor where it is; it reverts to its own brain beside you.
-                if let (Ok(aabb), Ok(mut pk)) = (actor_aabb.get(entity), players.single_mut()) {
-                    pk.pos = aabb.center;
-                    pk.vel = ambition_engine_core::Vec2::ZERO;
-                }
-                // Restore the actor's original faction, then drop the marker.
-                let original = possessed_q.get(entity).ok().map(|p| p.original_faction);
-                if let (Some(original), Ok(mut faction)) = (original, factions.get_mut(entity)) {
-                    *faction = original;
-                }
-                if let Ok(mut ec) = commands.get_entity(entity) {
-                    ec.remove::<Possessed>();
-                }
-            }
+            release_possession(&mut commands, &mut state, target, &actor_aabbs, &mut home_q);
         }
         return;
     }
@@ -178,60 +180,114 @@ pub fn possession_trigger_system(
     }
     *hold_timer = 0.0;
 
-    let Ok(kin) = players.single() else {
+    let Ok((home_entity, home_kin)) = home_q.single() else {
         return;
     };
+    let home_pos = home_kin.pos;
     let nearest = candidates
         .iter()
-        .map(|(e, aabb)| (e, (aabb.center - kin.pos).length()))
-        .filter(|(_, d)| *d <= POSSESS_RADIUS)
+        .map(|(entity, aabb)| (entity, (aabb.center - home_pos).length()))
+        .filter(|(_, dist)| *dist <= POSSESS_RADIUS)
         .min_by(|a, b| a.1.total_cmp(&b.1));
-    if let Some((entity, _)) = nearest {
-        // Flip the actor to the player's side so it now fights its former
-        // allies; remember the original faction to restore on release.
-        if let Ok(mut faction) = factions.get_mut(entity) {
-            let original = *faction;
-            *faction = crate::features::ActorFaction::Player;
-            commands.entity(entity).insert(Possessed {
-                control: frame,
-                original_faction: original,
-            });
-            state.possessed = Some(entity);
-        }
-    }
-}
-
-/// Mirror the player's input onto the possessed actor each frame, before
-/// `update_ecs_actors` reads it to drive that actor.
-pub fn sync_possession_input(
-    player_input: Query<&PlayerInputFrame, (With<PlayerEntity>, With<PrimaryPlayer>)>,
-    mut possessed: Query<&mut Possessed>,
-) {
-    let Ok(input) = player_input.single() else {
+    let Some((target, _)) = nearest else {
         return;
     };
-    for mut p in &mut possessed {
-        p.control = input.frame;
+    let Ok((target_brain, target_faction)) = target_data.get(target) else {
+        return;
+    };
+
+    // BRAIN TRANSFER. Remember what to restore, then move the player brain from
+    // the home avatar to the target. Both bodies get a fresh neutral
+    // `ActorControl` so no stale edge-triggered intent (a held jump, a pressed
+    // attack) leaks across the handover.
+    state.home = Some(home_entity);
+    state.restore_brain = Some(target_brain.clone());
+    state.restore_faction = Some(*target_faction);
+    state.possessed = Some(target);
+
+    commands
+        .entity(home_entity)
+        .remove::<Brain>()
+        .insert(ActorControl::default());
+    commands
+        .entity(target)
+        .insert(Brain::Player(PlayerSlot::PRIMARY))
+        .insert(ActorControl::default())
+        // Effective allegiance: while controlled by the player, the body IS
+        // player-aligned — it fights its former allies and they fight it,
+        // resolved entirely through the existing `ActorFaction` +
+        // `FactionRelations` damage/targeting system. Restored on release.
+        .insert(ActorFaction::Player);
+}
+
+/// Restore the home avatar's player brain and the target's authored brain +
+/// faction, then step the home body out to the vacated actor's position so the
+/// camera (which was following the actor) doesn't snap back.
+fn release_possession(
+    commands: &mut Commands,
+    state: &mut PossessionState,
+    target: Entity,
+    actor_aabbs: &Query<&CenteredAabb>,
+    home_q: &mut Query<(Entity, &mut BodyKinematics), (With<PlayerEntity>, With<PrimaryPlayer>)>,
+) {
+    state.possessed = None;
+
+    // Restore the actor's authored brain + faction, clearing stale edges.
+    if let Some(brain) = state.restore_brain.take() {
+        if let Ok(mut ec) = commands.get_entity(target) {
+            ec.insert(brain).insert(ActorControl::default());
+        }
+    }
+    if let Some(faction) = state.restore_faction.take() {
+        if let Ok(mut ec) = commands.get_entity(target) {
+            ec.insert(faction);
+        }
+    }
+
+    // Restore the home avatar's player brain and vacate-exit to the actor's spot.
+    if let Some(home) = state.home.take() {
+        if let Ok(mut ec) = commands.get_entity(home) {
+            ec.insert(Brain::Player(PlayerSlot::PRIMARY))
+                .insert(ActorControl::default());
+        }
+        if let (Ok(aabb), Ok((_, mut kin))) = (actor_aabbs.get(target), home_q.get_mut(home)) {
+            kin.pos = aabb.center;
+            kin.vel = ambition_engine_core::Vec2::ZERO;
+        }
     }
 }
 
-/// Clear the possession when the possessed actor is gone (despawned / died), so
-/// the player isn't stranded controlling nothing. Runs each frame.
+/// If the possessed actor is gone (despawned / removed), hand control back to
+/// the home avatar so the player isn't stranded driving nothing. The actor's
+/// brain can't be restored (it's gone); only the home brain is re-attached.
 pub fn release_possession_if_target_lost(
     mut state: ResMut<PossessionState>,
-    possessed: Query<(), With<Possessed>>,
+    mut commands: Commands,
+    still_present: Query<(), With<Brain>>,
 ) {
-    if let Some(entity) = state.possessed {
-        if possessed.get(entity).is_err() {
-            state.possessed = None;
+    let Some(target) = state.possessed else {
+        return;
+    };
+    if still_present.get(target).is_ok() {
+        return;
+    }
+    // Target vanished mid-possession.
+    if let Some(home) = state.home.take() {
+        if let Ok(mut ec) = commands.get_entity(home) {
+            ec.insert(Brain::Player(PlayerSlot::PRIMARY))
+                .insert(ActorControl::default());
         }
     }
+    state.possessed = None;
+    state.restore_brain = None;
+    state.restore_faction = None;
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
     use crate::actor::BodyBaseSize;
+    use ambition_characters::brain::{PlayerSlot, StateMachineCfg};
 
     fn vec2(x: f32, y: f32) -> ambition_engine_core::Vec2 {
         ambition_engine_core::Vec2::new(x, y)
@@ -240,22 +296,26 @@ mod tests {
     /// App with the trigger + 1s/frame real time, so 2 held frames clear the 2s hold.
     fn trigger_app() -> App {
         let mut app = App::new();
-        app.insert_resource(ControlFrame::default());
+        app.insert_resource(ambition_input::ControlFrame::default());
         app.insert_resource(crate::WorldTime {
             raw_dt: 1.0,
             scaled_dt: 1.0,
         });
         app.init_resource::<PossessionState>();
-        app.add_systems(Update, possession_trigger_system);
+        app.add_systems(
+            Update,
+            (possession_trigger_system, release_possession_if_target_lost).chain(),
+        );
         app
     }
 
-    fn spawn_player(app: &mut App) -> Entity {
+    fn spawn_home(app: &mut App) -> Entity {
         app.world_mut()
             .spawn((
                 PlayerEntity,
                 PrimaryPlayer,
-                PlayerInputFrame::default(),
+                Brain::Player(PlayerSlot::PRIMARY),
+                ActorControl::default(),
                 BodyKinematics {
                     pos: vec2(0.0, 0.0),
                     vel: vec2(0.0, 0.0),
@@ -272,116 +332,226 @@ mod tests {
     fn spawn_candidate(app: &mut App, pos: ambition_engine_core::Vec2) -> Entity {
         app.world_mut()
             .spawn((
-                crate::features::FeatureSimEntity,
-                crate::features::CenteredAabb::new(pos, vec2(12.0, 16.0)),
-                ambition_characters::brain::ActorControl::default(),
-                crate::features::ActorFaction::Enemy,
+                FeatureSimEntity,
+                CenteredAabb::new(pos, vec2(12.0, 16.0)),
+                Brain::StateMachine(StateMachineCfg::StandStill),
+                ActorControl::default(),
+                ActorFaction::Enemy,
             ))
             .id()
     }
 
-    fn faction_of(app: &App, e: Entity) -> crate::features::ActorFaction {
-        *app.world().get::<crate::features::ActorFaction>(e).unwrap()
+    fn brain_slot(app: &App, e: Entity) -> Option<PlayerSlot> {
+        app.world().get::<Brain>(e).and_then(|b| b.player_slot())
     }
 
-    fn hold_down_interact(app: &mut App, player: Entity, held: bool) {
-        let mut input = app.world_mut().get_mut::<PlayerInputFrame>(player).unwrap();
-        input.frame.axis_y = if held { 1.0 } else { 0.0 };
-        // The gesture accumulates on the HELD interact button (the trigger reads
-        // `interact_held`, not the single-frame `interact_pressed` edge).
-        input.frame.interact_held = held;
+    fn faction_of(app: &App, e: Entity) -> ActorFaction {
+        *app.world().get::<ActorFaction>(e).unwrap()
     }
 
-    fn possessed(app: &App) -> Option<Entity> {
-        app.world().resource::<PossessionState>().possessed
+    fn hold_down_interact(app: &mut App, held: bool) {
+        let mut control = app
+            .world_mut()
+            .resource_mut::<ambition_input::ControlFrame>();
+        control.axis_y = if held { 1.0 } else { 0.0 };
+        control.interact_held = held;
     }
 
     #[test]
-    fn holding_down_interact_possesses_then_a_press_releases() {
+    fn possession_transfers_the_player_brain_and_release_restores_it() {
         let mut app = trigger_app();
-        let player = spawn_player(&mut app);
+        let home = spawn_home(&mut app);
         let actor = spawn_candidate(&mut app, vec2(80.0, 0.0)); // in range
 
-        // Hold Down+Interact: 1s, then 2s → crosses the 2s threshold → possess.
-        hold_down_interact(&mut app, player, true);
+        // Before possession: home carries the player brain; the actor its own.
+        assert_eq!(brain_slot(&app, home), Some(PlayerSlot::PRIMARY));
+        assert_eq!(brain_slot(&app, actor), None);
+
+        // Hold Down+Interact: 1s, then 2s → crosses the threshold → possess.
+        hold_down_interact(&mut app, true);
         app.update(); // hold_timer = 1.0
-        assert_eq!(possessed(&app), None, "not possessed mid-hold");
-        app.update(); // hold_timer = 2.0 ≥ threshold → possess
+        assert_eq!(brain_slot(&app, actor), None, "not possessed mid-hold");
+        app.update(); // hold_timer = 2.0 ≥ threshold → transfer
+
+        // After possession: the ACTOR carries the player brain; the home avatar
+        // no longer does; the actor is player-aligned; its old brain is stashed.
+        assert_eq!(brain_slot(&app, actor), Some(PlayerSlot::PRIMARY));
         assert_eq!(
-            possessed(&app),
-            Some(actor),
-            "a full ~2s hold possesses the nearest candidate"
+            brain_slot(&app, home),
+            None,
+            "home avatar's player brain is vacated"
         );
-        assert!(app.world().get::<Possessed>(actor).is_some());
-        // The possessed enemy flips to the player's side so it fights its allies.
+        assert!(app.world().get::<Brain>(home).is_none());
+        assert_eq!(faction_of(&app, actor), ActorFaction::Player);
         assert_eq!(
-            faction_of(&app, actor),
-            crate::features::ActorFaction::Player,
-            "possession flips the actor to the player's faction"
+            app.world().resource::<PossessionState>().possessed,
+            Some(actor)
+        );
+        // The REPORTED BUG's root cause is gone: the vacated home avatar has a
+        // neutral `ActorControl` and no brain to repopulate it, so it emits no
+        // melee/attack this frame or any frame while possessed — attack authority
+        // can only originate from the body carrying `Brain::Player`.
+        assert_eq!(
+            app.world().get::<ActorControl>(home).map(|c| c.0),
+            Some(ambition_characters::actor::control::ActorControlFrame::neutral()),
+            "vacated home avatar's control frame is cleared — no attack authority"
         );
 
-        // Release the button, then a fresh press releases possession.
-        hold_down_interact(&mut app, player, false);
+        // Release: a fresh Down+Interact press hands control back.
+        hold_down_interact(&mut app, false);
         app.update();
-        hold_down_interact(&mut app, player, true);
+        hold_down_interact(&mut app, true);
         app.update();
+
         assert_eq!(
-            possessed(&app),
+            brain_slot(&app, home),
+            Some(PlayerSlot::PRIMARY),
+            "release restores the home avatar's player brain"
+        );
+        assert_eq!(
+            brain_slot(&app, actor),
             None,
-            "a fresh Down+Interact press releases"
+            "release restores the actor's autonomous brain"
         );
-        assert!(app.world().get::<Possessed>(actor).is_none());
-        assert_eq!(
-            faction_of(&app, actor),
-            crate::features::ActorFaction::Enemy,
-            "release restores the actor's original faction"
-        );
-        // Vacate exit: the player's body stepped out where the actor stood
-        // (candidate spawned at x=80), not back at its origin (x=0), so the
-        // camera that was following the actor doesn't snap back to the old body.
-        let player_pos = app
+        assert_eq!(faction_of(&app, actor), ActorFaction::Enemy);
+        assert!(app
+            .world()
+            .resource::<PossessionState>()
+            .possessed
+            .is_none());
+        // Vacate exit: the home avatar stepped out where the actor stood.
+        let home_pos = app
             .world_mut()
             .query_filtered::<&BodyKinematics, With<PlayerEntity>>()
             .single(app.world())
             .unwrap()
             .pos;
+        assert_eq!(home_pos, vec2(80.0, 0.0));
+    }
+
+    #[test]
+    fn exactly_one_body_carries_the_player_brain_before_and_after() {
+        let mut app = trigger_app();
+        app.init_resource::<ControlledSubject>();
+        app.add_systems(Update, resolve_controlled_subject);
+        let home = spawn_home(&mut app);
+        let actor = spawn_candidate(&mut app, vec2(80.0, 0.0));
+        app.update();
+        assert_eq!(app.world().resource::<ControlledSubject>().0, Some(home));
+
+        hold_down_interact(&mut app, true);
+        app.update(); // hold_timer = 1.0
+        app.update(); // hold_timer = 2.0 → brain transfer commands queued
+        app.update(); // transfer applied; resolver re-derives the subject
         assert_eq!(
-            player_pos,
-            vec2(80.0, 0.0),
-            "player vacates to the possessed actor's position on release"
+            app.world().resource::<ControlledSubject>().0,
+            Some(actor),
+            "controlled subject follows the player brain onto the possessed actor"
         );
     }
 
     #[test]
     fn a_brief_tap_does_not_possess() {
         let mut app = trigger_app();
-        let player = spawn_player(&mut app);
-        spawn_candidate(&mut app, vec2(80.0, 0.0));
-        // One frame held (1s < 2s), then released → no possession.
-        hold_down_interact(&mut app, player, true);
+        let _home = spawn_home(&mut app);
+        let actor = spawn_candidate(&mut app, vec2(80.0, 0.0));
+        hold_down_interact(&mut app, true);
         app.update();
-        hold_down_interact(&mut app, player, false);
+        hold_down_interact(&mut app, false);
         app.update();
-        assert_eq!(
-            possessed(&app),
-            None,
-            "a brief tap doesn't commit a possession"
-        );
+        assert_eq!(brain_slot(&app, actor), None, "a brief tap doesn't possess");
     }
 
     #[test]
     fn out_of_range_actors_are_not_possessed() {
         let mut app = trigger_app();
-        let player = spawn_player(&mut app);
-        spawn_candidate(&mut app, vec2(900.0, 0.0)); // far out of POSSESS_RADIUS
-        hold_down_interact(&mut app, player, true);
+        let _home = spawn_home(&mut app);
+        let actor = spawn_candidate(&mut app, vec2(900.0, 0.0)); // far out of range
+        hold_down_interact(&mut app, true);
         app.update();
         app.update();
         app.update();
         assert_eq!(
-            possessed(&app),
+            brain_slot(&app, actor),
             None,
-            "no candidate in range → nothing possessed"
+            "nothing in range → no transfer"
         );
+    }
+
+    /// The mandate's headline invariant: while controlling a possessed target,
+    /// pressing attack emits `ActorActionMessage` for the TARGET, and the vacated
+    /// home avatar emits nothing. The collapse of the bug: attack authority
+    /// follows the body carrying `Brain::Player`, resolved by the SAME
+    /// `emit_brain_action_messages` stream for every body.
+    #[test]
+    fn attack_while_controlling_target_emits_only_for_the_target() {
+        use ambition_characters::actor::ActorPose;
+        use ambition_characters::brain::{
+            emit_brain_action_messages, ActionSet, ActorActionMessage, MeleeActionSpec, SwipeSpec,
+        };
+
+        let mut app = App::new();
+        app.add_message::<ActorActionMessage>();
+        let kit = ActionSet {
+            melee: Some(MeleeActionSpec::Swipe(SwipeSpec::STRIKER_DEFAULT)),
+            ..Default::default()
+        };
+        // Vacated home avatar: neutral control (its brain was transferred away),
+        // but it still owns a melee ActionSet + a pose.
+        let home = app
+            .world_mut()
+            .spawn((ActorControl::default(), kit.clone(), ActorPose::default()))
+            .id();
+        // Possessed target: its `Brain::Player` produced a melee-pressed frame.
+        let mut frame = ambition_characters::actor::control::ActorControlFrame::neutral();
+        frame.melee_pressed = true;
+        frame.facing = 1.0;
+        let target = app
+            .world_mut()
+            .spawn((ActorControl(frame), kit, ActorPose::default()))
+            .id();
+
+        app.add_systems(Update, emit_brain_action_messages);
+        app.update();
+
+        let msgs: Vec<_> = app
+            .world_mut()
+            .resource_mut::<bevy::ecs::message::Messages<ActorActionMessage>>()
+            .drain()
+            .collect();
+        let melee: Vec<_> = msgs.iter().filter(|m| m.is_melee()).collect();
+        assert_eq!(melee.len(), 1, "exactly one melee action this frame");
+        assert_eq!(
+            melee[0].actor, target,
+            "the attack originates from the possessed target"
+        );
+        assert!(
+            melee.iter().all(|m| m.actor != home),
+            "the vacated home avatar emits no attack"
+        );
+    }
+
+    #[test]
+    fn losing_the_target_hands_control_back_to_home() {
+        let mut app = trigger_app();
+        let home = spawn_home(&mut app);
+        let actor = spawn_candidate(&mut app, vec2(80.0, 0.0));
+        hold_down_interact(&mut app, true);
+        app.update();
+        app.update();
+        assert_eq!(brain_slot(&app, actor), Some(PlayerSlot::PRIMARY));
+        // The possessed actor despawns (died / left the room).
+        app.world_mut().entity_mut(actor).despawn();
+        app.update();
+        assert_eq!(
+            brain_slot(&app, home),
+            Some(PlayerSlot::PRIMARY),
+            "the home avatar reclaims control when the possessed body is lost"
+        );
+        assert!(app
+            .world()
+            .resource::<PossessionState>()
+            .possessed
+            .is_none());
     }
 }

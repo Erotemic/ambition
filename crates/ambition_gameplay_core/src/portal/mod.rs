@@ -48,34 +48,33 @@ mod host_adapter {
         PortalSceneBody, PortalViewer, PortalWorldFrame,
     };
 
-    use crate::abilities::traversal::possession::PossessionState;
+    use crate::abilities::traversal::possession::ControlledSubject;
     use crate::actor::{PlayerEntity, PrimaryPlayer};
-    use crate::features::CenteredAabb;
     use crate::platformer_runtime::body::BodyKinematics;
     use crate::platformer_runtime::lifecycle::PlayerVisual;
     use crate::RoomGeometry;
 
     /// Bridge the controlled character + the collision world → the crate-owned
     /// [`PortalViewer`] seam, so each portal window is the wedge that character
-    /// can actually see through the aperture. The eye is the possessed actor's
-    /// body when possessing (so the view follows the body you're driving), else
-    /// the primary player's; `occluders` is a snapshot of the world's solid
-    /// blocks for the line-of-sight test. Absent player/possessed body ⇒
-    /// `present = false`, and the renderer falls back to the static window.
+    /// can actually see through the aperture. The eye is the CONTROLLED SUBJECT —
+    /// the body carrying `Brain::Player(PRIMARY)`, i.e. the possessed actor while
+    /// possessing (the view follows the body you're driving), else the home
+    /// avatar. `occluders` is a snapshot of the world's solid blocks for the
+    /// line-of-sight test. Absent controlled body ⇒ `present = false`, and the
+    /// renderer falls back to the static window.
     pub fn sync_portal_viewer(
         world: Res<RoomGeometry>,
-        possession: Res<PossessionState>,
-        feature_aabbs: Query<&CenteredAabb>,
-        player: Query<&BodyKinematics, (With<PlayerEntity>, With<PrimaryPlayer>)>,
+        controlled: Res<ControlledSubject>,
+        bodies: Query<&BodyKinematics>,
         viewer: Option<ResMut<PortalViewer>>,
     ) {
         let Some(mut viewer) = viewer else {
             return;
         };
-        let body = possession
-            .possessed
-            .and_then(|e| feature_aabbs.get(e).ok().map(|a| (a.center, a.half_size)))
-            .or_else(|| player.single().ok().map(|k| (k.pos, k.size * 0.5)));
+        let body = controlled
+            .0
+            .and_then(|e| bodies.get(e).ok())
+            .map(|k| (k.pos, k.size * 0.5));
         match body {
             Some((eye, half_size)) => {
                 viewer.present = true;

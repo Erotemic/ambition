@@ -401,24 +401,35 @@ mod schedule_tests {
     }
 
     /// The general input contract: any system tagged `InputSet::Populate` is
-    /// pinned BEFORE the real gameplay consumer (`sync_local_player_input_frame`),
-    /// purely by set membership + the `configure_sandbox_sets` constraint — no
-    /// per-system `.before` anchor required. The consumer snapshots
-    /// `ControlFrame` into the player's `PlayerInputFrame`, so observing the
-    /// written axis there proves the populate ran first.
+    /// pinned BEFORE the real gameplay consumers in `SandboxSet::PlayerInput`.
+    /// The slot-input path is `populate_slot_controls` (ControlFrame →
+    /// `SlotControls[PRIMARY]`) then `sync_local_player_input_frame`
+    /// (SlotControls → the controlled body's `PlayerInputFrame`, gated on
+    /// `Brain::Player`). Observing the populated axis land on `PlayerInputFrame`
+    /// proves the Populate writer ran before that boundary.
     #[test]
     fn input_set_populate_runs_before_the_real_consumer() {
+        use ambition_characters::brain::{ActorControl, Brain, PlayerSlot, SlotControls};
         use ambition_gameplay_core::actor::PlayerEntity;
         use ambition_gameplay_core::player::{
-            sync_local_player_input_frame, LocalPlayer, PlayerInputFrame,
+            populate_slot_controls, sync_local_player_input_frame, LocalPlayer, PlayerInputFrame,
         };
 
         let mut app = App::new();
         configure_sandbox_sets(&mut app);
         app.init_resource::<ControlFrame>();
+        app.init_resource::<SlotControls>();
+        // The controlled body carries `Brain::Player(PRIMARY)`, so the gated
+        // input mirror routes slot-0's frame onto its `PlayerInputFrame`.
         let player = app
             .world_mut()
-            .spawn((PlayerEntity, LocalPlayer, PlayerInputFrame::default()))
+            .spawn((
+                PlayerEntity,
+                LocalPlayer,
+                Brain::Player(PlayerSlot::PRIMARY),
+                ActorControl::default(),
+                PlayerInputFrame::default(),
+            ))
             .id();
 
         app.add_systems(
@@ -427,7 +438,9 @@ mod schedule_tests {
         );
         app.add_systems(
             Update,
-            sync_local_player_input_frame.in_set(SandboxSet::PlayerInput),
+            (populate_slot_controls, sync_local_player_input_frame)
+                .chain()
+                .in_set(SandboxSet::PlayerInput),
         );
 
         app.update();
@@ -441,10 +454,10 @@ mod schedule_tests {
             .axis_x;
         assert_eq!(
             observed, 0.75,
-            "a Populate-tagged ControlFrame writer must run before the consumer \
-             (sync_local_player_input_frame); the consumer snapshotted axis_x = \
-             {observed} instead of the populated 0.75 — InputSet::Populate is not \
-             pinned before the consume boundary."
+            "a Populate-tagged ControlFrame writer must run before the PlayerInput \
+             consumers; the mirror snapshotted axis_x = {observed} instead of the \
+             populated 0.75 — InputSet::Populate is not pinned before the consume \
+             boundary."
         );
     }
 }

@@ -85,6 +85,9 @@ fn projectile_test_app(world: World, player_pos: ae::Vec2, facing: f32) -> App {
     app.add_systems(
         Update,
         (
+            // Publish the device ControlFrame into SlotControls[PRIMARY] so the
+            // brain-gated input mirror sees it (production order).
+            crate::player::populate_slot_controls,
             crate::player::sync_local_player_input_frame,
             crate::player::tick_player_brains,
             ambition_characters::brain::emit_player_projectile_tick_messages,

@@ -13,15 +13,16 @@
 //! `BodyMelee`) does. The relativity-principle fix is the actor-
 //! unification rename of those types, tracked separately.
 
-use bevy::prelude::{Entity, MessageReader, MessageWriter, Query, Res, Time};
+use bevy::prelude::{Entity, MessageReader, MessageWriter, Query, Res, Time, With};
 
 use ambition_characters::actor::control::ActorControlFrame;
 use ambition_characters::brain::{ActorActionMessage, ActorControl, MeleeActionSpec};
 use ambition_engine_core::{self as ae, AabbExt};
 use ambition_vfx::vfx::{SlashKind, VfxMessage};
 
+use crate::abilities::traversal::possession::ControlledSubject;
 use crate::actor::BodyCombat;
-use crate::actor::PrimaryPlayerOnly;
+use crate::actor::PlayerEntity;
 use crate::audio::SfxMessage;
 use crate::combat::{
     attack_hitbox_from_view, attack_spec_from_view, resolve_attack_intent_from_view, AttackIntent,
@@ -443,6 +444,14 @@ pub fn attack_advance_system(
     feel_tuning: Res<SandboxFeelTuning>,
     feature_ecs_overlay: Res<FeatureEcsWorldOverlay>,
     gravity_field: Option<Res<physics::GravityField>>,
+    // The player-cluster melee lifecycle runs for whichever player-cluster body
+    // is the controlled subject (carries `Brain::Player(PRIMARY)`). While
+    // possessing, the controlled subject is an actor-cluster body — it isn't in
+    // this query, so `get_mut` misses and the vacated home avatar does NOT swing.
+    // The possessed body's melee flows through its own actor path
+    // (`start_enemy_melee_from_brain_actions`). No `PrimaryPlayerOnly` identity
+    // gate: authority is derived from the brain, via `ControlledSubject`.
+    controlled: Res<ControlledSubject>,
     mut player_q: Query<
         (
             Entity,
@@ -453,13 +462,16 @@ pub fn attack_advance_system(
             &ActorControl,
             Option<&features::HeldItem>,
         ),
-        PrimaryPlayerOnly,
+        With<PlayerEntity>,
     >,
     mut brain_actions: MessageReader<ActorActionMessage>,
     mut hit_events: MessageWriter<features::HitEvent>,
     mut sfx_writer: MessageWriter<SfxMessage>,
     mut vfx_writer: MessageWriter<VfxMessage>,
 ) {
+    let Some(subject) = controlled.0 else {
+        return;
+    };
     let Ok((
         player_entity,
         mut cluster_item,
@@ -468,7 +480,7 @@ pub fn attack_advance_system(
         mut attack,
         actor_control,
         held_item,
-    )) = player_q.single_mut()
+    )) = player_q.get_mut(subject)
     else {
         return;
     };

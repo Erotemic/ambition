@@ -107,10 +107,12 @@ pub fn camera_follow(
         ),
         ambition_gameplay_core::actor::PrimaryPlayerOnly,
     >,
-    // While possessing, the camera follows the possessed actor (so the player
-    // can see the body they're driving), resolved from its CenteredAabb.
-    possession: Res<ambition_gameplay_core::abilities::traversal::possession::PossessionState>,
-    feature_aabbs: Query<&ambition_gameplay_core::features::CenteredAabb>,
+    // The camera follows the CONTROLLED SUBJECT — the body carrying
+    // `Brain::Player(PRIMARY)`. That's the home avatar normally, or the possessed
+    // actor while possessing (so the view follows the body you're driving). Both
+    // carry the shared `BodyKinematics`, so one read query serves either.
+    controlled: Res<ambition_gameplay_core::abilities::traversal::possession::ControlledSubject>,
+    body_kinematics: Query<&ambition_gameplay_core::actor::BodyKinematics>,
     windows: Query<&Window, With<PrimaryWindow>>,
     // `With<MainCamera>` (not the broad `With<Camera2d>`): besides the #31 cube
     // pause-menu Camera3d, the portal view-cone renderer spawns offscreen
@@ -158,13 +160,12 @@ pub fn camera_follow(
     else {
         return;
     };
-    // Possession override: point the camera at the possessed actor's body
-    // instead of the vacated controlled body. Only the follow position is
-    // borrowed — size/blink stay the original controlled body, which is fine
-    // for framing.
-    if let Some(entity) = possession.possessed {
-        if let Ok(aabb) = feature_aabbs.get(entity) {
-            player_body.pos = aabb.center;
+    // Follow the controlled subject's body position. Zoom + blink easing stay on
+    // the home avatar's presentation state (`player_base_size`/`blink_cam`),
+    // which is fine for framing; only the follow point tracks the driven body.
+    if let Some(subject) = controlled.0 {
+        if let Ok(kin) = body_kinematics.get(subject) {
+            player_body.pos = kin.pos;
         }
     }
 

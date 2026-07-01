@@ -267,9 +267,25 @@ fn register_player_input_systems(app: &mut App) {
             // Portal-warped held movement input is registered by
             // `ambition_gameplay_core::portal::PortalPlugin` so the portal subsystem owns
             // its input seam.
-            // Mirror the finalized global control frame onto the local
-            // primary player's input component after every input writer.
-            ambition_gameplay_core::player::sync_local_player_input_frame,
+            // Controller-input setup, nested into one chained group (keeps the
+            // outer tuple within Bevy's 20-system limit):
+            // 1. Resolve the CONTROLLED SUBJECT — the body carrying
+            //    `Brain::Player(PRIMARY)` this frame (home avatar, or a possessed
+            //    actor). Camera / portal viewer / nameplates / the player melee
+            //    lifecycle read it; it replaces the old
+            //    `PrimaryPlayer + PossessionState` overrides.
+            // 2. Publish the local device frame into the slot-based controller
+            //    model (`SlotControls[PRIMARY]`) — the canonical source every
+            //    controlled body reads by its brain's slot.
+            // 3. Mirror each controlled body's slot frame onto its
+            //    PlayerInputFrame (gated on brain ownership: a vacated avatar
+            //    sees neutral input, so it has no local attack authority).
+            (
+                ambition_gameplay_core::abilities::traversal::possession::resolve_controlled_subject,
+                ambition_gameplay_core::player::populate_slot_controls,
+                ambition_gameplay_core::player::sync_local_player_input_frame,
+            )
+                .chain(),
             // Ladder body-mode policy needs the freshly mirrored input
             // frame, but it must still run before the player tick so
             // climb/jump/dash exits land on the same frame as the edge.
@@ -349,30 +365,29 @@ fn register_player_simulation_systems(app: &mut App) {
                 .in_set(SandboxSet::ResetProcessing)
                 .before(ambition_gameplay_core::session::reset::process_sandbox_reset_request),
         );
-    // Possession systems stay interleaved with the player tick; lifting
-    // them would change the `not_possessing` run-condition window.
+    // Possession systems stay chained with the player tick. Possession is now
+    // pure BRAIN TRANSFER, so there is no `not_possessing` control gate: the
+    // vacated home avatar is inert because it no longer carries a player brain
+    // (its `ActorControl` is neutral), and the possessed actor is driven through
+    // the actor tick by the transferred `Brain::Player`.
     app.add_systems(
         Update,
         (
-            // Possession: Down+Interact takes over a nearby actor. The trigger +
-            // input sync run before the player tick so the possessed actor reads
-            // fresh input; the player's own control is gated OFF while possessing
-            // so the same input doesn't drive both bodies.
+            // Possession: Down+Interact hold transfers the player brain onto the
+            // nearest non-boss actor; a press releases. Brain transfer + the
+            // target-lost safety both run before the body ticks so the handover
+            // is visible this frame.
             ambition_gameplay_core::abilities::traversal::possession::possession_trigger_system
                 .run_if(gameplay_allowed),
             ambition_gameplay_core::abilities::traversal::possession::release_possession_if_target_lost,
-            ambition_gameplay_core::abilities::traversal::possession::sync_possession_input,
             // Advance the world's moving platforms once, BEFORE the body tick, so
             // every body (player + actors) reads this frame's platform positions —
             // the same ordering the actor ticks already see.
             advance_moving_platforms.run_if(gameplay_allowed),
-            // THE unified player body tick: control + simulation in one combined
-            // engine call (the actor's body entry), the two-clock split carried by
-            // `InputState::control_dt`. Replaced the former control/simulation
-            // two-system split + its `SandboxResetThisFrame` flag.
-            player_body_tick
-                .run_if(gameplay_allowed)
-                .run_if(ambition_gameplay_core::abilities::traversal::possession::not_possessing),
+            // THE unified player body tick, run for EVERY player-cluster body. A
+            // vacated home avatar ticks too, but with a neutral `ActorControl`, so
+            // it simply stands still — no possession run-condition needed.
+            player_body_tick.run_if(gameplay_allowed),
             ambition_gameplay_core::combat::damage::apply_player_hit_events
                 .run_if(gameplay_allowed),
         )

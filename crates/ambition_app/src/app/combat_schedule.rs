@@ -11,7 +11,7 @@
 
 use bevy::prelude::*;
 
-use ambition_gameplay_core::combat::attack::attack_advance_system;
+use ambition_gameplay_core::combat::attack::{advance_body_melee, start_body_melee};
 use ambition_gameplay_core::schedule::{CombatSet, SandboxSet};
 use ambition_gameplay_core::session::game_mode::gameplay_allowed;
 
@@ -38,7 +38,26 @@ impl Plugin for CombatSchedulePlugin {
         app.add_systems(
             Update,
             (
-                attack_advance_system.run_if(gameplay_allowed),
+                // ONE body-generic melee lifecycle for EVERY body (player,
+                // possessed actor, autonomous hostile). `advance_body_melee` ticks
+                // every body's in-flight swing + cooldown floors and spawns the
+                // active-edge strike through the shared `spawn_melee_strike`;
+                // `start_body_melee` (chained after) turns each
+                // `ActorActionMessage::Melee` into a NEW swing on `msg.actor`.
+                // ADVANCE-before-START (like the old actor path, whose advance ran a
+                // phase earlier than its start) so a swing born THIS frame lives a
+                // full frame before it is first advanced — dt-robust regardless of
+                // the sim step size. Replaces the deleted player-only
+                // `attack_advance_system` AND actor-only
+                // `start_enemy_melee_from_brain_actions` + the inline
+                // `update_ecs_actors` edge-spawn — no player driver / actor driver
+                // split. Both run after `emit_brain_action_messages` (post-WorldPrep)
+                // and after all body movement (WorldPrep actors + PlayerSimulation).
+                (
+                    advance_body_melee.run_if(gameplay_allowed),
+                    start_body_melee.run_if(gameplay_allowed),
+                )
+                    .chain(),
                 // EFFECTS-stage consumer: reads ActorActionMessage::Ranged
                 // emitted upstream by `emit_brain_action_messages`
                 // (PlayerInput set) and spawns enemy projectiles. Runs
@@ -46,15 +65,6 @@ impl Plugin for CombatSchedulePlugin {
                 // this tick already advance one step this frame, matching
                 // the pre-migration latency.
                 ambition_gameplay_core::features::spawn_enemy_projectiles_from_brain_actions
-                    .run_if(gameplay_allowed),
-                // EFFECTS-stage consumer: reads ActorActionMessage::Melee
-                // and starts the enemy's attack windup + cooldown.
-                // Replaces the legacy `if frame.melee_pressed` gate inside
-                // `EnemyRuntime::update`. The active-edge `Hitbox` spawn
-                // happens upstream in `update_ecs_actors` (the runtime is
-                // the only place that owns the windup → active transition);
-                // `apply_hitbox_damage` below resolves the overlap.
-                ambition_gameplay_core::features::start_enemy_melee_from_brain_actions
                     .run_if(gameplay_allowed),
                 // The 11 per-boss special-attack Techniques (apple rain,
                 // eye beam, the Gradient Sentinel barrage family, …) used
@@ -146,7 +156,7 @@ impl Plugin for CombatSchedulePlugin {
             Update,
             (
                 CombatSet::ContentSpecials
-                    .after(ambition_gameplay_core::features::start_enemy_melee_from_brain_actions)
+                    .after(start_body_melee)
                     .before(ambition_gameplay_core::effects::apply_effects)
                     .in_set(SandboxSet::Combat),
                 CombatSet::ContentFlavor

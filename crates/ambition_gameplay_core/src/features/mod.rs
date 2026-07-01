@@ -74,7 +74,7 @@ pub(crate) fn step_floating_body(
 }
 // Archetype data owns enemy speed/range tuning; keep only shared fallback
 // clocks here.
-const ENEMY_ATTACK_COOLDOWN: f32 = 1.05;
+pub(crate) const ENEMY_ATTACK_COOLDOWN: f32 = 1.05;
 // Boss/profile and combat-kit data own their own cooldown/timing constants.
 
 pub mod arena;
@@ -145,18 +145,17 @@ pub use ecs::{
     refresh_actor_damageable_volumes, refresh_boss_damageable_volumes,
     refresh_breakable_damageable_volumes, reset_ecs_room_features, select_actor_targets,
     spawn_encounter_mob, spawn_enemy_projectiles_from_brain_actions, spawn_melee_hitbox,
-    spawn_room_feature_entities, start_enemy_melee_from_brain_actions,
-    sync_actor_poses_from_feature_aabbs, sync_boss_actor_components, sync_boss_encounter_phase,
-    sync_boss_reward_chests_ecs, sync_ecs_actors_with_save, sync_ecs_bosses_with_save,
-    sync_ecs_switches_from_save, sync_encounter_reward_chests_ecs, sync_riders_to_mounts,
-    tick_and_despawn_hitboxes, tick_boss_brains_system, tick_gameplay_banner, tick_npc_idle_barks,
-    tick_pending_challenges, update_ecs_actors, update_ecs_bosses, update_ecs_breakables,
-    update_ecs_falling_chests, update_ecs_hazards, BossClusterQueryData, BossClusterRef,
-    BossClusterScratch, BossConfig, BossMut, BossOverrides, BossRef, BossStatus, FactionRelations,
-    FeatureEcsWorldOverlay, FeatureSimEntity, FeatureViewIndex, FriendlyFire, HazardFeature,
-    HeldItem, Hitbox, HitboxAnchor, HitboxHits, HitboxLifetime, MountSlot, Mountable, Mounted,
-    MountedBrainCache, MountedSize, PendingChallenge, RidingOn, SpawnActorKind, SpawnActorRequest,
-    CHALLENGE_GRACE_S,
+    spawn_room_feature_entities, sync_actor_poses_from_feature_aabbs, sync_boss_actor_components,
+    sync_boss_encounter_phase, sync_boss_reward_chests_ecs, sync_ecs_actors_with_save,
+    sync_ecs_bosses_with_save, sync_ecs_switches_from_save, sync_encounter_reward_chests_ecs,
+    sync_riders_to_mounts, tick_and_despawn_hitboxes, tick_boss_brains_system,
+    tick_gameplay_banner, tick_npc_idle_barks, tick_pending_challenges, update_ecs_actors,
+    update_ecs_bosses, update_ecs_breakables, update_ecs_falling_chests, update_ecs_hazards,
+    BossClusterQueryData, BossClusterRef, BossClusterScratch, BossConfig, BossMut, BossOverrides,
+    BossRef, BossStatus, FactionRelations, FeatureEcsWorldOverlay, FeatureSimEntity,
+    FeatureViewIndex, FriendlyFire, HazardFeature, HeldItem, Hitbox, HitboxAnchor, HitboxHits,
+    HitboxLifetime, MountSlot, Mountable, Mounted, MountedBrainCache, MountedSize,
+    PendingChallenge, RidingOn, SpawnActorKind, SpawnActorRequest, CHALLENGE_GRACE_S,
 };
 pub use ecs::{ActorAnimFrame, ActorSpriteData};
 pub use enemies::{

@@ -130,12 +130,12 @@ impl<'a> ActorMut<'a> {
             );
         }
 
-        // ONE swing model: advance the body's [`BodyMelee`] — the spec's
-        // `phase_at(elapsed)` drives windup→active→recovery (player timing), and
-        // the cooldown floor ticks independently to pace the AI. `tuning` no
-        // longer feeds the active window; the swing spec owns it.
+        // Melee is NOT advanced here anymore. The body-generic `advance_body_melee`
+        // phase (Combat set) ticks EVERY body's `BodyMelee` swing + cooldown floors
+        // and spawns the active-edge strike, so movement integration owns movement
+        // only. The AI reads `self.attack` as of the previous frame's advance — a
+        // consistent one-frame view, no double-tick.
         let _ = tuning.enemy_attack_active;
-        self.attack.tick(dt);
 
         let ai = evaluate_enemy_ai_output(
             self.kin.pos,
@@ -500,57 +500,12 @@ impl<'a> ActorMut<'a> {
         )
     }
 
-    pub fn begin_melee_attack(&mut self, attack_axis: ae::Vec2) -> bool {
-        if self.attack.cooldown > 0.0 || !self.health.alive() {
-            return false;
-        }
-        // Resolve the swing through the EXACT player melee pipeline
-        // (`resolve_attack_intent_from_view` → `attack_spec_from_view`) so an
-        // actor's strike has the player's timing, reach, knockback, and art —
-        // ONE BODY ONE PATH. The body-local spec is stored and rotated to world
-        // at the spawn edge (where the live gravity frame is known). The old
-        // bespoke `enemy_attack_windup`/`enemy_attack_active` timers + the
-        // `attack_aabb_dir` box are gone: the windup is now the player's tiny
-        // `startup_seconds`, so the long "telegraph" pose effectively disappears
-        // (deliberate — the telegraph box was slated for removal).
-        let view = crate::combat::AttackView {
-            pos: self.kin.pos,
-            size: self.kin.size,
-            facing: self.kin.facing,
-            on_ground: self.ground.on_ground,
-            // Actors don't wall-cling or dash-cancel into attacks today; the
-            // directional-primary capability gates back/air-back tilts, which an
-            // AI never aims for, so the forward/up/down resolution is unaffected.
-            wall_clinging: false,
-            dash_timer: 0.0,
-            abilities_directional_primary: true,
-        };
-        let intent = crate::combat::resolve_attack_intent_from_view(
-            &view,
-            attack_axis.x,
-            attack_axis.y,
-            false,
-        );
-        // Rotate the body-local spec into the actor's world frame NOW (gravity =
-        // opposite its support surface), the same conversion the player applies
-        // at `start_attack`, so `BodyMelee.swing.spec` is world-frame for every
-        // body and the spawn edge reads its box directly.
-        let gravity_dir = -self
-            .surface
-            .surface_normal
-            .normalize_or(ae::Vec2::new(0.0, -1.0));
-        let spec = crate::combat::attack_spec_from_view(&view, intent)
-            .into_world_frame(ae::AccelerationFrame::new(gravity_dir));
-        let pending_axis = if attack_axis.length_squared() > 0.01 {
-            attack_axis.normalize_or_zero()
-        } else {
-            ae::Vec2::new(self.kin.facing, 0.0)
-        };
-        let cooldown = ENEMY_ATTACK_COOLDOWN * self.config.tuning.attack_cooldown_mult;
-        self.attack.begin(spec, pending_axis, cooldown);
-        self.status.ai_mode = ambition_characters::actor::ai::CharacterAiMode::Telegraph;
-        true
-    }
+    // `begin_melee_attack` is deleted. A body's melee swing is now begun by the
+    // body-generic `combat::attack::start_body_melee` phase (which resolves the
+    // swing through the SAME `attack_spec_from_view` pipeline the player uses and
+    // arms the recovery cooldown from the body's authored
+    // `ENEMY_ATTACK_COOLDOWN * attack_cooldown_mult`), and advanced/spawned by
+    // `advance_body_melee` — one melee lifecycle for every body.
 
     pub fn body_damage_aabb(&self) -> Option<ae::Aabb> {
         if !self.config.tuning.body_contact_damage {

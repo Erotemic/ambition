@@ -13,16 +13,14 @@
 //! `BodyMelee`) does. The relativity-principle fix is the actor-
 //! unification rename of those types, tracked separately.
 
-use bevy::prelude::{Entity, MessageReader, MessageWriter, Query, Res, Time, With};
+use bevy::prelude::{Entity, MessageReader, MessageWriter, Query, Res};
 
 use ambition_characters::actor::control::ActorControlFrame;
 use ambition_characters::brain::{ActorActionMessage, ActorControl, MeleeActionSpec};
 use ambition_engine_core::{self as ae, AabbExt};
 use ambition_vfx::vfx::{SlashKind, VfxMessage};
 
-use crate::abilities::traversal::possession::ControlledSubject;
 use crate::actor::BodyCombat;
-use crate::actor::PlayerEntity;
 use crate::audio::SfxMessage;
 use crate::combat::{
     attack_hitbox_from_view, attack_spec_from_view, resolve_attack_intent_from_view, AttackIntent,
@@ -133,7 +131,10 @@ pub fn start_attack(
     vfx: &mut MessageWriter<VfxMessage>,
     clusters: &mut ae::BodyClustersMut<'_>,
     attack: &mut Option<MeleeSwing>,
-    anim: &mut PlayerAnimState,
+    // Presentation-only slash-anim timer. `None` for a body with no
+    // `PlayerAnimState` (an actor) — the swing lifecycle is gameplay, the anim is
+    // presentation and rides only where authored.
+    anim: Option<&mut PlayerAnimState>,
     actor: ActorControlFrame,
     // When the player is holding a melee weapon (axe etc.), its `ActionSet`
     // melee spec re-tunes the swing (timing / reach / damage) so the held item
@@ -204,7 +205,9 @@ pub fn start_attack(
 
     let player_pos = clusters.kinematics.pos;
     sfx.write(SfxMessage::Slash { pos: player_pos });
-    anim.slash_anim_timer = spec.total_seconds().max(0.20);
+    if let Some(anim) = anim {
+        anim.slash_anim_timer = spec.total_seconds().max(0.20);
+    }
     *attack = Some(MeleeSwing::new(spec));
     // The slash VFX is NO LONGER emitted here. It is spawned at the active edge by
     // the ONE shared `spawn_melee_strike` (in `advance_attack`), from the SAME
@@ -297,31 +300,44 @@ fn attack_intent_animation(intent: AttackIntent) -> &'static str {
 }
 
 #[allow(clippy::too_many_arguments)]
+#[allow(clippy::too_many_arguments)]
 pub fn advance_attack(
     commands: &mut bevy::prelude::Commands,
-    player_entity: Entity,
+    // The body that owns the swing — the source of truth for the strike's owner
+    // and effective allegiance. NOT rediscovered as "the player" in here.
+    actor: Entity,
+    // The strike's EFFECTIVE faction (`effective_faction(authored, brain)`): a
+    // player / possessed body strikes as `Player` (FollowOwner Volume, signed
+    // `knock_x`, hits its foes); an autonomous hostile strikes as `Enemy`/`Boss`
+    // (position-derived `knockback_strength`, hits the player). This is the ONLY
+    // branch — a faction distinction the damage resolver already makes, not a
+    // player-shaped one.
+    faction: features::ActorFaction,
+    // The body's sprite catalog id, if any, so its authored per-animation melee
+    // box drives the strike (the same data-driven lookup for player + actor).
+    // `None` → the player's hardcoded manifest root.
+    sprite_cid: Option<&str>,
     sfx: &mut MessageWriter<SfxMessage>,
     vfx: &mut MessageWriter<VfxMessage>,
     world: &ae::World,
     moving_platforms: &[MovingPlatformState],
     clusters: &mut ae::BodyClustersMut<'_>,
     attack: &mut Option<MeleeSwing>,
-    anim: &mut PlayerAnimState,
-    combat: &mut BodyCombat,
+    anim: Option<&mut PlayerAnimState>,
     tuning: ae::MovementTuning,
-    feel: SandboxFeelTuning,
     frame_dt: f32,
     feature_ecs_overlay: &FeatureEcsWorldOverlay,
     hit_events: &mut MessageWriter<features::HitEvent>,
 ) {
-    let _ = (combat, feel);
     let Some(mut attack_state) = attack.take() else {
         return;
     };
 
     attack_state.elapsed += frame_dt.max(0.0);
     let Some(phase) = attack_state.phase() else {
-        anim.slash_anim_timer = 0.0;
+        if let Some(anim) = anim {
+            anim.slash_anim_timer = 0.0;
+        }
         return;
     };
 
@@ -335,47 +351,72 @@ pub fn advance_attack(
             dash_timer: clusters.dash.timer,
             abilities_directional_primary: clusters.abilities.abilities.directional_primary,
         };
-        // THE gravity-resolved strike box. The authored sprite-manifest box
-        // (`player_attack_hitbox`) is now gravity-aware (it rotates the screen-axis
-        // hull into the body's frame), so it is correct under ANY gravity — no more
-        // upright special-casing. Falls back to the hardcoded `AttackSpec` box
-        // (also `into_world_frame`d) when the swing's animation authors none. ONE
-        // box drives BOTH the damage hitbox AND the slash VFX (via
-        // `spawn_melee_strike`), so they can never diverge again.
+        // THE gravity-resolved strike box. The authored sprite-manifest box is
+        // gravity-aware (it rotates the screen-axis hull into the body's frame), so
+        // it is correct under ANY gravity. The manifest is resolved by the body's
+        // sprite catalog id when it has one (an actor), else the player's hardcoded
+        // manifest root — the same `manifest_attack_hitbox_world` lookup either way.
+        // Falls back to the hardcoded `AttackSpec` box when the animation authors
+        // none. ONE box drives BOTH the damage hitbox AND the slash VFX (via
+        // `spawn_melee_strike`), so they can never diverge.
         let spec_box = attack_hitbox_from_view(&view, attack_state.spec);
-        let world_box = player_attack_hitbox(&view, attack_state.spec.intent, tuning.gravity_dir)
-            .map(|v| v.bounds())
-            .unwrap_or(spec_box);
+        let animation = attack_intent_animation(attack_state.spec.intent);
+        let manifest = match sprite_cid {
+            Some(cid) => crate::character_sprites::actor_attack_hitbox_world(
+                cid,
+                animation,
+                view.pos,
+                view.size,
+                view.facing,
+                tuning.gravity_dir,
+            ),
+            None => crate::character_sprites::player_attack_hitbox_world(
+                animation,
+                view.pos,
+                view.size,
+                view.facing,
+                tuning.gravity_dir,
+            ),
+        };
+        let world_box = manifest.map(|v| v.bounds()).unwrap_or(spec_box);
 
         let first_active_frame = !attack_state.active_started;
         if first_active_frame {
             attack_state.active_started = true;
-            // Spawn ONE Player-faction melee strike (damage hitbox + slash VFX)
-            // through the shared `spawn_melee_strike` — the SAME path every actor
-            // uses. The FollowOwner hitbox tracks the player for the active window;
-            // `apply_hitbox_damage`'s Player branch emits the Volume `HitEvent`
-            // each tick (so it connects on whatever frame it reaches a target),
-            // deduped per-swing via `MeleeSwing.hit_targets`. The damage multiplier
-            // and the signed slash `knock_x` ride the strike.
+            // ONE strike spawn for EVERY body through `spawn_melee_strike` (damage
+            // hitbox + slash VFX from one box). The strike's damage rides the swing
+            // spec (or the body's offense multiplier); its knockback CHANNEL is
+            // chosen by EFFECTIVE FACTION — the only branch, and one the damage
+            // resolver already makes:
+            //   * Player/possessed  → FollowOwner Volume with the signed slash
+            //     `knock_x` (hits the body's foes), no aggressor push.
+            //   * Enemy/Boss        → position-derived `knockback_strength` aggressor
+            //     push (hits the player), no slash `knock_x`.
             let slash_damage = attack_state
                 .spec
                 .damage_override
                 .unwrap_or_else(|| clusters.offense.damage_multiplier.max(1))
                 .max(1);
-            let knock_x = if attack_state.spec.knockback.x.abs() > 0.0 {
-                attack_state.spec.knockback.x
+            let (knock_x, knockback_strength) = if matches!(faction, features::ActorFaction::Player)
+            {
+                let kx = if attack_state.spec.knockback.x.abs() > 0.0 {
+                    attack_state.spec.knockback.x
+                } else {
+                    clusters.kinematics.facing * 300.0
+                };
+                (kx, 0.0)
             } else {
-                clusters.kinematics.facing * 300.0
+                (0.0, 1.0)
             };
             super::hitbox::spawn_melee_strike(
                 commands,
                 vfx,
-                player_entity,
-                features::ActorFaction::Player,
+                actor,
+                faction,
                 clusters.kinematics.pos,
                 world_box,
                 slash_damage,
-                0.0,
+                knockback_strength,
                 knock_x,
                 attack_state.spec.active_seconds,
                 slash_kind(attack_state.spec.intent),
@@ -411,7 +452,7 @@ pub fn advance_attack(
                     volume: orb_aabb.into(),
                     damage: 1,
                     source: features::HitSource::PogoBounce,
-                    attacker: Some(player_entity),
+                    attacker: Some(actor),
                     target: features::HitTarget::OrbMatch,
                     mode: features::HitMode::Knockback,
                     knockback: None,
@@ -422,126 +463,167 @@ pub fn advance_attack(
     }
 
     if attack_state.done() {
-        anim.slash_anim_timer = 0.0;
+        if let Some(anim) = anim {
+            anim.slash_anim_timer = 0.0;
+        }
     } else {
         *attack = Some(attack_state);
     }
 }
 
-/// Drive the player's slash / pogo attack lifecycle: start a new
-/// swing on rising-edge input (gated by hit-stun), then advance any
-/// in-flight attack — applying hits, debris, and recoil through the
-/// damage / pogo / sfx / vfx message channels.
+/// **Phase — START body melee.** Turn every `ActorActionMessage::Melee` into a
+/// swing on the body that requested it. ONE lifecycle for EVERY body — the human
+/// player, a possessed actor, an autonomous hostile — keyed by `msg.actor`, with
+/// no `PlayerEntity` filter, no `ControlledSubject` lookup, and no
+/// per-controller-kind driver. The upstream `emit_brain_action_messages` resolver
+/// already gated on the body's `ActionSet.melee` (the capability seam); here the
+/// BODY enforces its own physical gates: not already swinging, off the recovery
+/// floor, past the brief post-hit recoil lock, and the `abilities.attack`
+/// capability (inside `start_attack`).
 ///
-/// Runs after transition detection so ordering remains detect → attack → apply.
-#[allow(clippy::too_many_arguments)]
-pub fn attack_advance_system(
-    mut commands: bevy::prelude::Commands,
-    time: Res<Time>,
-    world: Res<RoomGeometry>,
-    moving_platforms: Res<MovingPlatformSet>,
-    editable_tuning: Res<EditableMovementTuning>,
-    feel_tuning: Res<SandboxFeelTuning>,
-    feature_ecs_overlay: Res<FeatureEcsWorldOverlay>,
-    gravity_field: Option<Res<physics::GravityField>>,
-    // The player-cluster melee lifecycle runs for whichever player-cluster body
-    // is the controlled subject (carries `Brain::Player(PRIMARY)`). While
-    // possessing, the controlled subject is an actor-cluster body — it isn't in
-    // this query, so `get_mut` misses and the vacated home avatar does NOT swing.
-    // The possessed body's melee flows through its own actor path
-    // (`start_enemy_melee_from_brain_actions`). No `PrimaryPlayerOnly` identity
-    // gate: authority is derived from the brain, via `ControlledSubject`.
-    controlled: Res<ControlledSubject>,
-    mut player_q: Query<
-        (
-            Entity,
-            ae::BodyClusterQueryData,
-            &mut PlayerAnimState,
-            &mut BodyCombat,
-            &mut BodyMelee,
-            &ActorControl,
-            Option<&features::HeldItem>,
-        ),
-        With<PlayerEntity>,
-    >,
+/// Replaces BOTH the player-only `attack_advance_system` start and the actor-only
+/// `start_enemy_melee_from_brain_actions` — one body-action START phase.
+pub fn start_body_melee(
+    gravity: physics::GravityCtx,
     mut brain_actions: MessageReader<ActorActionMessage>,
-    mut hit_events: MessageWriter<features::HitEvent>,
     mut sfx_writer: MessageWriter<SfxMessage>,
     mut vfx_writer: MessageWriter<VfxMessage>,
+    mut bodies: Query<(
+        ae::BodyClusterQueryData,
+        &mut BodyMelee,
+        &BodyCombat,
+        &ActorControl,
+        Option<&features::HeldItem>,
+        Option<&features::ActorConfig>,
+        Option<&mut PlayerAnimState>,
+    )>,
 ) {
-    let Some(subject) = controlled.0 else {
-        return;
-    };
-    let Ok((
-        player_entity,
-        mut cluster_item,
-        mut anim,
-        mut combat,
-        mut attack,
-        actor_control,
-        held_item,
-    )) = player_q.get_mut(subject)
-    else {
-        return;
-    };
-    // Only an actually-held weapon (axe etc.) re-tunes the swing; the default
-    // ActionSet melee keeps the directional attack_spec_from_view feel.
-    let held_melee = held_item.and_then(|item| item.spec.melee);
-    // The brain-driver system populated this `ActorControl` for the
-    // current player upstream (PlayerInput set). Every combat verb
-    // start_attack needs (pogo, axes for attack-intent resolution)
-    // lives on the brain-driven frame — the raw `PlayerInputFrame`
-    // is no longer read in this system.
-    let actor_frame = actor_control.0;
-    let mut tuning = editable_tuning.as_engine();
-    // Sync gravity into the tuning so the pogo bounce (and any other
-    // gravity-relative impulse this system applies) launches OPPOSITE the live
-    // gravity, not a hardcoded world-up. Without this the attack-path pogo used
-    // the default `(0,1)` down and bounced the wrong way under inverted gravity.
-    let gdir = physics::gravity_dir_or_default(gravity_field.as_deref());
-    physics::apply_gravity_dir(&mut tuning, gdir);
-    let feel = *feel_tuning;
-    let frame_dt = time.delta_secs();
-
-    let mut clusters = cluster_item.as_clusters_mut();
-    // Melee comes through the ActionSet-resolved brain message; pogo is a
-    // player-specific intent mirrored onto `ActorControlFrame`.
-    let melee_requested = brain_actions
+    // The resolver can emit the same body once per frame; collect the requesters.
+    let melee_actors: std::collections::HashSet<Entity> = brain_actions
         .read()
-        .any(|msg| msg.actor == player_entity && msg.is_melee());
-    // Attack is gated on the brief recoil lock, NOT the full hitstun window:
-    // once the player has been thrown clear (~0.12s) they can swing again even
-    // while still in hitstun / i-frames, so face-tanking a boss lets you fight
-    // back instead of standing there helpless (Hollow-Knight feel).
-    if combat.recoil_lock_timer <= 0.0 && (melee_requested || actor_frame.pogo_pressed) {
+        .filter(|m| m.is_melee())
+        .map(|m| m.actor)
+        .collect();
+    for actor in melee_actors {
+        let Ok((mut cq, mut melee, combat, control, held, config, mut anim)) =
+            bodies.get_mut(actor)
+        else {
+            continue;
+        };
+        // Body enforces: no double-swing, off the recovery floor, past the recoil
+        // lock (the same re-swing gate the player used, now shared by all bodies).
+        if melee.swing.is_some() || melee.on_cooldown() || combat.recoil_lock_timer > 0.0 {
+            continue;
+        }
+        // Only an actually-held weapon (axe etc.) re-tunes the swing; the default
+        // ActionSet melee keeps the directional `attack_spec_from_view` feel.
+        let held_melee = held.and_then(|item| item.spec.melee);
+        let frame = control.0;
+        // The recovery/AI pacing floor is BODY DATA: an actor's authored cooldown
+        // (the same value the deleted `begin_melee_attack` set) paces its brain's
+        // next swing; the player carries no `ActorConfig`, so it has none (its
+        // re-swing is gated by the swing duration + recoil lock).
+        let cooldown = config
+            .map(|c| features::ENEMY_ATTACK_COOLDOWN * c.tuning.attack_cooldown_mult)
+            .unwrap_or(0.0);
+        let gravity_dir = gravity.dir_at(cq.kinematics.pos);
+        let mut clusters = cq.as_clusters_mut();
         start_attack(
             &mut sfx_writer,
             &mut vfx_writer,
             &mut clusters,
-            &mut attack.swing,
-            &mut anim,
-            actor_frame,
+            &mut melee.swing,
+            anim.as_deref_mut(),
+            frame,
             held_melee,
-            tuning.gravity_dir,
+            gravity_dir,
+        );
+        // If a swing actually began (capability + not-already-swinging passed
+        // inside `start_attack`), arm the body's recovery floor.
+        if melee.swing.is_some() {
+            melee.cooldown = cooldown.max(0.0);
+        }
+    }
+}
+
+/// **Phase — ADVANCE body melee.** Tick every body's in-flight swing + its
+/// recovery/refire floors, and at the windup→active edge spawn the ONE
+/// gravity-resolved strike (damage hitbox + slash VFX) through
+/// `spawn_melee_strike`. Runs for EVERY body — the human player, a possessed
+/// actor, an autonomous hostile, a peaceful NPC with a kit — so there is exactly
+/// one melee ADVANCE lifecycle, not a player driver and an actor driver.
+///
+/// The strike's OWNER is the body itself and its EFFECTIVE FACTION
+/// (`effective_faction`) selects the damage channel the resolver already
+/// distinguishes (Player/possessed → FollowOwner slash hitting its foes;
+/// Enemy/Boss → aggressor push hitting the player). Melee advances on the SIM
+/// clock (`WorldTime::sim_dt`) so it composes with bullet-time / pause for every
+/// body.
+///
+/// Replaces BOTH the player-only `advance_attack` call in `attack_advance_system`
+/// and the actor-only active-edge strike spawn inside `update_ecs_actors` (and the
+/// `self.attack.tick` that used to ride the actor movement integration).
+#[allow(clippy::too_many_arguments)]
+pub fn advance_body_melee(
+    world_time: Res<crate::WorldTime>,
+    world: Res<RoomGeometry>,
+    moving_platforms: Res<MovingPlatformSet>,
+    editable_tuning: Res<EditableMovementTuning>,
+    feature_ecs_overlay: Res<FeatureEcsWorldOverlay>,
+    gravity: physics::GravityCtx,
+    mut commands: bevy::prelude::Commands,
+    mut sfx_writer: MessageWriter<SfxMessage>,
+    mut vfx_writer: MessageWriter<VfxMessage>,
+    mut hit_events: MessageWriter<features::HitEvent>,
+    mut bodies: Query<(
+        Entity,
+        ae::BodyClusterQueryData,
+        &mut BodyMelee,
+        &features::ActorFaction,
+        Option<&ambition_characters::brain::Brain>,
+        Option<&features::ActorConfig>,
+        Option<&mut PlayerAnimState>,
+    )>,
+) {
+    let dt = world_time.sim_dt();
+    for (entity, mut cq, mut melee, faction, brain, config, mut anim) in &mut bodies {
+        // The recovery / refire floors tick every frame regardless of a live swing
+        // (`advance_attack` advances the swing's own `elapsed`).
+        melee.cooldown = (melee.cooldown - dt).max(0.0);
+        melee.ranged_cooldown = (melee.ranged_cooldown - dt).max(0.0);
+        if melee.swing.is_none() {
+            if let Some(anim) = anim.as_deref_mut() {
+                anim.slash_anim_timer = 0.0;
+            }
+            continue;
+        }
+        let pos = cq.kinematics.pos;
+        let mut tuning = editable_tuning.as_engine();
+        // Gravity into the tuning so the pogo bounce launches OPPOSITE live gravity.
+        physics::apply_gravity_dir(&mut tuning, gravity.dir_at(pos));
+        // The strike's effective allegiance picks the damage channel; the sprite id
+        // (actors) resolves the authored per-animation box, else the player root.
+        let strike_faction = crate::combat::targeting::effective_faction(*faction, brain);
+        let sprite_cid = config.and_then(|c| c.sprite_character_id.as_deref());
+        let mut clusters = cq.as_clusters_mut();
+        advance_attack(
+            &mut commands,
+            entity,
+            strike_faction,
+            sprite_cid,
+            &mut sfx_writer,
+            &mut vfx_writer,
+            &world.0,
+            &moving_platforms.0,
+            &mut clusters,
+            &mut melee.swing,
+            anim.as_deref_mut(),
+            tuning,
+            dt,
+            &feature_ecs_overlay,
+            &mut hit_events,
         );
     }
-    advance_attack(
-        &mut commands,
-        player_entity,
-        &mut sfx_writer,
-        &mut vfx_writer,
-        &world.0,
-        &moving_platforms.0,
-        &mut clusters,
-        &mut attack.swing,
-        &mut anim,
-        &mut combat,
-        tuning,
-        feel,
-        frame_dt,
-        &feature_ecs_overlay,
-        &mut hit_events,
-    );
 }
 
 #[cfg(test)]

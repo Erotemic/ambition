@@ -172,49 +172,13 @@ pub fn spawn_enemy_projectiles_from_brain_actions(
     }
 }
 
-/// Read every `ActorActionMessage::Melee` addressed to a hostile
-/// actor and start that enemy's melee windup/cooldown. Only the
-/// START of the attack — the policy decision — moves through the
-/// message stream; timers remain integration-side state.
-///
-/// Damage application during the active window flows through the
-/// `Hitbox` entity lifecycle (see
-/// `features/ecs/hitbox.rs`): `update_ecs_actors` spawns
-/// the strike's hitbox on the windup → active edge, and
-/// `apply_hitbox_damage` resolves the overlap once per strike.
-pub fn start_enemy_melee_from_brain_actions(
-    mut messages: MessageReader<ActorActionMessage>,
-    mut actors: Query<Option<super::actor_clusters::ActorClusterQueryData>>,
-) {
-    for msg in messages.read() {
-        let ActionRequest::Melee { attack_axis, .. } = msg.request else {
-            continue;
-        };
-        let Ok(clusters) = actors.get_mut(msg.actor) else {
-            continue;
-        };
-        // Capability, not AI policy: a body with a melee `ActionSet` slot swings
-        // when its controller (AI brain, or a possessing human) presses attack.
-        // The upstream resolver only emits `Melee` for a body whose
-        // `ActionSet.melee.is_some()`, and `begin_melee_attack` keeps the
-        // cooldown/alive gate — so a possessed peaceful NPC can throw its
-        // authored punch, while an autonomous peaceful NPC (empty ActionSet)
-        // emits nothing. Disposition is the brain's concern, not this consumer's.
-        let Some(mut cq) = clusters else {
-            continue;
-        };
-        let mut enemy = cq.as_actor_mut();
-        // The ActionSet → ActorActionMessage seam is the attack-policy gate:
-        // if a hostile actor produced a Melee message, it owns a melee verb
-        // for this state even when its authored archetype is normally peaceful
-        // (e.g. a PirateHeavy after her shark mount dies). Keep only the
-        // runtime cooldown/alive gate inside begin_melee_attack.
-        // Thread the brain's attack axis through to the runtime so
-        // the windup → active edge spawns the hitbox in the same
-        // direction the brain committed to (forward / up / down / back).
-        enemy.begin_melee_attack(attack_axis);
-    }
-}
+// Melee START is no longer an actor-specific consumer. `ActorActionMessage::Melee`
+// is turned into a swing by the body-generic `combat::attack::start_body_melee`
+// phase (which runs for EVERY body — player, possessed actor, autonomous hostile),
+// and the active-edge strike is spawned by `combat::attack::advance_body_melee`.
+// The old `start_enemy_melee_from_brain_actions` / `ActorMut::begin_melee_attack`
+// actor-only pair is deleted — one melee lifecycle, not a player driver plus an
+// actor driver.
 
 /// Helper: combat-tuning lookup. Lives on the test side to make
 /// the helper available to the unit tests below without leaking
@@ -456,188 +420,17 @@ mod tests {
     /// reference — kept for callers that grow this module's tests.
     fn _silence_action_set_import(_: ActionSet) {}
 
-    /// `start_enemy_melee_from_brain_actions` pin: the consumer
-    /// starts the enemy's melee windup + cooldown when a
-    /// `ActorActionMessage::Melee` arrives without changing the
-    /// windup/cooldown timings.
-    #[test]
-    fn melee_message_starts_enemy_windup_and_cooldown() {
-        use ambition_characters::brain::{MeleeActionSpec, SwipeSpec};
-        let mut app = App::new();
-        app.add_plugins(MinimalPlugins);
-        app.add_message::<ActorActionMessage>();
-        app.init_resource::<SandboxFeelTuning>();
-        app.add_systems(Update, start_enemy_melee_from_brain_actions);
-
-        let actor_pos = ae::Vec2::new(300.0, 300.0);
-        let aabb = ae::Aabb::new(actor_pos, ae::Vec2::new(20.0, 24.0));
-        let mut enemy = ActorClusterSeed::new(
-            "striker_a",
-            "Striker",
-            aabb,
-            ambition_characters::actor::EnemyBrain::Custom("medium_striker".into()),
-            &[],
-        );
-        enemy.attack.cooldown = 0.0;
-        assert!(!enemy.attack.is_winding_up());
-        let actor = app.world_mut().spawn(enemy_actor(enemy)).id();
-        app.world_mut()
-            .resource_mut::<bevy::ecs::message::Messages<ActorActionMessage>>()
-            .write(ActorActionMessage {
-                actor,
-                request: ActionRequest::Melee {
-                    spec: MeleeActionSpec::Swipe(SwipeSpec::STRIKER_DEFAULT),
-                    origin: actor_pos,
-                    facing: 1.0,
-                    attack_axis: ae::Vec2::new(1.0, 0.0),
-                },
-            });
-        app.update();
-        let attack = app
-            .world()
-            .get::<crate::features::BodyMelee>(actor)
-            .unwrap();
-        let status = *app
-            .world()
-            .get::<crate::features::ActorStatus>(actor)
-            .unwrap();
-        assert!(
-            attack.is_winding_up(),
-            "a swing should be winding up after the message: swing armed = {}",
-            attack.swing.is_some(),
-        );
-        assert!(
-            attack.cooldown > 0.0,
-            "cooldown should be primed after the message: got {}",
-            attack.cooldown,
-        );
-        assert!(
-            matches!(
-                status.ai_mode,
-                ambition_characters::actor::ai::CharacterAiMode::Telegraph
-            ),
-            "ai_mode should flip to Telegraph; got {:?}",
-            status.ai_mode,
-        );
-    }
-
-    /// A mounted PirateHeavy becomes explicitly hostile after her shark dies even
-    /// though the standalone PirateHeavy archetype is authored peaceful. The
-    /// mount-dissolve path installs a melee ActionSet; once that ActionSet emits a
-    /// Melee message, the effects consumer must honor it instead of re-checking
-    /// `EnemyArchetype::attacks_player()`.
-    #[test]
-    fn melee_message_can_start_windup_for_dismounted_pirate_heavy() {
-        use ambition_characters::brain::{LungeSpec, MeleeActionSpec};
-        let mut app = App::new();
-        app.add_plugins(MinimalPlugins);
-        app.add_message::<ActorActionMessage>();
-        app.init_resource::<SandboxFeelTuning>();
-        app.add_systems(Update, start_enemy_melee_from_brain_actions);
-
-        let actor_pos = ae::Vec2::new(300.0, 300.0);
-        let aabb = ae::Aabb::new(actor_pos, ae::Vec2::new(36.0, 55.0));
-        let mut enemy = ActorClusterSeed::new(
-            "iron_mary_dismounted",
-            "Iron Mary",
-            aabb,
-            ambition_characters::actor::EnemyBrain::Custom("pirate_heavy".into()),
-            &[],
-        );
-        // The "pirate_heavy" brain resolved to the PirateHeavy spec: peaceful
-        // by default, with the cove-crew provoke override that forces an
-        // aggressive MeleeBrute when struck.
-        assert!(
-            !enemy.config.tuning.attacks_player,
-            "standalone PirateHeavy is normally peaceful"
-        );
-        assert_eq!(
-            enemy.spec.brain_spec().provoke_forced_brute_min_aggro,
-            Some(500.0)
-        );
-        enemy.attack.cooldown = 0.0;
-        let actor = app.world_mut().spawn(enemy_actor(enemy)).id();
-
-        app.world_mut()
-            .resource_mut::<bevy::ecs::message::Messages<ActorActionMessage>>()
-            .write(ActorActionMessage {
-                actor,
-                request: ActionRequest::Melee {
-                    spec: MeleeActionSpec::Lunge(LungeSpec::BRUTE_DEFAULT),
-                    origin: actor_pos,
-                    facing: -1.0,
-                    attack_axis: ae::Vec2::new(-1.0, 0.0),
-                },
-            });
-
-        app.update();
-
-        let attack = app
-            .world()
-            .get::<crate::features::BodyMelee>(actor)
-            .unwrap();
-        let status = *app
-            .world()
-            .get::<crate::features::ActorStatus>(actor)
-            .unwrap();
-        assert!(
-            attack.is_winding_up(),
-            "explicit melee message should start dismounted PirateHeavy windup"
-        );
-        assert!(
-            matches!(
-                status.ai_mode,
-                ambition_characters::actor::ai::CharacterAiMode::Telegraph
-            ),
-            "dismounted PirateHeavy should telegraph her melee attack"
-        );
-    }
-
-    /// Cooldown still gates the consumer — a Melee message arriving
-    /// while the enemy is mid-cooldown is a no-op. Mirrors the
-    /// pre-migration legacy gate.
-    #[test]
-    fn melee_message_during_cooldown_is_dropped() {
-        use ambition_characters::brain::{MeleeActionSpec, SwipeSpec};
-        let mut app = App::new();
-        app.add_plugins(MinimalPlugins);
-        app.add_message::<ActorActionMessage>();
-        app.init_resource::<SandboxFeelTuning>();
-        app.add_systems(Update, start_enemy_melee_from_brain_actions);
-
-        let actor_pos = ae::Vec2::new(300.0, 300.0);
-        let aabb = ae::Aabb::new(actor_pos, ae::Vec2::new(20.0, 24.0));
-        let mut enemy = ActorClusterSeed::new(
-            "striker_a",
-            "Striker",
-            aabb,
-            ambition_characters::actor::EnemyBrain::Custom("medium_striker".into()),
-            &[],
-        );
-        // Pre-set cooldown so begin_melee_attack refuses.
-        enemy.attack.cooldown = 0.5;
-        let actor = app.world_mut().spawn(enemy_actor(enemy)).id();
-        app.world_mut()
-            .resource_mut::<bevy::ecs::message::Messages<ActorActionMessage>>()
-            .write(ActorActionMessage {
-                actor,
-                request: ActionRequest::Melee {
-                    spec: MeleeActionSpec::Swipe(SwipeSpec::STRIKER_DEFAULT),
-                    origin: actor_pos,
-                    facing: 1.0,
-                    attack_axis: ae::Vec2::new(1.0, 0.0),
-                },
-            });
-        app.update();
-        let attack = app
-            .world()
-            .get::<crate::features::BodyMelee>(actor)
-            .unwrap();
-        assert!(
-            !attack.is_winding_up() && attack.swing.is_none(),
-            "cooldown should prevent the swing from starting",
-        );
-    }
+    // The melee-START unit pins that used to live here
+    // (`melee_message_starts_enemy_windup_and_cooldown`,
+    // `melee_message_can_start_windup_for_dismounted_pirate_heavy`,
+    // `melee_message_during_cooldown_is_dropped`) exercised the deleted
+    // actor-only `start_enemy_melee_from_brain_actions`. The unified
+    // `combat::attack::start_body_melee` phase now owns melee-start for every body;
+    // it is pinned through the REAL schedule by
+    // `ambition_app/tests/enemy_attacks_player.rs` (actor melee lands on the player),
+    // `possession_end_to_end.rs` (possessed actor melee), and the body-generic
+    // `unified_melee.rs` tests (player + peaceful-NPC-with-kit + hostile actor all
+    // enter the SAME lifecycle from `ActorActionMessage::Melee`).
 
     /// Silence the test-only helper.
     #[test]

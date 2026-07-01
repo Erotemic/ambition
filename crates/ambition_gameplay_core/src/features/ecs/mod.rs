@@ -98,9 +98,7 @@ pub use bosses::{
     boss_spawn_hurtboxes, derive_boss_sprite_metrics, sync_boss_actor_components,
     sync_boss_encounter_phase, tick_boss_brains_system, update_ecs_bosses,
 };
-pub use brain_effects::{
-    spawn_enemy_projectiles_from_brain_actions, start_enemy_melee_from_brain_actions,
-};
+pub use brain_effects::spawn_enemy_projectiles_from_brain_actions;
 pub use breakables::update_ecs_breakables;
 pub use chests::open_ecs_chests;
 pub use damage::apply_feature_hit_events;

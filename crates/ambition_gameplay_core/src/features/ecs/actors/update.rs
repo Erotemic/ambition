@@ -4,20 +4,6 @@
 use super::super::*;
 use super::*;
 
-/// Map an enemy's committed melee axis to the player-style directional attack
-/// animation row, so an enemy whose sheet authors an attack hitbox is read the
-/// same data-driven way the player is. Mirrors `enemy_attack_aabb_dir`'s axis
-/// branching (forward / up / down).
-fn enemy_melee_animation_for_axis(axis: ambition_engine_core::Vec2) -> &'static str {
-    if axis.x.abs() >= axis.y.abs() {
-        "attack_side"
-    } else if axis.y < 0.0 {
-        "attack_up"
-    } else {
-        "attack_down"
-    }
-}
-
 /// Keep actor-like gameplay poses in sync with the authoritative [`CenteredAabb`].
 ///
 /// `ActorPose` is the gameplay action-origin read model used by the universal
@@ -54,7 +40,6 @@ pub fn sync_actor_poses_from_feature_aabbs(
 /// and can switch disposition in-place; dynamic encounter-spawned mobs use the
 /// same hostile path with an `EncounterMob` marker.
 pub fn update_ecs_actors(
-    mut commands: Commands,
     // Bundled into one SystemParam slot: this system is at Bevy's 16-param
     // ceiling, so the accumulating sim clock + the slot-based controller input
     // ride alongside `WorldTime`. `SlotControls` feeds any actor carrying a
@@ -291,7 +276,10 @@ pub fn update_ecs_actors(
         mut control,
         action_set,
         mounted,
-        (clusters, faction),
+        // Faction is read in pass 1 (anti-clump). The melee strike's faction is now
+        // resolved by the body-generic `advance_body_melee` phase, so the pass-2
+        // loop no longer needs it here.
+        (clusters, _faction),
     ) in &mut actors
     {
         // Body-generic reaction timers on the body's authoritative `BodyCombat`
@@ -350,14 +338,6 @@ pub fn update_ecs_actors(
                     None
                 };
                 let nearest_neighbor = neighbor_by_id.get(&em.config.id).copied();
-                // Capture pre-tick attack state so we can detect
-                // the windup → active edge below. The enemy timer update
-                // is the only path that performs the transition, so
-                // observing the edge lets us spawn the strike's
-                // `Hitbox` entity exactly once per begin-attack
-                // instead of polling overlap every tick.
-                let was_winding_up = em.attack.is_winding_up();
-                let was_active = em.attack.is_active();
 
                 // Every brain-attached enemy ticks its brain FIRST to
                 // build an authoritative frame, then calls
@@ -549,94 +529,11 @@ pub fn update_ecs_actors(
                 if let Some(control) = control.as_deref_mut() {
                     control.0 = frame;
                 }
-                // Active-edge: windup just finished AND attack
-                // timer is now positive (and wasn't already). Spawn
-                // the strike's `Hitbox` entity here so the overlap
-                // check moves to `apply_hitbox_damage` instead of
-                // polling every frame from this system.
-                if was_winding_up
-                    && !em.attack.is_winding_up()
-                    && em.attack.is_active()
-                    && !was_active
-                    && em.health.alive()
-                {
-                    // Directional swing: read the axis the brain
-                    // committed to in `begin_melee_attack`. Forward
-                    // axis falls back to the actor's facing; up /
-                    // down attacks place the hitbox above / below
-                    // the body instead of in front.
-                    // Prefer the actor's authored sprite-metadata attack hitbox
-                    // (the same data-driven path the player and bosses use),
-                    // falling back to the shared hardcoded melee volume when the
-                    // sheet authors none. Gated to upright gravity: the manifest
-                    // box is screen-axis, while the fallback rotates with a
-                    // wall-clinger's frame, so a clung enemy keeps its oriented box.
-                    // The swing's world-frame `AttackSpec` (the SAME spec the human
-                    // player uses, rotated to world at `begin_melee_attack`). Its
-                    // box is the fallback when the sprite sheet authors no per-anim
-                    // hitbox, replacing the old bespoke `attack_aabb_dir`, so reach
-                    // + placement match the player.
-                    let world_spec = em.attack.swing.as_ref().map(|s| s.spec);
-                    let spec_box = world_spec
-                        .map(|s| ae::Aabb::new(em.kin.pos + s.hitbox_offset, s.hitbox_half_size));
-                    // The authored sprite-manifest box is now gravity-aware (it
-                    // rotates into the actor's frame), so use it under ANY gravity —
-                    // no upright gate. Falls back to the spec box when the sheet
-                    // authors no per-anim hitbox.
-                    let attack_box = em
-                        .config
-                        .sprite_character_id
-                        .as_deref()
-                        .and_then(|cid| {
-                            crate::character_sprites::actor_attack_hitbox_world(
-                                cid,
-                                enemy_melee_animation_for_axis(em.attack.pending_axis),
-                                em.kin.pos,
-                                em.kin.size,
-                                em.kin.facing,
-                                down,
-                            )
-                            // Enemy melee spawns a box hitbox today; collapse a
-                            // shaped manifest volume to its bounds (shaped enemy
-                            // melee is a later step).
-                            .map(|v| v.bounds())
-                        })
-                        .or(spec_box)
-                        .unwrap_or_else(|| em.attack_aabb_dir(em.attack.pending_axis));
-                    // The strike carries the attacker's EFFECTIVE allegiance so the
-                    // physical-damage rule (`can_damage`) resolves correctly: a
-                    // Boss-faction duel robot's swing hits the Enemy-faction PCA, and
-                    // a POSSESSED body (carrying `Brain::Player`) swings as `Player`
-                    // and damages its former allies — WITHOUT its authored
-                    // `ActorFaction` ever being mutated (no flip, no restore).
-                    let hitbox_faction = crate::combat::targeting::effective_faction(
-                        faction
-                            .copied()
-                            .unwrap_or(super::super::super::components::ActorFaction::Enemy),
-                        brain.as_deref(),
-                    );
-                    // ONE strike spawn — the SAME `spawn_melee_strike` the player
-                    // uses derives BOTH the damage hitbox AND the slash VFX from this
-                    // one `attack_box`, so they can never diverge. Art KIND from the
-                    // swing spec's intent (the SAME `slash_kind` mapping the player
-                    // uses). Actors knock via `knockback_strength`; `knock_x` is 0.
-                    let slash_kind = world_spec
-                        .map(|s| crate::combat::attack::slash_kind(s.intent))
-                        .unwrap_or(ambition_vfx::vfx::SlashKind::Arc);
-                    super::super::hitbox::spawn_melee_strike(
-                        &mut commands,
-                        &mut vfx,
-                        actor_entity,
-                        hitbox_faction,
-                        em.kin.pos,
-                        attack_box,
-                        1,
-                        1.0,
-                        0.0,
-                        em.attack.active_remaining(),
-                        slash_kind,
-                    );
-                }
+                // Melee is no longer advanced or spawned here. The body-generic
+                // `advance_body_melee` phase (Combat set) ticks EVERY body's
+                // `BodyMelee` and spawns the active-edge strike through the SAME
+                // `spawn_melee_strike` the player uses — one melee ADVANCE lifecycle,
+                // not an actor driver here plus a player driver elsewhere.
                 // Mirror the cluster state onto the ECS read-model
                 // components consumers still read (identity / health /
                 // combat / intent / cooldowns). Disposition is owned by

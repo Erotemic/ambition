@@ -145,6 +145,12 @@ impl ActorBody {
         abilities.fly = is_aerial || caps.can_fly;
         abilities.shield = caps.can_shield;
         abilities.blink = caps.can_blink;
+        // A combat body HAS the attack verb (capability); WHETHER it swings is gated
+        // by its `ActionSet.melee` (a peaceful NPC's empty set emits no Melee message)
+        // and its brain (policy). The shared `start_body_melee` phase reads this flag
+        // like the player does, so every combat actor can enter the one melee
+        // lifecycle — no actor-only melee-start path.
+        abilities.attack = true;
         let mut scratch = ae::BodyClusterScratch::new_with_abilities(ae::Vec2::ZERO, abilities);
         scratch.flight.fly_enabled = is_aerial;
         Self(scratch)

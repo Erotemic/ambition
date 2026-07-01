@@ -123,50 +123,63 @@ fn attack_while_possessing_starts_the_possessed_actors_melee_not_the_home() {
     };
     let actor = spawn_and_possess(&mut sim);
 
-    let swinging = |sim: &mut SandboxSim, e: Entity| {
+    // A swing's melee lifecycle ENGAGED this frame: either it is mid-swing, or its
+    // recovery cooldown is armed (a swing began and — under the fixed-timestep
+    // harness, where one `sim.step` can advance many sim frames — may already have
+    // run to completion). Robust to catch-up; still proves "attack started this
+    // body's melee".
+    let melee_engaged = |sim: &mut SandboxSim, e: Entity| {
         sim.world_mut()
             .get::<BodyMelee>(e)
-            .map(|m| m.is_swinging())
+            .map(|m| m.is_swinging() || m.cooldown > 0.0)
             .unwrap_or(false)
     };
-    assert!(
-        !swinging(&mut sim, actor),
-        "actor is not mid-swing before the attack"
-    );
 
-    // Press attack. The possessed actor carries Brain::Player, so its melee
-    // ActionSet resolves an ActorActionMessage::Melee addressed to ITSELF, which
-    // starts its BodyMelee — through the same actor melee path any brain uses.
-    sim.step(AgentAction {
-        attack: true,
-        ..AgentAction::default()
-    });
-
-    assert!(
-        swinging(&mut sim, actor),
-        "the POSSESSED actor's melee lifecycle started on Attack"
-    );
-    assert!(
-        !swinging(&mut sim, home),
-        "the vacated home avatar's melee did NOT start — attack authority is the \
-         body carrying Brain::Player, not the home body"
-    );
-
-    // Advance through the windup to the active edge; the spawned strike hitbox
-    // must be OWNED by the possessed actor (so its damage is attributed to it).
-    let mut hitbox_owner = None;
+    // Hold Attack across a window. The possessed actor carries Brain::Player, so
+    // its melee ActionSet resolves an ActorActionMessage::Melee addressed to
+    // ITSELF, which enters the ONE body melee lifecycle (`start_body_melee` →
+    // `advance_body_melee`) and, at the active edge, spawns a strike it OWNS. The
+    // vacated home avatar has no player brain, so its melee never engages and it
+    // owns no strike. Observed over a window (not one frame) to be robust to the
+    // fixed-timestep catch-up.
+    let mut actor_engaged = false;
+    let mut home_engaged = false;
+    let mut actor_owns_strike = false;
+    let mut home_owns_strike = false;
     for _ in 0..30 {
-        sim.step(AgentAction::default());
+        sim.step(AgentAction {
+            attack: true,
+            ..AgentAction::default()
+        });
+        actor_engaged |= melee_engaged(&mut sim, actor);
+        home_engaged |= melee_engaged(&mut sim, home);
         let mut q = sim.world_mut().query::<&Hitbox>();
-        if let Some(hb) = q.iter(sim.world_mut()).find(|hb| hb.owner == actor) {
-            hitbox_owner = Some(hb.owner);
-            break;
+        for hb in q.iter(sim.world_mut()) {
+            if hb.owner == actor {
+                actor_owns_strike = true;
+            }
+            if hb.owner == home {
+                home_owns_strike = true;
+            }
         }
     }
-    assert_eq!(
-        hitbox_owner,
-        Some(actor),
+
+    assert!(
+        actor_engaged,
+        "the POSSESSED actor's melee lifecycle engaged on Attack"
+    );
+    assert!(
+        !home_engaged,
+        "the vacated home avatar's melee did NOT engage — attack authority is the \
+         body carrying Brain::Player, not the home body"
+    );
+    assert!(
+        actor_owns_strike,
         "the possessed actor's swing spawned a strike hitbox OWNED by the actor",
+    );
+    assert!(
+        !home_owns_strike,
+        "the vacated home avatar spawned no strike",
     );
 }
 

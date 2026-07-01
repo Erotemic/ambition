@@ -825,7 +825,7 @@ If a known unrelated app/menu test fails, report it separately.
 
 ## Migration phases
 
-### Phase 1: Runtime publish boundary
+### Phase 1: Runtime publish boundary — DONE (2026-07-01)
 
 Add:
 
@@ -838,6 +838,29 @@ documentation of installed vs diagnostic artifacts
 ```
 
 Keep current runtime behavior.
+
+Landed in `crates/ambition_gameplay_core/src/asset_publish/`:
+
+* `classify.rs` — `ArtifactClass`, the shared brain that decides what a
+  generated file *is* from its path shape (runtime vs intermediate vs
+  diagnostic). Used by both the publisher and the hygiene validator.
+* `manifest.rs` — the typed `PublishManifest` with filesystem-free shape
+  validation (no diagnostic marked installed; every destination under a
+  declared runtime root) and a staged-source existence check.
+* `publish.rs` — the small `install(staging, runtime_root)` step: copies
+  runtime-classified files, records diagnostics as `installed: false`.
+* `hygiene.rs` — `scan_runtime_root`: diagnostics under a runtime root are hard
+  errors, throwaway intermediates are warnings.
+* `tests.rs` — publisher fixture + the real-data test
+  `shipped_runtime_roots_have_no_leaked_diagnostics`, which fails if a
+  `*_canonical` / `*_preview_labeled` / `*_debug` file reappears under a runtime
+  sprite root.
+
+The boundary was given teeth immediately: `scripts/sweep_runtime_diagnostics.py`
+(the publisher sweep, wired into `regen_sprites.sh`) relocated 156 leaked
+diagnostics out of the runtime roots, and the quality-variant generator now
+skips diagnostics in its loose-png pass so they stop leaking into the variant
+roots. Runtime loaders were untouched.
 
 ### Phase 2: Entity-contract fragments
 

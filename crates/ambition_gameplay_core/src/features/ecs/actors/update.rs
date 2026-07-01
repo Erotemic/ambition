@@ -36,10 +36,28 @@ pub fn sync_actor_poses_from_feature_aabbs(
     }
 }
 
-/// Tick ECS actors. Peaceful and hostile actors share the same entity identity
-/// and can switch disposition in-place; dynamic encounter-spawned mobs use the
-/// same hostile path with an `EncounterMob` marker.
-pub fn update_ecs_actors(
+/// Per-frame steering context handed from the brain-tick phase to the movement
+/// phase: each actor's nearest same-kind neighbor, keyed by actor id. Computed
+/// once by `tick_actor_brains` (which already runs the slot-board / crowding
+/// pass) and read by `integrate_actor_bodies` for surface-walker anti-clump
+/// steering, so the movement phase doesn't recompute it. Rebuilt every frame.
+#[derive(bevy::ecs::resource::Resource, Default)]
+pub struct ActorSteering {
+    pub neighbor_by_id: std::collections::HashMap<String, ae::Vec2>,
+}
+
+/// PHASE — tick actor brains. For every brain-driven actor: advance its reaction
+/// timers, derive disposition standdown, build the perception snapshot (+ slot
+/// input for a possessed `Brain::Player` body), tick the brain, and write the
+/// resulting `ActorControlFrame` into `ActorControl`. This phase ticks NO body
+/// position and mirrors NO read-model — brain → intent, full stop. The movement
+/// phase (`integrate_actor_bodies`) reads the `ActorControl` written here. Also
+/// runs the shared slot-board / crowding / neighbor pass that feeds each snapshot
+/// and publishes the neighbor index to `ActorSteering` for the movement phase.
+///
+/// Peaceful and hostile actors share the same entity identity and switch
+/// disposition in-place; dynamic encounter-spawned mobs use the same path.
+pub fn tick_actor_brains(
     // Bundled into one SystemParam slot: this system is at Bevy's 16-param
     // ceiling, so the accumulating sim clock + the slot-based controller input
     // ride alongside `WorldTime`. `SlotControls` feeds any actor carrying a
@@ -53,33 +71,18 @@ pub fn update_ecs_actors(
     gravity: crate::physics::GravityCtx,
     user_settings: Option<Res<crate::persistence::settings::UserSettings>>,
     platform_set: Res<crate::MovingPlatformSet>,
-    feel_tuning: Res<crate::time::feel::SandboxFeelTuning>,
     overlay: Res<FeatureEcsWorldOverlay>,
     mut slot_board: ResMut<crate::combat::slots::CombatSlotsRes>,
-    mut sfx: MessageWriter<crate::audio::SfxMessage>,
-    mut vfx: MessageWriter<ambition_vfx::vfx::VfxMessage>,
-    mut hit_events: MessageWriter<HitEvent>,
-    // Multi-player ready: iterate every player and resolve each
-    // actor's body-contact check against the player its `ActorTarget`
-    // points at. The combat slot board (which arbitrates which enemy
-    // commits to an attack this tick) still anchors on a single
-    // global "target player" position — primary today; per-player
-    // slot boards are a follow-up. Single-player behavior is
-    // identical because there's only one player.
+    // Neighbor index handed to the movement phase (surface-walker steering).
+    mut steering: ResMut<ActorSteering>,
+    // The slot-board anchor + per-target liveness read the player's position and
+    // health. Multi-player ready: liveness is keyed per entity. `BodyHealth` is the
+    // liveness authority (NOT `BodyCombat.alive`, an actor-cluster mirror never
+    // synced for the player), consistent with `select_actor_targets`.
     player_query: Query<
         (
             bevy::prelude::Entity,
             &crate::actor::BodyKinematics,
-            &crate::actor::BodyOffense,
-            &crate::actor::BodyDodgeState,
-            &crate::actor::BodyShieldState,
-            &crate::actor::BodyCombat,
-            // The player's liveness AUTHORITY is its health (the single BodyHealth
-            // source), NOT `BodyCombat.alive` — that field is an actor-cluster
-            // mirror that is never synced for the player, so it reads `false` and
-            // made every enemy treat a live player as dead (→ the Smash brain idled
-            // instead of engaging). Read health here, consistent with how
-            // `select_actor_targets` decides the player is a valid target.
             &crate::actor::BodyHealth,
         ),
         bevy::prelude::With<crate::actor::PlayerEntity>,
@@ -173,7 +176,7 @@ pub fn update_ecs_actors(
     let slot_anchor_pos = primary_entity
         .and_then(|e| player_query.get(e).ok())
         .or_else(|| player_query.iter().next())
-        .map(|(_, kin, _, _, _, _, _)| kin.pos);
+        .map(|(_, kin, _)| kin.pos);
     let Some(player_pos) = slot_anchor_pos else {
         return;
     };
@@ -206,7 +209,7 @@ pub fn update_ecs_actors(
         std::collections::HashMap::new();
     let mut target_entity_by_id: std::collections::HashMap<String, Entity> =
         std::collections::HashMap::new();
-    for (entity, _, _, _, _, _, health) in &player_query {
+    for (entity, _, health) in &player_query {
         alive_by_entity.insert(entity, health.current() > 0);
     }
     for (entity, _, _, disposition, _, _, _, target, _, _, _, _, (clusters, faction)) in &actors {
@@ -247,37 +250,33 @@ pub fn update_ecs_actors(
         .collect();
     crate::combat::slots::assign_slots(&mut slot_board.0, player_pos, &slot_requests);
 
-    // Per-kind holding-position fallback for actors that didn't win a
-    // slot (see `compute_holding_positions`).
-    let holding_pos_by_id = compute_holding_positions(&slot_board.0, &requests, player_pos);
-
     // Per-actor nearest-same-kind-neighbor index (see
-    // `compute_nearest_neighbors`).
-    let neighbor_by_id = compute_nearest_neighbors(&requests);
+    // `compute_nearest_neighbors`). Handed to the movement phase via
+    // `ActorSteering` for surface-walker anti-clump steering.
+    steering.neighbor_by_id = compute_nearest_neighbors(&requests);
 
     // Per-actor crowding signal for brains that need personal space.
     let crowding_by_id = compute_crowding_by_id(&requests, &faction_by_id, &opponent_id_by_id);
 
-    // Pass 2: tick each actor with its assigned slot position. Falls
-    // back to the slot's holding-ring position when this actor didn't
-    // win a slot so it still has a sensible steering target.
-    let combat_tuning = feel_tuning.feature_combat_tuning();
+    // Pass 2: tick each actor's brain into its `ActorControl`. The slot-board
+    // holding fallback that steers unassigned actors is folded into the brain
+    // snapshot (crowding); movement integration is a separate phase.
     for (
-        actor_entity,
-        mut aabb,
-        mut identity,
+        _actor_entity,
+        // aabb / identity / intent / cooldowns / mounted belong to the movement +
+        // read-model phases; the query still fetches them (one actor query shape)
+        // but the brain phase reads only its intent inputs.
+        _aabb,
+        _identity,
         mut disposition,
         mut combat,
-        mut intent,
-        mut cooldowns,
+        _intent,
+        _cooldowns,
         target,
         mut brain,
         mut control,
         action_set,
-        mounted,
-        // Faction is read in pass 1 (anti-clump). The melee strike's faction is now
-        // resolved by the body-generic `advance_body_melee` phase, so the pass-2
-        // loop no longer needs it here.
+        _mounted,
         (clusters, _faction),
     ) in &mut actors
     {
@@ -323,39 +322,21 @@ pub fn update_ecs_actors(
                 continue;
             };
             {
-                let mut em = cq.as_actor_mut();
-                let slot_pos = if let Some(slot) = slot_board.0.slot_for(&em.config.id) {
-                    Some(slot.world_pos(target_pos))
-                } else if em.health.alive() {
-                    // No slot assigned — fall back to the per-actor
-                    // holding-ring position computed above. Multiple
-                    // unassigned actors of the same kind are spread
-                    // round-robin across all holding positions of
-                    // that kind rather than sharing slot 0.
-                    holding_pos_by_id.get(&em.config.id).copied()
-                } else {
-                    None
-                };
-                let nearest_neighbor = neighbor_by_id.get(&em.config.id).copied();
+                // Read-only view of the body for the perception snapshot; the brain
+                // tick mutates no cluster state (it writes the intent frame). Actual
+                // integration happens in `integrate_actor_bodies`.
+                let em = cq.as_actor_mut();
 
-                // Every brain-attached enemy ticks its brain FIRST to
-                // build an authoritative frame, then calls
-                // `enemy.update` with that frame. The frame drives
-                // the integration step (Patrol / Chase / Approach all
-                // actually move the actor) AND lands in `ActorControl`
-                // for the EFFECTS consumers (so melee + ranged fire).
-                // Smash + Patrol + MeleeBrute + Skirmisher + Sniper +
-                // Wanderer all flow through this single path.
+                // Every brain-attached actor builds its snapshot + world-view and
+                // ticks its brain into an `ActorControlFrame`. The frame lands in
+                // `ActorControl`, which the movement phase (`integrate_actor_bodies`)
+                // and the EFFECTS consumers (`emit_brain_action_messages` → melee /
+                // ranged) both read. Smash / Patrol / MeleeBrute / Skirmisher /
+                // Sniper / Wanderer all flow through this single path. A body without
+                // a brain gets a neutral frame (production spawns always attach one).
                 //
-                // Actors without a brain (dynamically-spawned debug
-                // entities) get a neutral frame and stand still —
-                // production spawn paths always attach a brain, so
-                // this is the safe no-op fallback.
-                let _ = slot_pos;
-                let is_mounted = mounted.is_some();
-                let previous_pos = em.kin.pos;
-                // Localized gravity: each enemy feels the gravity of the column
-                // it is standing in (its own position), not one global field.
+                // Localized gravity: each actor feels the gravity of the column it is
+                // standing in (its own position), not one global field.
                 let enemy_gravity_dir = gravity.dir_at(em.kin.pos);
                 let brain_frame = if let Some(brain_ref) = brain.as_deref_mut() {
                     let crowding = crowding_by_id.get(&em.config.id).copied();
@@ -423,133 +404,184 @@ pub fn update_ecs_actors(
                 } else {
                     ambition_characters::actor::control::ActorControlFrame::neutral()
                 };
-                // Body-contact damage (including the player-controlled gate) is now
-                // the `apply_actor_contact_damage` observer phase — the movement
-                // integration no longer carries it on the frame.
-                let shark_charge_vec = brain_frame.velocity_target;
-
-                // Respawn blink: `em.update` revives a dead body in place (HP reset)
-                // when its respawn timer elapses. The damage-blink lives on the
-                // body's `BodyCombat` now, so apply the revive flash here in the
-                // driver (where it's in scope) on the dead→alive transition.
-                let was_dead = !em.health.alive();
-                let (frame, move_events) = em.update(
-                    &feature_world,
-                    target_pos,
-                    combat_tuning,
-                    nearest_neighbor,
-                    dt,
-                    is_mounted,
-                    brain_frame,
-                    enemy_gravity_dir,
-                );
-                if was_dead && em.health.alive() {
-                    combat.hit_flash = 0.24;
-                }
-                let shark_crashed =
-                    shark_charge_crashed(&em, is_mounted, shark_charge_vec, previous_pos);
-                let mut frame = frame;
-                if shark_crashed {
-                    hit_events.write(HitEvent {
-                        volume: em.aabb().into(),
-                        damage: em.health.current().max(1),
-                        source: HitSource::EnemyChargeCrash,
-                        attacker: Some(actor_entity),
-                        target: HitTarget::Volume,
-                        mode: HitMode::Knockback,
-                        knockback: None,
-                        ignored_targets: Vec::new(),
-                    });
-                    frame = ambition_characters::actor::control::ActorControlFrame::neutral();
-                }
-                // Blink is folded onto the shared pipeline limb: `em.update` ran the
-                // body's blink limb (ability-gated by the mask, collision-clamped by
-                // the SAME path the player uses) and TELEPORTED the body. The driver
-                // only reacts to the resulting `FrameEvents.blinks` with sfx/vfx —
-                // and it emits the SAME feedback the player does: the clean
-                // `BlinkEffects` flash (the quick / precision blink look), NOT the
-                // `ClassicBurst` explosion that belongs to the held *item* blink. An
-                // AI fighter blinking should read identically to the player blinking.
-                for blink in &move_events.blinks {
-                    sfx.write(crate::audio::SfxMessage::Play {
-                        id: ambition_sfx::ids::PLAYER_BLINK,
-                        pos: blink.to,
-                    });
-                    vfx.write(ambition_vfx::vfx::VfxMessage::BlinkEffects {
-                        from: blink.from,
-                        to: blink.to,
-                        precision: blink.precision,
-                    });
-                }
-                // Fly-toggle is resolved INSIDE the shared pipeline (invariant I3):
-                // `em.update`'s control phase ran `apply_fly_toggle`, which flips
-                // `flight.fly_enabled` from the brain's `fly_toggle_pressed` (gated by
-                // the ability mask) exactly like the player. A manual toggle here used
-                // to run too — a SECOND flip on the same intent that cancelled the
-                // pipeline's, so a hybrid could never actually take off. Removed; the
-                // pipeline is the one owner.
-                // Shield is folded onto the shared pipeline limb: `em.update` ran
-                // the body's `apply_shield` (the SAME `resolve_shield` rule the
-                // player uses, ability-gated by the mask, dash-blocked by the
-                // pipeline dash), resolving onto the body's ONE `BodyShieldState`.
-                // The damage path reads `shield.active` off it — nothing to resolve here.
-                // Publish the actor's footprint ORIENTED to its reference frame —
-                // the single source of truth read by the debug overlay, player
-                // hurtbox, and target volumes, so the box matches the rotated
-                // sprite. A surface-walker's frame is its clung surface
-                // (`-surface_normal`); everyone else's is gravity at their position.
-                // `to_world_half` swaps width<->height only under sideways gravity /
-                // a wall — vertical gravity (down/up) is unchanged, so replay stays
-                // byte-identical.
-                let down = if em.config.tuning.surface_walker {
-                    -em.surface.surface_normal
-                } else {
-                    gravity.dir_at(em.kin.pos)
-                };
-                // One shared computation of an actor's frame-oriented body box
-                // (the same `collision_aabb` the damage path and tests use).
-                let body = crate::features::collision_aabb(&crate::features::SimpleActorGeometry {
-                    pos: em.kin.pos,
-                    size: em.kin.size,
-                    facing: em.kin.facing,
-                    frame_down: down,
-                });
-                aabb.center = body.center();
-                aabb.half_size = body.half_size();
-
+                let _ = enemy_gravity_dir;
+                // Hand the brain-produced intent to the movement phase: the seam is
+                // `ActorControl`, which `integrate_actor_bodies` reads next. This
+                // phase writes NO body position and mirrors NO read-model.
                 if let Some(control) = control.as_deref_mut() {
-                    control.0 = frame;
+                    control.0 = brain_frame;
                 }
-                // Melee is no longer advanced or spawned here. The body-generic
-                // `advance_body_melee` phase (Combat set) ticks EVERY body's
-                // `BodyMelee` and spawns the active-edge strike through the SAME
-                // `spawn_melee_strike` the player uses — one melee ADVANCE lifecycle,
-                // not an actor driver here plus a player driver elsewhere.
-                // Mirror the cluster state onto the ECS read-model
-                // components consumers still read (identity / health /
-                // combat / intent / cooldowns). Disposition is owned by
-                // spawn/provoke, so it is read (peaceful vs hostile combat
-                // state) but not written here.
-                sync_actor_components_from_cluster(
-                    &em,
-                    *disposition,
-                    &mut identity,
-                    &mut combat,
-                    &mut intent,
-                    &mut cooldowns,
-                );
-                // Projectile spawns moved to the EFFECTS-stage
-                // consumer `spawn_enemy_projectiles_from_brain_actions`
-                // (Combat set, runs after `emit_brain_action_messages`).
-                // The attack-swing lifecycle is the body-generic melee phase
-                // (`start_body_melee`/`advance_body_melee`). Body-contact damage
-                // ("you ran into the enemy") is now its OWN observer phase,
-                // `apply_actor_contact_damage`, which runs AFTER this integration
-                // and reads the post-movement body overlap — it does not belong in
-                // the movement/brain loop.
             }
         }
-        // Read-models mirrored from the unified cluster inside the block above.
+    }
+}
+
+/// PHASE — integrate actor bodies. Reads each actor's brain-produced
+/// `ActorControl` (written by `tick_actor_brains`) and moves the body: the shared
+/// movement pipeline (`ActorMut::update` → run / jump / fly / dash / blink /
+/// shield limbs + collision), the resulting blink SFX/VFX, the shark-charge crash,
+/// and the frame-oriented `CenteredAabb` publish. It integrates position ONLY — it
+/// ticks no brain and mirrors no read-model. Surface-walker anti-clump steering
+/// reads the neighbor index `tick_actor_brains` published to [`ActorSteering`].
+#[allow(clippy::too_many_arguments)]
+pub fn integrate_actor_bodies(
+    world_time: Res<WorldTime>,
+    world: Res<crate::RoomGeometry>,
+    gravity: crate::physics::GravityCtx,
+    platform_set: Res<crate::MovingPlatformSet>,
+    feel_tuning: Res<crate::time::feel::SandboxFeelTuning>,
+    overlay: Res<FeatureEcsWorldOverlay>,
+    steering: Res<ActorSteering>,
+    mut sfx: MessageWriter<crate::audio::SfxMessage>,
+    mut vfx: MessageWriter<ambition_vfx::vfx::VfxMessage>,
+    mut hit_events: MessageWriter<HitEvent>,
+    mut actors: Query<
+        (
+            Entity,
+            &mut CenteredAabb,
+            &mut BodyCombat,
+            &super::super::super::components::ActorTarget,
+            Option<&mut ambition_characters::brain::ActorControl>,
+            Option<&super::super::Mounted>,
+            Option<super::super::actor_clusters::ActorClusterQueryData>,
+        ),
+        (
+            With<FeatureSimEntity>,
+            Without<crate::actor::PlayerEntity>,
+            Without<super::super::boss_clusters::BossConfig>,
+        ),
+    >,
+) {
+    let dt = world_time.sim_dt();
+    let feature_world = world_with_sandbox_solids(&world.0, &platform_set.0, &overlay);
+    let combat_tuning = feel_tuning.feature_combat_tuning();
+    for (actor_entity, mut aabb, mut combat, target, mut control, mounted, clusters) in &mut actors
+    {
+        let Some(mut cq) = clusters else {
+            continue;
+        };
+        let mut em = cq.as_actor_mut();
+        // The brain's intent for this body, produced upstream in `tick_actor_brains`.
+        let brain_frame = control
+            .as_deref()
+            .map(|c| c.0)
+            .unwrap_or_else(ambition_characters::actor::control::ActorControlFrame::neutral);
+        let target_pos = target.pos;
+        let nearest_neighbor = steering.neighbor_by_id.get(&em.config.id).copied();
+        let is_mounted = mounted.is_some();
+        let previous_pos = em.kin.pos;
+        // Localized gravity: each actor feels the gravity of the column it stands in.
+        let enemy_gravity_dir = gravity.dir_at(em.kin.pos);
+        let shark_charge_vec = brain_frame.velocity_target;
+        // Respawn blink: `em.update` revives a dead body in place; apply the revive
+        // flash here on the dead→alive transition (the damage-blink lives on
+        // `BodyCombat`).
+        let was_dead = !em.health.alive();
+        let (frame, move_events) = em.update(
+            &feature_world,
+            target_pos,
+            combat_tuning,
+            nearest_neighbor,
+            dt,
+            is_mounted,
+            brain_frame,
+            enemy_gravity_dir,
+        );
+        if was_dead && em.health.alive() {
+            combat.hit_flash = 0.24;
+        }
+        let shark_crashed = shark_charge_crashed(&em, is_mounted, shark_charge_vec, previous_pos);
+        let mut frame = frame;
+        if shark_crashed {
+            hit_events.write(HitEvent {
+                volume: em.aabb().into(),
+                damage: em.health.current().max(1),
+                source: HitSource::EnemyChargeCrash,
+                attacker: Some(actor_entity),
+                target: HitTarget::Volume,
+                mode: HitMode::Knockback,
+                knockback: None,
+                ignored_targets: Vec::new(),
+            });
+            frame = ambition_characters::actor::control::ActorControlFrame::neutral();
+        }
+        // Blink SFX/VFX for the body's teleport (the clean quick/precision flash, not
+        // the held-item `ClassicBurst`) — an AI fighter blinks like the player does.
+        // Fly-toggle + shield are resolved INSIDE `em.update`'s shared pipeline.
+        for blink in &move_events.blinks {
+            sfx.write(crate::audio::SfxMessage::Play {
+                id: ambition_sfx::ids::PLAYER_BLINK,
+                pos: blink.to,
+            });
+            vfx.write(ambition_vfx::vfx::VfxMessage::BlinkEffects {
+                from: blink.from,
+                to: blink.to,
+                precision: blink.precision,
+            });
+        }
+        // Publish the actor's footprint ORIENTED to its reference frame (a
+        // surface-walker's frame is its clung surface; everyone else's is gravity at
+        // their position), the single source of truth read by the debug overlay,
+        // player hurtbox, and target volumes.
+        let down = if em.config.tuning.surface_walker {
+            -em.surface.surface_normal
+        } else {
+            gravity.dir_at(em.kin.pos)
+        };
+        let body = crate::features::collision_aabb(&crate::features::SimpleActorGeometry {
+            pos: em.kin.pos,
+            size: em.kin.size,
+            facing: em.kin.facing,
+            frame_down: down,
+        });
+        aabb.center = body.center();
+        aabb.half_size = body.half_size();
+        // Publish the post-integration frame (identical to the brain frame except a
+        // shark-crash zeroes it) so `emit_brain_action_messages` — which runs after
+        // WorldPrep — sees the same frame the old fused loop did.
+        if let Some(control) = control.as_deref_mut() {
+            control.0 = frame;
+        }
+    }
+}
+
+/// PHASE — sync actor read-model. Mirrors each actor's integrated body state onto
+/// the ECS read-model components consumers read (`ActorIdentity` / `BodyCombat`
+/// presentation fields / `ActorIntent` / `ActorCooldowns`). It changes no control
+/// and moves no body — it only reflects already-integrated state. Runs after
+/// `integrate_actor_bodies`. Disposition is owned by spawn/provoke, so it is read
+/// (to pick peaceful vs hostile combat state) but not written.
+pub fn sync_actor_read_model(
+    mut actors: Query<
+        (
+            &ActorDisposition,
+            &mut ActorIdentity,
+            &mut BodyCombat,
+            &mut ActorIntent,
+            &mut ActorCooldowns,
+            Option<super::super::actor_clusters::ActorClusterQueryData>,
+        ),
+        (
+            With<FeatureSimEntity>,
+            Without<crate::actor::PlayerEntity>,
+            Without<super::super::boss_clusters::BossConfig>,
+        ),
+    >,
+) {
+    for (disposition, mut identity, mut combat, mut intent, mut cooldowns, clusters) in &mut actors
+    {
+        let Some(mut cq) = clusters else {
+            continue;
+        };
+        let em = cq.as_actor_mut();
+        sync_actor_components_from_cluster(
+            &em,
+            *disposition,
+            &mut identity,
+            &mut combat,
+            &mut intent,
+            &mut cooldowns,
+        );
     }
 }
 
@@ -690,6 +722,16 @@ pub(crate) fn compute_nearest_neighbors(
 /// doesn't flicker frame to frame. Without this, every unassigned actor
 /// of a kind shared one slot's holding point and visually clumped. Pure
 /// over the board + per-tick requests so it is unit-testable.
+///
+/// NOTE: production no longer consumes this — the per-actor `slot_pos` it fed was
+/// already dead (`let _ = slot_pos`) before the monolith split, so the whole
+/// slot-board *steering* (`assign_slots` → holding-ring) is a latent no-op; the
+/// brain's crowding signal drives spacing now. Kept (test-covered) pending a
+/// decision to rip out slot-board steering entirely — logged in code_smells.
+#[allow(
+    dead_code,
+    reason = "test-covered; slot-board steering is a pending removal"
+)]
 pub(crate) fn compute_holding_positions(
     board: &crate::combat::slots::CombatSlotBoard,
     requests: &[(String, ae::Vec2, crate::combat::slots::SlotKind)],

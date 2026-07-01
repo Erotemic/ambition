@@ -141,22 +141,24 @@ pub use ecs::{
     ecs_boss_anim_state_and_entity, ecs_boss_animation_frame_sample, ecs_boss_name,
     ecs_breakable_state, ecs_chest_opened, ecs_enemy_name, ecs_enemy_sprite_override,
     ecs_hit_event_hits_actor, ecs_hit_event_hits_boss, ecs_hit_event_hits_breakable, ecs_npc_name,
-    enforce_mount_rider_link, interact_ecs_actors_and_switches, magnetize_pickups, open_ecs_chests,
-    pirate_on_shark_rider_offset, rebuild_feature_ecs_world_overlay, rebuild_feature_view_index,
+    enforce_mount_rider_link, integrate_actor_bodies, interact_ecs_actors_and_switches,
+    magnetize_pickups, open_ecs_chests, pirate_on_shark_rider_offset,
+    rebuild_feature_ecs_world_overlay, rebuild_feature_view_index,
     refresh_actor_damageable_volumes, refresh_boss_damageable_volumes,
     refresh_breakable_damageable_volumes, reset_ecs_room_features, select_actor_targets,
     spawn_encounter_mob, spawn_enemy_projectiles_from_brain_actions, spawn_melee_hitbox,
-    spawn_room_feature_entities, sync_actor_poses_from_feature_aabbs, sync_boss_actor_components,
-    sync_boss_encounter_phase, sync_boss_reward_chests_ecs, sync_ecs_actors_with_save,
-    sync_ecs_bosses_with_save, sync_ecs_switches_from_save, sync_encounter_reward_chests_ecs,
-    sync_riders_to_mounts, tick_and_despawn_hitboxes, tick_boss_brains_system,
-    tick_gameplay_banner, tick_npc_idle_barks, tick_pending_challenges, update_ecs_actors,
-    update_ecs_bosses, update_ecs_breakables, update_ecs_falling_chests, update_ecs_hazards,
-    BossClusterQueryData, BossClusterRef, BossClusterScratch, BossConfig, BossMut, BossOverrides,
-    BossRef, BossStatus, FactionRelations, FeatureEcsWorldOverlay, FeatureSimEntity,
-    FeatureViewIndex, FriendlyFire, HazardFeature, HeldItem, Hitbox, HitboxAnchor, HitboxHits,
-    HitboxLifetime, MountSlot, Mountable, Mounted, MountedBrainCache, MountedSize,
-    PendingChallenge, RidingOn, SpawnActorKind, SpawnActorRequest, CHALLENGE_GRACE_S,
+    spawn_room_feature_entities, sync_actor_poses_from_feature_aabbs, sync_actor_read_model,
+    sync_boss_actor_components, sync_boss_encounter_phase, sync_boss_reward_chests_ecs,
+    sync_ecs_actors_with_save, sync_ecs_bosses_with_save, sync_ecs_switches_from_save,
+    sync_encounter_reward_chests_ecs, sync_riders_to_mounts, tick_actor_brains,
+    tick_and_despawn_hitboxes, tick_boss_brains_system, tick_gameplay_banner, tick_npc_idle_barks,
+    tick_pending_challenges, update_ecs_bosses, update_ecs_breakables, update_ecs_falling_chests,
+    update_ecs_hazards, ActorSteering, BossClusterQueryData, BossClusterRef, BossClusterScratch,
+    BossConfig, BossMut, BossOverrides, BossRef, BossStatus, FactionRelations,
+    FeatureEcsWorldOverlay, FeatureSimEntity, FeatureViewIndex, FriendlyFire, HazardFeature,
+    HeldItem, Hitbox, HitboxAnchor, HitboxHits, HitboxLifetime, MountSlot, Mountable, Mounted,
+    MountedBrainCache, MountedSize, PendingChallenge, RidingOn, SpawnActorKind, SpawnActorRequest,
+    CHALLENGE_GRACE_S,
 };
 pub use ecs::{ActorAnimFrame, ActorSpriteData};
 pub use enemies::{
@@ -256,10 +258,12 @@ impl bevy::prelude::Plugin for WorldPrepSchedulePlugin {
                 // Target selection refreshes each actor's `ActorTarget`
                 // before actor / boss update systems consume it.
                 select_actor_targets,
-                // One tick for EVERY actor (was-NPC + was-enemy): they share the
-                // unified cluster, so peaceful and hostile actors run the same
-                // system. Peaceful actors no-op the combat passes via tuning.
-                update_ecs_actors,
+                // The per-actor pipeline (was the `update_ecs_actors` monolith) is
+                // now four explicit phases — `tick_actor_brains` →
+                // `integrate_actor_bodies` → `sync_actor_read_model` →
+                // `apply_actor_contact_damage` — registered separately below (this
+                // tuple is at Bevy's chain-length ceiling) so brain / movement /
+                // read-model / contact are each their own scheduled system.
                 // Ambient NPC chatter (parrot squawks, etc.) on its own timer.
                 tick_npc_idle_barks,
                 // Rider/mount pose sync. Runs immediately after the
@@ -293,15 +297,24 @@ impl bevy::prelude::Plugin for WorldPrepSchedulePlugin {
                 .before(select_actor_targets)
                 .in_set(crate::schedule::SandboxSet::WorldPrep),
         );
-        // Body-contact damage is its own OBSERVER phase: after `update_ecs_actors`
-        // has integrated actor bodies this frame, it reads each actor's resolved
-        // overlap against the player it targets and emits a `HitEvent`. Registered
-        // separately (not in the chain above) only because that tuple is at Bevy's
-        // chain-length ceiling; the `.after` keeps the post-movement ordering exact.
+        // The decomposed per-actor pipeline: brain → intent, movement integration,
+        // read-model mirror, and contact-damage observer, as four explicit phases.
+        // Chained (they share the actor cluster + `ActorControl`/`BodyCombat`) and
+        // slotted where the old `update_ecs_actors` monolith ran (after target
+        // selection, before the NPC bark ticker). Registered separately from the big
+        // WorldPrep tuple, which is at Bevy's chain-length ceiling.
+        app.init_resource::<ActorSteering>();
         app.add_systems(
             Update,
-            apply_actor_contact_damage
-                .after(update_ecs_actors)
+            (
+                tick_actor_brains,
+                integrate_actor_bodies,
+                sync_actor_read_model,
+                apply_actor_contact_damage,
+            )
+                .chain()
+                .after(select_actor_targets)
+                .before(tick_npc_idle_barks)
                 .in_set(crate::schedule::SandboxSet::WorldPrep),
         );
         // Settle decided feuds before targeting reads grudges: a body forgets a slain

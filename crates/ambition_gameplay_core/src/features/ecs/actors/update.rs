@@ -416,18 +416,134 @@ pub fn tick_actor_brains(
     }
 }
 
+/// The per-body ACTOR movement integrator — the actor-species sibling of
+/// [`crate::player::integrate_home_body`]. Both bottom out in the SAME engine seam
+/// (`ae::update_body_with_tuning_clusters`, reached here via `ActorMut::update` →
+/// `integrate_body`); this wrapper adds the actor-species orchestration the home
+/// body doesn't need (dead/revive, AI evaluation, surface-walker step, flight
+/// tuning) and reacts to the integration: the revive flash on the dead→alive edge,
+/// the shark-charge crash `HitEvent`, the blink SFX/VFX for a teleport, and the
+/// frame-oriented `CenteredAabb` publish. It writes the post-integration frame back
+/// onto `ActorControl` so `emit_brain_action_messages` sees the same frame the old
+/// fused loop did.
+#[allow(clippy::too_many_arguments)]
+fn integrate_actor_body(
+    actor_entity: Entity,
+    em: &mut ActorMut<'_>,
+    aabb: &mut CenteredAabb,
+    combat: &mut BodyCombat,
+    mut control: Option<&mut ambition_characters::brain::ActorControl>,
+    target_pos: ae::Vec2,
+    is_mounted: bool,
+    feature_world: &ae::World,
+    combat_tuning: crate::features::FeatureCombatTuning,
+    steering: &ActorSteering,
+    gravity: &crate::physics::GravityCtx,
+    dt: f32,
+    sfx: &mut MessageWriter<crate::audio::SfxMessage>,
+    vfx: &mut MessageWriter<ambition_vfx::vfx::VfxMessage>,
+    hit_events: &mut MessageWriter<HitEvent>,
+) {
+    // The brain's intent for this body, produced upstream in `tick_actor_brains`.
+    let brain_frame = control
+        .as_deref()
+        .map(|c| c.0)
+        .unwrap_or_else(ambition_characters::actor::control::ActorControlFrame::neutral);
+    let nearest_neighbor = steering.neighbor_by_id.get(&em.config.id).copied();
+    let previous_pos = em.kin.pos;
+    // Localized gravity: each actor feels the gravity of the column it stands in.
+    let enemy_gravity_dir = gravity.dir_at(em.kin.pos);
+    let shark_charge_vec = brain_frame.velocity_target;
+    // Respawn blink: `em.update` revives a dead body in place; apply the revive
+    // flash here on the dead→alive transition (the damage-blink lives on
+    // `BodyCombat`).
+    let was_dead = !em.health.alive();
+    let (frame, move_events) = em.update(
+        feature_world,
+        target_pos,
+        combat_tuning,
+        nearest_neighbor,
+        dt,
+        is_mounted,
+        brain_frame,
+        enemy_gravity_dir,
+    );
+    if was_dead && em.health.alive() {
+        combat.hit_flash = 0.24;
+    }
+    let shark_crashed = shark_charge_crashed(em, is_mounted, shark_charge_vec, previous_pos);
+    let mut frame = frame;
+    if shark_crashed {
+        hit_events.write(HitEvent {
+            volume: em.aabb().into(),
+            damage: em.health.current().max(1),
+            source: HitSource::EnemyChargeCrash,
+            attacker: Some(actor_entity),
+            target: HitTarget::Volume,
+            mode: HitMode::Knockback,
+            knockback: None,
+            ignored_targets: Vec::new(),
+        });
+        frame = ambition_characters::actor::control::ActorControlFrame::neutral();
+    }
+    // Blink SFX/VFX for the body's teleport (the clean quick/precision flash, not
+    // the held-item `ClassicBurst`) — an AI fighter blinks like the player does.
+    // Fly-toggle + shield are resolved INSIDE `em.update`'s shared pipeline.
+    for blink in &move_events.blinks {
+        sfx.write(crate::audio::SfxMessage::Play {
+            id: ambition_sfx::ids::PLAYER_BLINK,
+            pos: blink.to,
+        });
+        vfx.write(ambition_vfx::vfx::VfxMessage::BlinkEffects {
+            from: blink.from,
+            to: blink.to,
+            precision: blink.precision,
+        });
+    }
+    // Publish the actor's footprint ORIENTED to its reference frame (a
+    // surface-walker's frame is its clung surface; everyone else's is gravity at
+    // their position), the single source of truth read by the debug overlay,
+    // player hurtbox, and target volumes.
+    let down = if em.config.tuning.surface_walker {
+        -em.surface.surface_normal
+    } else {
+        gravity.dir_at(em.kin.pos)
+    };
+    let body = crate::features::collision_aabb(&crate::features::SimpleActorGeometry {
+        pos: em.kin.pos,
+        size: em.kin.size,
+        facing: em.kin.facing,
+        frame_down: down,
+    });
+    aabb.center = body.center();
+    aabb.half_size = body.half_size();
+    // Publish the post-integration frame (identical to the brain frame except a
+    // shark-crash zeroes it) so `emit_brain_action_messages` — which runs after
+    // WorldPrep — sees the same frame the old fused loop did.
+    if let Some(control) = control.as_deref_mut() {
+        control.0 = frame;
+    }
+}
+
 /// PHASE — integrate sim bodies. The ONE scheduled movement phase for every
 /// non-boss sim body: it reads each body's brain-produced `ActorControl` and moves
 /// it through the shared movement pipeline (`ae::update_body_with_tuning_clusters`).
 ///
-/// It integrates TWO body species in one system so there is no separate home/player
-/// movement route:
-/// - ACTOR bodies (`FeatureSimEntity`, not player, not boss): `ActorMut::update`
-///   (run / jump / fly / dash / blink / shield limbs + collision) plus the blink
-///   SFX/VFX, the shark-charge crash, and the frame-oriented `CenteredAabb` publish.
-/// - HOME/PLAYER bodies (`PlayerEntity`): [`crate::player::integrate_home_body`],
-///   the LITERAL same engine entry, writing the `PlayerBodyFrameOutput` hand-off the
-///   home reset-policy + presentation phases consume.
+/// There is no separate home/player movement route. The phase is a thin driver over
+/// TWO per-body integrators that are SIBLINGS — each bottoms out in that one engine
+/// seam, differing only in the species-specific orchestration wrapped around it:
+/// - ACTOR bodies (`FeatureSimEntity`, not player, not boss): [`integrate_actor_body`]
+///   (AI eval + surface-walker/flight tuning around the seam, then blink SFX/VFX,
+///   the shark-charge crash, and the frame-oriented `CenteredAabb` publish).
+/// - HOME/PLAYER bodies (`PlayerEntity`): [`crate::player::integrate_home_body`]
+///   (hitstun gate + ledge-platform carry + reset teleport around the seam, writing
+///   the `PlayerBodyFrameOutput` hand-off the home reset-policy + presentation phases
+///   consume).
+///
+/// The two live in disjoint queries because they are disjoint archetypes
+/// (`With<PlayerEntity>` vs `Without<PlayerEntity>`) with different cluster shapes —
+/// they cannot share one Bevy loop, but they DO share the one movement seam, which
+/// is the whole point of the unification.
 ///
 /// It integrates position ONLY — it ticks no brain and mirrors no read-model.
 /// Surface-walker anti-clump steering reads the neighbor index `tick_actor_brains`
@@ -479,93 +595,30 @@ pub fn integrate_sim_bodies(
     let dt = world_time.sim_dt();
     let feature_world = world_with_sandbox_solids(&world.0, &platform_set.0, &overlay);
     let combat_tuning = feel_tuning.feature_combat_tuning();
+    // ── ACTOR bodies (the per-body integrator, symmetric with the home body's) ──
     for (actor_entity, mut aabb, mut combat, target, mut control, mounted, clusters) in &mut actors
     {
         let Some(mut cq) = clusters else {
             continue;
         };
         let mut em = cq.as_actor_mut();
-        // The brain's intent for this body, produced upstream in `tick_actor_brains`.
-        let brain_frame = control
-            .as_deref()
-            .map(|c| c.0)
-            .unwrap_or_else(ambition_characters::actor::control::ActorControlFrame::neutral);
-        let target_pos = target.pos;
-        let nearest_neighbor = steering.neighbor_by_id.get(&em.config.id).copied();
-        let is_mounted = mounted.is_some();
-        let previous_pos = em.kin.pos;
-        // Localized gravity: each actor feels the gravity of the column it stands in.
-        let enemy_gravity_dir = gravity.dir_at(em.kin.pos);
-        let shark_charge_vec = brain_frame.velocity_target;
-        // Respawn blink: `em.update` revives a dead body in place; apply the revive
-        // flash here on the dead→alive transition (the damage-blink lives on
-        // `BodyCombat`).
-        let was_dead = !em.health.alive();
-        let (frame, move_events) = em.update(
+        integrate_actor_body(
+            actor_entity,
+            &mut em,
+            &mut aabb,
+            &mut combat,
+            control.as_deref_mut(),
+            target.pos,
+            mounted.is_some(),
             &feature_world,
-            target_pos,
             combat_tuning,
-            nearest_neighbor,
+            &steering,
+            &gravity,
             dt,
-            is_mounted,
-            brain_frame,
-            enemy_gravity_dir,
+            &mut sfx,
+            &mut vfx,
+            &mut hit_events,
         );
-        if was_dead && em.health.alive() {
-            combat.hit_flash = 0.24;
-        }
-        let shark_crashed = shark_charge_crashed(&em, is_mounted, shark_charge_vec, previous_pos);
-        let mut frame = frame;
-        if shark_crashed {
-            hit_events.write(HitEvent {
-                volume: em.aabb().into(),
-                damage: em.health.current().max(1),
-                source: HitSource::EnemyChargeCrash,
-                attacker: Some(actor_entity),
-                target: HitTarget::Volume,
-                mode: HitMode::Knockback,
-                knockback: None,
-                ignored_targets: Vec::new(),
-            });
-            frame = ambition_characters::actor::control::ActorControlFrame::neutral();
-        }
-        // Blink SFX/VFX for the body's teleport (the clean quick/precision flash, not
-        // the held-item `ClassicBurst`) — an AI fighter blinks like the player does.
-        // Fly-toggle + shield are resolved INSIDE `em.update`'s shared pipeline.
-        for blink in &move_events.blinks {
-            sfx.write(crate::audio::SfxMessage::Play {
-                id: ambition_sfx::ids::PLAYER_BLINK,
-                pos: blink.to,
-            });
-            vfx.write(ambition_vfx::vfx::VfxMessage::BlinkEffects {
-                from: blink.from,
-                to: blink.to,
-                precision: blink.precision,
-            });
-        }
-        // Publish the actor's footprint ORIENTED to its reference frame (a
-        // surface-walker's frame is its clung surface; everyone else's is gravity at
-        // their position), the single source of truth read by the debug overlay,
-        // player hurtbox, and target volumes.
-        let down = if em.config.tuning.surface_walker {
-            -em.surface.surface_normal
-        } else {
-            gravity.dir_at(em.kin.pos)
-        };
-        let body = crate::features::collision_aabb(&crate::features::SimpleActorGeometry {
-            pos: em.kin.pos,
-            size: em.kin.size,
-            facing: em.kin.facing,
-            frame_down: down,
-        });
-        aabb.center = body.center();
-        aabb.half_size = body.half_size();
-        // Publish the post-integration frame (identical to the brain frame except a
-        // shark-crash zeroes it) so `emit_brain_action_messages` — which runs after
-        // WorldPrep — sees the same frame the old fused loop did.
-        if let Some(control) = control.as_deref_mut() {
-            control.0 = frame;
-        }
     }
 
     // ── HOME/PLAYER bodies, integrated in this SAME phase ──────────────────────

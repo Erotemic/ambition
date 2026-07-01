@@ -9,18 +9,39 @@ use super::*;
 
 /// Handle interactions with ECS switches and peaceful NPCs. Chests stay in
 /// `open_ecs_chests` because they have their own reward/persistence path.
+///
+/// The interaction is resolved for the **controlled subject** — the body the
+/// local player is driving (the home avatar during normal play, a possessed
+/// actor while possessing). Intent (the buffered `Interact` press) comes from
+/// slot-0's input surface, the primary player's `PlayerInteractionState`, which
+/// the device writes every frame regardless of which body is possessed; the
+/// GEOMETRY (whose AABB decides what's in reach) comes from the driven body. So
+/// possessing an actor and pressing Interact activates whatever THAT body is
+/// standing next to, not whatever the vacated home avatar is next to. In normal
+/// play the two are the same entity, so single-player behavior is unchanged.
 pub fn interact_ecs_actors_and_switches(
     mut dialogue: ResMut<crate::dialog::DialogState>,
     mut next_mode: ResMut<NextState<crate::GameMode>>,
     mut banner: ResMut<GameplayBanner>,
-    mut player: Query<
+    controlled: Option<Res<crate::abilities::traversal::possession::ControlledSubject>>,
+    // Slot-0 input surface: the primary player's buffered-interact state + the
+    // interact-gesture anim. The device writes this even while the home avatar
+    // is vacated, so it's the right source for "the local player wants to
+    // interact" independent of which body is being driven.
+    mut input_surface: Query<
         (
-            &crate::actor::BodyKinematics,
+            Entity,
             &mut crate::player::PlayerInteractionState,
             &mut crate::player::PlayerAnimState,
         ),
-        With<crate::actor::PlayerEntity>,
+        (
+            With<crate::actor::PlayerEntity>,
+            With<crate::actor::PrimaryPlayer>,
+        ),
     >,
+    // The driven body's kinematics — body-generic so the reach test uses the
+    // controlled subject's position whether it's the player or a possessed actor.
+    bodies: Query<&crate::actor::BodyKinematics>,
     // Talkable actors carry the shared `ActorInteraction` payload (dialogue
     // is an actor capability, not an NPC type). Dialogue is offered only to a
     // PEACEFUL talkable actor — a provoked one keeps its `ActorInteraction`
@@ -50,100 +71,90 @@ pub fn interact_ecs_actors_and_switches(
     mut switch_activated: MessageWriter<SwitchActivated>,
     mut vfx: MessageWriter<VfxMessage>,
 ) {
-    // Iterate every player's buffered-interact state so each player
-    // can talk to an NPC or activate a switch independently. The NPC
-    // dialogue gate is global (one DialogState resource), so when one
-    // player engages dialogue the loop short-circuits — a future
-    // per-player dialogue surface (OVERNIGHT-TODO #17) would let
-    // simultaneous NPC interactions land per-player. Single-player
-    // behavior preserved because the iterator has one entity today.
     // How long the player's `Interact` pose holds after the interaction
     // commits. Short enough that the gesture clears before dialogue UI
     // or the room transition takes camera focus.
     const INTERACT_ANIM_HOLD_SECS: f32 = 0.28;
-    for (player_kin, mut interaction, mut anim) in &mut player {
-        if !interaction.buffered() {
+    let Ok((primary_entity, mut interaction, mut anim)) = input_surface.single_mut() else {
+        return;
+    };
+    if !interaction.buffered() {
+        return;
+    }
+    // The body actually doing the interacting: the controlled subject (the body
+    // carrying `Brain::Player`), falling back to the input surface itself for
+    // the startup frame before the subject resolver has run.
+    let subject = controlled
+        .and_then(|subject| subject.0)
+        .unwrap_or(primary_entity);
+    let Ok(subject_kin) = bodies.get(subject) else {
+        return;
+    };
+    let reach_aabb = subject_kin.aabb();
+    for (actor_entity, aabb, disposition, identity, interaction_payload) in &actors {
+        if disposition.is_hostile() {
             continue;
         }
-        let player_aabb = player_kin.aabb();
-        let mut consumed = false;
-        for (actor_entity, aabb, disposition, identity, interaction_payload) in &actors {
-            if disposition.is_hostile() {
-                continue;
-            }
-            let interactable = &interaction_payload.interactable;
-            if !aabb.aabb().strict_intersects(player_aabb) {
-                continue;
-            }
-            interaction.clear();
-            anim.interact_anim_timer = INTERACT_ANIM_HOLD_SECS;
-            banner.show(
-                super::super::npcs::npc_message(interactable, &identity.name, false),
-                2.6,
-            );
-            let request = super::super::npcs::npc_dialogue_request(
-                interactable,
-                &identity.name,
-                &identity.id,
-            );
-            dialogue.start(&request.dialogue_id, &request.npc_name);
-            // Record which actor we're talking to so dialogue commands like
-            // `<<challenge>>` can provoke THIS NPC into a fight.
-            dialogue.set_speaker_entity(actor_entity);
-            next_mode.set(crate::GameMode::Dialogue);
-            quest_advance.write(QuestAdvanceRequested(
-                crate::quest::QuestAdvanceEvent::NpcTalked(identity.id.clone()),
-            ));
-            set_flag.write(SetFlagRequested {
-                id: "met_any_hub_npc".into(),
-                on: true,
-            });
-            set_flag.write(SetFlagRequested {
-                id: format!("npc_{}_talked", request.dialogue_id),
-                on: true,
-            });
-            vfx.write(VfxMessage::Burst {
-                pos: aabb.center,
-                count: 16,
-                speed: 230.0,
-                color: [0.84, 0.95, 1.0, 0.82],
-                kind: ParticleKind::Spark,
-            });
-            // Dialogue is a global mode flip; once one player engages
-            // it the loop short-circuits — no other player can also
-            // start a dialogue this frame. Return entirely (skip the
-            // switch loop too) to match the prior single() semantic.
-            return;
-        }
-        for (_id, name, aabb, switch, mut on) in &mut switches {
-            if !aabb.aabb().strict_intersects(player_aabb) {
-                continue;
-            }
-            interaction.clear();
-            anim.interact_anim_timer = INTERACT_ANIM_HOLD_SECS;
-            banner.show(format!("activated {}", name.0.as_str()), 2.6);
-            on.0 = true;
-            switch_activated.write(SwitchActivated {
-                activation: switch.activation.clone(),
-                pos: aabb.center,
-            });
-            vfx.write(VfxMessage::Burst {
-                pos: aabb.center,
-                count: 16,
-                speed: 230.0,
-                color: [0.84, 0.95, 1.0, 0.82],
-                kind: ParticleKind::Spark,
-            });
-            consumed = true;
-            break;
-        }
-        if consumed {
-            // Switch activation is per-target; once this player
-            // flipped a switch we don't keep checking actors / other
-            // switches for them this tick (matches the prior
-            // single-`return`-after-switch semantic).
+        let interactable = &interaction_payload.interactable;
+        if !aabb.aabb().strict_intersects(reach_aabb) {
             continue;
         }
+        interaction.clear();
+        anim.interact_anim_timer = INTERACT_ANIM_HOLD_SECS;
+        banner.show(
+            super::super::npcs::npc_message(interactable, &identity.name, false),
+            2.6,
+        );
+        let request =
+            super::super::npcs::npc_dialogue_request(interactable, &identity.name, &identity.id);
+        dialogue.start(&request.dialogue_id, &request.npc_name);
+        // Record which actor we're talking to so dialogue commands like
+        // `<<challenge>>` can provoke THIS NPC into a fight.
+        dialogue.set_speaker_entity(actor_entity);
+        next_mode.set(crate::GameMode::Dialogue);
+        quest_advance.write(QuestAdvanceRequested(
+            crate::quest::QuestAdvanceEvent::NpcTalked(identity.id.clone()),
+        ));
+        set_flag.write(SetFlagRequested {
+            id: "met_any_hub_npc".into(),
+            on: true,
+        });
+        set_flag.write(SetFlagRequested {
+            id: format!("npc_{}_talked", request.dialogue_id),
+            on: true,
+        });
+        vfx.write(VfxMessage::Burst {
+            pos: aabb.center,
+            count: 16,
+            speed: 230.0,
+            color: [0.84, 0.95, 1.0, 0.82],
+            kind: ParticleKind::Spark,
+        });
+        // Dialogue is a global mode flip; a talk consumes the interact and skips
+        // the switch loop this tick.
+        return;
+    }
+    for (_id, name, aabb, switch, mut on) in &mut switches {
+        if !aabb.aabb().strict_intersects(reach_aabb) {
+            continue;
+        }
+        interaction.clear();
+        anim.interact_anim_timer = INTERACT_ANIM_HOLD_SECS;
+        banner.show(format!("activated {}", name.0.as_str()), 2.6);
+        on.0 = true;
+        switch_activated.write(SwitchActivated {
+            activation: switch.activation.clone(),
+            pos: aabb.center,
+        });
+        vfx.write(VfxMessage::Burst {
+            pos: aabb.center,
+            count: 16,
+            speed: 230.0,
+            color: [0.84, 0.95, 1.0, 0.82],
+            kind: ParticleKind::Spark,
+        });
+        // Switch activation is per-target; once we flip one we stop.
+        return;
     }
 }
 
@@ -202,6 +213,86 @@ mod tests {
         assert!(
             app.world().get::<SwitchOn>(switch).unwrap().0,
             "a buffered interact on an adjacent switch should toggle it on"
+        );
+    }
+
+    #[test]
+    fn interact_lands_on_the_controlled_subject_not_the_vacated_home_avatar() {
+        use crate::abilities::traversal::possession::ControlledSubject;
+        use crate::actor::BodyKinematics;
+
+        let home_pos = ae::Vec2::new(0.0, 0.0);
+        let subject_pos = ae::Vec2::new(600.0, 0.0);
+
+        let mut app = App::new();
+        app.insert_resource(GameplayBanner::default());
+        app.insert_resource(crate::dialog::DialogState::default());
+        app.insert_resource(NextState::<crate::GameMode>::default());
+        app.add_message::<SetFlagRequested>();
+        app.add_message::<QuestAdvanceRequested>();
+        app.add_message::<SwitchActivated>();
+        app.add_message::<VfxMessage>();
+
+        // Slot-0 input surface: the home avatar, far from the switch, with a
+        // buffered interact press from the device.
+        spawn_interaction_player(&mut app, home_pos);
+
+        // The possessed body the player is DRIVING, standing on the switch.
+        let subject = app
+            .world_mut()
+            .spawn(BodyKinematics {
+                pos: subject_pos,
+                vel: ae::Vec2::ZERO,
+                size: ae::Vec2::new(24.0, 40.0),
+                facing: 1.0,
+            })
+            .id();
+        app.insert_resource(ControlledSubject(Some(subject)));
+
+        // A switch next to the DRIVEN body...
+        let near_subject = app
+            .world_mut()
+            .spawn((
+                FeatureSimEntity,
+                FeatureId::new("subject_switch"),
+                FeatureName::new("Subject Switch"),
+                CenteredAabb::from_center_size(subject_pos, ae::Vec2::new(24.0, 24.0)),
+                SwitchFeature::new(crate::encounter::SwitchActivation {
+                    id: "subject_switch".into(),
+                    action: "open".into(),
+                    target_encounter: String::new(),
+                }),
+                SwitchOn(false),
+            ))
+            .id();
+
+        // ...and a decoy next to the vacated home avatar, which must NOT fire.
+        let near_home = app
+            .world_mut()
+            .spawn((
+                FeatureSimEntity,
+                FeatureId::new("home_switch"),
+                FeatureName::new("Home Switch"),
+                CenteredAabb::from_center_size(home_pos, ae::Vec2::new(24.0, 24.0)),
+                SwitchFeature::new(crate::encounter::SwitchActivation {
+                    id: "home_switch".into(),
+                    action: "open".into(),
+                    target_encounter: String::new(),
+                }),
+                SwitchOn(false),
+            ))
+            .id();
+
+        app.add_systems(Update, interact_ecs_actors_and_switches);
+        app.update();
+
+        assert!(
+            app.world().get::<SwitchOn>(near_subject).unwrap().0,
+            "interact should activate the switch next to the CONTROLLED body"
+        );
+        assert!(
+            !app.world().get::<SwitchOn>(near_home).unwrap().0,
+            "interact must NOT reach the switch next to the vacated home avatar"
         );
     }
 }

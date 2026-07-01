@@ -13,11 +13,12 @@
 
 use bevy::prelude::*;
 
+use crate::abilities::traversal::possession::ControlledSubject;
 use crate::actor::BodyHealth;
 use crate::actor::BodyKinematics;
 use crate::actor::BodyMana;
 use crate::actor::{PlayerEntity, PrimaryPlayer};
-use crate::player::PlayerInputFrame;
+use ambition_characters::brain::ActorControl;
 use ambition_engine_core::{self as ae, AabbExt};
 
 /// A healing / save-point shrine the player can `Interact` with.
@@ -30,33 +31,41 @@ pub struct HealShrine {
 // The heal/save shrine is now an LDtk-authored `ShrineSpawn` entity (spawned at
 // room load via `spawn_room_feature_entities`); the old debug spawner is retired.
 
-/// `Interact` while overlapping a [`HealShrine`] heals the player to full
+/// `Interact` while overlapping a [`HealShrine`] heals the body to full
 /// (health + mana) and writes a save checkpoint. `interact_pressed` is an edge,
 /// so one press = one heal.
 ///
-/// Reads the actor-local [`PlayerInputFrame`] rather than the global
-/// `Res<ControlFrame>`: the interact intent belongs to the actor at the shrine,
-/// not to one machine-wide input frame (relativity principle / §4 of the
-/// restructuring blueprint).
+/// Acts on the **controlled subject** — the body the player is driving — reading
+/// its body-generic [`ActorControl`] interact intent (populated for any body
+/// carrying `Brain::Player`) and healing THAT body. So a possessed actor resting
+/// at a shrine heals itself, not the vacated home avatar. The intent belongs to
+/// the body at the shrine, not to one machine-wide input frame (relativity
+/// principle / §4 of the restructuring blueprint). Falls back to the primary
+/// player for the startup frame before the subject resolver has run.
 pub fn heal_save_shrine_system(
-    mut players: Query<
-        (
-            &PlayerInputFrame,
-            &BodyKinematics,
-            &mut BodyHealth,
-            &mut BodyMana,
-        ),
-        (With<PlayerEntity>, With<PrimaryPlayer>),
-    >,
+    controlled: Option<Res<ControlledSubject>>,
+    mut bodies: Query<(
+        &ActorControl,
+        &BodyKinematics,
+        &mut BodyHealth,
+        &mut BodyMana,
+    )>,
+    primary: Query<Entity, (With<PlayerEntity>, With<PrimaryPlayer>)>,
     shrines: Query<&HealShrine>,
     mut save: ResMut<crate::persistence::save::SandboxSave>,
     mut activation: ResMut<ShrineActivationPulse>,
     mut sfx: MessageWriter<crate::audio::SfxMessage>,
 ) {
-    let Ok((input, kin, mut health, mut mana)) = players.single_mut() else {
+    let Some(subject) = controlled
+        .and_then(|subject| subject.0)
+        .or_else(|| primary.single().ok())
+    else {
         return;
     };
-    if !input.frame.interact_pressed {
+    let Ok((control, kin, mut health, mut mana)) = bodies.get_mut(subject) else {
+        return;
+    };
+    if !control.0.interact_pressed {
         return;
     }
     let player_aabb = ae::Aabb::new(kin.pos, kin.size * 0.5);
@@ -105,7 +114,7 @@ mod tests {
             .spawn((
                 PlayerEntity,
                 PrimaryPlayer,
-                PlayerInputFrame::default(),
+                ActorControl::default(),
                 BodyKinematics {
                     pos: Vec2::new(100.0, 100.0),
                     vel: Vec2::ZERO,
@@ -136,9 +145,9 @@ mod tests {
 
         // Interact while overlapping → heal to full.
         app.world_mut()
-            .get_mut::<PlayerInputFrame>(player)
+            .get_mut::<ActorControl>(player)
             .unwrap()
-            .frame
+            .0
             .interact_pressed = true;
         app.update();
 
@@ -164,7 +173,7 @@ mod tests {
             .spawn((
                 PlayerEntity,
                 PrimaryPlayer,
-                PlayerInputFrame::default(),
+                ActorControl::default(),
                 BodyKinematics {
                     pos: Vec2::new(100.0, 100.0),
                     vel: Vec2::ZERO,
@@ -190,9 +199,9 @@ mod tests {
 
         // Interact pressed but not touching → no heal.
         app.world_mut()
-            .get_mut::<PlayerInputFrame>(player)
+            .get_mut::<ActorControl>(player)
             .unwrap()
-            .frame
+            .0
             .interact_pressed = true;
         app.update();
         assert_eq!(

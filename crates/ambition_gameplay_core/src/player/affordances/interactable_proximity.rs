@@ -17,30 +17,38 @@ use ambition_engine_core::AabbExt;
 use bevy::prelude::*;
 
 use super::variants::InteractVariant;
+use crate::abilities::traversal::possession::ControlledSubject;
 use crate::features::{
     ActorDisposition, ActorInteraction, CenteredAabb, ChestFeature, FeatureSimEntity, Opened,
     SwitchFeature,
 };
 
-/// Resource: the nearest live interactable overlapping the primary
-/// player's AABB, classified into an [`InteractVariant`]. Default is
+/// Resource: the nearest live interactable overlapping the controlled
+/// subject's AABB, classified into an [`InteractVariant`]. Default is
 /// [`InteractVariant::None`] (no interactable nearby).
 #[derive(Resource, Clone, Debug, Default, PartialEq, Eq)]
 pub struct NearestInteractable(pub InteractVariant);
 
-/// Rebuild [`NearestInteractable`] each frame from the primary
-/// player's overlap against peaceful actors, switches, and unopened
+/// Rebuild [`NearestInteractable`] each frame from the controlled
+/// subject's overlap against peaceful actors, switches, and unopened
 /// chests.
+///
+/// The prompt follows the body the player is DRIVING (the home avatar, or a
+/// possessed actor), matching [`crate::features::interact_ecs_actors_and_switches`],
+/// which resolves the interaction against the same controlled subject — so the
+/// "Talk / Open / Activate" label appears exactly where the interact would fire.
 ///
 /// Selection policy: first overlap wins, in a fixed priority order
 /// (NPCs → chests → switches). The overlap test is binary today
 /// (AABB strict-intersects), matching the existing interact path.
-/// When the player overlaps multiple interactables simultaneously, the
+/// When the body overlaps multiple interactables simultaneously, the
 /// HUD label still reflects what the buffered-interact systems would
 /// fire because both follow the same priority order.
 pub fn update_nearest_interactable(
-    player: Query<
-        &crate::actor::BodyKinematics,
+    controlled: Option<Res<ControlledSubject>>,
+    bodies: Query<&crate::actor::BodyKinematics>,
+    primary: Query<
+        Entity,
         (
             With<crate::actor::PlayerEntity>,
             With<crate::actor::PrimaryPlayer>,
@@ -51,7 +59,10 @@ pub fn update_nearest_interactable(
     switches: Query<&CenteredAabb, (With<FeatureSimEntity>, With<SwitchFeature>)>,
     mut out: ResMut<NearestInteractable>,
 ) {
-    let Ok(kin) = player.single() else {
+    let subject = controlled
+        .and_then(|subject| subject.0)
+        .or_else(|| primary.single().ok());
+    let Some(kin) = subject.and_then(|subject| bodies.get(subject).ok()) else {
         if out.0 != InteractVariant::None {
             *out = NearestInteractable(InteractVariant::None);
         }

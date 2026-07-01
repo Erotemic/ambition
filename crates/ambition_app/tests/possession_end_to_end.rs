@@ -235,8 +235,10 @@ fn a_player_can_possess_drive_and_release_an_actor_end_to_end() {
          (carrying Brain::Player) is what makes combat treat it as player-aligned"
     );
 
-    // 2. Drive right. The POSSESSED body should move (its own update path); the
-    //    player's own body is frozen (`player_body_tick` gated `not_possessing`).
+    // 2. Drive right. The POSSESSED body should move — it now integrates through
+    //    the SAME unified `integrate_sim_bodies` phase every body uses. The vacated
+    //    home avatar stays put because it carries no `Brain::Player` (its
+    //    `ActorControl` is neutral), NOT because of any movement run-condition gate.
     let player_before = player_pos(sim.world_mut());
     let actor_before = sim.world_mut().get::<BodyKinematics>(actor).unwrap().pos;
     // A short burst — long enough to clearly travel, short enough to stay on the

@@ -53,14 +53,21 @@ pub fn load_room_geometry(
     dev_state: &mut SandboxDevState,
     sim_state: &mut SandboxSimState,
     clock: &mut ClockState,
-    safety: &mut PlayerSafetyState,
+    // Player-presentation state — only the home body carries these. A possessed
+    // actor transitioning has neither (it's not the home avatar), so they're
+    // optional: `None` skips the home-only respawn-point + blink-camera resets.
+    safety: Option<&mut PlayerSafetyState>,
     moving_platforms: &mut Vec<MovingPlatformState>,
     dialogue: &mut DialogState,
     combat: &mut BodyCombat,
-    blink_cam: &mut PlayerBlinkCameraState,
+    blink_cam: Option<&mut PlayerBlinkCameraState>,
     world: &mut RoomGeometry,
     room_set: &mut RoomSet,
     room_visuals: &Query<(Entity, Option<&PhysicsRoomEntity>), With<RoomScopedEntity>>,
+    // The body transiting INTO the target room. It rides along (like the home body,
+    // which is never room-scoped) instead of being torn down with the old room's
+    // scenery — so a possessed actor carries itself through the door.
+    carry_body: Option<Entity>,
     transition: RoomTransition,
     tuning: ae::MovementTuning,
     feel: SandboxFeelTuning,
@@ -71,6 +78,12 @@ pub fn load_room_geometry(
     let edge_exit = matches!(transition.zone.activation, LoadingZoneActivation::EdgeExit);
 
     for (entity, physics_entity) in room_visuals.iter() {
+        // The transiting body is the protagonist crossing the seam, not room
+        // scenery — never despawn it (the home body is exempt by never being
+        // room-scoped; this extends the same treatment to a possessed actor).
+        if carry_body == Some(entity) {
+            continue;
+        }
         if physics_entity.is_some() {
             physics::retire_physics_entity(commands, entity);
         } else {
@@ -96,14 +109,16 @@ pub fn load_room_geometry(
     if edge_exit {
         clusters.kinematics.vel = old_velocity;
     }
-    blink_cam.blink_in_timer = 0.0;
-    blink_cam.blink_camera_from = clusters.kinematics.pos;
-    blink_cam.blink_camera_to = clusters.kinematics.pos;
-    blink_cam.camera_snap_timer = if edge_exit {
-        0.0
-    } else {
-        ROOM_DOOR_CAMERA_SNAP_TIME
-    };
+    if let Some(blink_cam) = blink_cam {
+        blink_cam.blink_in_timer = 0.0;
+        blink_cam.blink_camera_from = clusters.kinematics.pos;
+        blink_cam.blink_camera_to = clusters.kinematics.pos;
+        blink_cam.camera_snap_timer = if edge_exit {
+            0.0
+        } else {
+            ROOM_DOOR_CAMERA_SNAP_TIME
+        };
+    }
     combat.hit_flash = if edge_exit {
         feel.edge_transition_flash
     } else {
@@ -113,7 +128,9 @@ pub fn load_room_geometry(
     combat.damage_invuln_timer = 0.0;
     combat.hitstun_timer = 0.0;
     combat.recoil_lock_timer = 0.0;
-    safety.last_safe_pos = clusters.kinematics.pos;
+    if let Some(safety) = safety {
+        safety.last_safe_pos = clusters.kinematics.pos;
+    }
     clock.time_scale = 1.0;
     *moving_platforms = platforms::moving_platforms_for_room(&spec);
     features::spawn_room_feature_entities(commands, &spec);

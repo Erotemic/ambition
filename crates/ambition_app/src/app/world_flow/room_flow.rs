@@ -70,14 +70,17 @@ pub(crate) fn load_room(
     dev_state: &mut ambition_gameplay_core::SandboxDevState,
     sim_state: &mut ambition_gameplay_core::SandboxSimState,
     clock: &mut ambition_gameplay_core::time::clock_state::ClockState,
-    safety: &mut ambition_gameplay_core::player::PlayerSafetyState,
+    // Home-only presentation state (None when a possessed actor transits).
+    safety: Option<&mut ambition_gameplay_core::player::PlayerSafetyState>,
     moving_platforms: &mut Vec<ambition_gameplay_core::world::platforms::MovingPlatformState>,
     dialogue: &mut ambition_gameplay_core::dialog::DialogState,
     combat: &mut ambition_gameplay_core::actor::BodyCombat,
-    blink_cam: &mut ambition_gameplay_core::player::PlayerBlinkCameraState,
+    blink_cam: Option<&mut ambition_gameplay_core::player::PlayerBlinkCameraState>,
     world: &mut RoomGeometry,
     room_set: &mut rooms::RoomSet,
     room_visuals: &Query<(Entity, Option<&physics::PhysicsRoomEntity>), With<RoomScopedEntity>>,
+    // The transiting body, exempt from the old-room despawn so it rides along.
+    carry_body: Option<Entity>,
     transition: rooms::RoomTransition,
     tuning: ae::MovementTuning,
     feel: SandboxFeelTuning,
@@ -107,6 +110,7 @@ pub(crate) fn load_room(
         world,
         room_set,
         room_visuals,
+        carry_body,
         transition,
         tuning,
         feel,
@@ -175,21 +179,39 @@ pub fn ensure_requested_room_parallax_system(
     }
 }
 
+/// The bodies a room transition can relocate, bundled into one `SystemParam` to
+/// keep `apply_room_transition_system` under Bevy's 16-param limit.
+///
+/// A transition moves the CONTROLLED (observed) body — the home avatar during
+/// normal play, or a possessed actor. `clusters` is body-generic (`ae::BodyClusterQueryData`
+/// matches every body: the home avatar AND actors carry the same movement clusters),
+/// so one `get_mut(subject)` relocates whichever body is driven. `presentation`
+/// holds the home-only blink-camera + respawn-point state (a possessed actor has
+/// neither); `primary` is the startup-frame fallback subject.
+#[derive(bevy::ecs::system::SystemParam)]
+pub(crate) struct TransitBodies<'w, 's> {
+    controlled: Option<
+        Res<'w, ambition_gameplay_core::abilities::traversal::possession::ControlledSubject>,
+    >,
+    clusters: Query<'w, 's, ae::BodyClusterQueryData>,
+    combat: Query<'w, 's, &'static mut ambition_gameplay_core::actor::BodyCombat>,
+    presentation: Query<
+        'w,
+        's,
+        (
+            &'static mut ambition_gameplay_core::player::PlayerBlinkCameraState,
+            &'static mut ambition_gameplay_core::player::PlayerSafetyState,
+        ),
+        ambition_gameplay_core::actor::PrimaryPlayerOnly,
+    >,
+    primary: Query<'w, 's, Entity, ambition_gameplay_core::actor::PrimaryPlayerOnly>,
+}
+
 pub(crate) fn apply_room_transition_system(
     mut commands: Commands,
     mut requests: MessageReader<rooms::RoomTransitionRequested>,
     mut event_writers: SandboxEventWriters,
-    mut player_q: Query<
-        (
-            ae::BodyClusterQueryData,
-            &mut ambition_gameplay_core::actor::BodyCombat,
-            &mut ambition_gameplay_core::player::PlayerBlinkCameraState,
-            &mut ambition_gameplay_core::player::PlayerSafetyState,
-        ),
-        // PRIMARY-only: a room transition flips the one active room around the
-        // camera body crossing an edge/door; the clone rides along in-room.
-        ambition_gameplay_core::actor::PrimaryPlayerOnly,
-    >,
+    mut transit: TransitBodies,
     mut world: ResMut<RoomGeometry>,
     mut room_set: ResMut<rooms::RoomSet>,
     mut dev_state: ResMut<ambition_gameplay_core::SandboxDevState>,
@@ -208,9 +230,36 @@ pub(crate) fn apply_room_transition_system(
     mut combat_reset: super::super::feedback::CombatRoomReset,
 ) {
     for request in requests.read() {
-        let Ok((mut cluster_item, mut combat, mut blink_cam, mut safety)) = player_q.single_mut()
+        // The transition relocates the CONTROLLED body — the body the local player
+        // is driving (home avatar or possessed actor), falling back to the primary
+        // player at startup. This is the same subject the detect side resolves, so
+        // the body that CROSSED the seam is the body that ARRIVES.
+        let Some(subject) = transit
+            .controlled
+            .as_deref()
+            .and_then(|c| c.0)
+            .or_else(|| transit.primary.single().ok())
         else {
             continue;
+        };
+        let Ok(mut cluster_item) = transit.clusters.get_mut(subject) else {
+            continue;
+        };
+        let Ok(mut combat) = transit.combat.get_mut(subject) else {
+            continue;
+        };
+        // Home-only presentation: a possessed actor has no blink-camera / respawn
+        // point, and — being room-scoped — must be CARRIED through the seam instead
+        // of despawned with the old room. The home avatar is never room-scoped, so
+        // it needs no carry (None) and keeps its presentation resets.
+        let (mut blink_opt, mut safety_opt) = match transit.presentation.get_mut(subject).ok() {
+            Some((blink, safety)) => (Some(blink), Some(safety)),
+            None => (None, None),
+        };
+        let carry_body = if blink_opt.is_some() {
+            None
+        } else {
+            Some(subject)
         };
         // Any enemy volleys still in flight from the previous room
         // would otherwise sail across the seam and hit the player
@@ -219,13 +268,13 @@ pub(crate) fn apply_room_transition_system(
         // every reservation now and let the next tick rebuild.
         combat_reset.clear_carryover();
         let mut clusters = cluster_item.as_clusters_mut();
-        // Play the zone-entry SFX at the pre-load player position so it sounds
-        // like it originates from the door/edge the player walked through.
-        let player_pos_before = clusters.kinematics.pos;
+        // Play the zone-entry SFX at the pre-load body position so it sounds
+        // like it originates from the door/edge the body walked through.
+        let pos_before = clusters.kinematics.pos;
         if let Some(sfx_id) = request.zone_sfx {
             event_writers.sfx.write(SfxMessage::Play {
                 id: sfx_id,
-                pos: player_pos_before,
+                pos: pos_before,
             });
         }
         let target_room = request.transition.target_room;
@@ -237,14 +286,15 @@ pub(crate) fn apply_room_transition_system(
             &mut dev_state,
             &mut room_clock.sim_state,
             &mut room_clock.clock,
-            &mut safety,
+            safety_opt.as_deref_mut(),
             &mut moving_platforms.0,
             &mut dialogue,
             &mut combat,
-            &mut blink_cam,
+            blink_opt.as_deref_mut(),
             &mut world,
             &mut room_set,
             &room_visuals,
+            carry_body,
             request.transition.clone(),
             editable_tuning.as_engine(),
             *feel_tuning,

@@ -383,7 +383,14 @@ impl NpcActorSpawnPlan {
             render_size,
             interactable,
             brain,
-            action_set: ambition_characters::brain::ActionSet::peaceful(),
+            // Body CAPABILITY, not AI POLICY: a peaceful NPC carries its authored
+            // combat kit as its `ActionSet` (the same kit it fights with when
+            // provoked), so the SAME body can throw its authored punch/swing when a
+            // player DRIVES it — while its peaceful autonomous brain simply never
+            // presses attack, so it still ambles harmlessly on its own. (Was
+            // `ActionSet::peaceful()` — empty — which erased body capability behind
+            // peaceful disposition: the "possessed peaceful NPC can't attack" bug.)
+            action_set: combat_kit.to_action_set(None),
             combat_kit,
             aggression: super::ActorAggression::retaliates_when_hit(
                 super::super::NPC_HOSTILE_STRIKE_THRESHOLD as u8,

@@ -5,7 +5,8 @@ use super::*;
 use crate::actor::BodyBaseSize;
 
 fn spawn_player(app: &mut App, pos: Vec2) -> Entity {
-    app.world_mut()
+    let entity = app
+        .world_mut()
         .spawn((
             PlayerEntity,
             PrimaryPlayer,
@@ -21,7 +22,13 @@ fn spawn_player(app: &mut App, pos: Vec2) -> Entity {
             },
             ActionSet::default(),
         ))
-        .id()
+        .id();
+    // `fire_held_ranged_system` keys on the controlled subject; in tests the
+    // spawned player IS the controlled body.
+    app.insert_resource(crate::abilities::traversal::possession::ControlledSubject(
+        Some(entity),
+    ));
+    entity
 }
 
 /// Stamp the input onto the actor-local `PlayerInputFrame` — the frame the

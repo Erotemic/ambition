@@ -24,8 +24,9 @@
 
 use bevy::prelude::*;
 
+use super::possession::ControlledSubject;
 use crate::actor::BodyKinematics;
-use crate::actor::{PlayerEntity, PrimaryPlayer};
+use crate::actor::PlayerEntity;
 use crate::features::HeldItem;
 use crate::player::PlayerInputFrame;
 use ambition_engine_core as ae;
@@ -54,6 +55,8 @@ pub struct PlayerMark {
 /// as "set the mark here" rather than "recall to where I just stood".
 pub fn mark_recall_system(
     mut commands: Commands,
+    // Ability ORIGIN = the controlled subject, not a `PrimaryPlayer` filter.
+    controlled: Res<ControlledSubject>,
     mut players: Query<
         (
             Entity,
@@ -62,13 +65,16 @@ pub fn mark_recall_system(
             &HeldItem,
             Option<&mut PlayerMark>,
         ),
-        (With<PlayerEntity>, With<PrimaryPlayer>),
+        With<PlayerEntity>,
     >,
     mut sfx: MessageWriter<crate::audio::SfxMessage>,
     mut vfx: MessageWriter<ambition_vfx::vfx::VfxMessage>,
     mut hits: MessageWriter<crate::features::HitEvent>,
 ) {
-    let Ok((player, input, mut kin, held, mut mark)) = players.single_mut() else {
+    let Some(subject) = controlled.0 else {
+        return;
+    };
+    let Ok((player, input, mut kin, held, mut mark)) = players.get_mut(subject) else {
         return;
     };
     if held.spec.id != MARK_RECALL_ID {

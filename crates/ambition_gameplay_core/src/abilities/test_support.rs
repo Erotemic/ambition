@@ -4,6 +4,7 @@
 //! action set, held item, and mana. Keeping that bundle here lets each ability
 //! test focus on the behavior it is asserting instead of repeating spawn wiring.
 
+use crate::abilities::traversal::possession::ControlledSubject;
 use crate::actor::BodyKinematics;
 use crate::actor::{BodyBaseSize, BodyMana};
 use crate::actor::{PlayerEntity, PrimaryPlayer};
@@ -15,7 +16,8 @@ use bevy::prelude::*;
 
 pub(crate) fn spawn_primary_player_holding(app: &mut App, held_item_id: &str) -> Entity {
     let spec = held_item_by_id(held_item_id).unwrap();
-    app.world_mut()
+    let entity = app
+        .world_mut()
         .spawn((
             PlayerEntity,
             PrimaryPlayer,
@@ -34,7 +36,11 @@ pub(crate) fn spawn_primary_player_holding(app: &mut App, held_item_id: &str) ->
             HeldItem::new(spec),
             BodyMana::default(),
         ))
-        .id()
+        .id();
+    // Ability systems now key on the controlled subject, not a `PrimaryPlayer`
+    // filter. In tests the spawned player IS the controlled body.
+    app.insert_resource(ControlledSubject(Some(entity)));
+    entity
 }
 
 /// A primary player holding `held_item_id` at an explicit `pos` / `facing`, with
@@ -49,7 +55,8 @@ pub(crate) fn spawn_primary_player_holding_at(
     facing: f32,
 ) -> Entity {
     let spec = held_item_by_id(held_item_id).unwrap();
-    app.world_mut()
+    let entity = app
+        .world_mut()
         .spawn((
             PlayerEntity,
             PrimaryPlayer,
@@ -63,8 +70,11 @@ pub(crate) fn spawn_primary_player_holding_at(
                 base_size: ae::Vec2::new(24.0, 40.0),
             },
             PlayerInputFrame::default(),
+            ActorControl::default(),
             ActionSet::default(),
             HeldItem::new(spec),
         ))
-        .id()
+        .id();
+    app.insert_resource(ControlledSubject(Some(entity)));
+    entity
 }

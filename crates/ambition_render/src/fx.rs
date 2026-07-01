@@ -841,19 +841,23 @@ pub fn update_blink_preview(
         &leafwing_input_manager::prelude::ActionState<ambition_input::SandboxAction>,
         bevy::prelude::With<ambition_gameplay_core::platformer_runtime::lifecycle::PlayerVisual>,
     >,
-    player_q: Query<
-        (
-            &ambition_gameplay_core::actor::BodyKinematics,
-            &ambition_gameplay_core::actor::BodyAbilities,
-            &ambition_gameplay_core::actor::BodyBlinkState,
-        ),
-        ambition_gameplay_core::actor::PrimaryPlayerOnly,
-    >,
+    // The blink reticle previews from the CONTROLLED SUBJECT (the body carrying
+    // `Brain::Player(PRIMARY)`) — the body you are driving — not a `PrimaryPlayer`
+    // filter, so it follows a possessed body instead of hovering at the vacated
+    // home avatar. Both player and actor bodies carry these blink clusters.
+    controlled: Res<ambition_gameplay_core::abilities::traversal::possession::ControlledSubject>,
+    player_q: Query<(
+        &ambition_gameplay_core::actor::BodyKinematics,
+        &ambition_gameplay_core::actor::BodyAbilities,
+        &ambition_gameplay_core::actor::BodyBlinkState,
+    )>,
     mut existing: Query<(Entity, &BlinkPreviewVisual, &mut Transform, &mut Sprite)>,
 ) {
     use ambition_input::ControlFrame;
 
-    let Ok((kin, abilities, blink_state)) = player_q.single() else {
+    let Ok((kin, abilities, blink_state)) =
+        controlled.0.and_then(|e| player_q.get(e).ok()).ok_or(())
+    else {
         for (entity, _, _, _) in &existing {
             commands.entity(entity).despawn();
         }

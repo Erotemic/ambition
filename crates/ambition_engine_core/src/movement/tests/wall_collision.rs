@@ -167,6 +167,7 @@ fn wall_jump_uses_local_side_axis_under_sideways_gravity() {
             clusters.env_contact,
             clusters.abilities,
             clusters.body_mode.body_mode,
+            clusters.flight.fly_enabled,
             clusters.kinematics,
             clusters.ground,
             clusters.wall,

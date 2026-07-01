@@ -292,6 +292,7 @@ pub fn update_body_simulation_with_clusters(
         clusters.env_contact,
         clusters.abilities,
         clusters.body_mode.body_mode,
+        clusters.flight.fly_enabled,
         clusters.kinematics,
         clusters.ground,
         clusters.wall,

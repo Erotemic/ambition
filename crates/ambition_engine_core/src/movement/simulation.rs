@@ -13,12 +13,19 @@ const LADDER_JUMP_BOOST_TIME: f32 = 0.10;
 /// while standing on a one-way + drop_through_pressed, wall-jump,
 /// regular jump, or double-jump. Each branch zeroes the buffer +
 /// coyote timer so the same press can't re-fire.
+#[allow(clippy::too_many_arguments)]
 pub fn handle_jump_buffer_clusters(
     world: &World,
     action_buffer: &mut crate::body_clusters::BodyActionBuffer,
     env_contact: &crate::body_clusters::BodyEnvironmentContact,
     abilities: &crate::body_clusters::BodyAbilities,
     body_mode: BodyMode,
+    // Movement-verb taxonomy: `jump`/`double-jump` are GROUNDED-mode verbs. A body
+    // currently in FLIGHT mode steers vertically through the flight limb
+    // (ascend/descend), so the buffered jump must NOT become a grounded leap — else
+    // a possessed flyer "jumps straight up". Grounded/hybrid bodies (fly off) are
+    // unaffected. Wall/ladder/swim keep their own context gates below.
+    flying: bool,
     kinematics: &mut crate::body_clusters::BodyKinematics,
     ground: &mut crate::body_clusters::BodyGroundState,
     wall: &mut crate::body_clusters::BodyWallState,
@@ -111,6 +118,7 @@ pub fn handle_jump_buffer_clusters(
         ground.coyote_timer = 0.0;
         events.op_clusters(combo_trace, MovementOp::WallJump);
     } else if abilities.abilities.jump
+        && !flying
         && (ground.on_ground || ground.coyote_timer > 0.0 || can_ladder_jump)
     {
         super::integration::set_jump_velocity(
@@ -123,7 +131,7 @@ pub fn handle_jump_buffer_clusters(
         ground.coyote_timer = 0.0;
         jump_state.air_jumps_available = abilities.abilities.air_jump_count(tuning.air_jumps);
         events.op_clusters(combo_trace, MovementOp::Jump);
-    } else if abilities.abilities.double_jump && jump_state.air_jumps_available > 0 {
+    } else if abilities.abilities.double_jump && !flying && jump_state.air_jumps_available > 0 {
         super::integration::set_jump_velocity(
             &mut kinematics.vel,
             tuning.gravity_dir,

@@ -92,7 +92,13 @@ mod conversion_tests {
             health_fraction: 1.0,
             sim_time: 0.0,
             dt,
-            max_run_speed: ambition_characters::brain::NPC_PATROL_SPEED,
+            // The snapshot's `max_run_speed` MUST be the body's actual physical
+            // capability (what the integrator scales `locomotion` by), so the
+            // brain's `locomotion_for(patrol_speed)` normalization round-trips to
+            // the intended patrol speed. (Was hardcoded NPC_PATROL_SPEED, which
+            // only round-tripped while the body's max_run_speed happened to equal
+            // it — now decoupled: capability 270 vs patrol policy 60.)
+            max_run_speed: seed.config.tuning.max_run_speed,
             attack_cooldown_remaining: 0.0,
             attack_windup_remaining: 0.0,
             attack_active_remaining: 0.0,

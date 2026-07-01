@@ -13,8 +13,9 @@
 
 use bevy::prelude::*;
 
+use super::possession::ControlledSubject;
 use crate::actor::BodyKinematics;
-use crate::actor::{PlayerEntity, PrimaryPlayer};
+use crate::actor::PlayerEntity;
 use crate::features::HeldItem;
 use crate::player::PlayerInputFrame;
 use ambition_engine_core as ae;
@@ -38,6 +39,8 @@ pub fn grapple_system(
     user_settings: Option<Res<crate::persistence::settings::UserSettings>>,
     world: crate::features::CollisionWorld,
     mut commands: Commands,
+    // Ability ORIGIN = the controlled subject, not a `PrimaryPlayer` filter.
+    controlled: Res<ControlledSubject>,
     mut players: Query<
         (
             Entity,
@@ -46,12 +49,15 @@ pub fn grapple_system(
             &HeldItem,
             Option<&mut crate::ability_cooldown::AbilityCooldown>,
         ),
-        (With<PlayerEntity>, With<PrimaryPlayer>),
+        With<PlayerEntity>,
     >,
     mut sfx: MessageWriter<crate::audio::SfxMessage>,
     mut vfx: MessageWriter<ambition_vfx::vfx::VfxMessage>,
 ) {
-    let Ok((player, input, mut kin, held, mut cooldown)) = players.single_mut() else {
+    let Some(subject) = controlled.0 else {
+        return;
+    };
+    let Ok((player, input, mut kin, held, mut cooldown)) = players.get_mut(subject) else {
         return;
     };
     if !input.frame.attack_pressed || input.frame.shield_held {

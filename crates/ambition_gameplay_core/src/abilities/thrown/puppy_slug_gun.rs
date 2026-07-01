@@ -15,8 +15,9 @@
 
 use bevy::prelude::*;
 
+use crate::abilities::traversal::possession::ControlledSubject;
 use crate::actor::BodyKinematics;
-use crate::actor::{PlayerEntity, PrimaryPlayer};
+use crate::actor::PlayerEntity;
 use crate::features::{ActorAggression, ActorFaction, HeldItem};
 use crate::player::PlayerInputFrame;
 use ambition_engine_core as ae;
@@ -41,14 +42,16 @@ const SLUG_ARCHETYPE: &str = "puppy_slug";
 pub fn fire_puppy_slug_gun_system(
     mut commands: Commands,
     mut next_id: Local<u64>,
-    players: Query<
-        (&PlayerInputFrame, &BodyKinematics, &HeldItem),
-        (With<PlayerEntity>, With<PrimaryPlayer>),
-    >,
+    // Ability ORIGIN = the controlled subject, not a `PrimaryPlayer` filter.
+    controlled: Res<ControlledSubject>,
+    players: Query<(&PlayerInputFrame, &BodyKinematics, &HeldItem), With<PlayerEntity>>,
     allies: Query<(), With<PuppySlugAlly>>,
     mut sfx: MessageWriter<crate::audio::SfxMessage>,
 ) {
-    let Ok((input, kin, held)) = players.single() else {
+    let Some(subject) = controlled.0 else {
+        return;
+    };
+    let Ok((input, kin, held)) = players.get(subject) else {
         return;
     };
     // Plain Attack summons; Shield+Attack is reserved for throwing the gun away

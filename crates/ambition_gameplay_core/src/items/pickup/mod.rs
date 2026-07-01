@@ -626,13 +626,17 @@ pub fn fire_held_ranged_system(
     gravity: crate::physics::GravityCtx,
     user_settings: Option<Res<crate::persistence::settings::UserSettings>>,
     mut commands: Commands,
-    players: Query<
-        (&PlayerInputFrame, &BodyKinematics, &HeldItem),
-        (With<PlayerEntity>, With<PrimaryPlayer>),
-    >,
+    // Ability ORIGIN = the controlled subject (the body carrying
+    // `Brain::Player(PRIMARY)`), not a `PrimaryPlayer` filter — the held weapon
+    // fires from the body you are driving.
+    controlled: Res<crate::abilities::traversal::possession::ControlledSubject>,
+    players: Query<(&PlayerInputFrame, &BodyKinematics, &HeldItem), With<PlayerEntity>>,
     mut sfx: MessageWriter<crate::audio::SfxMessage>,
 ) {
-    let Ok((input, kin, held)) = players.single() else {
+    let Some(subject) = controlled.0 else {
+        return;
+    };
+    let Ok((input, kin, held)) = players.get(subject) else {
         return;
     };
     if !input.frame.attack_pressed || input.frame.shield_held {

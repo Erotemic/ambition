@@ -520,11 +520,21 @@ impl ActorClusterSeed {
             .and_then(PathMotion::start_pos)
             .unwrap_or_else(|| actor_spawn_center_for_collision(aabb, collision_size));
         let has_patrol = patrol_radius > 0.0 || motion.is_some();
+        // Body locomotion CAPABILITY vs AI POLICY (control-refactor convergence):
+        // `max_run_speed` is the body's PHYSICAL top speed under direct control —
+        // the same capability the player body has, so a possessed NPC is
+        // responsive, not stuck at stroll pace. `patrol_speed`/`chase_speed` are
+        // AI POLICY: the peaceful brain expresses them as NORMALIZED intent
+        // (`locomotion_for(patrol_speed)` = patrol_speed / max_run_speed), which the
+        // integrator scales back — so autonomous patrol still ambles at
+        // NPC_PATROL_SPEED while the SAME body sprints at `max_run_speed` when a
+        // player drives it. (Was: all three = NPC_PATROL_SPEED, conflating policy
+        // with capability — the "possessed NPC moves extremely slowly" bug.)
         let tuning = crate::combat::ActorTuning {
             max_health: 1,
             patrol_speed: ambition_characters::brain::NPC_PATROL_SPEED,
             chase_speed: ambition_characters::brain::NPC_PATROL_SPEED,
-            max_run_speed: ambition_characters::brain::NPC_PATROL_SPEED,
+            max_run_speed: ambition_engine_core::MAX_RUN_SPEED,
             is_aerial,
             ..Default::default()
         };

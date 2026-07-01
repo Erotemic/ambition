@@ -14,8 +14,9 @@
 
 use bevy::prelude::*;
 
+use crate::abilities::traversal::possession::ControlledSubject;
 use crate::actor::BodyMana;
-use crate::actor::{PlayerEntity, PrimaryPlayer};
+use crate::actor::PlayerEntity;
 use crate::features::{ActorFaction, BodyKinematics, FeatureSimEntity, HeldItem};
 use crate::player::PlayerInputFrame;
 use ambition_engine_core as ae;
@@ -50,14 +51,19 @@ pub struct VortexWell {
 pub fn fire_vortex_system(
     gravity: crate::physics::GravityCtx,
     user_settings: Option<Res<crate::persistence::settings::UserSettings>>,
+    // Ability ORIGIN = the controlled subject, not a `PrimaryPlayer` filter.
+    controlled: Res<ControlledSubject>,
     mut players: Query<
         (&PlayerInputFrame, &BodyKinematics, &HeldItem, &mut BodyMana),
-        (With<PlayerEntity>, With<PrimaryPlayer>),
+        With<PlayerEntity>,
     >,
     mut commands: Commands,
     mut sfx: MessageWriter<crate::audio::SfxMessage>,
 ) {
-    let Ok((input, kin, held, mut mana)) = players.single_mut() else {
+    let Some(subject) = controlled.0 else {
+        return;
+    };
+    let Ok((input, kin, held, mut mana)) = players.get_mut(subject) else {
         return;
     };
     if !input.frame.attack_pressed || input.frame.shield_held {

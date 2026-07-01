@@ -12,9 +12,10 @@
 
 use bevy::prelude::*;
 
+use crate::abilities::traversal::possession::ControlledSubject;
 use crate::actor::BodyKinematics;
 use crate::actor::BodyMana;
-use crate::actor::{PlayerEntity, PrimaryPlayer};
+use crate::actor::PlayerEntity;
 use crate::enemy_projectile::EnemyProjectileSpawn;
 use crate::features::HeldItem;
 use crate::player::PlayerInputFrame;
@@ -61,6 +62,8 @@ fn volley_origin_world(
 pub fn fire_volley_system(
     gravity: crate::physics::GravityCtx,
     user_settings: Option<Res<crate::persistence::settings::UserSettings>>,
+    // Ability ORIGIN = the controlled subject, not a `PrimaryPlayer` filter.
+    controlled: Res<ControlledSubject>,
     mut players: Query<
         (
             Entity,
@@ -69,12 +72,15 @@ pub fn fire_volley_system(
             &HeldItem,
             &mut BodyMana,
         ),
-        (With<PlayerEntity>, With<PrimaryPlayer>),
+        With<PlayerEntity>,
     >,
     mut effects: MessageWriter<crate::effects::EffectRequest>,
     mut sfx: MessageWriter<crate::audio::SfxMessage>,
 ) {
-    let Ok((entity, input, kin, held, mut mana)) = players.single_mut() else {
+    let Some(subject) = controlled.0 else {
+        return;
+    };
+    let Ok((entity, input, kin, held, mut mana)) = players.get_mut(subject) else {
         return;
     };
     if !input.frame.attack_pressed || input.frame.shield_held {

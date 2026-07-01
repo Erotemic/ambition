@@ -104,6 +104,72 @@ fn possessed_actor_reads_this_frame_slot_input() {
     );
 }
 
+/// THE reported-bug invariant, end-to-end through the real sim: pressing Attack
+/// while possessing starts the melee lifecycle on the POSSESSED actor (its
+/// `BodyMelee` swings and, at the active edge, it OWNS the spawned strike
+/// hitbox), while the vacated home avatar's melee never starts. Attack authority
+/// follows `Brain::Player`, not the home body.
+#[test]
+fn attack_while_possessing_starts_the_possessed_actors_melee_not_the_home() {
+    use ambition_gameplay_core::features::{BodyMelee, Hitbox};
+
+    let mut sim =
+        SandboxSim::new_with_timestep(TimestepMode::fixed_60hz()).expect("sandbox sim builds");
+    let home = {
+        let mut q = sim
+            .world_mut()
+            .query_filtered::<Entity, PrimaryPlayerOnly>();
+        q.single(sim.world_mut()).expect("primary player").clone()
+    };
+    let actor = spawn_and_possess(&mut sim);
+
+    let swinging = |sim: &mut SandboxSim, e: Entity| {
+        sim.world_mut()
+            .get::<BodyMelee>(e)
+            .map(|m| m.is_swinging())
+            .unwrap_or(false)
+    };
+    assert!(
+        !swinging(&mut sim, actor),
+        "actor is not mid-swing before the attack"
+    );
+
+    // Press attack. The possessed actor carries Brain::Player, so its melee
+    // ActionSet resolves an ActorActionMessage::Melee addressed to ITSELF, which
+    // starts its BodyMelee — through the same actor melee path any brain uses.
+    sim.step(AgentAction {
+        attack: true,
+        ..AgentAction::default()
+    });
+
+    assert!(
+        swinging(&mut sim, actor),
+        "the POSSESSED actor's melee lifecycle started on Attack"
+    );
+    assert!(
+        !swinging(&mut sim, home),
+        "the vacated home avatar's melee did NOT start — attack authority is the \
+         body carrying Brain::Player, not the home body"
+    );
+
+    // Advance through the windup to the active edge; the spawned strike hitbox
+    // must be OWNED by the possessed actor (so its damage is attributed to it).
+    let mut hitbox_owner = None;
+    for _ in 0..30 {
+        sim.step(AgentAction::default());
+        let mut q = sim.world_mut().query::<&Hitbox>();
+        if let Some(hb) = q.iter(sim.world_mut()).find(|hb| hb.owner == actor) {
+            hitbox_owner = Some(hb.owner);
+            break;
+        }
+    }
+    assert_eq!(
+        hitbox_owner,
+        Some(actor),
+        "the possessed actor's swing spawned a strike hitbox OWNED by the actor",
+    );
+}
+
 /// Hold Down (`move_y > 0.35`) + Interact — the possession gesture. The HOLD
 /// accumulates on `interact_held` (the real binding is `pressed`, i.e. held);
 /// the single-frame `interact` edge fires only when `edge` is set (frame one of

@@ -144,6 +144,39 @@ fn resolve_returns_predictable_request_count_per_intent_subset() {
 }
 
 #[test]
+fn resolve_emits_a_melee_request_for_a_dedicated_pogo_press() {
+    // Regression: the DEDICATED pogo button (`pogo_pressed`, no `melee_pressed`)
+    // must resolve to a Melee request so `start_body_melee` starts the swing that
+    // carries the bounce — the pogo is the air-down variant of the same swing
+    // (resolved to AirDown downstream from `pogo_pressed`). Dropping this made the
+    // dedicated pogo button dead after the melee-unification (gravity_symmetry's
+    // pogo test caught it end-to-end).
+    let actions = ActionSet {
+        melee: Some(MeleeActionSpec::Swipe(SwipeSpec::STRIKER_DEFAULT)),
+        ..Default::default()
+    };
+    let mut frame = crate::actor::control::ActorControlFrame::neutral();
+    frame.pogo_pressed = true;
+    assert!(
+        frame.wants_any_action(),
+        "a pogo-only frame genuinely wants an action"
+    );
+    let reqs = resolve(&actions, &frame, ae::Vec2::ZERO);
+    assert_eq!(reqs.len(), 1, "the dedicated pogo press emits one Melee request");
+    assert!(
+        matches!(reqs[0], ActionRequest::Melee { .. }),
+        "the pogo press resolves to a Melee swing (its AirDown intent is set downstream)"
+    );
+
+    // A body with NO melee capability emits nothing on a pogo press (can't pogo).
+    let no_melee = ActionSet {
+        melee: None,
+        ..Default::default()
+    };
+    assert!(resolve(&no_melee, &frame, ae::Vec2::ZERO).is_empty());
+}
+
+#[test]
 fn resolve_empty_when_frame_has_no_action_intent() {
     // wants_any_action()=false → resolver always returns empty.
     // Pin the contract so sandbox code that gates resolve()

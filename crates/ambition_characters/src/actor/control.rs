@@ -318,12 +318,16 @@ impl ActorControlFrame {
         }
     }
 
-    /// True iff any action verb (melee / fire / jump / dash /
+    /// True iff any action verb (melee / pogo / fire / jump / dash /
     /// interact / shield / special) is requested this tick. Useful
     /// for debug HUD ("brain is asking for something"), perf
     /// counters, and trace recording predicates.
     pub fn wants_any_action(&self) -> bool {
         self.melee_pressed
+            // The dedicated pogo button is a melee-swing trigger (the air-down
+            // variant), so a pogo-only frame genuinely wants an action — omitting it
+            // made any `resolve()`/processing gated on this drop the pogo swing.
+            || self.pogo_pressed
             || self.fire.is_some()
             || self.jump_pressed
             || self.jump_held

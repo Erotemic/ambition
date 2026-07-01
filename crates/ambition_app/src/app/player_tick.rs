@@ -26,8 +26,29 @@ use ambition_gameplay_core::time::feel::SandboxFeelTuning;
 use ambition_gameplay_core::RoomGeometry;
 
 use super::feedback::{SandboxEventWriters, SandboxQueues};
-use super::phases::player_body_phase;
+use super::phases::{
+    player_body_phase, sync_player_presentation as sync_player_presentation_phase,
+};
 use super::world_flow::sandbox_dt;
+
+/// Movement→presentation hand-off for the player body, written by the movement
+/// phase (`player_body_tick` → `player_body_phase`) and read by the presentation
+/// phase (`sync_player_presentation`). Carries this frame's movement `FrameEvents`
+/// plus the landing inputs the screen-shake reads, so presentation is a separate
+/// scheduled phase (mirroring the actor `sync_actor_read_model`) rather than fused
+/// into movement. A required component of every player body.
+#[derive(Component, Default)]
+pub struct PlayerBodyFrameOutput {
+    /// The movement tick's events (jump/dash/blink ops, blink endpoints, …).
+    pub events: ae::FrameEvents,
+    /// Grounded state ENTERING the movement tick (for the hard-fall shake edge).
+    pub was_grounded: bool,
+    /// Vertical velocity entering the tick (hard-fall shake magnitude).
+    pub pre_sim_vy: f32,
+    /// The movement phase fully reset the body this frame (primary death/hazard);
+    /// presentation is skipped because `reset_sandbox` already reset its state.
+    pub full_reset: bool,
+}
 
 /// The unified player tick. Runs after the brain-driver systems (which populate
 /// each player body's `ActorControl` in `SandboxSet::PlayerInput`) and after
@@ -47,7 +68,6 @@ pub fn player_body_tick(
     gravity_field: Option<Res<ambition_gameplay_core::physics::GravityField>>,
     mut event_writers: SandboxEventWriters,
     mut queues: SandboxQueues,
-    mut shake: ResMut<ambition_gameplay_core::time::camera_ease::CameraShakeState>,
     mut player_q: Query<
         (
             ae::BodyClusterQueryData,
@@ -59,6 +79,7 @@ pub fn player_body_tick(
             &mut ambition_gameplay_core::player::PlayerSafetyState,
             &ambition_gameplay_core::player::PlayerInputFrame,
             &ambition_characters::brain::ActorControl,
+            &mut PlayerBodyFrameOutput,
             Option<&ambition_gameplay_core::actor::PrimaryPlayer>,
         ),
         With<ambition_gameplay_core::actor::PlayerEntity>,
@@ -89,6 +110,7 @@ pub fn player_body_tick(
         mut safety,
         input,
         actor_control,
+        mut frame_out,
         primary,
     ) in &mut player_q
     {
@@ -106,7 +128,7 @@ pub fn player_body_tick(
             &mut attack.swing,
             &mut event_writers.sfx,
             &mut event_writers.vfx,
-            &mut shake,
+            &mut frame_out,
             tuning,
             feel,
             frame_dt,
@@ -116,6 +138,45 @@ pub fn player_body_tick(
             &mut combat,
             &mut interaction,
             &mut blink_cam,
+            is_primary,
+        );
+    }
+}
+
+/// PHASE — sync player presentation. The presentation half of the player body
+/// tick, a SEPARATE scheduled system from the movement phase (`player_body_tick`),
+/// mirroring the actor `sync_actor_read_model` split. Reads the
+/// `PlayerBodyFrameOutput` the movement phase wrote and emits the screen-facing
+/// feedback (hard-fall shake + landing SFX, and the per-op anim/SFX/VFX) via
+/// `sync_player_presentation` in `phases`. Moves no body, resolves no physics.
+pub fn sync_player_presentation(
+    mut event_writers: SandboxEventWriters,
+    mut shake: ResMut<ambition_gameplay_core::time::camera_ease::CameraShakeState>,
+    mut player_q: Query<
+        (
+            ae::BodyClusterQueryData,
+            &mut ambition_gameplay_core::player::PlayerAnimState,
+            &mut ambition_gameplay_core::actor::BodyCombat,
+            &mut ambition_gameplay_core::player::PlayerBlinkCameraState,
+            &PlayerBodyFrameOutput,
+            Option<&ambition_gameplay_core::actor::PrimaryPlayer>,
+        ),
+        With<ambition_gameplay_core::actor::PlayerEntity>,
+    >,
+) {
+    for (mut cluster_item, mut anim, mut combat, mut blink_cam, frame_out, primary) in &mut player_q
+    {
+        let is_primary = primary.is_some();
+        let clusters = cluster_item.as_clusters_mut();
+        sync_player_presentation_phase(
+            frame_out,
+            &clusters,
+            &mut combat,
+            &mut blink_cam,
+            &mut anim,
+            &mut event_writers.sfx,
+            &mut event_writers.vfx,
+            &mut shake,
             is_primary,
         );
     }

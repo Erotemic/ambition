@@ -41,7 +41,9 @@ use crate::host::windowing;
 
 use super::dev_runtime::{handle_debug_hotkeys, handle_ldtk_hot_reload, sync_preset_input_map};
 use super::hud::{update_hud, update_quest_panel};
-use super::player_tick::{advance_moving_platforms, player_body_tick};
+use super::player_tick::{
+    advance_moving_platforms, player_body_tick, sync_player_presentation, PlayerBodyFrameOutput,
+};
 use super::resources::init_sandbox_resources;
 use super::setup_systems::{
     reload_visual_quality_assets_on_scale_change, setup_presentation_system,
@@ -331,6 +333,10 @@ fn register_player_input_systems(app: &mut App) {
 /// then drain damage. Simulation short-circuits when control already reset
 /// the player so same-frame respawns are not clobbered.
 fn register_player_simulation_systems(app: &mut App) {
+    // Every player body carries the movement→presentation hand-off the movement
+    // phase writes and the presentation phase reads (required so both phase queries
+    // always match the player + any clone).
+    app.register_required_components::<ambition_gameplay_core::actor::PlayerEntity, PlayerBodyFrameOutput>();
     // Brain-driven player clone (press K): a `PlayerEntity` body driven by a
     // PlayerDemo brain through the SAME shared player systems as the human player.
     // Spawn lands in `WorldPrep` (the earliest set) so the new body exists before
@@ -386,10 +392,16 @@ fn register_player_simulation_systems(app: &mut App) {
             // every body (player + actors) reads this frame's platform positions —
             // the same ordering the actor ticks already see.
             advance_moving_platforms.run_if(gameplay_allowed),
-            // THE unified player body tick, run for EVERY player-cluster body. A
+            // The player body MOVEMENT phase, run for EVERY player-cluster body. A
             // vacated home avatar ticks too, but with a neutral `ActorControl`, so
-            // it simply stands still — no possession run-condition needed.
+            // it simply stands still — no possession run-condition needed. Movement
+            // integrates through the SAME engine entry actors use and writes the
+            // `PlayerBodyFrameOutput` hand-off.
             player_body_tick.run_if(gameplay_allowed),
+            // The player body PRESENTATION phase — screen shake + landing SFX + the
+            // per-op anim/SFX/VFX — reads that hand-off. A separate scheduled system
+            // from movement, mirroring the actor `sync_actor_read_model` split.
+            sync_player_presentation.run_if(gameplay_allowed),
             ambition_gameplay_core::combat::damage::apply_player_hit_events
                 .run_if(gameplay_allowed),
         )

@@ -80,7 +80,11 @@ pub(super) fn player_body_phase(
     attack: &mut Option<ambition_gameplay_core::MeleeSwing>,
     sfx_writer: &mut MessageWriter<SfxMessage>,
     vfx_writer: &mut MessageWriter<VfxMessage>,
-    shake: &mut ambition_gameplay_core::time::camera_ease::CameraShakeState,
+    // The movement→presentation hand-off: this phase WRITES the frame's movement
+    // events + landing inputs here; the separate `sync_player_presentation` phase
+    // reads it to emit anim/SFX/VFX/screen-shake. Movement does not emit
+    // presentation itself (the split mirrors the actor `sync_actor_read_model`).
+    frame_out: &mut super::player_tick::PlayerBodyFrameOutput,
     tuning: ae::MovementTuning,
     feel: SandboxFeelTuning,
     frame_dt: f32,
@@ -167,25 +171,11 @@ pub(super) fn player_body_phase(
         ae::reset_body_clusters(clusters, world.spawn);
     }
 
-    // Hard-fall screen shake: pure trigger in `time::camera_ease`. Avoids tiny hops,
-    // saturates above terminal velocity via `kick()`'s cap. `pre_sim_vy` is the
-    // velocity entering the combined tick (the control phase rarely changes a
-    // falling body's descent, so the landing read is unchanged in practice).
-    let shake_amplitude = ambition_gameplay_core::time::camera_ease::hard_fall_shake_amplitude(
-        was_grounded,
-        clusters.ground.on_ground,
-        pre_sim_vy,
-    );
-    if is_primary && shake_amplitude > 0.0 {
-        shake.kick(shake_amplitude);
-        sfx_writer.write(SfxMessage::Play {
-            id: ambition_sfx::ids::PLAYER_LAND,
-            pos: clusters.kinematics.pos,
-        });
-    }
     // Player respawn POLICY — the one thing the actor path does NOT do (an actor
     // owns its own hazard reaction; it never teleports to the player spawn). A
-    // flagged reset from either the control or simulation half lands here.
+    // flagged reset from either the control or simulation half lands here. The full
+    // sandbox reset already resets the presentation state (anim/combat/blink-cam),
+    // so the presentation phase SKIPS this frame (`full_reset`).
     if events.reset && is_primary {
         reset_sandbox(
             world,
@@ -206,7 +196,58 @@ pub(super) fn player_body_phase(
         reset_room_features.write(features::ResetRoomFeaturesEvent {
             reason: features::RoomResetReason::PlayerDeath,
         });
+        *frame_out = super::player_tick::PlayerBodyFrameOutput {
+            full_reset: true,
+            ..Default::default()
+        };
         return;
+    }
+    // Hand the frame's movement events + landing inputs to the presentation phase.
+    *frame_out = super::player_tick::PlayerBodyFrameOutput {
+        events,
+        was_grounded,
+        pre_sim_vy,
+        full_reset: false,
+    };
+}
+
+/// PHASE — sync player presentation. The presentation HOOK half of the player body
+/// tick, split out of the movement phase (mirrors the actor `sync_actor_read_model`
+/// phase). Reads the `PlayerBodyFrameOutput` the movement phase wrote and emits the
+/// screen-facing feedback: the hard-fall screen shake + landing SFX (primary only)
+/// and the per-op anim/SFX/VFX in `handle_player_events`. It moves no body and
+/// resolves no physics. A frame the movement phase fully reset
+/// (`full_reset`) already reset the presentation state, so it is skipped.
+#[allow(clippy::too_many_arguments)]
+pub(super) fn sync_player_presentation(
+    frame_out: &super::player_tick::PlayerBodyFrameOutput,
+    clusters: &ae::BodyClustersMut<'_>,
+    combat: &mut ambition_gameplay_core::actor::BodyCombat,
+    blink_cam: &mut ambition_gameplay_core::player::PlayerBlinkCameraState,
+    anim: &mut ambition_gameplay_core::player::PlayerAnimState,
+    sfx_writer: &mut MessageWriter<SfxMessage>,
+    vfx_writer: &mut MessageWriter<VfxMessage>,
+    shake: &mut ambition_gameplay_core::time::camera_ease::CameraShakeState,
+    is_primary: bool,
+) {
+    if frame_out.full_reset {
+        return;
+    }
+    let was_grounded = frame_out.was_grounded;
+    // Hard-fall screen shake: pure trigger in `time::camera_ease`. Saturates above
+    // terminal velocity via `kick()`'s cap. `pre_sim_vy` is the velocity that
+    // entered the movement tick.
+    let shake_amplitude = ambition_gameplay_core::time::camera_ease::hard_fall_shake_amplitude(
+        was_grounded,
+        clusters.ground.on_ground,
+        frame_out.pre_sim_vy,
+    );
+    if is_primary && shake_amplitude > 0.0 {
+        shake.kick(shake_amplitude);
+        sfx_writer.write(SfxMessage::Play {
+            id: ambition_sfx::ids::PLAYER_LAND,
+            pos: clusters.kinematics.pos,
+        });
     }
     handle_player_events(
         sfx_writer,
@@ -215,7 +256,7 @@ pub(super) fn player_body_phase(
         combat,
         blink_cam,
         anim,
-        events,
+        frame_out.events.clone(),
         Some(was_grounded),
     );
 }

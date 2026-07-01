@@ -44,10 +44,11 @@ pub(super) fn ledge_platform_carry(
 }
 
 /// The unified player body tick — control phase **and** simulation phase in ONE
-/// combined engine call (`ae::update_player_with_tuning_clusters`), the exact
-/// shape the actor path uses (`ActorMut::integrate_body` →
-/// `update_body_with_tuning_clusters`). The player and a brain-driven actor now
-/// run the SAME body-tick entry; the only difference is the input frame.
+/// combined engine call, `ae::update_body_with_tuning_clusters`: the LITERAL same
+/// engine entry a brain-driven actor uses (`ActorMut::integrate_body`). The
+/// home/player body and every actor integrate through one function; the only
+/// differences are the input frame and the caller-side respawn policy (a
+/// player-flavoured engine wrapper no longer exists on the production route).
 ///
 /// THE TWO-CLOCK SPLIT IS AN INPUT AFFORDANCE, NOT A SIMULATION STRUCTURE.
 /// Precision-blink bullet-time keeps the player's aim responsive while the world
@@ -152,10 +153,19 @@ pub(super) fn player_body_phase(
     let pre_sim_vy = clusters.kinematics.vel.y;
 
     // THE single combined body tick: control phase (at `input.control_dt`, the real
-    // clock) then simulation phase (at `sim_dt`, the scaled clock) — the same entry
-    // the actor body uses, plus the player respawn POLICY below.
+    // clock) then simulation phase (at `sim_dt`, the scaled clock). This is the
+    // EXACT engine entry an actor body uses (`update_body_with_tuning_clusters` via
+    // `ActorMut::integrate_body`) — the home/player body and every actor now
+    // integrate through the SAME function; the movement route is not player-shaped.
+    // The player respawn is a caller-side POLICY hook (below), NOT baked into a
+    // player-flavoured engine wrapper: on a flagged reset the body teleports to
+    // spawn (what the old `update_player_*` wrapper did inline), and the primary
+    // additionally runs the full sandbox reset.
     let events =
-        ae::update_player_with_tuning_clusters(&collision_world, clusters, input, sim_dt, tuning);
+        ae::update_body_with_tuning_clusters(&collision_world, clusters, input, sim_dt, tuning);
+    if events.reset {
+        ae::reset_body_clusters(clusters, world.spawn);
+    }
 
     // Hard-fall screen shake: pure trigger in `time::camera_ease`. Avoids tiny hops,
     // saturates above terminal velocity via `kick()`'s cap. `pre_sim_vy` is the

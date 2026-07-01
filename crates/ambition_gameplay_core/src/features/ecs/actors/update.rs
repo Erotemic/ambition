@@ -58,7 +58,6 @@ pub fn update_ecs_actors(
     mut slot_board: ResMut<crate::combat::slots::CombatSlotsRes>,
     mut sfx: MessageWriter<crate::audio::SfxMessage>,
     mut vfx: MessageWriter<ambition_vfx::vfx::VfxMessage>,
-    mut debris: MessageWriter<DebrisBurstMessage>,
     mut hit_events: MessageWriter<HitEvent>,
     // Multi-player ready: iterate every player and resolve each
     // actor's body-contact check against the player its `ActorTarget`
@@ -424,17 +423,9 @@ pub fn update_ecs_actors(
                 } else {
                     ambition_characters::actor::control::ActorControlFrame::neutral()
                 };
-                // Body-contact hazard is off for any player-controlled body: a
-                // possessed actor carries `Brain::Player`, is on your side (its
-                // melee + ranged redirect at its former allies), and its body
-                // must not harm you on contact. Derived from the brain, so the
-                // possession special-case (`possessed.is_none()`) is gone.
-                let body_contact_damage_enabled = !brain
-                    .as_deref()
-                    .is_some_and(ambition_characters::brain::Brain::is_player)
-                    && em.config.tuning.body_contact_damage;
-                let mut brain_frame = brain_frame;
-                brain_frame.body_contact_damage_enabled = body_contact_damage_enabled;
+                // Body-contact damage (including the player-controlled gate) is now
+                // the `apply_actor_contact_damage` observer phase — the movement
+                // integration no longer carries it on the frame.
                 let shark_charge_vec = brain_frame.velocity_target;
 
                 // Respawn blink: `em.update` revives a dead body in place (HP reset)
@@ -550,71 +541,113 @@ pub fn update_ecs_actors(
                 // Projectile spawns moved to the EFFECTS-stage
                 // consumer `spawn_enemy_projectiles_from_brain_actions`
                 // (Combat set, runs after `emit_brain_action_messages`).
-                // The attack-swing damage check moved to the
-                // Hitbox entity lifecycle (see above). Body-contact
-                // damage stays polled — "you ran into the enemy"
-                // is a per-tick integration test, not a discrete
-                // strike.
-                // Per-actor vulnerability + body check: look up the
-                // player this enemy is currently tracking. Falls back
-                // to no-op when the target's player entity is None
-                // (e.g. dropped-to-volume targeting in test fixtures).
-                // `target_entity` is threaded onto the emitted
-                // `HitEvent::target` so the player-side reader lands
-                // body-contact damage on this specific player rather
-                // than falling back to primary.
-                let Some(target_entity) = target.entity else {
-                    continue;
-                };
-                let Ok((
-                    _,
-                    target_kin,
-                    target_offense,
-                    target_dodge,
-                    target_shield,
-                    target_combat,
-                    _,
-                )) = player_query.get(target_entity)
-                else {
-                    continue;
-                };
-                let target_body = target_kin.aabb();
-                let target_dodge_rolling = target_dodge.roll_timer > 0.0;
-                let target_vulnerable = !target_offense.invincible
-                    && !target_dodge_rolling
-                    && !target_shield.parrying()
-                    && target_combat.vulnerable();
-                if target_vulnerable && em.health.alive() && body_contact_damage_enabled {
-                    if let Some(damage) =
-                        em.body_contact_damage(actor_entity, target_entity, target_body)
-                    {
-                        let pos = damage
-                            .knockback
-                            .as_ref()
-                            .map(|k| k.impact_pos)
-                            .unwrap_or_else(|| damage.volume.center());
-                        sfx.write(crate::audio::SfxMessage::Play {
-                            id: ambition_sfx::ids::PLAYER_DAMAGE,
-                            pos,
-                        });
-                        vfx.write(VfxMessage::Impact { pos });
-                        vfx.write(VfxMessage::Burst {
-                            pos,
-                            count: 14,
-                            speed: 300.0,
-                            color: [1.0, 0.34, 0.28, 0.88],
-                            kind: ParticleKind::Shard,
-                        });
-                        debris.write(DebrisBurstMessage {
-                            pos,
-                            cue: PhysicsDebrisCue::Impact,
-                        });
-                        hit_events.write(damage);
-                    }
-                }
+                // The attack-swing lifecycle is the body-generic melee phase
+                // (`start_body_melee`/`advance_body_melee`). Body-contact damage
+                // ("you ran into the enemy") is now its OWN observer phase,
+                // `apply_actor_contact_damage`, which runs AFTER this integration
+                // and reads the post-movement body overlap — it does not belong in
+                // the movement/brain loop.
             }
         }
         // Read-models mirrored from the unified cluster inside the block above.
+    }
+}
+
+/// Observer phase — body-contact damage. Reads each actor's POST-movement body
+/// overlap against the player it targets and emits a `HitEvent` when they touch.
+/// A pure observer of integrated body state: it ticks no brain, moves no body,
+/// and mirrors no read-model — it only watches the world and emits damage facts.
+/// Runs after `update_ecs_actors` (movement) so the overlap it checks is this
+/// frame's resolved position. Body-contact is OFF for a player-controlled
+/// (possessed) body — its brain is `Brain::Player`, it fights for you, and its
+/// body must not harm you on contact (the same effective-allegiance rule the melee
+/// strike + boss damage use).
+#[allow(clippy::too_many_arguments)]
+pub fn apply_actor_contact_damage(
+    mut sfx: MessageWriter<crate::audio::SfxMessage>,
+    mut vfx: MessageWriter<ambition_vfx::vfx::VfxMessage>,
+    mut debris: MessageWriter<DebrisBurstMessage>,
+    mut hit_events: MessageWriter<HitEvent>,
+    player_query: Query<
+        (
+            &crate::actor::BodyKinematics,
+            &crate::actor::BodyOffense,
+            &crate::actor::BodyDodgeState,
+            &crate::actor::BodyShieldState,
+            &crate::actor::BodyCombat,
+        ),
+        With<crate::actor::PlayerEntity>,
+    >,
+    mut actors: Query<
+        (
+            Entity,
+            &super::super::super::components::ActorTarget,
+            Option<&ambition_characters::brain::Brain>,
+            Option<super::super::actor_clusters::ActorClusterQueryData>,
+        ),
+        (
+            With<FeatureSimEntity>,
+            Without<crate::actor::PlayerEntity>,
+            Without<super::super::boss_clusters::BossConfig>,
+        ),
+    >,
+) {
+    for (actor_entity, target, brain, clusters) in &mut actors {
+        let Some(mut cq) = clusters else {
+            continue;
+        };
+        let em = cq.as_actor_mut();
+        // Body-contact hazard is off for any player-controlled body; derived from
+        // the brain (no possession special-case), gated by the body's authored
+        // `body_contact_damage` tuning.
+        let enabled = !brain.is_some_and(ambition_characters::brain::Brain::is_player)
+            && em.config.tuning.body_contact_damage;
+        if !enabled || !em.health.alive() {
+            continue;
+        }
+        // The player this actor tracks; its entity is stamped on the emitted
+        // `HitEvent::target` so the player-side reader lands the hit on this
+        // specific player rather than falling back to primary.
+        let Some(target_entity) = target.entity else {
+            continue;
+        };
+        let Ok((target_kin, target_offense, target_dodge, target_shield, target_combat)) =
+            player_query.get(target_entity)
+        else {
+            continue;
+        };
+        let target_body = target_kin.aabb();
+        let target_vulnerable = !target_offense.invincible
+            && target_dodge.roll_timer <= 0.0
+            && !target_shield.parrying()
+            && target_combat.vulnerable();
+        if !target_vulnerable {
+            continue;
+        }
+        if let Some(damage) = em.body_contact_damage(actor_entity, target_entity, target_body) {
+            let pos = damage
+                .knockback
+                .as_ref()
+                .map(|k| k.impact_pos)
+                .unwrap_or_else(|| damage.volume.center());
+            sfx.write(crate::audio::SfxMessage::Play {
+                id: ambition_sfx::ids::PLAYER_DAMAGE,
+                pos,
+            });
+            vfx.write(VfxMessage::Impact { pos });
+            vfx.write(VfxMessage::Burst {
+                pos,
+                count: 14,
+                speed: 300.0,
+                color: [1.0, 0.34, 0.28, 0.88],
+                kind: ParticleKind::Shard,
+            });
+            debris.write(DebrisBurstMessage {
+                pos,
+                cue: PhysicsDebrisCue::Impact,
+            });
+            hit_events.write(damage);
+        }
     }
 }
 

@@ -132,11 +132,12 @@ pub use ecs::actor_clusters::{
     ActorClusterSeed, ActorConfig, ActorMotionPath, ActorMut, ActorStatus, BodyKinematics,
 };
 pub use ecs::{
-    apply_actor_stimuli, apply_feature_hit_events, apply_gameplay_banner_requests,
-    apply_hitbox_damage, apply_spawn_actor_requests, apply_summon_effects, boss_is_cleared,
-    boss_spawn_hurtboxes, can_damage, clear_encounter_reward_ecs, collect_ecs_pickups,
-    damage_lands, derive_boss_sprite_metrics, derive_pogo_target_volumes, despawn_encounter_mobs,
-    dissolve_settled_grudges, ecs_actor_anim_state, ecs_actor_render_size, ecs_boss_anim_state,
+    apply_actor_contact_damage, apply_actor_stimuli, apply_feature_hit_events,
+    apply_gameplay_banner_requests, apply_hitbox_damage, apply_spawn_actor_requests,
+    apply_summon_effects, boss_is_cleared, boss_spawn_hurtboxes, can_damage,
+    clear_encounter_reward_ecs, collect_ecs_pickups, damage_lands, derive_boss_sprite_metrics,
+    derive_pogo_target_volumes, despawn_encounter_mobs, dissolve_settled_grudges,
+    ecs_actor_anim_state, ecs_actor_render_size, ecs_boss_anim_state,
     ecs_boss_anim_state_and_entity, ecs_boss_animation_frame_sample, ecs_boss_name,
     ecs_breakable_state, ecs_chest_opened, ecs_enemy_name, ecs_enemy_sprite_override,
     ecs_hit_event_hits_actor, ecs_hit_event_hits_boss, ecs_hit_event_hits_breakable, ecs_npc_name,
@@ -290,6 +291,17 @@ impl bevy::prelude::Plugin for WorldPrepSchedulePlugin {
             Update,
             advance_gameplay_elapsed
                 .before(select_actor_targets)
+                .in_set(crate::schedule::SandboxSet::WorldPrep),
+        );
+        // Body-contact damage is its own OBSERVER phase: after `update_ecs_actors`
+        // has integrated actor bodies this frame, it reads each actor's resolved
+        // overlap against the player it targets and emits a `HitEvent`. Registered
+        // separately (not in the chain above) only because that tuple is at Bevy's
+        // chain-length ceiling; the `.after` keeps the post-movement ordering exact.
+        app.add_systems(
+            Update,
+            apply_actor_contact_damage
+                .after(update_ecs_actors)
                 .in_set(crate::schedule::SandboxSet::WorldPrep),
         );
         // Settle decided feuds before targeting reads grudges: a body forgets a slain

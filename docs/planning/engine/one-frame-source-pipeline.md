@@ -85,6 +85,39 @@ Discovery yields one uniform `Target`, each of which knows how to produce its
 first-class discovered targets (via their YAML configs); `GENERATORS`-vs-
 discovery split, `ADAPTER_HELPER_STEMS`, and the CLI special-case all dissolve.
 
+## What the merge actually is (honest scoping)
+
+Reading both 300-line orchestrators in full changed the plan. They are *not* one
+algorithm with two inputs. They genuinely differ in higher-level semantics:
+
+- frame production: generator `render_frame` with `render_scale` supersampling vs
+  a `render_fn(anim, i, n)` callable;
+- per-animation geometry: the generator derives hurtboxes from *source* alpha
+  bboxes keyed by row name and applies `body_inset`; the tackon path derives them
+  from *cropped* frames keyed by a gameplay `animation_key_map`;
+- body measurement (`measure_body_metrics` vs `alpha_bbox_metrics`) and the actor
+  sidecar (`write_actor_contract_for_adapter` vs `_for_tackon`).
+
+Forcing those into one function would trade duplication for a mode-switching
+`if source_is_generator:` union — not more beautiful. So the merge is scoped to
+what genuinely IS duplicated, and done **provably** (harness byte-diff):
+
+- The generators inlined their own copy of the layout+packer while the tackon
+  path used `layout_sheet_rows` — whose docstring already *claims* to be "the ONE
+  sheet-layout seam". That claim was a lie. Routing `build_spritesheet` through
+  `layout_sheet_rows` + the shared `records_to_ron` emitter makes it true and
+  deletes ~75 lines of duplicated packing/grid code. Proven byte-identical RON +
+  page PNGs across all adapter targets (the shared emitter ignores the per-rect
+  `index`/`duration_ms` the inline path carried; every adapter target is
+  `trim=True` so the packer call is identical). The only change is the *throwaway*
+  YAML sidecar's `animations:` → `rows:` key — and the one dev-tool that reads it
+  (`_animation_rows_from_manifest`) already accepts both.
+
+The `FrameSource` contract still stands as the one frame-production contract; the
+two paths now also share the one layout seam and the one RON emitter. The
+remaining per-path differences are legitimate authored-geometry / measurement
+semantics, left as focused code rather than a conditional-laden merge.
+
 ## Execution order (checkpoints, suite green throughout)
 
 1. `FrameSource` protocol + `CharacterGenerator.frames_for(job)`.

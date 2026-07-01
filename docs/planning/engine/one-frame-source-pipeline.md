@@ -1,0 +1,100 @@
+# One FrameSource, one pipeline
+
+Status: in progress (2026-07-01). Follows
+[canonical-sprite-generators.md](canonical-sprite-generators.md).
+
+## The honest problem (from the audit)
+
+Dissolving the adapter layer made the nine procedural PIL generators read well,
+but a close reviewer would still see hodgepodge across the *whole* renderer:
+
+- **Two build pipelines** doing the same crop → pack → measure → emit work:
+  `authoring/sheet.py::build_spritesheet` (procedural generators) and
+  `authoring/tackon_sheet.py::build_sheet` (everything else — props, bone-rig
+  characters, multi-target modules).
+- **Two incompatible frame contracts**: `CharacterGenerator.render_frame(spec,
+  animation, frame_index, size, job)` (a method) vs. the tackon/rig
+  `render_fn(animation, frame_idx, nframes)` (a free callable). Same idea, two
+  shapes.
+- **Three registries**: the hard-coded `GENERATORS` dict, the discovered
+  `TackonTarget`s, and per-module `TARGETS` dicts (`rigged`, `ai_era_enemies`) —
+  plus a `Target` protocol bridging them and an `ADAPTER_HELPER_STEMS` frozenset
+  that exists only to *hide* helper modules from discovery (a smell).
+- The CLI special-cases the two worlds (`list-targets` prints `GENERATORS`
+  separately from discovered targets).
+
+The drawing *backends* are legitimately diverse — a goblin's bespoke PIL, a bone
+rig's transforms, an SVG raster. That diversity is correct and must stay; forcing
+them into one drawing model would be the very impedance-adapter hack we're
+removing. What is NOT legitimate is the diverse *envelope* around them.
+
+## The canonical spine: `FrameSource`
+
+One thing the pipeline consumes — "a character/prop ready to render at any size":
+
+```python
+class FrameSource(Protocol):
+    target: str
+    def animations(self) -> dict[str, dict]          # {name: {"frames", "duration_ms"}}
+    def frame(self, animation, index, count, size) -> Image
+    def canonical_pose(self) -> tuple[str, int]
+    def attack_hitboxes(self, size) -> dict           # gameplay geometry, default {}
+    def hurtbox_parts(self, size) -> dict             # default {}
+    def body_inset(self) -> dict | None               # default None
+    def actor_metadata(self) -> dict | None           # sidecar, default None
+```
+
+Each backend **produces** a `FrameSource` — it does not get reshaped into one:
+
+- **Procedural** — `CharacterGenerator.frames_for(job) -> FrameSource`: samples
+  the spec once, closes over (spec, job), draws in `frame()`. The bespoke PIL
+  lives inside `frame`; the envelope is uniform.
+- **Bone rig** — a `RigDocument` *is* a `FrameSource` (clips → animations,
+  `frame()` renders a clip frame).
+- **Callable** — a target that already has `(rows, render_fn)` is a
+  `FrameSource` directly. This is not an adapter over a different abstraction; a
+  frame callable + row list *is* a frame source in its simplest form.
+
+## One pipeline
+
+```python
+def render_sheet(source: FrameSource, *, policy, scale) -> SheetBuild   # pure compute
+def write_sheet(build: SheetBuild, out_dir, *, emit_diagnostics) -> SheetFiles  # IO
+```
+
+`render_sheet` is the single crop/pack/measure/emit core. `write_sheet` is the
+single IO boundary (and it routes the canonical / preview / transparent
+*diagnostics* out of the runtime root, closing the loop with the publish
+boundary from `data-driven-sprites-and-characters.md`).
+
+Every entry point becomes thin:
+
+- `write_spritesheet(job)` → `get_generator(job.target).frames_for(job)` →
+  `render_sheet` → `write_sheet`.
+- tackon `build_sheet(target, rows, render_fn, …)` → build a callable
+  `FrameSource` → `render_sheet` → `write_sheet` (kept as a compat shim so the
+  33 tackon modules and the rig codegen need no change).
+- rig `render_sheet_for_doc(doc)` → `render_sheet(doc)` → `write_sheet`.
+
+The two 300-line orchestrators collapse into one core plus thin constructors.
+
+## One registry / one Target (later checkpoint)
+
+Discovery yields one uniform `Target`, each of which knows how to produce its
+`FrameSource` + its install info. `CharacterGenerator` targets become
+first-class discovered targets (via their YAML configs); `GENERATORS`-vs-
+discovery split, `ADAPTER_HELPER_STEMS`, and the CLI special-case all dissolve.
+
+## Execution order (checkpoints, suite green throughout)
+
+1. `FrameSource` protocol + `CharacterGenerator.frames_for(job)`.
+2. Extract the shared `render_sheet` / `write_sheet` core; make `build_sheet`
+   and `write_spritesheet` thin callers. **Keep per-target output stable** —
+   verified with the opt-in `--run-slow-render` suite, not just the fast tests.
+3. Route the bone-rig path through `render_sheet`.
+4. Unify the registry + `Target`, delete `ADAPTER_HELPER_STEMS` and the CLI
+   special-case.
+
+Safety net: `.venv/bin/python -m pytest --run-slow-render` (the full-render
+tests that actually assert on pixels). The one pre-existing `test_ldtk_manifest`
+failure is unrelated.

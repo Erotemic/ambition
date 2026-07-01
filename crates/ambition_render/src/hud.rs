@@ -12,6 +12,7 @@
 
 use bevy::prelude::*;
 
+use ambition_gameplay_core::abilities::traversal::possession::ControlledSubject;
 use ambition_gameplay_core::actor::BodyHealth;
 use ambition_gameplay_core::actor::BodyMana;
 use ambition_gameplay_core::actor::BodyWallet;
@@ -43,19 +44,42 @@ pub struct ManaLabel;
 #[derive(Component)]
 pub struct MoneyLabel;
 
+/// The body the local player is driving this frame: the [`ControlledSubject`]
+/// (home avatar during normal play, the possessed actor while possessing),
+/// falling back to the primary player for the startup frame before the subject
+/// resolver has run. HUD health/mana track THIS body, not a fixed
+/// `PrimaryPlayer` marker — the same read model the camera and nameplates use.
+fn controlled_body(
+    controlled: Option<&ControlledSubject>,
+    primary: &Query<Entity, (With<PlayerEntity>, With<PrimaryPlayer>)>,
+) -> Option<Entity> {
+    controlled
+        .and_then(|subject| subject.0)
+        .or_else(|| primary.single().ok())
+}
+
 /// Mana slowly regenerates so it's a genuine spendable resource. Uses
 /// `ResourceMeter::refill` (clamped) rather than the meter's own `regen_rate`
 /// field so we don't change `BodyMana::default` (and any test that relies on
 /// it). Scaled by sim dt, so bullet-time / pause slow it with the world.
+///
+/// Refills the *controlled subject's* mana — the body actually spending it on
+/// charge attacks / the fireball — so possessing an actor regenerates that
+/// actor's meter, not the vacated home avatar's.
 pub fn regen_player_mana(
     time: Res<ambition_gameplay_core::WorldTime>,
-    mut players: Query<&mut BodyMana, (With<PlayerEntity>, With<PrimaryPlayer>)>,
+    controlled: Option<Res<ControlledSubject>>,
+    mut manas: Query<&mut BodyMana>,
+    primary: Query<Entity, (With<PlayerEntity>, With<PrimaryPlayer>)>,
 ) {
     let dt = time.sim_dt();
     if dt <= 0.0 {
         return;
     }
-    for mut mana in &mut players {
+    let Some(subject) = controlled_body(controlled.as_deref(), &primary) else {
+        return;
+    };
+    if let Ok(mut mana) = manas.get_mut(subject) {
         mana.meter.refill(MANA_REGEN_PER_SEC * dt);
     }
 }
@@ -154,13 +178,19 @@ pub fn spawn_player_hud(
         });
 }
 
-/// Mirror the primary player's health / mana / money into the HUD widgets each
+/// Mirror the controlled body's health / mana / money into the HUD widgets each
 /// frame: bar fill widths track the fractions, labels show the numbers.
+///
+/// Every stat is a BODY stat — health, mana, and the wallet all follow the
+/// [`ControlledSubject`], so while possessing another body the HUD shows THAT
+/// body's HP / MP / purse, not the vacated home avatar's. Economy is a body
+/// concern (an NPC or merchant carries its own money and inventory), so the
+/// wallet is just another cluster the driven body may hold. It's `Option` only
+/// because not every body carries one yet; a body without a wallet reads `$0`.
 pub fn update_player_hud(
-    players: Query<
-        (&BodyHealth, &BodyMana, &BodyWallet),
-        (With<PlayerEntity>, With<PrimaryPlayer>),
-    >,
+    controlled: Option<Res<ControlledSubject>>,
+    bodies: Query<(&BodyHealth, &BodyMana, Option<&BodyWallet>)>,
+    primary: Query<Entity, (With<PlayerEntity>, With<PrimaryPlayer>)>,
     mut fills: ParamSet<(
         Query<&mut Node, With<HealthFill>>,
         Query<&mut Node, With<ManaFill>>,
@@ -171,9 +201,13 @@ pub fn update_player_hud(
         Query<&mut Text, With<MoneyLabel>>,
     )>,
 ) {
-    let Ok((health, mana, wallet)) = players.single() else {
+    let Some(subject) = controlled_body(controlled.as_deref(), &primary) else {
         return;
     };
+    let Ok((health, mana, wallet)) = bodies.get(subject) else {
+        return;
+    };
+    let balance = wallet.map(|wallet| wallet.balance).unwrap_or(0);
     let hp_frac = if health.max() > 0 {
         (health.current() as f32 / health.max() as f32).clamp(0.0, 1.0)
     } else {
@@ -196,7 +230,7 @@ pub fn update_player_hud(
         set_text_if_changed(&mut text, format!("MP {}", mana.meter.current as i32));
     }
     if let Ok(mut text) = labels.p2().single_mut() {
-        set_text_if_changed(&mut text, format!("${}", wallet.balance));
+        set_text_if_changed(&mut text, format!("${balance}"));
     }
 }
 
@@ -222,6 +256,68 @@ mod tests {
         assert_eq!(wallet.balance, 10);
         assert!(!wallet.try_spend(99), "can't overspend");
         assert_eq!(wallet.balance, 10);
+    }
+
+    #[test]
+    fn hud_tracks_the_controlled_body_for_every_stat_including_money() {
+        use ambition_characters::actor::Health;
+
+        let mut app = App::new();
+
+        // Home avatar: full HP, a fat $42 purse. We should see NONE of this
+        // while driving another body.
+        app.world_mut().spawn((
+            PlayerEntity,
+            PrimaryPlayer,
+            BodyHealth::new(Health::new(20)),
+            BodyMana::default(),
+            BodyWallet { balance: 42 },
+        ));
+
+        // A possessed actor with ITS OWN economy: wounded 3/10 HP, $7 in pocket.
+        // Money is a body concern, so possessing it spends its purse, not ours.
+        let mut actor_hp = BodyHealth::new(Health::new(10));
+        actor_hp.damage(7);
+        let actor = app
+            .world_mut()
+            .spawn((actor_hp, BodyMana::default(), BodyWallet { balance: 7 }))
+            .id();
+
+        // The player is DRIVING the actor.
+        app.world_mut()
+            .insert_resource(ControlledSubject(Some(actor)));
+
+        // Minimal HUD widgets (just the labels this assertion reads).
+        app.world_mut().spawn((HealthLabel, Text::new("")));
+        app.world_mut().spawn((ManaLabel, Text::new("")));
+        app.world_mut().spawn((MoneyLabel, Text::new("")));
+        app.world_mut().spawn((HealthFill, Node::default()));
+        app.world_mut().spawn((ManaFill, Node::default()));
+
+        app.add_systems(Update, update_player_hud);
+        app.update();
+
+        let mut labels = app.world_mut().query::<(&Text, Option<&HealthLabel>, Option<&MoneyLabel>)>();
+        let mut hp_text = None;
+        let mut money_text = None;
+        for (text, is_hp, is_money) in labels.iter(app.world()) {
+            if is_hp.is_some() {
+                hp_text = Some(text.as_str().to_string());
+            }
+            if is_money.is_some() {
+                money_text = Some(text.as_str().to_string());
+            }
+        }
+        assert_eq!(
+            hp_text.as_deref(),
+            Some("HP 3/10"),
+            "HP bar must show the POSSESSED body's health, not the home avatar's"
+        );
+        assert_eq!(
+            money_text.as_deref(),
+            Some("$7"),
+            "money is a body stat: the HUD shows the driven body's purse, not the home avatar's"
+        );
     }
 
     #[test]

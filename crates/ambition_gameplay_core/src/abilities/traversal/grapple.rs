@@ -15,9 +15,8 @@ use bevy::prelude::*;
 
 use super::possession::ControlledSubject;
 use crate::actor::BodyKinematics;
-use crate::actor::PlayerEntity;
 use crate::features::HeldItem;
-use crate::player::PlayerInputFrame;
+use ambition_characters::brain::ActorControl;
 use ambition_engine_core as ae;
 
 /// The held-item id the Grapple ability grants.
@@ -36,41 +35,39 @@ const GRAPPLE_COOLDOWN_S: f32 = 0.55;
 /// hitting a solid within [`GRAPPLE_RANGE`] it yanks the player toward the hit.
 pub fn grapple_system(
     gravity: crate::physics::GravityCtx,
-    user_settings: Option<Res<crate::persistence::settings::UserSettings>>,
     world: crate::features::CollisionWorld,
     mut commands: Commands,
-    // Ability ORIGIN = the controlled subject, not a `PrimaryPlayer` filter.
+    // Ability execution is SUBJECT-GENERIC: acts on the `ControlledSubject`,
+    // reading that body's OWN `ActorControl` (brain output) + `HeldItem`. No
+    // `With<PlayerEntity>` filter, no `PlayerInputFrame` — works for a possessed
+    // actor exactly as for the home avatar.
     controlled: Res<ControlledSubject>,
-    mut players: Query<
-        (
-            Entity,
-            &PlayerInputFrame,
-            &mut BodyKinematics,
-            &HeldItem,
-            Option<&mut crate::ability_cooldown::AbilityCooldown>,
-        ),
-        With<PlayerEntity>,
-    >,
+    mut bodies: Query<(
+        Entity,
+        &ActorControl,
+        &mut BodyKinematics,
+        &HeldItem,
+        Option<&mut crate::ability_cooldown::AbilityCooldown>,
+    )>,
     mut sfx: MessageWriter<crate::audio::SfxMessage>,
     mut vfx: MessageWriter<ambition_vfx::vfx::VfxMessage>,
 ) {
     let Some(subject) = controlled.0 else {
         return;
     };
-    let Ok((player, input, mut kin, held, mut cooldown)) = players.get_mut(subject) else {
+    let Ok((player, control, mut kin, held, mut cooldown)) = bodies.get_mut(subject) else {
         return;
     };
-    if !input.frame.attack_pressed || input.frame.shield_held {
+    let c = control.0;
+    if !c.melee_pressed || c.shield_held {
         return;
     }
     if held.spec.id != GRAPPLE_ID {
         return;
     }
     let gravity_dir = gravity.dir_at(kin.pos);
-    let modes = crate::items::pickup::control_frame_modes_from_settings(user_settings.as_deref());
     let dir =
-        crate::items::pickup::held_shot_aim_world(&input.frame, kin.facing, gravity_dir, modes)
-            .normalize_or_zero();
+        crate::items::pickup::ability_aim_world(&c, kin.facing, gravity_dir).normalize_or_zero();
     if dir == ae::Vec2::ZERO {
         return;
     }
@@ -165,10 +162,10 @@ mod tests {
         // Player to the left of the wall, facing/aiming right.
         let player = spawn_player_holding(&mut app, GRAPPLE_ID, ae::Vec2::new(100.0, 200.0), 1.0);
         app.world_mut()
-            .get_mut::<PlayerInputFrame>(player)
+            .get_mut::<ActorControl>(player)
             .unwrap()
-            .frame
-            .attack_pressed = true;
+            .0
+            .melee_pressed = true;
         app.update();
         let vel = player_vel(&app, player);
         assert!(
@@ -191,10 +188,10 @@ mod tests {
         let mut app = test_app(None);
         let player = spawn_player_holding(&mut app, GRAPPLE_ID, ae::Vec2::new(100.0, 200.0), 1.0);
         app.world_mut()
-            .get_mut::<PlayerInputFrame>(player)
+            .get_mut::<ActorControl>(player)
             .unwrap()
-            .frame
-            .attack_pressed = true;
+            .0
+            .melee_pressed = true;
         app.update();
         assert_eq!(
             player_vel(&app, player),
@@ -214,10 +211,10 @@ mod tests {
         let mut app2 = test_app(Some(world_with_right_wall()));
         let player2 = spawn_player_holding(&mut app2, "bomb", ae::Vec2::new(100.0, 200.0), 1.0);
         app2.world_mut()
-            .get_mut::<PlayerInputFrame>(player2)
+            .get_mut::<ActorControl>(player2)
             .unwrap()
-            .frame
-            .attack_pressed = true;
+            .0
+            .melee_pressed = true;
         app2.update();
         assert_eq!(player_vel(&app2, player2), ae::Vec2::ZERO);
     }

@@ -19,6 +19,7 @@ use crate::platformer_runtime::prelude::SpawnScopedExt;
 use crate::player::PlayerInputFrame;
 #[cfg(feature = "portal")]
 use crate::portal::PortalGun;
+use ambition_characters::brain::ActorControl;
 use ambition_characters::brain::{
     ActionSet, HeldItemSpec, HeldUseBehavior, MeleeActionSpec, SwipeSpec,
 };
@@ -357,6 +358,7 @@ pub fn pickup_held_item_system(
         (
             Entity,
             &mut PlayerInputFrame,
+            &mut ActorControl,
             &BodyKinematics,
             &mut ActionSet,
         ),
@@ -371,6 +373,7 @@ pub fn pickup_held_item_system(
         (
             Entity,
             &mut PlayerInputFrame,
+            &mut ActorControl,
             &BodyKinematics,
             &mut ActionSet,
         ),
@@ -379,7 +382,7 @@ pub fn pickup_held_item_system(
     grounds: Query<(Entity, &GroundItem)>,
     mut owned: Option<ResMut<crate::items::OwnedItems>>,
 ) {
-    let Ok((player, mut input, kin, mut action_set)) = players.single_mut() else {
+    let Ok((player, mut input, mut control, kin, mut action_set)) = players.single_mut() else {
         return;
     };
     if !input.frame.attack_pressed {
@@ -409,12 +412,13 @@ pub fn pickup_held_item_system(
                     owned.set_equipped(Some(item));
                 }
             }
-            // The Attack press is *consumed* by the pickup: clear it on the
-            // actor's own input frame so the same press doesn't also fire the
-            // just-equipped item this frame (every attack_pressed reader — held
-            // gauntlets/weapons, the portal-gun gesture adapter — now reads the
-            // actor-local frame, so this single consume gates them all).
+            // The Attack press is *consumed* by the pickup so the same press
+            // doesn't also fire the just-equipped item this frame. Clear it on
+            // BOTH the actor-local input frame (portal-gun gesture adapter) AND the
+            // brain-resolved `ActorControl` (the subject-generic held-item / ability
+            // systems — blink/grapple/gun — now read `melee_pressed` there).
             input.frame.attack_pressed = false;
+            control.0.melee_pressed = false;
             commands.entity(ground_entity).despawn();
             break;
         }
@@ -608,6 +612,38 @@ pub fn held_shot_aim_world(
     frame.to_world(held_shot_aim_local(control, facing, frame, modes))
 }
 
+/// Body-generic ability aim in the CONTROLLED BODY'S LOCAL frame, taken from the
+/// brain-resolved [`ActorControlFrame::aim`] (the brain already crossed the input
+/// seam via the aim frame mode), falling back to local facing when neutral. This
+/// is the subject-generic counterpart to [`held_shot_aim_local`]: it reads the
+/// body's `ActorControl` (present on ANY controlled body — player or possessed
+/// actor) rather than a player-only `ControlFrame`, so an ability fires from
+/// whichever body is being driven.
+pub fn ability_aim_local(
+    control: &ambition_characters::actor::control::ActorControlFrame,
+    facing: f32,
+) -> Vec2 {
+    // Match `held_shot_aim_local`'s fallback chain, but off the brain-resolved
+    // frame: the aim stick, else the movement stick (`locomotion` — so you can
+    // steer a held-item cast with the direction you're moving), else facing.
+    if control.aim.length() > 0.1 {
+        control.aim
+    } else if control.locomotion.length() > 0.1 {
+        control.locomotion
+    } else {
+        Vec2::new(facing, 0.0)
+    }
+}
+
+/// [`ability_aim_local`] rotated into world space for the body's gravity frame.
+pub fn ability_aim_world(
+    control: &ambition_characters::actor::control::ActorControlFrame,
+    facing: f32,
+    gravity_dir: Vec2,
+) -> Vec2 {
+    ae::AccelerationFrame::new(gravity_dir).to_world(ability_aim_local(control, facing))
+}
+
 pub(crate) fn control_frame_modes_from_settings(
     settings: Option<&crate::persistence::settings::UserSettings>,
 ) -> ae::ControlFrameModes {
@@ -624,31 +660,31 @@ fn gravity_dir_at(gravity: &crate::physics::GravityCtx, pos: Vec2) -> Vec2 {
 /// direction. `Shield + Attack` is the throw/drop gesture, so don't fire on it.
 pub fn fire_held_ranged_system(
     gravity: crate::physics::GravityCtx,
-    user_settings: Option<Res<crate::persistence::settings::UserSettings>>,
     mut commands: Commands,
-    // Ability ORIGIN = the controlled subject (the body carrying
-    // `Brain::Player(PRIMARY)`), not a `PrimaryPlayer` filter — the held weapon
-    // fires from the body you are driving.
+    // SUBJECT-GENERIC held-weapon fire: acts on the `ControlledSubject`, reading
+    // that body's OWN `ActorControl` (brain output) + `HeldItem`. No
+    // `With<PlayerEntity>` filter, no `PlayerInputFrame` — a possessed body firing
+    // its held gun works exactly like the home avatar.
     controlled: Res<crate::abilities::traversal::possession::ControlledSubject>,
-    players: Query<(&PlayerInputFrame, &BodyKinematics, &HeldItem), With<PlayerEntity>>,
+    bodies: Query<(&ActorControl, &BodyKinematics, &HeldItem)>,
     mut sfx: MessageWriter<crate::audio::SfxMessage>,
 ) {
     let Some(subject) = controlled.0 else {
         return;
     };
-    let Ok((input, kin, held)) = players.get(subject) else {
+    let Ok((control, kin, held)) = bodies.get(subject) else {
         return;
     };
-    if !input.frame.attack_pressed || input.frame.shield_held {
+    let c = control.0;
+    if !c.melee_pressed || c.shield_held {
         return;
     }
     let Some(ranged) = held.spec.ranged else {
         return;
     };
     let gravity_dir = gravity_dir_at(&gravity, kin.pos);
-    let modes = control_frame_modes_from_settings(user_settings.as_deref());
     let frame = ae::AccelerationFrame::new(gravity_dir);
-    let local_dir = held_shot_aim_local(&input.frame, kin.facing, frame, modes);
+    let local_dir = ability_aim_local(&c, kin.facing);
     let dir = frame.to_world(local_dir).normalize_or_zero();
     if dir == Vec2::ZERO {
         return;

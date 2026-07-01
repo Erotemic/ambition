@@ -22,10 +22,9 @@ use bevy::prelude::*;
 use crate::abilities::traversal::possession::ControlledSubject;
 use crate::actor::BodyKinematics;
 use crate::actor::BodyMana;
-use crate::actor::PlayerEntity;
 use crate::enemy_projectile::EnemyProjectileSpawn;
 use crate::features::HeldItem;
-use crate::player::PlayerInputFrame;
+use ambition_characters::brain::ActorControl;
 use ambition_engine_core as ae;
 
 /// Held-item id of the meteor gauntlet.
@@ -85,29 +84,26 @@ fn meteor_strike_origins(
 /// + Attack` drops the item (the id is `UseSystem`).
 pub fn fire_meteor_system(
     gravity: crate::physics::GravityCtx,
-    user_settings: Option<Res<crate::persistence::settings::UserSettings>>,
     // Ability ORIGIN = the controlled subject, not a `PrimaryPlayer` filter.
     controlled: Res<ControlledSubject>,
-    mut players: Query<
-        (
-            Entity,
-            &PlayerInputFrame,
-            &BodyKinematics,
-            &HeldItem,
-            &mut BodyMana,
-        ),
-        With<PlayerEntity>,
-    >,
+    mut players: Query<(
+        Entity,
+        &ActorControl,
+        &BodyKinematics,
+        &HeldItem,
+        &mut BodyMana,
+    )>,
     mut effects: MessageWriter<crate::effects::EffectRequest>,
     mut sfx: MessageWriter<crate::audio::SfxMessage>,
 ) {
     let Some(subject) = controlled.0 else {
         return;
     };
-    let Ok((entity, input, kin, held, mut mana)) = players.get_mut(subject) else {
+    let Ok((entity, control, kin, held, mut mana)) = players.get_mut(subject) else {
         return;
     };
-    if !input.frame.attack_pressed || input.frame.shield_held {
+    let c = control.0;
+    if !c.melee_pressed || c.shield_held {
         return;
     }
     if held.spec.id != METEOR_ID {
@@ -117,9 +113,7 @@ pub fn fire_meteor_system(
         return;
     }
     let gravity_dir = gravity.dir_at(kin.pos);
-    let modes = crate::items::pickup::control_frame_modes_from_settings(user_settings.as_deref());
-    let frame = ae::AccelerationFrame::new(gravity_dir);
-    let aim = crate::items::pickup::held_shot_aim_local(&input.frame, kin.facing, frame, modes);
+    let aim = crate::items::pickup::ability_aim_local(&c, kin.facing);
     for origin in meteor_strike_origins(kin.pos, aim, kin.facing, gravity_dir) {
         effects.write(crate::effects::EffectRequest {
             // The firing actor owns every meteor, so a kill attributes back to
@@ -178,10 +172,10 @@ mod tests {
         let mut app = test_app();
         let player = spawn_primary_player_holding(&mut app, METEOR_ID);
         app.world_mut()
-            .get_mut::<PlayerInputFrame>(player)
+            .get_mut::<ActorControl>(player)
             .unwrap()
-            .frame
-            .attack_pressed = true;
+            .0
+            .melee_pressed = true;
         app.update();
         let bodies = enemy_projectile_bodies(&mut app);
         assert_eq!(
@@ -209,10 +203,10 @@ mod tests {
             .meter
             .current = 5.0;
         app.world_mut()
-            .get_mut::<PlayerInputFrame>(player)
+            .get_mut::<ActorControl>(player)
             .unwrap()
-            .frame
-            .attack_pressed = true;
+            .0
+            .melee_pressed = true;
         app.update();
         assert!(
             enemy_projectile_bodies(&mut app).is_empty(),

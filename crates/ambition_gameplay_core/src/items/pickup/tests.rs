@@ -21,6 +21,7 @@ fn spawn_player(app: &mut App, pos: Vec2) -> Entity {
                 base_size: Vec2::new(24.0, 40.0),
             },
             ActionSet::default(),
+            ambition_characters::brain::ActorControl::default(),
         ))
         .id();
     // `fire_held_ranged_system` keys on the controlled subject; in tests the
@@ -31,13 +32,23 @@ fn spawn_player(app: &mut App, pos: Vec2) -> Entity {
     entity
 }
 
-/// Stamp the input onto the actor-local `PlayerInputFrame` — the frame the
-/// pickup / throw / fire systems read (mirrored from the global `ControlFrame`
-/// by `sync_local_player_input_frame` in production).
+/// Stamp the input onto BOTH the actor-local `PlayerInputFrame` (read by
+/// pickup/throw) and the `ActorControl` brain frame (read by the now
+/// subject-generic `fire_held_ranged_system`). In production
+/// `sync_local_player_input_frame` + `tick_player_brains` keep these coherent
+/// from the one `ControlFrame`; here we set both directly.
 fn set_control(app: &mut App, player: Entity, attack: bool, shield: bool) {
-    let mut input = app.world_mut().get_mut::<PlayerInputFrame>(player).unwrap();
-    input.frame.attack_pressed = attack;
-    input.frame.shield_held = shield;
+    {
+        let mut input = app.world_mut().get_mut::<PlayerInputFrame>(player).unwrap();
+        input.frame.attack_pressed = attack;
+        input.frame.shield_held = shield;
+    }
+    let mut control = app
+        .world_mut()
+        .get_mut::<ambition_characters::brain::ActorControl>(player)
+        .unwrap();
+    control.0.melee_pressed = attack;
+    control.0.shield_held = shield;
 }
 
 #[test]

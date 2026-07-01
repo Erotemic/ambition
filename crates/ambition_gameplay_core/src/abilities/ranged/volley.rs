@@ -15,10 +15,9 @@ use bevy::prelude::*;
 use crate::abilities::traversal::possession::ControlledSubject;
 use crate::actor::BodyKinematics;
 use crate::actor::BodyMana;
-use crate::actor::PlayerEntity;
 use crate::enemy_projectile::EnemyProjectileSpawn;
 use crate::features::HeldItem;
-use crate::player::PlayerInputFrame;
+use ambition_characters::brain::ActorControl;
 use ambition_engine_core as ae;
 
 /// Held-item id of the volley gauntlet.
@@ -61,29 +60,26 @@ fn volley_origin_world(
 /// (the id is excluded from throw-on-plain-Attack in `throw_held_item_system`).
 pub fn fire_volley_system(
     gravity: crate::physics::GravityCtx,
-    user_settings: Option<Res<crate::persistence::settings::UserSettings>>,
     // Ability ORIGIN = the controlled subject, not a `PrimaryPlayer` filter.
     controlled: Res<ControlledSubject>,
-    mut players: Query<
-        (
-            Entity,
-            &PlayerInputFrame,
-            &BodyKinematics,
-            &HeldItem,
-            &mut BodyMana,
-        ),
-        With<PlayerEntity>,
-    >,
+    mut players: Query<(
+        Entity,
+        &ActorControl,
+        &BodyKinematics,
+        &HeldItem,
+        &mut BodyMana,
+    )>,
     mut effects: MessageWriter<crate::effects::EffectRequest>,
     mut sfx: MessageWriter<crate::audio::SfxMessage>,
 ) {
     let Some(subject) = controlled.0 else {
         return;
     };
-    let Ok((entity, input, kin, held, mut mana)) = players.get_mut(subject) else {
+    let Ok((entity, control, kin, held, mut mana)) = players.get_mut(subject) else {
         return;
     };
-    if !input.frame.attack_pressed || input.frame.shield_held {
+    let c = control.0;
+    if !c.melee_pressed || c.shield_held {
         return;
     }
     if held.spec.id != VOLLEY_ID {
@@ -94,10 +90,8 @@ pub fn fire_volley_system(
         return;
     }
     let gravity_dir = gravity.dir_at(kin.pos);
-    let modes = crate::items::pickup::control_frame_modes_from_settings(user_settings.as_deref());
     let frame = ae::AccelerationFrame::new(gravity_dir);
-    let aim_local =
-        crate::items::pickup::held_shot_aim_local(&input.frame, kin.facing, frame, modes);
+    let aim_local = crate::items::pickup::ability_aim_local(&c, kin.facing);
     let aim = frame.to_world(aim_local).normalize_or_zero();
     if aim == ae::Vec2::ZERO {
         return;
@@ -170,10 +164,10 @@ mod tests {
         let mut app = test_app();
         let player = spawn_primary_player_holding(&mut app, VOLLEY_ID);
         app.world_mut()
-            .get_mut::<PlayerInputFrame>(player)
+            .get_mut::<ActorControl>(player)
             .unwrap()
-            .frame
-            .attack_pressed = true;
+            .0
+            .melee_pressed = true;
         app.update();
         let bodies = enemy_projectile_bodies(&mut app);
         assert_eq!(bodies.len(), VOLLEY_SHOT_COUNT, "one bolt per fan slot");

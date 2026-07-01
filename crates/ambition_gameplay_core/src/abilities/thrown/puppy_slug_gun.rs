@@ -13,13 +13,12 @@
 //! future `AggressionTarget` variant, per `components.rs`). Capped at
 //! [`MAX_ALLIES`] alive; they persist until killed or the room resets.
 
+use ambition_characters::brain::ActorControl;
 use bevy::prelude::*;
 
 use crate::abilities::traversal::possession::ControlledSubject;
 use crate::actor::BodyKinematics;
-use crate::actor::PlayerEntity;
 use crate::features::{ActorAggression, ActorFaction, HeldItem};
-use crate::player::PlayerInputFrame;
 use ambition_engine_core as ae;
 
 /// Marks a summoned, player-allied puppy slug (so the cap can count them and a
@@ -44,19 +43,20 @@ pub fn fire_puppy_slug_gun_system(
     mut next_id: Local<u64>,
     // Ability ORIGIN = the controlled subject, not a `PrimaryPlayer` filter.
     controlled: Res<ControlledSubject>,
-    players: Query<(&PlayerInputFrame, &BodyKinematics, &HeldItem), With<PlayerEntity>>,
+    players: Query<(&ActorControl, &BodyKinematics, &HeldItem)>,
     allies: Query<(), With<PuppySlugAlly>>,
     mut sfx: MessageWriter<crate::audio::SfxMessage>,
 ) {
     let Some(subject) = controlled.0 else {
         return;
     };
-    let Ok((input, kin, held)) = players.get(subject) else {
+    let Ok((control, kin, held)) = players.get(subject) else {
         return;
     };
+    let c = control.0;
     // Plain Attack summons; Shield+Attack is reserved for throwing the gun away
     // (handled by `throw_held_item_system`), so don't also summon then.
-    if !input.frame.attack_pressed || input.frame.shield_held {
+    if !c.melee_pressed || c.shield_held {
         return;
     }
     if held.spec.id != PUPPY_SLUG_GUN_ID {
@@ -121,10 +121,10 @@ mod tests {
         let mut app = test_app();
         let player = spawn_primary_player_holding(&mut app, PUPPY_SLUG_GUN_ID);
         app.world_mut()
-            .get_mut::<PlayerInputFrame>(player)
+            .get_mut::<ActorControl>(player)
             .unwrap()
-            .frame
-            .attack_pressed = true;
+            .0
+            .melee_pressed = true;
         app.update();
         assert_eq!(ally_count(&mut app), 1, "one ally summoned");
         // The summoned slug is Player-faction, i.e. on the player's side: the
@@ -149,10 +149,10 @@ mod tests {
         // Press attack many times (re-arming the edge each frame).
         for _ in 0..6 {
             app.world_mut()
-                .get_mut::<PlayerInputFrame>(player)
+                .get_mut::<ActorControl>(player)
                 .unwrap()
-                .frame
-                .attack_pressed = true;
+                .0
+                .melee_pressed = true;
             app.update();
         }
         assert_eq!(

@@ -16,9 +16,8 @@ use bevy::prelude::*;
 
 use super::possession::ControlledSubject;
 use crate::actor::BodyKinematics;
-use crate::actor::PlayerEntity;
 use crate::features::HeldItem;
-use crate::player::PlayerInputFrame;
+use ambition_characters::brain::ActorControl;
 use ambition_engine_core::{self as ae, AabbExt};
 
 /// The held-item id the Blink ability grants.
@@ -87,24 +86,22 @@ pub fn blink_target(
 /// first solid wall so the teleport never lands inside geometry.
 pub fn blink_system(
     gravity: crate::physics::GravityCtx,
-    user_settings: Option<Res<crate::persistence::settings::UserSettings>>,
     world: crate::features::CollisionWorld,
     mut commands: Commands,
-    // Ability ORIGIN = the controlled subject (the body carrying
-    // `Brain::Player(PRIMARY)`), not a `PrimaryPlayer` filter. Blinks the body you
-    // are DRIVING; a vacated home avatar (not the subject) is skipped, and a
-    // possessed body only blinks its own held item (it usually holds none).
+    // Ability execution is SUBJECT-GENERIC: it acts on the CONTROLLED SUBJECT (the
+    // body carrying `Brain::Player`) reading that body's OWN `ActorControl` (the
+    // brain output — present on ANY controlled body, player or possessed actor)
+    // and its OWN `HeldItem`. No `With<PlayerEntity>` filter, no `PlayerInputFrame`
+    // (a possessed actor has neither). A possessed body blinks iff IT holds the
+    // blink item; the vacated home avatar is not the subject, so it never blinks.
     controlled: Res<ControlledSubject>,
-    mut players: Query<
-        (
-            Entity,
-            &PlayerInputFrame,
-            &mut BodyKinematics,
-            &HeldItem,
-            Option<&mut crate::ability_cooldown::AbilityCooldown>,
-        ),
-        With<PlayerEntity>,
-    >,
+    mut bodies: Query<(
+        Entity,
+        &mut BodyKinematics,
+        &HeldItem,
+        &ActorControl,
+        Option<&mut crate::ability_cooldown::AbilityCooldown>,
+    )>,
     mut sfx: MessageWriter<crate::audio::SfxMessage>,
     mut vfx: MessageWriter<ambition_vfx::vfx::VfxMessage>,
     mut hits: MessageWriter<crate::features::HitEvent>,
@@ -112,24 +109,23 @@ pub fn blink_system(
     let Some(subject) = controlled.0 else {
         return;
     };
-    let Ok((player, input, mut kin, held, mut cooldown)) = players.get_mut(subject) else {
+    let Ok((player, mut kin, held, control, mut cooldown)) = bodies.get_mut(subject) else {
         return;
     };
+    let c = control.0;
     // Plain Attack blinks; Shield+Attack is the generic "throw the item away".
-    if !input.frame.attack_pressed || input.frame.shield_held {
+    if !c.melee_pressed || c.shield_held {
         return;
     }
     if held.spec.id != BLINK_ID {
         return;
     }
-    // Aim in the controlled body's input frame, then resolve to world-space for
-    // the raycast/teleport. The gameplay move is body-relative; the raycast is
-    // naturally world-space.
+    // Aim from the brain-resolved frame (aim stick → movement stick → facing),
+    // rotated to world for the raycast/teleport. Body-generic — no per-ability
+    // re-reading of raw input.
     let gravity_dir = gravity.dir_at(kin.pos);
-    let modes = crate::items::pickup::control_frame_modes_from_settings(user_settings.as_deref());
     let dir =
-        crate::items::pickup::held_shot_aim_world(&input.frame, kin.facing, gravity_dir, modes)
-            .normalize_or_zero();
+        crate::items::pickup::ability_aim_world(&c, kin.facing, gravity_dir).normalize_or_zero();
     if dir == ae::Vec2::ZERO {
         return;
     }
@@ -266,10 +262,10 @@ mod tests {
         app.add_systems(bevy::prelude::Update, capture_hits.after(blink_system));
         let player = spawn_player_holding(&mut app, BLINK_ID, 1.0);
         app.world_mut()
-            .get_mut::<PlayerInputFrame>(player)
+            .get_mut::<ActorControl>(player)
             .unwrap()
-            .frame
-            .attack_pressed = true;
+            .0
+            .melee_pressed = true;
         app.update();
         let hits = &app.world().resource::<CapturedHits>().0;
         assert_eq!(hits.len(), 1, "one shockwave on arrival");
@@ -295,10 +291,10 @@ mod tests {
         let mut app = test_app();
         let player = spawn_player_holding(&mut app, BLINK_ID, 1.0);
         app.world_mut()
-            .get_mut::<PlayerInputFrame>(player)
+            .get_mut::<ActorControl>(player)
             .unwrap()
-            .frame
-            .attack_pressed = true;
+            .0
+            .melee_pressed = true;
         app.update();
         assert_eq!(
             player_pos(&app, player),
@@ -326,9 +322,9 @@ mod tests {
             )],
         )));
         {
-            let mut input = app.world_mut().get_mut::<PlayerInputFrame>(player).unwrap();
-            input.frame.attack_pressed = true;
-            input.frame.aim_y = 1.0; // aim straight down
+            let mut control = app.world_mut().get_mut::<ActorControl>(player).unwrap();
+            control.0.melee_pressed = true;
+            control.0.aim = ae::Vec2::new(0.0, 1.0); // brain-resolved local aim: down
         }
         app.update();
         let pos = player_pos(&app, player);
@@ -350,15 +346,81 @@ mod tests {
         let mut app = test_app();
         let player = spawn_player_holding(&mut app, BLINK_ID, -1.0);
         app.world_mut()
-            .get_mut::<PlayerInputFrame>(player)
+            .get_mut::<ActorControl>(player)
             .unwrap()
-            .frame
-            .attack_pressed = true;
+            .0
+            .melee_pressed = true;
         app.update();
         assert_eq!(
             player_pos(&app, player),
             ae::Vec2::new(300.0 - BLINK_DISTANCE, 300.0),
             "a left-facing blink goes left",
+        );
+    }
+
+    /// ABILITY ORIGIN is subject-generic: blink executes on whatever body is the
+    /// `ControlledSubject`, even a NON-`PlayerEntity` actor (a possessed body),
+    /// and the home avatar (not the subject) does NOT blink. This is the exact
+    /// "blink no longer controls the original robot" invariant — proven headlessly
+    /// without a player-shaped query.
+    #[test]
+    fn blink_executes_on_the_controlled_actor_not_the_home_avatar() {
+        use crate::actor::PlayerEntity;
+        let mut app = test_app();
+        // Home avatar (a PlayerEntity) — holds blink, but is NOT the controlled
+        // subject this frame. It must stay put.
+        let home_spec = ambition_characters::brain::held_item_by_id(BLINK_ID).unwrap();
+        let home = app
+            .world_mut()
+            .spawn((
+                PlayerEntity,
+                BodyKinematics {
+                    pos: ae::Vec2::new(100.0, 100.0),
+                    vel: ae::Vec2::ZERO,
+                    size: ae::Vec2::new(24.0, 40.0),
+                    facing: 1.0,
+                },
+                HeldItem::new(home_spec),
+                {
+                    let mut c = ActorControl::default();
+                    c.0.melee_pressed = true; // even pressing attack, it must not blink
+                    c
+                },
+            ))
+            .id();
+        // A possessed ACTOR — NOT a PlayerEntity — holding blink, IS the controlled
+        // subject, pressing attack. It must blink.
+        let actor_spec = ambition_characters::brain::held_item_by_id(BLINK_ID).unwrap();
+        let actor = app
+            .world_mut()
+            .spawn((
+                BodyKinematics {
+                    pos: ae::Vec2::new(500.0, 500.0),
+                    vel: ae::Vec2::ZERO,
+                    size: ae::Vec2::new(24.0, 40.0),
+                    facing: 1.0,
+                },
+                HeldItem::new(actor_spec),
+                {
+                    let mut c = ActorControl::default();
+                    c.0.melee_pressed = true;
+                    c.0.facing = 1.0;
+                    c
+                },
+            ))
+            .id();
+        app.insert_resource(ControlledSubject(Some(actor)));
+        app.update();
+
+        assert_eq!(
+            player_pos(&app, home),
+            ae::Vec2::new(100.0, 100.0),
+            "the home avatar is NOT the controlled subject — it must not blink",
+        );
+        assert_eq!(
+            player_pos(&app, actor),
+            ae::Vec2::new(500.0 + BLINK_DISTANCE, 500.0),
+            "the possessed actor (a non-PlayerEntity controlled body) blinks",
         );
     }
 
@@ -373,10 +435,10 @@ mod tests {
         let mut app2 = test_app();
         let player2 = spawn_player_holding(&mut app2, "bomb", 1.0);
         app2.world_mut()
-            .get_mut::<PlayerInputFrame>(player2)
+            .get_mut::<ActorControl>(player2)
             .unwrap()
-            .frame
-            .attack_pressed = true;
+            .0
+            .melee_pressed = true;
         app2.update();
         assert_eq!(player_pos(&app2, player2), ae::Vec2::new(300.0, 300.0));
     }

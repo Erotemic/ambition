@@ -12,13 +12,12 @@
 //! (`ActorFaction::Boss != Enemy`) keeps them immune; only grounded/aerial mobs
 //! (and peaceful NPCs, harmlessly) match the `Enemy` faction and get pulled.
 
+use ambition_characters::brain::ActorControl;
 use bevy::prelude::*;
 
 use crate::abilities::traversal::possession::ControlledSubject;
 use crate::actor::BodyMana;
-use crate::actor::PlayerEntity;
 use crate::features::{ActorFaction, BodyKinematics, FeatureSimEntity, HeldItem};
-use crate::player::PlayerInputFrame;
 use ambition_engine_core as ae;
 
 /// Held-item id of the vortex gauntlet.
@@ -50,23 +49,20 @@ pub struct VortexWell {
 /// drops the item (the id is `UseSystem`, excluded from throw-on-plain-Attack).
 pub fn fire_vortex_system(
     gravity: crate::physics::GravityCtx,
-    user_settings: Option<Res<crate::persistence::settings::UserSettings>>,
     // Ability ORIGIN = the controlled subject, not a `PrimaryPlayer` filter.
     controlled: Res<ControlledSubject>,
-    mut players: Query<
-        (&PlayerInputFrame, &BodyKinematics, &HeldItem, &mut BodyMana),
-        With<PlayerEntity>,
-    >,
+    mut bodies: Query<(&ActorControl, &BodyKinematics, &HeldItem, &mut BodyMana)>,
     mut commands: Commands,
     mut sfx: MessageWriter<crate::audio::SfxMessage>,
 ) {
     let Some(subject) = controlled.0 else {
         return;
     };
-    let Ok((input, kin, held, mut mana)) = players.get_mut(subject) else {
+    let Ok((control, kin, held, mut mana)) = bodies.get_mut(subject) else {
         return;
     };
-    if !input.frame.attack_pressed || input.frame.shield_held {
+    let c = control.0;
+    if !c.melee_pressed || c.shield_held {
         return;
     }
     if held.spec.id != VORTEX_ID {
@@ -76,10 +72,8 @@ pub fn fire_vortex_system(
         return;
     }
     let gravity_dir = gravity.dir_at(kin.pos);
-    let modes = crate::items::pickup::control_frame_modes_from_settings(user_settings.as_deref());
     let aim =
-        crate::items::pickup::held_shot_aim_world(&input.frame, kin.facing, gravity_dir, modes)
-            .normalize_or_zero();
+        crate::items::pickup::ability_aim_world(&c, kin.facing, gravity_dir).normalize_or_zero();
     if aim == ae::Vec2::ZERO {
         return;
     }
@@ -170,10 +164,10 @@ mod tests {
         let enemy = spawn_enemy(&mut app, ae::Vec2::new(420.0, 100.0));
         let start_dist = ae::Vec2::new(420.0, 100.0).distance(ae::Vec2::new(300.0, 100.0));
         app.world_mut()
-            .get_mut::<PlayerInputFrame>(player)
+            .get_mut::<ActorControl>(player)
             .unwrap()
-            .frame
-            .attack_pressed = true;
+            .0
+            .melee_pressed = true;
         app.update();
         // A well exists.
         let well_count = app
@@ -198,16 +192,16 @@ mod tests {
         // Far away (well at 300,100; enemy at 900 — outside the 220 radius).
         let far = spawn_enemy(&mut app, ae::Vec2::new(900.0, 100.0));
         app.world_mut()
-            .get_mut::<PlayerInputFrame>(player)
+            .get_mut::<ActorControl>(player)
             .unwrap()
-            .frame
-            .attack_pressed = true;
+            .0
+            .melee_pressed = true;
         app.update();
         app.world_mut()
-            .get_mut::<PlayerInputFrame>(player)
+            .get_mut::<ActorControl>(player)
             .unwrap()
-            .frame
-            .attack_pressed = false;
+            .0
+            .melee_pressed = false;
         let far_pos = app.world().get::<BodyKinematics>(far).unwrap().pos;
         assert_eq!(
             far_pos.x, 900.0,

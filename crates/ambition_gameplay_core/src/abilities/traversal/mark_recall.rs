@@ -26,9 +26,8 @@ use bevy::prelude::*;
 
 use super::possession::ControlledSubject;
 use crate::actor::BodyKinematics;
-use crate::actor::PlayerEntity;
 use crate::features::HeldItem;
-use crate::player::PlayerInputFrame;
+use ambition_characters::brain::ActorControl;
 use ambition_engine_core as ae;
 
 /// The held-item id the Mark/Recall ability grants (see `brain::action_set`
@@ -57,16 +56,13 @@ pub fn mark_recall_system(
     mut commands: Commands,
     // Ability ORIGIN = the controlled subject, not a `PrimaryPlayer` filter.
     controlled: Res<ControlledSubject>,
-    mut players: Query<
-        (
-            Entity,
-            &PlayerInputFrame,
-            &mut BodyKinematics,
-            &HeldItem,
-            Option<&mut PlayerMark>,
-        ),
-        With<PlayerEntity>,
-    >,
+    mut players: Query<(
+        Entity,
+        &ActorControl,
+        &mut BodyKinematics,
+        &HeldItem,
+        Option<&mut PlayerMark>,
+    )>,
     mut sfx: MessageWriter<crate::audio::SfxMessage>,
     mut vfx: MessageWriter<ambition_vfx::vfx::VfxMessage>,
     mut hits: MessageWriter<crate::features::HitEvent>,
@@ -74,16 +70,17 @@ pub fn mark_recall_system(
     let Some(subject) = controlled.0 else {
         return;
     };
-    let Ok((player, input, mut kin, held, mut mark)) = players.get_mut(subject) else {
+    let Ok((player, control, mut kin, held, mut mark)) = players.get_mut(subject) else {
         return;
     };
+    let c = control.0;
     if held.spec.id != MARK_RECALL_ID {
         return;
     }
 
     // Plain Attack drops / moves the mark. Shield+Attack is the generic "throw
     // the item away", so a marked frame must not be a shielded one.
-    if input.frame.attack_pressed && !input.frame.shield_held {
+    if c.melee_pressed && !c.shield_held {
         let pos = kin.pos;
         match mark.as_deref_mut() {
             Some(existing) => existing.pos = Some(pos),
@@ -106,7 +103,7 @@ pub fn mark_recall_system(
     }
 
     // Blink recalls to the mark, if one is set.
-    if input.frame.blink_pressed {
+    if c.blink_pressed {
         if let Some(target) = mark.and_then(|m| m.pos) {
             kin.pos = target;
             // Recall-strike: a player-side shockwave at the mark, so you can mark a
@@ -152,10 +149,10 @@ mod tests {
     }
 
     fn press(app: &mut App, player: Entity, attack: bool, blink: bool) {
-        let mut input = app.world_mut().get_mut::<PlayerInputFrame>(player).unwrap();
-        input.frame.attack_pressed = attack;
-        input.frame.blink_pressed = blink;
-        input.frame.shield_held = false;
+        let mut control = app.world_mut().get_mut::<ActorControl>(player).unwrap();
+        control.0.melee_pressed = attack;
+        control.0.blink_pressed = blink;
+        control.0.shield_held = false;
     }
 
     fn player_pos(app: &App, player: Entity) -> ae::Vec2 {

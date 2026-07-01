@@ -106,10 +106,13 @@ fn video_screen_is_the_curated_subset() {
     };
     let ids: Vec<_> = options.iter().map(|o| o.id).collect();
     // The basic Video rows lead the screen (now the FULL player-facing set in
-    // pause-menu page order); the shader subpage follows.
+    // pause-menu page order); the shader subpage follows. `VisualQuality` (the
+    // one-global-profile→budget selector from the visual-quality-profiles feature)
+    // leads the basic rows.
     assert_eq!(
-        &ids[..7],
+        &ids[..8],
         &[
+            SettingsOptionId::VisualQuality,
             SettingsOptionId::DisplayMode,
             SettingsOptionId::CameraZoom,
             SettingsOptionId::CameraAspect,

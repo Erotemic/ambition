@@ -105,10 +105,7 @@ pub fn ecs_enemy_name(id: &str, actors: &Query<ActorSpriteData>) -> Option<Strin
 /// a blink, flight, a shield, a ladder climb, a wall-grab, a dodge-roll, a
 /// crouch/slide, an in-flight swing — animates with no per-archetype branch; the
 /// sheet's anim set decides how richly each pose reads.
-pub fn ecs_actor_anim_state(
-    id: &str,
-    actors: &Query<ActorSpriteData>,
-) -> Option<ActorAnimFrame> {
+pub fn ecs_actor_anim_state(id: &str, actors: &Query<ActorSpriteData>) -> Option<ActorAnimFrame> {
     actors.iter().find_map(|a| {
         if a.feature_id.as_str() != id {
             return None;

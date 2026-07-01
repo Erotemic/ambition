@@ -167,7 +167,7 @@ pub fn spawn_room_visuals(
 /// Always inserts:
 /// - `RoomVisual` so the room-swap path despawns the prop with the
 ///   rest of the room's presentation.
-/// - `PropVisual { id, kind }` so the generic prop-anim tick can
+/// - `PropVisual { id, kind, size }` so the generic prop-anim tick can
 ///   find it and so debug overlays can label it.
 /// - `ambition_gameplay_core::features::FeatureName(prop.name)` so per-name systems
 ///   (portal visibility / ring rotation / portal anim) keep finding
@@ -191,6 +191,7 @@ pub fn spawn_room_prop(
         PropVisual {
             id: prop.id.clone(),
             kind: prop.kind.clone(),
+            size: BVec2::new(prop.size.x, prop.size.y),
         },
         ambition_gameplay_core::features::FeatureName::new(prop.name.clone()),
     ));
@@ -355,6 +356,47 @@ fn tiled_block_stretch(render: BVec2, source_px: f32) -> f32 {
     needed.ceil()
 }
 
+/// Marker for already-spawned single-image entity sprites whose `Handle<Image>`
+/// should be rebound when `GameAssets` is rebuilt for a confirmed quality
+/// change. The marker is intentionally handle-only: it preserves the current
+/// sprite size, image mode, atlas-free shape, tint, visibility, and entity
+/// identity, avoiding the despawn/respawn bugs from earlier live-refresh attempts.
+#[derive(Component, Clone, Copy, Debug, PartialEq, Eq)]
+pub struct BoundEntitySprite {
+    key: game_assets::EntitySprite,
+}
+
+impl BoundEntitySprite {
+    fn new(key: game_assets::EntitySprite) -> Self {
+        Self { key }
+    }
+}
+
+pub fn refresh_entity_sprite_handles_on_game_assets_change(
+    assets: Option<Res<GameAssets>>,
+    mut sprites: Query<
+        (&BoundEntitySprite, &mut Sprite),
+        (
+            Without<CharacterAnimator>,
+            Without<ambition_gameplay_core::boss_encounter::sprites::BossAnimator>,
+        ),
+    >,
+) {
+    let Some(assets) = assets else {
+        return;
+    };
+    if !assets.is_changed() {
+        return;
+    }
+    for (bound, mut sprite) in &mut sprites {
+        if let Some(handle) = assets.entities.get(bound.key) {
+            if sprite.image != *handle {
+                sprite.image = handle.clone();
+            }
+        }
+    }
+}
+
 pub fn spawn_block(
     commands: &mut Commands,
     world: &ae::World,
@@ -379,11 +421,14 @@ pub fn spawn_block(
     // the entity-art path because their footprints match the texture
     // aspect ratio.
     let is_intgrid_block = block.name.starts_with("ldtk ");
+    let sprite_key = if is_intgrid_block {
+        game_assets::block_tile_sprite(block.kind)
+    } else {
+        game_assets::block_sprite(block.kind)
+    };
     let sprite = if is_intgrid_block {
         let tile_handle = assets
-            .and_then(|a| {
-                game_assets::block_tile_sprite(block.kind).and_then(|key| a.entities.get(key))
-            })
+            .and_then(|a| sprite_key.and_then(|key| a.entities.get(key)))
             .cloned();
         match tile_handle {
             Some(image) => Sprite {
@@ -406,21 +451,19 @@ pub fn spawn_block(
         }
     } else {
         match assets {
-            Some(a) => entity_sprite_or_color(
-                a,
-                game_assets::block_sprite(block.kind),
-                render,
-                block_color(block.kind),
-            ),
+            Some(a) => entity_sprite_or_color(a, sprite_key, render, block_color(block.kind)),
             None => Sprite::from_color(block_color(block.kind), render),
         }
     };
-    commands.spawn((
+    let mut entity = commands.spawn((
         sprite,
         Transform::from_translation(world_to_bevy(world, block.aabb.center(), WORLD_Z_BLOCK)),
         Name::new(format!("Block: {}", block.name)),
         RoomVisual,
     ));
+    if let Some(key) = sprite_key {
+        entity.insert(BoundEntitySprite::new(key));
+    }
     physics::spawn_static_collider_for_block(commands, world, block, physics_settings);
 }
 
@@ -467,13 +510,9 @@ pub fn spawn_loading_zone(
             Anchor::CENTER,
         )
     };
+    let sprite_key = game_assets::loading_zone_sprite(zone.activation);
     let sprite = match assets {
-        Some(a) => entity_sprite(
-            a,
-            game_assets::loading_zone_sprite(zone.activation),
-            render,
-            fallback_color,
-        ),
+        Some(a) => entity_sprite(a, sprite_key, render, fallback_color),
         None => Sprite::from_color(fallback_color, render),
     };
     let mut visual = commands.spawn((
@@ -489,6 +528,7 @@ pub fn spawn_loading_zone(
             id: zone.id.clone(),
         },
         RoomVisual,
+        BoundEntitySprite::new(sprite_key),
     ));
     if matches!(zone.activation, LoadingZoneActivation::Door) {
         visual.insert(DoorNameplateSource::new(
@@ -522,7 +562,7 @@ fn spawn_authored_basic(
         Some(a) => entity_sprite_or_color(a, entity_key, render, feature_color(kind, false)),
         None => Sprite::from_color(feature_color(kind, false), render),
     };
-    commands.spawn((
+    let mut entity = commands.spawn((
         sprite,
         Transform::from_translation(world_to_bevy(world, aabb.center(), feature_z(kind))),
         Name::new(format!("Room entity: {}", name)),
@@ -530,6 +570,9 @@ fn spawn_authored_basic(
         ambition_gameplay_core::features::FeatureName::new(name.to_string()),
         RoomVisual,
     ));
+    if let Some(key) = entity_key {
+        entity.insert(BoundEntitySprite::new(key));
+    }
 }
 
 /// Spawn the mount + rider FeatureVisual entities for an authored
@@ -760,6 +803,7 @@ pub fn sync_lock_wall_visuals(
             LockWallVisual {
                 block_name: block.name.clone(),
             },
+            BoundEntitySprite::new(game_assets::EntitySprite::LockWallTile),
             RoomVisual,
         ));
         consumed.insert(block.name.clone());

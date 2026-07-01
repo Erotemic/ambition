@@ -23,10 +23,12 @@ use bevy::prelude::*;
 
 use crate::menu::effects::{MenuEffectManaQuery, MenuEffectPlayers};
 use crate::menu::model::{
-    build_inventory_pages, items_detail_slot_text, scroll_fraction_to_window_start,
-    system_detail_slot_text, system_effective_window_start, system_max_window_start, system_rows,
-    MenuFocus, MenuPage, MenuPageAction, SystemRow, SYSTEM_VISIBLE_ROWS,
+    build_inventory_pages_with_quality_prompt, items_detail_slot_text,
+    scroll_fraction_to_window_start, system_detail_slot_text, system_effective_window_start,
+    system_max_window_start, system_rows_with_quality_prompt, MenuFocus, MenuPage, MenuPageAction,
+    SystemRow, SYSTEM_VISIBLE_ROWS,
 };
+use crate::menu::quality_confirm::VisualQualityConfirmState;
 use ambition_engine_core::Vec2;
 use ambition_gameplay_core::audio::SfxMessage;
 use ambition_gameplay_core::items::{Item, OwnedItems, ITEM_GRID_COLS, ITEM_GRID_ROWS};
@@ -64,6 +66,7 @@ pub fn install_unified_menu_shared(app: &mut App) {
         .init_resource::<ambition_input::ActiveInputKind>()
         .init_resource::<KaleidoscopeSystemNav>()
         .init_resource::<CachedSystemMenu>()
+        .init_resource::<VisualQualityConfirmState>()
         .add_plugins(AmbitionInventoryUiPlugin);
 }
 
@@ -688,6 +691,7 @@ fn kaleidoscope_focus_nav(
     mut mode_io: GameModeIo,
     mut owned: ResMut<OwnedItems>,
     mut settings: ResMut<UserSettings>,
+    mut quality_confirm: ResMut<VisualQualityConfirmState>,
     mut commands: Commands,
     mut players: MenuEffectPlayers,
     mut mana_q: MenuEffectManaQuery,
@@ -780,6 +784,7 @@ fn kaleidoscope_focus_nav(
             mode_io.state.get(),
             &mut mode_io.next,
             &mut settings,
+            &mut quality_confirm,
             active_page,
             &mut owned,
             &mut commands,
@@ -825,6 +830,7 @@ fn kaleidoscope_focus_nav(
         }
         if menu.back {
             play_ui(&mut sfx, ambition_sfx::ids::UI_MENU_CLOSE);
+            quality_confirm.cancel();
             overlay.visible = false;
         }
         emit_move_sfx(
@@ -855,6 +861,7 @@ fn kaleidoscope_focus_nav(
 
     if menu.back {
         play_ui(&mut sfx, ambition_sfx::ids::UI_MENU_CLOSE);
+        quality_confirm.cancel();
         overlay.visible = false;
         return;
     }
@@ -876,6 +883,7 @@ fn kaleidoscope_focus_nav(
                 &mut cursor,
                 &mut owned,
                 &mut settings,
+                &mut quality_confirm,
                 &mut close_menu,
                 &mut commands,
                 &mut players,
@@ -949,6 +957,7 @@ pub(crate) fn system_focus_nav(
     mode: &ambition_gameplay_core::session::game_mode::GameMode,
     next_mode: &mut NextState<ambition_gameplay_core::session::game_mode::GameMode>,
     settings: &mut UserSettings,
+    quality_confirm: &mut VisualQualityConfirmState,
     active_page: MenuPage,
     owned: &mut OwnedItems,
     commands: &mut Commands,
@@ -977,7 +986,8 @@ pub(crate) fn system_focus_nav(
     // top level, or the open entry's screen rows + a Back row. Built from the live
     // model so radio/dev/language rows are enumerated correctly.
     let model = system.model(settings);
-    let rows = system_rows(&model, system_nav.open_entry);
+    let rows =
+        system_rows_with_quality_prompt(&model, system_nav.open_entry, quality_confirm.pending());
     let count = rows.len().max(1) as i32;
     // Normalise the cursor onto a System row (it may arrive as an items/edge focus
     // after a page turn).
@@ -999,6 +1009,7 @@ pub(crate) fn system_focus_nav(
         // closes the menu (matching the items face).
         if system_nav.open_entry.is_some() {
             play_ui(sfx, ambition_sfx::ids::UI_MENU_BACK);
+            quality_confirm.cancel();
             close_system_entry(system_nav, cursor);
         } else {
             play_ui(sfx, ambition_sfx::ids::UI_MENU_CLOSE);
@@ -1033,7 +1044,7 @@ pub(crate) fn system_focus_nav(
     if dx != 0 {
         let stepped = match current {
             SystemRow::Setting(o) if is_value_setting(o, settings) => {
-                apply_system_option_step(o, dx, settings, sfx);
+                apply_system_option_step(o, dx, settings, quality_confirm, sfx);
                 true
             }
             SystemRow::Option(o) => {
@@ -1065,6 +1076,7 @@ pub(crate) fn system_focus_nav(
                 cursor,
                 owned,
                 settings,
+                quality_confirm,
                 &mut close_menu,
                 commands,
                 players,
@@ -1117,6 +1129,8 @@ pub(crate) fn system_row_action_for(
         },
         SystemRow::Setting(o) => Some(MenuPageAction::System(o)),
         SystemRow::Option(o) => Some(MenuPageAction::SystemOption(o)),
+        SystemRow::QualityApply(_) => Some(MenuPageAction::ConfirmVisualQuality),
+        SystemRow::QualityCancel => Some(MenuPageAction::CancelVisualQuality),
         SystemRow::Back => Some(MenuPageAction::CloseSystemEntry),
     }
 }
@@ -1139,9 +1153,14 @@ fn apply_system_option_step(
     option: SettingsOptionId,
     dx: i32,
     settings: &mut UserSettings,
+    quality_confirm: &mut VisualQualityConfirmState,
     sfx: &mut MessageWriter<SfxMessage>,
 ) {
-    apply_settings_option(option, dx, settings);
+    if option == SettingsOptionId::VisualQuality {
+        quality_confirm.step_from(settings.video.quality.profile, dx);
+    } else {
+        apply_settings_option(option, dx, settings);
+    }
     play_ui(sfx, ambition_sfx::ids::UI_SLIDER_TICK);
 }
 
@@ -1358,12 +1377,13 @@ pub(crate) fn focus_for_action(
     active_page: MenuPage,
     model: &SystemMenuModel,
     open_entry: Option<SystemMenuEntryId>,
+    pending_quality: Option<ambition_gameplay_core::persistence::settings::VisualQualityProfile>,
 ) -> MenuFocus {
     // System rows are positional: the focus index is the action's row in the
     // currently-displayed System row list (the entry list, or an open entry's
     // screen rows + Back), so hover/click and the keyboard cursor agree on the row.
     let system_row = |want: SystemRow| {
-        let idx = system_rows(model, open_entry)
+        let idx = system_rows_with_quality_prompt(model, open_entry, pending_quality)
             .iter()
             .position(|r| *r == want)
             .unwrap_or(0);
@@ -1382,6 +1402,20 @@ pub(crate) fn focus_for_action(
         // Fix 2: a ◀ / ▶ step zone lands the cursor on its parent value row.
         MenuPageAction::SystemStep(option, _) => system_row(SystemRow::Setting(option)),
         MenuPageAction::SystemOption(opt) => system_row(SystemRow::Option(opt)),
+        MenuPageAction::ConfirmVisualQuality => {
+            let idx = system_rows_with_quality_prompt(model, open_entry, pending_quality)
+                .iter()
+                .position(|r| matches!(r, SystemRow::QualityApply(_)))
+                .unwrap_or(0);
+            MenuFocus::System(idx)
+        }
+        MenuPageAction::CancelVisualQuality => {
+            let idx = system_rows_with_quality_prompt(model, open_entry, pending_quality)
+                .iter()
+                .position(|r| matches!(r, SystemRow::QualityCancel))
+                .unwrap_or(0);
+            MenuFocus::System(idx)
+        }
         MenuPageAction::SystemAction(_) => {
             // An Action entry sits at top level; find its entry row.
             let entry = match action {
@@ -1432,6 +1466,7 @@ fn kaleidoscope_menu_open_routing(
     mut pages: ResMut<ActiveMenuPages<MenuPage, MenuPageAction>>,
     mut cursor: ResMut<KaleidoscopeCursor>,
     mut system_nav: ResMut<KaleidoscopeSystemNav>,
+    mut quality_confirm: ResMut<VisualQualityConfirmState>,
     mut map: ResMut<ambition_gameplay_core::menu::map::MapMenuState>,
     mut sfx: MessageWriter<SfxMessage>,
     // Tracks last frame's `menu.start` so we only act on its RISING edge (below).
@@ -1471,9 +1506,11 @@ fn kaleidoscope_menu_open_routing(
             // see this Esc at all.
             if system_nav.open_entry.is_some() {
                 play_ui(&mut sfx, ambition_sfx::ids::UI_MENU_BACK);
+                quality_confirm.cancel();
                 close_system_entry(&mut system_nav, &mut cursor);
             } else {
                 play_ui(&mut sfx, ambition_sfx::ids::UI_MENU_CLOSE);
+                quality_confirm.cancel();
                 close_kaleidoscope_menu(&mut overlay, mode.get(), &mut next_mode);
             }
         } else if matches!(mode.get(), GameMode::Playing | GameMode::Paused) {
@@ -1502,6 +1539,7 @@ fn kaleidoscope_menu_open_routing(
             // out from whatever face was shown (re-seeding to Items here snapped the
             // cube to the Items face mid-close — the "I" close-animation glitch).
             play_ui(&mut sfx, ambition_sfx::ids::UI_MENU_CLOSE);
+            quality_confirm.cancel();
             close_kaleidoscope_menu(&mut overlay, mode.get(), &mut next_mode);
         } else if matches!(mode.get(), GameMode::Playing | GameMode::Paused) {
             // Opening on the Items page (shared entry→tab mapping) + seed the cursor.
@@ -1710,7 +1748,13 @@ fn kaleidoscope_sync_focus_visuals(
         // Only the active face highlights; inactive faces always resolve to `false`
         // (and so get reset), never matched against the cursor.
         let focused = on_active_face
-            && focus_for_action(action, active_page, model, system_nav.open_entry) == cursor.focus;
+            && focus_for_action(
+                action,
+                active_page,
+                model,
+                system_nav.open_entry,
+                cache.quality,
+            ) == cursor.focus;
         // Change-detection friendly: only write when the flags actually flip, so the
         // lib's `Changed<MenuVisualState>` recolor stays cheap.
         if vis.focused != focused || vis.selected != focused {

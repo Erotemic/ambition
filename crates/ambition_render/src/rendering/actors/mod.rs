@@ -18,7 +18,7 @@ use ambition_gameplay_core::assets::game_assets::{self, EntitySprite, GameAssets
 use ambition_gameplay_core::boss_encounter::sprites::{self, BossAnimState, BossAnimator};
 use ambition_gameplay_core::character_sprites::{
     build_character_sprite, build_character_sprite_with_render_size, feet_anchor_for,
-    feet_anchor_for_render_size, CharacterAnimator,
+    feet_anchor_for_render_size, player_placeholder_render_size, CharacterAnimator,
 };
 use ambition_gameplay_core::combat::BoundFeatureKind;
 use ambition_gameplay_core::config::{world_to_bevy, WORLD_Z_PLAYER};
@@ -26,6 +26,7 @@ use ambition_gameplay_core::features::{
     ActorRenderSize, BossClusterRef, BreakableFeature, ChestFeature, FeatureId, FeatureViewIndex,
     FeatureVisualKind, Opened,
 };
+use ambition_gameplay_core::persistence::settings::TextureResolutionScale;
 
 mod animation;
 mod boss;
@@ -186,14 +187,22 @@ fn state_aware_entity_sprite(
     }
 }
 
-/// Marker recording which `FeatureVisualKind` the current sprite +
-/// `CharacterAnimator` were bound for. The upgrade systems read this
-/// to detect mid-life kind changes — e.g. when a peaceful NPC turns
-/// hostile and `apply_save` migrates the runtime entry from `npcs`
-/// to `enemies`. Without this marker, the existing
-/// `Without<CharacterAnimator>` filter hid the entity from the enemy
-/// upgrade pass and the kernel guide stayed visually a kernel guide
-/// after the third strike.
+/// Marker recording which sprite texture scale the current presentation handles
+/// were bound for. `GameAssets` can be rebuilt in place after a confirmed
+/// visual-quality change, but already-spawned Bevy entities keep their cached
+/// image/atlas handles until a render system overwrites those components.
+#[derive(Component, Clone, Copy, Debug, PartialEq, Eq)]
+pub struct BoundSpriteQuality {
+    pub scale: TextureResolutionScale,
+}
+
+fn active_sprite_scale(
+    quality: Option<&crate::quality::ResolvedVisualQuality>,
+) -> TextureResolutionScale {
+    quality
+        .map(|q| q.budget.sprites.resolution_scale)
+        .unwrap_or_default()
+}
 
 /// Bind enemy/sandbag visuals to the appropriate character sheet
 /// once the asset is available — and re-bind when an existing visual
@@ -201,9 +210,15 @@ fn state_aware_entity_sprite(
 pub fn upgrade_enemy_sprites(
     mut commands: Commands,
     assets: Option<Res<GameAssets>>,
+    quality: Option<Res<crate::quality::ResolvedVisualQuality>>,
     images: Res<Assets<Image>>,
     feature_views: Res<FeatureViewIndex>,
-    features: Query<(Entity, &FeatureVisual, Option<&BoundFeatureKind>)>,
+    features: Query<(
+        Entity,
+        &FeatureVisual,
+        Option<&BoundFeatureKind>,
+        Option<&BoundSpriteQuality>,
+    )>,
     ecs_actors: Query<ambition_gameplay_core::features::ActorSpriteData>,
     // Shared sprite-metadata render size — present on an enemy that was a
     // body-metrics NPC before it turned hostile, so its sprite keeps the
@@ -216,7 +231,9 @@ pub fn upgrade_enemy_sprites(
     let Some(assets) = assets else {
         return;
     };
-    for (entity, visual, bound) in &features {
+    let assets_changed = assets.is_changed();
+    let scale = active_sprite_scale(quality.as_deref());
+    for (entity, visual, bound, bound_quality) in &features {
         let Some(view) = feature_views.get(&visual.id) else {
             continue;
         };
@@ -231,7 +248,12 @@ pub fn upgrade_enemy_sprites(
         // to do this frame. The collision-size check is still useful for rare
         // intentional runtime size changes, but shark riders should normally
         // keep the same visual/collision scale across mount and dismount.
-        if bound.is_some_and(|b| b.matches(view.kind, view.size)) {
+        let kind_bound = bound.is_some_and(|b| b.matches(view.kind, view.size));
+        let quality_bound = bound_quality.is_some_and(|q| q.scale == scale);
+        if kind_bound && quality_bound {
+            continue;
+        }
+        if kind_bound && !quality_bound && !assets_changed {
             continue;
         }
         // Sprite-override path: an enemy that was spawned by migrating
@@ -326,6 +348,7 @@ pub fn upgrade_enemy_sprites(
             anchor,
             CharacterAnimator::new(character_asset),
             BoundFeatureKind::new(view.kind, collision),
+            BoundSpriteQuality { scale },
         ));
     }
 }
@@ -343,16 +366,24 @@ pub fn upgrade_enemy_sprites(
 pub fn upgrade_npc_sprites(
     mut commands: Commands,
     assets: Option<Res<GameAssets>>,
+    quality: Option<Res<crate::quality::ResolvedVisualQuality>>,
     images: Res<Assets<Image>>,
     feature_views: Res<FeatureViewIndex>,
-    features: Query<(Entity, &FeatureVisual, Option<&BoundFeatureKind>)>,
+    features: Query<(
+        Entity,
+        &FeatureVisual,
+        Option<&BoundFeatureKind>,
+        Option<&BoundSpriteQuality>,
+    )>,
     ecs_actors: Query<ambition_gameplay_core::features::ActorSpriteData>,
     render_sizes: Query<(&FeatureId, &ActorRenderSize)>,
 ) {
     let Some(assets) = assets else {
         return;
     };
-    for (entity, visual, bound) in &features {
+    let assets_changed = assets.is_changed();
+    let scale = active_sprite_scale(quality.as_deref());
+    for (entity, visual, bound, bound_quality) in &features {
         let Some(view) = feature_views.get(&visual.id) else {
             continue;
         };
@@ -360,7 +391,12 @@ pub fn upgrade_npc_sprites(
             continue;
         }
         let collision = BVec2::new(view.size.x, view.size.y);
-        if bound.is_some_and(|b| b.matches(view.kind, view.size)) {
+        let kind_bound = bound.is_some_and(|b| b.matches(view.kind, view.size));
+        let quality_bound = bound_quality.is_some_and(|q| q.scale == scale);
+        if kind_bound && quality_bound {
+            continue;
+        }
+        if kind_bound && !quality_bound && !assets_changed {
             continue;
         }
         let Some(name) = ambition_gameplay_core::features::ecs_npc_name(&visual.id, &ecs_actors)
@@ -402,6 +438,107 @@ pub fn upgrade_npc_sprites(
             anchor,
             CharacterAnimator::new(character_asset),
             BoundFeatureKind::new(view.kind, collision),
+            BoundSpriteQuality { scale },
+        ));
+    }
+}
+
+/// Rebind the controlled-body sprite after `GameAssets` is rebuilt for a
+/// confirmed quality-profile change. This is intentionally component-local:
+/// no room entities are despawned, and the gameplay/body components are left
+/// untouched. The animator is rebuilt from the new asset once per scale change,
+/// restoring the original spawn-time animation invariants instead of trying to
+/// preserve an old atlas cursor across a different texture/layout.
+pub fn refresh_player_sprites_on_game_assets_change(
+    mut commands: Commands,
+    assets: Option<Res<GameAssets>>,
+    quality: Option<Res<crate::quality::ResolvedVisualQuality>>,
+    images: Res<Assets<Image>>,
+    players: Query<
+        (
+            Entity,
+            &ambition_gameplay_core::actor::BodyBaseSize,
+            Option<&BoundSpriteQuality>,
+        ),
+        With<PlayerVisual>,
+    >,
+) {
+    let Some(assets) = assets else {
+        return;
+    };
+    if !assets.is_changed() {
+        return;
+    }
+    let scale = active_sprite_scale(quality.as_deref());
+    let Some(asset) = assets
+        .characters
+        .player
+        .as_ref()
+        .or(assets.characters.robot.as_ref())
+    else {
+        return;
+    };
+    if images.get(&asset.texture).is_none() {
+        return;
+    }
+    for (entity, base_size, bound_quality) in &players {
+        if bound_quality.is_some_and(|q| q.scale == scale) {
+            continue;
+        }
+        let collision = BVec2::new(base_size.base_size.x, base_size.base_size.y);
+        let render = player_placeholder_render_size(&asset.spec, collision);
+        commands.entity(entity).insert((
+            build_character_sprite_with_render_size(asset, render),
+            feet_anchor_for_render_size(&asset.spec, collision, render),
+            CharacterAnimator::new(asset),
+            PlayerSpriteBaseline {
+                standing_render: render,
+                standing_collision: collision,
+            },
+            BoundSpriteQuality { scale },
+        ));
+    }
+}
+
+/// Rebind animated prop sprites in place after a quality-profile reload. Props
+/// are room-scoped presentation entities, but they are not actor simulation
+/// entities, so keeping this as a component overwrite avoids the v4-v6 class of
+/// bugs where a visual refresh accidentally accumulated/despawned active room
+/// content.
+pub fn refresh_prop_sprites_on_game_assets_change(
+    mut commands: Commands,
+    assets: Option<Res<GameAssets>>,
+    quality: Option<Res<crate::quality::ResolvedVisualQuality>>,
+    images: Res<Assets<Image>>,
+    props: Query<(Entity, &PropVisual, Option<&BoundSpriteQuality>)>,
+) {
+    let Some(assets) = assets else {
+        return;
+    };
+    if !assets.is_changed() {
+        return;
+    }
+    let scale = active_sprite_scale(quality.as_deref());
+    for (entity, prop, bound_quality) in &props {
+        if bound_quality.is_some_and(|q| q.scale == scale) {
+            continue;
+        }
+        let Some(asset) = assets.characters.prop_asset_for_kind(&prop.kind) else {
+            continue;
+        };
+        if images.get(&asset.texture).is_none() {
+            continue;
+        }
+        // Preserve the original prop-spawn convention: `PropSpec::size` is the
+        // nominal collision footprint used by `spawn_prop`, and the sheet's
+        // `collision_scale` derives the presentation render size from it.
+        // `animate_props` will capture the matching trim basis on its next tick.
+        let collision = prop.size;
+        commands.entity(entity).insert((
+            build_character_sprite(asset, collision),
+            feet_anchor_for(&asset.spec, collision),
+            CharacterAnimator::new(asset),
+            BoundSpriteQuality { scale },
         ));
     }
 }

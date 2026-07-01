@@ -162,10 +162,7 @@ fn player_slash_damages_and_can_kill_a_hostile_actor() {
         "a 2-damage player slash should bring the 5-HP enemy to 3"
     );
     assert!(
-        app.world()
-            .get::<BodyHealth>(actor_entity)
-            .unwrap()
-            .alive(),
+        app.world().get::<BodyHealth>(actor_entity).unwrap().alive(),
         "the enemy should still be alive after one slash"
     );
 
@@ -201,10 +198,7 @@ fn player_slash_damages_and_can_kill_a_hostile_actor() {
         "a lethal slash should bring the enemy to 0 HP"
     );
     assert!(
-        !app.world()
-            .get::<BodyHealth>(actor_entity)
-            .unwrap()
-            .alive(),
+        !app.world().get::<BodyHealth>(actor_entity).unwrap().alive(),
         "the killed enemy should be marked dead"
     );
 }

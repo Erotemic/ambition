@@ -14,7 +14,10 @@ use crate::menu::kaleidoscope_app::{
     back_edge_focus, close_system_entry, play_ui, rotate_sfx, KaleidoscopeCursor,
     KaleidoscopeSystemNav, SystemMenuParams,
 };
-use crate::menu::model::{MenuFocus, MenuPage, MenuPageAction};
+use crate::menu::model::{
+    system_rows_with_quality_prompt, MenuFocus, MenuPage, MenuPageAction, SystemRow,
+};
+use crate::menu::quality_confirm::VisualQualityConfirmState;
 use ambition_gameplay_core::audio::SfxMessage;
 use ambition_gameplay_core::items::OwnedItems;
 use ambition_gameplay_core::persistence::settings::{
@@ -34,6 +37,7 @@ pub(crate) fn dispatch_menu_action(
     cursor: &mut KaleidoscopeCursor,
     owned: &mut OwnedItems,
     settings: &mut UserSettings,
+    quality_confirm: &mut VisualQualityConfirmState,
     close_menu: &mut bool,
     commands: &mut Commands,
     players: &mut MenuEffectPlayers,
@@ -69,13 +73,18 @@ pub(crate) fn dispatch_menu_action(
             info!("cube page \u{2192} {:?}", page);
         }
         MenuPageAction::System(option) => {
-            apply_system_option(option, settings, close_menu, sfx);
+            apply_system_option(option, settings, quality_confirm, close_menu, sfx);
         }
         MenuPageAction::SystemStep(option, dir) => {
             // Fix 2: a ◀ / ▶ click zone on a value row steps the setting in the given
             // direction through the SAME IR path the keyboard LEFT/RIGHT uses. Value
-            // rows never close the menu, so we ignore the `closed` result.
-            let _ = apply_settings_option(option, dir, settings);
+            // rows never close the menu. Visual quality is transactional: stepping it
+            // only edits the pending profile until the user selects Apply.
+            if option == SettingsOptionId::VisualQuality {
+                quality_confirm.step_from(settings.video.quality.profile, dir);
+            } else {
+                let _ = apply_settings_option(option, dir, settings);
+            }
             play_ui(sfx, ambition_sfx::ids::UI_SLIDER_TICK);
             info!("cube system step: {:?} dir {}", option, dir);
         }
@@ -86,6 +95,23 @@ pub(crate) fn dispatch_menu_action(
             let id = system.apply_option(opt);
             play_ui(sfx, id);
             info!("cube system option: {:?}", opt);
+        }
+        MenuPageAction::ConfirmVisualQuality => {
+            if let Some(profile) = quality_confirm.take_confirmed() {
+                settings.video.quality.profile = profile;
+                focus_visual_quality_setting_row(settings, system_nav, cursor, system);
+                play_ui(sfx, ambition_sfx::ids::UI_MENU_ACCEPT);
+                info!("cube system action: confirmed visual quality {:?}", profile);
+            } else {
+                play_ui(sfx, ambition_sfx::ids::UI_MENU_ERROR);
+                info!("cube system action: confirm visual quality with no pending profile");
+            }
+        }
+        MenuPageAction::CancelVisualQuality => {
+            quality_confirm.cancel();
+            focus_visual_quality_setting_row(settings, system_nav, cursor, system);
+            play_ui(sfx, ambition_sfx::ids::UI_MENU_BACK);
+            info!("cube system action: cancelled visual quality change");
         }
         MenuPageAction::SystemAction(SystemMenuAction::ResetSandbox) => {
             // Immediate, no-confirm: queue the reset and fold the menu shut.
@@ -107,6 +133,7 @@ pub(crate) fn dispatch_menu_action(
             // (the same set the pause menu's ResetAllSettings restores), then fold
             // the menu shut. The close also unpauses (the reset-pause fix).
             // `save_settings_on_change` then persists the defaulted `UserSettings`.
+            quality_confirm.cancel();
             system.reset_all_settings(settings);
             *close_menu = true;
             play_ui(sfx, ambition_sfx::ids::UI_MENU_ACCEPT);
@@ -128,6 +155,22 @@ pub(crate) fn dispatch_menu_action(
     }
 }
 
+fn focus_visual_quality_setting_row(
+    settings: &UserSettings,
+    system_nav: &KaleidoscopeSystemNav,
+    cursor: &mut KaleidoscopeCursor,
+    system: &SystemMenuParams,
+) {
+    let model = system.model(settings);
+    let rows = system_rows_with_quality_prompt(&model, system_nav.open_entry, None);
+    if let Some(idx) = rows
+        .iter()
+        .position(|row| *row == SystemRow::Setting(SettingsOptionId::VisualQuality))
+    {
+        cursor.mark_keyboard(MenuFocus::System(idx));
+    }
+}
+
 /// Apply a System-face option (SELECT/confirm) by mutating `UserSettings` through
 /// the shared settings IR ([`apply_settings_option`]): toggles flip, cycles +
 /// sliders advance one step (confirm = next), and `Close` folds the menu. The SFX
@@ -138,9 +181,20 @@ pub(crate) fn dispatch_menu_action(
 fn apply_system_option(
     option: SettingsOptionId,
     settings: &mut UserSettings,
+    quality_confirm: &mut VisualQualityConfirmState,
     close_menu: &mut bool,
     sfx: &mut MessageWriter<SfxMessage>,
 ) {
+    if option == SettingsOptionId::VisualQuality {
+        quality_confirm.step_from(settings.video.quality.profile, 1);
+        play_ui(sfx, ambition_sfx::ids::UI_SLIDER_TICK);
+        info!(
+            "cube system pending visual quality: {:?}",
+            quality_confirm.pending()
+        );
+        return;
+    }
+
     // Resolve the option's kind BEFORE mutating, so a toggle reports its NEW state
     // and a slider/cycle gets a tick. `Close` is the only kind that folds the menu.
     let kind = settings_menu_model(settings)

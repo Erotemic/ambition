@@ -50,8 +50,9 @@ mod world;
 
 pub use actors::{
     animate_bosses, animate_characters, animate_player, apply_hide_sprites_override,
-    apply_placeholder_sprites_override, sync_visuals, upgrade_boss_sprites, upgrade_enemy_sprites,
-    upgrade_npc_sprites,
+    apply_placeholder_sprites_override, refresh_player_sprites_on_game_assets_change,
+    refresh_prop_sprites_on_game_assets_change, sync_visuals, upgrade_boss_sprites,
+    upgrade_enemy_sprites, upgrade_npc_sprites,
 };
 // `BoundFeatureKind` moved to `combat` (sim owns it); re-exported here
 // so existing render call sites resolve unchanged.
@@ -73,12 +74,16 @@ pub use nameplates::{
 pub use ambition_gameplay_core::features::rider_hand_world_pos;
 #[cfg(feature = "portal_render")]
 pub use parallax::sync_portal_capture_parallax_layers;
-pub use parallax::{spawn_parallax_layers, sync_parallax_layers};
+pub use parallax::{
+    refresh_parallax_layers_on_quality_change, spawn_parallax_layers, sync_parallax_layers,
+};
 pub use primitives::{
     HudText, LoadingZoneVisual, PlayerSpriteBaseline, PlayerVisual, PropVisual, QuestPanelText,
     RoomScopedEntity, RoomVisual, SceneEntities,
 };
-pub use world::{spawn_room_visuals, sync_lock_wall_visuals};
+pub use world::{
+    refresh_entity_sprite_handles_on_game_assets_change, spawn_room_visuals, sync_lock_wall_visuals,
+};
 
 /// Module-local Bevy plugin: schedules player-bound visual systems
 /// (morph-ball sprite + bubble-shield sprite). Each follows the same
@@ -215,6 +220,8 @@ impl bevy::prelude::Plugin for PresentationVisualAnimationPlugin {
                 // sits behind one-way platforms.
                 actors::apply_gnu_ton_body_z,
                 actors::upgrade_enemy_sprites,
+                actors::refresh_player_sprites_on_game_assets_change,
+                actors::refresh_prop_sprites_on_game_assets_change,
                 actors::upgrade_boss_sprites,
                 // Attach the experimental material overlay after enemy sprite
                 // upgrade has produced a real atlas-backed Puppy Slug sprite.

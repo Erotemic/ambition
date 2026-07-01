@@ -10,7 +10,7 @@ pub use crate::lifecycle::{
     despawn_scoped_entity, PersistentEntity, RoomScopedEntity, RunScopedEntity, SpawnScopedExt,
 };
 pub use crate::projectile::{
-    resolve_world_collision, InFlightProjectile, ProjectileBody,
-    ProjectileSolidHit, ProjectileSpec, WorldHitOutcome, WorldHitPolicy,
+    resolve_world_collision, InFlightProjectile, ProjectileBody, ProjectileSolidHit,
+    ProjectileSpec, WorldHitOutcome, WorldHitPolicy,
 };
 pub use crate::schedule::PlatformerRuntimeSet;

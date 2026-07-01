@@ -18,7 +18,13 @@ pub fn sync_ecs_actors_with_save(
     // A persisted-hostile NPC re-establishes its grudge against the current primary
     // player on load (the original attacker entity doesn't survive a save round-trip;
     // single-player has exactly one player to be angry at).
-    primary_player: Query<Entity, (With<crate::actor::PlayerEntity>, With<crate::actor::PrimaryPlayer>)>,
+    primary_player: Query<
+        Entity,
+        (
+            With<crate::actor::PlayerEntity>,
+            With<crate::actor::PrimaryPlayer>,
+        ),
+    >,
     mut actors: Query<
         (
             Entity,

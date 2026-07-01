@@ -73,6 +73,9 @@ pub struct PropVisual {
     pub id: String,
     /// Registry key the sprite was looked up under.
     pub kind: String,
+    /// Authored nominal collision footprint used to rebuild the sprite if the
+    /// quality profile reloads the underlying character-sheet asset.
+    pub size: Vec2,
 }
 
 #[derive(Component)]

@@ -161,9 +161,7 @@ pub fn spawn_enemy_projectiles_from_brain_actions(
         }
         effects.write(crate::effects::EffectRequest {
             owner: msg.actor,
-            effect: crate::effects::Effect::Projectiles {
-                shots: vec![spawn],
-            },
+            effect: crate::effects::Effect::Projectiles { shots: vec![spawn] },
         });
         // Recoil: push the firing actor backward along the negative
         // fire direction.

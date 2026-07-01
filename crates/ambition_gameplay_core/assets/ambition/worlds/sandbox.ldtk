@@ -11,7 +11,7 @@
 	"iid": "ambition-sandbox-world",
 	"jsonVersion": "1.5.3",
 	"appBuildId": 473703,
-	"nextUid": 6802,
+	"nextUid": 6804,
 	"identifierStyle": "Free",
 	"toc": [],
 	"worldLayout": "Free",
@@ -5498,26 +5498,23 @@
 		}
 	], "tilesets": [
 		{
-			"__cWid": 11,
-			"__cHei": 11,
-			"identifier": "sprite_player_robot",
-			"uid": 6566,
-			"relPath": "../../sprites/player_robot_spritesheet.png",
+			"__cHei": 10,
+			"__cWid": 10,
+			"cachedPixelData": null,
+			"customData": [],
 			"embedAtlas": null,
-			"pxWid": 2638,
-			"pxHei": 2638,
-			"tileGridSize": 256,
-			"spacing": 0,
+			"enumTags": [],
+			"identifier": "sprite_player_robot",
 			"padding": 0,
+			"pxHei": 2638,
+			"pxWid": 2638,
+			"relPath": "../../sprites/player_robot_spritesheet.png",
+			"savedSelections": [],
+			"spacing": 0,
 			"tags": ["sprite"],
 			"tagsSourceEnumUid": null,
-			"enumTags": [],
-			"customData": [],
-			"savedSelections": [],
-			"cachedPixelData": {
-				"opaqueTiles": "0000000000100000000001000000000010000000000100000000001000000000010000000000100000000001000000000010000000000111111111111",
-				"averageColors": "3bbb4bbc4bbc5bbb4bbb4bcc5bbb4bbb3bbc5bbb00003bbb4bbb3bbb4bbb2aab4bbb4bbb4bbb4bbb5bbb00004bbc2bbc5bbc3bbb5bbc5bbc6bbb4bbb5bbb5bbc00005bbb5bbb4bbb4bbc4abb4bbb5bbb4bbb3bab5bbb00005bbb5bbb5bbc4bbb4bbb5bbb4bbb4bbb7bbc7bbb00005bbc4bbb5bbb5bbb6bbb5bbb4bbb5bbb3bab6bbb00006bbb6bbb7bbb6bbb6bbb5bbb5bbb7bbb5bbb8bbb00006bbb6bbb5bbb7bbb5bbb5bbb6bbb6bbb5bbb5bbb00007bbb7bbb6bbb5bbb5bbb6bbb8bbb8bbb7bbb7bbb00006bbb6bbb7bbb6bbb7bbb7bbb7bbb8bbb7bbb2bbb000000000000000000000000000000000000000000000000"
-			}
+			"tileGridSize": 256,
+			"uid": 6566
 		}
 	], "enums": [{ "identifier": "BreakablePlatformCollision", "uid": 5002, "values": [ { "id": "Solid", "tileRect": null, "color": 14180189 }, { "id": "OneWayUp", "tileRect": null, "color": 10802479 } ], "iconTilesetUid": null, "externalRelPath": null, "externalFileChecksum": null, "tags": [] }], "externalEnums": [], "levelFields": [
 		{

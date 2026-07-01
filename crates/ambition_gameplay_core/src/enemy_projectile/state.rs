@@ -100,19 +100,17 @@ mod tests {
 
     #[test]
     fn build_clamps_zero_direction_to_right_facing() {
-        let proj = EnemyProjectileState::build(
-            EnemyProjectileSpawn {
-                origin: ae::Vec2::ZERO,
-                dir: ae::Vec2::ZERO,
-                speed: 120.0,
-                damage: 1,
-                max_lifetime: 1.0,
-                half_extent: ae::Vec2::new(8.0, 8.0),
-                owner_id: "test".into(),
-                gravity: 0.0,
-                visual_tag: 0,
-            },
-        );
+        let proj = EnemyProjectileState::build(EnemyProjectileSpawn {
+            origin: ae::Vec2::ZERO,
+            dir: ae::Vec2::ZERO,
+            speed: 120.0,
+            damage: 1,
+            max_lifetime: 1.0,
+            half_extent: ae::Vec2::new(8.0, 8.0),
+            owner_id: "test".into(),
+            gravity: 0.0,
+            visual_tag: 0,
+        });
         // A zero-length direction would NaN the initial_velocity; build
         // defaults to (1, 0) so the projectile has a sensible direction.
         let vel = proj.body.kin.vel;

@@ -292,16 +292,14 @@ fn system_page_drilled_into_video_shows_curated_options_and_back() {
             _ => None,
         })
         .collect();
-    // The cube's Video screen leads with the basic Video rows; the shader
-    // subpage now rides under Video, so the full screen overflows the visible
-    // window — the first window shows the 3 basic rows then the leading shader
-    // sliders.
+    // The Video screen leads with the transactional Quality Profile row, then the
+    // basic video rows. Shader rows still ride under Video later in the full list.
     assert_eq!(
         &options[..3],
         &[
+            SettingsOptionId::VisualQuality,
             SettingsOptionId::DisplayMode,
             SettingsOptionId::CameraZoom,
-            SettingsOptionId::CameraAspect,
         ]
     );
     // Shaders are reachable under Video: the FULL row list (pre-window) carries

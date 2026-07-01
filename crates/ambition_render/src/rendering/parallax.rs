@@ -31,6 +31,12 @@ pub struct ParallaxLayerVisual {
     pub world_size: Vec2,
 }
 
+#[derive(Component, Clone, Copy, Debug, PartialEq, Eq)]
+pub struct BoundParallaxLayer {
+    theme: ParallaxTheme,
+    asset: ParallaxLayerAsset,
+}
+
 #[derive(Component, Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub struct PortalCaptureParallaxLayerVisual {
     rig: Entity,
@@ -110,6 +116,10 @@ pub fn spawn_parallax_layers(
                 travel: Vec2::new(travel.x, travel.y),
                 world_size: Vec2::new(world.size.x.max(1.0), world.size.y.max(1.0)),
             },
+            BoundParallaxLayer {
+                theme,
+                asset: spec.asset,
+            },
             RenderLayers::layer(
                 ambition_gameplay_core::session::camera_layers::PARALLAX_BACKGROUND_LAYER,
             ),
@@ -121,6 +131,40 @@ pub fn spawn_parallax_layers(
             )),
         ));
     }
+}
+
+pub fn refresh_parallax_layers_on_quality_change(
+    mut commands: Commands,
+    world: Res<ambition_gameplay_core::RoomGeometry>,
+    room_set: Res<ambition_gameplay_core::rooms::RoomSet>,
+    assets: Option<Res<GameAssets>>,
+    quality: Option<Res<crate::quality::ResolvedVisualQuality>>,
+    layers: Query<
+        Entity,
+        (
+            With<ParallaxLayerVisual>,
+            Without<PortalCaptureParallaxLayerVisual>,
+        ),
+    >,
+) {
+    let Some(assets) = assets else {
+        return;
+    };
+    let assets_changed = assets.is_changed();
+    let quality_changed = quality.as_ref().is_some_and(|q| q.is_changed());
+    if !assets_changed && !quality_changed {
+        return;
+    }
+    for entity in &layers {
+        commands.entity(entity).despawn();
+    }
+    spawn_parallax_layers(
+        &mut commands,
+        &world.0,
+        &room_set.active_spec().metadata,
+        Some(assets.as_ref()),
+        quality.as_deref().map(|q| &q.budget.parallax),
+    );
 }
 
 pub fn sync_parallax_layers(

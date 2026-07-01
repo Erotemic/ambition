@@ -51,6 +51,7 @@ pub(crate) fn kaleidoscope_pointer_move(
     pages: Res<ActiveMenuPages<MenuPage, MenuPageAction>>,
     system_nav: Res<KaleidoscopeSystemNav>,
     settings: Res<UserSettings>,
+    quality_confirm: Res<VisualQualityConfirmState>,
     active_input: Res<ambition_input::ActiveInputKind>,
     snapshot: SystemMenuSnapshotParams,
     mut cursor: ResMut<KaleidoscopeCursor>,
@@ -88,7 +89,13 @@ pub(crate) fn kaleidoscope_pointer_move(
                 &snapshot.radio_snapshot(),
                 &snapshot.dev_snapshot(),
             );
-            let next = focus_for_action(action, active_page, &model, system_nav.open_entry);
+            let next = focus_for_action(
+                action,
+                active_page,
+                &model,
+                system_nav.open_entry,
+                quality_confirm.pending(),
+            );
             // The pointer hasn't moved to a new control (same logical focus as the
             // previous move event): do nothing.
             if cursor.last_pointer_focus == Some(next) {
@@ -124,6 +131,7 @@ pub(crate) fn kaleidoscope_pointer_release(
     mut system_nav: ResMut<KaleidoscopeSystemNav>,
     mut owned: ResMut<OwnedItems>,
     mut settings: ResMut<UserSettings>,
+    mut quality_confirm: ResMut<VisualQualityConfirmState>,
     mut commands: Commands,
     mut players: MenuEffectPlayers,
     mut mana_q: MenuEffectManaQuery,
@@ -156,7 +164,13 @@ pub(crate) fn kaleidoscope_pointer_release(
     };
     if let Some(active_page) = pages.active {
         let model = system.model(&settings);
-        let next = focus_for_action(action, active_page, &model, system_nav.open_entry);
+        let next = focus_for_action(
+            action,
+            active_page,
+            &model,
+            system_nav.open_entry,
+            quality_confirm.pending(),
+        );
         cursor.focus = next;
         cursor.owner = FocusSource::Pointer;
         cursor.last_pointer_focus = Some(next);
@@ -172,6 +186,7 @@ pub(crate) fn kaleidoscope_pointer_release(
         &mut cursor,
         &mut owned,
         &mut settings,
+        &mut quality_confirm,
         &mut close_menu,
         &mut commands,
         &mut players,
@@ -181,6 +196,7 @@ pub(crate) fn kaleidoscope_pointer_release(
         &mut system,
     );
     if close_menu {
+        quality_confirm.cancel();
         if let Some(ui_state) = ui_state.as_deref_mut() {
             // A close-via-action must unpause exactly like the canonical Esc-close.
             close_kaleidoscope_menu(ui_state, mode_io.state.get(), &mut mode_io.next);

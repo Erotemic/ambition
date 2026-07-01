@@ -68,8 +68,8 @@ mod tests {
     use ambition_engine_core as ae;
     use ambition_vfx::vfx::VfxMessage;
 
-    use crate::enemy_projectile::test_support::{enemy_projectile_bodies, spawn_enemy_projectile};
     use crate::combat::components::ActorFaction;
+    use crate::enemy_projectile::test_support::{enemy_projectile_bodies, spawn_enemy_projectile};
     use crate::enemy_projectile::EnemyProjectileSpawn;
 
     #[derive(Resource, Default)]
@@ -435,11 +435,7 @@ mod tests {
             .iter(app.world())
             .next()
             .map(|o| o.0);
-        assert_eq!(
-            owner,
-            Some(player),
-            "parry re-owns the bolt to the player"
-        );
+        assert_eq!(owner, Some(player), "parry re-owns the bolt to the player");
         assert!(
             body.kin.vel.x > 0.0,
             "reversed: it now travels back toward the enemy (was -x)"

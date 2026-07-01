@@ -445,6 +445,7 @@ mod dispatch_parity {
     /// `dispatch_menu_action`.
     fn menu_app(backend: InventoryUiBackend) -> App {
         let mut app = App::new();
+        app.init_resource::<crate::menu::quality_confirm::VisualQualityConfirmState>();
         app.add_plugins(bevy::state::app::StatesPlugin);
         app.init_state::<GameMode>();
         app.init_resource::<InventoryUiBackend>();

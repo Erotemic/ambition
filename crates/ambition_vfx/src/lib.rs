@@ -198,9 +198,7 @@ pub struct SummonSpec {
 pub enum Effect {
     DamageBox(DamageBoxEffect),
     Summon(SummonSpec),
-    Projectiles {
-        shots: Vec<EnemyProjectileSpawn>,
-    },
+    Projectiles { shots: Vec<EnemyProjectileSpawn> },
 }
 
 /// "This `owner` emitted this `effect`." Written by a technique, drained by

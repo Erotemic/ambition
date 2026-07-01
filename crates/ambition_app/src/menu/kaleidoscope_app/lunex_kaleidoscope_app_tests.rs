@@ -1,6 +1,7 @@
 //! Behaviour tests for the cube's interaction seams, driven through the real
 //! systems/observers as the app wires them.
 use super::*;
+use crate::menu::model::{build_inventory_pages, system_rows};
 use crate::menu::test_support::{
     click_control, pointer_location, spawn_control, trigger_move, trigger_press, trigger_release,
 };
@@ -46,6 +47,7 @@ use bevy::picking::pointer::{Location, PointerId};
 
 fn base_kaleidoscope_test_app() -> App {
     let mut app = App::new();
+    app.init_resource::<VisualQualityConfirmState>();
     app.add_plugins(bevy::state::app::StatesPlugin);
     app.init_state::<GameMode>();
     app.init_resource::<InventoryUiBackend>();
@@ -889,6 +891,7 @@ fn esc_backs_out_then_closes_the_kaleidoscope_via_real_input() {
     use leafwing_input_manager::prelude::*;
 
     let mut app = App::new();
+    app.init_resource::<VisualQualityConfirmState>();
     app.add_plugins(bevy::state::app::StatesPlugin);
     app.add_plugins(bevy::time::TimePlugin);
     app.add_plugins(bevy::input::InputPlugin);
@@ -1633,6 +1636,7 @@ fn highlight_app_ordered(owned_item: Item, writer_first: bool) -> App {
     // The icon asset loads (`AssetServer::load`) need the IO task pool.
     bevy::tasks::IoTaskPool::get_or_init(Default::default);
     let mut app = App::new();
+    app.init_resource::<VisualQualityConfirmState>();
     app.add_plugins(bevy::asset::AssetPlugin::default());
     app.init_asset::<StandardMaterial>();
     app.init_asset::<Mesh>();
@@ -1842,28 +1846,9 @@ fn republish_during_focus_keeps_the_highlight_under_fixed_ordering() {
     force_republish_and_focus(&mut fixed, item);
     assert_highlight_visible(&mut fixed, item);
 
-    // Un-ordered (regression) wiring: the same republish drops it.
-    let mut broken = highlight_app_ordered(item, /* writer_first */ false);
-    force_republish_and_focus(&mut broken, item);
-    let focus = MenuFocus::Item(item.index());
-    let model = SystemMenuModel::build(
-        &broken.world().resource::<UserSettings>().clone(),
-        &RadioSnapshot::default(),
-        &DevSnapshot::default(),
-    );
-    let world = broken.world_mut();
-    let mut q = world.query::<(&AmbitionMenuControl<MenuPageAction>, &MenuVisualState)>();
-    let highlighted = q.iter(world).any(|(c, vis)| {
-        c.action
-            .map(|a| focus_for_action(a, MenuPage::Items, &model, None) == focus)
-            .unwrap_or(false)
-            && vis.focused
-    });
-    assert!(
-        !highlighted,
-        "documents the regression: un-ordered wiring drops the highlight when a \
-         republish rebuilds the controls on the focus frame"
-    );
+    // Do not assert the negative fixture: Bevy may still choose a lucky order in
+    // the intentionally under-constrained schedule. The durable invariant is the
+    // fixed ordering above.
 }
 
 /// Set the cursor onto `item` AND force a host republish the same frame (bump the
@@ -1908,7 +1893,7 @@ fn assert_highlight_visible(app: &mut App, item: Item) {
         .iter(world)
         .filter_map(|(e, c, vis)| {
             let action = c.action?;
-            let f = focus_for_action(action, active_page, &model, None);
+            let f = focus_for_action(action, active_page, &model, None, None);
             Some((e, f == focus, vis.focused))
         })
         .collect();
@@ -1976,6 +1961,7 @@ fn render_set_is_gated_off_under_the_grid_backend() {
 
     fn build(backend: InventoryUiBackend, menu_visible: bool) -> App {
         let mut app = App::new();
+        app.init_resource::<VisualQualityConfirmState>();
         app.init_resource::<InventoryUiBackend>();
         app.init_resource::<RenderRan>();
         *app.world_mut().resource_mut::<InventoryUiBackend>() = backend;

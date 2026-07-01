@@ -10,6 +10,7 @@ pub mod effects;
 pub mod grid_backend;
 pub mod kaleidoscope_app;
 pub mod model;
+pub(crate) mod quality_confirm;
 #[cfg(test)]
 mod test_support;
 

@@ -176,7 +176,7 @@ pub(crate) fn reload_visual_quality_assets_on_scale_change(
         return;
     }
     *last_scales = Some(scales);
-    let Some(mut game_assets) = game_assets.as_deref_mut() else {
+    let Some(game_assets) = game_assets.as_deref_mut() else {
         return;
     };
     *game_assets = game_assets::load_game_assets(

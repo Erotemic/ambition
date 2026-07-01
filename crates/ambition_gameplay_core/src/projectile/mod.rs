@@ -64,8 +64,8 @@ mod engine_tests;
 // primitive through this facade. The brain-coupled SPAWN (`systems`) stays in
 // sandbox as a thin consumer.
 pub use ambition_platformer_primitives::projectile::{
-    resolve_world_collision, InFlightProjectile, ProjectileBody,
-    ProjectileGameplay, ProjectileSolidHit, ProjectileSpec, WorldHitOutcome, WorldHitPolicy,
+    resolve_world_collision, InFlightProjectile, ProjectileBody, ProjectileGameplay,
+    ProjectileSolidHit, ProjectileSpec, WorldHitOutcome, WorldHitPolicy,
 };
 
 // Sandbox-specific spawn helpers (player input gesture buffer + cooldown meter)

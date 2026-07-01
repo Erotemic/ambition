@@ -257,14 +257,7 @@ pub fn enforce_mount_rider_link(
         ),
         Without<MountSlot>,
     >,
-    mounts: Query<
-        (
-            Entity,
-            &ActorDisposition,
-            Option<&crate::actor::BodyHealth>,
-        ),
-        With<MountSlot>,
-    >,
+    mounts: Query<(Entity, &ActorDisposition, Option<&crate::actor::BodyHealth>), With<MountSlot>>,
 ) {
     // Build a lookup of mount alive-ness. With two-pirate fights
     // this is O(R+M) per frame and the hashmap stays small.

@@ -32,8 +32,6 @@ pub mod body;
 pub mod collision;
 pub mod spec;
 
-pub use body::{
-    InFlightProjectile, ProjectileBody, ProjectileGameplay, ProjectileSolidHit,
-};
+pub use body::{InFlightProjectile, ProjectileBody, ProjectileGameplay, ProjectileSolidHit};
 pub use collision::{resolve_world_collision, WorldHitOutcome, WorldHitPolicy};
 pub use spec::{EnemyProjectileSpawn, ProjectileSpec};

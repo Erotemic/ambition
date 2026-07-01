@@ -596,6 +596,8 @@ fn install_presentation_resources_and_subplugins(app: &mut App) {
         (
             ambition_render::quality::sync_resolved_visual_quality,
             reload_visual_quality_assets_on_scale_change,
+            ambition_render::rendering::refresh_entity_sprite_handles_on_game_assets_change,
+            ambition_render::rendering::refresh_parallax_layers_on_quality_change,
         )
             .chain(),
     );

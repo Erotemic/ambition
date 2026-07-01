@@ -402,7 +402,11 @@ fn swing_with_intent(intent: crate::combat::AttackIntent) -> crate::MeleeSwing {
     })
 }
 
-fn pick_actor(c: &PickClusters, swing: Option<&crate::MeleeSwing>, state: ActorAnimState) -> CharacterAnim {
+fn pick_actor(
+    c: &PickClusters,
+    swing: Option<&crate::MeleeSwing>,
+    state: ActorAnimState,
+) -> CharacterAnim {
     pick_actor_anim(
         &c.kinematics,
         &c.ground,
@@ -430,12 +434,26 @@ fn actors_animate_from_real_state_regardless_of_disposition() {
     let mut c = PickClusters::defaults();
     c.kinematics.vel = ae::Vec2::new(40.0, -30.0);
     assert_eq!(
-        pick_actor(&c, None, ActorAnimState { aerial: true, ..actor_state() }),
+        pick_actor(
+            &c,
+            None,
+            ActorAnimState {
+                aerial: true,
+                ..actor_state()
+            }
+        ),
         CharacterAnim::Fly,
     );
     let c = PickClusters::defaults();
     assert_eq!(
-        pick_actor(&c, None, ActorAnimState { aerial: true, ..actor_state() }),
+        pick_actor(
+            &c,
+            None,
+            ActorAnimState {
+                aerial: true,
+                ..actor_state()
+            }
+        ),
         CharacterAnim::Idle,
         "a still hover / landed perch is Idle, not Fly",
     );
@@ -443,21 +461,26 @@ fn actors_animate_from_real_state_regardless_of_disposition() {
     // Jump/Fall gate (it shares the player's full ladder) — never Fly.
     let mut c = PickClusters::defaults();
     c.kinematics.vel = ae::Vec2::new(40.0, -200.0); // top-left coords: up
-    assert_eq!(
-        pick_actor(&c, None, actor_state()),
-        CharacterAnim::Jump,
-    );
+    assert_eq!(pick_actor(&c, None, actor_state()), CharacterAnim::Jump,);
     // An active melee wins over locomotion — and a PEACEFUL-disposition actor
     // that swings animates its attack too (the old NPC path dropped this read).
     // The swing's own intent picks the directional row (Forward → AttackSide,
     // which `resolve_anim` later walks down to a slash-only sheet's slash).
     let c = PickClusters::defaults();
     assert_eq!(
-        pick_actor(&c, Some(&swing_with_intent(crate::combat::AttackIntent::Forward)), actor_state()),
+        pick_actor(
+            &c,
+            Some(&swing_with_intent(crate::combat::AttackIntent::Forward)),
+            actor_state()
+        ),
         CharacterAnim::AttackSide,
     );
     assert_eq!(
-        pick_actor(&c, Some(&swing_with_intent(crate::combat::AttackIntent::Up)), actor_state()),
+        pick_actor(
+            &c,
+            Some(&swing_with_intent(crate::combat::AttackIntent::Up)),
+            actor_state()
+        ),
         CharacterAnim::AttackUp,
         "an up-tilt swing reads the up row — actors share the player's swing map",
     );
@@ -465,7 +488,14 @@ fn actors_animate_from_real_state_regardless_of_disposition() {
     let mut c = PickClusters::defaults();
     c.kinematics.vel = ae::Vec2::new(50.0, 0.0);
     assert_eq!(
-        pick_actor(&c, None, ActorAnimState { alive: false, ..actor_state() }),
+        pick_actor(
+            &c,
+            None,
+            ActorAnimState {
+                alive: false,
+                ..actor_state()
+            }
+        ),
         CharacterAnim::Death,
     );
 }
@@ -496,14 +526,24 @@ fn actors_animate_rich_cluster_abilities() {
     // Ladder climb from body mode → LadderClimb.
     let mut c = PickClusters::defaults();
     c.body_mode.body_mode = ambition_engine_core::player_state::BodyMode::Climbing;
-    assert_eq!(pick_actor(&c, None, actor_state()), CharacterAnim::LadderClimb);
+    assert_eq!(
+        pick_actor(&c, None, actor_state()),
+        CharacterAnim::LadderClimb
+    );
 
     // A hit-flashing actor reads Hit over its locomotion.
     let mut c = PickClusters::defaults();
     c.kinematics.vel = ae::Vec2::new(80.0, 0.0);
     c.ground.on_ground = true;
     assert_eq!(
-        pick_actor(&c, None, ActorAnimState { hit_flash: true, ..actor_state() }),
+        pick_actor(
+            &c,
+            None,
+            ActorAnimState {
+                hit_flash: true,
+                ..actor_state()
+            }
+        ),
         CharacterAnim::Hit,
     );
 }

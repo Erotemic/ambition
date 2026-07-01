@@ -57,6 +57,7 @@ fn backend_switch_carries_the_active_page() {
 /// two backends exercise the same machinery.
 fn grid_app() -> App {
     let mut app = App::new();
+    app.init_resource::<VisualQualityConfirmState>();
     app.add_plugins(bevy::state::app::StatesPlugin);
     app.init_state::<GameMode>();
     app.init_resource::<InventoryUiBackend>();
@@ -435,13 +436,20 @@ fn cursor_focus_key_matches_a_rendered_control() {
     );
     let items = pages.iter().find(|p| p.id == MenuPage::Items).unwrap();
     let model = SystemMenuModel::build(&settings, &Default::default(), &Default::default());
-    let key = cursor_focus_key(items, MenuPage::Items, MenuFocus::Item(1), &model, None)
-        .expect("focused item resolves to a rendered control");
+    let key = cursor_focus_key(
+        items,
+        MenuPage::Items,
+        MenuFocus::Item(1),
+        &model,
+        None,
+        None,
+    )
+    .expect("focused item resolves to a rendered control");
     // The key must equal the rect-derived key of SOME actionable control whose
     // action maps back to Item(1) — i.e. it addresses a real tagged control.
     let matching = items.nodes.iter().any(|n| {
         matches!(n, MenuNode::Control { rect, action: Some(a), .. }
-            if focus_for_action(*a, MenuPage::Items, &model, None) == MenuFocus::Item(1)
+            if focus_for_action(*a, MenuPage::Items, &model, None, None) == MenuFocus::Item(1)
                 && focus_key_for(*rect) == key)
     });
     assert!(
@@ -909,7 +917,7 @@ fn grid_scroll_total_rows(app: &mut App) -> usize {
              system_nav: Res<KaleidoscopeSystemNav>,
              system: SystemMenuParams| {
                 let model = system.model(&settings);
-                grid_system_row_count(MenuPage::System, &system_nav, &model)
+                grid_system_row_count(MenuPage::System, &system_nav, &model, None)
             },
         )
         .unwrap()

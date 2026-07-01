@@ -43,7 +43,13 @@ const SHOCKWAVE_KNOCKBACK: f32 = 1.3;
 /// gauntlet slams through this exact path — no player-casing.
 pub fn fire_shockwave_system(
     gravity: crate::physics::GravityCtx,
-    mut wielders: Query<(Entity, &ActorControl, &HeldItem, &BodyKinematics, &mut BodyMana)>,
+    mut wielders: Query<(
+        Entity,
+        &ActorControl,
+        &HeldItem,
+        &BodyKinematics,
+        &mut BodyMana,
+    )>,
     mut effects: MessageWriter<crate::effects::EffectRequest>,
     mut sfx: MessageWriter<crate::audio::SfxMessage>,
 ) {

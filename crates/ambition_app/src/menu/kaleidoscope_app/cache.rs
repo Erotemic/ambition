@@ -22,6 +22,8 @@ pub(crate) struct CachedSystemMenu {
     /// on every face — so these are refreshed each frame regardless of active page.
     pub(crate) radio: RadioSnapshot,
     pub(crate) dev: DevSnapshot,
+    /// Pending visual-quality profile, if the Video screen is asking for confirmation.
+    pub(crate) quality: Option<ambition_gameplay_core::persistence::settings::VisualQualityProfile>,
 }
 
 /// Build the System model + radio/dev snapshots ONCE per frame (front of the visible
@@ -33,13 +35,17 @@ pub(crate) fn cache_system_menu(
     settings: Res<UserSettings>,
     system_nav: Res<KaleidoscopeSystemNav>,
     snapshot: SystemMenuSnapshotParams,
+    quality_confirm: Res<VisualQualityConfirmState>,
     mut cache: ResMut<CachedSystemMenu>,
 ) {
     let radio = snapshot.radio_snapshot();
     let dev = snapshot.dev_snapshot();
+    let quality = quality_confirm.pending();
     if pages.active == Some(MenuPage::System) {
-        let model = SystemMenuModel::build(&settings, &radio, &dev);
-        cache.rows = system_rows(&model, system_nav.open_entry);
+        let model = crate::menu::model::system_menu_model_with_pending_quality(
+            &settings, &radio, &dev, quality,
+        );
+        cache.rows = system_rows_with_quality_prompt(&model, system_nav.open_entry, quality);
         cache.model = Some(model);
     } else {
         cache.model = None;
@@ -47,6 +53,7 @@ pub(crate) fn cache_system_menu(
     }
     cache.radio = radio;
     cache.dev = dev;
+    cache.quality = quality;
 }
 
 /// Republish the cube's faces from our live inventory + the focus cursor (the
@@ -112,6 +119,7 @@ pub(crate) fn republish_kaleidoscope_pages(
         open_entry: system_nav.open_entry,
         radio: cache.radio.clone(),
         dev: cache.dev.clone(),
+        quality: cache.quality,
     };
     // Republish on: catalog change, settings change (so a toggled setting's label
     // updates immediately), first publish, menu-open (textures that loaded after
@@ -136,7 +144,7 @@ pub(crate) fn republish_kaleidoscope_pages(
     }
 
     let active = pages.active.unwrap_or(MenuPage::Items);
-    pages.pages = build_inventory_pages(
+    pages.pages = build_inventory_pages_with_quality_prompt(
         &owned,
         owned.equipped(),
         cursor.focus,
@@ -145,6 +153,7 @@ pub(crate) fn republish_kaleidoscope_pages(
         &key.dev,
         window_start,
         system_nav.open_entry,
+        key.quality,
     );
     pages.active = Some(active);
     *last = Some(key);
@@ -162,4 +171,5 @@ pub(crate) struct RebuildKey {
     open_entry: Option<SystemMenuEntryId>,
     radio: RadioSnapshot,
     dev: DevSnapshot,
+    quality: Option<ambition_gameplay_core::persistence::settings::VisualQualityProfile>,
 }

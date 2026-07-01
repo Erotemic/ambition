@@ -34,7 +34,7 @@ use ambition_gameplay_core::items::{Item, OwnedItems, ITEM_GRID_COLS, ITEM_GRID_
 use ambition_gameplay_core::persistence::settings::{
     DevSnapshot, RadioSnapshot, SettingsOption, SettingsOptionId, SettingsOptionKind,
     SystemMenuAction, SystemMenuEntryId, SystemMenuModel, SystemMenuTarget, SystemOptionId,
-    UserSettings,
+    UserSettings, VisualQualityProfile,
 };
 
 /// Edge page-turn buttons flank the page in the side margins (NOT over the grid),
@@ -236,6 +236,11 @@ pub enum MenuPageAction {
     SystemOption(SystemOptionId),
     /// An immediate, screen-less System action (Reset Sandbox).
     SystemAction(SystemMenuAction),
+    /// Apply the pending visual-quality profile after the confirmation row is
+    /// selected. The chosen profile lives in app-local menu state until then.
+    ConfirmVisualQuality,
+    /// Cancel a pending visual-quality profile change without dirtying settings.
+    CancelVisualQuality,
     /// Drill INTO a top-level System entry (show its screen rows). Handled
     /// host-side by setting the cube's drill-down state
     /// (`lunex_kaleidoscope_app::KaleidoscopeSystemNav`).
@@ -429,6 +434,33 @@ pub fn build_inventory_pages(
     system_window_start: usize,
     open_entry: Option<SystemMenuEntryId>,
 ) -> Vec<MenuPageModel<MenuPage, MenuPageAction>> {
+    build_inventory_pages_with_quality_prompt(
+        owned,
+        equipped,
+        focus,
+        settings,
+        radio,
+        dev,
+        system_window_start,
+        open_entry,
+        None,
+    )
+}
+
+#[allow(clippy::too_many_arguments)]
+pub fn build_inventory_pages_with_quality_prompt(
+    owned: &OwnedItems,
+    equipped: Option<Item>,
+    focus: MenuFocus,
+    settings: &UserSettings,
+    radio: &RadioSnapshot,
+    dev: &DevSnapshot,
+    // The effective System scroll-window start (Features C/D). Drives which System
+    // rows render + the scrollbar thumb position.
+    system_window_start: usize,
+    open_entry: Option<SystemMenuEntryId>,
+    pending_quality: Option<VisualQualityProfile>,
+) -> Vec<MenuPageModel<MenuPage, MenuPageAction>> {
     vec![
         build_items_page(owned, equipped),
         placeholder_page(
@@ -441,7 +473,15 @@ pub fn build_inventory_pages(
             "QUEST",
             "Quest status + key items from save data (host data TODO).",
         ),
-        build_system_page(settings, radio, dev, focus, system_window_start, open_entry),
+        build_system_page_with_quality_prompt(
+            settings,
+            radio,
+            dev,
+            focus,
+            system_window_start,
+            open_entry,
+            pending_quality,
+        ),
     ]
 }
 
@@ -469,6 +509,10 @@ pub enum SystemRow {
     Setting(SettingsOptionId),
     /// A non-settings screen option (radio / locale / dev toggle).
     Option(SystemOptionId),
+    /// Confirmation row for an in-flight visual quality profile change.
+    QualityApply(VisualQualityProfile),
+    /// Cancellation row for an in-flight visual quality profile change.
+    QualityCancel,
     /// The Back row inside an open entry (drill out on select).
     Back,
 }
@@ -481,6 +525,14 @@ pub fn system_rows(
     model: &SystemMenuModel,
     open_entry: Option<SystemMenuEntryId>,
 ) -> Vec<SystemRow> {
+    system_rows_with_quality_prompt(model, open_entry, None)
+}
+
+pub fn system_rows_with_quality_prompt(
+    model: &SystemMenuModel,
+    open_entry: Option<SystemMenuEntryId>,
+    pending_quality: Option<VisualQualityProfile>,
+) -> Vec<SystemRow> {
     match open_entry.and_then(|id| model.entry(id)) {
         None => model
             .entries
@@ -490,7 +542,19 @@ pub fn system_rows(
         Some(entry) => {
             let mut rows: Vec<SystemRow> = match &entry.target {
                 SystemMenuTarget::Settings(options) => {
-                    options.iter().map(|o| SystemRow::Setting(o.id)).collect()
+                    let mut rows = Vec::with_capacity(options.len() + 3);
+                    for option in options {
+                        rows.push(SystemRow::Setting(option.id));
+                        if entry.id == SystemMenuEntryId::Video
+                            && option.id == SettingsOptionId::VisualQuality
+                        {
+                            if let Some(profile) = pending_quality {
+                                rows.push(SystemRow::QualityApply(profile));
+                                rows.push(SystemRow::QualityCancel);
+                            }
+                        }
+                    }
+                    rows
                 }
                 SystemMenuTarget::Radio(rows) => rows
                     .iter()
@@ -510,6 +574,25 @@ pub fn system_rows(
             rows.push(SystemRow::Back);
             rows
         }
+    }
+}
+
+/// Build the System menu model that should be displayed while a visual-quality
+/// change is pending. The persisted settings remain untouched until the user
+/// chooses Apply; this temporary clone exists only so the Quality Profile row
+/// itself keeps cycling visibly while the confirmation rows are shown.
+pub fn system_menu_model_with_pending_quality(
+    settings: &UserSettings,
+    radio: &RadioSnapshot,
+    dev: &DevSnapshot,
+    pending_quality: Option<VisualQualityProfile>,
+) -> SystemMenuModel {
+    if let Some(profile) = pending_quality {
+        let mut display_settings = settings.clone();
+        display_settings.video.quality.profile = profile;
+        SystemMenuModel::build(&display_settings, radio, dev)
+    } else {
+        SystemMenuModel::build(settings, radio, dev)
     }
 }
 
@@ -603,6 +686,8 @@ fn system_row_label(model: &SystemMenuModel, row: SystemRow) -> String {
             _ => format!("{} >", id.label()),
         },
         SystemRow::Back => "< Back".to_string(),
+        SystemRow::QualityApply(profile) => format!("Apply quality: {}", profile.label()),
+        SystemRow::QualityCancel => "Cancel quality change".to_string(),
         SystemRow::Setting(id) => match setting_entry(model, id) {
             Some(entry) => match entry.kind {
                 SettingsOptionKind::Action => entry.label,
@@ -619,6 +704,13 @@ fn system_row_description(model: &SystemMenuModel, row: SystemRow) -> String {
     match row {
         SystemRow::Entry(id) => id.description().to_string(),
         SystemRow::Back => "Return to the SYSTEM list.".to_string(),
+        SystemRow::QualityApply(profile) => format!(
+            "Confirm the {} visual-quality profile. Textures and room visuals reload immediately after this is applied.",
+            profile.label()
+        ),
+        SystemRow::QualityCancel => {
+            "Discard the pending visual-quality profile and keep the current setting.".to_string()
+        }
         SystemRow::Setting(id) => setting_entry(model, id)
             .map(|e| e.description)
             .unwrap_or_default(),
@@ -635,6 +727,8 @@ fn system_row_action(model: &SystemMenuModel, row: SystemRow) -> Option<MenuPage
         },
         SystemRow::Setting(o) => Some(MenuPageAction::System(o)),
         SystemRow::Option(o) => Some(MenuPageAction::SystemOption(o)),
+        SystemRow::QualityApply(_) => Some(MenuPageAction::ConfirmVisualQuality),
+        SystemRow::QualityCancel => Some(MenuPageAction::CancelVisualQuality),
         SystemRow::Back => Some(MenuPageAction::CloseSystemEntry),
     }
 }
@@ -777,13 +871,35 @@ pub fn build_system_page(
     window_start: usize,
     open_entry: Option<SystemMenuEntryId>,
 ) -> MenuPageModel<MenuPage, MenuPageAction> {
-    let sys_model = SystemMenuModel::build(settings, radio, dev);
+    build_system_page_with_quality_prompt(
+        settings,
+        radio,
+        dev,
+        focus,
+        window_start,
+        open_entry,
+        None,
+    )
+}
+
+pub fn build_system_page_with_quality_prompt(
+    settings: &UserSettings,
+    radio: &RadioSnapshot,
+    dev: &DevSnapshot,
+    focus: MenuFocus,
+    // The EFFECTIVE scroll-window start (cursor-derived OR a drag/wheel override —
+    // see [`system_effective_window_start`]). Drives which rows render + the thumb.
+    window_start: usize,
+    open_entry: Option<SystemMenuEntryId>,
+    pending_quality: Option<VisualQualityProfile>,
+) -> MenuPageModel<MenuPage, MenuPageAction> {
+    let sys_model = system_menu_model_with_pending_quality(settings, radio, dev, pending_quality);
     let mut model = MenuPageModel::new(
         MenuPage::System,
         "SYSTEM",
         MenuColor::rgba(0.03, 0.04, 0.10, 0.96),
     );
-    let rows = system_rows(&sys_model, open_entry);
+    let rows = system_rows_with_quality_prompt(&sys_model, open_entry, pending_quality);
     let _ = focus;
     // Fix 3/4: long screens (Radio ~26, Developer ~15) become a windowed scroll
     // list — only the visible window of rows is rendered, the window is the

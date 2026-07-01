@@ -431,6 +431,7 @@ fn curated_options(id: SystemMenuEntryId) -> &'static [SettingsOptionId] {
         // `Video > Shaders` subpage). Every shader the pause menu's Shaders page
         // exposes is reachable here.
         SystemMenuEntryId::Video => &[
+            SettingsOptionId::VisualQuality,
             SettingsOptionId::DisplayMode,
             SettingsOptionId::CameraZoom,
             SettingsOptionId::CameraAspect,
@@ -439,7 +440,6 @@ fn curated_options(id: SystemMenuEntryId) -> &'static [SettingsOptionId] {
             SettingsOptionId::Colorblind,
             SettingsOptionId::ShowFps,
             SettingsOptionId::FramePacing,
-            SettingsOptionId::VisualQuality,
             SettingsOptionId::ShaderStrength,
             SettingsOptionId::ShaderCrtStrength,
             SettingsOptionId::ShaderCrtScanlines,

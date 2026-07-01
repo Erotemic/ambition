@@ -24,13 +24,17 @@ use crate::menu::kaleidoscope_app::{
     KaleidoscopeSystemNav, SystemMenuParams,
 };
 use crate::menu::model::{
-    scroll_fraction_to_window_start, system_max_window_start, MenuFocus, MenuPage, MenuPageAction,
+    build_inventory_pages_with_quality_prompt, scroll_fraction_to_window_start,
+    system_max_window_start, system_rows_with_quality_prompt, MenuFocus, MenuPage, MenuPageAction,
     SYSTEM_VISIBLE_ROWS,
 };
+use crate::menu::quality_confirm::VisualQualityConfirmState;
 use ambition_gameplay_core::audio::SfxMessage;
 use ambition_gameplay_core::items::{OwnedItems, ITEM_GRID_COLS, ITEM_GRID_ROWS};
 use ambition_gameplay_core::menu::backend::{InventoryUiBackend, BEVY_UI_MENU_BACKEND_ENABLED};
-use ambition_gameplay_core::persistence::settings::{SystemMenuModel, UserSettings};
+use ambition_gameplay_core::persistence::settings::{
+    SystemMenuModel, UserSettings, VisualQualityProfile,
+};
 use ambition_gameplay_core::player::PlayerHealRequested;
 use ambition_input::MenuControlFrame;
 
@@ -41,6 +45,7 @@ use ambition_input::MenuControlFrame;
 pub(crate) struct MenuDispatchParams<'w, 's> {
     owned: ResMut<'w, OwnedItems>,
     settings: ResMut<'w, UserSettings>,
+    quality_confirm: ResMut<'w, VisualQualityConfirmState>,
     commands: Commands<'w, 's>,
     players: MenuEffectPlayers<'w, 's>,
     mana_q: MenuEffectManaQuery<'w, 's>,
@@ -127,6 +132,7 @@ struct ViewKey {
     /// scroll rebuilds the windowed rows while a cursor-only move inside the window
     /// still does not (preserving the click-drop fix), mirroring the cube's republish.
     window_start: usize,
+    pending_quality: Option<VisualQualityProfile>,
 }
 
 /// Flat Grid backend SFX ids. The cube keeps kaleidoscope-specific `ui.menu.*`
@@ -279,6 +285,7 @@ fn cursor_focus_key(
     cursor: MenuFocus,
     model: &SystemMenuModel,
     open_entry: Option<ambition_gameplay_core::persistence::settings::SystemMenuEntryId>,
+    pending_quality: Option<VisualQualityProfile>,
 ) -> Option<MenuFocusKey> {
     for node in &page.nodes {
         let MenuNode::Control {
@@ -289,7 +296,7 @@ fn cursor_focus_key(
         else {
             continue;
         };
-        if focus_for_action(*action, active_page, model, open_entry) == cursor {
+        if focus_for_action(*action, active_page, model, open_entry, pending_quality) == cursor {
             return Some(focus_key_for(*rect));
         }
     }
@@ -506,6 +513,7 @@ pub(crate) fn grid_menu_nav(
         if dx != 0 {
             let n = MenuPage::ALL.len() as i32;
             tab_state.active_tab = ((tab_state.active_tab as i32 + dx).rem_euclid(n)) as usize;
+            fx.quality_confirm.cancel();
             system_nav.open_entry = None;
             tab_state.system_window_start = None;
             seed_cursor_for_tab(tab_state.active_tab, &mut cursor);
@@ -545,6 +553,7 @@ pub(crate) fn grid_menu_nav(
             }
             if menu.back {
                 play_ui(&mut fx.sfx, grid_sfx::CLOSE);
+                fx.quality_confirm.cancel();
                 close_grid_unified_menu(&mut overlay, mode.get(), &mut next_mode);
                 return;
             }
@@ -559,6 +568,7 @@ pub(crate) fn grid_menu_nav(
                         &mut cursor,
                         &mut fx.owned,
                         &mut fx.settings,
+                        &mut fx.quality_confirm,
                         &mut close_menu,
                         &mut fx.commands,
                         &mut fx.players,
@@ -575,6 +585,7 @@ pub(crate) fn grid_menu_nav(
                     // checkmark) shows immediately, without waiting for a cursor move.
                     tab_state.last_key = None;
                     if close_menu {
+                        fx.quality_confirm.cancel();
                         close_grid_unified_menu(&mut overlay, mode.get(), &mut next_mode);
                     }
                 } else {
@@ -602,6 +613,7 @@ pub(crate) fn grid_menu_nav(
                 mode.get(),
                 &mut next_mode,
                 &mut fx.settings,
+                &mut fx.quality_confirm,
                 active_page,
                 &mut fx.owned,
                 &mut fx.commands,
@@ -634,6 +646,7 @@ pub(crate) fn grid_menu_nav(
             // Placeholder tabs: only Back does anything.
             if menu.back {
                 play_ui(&mut fx.sfx, grid_sfx::CLOSE);
+                fx.quality_confirm.cancel();
                 close_grid_unified_menu(&mut overlay, mode.get(), &mut next_mode);
             }
         }
@@ -686,6 +699,7 @@ pub(crate) fn grid_menu_republish_view(
     cursor: Res<KaleidoscopeCursor>,
     system_nav: Res<KaleidoscopeSystemNav>,
     settings: Res<UserSettings>,
+    quality_confirm: Res<VisualQualityConfirmState>,
     system: SystemMenuParams,
     mut tab_state: ResMut<GridMenuTabState>,
     roots: Query<Entity, With<BevyUiMenuRoot>>,
@@ -723,7 +737,11 @@ pub(crate) fn grid_menu_republish_view(
     // the shared `system_effective_window_start`. Hovering moves the cursor but, with
     // an override set, does NOT shift the window, so hovering no longer scrolls.
     let window_start = if active_page == MenuPage::System {
-        let rows = crate::menu::model::system_rows(&model, system_nav.open_entry);
+        let rows = system_rows_with_quality_prompt(
+            &model,
+            system_nav.open_entry,
+            quality_confirm.pending(),
+        );
         crate::menu::model::system_effective_window_start(
             &rows,
             cursor.focus(),
@@ -739,6 +757,7 @@ pub(crate) fn grid_menu_republish_view(
         version: pages.version,
         zone: tab_state.focus_zone,
         window_start,
+        pending_quality: quality_confirm.pending(),
     };
     // Fix 3: detect inventory/settings STATE changes too, mirroring the cube's
     // `republish_kaleidoscope_pages` (`owned.is_changed() || settings.is_changed()`).
@@ -748,13 +767,13 @@ pub(crate) fn grid_menu_republish_view(
     // until the cursor moved. The dispatch paths ALSO clear `last_key` directly (the
     // belt-and-braces force-republish), so even a state change this key can't see
     // (e.g. a dev snapshot) still re-renders.
-    let state_changed = owned.is_changed() || settings.is_changed();
+    let state_changed = owned.is_changed() || settings.is_changed() || quality_confirm.is_changed();
     if tab_state.last_key == Some(key) && !roots.is_empty() && !state_changed {
         return;
     }
     tab_state.last_key = Some(key);
 
-    let built = crate::menu::model::build_inventory_pages(
+    let built = build_inventory_pages_with_quality_prompt(
         &owned,
         owned.equipped(),
         cursor.focus(),
@@ -763,6 +782,7 @@ pub(crate) fn grid_menu_republish_view(
         &system.dev_snapshot(),
         window_start,
         system_nav.open_entry,
+        quality_confirm.pending(),
     );
     let Some(page) = built
         .iter()
@@ -779,6 +799,7 @@ pub(crate) fn grid_menu_republish_view(
         cursor.focus(),
         &model,
         system_nav.open_entry,
+        quality_confirm.pending(),
     );
 
     // BUG 2: strip the cube's page-turn EDGE controls (`MenuPageAction::ChangePage`).
@@ -837,11 +858,12 @@ fn grid_system_row_count(
     active_page: MenuPage,
     system_nav: &KaleidoscopeSystemNav,
     model: &SystemMenuModel,
+    pending_quality: Option<VisualQualityProfile>,
 ) -> usize {
     if active_page != MenuPage::System {
         return 0;
     }
-    crate::menu::model::system_rows(model, system_nav.open_entry).len()
+    system_rows_with_quality_prompt(model, system_nav.open_entry, pending_quality).len()
 }
 
 /// Feature D (Grid): the MOUSE WHEEL scrolls the System window (the visible rows),
@@ -856,6 +878,7 @@ pub(crate) fn grid_menu_scroll_wheel(
     mut tab_state: ResMut<GridMenuTabState>,
     system_nav: Res<KaleidoscopeSystemNav>,
     settings: Res<UserSettings>,
+    quality_confirm: Res<VisualQualityConfirmState>,
     cursor: Res<KaleidoscopeCursor>,
     system: SystemMenuParams,
     mut wheel: MessageReader<bevy::input::mouse::MouseWheel>,
@@ -882,14 +905,15 @@ pub(crate) fn grid_menu_scroll_wheel(
     }
     let active_page = tab_page(tab_state.active_tab);
     let model = system.model(&settings);
-    let total = grid_system_row_count(active_page, &system_nav, &model);
+    let total = grid_system_row_count(active_page, &system_nav, &model, quality_confirm.pending());
     if total <= SYSTEM_VISIBLE_ROWS {
         return; // nothing to scroll
     }
     let max = system_max_window_start(total) as i32;
     // Seed from the effective start so the first notch moves relative to what is
     // currently shown (cursor-derived window) rather than jumping to 0.
-    let rows = crate::menu::model::system_rows(&model, system_nav.open_entry);
+    let rows =
+        system_rows_with_quality_prompt(&model, system_nav.open_entry, quality_confirm.pending());
     let current = crate::menu::model::system_effective_window_start(
         &rows,
         cursor.focus(),
@@ -910,6 +934,7 @@ pub(crate) fn grid_menu_apply_scroll_drag(
     mut tab_state: ResMut<GridMenuTabState>,
     system_nav: Res<KaleidoscopeSystemNav>,
     settings: Res<UserSettings>,
+    quality_confirm: Res<VisualQualityConfirmState>,
     system: SystemMenuParams,
     mut dragged: MessageReader<ambition_menu::render::kaleidoscope::MenuScrollDragged>,
 ) {
@@ -925,7 +950,7 @@ pub(crate) fn grid_menu_apply_scroll_drag(
     };
     let active_page = tab_page(tab_state.active_tab);
     let model = system.model(&settings);
-    let total = grid_system_row_count(active_page, &system_nav, &model);
+    let total = grid_system_row_count(active_page, &system_nav, &model, quality_confirm.pending());
     let result = scroll_fraction_to_window_start(total, fraction);
     if let Some(start) = result {
         tab_state.system_window_start = Some(start);
@@ -1000,6 +1025,7 @@ pub(crate) fn grid_menu_pointer_release(
     }
     if let Some(tab) = state.tab.take() {
         tab_state.active_tab = tab.min(MenuPage::ALL.len() - 1);
+        fx.quality_confirm.cancel();
         system_nav.open_entry = None;
         tab_state.system_window_start = None;
         seed_cursor_for_tab(tab_state.active_tab, &mut cursor);
@@ -1021,6 +1047,7 @@ pub(crate) fn grid_menu_pointer_release(
         &mut cursor,
         &mut fx.owned,
         &mut fx.settings,
+        &mut fx.quality_confirm,
         &mut close_menu,
         &mut fx.commands,
         &mut fx.players,
@@ -1034,6 +1061,7 @@ pub(crate) fn grid_menu_pointer_release(
     // setting toggle, radio song) refreshes the view immediately.
     tab_state.last_key = None;
     if close_menu {
+        fx.quality_confirm.cancel();
         close_grid_unified_menu(&mut overlay, mode.get(), &mut next_mode);
     }
 }
@@ -1056,6 +1084,7 @@ pub(crate) fn grid_menu_pointer_hover(
     active_input: Res<ambition_input::ActiveInputKind>,
     controls: Query<&AmbitionMenuControl<MenuPageAction>>,
     settings: Res<UserSettings>,
+    quality_confirm: Res<VisualQualityConfirmState>,
     system: SystemMenuParams,
     tab_state: Res<GridMenuTabState>,
     system_nav: Res<KaleidoscopeSystemNav>,
@@ -1079,7 +1108,13 @@ pub(crate) fn grid_menu_pointer_hover(
     };
     let active_page = tab_page(tab_state.active_tab);
     let model = system.model(&settings);
-    let focus = focus_for_action(action, active_page, &model, system_nav.open_entry);
+    let focus = focus_for_action(
+        action,
+        active_page,
+        &model,
+        system_nav.open_entry,
+        quality_confirm.pending(),
+    );
     cursor.mark_keyboard(focus);
 }
 

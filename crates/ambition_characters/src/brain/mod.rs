@@ -32,9 +32,10 @@ pub use action_set::{
 };
 #[allow(unused_imports)]
 pub use boss_pattern::{
-    tick_boss_pattern, BossAttackPattern, BossAttackProfile, BossAttackState, BossEncounterPhase,
-    BossMacroState, BossMacroTuning, BossMovementFramePolicy, BossMovementProfile, BossPattern,
-    BossPatternCfg, BossPatternContext, BossPatternState, BossPatternStep, CyclePhase,
+    tick_boss_pattern, BossAttackPattern, BossAttackProfile, BossAttackState, BossCapability,
+    BossEncounterPhase, BossMacroState, BossMacroTuning, BossMovementFramePolicy,
+    BossMovementProfile, BossPattern, BossPatternCfg, BossPatternContext, BossPatternState,
+    BossPatternStep, CyclePhase,
 };
 #[allow(unused_imports)]
 pub use player::tick_player_brain;

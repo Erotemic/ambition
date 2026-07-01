@@ -407,6 +407,49 @@ impl BossPatternCfg {
         }
     }
 
+    /// The boss body's authored **special repertoire** — the ordered,
+    /// deduplicated list of `(profile, strike-window seconds)` this boss can
+    /// perform, derived from its authored pattern. This is the boss's CAPABILITY
+    /// (what its body can do when commanded), independent of the autonomous
+    /// POLICY (the pattern schedule that chooses *when*). The scripted brain
+    /// drives these profiles on its own timeline; a possessing human controller
+    /// maps input onto the SAME list (unified-actors I2/I7: possession grants the
+    /// body's full kit, nothing special-cased). Scripted bosses contribute their
+    /// `Strike` profiles across every phase; `Cycle` bosses contribute
+    /// `cycle_attacks`; the strike window is the authored per-step duration (or
+    /// `cycle_attack_active`), floored so a zero can't make a strike instant.
+    pub fn special_repertoire(&self) -> Vec<(BossAttackProfile, f32)> {
+        let mut out: Vec<(BossAttackProfile, f32)> = Vec::new();
+        let mut push = |profile: &BossAttackProfile, duration: f32| {
+            if !out.iter().any(|(p, _)| p == profile) {
+                out.push((profile.clone(), duration.max(0.05)));
+            }
+        };
+        match &self.pattern {
+            BossAttackPattern::Cycle => {
+                for profile in &self.cycle_attacks {
+                    push(profile, self.cycle_attack_active);
+                }
+            }
+            BossAttackPattern::Scripted {
+                intro,
+                phase1,
+                transition,
+                phase2,
+                enrage,
+            } => {
+                for pattern in [intro, phase1, transition, phase2, enrage] {
+                    for step in &pattern.steps {
+                        if let BossPatternStep::Strike { profile, duration } = step {
+                            push(profile, *duration);
+                        }
+                    }
+                }
+            }
+        }
+        out
+    }
+
     /// Pick the movement profile this cfg wants for the given
     /// encounter phase. Phases without a dedicated override fall
     /// back to the default `movement`. Dormant/Stagger/Death are
@@ -696,6 +739,58 @@ impl BossAttackState {
         self.active_profile = None;
         self.active_remaining = 0.0;
         self.active_elapsed = 0.0;
+    }
+}
+
+/// The boss body's authored action repertoire — its CAPABILITY, persisted as a
+/// **component** (not brain state) so it survives a brain swap. When a human
+/// possesses a boss, its `Brain::StateMachine(BossPattern{..})` is transferred
+/// away and stashed for restore; the pattern cfg is no longer reachable from the
+/// boss tick, but this component keeps the boss's special list in scope so the
+/// controller can still command the body's authored moves.
+///
+/// This is the boss analogue of an actor's `ActionSet`: capability is body data,
+/// the brain is policy. Populated at spawn from
+/// [`BossPatternCfg::special_repertoire`]; both the autonomous pattern and a
+/// possessing controller drive the same profiles.
+#[derive(Component, Clone, Debug, Default)]
+pub struct BossCapability {
+    /// `(profile, strike-window seconds)`, in first-seen order from the authored
+    /// pattern. Empty for a boss with no authored strikes → possession maps to a
+    /// no-op (the body simply has no special to command).
+    pub specials: Vec<(BossAttackProfile, f32)>,
+}
+
+impl BossCapability {
+    /// Derive the repertoire from a boss pattern cfg (call at spawn).
+    pub fn from_cfg(cfg: &BossPatternCfg) -> Self {
+        Self {
+            specials: cfg.special_repertoire(),
+        }
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.specials.is_empty()
+    }
+
+    /// The move mapped to a controller "slot": `0` = attack / primary, wrapping
+    /// around the repertoire so a boss with one move maps every control to it.
+    /// `None` iff the boss authors no strikes.
+    pub fn slot(&self, index: usize) -> Option<&(BossAttackProfile, f32)> {
+        if self.specials.is_empty() {
+            None
+        } else {
+            self.specials.get(index % self.specials.len())
+        }
+    }
+
+    /// The boss's SIGNATURE special: the first content-technique `Special` profile
+    /// in the repertoire (e.g. `echo_fan` / `apple_rain` / `overfit_volley`),
+    /// regardless of where it sits among the geometry strikes. The possession
+    /// special-button maps here so it fires a real boss special. `None` if the
+    /// boss authors no content special (only geometry strikes).
+    pub fn signature_special(&self) -> Option<&(BossAttackProfile, f32)> {
+        self.specials.iter().find(|(p, _)| p.is_special())
     }
 }
 

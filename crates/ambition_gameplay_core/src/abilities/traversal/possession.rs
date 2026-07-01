@@ -1,5 +1,7 @@
 //! Possession — Down + Interact transfers the player's controller brain onto a
-//! nearby non-boss actor.
+//! nearby actor. Bosses are valid targets: the boss tick consumes
+//! `Brain::Player`, driving boss movement AND its authored specials via a
+//! deterministic input mapping over `BossCapability`.
 //!
 //! Possession is NOT input-copying. It is **brain transfer**. On possess we move
 //! [`Brain::Player`]`(PlayerSlot::PRIMARY)` off the home avatar and onto the
@@ -18,9 +20,11 @@
 //! `Brain::Player(PRIMARY)` this frame", never from a possession flag. That is
 //! the whole point: possession is proof that control is actor-generic.
 //!
-//! Bounded to **non-boss** actors: bosses still `unreachable!()` on
-//! `Brain::Player` (`crate::features::ecs::bosses::tick`), so they're excluded
-//! from the candidate set.
+//! Bosses are in scope: the boss tick (`crate::features::ecs::bosses::tick`)
+//! handles a `Brain::Player` boss — reading slot input for movement and mapping
+//! attack/special input onto its authored `BossCapability`. Restricting WHICH
+//! boss is possessable (progression / design) is a targeting-policy gate to add
+//! above this trigger, not a "bosses can never be controlled" barrier.
 
 use bevy::prelude::*;
 

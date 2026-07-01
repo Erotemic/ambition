@@ -886,3 +886,100 @@ fn peaceful_brain_does_not_emit_attack_intent() {
     assert!(!out.melee_pressed);
     assert!(!out.special_pressed);
 }
+
+// ===== BossCapability / special_repertoire =====
+
+#[test]
+fn scripted_repertoire_dedups_strike_profiles_in_first_seen_order() {
+    // Two phases; phase1 strikes FloorSlam, phase2 strikes a Special then
+    // FloorSlam again. The repertoire is the DISTINCT Strike profiles across all
+    // phases, first-seen order — Telegraph steps and Rests contribute nothing.
+    let phase1 = BossPattern {
+        steps: vec![
+            BossPatternStep::Telegraph {
+                profile: BossAttackProfile::FloorSlam,
+                duration: 0.5,
+            },
+            BossPatternStep::Strike {
+                profile: BossAttackProfile::FloorSlam,
+                duration: 0.4,
+            },
+        ],
+    };
+    let phase2 = BossPattern {
+        steps: vec![
+            BossPatternStep::Strike {
+                profile: BossAttackProfile::Special("echo_fan".into()),
+                duration: 0.3,
+            },
+            BossPatternStep::Strike {
+                profile: BossAttackProfile::FloorSlam,
+                duration: 0.4,
+            },
+        ],
+    };
+    let mut cfg = cfg_with(BossAttackPattern::Scripted {
+        intro: BossPattern::default(),
+        phase1,
+        transition: BossPattern::default(),
+        phase2,
+        enrage: BossPattern::default(),
+    });
+    cfg.spawn = ae::Vec2::ZERO;
+
+    let cap = BossCapability::from_cfg(&cfg);
+    assert_eq!(
+        cap.specials
+            .iter()
+            .map(|(p, _)| p.clone())
+            .collect::<Vec<_>>(),
+        vec![
+            BossAttackProfile::FloorSlam,
+            BossAttackProfile::Special("echo_fan".into()),
+        ],
+        "distinct Strike profiles, first-seen; FloorSlam appears once"
+    );
+    // slot(0) is the primary strike; the signature special is the first content
+    // Special regardless of its index.
+    assert_eq!(cap.slot(0).unwrap().0, BossAttackProfile::FloorSlam);
+    assert_eq!(
+        cap.signature_special().unwrap().0,
+        BossAttackProfile::Special("echo_fan".into())
+    );
+}
+
+#[test]
+fn cycle_repertoire_is_the_attack_list_with_the_active_window() {
+    // A Cycle boss contributes its `cycle_attacks`, each with the flat
+    // `cycle_attack_active` strike window.
+    let mut cfg = cfg_with(BossAttackPattern::Cycle);
+    cfg.cycle_attack_active = 0.28;
+    cfg.cycle_attacks = vec![
+        BossAttackProfile::WingSweep,
+        BossAttackProfile::DiveLane,
+        BossAttackProfile::Special("echo_fan".into()),
+    ];
+    let cap = BossCapability::from_cfg(&cfg);
+    assert_eq!(cap.slot(0).unwrap().0, BossAttackProfile::WingSweep);
+    assert_eq!(
+        cap.slot(0).unwrap().1,
+        0.28,
+        "strike window = cycle_attack_active"
+    );
+    assert_eq!(
+        cap.signature_special().unwrap().0,
+        BossAttackProfile::Special("echo_fan".into()),
+        "special button reaches the signature special even at index 2"
+    );
+}
+
+#[test]
+fn empty_repertoire_maps_to_no_move() {
+    // A boss with no authored strikes exposes no capability — possession maps to
+    // a no-op, the body simply has nothing to command.
+    let cfg = cfg_with(BossAttackPattern::Cycle); // cycle_attacks empty
+    let cap = BossCapability::from_cfg(&cfg);
+    assert!(cap.is_empty());
+    assert!(cap.slot(0).is_none());
+    assert!(cap.signature_special().is_none());
+}

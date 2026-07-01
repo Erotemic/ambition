@@ -89,6 +89,11 @@ pub fn tick_boss_brains_system(
             &mut ActorControl,
             &mut BossAttackState,
             &super::super::super::components::ActorTarget,
+            // The boss's authored special repertoire (body CAPABILITY, persisted
+            // across a brain swap). Read only by the possession arm to map input
+            // onto the boss's own moves; `Option` for test fixtures that spawn a
+            // boss without it.
+            Option<&ambition_characters::brain::BossCapability>,
         ),
         With<FeatureSimEntity>,
     >,
@@ -96,7 +101,9 @@ pub fn tick_boss_brains_system(
 ) {
     let dt = world_time.sim_dt();
     let feature_world = world_with_sandbox_solids(&world.0, &platform_set.0, &overlay);
-    for (entity, feature, mut brain, mut control, mut attack_state, target) in &mut bosses {
+    for (entity, feature, mut brain, mut control, mut attack_state, target, capability) in
+        &mut bosses
+    {
         let boss = feature.as_boss_ref();
         if !boss.status.alive {
             // Dead boss: zero out frame + attack state so any
@@ -109,9 +116,11 @@ pub fn tick_boss_brains_system(
         // POSSESSED BOSS: driven from slot input through the player brain, the
         // same universal path every controlled body uses. It steers by
         // `velocity_target` (bosses float / SNAP-integrate in `update_ecs_bosses`)
-        // at the shared body run capability. The scripted boss pattern +
-        // attack_state are suspended while the player drives it; player-triggered
-        // boss specials are a follow-up (needs input→special mapping).
+        // at the shared body run capability, AND commands its own authored specials
+        // through a deterministic input→special mapping over `BossCapability` — the
+        // boss body's full kit, nothing special-cased (unified-actors I2/I7). The
+        // scripted pattern is suspended (its brain is stashed); the human is the
+        // policy choosing from the same repertoire the pattern would.
         if let Some(slot) = brain.player_slot() {
             let mut snapshot = ambition_characters::brain::BrainSnapshot::idle();
             snapshot.actor_pos = boss.kin.pos;
@@ -124,7 +133,58 @@ pub fn tick_boss_brains_system(
             let mut frame = ambition_characters::actor::control::ActorControlFrame::neutral();
             brain.tick(&snapshot, &mut frame);
             control.0 = frame;
-            attack_state.clear();
+
+            // Drive the boss's authored specials from controller input through the
+            // SAME `BossAttackState` the autonomous pattern sets — so every
+            // downstream consumer (telegraph/active volumes, `boss_attack_damage`,
+            // the `Special` EFFECTS techniques, sprite anim) is unchanged. The
+            // active window is the body's own fire-rate enforcement (invariant I3):
+            // while a strike is live it ticks down and a fresh press is ignored; a
+            // press when idle starts the mapped special. A boss with no authored
+            // special is a no-op — the body simply has no move to command.
+            if attack_state.active_remaining > 0.0 {
+                attack_state.active_remaining = (attack_state.active_remaining - dt).max(0.0);
+                attack_state.active_elapsed += dt;
+                if attack_state.active_remaining <= 0.0 {
+                    attack_state.clear();
+                }
+            } else {
+                attack_state.clear();
+                // Deterministic mapping (tuning/design is a follow-up): attack →
+                // the boss's primary authored strike; special (blink button) /
+                // projectile → its SIGNATURE content special (falling back to the
+                // next strike if the boss authors only geometry moves).
+                let choice = if frame.melee_pressed {
+                    capability.and_then(|c| c.slot(0).cloned())
+                } else if frame.special_pressed || frame.projectile_pressed {
+                    capability.and_then(|c| c.signature_special().or_else(|| c.slot(1)).cloned())
+                } else {
+                    None
+                };
+                if let Some((profile, strike_seconds)) = choice {
+                    attack_state.telegraph_profile = None;
+                    attack_state.telegraph_remaining = 0.0;
+                    attack_state.telegraph_elapsed = 0.0;
+                    attack_state.active_profile = Some(profile.clone());
+                    attack_state.active_remaining = strike_seconds;
+                    attack_state.active_elapsed = 0.0;
+                    // Content-technique specials (projectiles / world hitboxes /
+                    // minions) fire off the `Special` message; the spawned effects
+                    // inherit the firer's EFFECTIVE faction (Player while possessed),
+                    // so they strike the boss's former allies, not the player.
+                    // Geometry profiles carry no message — their damage would flow
+                    // through `boss_attack_damage`, which is gated off for a
+                    // player-controlled boss in `update_ecs_bosses`.
+                    if profile.is_special() {
+                        if let Some(spec) = boss_special_for_profile(&profile) {
+                            action_messages.write(ActorActionMessage {
+                                actor: entity,
+                                request: ActionRequest::Special { spec },
+                            });
+                        }
+                    }
+                }
+            }
             continue;
         }
 
@@ -401,7 +461,14 @@ pub fn update_ecs_bosses(
         let dodge_rolling = dodge.roll_timer > 0.0;
         let player_vulnerable =
             !offense.invincible && !dodge_rolling && !shield.parrying() && combat.vulnerable();
-        if player_vulnerable && feature.status.alive {
+        // Effective allegiance: a POSSESSED boss (carrying `Brain::Player`) is on
+        // the player's side — its body/attack volumes must not damage the player
+        // it now fights for. Its content-technique specials still hit the boss's
+        // former allies (their projectiles inherit the Player firer faction). This
+        // mirrors the actor path's `body_contact_damage_enabled = !is_player` gate;
+        // no faction is mutated.
+        let boss_player_controlled = brain.is_player();
+        if player_vulnerable && feature.status.alive && !boss_player_controlled {
             let ctx = BossVolumeContext::from_ref(feature.as_boss_ref(), attack_state)
                 .with_animation_frame(animation_frame);
             if let Some(damage) = boss_attack_damage(&ctx, boss_entity, target_entity, player_body)

@@ -531,6 +531,10 @@ pub(super) fn spawn_boss_with_overrides(
         apple_rain_dodge_freq,
         macro_tuning: boss.config.behavior.macro_tuning,
     };
+    // Authored special repertoire as body CAPABILITY (persists across a brain
+    // swap): both the autonomous pattern and a possessing human drive these same
+    // profiles. Derived before `brain_cfg` is moved into the brain.
+    let boss_capability = ambition_characters::brain::BossCapability::from_cfg(&brain_cfg);
     let brain = ambition_characters::brain::Brain::StateMachine(
         ambition_characters::brain::StateMachineCfg::BossPattern {
             cfg: brain_cfg,
@@ -610,6 +614,7 @@ pub(super) fn spawn_boss_with_overrides(
         boss_action_set,
         ambition_characters::brain::ActorControl::default(),
         ambition_characters::brain::BossAttackState::default(),
+        boss_capability,
     ));
     // Per-spawn tweaks Z: read at seed time by `update_boss_encounters`
     // (hp / size / phase triggers) + `sync_boss_encounter_entities`

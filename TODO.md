@@ -38,7 +38,7 @@ When you wake up here, pick the next task from this list and work on it without 
 
 - [ ] Need to hookup portraits in dialog.
 
-- [ ] Little character talking sounds for dialog
+- [x] Little character talking sounds for dialog
 
 - [ ] A better hit sfx for the player
 
@@ -50,7 +50,10 @@ When you wake up here, pick the next task from this list and work on it without 
 
 - [ ] A better double jump sfx for the player 
 
-- [ ] Spritesheet packing (and spritesheet splitting so we keep sheets efficient packed for memory).
+- [x] Spritesheet packing (and spritesheet splitting so we keep sheets efficient packed for memory).
+
+- [ ] We need to completely overhaul how sprites are managed. We currently are generating all of our sprites using some kind of vector art. Mostly Python, some SVG, maybe one with a python+yaml format. It doesn't really matter. What matters is that we need to have all generated data be organized better when it it published into the game. We need to allow for small sprites with only 1 frame to be merged into a larger sheet. Different generated qualities might be packed differently. E.g. in potato quality, perhaps we can fit many characters and props onto the same sheet. We need to not be publishing diagnostic data that the game has no mechanism to use. (unused actions are ok, as we just need to hook those up). The sprite generators should know everything about a character. It should know its hit boxes, its hurt boxes, its feet and hand positions. It should publish one ron file per character, and that ron file has the raw game-impacting data in it. We should structure it such that we could put multiple characters in the same ron file if we wanted. Because we will want to do this for props, which again, the generator should know everything about them from a game relevance perspective. This is how we publish actors and objects in a data driven way. We should probably check these ron files in, because they will let the game compile and play headlessly even if the visuals are not there. These game ron files might point at visual ron files which tell the game how to load the sprite animations and textures for a given resolution. It might be that there is a more professional refinement of what I'm saying, and we should seek to find the professional solution. All of these structures should be as uniform as possible for everything that has animations or sprite data. We want to reduce the duplication in the consumer code and make everything very expressive so the engine code does not have to change to add new actors and characters.
+
 
 - [ ] Cell-ular automata encounter that starts with encountering them and having to talk to them, only once you choose the challenge option does the fight / encounter begin. The boss has an advanced enemy fighter brain that we try to program to be smart and reactive (never cheating, we can improve the AI over time, but we should try to start with a strong candidate.). 
 

@@ -1,8 +1,11 @@
 # Data-driven entity and sprite publishing
 
-Status: publish boundary + tiered ultrapacks + pack loader are done (audited);
-remaining work is detailed and model-triaged in the Work program below.
-Gameplay north star: unified data-driven movesets — see "Moveset target".
+Status: publish boundary, tiered ultrapacks installed as runtime assets,
+pack consumer pilot (intro_cart), PackPlan locality groups, EntityCatalog +
+MoveSpec schema, and the moveset vertical slice are DONE (2026-07-02, W1/W2/
+W7/W8/W9). Remaining: W3-W6 (opus/sonnet tier) + the follow-ups listed in
+each done W-item. Gameplay north star: unified data-driven movesets — see
+"Moveset target".
 
 ---
 
@@ -83,7 +86,11 @@ fable  — design-heavy: resolves ambiguity, defines schemas, cross-crate
          architecture; expect it to push back on this doc where warranted
 ```
 
-### W1 [sonnet] Differential pack validation (render-enabled)
+### W1 [sonnet] Differential pack validation — DONE (2026-07-02)
+
+Landed: `tests/test_ultrapack.py::test_differential_pack_reconstruction_is_lossless`
+(pack-reconstructed frames byte-equal sheet-reconstructed frames), plus a
+real-data spot-check during W2. Original spec below.
 
 Prove the pack pixels equal the sheet pixels. Python test in the renderer:
 for every `(target, animation, index)` in a base-tier (scale 1.0) pack,
@@ -94,7 +101,21 @@ and reconstruct the same frame from the source per-target sheet
 *Acceptance:* a pytest (`--run-slow-render`-gated is fine) that fails when a
 packer change corrupts any frame. *Validate:* `pytest tests/test_ultrapack.py`.
 
-### W2 [fable] Runtime pack consumer — one prop end-to-end (the keystone)
+### W2 [fable] Runtime pack consumer — DONE (2026-07-02)
+
+Landed (commit `e8acd77d`): regen installs tiered packs into the runtime
+root `assets/sprite_packs/{full,half,quarter,potato}/` (tier names = the
+`TextureResolutionScale` vocabulary); `build.rs` bakes each tier's catalog
+(`BAKED_PACK_CATALOGS`); `SpritePackCatalog::to_sheet_record` drops a packed
+target onto the canonical SheetRecord frame algebra (no parallel render
+path); `build_prop_sprite_asset_packed` + `try_load_pack_spec_for_target`
+feed the existing atlas/animator pipeline; **intro_cart** is the pilot
+(pack-first, per-target-sheet fallback). Gameplay geometry stays on BASE
+data (packs carry no body_metrics). classify/hygiene know pack artifacts;
+regen enforces identical tier coverage. Headless proof: intro_cart resolves
+at full AND potato, atlases build, tier sizes differ. Remaining: in-app
+visual confirmation (blind per policy); live quality-switch rebind for
+props rides the existing refresh seam. Original spec below.
 
 Migrate ONE simple prop from `SheetRecord` to `SpritePackCatalog`. Design
 forks to resolve: install-into-runtime-root vs `build.rs` bake; tier
@@ -150,7 +171,16 @@ override). One file + its test/help text. *Acceptance:* running
 `debug-hitboxes <target>` with no `--out` writes nothing under
 `assets/sprites*`. *Validate:* renderer pytest + hygiene test.
 
-### W7 [fable] PackPlan: locality pack-groups
+### W7 [fable] PackPlan: locality pack-groups — DONE (2026-07-02)
+
+Landed (renderer `b4c9dcd`): `PackPlan` (authored YAML,
+`configs/pack_plan.yaml` — groups: always/intro seeded) partitions the pool;
+each group packs into its OWN page sequence, tagged in the catalog's new
+`page_groups` (parallel to pages; Rust type + validator updated). Locality
+guarantee pinned by test: a group's frames never share a page with another
+group. Report shows per-group residency. Grouping metadata lives in the
+PackPlan for now; entity-tag-derived groups arrive with EntityCatalog
+adoption. Original spec below.
 
 Layer grouping policy onto the general packer: keep a zone's / the
 always-loaded set's frames co-resident per page; group keys from entity
@@ -160,7 +190,16 @@ that is the design work. *Acceptance:* a declared group's frames land on a
 minimal page set without regressing overall fill badly; report shows
 per-group residency. *Validate:* pytest + pack report diff.
 
-### W8 [fable] EntityCatalog spine + seed MoveSpec (Phase 3, the Smash model)
+### W8 [fable] EntityCatalog spine + seed MoveSpec — DONE (2026-07-02)
+
+Landed (commit `00b5d58c`): new content-free crate `ambition_entity_catalog`
+(serde+ron, no Bevy): EntityDef contract bundles (body / presentation /
+moveset), MoveSpec timelines (tagged windows w/ attached entity-local hit
+volumes, timed events, clip binding w/ fallback chain, narrow gates),
+exhaustive headless validators, seed actor+prop catalog, RON round-trip.
+The proper-time rule is pinned by test: the schema carries no world time;
+a 0.25x-dilated owner reaches its active window after 4x the frames purely
+because the caller integrates proper dt. Original spec below.
 
 The typed `EntityCatalog` schema with one actor-like + one prop-like seed
 AND one seed `MoveSpec` (see "Moveset target"): windows on the owner's
@@ -170,7 +209,20 @@ schema design, not just plumbing. *Acceptance:* headless parse/validate
 tests; no runtime consumption required yet. *Validate:* `cargo test` on
 the owning crate.
 
-### W9 [fable] Moveset vertical slice (Phase 5 second half)
+### W9 [fable] Moveset vertical slice — DONE (2026-07-02)
+
+Landed (commit `fd880af0`): `combat::moveset` — MovePlayback +
+advance_move_playback (in the live combat schedule). Windows advance on
+`WorldTime::entity_dt(ProperTimeScale)`; Active windows spawn/despawn
+window-scoped `(Hitbox, HitboxHits)` entities (FollowOwner, facing-mirrored,
+deliberately no wall-clock HitboxLifetime) resolving through the EXISTING
+apply_hitbox_damage path; timed events emit `MoveEventMessage`. Headless sim
+proofs: (1) authored swat lands exactly one hit; (2) decomposability — the
+same MoveSpec on a second actor, zero Rust; (3) relativity — a 0.25x owner
+hits ~4x later with its picture phase slaved. Remaining follow-ups:
+brain/verb trigger (MovesetContract.verbs -> play_move), render-side clip
+sampling by phase, authored content catalog files, MoveEventMessage
+consumers (audio bridge / Effect-key techniques). Original spec below.
 
 First data-driven move played by the real runtime: sandbag + one attack
 (MoveSpec windows drive the sim; clip slaved to move phase; volume →

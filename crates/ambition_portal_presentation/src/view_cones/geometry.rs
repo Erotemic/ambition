@@ -26,13 +26,18 @@ pub(crate) fn capture_dims(
     world_size: Vec2,
     exit_normal: Vec2,
     capture_frame: Option<CaptureCameraFrame>,
+    screen_scale: f32,
 ) -> UVec2 {
     if config.capture_camera_mode == PortalCaptureCameraMode::MappedCameraSnapshot {
         let source_size = capture_frame
             .map(|frame| frame.size)
             .unwrap_or(Vec2::new(800.0, 450.0))
             .max(Vec2::splat(1.0));
-        let density = budget.texels_per_world_px.max(0.05);
+        // `texels_per_world_px = 1.0` means "pixel-perfect": the main camera
+        // renders each world pixel at `screen_scale` physical pixels, so the
+        // capture must match that density or the window reads blurrier than
+        // the world around it. `max_resolution` still caps the memory.
+        let density = budget.texels_per_world_px.max(0.05) * screen_scale.max(1.0);
         let max_side = budget.max_resolution.max(256);
         let width = (source_size.x * density).round() as u32;
         let height = (source_size.y * density).round() as u32;

@@ -532,3 +532,37 @@ fn an_airborne_fling_above_run_speed_is_preserved_while_holding_into_it() {
         scratch.kinematics.vel.x
     );
 }
+
+#[test]
+fn a_hands_off_fling_above_run_speed_has_no_air_drag() {
+    // There is no aerodynamic drag in this world: a ballistic fling (a portal
+    // exit) with the stick RELEASED keeps its horizontal speed until landing.
+    // Air friction is a run-stop assist and only acts below the run cap.
+    let world = test_world();
+    let mut scratch = scratch_with(AbilitySet::sandbox_all(), Vec2::new(200.0, 200.0));
+    scratch.ground.on_ground = false;
+    let fling = DEFAULT_TUNING.max_run_speed * 4.0;
+    scratch.kinematics.vel = Vec2::new(fling, 0.0);
+    for _ in 0..10 {
+        step_scratch(&world, &mut scratch, InputState::default());
+        if scratch.ground.on_ground {
+            break;
+        }
+    }
+    assert!(
+        scratch.kinematics.vel.x > fling - 1.0,
+        "no input, no drag: vx={} (fling was {fling})",
+        scratch.kinematics.vel.x
+    );
+
+    // Ordinary jump drift (below the run cap) still stops without input.
+    scratch.kinematics.vel = Vec2::new(DEFAULT_TUNING.max_run_speed * 0.5, 0.0);
+    let drift = scratch.kinematics.vel.x;
+    step_scratch(&world, &mut scratch, InputState::default());
+    assert!(
+        scratch.kinematics.vel.x < drift - 1.0,
+        "sub-cap air drift still decays via the stop assist: vx {} -> {}",
+        drift,
+        scratch.kinematics.vel.x
+    );
+}

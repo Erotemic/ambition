@@ -407,14 +407,19 @@ pub fn integrate_normal_spine(
         let mut target = run * tuning.max_run_speed;
         // Same `relax` as the fall cap below: airborne, the run cap is an
         // equilibrium input accelerates UP TO, never a brake on an over-cap
-        // fling (a portal exit at fall speed). Holding INTO the motion keeps
-        // the fling; holding against it still brakes at full air control.
-        // Grounded movement keeps the hard approach so landing ends a fling.
+        // fling (a portal exit at fall speed) — there is no aerodynamic drag
+        // in this world. Holding INTO the motion keeps the fling; releasing
+        // the stick keeps it too (the zero-target approach below is a
+        // run-stop assist, not drag); only OPPOSING input brakes, at full
+        // air control. Grounded movement keeps the hard approach so landing
+        // ends a fling.
         if !ctx.on_ground {
             if run > 0.1 {
                 target = target.max(along);
             } else if run < -0.1 {
                 target = target.min(along);
+            } else if along.abs() > tuning.max_run_speed {
+                target = along;
             }
         }
         let mut new_along = approach(along, target, accel * dt);
@@ -424,7 +429,15 @@ pub fn integrate_normal_spine(
             tuning.air_friction
         };
         if run.abs() <= 0.1 {
-            new_along = approach(new_along, 0.0, friction * dt);
+            // Air friction is a run-stop assist, not aerodynamic drag: it
+            // never touches ballistic speed above the run cap, so a portal
+            // fling with the stick released keeps flying (there is no air
+            // drag in this world). Friction resumes once the speed re-enters
+            // the ordinary run regime, and landing restores ground friction.
+            let ballistic = !ctx.on_ground && new_along.abs() > tuning.max_run_speed;
+            if !ballistic {
+                new_along = approach(new_along, 0.0, friction * dt);
+            }
         }
         *kin_vel += (new_along - along) * m;
     }

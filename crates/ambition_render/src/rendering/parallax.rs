@@ -200,11 +200,7 @@ pub fn sync_portal_capture_parallax_layers(
         Without<PortalCaptureParallaxLayerVisual>,
     >,
     rigs: Query<
-        (
-            Entity,
-            &Transform,
-            &ambition_portal_presentation::PortalViewRig,
-        ),
+        (Entity, &ambition_portal_presentation::PortalViewRig),
         Without<PortalCaptureParallaxLayerVisual>,
     >,
     mut copies: Query<(
@@ -221,31 +217,27 @@ pub fn sync_portal_capture_parallax_layers(
             commands.entity(entity).despawn();
             continue;
         };
-        let Ok((_, rig_transform, rig)) = rigs.get(copy.rig) else {
+        let Ok((_, rig)) = rigs.get(copy.rig) else {
             commands.entity(entity).despawn();
             continue;
         };
         live.insert((copy.rig, copy.source));
         *sprite = source_sprite.clone();
         *render_layers = RenderLayers::none().with(rig.parallax_layer());
-        sync_parallax_transform_to_camera(
-            &mut transform,
-            source_layer,
-            rig_transform.translation.truncate(),
-        );
+        // Anchor parallax at the MAPPED HOST CAMERA viewpoint (the position a
+        // viewer looking through the window sees from), not the capture
+        // camera's own framing center — a tight cone-rect frame would
+        // otherwise evaluate the background at the wrong viewpoint.
+        sync_parallax_transform_to_camera(&mut transform, source_layer, rig.parallax_anchor());
     }
 
-    for (rig_entity, rig_transform, rig) in &rigs {
+    for (rig_entity, rig) in &rigs {
         for (source_entity, source_sprite, source_layer) in &sources {
             if live.contains(&(rig_entity, source_entity)) {
                 continue;
             }
             let mut transform = Transform::default();
-            sync_parallax_transform_to_camera(
-                &mut transform,
-                source_layer,
-                rig_transform.translation.truncate(),
-            );
+            sync_parallax_transform_to_camera(&mut transform, source_layer, rig.parallax_anchor());
             commands.spawn((
                 source_sprite.clone(),
                 transform,

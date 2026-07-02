@@ -580,6 +580,7 @@ pub struct PortalConeMesh;
 pub struct PortalViewRig {
     channel: PortalChannel,
     parallax_layer: usize,
+    parallax_anchor: Vec2,
     rebuild: RebuildKey,
     /// Temporal blend state, 0 = minimum cone, 1 = full visible wedge;
     /// approaches the 4-corner visibility fraction at `blend_rate`/s and is
@@ -605,6 +606,47 @@ impl PortalViewRig {
     pub fn parallax_layer(&self) -> usize {
         self.parallax_layer
     }
+
+    /// Render-space viewpoint the rig's parallax copies should be anchored to:
+    /// the HOST camera's center mapped through the portal pair — the position
+    /// a viewer looking through this window effectively sees from. Anchoring
+    /// parallax to the capture camera's own transform instead evaluates the
+    /// background at whatever point the framing policy happens to center
+    /// (wrong for a tight cone-rect frame — the "fundamental parallax issue").
+    pub fn parallax_anchor(&self) -> Vec2 {
+        self.parallax_anchor
+    }
+}
+
+/// Physical screen pixels the main camera spends per world pixel — the density
+/// a "pixel-perfect" capture must match, or the window reads blurrier than the
+/// world around it. Falls back to 1.0 when the window or host view is
+/// unavailable (headless, first frame).
+fn screen_texels_per_world(
+    window: Option<&Window>,
+    host_view: Option<&PortalCameraContinuityHostView>,
+) -> f32 {
+    let (Some(window), Some(view)) = (
+        window,
+        host_view.filter(|v| v.initialized && v.visible_view.x >= 1.0 && v.visible_view.y >= 1.0),
+    ) else {
+        return 1.0;
+    };
+    let sx = window.physical_width() as f32 / view.visible_view.x;
+    let sy = window.physical_height() as f32 / view.visible_view.y;
+    sx.max(sy).clamp(1.0, 4.0)
+}
+
+/// World-space viewpoint the rig's parallax should be evaluated at: the host
+/// camera center mapped through the pair. `None` when no host view exists.
+fn portal_parallax_anchor_world(
+    host_view: Option<&PortalCameraContinuityHostView>,
+    enter: &PortalFrame,
+    exit: &PortalFrame,
+) -> Option<Vec2> {
+    host_view
+        .filter(|v| v.initialized)
+        .map(|v| ambition_portal::pieces::map_point(v.current_center_world, enter, exit))
 }
 
 fn portal_window_clip_rect(
@@ -696,6 +738,7 @@ pub fn sync_portal_view_cones(
         (&mut Transform, &mut Visibility),
         (With<PortalConeMesh>, Without<PortalViewRig>),
     >,
+    windows: Query<&Window, With<bevy::window::PrimaryWindow>>,
 ) {
     if selection.active != crate::PortalVisualEffect::ViewCones {
         for (entity, rig, ..) in &rigs {
@@ -718,6 +761,7 @@ pub fn sync_portal_view_cones(
     let viewer = viewer.as_deref();
     let (clip_min, clip_max) = portal_window_clip_rect(&frame, host_view.as_deref());
     let effective = effective_portal_capture_budget(&config, &quality);
+    let screen_scale = screen_texels_per_world(windows.single().ok(), host_view.as_deref());
     let now_s = time.elapsed_secs();
     let mut active_captures = 0u32;
     let mut updates_this_frame = 0u32;
@@ -744,6 +788,7 @@ pub fn sync_portal_view_cones(
                 frame.size,
                 partner.normal,
                 capture_frame,
+                screen_scale,
             ),
             recursion_depth: effective.recursion_depth,
             include_parallax: effective.include_parallax,
@@ -797,6 +842,13 @@ pub fn sync_portal_view_cones(
                     apply_mesh(mesh, &r);
                 }
                 cam_tf.translation = r.cam_center;
+                rig.parallax_anchor = frame
+                    .to_render(
+                        portal_parallax_anchor_world(host_view.as_deref(), &enter, &exit)
+                            .unwrap_or_else(|| (r.source_min + r.source_max) * 0.5),
+                        0.0,
+                    )
+                    .truncate();
                 if let Projection::Orthographic(o) = &mut *proj {
                     o.scaling_mode = ScalingMode::Fixed {
                         width: r.source_size.x,
@@ -847,6 +899,7 @@ pub fn sync_portal_view_cones(
                 frame.size,
                 partner.normal,
                 capture_frame,
+                screen_scale,
             ),
             recursion_depth: effective.recursion_depth,
             include_parallax: effective.include_parallax,
@@ -980,6 +1033,16 @@ pub fn sync_portal_view_cones(
             PortalViewRig {
                 channel: portal.channel,
                 parallax_layer: portal_capture_parallax_layer(portal.channel),
+                parallax_anchor: frame
+                    .to_render(
+                        portal_parallax_anchor_world(host_view.as_deref(), &enter, &exit)
+                            .or_else(|| {
+                                render.as_ref().map(|r| (r.source_min + r.source_max) * 0.5)
+                            })
+                            .unwrap_or(exit.pos),
+                        0.0,
+                    )
+                    .truncate(),
                 rebuild,
                 blend: if plan.target > 0.0 { plan.target } else { 0.0 },
                 _image: image,
@@ -1023,6 +1086,7 @@ pub fn flush_portal_view_cone_debug_dump(
         Option<&GlobalTransform>,
     )>,
     cone_visibility: Query<(&Visibility, Option<&GlobalTransform>), With<PortalConeMesh>>,
+    windows: Query<&Window, With<bevy::window::PrimaryWindow>>,
 ) {
     if !request.pending {
         return;
@@ -1046,6 +1110,7 @@ pub fn flush_portal_view_cone_debug_dump(
         &portals,
         &rigs,
         &cone_visibility,
+        screen_texels_per_world(windows.single().ok(), host_view.as_deref()),
     );
 
     #[cfg(not(target_arch = "wasm32"))]
@@ -1098,6 +1163,7 @@ fn portal_view_cone_debug_dump_text(
         Option<&GlobalTransform>,
     )>,
     cone_visibility: &Query<(&Visibility, Option<&GlobalTransform>), With<PortalConeMesh>>,
+    screen_scale: f32,
 ) -> String {
     let mut out = String::new();
     let all: Vec<PlacedPortal> = portals.iter().copied().collect();
@@ -1314,6 +1380,7 @@ fn portal_view_cone_debug_dump_text(
                 frame.size,
                 partner.normal,
                 capture_frame,
+                screen_scale,
             ),
             recursion_depth: effective.recursion_depth,
             include_parallax: effective.include_parallax,

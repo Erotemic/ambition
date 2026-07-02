@@ -127,7 +127,57 @@ near-side viewer under the default visibility mode (the wormhole admission
 route is correctly gated on face LOS — the admission logic itself was sound;
 the artifacts were pure render-layer/geometry bugs).
 
-### F6. Dead duplicate modules deleted
+### F6. "No drag" — zero-input air braking killed ballistic flight (round 3, Jon's c130/c131 report)
+
+Jon: falling through the c130/c131 pair (the `corner_portal_link1`
+floor↔wall 90° corner pair in portal_lab) should sustain at high speed, but
+the path decays with no drag in sight. Diagnosis: it IS the integrator, twice
+over — with **no input held**, the horizontal block ran
+`approach(along, 0, air_accel·dt)` (3100 px/s² toward zero!) plus
+`air_friction` (650 px/s²). Neither is aerodynamic drag conceptually — both
+are run-stop assists — but together they bled any ballistic horizontal leg at
+~3750 px/s². The corner pair converts fall speed into a horizontal leg every
+cycle, so each pass decayed visibly. (F2 had already fixed the
+*held-direction* brake; this closes the *hands-off* one.)
+
+Fix: airborne with the stick released, speed above `max_run_speed` is
+ballistic — neither the zero-target approach nor air friction touches it.
+Below the run cap, both behave exactly as before (normal jump drift still
+stops), opposing input still brakes at full air control, and landing restores
+ground friction. There is now genuinely no air drag in this world. Tests:
+`a_hands_off_fling_above_run_speed_has_no_air_drag` (+ the held-direction pin
+from F2).
+
+### F7. Capture resolution + the ConeRect parallax issue (round 3)
+
+- **Windows were inherently blurry**: capture density was budgeted in texels
+  per WORLD pixel and hard-capped at 1.0, but the main camera renders each
+  world pixel at `window_px / visible_view` ≈ 2–3 physical pixels. A
+  "pixel-perfect" (1.0) capture was therefore 2–3× under-sampled versus the
+  world around it. `capture_dims` (MappedCameraSnapshot path) now multiplies
+  in the measured screen scale (primary-window physical size over the host
+  visible view, clamped 1–4×), still capped by the quality budget's
+  `max_resolution` — so the top quality tier (2048) reaches full screen
+  density, High (1024) lands ~1.3×, and mobile tiers keep their VRAM caps.
+- **Parallax anchoring decoupled from camera framing**: the per-rig parallax
+  copies were positioned from the capture camera's own transform. That is why
+  `ConeRect` has "the fundamental parallax issue" — its camera centers on the
+  tight source rect, so the background was evaluated at the wedge's center
+  instead of the viewer's mapped position. `PortalViewRig` now carries a
+  `parallax_anchor` (the HOST camera center mapped through the pair, falling
+  back to the source-rect center without a host view), and
+  `sync_portal_capture_parallax_layers` anchors copies there. This makes
+  parallax correct under ANY framing policy — ConeRect included, so ConeRect
+  (tight rect = maximum texel density for free) is now a genuinely viable
+  default candidate. Worth an A/B against the snapshot mode.
+
+On **AllowClip**: it is a diagnostic escape hatch, not a real mode — it skips
+the entry-polygon clip, so in MappedCameraSnapshot mode the mapped vertices
+land outside the fixed capture frame and the UVs clamp (looks "broken" by
+construction), and with the default full half-plane preview the unclipped quad
+is world-sized. See D12.
+
+### F8. Dead duplicate modules deleted
 
 `src/shot.rs` and `src/pickup.rs` in `ambition_portal` were orphaned earlier
 copies of `gun_projectile.rs` / `gun_pickup.rs` — never declared in `lib.rs`,
@@ -215,7 +265,7 @@ Options:
    *Begin* path. Needs a careful headless soak (floor↔floor bounce, wall↔wall
    turnaround) before trusting it.
 
-### D4. Air friction on over-speed flings (feel decision)
+### D4. Air friction on over-speed flings — RESOLVED by F6 (hands-off flings are ballistic)
 
 After F2, a held-direction fling is preserved, but with **no input** air
 friction (650 px/s²) decays a fling toward zero — a 1900 px/s fling dies in
@@ -334,3 +384,23 @@ each pass faster, then redirect through a wall portal to launch":
 Residual risks to playtest: D3 (cooldown blocking a *different* chained pair),
 D4 (hands-off fling decay), and landing mid-loop (grounded braking ends a
 fling by design).
+
+### D12. Source-clip policy enum has one real variant
+
+`PortalViewConeSourceClipPolicy`: `ClampToFrame` is the correct behavior,
+`FitToFrame` is currently an exact alias of it, and `AllowClip` is incoherent
+under the default MappedCameraSnapshot mode (unclipped vertices fall outside
+the fixed capture frame → clamped UVs → smear) and degenerate under the full
+half-plane preview (world-sized quad). Recommendation: delete `AllowClip` and
+`FitToFrame` (pre-release, no compat tax) and collapse the enum — or keep
+`FitToFrame` only if an aspect-preserving fit is actually planned soon.
+
+### D13. Quality-tier capture caps vs screen density
+
+With F7 the capture targets true screen density; the per-tier
+`portal.max_resolution` caps now decide the delivered sharpness: 2048 (top
+tier) is fully crisp at 1080p-class windows, 1024 (High) lands ~1.3 texels
+per world px, lower tiers keep their VRAM budgets. If High should be crisp on
+desktop, raise its cap to 2048 and let the tier system differentiate by
+platform instead. The `texels_per_world_px` knob now reads naturally as a
+fraction of screen density (1.0 = pixel-perfect), matching its original doc.

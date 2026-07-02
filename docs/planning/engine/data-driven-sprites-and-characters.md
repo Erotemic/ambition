@@ -7,13 +7,38 @@ First implementation target: clean asset publishing and runtime install boundari
 
 ## Implementation status (2026-07-02)
 
-**Short version: the *tools and types* exist and work in isolation; the
-end-to-end pipeline (regen → publish → runtime consumption) is NOT connected.
-`./regen_sprites.sh` does not run ultrapacking or emit a real PublishManifest,
-and the game still loads per-target `*_spritesheet.ron` sheets. Nothing in the
-runtime consumes a shared pack.**
+**Short version: the *tools and types* exist and work; `./regen_sprites.sh` now
+ultrapacks every published sheet into shared, uniform, quality-tiered atlas
+pages every regen — into a STAGING pack root, cleanly (no debug views unless
+opted in). The one remaining keystone is the runtime `SpritePackCatalog`
+consumer: the game still loads per-target `*_spritesheet.ron` sheets, so the
+staged packs are ready-to-ship but not yet loaded.**
 
 ### Done
+
+- **Ultrapacking is wired into `regen_sprites.sh`, at four quality tiers.** After
+  the per-target render + diagnostics sweep, regen pools every published
+  `*_spritesheet.yaml` into shared uniform pages + a catalog, once per tier —
+  `base` (1.0, 2048² pages), `half` (0.5, 1024²), `quarter` (0.25, 512²),
+  `potato` (1/16, 256², 8px floor) — into `target/ambition_publish/packs/<tier>/`.
+  This is **efficient**: the sheets are rendered ONCE, then each tier reads that
+  pool (`ultrapack --from-rendered`) and downsamples each *isolated* frame to the
+  tier budget before repacking — never re-rendering, never resizing an
+  already-packed page. Real data: **5636 frames from 116 targets → 43 pages at
+  93.7% fill (base); potato → 14 pages**; all four tiers pack in ~75s total.
+  Page size scales DOWN with the tier because MaxRects degrades badly with
+  thousands of tiny rects on one big page (potato @ 2048² took minutes; @ 256²
+  it is ~10s). Opt out with `AMBITION_ULTRAPACK=0`.
+- **The pack output is clean by default; debug views are opt-in and staged.**
+  `ultrapack` writes only runtime artifacts (page PNGs + catalog JSON) into the
+  pack dir. Labeled per-page overlays (checkerboard + per-frame rect outlines)
+  and a pack report are written under `<tier>/diagnostics/` ONLY when
+  `--debug-views` is passed (regen gate: `AMBITION_ULTRAPACK_DEBUG=1`). So the
+  published pack dirs never contain debug views — and staging is gitignored
+  (`target/`). `authoring/ultrapack.py` + `tests/test_ultrapack.py` (scale,
+  potato floor, clean-output/opt-in-diagnostics invariants).
+
+#### Earlier
 
 - **Publish-boundary hygiene (the first-milestone core).** `PublishManifest`
   and the runtime-root hygiene validator are typed + tested in the Rust
@@ -38,33 +63,41 @@ runtime consumes a shared pack.**
 
 ### NOT done (the gaps that make it not-yet-usable in-game)
 
-1. **`regen_sprites.sh` does not run the publish/pack step.** It still renders +
-   installs *per-target* sheets into `assets/sprites/`. The shared pack is never
-   produced during a normal regen.
-2. **No runtime `SpritePackCatalog` consumer.** The game reads per-target baked
+1. **No runtime `SpritePackCatalog` consumer.** The game reads per-target baked
    `*_spritesheet.ron` (`SheetRecord` via `build.rs` → `BAKED_SHEET_RONS`). There
    is no Rust loader for the shared pages + per-frame `(page, rect, off)`. This
-   is the keystone missing piece — without it, ultrapacking cannot ship.
+   is now the *single* keystone missing piece — the staged packs are produced
+   every regen but nothing loads them yet.
+2. **Packs stage, they don't install.** `regen_sprites.sh` writes the tiered
+   packs into `target/ambition_publish/packs/<tier>/` (staging), deliberately
+   NOT into a runtime asset root — there is no consumer, and installing dead
+   pages would just bloat the bundle. Flip to an install once (1) lands.
 3. **`PublishManifest` is not emitted for real assets.** It's a typed artifact +
    fixture test; the actual install is still a direct copy, not manifest-driven.
+   The pack catalog JSON is not yet recorded in a `PublishManifest`.
 4. **`EntityCatalog` — not started.** Gameplay truth still lives in
    `character_catalog.ron` + `SheetRecord` geometry.
-5. **11 bespoke targets sit out ultrapacking** (multi-file bosses, tilesets, the
-   icon grid, multi-variant modules) — they don't emit a standard single-sheet
-   manifest.
-6. **Ultrapacking has no locality policy and re-renders to extract frames** (no
-   pack-groups; not fed from native `frame_source()`).
+5. **~11 bespoke targets sit out ultrapacking** (multi-file bosses in subdirs,
+   tilesets, the icon grid, multi-variant modules) — they have no top-level
+   single-sheet `*_spritesheet.yaml`, so the `--from-rendered` glob skips them.
+6. **Ultrapacking has no locality policy** (no pack-groups keeping a zone's /
+   always-loaded set's frames co-resident). The re-render-to-extract round-trip
+   *is* now avoided on the regen path (`--from-rendered` reads the already-baked
+   sheets), but native `frame_source()` packing is still future work.
 
 ### Recommendations (ordered)
 
-1. **Build the runtime `SpritePackCatalog` loader first.** A typed Rust schema +
-   loader that resolves `(target, animation, frame) → (shared page, rect, off,
-   logical size)`. Until the runtime can *read* a shared pack, the packer output
-   is unusable. Keep `SheetRecord` as a compatibility path during migration.
-2. **Add a publish step to `regen_sprites.sh`** that runs after per-target render:
-   produce the shared pages + catalog, install them into a runtime pack root,
-   and emit a real `PublishManifest` recording exactly what shipped. Gate it
-   behind a publish profile so dev iteration keeps using fast per-target sheets.
+1. **Build the runtime `SpritePackCatalog` loader — now the sole keystone.** A
+   typed Rust schema + loader that reads `target/ambition_publish/packs/<tier>/
+   ultrapack.json` and resolves `(target, animation, frame) → (shared page,
+   rect, off, logical size)`. The catalog + tiered pages already exist every
+   regen; this is what turns them from staged artifacts into shipped assets.
+   Keep `SheetRecord` as a compatibility path during migration.
+2. ~~**Add a publish step to `regen_sprites.sh`**~~ — DONE (2026-07-02). The
+   pack step runs after per-target render, produces shared pages + catalog per
+   quality tier into the staging pack root, and is gated by `AMBITION_ULTRAPACK`
+   so dev iteration can skip it. Still TODO: emit a real `PublishManifest`
+   recording the pack, and (once the loader lands) install into a runtime root.
 3. **Migrate one runtime consumer** (a simple prop, then a character) from
    `SheetRecord` to the pack catalog to prove the end-to-end path before flipping
    everything.
@@ -76,9 +109,10 @@ runtime consumes a shared pack.**
 6. **`EntityCatalog`** is the later, separable gameplay-truth migration; it does
    not block shipping the sprite pack.
 
-The dependency to internalize: **runtime consumer → regen publish step →
-per-consumer migration.** Everything upstream (packer, manifest, hygiene) is
-ready; the runtime loader is what turns it from a tool into shipped assets.
+The dependency to internalize: **runtime consumer → per-consumer migration.**
+Everything upstream (packer, tiered regen pack step, manifest, hygiene) is now
+ready and running every regen; the runtime loader is the one thing left that
+turns the staged packs into shipped assets.
 
 This document defines the target architecture for generated sprite data, visual publishing, runtime asset installation, and eventually uniform entity contracts.
 

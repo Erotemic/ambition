@@ -737,6 +737,64 @@ else
     echo "  (skipped — no python interpreter)"
 fi
 
+# --- Ultrapacked quality-tier sprite atlases (staging) --------------------
+# Pool every published per-target sheet into shared, uniformly-sized atlas
+# pages at each quality tier, then write pages + a SpritePackCatalog into the
+# STAGING pack root (target/ambition_publish/packs/<tier>/). This is NOT a
+# runtime asset root: there is no Rust SpritePackCatalog consumer yet, so the
+# game still loads the per-target sheets above. The pack step exists so the
+# ultrapacked, multi-quality artifacts are regenerated every regen, ready for
+# the runtime loader (the keystone next step). See
+# docs/planning/engine/data-driven-sprites-and-characters.md.
+#
+# Efficient by construction: the sheets were rendered ONCE above, so each tier
+# reads that pool (`--from-rendered`) and downsamples each isolated frame to
+# the tier budget before repacking — never re-rendering, and never resizing an
+# already-packed page (which would bleed neighbours across frame edges).
+#
+# Debug views (labeled page overlays + a pack report) are OFF by default and
+# land under <tier>/diagnostics/ only when AMBITION_ULTRAPACK_DEBUG=1, so the
+# published pack dirs hold runtime artifacts (pages + catalog) only.
+#   AMBITION_ULTRAPACK=0        skip the pack step entirely (fast dev regen)
+#   AMBITION_ULTRAPACK_DEBUG=1  also emit per-page diagnostics into staging
+echo "==> Ultrapack: shared-page atlases per quality tier → staging:"
+pack_root="$repo_root/target/ambition_publish/packs"
+if [ "${AMBITION_ULTRAPACK:-1}" = "0" ]; then
+    echo "  (skipped — AMBITION_ULTRAPACK=0)"
+elif command -v "$python_bin" >/dev/null 2>&1 && \
+    "$python_bin" -c 'import ambition_sprite2d_renderer' >/dev/null 2>&1
+then
+    ultrapack_debug=()
+    if [ "${AMBITION_ULTRAPACK_DEBUG:-0}" = "1" ]; then
+        ultrapack_debug=(--debug-views)
+    fi
+    # tier: <name> <scale> <min_frame_px> <page_size>
+    #
+    # Page size scales DOWN with the tier: shrunk frames pack many-per-page,
+    # and MaxRects degrades badly with thousands of tiny rects in one big page
+    # (potato @ 2048² takes minutes). A smaller page keeps frames-per-page
+    # bounded — potato @ 256² packs in ~10s — and a potato atlas has no reason
+    # to be 2048². Uniform page size still holds WITHIN each pack.
+    ultrapack_tiers=(
+        "base 1.0 1 2048"
+        "half 0.5 1 1024"
+        "quarter 0.25 1 512"
+        "potato 0.0625 8 256"
+    )
+    for tier in "${ultrapack_tiers[@]}"; do
+        read -r tname tscale tmin tpage <<<"$tier"
+        (cd "$renderer_dir" && "$python_bin" -m ambition_sprite2d_renderer ultrapack \
+            --from-rendered "$sprites_dir" \
+            --out "$pack_root/$tname" \
+            --scale "$tscale" --min-frame-px "$tmin" --page-size "$tpage" \
+            --name ultrapack "${ultrapack_debug[@]}") 2>&1 | sed 's/^/  /' || \
+            echo "  WARN: ultrapack tier '$tname' failed (non-fatal)"
+    done
+    echo "  packs staged under $pack_root/{base,half,quarter,potato}/"
+else
+    echo "  (skipped — sprite renderer not importable from $python_bin)"
+fi
+
 # --- Hall-of-Characters sprite census ------------------------------------
 # Quick check of which catalog entries the Hall will render vs fall
 # back to the colored-rectangle placeholder. Helpful as a final

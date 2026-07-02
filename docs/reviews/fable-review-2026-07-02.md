@@ -728,10 +728,11 @@ work is committed linearly on main; the tree is green.
 1. ~~**A2**~~ — COMPLETE (E11–E13): `resolve_body_hit` + shared knockback +
    shared stagger for every body. Steps 6 (knockback, `b4912001`) and 7
    (stagger, see E13) are BLIND feel commits awaiting Jon's feel-check.
-2. **A1** — boss island dissolution: slice 1 (the `BossStatus` authority flip,
-   E14) is DONE; slices 2 (boss = full A2 victim) and 3 (driver fold) remain —
-   the full designs are in "Next" below. After slice 2, grep `§A1` and
-   `Without<BossConfig>` to remove the victim special-cases added this session.
+2. **A1** — boss island dissolution: slice 1 (authority flip, E14) and slice 2a
+   (boss damage through the resolver, E15) are DONE; slice 3 (the driver fold)
+   remains — full design in "Next" below. Slice-2b (boss vuln clusters + drop
+   the `apply_hitbox_damage` `Option`) folded into slice 3; grep `§A1` and
+   `Without<BossConfig>` there to remove the victim special-cases.
 3. Then the engine/content + decomposition tracks, roughly: **D1** facade
    deletion (mechanical, huge navigability win) → **C1/C2** item catalog +
    `HELD_ITEMS` onto the roster-install pattern → **D2/D3** body-vocab re-home
@@ -1033,7 +1034,31 @@ overlays), app (debug gizmos + boss test suites). Verified: gameplay-core 1090,
 engine-core 211, content 53, render 24, the six app suites, AND
 boss_lifecycle (8) / boss_contact_iframes (4) / boss_possession_specials (1).
 
-## Next (in order) — A1 slices 2–3, then engine/content + decomposition tracks
+### E15. A1 slice 2a — boss damage flows through the ONE resolver ✅ (blind — no-i-frame decision surfaced)
+`apply_entity_boss_damage` now routes its health/death mechanics through
+`combat::damage::resolve_body_hit` — the boss is the FOURTH caller of the one
+victim-side resolver (player, actor, boss victim, boss). The invulnerable-PHASE
+gate (Intro/Transition/Dormant/Death swallow the hit) stays boss POLICY, checked
+before the resolver. The boss's `BodyHitFeel` makes the tuning EXPLICIT and
+one-field-tunable: `damage_invuln_time: 0.0` (NO post-hit i-frame — bosses never
+had one; `hit_flash: 0.18` was only a bark debounce, so player DPS is unchanged),
+no shield. This is the same per-body knob §A2 gave the player (0.75s) and actors
+(0.2s). Behavior-preserving: the bark + overlap-flash + death-drops stay boss
+policy in `apply_boss_hit`; the 4 contract tests still pass and a 5th pins the
+no-i-frame invariant (back-to-back hits both land, `vulnerable()` stays true).
+Blind because it's the last damage-mechanics touch on the boss feel surface,
+even though it's a no-op numerically today. Verified: gameplay-core 1091,
+the six app suites, boss_lifecycle/boss_contact_iframes/boss_possession_specials.
+NOTE for slice 3: slice-2 part (b) (give bosses `BodyOffense`/`BodyDodgeState`/
+`BodyShieldState` + delete the `Option`-typed vuln in `apply_hitbox_damage`)
+was DEFERRED into slice 3 — the win is only removing an `Option` (the boss
+victim path in `apply_hitbox_damage` stamps `HitTarget::Actor(boss)`, which
+lands nowhere today since `apply_feature_hit_events`' actor loop is
+`Without<BossConfig>` and its boss loop only runs when `actor_target.is_none()`),
+so adding the clusters is behavior-neutral cleanliness best done WITH the
+holistic boss→actor-archetype conversion + its query-aliasing audit, not before.
+
+## Next (in order) — A1 slice 3, then engine/content + decomposition tracks
 
 **§A2 is COMPLETE** (E10–E13). The victim-side damage path is ONE resolver +
 ONE reaction for every body; per-body policy is the only fork left.
@@ -1045,22 +1070,22 @@ ONE reaction for every body; per-body policy is the only fork left.
   → drops/banner/respawn-timer/split/explode, cling-detach pop.
 - Boss: untouched until A1.
 
-**A1 — boss island dissolution** (slice 1 DONE — E14; slices 2–3 remain,
-each independently committable):
+**A1 — boss island dissolution** (slices 1 + 2a DONE — E14, E15; slice 3
+remains; slice-2b folded into slice 3):
 
-*Slice 2 — boss victim = full A2 victim.* With HP on `BodyHealth` (slice 1
-done), `apply_boss_hit` routes through `combat::damage::resolve_body_hit` (+
-`apply_body_hit_reaction` if bosses should stagger — likely NOT for heavies:
-give them a `BodyHitFeel` with hitstun 0 / their own i-frame, it's the
-designed per-body knob). FEEL WARNING: bosses currently have NO post-hit
-i-frame at all (the 0.18 hit_flash is only a bark debounce) — any
-`damage_invuln_time > 0` reduces player DPS against bosses, and the
-invulnerable-PHASE gate must stay boss policy (checked before the resolver).
-Ship as a clearly-marked blind commit. Phase/death resolution stays boss
-policy. Then give bosses the remaining vulnerability clusters
-(`BodyOffense`/`BodyDodgeState`/`BodyShieldState` default-inert) and DELETE
-the `Option`-typed vuln in `apply_hitbox_damage` + grep `§A1` and
-`Without<BossConfig>` victim carve-outs.
+*Slice 2a — boss damage through the resolver — DONE (E15).*
+
+*Slice 2b (folded into slice 3) — give bosses `BodyOffense`/`BodyDodgeState`/
+`BodyShieldState` (default-inert) so `apply_hitbox_damage`'s victim tuple drops
+its `Option`, and grep `§A1` + `Without<BossConfig>` victim carve-outs.* Deferred
+because it's behavior-neutral cleanliness whose only payoff arrives WITH the
+boss→actor conversion (see E15 note on the dead `HitTarget::Actor(boss)` route),
+and adding components to bosses needs the query-aliasing audit slice 3 does
+anyway. Audit already started: no standalone `Query<&mut BodyOffense/…>` exists
+(only the composite `BodyClusterQueryData` views + the movement-pipeline fn
+params), so adding the clusters won't newly-alias a mutable query — but confirm
+no `ActorFaction`-carrying non-body (enemy projectile?) would be dropped from the
+victims query when the tuple goes non-`Option`.
 
 *Slice 3 — driver fold (the big one).* `BossAttackState` → `BodyMelee`/moveset;
 `update_ecs_bosses` + `tick_boss_brains` fold into `tick_actor_brains` +

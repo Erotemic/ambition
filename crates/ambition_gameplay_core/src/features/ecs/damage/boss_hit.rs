@@ -24,30 +24,69 @@ use super::*;
 /// Apply player damage to a boss ENTITY (the entity is the source of truth:
 /// HP on the shared `BodyHealth`, phase on `BossStatus.encounter` — §A1).
 ///
+/// The health/death MECHANICS go through the ONE victim-side resolver
+/// [`crate::combat::damage::resolve_body_hit`] (fable review §A1 slice 2) — the
+/// same door every body's damage flows through (player, actor, and now boss).
+/// The invulnerable-PHASE gate stays boss POLICY (checked before the resolver):
+/// Intro / Transition / the `transition_lock` tell / Dormant / Death swallow the
+/// hit. The boss's `BodyHitFeel` makes the boss tuning EXPLICIT: NO post-hit
+/// i-frame (`damage_invuln_time: 0.0`, so `vulnerable()` never blocks and player
+/// DPS is unchanged) and no shield — the per-body feel knob that §A2 gave the
+/// player (0.75s) and actors (0.2s), now covering bosses too. A designer wanting
+/// boss i-frames changes ONE field here.
+///
 /// Returns `(applied, killed)`: `applied` is false when an invulnerable phase
-/// (Intro / Transition / the `transition_lock` tell / Dormant / Death) swallows
-/// the hit, so the caller can suppress hit VFX; `killed` is true on the hit that
-/// drives HP to zero. On a kill the phase is forced to `Death` (the death outro
-/// + save/quest resolution run in `update_boss_encounters`).
+/// swallows the hit, so the caller can suppress hit VFX; `killed` is true on the
+/// hit that drives HP to zero. On a kill the phase is forced to `Death` (the
+/// death outro + save/quest resolution run in `update_boss_encounters`).
 pub(crate) fn apply_entity_boss_damage(
     status: &mut BossStatus,
     health: &mut crate::actor::BodyHealth,
+    combat: &mut crate::actor::BodyCombat,
     amount: i32,
 ) -> (bool, bool) {
+    // Phase-invuln is boss POLICY, gated before the shared mechanics.
     let invulnerable = status
         .encounter
         .as_ref()
         .map_or(false, |phase| phase.boss_invulnerable());
-    if invulnerable || amount <= 0 || !health.alive() {
+    if invulnerable || amount <= 0 {
         return (false, false);
     }
-    let killed = health.damage(amount);
-    if killed {
-        if let Some(phase) = status.encounter.as_mut() {
-            let _ = phase.kill();
+    // THE shared victim-side mechanics. Shield args are inert (bosses carry no
+    // `BodyShieldState`; `shield_active: false` short-circuits the block).
+    let resolution = crate::combat::damage::resolve_body_hit(
+        combat,
+        Some(health),
+        false,
+        0.0,
+        ae::Vec2::ZERO,
+        ae::Vec2::ZERO,
+        ae::Vec2::new(0.0, 1.0),
+        amount,
+        1.0,
+        false,
+        crate::combat::damage::BodyHitFeel {
+            hit_flash: 0.18,
+            damage_invuln_time: 0.0,
+            block_hit_flash: 0.0,
+            block_invuln_floor: 0.0,
+        },
+    );
+    match resolution {
+        // Already dead (raced past the caller's liveness check) — no hit.
+        crate::combat::damage::BodyHitResolution::Ignored => (false, false),
+        // No shield component ⇒ the resolver never returns Blocked for a boss.
+        crate::combat::damage::BodyHitResolution::Blocked => (false, false),
+        crate::combat::damage::BodyHitResolution::Damaged { died, .. } => {
+            if died {
+                if let Some(phase) = status.encounter.as_mut() {
+                    let _ = phase.kill();
+                }
+            }
+            (true, died)
         }
     }
-    (true, killed)
 }
 
 /// Apply one landed attacker-side hit to a single boss and emit its
@@ -143,7 +182,7 @@ pub(crate) fn apply_boss_hit(
     // hit. The death CONSEQUENCES that aren't immediate feedback (save Cleared +
     // quest + music restore) are resolved by `update_boss_encounters` once the
     // death outro elapses.
-    let (applied, killed) = apply_entity_boss_damage(boss.status, health, amount);
+    let (applied, killed) = apply_entity_boss_damage(boss.status, health, combat, amount);
     if !applied {
         // Invulnerable phase swallowed the damage. Skip the
         // hit VFX / GameplayEffect signal so the player sees
@@ -236,7 +275,8 @@ mod entity_damage_tests {
     #[test]
     fn damage_decreases_hp_in_a_vulnerable_phase() {
         let (mut s, mut health) = boss(10, BossEncounterPhase::Phase1);
-        let (applied, killed) = apply_entity_boss_damage(&mut s, &mut health, 3);
+        let mut combat = crate::actor::BodyCombat::default();
+        let (applied, killed) = apply_entity_boss_damage(&mut s, &mut health, &mut combat, 3);
         assert!(applied);
         assert!(!killed);
         assert_eq!(health.current(), 7);
@@ -245,7 +285,8 @@ mod entity_damage_tests {
     #[test]
     fn lethal_damage_kills_and_sets_death_phase() {
         let (mut s, mut health) = boss(4, BossEncounterPhase::Phase1);
-        let (applied, killed) = apply_entity_boss_damage(&mut s, &mut health, 10);
+        let mut combat = crate::actor::BodyCombat::default();
+        let (applied, killed) = apply_entity_boss_damage(&mut s, &mut health, &mut combat, 10);
         assert!(applied);
         assert!(killed);
         assert_eq!(health.current(), 0);
@@ -260,7 +301,8 @@ mod entity_damage_tests {
     fn invulnerable_phase_swallows_damage() {
         // Transition is invulnerable in the phase vocabulary.
         let (mut s, mut health) = boss(10, BossEncounterPhase::Transition);
-        let (applied, killed) = apply_entity_boss_damage(&mut s, &mut health, 5);
+        let mut combat = crate::actor::BodyCombat::default();
+        let (applied, killed) = apply_entity_boss_damage(&mut s, &mut health, &mut combat, 5);
         assert!(!applied);
         assert!(!killed);
         assert_eq!(health.current(), 10);
@@ -269,11 +311,30 @@ mod entity_damage_tests {
     #[test]
     fn already_dead_boss_does_not_refire_killed() {
         let (mut s, mut health) = boss(4, BossEncounterPhase::Phase1);
-        let _ = apply_entity_boss_damage(&mut s, &mut health, 10); // kills → Death
-        let (applied, killed) = apply_entity_boss_damage(&mut s, &mut health, 5);
+        let mut combat = crate::actor::BodyCombat::default();
+        let _ = apply_entity_boss_damage(&mut s, &mut health, &mut combat, 10); // kills → Death
+        let (applied, killed) = apply_entity_boss_damage(&mut s, &mut health, &mut combat, 5);
         // Death is invulnerable → the follow-up hit is swallowed, killed stays false.
         assert!(!applied);
         assert!(!killed);
         assert_eq!(health.current(), 0);
+    }
+
+    #[test]
+    fn boss_has_no_post_hit_i_frame_so_back_to_back_hits_both_land() {
+        // §A1 slice 2 FEEL invariant: unlike an actor (0.2s i-frame) or the
+        // player (0.75s), a boss's `BodyHitFeel.damage_invuln_time` is 0.0, so
+        // `vulnerable()` never gates — two hits in the same window both deal
+        // damage (player DPS against bosses is unchanged by the resolver).
+        let (mut s, mut health) = boss(10, BossEncounterPhase::Phase1);
+        let mut combat = crate::actor::BodyCombat::default();
+        let (a1, _) = apply_entity_boss_damage(&mut s, &mut health, &mut combat, 3);
+        let (a2, _) = apply_entity_boss_damage(&mut s, &mut health, &mut combat, 3);
+        assert!(a1 && a2, "both hits apply — no i-frame swallows the second");
+        assert_eq!(health.current(), 4, "both hits dealt full damage");
+        assert!(
+            combat.vulnerable(),
+            "the boss never enters an i-frame window (damage_invuln_time 0.0)"
+        );
     }
 }

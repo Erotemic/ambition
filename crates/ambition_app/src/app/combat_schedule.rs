@@ -25,6 +25,7 @@ impl Plugin for CombatSchedulePlugin {
         // drains it. Registered here so the writers never hit an unregistered
         // message.
         app.add_message::<ambition_gameplay_core::effects::EffectRequest>();
+        app.add_message::<ambition_gameplay_core::combat::moveset::MoveEventMessage>();
         // Programmatic actor-spawn seam: scenario tests and RL/agent scene setup
         // emit `SpawnActorRequest`; `apply_spawn_actor_requests` materializes each
         // actor through the same `spawn_boss` / `spawn_enemy` paths room load uses.
@@ -109,6 +110,13 @@ impl Plugin for CombatSchedulePlugin {
                 // Phase 3b player-pool spawn consumer: materializes player-fired
                 // bodies AFTER the step, so the new body first ticks next frame.
                 ambition_gameplay_core::projectile::apply_player_spawn_projectile_messages,
+                // Data-driven move playback (Smash-model timelines, W9):
+                // advances each playing MoveSpec on its OWNER'S proper time,
+                // manages window-scoped hit volumes, fires MoveEventMessages.
+                // Before apply_hitbox_damage so a window entered this tick
+                // resolves its hits this tick.
+                ambition_gameplay_core::combat::moveset::advance_move_playback
+                    .run_if(gameplay_allowed),
                 // Hitbox-entity lifecycle for melee strikes (Task A of the
                 // actor/brain follow-up plan). `apply_hitbox_damage`
                 // resolves overlap → damage event; `tick_and_despawn_hitboxes`

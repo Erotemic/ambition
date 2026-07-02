@@ -150,7 +150,10 @@ pub struct MoveSpec {
 
 impl MoveSpec {
     /// The windows carrying `tag`, in declaration order.
-    pub fn windows_tagged(&self, want: fn(&WindowTag) -> bool) -> impl Iterator<Item = &MoveWindow> {
+    pub fn windows_tagged(
+        &self,
+        want: fn(&WindowTag) -> bool,
+    ) -> impl Iterator<Item = &MoveWindow> {
         self.windows.iter().filter(move |w| want(&w.tag))
     }
 
@@ -248,25 +251,60 @@ pub struct EntityCatalogDoc {
 /// (not just the first) so an author fixes a file in one pass.
 #[derive(Debug, Clone, PartialEq)]
 pub enum CatalogError {
-    DuplicateEntityId { id: String },
-    DuplicateMoveId { entity: String, id: String },
+    DuplicateEntityId {
+        id: String,
+    },
+    DuplicateMoveId {
+        entity: String,
+        id: String,
+    },
     /// A window lies outside `[0, duration_s]` or is inverted/empty.
-    WindowOutOfRange { entity: String, mv: String, index: usize },
+    WindowOutOfRange {
+        entity: String,
+        mv: String,
+        index: usize,
+    },
     /// A non-Active window carries hit volumes (they would never fire).
-    VolumesOnInactiveWindow { entity: String, mv: String, index: usize },
+    VolumesOnInactiveWindow {
+        entity: String,
+        mv: String,
+        index: usize,
+    },
     /// A `Cancelable { into }` edge names an undeclared move.
-    UnknownCancelTarget { entity: String, mv: String, target: String },
+    UnknownCancelTarget {
+        entity: String,
+        mv: String,
+        target: String,
+    },
     /// A verb maps to an undeclared move.
-    UnknownVerbMove { entity: String, verb: String, target: String },
+    UnknownVerbMove {
+        entity: String,
+        verb: String,
+        target: String,
+    },
     /// An event fires outside the move's duration.
-    EventOutOfRange { entity: String, mv: String, index: usize },
+    EventOutOfRange {
+        entity: String,
+        mv: String,
+        index: usize,
+    },
     /// Non-positive move duration.
-    NonPositiveDuration { entity: String, mv: String },
+    NonPositiveDuration {
+        entity: String,
+        mv: String,
+    },
     /// Degenerate volume (non-positive extent/radius).
-    DegenerateVolume { entity: String, mv: String, window: usize },
+    DegenerateVolume {
+        entity: String,
+        mv: String,
+        window: usize,
+    },
     /// An entity declares a moveset but no presentation clip could ever bind.
     /// (Warning-grade in spirit, but structural: an empty clip name is a typo.)
-    EmptyClipBinding { entity: String, mv: String },
+    EmptyClipBinding {
+        entity: String,
+        mv: String,
+    },
 }
 
 impl std::fmt::Display for CatalogError {
@@ -280,16 +318,32 @@ impl std::fmt::Display for CatalogError {
                 write!(f, "{entity}/{mv}: window[{index}] outside [0, duration]")
             }
             CatalogError::VolumesOnInactiveWindow { entity, mv, index } => {
-                write!(f, "{entity}/{mv}: window[{index}] carries volumes but is not Active")
+                write!(
+                    f,
+                    "{entity}/{mv}: window[{index}] carries volumes but is not Active"
+                )
             }
             CatalogError::UnknownCancelTarget { entity, mv, target } => {
-                write!(f, "{entity}/{mv}: cancel target `{target}` is not a declared move")
+                write!(
+                    f,
+                    "{entity}/{mv}: cancel target `{target}` is not a declared move"
+                )
             }
-            CatalogError::UnknownVerbMove { entity, verb, target } => {
-                write!(f, "{entity}: verb `{verb}` maps to undeclared move `{target}`")
+            CatalogError::UnknownVerbMove {
+                entity,
+                verb,
+                target,
+            } => {
+                write!(
+                    f,
+                    "{entity}: verb `{verb}` maps to undeclared move `{target}`"
+                )
             }
             CatalogError::EventOutOfRange { entity, mv, index } => {
-                write!(f, "{entity}/{mv}: event[{index}] fires outside the move duration")
+                write!(
+                    f,
+                    "{entity}/{mv}: event[{index}] fires outside the move duration"
+                )
             }
             CatalogError::NonPositiveDuration { entity, mv } => {
                 write!(f, "{entity}/{mv}: non-positive duration")
@@ -504,7 +558,13 @@ mod tests {
     #[test]
     fn move_timeline_queries_answer_the_sim() {
         let doc = EntityCatalogDoc::parse(SEED).unwrap();
-        let moveset = doc.entity("sandbag_seed").unwrap().contracts.moveset.as_ref().unwrap();
+        let moveset = doc
+            .entity("sandbag_seed")
+            .unwrap()
+            .contracts
+            .moveset
+            .as_ref()
+            .unwrap();
         let swat = moveset.move_by_id("swat").unwrap();
         // Proper-time queries: nothing live during startup, one volume
         // mid-active, nothing during recovery.
@@ -553,11 +613,20 @@ mod tests {
         let doc = EntityCatalogDoc::parse(bad).unwrap();
         let errors = doc.validate();
         let has = |f: &dyn Fn(&CatalogError) -> bool| errors.iter().any(|e| f(e));
-        assert!(has(&|e| matches!(e, CatalogError::DuplicateEntityId { .. })));
+        assert!(has(&|e| matches!(
+            e,
+            CatalogError::DuplicateEntityId { .. }
+        )));
         assert!(has(&|e| matches!(e, CatalogError::WindowOutOfRange { .. })));
-        assert!(has(&|e| matches!(e, CatalogError::VolumesOnInactiveWindow { .. })));
+        assert!(has(&|e| matches!(
+            e,
+            CatalogError::VolumesOnInactiveWindow { .. }
+        )));
         assert!(has(&|e| matches!(e, CatalogError::DegenerateVolume { .. })));
-        assert!(has(&|e| matches!(e, CatalogError::UnknownCancelTarget { .. })));
+        assert!(has(&|e| matches!(
+            e,
+            CatalogError::UnknownCancelTarget { .. }
+        )));
         assert!(has(&|e| matches!(e, CatalogError::UnknownVerbMove { .. })));
         assert!(has(&|e| matches!(e, CatalogError::EventOutOfRange { .. })));
         assert!(has(&|e| matches!(e, CatalogError::EmptyClipBinding { .. })));
@@ -571,7 +640,13 @@ mod tests {
     #[test]
     fn proper_time_integration_is_callers_dt_sum() {
         let doc = EntityCatalogDoc::parse(SEED).unwrap();
-        let moveset = doc.entity("sandbag_seed").unwrap().contracts.moveset.as_ref().unwrap();
+        let moveset = doc
+            .entity("sandbag_seed")
+            .unwrap()
+            .contracts
+            .moveset
+            .as_ref()
+            .unwrap();
         let swat = moveset.move_by_id("swat").unwrap();
         // Simulate a 0.25×-dilated owner: 60 world frames of 16ms reach only
         // 0.24s proper — still in startup. An undilated owner is active.

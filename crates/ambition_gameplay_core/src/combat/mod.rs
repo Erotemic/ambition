@@ -51,6 +51,7 @@ pub mod hazard_runtime;
 pub mod hazards;
 pub mod held_items;
 pub mod hitbox;
+pub mod moveset;
 pub mod overlay;
 pub mod path_motion;
 pub mod pickups;

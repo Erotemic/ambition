@@ -320,6 +320,7 @@ ambition_sfx = { path = "../ambition_sfx" }
 # Reusable sprite-sheet metadata schema + SheetRegistry (the baked-table host
 # wiring stays here in presentation::character_sprites::registry).
 ambition_sprite_sheet = { path = "../ambition_sprite_sheet" }
+ambition_entity_catalog = { path = "../ambition_entity_catalog" }
 # Reusable gameplay flight-recorder FORMAT (schema + buffer + dump). The
 # recording systems stay in dev/trace next to the sim state they sample.
 ambition_gameplay_trace = { path = "../ambition_gameplay_trace" }

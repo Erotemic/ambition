@@ -276,6 +276,7 @@ dependencies = [
  "ambition_combat",
  "ambition_cutscene",
  "ambition_engine_core",
+ "ambition_entity_catalog",
  "ambition_gameplay_trace",
  "ambition_input",
  "ambition_interaction",

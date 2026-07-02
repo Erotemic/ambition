@@ -656,7 +656,11 @@ pub fn step_projectiles(
                 if !vulnerable {
                     continue;
                 }
-                let knock_dir = (player_kin.pos.x - kin.pos.x).signum();
+                // Knockback side in the victim's LOCAL frame (fable review
+                // 2026-07-02 §B11): a screen-X difference degenerates exactly
+                // when sideways gravity separates the pair along world-Y.
+                let side = ae::AccelerationFrame::new(gravity.dir_at(player_kin.pos)).side;
+                let knock_dir = (player_kin.pos - kin.pos).dot(side).signum();
                 let knock_dir = if knock_dir.abs() < 0.001 {
                     1.0
                 } else {

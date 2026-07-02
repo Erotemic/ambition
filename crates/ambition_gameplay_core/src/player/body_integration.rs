@@ -43,8 +43,10 @@ pub struct PlayerBodyFrameOutput {
     pub events: ae::FrameEvents,
     /// Grounded state ENTERING the movement tick (for the hard-fall shake edge).
     pub was_grounded: bool,
-    /// Vertical velocity entering the tick (hard-fall shake magnitude).
-    pub pre_sim_vy: f32,
+    /// Fall speed entering the tick — the velocity component ALONG gravity
+    /// (hard-fall shake magnitude; frame-agnostic, fable review 2026-07-02 §B
+    /// minor: the raw `vel.y` form misfired under sideways gravity).
+    pub pre_sim_fall_speed: f32,
     /// The integration flagged a body reset this frame (drown / hazard /
     /// out-of-bounds / death). The body was already teleported to spawn by this
     /// phase; the home reset POLICY consumes this to run the full sandbox reset for
@@ -176,7 +178,7 @@ pub fn integrate_home_body(
 
     let collision_world = world_with_sandbox_solids(world, moving_platforms, feature_ecs_overlay);
     let was_grounded = clusters.ground.on_ground;
-    let pre_sim_vy = clusters.kinematics.vel.y;
+    let pre_sim_fall_speed = clusters.kinematics.vel.dot(tuning.gravity_dir);
 
     // THE single combined body tick: control phase (at `input.control_dt`) then
     // simulation phase (at `sim_dt`). The EXACT engine entry an actor body uses.
@@ -190,7 +192,7 @@ pub fn integrate_home_body(
 
     *frame_out = PlayerBodyFrameOutput {
         was_grounded,
-        pre_sim_vy,
+        pre_sim_fall_speed,
         reset: events.reset,
         events,
     };

@@ -59,8 +59,11 @@ pub fn gravity_flip_switch_system(
     for mut sw in &mut switches {
         let overlapping = player_aabb.strict_intersects(ae::Aabb::new(sw.pos, sw.half_extent));
         if overlapping && sw.armed {
-            // Flip the vertical component of the ambient gravity.
-            base.dir = Vec2::new(base.dir.x, -base.dir.y);
+            // INVERT the ambient gravity — a flip means "down becomes the
+            // opposite of wherever it points", so the switch keeps working
+            // after a sideways SetGravity (§B13: `-dir.y` alone is a no-op on
+            // horizontal gravity).
+            base.dir = -base.dir;
             sw.armed = false;
             sfx.write(ambition_sfx::SfxMessage::Play {
                 id: ambition_sfx::ids::PORTAL_POWERUP,

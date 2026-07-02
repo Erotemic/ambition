@@ -420,6 +420,7 @@ pub fn advance_attack(
                 knock_x,
                 attack_state.spec.active_seconds,
                 slash_kind(attack_state.spec.intent),
+                tuning.gravity_dir,
             );
         }
 

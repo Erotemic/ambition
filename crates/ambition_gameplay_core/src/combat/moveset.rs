@@ -87,15 +87,17 @@ impl MovePlayback {
 pub fn advance_move_playback(
     mut commands: Commands,
     world_time: Res<WorldTime>,
+    gravity: crate::physics::GravityCtx,
     mut events: MessageWriter<MoveEventMessage>,
     mut players: Query<(
         Entity,
         &mut MovePlayback,
         &ActorFaction,
+        &ae::BodyKinematics,
         Option<&ProperTimeScale>,
     )>,
 ) {
-    for (owner, mut playback, faction, scale) in &mut players {
+    for (owner, mut playback, faction, kin, scale) in &mut players {
         // ADR 0011: entity dt collapses to sim dt when the actor carries no
         // ProperTimeScale — undilated actors are the identity case.
         let dt = world_time.entity_dt(scale.copied().unwrap_or_default());
@@ -129,8 +131,16 @@ pub fn advance_move_playback(
             let live_slot = pb.live_boxes.iter().position(|(idx, _)| *idx == w_idx);
             match (inside, live_slot) {
                 (true, None) => {
+                    // Authored volume offsets are BODY-LOCAL (side, down); rotate
+                    // them through the owner's gravity frame at spawn — the same
+                    // resolution `spawn_melee_strike` performs — so an authored
+                    // above-the-head volume stays above the head under any
+                    // gravity (fable review 2026-07-02 §B1: the unrotated form
+                    // spawned it screen-up, into a sideways body's ceiling).
+                    let frame_down = gravity.dir_at(kin.pos);
+                    let body_frame = ae::AccelerationFrame::new(frame_down);
                     for volume in &window.volumes {
-                        let (local_offset, half_extent, shape) = match volume.shape {
+                        let (local, half_extent, shape) = match volume.shape {
                             VolumeShape::Rect {
                                 offset,
                                 half_extents,
@@ -145,6 +155,11 @@ pub fn advance_move_playback(
                                 Some(ae::VolumeShape::circle(radius)),
                             ),
                         };
+                        let local_offset = body_frame.to_world(local);
+                        // Axis-aligned extents rotate with the frame too (a
+                        // circle's splat is rotation-invariant, so this is
+                        // uniform).
+                        let half_extent = body_frame.to_world_half(half_extent);
                         // NO HitboxLifetime on purpose: the window's exit
                         // edge (owner proper time) is the despawn authority,
                         // not a wall-clock countdown.
@@ -160,6 +175,7 @@ pub fn advance_move_playback(
                                     damage: volume.damage,
                                     knockback_strength: volume.knockback,
                                     knock_x: 0.0,
+                                    frame_down,
                                 },
                                 HitboxHits::default(),
                             ))
@@ -296,6 +312,14 @@ mod tests {
         app.world_mut()
             .spawn((
                 crate::features::CenteredAabb::new(pos, body),
+                // The playback system resolves the owner's gravity frame from
+                // its authoritative kinematics, like every real actor carries.
+                ae::BodyKinematics {
+                    pos,
+                    vel: ae::Vec2::ZERO,
+                    size: body,
+                    facing: 1.0,
+                },
                 ActorFaction::Enemy,
                 MovePlayback::new(spec, 1.0),
             ))

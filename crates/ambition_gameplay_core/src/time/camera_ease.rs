@@ -148,11 +148,15 @@ pub const HARD_FALL_SHAKE_GAIN: f32 = 1.0 / 60.0;
 /// Returns 0.0 when the landing isn't a hard fall (no transition, or
 /// vy is below the dead-zone). Otherwise returns the post-gain
 /// amplitude that should be fed to `shake.kick(...)`.
-pub fn hard_fall_shake_amplitude(was_grounded: bool, on_ground: bool, pre_sim_vy: f32) -> f32 {
+pub fn hard_fall_shake_amplitude(
+    was_grounded: bool,
+    on_ground: bool,
+    pre_sim_fall_speed: f32,
+) -> f32 {
     if was_grounded || !on_ground {
         return 0.0;
     }
-    let excess = (pre_sim_vy - HARD_FALL_SHAKE_FLOOR_VY).max(0.0);
+    let excess = (pre_sim_fall_speed - HARD_FALL_SHAKE_FLOOR_VY).max(0.0);
     excess * HARD_FALL_SHAKE_GAIN
 }
 

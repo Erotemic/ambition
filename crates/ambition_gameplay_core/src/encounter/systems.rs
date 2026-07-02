@@ -266,15 +266,18 @@ pub fn update_encounters_from_world(
         quests.push_event(crate::quest::QuestAdvanceEvent::FlagSet(
             "test_switch_toggled".into(),
         ));
-        // Hub gravity switch: a `Switch` whose `action` is "FlipGravity" flips
-        // the room's ambient gravity ([`crate::physics::BaseGravity`]) up<->down.
-        // Done as a deferred world command so this 16-param system needn't take
-        // `BaseGravity` as a 17th param (Bevy's tuple limit). Toggle the
-        // persisted switch state so the switch sprite reads as flipped.
+        // Hub gravity switch: a `Switch` whose `action` is "FlipGravity" INVERTS
+        // the room's ambient gravity ([`crate::physics::BaseGravity`]) — "down"
+        // becomes the opposite of wherever it currently points, so the switch
+        // still works after a Noether-Chamber sideways SetGravity (fable review
+        // 2026-07-02 §B13: the old `dir.y = -dir.y` was a no-op on sideways
+        // gravity). Done as a deferred world command so this 16-param system
+        // needn't take `BaseGravity` as a 17th param (Bevy's tuple limit).
+        // Toggle the persisted switch state so the switch sprite reads flipped.
         if activation.action.as_str() == "FlipGravity" {
             commands.queue(|world: &mut bevy::prelude::World| {
                 let mut base = world.resource_mut::<crate::physics::BaseGravity>();
-                base.dir.y = -base.dir.y;
+                base.dir = -base.dir;
             });
             let new_on = !save.data().switch(&activation.id);
             save.data_mut().set_switch(&activation.id, new_on);

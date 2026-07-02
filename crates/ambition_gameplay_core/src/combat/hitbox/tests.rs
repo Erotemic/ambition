@@ -23,6 +23,7 @@ fn follow_owner_hitbox_aabb_tracks_owner_position() {
         damage: 1,
         knockback_strength: 0.0,
         knock_x: 0.0,
+        frame_down: ae::Vec2::new(0.0, 1.0),
     };
     let aabb_a = hitbox.world_aabb(ae::Vec2::new(100.0, 100.0));
     let aabb_b = hitbox.world_aabb(ae::Vec2::new(200.0, 100.0));
@@ -48,6 +49,7 @@ fn world_anchor_hitbox_ignores_owner_position() {
         damage: 1,
         knockback_strength: 0.0,
         knock_x: 0.0,
+        frame_down: ae::Vec2::new(0.0, 1.0),
     };
     let aabb_a = hitbox.world_aabb(ae::Vec2::new(0.0, 0.0));
     let aabb_b = hitbox.world_aabb(ae::Vec2::new(9999.0, 9999.0));
@@ -91,6 +93,7 @@ fn tick_and_despawn_drops_expired_hitboxes() {
                 damage: 1,
                 knockback_strength: 0.0,
                 knock_x: 0.0,
+                frame_down: ae::Vec2::new(0.0, 1.0),
             },
             HitboxLifetime { remaining_s: 0.01 },
             HitboxHits::default(),
@@ -125,6 +128,7 @@ fn tick_and_despawn_keeps_live_hitboxes() {
                 damage: 1,
                 knockback_strength: 0.0,
                 knock_x: 0.0,
+                frame_down: ae::Vec2::new(0.0, 1.0),
             },
             HitboxLifetime { remaining_s: 5.0 },
             HitboxHits::default(),
@@ -170,6 +174,7 @@ fn spawn_melee_hitbox_attaches_full_component_set() {
                 1.5,
                 0.0,
                 0.42,
+                ae::Vec2::new(0.0, 1.0),
             );
             store.0 = Some(entity);
         },
@@ -240,6 +245,7 @@ fn player_faction_hitbox_emits_an_attacker_side_feature_hit() {
             damage: 5,
             knockback_strength: 1.0,
             knock_x: 0.0,
+            frame_down: ae::Vec2::new(0.0, 1.0),
         },
         HitboxLifetime { remaining_s: 0.2 },
         HitboxHits::default(),
@@ -298,6 +304,7 @@ fn arena_hitbox_app(relations: FactionRelations, victim_faction: ActorFaction) -
             damage: 4,
             knockback_strength: 0.0,
             knock_x: 0.0,
+            frame_down: ae::Vec2::new(0.0, 1.0),
         },
         HitboxLifetime { remaining_s: 0.2 },
         HitboxHits::default(),
@@ -399,6 +406,7 @@ fn enemy_hitbox_over_player_app(relations: FactionRelations) -> (App, Entity) {
             damage: 3,
             knockback_strength: 0.0,
             knock_x: 0.0,
+            frame_down: ae::Vec2::new(0.0, 1.0),
         },
         HitboxLifetime { remaining_s: 0.2 },
         HitboxHits::default(),
@@ -486,6 +494,7 @@ fn player_faction_hitbox_only_fires_once() {
             damage: 3,
             knockback_strength: 0.0,
             knock_x: 0.0,
+            frame_down: ae::Vec2::new(0.0, 1.0),
         },
         HitboxLifetime { remaining_s: 1.0 },
         HitboxHits::default(),
@@ -554,6 +563,7 @@ fn player_followowner_melee_strike_emits_player_slash_with_knock_x() {
             damage: 4,
             knockback_strength: 0.0,
             knock_x: 250.0,
+            frame_down: ae::Vec2::new(0.0, 1.0),
         },
         HitboxLifetime { remaining_s: 0.2 },
         HitboxHits::default(),
@@ -602,6 +612,7 @@ fn player_followowner_strike_without_a_swing_is_inert() {
             damage: 4,
             knockback_strength: 0.0,
             knock_x: 250.0,
+            frame_down: ae::Vec2::new(0.0, 1.0),
         },
         HitboxLifetime { remaining_s: 0.2 },
         HitboxHits::default(),

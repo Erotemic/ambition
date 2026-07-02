@@ -36,12 +36,12 @@ pub(super) fn sync_player_presentation(
     }
     let was_grounded = frame_out.was_grounded;
     // Hard-fall screen shake: pure trigger in `time::camera_ease`. Saturates above
-    // terminal velocity via `kick()`'s cap. `pre_sim_vy` is the velocity that
-    // entered the movement tick.
+    // terminal velocity via `kick()`'s cap. `pre_sim_fall_speed` is the
+    // along-gravity fall speed that entered the movement tick.
     let shake_amplitude = ambition_gameplay_core::time::camera_ease::hard_fall_shake_amplitude(
         was_grounded,
         clusters.ground.on_ground,
-        frame_out.pre_sim_vy,
+        frame_out.pre_sim_fall_speed,
     );
     if is_primary && shake_amplitude > 0.0 {
         shake.kick(shake_amplitude);

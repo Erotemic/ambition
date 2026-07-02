@@ -503,12 +503,9 @@ fn integrate_actor_body(
     // Publish the actor's footprint ORIENTED to its reference frame (a
     // surface-walker's frame is its clung surface; everyone else's is gravity at
     // their position), the single source of truth read by the debug overlay,
-    // player hurtbox, and target volumes.
-    let down = if em.config.tuning.surface_walker {
-        -em.surface.surface_normal
-    } else {
-        gravity.dir_at(em.kin.pos)
-    };
+    // player hurtbox, and target volumes. `surface_normal` is kept LIVE for
+    // every body by `em.update` (§B2), so it IS the frame — no conditional.
+    let down = -em.surface.surface_normal;
     let body = crate::features::collision_aabb(&crate::features::SimpleActorGeometry {
         pos: em.kin.pos,
         size: em.kin.size,

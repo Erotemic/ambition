@@ -223,7 +223,14 @@ pub fn apply_hitbox_damage(
                         continue;
                     }
                     let impact = midpoint(player_body.center(), world_volume.center());
-                    let knockback_dir = if player_body.center().x >= owner_pos.x {
+                    // Knockback side in the victim's LOCAL frame (fable review
+                    // 2026-07-02 §B11): under sideways gravity the attacker and
+                    // victim separate along world-Y, exactly when a screen-X
+                    // comparison degenerates. The consumer's gravity-relative
+                    // resolution keeps this as its fallback, so the stored side
+                    // must be frame-correct too.
+                    let side = ae::AccelerationFrame::new(down).side;
+                    let knockback_dir = if (player_body.center() - owner_pos).dot(side) >= 0.0 {
                         1.0
                     } else {
                         -1.0
@@ -369,6 +376,7 @@ pub fn spawn_melee_hitbox(
     knockback_strength: f32,
     knock_x: f32,
     active_s: f32,
+    frame_down: ae::Vec2,
 ) -> Entity {
     commands
         .spawn((
@@ -382,6 +390,7 @@ pub fn spawn_melee_hitbox(
                 damage,
                 knockback_strength,
                 knock_x,
+                frame_down,
             },
             HitboxLifetime {
                 remaining_s: active_s.max(0.0),
@@ -415,6 +424,7 @@ pub fn spawn_melee_strike(
     knock_x: f32,
     active_s: f32,
     slash_kind: ambition_vfx::vfx::SlashKind,
+    frame_down: ae::Vec2,
 ) -> Entity {
     let local_offset = world_box.center() - body_pos;
     let entity = spawn_melee_hitbox(
@@ -427,6 +437,7 @@ pub fn spawn_melee_strike(
         knockback_strength,
         knock_x,
         active_s,
+        frame_down,
     );
     crate::combat::attack::emit_melee_slash(
         vfx,

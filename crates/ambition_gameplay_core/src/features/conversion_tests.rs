@@ -792,4 +792,53 @@ mod conversion_tests {
             "slug should ride +5px with the platform: moving_dx={moving_dx}, static_dx={static_dx}"
         );
     }
+
+    /// Fable review 2026-07-02 §B2: a NON-surface-walker's published
+    /// `surface_normal` must track its live gravity (anti-gravity at its
+    /// position), not its spawn constant — the shield-block side, slash
+    /// knockback, and ranged muzzle all derive the body frame from it.
+    #[test]
+    fn a_normal_actor_surface_normal_tracks_live_gravity() {
+        for gravity_dir in [
+            ae::Vec2::new(0.0, 1.0),
+            ae::Vec2::new(0.0, -1.0),
+            ae::Vec2::new(1.0, 0.0),
+            ae::Vec2::new(-1.0, 0.0),
+        ] {
+            let world = ae::World::new(
+                String::from("normal_frame"),
+                ae::Vec2::new(2000.0, 2000.0),
+                ae::Vec2::new(100.0, 100.0),
+                vec![ae::Block::solid(
+                    "floor",
+                    ae::Vec2::new(0.0, 900.0),
+                    ae::Vec2::new(2000.0, 100.0),
+                )],
+            );
+            let aabb = ae::Aabb::new(ae::Vec2::new(500.0, 500.0), ae::Vec2::new(14.0, 23.0));
+            let mut enemy = super::ecs::actor_clusters::ActorClusterSeed::new(
+                "walker",
+                "Goblin",
+                aabb,
+                ambition_characters::actor::CharacterBrain::Passive,
+                &[],
+            );
+            // Spawn constant is (0,-1); the update must overwrite it with the
+            // live frame for every cardinal.
+            enemy.update_for_test(
+                &world,
+                ae::Vec2::new(600.0, 500.0),
+                FeatureCombatTuning::default(),
+                None,
+                1.0 / 60.0,
+                false,
+                ambition_characters::actor::control::ActorControlFrame::neutral(),
+                gravity_dir,
+            );
+            assert_eq!(
+                enemy.surface.surface_normal, -gravity_dir,
+                "surface_normal must be anti-gravity under {gravity_dir:?}"
+            );
+        }
+    }
 }

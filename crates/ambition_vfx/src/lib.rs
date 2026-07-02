@@ -56,6 +56,11 @@ pub struct Hitbox {
     /// per-frame `HitSource::PlayerSlash { knock_x }`. `0.0` for aggressor strikes
     /// (Enemy/Boss/Npc), which knock back via position-derived `knockback_strength`.
     pub knock_x: f32,
+    /// The owner's gravity "down" baked at spawn — the frame a non-box `shape`
+    /// is placed in, so an authored slash arc / cone rotates with the body's
+    /// gravity instead of pinning to screen-down (fable review 2026-07-02 §B10).
+    /// World-anchored hazards author in world space and pass screen-down.
+    pub frame_down: ae::Vec2,
 }
 
 #[derive(Clone, Copy, Debug)]
@@ -92,7 +97,7 @@ impl Hitbox {
             HitboxAnchor::World { center } => center,
         };
         match &self.shape {
-            Some(shape) => shape.place_at(center, self.facing, ae::Vec2::new(0.0, 1.0)),
+            Some(shape) => shape.place_at(center, self.facing, self.frame_down),
             None => ae::CombatVolume::aabb(ae::Aabb::new(center, self.half_extent)),
         }
     }
@@ -148,6 +153,9 @@ pub fn spawn_damage_box(
             damage: dbox.damage,
             knockback_strength: dbox.knockback,
             knock_x: 0.0,
+            // World-anchored volumes are authored in world space (arena
+            // hazards); screen-down IS their frame.
+            frame_down: ae::Vec2::new(0.0, 1.0),
         },
         HitboxLifetime {
             remaining_s: dbox.lifetime_s,

@@ -149,6 +149,18 @@ impl<'a> ActorMut<'a> {
 
         let is_surface_walker = self.config.tuning.surface_walker;
 
+        // Keep the published reference-frame normal LIVE for every body (fable
+        // review 2026-07-02 §B2): a surface-walker's normal is its clung surface
+        // (written by `step_surface_walker`); everyone else's is anti-gravity AT
+        // THEIR POSITION. Before this, non-surface-walkers kept their spawn
+        // constant `(0,-1)` forever, so every consumer that derived the body
+        // frame from it (shield block side, slash knockback, ranged muzzle/aim)
+        // silently stayed in down-gravity space while the movement obeyed the
+        // real field.
+        if !is_surface_walker {
+            self.surface.surface_normal = -gravity_dir;
+        }
+
         // Dash is no longer a bespoke actor mechanic: the body runs the SHARED
         // player dash limb (the real dash impulse + window), gated by the
         // `ActorBody` ability mask (`from_caps`, dash = `can_dash`) and driven by

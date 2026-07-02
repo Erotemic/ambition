@@ -745,27 +745,47 @@ changes to existing test expectations.
 along `gravity_dir` (> 200px), replacing the bottom-edge-only `pos.y` check.
 Pinned by `c4_out_of_bounds_reset_is_gravity_relative` (+ 100px grace case).
 
-## In progress
-- Downstream verification: `cargo test -p ambition_gameplay_core --lib` and the
-  app-level `gravity_symmetry_room` integration tests (the collision rewrite
-  affects the real sim; the app test's `allow_one_tick_landing_boundary`
-  concession may now be removable — check, don't force).
+### E5. Gameplay-core frame-bug sweep (B1, B2, B10, B11, B13 + minors) ✅
+Committed after E1-E4's checkpoint (`1c8c5589`):
+- **B2** — fixed at the WRITER, not per-consumer: `ActorMut::update`
+  (`features/enemies/integration.rs`) now keeps `surface_normal` LIVE for every
+  body (anti-gravity at its position for non-surface-walkers; clung surface for
+  surface-walkers). All four consumers (shield-block side, slash knockback,
+  ranged muzzle, footprint publish) become frame-correct with zero edits; the
+  footprint publish's conditional collapsed. Pinned by
+  `a_normal_actor_surface_normal_tracks_live_gravity` (all 4 cardinals).
+- **B1+B10** — `Hitbox` (ambition_vfx) gained `frame_down` (owner's gravity
+  baked at spawn); `world_volume` places shaped volumes in that frame instead
+  of hardcoded screen-down. The moveset runtime (`combat/moveset.rs`) rotates
+  authored BODY-LOCAL offsets + extents through the owner's frame at spawn —
+  the same resolution `spawn_melee_strike` performs (`local_offset`'s contract
+  is now clearly "world offset baked at spawn"). `spawn_melee_hitbox/strike`
+  take `frame_down`; world-anchored `DamageBox` hazards stay screen-down by
+  design (world-authored arena geometry).
+- **B11** — knockback side at both emit sites (`combat/hitbox/mod.rs` player
+  loop, `projectile/systems.rs` enemy-shot hit) computed via
+  `(victim - owner)·frame.side`, not screen-X (which degenerates exactly when
+  sideways gravity separates the pair along world-Y).
+- **B13** — `FlipGravity` now inverts the full gravity vector at BOTH sites
+  (`encounter/systems.rs` switch action + `gravity/lifecycle.rs` walk-in
+  switch); previously a no-op after a sideways SetGravity.
+- **Minor** — hard-fall screen shake reads the along-gravity fall speed;
+  `PlayerBodyFrameOutput.pre_sim_vy` renamed `pre_sim_fall_speed` (id matches
+  meaning). NOT fixed (audit was wrong): `GravityField::vertical_sign` is NOT
+  dead — `GravityCtx::sign_at` consumes it.
+- gameplay_core lib 1080/1080 green (incl. 3 moveset tests updated: the test
+  attacker now carries `BodyKinematics` like every real actor).
 
 ## Next (in order)
-1. Commit E1–E4 as the engine-core B-sweep checkpoint.
-2. Gameplay-core frame bugs, each with a pin test where feasible:
-   B2 (stale `surface_normal` consumers → `gravity.dir_at` unless
-   surface-walker), B1 (moveset hitbox offset through the owner's frame — route
-   through the same seam as `spawn_melee_strike`), B11 (knockback side computed
-   at source via `frame.side`), B13 (`FlipGravity` negates the full dir), B10
-   (`Hitbox::world_volume` carries owner gravity), minor notes (hard-fall
-   shake, `GravityField::vertical_sign` dead API).
-3. A5→A6 (shared `body_vulnerable()` + player publishes `CenteredAabb`) —
-   small, unblocks the damage unification.
-4. A3+A4 (one relational victim loop in `apply_hitbox_damage`; hazards/contact/
+1. A5→A6 (shared `body_vulnerable()` + player publishes `CenteredAabb`) —
+   small, unblocks the damage unification. NOTE from B11: the projectile
+   player-hit vulnerability check drops the `shield.parrying()` term relative
+   to the other 4 sites — verify whether melee-blocks-projectiles is intended
+   before unifying the predicate.
+2. A3+A4 (one relational victim loop in `apply_hitbox_damage`; hazards/contact/
    boss damage iterate vulnerable bodies, not `PlayerEntity`).
-5. A2 (one `apply_body_hit` resolver; player keeps policy-only differences).
-6. A1 boss island dissolution.
+3. A2 (one `apply_body_hit` resolver; player keeps policy-only differences).
+4. A1 boss island dissolution.
 
 ## Notes for a resuming agent
 - The C4 harness is the safety net — extend it per fix; a scenario that fails

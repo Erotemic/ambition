@@ -620,6 +620,15 @@ impl PortalViewRig {
         self.parallax_layer
     }
 
+    /// Sticky pairwise pane-dominance winner (see `mesh::pane_z`): true when
+    /// this portal's pane — and its identifying frame — draw on top of the
+    /// partner's. The portal frame overlay reuses this so the frame you are
+    /// in front of stays whole while the far frame hides behind the glass,
+    /// with the same hysteresis (no flicker at the material midpoint).
+    pub fn pane_dominant(&self) -> bool {
+        self.pane_dominant
+    }
+
     /// Render-space viewpoint the rig's parallax copies should be anchored to:
     /// the HOST camera's center mapped through the portal pair — the position
     /// a viewer looking through this window effectively sees from. Anchoring
@@ -733,6 +742,7 @@ use geometry::{
     inset_viewer_corners, visibility_route_summary, ApertureLosRay, ConeRender, RebuildKey,
 };
 use mesh::{apply_mesh, make_mesh, pane_z, placeholder_mesh, smooth01};
+pub(crate) use mesh::pane_dominance;
 
 /// Maintain + update one rig per placed portal with a placed partner: spawn
 /// missing, despawn stale, and update every live rig's geometry in place each

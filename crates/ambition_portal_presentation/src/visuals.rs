@@ -196,8 +196,16 @@ pub fn sync_portal_body_pieces(
         through_anchor.x = -through_anchor.x;
     }
 
-    // Texture-clipped piece path: both charts as clip-material quads at the
-    // body's own z (a piece is the body, in front of walls and windows alike).
+    // Texture-clipped piece path: BOTH charts as clip-material quads at the
+    // body's own z (a piece is the body, in front of walls and windows alike),
+    // on the main-camera-only window layer so no capture camera photographs
+    // them. That layer choice is what makes actor-z legal for the through
+    // piece: drawn on the world layer it was ALSO captured into the doorway
+    // takeover glass and showed twice, parallax-offset (review Part 8
+    // iteration 2 demoted it under the glass for that reason — at the cost
+    // that the chart swap at the centroid snap traded a crisp direct slice
+    // for a blurry captured one, which read as the body snapping). Direct,
+    // capture-free pieces tile exactly across the seam at the snap.
     let mut drew_clipped = false;
     if let (Some(images), Some(layouts), Some(mut meshes), Some(mut materials)) =
         (images, layouts, meshes, clip_materials)
@@ -211,6 +219,7 @@ pub fn sync_portal_body_pieces(
                 Vec4::new(c.red, c.green, c.blue, c.alpha)
             };
             let flip_flag = |flip: bool| Vec4::new(if flip { 1.0 } else { 0.0 }, 0.0, 0.0, 0.0);
+            let piece_layer = RenderLayers::layer(crate::PORTAL_WINDOW_RENDER_LAYER);
 
             // `here`: the real pose, keeping only what is still in front of
             // the entry plane (the sunk slice belongs to the exit chart).
@@ -227,22 +236,14 @@ pub fn sync_portal_body_pieces(
                     color_texture: sprite.image.clone(),
                 })),
                 clip_piece_transform(source_transform, source_anchor_v, basis.size),
+                piece_layer.clone(),
                 Name::new("Portal body piece (here)"),
             ));
 
             // `through`: the mapped pose, keeping only what has emerged in
-            // front of the exit plane, laterally bounded by the doorway. It
-            // sits just BELOW the window band ([`crate::PORTAL_EXIT_COPY_Z`]),
-            // NOT in the actor band: while crossing, the entry window's
-            // doorway takeover is a glass pane showing the whole exit chart —
-            // this piece is captured INTO that glass (one seamless image), and
-            // drawing it on top would paint a second, parallax-offset copy
-            // over the glass and over the exit portal's front rim half (Jon's
-            // "half-portals", review Part 8 iteration 2). A closed window
-            // (LOS blocked / windows off) still shows it over the rim as the
-            // emerging-body visual.
+            // front of the exit plane, laterally bounded by the doorway.
             let through_base = Transform {
-                translation: frame.to_render(exit_center, crate::PORTAL_EXIT_COPY_Z),
+                translation: frame.to_render(exit_center, source_transform.translation.z),
                 rotation: Quat::from_rotation_z(exit_roll),
                 scale: source_transform.scale,
             };
@@ -261,6 +262,7 @@ pub fn sync_portal_body_pieces(
                     color_texture: sprite.image.clone(),
                 })),
                 clip_piece_transform(&through_base, through_anchor, basis.size),
+                piece_layer,
                 Name::new("Portal body piece (through)"),
             ));
 
@@ -306,6 +308,8 @@ pub fn sync_portal_visuals(
     mut commands: Commands,
     frame: Res<PortalWorldFrame>,
     art: Option<Res<PortalGunArt>>,
+    viewer: Option<Res<crate::PortalViewer>>,
+    rigs: Query<&crate::PortalViewRig>,
     visuals: Query<Entity, With<PortalVisual>>,
     portals: Query<&PlacedPortal>,
     pickups: Query<&PortalGunPickup>,
@@ -319,6 +323,29 @@ pub fn sync_portal_visuals(
     let all_portals: Vec<PlacedPortal> = portals.iter().copied().collect();
     for portal in &all_portals {
         let partner = find_portal(&all_portals, portal.channel.partner());
+        // Frame z rides the PANE-DOMINANCE decision (the rig's sticky winner,
+        // or the stateless sign when no window rig serves this portal): the
+        // frame of the portal you are in front of draws ABOVE the glass —
+        // always whole — while the far portal's frame drops back UNDER the
+        // window band, so the open pane hides it exactly like the rest of the
+        // far side (a frame punching through the glass reads as a second
+        // portal). No viewer / no partner ⇒ dominant (nothing overlaps).
+        let dominant = rigs
+            .iter()
+            .find(|rig| rig.channel() == portal.channel)
+            .map(|rig| rig.pane_dominant())
+            .or_else(|| {
+                let (partner, v) = (partner.as_ref()?, viewer.as_deref()?);
+                v.present.then(|| {
+                    crate::view_cones::pane_dominance(portal, partner, v.eye) >= 0.0
+                })
+            })
+            .unwrap_or(true);
+        let frame_z = if dominant {
+            crate::PORTAL_RIM_OVERLAY_Z
+        } else {
+            9.0
+        };
         // Draw this portal's OWN channel on the side its normal points toward,
         // and the paired channel on the back side. That makes every individual
         // aperture read the same way: the front/entering side is named by the
@@ -347,16 +374,15 @@ pub fn sync_portal_visuals(
         // top/bottom halves, so the color sheet that the actor enters lines up
         // with the mapped exit-side portal texture. The positive-normal side
         // is this portal's own channel; the negative-normal side is its partner.
-        // All three (rim/core/label) draw in the OVERLAY band above the view
-        // windows ([`crate::PORTAL_RIM_OVERLAY_Z`]) so a pane of takeover
-        // glass can never hide half a portal's frame — AND on the
-        // main-camera-only window layer, so no capture camera photographs
-        // them: with the overlay above the glass, a captured copy of the frame
-        // inside the glass would read as a second, parallax-offset portal
-        // (Jon's "two copies of the portals"). The frame is HUD-like
-        // identification, drawn exactly once; the far side seen through glass
-        // shows bare apertures. (Uses the shared window layer — already the
-        // "main camera renders, captures never see" set.)
+        // All three (rim/core/label) draw at the dominance-resolved `frame_z`
+        // (above the glass for the near portal, under it for the far one) AND
+        // on the main-camera-only window layer, so no capture camera
+        // photographs them: a captured copy of the frame inside the glass
+        // would read as a second, parallax-offset portal (Jon's "two copies
+        // of the portals"). The frame is HUD-like identification, drawn
+        // exactly once; the far side seen through glass shows bare apertures.
+        // (Uses the shared window layer — already the "main camera renders,
+        // captures never see" set.)
         let overlay_layer = RenderLayers::layer(crate::PORTAL_WINDOW_RENDER_LAYER);
         for (channel, sign, side) in [
             (negative_channel, -1.0, "negative-normal"),
@@ -365,7 +391,7 @@ pub fn sync_portal_visuals(
             let (rim, core) = channel.display();
             let rim_thickness = PORTAL_VISUAL_THICKNESS;
             let rim_center = portal.pos + n * (sign * rim_thickness * 0.25);
-            let rim_translation = frame.to_render(rim_center, crate::PORTAL_RIM_OVERLAY_Z);
+            let rim_translation = frame.to_render(rim_center, frame_z);
             commands.spawn((
                 PortalVisual,
                 Sprite::from_color(rim, Vec2::new(length, rim_thickness * 0.5)),
@@ -377,7 +403,7 @@ pub fn sync_portal_visuals(
             let core_length = length * 0.86;
             let core_thickness = PORTAL_VISUAL_THICKNESS * 0.42;
             let core_center = portal.pos + n * (sign * core_thickness * 0.25);
-            let core_translation = frame.to_render(core_center, crate::PORTAL_RIM_OVERLAY_Z + 0.05);
+            let core_translation = frame.to_render(core_center, frame_z + 0.05);
             commands.spawn((
                 PortalVisual,
                 Sprite::from_color(core, Vec2::new(core_length, core_thickness * 0.5)),
@@ -390,7 +416,7 @@ pub fn sync_portal_visuals(
         // be referred to precisely (each linked pair is a distinct complementary
         // color: purple↔yellow, teal↔red, …). The color name IS the identifier.
         let label_pos = portal.pos + n * 24.0;
-        let label_translation = frame.to_render(label_pos, crate::PORTAL_RIM_OVERLAY_Z + 0.1);
+        let label_translation = frame.to_render(label_pos, frame_z + 0.1);
         let (_, core) = portal.channel.display();
         commands.spawn((
             PortalVisual,
@@ -565,19 +591,36 @@ mod tests {
             (transforms[1].x - 30.0).abs() < 1e-3,
             "through piece at the mapped exit pose, got {transforms:?}"
         );
-        // z bands: the here piece IS the body (actor band, over windows); the
-        // through piece sits just BELOW the window band so an open window's
-        // glass — which captures it — stays the single source of the far side
-        // (drawing it on top doubles the image over the doorway-takeover
-        // glass and covers the exit portal's front rim half).
+        // z bands: BOTH pieces are the body (actor band, over windows) — the
+        // chart swap at the centroid snap must trade like for like, direct
+        // draw for direct draw, or the body visibly pops. Doubling into the
+        // glass is prevented by the capture-free layer, not by z.
         assert!(
             (transforms[0].z - 20.0).abs() < 1e-3,
             "here piece in the actor band, got {transforms:?}"
         );
         assert!(
-            (transforms[1].z - crate::PORTAL_EXIT_COPY_Z).abs() < 1e-3,
-            "through piece below the window band, got {transforms:?}"
+            (transforms[1].z - 20.0).abs() < 1e-3,
+            "through piece in the actor band, got {transforms:?}"
         );
+        // Both pieces live on the main-camera-only window layer: a capture
+        // camera photographing them would paint a second, parallax-offset
+        // body over the doorway-takeover glass (the Part 8 iteration 2 bug
+        // that previously forced the through piece under the window band).
+        let piece_layers: Vec<RenderLayers> = app
+            .world_mut()
+            .query_filtered::<&RenderLayers, With<PortalBodyPiece>>()
+            .iter(app.world())
+            .cloned()
+            .collect();
+        assert_eq!(piece_layers.len(), 2);
+        for layers in &piece_layers {
+            assert_eq!(
+                layers,
+                &RenderLayers::layer(crate::PORTAL_WINDOW_RENDER_LAYER),
+                "pieces must be invisible to capture cameras"
+            );
+        }
     }
 
     /// No transit: no pieces, the real sprite shows whole.
@@ -627,6 +670,60 @@ mod tests {
             (copies[0].z - crate::PORTAL_EXIT_COPY_Z).abs() < 1e-3,
             "fallback copy hides below the window band, got {copies:?}"
         );
+    }
+
+    /// With a viewer in front of one face of the thin-wall pair, the NEAR
+    /// portal's frame draws above the glass (always whole) while the FAR
+    /// portal's frame drops under the window band — the open pane hides it
+    /// with the rest of the far side, instead of the frame punching through
+    /// the glass as a second portal (Jon: "I still see two portals when one
+    /// should be covered by the cone").
+    #[test]
+    fn far_portal_frame_hides_under_the_glass() {
+        let mut app = test_app();
+        app.add_systems(Update, sync_portal_visuals);
+        let (left, right) = thin_wall_pair();
+        app.world_mut().spawn(left);
+        app.world_mut().spawn(right);
+        app.insert_resource(crate::PortalViewer {
+            present: true,
+            eye: Vec2::new(460.0, 300.0), // left of the left face
+            half_size: Vec2::new(12.0, 20.0),
+            occluders: Vec::new(),
+        });
+        app.update();
+
+        let window_band_top =
+            crate::PORTAL_WINDOW_Z + crate::PortalViewConeConfig::default().z_proximity_span;
+        let parts: Vec<(String, Vec3)> = app
+            .world_mut()
+            .query_filtered::<(&Name, &Transform), With<PortalVisual>>()
+            .iter(app.world())
+            .filter(|(n, _)| {
+                let n = n.to_string();
+                n.contains("rim") || n.contains("core") || n.contains("label")
+            })
+            .map(|(n, t)| (n.to_string(), t.translation))
+            .collect();
+        assert!(parts.len() >= 10, "both portals' frames spawn, got {parts:?}");
+        // Left portal (world x 500) renders near x 0; right (532) near x 32.
+        for (name, t) in &parts {
+            if t.x < 16.0 {
+                assert!(
+                    t.z > window_band_top,
+                    "near frame part {name} at x={:.1} must draw over the glass, z={}",
+                    t.x,
+                    t.z
+                );
+            } else {
+                assert!(
+                    t.z < crate::PORTAL_WINDOW_Z,
+                    "far frame part {name} at x={:.1} must hide under the glass, z={}",
+                    t.x,
+                    t.z
+                );
+            }
+        }
     }
 
     /// The identifying frame (rim/core/label) is an OVERLAY: every portal

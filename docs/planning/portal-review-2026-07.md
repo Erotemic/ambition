@@ -855,6 +855,45 @@ of the anchor, so 90° pairs are unaffected. Pinned by
 every frame of the walk, map-aware body continuity at the snap, ordinary
 steps between snaps) alongside the two existing teleport-pair tests.
 
+### F17 — LANDED (blind): far frame under the glass; capture-free pieces kill the snap
+
+Jon (Round 10 it. 3): still two portals visible when one should be covered by
+the cone, and the body has "a snap followed by an ease."
+
+**Two portals.** F16 removed the CAPTURED frame copies but left both WORLD
+frames above the glass — the far portal's frame punched through the pane
+(F9's original complaint, reintroduced). Resolution: frame z now rides the
+same pane-dominance decision as the panes themselves (`PortalViewRig::
+pane_dominant`, stateless sign fallback when no rig): the NEAR portal's
+frame draws above the glass (always whole — keeps the Round 10 half-portal
+fix), the FAR portal's frame drops under the window band and is hidden by
+the open pane with the rest of the far side. Same hysteresis, so no z
+flapping at the midpoint. Pinned: `far_portal_frame_hides_under_the_glass`.
+
+**Snap-then-ease.** The ease is the doorway camera gate working as designed
+(ordinary follow absorbing the small authoritative snap). The SNAP had two
+sources, both "attachments drawn from the authoritative pose":
+1. The chart swap in the piece compositor: the F11-it2 through slice lived
+   UNDER the glass, so at the centroid snap the body traded a crisp direct
+   slice for a parallax-offset, tier-blurry captured one. Both pieces now
+   draw direct at ACTOR z on the main-camera-only window layer (the same
+   capture-free trick as the frames) — the doubling that originally forced
+   the slice under the glass cannot happen, and the two direct slices tile
+   exactly across the seam. `PORTAL_EXIT_COPY_Z` is now fallback-only.
+2. The held gun drew once at the authoritative hand pose and teleported by
+   the pair separation at the snap. It now decomposes exactly like the body:
+   one clip-material copy per chart (position via `map_point`, aim via
+   `portal_map_vec` — exact under the isometry), clipped at each portal
+   plane, capture-free layer. The clip shader gained a `flip_y` control for
+   the gun's left-facing mirror. Known remaining attachment gap: the
+   hit-flash silhouette.
+
+Tradeoff (both capture-free moves): body pieces and frames are invisible in
+OTHER portals' windows / recursion captures — watching your own crossing
+through a third portal's glass shows no body. Acceptable until a
+capture-visible variant is wanted. BLIND: verify crossing c136/c137 — the
+walk should read as ordinary walking with only the camera's gentle ease.
+
 ## Part 9 — Round 9: "fall in from a tall height, don't come all the way back up"
 
 Jon: falling through a ground portal pair from a tall distance doesn't return

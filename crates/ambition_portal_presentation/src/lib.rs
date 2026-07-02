@@ -61,16 +61,15 @@ pub use visuals::{
 /// identifying frame always draws whole.
 ///
 /// The transiting body itself draws as texture-clipped PIECES (see
-/// [`sync_portal_body_pieces`]): the `here` slice replaces the real sprite in
-/// the actor band (a body in front of the entry surface draws over walls,
-/// rims, and windows), while the emerged `through` slice — like the fallback
-/// unclipped exit copy — sits at [`PORTAL_EXIT_COPY_Z`], just BELOW the
-/// window: an open window (especially the doorway-takeover glass while
-/// crossing) captures it on the far side, so the glass stays the single
-/// source of the far-side image; drawing the slice on top would paint a
-/// second, parallax-offset copy over the glass. A closed window (LOS blocked
-/// / windows off) still shows the slice over the rim as the emerging-body
-/// visual.
+/// [`sync_portal_body_pieces`]): BOTH slices in the actor band, on the
+/// main-camera-only window layer so no capture photographs them. Direct,
+/// capture-free slices tile exactly across the seam when the charts swap at
+/// the centroid snap; the earlier under-the-glass through slice traded a
+/// crisp direct draw for a parallax-offset, tier-blurry captured one at that
+/// swap, which read as the body snapping. The held gun decomposes the same
+/// way (`gun_visuals`). Only the FALLBACK unclipped exit copy (no texture /
+/// headless) still sits at [`PORTAL_EXIT_COPY_Z`] below the window, hiding
+/// its redundant world draw behind the glass.
 ///
 /// Within the band, a pair's two overlapping panes (thin-wall doorway) sort
 /// by PAIRWISE FRONT-SIDE DOMINANCE with hysteresis, not by radial distance

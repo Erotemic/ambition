@@ -15,7 +15,8 @@
 
 @group(#{MATERIAL_BIND_GROUP}) @binding(0) var<uniform> uv_rect: vec4<f32>;
 // control.x = flip_x flag (0 = no flip, >0.5 = mirror UV horizontally)
-// control.y/z/w = reserved
+// control.y = flip_y flag (0 = no flip, >0.5 = mirror UV vertically)
+// control.z/w = reserved
 @group(#{MATERIAL_BIND_GROUP}) @binding(1) var<uniform> control: vec4<f32>;
 // Straight-alpha sprite tint (linear RGBA), multiplied into the sample.
 @group(#{MATERIAL_BIND_GROUP}) @binding(2) var<uniform> tint: vec4<f32>;
@@ -43,6 +44,9 @@ fn fragment(mesh: VertexOutput) -> @location(0) vec4<f32> {
     var local_uv = mesh.uv;
     if control.x > 0.5 {
         local_uv.x = 1.0 - local_uv.x;
+    }
+    if control.y > 0.5 {
+        local_uv.y = 1.0 - local_uv.y;
     }
     let atlas_uv = mix(
         uv_rect.xy,

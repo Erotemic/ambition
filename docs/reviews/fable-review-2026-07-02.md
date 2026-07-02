@@ -1,0 +1,694 @@
+# Fable review — 2026-07-02
+
+A read-only audit of the Rust codebase hunting **high-value, fable-hard refactors**
+that move Ambition toward its design goal: a Unity/Unreal/Godot-class reusable 2D
+platformer engine for Bevy, where the game is one content crate. No code was edited
+(a portal agent was concurrently active). Four parallel deep audits, each verified
+by reading code (no grep-only findings):
+
+1. **Actor unification forks** — remaining player/actor/boss bifurcations
+2. **Physics/gravity frame bugs** — relativity-principle violations
+3. **Engine/content separation** — what blocks the "second game as a content crate" oracle
+4. **Decomposition seams** — natural extractions inside the 95k-LOC `ambition_gameplay_core`
+
+Cross-checked against `docs/planning/engine/unified-actors.md`,
+`docs/current/{state,next}.md`, and `dev/journals/code_smells.md` so already-known
+items are marked as such rather than re-discovered.
+
+---
+
+## Synthesis — the top of the stack
+
+If we could only do six things, in dependency order:
+
+0. **Build the C4-symmetry harness at the body-tick level, then sweep the
+   reaction-seam frame bugs** (B, esp. B1–B6). The movement core's frame discipline
+   is genuinely strong; nearly every real physics bug found is an *epilogue* — a
+   screen-frame fallback or cleanup after a frame-correct verb (post-blink clamp,
+   slash recoil, moveset hitbox spawn, stale `surface_normal` consumers, the
+   role-welded collision guards). A conformance rig at
+   `update_body_with_tuning_clusters` (like the existing `step_kinematic` rig)
+   driving attack/blink/knockback scenarios would trip five of them at once and
+   guard every future fix. This is the "symmetry-under-gravity = strongest test"
+   principle made mechanical.
+1. **Delete the internal facade layer** (D1, ~0 risk, mechanical). Every dependency
+   count inside `gameplay_core` is currently a lie: 271 internal refs name
+   `crate::features::X` for symbols that live in `combat/`; 93 refs import
+   `SfxMessage` through `crate::audio` when it lives in `ambition_sfx`; `crate::effects`
+   and `crate::time` re-exports likewise. This is the prerequisite that de-risks every
+   other extraction, and it is exactly the pre-release compat tax AGENTS.md says to delete.
+2. **Unify the victim-side damage resolver** (A2+A3+A4+A5). Three consumers, three
+   knockback models, i-frames checked at emit-time for players but consume-time for
+   actors, hazards/contact/boss damage physically unable to hit non-players. This is
+   the largest live violation of ONE BODY, ONE PATH and it blocks emergent play
+   (lure a boss into lava). Small first steps exist (A5/A6 are S-sized).
+3. **Dissolve the boss island** (A1). Bosses still carry a full parallel actor stack
+   (`BossStatus`/`BossAttackState`/own integrator/own damage consumer/own animator
+   rows). Everything needed to fold them onto the body vocabulary now exists and is
+   proven (melee, movement limbs, relational damage).
+4. **Item catalog + held-item registry → the roster install pattern** (C1+C2). The
+   24-item `Item` enum with baked flavor text lives in machinery, and the full weapon
+   table (`HELD_ITEMS`) is a hardcoded static in a *foundation* crate. The proven
+   enemy/boss-roster pattern (generic schema + content-installed data) applies directly.
+5. **Cut the `render → gameplay_core` edge via a sim-view crate** (D3, with D2 as
+   its 300-LOC opener). The materialized read-model (`FeatureViewIndex`) already exists;
+   moving it (plus `BodyHealth`/`BodyCombat`/`BodyWallet` down to `ambition_characters`)
+   drops presentation out of the hot-edit rebuild path — the single biggest
+   compile-time lever that doesn't touch the hard mechanics knot.
+
+Recurring meta-finding: **the good seams already exist; the leaks are refusals to use
+them.** `Special(String)` exists but presets can't reach it; `WorldView` exists but
+brains side-load `BrainSnapshot`; `FrameEvents` exists but only the player's are
+consumed; the roster-install pattern exists but items/worlds/catalogs don't use it.
+Most fixes are "route the outlier through the existing seam and delete the fork,"
+which is precisely the AGENTS.md unification directive.
+
+---
+
+## A. Actor unification — remaining forks (ranked)
+
+### A1. The boss island — a full parallel actor stack (L)
+`combat/boss_clusters.rs:47-71` (`BossStatus { health, alive, hit_flash, … }`),
+`:201-224` (`BossMut::integrate_body`), `features/ecs/bosses/tick.rs` (whole file),
+`features/ecs/bosses/sync.rs:20-40`.
+Bosses duplicate nearly every unified body-fact: `BossStatus.health/alive/hit_flash`
+vs `BodyHealth`/`BodyCombat` (and `sync.rs` *mirrors* BossStatus onto the body
+read-models — a dual-authority copy the actor path just retired); `BossAttackState`
+vs `BodyMelee`/`MeleeSwing`; `tick_boss_brains_system`+`update_ecs_bosses` vs
+`tick_actor_brains`+`integrate_sim_bodies`; a separate victim consumer
+(`damage/boss_hit.rs`) and a separate render animator
+(`ambition_render/src/rendering/actors/boss.rs`, `BossAnim` vs `CharacterAnim`).
+The boss integrator calls `step_floating_body` directly — it never enters the shared
+ability-limb pipeline, so a boss can't dash/shield/blink via capability mask (I7
+half-broken: player-robot-as-boss works, boss-rising-to-the-kit doesn't). Boss
+possession (`tick.rs:124-188`) had to re-implement input→special mapping bespoke
+because of this. `unified-actors.md` already names this "a parallel island, a later
+slice" — it is the single largest remaining fork.
+**Seam:** a boss is an actor archetype (capability mask + `BossPattern` brain +
+phase-state component); delete `BossStatus`/`BossAttackState`/`update_ecs_bosses`.
+
+### A2. Victim-side damage: three consumers, three knockback/death models (L)
+`combat/damage.rs:338-471` (`apply_player_hit_events` → `handle_player_damage_events`),
+`features/ecs/damage/actor_hit.rs:40-307`, `features/ecs/damage/boss_hit.rs`.
+A hit on the player gets shield-block, difficulty scaling, feel-tuned frame-agnostic
+knockback (`resolved_player_knockback_velocity`, damage.rs:243-274), hitstun +
+recoil-lock + hitstop, and death→respawn. A hit on an actor (`actor_hit.rs:191-201`)
+gets an inline `knock_x` plus a **hardcoded −90 vertical pop capped at −280** (not
+frame-resolved, not feel-tuned) and **no hitstun/recoil/hitstop at all**. Death is
+forked too (player → `death_respawn_player`; actor → inline drops/banner/timer).
+Respawn destination and difficulty assist are genuine policy; knockback resolution,
+hitstun, and shield consume are mechanics and should be one resolver
+(`shield_blocks_hit` is already shared — proof the merge works).
+**Seam:** one `apply_body_hit(body, event)` mutating `BodyHealth`/`BodyCombat` +
+kinematics for every body, per-body death/respawn POLICY as data.
+
+### A3. `apply_hitbox_damage`: three victim loops inside "one" system (M)
+`combat/hitbox/mod.rs:57-337`. Actor victims resolve via `CenteredAabb` +
+`damage_lands` with `knockback: None` (`:151-184`); a *separate* player loop rebuilds
+a gravity-framed hurtbox from `BodyKinematics`, evaluates a 4-term vulnerability
+predicate at emit-time, and inlines SFX/VFX/knockback (`:199-269`); player-faction
+strikes take a third route (Volume broadcast, `:280-331`). i-frames are checked at
+emit-time for player victims but consume-time for actor victims; knockback attaches
+at emit for players, consume for actors.
+**Seam:** one victim loop over "any body with a hurtbox + faction", vulnerability and
+knockback resolved in ONE place (the consumer).
+
+### A4. World damage only exists for players: hazards, body-contact, boss attacks (M)
+`combat/hazards.rs:8-91` (hazard query is `With<PlayerEntity>` only),
+`features/ecs/actors/update.rs:709-795` (`apply_actor_contact_damage` resolves
+targets exclusively through `player_query`), `features/ecs/bosses/tick.rs:360-369,
+455-499` (`update_ecs_bosses` damage targets only `PlayerEntity`).
+An NPC can stand in lava unharmed; a boss's swing passes through an Npc duelist; an
+enemy's body contact can never hurt the boss it feuds with. B1/B2 made
+hitbox/projectile damage relational, but contact/hazard/boss emission still
+hard-queries players. Guardrail 4 says hazards shouldn't be faction-*gated* — here
+they're player-*scoped*, which is stronger and worse.
+**Seam:** these emitters iterate "every vulnerable body whose faction the source can
+damage", stamping `HitTarget` per victim. Mechanical but touches feel.
+
+### A5. Player-vulnerability predicate copy-pasted at 5 emit sites (S)
+`combat/hitbox/mod.rs:211-215`, `features/ecs/bosses/tick.rs:461-463`,
+`features/ecs/actors/update.rs:763-766`, `combat/hazards.rs:60`,
+`projectile/systems.rs:655` (drops the shield term — **already drifting**).
+`!offense.invincible && !dodge_rolling && !shield.parrying() && combat.vulnerable()`
+is re-derived per site. The player hurtbox is also built differently per site:
+gravity-oriented `collision_aabb` in hitbox/mod.rs:199-210 vs raw `kin.aabb()` in
+`apply_actor_contact_damage:762` and `update_ecs_bosses:460` — **under rotated
+gravity these disagree** (also a relativity bug).
+**Seam:** one `body_vulnerable()` + one hurtbox accessor; folds into A3/A4.
+
+### A6. Hurtbox authority: actors publish `CenteredAabb`, the player doesn't (S/M)
+`features/ecs/actors/update.rs:503-519` (actor publishes the frame-oriented
+`CenteredAabb` billed as "the single source of truth") vs `combat/hitbox/mod.rs:113-125`
+(owner resolution needs a two-way fallback because the player has none). Every
+consumer that needs "a body's combat box" carries an actor path and a player path,
+and they've already diverged (A5).
+**Seam:** the player publishes the same `CenteredAabb` in `integrate_sim_bodies`.
+
+### A7. Perception: `BrainSnapshot` is a second observation seam beside `WorldView` (M/L)
+`features/ecs/actors/update.rs:341-402`, `:962-1021` (`build_enemy_brain_snapshot`).
+Brains observe through TWO structs: the omniscient `BrainSnapshot` (target injected
+from `ActorTarget` — no viewport, no line-of-sight, no memory) plus a terrain-only
+`WorldView` whose peers/projectiles are hardcoded empty slices and whose faction is
+hardcoded `ActorFaction::Enemy` (`:381`). S4/S5 is scaffolded, not done: the
+world-out port exists but the real observation channel is the side-loaded snapshot.
+A brain driving the player-robot body today gets an Enemy-flavored, target-omniscient view.
+**Seam:** `WorldView`(+`WorldMemory`) becomes the ONLY world-out (peers/projectiles/
+target wired in, faction from the body); `BrainSnapshot` shrinks to proprioception +
+controller input.
+
+### A8. Movement presentation: `FrameEvents` → SFX/VFX only for the player (S/M)
+`player/movement_fx.rs:25-194` (`handle_player_events`, player tick only) vs
+`features/ecs/actors/update.rs:492-502` (actor path consumes ONLY `move_events.blinks`
+and drops every other op). An actor that jumps/dashes/dodge-rolls/wall-jumps/
+ledge-grabs/shields produces **no dust/SFX**, while blink SFX got a hand-copied
+second emit site (movement_fx.rs:168-182 AND update.rs:492-502 — the exact "parallel
+emission site" AGENTS.md calls a bug).
+**Seam:** one body-generic `FrameEvents`→facts system for every body.
+
+### A9. `PlayerAnimState` presentation timers have no actor analogue (S)
+`player/components/mod.rs:77-110`, `character_sprites/anim/mod.rs:667-716` vs
+`:779-836`. The anim ladder is genuinely unified (one `pick_body_anim`); the overlays
+fork: shoot/aim/wall-jump/interact/landing/dash-startup/blink-in poses are armed only
+for the player; actors fire projectiles and wall-jump but can never show those rows.
+Hit read differs too — `hitstun_timer` (player) vs `hit_flash` (actor), a consequence
+of A2.
+**Seam:** body-generic `BodyAnimFacts` armed by the shared events system (A8).
+
+### A10. Projectile FIRE control: player charge-machine vs `try_fire_ranged`; parry is player-only (M)
+`projectile/` (player pool: `PlayerProjectileState` charge/mana/cooldown machine) vs
+`enemy_projectile/` (enemy pool + builder). In-flight stepping IS unified
+(`step_projectiles`) and faction is owner-derived, but two pools/markers/spawn paths
+remain, and the player's fire-rate/charge enforcement lives on the controller side —
+an I3 violation. The spawner fold is *deliberately deferred* (feel-sensitive, per
+unified-actors.md); actionable now: the parry asymmetry (`projectile/systems.rs:640-650`
+reverses + re-owns + heals for players only — a shielding actor can never parry) and
+the dual pool markers.
+
+### A11. `SpecialActionSpec` residual closed variants + boss special dispatch bypass (S)
+`ambition_characters/src/brain/action_set/mod.rs:486-508`. `Special(String)` exists
+(good) but `BubbleShield` ("Player-only") and `BossSpotlight` ("Boss-only") remain
+actor-kind-scoped variants, and multi-special bosses bypass `emit_brain_action_messages`
+entirely — the boss tick writes `ActorActionMessage::Special` directly
+(`bosses/tick.rs:219-240`, second bespoke copy in the possession arm `:145-187`).
+Dissolves with A1. See also C8/C10 (the preset layer can't even reach `Special(String)`).
+
+### A12. Interaction/affordance consumers are primary-player-gated (M — documented deferral)
+`features/ecs/interact.rs:36-37`, `player/affordances/*`, `combat/pickups.rs:18,38`.
+Intent seam is body-generic (`interact_pressed`); every consumer is player-gated.
+Already recorded as the "NPC agency" deferred item (guardrail #6) — listed so it
+isn't re-discovered.
+
+### Player-branch classification (inside shared systems)
+**Legitimate policy (keep):** slot-input sourcing for a possessed body; effective-
+allegiance/`effective_faction`; `control_dt`; respawn destination; shrine heal+save;
+the documented aim-resolving held abilities on `held_shot_aim_local`.
+**Illegitimate (mechanics in a player branch):** the boss possession input→special
+mapping (A11) and the player-scoped damage emitters (A4).
+
+### Verified ALREADY UNIFIED (don't re-audit)
+Movement (one engine seam, `integrate_sim_bodies` for actors AND player; bespoke
+integrators deleted; flight/dash/blink/shield ride capability-masked limbs); melee
+end-to-end (`start_body_melee`/`advance_body_melee` for EVERY body, one
+`spawn_melee_strike`, one `emit_melee_slash`, one `BodyMelee` — a stale doc comment
+at `combat/attack.rs:246-248` still claims the fork exists; fix the comment); anim
+ladder (`pick_body_anim`); `shield_blocks_hit`; `BodyCombat`/`BodyHealth` single
+authorities (bosses excepted); projectile stepping/attribution; relational
+targeting + grudge; moveset runtime spawns the same `Hitbox` entities; ability
+systems act on `ControlledSubject` with no player filters.
+
+**Suggested attack order:** A5→A6 (tiny, unblocks) → A3+A4 (one relational
+emit/consume shape) → A2 (victim resolver merge, behind the differential trace) →
+A8+A9 (presentation) → A1 (boss island, using the proven body seams) → A7
+(perception, S4/S5) → A10/A11 residuals.
+
+---
+
+## B. Physics / gravity / frame-of-reference (ranked, likelihood × impact)
+
+**Meta-observation (the pattern behind all of these):** frame discipline is genuinely
+strong at the *movement* layer; nearly every real finding is at a **reaction/effect
+seam** — a verb correct in its main path with a screen-frame epilogue or fallback.
+A cheap systemic guard: a C4-symmetry harness at the
+`update_body_with_tuning_clusters` level (like the `step_kinematic` conformance rig)
+driving attack/blink/knockback scenarios — B1, B3, B4, B5, B6, B9 would all trip it.
+
+### B1. HIGH — Moveset hitboxes spawn in the SCREEN frame, not the owner's gravity frame
+`combat/moveset.rs:138,143` builds the Active-window volume offset as
+`Vec2::new(offset.0 * pb.facing, offset.1)` into `HitboxAnchor::FollowOwner`;
+`Hitbox::world_volume` (`ambition_vfx/src/lib.rs:91`) adds it to `owner_pos`
+**unrotated**. Under gravity=right, an authored above-the-head volume spawns
+screen-up — into the effective ceiling. This is the Smash-model moveset runtime
+meant for every actor, and it forks against the player melee path, which is correct
+(gravity-aware manifest → `spawn_melee_strike`).
+**Fix:** rotate the authored offset through `AccelerationFrame::to_world` at spawn —
+the same seam `spawn_melee_strike` uses.
+
+### B2. HIGH — `ActorSurfaceState::surface_normal` is a stale frame source for every non-surface-walker
+Consumers derive the actor's frame as `-em.surface.surface_normal`: shield block
+(`features/ecs/damage/actor_hit.rs:164-174`), slash-knockback (`:192-200`),
+ranged-fire muzzle+direction (`features/ecs/brain_effects.rs:115-141`), sprite
+rotation (`features/ecs/view_index.rs:213`). But `surface_normal` is written **only**
+by the surface-walker path (`features/enemies/integration.rs:337-373`,
+`fall_until_landed:445`) — regular actors keep their spawn constant `(0,-1)` forever
+(`features/ecs/actor_clusters.rs:435,567`). Movement itself is correct
+(`gravity.dir_at`, and `actors/update.rs:504-510` even knows to only trust the
+normal for surface-walkers). Under gravity=up, an enemy on the ceiling blocks hits
+from the wrong side, gets knockback popped INTO its floor, and fires projectiles in
+the down-gravity frame — while its movement correctly obeys the flip. A pure
+player/actor asymmetry (the player path uses live tuning gravity).
+**Fix:** consumers use `gravity.dir_at(kin.pos)` unless
+`tuning.surface_walker && on_ground`; reserve `surface_normal` for clung surfaces.
+
+### B3. HIGH — Post-blink velocity damp/clamp is on world X/Y axes
+`ambition_engine_core/src/movement/blink.rs:37-42` (`complete_blink_clusters`):
+`vel.x *= damping; if vel.y > max_downward { clamp } else { damp }`. Under
+gravity=left/right the actual fall axis is world X — damped but never clamped
+(chained blinks inherit unbounded fall speed) while the harmless perpendicular axis
+gets the clamp. Under gravity=up a true fall is never clamped and rising velocity
+wrongly is.
+**Fix:** `to_local` via `AccelerationFrame::new(tuning.gravity_dir)`, damp `.x`,
+clamp `.y`, `to_world` back.
+
+### B4. HIGH — Slash recoil kicks along world X instead of the local side axis
+`ambition_engine_core/src/movement/control.rs:130`:
+`kinematics.vel.x -= kinematics.facing * tuning.slash_recoil`. Under
+gravity=left/right the side axis is world-vertical, so attacking shoves the body
+along the gravity axis — a slash pushes you off/onto your wall-floor.
+**Fix:** `vel -= frame.side * (facing * slash_recoil)`.
+
+### B5. MED-HIGH — The spurious-graze guards in the player sweep are welded to world axes, not axis *roles*
+`ambition_engine_core/src/movement/collision.rs`: `body_is_side_contact`
+(`:111-114`) is written in Y top/bottom terms, gated `role == AxisRole::Gravity`
+(`:279`); the X-sweep's counterpart protections (defer-to-other-axis, world-bounds,
+the motion-continuation at `:201-210`) run only in the X=Side role. Under
+gravity=left/right the roles swap and both guards vanish from the axes that need
+them: the run axis (now Y) loses side-contact rejection + continuation → wall-running
+stutters/stalls on a non-immediate graze; the gravity axis (now X) accepts exact-edge
+side contacts → spurious landings (`on_ground` + feet snap + free jump refresh)
+against surfaces the body merely slides past. The `is_contact_range_snap` bound
+(post the 2026-06-25 sideways-hub OOB) caps this to stutter/false-ground, not OOB.
+**Fix:** phrase both guards in role terms (`body_is_nested_along(axis)` whenever the
+swept axis is the gravity axis; a generalized `resolve_side_penetration(axis)` with
+defer/bounds/continuation whenever the swept axis is the side axis) so the pair
+rotates with gravity.
+
+### B6. MED — Wall-ability ordering differs between the two gravity-axis branches of the body tick
+`ambition_engine_core/src/movement/integration.rs:176-217`: vertical gravity runs
+sweep-side → `apply_wall_abilities` → reset `on_ground` → sweep-gravity; horizontal
+gravity runs sweep-side → reset → sweep-gravity → stabilize → `apply_wall_abilities`.
+Under sideways gravity the wall-slide clamp applies *after* gravity-axis motion
+(steady-state slide ≈ `wall_slide_speed + gravity·dt`), climb response lags a frame,
+and `on_ground` is read at different snapshots per branch. Not identical local traces
+under C4 rotation — exactly what the conformance tests pin for `step_kinematic` but
+not for this player path.
+**Fix:** one branch: side-sweep → wall abilities → clear ground → gravity-sweep
+(+ stabilize when gravity is on X), consistent `on_ground` snapshot.
+
+### B7. MED — Body out-of-bounds reset only triggers past the world's *bottom* edge
+`ambition_engine_core/src/movement/mod.rs:315-317`: `pos.y > world.size.y + 200.0`.
+Under gravity=up/left/right a body exits through the top or a side and never trips
+the reset — it falls forever (the exact symptom class the OOB flight recorder hunts).
+**Fix:** gravity-relative exit test —
+`(pos - world_aabb.clamp(pos)).dot(gravity_dir) > 200.0`.
+
+### B8. MED — Portal-gun aim skips the acceleration-frame seam every other aimed ability uses *(verify against the portal agent's latest)*
+`ambition_content/src/portal/input_adapter.rs:34-44` (`pick_aim`) returns the raw
+stick and falls back to world-horizontal `(±1, 0)` on neutral input
+(consumed by `fire_adapter.rs:47-51`). Grapple/blink/meteor/vortex/fireball all
+resolve through `AccelerationFrame::to_world(resolve_aim_local(..))`
+(`items/pickup/mod.rs:635-658`). Under sideways gravity a neutral-stick portal shot
+fires world-horizontal — into or out of the wall-floor — and ignores the
+body-relative-aim setting.
+**Fix:** route through the shared `ability_aim_world`/`resolve_aim_local` seam.
+
+### B9. MED — Blink zero-stick fallback and default aim offset are world-X
+`ambition_engine_core/src/movement/blink.rs:53`, `control.rs:32,40,66-67,105`:
+fallback/default aim = `Vec2::new(blink_distance * facing, 0.0)`. The stick paths
+are correctly world-resolved; only the no-input fallback is raw. Under sideways
+gravity a no-direction quick blink teleports along the gravity axis instead of
+forward along facing. Same class as B8.
+**Fix:** `frame.side * (blink_distance * facing)`.
+
+### B10. MED (latent) — `Hitbox::world_volume` pins shaped volumes to screen-down
+`ambition_vfx/src/lib.rs:95`: `shape.place_at(center, facing, Vec2::new(0.0, 1.0))`.
+`VolumeShape::place_at` is fully gravity-capable; the caller hardcodes the frame.
+Only orientation-invariant circles reach it today — the first authored OBB slash-arc
+will be gravity-locked.
+**Fix:** carry the owner's `gravity_dir` on the hitbox.
+
+### B11. LOW-MED — Knockback side computed in screen-X at the source
+`combat/hitbox/mod.rs:226` (`center().x >= owner_pos.x`) and
+`projectile/systems.rs:659`. The consumer (`resolved_player_knockback_velocity`)
+recomputes gravity-relatively and uses the stored `dir` only as a degenerate-case
+fallback — but under sideways gravity attacker/victim separate along world-Y, which
+is exactly when the projection is ~0 and the screen-frame fallback decides.
+**Fix:** compute `dir` at the source as `sign((victim - owner)·frame.side)`.
+
+### B12. LOW — Query-iteration-order dependence without stable keys
+- Portal transit entry/rescue picks the **first** qualifying portal from a `Vec`
+  collected off a `Query<&PlacedPortal>` (`ambition_portal/src/placement.rs:482-540`;
+  same pattern `transit.rs:433-446`). Overlapping capture boxes (inside corner) →
+  which pair you transit depends on archetype order. *(verify against latest)*
+- Nearest-foe targeting tie-break (`combat/targeting.rs:266`) keeps the
+  first-visited candidate on an exact distance tie.
+**Fix:** deterministic tiebreak (deepest penetration / lowest channel id; stable id
+per the query-order-determinism rule).
+
+### B13. LOW — `FlipGravity` negates only `dir.y`, a no-op when ambient gravity is sideways
+`encounter/systems.rs:277` (`base.dir.y = -base.dir.y`) + test twin
+`gravity/lifecycle.rs:63`. After a Noether-Chamber `SetGravityLeft/Right`, the hub's
+flip switch does nothing.
+**Fix:** `base.dir = -base.dir`.
+
+### Minor notes
+- `player/body_integration.rs:179` — hard-fall screen-shake reads `vel.y`;
+  presentation-only misfire under sideways gravity. Use `vel.dot(frame.down)`.
+- `falling_sand.rs:816` — sand-stream VFX falls world-down with `Res<Time>` (not
+  SimDt/GravityField); visibly wrong under a flip in that room.
+- `platformer_primitives/src/gravity.rs` — `GravityField::vertical_sign` /
+  `local_gravity_sign` have **zero consumers** and the module doc still claims the
+  collision controllers use them: dead API + docs-describe-dead-things smell.
+- **Mockingbird OOB: the memory/tooling note "still-unfixed" is STALE** — the
+  2026-06-21 fix (`is_contact_range_snap` on every snap/push) is in place with a
+  regression test. Residual OOB risk concentrates in B5's role-swapped guard holes —
+  hunt there if it recurs under non-default gravity.
+
+Known-open items from prior work (for cross-reference, `code_smells.md` 2026-06-15):
+directional attack hitbox offset world-locked (`ambition_combat/src/lib.rs:446` —
+same family as B1/B10); `ground_gap_below_feet` probes world-down
+(`app/world_flow.rs:63`); thrown ground-item gravity world-locked
+(`items/pickup/mod.rs:169`); player knockback untested under gravity flip (B11 is
+the concrete mechanism). New from audit A: the player hurtbox emit-site divergence
+under rotated gravity (A5).
+
+### Areas verified CLEAN
+`reference_frame.rs` (`AccelerationFrame`) — exemplary, pinned across all four
+cardinals against frame-of-reference.md; `collision_semantics.rs` kernel
+(gravity-relative, C4-tested, `supporting_block` ≤4px bound);
+`platformer_primitives::kinematic::step_kinematic` (role-ordered sweeps, C4
+trace-conformance tests); `integrate_normal_spine` + flight/climb/jump-buffer/
+coyote/wall-jump/dodge/dash/jump-release (all frame-projected); ledge grab (fully
+`_in_frame`); **portal core as read today** (momentum via `portal_map_vec`,
+somersault-roll + `gravity_upright_angle`, normal-based eviction/pieces/exit-boost —
+no hardcoded up anywhere in `ambition_portal`); projectile primitive (all-cardinal
+tests, `ProjectileSeq`-sorted stepping); player combat (melee/knockback/shield/
+meteor/gravity-grenade frame-agnostic and mostly gravity-tested); gravity zones /
+per-body `gravity_dir_at` / `ActorRoll` righting.
+
+---
+
+## C. Engine/content separation — the "second game" oracle (ranked)
+
+### Tier 1 — structural blockers
+
+#### C1. `Item`: the 24-item named inventory catalog lives in machinery (L)
+`items/mod.rs:69` — closed `#[repr(usize)]` enum (`PortalGun, Axe, …, GunSword,
+PuppySlugGun, … DebugLens, ReservedSlot`) with compile-frozen
+`ITEM_META: [ItemMeta; 24]` (`:118`) carrying display names and flavor text.
+Discriminant == inventory grid slot. Consumed across menu IR, yarn `inventory_has`,
+persistence, pickups, abilities. A second game cannot add or remove a single item
+without editing core.
+**Fix:** the proven roster pattern — machinery owns a generic `ItemCatalog` schema
+(string id, category, grid slot, held_item_id, dialog_id) + installed holder; content
+installs `items.ron`. `ItemCategory` (`:40`) is already the right generic vocabulary.
+
+#### C2. `HELD_ITEMS`: the full weapon/ability roster is a hardcoded static in a foundation crate (M)
+`ambition_characters/src/brain/action_set/mod.rs:~150-348` — a `LazyLock` table
+hardcoding every held item (`"axe"`, `"javelin"`, `"gun_sword"`, `"puppy_slug_gun"`,
+`"volley"`, `"beam"`, …), resolved via `held_item_by_id` (`:351`), with comments
+binding entries to named content ("the smirking_behemoth eye-beam", "GNU-ton's
+apple-rain"). Also `items/pickup/mod.rs:230,248` constructs `"axe"`/`"javelin"`
+specs inline. The ability *systems* are legitimately generic; the closed binding
+table is the leak.
+**Fix:** installable `HeldItemSpec` registry (same `OnceLock` install seam as
+`install_enemy_roster`); content authors the table as RON.
+
+#### C3. Ambition's worlds and roster RON are embedded inside `gameplay_core` (M)
+`assets/sandbox_assets/embedded.rs:254-271` (`include_bytes!` of `sandbox.ldtk`,
+`intro.ldtk`, `you_have_to_cut_the_rope.ldtk`, `hall_of_characters.ldtk` + named
+spritesheets `:121-169`); `world/ldtk_world/hot_reload.rs:17`
+(`SANDBOX_LDTK_ASSET` wires the LDtk spine to one game's world file);
+`character_roster.rs:21` (`include_str!` of `character_catalog.ron` — module doc
+admits it "owns Ambition's actual roster DATA").
+**Fix:** content-installed `WorldManifest` (entry world + secondary bundles +
+embedded byte registrations) mirroring the boss-roster install; move
+`character_catalog.ron` + lookups to `ambition_content`.
+
+#### C4. The app is not thin assembly, and nothing enforces that it stay thin (L)
+`app/plugins.rs` (1099 LOC) hand-wires ~30 plugins with explicit ordering — exactly
+what ADR 0019 says subsystems should own — and names content inline
+(`spawn_ldtk_world_root` `:496-561` hardcodes intro + cut-rope bundles;
+cut-rope/gnu_ton/victory systems at `:267-268,427,795` and
+`progression_schedule.rs:35/45/81`). `app/sim_systems.rs` (639 LOC) is content-free
+*gameplay machinery* in the shell. `host/mobile_input/` (2.9k LOC, fully reusable
+touch controls) belongs beside `ambition_input`. The `architecture_boundaries` suite
+has **no test asserting app thinness** — this is the unguarded accumulation point.
+**Fix:** machinery-owned `PlatformerEnginePlugin` group; content-owned hooks for
+named systems/worlds; fold `sim_systems.rs` into owning gameplay plugins; extract
+mobile input; add an app-thinness boundary test.
+
+### Tier 2 — closed vocabulary a second game must edit
+
+#### C5. `ProjectileKind` + `ProjectileVisualKind` closed in machinery (M)
+`projectile/kind.rs:35` (`Fireball, Hadouken, HadoukenSuper`, per-kind stat `match`;
+doc admits "This is named game content") and `projectile/visual_kind.rs:33`
+(`Apple` = GNU-ton fruit, `Glider` = PCA shot, `Lasersword`). The generic seams
+already exist (`ProjectileSpec`, `ProjectileArtSource`).
+**Fix:** RON rows keyed by held-item/ability id lowering to `ProjectileSpec`;
+visual kind → string key against a content-installed art registry.
+
+#### C6. Named-boss residue despite the finished `Special(String)` seam (M)
+`ambition_characters/src/brain/boss_pattern/mod.rs:243` (`BossAttackProfile` variants
+commented "GNU-ton specific" / "Gradient Sentinel", geometry baked at
+`boss_encounter/attack_geometry/mod.rs:582-603`); `boss_encounter/ids.rs:26`
+(`MOCKINGBIRD_ENCOUNTER_ID` + chest sync, file documents its own generalization
+plan); `features/bosses.rs:39-52` (`GNU_TON_*`, `GRADIENT_SENTINEL_*`); named
+constructors `mockingbird()/gnu_ton()/trex_boss()` (`boss_encounter/behavior.rs:309-340`);
+`MOCKINGBIRD_SHEET` (`boss_encounter/sprites/mod.rs:169,459,715`).
+**Fix:** migrate the five named variants to `Special(String)` techniques; ship the
+boss-death-reward table; per-boss sheet specs into the boss roster RON.
+
+#### C7. Render has a bespoke code path for one boss and parses `" on Shark"` from display names (S/M)
+`ambition_render/src/rendering/actors/boss.rs:105-135` (`is_gnu_ton` string match →
+hardcoded body/hands split layers); `rendering/world.rs:611-615` +
+`features/ecs/spawn_mounts.rs:95` (mount composition triggered by stripping the
+literal `" on Shark"` suffix from the authored spawn *name*, in both sim and render).
+**Fix:** multi-part layering as data in the boss sheet spec; mounts as an authored
+spawn field (`mount: "shark"`), never display-name parsing.
+
+#### C8. Catalog authoring presets are *more* closed than the runtime enums they mirror (S)
+`ambition_characters/src/actor/character_catalog/entry.rs`: `SpecialPreset` (`:354`)
+has only `BubbleShield, BossSpotlight` — it **omits** the `Special(String)` hatch its
+resolution target already has (`resolver.rs:308-309`). `MeleePreset`/`RangedPreset`/
+`MoveStylePreset`/`BrainPreset` (`:215-345`) re-freeze the action-spec enums. The
+data authoring surface can't reach the engine's own open seam.
+**Fix:** add `Special(String)` + string-keyed rows to the presets; resolver exists.
+
+#### C9. `CharacterBrainTemplate`: closed AI-template enum incl. a named `Shark` variant (M)
+`combat/components/mod.rs:344` (`StandStill, Wanderer, MeleeBrute, Skirmisher,
+Sniper, Shark, Smash, Aerial`). Mostly legitimate vocabulary, but `Shark` is a named
+creature's policy and the set is closed (a second game's custom AI = core edit);
+`CharacterBrainSpec` carries seven `smash_*` kit fields inline.
+**Fix:** near-term rename `Shark` → behavior name (`ChargeCrash`); longer-term a
+string-keyed brain-constructor registry with the current templates as defaults.
+(Dovetails with the logged "characters = capability kits, not archetypes" smell.)
+
+#### C10. `SpecialActionSpec` residue + hardwired player special (S)
+`action_set/mod.rs:486` (`BubbleShield`/`BossSpotlight` remain) +
+`player/bundles.rs:196` hardwires the player's special slot to `BubbleShield` gated
+on `abilities.shield`.
+**Fix:** both become `Special("bubble_shield")`/`Special("spotlight")` techniques;
+the player's special slot comes from equipped item/catalog data. (Same item as A11.)
+
+#### C11. Named dialogue ids in machinery (S)
+`dialog/content.rs:48-100` — production `KNOWN_DIALOGUE_IDS` naming
+`"emmy_noether"`, `"perfect_cellular_automaton"`, `"pirate_admiral"`, etc.
+**Fix:** derive the known-id set from the installed yarn project / content plugin.
+
+#### C12. Minor closed VFX/SFX pairings (S)
+`ambition_vfx/src/vfx.rs:31,104` — `ExplosionKind` (5 flavors, hardcoded
+variant→`SfxId` map, no `Custom`); siblings `ParticleKind`/`SlashKind` milder.
+`EntitySprite` / `FeatureVisualKind` are mostly genuine kit vocabulary — low priority.
+**Fix:** id-carrying variant or data map for explosion→SFX.
+
+### Already CLEAN (the templates to copy)
+The roster install pattern (`features/enemies/mod.rs`: string-keyed
+`CharacterRoster`, `OnceLock` install, production panics without content, embedded
+data test-only; boss profiles/encounters identical); boss-special Techniques
+(`ambition_content/src/bosses/specials/` via `register_required_components` +
+`CombatSet::ContentSpecials` — the engine names no boss special);
+`ambition_entity_catalog` (fully generic, string-keyed — the flagship of the target
+shape); `ambition_combat` (`DamageKind::Custom`, genuine vocabulary);
+`ambition_interaction` (`PickupKind::Custom(String)` etc. — exemplary); SFX
+(string-hash `SfxId`); yarn commands extensible from content; smash brain generic;
+`ambition_engine_core`/`ambition_platformer_primitives` clean; renderer's
+`ProjectileArtSource` seam correct.
+
+### ADR 0019 gap summary
+The crate split succeeded (~36 subsystem `impl Plugin`s exist). Missing for "add a
+content crate": (1) **no reusable engine bootstrap** — `add_simulation_plugins`/
+`init_sandbox_resources`/`add_presentation_plugins` are ~30 hand-ordered installs a
+second game must replicate, and `init_sandbox_resources` itself calls the *content*
+boss install; (2) **content hooks bypass `AmbitionContentPlugin`** — named worlds and
+cut-rope/gnu_ton systems wired inline in `app/plugins.rs`/`progression_schedule.rs`;
+(3) **boundary tests don't guard the app layer**. Highest-leverage: C4 + C1; after
+those, remaining leaks are mostly one-file data migrations along existing seams.
+
+---
+
+## D. Decomposition of `ambition_gameplay_core` (94.5k LOC)
+
+### LOC map (top modules)
+| Module | LOC | What it is |
+|---|---|---|
+| `features/` | 17,645 | actor ECS sim (`ecs/` 12.9k; `enemies/` 2.0k; `bosses.rs` 963) + a giant re-export facade in `mod.rs` |
+| `world/` | 10,186 | LDtk load/convert/runtime (5.5k), rooms graph/spawn/transitions (2k), moving platforms, physics settings |
+| `combat/` | 8,604 | targeting, attack, hitbox, damage, components, world_overlay, moveset, chests/breakables/hazards |
+| `boss_encounter/` | 6,059 | encounter script/behavior/registry + `attack_geometry/` + `sprites/` (1.2k) |
+| `player/` | 5,393 | systems, body_integration, bundles, `trail.rs` (1,045) |
+| `persistence/` | 4,486 | save + settings model (~1.8k settings) |
+| `character_sprites/` | 4,222 | sheet/anim registry, animator, sprite-metadata → attack-hitbox derivation |
+| `abilities/` | 4,066 | blink/dive/possession/grapple + ranged kit |
+| `projectile/`+`enemy_projectile/` | 4,285 | projectile engines |
+| `assets/`+`asset_publish/` | 4,308 | asset profiles/loading + publish/hygiene classifier |
+| `menu/` | 3,189 | settings IR + **Bevy-UI map panel in machinery** |
+| `dev/` | 2,969 | trace detect/systems, dev_tools, profiling |
+| smaller | | `encounter/` 2.5k, `items/` 2.4k, `dialog/` 2.3k, `audio/` 1.3k, `falling_sand.rs` 1.3k, `time/` 1.3k, `session/` 1.2k |
+
+**Hot-edit surface (git, since May):** `features/`+`combat/`+`abilities/` = 1,084
+file-touches vs 190 for `world/`+`persistence/`+`menu/`. The strategy: **move the
+cold 40k out from around the hot 30k** and cut the render edge, rather than
+attempting the verified-HARD mechanics extraction first.
+
+### D1. Delete the internal facade layer (prerequisite, ~0 risk)
+Dependency counts are a lie until this lands. Verified facades whose definitions
+already live in foundation crates:
+- `crate::audio::SfxMessage` — **93 of 94 inbound refs** are this one symbol
+  (`pub use ambition_sfx::SfxMessage`, `audio/mod.rs:27`).
+- `crate::effects` — entire module is `pub use ambition_vfx::*`.
+- `crate::time::{world_time,clock_state}` — re-exports of `ambition_time`, kept "so
+  historic paths keep resolving" — exactly the pre-release compat tax to delete.
+- `crate::config::{world_to_bevy, WORLD_Z_*}` — re-export of engine_core; render
+  imports it 28× through gameplay_core.
+- `features/mod.rs` re-export hub — **271 internal refs** name `crate::features::X`
+  for symbols living in `combat/` (`HitEvent`, `CenteredAabb`, `CollisionWorld`, …).
+  The #1 navigability obscurer.
+- `lib.rs` root: `pub use persistence::save_data as save` (2 users),
+  `pub use items::shop` (4 users), `pub use crate::features::MeleeSwing`.
+
+### D2. Re-home `BodyHealth`/`BodyCombat`/`BodyWallet` down to `ambition_characters` (tiny, keystone leverage)
+`src/actor.rs` (299 LOC) is the top import of both render (52 refs) and app (100
+refs) — but ~90% of it re-exports engine_core Body* clusters; only three real types
+live there. Move them down and `crate::actor` becomes a pure facade → delete per D1.
+This one file is why "everything imports gameplay_core for vocabulary."
+
+### D3. Cut the `ambition_render → ambition_gameplay_core` edge (biggest compile-time win)
+Hot edits in `features/ecs` currently rebuild gameplay_core (95k) → render (10k) →
+portal_presentation → app. Render's imports are almost entirely read-model
+vocabulary: `actor` (dissolved by D2), `config`/`time` (dissolved by D1), and the
+`features` view accessors (`ActorSpriteData`, `FeatureViewIndex`,
+`FeatureVisualKind`, `ecs_actor_anim_state`, …) + `rooms::RoomSet`.
+**Missing abstraction:** a small `ambition_sim_view` crate (or grow
+`ambition_characters`) holding the materialized read-model: `FeatureViewIndex`/
+`FeatureView` (already rebuilt per-frame for presentation readers), `ActorSpriteData`,
+anim-state enums, `CameraSnapshot2d` (459 LOC, already presentation vocabulary), and
+the sim→presentation messages not already down (`DebrisBurstMessage`,
+`GameplayBanner`). Hard part: the `ecs_*` accessors take live `Query`s; render must
+switch fully to the materialized index; the few direct component reads
+(`BodyCombat.hit_flash`, `BodyHealth` HUD) ride D2.
+**Payoff:** render + portal_presentation drop out of the hot rebuild path and compile
+in parallel with gameplay_core.
+
+### D4. Extract `ambition_world` (10.2k — the narrowest big seam)
+Inbound surface is remarkably thin: `RoomSet` (22), `Authored<T>` (18),
+`RoomSpec`/`RoomMetadata`, `MovingPlatformState`, `DebrisBurstMessage`,
+`poll_ldtk_file_changes`. Outbound mostly clean (`DamageVolume` is a foundation
+re-export). Three genuine inversions:
+1. `rooms/systems.rs` queries `crate::features::FeatureName` — invert via a
+   world-owned marker or move the label component down.
+2. `rooms/load.rs` writes `PlayerBlinkCameraState`/`PlayerSafetyState`;
+   `rooms/systems.rs` mutates `SlotInteractionState` — room transitions reach into
+   player state. Elegant fix: emit `RoomTransitioned { spawn, reason }`; player/
+   session systems react. (Also fixes the shared-scalar cooldown smell in
+   `SandboxSimState.room_transition_cooldown`.)
+3. `world/physics.rs` debris messages move to the sim-view crate (D3).
+**Payoff:** −10k from the god crate; the LDtk machinery (+ `bevy_ecs_ldtk` dep)
+becomes a leaf; the "second game" oracle needs exactly this crate to exist.
+
+### D5. Unify the smeared menu/settings stack; evict wrong-layer UI
+The menu system is in **four places**: `gameplay_core/menu` (3.2k, incl. a literal
+Bevy-UI map panel inside machinery), `ambition_menu` (4.8k), `ambition_app/menu`
+(**10k** — kaleidoscope/grid backends + model + parity tests: reusable machinery in
+the app layer, 40% of the app crate), `persistence/settings` (1.8k model the IR
+references 29×). Proposal: one menu crate stack (IR+model+backends) beside render,
+importing a settings-schema crate; app keeps host wiring. Also evict:
+`dev/dev_tools/editable.rs`+profiling toward app's dev split; `asset_publish/`
+(890 LOC author-time tooling, no build.rs user) toward `ambition_asset_manager`/tools.
+
+### D6. `character_sprites` down + `boss_encounter` dissolved
+After D1/D2, `character_sprites` (4.2k) has no real gameplay_core deps and is
+consumed by render/content/combat-geometry — it belongs beside
+`ambition_sprite_sheet` as the one sprite-metadata pipeline (matches the
+sprite-renderer refactor plan + actor-geometry unification). `boss_encounter/` then
+splits along its grain: `attack_geometry/`+`sprites/` (~2.5k) join the metadata
+pipeline; behavior/registry/script folds into `ambition_characters` (the next.md
+"unified actor+brain crate" carve — bosses ARE actors, and this is the crate-level
+face of A1); rewards stay with encounter/items. Stray: `character_sprites/assets.rs:487`
+documents a nonexistent `crate::ambition_content::intro::plugin` path
+(docs-describe-dead-things — log it).
+
+### D7. Split `dialog/` runtime from bindings; move `falling_sand` out (easy wins)
+`dialog/runtime.rs` (generic yarn runtime + lint) → reusable `ambition_dialog` crate;
+`yarn_bindings.rs` (618 LOC binding save/shop/quest) stays up. `falling_sand.rs`
+(1.3k, feature-gated desktop prototype) → its own optional crate; it currently drags
+`bevy_falling_sand` into the 95k crate's feature matrix (deps: `config` facade,
+`rooms` → needs D4, `features` ×6).
+
+### The knot NOT to cut yet
+`features/ecs`+`combat`+`abilities`+`projectile` (~30k, the hot mechanics core).
+next.md verified ~15 dependency inversions needed; **D1–D4 ARE the pre-inversions.**
+After them, the mechanics core's outward deps reduce to `persistence::settings`
+(~13 tuning reads) and `character_sprites` (12, handled by D6) — at which point the
+extraction stops being hard.
+
+### Ordering/coupling smells (log-worthy)
+- **WorldPrep mega-chain** (`features/mod.rs`): 20+ systems in 4 `add_systems` calls
+  split only by Bevy's chain-length ceiling, ordering carried by `.before/.after` +
+  comments. Would be crisper as explicit `SystemSet` phases inside `SandboxSet::WorldPrep`.
+- **Read-model mirrors with documented one-tick lag:** `BodyCombat.alive` mirrors
+  `BodyHealth` ("liveness-critical gameplay reads BodyHealth directly to avoid a tick
+  of mirror lag") — the sim-view crate (D3) would formalize this.
+- Room transition via shared scalar + direct player-state writes (see D4).
+- `use super::*` is contained (max 4/file, mostly tests) — not a priority.
+
+---
+
+## Cross-audit intersections (highest-leverage compound moves)
+
+- **A1 (boss island) × D6 (boss_encounter dissolution) × C6 (named-boss residue):**
+  one arc — fold bosses onto the body vocabulary, move behavior into
+  `ambition_characters`, migrate named variants to `Special(String)`, leave only RON
+  in content. Three audits independently converged on this.
+- **A2-A5 (damage unification) × B2/B11 (frame bugs):** the emit-site hurtbox
+  divergence is both a fork and a relativity bug, and the actor knockback/shield
+  frame bugs (B2) live exactly in the forked actor-victim consumer — one relational
+  victim resolver built on `gravity.dir_at` fixes both classes at once.
+- **B1 (moveset hitbox frame) × A (one strike seam):** the moveset runtime forked
+  off `spawn_melee_strike`'s gravity resolution — routing it through the same seam
+  is both the bug fix and the unification.
+- **C1/C2 (item+held rosters) × A10 (projectile fire control):** item catalog → held
+  registry → projectile specs is one data chain; converting it end-to-end retires
+  `ProjectileKind` (C5) too.
+- **D3 (sim-view) × ADR 0012:** the sim/presentation split's missing abstraction is
+  the same crate the compile-time lever wants.
+
+## Status
+- [x] Audit A — actor unification forks
+- [x] Audit B — physics/gravity frame bugs
+- [x] Audit C — engine/content separation
+- [x] Audit D — decomposition seams
+- No code edits made (portal agent active). Next step after the portal agent
+  finishes: pick from the Synthesis list — B-sweep behind the new C4 body-tick
+  harness (item 0) and the facade deletion (item 1) are the two lowest-risk,
+  highest-unblock starters.

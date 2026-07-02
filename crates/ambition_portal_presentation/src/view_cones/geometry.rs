@@ -516,34 +516,14 @@ pub(crate) fn host_depth_limit(
     }
 }
 
-fn dynamic_lateral_limit(enter: &PortalFrame, depth: f32, world_size: Vec2) -> f32 {
-    let aperture = aperture_half_width(enter);
-    let bounded_depth = depth.max(1.0);
-    let world_bound = world_size.x.max(world_size.y).max(aperture + bounded_depth);
-    (aperture + bounded_depth * 4.0).clamp(aperture + 1.0, world_bound)
-}
-
-fn view_strip(enter: &PortalFrame, exit: &PortalFrame, depth: f32, half_lateral: f32) -> ViewCone {
-    let n = enter.normal;
-    let t = Vec2::new(-n.y, n.x);
-    let entry_quad = [
-        enter.pos - t * half_lateral,
-        enter.pos + t * half_lateral,
-        enter.pos + t * half_lateral - n * depth,
-        enter.pos - t * half_lateral - n * depth,
-    ];
-    let source_quad = entry_quad.map(|p| ambition_portal::pieces::map_point(p, enter, exit));
-    let (mut min, mut max) = (source_quad[0], source_quad[0]);
-    for p in &source_quad[1..] {
-        min = min.min(*p);
-        max = max.max(*p);
-    }
-    ViewCone {
-        entry_quad,
-        source_quad,
-        source: ae::Aabb::new((min + max) * 0.5, (max - min) * 0.5),
-    }
-}
+/// Effectively-unclamped lateral bound for the wedge rays. The wedge's far
+/// corners must stay ON the true sight rays through the aperture endpoints —
+/// clamping them to a "reasonable" lateral limit bends the rays inward and
+/// turns a near-half-plane view into an arbitrary ~45° trapezoid. The render
+/// stage clips the polygon to the active viewport before building the mesh
+/// and the capture rect, so the viewport is the only honest lateral bound;
+/// this constant exists purely to keep f32 arithmetic comfortable.
+const RAY_LATERAL_CLAMP: f32 = 1.0e5;
 
 pub(crate) fn visibility_route_summary(
     portal: &PlacedPortal,
@@ -793,27 +773,27 @@ pub(crate) fn compute_cone(
     let finite_depth = (config.dynamic_depth_close
         + (config.dynamic_depth_far - config.dynamic_depth_close) * smooth01(dt))
     .min(host_limit);
-    // The half-plane preview is the aperture-limit view. In the default full
-    // mode, make it large enough that the render stage clips it to the active
-    // camera frame; explicit positive max-lateral values keep the old bounded
-    // tuning path for diagnostics.
+    // The half-plane preview is the aperture-limit view. It is ALWAYS the
+    // aperture-anchored wedge — near edge pinned to the opening, far corners
+    // on the true rays through the aperture endpoints — so approaching the
+    // portal reads as a view CONE fanning open toward the half-plane, never a
+    // laterally-growing strip whose near edge leaves the face. The viewport
+    // clip in the render stage bounds it; explicit positive max-lateral
+    // values keep the old bounded tuning path for diagnostics.
     let full_half_plane = config.half_plane_preview_max_lateral <= 0.0;
     let half_depth = if full_half_plane {
         world_size.x.max(world_size.y).max(finite_depth)
     } else {
         finite_depth
     };
-    let finite_lateral_limit = dynamic_lateral_limit(&enter, finite_depth, world_size);
     let half_plane_lateral_limit = if full_half_plane {
-        world_size
-            .x
-            .max(world_size.y)
-            .max(aperture_half_width(&enter) + 1.0)
+        RAY_LATERAL_CLAMP
     } else {
         config
             .half_plane_preview_max_lateral
             .max(aperture_half_width(&enter) + 1.0)
     };
+    let finite_lateral_limit = RAY_LATERAL_CLAMP;
     let finite_wedge =
         aperture_wedge_multi(&enter, &exit, &eyes, finite_depth, finite_lateral_limit);
     let half_plane_alpha =
@@ -822,14 +802,7 @@ pub(crate) fn compute_cone(
     if half_plane_alpha > 0.0 {
         half_plane_eyes.push(enter.pos + enter.normal * 0.5);
     }
-    let half_wedge = if half_plane_alpha > 0.0 && full_half_plane {
-        Some(view_strip(
-            &enter,
-            &exit,
-            half_depth,
-            half_plane_lateral_limit,
-        ))
-    } else if half_plane_alpha > 0.0 {
+    let half_wedge = if half_plane_alpha > 0.0 {
         aperture_wedge_multi(
             &enter,
             &exit,
@@ -1230,11 +1203,11 @@ mod tests {
     }
 
     #[test]
-    fn view_cone_defaults_to_mapped_camera_and_full_half_plane() {
+    fn view_cone_defaults_to_cone_rect_and_full_half_plane() {
         let config = PortalViewConeConfig::default();
         assert_eq!(
             config.capture_camera_mode,
-            PortalCaptureCameraMode::MappedCameraSnapshot
+            PortalCaptureCameraMode::ConeRect
         );
         assert_eq!(config.half_plane_preview_max_lateral, 0.0);
         assert!(config.half_plane_preview_full_distance > 0.0);
@@ -1296,18 +1269,34 @@ mod tests {
             "full half-plane should reach both sides of the active frame after clipping: render_width={render_width}, clip_width={clip_width}, poly={:?}",
             render.entry_poly_world
         );
+        // Tolerance 0.1px: the fan's pre-clip corners sit at the ray clamp, so
+        // the Sutherland intersection carries a little float error.
         assert!(
             render
                 .entry_poly_world
                 .iter()
-                .any(|p| (p.x - clip_min.x).abs() < 1e-3)
+                .any(|p| (p.x - clip_min.x).abs() < 0.1)
                 && render
                     .entry_poly_world
                     .iter()
-                    .any(|p| (p.x - clip_max.x).abs() < 1e-3),
+                    .any(|p| (p.x - clip_max.x).abs() < 0.1),
             "full half-plane polygon should touch both clip edges: {:?}",
             render.entry_poly_world
         );
+        // The view is a CONE anchored at the aperture: every vertex ON the
+        // face (y = 900) stays within the opening — the near edge never grows
+        // laterally beyond the portal.
+        let aperture = 46.0;
+        for p in render
+            .entry_poly_world
+            .iter()
+            .filter(|p| (p.y - 900.0).abs() < 1e-3)
+        {
+            assert!(
+                (p.x - 300.0).abs() <= aperture + 1e-3,
+                "near edge pinned to the aperture, got {p:?}"
+            );
+        }
     }
 
     #[test]
@@ -1479,9 +1468,12 @@ mod tests {
         default_config.aperture_los_quality = PortalApertureLosQuality::Medium;
         let mut exact_config = default_config.clone();
         exact_config.half_plane_preview_full_distance = 0.0;
+        // Mid proximity: close enough that the preview assist is active, far
+        // enough that exact LOS is a finite wedge (AT the plane, exact LOS
+        // legitimately becomes the half-plane fan and the two coincide).
         let viewer = PortalViewer {
             present: true,
-            eye: enter.pos + enter.normal * (default_config.half_plane_preview_full_distance * 0.5),
+            eye: enter.pos + enter.normal * 60.0,
             half_size: Vec2::ZERO,
             occluders: Vec::new(),
         };
@@ -1491,7 +1483,7 @@ mod tests {
         let exact_span = span_x(&exact.wedge);
         let preview_span = span_x(&preview.wedge);
 
-        assert!(exact.target > 0.99);
+        assert!(exact.target > 0.0);
         assert_eq!(exact.debug.half_plane_preview_alpha, 0.0);
         assert!(preview.debug.half_plane_preview_alpha > 0.0);
         assert!(

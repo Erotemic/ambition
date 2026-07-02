@@ -237,11 +237,12 @@ pub(crate) fn capture_box(portal: &PlacedPortal) -> ae::Aabb {
 /// unfixably fragile: the carve publishes before the frame's clock refresh, so
 /// any dt it reads is stale, and a frame hitch at re-entry under-sweeps and
 /// grounds the body, killing its momentum). Budget: Ambition clamps controlled
-/// actor sim steps to 1/30 s, so 950 px/s terminal fall ⇒ ~32px/frame;
-/// projectiles do NOT clamp, so a ~700 px/s shot on a 100ms hitch ⇒ ~70px.
-/// 96px covers both with slack. Opening a few frames early is harmless: the
-/// approach carve is gated on the body MOVING INTO the portal, and a hole only
-/// ever opens where a placed, paired portal already is.
+/// actor sim steps to 1/30 s, so 1900 px/s terminal fall (`MAX_FALL_SPEED`)
+/// ⇒ ~63px/frame — 96px covers it with slack. A body even faster on a hard
+/// hitch may see the carve closed for ONE frame, but the carve-volume rescue
+/// in `transit_step` recovers the crossing regardless. Opening a few frames
+/// early is harmless: the approach carve is gated on the body MOVING INTO the
+/// portal, and a hole only ever opens where a placed, paired portal already is.
 pub(crate) const APPROACH_CARVE_REACH: f32 = 96.0;
 
 /// The capture box extended [`APPROACH_CARVE_REACH`] px OUTWARD along the

@@ -403,7 +403,12 @@ impl PortalCaptureCameraMode {
 
 impl Default for PortalCaptureCameraMode {
     fn default() -> Self {
-        Self::MappedCameraSnapshot
+        // ConeRect: the capture frames the tight source rect, so the fixed
+        // texture's density is spent entirely on what the window shows. Its
+        // historical parallax problem (background evaluated at the framing
+        // center) is gone — parallax copies anchor at the rig's
+        // `parallax_anchor` (the mapped host camera), independent of framing.
+        Self::ConeRect
     }
 }
 
@@ -532,7 +537,7 @@ impl Default for PortalViewConeConfig {
             visibility_mode: PortalViewConeVisibilityMode::FaceLosWithContinuity,
             aperture_los_quality: PortalApertureLosQuality::Low,
             source_clip_policy: PortalViewConeSourceClipPolicy::ClampToFrame,
-            capture_camera_mode: PortalCaptureCameraMode::MappedCameraSnapshot,
+            capture_camera_mode: PortalCaptureCameraMode::ConeRect,
             // Large but not so deep it punches through thin "door" walls into
             // the far room (which is what drives the heaviest recursion); also
             // keeps the near-face↔deep-content parallax modest.
@@ -554,10 +559,11 @@ impl Default for PortalViewConeConfig {
             max_resolution: 4096,
             recursion_depth: 1,
             z: 8.55,
-            // Slightly below white: opaque, but each recursion level multiplies
-            // the tint so facing/door portals fade into a tunnel rather than a
-            // full-brightness chaotic fractal (see the field docs). 1.0 brings
-            // back the chaos; lower fades faster.
+            // Pure white: the window is a SEAMLESS view — no tint, so what
+            // you see through a portal is exactly the exit chart. The field
+            // stays a knob: a below-white tint makes nested recursion levels
+            // converge to dark (each level multiplies the tint) if a game
+            // wants a fading tunnel instead of full-brightness recursion.
             tint: Color::srgb(1.0, 1.0, 1.0),
             debug_outline: true,
             debug_los_rays: false,
@@ -881,7 +887,7 @@ pub fn sync_portal_view_cones(
     }
 
     // Second pass: spawn rigs for desired pairs not yet served.
-    for (i, portal) in all.iter().enumerate() {
+    for portal in all.iter() {
         let Some(partner) = find_portal(&all, portal.channel.partner()) else {
             continue;
         };
@@ -1010,7 +1016,11 @@ pub fn sync_portal_view_cones(
         commands.spawn((
             Camera2d,
             Camera {
-                order: -8 - i as isize,
+                // Derived from the channel's stable render slot — NOT the
+                // portal query index, which is not stable across frames and
+                // would shuffle capture ordering (visible as recursion
+                // shimmer when multiple pairs are live).
+                order: -8 - portal_channel_render_slot(portal.channel) as isize,
                 is_active: active,
                 clear_color: ClearColorConfig::Custom(CAPTURE_CLEAR),
                 ..default()

@@ -646,6 +646,23 @@ fn screen_texels_per_world(
     sx.max(sy).clamp(1.0, 4.0)
 }
 
+/// How far past the viewer's own extent a portal still counts as "at the seam"
+/// for capture priority (world px).
+const PORTAL_SEAM_REACH: f32 = 64.0;
+
+/// A portal is "at the seam" when the viewer is essentially ON it — within its
+/// own reach of the aperture. Such a portal (and, on a thin wall, its partner
+/// right beside it) ALWAYS refreshes its capture: a stale window at the exact
+/// opening you are crossing is the most visible place for capture throttling to
+/// flicker, so the crossed pair bypasses the slot cap + refresh interval
+/// regardless of quality tier. Away from any portal, the ordinary budget
+/// applies, so this costs nothing except at the moment it matters.
+fn portal_at_seam(viewer: Option<&PortalViewer>, portal_pos: Vec2) -> bool {
+    viewer
+        .filter(|v| v.present)
+        .is_some_and(|v| v.eye.distance(portal_pos) <= v.half_size.length() + PORTAL_SEAM_REACH)
+}
+
 /// World-space viewpoint the rig's parallax should be evaluated at: the host
 /// camera center mapped through the pair. `None` when no host view exists.
 fn portal_parallax_anchor_world(
@@ -864,11 +881,16 @@ pub fn sync_portal_view_cones(
                         height: r.source_size.y,
                     };
                 }
-                let refresh_due =
-                    now_s - rig.last_capture_update_s >= effective.min_refresh_interval_s;
+                // The portal (or its partner) you are crossing always refreshes,
+                // bypassing the slot cap + refresh interval, so the seam never
+                // shows a stale window mid-crossing on a throttled tier.
+                let at_seam =
+                    portal_at_seam(viewer, portal.pos) || portal_at_seam(viewer, partner.pos);
+                let refresh_due = at_seam
+                    || now_s - rig.last_capture_update_s >= effective.min_refresh_interval_s;
                 let has_active_slot = active_captures < effective.max_active_captures;
                 let has_update_slot = updates_this_frame < effective.max_updates_per_frame;
-                cam.is_active = refresh_due && has_active_slot && has_update_slot;
+                cam.is_active = refresh_due && (at_seam || (has_active_slot && has_update_slot));
                 if cam.is_active {
                     active_captures += 1;
                     updates_this_frame += 1;
@@ -1009,9 +1031,13 @@ pub fn sync_portal_view_cones(
                 },
             ),
         };
+        // Same seam priority as the update pass: a freshly-spawned rig for the
+        // pair you are crossing captures immediately, never waiting on a slot.
+        let at_seam = portal_at_seam(viewer, portal.pos) || portal_at_seam(viewer, partner.pos);
         let active = requested_active
-            && active_captures < effective.max_active_captures
-            && updates_this_frame < effective.max_updates_per_frame;
+            && (at_seam
+                || (active_captures < effective.max_active_captures
+                    && updates_this_frame < effective.max_updates_per_frame));
         if active {
             active_captures += 1;
             updates_this_frame += 1;

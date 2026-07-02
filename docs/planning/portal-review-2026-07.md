@@ -630,3 +630,56 @@ unambiguous thin-wall composite needs per-window stenciling (mask each
 window's pixels to its own aperture and composite in explicit order) or a
 depth-prepass portal id. Fable-tier; defer until thin-wall doors are a shipping
 mechanic.
+
+---
+
+## Part 7 — Round 7: crossing flicker at the thin-wall seam
+
+### F10 — LANDED: the crossed pair always refreshes its capture
+
+Jon: a small flicker remains crossing the c136/c137 thin-wall door. Prime
+suspect (tier-dependent): the quality tiers below High set
+`max_active_captures: 1` with `min_refresh_interval_s` 0.05–0.25s, so a
+thin-wall pair's TWO windows can't both refresh every frame — they alternate /
+go stale, which reads as a flicker exactly while you move across the seam.
+Slots were handed out in unstable query order with no regard for which portal
+the viewer is at.
+
+Fix: `portal_at_seam` — a portal within the viewer's own reach of the eye (and
+its partner beside it on a thin wall) ALWAYS refreshes, bypassing the slot cap
+and the refresh interval. Away from portals the ordinary budget applies, so it
+costs nothing except at the moment it matters. Applied in both the update and
+spawn allocation passes. This removes the throttle-induced seam flicker on
+constrained tiers.
+
+### Q10 — Residual crossing flicker on UNTHROTTLED tiers (High/Ultra)
+
+If the flicker persists on High/Ultra (where both windows already refresh
+every frame), F10 is not the cause and two tier-independent candidates remain,
+both cross-specific:
+
+1. **The real sprite's authoritative snap.** At the centroid crossing the body
+   position jumps by the portal separation (map_point). For a thick-wall
+   single portal this jump is hidden inside the aperture; on a thin wall
+   (~32px, both portals on screen) you SEE the whole real sprite pop ~32px
+   sideways, because the real sprite is drawn UNCLIPPED at the raw kinematic
+   pos while the exit copy handles the other side. The seamless fix is
+   texture-clipped body pieces: draw the real sprite clipped to its `here`
+   slice and the copy to its `through` slice (both via `Sprite.rect` for
+   cardinal portals, or a clip material), so the two slices tile continuously
+   across the seam and nothing pops. This is the standing "texture-accurate
+   atlas clipping" TODO — Fable-tier (anchor/flip/trimmed-frame interactions).
+
+2. **`window_eye` nearest-end handoff.** `compute_cone`'s through-portal route
+   resolves the eye through the NEARER end; at the thin-wall midpoint the
+   nearer end flips (door1↔door2), so the resolved eye — and thus the unioned
+   wedge shape — can jump discontinuously in one frame. Fix: blend the two
+   ends' resolved eyes across a small band around the midpoint instead of a
+   hard nearest-pick (the face-continuity guarantees they nearly coincide
+   there, so a short crossfade removes the pop). Opus-safe with a
+   continuity pin test.
+
+Disambiguation for Jon: does the flicker scale with the Visual Quality tier?
+If lowering the tier worsens it and raising it removes it → it was the capture
+throttle (F10 fixes it). If it is tier-independent → it is Q10, and the
+1 (texture clipping) is the real seamless-crossing fix.

@@ -1,0 +1,17 @@
+[package]
+name = "ambition_entity_catalog"
+version = "0.1.0"
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+description = "Reusable, content-free entity-contract + moveset vocabulary: EntityDef contract bundles and the Smash-model MoveSpec timeline (windows / hit volumes / events on the owner's proper time), with headless RON parsing + structural validators. Gameplay truth lives here; visual storage lives in ambition_sprite_sheet."
+
+[lib]
+crate-type = ["rlib"]
+
+[dependencies]
+# RON schema + parsing of authored entity/move documents. No Bevy: this
+# crate is pure data vocabulary, consumable from a build script, a test,
+# or a headless sim alike.
+serde = { version = "1", features = ["derive"] }
+ron = "0.11"

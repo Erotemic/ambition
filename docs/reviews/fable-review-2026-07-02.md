@@ -691,6 +691,69 @@ extraction stops being hard.
 
 ---
 
+# HANDOFF — start here if you are a fresh agent continuing this work
+
+**State:** Sections A–D below are the ranked audit (file:line refs may have
+drifted where the execution log says something landed — trust the log over the
+audit). The execution log (E1–E10) records what is DONE; do not redo it. All
+work is committed linearly on main; the tree is green.
+
+**Verify before you start** (and after every change):
+```bash
+~/.cargo/bin/cargo test -p ambition_engine_core --lib      # 211, incl. the C4 harness
+~/.cargo/bin/cargo test -p ambition_gameplay_core --lib    # 1082
+~/.cargo/bin/cargo test -p ambition_app --test possession_end_to_end \
+  --test unified_melee --test gravity_symmetry_room \
+  --test player_robot_fights_player --test enemy_attacks_player --test duel_arena
+```
+
+**Rules of engagement (Jon's, distilled):**
+- Commit each completed, verified slice immediately; commit = checkpoint. Never
+  leave a half-merged tree. Stage explicit paths (never `git add -A`).
+- Behavior is NOT sacred pre-release, but feel-touching changes (knockback,
+  hitstun, anything the player's hands notice) ship BLIND in their own
+  `blind fix:`/clearly-marked commit for Jon to feel-check — with headless
+  tests proving the mechanics, not the feel.
+- Frame-agnostic always: any new reaction/effect code goes through
+  `AccelerationFrame`; pin new frame fixes with a scenario in
+  `crates/ambition_engine_core/src/movement/tests/c4_reaction_seams.rs`
+  (author local-frame, assert all 4 gravity arms match — the pattern is in
+  the file).
+- ONE BODY ONE PATH: before adding anything keyed to player/actor/boss, check
+  whether the other kind already does it and unify instead (AGENTS.md).
+- Keep THIS document's execution log updated as you go — it is the handoff
+  surface; Jon can only read, not ask.
+
+**Work queue, in order** (details in "Next" at the end of the log):
+1. **A2** — extract `resolve_body_hit` (design fully written below; steps 1–5
+   behavior-preserving first, then knockback-adoption and actor-hitstun as two
+   separate blind feel commits).
+2. **A1** — boss island dissolution (sketch below; afterwards grep `§A1` and
+   `Without<BossConfig>` to remove the victim special-cases added this session).
+3. Then the engine/content + decomposition tracks, roughly: **D1** facade
+   deletion (mechanical, huge navigability win) → **C1/C2** item catalog +
+   `HELD_ITEMS` onto the roster-install pattern → **D2/D3** body-vocab re-home
+   + sim-view crate → **C3/C4** worlds/app-thinness → C5–C7, C9-registry, C12.
+
+**Small loose ends** (sweep opportunistically):
+- Verify portal findings B8 (portal aim skips the frame seam) and B12
+  (first-portal-wins ordering) against the portal agent's final code before
+  fixing.
+- Blink PREVIEW divergence: `ambition_render/src/fx.rs` and
+  `ambition_app/src/dev/debug_overlay/gizmos.rs` build quick-blink aim from
+  raw device axes + world-X fallback instead of the resolved `blink_quick_dir`.
+- Two pre-existing warnings, likely interrupt-window debris: unused `aim_dir`
+  (`ambition_characters/src/brain/state_machine/mod.rs:742` — check whether a
+  consumer was dropped, don't just underscore it) and an unused
+  `hostile_brain_id_for_actor` import (`features/ecs/mod.rs:75`).
+- `gravity_symmetry_room.rs`'s `allow_one_tick_landing_boundary` concession
+  may be removable after the B5 sweep unification — check, don't force.
+- Actors' `MAX_ENEMY_AIR_JUMPS` refresh + flying-never-grounded remain actor
+  policy applied AROUND the shared tick (fine), but new actor policy goes in
+  the same place, not inside the engine.
+
+---
+
 # EXECUTION LOG (live — session of 2026-07-02, post-portal-agent)
 
 Jon's direction: start on the biggest, hardest items — the ones that unblock

@@ -695,16 +695,25 @@ extraction stops being hard.
 
 **State:** Sections A–D below are the ranked audit (file:line refs may have
 drifted where the execution log says something landed — trust the log over the
-audit). The execution log (E1–E10) records what is DONE; do not redo it. All
-work is committed linearly on main; the tree is green.
+audit). The execution log (**E1–E18**) records what is DONE; do not redo it.
+Landed so far: the C4 harness + full §B gravity sweep, **§A2 COMPLETE** (one
+`resolve_body_hit` + shared knockback/stagger for every body), A3–A6, **A1
+slices 1 + 2a** (boss HP/damage on the shared body components + through the one
+resolver), and **3 of ~5 D1 facades** removed (config/effects/audio). The
+biggest open items are **A1 slice 3** (the boss driver fold — multi-session)
+and the rest of **D1** (time + the features hub). All work is committed
+linearly on main; the tree is green (counts in the verify block below).
 
 **Verify before you start** (and after every change):
 ```bash
 ~/.cargo/bin/cargo test -p ambition_engine_core --lib      # 211, incl. the C4 harness
-~/.cargo/bin/cargo test -p ambition_gameplay_core --lib    # 1090
+~/.cargo/bin/cargo test -p ambition_gameplay_core --lib    # 1091
+# The nine app integration suites — six core + the three boss suites (A1 touches bosses):
 ~/.cargo/bin/cargo test -p ambition_app --test possession_end_to_end \
   --test unified_melee --test gravity_symmetry_room \
-  --test player_robot_fights_player --test enemy_attacks_player --test duel_arena
+  --test player_robot_fights_player --test enemy_attacks_player --test duel_arena \
+  --test boss_lifecycle --test boss_contact_iframes --test boss_possession_specials
+# (also green: content --lib 53, render --lib 24)
 ```
 
 **Rules of engagement (Jon's, distilled):**
@@ -729,14 +738,23 @@ work is committed linearly on main; the tree is green.
    shared stagger for every body. Steps 6 (knockback, `b4912001`) and 7
    (stagger, see E13) are BLIND feel commits awaiting Jon's feel-check.
 2. **A1** — boss island dissolution: slice 1 (authority flip, E14) and slice 2a
-   (boss damage through the resolver, E15) are DONE; slice 3 (the driver fold)
-   remains — full design in "Next" below. Slice-2b (boss vuln clusters + drop
-   the `apply_hitbox_damage` `Option`) folded into slice 3; grep `§A1` and
-   `Without<BossConfig>` there to remove the victim special-cases.
-3. Then the engine/content + decomposition tracks, roughly: **D1** facade
-   deletion (mechanical, huge navigability win) → **C1/C2** item catalog +
-   `HELD_ITEMS` onto the roster-install pattern → **D2/D3** body-vocab re-home
-   + sim-view crate → **C3/C4** worlds/app-thinness → C5–C7, C9-registry, C12.
+   (boss damage through the resolver, E15) are DONE; **slice 3 (the driver fold)
+   is the only A1 work left** — full design in "Next" below, and it's a big
+   multi-session fold (BossAttackState→BodyMelee, boss tick→actor driver needing
+   the 18-cluster set + flight=SNAP equivalence, render BossAnim→CharacterAnim).
+   Slice-2b (boss vuln clusters + drop the `apply_hitbox_damage` `Option`) folded
+   into slice 3; grep `§A1` and `Without<BossConfig>` there to remove the victim
+   special-cases.
+3. **D1 facade deletion is IN PROGRESS** — 3 of ~5 done (E16 config consts→
+   engine_core, E17 `crate::effects`→ambition_vfx, E18 `crate::audio::SfxMessage`
+   →ambition_sfx). REMAINING D1: `crate::time::{world_time,clock_state}`→
+   `ambition_time` (needs `ambition_time` dep in content+render; note the
+   separate bigger `crate::WorldTime` lib re-export) + the `features/mod.rs`
+   271-ref hub (a PUBLIC-surface change — external crates use
+   `gameplay_core::features::X` too — so map each symbol to its real home first).
+4. Then the rest: **C1/C2** item catalog + `HELD_ITEMS` onto the roster-install
+   pattern → **D2/D3** body-vocab re-home + sim-view crate → **C3/C4**
+   worlds/app-thinness → C5–C7, C9-registry, C12.
 
 **Small loose ends** (sweep opportunistically):
 - Verify portal findings B8 (portal aim skips the frame seam) and B12

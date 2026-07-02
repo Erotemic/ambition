@@ -16,9 +16,9 @@ From the repo root:
 
 ```bash
 uv run --project ~/code/ambition/tools/ambition_music_renderer python -m ambition_music_renderer --help
-uv run --project ~/code/ambition/tools/ambition_music_renderer python -m ambition_music_renderer cue_bundle <cue_id> --backend=pretty-midi --force --zip
-uv run --project ~/code/ambition/tools/ambition_music_renderer python -m ambition_music_renderer cue_bundle <cue_id> --backend=pretty-midi --runtime_stem_gain_mode=shared --force --zip
-uv run --project ~/code/ambition/tools/ambition_music_renderer python -m ambition_music_renderer cue_bundle <cue_id> --backend=pretty-midi --runtime_stem_gain_mode=shared --zip_report --force
+uv run --project ~/code/ambition/tools/ambition_music_renderer python -m ambition_music_renderer cue bundle <cue_id> --backend=pretty-midi --force --zip
+uv run --project ~/code/ambition/tools/ambition_music_renderer python -m ambition_music_renderer cue bundle <cue_id> --backend=pretty-midi --runtime_stem_gain_mode=shared --force --zip
+uv run --project ~/code/ambition/tools/ambition_music_renderer python -m ambition_music_renderer cue bundle <cue_id> --backend=pretty-midi --runtime_stem_gain_mode=shared --zip_report --force
 ./generate_audio_assets.sh --force
 ```
 
@@ -33,7 +33,7 @@ uv run --project ~/code/ambition/tools/ambition_music_renderer python -m ambitio
 uv run --project ~/code/ambition/tools/ambition_music_renderer python -m ambition_music_renderer audit dissonance --help     # score-level note/layer clash hotspots
 ```
 
-For one-cue composition/debug handoff, prefer `cue_bundle` first. It wraps rendering, scratch-stem retention, level reports, spectral localization, optional spectrograms, and a shareable bundle manifest around the current renderer without changing runtime publish policy.
+For one-cue composition/debug handoff, prefer `cue bundle` first. It wraps rendering, scratch-stem retention, level reports, spectral localization, optional spectrograms, and a shareable bundle manifest around the current renderer without changing runtime publish policy.
 
 Three lower-level audio-analysis tools, three scopes:
 - `tools transition_audit` — two specific section files; visual transition-seam plots.
@@ -60,7 +60,7 @@ Prefer the tool README and CLI help over old recipe fragments when command flags
 2. Search `dev/journals/` and `dev/benchmark-candidates/` for music director/refactor lessons.
 3. Render locally into the tool's generated output path.
 4. Audit balance/transitions if a cue set changes.
-5. Use `cue_bundle <cue_id> --zip_report` when a cue needs lightweight review, handoff, or spectral/debug evidence. Use a full bundle only when the recipient needs audio.
+5. Use `cue bundle <cue_id> --zip_report` when a cue needs lightweight review, handoff, or spectral/debug evidence. Use a full bundle only when the recipient needs audio.
 6. Publish/install only when the generated assets are meant to become runtime inputs.
 7. Update `docs/tools/generated-audio-tools.md` and `tools/ambition_music_renderer/README.md` if the workflow changes.
 
@@ -71,7 +71,7 @@ Use this when regenerating a song and collecting useful diagnostics for review:
 
 ```bash
 uv run --project ~/code/ambition/tools/ambition_music_renderer \
-python -m ambition_music_renderer cue_bundle for_emmy_forever_ago \
+python -m ambition_music_renderer cue bundle for_emmy_forever_ago \
   --backend=pretty-midi \
   --force \
   --zip

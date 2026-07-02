@@ -12,13 +12,13 @@ Common entry points:
 ```bash
 cd ~/code/ambition
 uv run --project ~/code/ambition/tools/ambition_music_renderer python -m ambition_music_renderer --help
-uv run --project ~/code/ambition/tools/ambition_music_renderer python -m ambition_music_renderer cue_bundle <cue_id> --backend=pretty-midi --force --zip
-uv run --project ~/code/ambition/tools/ambition_music_renderer python -m ambition_music_renderer cue_bundle <cue_id> --backend=pretty-midi --runtime_stem_gain_mode=shared --force --zip
-uv run --project ~/code/ambition/tools/ambition_music_renderer python -m ambition_music_renderer cue_bundle <cue_id> --backend=pretty-midi --runtime_stem_gain_mode=shared --zip_report --force
+uv run --project ~/code/ambition/tools/ambition_music_renderer python -m ambition_music_renderer cue bundle <cue_id> --backend=pretty-midi --force --zip
+uv run --project ~/code/ambition/tools/ambition_music_renderer python -m ambition_music_renderer cue bundle <cue_id> --backend=pretty-midi --runtime_stem_gain_mode=shared --force --zip
+uv run --project ~/code/ambition/tools/ambition_music_renderer python -m ambition_music_renderer cue bundle <cue_id> --backend=pretty-midi --runtime_stem_gain_mode=shared --zip_report --force
 uv run --project ~/code/ambition/tools/ambition_music_renderer pytest -q tools/ambition_music_renderer/tests
 ```
 
-The `cue_bundle` subcommand is the preferred one-cue handoff path: it runs the renderer with retained debug stems, executes useful diagnostics, writes manifest-scoped reports/plots, prints clickable output paths, and optionally writes a full zip or compact report zip. Use `--zip_report` for small chat/agent uploads: it excludes OGG/WAV/NPY/MIDI binaries while keeping YAML, manifests, numeric reports, LLM-friendly spectral fingerprints, dissonance hotspot reports, state mix reports, and JPEG spectrograms. When plotting is available it also writes `dissonance_hotspots.md`, `plots/dissonance_timeline.<fmt>`, `plots/dissonance_layer_pairs.<fmt>`, and stem-amplitude balance/timeline/stack plots. Use `--runtime_stem_gain_mode=shared` when auditing layered dynamic music; shared gain is capped so the exporter does not hide quiet-source problems by amplifying noise floors. Generated bundles and runtime audio remain ignored by git.
+The `cue bundle` subcommand is the preferred one-cue handoff path: it runs the renderer with retained debug stems, executes useful diagnostics, writes manifest-scoped reports/plots, prints clickable output paths, and optionally writes a full zip or compact report zip. Use `--zip_report` for small chat/agent uploads: it excludes OGG/WAV/NPY/MIDI binaries while keeping YAML, manifests, numeric reports, LLM-friendly spectral fingerprints, dissonance hotspot reports, state mix reports, and JPEG spectrograms. When plotting is available it also writes `dissonance_hotspots.md`, `plots/dissonance_timeline.<fmt>`, `plots/dissonance_layer_pairs.<fmt>`, and stem-amplitude balance/timeline/stack plots. Use `--runtime_stem_gain_mode=shared` when auditing layered dynamic music; shared gain is capped so the exporter does not hide quiet-source problems by amplifying noise floors. Generated bundles and runtime audio remain ignored by git.
 
 Standalone report helpers are also useful while editing:
 

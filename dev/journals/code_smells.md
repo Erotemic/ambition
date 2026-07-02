@@ -193,3 +193,11 @@ are now gravity-relative. These four remain world-Y-locked — each is a DESIGN 
 - **Why not fixed here:** ripping out slot-board steering is its own change (touches `CombatSlotsRes`, `assign_slots`, the slot tests) and is independent of the brain/movement/read-model split. Left as a focused follow-up.
 - **Suggested fix / size:** M — decide whether the slot board earns its keep (arbitrating which enemy commits to an attack) vs. the crowding signal; if not, delete `assign_slots`/holding/`compute_holding_positions` + `CombatSlotsRes`.
 
+
+## 2026-07-02 Music renderer audit — findings noted but NOT fixed
+- **Where:** `tools/ambition_music_renderer` (a 4-agent code audit fixed ~35 findings across render/bundle/audit/CLI; these are the survivors).
+- **`audit/reference_audio_audit.py` onset proxy is self-referential** — the onset threshold is the 85th percentile of the flux values themselves, so ~15% of frames always exceed it and `onset_proxy_per_second` is nearly content-independent. Fix wants a robust absolute threshold (median + k·MAD) and a finer hop than 0.5 s, or real peak-picking. Size S-M.
+- **`audit/transition_audit.py` runtime-preview end-of-window step** — the `ambition_runtime` preview freezes the incoming gain and hard-cuts the outgoing at the context-window end, a discontinuity the real runtime (which keeps converging) does not have; the preview can show a click that is not real. Needs both exponentials continued through the post-window region. Size S.
+- **CLAP is discoverable but not hostable** — `plugins list_clap` finds plugins and the validator warns, but no backend can run them; either add a CLAP host adapter or stop discovering them. Size M.
+- **`backends/sfizz_backend.py` VST3-hosted sfizz path shares little with the CLI path** — parameter setting/probing logic partially duplicates `pedalboard_backend`; low value until the sfizz-VST3 path is actually exercised.
+- **`agent/` studio scripts predate the audit fixes** — `agent/song_studio/studio.py` etc. still hand-roll analysis the packaged audits now expose (e.g. `audit mix_balance` CLI); worth folding the studio loop onto the packaged surfaces next time a song-studio pass happens.

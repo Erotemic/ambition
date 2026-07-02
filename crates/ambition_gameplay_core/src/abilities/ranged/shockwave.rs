@@ -2,8 +2,8 @@
 //!
 //! The first "player wields a boss attack" slice, now expressed on the effect
 //! seam: `Attack` while holding the shockwave gauntlet emits a generic
-//! [`crate::effects::EffectRequest`] carrying a `DamageBox` effect anchored at
-//! the emitter. The generic [`crate::effects::apply_effects`] consumer spawns
+//! [`ambition_vfx::EffectRequest`] carrying a `DamageBox` effect anchored at
+//! the emitter. The generic [`ambition_vfx::apply_effects`] consumer spawns
 //! the World-anchored, faction-tagged AOE — so the SAME path serves the player
 //! (Player faction → damages enemies) and a boss (Boss faction → damages the
 //! player, see `boss_encounter::systems` phase-transition slam). No bespoke
@@ -50,7 +50,7 @@ pub fn fire_shockwave_system(
         &BodyKinematics,
         &mut BodyMana,
     )>,
-    mut effects: MessageWriter<crate::effects::EffectRequest>,
+    mut effects: MessageWriter<ambition_vfx::EffectRequest>,
     mut sfx: MessageWriter<crate::audio::SfxMessage>,
 ) {
     for (entity, control, held, kin, mut mana) in &mut wielders {
@@ -66,9 +66,9 @@ pub fn fire_shockwave_system(
         }
         let gravity_dir = gravity.dir_at(kin.pos);
         let half_extent = ae::AccelerationFrame::new(gravity_dir).to_world_half(SHOCKWAVE_HALF);
-        effects.write(crate::effects::EffectRequest {
+        effects.write(ambition_vfx::EffectRequest {
             owner: entity,
-            effect: crate::effects::Effect::DamageBox(crate::effects::DamageBoxEffect {
+            effect: ambition_vfx::Effect::DamageBox(ambition_vfx::DamageBoxEffect {
                 center: kin.pos,
                 faction: crate::features::ActorFaction::Player,
                 half_extent,
@@ -94,10 +94,10 @@ mod tests {
     fn test_app() -> App {
         let mut app = App::new();
         app.add_message::<crate::audio::SfxMessage>();
-        app.add_message::<crate::effects::EffectRequest>();
+        app.add_message::<ambition_vfx::EffectRequest>();
         app.add_systems(
             Update,
-            (fire_shockwave_system, crate::effects::apply_effects).chain(),
+            (fire_shockwave_system, ambition_vfx::apply_effects).chain(),
         );
         app
     }
@@ -187,8 +187,8 @@ mod tests {
         // emitting the SAME DamageBox effect gets an Enemy-faction AOE at its
         // own position — proving player and bosses/enemies share one path.
         let mut app = App::new();
-        app.add_message::<crate::effects::EffectRequest>();
-        app.add_systems(Update, crate::effects::apply_effects);
+        app.add_message::<ambition_vfx::EffectRequest>();
+        app.add_systems(Update, ambition_vfx::apply_effects);
         let enemy = app
             .world_mut()
             .spawn((
@@ -198,9 +198,9 @@ mod tests {
             ))
             .id();
         app.world_mut()
-            .write_message(crate::effects::EffectRequest {
+            .write_message(ambition_vfx::EffectRequest {
                 owner: enemy,
-                effect: crate::effects::Effect::DamageBox(crate::effects::DamageBoxEffect {
+                effect: ambition_vfx::Effect::DamageBox(ambition_vfx::DamageBoxEffect {
                     center: ae::Vec2::new(300.0, 80.0),
                     faction: ActorFaction::Enemy,
                     half_extent: ae::Vec2::new(60.0, 30.0),

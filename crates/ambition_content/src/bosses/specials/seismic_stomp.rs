@@ -88,7 +88,7 @@ pub fn spawn_seismic_stomp_from_special_messages(
         ) {
             effects.write(EffectRequest {
                 owner: entity,
-                effect: Effect::DamageBox(ambition_gameplay_core::effects::DamageBoxEffect {
+                effect: Effect::DamageBox(ambition_vfx::DamageBoxEffect {
                     center,
                     faction: ActorFaction::Boss,
                     half_extent: SEISMIC_HALF_EXTENT,

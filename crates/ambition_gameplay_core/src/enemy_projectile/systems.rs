@@ -1,5 +1,5 @@
 //! Enemy-projectile spawn executor. `apply_projectile_effects` materializes
-//! one entity per `crate::effects::Effect::Projectiles` request (enemy / boss
+//! one entity per `ambition_vfx::Effect::Projectiles` request (enemy / boss
 //! volleys). The per-tick advance + world collision is NOT here: it shares the
 //! unified, faction-routed `crate::projectile::step_projectiles` with the
 //! player pool. In-flight bodies are ECS entities (mirroring the player pool),
@@ -10,11 +10,11 @@ use bevy::prelude::*;
 use super::entity::EnemyProjectile;
 use crate::projectile::{ProjectileOwner, ProjectileOwnerId, ProjectileSeqCounter};
 
-/// Materialize enemy-pool projectiles from [`crate::effects::Effect::Projectiles`]
+/// Materialize enemy-pool projectiles from [`ambition_vfx::Effect::Projectiles`]
 /// requests — one projectile ENTITY per shot. Scheduled BEFORE
 /// `update_enemy_projectiles` so a body spawned this tick advances one step this
 /// frame. Non-projectile effects (DamageBox / Summon) are handled by
-/// `crate::effects::apply_effects`; this executor lives next to the projectile
+/// `ambition_vfx::apply_effects`; this executor lives next to the projectile
 /// substrate so the shared [`ProjectileSeq`] is assigned in emission order (its
 /// sort then reproduces the historical push order).
 ///
@@ -30,10 +30,10 @@ use crate::projectile::{ProjectileOwner, ProjectileOwnerId, ProjectileSeqCounter
 pub fn apply_projectile_effects(
     mut commands: Commands,
     mut seq: ResMut<ProjectileSeqCounter>,
-    mut requests: MessageReader<crate::effects::EffectRequest>,
+    mut requests: MessageReader<ambition_vfx::EffectRequest>,
 ) {
     for req in requests.read() {
-        let crate::effects::Effect::Projectiles { shots } = &req.effect else {
+        let ambition_vfx::Effect::Projectiles { shots } = &req.effect else {
             continue;
         };
         for shot in shots {
@@ -475,7 +475,7 @@ mod tests {
         app.add_message::<HitEvent>();
         app.add_message::<SfxMessage>();
         app.add_message::<VfxMessage>();
-        app.add_message::<crate::effects::EffectRequest>();
+        app.add_message::<ambition_vfx::EffectRequest>();
         app.add_message::<crate::player::PlayerHealRequested>();
         app.init_resource::<ProjectileSeqCounter>();
         app.init_resource::<CapturedHits>();
@@ -520,9 +520,9 @@ mod tests {
 
         // Fire an enemy-faction shot owned by `attacker`, overlapping the player.
         app.world_mut()
-            .write_message(crate::effects::EffectRequest {
+            .write_message(ambition_vfx::EffectRequest {
                 owner: attacker,
-                effect: crate::effects::Effect::Projectiles {
+                effect: ambition_vfx::Effect::Projectiles {
                     shots: vec![EnemyProjectileSpawn {
                         origin: player_pos,
                         dir: ae::Vec2::new(1.0, 0.0),
@@ -559,13 +559,13 @@ mod tests {
     fn spawn_executor_attaches_visual_kind_from_tag() {
         use crate::projectile::ProjectileVisualKind;
         let mut app = App::new();
-        app.add_message::<crate::effects::EffectRequest>();
+        app.add_message::<ambition_vfx::EffectRequest>();
         app.init_resource::<ProjectileSeqCounter>();
         app.add_systems(Update, apply_projectile_effects);
         app.world_mut()
-            .write_message(crate::effects::EffectRequest {
+            .write_message(ambition_vfx::EffectRequest {
                 owner: Entity::PLACEHOLDER,
-                effect: crate::effects::Effect::Projectiles {
+                effect: ambition_vfx::Effect::Projectiles {
                     shots: vec![EnemyProjectileSpawn {
                         origin: ae::Vec2::ZERO,
                         dir: ae::Vec2::new(1.0, 0.0),

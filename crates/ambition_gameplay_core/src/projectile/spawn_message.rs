@@ -37,6 +37,6 @@ pub struct SpawnProjectile {
 }
 
 // `SpawnProjectile::enemy` was removed: enemy-pool projectiles are now emitted
-// as `crate::effects::Effect::Projectiles` and materialized by
+// as `ambition_vfx::Effect::Projectiles` and materialized by
 // `enemy_projectile::apply_projectile_effects`. `SpawnProjectile` itself stays
 // for the player pool until that path migrates too.

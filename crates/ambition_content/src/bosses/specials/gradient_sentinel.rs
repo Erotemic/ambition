@@ -116,7 +116,7 @@ pub fn spawn_gnu_apple_rain_from_special_messages(
     world_time: Res<WorldTime>,
     world: Res<ambition_gameplay_core::RoomGeometry>,
     mut messages: MessageReader<ActorActionMessage>,
-    mut effects: MessageWriter<ambition_gameplay_core::effects::EffectRequest>,
+    mut effects: MessageWriter<ambition_vfx::EffectRequest>,
     mut bosses: Query<
         (
             Entity,
@@ -171,9 +171,9 @@ pub fn spawn_gnu_apple_rain_from_special_messages(
             let spawn_x = apple_rain_spawn_x(state.spawn_index, world.0.size.x, self_aabb);
             let spawn_y = (boss.kin.pos.y - APPLE_RAIN_SPAWN_HEIGHT_ABOVE_PLAYER)
                 .max(APPLE_RAIN_HALF_EXTENT.y + 8.0);
-            effects.write(ambition_gameplay_core::effects::EffectRequest {
+            effects.write(ambition_vfx::EffectRequest {
                 owner: entity,
-                effect: ambition_gameplay_core::effects::Effect::Projectiles {
+                effect: ambition_vfx::Effect::Projectiles {
                     shots: vec![EnemyProjectileSpawn {
                         origin: ae::Vec2::new(spawn_x, spawn_y),
                         // Downward initial velocity so the apple commits to
@@ -313,7 +313,7 @@ const OVERFIT_VOLLEY_OWNER_PREFIX: &str = "gradient_sentinel_overfit";
 /// from zero.
 pub fn spawn_overfit_volley_from_special_messages(
     world_time: Res<WorldTime>,
-    mut effects: MessageWriter<ambition_gameplay_core::effects::EffectRequest>,
+    mut effects: MessageWriter<ambition_vfx::EffectRequest>,
     mut messages: MessageReader<ActorActionMessage>,
     // Per-actor target: each boss carries an `ActorTarget` populated
     // upstream by `select_actor_targets` (nearest-player resolution).
@@ -410,9 +410,9 @@ pub fn spawn_overfit_volley_from_special_messages(
                     if dir.length_squared() < 1e-4 {
                         continue;
                     }
-                    effects.write(ambition_gameplay_core::effects::EffectRequest {
+                    effects.write(ambition_vfx::EffectRequest {
                         owner: entity,
-                        effect: ambition_gameplay_core::effects::Effect::Projectiles {
+                        effect: ambition_vfx::Effect::Projectiles {
                             shots: vec![EnemyProjectileSpawn {
                                 origin,
                                 dir,
@@ -472,7 +472,7 @@ const MINIMA_TRAP_MINION_SPAWN_OFFSET_PX: f32 = 90.0;
 /// once-per-strike `HitboxHits` set ensures the player takes at
 /// most one hit per pit lifetime.
 pub fn spawn_minima_trap_from_special_messages(
-    mut effects: MessageWriter<ambition_gameplay_core::effects::EffectRequest>,
+    mut effects: MessageWriter<ambition_vfx::EffectRequest>,
     mut messages: MessageReader<ActorActionMessage>,
     // Per-boss target via `ActorTarget` (populated by
     // `select_actor_targets`); same multi-player-ready pattern as
@@ -533,10 +533,10 @@ pub fn spawn_minima_trap_from_special_messages(
         );
         let pit_center = player_pos.unwrap_or(boss.kin.pos);
 
-        effects.write(ambition_gameplay_core::effects::EffectRequest {
+        effects.write(ambition_vfx::EffectRequest {
             owner: entity,
-            effect: ambition_gameplay_core::effects::Effect::DamageBox(
-                ambition_gameplay_core::effects::DamageBoxEffect {
+            effect: ambition_vfx::Effect::DamageBox(
+                ambition_vfx::DamageBoxEffect {
                     center: pit_center,
                     faction: ActorFaction::Boss,
                     half_extent: ae::Vec2::new(hx, hy),
@@ -582,10 +582,10 @@ pub fn spawn_minima_trap_from_special_messages(
                 pit_center.x + toward_boss_x * minion_offset_px,
                 pit_center.y,
             );
-            effects.write(ambition_gameplay_core::effects::EffectRequest {
+            effects.write(ambition_vfx::EffectRequest {
                 owner: entity,
-                effect: ambition_gameplay_core::effects::Effect::Summon(
-                    ambition_gameplay_core::effects::SummonSpec {
+                effect: ambition_vfx::Effect::Summon(
+                    ambition_vfx::SummonSpec {
                         id: minion_id,
                         name: "Puppy Slug".to_string(),
                         pos: minion_pos,
@@ -690,12 +690,12 @@ pub fn spawn_saddle_point_from_special_messages(
             // despawn it on toggle, and the fire-and-forget `EffectRequest` seam
             // can't hand the spawned entity back. Effects you need a handle to
             // use the spawn helper directly; fire-and-forget ones emit a request.
-            ambition_gameplay_core::effects::spawn_damage_box(
+            ambition_vfx::spawn_damage_box(
                 commands,
                 entity,
                 ActorFaction::Boss,
                 boss.kin.pos,
-                ambition_gameplay_core::effects::DamageBox {
+                ambition_vfx::DamageBox {
                     half_extent: ae::Vec2::new(he_x, he_y),
                     shape: None,
                     damage,
@@ -779,7 +779,7 @@ fn gradient_cascade_minion_x_offset(i: i32, count: i32) -> f32 {
 /// centered on the boss x. Gravity carries them down toward the
 /// player; their default `MeleeBrute` brain chases on contact.
 pub fn spawn_gradient_cascade_minions_from_special_messages(
-    mut effects: MessageWriter<ambition_gameplay_core::effects::EffectRequest>,
+    mut effects: MessageWriter<ambition_vfx::EffectRequest>,
     mut messages: MessageReader<ActorActionMessage>,
     mut bosses: Query<(Entity, BossClusterRef, &ambition_gameplay_core::actor::BodyHealth, &mut GradientCascadeState), With<FeatureSimEntity>>,
 ) {
@@ -822,10 +822,10 @@ pub fn spawn_gradient_cascade_minions_from_special_messages(
                 "gradient_sentinel_cascade:{}:{}:{}",
                 boss.config.id, state.spawn_index, i
             );
-            effects.write(ambition_gameplay_core::effects::EffectRequest {
+            effects.write(ambition_vfx::EffectRequest {
                 owner: entity,
-                effect: ambition_gameplay_core::effects::Effect::Summon(
-                    ambition_gameplay_core::effects::SummonSpec {
+                effect: ambition_vfx::Effect::Summon(
+                    ambition_vfx::SummonSpec {
                         id: minion_id,
                         name: "Slop Lurker".to_string(),
                         pos: spawn_pos,

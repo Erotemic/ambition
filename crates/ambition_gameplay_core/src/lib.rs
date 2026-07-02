@@ -19,7 +19,7 @@
 //!
 //! Top-level modules group coherent slices: `world`, `player`, `abilities`,
 //! `combat`, `gravity`, `items`/`inventory_ui`, `dialog`, `menu`, `music`,
-//! `persistence`, `effects`, `projectile`, `enemy_projectile`, `boss_encounter`,
+//! `persistence`, `projectile`, `enemy_projectile`, `boss_encounter`,
 //! `quest`, plus the `schedule`/`host`/`session` assembly and `dev` tooling.
 //!
 //! This crate owns the module graph and the cross-cutting types (`RoomGeometry`,
@@ -73,7 +73,6 @@ mod dialog_lint;
 // `cargo test` rather than crashing the running game's asset loader.
 #[cfg(all(test, feature = "ui"))]
 mod dialog_yarn_compile;
-pub mod effects;
 pub mod encounter;
 pub mod enemy_projectile;
 #[cfg(feature = "falling_sand")]

@@ -81,7 +81,7 @@ impl FighterHarness {
         app.add_plugins(MinimalPlugins);
         app.add_message::<ActorActionMessage>();
         app.add_message::<crate::audio::SfxMessage>();
-        app.add_message::<crate::effects::EffectRequest>();
+        app.add_message::<ambition_vfx::EffectRequest>();
         app.init_resource::<EnemyProjectileState>();
         app.init_resource::<ProjectileSeqCounter>();
         // The real pipeline, in order: tick body cooldowns, resolve the seam,

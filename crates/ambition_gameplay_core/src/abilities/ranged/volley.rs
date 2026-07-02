@@ -69,7 +69,7 @@ pub fn fire_volley_system(
         &HeldItem,
         &mut BodyMana,
     )>,
-    mut effects: MessageWriter<crate::effects::EffectRequest>,
+    mut effects: MessageWriter<ambition_vfx::EffectRequest>,
     mut sfx: MessageWriter<crate::audio::SfxMessage>,
 ) {
     let Some(subject) = controlled.0 else {
@@ -108,11 +108,11 @@ pub fn fire_volley_system(
         };
         let angle = base_angle + t * spread;
         let dir = ae::Vec2::new(angle.cos(), angle.sin());
-        effects.write(crate::effects::EffectRequest {
+        effects.write(ambition_vfx::EffectRequest {
             // The firing actor owns every bolt, so a kill attributes back to the
             // player (the executor stamps `ProjectileOwner` from this entity).
             owner: entity,
-            effect: crate::effects::Effect::Projectiles {
+            effect: ambition_vfx::Effect::Projectiles {
                 shots: vec![EnemyProjectileSpawn {
                     origin,
                     dir,
@@ -144,7 +144,7 @@ mod tests {
     fn test_app() -> App {
         let mut app = App::new();
         app.add_message::<crate::audio::SfxMessage>();
-        app.add_message::<crate::effects::EffectRequest>();
+        app.add_message::<ambition_vfx::EffectRequest>();
         app.init_resource::<EnemyProjectileState>();
         app.init_resource::<ProjectileSeqCounter>();
         // Chain the enemy-pool spawn consumer after the fire system.

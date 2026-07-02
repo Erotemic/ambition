@@ -93,7 +93,7 @@ pub fn fire_meteor_system(
         &HeldItem,
         &mut BodyMana,
     )>,
-    mut effects: MessageWriter<crate::effects::EffectRequest>,
+    mut effects: MessageWriter<ambition_vfx::EffectRequest>,
     mut sfx: MessageWriter<crate::audio::SfxMessage>,
 ) {
     let Some(subject) = controlled.0 else {
@@ -115,11 +115,11 @@ pub fn fire_meteor_system(
     let gravity_dir = gravity.dir_at(kin.pos);
     let aim = crate::items::pickup::ability_aim_local(&c, kin.facing);
     for origin in meteor_strike_origins(kin.pos, aim, kin.facing, gravity_dir) {
-        effects.write(crate::effects::EffectRequest {
+        effects.write(ambition_vfx::EffectRequest {
             // The firing actor owns every meteor, so a kill attributes back to
             // the player (the executor stamps `ProjectileOwner` from this entity).
             owner: entity,
-            effect: crate::effects::Effect::Projectiles {
+            effect: ambition_vfx::Effect::Projectiles {
                 shots: vec![EnemyProjectileSpawn {
                     origin,
                     // Straight toward local feet/down; gravity accelerates it in the same frame.
@@ -152,7 +152,7 @@ mod tests {
     fn test_app() -> App {
         let mut app = App::new();
         app.add_message::<crate::audio::SfxMessage>();
-        app.add_message::<crate::effects::EffectRequest>();
+        app.add_message::<ambition_vfx::EffectRequest>();
         app.init_resource::<EnemyProjectileState>();
         app.init_resource::<ProjectileSeqCounter>();
         // fire emits Effect::Projectiles; apply_projectile_effects spawns the entity.

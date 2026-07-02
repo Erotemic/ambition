@@ -1075,7 +1075,20 @@ app/content), `crate::time::{world_time,clock_state}`→`ambition_time`, and the
 big one — the `features/mod.rs` 271-internal-ref hub (all inside gameplay_core,
 real homes in `combat/`, so NO Cargo changes; the #1 navigability win).
 
-## Next (in order) — A1 slice 3, more D1 facades, then C1/C2 + D2/D3
+### E17. D1 — `crate::effects` facade DELETED ✅ (second D1 slice)
+`effects/mod.rs` (a pure `pub use ambition_vfx::*` glob) is GONE, and `pub mod
+effects` is removed from `lib.rs`. All 70 refs to `crate::effects::{Effect,
+EffectRequest, DamageBox, DamageBoxEffect, SummonSpec, apply_effects,
+spawn_damage_box}` (43 internal, 21 content, 6 app) now name `ambition_vfx::`
+— the crate where all seven symbols actually live (verified). `ambition_vfx`
+added as a direct dep of `ambition_content` + `ambition_app` (they were leaning
+on gameplay_core to re-export the vfx vocabulary). Compiler-verified
+behavior-neutral: gameplay-core 1091, content 53, all four crates build. The
+substrate-bound executors (`apply_summon_effects`, `apply_projectile_effects`)
+correctly STAY in the lib — they consume `ambition_vfx::Effect`, they aren't
+facades.
+
+## Next (in order) — A1 slice 3, remaining D1 facades, then C1/C2 + D2/D3
 
 **§A2 is COMPLETE** (E10–E13). The victim-side damage path is ONE resolver +
 ONE reaction for every body; per-body policy is the only fork left.

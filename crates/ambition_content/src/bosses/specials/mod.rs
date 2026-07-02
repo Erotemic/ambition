@@ -1,7 +1,7 @@
 //! Boss special-attack **Techniques** — the content-owned systems that drive
 //! each named boss special. A Technique reads the boss's brain signal
 //! (`ActorActionMessage::Special`) + its per-boss temporal state, and emits
-//! generic `ambition_gameplay_core::effects::Effect`s for the engine to execute. The
+//! generic `ambition_vfx::Effect`s for the engine to execute. The
 //! engine owns no boss-special behavior; it lives here.
 //!
 //! Each Technique's per-boss state component is content-owned too, attached to
@@ -21,7 +21,7 @@ use ambition_characters::brain::{
 };
 use ambition_engine_core::{self as ae, AabbExt};
 use ambition_gameplay_core::actor::{BodyKinematics, PlayerEntity};
-use ambition_gameplay_core::effects::{Effect, EffectRequest};
+use ambition_vfx::{Effect, EffectRequest};
 use ambition_gameplay_core::enemy_projectile::EnemyProjectileSpawn;
 use ambition_gameplay_core::features::{
     ActorFaction, ActorTarget, BossClusterRef, FeatureSimEntity,

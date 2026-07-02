@@ -24,7 +24,7 @@ impl Plugin for CombatSchedulePlugin {
         // phase-transition slam, …) emit `EffectRequest`; `apply_effects` below
         // drains it. Registered here so the writers never hit an unregistered
         // message.
-        app.add_message::<ambition_gameplay_core::effects::EffectRequest>();
+        app.add_message::<ambition_vfx::EffectRequest>();
         app.add_message::<ambition_gameplay_core::combat::moveset::MoveEventMessage>();
         // Programmatic actor-spawn seam: scenario tests and RL/agent scene setup
         // emit `SpawnActorRequest`; `apply_spawn_actor_requests` materializes each
@@ -87,7 +87,7 @@ impl Plugin for CombatSchedulePlugin {
                 // lib-side (the enemy roster) so `apply_effects` is substrate-free;
                 // same slot as before, so minion spawn timing is unchanged.
                 (
-                    ambition_gameplay_core::effects::apply_effects.run_if(gameplay_allowed),
+                    ambition_vfx::apply_effects.run_if(gameplay_allowed),
                     ambition_gameplay_core::features::apply_summon_effects.run_if(gameplay_allowed),
                 )
                     .chain(),
@@ -165,7 +165,7 @@ impl Plugin for CombatSchedulePlugin {
             (
                 CombatSet::ContentSpecials
                     .after(start_body_melee)
-                    .before(ambition_gameplay_core::effects::apply_effects)
+                    .before(ambition_vfx::apply_effects)
                     .in_set(SandboxSet::Combat),
                 CombatSet::ContentFlavor
                     .after(ambition_gameplay_core::features::apply_feature_hit_events)

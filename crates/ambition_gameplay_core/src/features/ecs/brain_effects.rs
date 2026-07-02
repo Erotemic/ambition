@@ -55,7 +55,7 @@ const RANGED_REFIRE_S: f32 = 1.1;
 /// the next slice in the mandate.
 pub fn spawn_enemy_projectiles_from_brain_actions(
     mut messages: MessageReader<ActorActionMessage>,
-    mut effects: MessageWriter<crate::effects::EffectRequest>,
+    mut effects: MessageWriter<ambition_vfx::EffectRequest>,
     mut sfx: MessageWriter<SfxMessage>,
     mut actors: Query<Option<super::actor_clusters::ActorClusterQueryData>>,
     held_items: Query<&super::HeldItem>,
@@ -156,9 +156,9 @@ pub fn spawn_enemy_projectiles_from_brain_actions(
                 pos: spawn.origin,
             });
         }
-        effects.write(crate::effects::EffectRequest {
+        effects.write(ambition_vfx::EffectRequest {
             owner: msg.actor,
-            effect: crate::effects::Effect::Projectiles { shots: vec![spawn] },
+            effect: ambition_vfx::Effect::Projectiles { shots: vec![spawn] },
         });
         // Recoil: push the firing actor backward along the negative
         // fire direction.
@@ -243,7 +243,7 @@ mod tests {
         app.add_plugins(MinimalPlugins);
         app.add_message::<ActorActionMessage>();
         app.add_message::<SfxMessage>();
-        app.add_message::<crate::effects::EffectRequest>();
+        app.add_message::<ambition_vfx::EffectRequest>();
         app.init_resource::<EnemyProjectileState>();
         app.init_resource::<ProjectileSeqCounter>();
         // Phase 3b: the consumer emits SpawnProjectile; chain the enemy-pool

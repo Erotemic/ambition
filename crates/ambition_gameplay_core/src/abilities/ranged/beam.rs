@@ -90,7 +90,7 @@ pub fn fire_beam_system(
         &BodyKinematics,
         &mut BodyMana,
     )>,
-    mut effects: MessageWriter<crate::effects::EffectRequest>,
+    mut effects: MessageWriter<ambition_vfx::EffectRequest>,
     mut sfx: MessageWriter<crate::audio::SfxMessage>,
 ) {
     let Some(subject) = controlled.0 else {
@@ -116,9 +116,9 @@ pub fn fire_beam_system(
     let (offset_local, half_local) = beam_geometry(aim, kin.facing);
     let offset = frame.to_world(offset_local);
     let half_extent = frame.to_world_half(half_local);
-    effects.write(crate::effects::EffectRequest {
+    effects.write(ambition_vfx::EffectRequest {
         owner: entity,
-        effect: crate::effects::Effect::DamageBox(crate::effects::DamageBoxEffect {
+        effect: ambition_vfx::Effect::DamageBox(ambition_vfx::DamageBoxEffect {
             center: kin.pos + offset,
             faction: ActorFaction::Player,
             half_extent,
@@ -143,11 +143,11 @@ mod tests {
     fn test_app() -> App {
         let mut app = App::new();
         app.add_message::<crate::audio::SfxMessage>();
-        app.add_message::<crate::effects::EffectRequest>();
+        app.add_message::<ambition_vfx::EffectRequest>();
         // fire_beam emits Effect::DamageBox; apply_effects spawns the hitbox.
         app.add_systems(
             Update,
-            (fire_beam_system, crate::effects::apply_effects).chain(),
+            (fire_beam_system, ambition_vfx::apply_effects).chain(),
         );
         app
     }

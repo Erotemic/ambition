@@ -58,12 +58,12 @@ const EXPLODER_BLAST_LIFETIME_S: f32 = 0.14;
 /// `EffectRequest` would land a frame late. Spawning the box here keeps it
 /// same-frame (and replay-identical).
 pub(super) fn spawn_death_explosion(commands: &mut Commands, owner: Entity, pos: ae::Vec2) {
-    crate::effects::spawn_damage_box(
+    ambition_vfx::spawn_damage_box(
         commands,
         owner,
         crate::features::ActorFaction::Enemy,
         pos,
-        crate::effects::DamageBox {
+        ambition_vfx::DamageBox {
             half_extent: ae::Vec2::splat(EXPLODER_BLAST_HALF),
             shape: None,
             damage: EXPLODER_BLAST_DAMAGE,

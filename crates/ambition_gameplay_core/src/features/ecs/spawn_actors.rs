@@ -859,10 +859,10 @@ pub(super) fn despawn_encounter_mobs(
 /// enemy-roster substrate. Summons authored so far are all hostile-to-player.
 pub fn apply_summon_effects(
     mut commands: bevy::prelude::Commands,
-    mut requests: bevy::prelude::MessageReader<crate::effects::EffectRequest>,
+    mut requests: bevy::prelude::MessageReader<ambition_vfx::EffectRequest>,
 ) {
     for req in requests.read() {
-        if let crate::effects::Effect::Summon(s) = &req.effect {
+        if let ambition_vfx::Effect::Summon(s) = &req.effect {
             spawn_runtime_minion(
                 &mut commands,
                 s.id.clone(),

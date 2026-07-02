@@ -93,7 +93,7 @@ pub fn update_sentries(
     mut commands: Commands,
     mut sentries: Query<(Entity, &mut Sentry)>,
     enemies: Query<(&CenteredAabb, &ActorFaction), With<FeatureSimEntity>>,
-    mut effects: MessageWriter<crate::effects::EffectRequest>,
+    mut effects: MessageWriter<ambition_vfx::EffectRequest>,
     mut sfx: MessageWriter<crate::audio::SfxMessage>,
 ) {
     let dt = world_time.scaled_dt;
@@ -132,9 +132,9 @@ pub fn update_sentries(
         if dir == ae::Vec2::ZERO {
             continue;
         }
-        effects.write(crate::effects::EffectRequest {
+        effects.write(ambition_vfx::EffectRequest {
             owner: entity,
-            effect: crate::effects::Effect::Projectiles {
+            effect: ambition_vfx::Effect::Projectiles {
                 shots: vec![EnemyProjectileSpawn {
                     origin: sentry.pos,
                     dir,
@@ -167,7 +167,7 @@ mod tests {
     fn test_app() -> App {
         let mut app = App::new();
         app.add_message::<crate::audio::SfxMessage>();
-        app.add_message::<crate::effects::EffectRequest>();
+        app.add_message::<ambition_vfx::EffectRequest>();
         app.insert_resource(crate::WorldTime {
             raw_dt: 0.1,
             scaled_dt: 0.1,

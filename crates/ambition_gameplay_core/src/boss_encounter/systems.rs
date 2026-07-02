@@ -333,7 +333,7 @@ pub fn boss_phase_transition_feedback(
         ),
         With<crate::features::BossConfig>,
     >,
-    mut effects: MessageWriter<crate::effects::EffectRequest>,
+    mut effects: MessageWriter<ambition_vfx::EffectRequest>,
     mut vfx: MessageWriter<ambition_vfx::vfx::VfxMessage>,
 ) {
     use crate::boss_encounter::BossEncounterPhase as P;
@@ -362,9 +362,9 @@ pub fn boss_phase_transition_feedback(
             // Resolved at the boss's own position + faction (`ActorFaction::Boss`),
             // so the shared `apply_hitbox_damage` lands it on the player — the
             // literal "player and boss fire the same attack" unification, in-game.
-            effects.write(crate::effects::EffectRequest {
+            effects.write(ambition_vfx::EffectRequest {
                 owner: entity,
-                effect: crate::effects::Effect::DamageBox(crate::effects::DamageBoxEffect {
+                effect: ambition_vfx::Effect::DamageBox(ambition_vfx::DamageBoxEffect {
                     center: aabb.center,
                     faction: crate::features::ActorFaction::Boss,
                     half_extent: ae::Vec2::new(170.0, 80.0),
@@ -427,7 +427,7 @@ mod phase_feedback_tests {
     fn test_app() -> App {
         let mut app = App::new();
         app.add_message::<crate::audio::SfxMessage>();
-        app.add_message::<crate::effects::EffectRequest>();
+        app.add_message::<ambition_vfx::EffectRequest>();
         app.add_message::<ambition_vfx::vfx::VfxMessage>();
         app.init_resource::<CameraShakeState>();
         app.add_systems(Update, boss_phase_transition_feedback);

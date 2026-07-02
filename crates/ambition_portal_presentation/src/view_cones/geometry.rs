@@ -682,9 +682,20 @@ pub(crate) fn compute_cone(
 
     // Clip the window's depth to the host wall's measured material so a thin
     // door wall never lets the mesh punch through into the room behind it (see
-    // [`host_depth_limit`]). The half-plane doorway takeover below deliberately
-    // stays unclipped — crossing the aperture, the whole view becomes the exit
-    // chart.
+    // [`host_depth_limit`]). The half-plane takeover below stays unclipped for
+    // genuinely disjoint pairs — crossing a teleport, the whole view becomes
+    // the exit chart — but NOT for a DOORWAY pair (opposed faces across a
+    // thin slab): its two charts are the same visual space, so a takeover
+    // pane photographs a region that is ALSO directly on screen and
+    // double-images everything in it (the world shimmered at a parallax
+    // offset, the far frame showed twice, the transiting body doubled — the
+    // c136/c137 artifact family). A doorway is a HOLE, not a wormhole: its
+    // pane covers only the slab (the wall material is the one thing to
+    // hide), and inside the slab the mapped capture reconstructs exactly the
+    // occluded middle of whatever straddles the wall — while the body's
+    // clipped pieces and the far side draw direct, crisp, exactly once.
+    let doorway_pair = enter.normal.dot(exit.normal) < -0.9
+        && enter.pos.distance(exit.pos) <= config.doorway_pair_max_gap;
     let host_limit = host_depth_limit(
         &enter,
         &v.occluders,
@@ -730,6 +741,12 @@ pub(crate) fn compute_cone(
         world_size.x.max(world_size.y).max(finite_depth)
     } else {
         finite_depth
+    };
+    // Doorway pairs never take over: the pane is the slab (see above).
+    let half_depth = if doorway_pair {
+        half_depth.min(host_limit)
+    } else {
+        half_depth
     };
     let half_plane_lateral_limit = if full_half_plane {
         RAY_LATERAL_CLAMP
@@ -1642,6 +1659,49 @@ mod tests {
             "finite depth clips to the wall thickness, got {:?}",
             plan.debug.finite_depth,
         );
+    }
+
+    /// A DOORWAY pair (opposed faces across a thin slab) never takes over the
+    /// half-plane, even standing AT the aperture: its two charts are the same
+    /// visual space, so a takeover pane would photograph a region that is
+    /// also directly on screen and double-image everything in it (frames,
+    /// the transiting body, the world at a parallax offset). The pane is the
+    /// slab. Disjoint pairs keep the takeover
+    /// (`doorway_view_cone_reaches_half_plane_without_immediate_snap` is the
+    /// control at 640px separation).
+    #[test]
+    fn thin_wall_doorway_pane_stays_inside_the_slab_at_the_aperture() {
+        let world = Vec2::new(1600.0, 900.0);
+        let wall = ae::Aabb::new(Vec2::new(512.0, 450.0), Vec2::new(12.0, 450.0));
+        let near = placed(
+            PortalChannelColor::Purple.channel(),
+            Vec2::new(500.0, 450.0),
+            Vec2::new(-1.0, 0.0),
+        );
+        let far = placed(
+            PortalChannelColor::Yellow.channel(),
+            Vec2::new(524.0, 450.0),
+            Vec2::new(1.0, 0.0),
+        );
+        // DEFAULT config: half-plane takeover enabled — the doorway rule
+        // itself must suppress it, not a tuning knob.
+        let config = PortalViewConeConfig::default();
+        let viewer = PortalViewer {
+            present: true,
+            eye: near.pos + near.normal * 0.5, // standing in the aperture
+            half_size: Vec2::ZERO,
+            occluders: vec![wall],
+        };
+        let plan = compute_cone(&near, &far, &config, Some(&viewer), world);
+        assert!(plan.target > 0.0, "the doorway window is open");
+        let wall_back = 524.0;
+        for p in plan.wedge.entry_quad.iter().chain(plan.min.entry_quad.iter()) {
+            assert!(
+                p.x <= wall_back + 0.6,
+                "a doorway pane must stay inside the wall slab even at the \
+                 aperture (no takeover), got {p:?}",
+            );
+        }
     }
 
     #[test]

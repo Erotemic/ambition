@@ -61,15 +61,19 @@ pub use visuals::{
 /// identifying frame always draws whole.
 ///
 /// The transiting body itself draws as texture-clipped PIECES (see
-/// [`sync_portal_body_pieces`]): BOTH slices in the actor band, on the
-/// main-camera-only window layer so no capture photographs them. Direct,
-/// capture-free slices tile exactly across the seam when the charts swap at
-/// the centroid snap; the earlier under-the-glass through slice traded a
-/// crisp direct draw for a parallax-offset, tier-blurry captured one at that
-/// swap, which read as the body snapping. The held gun decomposes the same
-/// way (`gun_visuals`). Only the FALLBACK unclipped exit copy (no texture /
-/// headless) still sits at [`PORTAL_EXIT_COPY_Z`] below the window, hiding
-/// its redundant world draw behind the glass.
+/// [`sync_portal_body_pieces`]), on the WORLD layer — captures photograph
+/// them, so through a DISJOINT pair's window you see your own copy emerging
+/// (the wormhole view). The `here` slice draws in the actor band; the
+/// emerged `through` slice — like the fallback unclipped exit copy — sits at
+/// [`PORTAL_EXIT_COPY_Z`], just BELOW the window, so wherever a wormhole
+/// pane covers the exit region its captured copy is the single image shown.
+/// At a DOORWAY pair (opposed faces across a thin slab, see
+/// `PortalViewConeConfig::doorway_pair_max_gap`) the pane is clipped to the
+/// slab and the slices are clipped to be OUTSIDE it, so both slices draw
+/// direct and crisp and the chart swap at the centroid snap trades like for
+/// like — the doorway is a hole, not a wormhole, and never photographs a
+/// region that is also directly on screen. The held gun decomposes the same
+/// way (`gun_visuals`).
 ///
 /// Within the band, a pair's two overlapping panes (thin-wall doorway) sort
 /// by PAIRWISE FRONT-SIDE DOMINANCE with hysteresis, not by radial distance

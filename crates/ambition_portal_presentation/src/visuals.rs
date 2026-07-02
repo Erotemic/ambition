@@ -9,7 +9,6 @@
 //! Every system here is read-only over the portal sim and rebuilds its transient
 //! entities each frame, so visuals cannot desync from the sim.
 
-use bevy::camera::visibility::RenderLayers;
 use bevy::image::TextureAtlasLayout;
 use bevy::prelude::*;
 use bevy::sprite::Anchor;
@@ -196,16 +195,17 @@ pub fn sync_portal_body_pieces(
         through_anchor.x = -through_anchor.x;
     }
 
-    // Texture-clipped piece path: BOTH charts as clip-material quads at the
-    // body's own z (a piece is the body, in front of walls and windows alike),
-    // on the main-camera-only window layer so no capture camera photographs
-    // them. That layer choice is what makes actor-z legal for the through
-    // piece: drawn on the world layer it was ALSO captured into the doorway
-    // takeover glass and showed twice, parallax-offset (review Part 8
-    // iteration 2 demoted it under the glass for that reason — at the cost
-    // that the chart swap at the centroid snap traded a crisp direct slice
-    // for a blurry captured one, which read as the body snapping). Direct,
-    // capture-free pieces tile exactly across the seam at the snap.
+    // Texture-clipped piece path: both charts as clip-material quads, on the
+    // WORLD layer so portal captures photograph them — through a DISJOINT
+    // pair's window you must see your own copy emerging (the wormhole view).
+    // The `here` slice draws at the body's z; the `through` slice sits just
+    // below the window band: where a wormhole pane covers its region, the
+    // pane's captured copy is the one image shown; where no pane covers it,
+    // the direct draw shows. At a DOORWAY pair no pane ever covers either
+    // slice — the pane is clipped to the wall slab (see the doorway clamp in
+    // `compute_cone`) and the slices are clipped to be OUTSIDE the slab — so
+    // both slices draw direct and crisp, and the chart swap at the centroid
+    // snap trades like for like: nothing pops.
     let mut drew_clipped = false;
     if let (Some(images), Some(layouts), Some(mut meshes), Some(mut materials)) =
         (images, layouts, meshes, clip_materials)
@@ -219,7 +219,6 @@ pub fn sync_portal_body_pieces(
                 Vec4::new(c.red, c.green, c.blue, c.alpha)
             };
             let flip_flag = |flip: bool| Vec4::new(if flip { 1.0 } else { 0.0 }, 0.0, 0.0, 0.0);
-            let piece_layer = RenderLayers::layer(crate::PORTAL_WINDOW_RENDER_LAYER);
 
             // `here`: the real pose, keeping only what is still in front of
             // the entry plane (the sunk slice belongs to the exit chart).
@@ -236,14 +235,13 @@ pub fn sync_portal_body_pieces(
                     color_texture: sprite.image.clone(),
                 })),
                 clip_piece_transform(source_transform, source_anchor_v, basis.size),
-                piece_layer.clone(),
                 Name::new("Portal body piece (here)"),
             ));
 
             // `through`: the mapped pose, keeping only what has emerged in
             // front of the exit plane, laterally bounded by the doorway.
             let through_base = Transform {
-                translation: frame.to_render(exit_center, source_transform.translation.z),
+                translation: frame.to_render(exit_center, crate::PORTAL_EXIT_COPY_Z),
                 rotation: Quat::from_rotation_z(exit_roll),
                 scale: source_transform.scale,
             };
@@ -262,7 +260,6 @@ pub fn sync_portal_body_pieces(
                     color_texture: sprite.image.clone(),
                 })),
                 clip_piece_transform(&through_base, through_anchor, basis.size),
-                piece_layer,
                 Name::new("Portal body piece (through)"),
             ));
 
@@ -375,15 +372,14 @@ pub fn sync_portal_visuals(
         // with the mapped exit-side portal texture. The positive-normal side
         // is this portal's own channel; the negative-normal side is its partner.
         // All three (rim/core/label) draw at the dominance-resolved `frame_z`
-        // (above the glass for the near portal, under it for the far one) AND
-        // on the main-camera-only window layer, so no capture camera
-        // photographs them: a captured copy of the frame inside the glass
-        // would read as a second, parallax-offset portal (Jon's "two copies
-        // of the portals"). The frame is HUD-like identification, drawn
-        // exactly once; the far side seen through glass shows bare apertures.
-        // (Uses the shared window layer — already the "main camera renders,
-        // captures never see" set.)
-        let overlay_layer = RenderLayers::layer(crate::PORTAL_WINDOW_RENDER_LAYER);
+        // (above the glass for the near portal, under it for the far one) on
+        // the WORLD layer, so portal captures photograph them — portals seen
+        // through a window must look like portals. The "two copies of the
+        // portals" artifact came from the doorway takeover pane painting a
+        // parallax-offset capture over directly-visible frames; that regime
+        // is gone at the source (the doorway clamp in `compute_cone`), and a
+        // wormhole pane showing a DISJOINT elsewhere never overlaps the
+        // frames it photographs.
         for (channel, sign, side) in [
             (negative_channel, -1.0, "negative-normal"),
             (positive_channel, 1.0, "positive-normal"),
@@ -396,7 +392,6 @@ pub fn sync_portal_visuals(
                 PortalVisual,
                 Sprite::from_color(rim, Vec2::new(length, rim_thickness * 0.5)),
                 Transform::from_translation(rim_translation).with_rotation(rotation),
-                overlay_layer.clone(),
                 Name::new(format!("Portal visual (rim {side})")),
             ));
 
@@ -408,7 +403,6 @@ pub fn sync_portal_visuals(
                 PortalVisual,
                 Sprite::from_color(core, Vec2::new(core_length, core_thickness * 0.5)),
                 Transform::from_translation(core_translation).with_rotation(rotation),
-                overlay_layer.clone(),
                 Name::new(format!("Portal visual (core {side})")),
             ));
         }
@@ -427,7 +421,6 @@ pub fn sync_portal_visuals(
             },
             TextColor(core),
             Transform::from_translation(label_translation),
-            overlay_layer.clone(),
             Name::new("Portal label"),
         ));
     }
@@ -437,6 +430,7 @@ pub fn sync_portal_visuals(
 mod tests {
     use super::*;
     use ambition_portal::PortalChannelColor;
+    use bevy::camera::visibility::RenderLayers;
     use bevy::sprite_render::MeshMaterial2d;
 
     const WORLD: Vec2 = Vec2::new(1000.0, 600.0);
@@ -591,36 +585,31 @@ mod tests {
             (transforms[1].x - 30.0).abs() < 1e-3,
             "through piece at the mapped exit pose, got {transforms:?}"
         );
-        // z bands: BOTH pieces are the body (actor band, over windows) — the
-        // chart swap at the centroid snap must trade like for like, direct
-        // draw for direct draw, or the body visibly pops. Doubling into the
-        // glass is prevented by the capture-free layer, not by z.
+        // z bands: the here piece IS the body (actor band); the through
+        // piece sits just BELOW the window band, so a DISJOINT pair's
+        // wormhole pane stays the single source wherever it covers the exit
+        // region. At a DOORWAY pair no pane reaches either slice (the pane is
+        // clipped to the wall slab; the slices are clipped to be outside it),
+        // so both slices draw direct and the chart swap at the centroid snap
+        // trades like for like. Pieces stay on the WORLD layer: through a
+        // disjoint pair's window you must see your own copy emerging.
         assert!(
             (transforms[0].z - 20.0).abs() < 1e-3,
             "here piece in the actor band, got {transforms:?}"
         );
         assert!(
-            (transforms[1].z - 20.0).abs() < 1e-3,
-            "through piece in the actor band, got {transforms:?}"
+            (transforms[1].z - crate::PORTAL_EXIT_COPY_Z).abs() < 1e-3,
+            "through piece below the window band, got {transforms:?}"
         );
-        // Both pieces live on the main-camera-only window layer: a capture
-        // camera photographing them would paint a second, parallax-offset
-        // body over the doorway-takeover glass (the Part 8 iteration 2 bug
-        // that previously forced the through piece under the window band).
-        let piece_layers: Vec<RenderLayers> = app
+        let layered = app
             .world_mut()
-            .query_filtered::<&RenderLayers, With<PortalBodyPiece>>()
+            .query_filtered::<(), (With<PortalBodyPiece>, With<RenderLayers>)>()
             .iter(app.world())
-            .cloned()
-            .collect();
-        assert_eq!(piece_layers.len(), 2);
-        for layers in &piece_layers {
-            assert_eq!(
-                layers,
-                &RenderLayers::layer(crate::PORTAL_WINDOW_RENDER_LAYER),
-                "pieces must be invisible to capture cameras"
-            );
-        }
+            .count();
+        assert_eq!(
+            layered, 0,
+            "pieces live on the default WORLD layer so portal captures photograph them"
+        );
     }
 
     /// No transit: no pieces, the real sprite shows whole.
@@ -766,31 +755,17 @@ mod tests {
             );
         }
 
-        // And the frame is main-camera-only: it lives on the window layer,
-        // which no capture camera renders — otherwise the captured copy of
-        // the frame inside the glass reads as a second, parallax-offset
-        // portal ("two copies of the portals").
-        let overlay = RenderLayers::layer(crate::PORTAL_WINDOW_RENDER_LAYER);
+        // And the frame stays on the WORLD layer: portal captures must
+        // photograph it, so portals seen through a disjoint pair's window
+        // still look like portals.
         let layered = app
             .world_mut()
-            .query_filtered::<(&Name, &RenderLayers), With<PortalVisual>>()
+            .query_filtered::<(), (With<PortalVisual>, With<RenderLayers>)>()
             .iter(app.world())
-            .filter(|(n, _)| {
-                let n = n.to_string();
-                n.contains("rim") || n.contains("core") || n.contains("label")
-            })
-            .map(|(n, l)| (n.to_string(), l.clone()))
-            .collect::<Vec<_>>();
+            .count();
         assert_eq!(
-            layered.len(),
-            frame_parts.len(),
-            "every frame part carries explicit RenderLayers"
+            layered, 0,
+            "frame parts live on the default WORLD layer so captures photograph them"
         );
-        for (name, layers) in &layered {
-            assert_eq!(
-                layers, &overlay,
-                "{name} must be on the main-camera-only window layer (never captured)"
-            );
-        }
     }
 }

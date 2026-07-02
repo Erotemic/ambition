@@ -894,6 +894,59 @@ through a third portal's glass shows no body. Acceptable until a
 capture-visible variant is wanted. BLIND: verify crossing c136/c137 — the
 walk should read as ordinary walking with only the camera's gentle ease.
 
+### F18 — LANDED: a doorway is a HOLE, not a wormhole (the principled special case)
+
+Jon (Round 10 it. 4): the capture-visible copy through a disjoint pair is
+CRITICAL and F17's capture-free layers broke it; still not right at the thin
+wall; suspects a special case where "the preview cone is overlapping the
+exit location" is unavoidable.
+
+He's right, and the special case is PRINCIPLED, not a hack. The fundamental
+tradeoff, stated once: a window is a photograph of the exit chart. For a
+DISJOINT pair the photograph and the directly-drawn world never claim the
+same screen region — so bodies and frames must be capture-visible (the
+wormhole view of yourself emerging IS the photograph of your through
+slice), and the F11-it2 under-the-glass compositing was already correct.
+For a pair whose two ends see each other (thin wall), the wormhole view
+GENUINELY double-images the world — physically true of a wormhole, wrong
+for a doorway. No layer scheme fixes both regimes, because the entry window
+must photograph the pair's own through slice in one regime and must not in
+the other.
+
+Resolution: **doorway pairs (opposed normals, gap ≤
+`PortalViewConeConfig::doorway_pair_max_gap` = 64px) never take over — the
+pane is clipped to the wall slab** (`host_depth_limit`, which already
+existed for the finite wedge; the takeover exemption now applies only to
+non-doorway pairs). Inside the slab the mapped capture reconstructs exactly
+the occluded middle of whatever straddles the wall (map ≈ translation by
+the slab thickness, so pane pixel w shows content at w+gap = precisely the
+hidden slice) — correct hole optics. Outside the slab nothing is
+photographed-and-also-direct, so:
+
+- F17's capture-free layers are REVERTED (pieces, frames, gun back on the
+  world layer): disjoint windows show your full copy and framed portals
+  again.
+- The through slice returns to `PORTAL_EXIT_COPY_Z` under the window band
+  (the disjoint one-copy composite). At a doorway both slices are clipped
+  OUTSIDE the slab and the pane never reaches them, so both draw direct and
+  crisp — the chart swap at the snap trades like for like, and the
+  crisp↔blurry body pop is gone at the source.
+- The frame dominance z (F17) stays: near frame above the glass, far frame
+  under it. At a doorway the slab pane is what covers the far frame.
+- The gun's two-chart decomposition stays (here at hand z, through joins
+  the body slice band).
+- The camera doorway gate (F16) is the same criterion on the camera axis;
+  this is its window-side twin. Both say: a small-displacement crossing is
+  a NON-EVENT.
+
+Pinned: `thin_wall_doorway_pane_stays_inside_the_slab_at_the_aperture`
+(default config, viewer standing in the aperture — the old takeover fails
+it), with the 640px takeover test as the disjoint control; pieces/frames
+pinned back on the world layer; through slice back at `PORTAL_EXIT_COPY_Z`.
+
+Follow-up wanted by Jon regardless: none — the capture-visible variant IS
+the world-layer default again.
+
 ## Part 9 — Round 9: "fall in from a tall height, don't come all the way back up"
 
 Jon: falling through a ground portal pair from a tall distance doesn't return

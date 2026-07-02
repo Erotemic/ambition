@@ -6,7 +6,6 @@
 //! portals from authored level data, scripts, moving emitters, or any other
 //! control authority.
 
-use bevy::camera::visibility::RenderLayers;
 use bevy::prelude::*;
 use bevy::sprite_render::MeshMaterial2d;
 
@@ -125,7 +124,6 @@ pub fn sync_portal_mode_indicator(
                         let mesh = unit_mesh
                             .get_or_insert_with(|| meshes.add(Rectangle::default()))
                             .clone();
-                        let layer = RenderLayers::layer(crate::PORTAL_WINDOW_RENDER_LAYER);
                         let along = Vec2::new(-exit.normal.y, exit.normal.x);
                         let aperture_half = exit.aperture_half();
                         // The through chart: map the gun's world point and the
@@ -134,6 +132,7 @@ pub fn sync_portal_mode_indicator(
                         let charts = [
                             (
                                 "here",
+                                12.0,
                                 pos,
                                 aim,
                                 clip_plane_render(&frame, enter.pos, enter.normal),
@@ -142,6 +141,7 @@ pub fn sync_portal_mode_indicator(
                             ),
                             (
                                 "through",
+                                crate::PORTAL_EXIT_COPY_Z + 0.05,
                                 pp::map_point(pos, &enter, &exit),
                                 pp::portal_map_vec(aim, enter.normal, exit.normal),
                                 clip_plane_render(&frame, exit.pos, exit.normal),
@@ -149,10 +149,10 @@ pub fn sync_portal_mode_indicator(
                                 clip_plane_render(&frame, exit.pos + along * aperture_half, -along),
                             ),
                         ];
-                        for (chart, chart_pos, chart_aim, clip0, clip1, clip2) in charts {
+                        for (chart, chart_z, chart_pos, chart_aim, clip0, clip1, clip2) in charts {
                             let angle = (-chart_aim.y).atan2(chart_aim.x);
                             let base = Transform {
-                                translation: frame.to_render(chart_pos, 12.0),
+                                translation: frame.to_render(chart_pos, chart_z),
                                 rotation: Quat::from_rotation_z(angle),
                                 scale: Vec3::ONE,
                             };
@@ -175,7 +175,6 @@ pub fn sync_portal_mode_indicator(
                                     color_texture: image.clone(),
                                 })),
                                 clip_piece_transform(&base, Vec2::ZERO, basis.size),
-                                layer.clone(),
                                 Name::new(format!("Held portal gun ({chart})")),
                             ));
                         }

@@ -71,6 +71,7 @@ use bevy_yarnspinner::prelude::*;
 /// the `dialog_yarn_compile` test compiles exactly these (as one project, the
 /// way startup does). A new `.yarn` added here is automatically covered; a file
 /// dropped on disk but not listed is intentionally unloaded.
+#[cfg(feature = "ui")]
 pub(crate) const YARN_SOURCES: &[&str] = &[
     "dialogue/sandbox/intro.yarn",
     "dialogue/sandbox/kernel.yarn",

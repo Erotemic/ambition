@@ -122,6 +122,8 @@ crates/ambition_gameplay_core/assets/sprites/**/*.yaml
 crates/ambition_gameplay_core/assets/sprites_0_5x/
 crates/ambition_gameplay_core/assets/sprites_0_25x/
 crates/ambition_gameplay_core/assets/sprites_potato/
+# Quality-tiered shared-page sprite packs (regen ultrapack step output).
+crates/ambition_gameplay_core/assets/sprite_packs/
 crates/ambition_gameplay_core/assets/backgrounds/parallax_layers_0_5x/
 crates/ambition_gameplay_core/assets/backgrounds/parallax_layers_0_25x/
 crates/ambition_gameplay_core/assets/backgrounds/parallax_layers_potato/

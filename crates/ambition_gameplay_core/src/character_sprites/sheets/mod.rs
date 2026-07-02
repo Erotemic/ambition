@@ -116,6 +116,18 @@ impl SheetTuning {
     }
 }
 
+impl CharacterSheetSpec {
+    /// Lift this spec's resolution-independent gameplay tuning back out as a
+    /// [`SheetTuning`] — collision scale, frame-sample inset, and the resolved
+    /// feet anchor (pinned as an override so a record with no `body_metrics`,
+    /// e.g. a pack-synthesized record, renders with the SAME anchor).
+    /// This is how the pack path inherits a base spec's tuning verbatim.
+    pub fn tuning(&self) -> SheetTuning {
+        SheetTuning::new(self.collision_scale, self.frame_sample_inset)
+            .with_feet_anchor_y(self.feet_anchor_y)
+    }
+}
+
 impl SheetTuning {
     pub const fn new(collision_scale: f32, frame_sample_inset: u32) -> Self {
         Self {
@@ -125,7 +137,6 @@ impl SheetTuning {
         }
     }
 
-    #[allow(dead_code)]
     pub const fn with_feet_anchor_y(mut self, feet_anchor_y: f32) -> Self {
         self.feet_anchor_y_override = Some(feet_anchor_y);
         self
@@ -218,6 +229,31 @@ pub fn try_load_spec_for_target_scaled(
     let record = record_index().get(&format!("{target}.{suffix}"))?;
     let spec = spec_from_record(record, tuning);
     spec.maps(CharacterAnim::Idle).then_some(spec)
+}
+
+/// Load a spec for `target` from the quality-tiered ultrapack catalogs
+/// (shared-page packs installed under `assets/sprite_packs/<tier>/`).
+///
+/// The pack catalog's per-target [`SheetRecord`] view drops straight onto the
+/// same frame algebra every other reader uses — freely-packed rows whose
+/// per-frame rects carry their own page + trim offset — so a packed target
+/// needs no parallel render path. Returns the spec **and the tier actually
+/// used** (the requested tier falls back to `full` when absent) so the
+/// caller's page image paths address the catalog the rects came from.
+///
+/// The synthesized record has no `body_metrics`: `tuning` must carry the
+/// feet anchor / collision scale (lift them from the base per-target spec),
+/// and gameplay geometry keeps reading BASE data — packs are visual storage
+/// truth only.
+pub fn try_load_pack_spec_for_target(
+    target: &str,
+    tuning: &SheetTuning,
+    scale: crate::persistence::settings::TextureResolutionScale,
+) -> Option<(CharacterSheetSpec, &'static str)> {
+    let (tier, catalog) = super::sprite_packs::catalog_for_scale(scale)?;
+    let record = catalog.to_sheet_record(target)?;
+    let spec = spec_from_record(&record, tuning);
+    spec.maps(CharacterAnim::Idle).then_some((spec, tier))
 }
 
 pub fn try_load_spec_for_character_id(character_id: &str) -> Option<CharacterSheetSpec> {

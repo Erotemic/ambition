@@ -42,7 +42,7 @@ fn intro_npc_and_prop_sprite_ids_resolve_through_the_catalog() {
             "intro NPC `{name}` resolved to path that doesn't end with {filename}",
         );
     }
-    for (kind, filename, _spec) in intro_prop_sprite_rows() {
+    for (kind, filename, _spec, _pack) in intro_prop_sprite_rows() {
         let id = intro_prop_asset_id(kind);
         let resolved = catalog.resolve(&id).unwrap_or_else(|err| {
             panic!("intro prop `{kind}` (id {id}) missing from catalog: {err}")

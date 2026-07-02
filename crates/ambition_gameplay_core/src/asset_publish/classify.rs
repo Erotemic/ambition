@@ -29,6 +29,11 @@ pub enum ArtifactClass {
     /// Forward-path entity-contract fragment (`*_entity.ron`). Reserved for the
     /// EntityCatalog migration; installed as a runtime candidate.
     EntityFragment,
+    /// Runtime sprite-pack catalog (`ultrapack.json` under a pack tier root):
+    /// the shared-page atlas index the ultrapacker emits per quality tier.
+    /// JSON on purpose (Python-authored RON is the drift trap). Baked into the
+    /// binary by `build.rs` alongside the sheet RONs.
+    PackCatalog,
     /// Any other file the runtime genuinely loads: standalone prop/entity
     /// images (`props/axe.png`, `entities/…`), authored data RON
     /// (`data/character_catalog.ron`), and similar. Installed.
@@ -53,6 +58,7 @@ impl ArtifactClass {
                 | ArtifactClass::ImagePage
                 | ArtifactClass::ActorSidecar
                 | ArtifactClass::EntityFragment
+                | ArtifactClass::PackCatalog
                 | ArtifactClass::RuntimeMisc
         )
     }
@@ -65,6 +71,7 @@ impl ArtifactClass {
             ArtifactClass::ImagePage => "image_page",
             ArtifactClass::ActorSidecar => "actor_contract_sidecar",
             ArtifactClass::EntityFragment => "entity_contract_fragment",
+            ArtifactClass::PackCatalog => "sprite_pack_catalog",
             ArtifactClass::RuntimeMisc => "runtime_misc",
             ArtifactClass::Intermediate => "intermediate",
             ArtifactClass::Diagnostic => "diagnostic",
@@ -107,6 +114,14 @@ fn is_image_page(name: &str) -> bool {
     head.ends_with("_spritesheet") && !tail.is_empty() && tail.bytes().all(|b| b.is_ascii_digit())
 }
 
+/// `true` for the ultrapacker's shared page images: `ultrapack_0.png`,
+/// `ultrapack_41.png`, … (one uniform-size page of a quality-tier pack).
+fn is_pack_page(name: &str) -> bool {
+    name.strip_prefix("ultrapack_")
+        .and_then(|rest| rest.strip_suffix(".png"))
+        .is_some_and(|digits| !digits.is_empty() && digits.bytes().all(|b| b.is_ascii_digit()))
+}
+
 /// Classify a generated file by its path relative to a staging or runtime root.
 ///
 /// Only the path shape is inspected; the file need not exist.
@@ -134,8 +149,11 @@ pub fn classify(rel_path: &Path) -> ArtifactClass {
     if name.ends_with("_entity.ron") {
         return ArtifactClass::EntityFragment;
     }
-    if is_image_page(name) {
+    if is_image_page(name) || is_pack_page(name) {
         return ArtifactClass::ImagePage;
+    }
+    if name == "ultrapack.json" {
+        return ArtifactClass::PackCatalog;
     }
 
     // Author-time scaffolding that isn't a runtime artifact but isn't a
@@ -166,6 +184,9 @@ mod tests {
         assert_eq!(c("goblin_spritesheet.12.png"), ArtifactClass::ImagePage);
         assert_eq!(c("goblin_actor.ron"), ArtifactClass::ActorSidecar);
         assert_eq!(c("goblin_entity.ron"), ArtifactClass::EntityFragment);
+        assert_eq!(c("base/ultrapack_0.png"), ArtifactClass::ImagePage);
+        assert_eq!(c("potato/ultrapack_13.png"), ArtifactClass::ImagePage);
+        assert_eq!(c("base/ultrapack.json"), ArtifactClass::PackCatalog);
         assert_eq!(c("props/axe.png"), ArtifactClass::RuntimeMisc);
         assert_eq!(c("data/character_catalog.ron"), ArtifactClass::RuntimeMisc);
         for cls in [

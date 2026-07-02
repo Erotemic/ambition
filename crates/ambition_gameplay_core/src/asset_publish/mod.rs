@@ -39,6 +39,9 @@ pub const RUNTIME_SPRITE_ROOTS: &[&str] = &[
     "assets/sprites_0_5x",
     "assets/sprites_0_25x",
     "assets/sprites_potato",
+    // Quality-tiered shared-page sprite packs (`<tier>/ultrapack_<n>.png` +
+    // `<tier>/ultrapack.json`), installed by the regen ultrapack step.
+    "assets/sprite_packs",
 ];
 
 #[cfg(test)]

@@ -737,15 +737,14 @@ else
     echo "  (skipped — no python interpreter)"
 fi
 
-# --- Ultrapacked quality-tier sprite atlases (staging) --------------------
+# --- Ultrapacked quality-tier sprite atlases (runtime install) ------------
 # Pool every published per-target sheet into shared, uniformly-sized atlas
 # pages at each quality tier, then write pages + a SpritePackCatalog into the
-# STAGING pack root (target/ambition_publish/packs/<tier>/). This is NOT a
-# runtime asset root: there is no Rust SpritePackCatalog consumer yet, so the
-# game still loads the per-target sheets above. The pack step exists so the
-# ultrapacked, multi-quality artifacts are regenerated every regen, ready for
-# the runtime loader (the keystone next step). See
-# docs/planning/engine/data-driven-sprites-and-characters.md.
+# RUNTIME pack root assets/sprite_packs/<tier>/ (gitignored, generated).
+# Tier names match the runtime `TextureResolutionScale` enum (full / half /
+# quarter / potato) — the game's pack consumer selects the tier dir from the
+# active quality budget. `build.rs` bakes each tier's ultrapack.json. See
+# docs/planning/engine/data-driven-sprites-and-characters.md (W2).
 #
 # Efficient by construction: the sheets were rendered ONCE above, so each tier
 # reads that pool (`--from-rendered`) and downsamples each isolated frame to
@@ -753,21 +752,18 @@ fi
 # already-packed page (which would bleed neighbours across frame edges).
 #
 # Debug views (labeled page overlays + a pack report) are OFF by default and
-# land under <tier>/diagnostics/ only when AMBITION_ULTRAPACK_DEBUG=1, so the
-# published pack dirs hold runtime artifacts (pages + catalog) only.
+# always land in STAGING (never the runtime pack root — the hygiene test
+# would flag them there).
 #   AMBITION_ULTRAPACK=0        skip the pack step entirely (fast dev regen)
 #   AMBITION_ULTRAPACK_DEBUG=1  also emit per-page diagnostics into staging
-echo "==> Ultrapack: shared-page atlases per quality tier → staging:"
-pack_root="$repo_root/target/ambition_publish/packs"
+echo "==> Ultrapack: shared-page atlases per quality tier → runtime pack root:"
+pack_root="$repo_root/crates/ambition_gameplay_core/assets/sprite_packs"
+pack_debug_root="$repo_root/target/ambition_publish/diagnostics/packs"
 if [ "${AMBITION_ULTRAPACK:-1}" = "0" ]; then
     echo "  (skipped — AMBITION_ULTRAPACK=0)"
 elif command -v "$python_bin" >/dev/null 2>&1 && \
     "$python_bin" -c 'import ambition_sprite2d_renderer' >/dev/null 2>&1
 then
-    ultrapack_debug=()
-    if [ "${AMBITION_ULTRAPACK_DEBUG:-0}" = "1" ]; then
-        ultrapack_debug=(--debug-views)
-    fi
     # tier: <name> <scale> <min_frame_px> <page_size>
     #
     # Page size scales DOWN with the tier: shrunk frames pack many-per-page,
@@ -776,21 +772,60 @@ then
     # bounded — potato @ 256² packs in ~10s — and a potato atlas has no reason
     # to be 2048². Uniform page size still holds WITHIN each pack.
     ultrapack_tiers=(
-        "base 1.0 1 2048"
+        "full 1.0 1 2048"
         "half 0.5 1 1024"
         "quarter 0.25 1 512"
         "potato 0.0625 8 256"
     )
+    # PackPlan (locality groups): authored in the renderer's configs dir;
+    # quality-independent, so the same plan applies to every tier.
+    ultrapack_plan=()
+    if [ -f "$renderer_dir/ambition_sprite2d_renderer/configs/pack_plan.yaml" ]; then
+        ultrapack_plan=(--pack-plan "ambition_sprite2d_renderer/configs/pack_plan.yaml")
+    fi
     for tier in "${ultrapack_tiers[@]}"; do
         read -r tname tscale tmin tpage <<<"$tier"
+        ultrapack_debug=()
+        if [ "${AMBITION_ULTRAPACK_DEBUG:-0}" = "1" ]; then
+            ultrapack_debug=(--debug-views --debug-dir "$pack_debug_root/$tname")
+        fi
         (cd "$renderer_dir" && "$python_bin" -m ambition_sprite2d_renderer ultrapack \
             --from-rendered "$sprites_dir" \
             --out "$pack_root/$tname" \
             --scale "$tscale" --min-frame-px "$tmin" --page-size "$tpage" \
-            --name ultrapack "${ultrapack_debug[@]}") 2>&1 | sed 's/^/  /' || \
+            --name ultrapack "${ultrapack_plan[@]}" "${ultrapack_debug[@]}") 2>&1 | sed 's/^/  /' || \
             echo "  WARN: ultrapack tier '$tname' failed (non-fatal)"
     done
-    echo "  packs staged under $pack_root/{base,half,quarter,potato}/"
+    echo "  packs installed under $pack_root/{full,half,quarter,potato}/"
+    # Postcondition: every tier packs the SAME target set. A transient IO
+    # flake once silently dropped 59 targets from one tier — scale must
+    # never change coverage, so unequal sets are a hard regen failure.
+    "$python_bin" - "$pack_root" <<'PYEOF'
+import json, sys
+from pathlib import Path
+root = Path(sys.argv[1])
+sets = {}
+for tier in ("full", "half", "quarter", "potato"):
+    cat = root / tier / "ultrapack.json"
+    if cat.exists():
+        sets[tier] = set(json.loads(cat.read_text())["targets"])
+if not sets:
+    sys.exit("  ERROR: no tier catalogs found under %s" % root)
+ref_tier = "full" if "full" in sets else sorted(sets)[0]
+ref = sets[ref_tier]
+bad = False
+for tier, s in sorted(sets.items()):
+    if s != ref:
+        bad = True
+        missing = sorted(ref - s)[:5]
+        extra = sorted(s - ref)[:5]
+        print(f"  ERROR: tier '{tier}' target set differs from '{ref_tier}' "
+              f"(missing {len(ref - s)}: {missing}… / extra {len(s - ref)}: {extra}…)",
+              file=sys.stderr)
+if bad:
+    sys.exit(1)
+print(f"  ok: {len(sets)} tiers x {len(ref)} targets — coverage identical")
+PYEOF
 else
     echo "  (skipped — sprite renderer not importable from $python_bin)"
 fi

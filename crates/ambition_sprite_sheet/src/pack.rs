@@ -90,6 +90,11 @@ pub struct SpritePackCatalog {
     pub scale: f32,
     /// Page image filenames, relative to the catalog file.
     pub pages: Vec<String>,
+    /// Locality group of each page (parallel to `pages`, from the PackPlan):
+    /// a group's frames pack only onto its own pages so a zone's visuals can
+    /// be loaded/unloaded as a unit. Empty (older catalogs) ⇒ all `"shared"`.
+    #[serde(default)]
+    pub page_groups: Vec<String>,
     /// `target → animations`.
     pub targets: HashMap<String, PackTarget>,
 }
@@ -136,6 +141,8 @@ pub enum PackCatalogError {
         animation: String,
         index: u32,
     },
+    /// `page_groups` is present but not parallel to `pages`.
+    PageGroupsNotParallel { pages: usize, groups: usize },
 }
 
 impl std::fmt::Display for PackCatalogError {
@@ -166,6 +173,10 @@ impl std::fmt::Display for PackCatalogError {
             } => write!(
                 f,
                 "{target}/{animation}[{index}] has a non-positive logical size"
+            ),
+            PackCatalogError::PageGroupsNotParallel { pages, groups } => write!(
+                f,
+                "page_groups has {groups} entries for {pages} pages"
             ),
         }
     }
@@ -219,6 +230,91 @@ impl SpritePackCatalog {
         })
     }
 
+    /// Synthesize the canonical [`SheetRecord`](crate::SheetRecord) view of one
+    /// target's frames in this pack.
+    ///
+    /// `SheetRecord` is the single frame-addressing algebra every runtime
+    /// reader consumes (see `frames.rs`), and it already speaks the pack's
+    /// language: freely-packed rows whose per-frame rects carry their own
+    /// `page` + trim `off`. So a pack target does not need a parallel render
+    /// path — this view drops it onto the existing one. The synthesized record
+    /// carries NO gameplay geometry (`body_metrics: None`) on purpose:
+    /// gameplay stays on the base per-target record / entity data, packs are
+    /// visual storage only.
+    ///
+    /// Rows are ordered by animation name and frames by their play `index`,
+    /// so the record (and any atlas built from it) is deterministic regardless
+    /// of catalog map order.
+    pub fn to_sheet_record(&self, target: &str) -> Option<crate::SheetRecord> {
+        let pack_target = self.targets.get(target)?;
+        let mut anim_names: Vec<&String> = pack_target.animations.keys().collect();
+        anim_names.sort();
+
+        // Logical frame size: every frame of one target shares the source
+        // sheet's logical size; take the max defensively so trim offsets can
+        // never overflow the declared frame box.
+        let mut frame_w: i32 = 0;
+        let mut frame_h: i32 = 0;
+        for frames in pack_target.animations.values() {
+            for f in frames {
+                frame_w = frame_w.max(f.src.0);
+                frame_h = frame_h.max(f.src.1);
+            }
+        }
+        if frame_w <= 0 || frame_h <= 0 {
+            return None;
+        }
+
+        let mut rows = Vec::with_capacity(anim_names.len());
+        for (row_index, anim) in anim_names.into_iter().enumerate() {
+            let mut frames: Vec<&PackFrame> = pack_target.animations[anim].iter().collect();
+            frames.sort_by_key(|f| f.index);
+            if frames.is_empty() {
+                continue;
+            }
+            let duration_ms = frames[0].duration_ms;
+            let rects = frames
+                .iter()
+                .map(|f| crate::FrameRect {
+                    x: f.x,
+                    y: f.y,
+                    w: f.w,
+                    h: f.h,
+                    page: f.page,
+                    off: f.off,
+                    anchors: std::collections::HashMap::new(),
+                })
+                .collect::<Vec<_>>();
+            rows.push(crate::SheetRow {
+                animation: anim.clone(),
+                row_index: row_index as u32,
+                frame_count: rects.len() as u32,
+                duration_ms,
+                duration_secs: duration_ms as f32 / 1000.0,
+                // Freely packed: the per-frame `page` on each rect is
+                // authoritative; the row-level page is only the default.
+                page: rects.first().map(|r| r.page).unwrap_or(0),
+                rects,
+            });
+        }
+        if rows.is_empty() {
+            return None;
+        }
+
+        Some(crate::SheetRecord {
+            target: target.to_owned(),
+            image: self.pages.first().cloned().unwrap_or_default(),
+            images: self.pages.clone(),
+            label_width: 0,
+            frame_width: frame_w as u32,
+            frame_height: frame_h as u32,
+            y_offset: 0,
+            body_metrics: None,
+            tuning: None,
+            rows,
+        })
+    }
+
     /// Total frame count across every target/animation.
     pub fn frame_count(&self) -> usize {
         self.targets
@@ -228,11 +324,26 @@ impl SpritePackCatalog {
             .sum()
     }
 
+    /// Locality group of a page (`"shared"` for catalogs without groups).
+    pub fn page_group(&self, page: u32) -> &str {
+        self.page_groups
+            .get(page as usize)
+            .map(String::as_str)
+            .unwrap_or("shared")
+    }
+
     /// Structural validation against the catalog's own declared geometry: every
     /// frame must reference an existing page, fit inside the page bounds, and
-    /// carry a positive logical size. Returns every violation (empty ⇒ sound).
+    /// carry a positive logical size. When `page_groups` is present it must be
+    /// parallel to `pages`. Returns every violation (empty ⇒ sound).
     pub fn validate(&self) -> Vec<PackCatalogError> {
         let mut errors = Vec::new();
+        if !self.page_groups.is_empty() && self.page_groups.len() != self.pages.len() {
+            errors.push(PackCatalogError::PageGroupsNotParallel {
+                pages: self.pages.len(),
+                groups: self.page_groups.len(),
+            });
+        }
         let page_count = self.pages.len();
         let size = self.page_size as i32;
         for (target, pack) in &self.targets {
@@ -343,6 +454,39 @@ mod tests {
         assert!(cat.resolve("goblin", "idle", 99).is_none());
         assert!(cat.resolve("goblin", "run", 0).is_none());
         assert!(cat.resolve("nobody", "idle", 0).is_none());
+    }
+
+    #[test]
+    fn to_sheet_record_joins_the_canonical_frame_algebra() {
+        let cat = SpritePackCatalog::parse(FIXTURE).unwrap();
+        let record = cat.to_sheet_record("goblin").unwrap();
+
+        // Shared pages, logical frame size, deterministic row order.
+        assert_eq!(record.images, vec!["ultrapack_0.png", "ultrapack_1.png"]);
+        assert_eq!((record.frame_width, record.frame_height), (64, 64));
+        assert_eq!(record.rows.len(), 1);
+        assert_eq!(record.rows[0].animation, "idle");
+        assert_eq!(record.rows[0].frame_count, 2);
+        assert_eq!(record.rows[0].duration_ms, 100);
+        // Per-frame pages + trim offsets survive (freely-packed shape).
+        assert_eq!(record.rows[0].rects[0].page, 0);
+        assert_eq!(record.rows[0].rects[1].page, 1);
+        assert_eq!(record.rows[0].rects[0].off, (2, 1));
+        // No gameplay geometry rides along.
+        assert!(record.body_metrics.is_none());
+
+        // The canonical algebra addresses the synthesized record: frame 1
+        // lands on page 1 with its trim geometry intact.
+        let trim = record.frame_trim(0, 1);
+        assert_eq!(trim.offset.x, 2);
+        assert_eq!(trim.offset.y, 1);
+        assert_eq!((trim.logical.x, trim.logical.y), (64, 64));
+        let page1 = record.atlas_page(1, 0);
+        assert_eq!(page1.rects.len(), 1); // only goblin idle[1] lives on page 1
+        assert_eq!(record.flat_index_in_page(0, 1), 0);
+
+        // Unknown target -> None.
+        assert!(cat.to_sheet_record("nobody").is_none());
     }
 
     #[test]

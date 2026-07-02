@@ -430,17 +430,31 @@ fn build_optional_via_catalog(
         }
         return None;
     };
-    // Build one (texture, layout) per page image. The catalog resolves the
-    // page-0 path; sibling pages live in the same directory, named by the
-    // spec's `page_images` list (which came from the RON `images` field).
-    let parent = path.rsplit_once('/').map(|(dir, _)| dir).unwrap_or("");
+    Some(load_sprite_pages(asset_server, layouts, &path, spec))
+}
+
+/// Build one `(texture, layout)` per page image and assemble the sprite
+/// asset. `page0_path` is the already-resolved (profile-gated) Bevy asset
+/// path of page 0; sibling pages resolve their filename from the spec's
+/// `page_images` list against page 0's directory. Shared by the per-target
+/// sheet path and the shared-pack path — the page algebra is identical.
+fn load_sprite_pages(
+    asset_server: &AssetServer,
+    layouts: &mut Assets<TextureAtlasLayout>,
+    page0_path: &str,
+    spec: &CharacterSheetSpec,
+) -> CharacterSpriteAsset {
+    let parent = page0_path
+        .rsplit_once('/')
+        .map(|(dir, _)| dir)
+        .unwrap_or("");
     let page_count = spec.page_count().max(1);
     let pages: Vec<CharacterSpritePage> = (0..page_count)
         .map(|page| {
-            // Page 0 uses the catalog-resolved path verbatim (profile-gated);
-            // later pages resolve their filename against page 0's directory.
+            // Page 0 uses the resolved path verbatim; later pages resolve
+            // their filename against page 0's directory.
             let page_path = if page == 0 {
-                path.clone()
+                page0_path.to_owned()
             } else {
                 let file = spec
                     .page_images
@@ -461,12 +475,12 @@ fn build_optional_via_catalog(
         .collect();
     let texture = pages[0].texture.clone();
     let layout = pages[0].layout.clone();
-    Some(CharacterSpriteAsset {
+    CharacterSpriteAsset {
         texture,
         layout,
         spec: spec.clone(),
         pages,
-    })
+    }
 }
 
 /// Build a single NPC sprite asset by resolving its catalog id.
@@ -493,6 +507,40 @@ pub fn build_npc_sprite_asset(
 /// content plugins reading from `INTRO_PROP_REGISTRY` (or future
 /// equivalents) clearly distinguish prop-table inserts from NPC-table
 /// inserts.
+/// Build a prop's sprite asset from the quality-tiered **shared sprite pack**
+/// (`assets/sprite_packs/<tier>/`) instead of its per-target sheet.
+///
+/// The pack tier follows the active quality budget (mirroring
+/// `resolve_variant_pair` semantics: budgets that don't prefer scaled
+/// variants stay on `full`), and the spec + page images come from the SAME
+/// tier catalog, so rects always address the pages that load. Tuning +
+/// feet anchor are lifted verbatim from `base_spec`, keeping the packed
+/// prop pixel-placement-identical to the per-target path. Returns `None`
+/// when no pack was generated (fresh checkout), the target isn't packed,
+/// or the pack pages are gated by the asset profile — the caller falls
+/// back to [`build_prop_sprite_asset`].
+pub fn build_prop_sprite_asset_packed(
+    catalog: &SandboxAssetCatalog,
+    asset_server: &AssetServer,
+    layouts: &mut Assets<TextureAtlasLayout>,
+    target: &str,
+    base_spec: &CharacterSheetSpec,
+    quality: Option<&VisualQualityBudget>,
+) -> Option<CharacterSpriteAsset> {
+    let scale = quality
+        .filter(|q| q.sprites.prefer_scaled_variants)
+        .map(|q| q.sprites.resolution_scale)
+        .unwrap_or(crate::persistence::settings::TextureResolutionScale::Full);
+    let tuning = base_spec.tuning();
+    let (spec, tier) = super::sheets::try_load_pack_spec_for_target(target, &tuning, scale)?;
+    // Profile-gate page 0 through the sandbox catalog like every other
+    // sprite; sibling pages resolve from the spec's page_images against
+    // page 0's directory (the pack pages all share the tier dir).
+    let id = crate::assets::sandbox_assets::ids::sprite_pack_page0(tier);
+    let path = catalog.try_path_for_load(&id)?;
+    Some(load_sprite_pages(asset_server, layouts, &path, &spec))
+}
+
 pub fn build_prop_sprite_asset(
     catalog: &SandboxAssetCatalog,
     asset_server: &AssetServer,

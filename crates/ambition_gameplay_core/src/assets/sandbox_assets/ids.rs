@@ -67,3 +67,10 @@ pub fn character_sprite(name: &str) -> AssetId {
 pub fn boss_sprite(name: &str) -> AssetId {
     AssetId::new(format!("sprite.boss.{name}"))
 }
+
+/// `sprite.pack.<tier>` — page 0 of a quality tier's shared sprite pack
+/// (`sprite_packs/<tier>/ultrapack_0.png`). Later pages resolve as siblings
+/// of page 0, so one entry per tier suffices.
+pub fn sprite_pack_page0(tier: &str) -> AssetId {
+    AssetId::new(format!("sprite.pack.{tier}"))
+}

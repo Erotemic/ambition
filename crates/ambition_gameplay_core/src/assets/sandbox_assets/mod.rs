@@ -37,7 +37,7 @@ pub mod ids;
 use builders::{
     extend_with_boss_entries, extend_with_character_entries, extend_with_data_entries,
     extend_with_font_entries, extend_with_music_entries, extend_with_sfx_bank_entry,
-    extend_with_world_entries,
+    extend_with_sprite_pack_entries, extend_with_world_entries,
 };
 pub use embedded::AmbitionAssetSourcePlugin;
 pub(crate) use embedded::{
@@ -317,6 +317,7 @@ pub fn build_sandbox_catalog_with(
     extend_with_data_entries(&mut manifest);
     extend_with_sfx_bank_entry(&mut manifest);
     extend_with_font_entries(&mut manifest);
+    extend_with_sprite_pack_entries(&mut manifest);
     extend_with_character_entries(&mut manifest, &config.sprite_folder);
     extend_with_boss_entries(&mut manifest, &config.sprite_folder);
     extend_with_music_entries(&mut manifest, music);

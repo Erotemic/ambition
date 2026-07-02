@@ -150,5 +150,23 @@ pub(in super::super) fn extend_with_boss_entries(
     }
 }
 
+/// Shared sprite-pack page-0 entries — one per quality tier. The pack
+/// consumer resolves page 0 through the catalog (profile gating) and later
+/// pages as page-0 siblings, so a single entry per tier covers the whole
+/// pack. `SilentPlaceholder`: a checkout that never ran regen has no packs
+/// and every consumer falls back to its per-target sheet.
+pub(in super::super) fn extend_with_sprite_pack_entries(manifest: &mut AssetManifest) {
+    for tier in ["full", "half", "quarter", "potato"] {
+        manifest.insert(
+            AssetEntry::new(
+                ids::sprite_pack_page0(tier),
+                AssetKind::Image,
+                format!("sprite_packs/{tier}/ultrapack_0.png"),
+            )
+            .with_missing_policy(MissingAssetPolicy::SilentPlaceholder),
+        );
+    }
+}
+
 // `extend_with_intro_sprite_entries` moved to `crate::content::intro::sprites`
 // (content extends the manifest through `build_sandbox_catalog_with`).

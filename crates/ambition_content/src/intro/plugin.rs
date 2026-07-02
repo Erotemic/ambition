@@ -24,8 +24,11 @@ use bevy::prelude::*;
 use crate::banter::CombatBanterRegistry;
 use ambition_cutscene::{CutsceneLibrary, RoomCutsceneBindings};
 use ambition_gameplay_core::assets::game_assets::{GameAssetConfig, GameAssets};
-use ambition_gameplay_core::character_sprites::{build_npc_sprite_asset, build_prop_sprite_asset};
+use ambition_gameplay_core::character_sprites::{
+    build_npc_sprite_asset, build_prop_sprite_asset, build_prop_sprite_asset_packed,
+};
 use ambition_gameplay_core::rooms::GatePortalRegistry;
+use ambition_render::quality::ResolvedVisualQuality;
 
 use super::banter::install_intro_banter;
 use super::cutscene::{install_intro_cutscenes, intro_room_cutscene_bindings};
@@ -242,6 +245,7 @@ pub(crate) fn load_intro_prop_sprites_system(
     layouts: Option<ResMut<Assets<TextureAtlasLayout>>>,
     game_assets: Option<ResMut<GameAssets>>,
     catalog: Option<Res<ambition_gameplay_core::assets::sandbox_assets::SandboxAssetCatalog>>,
+    quality: Option<Res<ResolvedVisualQuality>>,
 ) {
     if installed.0 {
         return;
@@ -255,9 +259,32 @@ pub(crate) fn load_intro_prop_sprites_system(
         installed.0 = true;
         return;
     }
-    for (kind, filename, spec) in intro_prop_sprite_rows() {
+    for (kind, filename, spec, pack_target) in intro_prop_sprite_rows() {
         if game_assets.characters.props.contains_key(kind) {
             continue;
+        }
+        // Shared-pack path first for opted-in props: the quality-tiered
+        // ultrapack pages + catalog-synthesized spec. Falls back to the
+        // per-target sheet below when no pack was generated / gated.
+        if let Some(target) = pack_target {
+            if let Some(asset) = build_prop_sprite_asset_packed(
+                &catalog,
+                &asset_server,
+                &mut layouts,
+                target,
+                &spec,
+                quality.as_deref().map(|q| &q.budget),
+            ) {
+                bevy::log::info!(
+                    target: "ambition::sprite_packs",
+                    "prop '{kind}' bound to shared sprite pack (target '{target}')",
+                );
+                game_assets
+                    .characters
+                    .props
+                    .insert((*kind).to_string(), asset);
+                continue;
+            }
         }
         let id = crate::intro::sprites::intro_prop_asset_id(kind);
         if let Some(asset) =

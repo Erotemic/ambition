@@ -32,6 +32,7 @@ mod attack_hitbox;
 mod baked_sheet_rons;
 pub mod registry;
 mod sheets;
+pub mod sprite_packs;
 
 #[cfg(test)]
 mod tests;
@@ -57,8 +58,8 @@ pub use registry::{baked_sheet_registry, SheetRegistryPlugin};
 )]
 pub use assets::{
     all_character_sprite_filenames, build_npc_sprite_asset, build_prop_sprite_asset,
-    load_character_sprites_in, sheet_for_character_id, sprite_body_collision_for_character_id,
-    CharacterSpriteAssets, SpriteBodyCollision,
+    build_prop_sprite_asset_packed, load_character_sprites_in, sheet_for_character_id,
+    sprite_body_collision_for_character_id, CharacterSpriteAssets, SpriteBodyCollision,
 };
 #[allow(unused_imports)]
 pub use registry::{SheetRecord, SheetRegistry};

@@ -97,17 +97,30 @@ pub fn intro_npc_sprite_rows() -> Vec<(&'static str, &'static str, CharacterShee
 /// Prop tuning: props render at their authored AABB size.
 const PROP_TUNING: SheetTuning = SheetTuning::new(1.00, 2);
 
-/// `(Prop.kind, asset filename, sheet spec)` rows for intro props
-/// (keyed by `Prop.kind` so LDtk renames don't re-point sprites).
+/// `(Prop.kind, asset filename, sheet spec, pack target)` rows for intro
+/// props (keyed by `Prop.kind` so LDtk renames don't re-point sprites).
 /// Includes the cut-rope arena props until a dedicated non-intro prop
 /// catalog exists.
-pub fn intro_prop_sprite_rows() -> Vec<(&'static str, &'static str, CharacterSheetSpec)> {
+///
+/// `pack target` is the shared-sprite-pack opt-in: `Some(target)` means the
+/// loader first tries the quality-tiered ultrapack
+/// (`assets/sprite_packs/<tier>/`) for that packer target name, falling back
+/// to the per-target sheet when no pack exists. `intro_cart` is the pilot
+/// (docs/planning/engine/data-driven-sprites-and-characters.md, W2); extend
+/// per prop once verified.
+pub fn intro_prop_sprite_rows() -> Vec<(
+    &'static str,
+    &'static str,
+    CharacterSheetSpec,
+    Option<&'static str>,
+)> {
     let t = &PROP_TUNING;
-    let mut rows: Vec<(&str, &str, Option<CharacterSheetSpec>)> = vec![
+    let mut rows: Vec<(&str, &str, Option<CharacterSheetSpec>, Option<&str>)> = vec![
         (
             "intro_cart",
             "intro_cart_spritesheet.png",
             intro_sheet("intro_cart", t),
+            Some("intro_cart"),
         ),
         // Creator lab props — separate records inside the shared
         // creator_lab_props sheet.
@@ -115,62 +128,73 @@ pub fn intro_prop_sprite_rows() -> Vec<(&'static str, &'static str, CharacterShe
             "lab_genesis_vat",
             "creator_lab_props_spritesheet.png",
             intro_sheet("genesis_vat", t),
+            None,
         ),
         (
             "lab_neural_console",
             "creator_lab_props_spritesheet.png",
             intro_sheet("neural_console", t),
+            None,
         ),
         (
             "lab_power_core",
             "creator_lab_props_spritesheet.png",
             intro_sheet("power_core", t),
+            None,
         ),
         (
             "lab_repair_cradle",
             "creator_lab_props_spritesheet.png",
             intro_sheet("repair_cradle", t),
+            None,
         ),
         (
             "lab_resonance_coil",
             "creator_lab_props_spritesheet.png",
             intro_sheet("resonance_coil", t),
+            None,
         ),
         // Cut-rope boss props.
         (
             "cut_rope_rope",
             "cut_rope_rope_spritesheet.png",
             intro_sheet("cut_rope_rope", t),
+            None,
         ),
         (
             "cut_rope_anvil",
             "cut_rope_anvil_spritesheet.png",
             intro_sheet("cut_rope_anvil", t),
+            None,
         ),
         (
             "cut_rope_piano",
             "cut_rope_piano_spritesheet.png",
             intro_sheet("cut_rope_piano", t),
+            None,
         ),
         (
             "generic_explosions",
             "generic_explosions_spritesheet.png",
             intro_sheet("generic_explosions", t),
+            None,
         ),
         // Interdimensional gate ring + portal surface.
         (
             "gate_ring",
             "interdimensional_gate_ring_spritesheet.png",
             intro_sheet("interdimensional_gate_ring", t),
+            None,
         ),
         (
             "gate_portal",
             "interdimensional_gate_portal_spritesheet.png",
             intro_sheet("interdimensional_gate_portal", t),
+            None,
         ),
     ];
     rows.drain(..)
-        .filter_map(|(kind, file, spec)| spec.map(|s| (kind, file, s)))
+        .filter_map(|(kind, file, spec, pack)| spec.map(|s| (kind, file, s, pack)))
         .collect()
 }
 
@@ -245,7 +269,7 @@ pub fn extend_with_intro_sprite_entries(manifest: &mut AssetManifest, sprite_fol
                 .with_preload_group(PreloadGroup::SandboxCore),
         );
     }
-    for (kind, filename, _spec) in intro_prop_sprite_rows() {
+    for (kind, filename, _spec, _pack) in intro_prop_sprite_rows() {
         let id = intro_prop_asset_id(kind);
         let logical_path = format!("{sprite_folder}/{filename}");
         manifest.insert(

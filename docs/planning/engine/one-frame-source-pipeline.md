@@ -78,12 +78,35 @@ Every entry point becomes thin:
 
 The two 300-line orchestrators collapse into one core plus thin constructors.
 
-## One registry / one Target (later checkpoint)
+## One registry / one Target (DONE)
 
-Discovery yields one uniform `Target`, each of which knows how to produce its
-`FrameSource` + its install info. `CharacterGenerator` targets become
-first-class discovered targets (via their YAML configs); `GENERATORS`-vs-
-discovery split, `ADAPTER_HELPER_STEMS`, and the CLI special-case all dissolve.
+`TackonTarget` + `AdapterTarget` are now one `Target` class with
+`from_module` / `from_config` constructors and a `kind` field (renderer commit
+`eba4e21`, byte-identical across 120 targets). The `tackon_sheet.py` module is
+renamed `sheet_build.py` (`096c82e`) — the "tackon" name is gone.
+
+## The keystone remaining squash: invert module targets onto FrameSource
+
+An indirection audit (Target → first PIL draw) found the paths are lean *within*
+a category (icons/tiles ~2 hops; module props/chars ~6; config chars ~8–11; rig
+~9, justified by bones/IK). The one fat seam that spans categories: **~40
+module-authored targets each hand-roll `def render(out_dir): return
+build_sheet(NAME, ROWS, render_fn, …)`.** That `render_fn(anim, i, n) -> Image`
+callback *is a FrameSource in disguise*.
+
+Invert it — a module *declares* its FrameSource (rows + frame callable +
+geometry) and one `render_sheet(FrameSource)` builds it — and three things
+collapse at once:
+
+1. the ~40 `render()` wrappers disappear;
+2. `build_spritesheet` (config) and `build_sheet` (module) merge into one
+   pipeline — the last real duplication;
+3. the per-frame / arbitrary-resolution API (`render_all_frames`, contact
+   sheets, per-frame export) works for **every** target, not just the 9 config
+   generators.
+
+This is the natural completion of both the FrameSource contract and the
+per-frame work. Do it harness-gated for byte-stability like the rest.
 
 ## What the merge actually is (honest scoping)
 

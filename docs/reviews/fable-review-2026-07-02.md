@@ -1021,12 +1021,58 @@ ONE reaction for every body; per-body policy is the only fork left.
   → drops/banner/respawn-timer/split/explode, cling-detach pop.
 - Boss: untouched until A1.
 
-**A1 — boss island dissolution** (after A2): fold `BossStatus` →
-`BodyHealth`/`BodyCombat` (the sync.rs mirror becomes the migration map),
-`BossAttackState` → `BodyMelee`/moveset, `update_ecs_bosses`+`tick_boss_brains`
-→ the actor driver with a `BossPattern` brain; boss victims then gain the
-vulnerability clusters and drop out of every `Option`/`Without<BossConfig>`
-special case added along the way (grep `§A1` and `BossConfig` guards).
+**A1 — boss island dissolution** (mapped 2026-07-02 evening; slices ordered,
+each independently committable):
+
+*Slice 1 — the authority flip (health/alive/hit_flash off `BossStatus`).*
+KEY FACT: bosses ALREADY carry `BodyHealth` + `BodyCombat` (+
+ActorIdentity/Disposition/Intent/Cooldowns) — spawned as read-models and
+REBUILT every frame by `sync_boss_actor_components` from
+`BossStatus`+`BossAttackState` (`features/ecs/bosses/sync.rs:28-114`, the
+migration map). The flip: delete `BossStatus.{health, alive, hit_flash}`;
+`BodyHealth` becomes the ONE HP authority (alive = `health.alive()`, exactly
+the actor pattern), `BodyCombat.hit_flash` the one blink. Mechanics:
+- `boss_component_snapshot` keeps producing ONLY the presentation mirror
+  (attack timers into `BodyCombat::hostile`) and must CARRY
+  hit_flash/damage_invuln/hitstun/recoil/hitstop across the rebuild — the
+  same wipe-bug fixed for actors in `sync_actor_components_from_cluster`
+  (E13); alive comes from `BodyHealth`.
+- `BossMut::reset_to_spawn` takes `&mut BodyHealth, &mut BodyCombat`;
+  `BossClusterScratch::into_components` bundles them (spawn-time authority).
+- Boss hit_flash decay currently lives in `BossMut::integrate_body` — move it
+  to `update_ecs_bosses` (`&mut BodyCombat`); note `tick_actor_brains`'
+  timer decrement excludes bosses (`Without<BossConfig>`) until slice 3.
+- Writers/readers to chase (compiler does it): `damage/boss_hit.rs` (damage +
+  flash), `boss_encounter/{systems,encounter_script,encounter_entity,
+  registry}.rs`, `ambition_content/src/bosses/*` (gnu_ton + specials read
+  `status.alive`), `ambition_render/rendering/{health,hit_flash,actors/*}.rs`
+  (some may already read the mirror), `features/ecs/{save_sync,anim_helpers,
+  target_volumes,spawn_actors,reset,damage_predicates}.rs`,
+  `player/systems.rs`, app tests `boss_lifecycle` + `boss_contact_iframes`.
+- Doc-comment refs in `ambition_characters/src/boss_encounter.rs` say "HP
+  lives in BossStatus.health" — update.
+Acceptance: `cargo test -p ambition_gameplay_core --lib` + the six suites +
+`-p ambition_app --test boss_lifecycle --test boss_contact_iframes
+--test boss_possession_specials`.
+
+*Slice 2 — boss victim = full A2 victim.* With HP on `BodyHealth`,
+`apply_boss_hit` routes through `combat::damage::resolve_body_hit` (+
+`apply_body_hit_reaction` if bosses should stagger — likely NOT for heavies:
+give them a `BodyHitFeel` with hitstun 0 / their own i-frame, it's the
+designed per-body knob). Phase/death resolution stays boss policy. Then give
+bosses the remaining vulnerability clusters (`BodyOffense`/`BodyDodgeState`/
+`BodyShieldState` default-inert) and DELETE the `Option`-typed vuln in
+`apply_hitbox_damage` + grep `§A1` and `Without<BossConfig>` victim carve-outs.
+
+*Slice 3 — driver fold (the big one).* `BossAttackState` → `BodyMelee`/moveset;
+`update_ecs_bosses` + `tick_boss_brains` fold into `tick_actor_brains` +
+`integrate_sim_bodies` with the boss as an actor archetype (capability mask +
+`BossPattern` brain via the existing `Brain::StateMachine` seam; floating =
+`fly_enabled` body, the flight limb replaces `step_floating_body`). Boss
+possession's bespoke input→special mapping then dies. Render: `BossAnim` →
+`CharacterAnim` rows. This slice is where `BossStatus` (by then only
+encounter_phase/sprite_metrics/encounter) renames to a boss-encounter
+component and `BossConfig` becomes pure archetype data.
 
 ## Notes for a resuming agent
 - The C4 harness is the safety net — extend it per fix; a scenario that fails

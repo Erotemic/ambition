@@ -725,9 +725,9 @@ work is committed linearly on main; the tree is green.
   surface; Jon can only read, not ask.
 
 **Work queue, in order** (details in "Next" at the end of the log):
-1. **A2** — steps 1–5 (the shared `resolve_body_hit`) are DONE (E11); what
-   remains is knockback-adoption (step 6) and actor-hitstun (step 7) as two
-   separate blind feel commits.
+1. ~~**A2**~~ — COMPLETE (E11–E13): `resolve_body_hit` + shared knockback +
+   shared stagger for every body. Steps 6 (knockback, `b4912001`) and 7
+   (stagger, see E13) are BLIND feel commits awaiting Jon's feel-check.
 2. **A1** — boss island dissolution (sketch below; afterwards grep `§A1` and
    `Without<BossConfig>` to remove the victim special-cases added this session).
 3. Then the engine/content + decomposition tracks, roughly: **D1** facade
@@ -973,15 +973,46 @@ separation makes committed-lunge blink-evades rarer, so its blink assertion is
 now "the verb fires" (≥1) instead of ≥2. Verified: gameplay-core 1089, all six
 app suites.
 
-## Next (in order) — A2 remaining feel step (7), then A1
+### E13. A2 step 7 — actors are STAGGERABLE ✅ (BLIND — Jon feel-checks) — **A2 COMPLETE**
+The shared post-hit stagger, armed + consumed for every body:
+- **Arming**: `combat::damage::apply_body_hit_reaction` is the ONE launch +
+  stagger arming (knockback velocity SET + hitstun/recoil-lock/hitstop on
+  `BodyCombat`), called by the player's `apply_player_knockback` (refactored
+  onto it) and the actor consumer's knockback block. Player-tuned values
+  everywhere (enemy 0.24s / boss 0.36s hitstun × strength, 0.12s recoil).
+- **Consuming**: the two post-hit input gates extracted from the player bridge
+  into `combat::attack::apply_post_hit_input_gates` (recoil = hard zero,
+  hitstun = scaled axes, attack verb preserved); `ActorMut::integrate_body`
+  applies it to the FINAL InputState (post flight-axis override) — timers
+  threaded via `em.update(…, feel, (hitstun, recoil))`. Timers tick in
+  `tick_actor_brains`; `sync_actor_components_from_cluster` carries them
+  across the read-model rebuild (else the mirror wiped them each frame).
+- **Two deliberate shape decisions** (both documented in code):
+  (a) the FLY TOGGLE is exempt from both gates for every body — it's
+  mode-switch INTENT, not movement authority (axes still stripped); eating the
+  edge desynced open-loop brains (duel fighters got stuck airborne, melee
+  11→0) and toggling flight to arrest a launch is legitimate recovery tech.
+  (b) actor hitstop is ARMED but does NOT freeze the actor's own sim dt —
+  tried it, per-victim freezes made AI-vs-AI duels degenerate; the
+  player-involved beat stays the global-clock rule, per-body proper-time is
+  the ADR 0011 seam.
+- **Known limit → §A7**: brains can't PERCEIVE their own stagger, and the
+  smash brain times blink-evades exactly around getting hit, so its one-frame
+  blink tap can die inside hitstun with its own cooldown burnt. The duel
+  abilities test now pins the wiring both ways instead of demanding a
+  resolved blink; wire stagger into `WorldView`/`BrainSnapshot` when doing A7
+  and restore the strict assertion.
+- Tests: staggered-walker witness (recoil = no ground covered, hitstun =
+  reduced authority, driven through the REAL `ActorMut::update`), knockback
+  test extended to assert the stagger set arms. **Feel notes for Jon:**
+  enemies now flinch — a landed hit steals their control for ~0.24s (recoil
+  0.12s hard); duels read as launch → recover → re-engage.
+Verified: gameplay-core 1090, engine-core 211, all six app suites.
 
-**A2 — one victim resolver.** Steps 1–6 landed (E11, E12). Remaining, its own
-clearly-marked BLIND feel commit:
-7. Hitstun/hitstop for actors: SET the shared `BodyCombat` fields in the
-   resolver (they exist on every body); CONSUMING them in the actor driver
-   (movement gate like `engine_input_from_actor_control`'s hitstun gate) is a
-   separate feel-blind commit — actors becoming staggerable is a behavior
-   upgrade Jon should feel.
+## Next (in order) — A1, then engine/content + decomposition tracks
+
+**§A2 is COMPLETE** (E10–E13). The victim-side damage path is ONE resolver +
+ONE reaction for every body; per-body policy is the only fork left.
 
 *POLICY (stays in each consumer around the resolver — landed this way in E11):*
 - Player: difficulty/assist multiplier, `HitMode::SafeRespawn`, death →

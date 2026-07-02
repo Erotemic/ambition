@@ -653,6 +653,8 @@ impl ActorClusterSeed {
                 is_mounted,
                 frame,
                 gravity_dir,
+                crate::time::feel::SandboxFeelTuning::default(),
+                (0.0, 0.0),
             )
             .0
     }

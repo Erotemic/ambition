@@ -793,6 +793,13 @@ fn a_knockback_carrying_hit_launches_the_actor_like_a_player() {
         "actor knockback should be the shared feel-tuned resolution, got {:?} want {expected:?}",
         kin.vel
     );
+    // §A2 step 7: the launch also arms the shared stagger set on `BodyCombat`,
+    // exactly like the player's knockback path.
+    let combat = app.world().get::<BodyCombat>(victim).unwrap();
+    assert!(
+        combat.hitstun_timer > 0.0 && combat.recoil_lock_timer > 0.0 && combat.hitstop_timer > 0.0,
+        "a knockback hit arms hitstun/recoil/hitstop on the struck body: {combat:?}"
+    );
 }
 
 /// A slash with no `HitKnockback` payload folds its `knock_x` impulse into the

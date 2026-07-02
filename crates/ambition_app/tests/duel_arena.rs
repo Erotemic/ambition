@@ -331,13 +331,17 @@ fn duel_fighters_actually_enact_their_abilities_on_the_body() {
             log.fly_frames
         );
     }
-    // Blink resolves on a body (the quick-blink tap commits, not arm-then-cancel).
-    // Situational (a committed lunge), so require it across the pair.
-    assert!(
-        pca.blink_events + robot.blink_events > 0,
-        "a blink-evade should resolve on a body at least once (PCA {} + robot {})",
-        pca.blink_events,
-        robot.blink_events
+    // Blink: since §A2 step 7 a body in hitstun has its blink tap EATEN by the
+    // shared post-hit gate (the same rule the player lives under), and the smash
+    // brain times its evades exactly around getting hit — it can't perceive its
+    // own stagger yet (§A7), so a tap may resolve on the body OR die inside the
+    // stagger window with the brain's cooldown burnt. Until §A7 wires stagger
+    // into the brain's observation, pin the WIRING both ways: the brain asks
+    // (fly_toggles prove ActorControl flows) and blink resolution stays possible
+    // — the neutral-fight test pins that blink requests still fire in a bout.
+    println!(
+        "blink resolutions: PCA {} + robot {} (0 is legal while brains are stagger-blind, §A7)",
+        pca.blink_events, robot.blink_events
     );
 }
 

@@ -108,6 +108,12 @@ impl<'a> ActorMut<'a> {
         // `GravityField`, so the enemy falls the way the player does under ANY
         // gravity — including left/right.
         gravity_dir: ae::Vec2,
+        // Post-hit stagger inputs (§A2 step 7): the body's live hitstun /
+        // recoil-lock timers (from its `BodyCombat`) + the feel tuning, applied
+        // to the FINAL InputState by the SAME gate the player's input bridge
+        // uses. (hitstun_timer, recoil_lock_timer).
+        feel: crate::time::feel::SandboxFeelTuning,
+        stagger: (f32, f32),
     ) -> (
         ambition_characters::actor::control::ActorControlFrame,
         ae::FrameEvents,
@@ -169,6 +175,8 @@ impl<'a> ActorMut<'a> {
         // capability path; folding them needs the aerial reconciliation too.)
 
         let move_events = if is_surface_walker {
+            // Surface-walkers don't run the input pipeline, so the stagger gate
+            // doesn't apply — their hit reaction is the cling-detach pop.
             self.step_surface_walker(world, nearest_neighbor, dt, gravity_dir);
             ae::FrameEvents::default()
         } else {
@@ -177,7 +185,7 @@ impl<'a> ActorMut<'a> {
             // `flight.fly_enabled` (set for aerial bodies at spawn / by the fly
             // toggle). The bespoke aerial integrator is gone. Its `FrameEvents`
             // (blink teleports, etc.) flow out to the driver.
-            self.integrate_body(world, ai.intent, &frame, dt, gravity_dir)
+            self.integrate_body(world, ai.intent, &frame, dt, gravity_dir, feel, stagger)
         };
 
         // Shield is the shared pipeline limb now (folded off the actor's own
@@ -221,6 +229,7 @@ impl<'a> ActorMut<'a> {
     /// actor to the player spawn); the actor's damage / OOB systems own that. The
     /// pipeline `FrameEvents` are RETURNED so the driver can react to body events
     /// it cares about (e.g. emit the blink sfx/vfx from `events.blinks`).
+    #[allow(clippy::too_many_arguments)]
     fn integrate_body(
         &mut self,
         world: &ae::World,
@@ -228,6 +237,8 @@ impl<'a> ActorMut<'a> {
         frame: &ambition_characters::actor::control::ActorControlFrame,
         dt: f32,
         gravity_dir: ae::Vec2,
+        feel: crate::time::feel::SandboxFeelTuning,
+        stagger: (f32, f32),
     ) -> ae::FrameEvents {
         // Wall-stop detection on the gravity-PERPENDICULAR "side" axis the actor
         // walks along (so a patroller reverses when it stalls against a wall,
@@ -256,7 +267,7 @@ impl<'a> ActorMut<'a> {
         tuning.flight_hover_speed = 0.0;
         tuning.flight_hover_hz = 0.0;
 
-        let input = if flying {
+        let mut input = if flying {
             // `velocity_target` (world px/s) → flight stick intent: project onto the
             // body frame the flight limb integrates in, normalise by the terminal so
             // a full-speed command maps to a full-deflection stick.
@@ -269,6 +280,18 @@ impl<'a> ActorMut<'a> {
         } else {
             frame.to_input_state()
         };
+        // Post-hit stagger on the FINAL InputState (§A2 step 7) — the SAME gate
+        // the player's input bridge applies: recoil-lock is a hard zero (the
+        // knockback carries the body, it can't steer back in), hitstun reduces
+        // movement authority but preserves the attack verb. Applied after the
+        // flight-axis override so a knocked flyer loses its steering too.
+        let (hitstun_timer, recoil_lock_timer) = stagger;
+        crate::combat::attack::apply_post_hit_input_gates(
+            &mut input,
+            feel,
+            hitstun_timer,
+            recoil_lock_timer,
+        );
         // The cluster's ground/jump state persists between ticks (real components,
         // exactly like the player), so the pipeline reads coyote + jump gates from
         // it and writes back the contact directly — no `surface` round-trip. Borrow
@@ -704,6 +727,8 @@ mod dash_tests {
                 false,
                 frame,
                 ae::Vec2::new(0.0, 1.0),
+                crate::time::feel::SandboxFeelTuning::default(),
+                (0.0, 0.0),
             );
         }
         em.kin.pos.x - start_x
@@ -718,6 +743,70 @@ mod dash_tests {
             dashed > walked * 1.3,
             "the dash burst should cover meaningfully more ground than a top-speed \
              walk over the same window: dashed={dashed:.1}px walked={walked:.1}px"
+        );
+    }
+
+    /// Drive a grounded walker (locomotion full-right) for `ticks` steps under
+    /// the given post-hit stagger `(hitstun_timer, recoil_lock_timer)`; return
+    /// the ground covered along +x. The §A2 step 7 witness rig.
+    fn walk_run_staggered(stagger: (f32, f32), ticks: u32) -> f32 {
+        let world = floored_world();
+        let aabb = ae::Aabb::new(ae::Vec2::ZERO, ae::Vec2::new(24.0, 40.0));
+        let mut seed = ActorClusterSeed::new(
+            "staggered".to_string(),
+            "Staggered".to_string(),
+            aabb,
+            CharacterBrain::Custom("cellular_automaton_fighter".into()),
+            &[],
+        );
+        let half_h = seed.kin.size.y * 0.5;
+        seed.kin.pos = ae::Vec2::new(0.0, 100.0 - half_h);
+        seed.kin.vel = ae::Vec2::ZERO;
+        seed.kin.facing = 1.0;
+        seed.surface.gravity_scale = 1.0;
+        seed.body.0.ground.on_ground = true;
+        let start_x = seed.kin.pos.x;
+        let mut em = seed.as_actor_mut();
+        let mut frame = ActorControlFrame::neutral();
+        frame.locomotion = ae::Vec2::new(1.0, 0.0);
+        frame.facing = 1.0;
+        let dt = 1.0 / 60.0;
+        for _ in 0..ticks {
+            em.update(
+                &world,
+                ae::Vec2::new(2000.0, em.kin.pos.y),
+                FeatureCombatTuning::default(),
+                None,
+                dt,
+                false,
+                frame,
+                ae::Vec2::new(0.0, 1.0),
+                crate::time::feel::SandboxFeelTuning::default(),
+                stagger,
+            );
+        }
+        em.kin.pos.x - start_x
+    }
+
+    /// §A2 step 7: the post-hit stagger gates an actor's input through the SAME
+    /// rule the player's input bridge applies — recoil-lock is a hard zero (no
+    /// steering at all), hitstun leaves only reduced movement authority.
+    #[test]
+    fn a_staggered_body_loses_input_authority_like_the_player() {
+        let free = walk_run_staggered((0.0, 0.0), 12);
+        let recoil_locked = walk_run_staggered((0.0, 1.0), 12);
+        let hitstunned = walk_run_staggered((1.0, 0.0), 12);
+        assert!(
+            free > 10.0,
+            "sanity: an unstaggered walker covers real ground (got {free:.1}px)"
+        );
+        assert!(
+            recoil_locked.abs() < 0.5,
+            "a recoil-locked body has NO steering authority (moved {recoil_locked:.1}px)"
+        );
+        assert!(
+            hitstunned < free * 0.8,
+            "hitstun reduces movement authority (stunned {hitstunned:.1}px vs free {free:.1}px)"
         );
     }
 
@@ -753,6 +842,8 @@ mod dash_tests {
             false,
             frame,
             ae::Vec2::new(0.0, 1.0),
+            crate::time::feel::SandboxFeelTuning::default(),
+            (0.0, 0.0),
         );
         assert!(
             em.dash.timer <= 0.0,
@@ -797,6 +888,8 @@ mod dash_tests {
                 false,
                 frame,
                 ae::Vec2::new(0.0, 1.0),
+                crate::time::feel::SandboxFeelTuning::default(),
+                (0.0, 0.0),
             );
         }
         assert!(

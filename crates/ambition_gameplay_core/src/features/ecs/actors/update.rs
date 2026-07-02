@@ -282,10 +282,14 @@ pub fn tick_actor_brains(
     {
         // Body-generic reaction timers on the body's authoritative `BodyCombat`
         // (the same fields the player carries): the post-hit i-frame the actor
-        // gates re-hits on, and the damage-blink the renderer reads. Decremented
-        // for every actor each tick, alive or dead.
+        // gates re-hits on, the damage-blink the renderer reads, and the §A2
+        // stagger set (hitstun / recoil-lock / hitstop) the movement phase
+        // consumes. Decremented for every actor each tick, alive or dead.
         combat.damage_invuln_timer = (combat.damage_invuln_timer - dt).max(0.0);
         combat.hit_flash = (combat.hit_flash - dt).max(0.0);
+        combat.hitstun_timer = (combat.hitstun_timer - dt).max(0.0);
+        combat.recoil_lock_timer = (combat.recoil_lock_timer - dt).max(0.0);
+        combat.hitstop_timer = (combat.hitstop_timer - dt).max(0.0);
 
         // This actor's combat-target liveness. `select_actor_targets` already
         // dropped a dead/absent foe (it only ever targets a LIVE candidate, and a
@@ -440,6 +444,7 @@ fn integrate_actor_body(
     steering: &ActorSteering,
     gravity: &crate::physics::GravityCtx,
     dt: f32,
+    feel: crate::time::feel::SandboxFeelTuning,
     sfx: &mut MessageWriter<crate::audio::SfxMessage>,
     vfx: &mut MessageWriter<ambition_vfx::vfx::VfxMessage>,
     hit_events: &mut MessageWriter<HitEvent>,
@@ -458,6 +463,12 @@ fn integrate_actor_body(
     // flash here on the dead→alive transition (the damage-blink lives on
     // `BodyCombat`).
     let was_dead = !em.health.alive();
+    // NOTE on hitstop: the resolver arms `combat.hitstop_timer` on every body,
+    // but an actor's sim dt is NOT frozen by it (tried; per-victim freezes in
+    // AI-vs-AI fights made duels degenerate — fighters spent whole bouts
+    // frozen). The player-involved hitstop beat stays the global-clock rule
+    // (`emit_player_time_intent_system`); a per-body proper-time beat is a
+    // future ProperTimeScale concern (ADR 0011 seam).
     let (frame, move_events) = em.update(
         feature_world,
         target_pos,
@@ -467,6 +478,8 @@ fn integrate_actor_body(
         is_mounted,
         brain_frame,
         enemy_gravity_dir,
+        feel,
+        (combat.hitstun_timer, combat.recoil_lock_timer),
     );
     if was_dead && em.health.alive() {
         combat.hit_flash = 0.24;
@@ -613,6 +626,7 @@ pub fn integrate_sim_bodies(
             &steering,
             &gravity,
             dt,
+            *feel_tuning,
             &mut sfx,
             &mut vfx,
             &mut hit_events,
@@ -1063,6 +1077,9 @@ pub fn sync_actor_components_from_cluster(
     // them across the read-model rebuild so the refresh can't wipe them.
     let damage_invuln_timer = combat.damage_invuln_timer;
     let hit_flash = combat.hit_flash;
+    let hitstun_timer = combat.hitstun_timer;
+    let recoil_lock_timer = combat.recoil_lock_timer;
+    let hitstop_timer = combat.hitstop_timer;
     *combat = if disposition.is_hostile() {
         BodyCombat::hostile(
             em.health.alive(),
@@ -1075,8 +1092,12 @@ pub fn sync_actor_components_from_cluster(
         BodyCombat::peaceful(0, hit_flash)
     };
     // (`hit_flash` is carried through the rebuild via the constructor param above;
-    // `damage_invuln_timer` isn't a constructor field, so restore it explicitly.)
+    // the other reaction timers — post-hit i-frame + the §A2 stagger set — aren't
+    // constructor fields, so restore them explicitly.)
     combat.damage_invuln_timer = damage_invuln_timer;
+    combat.hitstun_timer = hitstun_timer;
+    combat.recoil_lock_timer = recoil_lock_timer;
+    combat.hitstop_timer = hitstop_timer;
     *intent = ActorIntent::new(em.status.ai_mode);
     *cooldowns = ActorCooldowns {
         attack_cooldown: em.attack.cooldown,

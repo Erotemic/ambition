@@ -79,9 +79,28 @@ pub fn engine_input_from_actor_control(
         shield_held: actor.shield_held,
         control_dt,
     };
+    apply_post_hit_input_gates(&mut input, feel, hitstun_timer, recoil_lock_timer);
+    input
+}
+
+/// The two post-hit gates applied to ANY body's FINAL [`ae::InputState`]
+/// (fable review §A2 step 7): the ONE stagger rule, so a knocked actor loses
+/// authority exactly the way the knocked player does — the player's input
+/// bridge and the actor's `integrate_body` both call this.
+pub fn apply_post_hit_input_gates(
+    input: &mut ae::InputState,
+    feel: SandboxFeelTuning,
+    hitstun_timer: f32,
+    recoil_lock_timer: f32,
+) {
+    // The FLY TOGGLE is exempt from both gates: it is a mode-switch INTENT, not
+    // movement authority (the axes are still stripped, so a toggled flyer can't
+    // steer until the stagger clears). Eating an edge-triggered toggle corrupts
+    // an open-loop brain's mode state (it believes it toggled), and toggling
+    // flight to arrest a launch is a legitimate recovery tech for every body.
     if recoil_lock_timer > 0.0 {
         // Recoil throw: NO authority. Zero everything (including the movement /
-        // flight steering axis) so the knockback carries the player out and they
+        // flight steering axis) so the knockback carries the body out and it
         // can't steer back in or act until it clears.
         input.axis_x = 0.0;
         input.axis_y = 0.0;
@@ -95,11 +114,10 @@ pub fn engine_input_from_actor_control(
         input.blink_released = false;
         input.attack_pressed = false;
         input.pogo_pressed = false;
-        input.fly_toggle_pressed = false;
         input.interact_pressed = false;
     } else if hitstun_timer > 0.0 {
         // Post-recoil hitstun: reduced movement authority and no
-        // jump/dash/blink/fly, but the attack verb (and its pogo sibling) is
+        // jump/dash/blink, but the attack verb (and its pogo sibling) is
         // PRESERVED — you can fight back, and damage a boss you're standing in,
         // the instant the recoil lock ends while i-frames are still ticking.
         let scale = feel.hitstun_control_scale.clamp(0.0, 1.0);
@@ -111,10 +129,8 @@ pub fn engine_input_from_actor_control(
         input.blink_pressed = false;
         input.blink_held = false;
         input.blink_released = false;
-        input.fly_toggle_pressed = false;
         input.interact_pressed = false;
     }
-    input
 }
 
 fn pogo_target_for_attack_hitbox(world: &ae::World, attack: ae::Aabb) -> Option<ae::Aabb> {

@@ -229,9 +229,17 @@ pub(crate) fn apply_actor_hit(
                 event.source,
                 HitSource::BossBody | HitSource::BossAttack
             );
-            em.kin.vel = crate::combat::damage::resolved_body_knockback_velocity(
-                em.kin.pos,
-                em.kin.facing,
+            // §A2 step 7 (FEEL-BLIND): the launch also arms the shared stagger
+            // (hitstun / recoil-lock / hitstop on `BodyCombat`), consumed by
+            // the actor driver's post-hit input gate + hitstop dt beat — an
+            // actor staggers exactly like the player.
+            let pos = em.kin.pos;
+            let facing = em.kin.facing;
+            crate::combat::damage::apply_body_hit_reaction(
+                &mut em.kin.vel,
+                combat,
+                pos,
+                facing,
                 gravity_dir,
                 boss_hit,
                 Some(&k),

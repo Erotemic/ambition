@@ -381,6 +381,39 @@ pub(crate) fn resolved_body_knockback_velocity(
     frame.to_world(ae::Vec2::new(dir * knock_x * strength, -knock_y * strength))
 }
 
+/// The ONE post-hit launch + stagger arming for ANY struck body (§A2 steps
+/// 6–7), called by the player's knockback path and the actor damage consumer:
+/// SET the resolved knockback velocity, then arm hitstun (strength- and
+/// source-scaled), the fixed recoil throw, and the hitstop beat. hit_flash +
+/// damage_invuln_timer are armed by `resolve_body_hit` before this runs —
+/// this owns only the launch + control-lock timers.
+pub(crate) fn apply_body_hit_reaction(
+    vel: &mut ae::Vec2,
+    combat: &mut BodyCombat,
+    body_pos: ae::Vec2,
+    body_facing: f32,
+    gravity_dir: ae::Vec2,
+    boss_hit: bool,
+    knockback: Option<&features::HitKnockback>,
+    feel: SandboxFeelTuning,
+) {
+    let strength = knockback.map(|k| k.strength.max(0.0)).unwrap_or(0.0);
+    *vel = resolved_body_knockback_velocity(
+        body_pos, body_facing, gravity_dir, boss_hit, knockback, feel,
+    );
+    combat.hitstun_timer = if boss_hit {
+        feel.boss_hitstun_time
+    } else {
+        feel.enemy_hitstun_time
+    } * strength.max(0.35);
+    // Brief hard control-lock at the front of the hitstun window: the body is
+    // thrown with no authority, then regains the attack verb the instant it
+    // clears (while still in hitstun + i-frames). Fixed-length — the recoil is a
+    // readable beat, not something that scales with how hard the hit was.
+    combat.recoil_lock_timer = feel.knockback_recoil_lock_time;
+    combat.hitstop_timer = feel.player_damage_hitstop_time;
+}
+
 pub(crate) fn apply_player_knockback(
     sfx: &mut MessageWriter<SfxMessage>,
     vfx: &mut MessageWriter<VfxMessage>,
@@ -398,10 +431,13 @@ pub(crate) fn apply_player_knockback(
     let impact_pos = knockback
         .map(|k| k.impact_pos)
         .unwrap_or_else(|| damage.volume.center());
-    let strength = knockback.map(|k| k.strength.max(0.0)).unwrap_or(0.0);
-    clusters.kinematics.vel = resolved_body_knockback_velocity(
-        clusters.kinematics.pos,
-        clusters.kinematics.facing,
+    let pos = clusters.kinematics.pos;
+    let facing = clusters.kinematics.facing;
+    apply_body_hit_reaction(
+        &mut clusters.kinematics.vel,
+        combat,
+        pos,
+        facing,
         tuning.gravity_dir,
         boss_hit,
         knockback,
@@ -413,19 +449,6 @@ pub(crate) fn apply_player_knockback(
         &mut *clusters.jump,
         tuning,
     );
-    combat.hitstun_timer = if boss_hit {
-        feel.boss_hitstun_time
-    } else {
-        feel.enemy_hitstun_time
-    } * strength.max(0.35);
-    // Brief hard control-lock at the front of the hitstun window: the player is
-    // thrown with no authority, then regains the attack verb the instant it
-    // clears (while still in hitstun + i-frames). Fixed-length — the recoil is a
-    // readable beat, not something that scales with how hard the hit was.
-    combat.recoil_lock_timer = feel.knockback_recoil_lock_time;
-    // hit_flash + damage_invuln_timer are armed by `resolve_body_hit` before
-    // this runs — knockback owns only the launch + control-lock timers.
-    combat.hitstop_timer = feel.player_damage_hitstop_time;
     sfx.write(SfxMessage::Hit { pos: impact_pos });
     vfx.write(VfxMessage::Impact { pos: impact_pos });
 }

@@ -742,11 +742,7 @@ pub fn apply_actor_contact_damage(
 ) {
     // Pass 1 — snapshot each live contact attack while the attacker's clusters
     // are borrowed.
-    let mut pending: Vec<(
-        Entity,
-        Entity,
-        crate::features::enemies::ContactAttack,
-    )> = Vec::new();
+    let mut pending: Vec<(Entity, Entity, crate::features::enemies::ContactAttack)> = Vec::new();
     for (actor_entity, target, brain, clusters) in &mut set.p0() {
         let Some(mut cq) = clusters else {
             continue;
@@ -774,16 +770,14 @@ pub fn apply_actor_contact_damage(
     // Pass 2 — resolve each victim through its published hurtbox.
     let victims = set.p1();
     for (attacker, target_entity, attack) in pending {
-        let Ok((hurtbox, offense, dodge, shield, combat, is_player)) =
-            victims.get(target_entity)
+        let Ok((hurtbox, offense, dodge, shield, combat, is_player)) = victims.get(target_entity)
         else {
             continue;
         };
         if !crate::combat::damage::body_vulnerable(offense, dodge, shield, combat) {
             continue;
         }
-        if let Some(damage) = attack.hit_event(attacker, target_entity, hurtbox.aabb(), is_player)
-        {
+        if let Some(damage) = attack.hit_event(attacker, target_entity, hurtbox.aabb(), is_player) {
             let pos = damage
                 .knockback
                 .as_ref()

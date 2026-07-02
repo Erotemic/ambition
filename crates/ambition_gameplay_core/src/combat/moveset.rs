@@ -293,6 +293,7 @@ mod tests {
             .world_mut()
             .spawn((
                 crate::actor::PlayerEntity,
+                ActorFaction::Player,
                 crate::actor::BodyKinematics {
                     pos: ae::Vec2::new(128.0, 100.0),
                     size: ae::Vec2::new(28.0, 46.0),

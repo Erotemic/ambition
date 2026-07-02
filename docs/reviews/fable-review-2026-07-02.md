@@ -801,15 +801,65 @@ Committed after E1-E4's checkpoint (`1c8c5589`):
   are identical because `SimpleActorGeometry::combat_offset == 0`).
 - gameplay_core lib 1080/1080.
 
+### E7. A4 — world damage is body-generic ✅ (committed by Jon as `c3fd6db7` after an interrupt)
+- **Hazards** (`combat/hazards.rs`): a second victim pass over every
+  `FeatureSimEntity` body with a published footprint — an NPC in the spikes
+  takes a pre-resolved `HitTarget::Actor` hit (pinned by
+  `a_non_player_body_touching_a_hazard_takes_the_hit_too`). Deliberately not
+  faction-gated (unified-actors guardrail 4).
+- **Body contact** (`apply_actor_contact_damage`): the attacker's tracked
+  target may now be ANY body (a duel opponent, a grudge foe), not just a
+  player. Restructured as a ParamSet two-pass (attacker-cluster snapshot via
+  new `ActorMut::contact_attack()` → victim resolution via published
+  hurtbox); `ContactAttack::hit_event` stamps Player/Actor by victim kind.
+  The contact knockback side is now the attacker's live `frame.side`
+  (another unlisted B11 instance, enabled by §B2's live `surface_normal`).
+- **Boss volumes** (`update_ecs_bosses` + `boss_attack_damage`): the boss's
+  tracked victim may be any body; `boss_attack_damage` takes the target stamp.
+  A boss swing now lands on its duel opponent.
+
+### E8. Delegated easy-end items (Codex/GPT agent, reviewed 2026-07-02) ✅
+Jon had a second agent work the review's unblocked easy end during the
+interrupt. Reviewed each diff — all five are correct, tested, and match the
+review's fix shapes; none closed anything prematurely:
+- **C8** (`42a819fc`): `SpecialPreset` gained the open `Special(String)` hatch
+  + RON pin test.
+- **C9, rename half** (`b95e7a49`): `CharacterBrainTemplate::Shark` →
+  `ChargeCrash` (authoring surface + content RON). The L-term half — a
+  string-keyed brain-constructor registry — remains open (see C9).
+- **C10** (`ca9cc713`): `SpecialActionSpec::{BubbleShield,BossSpotlight}`
+  DELETED (they were inert deferred seams); the player's special slot authors
+  `Special("bubble_shield")`; `SpecialPreset` follows. C10 + A11's enum half
+  are now closed; A11's boss-dispatch-bypass half still rides A1.
+- **D6 stray** (`d5944051`): stale intro content path doc fixed.
+- **C11** (`62864c3e` + `ca1739e6`): `KNOWN_DIALOGUE_IDS` derived from the
+  installed yarn project titles instead of a hardcoded machinery const; the
+  yarn source list gated to UI builds.
+
+### E9. A3 — ONE victim loop in `apply_hitbox_damage` ✅
+The aggressor branch's separate actor-victims and player-victims loops
+collapsed into ONE loop over ONE victims query (every body with a published
+footprint; `Option`-typed vulnerability clusters so a boss body still matches
+pre-§A1). One relational rule for everyone — `damage_lands` (different-faction
+|| personal grudge), which provably subsumes the player loop's old
+`can_damage` gate since a player is never the aggressor's faction. Victim KIND
+picks only policy: a player victim gets the emit-side vulnerability gate
+(actor i-frames stay consume-time until §A2), the `HitKnockback` payload, and
+the richer SFX/feedback; the `HitTarget` stamp routes to the right consumer.
+Emit-time i-frame checking for players vs consume-time for actors is now the
+LAST asymmetry in this system — it dissolves with A2's one victim resolver.
+Verified: gameplay_core lib 1082/1082 + all six app integration suites
+(possession, unified melee, gravity symmetry, robot duel, enemy-attacks,
+duel arena).
+
 ## Next (in order)
-1. Verify app integration tests (possession, unified_melee, gravity symmetry,
-   player_robot duel) against the A5/A6 changes; commit.
-2. A4 (hazards/contact/boss damage iterate vulnerable BODIES, not
-   `PlayerEntity` — an NPC in lava must burn); then A3 (collapse
-   `apply_hitbox_damage`'s three victim loops into one relational loop over
-   published hurtboxes — A6 made this possible).
-3. A2 (one `apply_body_hit` resolver; player keeps policy-only differences).
-4. A1 boss island dissolution.
+1. A2 (one `apply_body_hit` resolver; player keeps policy-only differences —
+   respawn destination, difficulty assist; the mechanics — knockback
+   resolution, hitstun, shield consume — become one path). This is the big
+   feel-sensitive one: build it behind the differential trace, ship blind in
+   its own commit for Jon to feel-check.
+2. A1 boss island dissolution (BossStatus/BossAttackState/own integrator →
+   body vocabulary; unblocks boss-as-victim vulnerability clusters too).
 
 ## Notes for a resuming agent
 - The C4 harness is the safety net — extend it per fix; a scenario that fails

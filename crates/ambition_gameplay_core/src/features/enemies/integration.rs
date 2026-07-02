@@ -536,7 +536,10 @@ impl<'a> ActorMut<'a> {
         // The attacker's live reference frame (§B2 keeps `surface_normal`
         // current for every body): knockback separates along ITS side axis,
         // not screen-X.
-        let down = -self.surface.surface_normal.normalize_or(ae::Vec2::new(0.0, -1.0));
+        let down = -self
+            .surface
+            .surface_normal
+            .normalize_or(ae::Vec2::new(0.0, -1.0));
         Some(ContactAttack {
             volume: body_damage,
             damage: self.config.tuning.damage_amount,
@@ -586,7 +589,6 @@ impl<'a> ActorMut<'a> {
     }
 }
 
-
 /// An actor's live body-contact attack, snapshotted by [`ActorMut::contact_attack`]
 /// so the victim pass can resolve player AND actor victims after the attacker
 /// borrow ends. One event builder for every victim kind — the `HitTarget` stamp
@@ -613,8 +615,8 @@ impl ContactAttack {
             return None;
         }
         let impact = midpoint(target_body.center(), self.volume.center());
-        let dir = ((target_body.center() - self.source_pos).dot(self.frame_side))
-            .signum_or(self.facing);
+        let dir =
+            ((target_body.center() - self.source_pos).dot(self.frame_side)).signum_or(self.facing);
         Some(HitEvent {
             volume: self.volume.into(),
             damage: self.damage,

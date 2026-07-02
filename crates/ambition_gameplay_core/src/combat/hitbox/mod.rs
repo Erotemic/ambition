@@ -34,7 +34,7 @@ use ambition_engine_core::AabbExt;
 use super::components::ActorAggression;
 use super::components::ActorFaction;
 use super::events::{HitEvent, HitKnockback, HitMode, HitSource, HitTarget};
-use super::targeting::{can_damage, damage_lands, effective_faction};
+use super::targeting::{damage_lands, effective_faction};
 use super::util::midpoint;
 use crate::audio::SfxMessage;
 use crate::world::physics::{DebrisBurstMessage, PhysicsDebrisCue};
@@ -70,17 +70,24 @@ pub fn apply_hitbox_damage(
     // `Option<&Brain>`: a possessed victim (carrying `Brain::Player`) is a
     // Player-EFFECTIVE body, so a former ally's Enemy swing lands on it — via
     // effective allegiance, without its authored faction being mutated.
-    // `Without<PlayerEntity>`: the player publishes a `CenteredAabb` too (§A6),
-    // but its hits route through the player loop below — one victim, one path.
-    actor_victims: Query<
-        (
-            Entity,
-            &super::components::CenteredAabb,
-            &ActorFaction,
-            Option<&ambition_characters::brain::Brain>,
-        ),
-        bevy::prelude::Without<crate::actor::PlayerEntity>,
-    >,
+    // ONE victim query for every body with a published footprint (fable review
+    // 2026-07-02 §A3 — this system used to run separate actor and player
+    // victim loops whose faction rules and hurtboxes had drifted). The
+    // vulnerability clusters are `Option` so a boss body (which doesn't carry
+    // the player-ish clusters yet — §A1) still matches as a victim.
+    victims: Query<(
+        Entity,
+        &super::components::CenteredAabb,
+        &ActorFaction,
+        Option<&ambition_characters::brain::Brain>,
+        Option<(
+            &crate::actor::BodyOffense,
+            &crate::actor::BodyDodgeState,
+            &crate::actor::BodyShieldState,
+            &crate::actor::BodyCombat,
+        )>,
+        bevy::prelude::Has<crate::actor::PlayerEntity>,
+    )>,
     // The attacker's grudge, looked up from the swing owner — the DAMAGE-side
     // per-entity override. Lets a hit land on a same-faction body the owner has a
     // personal grudge against (two `Npc` duelists), without re-tagging factions.
@@ -93,18 +100,6 @@ pub fn apply_hitbox_damage(
     // Iterate every player so a multi-player build hits each
     // overlapping player independently. Single-player behavior is
     // preserved because the iterator has exactly one entity today.
-    player_query: Query<
-        (
-            Entity,
-            &crate::actor::BodyKinematics,
-            &super::components::CenteredAabb,
-            &crate::actor::BodyOffense,
-            &crate::actor::BodyDodgeState,
-            &crate::actor::BodyShieldState,
-            &crate::actor::BodyCombat,
-        ),
-        bevy::prelude::With<crate::actor::PlayerEntity>,
-    >,
     // The victim's gravity frame, for the local-frame knockback side (§B11).
     gravity: crate::physics::GravityCtx,
     mut sfx: MessageWriter<SfxMessage>,
@@ -152,7 +147,18 @@ pub fn apply_hitbox_damage(
                     .get(hitbox.owner)
                     .ok()
                     .and_then(|a| a.grudge);
-                for (victim_entity, victim_aabb, victim_faction, victim_brain) in &actor_victims {
+                // ONE victim loop (§A3): every body with a published footprint —
+                // player, actor, boss, possessed anything — resolves through the
+                // same relational rule (`damage_lands` = different-faction ||
+                // personal grudge; `can_damage` for a Player victim is the same
+                // predicate since a player is never the aggressor's faction) and
+                // the same published hurtbox. Victim KIND picks only policy:
+                // a player victim gets the emit-side vulnerability gate (actor
+                // i-frames resolve at consume time — collapses in §A2), the
+                // knockback payload, and the richer feedback.
+                for (victim_entity, victim_aabb, victim_faction, victim_brain, vuln, is_player) in
+                    &victims
+                {
                     if victim_entity == hitbox.owner {
                         continue;
                     }
@@ -169,102 +175,77 @@ pub fn apply_hitbox_damage(
                     if hits.hit.contains(&victim_entity) {
                         continue;
                     }
-                    if !world_volume.intersects_aabb(victim_aabb.aabb()) {
+                    let victim_body = victim_aabb.aabb();
+                    if !world_volume.intersects_aabb(victim_body) {
                         continue;
+                    }
+                    if is_player {
+                        let Some((offense, dodge, shield, combat)) = vuln else {
+                            continue;
+                        };
+                        if !crate::combat::damage::body_vulnerable(offense, dodge, shield, combat) {
+                            continue;
+                        }
                     }
                     let impact = midpoint(victim_aabb.center, world_volume.center());
                     vfx.write(VfxMessage::Impact { pos: impact });
-                    hit_events.write(HitEvent {
-                        volume: world_volume.clone(),
-                        damage: hitbox.damage.max(1),
-                        source: source_kind.clone(),
-                        attacker: Some(hitbox.owner),
-                        target: HitTarget::Actor(victim_entity),
-                        mode: HitMode::Knockback,
-                        knockback: None,
-                        ignored_targets: Vec::new(),
-                    });
-                    hits.hit.insert(victim_entity);
-                }
-                // Damage is physical: an Enemy/Boss swing that overlaps the player
-                // hits them — even a neutral observer caught in a duel's crossfire
-                // (Player is a different faction, so not an ally). Targeting is
-                // separate (`FactionRelations` decides whether they AIM at the
-                // player); this is just "the hit landed". Same-faction would be
-                // spared (co-op), unless friendly fire is on.
-                if !can_damage(hitbox.source, ActorFaction::Player, friendly_fire) {
-                    continue;
-                }
-                // Iterate every player and emit one HitEvent per
-                // overlapping vulnerable player. `HitboxHits`
-                // tracks which players this hitbox has already
-                // damaged so a long active window doesn't double-
-                // tap a stationary player.
-                for (player_entity, kin, hurtbox, offense, dodge, shield, combat) in &player_query {
-                    // The body's PUBLISHED gravity-oriented hurtbox (§A6) — the
-                    // same single source of truth every actor consumer reads.
-                    let player_body = hurtbox.aabb();
-                    if !crate::combat::damage::body_vulnerable(offense, dodge, shield, combat) {
-                        continue;
-                    }
-                    let down = gravity.dir_at(kin.pos);
-                    if hits.hit.contains(&player_entity) {
-                        continue;
-                    }
-                    if !world_volume.intersects_aabb(player_body) {
-                        continue;
-                    }
-                    let impact = midpoint(player_body.center(), world_volume.center());
-                    // Knockback side in the victim's LOCAL frame (fable review
-                    // 2026-07-02 §B11): under sideways gravity the attacker and
-                    // victim separate along world-Y, exactly when a screen-X
-                    // comparison degenerates. The consumer's gravity-relative
-                    // resolution keeps this as its fallback, so the stored side
-                    // must be frame-correct too.
-                    let side = ae::AccelerationFrame::new(down).side;
-                    let knockback_dir = if (player_body.center() - owner_pos).dot(side) >= 0.0 {
-                        1.0
-                    } else {
-                        -1.0
-                    };
-                    sfx.write(SfxMessage::Play {
-                        id: ambition_sfx::ids::PLAYER_DAMAGE,
-                        pos: impact,
-                    });
-                    vfx.write(VfxMessage::Impact { pos: impact });
-                    vfx.write(VfxMessage::Burst {
-                        pos: impact,
-                        count: 14,
-                        speed: 300.0,
-                        color: [1.0, 0.34, 0.28, 0.88],
-                        kind: ParticleKind::Shard,
-                    });
-                    debris.write(DebrisBurstMessage {
-                        pos: impact,
-                        cue: PhysicsDebrisCue::Impact,
-                    });
-                    hit_events.write(HitEvent {
-                        volume: world_volume.clone(),
-                        damage: hitbox.damage.max(1),
-                        source: source_kind.clone(),
-                        // Enemy / boss hitboxes know their owner — the
-                        // entity that spawned the hitbox is the
-                        // attacker. Read on the player side to
-                        // attribute hitstun to the right attacker.
-                        attacker: Some(hitbox.owner),
-                        // Stamp the victim so the player-damage
-                        // reader doesn't fall back to primary.
-                        target: HitTarget::Player(player_entity),
-                        mode: HitMode::Knockback,
-                        knockback: Some(HitKnockback {
-                            dir: knockback_dir,
+                    let knockback = if is_player {
+                        // Knockback side in the victim's LOCAL frame (§B11):
+                        // under sideways gravity the attacker and victim separate
+                        // along world-Y, exactly when a screen-X comparison
+                        // degenerates. The consumer's gravity-relative resolution
+                        // keeps this as its fallback, so the stored side must be
+                        // frame-correct too.
+                        let side =
+                            ae::AccelerationFrame::new(gravity.dir_at(victim_aabb.center)).side;
+                        let dir = if (victim_body.center() - owner_pos).dot(side) >= 0.0 {
+                            1.0
+                        } else {
+                            -1.0
+                        };
+                        sfx.write(SfxMessage::Play {
+                            id: ambition_sfx::ids::PLAYER_DAMAGE,
+                            pos: impact,
+                        });
+                        vfx.write(VfxMessage::Burst {
+                            pos: impact,
+                            count: 14,
+                            speed: 300.0,
+                            color: [1.0, 0.34, 0.28, 0.88],
+                            kind: ParticleKind::Shard,
+                        });
+                        debris.write(DebrisBurstMessage {
+                            pos: impact,
+                            cue: PhysicsDebrisCue::Impact,
+                        });
+                        Some(HitKnockback {
+                            dir,
                             strength: hitbox.knockback_strength.max(0.0),
                             source_pos: owner_pos,
                             impact_pos: impact,
-                        }),
+                        })
+                    } else {
+                        None
+                    };
+                    hit_events.write(HitEvent {
+                        volume: world_volume.clone(),
+                        damage: hitbox.damage.max(1),
+                        source: source_kind.clone(),
+                        // The entity that spawned the hitbox is the attacker —
+                        // read on the victim side to attribute hitstun / the
+                        // death cause to the right body.
+                        attacker: Some(hitbox.owner),
+                        // Stamp the victim so the right consumer lands the hit.
+                        target: if is_player {
+                            HitTarget::Player(victim_entity)
+                        } else {
+                            HitTarget::Actor(victim_entity)
+                        },
+                        mode: HitMode::Knockback,
+                        knockback,
                         ignored_targets: Vec::new(),
                     });
-                    hits.hit.insert(player_entity);
+                    hits.hit.insert(victim_entity);
                 }
             }
             // Player-faction hitbox (a wielded boss-style AOE — see

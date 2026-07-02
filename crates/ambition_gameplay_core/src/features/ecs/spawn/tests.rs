@@ -231,7 +231,7 @@ fn enemy_default_brain_covers_every_combat_archetype() {
     }
 }
 
-/// Regression net: the riderless shark gets the new Shark brain
+/// Regression net: the riderless shark gets the charge-crash brain
 /// while the mounted shark composite keeps the orbiting
 /// Skirmisher-style mount brain on purpose.
 #[test]

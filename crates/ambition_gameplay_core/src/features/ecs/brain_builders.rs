@@ -71,7 +71,7 @@ pub(in crate::features) fn enemy_default_brain(enemy: &ActorConfig) -> Brain {
             state: WandererState::default(),
         }),
         CharacterBrainTemplate::MeleeBrute => melee_brute_brain_for_enemy(enemy),
-        CharacterBrainTemplate::Shark => shark_brain_for_enemy(enemy),
+        CharacterBrainTemplate::ChargeCrash => shark_brain_for_enemy(enemy),
         CharacterBrainTemplate::Skirmisher => skirmisher_brain_for_enemy(enemy),
         CharacterBrainTemplate::Sniper => sniper_brain_for_enemy(enemy),
         CharacterBrainTemplate::Smash => Brain::StateMachine(StateMachineCfg::Smash {

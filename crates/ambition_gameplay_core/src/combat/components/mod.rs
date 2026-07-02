@@ -357,8 +357,8 @@ pub enum CharacterBrainTemplate {
     /// Hold position + long-range fire. Like `Skirmisher` but does not
     /// strafe — stationary turret-like enemies.
     Sniper,
-    /// Dedicated shark motion policy (charge-and-crash).
-    Shark,
+    /// Charge-and-crash motion policy: dive at the target, then recover.
+    ChargeCrash,
     /// Smash-brawl pipeline: observe → mode → action → difficulty →
     /// emit. See `ambition_characters::brain::smash`.
     Smash,

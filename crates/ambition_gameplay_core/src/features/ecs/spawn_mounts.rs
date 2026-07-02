@@ -22,7 +22,7 @@ use super::*;
 /// keeps its aerial height changes and spreads out instead of
 /// clumping. Health comes from the composite spec (PirateOnShark = 6,
 /// PirateHeavyOnShark = 7) so the body HP pool stays as authored. The
-/// riderless shark now has its own dedicated Shark brain via
+/// riderless shark now has its own dedicated charge-crash brain via
 /// `enemy_default_brain`.
 ///
 /// Rider: `PirateRaider` for the light composite, `PirateHeavy` for

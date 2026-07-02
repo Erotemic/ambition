@@ -1008,7 +1008,7 @@ mod capability_tests {
     ///   - the friendly cove bird is a catalog character (`stochastic_parrot`,
     ///     peaceful) — its sprite binds by `character_id`;
     ///   - the aggressive sky raiders are the `sky_parrot` enemy archetype —
-    ///     hostile + aerial, reusing the Shark dive brain;
+    ///     hostile + aerial, reusing the charge-crash dive brain;
     ///   - both wear the SAME parrot sprite. The aggressive form binds by
     ///     DISPLAY NAME, so this pins that the enemy's authored spawn name
     ///     ("Stochastic Parrot", set on the sky `EnemySpawn`s) exactly equals

@@ -36,10 +36,11 @@
 //   default_size       Optional render/collision size override (px).
 //                      `None` = use the engine's default body box.
 //   brain_template     One of StandStill / Wanderer / MeleeBrute /
-//                      Skirmisher / Sniper / Smash. Pick by the
+//                      Skirmisher / Sniper / ChargeCrash / Smash / Aerial. Pick by the
 //                      archetype's combat shape: Skirmisher = strafe
 //                      + ranged, Sniper = hold + ranged, MeleeBrute
-//                      = approach + swing, Smash = humanoid brawler.
+//                      = approach + swing, ChargeCrash = dive + recover,
+//                      Smash = humanoid brawler, Aerial = lively flyer.
 //                      A row with `ranged: Some(...)` MUST pick a
 //                      template that emits fire (Skirmisher / Sniper
 //                      / Smash); MeleeBrute swallows the ranged
@@ -299,7 +300,7 @@
         move_style: Walk,
     ),
     // Aggressive sky parrot — the hostile faction of the Stochastic Parrot,
-    // flying with the pirate shark-riders. Reuses the aerial Shark brain
+    // flying with the pirate shark-riders. Reuses the aerial dive-bomber brain
     // (charge-and-dive pursuit) since the parrot's attack art is a dive/peck.
     // The EnemySpawn carries name "Stochastic Parrot" so the sprite resolver
     // binds the parrot sheet (its melee fires the `slash` animation). Light,
@@ -526,7 +527,7 @@
         // gravity sits near the shark and the lighter pirate orbits it when the
         // pair rolls under a gravity flip (default actor mass is 1.0).
         mass: 6.0,
-        brain_template: Shark,
+        brain_template: ChargeCrash,
         melee: Some(Bite((
             windup_s: 0.18,
             active_s: 0.10,

@@ -404,3 +404,107 @@ per world px, lower tiers keep their VRAM budgets. If High should be crisp on
 desktop, raise its cap to 2048 and let the tier system differentiate by
 platform instead. The `texels_per_world_px` knob now reads naturally as a
 fraction of screen density (1.0 = pixel-perfect), matching its original doc.
+
+---
+
+## Part 4 — Round 4 (Jon's lab feedback, 2026-07-02): landed + the approved work program
+
+Jon's decisions on Part 2 are now RECORDED here; items marked LANDED shipped
+in this round's commits, the rest form the approved queue below.
+
+### Landed this round
+
+- **ConeRect is the default capture mode.** Its "fundamental parallax issue"
+  was the parallax anchor, not the mode: rig parallax copies anchored to the
+  capture camera's own framing center. They now anchor at
+  `PortalViewRig::parallax_anchor` (the host camera mapped through the pair),
+  so parallax is framing-independent and ConeRect's tight rect wins on
+  density.
+- **View cones are cones again.** The half-plane takeover was a `view_strip`
+  whose NEAR edge spanned the wall laterally (the "growing trapezoid"), and
+  the wedge clamped its far corners to a lateral limit, bending the true rays
+  through the aperture endpoints. Every wedge now keeps its near edge pinned
+  to the aperture and its far corners on the real rays (`RAY_LATERAL_CLAMP =
+  1e5` is f32 comfort, not geometry); the viewport clip is the only lateral
+  bound. Correct at every distance: the fan's rays steepen toward vertical as
+  the eye reaches the opening — the half-plane limit — with the apex always
+  at the aperture.
+- **D3 geometric guard (thin-wall wrong-side entry FIXED).** New
+  `PortalHostDepths` seam: the host measures the solid material behind each
+  face (`measure_host_depth`, shared with the window depth clip) and portal
+  core bounds the aperture volume by it. Begin and the carve engagement gate
+  on the FRONT side of the plane (the capture box reaches through thin
+  material); the rescue and the mid-fall-through carve use
+  `carve_hole_with_depth`. A body behind a thin wall can no longer open,
+  enter, or be grabbed by a portal it cannot see.
+- **D3 pair-scoped cooldown.** `PortalTransitCooldown { remaining, pair }`
+  blocks re-Begin only into the crossed pair; chained pairs flow. The rescue
+  still ignores it.
+- **D4 CLOSED for real: zero air drag.** Hands-off airborne motion is fully
+  ballistic at ANY speed (the sub-run-speed stop assist was the c138/c139
+  bounce decay — the lateral component of the back-and-forth). New
+  conservation audit: real integrator + real transit_step, 40 crossings, no
+  drift. Marked blind for feel (release-stick air drift now persists).
+- **D6 LANDED** (stable capture order), **D9 LANDED as doc** (seamless =
+  pure-white tint is intentional; field stays as a recursion attenuator),
+  **D10 LANDED** (comment corrected), **D11 LANDED** (overflow link groups
+  refuse + warn instead of clamping into cross-links).
+
+### Approved queue (Jon's direction, for implementation)
+
+**Q1 — Per-portal map convention (D1, upgraded).** Jon: remove the process
+global; rotate-vs-reflect should be PER PORTAL PAIR (scale stays constrained
+for now). Plan:
+1. Add `convention: PortalConvention` to `PlacedPortal` (and `PortalFrame`),
+   defaulting from `PortalTuning.convention` at spawn/authoring; LDtk `Portal`
+   entity gains an optional `convention` field; `resolve_portal_links` copies
+   the authored value onto both ends (a pair must agree — warn + prefer the
+   first end if authored inconsistently).
+2. Thread it: `portal_map_vec(v, n_in, n_out)` → takes the ENTRY portal's
+   convention (the `_for_convention` pure variants already exist for every
+   consumer — transit velocity/position, pieces `map_point`/`map_aabb`, view
+   maps, copy transforms, somersault/facing/input-warp policies). Delete
+   `PORTAL_MAP_ROTATION`, `set_portal_map_rotation`,
+   `sync_portal_tuning_convention`, and the F10 global toggle (retarget F10
+   to flip the AIMED pair's convention instead).
+3. Unify the three defaults (enum default, tuning default) to `Rotation`.
+   Every literal `PlacedPortal { .. }` in tests gains the field — mechanical.
+
+**Q2 — Parameterization for reuse (D2, approved).** Move
+`PORTAL_OPENING_HALF`, `PORTAL_THICKNESS_HALF`, `CARVE_DEPTH`,
+`SURFACE_GRACE`, `APPROACH_CARVE_REACH` into `PortalTuning` (defaults =
+today's constants; document the `max_speed × max_dt` budget rule for the
+approach reach). Then the opaque-channel step: pair by `PortalLink`-style key
+everywhere, palette becomes presentation-side naming.
+
+**Q3 — One aperture path for EVERYTHING (D7+D8, approved).** All bodies —
+actors, projectiles, thrown items — transit as apertures via `transit_step`.
+Items: replace `portal_teleport_ground_items` + `PortalTransitable` with
+`PortalBody` + `BodyKinematics`-shaped sync (item layer mirrors pos/vel/size
+each frame as it does today); delete the instant-teleport path. Presentation:
+`sync_portal_body_pieces` loops over ALL `PortalSceneBody` entities (host
+tags every actor's visual, not just the player's) so every straddler gets an
+exit copy; the disorientation indicator reads a host focus marker instead of
+`PrimaryPlayer` (reuse the `PortalCameraContinuityFocus` pattern).
+
+**Q4 — Authored aperture is the source of truth (D5, approved).**
+`equalize_pair_apertures` must stop destructively shrinking
+`PlacedPortal::half_extent`. Either store `authored_half_extent` alongside,
+or (cleaner) compute the effective opening at READ time:
+`effective_opening(portal, partner) = min(...)` used by carve/transit/visual
+call sites, `half_extent` stays authored.
+
+**Q5 — Ledge-grab THROUGH a portal.** Jon wants wall abilities to stay
+enabled during transit AND for a ledge-grab to work through an aperture. The
+current suppression exists because the carve's cut edges read as grabbable
+ledges. Direction: make the ledge/wall probes PORTAL-AWARE instead of
+suppressed — a probe ray that enters an aperture continues in the exit chart
+(`raycast_through_portals` already exists for rays); a carve edge itself is
+identified by overlap with the active carve holes and excluded from
+grab/cling candidates (geometric exclusion, not ability toggling). Then
+delete `suppress_ledge_grab_during_transit` + the
+`SuppressWallAbilitiesInPortal` toggle. Depends on Q3's "one aperture path"
+only weakly; can proceed independently.
+
+**Q6 — AllowClip/FitToFrame removal (D12, pending Jon).** Recommended delete;
+one enum + dev-UI labels.

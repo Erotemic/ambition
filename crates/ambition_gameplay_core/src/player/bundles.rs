@@ -1,6 +1,7 @@
 //! Player ECS spawn bundles.
 
 use ambition_engine_core as ae;
+use ambition_engine_core::CenteredAabb;
 use bevy::prelude::*;
 
 use super::components::{
@@ -87,6 +88,12 @@ pub struct PlayerSimulationBundle {
     // `BodyClustersMut`. See `engine_core/body_clusters.rs` for the
     // per-cluster shape.
     pub kinematics: BodyKinematics,
+    /// The body's published combat footprint, ORIENTED to its gravity frame —
+    /// the SAME single-source-of-truth component every actor publishes
+    /// (fable review 2026-07-02 §A6: consumers used to rebuild the player
+    /// hurtbox per-site, and the rebuilds had diverged). Written each tick by
+    /// `integrate_home_body`.
+    pub hurtbox: CenteredAabb,
     pub movement: AncillaryMovementBundle,
     /// Per-player projectile state — spawner cooldowns, charge timer,
     /// motion-input buffer, in-flight body list. Was previously a
@@ -115,6 +122,7 @@ impl PlayerSimulationBundle {
         // `BodyKinematics` is the shared kinematic truth (its own component);
         // copy it out before the rest folds into the shared movement bundle.
         let kinematics = scratch.kinematics;
+        let hurtbox = CenteredAabb::from_center_size(kinematics.pos, kinematics.size);
         Self {
             identity: PlayerIdentityBundle::new(PlayerSlot::PRIMARY),
             primary: PrimaryPlayer,
@@ -148,6 +156,7 @@ impl PlayerSimulationBundle {
                 kinematics.facing,
             ),
             kinematics,
+            hurtbox,
             movement: AncillaryMovementBundle::from_scratch(scratch),
             projectile: crate::projectile::PlayerProjectileState::default(),
         }

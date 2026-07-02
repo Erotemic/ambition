@@ -458,6 +458,7 @@ pub fn step_projectiles(
         (
             Entity,
             &BodyKinematics,
+            &crate::features::CenteredAabb,
             &crate::actor::BodyOffense,
             &crate::actor::BodyDodgeState,
             &crate::actor::BodyShieldState,
@@ -624,11 +625,15 @@ pub fn step_projectiles(
             let can_hit_player = indiscriminate
                 || firer_faction
                     .is_some_and(|f| can_damage(f, ActorFaction::Player, friendly_fire));
-            for (player_entity, player_kin, offense, dodge, shield, combat) in &player_body_q {
+            for (player_entity, player_kin, hurtbox, offense, dodge, shield, combat) in
+                &player_body_q
+            {
                 if !can_hit_player {
                     break;
                 }
-                if !kin.aabb().strict_intersects(player_kin.aabb()) {
+                // The PUBLISHED gravity-oriented hurtbox (§A6), not a raw
+                // kinematics box.
+                if !kin.aabb().strict_intersects(hurtbox.aabb()) {
                     continue;
                 }
                 // Parry: a timed shield RE-OWNS the shot to the player (so its
@@ -651,9 +656,10 @@ pub fn step_projectiles(
                     reflected = true;
                     break;
                 }
-                let dodge_rolling = dodge.roll_timer > 0.0;
-                let vulnerable = !offense.invincible && !dodge_rolling && combat.vulnerable();
-                if !vulnerable {
+                // The ONE vulnerability rule (§A5). This site had drifted (it
+                // dropped the parry term); behavior is unchanged because a
+                // parrying shield reflects + breaks above before reaching here.
+                if !crate::combat::damage::body_vulnerable(offense, dodge, shield, combat) {
                     continue;
                 }
                 // Knockback side in the victim's LOCAL frame (fable review

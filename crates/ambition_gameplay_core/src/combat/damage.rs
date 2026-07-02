@@ -21,6 +21,7 @@ use ambition_vfx::vfx::VfxMessage;
 
 use crate::actor::BodyCombat;
 use crate::actor::BodyHealth;
+use crate::actor::{BodyDodgeState, BodyOffense, BodyShieldState};
 use crate::actor::{PlayerEntity, PrimaryPlayer, PrimaryPlayerOnly};
 use crate::audio::SfxMessage;
 use crate::dev::dev_tools::EditableMovementTuning;
@@ -32,6 +33,22 @@ use crate::{
     remember_safe_player_position, ActorDiedMessage, MovingPlatformSet, RoomGeometry,
     SafePositionContext, SandboxSimState,
 };
+
+/// THE one "can this body take a hit right now?" rule, shared by every damage
+/// EMITTER that needs an early-out (hazards, enemy hitboxes, boss volumes,
+/// body-contact, enemy projectiles). Fable review 2026-07-02 §A5: this
+/// predicate was copy-pasted at five emit sites and had already drifted
+/// (the projectile site dropped the parry term). i-frames / dodge-roll /
+/// parry / invincibility gate a PLAYER-side victim; the actor-side victim
+/// consumer applies its own (shield-directional) rule at consume time.
+pub fn body_vulnerable(
+    offense: &BodyOffense,
+    dodge: &BodyDodgeState,
+    shield: &BodyShieldState,
+    combat: &BodyCombat,
+) -> bool {
+    !offense.invincible && dodge.roll_timer <= 0.0 && !shield.parrying() && combat.vulnerable()
+}
 
 /// Whether a held shield blocks a hit coming from `hit_pos`: you can only guard
 /// the local side you face (a hit from behind still lands). A facing of exactly

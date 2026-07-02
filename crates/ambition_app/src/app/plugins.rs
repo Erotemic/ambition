@@ -341,6 +341,11 @@ fn register_player_simulation_systems(app: &mut App) {
     // phase writes and the presentation phase reads (required so both phase queries
     // always match the player + any clone).
     app.register_required_components::<ambition_gameplay_core::actor::PlayerEntity, PlayerBodyFrameOutput>();
+    // Every player body publishes the same gravity-oriented combat footprint an
+    // actor does (fable review 2026-07-02 §A6); integrate_home_body writes it.
+    app.register_required_components_with::<ambition_gameplay_core::actor::PlayerEntity, ambition_engine_core::CenteredAabb>(
+        || ambition_engine_core::CenteredAabb::new(ambition_engine_core::Vec2::ZERO, ambition_engine_core::Vec2::ZERO),
+    );
     // Brain-driven player clone (press K): a `PlayerEntity` body driven by a
     // PlayerDemo brain through the SAME shared player systems as the human player.
     // Spawn lands in `WorldPrep` (the earliest set) so the new body exists before

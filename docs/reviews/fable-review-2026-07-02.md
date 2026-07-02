@@ -776,14 +776,38 @@ Committed after E1-E4's checkpoint (`1c8c5589`):
 - gameplay_core lib 1080/1080 green (incl. 3 moveset tests updated: the test
   attacker now carries `BodyKinematics` like every real actor).
 
+### E6. A5+A6 — ONE vulnerability rule + ONE published hurtbox ✅ (pending integration-test verify)
+- **A5**: `combat::damage::body_vulnerable(offense, dodge, shield, combat)` is
+  the one emit-side "can this body take a hit?" rule, replacing five
+  copy-pasted predicates (hazards, enemy hitbox player loop, body-contact,
+  boss volumes, enemy projectiles). The projectile site's missing parry term
+  is now present (behavior-neutral: its parry-reflect branch runs first).
+- **A6**: every player body now PUBLISHES the same gravity-oriented
+  `CenteredAabb` footprint an actor does — added to `PlayerSimulationBundle`,
+  the brain-driven clone, and registered as a required component of
+  `PlayerEntity` (app plugins); `integrate_home_body` keeps it live (same
+  publish as `integrate_actor_body`). All five consumers read `hurtbox.aabb()`
+  instead of rebuilding per-site (two sites used raw `kin.aabb()`, which
+  disagreed with the oriented box under rotated gravity — that divergence is
+  gone by construction). Also fixed en route: the hazard knockback side was
+  screen-X (an unlisted B11 instance) — now `frame.side`.
+- **Safety check done**: broad `CenteredAabb` queries audited for accidental
+  player inclusion — `actor_victims` in `apply_hitbox_damage` got
+  `Without<PlayerEntity>` (else double-hit); targeting/pickups/interact are
+  `With<FeatureSimEntity>`-scoped (safe); `tick_falling_hazards`' keyed lookup
+  now RESOLVES for player targets (previously silently despawned the hazard —
+  an improvement). The old owner-anchor kinematics fallback in
+  `apply_hitbox_damage` is now nearly dead (player publishes the box; centers
+  are identical because `SimpleActorGeometry::combat_offset == 0`).
+- gameplay_core lib 1080/1080.
+
 ## Next (in order)
-1. A5→A6 (shared `body_vulnerable()` + player publishes `CenteredAabb`) —
-   small, unblocks the damage unification. NOTE from B11: the projectile
-   player-hit vulnerability check drops the `shield.parrying()` term relative
-   to the other 4 sites — verify whether melee-blocks-projectiles is intended
-   before unifying the predicate.
-2. A3+A4 (one relational victim loop in `apply_hitbox_damage`; hazards/contact/
-   boss damage iterate vulnerable bodies, not `PlayerEntity`).
+1. Verify app integration tests (possession, unified_melee, gravity symmetry,
+   player_robot duel) against the A5/A6 changes; commit.
+2. A4 (hazards/contact/boss damage iterate vulnerable BODIES, not
+   `PlayerEntity` — an NPC in lava must burn); then A3 (collapse
+   `apply_hitbox_damage`'s three victim loops into one relational loop over
+   published hurtboxes — A6 made this possible).
 3. A2 (one `apply_body_hit` resolver; player keeps policy-only differences).
 4. A1 boss island dissolution.
 

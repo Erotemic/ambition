@@ -389,6 +389,8 @@ mod tests {
                     size: ae::Vec2::new(24.0, 40.0),
                     facing: 1.0,
                 },
+                // The published combat footprint every body carries (§A6).
+                ae::CenteredAabb::from_center_size(player_pos, ae::Vec2::new(24.0, 40.0)),
                 BodyBaseSize {
                     base_size: ae::Vec2::new(24.0, 40.0),
                 },
@@ -502,6 +504,8 @@ mod tests {
                 size: ae::Vec2::new(24.0, 40.0),
                 facing: 1.0,
             },
+            // The published combat footprint every body carries (§A6).
+            ae::CenteredAabb::from_center_size(player_pos, ae::Vec2::new(24.0, 40.0)),
             BodyBaseSize {
                 base_size: ae::Vec2::new(24.0, 40.0),
             },

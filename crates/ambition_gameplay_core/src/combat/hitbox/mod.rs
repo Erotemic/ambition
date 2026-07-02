@@ -57,8 +57,8 @@ pub use ambition_vfx::{Hitbox, HitboxAnchor, HitboxHits, HitboxLifetime};
 pub fn apply_hitbox_damage(
     mut hitboxes: Query<(Entity, &Hitbox, &mut HitboxHits)>,
     owners: Query<&super::components::CenteredAabb>,
-    // Owner-position fallback for a player-owned strike (the player has no
-    // `CenteredAabb`; its `BodyKinematics.pos` IS its collision-box center).
+    // Owner-position fallback when the owner carries no `CenteredAabb`
+    // (bare test bodies); every real body — player included — publishes one.
     owner_kin: Query<&crate::actor::BodyKinematics>,
     // Friendly-fire policy (the DAMAGE side; targeting is `FactionRelations`).
     // Optional so minimal headless tests that don't stand up the plugin still run
@@ -70,12 +70,17 @@ pub fn apply_hitbox_damage(
     // `Option<&Brain>`: a possessed victim (carrying `Brain::Player`) is a
     // Player-EFFECTIVE body, so a former ally's Enemy swing lands on it — via
     // effective allegiance, without its authored faction being mutated.
-    actor_victims: Query<(
-        Entity,
-        &super::components::CenteredAabb,
-        &ActorFaction,
-        Option<&ambition_characters::brain::Brain>,
-    )>,
+    // `Without<PlayerEntity>`: the player publishes a `CenteredAabb` too (§A6),
+    // but its hits route through the player loop below — one victim, one path.
+    actor_victims: Query<
+        (
+            Entity,
+            &super::components::CenteredAabb,
+            &ActorFaction,
+            Option<&ambition_characters::brain::Brain>,
+        ),
+        bevy::prelude::Without<crate::actor::PlayerEntity>,
+    >,
     // The attacker's grudge, looked up from the swing owner — the DAMAGE-side
     // per-entity override. Lets a hit land on a same-faction body the owner has a
     // personal grudge against (two `Npc` duelists), without re-tagging factions.
@@ -92,6 +97,7 @@ pub fn apply_hitbox_damage(
         (
             Entity,
             &crate::actor::BodyKinematics,
+            &super::components::CenteredAabb,
             &crate::actor::BodyOffense,
             &crate::actor::BodyDodgeState,
             &crate::actor::BodyShieldState,
@@ -99,9 +105,7 @@ pub fn apply_hitbox_damage(
         ),
         bevy::prelude::With<crate::actor::PlayerEntity>,
     >,
-    // Orient the player's hurtbox to its (zone-aware) gravity frame — the same
-    // box the debug overlay draws and enemies/bosses resolve through
-    // `collision_aabb`. Identity under vertical gravity.
+    // The victim's gravity frame, for the local-frame knockback side (§B11).
     gravity: crate::physics::GravityCtx,
     mut sfx: MessageWriter<SfxMessage>,
     mut vfx: MessageWriter<VfxMessage>,
@@ -196,26 +200,14 @@ pub fn apply_hitbox_damage(
                 // tracks which players this hitbox has already
                 // damaged so a long active window doesn't double-
                 // tap a stationary player.
-                for (player_entity, kin, offense, dodge, shield, combat) in &player_query {
-                    // Player hurtbox via the one shared combat-geometry path,
-                    // oriented to its gravity frame (matches the gizmo + the
-                    // box enemies/bosses resolve through `collision_aabb`).
-                    let down = gravity.dir_at(kin.pos);
-                    let player_body =
-                        crate::features::collision_aabb(&crate::features::SimpleActorGeometry {
-                            pos: kin.pos,
-                            size: kin.size,
-                            facing: kin.facing,
-                            frame_down: down,
-                        });
-                    let dodge_rolling = dodge.roll_timer > 0.0;
-                    let player_vulnerable = !offense.invincible
-                        && !dodge_rolling
-                        && !shield.parrying()
-                        && combat.vulnerable();
-                    if !player_vulnerable {
+                for (player_entity, kin, hurtbox, offense, dodge, shield, combat) in &player_query {
+                    // The body's PUBLISHED gravity-oriented hurtbox (§A6) — the
+                    // same single source of truth every actor consumer reads.
+                    let player_body = hurtbox.aabb();
+                    if !crate::combat::damage::body_vulnerable(offense, dodge, shield, combat) {
                         continue;
                     }
+                    let down = gravity.dir_at(kin.pos);
                     if hits.hit.contains(&player_entity) {
                         continue;
                     }

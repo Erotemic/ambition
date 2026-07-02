@@ -11,17 +11,21 @@ pub fn update_ecs_hazards(
     mut vfx: MessageWriter<ambition_vfx::vfx::VfxMessage>,
     mut debris: MessageWriter<DebrisBurstMessage>,
     mut hit_events: MessageWriter<HitEvent>,
+    // `Without<FeatureSimEntity>` keeps this read of the player's published
+    // `CenteredAabb` (§A6) provably disjoint from the mutable hazard query.
     player: Query<
         (
             Entity,
             &crate::actor::BodyKinematics,
+            &CenteredAabb,
             &crate::actor::BodyOffense,
             &crate::actor::BodyDodgeState,
             &crate::actor::BodyShieldState,
             &crate::actor::BodyCombat,
         ),
-        With<crate::actor::PlayerEntity>,
+        (With<crate::actor::PlayerEntity>, Without<FeatureSimEntity>),
     >,
+    gravity: crate::physics::GravityCtx,
     mut hazards: Query<
         (&FeatureName, &mut CenteredAabb, &mut HazardFeature),
         With<FeatureSimEntity>,
@@ -55,15 +59,16 @@ pub fn update_ecs_hazards(
         // OVERNIGHT-TODO #17.8 (B-bucket iterate-all-players for
         // hazard hits). Single-player behavior preserved because the
         // iterator has exactly one entity today.
-        for (player_entity, kin, offense, dodge, shield, combat) in &player {
-            let dodge_rolling = dodge.roll_timer > 0.0;
-            let player_vulnerable =
-                !offense.invincible && !dodge_rolling && !shield.parrying() && combat.vulnerable();
-            if !player_vulnerable || !hazard.aabb().strict_intersects(kin.aabb()) {
+        for (player_entity, kin, hurtbox, offense, dodge, shield, combat) in &player {
+            if !crate::combat::damage::body_vulnerable(offense, dodge, shield, combat)
+                || !hazard.aabb().strict_intersects(hurtbox.aabb())
+            {
                 continue;
             }
             let pos = kin.pos;
-            let knockback_dir = (pos.x - hazard.pos.x).signum();
+            // Knockback side in the victim's LOCAL frame (§B11).
+            let side = ae::AccelerationFrame::new(gravity.dir_at(pos)).side;
+            let knockback_dir = (pos - hazard.pos).dot(side).signum();
             vfx.write(VfxMessage::Impact { pos });
             vfx.write(VfxMessage::Burst {
                 pos,
@@ -129,6 +134,8 @@ mod tests {
                 facing: 1.0,
                 ..Default::default()
             },
+            // The published combat footprint every body carries (§A6).
+            ae::CenteredAabb::from_center_size(pos, ae::Vec2::new(28.0, 46.0)),
             BodyBaseSize {
                 base_size: ae::Vec2::new(28.0, 46.0),
             },

@@ -584,6 +584,7 @@ pub fn integrate_sim_bodies(
             ae::BodyClusterQueryData,
             &BodyCombat,
             &ambition_characters::brain::ActorControl,
+            &mut CenteredAabb,
             &mut crate::player::PlayerBodyFrameOutput,
         ),
         With<crate::actor::PlayerEntity>,
@@ -635,13 +636,14 @@ pub fn integrate_sim_bodies(
     let player_feel = *feel_tuning;
     let frame_dt = world_time.raw_dt;
     let scaled_dt = world_time.scaled_dt;
-    for (mut cluster_item, combat, control, mut frame_out) in &mut players {
+    for (mut cluster_item, combat, control, mut hurtbox, mut frame_out) in &mut players {
         let mut clusters = cluster_item.as_clusters_mut();
         crate::player::integrate_home_body(
             control.0,
             &world.0,
             &mut clusters,
             combat,
+            &mut hurtbox,
             &mut frame_out,
             &platform_set.0,
             player_tuning,
@@ -710,7 +712,7 @@ pub fn apply_actor_contact_damage(
     mut hit_events: MessageWriter<HitEvent>,
     player_query: Query<
         (
-            &crate::actor::BodyKinematics,
+            &CenteredAabb,
             &crate::actor::BodyOffense,
             &crate::actor::BodyDodgeState,
             &crate::actor::BodyShieldState,
@@ -751,17 +753,22 @@ pub fn apply_actor_contact_damage(
         let Some(target_entity) = target.entity else {
             continue;
         };
-        let Ok((target_kin, target_offense, target_dodge, target_shield, target_combat)) =
+        let Ok((target_hurtbox, target_offense, target_dodge, target_shield, target_combat)) =
             player_query.get(target_entity)
         else {
             continue;
         };
-        let target_body = target_kin.aabb();
-        let target_vulnerable = !target_offense.invincible
-            && target_dodge.roll_timer <= 0.0
-            && !target_shield.parrying()
-            && target_combat.vulnerable();
-        if !target_vulnerable {
+        // The victim's PUBLISHED gravity-oriented hurtbox (§A6) + the ONE
+        // vulnerability rule (§A5) — this site used to rebuild both, and its
+        // raw `kin.aabb()` box disagreed with the oriented one under rotated
+        // gravity.
+        let target_body = target_hurtbox.aabb();
+        if !crate::combat::damage::body_vulnerable(
+            target_offense,
+            target_dodge,
+            target_shield,
+            target_combat,
+        ) {
             continue;
         }
         if let Some(damage) = em.body_contact_damage(actor_entity, target_entity, target_body) {

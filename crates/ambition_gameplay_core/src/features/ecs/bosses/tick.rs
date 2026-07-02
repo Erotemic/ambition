@@ -360,12 +360,13 @@ pub fn update_ecs_bosses(
     player_query: Query<
         (
             &crate::actor::BodyKinematics,
+            &CenteredAabb,
             &crate::actor::BodyOffense,
             &crate::actor::BodyDodgeState,
             &crate::actor::BodyShieldState,
             &crate::actor::BodyCombat,
         ),
-        With<crate::actor::PlayerEntity>,
+        (With<crate::actor::PlayerEntity>, Without<FeatureSimEntity>),
     >,
     mut bosses: Query<
         (
@@ -452,15 +453,18 @@ pub fn update_ecs_bosses(
             death_anim.tick(dt);
         }
         *phase = BossPhase::from_alive(feature.status.alive);
-        let (Some(target_entity), Some((kin, offense, dodge, shield, combat))) =
+        let (Some(target_entity), Some((kin, hurtbox, offense, dodge, shield, combat))) =
             (target_entity, target_player)
         else {
             continue;
         };
-        let player_body = kin.aabb();
-        let dodge_rolling = dodge.roll_timer > 0.0;
+        let _ = kin;
+        // The victim's PUBLISHED gravity-oriented hurtbox (§A6) + the ONE
+        // vulnerability rule (§A5); the raw `kin.aabb()` this used to build
+        // disagreed with the oriented box under rotated gravity.
+        let player_body = hurtbox.aabb();
         let player_vulnerable =
-            !offense.invincible && !dodge_rolling && !shield.parrying() && combat.vulnerable();
+            crate::combat::damage::body_vulnerable(offense, dodge, shield, combat);
         // Effective allegiance: a POSSESSED boss (carrying `Brain::Player`) is on
         // the player's side — its body/attack volumes must not damage the player
         // it now fights for. Its content-technique specials still hit the boss's

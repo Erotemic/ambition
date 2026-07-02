@@ -299,6 +299,11 @@ mod tests {
                     facing: -1.0,
                     ..Default::default()
                 },
+                // The published combat footprint every body carries (§A6).
+                ae::CenteredAabb::from_center_size(
+                    ae::Vec2::new(128.0, 100.0),
+                    ae::Vec2::new(28.0, 46.0),
+                ),
                 crate::actor::BodyOffense::default(),
                 crate::actor::BodyDodgeState::default(),
                 crate::actor::BodyShieldState::default(),

@@ -113,6 +113,7 @@ pub fn integrate_home_body(
     world: &ae::World,
     clusters: &mut ae::BodyClustersMut<'_>,
     combat: &BodyCombat,
+    hurtbox: &mut ae::CenteredAabb,
     frame_out: &mut PlayerBodyFrameOutput,
     moving_platforms: &[MovingPlatformState],
     tuning: ae::MovementTuning,
@@ -196,6 +197,21 @@ pub fn integrate_home_body(
         reset: events.reset,
         events,
     };
+
+    // Publish the body's combat footprint ORIENTED to its gravity frame — the
+    // IDENTICAL single-source-of-truth publish every actor performs in
+    // `integrate_actor_body` (§A6). Every hurtbox consumer (enemy hitboxes,
+    // hazards, boss volumes, contact damage, enemy projectiles) reads THIS
+    // component instead of rebuilding the box per-site.
+    use ambition_engine_core::AabbExt;
+    let body = crate::features::collision_aabb(&crate::features::SimpleActorGeometry {
+        pos: clusters.kinematics.pos,
+        size: clusters.kinematics.size,
+        facing: clusters.kinematics.facing,
+        frame_down: tuning.gravity_dir,
+    });
+    hurtbox.center = body.center();
+    hurtbox.half_size = body.half_size();
 }
 
 /// Advance the world's moving platforms ONCE per frame, ahead of every body

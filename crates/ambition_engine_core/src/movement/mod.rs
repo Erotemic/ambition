@@ -22,6 +22,7 @@
 //! pathing can evolve independently.
 
 use crate::world::World;
+use crate::Vec2;
 
 mod abilities;
 mod blink;
@@ -312,9 +313,17 @@ pub fn update_body_simulation_with_clusters(
 
     // Hazard / out-of-bounds gate — body flags hazard + reset; the player
     // wrapper respawns. An actor body reads the flag and applies its own policy.
-    if collision::touching_hazard_aabb(world, clusters.kinematics.aabb())
-        || clusters.kinematics.pos.y > world.size.y + 200.0
-    {
+    // "Fell out of the world" is gravity-relative: distance past the world AABB
+    // measured ALONG the fall direction (fable review 2026-07-02 §B7 — the old
+    // `pos.y > size.y + 200` only caught the bottom edge, so under up/sideways
+    // gravity a body could fall forever).
+    let pos = clusters.kinematics.pos;
+    let clamped = Vec2::new(
+        pos.x.clamp(0.0, world.size.x),
+        pos.y.clamp(0.0, world.size.y),
+    );
+    let fell_out = (pos - clamped).dot(tuning.gravity_dir) > 200.0;
+    if collision::touching_hazard_aabb(world, clusters.kinematics.aabb()) || fell_out {
         events.hazard = true;
         events.reset = true;
     }

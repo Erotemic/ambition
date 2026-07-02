@@ -27,19 +27,26 @@ pub fn complete_blink_clusters(
     events: &mut FrameEvents,
 ) {
     kinematics.pos = to;
-    // apply_post_blink_motion equivalent
+    // Post-blink cleanup happens in the body's LOCAL frame: damp the side
+    // (run) velocity, clamp runaway FALL velocity, damp a rising one. The old
+    // world-X/Y form never clamped the true fall axis under sideways gravity,
+    // so chained blinks inherited unbounded fall speed (fable review
+    // 2026-07-02 §B3).
+    let frame = crate::AccelerationFrame::new(tuning.gravity_dir);
     let damping = if precision { 0.35 } else { 0.55 };
     let max_downward = if precision {
         tuning.precision_blink_max_downward_speed
     } else {
         tuning.blink_max_downward_speed
     };
-    kinematics.vel.x *= damping;
-    if kinematics.vel.y > max_downward {
-        kinematics.vel.y = max_downward;
+    let mut local_vel = frame.to_local(kinematics.vel);
+    local_vel.x *= damping;
+    if local_vel.y > max_downward {
+        local_vel.y = max_downward;
     } else {
-        kinematics.vel.y *= damping;
+        local_vel.y *= damping;
     }
+    kinematics.vel = frame.to_world(local_vel);
     flight.fast_falling = false;
     wall.wall_clinging = false;
     wall.wall_climbing = false;
@@ -50,7 +57,7 @@ pub fn complete_blink_clusters(
     blink.hold_active = false;
     blink.hold_timer = 0.0;
     blink.aiming = false;
-    blink.aim_offset = Vec2::new(tuning.blink_distance * kinematics.facing, 0.0);
+    blink.aim_offset = frame.side * (tuning.blink_distance * kinematics.facing);
     let op = if precision {
         MovementOp::PrecisionBlink
     } else {
@@ -67,6 +74,11 @@ pub fn complete_blink_clusters(
 /// Compute the blink destination in the player's aim direction,
 /// clamped to a collision-safe stopping point + the
 /// `blink_through_soft_walls` ability gate.
+///
+/// `aim` must be the already-resolved world-space direction (the caller owns
+/// the zero-stick fallback — "forward along facing" is `frame.side * facing`,
+/// a frame-dependent vector this function deliberately does not guess at). A
+/// zero `aim` blinks nowhere.
 pub fn blink_destination_clusters(
     world: &World,
     kinematics: &crate::body_clusters::BodyKinematics,
@@ -78,7 +90,6 @@ pub fn blink_destination_clusters(
         world,
         kinematics.pos,
         kinematics.size,
-        kinematics.facing,
         &abilities.abilities,
         aim,
         max_distance,
@@ -105,12 +116,11 @@ fn blink_destination_internal(
     world: &World,
     pos: Vec2,
     size: Vec2,
-    facing: f32,
     abilities: &crate::abilities::AbilitySet,
     aim: Vec2,
     max_distance: f32,
 ) -> Vec2 {
-    let direction = aim.normalize_or(Vec2::new(facing, 0.0));
+    let direction = aim.normalize_or(Vec2::ZERO);
     blink_destination_to_point_internal(world, pos, size, abilities, pos + direction * max_distance)
 }
 

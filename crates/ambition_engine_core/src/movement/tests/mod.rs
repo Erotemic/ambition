@@ -48,6 +48,7 @@ pub(super) fn test_world() -> World {
 
 mod ability_gates;
 mod blink;
+mod c4_reaction_seams;
 mod climbing;
 mod clock;
 mod combat_actions;

@@ -1,7 +1,7 @@
 use crate::collision_semantics::{
     axis_role, body_on_support_side, is_contact_range_snap, is_full_collision_surface,
     is_solid_for_axis, moving_toward_feet, one_way_landing_from_previous_feet,
-    snap_feet_to_surface, supporting_block, surface_supports_body_at_rest, Axis, AxisRole,
+    snap_feet_to_surface, surface_supports_body_at_rest, Axis, AxisRole,
 };
 use crate::geometry::{Aabb, AabbExt};
 use crate::world::{BlockKind, World};
@@ -108,150 +108,149 @@ fn sweep_fraction(time_of_impact: f32) -> f32 {
     time_of_impact.clamp(0.0, 1.0)
 }
 
+/// `(min, max)` span of an AABB along one world axis.
+fn axis_span(aabb: Aabb, axis: Axis) -> (f32, f32) {
+    match axis {
+        Axis::X => (aabb.left(), aabb.right()),
+        Axis::Y => (aabb.top(), aabb.bottom()),
+    }
+}
+
+fn axis_vec(axis: Axis, along: f32) -> Vec2 {
+    match axis {
+        Axis::X => Vec2::new(along, 0.0),
+        Axis::Y => Vec2::new(0.0, along),
+    }
+}
+
+fn axis_component(v: Vec2, axis: Axis) -> f32 {
+    match axis {
+        Axis::X => v.x,
+        Axis::Y => v.y,
+    }
+}
+
+fn perp(axis: Axis) -> Axis {
+    match axis {
+        Axis::X => Axis::Y,
+        Axis::Y => Axis::X,
+    }
+}
+
+fn zero_axis_vel(kinematics: &mut crate::body_clusters::BodyKinematics, axis: Axis) {
+    match axis {
+        Axis::X => kinematics.vel.x = 0.0,
+        Axis::Y => kinematics.vel.y = 0.0,
+    }
+}
+
+/// The body's span ALONG the swept axis is nested inside the block's span: the
+/// contact can only be on a face perpendicular to the sweep (a side graze while
+/// sweeping the gravity axis), never a support/head face — so the gravity-axis
+/// pass must not resolve it. The axis-role generalization of the old Y-only
+/// `body_is_side_contact` (fable review 2026-07-02 §B5: the guard was welded to
+/// world axes, so under sideways gravity exact-edge grazes became spurious
+/// landings).
+fn body_is_nested_along(body: Aabb, block: Aabb, axis: Axis) -> bool {
+    const NESTED_EPS: f32 = 1.0e-4;
+    let (body_min, body_max) = axis_span(body, axis);
+    let (block_min, block_max) = axis_span(block, axis);
+    body_min >= block_min - NESTED_EPS && body_max <= block_max + NESTED_EPS
+}
+
+/// Down-gravity flavor kept for the focused unit tests; production goes
+/// through [`body_is_nested_along`] with the swept axis.
+#[cfg(test)]
 pub(super) fn body_is_side_contact(body: Aabb, block: Aabb) -> bool {
-    const Y_NESTED_EPS: f32 = 1.0e-4;
-    body.top() >= block.top() - Y_NESTED_EPS && body.bottom() <= block.bottom() + Y_NESTED_EPS
+    body_is_nested_along(body, block, Axis::Y)
 }
 
-/// Swept-AABB X-axis collision step. Shape-casts the player body
-/// against the world by `delta_x`; on a TOI hit, snaps to the touch
-/// face and zeros `vel.x` / arms `wall.on_wall`. Falls back to the
-/// positional `resolve_axis_clusters` repair for stacked contacts or
-/// pre-existing penetrations.
-pub(super) fn sweep_player_x_clusters(
-    world: &World,
-    kinematics: &mut crate::body_clusters::BodyKinematics,
-    wall: &mut crate::body_clusters::BodyWallState,
-    body_mode: &crate::body_clusters::BodyModeState,
-    env_contact: &crate::body_clusters::BodyEnvironmentContact,
-    delta_x: f32,
-    drop_through: bool,
-    gravity_dir: Vec2,
-) {
-    let axis = Axis::X;
-    let role = axis_role(axis, gravity_dir);
-    let delta = Vec2::new(delta_x, 0.0);
-    if delta.x.abs() <= 1.0e-5 {
-        resolve_axis_clusters(
-            world,
-            kinematics,
-            wall,
-            body_mode,
-            env_contact,
-            axis,
-            gravity_dir,
-        );
-        return;
+/// Resolve a SIDE-axis penetration of `body` into `block` along `axis`,
+/// returning `(delta_along, world_normal_sign)` to apply, or `None` to defer to
+/// the gravity pass. Axis-role generalization of the old X-only
+/// `resolve_x_penetration`; the guards protect whichever axis currently plays
+/// the side role, so they rotate with gravity.
+///
+/// Three rules, all guarding the OOB class from flying into a wide, thin block:
+/// 1. If the perpendicular exit is shorter, it's a support/head contact — defer
+///    to the gravity pass (which snaps the body out the short way) instead of
+///    shoving it out the wide block's far side edge (hundreds of px).
+/// 2. Otherwise push out the nearer side face, but NEVER out of the world: at a
+///    corner the nearer face of a boundary-spanning block IS the world edge, so
+///    pick the other face; if both exits would leave the world, defer.
+/// 3. And NEVER a pushout-teleport: a chosen exit deeper than the body's own
+///    half-extent means the body is embedded, not in contact — defer (the body's
+///    velocity carries it out the near face over subsequent frames). See
+///    [`is_contact_range_snap`].
+fn resolve_side_penetration(
+    body: Aabb,
+    block: Aabb,
+    axis: Axis,
+    world_extent_along: f32,
+) -> Option<(f32, f32)> {
+    let (body_min, body_max) = axis_span(body, axis);
+    let (block_min, block_max) = axis_span(block, axis);
+    let exit_neg = body_max - block_min; // push toward -axis this far
+    let exit_pos = block_max - body_min; // push toward +axis this far
+    let (pbody_min, pbody_max) = axis_span(body, perp(axis));
+    let (pblock_min, pblock_max) = axis_span(block, perp(axis));
+    let exit_perp = (pbody_max - pblock_min).min(pblock_max - pbody_min);
+    if exit_perp <= exit_neg.min(exit_pos) {
+        return None; // perpendicular exit is shorter -> the gravity pass owns it
     }
-
-    let start_body = kinematics.aabb_oriented(gravity_dir);
-    if let Some(hit) = world.first_body_sweep(start_body, delta, |block| {
-        if !is_solid_for_axis(block.kind, axis, gravity_dir) {
-            return false;
-        }
-        if block_passable_during_climb_clusters(body_mode, env_contact, block) {
-            return false;
-        }
-        if matches!(block.kind, BlockKind::OneWay) {
-            return one_way_landing_from_feet(
-                start_body,
-                block.aabb,
-                delta,
-                gravity_dir,
-                drop_through,
-            );
-        }
-        if start_body.strict_intersects(block.aabb) {
-            return false;
-        }
-        true
-    }) {
-        let toi_fraction = sweep_fraction(hit.time_of_impact);
-        kinematics.pos.x += delta.x * toi_fraction;
-        let body = kinematics.aabb_oriented(gravity_dir);
-        if matches!(hit.block.kind, BlockKind::OneWay)
-            || (role == AxisRole::Gravity && moving_toward_feet(delta, gravity_dir))
-        {
-            let snap = snap_feet_to_surface(body, hit.block.aabb, gravity_dir);
-            let _ = apply_bounded_resolution(kinematics, gravity_dir, snap);
-            kinematics.vel.x = 0.0;
-        } else if role == AxisRole::Gravity {
-            let (push, _) = axis_face_resolution(body, hit.block.aabb, axis);
-            let _ = apply_bounded_resolution(kinematics, gravity_dir, push);
-            kinematics.vel.x = 0.0;
-        } else {
-            let body = kinematics.aabb_oriented(gravity_dir);
-            let immediate_contact = hit.time_of_impact <= 1.0e-5;
-            let overlap_x = (body.right().min(hit.block.aabb.right())
-                - body.left().max(hit.block.aabb.left()))
-            .max(0.0);
-            let body_to_right_of_block = body.center().x > hit.block.aabb.center().x;
-            let moving_away_from_block = (body_to_right_of_block && delta.x > 0.0)
-                || (!body_to_right_of_block && delta.x < 0.0);
-            let horizontal_overlap_moving_away =
-                immediate_contact && overlap_x > 0.0 && moving_away_from_block;
-            // Resolve the X penetration robustly via the shared helper: defer to the
-            // Y pass when the vertical exit is shorter -- crucially REGARDLESS of
-            // `immediate_contact`. A body sliding PARALLEL just under the wide thin
-            // ceiling (its top grazing the ceiling's bottom edge) makes the swept
-            // cast return a spurious *non-immediate* grazing hit; the old
-            // immediate-only guard let that fall through to a far-X-edge push,
-            // teleporting the body ~900px out of the room. `None` => not an X
-            // contact to resolve here, so keep the swept motion going.
-            let depen = resolve_x_penetration(body, hit.block.aabb, world.size.x);
-            if horizontal_overlap_moving_away || depen.is_none() {
-                kinematics.pos.x += delta.x * (1.0 - toi_fraction);
-            } else {
-                let (dx, normal) = depen.expect("checked is_none above");
-                kinematics.pos.x += dx;
-                wall.wall_normal_x = normal;
-                kinematics.vel.x = 0.0;
-                wall.on_wall = true;
-            }
-        }
+    let half = (body_max - body_min) * 0.5;
+    let center = (body_min + body_max) * 0.5;
+    let neg = ((center - exit_neg) - half >= 0.0).then_some((-exit_neg, -1.0));
+    let pos = ((center + exit_pos) + half <= world_extent_along).then_some((exit_pos, 1.0));
+    // Prefer the shorter exit; fall back to the other if it would leave the world.
+    let chosen = if exit_neg <= exit_pos {
+        neg.or(pos)
     } else {
-        kinematics.pos.x += delta.x;
-    }
-
-    resolve_axis_clusters(
-        world,
-        kinematics,
-        wall,
-        body_mode,
-        env_contact,
-        axis,
-        gravity_dir,
-    );
+        pos.or(neg)
+    };
+    chosen.filter(|&(d, _)| is_contact_range_snap(axis_vec(axis, d), body))
 }
 
-/// Swept-AABB Y-axis collision step. Handles the OneWay
-/// landing-from-above gate, rejects pre-existing penetrations + wall-
-/// cling-side contacts (the y-sweep can't resolve those), and snaps
-/// to a TOI hit. Falls back to `resolve_vertical_clusters` for the
-/// positional repair.
-pub(super) fn sweep_player_y_clusters(
+/// Swept-AABB collision step for ONE world axis, role-aware: the same function
+/// serves the side pass and the gravity pass for every cardinal gravity, so no
+/// guard can exist on one axis and not the other (fable review 2026-07-02
+/// §B5 — the old `sweep_player_x/y` pair each carried protections the other
+/// lacked, which surfaced whenever gravity rotated onto the unguarded axis).
+///
+/// Role behavior:
+/// - **Gravity axis**: OneWay landing gate, nested side-graze rejection, feet
+///   snap + `on_ground` when moving toward the feet, head-face push otherwise.
+/// - **Side axis**: guarded side resolution ([`resolve_side_penetration`]:
+///   defer / world-bounds / no-pushout) with grazing-motion continuation, and
+///   wall contact armed in the body's LOCAL frame via [`apply_side_contact`]
+///   (the old X path stored the raw world sign, breaking cling under up
+///   gravity).
+///
+/// Falls back to [`resolve_axis_repair`] for stacked contacts or pre-existing
+/// penetrations.
+#[allow(clippy::too_many_arguments)]
+pub(super) fn sweep_player_axis_clusters(
     world: &World,
     kinematics: &mut crate::body_clusters::BodyKinematics,
     ground: &mut crate::body_clusters::BodyGroundState,
     wall: &mut crate::body_clusters::BodyWallState,
     body_mode: &crate::body_clusters::BodyModeState,
     env_contact: &crate::body_clusters::BodyEnvironmentContact,
-    delta_y: f32,
+    axis: Axis,
+    delta_along: f32,
     prev_feet_coord: f32,
     drop_through: bool,
     gravity_dir: Vec2,
 ) {
-    let axis = Axis::Y;
     let role = axis_role(axis, gravity_dir);
-    let delta = Vec2::new(0.0, delta_y);
-    if delta.y.abs() <= 1.0e-5 {
-        resolve_vertical_clusters(
+    let delta = axis_vec(axis, delta_along);
+    if delta_along.abs() <= 1.0e-5 {
+        resolve_axis_repair(
             world,
             kinematics,
             ground,
             wall,
-            body_mode,
-            env_contact,
+            axis,
             prev_feet_coord,
             drop_through,
             gravity_dir,
@@ -276,7 +275,7 @@ pub(super) fn sweep_player_y_clusters(
                 drop_through,
             );
         }
-        if role == AxisRole::Gravity && body_is_side_contact(start_body, block.aabb) {
+        if role == AxisRole::Gravity && body_is_nested_along(start_body, block.aabb, axis) {
             return false;
         }
         if start_body.strict_intersects(block.aabb) {
@@ -284,190 +283,90 @@ pub(super) fn sweep_player_y_clusters(
         }
         true
     }) {
-        kinematics.pos.y += delta.y * sweep_fraction(hit.time_of_impact);
+        let toi_fraction = sweep_fraction(hit.time_of_impact);
+        kinematics.pos += axis_vec(axis, delta_along * toi_fraction);
         let body = kinematics.aabb_oriented(gravity_dir);
         if matches!(hit.block.kind, BlockKind::OneWay)
             || (role == AxisRole::Gravity && moving_toward_feet(delta, gravity_dir))
         {
             let snap = snap_feet_to_surface(body, hit.block.aabb, gravity_dir);
             let _ = apply_bounded_resolution(kinematics, gravity_dir, snap);
-            kinematics.vel.y = 0.0;
+            zero_axis_vel(kinematics, axis);
             if role == AxisRole::Gravity {
                 ground.on_ground = true;
             }
-        } else {
-            let (push, world_normal) = axis_face_resolution(body, hit.block.aabb, axis);
+        } else if role == AxisRole::Gravity {
+            let (push, _) = axis_face_resolution(body, hit.block.aabb, axis);
             if apply_bounded_resolution(kinematics, gravity_dir, push) {
-                kinematics.vel.y = 0.0;
-                if role == AxisRole::Side {
-                    apply_side_contact(wall, world_normal, gravity_dir);
-                }
+                zero_axis_vel(kinematics, axis);
+            }
+        } else {
+            let immediate_contact = hit.time_of_impact <= 1.0e-5;
+            let (body_min, body_max) = axis_span(body, axis);
+            let (block_min, block_max) = axis_span(hit.block.aabb, axis);
+            let overlap = (body_max.min(block_max) - body_min.max(block_min)).max(0.0);
+            let body_beyond_block = (body_min + body_max) * 0.5 > (block_min + block_max) * 0.5;
+            let moving_away_from_block = (body_beyond_block && delta_along > 0.0)
+                || (!body_beyond_block && delta_along < 0.0);
+            let grazing_overlap_moving_away =
+                immediate_contact && overlap > 0.0 && moving_away_from_block;
+            // Resolve the side penetration robustly via the shared helper: defer
+            // to the gravity pass when the perpendicular exit is shorter —
+            // crucially REGARDLESS of `immediate_contact`. A body sliding
+            // PARALLEL just under a wide thin block (its head grazing the far
+            // face) makes the swept cast return a spurious *non-immediate*
+            // grazing hit; an immediate-only guard let that fall through to a
+            // far-edge push, teleporting the body ~900px out of the room.
+            // `None` => not a side contact to resolve here, so keep the swept
+            // motion going.
+            let depen = resolve_side_penetration(
+                body,
+                hit.block.aabb,
+                axis,
+                axis_component(world.size, axis),
+            );
+            if grazing_overlap_moving_away || depen.is_none() {
+                kinematics.pos += axis_vec(axis, delta_along * (1.0 - toi_fraction));
+            } else {
+                let (d, normal_sign) = depen.expect("checked is_none above");
+                kinematics.pos += axis_vec(axis, d);
+                zero_axis_vel(kinematics, axis);
+                apply_side_contact(wall, axis_vec(axis, normal_sign), gravity_dir);
             }
         }
     } else {
-        kinematics.pos.y += delta.y;
+        kinematics.pos += axis_vec(axis, delta_along);
     }
 
-    resolve_vertical_clusters(
+    resolve_axis_repair(
         world,
         kinematics,
         ground,
         wall,
-        body_mode,
-        env_contact,
+        axis,
         prev_feet_coord,
         drop_through,
         gravity_dir,
     );
 }
 
-/// Is the body resting on a surface on the side gravity pulls toward? Probes the
-/// controlled body's feet face against any support surface (Solid, BlinkWall, or
-/// OneWay) using the same support-face rule as the sweeps. Cardinal `gravity_dir`.
-pub(super) fn grounded_against_gravity(
-    world: &World,
-    body: Aabb,
-    gravity_dir: Vec2,
-    drop_through: bool,
-) -> bool {
-    supporting_block(world, body, gravity_dir, drop_through).is_some()
-}
-
-/// Stabilize a body that is already touching a support face on the gravity side.
-///
-/// Sweeps own the time-of-impact contacts. This helper owns the at-rest/probe
-/// case: if the oriented body is resting on a support surface, snap its feet to
-/// that support face and clear any velocity that is still trying to move toward
-/// the feet. This keeps sideways wall-walking from reporting `on_ground` while
-/// carrying a stale fall velocity.
-pub(super) fn stabilize_on_support(
-    world: &World,
-    kinematics: &mut crate::body_clusters::BodyKinematics,
-    gravity_dir: Vec2,
-    drop_through: bool,
-) -> bool {
-    let body = kinematics.aabb_oriented(gravity_dir);
-    let Some(support) = supporting_block(world, body, gravity_dir, drop_through) else {
-        return false;
-    };
-    kinematics.pos += snap_feet_to_surface(body, support.aabb, gravity_dir);
-    let descend = kinematics.vel.dot(gravity_dir);
-    if descend > 0.0 {
-        kinematics.vel -= gravity_dir * descend;
-    }
-    true
-}
-
-/// Resolve an X-axis penetration of `body` into `block`, returning the
-/// `(dx, wall_normal_x)` to apply, or `None` to defer to the Y pass.
-///
-/// Two rules, both guarding the OOB class from flying into the hub's wide, thin
-/// ceiling:
-/// 1. If the vertical exit is shorter, it's a floor/ceiling contact -- defer to
-///    the Y pass (which snaps the body out the short way) instead of shoving it
-///    out the wide block's far X edge (hundreds of px).
-/// 2. Otherwise push out the nearer X face, but NEVER out of the world: at a top
-///    corner the nearer face of a boundary-spanning block IS the world edge, so
-///    pick the other face; if both X exits would leave the world, defer to Y.
-/// 3. And NEVER a pushout-teleport: a chosen exit deeper than the body's own
-///    half-extent means the body is embedded, not in contact — defer (the body's
-///    velocity carries it out the near face over subsequent frames). See
-///    [`is_contact_range_snap`].
-fn resolve_x_penetration(body: Aabb, block: Aabb, world_w: f32) -> Option<(f32, f32)> {
-    let exit_left = body.right() - block.left(); // push left (-) this far
-    let exit_right = block.right() - body.left(); // push right (+) this far
-    let exit_up = body.bottom() - block.top();
-    let exit_down = block.bottom() - body.top();
-    if exit_up.min(exit_down) <= exit_left.min(exit_right) {
-        return None; // vertical exit is shorter -> the Y pass owns it
-    }
-    let half_w = (body.right() - body.left()) * 0.5;
-    let cx = body.center().x;
-    let left = ((cx - exit_left) - half_w >= 0.0).then_some((-exit_left, -1.0));
-    let right = ((cx + exit_right) + half_w <= world_w).then_some((exit_right, 1.0));
-    // Prefer the shorter exit; fall back to the other if it would leave the world.
-    let chosen = if exit_left <= exit_right {
-        left.or(right)
-    } else {
-        right.or(left)
-    };
-    chosen.filter(|&(dx, _)| is_contact_range_snap(Vec2::new(dx, 0.0), body))
-}
-
-/// Penetration repair for one axis. X/Y remain the low-level sweep axes because
-/// the world is axis-aligned, but support and wall decisions are expressed in
-/// controlled-body terms: feet/head along the gravity axis, side normals along
-/// the local side axis.
-fn resolve_axis_clusters(
-    world: &World,
-    kinematics: &mut crate::body_clusters::BodyKinematics,
-    wall: &mut crate::body_clusters::BodyWallState,
-    _body_mode: &crate::body_clusters::BodyModeState,
-    _env_contact: &crate::body_clusters::BodyEnvironmentContact,
-    axis: Axis,
-    gravity_dir: Vec2,
-) {
-    let role = axis_role(axis, gravity_dir);
-    let mut aabb = kinematics.aabb_oriented(gravity_dir);
-    for block in &world.blocks {
-        if !is_solid_for_axis(block.kind, axis, gravity_dir) || !aabb.strict_intersects(block.aabb)
-        {
-            continue;
-        }
-        if matches!(block.kind, BlockKind::OneWay) {
-            continue;
-        }
-        match role {
-            AxisRole::Gravity => {
-                let delta = if body_on_support_side(aabb, block.aabb, gravity_dir) {
-                    snap_feet_to_surface(aabb, block.aabb, gravity_dir)
-                } else {
-                    axis_face_resolution(aabb, block.aabb, axis).0
-                };
-                if apply_bounded_resolution(kinematics, gravity_dir, delta) {
-                    match axis {
-                        Axis::X => kinematics.vel.x = 0.0,
-                        Axis::Y => kinematics.vel.y = 0.0,
-                    }
-                }
-            }
-            AxisRole::Side => {
-                if axis == Axis::X {
-                    if let Some((dx, normal)) =
-                        resolve_x_penetration(aabb, block.aabb, world.size.x)
-                    {
-                        kinematics.pos.x += dx;
-                        wall.wall_normal_x = normal;
-                        kinematics.vel.x = 0.0;
-                        wall.on_wall = true;
-                    }
-                } else {
-                    let (push, world_normal) = axis_face_resolution(aabb, block.aabb, axis);
-                    if apply_bounded_resolution(kinematics, gravity_dir, push) {
-                        kinematics.vel.y = 0.0;
-                        apply_side_contact(wall, world_normal, gravity_dir);
-                    }
-                }
-            }
-        }
-        aabb = kinematics.aabb_oriented(gravity_dir);
-    }
-}
-
-/// Penetration repair for the Y axis. Mirrors `resolve_axis_clusters`
-/// but also owns grounding because the Y sweep receives `ground`.
-fn resolve_vertical_clusters(
+/// Positional penetration repair for ONE world axis, role-aware — the merge of
+/// the old `resolve_axis_clusters` (X) / `resolve_vertical_clusters` (Y) pair,
+/// which had drifted: only the Y flavor owned OneWay landings, the nested-graze
+/// skip, and grounding, so those semantics vanished whenever gravity rotated
+/// onto X. Support and wall decisions are expressed in controlled-body terms:
+/// feet/head along the gravity axis, side normals along the local side axis.
+#[allow(clippy::too_many_arguments)]
+fn resolve_axis_repair(
     world: &World,
     kinematics: &mut crate::body_clusters::BodyKinematics,
     ground: &mut crate::body_clusters::BodyGroundState,
     wall: &mut crate::body_clusters::BodyWallState,
-    _body_mode: &crate::body_clusters::BodyModeState,
-    _env_contact: &crate::body_clusters::BodyEnvironmentContact,
+    axis: Axis,
     prev_feet_coord: f32,
     drop_through: bool,
     gravity_dir: Vec2,
 ) {
-    let axis = Axis::Y;
     let role = axis_role(axis, gravity_dir);
     let mut aabb = kinematics.aabb_oriented(gravity_dir);
     for block in &world.blocks {
@@ -493,7 +392,7 @@ fn resolve_vertical_clusters(
         }
         if role == AxisRole::Gravity
             && is_full_collision_surface(block.kind)
-            && body_is_side_contact(aabb, block.aabb)
+            && body_is_nested_along(aabb, block.aabb, axis)
         {
             continue;
         }
@@ -510,14 +409,19 @@ fn resolve_vertical_clusters(
                     if on_support {
                         ground.on_ground = true;
                     }
-                    kinematics.vel.y = 0.0;
+                    zero_axis_vel(kinematics, axis);
                 }
             }
             AxisRole::Side => {
-                let (push, world_normal) = axis_face_resolution(aabb, block.aabb, axis);
-                if apply_bounded_resolution(kinematics, gravity_dir, push) {
-                    kinematics.vel.y = 0.0;
-                    apply_side_contact(wall, world_normal, gravity_dir);
+                if let Some((d, normal_sign)) = resolve_side_penetration(
+                    aabb,
+                    block.aabb,
+                    axis,
+                    axis_component(world.size, axis),
+                ) {
+                    kinematics.pos += axis_vec(axis, d);
+                    zero_axis_vel(kinematics, axis);
+                    apply_side_contact(wall, axis_vec(axis, normal_sign), gravity_dir);
                 }
             }
         }

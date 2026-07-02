@@ -618,15 +618,23 @@ fn ceiling_graze_x_sweep_does_not_teleport_body_to_the_far_edge() {
     scratch.kinematics.vel = Vec2::new(-760.0, 1.6108618);
     let dt = 0.006874742_f32;
     let delta_x = scratch.kinematics.vel.x * dt;
-    super::super::collision::sweep_player_x_clusters(
+    let gravity_dir = crate::Vec2::new(0.0, 1.0);
+    let prev_feet_coord = scratch
+        .kinematics
+        .aabb_oriented(gravity_dir)
+        .feet_coord(gravity_dir);
+    super::super::collision::sweep_player_axis_clusters(
         &world,
         &mut scratch.kinematics,
+        &mut scratch.ground,
         &mut scratch.wall,
         &scratch.body_mode,
         &scratch.env_contact,
+        crate::collision_semantics::Axis::X,
         delta_x,
+        prev_feet_coord,
         false,
-        crate::Vec2::new(0.0, 1.0),
+        gravity_dir,
     );
     let after = scratch.kinematics.pos;
     assert!(

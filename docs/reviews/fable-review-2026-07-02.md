@@ -688,7 +688,95 @@ extraction stops being hard.
 - [x] Audit B — physics/gravity frame bugs
 - [x] Audit C — engine/content separation
 - [x] Audit D — decomposition seams
-- No code edits made (portal agent active). Next step after the portal agent
-  finishes: pick from the Synthesis list — B-sweep behind the new C4 body-tick
-  harness (item 0) and the facade deletion (item 1) are the two lowest-risk,
-  highest-unblock starters.
+
+---
+
+# EXECUTION LOG (live — session of 2026-07-02, post-portal-agent)
+
+Jon's direction: start on the biggest, hardest items — the ones that unblock
+weaker agents to "take us home." Keep this log current enough that a fresh agent
+can resume from it cold. Working directly on main; commit = checkpoint.
+
+## Done
+
+### E1. C4 body-tick symmetry harness (synthesis item 0a) ✅
+`crates/ambition_engine_core/src/movement/tests/c4_reaction_seams.rs` — a
+local-frame scenario rig at the `update_player_with_tuning_clusters` level:
+author blocks/spawn/input in the body's local frame, rotate through all 4
+cardinal gravities, compare local-frame traces (pos/vel/on_ground/on_wall/
+facing, tol 0.02). Runs in ms (no Bevy App). Scenarios: run+jump+land sanity,
+slash recoil (B4), neutral quick blink (B9), post-blink fall clamp (B3), wall
+slide steady-state (B5/B6), gravity-relative OOB reset (B7). All failed on
+rotated arms before the fixes; all pass after. **Pattern for future agents:**
+any new reaction-seam fix gets a scenario here first.
+
+### E2. Engine-core reaction-seam fixes (B3, B4, B6, B9) ✅
+- B4 `movement/control.rs` — slash recoil now `frame.side * facing`, not `vel.x`.
+- B9 `movement/control.rs` + `movement/blink.rs` — every "forward along facing"
+  blink default (quick-blink fallback, precision `aim_offset` seeds/resets) is
+  `frame.side * facing`; `blink_destination_internal`'s own dead world-X
+  fallback removed (callers own the fallback, documented).
+- B3 `movement/blink.rs::complete_blink_clusters` — post-blink damp/clamp now
+  decomposes into the local frame (damp side, clamp fall, damp rise).
+- B6 `movement/integration.rs` — ONE sweep sequence for every gravity: sweep
+  side axis → wall abilities (last-frame ground snapshot) → clear ground →
+  sweep gravity axis. The horizontal-gravity branch (post-sweep wall abilities,
+  `stabilize_on_support` patch) is gone.
+
+### E3. B5 — role-parameterized collision sweep unification ✅ (the big one)
+`movement/collision.rs`: `sweep_player_x_clusters` + `sweep_player_y_clusters`
+merged into ONE `sweep_player_axis_clusters(axis, …)`, and the two repair
+functions into ONE `resolve_axis_repair(axis, …)`. Every guard is now keyed by
+AxisRole so it rotates with gravity: `body_is_side_contact` → axis-generic
+`body_is_nested_along`; `resolve_x_penetration` → axis-generic
+`resolve_side_penetration` (defer-to-gravity-pass / world-bounds / no-pushout /
+grazing-continuation); gravity-axis feet-snap now sets `on_ground` on EITHER
+axis (so `stabilize_on_support` + `grounded_against_gravity` are deleted);
+side-contact normals now ALWAYS convert to the local frame via
+`apply_side_contact`. **Real bug found by the harness en route: wall cling was
+completely broken under UP gravity** — the X-path stored the raw world normal
+sign into the local-frame `wall_normal_x`, so `pressing_into_wall` never
+matched (caught by the wall-slide scenario's up arm, normx=+1 vs -1).
+Down-gravity baseline preserved: all 211 engine-core lib tests green, zero
+changes to existing test expectations.
+
+### E4. B7 — gravity-relative OOB reset ✅
+`movement/mod.rs` — "fell out of the world" is now distance past the world AABB
+along `gravity_dir` (> 200px), replacing the bottom-edge-only `pos.y` check.
+Pinned by `c4_out_of_bounds_reset_is_gravity_relative` (+ 100px grace case).
+
+## In progress
+- Downstream verification: `cargo test -p ambition_gameplay_core --lib` and the
+  app-level `gravity_symmetry_room` integration tests (the collision rewrite
+  affects the real sim; the app test's `allow_one_tick_landing_boundary`
+  concession may now be removable — check, don't force).
+
+## Next (in order)
+1. Commit E1–E4 as the engine-core B-sweep checkpoint.
+2. Gameplay-core frame bugs, each with a pin test where feasible:
+   B2 (stale `surface_normal` consumers → `gravity.dir_at` unless
+   surface-walker), B1 (moveset hitbox offset through the owner's frame — route
+   through the same seam as `spawn_melee_strike`), B11 (knockback side computed
+   at source via `frame.side`), B13 (`FlipGravity` negates the full dir), B10
+   (`Hitbox::world_volume` carries owner gravity), minor notes (hard-fall
+   shake, `GravityField::vertical_sign` dead API).
+3. A5→A6 (shared `body_vulnerable()` + player publishes `CenteredAabb`) —
+   small, unblocks the damage unification.
+4. A3+A4 (one relational victim loop in `apply_hitbox_damage`; hazards/contact/
+   boss damage iterate vulnerable bodies, not `PlayerEntity`).
+5. A2 (one `apply_body_hit` resolver; player keeps policy-only differences).
+6. A1 boss island dissolution.
+
+## Notes for a resuming agent
+- The C4 harness is the safety net — extend it per fix; a scenario that fails
+  only on rotated arms is a frame bug, not a rig bug.
+- Engine-core movement input (`InputState.axis_*`) is ALREADY body-local;
+  `blink_quick_dir`/`blink_aim_step` are world-space (resolved at the input
+  bridge). Don't re-resolve.
+- Blink PREVIEW divergence found (not yet fixed): `ambition_render/src/fx.rs:897`
+  and `ambition_app/src/dev/debug_overlay/gizmos.rs:477` build quick-blink aim
+  from RAW device axes + world-X facing fallback instead of the resolved
+  `blink_quick_dir` — the preview can disagree with the actual blink under
+  rotated gravity / non-default frame modes. Log/fix when touching those files.
+- `movement/tests/wall_collision.rs` has a pre-existing `unused_mut` warning
+  (line ~162) — not from this work, left alone.

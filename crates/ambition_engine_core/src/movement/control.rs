@@ -1,5 +1,4 @@
 use crate::world::World;
-use crate::Vec2;
 
 use super::events::FrameEvents;
 use super::input::InputState;
@@ -25,11 +24,17 @@ pub fn handle_blink_clusters(
     tuning: MovementTuning,
     events: &mut FrameEvents,
 ) {
+    // "Forward along facing" is a LOCAL-side direction; every world-space
+    // default derived from it must go through the body frame (fable review
+    // 2026-07-02 §B9 — the world-X fallback broke sideways gravity).
+    let frame = crate::AccelerationFrame::new(tuning.gravity_dir);
+    let facing_aim_offset = frame.side * (tuning.blink_distance * kinematics.facing);
+
     if !abilities.abilities.blink {
         blink.hold_active = false;
         blink.aiming = false;
         blink.hold_timer = 0.0;
-        blink.aim_offset = Vec2::new(tuning.blink_distance * kinematics.facing, 0.0);
+        blink.aim_offset = facing_aim_offset;
         return;
     }
 
@@ -37,7 +42,7 @@ pub fn handle_blink_clusters(
         blink.hold_active = true;
         blink.hold_timer = 0.0;
         blink.aiming = false;
-        blink.aim_offset = Vec2::new(tuning.blink_distance * kinematics.facing, 0.0);
+        blink.aim_offset = facing_aim_offset;
     }
 
     if blink.hold_active && input.blink_held {
@@ -62,8 +67,9 @@ pub fn handle_blink_clusters(
 
     if blink.hold_active && input.blink_released {
         // Quick blink direction in WORLD space, resolved through the MOVEMENT
-        // frame mode at the seam (locomotion-framed). Zero stick → facing.
-        let fallback = Vec2::new(kinematics.facing, 0.0);
+        // frame mode at the seam (locomotion-framed). Zero stick → forward
+        // along facing, which lives on the body's local side axis.
+        let fallback = frame.side * kinematics.facing;
         let aim = input.blink_quick_dir.normalize_or(fallback);
         let precision = blink.aiming && abilities.abilities.precision_blink;
         let from = kinematics.pos;
@@ -102,7 +108,7 @@ pub fn handle_blink_clusters(
         blink.hold_active = false;
         blink.aiming = false;
         blink.hold_timer = 0.0;
-        blink.aim_offset = Vec2::new(tuning.blink_distance * kinematics.facing, 0.0);
+        blink.aim_offset = facing_aim_offset;
     }
 }
 
@@ -127,7 +133,11 @@ pub fn handle_attacks_clusters(
         return;
     }
     if input.attack_pressed {
-        kinematics.vel.x -= kinematics.facing * tuning.slash_recoil;
+        // Recoil opposes facing along the body's LOCAL side axis (fable review
+        // 2026-07-02 §B4 — the raw `vel.x` form shoved sideways-gravity bodies
+        // along their gravity axis).
+        let frame = crate::AccelerationFrame::new(tuning.gravity_dir);
+        kinematics.vel -= frame.side * (kinematics.facing * tuning.slash_recoil);
         events.op_clusters(combo_trace, MovementOp::Slash);
     }
 }

@@ -710,31 +710,44 @@ pub fn apply_actor_contact_damage(
     mut vfx: MessageWriter<ambition_vfx::vfx::VfxMessage>,
     mut debris: MessageWriter<DebrisBurstMessage>,
     mut hit_events: MessageWriter<HitEvent>,
-    player_query: Query<
-        (
+    // Attackers (mutable clusters) and victims (read) alias the same actor
+    // archetypes now that contact damage targets ANY tracked body (fable
+    // review 2026-07-02 §A4) — the ParamSet sequences the two passes.
+    mut set: bevy::ecs::system::ParamSet<(
+        Query<
+            (
+                Entity,
+                &super::super::super::components::ActorTarget,
+                Option<&ambition_characters::brain::Brain>,
+                Option<super::super::actor_clusters::ActorClusterQueryData>,
+            ),
+            (
+                With<FeatureSimEntity>,
+                Without<crate::actor::PlayerEntity>,
+                Without<super::super::boss_clusters::BossConfig>,
+            ),
+        >,
+        // Victims: any body with a published footprint — a player, an NPC a
+        // provoked enemy tracks, a duel opponent. The ONE vulnerability rule
+        // (§A5) + the ONE published hurtbox (§A6).
+        Query<(
             &CenteredAabb,
             &crate::actor::BodyOffense,
             &crate::actor::BodyDodgeState,
             &crate::actor::BodyShieldState,
             &crate::actor::BodyCombat,
-        ),
-        With<crate::actor::PlayerEntity>,
-    >,
-    mut actors: Query<
-        (
-            Entity,
-            &super::super::super::components::ActorTarget,
-            Option<&ambition_characters::brain::Brain>,
-            Option<super::super::actor_clusters::ActorClusterQueryData>,
-        ),
-        (
-            With<FeatureSimEntity>,
-            Without<crate::actor::PlayerEntity>,
-            Without<super::super::boss_clusters::BossConfig>,
-        ),
-    >,
+            bevy::prelude::Has<crate::actor::PlayerEntity>,
+        )>,
+    )>,
 ) {
-    for (actor_entity, target, brain, clusters) in &mut actors {
+    // Pass 1 — snapshot each live contact attack while the attacker's clusters
+    // are borrowed.
+    let mut pending: Vec<(
+        Entity,
+        Entity,
+        crate::features::enemies::ContactAttack,
+    )> = Vec::new();
+    for (actor_entity, target, brain, clusters) in &mut set.p0() {
         let Some(mut cq) = clusters else {
             continue;
         };
@@ -747,31 +760,30 @@ pub fn apply_actor_contact_damage(
         if !enabled || !em.health.alive() {
             continue;
         }
-        // The player this actor tracks; its entity is stamped on the emitted
-        // `HitEvent::target` so the player-side reader lands the hit on this
-        // specific player rather than falling back to primary.
+        // The body this actor tracks (already resolved relationally by
+        // `select_actor_targets` — a foe by faction or grudge); its entity is
+        // stamped on the emitted `HitEvent::target` so the right victim
+        // consumer lands the hit.
         let Some(target_entity) = target.entity else {
             continue;
         };
-        let Ok((target_hurtbox, target_offense, target_dodge, target_shield, target_combat)) =
-            player_query.get(target_entity)
+        if let Some(attack) = em.contact_attack() {
+            pending.push((actor_entity, target_entity, attack));
+        }
+    }
+    // Pass 2 — resolve each victim through its published hurtbox.
+    let victims = set.p1();
+    for (attacker, target_entity, attack) in pending {
+        let Ok((hurtbox, offense, dodge, shield, combat, is_player)) =
+            victims.get(target_entity)
         else {
             continue;
         };
-        // The victim's PUBLISHED gravity-oriented hurtbox (§A6) + the ONE
-        // vulnerability rule (§A5) — this site used to rebuild both, and its
-        // raw `kin.aabb()` box disagreed with the oriented one under rotated
-        // gravity.
-        let target_body = target_hurtbox.aabb();
-        if !crate::combat::damage::body_vulnerable(
-            target_offense,
-            target_dodge,
-            target_shield,
-            target_combat,
-        ) {
+        if !crate::combat::damage::body_vulnerable(offense, dodge, shield, combat) {
             continue;
         }
-        if let Some(damage) = em.body_contact_damage(actor_entity, target_entity, target_body) {
+        if let Some(damage) = attack.hit_event(attacker, target_entity, hurtbox.aabb(), is_player)
+        {
             let pos = damage
                 .knockback
                 .as_ref()

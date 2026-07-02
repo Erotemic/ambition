@@ -357,16 +357,20 @@ pub fn update_ecs_bosses(
     // Single-player behavior is preserved because there's only one player today;
     // real multiplayer boss AI (per-player agro lists, phase transitions that
     // respond to multiple players) is a deeper redesign left for later.
-    player_query: Query<
+    // The boss's tracked victim — ANY body with a published footprint (fable
+    // review 2026-07-02 §A4: a boss swing lands on its duel opponent, not just
+    // players). `Without<BossConfig>` keeps this read provably disjoint from
+    // the mutable boss query below.
+    victim_query: Query<
         (
-            &crate::actor::BodyKinematics,
             &CenteredAabb,
             &crate::actor::BodyOffense,
             &crate::actor::BodyDodgeState,
             &crate::actor::BodyShieldState,
             &crate::actor::BodyCombat,
+            bevy::prelude::Has<crate::actor::PlayerEntity>,
         ),
-        (With<crate::actor::PlayerEntity>, Without<FeatureSimEntity>),
+        Without<super::super::boss_clusters::BossConfig>,
     >,
     mut bosses: Query<
         (
@@ -417,7 +421,7 @@ pub fn update_ecs_bosses(
         // the emitted `HitEvent::target` so the player-side reader
         // lands boss-attack damage on this specific player.
         let target_entity = actor_target.entity;
-        let target_player = target_entity.and_then(|e| player_query.get(e).ok());
+        let target_victim = target_entity.and_then(|e| victim_query.get(e).ok());
         // Integration: take the brain-emitted desired_vel and let
         // `step_kinematic` translate it into a collision-resolved
         // position change. The brain decided what we want; the
@@ -453,12 +457,11 @@ pub fn update_ecs_bosses(
             death_anim.tick(dt);
         }
         *phase = BossPhase::from_alive(feature.status.alive);
-        let (Some(target_entity), Some((kin, hurtbox, offense, dodge, shield, combat))) =
-            (target_entity, target_player)
+        let (Some(target_entity), Some((hurtbox, offense, dodge, shield, combat, is_player))) =
+            (target_entity, target_victim)
         else {
             continue;
         };
-        let _ = kin;
         // The victim's PUBLISHED gravity-oriented hurtbox (§A6) + the ONE
         // vulnerability rule (§A5); the raw `kin.aabb()` this used to build
         // disagreed with the oriented box under rotated gravity.
@@ -475,7 +478,8 @@ pub fn update_ecs_bosses(
         if player_vulnerable && feature.status.alive && !boss_player_controlled {
             let ctx = BossVolumeContext::from_ref(feature.as_boss_ref(), attack_state)
                 .with_animation_frame(animation_frame);
-            if let Some(damage) = boss_attack_damage(&ctx, boss_entity, target_entity, player_body)
+            if let Some(damage) =
+                boss_attack_damage(&ctx, boss_entity, target_entity, player_body, is_player)
             {
                 let pos = damage
                     .knockback

@@ -69,7 +69,11 @@ fn run_bounce(dt: f32) -> BounceStats {
         if std::env::var("BOUNCE_TRACE").is_ok() && frame % 5 == 0 {
             eprintln!(
                 "frame {frame}: pos=({:.1},{:.1}) vel=({:.1},{:.1}) grounded={}",
-                obs.player_pos.0, obs.player_pos.1, obs.player_vel.0, obs.player_vel.1, obs.on_ground
+                obs.player_pos.0,
+                obs.player_pos.1,
+                obs.player_vel.0,
+                obs.player_vel.1,
+                obs.on_ground
             );
         }
         if obs.resets != resets_after_entry {

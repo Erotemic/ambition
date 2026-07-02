@@ -419,9 +419,21 @@ pub fn body_damage_aabb(pos: ae::Vec2, combat_size: ae::Vec2) -> ae::Aabb {
 pub fn boss_attack_damage(
     ctx: &BossVolumeContext,
     boss_entity: bevy::prelude::Entity,
-    player_entity: bevy::prelude::Entity,
-    player_body: ae::Aabb,
+    target_entity: bevy::prelude::Entity,
+    target_body: ae::Aabb,
+    // Picks the `HitTarget` stamp: a player victim routes through the player
+    // damage consumer, any other tracked body through the actor consumer
+    // (fable review 2026-07-02 §A4 — a boss swing must land on its duel
+    // opponent, not just players).
+    target_is_player: bool,
 ) -> Option<crate::features::HitEvent> {
+    let stamp = |entity| {
+        if target_is_player {
+            HitTarget::Player(entity)
+        } else {
+            HitTarget::Actor(entity)
+        }
+    };
     use crate::combat::events::{HitEvent, HitKnockback, HitMode, HitSource, HitTarget};
     use crate::combat::util::midpoint;
     use ambition_engine_core::AabbExt;
@@ -440,20 +452,20 @@ pub fn boss_attack_damage(
         let volumes = active_attack_volumes(ctx);
         if let Some(volume) = volumes
             .into_iter()
-            .find(|volume| volume.strict_intersects(player_body))
+            .find(|volume| volume.strict_intersects(target_body))
         {
             return Some(HitEvent {
                 volume: volume.into(),
                 damage: ctx.behavior.attack_damage.max(1),
                 source: HitSource::BossAttack,
                 attacker: Some(boss_entity),
-                target: HitTarget::Player(player_entity),
+                target: stamp(target_entity),
                 mode: HitMode::Knockback,
                 knockback: Some(HitKnockback {
-                    dir: signum_or(player_body.center().x - ctx.pos.x, 1.0),
+                    dir: signum_or(target_body.center().x - ctx.pos.x, 1.0),
                     strength: 1.25,
                     source_pos: ctx.pos,
-                    impact_pos: midpoint(player_body.center(), volume.center()),
+                    impact_pos: midpoint(target_body.center(), volume.center()),
                 }),
                 ignored_targets: Vec::new(),
             });
@@ -483,23 +495,23 @@ pub fn boss_attack_damage(
             combat_offset
         };
         let body = body_damage_aabb(ctx.pos + combat_offset, ctx.combat_size);
-        if body.strict_intersects(player_body) {
+        if body.strict_intersects(target_body) {
             return Some(HitEvent {
                 volume: body.into(),
                 damage: body_damage_amount,
                 source: HitSource::BossBody,
                 attacker: Some(boss_entity),
-                target: HitTarget::Player(player_entity),
+                target: stamp(target_entity),
                 mode: HitMode::Knockback,
                 knockback: Some(HitKnockback {
-                    dir: signum_or(player_body.center().x - ctx.pos.x, 1.0),
+                    dir: signum_or(target_body.center().x - ctx.pos.x, 1.0),
                     // Body contact should be a real displacement threat.
                     // Smirking Behemoth is designed to run the player down;
                     // a light bump let players face-tank the body and walk
                     // through to the far side of the arena.
                     strength: 2.6,
                     source_pos: ctx.pos,
-                    impact_pos: midpoint(player_body.center(), body.center()),
+                    impact_pos: midpoint(target_body.center(), body.center()),
                 }),
                 ignored_targets: Vec::new(),
             });

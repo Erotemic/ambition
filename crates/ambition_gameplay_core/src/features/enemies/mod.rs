@@ -9,6 +9,7 @@
 use super::*;
 
 mod integration;
+pub use integration::ContactAttack;
 
 /// Predicate matching any tile a surface-walker (PuppySlug) can
 /// CLING TO — both solid blocks and one-way platforms count, mirroring

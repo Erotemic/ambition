@@ -516,7 +516,8 @@ mod scripted_pattern_tests {
                 &ctx,
                 synthetic_boss,
                 synthetic_player,
-                player_body
+                player_body,
+                true
             )
             .is_none(),
             "gnu_ton must not deal contact damage when body_damage = 0"
@@ -540,7 +541,7 @@ mod scripted_pattern_tests {
         let player_entity =
             bevy::prelude::Entity::from_raw_u32(1).expect("nonzero raw entity index");
         let hit =
-            crate::features::boss_attack_damage(&ctx, boss_entity, player_entity, player_body)
+            crate::features::boss_attack_damage(&ctx, boss_entity, player_entity, player_body, true)
                 .expect("a body-damage boss overlapping the player must produce a hit");
         assert_eq!(hit.source, crate::features::HitSource::BossBody);
         assert_eq!(

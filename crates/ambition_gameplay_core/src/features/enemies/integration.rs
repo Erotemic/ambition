@@ -526,40 +526,33 @@ impl<'a> ActorMut<'a> {
         Some(self.aabb())
     }
 
-    pub fn body_contact_damage(
-        &self,
-        attacker: bevy::prelude::Entity,
-        player_entity: bevy::prelude::Entity,
-        player_body: ae::Aabb,
-    ) -> Option<HitEvent> {
+    /// Snapshot this actor's live body-contact attack (its damage box + the
+    /// tuning/frame facts the victim pass needs), taken while the attacker's
+    /// clusters are borrowed. The victim resolution runs AFTER the borrow ends
+    /// (fable review 2026-07-02 §A4: contact damage targets any body, so the
+    /// victim query aliases the attacker query and the two passes must split).
+    pub fn contact_attack(&self) -> Option<ContactAttack> {
         let body_damage = self.body_damage_aabb()?;
-        if !body_damage.strict_intersects(player_body) {
-            return None;
-        }
-        let impact = midpoint(player_body.center(), body_damage.center());
-        Some(HitEvent {
-            volume: body_damage.into(),
+        // The attacker's live reference frame (§B2 keeps `surface_normal`
+        // current for every body): knockback separates along ITS side axis,
+        // not screen-X.
+        let down = -self.surface.surface_normal.normalize_or(ae::Vec2::new(0.0, -1.0));
+        Some(ContactAttack {
+            volume: body_damage,
             damage: self.config.tuning.damage_amount,
-            source: HitSource::EnemyBody,
-            attacker: Some(attacker),
-            target: HitTarget::Player(player_entity),
-            mode: HitMode::Knockback,
-            knockback: Some(HitKnockback {
-                dir: (player_body.center().x - self.kin.pos.x).signum_or(self.kin.facing),
-                // Body contact ALWAYS imparts a separating push: a body that runs into
-                // an enemy is shoved out of its box, so it doesn't sit inside taking
-                // a hit every i-frame window. Most archetypes author `contact_strength
-                // = 0` (it tuned the OLD knockback-scaling, not "no knockback"), which
-                // read as "you stick to the enemy" — the floor fixes that. Feel-tunable.
-                strength: self
-                    .config
-                    .tuning
-                    .contact_strength
-                    .max(BODY_CONTACT_MIN_KNOCKBACK),
-                source_pos: self.kin.pos,
-                impact_pos: impact,
-            }),
-            ignored_targets: Vec::new(),
+            // Body contact ALWAYS imparts a separating push: a body that runs into
+            // an enemy is shoved out of its box, so it doesn't sit inside taking
+            // a hit every i-frame window. Most archetypes author `contact_strength
+            // = 0` (it tuned the OLD knockback-scaling, not "no knockback"), which
+            // read as "you stick to the enemy" — the floor fixes that. Feel-tunable.
+            strength: self
+                .config
+                .tuning
+                .contact_strength
+                .max(BODY_CONTACT_MIN_KNOCKBACK),
+            source_pos: self.kin.pos,
+            facing: self.kin.facing,
+            frame_side: ae::AccelerationFrame::new(down).side,
         })
     }
 
@@ -590,6 +583,57 @@ impl<'a> ActorMut<'a> {
         // Ground/jump authority is the shared cluster now — reset it too.
         self.ground.on_ground = false;
         self.jump.air_jumps_available = MAX_ENEMY_AIR_JUMPS;
+    }
+}
+
+
+/// An actor's live body-contact attack, snapshotted by [`ActorMut::contact_attack`]
+/// so the victim pass can resolve player AND actor victims after the attacker
+/// borrow ends. One event builder for every victim kind — the `HitTarget` stamp
+/// is the only difference.
+pub struct ContactAttack {
+    pub volume: ae::Aabb,
+    pub damage: i32,
+    pub strength: f32,
+    pub source_pos: ae::Vec2,
+    pub facing: f32,
+    /// The attacker's local side axis, for the frame-correct separating push.
+    pub frame_side: ae::Vec2,
+}
+
+impl ContactAttack {
+    pub fn hit_event(
+        &self,
+        attacker: bevy::prelude::Entity,
+        target: bevy::prelude::Entity,
+        target_body: ae::Aabb,
+        target_is_player: bool,
+    ) -> Option<HitEvent> {
+        if !self.volume.strict_intersects(target_body) {
+            return None;
+        }
+        let impact = midpoint(target_body.center(), self.volume.center());
+        let dir = ((target_body.center() - self.source_pos).dot(self.frame_side))
+            .signum_or(self.facing);
+        Some(HitEvent {
+            volume: self.volume.into(),
+            damage: self.damage,
+            source: HitSource::EnemyBody,
+            attacker: Some(attacker),
+            target: if target_is_player {
+                HitTarget::Player(target)
+            } else {
+                HitTarget::Actor(target)
+            },
+            mode: HitMode::Knockback,
+            knockback: Some(HitKnockback {
+                dir,
+                strength: self.strength,
+                source_pos: self.source_pos,
+                impact_pos: impact,
+            }),
+            ignored_targets: Vec::new(),
+        })
     }
 }
 

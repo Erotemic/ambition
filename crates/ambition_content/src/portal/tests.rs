@@ -1213,3 +1213,160 @@ fn floor_floor_bounce_conserves_crossing_speed_over_many_transfers() {
         "crossing speed must not drift over 40 transfers: early={early:.2}, late={late:.2}, all={crossing_speeds:?}"
     );
 }
+
+/// Drive the REAL integrator + transit machine through ONE floor→floor
+/// round trip from `drop` px above portal A and return the rebound apex
+/// height above the exit portal. Shared harness for the energy round-trip
+/// pins below.
+fn floor_floor_round_trip_apex(drop: f32, tuning: ae::movement::MovementTuning) -> f32 {
+    use ambition_engine_core::body_clusters::BodyClusterScratch;
+    use ambition_engine_core::movement::{update_player_with_tuning_scratch, InputState};
+    use ambition_gameplay_core::portal::{transit_step, TransitStep};
+
+    let floor_y = 3000.0;
+    let world = ae::World::new(
+        "round trip audit",
+        Vec2::new(1600.0, 3400.0),
+        Vec2::new(254.0, floor_y - drop),
+        vec![
+            ae::Block::solid("left", Vec2::new(0.0, floor_y), Vec2::new(208.0, 40.0)),
+            ae::Block::solid("mid", Vec2::new(300.0, floor_y), Vec2::new(208.0, 40.0)),
+            ae::Block::solid("right", Vec2::new(600.0, floor_y), Vec2::new(1000.0, 40.0)),
+        ],
+    );
+    let up = Vec2::new(0.0, -1.0);
+    let portals = [
+        PlacedPortal {
+            channel: PURPLE,
+            pos: Vec2::new(254.0, floor_y),
+            normal: up,
+            half_extent: portal_half_extent(up),
+        },
+        PlacedPortal {
+            channel: YELLOW,
+            pos: Vec2::new(554.0, floor_y),
+            normal: up,
+            half_extent: portal_half_extent(up),
+        },
+    ];
+
+    let mut scratch = BodyClusterScratch::new_with_abilities(
+        Vec2::new(254.0, floor_y - drop),
+        ambition_engine_core::AbilitySet::default(),
+    );
+    scratch.ground.on_ground = false;
+    let size = Vec2::new(24.0, 40.0);
+    let dt = 1.0 / 60.0;
+
+    let mut transit: Option<PortalTransit> = None;
+    let mut transferred = false;
+    let mut apex_y = f32::INFINITY;
+    for _ in 0..4000 {
+        update_player_with_tuning_scratch(&world, &mut scratch, InputState::default(), dt, tuning);
+        let step = transit_step(
+            scratch.kinematics.pos,
+            size,
+            scratch.kinematics.vel,
+            transit,
+            None,
+            &portals,
+            Vec2::new(0.0, 1.0),
+        );
+        match step {
+            TransitStep::Begin { channel, .. } => {
+                transit = Some(PortalTransit {
+                    straddling: channel,
+                    crossed: false,
+                });
+            }
+            TransitStep::Transfer {
+                pos,
+                vel,
+                exit_channel,
+                ..
+            } => {
+                if transferred {
+                    break; // falling back in — the round trip is complete
+                }
+                transferred = true;
+                scratch.kinematics.pos = pos;
+                scratch.kinematics.vel = vel;
+                transit = Some(PortalTransit {
+                    straddling: exit_channel,
+                    crossed: true,
+                });
+            }
+            TransitStep::Clear => transit = None,
+            TransitStep::Idle | TransitStep::Continue => {}
+        }
+        if transferred {
+            apex_y = apex_y.min(scratch.kinematics.pos.y);
+            // Apex passed once the body is falling again.
+            if scratch.kinematics.vel.y > 0.0 && scratch.kinematics.pos.y > apex_y + 4.0 {
+                break;
+            }
+        }
+    }
+    assert!(transferred, "the drop must transfer through the pair");
+    floor_y - apex_y
+}
+
+/// Energy round trip BELOW terminal velocity: falling into a ground pair from
+/// a height the fall cap never touches must pop back up to the SAME height
+/// (gravity is conservative, the portal map is an isometry — the transfer
+/// itself is lossless). This is the "fall in from a tower, come back up to
+/// the tower" promise at sub-terminal scale.
+#[test]
+fn floor_floor_round_trip_returns_to_drop_height_below_terminal() {
+    use ambition_engine_core::movement::DEFAULT_TUNING;
+    let drop = 400.0; // entry ≈ 1342 px/s < DEFAULT max_fall_speed 1900
+    let apex = floor_floor_round_trip_apex(drop, DEFAULT_TUNING);
+    assert!(
+        (apex - drop).abs() <= drop * 0.05,
+        "sub-terminal round trip must conserve height: dropped {drop}, rebounded {apex}"
+    );
+}
+
+/// Energy round trip WITHOUT a terminal velocity: with `max_fall_speed`
+/// effectively unbounded, a fall from ANY height returns to that height.
+/// This pins the fix for Jon's "fall from a tall distance, don't come all the
+/// way back up" — the loss was never the portal (the transfer is an isometry);
+/// it was the fall cap turning the down-leg into a drag zone. Per the Round 5
+/// carried-momentum principle (the WORLD has no air drag; assists belong to
+/// the controller), world-imparted fall speed is conserved when the cap is
+/// out of the way — the player's shipped tuning keeps it out of the way.
+#[test]
+fn floor_floor_round_trip_conserves_any_height_without_terminal_velocity() {
+    use ambition_engine_core::movement::DEFAULT_TUNING;
+    let tuning = ae::movement::MovementTuning {
+        max_fall_speed: f32::INFINITY,
+        ..DEFAULT_TUNING
+    };
+    let drop = 2400.0; // far beyond DEFAULT 1900's ~802px capped apex
+    let apex = floor_floor_round_trip_apex(drop, tuning);
+    assert!(
+        (apex - drop).abs() <= drop * 0.05,
+        "uncapped round trip must conserve height: dropped {drop}, rebounded {apex}"
+    );
+}
+
+/// Documentation pin for the capped behavior: WITH a terminal velocity, a
+/// tall drop's rebound saturates at `max_fall_speed² / (2·gravity)` no matter
+/// the height — the number to check when a "portal damped my fall" report
+/// comes in (it isn't the portal). With the old shipped player tuning
+/// (cap 950, gravity 2250) this apex was only ≈ 200px.
+#[test]
+fn floor_floor_round_trip_saturates_at_the_terminal_apex_when_capped() {
+    use ambition_engine_core::movement::DEFAULT_TUNING;
+    let tuning = ae::movement::MovementTuning {
+        max_fall_speed: 950.0,
+        ..DEFAULT_TUNING
+    };
+    let drop = 1600.0;
+    let apex = floor_floor_round_trip_apex(drop, tuning);
+    let terminal_apex = 950.0 * 950.0 / (2.0 * tuning.gravity);
+    assert!(
+        (apex - terminal_apex).abs() <= terminal_apex * 0.06,
+        "capped rebound saturates at cap²/2g ≈ {terminal_apex:.0}: dropped {drop}, rebounded {apex}"
+    );
+}

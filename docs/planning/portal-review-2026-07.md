@@ -778,3 +778,74 @@ baseline for the windows' capture cost).
 Any residual thin-wall weirdness after this is the standing window-side queue:
 Q9 (overlapping windows are painter-ambiguous without per-window stenciling)
 and Q10.2 (`window_eye` nearest-end handoff pop at the midpoint).
+
+## Part 9 — Round 9: "fall in from a tall height, don't come all the way back up"
+
+Jon: falling through a ground portal pair from a tall distance doesn't return
+to the original height — something damps the speed; feels like a regression;
+"I thought we had a test for it." Two independent causes found, both real:
+
+### F13 — LANDED: carried momentum must not launder controller drift
+
+The `floor_portal_bounce_does_not_thud_onto_the_open_floor` app test was
+FAILING at HEAD (125/240 frames grounded — a genuine uncaught regression from
+the Round 5 carried-momentum work). Tracing the bounce showed a constant
+±20 px/s lateral velocity surviving every transfer: at the moment of transfer,
+`apply_portal_carried_momentum` floored `carried_run` at the WHOLE exit run
+velocity — including the controller-owned walk-in residual the stop assist was
+mid-way through braking. That reclassified controller drift as permanent world
+momentum, so a vertical ground-pair bounce marched sideways ~20px per leg
+until it landed OFF the aperture, grounded, and died — the "momentum killed at
+the portal" feel.
+
+Fix (the transfer ROTATES momentum, it must not RECLASSIFY it): recover the
+pre-transfer velocity through the inverse map (the map is an isometry; the
+swapped-normal map is its inverse, pinned at 45°), split off the
+controller-owned run (pre-transfer run minus the old carried floor), map that
+through the portal, and floor `carried_run` at only the WORLD-imparted
+remainder. A genuine fling (gravity-earned fall speed rotated out of a wall
+portal) is all world-imparted and still floors at full strength — the Round 5
+promise holds; a walk-in residual decays to zero after exit exactly like
+ordinary hands-off drift. The thud test passes again; the spike-frame
+momentum audit and every conservation test stay green.
+
+### F14 — LANDED (blind, feel): no terminal velocity for the player
+
+With F13 in place, the remaining tall-drop shortfall is arithmetic, not a bug:
+the transfer is lossless (new round-trip pins prove a sub-terminal drop
+returns to its height exactly), but the shipped player tuning had
+`max_fall_speed: 950` (gravity 2250), so ANY fall saturates at 950 px/s and
+the rebound apex saturates at `950²/2g ≈ 200px` no matter how tall the drop.
+Terminal velocity IS air drag on the down-leg — it contradicts the Round 4
+"ZERO air drag, pure ballistic at ANY speed" decision that already governs the
+lateral axis.
+
+Fix: `sandbox.ron` `max_fall_speed` 950 → 100000 (effectively none): a
+hands-off fall is pure ballistic, so a ground-pair bounce returns to the drop
+height from ANY distance. Marked BLIND for feel — long falls now keep
+accelerating past 950; if landing readability suffers, lower the knob again
+(the comment in the RON documents the tradeoff: a finite cap re-shortens tall
+portal bounces to cap²/2g). Engine default (1900) and per-actor caps are
+untouched; the boss `max_fall_speed: 0` float contract is unaffected.
+
+Pinned in `ambition_content` portal tests (`floor_floor_round_trip_*`):
+sub-terminal round trip conserves height; uncapped round trip conserves ANY
+height; capped round trip saturates at exactly cap²/2g (the diagnostic number
+for future "portal damped my fall" reports). The app spike-frame harness now
+sizes its strike-zone band from the live fall speed instead of hardcoding
+terminal 950.
+
+### F12 — LANDED: `window_eye` crossfades the nearest-end handoff (Q10.2)
+
+`window_eye` now resolves BOTH ends and, when both resolve, crossfades the two
+resolved eyes across a 24px `EYE_HANDOFF_BAND` around the equidistance
+midpoint; outside the band the nearest end wins exactly as before, and
+single-end resolution is unchanged. Both inputs sit cleanly in front of the
+entry (front ≥ MIN_FRONT/2) and front is affine, so every blend is a valid
+wedge eye; the wormhole flag stays the discrete nearest end. This removes the
+one-frame wedge-shape jump when the nearer end flips — the thin-wall doorway
+crossing and the walk between a same-plane pair (where the direct and
+via-partner images are a full pair-separation apart). Pinned by two
+continuity sweeps in `ambition_portal::view` tests (same-plane pair: the old
+hard-pick's ~400px jump fails the bound; thin-wall doorway: centered and
+off-center walks stay smooth).

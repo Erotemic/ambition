@@ -38,7 +38,15 @@
         ground_friction: 7600.0,
         air_friction: 650.0,
         max_run_speed: 270.0,
-        max_fall_speed: 950.0,
+        // Effectively no terminal velocity: a hands-off fall is pure ballistic
+        // at ANY height (the Round 5 zero-air-drag principle), so falling into
+        // a ground portal pair pops back up to the SAME height. A finite cap
+        // turns the down-leg into drag — with the old 950 the rebound
+        // saturated at 950²/2g ≈ 200px no matter how tall the drop (the
+        // "portal damped my fall" report; it was never the portal). Landing
+        // readability on long falls is the tradeoff knob: lower this again to
+        // taste, at the cost of tall portal bounces returning short.
+        max_fall_speed: 100000.0,
         jump_speed: 630.0,
         double_jump_speed: 520.0,
         wall_jump_x: 430.0,

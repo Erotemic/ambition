@@ -120,7 +120,6 @@ pub(crate) fn death_respawn_player(
 #[allow(clippy::too_many_arguments)]
 pub(crate) fn handle_player_damage_events(
     world: &ae::World,
-    shield_held: bool,
     sfx: &mut MessageWriter<SfxMessage>,
     vfx: &mut MessageWriter<VfxMessage>,
     died: &mut MessageWriter<ActorDiedMessage>,
@@ -154,8 +153,12 @@ pub(crate) fn handle_player_damage_events(
         .as_ref()
         .map(|k| k.impact_pos)
         .unwrap_or_else(|| damage.volume.center());
+    // The body's RESOLVED guard (`resolve_shield`: ability-gated, dash-blocked),
+    // not the raw held input — the body enforces, the controller only attempts
+    // (invariant I3; fable review §A2). The raw-input form let a body with no
+    // shield ability block, and let a guard hold through a dash.
     if shield_blocks_hit(
-        shield_held,
+        clusters.shield.active,
         clusters.kinematics.facing,
         clusters.kinematics.pos,
         guard_impact,
@@ -458,7 +461,6 @@ pub fn apply_player_hit_events(
         let mut clusters = cluster_item.as_clusters_mut();
         handle_player_damage_events(
             &world.0,
-            input.frame.shield_held,
             &mut sfx_writer,
             &mut vfx_writer,
             &mut died_writer,

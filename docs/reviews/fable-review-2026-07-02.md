@@ -852,14 +852,60 @@ Verified: gameplay_core lib 1082/1082 + all six app integration suites
 (possession, unified melee, gravity symmetry, robot duel, enemy-attacks,
 duel arena).
 
-## Next (in order)
-1. A2 (one `apply_body_hit` resolver; player keeps policy-only differences —
-   respawn destination, difficulty assist; the mechanics — knockback
-   resolution, hitstun, shield consume — become one path). This is the big
-   feel-sensitive one: build it behind the differential trace, ship blind in
-   its own commit for Jon to feel-check.
-2. A1 boss island dissolution (BossStatus/BossAttackState/own integrator →
-   body vocabulary; unblocks boss-as-victim vulnerability clusters too).
+### E10. A2 slice 1 — shield authority is the BODY's resolved guard ✅
+`handle_player_damage_events` blocked off the RAW `input.shield_held` instead
+of the body's resolved `BodyShieldState.active` — so a body with no shield
+ability could block, and a guard held through a dash (the `resolve_shield`
+rule gates both). Now reads `clusters.shield.active` — invariant I3 (the body
+enforces, the controller attempts), and the same authority the actor victim
+path already used. 1082/1082 + shield-adjacent integration suites green.
+
+## Next (in order) — A2 full design (mapped this session, ready to execute)
+
+**A2 — one victim resolver.** Both consumers are fully read; the split is:
+
+*MECHANICS (extract into ONE `combat::damage::resolve_body_hit`, called by
+both consumers):*
+1. Consume-time i-frame gate: `combat.vulnerable()` for EVERY body (then
+   remove the player's emit-side gate in `apply_hitbox_damage`'s unified loop
+   — the last emit/consume asymmetry).
+2. Shield block: `shield_blocks_hit(shield.active, facing, pos, impact,
+   body_frame_down)` — both sides now already agree on authority (E10) and
+   frame (§B2); one call site.
+3. Damage scaling hook: multiplier param (player passes difficulty × assist;
+   actors pass 1.0).
+4. `health.damage()` + died flag (actor `never_dies` cap → multiplier path or
+   pre-gate).
+5. Hit-flash + i-frame arming (`hit_flash`, `damage_invuln_timer` — values
+   feel-tunable per body via a small `BodyHitFeel` param).
+6. Knockback: actors RISE to `resolved_player_knockback_velocity` (already
+   frame-agnostic + feel-tuned); the actor path's inline hardcoded
+   `local.y - 90 max -280` pop dies. Actor knockback data comes from the
+   event's `HitKnockback` (extend the unified emit loop in
+   `apply_hitbox_damage` to attach it for actor victims too) + the
+   `PlayerSlash.knock_x` slash impulse. FEEL-BLIND: own commit, Jon checks.
+7. Hitstun/hitstop for actors: SET the shared `BodyCombat` fields in the
+   resolver (they exist on every body); CONSUMING them in the actor driver
+   (movement gate like `engine_input_from_actor_control`'s hitstun gate) is a
+   separate feel-blind commit — actors becoming staggerable is a behavior
+   upgrade Jon should feel.
+
+*POLICY (stays in each consumer around the resolver):*
+- Player: difficulty/assist multiplier, `HitMode::SafeRespawn`, death →
+  `death_respawn_player`, safe-position memory, banner text.
+- Actor: peaceful-branch (strikes/barks/provoke stimulus — NOT damage), death
+  → drops/banner/respawn-timer/split/explode, cling-detach pop.
+- Boss: untouched until A1.
+
+*Order:* extract 1–5 first (behavior-preserving, verify with the suites), then
+6 and 7 as separate blind feel commits.
+
+**A1 — boss island dissolution** (after A2): fold `BossStatus` →
+`BodyHealth`/`BodyCombat` (the sync.rs mirror becomes the migration map),
+`BossAttackState` → `BodyMelee`/moveset, `update_ecs_bosses`+`tick_boss_brains`
+→ the actor driver with a `BossPattern` brain; boss victims then gain the
+vulnerability clusters and drop out of every `Option`/`Without<BossConfig>`
+special case added along the way (grep `§A1` and `BossConfig` guards).
 
 ## Notes for a resuming agent
 - The C4 harness is the safety net — extend it per fix; a scenario that fails

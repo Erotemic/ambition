@@ -298,6 +298,37 @@ const DOORWAY_LATERAL_GRACE: f32 = 26.0;
 /// is genuinely "behind the wall."
 const DOORWAY_DEPTH_GRACE: f32 = 24.0;
 
+/// Half-width (px, in end-distance difference) of the handoff band around a
+/// pair's equidistance midpoint, over which [`window_eye`] CROSSFADES the two
+/// ends' resolved eyes instead of hard-switching to the nearer end. Sized to
+/// the doorway grace: the crossfade completes over a body-scale walk, quick
+/// enough that the transitional wedge shapes barely register, wide enough that
+/// no single frame jumps (the Q10.2 crossing pop).
+const EYE_HANDOFF_BAND: f32 = 24.0;
+
+/// Resolve `eye` against ONE portal end, in that end's own chart: the eye
+/// itself when cleanly in front, the just-in-front lift when dipped into the
+/// doorway (see [`window_eye`]'s in-doorway grace), `None` when genuinely
+/// behind the surface.
+fn resolve_end_front(end: &PortalFrame, eye: Vec2) -> Option<Vec2> {
+    let n = end.normal;
+    let t = Vec2::new(-n.y, n.x);
+    let v = eye - end.pos;
+    let (front, lat) = (v.dot(n), v.dot(t));
+    let in_doorway = lat.abs() <= end.aperture_half() + DOORWAY_LATERAL_GRACE
+        && front.abs() <= DOORWAY_DEPTH_GRACE;
+    let front = if front >= MIN_FRONT {
+        front
+    } else if in_doorway {
+        // At/inside the doorway: lift to a hair in front — the wedge's
+        // limit continuation turns this into the half-plane.
+        MIN_FRONT * 0.5
+    } else {
+        return None;
+    };
+    Some(end.pos + n * front + t * lat)
+}
+
 /// The effective eye for looking into `enter`, given the controlled
 /// character's real `eye`. A portal pair glues two surfaces into ONE window,
 /// so the character can look into `enter` from in front of EITHER end —
@@ -305,12 +336,19 @@ const DOORWAY_DEPTH_GRACE: f32 = 24.0;
 /// in front of this end; the eye's image is the front-preserving
 /// [`view_point`], never the front-flipping body map).
 ///
-/// Ends are tried **nearest first** (Euclidean distance to the aperture
-/// center). This matters when the eye is in front of both ends — e.g. two
-/// floor portals share one plane, so a viewer above the partner is "in front
-/// of" this end too, but 250px to the side: the honest window comes from the
-/// partner-side image right above the aperture, not from the grazing direct
-/// ray. Nearest-first picks it.
+/// When only one end resolves, it wins outright. When the eye is in front of
+/// BOTH ends — e.g. two floor portals share one plane, so a viewer above the
+/// partner is "in front of" this end too, but 250px to the side — the ends'
+/// resolutions are combined **nearest-weighted**: outside the
+/// [`EYE_HANDOFF_BAND`] around the equidistance midpoint that is exactly the
+/// nearer end (the honest window comes from the partner-side image right above
+/// the aperture, not from the grazing direct ray), and inside the band the two
+/// resolved eyes crossfade. A hard nearest-pick jumped discontinuously the
+/// frame the nearer end flipped (thin-wall crossing, walking between a
+/// same-plane pair) and the whole wedge popped with it; the face-continuity of
+/// the doorway lift means the two resolutions nearly coincide at a thin wall's
+/// midpoint, so the crossfade removes the pop (review Q10.2). The reported
+/// wormhole flag stays the discrete nearest end.
 ///
 /// **In-doorway grace:** while transiting, the eye dips just BEHIND the plane
 /// of the end it is passing through; visually the character is *in* the
@@ -320,34 +358,21 @@ const DOORWAY_DEPTH_GRACE: f32 = 24.0;
 /// [`aperture_wedge`]'s small-front continuation then yields the half-plane
 /// limit. `None` only when the eye is behind both ends and in neither doorway.
 pub fn window_eye(enter: &PortalFrame, exit: &PortalFrame, eye: Vec2) -> Option<(Vec2, bool)> {
-    let mut ends = [(enter, false), (exit, true)];
-    if eye.distance(exit.pos) < eye.distance(enter.pos) {
-        ends.swap(0, 1);
+    let direct = resolve_end_front(enter, eye);
+    let via = resolve_end_front(exit, eye).map(|r| view_point(r, exit, enter));
+    match (direct, via) {
+        (None, None) => None,
+        (Some(d), None) => Some((d, false)),
+        (None, Some(v)) => Some((v, true)),
+        (Some(d), Some(v)) => {
+            // 0 = all-direct, 1 = all-via-partner, 0.5 at equidistance. Both
+            // inputs have front ≥ MIN_FRONT/2 of `enter`, and the front
+            // coordinate is affine, so every blend stays cleanly in front.
+            let gap = eye.distance(enter.pos) - eye.distance(exit.pos);
+            let t = (gap / EYE_HANDOFF_BAND * 0.5 + 0.5).clamp(0.0, 1.0);
+            Some((d.lerp(v, t), t > 0.5))
+        }
     }
-    for (end, via_partner) in ends {
-        let n = end.normal;
-        let t = Vec2::new(-n.y, n.x);
-        let v = eye - end.pos;
-        let (front, lat) = (v.dot(n), v.dot(t));
-        let in_doorway = lat.abs() <= end.aperture_half() + DOORWAY_LATERAL_GRACE
-            && front.abs() <= DOORWAY_DEPTH_GRACE;
-        let front = if front >= MIN_FRONT {
-            front
-        } else if in_doorway {
-            // At/inside the doorway: lift to a hair in front — the wedge's
-            // limit continuation turns this into the half-plane.
-            MIN_FRONT * 0.5
-        } else {
-            continue;
-        };
-        let resolved = end.pos + n * front + t * lat;
-        return Some(if via_partner {
-            (view_point(resolved, exit, enter), true)
-        } else {
-            (resolved, false)
-        });
-    }
-    None
 }
 
 /// The viewer-dependent wedge through the aperture, given an `eye` already in
@@ -674,6 +699,84 @@ mod tests {
             (resolved - Vec2::new(100.0, 280.0)).length() < 1e-3,
             "partner image above this end, got {resolved:?}"
         );
+    }
+
+    /// Q10.2 continuity pin: walking between a same-plane pair (in front of
+    /// BOTH ends the whole way), the resolved eye must move continuously —
+    /// the old hard nearest-pick jumped by the full pair separation the frame
+    /// the nearer end flipped. Outside the handoff band the nearest end still
+    /// wins exactly.
+    #[test]
+    fn window_eye_hands_off_continuously_between_same_plane_ends() {
+        let enter = floor(Vec2::new(100.0, 300.0));
+        let exit = floor(Vec2::new(500.0, 300.0));
+        let mut prev: Option<Vec2> = None;
+        let mut max_step = 0.0_f32;
+        for i in 0..=160 {
+            // Eye 20px above the shared plane, sweeping across the midpoint.
+            let eye = Vec2::new(220.0 + i as f32, 280.0);
+            let (resolved, _) = window_eye(&enter, &exit, eye).expect("in front of both");
+            if let Some(p) = prev {
+                max_step = max_step.max((resolved - p).length());
+            }
+            prev = Some(resolved);
+        }
+        // The direct↔via images are 400px apart; the crossfade spreads that
+        // over the handoff band instead of one frame. 1px of eye motion moves
+        // the blend by ~400 / (2*band) ≈ 17px/step — allow modest headroom,
+        // and the old behavior's single ~400px jump fails loudly.
+        assert!(
+            max_step < 30.0,
+            "resolved eye must crossfade, not jump: max step {max_step}"
+        );
+        // Far from the midpoint the nearest end wins exactly (old behavior).
+        let (near_enter, wormhole) =
+            window_eye(&enter, &exit, Vec2::new(220.0, 280.0)).expect("resolves");
+        assert!(!wormhole);
+        assert!((near_enter - Vec2::new(220.0, 280.0)).length() < 1e-3);
+        let (near_exit, wormhole) =
+            window_eye(&enter, &exit, Vec2::new(380.0, 280.0)).expect("resolves");
+        assert!(wormhole, "nearer end is the partner");
+        assert!(
+            (near_exit - Vec2::new(-20.0, 280.0)).length() < 1e-3,
+            "pure partner image past the band, got {near_exit:?}"
+        );
+    }
+
+    /// Q10.2 continuity pin, thin-wall doorway (the c136/c137 shape): the eye
+    /// crossing THROUGH the pair — including off-center — never jumps; the
+    /// doorway lifts of the two faces nearly coincide and the handoff blends
+    /// between them.
+    #[test]
+    fn window_eye_is_continuous_through_a_thin_wall_doorway() {
+        let enter = PortalFrame {
+            pos: Vec2::new(500.0, 300.0),
+            normal: Vec2::new(-1.0, 0.0),
+            half_extent: Vec2::new(9.0, 46.0),
+        };
+        let exit = PortalFrame {
+            pos: Vec2::new(532.0, 300.0),
+            normal: Vec2::new(1.0, 0.0),
+            half_extent: Vec2::new(9.0, 46.0),
+        };
+        // Centered and off-center within the aperture.
+        for y in [300.0, 310.0] {
+            let mut prev: Option<Vec2> = None;
+            let mut max_step = 0.0_f32;
+            for i in 0..=104 {
+                let eye = Vec2::new(490.0 + i as f32 * 0.5, y);
+                let (resolved, _) =
+                    window_eye(&enter, &exit, eye).expect("front or doorway all the way");
+                if let Some(p) = prev {
+                    max_step = max_step.max((resolved - p).length());
+                }
+                prev = Some(resolved);
+            }
+            assert!(
+                max_step < 6.0,
+                "thin-wall crossing must be smooth at y={y}: max step {max_step}"
+            );
+        }
     }
 
     /// In-doorway grace: an eye dipped just BEHIND the plane mid-transit

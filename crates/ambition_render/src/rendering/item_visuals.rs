@@ -154,7 +154,7 @@ pub fn sync_ground_item_visuals(
         commands.entity(entity).despawn();
     }
     for ground in &grounds {
-        let translation = ambition_gameplay_core::config::world_to_bevy(&world.0, ground.pos, 8.0);
+        let translation = ambition_engine_core::config::world_to_bevy(&world.0, ground.pos, 8.0);
         let sprite = art
             .as_ref()
             .and_then(|a| item_sprite(a, ground.spec.id.as_str()))
@@ -205,7 +205,7 @@ pub fn sync_held_item_visual(
     let facing = if kin.facing >= 0.0 { 1.0 } else { -1.0 };
     // In the subject's hand: just in front at hand height (y-down → small +y).
     let hand = kin.pos + Vec2::new(facing * (kin.size.x * 0.45 + 4.0), kin.size.y * 0.06);
-    let translation = ambition_gameplay_core::config::world_to_bevy(&world.0, hand, 12.0);
+    let translation = ambition_engine_core::config::world_to_bevy(&world.0, hand, 12.0);
 
     // A ranged held item (the gun-sword) points where you're AIMING — the same
     // direction it fires — just like the pirates' wielded gun-sword. Melee /
@@ -289,7 +289,7 @@ pub fn sync_held_projectile_visuals(
     }
     let art = art.get_or_insert_with(|| HeldProjectileVisualArt::load(&asset_server));
     for (kin, proj) in &projectiles {
-        let translation = ambition_gameplay_core::config::world_to_bevy(&world.0, kin.pos, 9.5);
+        let translation = ambition_engine_core::config::world_to_bevy(&world.0, kin.pos, 9.5);
         if proj.explode_half > 0.0 {
             // Fireball: a glowing ball, sized a touch over the contact box so the
             // fire visibly fills the space that hits. No rotation — it's radial.

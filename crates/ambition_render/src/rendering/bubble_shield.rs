@@ -90,7 +90,7 @@ fn new_ring_sprite(handle: Handle<Image>) -> impl Bundle {
         Transform::from_xyz(
             0.0,
             0.0,
-            ambition_gameplay_core::config::WORLD_Z_PLAYER - 0.05,
+            ambition_engine_core::config::WORLD_Z_PLAYER - 0.05,
         ),
         Visibility::Hidden,
         BubbleShieldVisual,
@@ -150,10 +150,10 @@ pub fn sync_bubble_shield_visual(
     let mut assigned = 0usize;
     for (mut transform, mut sprite, mut vis) in &mut rings {
         if let Some((pos, size, parrying)) = active.get(assigned).copied() {
-            transform.translation = ambition_gameplay_core::config::world_to_bevy(
+            transform.translation = ambition_engine_core::config::world_to_bevy(
                 &world.0,
                 pos,
-                ambition_gameplay_core::config::WORLD_Z_PLAYER - 0.05,
+                ambition_engine_core::config::WORLD_Z_PLAYER - 0.05,
             );
             // Slightly larger than the collider so it surrounds the body.
             sprite.custom_size = Some(bevy::math::Vec2::new(size.x * 1.55, size.y * 1.25));

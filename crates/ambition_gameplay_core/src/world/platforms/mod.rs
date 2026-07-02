@@ -11,7 +11,7 @@ use ambition_engine_core::AabbExt;
 use bevy::math::Vec2 as BVec2;
 use bevy::prelude::*;
 
-use crate::config::{world_to_bevy, WORLD_Z_BLOCK};
+use ambition_engine_core::config::{world_to_bevy, WORLD_Z_BLOCK};
 use crate::platformer_runtime::lifecycle::RoomVisual;
 use crate::rooms::{KinematicPathSpec, RoomSet};
 

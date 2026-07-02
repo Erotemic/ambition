@@ -1058,7 +1058,24 @@ lands nowhere today since `apply_feature_hit_events`' actor loop is
 so adding the clusters is behavior-neutral cleanliness best done WITH the
 holistic boss→actor-archetype conversion + its query-aliasing audit, not before.
 
-## Next (in order) — A1 slice 3, then engine/content + decomposition tracks
+### E16. D1 — `crate::config` coordinate facade removed ✅ (first D1 slice)
+The `pub use ambition_engine_core::config::{world_to_bevy, WORLD_Z_*, GRID_STEP,
+WINDOW_*}` re-export is DELETED from `gameplay_core/src/config.rs`; all 39 refs
+(27 in render/app/content, 12 internal) now name `ambition_engine_core::config`
+directly — the foundation home of the coordinate transform + z-layer constants.
+render/app/content no longer route a pure-geometry symbol through gameplay_core:
+the ONLY remaining `gameplay_core::config` import anywhere is `render/fx.rs`'s
+`rgba` (the one symbol that legitimately lives here — it needs `bevy::Color`).
+Zero Cargo.toml changes (every crate already deps engine_core); pure
+import-redirection, compiler-verified behavior-neutral. gameplay-core 1091,
+all four crates build. **D1 remaining facades** (each its own commit): `crate::
+audio::SfxMessage`→`ambition_sfx` (93 refs; needs `ambition_sfx` dep added to
+app/content), `crate::effects`→`ambition_vfx::*` (needs `ambition_vfx` dep in
+app/content), `crate::time::{world_time,clock_state}`→`ambition_time`, and the
+big one — the `features/mod.rs` 271-internal-ref hub (all inside gameplay_core,
+real homes in `combat/`, so NO Cargo changes; the #1 navigability win).
+
+## Next (in order) — A1 slice 3, more D1 facades, then C1/C2 + D2/D3
 
 **§A2 is COMPLETE** (E10–E13). The victim-side damage path is ONE resolver +
 ONE reaction for every body; per-body policy is the only fork left.

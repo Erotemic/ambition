@@ -12,7 +12,7 @@ use bevy::asset::{AssetServer, Handle};
 use bevy::prelude::{Commands, Component, Query, Res, ResMut, Resource, Transform, Vec3, With};
 use bevy_ecs_ldtk::prelude::LevelSet;
 
-use crate::config::WORLD_Z_BLOCK;
+use ambition_engine_core::config::WORLD_Z_BLOCK;
 
 use super::super::{sandbox_ldtk_asset_path, LdtkLevel, LdtkProject};
 

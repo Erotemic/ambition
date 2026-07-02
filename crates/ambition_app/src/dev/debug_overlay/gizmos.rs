@@ -258,10 +258,10 @@ pub(crate) fn draw_world_blocks(
 
 /// Lightweight coarse grid drawn straight through gizmos. Used when
 /// `hide_sprites` strips the authored sprite grid so the player still
-/// has a spatial reference. Spacing matches `ambition_gameplay_core::config::GRID_STEP`
+/// has a spatial reference. Spacing matches `ambition_engine_core::config::GRID_STEP`
 /// (the same step the sprite grid spawned in `spawn_grid` uses).
 pub(crate) fn draw_world_grid(gizmos: &mut Gizmos, world: &ae::World) {
-    let step = ambition_gameplay_core::config::GRID_STEP;
+    let step = ambition_engine_core::config::GRID_STEP;
     if step <= 0.0 {
         return;
     }

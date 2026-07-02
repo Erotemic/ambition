@@ -596,10 +596,10 @@ fn sync_falling_sand_spout_nozzles(
         commands.spawn((
             Name::new(format!("falling sand open spout {id}")),
             Sprite::from_color(color, Vec2::new(width, 8.0)),
-            Transform::from_translation(crate::config::world_to_bevy(
+            Transform::from_translation(ambition_engine_core::config::world_to_bevy(
                 &room.world,
                 ae::Vec2::new(x, y - 8.0),
-                crate::config::WORLD_Z_FX + 1.0,
+                ambition_engine_core::config::WORLD_Z_FX + 1.0,
             )),
             FallingSandSpoutNozzle { id },
             crate::platformer_runtime::lifecycle::RoomVisual,
@@ -779,10 +779,10 @@ fn spawn_stream_particles(
         commands.spawn((
             Name::new(format!("falling sand stream {kind:?}")),
             Sprite::from_color(kind.stream_color(), size),
-            Transform::from_translation(crate::config::world_to_bevy(
+            Transform::from_translation(ambition_engine_core::config::world_to_bevy(
                 world,
                 world_pos,
-                crate::config::WORLD_Z_FX + 2.0,
+                ambition_engine_core::config::WORLD_Z_FX + 2.0,
             )),
             FallingSandStreamParticle {
                 world_pos,
@@ -820,10 +820,10 @@ fn animate_falling_sand_stream_particles(
             commands.entity(entity).despawn();
             continue;
         }
-        transform.translation = crate::config::world_to_bevy(
+        transform.translation = ambition_engine_core::config::world_to_bevy(
             &room.world,
             particle.world_pos,
-            crate::config::WORLD_Z_FX + 2.0,
+            ambition_engine_core::config::WORLD_Z_FX + 2.0,
         );
     }
 }
@@ -1233,10 +1233,10 @@ fn sync_material_visuals(
                 tile.0, tile.1
             )),
             Sprite::from_color(kind.visual_color(), Vec2::splat(TILE_SIZE as f32)),
-            Transform::from_translation(crate::config::world_to_bevy(
+            Transform::from_translation(ambition_engine_core::config::world_to_bevy(
                 world,
                 center,
-                crate::config::WORLD_Z_PLAYER + 4.0,
+                ambition_engine_core::config::WORLD_Z_PLAYER + 4.0,
             )),
             FallingSandMaterialVisual { tile, kind },
             crate::platformer_runtime::lifecycle::RoomVisual,

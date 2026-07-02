@@ -60,7 +60,7 @@ pub struct PlayerChargeVisual;
 
 /// Projectile sprites render just in front of the player plane.
 fn projectile_z() -> f32 {
-    ambition_gameplay_core::config::WORLD_Z_PLAYER + 2.0
+    ambition_engine_core::config::WORLD_Z_PLAYER + 2.0
 }
 
 /// One resolved, ready-to-spawn sprite for a projectile, plus the per-frame
@@ -283,7 +283,7 @@ pub fn sync_projectile_visuals(
     for (proj_entity, kin, kind) in &new_projectiles {
         let built = build_visual(*kind, kin, &asset_server, &sheets, energy);
         let translation =
-            ambition_gameplay_core::config::world_to_bevy(&world.0, kin.pos, projectile_z());
+            ambition_engine_core::config::world_to_bevy(&world.0, kin.pos, projectile_z());
         let mut visual = commands.spawn((
             built.sprite,
             Transform::from_translation(translation),
@@ -312,7 +312,7 @@ pub fn sync_projectile_visuals(
             continue;
         };
         transform.translation =
-            ambition_gameplay_core::config::world_to_bevy(&world.0, kin.pos, projectile_z());
+            ambition_engine_core::config::world_to_bevy(&world.0, kin.pos, projectile_z());
 
         match kind.art().rotation {
             ProjectileRotation::FlipToTravel => {
@@ -385,10 +385,10 @@ pub fn sync_projectile_charge_visuals(
                 Color::srgba(1.0, 0.74, 0.30, alpha),
                 Vec2::new(render_size.x, render_size.y),
             ),
-            Transform::from_translation(ambition_gameplay_core::config::world_to_bevy(
+            Transform::from_translation(ambition_engine_core::config::world_to_bevy(
                 &world.0,
                 charge_pos,
-                ambition_gameplay_core::config::WORLD_Z_PLAYER + 1.5,
+                ambition_engine_core::config::WORLD_Z_PLAYER + 1.5,
             )),
             PlayerChargeVisual,
             Name::new("Player projectile charge indicator"),

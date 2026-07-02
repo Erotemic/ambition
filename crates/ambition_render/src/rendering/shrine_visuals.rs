@@ -92,7 +92,7 @@ pub fn sync_shrine_visual(
     for shrine in &shrines {
         let key = shrine_visual_key(shrine);
         present.insert(key);
-        let translation = ambition_gameplay_core::config::world_to_bevy(&world.0, shrine.pos, 8.0);
+        let translation = ambition_engine_core::config::world_to_bevy(&world.0, shrine.pos, 8.0);
 
         if let Some(&entity) = visual_cache.get(&key) {
             let mut matched = true;

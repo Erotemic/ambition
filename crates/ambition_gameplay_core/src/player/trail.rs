@@ -643,7 +643,7 @@ pub fn render_player_trail(
     let Some(world) = world.as_deref() else {
         return;
     };
-    let z = crate::config::WORLD_Z_PLAYER - 0.1;
+    let z = ambition_engine_core::config::WORLD_Z_PLAYER - 0.1;
     for rope in &ropes {
         let color = match rope.status {
             TrailStatus::Emitting => TRAIL_EMITTING_COLOR,
@@ -656,7 +656,7 @@ pub fn render_player_trail(
             }
             let bevy_pts = pts
                 .into_iter()
-                .map(|p| crate::config::world_to_bevy(&world.0, p, z).truncate());
+                .map(|p| ambition_engine_core::config::world_to_bevy(&world.0, p, z).truncate());
             gizmos.linestrip_2d(bevy_pts, color);
         }
         for pts in rope.collapsing_loop_polylines() {
@@ -665,7 +665,7 @@ pub fn render_player_trail(
             }
             let bevy_pts = pts
                 .into_iter()
-                .map(|p| crate::config::world_to_bevy(&world.0, p, z).truncate());
+                .map(|p| ambition_engine_core::config::world_to_bevy(&world.0, p, z).truncate());
             gizmos.linestrip_2d(bevy_pts, TRAIL_SELF_LOOP_COLLAPSING_COLOR);
         }
     }

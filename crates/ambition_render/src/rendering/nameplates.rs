@@ -16,7 +16,7 @@ use ambition_gameplay_core::features::{
     FeatureViewIndex,
 };
 use ambition_gameplay_core::rooms::{ActiveRoomMetadata, RoomNameplatePolicy};
-use ambition_gameplay_core::{config::world_to_bevy, config::WORLD_Z_PLAYER};
+use ambition_engine_core::config::{world_to_bevy, WORLD_Z_PLAYER};
 use bevy::prelude::*;
 
 use crate::ui_fonts::{UiFontWeight, UiFonts};

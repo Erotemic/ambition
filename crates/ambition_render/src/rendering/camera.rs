@@ -184,8 +184,8 @@ pub fn camera_follow(
         .single()
         .map(|w| (w.width().max(1.0), w.height().max(1.0)))
         .unwrap_or((
-            ambition_gameplay_core::config::WINDOW_W as f32,
-            ambition_gameplay_core::config::WINDOW_H as f32,
+            ambition_engine_core::config::WINDOW_W as f32,
+            ambition_engine_core::config::WINDOW_H as f32,
         ));
 
     #[cfg(feature = "portal_render")]

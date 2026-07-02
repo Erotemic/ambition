@@ -82,10 +82,10 @@ pub fn spawn_requested_player_clone(
     let scratch = ae::BodyClusterScratch::new_with_abilities(spawn, ae::AbilitySet::sandbox_all());
 
     let size = scratch.kinematics.size;
-    let transform = Transform::from_translation(ambition_gameplay_core::config::world_to_bevy(
+    let transform = Transform::from_translation(ambition_engine_core::config::world_to_bevy(
         &world.0,
         spawn,
-        ambition_gameplay_core::config::WORLD_Z_PLAYER,
+        ambition_engine_core::config::WORLD_Z_PLAYER,
     ));
 
     // The clone carries the IDENTICAL movement component set as the player and
@@ -245,10 +245,10 @@ pub fn sync_player_clone_transform(
     >,
 ) {
     for (kin, mut transform) in &mut clones {
-        transform.translation = ambition_gameplay_core::config::world_to_bevy(
+        transform.translation = ambition_engine_core::config::world_to_bevy(
             &world.0,
             kin.pos,
-            ambition_gameplay_core::config::WORLD_Z_PLAYER,
+            ambition_engine_core::config::WORLD_Z_PLAYER,
         );
     }
 }

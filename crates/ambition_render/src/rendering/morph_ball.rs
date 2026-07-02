@@ -121,7 +121,7 @@ pub fn spawn_morph_ball_visual(
         Transform::from_xyz(
             0.0,
             0.0,
-            ambition_gameplay_core::config::WORLD_Z_PLAYER + 0.05,
+            ambition_engine_core::config::WORLD_Z_PLAYER + 0.05,
         ),
         Visibility::Hidden,
         MorphBallVisual,
@@ -160,10 +160,10 @@ pub fn sync_morph_ball_visual(
     };
     let in_morph = body_mode.body_mode == ae::BodyMode::MorphBall;
     if in_morph {
-        transform.translation = ambition_gameplay_core::config::world_to_bevy(
+        transform.translation = ambition_engine_core::config::world_to_bevy(
             &world.0,
             kin.pos,
-            ambition_gameplay_core::config::WORLD_Z_PLAYER + 0.05,
+            ambition_engine_core::config::WORLD_Z_PLAYER + 0.05,
         );
         // Slightly larger than the AABB so the soft anti-aliased rim
         // reads as the ball's outline rather than as background.

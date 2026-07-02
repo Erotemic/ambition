@@ -18,7 +18,7 @@ use ambition_engine_core as ae;
 use bevy::prelude::*;
 
 use crate::assets::loading::SandboxAssetCollection;
-use crate::config::{world_to_bevy, WORLD_Z_PLAYER};
+use ambition_engine_core::config::{world_to_bevy, WORLD_Z_PLAYER};
 use crate::dev::dev_tools::{EditableAbilitySet, EditableMovementTuning};
 use crate::ldtk_world::{LdtkRuntimeIndex, SandboxLdtkAsset};
 use crate::platformer_runtime::lifecycle::{PlayerVisual, SceneEntities};

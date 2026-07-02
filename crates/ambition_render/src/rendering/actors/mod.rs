@@ -21,7 +21,7 @@ use ambition_gameplay_core::character_sprites::{
     feet_anchor_for_render_size, player_placeholder_render_size, CharacterAnimator,
 };
 use ambition_gameplay_core::combat::BoundFeatureKind;
-use ambition_gameplay_core::config::{world_to_bevy, WORLD_Z_PLAYER};
+use ambition_engine_core::config::{world_to_bevy, WORLD_Z_PLAYER};
 use ambition_gameplay_core::features::{
     ActorRenderSize, BossClusterRef, BreakableFeature, ChestFeature, FeatureId, FeatureViewIndex,
     FeatureVisualKind, Opened,

@@ -35,7 +35,7 @@ pub fn sync_mark_beacon_visual(
             continue;
         };
         // +Y is down in world space, so "up" (toward the ceiling) is -Y.
-        let translation = ambition_gameplay_core::config::world_to_bevy(
+        let translation = ambition_engine_core::config::world_to_bevy(
             &world.0,
             pos - ae::Vec2::new(0.0, BEACON_RISE),
             7.0,

@@ -8,7 +8,7 @@ use bevy::prelude::*;
 
 use super::primitives::{feature_color, feature_z, FeatureVisual, RoomVisual};
 use ambition_gameplay_core::assets::game_assets::{self, entity_sprite_or_color, GameAssets};
-use ambition_gameplay_core::config::world_to_bevy;
+use ambition_engine_core::config::world_to_bevy;
 use ambition_gameplay_core::features::{
     ActorDisposition, BossRewardChest, CenteredAabb, ChestFeature, EncounterMob,
     EncounterRewardChest, FeatureId, FeatureName, FeatureVisualKind,

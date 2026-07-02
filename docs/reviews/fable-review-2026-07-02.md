@@ -1048,14 +1048,19 @@ ONE reaction for every body; per-body policy is the only fork left.
 **A1 — boss island dissolution** (slice 1 DONE — E14; slices 2–3 remain,
 each independently committable):
 
-*Slice 2 — boss victim = full A2 victim.* With HP on `BodyHealth`,
-`apply_boss_hit` routes through `combat::damage::resolve_body_hit` (+
+*Slice 2 — boss victim = full A2 victim.* With HP on `BodyHealth` (slice 1
+done), `apply_boss_hit` routes through `combat::damage::resolve_body_hit` (+
 `apply_body_hit_reaction` if bosses should stagger — likely NOT for heavies:
 give them a `BodyHitFeel` with hitstun 0 / their own i-frame, it's the
-designed per-body knob). Phase/death resolution stays boss policy. Then give
-bosses the remaining vulnerability clusters (`BodyOffense`/`BodyDodgeState`/
-`BodyShieldState` default-inert) and DELETE the `Option`-typed vuln in
-`apply_hitbox_damage` + grep `§A1` and `Without<BossConfig>` victim carve-outs.
+designed per-body knob). FEEL WARNING: bosses currently have NO post-hit
+i-frame at all (the 0.18 hit_flash is only a bark debounce) — any
+`damage_invuln_time > 0` reduces player DPS against bosses, and the
+invulnerable-PHASE gate must stay boss policy (checked before the resolver).
+Ship as a clearly-marked blind commit. Phase/death resolution stays boss
+policy. Then give bosses the remaining vulnerability clusters
+(`BodyOffense`/`BodyDodgeState`/`BodyShieldState` default-inert) and DELETE
+the `Option`-typed vuln in `apply_hitbox_damage` + grep `§A1` and
+`Without<BossConfig>` victim carve-outs.
 
 *Slice 3 — driver fold (the big one).* `BossAttackState` → `BodyMelee`/moveset;
 `update_ecs_bosses` + `tick_boss_brains` fold into `tick_actor_brains` +

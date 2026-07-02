@@ -172,7 +172,11 @@ pub fn sync_portal_body_pieces(
             anchor.0.x = -anchor.0.x;
         }
     }
-    let exit_translation = frame.to_render(exit_center, ae::config::WORLD_Z_PLAYER);
+    // Just BELOW the view window: an open window captures this copy on the far
+    // side (one seamless body) and hides the redundant world draw behind
+    // itself; a closed window leaves it as the emerging-body visual over the
+    // rim. See [`crate::PORTAL_EXIT_COPY_Z`].
+    let exit_translation = frame.to_render(exit_center, crate::PORTAL_EXIT_COPY_Z);
     let exit_transform = Transform::from_translation(exit_translation)
         .with_rotation(Quat::from_rotation_z(exit_roll))
         .with_scale(source_transform.scale);

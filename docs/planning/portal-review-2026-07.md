@@ -580,3 +580,53 @@ collision work — they're the same problem.
 | Q6 delete AllowClip/FitToFrame | **Opus-trivial.** |
 | Q8 mechanical generalizations | **Opus-safe** with the cardinal-equivalence acceptance tests. |
 | Q8 polygon pieces / slanted carve | **Fable-tier**, couple to the engine slope/collision decision. |
+
+---
+
+## Part 6 — Round 6: window compositing order (thin-wall c136/c137 double-sprite)
+
+### F9 — LANDED (blind): the view window draws over portal frames + the exit copy
+
+Jon: on the thin-wall door pair the portals/sprites always drew OVER the cone,
+so the exit body copy read as a second sprite laid on top and the far portal's
+frame punched through the window — breaking the illusion. Root cause was the
+draw order: window mesh z ≈ 8.55, portal rim/core/label 9.0–9.2, and the exit
+body copy at `WORLD_Z_PLAYER` = 20 — the window sat under everything. The exit
+copy is ALSO captured by the portal cameras (it's on the world layer), so it
+appeared once in world space AND once inside the window texture — the literal
+"drawn twice."
+
+Fix (one declared z band, `PORTAL_WINDOW_Z` = 9.5 / `PORTAL_EXIT_COPY_Z` =
+9.4 in the presentation lib):
+- The window now draws OVER the portal rims/labels and over the exit copy. It
+  is a captured composite of the far side, so it reads as the single seamless
+  source rather than sitting beneath the far portal's frame.
+- The exit copy sits just BELOW the window: an OPEN window captures it on the
+  far side (one seamless body) and hides the redundant world draw behind
+  itself — killing the double — while a CLOSED window (LOS blocked / windows
+  off) still shows it over the rim as the emerging-body visual.
+- Both stay BELOW actors (`WORLD_Z_PLAYER` = 20), so a near-side actor in
+  front of the aperture still correctly occludes the window (the window
+  recedes INTO the surface; a body in front of the surface is nearer).
+
+Relies on the window material being `AlphaMode2d::Opaque` (Opaque2d phase
+writes depth; Transparent2d sprites depth-test), so z ordering crosses the
+mesh/sprite boundary. Marked BLIND — verify in the lab; if the artifact
+persists it is the phase interaction, not the z value, and the window would
+need a transparent material sorted by z instead.
+
+Tradeoff: the entry portal's own rim/label are now covered by its open window
+(fully seamless glass, per D9). If a thin identifying border is wanted back,
+draw it as a dedicated overlay ON TOP of the window — a small follow-up.
+
+### Q9 — Thin-wall overlapping windows are fundamentally painter's-ambiguous
+
+Two portals on a thin wall have windows that overlap in screen space and share
+the `PORTAL_WINDOW_Z` band; they sort only by viewer proximity, and each
+portal is simultaneously "entry" (own frame wanted on top) and "far" (should
+be hidden inside the partner's window) — a contradiction no single z-per-entity
+resolves. The current fix makes the common case read correctly; a fully
+unambiguous thin-wall composite needs per-window stenciling (mask each
+window's pixels to its own aperture and composite in explicit order) or a
+depth-prepass portal id. Fable-tier; defer until thin-wall doors are a shipping
+mechanic.

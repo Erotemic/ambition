@@ -504,9 +504,12 @@ pub struct PortalViewConeConfig {
     /// the current one-frame-lag recursive feedback. Exact multi-pass finite
     /// depth can later refine this field without changing the dev UI.
     pub recursion_depth: u32,
-    /// Render z of the window mesh. Just BEHIND the portal rim (9.0) so the
-    /// doorway stays crisp over its own view, above world blocks (0) and below
-    /// actors (10+).
+    /// Render z of the window mesh. Defaults to [`crate::PORTAL_WINDOW_Z`]:
+    /// OVER the portal rims/labels (9.0–9.2) and the exit body copy — the
+    /// window is a captured composite of the far side, so it draws as the
+    /// single seamless source, not underneath the far portal's frame or a
+    /// doubled sprite — while staying BELOW actors (20) so a near-side actor
+    /// still occludes it. Above world blocks (0).
     pub z: f32,
     /// Tint multiplied over the capture (opaque — the window draws over what it
     /// is in front of). This is ALSO the **recursion attenuator**: a capture
@@ -558,7 +561,7 @@ impl Default for PortalViewConeConfig {
             texels_per_world_px: 1.0,
             max_resolution: 4096,
             recursion_depth: 1,
-            z: 8.55,
+            z: crate::PORTAL_WINDOW_Z,
             // Pure white: the window is a SEAMLESS view — no tint, so what
             // you see through a portal is exactly the exit chart. The field
             // stays a knob: a below-white tint makes nested recursion levels

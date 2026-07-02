@@ -46,6 +46,26 @@ pub use visuals::{
     PortalBodyPiece, PortalDisorientIndicator, PortalVisual,
 };
 
+/// Portal composite z band — the ONE place the seam's front-to-back order is
+/// declared. A through-portal window shows a captured composite of the FAR
+/// side, so it must draw OVER the portal rims/labels (9.0–9.2) AND over the
+/// exit body copy, which then reads as the single seamless source of the far
+/// side instead of a second sprite laid on top. It stays BELOW actors
+/// (`WORLD_Z_PLAYER` = 20) so a near-side actor standing in front of the
+/// aperture still correctly occludes the window.
+///
+/// The exit copy sits just BELOW the window: wherever a window is open it is
+/// captured INTO that window (one seamless body, no double) and hidden behind
+/// it in world space; wherever no window is open (LOS blocked / windows off)
+/// it still draws over the rim as the emerging-body visual.
+///
+/// NOTE — thin-wall pairs whose two windows overlap in screen space share this
+/// band and sort only by viewer proximity; a fully unambiguous composite there
+/// needs per-window stenciling (see the review report, Q9).
+pub const PORTAL_WINDOW_Z: f32 = 9.5;
+/// The exit body copy z (just below [`PORTAL_WINDOW_Z`]).
+pub const PORTAL_EXIT_COPY_Z: f32 = 9.4;
+
 /// The host-world half of the render transform: the world's size, copied from
 /// the host each frame. Engine coordinates are top-left-origin y-down; Bevy's
 /// 2D camera is centered y-up; [`Self::to_render`] is the one adapter between

@@ -174,7 +174,7 @@ override). One file + its test/help text. *Acceptance:* running
 ### W7 [fable] PackPlan: locality pack-groups — DONE (2026-07-02)
 
 Landed (renderer `b4c9dcd`): `PackPlan` (authored YAML,
-`configs/pack_plan.yaml` — groups: always/intro seeded) partitions the pool;
+`data/pack_plan.yaml` — groups: always/intro seeded) partitions the pool;
 each group packs into its OWN page sequence, tagged in the catalog's new
 `page_groups` (parallel to pages; Rust type + validator updated). Locality
 guarantee pinned by test: a group's frames never share a page with another

@@ -246,6 +246,15 @@ expected_files=(
     viking_shieldmaiden_spritesheet.png viking_shieldmaiden_spritesheet.ron
     viking_warrior_spritesheet.png viking_warrior_spritesheet.ron
     weird_hermit_spritesheet.png weird_hermit_spritesheet.ron
+    # Intro / cut-the-rope content + catalog characters (see the
+    # matching tackon_targets block).
+    cut_rope_anvil_spritesheet.png cut_rope_anvil_spritesheet.ron
+    cut_rope_piano_spritesheet.png cut_rope_piano_spritesheet.ron
+    cut_rope_rope_spritesheet.png cut_rope_rope_spritesheet.ron
+    generic_explosions_spritesheet.png generic_explosions_spritesheet.ron
+    smirking_behemoth_boss_spritesheet.png smirking_behemoth_boss_spritesheet.ron
+    stochastic_parrot_spritesheet.png stochastic_parrot_spritesheet.ron
+    imperfect_cellular_automaton_spritesheet.png imperfect_cellular_automaton_spritesheet.ron
     # Review-config NPCs added to review_cues for full hall coverage.
     goblin_brute_hammer_spritesheet.png goblin_brute_hammer_spritesheet.ron
     goblin_cave_dagger_spritesheet.png goblin_cave_dagger_spritesheet.ron
@@ -321,9 +330,10 @@ all_outputs_present() {
 #
 # Each cache unit (one publishable target) is keyed on:
 #   CORE_SHARED  — a hash of the *shared* renderer infra that any target
-#                  can depend on (top-level package modules, every
-#                  `_*.py` family helper, every `__init__.py`, and this
-#                  orchestrator script). Editing shared infra changes
+#                  can depend on (top-level package modules, the core/
+#                  authoring/registry/cli subpackages, every `_*.py`
+#                  family helper, every `__init__.py`, and the renderer
+#                  dir's top-level scripts). Editing shared infra changes
 #                  CORE_SHARED, which invalidates ALL per-sheet units —
 #                  the conservative, never-stale choice.
 #   leaf hash    — a hash of the target's OWN module file (or package
@@ -331,10 +341,11 @@ all_outputs_present() {
 #                  unit's key, so only that sheet re-renders.
 #
 # This relies on the codebase convention that shared drawing logic lives
-# in a top-level module or a `_`-prefixed helper (e.g. tackon_sheet.py,
-# lasersword_common.py, _pirate_common.py, _held_prop_common.py) — a
-# target must never import a sibling non-`_` leaf module, or a change to
-# that sibling would not invalidate this unit. The renderer already
+# in core/, authoring/, or a `_`-prefixed family helper (e.g.
+# authoring/sheet_build.py, authoring/lasersword_common.py,
+# targets/characters/_pirate_common.py, targets/props/_held_prop_common.py)
+# — a target must never import a sibling non-`_` leaf module, or a change
+# to that sibling would not invalidate this unit. The renderer already
 # follows this convention.
 sheets_cache_dir="$cache_dir/sheets"
 
@@ -346,9 +357,17 @@ compute_core_shared() {
     # `compute_fingerprint`).
     (
         cd "$renderer_dir" || exit 1
-        # Top-level shared package modules (tackon_sheet, sheet,
-        # adapters, actor_contract, lasersword_common, …).
+        # Top-level package modules (__init__, __main__, ldtk_manifest).
         find ambition_sprite2d_renderer -maxdepth 1 -type f -name '*.py' -print0 \
+            | sort -z | xargs -0 sha256sum
+        # Shared render infra subpackages — the draw primitives, sheet
+        # spines, RON emitter, packer, discovery, and CLI every target
+        # renders through. These live in subpackages (core/, authoring/,
+        # registry/, cli/), NOT at the package top level, so the maxdepth-1
+        # find above does not see them.
+        find ambition_sprite2d_renderer/core ambition_sprite2d_renderer/authoring \
+            ambition_sprite2d_renderer/registry ambition_sprite2d_renderer/cli \
+            -type f -name '*.py' -print0 \
             | sort -z | xargs -0 sha256sum
         # Family helpers + package markers under targets/.
         find ambition_sprite2d_renderer/targets -type f \( -name '_*.py' -o -name '__init__.py' \) -print0 \
@@ -465,10 +484,9 @@ echo "==> review NPC sheets (toon-target NPCs) → $sprites_dir"
 # render to a scratch dir, then copy the specific sheets we use
 # in-game into $sprites_dir. Promoting a review config to a
 # permanent runtime sheet means: add the cue id to the copy list
-# below AND register a CharacterSheetSpec for it in
-# `crates/ambition_gameplay_core/src/character_sprites/sheets.rs`, plus
-# wire it into `NPC_SPRITE_REGISTRY` in
-# `crates/ambition_gameplay_core/src/character_sprites/assets.rs`.
+# below AND give it a `character_catalog.ron` entry (specs are built
+# from the sheet RON at load; the old `*_SHEET` statics in
+# character_sprites are gone).
 review_scratch="$renderer_dir/generated/review"
 mkdir -p "$review_scratch"
 (cd "$renderer_dir" && "$python_bin" -m ambition_sprite2d_renderer draw-review --out-dir "$review_scratch")
@@ -527,10 +545,11 @@ for cue in goblin_cantina_chieftain pulse_voyager_captain tech_bro_disruptor; do
 done
 
 echo "==> tack-on targets (render-publish into $sprites_dir)"
-# Every tack-on registered in _TACKON_TARGETS whose YAML manifest the
-# sandbox crate loads. Keep this list in sync with cli.py's _TACKON_TARGETS
-# (mockingbird_boss has its own driver below; pirates go through the
-# standalone publisher).
+# Every registered module target whose manifest the runtime loads.
+# The registry is `registry/discovery.py` (auto-discovered from
+# targets/<category>/ — run `list` to see it); keep this list covering
+# every target the game references (mockingbird_boss has its own driver
+# below; pirates go through the standalone publisher).
 tackon_targets=(
     sandbag
     burning_flying_shark
@@ -554,6 +573,17 @@ tackon_targets=(
     robot_slash
     news_board
     town_tileset
+    # Intro / cut-the-rope content (loaded by ambition_content's intro
+    # sprites + cut_rope boss) and catalog-referenced characters that
+    # were missing from this list — a fresh clone rendered them as
+    # colored rectangles.
+    cut_rope_anvil
+    cut_rope_piano
+    cut_rope_rope
+    generic_explosions
+    smirking_behemoth_boss
+    stochastic_parrot
+    imperfect_cellular_automaton
     # Phase 6 + bonus follow-up: every tack-on character listed by
     # `list-targets` now has a catalog entry; publish them all so the
     # Hall of Characters has a sprite for each.
@@ -686,16 +716,17 @@ echo "==> small enemy sprites (puppy_slug → $sprites_dir)"
 publish_cached puppy_slug
 
 echo "==> tack-on: mockingbird boss (render-publish into $sprites_dir/mockingbird_boss)"
-# Custom generator script + subdir output, so it gets a bespoke
-# per-sheet check rather than `publish_cached`. Its source is the
-# top-level generator script, which is folded into CORE_SHARED.
+# Custom generator CLI + subdir output, so it gets a bespoke per-sheet
+# check rather than `publish_cached`. Its source is the mockingbird_boss
+# package dir, which leaf_hash covers.
 mockingbird_key="$(unit_key mockingbird_boss)"
 if sheet_cache_fresh mockingbird_boss "$mockingbird_key" \
     "$sprites_dir/mockingbird_boss/mockingbird_boss"*"_spritesheet.png"; then
     echo "  [cache] mockingbird_boss up to date — skipped"
 else
-    "$python_bin" "$renderer_dir/mockingbird_boss_sprite_generator.py" render-publish \
-        --install-dir "$sprites_dir/mockingbird_boss"
+    (cd "$renderer_dir" && "$python_bin" \
+        -m ambition_sprite2d_renderer.targets.characters.mockingbird_boss \
+        render-publish --install-dir "$sprites_dir/mockingbird_boss")
     sheet_cache_store mockingbird_boss "$mockingbird_key"
 fi
 
@@ -777,11 +808,12 @@ then
         "quarter 0.25 1 512"
         "potato 0.0625 8 256"
     )
-    # PackPlan (locality groups): authored in the renderer's configs dir;
+    # PackPlan (locality groups): authored in the renderer's data dir (NOT
+    # configs/, which is reserved for CharacterJob YAMLs globbed by draw-all);
     # quality-independent, so the same plan applies to every tier.
     ultrapack_plan=()
-    if [ -f "$renderer_dir/ambition_sprite2d_renderer/configs/pack_plan.yaml" ]; then
-        ultrapack_plan=(--pack-plan "ambition_sprite2d_renderer/configs/pack_plan.yaml")
+    if [ -f "$renderer_dir/ambition_sprite2d_renderer/data/pack_plan.yaml" ]; then
+        ultrapack_plan=(--pack-plan "ambition_sprite2d_renderer/data/pack_plan.yaml")
     fi
     for tier in "${ultrapack_tiers[@]}"; do
         read -r tname tscale tmin tpage <<<"$tier"

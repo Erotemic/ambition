@@ -137,8 +137,7 @@ fn dispatch_pending_dialog_requests(
             warn!(
                 target: "ambition_gameplay_core::dialog::yarn",
                 "start({dialogue_id:?}): Yarn node not found. Add it to a \
-                 file in assets/dialogue/sandbox/*.yarn (and to \
-                 KNOWN_DIALOGUE_IDS in dialog/content.rs)",
+                 file in assets/dialogue/sandbox/*.yarn with a matching title header",
             );
             // Flip everything back so the game doesn't freeze in
             // Dialogue mode. The caller (`interact_*`) set

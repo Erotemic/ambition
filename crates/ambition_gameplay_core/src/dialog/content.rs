@@ -11,12 +11,11 @@
 //!   `close_after` are vestigial fields kept for the existing UI
 //!   layout code (the renderer reads `label` and ignores the rest);
 //!   they're set to `None` / `false` by the bridge.
-//! - [`KNOWN_DIALOGUE_IDS`] — the canonical list of Yarn node ids
-//!   `NpcSpawn.dialogue_id` may reference. The LDtk content
-//!   validator uses this to flag typos.
+//! - [`known_dialogue_ids`] — Yarn node ids `NpcSpawn.dialogue_id` may
+//!   reference. The LDtk content validator uses this to flag typos.
 //!
-//! Adding a dialogue: edit the matching `.yarn` zone file, and
-//! add the new id to [`KNOWN_DIALOGUE_IDS`].
+//! Adding a dialogue: edit the matching `.yarn` zone file. The validator
+//! derives accepted ids from the `title:` headers.
 //!
 //! The pre-migration `DialogTree` / `DialogNode` / `DialogRedirectRule`
 //! / `DialogRegistry` types and the RON registry loader have been
@@ -40,76 +39,59 @@ pub struct DialogChoice {
     pub close_after: bool,
 }
 
-/// Canonical list of Yarn node ids the LDtk `NpcSpawn.dialogue_id`
-/// field may reference. Mirrors the `title:` headers in
-/// `assets/dialogue/sandbox/*.yarn`. The content validator checks
-/// authored ids against this list so typos surface at load time
-/// instead of as silent fallbacks.
-pub const KNOWN_DIALOGUE_IDS: &[&str] = &[
-    // intro.yarn
-    "alice_after_bob_survey",
-    "alice_intro_stub",
-    "bob_after_report",
-    "bob_intro_stub",
-    "creator_final_fast",
-    "creator_final_impossible",
-    "creator_final_normal",
-    "creator_intro",
-    "gate_janitor_ripple",
-    "intro_lab_raider",
-    "intro_salvage_guard",
-    "manifest_kiosk_wrong_list",
-    "news_board_lab_incident",
-    "oiler_intro",
-    "oiler_post_stabilizer",
-    // kernel.yarn
-    "architect_intro",
-    "generic_npc",
-    "hub_guide",
-    "smirking_behemoth_victory_npc",
-    "merchant_seed",
-    "vault_keeper",
-    // factions.yarn
-    "goblin_cantina_chieftain",
-    "military_general",
-    "pulse_voyager_captain",
-    "tech_bros_disruptor",
-    // cove.yarn
-    "pirate_admiral",
-    "pirate_admiral_after_treasure",
-    "pirate_heavy_broadside_bess",
-    "pirate_heavy_iron_mary",
-    "pirate_heavy_salt_annet",
-    "pirate_lookout",
-    "pirate_navigator",
-    "pirate_quartermaster",
-    "pirate_raider",
-    "pirate_raider_after_treasure",
-    "parrot_cove",
-    // dojo.yarn
-    "ninja_duelist",
-    "ninja_leader",
-    // symmetry.yarn — four C4-symmetric Emmy clones, one per kernel face.
-    "emmy_noether",
-    "emmy_noether_left",
-    "emmy_noether_up",
-    "emmy_noether_right",
-    // symmetry.yarn — the Perfect Cell-ular Automaton boss encounter. The
-    // "Challenge it" choice fires <<challenge>> to provoke it into combat.
-    "perfect_cellular_automaton",
+const SANDBOX_YARN_SOURCES: &[&str] = &[
+    include_str!("../../assets/dialogue/sandbox/cove.yarn"),
+    include_str!("../../assets/dialogue/sandbox/dojo.yarn"),
+    include_str!("../../assets/dialogue/sandbox/factions.yarn"),
+    include_str!("../../assets/dialogue/sandbox/hall.yarn"),
+    include_str!("../../assets/dialogue/sandbox/intro.yarn"),
+    include_str!("../../assets/dialogue/sandbox/kernel.yarn"),
+    include_str!("../../assets/dialogue/sandbox/symmetry.yarn"),
 ];
+
+fn yarn_title_ids(source: &'static str) -> impl Iterator<Item = &'static str> {
+    source.lines().filter_map(|line| {
+        let title = line.strip_prefix("title:")?.trim();
+        (!title.is_empty()).then_some(title)
+    })
+}
 
 /// Validator surface (LDtk content_validation reads this). Folds in the
 /// per-character Hall-of-Characters dialogue ids declared in the catalog
 /// (`hall_dialogue_id`), so authored `hall_<id>` nodes are accepted without a
 /// second hand-maintained list — the catalog is their single source of truth.
 pub fn known_dialogue_ids() -> Vec<&'static str> {
-    let mut ids = KNOWN_DIALOGUE_IDS.to_vec();
+    let mut ids: Vec<&'static str> = Vec::new();
+    for source in SANDBOX_YARN_SOURCES {
+        for title in yarn_title_ids(source) {
+            ids.push(title);
+            if let Some((root, _)) = title.split_once("__") {
+                ids.push(root);
+            }
+        }
+    }
     ids.extend(
         crate::character_roster::EMBEDDED_CATALOG
             .characters
             .values()
             .filter_map(|entry| entry.hall_dialogue_id.as_deref()),
     );
+    ids.sort_unstable();
+    ids.dedup();
     ids
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn known_dialogue_ids_are_derived_from_yarn_titles() {
+        let ids = known_dialogue_ids();
+        assert!(ids.contains(&"creator_intro"));
+        assert!(ids.contains(&"oiler_post_stabilizer"));
+        assert!(ids.contains(&"hub_guide__test_sfx"));
+        assert!(ids.contains(&"hall_player"));
+        assert_eq!(ids.windows(2).filter(|pair| pair[0] == pair[1]).count(), 0);
+    }
 }

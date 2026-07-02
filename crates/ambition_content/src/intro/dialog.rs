@@ -32,7 +32,6 @@ pub const INTRO_DIALOGUE_IDS: &[&str] = &[
     "bob_intro_stub",
     "oiler_post_stabilizer",
     "alice_after_bob_survey",
-    "bob_after_report",
 ];
 
 #[allow(dead_code, reason = "test-only accessor for the ownership list")]

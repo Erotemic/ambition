@@ -1,5 +1,9 @@
 use super::*;
 
+fn special_key(key: &str) -> SpecialActionSpec {
+    SpecialActionSpec::Special(key.to_string())
+}
+
 #[test]
 fn special_action_spec_round_trips_through_ron() {
     // Validates the serde derive: boss special-attack tunings can now be
@@ -106,7 +110,7 @@ fn resolve_returns_predictable_request_count_per_intent_subset() {
             speed: 500.0,
             damage: 1,
         }),
-        special: Some(SpecialActionSpec::BubbleShield),
+        special: Some(special_key("bubble_shield")),
         ..Default::default()
     };
     let cases = [
@@ -191,7 +195,7 @@ fn resolve_empty_when_frame_has_no_action_intent() {
             speed: 500.0,
             damage: 1,
         }),
-        special: Some(SpecialActionSpec::BubbleShield),
+        special: Some(special_key("bubble_shield")),
         move_style: MoveStyleSpec::Walk,
     };
     let frame = crate::actor::control::ActorControlFrame::neutral();
@@ -301,7 +305,7 @@ fn action_set_can_attack_detects_melee_or_ranged() {
     assert!(s.can_attack());
     // Special alone doesn't count as "attacks".
     s.ranged = None;
-    s.special = Some(SpecialActionSpec::BubbleShield);
+    s.special = Some(special_key("bubble_shield"));
     assert!(!s.can_attack());
 }
 
@@ -555,9 +559,9 @@ fn action_request_label_returns_per_variant_string() {
     assert_eq!(ranged.label(), "ranged_bolt");
 
     let special = ActionRequest::Special {
-        spec: SpecialActionSpec::BubbleShield,
+        spec: special_key("bubble_shield"),
     };
-    assert_eq!(special.label(), "special_bubble_shield");
+    assert_eq!(special.label(), "special");
 }
 
 #[test]
@@ -573,9 +577,9 @@ fn action_request_display_includes_kind_and_origin() {
     assert!(s.contains("facing"));
 
     let req2 = ActionRequest::Special {
-        spec: SpecialActionSpec::BubbleShield,
+        spec: special_key("bubble_shield"),
     };
-    assert_eq!(format!("{}", req2), "special_bubble_shield");
+    assert_eq!(format!("{}", req2), "special");
 }
 
 #[test]
@@ -684,7 +688,7 @@ fn resolve_multi_intent_emits_multi_request() {
             speed: 380.0,
             damage: 1,
         }),
-        special: Some(SpecialActionSpec::BossSpotlight),
+        special: Some(special_key("boss_spotlight")),
         move_style: MoveStyleSpec::Float,
     };
     let mut frame = crate::actor::control::ActorControlFrame::neutral();

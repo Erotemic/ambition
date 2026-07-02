@@ -789,7 +789,7 @@ mod tests {
         let m_special = ActorActionMessage {
             actor,
             request: ActionRequest::Special {
-                spec: SpecialActionSpec::BubbleShield,
+                spec: SpecialActionSpec::Special("bubble_shield".to_string()),
             },
         };
         assert!(m_special.is_special());

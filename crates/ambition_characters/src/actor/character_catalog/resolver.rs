@@ -305,8 +305,6 @@ fn ranged_from_preset(p: RangedPreset) -> RangedActionSpec {
 
 fn special_from_preset(p: SpecialPreset) -> SpecialActionSpec {
     match p {
-        SpecialPreset::BubbleShield => SpecialActionSpec::BubbleShield,
-        SpecialPreset::BossSpotlight => SpecialActionSpec::BossSpotlight,
         SpecialPreset::Special(key) => SpecialActionSpec::Special(key),
     }
 }

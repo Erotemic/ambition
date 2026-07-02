@@ -356,8 +356,6 @@ pub enum RangedPreset {
 /// technique the runtime action set can emit.
 #[derive(Clone, Debug, Deserialize, PartialEq)]
 pub enum SpecialPreset {
-    BubbleShield,
-    BossSpotlight,
     Special(String),
 }
 

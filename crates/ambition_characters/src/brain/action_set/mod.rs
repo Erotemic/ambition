@@ -474,24 +474,13 @@ pub enum MoveStyleSpec {
     Float,
 }
 
-/// Per-entity signature move. The contents vary widely between
-/// actors — keep the enum small and add variants only when a real
-/// consumer lands.
+/// Per-entity signature move.
 ///
-/// Boss specials are no longer enumerated here: they collapsed into the
-/// open [`SpecialActionSpec::Special`] carrier, whose `String` key a
-/// content-owned *Technique* recognizes (it owns the params + behavior).
-/// Not `Copy` — the key is an owned `String`.
+/// Specials are content-defined string keys. A content-owned *Technique*
+/// recognizes the key and owns the params + behavior. Not `Copy` — the key is
+/// an owned `String`.
 #[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
 pub enum SpecialActionSpec {
-    /// Player-only: deploys the bubble shield. Wired through the
-    /// existing bubble-shield pipeline when Chunk 4 hooks the player
-    /// brain.
-    BubbleShield,
-    /// Boss-only: triggers a phase-specific spotlight attack. The
-    /// content of "spotlight" is resolved by the boss encounter
-    /// driver.
-    BossSpotlight,
     /// An open, content-defined special. The `String` is the special
     /// **key** (snake_case, e.g. `"overfit_volley"`); the matching
     /// content-owned *Technique* reads its own params + emits the
@@ -714,7 +703,7 @@ impl std::fmt::Display for ActionRequest {
 
 impl ActionRequest {
     /// Short label naming the request kind ("melee_swipe",
-    /// "ranged_bolt", "special_bubble_shield", …). Useful for
+    /// "ranged_bolt", "special", …). Useful for
     /// trace logs, debug overlays, and grep-friendly diagnostics
     /// without the verbose Debug rendering.
     #[allow(dead_code, reason = "diagnostic helper for the EFFECTS-flip migration")]
@@ -734,8 +723,6 @@ impl ActionRequest {
                 RangedActionSpec::Bolt { .. } => "ranged_bolt",
             },
             Self::Special { spec } => match spec {
-                SpecialActionSpec::BubbleShield => "special_bubble_shield",
-                SpecialActionSpec::BossSpotlight => "special_boss_spotlight",
                 // Open content special — the key carries the specific
                 // identity (e.g. `overfit_volley`); this static label is
                 // just the kind.

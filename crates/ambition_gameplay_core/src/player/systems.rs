@@ -253,7 +253,7 @@ mod tests {
     }
 
     /// Default player ActionSet has a Swipe melee + Bolt ranged +
-    /// BubbleShield special when the player has all abilities. Pins
+    /// `bubble_shield` special when the player has all abilities. Pins
     /// the sandbox_all() default — EFFECTS consumers
     /// can rely on these slots being filled.
     #[test]
@@ -277,7 +277,7 @@ mod tests {
         ));
         assert!(matches!(
             action_set.special,
-            Some(SpecialActionSpec::BubbleShield)
+            Some(SpecialActionSpec::Special(ref key)) if key == "bubble_shield"
         ));
     }
 

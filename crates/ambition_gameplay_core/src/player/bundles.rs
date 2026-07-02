@@ -167,7 +167,7 @@ impl PlayerSimulationBundle {
 /// - `melee = Some(Swipe)` iff `abilities.attack`
 /// - `ranged = Some(Bolt)` unconditionally today (the existing
 ///   fireball / hadouken path is itself gated by `projectile`)
-/// - `special = Some(BubbleShield)` iff `abilities.shield`
+/// - `special = Some(Special("bubble_shield"))` iff `abilities.shield`
 ///
 /// The resolver won't emit `ActionRequest`s for capabilities the
 /// player doesn't have, so EFFECTS consumers can
@@ -199,9 +199,11 @@ fn default_player_action_set(abilities: ae::AbilitySet) -> ActionSet {
             damage: 1,
         }),
         move_style: MoveStyleSpec::Walk,
-        // Special slot: BubbleShield, gated by the shield ability.
+        // Special slot: bubble_shield, gated by the shield ability.
         // A possessed non-player body keeps that body's ActionSet so
         // this default fires only for actual player entities.
-        special: abilities.shield.then_some(SpecialActionSpec::BubbleShield),
+        special: abilities
+            .shield
+            .then_some(SpecialActionSpec::Special("bubble_shield".to_string())),
     }
 }

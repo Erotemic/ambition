@@ -51,18 +51,17 @@ pub(crate) fn apply_actor_hit(
     combat_banter: Option<&crate::features::banter::CombatBanterRegistry>,
     writers: &mut FeatureHitWriters<'_, '_>,
 ) -> bool {
-    // Body-generic post-hit i-frame (the analogue of the player's
-    // `BodyCombat.vulnerable()` gate): a body that registered a hit within the last
-    // `ACTOR_DAMAGE_IFRAME_S` ignores further hits. Without this, a sustained
-    // overlap — a lingering attack volume, body contact, or a dialog-pinned body
-    // next to an enemy — re-registered a hit (damage + sound + particles) EVERY
-    // frame. The window collapses that to one hit per window for any body. Returns
-    // false so the caller's `actor_hit_this_event` stays unset (no sfx/hitstop, no
-    // per-swing dedup record).
-    if !combat.vulnerable() {
-        return false;
-    }
     if disposition.is_peaceful() {
+        // Body-generic post-hit i-frame — the same consume-time gate
+        // `resolve_body_hit` applies to a hostile body: a body that registered
+        // a hit within the last `ACTOR_DAMAGE_IFRAME_S` ignores further hits,
+        // collapsing a sustained 60 fps overlap (lingering attack volume, body
+        // contact, dialog-pinned body next to an enemy) to one hit per window.
+        // Returns false so the caller's `actor_hit_this_event` stays unset
+        // (no sfx/hitstop, no per-swing dedup record).
+        if !combat.vulnerable() {
+            return false;
+        }
         // Peaceful actor (talkable NPC): accumulate strikes + barks and emit a
         // retaliation stimulus. No health damage — the flip to hostile is the
         // consequence, handled by `apply_actor_stimuli`.
@@ -118,17 +117,45 @@ pub(crate) fn apply_actor_hit(
         }
         true
     } else {
-        if !em.health.alive() {
+        // Combat banter — decided BEFORE the resolver mutates state: the bark
+        // dedups on a near-zero hit_flash (first non-overlapping hit) and its
+        // line index reads pre-damage HP. A blocked hit barks too (the body
+        // was struck), matching the resolver's "registered hit" notion.
+        let should_bark = combat.hit_flash < 0.05;
+        let strikes = (em.health.max() - em.health.current()).max(0) as u32;
+        let gravity_dir = -em
+            .surface
+            .surface_normal
+            .normalize_or(ae::Vec2::new(0.0, -1.0));
+        let caps = em.caps.clone();
+        // THE shared victim-side mechanics (§A2): consume-time i-frame gate,
+        // the reactive shield block (the body's RESOLVED guard — a possessing
+        // human and an AI brain block identically, invariants I2/I3; the same
+        // frame-agnostic directional rule the player uses), damage, death
+        // flag, and hit-flash/i-frame arming. Actors pass multiplier 1.0 —
+        // difficulty scaling is player policy.
+        let resolution = crate::combat::damage::resolve_body_hit(
+            combat,
+            Some(&mut *em.health),
+            em.shield.active,
+            em.kin.facing,
+            em.kin.pos,
+            event.volume.center(),
+            gravity_dir,
+            event.damage,
+            1.0,
+            caps.never_dies,
+            crate::combat::damage::BodyHitFeel {
+                hit_flash: 0.16,
+                damage_invuln_time: super::super::actor_clusters::ACTOR_DAMAGE_IFRAME_S,
+                block_hit_flash: 0.16,
+                block_invuln_floor: super::super::actor_clusters::ACTOR_DAMAGE_IFRAME_S,
+            },
+        );
+        if resolution == crate::combat::damage::BodyHitResolution::Ignored {
             return false;
         }
-        // Combat banter — fire a speech bubble only on
-        // the first non-overlapping hit (hit_flash near
-        // zero before we re-set it below).
-        let should_bark = combat.hit_flash < 0.05;
-        combat.hit_flash = 0.16;
-        combat.damage_invuln_timer = super::super::actor_clusters::ACTOR_DAMAGE_IFRAME_S;
         if should_bark {
-            let strikes = (em.health.max() - em.health.current()).max(0) as u32;
             // Catalog-first: resolve the enemy's catalog id from its display
             // name (the identity every actor carries) and read its `on_hit`
             // pool. TEMP fallback to the CombatBanterRegistry until enemy rows
@@ -151,61 +178,39 @@ pub(crate) fn apply_actor_hit(
                 });
             }
         }
-        // Reactive block: a body with its shield raised (resolved from the
-        // controller's `shield_held` attempt in `update_ecs_actors`, gated by
-        // `CombatCapabilities::can_shield`) fully negates a hit coming from the
-        // side it faces — it can't guard its back. This is the SAME frame-agnostic
-        // directional rule the player's shield uses (`shield_blocks_hit`), so a
-        // possessing human and an AI brain block identically (invariants I2/I3).
-        // The guard costs nothing here but consumes the hit: no damage, no
-        // knockback, just a clang. A blocked hit still counts as "took the hit"
-        // (returns true) so the caller plays the shared hitstop.
-        if em.shield.active {
-            let gravity_dir = -em
-                .surface
-                .surface_normal
-                .normalize_or(ae::Vec2::new(0.0, -1.0));
-            if crate::combat::damage::shield_blocks_hit(
-                true,
-                em.kin.facing,
-                em.kin.pos,
-                event.volume.center(),
-                gravity_dir,
-            ) {
-                let impact = midpoint(event.volume.center(), em.kin.pos);
-                writers.sfx.write(SfxMessage::Play {
-                    id: ambition_sfx::ids::WORLD_ROCK_HIT,
-                    pos: em.kin.pos,
-                });
-                writers.vfx.write(VfxMessage::Impact { pos: impact });
-                writers.vfx.write(VfxMessage::Burst {
-                    pos: impact,
-                    count: 8,
-                    speed: 160.0,
-                    color: [0.78, 0.90, 1.0, 0.90],
-                    kind: ParticleKind::Spark,
-                });
-                return true;
-            }
+        if resolution == crate::combat::damage::BodyHitResolution::Blocked {
+            // The guard costs nothing but consumes the hit: no damage, no
+            // knockback, just a clang. A blocked hit still counts as "took the
+            // hit" (returns true) so the caller plays the shared hitstop.
+            let impact = midpoint(event.volume.center(), em.kin.pos);
+            writers.sfx.write(SfxMessage::Play {
+                id: ambition_sfx::ids::WORLD_ROCK_HIT,
+                pos: em.kin.pos,
+            });
+            writers.vfx.write(VfxMessage::Impact { pos: impact });
+            writers.vfx.write(VfxMessage::Burst {
+                pos: impact,
+                count: 8,
+                speed: 160.0,
+                color: [0.78, 0.90, 1.0, 0.90],
+                kind: ParticleKind::Spark,
+            });
+            return true;
         }
+        let killed = matches!(
+            resolution,
+            crate::combat::damage::BodyHitResolution::Damaged { died: true, .. }
+        );
+        // Slash knockback: still the actor path's inline pop — adopting the
+        // player's feel-tuned `resolved_player_knockback_velocity` is §A2
+        // step 6, a separate feel-blind change.
         if let HitSource::PlayerSlash { knock_x } = &event.source {
-            let gravity_dir = -em
-                .surface
-                .surface_normal
-                .normalize_or(ae::Vec2::new(0.0, -1.0));
             let frame = ae::AccelerationFrame::new(gravity_dir);
             let mut local_vel = frame.to_local(em.kin.vel);
             local_vel.x += *knock_x;
             local_vel.y = (local_vel.y - 90.0).max(-280.0);
             em.kin.vel = frame.to_world(local_vel);
         }
-        let damage_amount = event.damage.max(1);
-        let caps = em.caps.clone();
-        let killed = if caps.never_dies {
-            false
-        } else {
-            em.health.damage(damage_amount)
-        };
         let impact = midpoint(event.volume.center(), em.kin.pos);
         writers.vfx.write(VfxMessage::Impact { pos: impact });
         // Cling-break: a struck surface-walker (puppy-slug) is knocked off

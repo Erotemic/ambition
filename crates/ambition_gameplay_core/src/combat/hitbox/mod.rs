@@ -74,7 +74,9 @@ pub fn apply_hitbox_damage(
     // 2026-07-02 §A3 — this system used to run separate actor and player
     // victim loops whose faction rules and hurtboxes had drifted). The
     // vulnerability clusters are `Option` so a boss body (which doesn't carry
-    // the player-ish clusters yet — §A1) still matches as a victim.
+    // the player-ish clusters yet — §A1) still matches as a victim; since §A2
+    // they are read only to MUTE feedback (i-frames are consumed by
+    // `resolve_body_hit` on the victim side, never decided here).
     victims: Query<(
         Entity,
         &super::components::CenteredAabb,
@@ -152,10 +154,10 @@ pub fn apply_hitbox_damage(
                 // same relational rule (`damage_lands` = different-faction ||
                 // personal grudge; `can_damage` for a Player victim is the same
                 // predicate since a player is never the aggressor's faction) and
-                // the same published hurtbox. Victim KIND picks only policy:
-                // a player victim gets the emit-side vulnerability gate (actor
-                // i-frames resolve at consume time — collapses in §A2), the
-                // knockback payload, and the richer feedback.
+                // the same published hurtbox. i-frames resolve at CONSUME time
+                // for every body (`resolve_body_hit`, §A2). Victim KIND picks
+                // only policy: a player victim gets the knockback payload and
+                // the richer feedback.
                 for (victim_entity, victim_aabb, victim_faction, victim_brain, vuln, is_player) in
                     &victims
                 {
@@ -179,16 +181,20 @@ pub fn apply_hitbox_damage(
                     if !world_volume.intersects_aabb(victim_body) {
                         continue;
                     }
-                    if is_player {
-                        let Some((offense, dodge, shield, combat)) = vuln else {
-                            continue;
-                        };
-                        if !crate::combat::damage::body_vulnerable(offense, dodge, shield, combat) {
-                            continue;
-                        }
-                    }
+                    // §A2: the EVENT always flows — i-frames resolve at CONSUME
+                    // time in `resolve_body_hit`, the same for every body (this
+                    // was the last emit/consume asymmetry). The vulnerability
+                    // read below is FEEDBACK policy only: don't play the
+                    // hit-landed sfx/burst for a hit the consumer will ignore
+                    // (dodge roll, parry, i-frame window).
+                    let feedback = !is_player
+                        || vuln.map_or(true, |(offense, dodge, shield, combat)| {
+                            crate::combat::damage::body_vulnerable(offense, dodge, shield, combat)
+                        });
                     let impact = midpoint(victim_aabb.center, world_volume.center());
-                    vfx.write(VfxMessage::Impact { pos: impact });
+                    if feedback {
+                        vfx.write(VfxMessage::Impact { pos: impact });
+                    }
                     let knockback = if is_player {
                         // Knockback side in the victim's LOCAL frame (§B11):
                         // under sideways gravity the attacker and victim separate
@@ -203,21 +209,23 @@ pub fn apply_hitbox_damage(
                         } else {
                             -1.0
                         };
-                        sfx.write(SfxMessage::Play {
-                            id: ambition_sfx::ids::PLAYER_DAMAGE,
-                            pos: impact,
-                        });
-                        vfx.write(VfxMessage::Burst {
-                            pos: impact,
-                            count: 14,
-                            speed: 300.0,
-                            color: [1.0, 0.34, 0.28, 0.88],
-                            kind: ParticleKind::Shard,
-                        });
-                        debris.write(DebrisBurstMessage {
-                            pos: impact,
-                            cue: PhysicsDebrisCue::Impact,
-                        });
+                        if feedback {
+                            sfx.write(SfxMessage::Play {
+                                id: ambition_sfx::ids::PLAYER_DAMAGE,
+                                pos: impact,
+                            });
+                            vfx.write(VfxMessage::Burst {
+                                pos: impact,
+                                count: 14,
+                                speed: 300.0,
+                                color: [1.0, 0.34, 0.28, 0.88],
+                                kind: ParticleKind::Shard,
+                            });
+                            debris.write(DebrisBurstMessage {
+                                pos: impact,
+                                cue: PhysicsDebrisCue::Impact,
+                            });
+                        }
                         Some(HitKnockback {
                             dir,
                             strength: hitbox.knockback_strength.max(0.0),

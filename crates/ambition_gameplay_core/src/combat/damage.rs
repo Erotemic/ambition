@@ -26,7 +26,7 @@ use crate::actor::{PlayerEntity, PrimaryPlayer, PrimaryPlayerOnly};
 use crate::audio::SfxMessage;
 use crate::dev::dev_tools::EditableMovementTuning;
 use crate::features::{self, GameplayBanner, HitEvent as FeatureHitEvent};
-use crate::player::{PlayerAnimState, PlayerInputFrame, PlayerSafetyState};
+use crate::player::{PlayerAnimState, PlayerSafetyState};
 use crate::time::clock_state::ClockState;
 use crate::time::feel::SandboxFeelTuning;
 use crate::{
@@ -71,6 +71,95 @@ pub fn shield_blocks_hit(
     let local_side_delta = frame.to_local(hit_pos - player_pos).x;
     // Same local-side sign => the hit is on the side the controlled body faces.
     local_side_delta.signum() == facing.signum()
+}
+
+/// Per-body feel values for [`resolve_body_hit`] — how hard the hit reads on
+/// THIS body (blink length, i-frame window), not whether it lands. The player
+/// and actors pass different numbers; the rule is one.
+#[derive(Clone, Copy, Debug)]
+pub struct BodyHitFeel {
+    /// Damage-blink armed on a damaging hit.
+    pub hit_flash: f32,
+    /// Post-hit i-frame window armed on a damaging hit.
+    pub damage_invuln_time: f32,
+    /// Damage-blink armed on a BLOCKED hit (0.0 leaves the flash untouched).
+    pub block_hit_flash: f32,
+    /// Guard i-frame on a blocked hit: the timer is raised to at least this.
+    pub block_invuln_floor: f32,
+}
+
+/// What [`resolve_body_hit`] decided about one hit on one body.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub enum BodyHitResolution {
+    /// The hit doesn't register at all: the body is inside its post-hit
+    /// i-frame window, or already dead. No state was touched — the caller
+    /// plays no feedback and records no landed hit.
+    Ignored,
+    /// The body's raised shield consumed the hit: no damage, but the hit DID
+    /// register (guard i-frame armed; the caller plays block feedback).
+    Blocked,
+    /// The hit landed. `damage` is the post-multiplier amount applied; `died`
+    /// is whether it killed the body.
+    Damaged { damage: i32, died: bool },
+}
+
+/// THE one victim-side hit resolver every body shares (fable review 2026-07-02
+/// §A2): consume-time i-frame gate → directional shield block → scaled damage →
+/// death flag → hit-flash/i-frame arming. The player and actor consumers both
+/// call this; what stays outside is genuine per-body POLICY (difficulty
+/// multiplier choice, death→respawn vs death→drops, peaceful-actor barks,
+/// knockback style — the last is step 6 of the §A2 plan).
+///
+/// MECHANICS contract:
+/// - i-frames are consumed HERE, at consume time, for every body — no emitter
+///   decides them (an emitter may still read `body_vulnerable` to early-out or
+///   mute feedback, but the event must flow).
+/// - `damage_multiplier` is a policy hook (player: difficulty × assist;
+///   actors: 1.0). A landed hit always deals at least 1 damage.
+/// - `never_dies` bodies (training dummies) take no health damage at all.
+/// - `health: None` (headless test bodies) resolves as damaged-but-undying.
+#[allow(clippy::too_many_arguments)]
+pub fn resolve_body_hit(
+    combat: &mut BodyCombat,
+    mut health: Option<&mut BodyHealth>,
+    shield_active: bool,
+    facing: f32,
+    body_pos: ae::Vec2,
+    impact_pos: ae::Vec2,
+    gravity_dir: ae::Vec2,
+    raw_damage: i32,
+    damage_multiplier: f32,
+    never_dies: bool,
+    feel: BodyHitFeel,
+) -> BodyHitResolution {
+    if !combat.vulnerable() {
+        return BodyHitResolution::Ignored;
+    }
+    if let Some(health) = health.as_deref() {
+        if !health.alive() {
+            return BodyHitResolution::Ignored;
+        }
+    }
+    if shield_blocks_hit(shield_active, facing, body_pos, impact_pos, gravity_dir) {
+        if feel.block_hit_flash > 0.0 {
+            combat.hit_flash = feel.block_hit_flash;
+        }
+        combat.damage_invuln_timer = combat.damage_invuln_timer.max(feel.block_invuln_floor);
+        return BodyHitResolution::Blocked;
+    }
+    combat.hit_flash = feel.hit_flash;
+    combat.damage_invuln_timer = feel.damage_invuln_time;
+    let damage = ((raw_damage as f32) * damage_multiplier).round() as i32;
+    let damage = damage.max(1);
+    let died = if never_dies {
+        false
+    } else {
+        health
+            .as_deref_mut()
+            .map(|health| health.damage(damage))
+            .unwrap_or(false)
+    };
+    BodyHitResolution::Damaged { damage, died }
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -136,97 +225,92 @@ pub(crate) fn handle_player_damage_events(
     anim: &mut PlayerAnimState,
     combat: &mut BodyCombat,
 ) {
-    let Some(mut damage) = damage_events.first().cloned() else {
+    let Some(damage) = damage_events.first().cloned() else {
         return;
     };
-    // Invincibility (debug toggle): drop the damage event entirely
-    // before any state mutates so testing systems that consume HP
-    // (boss phases, encounter pacing, music) can run uninterrupted.
-    if clusters.offense.invincible {
+    // Consume-time vulnerability (§A2): invincibility (debug toggle),
+    // dodge-roll i-frames, and an active parry drop the event before any state
+    // mutates. The post-hit i-frame window is consumed inside the resolver —
+    // the SAME rule for every body; emitters no longer decide it.
+    if !body_vulnerable(clusters.offense, clusters.dodge, clusters.shield, combat) {
         return;
     }
-    // Shield block: a held shield fully negates a hit coming from the side the
-    // player faces (you can't guard your back). Costs nothing but a short guard
-    // i-frame; a defensive verb to complement the offensive/movement abilities.
-    let guard_impact = damage
-        .knockback
-        .as_ref()
-        .map(|k| k.impact_pos)
-        .unwrap_or_else(|| damage.volume.center());
-    // The body's RESOLVED guard (`resolve_shield`: ability-gated, dash-blocked),
-    // not the raw held input — the body enforces, the controller only attempts
-    // (invariant I3; fable review §A2). The raw-input form let a body with no
-    // shield ability block, and let a guard hold through a dash.
-    if shield_blocks_hit(
-        clusters.shield.active,
-        clusters.kinematics.facing,
-        clusters.kinematics.pos,
-        guard_impact,
-        tuning.gravity_dir,
-    ) {
-        sfx.write(SfxMessage::Play {
-            id: ambition_sfx::ids::WORLD_ROCK_HIT,
-            pos: clusters.kinematics.pos,
-        });
-        combat.damage_invuln_timer = combat.damage_invuln_timer.max(0.12);
-        banner.show("blocked", 1.0);
-        return;
-    }
-    // Difficulty / assist scaling. Easy halves incoming damage, hard
-    // doubles it; the menu setting also exposes a fine-grained
-    // gameplay damage multiplier. The minimum is one HP so a damage
-    // event always lands somewhere.
-    let scaled = ((damage.damage as f32) * difficulty_multiplier).round() as i32;
-    damage.damage = scaled.max(1);
-    let died_from_damage = if let Some(health) = player_health.as_deref_mut() {
-        health.damage(damage.damage)
-    } else {
-        false
-    };
     let impact_pos = damage
         .knockback
         .as_ref()
         .map(|k| k.impact_pos)
         .unwrap_or_else(|| damage.volume.center());
-    if died_from_damage {
-        // Attribution for the death fact: the killing hit's source category
-        // plus its attacker entity when the source carries one.
-        let cause = crate::DeathCause {
-            source: damage.source.clone(),
-            attacker: damage.attacker,
-        };
-        death_respawn_player(
-            world,
-            sfx,
-            vfx,
-            died,
-            clusters,
-            sim_state,
-            clock,
-            safety,
-            banner,
-            player_health,
-            tuning,
-            feel,
-            impact_pos,
-            cause,
-            anim,
-            combat,
-        );
-        return;
-    }
-    match damage.mode {
-        features::HitMode::SafeRespawn => {
-            safe_respawn_player(
-                sfx, vfx, clusters, clock, safety, combat, tuning, feel, impact_pos,
+    // THE shared mechanics: shield block (the body's RESOLVED guard —
+    // `resolve_shield` is ability-gated and dash-blocked, invariant I3),
+    // difficulty-scaled damage, death flag, hit-flash + i-frame arming.
+    // Difficulty is player POLICY: easy halves incoming damage, hard doubles
+    // it, plus the fine-grained gameplay multiplier and assist factor.
+    let resolution = resolve_body_hit(
+        combat,
+        player_health.as_deref_mut(),
+        clusters.shield.active,
+        clusters.kinematics.facing,
+        clusters.kinematics.pos,
+        impact_pos,
+        tuning.gravity_dir,
+        damage.damage,
+        difficulty_multiplier,
+        false,
+        BodyHitFeel {
+            hit_flash: 0.20,
+            damage_invuln_time: feel.knockback_invulnerability_time,
+            block_hit_flash: 0.0,
+            block_invuln_floor: 0.12,
+        },
+    );
+    match resolution {
+        BodyHitResolution::Ignored => {}
+        BodyHitResolution::Blocked => {
+            sfx.write(SfxMessage::Play {
+                id: ambition_sfx::ids::WORLD_ROCK_HIT,
+                pos: clusters.kinematics.pos,
+            });
+            banner.show("blocked", 1.0);
+        }
+        BodyHitResolution::Damaged { died: true, .. } => {
+            // Attribution for the death fact: the killing hit's source category
+            // plus its attacker entity when the source carries one.
+            let cause = crate::DeathCause {
+                source: damage.source.clone(),
+                attacker: damage.attacker,
+            };
+            death_respawn_player(
+                world,
+                sfx,
+                vfx,
+                died,
+                clusters,
+                sim_state,
+                clock,
+                safety,
+                banner,
+                player_health,
+                tuning,
+                feel,
+                impact_pos,
+                cause,
+                anim,
+                combat,
             );
         }
-        features::HitMode::Knockback => {
-            // Getting hit knocks you off a ledge grab — you fall with the
-            // knockback instead of hanging there immune.
-            clusters.ledge.knock_off_on_hit();
-            apply_player_knockback(sfx, vfx, clusters, combat, tuning, feel, &damage);
-        }
+        BodyHitResolution::Damaged { died: false, .. } => match damage.mode {
+            features::HitMode::SafeRespawn => {
+                safe_respawn_player(
+                    sfx, vfx, clusters, clock, safety, combat, tuning, feel, impact_pos,
+                );
+            }
+            features::HitMode::Knockback => {
+                // Getting hit knocks you off a ledge grab — you fall with the
+                // knockback instead of hanging there immune.
+                clusters.ledge.knock_off_on_hit();
+                apply_player_knockback(sfx, vfx, clusters, combat, tuning, feel, &damage);
+            }
+        },
     }
 }
 
@@ -335,9 +419,9 @@ pub(crate) fn apply_player_knockback(
     // clears (while still in hitstun + i-frames). Fixed-length — the recoil is a
     // readable beat, not something that scales with how hard the hit was.
     combat.recoil_lock_timer = feel.knockback_recoil_lock_time;
-    combat.damage_invuln_timer = feel.knockback_invulnerability_time;
+    // hit_flash + damage_invuln_timer are armed by `resolve_body_hit` before
+    // this runs — knockback owns only the launch + control-lock timers.
     combat.hitstop_timer = feel.player_damage_hitstop_time;
-    combat.hit_flash = 0.20;
     sfx.write(SfxMessage::Hit { pos: impact_pos });
     vfx.write(VfxMessage::Impact { pos: impact_pos });
 }
@@ -381,7 +465,6 @@ pub fn apply_player_hit_events(
     mut player_q: Query<
         (
             Entity,
-            &PlayerInputFrame,
             ae::BodyClusterQueryData,
             Option<&mut BodyHealth>,
             &mut PlayerAnimState,
@@ -448,7 +531,7 @@ pub fn apply_player_hit_events(
         })
         .collect();
 
-    for (player_entity, input, mut cluster_item, player_health, mut anim, mut combat, mut safety) in
+    for (player_entity, mut cluster_item, player_health, mut anim, mut combat, mut safety) in
         &mut player_q
     {
         let target_events: Vec<FeatureHitEvent> = resolved
@@ -550,6 +633,234 @@ mod tests {
                 right_gravity,
             ),
             "world-down is behind a body facing local-right under right gravity"
+        );
+    }
+
+    fn test_health(hp: i32) -> BodyHealth {
+        BodyHealth::new(ambition_characters::actor::Health::new(hp))
+    }
+
+    const TEST_FEEL: BodyHitFeel = BodyHitFeel {
+        hit_flash: 0.16,
+        damage_invuln_time: 0.2,
+        block_hit_flash: 0.16,
+        block_invuln_floor: 0.2,
+    };
+
+    const DOWN: ae::Vec2 = ae::Vec2::new(0.0, 1.0);
+
+    #[test]
+    fn resolver_ignores_a_hit_inside_the_i_frame_window() {
+        let mut combat = BodyCombat {
+            damage_invuln_timer: 0.1,
+            hit_flash: 0.5, // pre-poison: an Ignored hit must not touch state
+            ..Default::default()
+        };
+        let mut health = test_health(5);
+        let pos = ae::Vec2::new(100.0, 200.0);
+        let res = resolve_body_hit(
+            &mut combat,
+            Some(&mut health),
+            false,
+            1.0,
+            pos,
+            pos + ae::Vec2::new(50.0, 0.0),
+            DOWN,
+            3,
+            1.0,
+            false,
+            TEST_FEEL,
+        );
+        assert_eq!(res, BodyHitResolution::Ignored);
+        assert_eq!(health.current(), 5, "ignored hit deals no damage");
+        assert_eq!(combat.hit_flash, 0.5, "ignored hit arms nothing");
+    }
+
+    #[test]
+    fn resolver_ignores_a_hit_on_a_dead_body() {
+        let mut combat = BodyCombat::default();
+        let mut health = test_health(5);
+        health.damage(5);
+        let pos = ae::Vec2::new(100.0, 200.0);
+        let res = resolve_body_hit(
+            &mut combat,
+            Some(&mut health),
+            false,
+            1.0,
+            pos,
+            pos + ae::Vec2::new(50.0, 0.0),
+            DOWN,
+            3,
+            1.0,
+            false,
+            TEST_FEEL,
+        );
+        assert_eq!(res, BodyHitResolution::Ignored);
+    }
+
+    #[test]
+    fn resolver_shield_blocks_a_faced_hit_and_arms_the_guard_i_frame() {
+        let mut combat = BodyCombat::default();
+        let mut health = test_health(5);
+        let pos = ae::Vec2::new(100.0, 200.0);
+        let res = resolve_body_hit(
+            &mut combat,
+            Some(&mut health),
+            true,
+            1.0,
+            pos,
+            pos + ae::Vec2::new(50.0, 0.0),
+            DOWN,
+            3,
+            1.0,
+            false,
+            TEST_FEEL,
+        );
+        assert_eq!(res, BodyHitResolution::Blocked);
+        assert_eq!(health.current(), 5, "a blocked hit deals no damage");
+        assert!(
+            combat.damage_invuln_timer >= TEST_FEEL.block_invuln_floor,
+            "block arms the guard i-frame"
+        );
+        assert_eq!(combat.hit_flash, TEST_FEEL.block_hit_flash);
+        // A hit from BEHIND the guard still lands.
+        let mut combat = BodyCombat::default();
+        let res = resolve_body_hit(
+            &mut combat,
+            Some(&mut health),
+            true,
+            1.0,
+            pos,
+            pos + ae::Vec2::new(-50.0, 0.0),
+            DOWN,
+            3,
+            1.0,
+            false,
+            TEST_FEEL,
+        );
+        assert_eq!(
+            res,
+            BodyHitResolution::Damaged {
+                damage: 3,
+                died: false
+            }
+        );
+    }
+
+    #[test]
+    fn resolver_scales_damage_arms_feel_and_floors_at_one() {
+        let mut combat = BodyCombat::default();
+        let mut health = test_health(10);
+        let pos = ae::Vec2::new(0.0, 0.0);
+        let res = resolve_body_hit(
+            &mut combat,
+            Some(&mut health),
+            false,
+            1.0,
+            pos,
+            pos,
+            DOWN,
+            3,
+            2.0,
+            false,
+            TEST_FEEL,
+        );
+        assert_eq!(
+            res,
+            BodyHitResolution::Damaged {
+                damage: 6,
+                died: false
+            }
+        );
+        assert_eq!(health.current(), 4);
+        assert_eq!(combat.hit_flash, TEST_FEEL.hit_flash);
+        assert_eq!(combat.damage_invuln_timer, TEST_FEEL.damage_invuln_time);
+        // A landed hit always deals at least 1 (assist can't zero it out).
+        let mut combat = BodyCombat::default();
+        let res = resolve_body_hit(
+            &mut combat,
+            Some(&mut health),
+            false,
+            1.0,
+            pos,
+            pos,
+            DOWN,
+            1,
+            0.1,
+            false,
+            TEST_FEEL,
+        );
+        assert_eq!(
+            res,
+            BodyHitResolution::Damaged {
+                damage: 1,
+                died: false
+            }
+        );
+    }
+
+    #[test]
+    fn resolver_reports_death_and_never_dies_takes_no_damage() {
+        let mut combat = BodyCombat::default();
+        let mut health = test_health(2);
+        let pos = ae::Vec2::new(0.0, 0.0);
+        let res = resolve_body_hit(
+            &mut combat,
+            Some(&mut health),
+            false,
+            1.0,
+            pos,
+            pos,
+            DOWN,
+            5,
+            1.0,
+            false,
+            TEST_FEEL,
+        );
+        assert_eq!(
+            res,
+            BodyHitResolution::Damaged {
+                damage: 5,
+                died: true
+            }
+        );
+        assert!(!health.alive());
+        // A `never_dies` body (training dummy) registers the hit but its HP
+        // never moves.
+        let mut combat = BodyCombat::default();
+        let mut health = test_health(2);
+        let res = resolve_body_hit(
+            &mut combat,
+            Some(&mut health),
+            false,
+            1.0,
+            pos,
+            pos,
+            DOWN,
+            5,
+            1.0,
+            true,
+            TEST_FEEL,
+        );
+        assert_eq!(
+            res,
+            BodyHitResolution::Damaged {
+                damage: 5,
+                died: false
+            }
+        );
+        assert_eq!(health.current(), 2);
+        // A headless body with no health component is damaged-but-undying.
+        let mut combat = BodyCombat::default();
+        let res = resolve_body_hit(
+            &mut combat, None, false, 1.0, pos, pos, DOWN, 5, 1.0, false, TEST_FEEL,
+        );
+        assert_eq!(
+            res,
+            BodyHitResolution::Damaged {
+                damage: 5,
+                died: false
+            }
         );
     }
 

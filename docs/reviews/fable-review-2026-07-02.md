@@ -701,7 +701,7 @@ work is committed linearly on main; the tree is green.
 **Verify before you start** (and after every change):
 ```bash
 ~/.cargo/bin/cargo test -p ambition_engine_core --lib      # 211, incl. the C4 harness
-~/.cargo/bin/cargo test -p ambition_gameplay_core --lib    # 1082
+~/.cargo/bin/cargo test -p ambition_gameplay_core --lib    # 1087
 ~/.cargo/bin/cargo test -p ambition_app --test possession_end_to_end \
   --test unified_melee --test gravity_symmetry_room \
   --test player_robot_fights_player --test enemy_attacks_player --test duel_arena
@@ -725,9 +725,9 @@ work is committed linearly on main; the tree is green.
   surface; Jon can only read, not ask.
 
 **Work queue, in order** (details in "Next" at the end of the log):
-1. **A2** — extract `resolve_body_hit` (design fully written below; steps 1–5
-   behavior-preserving first, then knockback-adoption and actor-hitstun as two
-   separate blind feel commits).
+1. **A2** — steps 1–5 (the shared `resolve_body_hit`) are DONE (E11); what
+   remains is knockback-adoption (step 6) and actor-hitstun (step 7) as two
+   separate blind feel commits.
 2. **A1** — boss island dissolution (sketch below; afterwards grep `§A1` and
    `Without<BossConfig>` to remove the victim special-cases added this session).
 3. Then the engine/content + decomposition tracks, roughly: **D1** facade
@@ -923,24 +923,40 @@ rule gates both). Now reads `clusters.shield.active` — invariant I3 (the body
 enforces, the controller attempts), and the same authority the actor victim
 path already used. 1082/1082 + shield-adjacent integration suites green.
 
-## Next (in order) — A2 full design (mapped this session, ready to execute)
+### E11. A2 steps 1–5 — ONE `resolve_body_hit` for player + actor victims ✅
+`combat::damage::resolve_body_hit(combat, health, shield_active, facing, pos,
+impact, gravity_dir, raw_damage, multiplier, never_dies, BodyHitFeel) ->
+BodyHitResolution{Ignored|Blocked|Damaged{damage,died}}` — the one victim-side
+mechanics core, called by BOTH consumers. It owns: the consume-time i-frame
+gate (`combat.vulnerable()` + already-dead → `Ignored`, for EVERY body), the
+directional shield block (arms the guard i-frame; the player's 0.12 floor and
+the actor's full window are `BodyHitFeel` values), damage scaling
+(player: difficulty × assist × setting; actor: 1.0; floor 1), `health.damage()`
++ died flag (`never_dies` pre-gates so a dummy's HP never moves; `health: None`
+headless bodies are damaged-but-undying), and hit-flash + i-frame arming
+(player 0.20/`knockback_invulnerability_time` — moved OUT of
+`apply_player_knockback`, which now owns only launch + control-lock timers;
+actor 0.16/`ACTOR_DAMAGE_IFRAME_S`, same values as before). What stays in the
+consumers is genuine policy: player difficulty choice + SafeRespawn/death →
+respawn + banner; actor peaceful-branch, barks (snapshotted pre-resolver so
+the dedup-on-flash and pre-damage strike count are unchanged), cling-detach
+pop, death → drops/respawn-timer/split/explode. The player's emit-side gate in
+`apply_hitbox_damage` is GONE as an event-dropper — the event always flows and
+i-frames resolve at consume time for every body (the last emit/consume
+asymmetry); the emit-side `body_vulnerable` read remains ONLY to mute the
+hit-landed feedback (sfx/burst/debris) for a hit the consumer will ignore.
+Two consequences to know: an i-framed player now consumes a hitbox's
+per-victim dedup slot exactly like an actor does, and `damaged_this_frame`
+(safe-pos memory) is true while overlapping an attack even when ignored.
+Also swept: the unused `PlayerInputFrame` in `apply_player_hit_events`'s query
+(E10 debris) is removed. 5 new resolver unit tests (i-frame ignore, dead-body
+ignore, faced-block vs back-hit, scaling/feel/floor, death + never_dies +
+headless). Verified: engine-core 211, gameplay-core 1087, all six app suites.
 
-**A2 — one victim resolver.** Both consumers are fully read; the split is:
+## Next (in order) — A2 remaining feel steps (6–7), then A1
 
-*MECHANICS (extract into ONE `combat::damage::resolve_body_hit`, called by
-both consumers):*
-1. Consume-time i-frame gate: `combat.vulnerable()` for EVERY body (then
-   remove the player's emit-side gate in `apply_hitbox_damage`'s unified loop
-   — the last emit/consume asymmetry).
-2. Shield block: `shield_blocks_hit(shield.active, facing, pos, impact,
-   body_frame_down)` — both sides now already agree on authority (E10) and
-   frame (§B2); one call site.
-3. Damage scaling hook: multiplier param (player passes difficulty × assist;
-   actors pass 1.0).
-4. `health.damage()` + died flag (actor `never_dies` cap → multiplier path or
-   pre-gate).
-5. Hit-flash + i-frame arming (`hit_flash`, `damage_invuln_timer` — values
-   feel-tunable per body via a small `BodyHitFeel` param).
+**A2 — one victim resolver.** Steps 1–5 landed (E11). Remaining, each its own
+clearly-marked BLIND feel commit:
 6. Knockback: actors RISE to `resolved_player_knockback_velocity` (already
    frame-agnostic + feel-tuned); the actor path's inline hardcoded
    `local.y - 90 max -280` pop dies. Actor knockback data comes from the
@@ -953,15 +969,12 @@ both consumers):*
    separate feel-blind commit — actors becoming staggerable is a behavior
    upgrade Jon should feel.
 
-*POLICY (stays in each consumer around the resolver):*
+*POLICY (stays in each consumer around the resolver — landed this way in E11):*
 - Player: difficulty/assist multiplier, `HitMode::SafeRespawn`, death →
   `death_respawn_player`, safe-position memory, banner text.
 - Actor: peaceful-branch (strikes/barks/provoke stimulus — NOT damage), death
   → drops/banner/respawn-timer/split/explode, cling-detach pop.
 - Boss: untouched until A1.
-
-*Order:* extract 1–5 first (behavior-preserving, verify with the suites), then
-6 and 7 as separate blind feel commits.
 
 **A1 — boss island dissolution** (after A2): fold `BossStatus` →
 `BodyHealth`/`BodyCombat` (the sync.rs mirror becomes the migration map),

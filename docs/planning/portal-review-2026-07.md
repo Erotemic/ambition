@@ -508,3 +508,75 @@ only weakly; can proceed independently.
 
 **Q6 — AllowClip/FitToFrame removal (D12, pending Jon).** Recommended delete;
 one enum + dev-UI labels.
+
+---
+
+## Part 5 — Round 5: carried momentum, arbitrary rotations, and the Opus triage
+
+### Q7 — LANDED: carried momentum (the tight-control ↔ conserved-fling middle ground)
+
+Jon wanted Hollow-Knight tightness (release the stick → fall straight down)
+without bleeding portal momentum. The parameterization:
+
+- `BodyFlightState::carried_run` — signed run-axis velocity the WORLD
+  imparted. `apply_portal_carried_momentum` (actor-generic, content adapter)
+  sets it to the mapped exit velocity's run component on EVERY transfer.
+- `MovementTuning::air_stop_assist` (default 3750 px/s² = the pre-ballistic
+  hands-off feel) decays the run component toward the CARRIED FLOOR, not
+  zero. Ordinary jumps: floor 0 → tight. Flings: conserved.
+- Opposing input brakes at full air control and eats the floor; the per-frame
+  clamp of carried to the actual velocity makes walls and landing consume it
+  with no special cases. `MovementTuning::carried_decay` (default 0)
+  optionally bleeds it. Both knobs are in the F3 editable-tuning mirror.
+
+The same channel is the natural home for knockback and wind later.
+
+### Q8 — Arbitrary portal rotations: what's already correct, what's Fable-hard
+
+Audit of the crate by layer (pinned at 45° by
+`slanted_normals_are_exact_in_the_vector_layer`):
+
+**Already fully general (correct today for any unit normal):**
+`portal_map_vec_{reflection,rotation}`, `portal_rotation`, `portal_tangent`,
+`map_point` (exact inverse, depth→front at any angle), velocity transit,
+`portal_transit_roll` / somersault / facing / input-warp policies (all
+dot/tangent algebra), `front_distance`, `window_eye`, `aperture_wedge_multi`
++ the whole view-cone construction (built in the (normal, tangent) frame),
+`PortalViewMap` / `copy_transform` factorization, per-vertex UV mapping
+(affine — handles rotated maps by construction), `measure_host_depth`.
+
+**Cardinal-only but MECHANICALLY generalizable (Opus-safe, with the
+acceptance test "exactly equivalent for cardinal normals"):** `straddles`
+(rewrite as |front(center)| < body support along n + lateral overlap via
+tangent projection), `portal_fits` (project body size onto the tangent),
+`capture_box`/`approach_box` overlap tests (replace AABB intersects with
+front/lateral projection intervals), `clip_to_aperture` bounds,
+`portal_half_extent` consumers (already produce bounding boxes of the tilted
+face — documented). `map_aabb` stays a conservative bounding box for
+non-90° maps — fine for capture rects, NOT for collision.
+
+**Genuinely hard (Fable-tier):** the two places where AABB is load-bearing:
+1. `compute_body_pieces` — slanted planes cut AABBs into pentagons; the piece
+   model needs convex polygons (parry is already a dep via CombatVolume).
+2. The host carve — `subtract_aabb` can't cut a slanted hole out of an AABB
+   collision world; needs either polygon collision solids or a stepped-AABB
+   approximation of the slanted aperture (ugly). This is really an ENGINE
+   collision-representation decision, not a portal one.
+
+Recommendation: do the mechanical generalizations now (they cost nothing for
+cardinal play and remove most of the cliff), keep the two hard walls
+documented, and design slanted CARVING together with any future slope/ramp
+collision work — they're the same problem.
+
+### Opus triage of the queue
+
+| Item | Verdict |
+|---|---|
+| Q1 per-portal convention | **Opus-safe.** Mechanical threading; `_for_convention` variants exist; tests pin everything. |
+| Q2 consts → tuning + opaque channels | **Opus-safe.** The channel-key step needs the plan followed exactly (link-first pairing). |
+| Q3 one aperture path (items/actors) | **Opus-safe with care.** The item↔kinematics sync is specified; content tests cover regressions. |
+| Q4 authored aperture | **Opus-trivial** (read-time min). |
+| Q5 ledge-grab through portals | **Fable-tier** (or Fable writes the spec first). Portal-aware probes touch collision internals + feel; carve-edge exclusion needs geometric judgment. |
+| Q6 delete AllowClip/FitToFrame | **Opus-trivial.** |
+| Q8 mechanical generalizations | **Opus-safe** with the cardinal-equivalence acceptance tests. |
+| Q8 polygon pieces / slanted carve | **Fable-tier**, couple to the engine slope/collision decision. |

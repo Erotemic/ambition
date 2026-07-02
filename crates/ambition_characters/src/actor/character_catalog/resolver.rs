@@ -205,7 +205,7 @@ pub fn action_set_from_preset(preset: &ActionSetPreset) -> ActionSet {
         move_style: move_style_from_preset(preset.move_style),
         melee: preset.melee.map(melee_from_preset),
         ranged: preset.ranged.map(ranged_from_preset),
-        special: preset.special.map(special_from_preset),
+        special: preset.special.clone().map(special_from_preset),
     }
 }
 
@@ -307,5 +307,29 @@ fn special_from_preset(p: SpecialPreset) -> SpecialActionSpec {
     match p {
         SpecialPreset::BubbleShield => SpecialActionSpec::BubbleShield,
         SpecialPreset::BossSpotlight => SpecialActionSpec::BossSpotlight,
+        SpecialPreset::Special(key) => SpecialActionSpec::Special(key),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn action_set_preset_can_author_open_special_key() {
+        let preset: ActionSetPreset = ron::from_str(
+            r#"(
+                special: Some(Special("eye_beam")),
+            )"#,
+        )
+        .expect("catalog action-set presets should deserialize open Special keys");
+
+        let action_set = action_set_from_preset(&preset);
+
+        assert_eq!(
+            action_set.special,
+            Some(SpecialActionSpec::Special("eye_beam".to_string())),
+            "catalog presets must reach the same open content-special seam as runtime action sets"
+        );
     }
 }

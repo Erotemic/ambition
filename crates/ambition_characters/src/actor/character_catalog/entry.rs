@@ -350,10 +350,15 @@ pub enum RangedPreset {
 }
 
 /// Mirrors `brain::action_set::SpecialActionSpec`.
-#[derive(Clone, Copy, Debug, Deserialize, PartialEq)]
+///
+/// Keep the open `Special(String)` hatch here too: the catalog is an
+/// authoring surface, so it must be able to reach every content-defined
+/// technique the runtime action set can emit.
+#[derive(Clone, Debug, Deserialize, PartialEq)]
 pub enum SpecialPreset {
     BubbleShield,
     BossSpotlight,
+    Special(String),
 }
 
 /// Action-set preset (capability bundle). Each character points at

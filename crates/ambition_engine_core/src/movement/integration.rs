@@ -305,6 +305,7 @@ pub(super) fn integrate_normal_clusters(
         &mut kinematics.vel,
         &mut flight.fast_falling,
         &mut flight.gliding,
+        &mut flight.carried_run,
         NormalSpineCtx {
             on_ground: ground.on_ground,
             blink_grace: blink.grace_timer > 0.0,
@@ -360,6 +361,7 @@ pub fn integrate_normal_spine(
     kin_vel: &mut Vec2,
     fast_falling: &mut bool,
     gliding: &mut bool,
+    carried_run: &mut f32,
     ctx: NormalSpineCtx,
     input: InputState,
     dt: f32,
@@ -404,32 +406,37 @@ pub fn integrate_normal_spine(
         let m = crate::AccelerationFrame::new(g).side;
         let run = tuning.stick(&input).x;
         let along = kin_vel.dot(m);
-        // THERE IS NO AIR DRAG IN THIS WORLD. Airborne with the stick
-        // released, the run component is pure ballistics — a portal bounce or
-        // fling carries its lateral speed forever (at ANY magnitude; a
-        // sub-run-speed lateral bounce decaying hands-off reads as drag just
-        // as much as an over-cap one). Input steers: airborne, it accelerates
-        // toward the held direction up to the run cap — an equilibrium, like
-        // the fall cap's `relax`, never a brake on speed already beyond it in
-        // the held direction; opposing input brakes at full air control.
-        // Grounded movement keeps the hard approach + ground friction, so
-        // landing ends a fling and running feels unchanged.
-        let airborne_no_steer = !ctx.on_ground && run.abs() <= 0.1;
-        if !airborne_no_steer {
-            let mut target = run * tuning.max_run_speed;
-            if !ctx.on_ground {
-                if run > 0.1 {
-                    target = target.max(along);
-                } else if run < -0.1 {
-                    target = target.min(along);
-                }
+        // CARRIED MOMENTUM: the world has no air drag, but the CONTROLLER has
+        // a tight stop assist. `carried_run` is the run-axis velocity the
+        // WORLD imparted (a portal fling, knockback) — the floor the
+        // hands-off stop assist decays toward instead of zero. Ordinary jump
+        // drift (carried = 0) stops on release exactly as before; imparted
+        // momentum is conserved until input, a wall, or landing consumes it.
+        // Airborne input steers as an equilibrium (accelerates toward the
+        // held direction up to the run cap, never brakes speed already
+        // beyond it in that direction — the fall cap's `relax`); OPPOSING
+        // input brakes at full air control and eats the carried floor with
+        // it. `carried_decay` optionally bleeds the floor over time.
+        *carried_run = approach(*carried_run, 0.0, tuning.carried_decay * dt);
+        let new_along = if ctx.on_ground {
+            let mut v = approach(along, run * tuning.max_run_speed, accel * dt);
+            if run.abs() <= 0.1 {
+                v = approach(v, 0.0, tuning.ground_friction * dt);
             }
-            let mut new_along = approach(along, target, accel * dt);
-            if ctx.on_ground && run.abs() <= 0.1 {
-                new_along = approach(new_along, 0.0, tuning.ground_friction * dt);
-            }
-            *kin_vel += (new_along - along) * m;
-        }
+            v
+        } else if run > 0.1 {
+            approach(along, (run * tuning.max_run_speed).max(along), accel * dt)
+        } else if run < -0.1 {
+            approach(along, (run * tuning.max_run_speed).min(along), accel * dt)
+        } else {
+            // Hands-off: tight stop assist down to the carried floor.
+            approach(along, *carried_run, tuning.air_stop_assist * dt)
+        };
+        *kin_vel += (new_along - along) * m;
+        // The floor never exceeds the actual velocity: opposing input, wall
+        // impacts (the sweep zeroes the run component), and grounded friction
+        // all shrink it naturally through this clamp.
+        *carried_run = carried_run.clamp(new_along.min(0.0), new_along.max(0.0));
     }
 
     if let Some(contact) = ctx.water {

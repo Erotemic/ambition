@@ -36,6 +36,13 @@ pub const RUN_ACCEL: f32 = 5200.0;
 pub const AIR_ACCEL: f32 = 3100.0;
 pub const GROUND_FRICTION: f32 = 7600.0;
 pub const AIR_FRICTION: f32 = 650.0;
+/// Hands-off airborne stop assist: matches the pre-carried-momentum feel of
+/// the zero-target approach (`AIR_ACCEL`) + `AIR_FRICTION` stacking.
+pub const AIR_STOP_ASSIST: f32 = 3750.0;
+
+fn default_air_stop_assist() -> f32 {
+    AIR_STOP_ASSIST
+}
 pub const MAX_RUN_SPEED: f32 = 270.0;
 // Raised for momentum-preserving portal play (Portal-style flings): you
 // can build and carry much more speed before the fall cap clips it. The
@@ -225,6 +232,18 @@ pub struct MovementTuning {
     pub air_accel: f32,
     pub ground_friction: f32,
     pub air_friction: f32,
+    /// Hands-off airborne run deceleration (px/s²) toward the CARRIED floor
+    /// (`BodyFlightState::carried_run`) — the tight "release the stick and
+    /// fall straight down" feel, without ever bleeding momentum the world
+    /// imparted (portal flings, knockback). `serde(default)` for tuning files
+    /// baked before it existed.
+    #[serde(default = "default_air_stop_assist")]
+    pub air_stop_assist: f32,
+    /// Passive bleed (px/s²) of the carried-momentum floor itself. 0 (the
+    /// default) conserves a fling until input, a wall, or landing consumes
+    /// it; positive values make the world slowly forget imparted momentum.
+    #[serde(default)]
+    pub carried_decay: f32,
     pub max_run_speed: f32,
     pub max_fall_speed: f32,
     pub jump_speed: f32,
@@ -304,6 +323,8 @@ pub const DEFAULT_TUNING: MovementTuning = MovementTuning {
     air_accel: AIR_ACCEL,
     ground_friction: GROUND_FRICTION,
     air_friction: AIR_FRICTION,
+    air_stop_assist: AIR_STOP_ASSIST,
+    carried_decay: 0.0,
     max_run_speed: MAX_RUN_SPEED,
     max_fall_speed: MAX_FALL_SPEED,
     jump_speed: JUMP_SPEED,

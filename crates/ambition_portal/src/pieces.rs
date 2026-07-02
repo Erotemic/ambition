@@ -492,6 +492,62 @@ mod tests {
         assert!((hole.max.x - hole.min.x - 92.0).abs() < 1e-3, "{hole:?}");
     }
 
+    /// The PURE vector layer is exact for ARBITRARY (non-cardinal) normals —
+    /// pinned at 45° so slanted portals "just work" at this layer when
+    /// authoring arrives. (The AABB piece/carve layer above it is documented
+    /// cardinal-only; see the module docs and the review report Q8.)
+    #[test]
+    fn slanted_normals_are_exact_in_the_vector_layer() {
+        let inv_sqrt2 = 1.0 / 2.0_f32.sqrt();
+        // A 45° ramp face (normal up-left) paired with an ordinary floor.
+        let n_in = Vec2::new(-inv_sqrt2, -inv_sqrt2);
+        let n_out = Vec2::new(0.0, -1.0);
+        let enter = PortalFrame {
+            pos: Vec2::new(100.0, 300.0),
+            normal: n_in,
+            half_extent: Vec2::splat(46.0 * inv_sqrt2 + 9.0 * inv_sqrt2),
+        };
+        let exit = PortalFrame {
+            pos: Vec2::new(500.0, 200.0),
+            normal: n_out,
+            half_extent: Vec2::new(46.0, 9.0),
+        };
+        for v in [Vec2::new(3.0, 7.0), Vec2::new(-120.0, 45.0), Vec2::X] {
+            for map in [portal_map_vec_reflection, portal_map_vec_rotation] {
+                // Isometry: speed is exactly preserved at any angle.
+                let out = map(v, n_in, n_out);
+                assert!(
+                    (out.length() - v.length()).abs() < 1e-4,
+                    "speed preserved at 45°: {v:?} -> {out:?}"
+                );
+                // Into-component becomes out-component; tangent magnitude kept.
+                assert!(
+                    ((-v.dot(n_in)) - out.dot(n_out)).abs() < 1e-4,
+                    "into->out at 45°: {v:?} -> {out:?}"
+                );
+            }
+        }
+        // map_point: depth behind the slanted entry becomes depth in front of
+        // the exit, and mapping back through the swapped pair is the identity.
+        for p in [
+            enter.pos - n_in * 12.0,
+            enter.pos + Vec2::new(10.0, -4.0),
+            enter.pos + n_in * 3.0,
+        ] {
+            let depth_behind = -(p - enter.pos).dot(n_in);
+            let mapped = map_point(p, &enter, &exit);
+            assert!(
+                (front_distance(mapped, &exit) - depth_behind).abs() < 1e-3,
+                "depth->front at 45°: {p:?} -> {mapped:?}"
+            );
+            let back = map_point(mapped, &exit, &enter);
+            assert!(
+                (back - p).length() < 1e-3,
+                "the 45° map inverts exactly: {p:?} -> {mapped:?} -> {back:?}"
+            );
+        }
+    }
+
     #[test]
     fn transit_roll_angles() {
         // Sanity: rotation magnitude for floor↔floor is 180°, floor↔wall 90°.

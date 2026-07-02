@@ -143,6 +143,34 @@ pub fn ensure_projectile_portal_bodies(
     }
 }
 
+/// Give every transferred body its CARRIED run momentum: the mapped exit
+/// velocity's run-axis component becomes `BodyFlightState::carried_run` — the
+/// floor the hands-off air stop assist decays toward — so a portal fling is
+/// conserved (Portal physics) while ordinary jump drift keeps the tight
+/// stop-on-release feel (Hollow Knight control). Runs after `portal_transit`
+/// the same frame, when `BodyKinematics::vel` is already the mapped exit
+/// velocity. Actor-generic: any transferred body carrying the flight cluster
+/// gets it — no player-casing.
+pub fn apply_portal_carried_momentum(
+    gravity: Option<Res<ambition_gameplay_core::platformer_runtime::gravity::GravityField>>,
+    mut transited: MessageReader<PortalBodyTransited>,
+    mut bodies: Query<(
+        &BodyKinematics,
+        &mut ambition_gameplay_core::actor::BodyFlightState,
+    )>,
+) {
+    let gravity_dir = ambition_gameplay_core::platformer_runtime::gravity::gravity_dir_or_default(
+        gravity.as_deref(),
+    );
+    let side = ambition_engine_core::AccelerationFrame::new(gravity_dir).side;
+    for ev in transited.read() {
+        let Ok((kin, mut flight)) = bodies.get_mut(ev.body) else {
+            continue;
+        };
+        flight.carried_run = kin.vel.dot(side);
+    }
+}
+
 /// Apply player-only input/trace side effects after generic portal transit.
 /// Reads [`PortalBodyTransited`] events and, for the primary-player entity only:
 ///

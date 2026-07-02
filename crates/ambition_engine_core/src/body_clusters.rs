@@ -245,13 +245,21 @@ pub struct BodyDashState {
     pub cooldown: f32,
 }
 
-/// Free-flight, glide, and fast-fall flags + the idle hover-bob phase.
+/// Free-flight, glide, and fast-fall flags + the idle hover-bob phase, plus
+/// the airborne carried-momentum channel.
 #[derive(bevy_ecs::component::Component, Clone, Copy, Debug, Default, PartialEq)]
 pub struct BodyFlightState {
     pub fly_enabled: bool,
     pub flight_phase: f32,
     pub gliding: bool,
     pub fast_falling: bool,
+    /// Signed run-axis velocity CARRIED by the body from the world (a portal
+    /// fling, knockback, wind) — the floor the hands-off air stop assist
+    /// decays toward instead of zero, so imparted momentum is conserved while
+    /// ordinary jump drift keeps the tight stop-on-release feel. Clamped each
+    /// frame to the actual run velocity (opposing input, walls, and landing
+    /// all shrink it naturally) and bled by `MovementTuning::carried_decay`.
+    pub carried_run: f32,
 }
 
 /// Blink cluster: cooldown, hold-to-aim state, precision aim offset,

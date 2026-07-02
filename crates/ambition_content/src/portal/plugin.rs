@@ -27,8 +27,8 @@ use super::transit_adapter::{
     sync_movement_intent_from_control, sync_transitable_to_ground_items,
 };
 use super::transit_body_adapter::{
-    ensure_portal_bodies, ensure_projectile_portal_bodies, portal_player_input_adapter,
-    sync_portal_reorient_from_settings,
+    apply_portal_carried_momentum, ensure_portal_bodies, ensure_projectile_portal_bodies,
+    portal_player_input_adapter, sync_portal_reorient_from_settings,
 };
 
 /// Installs the Ambition-specific portal input/inventory adapters.
@@ -276,6 +276,17 @@ impl Plugin for AmbitionPortalAdaptersPlugin {
         app.add_systems(
             Update,
             portal_player_input_adapter
+                .run_if(ambition_gameplay_core::gameplay_allowed)
+                .in_set(PortalSet::Transit)
+                .after(portal_transit),
+        );
+        // Carried momentum: every transferred body's mapped exit velocity
+        // becomes its `carried_run` floor the same frame (conserved fling,
+        // tight ordinary control). Actor-generic — after portal_transit so
+        // `BodyKinematics::vel` is already the exit velocity.
+        app.add_systems(
+            Update,
+            apply_portal_carried_momentum
                 .run_if(ambition_gameplay_core::gameplay_allowed)
                 .in_set(PortalSet::Transit)
                 .after(portal_transit),

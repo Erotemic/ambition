@@ -534,15 +534,17 @@ fn an_airborne_fling_above_run_speed_is_preserved_while_holding_into_it() {
 }
 
 #[test]
-fn a_hands_off_fling_above_run_speed_has_no_air_drag() {
-    // There is no aerodynamic drag in this world: a ballistic fling (a portal
-    // exit) with the stick RELEASED keeps its horizontal speed until landing.
-    // Air friction is a run-stop assist and only acts below the run cap.
+fn carried_momentum_conserves_flings_while_ordinary_drift_stays_tight() {
+    // The middle ground: the CONTROLLER is tight (hands-off drift stops fast)
+    // but momentum the WORLD imparted (a portal fling -> `carried_run`) is a
+    // floor the stop assist never bleeds below — conserved until input, a
+    // wall, or landing consumes it.
     let world = test_world();
     let mut scratch = scratch_with(AbilitySet::sandbox_all(), Vec2::new(200.0, 200.0));
     scratch.ground.on_ground = false;
     let fling = DEFAULT_TUNING.max_run_speed * 4.0;
     scratch.kinematics.vel = Vec2::new(fling, 0.0);
+    scratch.flight.carried_run = fling; // what the portal adapter sets on transfer
     for _ in 0..10 {
         step_scratch(&world, &mut scratch, InputState::default());
         if scratch.ground.on_ground {
@@ -551,19 +553,41 @@ fn a_hands_off_fling_above_run_speed_has_no_air_drag() {
     }
     assert!(
         scratch.kinematics.vel.x > fling - 1.0,
-        "no input, no drag: vx={} (fling was {fling})",
+        "carried momentum is conserved hands-off: vx={} (fling was {fling})",
         scratch.kinematics.vel.x
     );
 
-    // Sub-cap lateral motion is ballistic hands-off too (a portal bounce's
-    // lateral component must not decay — drag is drag at any speed).
+    // Opposing input brakes at full air control AND eats the carried floor:
+    // after braking, releasing the stick does not restore the old speed.
+    let hold_left = InputState {
+        axis_x: -1.0,
+        ..InputState::default()
+    };
+    for _ in 0..30 {
+        step_scratch(&world, &mut scratch, hold_left);
+    }
+    let braked = scratch.kinematics.vel.x;
+    assert!(
+        braked < fling * 0.5,
+        "opposing input brakes a carried fling: vx={braked}"
+    );
+    assert!(
+        scratch.flight.carried_run <= braked.max(0.0) + 1e-3,
+        "the carried floor shrinks with the braked velocity: carried={}, vx={braked}",
+        scratch.flight.carried_run
+    );
+
+    // WITHOUT carried momentum, hands-off drift stops tight — at any speed.
+    // (An un-carried over-cap speed is a controller artifact, not a fling.)
+    let mut scratch = scratch_with(AbilitySet::sandbox_all(), Vec2::new(200.0, 200.0));
     scratch.ground.on_ground = false;
-    scratch.kinematics.vel = Vec2::new(DEFAULT_TUNING.max_run_speed * 0.5, 0.0);
+    scratch.kinematics.vel = Vec2::new(DEFAULT_TUNING.max_run_speed * 0.8, 0.0);
+    scratch.flight.carried_run = 0.0;
     let drift = scratch.kinematics.vel.x;
     step_scratch(&world, &mut scratch, InputState::default());
     assert!(
-        (scratch.kinematics.vel.x - drift).abs() < 1e-3,
-        "sub-cap airborne drift is ballistic with no input: vx {} -> {}",
+        scratch.kinematics.vel.x < drift - 1.0,
+        "hands-off drift decays via the tight stop assist: vx {} -> {}",
         drift,
         scratch.kinematics.vel.x
     );

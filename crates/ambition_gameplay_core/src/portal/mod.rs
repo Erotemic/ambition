@@ -354,6 +354,38 @@ mod host_adapter {
             );
             let correction = desired_camera_world - host_camera_world;
 
+            // Doorway gate: the screen-anchor is a deliberate hard CUT — it
+            // pins the body's screen position and jumps the camera (the whole
+            // visible world) to the exit side in one frame. That is right for
+            // a genuine teleport, but below `min_anchor_camera_cut` the pair
+            // is a thin-wall doorway: the transiting body's clipped pieces
+            // already tile continuously across the seam, so the seamless
+            // camera is the one that treats the crossing as a NON-EVENT and
+            // lets ordinary eased follow absorb the small authoritative snap.
+            // Engaging the anchor here lurched the world by the pair
+            // separation behind a pinned character (c136/c137).
+            let camera_cut = desired_camera_world - previous_host_camera_world;
+            if camera_cut.length() < config.min_anchor_camera_cut {
+                if config.debug_log {
+                    bevy::log::info!(
+                        target: "ambition::portal::camera",
+                        "portal camera continuity skip: doorway-scale cut body={:?} enter={:?} exit={:?} camera_cut=({:.1},{:.1}) |cut|={:.1} < min_anchor_camera_cut={:.1} — ordinary eased follow handles it",
+                        ev.body,
+                        enter_channel,
+                        exit_channel,
+                        camera_cut.x,
+                        camera_cut.y,
+                        camera_cut.length(),
+                        config.min_anchor_camera_cut,
+                    );
+                }
+                // Drop any previous anchor (this crossing supersedes the seam
+                // it preserved) and leave the ease state untouched: no cut, no
+                // mapped target, no release pop.
+                state.clear_effect();
+                continue;
+            }
+
             let raw_roll = ambition_portal_presentation::camera_roll_for_portal_transit(
                 ev.enter_normal,
                 ev.exit_normal,

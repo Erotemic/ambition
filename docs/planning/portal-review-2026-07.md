@@ -821,6 +821,40 @@ Marked BLIND: verify crossing + standing in c136/c137 on a low tier and
 High. If a residual artifact survives, the remaining known ambiguity is Q9
 proper (per-window stenciling for overlapping panes).
 
+### F16 — LANDED: one frame per portal + the doorway camera gate (Round 10 it. 2)
+
+Jon (tinted cones): the half-portal is gone, but (a) TWO copies of each
+portal show, and (b) the character's screen position jumps crossing the thin
+wall — "apparent positioning should be smooth and stable" in Continuous mode.
+
+**(a) Doubled portals.** With the frame overlay above the glass (F15), the
+capture cameras still photographed the rims/labels, so the glass showed a
+second, parallax-offset copy of the frame next to the real one. Fix: the
+rim/core/label overlays now live on `PORTAL_WINDOW_RENDER_LAYER` — the
+existing "main camera renders, captures never see" layer — so the frame
+draws exactly once, HUD-like. Consequence: portals seen THROUGH glass show
+bare apertures (no frames in captures); acceptable until a capture-visible
+rim variant is wanted. Pinned in the visuals test (every frame part carries
+exactly the overlay layer).
+
+**(b) Camera jump.** The screen-anchor is a deliberate hard CUT: at the
+snap it pins the body's screen position and jumps the camera — the whole
+visible world — to the exit side in one frame. Right for a genuine teleport
+(c141→c140 = 240px, c135→c134 = 680px); WRONG for a 32px thin-wall doorway,
+where the body's clipped pieces already tile continuously across the seam
+and the seamless camera is the one that does NOTHING. A new headless
+thin-wall walk test measuring the CAMERA's per-frame motion reproduced it
+exactly: a 32.00px one-frame world lurch. Fix: `min_anchor_camera_cut`
+(default 96px) on `PortalCameraContinuityConfig` — when the mapped camera
+cut is below it, the anchor never engages and ordinary eased follow absorbs
+the small authoritative snap (no cut, no mapped ease target, no release
+pop). The teleport pairs stay above the gate and keep their exact
+screen-anchor behavior; the transit camera roll is maintained independently
+of the anchor, so 90° pairs are unaffected. Pinned by
+`thin_wall_walk_keeps_apparent_player_position_smooth` (camera step ≤ 12px
+every frame of the walk, map-aware body continuity at the snap, ordinary
+steps between snaps) alongside the two existing teleport-pair tests.
+
 ## Part 9 — Round 9: "fall in from a tall height, don't come all the way back up"
 
 Jon: falling through a ground portal pair from a tall distance doesn't return

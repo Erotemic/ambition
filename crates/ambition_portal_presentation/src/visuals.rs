@@ -9,6 +9,7 @@
 //! Every system here is read-only over the portal sim and rebuilds its transient
 //! entities each frame, so visuals cannot desync from the sim.
 
+use bevy::camera::visibility::RenderLayers;
 use bevy::image::TextureAtlasLayout;
 use bevy::prelude::*;
 use bevy::sprite::Anchor;
@@ -348,7 +349,15 @@ pub fn sync_portal_visuals(
         // is this portal's own channel; the negative-normal side is its partner.
         // All three (rim/core/label) draw in the OVERLAY band above the view
         // windows ([`crate::PORTAL_RIM_OVERLAY_Z`]) so a pane of takeover
-        // glass can never hide half a portal's frame.
+        // glass can never hide half a portal's frame — AND on the
+        // main-camera-only window layer, so no capture camera photographs
+        // them: with the overlay above the glass, a captured copy of the frame
+        // inside the glass would read as a second, parallax-offset portal
+        // (Jon's "two copies of the portals"). The frame is HUD-like
+        // identification, drawn exactly once; the far side seen through glass
+        // shows bare apertures. (Uses the shared window layer — already the
+        // "main camera renders, captures never see" set.)
+        let overlay_layer = RenderLayers::layer(crate::PORTAL_WINDOW_RENDER_LAYER);
         for (channel, sign, side) in [
             (negative_channel, -1.0, "negative-normal"),
             (positive_channel, 1.0, "positive-normal"),
@@ -361,6 +370,7 @@ pub fn sync_portal_visuals(
                 PortalVisual,
                 Sprite::from_color(rim, Vec2::new(length, rim_thickness * 0.5)),
                 Transform::from_translation(rim_translation).with_rotation(rotation),
+                overlay_layer.clone(),
                 Name::new(format!("Portal visual (rim {side})")),
             ));
 
@@ -372,6 +382,7 @@ pub fn sync_portal_visuals(
                 PortalVisual,
                 Sprite::from_color(core, Vec2::new(core_length, core_thickness * 0.5)),
                 Transform::from_translation(core_translation).with_rotation(rotation),
+                overlay_layer.clone(),
                 Name::new(format!("Portal visual (core {side})")),
             ));
         }
@@ -390,6 +401,7 @@ pub fn sync_portal_visuals(
             },
             TextColor(core),
             Transform::from_translation(label_translation),
+            overlay_layer.clone(),
             Name::new("Portal label"),
         ));
     }
@@ -654,6 +666,33 @@ mod tests {
             assert!(
                 *z < 20.0,
                 "{name} must stay below the actor band, got {z}"
+            );
+        }
+
+        // And the frame is main-camera-only: it lives on the window layer,
+        // which no capture camera renders — otherwise the captured copy of
+        // the frame inside the glass reads as a second, parallax-offset
+        // portal ("two copies of the portals").
+        let overlay = RenderLayers::layer(crate::PORTAL_WINDOW_RENDER_LAYER);
+        let layered = app
+            .world_mut()
+            .query_filtered::<(&Name, &RenderLayers), With<PortalVisual>>()
+            .iter(app.world())
+            .filter(|(n, _)| {
+                let n = n.to_string();
+                n.contains("rim") || n.contains("core") || n.contains("label")
+            })
+            .map(|(n, l)| (n.to_string(), l.clone()))
+            .collect::<Vec<_>>();
+        assert_eq!(
+            layered.len(),
+            frame_parts.len(),
+            "every frame part carries explicit RenderLayers"
+        );
+        for (name, layers) in &layered {
+            assert_eq!(
+                layers, &overlay,
+                "{name} must be on the main-camera-only window layer (never captured)"
             );
         }
     }

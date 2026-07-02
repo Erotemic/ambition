@@ -383,3 +383,104 @@ fn c135_to_c134_preserves_screen_position_and_keeps_falling() {
         "the player should transit c135 -> c134 while falling"
     );
 }
+
+/// Walking through the thin-wall doorway pair (c136/c137) must keep the
+/// APPARENT (screen-space) player position smooth for the WHOLE walk — the
+/// engage frame, every anchored frame, the anchor-release frame, and the
+/// settle afterwards. Jon's report: the character visibly jumps crossing the
+/// thin wall in Continuous mode, which the per-crossing checks above (both on
+/// wide pairs) never covered frame-by-frame.
+#[test]
+fn thin_wall_walk_keeps_apparent_player_position_smooth() {
+    let mut harness = HeadlessCameraHarness::new();
+
+    // Locate the thin-wall doorway pair: partner-linked, opposed normals,
+    // faces less than ~48px apart.
+    let (entry, exit) = {
+        let world = harness.app.world_mut();
+        let mut portals = world.query::<&PlacedPortal>();
+        let all: Vec<PlacedPortal> = portals
+            .iter(world)
+            .copied()
+            .filter(|p| !p.channel.is_gun_pair())
+            .collect();
+        let mut found = None;
+        for p in &all {
+            if let Some(q) = all.iter().find(|q| q.channel == p.channel.partner()) {
+                let opposed = p.normal.dot(q.normal) < -0.9;
+                let thin = p.pos.distance(q.pos) <= 48.0;
+                // Walk left-to-right: entry face points left (-x).
+                if opposed && thin && p.normal.x < -0.9 {
+                    found = Some((*p, *q));
+                    break;
+                }
+            }
+        }
+        found.expect("portal_lab should author a thin-wall doorway pair (c136/c137)")
+    };
+
+    let start = entry.pos + entry.normal * 120.0;
+    harness.place_player(start, Vec2::ZERO);
+    // Let the camera settle on the start position first, so the walk itself
+    // is the only motion being measured.
+    for _ in 0..90 {
+        harness.step(base());
+    }
+    let mut previous = harness.step(base());
+
+    // Walk right through the doorway and keep walking; the whole pass must
+    // read as ordinary walking. The body's VISUAL is continuous by the clip
+    // pieces (the slices tile across the seam even as the authoritative pos
+    // snaps by the wall thickness), so what the player actually SEES jump is
+    // the CAMERA: any one-frame camera step much larger than a frame of walk
+    // speed (270/60 = 4.5px) is the world lurching behind the character.
+    let mut crossed = false;
+    let mut max_camera_step = 0.0_f32;
+    let mut max_smooth_screen_step = 0.0_f32;
+    let mut worst: Option<(usize, CameraSample, CameraSample)> = None;
+    for frame in 0..240 {
+        let current = harness.step(hold_right());
+        let snapped = previous.player_pos.distance(current.player_pos) > 20.0;
+        if snapped {
+            crossed = true;
+            // At the snap frame the AUTHORITATIVE screen offset jumps by
+            // design; the visual invariant is map-aware continuity.
+            let body_before = ambition_gameplay_core::portal::pieces::map_point(
+                current.player_pos,
+                &exit.frame(),
+                &entry.frame(),
+            );
+            let mapped_step =
+                ((body_before - previous.camera_center) - previous.screen_pos()).length();
+            assert!(
+                mapped_step <= 6.0,
+                "map-aware body continuity at the snap frame: {mapped_step:.2}px \
+                 (frame {frame}, prev {previous:?}, cur {current:?})"
+            );
+        } else {
+            max_smooth_screen_step =
+                max_smooth_screen_step.max((current.screen_pos() - previous.screen_pos()).length());
+        }
+        let camera_step = (current.camera_center - previous.camera_center).length();
+        if camera_step > max_camera_step {
+            max_camera_step = camera_step;
+            worst = Some((frame, previous, current));
+        }
+        previous = current;
+        if current.player_pos.x > exit.pos.x + 200.0 {
+            break;
+        }
+    }
+    assert!(crossed, "the walk should transit the thin-wall pair");
+    assert!(
+        max_camera_step <= 12.0,
+        "a thin-wall doorway is a doorway, not a teleport: the camera must \
+         never lurch the world (max one-frame camera step {max_camera_step:.2}px \
+         at {worst:#?})"
+    );
+    assert!(
+        max_smooth_screen_step <= 12.0,
+        "between snaps the apparent player position must move like ordinary \
+         walking, got a {max_smooth_screen_step:.2}px step"
+    );
+}

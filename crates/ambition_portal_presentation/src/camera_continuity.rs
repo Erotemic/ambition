@@ -96,6 +96,19 @@ pub struct PortalCameraContinuityConfig {
     /// Treat a new transfer as overlapping a previous continuity effect when
     /// the previous effect still has at least this much active weight.
     pub overlap_warn_weight: f32,
+    /// Minimum camera CUT (world px the mapped camera center jumps, i.e. the
+    /// world lurch the screen-anchor would put on screen in one frame) for
+    /// the anchor to engage at all.
+    ///
+    /// The anchor exists to hide a genuine teleport: it pins the body's
+    /// screen position and CUTS the world to the exit side in one frame.
+    /// Below this separation the crossing is a DOORWAY, not a teleport — the
+    /// transiting body's clipped pieces already tile continuously across the
+    /// seam, so the seamless camera is the one that does NOTHING: ordinary
+    /// eased follow absorbs the small authoritative snap smoothly, while the
+    /// anchor's hard cut would lurch the whole world by the pair separation
+    /// behind a pinned character (the thin-wall c136/c137 "camera jump").
+    pub min_anchor_camera_cut: f32,
 }
 
 impl Default for PortalCameraContinuityConfig {
@@ -106,6 +119,7 @@ impl Default for PortalCameraContinuityConfig {
             debug_log: true,
             camera_constraint_warn_pixels: 16.0,
             overlap_warn_weight: 0.20,
+            min_anchor_camera_cut: 96.0,
         }
     }
 }

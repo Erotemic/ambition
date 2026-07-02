@@ -444,6 +444,73 @@ fn preview_proximity_alpha(edge_distance: f32, config: &PortalViewConeConfig) ->
     smooth01(raw)
 }
 
+/// The ray-parameter interval where a ray `origin + t*dir` is inside `aabb`
+/// (slab method), or `None` if it never enters.
+fn ray_interval(origin: Vec2, dir: Vec2, aabb: ae::Aabb) -> Option<(f32, f32)> {
+    let inv = Vec2::new(1.0 / dir.x, 1.0 / dir.y);
+    let t1 = (aabb.min - origin) * inv;
+    let t2 = (aabb.max - origin) * inv;
+    let near = t1.min(t2);
+    let far = t1.max(t2);
+    let t_near = near.x.max(near.y);
+    let t_far = far.x.min(far.y);
+    (t_near <= t_far).then_some((t_near, t_far))
+}
+
+/// How much solid host material sits directly behind `enter`'s face along
+/// `-normal`, probed at the aperture center: the merged extent of consecutive
+/// solid intervals starting at (or within [`SURFACE_GRACE`] of — the authored
+/// face can sit a grid-snap off the collision edge) the face. The window is
+/// glass set INTO this wall, so its depth must not exceed it: a thin door wall
+/// otherwise pokes the window mesh out into the partner's room (visible with
+/// no line of sight to that portal) and into its own capture's source region,
+/// which feeds back as a spurious nested window with one frame of lag.
+///
+/// Returns `probe_depth` unclipped when no host material is found (e.g. a
+/// portal on a one-way platform, which the occluder snapshot excludes) — the
+/// clip only ever engages on measured solid geometry.
+///
+/// [`SURFACE_GRACE`]: ambition_portal::pieces::SURFACE_GRACE
+pub(crate) fn host_depth_limit(
+    enter: &PortalFrame,
+    occluders: &[ae::Aabb],
+    probe_depth: f32,
+) -> f32 {
+    if occluders.is_empty() {
+        return probe_depth;
+    }
+    let dir = -enter.normal;
+    let mut intervals: Vec<(f32, f32)> = occluders
+        .iter()
+        .filter_map(|a| ray_interval(enter.pos, dir, *a))
+        .filter(|(near, far)| *far > 0.0 && *near < probe_depth)
+        .collect();
+    intervals.sort_by(|a, b| a.0.total_cmp(&b.0));
+    let mut depth: f32 = 0.0;
+    let mut found = false;
+    for (near, far) in intervals {
+        // The chain may START within the grid-snap grace of the face; once
+        // inside the wall, only exactly-adjacent blocks (merged tiles) extend
+        // it — a real gap behind the wall ends the material.
+        let reach = if found {
+            depth + 0.5
+        } else {
+            ambition_portal::pieces::SURFACE_GRACE
+        };
+        if near <= reach {
+            depth = depth.max(far);
+            found = true;
+        } else {
+            break;
+        }
+    }
+    if found {
+        depth.min(probe_depth)
+    } else {
+        probe_depth
+    }
+}
+
 fn dynamic_lateral_limit(enter: &PortalFrame, depth: f32, world_size: Vec2) -> f32 {
     let aperture = aperture_half_width(enter);
     let bounded_depth = depth.max(1.0);
@@ -683,6 +750,23 @@ pub(crate) fn compute_cone(
         return closed(min);
     }
 
+    // Clip the window's depth to the host wall's measured material so a thin
+    // door wall never lets the mesh punch through into the room behind it (see
+    // [`host_depth_limit`]). The half-plane doorway takeover below deliberately
+    // stays unclipped — crossing the aperture, the whole view becomes the exit
+    // chart.
+    let host_limit = host_depth_limit(
+        &enter,
+        &v.occluders,
+        config.dynamic_depth_close.max(config.min_depth).max(1.0),
+    );
+    let min = view_cone(
+        &enter,
+        &exit,
+        config.min_depth.min(host_limit),
+        config.min_spread,
+    );
+
     // Proximity-proportional depth and preview distance use the body-edge gap
     // to the nearer finite aperture, not the aperture's infinite host plane.
     // Being close in Y while far away laterally should still read as a cone,
@@ -701,8 +785,9 @@ pub(crate) fn compute_cone(
     let dt = ((edge_distance - config.dynamic_dist_close)
         / (config.dynamic_dist_far - config.dynamic_dist_close).max(1.0))
     .clamp(0.0, 1.0);
-    let finite_depth = config.dynamic_depth_close
-        + (config.dynamic_depth_far - config.dynamic_depth_close) * smooth01(dt);
+    let finite_depth = (config.dynamic_depth_close
+        + (config.dynamic_depth_far - config.dynamic_depth_close) * smooth01(dt))
+    .min(host_limit);
     // The half-plane preview is the aperture-limit view. In the default full
     // mode, make it large enough that the render stage clips it to the active
     // camera frame; explicit positive max-lateral values keep the old bounded
@@ -1530,6 +1615,165 @@ mod tests {
         assert!(
             partial_span < clear_span,
             "partial LOS should not inflate to the clear window width: partial={partial_span}, clear={clear_span}",
+        );
+    }
+
+    /// Thin-wall pair (portals back-to-back on opposite faces of one wall):
+    /// the far-side portal's window must stay CLOSED for a viewer on the near
+    /// side — there is no line of sight to its face, and the wormhole route is
+    /// admission-gated on that face LOS under the default visibility mode.
+    #[test]
+    fn thin_wall_far_side_portal_stays_closed_for_a_near_side_viewer() {
+        let world = Vec2::new(1600.0, 900.0);
+        let wall = ae::Aabb::new(Vec2::new(512.0, 450.0), Vec2::new(12.0, 450.0));
+        let near = placed(
+            PortalChannelColor::Purple.channel(),
+            Vec2::new(500.0, 450.0),
+            Vec2::new(-1.0, 0.0),
+        );
+        let far = placed(
+            PortalChannelColor::Yellow.channel(),
+            Vec2::new(524.0, 450.0),
+            Vec2::new(1.0, 0.0),
+        );
+        let config = PortalViewConeConfig::default();
+        let viewer = PortalViewer {
+            present: true,
+            eye: Vec2::new(400.0, 450.0),
+            half_size: Vec2::new(15.0, 24.0),
+            occluders: vec![wall],
+        };
+        // The far portal's own cone: enter = far, exit = near.
+        let plan = compute_cone(&far, &near, &config, Some(&viewer), world);
+        assert_eq!(
+            plan.target, 0.0,
+            "no LOS to the far face through the thin wall — its window must stay closed",
+        );
+        // The near portal's cone opens normally for the same viewer... when in
+        // proximity range; at 100px the band is open.
+        let plan = compute_cone(&near, &far, &config, Some(&viewer), world);
+        assert!(
+            plan.target > 0.0,
+            "the near portal's window opens for the near-side viewer",
+        );
+    }
+
+    /// The window is glass set INTO the host wall: on a thin wall the finite
+    /// wedge must not punch through into the room behind (where it would be
+    /// visible with no LOS and would sit inside its own capture's source
+    /// region, feeding back as a nested window).
+    #[test]
+    fn window_depth_clips_to_the_host_wall_thickness() {
+        let world = Vec2::new(1600.0, 900.0);
+        let wall = ae::Aabb::new(Vec2::new(512.0, 450.0), Vec2::new(12.0, 450.0));
+        let near = placed(
+            PortalChannelColor::Purple.channel(),
+            Vec2::new(500.0, 450.0),
+            Vec2::new(-1.0, 0.0),
+        );
+        let far = placed(
+            PortalChannelColor::Yellow.channel(),
+            Vec2::new(524.0, 450.0),
+            Vec2::new(1.0, 0.0),
+        );
+        // Exact mode: no half-plane assist, so the wedge is the finite
+        // LOS geometry alone (the doorway takeover is deliberately unclipped).
+        let mut config = PortalViewConeConfig::default();
+        config.half_plane_preview_full_distance = 0.0;
+        let viewer = PortalViewer {
+            present: true,
+            eye: Vec2::new(400.0, 450.0),
+            half_size: Vec2::ZERO,
+            occluders: vec![wall],
+        };
+        let plan = compute_cone(&near, &far, &config, Some(&viewer), world);
+        assert!(plan.target > 0.0, "the near window is open");
+        let wall_back = 524.0;
+        for p in plan.wedge.entry_quad.iter().chain(plan.min.entry_quad.iter()) {
+            assert!(
+                p.x <= wall_back + 0.6,
+                "window geometry must stay inside the 24px host wall, got {p:?}",
+            );
+        }
+        assert!(
+            plan.debug.finite_depth.unwrap_or(0.0) <= 24.0 + 0.6,
+            "finite depth clips to the wall thickness, got {:?}",
+            plan.debug.finite_depth,
+        );
+    }
+
+    #[test]
+    fn host_depth_limit_measures_merged_material_and_stops_at_gaps() {
+        let face = PortalFrame {
+            pos: Vec2::new(500.0, 450.0),
+            normal: Vec2::new(-1.0, 0.0),
+            half_extent: Vec2::new(9.0, 46.0),
+        };
+        let wall = |x0: f32, x1: f32| {
+            ae::Aabb::new(
+                Vec2::new((x0 + x1) * 0.5, 450.0),
+                Vec2::new((x1 - x0) * 0.5, 450.0),
+            )
+        };
+        // A single 24px wall.
+        assert_eq!(host_depth_limit(&face, &[wall(500.0, 524.0)], 280.0), 24.0);
+        // Two exactly-adjacent merged tiles extend the material.
+        assert_eq!(
+            host_depth_limit(&face, &[wall(500.0, 524.0), wall(524.0, 600.0)], 280.0),
+            100.0
+        );
+        // A real gap behind the wall ends it.
+        assert_eq!(
+            host_depth_limit(&face, &[wall(500.0, 524.0), wall(540.0, 600.0)], 280.0),
+            24.0
+        );
+        // Deep wall clips to the probe.
+        assert_eq!(host_depth_limit(&face, &[wall(500.0, 900.0)], 280.0), 280.0);
+        // No measurable host (one-way platform host, empty snapshot) → unclipped.
+        assert_eq!(host_depth_limit(&face, &[], 280.0), 280.0);
+        assert_eq!(host_depth_limit(&face, &[wall(700.0, 800.0)], 280.0), 280.0);
+    }
+
+    /// Capture cameras see every OTHER portal's window layer (true recursion)
+    /// but never their own, and no window layers at all when recursion is off.
+    #[test]
+    fn capture_layers_exclude_the_rigs_own_window() {
+        let a = placed(
+            PortalChannelColor::Purple.channel(),
+            Vec2::new(500.0, 450.0),
+            Vec2::new(-1.0, 0.0),
+        );
+        let b = placed(
+            PortalChannelColor::Yellow.channel(),
+            Vec2::new(524.0, 450.0),
+            Vec2::new(1.0, 0.0),
+        );
+        let all = [a, b];
+        let own = portal_window_self_layer(a.channel);
+        let other = portal_window_self_layer(b.channel);
+        assert_ne!(own, other);
+        // `RenderLayers::layer` is a const constructor limited to the small
+        // built-in buffer; large per-portal layers need the growable `with`.
+        let probe = |n: usize| RenderLayers::none().with(n);
+
+        let layers = capture_render_layers(1, false, 0, &other_window_layers(&all, a.channel));
+        assert!(
+            layers.intersects(&probe(other)),
+            "recursion includes the partner's window layer",
+        );
+        assert!(
+            !layers.intersects(&probe(own)),
+            "a capture must never see its own window",
+        );
+        assert!(
+            !layers.intersects(&probe(PORTAL_WINDOW_RENDER_LAYER)),
+            "captures never use the shared main-camera window layer",
+        );
+
+        let flat = capture_render_layers(0, false, 0, &other_window_layers(&all, a.channel));
+        assert!(
+            !flat.intersects(&probe(other)),
+            "recursion depth 0 sees no window layers at all",
         );
     }
 

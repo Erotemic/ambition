@@ -68,9 +68,30 @@ const WORLD_RENDER_LAYER: usize = 0;
 /// Dedicated layer for portal view-window meshes.
 pub const PORTAL_WINDOW_RENDER_LAYER: usize = 5;
 const PORTAL_CAPTURE_PARALLAX_LAYER_BASE: usize = 32;
+/// Base of the per-portal window layers. Every window mesh carries the shared
+/// [`PORTAL_WINDOW_RENDER_LAYER`] (what the MAIN camera renders) PLUS its own
+/// `base + slot` layer, so a capture camera can include every OTHER portal's
+/// window (true recursion) while excluding its own — a window photographing
+/// itself is never correct optics, and on a thin-wall pair the self-capture
+/// fed back as a spurious nested window with one frame of lag. Base 512 keeps
+/// clear of the parallax layers (32 + slot, slot ≤ ~300).
+const PORTAL_WINDOW_SELF_LAYER_BASE: usize = 512;
 
 fn portal_capture_parallax_layer(channel: PortalChannel) -> usize {
     PORTAL_CAPTURE_PARALLAX_LAYER_BASE + portal_channel_render_slot(channel)
+}
+
+fn portal_window_self_layer(channel: PortalChannel) -> usize {
+    PORTAL_WINDOW_SELF_LAYER_BASE + portal_channel_render_slot(channel)
+}
+
+/// The per-portal window layers of every placed portal EXCEPT `own` — the set
+/// a capture camera may see when recursion is on.
+fn other_window_layers(all: &[PlacedPortal], own: PortalChannel) -> Vec<usize> {
+    all.iter()
+        .filter(|p| p.channel != own)
+        .map(|p| portal_window_self_layer(p.channel))
+        .collect()
 }
 
 fn portal_channel_render_slot(channel: PortalChannel) -> usize {
@@ -97,16 +118,21 @@ fn capture_render_layers(
     recursion_depth: u32,
     include_parallax: bool,
     parallax_layer: usize,
+    other_windows: &[usize],
 ) -> RenderLayers {
     let mut layers = RenderLayers::layer(WORLD_RENDER_LAYER);
     if include_parallax {
         layers = layers.with(parallax_layer);
     }
-    if recursion_depth == 0 {
-        layers
-    } else {
-        layers.with(PORTAL_WINDOW_RENDER_LAYER)
+    // Recursion sees the OTHER portals' windows via their per-portal layers —
+    // never the shared window layer, which would include this rig's OWN mesh
+    // and feed the capture back into itself (the thin-wall nested-window bug).
+    if recursion_depth > 0 {
+        for &layer in other_windows {
+            layers = layers.with(layer);
+        }
     }
+    layers
 }
 
 /// Host seam: the controlled character's eye + the world's solid occluders,
@@ -732,6 +758,7 @@ pub fn sync_portal_view_cones(
             effective.recursion_depth,
             effective.include_parallax,
             rig.parallax_layer,
+            &other_window_layers(&all, rig.channel),
         );
         sync_cone_material_tint(&cone_materials, &mut materials, rig.cone, config.tint);
 
@@ -886,7 +913,11 @@ pub fn sync_portal_view_cones(
                 cone_tf,
                 cone_vis,
                 PortalConeMesh,
-                RenderLayers::layer(PORTAL_WINDOW_RENDER_LAYER),
+                // Shared layer = what the MAIN camera renders; the per-portal
+                // layer lets other rigs' captures include this window without
+                // any capture ever seeing its OWN window.
+                RenderLayers::layer(PORTAL_WINDOW_RENDER_LAYER)
+                    .with(portal_window_self_layer(portal.channel)),
                 // The mesh's vertices are rewritten in place every frame as the
                 // viewer moves, but Bevy computes a mesh entity's culling Aabb
                 // ONCE (calculate_bounds only fills in missing Aabbs; mutating
@@ -939,6 +970,7 @@ pub fn sync_portal_view_cones(
                 effective.recursion_depth,
                 effective.include_parallax,
                 portal_capture_parallax_layer(portal.channel),
+                &other_window_layers(&all, portal.channel),
             ),
             Projection::Orthographic(OrthographicProjection {
                 scaling_mode: scaling,

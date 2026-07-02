@@ -87,7 +87,47 @@ invariant path for items, like bodies. Also added the missing "moving INTO
 the face" gate (`vel · normal < 0`): previously any overlap teleported the
 item, even one grazing parallel to the surface.
 
-### F5. Dead duplicate modules deleted
+### F5. Thin-wall pairs: capture self-feedback + window punch-through (round 2, from Jon's report)
+
+Symptom: two portals on opposite faces of a thin wall showed the FAR portal's
+preview cone (no line of sight to it) and the near window "recursed
+incorrectly" — a spurious nested window with one frame of lag.
+
+Two mechanisms, both fixed:
+
+1. **Every capture camera saw its own window.** With `recursion_depth > 0`
+   the capture included the shared `PORTAL_WINDOW_RENDER_LAYER` — which holds
+   ALL window meshes, including the rig's own. A window photographing itself
+   is never correct optics; on a thin-wall pair the near window's mesh sat
+   inside its own capture's source region, so the capture fed back into the
+   window as a nested ghost. Fix: each window mesh now carries a per-portal
+   layer (`512 + render_slot`) in addition to the shared layer; capture
+   cameras include every OTHER portal's per-portal layer (true recursion —
+   through a door you legitimately see the door's far face) and never their
+   own. The main camera keeps the shared layer — no host change.
+
+2. **Window meshes punched through thin walls.** The finite window recedes up
+   to `dynamic_depth_close` (280 px) into the host surface — through a ~20 px
+   door wall and out the other side, into the partner's room. That tail was
+   on the main-camera layer: the far portal's cone was literally visible
+   sticking out of the wall on the viewer's side, and the near window's tail
+   sat inside its own source rect (feeding mechanism 1). The config comment
+   even says the depth was tuned down to avoid "punching through thin door
+   walls" — tuning can't fix geometry. Fix: `host_depth_limit` measures the
+   solid material directly behind the face (interval-merge along −normal
+   against the viewer's occluder snapshot, `SURFACE_GRACE`-tolerant at the
+   face, gap-terminated behind it) and the finite + minimum window depths
+   clip to it. The half-plane doorway takeover deliberately stays unclipped —
+   crossing the aperture, the whole view becomes the exit chart. A portal
+   whose host isn't in the occluder snapshot (one-way platforms) stays
+   unclipped rather than degenerate.
+
+Also pinned as a test: the far-side portal's window stays CLOSED for a
+near-side viewer under the default visibility mode (the wormhole admission
+route is correctly gated on face LOS — the admission logic itself was sound;
+the artifacts were pure render-layer/geometry bugs).
+
+### F6. Dead duplicate modules deleted
 
 `src/shot.rs` and `src/pickup.rs` in `ambition_portal` were orphaned earlier
 copies of `gun_projectile.rs` / `gun_pickup.rs` — never declared in `lib.rs`,

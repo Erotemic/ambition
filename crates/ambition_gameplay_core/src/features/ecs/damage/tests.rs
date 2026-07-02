@@ -754,6 +754,72 @@ fn a_raised_shield_does_not_guard_the_back() {
     );
 }
 
+// ── §A2 step 6: a struck actor rides the shared knockback resolution ─────────
+
+/// A knockback-carrying hit (an aggressor swing pre-resolved to an actor
+/// victim) launches the actor through `resolved_body_knockback_velocity` —
+/// away from the source along its frame's side, rising against its gravity —
+/// exactly the resolution a player victim gets.
+#[test]
+fn a_knockback_carrying_hit_launches_the_actor_like_a_player() {
+    let mut app = shield_test_app();
+    let victim = spawn_hostile_actor(&mut app);
+    let feel = crate::time::feel::SandboxFeelTuning::default();
+    // Attacker to the LEFT of the victim (victim at origin): expect a launch
+    // toward +x with the feel-tuned enemy knockback, rising (world -y).
+    app.world_mut().write_message(HitEvent {
+        volume: ae::Aabb::new(ae::Vec2::ZERO, ae::Vec2::new(40.0, 50.0)).into(),
+        damage: 2,
+        source: HitSource::EnemyAttack,
+        attacker: None,
+        target: HitTarget::Actor(victim),
+        mode: HitMode::Knockback,
+        knockback: Some(crate::features::HitKnockback {
+            dir: 1.0,
+            strength: 1.0,
+            source_pos: ae::Vec2::new(-40.0, 0.0),
+            impact_pos: ae::Vec2::ZERO,
+        }),
+        ignored_targets: Vec::new(),
+    });
+    app.update();
+    let kin = app
+        .world()
+        .get::<super::super::actor_clusters::BodyKinematics>(victim)
+        .unwrap();
+    let expected = ae::Vec2::new(feel.enemy_knockback_x, -feel.enemy_knockback_y);
+    assert!(
+        (kin.vel - expected).length() < 1e-3,
+        "actor knockback should be the shared feel-tuned resolution, got {:?} want {expected:?}",
+        kin.vel
+    );
+}
+
+/// A slash with no `HitKnockback` payload folds its `knock_x` impulse into the
+/// same resolution: dir from the impulse sign, standard strength.
+#[test]
+fn a_slash_knock_x_folds_into_the_shared_knockback_resolution() {
+    let mut app = shield_test_app();
+    let victim = spawn_hostile_actor(&mut app);
+    let feel = crate::time::feel::SandboxFeelTuning::default();
+    // Slash volume centered on the victim (side derivation degenerates) with a
+    // -x impulse: the stored dir carries the launch side.
+    app.world_mut()
+        .write_message(slash_at(ae::Vec2::new(0.0, 0.0), 1));
+    app.update();
+    let kin = app
+        .world()
+        .get::<super::super::actor_clusters::BodyKinematics>(victim)
+        .unwrap();
+    // `slash_at` carries knock_x: 200.0 → dir +1, strength 1.0.
+    let expected = ae::Vec2::new(feel.enemy_knockback_x, -feel.enemy_knockback_y);
+    assert!(
+        (kin.vel - expected).length() < 1e-3,
+        "slash knockback should ride the shared resolution, got {:?} want {expected:?}",
+        kin.vel
+    );
+}
+
 // ── S3e: relational actor-vs-actor damage application ────────────────────────
 
 /// A `HitTarget::Actor(victim)` event (the pre-resolved actor-vs-actor hit an

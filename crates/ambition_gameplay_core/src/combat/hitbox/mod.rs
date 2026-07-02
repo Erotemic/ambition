@@ -195,46 +195,42 @@ pub fn apply_hitbox_damage(
                     if feedback {
                         vfx.write(VfxMessage::Impact { pos: impact });
                     }
-                    let knockback = if is_player {
-                        // Knockback side in the victim's LOCAL frame (§B11):
-                        // under sideways gravity the attacker and victim separate
-                        // along world-Y, exactly when a screen-X comparison
-                        // degenerates. The consumer's gravity-relative resolution
-                        // keeps this as its fallback, so the stored side must be
-                        // frame-correct too.
-                        let side =
-                            ae::AccelerationFrame::new(gravity.dir_at(victim_aabb.center)).side;
-                        let dir = if (victim_body.center() - owner_pos).dot(side) >= 0.0 {
-                            1.0
-                        } else {
-                            -1.0
-                        };
-                        if feedback {
-                            sfx.write(SfxMessage::Play {
-                                id: ambition_sfx::ids::PLAYER_DAMAGE,
-                                pos: impact,
-                            });
-                            vfx.write(VfxMessage::Burst {
-                                pos: impact,
-                                count: 14,
-                                speed: 300.0,
-                                color: [1.0, 0.34, 0.28, 0.88],
-                                kind: ParticleKind::Shard,
-                            });
-                            debris.write(DebrisBurstMessage {
-                                pos: impact,
-                                cue: PhysicsDebrisCue::Impact,
-                            });
-                        }
-                        Some(HitKnockback {
-                            dir,
-                            strength: hitbox.knockback_strength.max(0.0),
-                            source_pos: owner_pos,
-                            impact_pos: impact,
-                        })
+                    if is_player && feedback {
+                        sfx.write(SfxMessage::Play {
+                            id: ambition_sfx::ids::PLAYER_DAMAGE,
+                            pos: impact,
+                        });
+                        vfx.write(VfxMessage::Burst {
+                            pos: impact,
+                            count: 14,
+                            speed: 300.0,
+                            color: [1.0, 0.34, 0.28, 0.88],
+                            kind: ParticleKind::Shard,
+                        });
+                        debris.write(DebrisBurstMessage {
+                            pos: impact,
+                            cue: PhysicsDebrisCue::Impact,
+                        });
+                    }
+                    // Knockback side in the victim's LOCAL frame (§B11): under
+                    // sideways gravity the attacker and victim separate along
+                    // world-Y, exactly when a screen-X comparison degenerates.
+                    // The consumer's gravity-relative resolution keeps this as
+                    // its fallback, so the stored side must be frame-correct
+                    // too. Attached for EVERY victim (§A2 step 6): an actor
+                    // victim rides the same resolved knockback the player does.
+                    let side = ae::AccelerationFrame::new(gravity.dir_at(victim_aabb.center)).side;
+                    let dir = if (victim_body.center() - owner_pos).dot(side) >= 0.0 {
+                        1.0
                     } else {
-                        None
+                        -1.0
                     };
+                    let knockback = Some(HitKnockback {
+                        dir,
+                        strength: hitbox.knockback_strength.max(0.0),
+                        source_pos: owner_pos,
+                        impact_pos: impact,
+                    });
                     hit_events.write(HitEvent {
                         volume: world_volume.clone(),
                         damage: hitbox.damage.max(1),

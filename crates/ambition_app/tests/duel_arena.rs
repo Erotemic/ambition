@@ -440,9 +440,12 @@ fn duel_arena_room_is_a_real_neutral_attack_defense_fight() {
         robot.shield
     );
     // …and at least one BLINK-evade across the duel (the mobile option, reserved for
-    // a committed lunge — rarer than the block by design).
+    // a committed lunge — rarer than the block by design). Rarer still since §A2
+    // step 6: landed hits now LAUNCH the loser apart with the shared knockback
+    // resolution, so the sustained-pressure lunges that trigger blinks come up
+    // less often — the assertion pins that the verb still fires, not a count.
     assert!(
-        pca.blink + robot.blink >= 2,
+        pca.blink + robot.blink >= 1,
         "the duel should show blink-evades against committed lunges (PCA {} + robot {})",
         pca.blink,
         robot.blink

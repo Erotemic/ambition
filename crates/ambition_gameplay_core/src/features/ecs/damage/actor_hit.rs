@@ -49,6 +49,9 @@ pub(crate) fn apply_actor_hit(
     interactable: Option<&ambition_interaction::Interactable>,
     banner: &mut GameplayBanner,
     combat_banter: Option<&crate::features::banter::CombatBanterRegistry>,
+    // Knockback feel values (§A2 step 6) — the same tuning the player's
+    // knockback resolution reads.
+    feel: crate::time::feel::SandboxFeelTuning,
     writers: &mut FeatureHitWriters<'_, '_>,
 ) -> bool {
     if disposition.is_peaceful() {
@@ -201,15 +204,39 @@ pub(crate) fn apply_actor_hit(
             resolution,
             crate::combat::damage::BodyHitResolution::Damaged { died: true, .. }
         );
-        // Slash knockback: still the actor path's inline pop — adopting the
-        // player's feel-tuned `resolved_player_knockback_velocity` is §A2
-        // step 6, a separate feel-blind change.
-        if let HitSource::PlayerSlash { knock_x } = &event.source {
-            let frame = ae::AccelerationFrame::new(gravity_dir);
-            let mut local_vel = frame.to_local(em.kin.vel);
-            local_vel.x += *knock_x;
-            local_vel.y = (local_vel.y - 90.0).max(-280.0);
-            em.kin.vel = frame.to_world(local_vel);
+        // §A2 step 6 (FEEL-BLIND): a struck actor rides the SAME feel-tuned,
+        // frame-agnostic knockback resolution the player does — side away from
+        // the source, rise against ITS gravity — replacing the old inline
+        // `local.y - 90 max -280` pop. The data comes from the event's
+        // `HitKnockback` (attached by hitboxes / body-contact / hazards); a
+        // slash carries its impulse as `knock_x`, folded into the same
+        // resolution as a dir + standard strength. A hit with neither leaves
+        // the velocity alone (as before).
+        let knockback = match (&event.source, event.knockback.as_ref()) {
+            (_, Some(k)) => Some(k.clone()),
+            (HitSource::PlayerSlash { knock_x }, None) if *knock_x != 0.0 => {
+                Some(crate::features::HitKnockback {
+                    dir: knock_x.signum(),
+                    strength: 1.0,
+                    source_pos: event.volume.center(),
+                    impact_pos: event.volume.center(),
+                })
+            }
+            _ => None,
+        };
+        if let Some(k) = knockback {
+            let boss_hit = matches!(
+                event.source,
+                HitSource::BossBody | HitSource::BossAttack
+            );
+            em.kin.vel = crate::combat::damage::resolved_body_knockback_velocity(
+                em.kin.pos,
+                em.kin.facing,
+                gravity_dir,
+                boss_hit,
+                Some(&k),
+                feel,
+            );
         }
         let impact = midpoint(event.volume.center(), em.kin.pos);
         writers.vfx.write(VfxMessage::Impact { pos: impact });

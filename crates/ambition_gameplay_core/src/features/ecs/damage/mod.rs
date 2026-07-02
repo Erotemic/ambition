@@ -68,6 +68,10 @@ pub fn apply_feature_hit_events(
     mut hit_events: MessageReader<HitEvent>,
     mut banner: ResMut<GameplayBanner>,
     combat_banter: Option<Res<crate::features::banter::CombatBanterRegistry>>,
+    // Knockback feel for struck actors (§A2 step 6). `Option` so minimal
+    // headless test worlds that don't stand up the tuning resource still run
+    // (they get the default feel).
+    feel_tuning: Option<Res<crate::time::feel::SandboxFeelTuning>>,
     mut breakables: Query<
         (
             Entity,
@@ -148,6 +152,7 @@ pub fn apply_feature_hit_events(
     // encounter resources — death save/quest/music resolution lives in
     // `update_boss_encounters`.
 ) {
+    let feel = feel_tuning.map(|r| *r).unwrap_or_default();
     for event in hit_events.read().cloned() {
         // PogoBounce hits target only the breakable whose AABB
         // approximately matches the orb volume the engine reported.
@@ -241,6 +246,7 @@ pub fn apply_feature_hit_events(
                 interactable,
                 &mut banner,
                 combat_banter.as_deref(),
+                feel,
                 &mut writers,
             ) {
                 actor_hit_this_event = true;

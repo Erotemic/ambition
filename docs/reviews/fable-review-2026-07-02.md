@@ -953,16 +953,30 @@ Also swept: the unused `PlayerInputFrame` in `apply_player_hit_events`'s query
 ignore, faced-block vs back-hit, scaling/feel/floor, death + never_dies +
 headless). Verified: engine-core 211, gameplay-core 1087, all six app suites.
 
-## Next (in order) — A2 remaining feel steps (6–7), then A1
+### E12. A2 step 6 — actors ride the shared knockback resolution ✅ (BLIND — Jon feel-checks)
+`resolved_player_knockback_velocity` renamed `resolved_body_knockback_velocity`
+(it never was player-specific — pure side/rise resolution in the victim's
+frame). The actor path's inline hardcoded `local.y - 90 max -280` slash pop is
+DEAD; a struck actor's velocity is now SET by the same feel-tuned resolution
+the player gets (side away from the source, `enemy/boss_knockback_x/y` ×
+strength, rise against ITS gravity). Data flow: `apply_hitbox_damage` now
+attaches `HitKnockback` for EVERY victim (aggressor swings launch actor
+victims too — body-contact + hazards already attached it); a `PlayerSlash`
+with no payload folds its `knock_x` into the same resolution (dir from sign,
+standard strength); an event with neither leaves velocity alone.
+`apply_feature_hit_events` gained an `Option<Res<SandboxFeelTuning>>`
+(default in headless tests). Mechanics pinned by 2 new tests (launch matches
+the shared resolution; slash-fold). **Feel notes for Jon:** enemies/NPCs now
+get visibly LAUNCHED by slashes and by each other's swings (duels read much
+more smash-like); the duel-arena canary tripped exactly as designed — knockback
+separation makes committed-lunge blink-evades rarer, so its blink assertion is
+now "the verb fires" (≥1) instead of ≥2. Verified: gameplay-core 1089, all six
+app suites.
 
-**A2 — one victim resolver.** Steps 1–5 landed (E11). Remaining, each its own
+## Next (in order) — A2 remaining feel step (7), then A1
+
+**A2 — one victim resolver.** Steps 1–6 landed (E11, E12). Remaining, its own
 clearly-marked BLIND feel commit:
-6. Knockback: actors RISE to `resolved_player_knockback_velocity` (already
-   frame-agnostic + feel-tuned); the actor path's inline hardcoded
-   `local.y - 90 max -280` pop dies. Actor knockback data comes from the
-   event's `HitKnockback` (extend the unified emit loop in
-   `apply_hitbox_damage` to attach it for actor victims too) + the
-   `PlayerSlash.knock_x` slash impulse. FEEL-BLIND: own commit, Jon checks.
 7. Hitstun/hitstop for actors: SET the shared `BodyCombat` fields in the
    resolver (they exist on every body); CONSUMING them in the actor driver
    (movement gate like `engine_input_from_actor_control`'s hitstun gate) is a

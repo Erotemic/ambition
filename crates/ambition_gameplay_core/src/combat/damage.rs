@@ -344,7 +344,11 @@ pub(crate) fn safe_respawn_player(
     vfx.write(VfxMessage::ResetEffects { from, to });
 }
 
-fn resolved_player_knockback_velocity(
+/// THE feel-tuned, frame-agnostic knockback velocity for ANY struck body
+/// (§A2 step 6): side away from the hit's source (falling back to the stored
+/// event dir, then away from facing), scaled by the per-source feel values and
+/// the hit's strength, launched with a rise against the body's gravity.
+pub(crate) fn resolved_body_knockback_velocity(
     victim_pos: ae::Vec2,
     victim_facing: f32,
     gravity_dir: ae::Vec2,
@@ -395,7 +399,7 @@ pub(crate) fn apply_player_knockback(
         .map(|k| k.impact_pos)
         .unwrap_or_else(|| damage.volume.center());
     let strength = knockback.map(|k| k.strength.max(0.0)).unwrap_or(0.0);
-    clusters.kinematics.vel = resolved_player_knockback_velocity(
+    clusters.kinematics.vel = resolved_body_knockback_velocity(
         clusters.kinematics.pos,
         clusters.kinematics.facing,
         tuning.gravity_dir,
@@ -883,7 +887,7 @@ mod tests {
                 source_pos,
                 impact_pos: victim_pos,
             };
-            let vel = resolved_player_knockback_velocity(
+            let vel = resolved_body_knockback_velocity(
                 victim_pos,
                 1.0,
                 gravity_dir,

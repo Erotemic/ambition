@@ -399,14 +399,22 @@ pub fn transit_step_with_tuning(
             // cooldown (e.g. a quick floor↔floor bounce whose airtime is shorter
             // than the cooldown) sinks to the bottom of the open hole and grounds
             // there — "stuck in the middle of the floor", its momentum killed.
-            // `straddles` bounds the rescue to the opening (the plane passes
-            // THROUGH the body), so a body that is legitimately below the surface
-            // is never teleported. The body must also be moving INTO the portal
-            // (`vel · normal < 0`): that distinguishes a body falling THROUGH the
-            // opening (rescue it) from one that JUST EMERGED from this portal and
-            // is moving back out (do NOT re-grab it — the transfer maps the
-            // centroid right onto the exit plane, so without the velocity gate the
-            // rescue would immediately fire again and ping-pong).
+            // The gate is the OPEN aperture volume itself (the carve hole): the
+            // body must intersect it with its centroid past the plane. This
+            // bounds the rescue to the opening — a body legitimately below the
+            // surface elsewhere is never teleported — while staying dt-robust:
+            // the old `straddles` gate required the plane to pass THROUGH the
+            // body on a sampled frame, which a fast fall (1900 px/s terminal ≈
+            // 63 px at the 1/30 s sim-step clamp, vs a ~40 px body) can skip
+            // entirely, grounding the body at the bottom of the open hole with
+            // its momentum killed. Inside the carve volume the only way in was
+            // through the aperture, so a deep crossing is still a crossing.
+            // The body must also be moving INTO the portal (`vel · normal < 0`):
+            // that distinguishes a body falling THROUGH the opening (rescue it)
+            // from one that JUST EMERGED from this portal and is moving back out
+            // (do NOT re-grab it — the transfer maps the centroid right onto the
+            // exit plane, so without the velocity gate the rescue would
+            // immediately fire again and ping-pong).
             for enter in portals {
                 if find_portal(portals, enter.channel.partner()).is_none() {
                     continue;
@@ -415,8 +423,8 @@ pub fn transit_step_with_tuning(
                     continue;
                 }
                 let ef = enter.frame();
-                if pp::straddles(body, &ef)
-                    && pp::front_distance(center, &ef) <= 0.0
+                if pp::front_distance(center, &ef) <= 0.0
+                    && body.strict_intersects(pp::carve_hole(&ef))
                     && vel.dot(enter.normal) < 0.0
                 {
                     let exit = find_portal(portals, enter.channel.partner())
@@ -483,5 +491,80 @@ pub fn transit_step_with_tuning(
                 TransitStep::Clear
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::color::{PortalChannel, PortalChannelColor};
+    use crate::types::portal_half_extent;
+
+    fn floor(channel: PortalChannel, pos: Vec2) -> PlacedPortal {
+        PlacedPortal {
+            channel,
+            pos,
+            normal: Vec2::new(0.0, -1.0),
+            half_extent: portal_half_extent(Vec2::new(0.0, -1.0)),
+        }
+    }
+
+    const PURPLE: PortalChannel = PortalChannel::Authored(PortalChannelColor::Purple);
+    const YELLOW: PortalChannel = PortalChannel::Authored(PortalChannelColor::Yellow);
+
+    /// A fast fall can cross the whole straddle window between two sampled
+    /// frames (1900 px/s terminal ≈ 63 px at the 1/30 s sim-step clamp vs a
+    /// ~40 px body), leaving the body FULLY below the entry plane inside the
+    /// open carve, with the Begin path cooldown-blocked. The rescue must still
+    /// transfer it — the carve volume is the gate, not a same-frame straddle.
+    #[test]
+    fn rescue_transfers_a_deep_crossing_inside_the_carve_even_on_cooldown() {
+        let portals = [
+            floor(PURPLE, Vec2::new(100.0, 300.0)),
+            floor(YELLOW, Vec2::new(500.0, 300.0)),
+        ];
+        // Body (24x40) entirely below the plane (top edge y=315 > 300) but
+        // within the carve volume, still falling in, mid ping-pong cooldown.
+        let step = transit_step(
+            Vec2::new(100.0, 335.0),
+            Vec2::new(24.0, 40.0),
+            Vec2::new(0.0, 1600.0),
+            None,
+            0.2, // cooldown active — Begin is blocked, only the rescue can act
+            &portals,
+            Vec2::new(0.0, 1.0),
+        );
+        match step {
+            TransitStep::Transfer { pos, .. } => {
+                assert!(
+                    pos.y < 300.0,
+                    "the transfer emerges in FRONT of the exit plane, got {pos:?}"
+                );
+            }
+            other => panic!("a deep carve crossing must transfer, got {other:?}"),
+        }
+    }
+
+    /// The carve volume bounds the rescue: a body genuinely below the surface
+    /// (past the carve depth) is never teleported.
+    #[test]
+    fn rescue_never_grabs_a_body_past_the_carve_depth() {
+        let portals = [
+            floor(PURPLE, Vec2::new(100.0, 300.0)),
+            floor(YELLOW, Vec2::new(500.0, 300.0)),
+        ];
+        let step = transit_step(
+            Vec2::new(100.0, 420.0), // top edge y=400, past the 60px carve
+            Vec2::new(24.0, 40.0),
+            Vec2::new(0.0, 400.0),
+            None,
+            0.2,
+            &portals,
+            Vec2::new(0.0, 1.0),
+        );
+        assert!(
+            matches!(step, TransitStep::Idle),
+            "a body below the carve volume must not be rescued, got {step:?}"
+        );
     }
 }

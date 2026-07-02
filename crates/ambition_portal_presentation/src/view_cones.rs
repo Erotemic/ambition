@@ -51,7 +51,7 @@ use bevy::render::render_resource::TextureFormat;
 use bevy::sprite_render::AlphaMode2d;
 use std::fmt::Write as _;
 
-use ambition_engine_core as ae;
+use ambition_engine_core::{self as ae, AabbExt};
 use ambition_platformer_primitives::world_query::{raycast_solids, SolidWorldQuery};
 use ambition_portal::pieces::PortalFrame;
 use ambition_portal::view::{aperture_wedge_multi, blend_cones, view_cone, window_eye, ViewCone};
@@ -610,10 +610,21 @@ fn portal_capture_camera_frame(
     let host_view = host_view.filter(|view| {
         view.initialized && view.visible_view.x >= 1.0 && view.visible_view.y >= 1.0
     })?;
-    let center = ambition_portal::pieces::map_point(host_view.current_center_world, enter, exit);
+    // Map the WHOLE host-view rect through the body map, not just its center:
+    // a 90° pair rotates the viewport, so its image swaps width/height. Using
+    // the unrotated size framed the wrong region for floor↔wall pairs — mapped
+    // cone vertices fell outside the capture rect, their UVs clamped at the
+    // edge, and the window rendered smeared/warped. `map_aabb` is exact for
+    // cardinal portals, and the mesh's entry polygon is clipped to this same
+    // host rect, so every mapped vertex now lands inside the capture frame.
+    let rect = ae::Aabb::new(
+        host_view.current_center_world,
+        host_view.visible_view * 0.5,
+    );
+    let mapped = ambition_portal::pieces::map_aabb(rect, enter, exit);
     Some(geometry::CaptureCameraFrame {
-        center,
-        size: host_view.visible_view,
+        center: mapped.center(),
+        size: mapped.half_size() * 2.0,
     })
 }
 

@@ -404,7 +404,19 @@ pub fn integrate_normal_spine(
         let m = crate::AccelerationFrame::new(g).side;
         let run = tuning.stick(&input).x;
         let along = kin_vel.dot(m);
-        let target = run * tuning.max_run_speed;
+        let mut target = run * tuning.max_run_speed;
+        // Same `relax` as the fall cap below: airborne, the run cap is an
+        // equilibrium input accelerates UP TO, never a brake on an over-cap
+        // fling (a portal exit at fall speed). Holding INTO the motion keeps
+        // the fling; holding against it still brakes at full air control.
+        // Grounded movement keeps the hard approach so landing ends a fling.
+        if !ctx.on_ground {
+            if run > 0.1 {
+                target = target.max(along);
+            } else if run < -0.1 {
+                target = target.min(along);
+            }
+        }
         let mut new_along = approach(along, target, accel * dt);
         let friction = if ctx.on_ground {
             tuning.ground_friction

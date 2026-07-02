@@ -379,11 +379,14 @@ pub struct PortalTransitable {
     pub half_extent: Vec2,
 }
 
-/// In-flight transitable bodies (thrown axes / javelins) also travel through the
-/// portal pair, carrying momentum through the rotation — throw a javelin into
-/// the blue portal and it flies out of the orange one. Resting bodies are
-/// ignored (only `vel != ZERO` bodies teleport), and a teleported body pops out
-/// clear of the exit portal so it doesn't immediately re-enter.
+/// In-flight transitable bodies (thrown axes / javelins) also travel through
+/// EVERY placed portal pair — gun-fired, authored, or link-authored — carrying
+/// momentum through the rotation: throw a javelin into one end and it flies out
+/// of the partner. Resting bodies are ignored (only `vel != ZERO` bodies
+/// teleport), a body must be moving INTO the face (`vel · normal < 0`) to
+/// transit — grazing past a portal parallel to its surface is not an entry —
+/// and a teleported body pops out clear of the exit portal so it doesn't
+/// immediately re-enter.
 ///
 /// Operates on the content-agnostic [`PortalTransitable`] component, not the
 /// Ambition `GroundItem`: the item layer syncs its body into/out of this marker
@@ -392,25 +395,22 @@ pub fn portal_teleport_ground_items(
     portals: Query<&PlacedPortal>,
     mut items: Query<&mut PortalTransitable>,
 ) {
-    use super::color::PortalGunColor;
-    let blue = portals
-        .iter()
-        .find(|p| p.channel == PortalGunColor::BLUE.channel())
-        .copied();
-    let orange = portals
-        .iter()
-        .find(|p| p.channel == PortalGunColor::ORANGE.channel())
-        .copied();
-    let (Some(blue), Some(orange)) = (blue, orange) else {
+    let all: Vec<PlacedPortal> = portals.iter().copied().collect();
+    if all.is_empty() {
         return;
-    };
+    }
     for mut item in &mut items {
         if item.vel == Vec2::ZERO {
             continue;
         }
         let item_aabb = ae::Aabb::new(item.pos, item.half_extent);
-        for (enter, exit) in [(blue, orange), (orange, blue)] {
-            if item_aabb.strict_intersects(ae::Aabb::new(enter.pos, enter.half_extent)) {
+        for enter in &all {
+            let Some(exit) = find_portal(&all, enter.channel.partner()) else {
+                continue;
+            };
+            if item.vel.dot(enter.normal) < 0.0
+                && item_aabb.strict_intersects(ae::Aabb::new(enter.pos, enter.half_extent))
+            {
                 // Rotation preserves speed, so momentum carries through.
                 item.vel = portal_transform_velocity(item.vel, enter.normal, exit.normal);
                 let clearance = portal_exit_clearance(item.half_extent, exit.normal);

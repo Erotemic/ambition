@@ -487,3 +487,48 @@ fn the_player_rides_a_horizontally_moving_platform() {
         scratch.kinematics.pos.x - x_before
     );
 }
+
+#[test]
+fn an_airborne_fling_above_run_speed_is_preserved_while_holding_into_it() {
+    // A portal exit can carry a horizontal speed far above max_run_speed (a
+    // fall converted by a floor→wall pair). Airborne, holding INTO the motion
+    // must not brake it back to run speed — the run cap is an equilibrium
+    // input accelerates UP TO, exactly like the fall cap's `relax`. (Holding
+    // AGAINST the fling still brakes at full air control, and landing restores
+    // the ordinary grounded approach.)
+    let world = test_world();
+    // High in the open air, flung hard to the right.
+    let mut scratch = scratch_with(AbilitySet::sandbox_all(), Vec2::new(200.0, 200.0));
+    scratch.ground.on_ground = false;
+    let fling = DEFAULT_TUNING.max_run_speed * 4.0;
+    scratch.kinematics.vel = Vec2::new(fling, 0.0);
+    let hold_right = InputState {
+        axis_x: 1.0,
+        ..InputState::default()
+    };
+    for _ in 0..10 {
+        step_scratch(&world, &mut scratch, hold_right);
+        if scratch.ground.on_ground {
+            break;
+        }
+    }
+    assert!(
+        scratch.kinematics.vel.x > fling - 1.0,
+        "holding into an over-cap fling must not brake it: vx={} (fling was {fling})",
+        scratch.kinematics.vel.x
+    );
+
+    // Holding AGAINST the fling still brakes (air control is preserved).
+    let hold_left = InputState {
+        axis_x: -1.0,
+        ..InputState::default()
+    };
+    let vx_before = scratch.kinematics.vel.x;
+    step_scratch(&world, &mut scratch, hold_left);
+    assert!(
+        scratch.kinematics.vel.x < vx_before - 1.0,
+        "opposing input must still brake the fling: vx {} -> {}",
+        vx_before,
+        scratch.kinematics.vel.x
+    );
+}

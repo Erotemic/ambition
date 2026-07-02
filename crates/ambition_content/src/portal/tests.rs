@@ -408,7 +408,7 @@ fn n_pairs_transit_routes_to_the_matching_partner() {
             straddling: PURPLE,
             crossed: false,
         }),
-        0.0,
+        None,
         &portals,
         Vec2::new(0.0, 1.0),
     );

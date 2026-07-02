@@ -112,8 +112,39 @@ pub(crate) fn portal_exit_clearance(half_size: Vec2, exit_normal: Vec2) -> f32 {
     half_size.dot(exit_normal.abs()) + PORTAL_THICKNESS_HALF + 3.0
 }
 
-/// Per-actor cooldown after a portal jump, so an actor that pops out of the
-/// exit doesn't immediately re-enter and ping-pong. Inserted on teleport and
-/// ticked down by [`super::transit::tick_portal_cooldowns`].
+/// Per-actor, PAIR-SCOPED cooldown after a portal jump, so an actor that pops
+/// out of the exit doesn't immediately re-Begin into the pair it just crossed.
+/// Scoped to the crossed pair: entering a DIFFERENT pair immediately after a
+/// crossing is legitimate (chained-portal rooms). Inserted on teleport and
+/// ticked down by [`super::transit::tick_portal_cooldowns`]. The rescue path
+/// in `transit_step` ignores it entirely (a centroid mid-fall-through must
+/// always transfer).
 #[derive(Component, Clone, Copy, Debug)]
-pub struct PortalTransitCooldown(pub f32);
+pub struct PortalTransitCooldown {
+    /// Remaining latch time (s).
+    pub remaining: f32,
+    /// The pair the body just crossed (either end's channel; the latch matches
+    /// both partners).
+    pub pair: PortalChannel,
+}
+
+/// Measured solid host material behind each placed portal's face, published by
+/// the HOST (it owns the collision world) each frame — portal core stays
+/// world-free. Consumed by the transit rescue and the carve so a portal on a
+/// THIN wall never grabs or engages a body standing in the open room BEHIND
+/// that wall: the aperture volume ends where the wall does. A channel with no
+/// entry reads as unmeasured (`f32::INFINITY` = unclipped), which callers
+/// bound by [`crate::pieces::CARVE_DEPTH`].
+#[derive(bevy::prelude::Resource, Clone, Debug, Default)]
+pub struct PortalHostDepths(pub Vec<(PortalChannel, f32)>);
+
+impl PortalHostDepths {
+    /// The measured host depth for `channel`, or `INFINITY` when unmeasured.
+    pub fn depth(&self, channel: PortalChannel) -> f32 {
+        self.0
+            .iter()
+            .find(|(c, _)| *c == channel)
+            .map(|(_, d)| *d)
+            .unwrap_or(f32::INFINITY)
+    }
+}

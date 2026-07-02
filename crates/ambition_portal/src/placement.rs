@@ -6,7 +6,7 @@
 
 use bevy::prelude::*;
 
-use crate::pieces as pp;
+use crate::pieces::{self as pp, PortalFrame};
 use ambition_engine_core::{self as ae, AabbExt};
 use ambition_platformer_primitives::transit::rotate_velocity_between_normals as portal_transform_velocity;
 use ambition_platformer_primitives::world_query::{ray_aabb, raycast_solids};
@@ -216,7 +216,63 @@ pub fn portal_fits(size: Vec2, portal: &PlacedPortal) -> bool {
 /// Margin (px) added to a portal's thin face so a body resting against the
 /// surface registers as "entering" before it has visibly sunk in (the carve
 /// only opens once transit has begun, so begin must trigger on contact).
-const TRANSIT_BEGIN_MARGIN: f32 = 6.0;
+pub(crate) const TRANSIT_BEGIN_MARGIN: f32 = 6.0;
+
+/// The ray-parameter interval where `origin + t*dir` is inside `aabb` (slab
+/// method), or `None` if the ray never enters it.
+fn ray_interval(origin: Vec2, dir: Vec2, aabb: ae::Aabb) -> Option<(f32, f32)> {
+    let inv = Vec2::new(1.0 / dir.x, 1.0 / dir.y);
+    let t1 = (aabb.min - origin) * inv;
+    let t2 = (aabb.max - origin) * inv;
+    let near = t1.min(t2);
+    let far = t1.max(t2);
+    let t_near = near.x.max(near.y);
+    let t_far = far.x.min(far.y);
+    (t_near <= t_far).then_some((t_near, t_far))
+}
+
+/// How much solid host material sits directly behind `frame`'s face along
+/// `-normal`, probed at the aperture center: the merged extent of consecutive
+/// solid intervals starting at (or within [`pp::SURFACE_GRACE`] of — the
+/// authored face can sit a grid-snap off the collision edge) the face.
+/// Exactly-adjacent blocks (merged tiles) extend the material; a real gap
+/// behind the wall ends it. Returns `probe_depth` unclipped when no host
+/// material is found (e.g. a portal on a one-way platform excluded from the
+/// solid snapshot) — the clip only ever engages on measured geometry.
+///
+/// The HOST measures this each frame (it owns the collision world) and
+/// publishes it via [`PortalHostDepths`](crate::types::PortalHostDepths); the
+/// transit rescue, the carve, and the view-window depth all bound their
+/// behind-the-face reach by it so a THIN wall's aperture volume ends where
+/// the wall does.
+pub fn measure_host_depth(occluders: &[ae::Aabb], frame: &PortalFrame, probe_depth: f32) -> f32 {
+    if occluders.is_empty() {
+        return probe_depth;
+    }
+    let dir = -frame.normal;
+    let mut intervals: Vec<(f32, f32)> = occluders
+        .iter()
+        .filter_map(|a| ray_interval(frame.pos, dir, *a))
+        .filter(|(near, far)| *far > 0.0 && *near < probe_depth)
+        .collect();
+    intervals.sort_by(|a, b| a.0.total_cmp(&b.0));
+    let mut depth: f32 = 0.0;
+    let mut found = false;
+    for (near, far) in intervals {
+        let reach = if found { depth + 0.5 } else { pp::SURFACE_GRACE };
+        if near <= reach {
+            depth = depth.max(far);
+            found = true;
+        } else {
+            break;
+        }
+    }
+    if found {
+        depth.min(probe_depth)
+    } else {
+        probe_depth
+    }
+}
 
 /// The capture box for a portal: the thin face grown by [`TRANSIT_BEGIN_MARGIN`].
 /// A body whose AABB intersects this box is "in the opening" — both the transit
@@ -348,15 +404,16 @@ fn transfer_step(
     }
 }
 
-/// Compute the transit step for a body. See [`TransitStep`]. `cooldown` is the
-/// body's post-jump latch ([`super::types::PortalTransitCooldown`]);
-/// `gravity_dir` selects whether a transit tumbles or just turns around.
+/// Compute the transit step for a body. See [`TransitStep`]. `cooldown_pair`
+/// is the body's post-jump latch, scoped to the pair it just crossed
+/// ([`super::types::PortalTransitCooldown`]); `gravity_dir` selects whether a
+/// transit tumbles or just turns around.
 pub fn transit_step(
     center: Vec2,
     size: Vec2,
     vel: Vec2,
     transit: Option<PortalTransit>,
-    cooldown: f32,
+    cooldown_pair: Option<PortalChannel>,
     portals: &[PlacedPortal],
     gravity_dir: Vec2,
 ) -> TransitStep {
@@ -365,22 +422,28 @@ pub fn transit_step(
         size,
         vel,
         transit,
-        cooldown,
+        cooldown_pair,
         portals,
         gravity_dir,
+        &super::types::PortalHostDepths::default(),
         &PortalTuning::default(),
     )
 }
 
-/// Compute the transit step with editable portal tuning.
+/// Compute the transit step with editable portal tuning and the host-measured
+/// wall depths (see [`PortalHostDepths`](super::types::PortalHostDepths) — the
+/// rescue's aperture volume is bounded by the host material so a thin wall
+/// never grabs a body in the open room behind it).
+#[allow(clippy::too_many_arguments)]
 pub fn transit_step_with_tuning(
     center: Vec2,
     size: Vec2,
     vel: Vec2,
     transit: Option<PortalTransit>,
-    cooldown: f32,
+    cooldown_pair: Option<PortalChannel>,
     portals: &[PlacedPortal],
     gravity_dir: Vec2,
+    host_depths: &super::types::PortalHostDepths,
     tuning: &PortalTuning,
 ) -> TransitStep {
     let body = ae::Aabb::new(center, size * 0.5);
@@ -424,8 +487,12 @@ pub fn transit_step_with_tuning(
                     continue;
                 }
                 let ef = enter.frame();
+                // The hole is bounded by the measured host material: on a
+                // thin wall the aperture volume ends at the wall's far face,
+                // so a body in the open room BEHIND it is never grabbed.
+                let hole = pp::carve_hole_with_depth(&ef, host_depths.depth(enter.channel));
                 if pp::front_distance(center, &ef) <= 0.0
-                    && body.strict_intersects(pp::carve_hole(&ef))
+                    && body.strict_intersects(hole)
                     && vel.dot(enter.normal) < 0.0
                 {
                     let exit = find_portal(portals, enter.channel.partner())
@@ -433,11 +500,16 @@ pub fn transit_step_with_tuning(
                     return transfer_step(center, vel, *enter, exit, gravity_dir, tuning);
                 }
             }
-            if cooldown > 0.0 {
-                return TransitStep::Idle;
-            }
-            // Begin into the first portal (across ALL pairs) the body is entering.
+            // Begin into the first portal (across ALL pairs) the body is
+            // entering. The post-crossing cooldown latch is PAIR-scoped: it
+            // only blocks re-Begin into the pair just crossed — entering a
+            // different pair immediately is legitimate (chained rooms).
             for enter in portals {
+                if cooldown_pair
+                    .is_some_and(|c| c == enter.channel || c == enter.channel.partner())
+                {
+                    continue;
+                }
                 // Need the partner placed, or there's no exit to transit to.
                 if find_portal(portals, enter.channel.partner()).is_none() {
                     continue;
@@ -446,14 +518,20 @@ pub fn transit_step_with_tuning(
                     continue;
                 }
                 let frame = enter.frame();
-                // Begin when the leading face reaches the opening, from the front
-                // (centroid in front of the plane, or moving into it). The
-                // capture box is the thin face plus a small margin; its
-                // along-surface span is the opening, so this also gates laterally.
+                // Begin when the leading face reaches the opening, FROM THE
+                // FRONT: the centroid must be on the room side of the plane
+                // (a dip of TRANSIT_BEGIN_MARGIN is tolerated — by then a
+                // legit entry has already latched). Without the front-side
+                // gate, a body pressed against the BACK of a thin host wall
+                // could reach the capture box through the material and
+                // "enter" a portal it cannot even see.
                 let capture = capture_box(enter);
-                let entering =
-                    pp::front_distance(center, &frame) > 0.0 || vel.dot(enter.normal) < 0.0;
-                if entering && body.strict_intersects(capture) {
+                let front = pp::front_distance(center, &frame);
+                let entering = front > 0.0 || vel.dot(enter.normal) < 0.0;
+                if front >= -TRANSIT_BEGIN_MARGIN
+                    && entering
+                    && body.strict_intersects(capture)
+                {
                     return TransitStep::Begin {
                         channel: enter.channel,
                         portal_pos: enter.pos,
@@ -531,7 +609,7 @@ mod tests {
             Vec2::new(24.0, 40.0),
             Vec2::new(0.0, 1600.0),
             None,
-            0.2, // cooldown active — Begin is blocked, only the rescue can act
+            Some(PURPLE), // cooldown latched — Begin blocked, only the rescue can act
             &portals,
             Vec2::new(0.0, 1.0),
         );
@@ -544,6 +622,116 @@ mod tests {
             }
             other => panic!("a deep carve crossing must transfer, got {other:?}"),
         }
+    }
+
+    fn wall_portal(channel: PortalChannel, pos: Vec2, normal: Vec2) -> PlacedPortal {
+        PlacedPortal {
+            channel,
+            pos,
+            normal,
+            half_extent: portal_half_extent(normal),
+        }
+    }
+
+    /// Thin-wall geometric guard: with the host wall measured at 24px, the
+    /// rescue's aperture volume ends at the wall's far face — a body standing
+    /// in the open room BEHIND the wall (well within the unclipped 60px carve
+    /// reach) is never teleported, while a genuine deep crossing inside the
+    /// material still transfers.
+    #[test]
+    fn rescue_is_bounded_by_the_measured_host_depth() {
+        use crate::types::PortalHostDepths;
+        // Left face of a 24px wall spanning x ∈ [500, 524].
+        let a = wall_portal(PURPLE, Vec2::new(500.0, 450.0), Vec2::new(-1.0, 0.0));
+        let b = wall_portal(YELLOW, Vec2::new(100.0, 450.0), Vec2::new(-1.0, 0.0));
+        let portals = [a, b];
+        let depths = PortalHostDepths(vec![(PURPLE, 24.0), (YELLOW, 24.0)]);
+        // A body in the room BEHIND the wall (centroid 40px past A's plane —
+        // inside the UNCLIPPED 60px hole) moving deeper: must stay Idle.
+        let step = transit_step_with_tuning(
+            Vec2::new(540.0, 450.0),
+            Vec2::new(24.0, 40.0),
+            Vec2::new(80.0, 0.0), // moving +x = away from A's face = vel·n < 0
+            None,
+            None,
+            &portals,
+            Vec2::new(0.0, 1.0),
+            &depths,
+            &PortalTuning::default(),
+        );
+        assert!(
+            matches!(step, TransitStep::Idle),
+            "a body in the open room behind a thin wall must never be rescued, got {step:?}"
+        );
+    }
+
+    /// A body pressed against the BACK of a thin host wall must not Begin a
+    /// transit into a portal it cannot see — the capture box reaches through
+    /// thin material, so Begin gates on the FRONT side of the plane.
+    #[test]
+    fn begin_requires_the_front_side_of_the_plane() {
+        // Portal on the left face of a thin wall; body just BEHIND the face
+        // (12px past the plane — within the capture box's through-reach),
+        // moving away from the face (vel·n < 0 reads as "entering").
+        let a = wall_portal(PURPLE, Vec2::new(500.0, 450.0), Vec2::new(-1.0, 0.0));
+        let b = wall_portal(YELLOW, Vec2::new(100.0, 450.0), Vec2::new(-1.0, 0.0));
+        let portals = [a, b];
+        let step = transit_step(
+            Vec2::new(512.0, 450.0),
+            Vec2::new(4.0, 4.0), // small so it fits + overlaps the thin box
+            Vec2::new(80.0, 0.0),
+            None,
+            None,
+            &portals,
+            Vec2::new(0.0, 1.0),
+        );
+        assert!(
+            !matches!(step, TransitStep::Begin { .. }),
+            "no Begin from behind the plane, got {step:?}"
+        );
+    }
+
+    /// The post-crossing cooldown is scoped to the crossed pair: it blocks
+    /// re-Begin into that pair but leaves a DIFFERENT pair enterable.
+    #[test]
+    fn cooldown_is_pair_scoped() {
+        use crate::color::PortalChannelColor;
+        const TEAL: PortalChannel = PortalChannel::Authored(PortalChannelColor::Teal);
+        const RED: PortalChannel = PortalChannel::Authored(PortalChannelColor::Red);
+        let portals = [
+            floor(PURPLE, Vec2::new(100.0, 300.0)),
+            floor(YELLOW, Vec2::new(500.0, 300.0)),
+            floor(TEAL, Vec2::new(900.0, 300.0)),
+            floor(RED, Vec2::new(1300.0, 300.0)),
+        ];
+        // Body resting on the TEAL portal, latched against the PURPLE pair.
+        let step = transit_step(
+            Vec2::new(900.0, 285.0),
+            Vec2::new(24.0, 40.0),
+            Vec2::new(0.0, 40.0),
+            None,
+            Some(PURPLE),
+            &portals,
+            Vec2::new(0.0, 1.0),
+        );
+        assert!(
+            matches!(step, TransitStep::Begin { channel, .. } if channel == TEAL),
+            "a different pair must stay enterable during the cooldown, got {step:?}"
+        );
+        // The latched pair itself (either end) is refused.
+        let step = transit_step(
+            Vec2::new(500.0, 285.0),
+            Vec2::new(24.0, 40.0),
+            Vec2::new(0.0, 40.0),
+            None,
+            Some(PURPLE),
+            &portals,
+            Vec2::new(0.0, 1.0),
+        );
+        assert!(
+            matches!(step, TransitStep::Idle),
+            "the crossed pair stays latched during the cooldown, got {step:?}"
+        );
     }
 
     /// The carve volume bounds the rescue: a body genuinely below the surface
@@ -559,7 +747,7 @@ mod tests {
             Vec2::new(24.0, 40.0),
             Vec2::new(0.0, 400.0),
             None,
-            0.2,
+            Some(PURPLE),
             &portals,
             Vec2::new(0.0, 1.0),
         );

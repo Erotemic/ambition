@@ -15,7 +15,7 @@ use ambition_gameplay_core::portal::{
 };
 
 use super::ability_adapter::{suppress_ledge_grab_during_transit, warp_portal_input};
-use super::carve_adapter::bridge_portal_carves;
+use super::carve_adapter::{bridge_portal_carves, sync_portal_host_depths};
 use super::fire_adapter::resolve_portal_fire_intent;
 use super::input_adapter::portal_input_adapter_system;
 use super::inventory_adapter::{drop_portal_gun_system, pickup_portal_gun_system};
@@ -75,6 +75,16 @@ impl Plugin for AmbitionPortalAdaptersPlugin {
             bridge_portal_carves
                 .in_set(PortalSet::Carves)
                 .after(publish_portal_carves),
+        );
+
+        // Measure the wall material behind each placed portal (RoomGeometry →
+        // the portal-owned PortalHostDepths seam) BEFORE the carve publish and
+        // the transit consume it this frame — the thin-wall geometric guard.
+        app.add_systems(
+            Update,
+            sync_portal_host_depths
+                .in_set(PortalSet::Carves)
+                .before(publish_portal_carves),
         );
 
         // Advance in-flight portal shots against the concrete `RoomGeometry` (the

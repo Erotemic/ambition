@@ -12,9 +12,11 @@ use ambition_platformer_primitives::orientation::ActorRoll;
 use ambition_platformer_primitives::transit::rotate_velocity_between_normals as portal_transform_velocity;
 
 use super::color::PortalChannel;
-use super::placement::{transit_step_with_tuning, TransitStep};
+use super::placement::{transit_step_with_tuning, TransitStep, TRANSIT_BEGIN_MARGIN};
 use super::tuning::PortalTuning;
-use super::types::{find_portal, portal_exit_clearance, PlacedPortal, PortalTransitCooldown};
+use super::types::{
+    find_portal, portal_exit_clearance, PlacedPortal, PortalHostDepths, PortalTransitCooldown,
+};
 
 /// Semantic transit message: a body's authoritative position just snapped to a
 /// portal's exit (the centroid crossed). Replaces the old one-frame
@@ -98,6 +100,7 @@ pub fn publish_portal_carves(
     portals: Query<&PlacedPortal>,
     bodies: Query<&BodyKinematics, With<PortalBody>>,
     transits: Query<&PortalTransit>,
+    host_depths: Option<Res<PortalHostDepths>>,
     mut carves: ResMut<PortalCarves>,
 ) {
     use super::placement::{approach_box, capture_box, portal_fits};
@@ -124,17 +127,34 @@ pub fn publish_portal_carves(
         carved.push(channel);
     };
 
+    let depths = host_depths.as_deref();
     for kin in &bodies {
         let body = ae::Aabb::new(kin.pos, kin.size * 0.5);
         for p in &all {
             if !portal_fits(kin.size, p) {
                 continue;
             }
-            // In the opening now (walk-in / resting), or closing in on it fast
-            // enough that this frame's integration may cross it.
-            let engaged = body.strict_intersects(capture_box(p))
-                || (kin.vel.dot(p.normal) < 0.0 && body.strict_intersects(approach_box(p)));
-            if engaged {
+            let frame = p.frame();
+            let front = pp::front_distance(kin.pos, &frame);
+            // FRONT-side engagement only: in the opening now (walk-in /
+            // resting), or closing in fast enough that this frame's
+            // integration may cross it. Without the front gate, a body
+            // pressed against the BACK of a thin host wall reached the
+            // capture box THROUGH the material and opened a hole it could
+            // then walk through without ever transiting.
+            let frontal = front >= -TRANSIT_BEGIN_MARGIN
+                && (body.strict_intersects(capture_box(p))
+                    || (kin.vel.dot(p.normal) < 0.0 && body.strict_intersects(approach_box(p))));
+            // Mid-fall-through (a fast crossing that skipped Begin): keep the
+            // hole open while the body is inside the aperture VOLUME — the
+            // carve hole bounded by the measured host material, so the open
+            // room behind a thin wall never counts.
+            let hole = pp::carve_hole_with_depth(
+                &frame,
+                depths.map_or(f32::INFINITY, |d| d.depth(p.channel)),
+            );
+            let falling_through = kin.vel.dot(p.normal) < 0.0 && body.strict_intersects(hole);
+            if frontal || falling_through {
                 carve(p.channel, &mut carves.holes);
             }
         }
@@ -230,6 +250,7 @@ pub fn portal_transit(
     >,
     gravity: Option<Res<ambition_platformer_primitives::gravity::GravityField>>,
     tuning: Res<PortalTuning>,
+    host_depths: Option<Res<PortalHostDepths>>,
     mut entered: MessageWriter<super::messages::PortalBodyEntered>,
     mut transited: MessageWriter<PortalBodyTransited>,
 ) {
@@ -241,18 +262,21 @@ pub fn portal_transit(
         ambition_platformer_primitives::gravity::gravity_dir_or_default(gravity.as_deref());
 
     for (entity, mut kin, policy, mut transit, mut roll, cooldown) in &mut bodies {
-        // The transit cooldown is a BODY latch (`PortalTransitCooldown`), ticked
-        // by `tick_portal_cooldowns`; gun-independent so nothing can ping-pong
-        // back through an authored pair.
-        let cooldown_now = cooldown.map_or(0.0, |c| c.0);
+        // The transit cooldown is a BODY latch (`PortalTransitCooldown`),
+        // ticked by `tick_portal_cooldowns` and scoped to the PAIR the body
+        // just crossed; gun-independent so nothing can ping-pong back through
+        // an authored pair, while a different pair stays enterable.
+        let cooldown_pair = cooldown.map(|c| c.pair);
+        let default_depths = PortalHostDepths::default();
         let step = transit_step_with_tuning(
             kin.pos,
             kin.size,
             kin.vel,
             transit.as_deref().copied(),
-            cooldown_now,
+            cooldown_pair,
             &all,
             gravity_dir,
+            host_depths.as_deref().unwrap_or(&default_depths),
             &tuning,
         );
         match step {
@@ -297,10 +321,12 @@ pub fn portal_transit(
                     roll.angle += roll_delta;
                 }
                 // Latch the body's transit cooldown so it can't ping-pong back
-                // through the pair it just crossed — gun-independent.
-                commands
-                    .entity(entity)
-                    .insert(PortalTransitCooldown(tuning.teleport_cooldown_s));
+                // through the pair it just crossed — gun-independent and
+                // scoped to THIS pair (other pairs stay enterable).
+                commands.entity(entity).insert(PortalTransitCooldown {
+                    remaining: tuning.teleport_cooldown_s,
+                    pair: exit_channel,
+                });
                 if let Some(t) = transit.as_deref_mut() {
                     t.crossed = true;
                     t.straddling = exit_channel;
@@ -432,8 +458,8 @@ pub fn tick_portal_cooldowns(
         return;
     }
     for (entity, mut cooldown) in &mut cooldowns {
-        cooldown.0 -= dt;
-        if cooldown.0 <= 0.0 {
+        cooldown.remaining -= dt;
+        if cooldown.remaining <= 0.0 {
             commands.entity(entity).remove::<PortalTransitCooldown>();
         }
     }

@@ -67,6 +67,10 @@ impl Plugin for PortalSimulationPlugin {
         // geometry here; the host bridge copies it into the host collision
         // overlay each frame (portal core never names the concrete overlay).
         app.init_resource::<PortalCarves>();
+        // Host-measured wall depth behind each placed portal (the geometric
+        // guard bounding the aperture volume on thin walls). The host syncs
+        // it each frame from its collision world; empty = unclipped.
+        app.init_resource::<crate::PortalHostDepths>();
         // Content-agnostic movement intent: portal core's transit + input warp
         // read/mutate this instead of a concrete host input frame; the host
         // input adapter mirrors it to/from that input frame each frame.

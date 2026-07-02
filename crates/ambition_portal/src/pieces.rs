@@ -277,12 +277,22 @@ pub const SURFACE_GRACE: f32 = 16.0;
 /// little OUTWARD of the face ([`SURFACE_GRACE`], to clear any grid-snap lip)
 /// through [`CARVE_DEPTH`] inward.
 pub fn carve_hole(frame: &PortalFrame) -> ae::Aabb {
+    carve_hole_with_depth(frame, f32::INFINITY)
+}
+
+/// [`carve_hole`] bounded by the MEASURED host material depth: the aperture
+/// volume ends where the wall does. On a thin wall a full-depth hole would
+/// reach into the open room behind it, and anything keying off "inside the
+/// hole" (the transit rescue, the carve engagement) would wrongly engage a
+/// body standing behind the wall.
+pub fn carve_hole_with_depth(frame: &PortalFrame, host_depth: f32) -> ae::Aabb {
+    let depth = CARVE_DEPTH.min(host_depth.max(0.0));
     let along = Vec2::new(-frame.normal.y, frame.normal.x);
     let open = frame.aperture_half();
     let n = frame.normal;
-    // Span from `+SURFACE_GRACE` outward of the face to `CARVE_DEPTH` inward.
-    let through = (SURFACE_GRACE + CARVE_DEPTH) * 0.5;
-    let center = frame.pos + n * (SURFACE_GRACE * 0.5) - n * (CARVE_DEPTH * 0.5);
+    // Span from `+SURFACE_GRACE` outward of the face to `depth` inward.
+    let through = (SURFACE_GRACE + depth) * 0.5;
+    let center = frame.pos + n * (SURFACE_GRACE * 0.5) - n * (depth * 0.5);
     let half = Vec2::new(
         along.x.abs() * open + n.x.abs() * through,
         along.y.abs() * open + n.y.abs() * through,

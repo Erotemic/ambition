@@ -65,7 +65,7 @@ pub use messages::{
 };
 pub use pieces::{portal_map_rotation, set_portal_map_rotation};
 pub use placement::{
-    portal_facing_flips, portal_facing_flips_for_convention, portal_fits,
+    measure_host_depth, portal_facing_flips, portal_facing_flips_for_convention, portal_fits,
     portal_input_warp_flips_horizontal, portal_input_warp_flips_horizontal_for_convention,
     portal_transit_roll, raycast_through_portals, raycast_through_portals_tuned, somersault_roll,
     somersault_roll_for_convention, transit_step, transit_step_with_tuning, TransitStep,
@@ -78,7 +78,8 @@ pub use transit::{
 pub use tuning::{sync_portal_tuning_convention, PortalConvention, PortalTuning};
 pub use types::{
     find_portal, portal_half_extent, portal_half_extent_with_length, portal_opening_half,
-    PlacedPortal, PortalTransitCooldown, MIN_EXIT_SPEED, PORTAL_VISUAL_THICKNESS,
+    PlacedPortal, PortalHostDepths, PortalTransitCooldown, MIN_EXIT_SPEED,
+    PORTAL_VISUAL_THICKNESS,
 };
 pub use view::{
     aperture_wedge, aperture_wedge_multi, blend_cones, copy_roll, copy_transform,

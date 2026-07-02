@@ -449,71 +449,16 @@ fn preview_proximity_alpha(edge_distance: f32, config: &PortalViewConeConfig) ->
     smooth01(raw)
 }
 
-/// The ray-parameter interval where a ray `origin + t*dir` is inside `aabb`
-/// (slab method), or `None` if it never enters.
-fn ray_interval(origin: Vec2, dir: Vec2, aabb: ae::Aabb) -> Option<(f32, f32)> {
-    let inv = Vec2::new(1.0 / dir.x, 1.0 / dir.y);
-    let t1 = (aabb.min - origin) * inv;
-    let t2 = (aabb.max - origin) * inv;
-    let near = t1.min(t2);
-    let far = t1.max(t2);
-    let t_near = near.x.max(near.y);
-    let t_far = far.x.min(far.y);
-    (t_near <= t_far).then_some((t_near, t_far))
-}
-
-/// How much solid host material sits directly behind `enter`'s face along
-/// `-normal`, probed at the aperture center: the merged extent of consecutive
-/// solid intervals starting at (or within [`SURFACE_GRACE`] of — the authored
-/// face can sit a grid-snap off the collision edge) the face. The window is
-/// glass set INTO this wall, so its depth must not exceed it: a thin door wall
-/// otherwise pokes the window mesh out into the partner's room (visible with
-/// no line of sight to that portal) and into its own capture's source region,
-/// which feeds back as a spurious nested window with one frame of lag.
-///
-/// Returns `probe_depth` unclipped when no host material is found (e.g. a
-/// portal on a one-way platform, which the occluder snapshot excludes) — the
-/// clip only ever engages on measured solid geometry.
-///
-/// [`SURFACE_GRACE`]: ambition_portal::pieces::SURFACE_GRACE
+/// How much solid host material sits behind `enter`'s face — delegated to the
+/// shared core measurement ([`ambition_portal::measure_host_depth`]) so the
+/// window depth clip, the transit rescue, and the carve all agree on where a
+/// wall ends.
 pub(crate) fn host_depth_limit(
     enter: &PortalFrame,
     occluders: &[ae::Aabb],
     probe_depth: f32,
 ) -> f32 {
-    if occluders.is_empty() {
-        return probe_depth;
-    }
-    let dir = -enter.normal;
-    let mut intervals: Vec<(f32, f32)> = occluders
-        .iter()
-        .filter_map(|a| ray_interval(enter.pos, dir, *a))
-        .filter(|(near, far)| *far > 0.0 && *near < probe_depth)
-        .collect();
-    intervals.sort_by(|a, b| a.0.total_cmp(&b.0));
-    let mut depth: f32 = 0.0;
-    let mut found = false;
-    for (near, far) in intervals {
-        // The chain may START within the grid-snap grace of the face; once
-        // inside the wall, only exactly-adjacent blocks (merged tiles) extend
-        // it — a real gap behind the wall ends the material.
-        let reach = if found {
-            depth + 0.5
-        } else {
-            ambition_portal::pieces::SURFACE_GRACE
-        };
-        if near <= reach {
-            depth = depth.max(far);
-            found = true;
-        } else {
-            break;
-        }
-    }
-    if found {
-        depth.min(probe_depth)
-    } else {
-        probe_depth
-    }
+    ambition_portal::measure_host_depth(occluders, enter, probe_depth)
 }
 
 /// Effectively-unclamped lateral bound for the wedge rays. The wedge's far

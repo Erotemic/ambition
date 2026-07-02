@@ -12,7 +12,11 @@
 use bevy::prelude::*;
 
 use ambition_gameplay_core::features::FeatureEcsWorldOverlay;
-use ambition_gameplay_core::portal::PortalCarves;
+use ambition_gameplay_core::portal::{
+    measure_host_depth, PlacedPortal, PortalCarves, PortalHostDepths,
+};
+use ambition_gameplay_core::RoomGeometry;
+use ambition_platformer_primitives::world_query::SolidWorldQuery;
 
 /// Copy this frame's portal-owned carves into the host collision overlay.
 ///
@@ -27,4 +31,35 @@ pub fn bridge_portal_carves(
 ) {
     overlay.portal_carves.clear();
     overlay.portal_carves.extend_from_slice(&carves.holes);
+}
+
+/// Measure the solid host material behind each placed portal's face and
+/// publish it into the portal-owned [`PortalHostDepths`] seam. Portal core
+/// bounds the transit rescue and the carve engagement by these depths — the
+/// geometric guard that stops a THIN wall's aperture volume from reaching the
+/// open room behind it (walk-through / wrong-side entry). The base
+/// [`RoomGeometry`] is the honest source: portal carves must not open
+/// sight/entry through their own hole, and moving-platform overlays are not
+/// portal hosts.
+pub fn sync_portal_host_depths(
+    world: Res<RoomGeometry>,
+    portals: Query<&PlacedPortal>,
+    mut depths: ResMut<PortalHostDepths>,
+) {
+    depths.0.clear();
+    if portals.is_empty() {
+        return;
+    }
+    let mut solids: Vec<ambition_engine_core::Aabb> = Vec::new();
+    world
+        .0
+        .for_each_solid_aabb(false, &mut |aabb| solids.push(aabb));
+    for portal in &portals {
+        let depth = measure_host_depth(
+            &solids,
+            &portal.frame(),
+            ambition_gameplay_core::portal::pieces::CARVE_DEPTH,
+        );
+        depths.0.push((portal.channel, depth));
+    }
 }

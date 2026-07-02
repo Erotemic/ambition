@@ -1,132 +1,187 @@
 # Data-driven entity and sprite publishing
 
-Status: planning target.
-First implementation target: clean asset publishing and runtime install boundaries.
+Status: publish boundary + tiered ultrapacks + pack loader are done (audited);
+remaining work is detailed and model-triaged in the Work program below.
+Gameplay north star: unified data-driven movesets — see "Moveset target".
 
 ---
 
-## Implementation status (2026-07-02)
+## Implementation status — audited 2026-07-02
 
-**Short version: the *tools and types* exist and work; `./regen_sprites.sh` now
-ultrapacks every published sheet into shared, uniform, quality-tiered atlas
-pages every regen — into a STAGING pack root, cleanly (no debug views unless
-opted in). The one remaining keystone is the runtime `SpritePackCatalog`
-consumer: the game still loads per-target `*_spritesheet.ron` sheets, so the
-staged packs are ready-to-ship but not yet loaded.**
+Every "done" claim below was re-verified on 2026-07-02 by running its tests
+and inspecting its wiring (audit evidence inline). The remaining work is
+detailed and triaged in the **Work program** section that follows.
 
-### Done
+### Done (audited)
 
-- **Ultrapacking is wired into `regen_sprites.sh`, at four quality tiers.** After
-  the per-target render + diagnostics sweep, regen pools every published
-  `*_spritesheet.yaml` into shared uniform pages + a catalog, once per tier —
-  `base` (1.0, 2048² pages), `half` (0.5, 1024²), `quarter` (0.25, 512²),
-  `potato` (1/16, 256², 8px floor) — into `target/ambition_publish/packs/<tier>/`.
-  This is **efficient**: the sheets are rendered ONCE, then each tier reads that
-  pool (`ultrapack --from-rendered`) and downsamples each *isolated* frame to the
-  tier budget before repacking — never re-rendering, never resizing an
-  already-packed page. Real data: **5636 frames from 116 targets → 43 pages at
-  93.7% fill (base); potato → 14 pages**; all four tiers pack in ~75s total.
-  Page size scales DOWN with the tier because MaxRects degrades badly with
-  thousands of tiny rects on one big page (potato @ 2048² took minutes; @ 256²
-  it is ~10s). Opt out with `AMBITION_ULTRAPACK=0`.
-- **The pack output is clean by default; debug views are opt-in and staged.**
-  `ultrapack` writes only runtime artifacts (page PNGs + catalog JSON) into the
-  pack dir. Labeled per-page overlays (checkerboard + per-frame rect outlines)
-  and a pack report are written under `<tier>/diagnostics/` ONLY when
-  `--debug-views` is passed (regen gate: `AMBITION_ULTRAPACK_DEBUG=1`). So the
-  published pack dirs never contain debug views — and staging is gitignored
-  (`target/`). `authoring/ultrapack.py` + `tests/test_ultrapack.py` (scale,
-  potato floor, clean-output/opt-in-diagnostics invariants).
+- **Publish-boundary hygiene.** `ambition_gameplay_core::asset_publish`
+  (classify / manifest / publish / hygiene, typed + tested) and
+  `scripts/sweep_runtime_diagnostics.py` wired into `regen_sprites.sh`.
+  *Audit:* `cargo test -p ambition_gameplay_core asset_publish` → 10/10 after
+  sweeping one new leak (see findings); the real-data test
+  `shipped_runtime_roots_have_no_leaked_diagnostics` has teeth — it is what
+  caught the leak.
+- **Ultrapacking wired into `regen_sprites.sh` at four quality tiers.** Pools
+  every published `*_spritesheet.yaml` into shared uniform pages + catalog per
+  tier — base(1.0, 2048²) / half(0.5, 1024²) / quarter(0.25, 512²) /
+  potato(1/16, 256², 8px floor) — into staging
+  `target/ambition_publish/packs/<tier>/`. Sheets render ONCE; each tier reads
+  the pool (`--from-rendered`) and downsamples *isolated* frames before
+  repacking (never resizes a packed page). 5636 frames / 116 targets → 43 pages
+  @ 93.7% fill (base); ~75s all tiers. Page size scales down with the tier
+  (MaxRects chokes on thousands of tiny rects in one big page). Gates:
+  `AMBITION_ULTRAPACK=0` skips; `AMBITION_ULTRAPACK_DEBUG=1` opts into debug
+  views, which land only under `<tier>/diagnostics/`.
+  *Audit:* `pytest tests/test_ultrapack.py tests/test_packer.py` → 9/9;
+  regen tier loop re-simulated end-to-end; `bash -n` clean.
+- **Runtime `SpritePackCatalog` loader (the keystone type).**
+  `ambition_sprite_sheet::pack`: parses the catalog JSON,
+  `resolve(target, anim, frame) → ResolvedFrame{page, rect, off, logical
+  size, duration}`, `validate()` (page range / bounds / positive size).
+  JSON not RON on purpose (Python-authored RON is the drift trap).
+  *Audit:* `cargo test -p ambition_sprite_sheet` → 15/15; field types
+  verified against the real 5636-frame catalog. No consumer yet — W2.
+- **Renderer canonicalization** (submodule): one `CharacterGenerator`, one
+  `Target`, one `render_sheet(FrameSource)` core, per-frame render at any
+  resolution. *Audit:* renderer pytest → 195 passed / 30 skipped(slow) /
+  1 pre-existing unrelated failure (`test_ldtk_manifest` default-entity-map —
+  predates this work, confirmed by stash-and-rerun).
 
-- **Runtime `SpritePackCatalog` loader — the keystone type now exists.** Typed
-  Rust schema + loader in `ambition_sprite_sheet::pack` (sibling to
-  `SheetRecord`, reuses `PixelRect`): parses the packer's catalog JSON and
-  `resolve(target, animation, frame) → ResolvedFrame { page_index, page_image,
-  rect, off, logical_size, duration_ms }`, plus `validate()` (every frame's page
-  in range, rect inside the page, positive logical size) and `frame_count()`.
-  Reads JSON (not RON) on purpose — the packer is a Python tool and JSON is the
-  drift-free interchange. Field types verified against real packer output (5636
-  frames). Headless fixture tests cover parse / default-scale / resolve /
-  unknown-lookup / clean-validate / bad-page+bounds+size. NOT yet wired into any
-  runtime consumer or `build.rs` bake — that's the migration slice (Phase 5).
+### Audit findings (2026-07-02)
 
-#### Earlier
+1. **A diagnostic HAD leaked back** into `assets/sprites/`
+   (`perfect_cellular_automaton_spritesheet_debug.png`) — swept now (test
+   green again). Root cause: the `debug-hitboxes` devtool defaults its
+   `_debug.png` output to a **sibling of the sheet**, i.e. inside the runtime
+   root, and the sweep only runs during regen. Fix is W6.
+2. **The `*_spritesheet.yaml` sidecars in the runtime roots are load-bearing
+   for the pack step**: `ultrapack --from-rendered` reads them (126 in
+   `sprites/`, classified "intermediate warning, tolerated"). Cleaning them
+   out of runtime roots (the doc's own goal) requires repointing the pack
+   input first — dependency recorded in W5. No Rust parses YAML at runtime
+   (comment references only) — verified by grep.
+3. **`asset_publish::install()` has no production caller** — the typed
+   install step exists and is fixture-tested, but every real install in
+   regen is still a direct `cp`. That is W4, not a regression.
+4. **Pack `src` sizes are tier-scaled render space, NOT gameplay space.** A
+   future pack consumer must follow the quality-variant rule (gameplay
+   geometry reads the BASE record; tiers affect only render). Recorded as an
+   explicit requirement in W2.
 
-- **Publish-boundary hygiene (the first-milestone core).** `PublishManifest`
-  and the runtime-root hygiene validator are typed + tested in the Rust
-  `ambition_gameplay_core::asset_publish` module (classify / manifest / publish /
-  hygiene). `scripts/sweep_runtime_diagnostics.py` relocates author diagnostics
-  (canonical poses, preview/debug sheets — 156 of them) out of the runtime roots,
-  and **is wired into `regen_sprites.sh`**. The `shipped_runtime_roots_have_no_leaked_diagnostics`
-  test fails if a diagnostic reappears under a runtime root. So: *diagnostics stay
-  outside runtime roots* — done and enforced.
-- **Renderer canonicalization (the enabling refactor, in the renderer submodule).**
-  The procedural generators are one canonical `CharacterGenerator` (no adapter
-  layer); `TackonTarget`/`AdapterTarget` are one `Target`; `build_sheet` and the
-  generators feed one `render_sheet(FrameSource)` core; every generator renders
-  each frame independently at any resolution (`frame_source` / `render_all_frames`
-  + debug contact sheets + per-frame export).
-- **SpritePackCatalog / PackPlan — first pass (`authoring/ultrapack.py`).** Pools
-  every target's frames and MaxRects-packs them into shared, uniformly-sized
-  atlas pages: **5374 frames from 109/120 targets → 41 shared 2048² pages at 93%
-  fill**, plus a catalog (`{page_size, pages[], targets → animation →
-  [{page,x,y,w,h,off,src,duration}]}`). This realizes "PackPlan can pack many
-  small props + one-frame sprites into shared pages" — as a standalone tool.
+---
 
-### NOT done (the gaps that make it not-yet-usable in-game)
+## Work program (triaged by model)
 
-1. **No runtime `SpritePackCatalog` *consumer*.** The loader type now exists
-   (`ambition_sprite_sheet::pack`), but nothing calls it: the game still reads
-   per-target baked `*_spritesheet.ron` (`SheetRecord` via `build.rs` →
-   `BAKED_SHEET_RONS`). What remains is a migration slice — bake/ship a catalog
-   into a runtime root and point one consumer (a prop, then a character) at
-   `resolve()` instead of `SheetRegistry`. The keystone *type* is no longer the
-   blocker; wiring a consumer is.
-2. **Packs stage, they don't install.** `regen_sprites.sh` writes the tiered
-   packs into `target/ambition_publish/packs/<tier>/` (staging), deliberately
-   NOT into a runtime asset root — there is no consumer, and installing dead
-   pages would just bloat the bundle. Flip to an install once (1) lands.
-3. **`PublishManifest` is not emitted for real assets.** It's a typed artifact +
-   fixture test; the actual install is still a direct copy, not manifest-driven.
-   The pack catalog JSON is not yet recorded in a `PublishManifest`.
-4. **`EntityCatalog` — not started.** Gameplay truth still lives in
-   `character_catalog.ron` + `SheetRecord` geometry.
-5. **~11 bespoke targets sit out ultrapacking** (multi-file bosses in subdirs,
-   tilesets, the icon grid, multi-variant modules) — they have no top-level
-   single-sheet `*_spritesheet.yaml`, so the `--from-rendered` glob skips them.
-6. **Ultrapacking has no locality policy** (no pack-groups keeping a zone's /
-   always-loaded set's frames co-resident). The re-render-to-extract round-trip
-   *is* now avoided on the regen path (`--from-rendered` reads the already-baked
-   sheets), but native `frame_source()` packing is still future work.
+Tag = the **minimum** tier that can do the task well. Rubric:
 
-### Recommendations (ordered)
+```text
+sonnet — really really easy: mechanical, fully specified below, single
+         surface, low blast radius
+opus   — substantial but well-scoped implementation: design already
+         decided here, multi-file, needs judgment in the small
+fable  — design-heavy: resolves ambiguity, defines schemas, cross-crate
+         architecture; expect it to push back on this doc where warranted
+```
 
-1. ~~**Build the runtime `SpritePackCatalog` loader**~~ — DONE (2026-07-02).
-   Typed Rust schema + loader in `ambition_sprite_sheet::pack` reads the packer's
-   catalog JSON and resolves `(target, animation, frame) → (shared page, rect,
-   off, logical size)`, with `validate()`. `SheetRecord` stays the live path.
-   Next: a migration slice that bakes/ships a catalog into a runtime root and
-   points one consumer at `resolve()`.
-2. ~~**Add a publish step to `regen_sprites.sh`**~~ — DONE (2026-07-02). The
-   pack step runs after per-target render, produces shared pages + catalog per
-   quality tier into the staging pack root, and is gated by `AMBITION_ULTRAPACK`
-   so dev iteration can skip it. Still TODO: emit a real `PublishManifest`
-   recording the pack, and (once the loader lands) install into a runtime root.
-3. **Migrate one runtime consumer** (a simple prop, then a character) from
-   `SheetRecord` to the pack catalog to prove the end-to-end path before flipping
-   everything.
-4. **Fold in the 11 bespoke targets** by giving them uniform frame access
-   (native `frame_source()`), which also lets the packer skip the render→extract
-   round-trip and pack at pack-optimal resolution.
-5. **Then** layer memory-locality pack groups (keep a zone's / always-loaded
-   set's frames co-resident) on top of the general packer.
-6. **`EntityCatalog`** is the later, separable gameplay-truth migration; it does
-   not block shipping the sprite pack.
+### W1 [sonnet] Differential pack validation (render-enabled)
 
-The dependency to internalize: **runtime consumer → per-consumer migration.**
-Everything upstream (packer, tiered regen pack step, manifest, hygiene) is now
-ready and running every regen; the runtime loader is the one thing left that
-turns the staged packs into shipped assets.
+Prove the pack pixels equal the sheet pixels. Python test in the renderer:
+for every `(target, animation, index)` in a base-tier (scale 1.0) pack,
+reconstruct the logical frame from the pack pages (crop rect, paste at
+`off` into a `src`-sized canvas — `_reconstruct_logical` already does this)
+and reconstruct the same frame from the source per-target sheet
+(`_read_sheet_frames` already does this); assert byte-equality.
+*Acceptance:* a pytest (`--run-slow-render`-gated is fine) that fails when a
+packer change corrupts any frame. *Validate:* `pytest tests/test_ultrapack.py`.
+
+### W2 [fable] Runtime pack consumer — one prop end-to-end (the keystone)
+
+Migrate ONE simple prop from `SheetRecord` to `SpritePackCatalog`. Design
+forks to resolve: install-into-runtime-root vs `build.rs` bake; tier
+selection pairing with the existing `TextureResolutionScale` switching (the
+variant-pairing rule: record+image switch atomically); live-reload
+semantics. Hard requirements: gameplay geometry stays on BASE data
+(finding 4); `SheetRecord` path untouched for everything else; the pack
+root becomes a declared runtime root in `asset_publish` + hygiene once
+installed. *Acceptance:* the prop renders from a shared page in the real
+app at two different quality tiers; all existing sprite tests pass.
+*Validate:* `cargo test -p ambition_sprite_sheet -p ambition_gameplay_core`,
+then `/verify` in-app.
+
+### W3 [opus] Fold the ~11 bespoke targets into ultrapacking
+
+Multi-file bosses (gnu_ton, mockingbird), tilesets, the icon grid, and
+multi-variant modules emit no top-level single-sheet manifest, so
+`--from-rendered` skips them. Give each a standard manifest (preferred) or
+a `frame_source()` the packer can consume. Mechanical once the pattern is
+set by the first one; keep their bespoke install paths working.
+*Acceptance:* pack report's targets count == registered packable targets;
+regen postcondition list still green. *Validate:* renderer pytest +
+`./regen_sprites.sh --force` (or targeted).
+
+### W4 [opus] Manifest-driven install (regen emits a real PublishManifest)
+
+Replace regen's raw `cp` loops with the typed install step: a Python
+publisher (mirroring `asset_publish::classify`, as the sweep already does)
+that copies runtime-classified artifacts, then writes ONE
+`publish_manifest.ron` recording installed files + swept diagnostics +
+staged packs. The Rust `PublishManifest` type is done; this task makes the
+data real. *Acceptance:* regen produces a manifest that
+`PublishManifest::parse` + `validate_shape` accept; a Rust test validates
+the real emitted manifest when present. *Validate:*
+`cargo test -p ambition_gameplay_core asset_publish` + a regen run.
+
+### W5 [opus] YAML sidecars out of the runtime roots
+
+The 126 tolerated `*_spritesheet.yaml` intermediates leave `sprites/`.
+Ordering constraint (finding 2): first repoint the ultrapack input — regen
+renders into a staging sheet pool (or installs YAML only to staging) and
+`--from-rendered` reads there; only then relocate/stop-installing YAMLs.
+Do NOT parse RON from Python instead (pyron drift trap). *Acceptance:*
+runtime roots contain zero YAML; pack step + regen postcondition +
+hygiene warnings drop accordingly. *Validate:* regen run + hygiene test.
+
+### W6 [sonnet] Root-cause the debug-view leak (devtool default output)
+
+`devtools/debug_hitboxes.py` defaults `--out` to a sibling of the sheet —
+inside the runtime root (finding 1). Change the default to
+`target/ambition_publish/diagnostics/<sheet-stem>_debug.png` (keep `--out`
+override). One file + its test/help text. *Acceptance:* running
+`debug-hitboxes <target>` with no `--out` writes nothing under
+`assets/sprites*`. *Validate:* renderer pytest + hygiene test.
+
+### W7 [fable] PackPlan: locality pack-groups
+
+Layer grouping policy onto the general packer: keep a zone's / the
+always-loaded set's frames co-resident per page; group keys from entity
+tags / load scope (the packer's `group_page` seam exists). Requires
+defining where grouping metadata lives (PackPlan config vs entity tags) —
+that is the design work. *Acceptance:* a declared group's frames land on a
+minimal page set without regressing overall fill badly; report shows
+per-group residency. *Validate:* pytest + pack report diff.
+
+### W8 [fable] EntityCatalog spine + seed MoveSpec (Phase 3, the Smash model)
+
+The typed `EntityCatalog` schema with one actor-like + one prop-like seed
+AND one seed `MoveSpec` (see "Moveset target"): windows on the owner's
+proper time, one entity-local volume, clip binding with fallback,
+headless validators. This defines the moveset schema for real — expect
+schema design, not just plumbing. *Acceptance:* headless parse/validate
+tests; no runtime consumption required yet. *Validate:* `cargo test` on
+the owning crate.
+
+### W9 [fable] Moveset vertical slice (Phase 5 second half)
+
+First data-driven move played by the real runtime: sandbag + one attack
+(MoveSpec windows drive the sim; clip slaved to move phase; volume →
+CombatVolume → HitEvent; one Effect emission), then the decomposability
+proof — bind the same MoveSpec to the goblin with zero Rust. Subsumes one
+`SwipeSpec` const as data. Depends on W8. *Acceptance:* headless sim test
+plays the move and registers the hit without PNGs; both actors share the
+move data. *Validate:* headless Bevy test (minimal-plugin App pattern).
+
+Dependency sketch: W1, W6 free · W3 → widens W2's coverage · W4 ↔ W5
+(share the Python publisher) · W2 unblocks pack shipping · W8 → W9.
 
 This document defines the target architecture for generated sprite data, visual publishing, runtime asset installation, and eventually uniform entity contracts.
 
@@ -750,12 +805,16 @@ body (physics + collision) + moveset + visual binding. Re-binding an existing
 move onto a different actor must be a data edit — *giving the goblin the
 player's slash requires zero Rust*.
 
-### One clock (the rule that makes it Smash-like)
+### One clock per move: the owner's proper time (the rule that makes it Smash-like)
 
-The move timeline is authoritative for BOTH gameplay and presentation:
+The move timeline is authoritative for BOTH gameplay and presentation — and
+the clock it advances on is the **owning actor's proper time**, not a global
+clock and never wall/render time:
 
 ```text
-gameplay windows advance on the sim clock (WorldTime scaled_dt)
+a move instance advances on ITS OWNER'S clock — the actor's entity dt
+    (sim dt x whatever dilation that actor experiences: bullet-time,
+    time-bubble, relativistic zone; ADR 0010/0011 time domains)
 the bound clip's playback is SLAVED to the move timeline —
     presentation samples the clip by normalized move phase
 per-frame duration_ms in visual data applies only to ambient
@@ -763,9 +822,20 @@ per-frame duration_ms in visual data applies only to ambient
 gameplay timing NEVER reads visual duration_ms
 ```
 
-Animation and hit windows cannot desync because there is nothing to sync —
-they are one timeline. Bullet-time/hitstop slow the move and its picture
-together for free (the WorldTime pattern).
+"One clock" is deliberately NOT "one global clock" — it is one clock **per
+move instance**, shared by that move's windows and its picture. This is the
+only formulation compatible with relativistic clocks: if the clip played on
+render time while windows advanced on entity time, a dilated actor's picture
+would desync from its own hitboxes. Under proper time, a slowed actor's
+swing looks slower AND its active window genuinely lasts more world time —
+which is exactly what relativistic gameplay wants.
+
+Cross-actor interactions need no special casing: volumes exist in world
+space during whatever sim ticks the (dilated) window spans, so a fast
+defender legitimately gets more of its own frames to react inside a slowed
+attacker's active window. The move schema stays frame-of-reference-free
+(relativity principle); dilation is a property of the actor's clock, never
+of the move data.
 
 ### Entity-local logical space (the geometry rule)
 
@@ -1111,7 +1181,7 @@ diagnostics out of the runtime roots, and the quality-variant generator now
 skips diagnostics in its loose-png pass so they stop leaking into the variant
 roots. Runtime loaders were untouched.
 
-### Phase 2: Entity-contract fragments
+### Phase 2: Entity-contract fragments (→ W8 territory)
 
 Add:
 
@@ -1124,7 +1194,7 @@ no full runtime consumption yet
 
 Keep `*_actor.ron` transitional.
 
-### Phase 3: Minimal EntityCatalog runtime spine
+### Phase 3: Minimal EntityCatalog runtime spine (→ W8)
 
 Add:
 
@@ -1145,7 +1215,7 @@ bindings (move id -> clip id, with fallback chain)
 
 Do not replace all spawning yet.
 
-### Phase 4: SpritePackCatalog prototype — schema DONE (2026-07-02)
+### Phase 4: SpritePackCatalog prototype — schema DONE (2026-07-02; remainder → W1)
 
 Landed the typed loader in `ambition_sprite_sheet::pack`:
 
@@ -1160,7 +1230,7 @@ Landed the typed loader in `ambition_sprite_sheet::pack`:
 
 `SheetRecord` stays the live runtime path until the Phase 5 migration slice.
 
-### Phase 5: Runtime consumer migration
+### Phase 5: Runtime consumer migration (→ W2, then W9)
 
 Migrate one small runtime consumer:
 
@@ -1190,7 +1260,7 @@ the SAME MoveSpec bound to a second actor (goblin) works with zero Rust —
 
 Do not migrate all props/characters in one pass.
 
-### Phase 6: PackPlan and quality-aware packing
+### Phase 6: PackPlan and quality-aware packing (→ W7)
 
 Introduce real pack plans and pack grouping.
 

@@ -35,11 +35,11 @@ pub struct PortalPresentationPlugin {
     /// still calls sequestered gun helpers for in-flight shot and pickup
     /// markers; split that flag after behavior is stable.
     pub portal_quads: bool,
-    /// The mid-transit **exit copy** of the body over the host-tagged
-    /// [`crate::PortalSceneBody`] ([`visuals::sync_portal_body_pieces`]): a
-    /// second sprite emerging from the exit portal while the body straddles a
-    /// pair, kept in sync with the real sprite. No masking — the view windows
-    /// show the emerging slice and the copy overlays it.
+    /// The mid-transit **body pieces** over the host-tagged
+    /// [`crate::PortalSceneBody`] ([`visuals::sync_portal_body_pieces`]):
+    /// while the body straddles a pair its sprite draws as two texture-clipped
+    /// charts (here-slice at the entry, emerged slice at the exit), rebuilt
+    /// from the real sprite each frame via [`crate::PortalClipMaterial`].
     pub body_pieces: bool,
     /// The held portal-gun sprite aimed by [`PortalAimHint`]
     /// ([`gun_visuals::sync_portal_mode_indicator`]).
@@ -74,8 +74,8 @@ impl Plugin for PortalPresentationPlugin {
         // host's input adapter writes it each frame.
         app.init_resource::<PortalWorldFrame>();
         app.init_resource::<PortalAimHint>();
-        // The live effect choice (view cones / transit masks / off), cycled
-        // from the host's developer menu for in-session A/B profiling.
+        // The live effect choice (view cones / off), cycled from the host's
+        // developer menu for in-session A/B profiling.
         app.init_resource::<PortalEffectSelection>();
         // Optional camera/viewpoint continuity is controlled by this resource.
         // It is the single source of truth surfaced by hosts; its resource

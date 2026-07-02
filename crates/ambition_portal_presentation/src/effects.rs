@@ -1,28 +1,29 @@
 //! Runtime selection between the compiled-in portal transit **visual
 //! effects**, for live A/B comparison and profiling (the view windows cost
 //! extra render passes; on constrained targets the host needs to measure that
-//! against the cheap legacy masks, in the SAME session).
+//! against the bare baseline, in the SAME session).
 //!
-//! Each effect is also a cargo feature (`effect_view_cones` /
-//! `effect_transit_masks`), so a build can ship one, both, or neither; the
-//! cycle only ever offers what was compiled (plus `Off` — the bare exit copy —
-//! as the profiling baseline). The host surfaces [`PortalEffectSelection`] in
-//! its developer menu (in Ambition: the Developer screen's "Portal FX" row).
+//! Each effect is also a cargo feature (`effect_view_cones`), so a build can
+//! ship it or not; the cycle only ever offers what was compiled (plus `Off` —
+//! the bare clipped body pieces — as the profiling baseline). The host
+//! surfaces [`PortalEffectSelection`] in its developer menu (in Ambition: the
+//! Developer screen's "Portal FX" row).
+//!
+//! (The legacy `TransitMasks` effect — opaque boxes over the invisible body
+//! slices — was deleted once the texture-clipped pieces landed: the clip
+//! shader IS the finished version of what the boxes approximated.)
 
 use bevy::prelude::*;
 
 /// One portal transit visual effect.
 #[derive(Clone, Copy, Debug, Reflect, PartialEq, Eq)]
 pub enum PortalVisualEffect {
-    /// No effect beyond the always-on exit copy of the transiting body — the
-    /// profiling baseline.
+    /// No effect beyond the always-on clipped body pieces — the profiling
+    /// baseline.
     Off,
     /// The render-to-texture view windows (viewer-gated cones).
     #[cfg(feature = "effect_view_cones")]
     ViewCones,
-    /// The legacy opaque "feet in, feet out" mask boxes over the body slices.
-    #[cfg(feature = "effect_transit_masks")]
-    TransitMasks,
 }
 
 impl PortalVisualEffect {
@@ -32,8 +33,6 @@ impl PortalVisualEffect {
         &[
             #[cfg(feature = "effect_view_cones")]
             Self::ViewCones,
-            #[cfg(feature = "effect_transit_masks")]
-            Self::TransitMasks,
             Self::Off,
         ]
     }
@@ -41,11 +40,9 @@ impl PortalVisualEffect {
     /// Display label for dev menus / logs.
     pub fn label(self) -> &'static str {
         match self {
-            Self::Off => "Off (copy only)",
+            Self::Off => "Off (pieces only)",
             #[cfg(feature = "effect_view_cones")]
             Self::ViewCones => "View Cones",
-            #[cfg(feature = "effect_transit_masks")]
-            Self::TransitMasks => "Transit Masks",
         }
     }
 }

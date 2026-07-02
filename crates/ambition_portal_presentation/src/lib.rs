@@ -59,20 +59,23 @@ pub use visuals::{
 /// (`WORLD_Z_PLAYER` = 20) so a near-side actor standing in front of the
 /// aperture still correctly occludes the window.
 ///
-/// The transiting body itself draws as texture-clipped PIECES at the actor z
-/// (see [`sync_portal_body_pieces`]): each piece contains only pixels on its
-/// own side of the seam, so like any actor it correctly draws over walls,
-/// rims, and windows. [`PORTAL_EXIT_COPY_Z`] is only the FALLBACK unclipped
-/// exit copy's band (texture not loaded / headless host): just below the
-/// window, so an open window captures it on the far side (one seamless body)
-/// and hides the redundant world draw, while a closed window (LOS blocked /
-/// windows off) still shows it over the rim as the emerging-body visual.
+/// The transiting body itself draws as texture-clipped PIECES (see
+/// [`sync_portal_body_pieces`]): the `here` slice replaces the real sprite in
+/// the actor band (a body in front of the entry surface draws over walls,
+/// rims, and windows), while the emerged `through` slice — like the fallback
+/// unclipped exit copy — sits at [`PORTAL_EXIT_COPY_Z`], just BELOW the
+/// window: an open window (especially the doorway-takeover glass while
+/// crossing) captures it on the far side, so the glass stays the single
+/// source of the far-side image; drawing the slice on top would paint a
+/// second, parallax-offset copy over the glass and cover the exit portal's
+/// front rim half. A closed window (LOS blocked / windows off) still shows
+/// the slice over the rim as the emerging-body visual.
 ///
 /// NOTE — thin-wall pairs whose two windows overlap in screen space share this
 /// band and sort only by viewer proximity; a fully unambiguous composite there
 /// needs per-window stenciling (see the review report, Q9).
 pub const PORTAL_WINDOW_Z: f32 = 9.5;
-/// The FALLBACK exit body copy z (just below [`PORTAL_WINDOW_Z`]).
+/// The exit-side body slice z (just below [`PORTAL_WINDOW_Z`]).
 pub const PORTAL_EXIT_COPY_Z: f32 = 9.4;
 
 /// The host-world half of the render transform: the world's size, copied from

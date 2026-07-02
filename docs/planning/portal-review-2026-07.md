@@ -745,3 +745,36 @@ mid-transit draws its whole silhouette unclipped, the held gun sprite doesn't
 decompose. Q10 candidate 2 (the `window_eye` nearest-end handoff) remains
 open — if a residual WINDOW-shape pop survives F11 (Jon's "only half of one
 side of the exit" moments), the midpoint eye-blend is the next fix.
+
+### F11 iteration 2 (Jon's screenshots): the through slice goes back UNDER the window
+
+Jon verified in the lab: the clipping itself is right (with the cones off the
+crossing reads correctly — "the shader looks great without the cones"), but
+with windows on, the composite was chaotic — doubled robots over the glass and
+half-portals (one rim color missing) depending on crossing depth.
+
+Cause: iteration 1 moved the through slice up to the actor z. While crossing,
+the entry window's doorway TAKEOVER is a glass pane showing the whole exit
+chart, and that capture already contains the through slice; drawing the slice
+on top painted a second, parallax-offset copy over the glass AND covered the
+exit portal's front rim half (the half-portals). Jon's diagnosis — "the sprite
+is being drawn on top of the cone, even though it doesn't need to be" — was
+exactly it.
+
+Fix: the through slice returns to `PORTAL_EXIT_COPY_Z` (the F9 compositing),
+keeping only the clipping from F11. The open window's glass is the single
+source of the far-side image (it captures the clipped slice, so the capture
+tiles correctly too); a closed window still shows the slice over the rim. The
+`here` slice stays in the actor band (a body in front of the entry surface
+correctly occludes the glass).
+
+Also DELETED the legacy Transit Masks effect (`effect_transit_masks` feature,
+`PortalVisualEffect::TransitMasks`, the mask-box spawns) per Jon: the clip
+shader is the finished version of what the opaque boxes approximated —
+strictly better, nothing left to A/B. The dev-menu cycle is now
+View Cones / Off, where Off = bare clipped pieces (still a valid profiling
+baseline for the windows' capture cost).
+
+Any residual thin-wall weirdness after this is the standing window-side queue:
+Q9 (overlapping windows are painter-ambiguous without per-window stenciling)
+and Q10.2 (`window_eye` nearest-end handoff pop at the midpoint).

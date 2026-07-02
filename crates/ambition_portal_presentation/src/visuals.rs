@@ -15,8 +15,6 @@ use bevy::sprite::Anchor;
 use bevy::sprite_render::MeshMaterial2d;
 
 use ambition_engine_core as ae;
-#[cfg(feature = "effect_transit_masks")]
-use ambition_engine_core::AabbExt;
 use ambition_platformer_primitives::body::BodyKinematics;
 use ambition_platformer_primitives::markers::{PlayerEntity, PrimaryPlayer};
 use ambition_platformer_primitives::orientation::ActorRoll;
@@ -103,7 +101,7 @@ pub fn sync_portal_disorientation_indicator(
 /// (the Q10 crossing flicker). Clipping runs in [`PortalClipMaterial`]'s
 /// fragment shader against world positions, so it is exact for any anchor /
 /// trim rect / flip / roll. Shared by EVERY visual-effect mode
-/// (windows / masks / off).
+/// (windows / off).
 ///
 /// Pieces are rebuilt each frame from the same `Sprite`, after the host's
 /// animator has updated it, so they can never drift from the real sprite; the
@@ -117,12 +115,6 @@ pub fn sync_portal_disorientation_indicator(
 /// ([`crate::PORTAL_EXIT_COPY_Z`]), which captures it on the far side and
 /// hides the redundant world draw.
 ///
-/// When the legacy **Transit Masks** effect is the active
-/// [`crate::PortalEffectSelection`] (compiled via `effect_transit_masks`),
-/// the opaque "feet in, feet out" boxes are drawn over the invisible slice of
-/// each chart, like before the view windows existed — kept selectable for
-/// A/B profiling against the windows.
-///
 /// Known gap: sibling overlays of the body sprite (hit-flash silhouette, held
 /// gun) are not decomposed; a hit flash mid-transit draws the whole silhouette
 /// unclipped for its few frames.
@@ -130,7 +122,6 @@ pub fn sync_portal_disorientation_indicator(
 /// Operates on the host-tagged [`PortalSceneBody`] visual entity.
 pub fn sync_portal_body_pieces(
     mut commands: Commands,
-    #[cfg(feature = "effect_transit_masks")] selection: Res<crate::PortalEffectSelection>,
     frame: Res<PortalWorldFrame>,
     pieces: Query<Entity, With<PortalBodyPiece>>,
     portals: Query<&PlacedPortal>,
@@ -239,9 +230,18 @@ pub fn sync_portal_body_pieces(
             ));
 
             // `through`: the mapped pose, keeping only what has emerged in
-            // front of the exit plane, laterally bounded by the doorway.
+            // front of the exit plane, laterally bounded by the doorway. It
+            // sits just BELOW the window band ([`crate::PORTAL_EXIT_COPY_Z`]),
+            // NOT in the actor band: while crossing, the entry window's
+            // doorway takeover is a glass pane showing the whole exit chart —
+            // this piece is captured INTO that glass (one seamless image), and
+            // drawing it on top would paint a second, parallax-offset copy
+            // over the glass and over the exit portal's front rim half (Jon's
+            // "half-portals", review Part 8 iteration 2). A closed window
+            // (LOS blocked / windows off) still shows it over the rim as the
+            // emerging-body visual.
             let through_base = Transform {
-                translation: frame.to_render(exit_center, source_transform.translation.z),
+                translation: frame.to_render(exit_center, crate::PORTAL_EXIT_COPY_Z),
                 rotation: Quat::from_rotation_z(exit_roll),
                 scale: source_transform.scale,
             };
@@ -290,36 +290,6 @@ pub fn sync_portal_body_pieces(
             Anchor(through_anchor),
             Name::new("Portal body copy (exit)"),
         ));
-    }
-
-    // Legacy Transit Masks effect: opaque boxes over the invisible slice of
-    // each chart — the part of the real sprite sunk through the entry plane,
-    // and the part of the exit copy that has not yet emerged.
-    #[cfg(feature = "effect_transit_masks")]
-    if selection.active == crate::PortalVisualEffect::TransitMasks {
-        let mask_color = Color::srgb(0.80, 0.95, 1.0);
-        let mask_z = ae::config::WORLD_Z_PLAYER + 1.0;
-        // Entry mask: the slice that has sunk THROUGH the entry plane.
-        if let Some(hidden) = pp::clip_halfspace(body, enter.pos, -enter.normal) {
-            let translation = frame.to_render(hidden.center(), mask_z);
-            commands.spawn((
-                PortalBodyPiece,
-                Sprite::from_color(mask_color, hidden.half_size() * 2.0),
-                Transform::from_translation(translation),
-                Name::new("Portal mask (entry, through-wall)"),
-            ));
-        }
-        // Exit mask: the slice of the exit copy that has NOT yet emerged.
-        let exit_body = pp::map_aabb(body, &enter, &exit);
-        if let Some(hidden) = pp::clip_halfspace(exit_body, exit.pos, -exit.normal) {
-            let translation = frame.to_render(hidden.center(), mask_z);
-            commands.spawn((
-                PortalBodyPiece,
-                Sprite::from_color(mask_color, hidden.half_size() * 2.0),
-                Transform::from_translation(translation),
-                Name::new("Portal mask (exit, not-yet-emerged)"),
-            ));
-        }
     }
 }
 
@@ -451,7 +421,6 @@ mod tests {
     fn test_app() -> App {
         let mut app = App::new();
         app.insert_resource(PortalWorldFrame { size: WORLD });
-        app.insert_resource(crate::PortalEffectSelection::default());
         app.insert_resource(Assets::<Image>::default());
         app.insert_resource(Assets::<TextureAtlasLayout>::default());
         app.insert_resource(Assets::<Mesh>::default());
@@ -564,7 +533,7 @@ mod tests {
 
         // The through piece sits at the mapped exit pose: body center 2px in
         // front of the left plane maps to 2px shy of emerged at the right
-        // portal (engine x = 530 → render x = 30), at the actor z.
+        // portal (engine x = 530 → render x = 30).
         let mut transforms = app
             .world_mut()
             .query_filtered::<&Transform, (With<PortalBodyPiece>, With<Mesh2d>)>()
@@ -581,9 +550,18 @@ mod tests {
             (transforms[1].x - 30.0).abs() < 1e-3,
             "through piece at the mapped exit pose, got {transforms:?}"
         );
+        // z bands: the here piece IS the body (actor band, over windows); the
+        // through piece sits just BELOW the window band so an open window's
+        // glass — which captures it — stays the single source of the far side
+        // (drawing it on top doubles the image over the doorway-takeover
+        // glass and covers the exit portal's front rim half).
         assert!(
-            transforms.iter().all(|t| (t.z - 20.0).abs() < 1e-3),
-            "pieces draw in the actor band, got {transforms:?}"
+            (transforms[0].z - 20.0).abs() < 1e-3,
+            "here piece in the actor band, got {transforms:?}"
+        );
+        assert!(
+            (transforms[1].z - crate::PORTAL_EXIT_COPY_Z).abs() < 1e-3,
+            "through piece below the window band, got {transforms:?}"
         );
     }
 

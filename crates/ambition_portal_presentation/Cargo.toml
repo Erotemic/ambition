@@ -10,17 +10,17 @@ description = "Reusable default renderer for the ambition_portal mechanic: place
 crate-type = ["rlib"]
 
 [features]
-# Both portal transit visual effects compile in by default; a size/perf-
-# constrained persona (e.g. Android) can build with one (or neither) and the
-# runtime cycle (`PortalEffectSelection`, surfaced in the host's developer
-# menu) only offers what was compiled. The body EXIT COPY is not a feature —
-# it is shared by every mode.
+# The view-window effect compiles in by default; a size/perf-constrained
+# persona (e.g. Android) can build without it and the runtime cycle
+# (`PortalEffectSelection`, surfaced in the host's developer menu) only offers
+# what was compiled. The texture-clipped body PIECES are not a feature — they
+# are shared by every mode. (The legacy `effect_transit_masks` opaque boxes
+# were deleted once the clip shader landed — they were a placeholder for
+# exactly that clipping.)
 #
-# `effect_view_cones`    — the render-to-texture view windows (capture cameras).
-# `effect_transit_masks` — the legacy opaque "feet in, feet out" mask boxes.
-default = ["effect_view_cones", "effect_transit_masks"]
+# `effect_view_cones` — the render-to-texture view windows (capture cameras).
+default = ["effect_view_cones"]
 effect_view_cones = []
-effect_transit_masks = []
 
 [dependencies]
 # Render-facing by definition (this crate IS the render adapter the headless

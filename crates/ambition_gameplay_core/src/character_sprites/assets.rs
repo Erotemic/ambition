@@ -484,10 +484,10 @@ fn load_sprite_pages(
 }
 
 /// Build a single NPC sprite asset by resolving its catalog id.
-/// Story-content plugins (e.g. `crate::ambition_content::intro::plugin`) call this once
-/// per row in their authored NPC table; the matching catalog entries
-/// are registered by `crate::assets::sandbox_assets::extend_with_intro_sprite_entries`
-/// (or the equivalent helper for new plugins).
+/// Story-content plugins (for example `ambition_content::intro::plugin`)
+/// call this once per row in their authored NPC table; the matching
+/// catalog entries come from the sandbox asset catalog builders or the
+/// equivalent content-owned install helper for that story pack.
 ///
 /// Returns `None` when the catalog reports the asset disabled / not
 /// loadable under the active profile — callers fall back to colored

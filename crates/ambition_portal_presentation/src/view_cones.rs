@@ -602,6 +602,10 @@ pub struct PortalViewRig {
     mesh: Handle<Mesh>,
     cone: Entity,
     last_capture_update_s: f32,
+    /// Sticky pairwise pane-dominance winner (see [`mesh::pane_z`]): keeps the
+    /// two overlapping panes of a thin-wall pair from swapping draw order with
+    /// sub-pixel eye jitter around the material midpoint.
+    pane_dominant: bool,
 }
 
 impl PortalViewRig {
@@ -728,7 +732,7 @@ use geometry::{
     aperture_los_rays, aperture_visibility_fraction, capture_dims, compute_cone, cone_render,
     inset_viewer_corners, visibility_route_summary, ApertureLosRay, ConeRender, RebuildKey,
 };
-use mesh::{apply_mesh, make_mesh, placeholder_mesh, proximity_z, smooth01};
+use mesh::{apply_mesh, make_mesh, pane_z, placeholder_mesh, smooth01};
 
 /// Maintain + update one rig per placed portal with a placed partner: spawn
 /// missing, despawn stale, and update every live rig's geometry in place each
@@ -850,7 +854,8 @@ pub fn sync_portal_view_cones(
             rig.blend += (plan.target - rig.blend) * step;
         }
         let cone = blend_cones(&plan.min, &plan.wedge, smooth01(rig.blend), &enter, &exit);
-        let z = proximity_z(&config, viewer, portal.pos);
+        let (z, pane_dominant) = pane_z(&config, viewer, &portal, &partner, Some(rig.pane_dominant));
+        rig.pane_dominant = pane_dominant;
         let render = cone_render(
             &cone,
             &enter,
@@ -954,7 +959,7 @@ pub fn sync_portal_view_cones(
         } else {
             None
         };
-        let z = proximity_z(&config, viewer, portal.pos);
+        let (z, pane_dominant) = pane_z(&config, viewer, portal, &partner, None);
         let render = cone.as_ref().and_then(|cone| {
             cone_render(
                 cone,
@@ -1088,6 +1093,7 @@ pub fn sync_portal_view_cones(
                 mesh,
                 cone: cone_entity,
                 last_capture_update_s: if active { now_s } else { f32::NEG_INFINITY },
+                pane_dominant,
             },
             Name::new(format!("Portal view capture ({})", portal.channel.name())),
         ));
@@ -1573,7 +1579,7 @@ fn portal_view_cone_debug_dump_text(
                 config,
                 clip_min,
                 clip_max,
-                proximity_z(config, viewer, portal.pos),
+                pane_z(config, viewer, portal, &partner, None).0,
                 capture_frame,
             ) {
                 Some(render) => {
@@ -1836,7 +1842,7 @@ pub fn selected_portal_view_cone_debug_rows(
             config,
             clip_min,
             clip_max,
-            proximity_z(config, viewer, portal.pos),
+            pane_z(config, viewer, portal, &partner, None).0,
             capture_frame,
         ) {
             Some(render) => {

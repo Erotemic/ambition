@@ -346,6 +346,9 @@ pub fn sync_portal_visuals(
         // top/bottom halves, so the color sheet that the actor enters lines up
         // with the mapped exit-side portal texture. The positive-normal side
         // is this portal's own channel; the negative-normal side is its partner.
+        // All three (rim/core/label) draw in the OVERLAY band above the view
+        // windows ([`crate::PORTAL_RIM_OVERLAY_Z`]) so a pane of takeover
+        // glass can never hide half a portal's frame.
         for (channel, sign, side) in [
             (negative_channel, -1.0, "negative-normal"),
             (positive_channel, 1.0, "positive-normal"),
@@ -353,7 +356,7 @@ pub fn sync_portal_visuals(
             let (rim, core) = channel.display();
             let rim_thickness = PORTAL_VISUAL_THICKNESS;
             let rim_center = portal.pos + n * (sign * rim_thickness * 0.25);
-            let rim_translation = frame.to_render(rim_center, 9.0);
+            let rim_translation = frame.to_render(rim_center, crate::PORTAL_RIM_OVERLAY_Z);
             commands.spawn((
                 PortalVisual,
                 Sprite::from_color(rim, Vec2::new(length, rim_thickness * 0.5)),
@@ -364,7 +367,7 @@ pub fn sync_portal_visuals(
             let core_length = length * 0.86;
             let core_thickness = PORTAL_VISUAL_THICKNESS * 0.42;
             let core_center = portal.pos + n * (sign * core_thickness * 0.25);
-            let core_translation = frame.to_render(core_center, 9.1);
+            let core_translation = frame.to_render(core_center, crate::PORTAL_RIM_OVERLAY_Z + 0.05);
             commands.spawn((
                 PortalVisual,
                 Sprite::from_color(core, Vec2::new(core_length, core_thickness * 0.5)),
@@ -376,7 +379,7 @@ pub fn sync_portal_visuals(
         // be referred to precisely (each linked pair is a distinct complementary
         // color: purple↔yellow, teal↔red, …). The color name IS the identifier.
         let label_pos = portal.pos + n * 24.0;
-        let label_translation = frame.to_render(label_pos, 9.2);
+        let label_translation = frame.to_render(label_pos, crate::PORTAL_RIM_OVERLAY_Z + 0.1);
         let (_, core) = portal.channel.display();
         commands.spawn((
             PortalVisual,
@@ -612,5 +615,46 @@ mod tests {
             (copies[0].z - crate::PORTAL_EXIT_COPY_Z).abs() < 1e-3,
             "fallback copy hides below the window band, got {copies:?}"
         );
+    }
+
+    /// The identifying frame (rim/core/label) is an OVERLAY: every portal
+    /// visual draws ABOVE the whole window z band, so a pane of takeover
+    /// glass can never hide half a portal (the c136/c137 "portal only half
+    /// appearing"), and BELOW actors, so a body in front still occludes it.
+    #[test]
+    fn portal_frame_draws_above_the_window_band_and_below_actors() {
+        let mut app = test_app();
+        app.add_systems(Update, sync_portal_visuals);
+        let (left, right) = thin_wall_pair();
+        app.world_mut().spawn(left);
+        app.world_mut().spawn(right);
+        app.update();
+
+        let window_band_top =
+            crate::PORTAL_WINDOW_Z + crate::PortalViewConeConfig::default().z_proximity_span;
+        let zs: Vec<(String, f32)> = app
+            .world_mut()
+            .query_filtered::<(&Name, &Transform), With<PortalVisual>>()
+            .iter(app.world())
+            .map(|(n, t)| (n.to_string(), t.translation.z))
+            .collect();
+        let frame_parts: Vec<&(String, f32)> = zs
+            .iter()
+            .filter(|(n, _)| n.contains("rim") || n.contains("core") || n.contains("label"))
+            .collect();
+        assert!(
+            frame_parts.len() >= 10,
+            "two portals × (2 rims + 2 cores) + labels, got {zs:?}"
+        );
+        for (name, z) in &frame_parts {
+            assert!(
+                *z > window_band_top,
+                "{name} must draw above the window band top {window_band_top}, got {z}"
+            );
+            assert!(
+                *z < 20.0,
+                "{name} must stay below the actor band, got {z}"
+            );
+        }
     }
 }

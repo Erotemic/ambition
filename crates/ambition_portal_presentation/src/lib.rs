@@ -53,11 +53,12 @@ pub use visuals::{
 
 /// Portal composite z band — the ONE place the seam's front-to-back order is
 /// declared. A through-portal window shows a captured composite of the FAR
-/// side, so it must draw OVER the portal rims/labels (9.0–9.2) AND over the
-/// exit body copy, which then reads as the single seamless source of the far
-/// side instead of a second sprite laid on top. It stays BELOW actors
-/// (`WORLD_Z_PLAYER` = 20) so a near-side actor standing in front of the
-/// aperture still correctly occludes the window.
+/// side, so it draws OVER the exit body copy, which then reads as the single
+/// seamless source of the far side instead of a second sprite laid on top. It
+/// stays BELOW actors (`WORLD_Z_PLAYER` = 20) so a near-side actor standing
+/// in front of the aperture still correctly occludes the window, and BELOW
+/// the rim/label overlay band ([`PORTAL_RIM_OVERLAY_Z`]) so a portal's
+/// identifying frame always draws whole.
 ///
 /// The transiting body itself draws as texture-clipped PIECES (see
 /// [`sync_portal_body_pieces`]): the `here` slice replaces the real sprite in
@@ -67,16 +68,29 @@ pub use visuals::{
 /// window: an open window (especially the doorway-takeover glass while
 /// crossing) captures it on the far side, so the glass stays the single
 /// source of the far-side image; drawing the slice on top would paint a
-/// second, parallax-offset copy over the glass and cover the exit portal's
-/// front rim half. A closed window (LOS blocked / windows off) still shows
-/// the slice over the rim as the emerging-body visual.
+/// second, parallax-offset copy over the glass. A closed window (LOS blocked
+/// / windows off) still shows the slice over the rim as the emerging-body
+/// visual.
 ///
-/// NOTE — thin-wall pairs whose two windows overlap in screen space share this
-/// band and sort only by viewer proximity; a fully unambiguous composite there
-/// needs per-window stenciling (see the review report, Q9).
+/// Within the band, a pair's two overlapping panes (thin-wall doorway) sort
+/// by PAIRWISE FRONT-SIDE DOMINANCE with hysteresis, not by radial distance
+/// (see `view_cones::mesh::pane_z`) — radial distance is near-tied everywhere
+/// around a thin-wall seam and alternated the opaque panes frame-to-frame. A
+/// fully unambiguous overlapping composite would still need per-window
+/// stenciling (review report, Q9), but the dominant pane is now stable.
 pub const PORTAL_WINDOW_Z: f32 = 9.5;
 /// The exit-side body slice z (just below [`PORTAL_WINDOW_Z`]).
 pub const PORTAL_EXIT_COPY_Z: f32 = 9.4;
+/// Portal rim/core/label overlay z — ABOVE the window band: the identifying
+/// frame is an OVERLAY on the seam, so a portal always draws whole instead of
+/// a pane of takeover glass hiding the partner's rim / its own back half (the
+/// c136/c137 "portal only half appearing"). The glass stays the single source
+/// of the far-side IMAGE (exit copy and captures sit below it unchanged);
+/// only the thin frame sits on top. Still below actors, so a body in front of
+/// the surface occludes the frame naturally, and the emerging `through` slice
+/// at [`PORTAL_EXIT_COPY_Z`] passes BEHIND the thin rim bar — the ring reads
+/// as being in front of the body it emits, as it should.
+pub const PORTAL_RIM_OVERLAY_Z: f32 = 10.0;
 
 /// The host-world half of the render transform: the world's size, copied from
 /// the host each frame. Engine coordinates are top-left-origin y-down; Bevy's

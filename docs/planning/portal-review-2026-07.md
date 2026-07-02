@@ -779,6 +779,48 @@ Any residual thin-wall weirdness after this is the standing window-side queue:
 Q9 (overlapping windows are painter-ambiguous without per-window stenciling)
 and Q10.2 (`window_eye` nearest-end handoff pop at the midpoint).
 
+## Part 10 — Round 10: c136/c137 residual flicker + "a portal only half appearing"
+
+Jon (with screenshot, standing IN the thin-wall portal): the crossing flicker
+persists and at least one symptom is a portal only half appearing. Two
+mechanisms found in the window compositor, both structural:
+
+### F15 — LANDED (blind): pairwise pane dominance + the frame as an overlay
+
+**Flicker:** a pair's two takeover panes are OPAQUE meshes whose z came from
+`proximity_z` — inverse RADIAL distance to each portal. Around a thin-wall
+seam the two distances are near-tied everywhere (they cross exactly at the
+midpoint where you stand while transiting), so the depth sort could hand the
+top pane back and forth frame-to-frame between two DIFFERENT composites —
+the flicker. Fix: `pane_z` — between a pair's own two panes the winner is
+now decided by PAIRWISE FRONT-SIDE DOMINANCE (signed front distance to this
+face minus the partner's — antisymmetric, zero exactly at the material
+midpoint) with a 6px hysteresis band carried on the rig (`pane_dominant`), so
+sub-pixel eye jitter while standing in the seam can never alternate the
+panes; a decisive crossing hands the pane over exactly once, at the same
+midpoint where the F12 `window_eye` crossfade already lives. Across DIFFERENT
+pairs (and for same-plane pairs, whose fronts coincide) the proximity ramp
+still orders windows as before. Pinned by four unit tests (antisymmetry +
+midpoint zero, exactly-one-flip sweep, jitter stability, same-plane
+proximity order).
+
+**Half-portal:** rims (z 9.0), cores (9.1) and labels (9.2) all drew UNDER
+the glass band (9.5–9.85), so an open takeover pane hid the partner's rim
+and the back color-half of its own — literally half a portal. Fix: the
+identifying frame is now an OVERLAY at `PORTAL_RIM_OVERLAY_Z` = 10.0
+(core +0.05, label +0.1) — above every pane, below actors. A portal always
+draws whole; a body in front still occludes it; the emerging `through` slice
+passes behind the thin rim bar (the ring reads as in front of the body it
+emits). This consciously revises F9's "seamless glass covers the entry's own
+rim" tradeoff — Jon's half-portal report is the vote for always-whole
+frames. The glass remains the single source of the far-side IMAGE (exit
+copy + captures below it, unchanged). Pinned by a headless visuals test
+(every rim/core/label z above the window band top, below the actor band).
+
+Marked BLIND: verify crossing + standing in c136/c137 on a low tier and
+High. If a residual artifact survives, the remaining known ambiguity is Q9
+proper (per-window stenciling for overlapping panes).
+
 ## Part 9 — Round 9: "fall in from a tall height, don't come all the way back up"
 
 Jon: falling through a ground portal pair from a tall distance doesn't return

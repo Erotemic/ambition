@@ -66,6 +66,12 @@ fn run_bounce(dt: f32) -> BounceStats {
         if obs.on_ground {
             grounded_frames += 1;
         }
+        if std::env::var("BOUNCE_TRACE").is_ok() && frame % 5 == 0 {
+            eprintln!(
+                "frame {frame}: pos=({:.1},{:.1}) vel=({:.1},{:.1}) grounded={}",
+                obs.player_pos.0, obs.player_pos.1, obs.player_vel.0, obs.player_vel.1, obs.on_ground
+            );
+        }
         if obs.resets != resets_after_entry {
             died_at = Some(frame);
             break;
@@ -220,7 +226,8 @@ fn floor_portal_bounce_conserves_momentum_per_transit_under_variable_dt() {
         kin.vel = Vec2::ZERO;
     };
 
-    // Each drop: fall from 500px above the portal (reaching ~terminal 950 px/s),
+    // Each drop: fall from 500px above the portal (~1500 px/s at the face —
+    // pure ballistic, no terminal velocity),
     // inject ONE SPIKE_DT frame in the strike zone just above the face — the
     // real-world condition: a frame hitch at the instant of re-entry, which the
     // carve cannot know the dt of in advance. The transfer preserves speed, so a
@@ -243,12 +250,16 @@ fn floor_portal_bounce_conserves_momentum_per_transit_under_variable_dt() {
             // The miss window: the spike frame must carry the body from OUTSIDE
             // the stale-sweep carve-open range (bottom > ~22.6px above the face)
             // to BELOW the floor top in one step. The sim clamps a 50ms request
-            // to ~33.3ms (≈31.7px at terminal 950), and the player half-height
-            // is ~22px, so the center band is ~(45, 53)px above the face.
+            // to ~33.3ms, the player half-height is ~22px, so the center band
+            // runs from ~45px above the face up to (spike travel + 21)px.
+            // Sized from the LIVE fall speed — there is no terminal velocity
+            // anymore (falls are pure ballistic so portal bounces conserve
+            // height), so the entry speed depends on the drop height.
+            let spike_travel = obs_now.player_vel.1 * 0.0333;
             let dt = if !spiked
                 && !transited
                 && obs_now.player_vel.1 > 700.0
-                && (45.0..53.0).contains(&above_face)
+                && (45.0..(spike_travel + 21.0)).contains(&above_face)
             {
                 spiked = true;
                 entry_speed = obs_now.player_vel.1;

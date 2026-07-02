@@ -143,14 +143,26 @@ pub fn ensure_projectile_portal_bodies(
     }
 }
 
-/// Give every transferred body its CARRIED run momentum: the mapped exit
-/// velocity's run-axis component becomes `BodyFlightState::carried_run` — the
-/// floor the hands-off air stop assist decays toward — so a portal fling is
-/// conserved (Portal physics) while ordinary jump drift keeps the tight
-/// stop-on-release feel (Hollow Knight control). Runs after `portal_transit`
-/// the same frame, when `BodyKinematics::vel` is already the mapped exit
-/// velocity. Actor-generic: any transferred body carrying the flight cluster
-/// gets it — no player-casing.
+/// Give every transferred body its CARRIED run momentum: the WORLD-imparted
+/// part of the mapped exit velocity's run-axis component becomes
+/// `BodyFlightState::carried_run` — the floor the hands-off air stop assist
+/// decays toward — so a portal fling is conserved (Portal physics) while
+/// ordinary jump drift keeps the tight stop-on-release feel (Hollow Knight
+/// control). Runs after `portal_transit` the same frame, when
+/// `BodyKinematics::vel` is already the mapped exit velocity. Actor-generic:
+/// any transferred body carrying the flight cluster gets it — no
+/// player-casing.
+///
+/// The transfer ROTATES momentum; it must not reclassify it. The
+/// controller-owned run (pre-transfer run velocity minus the old carried
+/// floor — walk/drift the stop assist was already braking) stays
+/// controller-owned through the portal: naively flooring the WHOLE exit run
+/// velocity promoted a walk-in residual into a permanent fling, and a
+/// vertical ground-pair bounce then marched sideways ~residual px/s per leg
+/// until it landed off the aperture and thudded dead (the momentum-kill
+/// regression Jon reported as "I don't come all the way back up"). A fall's
+/// gravity-earned speed is world-imparted, so a genuine fling (fall in, wall
+/// out) still floors at full strength.
 pub fn apply_portal_carried_momentum(
     gravity: Option<Res<ambition_gameplay_core::platformer_runtime::gravity::GravityField>>,
     mut transited: MessageReader<PortalBodyTransited>,
@@ -159,6 +171,7 @@ pub fn apply_portal_carried_momentum(
         &mut ambition_gameplay_core::actor::BodyFlightState,
     )>,
 ) {
+    use ambition_gameplay_core::portal::pieces::portal_map_vec;
     let gravity_dir = ambition_gameplay_core::platformer_runtime::gravity::gravity_dir_or_default(
         gravity.as_deref(),
     );
@@ -167,7 +180,13 @@ pub fn apply_portal_carried_momentum(
         let Ok((kin, mut flight)) = bodies.get_mut(ev.body) else {
             continue;
         };
-        flight.carried_run = kin.vel.dot(side);
+        // `kin.vel` is the mapped exit velocity; the map is an isometry, so
+        // the swapped-normal map is its inverse (pinned at 45° in pieces).
+        let pre_vel = portal_map_vec(kin.vel, ev.exit_normal, ev.enter_normal);
+        let controller_run = pre_vel.dot(side) - flight.carried_run;
+        let mapped_controller =
+            portal_map_vec(controller_run * side, ev.enter_normal, ev.exit_normal);
+        flight.carried_run = kin.vel.dot(side) - mapped_controller.dot(side);
     }
 }
 

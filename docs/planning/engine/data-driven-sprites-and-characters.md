@@ -38,6 +38,18 @@ staged packs are ready-to-ship but not yet loaded.**
   (`target/`). `authoring/ultrapack.py` + `tests/test_ultrapack.py` (scale,
   potato floor, clean-output/opt-in-diagnostics invariants).
 
+- **Runtime `SpritePackCatalog` loader — the keystone type now exists.** Typed
+  Rust schema + loader in `ambition_sprite_sheet::pack` (sibling to
+  `SheetRecord`, reuses `PixelRect`): parses the packer's catalog JSON and
+  `resolve(target, animation, frame) → ResolvedFrame { page_index, page_image,
+  rect, off, logical_size, duration_ms }`, plus `validate()` (every frame's page
+  in range, rect inside the page, positive logical size) and `frame_count()`.
+  Reads JSON (not RON) on purpose — the packer is a Python tool and JSON is the
+  drift-free interchange. Field types verified against real packer output (5636
+  frames). Headless fixture tests cover parse / default-scale / resolve /
+  unknown-lookup / clean-validate / bad-page+bounds+size. NOT yet wired into any
+  runtime consumer or `build.rs` bake — that's the migration slice (Phase 5).
+
 #### Earlier
 
 - **Publish-boundary hygiene (the first-milestone core).** `PublishManifest`
@@ -63,11 +75,13 @@ staged packs are ready-to-ship but not yet loaded.**
 
 ### NOT done (the gaps that make it not-yet-usable in-game)
 
-1. **No runtime `SpritePackCatalog` consumer.** The game reads per-target baked
-   `*_spritesheet.ron` (`SheetRecord` via `build.rs` → `BAKED_SHEET_RONS`). There
-   is no Rust loader for the shared pages + per-frame `(page, rect, off)`. This
-   is now the *single* keystone missing piece — the staged packs are produced
-   every regen but nothing loads them yet.
+1. **No runtime `SpritePackCatalog` *consumer*.** The loader type now exists
+   (`ambition_sprite_sheet::pack`), but nothing calls it: the game still reads
+   per-target baked `*_spritesheet.ron` (`SheetRecord` via `build.rs` →
+   `BAKED_SHEET_RONS`). What remains is a migration slice — bake/ship a catalog
+   into a runtime root and point one consumer (a prop, then a character) at
+   `resolve()` instead of `SheetRegistry`. The keystone *type* is no longer the
+   blocker; wiring a consumer is.
 2. **Packs stage, they don't install.** `regen_sprites.sh` writes the tiered
    packs into `target/ambition_publish/packs/<tier>/` (staging), deliberately
    NOT into a runtime asset root — there is no consumer, and installing dead
@@ -87,12 +101,12 @@ staged packs are ready-to-ship but not yet loaded.**
 
 ### Recommendations (ordered)
 
-1. **Build the runtime `SpritePackCatalog` loader — now the sole keystone.** A
-   typed Rust schema + loader that reads `target/ambition_publish/packs/<tier>/
-   ultrapack.json` and resolves `(target, animation, frame) → (shared page,
-   rect, off, logical size)`. The catalog + tiered pages already exist every
-   regen; this is what turns them from staged artifacts into shipped assets.
-   Keep `SheetRecord` as a compatibility path during migration.
+1. ~~**Build the runtime `SpritePackCatalog` loader**~~ — DONE (2026-07-02).
+   Typed Rust schema + loader in `ambition_sprite_sheet::pack` reads the packer's
+   catalog JSON and resolves `(target, animation, frame) → (shared page, rect,
+   off, logical size)`, with `validate()`. `SheetRecord` stays the live path.
+   Next: a migration slice that bakes/ships a catalog into a runtime root and
+   points one consumer at `resolve()`.
 2. ~~**Add a publish step to `regen_sprites.sh`**~~ — DONE (2026-07-02). The
    pack step runs after per-target render, produces shared pages + catalog per
    quality tier into the staging pack root, and is gated by `AMBITION_ULTRAPACK`
@@ -1005,18 +1019,20 @@ bindings
 
 Do not replace all spawning yet.
 
-### Phase 4: SpritePackCatalog prototype
+### Phase 4: SpritePackCatalog prototype — schema DONE (2026-07-02)
 
-Add:
+Landed the typed loader in `ambition_sprite_sheet::pack`:
 
 ```text
-typed SpritePackCatalog schema
-one tiny generated pack fixture
-quality-specific page/clip data
-render-enabled validation mode
+[x] typed SpritePackCatalog schema (SpritePackCatalog / PackTarget / PackFrame)
+[x] parse the packer's catalog JSON + resolve(target, anim, frame) -> ResolvedFrame
+[x] validate(): page-in-range / rect-in-bounds / positive logical size
+[x] quality-specific page/frame data (scale carried; base/half/quarter/potato)
+[x] headless fixture tests (parse / resolve / validate)
+[ ] render-enabled validation mode (open the pages, check rects address real pixels)
 ```
 
-Keep existing SheetRecord runtime path until a migration slice is ready.
+`SheetRecord` stays the live runtime path until the Phase 5 migration slice.
 
 ### Phase 5: Runtime consumer migration
 

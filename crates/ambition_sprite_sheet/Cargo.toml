@@ -17,6 +17,9 @@ bevy = { version = "0.18.1", default-features = false }
 # RON manifest schema + parsing of the baked sheet table.
 serde = { version = "1", features = ["derive"] }
 ron = "0.11"
+# The ultrapack SpritePackCatalog is emitted as JSON by the Python packer
+# (drift-free interchange — Python-authored RON parses looser than Rust's ron).
+serde_json = "1"
 
 # Logging facade (bevy logs through tracing); used for the load diagnostics.
 tracing = "0.1"

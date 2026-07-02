@@ -30,6 +30,9 @@ use tracing::{info, warn};
 mod frames;
 pub use frames::{trimmed_render, AtlasPage, FrameTrim};
 
+pub mod pack;
+pub use pack::{PackCatalogError, PackFrame, PackTarget, ResolvedFrame, SpritePackCatalog};
+
 /// One sprite-sheet's metadata as serialized by the generator. Field
 /// names mirror the RON shape exactly; reorder cautiously.
 ///

@@ -604,3 +604,20 @@ Bell states to unlock some optional item.
 
 Include Tuberculosis as a preventable killer of people in the world? Maybe the
 green bros come into play. TB bench maybe.
+
+----
+
+On the engine architecture:
+
+A primary goal of ambition should be to create a game engine on the level of
+unity / unreal / godot for 2d platformers on top of Bevy and Rust.
+
+That means ECS native and centered around the idea of composition and plugins.
+
+As such ELEGANCE and BEAUTY are first class design constraints of codebase.
+
+In addition to making the game I want to make, we should be able to have a demo
+repo where we express iconic games in the ambition engine: We should have (or
+at this stage be able to have) clones of Celeste, Hollow Knight, Metroid, Dead
+Cells, Money Seize (a pet favorite), Super Mario Bros (1985), Smash Bros to
+demonstrate the expressibility of the engine.

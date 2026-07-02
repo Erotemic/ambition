@@ -16,6 +16,7 @@ use bevy::prelude::*;
 use ambition_engine_core as ae;
 
 mod camera_continuity;
+mod clip_material;
 mod effects;
 mod gun_visuals;
 mod plugin;
@@ -27,6 +28,10 @@ pub use camera_continuity::{
     camera_roll_for_portal_transit, PortalCameraContinuityCamera, PortalCameraContinuityConfig,
     PortalCameraContinuityFocus, PortalCameraContinuityHostView, PortalCameraContinuitySelection,
     PortalCameraContinuityState, PortalCameraTransitMode,
+};
+pub use clip_material::{
+    clip_piece_transform, clip_plane_render, sprite_frame_basis, PortalClipMaterial,
+    SpriteFrameBasis, CLIP_PLANE_OFF,
 };
 pub use effects::{PortalEffectSelection, PortalVisualEffect};
 pub use gun_visuals::{sync_portal_mode_indicator, PortalModeIndicator};
@@ -54,16 +59,20 @@ pub use visuals::{
 /// (`WORLD_Z_PLAYER` = 20) so a near-side actor standing in front of the
 /// aperture still correctly occludes the window.
 ///
-/// The exit copy sits just BELOW the window: wherever a window is open it is
-/// captured INTO that window (one seamless body, no double) and hidden behind
-/// it in world space; wherever no window is open (LOS blocked / windows off)
-/// it still draws over the rim as the emerging-body visual.
+/// The transiting body itself draws as texture-clipped PIECES at the actor z
+/// (see [`sync_portal_body_pieces`]): each piece contains only pixels on its
+/// own side of the seam, so like any actor it correctly draws over walls,
+/// rims, and windows. [`PORTAL_EXIT_COPY_Z`] is only the FALLBACK unclipped
+/// exit copy's band (texture not loaded / headless host): just below the
+/// window, so an open window captures it on the far side (one seamless body)
+/// and hides the redundant world draw, while a closed window (LOS blocked /
+/// windows off) still shows it over the rim as the emerging-body visual.
 ///
 /// NOTE — thin-wall pairs whose two windows overlap in screen space share this
 /// band and sort only by viewer proximity; a fully unambiguous composite there
 /// needs per-window stenciling (see the review report, Q9).
 pub const PORTAL_WINDOW_Z: f32 = 9.5;
-/// The exit body copy z (just below [`PORTAL_WINDOW_Z`]).
+/// The FALLBACK exit body copy z (just below [`PORTAL_WINDOW_Z`]).
 pub const PORTAL_EXIT_COPY_Z: f32 = 9.4;
 
 /// The host-world half of the render transform: the world's size, copied from

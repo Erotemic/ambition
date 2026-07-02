@@ -683,3 +683,65 @@ Disambiguation for Jon: does the flicker scale with the Visual Quality tier?
 If lowering the tier worsens it and raising it removes it → it was the capture
 throttle (F10 fixes it). If it is tier-independent → it is Q10, and the
 1 (texture clipping) is the real seamless-crossing fix.
+
+---
+
+## Part 8 — Round 8: texture-clipped body pieces (Q10 candidate 1)
+
+### F11 — LANDED (blind): the transiting body draws as two shader-clipped pieces
+
+Jon confirmed the crossing flicker is tier-independent (Potato / Low / High all
+show it), which per Q10's disambiguation makes candidate 1 — the UNCLIPPED
+real sprite — the cause. His symptoms match: the sunk slice of the real sprite
+popping onto the far side of the thin wall reads as "a second player actor
+sprite drawn for just a second," and the ~32px authoritative snap at the
+centroid crossing is the click.
+
+Fix: the standing "texture-accurate atlas clipping" TODO, implemented as a
+clip SHADER rather than `Sprite.rect` (Jon's suggestion, and the right one —
+`rect` would re-derive anchor/flip/trim per frame; a fragment-shader
+half-plane test against final world positions is exact for all of them for
+free). New `PortalClipMaterial` (`Material2d`) in `ambition_portal_presentation`
+(`clip_material.rs` + embedded `shaders/portal_clip.wgsl`): it draws the
+sprite's current atlas frame on a mesh quad — the hit-flash overlay's proven
+sibling-mesh pattern — and discards fragments behind up to three world-space
+clip half-planes (plain vec4 uniforms, WebGL2-friendly).
+
+`sync_portal_body_pieces` now realizes the Core invariant in the renderer:
+while a `through` piece exists the real sprite is HIDDEN and both charts draw
+as clip-material quads —
+
+- **here**: the real pose, clipped to the front of the entry plane (the sunk
+  slice no longer draws over the wall / the far side);
+- **through**: the `copy_transform` exit pose, clipped to the front of the
+  exit plane plus the exit aperture span (only the emerged slice draws).
+
+Because the portal map is an isometry the two slices tile continuously across
+the seam: at the centroid snap the charts swap roles but their union is the
+same set of pixels, so nothing pops. Both pieces draw at the actor z (the F9
+hide-the-copy-below-the-window compositing is unnecessary once the copy
+contains only emerged pixels — a piece is a body in front of the surface, and
+it draws crisp instead of only appearing through the blurry capture at low
+tiers). The pieces are on the world layer, so portal captures show the clipped
+charts too.
+
+Fallback: texture/atlas not yet loaded, or a headless host that never
+registered the material (the system's asset params are `Option`al) → the old
+behavior exactly (visible real sprite + unclipped exit copy at
+`PORTAL_EXIT_COPY_Z` below the window).
+
+Verification: piece decomposition already pinned in `ambition_portal::pieces`;
+new unit tests pin the plane render-space conversion (y-flip), the
+anchor/size/rotation quad pose, the atlas UV basis, and three headless app
+tests pin transit → hidden sprite + 2 clip pieces at the correct poses /
+planes, no-transit → untouched sprite, missing texture → fallback copy. The
+WGSL itself is parsed + validated by naga in `cargo test` (same front-end wgpu
+uses at runtime). Marked BLIND for the visual outcome — verify crossing
+c136/c137 slowly on Potato and High.
+
+Known gaps (follow-ups, filed in TODO.md): non-player actors (nothing but the
+tagged scene body transits visually today), and sibling overlays — a hit-flash
+mid-transit draws its whole silhouette unclipped, the held gun sprite doesn't
+decompose. Q10 candidate 2 (the `window_eye` nearest-end handoff) remains
+open — if a residual WINDOW-shape pop survives F11 (Jon's "only half of one
+side of the exit" moments), the midpoint eye-blend is the next fix.

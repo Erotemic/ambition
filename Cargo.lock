@@ -373,6 +373,7 @@ dependencies = [
  "ambition_platformer_primitives",
  "ambition_portal",
  "bevy",
+ "naga",
 ]
 
 [[package]]

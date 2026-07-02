@@ -92,6 +92,10 @@ impl Plugin for PortalPresentationPlugin {
             );
         }
         if self.body_pieces {
+            // Texture-clipped transit pieces. No-op on hosts without an asset
+            // registry (headless tests); the system then uses its unclipped
+            // sprite-copy fallback.
+            crate::clip_material::add_portal_clip_material_plugin(app);
             app.add_systems(
                 Update,
                 visuals::sync_portal_body_pieces.in_set(PortalPresentationSet),

@@ -129,7 +129,7 @@ When you wake up here, pick the next task from this list and work on it without 
 
 - [ ] **Structural: per-frame wholesale ability reset clobbers transient mods** `[V3/D3]` - `sync_live_ability_edits_clusters` resets `PlayerAbilities` from the editable loadout every frame. Add a base-abilities + transient-modifiers layer so temporary suppressions/debuffs/status effects compose cleanly instead of being clobbered after one frame.
 
-- [ ] **Texture-accurate portal piece clipping** `[V3/D3]` - `sync_portal_body_pieces` currently clips with an opaque mask box. Clip the actual character atlas frame instead, accounting for feet anchors and render-vs-collision scale. Do the same for non-player actors.
+- [ ] **Texture-accurate portal piece clipping for non-player actors** `[V3/D3]` - The tagged `PortalSceneBody` (the player) now draws mid-transit as shader-clipped atlas-frame pieces (`PortalClipMaterial`, portal review Part 8). Extend the decomposition to every transiting actor once actors other than the player transit portals; sibling overlays (hit-flash silhouette, held gun) are also still undecomposed.
 
 - [ ] **Portalize hurt/hitboxes + dedup by logical owner** `[V4/D4]` - Route damage, contact, pogo, pickup, and sensor volumes through `compute_body_pieces`. A body half-through a portal should be hittable on visible pieces only; a hit overlapping both pieces of one owner should count once.
 

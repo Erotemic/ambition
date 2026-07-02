@@ -50,3 +50,8 @@ ambition_platformer_primitives = { path = "../ambition_platformer_primitives" }
 # visual derives from). Presentation sits directly above the mechanic; never a
 # host crate (ambition_gameplay_core / ambition_content).
 ambition_portal = { path = "../ambition_portal" }
+
+[dev-dependencies]
+# Parse + validate the embedded WGSL in `cargo test` (same naga wgpu uses at
+# runtime), so a shader syntax error fails CI instead of the first real launch.
+naga = { version = "27.0.3", features = ["wgsl-in"] }

@@ -46,6 +46,7 @@ pub fn spawn_eye_beam_from_special_messages(
         (
             Entity,
             BossClusterRef,
+            &ambition_gameplay_core::actor::BodyHealth,
             &BossAttackState,
             &mut EyeBeamState,
             Option<&ActorTarget>,
@@ -66,7 +67,7 @@ pub fn spawn_eye_beam_from_special_messages(
         }
     }
 
-    for (entity, boss_feature, attack_state, mut state, actor_target) in &mut bosses {
+    for (entity, boss_feature, health, attack_state, mut state, actor_target) in &mut bosses {
         let boss = boss_feature.as_boss_ref();
         let player_pos = actor_target.and_then(|t| {
             t.entity
@@ -74,7 +75,7 @@ pub fn spawn_eye_beam_from_special_messages(
                 .map(|kin| kin.aabb().center())
                 .or(Some(t.pos))
         });
-        if !boss.status.alive {
+        if !health.alive() {
             state.locked_target = None;
             state.fired_this_strike = false;
             continue;

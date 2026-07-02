@@ -70,7 +70,7 @@ fn boss_is_gnu_ton(boss: &ambition_gameplay_core::features::BossRef<'_>) -> bool
 /// alive) re-hides the ladders automatically.
 pub fn gate_gnu_ton_arena_ladder(
     world: Res<RoomGeometry>,
-    bosses: Query<BossClusterRef>,
+    bosses: Query<(BossClusterRef, &ambition_gameplay_core::actor::BodyHealth)>,
     mut overlay: ResMut<FeatureEcsWorldOverlay>,
 ) {
     if world.0.name != ARENA_ROOM_NAME {
@@ -78,9 +78,9 @@ pub fn gate_gnu_ton_arena_ladder(
     }
     // Defeat = an ECS gnu_ton boss observed `alive = false`. An empty query
     // (boss not yet spawned) is NOT defeat — the ladder stays hidden.
-    let boss_defeated = bosses.iter().any(|feature| {
+    let boss_defeated = bosses.iter().any(|(feature, health)| {
         let boss = feature.as_boss_ref();
-        boss_is_gnu_ton(&boss) && !boss.status.alive
+        boss_is_gnu_ton(&boss) && !health.alive()
     });
 
     if boss_defeated {
@@ -318,9 +318,10 @@ mod tests {
 
         // Kill the boss; next tick should add the ladder back.
         app.world_mut()
-            .get_mut::<ambition_gameplay_core::features::BossStatus>(boss_entity)
+            .get_mut::<ambition_gameplay_core::actor::BodyHealth>(boss_entity)
             .unwrap()
-            .alive = false;
+            .health
+            .current = 0;
         app.update();
         let regions = &app
             .world()
@@ -371,9 +372,10 @@ mod tests {
         app.update();
         assert_eq!(floor_gate_count(&app), 1);
         app.world_mut()
-            .get_mut::<ambition_gameplay_core::features::BossStatus>(boss_entity)
+            .get_mut::<ambition_gameplay_core::actor::BodyHealth>(boss_entity)
             .unwrap()
-            .alive = false;
+            .health
+            .current = 0;
         app.update();
         assert_eq!(
             floor_gate_count(&app),
@@ -423,9 +425,10 @@ mod tests {
             .id();
         app.update();
         app.world_mut()
-            .get_mut::<ambition_gameplay_core::features::BossStatus>(boss_entity)
+            .get_mut::<ambition_gameplay_core::actor::BodyHealth>(boss_entity)
             .unwrap()
-            .alive = false;
+            .health
+            .current = 0;
         app.update();
         assert_eq!(climbable_regions_len(&app), 1);
 

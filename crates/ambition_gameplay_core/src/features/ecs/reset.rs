@@ -43,6 +43,8 @@ pub fn reset_ecs_room_features(
     mut bosses: Query<
         (
             super::boss_clusters::BossClusterQueryData,
+            &mut crate::actor::BodyHealth,
+            &mut crate::actor::BodyCombat,
             &mut ambition_characters::brain::Brain,
             &mut ambition_characters::brain::BossAttackState,
             &mut ambition_characters::brain::ActorControl,
@@ -138,12 +140,16 @@ pub fn reset_ecs_room_features(
             &mut cooldowns,
         );
     }
-    for (mut feature, mut brain, mut attack_state, mut control) in &mut bosses {
+    for (mut feature, mut health, mut combat, mut brain, mut attack_state, mut control) in
+        &mut bosses
+    {
         // Full revive (pos / facing / health / hit_flash + clear the entity-local
         // encounter so it re-seeds fresh next frame). One definition on `BossMut`
         // so a new `BossStatus` field can't desync this from the seed/save-skip
         // paths. (Why clearing `encounter` is load-bearing: see the helper docs.)
-        feature.as_boss_mut().reset_to_spawn();
+        feature
+            .as_boss_mut()
+            .reset_to_spawn(&mut health, &mut combat);
         // Brain-owned state: zero the per-actor `BossPatternState`
         // (cursor / clocks / cycle phase / last_phase) and the
         // `BossAttackState` mirror (live telegraph + active profile

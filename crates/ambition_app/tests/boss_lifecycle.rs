@@ -61,11 +61,14 @@ fn spawn_mockingbird(sim: &mut SandboxSim, runtime_id: &str) {
 /// records the consequences the tests assert.
 fn force_kill_boss(sim: &mut SandboxSim, runtime_id: &str) {
     let world = sim.world_mut();
-    let mut q = world.query::<(&BossConfig, &mut BossStatus)>();
-    for (config, mut status) in q.iter_mut(world) {
+    let mut q = world.query::<(
+        &BossConfig,
+        &mut BossStatus,
+        &mut ambition_gameplay_core::actor::BodyHealth,
+    )>();
+    for (config, mut status, mut health) in q.iter_mut(world) {
         if config.id == runtime_id {
-            status.health.current = 0;
-            status.alive = false;
+            health.health.current = 0;
             if let Some(phase) = status.encounter.as_mut() {
                 let _ = phase.kill();
             }
@@ -95,10 +98,10 @@ fn boss_cleared(sim: &SandboxSim, placement_id: &str) -> bool {
 }
 
 fn boss_alive(world: &mut World, placement_id: &str) -> Option<bool> {
-    let mut q = world.query::<(&BossConfig, &BossStatus)>();
+    let mut q = world.query::<(&BossConfig, &ambition_gameplay_core::actor::BodyHealth)>();
     q.iter(world)
         .find(|(config, _)| config.id == placement_id)
-        .map(|(_, status)| status.alive)
+        .map(|(_, health)| health.alive())
 }
 
 fn boss_phase(world: &mut World, placement_id: &str) -> Option<BossEncounterPhase> {
@@ -109,17 +112,20 @@ fn boss_phase(world: &mut World, placement_id: &str) -> Option<BossEncounterPhas
 }
 
 fn boss_max_hp(world: &mut World, placement_id: &str) -> Option<i32> {
-    let mut q = world.query::<(&BossConfig, &BossStatus)>();
+    let mut q = world.query::<(&BossConfig, &ambition_gameplay_core::actor::BodyHealth)>();
     q.iter(world)
         .find(|(config, _)| config.id == placement_id)
-        .map(|(_, status)| status.health.max)
+        .map(|(_, health)| health.max())
 }
 
 fn set_boss_hp(world: &mut World, placement_id: &str, hp: i32) {
-    let mut q = world.query::<(&BossConfig, &mut BossStatus)>();
-    for (config, mut status) in q.iter_mut(world) {
+    let mut q = world.query::<(
+        &BossConfig,
+        &mut ambition_gameplay_core::actor::BodyHealth,
+    )>();
+    for (config, mut health) in q.iter_mut(world) {
         if config.id == placement_id {
-            status.health.current = hp;
+            health.health.current = hp;
         }
     }
 }

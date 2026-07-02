@@ -21,25 +21,28 @@ use ambition_vfx::vfx::{ParticleKind, VfxMessage};
 
 use super::*;
 
-/// Apply player damage to a boss ENTITY (the entity is the source of truth).
+/// Apply player damage to a boss ENTITY (the entity is the source of truth:
+/// HP on the shared `BodyHealth`, phase on `BossStatus.encounter` — §A1).
 ///
 /// Returns `(applied, killed)`: `applied` is false when an invulnerable phase
 /// (Intro / Transition / the `transition_lock` tell / Dormant / Death) swallows
 /// the hit, so the caller can suppress hit VFX; `killed` is true on the hit that
-/// drives HP to zero. On a kill the entity is marked dead and its phase forced
-/// to `Death` (the death outro + save/quest resolution run in
-/// `update_boss_encounters`).
-pub(crate) fn apply_entity_boss_damage(status: &mut BossStatus, amount: i32) -> (bool, bool) {
+/// drives HP to zero. On a kill the phase is forced to `Death` (the death outro
+/// + save/quest resolution run in `update_boss_encounters`).
+pub(crate) fn apply_entity_boss_damage(
+    status: &mut BossStatus,
+    health: &mut crate::actor::BodyHealth,
+    amount: i32,
+) -> (bool, bool) {
     let invulnerable = status
         .encounter
         .as_ref()
         .map_or(false, |phase| phase.boss_invulnerable());
-    if invulnerable || amount <= 0 || !status.alive {
+    if invulnerable || amount <= 0 || !health.alive() {
         return (false, false);
     }
-    let killed = status.health.damage(amount);
+    let killed = health.damage(amount);
     if killed {
-        status.alive = false;
         if let Some(phase) = status.encounter.as_mut() {
             let _ = phase.kill();
         }
@@ -61,13 +64,17 @@ pub(crate) fn apply_entity_boss_damage(status: &mut BossStatus, amount: i32) -> 
 pub(crate) fn apply_boss_hit(
     event: &HitEvent,
     boss: super::super::boss_clusters::BossMut<'_>,
+    // The boss's shared body components (§A1): `BodyHealth` is the HP
+    // authority, `BodyCombat.hit_flash` the one damage-blink.
+    health: &mut crate::actor::BodyHealth,
+    combat: &mut crate::actor::BodyCombat,
     attack_state: &ambition_characters::brain::BossAttackState,
     animation_frame: Option<&crate::features::BossAnimationFrameSample>,
     banner: &mut GameplayBanner,
     combat_banter: Option<&crate::features::banter::CombatBanterRegistry>,
     writers: &mut FeatureHitWriters<'_, '_>,
 ) -> bool {
-    if !boss.status.alive {
+    if !health.alive() {
         return false;
     }
     if boss.config.behavior.environmental_kill_only
@@ -93,7 +100,7 @@ pub(crate) fn apply_boss_hit(
             .iter()
             .find(|part| event.volume.intersects_aabb(**part))
         {
-            boss.status.hit_flash = 0.18;
+            combat.hit_flash = 0.18;
             let impact = midpoint(event.volume.center(), hit_aabb.center());
             writers.vfx.write(VfxMessage::Impact { pos: impact });
             return true;
@@ -116,11 +123,11 @@ pub(crate) fn apply_boss_hit(
         return false;
     };
     // Speech bubble bark when player lands a hit, debounced by hit_flash.
-    let should_bark = boss.status.hit_flash < 0.05;
-    boss.status.hit_flash = 0.18;
+    let should_bark = combat.hit_flash < 0.05;
+    combat.hit_flash = 0.18;
     if should_bark {
         if let Some(reg) = combat_banter {
-            let strikes = boss.status.health.max - boss.status.health.current;
+            let strikes = health.max() - health.current();
             if let Some(line) = reg.pick_hit_bark(&boss.config.name, strikes.max(0) as u32) {
                 writers.vfx.write(VfxMessage::SpeechBubble {
                     pos: boss.bark_anchor(),
@@ -136,7 +143,7 @@ pub(crate) fn apply_boss_hit(
     // hit. The death CONSEQUENCES that aren't immediate feedback (save Cleared +
     // quest + music restore) are resolved by `update_boss_encounters` once the
     // death outro elapses.
-    let (applied, killed) = apply_entity_boss_damage(boss.status, amount);
+    let (applied, killed) = apply_entity_boss_damage(boss.status, health, amount);
     if !applied {
         // Invulnerable phase swallowed the damage. Skip the
         // hit VFX / GameplayEffect signal so the player sees
@@ -147,7 +154,6 @@ pub(crate) fn apply_boss_hit(
     let impact = midpoint(event.volume.center(), hit_aabb.center());
     writers.vfx.write(VfxMessage::Impact { pos: impact });
     if killed {
-        boss.status.alive = false;
         banner.show(format!("defeated boss {}", boss.config.name), 2.6);
         writers.vfx.write(VfxMessage::Burst {
             pos: boss.kin.pos,
@@ -223,27 +229,27 @@ mod entity_damage_tests {
     use crate::boss_encounter::BossEncounterPhase;
     use crate::combat::boss_clusters::test_support::test_boss_status;
 
-    fn boss(hp: i32, phase: BossEncounterPhase) -> BossStatus {
+    fn boss(hp: i32, phase: BossEncounterPhase) -> (BossStatus, crate::actor::BodyHealth) {
         test_boss_status(hp, phase)
     }
 
     #[test]
     fn damage_decreases_hp_in_a_vulnerable_phase() {
-        let mut s = boss(10, BossEncounterPhase::Phase1);
-        let (applied, killed) = apply_entity_boss_damage(&mut s, 3);
+        let (mut s, mut health) = boss(10, BossEncounterPhase::Phase1);
+        let (applied, killed) = apply_entity_boss_damage(&mut s, &mut health, 3);
         assert!(applied);
         assert!(!killed);
-        assert_eq!(s.health.current, 7);
+        assert_eq!(health.current(), 7);
     }
 
     #[test]
     fn lethal_damage_kills_and_sets_death_phase() {
-        let mut s = boss(4, BossEncounterPhase::Phase1);
-        let (applied, killed) = apply_entity_boss_damage(&mut s, 10);
+        let (mut s, mut health) = boss(4, BossEncounterPhase::Phase1);
+        let (applied, killed) = apply_entity_boss_damage(&mut s, &mut health, 10);
         assert!(applied);
         assert!(killed);
-        assert_eq!(s.health.current, 0);
-        assert!(!s.alive);
+        assert_eq!(health.current(), 0);
+        assert!(!health.alive());
         assert_eq!(
             s.encounter.as_ref().unwrap().phase,
             BossEncounterPhase::Death
@@ -253,21 +259,21 @@ mod entity_damage_tests {
     #[test]
     fn invulnerable_phase_swallows_damage() {
         // Transition is invulnerable in the phase vocabulary.
-        let mut s = boss(10, BossEncounterPhase::Transition);
-        let (applied, killed) = apply_entity_boss_damage(&mut s, 5);
+        let (mut s, mut health) = boss(10, BossEncounterPhase::Transition);
+        let (applied, killed) = apply_entity_boss_damage(&mut s, &mut health, 5);
         assert!(!applied);
         assert!(!killed);
-        assert_eq!(s.health.current, 10);
+        assert_eq!(health.current(), 10);
     }
 
     #[test]
     fn already_dead_boss_does_not_refire_killed() {
-        let mut s = boss(4, BossEncounterPhase::Phase1);
-        let _ = apply_entity_boss_damage(&mut s, 10); // kills → Death
-        let (applied, killed) = apply_entity_boss_damage(&mut s, 5);
+        let (mut s, mut health) = boss(4, BossEncounterPhase::Phase1);
+        let _ = apply_entity_boss_damage(&mut s, &mut health, 10); // kills → Death
+        let (applied, killed) = apply_entity_boss_damage(&mut s, &mut health, 5);
         // Death is invulnerable → the follow-up hit is swallowed, killed stays false.
         assert!(!applied);
         assert!(!killed);
-        assert_eq!(s.health.current, 0);
+        assert_eq!(health.current(), 0);
     }
 }

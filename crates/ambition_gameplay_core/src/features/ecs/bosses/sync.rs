@@ -28,15 +28,23 @@ pub struct BossSpriteMetricsApplied;
 pub(crate) fn boss_component_snapshot(
     boss: super::super::boss_clusters::BossRef<'_>,
     attack_state: &BossAttackState,
+    // The boss's HP authority (§A1) — liveness is `health.alive()`, never a
+    // boss-state shadow flag.
+    health: &BodyHealth,
+    // The body's current `BodyCombat`: the reaction timers (hit_flash,
+    // post-hit i-frame, the §A2 stagger set) are AUTHORITATIVE state written
+    // by the damage path — carry them across the presentation rebuild, the
+    // same rule as `sync_actor_components_from_cluster`.
+    prev_combat: &BodyCombat,
 ) -> (
     ActorIdentity,
     ActorDisposition,
-    BodyHealth,
     BodyCombat,
     ActorIntent,
     ActorCooldowns,
 ) {
-    let mode = if !boss.status.alive {
+    let alive = health.alive();
+    let mode = if !alive {
         ambition_characters::actor::ai::CharacterAiMode::Dead
     } else if attack_state.active_profile.is_some() {
         ambition_characters::actor::ai::CharacterAiMode::Attack
@@ -45,17 +53,21 @@ pub(crate) fn boss_component_snapshot(
     } else {
         ambition_characters::actor::ai::CharacterAiMode::Chase
     };
+    let mut combat = BodyCombat::hostile(
+        alive,
+        prev_combat.hit_flash,
+        attack_state.telegraph_remaining,
+        attack_state.active_remaining,
+        false,
+    );
+    combat.damage_invuln_timer = prev_combat.damage_invuln_timer;
+    combat.hitstun_timer = prev_combat.hitstun_timer;
+    combat.recoil_lock_timer = prev_combat.recoil_lock_timer;
+    combat.hitstop_timer = prev_combat.hitstop_timer;
     (
         ActorIdentity::new(boss.config.id.clone(), boss.config.name.clone()),
         ActorDisposition::Hostile,
-        BodyHealth::new(boss.status.health),
-        BodyCombat::hostile(
-            boss.status.alive,
-            boss.status.hit_flash,
-            attack_state.telegraph_remaining,
-            attack_state.active_remaining,
-            false,
-        ),
+        combat,
         ActorIntent::new(mode),
         ActorCooldowns::default(),
     )
@@ -74,7 +86,7 @@ pub fn sync_boss_actor_components(
             &mut CombatKit,
             &mut ActorIdentity,
             &mut ActorDisposition,
-            &mut BodyHealth,
+            &BodyHealth,
             &mut BodyCombat,
             &mut ActorIntent,
             &mut ActorCooldowns,
@@ -89,24 +101,18 @@ pub fn sync_boss_actor_components(
         mut combat_kit,
         mut identity,
         mut disposition,
-        mut health,
+        health,
         mut combat,
         mut intent,
         mut cooldowns,
     ) in &mut bosses
     {
-        let (
-            next_identity,
-            next_disposition,
-            next_health,
-            next_combat,
-            next_intent,
-            next_cooldowns,
-        ) = boss_component_snapshot(feature.as_boss_ref(), attack_state);
+        // `health` is the boss's HP AUTHORITY now (§A1) — read, never rebuilt.
+        let (next_identity, next_disposition, next_combat, next_intent, next_cooldowns) =
+            boss_component_snapshot(feature.as_boss_ref(), attack_state, &health, &combat);
         *combat_kit = CombatKit::from_action_set(action_set);
         *identity = next_identity;
         *disposition = next_disposition;
-        *health = next_health;
         *combat = next_combat;
         *intent = next_intent;
         *cooldowns = next_cooldowns;

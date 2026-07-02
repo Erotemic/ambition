@@ -135,7 +135,7 @@ const IDLE_BARK_INTERVAL_JITTER: f32 = 3.0;
 pub fn tick_boss_idle_barks(
     world_time: Res<ambition_gameplay_core::WorldTime>,
     registry: Option<Res<CombatBanterRegistry>>,
-    ecs_bosses: Query<BossClusterRef>,
+    ecs_bosses: Query<(BossClusterRef, &ambition_gameplay_core::actor::BodyHealth, &ambition_gameplay_core::actor::BodyCombat)>,
     mut vfx: MessageWriter<VfxMessage>,
     mut state: Local<BossIdleBarkState>,
 ) {
@@ -146,9 +146,9 @@ pub fn tick_boss_idle_barks(
     if dt <= 0.0 {
         return;
     }
-    for feature in &ecs_bosses {
+    for (feature, health, combat) in &ecs_bosses {
         let boss = feature.as_boss_ref();
-        if !boss.status.alive {
+        if !health.alive() {
             continue;
         }
         if !matches!(
@@ -161,7 +161,7 @@ pub fn tick_boss_idle_barks(
         }
         // Suppress idle barks while the hit-flash bubble is still on
         // screen so we don't talk over a hit bark.
-        if boss.status.hit_flash > 0.0 {
+        if combat.hit_flash > 0.0 {
             continue;
         }
         let key = boss.config.id.clone();

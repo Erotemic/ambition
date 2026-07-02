@@ -169,10 +169,12 @@ pub fn ecs_boss_name<'a>(
     bosses: &'a Query<(
         &FeatureId,
         super::boss_clusters::BossClusterRef,
+        &crate::actor::BodyHealth,
+        &crate::actor::BodyCombat,
         &ambition_characters::brain::BossAttackState,
     )>,
 ) -> Option<&'a str> {
-    bosses.iter().find_map(|(feature_id, boss, _)| {
+    bosses.iter().find_map(|(feature_id, boss, _, _, _)| {
         (feature_id.as_str() == id).then_some(boss.config.name.as_str())
     })
 }
@@ -230,6 +232,9 @@ fn boss_animation_key_for_sample(
 
 fn boss_anim_state_for(
     boss: super::boss_clusters::BossRef<'_>,
+    // Liveness + damage-blink from the boss's shared body components (§A1).
+    alive: bool,
+    hit_flash: f32,
     attack_state: &ambition_characters::brain::BossAttackState,
     brain: &ambition_characters::brain::Brain,
 ) -> crate::boss_encounter::sprites::BossAnimState {
@@ -243,10 +248,10 @@ fn boss_anim_state_for(
         .map(|s| s.pattern_timer)
         .unwrap_or(0.0);
     crate::boss_encounter::sprites::BossAnimState {
-        alive: boss.status.alive,
+        alive,
         attack_active: attack_state.active_profile.is_some(),
         attack_windup: attack_state.telegraph_profile.is_some(),
-        hit_flash: boss.status.hit_flash > 0.0,
+        hit_flash: hit_flash > 0.0,
         windup_anim: attack_state
             .telegraph_profile
             .as_ref()
@@ -267,6 +272,8 @@ pub fn ecs_boss_anim_state_and_entity(
         bevy::prelude::Entity,
         &FeatureId,
         super::boss_clusters::BossClusterRef,
+        &crate::actor::BodyHealth,
+        &crate::actor::BodyCombat,
         &ambition_characters::brain::BossAttackState,
         &ambition_characters::brain::Brain,
     )>,
@@ -276,13 +283,19 @@ pub fn ecs_boss_anim_state_and_entity(
 )> {
     bosses
         .iter()
-        .find_map(|(entity, feature_id, boss, attack_state, brain)| {
+        .find_map(|(entity, feature_id, boss, health, combat, attack_state, brain)| {
             if feature_id.as_str() != id {
                 return None;
             }
             Some((
                 entity,
-                boss_anim_state_for(boss.as_boss_ref(), attack_state, brain),
+                boss_anim_state_for(
+                    boss.as_boss_ref(),
+                    health.alive(),
+                    combat.hit_flash,
+                    attack_state,
+                    brain,
+                ),
             ))
         })
 }
@@ -300,6 +313,8 @@ pub fn ecs_boss_animation_frame_sample(
         bevy::prelude::Entity,
         &FeatureId,
         super::boss_clusters::BossClusterRef,
+        &crate::actor::BodyHealth,
+        &crate::actor::BodyCombat,
         &ambition_characters::brain::BossAttackState,
         &ambition_characters::brain::Brain,
     )>,
@@ -311,7 +326,7 @@ pub fn ecs_boss_animation_frame_sample(
 )> {
     bosses
         .iter()
-        .find_map(|(entity, feature_id, _boss, attack_state, _brain)| {
+        .find_map(|(entity, feature_id, _boss, _health, _combat, attack_state, _brain)| {
             if feature_id.as_str() != id {
                 return None;
             }
@@ -374,16 +389,24 @@ pub fn ecs_boss_anim_state(
     bosses: &Query<(
         &FeatureId,
         super::boss_clusters::BossClusterRef,
+        &crate::actor::BodyHealth,
+        &crate::actor::BodyCombat,
         &ambition_characters::brain::BossAttackState,
         &ambition_characters::brain::Brain,
     )>,
 ) -> Option<crate::boss_encounter::sprites::BossAnimState> {
     bosses
         .iter()
-        .find_map(|(feature_id, boss, attack_state, brain)| {
+        .find_map(|(feature_id, boss, health, combat, attack_state, brain)| {
             if feature_id.as_str() != id {
                 return None;
             }
-            Some(boss_anim_state_for(boss.as_boss_ref(), attack_state, brain))
+            Some(boss_anim_state_for(
+                boss.as_boss_ref(),
+                health.alive(),
+                combat.hit_flash,
+                attack_state,
+                brain,
+            ))
         })
 }

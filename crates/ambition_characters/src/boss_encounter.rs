@@ -84,7 +84,7 @@ pub enum BossEncounterEvent {
 // music + stagger + display thresholds into one blob keyed in a global map,
 // this splits the ENTITY half out as its own mechanism:
 //
-//   * HP lives in `BossStatus.health` (entity).
+//   * HP lives on the body's shared `BodyHealth` component (entity, §A1).
 //   * Phase progression lives in `BossPhaseState` (entity) and is driven by a
 //     `Vec<PhaseTrigger>` of intrinsic, *optional* DATA — empty ⇒ the boss
 //     never phases up and just fights to death (a boss reused as a plain
@@ -244,7 +244,7 @@ pub enum BossPhaseEvent {
 ///
 /// The ENTITY half of the old `BossEncounterState`. Carries the current phase,
 /// a `transition_lock` tell timer, and the intrinsic phase triggers as DATA.
-/// HP is NOT here (it lives in `BossStatus.health`); `tick` takes the HP
+/// HP is NOT here (it lives on the body's shared `BodyHealth`); `tick` takes the HP
 /// fraction as an argument so the two stay decoupled.
 #[derive(Clone, Debug, PartialEq)]
 pub struct BossPhaseState {
@@ -334,7 +334,7 @@ impl BossPhaseState {
     }
 
     /// Advance the mechanism by `dt`, reading the boss's current `hp_fraction`
-    /// (from `BossStatus.health`). Returns the phase events to react to.
+    /// (from the body's `BodyHealth`). Returns the phase events to react to.
     pub fn tick(&mut self, dt: f32, hp_fraction: f32) -> Vec<BossPhaseEvent> {
         let dt = dt.max(0.0);
         if matches!(self.phase, BossEncounterPhase::Dormant) {

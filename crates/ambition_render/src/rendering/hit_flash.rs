@@ -31,7 +31,8 @@ use bevy::{
 };
 
 use super::primitives::{FeatureVisual, PlayerVisual, PropVisual};
-use ambition_gameplay_core::features::{BossClusterRef, FeatureId};
+use ambition_gameplay_core::actor::{BodyCombat, BodyHealth};
+use ambition_gameplay_core::features::{BossConfig, FeatureId};
 
 const SHADER_ASSET_PATH: &str = "shaders/hit_flash.wgsl";
 
@@ -220,7 +221,7 @@ pub fn sync_hit_flash_overlays(
     texture_layouts: Res<Assets<TextureAtlasLayout>>,
     images: Res<Assets<Image>>,
     actors: Query<ambition_gameplay_core::features::ActorSpriteData>,
-    bosses: Query<(&FeatureId, BossClusterRef)>,
+    bosses: Query<(&FeatureId, &BodyHealth, &BodyCombat), With<BossConfig>>,
     player_state: Query<
         &ambition_gameplay_core::actor::BodyCombat,
         ambition_gameplay_core::actor::PrimaryPlayerOnly,
@@ -342,7 +343,7 @@ fn hit_flash_secs_for_source(
     feature: Option<&FeatureVisual>,
     player: Option<&PlayerVisual>,
     actors: &Query<ambition_gameplay_core::features::ActorSpriteData>,
-    bosses: &Query<(&FeatureId, BossClusterRef)>,
+    bosses: &Query<(&FeatureId, &BodyHealth, &BodyCombat), With<BossConfig>>,
     player_state: &Query<
         &ambition_gameplay_core::actor::BodyCombat,
         ambition_gameplay_core::actor::PrimaryPlayerOnly,
@@ -372,19 +373,18 @@ fn hit_flash_secs_for_source(
     }) {
         return Some(secs);
     }
-    bosses.iter().find_map(|(feature_id, item)| {
+    bosses.iter().find_map(|(feature_id, health, combat)| {
         if feature_id.as_str() != id {
             return None;
         }
-        let boss = item.as_boss_ref();
-        if !boss.status.alive {
+        if !health.alive() {
             // Boss death rows are authored sprites. Do not keep the damage
             // feedback material over a corpse; cut-rope/anvil deaths in
             // particular set alive=false immediately and should not look like
             // a permanently white silhouette.
             return Some(0.0);
         }
-        Some(boss.status.hit_flash)
+        Some(combat.hit_flash)
     })
 }
 

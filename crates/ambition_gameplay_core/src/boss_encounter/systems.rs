@@ -43,7 +43,7 @@ pub fn populate_boss_encounter_registry(mut registry: ResMut<BossEncounterRegist
 /// Drive every boss's entity-local phase mechanism: seed from the profile
 /// catalog, wake, tick the `BossPhaseState`, resolve death (save + quest), keep
 /// the adaptive-music request live, and sync reward chests.
-/// `BossStatus.health` + `BossStatus.encounter` ARE the source of truth.
+/// The body's `BodyHealth` (§A1) + `BossStatus.encounter` ARE the source of truth.
 pub fn update_boss_encounters(
     mut commands: Commands,
     world_time: Res<crate::WorldTime>,
@@ -68,6 +68,10 @@ pub fn update_boss_encounters(
         (
             &crate::features::FeatureId,
             crate::features::BossClusterQueryData,
+            // The boss's shared body components (§A1): HP authority + the
+            // hit-flash/reaction timers.
+            &mut crate::actor::BodyHealth,
+            &mut crate::actor::BodyCombat,
             Option<&crate::features::BossOverrides>,
         ),
         With<crate::features::FeatureSimEntity>,
@@ -84,7 +88,7 @@ pub fn update_boss_encounters(
     let mut active_music_track: Option<String> = None;
     let mut boss_anchors: Vec<(String, String, ae::Vec2)> = Vec::new();
 
-    for (_feature_id, mut feature, overrides) in &mut bosses {
+    for (_feature_id, mut feature, mut health, mut combat, overrides) in &mut bosses {
         let archetype_id = feature.config.behavior.id.clone();
         let runtime_id = feature.config.id.clone();
         let boss_name = feature.config.name.clone();
@@ -98,11 +102,7 @@ pub fn update_boss_encounters(
             .cloned()
             .or_else(|| BossProfile::for_encounter_id_or_name(&archetype_id))
             .unwrap_or_else(|| {
-                BossProfile::generic(
-                    archetype_id.clone(),
-                    boss_name.clone(),
-                    feature.status.health.max,
-                )
+                BossProfile::generic(archetype_id.clone(), boss_name.clone(), health.max())
             });
         let spec = profile.encounter.clone();
 
@@ -122,7 +122,8 @@ pub fn update_boss_encounters(
                 .and_then(|o| o.max_hp)
                 .unwrap_or(spec.max_hp)
                 .max(1);
-            feature.status.health = ambition_characters::actor::Health::new(max_hp);
+            *health =
+                crate::actor::BodyHealth::new(ambition_characters::actor::Health::new(max_hp));
             let triggers = overrides
                 .and_then(|o| o.phase_triggers.clone())
                 .unwrap_or_else(|| crate::boss_encounter::PhaseTrigger::intrinsic_from_spec(&spec));
@@ -134,8 +135,7 @@ pub fn update_boss_encounters(
         // predicate (`boss_is_cleared`) with the room-load save-sync so they
         // can't drift.
         if crate::features::boss_is_cleared(&save, &feature.config) {
-            feature.status.alive = false;
-            feature.status.health.current = 0;
+            health.health.current = 0;
             if let Some(phase) = feature.status.encounter.as_mut() {
                 phase.phase = crate::boss_encounter::BossEncounterPhase::Death;
             }
@@ -145,8 +145,8 @@ pub fn update_boss_encounters(
         // Wake (Dormant → start) while alive, then advance the phase mechanism.
         // The phase ticks even when not alive so a dead boss's death OUTRO timer
         // advances (so `death_outro_complete` can fire).
-        let alive = feature.status.alive;
-        let hp_fraction = feature.status.health.ratio();
+        let alive = health.alive();
+        let hp_fraction = health.health.ratio();
         let mut phase_events = Vec::new();
         {
             let phase = feature.status.encounter.as_mut().expect("seeded above");
@@ -182,8 +182,8 @@ pub fn update_boss_encounters(
         };
 
         // Suppress the death-flash overlay during invulnerable beats.
-        if invulnerable && feature.status.alive {
-            feature.status.hit_flash = 0.0;
+        if invulnerable && health.alive() {
+            combat.hit_flash = 0.0;
         }
 
         // Death resolution: once the outro elapses, record this PLACEMENT as
@@ -192,8 +192,10 @@ pub fn update_boss_encounters(
         // ARCHETYPE id (quest objectives are about the boss kind, e.g. "defeat
         // the Gradient Sentinel").
         if matches!(phase, crate::boss_encounter::BossEncounterPhase::Death) && death_done {
-            if feature.status.alive {
-                feature.status.alive = false;
+            // A scripted / environmental kill can reach Death with HP left —
+            // zero it so `alive()` (THE liveness authority, §A1) agrees.
+            if health.alive() {
+                health.health.current = 0;
             }
             if !crate::features::boss_is_cleared(&save, &feature.config) {
                 save.data_mut().set_boss(

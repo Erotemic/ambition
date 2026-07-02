@@ -116,10 +116,16 @@ pub fn apply_feature_hit_events(
             &FeatureId,
             &CenteredAabb,
             super::boss_clusters::BossClusterQueryData,
+            // The boss's shared body components (§A1): HP authority + the
+            // hit-flash the damage path arms. `Without<PlayerEntity>` keeps
+            // this `&mut BodyCombat` provably disjoint from the player query
+            // below (the actor query is already `Without<BossConfig>`).
+            &mut crate::actor::BodyHealth,
+            &mut crate::actor::BodyCombat,
             &ambition_characters::brain::BossAttackState,
             Option<&crate::features::BossAnimationFrameSample>,
         ),
-        With<FeatureSimEntity>,
+        (With<FeatureSimEntity>, Without<crate::actor::PlayerEntity>),
     >,
     // Hitstop / flash on a successful player attack apply to the
     // attacker that landed the hit. Iterates every player and uses
@@ -263,7 +269,7 @@ pub fn apply_feature_hit_events(
         }
         let mut boss_hit_this_event = false;
         // A pre-resolved actor-vs-actor hit never spills onto bosses / breakables.
-        for (id, _aabb, mut feature, attack_state, animation_frame) in
+        for (id, _aabb, mut feature, mut health, mut combat, attack_state, animation_frame) in
             bosses.iter_mut().filter(|_| actor_target.is_none())
         {
             if target_is_ignored(&event.ignored_targets, "boss", id.as_str()) {
@@ -272,6 +278,8 @@ pub fn apply_feature_hit_events(
             if apply_boss_hit(
                 &event,
                 feature.as_boss_mut(),
+                &mut health,
+                &mut combat,
                 attack_state,
                 animation_frame,
                 &mut banner,

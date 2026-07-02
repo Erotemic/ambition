@@ -481,7 +481,7 @@ pub(super) fn spawn_boss_with_overrides(
         boss.config.behavior.id,
         boss.as_ref().combat_size(),
     );
-    let initial_phase = BossPhase::from_alive(boss.status.alive);
+    let initial_phase = BossPhase::from_alive(boss.health.alive());
     let feature_aabb = CenteredAabb::from_center_size(boss.kin.pos, boss.as_ref().render_size());
     // BossPattern brain owns boss intent. The cfg snapshots the
     // authored behavior profile's pattern + movement at spawn
@@ -561,10 +561,14 @@ pub(super) fn spawn_boss_with_overrides(
         ..Default::default()
     };
     let boss_combat_kit = CombatKit::from_action_set(&boss_action_set);
-    let (boss_identity, boss_disposition, boss_health, boss_combat, boss_intent, boss_cooldowns) =
+    // §A1: the boss's `BodyHealth` HP authority spawns from the scratch
+    // (`into_components` below); the snapshot builds only the read-models.
+    let (boss_identity, boss_disposition, boss_combat, boss_intent, boss_cooldowns) =
         boss_component_snapshot(
             boss.as_ref(),
             &ambition_characters::brain::BossAttackState::default(),
+            &boss.health,
+            &crate::actor::BodyCombat::default(),
         );
     let boss_facing = boss.kin.facing;
     let boss_components = boss.into_components();
@@ -600,7 +604,6 @@ pub(super) fn spawn_boss_with_overrides(
         // actors.
         boss_identity,
         boss_disposition,
-        boss_health,
         boss_combat,
         boss_intent,
         boss_cooldowns,

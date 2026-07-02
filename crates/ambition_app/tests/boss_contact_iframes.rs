@@ -81,13 +81,18 @@ fn read_player(world: &mut World) -> PlayerSnapshot {
 }
 
 fn read_boss(world: &mut World) -> Option<BossSnapshot> {
-    // Only the boss carries `BossConfig` / `BossStatus`, so this query never
-    // matches the player even though both share `BodyKinematics`.
-    let mut q = world.query::<(&BodyKinematics, &BossConfig, &BossStatus)>();
-    q.iter(world).next().map(|(kin, cfg, status)| BossSnapshot {
+    // Only the boss carries `BossConfig`, so this query never matches the
+    // player even though both share `BodyKinematics`. hit_flash lives on the
+    // boss's shared `BodyCombat` (§A1).
+    let mut q = world.query::<(
+        &BodyKinematics,
+        &BossConfig,
+        &ambition_gameplay_core::actor::BodyCombat,
+    )>();
+    q.iter(world).next().map(|(kin, cfg, combat)| BossSnapshot {
         pos: kin.pos,
         combat_size: cfg.behavior.combat_size.unwrap_or(kin.size),
-        hit_flash: status.hit_flash,
+        hit_flash: combat.hit_flash,
     })
 }
 
@@ -598,10 +603,10 @@ fn two_same_archetype_bosses_have_independent_encounter_state() {
     // untouched — the gauntlet-correctness property.
     {
         let world = sim.world_mut();
-        let mut q = world.query::<(&BossConfig, &mut BossStatus)>();
-        for (config, mut status) in q.iter_mut(world) {
+        let mut q = world.query::<(&BossConfig, &mut BossStatus, &mut BodyHealth)>();
+        for (config, mut status, mut health) in q.iter_mut(world) {
             if config.id == "mock_a" {
-                status.health.current = 5;
+                health.health.current = 5;
                 if let Some(phase) = status.encounter.as_mut() {
                     phase.phase = BossEncounterPhase::Phase1;
                 }
@@ -613,16 +618,16 @@ fn two_same_archetype_bosses_have_independent_encounter_state() {
     sim.step(AgentAction::default());
 
     let world = sim.world_mut();
-    let mut q = world.query::<(&BossConfig, &BossStatus)>();
+    let mut q = world.query::<(&BossConfig, &BodyHealth)>();
     let mut a_hp = None;
     let mut b_hp = None;
     let mut b_max = None;
-    for (config, status) in q.iter(world) {
+    for (config, health) in q.iter(world) {
         match config.id.as_str() {
-            "mock_a" => a_hp = Some(status.health.current),
+            "mock_a" => a_hp = Some(health.current()),
             "mock_b" => {
-                b_hp = Some(status.health.current);
-                b_max = Some(status.health.max);
+                b_hp = Some(health.current());
+                b_max = Some(health.max());
             }
             _ => {}
         }

@@ -60,6 +60,7 @@ pub fn spawn_overflow_flood_from_special_messages(
         (
             Entity,
             BossClusterRef,
+            &ambition_gameplay_core::actor::BodyHealth,
             &BossAttackState,
             &mut OverflowState,
             Option<&ActorTarget>,
@@ -78,7 +79,7 @@ pub fn spawn_overflow_flood_from_special_messages(
             }
         }
     }
-    for (entity, boss_feature, attack_state, mut state, actor_target) in &mut bosses {
+    for (entity, boss_feature, health, attack_state, mut state, actor_target) in &mut bosses {
         let boss = boss_feature.as_boss_ref();
         let player_x = actor_target.and_then(|t| {
             t.entity
@@ -86,7 +87,7 @@ pub fn spawn_overflow_flood_from_special_messages(
                 .map(|kin| kin.aabb().center().x)
                 .or(Some(t.pos.x))
         });
-        if !boss.status.alive {
+        if !health.alive() {
             state.locked_x = None;
             state.fired_this_strike = false;
             continue;

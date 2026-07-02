@@ -477,6 +477,7 @@ pub fn step_projectiles(
             &FeatureId,
             &CenteredAabb,
             BossClusterRef,
+            &crate::actor::BodyHealth,
             &ambition_characters::brain::BossAttackState,
             Option<&crate::features::BossAnimationFrameSample>,
         ),

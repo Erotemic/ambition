@@ -85,6 +85,8 @@ pub fn tick_boss_brains_system(
         (
             bevy::ecs::entity::Entity,
             super::super::boss_clusters::BossClusterRef,
+            // The boss's HP authority (§A1) — liveness is `health.alive()`.
+            &crate::actor::BodyHealth,
             &mut Brain,
             &mut ActorControl,
             &mut BossAttackState,
@@ -101,11 +103,11 @@ pub fn tick_boss_brains_system(
 ) {
     let dt = world_time.sim_dt();
     let feature_world = world_with_sandbox_solids(&world.0, &platform_set.0, &overlay);
-    for (entity, feature, mut brain, mut control, mut attack_state, target, capability) in
+    for (entity, feature, health, mut brain, mut control, mut attack_state, target, capability) in
         &mut bosses
     {
         let boss = feature.as_boss_ref();
-        if !boss.status.alive {
+        if !health.alive() {
             // Dead boss: zero out frame + attack state so any
             // downstream consumer sees a coherent "no intent".
             control.0 = ambition_characters::actor::control::ActorControlFrame::neutral();
@@ -377,6 +379,11 @@ pub fn update_ecs_bosses(
             Entity,
             &mut CenteredAabb,
             super::super::boss_clusters::BossClusterQueryData,
+            // The boss's shared body components (§A1): HP authority + the
+            // reaction timers this system decays each tick (the actor loop's
+            // decrement excludes bosses until the slice-3 driver fold).
+            &crate::actor::BodyHealth,
+            &mut crate::actor::BodyCombat,
             &mut BossPatternTimer,
             &mut BossDeathAnimation,
             &mut BossPhase,
@@ -404,6 +411,8 @@ pub fn update_ecs_bosses(
         boss_entity,
         mut aabb,
         mut feature,
+        health,
+        mut boss_combat,
         mut pattern_timer,
         mut death_anim,
         mut phase,
@@ -414,6 +423,15 @@ pub fn update_ecs_bosses(
         animation_frame,
     ) in &mut bosses
     {
+        let alive = health.alive();
+        // Body-generic reaction timers (hit_flash + i-frame + the §A2 stagger
+        // set) decay here for bosses — the actor tick excludes them (§A1
+        // slice 3 folds this into the one driver).
+        boss_combat.damage_invuln_timer = (boss_combat.damage_invuln_timer - dt).max(0.0);
+        boss_combat.hit_flash = (boss_combat.hit_flash - dt).max(0.0);
+        boss_combat.hitstun_timer = (boss_combat.hitstun_timer - dt).max(0.0);
+        boss_combat.recoil_lock_timer = (boss_combat.recoil_lock_timer - dt).max(0.0);
+        boss_combat.hitstop_timer = (boss_combat.hitstop_timer - dt).max(0.0);
         // Resolve this boss's targeted player. If the target's
         // entity has despawned or no players exist, skip the body-
         // contact check — body still integrates so the boss keeps
@@ -431,7 +449,7 @@ pub fn update_ecs_bosses(
         }
         feature
             .as_boss_mut()
-            .integrate_body(&feature_world, control.0.velocity_target, dt);
+            .integrate_body(&feature_world, alive, control.0.velocity_target, dt);
         aabb.center = feature.kin.pos;
         // Orient the footprint to the boss's reference frame so the box matches
         // the gravity-righted sprite. `to_world_half` swaps width<->height only
@@ -449,14 +467,14 @@ pub fn update_ecs_bosses(
             Brain::StateMachine(StateMachineCfg::BossPattern { state, .. }) => state.pattern_timer,
             _ => 0.0,
         };
-        if feature.status.alive {
+        if alive {
             death_anim.clear();
         } else if phase.is_active() && death_anim.remaining_s <= 0.0 {
             death_anim.start();
         } else {
             death_anim.tick(dt);
         }
-        *phase = BossPhase::from_alive(feature.status.alive);
+        *phase = BossPhase::from_alive(alive);
         let (Some(target_entity), Some((hurtbox, offense, dodge, shield, combat, is_player))) =
             (target_entity, target_victim)
         else {
@@ -475,7 +493,7 @@ pub fn update_ecs_bosses(
         // mirrors the actor path's `body_contact_damage_enabled = !is_player` gate;
         // no faction is mutated.
         let boss_player_controlled = brain.is_player();
-        if player_vulnerable && feature.status.alive && !boss_player_controlled {
+        if player_vulnerable && alive && !boss_player_controlled {
             let ctx = BossVolumeContext::from_ref(feature.as_boss_ref(), attack_state)
                 .with_animation_frame(animation_frame);
             if let Some(damage) =

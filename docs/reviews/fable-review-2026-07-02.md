@@ -728,8 +728,10 @@ work is committed linearly on main; the tree is green.
 1. ~~**A2**~~ — COMPLETE (E11–E13): `resolve_body_hit` + shared knockback +
    shared stagger for every body. Steps 6 (knockback, `b4912001`) and 7
    (stagger, see E13) are BLIND feel commits awaiting Jon's feel-check.
-2. **A1** — boss island dissolution (sketch below; afterwards grep `§A1` and
-   `Without<BossConfig>` to remove the victim special-cases added this session).
+2. **A1** — boss island dissolution: slice 1 (the `BossStatus` authority flip,
+   E14) is DONE; slices 2 (boss = full A2 victim) and 3 (driver fold) remain —
+   the full designs are in "Next" below. After slice 2, grep `§A1` and
+   `Without<BossConfig>` to remove the victim special-cases added this session.
 3. Then the engine/content + decomposition tracks, roughly: **D1** facade
    deletion (mechanical, huge navigability win) → **C1/C2** item catalog +
    `HELD_ITEMS` onto the roster-install pattern → **D2/D3** body-vocab re-home
@@ -1009,7 +1011,29 @@ The shared post-hit stagger, armed + consumed for every body:
   0.12s hard); duels read as launch → recover → re-engage.
 Verified: gameplay-core 1090, engine-core 211, all six app suites.
 
-## Next (in order) — A1, then engine/content + decomposition tracks
+### E14. A1 slice 1 — the boss authority flip ✅
+`BossStatus.{health, alive, hit_flash}` are DELETED. A boss's HP authority is
+the same `BodyHealth` every body carries (alive = `health.alive()` — no shadow
+flag anywhere; scripted/environmental kills zero HP), its damage-blink is
+`BodyCombat.hit_flash`, and `sync_boss_actor_components` no longer REBUILDS
+health from boss state — it mirrors only presentation (attack timers), carrying
+the authoritative reaction timers across the rebuild exactly like the actor
+sync. `BossStatus` is now purely encounter state (phase mirror, sprite metrics,
+entity-local phase machine). Mechanics of the flip: `BossClusterScratch` gained
+the spawn-time `BodyHealth` (bundled by `into_components`);
+`BossMut::reset_to_spawn(health, combat)`; `integrate_body(world, alive, …)`
+takes liveness in; boss reaction-timer decay moved from `integrate_body` to
+`update_ecs_bosses` (`&mut BodyCombat` — the actor tick still excludes bosses
+until slice 3); `apply_entity_boss_damage(status, health, amount)` and
+`apply_boss_hit(…, health, combat, …)` mutate the shared components. ~35 files
+swept across gameplay_core (encounter systems/script/entity, save-sync, reset,
+spawn, anim/target/predicate helpers), content (gnu_ton ladder gate, banter,
+all seven specials), render (boss animator, health bars, hit-flash material,
+overlays), app (debug gizmos + boss test suites). Verified: gameplay-core 1090,
+engine-core 211, content 53, render 24, the six app suites, AND
+boss_lifecycle (8) / boss_contact_iframes (4) / boss_possession_specials (1).
+
+## Next (in order) — A1 slices 2–3, then engine/content + decomposition tracks
 
 **§A2 is COMPLETE** (E10–E13). The victim-side damage path is ONE resolver +
 ONE reaction for every body; per-body policy is the only fork left.
@@ -1021,39 +1045,8 @@ ONE reaction for every body; per-body policy is the only fork left.
   → drops/banner/respawn-timer/split/explode, cling-detach pop.
 - Boss: untouched until A1.
 
-**A1 — boss island dissolution** (mapped 2026-07-02 evening; slices ordered,
+**A1 — boss island dissolution** (slice 1 DONE — E14; slices 2–3 remain,
 each independently committable):
-
-*Slice 1 — the authority flip (health/alive/hit_flash off `BossStatus`).*
-KEY FACT: bosses ALREADY carry `BodyHealth` + `BodyCombat` (+
-ActorIdentity/Disposition/Intent/Cooldowns) — spawned as read-models and
-REBUILT every frame by `sync_boss_actor_components` from
-`BossStatus`+`BossAttackState` (`features/ecs/bosses/sync.rs:28-114`, the
-migration map). The flip: delete `BossStatus.{health, alive, hit_flash}`;
-`BodyHealth` becomes the ONE HP authority (alive = `health.alive()`, exactly
-the actor pattern), `BodyCombat.hit_flash` the one blink. Mechanics:
-- `boss_component_snapshot` keeps producing ONLY the presentation mirror
-  (attack timers into `BodyCombat::hostile`) and must CARRY
-  hit_flash/damage_invuln/hitstun/recoil/hitstop across the rebuild — the
-  same wipe-bug fixed for actors in `sync_actor_components_from_cluster`
-  (E13); alive comes from `BodyHealth`.
-- `BossMut::reset_to_spawn` takes `&mut BodyHealth, &mut BodyCombat`;
-  `BossClusterScratch::into_components` bundles them (spawn-time authority).
-- Boss hit_flash decay currently lives in `BossMut::integrate_body` — move it
-  to `update_ecs_bosses` (`&mut BodyCombat`); note `tick_actor_brains`'
-  timer decrement excludes bosses (`Without<BossConfig>`) until slice 3.
-- Writers/readers to chase (compiler does it): `damage/boss_hit.rs` (damage +
-  flash), `boss_encounter/{systems,encounter_script,encounter_entity,
-  registry}.rs`, `ambition_content/src/bosses/*` (gnu_ton + specials read
-  `status.alive`), `ambition_render/rendering/{health,hit_flash,actors/*}.rs`
-  (some may already read the mirror), `features/ecs/{save_sync,anim_helpers,
-  target_volumes,spawn_actors,reset,damage_predicates}.rs`,
-  `player/systems.rs`, app tests `boss_lifecycle` + `boss_contact_iframes`.
-- Doc-comment refs in `ambition_characters/src/boss_encounter.rs` say "HP
-  lives in BossStatus.health" — update.
-Acceptance: `cargo test -p ambition_gameplay_core --lib` + the six suites +
-`-p ambition_app --test boss_lifecycle --test boss_contact_iframes
---test boss_possession_specials`.
 
 *Slice 2 — boss victim = full A2 victim.* With HP on `BodyHealth`,
 `apply_boss_hit` routes through `combat::damage::resolve_body_hit` (+

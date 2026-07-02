@@ -46,6 +46,8 @@ pub fn upgrade_boss_sprites(
     ecs_bosses: Query<(
         &FeatureId,
         BossClusterRef,
+        &ambition_gameplay_core::actor::BodyHealth,
+        &ambition_gameplay_core::actor::BodyCombat,
         &ambition_characters::brain::BossAttackState,
     )>,
     new_bosses: Query<
@@ -62,7 +64,7 @@ pub fn upgrade_boss_sprites(
     for (entity, visual) in &new_bosses {
         let Some(view) = ecs_bosses
             .iter()
-            .find_map(|(feature_id, item, attack_state)| {
+            .find_map(|(feature_id, item, health, combat, attack_state)| {
                 if feature_id.as_str() != visual.id.as_str() {
                     return None;
                 }
@@ -73,8 +75,8 @@ pub fn upgrade_boss_sprites(
                     pos: boss.kin.pos,
                     size: boss.render_size(),
                     kind: FeatureVisualKind::Boss,
-                    visible: boss.status.alive,
-                    flash: boss.status.hit_flash > 0.0
+                    visible: health.alive(),
+                    flash: combat.hit_flash > 0.0
                         || attack_state.telegraph_profile.is_some()
                         || attack_state.active_profile.is_some(),
                     switch_on: false,
@@ -96,7 +98,7 @@ pub fn upgrade_boss_sprites(
             ambition_gameplay_core::features::ecs_boss_name(&visual.id, &ecs_bosses).unwrap_or("");
         let boss_behavior_id = ecs_bosses
             .iter()
-            .find_map(|(feature_id, item, _)| {
+            .find_map(|(feature_id, item, _, _, _)| {
                 (feature_id.as_str() == visual.id.as_str())
                     .then_some(item.config.behavior.id.as_str())
             })
@@ -268,6 +270,8 @@ pub fn animate_bosses(
         Entity,
         &FeatureId,
         BossClusterRef,
+        &ambition_gameplay_core::actor::BodyHealth,
+        &ambition_gameplay_core::actor::BodyCombat,
         &ambition_characters::brain::BossAttackState,
         &ambition_characters::brain::Brain,
     )>,

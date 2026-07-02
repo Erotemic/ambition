@@ -27,17 +27,17 @@ pub struct BossHealthBarOverlayVisual;
 pub fn sync_boss_health_bar_overlay(
     mut commands: Commands,
     overlays: Query<Entity, With<BossHealthBarOverlayVisual>>,
-    bosses: Query<BossClusterRef>,
+    bosses: Query<(BossClusterRef, &BodyHealth)>,
     ui_fonts: Option<Res<UiFonts>>,
 ) {
     for entity in overlays.iter() {
         commands.entity(entity).despawn();
     }
 
-    let Some((health, boss_name)) = bosses.iter().find_map(|item| {
+    let Some((health, boss_name)) = bosses.iter().find_map(|(item, health)| {
         let boss = item.as_boss_ref();
-        if boss.status.alive && boss.status.health.alive() {
-            Some((boss.status.health.clone(), boss.config.name.clone()))
+        if health.alive() {
+            Some((health.health, boss.config.name.clone()))
         } else {
             None
         }
@@ -155,7 +155,7 @@ pub fn sync_health_overlays(
         ),
         Without<BossConfig>,
     >,
-    ecs_bosses: Query<(&FeatureName, BossClusterRef)>,
+    ecs_bosses: Query<(&FeatureName, BossClusterRef, &BodyHealth)>,
 ) {
     for entity in overlays.iter() {
         commands.entity(entity).despawn();
@@ -193,15 +193,15 @@ pub fn sync_health_overlays(
             );
         }
     }
-    for (name, item) in &ecs_bosses {
+    for (name, item, health) in &ecs_bosses {
         let boss = item.as_boss_ref();
-        if boss.status.alive {
+        if health.alive() {
             spawn_health_overlay(
                 &mut commands,
                 &world.0,
                 name.0.as_str(),
                 boss.aabb(),
-                boss.status.health,
+                health.health,
                 Color::srgba(1.00, 0.32, 0.92, 0.96),
             );
         }

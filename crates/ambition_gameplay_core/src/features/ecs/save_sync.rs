@@ -124,19 +124,19 @@ pub fn sync_ecs_bosses_with_save(
     mut bosses: Query<
         (
             super::boss_clusters::BossClusterQueryData,
+            &mut crate::actor::BodyHealth,
             Option<&mut BossDeathAnimation>,
             Option<&mut BossPhase>,
         ),
         With<FeatureSimEntity>,
     >,
 ) {
-    for (mut feature, death_anim, phase) in &mut bosses {
+    for (feature, mut health, death_anim, phase) in &mut bosses {
         // R4: "cleared" is keyed to this PLACEMENT, not the archetype. Shared
         // predicate (`boss_is_cleared`) with the per-tick encounter driver so
         // they can't drift.
         if super::boss_clusters::boss_is_cleared(&save, &feature.config) {
-            feature.status.alive = false;
-            feature.status.health.current = 0;
+            health.health.current = 0;
             if let Some(mut death_anim) = death_anim {
                 death_anim.clear();
             }

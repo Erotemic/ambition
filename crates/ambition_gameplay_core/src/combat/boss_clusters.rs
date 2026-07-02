@@ -41,13 +41,16 @@ pub struct BossConfig {
     pub behavior: BossBehaviorProfile,
 }
 
-/// Mutable per-tick boss status: health, liveness, hit-flash timer,
-/// active encounter phase, and sprite-derived body metrics.
+/// Mutable per-tick boss ENCOUNTER status: active phase, sprite-derived body
+/// metrics, and the entity-local phase machine.
+///
+/// §A1 authority flip (fable review 2026-07-02): health / liveness / hit-flash
+/// are NOT here anymore — a boss's HP authority is the same [`crate::actor::BodyHealth`]
+/// every body carries (alive = `health.alive()`), and its damage-blink is
+/// [`crate::actor::BodyCombat::hit_flash`]. What remains is genuinely
+/// encounter-specific.
 #[derive(Component, Clone, Debug)]
 pub struct BossStatus {
-    pub health: ambition_characters::actor::Health,
-    pub alive: bool,
-    pub hit_flash: f32,
     /// Active encounter phase. Forwarded by `sync_boss_encounter_phase`
     /// from `BossEncounterRegistry`. `Dormant` until the encounter
     /// wakes up. The brain reads this via `BossPatternContext`.
@@ -182,12 +185,16 @@ impl<'a> BossMut<'a> {
     /// in-place replay regression, pinned by `boss_revives_after_a_room_reset`).
     /// The brain / attack-state / control are separate components the room-reset
     /// loop clears alongside this.
-    pub fn reset_to_spawn(&mut self) {
+    pub fn reset_to_spawn(
+        &mut self,
+        health: &mut crate::actor::BodyHealth,
+        combat: &mut crate::actor::BodyCombat,
+    ) {
         self.kin.pos = self.config.spawn;
         self.kin.facing = 1.0;
-        self.status.alive = true;
-        self.status.health.reset();
-        self.status.hit_flash = 0.0;
+        health.reset();
+        combat.reset();
+        combat.alive = true;
         self.status.encounter = None;
         self.status.encounter_phase = BossEncounterPhase::Dormant;
     }
@@ -198,8 +205,10 @@ impl<'a> BossMut<'a> {
     /// desired velocity into a position change. Bosses float (gravity =
     /// 0, max_fall_speed = 0); multi-part bosses collide against
     /// `combat_size`, not the sprite `size`.
-    pub fn integrate_body(&mut self, world: &ae::World, desired_vel: ae::Vec2, dt: f32) {
-        if !self.status.alive || dt <= 0.0 {
+    /// `alive` comes from the body's `BodyHealth` (§A1 — HP authority is the
+    /// shared component, not boss state).
+    pub fn integrate_body(&mut self, world: &ae::World, alive: bool, desired_vel: ae::Vec2, dt: f32) {
+        if !alive || dt <= 0.0 {
             return;
         }
         let mut body = kinematic::KinematicBody {
@@ -220,7 +229,6 @@ impl<'a> BossMut<'a> {
         } else {
             self.kin.facing
         };
-        self.status.hit_flash = (self.status.hit_flash - dt).max(0.0);
     }
 }
 
@@ -284,6 +292,9 @@ pub struct BossClusterScratch {
     pub kin: BodyKinematics,
     pub config: BossConfig,
     pub status: BossStatus,
+    /// The boss's HP authority — the SAME `BodyHealth` component every body
+    /// carries (§A1). Spawned from here; never mirrored from boss state.
+    pub health: crate::actor::BodyHealth,
 }
 
 impl BossClusterScratch {
@@ -320,13 +331,11 @@ impl BossClusterScratch {
                 behavior: BossBehaviorProfile::for_authored_boss(&canonical_id),
             },
             status: BossStatus {
-                health: ambition_characters::actor::Health::new(18),
-                alive: true,
-                hit_flash: 0.0,
                 encounter_phase: BossEncounterPhase::Dormant,
                 sprite_metrics: None,
                 encounter: None,
             },
+            health: crate::actor::BodyHealth::new(ambition_characters::actor::Health::new(18)),
         }
     }
 
@@ -346,9 +355,12 @@ impl BossClusterScratch {
         }
     }
 
-    /// The three authoritative components as a spawnable Bundle.
-    pub fn into_components(self) -> (BodyKinematics, BossConfig, BossStatus) {
-        (self.kin, self.config, self.status)
+    /// The authoritative components as a spawnable Bundle (incl. the body's
+    /// `BodyHealth` HP authority).
+    pub fn into_components(
+        self,
+    ) -> (BodyKinematics, BossConfig, BossStatus, crate::actor::BodyHealth) {
+        (self.kin, self.config, self.status, self.health)
     }
 }
 
@@ -375,30 +387,34 @@ pub(crate) mod test_support {
     use super::*;
     use crate::boss_encounter::{BossPhaseState, PhaseTrigger};
 
-    /// A `BossStatus` at `hp` HP in `phase`, with entity-local `BossPhaseState`
-    /// carrying `triggers` (empty ⇒ never phases up) already set to `phase`.
+    /// A `(BossStatus, BodyHealth)` pair at `hp` HP in `phase`, with
+    /// entity-local `BossPhaseState` carrying `triggers` (empty ⇒ never phases
+    /// up) already set to `phase`. HP lives on the shared `BodyHealth` (§A1).
     pub(crate) fn test_boss_status_with(
         hp: i32,
         phase: BossEncounterPhase,
         triggers: Vec<PhaseTrigger>,
-    ) -> BossStatus {
+    ) -> (BossStatus, crate::actor::BodyHealth) {
         let mut encounter = BossPhaseState::new(triggers);
         encounter.phase = phase;
         let mut health = ambition_characters::actor::Health::new(hp);
         health.current = hp;
-        BossStatus {
-            health,
-            alive: true,
-            hit_flash: 0.0,
-            encounter_phase: phase,
-            sprite_metrics: None,
-            encounter: Some(encounter),
-        }
+        (
+            BossStatus {
+                encounter_phase: phase,
+                sprite_metrics: None,
+                encounter: Some(encounter),
+            },
+            crate::actor::BodyHealth::new(health),
+        )
     }
 
-    /// A `BossStatus` at `hp` HP in `phase` with no phase triggers (fights to
-    /// death — the common single-phase fixture).
-    pub(crate) fn test_boss_status(hp: i32, phase: BossEncounterPhase) -> BossStatus {
+    /// A `(BossStatus, BodyHealth)` at `hp` HP in `phase` with no phase
+    /// triggers (fights to death — the common single-phase fixture).
+    pub(crate) fn test_boss_status(
+        hp: i32,
+        phase: BossEncounterPhase,
+    ) -> (BossStatus, crate::actor::BodyHealth) {
         test_boss_status_with(hp, phase, Vec::new())
     }
 

@@ -818,6 +818,7 @@ pub fn held_projectile_step(
             &crate::features::FeatureId,
             &crate::features::CenteredAabb,
             crate::features::BossClusterRef,
+            &crate::actor::BodyHealth,
             &ambition_characters::brain::BossAttackState,
             Option<&crate::features::BossAnimationFrameSample>,
         ),

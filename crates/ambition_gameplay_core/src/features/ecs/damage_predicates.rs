@@ -68,6 +68,7 @@ pub fn ecs_hit_event_hits_boss(
             &FeatureId,
             &CenteredAabb,
             super::boss_clusters::BossClusterRef,
+            &crate::actor::BodyHealth,
             &ambition_characters::brain::BossAttackState,
             Option<&crate::features::BossAnimationFrameSample>,
         ),
@@ -90,11 +91,11 @@ pub fn ecs_hit_event_hits_boss(
     // and where damage actually lands.
     bosses
         .iter()
-        .any(|(id, _aabb, feature, attack_state, animation_frame)| {
+        .any(|(id, _aabb, feature, health, attack_state, animation_frame)| {
             if target_is_ignored(&event.ignored_targets, "boss", id.as_str()) {
                 return false;
             }
-            if !feature.status.alive {
+            if !health.alive() {
                 return false;
             }
             crate::features::damageable_volumes(

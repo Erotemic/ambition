@@ -86,6 +86,7 @@ pub struct FeatureDebugQueries<'w, 's> {
         's,
         (
             ambition_gameplay_core::features::BossClusterRef,
+            &'static ambition_gameplay_core::actor::BodyHealth,
             &'static ambition_characters::brain::BossAttackState,
             Option<&'static ambition_gameplay_core::features::BossAnimationFrameSample>,
         ),
@@ -688,9 +689,9 @@ pub(crate) fn draw_feature_debug(
     // `feature_q.hitboxes` pass with faction colors.
     let hurtbox_color = cyan();
     let body_contact_color = Color::srgba(0.95, 0.30, 0.95, 0.85); // magenta
-    for (bf, attack_state, animation_frame) in feature_q.bosses.iter() {
+    for (bf, health, attack_state, animation_frame) in feature_q.bosses.iter() {
         let boss = bf.as_boss_ref();
-        if !boss.status.alive {
+        if !health.alive() {
             continue;
         }
         let ctx = ambition_gameplay_core::features::BossVolumeContext::from_ref(

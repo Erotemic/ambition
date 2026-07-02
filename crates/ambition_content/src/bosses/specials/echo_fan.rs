@@ -59,6 +59,7 @@ pub fn spawn_echo_fan_from_special_messages(
         (
             Entity,
             BossClusterRef,
+            &ambition_gameplay_core::actor::BodyHealth,
             &mut EchoFanState,
             Option<&ActorTarget>,
         ),
@@ -76,13 +77,13 @@ pub fn spawn_echo_fan_from_special_messages(
             }
         }
     }
-    for (entity, boss_feature, mut state, actor_target) in &mut bosses {
+    for (entity, boss_feature, health, mut state, actor_target) in &mut bosses {
         let boss = boss_feature.as_boss_ref();
         if !firing.contains(&entity) {
             state.fired_this_strike = false;
             continue;
         }
-        if !boss.status.alive || state.fired_this_strike {
+        if !health.alive() || state.fired_this_strike {
             continue;
         }
         let origin = boss.kin.pos + boss.config.behavior.projectile_origin_offset;

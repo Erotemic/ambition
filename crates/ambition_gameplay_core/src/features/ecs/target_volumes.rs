@@ -57,6 +57,7 @@ pub fn refresh_boss_damageable_volumes(
     mut bosses: Query<
         (
             super::boss_clusters::BossClusterRef,
+            &crate::actor::BodyHealth,
             &ambition_characters::brain::BossAttackState,
             Option<&crate::features::BossAnimationFrameSample>,
             &mut DamageableVolumes,
@@ -64,9 +65,9 @@ pub fn refresh_boss_damageable_volumes(
         With<FeatureSimEntity>,
     >,
 ) {
-    for (feature, attack_state, animation_frame, mut damageable) in &mut bosses {
+    for (feature, health, attack_state, animation_frame, mut damageable) in &mut bosses {
         let boss = feature.as_boss_ref();
-        if !boss.status.alive {
+        if !health.alive() {
             damageable.clear();
             continue;
         }

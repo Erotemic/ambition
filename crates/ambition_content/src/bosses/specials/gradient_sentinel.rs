@@ -117,7 +117,15 @@ pub fn spawn_gnu_apple_rain_from_special_messages(
     world: Res<ambition_gameplay_core::RoomGeometry>,
     mut messages: MessageReader<ActorActionMessage>,
     mut effects: MessageWriter<ambition_gameplay_core::effects::EffectRequest>,
-    mut bosses: Query<(Entity, &mut AppleRainSpawnState, BossClusterRef), With<FeatureSimEntity>>,
+    mut bosses: Query<
+        (
+            Entity,
+            &mut AppleRainSpawnState,
+            BossClusterRef,
+            &ambition_gameplay_core::actor::BodyHealth,
+        ),
+        With<FeatureSimEntity>,
+    >,
 ) {
     let dt = world_time.sim_dt();
     // Apple-rain tuning is content-owned (lib consts for now; move with the
@@ -143,7 +151,7 @@ pub fn spawn_gnu_apple_rain_from_special_messages(
         }
     }
 
-    for (entity, mut state, boss_feature) in &mut bosses {
+    for (entity, mut state, boss_feature, health) in &mut bosses {
         if !firing.contains(&entity) {
             // No message this tick → reset accumulator so a future
             // strike window starts on a clean beat.
@@ -151,7 +159,7 @@ pub fn spawn_gnu_apple_rain_from_special_messages(
             continue;
         };
         let boss = boss_feature.as_boss_ref();
-        if !boss.status.alive || interval_s <= 0.0 {
+        if !health.alive() || interval_s <= 0.0 {
             continue;
         }
         state.spawn_accum += dt;
@@ -320,6 +328,7 @@ pub fn spawn_overfit_volley_from_special_messages(
         (
             Entity,
             BossClusterRef,
+            &ambition_gameplay_core::actor::BodyHealth,
             &BossAttackState,
             &mut OverfitVolleyState,
             Option<&ambition_gameplay_core::features::ActorTarget>,
@@ -341,7 +350,7 @@ pub fn spawn_overfit_volley_from_special_messages(
         }
     }
 
-    for (entity, boss_feature, attack_state, mut state, actor_target) in &mut bosses {
+    for (entity, boss_feature, health, attack_state, mut state, actor_target) in &mut bosses {
         let boss = boss_feature.as_boss_ref();
         // Per-boss target: read kinematics for the player this boss
         // is tracking. Falls back to `actor_target.pos` (set by
@@ -355,7 +364,7 @@ pub fn spawn_overfit_volley_from_special_messages(
                 .map(|kin| kin.aabb().center())
                 .or(Some(t.pos))
         });
-        if !boss.status.alive {
+        if !health.alive() {
             // Dead boss: clear samples so a respawned-then-attacking
             // boss doesn't inherit stale memory.
             state.samples.clear();
@@ -476,6 +485,7 @@ pub fn spawn_minima_trap_from_special_messages(
         (
             Entity,
             BossClusterRef,
+            &ambition_gameplay_core::actor::BodyHealth,
             &mut MinimaTrapState,
             Option<&ambition_gameplay_core::features::ActorTarget>,
         ),
@@ -494,7 +504,7 @@ pub fn spawn_minima_trap_from_special_messages(
         }
     }
 
-    for (entity, boss_feature, mut state, actor_target) in &mut bosses {
+    for (entity, boss_feature, health, mut state, actor_target) in &mut bosses {
         let boss = boss_feature.as_boss_ref();
         let player_pos = actor_target.and_then(|t| {
             t.entity
@@ -508,7 +518,7 @@ pub fn spawn_minima_trap_from_special_messages(
             state.fired_this_strike = false;
             continue;
         };
-        if !boss.status.alive {
+        if !health.alive() {
             continue;
         }
         if state.fired_this_strike {
@@ -614,7 +624,7 @@ pub fn spawn_saddle_point_from_special_messages(
     mut commands: Commands,
     world_time: Res<WorldTime>,
     mut messages: MessageReader<ActorActionMessage>,
-    mut bosses: Query<(Entity, BossClusterRef, &mut SaddlePointState), With<FeatureSimEntity>>,
+    mut bosses: Query<(Entity, BossClusterRef, &ambition_gameplay_core::actor::BodyHealth, &mut SaddlePointState), With<FeatureSimEntity>>,
 ) {
     let dt = world_time.sim_dt();
 
@@ -630,7 +640,7 @@ pub fn spawn_saddle_point_from_special_messages(
         }
     }
 
-    for (entity, boss_feature, mut state) in &mut bosses {
+    for (entity, boss_feature, health, mut state) in &mut bosses {
         let boss = boss_feature.as_boss_ref();
         if !firing.contains(&entity) {
             // Strike closed — despawn any lingering hitboxes and
@@ -645,7 +655,7 @@ pub fn spawn_saddle_point_from_special_messages(
             state.axis_remaining_s = 0.0;
             continue;
         };
-        if !boss.status.alive {
+        if !health.alive() {
             if let Some(h) = state.horizontal_hitbox.take() {
                 commands.entity(h).despawn();
             }
@@ -771,7 +781,7 @@ fn gradient_cascade_minion_x_offset(i: i32, count: i32) -> f32 {
 pub fn spawn_gradient_cascade_minions_from_special_messages(
     mut effects: MessageWriter<ambition_gameplay_core::effects::EffectRequest>,
     mut messages: MessageReader<ActorActionMessage>,
-    mut bosses: Query<(Entity, BossClusterRef, &mut GradientCascadeState), With<FeatureSimEntity>>,
+    mut bosses: Query<(Entity, BossClusterRef, &ambition_gameplay_core::actor::BodyHealth, &mut GradientCascadeState), With<FeatureSimEntity>>,
 ) {
     let minion_count = GRADIENT_CASCADE_MINION_COUNT;
     let mut firing: std::collections::HashSet<Entity> = std::collections::HashSet::new();
@@ -786,14 +796,14 @@ pub fn spawn_gradient_cascade_minions_from_special_messages(
         }
     }
 
-    for (entity, boss_feature, mut state) in &mut bosses {
+    for (entity, boss_feature, health, mut state) in &mut bosses {
         let boss = boss_feature.as_boss_ref();
         if !firing.contains(&entity) {
             // Strike closed — reset gate.
             state.fired_this_strike = false;
             continue;
         };
-        if !boss.status.alive {
+        if !health.alive() {
             continue;
         }
         if state.fired_this_strike {

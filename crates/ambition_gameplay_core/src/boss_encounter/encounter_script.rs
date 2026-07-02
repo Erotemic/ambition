@@ -143,7 +143,7 @@ pub fn tick_encounter_scripts(
     world_time: Res<crate::WorldTime>,
     mut gates: MessageReader<EncounterGate>,
     mut scripts: Query<(&EncounterDef, &mut EncounterScript)>,
-    mut members: Query<&mut BossStatus>,
+    mut members: Query<(&mut BossStatus, &mut crate::actor::BodyHealth)>,
     mut banner: ResMut<crate::features::GameplayBanner>,
     mut music: ResMut<crate::encounter::BossEncounterMusicRequest>,
 ) {
@@ -162,13 +162,13 @@ pub fn tick_encounter_scripts(
             EncounterTrigger::MemberDied(i) => def
                 .members
                 .get(*i)
-                .map_or(true, |&m| members.get(m).map_or(true, |s| !s.alive)),
+                .map_or(true, |&m| members.get(m).map_or(true, |(_, h)| !h.alive())),
             EncounterTrigger::AllMembersDead => {
                 !def.members.is_empty()
                     && def
                         .members
                         .iter()
-                        .all(|&m| members.get(m).map_or(true, |s| !s.alive))
+                        .all(|&m| members.get(m).map_or(true, |(_, h)| !h.alive()))
             }
             EncounterTrigger::Timer(secs) => script.elapsed >= *secs,
         };
@@ -180,9 +180,8 @@ pub fn tick_encounter_scripts(
             match effect {
                 EncounterEffect::ForceKill(i) => {
                     if let Some(&m) = def.members.get(*i) {
-                        if let Ok(mut status) = members.get_mut(m) {
-                            status.health.current = 0;
-                            status.alive = false;
+                        if let Ok((mut status, mut health)) = members.get_mut(m) {
+                            health.health.current = 0;
                             if let Some(phase) = status.encounter.as_mut() {
                                 let _ = phase.kill();
                             }
@@ -255,14 +254,15 @@ pub struct CommandedMove {
 pub fn tick_commanded_moves(
     mut bosses: Query<(
         BossClusterRef,
+        &crate::actor::BodyHealth,
         &mut ambition_characters::brain::ActorControl,
         &mut ambition_characters::brain::BossAttackState,
         &CommandedMove,
     )>,
 ) {
-    for (feature, mut control, mut attack_state, cmd) in &mut bosses {
+    for (feature, health, mut control, mut attack_state, cmd) in &mut bosses {
         let boss = feature.as_boss_ref();
-        if !boss.status.alive {
+        if !health.alive() {
             continue;
         }
         let dx = cmd.target.x - boss.kin.pos.x;
@@ -347,8 +347,12 @@ mod tests {
     use crate::features::GameplayBanner;
     use crate::WorldTime;
 
-    fn member(hp: i32) -> BossStatus {
+    fn member(hp: i32) -> (BossStatus, crate::actor::BodyHealth) {
         test_boss_status(hp, BossEncounterPhase::Phase1)
+    }
+
+    fn member_health(app: &App, boss: bevy::prelude::Entity) -> &crate::actor::BodyHealth {
+        app.world().entity(boss).get().unwrap()
     }
 
     fn test_app() -> App {
@@ -384,14 +388,14 @@ mod tests {
 
         // No gate yet → the boss lives.
         app.update();
-        assert!(app.world().entity(boss).get::<BossStatus>().unwrap().alive);
+        assert!(member_health(&app, boss).alive());
 
         // Fire the gate → the script force-kills the member.
         app.world_mut().write_message(EncounterGate::new("impact"));
         app.update();
         let status = app.world().entity(boss).get::<BossStatus>().unwrap();
-        assert!(!status.alive);
-        assert_eq!(status.health.current, 0);
+        assert!(!member_health(&app, boss).alive());
+        assert_eq!(member_health(&app, boss).current(), 0);
         assert_eq!(
             status.encounter.as_ref().unwrap().phase,
             BossEncounterPhase::Death
@@ -433,13 +437,13 @@ mod tests {
             let mut q = app.world_mut().query::<&EncounterScript>();
             assert_eq!(q.single(app.world()).unwrap().cursor(), 1);
         }
-        assert!(app.world().entity(boss).get::<BossStatus>().unwrap().alive);
+        assert!(member_health(&app, boss).alive());
 
         // Tick past the 0.1s timer (1/60 per frame) → beat 1 fires the kill.
         for _ in 0..10 {
             app.update();
         }
-        assert!(!app.world().entity(boss).get::<BossStatus>().unwrap().alive);
+        assert!(!member_health(&app, boss).alive());
         let mut q = app.world_mut().query::<&EncounterScript>();
         assert!(q.single(app.world()).unwrap().done());
     }

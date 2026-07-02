@@ -58,7 +58,7 @@ fn seismic_world_floor_centers(
 pub fn spawn_seismic_stomp_from_special_messages(
     mut effects: MessageWriter<EffectRequest>,
     mut messages: MessageReader<ActorActionMessage>,
-    mut bosses: Query<(Entity, BossClusterRef, &mut SeismicStompState), With<FeatureSimEntity>>,
+    mut bosses: Query<(Entity, BossClusterRef, &ambition_gameplay_core::actor::BodyHealth, &mut SeismicStompState), With<FeatureSimEntity>>,
 ) {
     let mut firing: std::collections::HashSet<Entity> = std::collections::HashSet::new();
     for msg in messages.read() {
@@ -71,13 +71,13 @@ pub fn spawn_seismic_stomp_from_special_messages(
             }
         }
     }
-    for (entity, boss_feature, mut state) in &mut bosses {
+    for (entity, boss_feature, health, mut state) in &mut bosses {
         let boss = boss_feature.as_boss_ref();
         if !firing.contains(&entity) {
             state.fired_this_strike = false;
             continue;
         }
-        if !boss.status.alive || state.fired_this_strike {
+        if !health.alive() || state.fired_this_strike {
             continue;
         }
         for center in seismic_world_floor_centers(

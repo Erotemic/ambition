@@ -140,19 +140,19 @@ pub fn sync_boss_encounter_entities(
 }
 
 /// Recompute each encounter's progress from its members' entity-local state
-/// (HP from `BossStatus.health`, phase from the entity-local `BossPhaseState`
+/// (HP from the body's `BodyHealth` (§A1), phase from the entity-local `BossPhaseState`
 /// copy). Despawns an encounter whose members have all left the world (room
 /// change), so stale encounters don't linger on the HUD. Runs after
 /// `sync_boss_encounter_entities` in the Progression set.
 pub fn update_encounter_progress(
     mut commands: Commands,
     mut encounters: Query<(Entity, &EncounterDef, &mut EncounterProgress)>,
-    bosses: Query<(&BossConfig, &BossStatus)>,
+    bosses: Query<(&BossConfig, &BossStatus, &crate::actor::BodyHealth)>,
 ) {
     for (entity, def, mut progress) in &mut encounters {
         progress.members.clear();
         for &member in &def.members {
-            let Ok((config, status)) = bosses.get(member) else {
+            let Ok((config, status, health)) = bosses.get(member) else {
                 continue;
             };
             // Phase comes from the entity-local copy; fall back to the synced
@@ -165,8 +165,8 @@ pub fn update_encounter_progress(
             progress.members.push(MemberProgress {
                 name: config.name.clone(),
                 phase,
-                hp: status.health.current,
-                max_hp: status.health.max,
+                hp: health.current(),
+                max_hp: health.max(),
             });
         }
         // Every member gone (boss despawned on a room change) ⇒ the encounter
@@ -200,10 +200,13 @@ pub struct PayloadReleased {
 pub fn release_payloads_on_death(
     mut commands: Commands,
     mut released: bevy::prelude::MessageWriter<PayloadReleased>,
-    hosts: Query<(Entity, &BossStatus, &crate::features::BodyKinematics), With<ReleaseOnDeath>>,
+    hosts: Query<
+        (Entity, &crate::actor::BodyHealth, &crate::features::BodyKinematics),
+        With<ReleaseOnDeath>,
+    >,
 ) {
-    for (entity, status, kin) in &hosts {
-        if !status.alive {
+    for (entity, health, kin) in &hosts {
+        if !health.alive() {
             released.write(PayloadReleased {
                 host: entity,
                 pos: kin.pos,
@@ -220,12 +223,20 @@ mod tests {
     use crate::combat::boss_clusters::test_support::{test_boss_config, test_boss_status_with};
     use crate::combat::boss_clusters::{BossConfig, BossStatus};
 
-    fn awake_boss(name: &str, hp: i32) -> (BossConfig, BossStatus, FeatureSimEntity) {
+    fn awake_boss(
+        name: &str,
+        hp: i32,
+    ) -> (
+        BossConfig,
+        BossStatus,
+        crate::actor::BodyHealth,
+        FeatureSimEntity,
+    ) {
         // Placement id is the `<name>_runtime` LDtk-style key the tests assert on.
         let config = test_boss_config(format!("{name}_runtime"), name, name);
         // Awake in Phase1 with an hp<0.5 Phase1→Phase2 trigger — the half-health
         // phase-up the progress/encounter tests observe.
-        let status = test_boss_status_with(
+        let (status, health) = test_boss_status_with(
             hp,
             BossEncounterPhase::Phase1,
             vec![PhaseTrigger::hp_below(
@@ -235,7 +246,7 @@ mod tests {
                 0.0,
             )],
         );
-        (config, status, FeatureSimEntity)
+        (config, status, health, FeatureSimEntity)
     }
 
     #[test]
@@ -317,13 +328,14 @@ mod tests {
         app.add_message::<PayloadReleased>();
         app.add_systems(Update, release_payloads_on_death);
 
-        let (config, mut status, sim) = awake_boss("behemoth", 9999);
-        status.alive = false; // dead host
+        let (config, status, mut health, sim) = awake_boss("behemoth", 9999);
+        health.health.current = 0; // dead host
         let host = app
             .world_mut()
             .spawn((
                 config,
                 status,
+                health,
                 sim,
                 BodyKinematics {
                     pos: ambition_engine_core::Vec2::new(120.0, 80.0),

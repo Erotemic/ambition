@@ -87,6 +87,7 @@ pub fn manage_gradient_lane_visual(
     bosses: Query<(
         Entity,
         BossClusterRef,
+        &ambition_gameplay_core::actor::BodyHealth,
         &ambition_characters::brain::BossAttackState,
     )>,
     mut visuals: Query<(Entity, &GradientLaneVisual, &mut Transform, &mut Sprite)>,
@@ -94,9 +95,9 @@ pub fn manage_gradient_lane_visual(
     use ambition_characters::brain::BossAttackProfile;
     let mut active: std::collections::HashMap<Entity, (bool, ae::Vec2, BVec2)> =
         std::collections::HashMap::new();
-    for (entity, item, attack_state) in &bosses {
+    for (entity, item, health, attack_state) in &bosses {
         let boss = item.as_boss_ref();
-        if !boss.status.alive {
+        if !health.alive() {
             continue;
         }
         let in_telegraph = matches!(

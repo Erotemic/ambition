@@ -63,7 +63,7 @@ pub fn mark_recall_system(
         &HeldItem,
         Option<&mut PlayerMark>,
     )>,
-    mut sfx: MessageWriter<crate::audio::SfxMessage>,
+    mut sfx: MessageWriter<ambition_sfx::SfxMessage>,
     mut vfx: MessageWriter<ambition_vfx::vfx::VfxMessage>,
     mut hits: MessageWriter<crate::features::HitEvent>,
 ) {
@@ -90,7 +90,7 @@ pub fn mark_recall_system(
                     .insert(PlayerMark { pos: Some(pos) });
             }
         }
-        sfx.write(crate::audio::SfxMessage::Play {
+        sfx.write(ambition_sfx::SfxMessage::Play {
             id: ambition_sfx::ids::PLAYER_DASH,
             pos,
         });
@@ -118,7 +118,7 @@ pub fn mark_recall_system(
                 knockback: None,
                 ignored_targets: Vec::new(),
             });
-            sfx.write(crate::audio::SfxMessage::Play {
+            sfx.write(ambition_sfx::SfxMessage::Play {
                 id: ambition_sfx::ids::PLAYER_BLINK,
                 pos: target,
             });
@@ -137,7 +137,7 @@ mod tests {
 
     fn test_app() -> App {
         let mut app = App::new();
-        app.add_message::<crate::audio::SfxMessage>();
+        app.add_message::<ambition_sfx::SfxMessage>();
         app.add_message::<ambition_vfx::vfx::VfxMessage>();
         app.add_message::<crate::features::HitEvent>();
         app.add_systems(Update, mark_recall_system);

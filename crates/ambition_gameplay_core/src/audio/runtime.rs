@@ -6,6 +6,10 @@
 
 #[cfg(feature = "audio")]
 use super::*;
+// `SfxMessage` no longer re-exported by the parent module (§D1) — name its
+// real home directly.
+#[cfg(feature = "audio")]
+use ambition_sfx::SfxMessage;
 
 #[cfg(feature = "audio")]
 #[cfg(feature = "audio")]

@@ -43,11 +43,11 @@ pub fn apply_quest_effects(
 pub fn apply_switch_effects(
     mut effects: MessageReader<SwitchActivated>,
     mut switch_activations: ResMut<crate::encounter::SwitchActivationQueue>,
-    mut sfx: MessageWriter<crate::audio::SfxMessage>,
+    mut sfx: MessageWriter<ambition_sfx::SfxMessage>,
 ) {
     for effect in effects.read() {
         switch_activations.0.push(effect.activation.clone());
-        sfx.write(crate::audio::SfxMessage::Play {
+        sfx.write(ambition_sfx::SfxMessage::Play {
             id: ambition_sfx::ids::WORLD_SWITCH_TOGGLE,
             pos: effect.pos,
         });
@@ -59,10 +59,10 @@ pub fn apply_switch_effects(
 /// bare SFX requests.
 pub fn apply_gameplay_sfx_effects(
     mut effects: MessageReader<GameplaySfxRequested>,
-    mut sfx: MessageWriter<crate::audio::SfxMessage>,
+    mut sfx: MessageWriter<ambition_sfx::SfxMessage>,
 ) {
     for effect in effects.read() {
-        sfx.write(crate::audio::SfxMessage::Play {
+        sfx.write(ambition_sfx::SfxMessage::Play {
             id: effect.id,
             pos: effect.pos,
         });

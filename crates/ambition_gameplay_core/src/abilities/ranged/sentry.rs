@@ -57,7 +57,7 @@ pub struct Sentry {
 pub fn fire_sentry_system(
     mut wielders: Query<(&ActorControl, &BodyKinematics, &HeldItem, &mut BodyMana)>,
     mut commands: Commands,
-    mut sfx: MessageWriter<crate::audio::SfxMessage>,
+    mut sfx: MessageWriter<ambition_sfx::SfxMessage>,
 ) {
     for (control, kin, held, mut mana) in &mut wielders {
         if !control.0.melee_pressed || control.0.shield_held {
@@ -78,7 +78,7 @@ pub fn fire_sentry_system(
             },
             Name::new("Sentry turret"),
         ));
-        sfx.write(crate::audio::SfxMessage::Play {
+        sfx.write(ambition_sfx::SfxMessage::Play {
             id: ambition_sfx::ids::WORLD_ROCK_HIT,
             pos: kin.pos,
         });
@@ -94,7 +94,7 @@ pub fn update_sentries(
     mut sentries: Query<(Entity, &mut Sentry)>,
     enemies: Query<(&CenteredAabb, &ActorFaction), With<FeatureSimEntity>>,
     mut effects: MessageWriter<ambition_vfx::EffectRequest>,
-    mut sfx: MessageWriter<crate::audio::SfxMessage>,
+    mut sfx: MessageWriter<ambition_sfx::SfxMessage>,
 ) {
     let dt = world_time.scaled_dt;
     if dt <= 0.0 {
@@ -149,7 +149,7 @@ pub fn update_sentries(
             },
         });
         sentry.fire_cooldown = SENTRY_FIRE_INTERVAL_S;
-        sfx.write(crate::audio::SfxMessage::Play {
+        sfx.write(ambition_sfx::SfxMessage::Play {
             id: ambition_sfx::ids::WORLD_ROCK_HIT,
             pos: sentry.pos,
         });
@@ -166,7 +166,7 @@ mod tests {
 
     fn test_app() -> App {
         let mut app = App::new();
-        app.add_message::<crate::audio::SfxMessage>();
+        app.add_message::<ambition_sfx::SfxMessage>();
         app.add_message::<ambition_vfx::EffectRequest>();
         app.insert_resource(crate::WorldTime {
             raw_dt: 0.1,

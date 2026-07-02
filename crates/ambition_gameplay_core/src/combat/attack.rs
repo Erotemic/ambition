@@ -21,7 +21,7 @@ use ambition_engine_core::{self as ae, AabbExt};
 use ambition_vfx::vfx::{SlashKind, VfxMessage};
 
 use crate::actor::BodyCombat;
-use crate::audio::SfxMessage;
+use ambition_sfx::SfxMessage;
 use crate::combat::{
     attack_hitbox_from_view, attack_spec_from_view, resolve_attack_intent_from_view, AttackIntent,
     AttackPhase, AttackView,

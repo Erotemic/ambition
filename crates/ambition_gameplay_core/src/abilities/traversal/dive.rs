@@ -96,7 +96,7 @@ pub fn fire_dive_system(
         &HeldItem,
         &mut BodyMana,
     )>,
-    mut sfx: MessageWriter<crate::audio::SfxMessage>,
+    mut sfx: MessageWriter<ambition_sfx::SfxMessage>,
     mut hits: MessageWriter<crate::features::HitEvent>,
 ) {
     let Some(subject) = controlled.0 else {
@@ -174,7 +174,7 @@ pub fn fire_dive_system(
         knockback: None,
         ignored_targets: Vec::new(),
     });
-    sfx.write(crate::audio::SfxMessage::Play {
+    sfx.write(ambition_sfx::SfxMessage::Play {
         id: ambition_sfx::ids::PLAYER_BLINK,
         pos: target,
     });
@@ -187,7 +187,7 @@ mod tests {
 
     fn test_app() -> App {
         let mut app = App::new();
-        app.add_message::<crate::audio::SfxMessage>();
+        app.add_message::<ambition_sfx::SfxMessage>();
         app.add_message::<crate::features::HitEvent>();
         app.add_systems(Update, fire_dive_system);
         app

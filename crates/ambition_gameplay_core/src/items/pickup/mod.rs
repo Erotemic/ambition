@@ -553,7 +553,7 @@ fn emit_fireball_explosion(
     half: f32,
     attacker: Option<Entity>,
     feature_damage: &mut MessageWriter<crate::features::HitEvent>,
-    sfx: &mut MessageWriter<crate::audio::SfxMessage>,
+    sfx: &mut MessageWriter<ambition_sfx::SfxMessage>,
     vfx: &mut MessageWriter<ambition_vfx::vfx::VfxMessage>,
 ) {
     feature_damage.write(crate::features::HitEvent {
@@ -568,7 +568,7 @@ fn emit_fireball_explosion(
         knockback: None,
         ignored_targets: Vec::new(),
     });
-    sfx.write(crate::audio::SfxMessage::Play {
+    sfx.write(ambition_sfx::SfxMessage::Play {
         id: ambition_sfx::ids::WORLD_ROCK_HIT,
         pos,
     });
@@ -680,7 +680,7 @@ pub fn fire_held_ranged_system(
     // its held gun works exactly like the home avatar.
     controlled: Res<crate::abilities::traversal::possession::ControlledSubject>,
     bodies: Query<(&ActorControl, &BodyKinematics, &HeldItem)>,
-    mut sfx: MessageWriter<crate::audio::SfxMessage>,
+    mut sfx: MessageWriter<ambition_sfx::SfxMessage>,
 ) {
     let Some(subject) = controlled.0 else {
         return;
@@ -771,7 +771,7 @@ pub fn fire_held_ranged_system(
     } else {
         ambition_sfx::SfxId::from_static("weapon.lasersword.fire")
     };
-    sfx.write(crate::audio::SfxMessage::Play {
+    sfx.write(ambition_sfx::SfxMessage::Play {
         id: fire_sfx,
         pos: origin,
     });
@@ -825,7 +825,7 @@ pub fn held_projectile_step(
         With<crate::features::FeatureSimEntity>,
     >,
     mut feature_damage: MessageWriter<crate::features::HitEvent>,
-    mut sfx: MessageWriter<crate::audio::SfxMessage>,
+    mut sfx: MessageWriter<ambition_sfx::SfxMessage>,
     mut vfx: MessageWriter<ambition_vfx::vfx::VfxMessage>,
 ) {
     let dt = time.sim_dt();
@@ -876,7 +876,7 @@ pub fn held_projectile_step(
                 );
             } else {
                 feature_damage.write(hit_event);
-                sfx.write(crate::audio::SfxMessage::Hit { pos });
+                sfx.write(ambition_sfx::SfxMessage::Hit { pos });
             }
             commands.entity(entity).despawn();
             continue;

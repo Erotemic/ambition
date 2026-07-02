@@ -445,7 +445,7 @@ fn integrate_actor_body(
     gravity: &crate::physics::GravityCtx,
     dt: f32,
     feel: crate::time::feel::SandboxFeelTuning,
-    sfx: &mut MessageWriter<crate::audio::SfxMessage>,
+    sfx: &mut MessageWriter<ambition_sfx::SfxMessage>,
     vfx: &mut MessageWriter<ambition_vfx::vfx::VfxMessage>,
     hit_events: &mut MessageWriter<HitEvent>,
 ) {
@@ -503,7 +503,7 @@ fn integrate_actor_body(
     // the held-item `ClassicBurst`) — an AI fighter blinks like the player does.
     // Fly-toggle + shield are resolved INSIDE `em.update`'s shared pipeline.
     for blink in &move_events.blinks {
-        sfx.write(crate::audio::SfxMessage::Play {
+        sfx.write(ambition_sfx::SfxMessage::Play {
             id: ambition_sfx::ids::PLAYER_BLINK,
             pos: blink.to,
         });
@@ -569,7 +569,7 @@ pub fn integrate_sim_bodies(
     steering: Res<ActorSteering>,
     editable_tuning: Res<crate::dev::dev_tools::EditableMovementTuning>,
     user_settings: Option<Res<crate::persistence::settings::UserSettings>>,
-    mut sfx: MessageWriter<crate::audio::SfxMessage>,
+    mut sfx: MessageWriter<ambition_sfx::SfxMessage>,
     mut vfx: MessageWriter<ambition_vfx::vfx::VfxMessage>,
     mut hit_events: MessageWriter<HitEvent>,
     mut actors: Query<
@@ -720,7 +720,7 @@ pub fn sync_actor_read_model(
 /// strike + boss damage use).
 #[allow(clippy::too_many_arguments)]
 pub fn apply_actor_contact_damage(
-    mut sfx: MessageWriter<crate::audio::SfxMessage>,
+    mut sfx: MessageWriter<ambition_sfx::SfxMessage>,
     mut vfx: MessageWriter<ambition_vfx::vfx::VfxMessage>,
     mut debris: MessageWriter<DebrisBurstMessage>,
     mut hit_events: MessageWriter<HitEvent>,
@@ -797,7 +797,7 @@ pub fn apply_actor_contact_damage(
                 .as_ref()
                 .map(|k| k.impact_pos)
                 .unwrap_or_else(|| damage.volume.center());
-            sfx.write(crate::audio::SfxMessage::Play {
+            sfx.write(ambition_sfx::SfxMessage::Play {
                 id: ambition_sfx::ids::PLAYER_DAMAGE,
                 pos,
             });

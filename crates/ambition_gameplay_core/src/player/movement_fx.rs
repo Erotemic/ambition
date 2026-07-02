@@ -18,7 +18,7 @@ use ambition_engine_core as ae;
 use ambition_vfx::vfx::{ParticleKind, VfxMessage};
 
 use crate::actor::BodyCombat;
-use crate::audio::SfxMessage;
+use ambition_sfx::SfxMessage;
 use crate::player::{PlayerAnimState, PlayerBlinkCameraState};
 
 #[allow(clippy::too_many_arguments)]

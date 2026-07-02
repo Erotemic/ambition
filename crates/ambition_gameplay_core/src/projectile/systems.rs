@@ -14,7 +14,7 @@ use super::spawn_message::{ProjectilePool, SpawnProjectile};
 use super::state::{PlayerProjectileState, ProjectileTraceEvent};
 use super::{resolve_world_collision, WorldHitOutcome};
 use crate::actor::BodyKinematics;
-use crate::audio::SfxMessage;
+use ambition_sfx::SfxMessage;
 use crate::features::{
     can_damage, damage_lands, ActorAggression, ActorDisposition, ActorFaction, BodyCombat,
     BossClusterRef, BossConfig, BreakableFeature, CenteredAabb, FeatureId, FeatureSimEntity,

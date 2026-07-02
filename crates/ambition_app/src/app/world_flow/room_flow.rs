@@ -8,7 +8,7 @@ use bevy::prelude::{
 };
 
 use ambition_engine_core::{self as ae, AabbExt};
-use ambition_gameplay_core::audio::SfxMessage;
+use ambition_sfx::SfxMessage;
 use ambition_gameplay_core::dev::dev_tools::EditableMovementTuning;
 use ambition_gameplay_core::platformer_runtime::lifecycle::RoomScopedEntity;
 use ambition_gameplay_core::time::feel::SandboxFeelTuning;

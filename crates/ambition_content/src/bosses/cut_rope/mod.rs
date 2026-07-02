@@ -15,7 +15,7 @@ use ambition_characters::brain::ActorControl;
 use ambition_characters::brain::BossAttackState;
 use ambition_engine_core::{self as ae, AabbExt};
 use ambition_gameplay_core::assets::game_assets::GameAssets;
-use ambition_gameplay_core::audio::SfxMessage;
+use ambition_sfx::SfxMessage;
 use ambition_gameplay_core::boss_encounter::{
     BossEncounterRegistry, EncounterBeat, EncounterDef, EncounterEffect, EncounterScript,
     EncounterTrigger, ReleaseOnDeath,

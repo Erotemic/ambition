@@ -23,7 +23,7 @@ use crate::actor::BodyCombat;
 use crate::actor::BodyHealth;
 use crate::actor::{BodyDodgeState, BodyOffense, BodyShieldState};
 use crate::actor::{PlayerEntity, PrimaryPlayer, PrimaryPlayerOnly};
-use crate::audio::SfxMessage;
+use ambition_sfx::SfxMessage;
 use crate::dev::dev_tools::EditableMovementTuning;
 use crate::features::{self, GameplayBanner, HitEvent as FeatureHitEvent};
 use crate::player::{PlayerAnimState, PlayerSafetyState};

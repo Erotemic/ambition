@@ -63,7 +63,7 @@ pub fn apply_projectile_effects(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::audio::SfxMessage;
+    use ambition_sfx::SfxMessage;
     use crate::features::{HitEvent, HitSource};
     use ambition_engine_core as ae;
     use ambition_vfx::vfx::VfxMessage;

@@ -15,7 +15,7 @@ use bevy::prelude::*;
 
 use super::state::PlayerProjectileState;
 use super::systems::{charge_projectile_input, step_projectiles};
-use crate::audio::SfxMessage;
+use ambition_sfx::SfxMessage;
 use crate::features::{ActorIdentity, BodyHealth, GameplayBanner, HitEvent, SetFlagRequested};
 use crate::trace::GameplayTraceBuffer;
 use crate::world::physics::DebrisBurstMessage;

@@ -1,7 +1,7 @@
 //! Dialogue typewriter SFX selection and throttling.
 //!
 //! Dialogue SFX are deliberately data-id driven: gameplay emits an open-ended
-//! [`SfxMessage::Play`](crate::audio::SfxMessage::Play) with an authored cue id,
+//! [`SfxMessage::Play`](ambition_sfx::SfxMessage::Play) with an authored cue id,
 //! and the bank decides whether that id exists. This module keeps the selection
 //! rules pure so the reveal system stays small and tests do not need Bevy audio.
 

@@ -1,7 +1,7 @@
 use bevy::ecs::system::SystemParam;
 use bevy::prelude::*;
 
-use ambition_gameplay_core::audio::SfxMessage;
+use ambition_sfx::SfxMessage;
 use ambition_render::fx::VfxMessage;
 
 /// Bundled `MessageWriter`s for the sim → presentation event channels

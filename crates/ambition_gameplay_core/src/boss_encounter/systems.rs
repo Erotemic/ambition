@@ -318,7 +318,7 @@ pub fn boss_phase_transition_feedback(
     mut last_phase: Local<
         std::collections::HashMap<String, crate::boss_encounter::BossEncounterPhase>,
     >,
-    mut sfx: MessageWriter<crate::audio::SfxMessage>,
+    mut sfx: MessageWriter<ambition_sfx::SfxMessage>,
     // Optional: a headless / camera-less build may not insert the shake resource.
     mut shake: Option<ResMut<crate::time::camera_ease::CameraShakeState>>,
     // Boss entities — phase read from the entity-local state + the actor that
@@ -352,7 +352,7 @@ pub fn boss_phase_transition_feedback(
             if let Some(shake) = shake.as_deref_mut() {
                 shake.kick(BOSS_PHASE_SHAKE_PX);
             }
-            sfx.write(crate::audio::SfxMessage::Play {
+            sfx.write(ambition_sfx::SfxMessage::Play {
                 id: ambition_sfx::ids::WORLD_ROCK_HIT,
                 pos: ae::Vec2::ZERO,
             });
@@ -426,7 +426,7 @@ mod phase_feedback_tests {
 
     fn test_app() -> App {
         let mut app = App::new();
-        app.add_message::<crate::audio::SfxMessage>();
+        app.add_message::<ambition_sfx::SfxMessage>();
         app.add_message::<ambition_vfx::EffectRequest>();
         app.add_message::<ambition_vfx::vfx::VfxMessage>();
         app.init_resource::<CameraShakeState>();

@@ -102,7 +102,7 @@ pub fn blink_system(
         &ActorControl,
         Option<&mut crate::ability_cooldown::AbilityCooldown>,
     )>,
-    mut sfx: MessageWriter<crate::audio::SfxMessage>,
+    mut sfx: MessageWriter<ambition_sfx::SfxMessage>,
     mut vfx: MessageWriter<ambition_vfx::vfx::VfxMessage>,
     mut hits: MessageWriter<crate::features::HitEvent>,
 ) {
@@ -163,7 +163,7 @@ pub fn blink_system(
         knockback: None,
         ignored_targets: Vec::new(),
     });
-    sfx.write(crate::audio::SfxMessage::Play {
+    sfx.write(ambition_sfx::SfxMessage::Play {
         id: ambition_sfx::ids::PLAYER_BLINK,
         pos: target,
     });
@@ -225,7 +225,7 @@ mod tests {
 
     fn test_app() -> App {
         let mut app = App::new();
-        app.add_message::<crate::audio::SfxMessage>();
+        app.add_message::<ambition_sfx::SfxMessage>();
         app.add_message::<ambition_vfx::vfx::VfxMessage>();
         app.add_message::<crate::features::HitEvent>();
         app.add_systems(Update, blink_system);

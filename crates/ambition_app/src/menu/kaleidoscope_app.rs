@@ -30,7 +30,7 @@ use crate::menu::model::{
 };
 use crate::menu::quality_confirm::VisualQualityConfirmState;
 use ambition_engine_core::Vec2;
-use ambition_gameplay_core::audio::SfxMessage;
+use ambition_sfx::SfxMessage;
 use ambition_gameplay_core::items::{Item, OwnedItems, ITEM_GRID_COLS, ITEM_GRID_ROWS};
 use ambition_gameplay_core::persistence::settings::{
     apply_settings_option, settings_menu_model, DevSnapshot, DevToggleId, RadioSnapshot,

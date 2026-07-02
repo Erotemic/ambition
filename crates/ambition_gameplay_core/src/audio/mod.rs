@@ -17,14 +17,12 @@
 
 #[cfg(all(test, feature = "audio"))]
 use ambition_engine_core as ae;
-// `SfxMessage` now lives in the `ambition_sfx` crate (moved down so
-// reusable mechanics request sound without naming a sandbox module).
-// Re-export it here so the historical `crate::audio::SfxMessage` path
-// — used across the sandbox and by the audio runtime consumer below —
-// keeps resolving unchanged.
+// `SfxMessage` lives in the reusable `ambition_sfx` crate (moved down so
+// mechanics request sound without naming a sandbox module). Fable review §D1:
+// this module no longer re-exports it — every caller names `ambition_sfx::
+// SfxMessage` at its true home. The audio runtime submodules import it directly.
 #[cfg(all(test, feature = "audio"))]
 use ambition_sfx as sfx;
-pub use ambition_sfx::SfxMessage;
 use bevy::prelude::*;
 #[cfg(feature = "audio")]
 use bevy_kira_audio::prelude::{AudioChannel, AudioControl, AudioSource as KiraAudioSource};

@@ -45,7 +45,7 @@ pub fn fire_puppy_slug_gun_system(
     controlled: Res<ControlledSubject>,
     players: Query<(&ActorControl, &BodyKinematics, &HeldItem)>,
     allies: Query<(), With<PuppySlugAlly>>,
-    mut sfx: MessageWriter<crate::audio::SfxMessage>,
+    mut sfx: MessageWriter<ambition_sfx::SfxMessage>,
 ) {
     let Some(subject) = controlled.0 else {
         return;
@@ -90,7 +90,7 @@ pub fn fire_puppy_slug_gun_system(
         ActorAggression::passive(),
     );
     commands.entity(entity).insert(PuppySlugAlly);
-    sfx.write(crate::audio::SfxMessage::Play {
+    sfx.write(ambition_sfx::SfxMessage::Play {
         id: ambition_sfx::ids::WORLD_HEALTH_COLLECT,
         pos: kin.pos,
     });
@@ -104,7 +104,7 @@ mod tests {
 
     fn test_app() -> App {
         let mut app = App::new();
-        app.add_message::<crate::audio::SfxMessage>();
+        app.add_message::<ambition_sfx::SfxMessage>();
         app.add_systems(Update, fire_puppy_slug_gun_system);
         app
     }

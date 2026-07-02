@@ -24,7 +24,7 @@ use bevy::prelude::*;
 use bevy_common_assets::ron::RonAssetPlugin;
 
 use super::setup_systems::setup_simulation_system;
-use ambition_gameplay_core::audio::SfxMessage;
+use ambition_sfx::SfxMessage;
 use ambition_gameplay_core::game_mode::GameMode;
 use ambition_gameplay_core::session::data;
 use ambition_gameplay_core::world::physics::DebrisBurstMessage;

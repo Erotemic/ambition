@@ -54,7 +54,7 @@ pub fn heal_save_shrine_system(
     shrines: Query<&HealShrine>,
     mut save: ResMut<crate::persistence::save::SandboxSave>,
     mut activation: ResMut<ShrineActivationPulse>,
-    mut sfx: MessageWriter<crate::audio::SfxMessage>,
+    mut sfx: MessageWriter<ambition_sfx::SfxMessage>,
 ) {
     let Some(subject) = controlled
         .and_then(|subject| subject.0)
@@ -81,7 +81,7 @@ pub fn heal_save_shrine_system(
                               // persists the current state to disk.
     save.set_changed();
     activation.remaining = 0.78;
-    sfx.write(crate::audio::SfxMessage::Play {
+    sfx.write(ambition_sfx::SfxMessage::Play {
         id: ambition_sfx::ids::WORLD_HEALTH_COLLECT,
         pos: kin.pos,
     });
@@ -104,7 +104,7 @@ mod tests {
     #[test]
     fn interacting_at_the_shrine_heals_to_full() {
         let mut app = App::new();
-        app.add_message::<crate::audio::SfxMessage>();
+        app.add_message::<ambition_sfx::SfxMessage>();
         app.init_resource::<crate::persistence::save::SandboxSave>();
         app.init_resource::<ShrineActivationPulse>();
         app.add_systems(Update, heal_save_shrine_system);
@@ -164,7 +164,7 @@ mod tests {
     #[test]
     fn no_heal_without_interact_or_when_not_touching() {
         let mut app = App::new();
-        app.add_message::<crate::audio::SfxMessage>();
+        app.add_message::<ambition_sfx::SfxMessage>();
         app.init_resource::<crate::persistence::save::SandboxSave>();
         app.init_resource::<ShrineActivationPulse>();
         app.add_systems(Update, heal_save_shrine_system);

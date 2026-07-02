@@ -350,7 +350,7 @@ pub fn update_ecs_bosses(
     world: Res<crate::RoomGeometry>,
     platform_set: Res<crate::MovingPlatformSet>,
     overlay: Res<FeatureEcsWorldOverlay>,
-    mut sfx: MessageWriter<crate::audio::SfxMessage>,
+    mut sfx: MessageWriter<ambition_sfx::SfxMessage>,
     mut vfx: MessageWriter<ambition_vfx::vfx::VfxMessage>,
     mut debris: MessageWriter<DebrisBurstMessage>,
     mut hit_events: MessageWriter<HitEvent>,
@@ -504,7 +504,7 @@ pub fn update_ecs_bosses(
                     .as_ref()
                     .map(|k| k.impact_pos)
                     .unwrap_or_else(|| damage.volume.center());
-                sfx.write(crate::audio::SfxMessage::Play {
+                sfx.write(ambition_sfx::SfxMessage::Play {
                     id: ambition_sfx::ids::PLAYER_DAMAGE,
                     pos,
                 });

@@ -36,7 +36,7 @@ use super::components::ActorFaction;
 use super::events::{HitEvent, HitKnockback, HitMode, HitSource, HitTarget};
 use super::targeting::{damage_lands, effective_faction};
 use super::util::midpoint;
-use crate::audio::SfxMessage;
+use ambition_sfx::SfxMessage;
 use crate::world::physics::{DebrisBurstMessage, PhysicsDebrisCue};
 use crate::WorldTime;
 use ambition_vfx::vfx::{ParticleKind, VfxMessage};

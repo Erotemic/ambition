@@ -53,7 +53,7 @@ pub fn fire_vortex_system(
     controlled: Res<ControlledSubject>,
     mut bodies: Query<(&ActorControl, &BodyKinematics, &HeldItem, &mut BodyMana)>,
     mut commands: Commands,
-    mut sfx: MessageWriter<crate::audio::SfxMessage>,
+    mut sfx: MessageWriter<ambition_sfx::SfxMessage>,
 ) {
     let Some(subject) = controlled.0 else {
         return;
@@ -85,7 +85,7 @@ pub fn fire_vortex_system(
         },
         Name::new("Vortex singularity"),
     ));
-    sfx.write(crate::audio::SfxMessage::Play {
+    sfx.write(ambition_sfx::SfxMessage::Play {
         id: ambition_sfx::ids::PLAYER_BLINK,
         pos: center,
     });
@@ -131,7 +131,7 @@ mod tests {
 
     fn test_app() -> App {
         let mut app = App::new();
-        app.add_message::<crate::audio::SfxMessage>();
+        app.add_message::<ambition_sfx::SfxMessage>();
         app.insert_resource(crate::WorldTime {
             raw_dt: 0.016,
             scaled_dt: 0.016,

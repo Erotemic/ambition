@@ -376,8 +376,8 @@ pub fn cmd_spawn_chest(In(id): In<String>) {
 /// `<<play_sfx "id">>` — emit an `SfxMessage::Play`. The id is a
 /// string that `SfxId::new` hashes at the call site (matches every
 /// other dynamic-id audio path in the codebase).
-pub fn cmd_play_sfx(In(id_str): In<String>, mut sfx: MessageWriter<crate::audio::SfxMessage>) {
-    sfx.write(crate::audio::SfxMessage::Play {
+pub fn cmd_play_sfx(In(id_str): In<String>, mut sfx: MessageWriter<ambition_sfx::SfxMessage>) {
+    sfx.write(ambition_sfx::SfxMessage::Play {
         id: ambition_sfx::SfxId::new(&id_str),
         pos: ae::Vec2::ZERO,
     });

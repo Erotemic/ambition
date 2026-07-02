@@ -7,7 +7,7 @@ use super::*;
 /// Tick ECS-authored hazards and publish player damage through Bevy messages.
 pub fn update_ecs_hazards(
     world_time: Res<WorldTime>,
-    mut sfx: MessageWriter<crate::audio::SfxMessage>,
+    mut sfx: MessageWriter<ambition_sfx::SfxMessage>,
     mut vfx: MessageWriter<ambition_vfx::vfx::VfxMessage>,
     mut debris: MessageWriter<DebrisBurstMessage>,
     mut hit_events: MessageWriter<HitEvent>,
@@ -102,7 +102,7 @@ pub fn update_ecs_hazards(
                 pos,
                 cue: PhysicsDebrisCue::Impact,
             });
-            sfx.write(crate::audio::SfxMessage::Play {
+            sfx.write(ambition_sfx::SfxMessage::Play {
                 id: hazard_sfx_id(&hazard.name),
                 pos,
             });
@@ -137,7 +137,7 @@ pub fn update_ecs_hazards(
             }
             let pos = hurtbox.center;
             vfx.write(VfxMessage::Impact { pos });
-            sfx.write(crate::audio::SfxMessage::Play {
+            sfx.write(ambition_sfx::SfxMessage::Play {
                 id: hazard_sfx_id(&hazard.name),
                 pos,
             });

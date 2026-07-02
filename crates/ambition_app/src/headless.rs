@@ -172,7 +172,7 @@ pub fn run_headless(max_ticks: u32) -> Result<HeadlessReport, String> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use ambition_gameplay_core::audio::SfxMessage;
+    use ambition_sfx::SfxMessage;
     use ambition_input::ControlFrame;
     use bevy::ecs::message::Messages;
 

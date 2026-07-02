@@ -13,7 +13,7 @@ use bevy::prelude::*;
 use super::runtime::DialogChoiceSlot;
 use super::runtime::DialogState;
 use super::speech_sfx::{should_play_talk_blip, talk_blip_id_for_speaker};
-use crate::audio::SfxMessage;
+use ambition_sfx::SfxMessage;
 use crate::game_mode::GameMode;
 #[cfg(feature = "input")]
 use ambition_input::MenuControlFrame;

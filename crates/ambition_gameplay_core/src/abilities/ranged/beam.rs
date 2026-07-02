@@ -91,7 +91,7 @@ pub fn fire_beam_system(
         &mut BodyMana,
     )>,
     mut effects: MessageWriter<ambition_vfx::EffectRequest>,
-    mut sfx: MessageWriter<crate::audio::SfxMessage>,
+    mut sfx: MessageWriter<ambition_sfx::SfxMessage>,
 ) {
     let Some(subject) = controlled.0 else {
         return;
@@ -128,7 +128,7 @@ pub fn fire_beam_system(
             name: Some("Focus Beam"),
         }),
     });
-    sfx.write(crate::audio::SfxMessage::Play {
+    sfx.write(ambition_sfx::SfxMessage::Play {
         id: ambition_sfx::ids::WORLD_ROCK_HIT,
         pos: kin.pos,
     });
@@ -142,7 +142,7 @@ mod tests {
 
     fn test_app() -> App {
         let mut app = App::new();
-        app.add_message::<crate::audio::SfxMessage>();
+        app.add_message::<ambition_sfx::SfxMessage>();
         app.add_message::<ambition_vfx::EffectRequest>();
         // fire_beam emits Effect::DamageBox; apply_effects spawns the hitbox.
         app.add_systems(

@@ -49,7 +49,7 @@ pub fn grapple_system(
         &HeldItem,
         Option<&mut crate::ability_cooldown::AbilityCooldown>,
     )>,
-    mut sfx: MessageWriter<crate::audio::SfxMessage>,
+    mut sfx: MessageWriter<ambition_sfx::SfxMessage>,
     mut vfx: MessageWriter<ambition_vfx::vfx::VfxMessage>,
 ) {
     let Some(subject) = controlled.0 else {
@@ -78,7 +78,7 @@ pub fn grapple_system(
         crate::platformer_runtime::collision::raycast_solids(&*w, from, dir, GRAPPLE_RANGE, false)
     }) else {
         // Grapple into empty space: a dry fizzle, no pull (and no cooldown burned).
-        sfx.write(crate::audio::SfxMessage::Play {
+        sfx.write(ambition_sfx::SfxMessage::Play {
             id: ambition_sfx::ids::PLAYER_DASH,
             pos: from,
         });
@@ -97,7 +97,7 @@ pub fn grapple_system(
     // it). A burst velocity, not a teleport, so the movement reads as a pull.
     let pull = (hit - from).normalize_or_zero();
     kin.vel = pull * GRAPPLE_PULL_SPEED;
-    sfx.write(crate::audio::SfxMessage::Play {
+    sfx.write(ambition_sfx::SfxMessage::Play {
         id: ambition_sfx::ids::PLAYER_DASH,
         pos: from,
     });
@@ -139,7 +139,7 @@ mod tests {
 
     fn test_app(world: Option<crate::RoomGeometry>) -> App {
         let mut app = App::new();
-        app.add_message::<crate::audio::SfxMessage>();
+        app.add_message::<ambition_sfx::SfxMessage>();
         app.add_message::<ambition_vfx::vfx::VfxMessage>();
         if let Some(w) = world {
             app.insert_resource(w);

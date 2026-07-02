@@ -209,7 +209,7 @@ pub fn advance_move_playback(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::audio::SfxMessage;
+    use ambition_sfx::SfxMessage;
     use crate::combat::events::HitEvent;
     use crate::combat::hitbox::apply_hitbox_damage;
     use crate::world::physics::DebrisBurstMessage;

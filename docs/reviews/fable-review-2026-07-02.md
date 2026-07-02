@@ -1088,7 +1088,29 @@ substrate-bound executors (`apply_summon_effects`, `apply_projectile_effects`)
 correctly STAY in the lib — they consume `ambition_vfx::Effect`, they aren't
 facades.
 
-## Next (in order) — A1 slice 3, remaining D1 facades, then C1/C2 + D2/D3
+### E18. D1 — `crate::audio::SfxMessage` facade removed ✅ (third D1 slice, the headline one)
+The `pub use ambition_sfx::SfxMessage` re-export is DELETED from
+`audio/mod.rs`; all 114 refs now name `ambition_sfx::SfxMessage` (95 internal,
+10 app, 7 content, 1 render, 1 app-test). The audio module KEEPS its real
+runtime code (`AudioLibrary`, `MusicChannel`, the Kira plugin, …) — only the
+one re-exported type moved home. Its own audio-feature submodules
+(`runtime.rs`, `tests.rs`) that reached `SfxMessage` via `use super::*` now
+import it explicitly. `ambition_sfx` added as a direct dep of `ambition_render`
+(its single ref in `fx.rs`); app/content already had it. Compiler-verified
+behavior-neutral: gameplay-core 1091 (default + `--features audio`), all four
+crates build, the scripted_gameplay app-test target compiles. This was the
+audit's headline D1 item ("93 of 94 inbound refs are this one symbol").
+
+**D1 remaining** (documented for a dedicated pass): `crate::time::{world_time,
+clock_state}` → `ambition_time` (needs `ambition_time` dep in content+render;
+`WorldTime`/`ClockState` are heavily used), and the big one — the
+`features/mod.rs` re-export hub. NOTE the hub is NOT purely internal as the
+audit implied: external crates use `gameplay_core::features::X` too, so deleting
+its re-exports is a public-surface change touching both the 271 internal refs
+AND every external consumer; it wants its own careful pass (map each symbol to
+its `combat/`/`world/`/… real home first).
+
+## Next (in order) — A1 slice 3, D1 time+features-hub, then C1/C2 + D2/D3
 
 **§A2 is COMPLETE** (E10–E13). The victim-side damage path is ONE resolver +
 ONE reaction for every body; per-body policy is the only fork left.

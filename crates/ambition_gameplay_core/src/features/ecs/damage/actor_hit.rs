@@ -14,7 +14,7 @@ use super::super::{ae, ActorDisposition, GameplayBanner, HitEvent, HitSource, Se
 // Only the exploding-mite blast test pins this drop tuning constant; the drop
 // tests query `PickupFeature` directly. Both are test-only now that the drop
 // spawners live in `damage_drops`.
-use crate::audio::SfxMessage;
+use ambition_sfx::SfxMessage;
 use crate::features::ActorStimulus;
 use crate::world::physics::{DebrisBurstMessage, PhysicsDebrisCue};
 use ambition_vfx::vfx::{ParticleKind, VfxMessage};

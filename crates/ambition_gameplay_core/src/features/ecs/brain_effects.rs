@@ -19,7 +19,7 @@
 use ambition_engine_core as ae;
 use bevy::prelude::*;
 
-use crate::audio::SfxMessage;
+use ambition_sfx::SfxMessage;
 use crate::enemy_projectile::EnemyProjectileSpawn;
 #[cfg(test)]
 use crate::time::feel::SandboxFeelTuning;

@@ -121,7 +121,7 @@ fn attack_picks_up_axe_and_grants_its_swing_then_throw_restores() {
 #[test]
 fn gunsword_pickup_swaps_to_ranged_and_attack_fires_a_bolt() {
     let mut app = App::new();
-    app.add_message::<crate::audio::SfxMessage>();
+    app.add_message::<ambition_sfx::SfxMessage>();
     app.insert_resource(ControlFrame::default());
     app.add_systems(Update, (pickup_held_item_system, fire_held_ranged_system));
     let player = spawn_player(&mut app, Vec2::new(100.0, 100.0));
@@ -254,7 +254,7 @@ fn pickup_targets_the_controlled_subject_not_a_primary_player_marker() {
 #[test]
 fn fireball_shot_is_tagged_to_explode_unlike_a_plain_bolt() {
     let mut app = App::new();
-    app.add_message::<crate::audio::SfxMessage>();
+    app.add_message::<ambition_sfx::SfxMessage>();
     app.insert_resource(ControlFrame::default());
     app.add_systems(Update, fire_held_ranged_system);
     let player = spawn_player(&mut app, Vec2::new(100.0, 100.0));
@@ -310,7 +310,7 @@ fn shot_collision_geometry_is_a_single_source_of_truth() {
 #[test]
 fn a_plain_ranged_bolt_does_not_explode() {
     let mut app = App::new();
-    app.add_message::<crate::audio::SfxMessage>();
+    app.add_message::<ambition_sfx::SfxMessage>();
     app.insert_resource(ControlFrame::default());
     app.add_systems(Update, fire_held_ranged_system);
     let player = spawn_player(&mut app, Vec2::new(100.0, 100.0));

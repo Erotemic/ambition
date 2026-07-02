@@ -5,6 +5,8 @@
 //! `web_audio` implies `audio`.
 
 use super::*;
+// `SfxMessage` no longer re-exported by the parent module (§D1).
+use ambition_sfx::SfxMessage;
 use crate::session::data::{
     load_embedded_music_registry, load_embedded_sfx_registry, MusicRegistry, MusicTrack,
 };

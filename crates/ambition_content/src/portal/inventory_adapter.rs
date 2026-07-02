@@ -54,7 +54,7 @@ pub fn drop_portal_gun_system(
         (With<PortalGun>, Without<HeldItem>),
     >,
     primary_fallback: Query<Entity, (With<PlayerEntity>, With<PrimaryPlayer>)>,
-    mut sfx: MessageWriter<ambition_gameplay_core::audio::SfxMessage>,
+    mut sfx: MessageWriter<ambition_sfx::SfxMessage>,
 ) {
     if drops.read().next().is_none() {
         return;
@@ -86,7 +86,7 @@ pub fn drop_portal_gun_system(
         },
         Name::new("Portal gun pickup"),
     ));
-    sfx.write(ambition_gameplay_core::audio::SfxMessage::Play {
+    sfx.write(ambition_sfx::SfxMessage::Play {
         id: ambition_sfx::ids::PORTAL_FIZZLE,
         pos: kin.pos,
     });
@@ -113,7 +113,7 @@ pub fn pickup_portal_gun_system(
     pickups: Query<(Entity, &PortalGunPickup)>,
     mut owned: Option<ResMut<OwnedItems>>,
     mut equipped: MessageWriter<PortalGunEquipped>,
-    mut sfx: MessageWriter<ambition_gameplay_core::audio::SfxMessage>,
+    mut sfx: MessageWriter<ambition_sfx::SfxMessage>,
 ) {
     if picks.read().next().is_none() {
         return;
@@ -158,7 +158,7 @@ pub fn pickup_portal_gun_system(
             commands.entity(entity).despawn();
             equipped.write(PortalGunEquipped { player });
             // Rising sci-fi charge-up as the device wakes.
-            sfx.write(ambition_gameplay_core::audio::SfxMessage::Play {
+            sfx.write(ambition_sfx::SfxMessage::Play {
                 id: ambition_sfx::ids::PORTAL_POWERUP,
                 pos: kin.pos,
             });
@@ -196,7 +196,7 @@ mod tests {
     #[test]
     fn picking_up_the_portal_gun_activates_it() {
         let mut app = App::new();
-        app.add_message::<ambition_gameplay_core::audio::SfxMessage>();
+        app.add_message::<ambition_sfx::SfxMessage>();
         app.add_message::<PickUpPortalGun>();
         app.add_message::<PortalGunEquipped>();
         app.add_systems(Update, pickup_portal_gun_system);
@@ -243,7 +243,7 @@ mod tests {
     #[test]
     fn dropped_portal_gun_arms_before_it_can_be_regrabbed() {
         let mut app = App::new();
-        app.add_message::<ambition_gameplay_core::audio::SfxMessage>();
+        app.add_message::<ambition_sfx::SfxMessage>();
         app.add_message::<DropPortalGun>();
         app.add_message::<PickUpPortalGun>();
         app.add_message::<PortalGunEquipped>();

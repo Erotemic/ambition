@@ -8,7 +8,7 @@ use bevy::math::Vec2 as BVec2;
 use bevy::prelude::*;
 use std::f32::consts::TAU;
 
-use ambition_gameplay_core::audio::SfxMessage;
+use ambition_sfx::SfxMessage;
 use ambition_gameplay_core::character_sprites::{
     build_character_sprite_with_render_size, CharacterAnim, CharacterAnimator,
 };

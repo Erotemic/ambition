@@ -8,7 +8,7 @@
 use ambition_engine_core as ae;
 use bevy::prelude::*;
 
-use ambition_gameplay_core::audio::SfxMessage;
+use ambition_sfx::SfxMessage;
 use ambition_gameplay_core::dev::dev_tools::{self, EditableAbilitySet, EditableMovementTuning};
 use ambition_gameplay_core::features;
 use ambition_gameplay_core::time::feel::SandboxFeelTuning;

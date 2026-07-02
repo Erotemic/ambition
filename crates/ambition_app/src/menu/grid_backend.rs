@@ -29,7 +29,7 @@ use crate::menu::model::{
     SYSTEM_VISIBLE_ROWS,
 };
 use crate::menu::quality_confirm::VisualQualityConfirmState;
-use ambition_gameplay_core::audio::SfxMessage;
+use ambition_sfx::SfxMessage;
 use ambition_gameplay_core::items::{OwnedItems, ITEM_GRID_COLS, ITEM_GRID_ROWS};
 use ambition_gameplay_core::menu::backend::{InventoryUiBackend, BEVY_UI_MENU_BACKEND_ENABLED};
 use ambition_gameplay_core::persistence::settings::{

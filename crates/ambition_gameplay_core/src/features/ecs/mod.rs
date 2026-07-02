@@ -25,7 +25,7 @@
 
 use super::*;
 #[cfg(test)]
-use crate::audio::SfxMessage;
+use ambition_sfx::SfxMessage;
 use crate::platformer_runtime::lifecycle::RoomVisual;
 use crate::world::physics::{DebrisBurstMessage, PhysicsDebrisCue};
 use ambition_vfx::vfx::{ParticleKind, VfxMessage};

@@ -18,7 +18,7 @@ use crate::menu::model::{
     system_rows_with_quality_prompt, MenuFocus, MenuPage, MenuPageAction, SystemRow,
 };
 use crate::menu::quality_confirm::VisualQualityConfirmState;
-use ambition_gameplay_core::audio::SfxMessage;
+use ambition_sfx::SfxMessage;
 use ambition_gameplay_core::items::OwnedItems;
 use ambition_gameplay_core::persistence::settings::{
     apply_settings_option, settings_menu_model, SettingsOptionId, SettingsOptionKind,

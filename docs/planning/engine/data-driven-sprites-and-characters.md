@@ -147,7 +147,9 @@ validators fail when diagnostics or accidental outputs leak into runtime roots
 The broader north star remains:
 
 ```text
-EntityCatalog is gameplay truth.
+EntityCatalog is gameplay truth — including MOVESETS: every actor plays
+    every ability through one Smash-model move-timeline system, and a
+    move is nearly entirely data (see "Moveset target").
 SpritePackCatalog is visual storage truth.
 PackPlan is quality-specific packing policy.
 PublishManifest is the shipping/install boundary.
@@ -322,8 +324,9 @@ Eventually owns:
 * volumes
 * contacts
 * sockets
-* timelines
-* semantic animation bindings
+* movesets — move timelines (see "Moveset target": windows, volumes, events,
+  cancel edges — the Smash model)
+* semantic animation bindings (move id → clip id, with fallback chains)
 * presentation references
 * tags for tooling and grouping
 
@@ -348,8 +351,8 @@ Eventually owns:
 * frame rects
 * frame page indices
 * trim offsets
-* frame durations
-* render-only anchors
+* frame durations (ambient playback only)
+* named per-frame anchors (measured; moves address them by name)
 
 First-pass status:
 
@@ -683,6 +686,7 @@ physics.body2d
 locomotion.grounded
 vitality.damageable
 combat.hit_emitter
+combat.moveset
 interaction.inspectable
 control.brain
 presentation.sprite
@@ -706,6 +710,124 @@ But the first publish cleanup pass only needs to make room for this model. It do
 
 ---
 
+## Moveset target (the Smash model)
+
+**This is the gameplay north star the rest of the plan serves**: a unified,
+decomposable way to author characters/actors with movesets and abilities. Every
+actor — player, NPC, enemy, boss — plays its abilities through the same
+animation/timeline system, and a move is nearly entirely data.
+
+The plan's earlier drafts named this only as two words inside EntityCatalog
+("timelines", "semantic animation bindings"). This section is the schema those
+words meant.
+
+### The move is the unit
+
+A **move** is what Smash calls a move: one ability activation, bound to one
+visual clip, carrying its full gameplay meaning on a timeline:
+
+```text
+MoveSpec:
+  id:            "tilt_up" | "jab" | "overfit_volley" | ...
+  clip:          semantic clip binding ("slash", with declared fallback chain)
+  duration:      authoritative move time (seconds, sim clock)
+  windows:       [ (t0..t1, tags: startup | active | recovery | invuln |
+                    armor | cancelable{into: [move ids]}) ]
+  volumes:       per-window hit volumes, ENTITY-LOCAL logical space
+                 (rect | convex poly | circle — the CombatVolume shapes),
+                 optionally per-frame (pose-tracking)
+  events:        [ (t, effect) ] — spawn Effect::DamageBox / Projectiles /
+                 Summon, sfx cue, vfx, motion impulse/curve
+  anchors:       events may pin to named per-frame anchors ("hand", "muzzle")
+                 measured by the generator and shipped in visual data
+  gates:         input verb binding, resource cost, capability requirement
+                 (body mode), grounded/airborne requirement
+```
+
+A **moveset** is a map `verb/slot → MoveSpec` carried by an entity's
+`combat.moveset` contract. A **character** is then a decomposable bundle:
+body (physics + collision) + moveset + visual binding. Re-binding an existing
+move onto a different actor must be a data edit — *giving the goblin the
+player's slash requires zero Rust*.
+
+### One clock (the rule that makes it Smash-like)
+
+The move timeline is authoritative for BOTH gameplay and presentation:
+
+```text
+gameplay windows advance on the sim clock (WorldTime scaled_dt)
+the bound clip's playback is SLAVED to the move timeline —
+    presentation samples the clip by normalized move phase
+per-frame duration_ms in visual data applies only to ambient
+    (non-move) animations: idle, walk, talk
+gameplay timing NEVER reads visual duration_ms
+```
+
+Animation and hit windows cannot desync because there is nothing to sync —
+they are one timeline. Bullet-time/hitstop slow the move and its picture
+together for free (the WorldTime pattern).
+
+### Entity-local logical space (the geometry rule)
+
+Move volumes and anchors are expressed in entity-local logical coordinates,
+never atlas pixels. Consequences:
+
+```text
+quality tiers cannot break gameplay geometry (nothing to rescale)
+the variant generator stops rescaling hit/hurt boxes in RON — that whole
+    bug class is deleted, not guarded
+the generator still MEASURES (alpha bboxes, feet, hand anchors) —
+    measure-by-default stands — but the publisher emits gameplay geometry
+    into entity/move fragments, not into the visual manifest
+```
+
+### Decomposition contract (engine vs content)
+
+To stay data-driven without the closed-enum trap (`SpecialActionSpec`'s
+lesson — see the engine-for-other-games oracle):
+
+```text
+engine owns PRIMITIVES: window, volume, motion curve, effect emission
+    (the ambition_vfx Effect vocabulary), resource gate, cancel edge
+content owns COMPOSITION: moves are data assembling primitives
+content owns TECHNIQUES: the Special(String) + technique escape hatch
+    stays for truly bespoke behavior; the engine names no special
+oracle: another platformer adds a character with new moves by ADDING a
+    content crate, editing zero core code
+```
+
+### What this subsumes (current code anchors)
+
+```text
+SwipeSpec / LungeSpec / PounceSpec (Rust const windup/active/recover) —
+    become degenerate three-window moves; the "Chunk 4 data-table" TODO
+    in action_set/mod.rs is THIS schema
+AnimationMetrics hitbox/hurtbox in SheetRecord (atlas-pixel space) —
+    migrates to move volumes in logical space; AnimationBox.frames shows
+    per-frame boxes already work, so this is an ownership + coordinate
+    move, not a capability gap
+FrameRect.anchors (per-frame named points) — stays measured/visual;
+    moves address anchors BY NAME, validated at publish
+animation_vocab.py (renderer-side semantic names) — promotes to a
+    published vocabulary; EntityCatalog binds move id → clip id with
+    declared fallback chains (validator: every declared move resolves
+    to a clip; every character has idle)
+fighter unification (two-port body, actor parity: tilts/dash/shield) —
+    the runtime substrate; "all actors, all abilities" IS actor parity
+```
+
+### Validation (headless, at publish)
+
+```text
+every move's clip binding resolves (or falls back) in the bound visual
+every anchor a move references exists in every frame of the bound clip
+window times fit inside the move duration
+cancel edges reference declared move ids
+volumes are sane (positive extents, convex polys convex)
+```
+
+---
+
 ## SpritePackCatalog target
 
 The long-term `SpritePackCatalog` should replace visual-storage responsibilities currently mixed into sprite sheet records.
@@ -719,10 +841,12 @@ page image paths
 visual ids
 clip ids
 frame order
-frame durations
+frame durations (ambient playback only — a move-bound clip is slaved to
+    its move timeline; see "Moveset target")
 atlas rects
 trim offsets
-render-only anchors
+named per-frame anchors (measured: hand, muzzle, feet — visual data that
+    moves address BY NAME; the name is the contract, not the pixels)
 ```
 
 A sprite pack does not own:
@@ -733,7 +857,7 @@ hurtboxes
 solid collision
 interaction volumes
 support contacts
-combat timing
+combat timing / move windows / cancel data
 controller behavior
 entity identity
 ```
@@ -1008,13 +1132,15 @@ Add:
 typed EntityCatalog schema
 seed actor-like entity
 seed prop-like entity
-headless parse/validate test
+one seed MoveSpec on the actor-like entity (windows + one logical-space
+    volume + clip binding — the Smash-model timeline, however small)
+headless parse/validate test (including the moveset validators)
 presentation.sprite.visual_id
 local frames
 volumes
 contacts
 sockets
-bindings
+bindings (move id -> clip id, with fallback chain)
 ```
 
 Do not replace all spawning yet.
@@ -1050,6 +1176,18 @@ Use:
 entity_id -> visual_id -> sprite pack / current compatibility sheet
 ```
 
+Then the **moveset vertical slice** — the first data-driven move played
+end-to-end by the real runtime:
+
+```text
+sandbag (the canonical dummy) + one data-driven attack
+MoveSpec drives windows on the sim clock; the clip is slaved to the move
+hit volume in entity-local space resolves through CombatVolume -> HitEvent
+one event emits through the Effect vocabulary (e.g. DamageBox)
+the SAME MoveSpec bound to a second actor (goblin) works with zero Rust —
+    the decomposability proof
+```
+
 Do not migrate all props/characters in one pass.
 
 ### Phase 6: PackPlan and quality-aware packing
@@ -1070,6 +1208,10 @@ Gradually remove:
 
 ```text
 SheetRecord gameplay geometry authority
+    (BodyMetrics.animations hit/hurt boxes in atlas-pixel space — and with
+    it, the variant generator's hit/hurt-box rescaling pass)
+SwipeSpec / LungeSpec / PounceSpec Rust const timing tables
+    (subsumed by MoveSpec windows)
 character-specific sprite tables
 prop-specific sprite row tables
 entity_sprite.rs enum as the only path for one-frame visuals
@@ -1116,10 +1258,15 @@ The full design is working when:
 ```text
 A one-frame prop and an animated actor are loaded through the same entity and presentation resolver.
 A headless simulation can spawn entities from EntityCatalog without loading PNGs.
+A headless simulation can PLAY A MOVE — windows, volumes, hit resolution — without loading PNGs.
+Every actor (player, NPC, enemy, boss) plays abilities through the same move-timeline system.
+Adding a new move to an existing character requires no Rust code.
+Re-binding an existing move onto a different actor requires no Rust code.
+Gameplay timing never reads visual frame durations; a move-bound clip is slaved to the move timeline.
 Potato quality can pack multiple unrelated visuals into one atlas page without changing gameplay geometry.
 Adding a normal prop requires no Rust code.
 Adding a normal character using existing behavior requires no Rust code.
-Runtime systems consume components, volumes, contacts, sockets, timelines, and bindings instead of entity taxonomies.
+Runtime systems consume components, volumes, contacts, sockets, move timelines, and bindings instead of entity taxonomies.
 Sprite sheet manifests no longer contain authoritative gameplay geometry.
 Diagnostics are not installed into runtime asset roots.
 Visual quality profiles can change packing topology without changing entity ids or gameplay behavior.
@@ -1133,7 +1280,8 @@ Missing visual data degrades presentation, not simulation.
 The target architecture is still:
 
 ```text
-EntityCatalog is gameplay truth.
+EntityCatalog is gameplay truth — bodies, contracts, and MOVESETS.
+Moves are Smash-model timelines: one clock drives windows and picture.
 SpritePackCatalog is visual storage truth.
 PackPlan is quality-specific packing policy.
 PublishManifest is the shipping boundary.

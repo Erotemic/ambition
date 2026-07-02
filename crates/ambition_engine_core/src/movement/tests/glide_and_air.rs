@@ -555,13 +555,15 @@ fn a_hands_off_fling_above_run_speed_has_no_air_drag() {
         scratch.kinematics.vel.x
     );
 
-    // Ordinary jump drift (below the run cap) still stops without input.
+    // Sub-cap lateral motion is ballistic hands-off too (a portal bounce's
+    // lateral component must not decay — drag is drag at any speed).
+    scratch.ground.on_ground = false;
     scratch.kinematics.vel = Vec2::new(DEFAULT_TUNING.max_run_speed * 0.5, 0.0);
     let drift = scratch.kinematics.vel.x;
     step_scratch(&world, &mut scratch, InputState::default());
     assert!(
-        scratch.kinematics.vel.x < drift - 1.0,
-        "sub-cap air drift still decays via the stop assist: vx {} -> {}",
+        (scratch.kinematics.vel.x - drift).abs() < 1e-3,
+        "sub-cap airborne drift is ballistic with no input: vx {} -> {}",
         drift,
         scratch.kinematics.vel.x
     );

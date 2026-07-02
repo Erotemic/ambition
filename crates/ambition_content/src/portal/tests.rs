@@ -1082,3 +1082,134 @@ fn portal_shot_travels_and_opens_a_portal_on_a_wall() {
         "the shot is consumed when it lands"
     );
 }
+
+/// Energy audit for the free-fall bounce between two same-plane floor portals
+/// (the c138/c139 "pop back and forth forever" loop): the REAL player
+/// integrator + the REAL `transit_step` machine, no input. Gravity is
+/// conservative and the portal map is an isometry, so the crossing speed must
+/// NOT decay across many transfers — any drift here is integrator/transfer
+/// instability, not physics.
+#[test]
+fn floor_floor_bounce_conserves_crossing_speed_over_many_transfers() {
+    use ambition_engine_core::body_clusters::BodyClusterScratch;
+    use ambition_engine_core::movement::{
+        update_player_with_tuning_scratch, InputState, DEFAULT_TUNING,
+    };
+    use ambition_gameplay_core::portal::{transit_step, TransitStep};
+
+    // A floor at y ∈ [880, 920] with the two apertures ALREADY carved (three
+    // segments): this isolates the integrator + transfer math from carve
+    // timing. Portals A (254) and B (554) on the floor top, both facing up.
+    let floor_y = 880.0;
+    let world = ae::World::new(
+        "bounce audit",
+        Vec2::new(1600.0, 1200.0),
+        Vec2::new(254.0, 700.0),
+        vec![
+            ae::Block::solid("left", Vec2::new(0.0, floor_y), Vec2::new(208.0, 40.0)),
+            ae::Block::solid("mid", Vec2::new(300.0, floor_y), Vec2::new(208.0, 40.0)),
+            ae::Block::solid("right", Vec2::new(600.0, floor_y), Vec2::new(1000.0, 40.0)),
+        ],
+    );
+    let up = Vec2::new(0.0, -1.0);
+    let portals = [
+        PlacedPortal {
+            channel: PURPLE,
+            pos: Vec2::new(254.0, floor_y),
+            normal: up,
+            half_extent: portal_half_extent(up),
+        },
+        PlacedPortal {
+            channel: YELLOW,
+            pos: Vec2::new(554.0, floor_y),
+            normal: up,
+            half_extent: portal_half_extent(up),
+        },
+    ];
+
+    let mut scratch = BodyClusterScratch::new_with_abilities(
+        Vec2::new(254.0, 700.0),
+        ambition_engine_core::AbilitySet::default(),
+    );
+    scratch.ground.on_ground = false;
+    scratch.kinematics.vel = Vec2::new(0.0, 300.0); // falling straight down
+    let size = Vec2::new(24.0, 40.0);
+    let dt = 1.0 / 60.0;
+
+    let mut transit: Option<PortalTransit> = None;
+    let mut cooldown: Option<(PortalChannel, f32)> = None;
+    let mut crossing_speeds: Vec<f32> = Vec::new();
+
+    for _ in 0..4000 {
+        if crossing_speeds.len() >= 40 {
+            break;
+        }
+        update_player_with_tuning_scratch(
+            &world,
+            &mut scratch,
+            InputState::default(),
+            dt,
+            DEFAULT_TUNING,
+        );
+        if let Some((_, t)) = cooldown.as_mut() {
+            *t -= dt;
+        }
+        cooldown = cooldown.filter(|(_, t)| *t > 0.0);
+        let step = transit_step(
+            scratch.kinematics.pos,
+            size,
+            scratch.kinematics.vel,
+            transit,
+            cooldown.map(|(c, _)| c),
+            &portals,
+            Vec2::new(0.0, 1.0),
+        );
+        match step {
+            TransitStep::Begin { channel, .. } => {
+                transit = Some(PortalTransit {
+                    straddling: channel,
+                    crossed: false,
+                });
+            }
+            TransitStep::Transfer {
+                pos,
+                vel,
+                exit_channel,
+                ..
+            } => {
+                crossing_speeds.push(scratch.kinematics.vel.length());
+                scratch.kinematics.pos = pos;
+                scratch.kinematics.vel = vel;
+                transit = Some(PortalTransit {
+                    straddling: exit_channel,
+                    crossed: true,
+                });
+                cooldown = Some((exit_channel, 0.25));
+            }
+            TransitStep::Clear => transit = None,
+            TransitStep::Idle | TransitStep::Continue => {}
+        }
+        assert!(
+            scratch.kinematics.vel.x.abs() < 1e-3,
+            "a vertical bounce stays vertical (no lateral leak), vx={}",
+            scratch.kinematics.vel.x
+        );
+        assert!(
+            !scratch.ground.on_ground,
+            "the body must never ground mid-bounce (carve open), pos={:?}",
+            scratch.kinematics.pos
+        );
+    }
+
+    assert!(
+        crossing_speeds.len() >= 40,
+        "the bounce should keep transferring, got {} crossings",
+        crossing_speeds.len()
+    );
+    let early: f32 = crossing_speeds[..5].iter().sum::<f32>() / 5.0;
+    let late: f32 = crossing_speeds[35..40].iter().sum::<f32>() / 5.0;
+    assert!(
+        (late - early).abs() <= early * 0.02,
+        "crossing speed must not drift over 40 transfers: early={early:.2}, late={late:.2}, all={crossing_speeds:?}"
+    );
+}

@@ -404,42 +404,32 @@ pub fn integrate_normal_spine(
         let m = crate::AccelerationFrame::new(g).side;
         let run = tuning.stick(&input).x;
         let along = kin_vel.dot(m);
-        let mut target = run * tuning.max_run_speed;
-        // Same `relax` as the fall cap below: airborne, the run cap is an
-        // equilibrium input accelerates UP TO, never a brake on an over-cap
-        // fling (a portal exit at fall speed) — there is no aerodynamic drag
-        // in this world. Holding INTO the motion keeps the fling; releasing
-        // the stick keeps it too (the zero-target approach below is a
-        // run-stop assist, not drag); only OPPOSING input brakes, at full
-        // air control. Grounded movement keeps the hard approach so landing
-        // ends a fling.
-        if !ctx.on_ground {
-            if run > 0.1 {
-                target = target.max(along);
-            } else if run < -0.1 {
-                target = target.min(along);
-            } else if along.abs() > tuning.max_run_speed {
-                target = along;
+        // THERE IS NO AIR DRAG IN THIS WORLD. Airborne with the stick
+        // released, the run component is pure ballistics — a portal bounce or
+        // fling carries its lateral speed forever (at ANY magnitude; a
+        // sub-run-speed lateral bounce decaying hands-off reads as drag just
+        // as much as an over-cap one). Input steers: airborne, it accelerates
+        // toward the held direction up to the run cap — an equilibrium, like
+        // the fall cap's `relax`, never a brake on speed already beyond it in
+        // the held direction; opposing input brakes at full air control.
+        // Grounded movement keeps the hard approach + ground friction, so
+        // landing ends a fling and running feels unchanged.
+        let airborne_no_steer = !ctx.on_ground && run.abs() <= 0.1;
+        if !airborne_no_steer {
+            let mut target = run * tuning.max_run_speed;
+            if !ctx.on_ground {
+                if run > 0.1 {
+                    target = target.max(along);
+                } else if run < -0.1 {
+                    target = target.min(along);
+                }
             }
-        }
-        let mut new_along = approach(along, target, accel * dt);
-        let friction = if ctx.on_ground {
-            tuning.ground_friction
-        } else {
-            tuning.air_friction
-        };
-        if run.abs() <= 0.1 {
-            // Air friction is a run-stop assist, not aerodynamic drag: it
-            // never touches ballistic speed above the run cap, so a portal
-            // fling with the stick released keeps flying (there is no air
-            // drag in this world). Friction resumes once the speed re-enters
-            // the ordinary run regime, and landing restores ground friction.
-            let ballistic = !ctx.on_ground && new_along.abs() > tuning.max_run_speed;
-            if !ballistic {
-                new_along = approach(new_along, 0.0, friction * dt);
+            let mut new_along = approach(along, target, accel * dt);
+            if ctx.on_ground && run.abs() <= 0.1 {
+                new_along = approach(new_along, 0.0, tuning.ground_friction * dt);
             }
+            *kin_vel += (new_along - along) * m;
         }
-        *kin_vel += (new_along - along) * m;
     }
 
     if let Some(contact) = ctx.water {

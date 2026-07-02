@@ -701,7 +701,7 @@ work is committed linearly on main; the tree is green.
 **Verify before you start** (and after every change):
 ```bash
 ~/.cargo/bin/cargo test -p ambition_engine_core --lib      # 211, incl. the C4 harness
-~/.cargo/bin/cargo test -p ambition_gameplay_core --lib    # 1087
+~/.cargo/bin/cargo test -p ambition_gameplay_core --lib    # 1090
 ~/.cargo/bin/cargo test -p ambition_app --test possession_end_to_end \
   --test unified_melee --test gravity_symmetry_room \
   --test player_robot_fights_player --test enemy_attacks_player --test duel_arena

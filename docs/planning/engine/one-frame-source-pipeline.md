@@ -108,6 +108,40 @@ collapse at once:
 This is the natural completion of both the FrameSource contract and the
 per-frame work. Do it harness-gated for byte-stability like the rest.
 
+## Ultrapacking (the payoff) — first pass done
+
+`authoring/ultrapack.py` repacks *every target's frames* into shared,
+uniformly-sized atlas pages. A single-frame static prop is no longer its own
+PNG — its frame lands in whatever shared page it fits, next to frames from every
+other target. One frame pool, one MaxRects packer, N identical pages.
+
+First pass (general packing):
+
+- `ultrapack(targets, page_size=2048)` → renders each target's sheet, reads the
+  manifest, reconstructs each logical frame (trimmed crop pasted back at its
+  offset), pools them all, and MaxRects-packs into `page_size` pages.
+- `write_pack(...)` emits the shared page PNGs + a catalog: `{page_size, pages[],
+  targets → animation → [{page, x, y, w, h, off, src, duration_ms}]}`.
+
+Deliberately no locality constraints yet — best-fit across the whole pool for
+maximum density. Config and module targets pool uniformly (frames come from each
+target's own render output; the config manifest omits `image`, so the page name
+falls back to `<name>_spritesheet.png`).
+
+Follow-ups:
+
+1. **Native frame source per module** — feed the packer from `frame_source()`
+   directly (skip the render→extract round-trip; pack at pack-optimal resolution).
+2. **Memory-locality pack groups** — optionally keep a target's / a zone's /
+   an always-loaded set's frames co-resident on a page (extends the existing
+   `registry/pack_groups.py` policy across the shared pool).
+3. **Runtime consumption** — a `SpritePackCatalog` loader so the game reads the
+   shared pages + per-frame `(page, rect, off)` instead of per-target sheets;
+   this is the `SpritePackCatalog` from `data-driven-sprites-and-characters.md`.
+4. **Bespoke targets** — multi-file bosses, tilesets, and the icon grid don't
+   emit a standard single-sheet manifest, so they sit out the first pass; fold
+   them in once they expose frames uniformly.
+
 ## What the merge actually is (honest scoping)
 
 Reading both 300-line orchestrators in full changed the plan. They are *not* one

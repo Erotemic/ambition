@@ -3,6 +3,83 @@
 Status: planning target.
 First implementation target: clean asset publishing and runtime install boundaries.
 
+---
+
+## Implementation status (2026-07-02)
+
+**Short version: the *tools and types* exist and work in isolation; the
+end-to-end pipeline (regen → publish → runtime consumption) is NOT connected.
+`./regen_sprites.sh` does not run ultrapacking or emit a real PublishManifest,
+and the game still loads per-target `*_spritesheet.ron` sheets. Nothing in the
+runtime consumes a shared pack.**
+
+### Done
+
+- **Publish-boundary hygiene (the first-milestone core).** `PublishManifest`
+  and the runtime-root hygiene validator are typed + tested in the Rust
+  `ambition_gameplay_core::asset_publish` module (classify / manifest / publish /
+  hygiene). `scripts/sweep_runtime_diagnostics.py` relocates author diagnostics
+  (canonical poses, preview/debug sheets — 156 of them) out of the runtime roots,
+  and **is wired into `regen_sprites.sh`**. The `shipped_runtime_roots_have_no_leaked_diagnostics`
+  test fails if a diagnostic reappears under a runtime root. So: *diagnostics stay
+  outside runtime roots* — done and enforced.
+- **Renderer canonicalization (the enabling refactor, in the renderer submodule).**
+  The procedural generators are one canonical `CharacterGenerator` (no adapter
+  layer); `TackonTarget`/`AdapterTarget` are one `Target`; `build_sheet` and the
+  generators feed one `render_sheet(FrameSource)` core; every generator renders
+  each frame independently at any resolution (`frame_source` / `render_all_frames`
+  + debug contact sheets + per-frame export).
+- **SpritePackCatalog / PackPlan — first pass (`authoring/ultrapack.py`).** Pools
+  every target's frames and MaxRects-packs them into shared, uniformly-sized
+  atlas pages: **5374 frames from 109/120 targets → 41 shared 2048² pages at 93%
+  fill**, plus a catalog (`{page_size, pages[], targets → animation →
+  [{page,x,y,w,h,off,src,duration}]}`). This realizes "PackPlan can pack many
+  small props + one-frame sprites into shared pages" — as a standalone tool.
+
+### NOT done (the gaps that make it not-yet-usable in-game)
+
+1. **`regen_sprites.sh` does not run the publish/pack step.** It still renders +
+   installs *per-target* sheets into `assets/sprites/`. The shared pack is never
+   produced during a normal regen.
+2. **No runtime `SpritePackCatalog` consumer.** The game reads per-target baked
+   `*_spritesheet.ron` (`SheetRecord` via `build.rs` → `BAKED_SHEET_RONS`). There
+   is no Rust loader for the shared pages + per-frame `(page, rect, off)`. This
+   is the keystone missing piece — without it, ultrapacking cannot ship.
+3. **`PublishManifest` is not emitted for real assets.** It's a typed artifact +
+   fixture test; the actual install is still a direct copy, not manifest-driven.
+4. **`EntityCatalog` — not started.** Gameplay truth still lives in
+   `character_catalog.ron` + `SheetRecord` geometry.
+5. **11 bespoke targets sit out ultrapacking** (multi-file bosses, tilesets, the
+   icon grid, multi-variant modules) — they don't emit a standard single-sheet
+   manifest.
+6. **Ultrapacking has no locality policy and re-renders to extract frames** (no
+   pack-groups; not fed from native `frame_source()`).
+
+### Recommendations (ordered)
+
+1. **Build the runtime `SpritePackCatalog` loader first.** A typed Rust schema +
+   loader that resolves `(target, animation, frame) → (shared page, rect, off,
+   logical size)`. Until the runtime can *read* a shared pack, the packer output
+   is unusable. Keep `SheetRecord` as a compatibility path during migration.
+2. **Add a publish step to `regen_sprites.sh`** that runs after per-target render:
+   produce the shared pages + catalog, install them into a runtime pack root,
+   and emit a real `PublishManifest` recording exactly what shipped. Gate it
+   behind a publish profile so dev iteration keeps using fast per-target sheets.
+3. **Migrate one runtime consumer** (a simple prop, then a character) from
+   `SheetRecord` to the pack catalog to prove the end-to-end path before flipping
+   everything.
+4. **Fold in the 11 bespoke targets** by giving them uniform frame access
+   (native `frame_source()`), which also lets the packer skip the render→extract
+   round-trip and pack at pack-optimal resolution.
+5. **Then** layer memory-locality pack groups (keep a zone's / always-loaded
+   set's frames co-resident) on top of the general packer.
+6. **`EntityCatalog`** is the later, separable gameplay-truth migration; it does
+   not block shipping the sprite pack.
+
+The dependency to internalize: **runtime consumer → regen publish step →
+per-consumer migration.** Everything upstream (packer, manifest, hygiene) is
+ready; the runtime loader is what turns it from a tool into shipped assets.
+
 This document defines the target architecture for generated sprite data, visual publishing, runtime asset installation, and eventually uniform entity contracts.
 
 The immediate priority is not to replace the whole character, prop, sprite, and entity runtime in one pass. The immediate priority is to clean up the generated asset pipeline so runtime asset directories contain intentional runtime artifacts only.

@@ -110,12 +110,27 @@ impl Plugin for CombatSchedulePlugin {
                 // Phase 3b player-pool spawn consumer: materializes player-fired
                 // bodies AFTER the step, so the new body first ticks next frame.
                 ambition_gameplay_core::projectile::apply_player_spawn_projectile_messages,
+                // Data-driven move TRIGGER: a body carrying an `ActorMoveset`
+                // repertoire whose control frame presses a verb edge starts the
+                // matching move (inserts `MovePlayback`). Before `advance` so a move
+                // triggered this tick advances the same frame (fable review §A1,
+                // Path B — the production insert the moveset runtime was missing).
+                ambition_gameplay_core::combat::moveset::trigger_moveset_moves
+                    .run_if(gameplay_allowed),
                 // Data-driven move playback (Smash-model timelines, W9):
                 // advances each playing MoveSpec on its OWNER'S proper time,
                 // manages window-scoped hit volumes, fires MoveEventMessages.
                 // Before apply_hitbox_damage so a window entered this tick
                 // resolves its hits this tick.
                 ambition_gameplay_core::combat::moveset::advance_move_playback
+                    .run_if(gameplay_allowed),
+                // Data-driven move EFFECT dispatch: resolve `MoveEventMessage`s —
+                // `Sfx{cue}` → play at the owner; `Effect{key}` → bridge to the SAME
+                // `ActorActionMessage::Special` the brain special path emits, so a
+                // move fires a content technique with no new plumbing (the seam the
+                // boss `Special(key)` profiles reuse). After `advance` so this
+                // frame's events dispatch this frame.
+                ambition_gameplay_core::combat::moveset::dispatch_move_events
                     .run_if(gameplay_allowed),
                 // Hitbox-entity lifecycle for melee strikes (Task A of the
                 // actor/brain follow-up plan). `apply_hitbox_damage`

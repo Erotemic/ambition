@@ -23,14 +23,19 @@
 //! `MovePlayback` on a different entity — zero per-actor Rust. That is the
 //! decomposability contract, pinned by the tests below.
 
-use bevy::prelude::{Commands, Entity, Message, MessageWriter, Query, Res};
+use bevy::prelude::{
+    Commands, Component, Entity, Message, MessageReader, MessageWriter, Query, Res, Without,
+};
 
 use ambition_engine_core as ae;
-use ambition_entity_catalog::{MoveEventKind, MoveSpec, VolumeShape, WindowTag};
+use ambition_entity_catalog::{MoveEventKind, MoveSpec, MovesetContract, VolumeShape, WindowTag};
 use ambition_time::ProperTimeScale;
 
 use super::components::ActorFaction;
 use super::hitbox::{Hitbox, HitboxAnchor, HitboxHits};
+use ambition_characters::brain::action_set::{ActionRequest, SpecialActionSpec};
+use ambition_characters::brain::{ActorActionMessage, ActorControl};
+use ambition_sfx::{SfxId, SfxMessage};
 use ambition_time::WorldTime;
 
 /// A timed move event fired by [`advance_move_playback`]. The move runtime
@@ -81,6 +86,18 @@ impl MovePlayback {
         self.t >= self.spec.duration_s
     }
 }
+
+/// A body's data-driven move repertoire — the Bevy-side carrier of a headless
+/// [`MovesetContract`]. A body that exposes this contract triggers its moves
+/// through [`trigger_moveset_moves`]: a control-frame verb edge inserts the
+/// matching [`MovePlayback`]. This + [`dispatch_move_events`] are the production
+/// seam the moveset system was missing (nothing ever created a `MovePlayback` in
+/// the live game) — the first real consumer is the PCA's data-driven signature
+/// move (fable review 2026-07-02 §A1, Path B: prove the moveset on a real actor
+/// before folding the boss onto it). The boss fold reuses the SAME trigger +
+/// dispatch — a boss is an actor whose repertoire happens to be large.
+#[derive(Component, Debug, Clone)]
+pub struct ActorMoveset(pub MovesetContract);
 
 /// Advance every playing move by its owner's proper time; manage
 /// window-scoped hitboxes; fire timed events; retire finished moves.
@@ -206,6 +223,74 @@ pub fn advance_move_playback(
     }
 }
 
+/// TRIGGER a body's data-driven move from its control-frame verb edges: a
+/// `special_pressed` → the `"special"` verb, a `melee_pressed` → the `"attack"`
+/// verb. A body already playing a move (`With<MovePlayback>`) is excluded, so a
+/// move plays to completion before another starts — the move's own duration IS the
+/// fire-rate gate (the same shape as the ranged refire floor). Facing locks at
+/// trigger from the body's kinematics (the Smash convention — a committed swing
+/// doesn't re-aim).
+///
+/// ONE trigger seam for every body (guardrail #1): the same system drives an
+/// actor's melee, the PCA's signature move, and a folded boss's pattern. It is the
+/// production insert the moveset runtime was missing.
+pub fn trigger_moveset_moves(
+    mut commands: Commands,
+    bodies: Query<(Entity, &ActorMoveset, &ActorControl, &ae::BodyKinematics), Without<MovePlayback>>,
+) {
+    for (entity, moveset, control, kin) in &bodies {
+        let frame = &control.0;
+        let verb = if frame.special_pressed {
+            "special"
+        } else if frame.melee_pressed {
+            "attack"
+        } else {
+            continue;
+        };
+        if let Some(spec) = moveset.0.move_for_verb(verb) {
+            commands
+                .entity(entity)
+                .insert(MovePlayback::new(spec.clone(), kin.facing));
+        }
+    }
+}
+
+/// Consume [`MoveEventMessage`]s — the moveset runtime is content-free, it only
+/// NAMES events; this resolves them:
+/// - `Sfx { cue }` → play the cue at the owner's position.
+/// - `Effect { key }` → BRIDGE to the existing content-technique seam by writing
+///   the SAME `ActorActionMessage::Special { Special(key) }` the brain special path
+///   emits, so every content `Technique` consumer fires unchanged. This is the
+///   exact seam the boss's `Special(key)` profiles reuse once the boss folds onto
+///   the moveset — a data-driven move fires a content technique with zero new
+///   plumbing (fable review §A1, Path B).
+pub fn dispatch_move_events(
+    mut events: MessageReader<MoveEventMessage>,
+    positions: Query<&ae::BodyKinematics>,
+    mut sfx: MessageWriter<SfxMessage>,
+    mut actions: MessageWriter<ActorActionMessage>,
+) {
+    for ev in events.read() {
+        match &ev.kind {
+            MoveEventKind::Sfx { cue } => {
+                let pos = positions.get(ev.owner).map(|k| k.pos).unwrap_or(ae::Vec2::ZERO);
+                sfx.write(SfxMessage::Play {
+                    id: SfxId::new(cue),
+                    pos,
+                });
+            }
+            MoveEventKind::Effect { key } => {
+                actions.write(ActorActionMessage {
+                    actor: ev.owner,
+                    request: ActionRequest::Special {
+                        spec: SpecialActionSpec::Special(key.clone()),
+                    },
+                });
+            }
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -255,6 +340,20 @@ mod tests {
             .move_for_verb("attack")
             .unwrap()
             .clone()
+    }
+
+    /// The same seed move as a full repertoire, reachable by the `"special"` AND
+    /// `"attack"` verbs — the shape a body carries in an `ActorMoveset`.
+    fn swat_moveset() -> MovesetContract {
+        MovesetContract {
+            verbs: [
+                ("special".to_string(), "swat".to_string()),
+                ("attack".to_string(), "swat".to_string()),
+            ]
+            .into_iter()
+            .collect(),
+            moves: vec![swat()],
+        }
     }
 
     #[derive(Resource, Default)]
@@ -458,5 +557,147 @@ mod tests {
 
     fn count_hitboxes(app: &mut App) -> usize {
         app.world_mut().query::<&Hitbox>().iter(app.world()).count()
+    }
+
+    /// Phase-0 keystone (fable review §A1, Path B): the PRODUCTION trigger — a body
+    /// carrying an `ActorMoveset` whose control frame presses `special` starts the
+    /// matching move (no test hand-inserts `MovePlayback`), and the move lands its
+    /// authored hit through the real path. This is the insert the moveset runtime
+    /// was missing; without it the whole system was dead in the shipping game.
+    #[test]
+    fn a_control_verb_edge_triggers_the_moveset_move_and_lands_it() {
+        // Self-contained app: the full production chain registered ONCE
+        // (trigger → advance → damage → capture) + a victim in reach.
+        let mut app = App::new();
+        app.add_message::<HitEvent>();
+        app.add_message::<SfxMessage>();
+        app.add_message::<VfxMessage>();
+        app.add_message::<DebrisBurstMessage>();
+        app.add_message::<MoveEventMessage>();
+        app.init_resource::<Captured>();
+        app.init_resource::<WorldTime>();
+        app.world_mut().resource_mut::<WorldTime>().scaled_dt = 0.016;
+        app.world_mut().resource_mut::<WorldTime>().raw_dt = 0.016;
+        app.add_systems(
+            Update,
+            (
+                trigger_moveset_moves,
+                advance_move_playback,
+                apply_hitbox_damage,
+                capture,
+            )
+                .chain(),
+        );
+        app.world_mut().spawn((
+            crate::actor::PlayerEntity,
+            ActorFaction::Player,
+            crate::actor::BodyKinematics {
+                pos: ae::Vec2::new(128.0, 100.0),
+                size: ae::Vec2::new(28.0, 46.0),
+                facing: -1.0,
+                ..Default::default()
+            },
+            ae::CenteredAabb::from_center_size(
+                ae::Vec2::new(128.0, 100.0),
+                ae::Vec2::new(28.0, 46.0),
+            ),
+            crate::actor::BodyOffense::default(),
+            crate::actor::BodyDodgeState::default(),
+            crate::actor::BodyShieldState::default(),
+            ambition_characters::actor::BodyCombat::default(),
+        ));
+        // A body that OWNS a repertoire and is pressing `special` this frame — but
+        // is NOT hand-given a MovePlayback. The trigger must start the move.
+        let mut frame = ambition_characters::actor::control::ActorControlFrame::neutral();
+        frame.special_pressed = true;
+        app.world_mut().spawn((
+            crate::features::CenteredAabb::new(ae::Vec2::new(100.0, 100.0), ae::Vec2::new(15.0, 24.0)),
+            ae::BodyKinematics {
+                pos: ae::Vec2::new(100.0, 100.0),
+                vel: ae::Vec2::ZERO,
+                size: ae::Vec2::new(15.0, 24.0),
+                facing: 1.0,
+            },
+            ActorFaction::Enemy,
+            ActorMoveset(swat_moveset()),
+            ActorControl(frame),
+        ));
+
+        // Through one move: the verb edge started it, the active window landed the
+        // authored hit exactly once (0.68s move; stop before it can re-trigger).
+        run_seconds(&mut app, 0.5);
+        let cap = app.world().resource::<Captured>();
+        assert_eq!(
+            cap.hits.len(),
+            1,
+            "the special verb edge triggered the move and it landed its hit"
+        );
+        assert_eq!(cap.events.len(), 1, "the move's timed Sfx event fired once");
+    }
+
+    /// Phase-0 keystone: the EFFECT dispatch — the moveset runtime only NAMES
+    /// events; `dispatch_move_events` resolves an `Sfx{cue}` to a positioned
+    /// `SfxMessage` and BRIDGES an `Effect{key}` to the SAME
+    /// `ActorActionMessage::Special{Special(key)}` the brain special path emits, so
+    /// a data-driven move fires a content technique with zero new plumbing (the
+    /// exact seam the boss `Special(key)` profiles reuse).
+    #[test]
+    fn move_event_dispatch_bridges_sfx_to_sound_and_effect_to_special() {
+        use ambition_characters::brain::ActorActionMessage;
+        let mut app = App::new();
+        app.add_message::<MoveEventMessage>();
+        app.add_message::<SfxMessage>();
+        app.add_message::<ActorActionMessage>();
+        app.add_systems(Update, dispatch_move_events);
+        let owner = app
+            .world_mut()
+            .spawn(ae::BodyKinematics {
+                pos: ae::Vec2::new(42.0, 7.0),
+                vel: ae::Vec2::ZERO,
+                size: ae::Vec2::new(16.0, 24.0),
+                facing: 1.0,
+            })
+            .id();
+        app.world_mut()
+            .resource_mut::<Messages<MoveEventMessage>>()
+            .write(MoveEventMessage {
+                owner,
+                move_id: "sig".into(),
+                kind: MoveEventKind::Sfx {
+                    cue: "pca.signature".into(),
+                },
+            });
+        app.world_mut()
+            .resource_mut::<Messages<MoveEventMessage>>()
+            .write(MoveEventMessage {
+                owner,
+                move_id: "sig".into(),
+                kind: MoveEventKind::Effect {
+                    key: "pca_glider".into(),
+                },
+            });
+        app.update();
+
+        let sfx: Vec<SfxMessage> = app
+            .world_mut()
+            .resource_mut::<Messages<SfxMessage>>()
+            .drain()
+            .collect();
+        assert_eq!(sfx.len(), 1, "the Sfx event played one sound");
+        assert!(
+            matches!(sfx[0], SfxMessage::Play { pos, .. } if pos == ae::Vec2::new(42.0, 7.0)),
+            "played at the owner's position"
+        );
+        let acts: Vec<ActorActionMessage> = app
+            .world_mut()
+            .resource_mut::<Messages<ActorActionMessage>>()
+            .drain()
+            .collect();
+        assert_eq!(acts.len(), 1, "the Effect event bridged to one Special action");
+        assert_eq!(acts[0].actor, owner);
+        assert!(matches!(
+            &acts[0].request,
+            ActionRequest::Special { spec: SpecialActionSpec::Special(k) } if k == "pca_glider"
+        ));
     }
 }

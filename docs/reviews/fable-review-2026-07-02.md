@@ -1902,10 +1902,15 @@ Per fable AD3. The boss BODY now moves through the ONE shared movement seam.
   (was `step_kinematic`) — a deliberate convergence, velocity byte-identical, in Jon's
   feel-check queue (AD5).
 
+**AS4c cleanup — DONE** (`c0b3f591`): the bespoke boss float
+(`BossMut::integrate_body` + `step_floating_body` + the orphaned
+`combat::util::approach`) is DELETED (~70 LOC). The wall-collision test was migrated
+to drive the boss pattern through the PRODUCTION path (aerial `ActorClusterSeed` →
+`ActorMut::update` → flight limb), which VERIFIES the flight-limb sweep stops the
+boss at a wall — resolving the AS4c blind-wall-sweep concern with a real test. A boss
+IS just an aerial actor; no parallel float remains.
+
 **Follow-ups (net-LOC-down + AD-driven):**
-- Delete the old boss float (`BossMut::integrate_body` + `step_floating_body`, now
-  production-unused) once the `boss_stops_at_wall` unit test migrates to an ECS-level
-  flight-limb wall-stop harness. (The old path is test-only scaffolding now.)
 - **3b per AD2** — generalize a `FrameDrivenHitbox` in the combat layer; fold boss
   contact onto `apply_actor_contact_damage` (flip the boss cluster's
   `body_contact_damage` false→true from `behavior.body_damage` in the same commit);
@@ -1915,7 +1920,7 @@ Per fable AD3. The boss BODY now moves through the ONE shared movement seam.
 - **AD1-T1** — collapse `FeatureVisualKind` actor variants to one `Actor`; the boss
   render can then read `ActorRenderSize` on the unified actor sprite-upgrade path.
 
-## Next (in order) — A1 slice 3 follow-ups: delete old boss float (migrate boss_stops_at_wall) → 3b per **AD2** → render/hurtbox baked-size convergence → **AD1-T1** taxonomy collapse (+**D3 UNBLOCKED per AD1**: T1 enum collapse, then T2 read-model → re-create sim_view) / D4.2 platforms+physics extract / D4.3 LDtk converter extensibility (crux, confirmed worth it)
+## Next (in order) — A1 slice 3 follow-ups: **3b per AD2** (FrameDrivenHitbox + fold boss contact onto apply_actor_contact_damage + delete boss_attack_damage) → render/hurtbox baked-size convergence → **AD1-T1** taxonomy collapse (+**D3 UNBLOCKED per AD1**: T1 enum collapse, then T2 read-model → re-create sim_view) / D4.2 platforms+physics extract / D4.3 LDtk converter extensibility (crux, confirmed worth it)
 
 **§A2 is COMPLETE** (E10–E13). The victim-side damage path is ONE resolver +
 ONE reaction for every body; per-body policy is the only fork left.

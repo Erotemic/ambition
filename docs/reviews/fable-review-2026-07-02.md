@@ -53,7 +53,34 @@ sensible default and note it here for deferred tuning.** Two kinds of entries:
 
 **GENUINE FORKS** (shape-defining + expensive to reverse; Jon's call — the run picked a
 defensible default and moved on):
-- (none open yet — record any you hit, with options + chosen default, and keep going)
+- **Player-melee fold — how does a moveset express DIRECTIONAL variants + POGO?** The
+  actor-melee subsumption (E49) folded the simple forward swing. The player's melee is
+  richer: up / down / air-up / air-down / air-forward / air-back variants selected from
+  `attack_axis` + on-ground, a POGO bounce on a down-air strike over a pogo target, and a
+  sprite-manifest-authored per-animation hitbox. Folding it means the moveset must SELECT
+  a move by attack intent and carry a pogo behavior — a schema shape, not a tuning value.
+  Options: **(A)** one move per direction, verbs `attack`/`attack_up`/`attack_down`/… and
+  the trigger resolves intent→verb (most explicit, most data); **(B)** one `attack` move
+  with intent-tagged windows/volumes (compact, but new window semantics); **(C)** keep the
+  player on the flat directional path indefinitely and only fold NON-directional bodies
+  (the current state). Pogo needs a volume behavior flag (`pogo: bool`) that bounces the
+  owner on contact with a pogo target — a new `HitVolume`/effect primitive either way.
+  **Chosen default: (C) for now** (player stays flat; no feature lost), because (A)/(B)
+  change the `MoveSpec` schema shape and want Jon's call. NOT implemented (reversible: it's
+  the current state). Route: pick A or B and it's a bounded slice mirroring E49.
+- **Ranged subsumption — dynamic aim vs facing-lock.** Folding actor ranged (Rock/Arrow/
+  Pistol/Bolt) onto the moveset means a `"fire"` move whose event spawns a projectile. But
+  the brain aims dynamically (`frame.fire = Some(dir)` toward the target, with a
+  `dir_policy` frame), while a `MovePlayback` LOCKS facing at trigger (the Smash
+  convention). So a moveset-fired shot would travel along facing, not toward a strafing
+  target — a real behavior change for aiming enemies (skirmisher / sniper), plus the
+  projectile pool / visual-kind / muzzle-offset plumbing has no moveset event vocabulary
+  yet. Options: **(A)** add a `MoveEventKind::Ranged { spec, aim_policy }` and let the move
+  sample the owner's live aim at the event frame (keeps dynamic aim; new event kind);
+  **(B)** fire along locked facing (simplest; changes aiming-enemy behavior); **(C)** leave
+  ranged on the flat `ActionRequest::Ranged` path (current). **Chosen default: (C)**
+  (ranged stays flat; no behavior change), because (A) is the right long-term shape but the
+  aim-sampling event is a schema addition Jon should bless. NOT implemented (reversible).
 
 > Handoff for the continuing agent: **`docs/reviews/HANDOFF-2026-07-03-moveset-and-fable-review.md`**.
 

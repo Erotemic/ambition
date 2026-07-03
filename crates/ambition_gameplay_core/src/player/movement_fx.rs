@@ -8,9 +8,11 @@
 //! host's player-tick control/sim phases; it lived in `ambition_app` only because
 //! it was authored beside that glue.
 //!
-//! Player-centrism note: still named "player" / typed on `Player*State` because
-//! the component vocabulary does; the actor-unification rename is tracked
-//! separately.
+//! Player-centrism note: [`handle_player_events`] is still named "player" and
+//! arms `Player*State`, but its SFX/VFX half is the body-generic
+//! [`emit_movement_fx`] — the SAME emitter the actor tick runs, so an AI fighter
+//! that jumps/dashes/dodges/wall-jumps produces the same dust + SFX the player
+//! does (fable review 2026-07-02 §A8).
 
 use bevy::prelude::MessageWriter;
 
@@ -21,38 +23,38 @@ use ambition_characters::actor::BodyCombat;
 use ambition_sfx::SfxMessage;
 use crate::player::{PlayerAnimState, PlayerBlinkCameraState};
 
+/// How long the wall-jump push-off pose holds after the WallJump op fires. Short
+/// enough to clear before the apex of the jump arc so the regular `Jump` row
+/// picks back up; long enough that the kick reads at typical playback rates.
+const WALL_JUMP_ANIM_HOLD_SECS: f32 = 0.18;
+
+/// Body-generic movement presentation: translate a frame's [`ae::FrameEvents`]
+/// (jump/dash/dodge/wall-jump/pogo/swim/ledge/shield/fly ops + blink endpoints)
+/// into `SfxMessage`/`VfxMessage` facts at the body's position, plus the
+/// grounded-transition landing dust.
+///
+/// Carries NO body-specific state — the wall-jump anim pose, the blink-camera
+/// lerp, and the action hit-flash stay with each caller ([`handle_player_events`]
+/// arms them for the player; the actor tick does not). This is the ONE emit site
+/// the actor path and the player path share, retiring the old blink-only actor
+/// branch + its hand-copied second blink emit (the "parallel emission site" bug —
+/// fable review §A8).
 #[allow(clippy::too_many_arguments)]
-pub fn handle_player_events(
+pub fn emit_movement_fx(
     sfx: &mut MessageWriter<SfxMessage>,
     vfx: &mut MessageWriter<VfxMessage>,
-    clusters: &ae::BodyClustersMut<'_>,
-    combat: &mut BodyCombat,
-    blink_cam: &mut PlayerBlinkCameraState,
-    anim: &mut PlayerAnimState,
-    events: ae::FrameEvents,
+    events: &ae::FrameEvents,
+    pos: ae::Vec2,
+    facing: f32,
+    size: ae::Vec2,
+    on_ground: bool,
     was_grounded: Option<bool>,
 ) {
-    /// How long the wall-jump push-off pose holds after the WallJump op
-    /// fires. Short enough to clear before the apex of the jump arc so
-    /// the regular `Jump` row picks back up; long enough that the kick
-    /// reads at typical playback rates.
-    const WALL_JUMP_ANIM_HOLD_SECS: f32 = 0.18;
-    let pos = clusters.kinematics.pos;
-    let facing = clusters.kinematics.facing;
-    let size = clusters.kinematics.size;
-    let on_ground = clusters.ground.on_ground;
     for op in &events.operations {
         match op {
-            ae::MovementOp::Jump => {
+            ae::MovementOp::Jump | ae::MovementOp::WallJump => {
                 sfx.write(SfxMessage::Jump { pos });
                 vfx.write(VfxMessage::Dust { pos, facing });
-            }
-            ae::MovementOp::WallJump => {
-                sfx.write(SfxMessage::Jump { pos });
-                vfx.write(VfxMessage::Dust { pos, facing });
-                // Arm the push-off pose. Held briefly so the kick
-                // reads even after the regular jump arc takes over.
-                anim.wall_jump_anim_timer = WALL_JUMP_ANIM_HOLD_SECS;
             }
             ae::MovementOp::DoubleJump => {
                 sfx.write(SfxMessage::DoubleJump { pos });
@@ -170,18 +172,11 @@ pub fn handle_player_events(
             pos: blink.from,
             precision: blink.precision,
         });
-        blink_cam.blink_in_duration = crate::BLINK_IN_ANIM_TIME;
-        blink_cam.blink_in_timer = blink_cam.blink_in_duration;
-        blink_cam.blink_camera_from = blink.from;
-        blink_cam.blink_camera_to = blink.to;
         vfx.write(VfxMessage::BlinkEffects {
             from: blink.from,
             to: blink.to,
             precision: blink.precision,
         });
-    }
-    if events.hazard || !events.operations.is_empty() {
-        combat.hit_flash = 0.12;
     }
     if let Some(was_grounded) = was_grounded {
         if !was_grounded && on_ground {
@@ -190,5 +185,101 @@ pub fn handle_player_events(
                 facing,
             });
         }
+    }
+}
+
+#[allow(clippy::too_many_arguments)]
+pub fn handle_player_events(
+    sfx: &mut MessageWriter<SfxMessage>,
+    vfx: &mut MessageWriter<VfxMessage>,
+    clusters: &ae::BodyClustersMut<'_>,
+    combat: &mut BodyCombat,
+    blink_cam: &mut PlayerBlinkCameraState,
+    anim: &mut PlayerAnimState,
+    events: ae::FrameEvents,
+    was_grounded: Option<bool>,
+) {
+    let pos = clusters.kinematics.pos;
+    let facing = clusters.kinematics.facing;
+    let size = clusters.kinematics.size;
+    let on_ground = clusters.ground.on_ground;
+    // Body-generic SFX/VFX — the SAME emitter the actor tick uses.
+    emit_movement_fx(sfx, vfx, &events, pos, facing, size, on_ground, was_grounded);
+    // Player-specific presentation state the shared emitter deliberately omits:
+    // the wall-jump push-off pose + the blink-camera lerp (the A9 anim/overlay
+    // fork), plus the brief any-action hit-flash.
+    for op in &events.operations {
+        if matches!(op, ae::MovementOp::WallJump) {
+            anim.wall_jump_anim_timer = WALL_JUMP_ANIM_HOLD_SECS;
+        }
+    }
+    for blink in &events.blinks {
+        blink_cam.blink_in_duration = crate::BLINK_IN_ANIM_TIME;
+        blink_cam.blink_in_timer = blink_cam.blink_in_duration;
+        blink_cam.blink_camera_from = blink.from;
+        blink_cam.blink_camera_to = blink.to;
+    }
+    if events.hazard || !events.operations.is_empty() {
+        combat.hit_flash = 0.12;
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use bevy::prelude::*;
+
+    #[derive(Resource)]
+    struct TestEvents(ae::FrameEvents);
+
+    fn emit_system(
+        mut sfx: MessageWriter<SfxMessage>,
+        mut vfx: MessageWriter<VfxMessage>,
+        events: Res<TestEvents>,
+    ) {
+        emit_movement_fx(
+            &mut sfx,
+            &mut vfx,
+            &events.0,
+            ae::Vec2::ZERO,
+            1.0,
+            ae::Vec2::new(20.0, 40.0),
+            true,        // on_ground now
+            Some(false), // was airborne last frame → the landing dust fires
+        );
+    }
+
+    /// The body-generic emitter (shared by the player tick AND the actor tick)
+    /// turns a frame's ops into movement SFX/VFX: a `Jump` op yields one `Jump`
+    /// SFX + a `Dust` VFX, and the air→ground transition adds the landing dust.
+    /// Pins that a future edit can't silently drop actor (or player) movement
+    /// presentation the way the old blink-only actor branch did (§A8).
+    #[test]
+    fn emit_movement_fx_emits_jump_sfx_and_dust_plus_landing() {
+        let mut events = ae::FrameEvents::default();
+        events.operations.push(ae::MovementOp::Jump);
+        let mut app = App::new();
+        app.add_message::<SfxMessage>();
+        app.add_message::<VfxMessage>();
+        app.insert_resource(TestEvents(events));
+        app.add_systems(Update, emit_system);
+        app.update();
+        let sfx: Vec<SfxMessage> = app
+            .world_mut()
+            .resource_mut::<bevy::ecs::message::Messages<SfxMessage>>()
+            .drain()
+            .collect();
+        let vfx: Vec<VfxMessage> = app
+            .world_mut()
+            .resource_mut::<bevy::ecs::message::Messages<VfxMessage>>()
+            .drain()
+            .collect();
+        assert_eq!(sfx.len(), 1, "a Jump op yields exactly one Jump SFX");
+        assert!(matches!(sfx[0], SfxMessage::Jump { .. }));
+        assert_eq!(vfx.len(), 2, "the Jump dust + the air→ground landing dust");
+        assert!(
+            vfx.iter().all(|m| matches!(m, VfxMessage::Dust { .. })),
+            "both VFX are Dust bursts"
+        );
     }
 }

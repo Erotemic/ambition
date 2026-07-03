@@ -456,6 +456,8 @@ fn integrate_actor_body(
         .unwrap_or_else(ambition_characters::actor::control::ActorControlFrame::neutral);
     let nearest_neighbor = steering.neighbor_by_id.get(&em.config.id).copied();
     let previous_pos = em.kin.pos;
+    // Pre-update grounded snapshot for the shared movement-fx landing dust (§A8).
+    let was_grounded = em.ground.on_ground;
     // Localized gravity: each actor feels the gravity of the column it stands in.
     let enemy_gravity_dir = gravity.dir_at(em.kin.pos);
     let shark_charge_vec = brain_frame.velocity_target;
@@ -499,20 +501,22 @@ fn integrate_actor_body(
         });
         frame = ambition_characters::actor::control::ActorControlFrame::neutral();
     }
-    // Blink SFX/VFX for the body's teleport (the clean quick/precision flash, not
-    // the held-item `ClassicBurst`) — an AI fighter blinks like the player does.
-    // Fly-toggle + shield are resolved INSIDE `em.update`'s shared pipeline.
-    for blink in &move_events.blinks {
-        sfx.write(ambition_sfx::SfxMessage::Play {
-            id: ambition_sfx::ids::PLAYER_BLINK,
-            pos: blink.to,
-        });
-        vfx.write(ambition_vfx::vfx::VfxMessage::BlinkEffects {
-            from: blink.from,
-            to: blink.to,
-            precision: blink.precision,
-        });
-    }
+    // Movement presentation for the body's frame: jump/dash/dodge/wall-jump/ledge/
+    // shield/blink SFX+VFX + landing dust, through the SAME body-generic emitter
+    // the player tick uses — so an AI fighter that dashes or wall-jumps produces
+    // the same dust + SFX the player does, not the old blink-only actor branch
+    // with its hand-copied second blink emit (fable review §A8). Fly-toggle +
+    // shield are resolved INSIDE `em.update`'s shared pipeline.
+    crate::player::emit_movement_fx(
+        sfx,
+        vfx,
+        &move_events,
+        em.kin.pos,
+        em.kin.facing,
+        em.kin.size,
+        em.ground.on_ground,
+        Some(was_grounded),
+    );
     // Publish the actor's footprint ORIENTED to its reference frame (a
     // surface-walker's frame is its clung surface; everyone else's is gravity at
     // their position), the single source of truth read by the debug overlay,

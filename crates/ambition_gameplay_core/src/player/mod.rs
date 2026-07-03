@@ -56,7 +56,9 @@ pub use components::{
     PlayerSafetyState, PlayerSlot, SlotGestures, SlotInteractionState,
 };
 pub use events::PlayerHealRequested;
-pub use movement_fx::{advance_body_anim_overlays, emit_movement_fx, handle_player_events};
+pub use movement_fx::{
+    advance_body_anim_overlays, arm_movement_anim_overlays, emit_movement_fx, handle_player_events,
+};
 pub use queries::{primary_player_entity, sort_players_by_slot};
 pub use systems::{
     apply_player_heal_requests, populate_slot_controls, sync_local_player_input_frame,

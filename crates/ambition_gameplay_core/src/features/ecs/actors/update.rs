@@ -437,6 +437,7 @@ fn integrate_actor_body(
     aabb: &mut CenteredAabb,
     combat: &mut BodyCombat,
     mut control: Option<&mut ambition_characters::brain::ActorControl>,
+    mut anim: Option<&mut crate::player::BodyAnimFacts>,
     target_pos: ae::Vec2,
     is_mounted: bool,
     feature_world: &ae::World,
@@ -517,6 +518,13 @@ fn integrate_actor_body(
         em.ground.on_ground,
         Some(was_grounded),
     );
+    // Arm the op-driven overlay POSES this body earned this frame (the wall-jump
+    // push-off) on its `BodyAnimFacts`, through the SAME body-generic arming the
+    // player tick runs — so an AI fighter that wall-jumps shows the kick pose, not
+    // just the dust (§A9 follow-up). `advance_actor_anim_overlays` decays it.
+    if let Some(anim) = anim.as_deref_mut() {
+        crate::player::arm_movement_anim_overlays(anim, &move_events);
+    }
     // Publish the actor's footprint ORIENTED to its reference frame (a
     // surface-walker's frame is its clung surface; everyone else's is gravity at
     // their position), the single source of truth read by the debug overlay,
@@ -583,6 +591,7 @@ pub fn integrate_sim_bodies(
             &mut BodyCombat,
             &super::super::super::components::ActorTarget,
             Option<&mut ambition_characters::brain::ActorControl>,
+            Option<&mut crate::player::BodyAnimFacts>,
             Option<&super::super::Mounted>,
             Option<super::super::actor_clusters::ActorClusterQueryData>,
         ),
@@ -611,7 +620,8 @@ pub fn integrate_sim_bodies(
     let feature_world = world_with_sandbox_solids(&world.0, &platform_set.0, &overlay);
     let combat_tuning = feel_tuning.feature_combat_tuning();
     // ── ACTOR bodies (the per-body integrator, symmetric with the home body's) ──
-    for (actor_entity, mut aabb, mut combat, target, mut control, mounted, clusters) in &mut actors
+    for (actor_entity, mut aabb, mut combat, target, mut control, mut anim, mounted, clusters) in
+        &mut actors
     {
         let Some(mut cq) = clusters else {
             continue;
@@ -623,6 +633,7 @@ pub fn integrate_sim_bodies(
             &mut aabb,
             &mut combat,
             control.as_deref_mut(),
+            anim.as_deref_mut(),
             target.pos,
             mounted.is_some(),
             &feature_world,

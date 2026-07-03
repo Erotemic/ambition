@@ -47,6 +47,12 @@ const PROJECTILE_MAX_LIFETIME: f32 = 2.4;
 /// like the projectile envelope above.
 const RANGED_REFIRE_S: f32 = 1.1;
 
+/// How long the actor's post-fire Shoot overlay pose holds — matches the player's
+/// `SHOOT_ANIM_HOLD_SECS` (`projectile::systems`) so a possessed body and an
+/// autonomous one pulse the same, short enough that rapid fire stutters
+/// Shoot↔locomotion rather than locking the read (§A9 follow-up).
+const SHOOT_ANIM_HOLD_SECS: f32 = 0.18;
+
 /// Read every `ActorActionMessage::Ranged` and spawn the matching
 /// enemy projectile. Applies recoil to the firing actor's velocity.
 ///
@@ -58,6 +64,10 @@ pub fn spawn_enemy_projectiles_from_brain_actions(
     mut effects: MessageWriter<ambition_vfx::EffectRequest>,
     mut sfx: MessageWriter<SfxMessage>,
     mut actors: Query<Option<super::actor_clusters::ActorClusterQueryData>>,
+    // Disjoint from `actors` — `ActorClusterQueryData` carries no `BodyAnimFacts`,
+    // so this second view borrows the firing body's overlay-pose facts without
+    // aliasing. Arms the Shoot pose on the frame the body accepts a shot.
+    mut anim_facts: Query<&mut crate::player::BodyAnimFacts>,
     held_items: Query<&super::HeldItem>,
 ) {
     for msg in messages.read() {
@@ -96,6 +106,13 @@ pub fn spawn_enemy_projectiles_from_brain_actions(
         // a tactical brain, and a possessing human.
         if !enemy.attack.try_fire_ranged(RANGED_REFIRE_S).accepted() {
             continue;
+        }
+        // The shot is committed — arm the firing body's Shoot overlay pose (the
+        // actor analogue of the player's post-fire pulse in `projectile::systems`).
+        // The pick reads `shoot_anim_timer`; the pose shows for whatever body owns
+        // a Shoot row, autonomous or possessed (§A9 follow-up).
+        if let Ok(mut anim) = anim_facts.get_mut(msg.actor) {
+            anim.shoot_anim_timer = SHOOT_ANIM_HOLD_SECS;
         }
         // Held-item muzzle: a gun-sword shot should originate at the actor's
         // hand whether the pirate is still mounted or has fallen off the shark.

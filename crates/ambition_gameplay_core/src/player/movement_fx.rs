@@ -88,6 +88,23 @@ pub fn advance_body_anim_overlays(
     anim.anim_prev_dash_timer = dash_timer;
 }
 
+/// Arm the op-driven presentation overlays a movement frame implies on ANY body's
+/// [`crate::player::BodyAnimFacts`]: the wall-jump push-off pose fires on the
+/// `WallJump` op. Body-generic so the player tick AND the actor tick arm the SAME
+/// pose from the SAME frame data — an AI fighter that wall-jumps shows the kick pose
+/// the player does, not just its dust/SFX (fable review §A9 follow-up). The other
+/// op-armed overlays (slash / shoot) are armed at their own effect sites — attack
+/// (`combat::attack`) and projectile fire (`brain_effects` / `projectile::systems`)
+/// — because those aren't movement ops; this covers the movement ops only, and
+/// [`advance_body_anim_overlays`] decays every op-armed timer afterward.
+pub fn arm_movement_anim_overlays(anim: &mut BodyAnimFacts, events: &ae::FrameEvents) {
+    for op in &events.operations {
+        if matches!(op, ae::MovementOp::WallJump) {
+            anim.wall_jump_anim_timer = WALL_JUMP_ANIM_HOLD_SECS;
+        }
+    }
+}
+
 /// Body-generic movement presentation: translate a frame's [`ae::FrameEvents`]
 /// (jump/dash/dodge/wall-jump/pogo/swim/ledge/shield/fly ops + blink endpoints)
 /// into `SfxMessage`/`VfxMessage` facts at the body's position, plus the
@@ -265,14 +282,11 @@ pub fn handle_player_events(
     let on_ground = clusters.ground.on_ground;
     // Body-generic SFX/VFX — the SAME emitter the actor tick uses.
     emit_movement_fx(sfx, vfx, &events, pos, facing, size, on_ground, was_grounded);
-    // Player-specific presentation state the shared emitter deliberately omits:
-    // the wall-jump push-off pose + the blink-camera lerp (the A9 anim/overlay
-    // fork), plus the brief any-action hit-flash.
-    for op in &events.operations {
-        if matches!(op, ae::MovementOp::WallJump) {
-            anim.wall_jump_anim_timer = WALL_JUMP_ANIM_HOLD_SECS;
-        }
-    }
+    // Body-generic op-driven overlay poses (the wall-jump push-off) — the SAME
+    // arming the actor tick runs (§A9). Player-specific presentation the shared
+    // arming deliberately omits stays inline below: the blink-camera lerp and the
+    // brief any-action hit-flash.
+    arm_movement_anim_overlays(anim, &events);
     for blink in &events.blinks {
         blink_cam.blink_in_duration = crate::BLINK_IN_ANIM_TIME;
         blink_cam.blink_in_timer = blink_cam.blink_in_duration;
@@ -340,6 +354,32 @@ mod tests {
         assert!(
             vfx.iter().all(|m| matches!(m, VfxMessage::Dust { .. })),
             "both VFX are Dust bursts"
+        );
+    }
+
+    /// The body-generic overlay arming (shared by the player tick AND the actor
+    /// tick) sets the wall-jump push-off pose timer on a `WallJump` op and leaves
+    /// it untouched otherwise. Pins that an actor which wall-jumps arms the SAME
+    /// pose the player does (§A9 follow-up) — a future edit can't silently make
+    /// this player-only again.
+    #[test]
+    fn arm_movement_anim_overlays_arms_wall_jump_pose_on_wall_jump_op() {
+        let mut anim = BodyAnimFacts::default();
+
+        let mut plain = ae::FrameEvents::default();
+        plain.operations.push(ae::MovementOp::Jump);
+        arm_movement_anim_overlays(&mut anim, &plain);
+        assert_eq!(
+            anim.wall_jump_anim_timer, 0.0,
+            "a plain Jump op does NOT arm the wall-jump pose"
+        );
+
+        let mut wall = ae::FrameEvents::default();
+        wall.operations.push(ae::MovementOp::WallJump);
+        arm_movement_anim_overlays(&mut anim, &wall);
+        assert_eq!(
+            anim.wall_jump_anim_timer, WALL_JUMP_ANIM_HOLD_SECS,
+            "a WallJump op arms the push-off pose for the hold duration"
         );
     }
 }

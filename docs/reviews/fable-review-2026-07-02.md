@@ -2316,6 +2316,23 @@ frame-tracking strikes (the moveset's static-offset model is the one real downgr
 **PHASE 2:** fold the boss (`BossPattern`→move-sequencer; `BossAttackState` as a
 projection written from `MovePlayback`; retire `sync_boss_strike_hitboxes`).
 
+### E47. SUBSUMPTION LANDED — the moveset is the sole special executor ✅ (`04ddb532`)
+Jon chose subsumption; executed + green. Verified the flat `ActionSet.special →
+ActionRequest::Special` arm broke NOTHING live before deleting it: bosses dispatch via
+`dispatch_boss_special` (never the flat arm); the player's `Special("bubble_shield")` was
+VESTIGIAL (the shield is `BodyShieldState`; the bubble render reads shield-held, not a
+message); eye_beam-via-flat-arm was test-only. Landed: **retire** the flat arm in
+`ActionSet::resolve` (`ActionSet.special` is now a pure capability marker); **source** the
+PCA's `ActionSet.special` from its archetype `signature_move`; **Smash brain** fires its
+(previously dead) `SpecificAction::Special` while its melee recharges → the PCA uses
+Cellular Pulse through the moveset. Tests: the two `resolve` request-count pins now assert
+special emits NO flat request + a new `engage_on_cooldown_fires_the_signature_special`.
+Brain (96) + moveset/PCA + workspace `--all-targets` green. The AI cadence ships BLIND
+(Jon tunes against the landed system, not before it). **Next: Phase 2 — fold the boss onto
+the moveset** (the geometry frame-tracking downgrade is a feel detail Jon sweeps, so the
+fold uses multi-volume static windows + keeps the per-frame path only where a strike needs
+it).
+
 ## Next (in order) — **§A2, §B, §A8, §A9, and several §C items are DONE (E41–E43 verified against code).** The audit's TASK sections are stale; trust E-entries + a code re-check before working an item. Genuinely-open, autonomous-friendly: **B12** (targeting nearest-foe tiebreak DONE `147f5045` — min-Entity, order-independent; the portal first-qualifying half stays deferred per the audit "verify vs portal agent" caveat); **C7-residual** (`is_gnu_ton` render split-layers `boss.rs:79-109` → multi-part layering as boss-sheet data; and the rider name is still *parsed* from the spawn name — the FULL fix authors a rider-name LDtk field, needs `ambition_ldtk_tools`); **C9** (`CharacterBrainTemplate::Shark` → behavior name `ChargeCrash`, a mechanical rename across `SharkCfg`/`StateMachineCfg::Shark`/catalog preset). Larger / needs-Jon: **C1** (24-item `Item` enum → installable `ItemCatalog`, L, consumed across menu IR/yarn/persistence); **C4** (app-thinness boundary test + machinery `PlatformerEnginePlugin` group, L); **C6** (named-boss residue, M); **C2** (`HELD_ITEMS` static — NUANCED: most rows are generic engine-ability bindings, not replaceable content, so a bare move-to-content breaks engine tests and a bare install seam is speculative scaffolding — defer until a second game or a per-character loadout lands, e.g. the just-shipped [[project_starting_character]]); the **D-front** (`rooms`/`RoomSpec` content-coupling — Jon's call, unchanged below).
 
 ### Superseded (the prior D-focused Next; still accurate for the D-front) — **T2 clean read-model + D3 facade redirects DONE (E36/E37/E38).** D3's remaining reducers are all non-autonomous (need Jon's design input or are risky/unverifiable): the `rooms` extraction crux (RoomSpec content-coupling — Jon's call), the value-type→`ambition_sim_view` move (premature until the edge narrows), the boss-pose SIM-SIDE animator move (retires the `animate_bosses` write-back; presentation-unverifiable), and the category-D portal/dev/session system untangles. Recommend Jon adjudicate the `rooms`/`RoomSpec` content-coupling direction next (as he did the actors|props taxonomy). Deferred to Jon's feel pass: render/hurtbox baked-size convergence (~1.2% gap); the T1 placeholder color/z blind deltas (E35).

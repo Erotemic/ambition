@@ -208,6 +208,9 @@ impl bevy::prelude::Plugin for PresentationVisualAnimationPlugin {
         use bevy::prelude::{IntoScheduleConfigs, Update};
         deep_dream::add_puppy_slug_deep_dream_material_plugin(app);
         hit_flash::add_hit_flash_material_plugin(app);
+        // The per-actor pose read-model lives (and is rebuilt) presentation-side, so
+        // a headless / RL build never computes poses it won't draw.
+        app.init_resource::<ambition_gameplay_core::features::ActorAnimIndex>();
         app.add_systems(
             Update,
             (
@@ -220,8 +223,14 @@ impl bevy::prelude::Plugin for PresentationVisualAnimationPlugin {
                 // sits behind one-way platforms.
                 actors::apply_gnu_ton_body_z,
                 actors::upgrade_actor_sprites,
-                actors::refresh_player_sprites_on_game_assets_change,
-                actors::refresh_prop_sprites_on_game_assets_change,
+                // Grouped (parallel within their chain slot): player-sprite and
+                // prop-sprite quality refreshes touch disjoint entity families, so
+                // they need no order between them. Nesting also keeps this chained
+                // tuple within Bevy's 20-system arity after the pose-rebuild add.
+                (
+                    actors::refresh_player_sprites_on_game_assets_change,
+                    actors::refresh_prop_sprites_on_game_assets_change,
+                ),
                 actors::upgrade_boss_sprites,
                 // Attach the experimental material overlay after enemy sprite
                 // upgrade has produced a real atlas-backed Puppy Slug sprite.
@@ -232,6 +241,10 @@ impl bevy::prelude::Plugin for PresentationVisualAnimationPlugin {
                 // — same world-space sync pattern as deep_dream.
                 hit_flash::attach_hit_flash_overlays,
                 actors::animate_player,
+                // Rebuild the per-actor pose snapshot immediately before the
+                // renderer consumes it (chained), so poses reflect this frame's
+                // clusters. Presentation-only — headless/RL never runs this plugin.
+                ambition_gameplay_core::features::rebuild_actor_anim_index,
                 actors::animate_characters,
                 // Mirror the current atlas frame into the overlay after the
                 // character animator has advanced for this frame.

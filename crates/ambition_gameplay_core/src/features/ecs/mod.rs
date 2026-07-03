@@ -86,9 +86,9 @@ pub use aggression::{
     apply_actor_stimuli, tick_pending_challenges, PendingChallenge, CHALLENGE_GRACE_S,
 };
 pub use anim_helpers::{
-    ecs_actor_anim_state, ecs_boss_anim_state, ecs_boss_anim_state_and_entity,
-    ecs_boss_animation_frame_sample, ecs_boss_name, ecs_breakable_state, ecs_chest_opened,
-    ActorAnimFrame, ActorSpriteData,
+    ecs_boss_anim_state, ecs_boss_anim_state_and_entity, ecs_boss_animation_frame_sample,
+    ecs_boss_name, ecs_breakable_state, ecs_chest_opened, rebuild_actor_anim_index, ActorAnimFrame,
+    ActorAnimIndex, ActorSpriteData,
 };
 pub use banner::{apply_gameplay_banner_requests, tick_gameplay_banner};
 pub use boss_clusters::{

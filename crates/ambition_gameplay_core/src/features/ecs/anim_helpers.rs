@@ -59,19 +59,64 @@ pub struct ActorAnimFrame {
 // presentation no longer live-queries the actor clusters to bind a sprite. The
 // per-frame ANIM frame below stays a live read until slice B materializes it.
 
-/// Resolve ANY brain-driven actor's animation frame from its REAL ECS clusters —
-/// the SAME `Body*` movement/ability clusters, and the SAME picker, the player
+/// Materialized per-frame animation pose for every actor, keyed by
+/// [`FeatureId`] — the MOVING half of the actor read-model (`ActorAnimFrame` is
+/// `Copy`, so the rebuild just overwrites; a `String` allocates only for a
+/// genuinely new id). Presentation reads the pose by id and never borrows the
+/// actor clusters to animate. Because this pose is presentation-ONLY, its
+/// rebuild is registered in the render presentation plugin — NOT the sim
+/// schedule — so a headless / RL build never pays for poses it won't draw.
+#[derive(Resource, Default, Clone, Debug)]
+pub struct ActorAnimIndex {
+    frames: std::collections::HashMap<String, (ActorAnimFrame, u64)>,
+    generation: u64,
+}
+
+impl ActorAnimIndex {
+    pub fn get(&self, id: &str) -> Option<ActorAnimFrame> {
+        self.frames.get(id).map(|(frame, _)| *frame)
+    }
+
+    pub fn len(&self) -> usize {
+        self.frames.len()
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.frames.is_empty()
+    }
+
+    fn begin_rebuild(&mut self) {
+        self.generation = self.generation.wrapping_add(1);
+    }
+
+    fn end_rebuild(&mut self) {
+        let gen = self.generation;
+        self.frames.retain(|_, (_, g)| *g == gen);
+    }
+
+    fn insert(&mut self, id: &str, frame: ActorAnimFrame) {
+        let gen = self.generation;
+        if let Some(slot) = self.frames.get_mut(id) {
+            slot.0 = frame;
+            slot.1 = gen;
+        } else {
+            self.frames.insert(id.to_string(), (frame, gen));
+        }
+    }
+}
+
+/// Resolve EVERY brain-driven actor's animation frame from its REAL ECS clusters
+/// — the SAME `Body*` movement/ability clusters, and the SAME picker, the player
 /// uses ([`crate::character_sprites::pick_actor_anim`] → `body_view_from_clusters`).
 /// One path, disposition-agnostic: an enemy and an NPC animate from identical
 /// reads. Whatever a brain (or an LLM) drives the actor's clusters into — a dash,
 /// a blink, flight, a shield, a ladder climb, a wall-grab, a dodge-roll, a
 /// crouch/slide, an in-flight swing — animates with no per-archetype branch; the
-/// sheet's anim set decides how richly each pose reads.
-pub fn ecs_actor_anim_state(id: &str, actors: &Query<ActorSpriteData>) -> Option<ActorAnimFrame> {
-    actors.iter().find_map(|a| {
-        if a.feature_id.as_str() != id {
-            return None;
-        }
+/// sheet's anim set decides how richly each pose reads. The picked poses land in
+/// [`ActorAnimIndex`] for the renderer to consume by id.
+pub fn rebuild_actor_anim_index(mut index: ResMut<ActorAnimIndex>, actors: Query<ActorSpriteData>) {
+    index.begin_rebuild();
+    for a in &actors {
         let attacking = a.attack.is_active() || a.attack.is_winding_up();
         let anim = crate::character_sprites::pick_actor_anim(
             a.kin,
@@ -95,13 +140,17 @@ pub fn ecs_actor_anim_state(id: &str, actors: &Query<ActorSpriteData>) -> Option
                 aerial: a.config.tuning.is_aerial,
             },
         );
-        Some(ActorAnimFrame {
-            anim,
-            pos: a.kin.pos,
-            facing: a.kin.facing,
-            attacking,
-        })
-    })
+        index.insert(
+            a.feature_id.as_str(),
+            ActorAnimFrame {
+                anim,
+                pos: a.kin.pos,
+                facing: a.kin.facing,
+                attacking,
+            },
+        );
+    }
+    index.end_rebuild();
 }
 
 /// ECS chest-opened lookup for sprite swapping.

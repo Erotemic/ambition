@@ -204,7 +204,10 @@ pub fn animate_characters(
             Without<PropVisual>,
         ),
     >,
-    ecs_actors: Query<ambition_gameplay_core::features::ActorSpriteData>,
+    // Materialized per-actor pose read-model (built by `rebuild_actor_anim_index`
+    // in the render presentation chain just before this system) — the renderer
+    // animates from a snapshot, no longer borrowing the live actor clusters.
+    anim_index: Res<ambition_gameplay_core::features::ActorAnimIndex>,
     // Localized gravity, so an enemy/NPC wall-walking or on a flipped-gravity
     // ceiling flips the right way (the same gravity-aware facing the player got).
     gravity: ambition_gameplay_core::physics::GravityCtx,
@@ -221,9 +224,7 @@ pub fn animate_characters(
         // ONE actor path — enemy and NPC alike resolve through the SAME picker the
         // player uses, built from the actor's real `Body*` clusters. An actor
         // attacks when its `BodyMelee` is active, whatever its disposition.
-        let Some(frame) =
-            ambition_gameplay_core::features::ecs_actor_anim_state(&visual.id, &ecs_actors)
-        else {
+        let Some(frame) = anim_index.get(&visual.id) else {
             continue;
         };
         // Hit feedback is drawn by the white-silhouette overlay in

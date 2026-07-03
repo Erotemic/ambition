@@ -102,81 +102,73 @@ that correctness emerges through elegance.**
 
 ---
 
-## 2. WHERE THINGS STAND (what the last session landed — all green)
+## 2. WHERE THINGS STAND (the ground you build on — all green)
 
-Full `cargo test --workspace` = **42 suites green**; the ONE red suite is a
-**pre-existing** bug, see §5. The moveset went from dead scaffolding to the live
-special/technique system:
+Full `cargo test --workspace` = **92 suites green**; the ONE red suite is a
+**pre-existing** determinism bug, see §5. The moveset is the live executor for
+**specials** (actor + boss) and **melee** (every non-boss actor):
 
-- **§A safe convergence** landed: A9-fu (actor overlay-pose arming), A10 parry
-  (shielding actors reflect shots), A1-3e (one boss-special dispatch), A7 self-view
-  (real faction/relations/can_fire), shared `BodyCombat::decay_reaction_timers`.
-- **The moveset is LIVE**: `combat::moveset` has `ActorMoveset(MovesetContract)` +
-  `trigger_moveset_moves` (a control verb edge starts a move) + `dispatch_move_events`
-  (`Sfx{cue}`→sound; `Effect{key}`→bridges to `ActorActionMessage::Special{Special(key)}`
-  → the existing content-technique seam). Registered in `app/combat_schedule.rs`.
-- **Data-driven characters**: the PCA (`cellular_automaton_fighter`) authors "Cellular
-  Pulse" and the player-robot authors the 2-hit combo "Theorem Chain", both entirely
-  in `crates/ambition_content/assets/data/character_archetypes.ron` via the new
-  `CharacterArchetypeSpec.signature_move: Option<MovesetContract>`.
-- **SUBSUMPTION**: the flat `ActionSet.special → ActionRequest::Special` arm in
-  `ActionSet::resolve` is DELETED. The moveset is the SOLE special executor;
-  `ActionSet.special` is now a pure capability marker.
-- **Moveset expressivity is complete**: multi-hit combos (multiple Active windows) +
-  **held/sustained effects** (`MoveWindow.sustain_effect: Option<String>` emits
-  `Effect{key}` every active frame — the primitive a continuous special needs).
-- **Boss SPECIAL fold**: `boss_special_moveset(cap)` generates a sustain-move per boss
-  `Special(key)`; `trigger_boss_special_moves` starts it while that profile is
-  `active_profile`. `dispatch_boss_special` DELETED. The boss special path == the
-  actor's.
+- The moveset runtime lives in `crates/ambition_gameplay_core/src/combat/moveset.rs`
+  (`MovePlayback` + `advance_move_playback` on the owner's proper time;
+  `ActorMoveset(MovesetContract)` + `trigger_moveset_moves`; `dispatch_move_events`:
+  `Sfx{cue}`→sound, `Effect{key}`→bridge to `ActorActionMessage::Special{Special(key)}`).
+- **Specials** are fully subsumed: the flat `ActionSet.special → ActionRequest::Special`
+  arm is DELETED; the boss special path == the actor's (`dispatch_boss_special` deleted).
+- **Actor MELEE is subsumed** (just landed): a body's basic swing is a data-driven
+  `"attack"` move (`attack_move_from_melee` / `build_actor_moveset`), triggered on
+  `melee_pressed`; a `MovesetMelee` marker retires the flat `BodyMelee` swing and
+  `project_moveset_melee_to_body_melee` projects the `BodyMelee` read-model from the live
+  move so every consumer (anim/telegraph/HUD/tests) keeps working. Hostile AND peaceful
+  spawn paths fold.
 - **Autonomous special-firing cadence is OFF on purpose** (a naive version spammed the
-  move and broke a regroup test — see the code note in `smash/action.rs` Engage arm).
-  This is exactly the kind of feel/AI tuning Jon will do later; the *architecture*
-  (moveset is the executor) is landed.
+  move; `smash/action.rs` Engage arm). Feel/AI tuning for Jon later; the architecture is
+  landed.
 
-Read the full blow-by-blow in **`docs/reviews/fable-review-2026-07-02.md`**, the
-execution log entries **E41–E48** at the bottom, and the boss-fold design in
-**`docs/reviews/boss-moveset-fold-design.md`**.
+Deferred-tuning + the two open **genuine forks** (player-melee fold, ranged subsumption)
+are recorded in the **BULK REVIEW QUEUE** at the top of
+`docs/reviews/fable-review-2026-07-02.md`. That doc's E-log (through **E50**) has the
+blow-by-blow; the boss-fold design is in `docs/reviews/boss-moveset-fold-design.md`.
 
 ---
 
 ## 3. YOUR WORK — in order, do NOT stop between items
 
-### 3a. FIRST: the MELEE SUBSUMPTION (the big one)
-Make the moveset the melee system too, exactly as it became the special system.
-- Actor melee today: brain `melee_pressed` → `ActionSet::resolve` → `ActorActionMessage::Melee` →
-  `combat::attack::start_body_melee` → `BodyMelee`/`MeleeSwing` + `combat::hitbox::spawn_melee_strike`.
+### 3a. FIRST: the BOSS-GEOMETRY FOLD (the big one — the last actor-melee piece)
+Specials + non-boss-actor melee are already on the moveset (§2). What's left of "the
+moveset is the melee system too" is the boss's GEOMETRY strikes — now UNBLOCKED (the
+moveset is proven on actor melee; this is Path B Phase 1/2 in `boss-moveset-fold-design.md`).
 - Boss geometry strikes today: `features/ecs/bosses/tick.rs::sync_boss_strike_hitboxes`
-  reads `BossAttackState.active_profile` → `active_attack_volumes` → per-tick hitboxes.
-- **Target shape:** a body's melee is a data-authored moveset move on the `"attack"`
-  verb (Active window(s) with `HitVolume`s). `trigger_moveset_moves` already fires the
-  `"attack"` verb. Retire the flat melee resolution + `spawn_melee_strike`. `BodyMelee`
-  is read by **20+ consumers** (render anim, HUD, trace, sprite anim, combat,
-  view_index…) — the elegant move is to make `BodyMelee` (or its `is_active()`/timing)
-  a **read-model PROJECTION derived from the live `MovePlayback`** so those consumers
-  keep working, then migrate them off it opportunistically. Convert each
-  `MeleeActionSpec` (Swipe/Lunge/Slam/Bite/PunchWeak windup/active/recover) into a
-  `MoveSpec` (Startup/Active-with-volume/Recovery). Author the actor's melee move in
-  its archetype like the specials. Boss geometry profiles convert to Active-window
-  volumes; the world-space / frame-tracking geometry is a **parameterizable detail** —
-  approximate it with static body-local volumes now, note "boss strike geometry
-  fidelity" in the bulk-review list, move on. **This is the biggest single refactor
-  left; do it as a series of green, test-gated commits.**
+  reads `BossAttackState.active_profile` → `active_attack_volumes` → per-tick hitboxes;
+  `BossAttackState` (~126 consumers) is OWNED by the brain's `BossPattern` cursor.
+- **Target shape:** each boss `BossPattern` becomes moveset moves; the pattern becomes a
+  move-SEQUENCER that inserts `MovePlayback`; `BossAttackState` flips from timing-OWNER to
+  a **read-model PROJECTION derived from the live `MovePlayback`** so its consumers keep
+  working; retire `sync_boss_strike_hitboxes`. Mirror the actor-melee projection pattern
+  (`project_moveset_melee_to_body_melee`). The world-space / frame-tracking multi-part
+  geometry (GNU-ton's hands) is a **parameterizable detail** — approximate with static
+  body-local volumes now, note "boss strike geometry fidelity" in the bulk-review list.
+- **The honest scope note:** the design doc + the moveset memory both flag this as an
+  **all-at-once-per-boss** refactor (the boss's continuous+pattern-timed model doesn't
+  partially route) that touches 13 boss suites — so it is the biggest single refactor
+  left. Do it as green, test-gated commits; if you cannot reach a green checkpoint within
+  a slice, that is the ONE place to be conservative rather than leave a red tree.
 
 ### 3b. THEN: every other UNBLOCKED item in the fable-review "Next" list.
-Open `docs/reviews/fable-review-2026-07-02.md`, find the "## Next" section, and work
-the genuinely-open, autonomous-friendly items. **The task descriptions in §A/§B/§C
-are STALE — trust the E-log and re-verify against code before working any item.**
-Known live ones (re-verify each): **C7-residual** (`is_gnu_ton` render split-layers →
-boss-sheet data), **C9** (`CharacterBrainTemplate::Shark` → `ChargeCrash` rename),
-**C6** (named-boss residue), **C4** (app-thinness boundary test +
-`PlatformerEnginePlugin` group), **C1** (24-item `Item` enum → installable
-`ItemCatalog`), **A7** (perception: make `WorldView`+`WorldMemory` the only world-out;
-wire peers/projectiles; migrate brains off `BrainSnapshot.target_pos`), the boss
-GEOMETRY + `BossAttackState`→projection remainder of the boss fold, and the
-ranged-subsumption (actor ranged → moveset). If an item turns out to need a genuine
-Jon-only design fork (§0.4), record it and skip to the next — **do not let one fork
-stall the run.**
+Open `docs/reviews/fable-review-2026-07-02.md`, find the "## Next" section, and work the
+genuinely-open, autonomous-friendly items. **The task descriptions in §A/§B/§C are STALE —
+trust the E-log (through E50) and re-verify against code before working any item.** Known
+live ones (re-verify each): **C7-residual** (`is_gnu_ton` render split-layers → boss-sheet
+data; the mount/rider-name half needs `ambition_ldtk_tools`), **C6** (named-boss residue,
+entangled with the boss-geometry fold), **C4** (app-thinness boundary test +
+`PlatformerEnginePlugin` group), **C1** (24-item `Item` enum → installable `ItemCatalog`),
+**A7** (perception: make `WorldView`+`WorldMemory` the only world-out; wire peers/projectiles;
+migrate brains off `BrainSnapshot.target_pos`).
+
+The two open **genuine forks** (in the BULK REVIEW QUEUE) — the **player-melee fold**
+(directional + pogo; pogo would pollute the content-free move runtime — wants a separate
+player-physics reader) and the **ranged subsumption** (dynamic aim vs facing-lock) — are
+Jon's to adjudicate. Pick a default and route around per §0.4; **do not let one fork stall
+the run.**
 
 ### The rule for the whole run
 Loop: pick the next unblocked item → implement it elegantly, headless →

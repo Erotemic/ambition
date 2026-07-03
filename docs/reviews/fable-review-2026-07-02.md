@@ -779,11 +779,13 @@ REVERTED (E24)** — Jon flagged the read-model taxonomy (`FeatureVisualKind`) a
 the premature tiny crate; **D3 is now BLOCKED on fable adjudicating the `actors`
 vs `props` taxonomy** (see JON'S DESIGN FEEDBACK near the top) + a decision to
 materialize the full read-model (what gives a sim-view crate real meat AND
-enables the edge-cut). Independent open items that DON'T depend on that:
-**D4** (`ambition_world` — `RoomGeometry` ×27 is render's single biggest
-gameplay_core import), **A1 slice 3** (boss driver fold), the **features/mod.rs
-hub**. All work is committed linearly on main; the tree is green (counts in the
-verify block below).
+enables the edge-cut). **§D4 STARTED** (E25/E26): scoped (bigger than audited — the LDtk converter is
+the crux) and **D4.1 DONE** — `RoomGeometry` re-homed to `engine_core` (the
+world-extraction linchpin; render shed its ×27 coupling). Remaining D4 is
+multi-session (platforms/physics extract, converter extensibility, rooms
+inversions). Other independent open items: **A1 slice 3** (boss driver fold), the
+**features/mod.rs hub**. All work is committed linearly on main; the tree is green
+(counts in the verify block below).
 
 **Verify before you start** (and after every change):
 ```bash
@@ -1425,7 +1427,30 @@ Once the home is set: D4.1 re-home `RoomGeometry` (unblocks all of `world/` +
 lands the biggest D3 render win), then platforms/physics extract cleanly, then the
 converter-extensibility + rooms inversions are the multi-session remainder.
 
-## Next (in order) — D4.1 re-home `RoomGeometry` (pending home-confirm) / A1 slice 3 / D3 blocked on `actors|props`
+### E26. D4.1 — `RoomGeometry` re-homed to `ambition_engine_core` ✅ (`0eac4cfa`)
+Jon confirmed the home (engine_core, as-is). Moved the `Resource(World)` newtype
+next to `World` in `engine_core::world` (native `bevy_ecs::resource::Resource`
+derive — engine_core already derives the Body* Components). All ~99 consumer refs
+(gameplay_core 48, render 27, content 14, app 10) now name
+`ambition_engine_core::RoomGeometry` directly; the gameplay_core crate-root facade
+is DELETED. Word-boundary sweep + 9 grouped-import splits (incl. a multi-line
+group in `combat/damage.rs` the sed skipped — the recurring lesson). Zero Cargo
+changes (all consumers already dep engine_core). **Payoff banked:** render shed
+its single biggest gameplay_core coupling (×27) toward the D3 edge-cut, and
+`world/` extraction is unblocked (RoomGeometry no longer pins platforms/physics/
+rooms to gameplay_core). Verified: engine_core 211, gameplay_core 1091, render 24,
+content+app build incl every test target, ten app integration suites green.
+
+**D4 remainder (multi-session, unchanged shape):** (D4.2) extract `platforms`+
+`physics` — now free of the RoomGeometry pin, but still touch `world::rooms`
+specs + the `MovingPlatformSet` crate-root Resource + `platformer_runtime`, so
+they land WITH rooms or need those handled. (D4.3) the LDtk-**converter
+extensibility** refactor (content-registered entity converters — the real crux,
+ADR-0009-shaped). (D4.4) the rooms→player/features inversions (RoomTransitioned
+message; decouple the 18-param `load_room_geometry`). These are the bulk; each is
+its own slice.
+
+## Next (in order) — D4.2 platforms/physics extract / D4.3 LDtk converter extensibility (crux) / A1 slice 3 / D3 blocked on `actors|props`
 
 **§A2 is COMPLETE** (E10–E13). The victim-side damage path is ONE resolver +
 ONE reaction for every body; per-body policy is the only fork left.

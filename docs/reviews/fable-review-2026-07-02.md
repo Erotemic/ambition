@@ -1878,7 +1878,44 @@ swaps. Then delete `BossMut::integrate_body` + `step_floating_body` (last holdou
 Golden trajectory pin (capture current SNAP path, assert flight-limb path matches
 within tight tolerance) makes it verified, not blind.
 
-## Next (in order) — A1 slice 3: AS4b spec-parity pin → AS4b size flip → AS4c flight-limb integration → 3b per **AD2 (adjudicated)** → 3e/3f/3g (+the AD1-T1 taxonomy collapse rides 3f or lands independently) / **D3 UNBLOCKED per AD1** (T1 enum collapse, then T2 read-model materialization → re-create sim_view) / D4.2 platforms+physics extract / D4.3 LDtk converter extensibility (crux, confirmed worth it)
+### E33. A1 slice 3 — archetype swap AS4b + AS4c LANDED: the boss body is an aerial actor ✅
+Per fable AD3. The boss BODY now moves through the ONE shared movement seam.
+- **AS4b** (`601496c2`) — `kin.size` IS the collision envelope (`combat_size`); the
+  sprite RENDER-BASIS moved to `BossEncounter.render_size` (the LDtk seed the sheet
+  scales the drawn quad from). The AD3 spec-parity pin REVEALED that the render draws
+  from BAKED sheet dims while the const `render_size` uses const dims, and they
+  DIVERGE for real bosses (gradient sentinel is really 256×253, not 128×128) — so a
+  const-derived render size would resize sprites. Chosen fix: store the seed basis +
+  let the render keep `spec.render_size(seed)` → byte-identical. (The pin is now a
+  standing characterization guard; the render/hurtbox const-vs-baked gap is a latent
+  bug to converge in a separate blind slice.) Byte-identical: gameplay_core 1092,
+  boss geometry/hurtbox suites green.
+- **AS4a** (`d7325681`) — engine `flight_direct_velocity` (default-off, canary-safe):
+  the flight limb takes `stick × terminal` verbatim, byte-identical to SNAP.
+- **AS4c** (`28bdf71d`) — new `integrate_boss_bodies` arm (boss sibling of the
+  player's `integrate_home_body`; scheduled brain-tick → arm → presentation) routes
+  the brain's `velocity_target` through `ActorMut::update` → the shared flight limb in
+  direct-velocity mode, self-heals `kin.size` to the collision envelope, publishes the
+  render-basis `CenteredAabb`. `update_ecs_bosses` is now presentation + attack-damage
+  publish only. **boss_motion_parity green** — the boss floats + moves correctly
+  through the flight limb. Wall-collision sweep now goes through the shared pipeline
+  (was `step_kinematic`) — a deliberate convergence, velocity byte-identical, in Jon's
+  feel-check queue (AD5).
+
+**Follow-ups (net-LOC-down + AD-driven):**
+- Delete the old boss float (`BossMut::integrate_body` + `step_floating_body`, now
+  production-unused) once the `boss_stops_at_wall` unit test migrates to an ECS-level
+  flight-limb wall-stop harness. (The old path is test-only scaffolding now.)
+- **3b per AD2** — generalize a `FrameDrivenHitbox` in the combat layer; fold boss
+  contact onto `apply_actor_contact_damage` (flip the boss cluster's
+  `body_contact_damage` false→true from `behavior.body_damage` in the same commit);
+  delete `boss_attack_damage`. Ships blind + new frame-tracking test.
+- Converge render + hurtbox on ONE true (baked) render size — fixes the latent
+  const-vs-baked gap the AS4b pin documents (AD3 "fix regardless"; blind, tiny).
+- **AD1-T1** — collapse `FeatureVisualKind` actor variants to one `Actor`; the boss
+  render can then read `ActorRenderSize` on the unified actor sprite-upgrade path.
+
+## Next (in order) — A1 slice 3 follow-ups: delete old boss float (migrate boss_stops_at_wall) → 3b per **AD2** → render/hurtbox baked-size convergence → **AD1-T1** taxonomy collapse (+**D3 UNBLOCKED per AD1**: T1 enum collapse, then T2 read-model → re-create sim_view) / D4.2 platforms+physics extract / D4.3 LDtk converter extensibility (crux, confirmed worth it)
 
 **§A2 is COMPLETE** (E10–E13). The victim-side damage path is ONE resolver +
 ONE reaction for every body; per-body policy is the only fork left.

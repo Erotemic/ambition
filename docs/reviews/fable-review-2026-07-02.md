@@ -35,9 +35,10 @@ sensible default and note it here for deferred tuning.** Two kinds of entries:
     `ActorFaction`, not `effective_faction(faction, brain)`. Possession tests pass
     (possessed actors flip faction), but verify a possessed enemy's swing hits the
     right side under every possession path.
-  - **Peaceful NPCs with a melee spec keep the flat path** (only the hostile spawn
-    path folds melee → moveset today). Uniform fold is a follow-up if a peaceful-kit
-    NPC's melee needs the moveset.
+  - **Uniform fold DONE:** both hostile AND peaceful-NPC spawn paths now fold melee →
+    moveset (a possessed peaceful NPC's swing runs through the moveset too). Bosses
+    (geometry strikes) are the only actor melee still off the moveset — a separate
+    focused effort (see the boss-geometry fold note).
   - **Duel-arena AI cadence shifted:** routing the swing through the moveset move
     (0.42s player-robot / 0.62s PCA, gated `Without<MovePlayback>`) re-weighted the
     fighters — the player-robot now regroups flight-heavy (fly 731/1800 frames) and

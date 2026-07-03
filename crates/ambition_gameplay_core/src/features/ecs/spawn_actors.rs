@@ -443,6 +443,12 @@ impl NpcActorSpawnPlan {
         };
         let (identity, disposition, combat, intent, cooldowns) =
             super::actors::actor_component_snapshot(&self.seed, super::ActorDisposition::Peaceful);
+        // Uniform melee subsumption (§A1/§3a): a peaceful NPC carries its combat
+        // kit's melee as body CAPABILITY (for possession / provocation), so fold it
+        // into a moveset `"attack"` move like every hostile — a possessed peaceful
+        // NPC's swing runs through the SAME moveset runtime, not the flat path.
+        let npc_moveset =
+            crate::combat::moveset::build_actor_moveset(None, self.action_set.melee.as_ref());
         let cluster_bundle = self.seed.into_components();
         let mut entity = commands.spawn((
             Name::new(self.entity_name),
@@ -468,6 +474,15 @@ impl NpcActorSpawnPlan {
             ambition_characters::brain::ActorControl::default(),
         ));
         entity.insert(interaction);
+        if let Some(moveset) = npc_moveset {
+            let has_attack = moveset
+                .verbs
+                .contains_key(crate::combat::moveset::ATTACK_VERB);
+            entity.insert(crate::combat::moveset::ActorMoveset(moveset));
+            if has_attack {
+                entity.insert(crate::combat::moveset::MovesetMelee);
+            }
+        }
         if let Some(size) = render_size {
             entity.insert(crate::features::ActorRenderSize(size));
         }

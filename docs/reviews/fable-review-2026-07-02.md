@@ -758,15 +758,15 @@ resolver), **4 of ~5 D1 facades** removed (config/effects/audio/time — only th
 `features/mod.rs` hub remains), and **§D2 COMPLETE** (E20/E21:
 `Body{Health,Combat,Wallet}` re-homed to `ambition_characters::actor::body`, all
 ~200 consumers redirected, the whole gameplay_core facade chain deleted), and
-**§D3 IN PROGRESS** (E22/E23): D3.1 (render names foundation crates directly for
-body vocab) + **D3.2a DONE** — the `ambition_sim_view` crate now exists and holds
-the pure-data read-model core (`FeatureView`/`FeatureVisualKind`/
-`BoundFeatureKind`/`FeatureCombatTuning`); render reads them there directly. The
-full render→gameplay_core edge-cut is scoped into a slice sequence (E22). The
-biggest open items are now **D4** (`ambition_world` — `RoomGeometry` ×27 is
-render's single biggest gameplay_core import, the largest single edge reducer),
-**D3.2b** (redirect gameplay_core's own refs off the sim_view re-export),
-**A1 slice 3** (the boss driver fold — multi-session), and the **features/mod.rs
+**§D3 IN PROGRESS** (E22–E24): D3.1 DONE (render names foundation crates directly
+for body vocab — clean + independent). **D3.2a (sim_view crate) was tried and
+REVERTED (E24)** — Jon flagged the read-model taxonomy (`FeatureVisualKind`) and
+the premature tiny crate; **D3 is now BLOCKED on fable adjudicating the `actors`
+vs `props` taxonomy** (see JON'S DESIGN FEEDBACK near the top) + a decision to
+materialize the full read-model (what gives a sim-view crate real meat AND
+enables the edge-cut). Independent open items that DON'T depend on that:
+**D4** (`ambition_world` — `RoomGeometry` ×27 is render's single biggest
+gameplay_core import), **A1 slice 3** (boss driver fold), the **features/mod.rs
 hub**. All work is committed linearly on main; the tree is green (counts in the
 verify block below).
 
@@ -1347,7 +1347,7 @@ CameraSnapshot2d. → (D3.6) untangle category-D systems. → (D3.7) drop the
 `ambition_gameplay_core` dep from render's Cargo.toml — the lever fires. This is
 the same "move a family to its leaf home, then redirect" template D2 proved.
 
-### E23. D3.2a — `ambition_sim_view` crate created; pure-data read-model core moved ✅
+### E23. D3.2a — `ambition_sim_view` crate created; pure-data read-model core moved ⟲ REVERTED (see E24)
 Created the leaf crate (`crates/ambition_sim_view`, deps: `ambition_engine_core`
 + `bevy` ECS-derive only) and moved the pure-data read-model core out of
 `combat/events.rs`: `FeatureVisualKind`, `FeatureView`, `BoundFeatureKind`,
@@ -1370,7 +1370,25 @@ full honesty — deferred; behavior-neutral, no render-edge impact.
 Verified: sim_view builds, gameplay_core 1091, render 24, content+app build incl
 every test target, the ten app integration suites green.
 
-## Next (in order) — D3.2b (internal redirect) / D4 ambition_world (RoomGeometry, biggest reducer) / A1 slice 3
+### E24. D3.2a REVERTED (`4a36011b`) — premature; blocked on Jon's taxonomy feedback ⟲
+Jon flagged the move (see **JON'S DESIGN FEEDBACK** near the top): (a) a closed
+Ambition content taxonomy (`FeatureVisualKind`) does not belong in a crate billed
+"reusable/content-free" — my labeling error; (b) the deeper `actors` vs `props`
+rethink means `FeatureView.kind` itself is about to change shape, so extracting
+the type that EMBEDS it was premature ("right shape first / reorganize don't
+adapt"); (c) a ~120-line leaf crate that doesn't yet enable the edge-cut (render
+still deps gameplay_core for the query-view read-model `ActorSpriteData` /
+`FeatureViewIndex`) hasn't earned its keep. Honest read: the crate only gets
+"meat" AND enables the cut once the FULL read-model is **materialized** (the
+`ecs_*` query accessors → materialized per-actor snapshot data render reads) —
+that's the real D3 work, and its shape depends on the taxonomy. So D3.2a is
+`git revert`-ed; **D3.1 stays** (render→foundation redirect, independent + clean).
+`[opus-4.8[1m]]` The sim-view abstraction is likely still right EVENTUALLY, but
+gated on: (1) fable adjudicating `actors|props`, (2) committing to the read-model
+materialization so the crate has real substance. Verified green after revert:
+gameplay_core 1091, render 24, all crates+tests build.
+
+## Next (in order) — BLOCKED on fable's `actors|props` call; meanwhile D4 ambition_world (RoomGeometry, independent) or A1 slice 3
 
 **§A2 is COMPLETE** (E10–E13). The victim-side damage path is ONE resolver +
 ONE reaction for every body; per-body policy is the only fork left.

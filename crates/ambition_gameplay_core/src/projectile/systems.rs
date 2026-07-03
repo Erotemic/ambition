@@ -31,6 +31,31 @@ use ambition_vfx::vfx::VfxMessage;
 const PROJECTILE_REFLECT_SPEED_SCALE: f32 = 1.3;
 /// Health a successful parry restores (a reason to parry rather than dodge).
 const PARRY_HEAL: i32 = 1;
+
+/// Body-generic projectile PARRY reflect: a timed shield RE-OWNS the shot to the
+/// parrying body (so its firer faction becomes the parrier's next tick → damage
+/// routes off the parrier, back at whoever it feuds with) and reverses+boosts the
+/// velocity. Re-owning — not flipping a faction label — is how a reflected shot
+/// becomes the parrier's attack now that damage is owner-driven. The SAME mechanic
+/// for the player and any shielding actor (a possessed body, a mixed-faction
+/// duelist); the player's parry HEAL stays a player-facing reward at the call site
+/// (fable review 2026-07-02 §A10).
+fn reflect_parried_shot(
+    commands: &mut Commands,
+    proj_entity: Entity,
+    kin: &mut BodyKinematics,
+    parrier: Entity,
+    sfx: &mut MessageWriter<SfxMessage>,
+    vfx: &mut MessageWriter<VfxMessage>,
+) {
+    commands.entity(proj_entity).insert(ProjectileOwner(parrier));
+    kin.vel = -kin.vel * PROJECTILE_REFLECT_SPEED_SCALE;
+    sfx.write(SfxMessage::Play {
+        id: ambition_sfx::ids::WORLD_ROCK_HIT,
+        pos: kin.pos,
+    });
+    vfx.write(VfxMessage::Impact { pos: kin.pos });
+}
 const PLAYER_PROJECTILE_MUZZLE_CLEARANCE: f32 = 4.0;
 
 fn player_projectile_local_fire_dir(aim_local: ae::Vec2, facing: f32) -> ae::Vec2 {
@@ -505,7 +530,12 @@ pub fn step_projectiles(
     //   bolt). Read-only, so it may overlap `actor_victims`.
     (actor_victims, owner_combat): (
         Query<
-            (Entity, &CenteredAabb, &ActorFaction),
+            (
+                Entity,
+                &CenteredAabb,
+                &ActorFaction,
+                Option<&crate::actor::BodyShieldState>,
+            ),
             (With<FeatureSimEntity>, Without<BossConfig>),
         >,
         Query<(&ActorFaction, Option<&ActorAggression>)>,
@@ -645,15 +675,16 @@ pub fn step_projectiles(
                 // reflected shot becomes the player's attack now that damage is
                 // owner-driven.
                 if shield.parrying() {
-                    commands
-                        .entity(proj_entity)
-                        .insert(ProjectileOwner(player_entity));
-                    kin.vel = -kin.vel * PROJECTILE_REFLECT_SPEED_SCALE;
-                    sfx.write(SfxMessage::Play {
-                        id: ambition_sfx::ids::WORLD_ROCK_HIT,
-                        pos: kin.pos,
-                    });
-                    vfx.write(VfxMessage::Impact { pos: kin.pos });
+                    reflect_parried_shot(
+                        &mut commands,
+                        proj_entity,
+                        &mut kin,
+                        player_entity,
+                        &mut sfx,
+                        &mut vfx,
+                    );
+                    // Player-facing reward policy — the reflect mechanic above is
+                    // shared with actors; only the player heals on parry.
                     heals.write(crate::player::PlayerHealRequested::new(PARRY_HEAL));
                     reflected = true;
                     break;
@@ -712,7 +743,8 @@ pub fn step_projectiles(
             // overlapping actor its firer is hostile to (e.g. a Boss-faction
             // body in a spectator arena), pre-resolved to that exact entity.
             let mut hit_any_actor = false;
-            for (victim_entity, victim_aabb, victim_faction) in &actor_victims {
+            let mut reflected_by_actor = false;
+            for (victim_entity, victim_aabb, victim_faction, victim_shield) in &actor_victims {
                 if Some(victim_entity) == owner_entity {
                     continue;
                 }
@@ -736,6 +768,22 @@ pub fn step_projectiles(
                 if !kin.aabb().strict_intersects(victim_aabb.aabb()) {
                     continue;
                 }
+                // Parry: a shielding actor (a possessed body, a mixed-faction
+                // duelist) reflects the shot through the SAME re-own mechanic the
+                // player uses — the shot survives as the parrier's bolt, back at its
+                // foes (§A10). No heal: the parry-heal is player reward policy.
+                if victim_shield.is_some_and(|s| s.parrying()) {
+                    reflect_parried_shot(
+                        &mut commands,
+                        proj_entity,
+                        &mut kin,
+                        victim_entity,
+                        &mut sfx,
+                        &mut vfx,
+                    );
+                    reflected_by_actor = true;
+                    break;
+                }
                 feature_damage.write(HitEvent {
                     volume: kin.aabb().into(),
                     damage: game.damage.max(1),
@@ -750,6 +798,10 @@ pub fn step_projectiles(
                 vfx.write(VfxMessage::Impact { pos: kin.pos });
                 hit_any_actor = true;
                 break;
+            }
+            // A shot an actor parried survives as that actor's bolt (keep flying).
+            if reflected_by_actor {
+                continue;
             }
             if hit_any_actor {
                 commands.entity(proj_entity).despawn();
@@ -796,5 +848,63 @@ pub fn step_projectiles(
             }
             WorldHitOutcome::Continue => {}
         }
+    }
+}
+
+#[cfg(test)]
+mod parry_tests {
+    use super::*;
+
+    #[derive(Resource)]
+    struct Parrier(Entity);
+
+    fn reflect_the_shot(
+        mut commands: Commands,
+        parrier: Res<Parrier>,
+        mut sfx: MessageWriter<SfxMessage>,
+        mut vfx: MessageWriter<VfxMessage>,
+        mut shots: Query<(Entity, &mut BodyKinematics)>,
+    ) {
+        for (proj, mut kin) in &mut shots {
+            reflect_parried_shot(&mut commands, proj, &mut kin, parrier.0, &mut sfx, &mut vfx);
+        }
+    }
+
+    /// The body-generic parry reflect — the ONE mechanic the player parry and the
+    /// new actor parry both call (§A10) — re-owns the shot to the parrying body and
+    /// reverses + boosts its velocity, so a reflected shot becomes the parrier's own
+    /// bolt (damage routes off the parrier's faction next tick) whether a player or
+    /// a shielding actor caught it. Pins that a future edit can't make the reflect
+    /// re-own to a hardcoded player again.
+    #[test]
+    fn reflect_re_owns_the_shot_to_the_parrier_and_reverses_velocity() {
+        let mut app = App::new();
+        app.add_message::<SfxMessage>();
+        app.add_message::<VfxMessage>();
+        let parrier = app.world_mut().spawn_empty().id();
+        let proj = app
+            .world_mut()
+            .spawn(BodyKinematics {
+                pos: ae::Vec2::ZERO,
+                vel: ae::Vec2::new(100.0, -40.0),
+                size: ae::Vec2::new(8.0, 8.0),
+                facing: 1.0,
+            })
+            .id();
+        app.insert_resource(Parrier(parrier));
+        app.add_systems(Update, reflect_the_shot);
+        app.update();
+
+        let world = app.world();
+        let owner = world
+            .get::<ProjectileOwner>(proj)
+            .expect("the parried shot is re-owned to the parrier");
+        assert_eq!(owner.0, parrier, "re-owned to the body that parried it");
+        let kin = world.get::<BodyKinematics>(proj).unwrap();
+        assert_eq!(
+            kin.vel,
+            ae::Vec2::new(-100.0, 40.0) * PROJECTILE_REFLECT_SPEED_SCALE,
+            "velocity reversed and boosted by the reflect scale"
+        );
     }
 }

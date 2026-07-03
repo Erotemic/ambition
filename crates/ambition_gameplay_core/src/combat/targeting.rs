@@ -263,7 +263,18 @@ pub fn select_actor_targets(
                 continue;
             }
             let d = distance_squared(*pos, actor_pos);
-            if best.map(|(_, _, bd)| d < bd).unwrap_or(true) {
+            // Deterministic nearest-foe selection: on an EXACT distance tie, prefer
+            // the lower `Entity` so the chosen target is independent of the
+            // (unstable) Query iteration order — RL/replay must not diverge on a
+            // symmetric two-foe setup (fable review 2026-07-02 §B12; the
+            // query-order-determinism rule). Entity is reproducible within a
+            // deterministic sim; a content-stable id is only needed for cross-build
+            // identity, which nearest-foe targeting does not require.
+            let better = match best {
+                None => true,
+                Some((best_entity, _, best_d)) => d < best_d || (d == best_d && *entity < best_entity),
+            };
+            if better {
                 best = Some((*entity, *pos, d));
             }
         }
@@ -427,6 +438,31 @@ mod tests {
         let target = app.world().entity(enemy).get::<ActorTarget>().unwrap();
         assert_eq!(target.pos, ae::Vec2::new(500.0, 100.0));
         assert_eq!(target.entity, Some(p2));
+    }
+
+    #[test]
+    fn nearest_foe_tie_breaks_to_lower_entity_deterministically() {
+        // Two foes EXACTLY equidistant from the actor (x=100 and x=500 vs an
+        // enemy at x=300 → both distance² 40000). The chosen target must be the
+        // lower `Entity`, independent of the (unstable) Query iteration order —
+        // a symmetric two-foe setup must not diverge across runs (§B12).
+        let mut app = App::new();
+        let p1 = spawn_player(&mut app, 0, true, ae::Vec2::new(100.0, 100.0));
+        let p2 = spawn_player(&mut app, 1, false, ae::Vec2::new(500.0, 100.0));
+        // The deterministic tie winner is the lesser `Entity` by Ord — a fixed
+        // function of the candidate set, NOT of spawn or Query-visit order (Bevy's
+        // Entity Ord is not spawn-monotonic, which is exactly why the winner must
+        // be pinned to `min`, not "first seen").
+        let expected = p1.min(p2);
+        let enemy = enemy_at(&mut app, ae::Vec2::new(300.0, 100.0));
+        app.add_systems(Update, select_actor_targets);
+        app.update();
+        let target = app.world().entity(enemy).get::<ActorTarget>().unwrap();
+        assert_eq!(
+            target.entity,
+            Some(expected),
+            "an exact distance tie must resolve to the min Entity, not Query order",
+        );
     }
 
     #[test]

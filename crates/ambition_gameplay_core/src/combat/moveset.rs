@@ -408,9 +408,20 @@ pub fn trigger_moveset_moves(
 ///   exact seam the boss's `Special(key)` profiles reuse once the boss folds onto
 ///   the moveset — a data-driven move fires a content technique with zero new
 ///   plumbing (fable review §A1, Path B).
+/// - `Ranged` → BRIDGE to the existing enemy-projectile seam by writing the SAME
+///   `ActorActionMessage::Ranged` the flat `frame.fire` resolver emits, so the
+///   mature `spawn_enemy_projectiles_from_brain_actions` consumer (body-side
+///   fire-rate, recoil, muzzle, visual kind) fires the shot unchanged. The shot's
+///   direction is SAMPLED LIVE from the owner's current `fire` intent at THIS event
+///   frame (option A — a moveset shot still tracks a strafing target, unlike a
+///   facing-locked `MovePlayback`); with no live intent it falls back to forward.
 pub fn dispatch_move_events(
     mut events: MessageReader<MoveEventMessage>,
     positions: Query<&ae::BodyKinematics>,
+    ranged_owners: Query<(
+        &ambition_characters::brain::action_set::ActionSet,
+        &ActorControl,
+    )>,
     mut sfx: MessageWriter<SfxMessage>,
     mut actions: MessageWriter<ActorActionMessage>,
 ) {
@@ -428,6 +439,33 @@ pub fn dispatch_move_events(
                     actor: ev.owner,
                     request: ActionRequest::Special {
                         spec: SpecialActionSpec::Special(key.clone()),
+                    },
+                });
+            }
+            MoveEventKind::Ranged => {
+                // The owner's ranged CAPABILITY + LIVE aim supply the concrete shot;
+                // the move stays content-free.
+                let Ok((actions_set, control)) = ranged_owners.get(ev.owner) else {
+                    continue;
+                };
+                let Some(spec) = actions_set.ranged else {
+                    continue; // owner has no ranged weapon — the move fires nothing
+                };
+                let kin = positions.get(ev.owner).ok();
+                let origin = kin.map(|k| k.pos).unwrap_or(ae::Vec2::ZERO);
+                // Sample the owner's live aim at the fire frame; fall back to forward
+                // (controlled-body-local +x = the body's facing direction).
+                let (dir, dir_policy) = match control.0.fire {
+                    Some(req) => (req.dir, req.dir_policy),
+                    None => (ae::Vec2::new(1.0, 0.0), ae::GameplayFramePolicy::ControlledBodyLocal),
+                };
+                actions.write(ActorActionMessage {
+                    actor: ev.owner,
+                    request: ActionRequest::Ranged {
+                        spec,
+                        origin,
+                        dir,
+                        dir_policy,
                     },
                 });
             }
@@ -1043,5 +1081,73 @@ mod tests {
             &acts[0].request,
             ActionRequest::Special { spec: SpecialActionSpec::Special(k) } if k == "pca_glider"
         ));
+    }
+
+    /// Ranged subsumption (option A): a `MoveEventKind::Ranged` fire event BRIDGES to
+    /// the SAME `ActorActionMessage::Ranged` the flat `frame.fire` resolver emits —
+    /// carrying the owner's authored `ActionSet.ranged` spec and SAMPLING its LIVE
+    /// aim at the event frame — so the existing enemy-projectile consumer fires the
+    /// shot unchanged and a moveset shot still tracks a strafing target.
+    #[test]
+    fn move_event_dispatch_bridges_ranged_to_a_live_aimed_shot() {
+        use ambition_characters::actor::control::ActorFireRequest;
+        use ambition_characters::brain::action_set::{ActionSet, RangedActionSpec};
+        use ambition_characters::brain::{ActorActionMessage, ActorControl};
+        let mut app = App::new();
+        app.add_message::<MoveEventMessage>();
+        app.add_message::<SfxMessage>();
+        app.add_message::<ActorActionMessage>();
+        app.add_systems(Update, dispatch_move_events);
+
+        let mut control = ActorControl::default();
+        // Live aim this frame: a world-space up-right shot toward a strafing target.
+        control.0.fire = Some(ActorFireRequest::world_space(ae::Vec2::new(0.6, -0.8), 240.0));
+        let owner = app
+            .world_mut()
+            .spawn((
+                ae::BodyKinematics {
+                    pos: ae::Vec2::new(100.0, 50.0),
+                    vel: ae::Vec2::ZERO,
+                    size: ae::Vec2::new(16.0, 24.0),
+                    facing: 1.0,
+                },
+                ActionSet {
+                    ranged: Some(RangedActionSpec::Bolt {
+                        speed: 240.0,
+                        damage: 3,
+                    }),
+                    ..Default::default()
+                },
+                control,
+            ))
+            .id();
+        app.world_mut()
+            .resource_mut::<Messages<MoveEventMessage>>()
+            .write(MoveEventMessage {
+                owner,
+                move_id: "fire".into(),
+                kind: MoveEventKind::Ranged,
+            });
+        app.update();
+
+        let acts: Vec<ActorActionMessage> = app
+            .world_mut()
+            .resource_mut::<Messages<ActorActionMessage>>()
+            .drain()
+            .collect();
+        assert_eq!(acts.len(), 1, "the Ranged event bridged to one Ranged action");
+        match &acts[0].request {
+            ActionRequest::Ranged {
+                spec,
+                origin,
+                dir,
+                ..
+            } => {
+                assert!(matches!(spec, RangedActionSpec::Bolt { damage: 3, .. }));
+                assert_eq!(*origin, ae::Vec2::new(100.0, 50.0), "origin = owner pos");
+                assert_eq!(*dir, ae::Vec2::new(0.6, -0.8), "dir SAMPLED from live aim");
+            }
+            other => panic!("expected ActionRequest::Ranged, got {other:?}"),
+        }
     }
 }

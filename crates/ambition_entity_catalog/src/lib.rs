@@ -108,6 +108,13 @@ pub enum MoveEventKind {
     /// Emit a content-defined effect by key (the `Effect` vocabulary /
     /// technique seam resolves it).
     Effect { key: String },
+    /// FIRE the owner's ranged weapon now, sampling its LIVE aim at this frame.
+    /// Content-free on purpose (mirrors [`Effect`](Self::Effect)): the move names
+    /// "shoot", and the dispatcher reads the owner's `ActionSet.ranged` slot + its
+    /// current aim/facing to build the concrete shot — so a `"fire"` move gets real
+    /// startup/recovery windows while its projectile still tracks a strafing target
+    /// (fable review: ranged subsumption, option A — dynamic aim, not facing-lock).
+    Ranged,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]

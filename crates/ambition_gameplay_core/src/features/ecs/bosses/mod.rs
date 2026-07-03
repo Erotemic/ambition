@@ -5,7 +5,7 @@
 //!
 //! 1. [`sync_boss_encounter_phase`] — copy the active encounter
 //!    phase from `BossEncounterRegistry` into each boss's
-//!    `BossStatus::encounter_phase` cluster mirror. Runs first so the
+//!    `BossEncounter::encounter_phase` cluster mirror. Runs first so the
 //!    brain tick below sees the current phase this frame.
 //! 2. [`tick_boss_brains_system`] — for every boss with a
 //!    `Brain::StateMachine(BossPattern)`, build a

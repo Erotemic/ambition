@@ -18,7 +18,7 @@ use std::collections::HashSet;
 use bevy::prelude::*;
 
 use crate::boss_encounter::BossEncounterPhase;
-use crate::combat::boss_clusters::{BossConfig, BossStatus};
+use crate::combat::boss_clusters::{BossConfig, BossEncounter};
 use crate::features::FeatureSimEntity;
 
 /// Definition of an encounter entity: which members it orchestrates + how it
@@ -97,7 +97,7 @@ pub fn sync_boss_encounter_entities(
         (
             Entity,
             &BossConfig,
-            &BossStatus,
+            &BossEncounter,
             Option<&crate::features::BossOverrides>,
         ),
         With<FeatureSimEntity>,
@@ -147,7 +147,7 @@ pub fn sync_boss_encounter_entities(
 pub fn update_encounter_progress(
     mut commands: Commands,
     mut encounters: Query<(Entity, &EncounterDef, &mut EncounterProgress)>,
-    bosses: Query<(&BossConfig, &BossStatus, &ambition_characters::actor::BodyHealth)>,
+    bosses: Query<(&BossConfig, &BossEncounter, &ambition_characters::actor::BodyHealth)>,
 ) {
     for (entity, def, mut progress) in &mut encounters {
         progress.members.clear();
@@ -221,14 +221,14 @@ mod tests {
     use super::*;
     use crate::boss_encounter::PhaseTrigger;
     use crate::combat::boss_clusters::test_support::{test_boss_config, test_boss_status_with};
-    use crate::combat::boss_clusters::{BossConfig, BossStatus};
+    use crate::combat::boss_clusters::{BossConfig, BossEncounter};
 
     fn awake_boss(
         name: &str,
         hp: i32,
     ) -> (
         BossConfig,
-        BossStatus,
+        BossEncounter,
         ambition_characters::actor::BodyHealth,
         FeatureSimEntity,
     ) {

@@ -94,7 +94,7 @@ pub use anim_helpers::{
 pub use banner::{apply_gameplay_banner_requests, tick_gameplay_banner};
 pub use boss_clusters::{
     boss_is_cleared, BossClusterQueryData, BossClusterRef, BossClusterScratch, BossConfig, BossMut,
-    BossRef, BossStatus,
+    BossRef, BossEncounter,
 };
 pub(crate) use bosses::boss_component_snapshot;
 #[allow(

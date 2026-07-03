@@ -13,7 +13,7 @@
 //!
 //! - **Actor (NPC / enemy)**: `ActorStatus::hit_flash` on the unified
 //!   `hit_flash: f32` (seconds remaining).
-//! - **Boss**: [`ambition_gameplay_core::features::BossStatus::hit_flash`].
+//! - **Boss**: [`ambition_gameplay_core::features::BossEncounter::hit_flash`].
 //! - **Player**: [`ambition_characters::actor::BodyCombat::hit_flash`].
 //!
 //! Replaces the pink multiplicative tint that
@@ -338,7 +338,7 @@ pub fn cleanup_hit_flash_overlays(
 /// | player | `BodyCombat::hit_flash` | `world_flow` damage paths |
 /// | enemy  | `ActorStatus::hit_flash` (unified cluster) | actor damage paths |
 /// | NPC    | `ActorStatus::hit_flash` (unified cluster) | actor damage paths |
-/// | boss   | `BossStatus::hit_flash` (boss cluster)   | boss damage paths |
+/// | boss   | `BossEncounter::hit_flash` (boss cluster)   | boss damage paths |
 fn hit_flash_secs_for_source(
     feature: Option<&FeatureVisual>,
     player: Option<&PlayerVisual>,

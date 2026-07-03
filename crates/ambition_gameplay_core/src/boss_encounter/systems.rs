@@ -43,7 +43,7 @@ pub fn populate_boss_encounter_registry(mut registry: ResMut<BossEncounterRegist
 /// Drive every boss's entity-local phase mechanism: seed from the profile
 /// catalog, wake, tick the `BossPhaseState`, resolve death (save + quest), keep
 /// the adaptive-music request live, and sync reward chests.
-/// The body's `BodyHealth` (§A1) + `BossStatus.encounter` ARE the source of truth.
+/// The body's `BodyHealth` (§A1) + `BossEncounter.encounter` ARE the source of truth.
 pub fn update_boss_encounters(
     mut commands: Commands,
     world_time: Res<ambition_time::WorldTime>,
@@ -312,7 +312,7 @@ const BOSS_PHASE_SHAKE_PX: f32 = 11.0;
 /// placeholders.
 ///
 /// Decoupled from the phase-advance / event pipeline on purpose: it diffs each
-/// boss's entity-local phase (`BossStatus.encounter`) against a `Local`
+/// boss's entity-local phase (`BossEncounter.encounter`) against a `Local`
 /// snapshot, so it needs no changes to `publish_events`.
 pub fn boss_phase_transition_feedback(
     mut last_phase: Local<
@@ -329,7 +329,7 @@ pub fn boss_phase_transition_feedback(
             &crate::features::FeatureId,
             &crate::features::BodyKinematics,
             &crate::features::CenteredAabb,
-            &crate::combat::boss_clusters::BossStatus,
+            &crate::combat::boss_clusters::BossEncounter,
         ),
         With<crate::features::BossConfig>,
     >,
@@ -393,7 +393,7 @@ mod phase_feedback_tests {
     use super::*;
     use crate::boss_encounter::BossEncounterPhase;
     use crate::combat::boss_clusters::test_support::{test_boss_config, test_boss_status};
-    use crate::combat::boss_clusters::BossStatus;
+    use crate::combat::boss_clusters::BossEncounter;
     use crate::features::{BodyKinematics, CenteredAabb, FeatureId};
     use crate::time::camera_ease::CameraShakeState;
 
@@ -418,7 +418,7 @@ mod phase_feedback_tests {
 
     fn set_phase(app: &mut App, entity: Entity, phase: BossEncounterPhase) {
         let mut entity_mut = app.world_mut().entity_mut(entity);
-        let mut status = entity_mut.get_mut::<BossStatus>().unwrap();
+        let mut status = entity_mut.get_mut::<BossEncounter>().unwrap();
         if let Some(p) = status.encounter.as_mut() {
             p.phase = phase;
         }

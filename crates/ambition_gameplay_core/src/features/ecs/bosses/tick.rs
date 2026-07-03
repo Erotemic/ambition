@@ -12,8 +12,8 @@ use ambition_engine_core::AabbExt;
 use bevy::prelude::MessageWriter;
 
 /// Sync each boss's `encounter_phase` mirror from the entity-local
-/// [`BossPhaseState`] copy (`BossStatus.encounter`). The mirror is a convenience
-/// field the brain (`BossPatternContext`) reads; the `BossStatus.encounter`
+/// [`BossPhaseState`] copy (`BossEncounter.encounter`). The mirror is a convenience
+/// field the brain (`BossPatternContext`) reads; the `BossEncounter.encounter`
 /// phase machine — ticked by `update_boss_encounters` — is the source of truth.
 /// Keyed per-entity by construction, so two of the same archetype sync
 /// independent phases.

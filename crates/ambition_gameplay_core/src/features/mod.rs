@@ -154,7 +154,7 @@ pub use ecs::{
     tick_and_despawn_hitboxes, tick_boss_brains_system, tick_gameplay_banner, tick_npc_idle_barks,
     tick_pending_challenges, update_ecs_bosses, update_ecs_breakables, update_ecs_falling_chests,
     update_ecs_hazards, ActorSteering, BossClusterQueryData, BossClusterRef, BossClusterScratch,
-    BossConfig, BossMut, BossOverrides, BossRef, BossStatus, FactionRelations,
+    BossConfig, BossMut, BossOverrides, BossRef, BossEncounter, FactionRelations,
     FeatureEcsWorldOverlay, FeatureSimEntity, FeatureViewIndex, FriendlyFire, HazardFeature,
     HeldItem, Hitbox, HitboxAnchor, HitboxHits, HitboxLifetime, MountSlot, Mountable, Mounted,
     MountedBrainCache, MountedSize, PendingChallenge, RidingOn, SpawnActorKind, SpawnActorRequest,

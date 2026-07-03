@@ -26,7 +26,7 @@
 use bevy::prelude::*;
 
 use super::encounter_entity::EncounterDef;
-use crate::combat::boss_clusters::{BossClusterRef, BossStatus};
+use crate::combat::boss_clusters::{BossClusterRef, BossEncounter};
 use crate::features::CenteredAabb;
 use ambition_engine_core as ae;
 use ambition_engine_core::AabbExt;
@@ -143,7 +143,7 @@ pub fn tick_encounter_scripts(
     world_time: Res<ambition_time::WorldTime>,
     mut gates: MessageReader<EncounterGate>,
     mut scripts: Query<(&EncounterDef, &mut EncounterScript)>,
-    mut members: Query<(&mut BossStatus, &mut ambition_characters::actor::BodyHealth)>,
+    mut members: Query<(&mut BossEncounter, &mut ambition_characters::actor::BodyHealth)>,
     mut banner: ResMut<crate::features::GameplayBanner>,
     mut music: ResMut<crate::encounter::BossEncounterMusicRequest>,
 ) {
@@ -342,12 +342,12 @@ mod tests {
     use super::*;
     use crate::boss_encounter::BossEncounterPhase;
     use crate::combat::boss_clusters::test_support::{test_boss_config, test_boss_status};
-    use crate::combat::boss_clusters::BossStatus;
+    use crate::combat::boss_clusters::BossEncounter;
     use crate::encounter::BossEncounterMusicRequest;
     use crate::features::GameplayBanner;
     use ambition_time::WorldTime;
 
-    fn member(hp: i32) -> (BossStatus, ambition_characters::actor::BodyHealth) {
+    fn member(hp: i32) -> (BossEncounter, ambition_characters::actor::BodyHealth) {
         test_boss_status(hp, BossEncounterPhase::Phase1)
     }
 
@@ -393,7 +393,7 @@ mod tests {
         // Fire the gate → the script force-kills the member.
         app.world_mut().write_message(EncounterGate::new("impact"));
         app.update();
-        let status = app.world().entity(boss).get::<BossStatus>().unwrap();
+        let status = app.world().entity(boss).get::<BossEncounter>().unwrap();
         assert!(!member_health(&app, boss).alive());
         assert_eq!(member_health(&app, boss).current(), 0);
         assert_eq!(

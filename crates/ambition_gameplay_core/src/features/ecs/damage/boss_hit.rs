@@ -1,7 +1,7 @@
 //! Applying a hit to a boss: mutating the boss ENTITY's HP + phase directly.
 //!
-//! Boss HP/phase authority is entity-local (`BossStatus.health` +
-//! `BossStatus.encounter: BossPhaseState`). Player damage mutates the entity in
+//! Boss HP/phase authority is entity-local (`BossEncounter.health` +
+//! `BossEncounter.encounter: BossPhaseState`). Player damage mutates the entity in
 //! place via [`apply_entity_boss_damage`]; the death CONSEQUENCES that aren't
 //! immediate VFX (save Cleared + quest + music restore) are resolved by
 //! `update_boss_encounters` once the death outro elapses.
@@ -15,14 +15,14 @@ use super::super::{ae, GameplayBanner, HitEvent, HitSource};
 // tests query `PickupFeature` directly. Both are test-only now that the drop
 // spawners live in `damage_drops`.
 use ambition_sfx::SfxMessage;
-use crate::combat::boss_clusters::BossStatus;
+use crate::combat::boss_clusters::BossEncounter;
 use crate::world::physics::{DebrisBurstMessage, PhysicsDebrisCue};
 use ambition_vfx::vfx::{ParticleKind, VfxMessage};
 
 use super::*;
 
 /// Apply player damage to a boss ENTITY (the entity is the source of truth:
-/// HP on the shared `BodyHealth`, phase on `BossStatus.encounter` — §A1).
+/// HP on the shared `BodyHealth`, phase on `BossEncounter.encounter` — §A1).
 ///
 /// The health/death MECHANICS go through the ONE victim-side resolver
 /// [`crate::combat::damage::resolve_body_hit`] (fable review §A1 slice 2) — the
@@ -40,7 +40,7 @@ use super::*;
 /// hit that drives HP to zero. On a kill the phase is forced to `Death` (the
 /// death outro + save/quest resolution run in `update_boss_encounters`).
 pub(crate) fn apply_entity_boss_damage(
-    status: &mut BossStatus,
+    status: &mut BossEncounter,
     health: &mut ambition_characters::actor::BodyHealth,
     combat: &mut ambition_characters::actor::BodyCombat,
     amount: i32,
@@ -268,7 +268,7 @@ mod entity_damage_tests {
     use crate::boss_encounter::BossEncounterPhase;
     use crate::combat::boss_clusters::test_support::test_boss_status;
 
-    fn boss(hp: i32, phase: BossEncounterPhase) -> (BossStatus, ambition_characters::actor::BodyHealth) {
+    fn boss(hp: i32, phase: BossEncounterPhase) -> (BossEncounter, ambition_characters::actor::BodyHealth) {
         test_boss_status(hp, phase)
     }
 

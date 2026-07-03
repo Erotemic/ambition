@@ -29,7 +29,7 @@ use ambition_engine_core::{self as ae, AabbExt};
 use ambition_characters::actor::{BodyCombat, BodyHealth};
 use ambition_gameplay_core::actor::{BodyKinematics, PrimaryPlayerOnly};
 use ambition_gameplay_core::boss_encounter::{BossEncounterPhase, EncounterDef, EncounterProgress};
-use ambition_gameplay_core::combat::boss_clusters::{BossConfig, BossStatus};
+use ambition_gameplay_core::combat::boss_clusters::{BossConfig, BossEncounter};
 use ambition_gameplay_core::combat::{HitEvent, HitSource};
 use bevy::ecs::message::Messages;
 use bevy::prelude::World;
@@ -539,17 +539,17 @@ fn face_tanking_player_swings_back_and_is_recoil_locked() {
 }
 
 /// Boss-encounter refactor canary: live HP/phase state is ENTITY-LOCAL
-/// (`BossStatus.health` + `BossStatus.encounter`), not a shared global map.
+/// (`BossEncounter.health` + `BossEncounter.encounter`), not a shared global map.
 ///
 /// Two of the SAME boss archetype must get independent HP / phase / death — the
 /// property a gauntlet or twin-boss room needs. Before the refactor both linked
 /// to a single `encounters["mockingbird"]` state and shared one HP pool;
 /// damaging one would drain the other. After R3 the global map is gone, so this
-/// reads the per-entity `BossStatus`. See
+/// reads the per-entity `BossEncounter`. See
 /// `docs/planning/boss-entity-local-refactor.md`.
 #[test]
 fn two_same_archetype_bosses_have_independent_encounter_state() {
-    use ambition_gameplay_core::combat::boss_clusters::{BossConfig, BossStatus};
+    use ambition_gameplay_core::combat::boss_clusters::{BossConfig, BossEncounter};
 
     let mut sim =
         SandboxSim::new_with_timestep(TimestepMode::fixed_60hz()).expect("sandbox sim builds");
@@ -583,7 +583,7 @@ fn two_same_archetype_bosses_have_independent_encounter_state() {
     // Each boss carries its OWN entity-local state — independent objects.
     {
         let world = sim.world_mut();
-        let mut q = world.query::<(&BossConfig, &BossStatus)>();
+        let mut q = world.query::<(&BossConfig, &BossEncounter)>();
         let mut a_seeded = false;
         let mut b_seeded = false;
         for (config, status) in q.iter(world) {
@@ -603,7 +603,7 @@ fn two_same_archetype_bosses_have_independent_encounter_state() {
     // untouched — the gauntlet-correctness property.
     {
         let world = sim.world_mut();
-        let mut q = world.query::<(&BossConfig, &mut BossStatus, &mut BodyHealth)>();
+        let mut q = world.query::<(&BossConfig, &mut BossEncounter, &mut BodyHealth)>();
         for (config, mut status, mut health) in q.iter_mut(world) {
             if config.id == "mock_a" {
                 health.health.current = 5;

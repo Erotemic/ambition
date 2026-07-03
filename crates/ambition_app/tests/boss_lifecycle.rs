@@ -11,7 +11,7 @@
 //! Stable parts: the ASSERTIONS (music set during the fight; save Cleared +
 //! reward chest + music cleared after death). Authority-coupled part: the
 //! `force_kill_boss` helper drives the current registry authority — R3 repoints
-//! it to the entity (`BossStatus.health`/`encounter.phase`), and the assertions
+//! it to the entity (`BossEncounter.health`/`encounter.phase`), and the assertions
 //! must still pass. The cut-rope victory NPC + in-place replay are content-
 //! specific + headless-hard (R5 rewrites cut-rope as an EncounterScript); they
 //! remain an explicit in-game verification item, but cut-rope's death
@@ -26,7 +26,7 @@ use ambition_gameplay_core::boss_encounter::{
     BossEncounterPhase, EncounterBeat, EncounterDef, EncounterEffect, EncounterGate,
     EncounterScript, EncounterTrigger,
 };
-use ambition_gameplay_core::combat::boss_clusters::{BossConfig, BossStatus};
+use ambition_gameplay_core::combat::boss_clusters::{BossConfig, BossEncounter};
 use ambition_gameplay_core::encounter::BossEncounterMusicRequest;
 use ambition_gameplay_core::features::{
     BossOverrides, BossRewardChest, ResetRoomFeaturesEvent, RoomResetReason,
@@ -63,7 +63,7 @@ fn force_kill_boss(sim: &mut SandboxSim, runtime_id: &str) {
     let world = sim.world_mut();
     let mut q = world.query::<(
         &BossConfig,
-        &mut BossStatus,
+        &mut BossEncounter,
         &mut ambition_characters::actor::BodyHealth,
     )>();
     for (config, mut status, mut health) in q.iter_mut(world) {
@@ -105,7 +105,7 @@ fn boss_alive(world: &mut World, placement_id: &str) -> Option<bool> {
 }
 
 fn boss_phase(world: &mut World, placement_id: &str) -> Option<BossEncounterPhase> {
-    let mut q = world.query::<(&BossConfig, &BossStatus)>();
+    let mut q = world.query::<(&BossConfig, &BossEncounter)>();
     q.iter(world)
         .find(|(config, _)| config.id == placement_id)
         .and_then(|(_, status)| status.encounter.as_ref().map(|p| p.phase))

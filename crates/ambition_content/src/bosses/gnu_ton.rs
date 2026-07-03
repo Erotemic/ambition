@@ -205,7 +205,7 @@ mod tests {
 
         let status = app
             .world()
-            .get::<ambition_gameplay_core::features::BossStatus>(entity)
+            .get::<ambition_gameplay_core::features::BossEncounter>(entity)
             .unwrap();
         assert!(
             status.sprite_metrics.is_some(),
@@ -225,7 +225,7 @@ mod tests {
             .unwrap();
         let status = app
             .world()
-            .get::<ambition_gameplay_core::features::BossStatus>(entity)
+            .get::<ambition_gameplay_core::features::BossEncounter>(entity)
             .unwrap();
         let boss_ref = ambition_gameplay_core::features::BossRef {
             kin,
@@ -248,7 +248,7 @@ mod tests {
             .unwrap();
         let status = app
             .world()
-            .get::<ambition_gameplay_core::features::BossStatus>(entity)
+            .get::<ambition_gameplay_core::features::BossEncounter>(entity)
             .unwrap();
         let body = ambition_gameplay_core::features::BossRef {
             kin,

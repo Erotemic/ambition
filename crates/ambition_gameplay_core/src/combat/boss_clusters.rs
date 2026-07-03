@@ -3,7 +3,7 @@
 //!
 //! Bosses follow the enemy / NPC cluster pattern: real ECS state split across
 //! [`BossConfig`] (identity, spawn anchor, brain, behavior profile) and
-//! [`BossStatus`] (health, liveness, hit-flash, encounter phase, derived sprite
+//! [`BossEncounter`] (health, liveness, hit-flash, encounter phase, derived sprite
 //! metrics). The boss carries the shared [`BodyKinematics`] component (pos / vel
 //! / size / facing) — the same component the player and enemies/NPCs use. Bosses
 //! float and never integrate `vel` themselves (the brain emits a fresh
@@ -50,7 +50,7 @@ pub struct BossConfig {
 /// [`ambition_characters::actor::BodyCombat::hit_flash`]. What remains is genuinely
 /// encounter-specific.
 #[derive(Component, Clone, Debug)]
-pub struct BossStatus {
+pub struct BossEncounter {
     /// Active encounter phase. Forwarded by `sync_boss_encounter_phase`
     /// from `BossEncounterRegistry`. `Dormant` until the encounter
     /// wakes up. The brain reads this via `BossPatternContext`.
@@ -78,7 +78,7 @@ pub struct BossStatus {
 pub struct BossRef<'a> {
     pub kin: &'a BodyKinematics,
     pub config: &'a BossConfig,
-    pub status: &'a BossStatus,
+    pub status: &'a BossEncounter,
 }
 
 /// Mutable borrow view over the boss clusters. Hosts the integration /
@@ -86,7 +86,7 @@ pub struct BossRef<'a> {
 pub struct BossMut<'a> {
     pub kin: &'a mut BodyKinematics,
     pub config: &'a mut BossConfig,
-    pub status: &'a mut BossStatus,
+    pub status: &'a mut BossEncounter,
 }
 
 impl<'a> BossRef<'a> {
@@ -177,7 +177,7 @@ impl<'a> BossMut<'a> {
     /// `update_boss_encounters` re-seeds fresh phase state (Dormant → wake) the
     /// next frame. The single definition of "revive a boss" — the room-reset
     /// loop routes through it (the actor mirror of `ActorMut::reset_to_spawn`),
-    /// so adding a [`BossStatus`] field can't desync the revive from the
+    /// so adding a [`BossEncounter`] field can't desync the revive from the
     /// seed/save-skip paths.
     ///
     /// Clearing `encounter` is load-bearing: keep last attempt's `Death` phase
@@ -237,7 +237,7 @@ impl<'a> BossMut<'a> {
 pub struct BossClusterQueryData {
     pub kin: &'static mut BodyKinematics,
     pub config: &'static mut BossConfig,
-    pub status: &'static mut BossStatus,
+    pub status: &'static mut BossEncounter,
 }
 
 impl<'w, 's> BossClusterQueryDataItem<'w, 's> {
@@ -272,7 +272,7 @@ impl<'w, 's> BossClusterQueryDataItem<'w, 's> {
 pub struct BossClusterRef {
     pub kin: &'static BodyKinematics,
     pub config: &'static BossConfig,
-    pub status: &'static BossStatus,
+    pub status: &'static BossEncounter,
 }
 
 impl<'w, 's> BossClusterRefItem<'w, 's> {
@@ -291,7 +291,7 @@ impl<'w, 's> BossClusterRefItem<'w, 's> {
 pub struct BossClusterScratch {
     pub kin: BodyKinematics,
     pub config: BossConfig,
-    pub status: BossStatus,
+    pub status: BossEncounter,
     /// The boss's HP authority — the SAME `BodyHealth` component every body
     /// carries (§A1). Spawned from here; never mirrored from boss state.
     pub health: ambition_characters::actor::BodyHealth,
@@ -330,7 +330,7 @@ impl BossClusterScratch {
                 brain,
                 behavior: BossBehaviorProfile::for_authored_boss(&canonical_id),
             },
-            status: BossStatus {
+            status: BossEncounter {
                 encounter_phase: BossEncounterPhase::Dormant,
                 sprite_metrics: None,
                 encounter: None,
@@ -359,7 +359,7 @@ impl BossClusterScratch {
     /// `BodyHealth` HP authority).
     pub fn into_components(
         self,
-    ) -> (BodyKinematics, BossConfig, BossStatus, ambition_characters::actor::BodyHealth) {
+    ) -> (BodyKinematics, BossConfig, BossEncounter, ambition_characters::actor::BodyHealth) {
         (self.kin, self.config, self.status, self.health)
     }
 }
@@ -381,26 +381,26 @@ pub fn boss_is_cleared(save: &crate::persistence::save::SandboxSave, config: &Bo
 
 #[cfg(test)]
 pub(crate) mod test_support {
-    //! Shared boss test fixtures. One definition of "a test `BossStatus` /
+    //! Shared boss test fixtures. One definition of "a test `BossEncounter` /
     //! `BossConfig`" so the boss test modules build the same shape — adding a
     //! field updates them all at once instead of drifting per-module.
     use super::*;
     use crate::boss_encounter::{BossPhaseState, PhaseTrigger};
 
-    /// A `(BossStatus, BodyHealth)` pair at `hp` HP in `phase`, with
+    /// A `(BossEncounter, BodyHealth)` pair at `hp` HP in `phase`, with
     /// entity-local `BossPhaseState` carrying `triggers` (empty ⇒ never phases
     /// up) already set to `phase`. HP lives on the shared `BodyHealth` (§A1).
     pub(crate) fn test_boss_status_with(
         hp: i32,
         phase: BossEncounterPhase,
         triggers: Vec<PhaseTrigger>,
-    ) -> (BossStatus, ambition_characters::actor::BodyHealth) {
+    ) -> (BossEncounter, ambition_characters::actor::BodyHealth) {
         let mut encounter = BossPhaseState::new(triggers);
         encounter.phase = phase;
         let mut health = ambition_characters::actor::Health::new(hp);
         health.current = hp;
         (
-            BossStatus {
+            BossEncounter {
                 encounter_phase: phase,
                 sprite_metrics: None,
                 encounter: Some(encounter),
@@ -409,12 +409,12 @@ pub(crate) mod test_support {
         )
     }
 
-    /// A `(BossStatus, BodyHealth)` at `hp` HP in `phase` with no phase
+    /// A `(BossEncounter, BodyHealth)` at `hp` HP in `phase` with no phase
     /// triggers (fights to death — the common single-phase fixture).
     pub(crate) fn test_boss_status(
         hp: i32,
         phase: BossEncounterPhase,
-    ) -> (BossStatus, ambition_characters::actor::BodyHealth) {
+    ) -> (BossEncounter, ambition_characters::actor::BodyHealth) {
         test_boss_status_with(hp, phase, Vec::new())
     }
 

@@ -145,7 +145,7 @@ pub fn reset_ecs_room_features(
     {
         // Full revive (pos / facing / health / hit_flash + clear the entity-local
         // encounter so it re-seeds fresh next frame). One definition on `BossMut`
-        // so a new `BossStatus` field can't desync this from the seed/save-skip
+        // so a new `BossEncounter` field can't desync this from the seed/save-skip
         // paths. (Why clearing `encounter` is load-bearing: see the helper docs.)
         feature
             .as_boss_mut()

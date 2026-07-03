@@ -1,8 +1,8 @@
 //! Sandbox-side coordinator for boss fights (distinct from the generic
 //! `crate::encounter` enemy-wave system).
 //!
-//! Boss HP/phase state is ENTITY-LOCAL (`BossStatus.health` +
-//! `BossStatus.encounter: BossPhaseState`); this module bridges it to the
+//! Boss HP/phase state is ENTITY-LOCAL (`BossEncounter.health` +
+//! `BossEncounter.encounter: BossPhaseState`); this module bridges it to the
 //! in-arena boss ECS clusters (`features::BossClusterQueryData` / `BossRef`),
 //! the optional first-class encounter entity (`EncounterDef` + `EncounterScript`),
 //! and the adaptive music + cutscene + save-state systems. The registry is a

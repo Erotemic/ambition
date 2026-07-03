@@ -1,39 +1,47 @@
-//! Boss sprite upgrade + animation (GNU-ton's body/hands layering, the boss
-//! spritesheet resolver, per-boss animation). Split out of the actors renderer
-//! god-module; `use super::*` reaches the shared sprite-build helpers + the
-//! marker components / z-constants.
+//! Boss sprite upgrade + animation (the boss spritesheet resolver, per-boss
+//! animation, and the DATA-driven multi-layer boss render). Split out of the
+//! actors renderer god-module; `use super::*` reaches the shared sprite-build
+//! helpers + the marker components / z-constants.
+//!
+//! **Multi-layer bosses (fable review C7).** A boss whose art ships two sheets
+//! keyed `{boss_key}_body` + `{boss_key}_hands` renders split across two layers
+//! (body BEHIND one-way platforms, overlay in FRONT of the player), driven purely
+//! by that asset CONVENTION — no per-boss code path. GNU-ton is the first such
+//! boss (`gnu_ton_body` / `gnu_ton_hands`); any future giant gets the same look by
+//! shipping the two sheets, editing no engine code.
 
 use super::*;
 
-/// Marks a GNU-ton boss entity whose render is split across two layers
-/// (body behind platforms, hands in front). The marker drives a follow-up
-/// system that overrides the entity's z-translation so the body silhouette
-/// sits behind one-way platforms, letting the player read jump targets
-/// through the giant.
+/// Marks a multi-layer boss's BODY entity (the layer that sits behind one-way
+/// platforms). The marker drives a follow-up system that overrides the entity's
+/// z-translation so the body silhouette sits behind platforms, letting the player
+/// read jump targets through a giant boss. Generic across bosses — GNU-ton is the
+/// first, but the split-layer render is asset-convention-driven, not per-boss.
 #[derive(Component)]
-pub struct GnuTonBodyLayer;
+pub struct BossBodyLayer;
 
-/// Marks the hands overlay child entity spawned alongside a gnu_ton boss.
-/// A sync system mirrors the parent boss's atlas index, page, + tint onto
-/// this child each frame, so both layers stay in lockstep without needing a
-/// second `BossAnimator`. Carries the hands sheet's per-page handles so the
-/// child can follow the parent onto the same page of a split sheet (the body
-/// and hands sheets are emitted in lockstep, so a shared page index applies).
+/// Marks the overlay child entity spawned alongside a multi-layer boss (GNU-ton's
+/// hands are the first instance). A sync system mirrors the parent boss's atlas
+/// index, page, + tint onto this child each frame, so both layers stay in lockstep
+/// without needing a second `BossAnimator`. Carries the overlay sheet's per-page
+/// handles so the child follows the parent onto the same page of a split sheet (the
+/// body and overlay sheets are emitted in lockstep, so a shared page index applies).
 #[derive(Component)]
-pub struct GnuTonHandsLayer {
+pub struct BossOverlayLayer {
     pub pages: Vec<sprites::BossSpritePage>,
 }
 
-/// World-space z for the GNU-ton body silhouette — between block tiles
+/// World-space z for a split-layer boss's BODY silhouette — between block tiles
 /// (`WORLD_Z_BLOCK + 0.5 = 0.5`) and one-way platforms
 /// (`WORLD_Z_BLOCK + 4.0 = 4.0`) so the body sits behind platforms but
-/// in front of the wall tiles.
-pub const GNU_TON_BODY_Z: f32 = 2.0;
+/// in front of the wall tiles. Generic default; a per-boss override is a
+/// parameterizable detail (bulk-review).
+pub const BOSS_SPLIT_BODY_Z: f32 = 2.0;
 
-/// World-space z for the GNU-ton hands overlay — just in front of the
-/// player (`WORLD_Z_PLAYER = 20.0`) so the slamming hands read as a
+/// World-space z for a split-layer boss's OVERLAY — just in front of the
+/// player (`WORLD_Z_PLAYER = 20.0`) so the slamming layer reads as a
 /// foreground threat the player navigates around.
-pub const GNU_TON_HANDS_Z: f32 = 20.5;
+pub const BOSS_SPLIT_OVERLAY_Z: f32 = 20.5;
 
 /// Replace the static `boss_core.png` look on boss feature entities with
 /// the animated boss spritesheet once the asset is available. Symmetric
@@ -75,38 +83,36 @@ pub fn upgrade_boss_sprites(
         // available we skip — the colored rectangle in `sync_visuals` renders.
         let boss_name = boss_ident.name.as_str();
         let boss_behavior_id = boss_ident.behavior_id.as_str();
+        let _ = boss_name;
         let boss_key = boss_behavior_id.to_ascii_lowercase().replace('-', "_");
-        let is_gnu_ton = boss_key == "gnu_ton"
-            || boss_name.eq_ignore_ascii_case("gnu_ton")
-            || boss_name.eq_ignore_ascii_case("gnu-ton")
-            || boss_name.to_lowercase().starts_with("gnu_ton")
-            || boss_name.to_lowercase().starts_with("gnu-ton");
-        // GNU-ton gets a split body + hands render. If either layered
-        // sheet is missing, fall back to the legacy single-sheet path.
-        let split_layers = if is_gnu_ton {
-            match (
-                assets.boss_sprite("gnu_ton_body"),
-                assets.boss_sprite("gnu_ton_hands"),
-            ) {
-                (Some(body), Some(hands))
-                    if images.get(&body.pages[0].texture).is_some()
-                        && images.get(&hands.pages[0].texture).is_some() =>
-                {
-                    Some((body, hands))
-                }
-                _ => None,
+        // Multi-layer boss render (fable review C7): a boss whose art ships
+        // `{boss_key}_body` + `{boss_key}_hands` sheets renders split across two
+        // layers — driven by the asset CONVENTION, not a per-boss string match. Any
+        // boss gets the giant-behind-platforms look by shipping the two sheets. If
+        // either layer is missing, fall back to the single-sheet path.
+        let split_layers = match (
+            assets.boss_sprite(&format!("{boss_key}_body")),
+            assets.boss_sprite(&format!("{boss_key}_hands")),
+        ) {
+            (Some(body), Some(hands))
+                if images.get(&body.pages[0].texture).is_some()
+                    && images.get(&hands.pages[0].texture).is_some() =>
+            {
+                Some((body, hands))
             }
-        } else {
-            None
+            _ => None,
         };
         // Dedicated sheets are keyed by `boss_key` in the asset registry, so the
         // former per-boss if-else chain collapses to one lookup + the generic
-        // fallback. GNU-ton's split-layer body is the only special case above.
+        // fallback. A split-layer boss's body sheet (above) takes precedence.
         let dedicated = assets.boss_sprite(&boss_key);
         // Warn once for any boss without its own sheet (it renders with the
         // generic gradient-sentinel body) — the same signal the per-boss chain
         // gave, so a boss that should have art isn't silently shipped generic.
-        if !is_gnu_ton && dedicated.is_none() && warned_generic_bosses.insert(boss_key.clone()) {
+        if split_layers.is_none()
+            && dedicated.is_none()
+            && warned_generic_bosses.insert(boss_key.clone())
+        {
             bevy::log::warn!(
                 target: "ambition::sprites",
                 "boss '{boss_key}' has no dedicated spritesheet wired — rendering with the \
@@ -145,11 +151,11 @@ pub fn upgrade_boss_sprites(
             BossAnimator::new(boss_asset).with_render_basis(render_size, anchor.0),
         ));
         if let Some((_body, hands)) = split_layers {
-            // Spawn the hands overlay as a Bevy child so it inherits the
-            // parent's translation. The child's local z offset puts the
-            // hands well in front of platforms (and slightly in front of
-            // the player) so incoming slams read as foreground danger.
-            entity_commands.insert(GnuTonBodyLayer);
+            // Spawn the overlay as a Bevy child so it inherits the parent's
+            // translation. The child's local z offset puts the overlay well in
+            // front of platforms (and slightly in front of the player) so incoming
+            // slams read as foreground danger.
+            entity_commands.insert(BossBodyLayer);
             let mut hands_sprite = Sprite::from_atlas_image(
                 hands.texture(),
                 bevy::image::TextureAtlas {
@@ -163,40 +169,40 @@ pub fn upgrade_boss_sprites(
                 parent.spawn((
                     hands_sprite,
                     anchor,
-                    GnuTonHandsLayer { pages: hands_pages },
-                    // Local z offset relative to the parent body. The
-                    // parent's absolute z is forced to `GNU_TON_BODY_Z` by
-                    // `apply_gnu_ton_body_z` each frame, so this offset
-                    // lands the child at `GNU_TON_HANDS_Z` in world space.
-                    Transform::from_xyz(0.0, 0.0, GNU_TON_HANDS_Z - GNU_TON_BODY_Z),
+                    BossOverlayLayer { pages: hands_pages },
+                    // Local z offset relative to the parent body. The parent's
+                    // absolute z is forced to `BOSS_SPLIT_BODY_Z` by
+                    // `apply_boss_split_body_z` each frame, so this offset lands the
+                    // child at `BOSS_SPLIT_OVERLAY_Z` in world space.
+                    Transform::from_xyz(0.0, 0.0, BOSS_SPLIT_OVERLAY_Z - BOSS_SPLIT_BODY_Z),
                 ));
             });
         }
     }
 }
 
-/// Override the gnu_ton boss parent entity's world z so the body
+/// Override a split-layer boss parent entity's world z so the body
 /// silhouette sits behind one-way platforms. `sync_visuals` resets
 /// `translation.z` every frame from `feature_z(Boss) = 11.0`; this
 /// system runs after it and rewrites just the z, leaving x/y alone.
-pub fn apply_gnu_ton_body_z(mut query: Query<&mut Transform, With<GnuTonBodyLayer>>) {
+pub fn apply_boss_split_body_z(mut query: Query<&mut Transform, With<BossBodyLayer>>) {
     for mut transform in &mut query {
-        transform.translation.z = GNU_TON_BODY_Z;
+        transform.translation.z = BOSS_SPLIT_BODY_Z;
     }
 }
 
-/// Mirror the parent boss's atlas index and color tint onto the hands
-/// overlay child each frame. Both sheets share the same atlas layout
+/// Mirror the parent boss's atlas index and color tint onto the overlay
+/// child each frame. Both sheets share the same atlas layout
 /// (same rows + frame counts) because the generator emits them in
 /// lockstep, so the same flat index applies to both.
-pub fn sync_gnu_ton_hands(
+pub fn sync_boss_split_overlay(
     parents: Query<
         (&Sprite, &BossAnimator, &bevy::sprite::Anchor, &Children),
-        With<GnuTonBodyLayer>,
+        With<BossBodyLayer>,
     >,
     mut hands: Query<
-        (&mut Sprite, &mut bevy::sprite::Anchor, &GnuTonHandsLayer),
-        Without<GnuTonBodyLayer>,
+        (&mut Sprite, &mut bevy::sprite::Anchor, &BossOverlayLayer),
+        Without<BossBodyLayer>,
     >,
 ) {
     for (parent_sprite, animator, parent_anchor, children) in &parents {

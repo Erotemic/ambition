@@ -218,10 +218,10 @@ impl bevy::prelude::Plugin for PresentationVisualAnimationPlugin {
                 // BEFORE sync_visuals reads positions for them.
                 features::spawn_dynamic_feature_visuals,
                 actors::sync_visuals,
-                // Override gnu_ton boss z AFTER sync_visuals (which resets
-                // it to `feature_z(Boss) = 11.0`) so the body silhouette
+                // Override a split-layer boss's body z AFTER sync_visuals (which
+                // resets it to `feature_z(Boss) = 11.0`) so the body silhouette
                 // sits behind one-way platforms.
-                actors::apply_gnu_ton_body_z,
+                actors::apply_boss_split_body_z,
                 actors::upgrade_actor_sprites,
                 // Grouped (parallel within their chain slot): player-sprite and
                 // prop-sprite quality refreshes touch disjoint entity families, so
@@ -270,9 +270,9 @@ impl bevy::prelude::Plugin for PresentationVisualAnimationPlugin {
                 // `BossAttackState` after the brain has populated it
                 // upstream.
                 actors::manage_gradient_lane_visual,
-                // Mirror parent atlas index + tint onto the hands overlay
-                // after `animate_bosses` has updated the parent's frame.
-                actors::sync_gnu_ton_hands,
+                // Mirror parent atlas index + tint onto a split-layer boss's
+                // overlay after `animate_bosses` has updated the parent's frame.
+                actors::sync_boss_split_overlay,
                 // Gun-sword visual on the rider — composite pirate-
                 // on-shark spawns are two linked entities (mount +
                 // rider) and the rider entity draws via the standard

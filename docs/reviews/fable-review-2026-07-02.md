@@ -2158,7 +2158,27 @@ emitter contract test added. BLIND: the audio/feel of actor movement SFX is Jon'
 to verify. (A9 anim-overlay fork stays open — the emitter deliberately omits
 body-specific anim state.)
 
-## Next (in order) — **§A2, §B, §A8, and several §C items are DONE (E41/E42 verified against code).** The audit's TASK sections are stale; trust E-entries + a code re-check before working an item. Genuinely-open, autonomous-friendly: **B12** (targeting nearest-foe tiebreak DONE `147f5045` — min-Entity, order-independent; the portal first-qualifying half stays deferred per the audit "verify vs portal agent" caveat); **C7-residual** (`is_gnu_ton` render split-layers `boss.rs:79-109` → multi-part layering as boss-sheet data; and the rider name is still *parsed* from the spawn name — the FULL fix authors a rider-name LDtk field, needs `ambition_ldtk_tools`); **C9** (`CharacterBrainTemplate::Shark` → behavior name `ChargeCrash`, a mechanical rename across `SharkCfg`/`StateMachineCfg::Shark`/catalog preset). Larger / needs-Jon: **C1** (24-item `Item` enum → installable `ItemCatalog`, L, consumed across menu IR/yarn/persistence); **C4** (app-thinness boundary test + machinery `PlatformerEnginePlugin` group, L); **C6** (named-boss residue, M); **C2** (`HELD_ITEMS` static — NUANCED: most rows are generic engine-ability bindings, not replaceable content, so a bare move-to-content breaks engine tests and a bare install seam is speculative scaffolding — defer until a second game or a per-character loadout lands, e.g. the just-shipped [[project_starting_character]]); the **D-front** (`rooms`/`RoomSpec` content-coupling — Jon's call, unchanged below).
+### E43. A9 — actors show movement overlay poses via body-generic BodyAnimFacts ✅ (`9aedb222`, `0122eddf`, slice 2 BLIND)
+The presentation overlay-timer component was player-only in name AND effect.
+Slice 1 (`9aedb222`, safe compiler-gated, 47 refs, zero behavior change): rename
+`PlayerAnimState` → body-generic `BodyAnimFacts`. Slice 2 (`0122eddf`, BLIND):
+extract the player's edge-arming into body-generic `advance_body_anim_overlays`
+(the player tick calls it; the dead `update_anim_signal_timers` in
+`app/sim_systems` is gone); actors carry `BodyAnimFacts` (`EnemyActorBundle`),
+advanced by a presentation-scheduled `advance_actor_anim_overlays` (excludes the
+home player → no double-tick; possessed bodies ARE advanced; `sim_dt` so poses
+pause/slow with the sim); `ActorAnimState` + `pick_actor_anim` gain the overlay
+reads (wall_jump / dash_startup / landing / shoot), fed from the actor's
+`BodyAnimFacts` (`Option`, base-ladder-safe) by `rebuild_actor_anim_index`. An AI
+fighter now shows the same wall-jump / dash-startup / landing poses the player
+does (whatever rows its sheet owns). Player poses unchanged by construction; pick
+test added. **Follow-up:** actor wall-jump/shoot ARMING is op/projectile-driven
+(the pick already reads them; they show once armed) — arm wall_jump on the actor
+WallJump op in the actor update, shoot on the enemy-projectile fire path. The
+`landing` hard/soft grade still reads screen-Y `vel.y` (a §B-family assumption
+shared with the player). BLIND: on-screen feel is Jon's to verify.
+
+## Next (in order) — **§A2, §B, §A8, §A9, and several §C items are DONE (E41–E43 verified against code).** The audit's TASK sections are stale; trust E-entries + a code re-check before working an item. Genuinely-open, autonomous-friendly: **B12** (targeting nearest-foe tiebreak DONE `147f5045` — min-Entity, order-independent; the portal first-qualifying half stays deferred per the audit "verify vs portal agent" caveat); **C7-residual** (`is_gnu_ton` render split-layers `boss.rs:79-109` → multi-part layering as boss-sheet data; and the rider name is still *parsed* from the spawn name — the FULL fix authors a rider-name LDtk field, needs `ambition_ldtk_tools`); **C9** (`CharacterBrainTemplate::Shark` → behavior name `ChargeCrash`, a mechanical rename across `SharkCfg`/`StateMachineCfg::Shark`/catalog preset). Larger / needs-Jon: **C1** (24-item `Item` enum → installable `ItemCatalog`, L, consumed across menu IR/yarn/persistence); **C4** (app-thinness boundary test + machinery `PlatformerEnginePlugin` group, L); **C6** (named-boss residue, M); **C2** (`HELD_ITEMS` static — NUANCED: most rows are generic engine-ability bindings, not replaceable content, so a bare move-to-content breaks engine tests and a bare install seam is speculative scaffolding — defer until a second game or a per-character loadout lands, e.g. the just-shipped [[project_starting_character]]); the **D-front** (`rooms`/`RoomSpec` content-coupling — Jon's call, unchanged below).
 
 ### Superseded (the prior D-focused Next; still accurate for the D-front) — **T2 clean read-model + D3 facade redirects DONE (E36/E37/E38).** D3's remaining reducers are all non-autonomous (need Jon's design input or are risky/unverifiable): the `rooms` extraction crux (RoomSpec content-coupling — Jon's call), the value-type→`ambition_sim_view` move (premature until the edge narrows), the boss-pose SIM-SIDE animator move (retires the `animate_bosses` write-back; presentation-unverifiable), and the category-D portal/dev/session system untangles. Recommend Jon adjudicate the `rooms`/`RoomSpec` content-coupling direction next (as he did the actors|props taxonomy). Deferred to Jon's feel pass: render/hurtbox baked-size convergence (~1.2% gap); the T1 placeholder color/z blind deltas (E35).
 

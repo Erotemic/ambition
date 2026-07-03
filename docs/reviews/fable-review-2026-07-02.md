@@ -2092,6 +2092,26 @@ real INFRA pattern + fixed what was safely fixable:
   PAUSED PCA encounter work), NOT a stale test — out of the architecture-grind
   scope; needs a focused gameplay-debugging slice. Logged to code_smells.
 
+### E40. Full-workspace verification caught a SELF-INTRODUCED regression — arc now green across all feature configs ✅ (`c63646b7`, `f14eae7e`)
+A `cargo check --workspace --all-targets` gate (the E39 recommendation, run on
+myself) caught that the warning-cleanup commit `889c859d` had BROKEN the render
+build: it dropped `mut` from `camera.rs`'s `snapshot` on an "unused mut" lint that
+only fires WITHOUT `portal_render` — but a `#[cfg(feature = "portal_render")]` block
+reassigns `snapshot.center_world`/`.rotation_radians`, so `mut` is required under
+that feature (which render's default + the workspace build enable). Per-crate default
+checks + content's `--all-features` dep-build (portal_render OFF) both missed it.
+Fixed with `mut` restored + `#[cfg_attr(not(feature="portal_render"), allow(unused_mut))]`
+(`c63646b7`); also dropped a pre-existing unused module-level `BossEncounter` import
+(`f14eae7e`). Now: `cargo check --workspace --all-targets` = EXIT 0. Remaining 3
+warnings are PRE-EXISTING in files this session never touched (portal_presentation
+gun_visuals, dev prims DebugLabel/height, smash/arena) — left alone precisely because
+the camera.rs episode proved unused-mut/dead-code lints can be feature-gated and are
+dangerous to blind-fix. Lesson recorded in dev/journals/lessons_learned.md
+(2026-07-03): warnings are config-relative; verify fixes with `--workspace
+--all-targets`; prefer scoped `cfg_attr(allow)` over deleting near `#[cfg(feature)]`.
+This episode VALIDATED the E39 `--workspace` CI recommendation — it caught the
+regression, the rotted leaf-crate tests, AND is the only gate that sees all configs.
+
 ## Next (in order) — **T2 clean read-model + D3 facade redirects DONE (E36/E37/E38).** D3's remaining reducers are all non-autonomous (need Jon's design input or are risky/unverifiable): the `rooms` extraction crux (RoomSpec content-coupling — Jon's call), the value-type→`ambition_sim_view` move (premature until the edge narrows), the boss-pose SIM-SIDE animator move (retires the `animate_bosses` write-back; presentation-unverifiable), and the category-D portal/dev/session system untangles. Recommend Jon adjudicate the `rooms`/`RoomSpec` content-coupling direction next (as he did the actors|props taxonomy). Deferred to Jon's feel pass: render/hurtbox baked-size convergence (~1.2% gap); the T1 placeholder color/z blind deltas (E35).
 
 **§A2 is COMPLETE** (E10–E13). The victim-side damage path is ONE resolver +

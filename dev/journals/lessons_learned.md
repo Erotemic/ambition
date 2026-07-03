@@ -1262,3 +1262,15 @@ There was no headless test asserting boss music plays during a fight — the exa
 
 ### Takeaway
 Slimming is part of "done", not a follow-up: a unification that only adds is half-finished. Each refactor stage should leave the net production surface flat-or-smaller and the new code reused by ≥1 real caller, with the obsoleted code + its tests deleted in the same commit.
+
+---
+
+**Date:** 2026-07-03. **Context:** post-architecture-arc test/CI hardening — a warning-cleanup commit (`889c859d`) removed `mut` from `let snapshot = resolve_follow_camera_snapshot(...)` in `render/camera.rs` on a "does not need to be mutable" lint. The full-workspace verification (`cargo check --workspace`) then failed to compile render with E0594 (`cannot assign to snapshot.center_world`).
+
+### Transferable lesson — a compiler warning can be FEATURE-CONFIG-SPECIFIC
+- The "unused mut" was real ONLY without the `portal_render` feature: under it, a `#[cfg(feature = "portal_render")]` block reassigns `snapshot.center_world`/`.rotation_radians`, so `mut` is REQUIRED. `cargo check -p ambition_render` (default) and `-p ambition_content --all-features` (which compiles `portal_render` OUT) both showed the warning; neither exercised the config that NEEDS the `mut`. Blind-removing it broke the default render + workspace build.
+- **Rule:** before "fixing" an `unused_mut` / `dead_code` / `unused_import` lint near a `#[cfg(feature = ...)]` block, check whether a gated path uses it under another config. Prefer `#[cfg_attr(not(feature = "X"), allow(unused_mut))]` (keep the `mut`, silence the lint only where genuinely unused) over deleting. Verify EVERY warning fix with `cargo check --workspace --all-targets`, not a single-crate/default-feature check.
+- **Meta-lesson (validated the E39 recommendation):** the per-crate CI flow (`-p ambition_app`, `-p X --lib`) and default-feature checks are a feature-config BLIND SPOT — they missed both this regression AND the rotted leaf-crate tests (vfx `frame_down`, architecture_boundaries). A `cargo test --workspace` gate catches all three classes.
+
+### Takeaway
+Warnings are config-relative, not absolute. A "clean" fix under one feature set can be a compile break under another; only `--workspace --all-targets` sees them all. When in doubt, silence a config-local lint with a scoped `cfg_attr(allow)` rather than changing code.

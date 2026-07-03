@@ -2005,7 +2005,32 @@ actor-cluster borrow was exactly two systems; both are now cut.
   then §D4 world + category-D systems, then drop render's gameplay_core dep (D3.7,
   the lever). Payoff stays binary/multi-session — these are prep, but each lands green.
 
-## Next (in order) — **T2 actor read-model DONE (E36)**. Continue T2: (C) materialize the BOSS render path (`ecs_boss_*` + `upgrade_boss_sprites`' cluster query → a boss render index, mirroring slices A/B) → (D) materialize prop state (`ecs_chest_opened`/`ecs_breakable_state`) → move the value types (`FeatureView`/`FeatureVisualKind`/`BoundFeatureKind` + `ActorAnimFrame`) to a RE-CREATED `ambition_sim_view` → §D4 `ambition_world` (rooms, biggest reducer) + category-D systems → drop render's `ambition_gameplay_core` dep (D3.7 = the compile-time lever fires). Parallel track: D4.2 platforms+physics extract (couples `rooms`) / D4.3 LDtk converter extensibility (crux, multi-session). Deferred to Jon's feel pass: render/hurtbox baked-size convergence (~1.2% const-vs-baked gap); the T1 placeholder color/z blind deltas (E35).
+### E37. T2 slice C + the CLEAN-READ-MODEL BOUNDARY — boss binding materialized; boss POSE is a bidirectional coupling ⏹ (`af45bc78`)
+- **Slice C (`af45bc78`):** `upgrade_boss_sprites` (boss sheet BINDING) now reads
+  `FeatureViewIndex` (the boss's render `size`, already built by the boss loop) +
+  `BossRenderIndex` (name + behavior id, materialized by `rebuild_boss_render_index`)
+  — it names `BossClusterRef` nowhere. Deleted `ecs_boss_name`. Byte-identical
+  key derivation; behavior-preserving.
+- **BOUNDARY FINDING — `animate_bosses` (boss POSE) is NOT a clean read-model gap.**
+  Unlike `animate_characters` (slice B, a pure read), `animate_bosses` WRITES a
+  `BossAnimationFrameSample` component BACK onto the boss entity, keyed off the
+  render animator's *current frame* (`animator.frame`) — the drawn pose drives the
+  boss's per-frame ATTACK-HITBOX geometry (AD2/3b: GNU-ton's hands track the drawn
+  frame). That is a genuine render→sim WRITE, a bidirectional coupling, not "render
+  borrows sim state to draw." Materializing it into an index is the wrong shape;
+  the right fix is to move `BossAnimator` (frame→geometry) SIM-SIDE so the sim owns
+  the sample — a much larger slice (the boss analogue of pulling the animator into
+  gameplay_core), NOT a T2 materialization. **So the clean T2 read-model slices are
+  DONE**: every PURE render→gameplay_core actor/boss live-query borrow that was
+  "render reads sim state" is now materialized (`ActorRenderIndex`/`ActorAnimIndex`/
+  `BossRenderIndex` + `FeatureViewIndex`). What remains is NOT more of the same:
+  boss-pose is bidirectional (own slice), prop-state is low-value FeatureView bloat,
+  and the value-type move to `ambition_sim_view` stays PREMATURE (E24 objection 2)
+  until the edge actually narrows — which needs §D4 (RoomGeometry done; `rooms`
+  next) + category-D systems, the multi-session remainder. Verified gameplay_core
+  1090 + render 24 green.
+
+## Next (in order) — **T2 clean read-model slices DONE (E36/E37).** The remaining render→gameplay_core cut is now dominated by the NON-read-model surface, so pivot off T2: (1) **§D4 `ambition_world`** — `rooms` is render's next-biggest gameplay_core import after `RoomGeometry` (done, E26) and the linchpin for the platforms/physics extract; extracting it is the biggest remaining D3 reducer AND a reusable-crate win. (2) boss-pose SIM-SIDE animator move (its own slice — retires the `animate_bosses` write-back). (3) then value types → re-created `ambition_sim_view`, category-D systems, drop render's dep (D3.7 lever). Parallel: D4.2 platforms+physics (couples `rooms`) / D4.3 LDtk converter extensibility (crux). Deferred to Jon's feel pass: render/hurtbox baked-size convergence (~1.2% gap); the T1 placeholder color/z blind deltas (E35).
 
 **§A2 is COMPLETE** (E10–E13). The victim-side damage path is ONE resolver +
 ONE reaction for every body; per-body policy is the only fork left.

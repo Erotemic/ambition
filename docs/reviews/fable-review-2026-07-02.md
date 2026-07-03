@@ -49,8 +49,31 @@ sensible default and note it here for deferred tuning.** Two kinds of entries:
     floor (the flat path armed `ENEMY_ATTACK_COOLDOWN * mult`; the moveset move's own
     duration is the new floor) — if the cadence reads wrong, re-arm a per-archetype
     recovery floor on move trigger.
-- (Add here as you go: e.g. "boss strike geometry now static body-local approximations
-  vs per-tick world-space — tune fidelity if it reads wrong.")
+- **Boss GEOMETRY strikes folded onto the moveset (E51)** — every boss strike now runs
+  through the SAME moveset runtime an actor's swing does; `sync_boss_strike_hitboxes` +
+  `FrameDrivenBossStrike` are DELETED. Deferred-tuning knobs (sensible defaults, sweep
+  when a boss reads wrong):
+  - **Boss strike geometry is now static body-local `HitVolume`s** (from
+    `volumes_for_profile` at a ZERO origin), NOT the per-tick sprite-frame-tracked
+    multi-part geometry. GNU-ton's two hands / the gradient sentinel's pose-tracked
+    strike boxes lose their frame-tracking for GAMEPLAY (the debug overlay + hurtbox
+    pose still use the rich path). Approximation blessed by the handoff; if a boss
+    strike's hit region reads wrong, either tune the profile's `volumes_for_profile`
+    rect or teach the moveset a frame-sampled volume kind.
+  - **Strike move duration = the profile's first-seen strike window** (from the
+    capability repertoire), so a profile authored with different durations in different
+    pattern steps uses the first. Same limitation the special-fold already had. Tune by
+    splitting into distinct profiles/keys if a boss needs per-step strike lengths.
+  - **Boss strike knockback uses the body's LIVE facing** (`kin.facing`) via the move
+    runtime; the retired sync hardcoded `facing: 1.0`. For symmetric/centered strikes
+    this is a no-op; verify an off-center strike's knockback direction.
+  - **`BossAttackState` still OWNS strike timing** (the pattern cursor writes it; the
+    move is slaved to `active_profile`). The full target shape — pattern → pure
+    move-SEQUENCER, `BossAttackState` → projection FROM the live `MovePlayback` (mirror
+    of `project_moveset_melee_to_body_melee`) — is a recorded NEXT slice (see E51). It
+    is a larger change (Telegraph/Strike/Rest steps → Startup/Active/Recovery windows,
+    ~37 `BossAttackState` consumers migrate); the current slice already retires the
+    bespoke hitbox poll and unifies the damage path, which is the load-bearing win.
 
 **GENUINE FORKS** (shape-defining + expensive to reverse; Jon's call — the run picked a
 defensible default and moved on):
@@ -2487,6 +2510,37 @@ Continued straight on (Jon: don't pause — [[feedback_dont_pause_for_feel_land_
   runtime with player physics, so it wants a separate player-physics reader; Jon's call) and
   the ranged subsumption (dynamic-aim vs facing-lock). Full `cargo test --workspace`: **92
   suites green, 1 red = the pre-existing rl_sim determinism bug (§5, not this work).**
+
+### E51. BOSS GEOMETRY FOLD — every boss strike now runs through the moveset ✅ (`7ecae45a`)
+The handoff §3a headline. Specials + non-boss actor melee were already on the moveset
+(E47–E50); this folds the LAST actor-melee piece — the boss's GEOMETRY strikes.
+- `boss_special_moveset` → **`boss_attack_moveset`**: ONE move per authored strike
+  profile. A geometry profile (FloorSlam / SideSweep / HazardColumn / GNU-ton hands / …)
+  becomes a move whose Active window carries the profile's static hit volumes as
+  BODY-LOCAL `HitVolume`s — derived from `volumes_for_profile` at a ZERO origin (the
+  world-space math cancels the boss position, leaving a constant body-local offset, so a
+  spawn-time-built move is position-correct). A `Special(key)` still becomes a
+  sustain-`Effect` move. Keyed by the new `BossAttackProfile::move_id`.
+- `trigger_boss_special_moves` → **`trigger_boss_attack_moves`**: ONE trigger for every
+  boss strike (geometry AND special) — reads `active_profile`, inserts the matching
+  `MovePlayback`; `advance_move_playback` spawns/despawns the Boss-faction strike hitbox
+  through the shared `apply_hitbox_damage` path. Possessed-boss geometry stays suppressed
+  (parity with the retired sync); its specials still fire.
+- **DELETED `sync_boss_strike_hitboxes` + `FrameDrivenBossStrike` (~130 lines).** Boss
+  strike damage no longer has a bespoke per-tick geometry poll. `active_attack_volumes` /
+  `volumes_for_profile` survive for the DEBUG overlay + hurtbox-pose selection only.
+- **What's the geometry cost?** The static `volumes_for_profile` fallback replaces the
+  sprite-frame-tracked multi-part geometry for GAMEPLAY hitboxes (bulk-review: "Boss
+  GEOMETRY strikes folded onto the moveset"). Blessed by the handoff as a parameterizable
+  fidelity detail.
+- **What's still off the full target shape?** `BossAttackState` still OWNS strike timing
+  (the pattern cursor writes it; the move is slaved to `active_profile`). The full shape —
+  pattern → pure move-SEQUENCER, `BossAttackState` → PROJECTION from the live
+  `MovePlayback` (mirror of `project_moveset_melee_to_body_melee`) — is the recorded NEXT
+  slice: it converts the Telegraph/Strike/Rest steps into Startup/Active/Recovery windows
+  and migrates the ~37 `BossAttackState` consumers off the cursor. The load-bearing win
+  (retire the bespoke poll, unify the damage path) is banked; the timing-authority flip is
+  a follow-up. Full `cargo test --workspace`: all green except the pre-existing E39 red.
 
 ## Next (in order) — **§A2, §B, §A8, §A9, several §C items, the ACTOR MELEE SUBSUMPTION (E49/E50), and C9 are DONE.** The audit's TASK sections are stale; trust E-entries + a code re-check before working an item. **DONE this run (2026-07-03):** **E49** (actor melee → moveset `"attack"` move — the melee subsumption headline, `2bc4bbae`); **C9** (`Shark` state-machine → `ChargeCrash`, `f9843202` — the data-facing `CharacterBrainTemplate::ChargeCrash` was already done, this finished the internal impl). **RECORDED AS GENUINE FORKS (Jon's call, see BULK REVIEW QUEUE):** the player-melee fold (directional-variant + pogo schema — folding pogo would pollute the content-free move runtime with player physics) and the ranged subsumption (dynamic-aim vs facing-lock). **Also verified stale/already-done:** C8's `SpecialPreset` already carries the open `Special(String)` hatch + resolver + test (`character_catalog/{entry,resolver}.rs`); the other C8 presets mirror still-closed runtime enums (nothing to open yet). Genuinely-open, autonomous-friendly remaining: **C7-residual** (`is_gnu_ton` render split-layers `boss.rs:79-109` → multi-part layering as boss-sheet data; and the rider name is still *parsed* from the spawn name — the FULL fix authors a rider-name LDtk field, needs `ambition_ldtk_tools`). Larger / needs-Jon: **C1** (24-item `Item` enum → installable `ItemCatalog`, L, consumed across menu IR/yarn/persistence); **C4** (app-thinness boundary test + machinery `PlatformerEnginePlugin` group, L); **C6** (named-boss residue, M); **C2** (`HELD_ITEMS` static — NUANCED: most rows are generic engine-ability bindings, not replaceable content, so a bare move-to-content breaks engine tests and a bare install seam is speculative scaffolding — defer until a second game or a per-character loadout lands, e.g. the just-shipped [[project_starting_character]]); the **D-front** (`rooms`/`RoomSpec` content-coupling — Jon's call, unchanged below).
 

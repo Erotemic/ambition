@@ -134,7 +134,7 @@ impl ProjectileCollisionWorld<'_, '_> {
 /// anim pulse is therefore OPTIONAL (a non-home charge body has no `PlayerAnimState`).
 #[allow(clippy::too_many_arguments)]
 pub fn charge_projectile_input(
-    world_time: Res<crate::WorldTime>,
+    world_time: Res<ambition_time::WorldTime>,
     // Per-BODY projectile state lives on the charge-capable body itself. Iterates
     // every such body so co-op / possession builds get one independent charge timer.
     mut charge_body_q: Query<
@@ -431,7 +431,7 @@ struct PlayerProjectileTickInfo {
 #[allow(clippy::too_many_arguments)]
 pub fn step_projectiles(
     mut commands: Commands,
-    world_time: Res<crate::WorldTime>,
+    world_time: Res<ambition_time::WorldTime>,
     carved: ProjectileCollisionWorld,
     gravity: crate::physics::GravityCtx,
     mut projectiles: Query<

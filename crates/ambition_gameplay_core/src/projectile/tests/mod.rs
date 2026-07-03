@@ -58,7 +58,7 @@ fn spawn_player(app: &mut App, pos: ae::Vec2, facing: f32) {
 fn projectile_test_app(world: World, player_pos: ae::Vec2, facing: f32) -> App {
     let mut app = App::new();
     app.insert_resource(Time::<()>::default());
-    app.insert_resource(crate::WorldTime::default());
+    app.insert_resource(ambition_time::WorldTime::default());
     app.insert_resource(RoomGeometry(world));
     // `update_projectiles` collides against the portal-carved world; no carves in
     // these tests, so the overlay is empty (collision == raw world).
@@ -237,7 +237,7 @@ fn advance_time(app: &mut App, dt_seconds: f32) {
     // so the test harness must mirror the production pipeline's
     // `refresh_world_time` step. Tests run at `time_scale = 1.0`,
     // so `sim_dt == wall_dt`.
-    let mut world_time = app.world_mut().resource_mut::<crate::WorldTime>();
+    let mut world_time = app.world_mut().resource_mut::<ambition_time::WorldTime>();
     world_time.raw_dt = dt_seconds;
     world_time.scaled_dt = dt_seconds;
 }

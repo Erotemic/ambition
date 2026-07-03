@@ -184,7 +184,7 @@ fn record_frame_with_oob_pushes_event_and_requests_dump() {
     let frame = build_frame(
         &clusters,
         &crate::actor::BodyCombat::default(),
-        &crate::time::clock_state::ClockState::default(),
+        &ambition_time::ClockState::default(),
         &crate::player::PlayerSafetyState::default(),
         &world,
         ControlFrame::default(),
@@ -215,7 +215,7 @@ fn write_dump_writes_two_files() {
     let frame = build_frame(
         &clusters,
         &crate::actor::BodyCombat::default(),
-        &crate::time::clock_state::ClockState::default(),
+        &ambition_time::ClockState::default(),
         &crate::player::PlayerSafetyState::default(),
         &world,
         ControlFrame::default(),
@@ -490,7 +490,7 @@ fn frame_includes_moving_platform_state() {
     let frame = build_frame(
         &clusters,
         &crate::actor::BodyCombat::default(),
-        &crate::time::clock_state::ClockState::default(),
+        &ambition_time::ClockState::default(),
         &crate::player::PlayerSafetyState::default(),
         &world,
         ControlFrame::default(),

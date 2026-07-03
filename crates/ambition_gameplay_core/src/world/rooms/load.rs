@@ -19,7 +19,7 @@ use crate::dialog::DialogState;
 use crate::features;
 use crate::platformer_runtime::lifecycle::RoomScopedEntity;
 use crate::player::{PlayerBlinkCameraState, PlayerSafetyState};
-use crate::time::clock_state::ClockState;
+use ambition_time::ClockState;
 use crate::time::feel::SandboxFeelTuning;
 use crate::world::physics::{self, PhysicsRoomEntity};
 use crate::world::platforms::{self, MovingPlatformState};

@@ -19,15 +19,10 @@ use bevy::prelude::*;
 
 use crate::actor::BodyCombat;
 use crate::player::components::{PlayerSlot, PrimaryPlayer};
-use crate::time::clock_state::ClockState;
+use ambition_time::ClockState;
 use crate::time::feel::SandboxFeelTuning;
-use crate::ClockDomain;
+use ambition_time::ClockDomain;
 use crate::SandboxDevState;
-
-/// ADR 0011 — per-entity proper-time scale. Now lives in the reusable
-/// `ambition_time` crate (Stage 18 T1b); re-exported here so the historic
-/// `crate::time::time_control::ProperTimeScale` path keeps resolving.
-pub use ambition_time::ProperTimeScale;
 
 /// Who is asking for a clock change. Encoded as data so a policy
 /// table can grant/deny based on identity without hard-coding which

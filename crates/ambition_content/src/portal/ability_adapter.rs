@@ -106,7 +106,7 @@ pub fn suppress_ledge_grab_during_transit(
 /// `ControlFrame` directly. This is INPUT shaping, so it lives in Ambition (moved
 /// out of the portal crate, Stage 19 Phase 5a); identical-sim.
 pub fn warp_portal_input(
-    time: Option<Res<ambition_gameplay_core::WorldTime>>,
+    time: Option<Res<ambition_time::WorldTime>>,
     mut commands: Commands,
     intent: Option<ResMut<PlayerMovementIntent>>,
     tuning: Res<PortalTuning>,

@@ -183,7 +183,7 @@ fn nearby_collision(world: &ae::World, player_pos: ae::Vec2) -> Vec<CollisionTra
 pub fn build_frame(
     clusters: &ae::BodyClustersMut<'_>,
     combat: &crate::actor::BodyCombat,
-    clock: &crate::time::clock_state::ClockState,
+    clock: &ambition_time::ClockState,
     safety: &crate::player::PlayerSafetyState,
     world: &ae::World,
     controls: ControlFrame,

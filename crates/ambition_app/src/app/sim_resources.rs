@@ -67,7 +67,7 @@ impl Plugin for SandboxSimulationResourcesPlugin {
             .insert_resource(
                 ambition_gameplay_core::time::time_control::RequestedClockScale::default(),
             )
-            .insert_resource(ambition_gameplay_core::time::clock_state::ClockState::default())
+            .insert_resource(ambition_time::ClockState::default())
             .register_type::<GameMode>()
             // StartupProfiler captures wall-clock at each marked phase so a
             // PostStartup report prints "where did the first frame's
@@ -168,7 +168,7 @@ impl Plugin for SandboxSimulationResourcesPlugin {
             // should reach for `Res<WorldTime>::scaled_dt` instead of
             // `Res<Time>::delta_secs()` for anything that should slow
             // / freeze when the world slows / freezes.
-            .insert_resource(ambition_gameplay_core::WorldTime::default())
+            .insert_resource(ambition_time::WorldTime::default())
             // Neutral runtime mirror of `WorldTime::sim_dt()` — the
             // platformer-runtime crate's generic systems read scaled dt
             // through this sandbox-free resource. Filled each frame by

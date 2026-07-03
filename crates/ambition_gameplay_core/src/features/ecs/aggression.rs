@@ -152,7 +152,7 @@ pub struct PendingChallenge {
 /// the dialog box closes (dialog/cutscene/pause suspend gameplay), exactly matching
 /// "flip hostile after the box closes and a few seconds pass".
 pub fn tick_pending_challenges(
-    world_time: Res<crate::time::world_time::WorldTime>,
+    world_time: Res<ambition_time::WorldTime>,
     mut commands: Commands,
     mut pending: Query<(Entity, &mut PendingChallenge)>,
     mut stimuli: MessageWriter<ActorStimulus>,
@@ -283,7 +283,7 @@ mod tests {
         // until the grace (counted only in `Playing`, i.e. after the dialog box
         // closes) elapses — so the player isn't attacked point-blank mid-dialog.
         let mut app = App::new();
-        app.insert_resource(crate::WorldTime {
+        app.insert_resource(ambition_time::WorldTime {
             scaled_dt: 1.0,
             ..Default::default()
         });

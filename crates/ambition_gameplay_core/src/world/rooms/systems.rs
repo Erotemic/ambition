@@ -16,7 +16,7 @@ use super::{
     LoadingZoneActivation, RoomMusicRequest, RoomSet, RoomTransitionRequested,
 };
 use crate::character_sprites::{CharacterAnim, CharacterAnimator};
-use crate::WorldTime;
+use ambition_time::WorldTime;
 use ambition_engine_core as ae;
 
 /// Tag on the portal + gate-ring visual entities so the generic

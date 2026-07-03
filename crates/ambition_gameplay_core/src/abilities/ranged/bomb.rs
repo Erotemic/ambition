@@ -50,7 +50,7 @@ pub fn arm_thrown_bombs(
 /// Burn down lit fuses; on detonation emit a player-side blast [`HitEvent`]
 /// (damages enemies/bosses in the AABB, not the player) and despawn the bomb.
 pub fn tick_bomb_fuses(
-    time: Res<crate::WorldTime>,
+    time: Res<ambition_time::WorldTime>,
     mut commands: Commands,
     mut bombs: Query<(Entity, &GroundItem, &mut BombFuse)>,
     mut hits: MessageWriter<HitEvent>,
@@ -138,7 +138,7 @@ mod tests {
         app.add_message::<ambition_sfx::SfxMessage>();
         app.add_message::<ambition_vfx::vfx::VfxMessage>();
         app.init_resource::<CapturedHits>();
-        let mut wt = crate::WorldTime::default();
+        let mut wt = ambition_time::WorldTime::default();
         wt.scaled_dt = 0.05; // sim_dt() > the 0.001 fuse
         app.insert_resource(wt);
         app.add_systems(Update, (tick_bomb_fuses, capture_hits).chain());

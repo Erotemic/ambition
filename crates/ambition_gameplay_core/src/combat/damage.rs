@@ -27,7 +27,7 @@ use ambition_sfx::SfxMessage;
 use crate::dev::dev_tools::EditableMovementTuning;
 use crate::features::{self, GameplayBanner, HitEvent as FeatureHitEvent};
 use crate::player::{PlayerAnimState, PlayerSafetyState};
-use crate::time::clock_state::ClockState;
+use ambition_time::ClockState;
 use crate::time::feel::SandboxFeelTuning;
 use crate::{
     remember_safe_player_position, ActorDiedMessage, MovingPlatformSet, RoomGeometry,

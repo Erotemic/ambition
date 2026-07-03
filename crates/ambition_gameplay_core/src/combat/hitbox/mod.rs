@@ -38,7 +38,7 @@ use super::targeting::{damage_lands, effective_faction};
 use super::util::midpoint;
 use ambition_sfx::SfxMessage;
 use crate::world::physics::{DebrisBurstMessage, PhysicsDebrisCue};
-use crate::WorldTime;
+use ambition_time::WorldTime;
 use ambition_vfx::vfx::{ParticleKind, VfxMessage};
 
 // The hitbox COMPONENTS moved to the reusable `ambition_vfx` crate (the

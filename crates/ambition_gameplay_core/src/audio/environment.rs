@@ -175,7 +175,7 @@ pub fn detect_audio_environment(
 /// (see `WorldTime::wall_dt`) so the underwater transition keeps
 /// moving when the sim is paused or slowed by bullet-time.
 #[cfg(feature = "audio")]
-pub fn smooth_audio_environment(time: Res<crate::WorldTime>, mut env: ResMut<AudioEnvironment>) {
+pub fn smooth_audio_environment(time: Res<ambition_time::WorldTime>, mut env: ResMut<AudioEnvironment>) {
     env.advance(time.wall_dt());
 }
 

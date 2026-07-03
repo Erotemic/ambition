@@ -14,7 +14,7 @@ const PICKUP_MAGNET_SPEED: f32 = 340.0;
 /// [`collect_ecs_pickups`], which still does the actual overlap grant — a pickup
 /// pulled into overlap is collected the same frame.
 pub fn magnetize_pickups(
-    time: Res<crate::WorldTime>,
+    time: Res<ambition_time::WorldTime>,
     players: Query<&crate::actor::BodyKinematics, With<crate::actor::PrimaryPlayer>>,
     mut pickups: Query<&mut CenteredAabb, (With<PickupFeature>, Without<Collected>)>,
 ) {
@@ -318,7 +318,7 @@ mod tests {
     #[test]
     fn nearby_pickups_drift_toward_the_player() {
         let mut app = App::new();
-        app.insert_resource(crate::WorldTime {
+        app.insert_resource(ambition_time::WorldTime {
             scaled_dt: 0.1,
             ..Default::default()
         });

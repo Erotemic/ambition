@@ -26,7 +26,7 @@ use ambition_gameplay_core::enemy_projectile::EnemyProjectileSpawn;
 use ambition_gameplay_core::features::{
     ActorFaction, ActorTarget, BossClusterRef, FeatureSimEntity,
 };
-use ambition_gameplay_core::WorldTime;
+use ambition_time::WorldTime;
 
 mod echo_fan;
 mod eye_beam;

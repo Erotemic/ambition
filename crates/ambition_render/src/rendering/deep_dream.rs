@@ -168,7 +168,7 @@ pub fn attach_puppy_slug_deep_dream_overlays(
 /// material. This runs after `animate_characters`, so it sees the same atlas
 /// index and facing flip that the normal sprite draws.
 pub fn sync_puppy_slug_deep_dream_overlays(
-    world_time: Res<ambition_gameplay_core::WorldTime>,
+    world_time: Res<ambition_time::WorldTime>,
     mut elapsed: Local<f32>,
     developer_tools: Res<ambition_gameplay_core::dev::dev_tools::DeveloperTools>,
     texture_layouts: Res<Assets<TextureAtlasLayout>>,

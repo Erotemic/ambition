@@ -18,13 +18,13 @@ use ambition_gameplay_core::features::FeatureEcsWorldOverlay;
 /// Bundle of the two room-reset clock/sim resources, so systems that
 /// already sit near Bevy's 16-SystemParam limit (e.g.
 /// [`apply_room_transition_system`]) can take both in one slot. The
-/// sim-clock `time_scale` (time-owned [`ambition_gameplay_core::time::clock_state::ClockState`])
+/// sim-clock `time_scale` (time-owned [`ambition_time::ClockState`])
 /// and the room-transition cooldown (sim-owned [`ambition_gameplay_core::SandboxSimState`])
 /// are reset together on every room load / death / respawn.
 #[derive(bevy::ecs::system::SystemParam)]
 pub(crate) struct RoomClock<'w> {
     pub sim_state: ResMut<'w, ambition_gameplay_core::SandboxSimState>,
-    pub clock: ResMut<'w, ambition_gameplay_core::time::clock_state::ClockState>,
+    pub clock: ResMut<'w, ambition_time::ClockState>,
 }
 
 mod room_flow;

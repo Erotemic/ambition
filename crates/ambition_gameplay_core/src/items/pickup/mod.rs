@@ -175,7 +175,7 @@ const THROW_SPEED_UP: f32 = 260.0;
 /// when they'd enter a solid / one-way surface. Resting items (`vel == ZERO`)
 /// are skipped, so pickup-able items stay put.
 pub fn ground_item_physics(
-    time: Res<crate::WorldTime>,
+    time: Res<ambition_time::WorldTime>,
     world: crate::features::CollisionWorld,
     gravity: crate::physics::GravityCtx,
     mut grounds: Query<&mut GroundItem>,
@@ -781,7 +781,7 @@ pub fn fire_held_ranged_system(
 /// on a solid wall / past max range.
 #[allow(clippy::too_many_arguments)]
 pub fn held_projectile_step(
-    time: Res<crate::WorldTime>,
+    time: Res<ambition_time::WorldTime>,
     world: Res<crate::RoomGeometry>,
     overlay: Res<crate::features::FeatureEcsWorldOverlay>,
     mut commands: Commands,

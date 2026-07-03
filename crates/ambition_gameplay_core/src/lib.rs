@@ -105,8 +105,11 @@ pub use dev::trace;
 pub use session::game_mode;
 pub use world::{ldtk_world, rooms};
 
-// Crate-root types/consts whose definitions moved into themed modules but
-// still need to surface at `crate::WorldTime` / `ambition_gameplay_core::WorldTime`.
+// Crate-root types/consts whose definitions live in themed modules of this
+// crate. (Generic time vocabulary — `WorldTime`, `ClockState`, `ClockDomain`,
+// `ProperTimeScale`, `refresh_world_time` — lives in `ambition_time`; name it
+// there directly. Only the sandbox-owned `mirror_sim_dt_into_runtime` bridge
+// still surfaces at the crate root.)
 pub use camera_snapshot::{
     resolve_follow_camera_snapshot, CameraBlinkInput, CameraFocus2d, CameraSnapshot2d,
     CameraSnapshotResolveInput, CameraSnapshotResolveMode, SceneCaptureRequest,
@@ -116,21 +119,15 @@ pub use time::camera_ease::{
     CameraEaseState, CameraEaseTuning, DEFAULT_CAMERA_ZOOM_IN_RATE, DEFAULT_CAMERA_ZOOM_OUT_RATE,
     DEFAULT_CAMERA_ZOOM_SNAP_EPSILON,
 };
-pub use time::clock_state::ClockState;
 pub use time::move_toward;
-pub use time::world_time::{
-    mirror_sim_dt_into_runtime, refresh_world_time, ClockDomain, WorldTime,
-};
+pub use time::world_time::mirror_sim_dt_into_runtime;
 
 pub use game_mode::{gameplay_allowed, GameMode};
 
-// Re-export the types that leak through public crate-root signatures
-// (`MovingPlatformSet.0`, `WorldTime::entity_dt`) so the modules they
-// live in can stay `pub(crate)`. Without these, downstream callers
-// couldn't name the types cleanly — `platforms::MovingPlatformState`
-// wouldn't be reachable via any pub path — and Rust's
-// private-interfaces lint would fire under `-D warnings`.
-pub use time::time_control::ProperTimeScale;
+// `MovingPlatformState` leaks through the public `MovingPlatformSet.0`
+// signature, so it must be nameable via a pub path even though
+// `world::platforms` stays `pub(crate)` (else Rust's private-interfaces lint
+// fires under `-D warnings`).
 pub use world::platforms::MovingPlatformState;
 
 use ambition_engine_core as ae;

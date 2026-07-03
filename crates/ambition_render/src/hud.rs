@@ -67,7 +67,7 @@ fn controlled_body(
 /// charge attacks / the fireball — so possessing an actor regenerates that
 /// actor's meter, not the vacated home avatar's.
 pub fn regen_player_mana(
-    time: Res<ambition_gameplay_core::WorldTime>,
+    time: Res<ambition_time::WorldTime>,
     controlled: Option<Res<ControlledSubject>>,
     mut manas: Query<&mut BodyMana>,
     primary: Query<Entity, (With<PlayerEntity>, With<PrimaryPlayer>)>,
@@ -325,7 +325,7 @@ mod tests {
     #[test]
     fn mana_regenerates_over_time_but_clamps_to_max() {
         let mut app = App::new();
-        app.insert_resource(ambition_gameplay_core::WorldTime {
+        app.insert_resource(ambition_time::WorldTime {
             raw_dt: 1.0,
             scaled_dt: 1.0,
         });

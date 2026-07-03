@@ -51,7 +51,7 @@ pub fn sync_live_player_dev_edits_system(
 /// zero so presentation animations freeze and the smoother cannot ramp up next
 /// frame. Gameplay mode leaves scale control to the normal time-control pipeline.
 pub fn apply_suspended_time_scale_system(
-    mut clock: ResMut<ambition_gameplay_core::time::clock_state::ClockState>,
+    mut clock: ResMut<ambition_time::ClockState>,
     mut target: ResMut<ambition_gameplay_core::time::time_control::RequestedClockScale>,
 ) {
     clock.time_scale = 0.0;
@@ -228,7 +228,7 @@ pub fn apply_player_reset_input_system(
     editable_tuning: Res<EditableMovementTuning>,
     feel_tuning: Res<SandboxFeelTuning>,
     mut sim_state: ResMut<SandboxSimState>,
-    mut clock: ResMut<ambition_gameplay_core::time::clock_state::ClockState>,
+    mut clock: ResMut<ambition_time::ClockState>,
     mut reset_room_features: MessageWriter<features::ResetRoomFeaturesEvent>,
     mut sfx_writer: MessageWriter<SfxMessage>,
     mut vfx_writer: MessageWriter<VfxMessage>,
@@ -294,7 +294,7 @@ pub fn apply_cut_rope_room_replay_request_system(
     editable_tuning: Res<EditableMovementTuning>,
     feel_tuning: Res<SandboxFeelTuning>,
     mut sim_state: ResMut<SandboxSimState>,
-    mut clock: ResMut<ambition_gameplay_core::time::clock_state::ClockState>,
+    mut clock: ResMut<ambition_time::ClockState>,
     boss_registry: Res<ambition_gameplay_core::boss_encounter::BossEncounterRegistry>,
     mut save: Option<ResMut<ambition_gameplay_core::persistence::save::SandboxSave>>,
     mut boss_music: Option<ResMut<ambition_gameplay_core::encounter::BossEncounterMusicRequest>>,
@@ -475,7 +475,7 @@ mod suspended_time_tests {
     use super::*;
     use ambition_gameplay_core::game_mode::{gameplay_suspended, GameMode};
     use ambition_gameplay_core::time::time_control::RequestedClockScale;
-    use ambition_gameplay_core::WorldTime;
+    use ambition_time::WorldTime;
     use bevy::state::app::StatesPlugin;
 
     /// Regression: when gameplay is suspended (pause / dialogue /
@@ -491,7 +491,7 @@ mod suspended_time_tests {
         let mut app = App::new();
         app.add_plugins(StatesPlugin);
         app.insert_state(GameMode::Paused);
-        app.insert_resource(ambition_gameplay_core::time::clock_state::ClockState {
+        app.insert_resource(ambition_time::ClockState {
             time_scale: 1.0,
         });
         app.insert_resource(RequestedClockScale {
@@ -510,7 +510,7 @@ mod suspended_time_tests {
             Update,
             (
                 apply_suspended_time_scale_system.run_if(gameplay_suspended),
-                ambition_gameplay_core::refresh_world_time,
+                ambition_time::refresh_world_time,
             )
                 .chain(),
         );
@@ -522,7 +522,7 @@ mod suspended_time_tests {
 
         let clock = app
             .world()
-            .resource::<ambition_gameplay_core::time::clock_state::ClockState>();
+            .resource::<ambition_time::ClockState>();
         let target = app.world().resource::<RequestedClockScale>();
         let wt = app.world().resource::<WorldTime>();
         assert_eq!(
@@ -554,7 +554,7 @@ mod suspended_time_tests {
         let mut app = App::new();
         app.add_plugins(StatesPlugin);
         app.insert_state(GameMode::Playing);
-        app.insert_resource(ambition_gameplay_core::time::clock_state::ClockState::default());
+        app.insert_resource(ambition_time::ClockState::default());
         app.insert_resource(RequestedClockScale::default());
         app.insert_resource(WorldTime::default());
         app.insert_resource(Time::<()>::default());
@@ -563,7 +563,7 @@ mod suspended_time_tests {
             Update,
             (
                 apply_suspended_time_scale_system.run_if(gameplay_suspended),
-                ambition_gameplay_core::refresh_world_time,
+                ambition_time::refresh_world_time,
             )
                 .chain(),
         );

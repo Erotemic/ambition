@@ -133,7 +133,7 @@ const IDLE_BARK_INTERVAL_JITTER: f32 = 3.0;
 /// Fire idle barks for active bosses on a 5-10s cadence while they are
 /// in an attacking phase. Skips bosses with no idle lines registered.
 pub fn tick_boss_idle_barks(
-    world_time: Res<ambition_gameplay_core::WorldTime>,
+    world_time: Res<ambition_time::WorldTime>,
     registry: Option<Res<CombatBanterRegistry>>,
     ecs_bosses: Query<(BossClusterRef, &ambition_gameplay_core::actor::BodyHealth, &ambition_gameplay_core::actor::BodyCombat)>,
     mut vfx: MessageWriter<VfxMessage>,

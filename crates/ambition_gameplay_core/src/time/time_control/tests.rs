@@ -3,6 +3,7 @@
 
 use super::*;
 use crate::player::components::PlayerSlot;
+use ambition_time::ProperTimeScale;
 
 #[test]
 fn proper_time_scale_default_is_one() {
@@ -431,7 +432,7 @@ fn gameplay_systems_must_not_read_res_time_directly() {
 /// `Res<Time>` -> `Res<WorldTime>` refactor was meant to fix.
 #[test]
 fn world_time_sim_dt_respects_time_scale() {
-    use crate::WorldTime;
+    use ambition_time::WorldTime;
 
     let mut wt = WorldTime::default();
     wt.raw_dt = 0.016;

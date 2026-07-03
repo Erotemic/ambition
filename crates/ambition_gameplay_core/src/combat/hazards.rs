@@ -208,7 +208,7 @@ mod tests {
 
     fn app_with_hazard_system() -> App {
         let mut app = App::new();
-        app.insert_resource(crate::WorldTime::default());
+        app.insert_resource(ambition_time::WorldTime::default());
         app.init_resource::<HitLog>();
         app.add_message::<HitEvent>();
         app.add_message::<SfxMessage>();

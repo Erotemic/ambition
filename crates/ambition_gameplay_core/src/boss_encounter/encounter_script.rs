@@ -140,7 +140,7 @@ impl EncounterScript {
 /// the cursor. Runs in the Progression set after the encounter entity exists.
 pub fn tick_encounter_scripts(
     mut commands: Commands,
-    world_time: Res<crate::WorldTime>,
+    world_time: Res<ambition_time::WorldTime>,
     mut gates: MessageReader<EncounterGate>,
     mut scripts: Query<(&EncounterDef, &mut EncounterScript)>,
     mut members: Query<(&mut BossStatus, &mut crate::actor::BodyHealth)>,
@@ -303,7 +303,7 @@ pub struct FallingHazard {
 /// impact (or if its target left the world).
 pub fn tick_falling_hazards(
     mut commands: Commands,
-    world_time: Res<crate::WorldTime>,
+    world_time: Res<ambition_time::WorldTime>,
     world: Res<crate::RoomGeometry>,
     mut gates: MessageWriter<EncounterGate>,
     mut hazards: Query<(Entity, &mut CenteredAabb, &mut FallingHazard)>,
@@ -345,7 +345,7 @@ mod tests {
     use crate::combat::boss_clusters::BossStatus;
     use crate::encounter::BossEncounterMusicRequest;
     use crate::features::GameplayBanner;
-    use crate::WorldTime;
+    use ambition_time::WorldTime;
 
     fn member(hp: i32) -> (BossStatus, crate::actor::BodyHealth) {
         test_boss_status(hp, BossEncounterPhase::Phase1)

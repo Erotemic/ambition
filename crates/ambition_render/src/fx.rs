@@ -205,7 +205,7 @@ pub fn process_fireworks_requests(
 
 pub fn tick_firework_sequences(
     mut commands: Commands,
-    world_time: Res<ambition_gameplay_core::WorldTime>,
+    world_time: Res<ambition_time::WorldTime>,
     mut sequences: Query<(Entity, &mut FireworkSequence)>,
     mut explosions: MessageWriter<ExplosionRequest>,
 ) {

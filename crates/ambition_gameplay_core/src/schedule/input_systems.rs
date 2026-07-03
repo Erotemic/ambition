@@ -120,7 +120,7 @@ pub fn populate_control_frame_from_actions(
     mut dash_state: ResMut<PlayerDashTriggerState>,
     cutscene: Res<ambition_cutscene::ActiveCutscene>,
     mut cutscene_request: ResMut<ambition_cutscene::CutsceneAdvanceRequest>,
-    world_time: Option<Res<crate::WorldTime>>,
+    world_time: Option<Res<ambition_time::WorldTime>>,
     windows: Query<&Window>,
 ) {
     let wall_dt = world_time.as_deref().map_or(0.0, |time| time.wall_dt());
@@ -204,7 +204,7 @@ pub fn populate_control_frame_from_actions(
 /// scrolling share one semantic seam.
 #[cfg(feature = "input")]
 pub fn populate_menu_control_frame_from_actions(
-    world_time: Option<Res<crate::WorldTime>>,
+    world_time: Option<Res<ambition_time::WorldTime>>,
     player_input: Query<&ActionState<SandboxAction>, With<PlayerVisual>>,
     mut menu_frame: ResMut<MenuControlFrame>,
     mut menu_input_state: ResMut<MenuInputState>,
@@ -278,7 +278,7 @@ pub fn populate_menu_control_frame_from_actions(
 /// gestures.
 #[cfg(feature = "input")]
 pub fn apply_menu_frame_to_cutscene_request(
-    world_time: Option<Res<crate::WorldTime>>,
+    world_time: Option<Res<ambition_time::WorldTime>>,
     menu_frame: Res<MenuControlFrame>,
     cutscene: Res<ambition_cutscene::ActiveCutscene>,
     mut cutscene_request: ResMut<ambition_cutscene::CutsceneAdvanceRequest>,

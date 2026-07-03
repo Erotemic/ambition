@@ -1,20 +1,16 @@
-//! Per-frame named-clock dt snapshots (ADR 0010 / 0011).
+//! Sim-dt bridge from the reusable time crate into the runtime crate.
 //!
-//! Facade: the generic time vocabulary + producer ([`WorldTime`],
-//! [`ClockDomain`], [`ClockObserver`], [`ProperTimeScale`], the dt
-//! accessors, and [`refresh_world_time`]) now live in the reusable
-//! `ambition_time` crate (Stage 18 T1b) and are re-exported here so the
-//! historic `crate::time::world_time::…` / `crate::WorldTime` paths keep
-//! resolving with zero call-site churn.
-//!
-//! What stays sandbox-side is [`mirror_sim_dt_into_runtime`] — the bridge
-//! that copies the scaled sim dt into the `ambition_platformer_primitives`
-//! crate's neutral `SimDt` resource. It couples two sibling crates, so it
-//! belongs to the game shell, not the generic time crate.
+//! The generic time vocabulary + producer ([`ambition_time::WorldTime`],
+//! `ClockDomain`, `ProperTimeScale`, the dt accessors, and
+//! `refresh_world_time`) live in the reusable `ambition_time` crate; callers
+//! name them there directly. What stays sandbox-side is
+//! [`mirror_sim_dt_into_runtime`] — the bridge that copies the scaled sim dt
+//! into the `ambition_platformer_primitives` crate's neutral `SimDt` resource.
+//! It couples two sibling crates, so it belongs to the game shell, not the
+//! generic time crate.
 
+use ambition_time::WorldTime;
 use bevy::prelude::{Res, ResMut};
-
-pub use ambition_time::{refresh_world_time, ClockDomain, WorldTime};
 
 /// Mirror [`WorldTime::sim_dt`] into the runtime crate's neutral
 /// [`ambition_platformer_primitives::time::SimDt`] resource each frame.

@@ -96,7 +96,7 @@ pub fn fire_vortex_system(
 /// tick resolves any wall it's pulled into), then age the wells out. Runs on
 /// `scaled_dt` so bullet-time slows the gather with everything else.
 pub fn update_vortex_wells(
-    world_time: Res<crate::WorldTime>,
+    world_time: Res<ambition_time::WorldTime>,
     mut commands: Commands,
     mut wells: Query<(Entity, &mut VortexWell)>,
     mut actors: Query<(&mut BodyKinematics, &ActorFaction), With<FeatureSimEntity>>,
@@ -132,7 +132,7 @@ mod tests {
     fn test_app() -> App {
         let mut app = App::new();
         app.add_message::<ambition_sfx::SfxMessage>();
-        app.insert_resource(crate::WorldTime {
+        app.insert_resource(ambition_time::WorldTime {
             raw_dt: 0.016,
             scaled_dt: 0.016,
         });

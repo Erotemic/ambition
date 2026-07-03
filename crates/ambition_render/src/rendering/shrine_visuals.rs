@@ -163,7 +163,7 @@ pub fn sync_shrine_visual(
 }
 
 pub fn animate_shrine_visuals(
-    world_time: Res<ambition_gameplay_core::WorldTime>,
+    world_time: Res<ambition_time::WorldTime>,
     mut activation: ResMut<ShrineActivationPulse>,
     mut visuals: Query<
         (&mut Sprite, &mut ShrineVisualAnim, &ShrineVisualAtlas),

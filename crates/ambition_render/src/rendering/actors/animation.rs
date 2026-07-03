@@ -75,7 +75,7 @@ pub(crate) fn apply_character_frame(
 /// clusters (body_mode, env_contact, abilities) to cover crouch /
 /// crawl / slide / ladder / swim.
 pub fn animate_player(
-    world_time: Res<ambition_gameplay_core::WorldTime>,
+    world_time: Res<ambition_time::WorldTime>,
     gravity: Option<Res<ambition_gameplay_core::physics::GravityField>>,
     mut query: Query<
         (
@@ -100,7 +100,7 @@ pub fn animate_player(
                 &ambition_gameplay_core::actor::BodyDodgeState,
                 &ambition_gameplay_core::actor::BodyShieldState,
                 Option<&ambition_gameplay_core::player::BodyMelee>,
-                Option<&ambition_gameplay_core::time::time_control::ProperTimeScale>,
+                Option<&ambition_time::ProperTimeScale>,
                 Option<&mut bevy::sprite::Anchor>,
             ),
         ),
@@ -158,7 +158,7 @@ pub fn animate_player(
         // set (SP default), so bullet-time / hitstop / pause still slow the
         // animation in lockstep.
         let dt = world_time.entity_dt(
-            ambition_gameplay_core::time::time_control::ProperTimeScale::or_default(scale),
+            ambition_time::ProperTimeScale::or_default(scale),
         );
         // Hit feedback is drawn by the white-silhouette overlay in
         // `presentation::rendering::hit_flash` — a sibling mesh that samples this
@@ -189,13 +189,13 @@ pub fn animate_player(
 /// One system instead of two avoids the borrow conflict on the
 /// shared `(&mut Sprite, &mut CharacterAnimator)` query.
 pub fn animate_characters(
-    world_time: Res<ambition_gameplay_core::WorldTime>,
+    world_time: Res<ambition_time::WorldTime>,
     mut query: Query<
         (
             &FeatureVisual,
             &mut Sprite,
             &mut CharacterAnimator,
-            Option<&ambition_gameplay_core::time::time_control::ProperTimeScale>,
+            Option<&ambition_time::ProperTimeScale>,
             Option<&mut bevy::sprite::Anchor>,
         ),
         (
@@ -216,7 +216,7 @@ pub fn animate_characters(
     // future MP boosts one player's proper time.
     for (visual, mut sprite, mut animator, scale, anchor) in &mut query {
         let dt = world_time.entity_dt(
-            ambition_gameplay_core::time::time_control::ProperTimeScale::or_default(scale),
+            ambition_time::ProperTimeScale::or_default(scale),
         );
         // ONE actor path — enemy and NPC alike resolve through the SAME picker the
         // player uses, built from the actor's real `Body*` clusters. An actor
@@ -272,13 +272,13 @@ pub const PROP_KINDS_STATIC_UNTIL_MOVING: &[&str] = &["intro_cart"];
 /// cart look like it's drifting in place. Until a `PropMotionState`
 /// component lands, hold these kinds at rest.
 pub fn animate_props(
-    world_time: Res<ambition_gameplay_core::WorldTime>,
+    world_time: Res<ambition_time::WorldTime>,
     mut query: Query<
         (
             &mut Sprite,
             &mut CharacterAnimator,
             &PropVisual,
-            Option<&ambition_gameplay_core::time::time_control::ProperTimeScale>,
+            Option<&ambition_time::ProperTimeScale>,
             Option<&mut bevy::sprite::Anchor>,
         ),
         Without<ambition_gameplay_core::rooms::PortalSprite>,
@@ -294,7 +294,7 @@ pub fn animate_props(
             0.0
         } else {
             world_time.entity_dt(
-                ambition_gameplay_core::time::time_control::ProperTimeScale::or_default(scale),
+                ambition_time::ProperTimeScale::or_default(scale),
             )
         };
         // Route through the SAME frame-apply chokepoint as actors so a trimmed

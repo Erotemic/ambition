@@ -34,7 +34,7 @@ use bevy::prelude::{
     Resource, With, Without,
 };
 
-use crate::WorldTime;
+use ambition_time::WorldTime;
 
 pub mod actor_clusters;
 mod actors;

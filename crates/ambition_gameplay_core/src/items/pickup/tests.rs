@@ -340,7 +340,7 @@ fn thrown_item_arcs_and_settles_on_the_floor() {
         Vec2::new(200.0, 360.0),
         blocks,
     )));
-    app.insert_resource(crate::WorldTime {
+    app.insert_resource(ambition_time::WorldTime {
         raw_dt: 1.0 / 60.0,
         scaled_dt: 1.0 / 60.0,
     });

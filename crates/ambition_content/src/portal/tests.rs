@@ -627,7 +627,7 @@ fn portal_pair_teleports_player_carrying_momentum() {
     app.add_message::<ambition_gameplay_core::portal::PortalBodyEntered>();
     app.add_message::<BodyTeleported>();
     app.add_message::<ambition_gameplay_core::portal::PortalBodyTransited>();
-    app.insert_resource(ambition_gameplay_core::WorldTime::default());
+    app.insert_resource(ambition_time::WorldTime::default());
     app.init_resource::<ambition_gameplay_core::portal::PortalTuning>();
     app.add_systems(Update, portal_transit);
     // Blue on the left (facing right), orange on the right (facing left).
@@ -684,7 +684,7 @@ fn a_gunless_player_transits_an_authored_pair() {
     app.add_message::<ambition_gameplay_core::portal::PortalBodyEntered>();
     app.add_message::<BodyTeleported>();
     app.add_message::<ambition_gameplay_core::portal::PortalBodyTransited>();
-    app.insert_resource(ambition_gameplay_core::WorldTime::default());
+    app.insert_resource(ambition_time::WorldTime::default());
     app.init_resource::<ambition_gameplay_core::portal::PortalTuning>();
     app.add_systems(Update, portal_transit);
     let he = portal_half_extent(Vec2::new(0.0, -1.0));
@@ -770,7 +770,7 @@ fn transit_is_gradual_centroid_crossing_flags_the_teleport_then_clears() {
     app.add_message::<ambition_gameplay_core::portal::PortalBodyTransited>();
     app.init_resource::<TeleportedThisFrame>();
     app.init_resource::<TrailBreakThisFrame>();
-    app.insert_resource(ambition_gameplay_core::WorldTime::default());
+    app.insert_resource(ambition_time::WorldTime::default());
     app.init_resource::<ambition_gameplay_core::portal::PortalTuning>();
     // The player-input adapter now emits `BodyTeleported` from the core's
     // `PortalBodyTransited` event (the trace bit moved out of core), so include
@@ -1013,7 +1013,7 @@ fn portal_shot_travels_and_opens_a_portal_on_a_wall() {
     app.add_message::<ambition_sfx::SfxMessage>();
     app.add_message::<ambition_gameplay_core::portal::PortalShotFired>();
     app.insert_resource(world_with_two_walls());
-    app.insert_resource(ambition_gameplay_core::WorldTime {
+    app.insert_resource(ambition_time::WorldTime {
         raw_dt: 1.0 / 60.0,
         scaled_dt: 1.0 / 60.0,
     });

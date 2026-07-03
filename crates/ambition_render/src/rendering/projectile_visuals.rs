@@ -251,7 +251,7 @@ fn build_sheet_visual(
 pub fn sync_projectile_visuals(
     mut commands: Commands,
     world: Res<ambition_gameplay_core::RoomGeometry>,
-    world_time: Res<ambition_gameplay_core::WorldTime>,
+    world_time: Res<ambition_time::WorldTime>,
     gravity: GravityCtx,
     asset_server: Res<AssetServer>,
     sheets: Res<SheetRegistry>,

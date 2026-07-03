@@ -49,7 +49,7 @@ pub fn populate_encounter_registry(
 /// player is actually inside the room.
 pub fn update_encounters_from_world(
     mut commands: Commands,
-    world_time: Res<crate::WorldTime>,
+    world_time: Res<ambition_time::WorldTime>,
     mut died_messages: MessageReader<crate::ActorDiedMessage>,
     mut registry: ResMut<EncounterRegistry>,
     mut save: ResMut<crate::persistence::save::SandboxSave>,

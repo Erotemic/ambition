@@ -26,7 +26,7 @@ pub(crate) fn reset_sandbox(
     vfx: &mut MessageWriter<VfxMessage>,
     clusters: &mut ae::BodyClustersMut<'_>,
     sim_state: &mut ambition_gameplay_core::SandboxSimState,
-    clock: &mut ambition_gameplay_core::time::clock_state::ClockState,
+    clock: &mut ambition_time::ClockState,
     safety: &mut ambition_gameplay_core::player::PlayerSafetyState,
     attack: &mut Option<ambition_gameplay_core::MeleeSwing>,
     anim: &mut ambition_gameplay_core::player::PlayerAnimState,
@@ -69,7 +69,7 @@ pub(crate) fn load_room(
     clusters: &mut ae::BodyClustersMut<'_>,
     dev_state: &mut ambition_gameplay_core::SandboxDevState,
     sim_state: &mut ambition_gameplay_core::SandboxSimState,
-    clock: &mut ambition_gameplay_core::time::clock_state::ClockState,
+    clock: &mut ambition_time::ClockState,
     // Home-only presentation state (None when a possessed actor transits).
     safety: Option<&mut ambition_gameplay_core::player::PlayerSafetyState>,
     moving_platforms: &mut Vec<ambition_gameplay_core::world::platforms::MovingPlatformState>,

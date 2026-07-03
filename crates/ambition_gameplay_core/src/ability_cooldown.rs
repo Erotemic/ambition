@@ -56,7 +56,7 @@ pub fn try_use_ability(
 /// Tick the player's ability cooldown down by scaled dt, so bullet-time / pause
 /// slow it the same way they slow everything else.
 pub fn tick_ability_cooldown(
-    time: Res<crate::WorldTime>,
+    time: Res<ambition_time::WorldTime>,
     mut players: Query<&mut AbilityCooldown, (With<PlayerEntity>, With<PrimaryPlayer>)>,
 ) {
     let dt = time.scaled_dt;
@@ -74,7 +74,7 @@ mod tests {
     #[test]
     fn cooldown_ticks_down_to_ready() {
         let mut app = App::new();
-        app.insert_resource(crate::WorldTime {
+        app.insert_resource(ambition_time::WorldTime {
             scaled_dt: 0.1,
             ..Default::default()
         });

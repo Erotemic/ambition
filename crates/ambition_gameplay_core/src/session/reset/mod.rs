@@ -40,7 +40,7 @@ use crate::world::platforms;
 #[derive(SystemParam)]
 pub struct ResetPlayState<'w> {
     sim_state: ResMut<'w, crate::SandboxSimState>,
-    clock: ResMut<'w, crate::time::clock_state::ClockState>,
+    clock: ResMut<'w, ambition_time::ClockState>,
     moving_platforms: ResMut<'w, crate::MovingPlatformSet>,
 }
 

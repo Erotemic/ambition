@@ -66,7 +66,7 @@ pub fn body_snapshot(
 #[allow(clippy::too_many_arguments)]
 pub fn record_actor_oob_frame_system(
     mut buffer: ResMut<ActorTraceBuffer>,
-    world_time: Res<crate::WorldTime>,
+    world_time: Res<ambition_time::WorldTime>,
     world: Res<RoomGeometry>,
     platform_set: Res<crate::MovingPlatformSet>,
     feature_ecs_overlay: Res<crate::features::FeatureEcsWorldOverlay>,

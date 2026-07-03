@@ -93,7 +93,7 @@ mod breakable_tests {
     use crate::actor::BodyKinematics;
     use crate::actor::PlayerEntity;
     use crate::world::physics::DebrisBurstMessage;
-    use crate::WorldTime;
+    use ambition_time::WorldTime;
     use ambition_interaction::{Breakable, BreakableCollision, BreakableTrigger};
     use bevy::prelude::{App, Entity, Update};
 

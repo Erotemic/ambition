@@ -582,7 +582,7 @@ pub fn start_body_melee(
 /// `self.attack.tick` that used to ride the actor movement integration).
 #[allow(clippy::too_many_arguments)]
 pub fn advance_body_melee(
-    world_time: Res<crate::WorldTime>,
+    world_time: Res<ambition_time::WorldTime>,
     world: Res<RoomGeometry>,
     moving_platforms: Res<MovingPlatformSet>,
     editable_tuning: Res<EditableMovementTuning>,

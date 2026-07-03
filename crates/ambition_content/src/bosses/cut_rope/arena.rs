@@ -105,7 +105,7 @@ pub fn detect_cut_rope_rope_cut(
 /// the explosion / fireworks / banner. The KILL itself is the EncounterScript's
 /// `ForceKill`; the anvil PHYSICS is the generic `FallingHazard`.
 pub fn tick_cut_rope_flavor(
-    world_time: Res<ambition_gameplay_core::WorldTime>,
+    world_time: Res<ambition_time::WorldTime>,
     room_set: Res<RoomSet>,
     mut state: ResMut<CutRopeBossArenaState>,
     heavy_object: Res<CutRopeHeavyObjectCycle>,

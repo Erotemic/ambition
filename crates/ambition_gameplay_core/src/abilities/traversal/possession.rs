@@ -147,7 +147,7 @@ pub fn possession_trigger_system(
     control: Res<ambition_input::ControlFrame>,
     gravity_field: Option<Res<crate::physics::GravityField>>,
     user_settings: Option<Res<crate::persistence::settings::UserSettings>>,
-    world_time: Res<crate::WorldTime>,
+    world_time: Res<ambition_time::WorldTime>,
     mut hold_timer: Local<f32>,
     mut prev_down_interact: Local<bool>,
     mut state: ResMut<PossessionState>,
@@ -319,7 +319,7 @@ mod tests {
     fn trigger_app() -> App {
         let mut app = App::new();
         app.insert_resource(ambition_input::ControlFrame::default());
-        app.insert_resource(crate::WorldTime {
+        app.insert_resource(ambition_time::WorldTime {
             raw_dt: 1.0,
             scaled_dt: 1.0,
         });

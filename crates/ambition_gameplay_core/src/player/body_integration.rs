@@ -219,7 +219,7 @@ pub fn integrate_home_body(
 /// positions. Peeled out of the per-entity body loop so it can't multiply. Uses
 /// the PRIMARY player's hitstop so platforms freeze during the player's hitstop.
 pub fn advance_moving_platforms(
-    world_time: Res<crate::WorldTime>,
+    world_time: Res<ambition_time::WorldTime>,
     mut platforms: ResMut<crate::MovingPlatformSet>,
     primary_combat: Query<&BodyCombat, crate::actor::PrimaryPlayerOnly>,
 ) {

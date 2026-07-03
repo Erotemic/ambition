@@ -574,7 +574,7 @@ pub fn ensure_player_trail(
 /// split chunks across topological continuity breaks, or animate unfinished
 /// trails as they collapse away.
 pub fn update_player_trail(
-    world_time: Res<crate::WorldTime>,
+    world_time: Res<ambition_time::WorldTime>,
     world: Option<Res<crate::RoomGeometry>>,
     enabled: Option<Res<PlayerTrailEnabled>>,
     mut continuity_breaks: MessageReader<TrailContinuityBreak>,

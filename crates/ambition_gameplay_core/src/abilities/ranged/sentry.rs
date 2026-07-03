@@ -89,7 +89,7 @@ pub fn fire_sentry_system(
 /// player-faction bolt at the nearest Enemy-faction actor within range. Runs on
 /// `scaled_dt` (bullet-time slows the turret with everything else).
 pub fn update_sentries(
-    world_time: Res<crate::WorldTime>,
+    world_time: Res<ambition_time::WorldTime>,
     mut commands: Commands,
     mut sentries: Query<(Entity, &mut Sentry)>,
     enemies: Query<(&CenteredAabb, &ActorFaction), With<FeatureSimEntity>>,
@@ -168,7 +168,7 @@ mod tests {
         let mut app = App::new();
         app.add_message::<ambition_sfx::SfxMessage>();
         app.add_message::<ambition_vfx::EffectRequest>();
-        app.insert_resource(crate::WorldTime {
+        app.insert_resource(ambition_time::WorldTime {
             raw_dt: 0.1,
             scaled_dt: 0.1,
         });

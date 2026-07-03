@@ -31,7 +31,7 @@ use ambition_time::ProperTimeScale;
 
 use super::components::ActorFaction;
 use super::hitbox::{Hitbox, HitboxAnchor, HitboxHits};
-use crate::WorldTime;
+use ambition_time::WorldTime;
 
 /// A timed move event fired by [`advance_move_playback`]. The move runtime
 /// stays content-free: it names the event; downstream consumers (the audio

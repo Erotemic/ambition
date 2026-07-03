@@ -222,7 +222,7 @@ pub struct GameplayElapsed(pub f32);
 /// head of `WorldPrep`, before any actor brain reads the snapshot.
 pub fn advance_gameplay_elapsed(
     mut elapsed: bevy::prelude::ResMut<GameplayElapsed>,
-    world_time: bevy::prelude::Res<crate::WorldTime>,
+    world_time: bevy::prelude::Res<ambition_time::WorldTime>,
 ) {
     elapsed.0 += world_time.scaled_dt;
 }
@@ -418,7 +418,7 @@ mod sim_clock_tests {
     #[test]
     fn gameplay_clock_accumulates_scaled_dt() {
         let mut app = App::new();
-        app.insert_resource(crate::WorldTime {
+        app.insert_resource(ambition_time::WorldTime {
             raw_dt: 1.0 / 60.0,
             scaled_dt: 1.0 / 60.0,
         });
@@ -436,7 +436,7 @@ mod sim_clock_tests {
 
         // Paused (scaled_dt == 0) the clock freezes — reaction latency, hitstun,
         // and every other sim timer that reads it stop together.
-        app.insert_resource(crate::WorldTime {
+        app.insert_resource(ambition_time::WorldTime {
             raw_dt: 1.0 / 60.0,
             scaled_dt: 0.0,
         });

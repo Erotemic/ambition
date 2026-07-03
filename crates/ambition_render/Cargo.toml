@@ -34,6 +34,7 @@ ambition_interaction = { path = "../ambition_interaction" }
 # The VFX message vocabulary `fx` re-exports (`ambition_vfx::vfx::*`).
 ambition_vfx = { path = "../ambition_vfx" }
 ambition_sfx = { path = "../ambition_sfx" }
+ambition_time = { path = "../ambition_time" }
 ambition_sprite_sheet = { path = "../ambition_sprite_sheet" }
 # The cutscene format + live state the cutscene UI plays back.
 ambition_cutscene = { path = "../ambition_cutscene" }

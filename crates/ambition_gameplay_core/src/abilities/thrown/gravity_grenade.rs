@@ -51,7 +51,7 @@ pub fn arm_thrown_gravity_grenades(
 /// Burn fuses; on expiry open a temporary up-gravity well at the grenade and
 /// despawn it.
 pub fn tick_gravity_grenade_fuses(
-    time: Res<crate::WorldTime>,
+    time: Res<ambition_time::WorldTime>,
     mut commands: Commands,
     mut grenades: Query<(Entity, &GroundItem, &mut GravityGrenadeFuse)>,
     mut sfx: MessageWriter<ambition_sfx::SfxMessage>,
@@ -127,7 +127,7 @@ mod tests {
         let mut app = App::new();
         app.add_message::<ambition_sfx::SfxMessage>();
         app.add_message::<ambition_vfx::vfx::VfxMessage>();
-        let mut wt = crate::WorldTime::default();
+        let mut wt = ambition_time::WorldTime::default();
         wt.scaled_dt = GRAVITY_GRENADE_FUSE_SECS + 0.1;
         app.insert_resource(wt);
         app.add_systems(Update, tick_gravity_grenade_fuses);

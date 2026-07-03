@@ -265,7 +265,7 @@ pub fn sync_gnu_ton_hands(
 /// Per-frame state-driven animation for boss entities.
 pub fn animate_bosses(
     mut commands: Commands,
-    world_time: Res<ambition_gameplay_core::WorldTime>,
+    world_time: Res<ambition_time::WorldTime>,
     ecs_bosses: Query<(
         Entity,
         &FeatureId,
@@ -281,7 +281,7 @@ pub fn animate_bosses(
             &mut Sprite,
             &mut BossAnimator,
             Option<&mut bevy::sprite::Anchor>,
-            Option<&ambition_gameplay_core::time::time_control::ProperTimeScale>,
+            Option<&ambition_time::ProperTimeScale>,
         ),
         Without<PlayerVisual>,
     >,
@@ -297,7 +297,7 @@ pub fn animate_bosses(
     // request.
     for (visual, mut sprite, mut animator, anchor, scale) in &mut query {
         let dt = world_time.entity_dt(
-            ambition_gameplay_core::time::time_control::ProperTimeScale::or_default(scale),
+            ambition_time::ProperTimeScale::or_default(scale),
         );
         let Some((boss_entity, state)): Option<(Entity, BossAnimState)> =
             ambition_gameplay_core::features::ecs_boss_anim_state_and_entity(

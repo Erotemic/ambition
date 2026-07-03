@@ -92,7 +92,7 @@ fn run_with_trace_dump(max_ticks: u32, dump_dir: PathBuf, start_room: Option<Str
         // for a once-per-tick trace dump.
         let (clock, control_frame, active_area, mode_label, moving_platforms, game_world) = {
             let world_ref = sim.world();
-            let clock = *world_ref.resource::<ambition_gameplay_core::ClockState>();
+            let clock = *world_ref.resource::<ambition_time::ClockState>();
             let control_frame = *world_ref.resource::<ControlFrame>();
             let room_set = world_ref.resource::<RoomSet>();
             let game_mode = world_ref.resource::<State<GameModeState>>();

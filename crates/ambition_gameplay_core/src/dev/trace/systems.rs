@@ -13,7 +13,7 @@ pub fn record_simulation_frame(
     buffer: &mut GameplayTraceBuffer,
     clusters: &ae::BodyClustersMut<'_>,
     combat: &crate::actor::BodyCombat,
-    clock: &crate::time::clock_state::ClockState,
+    clock: &ambition_time::ClockState,
     safety: &crate::player::PlayerSafetyState,
     world: &ae::World,
     controls: ControlFrame,
@@ -120,7 +120,7 @@ pub fn handle_trace_hotkey(
 /// was clinging to a wall.
 pub fn record_frame_system(
     mut buffer: ResMut<GameplayTraceBuffer>,
-    clock: Res<crate::time::clock_state::ClockState>,
+    clock: Res<ambition_time::ClockState>,
     platform_set: Res<crate::MovingPlatformSet>,
     world: Res<RoomGeometry>,
     time: Res<Time>,

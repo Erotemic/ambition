@@ -192,7 +192,7 @@ fn spawn_one(
 /// matching `animate_shrine_visuals`.
 pub(crate) fn animate_slash(
     mut commands: Commands,
-    world_time: Res<ambition_gameplay_core::WorldTime>,
+    world_time: Res<ambition_time::WorldTime>,
     mut query: Query<(Entity, &mut SlashVisual, &mut Sprite)>,
 ) {
     let dt = world_time.scaled_dt;

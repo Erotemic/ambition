@@ -99,7 +99,7 @@ mod tests {
                 ae::Vec2::new(800.0, 20.0),
             )],
         )));
-        app.insert_resource(crate::WorldTime {
+        app.insert_resource(ambition_time::WorldTime {
             raw_dt: 1.0 / 60.0,
             scaled_dt: 1.0 / 60.0,
         });
@@ -185,7 +185,7 @@ mod tests {
             ae::Vec2::new(400.0, 400.0),
             vec![],
         )));
-        app.insert_resource(crate::WorldTime {
+        app.insert_resource(ambition_time::WorldTime {
             raw_dt: 1.0 / 60.0,
             scaled_dt: 1.0 / 60.0,
         });
@@ -250,7 +250,7 @@ mod tests {
             ae::Vec2::new(400.0, 400.0),
             vec![],
         )));
-        app.insert_resource(crate::WorldTime {
+        app.insert_resource(ambition_time::WorldTime {
             raw_dt: 1.0 / 60.0,
             scaled_dt: 1.0 / 60.0,
         });
@@ -364,7 +364,7 @@ mod tests {
             ae::Vec2::new(400.0, 400.0),
             vec![],
         )));
-        app.insert_resource(crate::WorldTime {
+        app.insert_resource(ambition_time::WorldTime {
             raw_dt: 1.0 / 60.0,
             scaled_dt: 1.0 / 60.0,
         });
@@ -468,7 +468,7 @@ mod tests {
             ae::Vec2::new(400.0, 400.0),
             vec![],
         )));
-        app.insert_resource(crate::WorldTime {
+        app.insert_resource(ambition_time::WorldTime {
             raw_dt: 1.0 / 60.0,
             scaled_dt: 1.0 / 60.0,
         });

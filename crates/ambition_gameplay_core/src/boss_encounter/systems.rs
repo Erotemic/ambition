@@ -46,7 +46,7 @@ pub fn populate_boss_encounter_registry(mut registry: ResMut<BossEncounterRegist
 /// The body's `BodyHealth` (§A1) + `BossStatus.encounter` ARE the source of truth.
 pub fn update_boss_encounters(
     mut commands: Commands,
-    world_time: Res<crate::WorldTime>,
+    world_time: Res<ambition_time::WorldTime>,
     registry: Res<BossEncounterRegistry>,
     mut banner: ResMut<crate::features::GameplayBanner>,
     mut save: ResMut<crate::persistence::save::SandboxSave>,

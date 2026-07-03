@@ -22,7 +22,7 @@ use ambition_gameplay_core::RoomGeometry;
 /// placeable surface (the warping whoosh + close/attach sfx), or fizzle past
 /// range / out of bounds / on a non-placeable surface (the rejection buzz).
 pub fn portal_projectile_step(
-    time: Res<ambition_gameplay_core::WorldTime>,
+    time: Res<ambition_time::WorldTime>,
     world: Res<RoomGeometry>,
     mut commands: Commands,
     mut projectiles: Query<(Entity, &mut PortalShot)>,

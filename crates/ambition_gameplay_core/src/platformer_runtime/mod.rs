@@ -14,7 +14,7 @@
 //!
 //! The not-yet-extracted remainder stays here because it still reaches back into
 //! the sandbox and is therefore NOT import-clean:
-//! - `orientation` -> `crate::physics`, `crate::player`, `crate::features`, `crate::WorldTime`
+//! - `orientation` -> `crate::physics`, `crate::player`, `crate::features`, `ambition_time::WorldTime`
 //!
 //! It moves out once gravity (`crate::physics`) is in-crate (Stage 16 / S4–S5).
 

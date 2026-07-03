@@ -256,7 +256,7 @@ fn register_player_input_systems(app: &mut App) {
             // Unconditional: snapshot whichever path (suspended-zero
             // or gameplay-smoothed) wrote `SandboxSimState::time_scale`
             // this frame into `WorldTime` for downstream readers.
-            ambition_gameplay_core::refresh_world_time,
+            ambition_time::refresh_world_time,
             // Mirror the freshly-snapshotted `WorldTime::sim_dt()` into the
             // runtime crate's neutral `SimDt` so every downstream runtime
             // system (gravity / zones / orient-roll) reads scaled dt without a

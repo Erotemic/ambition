@@ -86,7 +86,7 @@ pub struct SandboxQueues<'w> {
     pub physics_settings: Res<'w, ambition_gameplay_core::world::physics::PhysicsSandboxSettings>,
     pub moving_platforms: ResMut<'w, ambition_gameplay_core::MovingPlatformSet>,
     pub sim_state: ResMut<'w, ambition_gameplay_core::SandboxSimState>,
-    pub clock: ResMut<'w, ambition_gameplay_core::time::clock_state::ClockState>,
+    pub clock: ResMut<'w, ambition_time::ClockState>,
     pub dev_state: ResMut<'w, ambition_gameplay_core::SandboxDevState>,
 }
 

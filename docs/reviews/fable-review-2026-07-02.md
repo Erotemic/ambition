@@ -1119,16 +1119,36 @@ behavior-neutral: gameplay-core 1091 (default + `--features audio`), all four
 crates build, the scripted_gameplay app-test target compiles. This was the
 audit's headline D1 item ("93 of 94 inbound refs are this one symbol").
 
-**D1 remaining** (documented for a dedicated pass): `crate::time::{world_time,
-clock_state}` → `ambition_time` (needs `ambition_time` dep in content+render;
-`WorldTime`/`ClockState` are heavily used), and the big one — the
-`features/mod.rs` re-export hub. NOTE the hub is NOT purely internal as the
-audit implied: external crates use `gameplay_core::features::X` too, so deleting
-its re-exports is a public-surface change touching both the 271 internal refs
-AND every external consumer; it wants its own careful pass (map each symbol to
-its `combat/`/`world/`/… real home first).
+### E19. D1 — `crate::time::{world_time,clock_state,time_control}` ambition_time re-exports removed ✅ (fourth D1 slice)
+The generic time vocabulary (`WorldTime`, `ClockState`, `ClockDomain`,
+`refresh_world_time`, `ProperTimeScale`) lives in `ambition_time`; gameplay_core
+only re-exported it "so historic paths keep resolving." DELETED the pure
+re-exports — `time/clock_state.rs` (whole module + its `pub mod`),
+`pub use ambition_time::{refresh_world_time, ClockDomain, WorldTime}` in
+`time/world_time.rs`, `pub use ambition_time::ProperTimeScale` in
+`time/time_control/mod.rs`, and the three crate-root re-exports in lib.rs. All
+~93 refs (69 internal + 24 in render/content/app) now name `ambition_time::`
+directly (grouped-import audit first confirmed zero `use …::{…}` groups pulled
+these symbols, so a word-boundary redirect was clean). The `time/` module KEEPS
+its real sandbox code: `time_control` (the feel-tuned clock authority —
+`ClockScaleRequest`/`RegimePolicy`/the dispatch systems), `camera_ease`, `feel`,
+`move_toward`, and the `mirror_sim_dt_into_runtime` bridge (which now names
+`ambition_time::WorldTime` for its own `Res` param). `ambition_time` added as a
+direct dep of render + content (app already had it). Also fixed a
+docs-describe-moved-thing: `platformer_primitives/src/time.rs` pointed at
+`ambition_gameplay_core::WorldTime::sim_dt` (now `ambition_time::`).
+Compiler-verified behavior-neutral: gameplay-core 1091, all four crates build,
+the nine app integration suites green.
 
-## Next (in order) — A1 slice 3, D1 time+features-hub, then C1/C2 + D2/D3
+**D1 remaining** — only the big one now: the `features/mod.rs` re-export hub.
+NOTE it is NOT purely internal as the audit implied: external crates use
+`gameplay_core::features::X` too, so deleting its re-exports is a public-surface
+change touching both the 271 internal refs AND every external consumer; it wants
+its own careful pass (map each symbol to its `combat/`/`world/`/… real home
+first, then decide whether those homes surface publicly or whether a curated
+`pub use` set stays as the *intended* external API).
+
+## Next (in order) — A1 slice 3, D1 features-hub, then C1/C2 + D2/D3
 
 **§A2 is COMPLETE** (E10–E13). The victim-side damage path is ONE resolver +
 ONE reaction for every body; per-body policy is the only fork left.

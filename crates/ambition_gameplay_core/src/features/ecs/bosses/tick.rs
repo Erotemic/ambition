@@ -334,22 +334,84 @@ pub(crate) fn horizontal_front_wall_clearance(
     best
 }
 
-/// Integrate ECS-authored bosses + publish damage. The brain
-/// (`tick_boss_brains_system`) owns intent and has already written
-/// `ActorControl` + `BossAttackState` by the time this system runs.
+/// PHASE — integrate boss bodies through the SHARED movement seam (archetype swap
+/// AS4c). A boss IS an aerial actor: its `BossPattern` brain wrote a
+/// `velocity_target` into `ActorControl` upstream, and this arm moves it through the
+/// SAME flight limb every aerial actor uses (`ActorMut::update`) in DIRECT-VELOCITY
+/// mode — the commanded velocity is taken verbatim, byte-identical to the boss's old
+/// bespoke SNAP float (`step_floating_body`). It is the boss sibling of the player's
+/// `integrate_home_body` arm: shares the one movement seam, but keeps the
+/// boss-specific footprint publish (the render-basis-sized `CenteredAabb`, oriented
+/// to the boss's reference frame). Runs after `tick_boss_brains_system` (intent) and
+/// before `update_ecs_bosses` (presentation + attack-damage publish, which read this
+/// frame's already-moved position).
+pub fn integrate_boss_bodies(
+    world_time: Res<WorldTime>,
+    world: Res<ambition_engine_core::RoomGeometry>,
+    platform_set: Res<crate::MovingPlatformSet>,
+    overlay: Res<FeatureEcsWorldOverlay>,
+    feel_tuning: Res<crate::time::feel::SandboxFeelTuning>,
+    gravity: crate::physics::GravityCtx,
+    mut bosses: Query<
+        (
+            super::super::actor_clusters::ActorClusterQueryData,
+            &super::super::boss_clusters::BossConfig,
+            &super::super::boss_clusters::BossEncounter,
+            &ActorControl,
+            &super::super::super::components::ActorTarget,
+            &mut CenteredAabb,
+        ),
+        (With<FeatureSimEntity>, Without<crate::actor::PlayerEntity>),
+    >,
+) {
+    let dt = world_time.sim_dt();
+    let feature_world = world_with_sandbox_solids(&world.0, &platform_set.0, &overlay);
+    let combat_tuning = feel_tuning.feature_combat_tuning();
+    for (mut actor, boss_config, boss_encounter, control, target, mut aabb) in &mut bosses {
+        // Self-heal the collision envelope onto `kin.size` (the seam sweeps it),
+        // robust to the profile / spawn-override / sprite-derive timing that writes
+        // `behavior.combat_size`. The render basis stays in `BossEncounter.render_size`.
+        let combat_size = boss_config.behavior.combat_size.unwrap_or(actor.kin.size);
+        let mut em = actor.as_actor_mut();
+        em.kin.size = combat_size;
+        let gravity_dir = gravity.dir_at(em.kin.pos);
+        // Direct-velocity flight (the boss's `ActorConfig.tuning.flight_direct_velocity`
+        // is set): `control.0.velocity_target` is taken verbatim by the flight limb.
+        // A dead boss returns early inside `update` (no move), matching the old skip.
+        let _ = em.update(
+            &feature_world,
+            target.pos,
+            combat_tuning,
+            None,
+            dt,
+            false,
+            control.0,
+            gravity_dir,
+            *feel_tuning,
+            // No stagger gate: the boss's old bespoke float applied none, so keep the
+            // movement byte-identical (boss hitstun handling is a later decision).
+            (0.0, 0.0),
+        );
+        aabb.center = em.kin.pos;
+        // Orient the render footprint to the boss's reference frame (identity under
+        // vertical gravity, so replay stays byte-identical there).
+        let boss_frame = ambition_engine_core::AccelerationFrame::new(gravity_dir);
+        aabb.half_size = boss_frame.to_world_half(boss_encounter.render_size * 0.5);
+    }
+}
+
+/// Boss presentation + attack-damage publish. The brain
+/// (`tick_boss_brains_system`) owns intent; [`integrate_boss_bodies`] has already
+/// moved the body + published its `CenteredAabb` by the time this runs.
 ///
 /// This system:
-/// 1. Integrates the boss body using `ActorControl::0.desired_vel`.
-/// 2. Syncs presentation mirrors (`CenteredAabb`, `BossPatternTimer`,
-///    `BossPhase`).
+/// 1. Decays the boss's body-generic reaction timers.
+/// 2. Syncs presentation mirrors (`BossPatternTimer`, `BossPhase`, death anim).
 /// 3. Publishes attack + body-contact damage via the pure
 ///    `boss_attack_damage` helper, which reads `BossAttackState`
 ///    directly (no runtime mirror fields involved).
 pub fn update_ecs_bosses(
     world_time: Res<WorldTime>,
-    world: Res<ambition_engine_core::RoomGeometry>,
-    platform_set: Res<crate::MovingPlatformSet>,
-    overlay: Res<FeatureEcsWorldOverlay>,
     mut sfx: MessageWriter<ambition_sfx::SfxMessage>,
     mut vfx: MessageWriter<ambition_vfx::vfx::VfxMessage>,
     mut debris: MessageWriter<DebrisBurstMessage>,
@@ -377,46 +439,36 @@ pub fn update_ecs_bosses(
     mut bosses: Query<
         (
             Entity,
-            &mut CenteredAabb,
             super::super::boss_clusters::BossClusterQueryData,
             // The boss's shared body components (§A1): HP authority + the
-            // reaction timers this system decays each tick (the actor loop's
-            // decrement excludes bosses until the slice-3 driver fold).
+            // reaction timers this system decays each tick.
             &ambition_characters::actor::BodyHealth,
             &mut ambition_characters::actor::BodyCombat,
             &mut BossPatternTimer,
             &mut BossDeathAnimation,
             &mut BossPhase,
-            &ActorControl,
             &BossAttackState,
             &Brain,
             &super::super::super::components::ActorTarget,
             Option<&crate::features::BossAnimationFrameSample>,
         ),
-        // The player carries the unified `BodyKinematics`, and `player_query`
-        // above reads it; exclude the player here so this `&mut BodyKinematics`
-        // boss query is provably disjoint from it.
+        // The player carries the unified `BodyKinematics`; exclude it so this boss
+        // query is provably disjoint (boss / player are mutually exclusive archetypes).
         (With<FeatureSimEntity>, Without<crate::actor::PlayerEntity>),
     >,
-    // Per-position gravity, so a grounded boss's footprint AABB orients to its
-    // reference frame (matches the rotated sprite + the actor/player footprints).
-    gravity: crate::physics::GravityCtx,
 ) {
     // Sim clock: bosses must slow with bullet-time (ADR 0010); a
     // boss locked-on to the player should not get free hits when
     // the player triggers bullet-time mid-pattern.
     let dt = world_time.sim_dt();
-    let feature_world = world_with_sandbox_solids(&world.0, &platform_set.0, &overlay);
     for (
         boss_entity,
-        mut aabb,
-        mut feature,
+        feature,
         health,
         mut boss_combat,
         mut pattern_timer,
         mut death_anim,
         mut phase,
-        control,
         attack_state,
         brain,
         actor_target,
@@ -425,8 +477,7 @@ pub fn update_ecs_bosses(
     {
         let alive = health.alive();
         // Body-generic reaction timers (hit_flash + i-frame + the §A2 stagger
-        // set) decay here for bosses — the actor tick excludes them (§A1
-        // slice 3 folds this into the one driver).
+        // set) decay here for bosses (the actor tick excludes bosses).
         boss_combat.damage_invuln_timer = (boss_combat.damage_invuln_timer - dt).max(0.0);
         boss_combat.hit_flash = (boss_combat.hit_flash - dt).max(0.0);
         boss_combat.hitstun_timer = (boss_combat.hitstun_timer - dt).max(0.0);
@@ -440,24 +491,9 @@ pub fn update_ecs_bosses(
         // lands boss-attack damage on this specific player.
         let target_entity = actor_target.entity;
         let target_victim = target_entity.and_then(|e| victim_query.get(e).ok());
-        // Integration: take the brain-emitted desired_vel and let
-        // `step_kinematic` translate it into a collision-resolved
-        // position change. The brain decided what we want; the
-        // runtime decides what's actually possible.
-        if control.0.facing.abs() > 0.001 {
-            feature.kin.facing = control.0.facing.signum();
-        }
-        feature
-            .as_boss_mut()
-            .integrate_body(&feature_world, alive, control.0.velocity_target, dt);
-        aabb.center = feature.kin.pos;
-        // Orient the footprint to the boss's reference frame so the box matches
-        // the gravity-righted sprite. `to_world_half` swaps width<->height only
-        // under sideways gravity / a wall — vertical gravity is unchanged, so
-        // replay stays byte-identical.
-        let boss_frame =
-            ambition_engine_core::AccelerationFrame::new(gravity.dir_at(feature.kin.pos));
-        aabb.half_size = boss_frame.to_world_half(feature.as_boss_ref().render_size() * 0.5);
+        // Body movement + the `CenteredAabb` publish now happen in
+        // `integrate_boss_bodies` (the shared flight-limb arm), which ran before
+        // this system; here we read the already-moved position for damage.
         // Mirror the brain's pattern_timer (now living in
         // `BossPatternState`) into the presentation-side
         // `BossPatternTimer` component for sprite-animation

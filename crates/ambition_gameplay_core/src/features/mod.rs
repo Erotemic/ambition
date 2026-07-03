@@ -141,7 +141,8 @@ pub use ecs::{
     ecs_boss_anim_state_and_entity, ecs_boss_animation_frame_sample, ecs_boss_name,
     ecs_breakable_state, ecs_chest_opened, ecs_enemy_name, ecs_enemy_sprite_override,
     ecs_hit_event_hits_actor, ecs_hit_event_hits_boss, ecs_hit_event_hits_breakable, ecs_npc_name,
-    enforce_mount_rider_link, integrate_sim_bodies, interact_ecs_actors_and_switches,
+    enforce_mount_rider_link, integrate_boss_bodies, integrate_sim_bodies,
+    interact_ecs_actors_and_switches,
     magnetize_pickups, open_ecs_chests, pirate_on_shark_rider_offset,
     rebuild_feature_ecs_world_overlay, rebuild_feature_view_index,
     refresh_actor_damageable_volumes, refresh_boss_damageable_volumes,
@@ -280,6 +281,7 @@ impl bevy::prelude::Plugin for WorldPrepSchedulePlugin {
                 // `desired_vel` after optional content-side steering.
                 sync_boss_encounter_phase,
                 tick_boss_brains_system,
+                integrate_boss_bodies,
                 update_ecs_bosses,
                 sync_boss_actor_components,
                 sync_actor_poses_from_feature_aabbs,

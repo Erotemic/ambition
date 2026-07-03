@@ -266,6 +266,9 @@ impl<'a> ActorMut<'a> {
         tuning.flight_drag = (flight_speed * 3.0).max(900.0);
         tuning.flight_hover_speed = 0.0;
         tuning.flight_hover_hz = 0.0;
+        // Direct-velocity free-movers (bosses) take their commanded velocity verbatim
+        // through the shared flight limb — byte-identical to the old SNAP float (AS4).
+        tuning.flight_direct_velocity = self.config.tuning.flight_direct_velocity;
 
         let mut input = if flying {
             // `velocity_target` (world px/s) → flight stick intent: project onto the

@@ -279,6 +279,13 @@ pub struct ActorTuning {
     pub revives_in_place: bool,
     /// Flies: no gravity, aerial slot class.
     pub is_aerial: bool,
+    /// Direct-velocity free-mover: the brain commands an EXACT velocity each tick
+    /// (a boss pattern's `desired_vel`), so the shared flight limb takes it verbatim
+    /// (no accel ramp / drag / deadzone) — byte-identical to the old bespoke SNAP
+    /// float. Threaded into the engine `MovementTuning.flight_direct_velocity`
+    /// (archetype swap AS4). Ordinary flyers (parrot) leave this false for smoothed
+    /// flight.
+    pub flight_direct_velocity: bool,
     /// Training-dummy family: excluded from slot pressure and save
     /// persistence.
     pub is_sandbag: bool,
@@ -314,6 +321,7 @@ impl Default for ActorTuning {
             cling_breaks_on_hit: false,
             revives_in_place: false,
             is_aerial: false,
+            flight_direct_velocity: false,
             is_sandbag: false,
             body_contact_damage: false,
             dream_seed: None,

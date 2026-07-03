@@ -493,6 +493,9 @@ fn boss_actor_cluster(
         chase_speed: BOSS_FLIGHT_SPEED,
         max_run_speed: BOSS_FLIGHT_SPEED,
         is_aerial: true,
+        // The BossPattern brain commands an exact per-tick velocity, so the flight
+        // limb takes it verbatim (AS4c) — byte-identical to the old SNAP float.
+        flight_direct_velocity: true,
         // Boss offense is `BossAttackState` + `boss_attack_damage`, not the actor
         // melee/contact path — keep both off so the shared systems never double-fire.
         attacks_player: false,

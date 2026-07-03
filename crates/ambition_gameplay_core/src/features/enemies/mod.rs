@@ -661,6 +661,9 @@ impl CharacterArchetypeSpec {
             // Self-revive loop = the authored respawn-in-place timer exists.
             revives_in_place: self.respawn_in_place_seconds.is_some(),
             is_aerial: self.is_aerial,
+            // Archetype flyers use smoothed accel flight; direct-velocity is a boss
+            // opt-in (its brain commands exact velocities). See AS4.
+            flight_direct_velocity: false,
             is_sandbag: self.is_sandbag,
             body_contact_damage: self.body_contact_damage,
             dream_seed: self.dream_seed,

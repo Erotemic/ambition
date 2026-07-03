@@ -2178,6 +2178,67 @@ WallJump op in the actor update, shoot on the enemy-projectile fire path. The
 `landing` hard/soft grade still reads screen-Y `vel.y` (a §B-family assumption
 shared with the player). BLIND: on-screen feel is Jon's to verify.
 
+### E44. §A-LINE convergence push — every SAFE actor-unification slice landed; the two remainders scoped ✅
+On Jon's "push the A-line to completion, it's the biggest win surface" ask, re-mapped
+§A against code (the doc's task list is stale — trust the E-log) and closed every
+convergence slice that is safe to land autonomously (verifiable, non-blind,
+non-speculative). Five commits, each workspace `--all-targets` green:
+- **A9 follow-up** (`ac0ad68c`, BLIND) — actors now ARM the wall-jump + shoot overlay
+  poses, not just read them. New body-generic `arm_movement_anim_overlays` (WallJump
+  op → pose) called by BOTH the player tick and the actor integrator (retires the
+  player's inline arming loop); shoot armed on the frame a body accepts a ranged shot
+  in `spawn_enemy_projectiles_from_brain_actions` (autonomous AND possessed). A9 fully
+  closed.
+- **A10 parry** (`4cb688dd`) — extract body-generic `reflect_parried_shot`; a shielding
+  ACTOR (possessed body / mixed-faction duelist) now reflects a shot through the SAME
+  re-own mechanic the player uses — parry was player-only. Heal stays player reward
+  policy. Dual-pool markers ASSESSED: sim is already unified (`LiveProjectile` +
+  owner-faction routing) and render reads `ProjectileVisualKind`, so
+  `PlayerProjectile`/`EnemyProjectile` are now only pool-scoped bookkeeping tags, NOT
+  a behavior fork — A10 substantively closed (the spawner fold stays deliberately
+  deferred, feel-sensitive).
+- **A1-3e / A11** (`7aa3dbf1`) — ONE `dispatch_boss_special`; the boss's possession arm
+  and autonomous arm no longer carry duplicate `ActorActionMessage::Special` writes
+  (behavior-identical: `is_special()` ⟺ `special_key().is_some()`).
+- **A7 self-view** (`650a7b6a`) — the enemy `WorldView` build's three hardcoded lies
+  are fixed: faction → real EFFECTIVE faction (possession-aware), `can_fire` → real
+  ranged capability, relations → the LIVE `FactionRelations`. Latent by construction
+  (only Smash reads `WorldView`, via faction-independent LOF) so AI behavior is
+  unchanged; the self-view is now honest.
+- **A1 shared decay** (`ac4feea8`) — `BodyCombat::decay_reaction_timers(dt)`; the actor
+  tick and the boss tick stop hand-copying the same five-timer decay. Byte-identical.
+
+**THE TWO REMAINDERS (both genuinely large; NOT safe autonomous single-session slices):**
+1. **A1 boss driver fold — the `BossAttackState` → `BodyMelee`/moveset conversion.** The
+   boss brain already ticks the universal `Brain::tick` (3c) and moves through the
+   shared flight limb (AS4c); what remains is the boss's ATTACK-STATE authority. Today
+   `BossAttackState` (telegraph/active windows + `active_profile`) is a boss-only
+   component with **127 references** across volumes/anim/damage/overlay/content-specials,
+   and multi-special bosses set `ActionSet.special = None` because the unified single
+   special slot can't hold their repertoire. Dissolving it means the boss carries the
+   actor cluster + a **moveset** ([[project_moveset_system]]: `MoveSpec` phases) instead
+   of `BossAttackState`, and `tick_boss_brains`/`update_ecs_bosses`/`sync_boss_actor_components`
+   fold onto the actor systems. **This needs a DESIGN decision from Jon: how a
+   `BossPattern` step-sequence (Telegraph/Strike/Rest + a named special repertoire)
+   maps onto `MoveSpec`** — it defines how every future boss is authored, a foundational
+   fork like AD1/AD2. Attempting it blind risks a 127-ref refactor in the wrong shape.
+2. **A1-3f render `BossAnim` → `CharacterAnim`** — a wholly separate boss animator stack
+   (`BossAnim`/`BossAnimator`/`pick_boss_anim`, `animate_bosses`, GNU-ton's two-layer
+   path) PLUS a genuine render→sim WRITE-BACK (`animate_bosses` inserts
+   `BossAnimationFrameSample` consumed next frame by `sync_boss_strike_hitboxes`). E37
+   already flagged this as needing the animator moved SIM-SIDE — a large, presentation-
+   UNVERIFIABLE (blind) slice, not a T2 read-model gap.
+3. **A7 brain migration** — making `WorldView`(+`WorldMemory`) the ONLY world-out: wire
+   the surrounding-world channel (peers incl. the player, projectiles, portals — today
+   empty slices) AND migrate every brain arm off the side-loaded `BrainSnapshot.target_pos`
+   onto the view, add per-body `WorldMemory` storage + an update system, thread a
+   `WorldView` through the boss/player/clone tick paths. The primitives are built +
+   tested; the work is broad and BEHAVIOR-CHANGING (touches AI targeting for every
+   brain — and E39 already shows the chase pipeline is determinism-fragile). Wiring
+   peers/projectiles WITHOUT the brain migration is speculative scaffolding (no
+   consumer), so this is one deliberate slice, not two. A12 (interaction/affordance
+   NPC-agency) stays the documented deferral.
+
 ## Next (in order) — **§A2, §B, §A8, §A9, and several §C items are DONE (E41–E43 verified against code).** The audit's TASK sections are stale; trust E-entries + a code re-check before working an item. Genuinely-open, autonomous-friendly: **B12** (targeting nearest-foe tiebreak DONE `147f5045` — min-Entity, order-independent; the portal first-qualifying half stays deferred per the audit "verify vs portal agent" caveat); **C7-residual** (`is_gnu_ton` render split-layers `boss.rs:79-109` → multi-part layering as boss-sheet data; and the rider name is still *parsed* from the spawn name — the FULL fix authors a rider-name LDtk field, needs `ambition_ldtk_tools`); **C9** (`CharacterBrainTemplate::Shark` → behavior name `ChargeCrash`, a mechanical rename across `SharkCfg`/`StateMachineCfg::Shark`/catalog preset). Larger / needs-Jon: **C1** (24-item `Item` enum → installable `ItemCatalog`, L, consumed across menu IR/yarn/persistence); **C4** (app-thinness boundary test + machinery `PlatformerEnginePlugin` group, L); **C6** (named-boss residue, M); **C2** (`HELD_ITEMS` static — NUANCED: most rows are generic engine-ability bindings, not replaceable content, so a bare move-to-content breaks engine tests and a bare install seam is speculative scaffolding — defer until a second game or a per-character loadout lands, e.g. the just-shipped [[project_starting_character]]); the **D-front** (`rooms`/`RoomSpec` content-coupling — Jon's call, unchanged below).
 
 ### Superseded (the prior D-focused Next; still accurate for the D-front) — **T2 clean read-model + D3 facade redirects DONE (E36/E37/E38).** D3's remaining reducers are all non-autonomous (need Jon's design input or are risky/unverifiable): the `rooms` extraction crux (RoomSpec content-coupling — Jon's call), the value-type→`ambition_sim_view` move (premature until the edge narrows), the boss-pose SIM-SIDE animator move (retires the `animate_bosses` write-back; presentation-unverifiable), and the category-D portal/dev/session system untangles. Recommend Jon adjudicate the `rooms`/`RoomSpec` content-coupling direction next (as he did the actors|props taxonomy). Deferred to Jon's feel pass: render/hurtbox baked-size convergence (~1.2% gap); the T1 placeholder color/z blind deltas (E35).

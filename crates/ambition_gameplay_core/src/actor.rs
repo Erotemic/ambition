@@ -136,4 +136,8 @@ impl AncillaryMovementBundle {
 /// `Brain::Player(PlayerSlot::PRIMARY)`). Systems that act on "whoever the player
 /// is driving" — camera, portal viewer, abilities, melee — read the
 /// `ControlledSubject` resource instead of this filter.
-pub type PrimaryPlayerOnly = (With<PlayerEntity>, With<PrimaryPlayer>);
+///
+/// Defined in `ambition_platformer_primitives::markers` (a pure composition of the
+/// two foundation markers); re-exported here so existing call sites compile
+/// unchanged and presentation can name the foundation home directly.
+pub use ambition_platformer_primitives::markers::PrimaryPlayerOnly;

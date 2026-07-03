@@ -105,7 +105,7 @@ pub fn camera_follow(
             &ambition_engine_core::BodyBaseSize,
             &ambition_gameplay_core::player::PlayerBlinkCameraState,
         ),
-        ambition_gameplay_core::actor::PrimaryPlayerOnly,
+        ambition_platformer_primitives::markers::PrimaryPlayerOnly,
     >,
     // The camera follows the CONTROLLED SUBJECT — the body carrying
     // `Brain::Player(PRIMARY)`. That's the home avatar normally, or the possessed

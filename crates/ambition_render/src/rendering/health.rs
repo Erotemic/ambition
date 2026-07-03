@@ -142,7 +142,7 @@ pub fn sync_health_overlays(
             &ambition_platformer_primitives::body::BodyKinematics,
             &ambition_characters::actor::BodyHealth,
         ),
-        ambition_gameplay_core::actor::PrimaryPlayerOnly,
+        ambition_platformer_primitives::markers::PrimaryPlayerOnly,
     >,
     ecs_breakables: Query<(&FeatureName, &CenteredAabb, &BreakableFeature)>,
     ecs_actors: Query<

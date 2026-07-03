@@ -10,7 +10,7 @@
 use std::collections::{HashMap, HashSet};
 
 use ambition_engine_core::{self as ae, AabbExt};
-use ambition_gameplay_core::actor::PrimaryPlayerOnly;
+use ambition_platformer_primitives::markers::PrimaryPlayerOnly;
 use ambition_characters::actor::{BodyCombat, BodyHealth};
 use ambition_gameplay_core::features::{
     ActorIdentity, BossPhase, CenteredAabb, FeatureId, FeatureSimEntity, FeatureViewIndex,

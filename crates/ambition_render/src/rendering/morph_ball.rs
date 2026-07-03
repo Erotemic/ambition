@@ -141,7 +141,7 @@ pub fn sync_morph_ball_visual(
             &ambition_platformer_primitives::body::BodyKinematics,
             &ambition_engine_core::BodyModeState,
         ),
-        ambition_gameplay_core::actor::PrimaryPlayerOnly,
+        ambition_platformer_primitives::markers::PrimaryPlayerOnly,
     >,
     mut player_query: Query<
         &mut Visibility,

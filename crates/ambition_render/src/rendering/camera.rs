@@ -220,7 +220,13 @@ pub fn camera_follow(
         blink_in_duration: blink_cam.blink_in_duration,
         blink_camera_from: blink_cam.blink_camera_from,
     };
-    let snapshot = resolve_follow_camera_snapshot(
+    // `mut` is REQUIRED under `portal_render`: the portal-continuity block below
+    // reassigns `snapshot.center_world` / `.rotation_radians`. Without that
+    // feature the block is compiled out and the binding isn't mutated, so the
+    // `mut` reads as unused — silence it only in that config (do NOT drop `mut`,
+    // which breaks the portal_render build).
+    #[cfg_attr(not(feature = "portal_render"), allow(unused_mut))]
+    let mut snapshot = resolve_follow_camera_snapshot(
         CameraSnapshotResolveInput {
             world: &world.0,
             camera_zones: &active_spec.camera_zones,

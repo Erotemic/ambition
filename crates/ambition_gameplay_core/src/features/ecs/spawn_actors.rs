@@ -678,6 +678,10 @@ pub(super) fn spawn_boss_with_overrides(
     // swap): both the autonomous pattern and a possessing human drive these same
     // profiles. Derived before `brain_cfg` is moved into the brain.
     let boss_capability = ambition_characters::brain::BossCapability::from_cfg(&brain_cfg);
+    // Captured before the scratch is consumed (`into_components` below), for the
+    // boss attack moveset: each strike profile → a geometry / special move.
+    let boss_attack_behavior = boss.config.behavior.clone();
+    let boss_attack_combat_size = boss.as_ref().combat_size();
     let brain = ambition_characters::brain::Brain::StateMachine(
         ambition_characters::brain::StateMachineCfg::BossPattern {
             cfg: brain_cfg,
@@ -758,11 +762,15 @@ pub(super) fn spawn_boss_with_overrides(
         boss_combat_kit,
         ActorAggression::hostile(),
     ));
-    // Data-driven special MOVESET: the boss's content-technique specials run through
-    // the SHARED moveset runtime (a sustain-move per key) instead of the boss-only
-    // `dispatch_boss_special`, so the boss's special path is the actor's (§A1). Built
-    // from the capability repertoire before it's moved into the brain bundle.
-    let boss_special_moves = crate::features::boss_special_moveset(&boss_capability);
+    // Data-driven attack MOVESET: EVERY boss strike — geometry AND content-technique
+    // special — runs through the SHARED moveset runtime (one move per profile), so the
+    // boss's melee/special path is the actor's, retiring both `sync_boss_strike_hitboxes`
+    // and `dispatch_boss_special` (§A1). Built from the capability repertoire.
+    let boss_special_moves = crate::features::boss_attack_moveset(
+        &boss_capability,
+        &boss_attack_behavior,
+        boss_attack_combat_size,
+    );
     entity.insert((
         // The brain bundle stays grouped because each piece is required
         // for the boss tick chain.

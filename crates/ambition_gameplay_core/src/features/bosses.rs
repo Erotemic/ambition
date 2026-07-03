@@ -107,28 +107,83 @@ pub fn boss_special_for_profile(
         .map(|key| SpecialActionSpec::Special(key.to_string()))
 }
 
-/// Build the boss's data-driven special MOVESET from its capability repertoire: each
-/// content-technique `Special(key)` profile becomes a moveset move whose single
-/// window SUSTAINS `Effect{key}` for the strike's duration — so the technique fires
-/// every frame the strike is live (the `apple_rain`-style per-frame signal), now
-/// through the SHARED moveset runtime + its `Effect{key}`→`Special{key}` bridge
-/// instead of the boss-only `dispatch_boss_special` (fable review §A1: the boss's
-/// special path unifies with the actor's). Geometry profiles are skipped — they
-/// damage through `sync_boss_strike_hitboxes`. Keyed by move id (the technique key);
-/// the boss trigger resolves the active profile via `move_by_id`, not an input verb.
-/// `None` if the boss authors no content-technique special.
-pub fn boss_special_moveset(
+/// Aggressor push for a boss strike (matches the old `sync_boss_strike_hitboxes`
+/// / `boss_attack_damage` strike arm). Carried on the geometry move's hit volume.
+pub const BOSS_STRIKE_KNOCKBACK: f32 = 1.25;
+
+/// Build the boss's data-driven attack MOVESET from its capability repertoire —
+/// ONE moveset move per authored strike profile, so EVERY boss strike runs through
+/// the SAME moveset runtime an actor's swing does (fable review §A1: the moveset is
+/// the boss's melee system too, retiring the bespoke `sync_boss_strike_hitboxes`):
+///
+/// - A content-technique **`Special(key)`** profile → a move whose single window
+///   SUSTAINS `Effect{key}` for the strike duration, so the technique fires every
+///   frame the strike is live (the `apple_rain`-style per-frame signal) through the
+///   `Effect{key}`→`Special{key}` bridge — no body-mounted hit volume.
+/// - A **geometry** profile (FloorSlam / SideSweep / HazardColumn / …) → a move
+///   whose Active window carries the profile's static hit volumes as BODY-LOCAL
+///   [`HitVolume`]s, derived from `volumes_for_profile` at a body-local origin (the
+///   world-space math cancels the boss position, leaving a constant local offset).
+///   `advance_move_playback` then spawns/despawns the strike hitbox through the ONE
+///   shared hitbox pipeline (`apply_hitbox_damage`'s Boss branch), exactly as the
+///   old per-tick sync did — minus the sprite-frame-tracking geometry (a
+///   parameterizable fidelity detail; the static fallback approximates it).
+///
+/// Keyed by [`BossAttackProfile::move_id`]; `trigger_boss_attack_moves` resolves the
+/// active profile via `move_by_id`, not an input verb. `None` if the boss authors no
+/// strike at all.
+pub fn boss_attack_moveset(
     capability: &ambition_characters::brain::BossCapability,
+    behavior: &BossBehaviorProfile,
+    combat_size: ambition_engine_core::Vec2,
 ) -> Option<crate::combat::moveset::ActorMoveset> {
-    use ambition_entity_catalog::{ClipBinding, MoveSpec, MoveWindow, MovesetContract, WindowTag};
+    use ambition_engine_core::AabbExt;
+    use ambition_entity_catalog::{
+        ClipBinding, HitVolume, MoveSpec, MoveWindow, MovesetContract, VolumeShape, WindowTag,
+    };
     let moves: Vec<MoveSpec> = capability
         .specials
         .iter()
         .filter_map(|(profile, strike_s)| {
-            let key = profile.special_key()?;
             let strike_s = strike_s.max(0.05);
+            let (volumes, sustain_effect) = if let Some(key) = profile.special_key() {
+                (Vec::new(), Some(key.to_string()))
+            } else {
+                // Geometry strike: `volumes_for_profile` at a ZERO body origin yields
+                // AABBs centered on the profile's body-local offset (the boss position
+                // cancels: origin = pos + attack_origin_offset, center = origin +
+                // offset, local = center - pos). Convert each to a body-local
+                // `HitVolume` the move runtime mirrors by facing + rotates into the
+                // gravity frame at spawn.
+                let volumes: Vec<HitVolume> = crate::boss_encounter::attack_geometry::volumes_for_profile(
+                    profile,
+                    ambition_engine_core::Vec2::ZERO,
+                    combat_size,
+                    behavior,
+                )
+                .into_iter()
+                .map(|aabb| {
+                    let c = aabb.center();
+                    let h = aabb.half_size();
+                    HitVolume {
+                        shape: VolumeShape::Rect {
+                            offset: (c.x, c.y),
+                            half_extents: (h.x, h.y),
+                        },
+                        damage: behavior.attack_damage.max(1),
+                        knockback: BOSS_STRIKE_KNOCKBACK,
+                    }
+                })
+                .collect();
+                // A geometry profile with no authored volume (defensive) contributes
+                // no move — skip it rather than a hitless Active window.
+                if volumes.is_empty() {
+                    return None;
+                }
+                (volumes, None)
+            };
             Some(MoveSpec {
-                id: key.to_string(),
+                id: profile.move_id(),
                 clip: ClipBinding {
                     clip: "attack".to_string(),
                     fallbacks: vec!["idle".to_string()],
@@ -138,8 +193,8 @@ pub fn boss_special_moveset(
                     start_s: 0.0,
                     end_s: strike_s,
                     tag: WindowTag::Active,
-                    volumes: Vec::new(),
-                    sustain_effect: Some(key.to_string()),
+                    volumes,
+                    sustain_effect,
                 }],
                 events: Vec::new(),
                 gates: Default::default(),

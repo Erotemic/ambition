@@ -288,6 +288,29 @@ impl BossAttackProfile {
             _ => None,
         }
     }
+
+    /// The moveset move id this profile binds to — the content key for a
+    /// `Special`, else a stable snake_case label for a geometry strike. The boss
+    /// attack trigger (`trigger_boss_attack_moves`) looks the active profile's
+    /// move up by this id, so EVERY boss strike (geometry AND special) runs
+    /// through the SAME moveset runtime as an actor's swing (fable review §A1: the
+    /// moveset is the boss's melee system too).
+    pub fn move_id(&self) -> String {
+        match self {
+            BossAttackProfile::Special(key) => key.clone(),
+            BossAttackProfile::FloorSlam => "floor_slam".to_string(),
+            BossAttackProfile::SideSweep => "side_sweep".to_string(),
+            BossAttackProfile::FullBodyPulse => "full_body_pulse".to_string(),
+            BossAttackProfile::WingSweep => "wing_sweep".to_string(),
+            BossAttackProfile::DiveLane => "dive_lane".to_string(),
+            BossAttackProfile::Broadside => "broadside".to_string(),
+            BossAttackProfile::HandSlam => "hand_slam".to_string(),
+            BossAttackProfile::HandSweep => "hand_sweep".to_string(),
+            BossAttackProfile::HeadDescent => "head_descent".to_string(),
+            BossAttackProfile::ConvergingShockwave => "converging_shockwave".to_string(),
+            BossAttackProfile::HazardColumn => "hazard_column".to_string(),
+        }
+    }
 }
 
 /// Free function used by both `BossPattern::total_duration` and the

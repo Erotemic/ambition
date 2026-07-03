@@ -69,7 +69,7 @@ pub use boss_attack_geometry::{
     BossVolumeContext, CombatGeometry, SimpleActorGeometry,
 };
 pub use bosses::{
-    boss_special_for_profile, boss_special_moveset, ActorSpriteMetrics, BossAttackProfile,
+    boss_attack_moveset, boss_special_for_profile, ActorSpriteMetrics, BossAttackProfile,
     BossBehaviorProfile, BossMovementProfile, BossRewardProfile, GNU_TON_APPLE_OWNER_PREFIX,
     GRADIENT_SENTINEL_ENCOUNTER_ID,
 };
@@ -106,8 +106,8 @@ pub use ecs::{
     ecs_breakable_state, ecs_chest_opened,
     ecs_hit_event_hits_actor, ecs_hit_event_hits_boss, ecs_hit_event_hits_breakable,
     advance_actor_anim_overlays, enforce_mount_rider_link, integrate_boss_bodies,
-    integrate_sim_bodies, interact_ecs_actors_and_switches, sync_boss_strike_hitboxes,
-    trigger_boss_special_moves,
+    integrate_sim_bodies, interact_ecs_actors_and_switches,
+    trigger_boss_attack_moves,
     magnetize_pickups, open_ecs_chests, pirate_on_shark_rider_offset,
     rebuild_actor_anim_index, rebuild_actor_render_index, rebuild_boss_render_index,
     rebuild_feature_ecs_world_overlay, rebuild_feature_view_index,
@@ -251,7 +251,6 @@ impl bevy::prelude::Plugin for WorldPrepSchedulePlugin {
                 tick_boss_brains_system,
                 integrate_boss_bodies,
                 update_ecs_bosses,
-                sync_boss_strike_hitboxes,
                 sync_boss_actor_components,
                 sync_actor_poses_from_feature_aabbs,
             )

@@ -3,134 +3,9 @@
 
 use super::super::*;
 
-use crate::features::BossVolumeContext;
 use ambition_characters::brain::{ActorControl, BossAttackState, Brain, StateMachineCfg};
 use ambition_engine_core::AabbExt;
-use bevy::prelude::{Commands, Component, Entity};
-
-/// Marks a Boss-faction strike [`crate::combat::hitbox::Hitbox`] whose geometry is
-/// re-derived each tick from the owning boss's live `active_attack_volumes` (one
-/// marker per volume `part`). This is fable AD2's generalization: a sprite-frame-
-/// driven / multi-part boss strike (GNU-ton's hands) tracks the drawn pose
-/// frame-by-frame through the SHARED hitbox pipeline (`apply_hitbox_damage`'s Boss
-/// branch), instead of the bespoke per-tick `boss_attack_damage` poll.
-#[derive(Component, Clone, Copy, Debug)]
-pub struct FrameDrivenBossStrike {
-    pub part: usize,
-}
-
-/// Aggressor push for a boss strike (matches the old `boss_attack_damage` strike arm).
-const BOSS_STRIKE_KNOCKBACK: f32 = 1.25;
-/// Backstop lifetime, refreshed every tick the strike stays live; the reconcile
-/// despawns explicitly on strike-end, this just reaps a leaked hitbox if the boss
-/// despawns mid-strike.
-const BOSS_STRIKE_LIFETIME_S: f32 = 0.2;
-
-/// Reconcile per-frame boss STRIKE hitboxes (fable AD2). Replaces the
-/// `boss_attack_damage` strike poll: while a boss's `active_attack_volumes` is
-/// non-empty, maintain one Boss-faction `Hitbox` per volume part — updating its
-/// geometry each tick so a frame-driven strike tracks the drawn pose — and despawn
-/// them when the strike ends. Damage then flows through the ONE shared
-/// `apply_hitbox_damage` Boss branch (deduped hit-once-per-victim per strike via
-/// `HitboxHits`). Possessed / dead bosses maintain none (the old
-/// `!boss_player_controlled && alive` gate).
-#[allow(clippy::type_complexity)]
-pub fn sync_boss_strike_hitboxes(
-    mut commands: Commands,
-    gravity: crate::physics::GravityCtx,
-    bosses: Query<
-        (
-            Entity,
-            super::super::boss_clusters::BossClusterRef,
-            &ambition_characters::actor::BodyHealth,
-            &BossAttackState,
-            &Brain,
-            Option<&crate::features::BossAnimationFrameSample>,
-        ),
-        With<FeatureSimEntity>,
-    >,
-    mut strikes: Query<(
-        Entity,
-        &FrameDrivenBossStrike,
-        &mut crate::combat::hitbox::Hitbox,
-        &mut crate::combat::hitbox::HitboxLifetime,
-    )>,
-) {
-    use crate::combat::hitbox::{Hitbox, HitboxAnchor, HitboxHits, HitboxLifetime};
-    use crate::features::active_attack_volumes;
-
-    // Live strike volumes for a boss this tick (empty ⇒ no strike / gated off).
-    let volumes_for = |entity: Entity| -> Vec<ae::Aabb> {
-        let Ok((_, feature, health, attack_state, brain, anim)) = bosses.get(entity) else {
-            return Vec::new();
-        };
-        if !health.alive() || brain.is_player() {
-            return Vec::new();
-        }
-        let ctx = BossVolumeContext::from_ref(feature.as_boss_ref(), attack_state)
-            .with_animation_frame(anim);
-        active_attack_volumes(&ctx)
-    };
-
-    // Pass 1 — update existing strike hitboxes in place (preserving `HitboxHits`
-    // dedup), or despawn ones whose strike/part ended.
-    let mut present: std::collections::HashSet<(Entity, usize)> = std::collections::HashSet::new();
-    for (hb_entity, marker, mut hitbox, mut lifetime) in &mut strikes {
-        let owner = hitbox.owner;
-        let volumes = volumes_for(owner);
-        let Some(v) = volumes.get(marker.part).copied() else {
-            commands.entity(hb_entity).despawn();
-            continue;
-        };
-        let owner_pos = bosses.get(owner).map(|(_, f, ..)| f.kin.pos).unwrap_or_default();
-        hitbox.half_extent = v.half_size();
-        hitbox.anchor = HitboxAnchor::FollowOwner {
-            local_offset: v.center() - owner_pos,
-        };
-        hitbox.frame_down = gravity.dir_at(owner_pos);
-        lifetime.remaining_s = BOSS_STRIKE_LIFETIME_S;
-        present.insert((owner, marker.part));
-    }
-
-    // Pass 2 — spawn any missing part for a live strike.
-    for (boss_entity, feature, health, attack_state, brain, anim) in &bosses {
-        if !health.alive() || brain.is_player() {
-            continue;
-        }
-        let ctx = BossVolumeContext::from_ref(feature.as_boss_ref(), attack_state)
-            .with_animation_frame(anim);
-        let volumes = active_attack_volumes(&ctx);
-        let owner_pos = feature.kin.pos;
-        let frame_down = gravity.dir_at(owner_pos);
-        let damage = feature.config.behavior.attack_damage.max(1);
-        for (i, v) in volumes.iter().enumerate() {
-            if present.contains(&(boss_entity, i)) {
-                continue;
-            }
-            commands.spawn((
-                Hitbox {
-                    owner: boss_entity,
-                    source: crate::combat::components::ActorFaction::Boss,
-                    anchor: HitboxAnchor::FollowOwner {
-                        local_offset: v.center() - owner_pos,
-                    },
-                    half_extent: v.half_size(),
-                    shape: None,
-                    facing: 1.0,
-                    damage,
-                    knockback_strength: BOSS_STRIKE_KNOCKBACK,
-                    knock_x: 0.0,
-                    frame_down,
-                },
-                HitboxLifetime {
-                    remaining_s: BOSS_STRIKE_LIFETIME_S,
-                },
-                HitboxHits::default(),
-                FrameDrivenBossStrike { part: i },
-            ));
-        }
-    }
-}
+use bevy::prelude::{Commands, Entity};
 
 /// Sync each boss's `encounter_phase` mirror from the entity-local
 /// [`BossPhaseState`] copy (`BossEncounter.encounter`). The mirror is a convenience
@@ -186,18 +61,29 @@ pub fn sync_boss_encounter_phase(
     }
 }
 
-/// TRIGGER the boss's data-driven special MOVES: while a `Special(key)` profile is
-/// the boss's active attack, ensure its sustain-move is playing (insert `MovePlayback`
-/// from the boss's `ActorMoveset` for that key). The move's per-frame `Effect{key}`
-/// (a sustain window, [`crate::features::boss_special_moveset`]) fires the content
-/// technique through the SHARED `dispatch_move_events` bridge — so the boss's special
-/// runs through the SAME moveset runtime the actor's does, retiring the boss-only
-/// `dispatch_boss_special` (fable review §A1: the boss special path unifies with the
-/// actor's). `Without<MovePlayback>` gates re-trigger; the move duration equals the
-/// strike window (both on sim time), so the sustain lasts exactly the strike. Geometry
-/// profiles have no move → they stay on `sync_boss_strike_hitboxes`. Possession routes
-/// here too: its input map sets `active_profile`, and this fires the mapped move.
-pub fn trigger_boss_special_moves(
+/// TRIGGER the boss's data-driven attack MOVES: while a strike profile is the boss's
+/// active attack, ensure its move is playing (insert `MovePlayback` from the boss's
+/// `ActorMoveset` for that profile's [`move_id`](ambition_characters::brain::BossAttackProfile::move_id)).
+/// This is the ONE trigger for EVERY boss strike — geometry AND special — so a boss's
+/// melee runs through the SAME moveset runtime an actor's swing does (fable review
+/// §A1: the moveset is the boss's melee system too), retiring the bespoke
+/// `sync_boss_strike_hitboxes` per-tick geometry poll AND the boss-only
+/// `dispatch_boss_special`:
+///
+/// - A **geometry** profile's move carries the strike's static hit volumes on its
+///   Active window; `advance_move_playback` spawns/despawns the Boss-faction strike
+///   hitbox through the shared `apply_hitbox_damage` path.
+/// - A **special** profile's move SUSTAINS `Effect{key}` every strike frame; the
+///   `Effect{key}`→`Special{key}` bridge fires the content technique.
+///
+/// `Without<MovePlayback>` gates re-trigger; the move duration equals the authored
+/// strike window (both on the boss's proper time = sim time undilated), so the strike
+/// lasts exactly the window. A **possessed** boss (its `active_profile` set from
+/// controller input in `tick_boss_brains_system`) fires SPECIALS here too — but its
+/// GEOMETRY strikes are suppressed (the old `sync_boss_strike_hitboxes` skipped
+/// player-controlled bosses; possessed-boss geometry with effective faction is a
+/// follow-up).
+pub fn trigger_boss_attack_moves(
     mut commands: Commands,
     bosses: Query<
         (
@@ -205,6 +91,7 @@ pub fn trigger_boss_special_moves(
             &BossAttackState,
             &crate::combat::moveset::ActorMoveset,
             &crate::actor::BodyKinematics,
+            Option<&Brain>,
         ),
         (
             With<FeatureSimEntity>,
@@ -212,15 +99,16 @@ pub fn trigger_boss_special_moves(
         ),
     >,
 ) {
-    for (entity, attack_state, moveset, kin) in &bosses {
-        let Some(key) = attack_state
-            .active_profile
-            .as_ref()
-            .and_then(|p| p.special_key())
-        else {
+    for (entity, attack_state, moveset, kin, brain) in &bosses {
+        let Some(profile) = attack_state.active_profile.as_ref() else {
             continue;
         };
-        if let Some(spec) = moveset.0.move_by_id(key) {
+        // Possessed-boss GEOMETRY strikes stay suppressed (parity with the retired
+        // sync); its specials still fire (they carry the firer's effective faction).
+        if !profile.is_special() && brain.is_some_and(|b| b.is_player()) {
+            continue;
+        }
+        if let Some(spec) = moveset.0.move_by_id(&profile.move_id()) {
             commands.entity(entity).insert(
                 crate::combat::moveset::MovePlayback::new(spec.clone(), kin.facing),
             );
@@ -333,7 +221,7 @@ pub fn tick_boss_brains_system(
                     attack_state.active_remaining = strike_seconds;
                     attack_state.active_elapsed = 0.0;
                     // Content-technique specials fire through the SHARED moveset:
-                    // setting `active_profile` above is enough — `trigger_boss_special_moves`
+                    // setting `active_profile` above is enough — `trigger_boss_attack_moves`
                     // reads it and starts the sustain-move, whose per-frame `Effect{key}`
                     // fires the technique. The spawned effects inherit the firer's
                     // EFFECTIVE faction (Player while possessed), so they strike the
@@ -390,7 +278,7 @@ pub fn tick_boss_brains_system(
         // rain) can't fit `ActionSet`'s single special slot, so its `ActionSet.special`
         // is `None` and the boss carries an `ActorMoveset` (one sustain-move per key,
         // built at spawn). Mirroring the brain's `active_profile` into the ECS
-        // `BossAttackState` above is the whole wiring — `trigger_boss_special_moves`
+        // `BossAttackState` above is the whole wiring — `trigger_boss_attack_moves`
         // reads it and starts the move, whose per-frame `Effect{key}` fires the content
         // technique through `dispatch_move_events`. One path for every boss special AND
         // the actor's; the bespoke `dispatch_boss_special` is retired.
@@ -545,9 +433,10 @@ pub fn integrate_boss_bodies(
 ///
 /// Since fable AD2 this system moves no body and emits no damage: movement is
 /// [`integrate_boss_bodies`] (the shared flight-limb arm); STRIKE damage is the
-/// frame-driven Boss hitboxes ([`sync_boss_strike_hitboxes`] → `apply_hitbox_damage`);
-/// BODY-CONTACT damage is the shared `apply_actor_contact_damage`. The old
-/// `boss_attack_damage` poll is gone — a boss's offense and body flow through the
+/// moveset's own hitboxes (`trigger_boss_attack_moves` → `advance_move_playback` →
+/// `apply_hitbox_damage`); BODY-CONTACT damage is the shared `apply_actor_contact_damage`.
+/// The old `boss_attack_damage` / `sync_boss_strike_hitboxes` polls are gone — a boss's
+/// offense and body flow through the
 /// SAME systems every actor uses.
 pub fn update_ecs_bosses(
     world_time: Res<WorldTime>,
@@ -594,40 +483,54 @@ pub fn update_ecs_bosses(
 }
 
 #[cfg(test)]
-mod special_moveset_tests {
+mod attack_moveset_tests {
     use super::*;
     use ambition_characters::brain::{BossAttackProfile, BossCapability};
 
-    /// Boss-fold slice (fable review §A1): the boss's content-technique special runs
-    /// through the SHARED moveset. (a) `boss_special_moveset` generates a sustain-move
-    /// per `Special(key)` (skipping geometry profiles); (b) `trigger_boss_special_moves`
-    /// starts that move while the profile is the boss's `active_profile`. The
-    /// sustain→`Effect{key}`→`Special{key}`→technique tail is pinned by the moveset
-    /// dispatch/sustain tests, so this covers the new boss-side links end to end.
+    fn warden_behavior() -> crate::features::bosses::BossBehaviorProfile {
+        crate::features::bosses::BossBehaviorProfile::clockwork_warden()
+    }
+
+    /// Boss-fold slice (fable review §A1): EVERY boss strike runs through the SHARED
+    /// moveset. `boss_attack_moveset` builds one move per profile — a GEOMETRY strike
+    /// gets an Active-window hit volume (from `volumes_for_profile`), a SPECIAL gets a
+    /// sustain-`Effect` move — and `trigger_boss_attack_moves` starts whichever profile
+    /// is the boss's `active_profile`. This pins BOTH new links (geometry + special).
     #[test]
-    fn a_boss_special_profile_triggers_its_sustain_move() {
+    fn a_boss_geometry_profile_triggers_its_hit_volume_move() {
         let cap = BossCapability {
             specials: vec![
-                (BossAttackProfile::FloorSlam, 0.3), // geometry → no move
+                (BossAttackProfile::FloorSlam, 0.3), // geometry → hit-volume move
                 (BossAttackProfile::Special("apple_rain".to_string()), 2.0),
             ],
         };
-        let moveset =
-            crate::features::boss_special_moveset(&cap).expect("a content special → a moveset");
+        let combat_size = ambition_engine_core::Vec2::new(80.0, 80.0);
+        let moveset = crate::features::boss_attack_moveset(&cap, &warden_behavior(), combat_size)
+            .expect("a boss with strikes → a moveset");
+        // BOTH profiles now author a move — geometry AND special.
+        assert_eq!(moveset.0.moves.len(), 2, "geometry + special both became moves");
+        let slam = moveset
+            .0
+            .move_by_id("floor_slam")
+            .expect("the geometry profile became a hit-volume move");
+        assert_eq!(slam.duration_s, 0.3);
+        let active = &slam.windows[0];
+        assert!(matches!(active.tag, ambition_entity_catalog::WindowTag::Active));
+        assert!(
+            !active.volumes.is_empty(),
+            "FloorSlam authors a body-local hit volume"
+        );
+        assert!(active.sustain_effect.is_none(), "geometry is not a sustain");
         assert!(
             moveset.0.move_by_id("apple_rain").is_some(),
-            "the Special profile became a move"
-        );
-        assert_eq!(
-            moveset.0.moves.len(),
-            1,
-            "the geometry profile authored NO move (it stays on the hitbox path)"
+            "the Special profile still became a sustain-move"
         );
 
+        // Trigger a geometry strike: setting `active_profile` starts the FloorSlam move.
         let mut app = App::new();
-        app.add_systems(Update, trigger_boss_special_moves);
+        app.add_systems(Update, trigger_boss_attack_moves);
         let mut attack_state = BossAttackState::default();
-        attack_state.active_profile = Some(BossAttackProfile::Special("apple_rain".to_string()));
+        attack_state.active_profile = Some(BossAttackProfile::FloorSlam);
         let boss = app
             .world_mut()
             .spawn((
@@ -637,7 +540,7 @@ mod special_moveset_tests {
                 crate::actor::BodyKinematics {
                     pos: ambition_engine_core::Vec2::ZERO,
                     vel: ambition_engine_core::Vec2::ZERO,
-                    size: ambition_engine_core::Vec2::new(40.0, 40.0),
+                    size: ambition_engine_core::Vec2::new(80.0, 80.0),
                     facing: 1.0,
                 },
             ))
@@ -646,14 +549,11 @@ mod special_moveset_tests {
         let pb = app
             .world()
             .get::<crate::combat::moveset::MovePlayback>(boss)
-            .expect("the active Special profile started its moveset move");
-        assert_eq!(pb.spec.id, "apple_rain");
-        // The move SUSTAINS the effect for the strike window (2.0s), so the
-        // technique gets the per-frame "active this tick" signal.
-        assert_eq!(pb.spec.duration_s, 2.0);
-        assert_eq!(
-            pb.spec.windows[0].sustain_effect.as_deref(),
-            Some("apple_rain")
+            .expect("the active geometry profile started its moveset move");
+        assert_eq!(pb.spec.id, "floor_slam");
+        assert!(
+            !pb.spec.windows[0].volumes.is_empty(),
+            "the triggered move carries the strike hit volume"
         );
     }
 }

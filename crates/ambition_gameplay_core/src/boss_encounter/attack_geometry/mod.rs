@@ -399,10 +399,17 @@ pub fn body_damage_aabb(pos: ae::Vec2, combat_size: ae::Vec2) -> ae::Aabb {
 }
 
 // `boss_attack_damage` is GONE (fable AD2): a boss's offense flows through the ONE
-// set of systems every actor uses — STRIKE damage via the frame-driven Boss hitboxes
-// (`sync_boss_strike_hitboxes` → `apply_hitbox_damage`'s Boss branch), and BODY-
-// CONTACT damage via the shared `apply_actor_contact_damage` (the boss's contact
+// set of systems every actor uses — STRIKE damage via the boss's own moveset moves
+// (`trigger_boss_attack_moves` → `advance_move_playback` → `apply_hitbox_damage`'s Boss
+// branch; fable review §A1 retired the per-tick `sync_boss_strike_hitboxes` poll), and
+// BODY-CONTACT damage via the shared `apply_actor_contact_damage` (the boss's contact
 // tuning is driven from `behavior.body_damage` at spawn). No bespoke boss damage poll.
+//
+// NOTE: `active_attack_volumes` / `volumes_for_profile` below are now consumed only by
+// the DEBUG overlay (telegraph/strike gizmos) and the hurtbox-pose selection — the
+// gameplay strike geometry is authored into each boss move's `HitVolume`s at spawn
+// (`boss_attack_moveset`). The sprite-frame-tracking multi-part geometry those helpers
+// still express is the fidelity the static move volumes approximate (bulk-review).
 
 /// World-space hitbox volumes for a specific attack profile. Pure
 /// function of the profile + body fields. Used as the fallback path

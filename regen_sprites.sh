@@ -188,6 +188,7 @@ expected_files=(
     tech_bro_disruptor_spritesheet.png tech_bro_disruptor_spritesheet.yaml tech_bro_disruptor_spritesheet.ron
     # Tack-on targets that produce character sheets.
     burning_flying_shark_spritesheet.png burning_flying_shark_spritesheet.yaml burning_flying_shark_spritesheet.ron
+    sanic_spritesheet.png sanic_spritesheet.yaml sanic_spritesheet.ron
     creator_spritesheet.png creator_spritesheet.yaml creator_spritesheet.ron
     creator_lab_props_spritesheet.png creator_lab_props_spritesheet.yaml creator_lab_props_spritesheet.ron
     interdimensional_gate_portal_spritesheet.png interdimensional_gate_portal_spritesheet.yaml interdimensional_gate_portal_spritesheet.ron
@@ -553,6 +554,7 @@ echo "==> tack-on targets (render-publish into $sprites_dir)"
 tackon_targets=(
     sandbag
     burning_flying_shark
+    sanic
     creator
     creator_lab_props
     gnu_ton_boss

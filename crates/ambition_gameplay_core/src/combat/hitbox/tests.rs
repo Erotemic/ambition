@@ -317,6 +317,12 @@ fn arena_hitbox_app(relations: FactionRelations, victim_faction: ActorFaction) -
                 ae::Vec2::new(14.0, 20.0),
             ),
             victim_faction,
+            // Every body carries the vulnerability trio (§A1 slice 3) — the
+            // victim query is no longer `Option` over them.
+            crate::actor::BodyOffense::default(),
+            crate::actor::BodyDodgeState::default(),
+            crate::actor::BodyShieldState::default(),
+            ambition_characters::actor::BodyCombat::default(),
         ))
         .id();
     (app, victim)

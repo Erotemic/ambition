@@ -619,6 +619,18 @@ pub(super) fn spawn_boss_with_overrides(
         ambition_characters::brain::BossAttackState::default(),
         boss_capability,
     ));
+    // §A1 slice 3: the boss is a victim-side BODY like every other actor. It
+    // carries the same three vulnerability clusters (default-inert — bosses have
+    // no dodge/shield/parry today), so it matches `apply_hitbox_damage`'s victim
+    // query WITHOUT the `Option` fallback that only existed because the boss used
+    // to lack them. Behavior-neutral: the clusters are inert, and the boss already
+    // matched as a victim before (its `HitTarget::Actor(boss)` event still lands
+    // nowhere until the driver fold flips the actor loop off `Without<BossConfig>`).
+    entity.insert((
+        crate::actor::BodyOffense::default(),
+        crate::actor::BodyDodgeState::default(),
+        crate::actor::BodyShieldState::default(),
+    ));
     // Per-spawn tweaks Z: read at seed time by `update_boss_encounters`
     // (hp / size / phase triggers) + `sync_boss_encounter_entities`
     // (encounter opt-out). Default for room-authored bosses ⇒ no-op.

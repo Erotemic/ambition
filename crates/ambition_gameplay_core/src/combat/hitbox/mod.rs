@@ -72,22 +72,22 @@ pub fn apply_hitbox_damage(
     // effective allegiance, without its authored faction being mutated.
     // ONE victim query for every body with a published footprint (fable review
     // 2026-07-02 §A3 — this system used to run separate actor and player
-    // victim loops whose faction rules and hurtboxes had drifted). The
-    // vulnerability clusters are `Option` so a boss body (which doesn't carry
-    // the player-ish clusters yet — §A1) still matches as a victim; since §A2
-    // they are read only to MUTE feedback (i-frames are consumed by
+    // victim loops whose faction rules and hurtboxes had drifted). Every body
+    // carries the three vulnerability clusters now — bosses too, since §A1
+    // slice 3 gave them the inert defaults — so the tuple is no longer `Option`.
+    // Since §A2 they're read only to MUTE feedback (i-frames are consumed by
     // `resolve_body_hit` on the victim side, never decided here).
     victims: Query<(
         Entity,
         &super::components::CenteredAabb,
         &ActorFaction,
         Option<&ambition_characters::brain::Brain>,
-        Option<(
+        (
             &crate::actor::BodyOffense,
             &crate::actor::BodyDodgeState,
             &crate::actor::BodyShieldState,
             &ambition_characters::actor::BodyCombat,
-        )>,
+        ),
         bevy::prelude::Has<crate::actor::PlayerEntity>,
     )>,
     // The attacker's grudge, looked up from the swing owner — the DAMAGE-side
@@ -187,10 +187,9 @@ pub fn apply_hitbox_damage(
                     // read below is FEEDBACK policy only: don't play the
                     // hit-landed sfx/burst for a hit the consumer will ignore
                     // (dodge roll, parry, i-frame window).
+                    let (offense, dodge, shield, combat) = vuln;
                     let feedback = !is_player
-                        || vuln.map_or(true, |(offense, dodge, shield, combat)| {
-                            crate::combat::damage::body_vulnerable(offense, dodge, shield, combat)
-                        });
+                        || crate::combat::damage::body_vulnerable(offense, dodge, shield, combat);
                     let impact = midpoint(victim_aabb.center, world_volume.center());
                     if feedback {
                         vfx.write(VfxMessage::Impact { pos: impact });

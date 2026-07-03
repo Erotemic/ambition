@@ -106,9 +106,8 @@ pub(crate) use bosses::boss_component_snapshot;
 pub use bosses::BossSpriteMetricsApplied;
 pub use bosses::{
     boss_spawn_hurtboxes, derive_boss_sprite_metrics, integrate_boss_bodies,
-    sync_boss_strike_hitboxes,
-    sync_boss_actor_components, sync_boss_encounter_phase, tick_boss_brains_system,
-    update_ecs_bosses,
+    sync_boss_actor_components, sync_boss_encounter_phase, sync_boss_strike_hitboxes,
+    tick_boss_brains_system, trigger_boss_special_moves, update_ecs_bosses,
 };
 pub use brain_effects::spawn_enemy_projectiles_from_brain_actions;
 pub use breakables::update_ecs_breakables;

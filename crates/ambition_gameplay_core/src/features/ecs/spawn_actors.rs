@@ -726,6 +726,11 @@ pub(super) fn spawn_boss_with_overrides(
         boss_combat_kit,
         ActorAggression::hostile(),
     ));
+    // Data-driven special MOVESET: the boss's content-technique specials run through
+    // the SHARED moveset runtime (a sustain-move per key) instead of the boss-only
+    // `dispatch_boss_special`, so the boss's special path is the actor's (§A1). Built
+    // from the capability repertoire before it's moved into the brain bundle.
+    let boss_special_moves = crate::features::boss_special_moveset(&boss_capability);
     entity.insert((
         // The brain bundle stays grouped because each piece is required
         // for the boss tick chain.
@@ -735,6 +740,9 @@ pub(super) fn spawn_boss_with_overrides(
         ambition_characters::brain::BossAttackState::default(),
         boss_capability,
     ));
+    if let Some(moveset) = boss_special_moves {
+        entity.insert(moveset);
+    }
     // Archetype swap AS2: the aerial actor movement cluster (18 ancillary body
     // clusters + status/config/surface/melee/caps). This is what lets the boss
     // integrate through the shared body pipeline (AS4) instead of its bespoke

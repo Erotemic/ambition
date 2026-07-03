@@ -3,13 +3,10 @@
 
 use super::super::*;
 
-use crate::features::{boss_special_for_profile, BossVolumeContext};
-use ambition_characters::brain::{
-    action_set::ActionRequest, ActorActionMessage, ActorControl, BossAttackState, Brain,
-    StateMachineCfg,
-};
+use crate::features::BossVolumeContext;
+use ambition_characters::brain::{ActorControl, BossAttackState, Brain, StateMachineCfg};
 use ambition_engine_core::AabbExt;
-use bevy::prelude::{Commands, Component, Entity, MessageWriter};
+use bevy::prelude::{Commands, Component, Entity};
 
 /// Marks a Boss-faction strike [`crate::combat::hitbox::Hitbox`] whose geometry is
 /// re-derived each tick from the owning boss's live `active_attack_volumes` (one
@@ -189,25 +186,45 @@ pub fn sync_boss_encounter_phase(
     }
 }
 
-/// Dispatch a boss attack PROFILE's content-technique special onto the SHARED
-/// action seam. A `Special` profile resolves (via `boss_special_for_profile`) to
-/// its `SpecialActionSpec` and writes ONE `ActorActionMessage::Special`; a geometry
-/// profile resolves to `None` and writes nothing (its damage flows through the
-/// frame-driven hitbox path). This is the ONE dispatch site both boss arms use —
-/// the autonomous pattern and the possession input map — retiring the second
-/// bespoke `Special`-write copy the possession arm carried (fable review §A1-3e /
-/// §A11). Multi-special bosses set `ActionSet.special = None`, so
-/// `emit_brain_action_messages` never double-fires this.
-fn dispatch_boss_special(
-    entity: Entity,
-    profile: &ambition_characters::brain::BossAttackProfile,
-    action_messages: &mut MessageWriter<ActorActionMessage>,
+/// TRIGGER the boss's data-driven special MOVES: while a `Special(key)` profile is
+/// the boss's active attack, ensure its sustain-move is playing (insert `MovePlayback`
+/// from the boss's `ActorMoveset` for that key). The move's per-frame `Effect{key}`
+/// (a sustain window, [`crate::features::boss_special_moveset`]) fires the content
+/// technique through the SHARED `dispatch_move_events` bridge — so the boss's special
+/// runs through the SAME moveset runtime the actor's does, retiring the boss-only
+/// `dispatch_boss_special` (fable review §A1: the boss special path unifies with the
+/// actor's). `Without<MovePlayback>` gates re-trigger; the move duration equals the
+/// strike window (both on sim time), so the sustain lasts exactly the strike. Geometry
+/// profiles have no move → they stay on `sync_boss_strike_hitboxes`. Possession routes
+/// here too: its input map sets `active_profile`, and this fires the mapped move.
+pub fn trigger_boss_special_moves(
+    mut commands: Commands,
+    bosses: Query<
+        (
+            Entity,
+            &BossAttackState,
+            &crate::combat::moveset::ActorMoveset,
+            &crate::actor::BodyKinematics,
+        ),
+        (
+            With<FeatureSimEntity>,
+            Without<crate::combat::moveset::MovePlayback>,
+        ),
+    >,
 ) {
-    if let Some(spec) = boss_special_for_profile(profile) {
-        action_messages.write(ActorActionMessage {
-            actor: entity,
-            request: ActionRequest::Special { spec },
-        });
+    for (entity, attack_state, moveset, kin) in &bosses {
+        let Some(key) = attack_state
+            .active_profile
+            .as_ref()
+            .and_then(|p| p.special_key())
+        else {
+            continue;
+        };
+        if let Some(spec) = moveset.0.move_by_id(key) {
+            commands.entity(entity).insert(
+                crate::combat::moveset::MovePlayback::new(spec.clone(), kin.facing),
+            );
+        }
     }
 }
 
@@ -245,11 +262,10 @@ pub fn tick_boss_brains_system(
         ),
         With<FeatureSimEntity>,
     >,
-    mut action_messages: MessageWriter<ActorActionMessage>,
 ) {
     let dt = world_time.sim_dt();
     let feature_world = world_with_sandbox_solids(&world.0, &platform_set.0, &overlay);
-    for (entity, feature, health, mut brain, mut control, mut attack_state, target, capability) in
+    for (_entity, feature, health, mut brain, mut control, mut attack_state, target, capability) in
         &mut bosses
     {
         let boss = feature.as_boss_ref();
@@ -316,14 +332,13 @@ pub fn tick_boss_brains_system(
                     attack_state.active_profile = Some(profile.clone());
                     attack_state.active_remaining = strike_seconds;
                     attack_state.active_elapsed = 0.0;
-                    // Content-technique specials (projectiles / world hitboxes /
-                    // minions) fire off the `Special` message through the SHARED
-                    // dispatch; the spawned effects inherit the firer's EFFECTIVE
-                    // faction (Player while possessed), so they strike the boss's
-                    // former allies, not the player. Geometry profiles resolve to
-                    // no message — their damage flows through the frame-driven
-                    // hitbox path.
-                    dispatch_boss_special(entity, &profile, &mut action_messages);
+                    // Content-technique specials fire through the SHARED moveset:
+                    // setting `active_profile` above is enough — `trigger_boss_special_moves`
+                    // reads it and starts the sustain-move, whose per-frame `Effect{key}`
+                    // fires the technique. The spawned effects inherit the firer's
+                    // EFFECTIVE faction (Player while possessed), so they strike the
+                    // boss's former allies. Geometry profiles have no move → their
+                    // damage flows through the frame-driven hitbox path.
                 }
             }
             continue;
@@ -370,19 +385,15 @@ pub fn tick_boss_brains_system(
             *attack_state = bps.attack_state.clone();
         }
 
-        // Boss-side Special dispatch: a multi-special boss (the Gradient Sentinel
-        // authors four — MemorizedVolley / PitTrap / RotatingCross / MinionCascade;
-        // GNU-ton its apple rain) doesn't fit `ActionSet`'s single special slot, so
-        // its `ActionSet.special` is `None` (see `spawn_boss`) and the boss tick
-        // dispatches the live `active_profile`'s technique through the SHARED
-        // `dispatch_boss_special` — the SAME path the possession arm uses, one
-        // wiring for every boss special. (Growing the action schema to a named
-        // multi-special repertoire is the moveset fold, still open in slice 3.)
-        if frame.special_pressed {
-            if let Some(profile) = attack_state.active_profile.as_ref() {
-                dispatch_boss_special(entity, profile, &mut action_messages);
-            }
-        }
+        // Boss specials run through the SHARED moveset now (fable review §A1): a
+        // multi-special boss (the Gradient Sentinel authors four; GNU-ton its apple
+        // rain) can't fit `ActionSet`'s single special slot, so its `ActionSet.special`
+        // is `None` and the boss carries an `ActorMoveset` (one sustain-move per key,
+        // built at spawn). Mirroring the brain's `active_profile` into the ECS
+        // `BossAttackState` above is the whole wiring — `trigger_boss_special_moves`
+        // reads it and starts the move, whose per-frame `Effect{key}` fires the content
+        // technique through `dispatch_move_events`. One path for every boss special AND
+        // the actor's; the bespoke `dispatch_boss_special` is retired.
         control.0 = frame;
     }
 }
@@ -579,5 +590,70 @@ pub fn update_ecs_bosses(
             death_anim.tick(dt);
         }
         *phase = BossPhase::from_alive(alive);
+    }
+}
+
+#[cfg(test)]
+mod special_moveset_tests {
+    use super::*;
+    use ambition_characters::brain::{BossAttackProfile, BossCapability};
+
+    /// Boss-fold slice (fable review §A1): the boss's content-technique special runs
+    /// through the SHARED moveset. (a) `boss_special_moveset` generates a sustain-move
+    /// per `Special(key)` (skipping geometry profiles); (b) `trigger_boss_special_moves`
+    /// starts that move while the profile is the boss's `active_profile`. The
+    /// sustain→`Effect{key}`→`Special{key}`→technique tail is pinned by the moveset
+    /// dispatch/sustain tests, so this covers the new boss-side links end to end.
+    #[test]
+    fn a_boss_special_profile_triggers_its_sustain_move() {
+        let cap = BossCapability {
+            specials: vec![
+                (BossAttackProfile::FloorSlam, 0.3), // geometry → no move
+                (BossAttackProfile::Special("apple_rain".to_string()), 2.0),
+            ],
+        };
+        let moveset =
+            crate::features::boss_special_moveset(&cap).expect("a content special → a moveset");
+        assert!(
+            moveset.0.move_by_id("apple_rain").is_some(),
+            "the Special profile became a move"
+        );
+        assert_eq!(
+            moveset.0.moves.len(),
+            1,
+            "the geometry profile authored NO move (it stays on the hitbox path)"
+        );
+
+        let mut app = App::new();
+        app.add_systems(Update, trigger_boss_special_moves);
+        let mut attack_state = BossAttackState::default();
+        attack_state.active_profile = Some(BossAttackProfile::Special("apple_rain".to_string()));
+        let boss = app
+            .world_mut()
+            .spawn((
+                FeatureSimEntity,
+                attack_state,
+                moveset,
+                crate::actor::BodyKinematics {
+                    pos: ambition_engine_core::Vec2::ZERO,
+                    vel: ambition_engine_core::Vec2::ZERO,
+                    size: ambition_engine_core::Vec2::new(40.0, 40.0),
+                    facing: 1.0,
+                },
+            ))
+            .id();
+        app.update();
+        let pb = app
+            .world()
+            .get::<crate::combat::moveset::MovePlayback>(boss)
+            .expect("the active Special profile started its moveset move");
+        assert_eq!(pb.spec.id, "apple_rain");
+        // The move SUSTAINS the effect for the strike window (2.0s), so the
+        // technique gets the per-frame "active this tick" signal.
+        assert_eq!(pb.spec.duration_s, 2.0);
+        assert_eq!(
+            pb.spec.windows[0].sustain_effect.as_deref(),
+            Some("apple_rain")
+        );
     }
 }

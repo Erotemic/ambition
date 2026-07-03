@@ -107,6 +107,53 @@ pub fn boss_special_for_profile(
         .map(|key| SpecialActionSpec::Special(key.to_string()))
 }
 
+/// Build the boss's data-driven special MOVESET from its capability repertoire: each
+/// content-technique `Special(key)` profile becomes a moveset move whose single
+/// window SUSTAINS `Effect{key}` for the strike's duration — so the technique fires
+/// every frame the strike is live (the `apple_rain`-style per-frame signal), now
+/// through the SHARED moveset runtime + its `Effect{key}`→`Special{key}` bridge
+/// instead of the boss-only `dispatch_boss_special` (fable review §A1: the boss's
+/// special path unifies with the actor's). Geometry profiles are skipped — they
+/// damage through `sync_boss_strike_hitboxes`. Keyed by move id (the technique key);
+/// the boss trigger resolves the active profile via `move_by_id`, not an input verb.
+/// `None` if the boss authors no content-technique special.
+pub fn boss_special_moveset(
+    capability: &ambition_characters::brain::BossCapability,
+) -> Option<crate::combat::moveset::ActorMoveset> {
+    use ambition_entity_catalog::{ClipBinding, MoveSpec, MoveWindow, MovesetContract, WindowTag};
+    let moves: Vec<MoveSpec> = capability
+        .specials
+        .iter()
+        .filter_map(|(profile, strike_s)| {
+            let key = profile.special_key()?;
+            let strike_s = strike_s.max(0.05);
+            Some(MoveSpec {
+                id: key.to_string(),
+                clip: ClipBinding {
+                    clip: "attack".to_string(),
+                    fallbacks: vec!["idle".to_string()],
+                },
+                duration_s: strike_s,
+                windows: vec![MoveWindow {
+                    start_s: 0.0,
+                    end_s: strike_s,
+                    tag: WindowTag::Active,
+                    volumes: Vec::new(),
+                    sustain_effect: Some(key.to_string()),
+                }],
+                events: Vec::new(),
+                gates: Default::default(),
+            })
+        })
+        .collect();
+    (!moves.is_empty()).then(|| {
+        crate::combat::moveset::ActorMoveset(MovesetContract {
+            verbs: std::collections::BTreeMap::new(),
+            moves,
+        })
+    })
+}
+
 #[cfg(test)]
 mod boss_profile_data_tests {
     use super::*;

@@ -117,6 +117,13 @@ impl Plugin for CombatSchedulePlugin {
                 // Path B — the production insert the moveset runtime was missing).
                 ambition_gameplay_core::combat::moveset::trigger_moveset_moves
                     .run_if(gameplay_allowed),
+                // Boss specials trigger the SAME way: when a boss's `active_profile`
+                // (mirrored from its pattern this frame) is a content-technique
+                // `Special(key)`, start the boss's sustain-move for that key. Its
+                // per-frame `Effect{key}` fires the technique through the moveset
+                // (§A1 — the boss special path unifies with the actor's).
+                ambition_gameplay_core::features::trigger_boss_special_moves
+                    .run_if(gameplay_allowed),
                 // Data-driven move playback (Smash-model timelines, W9):
                 // advances each playing MoveSpec on its OWNER'S proper time,
                 // manages window-scoped hit volumes, fires MoveEventMessages.

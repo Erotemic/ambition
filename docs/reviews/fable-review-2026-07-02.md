@@ -948,6 +948,15 @@ extraction stops being hard.
 
 # HANDOFF — start here if you are a fresh agent continuing this work
 
+> **The big picture lives in `docs/planning/roadmap.md`** (rewritten 2026-07-03
+> by fable): the full path to a Unity/Godot-class 2D platformer engine — phases
+> P1–P5, the demo-game capability matrix, the MADE-decision register (M1–M12),
+> the uncertainty watch-list (U1–U7), and JON'S OPEN QUESTIONS (Q1–Q12). This
+> review's remaining work is phases P1+P2 of that roadmap. **If you hit a design
+> fork: check the adjudications above, then the roadmap's M/U/Q lists. If your
+> fork maps to a Q-item, it is Jon's call — log it and switch to parallel work;
+> don't guess and don't stall.**
+
 **State:** Sections A–D below are the ranked audit (file:line refs may have
 drifted where the execution log says something landed — trust the log over the
 audit). The execution log (**E1–E21**) records what is DONE; do not redo it.

@@ -101,8 +101,12 @@ The full statements live in [`AGENTS.md`](../../AGENTS.md); the spine:
 
 ### [`roadmap.md`](roadmap.md)
 
-The single elegance-ordered phase plan across engine (and game); the engine ordering is
-also summarized below.
+**Rewritten 2026-07-03 (fable): the full path to a Unity/Godot-class 2D platformer
+engine** — phases P1–P5, the demo-game capability matrix (SMB1/Celeste/Metroid/
+Smash/… as expressibility test vectors), the binding design-decision register
+(M1–M12), the uncertainty watch-list (U1–U7), and the open questions only Jon can
+answer (Q1–Q12). Start there for the big picture; the engine ordering summarized
+below is the older, narrower cut of the same arc.
 
 ## Roadmap at a glance (elegance order)
 

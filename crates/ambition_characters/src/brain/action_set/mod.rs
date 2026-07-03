@@ -457,6 +457,24 @@ impl MeleeActionSpec {
             Self::PunchWeak(s) => s.reach_px,
         }
     }
+
+    /// The full authored timeline as `(windup_s, active_s, recover_s, damage, reach_px)`.
+    /// The single accessor the melee→moveset subsumption reads to author a body's
+    /// basic swing as a data-driven `"attack"` [`MoveSpec`](ambition_entity_catalog::MoveSpec)
+    /// — Startup/Active(forward volume)/Recovery on the owner's proper-time clock —
+    /// so a plain melee runs through the SAME moveset runtime as its specials
+    /// (fable review §A1 / §3a). Variant-specific extras (Lunge `step_px`, Slam
+    /// `hop_height_px`) are not carried yet — a self-motion window is a
+    /// parameterizable follow-up.
+    pub fn timeline(self) -> (f32, f32, f32, i32, f32) {
+        match self {
+            Self::Swipe(s) => (s.windup_s, s.active_s, s.recover_s, s.damage, s.reach_px),
+            Self::Lunge(s) => (s.windup_s, s.active_s, s.recover_s, s.damage, s.reach_px),
+            Self::Slam(s) => (s.windup_s, s.active_s, s.recover_s, s.damage, s.reach_px),
+            Self::Bite(s) => (s.windup_s, s.active_s, s.recover_s, s.damage, s.reach_px),
+            Self::PunchWeak(s) => (s.windup_s, s.active_s, s.recover_s, s.damage, s.reach_px),
+        }
+    }
 }
 
 /// How an actor's locomotion looks.

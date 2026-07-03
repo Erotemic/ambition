@@ -24,19 +24,134 @@
 //! decomposability contract, pinned by the tests below.
 
 use bevy::prelude::{
-    Commands, Component, Entity, Message, MessageReader, MessageWriter, Query, Res, Without,
+    Commands, Component, Entity, Message, MessageReader, MessageWriter, Query, Res, With, Without,
 };
 
 use ambition_engine_core as ae;
-use ambition_entity_catalog::{MoveEventKind, MoveSpec, MovesetContract, VolumeShape, WindowTag};
+use ambition_entity_catalog::{
+    ClipBinding, HitVolume, MoveEvent, MoveEventKind, MoveSpec, MoveWindow, MovesetContract,
+    VolumeShape, WindowTag,
+};
 use ambition_time::ProperTimeScale;
 
-use super::components::ActorFaction;
+use super::components::{ActorFaction, BodyMelee, MeleeSwing};
 use super::hitbox::{Hitbox, HitboxAnchor, HitboxHits};
-use ambition_characters::brain::action_set::{ActionRequest, SpecialActionSpec};
+use crate::combat::{AttackIntent, AttackSpec};
+use ambition_characters::brain::action_set::{ActionRequest, MeleeActionSpec, SpecialActionSpec};
 use ambition_characters::brain::{ActorActionMessage, ActorControl};
+use ambition_combat::DamageKind;
 use ambition_sfx::{SfxId, SfxMessage};
 use ambition_time::WorldTime;
+
+/// The canonical verb id a body's basic melee swing binds to in its moveset.
+pub const ATTACK_VERB: &str = "attack";
+
+/// Convert an authored [`MeleeActionSpec`] into a data-driven `"attack"`
+/// [`MoveSpec`] — the melee subsumption (fable review §A1 / §3a). The swing's
+/// windup/active/recover timeline becomes Startup / Active(one forward Rect hit
+/// volume) / Recovery windows on the owner's proper-time clock, so a plain melee
+/// runs through the SAME moveset runtime as the body's specials. Re-binding a
+/// swing onto another body is now a data edit, and the swing composes with
+/// dilation / pause for free.
+///
+/// The forward hit volume is a body-local rect sized from the spec's `reach_px`
+/// (offset a bit past the body, half-extent covering the reach + a torso-height
+/// band). Knockback is a sensible default; directional variants (up/down/air) and
+/// pogo remain on the flat player path for now (bulk-review: player-melee fold).
+pub fn attack_move_from_melee(spec: &MeleeActionSpec) -> MoveSpec {
+    let (windup, active, recover, damage, reach) = spec.timeline();
+    let windup = windup.max(0.0);
+    let active = active.max(0.02);
+    let recover = recover.max(0.0);
+    let duration = windup + active + recover;
+    // Forward rect: centered just past the body, extending to `reach`, with a
+    // torso-height band. Authored body-local (x = side/forward); the runtime
+    // mirrors it by facing and rotates it into the gravity frame at spawn.
+    let half_x = (reach * 0.5).max(8.0);
+    let volume = HitVolume {
+        shape: VolumeShape::Rect {
+            offset: (reach * 0.6, 0.0),
+            half_extents: (half_x, 16.0),
+        },
+        damage: damage.max(1),
+        // Aggressor-push default; the damage resolver derives direction from
+        // facing/contact. Tunable — noted in the bulk-review queue.
+        knockback: 120.0,
+    };
+    MoveSpec {
+        id: ATTACK_VERB.to_string(),
+        clip: ClipBinding {
+            clip: "attack_side".to_string(),
+            fallbacks: vec!["slash".to_string(), "idle".to_string()],
+        },
+        duration_s: duration,
+        windows: vec![
+            MoveWindow {
+                start_s: 0.0,
+                end_s: windup,
+                tag: WindowTag::Startup,
+                volumes: vec![],
+                sustain_effect: None,
+            },
+            MoveWindow {
+                start_s: windup,
+                end_s: windup + active,
+                tag: WindowTag::Active,
+                volumes: vec![volume],
+                sustain_effect: None,
+            },
+            MoveWindow {
+                start_s: windup + active,
+                end_s: duration,
+                tag: WindowTag::Recovery,
+                volumes: vec![],
+                sustain_effect: None,
+            },
+        ],
+        events: vec![MoveEvent {
+            at_s: windup,
+            kind: MoveEventKind::Sfx {
+                cue: "melee_swing".to_string(),
+            },
+        }],
+        gates: Default::default(),
+    }
+}
+
+/// Fold a body's authored melee (`ActionSet.melee`) into its moveset as the
+/// `"attack"` move, merging with any signature-move repertoire. The single seam
+/// every actor-spawn path calls so a body's basic swing and its specials live in
+/// ONE `MovesetContract`. Returns `None` when the body has neither.
+pub fn build_actor_moveset(
+    signature: Option<&MovesetContract>,
+    melee: Option<&MeleeActionSpec>,
+) -> Option<MovesetContract> {
+    let mut contract = signature.cloned().unwrap_or_default();
+    if let Some(melee) = melee {
+        let attack = attack_move_from_melee(melee);
+        contract
+            .verbs
+            .insert(ATTACK_VERB.to_string(), attack.id.clone());
+        // Replace any existing attack move (idempotent) then push.
+        contract.moves.retain(|m| m.id != attack.id);
+        contract.moves.push(attack);
+    }
+    if contract.moves.is_empty() {
+        None
+    } else {
+        Some(contract)
+    }
+}
+
+/// Marker: this body's basic melee swing is a data-driven moveset `"attack"`
+/// move, not the flat `BodyMelee` swing. The flat-melee phases
+/// (`start_body_melee` / `advance_body_melee`'s swing logic) SKIP a body carrying
+/// this marker — its swing is triggered by [`trigger_moveset_moves`] and run by
+/// [`advance_move_playback`], and its `BodyMelee` read-model is projected from the
+/// live [`MovePlayback`] by [`project_moveset_melee_to_body_melee`] so every
+/// existing consumer (actor anim index, view/telegraph index, HUD) keeps working.
+#[derive(Component, Debug, Clone, Copy, Default)]
+pub struct MovesetMelee;
 
 /// A timed move event fired by [`advance_move_playback`]. The move runtime
 /// stays content-free: it names the event; downstream consumers (the audio
@@ -307,6 +422,69 @@ pub fn dispatch_move_events(
             }
         }
     }
+}
+
+/// Project a `MovesetMelee` body's live [`MovePlayback`] into its [`BodyMelee`]
+/// read-model so every existing consumer — the actor anim index, the
+/// view/telegraph index, the HUD, the melee integration tests — keeps working
+/// unchanged after melee moved onto the moveset. The move's Active window(s) drive
+/// a synthesized `MeleeSwing` whose phase (Startup/Active/Recovery) and elapsed
+/// mirror the move; the real hitboxes/damage are owned by
+/// [`advance_move_playback`], so this writes NO gameplay — it is purely the
+/// read-model the flat `BodyMelee` swing used to publish. A body with no live move
+/// has its projected swing cleared (its cooldown floors still tick in
+/// `advance_body_melee`).
+///
+/// Runs AFTER `advance_move_playback` (so `t` is current) and after
+/// `advance_body_melee` (which skips `MovesetMelee` bodies' swing logic), making
+/// this the SOLE writer of a `MovesetMelee` body's swing.
+pub fn project_moveset_melee_to_body_melee(
+    mut bodies: Query<(Option<&MovePlayback>, &mut BodyMelee), With<MovesetMelee>>,
+) {
+    for (playback, mut melee) in &mut bodies {
+        match playback {
+            Some(pb) => melee.swing = Some(synth_swing_from_move(pb)),
+            None => melee.swing = None,
+        }
+    }
+}
+
+/// Build the read-model `MeleeSwing` for a live move: startup = first Active
+/// window start, active = span from first Active start to last Active end
+/// (covers multi-hit combos), recovery = remainder. Only the timing is
+/// meaningful — every geometry/impulse field is inert (the real strike is the
+/// moveset's own hitbox), so the derived phase answers is_active/is_winding_up
+/// exactly as the flat swing did.
+fn synth_swing_from_move(pb: &MovePlayback) -> MeleeSwing {
+    let spec = &pb.spec;
+    let actives: Vec<&MoveWindow> = spec
+        .windows
+        .iter()
+        .filter(|w| matches!(w.tag, WindowTag::Active))
+        .collect();
+    let (startup, active) = match (actives.first(), actives.last()) {
+        (Some(first), Some(last)) => (first.start_s, (last.end_s - first.start_s).max(0.0)),
+        // A move with no Active window (a pure sustain/telegraph) reads as all
+        // windup until it ends — still "swinging" for the anim tint.
+        _ => (spec.duration_s, 0.0),
+    };
+    let recovery = (spec.duration_s - startup - active).max(0.0);
+    let attack_spec = AttackSpec {
+        intent: AttackIntent::Forward,
+        startup_seconds: startup,
+        active_seconds: active,
+        recovery_seconds: recovery,
+        hitbox_offset: ae::Vec2::ZERO,
+        hitbox_half_size: ae::Vec2::ZERO,
+        self_impulse: ae::Vec2::ZERO,
+        knockback: ae::Vec2::ZERO,
+        damage_kind: DamageKind::Slash,
+        can_pogo: false,
+        damage_override: None,
+    };
+    let mut swing = MeleeSwing::new(attack_spec);
+    swing.elapsed = pb.t;
+    swing
 }
 
 #[cfg(test)]

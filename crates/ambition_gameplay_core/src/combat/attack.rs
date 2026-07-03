@@ -13,7 +13,9 @@
 //! `BodyMelee`) does. The relativity-principle fix is the actor-
 //! unification rename of those types, tracked separately.
 
-use bevy::prelude::{Entity, MessageReader, MessageWriter, Query, Res};
+use bevy::prelude::{Entity, Has, MessageReader, MessageWriter, Query, Res};
+
+use crate::combat::moveset::MovesetMelee;
 
 use ambition_characters::actor::control::ActorControlFrame;
 use ambition_characters::brain::{ActorActionMessage, ActorControl, MeleeActionSpec};
@@ -514,6 +516,7 @@ pub fn start_body_melee(
         Option<&features::HeldItem>,
         Option<&features::ActorConfig>,
         Option<&mut BodyAnimFacts>,
+        Has<MovesetMelee>,
     )>,
 ) {
     // The resolver can emit the same body once per frame; collect the requesters.
@@ -523,11 +526,18 @@ pub fn start_body_melee(
         .map(|m| m.actor)
         .collect();
     for actor in melee_actors {
-        let Ok((mut cq, mut melee, combat, control, held, config, mut anim)) =
+        let Ok((mut cq, mut melee, combat, control, held, config, mut anim, moveset_melee)) =
             bodies.get_mut(actor)
         else {
             continue;
         };
+        // A body whose melee is a moveset `"attack"` move is driven by
+        // `trigger_moveset_moves` → `advance_move_playback`; the flat swing must not
+        // ALSO start (double-fire). Its `BodyMelee` read-model is projected from the
+        // live move instead (`project_moveset_melee_to_body_melee`).
+        if moveset_melee {
+            continue;
+        }
         // Body enforces: no double-swing, off the recovery floor, past the recoil
         // lock (the same re-swing gate the player used, now shared by all bodies).
         if melee.swing.is_some() || melee.on_cooldown() || combat.recoil_lock_timer > 0.0 {
@@ -601,14 +611,23 @@ pub fn advance_body_melee(
         Option<&ambition_characters::brain::Brain>,
         Option<&features::ActorConfig>,
         Option<&mut BodyAnimFacts>,
+        Has<MovesetMelee>,
     )>,
 ) {
     let dt = world_time.sim_dt();
-    for (entity, mut cq, mut melee, faction, brain, config, mut anim) in &mut bodies {
+    for (entity, mut cq, mut melee, faction, brain, config, mut anim, moveset_melee) in &mut bodies {
         // The recovery / refire floors tick every frame regardless of a live swing
         // (`advance_attack` advances the swing's own `elapsed`).
         melee.cooldown = (melee.cooldown - dt).max(0.0);
         melee.ranged_cooldown = (melee.ranged_cooldown - dt).max(0.0);
+        // A body whose melee is a moveset `"attack"` move owns its swing through the
+        // moveset runtime; its `BodyMelee.swing` is a PROJECTION written after this
+        // system (`project_moveset_melee_to_body_melee`), not a flat swing to
+        // advance/strike here. Its ranged refire floor still ticks above, so ranged
+        // bodies (the PCA) keep their fire-rate; only the melee swing logic skips.
+        if moveset_melee {
+            continue;
+        }
         if melee.swing.is_none() {
             if let Some(anim) = anim.as_deref_mut() {
                 anim.slash_anim_timer = 0.0;

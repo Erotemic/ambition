@@ -10,6 +10,44 @@ sensible default and note it here for deferred tuning.** Two kinds of entries:
 - Autonomous special-firing CADENCE is OFF (`smash/action.rs` Engage arm). A naive
   "fire special while melee recharges" spammed the move + broke the duel regroup kit;
   needs a real special cooldown / spacing gate. Possession fires specials today.
+- **Melee subsumption (actor swing → moveset `"attack"` move)** — an actor's authored
+  `ActionSet.melee` is now folded into its `ActorMoveset` as a data-driven `"attack"`
+  move (`attack_move_from_melee`), triggered on `melee_pressed` by the SAME runtime as
+  its specials; the flat `BodyMelee` swing is skipped (`MovesetMelee` marker) and its
+  read-model is PROJECTED from the live `MovePlayback`. Deferred-tuning knobs, all with
+  sensible defaults, sweep-when-it-reads-wrong:
+  - **Melee hit-volume geometry is a body-local forward rect** approximated from
+    `reach_px` (offset `reach*0.6`, half-extents `reach*0.5 × 16`) — was the
+    sprite-manifest per-animation box (`actor_attack_hitbox_world`). The manifest box
+    is richer; if an actor's reach reads wrong, either tune the rect or teach the
+    moveset to sample the manifest box.
+  - **Melee knockback default = 120** (aggressor-push channel). Was faction-derived
+    (`knockback_strength = 1.0`). Tune per-archetype if feel wants it.
+  - **Melee swing SFX** now a `MoveEvent` cue `"melee_swing"` (→ `SfxMessage::Play`),
+    was `SfxMessage::Slash`. Different bank entry; wire/point the cue if silent.
+  - **Melee slash VFX is dropped** for moveset-melee bodies (the flat path's
+    `spawn_melee_strike` emitted the slash flourish; the moveset hitbox does not yet).
+    Presentation-only; add a slash event/effect to the attack move when the VFX pass runs.
+  - **Lunge `step_px` / Slam `hop_height_px` self-motion is not carried** — the attack
+    move is timing + a hit volume only. Add a self-impulse window if a lunging actor
+    needs its forward step back.
+  - **Possessed-body melee faction:** the moveset hitbox uses the body's raw
+    `ActorFaction`, not `effective_faction(faction, brain)`. Possession tests pass
+    (possessed actors flip faction), but verify a possessed enemy's swing hits the
+    right side under every possession path.
+  - **Peaceful NPCs with a melee spec keep the flat path** (only the hostile spawn
+    path folds melee → moveset today). Uniform fold is a follow-up if a peaceful-kit
+    NPC's melee needs the moveset.
+  - **Duel-arena AI cadence shifted:** routing the swing through the moveset move
+    (0.42s player-robot / 0.62s PCA, gated `Without<MovePlayback>`) re-weighted the
+    fighters — the player-robot now regroups flight-heavy (fly 731/1800 frames) and
+    dashes/presses-melee less; the PCA is unchanged. Both still trade melee, take
+    damage, shield, blink, fly. Two duel canaries were loosened to match (dash-wiring
+    is now an aggregate proof; melee-intent threshold 3→2) — retune the fighters when
+    the feel pass runs. Root cause is likely the lost `BodyMelee.cooldown` recovery
+    floor (the flat path armed `ENEMY_ATTACK_COOLDOWN * mult`; the moveset move's own
+    duration is the new floor) — if the cadence reads wrong, re-arm a per-archetype
+    recovery floor on move trigger.
 - (Add here as you go: e.g. "boss strike geometry now static body-local approximations
   vs per-tick world-space — tune fidelity if it reads wrong.")
 

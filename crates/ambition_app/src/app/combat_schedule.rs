@@ -139,6 +139,15 @@ impl Plugin for CombatSchedulePlugin {
                 // frame's events dispatch this frame.
                 ambition_gameplay_core::combat::moveset::dispatch_move_events
                     .run_if(gameplay_allowed),
+                // Melee subsumption read-model (§A1 / §3a): a body whose melee is a
+                // moveset `"attack"` move has its `BodyMelee` swing PROJECTED from the
+                // live `MovePlayback` here (after `advance_move_playback` set/cleared
+                // it this frame), so the actor anim index, telegraph/view index, HUD,
+                // and melee tests keep reading the same read-model the flat swing used
+                // to publish. Writes no gameplay — the real strike is the move's own
+                // hitbox.
+                ambition_gameplay_core::combat::moveset::project_moveset_melee_to_body_melee
+                    .run_if(gameplay_allowed),
                 // Hitbox-entity lifecycle for melee strikes (Task A of the
                 // actor/brain follow-up plan). `apply_hitbox_damage`
                 // resolves overlap → damage event; `tick_and_despawn_hitboxes`

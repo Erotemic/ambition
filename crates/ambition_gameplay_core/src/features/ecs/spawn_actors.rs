@@ -217,10 +217,16 @@ impl EnemyActorSpawnPlan {
         let action_set = enemy_default_action_set(&enemy.spec);
         let combat_kit = enemy_combat_kit_for_spec(&enemy.spec);
         let held_item = super::brain_builders::held_item_for_spec(&enemy.spec);
-        // The character's signature moves are authored on its archetype (data), so
-        // every hostile spawn path (authored rooms, encounter mobs, runtime minions)
-        // carries them without a per-path branch.
-        let moveset = enemy.spec.signature_move.clone();
+        // The character's signature moves AND its basic melee swing are authored on
+        // its archetype (data); `build_actor_moveset` folds both into ONE moveset —
+        // the melee subsumption (§A1 / §3a): a plain swing is a `"attack"`-verb move
+        // run by the SAME moveset runtime as the specials. Every hostile spawn path
+        // (authored rooms, encounter mobs, runtime minions) carries them without a
+        // per-path branch.
+        let moveset = crate::combat::moveset::build_actor_moveset(
+            enemy.spec.signature_move.as_ref(),
+            enemy.spec.melee.as_ref(),
+        );
         Self {
             entity_name: entity_name.into(),
             feature_id: feature_id.into(),
@@ -315,9 +321,20 @@ impl EnemyActorSpawnPlan {
         // an `ActorMoveset`; `trigger_moveset_moves` starts a move on a control verb
         // edge through the shared moveset runtime (§A1, Path B).
         if let Some(moveset) = self.moveset {
+            // A body whose moveset carries the `"attack"` verb has its basic melee
+            // subsumed by the moveset: mark it so the flat-melee phases skip it and
+            // its `BodyMelee` read-model is projected from the live move.
+            let has_attack = moveset
+                .verbs
+                .contains_key(crate::combat::moveset::ATTACK_VERB);
             commands
                 .entity(entity)
                 .insert(crate::combat::moveset::ActorMoveset(moveset));
+            if has_attack {
+                commands
+                    .entity(entity)
+                    .insert(crate::combat::moveset::MovesetMelee);
+            }
         }
         entity
     }

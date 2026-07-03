@@ -157,6 +157,30 @@
         // `smash_dash_to_close`; this lets the body turn that into a real burst
         // above walk speed). Body-enforced capability + cooldown.
         smash_can_dash: true,
+        // Signature data-driven MOVE (fable review §A1, Path B — the first real
+        // moveset consumer): "Cellular Pulse", a telegraphed close-range burst
+        // authored entirely as data — a 0.40s Startup tell, a 0.14s Active window
+        // with one forward hit volume, then Recovery, on the owner's proper-time
+        // clock. Triggered by the `special` verb through the shared moveset runtime;
+        // no bespoke Rust. This is a NORMAL actor carrying a boss-grade move as
+        // data, proving smash-like characters are designed in content, not code.
+        signature_move: Some((
+            verbs: {"special": "cellular_pulse"},
+            moves: [(
+                id: "cellular_pulse",
+                clip: (clip: "special", fallbacks: ["idle"]),
+                duration_s: 0.85,
+                windows: [
+                    (start_s: 0.0, end_s: 0.40, tag: Startup, volumes: []),
+                    (start_s: 0.40, end_s: 0.54, tag: Active, volumes: [
+                        (shape: Rect(offset: (30.0, 0.0), half_extents: (34.0, 28.0)),
+                         damage: 3, knockback: 140.0),
+                    ]),
+                    (start_s: 0.54, end_s: 0.85, tag: Recovery, volumes: []),
+                ],
+                events: [(at_s: 0.40, kind: Sfx(cue: "pca.cellular_pulse"))],
+            )],
+        )),
         move_style: Walk,
     ),
     // The PROTAGONIST as an actor body (roadmap S6a / invariant I7): the player-

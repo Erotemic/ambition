@@ -291,6 +291,16 @@ pub(crate) struct CharacterArchetypeSpec {
     /// projectile look name it explicitly.
     #[serde(default)]
     pub ranged_visual: crate::projectile::ProjectileVisualKind,
+    /// Data-driven signature MOVE repertoire — the Smash-model moveset this
+    /// character carries (windows / hit volumes / timed effects, authored on the
+    /// owner's proper-time clock). Attached at spawn as an `ActorMoveset`; a control
+    /// verb edge (`special`/`attack`) triggers the matching move through the shared
+    /// moveset runtime (`combat::moveset`). This is how a character's expressive,
+    /// boss-grade moves are designed AS DATA (the engine-for-2D-platformers vision) —
+    /// the PCA is the first consumer (fable review 2026-07-02 §A1, Path B). `None`
+    /// for characters whose combat is only the flat `melee`/`ranged` `ActionSet`.
+    #[serde(default)]
+    pub signature_move: Option<ambition_entity_catalog::MovesetContract>,
     /// Locomotion style for the actor's `ActionSet.move_style`.
     pub move_style: ambition_characters::brain::MoveStyleSpec,
 }
@@ -835,6 +845,40 @@ mod enemy_archetype_data_tests {
                 "character_archetypes.ron missing row for brain key '{key}'",
             );
         }
+    }
+
+    /// Phase-0 authoring proof (fable review §A1, Path B): the PCA
+    /// (`cellular_automaton_fighter`) authors a data-driven signature MOVE on its
+    /// archetype — a normal actor carrying a boss-grade move as DATA. Guards that
+    /// the `character_archetypes.ron` moveset deserializes into a well-formed
+    /// `MovesetContract`: the `special` verb resolves the "cellular_pulse" move, and
+    /// that move has an Active window with a hit volume (so it lands damage through
+    /// the shared moveset runtime). A regen or a schema drift that dropped the move
+    /// trips here.
+    #[test]
+    fn pca_fighter_authors_a_data_driven_signature_move() {
+        use ambition_entity_catalog::WindowTag;
+        let pca = test_spec("cellular_automaton_fighter");
+        let moveset = pca
+            .signature_move
+            .as_ref()
+            .expect("the PCA authors a signature move on its archetype");
+        let mv = moveset
+            .move_for_verb("special")
+            .expect("the `special` verb resolves a move");
+        assert_eq!(mv.id, "cellular_pulse");
+        assert!(mv.duration_s > 0.0, "the move has a positive timeline");
+        assert!(
+            mv.windows.iter().any(|w| {
+                matches!(w.tag, WindowTag::Active) && !w.volumes.is_empty()
+            }),
+            "the Cellular Pulse has an Active window carrying a hit volume"
+        );
+        // Most archetypes carry NO moveset — the field is opt-in data.
+        assert!(
+            test_spec("combatant").signature_move.is_none(),
+            "a plain archetype authors no signature move"
+        );
     }
 
     /// Spot-check the legacy pre-data values for two divergent

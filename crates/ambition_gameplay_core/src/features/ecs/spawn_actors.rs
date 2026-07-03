@@ -201,6 +201,8 @@ pub(super) struct EnemyActorSpawnPlan {
     action_set: ambition_characters::brain::ActionSet,
     combat_kit: crate::combat::CombatKit,
     held_item: Option<ambition_characters::brain::HeldItemSpec>,
+    /// The archetype's data-driven signature move repertoire, if any (§A1, Path B).
+    moveset: Option<ambition_entity_catalog::MovesetContract>,
 }
 
 impl EnemyActorSpawnPlan {
@@ -215,6 +217,10 @@ impl EnemyActorSpawnPlan {
         let action_set = enemy_default_action_set(&enemy.spec);
         let combat_kit = enemy_combat_kit_for_spec(&enemy.spec);
         let held_item = super::brain_builders::held_item_for_spec(&enemy.spec);
+        // The character's signature moves are authored on its archetype (data), so
+        // every hostile spawn path (authored rooms, encounter mobs, runtime minions)
+        // carries them without a per-path branch.
+        let moveset = enemy.spec.signature_move.clone();
         Self {
             entity_name: entity_name.into(),
             feature_id: feature_id.into(),
@@ -227,6 +233,7 @@ impl EnemyActorSpawnPlan {
             action_set,
             combat_kit,
             held_item,
+            moveset,
         }
     }
 
@@ -303,6 +310,14 @@ impl EnemyActorSpawnPlan {
             .id();
         if let Some(item) = self.held_item {
             commands.entity(entity).insert(super::HeldItem::new(item));
+        }
+        // Data-driven signature moves: the body carries its authored repertoire as
+        // an `ActorMoveset`; `trigger_moveset_moves` starts a move on a control verb
+        // edge through the shared moveset runtime (§A1, Path B).
+        if let Some(moveset) = self.moveset {
+            commands
+                .entity(entity)
+                .insert(crate::combat::moveset::ActorMoveset(moveset));
         }
         entity
     }

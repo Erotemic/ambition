@@ -220,7 +220,7 @@ pub fn camera_follow(
         blink_in_duration: blink_cam.blink_in_duration,
         blink_camera_from: blink_cam.blink_camera_from,
     };
-    let mut snapshot = resolve_follow_camera_snapshot(
+    let snapshot = resolve_follow_camera_snapshot(
         CameraSnapshotResolveInput {
             world: &world.0,
             camera_zones: &active_spec.camera_zones,

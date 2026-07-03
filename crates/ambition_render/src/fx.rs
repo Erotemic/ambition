@@ -118,6 +118,11 @@ const SPEECH_BUBBLE_PUSH_FADE_AFTER: f32 = 0.85;
 pub struct BlinkPreviewVisual {
     /// Phase offset around the ring, in radians. Each ember has a distinct
     /// constant so the ring keeps its shape while the ring as a whole spins.
+    /// Read by `update_blink_preview` (the ring spin) in render's own builds;
+    /// `allow(dead_code)` because a feature-stripped dep-build (e.g. content's
+    /// `--all-features` pulling render) compiles that reader out, and the
+    /// -D-warnings CI must stay clean across configs.
+    #[allow(dead_code)]
     angle_offset: f32,
 }
 

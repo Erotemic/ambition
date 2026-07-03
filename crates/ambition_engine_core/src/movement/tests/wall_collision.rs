@@ -160,7 +160,7 @@ fn wall_jump_uses_local_side_axis_under_sideways_gravity() {
 
     let mut events = FrameEvents::default();
     {
-        let mut clusters = scratch.as_mut();
+        let clusters = scratch.as_mut();
         super::super::simulation::handle_jump_buffer_clusters(
             &world,
             clusters.action_buffer,

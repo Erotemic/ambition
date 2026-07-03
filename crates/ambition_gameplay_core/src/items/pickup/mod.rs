@@ -657,6 +657,12 @@ pub fn ability_aim_world(
     ae::AccelerationFrame::new(gravity_dir).to_world(ability_aim_local(control, facing))
 }
 
+// Pending wiring point for the OPEN input reference-frame design (gravity-relative
+// vs screen-relative joystick mapping — see frame-of-reference.md): reads the user's
+// control-frame preference, but nothing applies it YET. Kept (not deleted) as the
+// seam the reference-frame slice wires in; `allow(dead_code)` so the -D-warnings CI
+// build stays clean until then. See code_smells 2026-07-03.
+#[allow(dead_code)]
 pub(crate) fn control_frame_modes_from_settings(
     settings: Option<&crate::persistence::settings::UserSettings>,
 ) -> ae::ControlFrameModes {

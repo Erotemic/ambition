@@ -1920,7 +1920,27 @@ IS just an aerial actor; no parallel float remains.
 - **AD1-T1** — collapse `FeatureVisualKind` actor variants to one `Actor`; the boss
   render can then read `ActorRenderSize` on the unified actor sprite-upgrade path.
 
-## Next (in order) — A1 slice 3 follow-ups: **3b per AD2** (FrameDrivenHitbox + fold boss contact onto apply_actor_contact_damage + delete boss_attack_damage) → render/hurtbox baked-size convergence → **AD1-T1** taxonomy collapse (+**D3 UNBLOCKED per AD1**: T1 enum collapse, then T2 read-model → re-create sim_view) / D4.2 platforms+physics extract / D4.3 LDtk converter extensibility (crux, confirmed worth it)
+### E34. A1 slice 3b (AD2) LANDED — the boss ATTACK PATH is unified ✅
+The boss's offense now flows through the SAME systems every actor uses; the bespoke
+`boss_attack_damage` poll is DELETED.
+- **3b-strike** (`8408d3ae`) — `sync_boss_strike_hitboxes` maintains one Boss-faction
+  frame-driven `Hitbox` per `active_attack_volumes` part while a strike is live
+  (geometry re-derived each tick so GNU-ton's multi-part hands track the drawn pose;
+  despawn on strike-end). Damage resolves through the shared `apply_hitbox_damage`
+  Boss branch, deduped per-strike via `HitboxHits`. Removed the `boss_attack_damage`
+  strike arm. Mechanism-pinned: `boss_strike_spawns_a_frame_driven_boss_hitbox`.
+- **3b-contact** (`054a32fc`) — boss body-contact folds onto the shared
+  `apply_actor_contact_damage` (dropped its `Without<BossConfig>` carve-out; the boss's
+  contact tuning is driven from `behavior.body_damage` at spawn). `boss_attack_damage`
+  DELETED entirely; `update_ecs_bosses` collapses to pure presentation. **Verified by
+  `boss_contact_iframes`** — i-frame-gated boss contact damage lands correctly over a
+  multi-second run (the fold WORKS, not just compiles).
+
+Ships blind on FEEL only (Jon's AD5 queue) — the mechanisms are test-verified. Follow:
+the frame-driven hitbox is now generic enough for actor melee / the moveset
+clip-by-phase seam to opt in later (retiring freeze-at-entry), per AD2(b).
+
+## Next (in order) — A1 slice 3 follow-ups: render/hurtbox baked-size convergence (fix the const-vs-baked gap the AS4b pin found) → **AD1-T1** taxonomy collapse (+**D3 UNBLOCKED per AD1**: T1 enum collapse, then T2 read-model → re-create sim_view) / D4.2 platforms+physics extract / D4.3 LDtk converter extensibility (crux, confirmed worth it)
 
 **§A2 is COMPLETE** (E10–E13). The victim-side damage path is ONE resolver +
 ONE reaction for every body; per-body policy is the only fork left.

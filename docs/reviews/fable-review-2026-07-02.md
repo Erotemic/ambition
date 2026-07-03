@@ -2061,6 +2061,37 @@ case-by-case system untangle, not a redirect), `assets` (12), `character_sprites
 on the three genuinely-hard, non-autonomous fronts: the rooms crux, the value-type
 `sim_view` move (premature), and the category-D system untangles.
 
+### E39. VERIFICATION + TEST-HARDENING pass — a full `cargo test --workspace` surfaced rotted leaf-crate tests ✅ (`e085d2a2`, `a1a4c04c`, `6782aa0b`)
+With the clean architecture work done, ran the FULL workspace suite (24 crates)
+end-to-end — the first time this session — as a correctness net. It surfaced a
+real INFRA pattern + fixed what was safely fixable:
+- **INFRA FINDING — leaf-crate unit tests silently ROT.** The common dev flow
+  (`cargo test -p ambition_app`) builds the leaf crates' LIBs but NOT their own
+  `#[cfg(test)]` targets, so a crate's unit tests can break for many commits with
+  no signal. Three were broken this way, all pre-existing (none from this session):
+  the two `architecture_boundaries` tests (stale file-structure assertions —
+  `e085d2a2`), and `ambition_vfx`'s `hitbox_shape_tests` (missing the `frame_down`
+  field added to `Hitbox` in e56cd830 — failed to COMPILE since; `a1a4c04c`). Same
+  root as the logged content-portal-skip smell. **Recommend CI run
+  `cargo test --workspace` (not just `-p ambition_app`)** so leaf tests can't rot
+  unseen. 24 crates, 17 carry their own unit tests — a broad rot surface.
+- **Swept the two documented loose-end warnings** (`6782aa0b`): dead `aim_dir`
+  (tick_shark steers by `orbit_dir`), the `hostile_brain_id_for_actor` re-export
+  (gated `#[cfg(test)]` — only a test uses that path), plus the `With` import my
+  PrimaryPlayerOnly move orphaned.
+- **PRE-EXISTING FAILURE flagged for Jon (NOT this session's — confirmed by
+  building+running at the session-start commit 7c0872a7 in an isolated worktree):**
+  `unified_body_movement::home_body_and_actor_body_move_through_the_same_integration_phase`
+  (rl_sim) FAILS — the `cellular_automaton_fighter` enemy doesn't chase: at
+  7c0872a7 it moved the WRONG way (x 1110→1134.8, +25px right, away from the
+  left-side player); at HEAD it moves the right way but far too little (1110→1109.4,
+  −0.6px vs the >5px the test wants). The ~25px swing between two builds of a
+  fixed-60hz deterministic sim smells of QUERY-ORDER non-determinism in the chase
+  pipeline (per the query-order-determinism rule: sort order-sensitive systems by a
+  stable id, not `Entity`). A real chase-AI / determinism bug (possibly tied to the
+  PAUSED PCA encounter work), NOT a stale test — out of the architecture-grind
+  scope; needs a focused gameplay-debugging slice. Logged to code_smells.
+
 ## Next (in order) — **T2 clean read-model + D3 facade redirects DONE (E36/E37/E38).** D3's remaining reducers are all non-autonomous (need Jon's design input or are risky/unverifiable): the `rooms` extraction crux (RoomSpec content-coupling — Jon's call), the value-type→`ambition_sim_view` move (premature until the edge narrows), the boss-pose SIM-SIDE animator move (retires the `animate_bosses` write-back; presentation-unverifiable), and the category-D portal/dev/session system untangles. Recommend Jon adjudicate the `rooms`/`RoomSpec` content-coupling direction next (as he did the actors|props taxonomy). Deferred to Jon's feel pass: render/hurtbox baked-size convergence (~1.2% gap); the T1 placeholder color/z blind deltas (E35).
 
 **§A2 is COMPLETE** (E10–E13). The victim-side damage path is ONE resolver +

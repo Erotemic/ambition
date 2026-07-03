@@ -2030,7 +2030,38 @@ actor-cluster borrow was exactly two systems; both are now cut.
   next) + category-D systems, the multi-session remainder. Verified gameplay_core
   1090 + render 24 green.
 
-## Next (in order) — **T2 clean read-model slices DONE (E36/E37).** The remaining render→gameplay_core cut is now dominated by the NON-read-model surface, so pivot off T2: (1) **§D4 `ambition_world`** — `rooms` is render's next-biggest gameplay_core import after `RoomGeometry` (done, E26) and the linchpin for the platforms/physics extract; extracting it is the biggest remaining D3 reducer AND a reusable-crate win. (2) boss-pose SIM-SIDE animator move (its own slice — retires the `animate_bosses` write-back). (3) then value types → re-created `ambition_sim_view`, category-D systems, drop render's dep (D3.7 lever). Parallel: D4.2 platforms+physics (couples `rooms`) / D4.3 LDtk converter extensibility (crux). Deferred to Jon's feel pass: render/hurtbox baked-size convergence (~1.2% gap); the T1 placeholder color/z blind deltas (E35).
+### E38. D3-edge FACADE REDIRECTS — render names the foundation directly for 3 families (D3.1 template) ✅ (`7e221004`, `ffe88faa`, `f59207ab`)
+Harvested every render→gameplay_core import that was really a FOUNDATION type
+behind a thin gameplay_core facade (the D3.1 `actor::Body*` pattern). Three landed,
+zero behavior change, render 24 green each:
+- **gravity** (`7e221004`): `crate::physics` is `pub use ambition_platformer_primitives::gravity::*`;
+  render's `GravityCtx`/`gravity_aware_flip_x`/`GravityField`/`GravityZone` (7 sites)
+  now name the foundation directly.
+- **PrimaryPlayerOnly** (`ffe88faa`): the alias `(With<PlayerEntity>, With<PrimaryPlayer>)`
+  is a pure composition of two foundation markers → MOVED into
+  `platformer_primitives::markers` (gameplay_core re-exports it); render's 6 refs
+  name the foundation.
+- **lifecycle + gravity_upright_angle** (`f59207ab`): `crate::platformer_runtime::{gravity,lifecycle}`
+  are pure re-exports of `platformer_primitives::{gravity,lifecycle}`; render's
+  `PlayerVisual`/`RoomVisual`/`SceneEntities`/`gravity_upright_angle` (incl. render's
+  own `primitives.rs` re-export) name the foundation. `orientation::ActorRoll`
+  (gameplay_core's OWN module) correctly stays.
+
+**Finding: the clean facade redirects are now EXHAUSTED.** The remaining
+render→gameplay_core surface (re-measured) is all GENUINE gameplay_core, none a
+foundation-in-disguise: `features` (44, the read-model — needs the `sim_view` move,
+still premature until the edge narrows), `rooms` (15, the entangled crux —
+`RoomSpec`/`RoomSet` pull `characters`+`interaction`+`combat`+`portal`+`platforms`+
+`debug_label`; breaking that coupling is a design call for Jon, NOT a safe
+autonomous move — see the rooms-extraction map), `portal` (12, category-D: the
+sandbox portal-integration SYSTEMS are DEFINED in gameplay_core's `portal/mod.rs`,
+not the foundation `ambition_portal`/`_presentation` crates, so they need the
+case-by-case system untangle, not a redirect), `assets` (12), `character_sprites`
+(9, §D6 carve), + the dev/abilities/session/persistence tail. So D3 is now blocked
+on the three genuinely-hard, non-autonomous fronts: the rooms crux, the value-type
+`sim_view` move (premature), and the category-D system untangles.
+
+## Next (in order) — **T2 clean read-model + D3 facade redirects DONE (E36/E37/E38).** D3's remaining reducers are all non-autonomous (need Jon's design input or are risky/unverifiable): the `rooms` extraction crux (RoomSpec content-coupling — Jon's call), the value-type→`ambition_sim_view` move (premature until the edge narrows), the boss-pose SIM-SIDE animator move (retires the `animate_bosses` write-back; presentation-unverifiable), and the category-D portal/dev/session system untangles. Recommend Jon adjudicate the `rooms`/`RoomSpec` content-coupling direction next (as he did the actors|props taxonomy). Deferred to Jon's feel pass: render/hurtbox baked-size convergence (~1.2% gap); the T1 placeholder color/z blind deltas (E35).
 
 **§A2 is COMPLETE** (E10–E13). The victim-side damage path is ONE resolver +
 ONE reaction for every body; per-body policy is the only fork left.

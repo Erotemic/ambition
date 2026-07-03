@@ -9,8 +9,10 @@
 //! can later reuse the same "snapshot -> render target" seam.
 //!
 //! Usage:
-//!   cargo run -p ambition_app --bin capture_scene -- <ROOM_ID> <X,Y> [OUT.png] [WIDTHxHEIGHT] [--warmup N] [--include-ui] [--show-window]
+//!   cargo run -p ambition_app --bin capture_scene -- <ROOM_ID> <X,Y|player> [OUT.png] [WIDTHxHEIGHT] [--warmup N] [--character ID] [--include-ui] [--show-window]
 //!   cargo run -p ambition_app --bin capture_scene -- c136 1200,480 /tmp/c136_game.png 1280x720
+//!   # center on the player, spawned AS the pirate admiral:
+//!   cargo run -p ambition_app --bin capture_scene -- central_hub_main player /tmp/p.png --character npc_pirate_admiral --warmup 40
 
 use std::path::{Path, PathBuf};
 
@@ -48,6 +50,9 @@ struct SceneCaptureConfig {
     /// Optional `character_catalog.ron` id to spawn the player AS (its sprite +
     /// moveset). `None` = the default protagonist. Behind `--character <id>`.
     character: Option<String>,
+    /// When the focus positional is the literal `player`, center the camera on
+    /// the live player entity's position after warmup (no coordinate hunting).
+    follow_player: bool,
 }
 
 #[derive(Resource, Clone, Debug)]
@@ -218,10 +223,18 @@ impl SceneCaptureConfig {
             return Err("missing ROOM_ID".to_string());
         };
         let Some(focus_text) = positional.get(1) else {
-            return Err("missing X,Y focus".to_string());
+            return Err("missing X,Y focus (or the literal `player`)".to_string());
         };
-        let focus = parse_vec2(focus_text)
-            .ok_or_else(|| format!("focus must be X,Y world coordinates, got '{focus_text}'"))?;
+        // `player` centers the camera on the live player entity (handy for
+        // starting-character shots — no per-room spawn coordinate to look up).
+        let follow_player = focus_text.eq_ignore_ascii_case("player");
+        let focus = if follow_player {
+            ae::Vec2::ZERO
+        } else {
+            parse_vec2(focus_text).ok_or_else(|| {
+                format!("focus must be X,Y world coordinates or `player`, got '{focus_text}'")
+            })?
+        };
         let output = positional
             .get(2)
             .map(PathBuf::from)
@@ -239,6 +252,7 @@ impl SceneCaptureConfig {
             include_ui,
             show_window,
             character,
+            follow_player,
         })
     }
 }
@@ -291,6 +305,10 @@ fn apply_capture_snapshot(
     user_settings: Res<ambition_gameplay_core::persistence::settings::UserSettings>,
     ease_tuning: Res<ambition_gameplay_core::CameraEaseTuning>,
     mut view_state: ResMut<CameraViewState>,
+    player_q: Query<
+        &ambition_platformer_primitives::body::BodyKinematics,
+        With<ambition_render::rendering::PlayerVisual>,
+    >,
     mut cameras: Query<
         (&mut Transform, &mut Projection),
         (
@@ -302,12 +320,19 @@ fn apply_capture_snapshot(
     let active_spec = room_set.active_spec();
     let (base_view_w, base_view_h) = user_settings.video.camera_zoom.base_view();
     let base_view = ae::Vec2::new(base_view_w, base_view_h);
+    // `player` focus mode: center on the live player body (falls back to the
+    // fixed focus if the player isn't spawned yet).
+    let focus_center = if config.follow_player {
+        player_q.iter().next().map(|k| k.pos).unwrap_or(config.focus)
+    } else {
+        config.focus
+    };
     let snapshot = resolve_follow_camera_snapshot(
         CameraSnapshotResolveInput {
             world: &world.0,
             camera_zones: &active_spec.camera_zones,
             focus: CameraFocus2d {
-                center_world: config.focus,
+                center_world: focus_center,
                 size: ae::Vec2::new(30.0, 48.0),
                 base_size: ae::Vec2::new(30.0, 48.0),
                 facing: 1.0,

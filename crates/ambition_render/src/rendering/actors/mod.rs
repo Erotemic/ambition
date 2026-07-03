@@ -369,6 +369,7 @@ pub fn refresh_player_sprites_on_game_assets_change(
     mut commands: Commands,
     assets: Option<Res<GameAssets>>,
     quality: Option<Res<crate::quality::ResolvedVisualQuality>>,
+    starting_character: Option<Res<ambition_gameplay_core::player::StartingCharacter>>,
     images: Res<Assets<Image>>,
     players: Query<
         (
@@ -386,12 +387,14 @@ pub fn refresh_player_sprites_on_game_assets_change(
         return;
     }
     let scale = active_sprite_scale(quality.as_deref());
-    let Some(asset) = assets
-        .characters
-        .player
-        .as_ref()
-        .or(assets.characters.robot.as_ref())
-    else {
+    // Rebind the sheet of whichever character the player wears, NOT a hardcoded
+    // `player` — otherwise this first-frame refresh clobbers the starting-
+    // character sprite that `scene_setup` bound (see StartingCharacter).
+    let start_id = starting_character
+        .as_deref()
+        .map(|s| s.character_id.as_str())
+        .unwrap_or(ambition_gameplay_core::player::StartingCharacter::DEFAULT_ID);
+    let Some(asset) = assets.characters.asset_for_character_id(start_id) else {
         return;
     };
     if images.get(&asset.texture).is_none() {

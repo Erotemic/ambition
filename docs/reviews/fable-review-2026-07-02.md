@@ -28,6 +28,45 @@ items are marked as such rather than re-discovered.
 
 ---
 
+## JON'S DESIGN FEEDBACK (2026-07-03) — FOR FABLE TO ADJUDICATE
+
+Triggered by D3.2a moving `FeatureVisualKind` (variants `Hazard, Enemy,
+TrainingDummy, Boss, Breakable, Chest, Pickup, Npc, Switch`) into a leaf crate.
+Jon's verbatim direction, to be reconciled with the audit's design:
+
+1. **The fundamental taxonomy should be `actors` (things WITH brains) vs `props`
+   (things WITHOUT brains)** — not a 9-variant content enum. "Shouldn't there
+   just be actors and props?"
+2. **`Boss` / `Npc` / `Enemy` are THE SAME THING** (actors) and "must" render the
+   same — distinguishing them (even as a placeholder color) is the smell. "boss,
+   NPC, and Enemy should all be colored the same thing because they are the same
+   thing (or should be, they must be!)."
+3. **`TrainingDummy` should not exist as a kind** — it is "an NPC that just does
+   nothing… the most NPC, because it should have no special components." A
+   brainless actor with the empty component set, not a variant.
+4. **A ~100-line leaf crate for the read-model smells** unless it earns real meat
+   or the compile graph genuinely requires it. "we aren't planning on this just
+   being a single 1 lib crate with 100 lines are we? Is this thing gonna have any
+   extra meat on it? … maybe its necessary, but it seems like a smell to me."
+
+`[opus-4.8[1m]]` **executing-agent analysis (fable should adjudicate):** Point (2)
+is *partly* already honored — `FeatureVisualKind` for actors is DERIVED from
+`disposition.is_hostile()` / `tuning.is_sandbag` at read-model-build time
+(`features/ecs/view_index.rs:188`, comment: "a FUNCTION OF STATE, not an actor
+type"), so it isn't a stored actor-type fork. But Jon's deeper point stands: the
+actor variants (`Enemy`/`Npc`/`Boss`/`TrainingDummy`) should collapse to a single
+`Actor` (brains) axis, with `props` (`Chest`/`Pickup`/`Switch`/`Breakable`/
+`Hazard`, no brains) the other — and the placeholder-color/z tables + the
+`entity_sprite_for_kind` resolvers reduce accordingly. This reshapes the D3
+read-model (what `FeatureView.kind` even is) and touches §C (closed vocab →
+`actors|props` + open prop ids) and §A (one more actor-unification collapse). It
+also means the sim-view crate shouldn't be extracted until this shape is settled
+— hence D3.2a was reverted (E24). **Open question for fable:** is `actors` vs
+`props` the intended top-level render taxonomy, and should `FeatureVisualKind`
+be replaced by it? (Also flow this into `docs/planning/engine/unified-actors.md`.)
+
+---
+
 ## Synthesis — the top of the stack
 
 If we could only do six things, in dependency order:

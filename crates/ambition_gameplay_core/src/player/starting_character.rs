@@ -120,6 +120,20 @@ mod tests {
     }
 
     #[test]
+    fn every_playable_roster_id_is_a_real_catalog_character() {
+        // The curated cast is a hand-maintained list; without this pin it rots
+        // silently when a catalog id is renamed/removed, and the launch flag
+        // would spawn a colored rectangle. Every id must resolve a catalog row.
+        for id in PLAYABLE_ROSTER {
+            assert!(
+                crate::character_roster::display_name_for_character_id(id).is_some(),
+                "PLAYABLE_ROSTER id '{id}' has no character_catalog.ron row — the \
+                 curated cast rotted; fix the roster or the catalog",
+            );
+        }
+    }
+
+    #[test]
     fn playable_roster_starts_with_protagonist_and_has_no_dupes() {
         assert_eq!(PLAYABLE_ROSTER[0], StartingCharacter::DEFAULT_ID);
         for (i, a) in PLAYABLE_ROSTER.iter().enumerate() {

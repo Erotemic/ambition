@@ -881,6 +881,31 @@ mod enemy_archetype_data_tests {
         );
     }
 
+    /// The moveset generalizes beyond the PCA: the PROTAGONIST's body archetype
+    /// (`player_robot`, invariant I7) authors a data-driven signature move too — a
+    /// TWO-HIT combo ("Theorem Chain"), proving the system expresses smash-like
+    /// multi-hit moves as data across characters, not a PCA one-off (fable review §A1).
+    #[test]
+    fn player_robot_authors_a_multi_hit_signature_combo() {
+        use ambition_entity_catalog::WindowTag;
+        let robot = test_spec("player_robot");
+        let mv = robot
+            .signature_move
+            .as_ref()
+            .and_then(|m| m.move_for_verb("special"))
+            .expect("the player-robot authors a `special`-verb signature move");
+        assert_eq!(mv.id, "theorem_chain");
+        let active_windows = mv
+            .windows
+            .iter()
+            .filter(|w| matches!(w.tag, WindowTag::Active) && !w.volumes.is_empty())
+            .count();
+        assert_eq!(
+            active_windows, 2,
+            "Theorem Chain is a two-hit combo (two Active windows with volumes)"
+        );
+    }
+
     /// Spot-check the legacy pre-data values for two divergent
     /// archetypes so a regen of the RON without re-tuning catches
     /// accidental drift on the rows the player notices first.

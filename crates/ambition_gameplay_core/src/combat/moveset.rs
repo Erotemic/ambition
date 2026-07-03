@@ -559,6 +559,77 @@ mod tests {
         app.world_mut().query::<&Hitbox>().iter(app.world()).count()
     }
 
+    /// A two-window (two Active spans) move authored as data — a light poke into a
+    /// heavier follow-up, the shape of the player-robot's "Theorem Chain".
+    fn two_hit_combo() -> MoveSpec {
+        let doc = ambition_entity_catalog::EntityCatalogDoc::parse(
+            r#"(
+                schema_version: 1,
+                entities: [(
+                    id: "combo",
+                    contracts: (moveset: Some((
+                        verbs: {"special": "chain"},
+                        moves: [(
+                            id: "chain",
+                            clip: (clip: "slash", fallbacks: ["idle"]),
+                            duration_s: 0.72,
+                            windows: [
+                                (start_s: 0.0, end_s: 0.14, tag: Startup, volumes: []),
+                                (start_s: 0.14, end_s: 0.22, tag: Active, volumes: [
+                                    (shape: Rect(offset: (28.0, 0.0), half_extents: (18.0, 14.0)),
+                                     damage: 2, knockback: 90.0),
+                                ]),
+                                (start_s: 0.22, end_s: 0.36, tag: Recovery, volumes: []),
+                                (start_s: 0.36, end_s: 0.46, tag: Active, volumes: [
+                                    (shape: Rect(offset: (30.0, 0.0), half_extents: (20.0, 16.0)),
+                                     damage: 3, knockback: 160.0),
+                                ]),
+                                (start_s: 0.46, end_s: 0.72, tag: Recovery, volumes: []),
+                            ],
+                        )],
+                    ))),
+                )],
+            )"#,
+        )
+        .unwrap();
+        assert!(doc.validate().is_empty(), "the two-hit combo is well-formed");
+        doc.entity("combo")
+            .unwrap()
+            .contracts
+            .moveset
+            .as_ref()
+            .unwrap()
+            .move_for_verb("special")
+            .unwrap()
+            .clone()
+    }
+
+    /// Smash-like MULTI-HIT expressivity (fable review §A1): a single authored move
+    /// with TWO Active windows lands TWO distinct hits on a standing victim — the
+    /// first window's box despawns before the second spawns, and each carries its
+    /// own `HitboxHits`, so the combo reads as two strikes, not one lingering box.
+    /// Pins that the moveset runtime expresses combos, not just single swings.
+    #[test]
+    fn a_two_window_move_lands_two_distinct_hits() {
+        let (mut app, _victim) = app_with_victim();
+        let _attacker = spawn_attacker(
+            &mut app,
+            ae::Vec2::new(104.0, 100.0),
+            ae::Vec2::new(15.0, 24.0),
+            two_hit_combo(),
+        );
+        // Run the whole move. Two Active windows → two hits.
+        run_seconds(&mut app, 0.75);
+        let cap = app.world().resource::<Captured>();
+        assert_eq!(
+            cap.hits.len(),
+            2,
+            "the two-window combo lands exactly two distinct hits"
+        );
+        assert_eq!(cap.hits[0].damage, 2, "first window's authored damage");
+        assert_eq!(cap.hits[1].damage, 3, "second window's authored damage");
+    }
+
     /// Phase-0 keystone (fable review §A1, Path B): the PRODUCTION trigger — a body
     /// carrying an `ActorMoveset` whose control frame presses `special` starts the
     /// matching move (no test hand-inserts `MovePlayback`), and the move lands its

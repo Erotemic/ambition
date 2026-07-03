@@ -237,6 +237,37 @@
         smash_can_fly: true,
         smash_can_shield: true,
         smash_can_dash: true,
+        // Signature data-driven MOVE (fable review §A1): "Theorem Chain" — a TWO-HIT
+        // combo authored entirely as data (two Active windows on one proper-time
+        // timeline, a light poke into a heavier follow-up). Proves the moveset
+        // expresses smash-like MULTI-HIT combos, and that the protagonist's own body
+        // is a fully data-driven fighter (invariant I7 — the same body the human
+        // pilots, fielded as an actor/boss). Triggered by the `special` verb.
+        signature_move: Some((
+            verbs: {"special": "theorem_chain"},
+            moves: [(
+                id: "theorem_chain",
+                clip: (clip: "special", fallbacks: ["slash", "idle"]),
+                duration_s: 0.72,
+                windows: [
+                    (start_s: 0.0, end_s: 0.14, tag: Startup, volumes: []),
+                    (start_s: 0.14, end_s: 0.22, tag: Active, volumes: [
+                        (shape: Rect(offset: (30.0, 0.0), half_extents: (26.0, 22.0)),
+                         damage: 2, knockback: 90.0),
+                    ]),
+                    (start_s: 0.22, end_s: 0.36, tag: Recovery, volumes: []),
+                    (start_s: 0.36, end_s: 0.46, tag: Active, volumes: [
+                        (shape: Rect(offset: (36.0, 0.0), half_extents: (30.0, 24.0)),
+                         damage: 3, knockback: 160.0),
+                    ]),
+                    (start_s: 0.46, end_s: 0.72, tag: Recovery, volumes: []),
+                ],
+                events: [
+                    (at_s: 0.14, kind: Sfx(cue: "player.theorem_1")),
+                    (at_s: 0.36, kind: Sfx(cue: "player.theorem_2")),
+                ],
+            )],
+        )),
         move_style: Walk,
     ),
     "small_skitter": (

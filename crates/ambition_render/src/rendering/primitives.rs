@@ -9,9 +9,9 @@ use ambition_gameplay_core::features::FeatureVisualKind;
 
 // Runtime-owned room lifecycle markers. Re-exported so presentation systems +
 // existing `presentation::rendering::RoomVisual` call sites keep resolving; the
-// canonical home is `ambition_gameplay_core::platformer_runtime::lifecycle` (content-free, so sim
+// canonical home is `ambition_platformer_primitives::lifecycle` (content-free, so sim
 // systems can tag visual entities without importing presentation).
-pub use ambition_gameplay_core::platformer_runtime::lifecycle::{
+pub use ambition_platformer_primitives::lifecycle::{
     LoadingZoneVisual, PlayerVisual, RoomScopedEntity, RoomVisual, SceneEntities,
 };
 

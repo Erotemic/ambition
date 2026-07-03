@@ -135,7 +135,7 @@ pub fn spawn_morph_ball_visual(
 /// the standing-rig animation doesn't show through.
 pub fn sync_morph_ball_visual(
     world: Res<ambition_engine_core::RoomGeometry>,
-    entities: Res<ambition_gameplay_core::platformer_runtime::lifecycle::SceneEntities>,
+    entities: Res<ambition_platformer_primitives::lifecycle::SceneEntities>,
     player_q: Query<
         (
             &ambition_platformer_primitives::body::BodyKinematics,
@@ -146,7 +146,7 @@ pub fn sync_morph_ball_visual(
     mut player_query: Query<
         &mut Visibility,
         (
-            With<ambition_gameplay_core::platformer_runtime::lifecycle::PlayerVisual>,
+            With<ambition_platformer_primitives::lifecycle::PlayerVisual>,
             Without<MorphBallVisual>,
         ),
     >,

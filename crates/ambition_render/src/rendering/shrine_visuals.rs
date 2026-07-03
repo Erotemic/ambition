@@ -137,7 +137,7 @@ pub fn sync_shrine_visual(
                 shrine_visual_atlas(&source),
                 sprite,
                 Transform::from_translation(translation),
-                ambition_gameplay_core::platformer_runtime::lifecycle::RoomVisual,
+                ambition_platformer_primitives::lifecycle::RoomVisual,
                 Name::new("Shrine visual"),
             ))
             .id();

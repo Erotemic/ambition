@@ -837,10 +837,10 @@ pub fn update_blink_preview(
     world: Res<ambition_engine_core::RoomGeometry>,
     platform_set: Res<ambition_gameplay_core::MovingPlatformSet>,
     mode: Res<State<ambition_gameplay_core::game_mode::GameMode>>,
-    scene: Res<ambition_gameplay_core::platformer_runtime::lifecycle::SceneEntities>,
+    scene: Res<ambition_platformer_primitives::lifecycle::SceneEntities>,
     action_query: Query<
         &leafwing_input_manager::prelude::ActionState<ambition_input::SandboxAction>,
-        bevy::prelude::With<ambition_gameplay_core::platformer_runtime::lifecycle::PlayerVisual>,
+        bevy::prelude::With<ambition_platformer_primitives::lifecycle::PlayerVisual>,
     >,
     // The blink reticle previews from the CONTROLLED SUBJECT (the body carrying
     // `Brain::Player(PRIMARY)`) — the body you are driving — not a `PrimaryPlayer`

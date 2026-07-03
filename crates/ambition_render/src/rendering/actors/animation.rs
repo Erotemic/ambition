@@ -42,7 +42,7 @@ pub(crate) fn apply_character_frame(
     }
     // Gravity-aware facing flip: a ~180° up-gravity roll already mirrors the
     // sprite, so the flip inverts (fixes #33 "move left, face right upside down").
-    let flip = ambition_gameplay_core::physics::gravity_aware_flip_x(facing, gravity_dir);
+    let flip = ambition_platformer_primitives::gravity::gravity_aware_flip_x(facing, gravity_dir);
     sprite.flip_x = flip;
     sprite.color = color;
     // Self-capture the trim basis from the spawn-built sprite the first time we
@@ -76,7 +76,7 @@ pub(crate) fn apply_character_frame(
 /// crawl / slide / ladder / swim.
 pub fn animate_player(
     world_time: Res<ambition_time::WorldTime>,
-    gravity: Option<Res<ambition_gameplay_core::physics::GravityField>>,
+    gravity: Option<Res<ambition_platformer_primitives::gravity::GravityField>>,
     mut query: Query<
         (
             (
@@ -210,7 +210,7 @@ pub fn animate_characters(
     anim_index: Res<ambition_gameplay_core::features::ActorAnimIndex>,
     // Localized gravity, so an enemy/NPC wall-walking or on a flipped-gravity
     // ceiling flips the right way (the same gravity-aware facing the player got).
-    gravity: ambition_gameplay_core::physics::GravityCtx,
+    gravity: ambition_platformer_primitives::gravity::GravityCtx,
 ) {
     // ADR 0011 — per-entity proper time. SP today: no entity carries
     // ProperTimeScale, so `entity_dt` collapses to `sim_dt` and

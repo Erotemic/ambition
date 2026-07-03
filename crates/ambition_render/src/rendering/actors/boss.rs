@@ -260,7 +260,7 @@ pub fn animate_bosses(
     // Localized gravity, so a boss under flipped / sideways gravity flips the
     // same way the player and enemies do (it self-rights via `ActorRoll`, so its
     // facing must be gravity-aware too or the 180° roll mirrors it backwards).
-    gravity: ambition_gameplay_core::physics::GravityCtx,
+    gravity: ambition_platformer_primitives::gravity::GravityCtx,
 ) {
     // ADR 0011 — per-entity proper time. The "boss got root on the
     // simulator" pattern (ADR 0010 §Narrative authority) plays out
@@ -317,7 +317,7 @@ pub fn animate_bosses(
         // gravity it reduces to `spec.flip_x(facing)` (the gravity term is 0), and
         // under a flip it cancels the `ActorRoll` 180° mirror so the boss keeps
         // facing the player.
-        let flip = ambition_gameplay_core::physics::gravity_aware_flip_x(
+        let flip = ambition_platformer_primitives::gravity::gravity_aware_flip_x(
             state.facing,
             gravity.dir_at(state.pos),
         ) ^ animator.spec.authored_faces_left;

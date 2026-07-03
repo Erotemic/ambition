@@ -18,7 +18,7 @@ use bevy::sprite::Anchor;
 
 use ambition_platformer_primitives::body::BodyKinematics;
 use ambition_gameplay_core::assets::game_assets::{EntitySprite, GameAssets};
-use ambition_gameplay_core::physics::GravityCtx;
+use ambition_platformer_primitives::gravity::GravityCtx;
 use ambition_gameplay_core::platformer_runtime::gravity::gravity_upright_angle;
 use ambition_gameplay_core::projectile::{
     LiveProjectile, ProjectileArtSource, ProjectileKind, ProjectileRenderSize, ProjectileRotation,

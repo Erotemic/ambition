@@ -6,7 +6,7 @@
 use bevy::prelude::*;
 
 use ambition_engine_core::{self as ae};
-use ambition_gameplay_core::physics::{GravityField, GravityZone};
+use ambition_platformer_primitives::gravity::{GravityField, GravityZone};
 use ambition_engine_core::RoomGeometry;
 
 use ambition_gameplay_core::gravity::GravityFlipSwitch;

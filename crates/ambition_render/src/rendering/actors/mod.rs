@@ -37,7 +37,7 @@ pub use boss::*;
 pub use overlays::*;
 
 pub fn sync_visuals(
-    world: Res<ambition_gameplay_core::RoomGeometry>,
+    world: Res<ambition_engine_core::RoomGeometry>,
     entities: Res<SceneEntities>,
     assets: Option<Res<GameAssets>>,
     feature_views: Res<FeatureViewIndex>,

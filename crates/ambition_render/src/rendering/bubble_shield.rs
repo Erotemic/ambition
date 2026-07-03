@@ -132,7 +132,7 @@ fn shield_ring_color(parrying: bool) -> Color {
 pub fn sync_bubble_shield_visual(
     mut commands: Commands,
     sprite: Option<Res<BubbleShieldSprite>>,
-    world: Res<ambition_gameplay_core::RoomGeometry>,
+    world: Res<ambition_engine_core::RoomGeometry>,
     bodies: Query<(
         &ambition_platformer_primitives::body::BodyKinematics,
         &ambition_engine_core::BodyShieldState,

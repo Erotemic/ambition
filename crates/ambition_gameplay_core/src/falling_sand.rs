@@ -859,7 +859,7 @@ fn project_particles_to_movement_world(
     mut commands: Commands,
     room_set: Res<crate::rooms::RoomSet>,
     state: Res<FallingSandRoomState>,
-    world: Res<crate::RoomGeometry>,
+    world: Res<ambition_engine_core::RoomGeometry>,
     mut overlay: ResMut<crate::features::FeatureEcsWorldOverlay>,
     particles: Query<(&GridPosition, &Particle)>,
     visuals: Query<(Entity, &FallingSandMaterialVisual)>,

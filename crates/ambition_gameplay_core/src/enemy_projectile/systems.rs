@@ -89,7 +89,7 @@ mod tests {
     #[test]
     fn player_faction_shot_damages_an_overlapping_enemy_and_expires() {
         let mut app = App::new();
-        app.insert_resource(crate::RoomGeometry(ae::World::new(
+        app.insert_resource(ambition_engine_core::RoomGeometry(ae::World::new(
             "phys",
             ae::Vec2::new(800.0, 800.0),
             ae::Vec2::new(400.0, 400.0),
@@ -179,7 +179,7 @@ mod tests {
     fn an_ownerless_shot_damages_a_same_faction_actor_indiscriminately() {
         use crate::enemy_projectile::test_support::spawn_ownerless_projectile;
         let mut app = App::new();
-        app.insert_resource(crate::RoomGeometry(ae::World::new(
+        app.insert_resource(ambition_engine_core::RoomGeometry(ae::World::new(
             "phys",
             ae::Vec2::new(800.0, 800.0),
             ae::Vec2::new(400.0, 400.0),
@@ -244,7 +244,7 @@ mod tests {
     /// Build a headless app wired for `step_projectiles` with the given relations.
     fn arena_projectile_app(relations: crate::features::FactionRelations) -> App {
         let mut app = App::new();
-        app.insert_resource(crate::RoomGeometry(ae::World::new(
+        app.insert_resource(ambition_engine_core::RoomGeometry(ae::World::new(
             "phys",
             ae::Vec2::new(800.0, 800.0),
             ae::Vec2::new(400.0, 400.0),
@@ -358,7 +358,7 @@ mod tests {
         use crate::actor::PlayerEntity;
         use crate::actor::{BodyBaseSize, BodyDodgeState, BodyOffense, BodyShieldState};
         let mut app = App::new();
-        app.insert_resource(crate::RoomGeometry(ae::World::new(
+        app.insert_resource(ambition_engine_core::RoomGeometry(ae::World::new(
             "phys",
             ae::Vec2::new(800.0, 800.0),
             ae::Vec2::new(400.0, 400.0),
@@ -462,7 +462,7 @@ mod tests {
         use crate::actor::PlayerEntity;
         use crate::actor::{BodyBaseSize, BodyDodgeState, BodyOffense, BodyShieldState};
         let mut app = App::new();
-        app.insert_resource(crate::RoomGeometry(ae::World::new(
+        app.insert_resource(ambition_engine_core::RoomGeometry(ae::World::new(
             "phys",
             ae::Vec2::new(800.0, 800.0),
             ae::Vec2::new(400.0, 400.0),

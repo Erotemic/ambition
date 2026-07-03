@@ -24,7 +24,7 @@ use crate::ldtk_world::{LdtkRuntimeIndex, SandboxLdtkAsset};
 use crate::platformer_runtime::lifecycle::{PlayerVisual, SceneEntities};
 use crate::rooms::RoomSet;
 use crate::session::data::SandboxDataAsset;
-use crate::RoomGeometry;
+use ambition_engine_core::RoomGeometry;
 
 /// Borrowed inputs for `simulation_world`.
 ///

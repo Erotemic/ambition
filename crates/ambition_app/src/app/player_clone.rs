@@ -25,7 +25,7 @@ use ambition_gameplay_core::character_sprites::{
     build_character_sprite_with_render_size, feet_anchor_for_render_size,
     player_placeholder_render_size, CharacterAnimator,
 };
-use ambition_gameplay_core::RoomGeometry;
+use ambition_engine_core::RoomGeometry;
 use ambition_render::rendering::{PlayerSpriteBaseline, PlayerVisual};
 
 /// Marks a brain-driven player-body clone (NOT the human player).

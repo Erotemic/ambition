@@ -4,7 +4,7 @@
 use super::*;
 use crate::dev::dev_tools::EditableMovementTuning;
 use crate::player::PlayerBlinkCameraState;
-use crate::RoomGeometry;
+use ambition_engine_core::RoomGeometry;
 
 /// Pin the request resource's defaults: a fresh app starts with
 /// no reset queued. Important because the reset processor must

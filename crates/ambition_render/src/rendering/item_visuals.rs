@@ -145,7 +145,7 @@ fn item_sprite(art: &ItemArt, spec_id: &str) -> Option<(Handle<Image>, Vec2)> {
 
 pub fn sync_ground_item_visuals(
     mut commands: Commands,
-    world: Res<ambition_gameplay_core::RoomGeometry>,
+    world: Res<ambition_engine_core::RoomGeometry>,
     art: Option<Res<ItemArt>>,
     visuals: Query<Entity, With<GroundItemVisual>>,
     grounds: Query<&GroundItem>,
@@ -190,7 +190,7 @@ pub struct HeldItemVisual;
 /// input, so a possessed body's ranged item points where THAT body aims.
 pub fn sync_held_item_visual(
     mut commands: Commands,
-    world: Res<ambition_gameplay_core::RoomGeometry>,
+    world: Res<ambition_engine_core::RoomGeometry>,
     art: Option<Res<ItemArt>>,
     controlled: Res<ControlledSubject>,
     visuals: Query<Entity, With<HeldItemVisual>>,
@@ -279,7 +279,7 @@ pub struct HeldProjectileVisual;
 pub fn sync_held_projectile_visuals(
     mut commands: Commands,
     asset_server: Res<AssetServer>,
-    world: Res<ambition_gameplay_core::RoomGeometry>,
+    world: Res<ambition_engine_core::RoomGeometry>,
     visuals: Query<Entity, With<HeldProjectileVisual>>,
     projectiles: Query<(&BodyKinematics, &HeldProjectile)>,
     mut art: Local<Option<HeldProjectileVisualArt>>,

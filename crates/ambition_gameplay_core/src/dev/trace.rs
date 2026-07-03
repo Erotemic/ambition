@@ -11,7 +11,7 @@ use ae::AabbExt;
 use ambition_engine_core as ae;
 use bevy::prelude::*;
 
-use crate::RoomGeometry;
+use ambition_engine_core::RoomGeometry;
 use ambition_input::ControlFrame;
 
 const NEARBY_COLLISION_RADIUS: f32 = 220.0;

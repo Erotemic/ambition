@@ -29,9 +29,10 @@ use crate::features::{self, GameplayBanner, HitEvent as FeatureHitEvent};
 use crate::player::{PlayerAnimState, PlayerSafetyState};
 use ambition_time::ClockState;
 use crate::time::feel::SandboxFeelTuning;
+use ambition_engine_core::RoomGeometry;
 use crate::{
-    remember_safe_player_position, ActorDiedMessage, MovingPlatformSet, RoomGeometry,
-    SafePositionContext, SandboxSimState,
+    remember_safe_player_position, ActorDiedMessage, MovingPlatformSet, SafePositionContext,
+    SandboxSimState,
 };
 
 /// THE one "can this body take a hit right now?" rule, shared by every damage

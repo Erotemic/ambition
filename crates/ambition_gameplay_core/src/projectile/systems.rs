@@ -23,7 +23,7 @@ use crate::features::{
 };
 use crate::projectile::ProjectileGameplay;
 use crate::trace::GameplayTraceBuffer;
-use crate::RoomGeometry;
+use ambition_engine_core::RoomGeometry;
 use ambition_vfx::vfx::VfxMessage;
 
 /// Speed multiplier applied to a parried shot as it reverses — a timed parry

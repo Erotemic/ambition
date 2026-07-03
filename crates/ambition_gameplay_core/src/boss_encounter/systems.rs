@@ -53,7 +53,7 @@ pub fn update_boss_encounters(
     mut music_request: ResMut<crate::encounter::BossEncounterMusicRequest>,
     mut quests: ResMut<QuestRegistry>,
     mut cutscene_queue: ResMut<CutsceneTriggerQueue>,
-    world: Res<crate::RoomGeometry>,
+    world: Res<ambition_engine_core::RoomGeometry>,
     reward_chests: Query<
         (
             Entity,

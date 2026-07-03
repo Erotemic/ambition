@@ -10,7 +10,7 @@ use ambition_gameplay_core::rooms;
 use ambition_gameplay_core::session::data;
 use ambition_gameplay_core::time::feel::SandboxFeelTuning;
 use ambition_gameplay_core::world::physics;
-use ambition_gameplay_core::RoomGeometry;
+use ambition_engine_core::RoomGeometry;
 use ambition_input::ControlFrame;
 
 use super::cli::cli_start_room_arg;

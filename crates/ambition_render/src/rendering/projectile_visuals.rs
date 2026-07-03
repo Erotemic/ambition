@@ -250,7 +250,7 @@ fn build_sheet_visual(
 #[allow(clippy::too_many_arguments)]
 pub fn sync_projectile_visuals(
     mut commands: Commands,
-    world: Res<ambition_gameplay_core::RoomGeometry>,
+    world: Res<ambition_engine_core::RoomGeometry>,
     world_time: Res<ambition_time::WorldTime>,
     gravity: GravityCtx,
     asset_server: Res<AssetServer>,
@@ -346,7 +346,7 @@ pub fn sync_projectile_visuals(
 /// Rebuilt each frame; player-only (it is not projectile art).
 pub fn sync_projectile_charge_visuals(
     mut commands: Commands,
-    world: Res<ambition_gameplay_core::RoomGeometry>,
+    world: Res<ambition_engine_core::RoomGeometry>,
     player_q: Query<
         (
             &BodyKinematics,

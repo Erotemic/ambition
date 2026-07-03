@@ -20,7 +20,7 @@ use crate::features::{ActorIdentity, GameplayBanner, HitEvent, SetFlagRequested}
 use ambition_characters::actor::BodyHealth;
 use crate::trace::GameplayTraceBuffer;
 use crate::world::physics::DebrisBurstMessage;
-use crate::RoomGeometry;
+use ambition_engine_core::RoomGeometry;
 use ambition_input::ControlFrame;
 use ambition_vfx::vfx::VfxMessage;
 

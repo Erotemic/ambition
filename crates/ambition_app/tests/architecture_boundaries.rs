@@ -760,7 +760,7 @@ fn architecture_boundaries_portal_core_does_not_name_host_world_or_reset() {
         &[root],
         &[
             "ambition_gameplay_core::features",
-            "ambition_gameplay_core::RoomGeometry",
+            "ambition_engine_core::RoomGeometry",
             "Res<RoomGeometry>",
             "FeatureEcsWorldOverlay",
             "ResetRoomFeaturesEvent",

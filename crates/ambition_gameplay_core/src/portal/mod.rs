@@ -52,7 +52,7 @@ mod host_adapter {
     use crate::actor::{PlayerEntity, PrimaryPlayer};
     use crate::platformer_runtime::body::BodyKinematics;
     use crate::platformer_runtime::lifecycle::PlayerVisual;
-    use crate::RoomGeometry;
+    use ambition_engine_core::RoomGeometry;
 
     /// Bridge the controlled character + the collision world → the crate-owned
     /// [`PortalViewer`] seam, so each portal window is the wedge that character

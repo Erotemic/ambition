@@ -86,7 +86,7 @@ const WEAPON_WIDTH_PER_RIDER_HEIGHT: f32 = 64.0 / 72.0;
 pub fn sync_pirate_weapon_visuals(
     mut commands: Commands,
     asset_server: Res<AssetServer>,
-    world: Res<ambition_gameplay_core::RoomGeometry>,
+    world: Res<ambition_engine_core::RoomGeometry>,
     rider_actors: Query<(
         &FeatureId,
         &ambition_gameplay_core::features::ActorDisposition,

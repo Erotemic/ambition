@@ -57,7 +57,7 @@ impl From<&CameraSnapshot2d> for CameraViewState {
 
 #[derive(SystemParam)]
 pub struct CameraFollowResources<'w> {
-    world: Res<'w, ambition_gameplay_core::RoomGeometry>,
+    world: Res<'w, ambition_engine_core::RoomGeometry>,
     room_set: Res<'w, RoomSet>,
     time: Res<'w, Time>,
     developer_tools: Res<'w, ambition_gameplay_core::dev::dev_tools::DeveloperTools>,

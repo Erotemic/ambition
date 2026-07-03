@@ -239,7 +239,7 @@ pub fn tick_firework_sequences(
 pub fn vfx_spawn_messages(
     mut commands: Commands,
     mut messages: MessageReader<VfxMessage>,
-    world: Res<ambition_gameplay_core::RoomGeometry>,
+    world: Res<ambition_engine_core::RoomGeometry>,
     assets: Option<Res<ambition_gameplay_core::assets::game_assets::GameAssets>>,
     mut speech_bubbles: Query<(&mut SpeechBubbleVisual, &mut Transform, &mut TextColor)>,
 ) {
@@ -468,7 +468,7 @@ fn apply_speech_bubble_visual(
 pub fn update_speech_bubbles(
     mut commands: Commands,
     time: Res<Time>,
-    world: Res<ambition_gameplay_core::RoomGeometry>,
+    world: Res<ambition_engine_core::RoomGeometry>,
     mut query: Query<(
         Entity,
         &mut SpeechBubbleVisual,
@@ -514,7 +514,7 @@ pub fn update_speech_bubble_outlines(
 pub fn update_explosions(
     mut commands: Commands,
     time: Res<Time>,
-    world: Res<ambition_gameplay_core::RoomGeometry>,
+    world: Res<ambition_engine_core::RoomGeometry>,
     mut query: Query<(
         Entity,
         &mut ExplosionVisual,
@@ -544,7 +544,7 @@ pub fn update_explosions(
 pub fn update_particles(
     mut commands: Commands,
     time: Res<Time>,
-    world: Res<ambition_gameplay_core::RoomGeometry>,
+    world: Res<ambition_engine_core::RoomGeometry>,
     mut query: Query<(Entity, &mut ParticleVisual, &mut Transform, &mut Sprite)>,
 ) {
     let dt = time.delta_secs();
@@ -575,7 +575,7 @@ pub fn update_particles(
 pub fn update_impacts(
     mut commands: Commands,
     time: Res<Time>,
-    world: Res<ambition_gameplay_core::RoomGeometry>,
+    world: Res<ambition_engine_core::RoomGeometry>,
     mut query: Query<(Entity, &mut ImpactVisual, &mut Transform, &mut Sprite)>,
 ) {
     let dt = time.delta_secs();
@@ -834,7 +834,7 @@ pub fn spawn_blink_effects(
 pub fn update_blink_preview(
     mut commands: Commands,
     time: Res<Time>,
-    world: Res<ambition_gameplay_core::RoomGeometry>,
+    world: Res<ambition_engine_core::RoomGeometry>,
     platform_set: Res<ambition_gameplay_core::MovingPlatformSet>,
     mode: Res<State<ambition_gameplay_core::game_mode::GameMode>>,
     scene: Res<ambition_gameplay_core::platformer_runtime::lifecycle::SceneEntities>,

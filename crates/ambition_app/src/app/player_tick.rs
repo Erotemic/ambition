@@ -23,7 +23,7 @@ use ambition_gameplay_core::dev::dev_tools::EditableMovementTuning;
 use ambition_gameplay_core::features;
 use ambition_gameplay_core::player::PlayerBodyFrameOutput;
 use ambition_gameplay_core::time::feel::SandboxFeelTuning;
-use ambition_gameplay_core::RoomGeometry;
+use ambition_engine_core::RoomGeometry;
 
 use super::feedback::SandboxEventWriters;
 use super::phases::sync_player_presentation as sync_player_presentation_phase;

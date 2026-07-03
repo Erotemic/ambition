@@ -27,7 +27,8 @@ use ambition_gameplay_core::player::{
     LocalPlayer, PlayerAnimState, PlayerBlinkCameraState, PlayerIdentityBundle, PlayerSlot,
 };
 use ambition_gameplay_core::rooms::RoomSet;
-use ambition_gameplay_core::{GameMode, MovingPlatformSet, RoomGeometry, SandboxSimState};
+use ambition_gameplay_core::{GameMode, MovingPlatformSet, SandboxSimState};
+use ambition_engine_core::RoomGeometry;
 use ambition_time::ClockState;
 use ambition_input::ControlFrame;
 use bevy::asset::AssetPlugin;

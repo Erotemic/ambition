@@ -74,7 +74,7 @@ pub fn process_sandbox_reset_request(
     mut music_request: ResMut<EncounterMusicRequest>,
     mut play_state: ResetPlayState<'_>,
     mut room_set: ResMut<RoomSet>,
-    mut world: ResMut<crate::RoomGeometry>,
+    mut world: ResMut<ambition_engine_core::RoomGeometry>,
     tuning: Res<crate::dev::dev_tools::EditableMovementTuning>,
     mut respawn_visuals: MessageWriter<crate::session::RespawnRoomVisualsRequested>,
     mut commands: Commands,

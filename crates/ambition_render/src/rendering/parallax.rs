@@ -135,7 +135,7 @@ pub fn spawn_parallax_layers(
 
 pub fn refresh_parallax_layers_on_quality_change(
     mut commands: Commands,
-    world: Res<ambition_gameplay_core::RoomGeometry>,
+    world: Res<ambition_engine_core::RoomGeometry>,
     room_set: Res<ambition_gameplay_core::rooms::RoomSet>,
     assets: Option<Res<GameAssets>>,
     quality: Option<Res<crate::quality::ResolvedVisualQuality>>,

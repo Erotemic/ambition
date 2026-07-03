@@ -262,7 +262,7 @@ fn setup_capture_target(
 
 fn apply_capture_snapshot(
     config: Res<SceneCaptureConfig>,
-    world: Res<ambition_gameplay_core::RoomGeometry>,
+    world: Res<ambition_engine_core::RoomGeometry>,
     room_set: Res<ambition_gameplay_core::rooms::RoomSet>,
     user_settings: Res<ambition_gameplay_core::persistence::settings::UserSettings>,
     ease_tuning: Res<ambition_gameplay_core::CameraEaseTuning>,

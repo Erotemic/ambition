@@ -83,7 +83,7 @@ const GRADIENT_LANE_VISUAL_Z: f32 = 10.5;
 /// the visible rectangle always matches the damage geometry.
 pub fn manage_gradient_lane_visual(
     mut commands: Commands,
-    world: Res<ambition_gameplay_core::RoomGeometry>,
+    world: Res<ambition_engine_core::RoomGeometry>,
     bosses: Query<(
         Entity,
         BossClusterRef,

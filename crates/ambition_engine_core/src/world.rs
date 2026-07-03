@@ -435,6 +435,23 @@ impl World {
     }
 }
 
+/// The active room's authored static spatial geometry — collision blocks,
+/// water/climbable regions, bounds, spawn — exposed as a Bevy resource wrapping
+/// [`World`].
+///
+/// (Formerly `GameWorld`; renamed because the old name named what it *wasn't*
+/// — disambiguation from `bevy::ecs::World` — rather than what it is.)
+///
+/// This is the authored BASE, write-once-per-room: it is replaced wholesale at
+/// a room boundary (load / reset / LDtk hot-reload), not mutated incrementally
+/// mid-room. The collision the simulation actually sweeps against is a per-frame
+/// derived *view* over this base plus dynamic overlay contributions (moving
+/// platforms, ECS solids, portal carves) — built sandbox-side by the world
+/// overlay (`world_with_sandbox_solids` in `ambition_gameplay_core`).
+/// `RoomGeometry` is the geometry; the view is what you collide against.
+#[derive(bevy_ecs::resource::Resource, Clone)]
+pub struct RoomGeometry(pub World);
+
 #[cfg(test)]
 mod tests {
     use super::*;

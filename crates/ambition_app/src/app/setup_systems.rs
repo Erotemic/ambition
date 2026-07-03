@@ -11,7 +11,7 @@ use ambition_gameplay_core::persistence::settings::TextureResolutionScale;
 use ambition_gameplay_core::rooms;
 use ambition_gameplay_core::session::{data, setup};
 use ambition_gameplay_core::world::physics;
-use ambition_gameplay_core::RoomGeometry;
+use ambition_engine_core::RoomGeometry;
 use ambition_render::rendering::SceneEntities;
 use ambition_render::ui_fonts;
 

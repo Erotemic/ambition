@@ -10,7 +10,8 @@ use ambition_gameplay_core::ldtk_world;
 use ambition_gameplay_core::platformer_runtime::lifecycle::RoomScopedEntity;
 use ambition_gameplay_core::rooms;
 use ambition_gameplay_core::world::{physics, platforms};
-use ambition_gameplay_core::{RoomGeometry, SandboxDevState};
+use ambition_gameplay_core::SandboxDevState;
+use ambition_engine_core::RoomGeometry;
 #[cfg(feature = "input")]
 use ambition_input::SandboxAction;
 use ambition_render::rendering::{spawn_room_visuals, PlayerVisual, SceneEntities};

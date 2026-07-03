@@ -31,7 +31,8 @@ use crate::features::{self, FeatureEcsWorldOverlay};
 use crate::player::{BodyMelee, PlayerAnimState};
 use crate::time::feel::SandboxFeelTuning;
 use crate::world::platforms::MovingPlatformState;
-use crate::{physics, MeleeSwing, MovingPlatformSet, RoomGeometry};
+use crate::{physics, MeleeSwing, MovingPlatformSet};
+use ambition_engine_core::RoomGeometry;
 
 /// Build the engine's `InputState` purely from `ActorControl` —
 /// the player's brain output is the single source of truth for

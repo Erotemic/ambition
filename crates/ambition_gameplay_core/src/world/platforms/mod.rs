@@ -528,7 +528,7 @@ pub fn spawn_moving_platforms(
 
 pub fn sync_moving_platform(
     mut commands: Commands,
-    world: Res<crate::RoomGeometry>,
+    world: Res<ambition_engine_core::RoomGeometry>,
     room_set: Res<RoomSet>,
     mut platform_set: ResMut<crate::MovingPlatformSet>,
     mut active_platform_room: Local<Option<String>>,

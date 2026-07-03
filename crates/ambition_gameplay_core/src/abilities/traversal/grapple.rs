@@ -122,14 +122,14 @@ pub fn grapple_system(
 mod tests {
     use super::*;
 
-    fn world_with_right_wall() -> crate::RoomGeometry {
+    fn world_with_right_wall() -> ambition_engine_core::RoomGeometry {
         // A solid wall at x[380,400], y[0,400]; open space to its left.
         let blocks = vec![ae::Block::solid(
             "wall",
             ae::Vec2::new(380.0, 0.0),
             ae::Vec2::new(20.0, 400.0),
         )];
-        crate::RoomGeometry(ae::World::new(
+        ambition_engine_core::RoomGeometry(ae::World::new(
             "grapple_test",
             ae::Vec2::new(400.0, 400.0),
             ae::Vec2::new(100.0, 200.0),
@@ -137,7 +137,7 @@ mod tests {
         ))
     }
 
-    fn test_app(world: Option<crate::RoomGeometry>) -> App {
+    fn test_app(world: Option<ambition_engine_core::RoomGeometry>) -> App {
         let mut app = App::new();
         app.add_message::<ambition_sfx::SfxMessage>();
         app.add_message::<ambition_vfx::vfx::VfxMessage>();

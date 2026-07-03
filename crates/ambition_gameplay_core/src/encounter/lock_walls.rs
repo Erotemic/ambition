@@ -1,6 +1,6 @@
 //! Lock-wall contribution: the solid blocks that seal an arena's exits while an
 //! encounter is in flight. The walls are NOT mutated into the authored
-//! [`crate::RoomGeometry`] base — that would break the resolved authored-base
+//! [`ambition_engine_core::RoomGeometry`] base — that would break the resolved authored-base
 //! model (the base is swapped at room boundaries, never edited mid-room).
 //! Instead [`contribute_encounter_lock_walls`] derives the live wall set every
 //! frame and pushes it onto [`FeatureEcsWorldOverlay::gate_solids`], the overlay

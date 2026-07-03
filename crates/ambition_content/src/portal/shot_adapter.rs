@@ -14,7 +14,7 @@ use ambition_gameplay_core::platformer_runtime::prelude::SpawnScopedExt;
 use ambition_gameplay_core::portal::{
     portal_half_extent, step_portal_shot, PlacedPortal, PortalShot, PortalShotStep, PortalShotWorld,
 };
-use ambition_gameplay_core::RoomGeometry;
+use ambition_engine_core::RoomGeometry;
 
 /// Advance portal shots against the concrete collision world. For each shot,
 /// call the pure [`step_portal_shot`] over the `RoomGeometry`'s solids + bounds and

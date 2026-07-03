@@ -12,7 +12,8 @@ use ambition_sfx::SfxMessage;
 use ambition_gameplay_core::dev::dev_tools::{self, EditableAbilitySet, EditableMovementTuning};
 use ambition_gameplay_core::features;
 use ambition_gameplay_core::time::feel::SandboxFeelTuning;
-use ambition_gameplay_core::{RoomGeometry, SandboxSimState};
+use ambition_gameplay_core::SandboxSimState;
+use ambition_engine_core::RoomGeometry;
 use ambition_input::ControlFrame;
 use ambition_render::fx::VfxMessage;
 

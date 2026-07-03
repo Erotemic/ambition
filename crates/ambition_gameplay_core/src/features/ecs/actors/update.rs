@@ -67,7 +67,7 @@ pub fn tick_actor_brains(
         Res<crate::features::GameplayElapsed>,
         Res<ambition_characters::brain::SlotControls>,
     ),
-    world: Res<crate::RoomGeometry>,
+    world: Res<ambition_engine_core::RoomGeometry>,
     gravity: crate::physics::GravityCtx,
     user_settings: Option<Res<crate::persistence::settings::UserSettings>>,
     platform_set: Res<crate::MovingPlatformSet>,
@@ -561,7 +561,7 @@ fn integrate_actor_body(
 #[allow(clippy::too_many_arguments)]
 pub fn integrate_sim_bodies(
     world_time: Res<WorldTime>,
-    world: Res<crate::RoomGeometry>,
+    world: Res<ambition_engine_core::RoomGeometry>,
     gravity: crate::physics::GravityCtx,
     platform_set: Res<crate::MovingPlatformSet>,
     feel_tuning: Res<crate::time::feel::SandboxFeelTuning>,

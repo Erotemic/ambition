@@ -16,7 +16,7 @@ pub struct FeatureEcsWorldOverlay {
     pub blocks: Vec<ae::Block>,
     /// Authored-equivalent static solids contributed by per-frame *gates*
     /// (encounter lock walls, intro flag gates) instead of being mutated into
-    /// the authored [`crate::RoomGeometry`] base. Unlike `blocks` — which carry
+    /// the authored [`ambition_engine_core::RoomGeometry`] base. Unlike `blocks` — which carry
     /// moving-platform semantics that projectiles pass through — gate solids are
     /// composited into EVERY collision read-path (player, projectile, traversal)
     /// AND surfaced to the render layer, so a lock wall collides and draws
@@ -37,7 +37,7 @@ pub struct FeatureEcsWorldOverlay {
     pub portal_carves: Vec<ae::Aabb>,
     /// Authored blocks (by `Block::name`) to REMOVE from the collision view this
     /// frame — a content gate *opening* an authored solid without mutating the
-    /// immutable [`crate::RoomGeometry`] base. The inverse of `gate_solids`:
+    /// immutable [`ambition_engine_core::RoomGeometry`] base. The inverse of `gate_solids`:
     /// `gate_solids` ADD derived statics, this SUBTRACTS authored ones (gnu_ton's
     /// `ladder_floor_gate` drops out on boss defeat so the player can climb out).
     /// Composited into every collision read-path (player/actor/item/traversal via

@@ -7,7 +7,8 @@ use ambition_gameplay_core::dev::dev_tools::DeveloperTools;
 use ambition_gameplay_core::game_mode::GameMode;
 use ambition_gameplay_core::ldtk_world;
 use ambition_gameplay_core::rooms;
-use ambition_gameplay_core::{RoomGeometry, SandboxDevState};
+use ambition_gameplay_core::SandboxDevState;
+use ambition_engine_core::RoomGeometry;
 use ambition_render::rendering::{HudText, SceneEntities};
 
 use super::feedback::ProgressionResources;

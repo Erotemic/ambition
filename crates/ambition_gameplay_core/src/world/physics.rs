@@ -101,7 +101,7 @@ pub struct DebrisBurstMessage {
 pub fn physics_spawn_debris_messages(
     mut commands: Commands,
     mut messages: MessageReader<DebrisBurstMessage>,
-    world: Res<crate::RoomGeometry>,
+    world: Res<ambition_engine_core::RoomGeometry>,
     settings: Res<PhysicsSandboxSettings>,
 ) {
     for message in messages.read() {

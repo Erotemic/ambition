@@ -517,7 +517,7 @@ impl SandboxSim {
     pub fn add_block(&mut self, block: ae::Block) {
         self.app
             .world_mut()
-            .resource_mut::<ambition_gameplay_core::RoomGeometry>()
+            .resource_mut::<ambition_engine_core::RoomGeometry>()
             .0
             .blocks
             .push(block);

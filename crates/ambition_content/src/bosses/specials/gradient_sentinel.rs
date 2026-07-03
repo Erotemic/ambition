@@ -114,7 +114,7 @@ fn apple_rain_spawn_x(spawn_index: u32, world_width: f32, boss_aabb: ae::Aabb) -
 /// leftover dt.
 pub fn spawn_gnu_apple_rain_from_special_messages(
     world_time: Res<WorldTime>,
-    world: Res<ambition_gameplay_core::RoomGeometry>,
+    world: Res<ambition_engine_core::RoomGeometry>,
     mut messages: MessageReader<ActorActionMessage>,
     mut effects: MessageWriter<ambition_vfx::EffectRequest>,
     mut bosses: Query<

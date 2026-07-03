@@ -72,7 +72,7 @@ pub fn sync_boss_encounter_phase(
 /// debug-overlay paths all query it.
 pub fn tick_boss_brains_system(
     world_time: Res<WorldTime>,
-    world: Res<crate::RoomGeometry>,
+    world: Res<ambition_engine_core::RoomGeometry>,
     platform_set: Res<crate::MovingPlatformSet>,
     overlay: Res<FeatureEcsWorldOverlay>,
     // A possessed boss carries `Brain::Player(slot)` and reads its controller
@@ -347,7 +347,7 @@ fn pattern_brain_mut(brain: &mut Brain) -> Option<&mut StateMachineCfg> {
 ///    directly (no runtime mirror fields involved).
 pub fn update_ecs_bosses(
     world_time: Res<WorldTime>,
-    world: Res<crate::RoomGeometry>,
+    world: Res<ambition_engine_core::RoomGeometry>,
     platform_set: Res<crate::MovingPlatformSet>,
     overlay: Res<FeatureEcsWorldOverlay>,
     mut sfx: MessageWriter<ambition_sfx::SfxMessage>,

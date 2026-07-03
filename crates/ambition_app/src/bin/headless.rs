@@ -79,7 +79,7 @@ fn run_with_trace_dump(max_ticks: u32, dump_dir: PathBuf, start_room: Option<Str
     use ambition_gameplay_core::game_mode::GameMode as GameModeState;
     use ambition_gameplay_core::player::PlayerSafetyState;
     use ambition_gameplay_core::rooms::RoomSet;
-    use ambition_gameplay_core::RoomGeometry;
+    use ambition_engine_core::RoomGeometry;
     use bevy::state::state::State;
 
     for _ in 0..max_ticks {

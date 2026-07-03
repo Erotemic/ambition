@@ -575,7 +575,7 @@ pub fn ensure_player_trail(
 /// trails as they collapse away.
 pub fn update_player_trail(
     world_time: Res<ambition_time::WorldTime>,
-    world: Option<Res<crate::RoomGeometry>>,
+    world: Option<Res<ambition_engine_core::RoomGeometry>>,
     enabled: Option<Res<PlayerTrailEnabled>>,
     mut continuity_breaks: MessageReader<TrailContinuityBreak>,
     mut commands: Commands,
@@ -636,7 +636,7 @@ const TRAIL_SELF_LOOP_COLLAPSING_COLOR: Color = Color::srgb(0.80, 0.56, 0.36);
 /// continuity breaks are drawn independently, so a portal transit never appears
 /// as a long straight line across the room.
 pub fn render_player_trail(
-    world: Option<Res<crate::RoomGeometry>>,
+    world: Option<Res<ambition_engine_core::RoomGeometry>>,
     ropes: Query<&PlayerTrail, With<crate::actor::PlayerEntity>>,
     mut gizmos: Gizmos,
 ) {

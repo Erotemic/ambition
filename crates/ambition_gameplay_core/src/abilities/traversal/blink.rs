@@ -311,7 +311,7 @@ mod tests {
         let mut app = test_app();
         let player = spawn_player_holding(&mut app, BLINK_ID, 1.0); // (300,300), 24x40
                                                                     // Solid floor whose top edge is at y=350, just below the player.
-        app.insert_resource(crate::RoomGeometry(ae::World::new(
+        app.insert_resource(ambition_engine_core::RoomGeometry(ae::World::new(
             "test",
             ae::Vec2::new(600.0, 600.0),
             ae::Vec2::new(300.0, 300.0),

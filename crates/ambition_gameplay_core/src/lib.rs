@@ -218,21 +218,10 @@ impl SafePositionContext {
     }
 }
 
-/// The active room's authored static spatial geometry — collision blocks,
-/// water/climbable regions, bounds, spawn — exposed as a Bevy resource.
-///
-/// (Formerly `GameWorld`; renamed because the old name named what it *wasn't*
-/// — disambiguation from `bevy::ecs::World` — rather than what it is.)
-///
-/// This is the authored BASE, write-once-per-room: it is replaced wholesale at
-/// a room boundary (load / reset / LDtk hot-reload), not mutated incrementally
-/// mid-room. The collision the simulation actually sweeps against is a per-frame
-/// derived *view* over this base plus dynamic overlay contributions (moving
-/// platforms, ECS solids, portal carves) — see
-/// [`combat::world_overlay::world_with_sandbox_solids`]. RoomGeometry is the
-/// geometry; the view is what you collide against.
-#[derive(Resource, Clone)]
-pub struct RoomGeometry(pub ae::World);
+// `RoomGeometry` (the `Resource(World)` newtype for the active room's collision
+// geometry) lives in `ambition_engine_core`, next to the `World` it wraps
+// (fable review §D4, Jon-confirmed home) — so the renderer and a future
+// `ambition_world` name it there directly, not through this 95k crate.
 
 pub const BLINK_IN_ANIM_TIME: f32 = 0.34;
 pub const ROOM_DOOR_CAMERA_SNAP_TIME: f32 = 0.08;

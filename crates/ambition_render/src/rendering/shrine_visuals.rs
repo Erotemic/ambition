@@ -66,7 +66,7 @@ pub enum ShrineVisualSource {
 /// sits at the floor.
 pub fn sync_shrine_visual(
     mut commands: Commands,
-    world: Res<ambition_gameplay_core::RoomGeometry>,
+    world: Res<ambition_engine_core::RoomGeometry>,
     asset_server: Res<AssetServer>,
     sheet_registry: Option<Res<SheetRegistry>>,
     mut atlas_layouts: ResMut<Assets<TextureAtlasLayout>>,

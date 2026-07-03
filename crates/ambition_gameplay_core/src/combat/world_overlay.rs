@@ -16,7 +16,7 @@ use super::overlay::FeatureEcsWorldOverlay;
 use super::*;
 use std::borrow::Cow;
 
-/// The single collision read-API. Composites the authored [`crate::RoomGeometry`]
+/// The single collision read-API. Composites the authored [`ambition_engine_core::RoomGeometry`]
 /// with the per-frame dynamic overlay — moving platforms, ECS-owned solids, and
 /// portal carves — into the collision world a sweep or raycast should see.
 ///
@@ -28,7 +28,7 @@ use std::borrow::Cow;
 /// carry moving platforms / ECS solids / portal carves.
 #[derive(bevy::ecs::system::SystemParam)]
 pub struct CollisionWorld<'w> {
-    room: Option<bevy::prelude::Res<'w, crate::RoomGeometry>>,
+    room: Option<bevy::prelude::Res<'w, ambition_engine_core::RoomGeometry>>,
     platforms: Option<bevy::prelude::Res<'w, crate::MovingPlatformSet>>,
     overlay: Option<bevy::prelude::Res<'w, FeatureEcsWorldOverlay>>,
 }
@@ -243,8 +243,8 @@ mod collision_world_tests {
     #[derive(Resource, Default, Debug, PartialEq)]
     struct SolidsProbe(Option<(bool, usize)>);
 
-    fn room_one_block() -> crate::RoomGeometry {
-        crate::RoomGeometry(ae::World::new(
+    fn room_one_block() -> ambition_engine_core::RoomGeometry {
+        ambition_engine_core::RoomGeometry(ae::World::new(
             "test",
             ae::Vec2::new(400.0, 400.0),
             ae::Vec2::new(50.0, 50.0),

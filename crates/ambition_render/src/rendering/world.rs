@@ -748,7 +748,7 @@ fn is_lock_wall_block(name: &str) -> bool {
 /// walls so the "this just slammed shut" beat reads at a glance.
 pub fn sync_lock_wall_visuals(
     mut commands: Commands,
-    world: Res<ambition_gameplay_core::RoomGeometry>,
+    world: Res<ambition_engine_core::RoomGeometry>,
     overlay: Res<ambition_gameplay_core::features::FeatureEcsWorldOverlay>,
     assets: Option<Res<GameAssets>>,
     existing: Query<(Entity, &LockWallVisual)>,
@@ -823,7 +823,7 @@ pub fn sync_lock_wall_visuals(
 mod lock_wall_visual_tests {
     use super::*;
     use ambition_gameplay_core::features::FeatureEcsWorldOverlay;
-    use ambition_gameplay_core::RoomGeometry;
+    use ambition_engine_core::RoomGeometry;
 
     fn room() -> RoomGeometry {
         RoomGeometry(ae::World::new(

@@ -52,7 +52,7 @@ fn overflow_columns(world_width: f32, spacing: f32, gap_x: f32, gap_half: f32) -
 
 /// Technique: Overflow boundary flood (content-only; open-seam special).
 pub fn spawn_overflow_flood_from_special_messages(
-    world: Res<ambition_gameplay_core::RoomGeometry>,
+    world: Res<ambition_engine_core::RoomGeometry>,
     mut effects: MessageWriter<EffectRequest>,
     mut messages: MessageReader<ActorActionMessage>,
     player_query: Query<&BodyKinematics, With<PlayerEntity>>,

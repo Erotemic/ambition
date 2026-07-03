@@ -30,7 +30,7 @@ use ambition_gameplay_core::rooms::RoomSet;
 use ambition_gameplay_core::session::data::{MusicRegistry, SfxRegistry};
 use ambition_gameplay_core::world::physics::PhysicsSandboxSettings;
 use ambition_gameplay_core::world::platforms;
-use ambition_gameplay_core::RoomGeometry;
+use ambition_engine_core::RoomGeometry;
 use ambition_render::rendering::{
     spawn_parallax_layers, spawn_room_visuals, HudText, PlayerSpriteBaseline, QuestPanelText,
 };

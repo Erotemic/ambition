@@ -695,24 +695,34 @@ extraction stops being hard.
 
 **State:** Sections A–D below are the ranked audit (file:line refs may have
 drifted where the execution log says something landed — trust the log over the
-audit). The execution log (**E1–E18**) records what is DONE; do not redo it.
+audit). The execution log (**E1–E21**) records what is DONE; do not redo it.
 Landed so far: the C4 harness + full §B gravity sweep, **§A2 COMPLETE** (one
 `resolve_body_hit` + shared knockback/stagger for every body), A3–A6, **A1
 slices 1 + 2a** (boss HP/damage on the shared body components + through the one
-resolver), and **3 of ~5 D1 facades** removed (config/effects/audio). The
-biggest open items are **A1 slice 3** (the boss driver fold — multi-session)
-and the rest of **D1** (time + the features hub). All work is committed
-linearly on main; the tree is green (counts in the verify block below).
+resolver), **4 of ~5 D1 facades** removed (config/effects/audio/time — only the
+`features/mod.rs` hub remains), and **§D2 COMPLETE** (E20/E21:
+`Body{Health,Combat,Wallet}` re-homed to `ambition_characters::actor::body`, all
+~200 consumers redirected, the whole gameplay_core facade chain deleted). The
+biggest open items are now **A1 slice 3** (the boss driver fold — multi-session)
+and the **features/mod.rs hub** (a 3-layer facade stack best dissolved
+family-by-family as each type family reaches its leaf home — D2 was the first
+such family and is the template). All work is committed linearly on main; the
+tree is green (counts in the verify block below).
 
 **Verify before you start** (and after every change):
 ```bash
 ~/.cargo/bin/cargo test -p ambition_engine_core --lib      # 211, incl. the C4 harness
 ~/.cargo/bin/cargo test -p ambition_gameplay_core --lib    # 1091
-# The nine app integration suites — six core + the three boss suites (A1 touches bosses):
+~/.cargo/bin/cargo test -p ambition_characters --lib       # 250 (now hosts BodyHealth/BodyCombat/BodyWallet)
+# Compile ALL test targets too — a word-boundary facade sed silently skips
+# multi-line grouped `use x::{\n A, Moved, B\n}` imports (D2b bit us twice):
+~/.cargo/bin/cargo check -p ambition_app -p ambition_render -p ambition_content --tests
+# The ten app integration suites — plus plugin_minimal_app (the grouped-import canary):
 ~/.cargo/bin/cargo test -p ambition_app --test possession_end_to_end \
   --test unified_melee --test gravity_symmetry_room \
   --test player_robot_fights_player --test enemy_attacks_player --test duel_arena \
-  --test boss_lifecycle --test boss_contact_iframes --test boss_possession_specials
+  --test boss_lifecycle --test boss_contact_iframes --test boss_possession_specials \
+  --test plugin_minimal_app
 # (also green: content --lib 53, render --lib 24)
 ```
 
@@ -745,16 +755,19 @@ linearly on main; the tree is green (counts in the verify block below).
    Slice-2b (boss vuln clusters + drop the `apply_hitbox_damage` `Option`) folded
    into slice 3; grep `§A1` and `Without<BossConfig>` there to remove the victim
    special-cases.
-3. **D1 facade deletion is IN PROGRESS** — 3 of ~5 done (E16 config consts→
-   engine_core, E17 `crate::effects`→ambition_vfx, E18 `crate::audio::SfxMessage`
-   →ambition_sfx). REMAINING D1: `crate::time::{world_time,clock_state}`→
-   `ambition_time` (needs `ambition_time` dep in content+render; note the
-   separate bigger `crate::WorldTime` lib re-export) + the `features/mod.rs`
-   271-ref hub (a PUBLIC-surface change — external crates use
-   `gameplay_core::features::X` too — so map each symbol to its real home first).
-4. Then the rest: **C1/C2** item catalog + `HELD_ITEMS` onto the roster-install
-   pattern → **D2/D3** body-vocab re-home + sim-view crate → **C3/C4**
-   worlds/app-thinness → C5–C7, C9-registry, C12.
+3. ~~**D1 facade deletion**~~ — 4 of ~5 done (E16 config, E17 `crate::effects`,
+   E18 `crate::audio::SfxMessage`, E19 `crate::time::*`). ONLY the `features/mod.rs`
+   hub remains, and E21 reframed it: it's a 3-layer facade STACK (features →
+   combat::components → crate::actor → foundation) entangled with the D2/D3 crate
+   moves, so redirect it type-family-by-family as each family reaches its leaf
+   home — NOT as one blind sed. **§D2 is the completed template** (E20/E21).
+4. ~~**D2**~~ — COMPLETE (E20/E21): `Body{Health,Combat,Wallet}` →
+   `ambition_characters::actor::body`, all consumers redirected, facade chain
+   deleted. Next in this vein: **D3** (cut the render→gameplay_core edge — D2 was
+   the keystone that lets render name `ambition_characters` directly; the
+   remaining render imports are the `features` view-accessors + `rooms::RoomSet`),
+   and **C1/C2** item catalog + `HELD_ITEMS` onto the roster-install pattern →
+   **C3/C4** worlds/app-thinness → C5–C7, C9-registry, C12.
 
 **Small loose ends** (sweep opportunistically):
 - Verify portal findings B8 (portal aim skips the frame seam) and B12
@@ -1140,15 +1153,54 @@ docs-describe-moved-thing: `platformer_primitives/src/time.rs` pointed at
 Compiler-verified behavior-neutral: gameplay-core 1091, all four crates build,
 the nine app integration suites green.
 
-**D1 remaining** — only the big one now: the `features/mod.rs` re-export hub.
-NOTE it is NOT purely internal as the audit implied: external crates use
-`gameplay_core::features::X` too, so deleting its re-exports is a public-surface
-change touching both the 271 internal refs AND every external consumer; it wants
-its own careful pass (map each symbol to its `combat/`/`world/`/… real home
-first, then decide whether those homes surface publicly or whether a curated
-`pub use` set stays as the *intended* external API).
+**D1 remaining** — only the big one now: the `features/mod.rs` re-export hub —
+and see the E21 note below: the hub is a 3-layer facade STACK entangled with the
+D2/D3 crate moves, so it can't be redirected cleanly in isolation (a naive
+`features::X` → `combat::components::X` would just point at a middle facade). It
+should be redirected type-family by type-family AS those families reach their
+real leaf-crate home — exactly what D2 just did for `Body{Health,Combat,Wallet}`.
 
-## Next (in order) — A1 slice 3, D1 features-hub, then C1/C2 + D2/D3
+### E20. D2a — re-home Body{Health,Combat,Wallet} DOWN to `ambition_characters::actor::body` ✅ (keystone)
+`src/actor.rs` (300 LOC) was ~90% pure re-exports of foundation types
+(`BodyKinematics`, the 18 engine_core `Body*` clusters, the entity markers) with
+only THREE types actually DEFINED in the 95k game crate: `BodyWallet`,
+`BodyHealth` (a thin wrapper over `ambition_characters::actor::Health`), and
+`BodyCombat` (per-body combat/reaction status). All three are leaf body
+vocabulary with no gameplay-shell deps → moved verbatim into a new
+`ambition_characters::actor::body` module (retargeting the wrapped `Health` to
+the sibling `super::Health`). `crate::actor` `pub use`d them back, so EVERY
+existing path kept resolving with zero ref churn — the tiny, safe keystone move.
+Feasibility first: characters deps bevy (Component derives) + engine_core, does
+NOT dep gameplay_core (no cycle), and `Health` already lives there. Verified:
+characters/gameplay_core/render/content/app build; gameplay_core 1091.
+
+### E21. D2b — redirect ~200 consumers to the real home; delete the facade chain ✅
+Every consumer now names `ambition_characters::actor::Body{Health,Combat,Wallet}`
+directly, and the WHOLE re-export chain that surfaced them through gameplay_core
+is deleted: the `crate::actor` `pub use`, the `combat::components::{BodyHealth,
+BodyCombat}` re-exports (they only fed `features`), and the `features::{BodyHealth,
+BodyCombat}` hub entries (`BodyMelee` stays — it genuinely lives in combat). Sweep
+shape: word-boundary redirect of the dominant `*::actor::Body*` path (braces
+auto-skip grouped `use`s), then ~12 grouped `use` sites split surgically (Body
+types pulled out of groups keeping gameplay-owned neighbours like
+`AncillaryMovementBundle` / `BodyKinematics` / the engine_core clusters), then the
+facade deletions. The deletion exposed the glob-prelude reality: 13 internal
+modules named the Body types BARE via a `super::*` / `features::*` glob — those
+now import explicitly (`features/ecs/mod.rs` surfaces them to its `super::`-
+referencing submodules; `combat/components/spawn.rs` + `projectile/systems.rs`
+import directly; "explicit imports over globs"). **Payoff:** render/app/content
+reach these three types without gameplay_core in the path (the D3 compile-time
+lever), and this is the TEMPLATE for dissolving the rest of the features hub —
+redirect a type family once it reaches its real leaf home, don't chase the middle
+facade. **Grouped-import lesson (bit us twice):** a word-boundary sed silently
+skips `use x::{\n  A, Moved, B\n}` multi-line groups; caught `plugin_minimal_app`
++ `spawn/tests` here (which ALSO carried the §D1-time `ClockState` grouped miss —
+swept in the same pass). Always follow a facade-deletion sed with `cargo check
+--tests` AND a multi-line-aware grep. Verified: gameplay_core 1091, characters
+250, engine_core 211, render/content/app all build incl. every test target, the
+ten app integration suites green.
+
+## Next (in order) — A1 slice 3, features-hub (family-by-family), then C1/C2 + D3
 
 **§A2 is COMPLETE** (E10–E13). The victim-side damage path is ONE resolver +
 ONE reaction for every body; per-body policy is the only fork left.

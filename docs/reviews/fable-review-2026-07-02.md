@@ -2542,6 +2542,23 @@ The handoff §3a headline. Specials + non-boss actor melee were already on the m
   (retire the bespoke poll, unify the damage path) is banked; the timing-authority flip is
   a follow-up. Full `cargo test --workspace`: all green except the pre-existing E39 red.
 
+### E52. C7-render — split-layer boss render is now asset-convention, not a `gnu_ton` string match ✅ (`323c2107`, BLIND)
+The render half of C7. `upgrade_boss_sprites`'s `is_gnu_ton` bespoke path (a behavior-id
+check + 4 name spellings hardcoding `gnu_ton_body`/`gnu_ton_hands`) is replaced by a
+generic CONVENTION: a boss whose art ships `{boss_key}_body` + `{boss_key}_hands` sheets
+renders split across two layers (body behind one-way platforms, overlay in front of the
+player). Any future giant gets the look by shipping the two sheets — no engine edit. The
+GNU-ton-named components/systems/consts (`GnuTon*Layer`, `apply_gnu_ton_body_z`,
+`sync_gnu_ton_hands`, `GNU_TON_*_Z`) are renamed generic (`Boss*Layer`,
+`apply_boss_split_body_z`, `sync_boss_split_overlay`, `BOSS_SPLIT_*_Z`). GNU-ton is
+unchanged (its sheets ARE those keys). Per-boss z overrides + a truly generic overlay
+suffix (`_hands` is still the convention) are parameterizable details (bulk-review).
+- **C7-residual REMAINING (blocked):** the mount/rider-name half — mount composition is
+  still triggered by stripping the literal `" on Shark"` suffix from the spawn NAME
+  (`rendering/world.rs`, `spawn_mounts.rs`). The full fix authors a `mount:` spawn field,
+  which needs `ambition_ldtk_tools` (per [[feedback_ldtk_tools_only]]) — not autonomously
+  unblocked.
+
 ## Next (in order) — **§A2, §B, §A8, §A9, several §C items, the ACTOR MELEE SUBSUMPTION (E49/E50), and C9 are DONE.** The audit's TASK sections are stale; trust E-entries + a code re-check before working an item. **DONE this run (2026-07-03):** **E49** (actor melee → moveset `"attack"` move — the melee subsumption headline, `2bc4bbae`); **C9** (`Shark` state-machine → `ChargeCrash`, `f9843202` — the data-facing `CharacterBrainTemplate::ChargeCrash` was already done, this finished the internal impl). **RECORDED AS GENUINE FORKS (Jon's call, see BULK REVIEW QUEUE):** the player-melee fold (directional-variant + pogo schema — folding pogo would pollute the content-free move runtime with player physics) and the ranged subsumption (dynamic-aim vs facing-lock). **Also verified stale/already-done:** C8's `SpecialPreset` already carries the open `Special(String)` hatch + resolver + test (`character_catalog/{entry,resolver}.rs`); the other C8 presets mirror still-closed runtime enums (nothing to open yet). Genuinely-open, autonomous-friendly remaining: **C7-residual** (`is_gnu_ton` render split-layers `boss.rs:79-109` → multi-part layering as boss-sheet data; and the rider name is still *parsed* from the spawn name — the FULL fix authors a rider-name LDtk field, needs `ambition_ldtk_tools`). Larger / needs-Jon: **C1** (24-item `Item` enum → installable `ItemCatalog`, L, consumed across menu IR/yarn/persistence); **C4** (app-thinness boundary test + machinery `PlatformerEnginePlugin` group, L); **C6** (named-boss residue, M); **C2** (`HELD_ITEMS` static — NUANCED: most rows are generic engine-ability bindings, not replaceable content, so a bare move-to-content breaks engine tests and a bare install seam is speculative scaffolding — defer until a second game or a per-character loadout lands, e.g. the just-shipped [[project_starting_character]]); the **D-front** (`rooms`/`RoomSpec` content-coupling — Jon's call, unchanged below).
 
 ### Superseded (the prior D-focused Next; still accurate for the D-front) — **T2 clean read-model + D3 facade redirects DONE (E36/E37/E38).** D3's remaining reducers are all non-autonomous (need Jon's design input or are risky/unverifiable): the `rooms` extraction crux (RoomSpec content-coupling — Jon's call), the value-type→`ambition_sim_view` move (premature until the edge narrows), the boss-pose SIM-SIDE animator move (retires the `animate_bosses` write-back; presentation-unverifiable), and the category-D portal/dev/session system untangles. Recommend Jon adjudicate the `rooms`/`RoomSpec` content-coupling direction next (as he did the actors|props taxonomy). Deferred to Jon's feel pass: render/hurtbox baked-size convergence (~1.2% gap); the T1 placeholder color/z blind deltas (E35).

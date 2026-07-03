@@ -62,10 +62,15 @@ pub fn tick_actor_brains(
     // ceiling, so the accumulating sim clock + the slot-based controller input
     // ride alongside `WorldTime`. `SlotControls` feeds any actor carrying a
     // `Brain::Player(slot)` (a possessed body) its controller frame.
-    (world_time, sim_clock, slot_controls): (
+    (world_time, sim_clock, slot_controls, faction_relations): (
         Res<WorldTime>,
         Res<crate::features::GameplayElapsed>,
         Res<ambition_characters::brain::SlotControls>,
+        // The LIVE faction hostility table (init'd in `features::mod`), so a brain's
+        // world-out `WorldView` resolves real hostility — not the all-false
+        // `::default()` the perception build used to pass (§A7). `Option` matches
+        // `select_actor_targets` for test fixtures that skip the resource.
+        Option<Res<crate::combat::targeting::FactionRelations>>,
     ),
     world: Res<ambition_engine_core::RoomGeometry>,
     gravity: crate::physics::GravityCtx,
@@ -164,6 +169,11 @@ pub fn tick_actor_brains(
     // Accumulating sim-time for brain perception (reaction-latency lookback).
     let sim_now = sim_clock.0;
     let feature_world = world_with_sandbox_solids(&world.0, &platform_set.0, &overlay);
+    // Resolve the live hostility table once (default = all-peaceful) for every
+    // brain's world-out view this frame (§A7).
+    let relations_fallback = crate::combat::targeting::FactionRelations::default();
+    let relations: &crate::combat::targeting::FactionRelations =
+        faction_relations.as_deref().unwrap_or(&relations_fallback);
     let control_frame_modes = user_settings
         .as_deref()
         .map_or(ae::ControlFrameModes::default(), |s| {
@@ -277,7 +287,7 @@ pub fn tick_actor_brains(
         mut control,
         action_set,
         _mounted,
-        (clusters, _faction),
+        (clusters, faction),
     ) in &mut actors
     {
         // Body-generic reaction timers on the body's authoritative `BodyCombat`
@@ -372,22 +382,34 @@ pub fn tick_actor_brains(
                     // SAME derived collision world `feature_world` the body integrates
                     // against, so the brain's line-of-fire gate is answered over real
                     // geometry (never a parallel sensor). Body-generic (guardrail #1):
-                    // this is the same `build_world_view` the player-robot body will
-                    // use. Peers / projectiles are wired in when the strong brain
-                    // consumes them (S5); the terrain-only view today drives the LOF
-                    // gate, so the body faction is immaterial here.
+                    // this is the same `build_world_view` the player-robot body uses.
+                    //
+                    // §A7: the body's SELF-view is now HONEST — its faction is its
+                    // real (effective, possession-aware) faction, `can_fire` reflects
+                    // whether it actually owns a ranged slot, and hostility resolves
+                    // against the LIVE `FactionRelations`, not the all-false default.
+                    // Peers / projectiles / portals are still empty slices — wiring
+                    // the surrounding-world channel (and migrating brains off the
+                    // side-loaded `BrainSnapshot.target_pos` onto `WorldView`) is the
+                    // remaining A7 slice; the terrain-only view drives the LOF gate today.
+                    let self_faction = crate::combat::targeting::effective_faction(
+                        faction
+                            .copied()
+                            .unwrap_or(ambition_characters::actor::ActorFaction::Enemy),
+                        Some(&*brain_ref),
+                    );
                     let world_view = super::super::perception::build_world_view(
                         &super::super::perception::PerceptionBody {
                             pos: em.kin.pos,
                             vel: em.kin.vel,
                             facing: em.kin.facing,
                             half_extent: em.kin.size,
-                            faction: ambition_characters::actor::ActorFaction::Enemy,
+                            faction: self_faction,
                             gravity_down: enemy_gravity_dir,
                             on_ground: em.ground.on_ground,
                             aerial: em.surface.gravity_scale <= 0.001,
                             alive: em.health.alive(),
-                            can_fire: true,
+                            can_fire: action_set.is_some_and(|a| a.ranged.is_some()),
                             can_blink: em.caps.can_blink,
                             can_dash: em.caps.can_dash,
                             can_shield: em.caps.can_shield,
@@ -396,7 +418,7 @@ pub fn tick_actor_brains(
                         &[],
                         &[],
                         &feature_world,
-                        &crate::combat::targeting::FactionRelations::default(),
+                        relations,
                         super::super::perception::DEFAULT_VIEWPORT_HALF,
                         sim_now,
                     );

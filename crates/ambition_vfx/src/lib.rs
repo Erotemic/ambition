@@ -264,6 +264,9 @@ mod hitbox_shape_tests {
             half_extent: ae::Vec2::splat(10.0),
             shape: Some(ae::VolumeShape::circle(15.0)),
             facing: 1.0,
+            // Gravity-down direction the hitbox shape orients against (added to
+            // `Hitbox` in e56cd830 for frame-correct spawn); the default is +Y.
+            frame_down: ae::Vec2::new(0.0, 1.0),
             damage: 1,
             knockback_strength: 0.0,
             knock_x: 0.0,
@@ -288,6 +291,9 @@ mod hitbox_shape_tests {
             half_extent: ae::Vec2::new(8.0, 12.0),
             shape: None,
             facing: 1.0,
+            // Gravity-down direction the hitbox shape orients against (added to
+            // `Hitbox` in e56cd830 for frame-correct spawn); the default is +Y.
+            frame_down: ae::Vec2::new(0.0, 1.0),
             damage: 1,
             knockback_strength: 0.0,
             knock_x: 0.0,

@@ -59,8 +59,12 @@ sensible default and note it here for deferred tuning.** Two kinds of entries:
   `active_remaining`/`active_elapsed` can differ from the old cursor value by `< one frame`
   (<16ms) at the strike boundary, and `active_profile` can clear ≤1 frame earlier/later.
   Read-model only (anim frame sampling / debug overlay / view index — none gate damage);
-  imperceptible. Slice D (telegraph-edge trigger, `t0=0`, lockstep with the cursor) removes
-  the wart entirely by playing the telegraph through the move.
+  imperceptible. NOTE: this wart is INHERENT to moving the read-model from cursor-time to
+  move-time — the cursor carries a fractional step-boundary overshoot `∈ [0, dt)` that a
+  freshly-inserted move's clock can't match, so it persists under Slice D's telegraph-edge
+  trigger too (it is NOT `t0`-dependent). The honest resolution is to accept the move as the
+  new authority (its timeline is equally valid); the deferred item is only tests/feel that
+  key off exact old-cursor values. Damage is byte-identical either way.
 - **Boss GEOMETRY strikes folded onto the moveset (E51)** — every boss strike now runs
   through the SAME moveset runtime an actor's swing does; `sync_boss_strike_hitboxes` +
   `FrameDrivenBossStrike` are DELETED. Deferred-tuning knobs (sensible defaults, sweep
@@ -2607,12 +2611,16 @@ distinguishes cleanly: `telegraph_profile` set → `t0=0`; only `active_profile`
   `BossPatternCfg::telegraph_windows()` + spawn wiring. Lands the projection machinery +
   telegraph-carrying moves; the brain-write stays as the seed. One sub-frame read-model wart
   deferred (see BULK REVIEW QUEUE) — damage is byte-identical, Slice D removes the wart.
-- **Slice D (RISKY, staged last)** — the true flip: scripted trigger at the telegraph edge
-  (`t0=0`, playing the telegraph through the move), project the TELEGRAPH half too, abort a
-  move still in its Startup when the pattern is interrupted (phase change / suppress / rest),
-  and retire the brain's `BossAttackState` component write (projection becomes SOLE writer).
-  Cycle-mode windup maps to `tel`. If Slice D can't reach green in a slice, B+C stays banked
-  (foundation + strike-authority flipped) and the telegraph half is the recorded remainder.
+- **Slice D (RISKY, staged last)** — the fuller flip: scripted trigger at the telegraph edge
+  (`t0=0`, playing the telegraph THROUGH the move so a bound anim clip can slave to it),
+  project the TELEGRAPH half too, and abort a move still in its Startup when the pattern is
+  interrupted (phase change / suppress / rest) — this abort is the real risk (phase-transition
+  suites). Optionally retire the brain's `BossAttackState` component write (projection SOLE
+  writer) — but the brain still COMPUTES attack_state internally for its movement edges, and
+  moveless fixtures rely on the component, so retiring is a separate cleanup. Cycle windup
+  maps to `tel`. Does NOT remove the sub-frame wart (inherent, see BULK REVIEW QUEUE), so its
+  incremental value over B+C is the telegraph projection + anim-slaving, weighed against the
+  abort risk — the load-bearing strike-authority flip already landed in B+C.
 
 ## Next (in order) — **the MELEE SUBSUMPTION is COMPLETE for EVERY actor incl. bosses (E49–E52).** The audit's TASK sections are stale; trust E-entries + a code re-check before working an item.
 

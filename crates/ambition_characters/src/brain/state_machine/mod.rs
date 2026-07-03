@@ -739,11 +739,9 @@ fn tick_shark(
         return;
     }
 
-    let aim_dir = if to_target.length_squared() > 0.0 {
-        to_target.normalize_or_zero()
-    } else {
-        ae::Vec2::new(snapshot.actor_facing, 0.0)
-    };
+    // The shark steers by `orbit_dir` (below), not a direct aim vector — the old
+    // `aim_dir` chase heading was superseded by the orbit-standoff model and left
+    // an unused binding. `facing` still comes from the target's local-frame side.
     let facing = to_target_local.x.signum_or(snapshot.actor_facing);
     out.facing = facing;
 

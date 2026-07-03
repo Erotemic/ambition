@@ -76,7 +76,10 @@ pub use crate::combat::{
 pub use actors::{
     actor_component_snapshot, enemy_component_snapshot, sync_actor_components_from_cluster,
 };
-// Crate-internal: the dialogue-gated boss resolver reuses this; tests pin it.
+// Test-only re-export: `conversion_tests` pins this resolver via the `features::ecs`
+// path. Production callers use it through its own `actors::conversion` module, so
+// the re-export is unused (a dead import warning) outside `cfg(test)`.
+#[cfg(test)]
 pub(crate) use actors::hostile_brain_id_for_actor;
 pub use actors::{
     apply_actor_contact_damage, integrate_sim_bodies, sync_actor_poses_from_feature_aabbs,

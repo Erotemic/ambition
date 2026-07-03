@@ -19,8 +19,6 @@
 //! foundation types) + the [`PrimaryPlayerOnly`] filter. Subsequent slices move
 //! the combat/economy sim-state here.
 
-use bevy::prelude::With;
-
 pub use crate::platformer_runtime::body::BodyKinematics;
 pub use ambition_platformer_primitives::markers::{PlayerEntity, PrimaryPlayer};
 

@@ -38,14 +38,6 @@ pub(crate) fn room_spec_paths(
 // old helpers; if a new caller needs collision-aware motion, add
 // it through `KinematicBody`.
 
-pub(crate) fn approach(value: f32, target: f32, delta: f32) -> f32 {
-    if value < target {
-        (value + delta).min(target)
-    } else {
-        (value - delta).max(target)
-    }
-}
-
 pub(crate) fn approximately_same_aabb(a: ae::Aabb, b: ae::Aabb) -> bool {
     // Pogo-bounce routing matches an engine-reported orb AABB against
     // sandbox-side breakable AABBs. The two are derived from the same
@@ -110,15 +102,6 @@ mod util_tests {
 
     fn aabb(cx: f32, cy: f32, hx: f32, hy: f32) -> ae::Aabb {
         ae::Aabb::new(ae::Vec2::new(cx, cy), ae::Vec2::new(hx, hy))
-    }
-
-    #[test]
-    fn approach_moves_toward_target_and_clamps() {
-        assert_eq!(approach(0.0, 10.0, 3.0), 3.0);
-        assert_eq!(approach(8.0, 10.0, 3.0), 10.0); // capped, no overshoot
-        assert_eq!(approach(10.0, 0.0, 3.0), 7.0);
-        assert_eq!(approach(2.0, 0.0, 3.0), 0.0); // floored
-        assert_eq!(approach(5.0, 5.0, 1.0), 5.0); // already there
     }
 
     #[test]

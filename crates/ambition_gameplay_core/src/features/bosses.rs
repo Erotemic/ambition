@@ -880,14 +880,33 @@ mod scripted_pattern_tests {
         let combat_size = ae::Vec2::new(80.0, 80.0);
         let spawn = ae::Vec2::new(200.0, 400.0);
         let aabb = ae::Aabb::new(spawn, combat_size * 0.5);
-        let mut boss = super::super::ecs::boss_clusters::BossClusterScratch::new(
+        // A boss IS an aerial actor since AS4c: drive the boss pattern's
+        // `velocity_target` through the SHARED flight limb (the production path,
+        // `integrate_boss_bodies` → `ActorMut::update`, direct-velocity). This
+        // exercises the flight-limb wall-collision sweep — the same guard the old
+        // bespoke float had — over the REAL integration a boss now uses.
+        let mut seed = super::super::ecs::actor_clusters::ActorClusterSeed::new(
             "test_warden",
             "Clockwork Warden",
             aabb,
-            ambition_characters::actor::BossBrain::Dormant,
+            ambition_characters::actor::CharacterBrain::Passive,
+            &[],
         );
-        boss.config.behavior = BossBehaviorProfile::clockwork_warden();
-        boss.status.encounter_phase = crate::boss_encounter::BossEncounterPhase::Phase1;
+        seed.kin.size = combat_size;
+        seed.kin.pos = spawn;
+        // Aerial, direct-velocity, high-speed free-mover — matches the boss spawn
+        // cluster (`boss_actor_cluster`).
+        seed.surface.gravity_scale = 0.0;
+        seed.config.tuning.is_aerial = true;
+        seed.config.tuning.chase_speed = 1200.0;
+        seed.config.tuning.max_run_speed = 1200.0;
+        seed.config.tuning.flight_direct_velocity = true;
+        seed.caps = crate::combat::CombatCapabilities {
+            can_fly: true,
+            ..Default::default()
+        };
+        seed.body = super::super::ecs::actor_clusters::ActorBody::from_caps(&seed.caps, true);
+        let behavior = BossBehaviorProfile::clockwork_warden();
         // World: a wall at x=400 blocks any rightward chase past it.
         let world = ae::World::new(
             String::from("boss_collision_test"),
@@ -922,29 +941,28 @@ mod scripted_pattern_tests {
         };
         let mut cfg = BossPatternCfg::neutral_test();
         cfg.aggressiveness = 1.0;
-        cfg.pattern = boss.config.behavior.attack_pattern.clone();
-        cfg.movement = boss.config.behavior.movement.clone();
-        cfg.spawn = boss.config.spawn;
-        cfg.combat_size = boss.as_ref().combat_size();
-        cfg.cycle_attack_windup = boss.config.behavior.attack_windup.max(0.01);
-        cfg.cycle_attack_active = boss
-            .config
-            .behavior
+        cfg.pattern = behavior.attack_pattern.clone();
+        cfg.movement = behavior.movement.clone();
+        cfg.spawn = spawn;
+        cfg.combat_size = combat_size;
+        cfg.cycle_attack_windup = behavior.attack_windup.max(0.01);
+        cfg.cycle_attack_active = behavior
             .attack_active
             .max(FeatureCombatTuning::default().boss_attack_active)
             .max(0.01);
-        cfg.cycle_attack_cooldown = boss.config.behavior.attack_cooldown.max(0.05);
+        cfg.cycle_attack_cooldown = behavior.attack_cooldown.max(0.05);
         let mut state = BossPatternState::default();
         let mut attack_state = BossAttackState::default();
         let dt = 1.0 / 60.0;
+        let combat_tuning = FeatureCombatTuning::default();
         for _ in 0..600 {
             let mut frame = ambition_characters::actor::control::ActorControlFrame::neutral();
             tick_boss_pattern(
                 &cfg,
                 &mut state,
                 &BossPatternContext {
-                    encounter_phase: boss.status.encounter_phase,
-                    actor_pos: boss.kin.pos,
+                    encounter_phase: crate::boss_encounter::BossEncounterPhase::Phase1,
+                    actor_pos: seed.kin.pos,
                     target_pos: player_pos,
                     world_size: world.size,
                     front_wall_clearance: None,
@@ -953,15 +971,26 @@ mod scripted_pattern_tests {
                 &mut frame,
                 &mut attack_state,
             );
-            boss.as_mut()
-                .integrate_body(&world, true, frame.velocity_target, dt);
+            // Integrate through the shared flight limb (the boss's production path):
+            // `flight_direct_velocity` takes `frame.velocity_target` verbatim, then
+            // the pipeline collision-resolves against the wall.
+            seed.update_for_test(
+                &world,
+                player_pos,
+                combat_tuning,
+                None,
+                dt,
+                false,
+                frame,
+                ae::Vec2::new(0.0, 1.0),
+            );
         }
-        let boss_right_edge = boss.kin.pos.x + boss.as_ref().combat_size().x * 0.5;
+        let boss_right_edge = seed.kin.pos.x + combat_size.x * 0.5;
         let wall_left_edge = 400.0;
         assert!(
             boss_right_edge <= wall_left_edge + 0.5,
             "boss clipped into wall at pos {:?} (right edge {}); wall left edge {}",
-            boss.kin.pos,
+            seed.kin.pos,
             boss_right_edge,
             wall_left_edge,
         );

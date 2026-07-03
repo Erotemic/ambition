@@ -6,13 +6,13 @@
 //! [`BossEncounter`] (encounter phase, derived sprite metrics, entity-local
 //! phase machine — HP/liveness live on the shared `BodyHealth`, damage-blink on
 //! `BodyCombat::hit_flash`, like every body). The boss carries the shared
-//! [`BodyKinematics`] component (pos / vel
-//! / size / facing) — the same component the player and enemies/NPCs use. Bosses
-//! float and never integrate `vel` themselves (the brain emits a fresh
-//! `desired_vel` each tick for `integrate_body`), so a boss simply leaves `vel`
-//! at `Vec2::ZERO`. A `&mut BodyKinematics` boss query is kept disjoint from
-//! player/enemy ones with `With<BossConfig>` / `Without<BossConfig>` filters
-//! (boss / enemy / player are mutually exclusive archetypes).
+//! [`BodyKinematics`] component (pos / vel / size / facing) — the same component
+//! the player and enemies/NPCs use. Since the archetype swap (AS4c) a boss IS an
+//! aerial actor: its body integrates through the SHARED flight limb
+//! (`integrate_boss_bodies` → `ActorMut::update`, direct-velocity), NOT a bespoke
+//! float. A `&mut BodyKinematics` boss query is kept disjoint from player/enemy
+//! ones with `With<BossConfig>` / `Without<BossConfig>` filters (boss / enemy /
+//! player are mutually exclusive archetypes).
 //!
 //! [`BossConfig`] doubles as the *is-a-boss* marker component — every boss
 //! entity carries exactly one, no other actor does — so boss / non-boss systems
@@ -27,7 +27,6 @@ use crate::boss_encounter::behavior::{
 use crate::boss_encounter::BossEncounterPhase;
 use ambition_engine_core as ae;
 use ambition_engine_core::AabbExt;
-use ambition_platformer_primitives::kinematic;
 
 pub use crate::platformer_runtime::body::BodyKinematics;
 
@@ -215,45 +214,9 @@ impl<'a> BossMut<'a> {
         self.status.encounter_phase = BossEncounterPhase::Dormant;
     }
 
-    /// Integrate the boss body using the brain-emitted `desired_vel`.
-    ///
-    /// PRODUCTION-UNUSED since archetype swap AS4c: the boss body now integrates
-    /// through the SHARED flight limb (`integrate_boss_bodies` → `ActorMut::update`,
-    /// direct-velocity), so a boss IS just an aerial actor. This bespoke float (and
-    /// its `step_floating_body` helper) is retained ONLY by the `boss_stops_at_wall`
-    /// unit test; delete both once that wall-stop assertion is migrated to an
-    /// ECS-level flight-limb harness (net-LOC-down follow-up).
-    ///
-    /// **Integration only** — the brain owns the policy decision and
-    /// writes `ActorControl` upstream; this just collision-resolves the
-    /// desired velocity into a position change. Bosses float (gravity =
-    /// 0, max_fall_speed = 0); multi-part bosses collide against
-    /// `combat_size`, not the sprite `size`.
-    /// `alive` comes from the body's `BodyHealth` (§A1 — HP authority is the
-    /// shared component, not boss state).
-    pub fn integrate_body(&mut self, world: &ae::World, alive: bool, desired_vel: ae::Vec2, dt: f32) {
-        if !alive || dt <= 0.0 {
-            return;
-        }
-        let mut body = kinematic::KinematicBody {
-            pos: self.kin.pos,
-            vel: desired_vel,
-            size: self.combat_size(),
-            on_ground: false,
-            facing: self.kin.facing,
-        };
-        // Bosses are floating free-movers: the pattern brain emits an exact
-        // `desired_vel` each tick (SNAP, `accel: None`) and the shared floating
-        // integrator resolves it against the world — the same path aerial enemies
-        // and the parrot fly through. `max_fall_speed: 0` is inert under zero gravity.
-        crate::features::step_floating_body(&mut body, world, desired_vel, None, 0.0, dt);
-        self.kin.pos = body.pos;
-        self.kin.facing = if body.facing.abs() > 0.001 {
-            body.facing.signum()
-        } else {
-            self.kin.facing
-        };
-    }
+    // Boss body integration lives on the SHARED movement seam now (archetype swap
+    // AS4c): `integrate_boss_bodies` → `ActorMut::update` → the flight limb in
+    // direct-velocity mode. A boss IS just an aerial actor — no bespoke float.
 }
 
 #[derive(QueryData)]

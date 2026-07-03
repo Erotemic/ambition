@@ -130,8 +130,8 @@ pub use ecs::{
 };
 pub use ecs::{ActorAnimFrame, ActorSpriteData};
 pub use enemies::{
-    composite_visual_plan, enemy_spawn_is_sandbag, install_enemy_roster, ActorSpawnState,
-    ActorSurfaceState, CharacterRoster, CompositeVisualPlan, EnemyRespawnPolicy,
+    composite_rider_name, composite_visual_plan, enemy_spawn_is_sandbag, install_enemy_roster,
+    ActorSpawnState, ActorSurfaceState, CharacterRoster, CompositeVisualPlan, EnemyRespawnPolicy,
     ENEMY_DEAD_UNTIL_REST_SUFFIX,
 };
 pub use events::{

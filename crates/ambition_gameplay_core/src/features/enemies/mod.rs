@@ -88,11 +88,32 @@ pub struct CompositeVisualSpec {
     pub mount_name: String,
     pub rider_brain: String,
     pub rider_fallback_name: String,
-    /// When true, the rider's display name comes from the authored
-    /// spawn name minus its " on Shark" suffix (named heavy variants);
-    /// otherwise the fallback name is always used.
+    /// When set, the rider's display name is the authored spawn name with this
+    /// suffix stripped (e.g. `" on Shark"`: "Broadside Bess on Shark" →
+    /// "Broadside Bess"); `None` always uses [`Self::rider_fallback_name`]. The
+    /// suffix is authored content — the engine no longer hardcodes `" on Shark"`
+    /// in the sim + render spawn paths, so a second game's mount composes its
+    /// own naming (fable review 2026-07-02 §C7).
     #[serde(default)]
-    pub rider_name_from_spawn: bool,
+    pub rider_name_suffix: Option<String>,
+}
+
+/// Resolve a composite rider's display name from the authored spawn name.
+///
+/// With a `suffix`, the rider name is the spawn name minus that suffix
+/// (e.g. `"Broadside Bess on Shark"` with `" on Shark"` → `"Broadside Bess"`),
+/// falling back to `fallback` when the suffix doesn't match; without one, the
+/// `fallback` is used directly. The ONE place the suffix-strip lives, shared by
+/// the sim ([`crate::features::ecs`]) and render spawn paths so neither
+/// hardcodes the composite suffix.
+pub fn composite_rider_name(spawn_name: &str, suffix: Option<&str>, fallback: &str) -> String {
+    match suffix {
+        Some(suffix) => spawn_name
+            .strip_suffix(suffix)
+            .unwrap_or(fallback)
+            .to_string(),
+        None => fallback.to_string(),
+    }
 }
 
 #[derive(Clone, Debug, serde::Deserialize)]
@@ -694,7 +715,8 @@ impl CharacterArchetypeSpec {
 /// side of the named/generic boundary, as data.
 #[derive(Clone, Debug)]
 pub struct CompositeVisualPlan {
-    pub rider_name_from_spawn: bool,
+    /// See [`CompositeVisualSpec::rider_name_suffix`].
+    pub rider_name_suffix: Option<String>,
     pub mount_name: String,
     pub mount_brain: ambition_characters::actor::CharacterBrain,
     pub rider_brain: ambition_characters::actor::CharacterBrain,
@@ -734,7 +756,7 @@ pub fn composite_visual_plan(
         .default_size
         .unwrap_or(ae::Vec2::new(126.0, 52.0));
     Some(CompositeVisualPlan {
-        rider_name_from_spawn: composite.rider_name_from_spawn,
+        rider_name_suffix: composite.rider_name_suffix.clone(),
         mount_name: composite.mount_name.clone(),
         mount_brain,
         rider_brain,
@@ -748,6 +770,34 @@ pub fn composite_visual_plan(
 mod enemy_archetype_data_tests {
     use super::integration::enemy_attack_aabb_dir;
     use super::*;
+
+    /// `composite_rider_name` strips the authored suffix from the spawn name,
+    /// falls back when the suffix doesn't match, and uses the fallback outright
+    /// when no suffix is authored — the ONE place the composite rider-name is
+    /// resolved, shared by sim + render so neither hardcodes `" on Shark"`.
+    #[test]
+    fn composite_rider_name_strips_authored_suffix() {
+        // Authored suffix present + matching → stripped.
+        assert_eq!(
+            composite_rider_name("Broadside Bess on Shark", Some(" on Shark"), "Fallback"),
+            "Broadside Bess"
+        );
+        // Suffix present but NOT matching this spawn name → fallback.
+        assert_eq!(
+            composite_rider_name("Lone Raider", Some(" on Shark"), "Pirate Raider"),
+            "Pirate Raider"
+        );
+        // No authored suffix → fallback outright (light variants).
+        assert_eq!(
+            composite_rider_name("Anything on Shark", None, "Pirate Raider"),
+            "Pirate Raider"
+        );
+        // A second game's mount authors its own suffix — no engine constant.
+        assert_eq!(
+            composite_rider_name("Sir Reginald astride Griffon", Some(" astride Griffon"), "Rider"),
+            "Sir Reginald"
+        );
+    }
 
     /// The installable [`CharacterRoster`] holder resolves a known brain key to
     /// its spec and falls back for an unknown / non-`Custom` brain, and the

@@ -615,17 +615,15 @@ fn spawn_composite_visuals(
         game_assets::entity_sprite_for_enemy(&plan.mount_brain),
         assets,
     );
-    // Rider: ":rider" suffix; display name parsed from the authored
-    // spawn name when it carries the " on Shark" composite suffix.
-    let rider_name = if plan.rider_name_from_spawn {
-        enemy
-            .name
-            .strip_suffix(" on Shark")
-            .map(str::to_owned)
-            .unwrap_or_else(|| plan.rider_fallback_name.clone())
-    } else {
-        plan.rider_fallback_name.clone()
-    };
+    // Rider: ":rider" entity id suffix; display name is the authored spawn name
+    // minus the composite's authored `rider_name_suffix` (or the fallback). The
+    // suffix is content, resolved by the SAME shared helper the sim uses, so
+    // render no longer hardcodes " on Shark" (fable review §C7).
+    let rider_name = ambition_gameplay_core::features::composite_rider_name(
+        &enemy.name,
+        plan.rider_name_suffix.as_deref(),
+        &plan.rider_fallback_name,
+    );
     // Rider renders at HALF its standalone size while mounted so it
     // fits visually on the mount — mirrors the sim-side `MountedSize`;
     // `sync_visuals` re-syncs from the FeatureViewIndex next frame,

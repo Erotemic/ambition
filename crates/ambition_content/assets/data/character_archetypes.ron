@@ -627,7 +627,7 @@
             mount_name: "Burning Flying Shark",
             rider_brain: "pirate_heavy",
             rider_fallback_name: "Broadside Bess",
-            rider_name_from_spawn: true,
+            rider_name_suffix: Some(" on Shark"),
         )),
         max_health: 7,
         rider_max_health: Some(6),

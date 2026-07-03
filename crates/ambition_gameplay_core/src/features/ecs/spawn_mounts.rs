@@ -82,22 +82,18 @@ pub(super) fn spawn_composite_mount_rider(
     mount_enemy.health =
         ambition_characters::actor::BodyHealth::new(ambition_characters::actor::Health::new(composite_hp));
 
-    // Rider variant name. `rider_name_from_spawn` heavy variants parse the
-    // authored spawn name (e.g. "Iron Mary on Shark" → "Iron Mary"),
-    // falling back to the authored `rider_fallback_name`; light variants
-    // always use the fallback.
+    // Rider variant name: strip the composite's authored `rider_name_suffix`
+    // from the spawn name (e.g. "Iron Mary on Shark" → "Iron Mary"), or use the
+    // authored fallback. The suffix is content, not an engine constant (§C7);
+    // the ONE strip lives in `composite_rider_name`, shared with the render path.
     let rider_brain_payload =
         ambition_characters::actor::CharacterBrain::Custom(cv.rider_brain.clone());
     let rider_spec = spec_for_brain(&rider_brain_payload);
-    let rider_variant_name = if cv.rider_name_from_spawn {
-        authored
-            .name
-            .strip_suffix(" on Shark")
-            .unwrap_or(&cv.rider_fallback_name)
-            .to_string()
-    } else {
-        cv.rider_fallback_name.clone()
-    };
+    let rider_variant_name = super::super::composite_rider_name(
+        &authored.name,
+        cv.rider_name_suffix.as_deref(),
+        &cv.rider_fallback_name,
+    );
     // Standalone size = the full cove-pirate hitbox (44x78 for the raider;
     // 72x110 for a heavy). Shark-rider size = the authored sky-rider scale.
     //

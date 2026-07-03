@@ -109,10 +109,65 @@ pub fn trigger_boss_attack_moves(
             continue;
         }
         if let Some(spec) = moveset.0.move_by_id(&profile.move_id()) {
+            // Start the move at its Active-window edge (the telegraph offset `tel`),
+            // so the strike is live THIS frame — identical hitbox timing to the
+            // pre-E53 strike-only move, and possession's instant strike is preserved
+            // (`boss_possession_specials`). The move still ENCODES `tel` so the
+            // projected `active_elapsed` folds in the telegraph offset. The telegraph-
+            // edge (`t0 = 0`, plays the windup) trigger is the E53 Slice-D flip.
+            let t0 = spec
+                .windows
+                .iter()
+                .find(|w| matches!(w.tag, ambition_entity_catalog::WindowTag::Active))
+                .map(|w| w.start_s)
+                .unwrap_or(0.0);
             commands.entity(entity).insert(
-                crate::combat::moveset::MovePlayback::new(spec.clone(), kin.facing),
+                crate::combat::moveset::MovePlayback::new_at(spec.clone(), kin.facing, t0),
             );
         }
+    }
+}
+
+/// PROJECT the ACTIVE (strike) half of [`BossAttackState`] from the live boss
+/// [`MovePlayback`] (E53 Slice B+C). While a boss move's clock is inside its Active
+/// window, the strike read-model — `active_profile` / `active_remaining` /
+/// `active_elapsed` — is DERIVED from the move (the move is the authority) instead
+/// of trusted from the pattern cursor's mirror. The values are provably equal to
+/// the brain's write (the move carries the telegraph offset `tel` as its Active
+/// start, so `active_elapsed == t == tel + strike_elapsed`), so this is
+/// behavior-preserving; it flips WHO owns the strike timing to the shared move
+/// runtime, mirroring `project_moveset_melee_to_body_melee`.
+///
+/// ADDITIVE + non-destructive: it only writes while a move is in its Active window,
+/// and never touches the TELEGRAPH fields (still brain-written) — so a boss with no
+/// `ActorMoveset` (test fixtures), a boss mid-telegraph, and a resting boss all keep
+/// the brain's mirror untouched. Runs AFTER `advance_move_playback` so `t` is
+/// current. The telegraph half + retiring the brain write is Slice D.
+pub fn project_boss_attack_state_from_move(
+    mut bosses: Query<
+        (&crate::combat::moveset::MovePlayback, &mut BossAttackState),
+        With<FeatureSimEntity>,
+    >,
+) {
+    use ambition_characters::brain::BossAttackProfile;
+    for (playback, mut attack_state) in &mut bosses {
+        let t = playback.t;
+        let Some(active) = playback
+            .spec
+            .windows
+            .iter()
+            .find(|w| matches!(w.tag, ambition_entity_catalog::WindowTag::Active))
+        else {
+            continue;
+        };
+        if t < active.start_s || t >= active.end_s {
+            // Outside the strike (telegraph, or the finished tail): leave the brain's
+            // mirror as-is. Slice D projects the telegraph half here too.
+            continue;
+        }
+        attack_state.active_profile = Some(BossAttackProfile::from_move_id(&playback.spec.id));
+        attack_state.active_remaining = (active.end_s - t).max(0.0);
+        attack_state.active_elapsed = t;
     }
 }
 
@@ -505,8 +560,9 @@ mod attack_moveset_tests {
             ],
         };
         let combat_size = ambition_engine_core::Vec2::new(80.0, 80.0);
-        let moveset = crate::features::boss_attack_moveset(&cap, &warden_behavior(), combat_size)
-            .expect("a boss with strikes → a moveset");
+        let moveset =
+            crate::features::boss_attack_moveset(&cap, &warden_behavior(), combat_size, &[])
+                .expect("a boss with strikes → a moveset");
         // BOTH profiles now author a move — geometry AND special.
         assert_eq!(moveset.0.moves.len(), 2, "geometry + special both became moves");
         let slam = moveset

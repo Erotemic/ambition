@@ -678,6 +678,9 @@ pub(super) fn spawn_boss_with_overrides(
     // swap): both the autonomous pattern and a possessing human drive these same
     // profiles. Derived before `brain_cfg` is moved into the brain.
     let boss_capability = ambition_characters::brain::BossCapability::from_cfg(&brain_cfg);
+    // First-seen telegraph window per profile — lets each strike move span the whole
+    // telegraph→strike as one timeline (E53). Derived before `brain_cfg` is moved.
+    let boss_telegraph_windows = brain_cfg.telegraph_windows();
     // Captured before the scratch is consumed (`into_components` below), for the
     // boss attack moveset: each strike profile → a geometry / special move.
     let boss_attack_behavior = boss.config.behavior.clone();
@@ -770,6 +773,7 @@ pub(super) fn spawn_boss_with_overrides(
         &boss_capability,
         &boss_attack_behavior,
         boss_attack_combat_size,
+        &boss_telegraph_windows,
     );
     entity.insert((
         // The brain bundle stays grouped because each piece is required

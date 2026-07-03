@@ -31,7 +31,7 @@ fn boss_strike_spawns_a_boss_hitbox_through_the_moveset() {
     let cap = BossCapability {
         specials: vec![(BossAttackProfile::FloorSlam, 0.5)],
     };
-    let moveset = crate::features::boss_attack_moveset(&cap, &behavior, combat_size)
+    let moveset = crate::features::boss_attack_moveset(&cap, &behavior, combat_size, &[])
         .expect("a boss with a strike → a moveset");
 
     let mut app = App::new();

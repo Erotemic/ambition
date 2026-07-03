@@ -181,11 +181,22 @@ pub struct MovePlayback {
 
 impl MovePlayback {
     pub fn new(spec: MoveSpec, facing: f32) -> Self {
-        let fired = vec![false; spec.events.len()];
+        Self::new_at(spec, facing, 0.0)
+    }
+
+    /// Start a move with its clock pre-advanced to `t0` seconds (owner proper
+    /// time). Used to SKIP a leading window: a boss strike commanded without a
+    /// telegraph (possession, or a bare `Strike` step) starts at `t0 = telegraph
+    /// window`, so its Active window is live immediately and the projected
+    /// `active_elapsed` still folds in the telegraph offset (E53). Events with
+    /// `at_s <= t0` are pre-marked fired so seeking past them doesn't retro-fire.
+    pub fn new_at(spec: MoveSpec, facing: f32, t0: f32) -> Self {
+        let t0 = t0.clamp(0.0, spec.duration_s);
+        let fired: Vec<bool> = spec.events.iter().map(|ev| ev.at_s <= t0).collect();
         Self {
             spec,
             facing,
-            t: 0.0,
+            t: t0,
             live_boxes: Vec::new(),
             fired,
         }

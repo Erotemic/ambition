@@ -501,6 +501,47 @@ impl BossPatternCfg {
         out
     }
 
+    /// First-seen TELEGRAPH window (seconds) per attack profile — the pre-strike
+    /// windup a scripted `Telegraph` step authors before its paired `Strike`.
+    /// Mirrors [`special_repertoire`](Self::special_repertoire) (strike windows)
+    /// so the boss's moveset move can span the whole telegraph→strike as ONE
+    /// timeline: the move's Active window opens at `telegraph_seconds`, encoding
+    /// the offset the projected `BossAttackState.active_elapsed` needs (E53). A
+    /// profile with no authored telegraph (a bare `Strike`, or `Cycle` with no
+    /// windup) is absent → the caller treats it as `0.0`. `Cycle` bosses telegraph
+    /// with `cycle_attack_windup` for every rotation profile.
+    pub fn telegraph_windows(&self) -> Vec<(BossAttackProfile, f32)> {
+        let mut out: Vec<(BossAttackProfile, f32)> = Vec::new();
+        let mut push = |profile: &BossAttackProfile, duration: f32| {
+            if duration > 0.0 && !out.iter().any(|(p, _)| p == profile) {
+                out.push((profile.clone(), duration));
+            }
+        };
+        match &self.pattern {
+            BossAttackPattern::Cycle => {
+                for profile in &self.cycle_attacks {
+                    push(profile, self.cycle_attack_windup);
+                }
+            }
+            BossAttackPattern::Scripted {
+                intro,
+                phase1,
+                transition,
+                phase2,
+                enrage,
+            } => {
+                for pattern in [intro, phase1, transition, phase2, enrage] {
+                    for step in &pattern.steps {
+                        if let BossPatternStep::Telegraph { profile, duration } = step {
+                            push(profile, *duration);
+                        }
+                    }
+                }
+            }
+        }
+        out
+    }
+
     /// Pick the movement profile this cfg wants for the given
     /// encounter phase. Phases without a dedicated override fall
     /// back to the default `movement`. Dormant/Stagger/Death are

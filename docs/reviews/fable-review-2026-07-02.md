@@ -49,6 +49,18 @@ sensible default and note it here for deferred tuning.** Two kinds of entries:
     floor (the flat path armed `ENEMY_ATTACK_COOLDOWN * mult`; the moveset move's own
     duration is the new floor) — if the cadence reads wrong, re-arm a per-archetype
     recovery floor on move trigger.
+- **Boss strike read-model projected from the move (E53 Slice B+C)** — while a boss move
+  is inside its Active window, `BossAttackState`'s `active_*` fields are now DERIVED from the
+  live `MovePlayback` (`project_boss_attack_state_from_move`), not trusted from the pattern
+  cursor's mirror. DAMAGE is unchanged (the Active window's hitbox lifetime is identical —
+  the move is triggered at `t0 = telegraph offset` so the strike is live the same frame as
+  before). One sub-frame wart, deferred: because the move's clock starts fresh at the strike
+  edge (`t0=tel`) rather than tracking the cursor's telegraph overshoot, the projected
+  `active_remaining`/`active_elapsed` can differ from the old cursor value by `< one frame`
+  (<16ms) at the strike boundary, and `active_profile` can clear ≤1 frame earlier/later.
+  Read-model only (anim frame sampling / debug overlay / view index — none gate damage);
+  imperceptible. Slice D (telegraph-edge trigger, `t0=0`, lockstep with the cursor) removes
+  the wart entirely by playing the telegraph through the move.
 - **Boss GEOMETRY strikes folded onto the moveset (E51)** — every boss strike now runs
   through the SAME moveset runtime an actor's swing does; `sync_boss_strike_hitboxes` +
   `FrameDrivenBossStrike` are DELETED. Deferred-tuning knobs (sensible defaults, sweep
@@ -2558,6 +2570,49 @@ suffix (`_hands` is still the convention) are parameterizable details (bulk-revi
   (`rendering/world.rs`, `spawn_mounts.rs`). The full fix authors a `mount:` spawn field,
   which needs `ambition_ldtk_tools` (per [[feedback_ldtk_tools_only]]) — not autonomously
   unblocked.
+
+### E53. Boss `BossAttackState` → PROJECTION — the design + slice plan (in progress `a3c69655`)
+The handoff §3a headline: flip the boss from `BossAttackState`-owns-timing to
+`BossAttackState`-is-PROJECTED-from-the-live-`MovePlayback`. The load-bearing win (one
+damage path) was banked in E51; this is the timing-authority flip. Re-verifying the code
+surfaced the exact sub-cases + a clean design; recorded here so it lands in confident
+green slices instead of one risky all-at-once commit.
+
+**The enabling facts:** (1) a `Telegraph{p,tel}` step is ALWAYS immediately followed by
+`Strike{p,strike}` for the SAME profile (pinned by
+`gradient_sentinel_telegraph_steps_are_paired_with_matching_strike`), so a telegraph→strike
+pair IS one move: window `[tel, tel+strike]` with the strike volumes, duration `tel+strike`.
+(2) The projection recovers WHICH profile a live move is via `BossAttackProfile::from_move_id`
+(landed `a3c69655`). (3) The move's own clock `t` reproduces `BossAttackState` EXACTLY:
+telegraph_elapsed=`t`, telegraph_remaining=`tel-t` while `t<tel`; active_elapsed=`t`,
+active_remaining=`tel+strike-t` while `tel≤t<tel+strike` — because the brain's
+`active_elapsed` already folds in the preceding telegraph (`prev_tel+strike_elapsed`), which
+equals `t`. Lockstep holds because both accumulate `dt` continuously off one playback.
+
+**The possession trap (checked `boss_possession_specials.rs:155`):** possession asserts the
+strike is `active_profile=Some(primary)` the SAME frame Attack is pressed — no telegraph
+delay. A telegraph-spanning move started at `t=0` would be in its Startup, so
+`active_profile` reads `None` → test fails. **Resolution: a `MovePlayback` START OFFSET
+`t0`.** Scripted telegraph edge starts the move at `t0=0` (plays the telegraph); possession
+(and any `tel=0` path) starts it at `t0=tel` (skips straight to the strike). The trigger
+distinguishes cleanly: `telegraph_profile` set → `t0=0`; only `active_profile` set → `t0=tel`.
+
+**Slice plan (each a GREEN, behavior-preserving-until-the-flip commit):**
+- **Slice A ✅ `a3c69655`** — `BossAttackProfile::from_move_id` + round-trip test.
+- **Slice B+C ✅** — behavior-preserving FOUNDATION: boss moves carry the telegraph
+  offset (window `[tel, tel+strike]`, duration `tel+strike`), `MovePlayback::new_at(t0)`,
+  `trigger_boss_attack_moves` starts at `t0=tel` (strike edge, UNCHANGED hitbox timing →
+  damage + possession identical), and a new `project_boss_attack_state_from_move` re-derives
+  the ACTIVE half of `BossAttackState` from the live move. Adds
+  `BossPatternCfg::telegraph_windows()` + spawn wiring. Lands the projection machinery +
+  telegraph-carrying moves; the brain-write stays as the seed. One sub-frame read-model wart
+  deferred (see BULK REVIEW QUEUE) — damage is byte-identical, Slice D removes the wart.
+- **Slice D (RISKY, staged last)** — the true flip: scripted trigger at the telegraph edge
+  (`t0=0`, playing the telegraph through the move), project the TELEGRAPH half too, abort a
+  move still in its Startup when the pattern is interrupted (phase change / suppress / rest),
+  and retire the brain's `BossAttackState` component write (projection becomes SOLE writer).
+  Cycle-mode windup maps to `tel`. If Slice D can't reach green in a slice, B+C stays banked
+  (foundation + strike-authority flipped) and the telegraph half is the recorded remainder.
 
 ## Next (in order) — **the MELEE SUBSUMPTION is COMPLETE for EVERY actor incl. bosses (E49–E52).** The audit's TASK sections are stale; trust E-entries + a code re-check before working an item.
 

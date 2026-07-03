@@ -149,6 +149,14 @@ impl Plugin for CombatSchedulePlugin {
                 // hitbox.
                 ambition_gameplay_core::combat::moveset::project_moveset_melee_to_body_melee
                     .run_if(gameplay_allowed),
+                // Boss strike read-model PROJECTION (E53 Slice B+C): while a boss move
+                // is inside its Active window, `BossAttackState`'s active_* fields are
+                // DERIVED from the live `MovePlayback` (the move is the authority),
+                // mirroring the melee projection above. After `advance_move_playback`
+                // so `t` is current; provably equal to the brain's mirror today, it
+                // flips WHO owns the strike timing to the shared move runtime.
+                ambition_gameplay_core::features::project_boss_attack_state_from_move
+                    .run_if(gameplay_allowed),
                 // Hitbox-entity lifecycle for melee strikes (Task A of the
                 // actor/brain follow-up plan). `apply_hitbox_damage`
                 // resolves overlap → damage event; `tick_and_despawn_hitboxes`

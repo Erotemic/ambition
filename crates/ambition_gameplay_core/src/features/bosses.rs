@@ -136,16 +136,33 @@ pub fn boss_attack_moveset(
     capability: &ambition_characters::brain::BossCapability,
     behavior: &BossBehaviorProfile,
     combat_size: ambition_engine_core::Vec2,
+    telegraph_windows: &[(ambition_characters::brain::BossAttackProfile, f32)],
 ) -> Option<crate::combat::moveset::ActorMoveset> {
     use ambition_engine_core::AabbExt;
     use ambition_entity_catalog::{
         ClipBinding, HitVolume, MoveSpec, MoveWindow, MovesetContract, VolumeShape, WindowTag,
+    };
+    let telegraph_for = |profile: &ambition_characters::brain::BossAttackProfile| -> f32 {
+        telegraph_windows
+            .iter()
+            .find(|(p, _)| p == profile)
+            .map(|(_, t)| t.max(0.0))
+            .unwrap_or(0.0)
     };
     let moves: Vec<MoveSpec> = capability
         .specials
         .iter()
         .filter_map(|(profile, strike_s)| {
             let strike_s = strike_s.max(0.05);
+            // The move spans the whole telegraph→strike as ONE timeline: its Active
+            // window opens at `tel` and closes at `tel + strike` (E53). A move started
+            // at `t0 = tel` (strike edge / possession) is live immediately; one started
+            // at `t0 = 0` plays the telegraph first. Either way the projected
+            // `active_elapsed` folds in the telegraph offset because it reads the move's
+            // own clock `t`.
+            let tel = telegraph_for(profile);
+            let active_start = tel;
+            let active_end = tel + strike_s;
             let (volumes, sustain_effect) = if let Some(key) = profile.special_key() {
                 (Vec::new(), Some(key.to_string()))
             } else {
@@ -188,10 +205,10 @@ pub fn boss_attack_moveset(
                     clip: "attack".to_string(),
                     fallbacks: vec!["idle".to_string()],
                 },
-                duration_s: strike_s,
+                duration_s: active_end,
                 windows: vec![MoveWindow {
-                    start_s: 0.0,
-                    end_s: strike_s,
+                    start_s: active_start,
+                    end_s: active_end,
                     tag: WindowTag::Active,
                     volumes,
                     sustain_effect,

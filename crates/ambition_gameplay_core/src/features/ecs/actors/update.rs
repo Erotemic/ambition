@@ -294,12 +294,9 @@ pub fn tick_actor_brains(
         // (the same fields the player carries): the post-hit i-frame the actor
         // gates re-hits on, the damage-blink the renderer reads, and the §A2
         // stagger set (hitstun / recoil-lock / hitstop) the movement phase
-        // consumes. Decremented for every actor each tick, alive or dead.
-        combat.damage_invuln_timer = (combat.damage_invuln_timer - dt).max(0.0);
-        combat.hit_flash = (combat.hit_flash - dt).max(0.0);
-        combat.hitstun_timer = (combat.hitstun_timer - dt).max(0.0);
-        combat.recoil_lock_timer = (combat.recoil_lock_timer - dt).max(0.0);
-        combat.hitstop_timer = (combat.hitstop_timer - dt).max(0.0);
+        // consumes. Decremented for every actor each tick, alive or dead — the
+        // SAME decay the boss tick runs (§A1).
+        combat.decay_reaction_timers(dt);
 
         // This actor's combat-target liveness. `select_actor_targets` already
         // dropped a dead/absent foe (it only ever targets a LIVE candidate, and a

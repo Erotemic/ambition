@@ -560,12 +560,10 @@ pub fn update_ecs_bosses(
     {
         let alive = health.alive();
         // Body-generic reaction timers (hit_flash + i-frame + the §A2 stagger set)
-        // decay here for bosses (the actor tick excludes bosses).
-        boss_combat.damage_invuln_timer = (boss_combat.damage_invuln_timer - dt).max(0.0);
-        boss_combat.hit_flash = (boss_combat.hit_flash - dt).max(0.0);
-        boss_combat.hitstun_timer = (boss_combat.hitstun_timer - dt).max(0.0);
-        boss_combat.recoil_lock_timer = (boss_combat.recoil_lock_timer - dt).max(0.0);
-        boss_combat.hitstop_timer = (boss_combat.hitstop_timer - dt).max(0.0);
+        // decay here for bosses through the SAME `BodyCombat` decay the actor tick
+        // runs — the boss is excluded from the actor tick, so it decays its own,
+        // but via the one shared method, not a hand-copy (§A1).
+        boss_combat.decay_reaction_timers(dt);
         // Mirror the brain's `pattern_timer` (living in `BossPatternState`) into the
         // presentation-side `BossPatternTimer` for sprite-animation consumers.
         // Defaults to 0 for a non-BossPattern brain (test fixtures).

@@ -132,6 +132,19 @@ impl BodyCombat {
         self.damage_invuln_timer <= 0.0
     }
 
+    /// Advance the body-generic reaction timers one frame — the post-hit i-frame
+    /// window, the damage-blink the renderer reads, and the §A2 stagger set
+    /// (hitstun / recoil-lock / hitstop). ONE decay for every body: the actor tick
+    /// and the boss tick both call this on their `BodyCombat`, retiring the two
+    /// hand-copied five-line decay blocks (fable review §A1). Each clamps at zero.
+    pub fn decay_reaction_timers(&mut self, dt: f32) {
+        self.damage_invuln_timer = (self.damage_invuln_timer - dt).max(0.0);
+        self.hit_flash = (self.hit_flash - dt).max(0.0);
+        self.hitstun_timer = (self.hitstun_timer - dt).max(0.0);
+        self.recoil_lock_timer = (self.recoil_lock_timer - dt).max(0.0);
+        self.hitstop_timer = (self.hitstop_timer - dt).max(0.0);
+    }
+
     /// Reset the player reaction timers + attacking mirror (the actor status
     /// fields are owned by the per-frame sync from the cluster).
     pub fn reset(&mut self) {
@@ -169,5 +182,31 @@ impl BodyCombat {
             training_dummy,
             ..Default::default()
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// The shared reaction-timer decay (the ONE the actor tick AND the boss tick
+    /// call, §A1) advances every reaction timer by `dt` and clamps at zero — so a
+    /// nearly-expired window lands exactly on 0, not a small negative.
+    #[test]
+    fn decay_reaction_timers_advances_all_five_and_clamps_at_zero() {
+        let mut combat = BodyCombat {
+            hit_flash: 0.30,
+            hitstop_timer: 0.02, // < dt → clamps to 0
+            damage_invuln_timer: 0.50,
+            hitstun_timer: 0.10,
+            recoil_lock_timer: 0.05,
+            ..Default::default()
+        };
+        combat.decay_reaction_timers(0.10);
+        assert!((combat.hit_flash - 0.20).abs() < 1e-6);
+        assert_eq!(combat.hitstop_timer, 0.0, "under-dt timer clamps to zero");
+        assert!((combat.damage_invuln_timer - 0.40).abs() < 1e-6);
+        assert_eq!(combat.hitstun_timer, 0.0);
+        assert_eq!(combat.recoil_lock_timer, 0.0);
     }
 }

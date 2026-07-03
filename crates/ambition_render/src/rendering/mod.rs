@@ -241,10 +241,16 @@ impl bevy::prelude::Plugin for PresentationVisualAnimationPlugin {
                 // — same world-space sync pattern as deep_dream.
                 hit_flash::attach_hit_flash_overlays,
                 actors::animate_player,
-                // Rebuild the per-actor pose snapshot immediately before the
-                // renderer consumes it (chained), so poses reflect this frame's
-                // clusters. Presentation-only — headless/RL never runs this plugin.
-                ambition_gameplay_core::features::rebuild_actor_anim_index,
+                // One chain slot (keeps this tuple within Bevy's 20-system arity):
+                // advance actors' movement-driven anim overlays (landing /
+                // dash-startup) right before the pose rebuild reads them, so an AI
+                // fighter shows those poses like the player (§A9); then rebuild the
+                // per-actor pose snapshot the renderer consumes, reflecting this
+                // frame's clusters. Both presentation-only — headless/RL skips them.
+                (
+                    ambition_gameplay_core::features::advance_actor_anim_overlays,
+                    ambition_gameplay_core::features::rebuild_actor_anim_index,
+                ),
                 actors::animate_characters,
                 // Mirror the current atlas frame into the overlay after the
                 // character animator has advanced for this frame.

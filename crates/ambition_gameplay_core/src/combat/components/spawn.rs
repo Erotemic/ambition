@@ -128,6 +128,11 @@ pub struct EnemyActorBundle {
     pub damageable_volumes: DamageableVolumes,
     pub pogo_policy: PogoPolicy,
     pub pogo_target_volumes: PogoTargetVolumes,
+    /// Movement-driven presentation overlay timers, shared with the player. Armed
+    /// each frame by `advance_actor_anim_overlays` (landing / dash-startup) and
+    /// read by `pick_actor_anim`, so an AI fighter shows those poses too (fable
+    /// review §A9). Defaults inert.
+    pub anim: crate::player::BodyAnimFacts,
 }
 
 impl EnemyActorBundle {
@@ -168,6 +173,7 @@ impl EnemyActorBundle {
             damageable_volumes: DamageableVolumes::default(),
             pogo_policy: PogoPolicy::FromDamageable,
             pogo_target_volumes: PogoTargetVolumes::default(),
+            anim: crate::player::BodyAnimFacts::default(),
         }
     }
 }

@@ -28,6 +28,66 @@ use crate::player::{BodyAnimFacts, PlayerBlinkCameraState};
 /// picks back up; long enough that the kick reads at typical playback rates.
 const WALL_JUMP_ANIM_HOLD_SECS: f32 = 0.18;
 
+/// Advance a body's presentation overlay timers ([`crate::player::BodyAnimFacts`])
+/// one frame: decay the op-armed poses (slash / shoot / wall-jump / interact) and
+/// arm+decay the edge-derived poses (landing on the air→ground edge, graded hard
+/// vs soft by pre-touchdown speed; dash-startup on the dash rising edge). Body-
+/// generic — reads only `(on_ground, vel_y, dash_timer)` cluster state, no player
+/// specifics — so the player tick AND every actor advance their overlays through
+/// the SAME code, and `pick_actor_anim` can show those poses for AI fighters too
+/// (fable review §A9). The op-armed timers are set elsewhere (attack / projectile /
+/// the movement WallJump op); this only advances them.
+pub fn advance_body_anim_overlays(
+    on_ground: bool,
+    vel_y: f32,
+    dash_timer: f32,
+    anim: &mut crate::player::BodyAnimFacts,
+    frame_dt: f32,
+) {
+    /// Pre-touchdown downward speed (px/s) above which the hard-landing row plays.
+    const HARD_LAND_SPEED: f32 = 520.0;
+    /// Time the landing pose holds after touchdown (hard vs soft).
+    const LAND_HARD_HOLD_SECS: f32 = 0.34;
+    const LAND_SOFT_HOLD_SECS: f32 = 0.16;
+    /// Brief pre-roll for the dash startup pose (below the dash's own duration so
+    /// the streaking dash row still gets airtime).
+    const DASH_STARTUP_SECS: f32 = 0.05;
+
+    // Op-armed poses just decay here (armed by attack / projectile / movement ops).
+    anim.slash_anim_timer = (anim.slash_anim_timer - frame_dt).max(0.0);
+    anim.shoot_anim_timer = (anim.shoot_anim_timer - frame_dt).max(0.0);
+    anim.wall_jump_anim_timer = (anim.wall_jump_anim_timer - frame_dt).max(0.0);
+    anim.interact_anim_timer = (anim.interact_anim_timer - frame_dt).max(0.0);
+
+    // Landing edge: airborne last frame, grounded this frame.
+    if on_ground && !anim.anim_prev_on_ground {
+        let hard = anim.anim_prev_vel_y >= HARD_LAND_SPEED;
+        anim.land_anim_hard = hard;
+        anim.land_anim_timer = if hard {
+            LAND_HARD_HOLD_SECS
+        } else {
+            LAND_SOFT_HOLD_SECS
+        };
+    } else if !on_ground {
+        // The landing pose only plays on the ground.
+        anim.land_anim_timer = 0.0;
+    } else {
+        anim.land_anim_timer = (anim.land_anim_timer - frame_dt).max(0.0);
+    }
+
+    // Dash rising edge: no dash last frame, a dash this frame.
+    if dash_timer > 0.0 && anim.anim_prev_dash_timer <= 0.0 {
+        anim.dash_startup_timer = DASH_STARTUP_SECS;
+    } else {
+        anim.dash_startup_timer = (anim.dash_startup_timer - frame_dt).max(0.0);
+    }
+
+    // Snapshot for the next frame's edge detection.
+    anim.anim_prev_on_ground = on_ground;
+    anim.anim_prev_vel_y = vel_y;
+    anim.anim_prev_dash_timer = dash_timer;
+}
+
 /// Body-generic movement presentation: translate a frame's [`ae::FrameEvents`]
 /// (jump/dash/dodge/wall-jump/pogo/swim/ledge/shield/fly ops + blink endpoints)
 /// into `SfxMessage`/`VfxMessage` facts at the body's position, plus the

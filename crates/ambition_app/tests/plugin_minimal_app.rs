@@ -7,7 +7,7 @@
 //! - on the first tick exactly one player entity exists;
 //! - that entity carries the canonical simulation components
 //!   ([`PlayerEntity`], [`PlayerMovementAuthority`], [`PlayerBody`],
-//!   [`BodyHealth`], [`BodyCombat`], [`PlayerAnimState`],
+//!   [`BodyHealth`], [`BodyCombat`], [`BodyAnimFacts`],
 //!   [`PlayerInteractionState`], [`PlayerBlinkCameraState`]);
 //! - the canonical sim resources ([`SandboxSimState`], [`ControlFrame`],
 //!   [`RoomGeometry`], [`RoomSet`], [`MovingPlatformSet`]) are present;
@@ -24,7 +24,7 @@ use ambition_characters::actor::{BodyCombat, BodyHealth};
 use ambition_gameplay_core::actor::{BodyKinematics, PlayerEntity, PrimaryPlayer};
 use ambition_gameplay_core::body_mode::BodyModeCapabilities;
 use ambition_gameplay_core::player::{
-    LocalPlayer, PlayerAnimState, PlayerBlinkCameraState, PlayerIdentityBundle, PlayerSlot,
+    LocalPlayer, BodyAnimFacts, PlayerBlinkCameraState, PlayerIdentityBundle, PlayerSlot,
 };
 use ambition_gameplay_core::rooms::RoomSet;
 use ambition_gameplay_core::{GameMode, MovingPlatformSet, SandboxSimState};
@@ -110,7 +110,7 @@ fn player_entity_carries_canonical_sim_components() {
         &BodyKinematics,
         &BodyHealth,
         &BodyCombat,
-        &PlayerAnimState,
+        &BodyAnimFacts,
         &BodyModeCapabilities,
         &PlayerBlinkCameraState,
     ), With<PlayerEntity>>();

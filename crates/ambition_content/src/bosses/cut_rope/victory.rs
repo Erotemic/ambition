@@ -128,6 +128,7 @@ fn spawn_victory_npc_entity(commands: &mut Commands, pos: ae::Vec2) -> Entity {
                 damageable_volumes: DamageableVolumes::default(),
                 pogo_policy: PogoPolicy::FromDamageable,
                 pogo_target_volumes: PogoTargetVolumes::default(),
+                anim: Default::default(),
             },
             cluster_bundle,
             ambition_characters::brain::Brain::stand_still(),

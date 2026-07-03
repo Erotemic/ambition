@@ -395,80 +395,18 @@ pub fn cleanup_timers_system(
     };
     combat.hit_flash = (combat.hit_flash - frame_dt).max(0.0);
     dev_state.preset_flash = (dev_state.preset_flash - frame_dt).max(0.0);
-    anim.slash_anim_timer = (anim.slash_anim_timer - frame_dt).max(0.0);
-    anim.shoot_anim_timer = (anim.shoot_anim_timer - frame_dt).max(0.0);
-    anim.wall_jump_anim_timer = (anim.wall_jump_anim_timer - frame_dt).max(0.0);
-    anim.interact_anim_timer = (anim.interact_anim_timer - frame_dt).max(0.0);
+    // Player-specific presentation timers (the blink-camera lerp) decay here; the
+    // body-generic anim OVERLAYS advance through the shared helper the actor tick
+    // also runs (fable review §A9).
     blink_cam.blink_in_timer = (blink_cam.blink_in_timer - frame_dt).max(0.0);
     blink_cam.camera_snap_timer = (blink_cam.camera_snap_timer - frame_dt).max(0.0);
-    update_anim_signal_timers(
+    ambition_gameplay_core::player::advance_body_anim_overlays(
         ground.on_ground,
         kinematics.vel.y,
         dash.timer,
         &mut anim,
         frame_dt,
     );
-}
-
-/// Drive the presentation-only landing + dash-startup timers and capture
-/// the per-frame state needed for edge detection.
-///
-/// The sprite picker (`pick_player_anim`) reads these from the
-/// `BodyAnimFacts` component. Detection lives here so all presentation
-/// timers decay in one phase and so the "previous frame" snapshot is
-/// the one immediately before the next gameplay tick.
-fn update_anim_signal_timers(
-    on_ground: bool,
-    vel_y: f32,
-    dash_timer: f32,
-    anim: &mut ambition_gameplay_core::player::BodyAnimFacts,
-    frame_dt: f32,
-) {
-    // Hard-landing threshold: pre-touchdown downward speed (px/s) above
-    // which we play `LandHard` instead of `LandRecovery`. Tuned by the
-    // sandbox's terminal-fall feel; raise if normal jump landings start
-    // reading as hard impacts.
-    const HARD_LAND_SPEED: f32 = 520.0;
-    // Time the landing pose holds after touchdown.
-    const LAND_HARD_HOLD_SECS: f32 = 0.34;
-    const LAND_SOFT_HOLD_SECS: f32 = 0.16;
-    // Brief pre-roll for the dash startup pose. Falls below the dash's
-    // own duration so the streaking dash row still gets airtime.
-    const DASH_STARTUP_SECS: f32 = 0.05;
-
-    // Landing edge: airborne last frame, grounded this frame.
-    if on_ground && !anim.anim_prev_on_ground {
-        let impact_speed = anim.anim_prev_vel_y;
-        let hard = impact_speed >= HARD_LAND_SPEED;
-        anim.land_anim_hard = hard;
-        anim.land_anim_timer = if hard {
-            LAND_HARD_HOLD_SECS
-        } else {
-            LAND_SOFT_HOLD_SECS
-        };
-    } else if !on_ground {
-        // Stay airborne: the landing pose only plays on the ground.
-        anim.land_anim_timer = 0.0;
-    } else {
-        anim.land_anim_timer = (anim.land_anim_timer - frame_dt).max(0.0);
-    }
-
-    // Dash rising edge: previous frame had no dash, this frame has one.
-    if dash_timer > 0.0 && anim.anim_prev_dash_timer <= 0.0 {
-        anim.dash_startup_timer = DASH_STARTUP_SECS;
-    } else {
-        anim.dash_startup_timer = (anim.dash_startup_timer - frame_dt).max(0.0);
-    }
-
-    // Snapshot for the next frame. Sample vel.y BEFORE any further
-    // physics so the landing detector sees the pre-touchdown speed
-    // (engine zeroes vertical velocity on contact); this system runs
-    // at the end of the gameplay loop, so the player state here is
-    // already post-integration but still reflects the speed that produced
-    // this frame's `on_ground`.
-    anim.anim_prev_on_ground = on_ground;
-    anim.anim_prev_vel_y = vel_y;
-    anim.anim_prev_dash_timer = dash_timer;
 }
 
 #[cfg(test)]

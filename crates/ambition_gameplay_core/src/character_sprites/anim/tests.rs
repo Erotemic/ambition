@@ -381,6 +381,7 @@ fn actor_state() -> ActorAnimState {
         alive: true,
         hit_flash: false,
         aerial: false,
+        ..Default::default()
     }
 }
 
@@ -423,6 +424,36 @@ fn pick_actor(
         swing,
         state,
     )
+}
+
+#[test]
+fn actors_show_movement_overlay_poses_like_the_player() {
+    // §A9: the movement-driven overlays (wall-jump / dash-startup / landing) are
+    // no longer player-only — an actor whose BodyAnimFacts armed one shows that
+    // pose, through the SAME `pick_body_anim` ladder the player uses.
+    // Grounded, standing still — the base ladder reads Idle with no overlay.
+    let mut c = PickClusters::defaults();
+    c.ground.on_ground = true;
+    // Wall-jump + dash-startup are high-priority overlays (win over locomotion).
+    assert_eq!(
+        pick_actor(&c, None, ActorAnimState { wall_jump: true, ..actor_state() }),
+        CharacterAnim::WallJump,
+    );
+    assert_eq!(
+        pick_actor(&c, None, ActorAnimState { dash_startup: true, ..actor_state() }),
+        CharacterAnim::DashStartup,
+    );
+    // Landing grades hard vs soft; it only shows on the ground.
+    assert_eq!(
+        pick_actor(&c, None, ActorAnimState { landing: Some(true), ..actor_state() }),
+        CharacterAnim::LandHard,
+    );
+    assert_eq!(
+        pick_actor(&c, None, ActorAnimState { landing: Some(false), ..actor_state() }),
+        CharacterAnim::LandRecovery,
+    );
+    // No overlay armed → the base ladder (a grounded idle actor reads Idle).
+    assert_eq!(pick_actor(&c, None, actor_state()), CharacterAnim::Idle);
 }
 
 #[test]

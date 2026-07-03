@@ -749,7 +749,7 @@ fn directional_attack_anim(attack: Option<&crate::MeleeSwing>) -> CharacterAnim 
 /// and "NPC" were never different animation contracts, just dispositions: both
 /// walk, attack, fly, take a hit, and die from the SAME cluster reads, so what an
 /// actor shows is its real ECS state, not its label.
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, Default)]
 pub struct ActorAnimState {
     /// Liveness (from `ActorStatus.alive`) → `Death`. The body's combat cluster
     /// drives the player's death; an actor's liveness lives on its status.
@@ -762,6 +762,15 @@ pub struct ActorAnimState {
     /// (Jump/Fall) gate is suppressed. A non-aerial actor knocked off the ground
     /// is NOT aerial — it falls through to the Jump/Fall gate like the player.
     pub aerial: bool,
+    /// Movement-driven presentation overlays, read from the actor's
+    /// [`crate::player::BodyAnimFacts`] — the SAME poses the player shows, now
+    /// available to any body (fable review §A9). `landing` carries hard-vs-soft.
+    /// A sheet without a given row falls back through `resolve_anim`, so these are
+    /// always safe to request.
+    pub wall_jump: bool,
+    pub dash_startup: bool,
+    pub landing: Option<bool>,
+    pub shooting: bool,
 }
 
 /// Pick any brain-driven actor's animation through the shared [`pick_body_anim`]
@@ -822,6 +831,14 @@ pub fn pick_actor_anim(
             )
         })
         .map(|s| directional_attack_anim(Some(s)));
+    // Movement-driven overlays from the actor's BodyAnimFacts — the SAME reads
+    // `pick_player_anim` applies, so an AI fighter shows wall-jump / dash-startup /
+    // landing / shoot poses (whatever its sheet owns) instead of only the base
+    // ladder (fable review §A9).
+    v.wall_jump = state.wall_jump;
+    v.dash_startup = state.dash_startup;
+    v.landing = state.landing;
+    v.shooting = state.shooting;
     if state.aerial {
         // A flyer reads Fly/Idle from the locomotion tail; suppress the airborne
         // Jump/Fall gate (it floats — `on_ground` is false but it isn't falling).

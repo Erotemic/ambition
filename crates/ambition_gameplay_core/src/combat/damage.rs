@@ -26,7 +26,7 @@ use crate::actor::{PlayerEntity, PrimaryPlayer, PrimaryPlayerOnly};
 use ambition_sfx::SfxMessage;
 use crate::dev::dev_tools::EditableMovementTuning;
 use crate::features::{self, GameplayBanner, HitEvent as FeatureHitEvent};
-use crate::player::{PlayerAnimState, PlayerSafetyState};
+use crate::player::{BodyAnimFacts, PlayerSafetyState};
 use ambition_time::ClockState;
 use crate::time::feel::SandboxFeelTuning;
 use ambition_engine_core::RoomGeometry;
@@ -179,7 +179,7 @@ pub(crate) fn death_respawn_player(
     feel: SandboxFeelTuning,
     from: ae::Vec2,
     cause: crate::DeathCause,
-    anim: &mut PlayerAnimState,
+    anim: &mut BodyAnimFacts,
     combat: &mut BodyCombat,
 ) {
     let to = world.spawn;
@@ -223,7 +223,7 @@ pub(crate) fn handle_player_damage_events(
     tuning: ae::MovementTuning,
     feel: SandboxFeelTuning,
     difficulty_multiplier: f32,
-    anim: &mut PlayerAnimState,
+    anim: &mut BodyAnimFacts,
     combat: &mut BodyCombat,
 ) {
     let Some(damage) = damage_events.first().cloned() else {
@@ -495,7 +495,7 @@ pub fn apply_player_hit_events(
             Entity,
             ae::BodyClusterQueryData,
             Option<&mut BodyHealth>,
-            &mut PlayerAnimState,
+            &mut BodyAnimFacts,
             &mut BodyCombat,
             &mut PlayerSafetyState,
         ),

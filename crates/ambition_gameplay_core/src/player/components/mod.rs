@@ -74,7 +74,7 @@ pub use crate::features::BodyMelee;
 /// This is the authoritative source — `write_player_ecs_components` does
 /// not touch it.
 #[derive(Component, Clone, Debug, Default, PartialEq)]
-pub struct PlayerAnimState {
+pub struct BodyAnimFacts {
     /// Time remaining for the slash animation row.
     pub slash_anim_timer: f32,
     /// Time remaining for the post-touchdown landing pose.
@@ -109,7 +109,7 @@ pub struct PlayerAnimState {
     pub interact_anim_timer: f32,
 }
 
-impl PlayerAnimState {
+impl BodyAnimFacts {
     pub fn reset(&mut self) {
         *self = Self::default();
     }

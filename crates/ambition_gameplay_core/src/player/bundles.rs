@@ -5,7 +5,7 @@ use ambition_engine_core::CenteredAabb;
 use bevy::prelude::*;
 
 use super::components::{
-    BodyMelee, LocalPlayer, PlayerAnimState, PlayerBlinkCameraState, PlayerEntity,
+    BodyMelee, LocalPlayer, BodyAnimFacts, PlayerBlinkCameraState, PlayerEntity,
     PlayerInputFrame, PlayerSafetyState, PlayerSlot, PrimaryPlayer,
 };
 use super::movement_components::BodyKinematics;
@@ -55,7 +55,7 @@ pub struct PlayerSimulationBundle {
     /// Body-mode kit: the home player can crouch / morph / climb. A possessed
     /// actor uses ITS OWN capabilities (this is the home body's).
     pub body_mode_caps: BodyModeCapabilities,
-    pub anim: PlayerAnimState,
+    pub anim: BodyAnimFacts,
     pub blink_cam: PlayerBlinkCameraState,
     pub attack: BodyMelee,
     pub safety: PlayerSafetyState,
@@ -133,7 +133,7 @@ impl PlayerSimulationBundle {
             wallet: BodyWallet::default(),
             combat: BodyCombat::default(),
             body_mode_caps: BodyModeCapabilities::full(),
-            anim: PlayerAnimState::default(),
+            anim: BodyAnimFacts::default(),
             blink_cam: PlayerBlinkCameraState::default(),
             attack: BodyMelee::default(),
             safety: PlayerSafetyState::new(initial_safe_pos),

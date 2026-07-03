@@ -30,7 +30,7 @@ pub(crate) fn reset_sandbox(
     clock: &mut ambition_time::ClockState,
     safety: &mut ambition_gameplay_core::player::PlayerSafetyState,
     attack: &mut Option<ambition_gameplay_core::MeleeSwing>,
-    anim: &mut ambition_gameplay_core::player::PlayerAnimState,
+    anim: &mut ambition_gameplay_core::player::BodyAnimFacts,
     combat: &mut ambition_characters::actor::BodyCombat,
     interaction: &mut ambition_gameplay_core::player::SlotGestures,
     blink_cam: &mut ambition_gameplay_core::player::PlayerBlinkCameraState,

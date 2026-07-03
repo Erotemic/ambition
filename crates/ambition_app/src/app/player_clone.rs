@@ -113,7 +113,7 @@ pub fn spawn_requested_player_clone(
         // through the IDENTICAL player picker — `animate_player` now iterates every
         // `PlayerVisual` body, not just the primary.
         (
-            ambition_gameplay_core::player::PlayerAnimState::default(),
+            ambition_gameplay_core::player::BodyAnimFacts::default(),
             ambition_characters::actor::BodyCombat::default(),
             ambition_gameplay_core::player::PlayerBlinkCameraState::default(),
         ),

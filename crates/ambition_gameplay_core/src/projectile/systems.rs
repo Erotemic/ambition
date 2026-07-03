@@ -132,7 +132,7 @@ impl ProjectileCollisionWorld<'_, '_> {
 /// The projectile origin is the EMITTING body's own muzzle (`kin.pos`), so a
 /// possessed body that adopts the player's kit fires from ITSELF, not the home
 /// avatar. Only the home body carries the charge state today; the player-flavoured
-/// anim pulse is therefore OPTIONAL (a non-home charge body has no `PlayerAnimState`).
+/// anim pulse is therefore OPTIONAL (a non-home charge body has no `BodyAnimFacts`).
 #[allow(clippy::too_many_arguments)]
 pub fn charge_projectile_input(
     world_time: Res<ambition_time::WorldTime>,
@@ -143,7 +143,7 @@ pub fn charge_projectile_input(
             Entity,
             &crate::actor::BodyKinematics,
             &mut crate::projectile::PlayerProjectileState,
-            Option<&mut crate::player::PlayerAnimState>,
+            Option<&mut crate::player::BodyAnimFacts>,
         ),
         With<ambition_characters::brain::ChargesProjectiles>,
     >,

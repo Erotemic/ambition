@@ -31,7 +31,7 @@ pub fn interact_ecs_actors_and_switches(
     // Interact-gesture pose on the primary player's presentation anim (+ the
     // startup-frame fallback subject).
     mut input_surface: Query<
-        (Entity, &mut crate::player::PlayerAnimState),
+        (Entity, &mut crate::player::BodyAnimFacts),
         (
             With<crate::actor::PlayerEntity>,
             With<crate::actor::PrimaryPlayer>,

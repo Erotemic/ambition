@@ -83,7 +83,7 @@ pub fn process_sandbox_reset_request(
     mut player_q: Query<
         (
             ae::BodyClusterQueryData,
-            &mut crate::player::PlayerAnimState,
+            &mut crate::player::BodyAnimFacts,
             &mut ambition_characters::actor::BodyCombat,
             &mut crate::player::PlayerBlinkCameraState,
             &mut crate::player::BodyMelee,

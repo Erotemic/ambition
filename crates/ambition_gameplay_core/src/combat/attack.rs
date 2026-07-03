@@ -28,7 +28,7 @@ use crate::combat::{
 };
 use crate::dev::dev_tools::EditableMovementTuning;
 use crate::features::{self, FeatureEcsWorldOverlay};
-use crate::player::{BodyMelee, PlayerAnimState};
+use crate::player::{BodyMelee, BodyAnimFacts};
 use crate::time::feel::SandboxFeelTuning;
 use crate::world::platforms::MovingPlatformState;
 use crate::{physics, MeleeSwing, MovingPlatformSet};
@@ -149,9 +149,9 @@ pub fn start_attack(
     clusters: &mut ae::BodyClustersMut<'_>,
     attack: &mut Option<MeleeSwing>,
     // Presentation-only slash-anim timer. `None` for a body with no
-    // `PlayerAnimState` (an actor) — the swing lifecycle is gameplay, the anim is
+    // `BodyAnimFacts` (an actor) — the swing lifecycle is gameplay, the anim is
     // presentation and rides only where authored.
-    anim: Option<&mut PlayerAnimState>,
+    anim: Option<&mut BodyAnimFacts>,
     actor: ActorControlFrame,
     // When the player is holding a melee weapon (axe etc.), its `ActionSet`
     // melee spec re-tunes the swing (timing / reach / damage) so the held item
@@ -340,7 +340,7 @@ pub fn advance_attack(
     moving_platforms: &[MovingPlatformState],
     clusters: &mut ae::BodyClustersMut<'_>,
     attack: &mut Option<MeleeSwing>,
-    anim: Option<&mut PlayerAnimState>,
+    anim: Option<&mut BodyAnimFacts>,
     tuning: ae::MovementTuning,
     frame_dt: f32,
     feature_ecs_overlay: &FeatureEcsWorldOverlay,
@@ -513,7 +513,7 @@ pub fn start_body_melee(
         &ActorControl,
         Option<&features::HeldItem>,
         Option<&features::ActorConfig>,
-        Option<&mut PlayerAnimState>,
+        Option<&mut BodyAnimFacts>,
     )>,
 ) {
     // The resolver can emit the same body once per frame; collect the requesters.
@@ -600,7 +600,7 @@ pub fn advance_body_melee(
         &features::ActorFaction,
         Option<&ambition_characters::brain::Brain>,
         Option<&features::ActorConfig>,
-        Option<&mut PlayerAnimState>,
+        Option<&mut BodyAnimFacts>,
     )>,
 ) {
     let dt = world_time.sim_dt();

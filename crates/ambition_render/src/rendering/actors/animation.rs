@@ -90,7 +90,7 @@ pub fn animate_player(
                 &ambition_engine_core::BodyDashState,
                 &ambition_engine_core::BodyLedgeState,
                 &ambition_characters::actor::BodyCombat,
-                &ambition_gameplay_core::player::PlayerAnimState,
+                &ambition_gameplay_core::player::BodyAnimFacts,
                 &ambition_gameplay_core::player::PlayerBlinkCameraState,
             ),
             (

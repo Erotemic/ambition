@@ -99,7 +99,7 @@ fn held_release_after_medium_threshold_fires_charged_fireball() {
 
 /// Fork D — the charge-projectile INPUT is BODY/ability-subject, not player-marker.
 /// A charge-capable body that is NOT the home avatar (no `PlayerEntity`, no
-/// `PlayerAnimState` — the shape a possessed body driving the player's kit takes)
+/// `BodyAnimFacts` — the shape a possessed body driving the player's kit takes)
 /// fires from ITS OWN muzzle when its `ActorControl` commands a shot, while the home
 /// avatar (neutral input) fires nothing. Pins "projectile origin = the emitting
 /// body, not the home avatar".
@@ -115,7 +115,7 @@ fn a_non_home_charge_body_fires_from_its_own_muzzle_not_the_home_avatar() {
     let mut app = projectile_test_app(dummy_world(), home_pos, 1.0);
 
     // A non-home charge body: the capability + charge state + a body + control, but
-    // NO PlayerEntity / PlayerAnimState / Brain — so `tick_player_brains` skips it
+    // NO PlayerEntity / BodyAnimFacts / Brain — so `tick_player_brains` skips it
     // and we drive its `ActorControl` directly (as a possessed body would be driven).
     let body = app
         .world_mut()

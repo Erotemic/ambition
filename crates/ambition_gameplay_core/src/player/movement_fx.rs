@@ -21,7 +21,7 @@ use ambition_vfx::vfx::{ParticleKind, VfxMessage};
 
 use ambition_characters::actor::BodyCombat;
 use ambition_sfx::SfxMessage;
-use crate::player::{PlayerAnimState, PlayerBlinkCameraState};
+use crate::player::{BodyAnimFacts, PlayerBlinkCameraState};
 
 /// How long the wall-jump push-off pose holds after the WallJump op fires. Short
 /// enough to clear before the apex of the jump arc so the regular `Jump` row
@@ -195,7 +195,7 @@ pub fn handle_player_events(
     clusters: &ae::BodyClustersMut<'_>,
     combat: &mut BodyCombat,
     blink_cam: &mut PlayerBlinkCameraState,
-    anim: &mut PlayerAnimState,
+    anim: &mut BodyAnimFacts,
     events: ae::FrameEvents,
     was_grounded: Option<bool>,
 ) {

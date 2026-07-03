@@ -25,7 +25,7 @@ pub(super) fn sync_player_presentation(
     clusters: &ae::BodyClustersMut<'_>,
     combat: &mut ambition_characters::actor::BodyCombat,
     blink_cam: &mut ambition_gameplay_core::player::PlayerBlinkCameraState,
-    anim: &mut ambition_gameplay_core::player::PlayerAnimState,
+    anim: &mut ambition_gameplay_core::player::BodyAnimFacts,
     sfx_writer: &mut MessageWriter<SfxMessage>,
     vfx_writer: &mut MessageWriter<VfxMessage>,
     shake: &mut ambition_gameplay_core::time::camera_ease::CameraShakeState,

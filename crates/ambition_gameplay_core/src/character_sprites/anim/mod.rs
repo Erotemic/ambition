@@ -9,7 +9,7 @@
 
 use ambition_engine_core as ae;
 
-use crate::player::PlayerAnimState;
+use crate::player::BodyAnimFacts;
 
 /// Animation ids that a character sheet may define.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -59,7 +59,7 @@ pub enum CharacterAnim {
     FloatGlide = 17,
     /// Heavy landing — big squash, slow rebound. Triggered when the
     /// landing transition was hit at a high downward speed; consumed by
-    /// `pick_player_anim` while `PlayerAnimState::land_anim_timer` is
+    /// `pick_player_anim` while `BodyAnimFacts::land_anim_timer` is
     /// positive and `land_anim_hard` is set.
     LandHard = 18,
     /// Rising recovery after a (hard) landing. Plays when
@@ -127,7 +127,7 @@ pub enum CharacterAnim {
     /// Projectile fire pose — single-frame arm extension at the
     /// release point. Generator row `shoot`. Not yet auto-routed by
     /// `pick_player_anim`; needs a `shoot_anim_timer` on
-    /// `PlayerAnimState` set when a projectile spawns.
+    /// `BodyAnimFacts` set when a projectile spawns.
     Shoot = 36,
     /// Held-projectile charge / aim pose. Generator row `aim`. Not
     /// yet auto-routed; needs the projectile charge state on the
@@ -139,13 +139,13 @@ pub enum CharacterAnim {
     Charge = 38,
     /// Defensive bubble / shield-up pose. Generator row `block`.
     /// Routes from the player's shield-held state once that's mirrored
-    /// onto `PlayerAnimState` (today the input is `ControlFrame.
+    /// onto `BodyAnimFacts` (today the input is `ControlFrame.
     /// shield_held` + `AbilitySet::shield`).
     Block = 39,
     /// Tumbling dodge roll across the ground — invulnerability frames
     /// during the curl. Generator row `roll`. Selected by
     /// `pick_player_anim` once the dodge-roll timer surfaces on
-    /// `PlayerAnimState`; distinct from `LedgeRoll` (the latter is
+    /// `BodyAnimFacts`; distinct from `LedgeRoll` (the latter is
     /// specifically the ledge-getup variant).
     DodgeRoll = 40,
     /// Wall-jump push-off pose. Generator row `wall_jump`. Distinct
@@ -665,7 +665,7 @@ pub fn body_view_from_clusters(
 
 #[allow(clippy::too_many_arguments)]
 pub fn pick_player_anim(
-    anim: &PlayerAnimState,
+    anim: &BodyAnimFacts,
     combat: &ambition_characters::actor::BodyCombat,
     blink_cam: &crate::player::PlayerBlinkCameraState,
     attack: Option<&crate::MeleeSwing>,

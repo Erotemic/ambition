@@ -48,13 +48,13 @@ impl PickClusters {
 }
 
 fn pick_inputs() -> (
-    PlayerAnimState,
+    BodyAnimFacts,
     BodyCombat,
     PlayerBlinkCameraState,
     PickClusters,
 ) {
     (
-        PlayerAnimState::default(),
+        BodyAnimFacts::default(),
         BodyCombat::default(),
         PlayerBlinkCameraState::default(),
         PickClusters::defaults(),
@@ -62,7 +62,7 @@ fn pick_inputs() -> (
 }
 
 fn pick(
-    anim: &PlayerAnimState,
+    anim: &BodyAnimFacts,
     combat: &BodyCombat,
     blink_cam: &PlayerBlinkCameraState,
     attack: Option<&crate::MeleeSwing>,

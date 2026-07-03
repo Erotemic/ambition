@@ -47,7 +47,7 @@ pub(crate) fn apply_home_reset_policy(
     mut player_q: Query<
         (
             ae::BodyClusterQueryData,
-            &mut ambition_gameplay_core::player::PlayerAnimState,
+            &mut ambition_gameplay_core::player::BodyAnimFacts,
             &mut ambition_characters::actor::BodyCombat,
             &mut ambition_gameplay_core::player::PlayerBlinkCameraState,
             &mut ambition_gameplay_core::player::BodyMelee,
@@ -113,7 +113,7 @@ pub fn sync_player_presentation(
     mut player_q: Query<
         (
             ae::BodyClusterQueryData,
-            &mut ambition_gameplay_core::player::PlayerAnimState,
+            &mut ambition_gameplay_core::player::BodyAnimFacts,
             &mut ambition_characters::actor::BodyCombat,
             &mut ambition_gameplay_core::player::PlayerBlinkCameraState,
             &PlayerBodyFrameOutput,

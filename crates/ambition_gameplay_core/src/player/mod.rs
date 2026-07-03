@@ -52,7 +52,7 @@ pub use starting_character::{
 // dependency direction (non-player code imports body state from `crate::actor`,
 // never through the player module). The genuinely player-only state stays below.
 pub use components::{
-    BodyMelee, LocalPlayer, PlayerAnimState, PlayerBlinkCameraState, PlayerInputFrame,
+    BodyMelee, LocalPlayer, BodyAnimFacts, PlayerBlinkCameraState, PlayerInputFrame,
     PlayerSafetyState, PlayerSlot, SlotGestures, SlotInteractionState,
 };
 pub use events::PlayerHealRequested;

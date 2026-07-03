@@ -236,7 +236,7 @@ pub fn apply_player_reset_input_system(
     mut player_q: Query<
         (
             ae::BodyClusterQueryData,
-            &mut ambition_gameplay_core::player::PlayerAnimState,
+            &mut ambition_gameplay_core::player::BodyAnimFacts,
             &mut ambition_characters::actor::BodyCombat,
             &mut ambition_gameplay_core::player::PlayerBlinkCameraState,
             &mut ambition_gameplay_core::player::BodyMelee,
@@ -309,7 +309,7 @@ pub fn apply_cut_rope_room_replay_request_system(
     mut player_q: Query<
         (
             ae::BodyClusterQueryData,
-            &mut ambition_gameplay_core::player::PlayerAnimState,
+            &mut ambition_gameplay_core::player::BodyAnimFacts,
             &mut ambition_characters::actor::BodyCombat,
             &mut ambition_gameplay_core::player::PlayerBlinkCameraState,
             &mut ambition_gameplay_core::player::BodyMelee,
@@ -381,7 +381,7 @@ pub fn cleanup_timers_system(
             &ambition_gameplay_core::actor::BodyKinematics,
             &ambition_gameplay_core::actor::BodyGroundState,
             &ambition_gameplay_core::actor::BodyDashState,
-            &mut ambition_gameplay_core::player::PlayerAnimState,
+            &mut ambition_gameplay_core::player::BodyAnimFacts,
             &mut ambition_characters::actor::BodyCombat,
             &mut ambition_gameplay_core::player::PlayerBlinkCameraState,
         ),
@@ -414,14 +414,14 @@ pub fn cleanup_timers_system(
 /// the per-frame state needed for edge detection.
 ///
 /// The sprite picker (`pick_player_anim`) reads these from the
-/// `PlayerAnimState` component. Detection lives here so all presentation
+/// `BodyAnimFacts` component. Detection lives here so all presentation
 /// timers decay in one phase and so the "previous frame" snapshot is
 /// the one immediately before the next gameplay tick.
 fn update_anim_signal_timers(
     on_ground: bool,
     vel_y: f32,
     dash_timer: f32,
-    anim: &mut ambition_gameplay_core::player::PlayerAnimState,
+    anim: &mut ambition_gameplay_core::player::BodyAnimFacts,
     frame_dt: f32,
 ) {
     // Hard-landing threshold: pre-touchdown downward speed (px/s) above

@@ -13,7 +13,7 @@ pub fn open_ecs_chests(
     mut slot_gestures: ResMut<crate::player::SlotInteractionState>,
     // Interact-gesture pose + startup-frame fallback subject.
     mut input_surface: Query<
-        (Entity, &mut crate::player::PlayerAnimState),
+        (Entity, &mut crate::player::BodyAnimFacts),
         (
             With<crate::actor::PlayerEntity>,
             With<crate::actor::PrimaryPlayer>,
@@ -106,7 +106,7 @@ mod chest_tests {
     use crate::actor::BodyBaseSize;
     use crate::actor::BodyKinematics;
     use crate::actor::{PlayerEntity, PrimaryPlayer};
-    use crate::player::{PlayerAnimState, SlotInteractionState};
+    use crate::player::{BodyAnimFacts, SlotInteractionState};
     use bevy::prelude::{App, Entity, Update};
 
     fn app() -> App {
@@ -142,7 +142,7 @@ mod chest_tests {
                 BodyBaseSize {
                     base_size: ae::Vec2::new(28.0, 46.0),
                 },
-                PlayerAnimState::default(),
+                BodyAnimFacts::default(),
             ))
             .id();
         app.world_mut()

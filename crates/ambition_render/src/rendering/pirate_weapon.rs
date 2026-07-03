@@ -95,10 +95,10 @@ pub fn sync_pirate_weapon_visuals(
         Option<&ambition_characters::actor::BodyHealth>,
     )>,
     player_q: Query<
-        &ambition_gameplay_core::actor::BodyKinematics,
+        &ambition_platformer_primitives::body::BodyKinematics,
         (
-            With<ambition_gameplay_core::actor::PlayerEntity>,
-            With<ambition_gameplay_core::actor::PrimaryPlayer>,
+            With<ambition_platformer_primitives::markers::PlayerEntity>,
+            With<ambition_platformer_primitives::markers::PrimaryPlayer>,
         ),
     >,
     existing: Query<Entity, With<PirateWeaponVisual>>,

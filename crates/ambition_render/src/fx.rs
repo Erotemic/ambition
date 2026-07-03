@@ -848,9 +848,9 @@ pub fn update_blink_preview(
     // home avatar. Both player and actor bodies carry these blink clusters.
     controlled: Res<ambition_gameplay_core::abilities::traversal::possession::ControlledSubject>,
     player_q: Query<(
-        &ambition_gameplay_core::actor::BodyKinematics,
-        &ambition_gameplay_core::actor::BodyAbilities,
-        &ambition_gameplay_core::actor::BodyBlinkState,
+        &ambition_platformer_primitives::body::BodyKinematics,
+        &ambition_engine_core::BodyAbilities,
+        &ambition_engine_core::BodyBlinkState,
     )>,
     mut existing: Query<(Entity, &BlinkPreviewVisual, &mut Transform, &mut Sprite)>,
 ) {

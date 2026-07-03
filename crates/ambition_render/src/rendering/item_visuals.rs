@@ -4,7 +4,7 @@
 
 use ambition_characters::brain::ActorControl;
 use ambition_gameplay_core::abilities::traversal::possession::ControlledSubject;
-use ambition_gameplay_core::actor::BodyKinematics;
+use ambition_platformer_primitives::body::BodyKinematics;
 use ambition_gameplay_core::features::HeldItem;
 use ambition_gameplay_core::items::pickup::{GroundItem, HeldProjectile, FIREBALL_ID};
 use bevy::prelude::*;

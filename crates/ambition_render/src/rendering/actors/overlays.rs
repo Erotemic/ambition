@@ -195,7 +195,7 @@ pub fn apply_placeholder_sprites_override(
         Option<&SpriteOriginalState>,
         Option<&FeatureVisual>,
         Option<&PlayerVisual>,
-        Option<&ambition_gameplay_core::actor::BodyKinematics>,
+        Option<&ambition_platformer_primitives::body::BodyKinematics>,
         Option<&ambition_gameplay_core::projectile::ProjectileVisualKind>,
     )>,
 ) {

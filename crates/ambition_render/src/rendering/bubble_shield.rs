@@ -134,8 +134,8 @@ pub fn sync_bubble_shield_visual(
     sprite: Option<Res<BubbleShieldSprite>>,
     world: Res<ambition_gameplay_core::RoomGeometry>,
     bodies: Query<(
-        &ambition_gameplay_core::actor::BodyKinematics,
-        &ambition_gameplay_core::actor::BodyShieldState,
+        &ambition_platformer_primitives::body::BodyKinematics,
+        &ambition_engine_core::BodyShieldState,
     )>,
     mut rings: Query<(&mut Transform, &mut Sprite, &mut Visibility), With<BubbleShieldVisual>>,
 ) {

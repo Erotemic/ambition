@@ -46,8 +46,8 @@ pub fn sync_visuals(
             &mut Transform,
             &mut Sprite,
             Option<&PlayerSpriteBaseline>,
-            &ambition_gameplay_core::actor::BodyKinematics,
-            &ambition_gameplay_core::actor::BodyBaseSize,
+            &ambition_platformer_primitives::body::BodyKinematics,
+            &ambition_engine_core::BodyBaseSize,
             &ambition_characters::actor::BodyCombat,
             Option<&ambition_gameplay_core::platformer_runtime::orientation::ActorRoll>,
         ),
@@ -457,7 +457,7 @@ pub fn refresh_player_sprites_on_game_assets_change(
     players: Query<
         (
             Entity,
-            &ambition_gameplay_core::actor::BodyBaseSize,
+            &ambition_engine_core::BodyBaseSize,
             Option<&BoundSpriteQuality>,
         ),
         With<PlayerVisual>,

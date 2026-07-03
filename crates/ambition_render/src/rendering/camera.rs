@@ -93,7 +93,7 @@ pub struct PortalCameraContinuityParams<'w> {
 /// the lone player today. A future co-op build needs to follow the
 /// player with `PrimaryPlayer` (or compute a midpoint between local
 /// players); the query should switch to
-/// `With<ambition_gameplay_core::actor::PrimaryPlayer>` once a second player can
+/// `With<ambition_platformer_primitives::markers::PrimaryPlayer>` once a second player can
 /// exist. See [`ambition_gameplay_core::player::queries::PrimaryPlayerOnly`].
 pub fn camera_follow(
     resources: CameraFollowResources,
@@ -101,8 +101,8 @@ pub fn camera_follow(
     mut last_camera_room: Local<Option<String>>,
     player: Query<
         (
-            &ambition_gameplay_core::actor::BodyKinematics,
-            &ambition_gameplay_core::actor::BodyBaseSize,
+            &ambition_platformer_primitives::body::BodyKinematics,
+            &ambition_engine_core::BodyBaseSize,
             &ambition_gameplay_core::player::PlayerBlinkCameraState,
         ),
         ambition_gameplay_core::actor::PrimaryPlayerOnly,
@@ -112,7 +112,7 @@ pub fn camera_follow(
     // actor while possessing (so the view follows the body you're driving). Both
     // carry the shared `BodyKinematics`, so one read query serves either.
     controlled: Res<ambition_gameplay_core::abilities::traversal::possession::ControlledSubject>,
-    body_kinematics: Query<&ambition_gameplay_core::actor::BodyKinematics>,
+    body_kinematics: Query<&ambition_platformer_primitives::body::BodyKinematics>,
     windows: Query<&Window, With<PrimaryWindow>>,
     // `With<MainCamera>` (not the broad `With<Camera2d>`): besides the #31 cube
     // pause-menu Camera3d, the portal view-cone renderer spawns offscreen

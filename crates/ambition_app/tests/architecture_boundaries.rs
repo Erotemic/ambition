@@ -983,8 +983,11 @@ fn architecture_boundaries_portal_has_facade_plugin_and_schedule_files() {
             "color.rs",
             "types.rs",
             "gun.rs",
-            "pickup.rs",
-            "shot.rs",
+            // Renamed from the flat `pickup.rs` / `shot.rs` to the `gun_`-scoped
+            // files as the gun mechanic grew its own family (gun_lifecycle /
+            // gun_pickup / gun_projectile). The test tracks the real filenames.
+            "gun_pickup.rs",
+            "gun_projectile.rs",
             "placement.rs",
             "transit.rs",
             "lifecycle.rs",
@@ -1149,12 +1152,23 @@ fn architecture_boundaries_time_crate_is_extracted() {
     );
 
     let sandbox_time = crate_src().join("time");
+    // §D1 (02088cba) removed the `crate::time::{world_time,clock_state,time_control}`
+    // re-export facades: callers name `ambition_time::` DIRECTLY. `clock_state.rs`
+    // is gone (ClockState is named from the crate); `world_time.rs` is no longer a
+    // facade but the sandbox-only sim-dt BRIDGE (`mirror_sim_dt_into_runtime`) that
+    // couples ambition_time to the runtime crate's neutral `SimDt`.
+    assert_paths_absent(
+        &sandbox_time,
+        &["clock_state.rs"],
+        "clock_state facade removed — ClockState is named from ambition_time directly",
+    );
     let world_time = fs::read_to_string(sandbox_time.join("world_time.rs"))
-        .expect("read sandbox time/world_time.rs facade");
-    let clock_state = fs::read_to_string(sandbox_time.join("clock_state.rs"))
-        .expect("read sandbox time/clock_state.rs facade");
-    assert!(world_time.contains("pub use ambition_time::"));
-    assert!(clock_state.contains("pub use ambition_time::ClockState"));
+        .expect("read sandbox time/world_time.rs bridge");
+    assert!(
+        world_time.contains("mirror_sim_dt_into_runtime") && world_time.contains("ambition_time::"),
+        "world_time.rs is the sandbox sim-dt bridge that names ambition_time directly, \
+         not a re-export facade"
+    );
     assert_paths_exist(
         &sandbox_time,
         &["time_control", "camera_ease.rs", "feel.rs"],

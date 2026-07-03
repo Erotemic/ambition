@@ -49,7 +49,7 @@ pub use snapshot::{BrainSnapshot, WallContact};
 #[allow(unused_imports)]
 pub use state_machine::{
     tick_state_machine, AuthoredWorldPatrolLane, MeleeBruteCfg, MeleeBruteState, PatrolCfg,
-    PatrolState, SharkCfg, SharkState, SkirmisherCfg, SkirmisherState, SniperCfg, SniperState,
+    PatrolState, ChargeCrashCfg, ChargeCrashState, SkirmisherCfg, SkirmisherState, SniperCfg, SniperState,
     StateMachineCfg, WandererCfg, WandererState, NPC_PATROL_SPEED,
 };
 
@@ -240,7 +240,7 @@ impl Brain {
                 StateMachineCfg::MeleeBrute { .. } => "melee_brute",
                 StateMachineCfg::Skirmisher { .. } => "skirmisher",
                 StateMachineCfg::Sniper { .. } => "sniper",
-                StateMachineCfg::Shark { .. } => "shark",
+                StateMachineCfg::ChargeCrash { .. } => "charge_crash",
                 StateMachineCfg::BossPattern { .. } => "boss_pattern",
                 StateMachineCfg::Smash { .. } => "smash",
                 StateMachineCfg::Aerial { .. } => "aerial",

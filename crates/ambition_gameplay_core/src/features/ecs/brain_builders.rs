@@ -12,7 +12,7 @@ use super::variation::{five_f32s_from_seed, seed_from_id};
 use super::{CombatKit, HeldItem};
 use crate::combat::{ActorTuning, CharacterBrainSpec, CharacterBrainTemplate};
 use ambition_characters::brain::{
-    ActionSet, Brain, MeleeBruteCfg, MeleeBruteState, SharkCfg, SharkState, SkirmisherCfg,
+    ActionSet, Brain, MeleeBruteCfg, MeleeBruteState, ChargeCrashCfg, ChargeCrashState, SkirmisherCfg,
     SkirmisherState, SmashCfg, SmashState, SniperCfg, SniperState, StateMachineCfg, WandererCfg,
     WandererState,
 };
@@ -86,7 +86,7 @@ pub(in crate::features) fn enemy_default_brain(enemy: &ActorConfig) -> Brain {
             state: WandererState::default(),
         }),
         CharacterBrainTemplate::MeleeBrute => melee_brute_brain_for_enemy(enemy),
-        CharacterBrainTemplate::ChargeCrash => shark_brain_for_enemy(enemy),
+        CharacterBrainTemplate::ChargeCrash => charge_crash_brain_for_enemy(enemy),
         CharacterBrainTemplate::Skirmisher => skirmisher_brain_for_enemy(enemy),
         CharacterBrainTemplate::Sniper => sniper_brain_for_enemy(enemy),
         CharacterBrainTemplate::Smash => Brain::StateMachine(StateMachineCfg::Smash {
@@ -213,7 +213,7 @@ fn sniper_brain_for_enemy(enemy: &ActorConfig) -> Brain {
     })
 }
 
-fn shark_brain_for_enemy(enemy: &ActorConfig) -> Brain {
+fn charge_crash_brain_for_enemy(enemy: &ActorConfig) -> Brain {
     let t = &enemy.tuning;
     let jitters = five_f32s_from_seed(seed_from_id(&enemy.id));
     let aggro_radius = t.aggro_radius * (0.85 + 0.3 * jitters.0);
@@ -225,8 +225,8 @@ fn shark_brain_for_enemy(enemy: &ActorConfig) -> Brain {
     let standoff_px = (t.attack_range * 0.40).max(140.0) * (0.8 + 0.4 * jitters.2);
     let vertical_wobble_px = (t.attack_range * 0.12).max(20.0) * (0.8 + 0.4 * jitters.3);
     let orbit_drift_rad_s = 0.55 + 0.7 * jitters.4;
-    Brain::StateMachine(StateMachineCfg::Shark {
-        cfg: SharkCfg {
+    Brain::StateMachine(StateMachineCfg::ChargeCrash {
+        cfg: ChargeCrashCfg {
             aggressiveness: if t.attacks_player { 1.0 } else { 0.0 },
             aggro_radius,
             cruise_speed,
@@ -238,7 +238,7 @@ fn shark_brain_for_enemy(enemy: &ActorConfig) -> Brain {
             vertical_wobble_px,
             orbit_drift_rad_s,
         },
-        state: SharkState {
+        state: ChargeCrashState {
             charge_cooldown_remaining: charge_cooldown_s * (0.25 + 0.75 * jitters.0),
             ..Default::default()
         },

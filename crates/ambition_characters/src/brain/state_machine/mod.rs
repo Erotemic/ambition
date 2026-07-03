@@ -49,7 +49,7 @@ pub enum StateMachineCfg {
     Sniper { cfg: SniperCfg, state: SniperState },
     /// Dedicated shark charge brain. Riderless sharks use this to
     /// stalk, lunge, and then cool down after a crash or bite.
-    Shark { cfg: SharkCfg, state: SharkState },
+    ChargeCrash { cfg: ChargeCrashCfg, state: ChargeCrashState },
     /// Scripted multi-phase boss policy. The cfg + state live in
     /// `brain/boss_pattern.rs`; this variant carries them but the
     /// real tick driver is `tick_boss_brains_system` in
@@ -89,7 +89,7 @@ impl StateMachineCfg {
             Self::MeleeBrute { cfg, .. } => cfg.aggressiveness > 0.0,
             Self::Skirmisher { cfg, .. } => cfg.aggressiveness > 0.0,
             Self::Sniper { cfg, .. } => cfg.aggressiveness > 0.0,
-            Self::Shark { cfg, .. } => cfg.aggressiveness > 0.0,
+            Self::ChargeCrash { cfg, .. } => cfg.aggressiveness > 0.0,
             Self::BossPattern { cfg, .. } => cfg.aggressiveness > 0.0,
             // Smash brain is always hostile by construction — peaceful
             // archetypes don't use it (they get Patrol / Wanderer
@@ -142,7 +142,7 @@ pub fn tick_state_machine_with_actions(
         StateMachineCfg::MeleeBrute { cfg, state } => tick_melee_brute(cfg, state, snapshot, out),
         StateMachineCfg::Skirmisher { cfg, state } => tick_skirmisher(cfg, state, snapshot, out),
         StateMachineCfg::Sniper { cfg, state } => tick_sniper(cfg, state, snapshot, out),
-        StateMachineCfg::Shark { cfg, state } => tick_shark(cfg, state, snapshot, out),
+        StateMachineCfg::ChargeCrash { cfg, state } => tick_charge_crash(cfg, state, snapshot, out),
         StateMachineCfg::BossPattern { cfg, state } => {
             tick_boss_pattern_via_state_machine(cfg, state, snapshot, out)
         }
@@ -685,13 +685,13 @@ fn tick_sniper(
     }
 }
 
-// ===== Shark =====
+// ===== ChargeCrash =====
 
 /// Dedicated shark charge policy. The riderless burning shark uses
 /// this to lunge forward in bursts rather than simply marching like
 /// a melee brute.
 #[derive(Clone, Copy, Debug)]
-pub struct SharkCfg {
+pub struct ChargeCrashCfg {
     pub aggressiveness: f32,
     pub aggro_radius: f32,
     pub cruise_speed: f32,
@@ -705,16 +705,16 @@ pub struct SharkCfg {
 }
 
 #[derive(Clone, Copy, Debug, Default)]
-pub struct SharkState {
+pub struct ChargeCrashState {
     pub mode: crate::actor::ai::CharacterAiMode,
     pub charge_remaining: f32,
     pub charge_cooldown_remaining: f32,
     pub orbit_phase: f32,
 }
 
-fn tick_shark(
-    cfg: &SharkCfg,
-    state: &mut SharkState,
+fn tick_charge_crash(
+    cfg: &ChargeCrashCfg,
+    state: &mut ChargeCrashState,
     snapshot: &BrainSnapshot,
     out: &mut crate::actor::control::ActorControlFrame,
 ) {

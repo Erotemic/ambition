@@ -188,7 +188,7 @@ fn enemy_default_brain_picks_per_archetype_template() {
     let shark = make_enemy("burning_flying_shark");
     assert!(matches!(
         enemy_default_brain(&shark),
-        Brain::StateMachine(StateMachineCfg::Shark { .. })
+        Brain::StateMachine(StateMachineCfg::ChargeCrash { .. })
     ));
 
     // `MediumStriker` was migrated to the Smash brain template in

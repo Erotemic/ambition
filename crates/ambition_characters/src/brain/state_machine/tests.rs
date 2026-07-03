@@ -707,7 +707,7 @@ fn brain_tick_overwrites_prior_frame_intent() {
 
 #[test]
 fn shark_steers_away_from_aerial_crowding() {
-    let cfg = SharkCfg {
+    let cfg = ChargeCrashCfg {
         aggressiveness: 1.0,
         aggro_radius: 360.0,
         cruise_speed: 120.0,
@@ -719,19 +719,19 @@ fn shark_steers_away_from_aerial_crowding() {
         vertical_wobble_px: 24.0,
         orbit_drift_rad_s: 0.8,
     };
-    let state = SharkState {
+    let state = ChargeCrashState {
         charge_cooldown_remaining: cfg.charge_cooldown_s,
         ..Default::default()
     };
     let mut clear = snap_at(0.0, 200.0);
     clear.dt = 0.0;
-    let mut clear_brain = StateMachineCfg::Shark { cfg, state };
+    let mut clear_brain = StateMachineCfg::ChargeCrash { cfg, state };
     let mut clear_out = crate::actor::control::ActorControlFrame::neutral();
     tick_state_machine(&mut clear_brain, &clear, &mut clear_out);
 
     let mut crowded = clear;
     crowded.crowding = Some(same_faction_crowding(ae::Vec2::new(-1.0, 0.0)));
-    let mut crowded_brain = StateMachineCfg::Shark { cfg, state };
+    let mut crowded_brain = StateMachineCfg::ChargeCrash { cfg, state };
     let mut crowded_out = crate::actor::control::ActorControlFrame::neutral();
     tick_state_machine(&mut crowded_brain, &crowded, &mut crowded_out);
 
@@ -840,8 +840,8 @@ fn brain_templates_survive_zero_dt() {
             cfg: SniperCfg::DEFAULT,
             state: SniperState::default(),
         },
-        StateMachineCfg::Shark {
-            cfg: SharkCfg {
+        StateMachineCfg::ChargeCrash {
+            cfg: ChargeCrashCfg {
                 aggressiveness: 1.0,
                 aggro_radius: 360.0,
                 cruise_speed: 120.0,
@@ -853,7 +853,7 @@ fn brain_templates_survive_zero_dt() {
                 vertical_wobble_px: 24.0,
                 orbit_drift_rad_s: 0.8,
             },
-            state: SharkState::default(),
+            state: ChargeCrashState::default(),
         },
     ];
     for mut brain in templates {
@@ -972,8 +972,8 @@ fn is_hostile_reports_per_cfg() {
         state: SniperState::default(),
     }
     .is_hostile());
-    assert!(StateMachineCfg::Shark {
-        cfg: SharkCfg {
+    assert!(StateMachineCfg::ChargeCrash {
+        cfg: ChargeCrashCfg {
             aggressiveness: 1.0,
             aggro_radius: 360.0,
             cruise_speed: 120.0,
@@ -985,7 +985,7 @@ fn is_hostile_reports_per_cfg() {
             vertical_wobble_px: 24.0,
             orbit_drift_rad_s: 0.8,
         },
-        state: SharkState::default(),
+        state: ChargeCrashState::default(),
     }
     .is_hostile());
 }

@@ -311,6 +311,34 @@ impl BossAttackProfile {
             BossAttackProfile::HazardColumn => "hazard_column".to_string(),
         }
     }
+
+    /// The inverse of [`move_id`](Self::move_id): recover the profile a live
+    /// boss move belongs to from its move id. Every geometry label round-trips to
+    /// its variant; any other id is a content-technique `Special(key)` (its move id
+    /// IS the key). This lets a `BossAttackState` PROJECTION derive which profile a
+    /// `MovePlayback` represents without threading the profile through the
+    /// content-free move runtime.
+    ///
+    /// `from_move_id(p.move_id()) == p` for every profile (pinned by
+    /// `move_id_round_trips`), EXCEPT the degenerate case of a `Special` whose key
+    /// happens to equal a geometry label (e.g. `Special("floor_slam")`), which
+    /// resolves to the geometry variant — a naming collision no content authors.
+    pub fn from_move_id(id: &str) -> BossAttackProfile {
+        match id {
+            "floor_slam" => BossAttackProfile::FloorSlam,
+            "side_sweep" => BossAttackProfile::SideSweep,
+            "full_body_pulse" => BossAttackProfile::FullBodyPulse,
+            "wing_sweep" => BossAttackProfile::WingSweep,
+            "dive_lane" => BossAttackProfile::DiveLane,
+            "broadside" => BossAttackProfile::Broadside,
+            "hand_slam" => BossAttackProfile::HandSlam,
+            "hand_sweep" => BossAttackProfile::HandSweep,
+            "head_descent" => BossAttackProfile::HeadDescent,
+            "converging_shockwave" => BossAttackProfile::ConvergingShockwave,
+            "hazard_column" => BossAttackProfile::HazardColumn,
+            key => BossAttackProfile::Special(key.to_string()),
+        }
+    }
 }
 
 /// Free function used by both `BossPattern::total_duration` and the

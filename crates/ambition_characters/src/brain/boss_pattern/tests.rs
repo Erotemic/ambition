@@ -983,3 +983,34 @@ fn empty_repertoire_maps_to_no_move() {
     assert!(cap.slot(0).is_none());
     assert!(cap.signature_special().is_none());
 }
+
+// ===== move_id <-> from_move_id round-trip =====
+
+#[test]
+fn move_id_round_trips() {
+    // Every profile the boss can author must survive move_id -> from_move_id so a
+    // BossAttackState projection can recover which profile a live MovePlayback
+    // represents (E53: pattern-as-sequencer + projected read-model).
+    let profiles = [
+        BossAttackProfile::FloorSlam,
+        BossAttackProfile::SideSweep,
+        BossAttackProfile::FullBodyPulse,
+        BossAttackProfile::WingSweep,
+        BossAttackProfile::DiveLane,
+        BossAttackProfile::Broadside,
+        BossAttackProfile::HandSlam,
+        BossAttackProfile::HandSweep,
+        BossAttackProfile::HeadDescent,
+        BossAttackProfile::ConvergingShockwave,
+        BossAttackProfile::HazardColumn,
+        BossAttackProfile::Special("apple_rain".into()),
+        BossAttackProfile::Special("overfit_volley".into()),
+    ];
+    for profile in profiles {
+        assert_eq!(
+            BossAttackProfile::from_move_id(&profile.move_id()),
+            profile,
+            "{profile:?} must round-trip through its move id",
+        );
+    }
+}

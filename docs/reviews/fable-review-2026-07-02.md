@@ -719,14 +719,17 @@ resolver), **4 of ~5 D1 facades** removed (config/effects/audio/time — only th
 `features/mod.rs` hub remains), and **§D2 COMPLETE** (E20/E21:
 `Body{Health,Combat,Wallet}` re-homed to `ambition_characters::actor::body`, all
 ~200 consumers redirected, the whole gameplay_core facade chain deleted), and
-**§D3 STARTED** (E22): D3.1 landed (render names foundation crates directly for
-body vocab) + the full render→gameplay_core edge-cut is scoped into a slice
-sequence. The biggest open items are now **D3.2** (create `ambition_sim_view`,
-move the pure-data read-model core — the "missing abstraction"), **A1 slice 3**
-(the boss driver fold — multi-session), and the **features/mod.rs hub** (a
-3-layer facade stack dissolved family-by-family as each type reaches its leaf
-home — D2 was the template). All work is committed linearly on main; the tree is
-green (counts in the verify block below).
+**§D3 IN PROGRESS** (E22/E23): D3.1 (render names foundation crates directly for
+body vocab) + **D3.2a DONE** — the `ambition_sim_view` crate now exists and holds
+the pure-data read-model core (`FeatureView`/`FeatureVisualKind`/
+`BoundFeatureKind`/`FeatureCombatTuning`); render reads them there directly. The
+full render→gameplay_core edge-cut is scoped into a slice sequence (E22). The
+biggest open items are now **D4** (`ambition_world` — `RoomGeometry` ×27 is
+render's single biggest gameplay_core import, the largest single edge reducer),
+**D3.2b** (redirect gameplay_core's own refs off the sim_view re-export),
+**A1 slice 3** (the boss driver fold — multi-session), and the **features/mod.rs
+hub**. All work is committed linearly on main; the tree is green (counts in the
+verify block below).
 
 **Verify before you start** (and after every change):
 ```bash
@@ -1305,7 +1308,30 @@ CameraSnapshot2d. → (D3.6) untangle category-D systems. → (D3.7) drop the
 `ambition_gameplay_core` dep from render's Cargo.toml — the lever fires. This is
 the same "move a family to its leaf home, then redirect" template D2 proved.
 
-## Next (in order) — D3.2 sim-view crate (or A1 slice 3), then the rest of D3/D4
+### E23. D3.2a — `ambition_sim_view` crate created; pure-data read-model core moved ✅
+Created the leaf crate (`crates/ambition_sim_view`, deps: `ambition_engine_core`
++ `bevy` ECS-derive only) and moved the pure-data read-model core out of
+`combat/events.rs`: `FeatureVisualKind`, `FeatureView`, `BoundFeatureKind`,
+`FeatureCombatTuning` (+ `DEFAULT_*_ATTACK_*` consts). D2-style a/b split:
+**D3.2a** = gameplay_core `pub use`s them back from `combat/events.rs` (every
+internal `crate::features::*`/`combat::events::*` path resolves with ZERO churn —
+the 114 `FeatureVisualKind` internal refs untouched) while RENDER names
+`ambition_sim_view::` directly (10 sites: features/world/primitives/actors/boss +
+the `rendering::mod` re-export). render + gameplay_core both dep the new crate.
+**Correction to the E22 plan `[opus-4.8[1m]]`:** `ActorSpriteData` and the
+`ecs_*` anim accessors CANNOT move here — `ActorSpriteData` is a
+`#[derive(QueryData)]` borrowing gameplay_core ECS components
+(`actor_clusters::*`, `BodyMelee`, `crate::actor::Body*`), and `ActorAnimFrame`
+holds `character_sprites::CharacterAnim` (§D6). Only genuinely transferable
+*value* types belong in sim_view; live-query views stay in the sim crate and
+render reads them through the accessors until the materialized-index switch.
+**D3.2b remaining:** redirect the internal gameplay_core refs off the
+`combat/events.rs` re-export (114-ref sweep, glob-prelude fixes like D2b) for
+full honesty — deferred; behavior-neutral, no render-edge impact.
+Verified: sim_view builds, gameplay_core 1091, render 24, content+app build incl
+every test target, the ten app integration suites green.
+
+## Next (in order) — D3.2b (internal redirect) / D4 ambition_world (RoomGeometry, biggest reducer) / A1 slice 3
 
 **§A2 is COMPLETE** (E10–E13). The victim-side damage path is ONE resolver +
 ONE reaction for every body; per-body policy is the only fork left.

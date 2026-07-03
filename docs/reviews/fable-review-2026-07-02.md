@@ -656,6 +656,21 @@ in parallel with gameplay_core.
 > sim-view crate is necessary but not sufficient; cutting the edge is multi-session.
 
 ### D4. Extract `ambition_world` (10.2k — the narrowest big seam)
+> `[opus-4.8[1m]]` **fable should re-check — outbound is NOT "mostly clean, 3
+> inversions" (measured 2026-07-03; see E25).** `world/` OUTBOUND (what it imports
+> from the rest of gameplay_core = the cycle surface a leaf crate must shed) spans
+> **~15 modules**, concentrated in `ldtk_world/` (6.4k, 36 refs) — the LDtk
+> **converter** maps LDtk entities → `portal`/`encounter`/`shrine`/`items`/
+> `character_roster` domain specs, so making it a leaf needs a **content-registered
+> converter** refactor (ADR 0009 pattern), not a move — and `rooms/` (2.4k, 21
+> refs → `features`/`player`, entangled with the 18-param `load_room_geometry`).
+> **The linchpin: `RoomGeometry` (`lib.rs:235`, a `Resource(ae::World)` newtype)** —
+> `platforms`+`physics` are otherwise 0-outbound but BOTH read `Res<RoomGeometry>`,
+> and render imports it ×27, so NOTHING in `world/` extracts until `RoomGeometry`
+> has a foundation home. fable's "thin/3-inversions" reads the INBOUND surface;
+> the OUTBOUND surface is the real cost. (I may be under-weighting a converter
+> seam fable had in mind — flagging.)
+
 Inbound surface is remarkably thin: `RoomSet` (22), `Authored<T>` (18),
 `RoomSpec`/`RoomMetadata`, `MovingPlatformState`, `DebrisBurstMessage`,
 `poll_ldtk_file_changes`. Outbound mostly clean (`DamageVolume` is a foundation
@@ -1388,7 +1403,29 @@ gated on: (1) fable adjudicating `actors|props`, (2) committing to the read-mode
 materialization so the crate has real substance. Verified green after revert:
 gameplay_core 1091, render 24, all crates+tests build.
 
-## Next (in order) — BLOCKED on fable's `actors|props` call; meanwhile D4 ambition_world (RoomGeometry, independent) or A1 slice 3
+### E25. D4 scoped — bigger than audited; `RoomGeometry` is the linchpin ⏸ (decision needed)
+Jon picked D4. Measured the real extraction cost (contradiction tag on the D4
+audit above). Findings: `world/` = `ldtk_world/` 6.4k (36 outbound refs, the
+content-coupled LDtk converter), `rooms/` 2.4k (21 refs, entangled with the
+18-param `load_room_geometry`), `platforms/` 951 + `physics.rs` 406 (0 *content*-
+outbound but BOTH read `Res<RoomGeometry>`). **`RoomGeometry` (`lib.rs:235` —
+`#[derive(Resource, Clone)] RoomGeometry(pub ae::World)`) is the linchpin:**
+nothing in `world/` extracts until it has a foundation home, and it's ALSO
+render's single biggest gameplay_core import (×27 → the biggest D3 reducer). It's
+a trivial newtype over engine_core's `World`, and engine_core already carries
+`bevy_ecs` (derives `Component` for the Body* clusters) — so `ambition_engine_core`
+(next to `World`) is the obvious home, a clean D2-style value-type move.
+**HELD for a decision (D3.2a lesson): don't relocate a type into a FUNDAMENTAL
+crate without confirming the shape/naming.** Open Q for Jon/fable: is `RoomGeometry`
+(a "Room"-named Resource) OK to live in reusable `engine_core`, or does the name/
+placement need rethinking (like `FeatureVisualKind` did)? "Room" reads as a
+generic platformer concept (a screen/area), not Ambition content — so I lean
+engine_core — but confirming before a ~50-ref sweep it's only worth doing once.
+Once the home is set: D4.1 re-home `RoomGeometry` (unblocks all of `world/` +
+lands the biggest D3 render win), then platforms/physics extract cleanly, then the
+converter-extensibility + rooms inversions are the multi-session remainder.
+
+## Next (in order) — D4.1 re-home `RoomGeometry` (pending home-confirm) / A1 slice 3 / D3 blocked on `actors|props`
 
 **§A2 is COMPLETE** (E10–E13). The victim-side damage path is ONE resolver +
 ONE reaction for every body; per-body policy is the only fork left.

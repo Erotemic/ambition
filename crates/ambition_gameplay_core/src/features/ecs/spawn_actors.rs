@@ -451,6 +451,89 @@ pub(super) fn spawn_boss(
     spawn_boss_with_overrides(commands, authored, &BossOverrides::default());
 }
 
+/// The flight ceiling a boss body steers under. A boss's `BossPattern` brain
+/// commands its full 2D velocity each tick (a free-mover), so the shared flight
+/// limb's terminal clamp (`velocity_target / flight_speed`) must sit well above
+/// any authored boss pattern speed or a telegraphed lunge would be throttled.
+/// Deliberately generous — bosses author velocities in the low hundreds of px/s.
+const BOSS_FLIGHT_SPEED: f32 = 1200.0;
+
+/// Build the actor movement cluster a boss carries so its body can integrate
+/// through the SHARED body pipeline like every other actor (archetype swap AS2 —
+/// "a boss IS just an aerial actor"). These are exactly the components an aerial
+/// enemy carries MINUS the [`BodyKinematics`] + [`ambition_characters::actor::BodyHealth`]
+/// the boss already owns (§A1), so the boss's authoritative kin/HP stay the single
+/// source of truth and the encounter wrapper (`BossConfig` / `BossEncounter` /
+/// `BossAttackState`) layers on top unchanged.
+///
+/// The boss is AERIAL (a gravity-free free-mover): it spawns flight-enabled so it
+/// steers through the shared flight limb (archetype swap AS4). `attacks_player` /
+/// `body_contact_damage` are false — boss offense flows through `BossAttackState`
+/// + `boss_attack_damage`, never the actor melee/contact path; the boss is a
+/// victim-side body here (the vulnerability trio rides in via the bundle below).
+fn boss_actor_cluster(
+    config: &BossConfig,
+    kin: &BodyKinematics,
+    hp_max: i32,
+) -> (
+    super::actor_clusters::ActorStatus,
+    super::actor_clusters::ActorConfig,
+    super::actor_clusters::ActorMotionPath,
+    super::super::enemies::ActorSurfaceState,
+    super::super::components::BodyMelee,
+    crate::actor::AncillaryMovementBundle,
+    crate::combat::CombatCapabilities,
+) {
+    let caps = crate::combat::CombatCapabilities {
+        can_fly: true,
+        ..Default::default()
+    };
+    let tuning = crate::combat::ActorTuning {
+        max_health: hp_max,
+        chase_speed: BOSS_FLIGHT_SPEED,
+        max_run_speed: BOSS_FLIGHT_SPEED,
+        is_aerial: true,
+        // Boss offense is `BossAttackState` + `boss_attack_damage`, not the actor
+        // melee/contact path — keep both off so the shared systems never double-fire.
+        attacks_player: false,
+        body_contact_damage: false,
+        ..Default::default()
+    };
+    let actor_config = super::actor_clusters::ActorConfig {
+        id: config.id.clone(),
+        name: config.name.clone(),
+        tuning,
+        brain_spec: crate::combat::CharacterBrainSpec::default(),
+        // The boss's REAL brain is its `BossPattern` `Brain` component. This
+        // integrator-facing `CharacterBrain` only feeds patrol-stall intent, which
+        // a free-flying boss never uses, so it takes the inert `Passive` row.
+        brain: ambition_characters::actor::CharacterBrain::Passive,
+        spawn: super::super::enemies::ActorSpawnState {
+            pos: kin.pos,
+            size: kin.size,
+        },
+        sprite_override_npc_name: None,
+        sprite_character_id: None,
+    };
+    (
+        super::actor_clusters::ActorStatus {
+            respawn_timer: 0.0,
+            ai_mode: ambition_characters::actor::ai::CharacterAiMode::Idle,
+        },
+        actor_config,
+        super::actor_clusters::ActorMotionPath::default(),
+        super::super::enemies::ActorSurfaceState {
+            surface_normal: ae::Vec2::new(0.0, -1.0),
+            gravity_scale: 0.0,
+        },
+        super::super::components::BodyMelee::default(),
+        crate::actor::AncillaryMovementBundle::from_scratch(
+            super::actor_clusters::ActorBody::from_caps(&caps, true).0,
+        ),
+        caps,
+    )
+}
+
 /// Spawn a boss applying the per-spawn "tweaks Z" ([`BossOverrides`]). The
 /// overrides are attached as a component and applied at SEED time by
 /// `update_boss_encounters` (so the profile-application there can't clobber
@@ -571,6 +654,11 @@ pub(super) fn spawn_boss_with_overrides(
             &ambition_characters::actor::BodyCombat::default(),
         );
     let boss_facing = boss.kin.facing;
+    // Archetype swap AS2: the boss carries the same aerial actor movement cluster
+    // every other actor does (built here BEFORE the scratch is consumed), so the
+    // shared body pipeline can integrate it (AS4). Kin/HP are NOT in this bundle —
+    // the boss owns those directly (§A1).
+    let boss_actor_cluster = boss_actor_cluster(&boss.config, &boss.kin, boss.health.max());
     let boss_components = boss.into_components();
     let mut entity = commands.spawn((
         Name::new(format!("Feature boss: {}", authored.name)),
@@ -619,18 +707,14 @@ pub(super) fn spawn_boss_with_overrides(
         ambition_characters::brain::BossAttackState::default(),
         boss_capability,
     ));
-    // §A1 slice 3: the boss is a victim-side BODY like every other actor. It
-    // carries the same three vulnerability clusters (default-inert — bosses have
-    // no dodge/shield/parry today), so it matches `apply_hitbox_damage`'s victim
-    // query WITHOUT the `Option` fallback that only existed because the boss used
-    // to lack them. Behavior-neutral: the clusters are inert, and the boss already
-    // matched as a victim before (its `HitTarget::Actor(boss)` event still lands
-    // nowhere until the driver fold flips the actor loop off `Without<BossConfig>`).
-    entity.insert((
-        crate::actor::BodyOffense::default(),
-        crate::actor::BodyDodgeState::default(),
-        crate::actor::BodyShieldState::default(),
-    ));
+    // Archetype swap AS2: the aerial actor movement cluster (18 ancillary body
+    // clusters + status/config/surface/melee/caps). This is what lets the boss
+    // integrate through the shared body pipeline (AS4) instead of its bespoke
+    // float. It ALSO supplies the victim-side vulnerability trio (`BodyOffense` /
+    // `BodyDodgeState` / `BodyShieldState`) the boss used to carry standalone
+    // (§A1 slice 3a) — so `apply_hitbox_damage`'s non-`Option` victim query still
+    // matches, now via the one bundle every body shares.
+    entity.insert(boss_actor_cluster);
     // Per-spawn tweaks Z: read at seed time by `update_boss_encounters`
     // (hp / size / phase triggers) + `sync_boss_encounter_entities`
     // (encounter opt-out). Default for room-authored bosses ⇒ no-op.

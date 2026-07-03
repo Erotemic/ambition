@@ -1973,7 +1973,39 @@ closed (real interaction-kit families), the four actor kinds are ONE. Net **-52 
 Verified: gameplay_core 1089 + render 24 green; full workspace compiles. **D3 is now
 UNBLOCKED** — T2 (materialize the read-model, then re-create `ambition_sim_view`) is next.
 
-## Next (in order) — **AD1-T1 DONE (E35)**. Now: **T2 / D3** — materialize the render read-model (grow `FeatureViewIndex` with the name/sprite-key + anim facts render currently pulls via `ecs_*` live-query accessors; decide Copy-vs-String there) → re-create `ambition_sim_view` with real meat → cut the render→gameplay_core edge (D3.2–D3.7 slice order, unblocked by AD1). Then D4.2 platforms+physics extract / D4.3 LDtk converter extensibility (crux, multi-session). Deferred to Jon's feel pass: render/hurtbox baked-size convergence (the ~1.2% const-vs-baked gap the AS4b pin found); the T1 placeholder color/z blind deltas (E35).
+### E36. T2 IN PROGRESS — the ACTOR read-model is materialized; render's actor path holds NO live sim borrow ✅ (`177c182d`, `ceed1fd8`)
+AD1-T2's core: render must read a MATERIALIZED read-model, never the sim's live
+ECS (the condition E24 set for re-creating `ambition_sim_view`). Render's entire
+actor-cluster borrow was exactly two systems; both are now cut.
+- **Slice A — identity** (`177c182d`): `upgrade_actor_sprites` took
+  `Query<ActorSpriteData>` (all 18 clusters) + `Query<ActorRenderSize>` only to
+  read four STATIC facts (name / sprite-override / sandbag / render size). Those
+  materialize into `ActorRenderIndex` (`rebuild_actor_render_index`, in the sim's
+  `FeatureViewSync` set beside the geometry index). Identity is static, so the
+  mark-and-sweep rebuild re-clones only on a genuine change — no per-`String`
+  churn as the sim steps. Deleted the 4 orphaned accessors (`ecs_actor_name`,
+  `ecs_actor_is_sandbag`, `ecs_enemy_sprite_override`, `ecs_actor_render_size`).
+  Pins: `actor_render_index_snapshots_identity_sweeps_and_refreshes`.
+- **Slice B — pose** (`ceed1fd8`): `animate_characters` took the same 18-cluster
+  query for the per-frame pose. That materializes into `ActorAnimIndex`
+  (`rebuild_actor_anim_index`, the SAME `pick_actor_anim`) — but because the pose
+  is presentation-ONLY, its rebuild is registered in the RENDER presentation
+  plugin, chained just before `animate_characters`, so a headless/RL build never
+  computes poses it won't draw (RL-step sensitivity respected). `ActorAnimFrame`
+  is `Copy` → overwrite in place. Deleted `ecs_actor_anim_state`.
+- **Net:** render's actor systems consume `ActorRenderIndex` + `ActorAnimIndex`
+  and name `ActorSpriteData` NOWHERE. Per AD1-T2 this keeps `FeatureView` `Copy`:
+  the `String`/pose identity lives in side indices keyed by id, not on the shared
+  geometry view. Verified gameplay_core 1090 + render 24 green; workspace compiles.
+- **Remaining T2 before the edge narrows:** (C) boss render path (`ecs_boss_name`,
+  `ecs_boss_anim_state*`, the boss's own `upgrade_boss_sprites` cluster query) →
+  materialize like the actor path; (D) prop state (`ecs_chest_opened`,
+  `ecs_breakable_state`) — small; then the value types (`FeatureView`/kind,
+  `ActorAnimFrame`+`CharacterAnim` §D6) move to a re-created `ambition_sim_view`,
+  then §D4 world + category-D systems, then drop render's gameplay_core dep (D3.7,
+  the lever). Payoff stays binary/multi-session — these are prep, but each lands green.
+
+## Next (in order) — **T2 actor read-model DONE (E36)**. Continue T2: (C) materialize the BOSS render path (`ecs_boss_*` + `upgrade_boss_sprites`' cluster query → a boss render index, mirroring slices A/B) → (D) materialize prop state (`ecs_chest_opened`/`ecs_breakable_state`) → move the value types (`FeatureView`/`FeatureVisualKind`/`BoundFeatureKind` + `ActorAnimFrame`) to a RE-CREATED `ambition_sim_view` → §D4 `ambition_world` (rooms, biggest reducer) + category-D systems → drop render's `ambition_gameplay_core` dep (D3.7 = the compile-time lever fires). Parallel track: D4.2 platforms+physics extract (couples `rooms`) / D4.3 LDtk converter extensibility (crux, multi-session). Deferred to Jon's feel pass: render/hurtbox baked-size convergence (~1.2% const-vs-baked gap); the T1 placeholder color/z blind deltas (E35).
 
 **§A2 is COMPLETE** (E10–E13). The victim-side damage path is ONE resolver +
 ONE reaction for every body; per-body policy is the only fork left.

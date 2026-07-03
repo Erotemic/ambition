@@ -175,20 +175,10 @@ pub fn ecs_breakable_state(
         .map(|(_, breakable)| breakable.breakable.state)
 }
 
-pub fn ecs_boss_name<'a>(
-    id: &str,
-    bosses: &'a Query<(
-        &FeatureId,
-        super::boss_clusters::BossClusterRef,
-        &ambition_characters::actor::BodyHealth,
-        &ambition_characters::actor::BodyCombat,
-        &ambition_characters::brain::BossAttackState,
-    )>,
-) -> Option<&'a str> {
-    bosses.iter().find_map(|(feature_id, boss, _, _, _)| {
-        (feature_id.as_str() == id).then_some(boss.config.name.as_str())
-    })
-}
+// `ecs_boss_name` is GONE: the boss's static identity (name + behavior id) is
+// materialized into `BossRenderIndex` (see `rebuild_boss_render_index`), which
+// `upgrade_boss_sprites` reads by id — so binding a boss sheet no longer
+// live-queries the boss clusters.
 
 fn boss_anim_for_attack_profile(
     profile: &ambition_characters::brain::BossAttackProfile,

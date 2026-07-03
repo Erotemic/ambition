@@ -43,13 +43,12 @@ pub fn upgrade_boss_sprites(
     mut commands: Commands,
     assets: Option<Res<GameAssets>>,
     images: Res<Assets<Image>>,
-    ecs_bosses: Query<(
-        &FeatureId,
-        BossClusterRef,
-        &ambition_characters::actor::BodyHealth,
-        &ambition_characters::actor::BodyCombat,
-        &ambition_characters::brain::BossAttackState,
-    )>,
+    // The boss's geometry (its render `size`) rides its `FeatureView`; its static
+    // identity (name + behavior id, for the sheet lookup) rides `BossRenderIndex`.
+    // Reading both by id lets this system bind a boss sheet WITHOUT borrowing the
+    // live boss clusters — the boss render becomes a read-model consumer.
+    feature_views: Res<ambition_gameplay_core::features::FeatureViewIndex>,
+    boss_render: Res<ambition_gameplay_core::features::BossRenderIndex>,
     new_bosses: Query<
         (Entity, &FeatureVisual),
         (Without<CharacterAnimator>, Without<BossAnimator>),
@@ -62,50 +61,20 @@ pub fn upgrade_boss_sprites(
         return;
     };
     for (entity, visual) in &new_bosses {
-        let Some(view) = ecs_bosses
-            .iter()
-            .find_map(|(feature_id, item, health, combat, attack_state)| {
-                if feature_id.as_str() != visual.id.as_str() {
-                    return None;
-                }
-                let boss = item.as_boss_ref();
-                // `flash` reads `BossAttackState` instead of the deleted
-                // `attack_timer` / `attack_windup_timer` mirror fields.
-                Some(ambition_gameplay_core::features::FeatureView {
-                    pos: boss.kin.pos,
-                    size: boss.render_size(),
-                    kind: FeatureVisualKind::Actor,
-                    visible: health.alive(),
-                    flash: combat.hit_flash > 0.0
-                        || attack_state.telegraph_profile.is_some()
-                        || attack_state.active_profile.is_some(),
-                    // A boss in its encounter is definitionally a combatant.
-                    fighting: true,
-                    switch_on: false,
-                    rotation_rad: 0.0,
-                })
-            })
-        else {
-            // The `ecs_bosses` query IS the gate — a non-boss `visual.id` yields no
-            // view and is skipped here. (The former `FeatureVisualKind::Boss` kind
-            // check is gone; a boss is an actor like any other, distinguished by
-            // its own query family, not a render variant.)
+        // The read-model IS the gate: a non-boss (or not-yet-materialized) id has
+        // no boss identity and is skipped — its geometry view alone isn't enough.
+        let (Some(view), Some(boss_ident)) = (
+            feature_views.get(&visual.id),
+            boss_render.get(&visual.id),
+        ) else {
             continue;
         };
-        // Pick the per-boss sheet by authored name. Each boss has its
-        // own spritesheet from a dedicated Python generator; unrecognized
-        // bosses fall back to the gradient-sentinel sheet.
-        // If no asset is available we skip — the colored rectangle
-        // fallback in `sync_visuals` continues to render.
-        let boss_name =
-            ambition_gameplay_core::features::ecs_boss_name(&visual.id, &ecs_bosses).unwrap_or("");
-        let boss_behavior_id = ecs_bosses
-            .iter()
-            .find_map(|(feature_id, item, _, _, _)| {
-                (feature_id.as_str() == visual.id.as_str())
-                    .then_some(item.config.behavior.id.as_str())
-            })
-            .unwrap_or(boss_name);
+        // Pick the per-boss sheet by authored name / behavior id. Each boss has
+        // its own spritesheet from a dedicated Python generator; unrecognized
+        // bosses fall back to the gradient-sentinel sheet. If no asset is
+        // available we skip — the colored rectangle in `sync_visuals` renders.
+        let boss_name = boss_ident.name.as_str();
+        let boss_behavior_id = boss_ident.behavior_id.as_str();
         let boss_key = boss_behavior_id.to_ascii_lowercase().replace('-', "_");
         let is_gnu_ton = boss_key == "gnu_ton"
             || boss_name.eq_ignore_ascii_case("gnu_ton")

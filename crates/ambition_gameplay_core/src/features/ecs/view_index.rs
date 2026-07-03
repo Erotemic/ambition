@@ -404,6 +404,89 @@ pub fn rebuild_actor_render_index(
     index.end_rebuild();
 }
 
+/// Materialized per-boss identity the renderer needs to resolve a boss's
+/// spritesheet, keyed by [`FeatureId`]: its display name and behavior id (the
+/// two feed the boss-sheet lookup + the GNU-ton split-layer detection). The boss
+/// analogue of [`ActorRenderView`] — it lets `upgrade_boss_sprites` bind the
+/// sheet WITHOUT borrowing the live boss clusters (`BossClusterRef`); the boss's
+/// geometry/visibility already rides its `FeatureView` in [`FeatureViewIndex`].
+/// Static per boss, so the rebuild re-clones only on a genuine change.
+#[derive(Clone, Debug, PartialEq)]
+pub struct BossRenderView {
+    pub name: String,
+    pub behavior_id: String,
+}
+
+#[derive(Resource, Default, Clone, Debug)]
+pub struct BossRenderIndex {
+    views: std::collections::HashMap<String, (BossRenderView, u64)>,
+    generation: u64,
+}
+
+impl BossRenderIndex {
+    pub fn get(&self, id: &str) -> Option<&BossRenderView> {
+        self.views.get(id).map(|(view, _)| view)
+    }
+
+    pub fn len(&self) -> usize {
+        self.views.len()
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.views.is_empty()
+    }
+
+    fn begin_rebuild(&mut self) {
+        self.generation = self.generation.wrapping_add(1);
+    }
+
+    fn end_rebuild(&mut self) {
+        let gen = self.generation;
+        self.views.retain(|_, (_, g)| *g == gen);
+    }
+
+    fn upsert(&mut self, id: &str, name: &str, behavior_id: &str) {
+        let gen = self.generation;
+        if let Some(slot) = self.views.get_mut(id) {
+            if slot.0.name == name && slot.0.behavior_id == behavior_id {
+                slot.1 = gen;
+                return;
+            }
+            slot.0 = BossRenderView {
+                name: name.to_string(),
+                behavior_id: behavior_id.to_string(),
+            };
+            slot.1 = gen;
+            return;
+        }
+        self.views.insert(
+            id.to_string(),
+            (
+                BossRenderView {
+                    name: name.to_string(),
+                    behavior_id: behavior_id.to_string(),
+                },
+                gen,
+            ),
+        );
+    }
+}
+
+/// Rebuild [`BossRenderIndex`] from the live boss clusters. Runs in the sim's
+/// `FeatureViewSync` set beside the other read-model rebuilds; boss identity is
+/// static, so the cost is a per-boss `&str` compare with no allocation once
+/// materialized.
+pub fn rebuild_boss_render_index(
+    mut index: ResMut<BossRenderIndex>,
+    bosses: Query<(&FeatureId, super::boss_clusters::BossClusterRef)>,
+) {
+    index.begin_rebuild();
+    for (id, boss) in &bosses {
+        index.upsert(id.as_str(), boss.config.name.as_str(), boss.config.behavior.id.as_str());
+    }
+    index.end_rebuild();
+}
+
 #[cfg(test)]
 mod view_index_tests {
     //! The FeatureViewIndex read-model. The load-bearing invariant is

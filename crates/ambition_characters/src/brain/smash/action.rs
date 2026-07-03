@@ -163,16 +163,17 @@ pub fn choose_action(
                 let dir = obs.side_face_toward_target();
                 return SpecificAction::Walk { dir };
             }
-            // In range but the melee is recharging — commit the signature SPECIAL
-            // if this body has one (it runs through the data-driven moveset, §A1),
-            // so a fighter with a move like the PCA's Cellular Pulse uses it as a
-            // combo/pressure tool while its swing is on cooldown instead of idling.
-            // The move's own duration gates re-fire (`Without<MovePlayback>`). BLIND:
-            // the cadence is a first pass for Jon to tune against the landed system.
-            if actions.special.is_some() {
-                return SpecificAction::Special;
-            }
-            // No special — hold ground, face target.
+            // In range but on cooldown — hold ground, face target.
+            //
+            // NOTE (§A1 subsumption): the moveset is the special EXECUTOR and the
+            // capability is on `ActionSet.special`, so wiring the autonomous brain to
+            // choose `SpecificAction::Special` here is a one-line change. It's LEFT
+            // OFF deliberately: a naive "fire special whenever melee recharges" cadence
+            // spams the move and crowds out the damage-triggered regroup kit (it broke
+            // the duel-arena regroup-dash). The autonomous special CADENCE is a feel/AI
+            // tuning pass for Jon against the landed system (needs a real special
+            // cooldown / spacing gate). Possession already fires the special via
+            // `special_pressed` → the moveset today.
             SpecificAction::Idle
         }
         BroadMode::Reposition => {
@@ -301,13 +302,14 @@ mod tests {
         assert_eq!(act, SpecificAction::Idle, "got {act:?}");
     }
 
-    /// §A1 subsumption: a fighter with a signature SPECIAL (a moveset move, marked
-    /// on `ActionSet.special`) commits it while its melee is recharging, instead of
-    /// idling — so the PCA uses Cellular Pulse as pressure. Emitting `Special` here
-    /// is what `emit` turns into `special_pressed`, which `trigger_moveset_moves`
-    /// runs. (Without a special the same state still Idles — pinned above.)
+    /// §A1 subsumption: the AUTONOMOUS special cadence is deliberately OFF (a naive
+    /// "fire while melee recharges" spammed the move and broke the damage-triggered
+    /// regroup kit) — so even a fighter WITH a signature special holds in Engage on
+    /// cooldown, same as one without. The moveset is still the executor; possession
+    /// fires the special via `special_pressed`. Re-enabling autonomous firing is a
+    /// feel/AI cadence pass (a real special cooldown) for Jon against the landed system.
     #[test]
-    fn engage_on_cooldown_fires_the_signature_special_when_it_has_one() {
+    fn engage_on_cooldown_holds_even_with_a_signature_special() {
         use crate::brain::action_set::SpecialActionSpec;
         let cfg = SmashCfg::STRIKER_DEFAULT;
         let actions = ActionSet {
@@ -318,7 +320,7 @@ mod tests {
         let mut obs = obs_at(40.0, false);
         obs.attack_cooldown_remaining = 0.5; // melee recharging
         let act = choose_action(&obs, BroadMode::Engage, &cfg, &actions);
-        assert_eq!(act, SpecificAction::Special, "got {act:?}");
+        assert_eq!(act, SpecificAction::Idle, "got {act:?}");
     }
 
     #[test]

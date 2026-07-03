@@ -15,6 +15,17 @@ Cross-checked against `docs/planning/engine/unified-actors.md`,
 `docs/current/{state,next}.md`, and `dev/journals/code_smells.md` so already-known
 items are marked as such rather than re-discovered.
 
+> **Provenance & contradiction convention.** This audit (sections A–D + the
+> Synthesis) was authored by **fable**, a significantly stronger model with a
+> wider view of the codebase — treat its findings as the high-confidence
+> baseline. The EXECUTION LOG (E1+) is written by the various weaker executing
+> agents. When an executing agent **contradicts, corrects, or reframes** a fable
+> finding, it tags the claim with its model (e.g. `[opus-4.8[1m]]`) and flags it
+> **`fable should re-check`** — the executing agent has the narrower, more
+> focused scope and may be right, but fable saw things it may not, so the
+> disagreement is surfaced for fable to adjudicate rather than silently
+> overwritten. Search `fable should re-check` for all open disagreements.
+
 ---
 
 ## Synthesis — the top of the stack
@@ -599,6 +610,11 @@ switch fully to the materialized index; the few direct component reads
 (`BodyCombat.hit_flash`, `BodyHealth` HUD) ride D2.
 **Payoff:** render + portal_presentation drop out of the hot rebuild path and compile
 in parallel with gameplay_core.
+> `[opus-4.8[1m]]` **fable should re-check** (see E22 for the measured surface): the
+> render→gameplay_core edge is wider than "read-model vocabulary" — it also carries
+> `RoomGeometry`+rooms (world types, need D4) and **presentation systems render
+> registers** (`portal::sync_*`, `abilities::traversal`, `dev_tools`, …). The
+> sim-view crate is necessary but not sufficient; cutting the edge is multi-session.
 
 ### D4. Extract `ambition_world` (10.2k — the narrowest big seam)
 Inbound surface is remarkably thin: `RoomSet` (22), `Authored<T>` (18),
@@ -1162,6 +1178,16 @@ D2/D3 crate moves, so it can't be redirected cleanly in isolation (a naive
 `features::X` → `combat::components::X` would just point at a middle facade). It
 should be redirected type-family by type-family AS those families reach their
 real leaf-crate home — exactly what D2 just did for `Body{Health,Combat,Wallet}`.
+> `[opus-4.8[1m]]` **fable should re-check** — two reframings of fable's D1/ADR-0019
+> read here: (a) the audit called the hub "271 internal refs"; I measured **445
+> internal + 189 external = 634** (`grep -c` on `crate::features::X` /
+> `gameplay_core::features::X`), and it's a **public**-surface change, not
+> internal-only. (b) The ADR-0019 gap summary calls the residual leaks "mostly
+> one-file data migrations along existing seams" — for `components::` symbols
+> that's optimistic: they're a 3-layer facade STACK (features → combat::components
+> → crate::actor → foundation), so the honest home is a *foundation crate*, not
+> `combat::components`, and the redirect must ride the D2-style leaf move. Possible
+> I'm undercounting a curated-prelude intent fable had in mind; flagging for review.
 
 ### E20. D2a — re-home Body{Health,Combat,Wallet} DOWN to `ambition_characters::actor::body` ✅ (keystone)
 `src/actor.rs` (300 LOC) was ~90% pure re-exports of foundation types
@@ -1209,6 +1235,16 @@ render's rebuild only drops out of the hot path when it FULLY stops depending on
 `ambition_gameplay_core`; partial type-moves are prep, not payoff. And render
 couples across ~30 distinct gameplay_core paths, so the full cut is multi-session.
 Landed the safe prep slice and mapped the rest precisely.
+> `[opus-4.8[1m]]` **fable should re-check** — the D3 audit says render's imports
+> are "**almost entirely read-model vocabulary**." My enumeration
+> (`grep -oE 'ambition_gameplay_core::\w+(::\w+)?' | sort | uniq -c`) shows render
+> also imports **world/room types** (`RoomGeometry` ×27 — the single biggest) and
+> a category the audit didn't call out: **presentation *systems* render registers**
+> (`portal::sync_*`, `abilities::traversal`, `dev::dev_tools`, `physics::GravityCtx`,
+> `schedule::SandboxSet`, …). So "move the read-model to a sim-view crate" is
+> necessary but **not sufficient** to cut the edge — hence "payoff is binary /
+> multi-session." Fable may have folded the systems into "presentation" deliberately;
+> flagging so it can confirm the surface is bigger than the read-model.
 
 **D3.1 DONE (`111e8893`):** render's `gameplay_core::actor::Body*` imports were
 all pure foundation re-exports → render now names `ambition_platformer_primitives`
@@ -1233,10 +1269,14 @@ query alias) stays. render lib 24 green.
     queries (`rebuild_feature_view_index`) — the builder STAYS in gameplay_core;
     only the `FeatureView` value type + the index container move; render must
     read the materialized index, never the `ecs_*` query-taking accessors.
-  · `CameraSnapshot2d` is NOT the clean mover the audit implied — it pulls in
+  · `CameraSnapshot2d` — `[opus-4.8[1m]]` **fable should re-check**: the audit lists
+    it under the sim-view movers ("459 LOC, already presentation vocabulary"),
+    implying a clean move, but its imports pull in
     `persistence::settings::{CameraFramingPreset, CameraAspectPolicy}` +
     `rooms::{CameraClampMode, CameraZoneSpec}` + `camera_ease::{CameraEaseState,
-    Tuning}`. Move it LAST (after settings/rooms/camera_ease are sorted) or invert
+    Tuning}` — so it is NOT a clean mover today. (Fable may have intended those
+    config types to move too; I read it as "move CameraSnapshot2d" in isolation.)
+    Move it LAST (after settings/rooms/camera_ease are sorted) or invert
     those into a small camera-config type.
   · `character_sprites` (4.2k) is its own carve (§D6) — move down beside
     `ambition_sprite_sheet`, then render names it there.

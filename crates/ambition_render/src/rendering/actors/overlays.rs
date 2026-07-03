@@ -87,7 +87,7 @@ pub fn manage_gradient_lane_visual(
     bosses: Query<(
         Entity,
         BossClusterRef,
-        &ambition_gameplay_core::actor::BodyHealth,
+        &ambition_characters::actor::BodyHealth,
         &ambition_characters::brain::BossAttackState,
     )>,
     mut visuals: Query<(Entity, &GradientLaneVisual, &mut Transform, &mut Sprite)>,

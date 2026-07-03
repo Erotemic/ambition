@@ -43,8 +43,8 @@ pub fn reset_ecs_room_features(
     mut bosses: Query<
         (
             super::boss_clusters::BossClusterQueryData,
-            &mut crate::actor::BodyHealth,
-            &mut crate::actor::BodyCombat,
+            &mut ambition_characters::actor::BodyHealth,
+            &mut ambition_characters::actor::BodyCombat,
             &mut ambition_characters::brain::Brain,
             &mut ambition_characters::brain::BossAttackState,
             &mut ambition_characters::brain::ActorControl,

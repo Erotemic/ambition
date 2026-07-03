@@ -35,9 +35,10 @@ pub use ambition_platformer_primitives::markers::{PlayerEntity, PrimaryPlayer};
 /// which made every non-player module that names a body component import the
 /// player. They are not player-specific — enemies, NPCs, and bosses all carry
 /// them — so they are re-homed here on the neutral actor vocabulary under the
-/// `Body*` convention (matching [`BodyKinematics`] / [`BodyHealth`] /
-/// [`BodyCombat`]). The types `#[derive(Component)]` in `ambition_engine_core`;
-/// this is the single import surface for them.
+/// `Body*` convention (matching [`BodyKinematics`] / `BodyHealth` /
+/// `BodyCombat`, which live on `ambition_characters::actor::body`). The types
+/// `#[derive(Component)]` in `ambition_engine_core`; this is the single import
+/// surface for them.
 pub use ambition_engine_core::{
     BodyAbilities, BodyActionBuffer, BodyBaseSize, BodyBlinkState, BodyComboTrace, BodyDashState,
     BodyDodgeState, BodyEnvironmentContact, BodyFlightState, BodyGroundState, BodyJumpState,
@@ -136,13 +137,3 @@ impl AncillaryMovementBundle {
 /// is driving" — camera, portal viewer, abilities, melee — read the
 /// `ControlledSubject` resource instead of this filter.
 pub type PrimaryPlayerOnly = (With<PlayerEntity>, With<PrimaryPlayer>);
-
-// `BodyWallet`, `BodyHealth`, and `BodyCombat` re-homed DOWN to
-// `ambition_characters::actor::body` (unified-actors keystone, D2): leaf body
-// vocabulary — a body's coin balance, its hit points (wrapping
-// `ambition_characters::actor::Health`), and its combat/reaction status — with
-// no gameplay-shell deps, so they belong on the reusable actor crate rather
-// than in the 95k game crate everything imports just to name a body component.
-// Surfaced here so the existing `crate::actor::Body*` paths keep resolving;
-// D2b redirects consumers to the real home and deletes this facade line.
-pub use ambition_characters::actor::body::{BodyCombat, BodyHealth, BodyWallet};

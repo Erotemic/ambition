@@ -122,7 +122,7 @@ mod tests {
             crate::features::FeatureId::new("test_enemy"),
             crate::features::CenteredAabb::new(enemy_pos, ae::Vec2::new(16.0, 24.0)),
             crate::features::ActorDisposition::Hostile,
-            crate::features::BodyCombat {
+            ambition_characters::actor::BodyCombat {
                 alive: true,
                 hit_flash: 0.0,
                 strike_count: 0,
@@ -353,7 +353,7 @@ mod tests {
     /// boss's attack at it.
     #[test]
     fn a_parried_enemy_shot_flips_to_player_faction_and_reverses() {
-        use crate::actor::BodyCombat;
+        use ambition_characters::actor::BodyCombat;
         use crate::actor::BodyKinematics;
         use crate::actor::PlayerEntity;
         use crate::actor::{BodyBaseSize, BodyDodgeState, BodyOffense, BodyShieldState};
@@ -457,7 +457,7 @@ mod tests {
     /// exercised.
     #[test]
     fn an_owned_enemy_shot_attributes_its_player_hit_to_the_firing_actor() {
-        use crate::actor::BodyCombat;
+        use ambition_characters::actor::BodyCombat;
         use crate::actor::BodyKinematics;
         use crate::actor::PlayerEntity;
         use crate::actor::{BodyBaseSize, BodyDodgeState, BodyOffense, BodyShieldState};

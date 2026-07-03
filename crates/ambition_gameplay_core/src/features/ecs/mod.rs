@@ -24,6 +24,11 @@
 //! stable while the generic mechanics live DOWN in that kit (ADR 0019).
 
 use super::*;
+// `BodyCombat`/`BodyHealth` live on the reusable actor crate (D2). This module
+// surfaces them to the `ecs/` submodules that name `super::BodyCombat` — the
+// `super::*` glob no longer carries them since the `features` facade stopped
+// re-exporting the shared body vocabulary.
+use ambition_characters::actor::{BodyCombat, BodyHealth};
 #[cfg(test)]
 use ambition_sfx::SfxMessage;
 use crate::platformer_runtime::lifecycle::RoomVisual;

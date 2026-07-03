@@ -64,7 +64,7 @@ fn force_kill_boss(sim: &mut SandboxSim, runtime_id: &str) {
     let mut q = world.query::<(
         &BossConfig,
         &mut BossStatus,
-        &mut ambition_gameplay_core::actor::BodyHealth,
+        &mut ambition_characters::actor::BodyHealth,
     )>();
     for (config, mut status, mut health) in q.iter_mut(world) {
         if config.id == runtime_id {
@@ -98,7 +98,7 @@ fn boss_cleared(sim: &SandboxSim, placement_id: &str) -> bool {
 }
 
 fn boss_alive(world: &mut World, placement_id: &str) -> Option<bool> {
-    let mut q = world.query::<(&BossConfig, &ambition_gameplay_core::actor::BodyHealth)>();
+    let mut q = world.query::<(&BossConfig, &ambition_characters::actor::BodyHealth)>();
     q.iter(world)
         .find(|(config, _)| config.id == placement_id)
         .map(|(_, health)| health.alive())
@@ -112,7 +112,7 @@ fn boss_phase(world: &mut World, placement_id: &str) -> Option<BossEncounterPhas
 }
 
 fn boss_max_hp(world: &mut World, placement_id: &str) -> Option<i32> {
-    let mut q = world.query::<(&BossConfig, &ambition_gameplay_core::actor::BodyHealth)>();
+    let mut q = world.query::<(&BossConfig, &ambition_characters::actor::BodyHealth)>();
     q.iter(world)
         .find(|(config, _)| config.id == placement_id)
         .map(|(_, health)| health.max())
@@ -121,7 +121,7 @@ fn boss_max_hp(world: &mut World, placement_id: &str) -> Option<i32> {
 fn set_boss_hp(world: &mut World, placement_id: &str, hp: i32) {
     let mut q = world.query::<(
         &BossConfig,
-        &mut ambition_gameplay_core::actor::BodyHealth,
+        &mut ambition_characters::actor::BodyHealth,
     )>();
     for (config, mut health) in q.iter_mut(world) {
         if config.id == placement_id {

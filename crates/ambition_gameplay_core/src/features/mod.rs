@@ -120,7 +120,7 @@ pub(crate) use ecs::spawn_runtime_minion;
 pub use components::{
     ActorAggression, ActorCooldowns, ActorDisposition, ActorFaction, ActorIdentity, ActorIntent,
     ActorInteraction, ActorPose, ActorRenderSize, ActorTarget, AggressionMode, AggressionTarget,
-    BodyCombat, BodyHealth, BodyMelee, BossDeathAnimation, BossPatternTimer, BossPhase,
+    BodyMelee, BossDeathAnimation, BossPatternTimer, BossPhase,
     BossRewardChest, BreakableFeature, CenteredAabb, ChestBundle, ChestFeature, Collected,
     CombatKit, DamageableVolumes, EncounterMob, EncounterRewardChest, EnemyActorBundle,
     FallingChest, FeatureBaseBundle, FeatureId, FeatureLifecycleBundle, FeatureName,

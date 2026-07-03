@@ -86,7 +86,7 @@ pub fn tick_boss_brains_system(
             bevy::ecs::entity::Entity,
             super::super::boss_clusters::BossClusterRef,
             // The boss's HP authority (§A1) — liveness is `health.alive()`.
-            &crate::actor::BodyHealth,
+            &ambition_characters::actor::BodyHealth,
             &mut Brain,
             &mut ActorControl,
             &mut BossAttackState,
@@ -369,7 +369,7 @@ pub fn update_ecs_bosses(
             &crate::actor::BodyOffense,
             &crate::actor::BodyDodgeState,
             &crate::actor::BodyShieldState,
-            &crate::actor::BodyCombat,
+            &ambition_characters::actor::BodyCombat,
             bevy::prelude::Has<crate::actor::PlayerEntity>,
         ),
         Without<super::super::boss_clusters::BossConfig>,
@@ -382,8 +382,8 @@ pub fn update_ecs_bosses(
             // The boss's shared body components (§A1): HP authority + the
             // reaction timers this system decays each tick (the actor loop's
             // decrement excludes bosses until the slice-3 driver fold).
-            &crate::actor::BodyHealth,
-            &mut crate::actor::BodyCombat,
+            &ambition_characters::actor::BodyHealth,
+            &mut ambition_characters::actor::BodyCombat,
             &mut BossPatternTimer,
             &mut BossDeathAnimation,
             &mut BossPhase,

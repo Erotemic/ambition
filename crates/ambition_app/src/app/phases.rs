@@ -23,7 +23,7 @@ use ambition_render::fx::VfxMessage;
 pub(super) fn sync_player_presentation(
     frame_out: &PlayerBodyFrameOutput,
     clusters: &ae::BodyClustersMut<'_>,
-    combat: &mut ambition_gameplay_core::actor::BodyCombat,
+    combat: &mut ambition_characters::actor::BodyCombat,
     blink_cam: &mut ambition_gameplay_core::player::PlayerBlinkCameraState,
     anim: &mut ambition_gameplay_core::player::PlayerAnimState,
     sfx_writer: &mut MessageWriter<SfxMessage>,

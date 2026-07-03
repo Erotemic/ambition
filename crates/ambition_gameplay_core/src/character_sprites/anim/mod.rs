@@ -666,7 +666,7 @@ pub fn body_view_from_clusters(
 #[allow(clippy::too_many_arguments)]
 pub fn pick_player_anim(
     anim: &PlayerAnimState,
-    combat: &crate::actor::BodyCombat,
+    combat: &ambition_characters::actor::BodyCombat,
     blink_cam: &crate::player::PlayerBlinkCameraState,
     attack: Option<&crate::MeleeSwing>,
     kinematics: &crate::actor::BodyKinematics,

@@ -568,7 +568,7 @@ pub(super) fn spawn_boss_with_overrides(
             boss.as_ref(),
             &ambition_characters::brain::BossAttackState::default(),
             &boss.health,
-            &crate::actor::BodyCombat::default(),
+            &ambition_characters::actor::BodyCombat::default(),
         );
     let boss_facing = boss.kin.facing;
     let boss_components = boss.into_components();

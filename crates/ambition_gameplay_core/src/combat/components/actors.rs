@@ -305,13 +305,6 @@ pub enum AggressionTarget {
     Foe,
 }
 
-/// ECS-visible body health. Re-exported here (the actor-components umbrella) so
-/// the actor systems + the `crate::features` facade surface the ONE unified
-/// [`crate::actor::BodyHealth`] — the player, enemies, NPCs, and bosses all carry
-/// the same health component (the keystone collapse of the former parallel
-/// `PlayerHealth` / `ActorHealth` wrappers).
-pub use crate::actor::BodyHealth;
-
 /// One in-flight melee swing, driven by the player's [`AttackSpec`] model.
 ///
 /// This is THE swing state for EVERY body — the human player and every
@@ -473,11 +466,6 @@ impl BodyMelee {
         IntentOutcome::Accepted
     }
 }
-
-/// Combat/presentation state is now the unified [`crate::actor::BodyCombat`] (the
-/// player, actors, and bosses share one component). Re-exported here so the actor
-/// systems + the `crate::features` facade keep surfacing it.
-pub use crate::actor::BodyCombat;
 
 /// ECS-visible actor AI intent. Mirrors `ambition_characters::actor::ai::CharacterAiMode` so rendering and
 /// HUD systems can branch on actor state without a per-family runtime.

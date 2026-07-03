@@ -147,7 +147,7 @@ pub fn sync_boss_encounter_entities(
 pub fn update_encounter_progress(
     mut commands: Commands,
     mut encounters: Query<(Entity, &EncounterDef, &mut EncounterProgress)>,
-    bosses: Query<(&BossConfig, &BossStatus, &crate::actor::BodyHealth)>,
+    bosses: Query<(&BossConfig, &BossStatus, &ambition_characters::actor::BodyHealth)>,
 ) {
     for (entity, def, mut progress) in &mut encounters {
         progress.members.clear();
@@ -201,7 +201,7 @@ pub fn release_payloads_on_death(
     mut commands: Commands,
     mut released: bevy::prelude::MessageWriter<PayloadReleased>,
     hosts: Query<
-        (Entity, &crate::actor::BodyHealth, &crate::features::BodyKinematics),
+        (Entity, &ambition_characters::actor::BodyHealth, &crate::features::BodyKinematics),
         With<ReleaseOnDeath>,
     >,
 ) {
@@ -229,7 +229,7 @@ mod tests {
     ) -> (
         BossConfig,
         BossStatus,
-        crate::actor::BodyHealth,
+        ambition_characters::actor::BodyHealth,
         FeatureSimEntity,
     ) {
         // Placement id is the `<name>_runtime` LDtk-style key the tests assert on.

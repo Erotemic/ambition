@@ -46,7 +46,7 @@ pub fn spawn_eye_beam_from_special_messages(
         (
             Entity,
             BossClusterRef,
-            &ambition_gameplay_core::actor::BodyHealth,
+            &ambition_characters::actor::BodyHealth,
             &BossAttackState,
             &mut EyeBeamState,
             Option<&ActorTarget>,

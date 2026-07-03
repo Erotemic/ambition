@@ -46,8 +46,8 @@ pub fn upgrade_boss_sprites(
     ecs_bosses: Query<(
         &FeatureId,
         BossClusterRef,
-        &ambition_gameplay_core::actor::BodyHealth,
-        &ambition_gameplay_core::actor::BodyCombat,
+        &ambition_characters::actor::BodyHealth,
+        &ambition_characters::actor::BodyCombat,
         &ambition_characters::brain::BossAttackState,
     )>,
     new_bosses: Query<
@@ -270,8 +270,8 @@ pub fn animate_bosses(
         Entity,
         &FeatureId,
         BossClusterRef,
-        &ambition_gameplay_core::actor::BodyHealth,
-        &ambition_gameplay_core::actor::BodyCombat,
+        &ambition_characters::actor::BodyHealth,
+        &ambition_characters::actor::BodyCombat,
         &ambition_characters::brain::BossAttackState,
         &ambition_characters::brain::Brain,
     )>,

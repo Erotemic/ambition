@@ -14,7 +14,7 @@
 //! - **Actor (NPC / enemy)**: `ActorStatus::hit_flash` on the unified
 //!   `hit_flash: f32` (seconds remaining).
 //! - **Boss**: [`ambition_gameplay_core::features::BossStatus::hit_flash`].
-//! - **Player**: [`ambition_gameplay_core::actor::BodyCombat::hit_flash`].
+//! - **Player**: [`ambition_characters::actor::BodyCombat::hit_flash`].
 //!
 //! Replaces the pink multiplicative tint that
 //! [`super::actors::animate_characters`] and
@@ -31,7 +31,7 @@ use bevy::{
 };
 
 use super::primitives::{FeatureVisual, PlayerVisual, PropVisual};
-use ambition_gameplay_core::actor::{BodyCombat, BodyHealth};
+use ambition_characters::actor::{BodyCombat, BodyHealth};
 use ambition_gameplay_core::features::{BossConfig, FeatureId};
 
 const SHADER_ASSET_PATH: &str = "shaders/hit_flash.wgsl";
@@ -223,7 +223,7 @@ pub fn sync_hit_flash_overlays(
     actors: Query<ambition_gameplay_core::features::ActorSpriteData>,
     bosses: Query<(&FeatureId, &BodyHealth, &BodyCombat), With<BossConfig>>,
     player_state: Query<
-        &ambition_gameplay_core::actor::BodyCombat,
+        &ambition_characters::actor::BodyCombat,
         ambition_gameplay_core::actor::PrimaryPlayerOnly,
     >,
     sources: Query<
@@ -345,7 +345,7 @@ fn hit_flash_secs_for_source(
     actors: &Query<ambition_gameplay_core::features::ActorSpriteData>,
     bosses: &Query<(&FeatureId, &BodyHealth, &BodyCombat), With<BossConfig>>,
     player_state: &Query<
-        &ambition_gameplay_core::actor::BodyCombat,
+        &ambition_characters::actor::BodyCombat,
         ambition_gameplay_core::actor::PrimaryPlayerOnly,
     >,
 ) -> Option<f32> {

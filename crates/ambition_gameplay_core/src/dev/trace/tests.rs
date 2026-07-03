@@ -183,7 +183,7 @@ fn record_frame_with_oob_pushes_event_and_requests_dump() {
     let clusters = scratch.as_mut();
     let frame = build_frame(
         &clusters,
-        &crate::actor::BodyCombat::default(),
+        &ambition_characters::actor::BodyCombat::default(),
         &ambition_time::ClockState::default(),
         &crate::player::PlayerSafetyState::default(),
         &world,
@@ -214,7 +214,7 @@ fn write_dump_writes_two_files() {
     let clusters = scratch.as_mut();
     let frame = build_frame(
         &clusters,
-        &crate::actor::BodyCombat::default(),
+        &ambition_characters::actor::BodyCombat::default(),
         &ambition_time::ClockState::default(),
         &crate::player::PlayerSafetyState::default(),
         &world,
@@ -489,7 +489,7 @@ fn frame_includes_moving_platform_state() {
     let clusters = scratch.as_mut();
     let frame = build_frame(
         &clusters,
-        &crate::actor::BodyCombat::default(),
+        &ambition_characters::actor::BodyCombat::default(),
         &ambition_time::ClockState::default(),
         &crate::player::PlayerSafetyState::default(),
         &world,

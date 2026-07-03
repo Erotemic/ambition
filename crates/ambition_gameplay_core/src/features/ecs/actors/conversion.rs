@@ -165,7 +165,7 @@ pub(crate) fn provoke_actor_in_place(
         // Take on the hostile archetype's HP pool (the peaceful seed spawned with
         // health=1; a provoked actor should fight at full archetype HP).
         *em.health =
-            crate::actor::BodyHealth::new(ambition_characters::actor::Health::new(spec.max_health));
+            ambition_characters::actor::BodyHealth::new(ambition_characters::actor::Health::new(spec.max_health));
         // Keep the actor's own sprite sheet (its NPC name) when hostile — except
         // the Kernel Guide, which uses the default enemy sheet (legacy quirk).
         if em.config.name != "Kernel Guide NPC" {

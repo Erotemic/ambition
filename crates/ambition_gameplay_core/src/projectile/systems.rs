@@ -14,11 +14,12 @@ use super::spawn_message::{ProjectilePool, SpawnProjectile};
 use super::state::{PlayerProjectileState, ProjectileTraceEvent};
 use super::{resolve_world_collision, WorldHitOutcome};
 use crate::actor::BodyKinematics;
+use ambition_characters::actor::BodyCombat;
 use ambition_sfx::SfxMessage;
 use crate::features::{
-    can_damage, damage_lands, ActorAggression, ActorDisposition, ActorFaction, BodyCombat,
-    BossClusterRef, BossConfig, BreakableFeature, CenteredAabb, FeatureId, FeatureSimEntity,
-    HitEvent, HitKnockback, HitMode, HitSource, HitTarget,
+    can_damage, damage_lands, ActorAggression, ActorDisposition, ActorFaction, BossClusterRef,
+    BossConfig, BreakableFeature, CenteredAabb, FeatureId, FeatureSimEntity, HitEvent, HitKnockback,
+    HitMode, HitSource, HitTarget,
 };
 use crate::projectile::ProjectileGameplay;
 use crate::trace::GameplayTraceBuffer;
@@ -462,7 +463,7 @@ pub fn step_projectiles(
             &crate::actor::BodyOffense,
             &crate::actor::BodyDodgeState,
             &crate::actor::BodyShieldState,
-            &crate::actor::BodyCombat,
+            &ambition_characters::actor::BodyCombat,
         ),
         (With<crate::actor::PlayerEntity>, Without<LiveProjectile>),
     >,
@@ -477,7 +478,7 @@ pub fn step_projectiles(
             &FeatureId,
             &CenteredAabb,
             BossClusterRef,
-            &crate::actor::BodyHealth,
+            &ambition_characters::actor::BodyHealth,
             &ambition_characters::brain::BossAttackState,
             Option<&crate::features::BossAnimationFrameSample>,
         ),

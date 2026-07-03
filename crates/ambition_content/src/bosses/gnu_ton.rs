@@ -70,7 +70,7 @@ fn boss_is_gnu_ton(boss: &ambition_gameplay_core::features::BossRef<'_>) -> bool
 /// alive) re-hides the ladders automatically.
 pub fn gate_gnu_ton_arena_ladder(
     world: Res<RoomGeometry>,
-    bosses: Query<(BossClusterRef, &ambition_gameplay_core::actor::BodyHealth)>,
+    bosses: Query<(BossClusterRef, &ambition_characters::actor::BodyHealth)>,
     mut overlay: ResMut<FeatureEcsWorldOverlay>,
 ) {
     if world.0.name != ARENA_ROOM_NAME {
@@ -318,7 +318,7 @@ mod tests {
 
         // Kill the boss; next tick should add the ladder back.
         app.world_mut()
-            .get_mut::<ambition_gameplay_core::actor::BodyHealth>(boss_entity)
+            .get_mut::<ambition_characters::actor::BodyHealth>(boss_entity)
             .unwrap()
             .health
             .current = 0;
@@ -372,7 +372,7 @@ mod tests {
         app.update();
         assert_eq!(floor_gate_count(&app), 1);
         app.world_mut()
-            .get_mut::<ambition_gameplay_core::actor::BodyHealth>(boss_entity)
+            .get_mut::<ambition_characters::actor::BodyHealth>(boss_entity)
             .unwrap()
             .health
             .current = 0;
@@ -425,7 +425,7 @@ mod tests {
             .id();
         app.update();
         app.world_mut()
-            .get_mut::<ambition_gameplay_core::actor::BodyHealth>(boss_entity)
+            .get_mut::<ambition_characters::actor::BodyHealth>(boss_entity)
             .unwrap()
             .health
             .current = 0;

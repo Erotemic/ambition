@@ -91,7 +91,7 @@ pub fn draw_debug_overlay(
     mut player_q: Query<
         (
             ae::BodyClusterQueryData,
-            Option<&ambition_gameplay_core::actor::BodyHealth>,
+            Option<&ambition_characters::actor::BodyHealth>,
             &ambition_gameplay_core::player::BodyMelee,
         ),
         // The primary player never carries `FeatureSimEntity` (player vs

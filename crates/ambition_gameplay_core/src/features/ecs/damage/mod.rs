@@ -120,8 +120,8 @@ pub fn apply_feature_hit_events(
             // hit-flash the damage path arms. `Without<PlayerEntity>` keeps
             // this `&mut BodyCombat` provably disjoint from the player query
             // below (the actor query is already `Without<BossConfig>`).
-            &mut crate::actor::BodyHealth,
-            &mut crate::actor::BodyCombat,
+            &mut ambition_characters::actor::BodyHealth,
+            &mut ambition_characters::actor::BodyCombat,
             &ambition_characters::brain::BossAttackState,
             Option<&crate::features::BossAnimationFrameSample>,
         ),
@@ -138,7 +138,7 @@ pub fn apply_feature_hit_events(
     mut player_combat_q: Query<
         (
             bevy::prelude::Entity,
-            &mut crate::actor::BodyCombat,
+            &mut ambition_characters::actor::BodyCombat,
             // The attacker's live swing, so a multi-active-frame slash records
             // which targets it has already struck and never double-hits them.
             Option<&mut crate::player::BodyMelee>,

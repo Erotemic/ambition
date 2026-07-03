@@ -17,7 +17,7 @@ use bevy::prelude::MessageWriter;
 use ambition_engine_core as ae;
 use ambition_vfx::vfx::{ParticleKind, VfxMessage};
 
-use crate::actor::BodyCombat;
+use ambition_characters::actor::BodyCombat;
 use ambition_sfx::SfxMessage;
 use crate::player::{PlayerAnimState, PlayerBlinkCameraState};
 

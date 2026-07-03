@@ -12,7 +12,7 @@ use super::*;
 pub fn record_simulation_frame(
     buffer: &mut GameplayTraceBuffer,
     clusters: &ae::BodyClustersMut<'_>,
-    combat: &crate::actor::BodyCombat,
+    combat: &ambition_characters::actor::BodyCombat,
     clock: &ambition_time::ClockState,
     safety: &crate::player::PlayerSafetyState,
     world: &ae::World,
@@ -130,10 +130,10 @@ pub fn record_frame_system(
     mut player_q: Query<
         (
             ae::BodyClusterQueryData,
-            Option<&crate::actor::BodyHealth>,
+            Option<&ambition_characters::actor::BodyHealth>,
             &crate::player::PlayerSafetyState,
             &crate::player::PlayerInputFrame,
-            &crate::actor::BodyCombat,
+            &ambition_characters::actor::BodyCombat,
         ),
         crate::actor::PrimaryPlayerOnly,
     >,

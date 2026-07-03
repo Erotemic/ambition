@@ -70,8 +70,8 @@ pub fn update_boss_encounters(
             crate::features::BossClusterQueryData,
             // The boss's shared body components (§A1): HP authority + the
             // hit-flash/reaction timers.
-            &mut crate::actor::BodyHealth,
-            &mut crate::actor::BodyCombat,
+            &mut ambition_characters::actor::BodyHealth,
+            &mut ambition_characters::actor::BodyCombat,
             Option<&crate::features::BossOverrides>,
         ),
         With<crate::features::FeatureSimEntity>,
@@ -123,7 +123,7 @@ pub fn update_boss_encounters(
                 .unwrap_or(spec.max_hp)
                 .max(1);
             *health =
-                crate::actor::BodyHealth::new(ambition_characters::actor::Health::new(max_hp));
+                ambition_characters::actor::BodyHealth::new(ambition_characters::actor::Health::new(max_hp));
             let triggers = overrides
                 .and_then(|o| o.phase_triggers.clone())
                 .unwrap_or_else(|| crate::boss_encounter::PhaseTrigger::intrinsic_from_spec(&spec));

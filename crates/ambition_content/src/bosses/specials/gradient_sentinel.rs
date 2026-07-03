@@ -122,7 +122,7 @@ pub fn spawn_gnu_apple_rain_from_special_messages(
             Entity,
             &mut AppleRainSpawnState,
             BossClusterRef,
-            &ambition_gameplay_core::actor::BodyHealth,
+            &ambition_characters::actor::BodyHealth,
         ),
         With<FeatureSimEntity>,
     >,
@@ -328,7 +328,7 @@ pub fn spawn_overfit_volley_from_special_messages(
         (
             Entity,
             BossClusterRef,
-            &ambition_gameplay_core::actor::BodyHealth,
+            &ambition_characters::actor::BodyHealth,
             &BossAttackState,
             &mut OverfitVolleyState,
             Option<&ambition_gameplay_core::features::ActorTarget>,
@@ -485,7 +485,7 @@ pub fn spawn_minima_trap_from_special_messages(
         (
             Entity,
             BossClusterRef,
-            &ambition_gameplay_core::actor::BodyHealth,
+            &ambition_characters::actor::BodyHealth,
             &mut MinimaTrapState,
             Option<&ambition_gameplay_core::features::ActorTarget>,
         ),
@@ -624,7 +624,7 @@ pub fn spawn_saddle_point_from_special_messages(
     mut commands: Commands,
     world_time: Res<WorldTime>,
     mut messages: MessageReader<ActorActionMessage>,
-    mut bosses: Query<(Entity, BossClusterRef, &ambition_gameplay_core::actor::BodyHealth, &mut SaddlePointState), With<FeatureSimEntity>>,
+    mut bosses: Query<(Entity, BossClusterRef, &ambition_characters::actor::BodyHealth, &mut SaddlePointState), With<FeatureSimEntity>>,
 ) {
     let dt = world_time.sim_dt();
 
@@ -781,7 +781,7 @@ fn gradient_cascade_minion_x_offset(i: i32, count: i32) -> f32 {
 pub fn spawn_gradient_cascade_minions_from_special_messages(
     mut effects: MessageWriter<ambition_vfx::EffectRequest>,
     mut messages: MessageReader<ActorActionMessage>,
-    mut bosses: Query<(Entity, BossClusterRef, &ambition_gameplay_core::actor::BodyHealth, &mut GradientCascadeState), With<FeatureSimEntity>>,
+    mut bosses: Query<(Entity, BossClusterRef, &ambition_characters::actor::BodyHealth, &mut GradientCascadeState), With<FeatureSimEntity>>,
 ) {
     let minion_count = GRADIENT_CASCADE_MINION_COUNT;
     let mut firing: std::collections::HashSet<Entity> = std::collections::HashSet::new();

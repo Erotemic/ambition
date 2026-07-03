@@ -143,7 +143,7 @@ pub fn tick_encounter_scripts(
     world_time: Res<ambition_time::WorldTime>,
     mut gates: MessageReader<EncounterGate>,
     mut scripts: Query<(&EncounterDef, &mut EncounterScript)>,
-    mut members: Query<(&mut BossStatus, &mut crate::actor::BodyHealth)>,
+    mut members: Query<(&mut BossStatus, &mut ambition_characters::actor::BodyHealth)>,
     mut banner: ResMut<crate::features::GameplayBanner>,
     mut music: ResMut<crate::encounter::BossEncounterMusicRequest>,
 ) {
@@ -254,7 +254,7 @@ pub struct CommandedMove {
 pub fn tick_commanded_moves(
     mut bosses: Query<(
         BossClusterRef,
-        &crate::actor::BodyHealth,
+        &ambition_characters::actor::BodyHealth,
         &mut ambition_characters::brain::ActorControl,
         &mut ambition_characters::brain::BossAttackState,
         &CommandedMove,
@@ -347,11 +347,11 @@ mod tests {
     use crate::features::GameplayBanner;
     use ambition_time::WorldTime;
 
-    fn member(hp: i32) -> (BossStatus, crate::actor::BodyHealth) {
+    fn member(hp: i32) -> (BossStatus, ambition_characters::actor::BodyHealth) {
         test_boss_status(hp, BossEncounterPhase::Phase1)
     }
 
-    fn member_health(app: &App, boss: bevy::prelude::Entity) -> &crate::actor::BodyHealth {
+    fn member_health(app: &App, boss: bevy::prelude::Entity) -> &ambition_characters::actor::BodyHealth {
         app.world().entity(boss).get().unwrap()
     }
 

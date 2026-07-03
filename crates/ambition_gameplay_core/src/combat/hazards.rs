@@ -21,7 +21,7 @@ pub fn update_ecs_hazards(
             &crate::actor::BodyOffense,
             &crate::actor::BodyDodgeState,
             &crate::actor::BodyShieldState,
-            &crate::actor::BodyCombat,
+            &ambition_characters::actor::BodyCombat,
         ),
         (With<crate::actor::PlayerEntity>, Without<FeatureSimEntity>),
     >,
@@ -38,8 +38,8 @@ pub fn update_ecs_hazards(
             &crate::actor::BodyOffense,
             &crate::actor::BodyDodgeState,
             &crate::actor::BodyShieldState,
-            &crate::actor::BodyCombat,
-            &crate::actor::BodyHealth,
+            &ambition_characters::actor::BodyCombat,
+            &ambition_characters::actor::BodyHealth,
         ),
         (
             With<FeatureSimEntity>,
@@ -158,7 +158,7 @@ pub fn update_ecs_hazards(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::actor::BodyCombat;
+    use ambition_characters::actor::BodyCombat;
     use crate::actor::BodyKinematics;
     use crate::actor::PlayerEntity;
     use crate::actor::{BodyBaseSize, BodyDodgeState, BodyOffense, BodyShieldState};
@@ -266,7 +266,7 @@ mod tests {
                 BodyDodgeState::default(),
                 BodyShieldState::default(),
                 BodyCombat::default(),
-                crate::actor::BodyHealth::new(ambition_characters::actor::Health::new(5)),
+                ambition_characters::actor::BodyHealth::new(ambition_characters::actor::Health::new(5)),
             ))
             .id();
         spawn_hazard(&mut app, "spikes", pos);

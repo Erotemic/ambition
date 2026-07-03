@@ -20,7 +20,7 @@ pub fn refresh_actor_damageable_volumes(
         (
             &CenteredAabb,
             &ActorDisposition,
-            Option<&crate::actor::BodyHealth>,
+            Option<&ambition_characters::actor::BodyHealth>,
             &mut DamageableVolumes,
         ),
         // Exclude bosses: they ALSO carry `DamageableVolumes` + the shared
@@ -57,7 +57,7 @@ pub fn refresh_boss_damageable_volumes(
     mut bosses: Query<
         (
             super::boss_clusters::BossClusterRef,
-            &crate::actor::BodyHealth,
+            &ambition_characters::actor::BodyHealth,
             &ambition_characters::brain::BossAttackState,
             Option<&crate::features::BossAnimationFrameSample>,
             &mut DamageableVolumes,

@@ -23,9 +23,9 @@
 
 use ambition_app::{AgentAction, SandboxSim, SandboxSimOptions, TimestepMode};
 use ambition_characters::brain::ActorControl;
+use ambition_characters::actor::BodyHealth;
 use ambition_gameplay_core::actor::{
-    BodyAbilities, BodyBlinkState, BodyDashState, BodyFlightState, BodyHealth, BodyKinematics,
-    BodyShieldState,
+    BodyAbilities, BodyBlinkState, BodyDashState, BodyFlightState, BodyKinematics, BodyShieldState,
 };
 use ambition_gameplay_core::features::{FeatureId, DUEL_PCA_ID, DUEL_ROBOT_ID};
 use bevy::prelude::World;

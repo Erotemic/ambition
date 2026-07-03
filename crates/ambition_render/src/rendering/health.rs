@@ -10,9 +10,9 @@ use bevy::prelude::*;
 use super::primitives::HealthOverlayVisual;
 use crate::ui_fonts::{UiFontWeight, UiFonts};
 use ambition_engine_core::config::{world_to_bevy, WORLD_Z_PLAYER};
+use ambition_characters::actor::{BodyCombat, BodyHealth};
 use ambition_gameplay_core::features::{
-    ActorDisposition, BodyCombat, BodyHealth, BossClusterRef, BossConfig, BreakableFeature,
-    CenteredAabb, FeatureName,
+    ActorDisposition, BossClusterRef, BossConfig, BreakableFeature, CenteredAabb, FeatureName,
 };
 
 #[derive(Component)]
@@ -140,7 +140,7 @@ pub fn sync_health_overlays(
     player: Query<
         (
             &ambition_gameplay_core::actor::BodyKinematics,
-            &ambition_gameplay_core::actor::BodyHealth,
+            &ambition_characters::actor::BodyHealth,
         ),
         ambition_gameplay_core::actor::PrimaryPlayerOnly,
     >,

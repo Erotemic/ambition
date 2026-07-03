@@ -11,9 +11,9 @@ use std::collections::{HashMap, HashSet};
 
 use ambition_engine_core::{self as ae, AabbExt};
 use ambition_gameplay_core::actor::PrimaryPlayerOnly;
+use ambition_characters::actor::{BodyCombat, BodyHealth};
 use ambition_gameplay_core::features::{
-    ActorIdentity, BodyCombat, BodyHealth, BossPhase, CenteredAabb, FeatureId, FeatureSimEntity,
-    FeatureViewIndex,
+    ActorIdentity, BossPhase, CenteredAabb, FeatureId, FeatureSimEntity, FeatureViewIndex,
 };
 use ambition_gameplay_core::rooms::{ActiveRoomMetadata, RoomNameplatePolicy};
 use ambition_engine_core::config::{world_to_bevy, WORLD_Z_PLAYER};

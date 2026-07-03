@@ -41,8 +41,8 @@ use super::*;
 /// death outro + save/quest resolution run in `update_boss_encounters`).
 pub(crate) fn apply_entity_boss_damage(
     status: &mut BossStatus,
-    health: &mut crate::actor::BodyHealth,
-    combat: &mut crate::actor::BodyCombat,
+    health: &mut ambition_characters::actor::BodyHealth,
+    combat: &mut ambition_characters::actor::BodyCombat,
     amount: i32,
 ) -> (bool, bool) {
     // Phase-invuln is boss POLICY, gated before the shared mechanics.
@@ -105,8 +105,8 @@ pub(crate) fn apply_boss_hit(
     boss: super::super::boss_clusters::BossMut<'_>,
     // The boss's shared body components (§A1): `BodyHealth` is the HP
     // authority, `BodyCombat.hit_flash` the one damage-blink.
-    health: &mut crate::actor::BodyHealth,
-    combat: &mut crate::actor::BodyCombat,
+    health: &mut ambition_characters::actor::BodyHealth,
+    combat: &mut ambition_characters::actor::BodyCombat,
     attack_state: &ambition_characters::brain::BossAttackState,
     animation_frame: Option<&crate::features::BossAnimationFrameSample>,
     banner: &mut GameplayBanner,
@@ -268,14 +268,14 @@ mod entity_damage_tests {
     use crate::boss_encounter::BossEncounterPhase;
     use crate::combat::boss_clusters::test_support::test_boss_status;
 
-    fn boss(hp: i32, phase: BossEncounterPhase) -> (BossStatus, crate::actor::BodyHealth) {
+    fn boss(hp: i32, phase: BossEncounterPhase) -> (BossStatus, ambition_characters::actor::BodyHealth) {
         test_boss_status(hp, phase)
     }
 
     #[test]
     fn damage_decreases_hp_in_a_vulnerable_phase() {
         let (mut s, mut health) = boss(10, BossEncounterPhase::Phase1);
-        let mut combat = crate::actor::BodyCombat::default();
+        let mut combat = ambition_characters::actor::BodyCombat::default();
         let (applied, killed) = apply_entity_boss_damage(&mut s, &mut health, &mut combat, 3);
         assert!(applied);
         assert!(!killed);
@@ -285,7 +285,7 @@ mod entity_damage_tests {
     #[test]
     fn lethal_damage_kills_and_sets_death_phase() {
         let (mut s, mut health) = boss(4, BossEncounterPhase::Phase1);
-        let mut combat = crate::actor::BodyCombat::default();
+        let mut combat = ambition_characters::actor::BodyCombat::default();
         let (applied, killed) = apply_entity_boss_damage(&mut s, &mut health, &mut combat, 10);
         assert!(applied);
         assert!(killed);
@@ -301,7 +301,7 @@ mod entity_damage_tests {
     fn invulnerable_phase_swallows_damage() {
         // Transition is invulnerable in the phase vocabulary.
         let (mut s, mut health) = boss(10, BossEncounterPhase::Transition);
-        let mut combat = crate::actor::BodyCombat::default();
+        let mut combat = ambition_characters::actor::BodyCombat::default();
         let (applied, killed) = apply_entity_boss_damage(&mut s, &mut health, &mut combat, 5);
         assert!(!applied);
         assert!(!killed);
@@ -311,7 +311,7 @@ mod entity_damage_tests {
     #[test]
     fn already_dead_boss_does_not_refire_killed() {
         let (mut s, mut health) = boss(4, BossEncounterPhase::Phase1);
-        let mut combat = crate::actor::BodyCombat::default();
+        let mut combat = ambition_characters::actor::BodyCombat::default();
         let _ = apply_entity_boss_damage(&mut s, &mut health, &mut combat, 10); // kills → Death
         let (applied, killed) = apply_entity_boss_damage(&mut s, &mut health, &mut combat, 5);
         // Death is invulnerable → the follow-up hit is swallowed, killed stays false.
@@ -327,7 +327,7 @@ mod entity_damage_tests {
         // `vulnerable()` never gates — two hits in the same window both deal
         // damage (player DPS against bosses is unchanged by the resolver).
         let (mut s, mut health) = boss(10, BossEncounterPhase::Phase1);
-        let mut combat = crate::actor::BodyCombat::default();
+        let mut combat = ambition_characters::actor::BodyCombat::default();
         let (a1, _) = apply_entity_boss_damage(&mut s, &mut health, &mut combat, 3);
         let (a2, _) = apply_entity_boss_damage(&mut s, &mut health, &mut combat, 3);
         assert!(a1 && a2, "both hits apply — no i-frame swallows the second");

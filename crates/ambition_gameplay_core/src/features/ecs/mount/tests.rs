@@ -8,7 +8,7 @@ use bevy::prelude::*;
 type ActorClusterBundle = (
     super::super::actor_clusters::BodyKinematics,
     super::super::actor_clusters::ActorStatus,
-    crate::actor::BodyHealth,
+    ambition_characters::actor::BodyHealth,
     super::super::actor_clusters::ActorConfig,
     super::super::actor_clusters::ActorMotionPath,
     crate::features::ActorSurfaceState,
@@ -270,7 +270,7 @@ fn reviving_mount_re_arms_rider_to_mounted_brain() {
     // authority) the way reset_to_spawn would. The enforcer should
     // re-arm the link on the next tick.
     app.world_mut()
-        .get_mut::<crate::actor::BodyHealth>(mount)
+        .get_mut::<ambition_characters::actor::BodyHealth>(mount)
         .unwrap()
         .reset();
     app.update();
@@ -321,7 +321,7 @@ fn dead_rider_does_not_disturb_mount_records() {
     assert!(
         app.world()
             .entity(mount)
-            .get::<crate::actor::BodyHealth>()
+            .get::<ambition_characters::actor::BodyHealth>()
             .unwrap()
             .alive(),
         "mount stays alive when rider dies"

@@ -83,7 +83,7 @@ pub fn tick_actor_brains(
         (
             bevy::prelude::Entity,
             &crate::actor::BodyKinematics,
-            &crate::actor::BodyHealth,
+            &ambition_characters::actor::BodyHealth,
         ),
         bevy::prelude::With<crate::actor::PlayerEntity>,
     >,
@@ -749,7 +749,7 @@ pub fn apply_actor_contact_damage(
             &crate::actor::BodyOffense,
             &crate::actor::BodyDodgeState,
             &crate::actor::BodyShieldState,
-            &crate::actor::BodyCombat,
+            &ambition_characters::actor::BodyCombat,
             bevy::prelude::Has<crate::actor::PlayerEntity>,
         )>,
     )>,
@@ -1145,7 +1145,7 @@ pub fn tick_npc_idle_barks(
         (
             &super::super::actor_clusters::BodyKinematics,
             &super::super::actor_clusters::ActorConfig,
-            &crate::actor::BodyCombat,
+            &ambition_characters::actor::BodyCombat,
             &ActorInteraction,
             &ActorDisposition,
         ),

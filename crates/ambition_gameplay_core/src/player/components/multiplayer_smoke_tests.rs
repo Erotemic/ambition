@@ -237,7 +237,7 @@ fn clear_is_per_entity() {
 /// the heart instead of always to primary.
 #[test]
 fn targeted_heal_routes_to_named_entity_not_primary() {
-    use crate::actor::BodyHealth;
+    use ambition_characters::actor::BodyHealth;
     use crate::player::{apply_player_heal_requests, PlayerHealRequested};
 
     let mut app = App::new();
@@ -287,7 +287,7 @@ fn targeted_heal_routes_to_named_entity_not_primary() {
 /// silently break when other code starts using `for_target`.
 #[test]
 fn untargeted_heal_routes_to_primary() {
-    use crate::actor::BodyHealth;
+    use ambition_characters::actor::BodyHealth;
     use crate::player::{apply_player_heal_requests, PlayerHealRequested};
 
     let mut app = App::new();

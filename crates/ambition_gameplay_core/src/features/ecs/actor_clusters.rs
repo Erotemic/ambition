@@ -12,8 +12,8 @@
 //!   on_ground → [`crate::actor::BodyGroundState`], air jumps →
 //!   [`crate::actor::BodyJumpState`])
 //! - attack windup/active/cooldown/axis → [`BodyMelee`] (component)
-//! - respawn/ai_mode          → [`ActorStatus`] (liveness → [`crate::actor::BodyHealth`];
-//!   damage-blink + post-hit i-frame → [`crate::actor::BodyCombat`])
+//! - respawn/ai_mode          → [`ActorStatus`] (liveness → [`ambition_characters::actor::BodyHealth`];
+//!   damage-blink + post-hit i-frame → [`ambition_characters::actor::BodyCombat`])
 //! - tuning/brain_spec/brain/spawn baseline/sprite override/id/name → [`ActorConfig`]
 //! - patrol path             → [`ActorMotionPath`]
 
@@ -39,9 +39,9 @@ pub use crate::platformer_runtime::body::BodyKinematics;
 /// Per-tick actor-control scalars: respawn countdown + last-evaluated AI mode.
 ///
 /// Every body-generic fact has moved to the shared body components: liveness +
-/// health → [`crate::actor::BodyHealth`] (`alive` is `health.alive()`, not a shadow
+/// health → [`ambition_characters::actor::BodyHealth`] (`alive` is `health.alive()`, not a shadow
 /// flag); the reaction timers (damage-blink `hit_flash` + post-hit i-frame) →
-/// [`crate::actor::BodyCombat`], the SAME fields the player carries. What remains
+/// [`ambition_characters::actor::BodyCombat`], the SAME fields the player carries. What remains
 /// here is genuinely actor-only (the player respawns via its own SafetyState; AI
 /// mode is a brain concept).
 #[derive(Component, Clone, Copy, Debug, PartialEq)]
@@ -51,7 +51,7 @@ pub struct ActorStatus {
 }
 
 /// Post-hit i-frame window for a body on the actor path, written onto the body's
-/// authoritative [`crate::actor::BodyCombat::damage_invuln_timer`] on a landed hit
+/// authoritative [`ambition_characters::actor::BodyCombat::damage_invuln_timer`] on a landed hit
 /// (the SAME field the player gates re-hits on). Deliberately shorter than the
 /// player's attack cadence (~0.4 s swipe) so it never eats an intended combo hit,
 /// yet long enough to collapse a 60 fps contact/overlap stream to a single hit per
@@ -185,7 +185,7 @@ pub struct ActorMut<'a> {
     pub status: &'a mut ActorStatus,
     /// The body's shared health (the one `BodyHealth` component every actor
     /// carries) — the authoritative HP the damage / respawn / banter paths use.
-    pub health: &'a mut crate::actor::BodyHealth,
+    pub health: &'a mut ambition_characters::actor::BodyHealth,
     pub surface: &'a mut ActorSurfaceState,
     pub attack: &'a mut BodyMelee,
     pub config: &'a mut ActorConfig,
@@ -249,7 +249,7 @@ impl<'a> ActorMut<'a> {
 pub struct ActorClusterQueryData {
     pub kin: &'static mut BodyKinematics,
     pub status: &'static mut ActorStatus,
-    pub health: &'static mut crate::actor::BodyHealth,
+    pub health: &'static mut ambition_characters::actor::BodyHealth,
     pub surface: &'static mut ActorSurfaceState,
     pub attack: &'static mut BodyMelee,
     pub config: &'static mut ActorConfig,
@@ -321,7 +321,7 @@ pub struct ActorClusterSeed {
     pub status: ActorStatus,
     /// The body's shared health (drives the spawned `BodyHealth` + the seed-based
     /// test harness's `ActorMut::health`).
-    pub health: crate::actor::BodyHealth,
+    pub health: ambition_characters::actor::BodyHealth,
     pub surface: ActorSurfaceState,
     pub attack: BodyMelee,
     pub config: ActorConfig,
@@ -428,7 +428,7 @@ impl ActorClusterSeed {
                 respawn_timer: 0.0,
                 ai_mode: ambition_characters::actor::ai::CharacterAiMode::Idle,
             },
-            health: crate::actor::BodyHealth::new(ambition_characters::actor::Health::new(
+            health: ambition_characters::actor::BodyHealth::new(ambition_characters::actor::Health::new(
                 spec.max_health,
             )),
             surface: ActorSurfaceState {
@@ -562,7 +562,7 @@ impl ActorClusterSeed {
                 respawn_timer: 0.0,
                 ai_mode: ambition_characters::actor::ai::CharacterAiMode::Idle,
             },
-            health: crate::actor::BodyHealth::new(ambition_characters::actor::Health::new(1)),
+            health: ambition_characters::actor::BodyHealth::new(ambition_characters::actor::Health::new(1)),
             surface: ActorSurfaceState {
                 surface_normal: ae::Vec2::new(0.0, -1.0),
                 gravity_scale,
@@ -660,14 +660,14 @@ impl ActorClusterSeed {
     }
 
     /// The authoritative components as a spawnable Bundle. Includes the body's
-    /// shared [`crate::actor::BodyHealth`] (the one health authority — spawned with
+    /// shared [`ambition_characters::actor::BodyHealth`] (the one health authority — spawned with
     /// the cluster, not the combat bundle).
     pub fn into_components(
         self,
     ) -> (
         BodyKinematics,
         ActorStatus,
-        crate::actor::BodyHealth,
+        ambition_characters::actor::BodyHealth,
         ActorConfig,
         ActorMotionPath,
         ActorSurfaceState,

@@ -308,7 +308,7 @@ mod tests {
                 crate::actor::BodyOffense::default(),
                 crate::actor::BodyDodgeState::default(),
                 crate::actor::BodyShieldState::default(),
-                crate::actor::BodyCombat::default(),
+                ambition_characters::actor::BodyCombat::default(),
             ))
             .id();
         (app, victim)

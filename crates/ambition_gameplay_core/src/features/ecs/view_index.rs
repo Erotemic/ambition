@@ -89,8 +89,8 @@ pub fn rebuild_feature_view_index(
             &FeatureId,
             &CenteredAabb,
             &ActorDisposition,
-            Option<&crate::actor::BodyCombat>,
-            Option<&crate::actor::BodyHealth>,
+            Option<&ambition_characters::actor::BodyCombat>,
+            Option<&ambition_characters::actor::BodyHealth>,
             Option<&BodyMelee>,
             Option<&super::actor_clusters::ActorConfig>,
             Option<&ActorSurfaceState>,
@@ -117,7 +117,7 @@ pub fn rebuild_feature_view_index(
         // `sync_boss_actor_components` (WorldPrep, before this rebuild).
         // Presentation reads alive / hit-flash from here instead of the
         // BossRuntime fields, the same component enemies/NPCs expose.
-        &super::super::components::BodyCombat,
+        &ambition_characters::actor::BodyCombat,
         Option<&BossDeathAnimation>,
         Option<&BossPhase>,
         // Gravity-upright roll — the SAME `ActorRoll` the player / enemies / NPCs

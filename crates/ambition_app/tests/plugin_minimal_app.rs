@@ -20,16 +20,15 @@
 //! `scripted_gameplay.rs` and the per-feature suites under
 //! `crates/ambition_gameplay_core/src/**/tests.rs`.
 
-use ambition_gameplay_core::actor::{BodyCombat, BodyHealth};
+use ambition_characters::actor::{BodyCombat, BodyHealth};
 use ambition_gameplay_core::actor::{BodyKinematics, PlayerEntity, PrimaryPlayer};
 use ambition_gameplay_core::body_mode::BodyModeCapabilities;
 use ambition_gameplay_core::player::{
     LocalPlayer, PlayerAnimState, PlayerBlinkCameraState, PlayerIdentityBundle, PlayerSlot,
 };
 use ambition_gameplay_core::rooms::RoomSet;
-use ambition_gameplay_core::{
-    ClockState, GameMode, MovingPlatformSet, RoomGeometry, SandboxSimState,
-};
+use ambition_gameplay_core::{GameMode, MovingPlatformSet, RoomGeometry, SandboxSimState};
+use ambition_time::ClockState;
 use ambition_input::ControlFrame;
 use bevy::asset::AssetPlugin;
 use bevy::image::ImagePlugin;

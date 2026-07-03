@@ -124,7 +124,7 @@ pub fn sync_ecs_bosses_with_save(
     mut bosses: Query<
         (
             super::boss_clusters::BossClusterQueryData,
-            &mut crate::actor::BodyHealth,
+            &mut ambition_characters::actor::BodyHealth,
             Option<&mut BossDeathAnimation>,
             Option<&mut BossPhase>,
         ),

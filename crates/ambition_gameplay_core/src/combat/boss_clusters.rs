@@ -45,9 +45,9 @@ pub struct BossConfig {
 /// metrics, and the entity-local phase machine.
 ///
 /// §A1 authority flip (fable review 2026-07-02): health / liveness / hit-flash
-/// are NOT here anymore — a boss's HP authority is the same [`crate::actor::BodyHealth`]
+/// are NOT here anymore — a boss's HP authority is the same [`ambition_characters::actor::BodyHealth`]
 /// every body carries (alive = `health.alive()`), and its damage-blink is
-/// [`crate::actor::BodyCombat::hit_flash`]. What remains is genuinely
+/// [`ambition_characters::actor::BodyCombat::hit_flash`]. What remains is genuinely
 /// encounter-specific.
 #[derive(Component, Clone, Debug)]
 pub struct BossStatus {
@@ -187,8 +187,8 @@ impl<'a> BossMut<'a> {
     /// loop clears alongside this.
     pub fn reset_to_spawn(
         &mut self,
-        health: &mut crate::actor::BodyHealth,
-        combat: &mut crate::actor::BodyCombat,
+        health: &mut ambition_characters::actor::BodyHealth,
+        combat: &mut ambition_characters::actor::BodyCombat,
     ) {
         self.kin.pos = self.config.spawn;
         self.kin.facing = 1.0;
@@ -294,7 +294,7 @@ pub struct BossClusterScratch {
     pub status: BossStatus,
     /// The boss's HP authority — the SAME `BodyHealth` component every body
     /// carries (§A1). Spawned from here; never mirrored from boss state.
-    pub health: crate::actor::BodyHealth,
+    pub health: ambition_characters::actor::BodyHealth,
 }
 
 impl BossClusterScratch {
@@ -335,7 +335,7 @@ impl BossClusterScratch {
                 sprite_metrics: None,
                 encounter: None,
             },
-            health: crate::actor::BodyHealth::new(ambition_characters::actor::Health::new(18)),
+            health: ambition_characters::actor::BodyHealth::new(ambition_characters::actor::Health::new(18)),
         }
     }
 
@@ -359,7 +359,7 @@ impl BossClusterScratch {
     /// `BodyHealth` HP authority).
     pub fn into_components(
         self,
-    ) -> (BodyKinematics, BossConfig, BossStatus, crate::actor::BodyHealth) {
+    ) -> (BodyKinematics, BossConfig, BossStatus, ambition_characters::actor::BodyHealth) {
         (self.kin, self.config, self.status, self.health)
     }
 }
@@ -394,7 +394,7 @@ pub(crate) mod test_support {
         hp: i32,
         phase: BossEncounterPhase,
         triggers: Vec<PhaseTrigger>,
-    ) -> (BossStatus, crate::actor::BodyHealth) {
+    ) -> (BossStatus, ambition_characters::actor::BodyHealth) {
         let mut encounter = BossPhaseState::new(triggers);
         encounter.phase = phase;
         let mut health = ambition_characters::actor::Health::new(hp);
@@ -405,7 +405,7 @@ pub(crate) mod test_support {
                 sprite_metrics: None,
                 encounter: Some(encounter),
             },
-            crate::actor::BodyHealth::new(health),
+            ambition_characters::actor::BodyHealth::new(health),
         )
     }
 
@@ -414,7 +414,7 @@ pub(crate) mod test_support {
     pub(crate) fn test_boss_status(
         hp: i32,
         phase: BossEncounterPhase,
-    ) -> (BossStatus, crate::actor::BodyHealth) {
+    ) -> (BossStatus, ambition_characters::actor::BodyHealth) {
         test_boss_status_with(hp, phase, Vec::new())
     }
 

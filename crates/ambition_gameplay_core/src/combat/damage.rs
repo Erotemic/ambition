@@ -19,8 +19,8 @@ use bevy::prelude::{Entity, MessageReader, MessageWriter, Query, Res, ResMut, Wi
 use ambition_engine_core as ae;
 use ambition_vfx::vfx::VfxMessage;
 
-use crate::actor::BodyCombat;
-use crate::actor::BodyHealth;
+use ambition_characters::actor::BodyCombat;
+use ambition_characters::actor::BodyHealth;
 use crate::actor::{BodyDodgeState, BodyOffense, BodyShieldState};
 use crate::actor::{PlayerEntity, PrimaryPlayer, PrimaryPlayerOnly};
 use ambition_sfx::SfxMessage;

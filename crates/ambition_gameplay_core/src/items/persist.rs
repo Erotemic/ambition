@@ -9,7 +9,7 @@
 
 use bevy::prelude::*;
 
-use crate::actor::BodyWallet;
+use ambition_characters::actor::BodyWallet;
 use crate::actor::{PlayerEntity, PrimaryPlayer};
 use crate::items::OwnedItems;
 use crate::persistence::save::SandboxSave;

@@ -5,7 +5,7 @@
 //! loop correctly.
 
 use super::*;
-use crate::actor::BodyCombat;
+use ambition_characters::actor::BodyCombat;
 use crate::player::PlayerBlinkCameraState;
 
 /// Build a player + the three default state inputs that

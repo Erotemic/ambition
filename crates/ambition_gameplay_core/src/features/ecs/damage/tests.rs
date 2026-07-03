@@ -6,7 +6,7 @@ use super::super::damage_drops::{
     spawn_split_offspring,
 };
 use super::*;
-use crate::actor::BodyHealth;
+use ambition_characters::actor::BodyHealth;
 use crate::features::ecs::enemy_component_snapshot;
 use crate::features::{HitMode, HitTarget};
 use ambition_engine_core as ae;
@@ -22,7 +22,7 @@ fn spawn_hostile_actor(app: &mut App) -> bevy::prelude::Entity {
         ambition_characters::actor::CharacterBrain::Custom("medium_striker".into()),
         &[],
     );
-    enemy.health = crate::actor::BodyHealth::new(ambition_characters::actor::Health::new(5));
+    enemy.health = ambition_characters::actor::BodyHealth::new(ambition_characters::actor::Health::new(5));
     let (identity, disposition, combat, intent, cooldowns) = enemy_component_snapshot(&enemy);
     app.world_mut()
         .spawn((
@@ -113,7 +113,7 @@ fn enemy_charge_crash_is_processed_as_enemy_damage() {
     );
     let health = app
         .world()
-        .get::<crate::actor::BodyHealth>(actor_entity)
+        .get::<ambition_characters::actor::BodyHealth>(actor_entity)
         .expect("hostile actor cluster health exists");
     assert!(
         !health.alive(),
@@ -172,7 +172,7 @@ fn player_slash_damages_and_can_kill_a_hostile_actor() {
     // model the gap between attacks (without it, the i-frame correctly gates the
     // back-to-back second hit — that is the regression fix working).
     app.world_mut()
-        .get_mut::<crate::actor::BodyCombat>(actor_entity)
+        .get_mut::<ambition_characters::actor::BodyCombat>(actor_entity)
         .unwrap()
         .damage_invuln_timer = 0.0;
 
@@ -649,7 +649,7 @@ fn spawn_shielding_actor(app: &mut App, shield_raised: bool) -> bevy::prelude::E
         ambition_characters::actor::CharacterBrain::Custom("cellular_automaton_fighter".into()),
         &[],
     );
-    enemy.health = crate::actor::BodyHealth::new(ambition_characters::actor::Health::new(5));
+    enemy.health = ambition_characters::actor::BodyHealth::new(ambition_characters::actor::Health::new(5));
     enemy.kin.facing = 1.0;
     // Body capability + raised guard — the two halves the resolver normally fills
     // from `caps.can_shield && frame.shield_held`.

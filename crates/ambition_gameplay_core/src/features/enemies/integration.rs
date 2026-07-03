@@ -591,7 +591,7 @@ impl<'a> ActorMut<'a> {
         self.kin.pos = self.config.spawn.pos;
         self.kin.vel = ae::Vec2::ZERO;
         // Fresh full-HP body → `alive()` is true; no separate liveness flag.
-        *self.health = crate::actor::BodyHealth::new(ambition_characters::actor::Health::new(
+        *self.health = ambition_characters::actor::BodyHealth::new(ambition_characters::actor::Health::new(
             self.config.tuning.max_health,
         ));
         *self.attack = BodyMelee::default();

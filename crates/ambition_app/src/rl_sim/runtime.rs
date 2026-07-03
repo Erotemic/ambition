@@ -201,12 +201,12 @@ impl SandboxSim {
         let mut combat_query = self
             .app
             .world_mut()
-            .query_filtered::<&ambition_gameplay_core::actor::BodyCombat, ambition_gameplay_core::actor::PrimaryPlayerOnly>(
+            .query_filtered::<&ambition_characters::actor::BodyCombat, ambition_gameplay_core::actor::PrimaryPlayerOnly>(
             );
         let mut health_query = self
             .app
             .world_mut()
-            .query_filtered::<&ambition_gameplay_core::actor::BodyHealth, ambition_gameplay_core::actor::PrimaryPlayerOnly>();
+            .query_filtered::<&ambition_characters::actor::BodyHealth, ambition_gameplay_core::actor::PrimaryPlayerOnly>();
         let mut safety_query = self
             .app
             .world_mut()
@@ -216,7 +216,7 @@ impl SandboxSim {
         // collection assertions. Read once per tick; cheap.
         let mut enemy_query = self.app.world_mut().query::<(
             &ambition_gameplay_core::actor::BodyKinematics,
-            &ambition_gameplay_core::actor::BodyHealth,
+            &ambition_characters::actor::BodyHealth,
         )>();
         let mut pickup_query = self
             .app

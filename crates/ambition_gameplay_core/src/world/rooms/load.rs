@@ -13,7 +13,7 @@
 use bevy::prelude::{Commands, Entity, MessageWriter, Query, With};
 
 use super::{validated_spawn, LoadingZoneActivation, RoomSet, RoomSpec, RoomTransition};
-use crate::actor::BodyCombat;
+use ambition_characters::actor::BodyCombat;
 use ambition_sfx::SfxMessage;
 use crate::dialog::DialogState;
 use crate::features;

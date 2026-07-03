@@ -44,15 +44,15 @@ pub struct PlayerInputFrame {
     pub frame: ControlFrame,
 }
 
-// Player health is now the unified `crate::actor::BodyHealth` (the keystone
+// Player health is now the unified `ambition_characters::actor::BodyHealth` (the keystone
 // collapse of the identical `PlayerHealth` / `ActorHealth` wrappers into one
 // body-health component).
 
 /// Player money — abstract coin/credits balance shown on the HUD and spent at
-// The body's coin/credits wallet is now `crate::actor::BodyWallet` (body
+// The body's coin/credits wallet is now `ambition_characters::actor::BodyWallet` (body
 // vocabulary — players AND currency-dropping NPCs carry it).
 
-// Player combat/timer state is now the unified `crate::actor::BodyCombat` (the
+// Player combat/timer state is now the unified `ambition_characters::actor::BodyCombat` (the
 // keystone collapse of `BodyCombat` + the actor read-model into one body
 // combat component). The player fills the reaction-timer fields; the actor fills
 // the status/attack fields.

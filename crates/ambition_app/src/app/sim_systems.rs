@@ -83,7 +83,7 @@ pub fn input_timer_system(
     // Home/player bodies tick their OWN reaction timers here (they aren't in the
     // actor tick). Iterates every player body so a co-op / clone body ticks its own.
     mut home_feel_q: Query<
-        &mut ambition_gameplay_core::actor::BodyCombat,
+        &mut ambition_characters::actor::BodyCombat,
         With<ambition_gameplay_core::actor::PlayerEntity>,
     >,
 ) {
@@ -155,7 +155,7 @@ pub fn interaction_input_system(
     mut slot_gestures: ResMut<ambition_gameplay_core::player::SlotInteractionState>,
     // Hit-stun gate reads the CONTROLLED body's reaction state — the body actually
     // being driven, home avatar or possessed actor.
-    combat_q: Query<&ambition_gameplay_core::actor::BodyCombat>,
+    combat_q: Query<&ambition_characters::actor::BodyCombat>,
     primary_q: Query<
         Entity,
         (
@@ -236,7 +236,7 @@ pub fn apply_player_reset_input_system(
         (
             ae::BodyClusterQueryData,
             &mut ambition_gameplay_core::player::PlayerAnimState,
-            &mut ambition_gameplay_core::actor::BodyCombat,
+            &mut ambition_characters::actor::BodyCombat,
             &mut ambition_gameplay_core::player::PlayerBlinkCameraState,
             &mut ambition_gameplay_core::player::BodyMelee,
             &mut ambition_gameplay_core::player::PlayerSafetyState,
@@ -309,7 +309,7 @@ pub fn apply_cut_rope_room_replay_request_system(
         (
             ae::BodyClusterQueryData,
             &mut ambition_gameplay_core::player::PlayerAnimState,
-            &mut ambition_gameplay_core::actor::BodyCombat,
+            &mut ambition_characters::actor::BodyCombat,
             &mut ambition_gameplay_core::player::PlayerBlinkCameraState,
             &mut ambition_gameplay_core::player::BodyMelee,
             &mut ambition_gameplay_core::player::PlayerSafetyState,
@@ -381,7 +381,7 @@ pub fn cleanup_timers_system(
             &ambition_gameplay_core::actor::BodyGroundState,
             &ambition_gameplay_core::actor::BodyDashState,
             &mut ambition_gameplay_core::player::PlayerAnimState,
-            &mut ambition_gameplay_core::actor::BodyCombat,
+            &mut ambition_characters::actor::BodyCombat,
             &mut ambition_gameplay_core::player::PlayerBlinkCameraState,
         ),
         ambition_gameplay_core::actor::PrimaryPlayerOnly,
@@ -584,7 +584,8 @@ mod suspended_time_tests {
 #[cfg(test)]
 mod interaction_suppression_tests {
     use super::*;
-    use ambition_gameplay_core::actor::{BodyCombat, PlayerEntity, PrimaryPlayer};
+    use ambition_gameplay_core::actor::{PlayerEntity, PrimaryPlayer};
+    use ambition_characters::actor::BodyCombat;
     use ambition_gameplay_core::player::SlotInteractionState;
 
     /// Build a minimal app with `interaction_input_system` and one primary

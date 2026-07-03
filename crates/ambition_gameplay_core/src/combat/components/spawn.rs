@@ -3,6 +3,8 @@
 use super::super::*;
 use super::*;
 
+use ambition_characters::actor::BodyCombat;
+
 /// Simulation-only base for a feature entity: the marker that identifies it
 /// to feature-system queries, its room-scoped lifecycle, and its authored
 /// identity/shape. Does NOT include any rendering components, so it is the

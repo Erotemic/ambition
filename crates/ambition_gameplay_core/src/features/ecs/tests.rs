@@ -159,7 +159,7 @@ fn boss_classifies_as_boss_not_the_actor_enemy_fallback() {
         boss.as_ref(),
         &ambition_characters::brain::BossAttackState::default(),
         &boss.health,
-        &crate::actor::BodyCombat::default(),
+        &ambition_characters::actor::BodyCombat::default(),
     );
 
     let mut app = App::new();

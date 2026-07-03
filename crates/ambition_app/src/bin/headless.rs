@@ -124,7 +124,7 @@ fn run_with_trace_dump(max_ticks: u32, dump_dir: PathBuf, start_room: Option<Str
         let combat = {
             let mut combat_q = sim
                 .world_mut()
-                .query_filtered::<&ambition_gameplay_core::actor::BodyCombat, ambition_gameplay_core::actor::PrimaryPlayerOnly>();
+                .query_filtered::<&ambition_characters::actor::BodyCombat, ambition_gameplay_core::actor::PrimaryPlayerOnly>();
             combat_q.single(sim.world()).cloned().unwrap_or_default()
         };
 

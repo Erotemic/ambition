@@ -15,7 +15,7 @@ use super::components::{
     ActorAggression, ActorFaction, ActorTarget, AggressionTarget, CenteredAabb,
 };
 use super::FeatureSimEntity;
-use crate::actor::BodyHealth;
+use ambition_characters::actor::BodyHealth;
 use crate::actor::BodyKinematics;
 use crate::actor::PlayerEntity;
 

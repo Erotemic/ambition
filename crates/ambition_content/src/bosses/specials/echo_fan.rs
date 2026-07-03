@@ -59,7 +59,7 @@ pub fn spawn_echo_fan_from_special_messages(
         (
             Entity,
             BossClusterRef,
-            &ambition_gameplay_core::actor::BodyHealth,
+            &ambition_characters::actor::BodyHealth,
             &mut EchoFanState,
             Option<&ActorTarget>,
         ),

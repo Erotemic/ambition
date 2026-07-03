@@ -8,14 +8,14 @@
 //! Mana is a real spendable resource: [`regen_player_mana`] refills the
 //! `BodyMana` meter over time so charge attacks / the fireball (which already
 //! spend it via the projectile spawner) draw it down and it recovers. Money is
-//! fed by `PickupKind::Currency` collection crediting [`ambition_gameplay_core::actor::BodyWallet`].
+//! fed by `PickupKind::Currency` collection crediting [`ambition_characters::actor::BodyWallet`].
 
 use bevy::prelude::*;
 
 use ambition_gameplay_core::abilities::traversal::possession::ControlledSubject;
-use ambition_gameplay_core::actor::BodyHealth;
+use ambition_characters::actor::BodyHealth;
 use ambition_gameplay_core::actor::BodyMana;
-use ambition_gameplay_core::actor::BodyWallet;
+use ambition_characters::actor::BodyWallet;
 use ambition_gameplay_core::actor::{PlayerEntity, PrimaryPlayer};
 
 /// Bar width / height in logical px.

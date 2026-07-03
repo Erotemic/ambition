@@ -48,7 +48,7 @@ pub(crate) fn apply_home_reset_policy(
         (
             ae::BodyClusterQueryData,
             &mut ambition_gameplay_core::player::PlayerAnimState,
-            &mut ambition_gameplay_core::actor::BodyCombat,
+            &mut ambition_characters::actor::BodyCombat,
             &mut ambition_gameplay_core::player::PlayerBlinkCameraState,
             &mut ambition_gameplay_core::player::BodyMelee,
             &mut ambition_gameplay_core::player::PlayerSafetyState,
@@ -114,7 +114,7 @@ pub fn sync_player_presentation(
         (
             ae::BodyClusterQueryData,
             &mut ambition_gameplay_core::player::PlayerAnimState,
-            &mut ambition_gameplay_core::actor::BodyCombat,
+            &mut ambition_characters::actor::BodyCombat,
             &mut ambition_gameplay_core::player::PlayerBlinkCameraState,
             &PlayerBodyFrameOutput,
             Option<&ambition_gameplay_core::actor::PrimaryPlayer>,

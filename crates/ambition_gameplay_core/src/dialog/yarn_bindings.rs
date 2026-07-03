@@ -88,7 +88,7 @@ pub struct YarnStateMirror(pub Arc<RwLock<YarnStateMirrorData>>);
 pub fn refresh_yarn_state_mirror(
     save: Option<Res<SandboxSave>>,
     owned: Option<Res<crate::items::OwnedItems>>,
-    wallet: Query<&crate::actor::BodyWallet, With<crate::actor::PrimaryPlayer>>,
+    wallet: Query<&ambition_characters::actor::BodyWallet, With<crate::actor::PrimaryPlayer>>,
     mirror: Res<YarnStateMirror>,
 ) {
     let mut snap = mirror.0.write().expect("YarnStateMirror poisoned");
@@ -309,7 +309,7 @@ pub fn cmd_give_item(
 pub fn cmd_buy_item(
     In((id, price)): In<(String, f32)>,
     mut owned: ResMut<crate::items::OwnedItems>,
-    mut wallets: Query<&mut crate::actor::BodyWallet, With<crate::actor::PrimaryPlayer>>,
+    mut wallets: Query<&mut ambition_characters::actor::BodyWallet, With<crate::actor::PrimaryPlayer>>,
 ) {
     let Some(item) = crate::items::Item::from_dialog_id(&id) else {
         warn!(target: "ambition_gameplay_core::dialog::yarn", "buy_item: unknown item {id:?}");
@@ -330,7 +330,7 @@ pub fn cmd_buy_item(
 pub fn cmd_sell_item(
     In((id, price)): In<(String, f32)>,
     mut owned: ResMut<crate::items::OwnedItems>,
-    mut wallets: Query<&mut crate::actor::BodyWallet, With<crate::actor::PrimaryPlayer>>,
+    mut wallets: Query<&mut ambition_characters::actor::BodyWallet, With<crate::actor::PrimaryPlayer>>,
 ) {
     let Some(item) = crate::items::Item::from_dialog_id(&id) else {
         warn!(target: "ambition_gameplay_core::dialog::yarn", "sell_item: unknown item {id:?}");

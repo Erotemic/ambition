@@ -205,7 +205,7 @@ mod tests {
     type ActorClusterBundle = (
         super::super::actor_clusters::BodyKinematics,
         super::super::actor_clusters::ActorStatus,
-        crate::actor::BodyHealth,
+        ambition_characters::actor::BodyHealth,
         super::super::actor_clusters::ActorConfig,
         super::super::actor_clusters::ActorMotionPath,
         crate::features::ActorSurfaceState,

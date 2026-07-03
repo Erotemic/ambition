@@ -17,7 +17,7 @@
 
 use bevy::prelude::*;
 
-use crate::actor::BodyCombat;
+use ambition_characters::actor::BodyCombat;
 use crate::player::components::{PlayerSlot, PrimaryPlayer};
 use ambition_time::ClockState;
 use crate::time::feel::SandboxFeelTuning;

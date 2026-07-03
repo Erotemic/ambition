@@ -9,7 +9,8 @@ use super::components::{
     PlayerInputFrame, PlayerSafetyState, PlayerSlot, PrimaryPlayer,
 };
 use super::movement_components::BodyKinematics;
-use crate::actor::{AncillaryMovementBundle, BodyCombat, BodyHealth, BodyWallet};
+use crate::actor::AncillaryMovementBundle;
+use ambition_characters::actor::{BodyCombat, BodyHealth, BodyWallet};
 use crate::body_mode::BodyModeCapabilities;
 use crate::features::{ActorFaction, ActorPose};
 use ambition_characters::brain::{ActionSet, ActorControl, Brain};

@@ -86,7 +86,7 @@ pub fn apply_hitbox_damage(
             &crate::actor::BodyOffense,
             &crate::actor::BodyDodgeState,
             &crate::actor::BodyShieldState,
-            &crate::actor::BodyCombat,
+            &ambition_characters::actor::BodyCombat,
         )>,
         bevy::prelude::Has<crate::actor::PlayerEntity>,
     )>,

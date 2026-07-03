@@ -96,7 +96,7 @@ pub(super) fn handle_ldtk_hot_reload(
     mut player_q: Query<
         (
             ae::BodyClusterQueryData,
-            &mut ambition_gameplay_core::actor::BodyCombat,
+            &mut ambition_characters::actor::BodyCombat,
             &mut ambition_gameplay_core::player::PlayerSafetyState,
         ),
         // PRIMARY-only: LDtk hot-reload repositions the camera body to the
@@ -241,7 +241,7 @@ pub(super) fn reload_ldtk_world_from_disk(
     sim_state: &mut ambition_gameplay_core::SandboxSimState,
     safety: &mut ambition_gameplay_core::player::PlayerSafetyState,
     dialogue: &mut ambition_gameplay_core::dialog::DialogState,
-    combat: &mut ambition_gameplay_core::actor::BodyCombat,
+    combat: &mut ambition_characters::actor::BodyCombat,
     ldtk_index: &mut ldtk_world::LdtkRuntimeIndex,
     tuning: ae::MovementTuning,
     physics_settings: physics::PhysicsSandboxSettings,

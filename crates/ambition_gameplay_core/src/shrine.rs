@@ -14,7 +14,7 @@
 use bevy::prelude::*;
 
 use crate::abilities::traversal::possession::ControlledSubject;
-use crate::actor::BodyHealth;
+use ambition_characters::actor::BodyHealth;
 use crate::actor::BodyKinematics;
 use crate::actor::BodyMana;
 use crate::actor::{PlayerEntity, PrimaryPlayer};

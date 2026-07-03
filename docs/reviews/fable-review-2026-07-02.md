@@ -702,12 +702,15 @@ slices 1 + 2a** (boss HP/damage on the shared body components + through the one
 resolver), **4 of ~5 D1 facades** removed (config/effects/audio/time — only the
 `features/mod.rs` hub remains), and **§D2 COMPLETE** (E20/E21:
 `Body{Health,Combat,Wallet}` re-homed to `ambition_characters::actor::body`, all
-~200 consumers redirected, the whole gameplay_core facade chain deleted). The
-biggest open items are now **A1 slice 3** (the boss driver fold — multi-session)
-and the **features/mod.rs hub** (a 3-layer facade stack best dissolved
-family-by-family as each type family reaches its leaf home — D2 was the first
-such family and is the template). All work is committed linearly on main; the
-tree is green (counts in the verify block below).
+~200 consumers redirected, the whole gameplay_core facade chain deleted), and
+**§D3 STARTED** (E22): D3.1 landed (render names foundation crates directly for
+body vocab) + the full render→gameplay_core edge-cut is scoped into a slice
+sequence. The biggest open items are now **D3.2** (create `ambition_sim_view`,
+move the pure-data read-model core — the "missing abstraction"), **A1 slice 3**
+(the boss driver fold — multi-session), and the **features/mod.rs hub** (a
+3-layer facade stack dissolved family-by-family as each type reaches its leaf
+home — D2 was the template). All work is committed linearly on main; the tree is
+green (counts in the verify block below).
 
 **Verify before you start** (and after every change):
 ```bash
@@ -1200,7 +1203,69 @@ swept in the same pass). Always follow a facade-deletion sed with `cargo check
 250, engine_core 211, render/content/app all build incl. every test target, the
 ten app integration suites green.
 
-## Next (in order) — A1 slice 3, features-hub (family-by-family), then C1/C2 + D3
+### E22. D3 — render→gameplay_core edge: scoped the cut + landed the foundation-vocab slice ✅ (D3.1); plan below
+Jon picked D3 (the compile-time lever). **Key finding: the payoff is binary** —
+render's rebuild only drops out of the hot path when it FULLY stops depending on
+`ambition_gameplay_core`; partial type-moves are prep, not payoff. And render
+couples across ~30 distinct gameplay_core paths, so the full cut is multi-session.
+Landed the safe prep slice and mapped the rest precisely.
+
+**D3.1 DONE (`111e8893`):** render's `gameplay_core::actor::Body*` imports were
+all pure foundation re-exports → render now names `ambition_platformer_primitives`
+(BodyKinematics + markers) and `ambition_engine_core` (the 18 clusters) directly.
+~40 refs / 15 modules; `\b`-guarded so `PrimaryPlayerOnly` (a real gameplay_core
+query alias) stays. render lib 24 green.
+
+**The remaining render→gameplay_core surface, categorized (measured 2026-07-03):**
+- **A. Foundation re-exports** — DONE for `actor::` (D3.1); `config`/`time`/`sfx`
+  already done in §D1. Residual: `PrimaryPlayerOnly` (6, a query-filter alias —
+  move to `platformer_primitives::markers` or inline).
+- **B. Read-model (the sim-view crate — "the missing abstraction"):**
+  `features::{ActorSpriteData(7), FeatureVisualKind, FeatureView, FeatureName,
+  FeatureEcsWorldOverlay, ecs_actor_render_size, rider_hand_world_pos}`,
+  `camera_snapshot::CameraSnapshot2d(2)`, `character_sprites::{CharacterAnim,
+  baked_sheet_registry}`. **Entanglement audit:**
+  · `FeatureView`+`FeatureVisualKind`+`BoundFeatureKind`+`FeatureCombatTuning`
+    (combat/events.rs) are PURE DATA (`ae::Vec2` + primitives + each other) →
+    the CLEAN core of `ambition_sim_view`. Footprint ~170 refs / 26 sites
+    (FeatureVisualKind alone 114 — a mini-D2b sweep + grouped-import surgery).
+  · `FeatureViewIndex` (view_index.rs, `use super::*`) is BUILT from live ECS
+    queries (`rebuild_feature_view_index`) — the builder STAYS in gameplay_core;
+    only the `FeatureView` value type + the index container move; render must
+    read the materialized index, never the `ecs_*` query-taking accessors.
+  · `CameraSnapshot2d` is NOT the clean mover the audit implied — it pulls in
+    `persistence::settings::{CameraFramingPreset, CameraAspectPolicy}` +
+    `rooms::{CameraClampMode, CameraZoneSpec}` + `camera_ease::{CameraEaseState,
+    Tuning}`. Move it LAST (after settings/rooms/camera_ease are sorted) or invert
+    those into a small camera-config type.
+  · `character_sprites` (4.2k) is its own carve (§D6) — move down beside
+    `ambition_sprite_sheet`, then render names it there.
+- **C. World/room vocab** — `RoomGeometry` (27, the single biggest render import!),
+  `rooms::{Authored, RoomSet, RoomSpec, RoomMetadata, PortalSprite, CameraZoneSpec}`.
+  This is **§D4 (extract `ambition_world`)**; render names the world crate.
+- **D. Presentation SYSTEMS render registers** (not data — the subtle part):
+  `portal::sync_*` (5 fns), `abilities::traversal` (7), `dev::dev_tools` (7),
+  `shrine`, `session::{camera_layers, RespawnRoomVisualsRequested}`,
+  `physics::{GravityCtx, gravity_aware_flip_x}`, `schedule::SandboxSet`,
+  `presentation`, `platformer_runtime::lifecycle`. Each is a system/plugin render
+  installs that reads sim state — they either move WITH their subsystem or invert
+  through a registered-hook seam. Untangle case-by-case.
+- **E. Misc**: `persistence::settings`(6), `dialog::DialogState`, `items::pickup`,
+  `projectile::{ProjectileVisualKind, PlayerProjectileState}`,
+  `boss_encounter::sprites`, `assets::{game_assets, sandbox_assets}`,
+  `combat::BoundFeatureKind` (rides B), `SandboxDevState`, `RoomGeometry` (C).
+
+**Recommended slice order for the cut:** (D3.2) create `ambition_sim_view`
+{engine_core + bevy deps}, move the pure-data read-model core (FeatureView/
+FeatureVisualKind/BoundFeatureKind/FeatureCombatTuning + ActorSpriteData + the
+anim-state enums); gameplay_core's builder writes them, render reads them. →
+(D3.3) §D4 `ambition_world` for RoomGeometry + rooms (biggest single reducer). →
+(D3.4) §D6 `character_sprites` down. → (D3.5) settings/camera → move
+CameraSnapshot2d. → (D3.6) untangle category-D systems. → (D3.7) drop the
+`ambition_gameplay_core` dep from render's Cargo.toml — the lever fires. This is
+the same "move a family to its leaf home, then redirect" template D2 proved.
+
+## Next (in order) — D3.2 sim-view crate (or A1 slice 3), then the rest of D3/D4
 
 **§A2 is COMPLETE** (E10–E13). The victim-side damage path is ONE resolver +
 ONE reaction for every body; per-body policy is the only fork left.

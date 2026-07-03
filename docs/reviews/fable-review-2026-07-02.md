@@ -2575,7 +2575,7 @@ suffix (`_hands` is still the convention) are parameterizable details (bulk-revi
   which needs `ambition_ldtk_tools` (per [[feedback_ldtk_tools_only]]) — not autonomously
   unblocked.
 
-### E53. Boss `BossAttackState` → PROJECTION — the design + slice plan (in progress `a3c69655`)
+### E53. Boss `BossAttackState` → PROJECTION — LANDED ✅ (`a3c69655`, `2dadea94`, `ba924163`)
 The handoff §3a headline: flip the boss from `BossAttackState`-owns-timing to
 `BossAttackState`-is-PROJECTED-from-the-live-`MovePlayback`. The load-bearing win (one
 damage path) was banked in E51; this is the timing-authority flip. Re-verifying the code
@@ -2620,10 +2620,14 @@ distinguishes cleanly: `telegraph_profile` set → `t0=0`; only `active_profile`
   instant strike via the `t0 = tel` branch (only `active_profile` set → skip the windup).
   Pinned by `telegraph_edge_trigger_projects_windup_then_strike` +
   `interrupted_windup_is_aborted_before_the_strike`. Full workspace test green except the
-  pre-existing E39 red. REMAINDER (small cleanup, not blocking): retire the brain's
-  now-redundant `BossAttackState` COMPONENT write (the brain still COMPUTES it internally for
-  its movement edges; moveless fixtures still read it, so gate the retirement on a
-  `With<ActorMoveset>` boss) — pure dead-write removal, no behavior change.
+  pre-existing E39 red. REMAINDER (optional, NOT a trivial dead-write removal): making the
+  projection the SOLE writer means something must CLEAR the component when no move plays.
+  Today the brain's per-tick write does that (rest → `clear()`), and it is load-bearing for
+  two no-move cases a blind clear-when-no-move would clobber: (a) a possessed boss's GEOMETRY
+  strike (has `ActorMoveset` but its move is suppressed, so `active_profile` is set with NO
+  `MovePlayback`), and (b) moveless test fixtures. So retirement needs a careful carve-out,
+  not a one-liner. Left as-is: the two-writer form is behavior-correct (projection wins while
+  a move plays; the brain write covers rest/fixtures/possession-geometry).
 
 ## Next (in order) — **the MELEE SUBSUMPTION is COMPLETE for EVERY actor incl. bosses (E49–E52).** The audit's TASK sections are stale; trust E-entries + a code re-check before working an item.
 

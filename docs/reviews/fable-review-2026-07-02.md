@@ -1591,7 +1591,74 @@ actors-vs-props + the converter extensibility): the alternative is to accept sta
 strike hitboxes and drop GNU-ton's per-frame tracking, which is simpler but a
 behavior change.
 
-## Next (in order) — A1 slice 3 driver fold (3b design fork per E31 / archetype swap / 3e/3f/3g) / D4.2 platforms/physics extract / D4.3 LDtk converter extensibility (crux) / D3 blocked on `actors|props`
+### E32. A1 slice 3 — archetype swap AS1/AS2/AS4a landed; the motion fold de-risked; the size flip is the gate ⏳
+The driver fold executes as an **archetype swap** (the boss BODY becomes an aerial
+actor; the ENCOUNTER wrapper — `BossConfig`/`BossEncounter`/`BossAttackState`/phase
+machine/attack geometry — stays). Landed, each green + committed:
+- **AS1** (`6dc9e6f5`) — `BossStatus` → `BossEncounter` (the body's HP/liveness
+  already left it in §A1; what remains is genuinely encounter state).
+- **AS2** (`e387c786`) — the boss carries the SAME aerial actor movement cluster
+  every actor does (18 ancillary clusters + `ActorStatus`/`ActorConfig`(aerial,
+  flight-enabled)/`ActorSurfaceState`/`BodyMelee`/`CombatCapabilities`), MINUS the
+  `BodyKinematics`/`BodyHealth` it already owns. The `AncillaryMovementBundle` also
+  supplies the slice-3a vulnerability trio (that standalone insert removed). INERT
+  this slice — old driver still owns intent+integration, so `boss_motion_parity`
+  stays byte-green. Archetype-collision audit: the only body-generic system a boss
+  newly matches is `advance_body_melee`, which no-ops on `melee.swing == None`.
+- **AS4a** (`d7325681`) — engine **direct-velocity flight mode** (`MovementTuning.
+  flight_direct_velocity`, serde-default false). The shared flight limb smooths via
+  accel/drag/deadzone; a boss commands an EXACT velocity/tick, so the smoothed limb
+  would silently change boss feel. Direct mode takes `stick × terminal` verbatim →
+  byte-identical to the old SNAP float (`step_floating_body`, `accel: None`).
+  Default-off ⇒ every existing flyer + the engine replay canaries unchanged. This
+  is the KEYSTONE that makes AS4c's motion fold provably zero-change (engine test
+  `direct_velocity_flight_takes_the_commanded_velocity_verbatim`).
+
+**Reframing vs the original AS-plan:** `BossRef`/`BossMut`/`BossClusterQueryData`
+are NOT parallel-actor-stack bloat — they view the ENCOUNTER components
+(`BossConfig.behavior`, `BossEncounter.sprite_metrics`) for `combat_size`/
+`combat_offset`/`render_size`, which are genuine boss-encounter concerns, distinct
+from the actor body cluster. So **AS5 (delete the views) is DROPPED as low-value /
+high-churn** — the real convergence is the boss BODY integrating through the shared
+seam, which is AS4b+AS4c. The one parallel-INTEGRATION to dissolve is
+`update_ecs_bosses`' `step_floating_body` call + `BossMut::integrate_body`.
+
+**AS4c (boss → shared flight limb) is GATED on AS4b (the size flip), and AS4b is a
+blind cross-crate render untangling — the honest blocker.** The shared movement
+seam (`update_body_with_tuning_clusters`) collides against `kin.size`; a boss
+collides against `combat_size` (≠ `kin.size` — every boss has a distinct
+`behavior.combat_size`, see `boss_profiles.ron`; `kin.size` is the LDtk spawn seed).
+So AS4c needs `kin.size = combat_size`. But the boss RENDER
+(`upgrade_boss_sprites` at `ambition_render/.../actors/boss.rs:76,157`) derives the
+sprite quad as `boss_asset.spec.render_size(kin.size)` — flipping `kin.size` resizes
+every boss sprite. The fix is to route render to an explicit render size
+(`ActorRenderSize` = `sprite_metrics.sprite_render_size`, which
+`derive_boss_sprite_metrics` already computes for hurtbox scaling) and set
+`kin.size = derived_combat_size` there (after `sprite_render_size` is computed from
+the seed). **Verifiability:** collision/hurtbox is covered by the boss suites
+(`boss_contact_iframes`/`boss_lifecycle`/`damageable_volumes` tests) + a golden
+geometry pin; the sprite quad is preserved-by-construction IFF
+`sprite_metrics.sprite_render_size` equals today's
+`boss_asset.spec.render_size(kin.size)` for every real boss — an invariant that
+needs a **render-vs-gameplay spec-parity test** (the gameplay `sprites::*_SHEET`
+constants that `sprite_render_size_for` picks by target vs the loaded
+`boss_asset.spec` the render picks by `boss_key`). Build that pin FIRST; if it
+holds, AS4b/AS4c land verified. If it diverges, that mismatch is a latent
+render/hurtbox bug to fix regardless.
+
+**AS4c mechanics (once AS4b holds):** `update_ecs_bosses` replaces
+`feature.as_boss_mut().integrate_body(world, alive, control.0.velocity_target, dt)`
+with `actor_cluster.as_actor_mut().update(world, target_pos, combat_tuning, None,
+dt, false, control.0, gravity_dir, feel, stagger)` (the boss's `ActorConfig.tuning`
+sets `flight_direct_velocity: true` + `chase_speed/max_run_speed = BOSS_FLIGHT_SPEED
+= 1200`; add `flight_direct_velocity` to `ActorTuning` and thread it into the engine
+tuning in `ActorMut::integrate_body`). The boss stays in `update_ecs_bosses` (keep
+its presentation + `boss_attack_damage` publish); only the integration algorithm
+swaps. Then delete `BossMut::integrate_body` + `step_floating_body` (last holdout).
+Golden trajectory pin (capture current SNAP path, assert flight-limb path matches
+within tight tolerance) makes it verified, not blind.
+
+## Next (in order) — A1 slice 3: AS4b spec-parity pin → AS4b size flip → AS4c flight-limb integration (3b design fork per E31 / 3e/3f/3g) / D4.2 platforms/physics extract / D4.3 LDtk converter extensibility (crux) / D3 blocked on `actors|props`
 
 **§A2 is COMPLETE** (E10–E13). The victim-side damage path is ONE resolver +
 ONE reaction for every body; per-body policy is the only fork left.

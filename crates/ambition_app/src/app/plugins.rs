@@ -82,6 +82,10 @@ pub fn add_simulation_plugins(app: &mut App) {
     // input publishes it; body mode / interaction / transitions consume it for the
     // controlled body's slot — no privileged per-body interaction component.
     app.init_resource::<ambition_gameplay_core::player::SlotInteractionState>();
+    // Which character the local player spawns as. Default = the `player`
+    // protagonist (no change); the character-select surface rewrites this, and
+    // both startup halves (sim moveset/name + presentation sprite) read it.
+    app.init_resource::<ambition_gameplay_core::player::StartingCharacter>();
 
     app.add_plugins(super::sim_resources::SandboxSimulationResourcesPlugin);
 

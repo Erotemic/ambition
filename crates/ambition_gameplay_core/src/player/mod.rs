@@ -31,6 +31,7 @@ pub mod ledge_grab;
 pub mod movement_components;
 pub mod movement_fx;
 pub mod queries;
+pub mod starting_character;
 pub mod swim;
 pub mod systems;
 pub mod trail;
@@ -40,6 +41,9 @@ pub use body_integration::{
     PlayerBodyFrameOutput,
 };
 pub use bundles::{PlayerIdentityBundle, PlayerSimulationBundle};
+pub use starting_character::{
+    next_playable, overlay_character_moveset, StartingCharacter, PLAYABLE_ROSTER,
+};
 // NOTE: the body vocabulary — `PlayerEntity` / `PrimaryPlayer` (markers),
 // `PrimaryPlayerOnly` (filter), `BodyKinematics` + the 18 movement clusters,
 // `BodyWallet` (economy — players AND currency-dropping NPCs) — is NOT

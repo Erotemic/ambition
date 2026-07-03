@@ -38,6 +38,9 @@ pub struct SimulationSetup<'a> {
     pub ldtk_index: &'a LdtkRuntimeIndex,
     pub editable_abilities: &'a EditableAbilitySet,
     pub editable_tuning: &'a EditableMovementTuning,
+    /// Which catalog character the local player spawns as. `is_default()` (the
+    /// `player` protagonist) takes the untouched `from_scratch` path.
+    pub starting_character: &'a crate::player::StartingCharacter,
     pub sandbox_data_asset: Option<&'a SandboxDataAsset>,
     pub ldtk_asset: Option<&'a SandboxLdtkAsset>,
     pub sandbox_asset_collection: Option<&'a SandboxAssetCollection>,
@@ -69,6 +72,7 @@ pub fn simulation_world(commands: &mut Commands, params: SimulationSetup<'_>) ->
         ldtk_index,
         editable_abilities,
         editable_tuning,
+        starting_character,
         sandbox_data_asset,
         ldtk_asset,
         sandbox_asset_collection,
@@ -106,14 +110,24 @@ pub fn simulation_world(commands: &mut Commands, params: SimulationSetup<'_>) ->
         editable_tuning.as_engine(),
     );
 
+    // The player is a control box that WEARS a character. The protagonist takes
+    // the untouched canonical path; any other selected character overlays its
+    // moveset + name onto the same box (its sprite is bound presentation-side).
+    let player_health = ambition_characters::actor::Health::new(20);
+    let player_bundle = if starting_character.is_default() {
+        crate::player::PlayerSimulationBundle::from_scratch(initial_scratch, player_health)
+    } else {
+        crate::player::PlayerSimulationBundle::from_scratch_as_character(
+            initial_scratch,
+            player_health,
+            &starting_character.character_id,
+        )
+    };
     let player = commands
         .spawn((
             Transform::from_translation(world_to_bevy(&world.0, world.0.spawn, WORLD_Z_PLAYER)),
             PlayerVisual,
-            crate::player::PlayerSimulationBundle::from_scratch(
-                initial_scratch,
-                ambition_characters::actor::Health::new(20),
-            ),
+            player_bundle,
         ))
         .id();
 

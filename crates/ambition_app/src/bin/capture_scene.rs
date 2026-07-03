@@ -45,6 +45,9 @@ struct SceneCaptureConfig {
     warmup_frames: u32,
     include_ui: bool,
     show_window: bool,
+    /// Optional `character_catalog.ron` id to spawn the player AS (its sprite +
+    /// moveset). `None` = the default protagonist. Behind `--character <id>`.
+    character: Option<String>,
 }
 
 #[derive(Resource, Clone, Debug)]
@@ -121,6 +124,14 @@ fn main() {
     app.init_state::<GameMode>();
     app.insert_resource(asset_config);
     app.insert_resource(StartRoomOverride(config.room_id.clone()));
+    // Optional "play as this character" override, inserted BEFORE the sandbox
+    // plugin so its `init_resource::<StartingCharacter>()` leaves it in place.
+    if let Some(character_id) = config.character.clone() {
+        eprintln!("capture_scene: player wears character '{character_id}'");
+        app.insert_resource(ambition_gameplay_core::player::StartingCharacter::new(
+            character_id,
+        ));
+    }
     app.insert_resource(config);
     app.insert_resource(SceneCaptureRuntime::default());
     app.add_plugins((
@@ -154,6 +165,7 @@ impl SceneCaptureConfig {
         let mut warmup_frames = 12u32;
         let mut include_ui = false;
         let mut show_window = false;
+        let mut character: Option<String> = None;
         let mut i = 0usize;
         while i < args.len() {
             match args[i].as_str() {
@@ -163,6 +175,17 @@ impl SceneCaptureConfig {
                 }
                 "--show-window" => {
                     show_window = true;
+                    i += 1;
+                }
+                "--character" => {
+                    let Some(value) = args.get(i + 1) else {
+                        return Err("--character requires a catalog id".to_string());
+                    };
+                    character = Some(value.clone());
+                    i += 2;
+                }
+                arg if arg.starts_with("--character=") => {
+                    character = Some(arg.trim_start_matches("--character=").to_string());
                     i += 1;
                 }
                 "--warmup" => {
@@ -215,6 +238,7 @@ impl SceneCaptureConfig {
             warmup_frames,
             include_ui,
             show_window,
+            character,
         })
     }
 }

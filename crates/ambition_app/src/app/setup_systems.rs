@@ -32,6 +32,7 @@ pub(super) fn setup_simulation_system(
     ldtk_index: Res<ldtk_world::LdtkRuntimeIndex>,
     editable_tuning: Res<EditableMovementTuning>,
     editable_abilities: Res<EditableAbilitySet>,
+    starting_character: Res<ambition_gameplay_core::player::StartingCharacter>,
     mut platform_set: ResMut<ambition_gameplay_core::MovingPlatformSet>,
 ) {
     let _player = setup::simulation_world(
@@ -42,6 +43,7 @@ pub(super) fn setup_simulation_system(
             ldtk_index: &ldtk_index,
             editable_abilities: &editable_abilities,
             editable_tuning: &editable_tuning,
+            starting_character: &starting_character,
             sandbox_data_asset: sandbox_data_asset.as_deref(),
             ldtk_asset: ldtk_asset.as_deref(),
             sandbox_asset_collection: sandbox_asset_collection.as_deref(),
@@ -77,6 +79,7 @@ pub(crate) fn setup_presentation_system(
     scene_entities: Res<SceneEntities>,
     ui_fonts: Option<Res<ui_fonts::UiFonts>>,
     quality: Option<Res<ambition_render::quality::ResolvedVisualQuality>>,
+    starting_character: Res<ambition_gameplay_core::player::StartingCharacter>,
     mut profiler: ResMut<ambition_gameplay_core::dev::profiling::StartupProfiler>,
 ) {
     // `std::time::Instant::now()` panics on `wasm32-unknown-unknown`
@@ -112,6 +115,7 @@ pub(crate) fn setup_presentation_system(
                 physics_settings: *physics_settings,
                 game_assets: &game_assets,
                 quality: quality.as_deref(),
+                starting_character: &starting_character,
                 music_registry: &music_registry,
                 sfx_registry: &sfx_registry,
                 ui_fonts: ui_fonts.as_deref(),
@@ -144,6 +148,7 @@ pub(crate) fn setup_presentation_system(
                 physics_settings: *physics_settings,
                 game_assets: &game_assets,
                 quality: quality.as_deref(),
+                starting_character: &starting_character,
                 music_registry: &music_registry,
                 sfx_registry: &sfx_registry,
                 ui_fonts: ui_fonts.as_deref(),
@@ -201,6 +206,7 @@ pub(crate) fn setup_presentation_system(
     asset_config: Res<GameAssetConfig>,
     scene_entities: Res<SceneEntities>,
     quality: Option<Res<ambition_render::quality::ResolvedVisualQuality>>,
+    starting_character: Res<ambition_gameplay_core::player::StartingCharacter>,
 ) {
     let game_assets = game_assets::load_game_assets(
         &asset_config,
@@ -218,6 +224,7 @@ pub(crate) fn setup_presentation_system(
             physics_settings: *physics_settings,
             game_assets: &game_assets,
             quality: quality.as_deref(),
+            starting_character: &starting_character,
         },
         scene_entities.player,
     );

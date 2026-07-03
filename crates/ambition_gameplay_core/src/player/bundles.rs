@@ -162,6 +162,38 @@ impl PlayerSimulationBundle {
             projectile: crate::projectile::PlayerProjectileState::default(),
         }
     }
+
+    /// Like [`from_scratch`](Self::from_scratch), but the player spawns *as* the
+    /// catalog character `character_id`: its display name becomes the entity
+    /// [`Name`], and its authored combat moveset is overlaid onto the player's
+    /// default kit (the character's defined melee / ranged / special win; empty
+    /// slots keep the player kit so a peaceful character is still playable). The
+    /// player box is otherwise untouched — same `Brain::Player`, same markers,
+    /// same traversal ability kit, same collision. The chosen character's SPRITE
+    /// is bound presentation-side (`scene_setup`), not here.
+    ///
+    /// Passing [`StartingCharacter::DEFAULT_ID`](crate::player::StartingCharacter::DEFAULT_ID)
+    /// (`"player"`) yields a bundle equivalent to `from_scratch` — the `player`
+    /// catalog row is the peaceful default, so the overlay is a no-op on offense.
+    /// Callers should still branch on `is_default()` and use `from_scratch` for
+    /// the protagonist so the canonical path is provably unchanged.
+    pub fn from_scratch_as_character(
+        scratch: ae::BodyClusterScratch,
+        health: ambition_characters::actor::Health,
+        character_id: &str,
+    ) -> Self {
+        let mut bundle = Self::from_scratch(scratch, health);
+        if let Some(display) = crate::character_roster::display_name_for_character_id(character_id) {
+            bundle.name = Name::new(display);
+        }
+        if let Some(character_set) =
+            crate::character_roster::default_action_set_for_character_id(character_id)
+        {
+            let player_kit = bundle.action_set.clone();
+            bundle.action_set = crate::player::overlay_character_moveset(player_kit, character_set);
+        }
+        bundle
+    }
 }
 
 /// Default player moveset derived from an `AbilitySet`:
@@ -206,5 +238,68 @@ fn default_player_action_set(abilities: ae::AbilitySet) -> ActionSet {
         special: abilities
             .shield
             .then_some(SpecialActionSpec::Special("bubble_shield".to_string())),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use ambition_characters::actor::Health;
+    use ambition_characters::brain::{MeleeActionSpec, RangedActionSpec};
+
+    fn player_scratch() -> ae::BodyClusterScratch {
+        crate::player::primary_player_scratch(ae::Vec2::ZERO, ae::AbilitySet::sandbox_all())
+    }
+
+    #[test]
+    fn wearing_the_default_id_is_the_protagonist() {
+        // Explicitly wearing the default `player` id keeps the protagonist name
+        // and the full player kit — the `player` catalog row is peaceful, so the
+        // moveset overlay is a no-op on offense. (Production still routes the
+        // protagonist through `from_scratch`; this pins the equivalence.)
+        let bundle =
+            PlayerSimulationBundle::from_scratch_as_character(player_scratch(), Health::new(20), "player");
+        assert_eq!(bundle.name.as_str(), "Player");
+        assert!(bundle.brain.is_player());
+        assert!(matches!(bundle.action_set.melee, Some(MeleeActionSpec::Swipe(_))));
+        assert!(matches!(
+            bundle.action_set.ranged,
+            Some(RangedActionSpec::Bolt { .. })
+        ));
+    }
+
+    #[test]
+    fn player_wears_pirate_admiral_identity_and_moveset() {
+        // The player box stays (Brain::Player, PlayerEntity by type), but it now
+        // reads as the Pirate Admiral: its name, and its authored PISTOL, which
+        // overrides the player's default bolt — "nothing changes except my
+        // abilities".
+        let bundle = PlayerSimulationBundle::from_scratch_as_character(
+            player_scratch(),
+            Health::new(20),
+            "npc_pirate_admiral",
+        );
+        assert_eq!(bundle.name.as_str(), "Pirate Admiral");
+        assert!(bundle.brain.is_player(), "still keyboard-controlled");
+        assert!(
+            matches!(bundle.action_set.ranged, Some(RangedActionSpec::Pistol { .. })),
+            "the pirate's pistol should override the player's default bolt",
+        );
+    }
+
+    #[test]
+    fn unknown_character_id_still_spawns_a_controllable_player() {
+        // A stale / unknown id keeps the player fully playable: name + moveset
+        // fall back to the player defaults (no catalog row to overlay), and it
+        // is still Brain::Player. The sprite falls back to the colored rectangle
+        // presentation-side.
+        let bundle = PlayerSimulationBundle::from_scratch_as_character(
+            player_scratch(),
+            Health::new(20),
+            "not_a_real_character",
+        );
+        assert!(bundle.brain.is_player());
+        assert_eq!(bundle.name.as_str(), "Player", "unknown id keeps the default name");
+        assert!(matches!(bundle.action_set.melee, Some(MeleeActionSpec::Swipe(_))));
     }
 }

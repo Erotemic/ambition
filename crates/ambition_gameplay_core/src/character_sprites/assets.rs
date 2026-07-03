@@ -123,6 +123,31 @@ impl CharacterSpriteAssets {
     pub fn prop_asset_for_kind(&self, kind: &str) -> Option<&CharacterSpriteAsset> {
         self.props.get(kind)
     }
+
+    /// Resolve the loaded sprite asset for a catalog `character_id`, covering
+    /// both the base named slots (`player` / `robot` / `goblin` / `sandbag`)
+    /// and the per-character [`Self::npcs`] map (keyed by display name — the
+    /// LDtk join key). Returns `None` when no sheet is loaded for the id; the
+    /// caller keeps its colored-rectangle placeholder.
+    ///
+    /// This is the presentation join behind the starting-character selection:
+    /// the player box binds whichever character's sheet is chosen (see
+    /// [`crate::player::StartingCharacter`]).
+    pub fn asset_for_character_id(&self, character_id: &str) -> Option<&CharacterSpriteAsset> {
+        match character_id {
+            // `player` prefers the compact robot sheet, falling back to the base
+            // robot — the SAME preference the pre-selection spawn hardcoded.
+            "player" => self.player.as_ref().or(self.robot.as_ref()),
+            "robot" => self.robot.as_ref(),
+            "goblin" => self.goblin.as_ref(),
+            "sandbag" => self.sandbag.as_ref(),
+            _ => {
+                let display =
+                    crate::character_roster::display_name_for_character_id(character_id)?;
+                self.npcs.get(display)
+            }
+        }
+    }
 }
 
 /// Look up the [`CharacterSheetSpec`] for a catalog `character_id` —

@@ -45,6 +45,10 @@ pub struct PresentationSetup<'a> {
     pub physics_settings: PhysicsSandboxSettings,
     pub game_assets: &'a GameAssets,
     pub quality: Option<&'a ambition_render::quality::ResolvedVisualQuality>,
+    /// Which catalog character the player wears — selects its sprite sheet so
+    /// the home avatar draws as the chosen character
+    /// ([`ambition_gameplay_core::player::StartingCharacter`]).
+    pub starting_character: &'a ambition_gameplay_core::player::StartingCharacter,
     #[cfg(feature = "audio")]
     pub music_registry: &'a MusicRegistry,
     #[cfg(feature = "audio")]
@@ -228,6 +232,7 @@ fn presentation_world_inner(
     let physics_settings = params.physics_settings;
     let game_assets = params.game_assets;
     let quality = params.quality;
+    let starting_character = params.starting_character;
     #[cfg(feature = "audio")]
     let ui_fonts = params.ui_fonts;
     #[cfg(not(feature = "audio"))]
@@ -320,10 +325,12 @@ fn presentation_world_inner(
         ae::DEFAULT_PLAYER_BODY_WIDTH,
         ae::DEFAULT_PLAYER_BODY_HEIGHT,
     );
-    if let Some(asset) = character_sprites
-        .player
-        .as_ref()
-        .or(character_sprites.robot.as_ref())
+    // Bind the sheet of whichever character the player wears. `player` (the
+    // default) resolves to the compact robot sheet exactly as before; any other
+    // selected character binds its own sheet, so the home avatar draws as e.g.
+    // the goblin, the pirate admiral, or the Perfect Cellular Automaton.
+    if let Some(asset) =
+        character_sprites.asset_for_character_id(&starting_character.character_id)
     {
         let player_render = player_placeholder_render_size(&asset.spec, player_collision);
         let sprite = build_character_sprite_with_render_size(asset, player_render);

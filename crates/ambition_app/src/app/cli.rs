@@ -209,6 +209,10 @@ pub fn run_visible() {
     app.init_state::<GameMode>();
     let active_profile = asset_config.asset_profile;
     app.insert_resource(asset_config);
+    // Launch-time "choose your character": inserted BEFORE the plugins so the
+    // sandbox plugin's `init_resource::<StartingCharacter>()` sees it already
+    // present and leaves it untouched.
+    insert_starting_character_override(&mut app);
     app.add_plugins((
         SandboxSimulationPlugin,
         SandboxLdtkPlugin,
@@ -222,6 +226,26 @@ pub fn run_visible() {
         ),
     );
     app.run();
+}
+
+/// Read an optional starting-character override from the
+/// `AMBITION_START_CHARACTER` env var. When set to a non-empty
+/// `character_catalog.ron` id, the local player spawns AS that character —
+/// its sprite, combat moveset, and name — instead of the default protagonist.
+/// This is the launch-time surface behind Jon's "choose your character" ask
+/// (`AMBITION_START_CHARACTER=goblin cargo run -p ambition_app`); an in-game
+/// selection menu is the natural follow-up. Unknown ids still spawn a fully
+/// controllable player (the sprite falls back to the colored rectangle).
+fn insert_starting_character_override(app: &mut App) {
+    let Ok(raw) = std::env::var("AMBITION_START_CHARACTER") else {
+        return;
+    };
+    let id = raw.trim();
+    if id.is_empty() {
+        return;
+    }
+    eprintln!("ambition_app: starting as character '{id}' (AMBITION_START_CHARACTER)");
+    app.insert_resource(ambition_gameplay_core::player::StartingCharacter::new(id));
 }
 
 /// Build + run the visible Bevy app for a browser (wasm32) target.
@@ -286,6 +310,8 @@ pub fn run_web() {
         cfg!(feature = "static_sfx_bank"),
     );
     app.insert_resource(asset_config);
+    // Launch-time starting-character override (no-op on wasm: env reads Err).
+    insert_starting_character_override(&mut app);
     app.add_plugins((
         SandboxSimulationPlugin,
         SandboxLdtkPlugin,

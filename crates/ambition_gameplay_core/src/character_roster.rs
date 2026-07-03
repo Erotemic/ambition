@@ -72,6 +72,21 @@ pub fn default_brain_for_character_id(
     Some(ambition_characters::actor::character_catalog::brain_from_preset(preset, spawn_world_x))
 }
 
+/// Resolve a catalog `character_id` into its authored default [`ActionSet`]
+/// (its combat-capability bundle: melee / ranged / special / locomotion). The
+/// presentation-agnostic mirror of [`default_brain_for_character_id`] — a body
+/// earns its moveset from the same catalog row that names its sprite and brain.
+/// Returns `None` for an unknown id or a missing preset.
+pub fn default_action_set_for_character_id(
+    character_id: &str,
+) -> Option<ambition_characters::brain::ActionSet> {
+    let entry = EMBEDDED_CATALOG.characters.get(character_id)?;
+    let preset = EMBEDDED_CATALOG
+        .action_set_presets
+        .get(&entry.default_action_set)?;
+    Some(ambition_characters::actor::character_catalog::action_set_from_preset(preset))
+}
+
 /// Pick a bark line for a character id + situation, rotated by `rotation`
 /// (so repeated barks cycle the pool). Reads the character's catalog `barks`
 /// pools — the single source of truth for its voice. Returns `None` when the

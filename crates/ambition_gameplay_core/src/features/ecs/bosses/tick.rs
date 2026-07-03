@@ -189,6 +189,28 @@ pub fn sync_boss_encounter_phase(
     }
 }
 
+/// Dispatch a boss attack PROFILE's content-technique special onto the SHARED
+/// action seam. A `Special` profile resolves (via `boss_special_for_profile`) to
+/// its `SpecialActionSpec` and writes ONE `ActorActionMessage::Special`; a geometry
+/// profile resolves to `None` and writes nothing (its damage flows through the
+/// frame-driven hitbox path). This is the ONE dispatch site both boss arms use —
+/// the autonomous pattern and the possession input map — retiring the second
+/// bespoke `Special`-write copy the possession arm carried (fable review §A1-3e /
+/// §A11). Multi-special bosses set `ActionSet.special = None`, so
+/// `emit_brain_action_messages` never double-fires this.
+fn dispatch_boss_special(
+    entity: Entity,
+    profile: &ambition_characters::brain::BossAttackProfile,
+    action_messages: &mut MessageWriter<ActorActionMessage>,
+) {
+    if let Some(spec) = boss_special_for_profile(profile) {
+        action_messages.write(ActorActionMessage {
+            actor: entity,
+            request: ActionRequest::Special { spec },
+        });
+    }
+}
+
 /// Tick every boss's `BossPattern` brain: advance the cursor, emit
 /// `ActorControlFrame` intent (movement + melee/special edges), and
 /// update the `BossAttackState` component. `BossAttackState` is the
@@ -295,20 +317,13 @@ pub fn tick_boss_brains_system(
                     attack_state.active_remaining = strike_seconds;
                     attack_state.active_elapsed = 0.0;
                     // Content-technique specials (projectiles / world hitboxes /
-                    // minions) fire off the `Special` message; the spawned effects
-                    // inherit the firer's EFFECTIVE faction (Player while possessed),
-                    // so they strike the boss's former allies, not the player.
-                    // Geometry profiles carry no message — their damage would flow
-                    // through `boss_attack_damage`, which is gated off for a
-                    // player-controlled boss in `update_ecs_bosses`.
-                    if profile.is_special() {
-                        if let Some(spec) = boss_special_for_profile(&profile) {
-                            action_messages.write(ActorActionMessage {
-                                actor: entity,
-                                request: ActionRequest::Special { spec },
-                            });
-                        }
-                    }
+                    // minions) fire off the `Special` message through the SHARED
+                    // dispatch; the spawned effects inherit the firer's EFFECTIVE
+                    // faction (Player while possessed), so they strike the boss's
+                    // former allies, not the player. Geometry profiles resolve to
+                    // no message — their damage flows through the frame-driven
+                    // hitbox path.
+                    dispatch_boss_special(entity, &profile, &mut action_messages);
                 }
             }
             continue;
@@ -355,27 +370,17 @@ pub fn tick_boss_brains_system(
             *attack_state = bps.attack_state.clone();
         }
 
-        // Boss-side Special direct-write: the Gradient Sentinel has
-        // four distinct specials (MemorizedVolley / PitTrap /
-        // RotatingCross / MinionCascade) which doesn't fit
-        // `ActionSet`'s single special slot. Rather than grow the
-        // ActionSet schema or the ActorControlFrame, the boss tick
-        // writes `ActorActionMessage::Special { spec }` directly
-        // using `boss_special_for_profile` to look up the spec from
-        // the live `BossAttackState.active_profile`. The boss's
-        // `ActionSet.special` is set to `None` for multi-special
-        // bosses (see `spawn_boss`) so the generic
-        // `emit_brain_action_messages` resolver doesn't fire a
-        // duplicate. GNU-ton's apple rain takes the same path so all
-        // boss specials share one wiring.
+        // Boss-side Special dispatch: a multi-special boss (the Gradient Sentinel
+        // authors four — MemorizedVolley / PitTrap / RotatingCross / MinionCascade;
+        // GNU-ton its apple rain) doesn't fit `ActionSet`'s single special slot, so
+        // its `ActionSet.special` is `None` (see `spawn_boss`) and the boss tick
+        // dispatches the live `active_profile`'s technique through the SHARED
+        // `dispatch_boss_special` — the SAME path the possession arm uses, one
+        // wiring for every boss special. (Growing the action schema to a named
+        // multi-special repertoire is the moveset fold, still open in slice 3.)
         if frame.special_pressed {
             if let Some(profile) = attack_state.active_profile.as_ref() {
-                if let Some(spec) = boss_special_for_profile(profile) {
-                    action_messages.write(ActorActionMessage {
-                        actor: entity,
-                        request: ActionRequest::Special { spec },
-                    });
-                }
+                dispatch_boss_special(entity, profile, &mut action_messages);
             }
         }
         control.0 = frame;

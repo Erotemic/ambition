@@ -2333,6 +2333,31 @@ the moveset** (the geometry frame-tracking downgrade is a feel detail Jon sweeps
 fold uses multi-volume static windows + keeps the per-frame path only where a strike needs
 it).
 
+### E48. Moveset expressivity COMPLETE + boss SPECIAL fold landed ✅ (`29a4d47a`, `ce1deac0`, `0bcd811c`)
+Kept building (Jon: don't pause/checkpoint, land the arch — [[feedback_dont_pause_for_feel_land_architecture]]).
+The moveset now has EVERY primitive smash-like expressivity needs, all headless-tested:
+- **Multi-hit combos** (`29a4d47a`): a move with two Active windows lands two distinct
+  hits; the `player_robot` archetype authors "Theorem Chain" (2-hit) — generalizes the
+  moveset beyond the PCA (invariant I7, the protagonist's body as a data-driven fighter).
+- **Held/sustained effects** (`ce1deac0`): `MoveWindow.sustain_effect: Option<String>`
+  emits `Effect{key}` EVERY active frame — the primitive for a CONTINUOUS special (a
+  lingering beam, a rain), the concrete blocker for folding the boss's `apple_rain`-style
+  specials (which fire per-frame + time their own cadence).
+- **BOSS SPECIAL FOLD** (`0bcd811c`): the boss's content-technique specials run through
+  the SHARED moveset. `boss_special_moveset(cap)` generates a sustain-move per `Special(key)`;
+  `trigger_boss_special_moves` starts it while that profile is `active_profile` (matched
+  duration keeps the sustain in lockstep with the strike). Both the autonomous pattern AND
+  possession route here (set `active_profile`); **`dispatch_boss_special` is DELETED**. The
+  boss's special path == the actor's.
+**BOSS FOLD — what remains** = the boss's GEOMETRY strikes (`sync_boss_strike_hitboxes`,
+world-space + frame-tracking) + the `BossAttackState` pattern-cursor TIMING → a
+move-sequencer with `BossAttackState` as a projection. This is the boss analogue of the
+ACTOR-MELEE subsumption (actor melee is still `BodyMelee`/`spawn_melee_strike`, not the
+moveset) — so the boss geometry staying off the moveset is CONSISTENT with the actor melee,
+not a boss-only fork. Do them together as the **melee subsumption** (a large, feel-sensitive
+slice touching every actor + the player + the boss geometry). The special fold is the clean,
+complete boss-fold slice; the melee/geometry fold is the next big focused effort.
+
 ## Next (in order) — **§A2, §B, §A8, §A9, and several §C items are DONE (E41–E43 verified against code).** The audit's TASK sections are stale; trust E-entries + a code re-check before working an item. Genuinely-open, autonomous-friendly: **B12** (targeting nearest-foe tiebreak DONE `147f5045` — min-Entity, order-independent; the portal first-qualifying half stays deferred per the audit "verify vs portal agent" caveat); **C7-residual** (`is_gnu_ton` render split-layers `boss.rs:79-109` → multi-part layering as boss-sheet data; and the rider name is still *parsed* from the spawn name — the FULL fix authors a rider-name LDtk field, needs `ambition_ldtk_tools`); **C9** (`CharacterBrainTemplate::Shark` → behavior name `ChargeCrash`, a mechanical rename across `SharkCfg`/`StateMachineCfg::Shark`/catalog preset). Larger / needs-Jon: **C1** (24-item `Item` enum → installable `ItemCatalog`, L, consumed across menu IR/yarn/persistence); **C4** (app-thinness boundary test + machinery `PlatformerEnginePlugin` group, L); **C6** (named-boss residue, M); **C2** (`HELD_ITEMS` static — NUANCED: most rows are generic engine-ability bindings, not replaceable content, so a bare move-to-content breaks engine tests and a bare install seam is speculative scaffolding — defer until a second game or a per-character loadout lands, e.g. the just-shipped [[project_starting_character]]); the **D-front** (`rooms`/`RoomSpec` content-coupling — Jon's call, unchanged below).
 
 ### Superseded (the prior D-focused Next; still accurate for the D-front) — **T2 clean read-model + D3 facade redirects DONE (E36/E37/E38).** D3's remaining reducers are all non-autonomous (need Jon's design input or are risky/unverifiable): the `rooms` extraction crux (RoomSpec content-coupling — Jon's call), the value-type→`ambition_sim_view` move (premature until the edge narrows), the boss-pose SIM-SIDE animator move (retires the `animate_bosses` write-back; presentation-unverifiable), and the category-D portal/dev/session system untangles. Recommend Jon adjudicate the `rooms`/`RoomSpec` content-coupling direction next (as he did the actors|props taxonomy). Deferred to Jon's feel pass: render/hurtbox baked-size convergence (~1.2% gap); the T1 placeholder color/z blind deltas (E35).

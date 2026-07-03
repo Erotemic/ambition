@@ -2663,7 +2663,11 @@ distinguishes cleanly: `telegraph_profile` set → `t0=0`; only `active_profile`
 
 **DONE 2026-07-03 (this + the prior run):** **E49/E50** actor melee → moveset `"attack"` move (every non-boss actor); **C9** `Shark` → `ChargeCrash`; **E51** BOSS GEOMETRY FOLD (`7ecae45a` — every boss strike, geometry + special, runs through the moveset; `sync_boss_strike_hitboxes` + `FrameDrivenBossStrike` DELETED); **E52** C7-render (`323c2107` — `is_gnu_ton` bespoke split-layer path → generic `{key}_body`/`{key}_hands` asset convention).
 
-**RECORDED GENUINE FORKS (Jon's call — see BULK REVIEW QUEUE):** player-melee fold (directional-variant + pogo schema); ranged subsumption (dynamic-aim vs facing-lock).
+**RECORDED GENUINE FORKS:** ranged subsumption — RESOLVED + IMPLEMENTED (E54, option A: a
+content-free `MoveEventKind::Ranged` that samples live aim; enemy/NPC/boss ranged is now a
+moveset `"fire"` move — the LAST flat combat path folded, so melee+specials+ranged+boss all
+run through the ONE moveset runtime). STILL OPEN: player-melee fold (directional-variant +
+pogo schema — Jon's call).
 
 **Verified stale/already-done or intentionally deferred:** C8 (`SpecialPreset` already carries the open `Special(String)` hatch); C6-mockingbird reward-table (deferred in-code — "one example isn't a pattern"); C2 (`HELD_ITEMS` — a bare install seam is speculative scaffolding; defer until a second game / per-character loadout).
 

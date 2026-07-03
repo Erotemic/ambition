@@ -87,15 +87,29 @@ anchors that stop a future PR re-debating a settled decision.
   portals. No code assumes `-y` is up.
 - **I11 — The world taxonomy is actors (brains) vs props (no brains).** There is
   no Boss/NPC/Enemy/TrainingDummy *type* axis anywhere — those are ONE actor kind
-  whose differences are state (disposition, tuning, an encounter component) or
-  content (catalog entry). A training dummy is the most-NPC actor: the empty
-  special-component set. Props (chest/pickup/switch/breakable/hazard) are the
-  brainless kit families. Presentation follows the same rule: read-model kinds,
-  placeholder colors, sprite-upgrade gates all key on `Actor` + state, never on an
-  actor sub-type. (Adjudicated in `docs/reviews/fable-review-2026-07-02.md` AD1.)
+  whose differences are state or content (catalog entry). A training dummy is the
+  most-NPC actor: the empty special-component set. Props (chest/pickup/switch/
+  breakable/hazard) are the brainless kit families. Presentation follows the same
+  rule: read-model kinds, placeholder colors, sprite-upgrade gates all key on
+  `Actor` + state, never on an actor sub-type. (Adjudicated in
+  `docs/reviews/fable-review-2026-07-02.md` AD1.)
   > "Shouldn't there just be actors and props? … boss, NPC, and Enemy should all be
   > colored the same thing because they are the same thing (or should be, they
   > must be!)."
+- **I12 — The combat-state axis is fighting / not-fighting, never "hostile".**
+  "Hostile" is player-centric ("hostile to what?" — I10 relativity applies to
+  vocabulary too). The capability/state split follows the kit pattern:
+  `FightingAble` is a component some actors carry and some don't (the dummy
+  doesn't); an actor that carries it is in a fighting or not-fighting state
+  (provoke/aggro/grudge are the relational transitions INTO fighting). Who it
+  fights is factions/grudges (relational); *that* it is fighting is its own
+  frame-free state — and that state, not hostility, is what presentation reads.
+  Existing frame-tainted names (`is_hostile`, `attacks_player`) are a rename
+  sweep owed to this invariant.
+  > "not hostile, hostile is player centric. hostile to what? relativity
+  > principle. … FightingAble should be a component on all actors and some
+  > actors won't have it, and they can be in a fighting state or a not fighting
+  > state."
 
 ## Architecture
 

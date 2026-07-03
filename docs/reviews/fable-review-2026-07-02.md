@@ -112,14 +112,33 @@ code already wants to be.
   (design-balance rule). This also answers Jon's point 4: the taxonomy does
   NOT require a new crate; it's an enum reshape in place, and `sim_view`
   returns only when read-model materialization gives it meat (AD-D3 below).
-- `FeatureView` gains `hostile: bool`, stamped from `disposition.
-  is_hostile()` — a STATE fact exactly like `flash`, not a type. The
-  placeholder tint MAY modulate on it (a provoked NPC shifting to the
-  hostile tint is information about state and honors "they are the same
-  thing" — the TYPE is one; the state changed). Base placeholder color and
-  z are ONE value for every actor. The Npc-draws-one-layer-higher nuance
-  dies with the variant (fine pre-release; if actor draw order ever
-  matters it must come from a real signal, not visual kind).
+- **[REVISED per Jon, 2026-07-03]** ~~`FeatureView` gains `hostile: bool`~~ —
+  Jon: "not hostile, hostile is player centric. hostile to what? relativity
+  principle." The state axis is **fighting / not-fighting**, a fact about the
+  actor itself, no reference frame. The model, in Jon's words: "FightingAble
+  should be a component on all actors and some actors won't have it, and they
+  can be in a fighting state or a not fighting state."
+  - **Capability:** `FightingAble` — a component an actor carries or doesn't
+    (a training dummy: doesn't — the empty component set, per point 3 of the
+    feedback). Presence = this actor CAN fight. Same shape as every other
+    capability in the kit.
+  - **State:** fighting vs not-fighting, on that component (a provoked NPC
+    *enters* the fighting state; an at-rest enemy is not-fighting until it
+    engages). `FeatureView` gains `fighting: bool` = FightingAble present AND
+    in the fighting state — a STATE fact exactly like `flash`.
+  - The placeholder tint MAY modulate on `fighting` (an actor entering the
+    fight shifting tint is information about state and honors "they are the
+    same thing" — the TYPE is one; the state changed). Base placeholder color
+    and z are ONE value for every actor. The Npc-draws-one-layer-higher nuance
+    dies with the variant (fine pre-release; if actor draw order ever matters
+    it must come from a real signal, not visual kind).
+  - **Follow-up smell to sweep (entity-id-matches-label + relativity):** the
+    sim-side vocabulary that stamps this today is itself frame-tainted —
+    `disposition.is_hostile()`, `CombatCapabilities.attacks_player`. Interim:
+    stamp `fighting` from the existing disposition signal so T1 doesn't
+    balloon; then rename/reshape the disposition vocabulary onto the
+    fighting model (its own slice — the aggro/provoke/grudge machinery is the
+    natural home of the fighting-state transitions and is already relational).
 - `TrainingDummy` dies entirely, per Jon: a sandbag is the most-NPC actor.
   The sandbag fallback sheet keys off `is_sandbag` tuning at the fallback
   resolver (the data is already on the entity; `enemy_visual_kind()` /
@@ -132,7 +151,7 @@ code already wants to be.
 
 **Migration plan (opus-ready):**
 - **T1 (one bold commit — pre-release, no dual-variant bridge):** reshape the
-  enum + stamp `Actor`/`hostile` at the rebuild site + rewrite the render
+  enum + stamp `Actor`/`fighting` at the rebuild site + rewrite the render
   tables (`feature_z`, `feature_color`, `pick_placeholder_color`,
   `state_aware_entity_sprite`) + **merge the enemy/npc sprite-upgrade systems
   into ONE name-first actor upgrade system** (the enemy path's chain

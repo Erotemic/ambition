@@ -86,6 +86,7 @@ impl Plugin for SandboxSimulationResourcesPlugin {
             .insert_resource(ambition_content::bosses::PendingCutRopeRoomReplay::default())
             .insert_resource(ambition_gameplay_core::features::FeatureEcsWorldOverlay::default())
             .insert_resource(ambition_gameplay_core::features::FeatureViewIndex::default())
+            .insert_resource(ambition_gameplay_core::features::ActorRenderIndex::default())
             .add_plugins(RonAssetPlugin::<data::SandboxDataSpec>::new(&["ron"]))
             // CharacterCatalogPlugin installs the parsed character
             // catalog as a Bevy resource and runs a Startup validator

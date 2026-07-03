@@ -52,51 +52,12 @@ pub struct ActorAnimFrame {
     pub attacking: bool,
 }
 
-/// An actor's authored display name, the primary sprite-lookup key for the
-/// unified actor sprite-upgrade system (ONE helper for every actor — the former
-/// `ecs_npc_name`/`ecs_enemy_name` were byte-identical, split only because the
-/// render variants were).
-pub fn ecs_actor_name(id: &str, actors: &Query<ActorSpriteData>) -> Option<String> {
-    actors
-        .iter()
-        .find_map(|a| (a.feature_id.as_str() == id).then(|| a.config.name.clone()))
-}
-
-/// Whether an actor carries the sandbag (passive practice-target) tuning. The
-/// unified sprite-upgrade fallback keys the sandbag sheet off this (the surviving
-/// home of the deleted `visual_kind` derivation) instead of a render variant.
-pub fn ecs_actor_is_sandbag(id: &str, actors: &Query<ActorSpriteData>) -> bool {
-    actors
-        .iter()
-        .find_map(|a| (a.feature_id.as_str() == id).then(|| a.config.tuning.is_sandbag))
-        .unwrap_or(false)
-}
-
-/// Explicit sprite render-quad size for an actor whose collision was derived
-/// from published sprite `body_metrics` (see
-/// [`crate::features::ActorRenderSize`]). The renderer draws the sprite at this
-/// size instead of `collision * collision_scale` so the visible art is
-/// preserved even though the hitbox equals the body. SHARED across dispositions
-/// (NPC + the enemy it becomes when hostile), so the sprite never balloons on a
-/// hostile flip. `None` → the actor uses the legacy `collision_scale` path.
-pub fn ecs_actor_render_size(
-    id: &str,
-    render_sizes: &Query<(&FeatureId, &crate::features::ActorRenderSize)>,
-) -> Option<ambition_engine_core::Vec2> {
-    render_sizes
-        .iter()
-        .find(|(feature_id, _)| feature_id.as_str() == id)
-        .map(|(_, size)| size.0)
-}
-
-pub fn ecs_enemy_sprite_override(id: &str, actors: &Query<ActorSpriteData>) -> Option<String> {
-    actors.iter().find_map(|a| {
-        if a.feature_id.as_str() != id {
-            return None;
-        }
-        a.config.sprite_override_npc_name.clone()
-    })
-}
+// The per-actor identity accessors (`ecs_actor_name`, `ecs_actor_is_sandbag`,
+// `ecs_enemy_sprite_override`, `ecs_actor_render_size`) are GONE: those static
+// facts are now materialized once into `ActorRenderIndex` (see
+// `rebuild_actor_render_index`), which the renderer reads by id — so
+// presentation no longer live-queries the actor clusters to bind a sprite. The
+// per-frame ANIM frame below stays a live read until slice B materializes it.
 
 /// Resolve ANY brain-driven actor's animation frame from its REAL ECS clusters —
 /// the SAME `Body*` movement/ability clusters, and the SAME picker, the player

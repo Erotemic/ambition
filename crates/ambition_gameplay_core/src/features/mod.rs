@@ -101,15 +101,14 @@ pub use ecs::{
     apply_summon_effects, boss_is_cleared, boss_spawn_hurtboxes, can_damage,
     clear_encounter_reward_ecs, collect_ecs_pickups, damage_lands, derive_boss_sprite_metrics,
     derive_pogo_target_volumes, despawn_encounter_mobs, dissolve_settled_grudges,
-    ecs_actor_anim_state, ecs_actor_render_size, ecs_boss_anim_state,
+    ecs_actor_anim_state, ecs_boss_anim_state,
     ecs_boss_anim_state_and_entity, ecs_boss_animation_frame_sample, ecs_boss_name,
-    ecs_actor_is_sandbag, ecs_actor_name, ecs_breakable_state, ecs_chest_opened,
-    ecs_enemy_sprite_override,
+    ecs_breakable_state, ecs_chest_opened,
     ecs_hit_event_hits_actor, ecs_hit_event_hits_boss, ecs_hit_event_hits_breakable,
     enforce_mount_rider_link, integrate_boss_bodies, integrate_sim_bodies,
     interact_ecs_actors_and_switches, sync_boss_strike_hitboxes,
     magnetize_pickups, open_ecs_chests, pirate_on_shark_rider_offset,
-    rebuild_feature_ecs_world_overlay, rebuild_feature_view_index,
+    rebuild_actor_render_index, rebuild_feature_ecs_world_overlay, rebuild_feature_view_index,
     refresh_actor_damageable_volumes, refresh_boss_damageable_volumes,
     refresh_breakable_damageable_volumes, reset_ecs_room_features, select_actor_targets,
     spawn_encounter_mob, spawn_enemy_projectiles_from_brain_actions, spawn_melee_hitbox,
@@ -120,7 +119,8 @@ pub use ecs::{
     tick_and_despawn_hitboxes, tick_boss_brains_system, tick_gameplay_banner, tick_npc_idle_barks,
     tick_pending_challenges, update_ecs_bosses, update_ecs_breakables, update_ecs_falling_chests,
     update_ecs_hazards, ActorSteering, BossClusterQueryData, BossClusterRef, BossClusterScratch,
-    BossConfig, BossMut, BossOverrides, BossRef, BossEncounter, FactionRelations,
+    ActorRenderIndex, ActorRenderView, BossConfig, BossMut, BossOverrides, BossRef, BossEncounter,
+    FactionRelations,
     FeatureEcsWorldOverlay, FeatureSimEntity, FeatureViewIndex, FriendlyFire, HazardFeature,
     HeldItem, Hitbox, HitboxAnchor, HitboxHits, HitboxLifetime, MountSlot, Mountable, Mounted,
     MountedBrainCache, MountedSize, PendingChallenge, RidingOn, SpawnActorKind, SpawnActorRequest,
@@ -359,7 +359,10 @@ impl bevy::prelude::Plugin for FeatureInteractionSchedulePlugin {
     }
 }
 
-/// Rebuilds [`FeatureViewIndex`] once per frame for presentation/HUD readers.
+/// Rebuilds the presentation read-models once per frame: [`FeatureViewIndex`]
+/// (geometry/state for every feature) and [`ActorRenderIndex`] (the materialized
+/// per-actor identity facts the renderer binds sprites from). Both let
+/// presentation read a snapshot instead of live-querying the sim's ECS.
 pub struct FeatureViewSyncSchedulePlugin;
 
 impl bevy::prelude::Plugin for FeatureViewSyncSchedulePlugin {
@@ -367,7 +370,8 @@ impl bevy::prelude::Plugin for FeatureViewSyncSchedulePlugin {
         use bevy::prelude::{IntoScheduleConfigs, Update};
         app.add_systems(
             Update,
-            rebuild_feature_view_index.in_set(crate::schedule::SandboxSet::FeatureViewSync),
+            (rebuild_feature_view_index, rebuild_actor_render_index)
+                .in_set(crate::schedule::SandboxSet::FeatureViewSync),
         );
     }
 }

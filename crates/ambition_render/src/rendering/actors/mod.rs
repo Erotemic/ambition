@@ -225,11 +225,11 @@ pub fn upgrade_actor_sprites(
         Option<&BoundFeatureKind>,
         Option<&BoundSpriteQuality>,
     )>,
-    ecs_actors: Query<ambition_gameplay_core::features::ActorSpriteData>,
-    // Shared sprite-metadata render size — present on an enemy that was a
-    // body-metrics NPC before it turned hostile, so its sprite keeps the
-    // authored size instead of re-applying `collision_scale` to the body box.
-    render_sizes: Query<(&FeatureId, &ActorRenderSize)>,
+    // Materialized actor identity read-model (name / sprite-override / sandbag /
+    // authored render size) — the renderer binds a sprite from this snapshot
+    // WITHOUT borrowing gameplay_core's live actor clusters. Built by
+    // `rebuild_actor_render_index` in the sim's `FeatureViewSync` set.
+    actor_render: Res<ambition_gameplay_core::features::ActorRenderIndex>,
     // Names we've already warned about resolving no sprite, so the warning fires
     // once per offending name instead of every frame the actor is unbound.
     mut warned_sprite_names: Local<std::collections::HashSet<String>>,
@@ -259,34 +259,25 @@ pub fn upgrade_actor_sprites(
         if kind_bound && !quality_bound && !assets_changed {
             continue;
         }
-        // Sprite-override path: an enemy that was spawned by migrating
-        // a hostile NPC carries the original LDtk display name so the
-        // renderer can keep that NPC's sheet (with its authored slash
-        // / hit rows). Only the Kernel Guide migration leaves the
-        // override blank, so kernel→goblin keeps its dedicated visual
-        // gag while every other faction NPC stays themselves when
-        // hostile.
-        //
-        // Fallback for direct EnemySpawn entities (no NPC migration
-        // history): try the enemy's display name against the same
-        // NPC sprite registry. Intro raiders resolve to their
-        // placeholder sheet this way without authors having to
-        // duplicate the registry entry on an
-        // enemy-side table.
+        // Read the actor's materialized identity snapshot. Absent ⇒ the read-model
+        // hasn't caught this actor yet (it just spawned); skip a frame — the next
+        // rebuild fills it in, exactly like the `feature_views` miss above.
+        let Some(actor) = actor_render.get(&visual.id) else {
+            continue;
+        };
         // Name-first resolution, shared by every actor: an authored
-        // sprite-override label (a fighting-flipped NPC keeps its own sheet),
-        // then the actor's own display name, against the character registry.
-        let override_name =
-            ambition_gameplay_core::features::ecs_enemy_sprite_override(&visual.id, &ecs_actors);
-        let actor_name =
-            ambition_gameplay_core::features::ecs_actor_name(&visual.id, &ecs_actors);
+        // sprite-override label (a fighting-flipped NPC keeps its own sheet —
+        // the Kernel Guide migration is the one that leaves it blank so
+        // kernel→goblin keeps its visual gag), then the actor's own display name,
+        // against the character registry. A direct `EnemySpawn` (no NPC migration
+        // history) resolves by its display name here too — intro raiders pick up
+        // their sheet without a duplicate enemy-side registry entry.
+        let override_name = actor.sprite_override_name.as_deref();
+        let actor_name = Some(actor.name.as_str());
         let named = override_name
-            .as_deref()
             .and_then(|n| assets.characters.npc_asset_for_name(n))
             .or_else(|| {
-                actor_name
-                    .as_deref()
-                    .and_then(|n| assets.characters.npc_asset_for_name(n))
+                actor_name.and_then(|n| assets.characters.npc_asset_for_name(n))
             });
         let character_asset = match named {
             Some(asset) => Some(asset),
@@ -296,13 +287,9 @@ pub fn upgrade_actor_sprites(
                 // sandbag → the sandbag sheet; a fighting actor → the generic
                 // enemy sheet; a peaceful, un-registered actor keeps its
                 // terminal-rectangle placeholder (the old NPC behavior — `None`).
-                let is_sandbag = ambition_gameplay_core::features::ecs_actor_is_sandbag(
-                    &visual.id,
-                    &ecs_actors,
-                );
                 match assets
                     .characters
-                    .actor_fallback_asset(is_sandbag, view.fighting)
+                    .actor_fallback_asset(actor.is_sandbag, view.fighting)
                 {
                     Some(fallback) => {
                         // A *named* actor reaching the generic fallback almost
@@ -312,7 +299,7 @@ pub fn upgrade_actor_sprites(
                         // silently. Surface it once per name (a warning, not a
                         // panic — a genuinely missing/late asset file is handled by
                         // the `images.get(..).is_none()` guard below).
-                        if let Some(missed) = override_name.as_deref().or(actor_name.as_deref()) {
+                        if let Some(missed) = override_name.or(actor_name) {
                             if warned_sprite_names.insert(missed.to_string()) {
                                 bevy::log::warn!(
                                     target: "ambition::sprites",
@@ -344,9 +331,7 @@ pub fn upgrade_actor_sprites(
         // Honor a shared sprite-metadata render size (e.g. a hostile-flipped
         // body-metrics NPC): render at the stored quad, NOT collision*scale,
         // so the sprite doesn't balloon once collision already equals the body.
-        let render_size =
-            ambition_gameplay_core::features::ecs_actor_render_size(&visual.id, &render_sizes)
-                .map(|r| BVec2::new(r.x, r.y));
+        let render_size = actor.render_size.map(|r| BVec2::new(r.x, r.y));
         let (sprite, anchor) = match render_size {
             Some(render_size) => (
                 build_character_sprite_with_render_size(character_asset, render_size),

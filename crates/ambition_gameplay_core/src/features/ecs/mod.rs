@@ -86,10 +86,9 @@ pub use aggression::{
     apply_actor_stimuli, tick_pending_challenges, PendingChallenge, CHALLENGE_GRACE_S,
 };
 pub use anim_helpers::{
-    ecs_actor_anim_state, ecs_actor_render_size, ecs_boss_anim_state,
-    ecs_boss_anim_state_and_entity, ecs_boss_animation_frame_sample, ecs_boss_name,
-    ecs_actor_is_sandbag, ecs_actor_name, ecs_breakable_state, ecs_chest_opened,
-    ecs_enemy_sprite_override, ActorAnimFrame, ActorSpriteData,
+    ecs_actor_anim_state, ecs_boss_anim_state, ecs_boss_anim_state_and_entity,
+    ecs_boss_animation_frame_sample, ecs_boss_name, ecs_breakable_state, ecs_chest_opened,
+    ActorAnimFrame, ActorSpriteData,
 };
 pub use banner::{apply_gameplay_banner_requests, tick_gameplay_banner};
 pub use boss_clusters::{
@@ -150,7 +149,10 @@ pub use targeting::{
     can_damage, damage_lands, dissolve_settled_grudges, select_actor_targets, FactionRelations,
     FriendlyFire,
 };
-pub use view_index::{rebuild_feature_view_index, FeatureViewIndex};
+pub use view_index::{
+    rebuild_actor_render_index, rebuild_feature_view_index, ActorRenderIndex, ActorRenderView,
+    FeatureViewIndex,
+};
 
 // `FeatureSimEntity` is a generic entity-marker queried by the reusable
 // mechanics, so its definition lives DOWN in

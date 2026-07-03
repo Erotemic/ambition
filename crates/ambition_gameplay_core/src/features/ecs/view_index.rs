@@ -288,6 +288,122 @@ pub fn rebuild_feature_view_index(
     index.end_rebuild();
 }
 
+/// Materialized per-actor identity facts the renderer needs to BIND and SIZE an
+/// actor sprite, keyed by [`FeatureId`] — the STATIC half of the actor
+/// read-model (display name, sprite-override label, sandbag flag, explicit
+/// render-quad size). It lets `upgrade_actor_sprites` resolve a sprite WITHOUT
+/// borrowing gameplay_core's live actor clusters (`ActorSpriteData`): the sim
+/// produces this snapshot, presentation consumes it — the read-model seam the D3
+/// render→gameplay_core cut needs. These facts are static per actor, so the
+/// rebuild re-clones only on a genuine change (otherwise it just refreshes the
+/// mark-and-sweep generation — no per-`String` churn as the sim steps).
+#[derive(Clone, Debug, PartialEq)]
+pub struct ActorRenderView {
+    pub name: String,
+    pub sprite_override_name: Option<String>,
+    pub is_sandbag: bool,
+    pub render_size: Option<ae::Vec2>,
+}
+
+#[derive(Resource, Default, Clone, Debug)]
+pub struct ActorRenderIndex {
+    views: std::collections::HashMap<String, (ActorRenderView, u64)>,
+    generation: u64,
+}
+
+impl ActorRenderIndex {
+    pub fn get(&self, id: &str) -> Option<&ActorRenderView> {
+        self.views.get(id).map(|(view, _)| view)
+    }
+
+    pub fn len(&self) -> usize {
+        self.views.len()
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.views.is_empty()
+    }
+
+    fn begin_rebuild(&mut self) {
+        self.generation = self.generation.wrapping_add(1);
+    }
+
+    fn end_rebuild(&mut self) {
+        let gen = self.generation;
+        self.views.retain(|_, (_, g)| *g == gen);
+    }
+
+    /// Refresh `id`'s snapshot for this generation. A surviving entry whose facts
+    /// are UNCHANGED (the common case — actor identity is static) only bumps its
+    /// generation, allocating nothing; a new or genuinely-changed entry clones
+    /// once. The comparison is by `&str`/value so no candidate `String` is built
+    /// on the unchanged path.
+    fn upsert(
+        &mut self,
+        id: &str,
+        name: &str,
+        override_name: Option<&str>,
+        is_sandbag: bool,
+        render_size: Option<ae::Vec2>,
+    ) {
+        let gen = self.generation;
+        if let Some(slot) = self.views.get_mut(id) {
+            let v = &slot.0;
+            let unchanged = v.name == name
+                && v.sprite_override_name.as_deref() == override_name
+                && v.is_sandbag == is_sandbag
+                && v.render_size == render_size;
+            if unchanged {
+                slot.1 = gen;
+                return;
+            }
+            slot.0 = ActorRenderView {
+                name: name.to_string(),
+                sprite_override_name: override_name.map(str::to_string),
+                is_sandbag,
+                render_size,
+            };
+            slot.1 = gen;
+            return;
+        }
+        self.views.insert(
+            id.to_string(),
+            (
+                ActorRenderView {
+                    name: name.to_string(),
+                    sprite_override_name: override_name.map(str::to_string),
+                    is_sandbag,
+                    render_size,
+                },
+                gen,
+            ),
+        );
+    }
+}
+
+/// Rebuild [`ActorRenderIndex`] from the live actor clusters + the shared
+/// [`crate::features::ActorRenderSize`] component (joined on the same entity, so
+/// the pass is O(actors), not a per-actor cross-scan). Runs in the sim's
+/// `FeatureViewSync` set beside [`rebuild_feature_view_index`], so the snapshot
+/// is ready before presentation reads it. Bosses have their OWN sprite path
+/// (`upgrade_boss_sprites`) and props aren't actors, so neither appears here.
+pub fn rebuild_actor_render_index(
+    mut index: ResMut<ActorRenderIndex>,
+    actors: Query<(ActorSpriteData, Option<&crate::features::ActorRenderSize>)>,
+) {
+    index.begin_rebuild();
+    for (a, render_size) in &actors {
+        index.upsert(
+            a.feature_id.as_str(),
+            &a.config.name,
+            a.config.sprite_override_npc_name.as_deref(),
+            a.config.tuning.is_sandbag,
+            render_size.map(|s| s.0),
+        );
+    }
+    index.end_rebuild();
+}
+
 #[cfg(test)]
 mod view_index_tests {
     //! The FeatureViewIndex read-model. The load-bearing invariant is
@@ -364,5 +480,43 @@ mod view_index_tests {
         idx.insert_if_absent("a", view(false)); // dropped
         idx.end_rebuild();
         assert_eq!(idx.get("a").map(|v| v.visible), Some(true));
+    }
+
+    #[test]
+    fn actor_render_index_snapshots_identity_sweeps_and_refreshes() {
+        let mut idx = ActorRenderIndex::default();
+        // Frame 1: two actors materialized.
+        idx.begin_rebuild();
+        idx.upsert("a", "Goblin", None, false, Some(ae::Vec2::new(10.0, 20.0)));
+        idx.upsert("b", "Dummy", Some("sandbag_sheet"), true, None);
+        idx.end_rebuild();
+        assert_eq!(idx.len(), 2);
+        let a = idx.get("a").expect("a present");
+        assert_eq!(a.name, "Goblin");
+        assert_eq!(a.render_size, Some(ae::Vec2::new(10.0, 20.0)));
+        assert!(!a.is_sandbag);
+        assert!(a.sprite_override_name.is_none());
+        let b = idx.get("b").expect("b present");
+        assert!(b.is_sandbag);
+        assert_eq!(b.sprite_override_name.as_deref(), Some("sandbag_sheet"));
+        assert!(b.render_size.is_none());
+
+        // Frame 2: "a" survives UNCHANGED (refreshed in place); "b" despawns → swept.
+        idx.begin_rebuild();
+        idx.upsert("a", "Goblin", None, false, Some(ae::Vec2::new(10.0, 20.0)));
+        idx.end_rebuild();
+        assert_eq!(idx.len(), 1, "the despawned 'b' is swept");
+        assert!(idx.get("b").is_none());
+        assert_eq!(idx.get("a").map(|v| v.name.as_str()), Some("Goblin"));
+
+        // Frame 3: "a"'s facts CHANGE (a hostile flip re-sizes it) → updated in place.
+        idx.begin_rebuild();
+        idx.upsert("a", "Goblin", None, false, Some(ae::Vec2::new(30.0, 40.0)));
+        idx.end_rebuild();
+        assert_eq!(
+            idx.get("a").and_then(|v| v.render_size),
+            Some(ae::Vec2::new(30.0, 40.0)),
+            "changed facts are re-materialized, not stuck on the old snapshot"
+        );
     }
 }

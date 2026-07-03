@@ -92,15 +92,51 @@ pub fn trigger_boss_attack_moves(
             &crate::combat::moveset::ActorMoveset,
             &crate::actor::BodyKinematics,
             Option<&Brain>,
+            Option<&crate::combat::moveset::MovePlayback>,
         ),
-        (
-            With<FeatureSimEntity>,
-            Without<crate::combat::moveset::MovePlayback>,
-        ),
+        With<FeatureSimEntity>,
     >,
 ) {
-    for (entity, attack_state, moveset, kin, brain) in &bosses {
-        let Some(profile) = attack_state.active_profile.as_ref() else {
+    use ambition_characters::brain::BossAttackProfile;
+    use ambition_entity_catalog::WindowTag;
+    let active_start = |spec: &ambition_entity_catalog::MoveSpec| -> f32 {
+        spec.windows
+            .iter()
+            .find(|w| matches!(w.tag, WindowTag::Active))
+            .map(|w| w.start_s)
+            .unwrap_or(0.0)
+    };
+    for (entity, attack_state, moveset, kin, brain, playback) in &bosses {
+        // The pattern's per-tick INTENT this frame (brain-written before the combat
+        // phase): a Telegraph step wants the move played from its windup (`t0 = 0`),
+        // a Strike/possession step with no telegraph wants it started at the strike
+        // (`t0 = tel`, skipping the windup — preserving possession's instant hit).
+        let intent: Option<(&BossAttackProfile, bool)> = attack_state
+            .telegraph_profile
+            .as_ref()
+            .map(|p| (p, true))
+            .or_else(|| attack_state.active_profile.as_ref().map(|p| (p, false)));
+
+        // A move is already playing: don't re-trigger (its own duration is the
+        // fire-rate gate) — but ABORT a still-in-WINDUP move the pattern has
+        // abandoned (phase change / suppress / rest cleared the intent, or it moved
+        // on to a different profile). This is the telegraph-edge trigger's parity
+        // with the old strike-edge behavior: an interrupted windup must NOT strike.
+        // A move already in its Active window is committed (the Smash convention) and
+        // runs to completion.
+        if let Some(pb) = playback {
+            let move_profile = BossAttackProfile::from_move_id(&pb.spec.id);
+            let in_windup = pb.t < active_start(&pb.spec);
+            let intent_wants_this = intent.is_some_and(|(p, _)| *p == move_profile);
+            if in_windup && !intent_wants_this {
+                commands
+                    .entity(entity)
+                    .remove::<crate::combat::moveset::MovePlayback>();
+            }
+            continue;
+        }
+
+        let Some((profile, from_telegraph)) = intent else {
             continue;
         };
         // Possessed-boss GEOMETRY strikes stay suppressed (parity with the retired
@@ -109,18 +145,11 @@ pub fn trigger_boss_attack_moves(
             continue;
         }
         if let Some(spec) = moveset.0.move_by_id(&profile.move_id()) {
-            // Start the move at its Active-window edge (the telegraph offset `tel`),
-            // so the strike is live THIS frame — identical hitbox timing to the
-            // pre-E53 strike-only move, and possession's instant strike is preserved
-            // (`boss_possession_specials`). The move still ENCODES `tel` so the
-            // projected `active_elapsed` folds in the telegraph offset. The telegraph-
-            // edge (`t0 = 0`, plays the windup) trigger is the E53 Slice-D flip.
-            let t0 = spec
-                .windows
-                .iter()
-                .find(|w| matches!(w.tag, ambition_entity_catalog::WindowTag::Active))
-                .map(|w| w.start_s)
-                .unwrap_or(0.0);
+            // Telegraph edge → `t0 = 0` plays the windup THROUGH the move (so the
+            // projected telegraph read-model + a future bound anim clip slave to the
+            // one move timeline). Strike/possession edge → `t0 = tel` starts at the
+            // strike, so the hitbox is live the same frame as the pre-Slice-D move.
+            let t0 = if from_telegraph { 0.0 } else { active_start(spec) };
             commands.entity(entity).insert(
                 crate::combat::moveset::MovePlayback::new_at(spec.clone(), kin.facing, t0),
             );
@@ -128,21 +157,20 @@ pub fn trigger_boss_attack_moves(
     }
 }
 
-/// PROJECT the ACTIVE (strike) half of [`BossAttackState`] from the live boss
-/// [`MovePlayback`] (E53 Slice B+C). While a boss move's clock is inside its Active
-/// window, the strike read-model — `active_profile` / `active_remaining` /
-/// `active_elapsed` — is DERIVED from the move (the move is the authority) instead
-/// of trusted from the pattern cursor's mirror. The values are provably equal to
-/// the brain's write (the move carries the telegraph offset `tel` as its Active
-/// start, so `active_elapsed == t == tel + strike_elapsed`), so this is
-/// behavior-preserving; it flips WHO owns the strike timing to the shared move
-/// runtime, mirroring `project_moveset_melee_to_body_melee`.
+/// PROJECT [`BossAttackState`] from the live boss [`MovePlayback`] (E53). While a
+/// boss move plays, the telegraph/strike read-model — `telegraph_profile` /
+/// `active_profile` + their remaining/elapsed — is DERIVED from the move (the shared
+/// move runtime is the authority) instead of trusted from the pattern cursor's
+/// mirror, mirroring `project_moveset_melee_to_body_melee`. The move IS the whole
+/// telegraph→strike timeline: its clock `t` in `[0, tel)` is the windup, `[tel,
+/// tel+strike)` the strike, so `telegraph_elapsed == t` and `active_elapsed == t`
+/// (the latter folds in the telegraph offset the same way the brain's did).
 ///
-/// ADDITIVE + non-destructive: it only writes while a move is in its Active window,
-/// and never touches the TELEGRAPH fields (still brain-written) — so a boss with no
-/// `ActorMoveset` (test fixtures), a boss mid-telegraph, and a resting boss all keep
-/// the brain's mirror untouched. Runs AFTER `advance_move_playback` so `t` is
-/// current. The telegraph half + retiring the brain write is Slice D.
+/// ADDITIVE + non-destructive: it only writes while a move is present — a boss with
+/// no `ActorMoveset` (test fixtures) and a resting boss (no `MovePlayback`) keep the
+/// brain's mirror untouched. Runs AFTER `advance_move_playback` so `t` is current.
+/// (The brain still COMPUTES its attack_state internally for its movement edges;
+/// retiring the now-redundant brain COMPONENT write is a later cleanup.)
 pub fn project_boss_attack_state_from_move(
     mut bosses: Query<
         (&crate::combat::moveset::MovePlayback, &mut BossAttackState),
@@ -160,14 +188,26 @@ pub fn project_boss_attack_state_from_move(
         else {
             continue;
         };
-        if t < active.start_s || t >= active.end_s {
-            // Outside the strike (telegraph, or the finished tail): leave the brain's
-            // mirror as-is. Slice D projects the telegraph half here too.
-            continue;
+        let profile = BossAttackProfile::from_move_id(&playback.spec.id);
+        if t < active.start_s {
+            // WINDUP: the move is playing its telegraph (no hitbox yet).
+            attack_state.telegraph_profile = Some(profile);
+            attack_state.telegraph_remaining = (active.start_s - t).max(0.0);
+            attack_state.telegraph_elapsed = t;
+            attack_state.active_profile = None;
+            attack_state.active_remaining = 0.0;
+            attack_state.active_elapsed = 0.0;
+        } else if t < active.end_s {
+            // STRIKE: the hitbox is live; active_elapsed folds in the telegraph.
+            attack_state.telegraph_profile = None;
+            attack_state.telegraph_remaining = 0.0;
+            attack_state.telegraph_elapsed = 0.0;
+            attack_state.active_profile = Some(profile);
+            attack_state.active_remaining = (active.end_s - t).max(0.0);
+            attack_state.active_elapsed = t;
         }
-        attack_state.active_profile = Some(BossAttackProfile::from_move_id(&playback.spec.id));
-        attack_state.active_remaining = (active.end_s - t).max(0.0);
-        attack_state.active_elapsed = t;
+        // else: finished tail (t >= end) — leave the brain's mirror; the move is
+        // about to be removed by `advance_move_playback`.
     }
 }
 
@@ -610,6 +650,114 @@ mod attack_moveset_tests {
         assert!(
             !pb.spec.windows[0].volumes.is_empty(),
             "the triggered move carries the strike hit volume"
+        );
+    }
+
+    /// Build the (trigger → advance → project) chain the E53 flip runs, on one boss
+    /// whose FloorSlam move spans a 0.2s telegraph + 0.3s strike.
+    fn telegraph_boss_app() -> (App, Entity) {
+        let cap = BossCapability {
+            specials: vec![(BossAttackProfile::FloorSlam, 0.3)],
+        };
+        let combat_size = ambition_engine_core::Vec2::new(80.0, 80.0);
+        let moveset = crate::features::boss_attack_moveset(
+            &cap,
+            &warden_behavior(),
+            combat_size,
+            &[(BossAttackProfile::FloorSlam, 0.2)],
+        )
+        .expect("a boss with a telegraphed strike → a moveset");
+
+        let mut app = App::new();
+        app.init_resource::<ambition_time::WorldTime>();
+        {
+            let mut wt = app.world_mut().resource_mut::<ambition_time::WorldTime>();
+            wt.scaled_dt = 0.05;
+            wt.raw_dt = 0.05;
+        }
+        app.add_message::<crate::combat::moveset::MoveEventMessage>();
+        app.add_systems(
+            Update,
+            (
+                trigger_boss_attack_moves,
+                crate::combat::moveset::advance_move_playback,
+                project_boss_attack_state_from_move,
+            )
+                .chain(),
+        );
+        let mut attack_state = BossAttackState::default();
+        attack_state.telegraph_profile = Some(BossAttackProfile::FloorSlam);
+        let boss = app
+            .world_mut()
+            .spawn((
+                FeatureSimEntity,
+                attack_state,
+                moveset,
+                crate::combat::components::ActorFaction::Boss,
+                crate::actor::BodyKinematics {
+                    pos: ambition_engine_core::Vec2::ZERO,
+                    vel: ambition_engine_core::Vec2::ZERO,
+                    size: combat_size,
+                    facing: 1.0,
+                },
+            ))
+            .id();
+        (app, boss)
+    }
+
+    /// E53 Slice D: a Telegraph-step intent starts the move at its WINDUP (`t0 = 0`),
+    /// the projection reports `telegraph_profile` while the move is in windup, then
+    /// flips to `active_profile` once the move's clock reaches the strike window —
+    /// `BossAttackState` is DERIVED from the live move, both halves.
+    #[test]
+    fn telegraph_edge_trigger_projects_windup_then_strike() {
+        let (mut app, boss) = telegraph_boss_app();
+
+        // Frame 1: the telegraph intent starts the move at t0=0; one advance puts it
+        // ~0.05s into the 0.2s windup — the projection reports a TELEGRAPH, no strike.
+        app.update();
+        let st = app.world().get::<BossAttackState>(boss).unwrap();
+        assert_eq!(st.telegraph_profile, Some(BossAttackProfile::FloorSlam));
+        assert_eq!(st.active_profile, None, "windup has no live strike yet");
+
+        // Advance past the 0.2s telegraph into the strike window: the projection now
+        // reports the STRIKE, telegraph cleared, and active_elapsed folds in the
+        // telegraph offset (t ≈ 0.25 > 0.2).
+        for _ in 0..4 {
+            app.update();
+        }
+        let st = app.world().get::<BossAttackState>(boss).unwrap();
+        assert_eq!(st.active_profile, Some(BossAttackProfile::FloorSlam));
+        assert_eq!(st.telegraph_profile, None, "strike clears the telegraph");
+        assert!(
+            st.active_elapsed > 0.2,
+            "active_elapsed folds in the telegraph offset; got {}",
+            st.active_elapsed
+        );
+    }
+
+    /// E53 Slice D: a windup the pattern ABANDONS (intent cleared — phase change /
+    /// suppress / rest) must NOT strike. The still-in-windup move is despawned before
+    /// its Active window opens, so no spurious hitbox — parity with the old
+    /// strike-edge trigger (which simply never started a move for an interrupted
+    /// telegraph).
+    #[test]
+    fn interrupted_windup_is_aborted_before_the_strike() {
+        let (mut app, boss) = telegraph_boss_app();
+        app.update();
+        assert!(
+            app.world().get::<crate::combat::moveset::MovePlayback>(boss).is_some(),
+            "the telegraph started a move"
+        );
+        // The pattern abandons the windup (e.g. a phase transition cleared intent).
+        app.world_mut()
+            .get_mut::<BossAttackState>(boss)
+            .unwrap()
+            .clear();
+        app.update();
+        assert!(
+            app.world().get::<crate::combat::moveset::MovePlayback>(boss).is_none(),
+            "an abandoned windup is aborted before it can strike"
         );
     }
 }

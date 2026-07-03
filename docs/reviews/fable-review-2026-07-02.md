@@ -2611,16 +2611,19 @@ distinguishes cleanly: `telegraph_profile` set → `t0=0`; only `active_profile`
   `BossPatternCfg::telegraph_windows()` + spawn wiring. Lands the projection machinery +
   telegraph-carrying moves; the brain-write stays as the seed. One sub-frame read-model wart
   deferred (see BULK REVIEW QUEUE) — damage is byte-identical, Slice D removes the wart.
-- **Slice D (RISKY, staged last)** — the fuller flip: scripted trigger at the telegraph edge
-  (`t0=0`, playing the telegraph THROUGH the move so a bound anim clip can slave to it),
-  project the TELEGRAPH half too, and abort a move still in its Startup when the pattern is
-  interrupted (phase change / suppress / rest) — this abort is the real risk (phase-transition
-  suites). Optionally retire the brain's `BossAttackState` component write (projection SOLE
-  writer) — but the brain still COMPUTES attack_state internally for its movement edges, and
-  moveless fixtures rely on the component, so retiring is a separate cleanup. Cycle windup
-  maps to `tel`. Does NOT remove the sub-frame wart (inherent, see BULK REVIEW QUEUE), so its
-  incremental value over B+C is the telegraph projection + anim-slaving, weighed against the
-  abort risk — the load-bearing strike-authority flip already landed in B+C.
+- **Slice D ✅** — the fuller flip: scripted trigger at the telegraph edge (`t0=0`, playing
+  the telegraph THROUGH the move so a bound anim clip can later slave to it), the projection
+  now derives the TELEGRAPH half too (`telegraph_profile`/remaining/elapsed while `t<tel`),
+  and `trigger_boss_attack_moves` ABORTS a move still in its windup when the pattern
+  abandons the intent (phase change / suppress / rest / switched profile) so an interrupted
+  telegraph never strikes — parity with the old strike-edge trigger. Possession keeps its
+  instant strike via the `t0 = tel` branch (only `active_profile` set → skip the windup).
+  Pinned by `telegraph_edge_trigger_projects_windup_then_strike` +
+  `interrupted_windup_is_aborted_before_the_strike`. Full workspace test green except the
+  pre-existing E39 red. REMAINDER (small cleanup, not blocking): retire the brain's
+  now-redundant `BossAttackState` COMPONENT write (the brain still COMPUTES it internally for
+  its movement edges; moveless fixtures still read it, so gate the retirement on a
+  `With<ActorMoveset>` boss) — pure dead-write removal, no behavior change.
 
 ## Next (in order) — **the MELEE SUBSUMPTION is COMPLETE for EVERY actor incl. bosses (E49–E52).** The audit's TASK sections are stale; trust E-entries + a code re-check before working an item.
 
@@ -2631,7 +2634,14 @@ distinguishes cleanly: `telegraph_profile` set → `t0=0`; only `active_profile`
 **Verified stale/already-done or intentionally deferred:** C8 (`SpecialPreset` already carries the open `Special(String)` hatch); C6-mockingbird reward-table (deferred in-code — "one example isn't a pattern"); C2 (`HELD_ITEMS` — a bare install seam is speculative scaffolding; defer until a second game / per-character loadout).
 
 **Genuinely-open, autonomous-friendly remaining (biggest-lever first):**
-- **Boss `BossAttackState` → full projection** (E51's recorded next slice) — flip the pattern from a timing-OWNER to a pure move-SEQUENCER; project `BossAttackState` FROM the live `MovePlayback` (mirror of `project_moveset_melee_to_body_melee`); map Telegraph/Strike/Rest → Startup/Active/Recovery windows; migrate the ~37 `BossAttackState` consumers off the cursor. This is the "all-at-once-per-boss" refactor (13 boss suites) — do it in green, test-gated slices; be conservative rather than leave a red tree. E51 already banked the load-bearing win (one damage path, bespoke poll retired); this is the timing-authority flip.
+- **Boss `BossAttackState` → projection — LANDED (E53 A–D, `a3c69655`/`2dadea94`/…).** The
+  pattern's Telegraph/Strike windows are folded onto ONE move per profile spanning
+  `[tel, tel+strike]`; `BossAttackState` is now DERIVED from the live `MovePlayback`
+  (`project_boss_attack_state_from_move`, both halves), triggered at the telegraph edge with
+  a windup-abort for interruptions, possession preserved via a `t0=tel` skip. Only remainder:
+  retire the brain's now-redundant `BossAttackState` component write (dead-write cleanup,
+  gate on `With<ActorMoveset>`) — see E53 in the E-log. The one deferred nuance is a
+  sub-frame read-model wart inherent to cursor→move time (BULK REVIEW QUEUE; damage identical).
 - **A7 perception** (L) — make `WorldView` + `WorldMemory` the ONLY world-out; wire peers/projectiles; migrate brains off `BrainSnapshot.target_pos`.
 - **C1** (L) — 24-item `Item` enum → installable `ItemCatalog` (consumed across menu IR / yarn / persistence).
 - **C4** (L) — machinery-owned `PlatformerEnginePlugin` group + fold `sim_systems.rs` into owning plugins + extract `host/mobile_input/` beside `ambition_input` + an app-thinness boundary test.

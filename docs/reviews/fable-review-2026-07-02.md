@@ -1554,7 +1554,44 @@ boss_possession_specials 1 / boss_motion_parity 2; render+content+app build.
 **Remaining slice-3:** 3b (attack geometry→moveset), the archetype swap + integrate
 fold (blocker #1 — still the big one), 3e/3f/3g.
 
-## Next (in order) — A1 slice 3 driver fold (3b + archetype swap + 3e/3f/3g, see E29/E30) / D4.2 platforms/physics extract / D4.3 LDtk converter extensibility (crux) / D3 blocked on `actors|props`
+### E31. A1 slice 3b scoped — a genuine capability gap, NOT a mechanical fold ⏸ (design fork)
+Started 3b (`BossAttackState`→moveset). The **hurtbox** side is already
+actor-unified (the `CombatGeometry` trait — player/enemy/boss share
+`damageable_volumes`). The **attack** side is where the boss is genuinely special,
+and it doesn't fit the moveset model as-is:
+1. **Per-frame sprite-driven hitboxes.** `active_attack_volumes` re-reads
+   `attack_state.active_elapsed` every tick to sample the sprite-authored
+   per-animation hitbox, so a multi-part boss (GNU-ton) has an attack box that
+   *tracks the drawn pose frame-by-frame*. The moveset `MoveSpec` and the shared
+   `Hitbox` primitive only support STATIC body-local authored volumes
+   (`FollowOwner{local_offset}` / `World`) — there is no sprite-frame-driven anchor.
+   Converting naively LOSES per-frame tracking (a real feel/behavior change for
+   multi-part bosses).
+2. **Poll vs hitbox-entity.** `boss_attack_damage` is a per-tick POLL emitting
+   `HitEvent` directly; everyone else spawns `Hitbox` entities resolved by
+   `apply_hitbox_damage` (whose Boss-faction branch already exists — §A3). The dedup
+   semantics differ: the poll re-emits each overlapping frame (gated by the victim's
+   consume-time i-frames), a hitbox entity dedups per-lifetime via `HitboxHits`.
+   Preserving the current contact/strike i-frame feel (pinned by
+   `boss_contact_iframes`) through that switch is subtle.
+
+**Recommended approach (behavior-preserving):** the boss tick keeps OWNING the
+strike geometry (it already computes `active_attack_volumes`), but instead of
+polling it MAINTAINS a Boss-faction `Hitbox` entity per active volume — spawned on
+the telegraph→strike edge, its `half_extent`/`local_offset` UPDATED each tick from
+the live sprite-driven volume (preserving per-frame tracking), despawned on
+strike-end. Damage then flows through the shared `apply_hitbox_damage` Boss branch;
+`boss_attack_damage`'s strike arm is deleted. The body-contact arm converts to a
+persistent body-contact hitbox respawned per tick (to keep the i-frame-gated
+continuous-overlap feel). This is FEEL-SENSITIVE (ships BLIND; `boss_contact_iframes`
++ `boss_motion_parity` are the mechanics net) and needs the per-tick hitbox-geometry
+update on the primitive — a real change, not a rename. **This one is a design fork
+worth a nod before building it blind** (per the same discipline that surfaced
+actors-vs-props + the converter extensibility): the alternative is to accept static
+strike hitboxes and drop GNU-ton's per-frame tracking, which is simpler but a
+behavior change.
+
+## Next (in order) — A1 slice 3 driver fold (3b design fork per E31 / archetype swap / 3e/3f/3g) / D4.2 platforms/physics extract / D4.3 LDtk converter extensibility (crux) / D3 blocked on `actors|props`
 
 **§A2 is COMPLETE** (E10–E13). The victim-side damage path is ONE resolver +
 ONE reaction for every body; per-body policy is the only fork left.

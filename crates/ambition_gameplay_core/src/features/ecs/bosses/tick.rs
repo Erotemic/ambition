@@ -5,8 +5,8 @@ use super::super::*;
 
 use crate::features::{boss_attack_damage, boss_special_for_profile, BossVolumeContext};
 use ambition_characters::brain::{
-    action_set::ActionRequest, boss_pattern::tick_boss_pattern, ActorActionMessage, ActorControl,
-    BossAttackState, BossPatternContext, Brain, StateMachineCfg,
+    action_set::ActionRequest, ActorActionMessage, ActorControl, BossAttackState, Brain,
+    StateMachineCfg,
 };
 use ambition_engine_core::AabbExt;
 use bevy::prelude::MessageWriter;
@@ -190,32 +190,46 @@ pub fn tick_boss_brains_system(
             continue;
         }
 
-        let Some(StateMachineCfg::BossPattern { cfg, state }) = pattern_brain_mut(&mut brain)
-        else {
-            // Boss has a non-BossPattern brain (test fixture). Leave
-            // ActorControl + BossAttackState neutral so a future
-            // brain swap doesn't leak stale intent.
+        // Non-BossPattern brains on a boss (test fixtures) emit no intent and clear
+        // the attack mirror — the same guard the bespoke `pattern_brain_mut` match
+        // used before the universal-tick fold.
+        if !matches!(
+            &*brain,
+            Brain::StateMachine(StateMachineCfg::BossPattern { .. })
+        ) {
             control.0 = ambition_characters::actor::control::ActorControlFrame::neutral();
             attack_state.clear();
             continue;
-        };
+        }
 
-        let front_wall_clearance = boss_front_wall_clearance(
-            &feature_world,
-            &boss,
-            target.pos,
-            cfg.macro_tuning.front_wall_standoff,
-        );
-        let ctx = BossPatternContext {
-            encounter_phase: boss.status.encounter_phase,
-            actor_pos: boss.kin.pos,
-            target_pos: target.pos,
-            world_size: world.0.size,
-            front_wall_clearance,
-            dt,
+        // The front-wall standoff the pattern probes with — read before the brain
+        // borrow that `brain.tick` needs.
+        let front_wall_standoff = match &*brain {
+            Brain::StateMachine(StateMachineCfg::BossPattern { cfg, .. }) => {
+                cfg.macro_tuning.front_wall_standoff
+            }
+            _ => 0.0,
         };
+        let front_wall_clearance =
+            boss_front_wall_clearance(&feature_world, &boss, target.pos, front_wall_standoff);
+
+        // §A1 slice 3c: the boss brain ticks through the UNIVERSAL `Brain::tick`
+        // path like every other body — no bespoke `tick_boss_pattern` call site.
+        // Fill the BossPattern fields onto the shared snapshot; the dispatcher
+        // routes to `tick_boss_pattern`, which writes the attack projection INTO
+        // `BossPatternState.attack_state`. Mirror that into the ECS component below.
+        let mut snapshot = ambition_characters::brain::BrainSnapshot::idle();
+        snapshot.actor_pos = boss.kin.pos;
+        snapshot.target_pos = target.pos;
+        snapshot.dt = dt;
+        snapshot.boss_encounter_phase = Some(boss.status.encounter_phase);
+        snapshot.world_size = world.0.size;
+        snapshot.front_wall_clearance = front_wall_clearance;
         let mut frame = ambition_characters::actor::control::ActorControlFrame::neutral();
-        tick_boss_pattern(cfg, state, &ctx, &mut frame, &mut attack_state);
+        brain.tick(&snapshot, &mut frame);
+        if let Some(bps) = brain.boss_pattern_state() {
+            *attack_state = bps.attack_state.clone();
+        }
 
         // Boss-side Special direct-write: the Gradient Sentinel has
         // four distinct specials (MemorizedVolley / PitTrap /
@@ -318,20 +332,6 @@ pub(crate) fn horizontal_front_wall_clearance(
         }
     }
     best
-}
-
-/// Helper: dig out the `&mut StateMachineCfg` from a `Brain`.
-/// Bosses never spawn with `Brain::Player`; the `unreachable!` arm
-/// is a safety net for that invariant.
-fn pattern_brain_mut(brain: &mut Brain) -> Option<&mut StateMachineCfg> {
-    match brain {
-        Brain::StateMachine(cfg) => Some(cfg),
-        // A player-controlled boss (possessed) is handled by the `Brain::Player`
-        // arm in the tick loop BEFORE this is called; returning `None` here keeps
-        // a stray call inert instead of panicking — bosses are valid controllable
-        // bodies, so `Brain::Player` on a boss is legal, not `unreachable!`.
-        Brain::Player(_) => None,
-    }
 }
 
 /// Integrate ECS-authored bosses + publish damage. The brain

@@ -1037,6 +1037,10 @@ fn build_enemy_brain_snapshot(
         attack_recover_remaining: 0.0,
         stun_remaining: 0.0,
         wall_contact: None,
+        // BossPattern-only inputs — inert for actor bodies.
+        boss_encounter_phase: None,
+        world_size: ae::Vec2::ZERO,
+        front_wall_clearance: None,
         player_input: None,
         crowding,
         terrain: None,

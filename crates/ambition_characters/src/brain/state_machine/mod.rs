@@ -1218,17 +1218,32 @@ fn tick_player_demo(
 
 // ===== BossPattern =====
 //
-// Bosses are driven by `tick_boss_brains_system`, which has encounter phase,
-// target, bounds, and spawn-anchor context unavailable to generic snapshots. This
-// fallback keeps non-boss dispatch paths neutral rather than crashing if they see
-// a `BossPattern` brain.
+// The boss tick fills the BossPattern fields the pattern needs
+// (`boss_encounter_phase` / `world_size` / `front_wall_clearance`) onto the shared
+// snapshot, so a `BossPattern` brain ticks through the universal `Brain::tick`
+// path like every other body — no bespoke call site. A snapshot WITHOUT those
+// fields (any non-boss caller that somehow holds a BossPattern brain) ticks under
+// a Dormant phase, which emits only the idle sway, never a strike.
 fn tick_boss_pattern_via_state_machine(
-    _cfg: &super::BossPatternCfg,
-    _state: &mut super::BossPatternState,
-    _snapshot: &BrainSnapshot,
+    cfg: &super::BossPatternCfg,
+    state: &mut super::BossPatternState,
+    snapshot: &BrainSnapshot,
     out: &mut crate::actor::control::ActorControlFrame,
 ) {
-    *out = crate::actor::control::ActorControlFrame::neutral();
+    let ctx = super::BossPatternContext {
+        encounter_phase: snapshot.boss_encounter_phase.unwrap_or_default(),
+        actor_pos: snapshot.actor_pos,
+        target_pos: snapshot.target_pos,
+        world_size: snapshot.world_size,
+        front_wall_clearance: snapshot.front_wall_clearance,
+        dt: snapshot.dt,
+    };
+    // The attack-state projection lives IN the pattern state; take it out to
+    // satisfy `tick_boss_pattern`'s separate `&mut`, then put it back. The boss
+    // tick reads `state.attack_state` afterward to mirror the ECS component.
+    let mut attack_state = core::mem::take(&mut state.attack_state);
+    super::tick_boss_pattern(cfg, state, &ctx, out, &mut attack_state);
+    state.attack_state = attack_state;
 }
 
 // ===== Trait helpers =====

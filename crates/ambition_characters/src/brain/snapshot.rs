@@ -109,6 +109,21 @@ pub struct BrainSnapshot {
     /// system computes this only for brains that care (currently
     /// `Wanderer`); other actors leave it `None`.
     pub wall_contact: Option<WallContact>,
+
+    // --- BossPattern inputs ---
+    // The three fields a `BossPattern` brain needs beyond the shared
+    // `actor_pos`/`target_pos`/`dt`: its encounter phase, the world bounds for the
+    // soft movement clamp, and the front-wall probe. Filled by the boss tick
+    // system; `None`/`ZERO` for every non-boss body, which no other brain reads.
+    /// Boss encounter phase this tick (drives pattern selection + the
+    /// `is_attacking()` gate). `None` for non-boss bodies.
+    pub boss_encounter_phase: Option<crate::brain::boss_pattern::BossEncounterPhase>,
+    /// World size (px) for the BossPattern movement soft-clamp. `ZERO` for
+    /// non-bosses (the clamp is inert at zero extent).
+    pub world_size: ae::Vec2,
+    /// Distance to the first blocking wall in the boss's approach lane; `None` =
+    /// clear (or non-boss).
+    pub front_wall_clearance: Option<f32>,
     /// Per-tick input snapshot for [`crate::brain::Brain::Player`].
     /// `None` for non-player actors. The player-brain-driver system
     /// fills this from the actor entity's `PlayerInputFrame`; the
@@ -176,6 +191,9 @@ impl BrainSnapshot {
             attack_recover_remaining: 0.0,
             stun_remaining: 0.0,
             wall_contact: None,
+            boss_encounter_phase: None,
+            world_size: ae::Vec2::ZERO,
+            front_wall_clearance: None,
             player_input: None,
             crowding: None,
             terrain: None,

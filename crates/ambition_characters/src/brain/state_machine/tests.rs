@@ -867,24 +867,81 @@ fn brain_templates_survive_zero_dt() {
 }
 
 #[test]
-fn boss_pattern_via_state_machine_emits_neutral_frame() {
-    // The generic `tick_state_machine` path is intentionally a
-    // no-op for `BossPattern`: bosses bypass it via
-    // `tick_boss_brains_system` (which has access to
-    // encounter_phase / world bounds / target). If the dispatch
-    // path here ever starts producing intent, the boss tick
-    // system would race with it. Pin the contract.
+fn boss_pattern_via_state_machine_matches_the_direct_tick() {
+    // §A1 slice 3c: the BossPattern brain now ticks through the UNIVERSAL
+    // `tick_state_machine` path — it is no longer a neutral stub. The boss tick
+    // fills the BossPattern fields (`boss_encounter_phase` / `world_size` /
+    // `front_wall_clearance`) onto the shared snapshot, so the universal path must
+    // produce EXACTLY what a direct `tick_boss_pattern` call does: same frame, same
+    // attack-state projection. This parity is what makes the fold behavior-neutral.
+    use crate::brain::boss_pattern::{tick_boss_pattern, BossAttackState, BossPatternContext};
+
+    let cfg = crate::brain::BossPatternCfg::neutral_test();
+    let phase = crate::brain::boss_pattern::BossEncounterPhase::Phase1; // an attacking phase
+    let actor_pos = ae::Vec2::new(100.0, 200.0);
+    let target_pos = ae::Vec2::new(260.0, 200.0);
+    let world_size = ae::Vec2::new(1000.0, 600.0);
+    let dt = 1.0 / 60.0;
+
+    // Direct path (the pre-fold call).
+    let mut direct_state = crate::brain::BossPatternState::default();
+    let mut direct_frame = crate::actor::control::ActorControlFrame::neutral();
+    let mut direct_attack = BossAttackState::default();
+    let ctx = BossPatternContext {
+        encounter_phase: phase,
+        actor_pos,
+        target_pos,
+        world_size,
+        front_wall_clearance: None,
+        dt,
+    };
+    tick_boss_pattern(&cfg, &mut direct_state, &ctx, &mut direct_frame, &mut direct_attack);
+
+    // Universal path: the SAME cfg/state, boss fields on the shared snapshot.
     let mut sm = StateMachineCfg::BossPattern {
-        cfg: crate::brain::BossPatternCfg::neutral_test(),
+        cfg: cfg.clone(),
         state: crate::brain::BossPatternState::default(),
     };
-    let s = snap_at(0.0, 100.0);
-    let mut out = crate::actor::control::ActorControlFrame::neutral();
-    out.melee_pressed = true; // pre-poisoned
-    out.velocity_target = ae::Vec2::new(99.0, 99.0);
-    tick_state_machine(&mut sm, &s, &mut out);
-    assert!(!out.melee_pressed);
-    assert_eq!(out.velocity_target, ae::Vec2::ZERO);
+    let mut snap = crate::brain::snapshot::BrainSnapshot::idle();
+    snap.actor_pos = actor_pos;
+    snap.target_pos = target_pos;
+    snap.dt = dt;
+    snap.boss_encounter_phase = Some(phase);
+    snap.world_size = world_size;
+    snap.front_wall_clearance = None;
+    let mut uni_frame = crate::actor::control::ActorControlFrame::neutral();
+    uni_frame.melee_pressed = true; // pre-poison — the tick starts from a neutral frame
+    tick_state_machine(&mut sm, &snap, &mut uni_frame);
+
+    // Frame parity.
+    assert_eq!(uni_frame.velocity_target, direct_frame.velocity_target);
+    assert_eq!(uni_frame.locomotion, direct_frame.locomotion);
+    assert_eq!(uni_frame.facing, direct_frame.facing);
+    assert_eq!(uni_frame.melee_pressed, direct_frame.melee_pressed);
+    assert_eq!(uni_frame.special_pressed, direct_frame.special_pressed);
+
+    // Attack-state projection parity — it lives in the brain state on the
+    // universal path (the seam that lets `Brain::tick`'s `(snapshot, out)`
+    // signature carry no separate attack-state out).
+    let StateMachineCfg::BossPattern { state: uni_state, .. } = &sm else {
+        panic!("still a BossPattern brain");
+    };
+    assert_eq!(
+        uni_state.attack_state.telegraph_profile.is_some(),
+        direct_attack.telegraph_profile.is_some()
+    );
+    assert_eq!(
+        uni_state.attack_state.active_profile.is_some(),
+        direct_attack.active_profile.is_some()
+    );
+    assert_eq!(
+        uni_state.attack_state.telegraph_remaining,
+        direct_attack.telegraph_remaining
+    );
+    assert_eq!(
+        uni_state.attack_state.active_remaining,
+        direct_attack.active_remaining
+    );
 }
 
 #[test]

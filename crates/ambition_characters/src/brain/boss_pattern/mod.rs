@@ -468,7 +468,14 @@ impl BossPatternCfg {
 /// Per-actor cursor and clock state advanced by [`tick_boss_pattern`].
 /// Component-equivalent — held inside the `Brain::StateMachine(BossPattern{...})`
 /// variant so brain swaps don't accidentally drop the cursor.
-#[derive(Clone, Copy, Debug, Default)]
+///
+/// Includes the live [`BossAttackState`] projection: the telegraph/strike window
+/// is a pure FUNCTION of the pattern cursor, so it belongs in the brain state, not
+/// as a separate authority. `tick_boss_pattern` writes it each tick; the ECS
+/// `BossAttackState` component is a read-model mirror the boss tick copies out.
+/// (This is what lets the boss brain tick through the universal `Brain::tick` seam
+/// — its `(snapshot, out)` signature can't carry a separate attack-state out.)
+#[derive(Clone, Debug, Default)]
 pub struct BossPatternState {
     /// Last encounter phase the brain ticked under. When the phase
     /// changes the brain resets the scripted cursor so a new phase's
@@ -503,6 +510,11 @@ pub struct BossPatternState {
     /// Tiny deterministic RNG state used only by optional probabilistic
     /// idle attack gates. Zero means "seed from cfg on first roll."
     pub rng_seed: u64,
+    /// Live telegraph/strike projection of the cursor above. Written by
+    /// [`tick_boss_pattern`]; mirrored into the ECS `BossAttackState` component by
+    /// the boss tick. Lives here (not just on the component) so the universal
+    /// `Brain::tick` path can produce it — see the struct docs.
+    pub attack_state: BossAttackState,
 }
 
 /// Three-state cycle-mode attack lifecycle.

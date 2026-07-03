@@ -2293,8 +2293,24 @@ from the moveset as the brain's capability signal + teach `choose_action` to fir
 simplest, but `emit_brain_action_messages` then also emits a redundant (harmless, no
 matching technique) `Special` message; (b) add a dedicated `ActionSet` capability flag the
 brain reads (no redundant message, small schema add); (c) the deeper unification where the
-moveset SUBSUMES `ActionSet.special`. This is the ActionSet↔moveset relationship —
-foundational, so flagged.
+moveset SUBSUMES `ActionSet.special`.
+**JON CHOSE (c) — subsumption.** The moveset becomes the SOLE special executor; the flat
+`ActionSet.special → ActorActionMessage::Special` resolution (`action_set/mod.rs:780`)
+retires; the brain reads its move repertoire. **Blast radius (sized):** only THREE bodies
+set `ActionSet.special` today — the player (`Special("bubble_shield")`,
+`player/bundles.rs:238`), a catalog character (`Special("eye_beam")`,
+`character_catalog/resolver.rs:320`), and (once wired) the PCA. Every one must gain a
+MOVESET move for its key: a hitbox move (Cellular Pulse) OR an Effect-bridge move (a
+`MoveEvent{Effect{key}}` that fires the existing content technique — bubble_shield /
+eye_beam — through `dispatch_move_events`, zero new plumbing). **Plan:** (S1) source the
+PCA's `ActionSet.special` from its moveset + teach the Smash brain `choose_action` to fire
+special (dead today) on a range/cooldown gate [BLIND feel]; guard `emit_brain_action_messages`
+to skip the flat emission when the body has a moveset for the verb → no redundant message,
+moveset-bodies already off the flat path. (S2) migrate the player's bubble_shield + the
+catalog eye_beam to Effect-bridge moveset moves [player = BLIND feel]. (S3) delete the flat
+`ActionSet.special` resolution + retire the field to a capability marker. This is
+feel-sensitive (touches the player's shield + AI cadence) — a focused slice, not the tail
+of the §A-line run. Deferred here at a clean checkpoint (Phase 0 complete + green).
 **PHASE 1 (geometry):** extend `HitVolume` for the boss's per-tick multi-part
 frame-tracking strikes (the moveset's static-offset model is the one real downgrade).
 **PHASE 2:** fold the boss (`BossPattern`→move-sequencer; `BossAttackState` as a

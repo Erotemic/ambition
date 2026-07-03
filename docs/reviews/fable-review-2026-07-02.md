@@ -2239,6 +2239,67 @@ non-speculative). Five commits, each workspace `--all-targets` green:
    consumer), so this is one deliberate slice, not two. A12 (interaction/affordance
    NPC-agency) stays the documented deferral.
 
+### E45. A1 boss fold — DESIGN adjudicated: NOT a boss-first port; PROVE the moveset on a real actor first (Path B)
+Designed the `BossAttackState`→moveset fold before touching code (`docs/reviews/boss-moveset-fold-design.md`,
+commit `8f0044b7`). **PUSHBACK (recorded, see the design doc for the full case):** the
+moveset (`MoveSpec`/`MovePlayback`) is UNPROVEN SCAFFOLDING — no production `MovePlayback`
+is ever created, `MoveEventMessage` has no consumer, and its static-offset hitbox model
+is a DOWNGRADE from the boss's per-tick multi-part pose-tracking geometry. The boss attack
+model, conversely, is already well-factored (capability/policy split, `Special(key)`→Technique
+seam, separable phase machine); its ~126 `BossAttackState` refs are mostly legitimate
+consumers of a clean projection, not duplication. A boss-first port would ADD a runtime
+layer + keep `BossAttackState` as a projection = more code + a geometry downgrade, failing
+the "convergence = less code" test.
+**JON'S CALL: Path B — but with the full data-driven vision retained.** Prove the moveset
+on a REAL actor first (not a throwaway), then extend + fold the boss. The proving ground
+must be an ELEGANT real target that demonstrates smash-like expressivity data-driven — Jon:
+give a NORMAL actor (the PCA, or the player-robot, or an item) a boss-like sophisticated
+move (e.g. a tracking projectile), so "design smash-like characters with full expressivity,
+data-driven" becomes natural — the Godot/Unity-for-2D-platformers vision
+([[project_engine_for_other_games]]). Chosen Phase-0 target: **the PCA gains a data-driven
+signature move via the moveset** — a normal actor with boss-like expressivity proves the
+generalization (bosses ARE actors), additively (no touch to the player's proven combat).
+Phased plan in the design doc §6.
+
+### E46. Phase 0 LANDED — the moveset goes LIVE + the PCA carries a data-driven signature move ✅ (`0d236091`, `d0bb2935`)
+Path B Phase 0 (prove the moveset on a real actor) is done + green.
+- **0a — the moveset system goes live** (`0d236091`): the Smash-model runtime
+  (`MoveSpec`/`MovePlayback`/`advance_move_playback`) was fully built + tested but
+  DEAD in the shipping game (nothing ever inserted a `MovePlayback`, nothing consumed
+  `MoveEventMessage`). Built the two missing production seams: `ActorMoveset(MovesetContract)`
+  (the Bevy carrier of a body's repertoire); `trigger_moveset_moves` (a control-frame
+  verb edge — `special`/`melee` — inserts the matching `MovePlayback`; `Without<MovePlayback>`
+  gates re-trigger so the move's duration is the fire-rate floor); `dispatch_move_events`
+  (`Sfx{cue}`→positioned sound; `Effect{key}`→BRIDGE to the SAME
+  `ActorActionMessage::Special{Special(key)}` the brain special path emits, so a move
+  fires a content technique with zero new plumbing — the exact seam the boss
+  `Special(key)` profiles reuse in Phase 2). Registered in the combat schedule. Pins:
+  a production-trigger→real-hitbox-damage test + the dispatch bridge test.
+- **0b — the PCA authors a data-driven signature move** (`d0bb2935`):
+  `CharacterArchetypeSpec` gains `signature_move: Option<MovesetContract>`; the PCA
+  (`cellular_automaton_fighter`) authors "Cellular Pulse" (telegraph→Active hit
+  volume→recovery, proper-time) entirely in `character_archetypes.ron`. The spawn plan
+  attaches `ActorMoveset` from the archetype in `hostile` (covers every hostile path).
+  A NORMAL actor now carries a boss-grade move AS DATA — the vision proof. Pin:
+  `pca_fighter_authors_a_data_driven_signature_move`.
+
+**PHASE 1 FORK (flagged for Jon before I pick a shape) — autonomous firing / the
+brain↔moveset capability seam.** The PCA move fires today only from an injected/possessed
+`special_pressed`; the autonomous Smash brain never fires special (its `SpecificAction::Special`
+path is DEAD — `choose_action` never returns it). Making it fire cleanly touches how the
+brain SEES its moveset capability: the brain gates actions on `&ActionSet`, but the move
+lives in the separate `ActorMoveset`. Options: (a) derive `ActionSet.special = Special(move_id)`
+from the moveset as the brain's capability signal + teach `choose_action` to fire it —
+simplest, but `emit_brain_action_messages` then also emits a redundant (harmless, no
+matching technique) `Special` message; (b) add a dedicated `ActionSet` capability flag the
+brain reads (no redundant message, small schema add); (c) the deeper unification where the
+moveset SUBSUMES `ActionSet.special`. This is the ActionSet↔moveset relationship —
+foundational, so flagged.
+**PHASE 1 (geometry):** extend `HitVolume` for the boss's per-tick multi-part
+frame-tracking strikes (the moveset's static-offset model is the one real downgrade).
+**PHASE 2:** fold the boss (`BossPattern`→move-sequencer; `BossAttackState` as a
+projection written from `MovePlayback`; retire `sync_boss_strike_hitboxes`).
+
 ## Next (in order) — **§A2, §B, §A8, §A9, and several §C items are DONE (E41–E43 verified against code).** The audit's TASK sections are stale; trust E-entries + a code re-check before working an item. Genuinely-open, autonomous-friendly: **B12** (targeting nearest-foe tiebreak DONE `147f5045` — min-Entity, order-independent; the portal first-qualifying half stays deferred per the audit "verify vs portal agent" caveat); **C7-residual** (`is_gnu_ton` render split-layers `boss.rs:79-109` → multi-part layering as boss-sheet data; and the rider name is still *parsed* from the spawn name — the FULL fix authors a rider-name LDtk field, needs `ambition_ldtk_tools`); **C9** (`CharacterBrainTemplate::Shark` → behavior name `ChargeCrash`, a mechanical rename across `SharkCfg`/`StateMachineCfg::Shark`/catalog preset). Larger / needs-Jon: **C1** (24-item `Item` enum → installable `ItemCatalog`, L, consumed across menu IR/yarn/persistence); **C4** (app-thinness boundary test + machinery `PlatformerEnginePlugin` group, L); **C6** (named-boss residue, M); **C2** (`HELD_ITEMS` static — NUANCED: most rows are generic engine-ability bindings, not replaceable content, so a bare move-to-content breaks engine tests and a bare install seam is speculative scaffolding — defer until a second game or a per-character loadout lands, e.g. the just-shipped [[project_starting_character]]); the **D-front** (`rooms`/`RoomSpec` content-coupling — Jon's call, unchanged below).
 
 ### Superseded (the prior D-focused Next; still accurate for the D-front) — **T2 clean read-model + D3 facade redirects DONE (E36/E37/E38).** D3's remaining reducers are all non-autonomous (need Jon's design input or are risky/unverifiable): the `rooms` extraction crux (RoomSpec content-coupling — Jon's call), the value-type→`ambition_sim_view` move (premature until the edge narrows), the boss-pose SIM-SIDE animator move (retires the `animate_bosses` write-back; presentation-unverifiable), and the category-D portal/dev/session system untangles. Recommend Jon adjudicate the `rooms`/`RoomSpec` content-coupling direction next (as he did the actors|props taxonomy). Deferred to Jon's feel pass: render/hurtbox baked-size convergence (~1.2% gap); the T1 placeholder color/z blind deltas (E35).

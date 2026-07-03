@@ -3,8 +3,10 @@
 //!
 //! Bosses follow the enemy / NPC cluster pattern: real ECS state split across
 //! [`BossConfig`] (identity, spawn anchor, brain, behavior profile) and
-//! [`BossEncounter`] (health, liveness, hit-flash, encounter phase, derived sprite
-//! metrics). The boss carries the shared [`BodyKinematics`] component (pos / vel
+//! [`BossEncounter`] (encounter phase, derived sprite metrics, entity-local
+//! phase machine — HP/liveness live on the shared `BodyHealth`, damage-blink on
+//! `BodyCombat::hit_flash`, like every body). The boss carries the shared
+//! [`BodyKinematics`] component (pos / vel
 //! / size / facing) — the same component the player and enemies/NPCs use. Bosses
 //! float and never integrate `vel` themselves (the brain emits a fresh
 //! `desired_vel` each tick for `integrate_body`), so a boss simply leaves `vel`

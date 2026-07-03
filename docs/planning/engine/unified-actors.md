@@ -85,6 +85,17 @@ anchors that stop a future PR re-debating a settled decision.
 - **I10 — Frame-agnostic throughout (relativity).** Perception, motor, and abilities
   live in the acceleration frame — correct under rotated (C4) gravity and through
   portals. No code assumes `-y` is up.
+- **I11 — The world taxonomy is actors (brains) vs props (no brains).** There is
+  no Boss/NPC/Enemy/TrainingDummy *type* axis anywhere — those are ONE actor kind
+  whose differences are state (disposition, tuning, an encounter component) or
+  content (catalog entry). A training dummy is the most-NPC actor: the empty
+  special-component set. Props (chest/pickup/switch/breakable/hazard) are the
+  brainless kit families. Presentation follows the same rule: read-model kinds,
+  placeholder colors, sprite-upgrade gates all key on `Actor` + state, never on an
+  actor sub-type. (Adjudicated in `docs/reviews/fable-review-2026-07-02.md` AD1.)
+  > "Shouldn't there just be actors and props? … boss, NPC, and Enemy should all be
+  > colored the same thing because they are the same thing (or should be, they
+  > must be!)."
 
 ## Architecture
 
@@ -222,8 +233,12 @@ recognizable:
   `hit_flash` retired onto `BodyHealth` / `BodyCombat` (the SAME fields the player
   carries), and `ActorSurfaceState`'s `on_ground` / `air_jumps` retired onto
   `BodyGroundState` / `BodyJumpState`. `ActorStatus` is down to `{respawn_timer,
-  ai_mode}` (genuinely actor-only). Bosses keep a separate `BossStatus` (its own
-  alive/health/hit_flash) — a parallel island, a later slice.
+  ai_mode}` (genuinely actor-only). ~~Bosses keep a separate `BossStatus` (its own
+  alive/health/hit_flash) — a parallel island, a later slice.~~ **DONE (fable
+  review §A1, 2026-07-03):** boss HP/liveness/hit_flash live on the shared
+  `BodyHealth`/`BodyCombat`; `BossStatus` is renamed `BossEncounter` and holds
+  only encounter state. The remaining island is the integration fold (AS4b/AS4c)
+  and attack geometry (adjudicated in the review's AD2).
 - **Targeting — relational, decision made (step 5/B1).** `FactionRelations` +
   `select_actor_targets`; an Enemy targets an Npc with no player present. *Player-
   centrism to remove:* the player is an unconditional candidate and

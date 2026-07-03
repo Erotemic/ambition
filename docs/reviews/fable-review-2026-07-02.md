@@ -65,6 +65,189 @@ also means the sim-view crate shouldn't be extracted until this shape is settled
 `props` the intended top-level render taxonomy, and should `FeatureVisualKind`
 be replaced by it? (Also flow this into `docs/planning/engine/unified-actors.md`.)
 
+> **[fable 2026-07-03] ADJUDICATED: YES — see FABLE ADJUDICATIONS (AD1) below**
+> for the binding shape and the migration slices. D3 is unblocked.
+
+---
+
+## FABLE ADJUDICATIONS (2026-07-03) — every open fork, resolved
+
+Written by fable after a fresh read of the landed code (four parallel deep
+reads: the A1 archetype-swap commits, the A2 resolver, the full
+`FeatureVisualKind` consumer surface, the boss attack geometry) plus a green
+test pass (gameplay_core 1091, boss_lifecycle 8 / boss_contact_iframes 4 /
+boss_possession_specials 1 / boss_motion_parity 2).
+
+**Verdict on the execution so far: E1–E32 landed as logged.** Spot-checks
+found no drift between the log and the code: the A2 one-resolver claim is
+honest (all three body kinds route through `resolve_body_hit`; the old
+hardcoded −90/−280 pop is gone; every emit site uses `body_vulnerable`; the
+only residue is the expected `Without<BossConfig>` partitioning that AS4c
+retires), and AS1/AS2/AS4a + the brain half are exactly as described, with
+the AS2 cluster correctly inert. The E24 revert and the E25 hold were the
+right calls — that discipline (parity net first, hold before relocating into
+a fundamental crate) is precisely what to keep doing. The only debris found:
+three stale doc lines (fixed this session, see AD5).
+
+### AD1. actors|props IS the taxonomy — the four actor variants collapse to ONE `Actor`
+
+Grounding facts (all verified): `FeatureVisualKind` is **presentation-only**
+— zero sim/damage/AI logic branches on it. The actor variants are already
+stamped from STATE at the single rebuild site (`view_index.rs`: `is_sandbag`
+→ TrainingDummy, `is_hostile()` → Enemy, else Npc; Boss from its own query
+family). Sprite resolution is already **name-first** (authored/catalog name
+wins; kind is only the placeholder fallback). So the collapse is low-risk and
+confined to render's color/z/gate tables — the taxonomy Jon named is what the
+code already wants to be.
+
+**The binding shape:**
+- `FeatureVisualKind` becomes `{ Actor, Hazard, Breakable, Chest, Pickup,
+  Switch }` (keep the type name; renaming is churn without meaning). ONE
+  `Actor` variant — Enemy/Npc/Boss/TrainingDummy all stamp it.
+- The five **prop kinds STAY closed variants**. They mirror genuine
+  interaction-kit component families (`Chest`/`Breakable`/`Switch`/
+  `HazardFeature`/pickups) with real view-state semantics (`switch_on`,
+  opened-flash, cracking-flash). That is kit vocabulary, not Ambition
+  content — an open prop-id string is a knob nobody needs yet
+  (design-balance rule). This also answers Jon's point 4: the taxonomy does
+  NOT require a new crate; it's an enum reshape in place, and `sim_view`
+  returns only when read-model materialization gives it meat (AD-D3 below).
+- `FeatureView` gains `hostile: bool`, stamped from `disposition.
+  is_hostile()` — a STATE fact exactly like `flash`, not a type. The
+  placeholder tint MAY modulate on it (a provoked NPC shifting to the
+  hostile tint is information about state and honors "they are the same
+  thing" — the TYPE is one; the state changed). Base placeholder color and
+  z are ONE value for every actor. The Npc-draws-one-layer-higher nuance
+  dies with the variant (fine pre-release; if actor draw order ever
+  matters it must come from a real signal, not visual kind).
+- `TrainingDummy` dies entirely, per Jon: a sandbag is the most-NPC actor.
+  The sandbag fallback sheet keys off `is_sandbag` tuning at the fallback
+  resolver (the data is already on the entity; `enemy_visual_kind()` /
+  `EnemyIntegration::visual_kind()` — the two DUPLICATE derivation helpers —
+  get deleted, their logic surviving only in the one fallback-sprite pick).
+- `Boss` keeps NO variant. The boss render path already partitions on its
+  own query/view build (`render/actors/boss.rs` builds its own view;
+  view_index excludes bosses via `Without<BossConfig>`) — nothing needs a
+  `Boss` enum arm; re-key the boss upgrade gate off its own query data.
+
+**Migration plan (opus-ready):**
+- **T1 (one bold commit — pre-release, no dual-variant bridge):** reshape the
+  enum + stamp `Actor`/`hostile` at the rebuild site + rewrite the render
+  tables (`feature_z`, `feature_color`, `pick_placeholder_color`,
+  `state_aware_entity_sprite`) + **merge the enemy/npc sprite-upgrade systems
+  into ONE name-first actor upgrade system** (the enemy path's chain
+  `override_name → enemy_name → npc_asset_for_name → state fallback` already
+  subsumes the npc path; the two systems only existed because the variants
+  did). Boss upgrade system stays separate until 3f, gated on its own query
+  instead of the variant. Delete: the two duplicate `visual_kind` helpers,
+  `entity_sprite_for_kind`'s actor arms (test-only today), `is_boss_kind`
+  (dead). The compiler drives the sweep — every exhaustive match breaks,
+  which is the point. Placeholder color/z changes ship in a `blind fix:`
+  commit (visual-only).
+- **T2 (the D3 re-opener):** materialize the read-model so render needs NO
+  live-query accessors: the view index (already keyed by id string) grows
+  the name/sprite-key + anim facts render currently pulls via `ecs_*`
+  accessors. Note `FeatureView` is `Copy` today — adding a `String` breaks
+  that; either keep identity as the index key with a side map, or accept
+  non-Copy when materialization lands (decide there, not before). When T2 is
+  real, re-create `ambition_sim_view` — it will have actual meat AND enable
+  the edge-cut, which is the condition E24 set.
+- Ordering: T1 is independent of AS4b/AS4c and can land now. The
+  boss-upgrade-gate convergence piece completes in 3f
+  (`BossAnim`→`CharacterAnim`), which is this same taxonomy wearing its
+  render-animator face.
+
+### AD2. E31 fork: per-frame sprite-driven attack volumes are CANONICAL — generalize the shared pipeline UP, never flatten the boss down
+
+Grounding facts (verified): the per-frame data model (`AnimationBox.frames`)
+lives in engine-neutral `ambition_sprite_sheet`; the HURTBOX consumer
+(`CombatGeometry`/`damageable_volumes`) is already actor-general and
+per-frame; only the attack-hitbox consumer is boss-only today, and the
+actor/player melee path (`manifest_attack_hitbox_world`) samples the coarse
+per-animation box ONCE at window entry and freezes it. GNU-ton's authored
+10-frame hand/head trajectories (~200px of sweep) are real content that
+static volumes would discard. So the fork resolves decisively:
+
+- **(a) Static strike volumes are REJECTED.** Attack volumes that track the
+  drawn pose frame-by-frame are exactly the actor-geometry-unification north
+  star (ONE sprite-metadata pipeline driving collision/hurtbox/attack). The
+  boss is the first consumer of the general mechanism, not a special case to
+  be demoted.
+- **(b) The general mechanism:** hitbox entities gain per-tick frame-driven
+  geometry. A component (shape: `FrameDrivenHitbox { animation key, part }`)
+  plus ONE shared system — in the combat layer, NOT boss code — that samples
+  `AnimationBox.frames` via the drawn-frame sample each tick and writes
+  `Hitbox.half_extent`/`local_offset`; spawned on the telegraph→strike edge,
+  despawned at strike end. E31's recommended shape was right; the correction
+  is PLACEMENT (generic over any body with sprite metrics, so actor melee /
+  the moveset clip-by-phase seam can opt in later and eventually retire
+  freeze-at-entry as the only actor mode).
+- **(c) Dedup:** strike hitboxes carry `HitboxHits` like every other strike
+  (per-swing hit-once). For any strike window shorter than the victim's
+  post-hit invuln (0.75s) this is equivalent to today's receiver-side
+  throttle — assert that equivalence in the test, don't assume it.
+- **(d) The body-contact arm does NOT become a respawned-per-tick hitbox**
+  (that shape fights the primitive). Boss contact damage folds onto the
+  EXISTING shared body-contact system (`apply_actor_contact_damage`, already
+  body-generic per §A4): set the boss actor-cluster's contact tuning from
+  `behavior.body_damage` (spawn currently sets `body_contact_damage: false`
+  precisely to avoid double-hit — flip it in the same commit that deletes
+  the poll's contact arm). Receiver-side i-frames already gate continuous
+  contact exactly like today; `boss_contact_iframes` pins the feel.
+- **(e) End state: `boss_attack_damage` is DELETED.** Strikes flow through
+  `apply_hitbox_damage`'s existing Boss-faction branch (§A3); contact flows
+  through the shared contact system. Ships BLIND (feel-sensitive), gated on
+  boss_contact_iframes + boss_motion_parity + a NEW frame-tracking test:
+  assert the strike hitbox center follows the authored per-frame trajectory
+  across a full swing (GNU-ton's `gnu_hand_sweep` is the natural fixture).
+
+### AD3. AS4b/AS4c — the E32 plan is endorsed as written
+
+Spec-parity pin FIRST (render `boss_asset.spec.render_size(kin.size)` vs
+gameplay `sprite_metrics.sprite_render_size` for every real boss); if it
+holds, the size flip is preserved-by-construction; if it diverges, that's a
+latent render/hurtbox bug to fix regardless. Then AS4c with the golden
+trajectory pin. Dropping AS5 is also confirmed — `BossRef`/`BossMut` view
+encounter concerns, and deleting them is churn, not convergence.
+
+### AD4. The [opus-4.8[1m]] contradiction tags — CONFIRMED, all of them
+
+Each was checked against the code; in every case the executing agent's
+narrower measurement beats the audit's wider estimate. Marked inline at each
+tag; summary:
+- **E19/D1 features hub:** 634 refs (not 271 — that was internal-only), a
+  3-layer public facade stack. Family-by-family redirection as each family
+  reaches its leaf home is the binding strategy; "one-file data migrations"
+  was too sunny for the `components::` symbols.
+- **E22/D3 render edge:** the edge is genuinely wider than read-model
+  vocabulary — the world/rooms types (category C) and the registered
+  presentation SYSTEMS (category D) are real surfaces the audit under-called.
+  "Payoff is binary / multi-session" is the honest frame; the D3.2–D3.7
+  slice order stands and is now UNBLOCKED by AD1 (T1 then T2).
+- **E23 CameraSnapshot2d:** confirmed NOT a clean mover (settings/rooms/
+  camera_ease imports). Move it LAST, or first invert those into a small
+  camera-config value type.
+- **E25/D4 outbound surface:** confirmed bigger than audited; the audit read
+  the inbound surface. D4.1 resolved the linchpin correctly. The LDtk
+  **converter extensibility** (content-registered entity converters,
+  ADR-0009-shaped) remains the crux and is worth its multi-session cost —
+  it IS the "second game ships its own world" oracle.
+- **E32 AS5 drop:** confirmed (see AD3).
+
+### AD5. Housekeeping done by fable + the queue only Jon can drain
+
+Fixed this session (stale-doc smells from the rename): the
+`boss_clusters.rs` module doc still claiming BossEncounter holds
+health/liveness/hit-flash; the `boss_encounter/registry.rs` comment naming
+the deleted `.health` field; `unified-actors.md`'s stale "separate
+BossStatus" line (+ the actors|props taxonomy note flowed in per Jon's ask).
+
+**Jon's queue (nobody else can do these):** feel-check the BLIND commits —
+A2 knockback (`b4912001`) + stagger (E13: enemies flinch, duels read
+launch→recover→re-engage), boss no-i-frame (E15, numerically a no-op today),
+and the upcoming AS4b size flip, AS4c fold, and AD2 conversion when they
+land.
+
 ---
 
 ## Synthesis — the top of the stack
@@ -654,6 +837,7 @@ in parallel with gameplay_core.
 > `RoomGeometry`+rooms (world types, need D4) and **presentation systems render
 > registers** (`portal::sync_*`, `abilities::traversal`, `dev_tools`, …). The
 > sim-view crate is necessary but not sufficient; cutting the edge is multi-session.
+> **[fable 2026-07-03: CONFIRMED — see AD4.]**
 
 ### D4. Extract `ambition_world` (10.2k — the narrowest big seam)
 > `[opus-4.8[1m]]` **fable should re-check — outbound is NOT "mostly clean, 3
@@ -670,6 +854,7 @@ in parallel with gameplay_core.
 > has a foundation home. fable's "thin/3-inversions" reads the INBOUND surface;
 > the OUTBOUND surface is the real cost. (I may be under-weighting a converter
 > seam fable had in mind — flagging.)
+> **[fable 2026-07-03: CONFIRMED — see AD4; converter extensibility is the crux and worth it.]**
 
 Inbound surface is remarkably thin: `RoomSet` (22), `Authored<T>` (18),
 `RoomSpec`/`RoomMetadata`, `MovingPlatformState`, `DebrisBurstMessage`,
@@ -1255,6 +1440,7 @@ real leaf-crate home — exactly what D2 just did for `Body{Health,Combat,Wallet
 > → crate::actor → foundation), so the honest home is a *foundation crate*, not
 > `combat::components`, and the redirect must ride the D2-style leaf move. Possible
 > I'm undercounting a curated-prelude intent fable had in mind; flagging for review.
+> **[fable 2026-07-03: CONFIRMED — see AD4; no curated-prelude intent survives the count. Family-by-family is binding.]**
 
 ### E20. D2a — re-home Body{Health,Combat,Wallet} DOWN to `ambition_characters::actor::body` ✅ (keystone)
 `src/actor.rs` (300 LOC) was ~90% pure re-exports of foundation types
@@ -1312,6 +1498,7 @@ Landed the safe prep slice and mapped the rest precisely.
 > necessary but **not sufficient** to cut the edge — hence "payoff is binary /
 > multi-session." Fable may have folded the systems into "presentation" deliberately;
 > flagging so it can confirm the surface is bigger than the read-model.
+> **[fable 2026-07-03: CONFIRMED — see AD4. Surface is bigger; slice order stands; D3 unblocked by AD1.]**
 
 **D3.1 DONE (`111e8893`):** render's `gameplay_core::actor::Body*` imports were
 all pure foundation re-exports → render now names `ambition_platformer_primitives`
@@ -1345,6 +1532,7 @@ query alias) stays. render lib 24 green.
     config types to move too; I read it as "move CameraSnapshot2d" in isolation.)
     Move it LAST (after settings/rooms/camera_ease are sorted) or invert
     those into a small camera-config type.
+    **[fable 2026-07-03: CONFIRMED — see AD4.]**
   · `character_sprites` (4.2k) is its own carve (§D6) — move down beside
     `ambition_sprite_sheet`, then render names it there.
 - **C. World/room vocab** — `RoomGeometry` (27, the single biggest render import!),
@@ -1555,6 +1743,10 @@ boss_possession_specials 1 / boss_motion_parity 2; render+content+app build.
 fold (blocker #1 — still the big one), 3e/3f/3g.
 
 ### E31. A1 slice 3b scoped — a genuine capability gap, NOT a mechanical fold ⏸ (design fork)
+> **[fable 2026-07-03] ADJUDICATED — see AD2.** Per-frame tracking is canonical;
+> generalize the shared hitbox pipeline (frame-driven geometry in the combat
+> layer), fold boss CONTACT damage onto `apply_actor_contact_damage` (not
+> respawned-per-tick hitboxes), delete `boss_attack_damage` at the end.
 Started 3b (`BossAttackState`→moveset). The **hurtbox** side is already
 actor-unified (the `CombatGeometry` trait — player/enemy/boss share
 `damageable_volumes`). The **attack** side is where the boss is genuinely special,
@@ -1658,7 +1850,7 @@ swaps. Then delete `BossMut::integrate_body` + `step_floating_body` (last holdou
 Golden trajectory pin (capture current SNAP path, assert flight-limb path matches
 within tight tolerance) makes it verified, not blind.
 
-## Next (in order) — A1 slice 3: AS4b spec-parity pin → AS4b size flip → AS4c flight-limb integration (3b design fork per E31 / 3e/3f/3g) / D4.2 platforms/physics extract / D4.3 LDtk converter extensibility (crux) / D3 blocked on `actors|props`
+## Next (in order) — A1 slice 3: AS4b spec-parity pin → AS4b size flip → AS4c flight-limb integration → 3b per **AD2 (adjudicated)** → 3e/3f/3g (+the AD1-T1 taxonomy collapse rides 3f or lands independently) / **D3 UNBLOCKED per AD1** (T1 enum collapse, then T2 read-model materialization → re-create sim_view) / D4.2 platforms+physics extract / D4.3 LDtk converter extensibility (crux, confirmed worth it)
 
 **§A2 is COMPLETE** (E10–E13). The victim-side damage path is ONE resolver +
 ONE reaction for every body; per-body policy is the only fork left.

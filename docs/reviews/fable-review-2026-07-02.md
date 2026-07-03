@@ -1,5 +1,26 @@
 # Fable review — 2026-07-02
 
+## BULK REVIEW QUEUE (Jon: adjudicate these in one pass — the autonomous run did NOT stop for them)
+
+The autonomous mandate: **do everything unblocked; never stop to ask; a decision that
+can be parameterized/tweaked later is NOT a decision — implement it headless with a
+sensible default and note it here for deferred tuning.** Two kinds of entries:
+
+**DEFERRED TUNING** (already implemented headless; feel/value to sweep later):
+- Autonomous special-firing CADENCE is OFF (`smash/action.rs` Engage arm). A naive
+  "fire special while melee recharges" spammed the move + broke the duel regroup kit;
+  needs a real special cooldown / spacing gate. Possession fires specials today.
+- (Add here as you go: e.g. "boss strike geometry now static body-local approximations
+  vs per-tick world-space — tune fidelity if it reads wrong.")
+
+**GENUINE FORKS** (shape-defining + expensive to reverse; Jon's call — the run picked a
+defensible default and moved on):
+- (none open yet — record any you hit, with options + chosen default, and keep going)
+
+> Handoff for the continuing agent: **`docs/reviews/HANDOFF-2026-07-03-moveset-and-fable-review.md`**.
+
+---
+
 A read-only audit of the Rust codebase hunting **high-value, fable-hard refactors**
 that move Ambition toward its design goal: a Unity/Unreal/Godot-class reusable 2D
 platformer engine for Bevy, where the game is one content crate. No code was edited

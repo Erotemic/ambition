@@ -2112,7 +2112,40 @@ dangerous to blind-fix. Lesson recorded in dev/journals/lessons_learned.md
 This episode VALIDATED the E39 `--workspace` CI recommendation — it caught the
 regression, the rotted leaf-crate tests, AND is the only gate that sees all configs.
 
-## Next (in order) — **T2 clean read-model + D3 facade redirects DONE (E36/E37/E38).** D3's remaining reducers are all non-autonomous (need Jon's design input or are risky/unverifiable): the `rooms` extraction crux (RoomSpec content-coupling — Jon's call), the value-type→`ambition_sim_view` move (premature until the edge narrows), the boss-pose SIM-SIDE animator move (retires the `animate_bosses` write-back; presentation-unverifiable), and the category-D portal/dev/session system untangles. Recommend Jon adjudicate the `rooms`/`RoomSpec` content-coupling direction next (as he did the actors|props taxonomy). Deferred to Jon's feel pass: render/hurtbox baked-size convergence (~1.2% gap); the T1 placeholder color/z blind deltas (E35).
+### E41. VERIFICATION SWEEP against code — §B is ~COMPLETE, several §C done; the doc's TASK sections were badly stale ✅ (`afd91842`)
+Resuming on Jon's "continue the review" ask, re-verified the open TASK-section
+items against current code (the task descriptions are the ORIGINAL audit; many
+got fixed via E-entries / delegated agents without striking the description).
+Findings — **most of the audited work is already done; the doc misrepresented it:**
+- **§B frame-of-reference is ~COMPLETE.** Verified fixed in code (frame-projected,
+  most annotated `§Bn`): **B3** (`movement/blink.rs:35-49` — `AccelerationFrame`
+  `to_local`/damp-x/clamp-y/`to_world`), **B4** (`control.rs:139` — recoil on
+  `frame.side`), **B6** (`integration.rs:150-231` is now ONE role-based branch:
+  side-sweep → wall abilities → clear ground → gravity-sweep, `side_axis`/
+  `gravity_axis` derived from `gravity_dir` — the two X/Y branches the audit
+  describes are gone), **B9** (`control.rs:31/72/111` + `blink.rs:60` — fallback
+  aim on `frame.side`). B5/B7 done (E3/E4); B1/B2/B10/B11/B13 done (E5). Minor
+  notes: hard-fall shake now `vel.dot(gravity_dir)` (`body_integration.rs`);
+  `gravity.rs::vertical_sign`/`local_gravity_sign` now HAVE consumers (`:306-307`)
+  — not dead. **Jon's bug-list "attack hitbox direction bugged in non-down
+  gravity" is FIXED** — `combat/attack.rs:182,201` builds the owner's
+  `AccelerationFrame::new(gravity_dir)` and applies `spec.into_world_frame(frame)`
+  (rotates hitbox/impulse/knockback). **Genuinely-open §B: B8** (portal-gun aim —
+  still caveated "verify vs portal agent"), **B12** (query-order tiebreak —
+  `targeting.rs:266` keeps first-on-tie; portal first-qualifying) — both LOW.
+- **§C already done (doc stale): C8** (`SpecialPreset` IS `Special(String)` at
+  `entry.rs:357`), **C10/A11** (`SpecialActionSpec` collapsed to `Special(String)`
+  at `action_set/mod.rs:483`; the per-boss variants are gone; player special is
+  `Special("bubble_shield")` in `player/bundles.rs`).
+- **LANDED this pass — C7 (partial):** the composite rider-name suffix hardcode
+  (`.strip_suffix(" on Shark")` duplicated in sim `spawn_mounts.rs` + render
+  `world.rs`) → authored `CompositeVisualSpec::rider_name_suffix: Option<String>`
+  routed through ONE shared `composite_rider_name` helper. A second game's mount
+  authors its own suffix; the engine names no `" on Shark"`. `afd91842`.
+
+## Next (in order) — **§A2, §B, and several §C items are DONE (E41 verified against code).** The audit's TASK sections are stale; trust E-entries + a code re-check before working an item. Genuinely-open, autonomous-friendly: **B12** (deterministic stable-id tiebreak — targeting + portal first-qualifying; the `[[query-order-determinism]]` rule); **C7-residual** (`is_gnu_ton` render split-layers `boss.rs:79-109` → multi-part layering as boss-sheet data; and the rider name is still *parsed* from the spawn name — the FULL fix authors a rider-name LDtk field, needs `ambition_ldtk_tools`); **C9** (`CharacterBrainTemplate::Shark` → behavior name `ChargeCrash`, a mechanical rename across `SharkCfg`/`StateMachineCfg::Shark`/catalog preset). Larger / needs-Jon: **C1** (24-item `Item` enum → installable `ItemCatalog`, L, consumed across menu IR/yarn/persistence); **C4** (app-thinness boundary test + machinery `PlatformerEnginePlugin` group, L); **C6** (named-boss residue, M); **C2** (`HELD_ITEMS` static — NUANCED: most rows are generic engine-ability bindings, not replaceable content, so a bare move-to-content breaks engine tests and a bare install seam is speculative scaffolding — defer until a second game or a per-character loadout lands, e.g. the just-shipped [[project_starting_character]]); the **D-front** (`rooms`/`RoomSpec` content-coupling — Jon's call, unchanged below).
+
+### Superseded (the prior D-focused Next; still accurate for the D-front) — **T2 clean read-model + D3 facade redirects DONE (E36/E37/E38).** D3's remaining reducers are all non-autonomous (need Jon's design input or are risky/unverifiable): the `rooms` extraction crux (RoomSpec content-coupling — Jon's call), the value-type→`ambition_sim_view` move (premature until the edge narrows), the boss-pose SIM-SIDE animator move (retires the `animate_bosses` write-back; presentation-unverifiable), and the category-D portal/dev/session system untangles. Recommend Jon adjudicate the `rooms`/`RoomSpec` content-coupling direction next (as he did the actors|props taxonomy). Deferred to Jon's feel pass: render/hurtbox baked-size convergence (~1.2% gap); the T1 placeholder color/z blind deltas (E35).
 
 **§A2 is COMPLETE** (E10–E13). The victim-side damage path is ONE resolver +
 ONE reaction for every body; per-body policy is the only fork left.

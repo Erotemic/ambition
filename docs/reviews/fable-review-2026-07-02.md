@@ -1940,7 +1940,40 @@ Ships blind on FEEL only (Jon's AD5 queue) — the mechanisms are test-verified.
 the frame-driven hitbox is now generic enough for actor melee / the moveset
 clip-by-phase seam to opt in later (retiring freeze-at-entry), per AD2(b).
 
-## Next (in order) — A1 slice 3 follow-ups: render/hurtbox baked-size convergence (fix the const-vs-baked gap the AS4b pin found) → **AD1-T1** taxonomy collapse (+**D3 UNBLOCKED per AD1**: T1 enum collapse, then T2 read-model → re-create sim_view) / D4.2 platforms+physics extract / D4.3 LDtk converter extensibility (crux, confirmed worth it)
+### E35. AD1-T1 LANDED — the four actor `FeatureVisualKind` variants collapse to ONE `Actor` ✅ (`8cef2245`)
+`actors|props` is now the render taxonomy in code. `FeatureVisualKind` becomes
+`{ Actor, Hazard, Breakable, Chest, Pickup, Switch }`; the five prop kinds stay
+closed (real interaction-kit families), the four actor kinds are ONE. Net **-52 LOC**
+— convergence, not just behavior.
+- **Merge:** `upgrade_enemy_sprites` + `upgrade_npc_sprites` → one name-first
+  `upgrade_actor_sprites` (override label → actor name → registry, then a STATE-keyed
+  fallback: sandbag→sandbag sheet, fighting→generic enemy sheet, peaceful-unregistered
+  → keep terminal placeholder). The app-side separate npc registration is gone; it runs
+  in the render `PresentationVisualSync` slot the enemy upgrade held.
+- **Deletes:** the two duplicate `visual_kind` derivation helpers (`enemy_visual_kind`,
+  `EnemyIntegration::visual_kind`), `CharacterSpriteAssets::enemy_asset(kind)`,
+  `is_boss_kind`, `entity_sprite_for_kind`'s actor arms. Their surviving logic is the
+  ONE sandbag fallback pick: `enemy_spawn_is_sandbag` (spawn) + `ecs_actor_is_sandbag`
+  (runtime). `ecs_npc_name`/`ecs_enemy_name` were byte-identical → one `ecs_actor_name`.
+- **State, not type:** `FeatureView` gains `fighting: bool` (a fact about the actor —
+  NOT "hostile to the player"; relativity principle), stamped at the rebuild site from
+  the disposition signal (INTERIM — the `FightingAble` capability component + its state
+  transitions are the later disposition-reshape slice, deferred per AD1 so T1 doesn't
+  balloon). Placeholder tint modulates on it, so enemy-red / npc-blue survive as STATE.
+- **Boss:** an actor like any other; `upgrade_boss_sprites`' gate is now its own query
+  family (the `ecs_bosses` find_map), not a `Boss` variant.
+- **Blind visual deltas (Jon's feel pass):** sandbag placeholder tan→blue, boss
+  placeholder purple→red, NPC placeholder z −1 layer (now == actor); decorative props
+  borrow the Actor placeholder kind (pre-existing conflation, marked SMELL in
+  `spawn_room_prop`). Sprite RESOLUTION is name-first and unchanged → sheeted actors
+  look identical. SMELL to sweep later: `assets/sprites/**/entity_manifest.yaml` still
+  labels `category: FeatureVisualKind::Npc/::Boss` (tooling metadata, not parsed by
+  Rust; regen or relabel to `Actor`).
+
+Verified: gameplay_core 1089 + render 24 green; full workspace compiles. **D3 is now
+UNBLOCKED** — T2 (materialize the read-model, then re-create `ambition_sim_view`) is next.
+
+## Next (in order) — **AD1-T1 DONE (E35)**. Now: **T2 / D3** — materialize the render read-model (grow `FeatureViewIndex` with the name/sprite-key + anim facts render currently pulls via `ecs_*` live-query accessors; decide Copy-vs-String there) → re-create `ambition_sim_view` with real meat → cut the render→gameplay_core edge (D3.2–D3.7 slice order, unblocked by AD1). Then D4.2 platforms+physics extract / D4.3 LDtk converter extensibility (crux, multi-session). Deferred to Jon's feel pass: render/hurtbox baked-size convergence (the ~1.2% const-vs-baked gap the AS4b pin found); the T1 placeholder color/z blind deltas (E35).
 
 **§A2 is COMPLETE** (E10–E13). The victim-side damage path is ONE resolver +
 ONE reaction for every body; per-body policy is the only fork left.

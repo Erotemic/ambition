@@ -84,7 +84,10 @@ impl<'a> BossVolumeContext<'a> {
     pub fn from_ref(boss: crate::features::BossRef<'a>, attack_state: &'a BossAttackState) -> Self {
         Self {
             pos: boss.kin.pos,
-            size: boss.kin.size,
+            // The sprite render-BASIS (AS4b) — the world scale sprite-metric hurtboxes
+            // derive from. Was `kin.size`; that's now the COLLISION envelope, so read
+            // the render basis explicitly to keep hurtbox scaling byte-identical.
+            size: boss.render_size(),
             combat_size: boss.combat_size(),
             behavior: &boss.config.behavior,
             attack_state,

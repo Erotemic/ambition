@@ -62,6 +62,16 @@ pub struct BossEncounter {
     /// has loaded. `None` for bosses whose sprite has no `body_metrics`
     /// entry (the legacy `combat_size` path applies).
     pub sprite_metrics: Option<ActorSpriteMetrics>,
+    /// The sprite RENDER-BASIS size — the collision box the sheet's
+    /// `render_size(basis)` scales the drawn quad from (the LDtk spawn seed).
+    /// Archetype swap AS4b: `kin.size` becomes the COLLISION envelope
+    /// (`combat_size`) so the boss integrates through the shared movement seam
+    /// (which sweeps `kin.size`), so the render basis can no longer BE `kin.size`.
+    /// The render (`upgrade_boss_sprites` / `animate_bosses`) reads this via
+    /// [`BossRef::render_size`], keeping the drawn sprite byte-identical across the
+    /// flip. (Deliberately distinct from `sprite_metrics.sprite_render_size`, the
+    /// derived world quad; this is the *input* the sheet spec scales.)
+    pub render_size: ae::Vec2,
     /// Entity-local phase state + the trigger-driven phase mechanism: current
     /// phase, the `transition_lock` tell timer, and the intrinsic phase triggers
     /// as DATA. This + `health` ARE the source of truth for the fight (the old
@@ -92,8 +102,12 @@ pub struct BossMut<'a> {
 }
 
 impl<'a> BossRef<'a> {
+    /// The sprite RENDER-BASIS size (the drawn quad's collision scale input).
+    /// Post-AS4b this is NO LONGER `kin.size` (which is now the collision envelope,
+    /// `combat_size`) — it's the stored spawn-seed basis, so the drawn sprite is
+    /// unchanged by the size flip. See [`BossEncounter::render_size`].
     pub fn render_size(&self) -> ae::Vec2 {
-        self.kin.size
+        self.status.render_size
     }
 
     /// Multi-part bosses (GNU-ton) expose a `combat_size` distinct from
@@ -315,6 +329,14 @@ impl BossClusterScratch {
         // clockwork_warden / Gradient Sentinel profile.
         let canonical_id = canonical_boss_id_from(&name, &brain);
         let center = aabb.center();
+        let behavior = BossBehaviorProfile::for_authored_boss(&canonical_id);
+        // AS4b: the LDtk spawn box is the sprite RENDER-BASIS (`render_size`); the
+        // COLLISION envelope is `combat_size` (the profile's, refined later by
+        // `derive_boss_sprite_metrics`). `kin.size` carries the COLLISION size so the
+        // shared movement seam sweeps the right box (AS4c); the render reads
+        // `render_size` so the drawn sprite is unchanged.
+        let render_basis = aabb.half_size() * 2.0;
+        let collision_size = behavior.combat_size.unwrap_or(render_basis);
         Self {
             kin: BodyKinematics {
                 pos: center,
@@ -322,7 +344,7 @@ impl BossClusterScratch {
                 // tick (consumed by `integrate_body`), so `vel` is never
                 // integrated and stays `ZERO`.
                 vel: ae::Vec2::ZERO,
-                size: aabb.half_size() * 2.0,
+                size: collision_size,
                 facing: 1.0,
             },
             config: BossConfig {
@@ -330,12 +352,13 @@ impl BossClusterScratch {
                 name,
                 spawn: center,
                 brain,
-                behavior: BossBehaviorProfile::for_authored_boss(&canonical_id),
+                behavior,
             },
             status: BossEncounter {
                 encounter_phase: BossEncounterPhase::Dormant,
                 sprite_metrics: None,
                 encounter: None,
+                render_size: render_basis,
             },
             health: ambition_characters::actor::BodyHealth::new(ambition_characters::actor::Health::new(18)),
         }
@@ -406,6 +429,8 @@ pub(crate) mod test_support {
                 encounter_phase: phase,
                 sprite_metrics: None,
                 encounter: Some(encounter),
+                // Test fixtures don't render; a placeholder render basis is fine.
+                render_size: ae::Vec2::splat(64.0),
             },
             ambition_characters::actor::BodyHealth::new(health),
         )

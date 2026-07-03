@@ -232,6 +232,11 @@ pub fn derive_boss_sprite_metrics(
         feature.status.sprite_metrics = Some(snapshot);
         if let Some(derived) = derived_combat_size {
             feature.config.behavior.combat_size = Some(derived);
+            // AS4b: `kin.size` IS the collision envelope, so refine it to the
+            // sprite-derived combat size too (the render basis stays put in
+            // `status.render_size`). This keeps the shared movement seam sweeping the
+            // real body once the boss integrates through the flight limb (AS4c).
+            feature.kin.size = derived;
             // Mirror into the brain cfg so the soft world-bounds
             // clamp uses the new value too.
             if let Some(mut brain) = brain_opt {
@@ -288,7 +293,9 @@ pub(crate) fn boss_sprite_metrics_from_registry(
 ) -> Option<(ActorSpriteMetrics, Option<ae::Vec2>)> {
     let target = sprite_target_for_boss(&boss.config.behavior.id);
     let (metrics, frame_w, frame_h) = registry.body_metrics(target)?;
-    let sprite_render_size = sprite_render_size_for(target, boss.kin.size);
+    // AS4b: scale from the sprite render BASIS, not `kin.size` (now the collision
+    // envelope) — so the derived world metrics are unchanged by the size flip.
+    let sprite_render_size = sprite_render_size_for(target, boss.status.render_size);
     let mut snapshot = ActorSpriteMetrics {
         frame_width: frame_w,
         frame_height: frame_h,

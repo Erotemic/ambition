@@ -554,6 +554,9 @@ pub(super) fn spawn_boss_with_overrides(
     // (after the profile application that would otherwise overwrite it).
     if let Some(size) = overrides.combat_size {
         boss.config.behavior.combat_size = Some(size);
+        // AS4b: `kin.size` IS the collision envelope, so keep it in lock-step with an
+        // overridden combat size (the render basis stays in `status.render_size`).
+        boss.kin.size = size;
     }
     bevy::log::info!(
         target: "ambition::boss_spawn",

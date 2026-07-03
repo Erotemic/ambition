@@ -19,6 +19,44 @@ fn const_atlas_len(spec: &BossSheetSpec) -> usize {
 }
 
 #[test]
+fn boss_sheet_render_basis_diverges_from_the_baked_sheet_dims() {
+    // Archetype swap AS4b decision pin (fable AD3), turned into a standing
+    // characterization guard. The boss RENDER draws at `spec.render_size(kin.size)`
+    // where the loaded spec's frame dims are overwritten from the BAKED sheet record;
+    // gameplay's const `render_size` uses the CONST dims. `render_size` height is
+    // collision-scale-only, so only the WIDTH (frame aspect fw/fh) can diverge.
+    //
+    // This documents WHY AS4b stores the seed render-basis on the boss and lets the
+    // render keep its own `spec.render_size(seed)` (byte-identical), instead of
+    // routing render onto a const-derived size — the const and baked aspects do NOT
+    // match for real bosses, so a const-derived `ActorRenderSize` would resize the
+    // sprite. Convergence (render + hurtbox on one true size) is a separate blind
+    // slice per AD3's "latent bug to fix regardless"; this guard fails loudly if the
+    // gap ever CLOSES (at which point the const-derived path becomes safe and this
+    // note is stale).
+    let known_divergent = [
+        ("boss", &BOSS_SHEET),
+        ("mockingbird_boss", &MOCKINGBIRD_SHEET),
+    ];
+    let mut any_divergent = false;
+    for (target, spec) in known_divergent {
+        let Some(record) = crate::character_sprites::record_for_target(target) else {
+            continue;
+        };
+        if spec.frame_width as u64 * record.frame_height as u64
+            != spec.frame_height as u64 * record.frame_width as u64
+        {
+            any_divergent = true;
+        }
+    }
+    assert!(
+        any_divergent,
+        "const vs baked sheet aspects now AGREE — the AS4b seed-render-basis workaround \
+         may be replaceable with a const-derived ActorRenderSize; revisit E33/AD3.",
+    );
+}
+
+#[test]
 fn boss_sheet_has_seven_animation_rows() {
     // The enum has 7 variants and the spec has 7 rows; if these
     // ever drift, indexing by `anim as usize` would panic at

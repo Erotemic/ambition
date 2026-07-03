@@ -2417,6 +2417,32 @@ not a boss-only fork. Do them together as the **melee subsumption** (a large, fe
 slice touching every actor + the player + the boss geometry). The special fold is the clean,
 complete boss-fold slice; the melee/geometry fold is the next big focused effort.
 
+### E49. MELEE SUBSUMPTION — actor melee is now a data-driven moveset `"attack"` move ✅ (`2bc4bbae`)
+The headline of the 2026-07-03 handoff. An actor's authored `ActionSet.melee` is folded
+into its `ActorMoveset` as a `"attack"`-verb `MoveSpec` (`attack_move_from_melee`:
+windup/active/recover → Startup/Active(one forward hit volume)/Recovery on proper time).
+The swing triggers on `melee_pressed` through the SAME `trigger_moveset_moves` →
+`advance_move_playback` runtime as the specials and lands through the real hitbox path —
+so there is no longer a `BodyMelee` melee driver AND a moveset; **there is one executor.**
+- The flat swing is retired for these bodies via a `MovesetMelee` marker:
+  `start_body_melee` / `advance_body_melee` skip the swing logic (cooldown floors still
+  tick → ranged fire-rate unaffected), and the `BodyMelee` read-model every consumer
+  reads (actor anim index, telegraph/view index, HUD, the melee integration tests) is
+  PROJECTED from the live `MovePlayback` (`project_moveset_melee_to_body_melee`) — the
+  read-model keystone the handoff §3a named. All melee tests stayed green through the
+  projection (`enemy_attacks_player`, `unified_melee`, `possession_end_to_end`,
+  `player_robot_fights_player`).
+- **What remains of the melee fold** = the PLAYER's melee (directional up/down/air
+  variants + pogo + sprite-manifest hitbox). Unlike the actor swing, these are real
+  mechanics the moveset does not yet express, so the player stays on the flat path and
+  this is a RECORDED next slice (needs a directional-variant + pogo-behavior schema
+  extension). Doing it is the feel-heaviest change left; it wants the moveset to (a)
+  select a move by `attack_axis`, (b) carry a pogo-bounce behavior on a down volume, (c)
+  optionally sample the manifest box. See the BULK REVIEW QUEUE for the deferred-tuning
+  list the actor fold already shipped.
+- The boss GEOMETRY fold (`sync_boss_strike_hitboxes` → move-sequencer + `BossAttackState`
+  projection) is the boss analogue and stays a separate focused effort (E48 note above).
+
 ## Next (in order) — **§A2, §B, §A8, §A9, and several §C items are DONE (E41–E43 verified against code).** The audit's TASK sections are stale; trust E-entries + a code re-check before working an item. Genuinely-open, autonomous-friendly: **B12** (targeting nearest-foe tiebreak DONE `147f5045` — min-Entity, order-independent; the portal first-qualifying half stays deferred per the audit "verify vs portal agent" caveat); **C7-residual** (`is_gnu_ton` render split-layers `boss.rs:79-109` → multi-part layering as boss-sheet data; and the rider name is still *parsed* from the spawn name — the FULL fix authors a rider-name LDtk field, needs `ambition_ldtk_tools`); **C9** (`CharacterBrainTemplate::Shark` → behavior name `ChargeCrash`, a mechanical rename across `SharkCfg`/`StateMachineCfg::Shark`/catalog preset). Larger / needs-Jon: **C1** (24-item `Item` enum → installable `ItemCatalog`, L, consumed across menu IR/yarn/persistence); **C4** (app-thinness boundary test + machinery `PlatformerEnginePlugin` group, L); **C6** (named-boss residue, M); **C2** (`HELD_ITEMS` static — NUANCED: most rows are generic engine-ability bindings, not replaceable content, so a bare move-to-content breaks engine tests and a bare install seam is speculative scaffolding — defer until a second game or a per-character loadout lands, e.g. the just-shipped [[project_starting_character]]); the **D-front** (`rooms`/`RoomSpec` content-coupling — Jon's call, unchanged below).
 
 ### Superseded (the prior D-focused Next; still accurate for the D-front) — **T2 clean read-model + D3 facade redirects DONE (E36/E37/E38).** D3's remaining reducers are all non-autonomous (need Jon's design input or are risky/unverifiable): the `rooms` extraction crux (RoomSpec content-coupling — Jon's call), the value-type→`ambition_sim_view` move (premature until the edge narrows), the boss-pose SIM-SIDE animator move (retires the `animate_bosses` write-back; presentation-unverifiable), and the category-D portal/dev/session system untangles. Recommend Jon adjudicate the `rooms`/`RoomSpec` content-coupling direction next (as he did the actors|props taxonomy). Deferred to Jon's feel pass: render/hurtbox baked-size convergence (~1.2% gap); the T1 placeholder color/z blind deltas (E35).

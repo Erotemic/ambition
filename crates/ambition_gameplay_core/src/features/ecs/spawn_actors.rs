@@ -226,6 +226,7 @@ impl EnemyActorSpawnPlan {
         let moveset = crate::combat::moveset::build_actor_moveset(
             enemy.spec.signature_move.as_ref(),
             enemy.spec.melee.as_ref(),
+            enemy.spec.ranged.as_ref(),
         );
         Self {
             entity_name: entity_name.into(),
@@ -327,6 +328,12 @@ impl EnemyActorSpawnPlan {
             let has_attack = moveset
                 .verbs
                 .contains_key(crate::combat::moveset::ATTACK_VERB);
+            // Likewise a body whose moveset carries the `"ranged"` verb has its shot
+            // subsumed: mark it so the flat `frame.fire → Ranged` emission is skipped
+            // (the move's fire event spawns the shot instead — no double-fire).
+            let has_ranged = moveset
+                .verbs
+                .contains_key(crate::combat::moveset::RANGED_VERB);
             commands
                 .entity(entity)
                 .insert(crate::combat::moveset::ActorMoveset(moveset));
@@ -334,6 +341,11 @@ impl EnemyActorSpawnPlan {
                 commands
                     .entity(entity)
                     .insert(crate::combat::moveset::MovesetMelee);
+            }
+            if has_ranged {
+                commands
+                    .entity(entity)
+                    .insert(ambition_characters::brain::MovesetRanged);
             }
         }
         entity
@@ -447,8 +459,11 @@ impl NpcActorSpawnPlan {
         // kit's melee as body CAPABILITY (for possession / provocation), so fold it
         // into a moveset `"attack"` move like every hostile — a possessed peaceful
         // NPC's swing runs through the SAME moveset runtime, not the flat path.
-        let npc_moveset =
-            crate::combat::moveset::build_actor_moveset(None, self.action_set.melee.as_ref());
+        let npc_moveset = crate::combat::moveset::build_actor_moveset(
+            None,
+            self.action_set.melee.as_ref(),
+            self.action_set.ranged.as_ref(),
+        );
         let cluster_bundle = self.seed.into_components();
         let mut entity = commands.spawn((
             Name::new(self.entity_name),
@@ -478,9 +493,15 @@ impl NpcActorSpawnPlan {
             let has_attack = moveset
                 .verbs
                 .contains_key(crate::combat::moveset::ATTACK_VERB);
+            let has_ranged = moveset
+                .verbs
+                .contains_key(crate::combat::moveset::RANGED_VERB);
             entity.insert(crate::combat::moveset::ActorMoveset(moveset));
             if has_attack {
                 entity.insert(crate::combat::moveset::MovesetMelee);
+            }
+            if has_ranged {
+                entity.insert(ambition_characters::brain::MovesetRanged);
             }
         }
         if let Some(size) = render_size {

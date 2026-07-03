@@ -353,11 +353,25 @@ impl ActorActionMessage {
 /// gameplay truth; rendered child/visual entities own presentation
 /// transforms with sprite anchors, scaling, and hierarchy concerns.
 pub fn emit_brain_action_messages(
-    actors: Query<(Entity, &ActorControl, &ActionSet, &crate::actor::ActorPose)>,
+    actors: Query<(
+        Entity,
+        &ActorControl,
+        &ActionSet,
+        &crate::actor::ActorPose,
+        bevy::prelude::Has<MovesetRanged>,
+    )>,
     mut writer: MessageWriter<ActorActionMessage>,
 ) {
-    for (entity, control, action_set, pose) in &actors {
+    for (entity, control, action_set, pose, moveset_ranged) in &actors {
         for request in action_set::resolve(action_set, &control.0, pose.origin()) {
+            // A body whose ranged shot is a moveset `"ranged"` move fires through the
+            // move's timed event (`MoveEventKind::Ranged`), not this flat
+            // `frame.fire → Ranged` path — skip the flat emission so it doesn't fire
+            // TWICE (the moveset subsumes ranged just as it did melee/specials). The
+            // move's fire event re-emits an identical `Ranged` request downstream.
+            if moveset_ranged && matches!(request, action_set::ActionRequest::Ranged { .. }) {
+                continue;
+            }
             writer.write(ActorActionMessage {
                 actor: entity,
                 request,
@@ -365,6 +379,17 @@ pub fn emit_brain_action_messages(
         }
     }
 }
+
+/// Marker: this body's ranged shot is a data-driven moveset `"ranged"` move (built
+/// by `build_actor_moveset` from `ActionSet.ranged`), not the flat
+/// `frame.fire → ActionRequest::Ranged` path. `emit_brain_action_messages` skips the
+/// flat ranged emission for a body carrying this, so the shot fires once — through
+/// the move's timed [`MoveEventKind::Ranged`](ambition_entity_catalog::MoveEventKind)
+/// event, which samples live aim and re-emits the same `Ranged` request. The ranged
+/// analogue of `MovesetMelee`. `ActionSet.ranged` stays populated (the move dispatch
+/// reads the spec + the projectile consumer is unchanged).
+#[derive(Component, Debug, Clone, Copy, Default)]
+pub struct MovesetRanged;
 
 /// Capability marker: this actor uses the chargeable-projectile ability — the
 /// hold-to-charge / motion-gesture Fireball with its per-frame axis buffer. The

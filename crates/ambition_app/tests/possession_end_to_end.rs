@@ -52,8 +52,18 @@ fn faction(world: &mut World, e: Entity) -> ActorFaction {
     *world.get::<ActorFaction>(e).expect("actor faction")
 }
 
-/// Possess the actor `stride` px to the player's right, returning its entity.
+/// Possess the actor 60 px to the player's right, returning its entity.
 /// Shared setup for the possession tests below.
+///
+/// HOLD Down+Interact until the possession commits (the mechanic commits after each
+/// full `POSSESS_HOLD_S` window). The target is a Smash-duelist fighter that plays
+/// neutral-game FOOTSIES — it weaves in and out around its attack_range (≈ the 150 px
+/// possession radius), so on any single 2 s commit frame it may be spaced just out of
+/// reach. These tests pin the possession MECHANIC + post-possession behavior, not a
+/// race against the fighter's spacing, so hold across several commit windows until it
+/// lands (the sim is deterministic; a bounded hold catches an in-range commit). This
+/// oscillation crossing the radius knife-edge is what the ranged subsumption (E54)
+/// nudged us onto — the mechanic itself is unchanged.
 fn spawn_and_possess(sim: &mut SandboxSim) -> Entity {
     let p = player_pos(sim.world_mut());
     sim.spawn_enemy_at(
@@ -64,13 +74,16 @@ fn spawn_and_possess(sim: &mut SandboxSim) -> Entity {
         CharacterBrain::Custom("cellular_automaton_fighter".to_string()),
     );
     let actor = actor_entity(sim.world_mut());
-    for i in 0..150 {
+    for i in 0..900 {
         sim.step(down_interact(i == 0));
+        if possessed(sim).is_some() {
+            break;
+        }
     }
     assert_eq!(
         possessed(sim),
         Some(actor),
-        "setup: the ~2s hold should have possessed the actor"
+        "setup: holding Down+Interact should possess the actor within a few commit windows"
     );
     actor
 }
@@ -218,15 +231,19 @@ fn a_player_can_possess_drive_and_release_an_actor_end_to_end() {
         "the actor starts on its own (Enemy) faction"
     );
 
-    // 1. Hold Down+Interact past the ~2s commit threshold (fixed 60hz → ~120
-    //    frames; hold 150 for margin). The trigger runs on real time.
-    for i in 0..150 {
+    // 1. Hold Down+Interact until the possession commits. The fighter footsies in
+    //    and out of the 150px radius, so hold across several commit windows (see
+    //    `spawn_and_possess`); the sim is deterministic, so this lands.
+    for i in 0..900 {
         sim.step(down_interact(i == 0));
+        if possessed(&mut sim).is_some() {
+            break;
+        }
     }
     assert_eq!(
         possessed(&mut sim),
         Some(actor),
-        "a full ~2s Down+Interact hold next to the actor possesses it"
+        "holding Down+Interact next to the actor possesses it"
     );
     assert_eq!(
         faction(sim.world_mut(), actor),

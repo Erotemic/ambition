@@ -49,6 +49,35 @@ sensible default and note it here for deferred tuning.** Two kinds of entries:
     floor (the flat path armed `ENEMY_ATTACK_COOLDOWN * mult`; the moveset move's own
     duration is the new floor) — if the cadence reads wrong, re-arm a per-archetype
     recovery floor on move trigger.
+- **Ranged is now a moveset `"fire"` move (E54)** — deferred-tuning knobs, sensible
+  defaults:
+  - **Fire-move windup/recovery are NEW authored defaults** (`fire_move_from_ranged`:
+    Pistol 0.08/0.15, Rock 0.12/0.18, Bolt 0.18/0.20, Arrow 0.28/0.22 s). Ranged had NO
+    windup before (instant on cooldown); the draw/settle timeline is the expressivity win.
+    Tune per weapon when it reads wrong.
+  - **Two rate gates now stack:** the move's own duration (a re-trigger gate) AND the
+    body-side `RANGED_REFIRE_S = 1.1s` cooldown (the hard floor, enforced in the projectile
+    consumer). Since the move is shorter than the cooldown, an enemy may play the draw
+    animation more often than it actually releases (2 of 3 draws rejected by the cooldown).
+    Effective fire RATE is unchanged (still 1.1s); only the draw-anim cadence is loose. Align
+    the fire-move duration with the refire cooldown, or move the cooldown onto the move, if
+    the repeated-draw read looks wrong.
+  - **Player ranged is untouched** — it flows through `ChargesProjectiles` /
+    `PlayerProjectileTick` (the charge state machine + motion-gesture buffer), a separate
+    per-actor capability, not `ActionSet.ranged`. This fold is enemy/boss/NPC ranged only.
+  - **REAL BUG fixed en route:** `project_moveset_melee_to_body_melee` projected a phantom
+    `BodyMelee.swing` from ANY live move on a `MovesetMelee` body — so a body playing its
+    ranged (or special) move read as "mid-attack" and the movement pipeline FROZE it. Now it
+    projects a swing only for the `"attack"` move. (Latent since the melee fold for specials;
+    the ranged fold surfaced it — it froze the PCA's chase in `actor_phase_split`.) Pinned by
+    `a_ranged_move_does_not_project_a_phantom_melee_swing`.
+  - **Duel AI cadence shifted again (like the E49 melee fold):** routing the PCA's glider
+    through the moveset `"fire"` move re-weighted both duel fighters — in the bout they now
+    trade melee, block, roam, take real damage, and reach real air, but the `jump` and `blink`
+    verb counts fell to 0 (they gain height flight/blink/knockback-driven and lunge less, so
+    the lunge→blink-evade reaction rarely triggers). Two `duel_arena` canaries were loosened
+    to the SPIRIT (verticality-by-rise; defense-by-block) with the jump/blink verb-counts
+    dropped. Retune the fighters' hop/lunge/blink appetite in the feel pass.
 - **Boss strike read-model projected from the move (E53 Slice B+C)** — while a boss move
   is inside its Active window, `BossAttackState`'s `active_*` fields are now DERIVED from the
   live `MovePlayback` (`project_boss_attack_state_from_move`), not trusted from the pattern
@@ -108,19 +137,20 @@ defensible default and moved on):
   **Chosen default: (C) for now** (player stays flat; no feature lost), because (A)/(B)
   change the `MoveSpec` schema shape and want Jon's call. NOT implemented (reversible: it's
   the current state). Route: pick A or B and it's a bounded slice mirroring E49.
-- **Ranged subsumption — dynamic aim vs facing-lock.** Folding actor ranged (Rock/Arrow/
-  Pistol/Bolt) onto the moveset means a `"fire"` move whose event spawns a projectile. But
-  the brain aims dynamically (`frame.fire = Some(dir)` toward the target, with a
-  `dir_policy` frame), while a `MovePlayback` LOCKS facing at trigger (the Smash
-  convention). So a moveset-fired shot would travel along facing, not toward a strafing
-  target — a real behavior change for aiming enemies (skirmisher / sniper), plus the
-  projectile pool / visual-kind / muzzle-offset plumbing has no moveset event vocabulary
-  yet. Options: **(A)** add a `MoveEventKind::Ranged { spec, aim_policy }` and let the move
-  sample the owner's live aim at the event frame (keeps dynamic aim; new event kind);
-  **(B)** fire along locked facing (simplest; changes aiming-enemy behavior); **(C)** leave
-  ranged on the flat `ActionRequest::Ranged` path (current). **Chosen default: (C)**
-  (ranged stays flat; no behavior change), because (A) is the right long-term shape but the
-  aim-sampling event is a schema addition Jon should bless. NOT implemented (reversible).
+- **Ranged subsumption — RESOLVED via option A, IMPLEMENTED (E54).** Was: fold actor ranged
+  (Rock/Arrow/Pistol/Bolt) onto the moveset as a `"fire"` move whose event spawns a
+  projectile, vs. the facing-lock problem (a `MovePlayback` locks facing at trigger, but the
+  brain aims dynamically toward a strafing target). **Chose (A):** a content-free
+  `MoveEventKind::Ranged` marker whose dispatch SAMPLES the owner's live aim
+  (`ActorControl.fire`) at the event frame and BRIDGES to the SAME
+  `ActorActionMessage::Ranged` the flat resolver emitted — so the mature enemy-projectile
+  consumer (body-side fire-rate, recoil, muzzle, visual kind) is reused unchanged and the
+  shot still tracks the target. `build_actor_moveset` folds `ActionSet.ranged` into a
+  `"ranged"`-verb fire move (Startup draw → fire event → Recovery — ranged now has a real
+  windup/recovery timeline, the expressivity win); a `MovesetRanged` marker suppresses the
+  flat `frame.fire → Ranged` emission (no double-fire), the ranged analogue of `MovesetMelee`.
+  Melee (E49–E53), specials (E47–48), and now ranged (E54) ALL run through the one moveset
+  runtime — the flat combat paths are fully subsumed. Deferred-tuning (see below).
 
 > Handoff for the continuing agent: **`docs/reviews/HANDOFF-2026-07-03-moveset-and-fable-review.md`**.
 

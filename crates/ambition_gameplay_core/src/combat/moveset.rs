@@ -37,7 +37,9 @@ use ambition_time::ProperTimeScale;
 use super::components::{ActorFaction, BodyMelee, MeleeSwing};
 use super::hitbox::{Hitbox, HitboxAnchor, HitboxHits};
 use crate::combat::{AttackIntent, AttackSpec};
-use ambition_characters::brain::action_set::{ActionRequest, MeleeActionSpec, SpecialActionSpec};
+use ambition_characters::brain::action_set::{
+    ActionRequest, MeleeActionSpec, RangedActionSpec, SpecialActionSpec,
+};
 use ambition_characters::brain::{ActorActionMessage, ActorControl};
 use ambition_combat::DamageKind;
 use ambition_sfx::{SfxId, SfxMessage};
@@ -45,6 +47,9 @@ use ambition_time::WorldTime;
 
 /// The canonical verb id a body's basic melee swing binds to in its moveset.
 pub const ATTACK_VERB: &str = "attack";
+
+/// The canonical verb id a body's ranged shot binds to in its moveset.
+pub const RANGED_VERB: &str = "ranged";
 
 /// Convert an authored [`MeleeActionSpec`] into a data-driven `"attack"`
 /// [`MoveSpec`] — the melee subsumption (fable review §A1 / §3a). The swing's
@@ -118,13 +123,69 @@ pub fn attack_move_from_melee(spec: &MeleeActionSpec) -> MoveSpec {
     }
 }
 
-/// Fold a body's authored melee (`ActionSet.melee`) into its moveset as the
-/// `"attack"` move, merging with any signature-move repertoire. The single seam
-/// every actor-spawn path calls so a body's basic swing and its specials live in
-/// ONE `MovesetContract`. Returns `None` when the body has neither.
+/// Convert an authored [`RangedActionSpec`] into a data-driven `"ranged"`
+/// [`MoveSpec`] — the ranged subsumption (fable review, option A). Ranged had NO
+/// windup/recovery before (it fired instantly on a body-side cooldown); giving it a
+/// move timeline is the expressivity win: a `Startup` draw/aim window, a single
+/// [`MoveEventKind::Ranged`] fire event at release (which spawns the projectile,
+/// sampling LIVE aim), and a `Recovery` settle window — all on the owner's
+/// proper-time clock, so a dilated shooter's draw slows with it. The projectile IS
+/// the damage (spawned by the event through the shared enemy-projectile consumer),
+/// so the move carries NO hit volume. Windup/recovery are authored defaults per
+/// spec kind (deferred-tuning); the body-side refire cooldown remains the hard rate
+/// floor, the move duration an additional cadence gate.
+pub fn fire_move_from_ranged(spec: &RangedActionSpec) -> MoveSpec {
+    // Draw/settle timing per weapon kind — Arrow winds up slowest (per its doc),
+    // Pistol snappiest. New authored defaults (ranged had none); tune later.
+    let (windup, recover) = match spec {
+        RangedActionSpec::Pistol { .. } => (0.08, 0.15),
+        RangedActionSpec::Rock { .. } => (0.12, 0.18),
+        RangedActionSpec::Bolt { .. } => (0.18, 0.20),
+        RangedActionSpec::Arrow { .. } => (0.28, 0.22),
+    };
+    let duration = windup + recover;
+    MoveSpec {
+        id: RANGED_VERB.to_string(),
+        clip: ClipBinding {
+            clip: "shoot".to_string(),
+            fallbacks: vec!["attack_side".to_string(), "idle".to_string()],
+        },
+        duration_s: duration,
+        windows: vec![
+            MoveWindow {
+                start_s: 0.0,
+                end_s: windup,
+                tag: WindowTag::Startup,
+                volumes: vec![],
+                sustain_effect: None,
+            },
+            // No Active hit volume — the projectile spawned by the fire event is the
+            // damage. The Recovery window just holds the post-shot settle.
+            MoveWindow {
+                start_s: windup,
+                end_s: duration,
+                tag: WindowTag::Recovery,
+                volumes: vec![],
+                sustain_effect: None,
+            },
+        ],
+        events: vec![MoveEvent {
+            at_s: windup,
+            kind: MoveEventKind::Ranged,
+        }],
+        gates: Default::default(),
+    }
+}
+
+/// Fold a body's authored melee (`ActionSet.melee`) and ranged (`ActionSet.ranged`)
+/// into its moveset as the `"attack"` and `"ranged"` moves, merging with any
+/// signature-move repertoire. The single seam every actor-spawn path calls so a
+/// body's basic swing, its shot, and its specials live in ONE `MovesetContract`.
+/// Returns `None` when the body has none of them.
 pub fn build_actor_moveset(
     signature: Option<&MovesetContract>,
     melee: Option<&MeleeActionSpec>,
+    ranged: Option<&RangedActionSpec>,
 ) -> Option<MovesetContract> {
     let mut contract = signature.cloned().unwrap_or_default();
     if let Some(melee) = melee {
@@ -135,6 +196,14 @@ pub fn build_actor_moveset(
         // Replace any existing attack move (idempotent) then push.
         contract.moves.retain(|m| m.id != attack.id);
         contract.moves.push(attack);
+    }
+    if let Some(ranged) = ranged {
+        let fire = fire_move_from_ranged(ranged);
+        contract
+            .verbs
+            .insert(RANGED_VERB.to_string(), fire.id.clone());
+        contract.moves.retain(|m| m.id != fire.id);
+        contract.moves.push(fire);
     }
     if contract.moves.is_empty() {
         None
@@ -387,7 +456,13 @@ pub fn trigger_moveset_moves(
         let verb = if frame.special_pressed {
             "special"
         } else if frame.melee_pressed {
-            "attack"
+            ATTACK_VERB
+        } else if frame.fire.is_some() {
+            // A ranged intent (`frame.fire = Some(dir)`) starts the body's `"ranged"`
+            // move; its fire event spawns the projectile, sampling live aim. The move
+            // plays to completion before another starts (its duration is a cadence
+            // gate; the body-side refire cooldown remains the hard rate floor).
+            RANGED_VERB
         } else {
             continue;
         };
@@ -491,9 +566,14 @@ pub fn project_moveset_melee_to_body_melee(
     mut bodies: Query<(Option<&MovePlayback>, &mut BodyMelee), With<MovesetMelee>>,
 ) {
     for (playback, mut melee) in &mut bodies {
+        // Only the MELEE `"attack"` move projects a swing. A body carrying its ranged
+        // shot (`"ranged"`) or a special as a moveset move is ALSO `MovesetMelee`, and
+        // those moves are NOT swings — projecting one would publish a phantom
+        // `BodyMelee.swing` that the movement pipeline reads as "mid-attack" and would
+        // freeze a firing/special-ing body in place. Match the move id to the swing.
         match playback {
-            Some(pb) => melee.swing = Some(synth_swing_from_move(pb)),
-            None => melee.swing = None,
+            Some(pb) if pb.spec.id == ATTACK_VERB => melee.swing = Some(synth_swing_from_move(pb)),
+            _ => melee.swing = None,
         }
     }
 }
@@ -1149,5 +1229,116 @@ mod tests {
             }
             other => panic!("expected ActionRequest::Ranged, got {other:?}"),
         }
+    }
+
+    /// Ranged subsumption slice 2: `build_actor_moveset` folds `ActionSet.ranged`
+    /// into a `"ranged"`-verb fire move (Startup → fire event → Recovery, no hit
+    /// volume), and `trigger_moveset_moves` starts it on a `frame.fire` intent — the
+    /// same trigger seam melee/specials use.
+    #[test]
+    fn a_fire_intent_triggers_the_ranged_move() {
+        use ambition_characters::actor::control::ActorFireRequest;
+        use ambition_characters::brain::action_set::RangedActionSpec;
+        use ambition_characters::brain::ActorControl;
+
+        let contract = build_actor_moveset(
+            None,
+            None,
+            Some(&RangedActionSpec::Bolt {
+                speed: 240.0,
+                damage: 3,
+            }),
+        )
+        .expect("a ranged weapon → a moveset with a fire move");
+        let fire = contract
+            .move_for_verb(RANGED_VERB)
+            .expect("the ranged verb maps to the fire move");
+        assert_eq!(fire.id, RANGED_VERB);
+        assert!(
+            fire.windows.iter().all(|w| w.volumes.is_empty()),
+            "a shot carries no melee hit volume — the projectile is the damage"
+        );
+        assert_eq!(
+            fire.events.iter().filter(|e| e.kind == MoveEventKind::Ranged).count(),
+            1,
+            "exactly one fire event"
+        );
+
+        let mut app = App::new();
+        app.add_systems(Update, trigger_moveset_moves);
+        let mut control = ActorControl::default();
+        control.0.fire = Some(ActorFireRequest::world_space(ae::Vec2::new(1.0, 0.0), 240.0));
+        let body = app
+            .world_mut()
+            .spawn((
+                ActorMoveset(contract),
+                control,
+                ae::BodyKinematics {
+                    pos: ae::Vec2::ZERO,
+                    vel: ae::Vec2::ZERO,
+                    size: ae::Vec2::new(16.0, 24.0),
+                    facing: 1.0,
+                },
+            ))
+            .id();
+        app.update();
+        let pb = app
+            .world()
+            .get::<MovePlayback>(body)
+            .expect("the fire intent started the ranged move");
+        assert_eq!(pb.spec.id, RANGED_VERB);
+    }
+
+    /// Regression (ranged-fold): a body that is BOTH `MovesetMelee` and playing its
+    /// `"ranged"` (or any non-`"attack"`) move must NOT get a phantom `BodyMelee.swing`
+    /// — otherwise the movement pipeline reads it as "mid-attack" and freezes the
+    /// firing body in place (this froze the PCA's chase in `actor_phase_split`). Only
+    /// the `"attack"` move projects a swing.
+    #[test]
+    fn a_ranged_move_does_not_project_a_phantom_melee_swing() {
+        use ambition_characters::brain::action_set::{MeleeActionSpec, RangedActionSpec, SwipeSpec};
+        // Same body carries both a melee AND a ranged move (both verbs).
+        let contract = build_actor_moveset(
+            None,
+            Some(&MeleeActionSpec::Swipe(SwipeSpec::STRIKER_DEFAULT)),
+            Some(&RangedActionSpec::Rock {
+                speed: 300.0,
+                damage: 1,
+            }),
+        )
+        .expect("melee + ranged → a moveset");
+        let fire = contract.move_for_verb(RANGED_VERB).unwrap().clone();
+        let attack = contract.move_for_verb(ATTACK_VERB).unwrap().clone();
+
+        let mut app = App::new();
+        app.add_systems(Update, project_moveset_melee_to_body_melee);
+
+        // Playing the RANGED move → no swing (the body isn't attacking).
+        let firing = app
+            .world_mut()
+            .spawn((
+                MovesetMelee,
+                BodyMelee::default(),
+                MovePlayback::new(fire, 1.0),
+            ))
+            .id();
+        // Playing the ATTACK move → a swing (the read-model the flat swing published).
+        let swinging = app
+            .world_mut()
+            .spawn((
+                MovesetMelee,
+                BodyMelee::default(),
+                MovePlayback::new(attack, 1.0),
+            ))
+            .id();
+        app.update();
+        assert!(
+            app.world().get::<BodyMelee>(firing).unwrap().swing.is_none(),
+            "a firing body must not read as mid-swing"
+        );
+        assert!(
+            app.world().get::<BodyMelee>(swinging).unwrap().swing.is_some(),
+            "the attack move still projects its swing read-model"
+        );
     }
 }

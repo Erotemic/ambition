@@ -735,11 +735,10 @@ pub fn apply_actor_contact_damage(
                 Option<&ambition_characters::brain::Brain>,
                 Option<super::super::actor_clusters::ActorClusterQueryData>,
             ),
-            (
-                With<FeatureSimEntity>,
-                Without<crate::actor::PlayerEntity>,
-                Without<super::super::boss_clusters::BossConfig>,
-            ),
+            // Bosses are contact attackers through THIS shared system now (fable
+            // AD2): their `body_contact_damage` tuning is driven from
+            // `behavior.body_damage` at spawn, so no `Without<BossConfig>` carve-out.
+            (With<FeatureSimEntity>, Without<crate::actor::PlayerEntity>),
         >,
         // Victims: any body with a published footprint — a player, an NPC a
         // provoked enemy tracks, a duel opponent. The ONE vulnerability rule

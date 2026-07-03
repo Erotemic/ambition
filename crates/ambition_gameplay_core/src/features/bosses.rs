@@ -491,70 +491,13 @@ mod scripted_pattern_tests {
         assert!(right.center().y > boss.kin.pos.y, "{slam:?}");
     }
 
-    #[test]
-    fn gnu_ton_body_contact_does_not_damage_player() {
-        // `body_damage: 0` on the gnu_ton behavior is the authored
-        // statement "no contact damage from the offscreen body". A prior
-        // revision still dealt 1 damage because `player_damage` used
-        // `body_damage.max(1)` after the intersect test. Now guarded by
-        // the `body_damage > 0` check inside `boss_attack_damage`.
-        // Concrete repro: a player AABB identical to the boss body
-        // AABB with no active strike must produce no event.
-        let boss = gnu_ton_runtime();
-        let attack_state = ambition_characters::brain::BossAttackState::default();
-        let ctx = crate::features::BossVolumeContext::from_ref(boss.as_ref(), &attack_state);
-        let player_body =
-            crate::features::body_damage_aabb(boss.kin.pos, boss.as_ref().combat_size());
-        // Synthetic boss + player entities — the test only checks the
-        // None branch, neither entity is read out of the event.
-        let synthetic_boss =
-            bevy::prelude::Entity::from_raw_u32(2).expect("nonzero raw entity index");
-        let synthetic_player =
-            bevy::prelude::Entity::from_raw_u32(1).expect("nonzero raw entity index");
-        assert!(
-            crate::features::boss_attack_damage(
-                &ctx,
-                synthetic_boss,
-                synthetic_player,
-                player_body,
-                true
-            )
-            .is_none(),
-            "gnu_ton must not deal contact damage when body_damage = 0"
-        );
-    }
-
-    /// Causality seam: a boss body-contact hit stamps the attacking boss
-    /// entity, so the victim's `DeathCause` can attribute the kill. Mirrors the
-    /// player-attacker stamping; the symmetric direction was previously `None`.
-    #[test]
-    fn boss_body_contact_attributes_the_attacking_boss_entity() {
-        let mut boss = gnu_ton_runtime();
-        // gnu_ton authors body_damage = 0; force the body-contact arm on.
-        boss.config.behavior.body_damage = 5;
-        let attack_state = ambition_characters::brain::BossAttackState::default();
-        let ctx = crate::features::BossVolumeContext::from_ref(boss.as_ref(), &attack_state);
-        // A player body covering the boss center overlaps the body-contact zone
-        // regardless of the sprite combat offset.
-        let player_body = ae::Aabb::new(boss.kin.pos, boss.as_ref().combat_size());
-        let boss_entity = bevy::prelude::Entity::from_raw_u32(7).expect("nonzero raw entity index");
-        let player_entity =
-            bevy::prelude::Entity::from_raw_u32(1).expect("nonzero raw entity index");
-        let hit = crate::features::boss_attack_damage(
-            &ctx,
-            boss_entity,
-            player_entity,
-            player_body,
-            true,
-        )
-        .expect("a body-damage boss overlapping the player must produce a hit");
-        assert_eq!(hit.source, crate::features::HitSource::BossBody);
-        assert_eq!(
-            hit.attacker,
-            Some(boss_entity),
-            "boss body contact must attribute the attacking boss entity"
-        );
-    }
+    // `gnu_ton_body_contact_does_not_damage_player` +
+    // `boss_body_contact_attributes_the_attacking_boss_entity` deleted with fable
+    // AD2: boss body-contact damage flows through the shared `apply_actor_contact_damage`
+    // now (the boss's contact tuning is driven from `behavior.body_damage` at spawn),
+    // not the deleted `boss_attack_damage` poll. The "body_damage = 0 ⇒ no contact"
+    // gate is the spawn tuning (`body_contact_damage: body_damage > 0`); the attacker
+    // stamp is the shared contact path's, exercised by `app/tests/boss_contact_iframes`.
 
     // `gnu_ton_scripted_patterns_skip_non_attacking_phases` deleted:
     // the "Dormant / Stagger / Death emit neutral intent + clear

@@ -5,10 +5,10 @@
 //!
 //! This `mod.rs` is the facade + scheduling root: it re-exports the component
 //! types, messages, and systems for the simulation/presentation/encounter/test
-//! layers, defines shared movement glue (`step_floating_body`, the floating
-//! counterpart to the grounded `integrate_normal_spine`), and registers the
+//! layers and registers the
 //! `WorldPrep`/`GameplayEffects`/`FeatureCollection`/`FeatureInteraction`/
-//! `FeatureViewSync` schedule plugins.
+//! `FeatureViewSync` schedule plugins. (Non-grounded actors — including bosses
+//! since AS4c — share the ONE flight limb; there is no bespoke float glue here.)
 //!
 //! Domain logic lives in siblings: `enemies/` (grounded + aerial enemy
 //! integration onto the shared spine), `npcs` (per-NPC runtime glue + barks),
@@ -63,7 +63,7 @@ pub use crate::combat::world_overlay;
 pub use crate::combat::{bus, util};
 
 pub use boss_attack_geometry::{
-    active_attack_volumes, body_damage_aabb, boss_attack_damage, bounding_aabb, collision_aabb,
+    active_attack_volumes, body_damage_aabb, bounding_aabb, collision_aabb,
     damageable_volumes, volumes_for_profile, world_space_body_aabbs_from_metrics,
     world_space_body_aabbs_from_parts, AnimationSelection, BossAnimationFrameSample,
     BossVolumeContext, CombatGeometry, SimpleActorGeometry,

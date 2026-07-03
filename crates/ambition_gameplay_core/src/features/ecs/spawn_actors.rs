@@ -488,6 +488,13 @@ fn boss_actor_cluster(
         can_fly: true,
         ..Default::default()
     };
+    // Body-contact is now the SHARED `apply_actor_contact_damage` path (fable AD2):
+    // drive the boss's contact tuning from its `behavior.body_damage` so a boss body
+    // hazard (the Smirking Behemoth run-you-down) flows through the one contact
+    // system instead of the deleted `boss_attack_damage` poll. `2.6` matches the old
+    // boss body-contact push. STRIKE offense is the frame-driven Boss hitboxes
+    // (`sync_boss_strike_hitboxes`), so `attacks_player` (actor melee) stays off.
+    let body_damage = config.behavior.body_damage;
     let tuning = crate::combat::ActorTuning {
         max_health: hp_max,
         chase_speed: BOSS_FLIGHT_SPEED,
@@ -496,10 +503,10 @@ fn boss_actor_cluster(
         // The BossPattern brain commands an exact per-tick velocity, so the flight
         // limb takes it verbatim (AS4c) — byte-identical to the old SNAP float.
         flight_direct_velocity: true,
-        // Boss offense is `BossAttackState` + `boss_attack_damage`, not the actor
-        // melee/contact path — keep both off so the shared systems never double-fire.
         attacks_player: false,
-        body_contact_damage: false,
+        body_contact_damage: body_damage > 0,
+        damage_amount: body_damage,
+        contact_strength: 2.6,
         ..Default::default()
     };
     let actor_config = super::actor_clusters::ActorConfig {

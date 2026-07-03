@@ -398,96 +398,11 @@ pub fn body_damage_aabb(pos: ae::Vec2, combat_size: ae::Vec2) -> ae::Aabb {
     ae::Aabb::new(pos, combat_size * 0.5)
 }
 
-/// Compute the per-tick boss BODY-CONTACT damage event, if any.
-///
-/// Pure: reads the boss body fields + the behavior's `body_damage`. Returns
-/// `Some(HitEvent)` when the boss body has positive `body_damage` and its contact
-/// envelope overlaps the target.
-///
-/// STRIKE damage no longer flows through here (fable AD2): a live strike maintains
-/// frame-driven Boss `Hitbox` entities (`sync_boss_strike_hitboxes`) resolved by the
-/// SHARED `apply_hitbox_damage` Boss branch. This helper is the boss body-contact
-/// arm only, pending its fold onto `apply_actor_contact_damage`.
-///
-/// `target_is_player` picks the `HitTarget` stamp; `boss_entity` is stamped as the
-/// event's `attacker` so the victim's `DeathCause` attributes the kill to this boss.
-pub fn boss_attack_damage(
-    ctx: &BossVolumeContext,
-    boss_entity: bevy::prelude::Entity,
-    target_entity: bevy::prelude::Entity,
-    target_body: ae::Aabb,
-    // Picks the `HitTarget` stamp: a player victim routes through the player
-    // damage consumer, any other tracked body through the actor consumer
-    // (fable review 2026-07-02 §A4 — a boss swing must land on its duel
-    // opponent, not just players).
-    target_is_player: bool,
-) -> Option<crate::features::HitEvent> {
-    let stamp = |entity| {
-        if target_is_player {
-            HitTarget::Player(entity)
-        } else {
-            HitTarget::Actor(entity)
-        }
-    };
-    use crate::combat::events::{HitEvent, HitKnockback, HitMode, HitSource, HitTarget};
-    use crate::combat::util::midpoint;
-    use ambition_engine_core::AabbExt;
-
-    let signum_or = |x: f32, fallback: f32| {
-        if x.abs() < f32::EPSILON {
-            fallback
-        } else {
-            x.signum()
-        }
-    };
-
-    // Body-contact arm: only fires when no strike landed, and only when the
-    // behavior opts into body damage.
-    let body_damage_amount = ctx.behavior.body_damage;
-    if body_damage_amount > 0 {
-        // Apply the sprite-derived body offset so the body-contact
-        // zone lines up with the visible body (same offset
-        // `boss.aabb()` applies). Without this, the magenta debug
-        // box and the actual body-contact damage zone sit below the
-        // visible sprite and the player can stand "inside" the
-        // visible body without taking contact damage.
-        let combat_offset = ctx
-            .sprite_metrics
-            .map(|m| m.combat_offset)
-            .unwrap_or(ae::Vec2::ZERO);
-        // Mirror the body offset to the boss's facing (the sprite flips), so the
-        // contact zone matches the visible body on both sides — consistent with
-        // `BossRef::combat_offset` and the mirrored hurtboxes above.
-        let combat_offset = if ctx.facing < 0.0 {
-            ae::Vec2::new(-combat_offset.x, combat_offset.y)
-        } else {
-            combat_offset
-        };
-        let body = body_damage_aabb(ctx.pos + combat_offset, ctx.combat_size);
-        if body.strict_intersects(target_body) {
-            return Some(HitEvent {
-                volume: body.into(),
-                damage: body_damage_amount,
-                source: HitSource::BossBody,
-                attacker: Some(boss_entity),
-                target: stamp(target_entity),
-                mode: HitMode::Knockback,
-                knockback: Some(HitKnockback {
-                    dir: signum_or(target_body.center().x - ctx.pos.x, 1.0),
-                    // Body contact should be a real displacement threat.
-                    // Smirking Behemoth is designed to run the player down;
-                    // a light bump let players face-tank the body and walk
-                    // through to the far side of the arena.
-                    strength: 2.6,
-                    source_pos: ctx.pos,
-                    impact_pos: midpoint(target_body.center(), body.center()),
-                }),
-                ignored_targets: Vec::new(),
-            });
-        }
-    }
-    None
-}
+// `boss_attack_damage` is GONE (fable AD2): a boss's offense flows through the ONE
+// set of systems every actor uses — STRIKE damage via the frame-driven Boss hitboxes
+// (`sync_boss_strike_hitboxes` → `apply_hitbox_damage`'s Boss branch), and BODY-
+// CONTACT damage via the shared `apply_actor_contact_damage` (the boss's contact
+// tuning is driven from `behavior.body_damage` at spawn). No bespoke boss damage poll.
 
 /// World-space hitbox volumes for a specific attack profile. Pure
 /// function of the profile + body fields. Used as the fallback path

@@ -3,7 +3,7 @@
 
 use super::super::*;
 
-use crate::features::{boss_attack_damage, boss_special_for_profile, BossVolumeContext};
+use crate::features::{boss_special_for_profile, BossVolumeContext};
 use ambition_characters::brain::{
     action_set::ActionRequest, ActorActionMessage, ActorControl, BossAttackState, Brain,
     StateMachineCfg,
@@ -524,105 +524,46 @@ pub fn integrate_boss_bodies(
     }
 }
 
-/// Boss presentation + attack-damage publish. The brain
-/// (`tick_boss_brains_system`) owns intent; [`integrate_boss_bodies`] has already
-/// moved the body + published its `CenteredAabb` by the time this runs.
+/// Boss PRESENTATION — decay the boss's body-generic reaction timers and sync the
+/// sprite-animation mirrors (`BossPatternTimer`, `BossPhase`, death anim).
 ///
-/// This system:
-/// 1. Decays the boss's body-generic reaction timers.
-/// 2. Syncs presentation mirrors (`BossPatternTimer`, `BossPhase`, death anim).
-/// 3. Publishes attack + body-contact damage via the pure
-///    `boss_attack_damage` helper, which reads `BossAttackState`
-///    directly (no runtime mirror fields involved).
+/// Since fable AD2 this system moves no body and emits no damage: movement is
+/// [`integrate_boss_bodies`] (the shared flight-limb arm); STRIKE damage is the
+/// frame-driven Boss hitboxes ([`sync_boss_strike_hitboxes`] → `apply_hitbox_damage`);
+/// BODY-CONTACT damage is the shared `apply_actor_contact_damage`. The old
+/// `boss_attack_damage` poll is gone — a boss's offense and body flow through the
+/// SAME systems every actor uses.
 pub fn update_ecs_bosses(
     world_time: Res<WorldTime>,
-    mut sfx: MessageWriter<ambition_sfx::SfxMessage>,
-    mut vfx: MessageWriter<ambition_vfx::vfx::VfxMessage>,
-    mut debris: MessageWriter<DebrisBurstMessage>,
-    mut hit_events: MessageWriter<HitEvent>,
-    // Per-boss target via `ActorTarget` (populated by `select_actor_targets`):
-    // read each boss's targeted player by Entity from the all-players query.
-    // Single-player behavior is preserved because there's only one player today;
-    // real multiplayer boss AI (per-player agro lists, phase transitions that
-    // respond to multiple players) is a deeper redesign left for later.
-    // The boss's tracked victim — ANY body with a published footprint (fable
-    // review 2026-07-02 §A4: a boss swing lands on its duel opponent, not just
-    // players). `Without<BossConfig>` keeps this read provably disjoint from
-    // the mutable boss query below.
-    victim_query: Query<
-        (
-            &CenteredAabb,
-            &crate::actor::BodyOffense,
-            &crate::actor::BodyDodgeState,
-            &crate::actor::BodyShieldState,
-            &ambition_characters::actor::BodyCombat,
-            bevy::prelude::Has<crate::actor::PlayerEntity>,
-        ),
-        Without<super::super::boss_clusters::BossConfig>,
-    >,
     mut bosses: Query<
         (
-            Entity,
-            super::super::boss_clusters::BossClusterQueryData,
-            // The boss's shared body components (§A1): HP authority + the
-            // reaction timers this system decays each tick.
             &ambition_characters::actor::BodyHealth,
             &mut ambition_characters::actor::BodyCombat,
             &mut BossPatternTimer,
             &mut BossDeathAnimation,
             &mut BossPhase,
-            &BossAttackState,
             &Brain,
-            &super::super::super::components::ActorTarget,
-            Option<&crate::features::BossAnimationFrameSample>,
         ),
         // The player carries the unified `BodyKinematics`; exclude it so this boss
         // query is provably disjoint (boss / player are mutually exclusive archetypes).
         (With<FeatureSimEntity>, Without<crate::actor::PlayerEntity>),
     >,
 ) {
-    // Sim clock: bosses must slow with bullet-time (ADR 0010); a
-    // boss locked-on to the player should not get free hits when
-    // the player triggers bullet-time mid-pattern.
+    // Sim clock: bosses must slow with bullet-time (ADR 0010).
     let dt = world_time.sim_dt();
-    for (
-        boss_entity,
-        feature,
-        health,
-        mut boss_combat,
-        mut pattern_timer,
-        mut death_anim,
-        mut phase,
-        attack_state,
-        brain,
-        actor_target,
-        animation_frame,
-    ) in &mut bosses
+    for (health, mut boss_combat, mut pattern_timer, mut death_anim, mut phase, brain) in &mut bosses
     {
         let alive = health.alive();
-        // Body-generic reaction timers (hit_flash + i-frame + the §A2 stagger
-        // set) decay here for bosses (the actor tick excludes bosses).
+        // Body-generic reaction timers (hit_flash + i-frame + the §A2 stagger set)
+        // decay here for bosses (the actor tick excludes bosses).
         boss_combat.damage_invuln_timer = (boss_combat.damage_invuln_timer - dt).max(0.0);
         boss_combat.hit_flash = (boss_combat.hit_flash - dt).max(0.0);
         boss_combat.hitstun_timer = (boss_combat.hitstun_timer - dt).max(0.0);
         boss_combat.recoil_lock_timer = (boss_combat.recoil_lock_timer - dt).max(0.0);
         boss_combat.hitstop_timer = (boss_combat.hitstop_timer - dt).max(0.0);
-        // Resolve this boss's targeted player. If the target's
-        // entity has despawned or no players exist, skip the body-
-        // contact check — body still integrates so the boss keeps
-        // animating its pattern. `target_entity` is threaded onto
-        // the emitted `HitEvent::target` so the player-side reader
-        // lands boss-attack damage on this specific player.
-        let target_entity = actor_target.entity;
-        let target_victim = target_entity.and_then(|e| victim_query.get(e).ok());
-        // Body movement + the `CenteredAabb` publish now happen in
-        // `integrate_boss_bodies` (the shared flight-limb arm), which ran before
-        // this system; here we read the already-moved position for damage.
-        // Mirror the brain's pattern_timer (now living in
-        // `BossPatternState`) into the presentation-side
-        // `BossPatternTimer` component for sprite-animation
-        // consumers. Defaults to 0 when the boss has a non-BossPattern
-        // brain (test fixtures).
+        // Mirror the brain's `pattern_timer` (living in `BossPatternState`) into the
+        // presentation-side `BossPatternTimer` for sprite-animation consumers.
+        // Defaults to 0 for a non-BossPattern brain (test fixtures).
         pattern_timer.0 = match brain {
             Brain::StateMachine(StateMachineCfg::BossPattern { state, .. }) => state.pattern_timer,
             _ => 0.0,
@@ -635,53 +576,5 @@ pub fn update_ecs_bosses(
             death_anim.tick(dt);
         }
         *phase = BossPhase::from_alive(alive);
-        let (Some(target_entity), Some((hurtbox, offense, dodge, shield, combat, is_player))) =
-            (target_entity, target_victim)
-        else {
-            continue;
-        };
-        // The victim's PUBLISHED gravity-oriented hurtbox (§A6) + the ONE
-        // vulnerability rule (§A5); the raw `kin.aabb()` this used to build
-        // disagreed with the oriented box under rotated gravity.
-        let player_body = hurtbox.aabb();
-        let player_vulnerable =
-            crate::combat::damage::body_vulnerable(offense, dodge, shield, combat);
-        // Effective allegiance: a POSSESSED boss (carrying `Brain::Player`) is on
-        // the player's side — its body/attack volumes must not damage the player
-        // it now fights for. Its content-technique specials still hit the boss's
-        // former allies (their projectiles inherit the Player firer faction). This
-        // mirrors the actor path's `body_contact_damage_enabled = !is_player` gate;
-        // no faction is mutated.
-        let boss_player_controlled = brain.is_player();
-        if player_vulnerable && alive && !boss_player_controlled {
-            let ctx = BossVolumeContext::from_ref(feature.as_boss_ref(), attack_state)
-                .with_animation_frame(animation_frame);
-            if let Some(damage) =
-                boss_attack_damage(&ctx, boss_entity, target_entity, player_body, is_player)
-            {
-                let pos = damage
-                    .knockback
-                    .as_ref()
-                    .map(|k| k.impact_pos)
-                    .unwrap_or_else(|| damage.volume.center());
-                sfx.write(ambition_sfx::SfxMessage::Play {
-                    id: ambition_sfx::ids::PLAYER_DAMAGE,
-                    pos,
-                });
-                vfx.write(VfxMessage::Impact { pos });
-                vfx.write(VfxMessage::Burst {
-                    pos,
-                    count: 14,
-                    speed: 300.0,
-                    color: [1.0, 0.34, 0.28, 0.88],
-                    kind: ParticleKind::Shard,
-                });
-                debris.write(DebrisBurstMessage {
-                    pos,
-                    cue: PhysicsDebrisCue::Impact,
-                });
-                hit_events.write(damage);
-            }
-        }
     }
 }

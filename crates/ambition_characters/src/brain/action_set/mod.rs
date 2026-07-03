@@ -38,9 +38,13 @@ pub struct ActionSet {
     /// templates that emit `desired_vel` get their motion drawn via
     /// this style.
     pub move_style: MoveStyleSpec,
-    /// What `frame.special_pressed = true` resolves to. Per-entity
-    /// signature move — boss spotlight pattern, player-only ability,
-    /// etc.
+    /// CAPABILITY marker: `Some(Special(move_id))` means this body HAS a signature
+    /// special — the brain reads `special.is_some()` to decide whether to press
+    /// `special_pressed`. It no longer EXECUTES anything here: the special is a
+    /// data-driven move in the body's `ActorMoveset`, triggered on the `special`
+    /// verb and run by the moveset runtime (fable review §A1 — the moveset subsumes
+    /// the old flat `special` resolution). Sourced from the archetype's
+    /// `signature_move` at spawn. `None` = no special.
     pub special: Option<SpecialActionSpec>,
 }
 
@@ -776,11 +780,15 @@ pub fn resolve(
             });
         }
     }
-    if frame.special_pressed {
-        if let Some(spec) = &actions.special {
-            out.push(ActionRequest::Special { spec: spec.clone() });
-        }
-    }
+    // NOTE: `special_pressed` is resolved by the MOVESET, not here. A body's special
+    // is a data-driven move in its `ActorMoveset` (`combat::moveset`), triggered on
+    // the `special` verb edge; the flat `ActionSet.special → ActionRequest::Special`
+    // arm that used to live here is RETIRED (fable review §A1: the moveset subsumes
+    // `ActionSet.special`). `ActionSet.special` is now a pure CAPABILITY marker the
+    // brain reads to decide whether to press special; the move executes through the
+    // moveset runtime, and content techniques fire via the `Effect{key}` bridge in
+    // `dispatch_move_events`. Bosses already dispatched their multi-special
+    // repertoire through `dispatch_boss_special`, never this arm.
     out
 }
 

@@ -102,8 +102,10 @@ fn peaceful_action_set_has_no_attacks() {
 #[test]
 fn resolve_returns_predictable_request_count_per_intent_subset() {
     // Table-driven coverage: every combo of melee/fire/special
-    // bits → predictable request count when ActionSet has all
-    // capabilities. Pins per-intent independence.
+    // bits → predictable request count. `special` NO LONGER emits a
+    // request here — the moveset subsumes it (fable review §A1), so the
+    // special bit contributes 0 to the count; melee/fire stay
+    // independent. Pins that the flat special arm is gone.
     let actions = ActionSet {
         melee: Some(MeleeActionSpec::Swipe(SwipeSpec::STRIKER_DEFAULT)),
         ranged: Some(RangedActionSpec::Bolt {
@@ -117,11 +119,11 @@ fn resolve_returns_predictable_request_count_per_intent_subset() {
         (false, false, false, 0),
         (true, false, false, 1),
         (false, true, false, 1),
-        (false, false, true, 1),
+        (false, false, true, 0), // special is moveset-resolved, not here
         (true, true, false, 2),
-        (true, false, true, 2),
-        (false, true, true, 2),
-        (true, true, true, 3),
+        (true, false, true, 1), // only the melee emits
+        (false, true, true, 1), // only the fire emits
+        (true, true, true, 2),  // melee + fire; special is the moveset's
     ];
     for (melee, fire, special, expected) in cases {
         let mut frame = crate::actor::control::ActorControlFrame::neutral();
@@ -699,5 +701,12 @@ fn resolve_multi_intent_emits_multi_request() {
     ));
     frame.special_pressed = true;
     let reqs = resolve(&actions, &frame, ae::Vec2::ZERO);
-    assert_eq!(reqs.len(), 3);
+    // Melee + fire emit; `special_pressed` does NOT — the moveset subsumes the flat
+    // special arm (§A1), so a pressed special resolves to a MovePlayback elsewhere,
+    // not an `ActionRequest::Special` here.
+    assert_eq!(reqs.len(), 2);
+    assert!(
+        !reqs.iter().any(|r| matches!(r, ActionRequest::Special { .. })),
+        "the flat special arm is retired — no Special request from resolve"
+    );
 }

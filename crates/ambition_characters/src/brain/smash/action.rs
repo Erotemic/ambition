@@ -163,7 +163,16 @@ pub fn choose_action(
                 let dir = obs.side_face_toward_target();
                 return SpecificAction::Walk { dir };
             }
-            // In range but on cooldown — hold ground, face target.
+            // In range but the melee is recharging — commit the signature SPECIAL
+            // if this body has one (it runs through the data-driven moveset, §A1),
+            // so a fighter with a move like the PCA's Cellular Pulse uses it as a
+            // combo/pressure tool while its swing is on cooldown instead of idling.
+            // The move's own duration gates re-fire (`Without<MovePlayback>`). BLIND:
+            // the cadence is a first pass for Jon to tune against the landed system.
+            if actions.special.is_some() {
+                return SpecificAction::Special;
+            }
+            // No special — hold ground, face target.
             SpecificAction::Idle
         }
         BroadMode::Reposition => {
@@ -290,6 +299,26 @@ mod tests {
         obs.attack_cooldown_remaining = 0.5;
         let act = choose_action(&obs, BroadMode::Engage, &cfg, &actions);
         assert_eq!(act, SpecificAction::Idle, "got {act:?}");
+    }
+
+    /// §A1 subsumption: a fighter with a signature SPECIAL (a moveset move, marked
+    /// on `ActionSet.special`) commits it while its melee is recharging, instead of
+    /// idling — so the PCA uses Cellular Pulse as pressure. Emitting `Special` here
+    /// is what `emit` turns into `special_pressed`, which `trigger_moveset_moves`
+    /// runs. (Without a special the same state still Idles — pinned above.)
+    #[test]
+    fn engage_on_cooldown_fires_the_signature_special_when_it_has_one() {
+        use crate::brain::action_set::SpecialActionSpec;
+        let cfg = SmashCfg::STRIKER_DEFAULT;
+        let actions = ActionSet {
+            melee: Some(MeleeActionSpec::Swipe(SwipeSpec::STRIKER_DEFAULT)),
+            special: Some(SpecialActionSpec::Special("cellular_pulse".to_string())),
+            ..Default::default()
+        };
+        let mut obs = obs_at(40.0, false);
+        obs.attack_cooldown_remaining = 0.5; // melee recharging
+        let act = choose_action(&obs, BroadMode::Engage, &cfg, &actions);
+        assert_eq!(act, SpecificAction::Special, "got {act:?}");
     }
 
     #[test]

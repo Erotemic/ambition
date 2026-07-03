@@ -45,7 +45,22 @@ pub(super) fn action_set_from_combat_kit(
 /// resolved on the spawn seed before the entity exists, so the spawn path
 /// never names the roster enum.
 pub(super) fn enemy_default_action_set(spec: &CharacterArchetypeSpec) -> ActionSet {
-    enemy_combat_kit_for_spec(spec).to_action_set(spec.held_item_spec().as_ref())
+    let mut actions = enemy_combat_kit_for_spec(spec).to_action_set(spec.held_item_spec().as_ref());
+    // The special is a data-driven MOVE now (the moveset subsumes `ActionSet.special`,
+    // fable review §A1): if the archetype authors a signature move on the `special`
+    // verb, mark the capability so the brain knows to press special. The move itself
+    // executes through the moveset runtime (`trigger_moveset_moves`), never the
+    // retired flat resolve arm.
+    if let Some(move_id) = spec
+        .signature_move
+        .as_ref()
+        .and_then(|m| m.verbs.get("special"))
+    {
+        actions.special = Some(ambition_characters::brain::SpecialActionSpec::Special(
+            move_id.clone(),
+        ));
+    }
+    actions
 }
 fn apply_spec_held_item(spec: &CharacterArchetypeSpec, actions: &mut ActionSet) {
     if let Some(item) = spec.held_item_spec() {

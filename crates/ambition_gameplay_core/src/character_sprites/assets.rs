@@ -34,7 +34,6 @@ use super::registry::BodyMetrics;
 use super::sheets::CharacterSheetSpec;
 use crate::assets::sandbox_assets::{ids, SandboxAssetCatalog};
 use crate::character_roster::EMBEDDED_CATALOG;
-use crate::features::FeatureVisualKind;
 use crate::persistence::settings::VisualQualityBudget;
 use ambition_engine_core as ae;
 
@@ -91,11 +90,23 @@ pub struct CharacterSpriteAssets {
 }
 
 impl CharacterSpriteAssets {
-    pub fn enemy_asset(&self, kind: FeatureVisualKind) -> Option<&CharacterSpriteAsset> {
-        match kind {
-            FeatureVisualKind::Enemy => self.goblin.as_ref(),
-            FeatureVisualKind::TrainingDummy => self.sandbag.as_ref().or(self.goblin.as_ref()),
-            _ => None,
+    /// Generic fallback sheet for an actor that resolved no *named* sprite, keyed
+    /// off its STATE (the surviving home of the deleted `visual_kind` derivation):
+    /// a sandbag renders the sandbag sheet (falling back to the goblin body if no
+    /// sandbag sheet is wired), a fighting actor the generic enemy body, and a
+    /// peaceful un-registered actor gets `None` — the caller keeps its
+    /// terminal-rectangle placeholder.
+    pub fn actor_fallback_asset(
+        &self,
+        is_sandbag: bool,
+        fighting: bool,
+    ) -> Option<&CharacterSpriteAsset> {
+        if is_sandbag {
+            self.sandbag.as_ref().or(self.goblin.as_ref())
+        } else if fighting {
+            self.goblin.as_ref()
+        } else {
+            None
         }
     }
 

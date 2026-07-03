@@ -108,7 +108,9 @@ pub fn spawn_room_visuals(
         );
     }
     for enemy in &spec.enemy_spawns {
-        let kind = ambition_gameplay_core::features::enemy_visual_kind(&enemy.payload);
+        // ONE actor kind — the sandbag/enemy depiction is resolved by the actor
+        // sprite-upgrade fallback (keyed off `is_sandbag`), not a render variant.
+        let kind = FeatureVisualKind::Actor;
         // Composite "X on Shark" spawns become a mount entity + a
         // rider entity on the sim side (see
         // `content::features::ecs::mount`). Fan the same way here
@@ -138,7 +140,7 @@ pub fn spawn_room_visuals(
             &boss.id,
             &boss.name,
             boss.aabb,
-            FeatureVisualKind::Boss,
+            FeatureVisualKind::Actor,
             game_assets::entity_sprite_for_boss(&boss.payload),
             assets,
         );
@@ -179,7 +181,11 @@ pub fn spawn_room_prop(
     prop: &PropSpec,
     assets: Option<&GameAssets>,
 ) {
-    let kind = FeatureVisualKind::Npc;
+    // Decorative props borrow the actor placeholder kind for their z/color
+    // fallback (a pre-existing conflation — a cart is not an actor; the enum has
+    // no decorative-prop arm). Only the z is read here; the sprite comes from the
+    // prop asset. SMELL: a dedicated neutral placeholder kind would be cleaner.
+    let kind = FeatureVisualKind::Actor;
     let z = feature_z(kind);
     let translation = world_to_bevy(world, prop.pos, z);
     let collision = BVec2::new(prop.size.x, prop.size.y);
@@ -558,9 +564,11 @@ fn spawn_authored_basic(
 ) {
     let size = aabb.half_size() * 2.0;
     let render = BVec2::new(size.x, size.y);
+    // Initial placeholder color only (a neutral, not-yet-fighting actor); the
+    // per-frame `sync_visuals` repaints from `FeatureView::fighting` immediately.
     let sprite = match assets {
-        Some(a) => entity_sprite_or_color(a, entity_key, render, feature_color(kind, false)),
-        None => Sprite::from_color(feature_color(kind, false), render),
+        Some(a) => entity_sprite_or_color(a, entity_key, render, feature_color(kind, false, false)),
+        None => Sprite::from_color(feature_color(kind, false, false), render),
     };
     let mut entity = commands.spawn((
         sprite,
@@ -585,7 +593,7 @@ fn spawn_authored_basic(
 /// The actual positions / sizes get rewritten by `sync_visuals`
 /// each frame off the FeatureViewIndex (which the sim entities
 /// populate); the spawn just needs a placeholder Sprite + Transform
-/// big enough for `upgrade_enemy_sprites` to replace with a textured
+/// big enough for `upgrade_actor_sprites` to replace with a textured
 /// CharacterSprite once the asset bank loads.
 fn spawn_composite_visuals(
     commands: &mut Commands,
@@ -696,7 +704,7 @@ fn spawn_authored_interactable(
         interactable.kind,
         ambition_interaction::InteractionKind::Npc { .. }
     ) {
-        FeatureVisualKind::Npc
+        FeatureVisualKind::Actor
     } else if matches!(&interactable.kind, ambition_interaction::InteractionKind::Custom(s) if s.starts_with("switch:"))
     {
         FeatureVisualKind::Switch

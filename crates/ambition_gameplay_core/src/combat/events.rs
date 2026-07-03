@@ -12,16 +12,16 @@ use super::*;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum FeatureVisualKind {
+    /// Any brain-carrying body — enemy, NPC, boss, sandbag. There is ONE actor
+    /// kind: "enemy vs NPC vs boss vs training-dummy" was never a render *type*,
+    /// only a STATE of one actor (see `FeatureView::fighting` for the combat
+    /// state and the sandbag/name fallback in the actor sprite-upgrade system for
+    /// the depiction). The taxonomy is actors|props; this is the actor arm.
+    Actor,
     Hazard,
-    Enemy,
-    /// A passive practice target (struck to test damage/feedback). Rendered with
-    /// a sandbag sprite — the depiction is content; the kit kind is generic.
-    TrainingDummy,
-    Boss,
     Breakable,
     Chest,
     Pickup,
-    Npc,
     /// Latched switch. Renders as a colored block whose color depends
     /// on `FeatureView::switch_on` (red = off, green = on).
     Switch,
@@ -55,6 +55,13 @@ pub struct FeatureView {
     pub kind: FeatureVisualKind,
     pub visible: bool,
     pub flash: bool,
+    /// For `FeatureVisualKind::Actor`: true when the actor is in the FIGHTING
+    /// state (a fact about the actor itself — NOT "hostile to the player";
+    /// relativity principle). A STATE flag exactly like `flash`: a provoked NPC
+    /// enters it, an at-rest enemy hasn't engaged yet. Stamped at the rebuild
+    /// site from the disposition signal until the fighting-state machinery moves
+    /// onto a `FightingAble` capability component. Ignored for non-actor kinds.
+    pub fighting: bool,
     /// For `FeatureVisualKind::Switch`: true when the switch reads as
     /// "on" (encounter cleared / reset path armed). Renders green when
     /// true, red when false. Ignored for other kinds.

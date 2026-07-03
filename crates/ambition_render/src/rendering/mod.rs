@@ -11,7 +11,7 @@
 //!   feature-kind helpers and `spawn_world_label`.
 //! - [`actors`] — per-frame sync of player + enemy + boss sprites
 //!   and animation. Owns [`sync_visuals`], [`animate_player`],
-//!   [`animate_characters`], [`animate_bosses`], [`upgrade_enemy_sprites`],
+//!   [`animate_characters`], [`animate_bosses`], [`upgrade_actor_sprites`],
 //!   [`upgrade_boss_sprites`].
 //! - [`world`] — static room visuals. Owns [`spawn_room_visuals`],
 //!   [`spawn_block`], [`spawn_loading_zone`], [`spawn_grid`],
@@ -51,8 +51,8 @@ mod world;
 pub use actors::{
     animate_bosses, animate_characters, animate_player, apply_hide_sprites_override,
     apply_placeholder_sprites_override, refresh_player_sprites_on_game_assets_change,
-    refresh_prop_sprites_on_game_assets_change, sync_visuals, upgrade_boss_sprites,
-    upgrade_enemy_sprites, upgrade_npc_sprites,
+    refresh_prop_sprites_on_game_assets_change, sync_visuals, upgrade_actor_sprites,
+    upgrade_boss_sprites,
 };
 // `BoundFeatureKind` moved to `combat` (sim owns it); re-exported here
 // so existing render call sites resolve unchanged.
@@ -219,7 +219,7 @@ impl bevy::prelude::Plugin for PresentationVisualAnimationPlugin {
                 // it to `feature_z(Boss) = 11.0`) so the body silhouette
                 // sits behind one-way platforms.
                 actors::apply_gnu_ton_body_z,
-                actors::upgrade_enemy_sprites,
+                actors::upgrade_actor_sprites,
                 actors::refresh_player_sprites_on_game_assets_change,
                 actors::refresh_prop_sprites_on_game_assets_change,
                 actors::upgrade_boss_sprites,
@@ -257,7 +257,7 @@ impl bevy::prelude::Plugin for PresentationVisualAnimationPlugin {
                 // Gun-sword visual on the rider — composite pirate-
                 // on-shark spawns are two linked entities (mount +
                 // rider) and the rider entity draws via the standard
-                // upgrade_enemy_sprites path. The gun-sword sprite is
+                // upgrade_actor_sprites path. The gun-sword sprite is
                 // the only piece NOT covered by the standard sheet
                 // (it's an over-hand prop tied to aim direction), so
                 // this system queries the rider entity directly via

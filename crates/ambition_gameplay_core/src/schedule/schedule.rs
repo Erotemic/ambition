@@ -131,7 +131,7 @@ pub enum SandboxSet {
     FeatureViewSync,
     /// Presentation-side container set for visual systems that read
     /// [`crate::features::FeatureViewIndex`] (`sync_visuals`,
-    /// `upgrade_enemy_sprites`, `upgrade_npc_sprites`, and the
+    /// `upgrade_actor_sprites`, and the
     /// animation chain that follows them).
     ///
     /// Declared as a SandboxSet rather than left as an `.after(...)`

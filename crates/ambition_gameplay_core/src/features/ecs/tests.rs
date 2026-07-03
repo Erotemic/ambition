@@ -182,9 +182,14 @@ fn boss_classifies_as_boss_not_the_actor_enemy_fallback() {
         .expect("the boss must have a feature view");
     assert_eq!(
         view.kind,
-        crate::features::FeatureVisualKind::Boss,
-        "a boss must classify as Boss, not the actor-family enemy fallback (got {:?})",
+        crate::features::FeatureVisualKind::Actor,
+        "a boss is an actor like every other (got {:?})",
         view.kind,
+    );
+    assert!(
+        view.visible,
+        "a live boss must produce a VISIBLE view from its own boss family — not be \
+         shadowed by the invisible generic-actor fallback (its ActorConfig is absent)",
     );
 }
 

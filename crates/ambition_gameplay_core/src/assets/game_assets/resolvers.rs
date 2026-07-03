@@ -82,11 +82,12 @@ pub fn entity_sprite_for_enemy(
     brain: &ambition_characters::actor::CharacterBrain,
 ) -> Option<EntitySprite> {
     // Training dummies use a dedicated static sprite (authored
-    // archetype data); other enemies use animated spritesheets, not a
-    // static entity sprite — `upgrade_enemy_sprites` handles them.
-    match crate::features::enemy_visual_kind(brain) {
-        crate::features::FeatureVisualKind::TrainingDummy => Some(EntitySprite::SandbagDummy),
-        _ => None,
+    // archetype data); other actors use animated spritesheets, not a
+    // static entity sprite — `upgrade_actor_sprites` handles them.
+    if crate::features::enemy_spawn_is_sandbag(brain) {
+        Some(EntitySprite::SandbagDummy)
+    } else {
+        None
     }
 }
 
@@ -193,15 +194,13 @@ pub fn loading_zone_sprite(activation: LoadingZoneActivation) -> EntitySprite {
 pub fn entity_sprite_for_kind(kind: FeatureVisualKind) -> Option<EntitySprite> {
     match kind {
         FeatureVisualKind::Hazard => Some(EntitySprite::HazardSpikes),
-        FeatureVisualKind::TrainingDummy => Some(EntitySprite::SandbagDummy),
-        FeatureVisualKind::Boss => Some(EntitySprite::BossCore),
         FeatureVisualKind::Breakable => Some(EntitySprite::BreakableIntact),
         FeatureVisualKind::Chest => Some(EntitySprite::ChestClosed),
         FeatureVisualKind::Pickup => Some(EntitySprite::PickupHealth),
-        FeatureVisualKind::Npc => Some(EntitySprite::NpcTerminal),
-        // Enemies are animated; rendering handles them through the
-        // character spritesheet, not a static entity sprite.
-        FeatureVisualKind::Enemy => None,
+        // Actors are animated (or resolve a state-keyed fallback sheet); rendering
+        // handles them through `upgrade_actor_sprites`, not a static entity sprite.
+        // The sandbag/boss/NPC static-sprite arms died with the actor variants.
+        FeatureVisualKind::Actor => None,
         // Switches render as a colored block (red / green) rather
         // than a static entity sprite — see `feature_color` and
         // `switch_on_color` in `rendering.rs`.

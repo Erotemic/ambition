@@ -831,13 +831,6 @@ fn install_misc_visual_sync_systems(app: &mut App) {
         ambition_render::rendering::sync_lock_wall_visuals
             .after(ambition_gameplay_core::encounter::update_encounters_from_world),
     )
-    // NPC spritesheet upgrade. `.after(sync_visuals)` preserves the
-    // ordering guarantee the chain otherwise provided (FeatureVisuals
-    // must exist before we look them up).
-    .add_systems(
-        Update,
-        ambition_render::rendering::upgrade_npc_sprites.after(sync_visuals),
-    )
     // Dev "hide sprites" / "placeholder sprites" overrides — must run
     // after every other visibility- or sprite-setting system so they
     // win the last-write battle. `sync_morph_ball_visual`,

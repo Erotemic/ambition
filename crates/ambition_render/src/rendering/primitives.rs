@@ -110,27 +110,34 @@ pub(super) fn feature_z(kind: FeatureVisualKind) -> f32 {
         FeatureVisualKind::Breakable => WORLD_Z_BLOCK + 5.0,
         FeatureVisualKind::Pickup => WORLD_Z_DUMMY + 4.0,
         FeatureVisualKind::Chest => WORLD_Z_DUMMY + 3.0,
-        FeatureVisualKind::Npc => WORLD_Z_DUMMY + 2.0,
         FeatureVisualKind::Switch => WORLD_Z_DUMMY + 2.0,
-        FeatureVisualKind::Enemy => WORLD_Z_DUMMY + 1.0,
-        FeatureVisualKind::TrainingDummy => WORLD_Z_DUMMY + 1.0,
-        FeatureVisualKind::Boss => WORLD_Z_DUMMY + 1.0,
+        // ONE z for every actor. The former Npc-one-layer-higher nuance died with
+        // the variant; if actor draw order ever matters it must come from a real
+        // signal, not the visual kind.
+        FeatureVisualKind::Actor => WORLD_Z_DUMMY + 1.0,
     }
 }
 
-pub(super) fn feature_color(kind: FeatureVisualKind, flash: bool) -> Color {
+/// Placeholder rectangle color for a feature with no bound sprite. For an actor
+/// the tint modulates on the FIGHTING state (`fighting` = engaged) — information
+/// about state, not type; every actor is ONE kind, a fighting one just reads
+/// warmer. `fighting` is ignored for non-actor kinds.
+pub(super) fn feature_color(kind: FeatureVisualKind, fighting: bool, flash: bool) -> Color {
     if flash {
         return Color::srgba(1.0, 1.0, 1.0, 1.0);
     }
     match kind {
         FeatureVisualKind::Hazard => Color::srgba(0.98, 0.12, 0.22, 0.94),
-        FeatureVisualKind::Enemy => Color::srgba(0.93, 0.34, 0.28, 0.96),
-        FeatureVisualKind::TrainingDummy => Color::srgba(0.78, 0.62, 0.42, 0.96),
-        FeatureVisualKind::Boss => Color::srgba(0.78, 0.20, 0.92, 0.96),
+        FeatureVisualKind::Actor => {
+            if fighting {
+                Color::srgba(0.93, 0.34, 0.28, 0.96)
+            } else {
+                Color::srgba(0.42, 0.78, 1.0, 0.96)
+            }
+        }
         FeatureVisualKind::Breakable => Color::srgba(0.62, 0.42, 0.24, 0.96),
         FeatureVisualKind::Chest => Color::srgba(1.0, 0.74, 0.22, 0.96),
         FeatureVisualKind::Pickup => Color::srgba(0.42, 1.0, 0.74, 0.96),
-        FeatureVisualKind::Npc => Color::srgba(0.42, 0.78, 1.0, 0.96),
         // Default off-state color for switches (red — encounter armed).
         // The on-state override happens in `sync_visuals` via the
         // `FeatureView::switch_on` flag.

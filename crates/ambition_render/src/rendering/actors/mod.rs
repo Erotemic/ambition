@@ -140,7 +140,7 @@ pub fn sync_visuals(
             sprite.color = if matches!(view.kind, FeatureVisualKind::Switch) && view.switch_on {
                 switch_on_color()
             } else {
-                feature_color(view.kind, view.flash)
+                feature_color(view.kind, view.fighting, view.flash)
             };
         } else if sprite.texture_atlas.is_none() {
             // Textured single-image entity sprite. Keep author size; tint
@@ -204,10 +204,16 @@ fn active_sprite_scale(
         .unwrap_or_default()
 }
 
-/// Bind enemy/sandbag visuals to the appropriate character sheet
-/// once the asset is available — and re-bind when an existing visual
-/// changes kind (e.g. NPC → Enemy on hostility flip).
-pub fn upgrade_enemy_sprites(
+/// Bind an actor's visual to its character sheet once the asset is available —
+/// and re-bind when its collision footprint or the quality scale changes. ONE
+/// system for EVERY actor (enemy, NPC, sandbag): the enemy/NPC split was never a
+/// render type, so it collapsed with `FeatureVisualKind`. Resolution is
+/// name-first — an authored sprite-override label (a fighting-flipped NPC keeps
+/// its own sheet), then the actor's own display name, against the shared
+/// character registry — then a STATE-keyed fallback: a sandbag renders the
+/// sandbag sheet, a fighting actor the generic enemy sheet, and a peaceful
+/// un-registered actor keeps its terminal-rectangle placeholder.
+pub fn upgrade_actor_sprites(
     mut commands: Commands,
     assets: Option<Res<GameAssets>>,
     quality: Option<Res<crate::quality::ResolvedVisualQuality>>,
@@ -237,10 +243,7 @@ pub fn upgrade_enemy_sprites(
         let Some(view) = feature_views.get(&visual.id) else {
             continue;
         };
-        if !matches!(
-            view.kind,
-            FeatureVisualKind::Enemy | FeatureVisualKind::TrainingDummy
-        ) {
+        if !matches!(view.kind, FeatureVisualKind::Actor) {
             continue;
         }
         let collision = BVec2::new(view.size.x, view.size.y);
@@ -270,43 +273,61 @@ pub fn upgrade_enemy_sprites(
         // placeholder sheet this way without authors having to
         // duplicate the registry entry on an
         // enemy-side table.
+        // Name-first resolution, shared by every actor: an authored
+        // sprite-override label (a fighting-flipped NPC keeps its own sheet),
+        // then the actor's own display name, against the character registry.
         let override_name =
             ambition_gameplay_core::features::ecs_enemy_sprite_override(&visual.id, &ecs_actors);
-        let enemy_name = ambition_gameplay_core::features::ecs_enemy_name(&visual.id, &ecs_actors);
-        // Resolve a *named* sprite first (override label, then the enemy's own
-        // name), then fall back to the generic kind sheet.
+        let actor_name =
+            ambition_gameplay_core::features::ecs_actor_name(&visual.id, &ecs_actors);
         let named = override_name
             .as_deref()
             .and_then(|n| assets.characters.npc_asset_for_name(n))
             .or_else(|| {
-                enemy_name
+                actor_name
                     .as_deref()
                     .and_then(|n| assets.characters.npc_asset_for_name(n))
             });
         let character_asset = match named {
             Some(asset) => Some(asset),
             None => {
-                // Falling back to the generic kind sheet is intended for nameless /
-                // truly-generic enemies, but a *named* actor that lands here almost
-                // always means its `display_name` doesn't match the character
-                // catalog — a content/code bug (e.g. a decorated variant like
-                // "Puppy Slug (ally)" instead of the catalog "Puppy Slug"), which
-                // used to render the goblin default silently. Surface it once per
-                // name (a warning, not a panic — a genuinely missing/late asset
-                // file is handled gracefully by the `images.get(..).is_none()`
-                // guard below, so the game still runs).
-                if let Some(missed) = override_name.as_deref().or(enemy_name.as_deref()) {
-                    if warned_sprite_names.insert(missed.to_string()) {
-                        bevy::log::warn!(
-                            target: "ambition::sprites",
-                            "actor '{missed}' resolved no registered sprite — using the {:?} \
-                             default sheet. If it should have its own sprite, its display_name \
-                             doesn't match the character catalog (likely a typo / decorated name).",
-                            view.kind,
-                        );
+                // No registered sheet: fall back by STATE (the two deleted
+                // `visual_kind` helpers' logic survives HERE and nowhere else). A
+                // sandbag → the sandbag sheet; a fighting actor → the generic
+                // enemy sheet; a peaceful, un-registered actor keeps its
+                // terminal-rectangle placeholder (the old NPC behavior — `None`).
+                let is_sandbag = ambition_gameplay_core::features::ecs_actor_is_sandbag(
+                    &visual.id,
+                    &ecs_actors,
+                );
+                match assets
+                    .characters
+                    .actor_fallback_asset(is_sandbag, view.fighting)
+                {
+                    Some(fallback) => {
+                        // A *named* actor reaching the generic fallback almost
+                        // always means its `display_name` doesn't match the
+                        // character catalog (a typo / decorated name like "Puppy
+                        // Slug (ally)"), which used to render the goblin default
+                        // silently. Surface it once per name (a warning, not a
+                        // panic — a genuinely missing/late asset file is handled by
+                        // the `images.get(..).is_none()` guard below).
+                        if let Some(missed) = override_name.as_deref().or(actor_name.as_deref()) {
+                            if warned_sprite_names.insert(missed.to_string()) {
+                                bevy::log::warn!(
+                                    target: "ambition::sprites",
+                                    "actor '{missed}' resolved no registered sprite — using the \
+                                     generic fallback sheet. If it should have its own sprite, its \
+                                     display_name doesn't match the character catalog (likely a \
+                                     typo / decorated name).",
+                                );
+                            }
+                        }
+                        Some(fallback)
                     }
+                    // Peaceful, un-registered actor: keep the terminal placeholder.
+                    None => None,
                 }
-                assets.characters.enemy_asset(view.kind)
             }
         };
         let Some(character_asset) = character_asset else {
@@ -341,96 +362,6 @@ pub fn upgrade_enemy_sprites(
         // 1-D anchor that rotates WITH the sprite, so for a surface-walker clung to
         // a wall it correctly plants the contact edge once the collision box itself
         // is oriented (see `update_enemy_actors`). No per-family special-casing.
-        // The trimmed-sheet render basis is the sprite's own size + anchor, so
-        // the renderer self-captures it — nothing to thread in here.
-        commands.entity(entity).insert((
-            sprite,
-            anchor,
-            CharacterAnimator::new(character_asset),
-            BoundFeatureKind::new(view.kind, collision),
-            BoundSpriteQuality { scale },
-        ));
-    }
-}
-
-/// Replace the static `EntitySprite::NpcTerminal` placeholder with a
-/// faction-specific spritesheet once the asset is loaded. Today the
-/// dispatch is keyed off the NPC's authored name (see
-/// `CharacterSpriteAssets::npc_asset_for_name`); when LDtk grows a
-/// `category` field on `NpcSpawn`, switch this to lookup-by-category
-/// so the dispatch survives display-name edits.
-///
-/// NPCs without a registered sprite (the common case for the existing
-/// hub guides etc.) keep the default terminal placeholder — symmetric
-/// with `enemy_asset` returning `None` for non-enemy kinds.
-pub fn upgrade_npc_sprites(
-    mut commands: Commands,
-    assets: Option<Res<GameAssets>>,
-    quality: Option<Res<crate::quality::ResolvedVisualQuality>>,
-    images: Res<Assets<Image>>,
-    feature_views: Res<FeatureViewIndex>,
-    features: Query<(
-        Entity,
-        &FeatureVisual,
-        Option<&BoundFeatureKind>,
-        Option<&BoundSpriteQuality>,
-    )>,
-    ecs_actors: Query<ambition_gameplay_core::features::ActorSpriteData>,
-    render_sizes: Query<(&FeatureId, &ActorRenderSize)>,
-) {
-    let Some(assets) = assets else {
-        return;
-    };
-    let assets_changed = assets.is_changed();
-    let scale = active_sprite_scale(quality.as_deref());
-    for (entity, visual, bound, bound_quality) in &features {
-        let Some(view) = feature_views.get(&visual.id) else {
-            continue;
-        };
-        if !matches!(view.kind, FeatureVisualKind::Npc) {
-            continue;
-        }
-        let collision = BVec2::new(view.size.x, view.size.y);
-        let kind_bound = bound.is_some_and(|b| b.matches(view.kind, view.size));
-        let quality_bound = bound_quality.is_some_and(|q| q.scale == scale);
-        if kind_bound && quality_bound {
-            continue;
-        }
-        if kind_bound && !quality_bound && !assets_changed {
-            continue;
-        }
-        let Some(name) = ambition_gameplay_core::features::ecs_npc_name(&visual.id, &ecs_actors)
-        else {
-            continue;
-        };
-        let Some(character_asset) = assets.characters.npc_asset_for_name(&name) else {
-            continue;
-        };
-        // Keep the visible terminal/rectangle fallback until the PNG has
-        // actually loaded. This is especially important on Android, where the
-        // asset exists inside the APK but individual textures can still fail
-        // or arrive later.
-        if images.get(&character_asset.texture).is_none() {
-            continue;
-        }
-        // When the NPC's collision was derived from published sprite
-        // `body_metrics`, `collision` IS the visible body — so the sprite must
-        // render at the stored quad size, not `collision * collision_scale`
-        // (which would double-scale). NPCs without body metrics fall through to
-        // the legacy collision-driven render.
-        let render_size =
-            ambition_gameplay_core::features::ecs_actor_render_size(&visual.id, &render_sizes)
-                .map(|r| BVec2::new(r.x, r.y));
-        let (sprite, anchor) = match render_size {
-            Some(render_size) => (
-                build_character_sprite_with_render_size(character_asset, render_size),
-                feet_anchor_for_render_size(&character_asset.spec, collision, render_size),
-            ),
-            None => (
-                build_character_sprite(character_asset, collision),
-                feet_anchor_for(&character_asset.spec, collision),
-            ),
-        };
         // The trimmed-sheet render basis is the sprite's own size + anchor, so
         // the renderer self-captures it — nothing to thread in here.
         commands.entity(entity).insert((

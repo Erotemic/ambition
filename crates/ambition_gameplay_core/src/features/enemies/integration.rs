@@ -504,14 +504,6 @@ impl<'a> ActorMut<'a> {
         )
     }
 
-    pub fn visual_kind(&self) -> FeatureVisualKind {
-        if self.config.tuning.is_sandbag {
-            FeatureVisualKind::TrainingDummy
-        } else {
-            FeatureVisualKind::Enemy
-        }
-    }
-
     pub fn bark_anchor(&self) -> ae::Vec2 {
         self.kin.pos + ae::Vec2::new(0.0, -self.kin.size.y * 0.72 - 16.0)
     }

@@ -705,16 +705,14 @@ pub struct CompositeVisualPlan {
     pub mount_size: ae::Vec2,
 }
 
-/// Visual kind for an enemy spawn payload (training dummies render as
-/// sandbags; everything else as a standard enemy).
-pub fn enemy_visual_kind(
-    payload: &ambition_characters::actor::CharacterBrain,
-) -> FeatureVisualKind {
-    if spec_for_brain(payload).is_sandbag {
-        FeatureVisualKind::TrainingDummy
-    } else {
-        FeatureVisualKind::Enemy
-    }
+/// Whether a spawn payload is a sandbag (passive practice-target archetype).
+/// The ONE surviving fragment of the deleted `enemy_visual_kind` derivation:
+/// used at spawn to pick the static sandbag sprite (the rest of the
+/// enemy/NPC/boss "kind" split was never a render type and collapsed into the
+/// single `FeatureVisualKind::Actor`; live depiction is name-first + a
+/// state-keyed fallback in `upgrade_actor_sprites`).
+pub fn enemy_spawn_is_sandbag(payload: &ambition_characters::actor::CharacterBrain) -> bool {
+    spec_for_brain(payload).is_sandbag
 }
 
 /// The mount+rider visual fan-out plan for a composite spawn payload,

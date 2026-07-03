@@ -291,18 +291,18 @@ fn entity_sprite_for_kind_handles_all_visual_kinds() {
     // pattern-match catch-all and break the visual layer.
     for kind in [
         FeatureVisualKind::Hazard,
-        FeatureVisualKind::TrainingDummy,
-        FeatureVisualKind::Boss,
         FeatureVisualKind::Breakable,
         FeatureVisualKind::Chest,
         FeatureVisualKind::Pickup,
-        FeatureVisualKind::Npc,
     ] {
         assert!(
             entity_sprite_for_kind(kind).is_some(),
             "static sprite expected for {kind:?}"
         );
     }
-    assert!(entity_sprite_for_kind(FeatureVisualKind::Enemy).is_none());
+    // Actors resolve their sprite via the name-first + state-keyed upgrade path
+    // (`upgrade_actor_sprites`), not a static per-kind sprite; switches render as
+    // colored blocks.
+    assert!(entity_sprite_for_kind(FeatureVisualKind::Actor).is_none());
     assert!(entity_sprite_for_kind(FeatureVisualKind::Switch).is_none());
 }

@@ -20,7 +20,7 @@ use ambition_gameplay_core::features::{
 /// are spawned after that point and need a per-frame discovery pass.
 ///
 /// `sync_visuals` reads the matching `FeatureView` and
-/// `upgrade_enemy_sprites` swaps in the character spritesheet on the
+/// `upgrade_actor_sprites` swaps in the character spritesheet on the
 /// same frame; chests pick up their sprite via `state_aware_entity_sprite`.
 pub fn spawn_dynamic_feature_visuals(
     mut commands: Commands,
@@ -54,7 +54,7 @@ pub fn spawn_dynamic_feature_visuals(
     // Hostile actors staged imperatively at room load OUTSIDE the authored
     // `spec.enemy_spawns` (the spectator-duel fighters). They aren't in the static
     // render pass and aren't encounter mobs, so without this they render
-    // invisibly. `upgrade_enemy_sprites` swaps in the real character sheet next.
+    // invisibly. `upgrade_actor_sprites` swaps in the real character sheet next.
     staged_actors: Query<
         (
             &FeatureId,
@@ -75,16 +75,16 @@ pub fn spawn_dynamic_feature_visuals(
         let (false, Some(config)) = (disposition.is_peaceful(), config) else {
             continue;
         };
-        let kind = if config.tuning.is_sandbag {
-            FeatureVisualKind::TrainingDummy
-        } else {
-            FeatureVisualKind::Enemy
-        };
+        // ONE actor kind; hostile-by-construction ⇒ the fighting placeholder tint
+        // (the sandbag depiction is resolved by the sprite-upgrade fallback, not
+        // a render kind).
+        let kind = FeatureVisualKind::Actor;
+        let fighting = true;
         let render = BVec2::new(aabb.size().x, aabb.size().y);
         let entity_key = game_assets::entity_sprite_for_enemy(&config.brain);
         let sprite = match assets_ref {
-            Some(a) => entity_sprite_or_color(a, entity_key, render, feature_color(kind, false)),
-            None => Sprite::from_color(feature_color(kind, false), render),
+            Some(a) => entity_sprite_or_color(a, entity_key, render, feature_color(kind, fighting, false)),
+            None => Sprite::from_color(feature_color(kind, fighting, false), render),
         };
         commands.spawn((
             sprite,
@@ -104,16 +104,16 @@ pub fn spawn_dynamic_feature_visuals(
         let (false, Some(config)) = (disposition.is_peaceful(), config) else {
             continue;
         };
-        let kind = if config.tuning.is_sandbag {
-            FeatureVisualKind::TrainingDummy
-        } else {
-            FeatureVisualKind::Enemy
-        };
+        // ONE actor kind; hostile-by-construction ⇒ the fighting placeholder tint
+        // (the sandbag depiction is resolved by the sprite-upgrade fallback, not
+        // a render kind).
+        let kind = FeatureVisualKind::Actor;
+        let fighting = true;
         let render = BVec2::new(aabb.size().x, aabb.size().y);
         let entity_key = game_assets::entity_sprite_for_enemy(&config.brain);
         let sprite = match assets_ref {
-            Some(a) => entity_sprite_or_color(a, entity_key, render, feature_color(kind, false)),
-            None => Sprite::from_color(feature_color(kind, false), render),
+            Some(a) => entity_sprite_or_color(a, entity_key, render, feature_color(kind, fighting, false)),
+            None => Sprite::from_color(feature_color(kind, fighting, false), render),
         };
         commands.spawn((
             sprite,
@@ -129,7 +129,10 @@ pub fn spawn_dynamic_feature_visuals(
         if known.contains(id.as_str()) {
             continue;
         }
-        let kind = FeatureVisualKind::Npc;
+        let kind = FeatureVisualKind::Actor;
+        // A provoked post-boss NPC reads as fighting (warm placeholder tint); an
+        // at-rest one stays peaceful/cool.
+        let fighting = !disposition.is_peaceful();
         let render = BVec2::new(aabb.size().x, aabb.size().y);
         // A peaceful post-boss NPC resolves its sprite from the dialogue
         // interactable; a hostile one (provoked) from its archetype brain.
@@ -145,8 +148,8 @@ pub fn spawn_dynamic_feature_visuals(
             }
         };
         let sprite = match assets_ref {
-            Some(a) => entity_sprite_or_color(a, entity_key, render, feature_color(kind, false)),
-            None => Sprite::from_color(feature_color(kind, false), render),
+            Some(a) => entity_sprite_or_color(a, entity_key, render, feature_color(kind, fighting, false)),
+            None => Sprite::from_color(feature_color(kind, fighting, false), render),
         };
         commands.spawn((
             sprite,
@@ -169,9 +172,9 @@ pub fn spawn_dynamic_feature_visuals(
                 a,
                 entity_key,
                 render,
-                feature_color(FeatureVisualKind::Chest, false),
+                feature_color(FeatureVisualKind::Chest, false, false),
             ),
-            None => Sprite::from_color(feature_color(FeatureVisualKind::Chest, false), render),
+            None => Sprite::from_color(feature_color(FeatureVisualKind::Chest, false, false), render),
         };
         commands.spawn((
             sprite,

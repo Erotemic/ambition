@@ -103,8 +103,9 @@ pub use ecs::{
     derive_pogo_target_volumes, despawn_encounter_mobs, dissolve_settled_grudges,
     ecs_actor_anim_state, ecs_actor_render_size, ecs_boss_anim_state,
     ecs_boss_anim_state_and_entity, ecs_boss_animation_frame_sample, ecs_boss_name,
-    ecs_breakable_state, ecs_chest_opened, ecs_enemy_name, ecs_enemy_sprite_override,
-    ecs_hit_event_hits_actor, ecs_hit_event_hits_boss, ecs_hit_event_hits_breakable, ecs_npc_name,
+    ecs_actor_is_sandbag, ecs_actor_name, ecs_breakable_state, ecs_chest_opened,
+    ecs_enemy_sprite_override,
+    ecs_hit_event_hits_actor, ecs_hit_event_hits_boss, ecs_hit_event_hits_breakable,
     enforce_mount_rider_link, integrate_boss_bodies, integrate_sim_bodies,
     interact_ecs_actors_and_switches, sync_boss_strike_hitboxes,
     magnetize_pickups, open_ecs_chests, pirate_on_shark_rider_offset,
@@ -127,7 +128,7 @@ pub use ecs::{
 };
 pub use ecs::{ActorAnimFrame, ActorSpriteData};
 pub use enemies::{
-    composite_visual_plan, enemy_visual_kind, install_enemy_roster, ActorSpawnState,
+    composite_visual_plan, enemy_spawn_is_sandbag, install_enemy_roster, ActorSpawnState,
     ActorSurfaceState, CharacterRoster, CompositeVisualPlan, EnemyRespawnPolicy,
     ENEMY_DEAD_UNTIL_REST_SUFFIX,
 };

@@ -37,7 +37,7 @@ pub const GNU_TON_HANDS_Z: f32 = 20.5;
 
 /// Replace the static `boss_core.png` look on boss feature entities with
 /// the animated boss spritesheet once the asset is available. Symmetric
-/// with `upgrade_enemy_sprites` but uses `BossAnimator` instead of
+/// with `upgrade_actor_sprites` but uses `BossAnimator` instead of
 /// `CharacterAnimator` because the boss generator emits its own row set.
 pub fn upgrade_boss_sprites(
     mut commands: Commands,
@@ -74,21 +74,24 @@ pub fn upgrade_boss_sprites(
                 Some(ambition_gameplay_core::features::FeatureView {
                     pos: boss.kin.pos,
                     size: boss.render_size(),
-                    kind: FeatureVisualKind::Boss,
+                    kind: FeatureVisualKind::Actor,
                     visible: health.alive(),
                     flash: combat.hit_flash > 0.0
                         || attack_state.telegraph_profile.is_some()
                         || attack_state.active_profile.is_some(),
+                    // A boss in its encounter is definitionally a combatant.
+                    fighting: true,
                     switch_on: false,
                     rotation_rad: 0.0,
                 })
             })
         else {
+            // The `ecs_bosses` query IS the gate — a non-boss `visual.id` yields no
+            // view and is skipped here. (The former `FeatureVisualKind::Boss` kind
+            // check is gone; a boss is an actor like any other, distinguished by
+            // its own query family, not a render variant.)
             continue;
         };
-        if !matches!(view.kind, FeatureVisualKind::Boss) {
-            continue;
-        }
         // Pick the per-boss sheet by authored name. Each boss has its
         // own spritesheet from a dedicated Python generator; unrecognized
         // bosses fall back to the gradient-sentinel sheet.

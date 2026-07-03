@@ -13,7 +13,6 @@ use bevy::prelude::*;
 use bevy::sprite::Anchor;
 
 use crate::character_sprites::{RenderBasis, SheetRecord};
-use crate::features::FeatureVisualKind;
 use crate::persistence::settings::VisualQualityBudget;
 
 /// Boss animation rows in the order the generator emits them.
@@ -1160,13 +1159,6 @@ pub fn pick_boss_anim(state: BossAnimState) -> BossAnim {
         };
     }
     BossAnim::Rest
-}
-
-/// True if a feature kind is "the boss". Kept here so the rendering layer
-/// can ask `BossSprites::should_animate(kind)` without inlining the match.
-#[cfg_attr(not(test), allow(dead_code))]
-pub fn is_boss_kind(kind: FeatureVisualKind) -> bool {
-    matches!(kind, FeatureVisualKind::Boss)
 }
 
 #[cfg(test)]

@@ -396,14 +396,6 @@ fn render_size_floors_at_minimum_extent() {
 }
 
 #[test]
-fn is_boss_kind_only_true_for_boss_variant() {
-    assert!(is_boss_kind(FeatureVisualKind::Boss));
-    assert!(!is_boss_kind(FeatureVisualKind::Enemy));
-    assert!(!is_boss_kind(FeatureVisualKind::Hazard));
-    assert!(!is_boss_kind(FeatureVisualKind::Chest));
-}
-
-#[test]
 fn gnu_ton_sheet_has_six_rows() {
     assert_eq!(GNU_TON_SHEET.rows.len(), 6);
 }

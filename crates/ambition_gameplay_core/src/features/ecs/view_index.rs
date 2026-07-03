@@ -10,8 +10,8 @@ use super::*;
 ///
 /// Rebuilt once per frame by [`rebuild_feature_view_index`] from the
 /// pickup / chest / breakable / switch / actor / hazard / boss queries.
-/// Presentation code (`sync_visuals`, `upgrade_enemy_sprites`,
-/// `upgrade_npc_sprites`) used to call into per-id helpers that
+/// Presentation code (`sync_visuals`, `upgrade_actor_sprites`) used to
+/// call into per-id helpers that
 /// re-scanned every one of those queries on every visual every frame —
 /// quadratic in the number of features. With the index, each scan is
 /// O(features) once per frame and per-id lookup is O(1).
@@ -102,8 +102,8 @@ pub fn rebuild_feature_view_index(
         // by `sync_boss_actor_components`) but are their OWN feature family below.
         // Without this exclusion a boss matches here too and — because the actor
         // family is inserted before the boss family (first-wins priority) — it gets
-        // classified as an invisible `Enemy` (its `ActorStatus`/`ActorConfig` are
-        // absent), shadowing the boss view → the boss renders as the generic enemy
+        // classified as an invisible generic `Actor` (its `ActorStatus`/`ActorConfig`
+        // are absent), shadowing the boss view → the boss renders as the generic
         // fallback sprite instead of its sheet. This is the boss-exclusion the
         // deleted `ActorRuntime` tag used to provide implicitly.
         Without<super::boss_clusters::BossConfig>,
@@ -136,6 +136,7 @@ pub fn rebuild_feature_view_index(
                 kind: FeatureVisualKind::Pickup,
                 visible: collected.is_none(),
                 flash: false,
+                fighting: false,
                 switch_on: false,
                 rotation_rad: 0.0,
             },
@@ -150,6 +151,7 @@ pub fn rebuild_feature_view_index(
                 kind: FeatureVisualKind::Chest,
                 visible: true,
                 flash: opened.is_some(),
+                fighting: false,
                 switch_on: false,
                 rotation_rad: 0.0,
             },
@@ -164,6 +166,7 @@ pub fn rebuild_feature_view_index(
                 kind: FeatureVisualKind::Breakable,
                 visible: !breakable.broken(),
                 flash: breakable.breakable.state == ambition_interaction::BreakableState::Cracking,
+                fighting: false,
                 switch_on: false,
                 rotation_rad: 0.0,
             },
@@ -178,6 +181,7 @@ pub fn rebuild_feature_view_index(
                 kind: FeatureVisualKind::Switch,
                 visible: true,
                 flash: false,
+                fighting: false,
                 switch_on: switch_on.0,
                 rotation_rad: 0.0,
             },
@@ -185,19 +189,14 @@ pub fn rebuild_feature_view_index(
     }
     for (id, aabb, disposition, combat, health, attack, config, surface, roll) in &actors {
         let roll_rad = roll.map_or(0.0, |r| r.angle);
-        // Visual kind is now a FUNCTION OF STATE, not an actor type: a sandbag
-        // tuning renders as a training dummy; a hostile disposition as an enemy;
-        // everything peaceful as an NPC. A provoked NPC (now `Hostile`) therefore
-        // renders red automatically, with no separate type flip.
+        // ONE actor kind. "enemy vs NPC vs training-dummy" was never a render
+        // *type* — it's the actor's STATE (fighting-or-not) plus its depiction
+        // (sandbag/name fallback in the sprite-upgrade system). `fighting` is a
+        // STATE flag stamped from the disposition signal (interim, until it moves
+        // onto a `FightingAble` component): a provoked NPC enters the fighting
+        // state and its placeholder shifts to the fighting tint with no type flip.
         let hostile = disposition.is_hostile();
         let alive = health.is_some_and(|h| h.alive());
-        let kind = if config.is_some_and(|c| c.tuning.is_sandbag) {
-            FeatureVisualKind::TrainingDummy
-        } else if hostile {
-            FeatureVisualKind::Enemy
-        } else {
-            FeatureVisualKind::Npc
-        };
         // Peaceful actors are always visible (they don't die); hostile actors are
         // visible while alive.
         let visible = !hostile || alive;
@@ -232,9 +231,10 @@ pub fn rebuild_feature_view_index(
             FeatureView {
                 pos: aabb.center,
                 size: render_size,
-                kind,
+                kind: FeatureVisualKind::Actor,
                 visible,
                 flash,
+                fighting: hostile,
                 switch_on: false,
                 rotation_rad,
             },
@@ -249,6 +249,7 @@ pub fn rebuild_feature_view_index(
                 kind: FeatureVisualKind::Hazard,
                 visible: hazard.hazard.active(),
                 flash: false,
+                fighting: false,
                 switch_on: false,
                 rotation_rad: 0.0,
             },
@@ -267,7 +268,7 @@ pub fn rebuild_feature_view_index(
             FeatureView {
                 pos: boss.kin.pos,
                 size: boss.render_size(),
-                kind: FeatureVisualKind::Boss,
+                kind: FeatureVisualKind::Actor,
                 visible,
                 // Hit-flash reads the shared combat mirror; telegraph /
                 // active windows read `BossAttackState` (the brain's
@@ -275,6 +276,8 @@ pub fn rebuild_feature_view_index(
                 flash: combat.hit_flash > 0.0
                     || attack_state.telegraph_profile.is_some()
                     || attack_state.active_profile.is_some(),
+                // A boss in its encounter is definitionally a combatant.
+                fighting: true,
                 switch_on: false,
                 rotation_rad: roll.map_or(0.0, |r| r.angle),
             },
@@ -301,6 +304,7 @@ mod view_index_tests {
             kind: FeatureVisualKind::Switch,
             visible,
             flash: false,
+            fighting: false,
             switch_on: false,
             rotation_rad: 0.0,
         }

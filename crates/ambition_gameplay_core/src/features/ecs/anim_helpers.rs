@@ -52,10 +52,24 @@ pub struct ActorAnimFrame {
     pub attacking: bool,
 }
 
-pub fn ecs_npc_name(id: &str, actors: &Query<ActorSpriteData>) -> Option<String> {
+/// An actor's authored display name, the primary sprite-lookup key for the
+/// unified actor sprite-upgrade system (ONE helper for every actor — the former
+/// `ecs_npc_name`/`ecs_enemy_name` were byte-identical, split only because the
+/// render variants were).
+pub fn ecs_actor_name(id: &str, actors: &Query<ActorSpriteData>) -> Option<String> {
     actors
         .iter()
         .find_map(|a| (a.feature_id.as_str() == id).then(|| a.config.name.clone()))
+}
+
+/// Whether an actor carries the sandbag (passive practice-target) tuning. The
+/// unified sprite-upgrade fallback keys the sandbag sheet off this (the surviving
+/// home of the deleted `visual_kind` derivation) instead of a render variant.
+pub fn ecs_actor_is_sandbag(id: &str, actors: &Query<ActorSpriteData>) -> bool {
+    actors
+        .iter()
+        .find_map(|a| (a.feature_id.as_str() == id).then(|| a.config.tuning.is_sandbag))
+        .unwrap_or(false)
 }
 
 /// Explicit sprite render-quad size for an actor whose collision was derived
@@ -82,19 +96,6 @@ pub fn ecs_enemy_sprite_override(id: &str, actors: &Query<ActorSpriteData>) -> O
         }
         a.config.sprite_override_npc_name.clone()
     })
-}
-
-/// Per-enemy display name, used by `upgrade_enemy_sprites` as a
-/// fallback sprite-lookup key when no explicit `sprite_override` is
-/// set. Lets direct `EnemySpawn` entities (no NPC migration history)
-/// pick up a content sheet by name — e.g. the intro raiders resolve
-/// to `raid_enforcer_spritesheet`
-/// via the intro NPC sprite registry without authors having to
-/// double-register them as an `enemy_sprite_registry`.
-pub fn ecs_enemy_name(id: &str, actors: &Query<ActorSpriteData>) -> Option<String> {
-    actors
-        .iter()
-        .find_map(|a| (a.feature_id.as_str() == id).then(|| a.config.name.clone()))
 }
 
 /// Resolve ANY brain-driven actor's animation frame from its REAL ECS clusters —

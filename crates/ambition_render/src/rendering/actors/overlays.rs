@@ -214,7 +214,7 @@ pub fn apply_placeholder_sprites_override(
             }
             let feature_view = feature.and_then(|fv| feature_views.get(&fv.id));
             let placeholder_color = pick_placeholder_color(
-                feature_view.map(|v| v.kind),
+                feature_view.map(|v| (v.kind, v.fighting)),
                 player.is_some(),
                 proj_kind.copied(),
             );
@@ -256,7 +256,7 @@ pub fn apply_placeholder_sprites_override(
 }
 
 fn pick_placeholder_color(
-    feature_kind: Option<FeatureVisualKind>,
+    feature: Option<(FeatureVisualKind, bool)>,
     is_player: bool,
     proj_kind: Option<ambition_gameplay_core::projectile::ProjectileVisualKind>,
 ) -> Color {
@@ -270,8 +270,8 @@ fn pick_placeholder_color(
         let [r, g, b, a] = kind.debug_tint();
         return Color::srgba(r, g, b, a);
     }
-    match feature_kind {
-        Some(kind) => feature_color(kind, false),
+    match feature {
+        Some((kind, fighting)) => feature_color(kind, fighting, false),
         None => Color::srgba(0.70, 0.70, 0.72, 1.0),
     }
 }

@@ -104,6 +104,7 @@ pub(crate) use bosses::boss_component_snapshot;
 pub use bosses::BossSpriteMetricsApplied;
 pub use bosses::{
     boss_spawn_hurtboxes, derive_boss_sprite_metrics, integrate_boss_bodies,
+    sync_boss_strike_hitboxes, FrameDrivenBossStrike,
     sync_boss_actor_components, sync_boss_encounter_phase, tick_boss_brains_system,
     update_ecs_bosses,
 };

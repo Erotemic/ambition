@@ -398,27 +398,19 @@ pub fn body_damage_aabb(pos: ae::Vec2, combat_size: ae::Vec2) -> ae::Aabb {
     ae::Aabb::new(pos, combat_size * 0.5)
 }
 
-/// Compute the per-tick boss → player damage event, if any.
+/// Compute the per-tick boss BODY-CONTACT damage event, if any.
 ///
-/// Pure: reads the brain's `BossAttackState` (which strike is live,
-/// which profile) + the boss body fields + the behavior's damage
-/// scalars.
+/// Pure: reads the boss body fields + the behavior's `body_damage`. Returns
+/// `Some(HitEvent)` when the boss body has positive `body_damage` and its contact
+/// envelope overlaps the target.
 ///
-/// Returns `Some(HitEvent)` when:
-///   - A strike is live (`attack_state.active_profile.is_some()`)
-///     and one of its volumes overlaps `player_body`, OR
-///   - The boss body has positive `body_damage` and overlaps the
-///     player.
+/// STRIKE damage no longer flows through here (fable AD2): a live strike maintains
+/// frame-driven Boss `Hitbox` entities (`sync_boss_strike_hitboxes`) resolved by the
+/// SHARED `apply_hitbox_damage` Boss branch. This helper is the boss body-contact
+/// arm only, pending its fold onto `apply_actor_contact_damage`.
 ///
-/// Body contact wins only if the strike arm didn't fire.
-///
-/// `player_entity` is the player whose body is being tested; it's
-/// stamped on the returned event's `target` so the player-side
-/// reader lands the hit on that player rather than primary. The
-/// caller (`update_ecs_bosses`) reads each boss's `ActorTarget` to
-/// pick the per-boss victim and passes it down here. `boss_entity`
-/// is the attacking boss; it is stamped as the event's `attacker` so
-/// the victim's `DeathCause` attributes the kill to this boss.
+/// `target_is_player` picks the `HitTarget` stamp; `boss_entity` is stamped as the
+/// event's `attacker` so the victim's `DeathCause` attributes the kill to this boss.
 pub fn boss_attack_damage(
     ctx: &BossVolumeContext,
     boss_entity: bevy::prelude::Entity,
@@ -448,32 +440,6 @@ pub fn boss_attack_damage(
             x.signum()
         }
     };
-
-    // Strike arm: the brain's `active_profile` is the single source
-    // of truth for "there's a live boss hitbox right now".
-    if ctx.attack_state.active_profile.is_some() {
-        let volumes = active_attack_volumes(ctx);
-        if let Some(volume) = volumes
-            .into_iter()
-            .find(|volume| volume.strict_intersects(target_body))
-        {
-            return Some(HitEvent {
-                volume: volume.into(),
-                damage: ctx.behavior.attack_damage.max(1),
-                source: HitSource::BossAttack,
-                attacker: Some(boss_entity),
-                target: stamp(target_entity),
-                mode: HitMode::Knockback,
-                knockback: Some(HitKnockback {
-                    dir: signum_or(target_body.center().x - ctx.pos.x, 1.0),
-                    strength: 1.25,
-                    source_pos: ctx.pos,
-                    impact_pos: midpoint(target_body.center(), volume.center()),
-                }),
-                ignored_targets: Vec::new(),
-            });
-        }
-    }
 
     // Body-contact arm: only fires when no strike landed, and only when the
     // behavior opts into body damage.

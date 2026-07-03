@@ -9,7 +9,131 @@ use ambition_characters::brain::{
     StateMachineCfg,
 };
 use ambition_engine_core::AabbExt;
-use bevy::prelude::MessageWriter;
+use bevy::prelude::{Commands, Component, Entity, MessageWriter};
+
+/// Marks a Boss-faction strike [`crate::combat::hitbox::Hitbox`] whose geometry is
+/// re-derived each tick from the owning boss's live `active_attack_volumes` (one
+/// marker per volume `part`). This is fable AD2's generalization: a sprite-frame-
+/// driven / multi-part boss strike (GNU-ton's hands) tracks the drawn pose
+/// frame-by-frame through the SHARED hitbox pipeline (`apply_hitbox_damage`'s Boss
+/// branch), instead of the bespoke per-tick `boss_attack_damage` poll.
+#[derive(Component, Clone, Copy, Debug)]
+pub struct FrameDrivenBossStrike {
+    pub part: usize,
+}
+
+/// Aggressor push for a boss strike (matches the old `boss_attack_damage` strike arm).
+const BOSS_STRIKE_KNOCKBACK: f32 = 1.25;
+/// Backstop lifetime, refreshed every tick the strike stays live; the reconcile
+/// despawns explicitly on strike-end, this just reaps a leaked hitbox if the boss
+/// despawns mid-strike.
+const BOSS_STRIKE_LIFETIME_S: f32 = 0.2;
+
+/// Reconcile per-frame boss STRIKE hitboxes (fable AD2). Replaces the
+/// `boss_attack_damage` strike poll: while a boss's `active_attack_volumes` is
+/// non-empty, maintain one Boss-faction `Hitbox` per volume part — updating its
+/// geometry each tick so a frame-driven strike tracks the drawn pose — and despawn
+/// them when the strike ends. Damage then flows through the ONE shared
+/// `apply_hitbox_damage` Boss branch (deduped hit-once-per-victim per strike via
+/// `HitboxHits`). Possessed / dead bosses maintain none (the old
+/// `!boss_player_controlled && alive` gate).
+#[allow(clippy::type_complexity)]
+pub fn sync_boss_strike_hitboxes(
+    mut commands: Commands,
+    gravity: crate::physics::GravityCtx,
+    bosses: Query<
+        (
+            Entity,
+            super::super::boss_clusters::BossClusterRef,
+            &ambition_characters::actor::BodyHealth,
+            &BossAttackState,
+            &Brain,
+            Option<&crate::features::BossAnimationFrameSample>,
+        ),
+        With<FeatureSimEntity>,
+    >,
+    mut strikes: Query<(
+        Entity,
+        &FrameDrivenBossStrike,
+        &mut crate::combat::hitbox::Hitbox,
+        &mut crate::combat::hitbox::HitboxLifetime,
+    )>,
+) {
+    use crate::combat::hitbox::{Hitbox, HitboxAnchor, HitboxHits, HitboxLifetime};
+    use crate::features::active_attack_volumes;
+
+    // Live strike volumes for a boss this tick (empty ⇒ no strike / gated off).
+    let volumes_for = |entity: Entity| -> Vec<ae::Aabb> {
+        let Ok((_, feature, health, attack_state, brain, anim)) = bosses.get(entity) else {
+            return Vec::new();
+        };
+        if !health.alive() || brain.is_player() {
+            return Vec::new();
+        }
+        let ctx = BossVolumeContext::from_ref(feature.as_boss_ref(), attack_state)
+            .with_animation_frame(anim);
+        active_attack_volumes(&ctx)
+    };
+
+    // Pass 1 — update existing strike hitboxes in place (preserving `HitboxHits`
+    // dedup), or despawn ones whose strike/part ended.
+    let mut present: std::collections::HashSet<(Entity, usize)> = std::collections::HashSet::new();
+    for (hb_entity, marker, mut hitbox, mut lifetime) in &mut strikes {
+        let owner = hitbox.owner;
+        let volumes = volumes_for(owner);
+        let Some(v) = volumes.get(marker.part).copied() else {
+            commands.entity(hb_entity).despawn();
+            continue;
+        };
+        let owner_pos = bosses.get(owner).map(|(_, f, ..)| f.kin.pos).unwrap_or_default();
+        hitbox.half_extent = v.half_size();
+        hitbox.anchor = HitboxAnchor::FollowOwner {
+            local_offset: v.center() - owner_pos,
+        };
+        hitbox.frame_down = gravity.dir_at(owner_pos);
+        lifetime.remaining_s = BOSS_STRIKE_LIFETIME_S;
+        present.insert((owner, marker.part));
+    }
+
+    // Pass 2 — spawn any missing part for a live strike.
+    for (boss_entity, feature, health, attack_state, brain, anim) in &bosses {
+        if !health.alive() || brain.is_player() {
+            continue;
+        }
+        let ctx = BossVolumeContext::from_ref(feature.as_boss_ref(), attack_state)
+            .with_animation_frame(anim);
+        let volumes = active_attack_volumes(&ctx);
+        let owner_pos = feature.kin.pos;
+        let frame_down = gravity.dir_at(owner_pos);
+        let damage = feature.config.behavior.attack_damage.max(1);
+        for (i, v) in volumes.iter().enumerate() {
+            if present.contains(&(boss_entity, i)) {
+                continue;
+            }
+            commands.spawn((
+                Hitbox {
+                    owner: boss_entity,
+                    source: crate::combat::components::ActorFaction::Boss,
+                    anchor: HitboxAnchor::FollowOwner {
+                        local_offset: v.center() - owner_pos,
+                    },
+                    half_extent: v.half_size(),
+                    shape: None,
+                    facing: 1.0,
+                    damage,
+                    knockback_strength: BOSS_STRIKE_KNOCKBACK,
+                    knock_x: 0.0,
+                    frame_down,
+                },
+                HitboxLifetime {
+                    remaining_s: BOSS_STRIKE_LIFETIME_S,
+                },
+                HitboxHits::default(),
+                FrameDrivenBossStrike { part: i },
+            ));
+        }
+    }
+}
 
 /// Sync each boss's `encounter_phase` mirror from the entity-local
 /// [`BossPhaseState`] copy (`BossEncounter.encounter`). The mirror is a convenience

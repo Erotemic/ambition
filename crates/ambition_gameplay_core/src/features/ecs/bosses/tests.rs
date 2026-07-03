@@ -14,6 +14,69 @@ use ambition_engine_core as ae;
 /// leaves `combat_offset` at zero, and derives no combat size. A
 /// regression that started emitting static body parts for GNU-ton
 /// (changing its combat envelope + pogo zone) would trip this.
+/// AD2 mechanism pin: while a boss strike is live, `sync_boss_strike_hitboxes`
+/// maintains a Boss-faction frame-driven `Hitbox` per active volume — the shared
+/// hitbox pipeline replacing the `boss_attack_damage` strike poll. A subtly-broken
+/// wiring (no spawn, wrong faction, no geometry) would deal no strike damage and
+/// escape the contact-only `boss_contact_iframes` test; this guards the spawn.
+#[test]
+fn boss_strike_spawns_a_frame_driven_boss_hitbox() {
+    use ambition_characters::brain::{BossAttackProfile, BossAttackState, Brain};
+    use bevy::prelude::*;
+
+    let combat_size = ae::Vec2::new(80.0, 80.0);
+    let pos = ae::Vec2::new(300.0, 300.0);
+    let mut boss = super::super::boss_clusters::BossClusterScratch::new(
+        "warden",
+        "Clockwork Warden",
+        ae::Aabb::new(pos, combat_size * 0.5),
+        ambition_characters::actor::BossBrain::Dormant,
+    );
+    boss.config.behavior = crate::features::bosses::BossBehaviorProfile::clockwork_warden();
+    let (kin, config, status, health) = boss.into_components();
+
+    let mut app = App::new();
+    app.add_plugins(MinimalPlugins);
+    app.add_systems(Update, super::sync_boss_strike_hitboxes);
+    let attack = BossAttackState {
+        active_profile: Some(BossAttackProfile::FloorSlam),
+        active_remaining: 0.5,
+        ..Default::default()
+    };
+    app.world_mut().spawn((
+        kin,
+        config,
+        status,
+        health,
+        attack,
+        Brain::stand_still(),
+        super::super::FeatureSimEntity,
+    ));
+    app.update();
+
+    let mut q = app
+        .world_mut()
+        .query::<(&crate::combat::hitbox::Hitbox, &super::FrameDrivenBossStrike)>();
+    let hits: Vec<_> = q.iter(app.world()).collect();
+    assert!(
+        !hits.is_empty(),
+        "a live boss strike should spawn at least one frame-driven Boss hitbox"
+    );
+    let (hb, _) = hits[0];
+    assert_eq!(
+        hb.source,
+        crate::combat::components::ActorFaction::Boss,
+        "boss strike hitbox must carry the Boss faction so apply_hitbox_damage routes it"
+    );
+    assert!(hb.damage >= 1, "strike hitbox should deal damage");
+    // The hitbox tracks the strike volume: its world AABB (FloorSlam sits above the
+    // body) is non-degenerate and offset from the body center.
+    assert!(
+        hb.half_extent.x > 0.0 && hb.half_extent.y > 0.0,
+        "strike hitbox should have a real extent from active_attack_volumes"
+    );
+}
+
 #[test]
 fn boss_spawn_hurtboxes_resolves_without_panicking() {
     // The headless renderer helper builds a transient boss + baked

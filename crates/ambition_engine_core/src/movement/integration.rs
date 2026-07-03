@@ -509,19 +509,30 @@ pub(super) fn integrate_flight_clusters(
 
     let target_run = local_stick.x * tuning.flight_terminal_speed;
     let mut target_descend = local_stick.y * tuning.flight_terminal_speed;
-    if local_stick.y.abs() <= 0.10 {
+    if !tuning.flight_direct_velocity && local_stick.y.abs() <= 0.10 {
         target_descend = flight.flight_phase.sin() * tuning.flight_hover_speed;
     }
 
-    let mut new_run = approach(vel_run, target_run, tuning.flight_accel * dt);
-    let mut new_descend = approach(vel_descend, target_descend, tuning.flight_accel * dt);
+    let (mut new_run, mut new_descend) = if tuning.flight_direct_velocity {
+        // Direct-velocity free-mover: the controller commanded an exact velocity
+        // (`stick × terminal` == its `velocity_target`), so take it verbatim — no
+        // accel ramp, drag, hover-bob, or deadzone. Byte-identical to a SNAP float
+        // (`step_floating_body`, `accel: None`) so a boss flies through the ONE
+        // pipeline without a motion change. The clamp below is a harmless no-op
+        // (`|stick| ≤ 1` already bounds this to ±terminal).
+        (target_run, target_descend)
+    } else {
+        let mut new_run = approach(vel_run, target_run, tuning.flight_accel * dt);
+        let mut new_descend = approach(vel_descend, target_descend, tuning.flight_accel * dt);
 
-    if local_stick.x.abs() <= 0.10 {
-        new_run = approach(new_run, 0.0, tuning.flight_drag * dt);
-    }
-    if local_stick.y.abs() <= 0.10 {
-        new_descend = approach(new_descend, target_descend, tuning.flight_drag * dt);
-    }
+        if local_stick.x.abs() <= 0.10 {
+            new_run = approach(new_run, 0.0, tuning.flight_drag * dt);
+        }
+        if local_stick.y.abs() <= 0.10 {
+            new_descend = approach(new_descend, target_descend, tuning.flight_drag * dt);
+        }
+        (new_run, new_descend)
+    };
 
     new_run = new_run.clamp(-tuning.flight_terminal_speed, tuning.flight_terminal_speed);
     new_descend = new_descend.clamp(-tuning.flight_terminal_speed, tuning.flight_terminal_speed);

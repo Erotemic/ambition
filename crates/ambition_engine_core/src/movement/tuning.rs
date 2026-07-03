@@ -276,6 +276,16 @@ pub struct MovementTuning {
     pub flight_terminal_speed: f32,
     pub flight_hover_speed: f32,
     pub flight_hover_hz: f32,
+    /// Direct-velocity free-mover: the controller commands an EXACT velocity each
+    /// tick (a boss pattern's `desired_vel`), so the flight limb takes
+    /// `stick × flight_terminal_speed` verbatim — no accel ramp, drag, hover-bob,
+    /// or deadzone. This is the shared-seam equivalent of a SNAP integrator
+    /// (`step_floating_body` with `accel: None`), letting a floating boss fly
+    /// through the ONE movement pipeline byte-identically to its old bespoke float.
+    /// `#[serde(default)]` (false) so pre-existing tuning files + every ordinary
+    /// flyer (parrot, hover-drone) keep the smoothed accel/drag flight unchanged.
+    #[serde(default)]
+    pub flight_direct_velocity: bool,
     pub coyote_time: f32,
     pub jump_buffer: f32,
     pub pogo_speed: f32,
@@ -353,6 +363,8 @@ pub const DEFAULT_TUNING: MovementTuning = MovementTuning {
     flight_terminal_speed: FLIGHT_TERMINAL_SPEED,
     flight_hover_speed: FLIGHT_HOVER_SPEED,
     flight_hover_hz: FLIGHT_HOVER_HZ,
+    // Smoothed accel/drag flight is the default; direct-velocity is opt-in per body.
+    flight_direct_velocity: false,
     coyote_time: COYOTE_TIME,
     jump_buffer: JUMP_BUFFER,
     pogo_speed: POGO_SPEED,

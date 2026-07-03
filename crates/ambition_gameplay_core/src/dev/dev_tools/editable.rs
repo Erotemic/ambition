@@ -217,6 +217,9 @@ impl EditableMovementTuning {
             flight_terminal_speed: self.flight_terminal_speed,
             flight_hover_speed: self.flight_hover_speed,
             flight_hover_hz: self.flight_hover_hz,
+            // The editable dev tuning drives the PLAYER body (smoothed flight);
+            // direct-velocity is a per-body opt-in the boss sets in its own tuning.
+            flight_direct_velocity: false,
             coyote_time: self.coyote_time,
             jump_buffer: self.jump_buffer,
             pogo_speed: self.pogo_speed,

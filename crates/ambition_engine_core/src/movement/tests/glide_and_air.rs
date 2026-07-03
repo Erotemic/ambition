@@ -441,6 +441,68 @@ fn fly_toggle_switches_mode_and_counters_gravity() {
 }
 
 #[test]
+fn direct_velocity_flight_takes_the_commanded_velocity_verbatim() {
+    // A free-mover (a boss pattern) commands an EXACT velocity each tick. With
+    // `flight_direct_velocity`, the shared flight limb takes `stick × terminal`
+    // verbatim in ONE step — byte-identical to a SNAP float (`step_floating_body`,
+    // `accel: None`) — so a boss folds onto the ONE movement pipeline with no
+    // motion change. The smoothed default only *approaches* the target, so a
+    // single step falls short: this is exactly the difference the boss fold must
+    // erase.
+    use crate::world::World;
+    let world = World {
+        name: "open air".to_string(),
+        size: Vec2::new(4000.0, 4000.0),
+        spawn: Vec2::new(2000.0, 2000.0),
+        blocks: Vec::new(),
+        climbable_regions: Vec::new(),
+        water_regions: Vec::new(),
+    };
+    let terminal = 400.0;
+    let mut tuning = DEFAULT_TUNING;
+    tuning.flight_terminal_speed = terminal;
+    tuning.flight_hover_speed = 0.0;
+    tuning.flight_hover_hz = 0.0;
+    let make_flyer = || {
+        let mut s = scratch_with(AbilitySet::sandbox_all(), Vec2::new(2000.0, 2000.0));
+        s.ground.on_ground = false;
+        s.flight.fly_enabled = true;
+        s.kinematics.vel = Vec2::ZERO;
+        s
+    };
+    let input = InputState {
+        axis_x: 0.5,
+        axis_y: -0.25,
+        ..Default::default()
+    };
+
+    // Direct-velocity: exact after a single step (no ramp).
+    let mut direct = make_flyer();
+    let mut direct_tuning = tuning;
+    direct_tuning.flight_direct_velocity = true;
+    update_player_with_tuning_scratch(&world, &mut direct, input, 1.0 / 60.0, direct_tuning);
+    assert!(
+        (direct.kinematics.vel.x - 0.5 * terminal).abs() < 1e-3,
+        "direct-velocity x should be exactly stick×terminal, got {}",
+        direct.kinematics.vel.x
+    );
+    assert!(
+        (direct.kinematics.vel.y - (-0.25) * terminal).abs() < 1e-3,
+        "direct-velocity y should be exactly stick×terminal, got {}",
+        direct.kinematics.vel.y
+    );
+
+    // Smoothed default: only approaches the target, so a single step falls short.
+    let mut smoothed = make_flyer();
+    update_player_with_tuning_scratch(&world, &mut smoothed, input, 1.0 / 60.0, tuning);
+    assert!(
+        smoothed.kinematics.vel.x.abs() < (0.5 * terminal) - 1.0,
+        "smoothed flight should ramp toward the target, not snap: {}",
+        smoothed.kinematics.vel.x
+    );
+}
+
+#[test]
 fn the_player_rides_a_horizontally_moving_platform() {
     // A floor carrying a rightward per-frame velocity. The player standing on it is
     // carried right by the platform — EMERGENT in the movement sweep (the same rule

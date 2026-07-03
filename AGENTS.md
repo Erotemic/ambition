@@ -158,3 +158,19 @@ python scripts/check_doc_links.py
 ```
 
 Use narrower tests when a focused test already covers the touched concept.
+
+
+## Resource accounting — the resource cost of the LLM work (CRITICAL: DO THIS EVERY COMMIT)
+
+For every commit produced by an LLM agent; we keep a measured record of the
+compute each commit cost. It is near-zero effort:
+
+- Install once: `git config core.hooksPath dev/resource_tally/hooks` — then every
+  commit auto-records. (Or run `python3 dev/resource_tally/resource_tally.py record`
+  right after committing.)
+- At the end of a work session: `python3 dev/resource_tally/resource_tally.py rollup`.
+- Codex/other agents: `record --transcript <path/to/session.jsonl>`.
+
+Tokens/model are MEASURED from your session transcript (deduped by message id — do
+not hand-count). The ledger (`dev/resource_tally/data/resource-ledger.jsonl`) 
+is append-only, per-session, concurrency-safe. See `dev/resource_tally/README.md`.

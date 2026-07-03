@@ -607,6 +607,12 @@ green bros come into play. TB bench maybe.
 
 ----
 
+Davy Hylbert runs a Hotel in the big town and he has a space in it where he
+measures you against a vector or something like that.
+
+----
+
+
 On the engine architecture:
 
 A primary goal of ambition should be to create a game engine on the level of
@@ -620,4 +626,19 @@ In addition to making the game I want to make, we should be able to have a demo
 repo where we express iconic games in the ambition engine: We should have (or
 at this stage be able to have) clones of Celeste, Hollow Knight, Metroid, Dead
 Cells, Money Seize (a pet favorite), Super Mario Bros (1985), Smash Bros to
-demonstrate the expressibility of the engine.
+demonstrate the expressibility of the engine. Maybe Sonic, Braid, Rain World to
+test engine edge cases.
+
+The engine should ideally be composed of mostly independent medium sized
+well-scoped crates to the degree possible. We need to lean into the plugin
+architecture. My guess is that our version 1.0 won't get to the full beautiful
+system I want, but if a large subset of our crates are reusable to make writing
+new games easier, that is a win.
+
+
+Our work was interrupted. I committed the partial state to
+c3fd6db749036f55ef54ec04c32832365b44677f. In the meantime I had another agent
+take on some of the easier problems. I'm hoping what they did was helpful. We
+should probably give it a review, update the document appropriately if it
+closed anything prematurely (It was a decent GPT 5.5 model, so I trust it did
+more good than harm), and then continue with the fable-hard tasks.

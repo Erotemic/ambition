@@ -20,7 +20,6 @@ members = [
     "crates/ambition_gameplay_core",
     "crates/ambition_sfx",
     "crates/ambition_sfx_bank",
-    "crates/ambition_sim_view",
     "crates/ambition_sprite_sheet",
     "crates/ambition_time",
     "crates/ambition_gameplay_trace",

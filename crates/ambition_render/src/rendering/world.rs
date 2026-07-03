@@ -21,7 +21,7 @@ use ambition_gameplay_core::character_sprites::{
     build_character_sprite, feet_anchor_for, CharacterAnimator,
 };
 use ambition_engine_core::config::{world_to_bevy, GRID_STEP, WORLD_Z_BLOCK, WORLD_Z_PLAYER};
-use ambition_gameplay_core::features::FeatureVisualKind;
+use ambition_sim_view::FeatureVisualKind;
 use ambition_gameplay_core::rooms::{LoadingZone, LoadingZoneActivation, PropSpec};
 use ambition_gameplay_core::world::physics;
 

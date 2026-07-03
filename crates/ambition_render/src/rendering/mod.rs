@@ -54,9 +54,10 @@ pub use actors::{
     refresh_prop_sprites_on_game_assets_change, sync_visuals, upgrade_boss_sprites,
     upgrade_enemy_sprites, upgrade_npc_sprites,
 };
-// `BoundFeatureKind` moved to `combat` (sim owns it); re-exported here
-// so existing render call sites resolve unchanged.
-pub use ambition_gameplay_core::combat::BoundFeatureKind;
+// `BoundFeatureKind` lives in `ambition_sim_view` (the sim→presentation
+// read-model crate, fable review D3); re-exported here so existing render
+// call sites resolve unchanged.
+pub use ambition_sim_view::BoundFeatureKind;
 // `manage_gradient_lane_visual` + `GradientLaneVisual` stay
 // module-private; the schedule registration uses
 // `actors::manage_gradient_lane_visual` directly so no outside

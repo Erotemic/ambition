@@ -71,7 +71,7 @@ pub fn upgrade_boss_sprites(
                 let boss = item.as_boss_ref();
                 // `flash` reads `BossAttackState` instead of the deleted
                 // `attack_timer` / `attack_windup_timer` mirror fields.
-                Some(ambition_gameplay_core::features::FeatureView {
+                Some(ambition_sim_view::FeatureView {
                     pos: boss.kin.pos,
                     size: boss.render_size(),
                     kind: FeatureVisualKind::Boss,

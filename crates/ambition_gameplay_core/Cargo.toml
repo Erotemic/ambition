@@ -355,6 +355,11 @@ ambition_portal_presentation = { path = "../ambition_portal_presentation", optio
 # smoother), camera-ease, and feel modules on top. ADR 0010/0011. See
 # docs/current/state.md (T1b).
 ambition_time = { path = "../ambition_time" }
+# Sim -> presentation read-model vocabulary (FeatureView / FeatureVisualKind /
+# BoundFeatureKind / FeatureCombatTuning). gameplay_core WRITES these; the
+# renderer READS them from the same leaf crate instead of depending on
+# gameplay_core for them (fable review D3, the render-edge cut).
+ambition_sim_view = { path = "../ambition_sim_view" }
 # ECS-native pure-logic core (geometry / movement / collision / player_state /
 # abilities / ledge_grab / world / player_clusters + the shared BodyKinematics
 # body component). The build-time foundation; re-exported as `crate::engine_core`

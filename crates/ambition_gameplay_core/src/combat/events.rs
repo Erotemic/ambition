@@ -1,7 +1,8 @@
 //! Combat-kit message/event vocabulary + small shared value types.
 //!
-//! Holds the feature-visual taxonomy (`FeatureVisualKind`, `BoundFeatureKind`,
-//! the `FeatureView` render snapshot, `FeatureCombatTuning`), the hit model
+//! Re-exports the sim→presentation read-model vocabulary (`FeatureVisualKind`,
+//! `BoundFeatureKind`, `FeatureView`, `FeatureCombatTuning`) from
+//! `ambition_sim_view` where it now lives (fable review D3); holds the hit model
 //! (`HitMode`, `HitKnockback`, `ActorStimulus`), the typed gameplay-effect
 //! messages consumed in [`bus`](super::bus) (`SetFlagRequested`,
 //! `QuestAdvanceRequested`, `SwitchActivated`, `GameplaySfxRequested`), the
@@ -10,89 +11,17 @@
 
 use super::*;
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum FeatureVisualKind {
-    Hazard,
-    Enemy,
-    /// A passive practice target (struck to test damage/feedback). Rendered with
-    /// a sandbag sprite — the depiction is content; the kit kind is generic.
-    TrainingDummy,
-    Boss,
-    Breakable,
-    Chest,
-    Pickup,
-    Npc,
-    /// Latched switch. Renders as a colored block whose color depends
-    /// on `FeatureView::switch_on` (red = off, green = on).
-    Switch,
-}
-
-/// Marker binding a feature visual to its kind + collision size (moved here from
-/// the render layer so the mount gameplay can remove it without importing presentation).
-#[derive(Component, Clone, Copy, Debug, PartialEq)]
-pub struct BoundFeatureKind {
-    pub kind: FeatureVisualKind,
-    pub collision_size: ae::Vec2,
-}
-
-impl BoundFeatureKind {
-    pub fn new(kind: FeatureVisualKind, collision: bevy::math::Vec2) -> Self {
-        Self {
-            kind,
-            collision_size: ae::Vec2::new(collision.x, collision.y),
-        }
-    }
-
-    pub fn matches(&self, kind: FeatureVisualKind, collision_size: ae::Vec2) -> bool {
-        self.kind == kind && (self.collision_size - collision_size).length_squared() <= 0.25
-    }
-}
-
-#[derive(Clone, Copy, Debug)]
-pub struct FeatureView {
-    pub pos: ae::Vec2,
-    pub size: ae::Vec2,
-    pub kind: FeatureVisualKind,
-    pub visible: bool,
-    pub flash: bool,
-    /// For `FeatureVisualKind::Switch`: true when the switch reads as
-    /// "on" (encounter cleared / reset path armed). Renders green when
-    /// true, red when false. Ignored for other kinds.
-    pub switch_on: bool,
-    /// Z-axis rotation to apply to the rendered sprite, in radians
-    /// (Bevy frame; +π/2 is CCW). Non-zero for surface-walking
-    /// archetypes that crawl on walls/ceilings; everyone else
-    /// reports 0.0 and renders axis-aligned. Uses the engine → Bevy
-    /// rotation mapping shared by actor rendering.
-    pub rotation_rad: f32,
-}
-
-#[derive(Clone, Copy, Debug)]
-pub struct FeatureCombatTuning {
-    pub enemy_attack_windup: f32,
-    pub enemy_attack_active: f32,
-    pub boss_attack_windup: f32,
-    pub boss_attack_active: f32,
-}
-
-/// Default attack-phase timings (seconds). Single source of truth, shared by
-/// [`FeatureCombatTuning::default`] and `SandboxFeelTuning::default` (which
-/// projects them back out via `SandboxFeelTuning::feature_combat_tuning`).
-pub const DEFAULT_ENEMY_ATTACK_WINDUP: f32 = 0.36;
-pub const DEFAULT_ENEMY_ATTACK_ACTIVE: f32 = 0.20;
-pub const DEFAULT_BOSS_ATTACK_WINDUP: f32 = 0.52;
-pub const DEFAULT_BOSS_ATTACK_ACTIVE: f32 = 0.32;
-
-impl Default for FeatureCombatTuning {
-    fn default() -> Self {
-        Self {
-            enemy_attack_windup: DEFAULT_ENEMY_ATTACK_WINDUP,
-            enemy_attack_active: DEFAULT_ENEMY_ATTACK_ACTIVE,
-            boss_attack_windup: DEFAULT_BOSS_ATTACK_WINDUP,
-            boss_attack_active: DEFAULT_BOSS_ATTACK_ACTIVE,
-        }
-    }
-}
+// The feature-visual read-model vocabulary now lives in `ambition_sim_view`
+// (fable review D3): pure-data snapshot types the renderer consumes, homed in a
+// leaf crate so presentation depends on it instead of on this 95k crate.
+// Re-exported here so every existing `crate::combat::events::*` /
+// `crate::features::*` path keeps resolving; render names `ambition_sim_view::`
+// directly. Callers that build these still write them; the sim owns the values.
+pub use ambition_sim_view::{
+    BoundFeatureKind, FeatureCombatTuning, FeatureView, FeatureVisualKind,
+    DEFAULT_BOSS_ATTACK_ACTIVE, DEFAULT_BOSS_ATTACK_WINDUP, DEFAULT_ENEMY_ATTACK_ACTIVE,
+    DEFAULT_ENEMY_ATTACK_WINDUP,
+};
 
 /// Victim reaction mode for `HitEvent`s landing on a player. Ignored
 /// for non-player targets.

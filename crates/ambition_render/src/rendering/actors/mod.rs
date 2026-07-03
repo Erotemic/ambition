@@ -20,11 +20,12 @@ use ambition_gameplay_core::character_sprites::{
     build_character_sprite, build_character_sprite_with_render_size, feet_anchor_for,
     feet_anchor_for_render_size, player_placeholder_render_size, CharacterAnimator,
 };
-use ambition_gameplay_core::combat::BoundFeatureKind;
+use ambition_sim_view::BoundFeatureKind;
 use ambition_engine_core::config::{world_to_bevy, WORLD_Z_PLAYER};
+use ambition_sim_view::FeatureVisualKind;
 use ambition_gameplay_core::features::{
     ActorRenderSize, BossClusterRef, BreakableFeature, ChestFeature, FeatureId, FeatureViewIndex,
-    FeatureVisualKind, Opened,
+    Opened,
 };
 use ambition_gameplay_core::persistence::settings::TextureResolutionScale;
 

@@ -288,6 +288,7 @@ dependencies = [
  "ambition_portal",
  "ambition_portal_presentation",
  "ambition_sfx",
+ "ambition_sim_view",
  "ambition_sprite_sheet",
  "ambition_time",
  "ambition_ui_nav",
@@ -402,6 +403,7 @@ dependencies = [
  "ambition_platformer_primitives",
  "ambition_portal_presentation",
  "ambition_sfx",
+ "ambition_sim_view",
  "ambition_sprite_sheet",
  "ambition_time",
  "ambition_vfx",
@@ -424,6 +426,14 @@ name = "ambition_sfx_bank"
 version = "0.1.0"
 dependencies = [
  "thiserror 1.0.69",
+]
+
+[[package]]
+name = "ambition_sim_view"
+version = "0.1.0"
+dependencies = [
+ "ambition_engine_core",
+ "bevy",
 ]
 
 [[package]]

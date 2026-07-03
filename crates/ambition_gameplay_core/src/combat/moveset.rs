@@ -137,6 +137,24 @@ pub fn advance_move_playback(
             }
         }
 
+        // Sustained (held) effects: while `t` is inside a window carrying a
+        // `sustain_effect`, emit its `Effect` EVERY frame — the consuming technique
+        // times its own cadence off this per-frame "active this tick" signal. This
+        // is how a move expresses a HELD special (a lingering beam, a continuous
+        // rain), the shape the boss `apple_rain`-style specials need. Dilation
+        // stretches the sustain the same way (fewer proper-time frames of it).
+        for window in &pb.spec.windows {
+            if let Some(key) = &window.sustain_effect {
+                if window.start_s <= t && t < window.end_s {
+                    events.write(MoveEventMessage {
+                        owner,
+                        move_id: pb.spec.id.clone(),
+                        kind: MoveEventKind::Effect { key: key.clone() },
+                    });
+                }
+            }
+        }
+
         // Active windows: spawn volumes on entry, despawn on exit. The box
         // lives exactly while the OWNER'S clock is inside the window, so
         // dilation stretches the box's world-time life automatically.
@@ -602,6 +620,72 @@ mod tests {
             .move_for_verb("special")
             .unwrap()
             .clone()
+    }
+
+    /// A held "beam": a 0.30s window that SUSTAINS an `Effect` every active frame.
+    fn beam_move() -> MoveSpec {
+        let doc = ambition_entity_catalog::EntityCatalogDoc::parse(
+            r#"(
+                schema_version: 1,
+                entities: [(
+                    id: "caster",
+                    contracts: (moveset: Some((
+                        verbs: {"special": "beam"},
+                        moves: [(
+                            id: "beam",
+                            clip: (clip: "special", fallbacks: ["idle"]),
+                            duration_s: 0.40,
+                            windows: [
+                                (start_s: 0.0, end_s: 0.30, tag: Active, volumes: [],
+                                 sustain_effect: Some("beam_tick")),
+                                (start_s: 0.30, end_s: 0.40, tag: Recovery, volumes: []),
+                            ],
+                        )],
+                    ))),
+                )],
+            )"#,
+        )
+        .unwrap();
+        assert!(doc.validate().is_empty());
+        doc.entity("caster")
+            .unwrap()
+            .contracts
+            .moveset
+            .as_ref()
+            .unwrap()
+            .move_for_verb("special")
+            .unwrap()
+            .clone()
+    }
+
+    /// The HELD-special primitive (fable review §A1, the shape the boss fold needs):
+    /// a window carrying a `sustain_effect` emits its `Effect` EVERY frame it is
+    /// active (not one-shot), and STOPS the frame the window ends — so a consuming
+    /// technique gets the continuous "active this tick" signal the boss's
+    /// apple_rain-style specials run on. Pins the per-frame sustain.
+    #[test]
+    fn a_sustained_effect_window_emits_its_effect_every_active_frame() {
+        let (mut app, _victim) = app_with_victim();
+        let _caster = spawn_attacker(
+            &mut app,
+            ae::Vec2::new(400.0, 100.0), // far from the victim — no hits, just the sustain
+            ae::Vec2::new(15.0, 24.0),
+            beam_move(),
+        );
+        // Run PAST the sustain window (0.30s) but within the move (0.40s).
+        run_seconds(&mut app, 0.36);
+        let cap = app.world().resource::<Captured>();
+        let beam_ticks = cap
+            .events
+            .iter()
+            .filter(|e| matches!(&e.kind, MoveEventKind::Effect { key } if key == "beam_tick"))
+            .count();
+        // ~0.30s / 0.016 ≈ 18 active frames; robustly many, and it stopped (the
+        // move is 0.40s but the sustain window ended at 0.30s → not every frame).
+        assert!(
+            (15..=19).contains(&beam_ticks),
+            "the sustain fired once per active frame (~18), got {beam_ticks}"
+        );
     }
 
     /// Smash-like MULTI-HIT expressivity (fable review §A1): a single authored move

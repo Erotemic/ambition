@@ -90,6 +90,14 @@ pub struct MoveWindow {
     /// Hit volumes live during this window (meaningful for `Active`).
     #[serde(default)]
     pub volumes: Vec<HitVolume>,
+    /// A SUSTAINED content effect: while this window is active, an `Effect { key }`
+    /// is emitted EVERY frame (not one-shot like a `MoveEvent`). This is how a move
+    /// expresses a HELD/continuous special — a beam that lingers, a rain that keeps
+    /// falling — where the consuming technique times its own cadence off the
+    /// per-frame "active this tick" signal (the shape the boss `apple_rain`-style
+    /// specials need; the boss fold rides this). `None` for ordinary windows.
+    #[serde(default)]
+    pub sustain_effect: Option<String>,
 }
 
 /// A timed one-shot on the move timeline.

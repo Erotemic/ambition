@@ -163,7 +163,8 @@ pub const POGO_BOUNCE_KEY: &str = "pogo_bounce";
 pub struct PogoTarget;
 
 /// Params for the `pogo_bounce` technique. `rise` is the gravity-up rebound
-/// speed (engine units); omitted → the default pop.
+/// speed (engine units); omitted → the default pop (matches the flat player
+/// `pogo_speed` for feel parity).
 #[derive(serde::Deserialize)]
 struct PogoBounceParams {
     #[serde(default = "default_pogo_rise")]
@@ -171,7 +172,7 @@ struct PogoBounceParams {
 }
 
 fn default_pogo_rise() -> f32 {
-    520.0
+    720.0
 }
 
 impl Default for PogoBounceParams {
@@ -180,6 +181,13 @@ impl Default for PogoBounceParams {
             rise: default_pogo_rise(),
         }
     }
+}
+
+/// The rebound speed a `pogo_bounce` [`EffectRef`] carries — hydrated from its
+/// params, defaulting when absent/malformed. Shared by the entity pogo
+/// ([`apply_pogo_bounce`]) and the world-orb pogo (`pogo_moveset_off_world_orbs`).
+pub(crate) fn pogo_rise_from(effect: &EffectRef) -> f32 {
+    effect.params.hydrate::<PogoBounceParams>().unwrap_or_default().rise
 }
 
 /// The engine pogo technique: rebound the OWNER (gravity-up) when its on-hit
@@ -203,9 +211,7 @@ pub fn apply_pogo_bounce(
         if pogo_targets.get(msg.victim).is_err() {
             continue;
         }
-        // Malformed params fall back to the default pop (a startup param-schema
-        // check — R2.2 — turns this into a hard authoring error).
-        let params: PogoBounceParams = msg.effect.params.hydrate().unwrap_or_default();
+        let rise = pogo_rise_from(&msg.effect);
         let Ok((mut kin, mut ground)) = owners.get_mut(msg.owner) else {
             continue;
         };
@@ -213,7 +219,7 @@ pub fn apply_pogo_bounce(
         // SET (not add) the jump velocity → idempotent if two victims land the
         // same frame. No cross-frame dedup needed: the owner bounces away.
         let pos = kin.pos;
-        ae::movement::set_jump_velocity(&mut kin.vel, gdir, params.rise);
+        ae::movement::set_jump_velocity(&mut kin.vel, gdir, rise);
         ground.on_ground = false;
         sfx.write(SfxMessage::Pogo { pos });
     }

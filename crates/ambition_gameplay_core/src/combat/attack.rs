@@ -144,6 +144,61 @@ fn pogo_target_for_attack_hitbox(world: &ae::World, attack: ae::Aabb) -> Option<
         .map(|block| block.aabb)
 }
 
+/// World-ORB pogo for the MOVESET down-air (fable review R2.5, the block half of
+/// the unified pogo). When a body playing a `pogo_bounce` on-hit move
+/// (`attack_air_down`) overlaps a world `PogoOrb` block, rebound it away from
+/// gravity — the collision-world orbs the flat player pogo used, now that the
+/// melee fold routes the down-air through the moveset. The ENTITY half (enemies,
+/// breakables) rides `dispatch_hitbox_on_hit` + `apply_pogo_bounce`; together
+/// they are one pogo (`PogoTarget` entities + `PogoOrb` blocks). `set_jump_
+/// velocity` SETS (idempotent), so no per-frame dedup — the owner bounces clear.
+pub fn pogo_moveset_off_world_orbs(
+    world: Res<RoomGeometry>,
+    moving_platforms: Res<MovingPlatformSet>,
+    feature_ecs_overlay: Res<FeatureEcsWorldOverlay>,
+    gravity: physics::GravityCtx,
+    hitboxes: Query<(
+        &ambition_vfx::Hitbox,
+        &crate::combat::on_hit::HitboxOnHit,
+    )>,
+    boxes: Query<&features::CenteredAabb>,
+    mut owners: Query<(&mut ae::BodyKinematics, &mut crate::actor::BodyGroundState)>,
+    mut sfx: MessageWriter<SfxMessage>,
+) {
+    // The pogo hitboxes live this frame + where their volume covers.
+    let pogo: Vec<(Entity, ae::Aabb, f32)> = hitboxes
+        .iter()
+        .filter(|(_, on_hit)| on_hit.effect.key == crate::combat::on_hit::POGO_BOUNCE_KEY)
+        .filter_map(|(hitbox, on_hit)| {
+            let owner_box = boxes.get(hitbox.owner).ok()?;
+            let world_box = hitbox.world_volume(owner_box.center).bounds();
+            Some((
+                hitbox.owner,
+                world_box,
+                crate::combat::on_hit::pogo_rise_from(&on_hit.effect),
+            ))
+        })
+        .collect();
+    if pogo.is_empty() {
+        return;
+    }
+    let assembled =
+        features::world_with_sandbox_solids(&world.0, &moving_platforms.0, &feature_ecs_overlay);
+    for (owner, world_box, rise) in pogo {
+        if pogo_target_for_attack_hitbox(&assembled, world_box).is_none() {
+            continue;
+        }
+        let Ok((mut kin, mut ground)) = owners.get_mut(owner) else {
+            continue;
+        };
+        let gdir = gravity.dir_at(kin.pos);
+        let pos = kin.pos;
+        ae::movement::set_jump_velocity(&mut kin.vel, gdir, rise);
+        ground.on_ground = false;
+        sfx.write(SfxMessage::Pogo { pos });
+    }
+}
+
 #[allow(clippy::too_many_arguments)]
 pub fn start_attack(
     sfx: &mut MessageWriter<SfxMessage>,

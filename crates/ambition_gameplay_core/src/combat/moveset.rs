@@ -29,7 +29,7 @@ use bevy::prelude::{
 
 use ambition_engine_core as ae;
 use ambition_entity_catalog::{
-    AttackDir, ClipBinding, HitVolume, MoveEvent, MoveEventKind, MoveSpec, MoveWindow,
+    AttackDir, ClipBinding, EffectRef, HitVolume, MoveEvent, MoveEventKind, MoveSpec, MoveWindow,
     MovesetContract, VolumeShape, WindowTag,
 };
 use ambition_time::ProperTimeScale;
@@ -187,6 +187,91 @@ pub fn fire_move_from_ranged(spec: &RangedActionSpec) -> MoveSpec {
 /// signature-move repertoire. The single seam every actor-spawn path calls so a
 /// body's basic swing, its shot, and its specials live in ONE `MovesetContract`.
 /// Returns `None` when the body has none of them.
+/// A body-local direction to transform the base swing's reach into.
+#[derive(Clone, Copy)]
+enum Dir {
+    Fwd,
+    Up,
+    Down,
+    Back,
+}
+
+/// Derive a body's DIRECTIONAL melee variants from its base `"attack"` move by
+/// transforming that move's hit volume: the forward reach rotates up / down
+/// (its dimensions swap) or mirrors behind, so a character's ONE authored swing
+/// yields up-/down-tilt + the four aerials + the pogo down-air, all scaled by
+/// ITS own reach and body. Presentation clip and grounded gate change per
+/// variant; timing/damage/knockback are inherited. Each entry is
+/// `(verb id, MoveSpec)` — the verb the directional trigger resolves to.
+fn directional_attack_variants(base: &MoveSpec) -> Vec<(String, MoveSpec)> {
+    fn xf(dir: Dir, offset: (f32, f32), half: (f32, f32)) -> ((f32, f32), (f32, f32)) {
+        let ((ox, oy), (hx, hy)) = (offset, half);
+        match dir {
+            Dir::Fwd => ((ox, oy), (hx, hy)),
+            // +x reach → up (-y); box dimensions swap under the quarter turn.
+            Dir::Up => ((0.0, -ox), (hy, hx)),
+            Dir::Down => ((0.0, ox), (hy, hx)),
+            Dir::Back => ((-ox, oy), (hx, hy)),
+        }
+    }
+    let variant = |id: &str, clip: &str, grounded: bool, dir: Dir, pogo: bool| -> MoveSpec {
+        let mut m = base.clone();
+        m.id = id.to_string();
+        m.clip.clip = clip.to_string();
+        m.gates.grounded = Some(grounded);
+        for w in &mut m.windows {
+            if !matches!(w.tag, WindowTag::Active) {
+                continue;
+            }
+            for v in &mut w.volumes {
+                if let VolumeShape::Rect {
+                    offset,
+                    half_extents,
+                } = v.shape
+                {
+                    let (o, h) = xf(dir, offset, half_extents);
+                    v.shape = VolumeShape::Rect {
+                        offset: o,
+                        half_extents: h,
+                    };
+                }
+                if pogo {
+                    // The down-air's landing pogo — an engine on-hit technique
+                    // (fable review AJ1). Fires off any `PogoTarget` (enemy or orb).
+                    v.on_hit = Some(EffectRef::new(crate::combat::on_hit::POGO_BOUNCE_KEY));
+                }
+            }
+        }
+        m
+    };
+    vec![
+        (
+            "attack_up".to_string(),
+            variant("attack_up", "attack_up", true, Dir::Up, false),
+        ),
+        (
+            "attack_down".to_string(),
+            variant("attack_down", "attack_down", true, Dir::Down, false),
+        ),
+        (
+            "attack_air".to_string(),
+            variant("attack_air", "attack_air", false, Dir::Fwd, false),
+        ),
+        (
+            "attack_air_up".to_string(),
+            variant("attack_air_up", "attack_up", false, Dir::Up, false),
+        ),
+        (
+            "attack_air_back".to_string(),
+            variant("attack_air_back", "attack_air", false, Dir::Back, false),
+        ),
+        (
+            "attack_air_down".to_string(),
+            variant("attack_air_down", "attack_air_down", false, Dir::Down, true),
+        ),
+    ]
+}
+
 pub fn build_actor_moveset(
     signature: Option<&MovesetContract>,
     melee: Option<&MeleeActionSpec>,
@@ -198,6 +283,18 @@ pub fn build_actor_moveset(
         contract
             .verbs
             .insert(ATTACK_VERB.to_string(), attack.id.clone());
+        // Directional variants DERIVED from the base swing (fable review R2.5):
+        // the character's ONE authored melee becomes up-/down-tilt + the four
+        // aerials + the pogo down-air, scaled by ITS reach — not a hardcoded
+        // per-character table. Every controlled body (human / brain / RL) resolves
+        // these through the SAME directional trigger; a neutral, grounded attacker
+        // (every enemy today, since brains don't aim) still resolves `"attack"`,
+        // so the swing that lands is byte-identical.
+        for (verb, mv) in directional_attack_variants(&attack) {
+            contract.verbs.insert(verb, mv.id.clone());
+            contract.moves.retain(|m| m.id != mv.id);
+            contract.moves.push(mv);
+        }
         // Replace any existing attack move (idempotent) then push.
         contract.moves.retain(|m| m.id != attack.id);
         contract.moves.push(attack);
@@ -511,8 +608,15 @@ pub fn trigger_moveset_moves(
         let grounded = ground.map(|g| g.on_ground).unwrap_or(true);
         let spec = if frame.special_pressed {
             moveset.0.move_for_verb("special")
-        } else if frame.melee_pressed {
-            let dir = attack_dir_from_axis(frame.attack_axis);
+        } else if frame.melee_pressed || frame.pogo_pressed {
+            // A dedicated pogo press IS a down-air (the move carrying the pogo
+            // on-hit technique); a plain melee press resolves by aim. When only
+            // pogo is pressed, force Down so an aerial body reaches `attack_air_down`.
+            let dir = if frame.pogo_pressed && !frame.melee_pressed {
+                AttackDir::Down
+            } else {
+                attack_dir_from_axis(frame.attack_axis)
+            };
             moveset.0.move_for_directional_verb(ATTACK_VERB, dir, grounded)
         } else if frame.fire.is_some() {
             // A ranged intent (`frame.fire = Some(dir)`) starts the body's `"ranged"`
@@ -638,16 +742,26 @@ pub fn project_moveset_melee_to_body_melee(
     mut bodies: Query<(Option<&MovePlayback>, &mut BodyMelee), With<MovesetMelee>>,
 ) {
     for (playback, mut melee) in &mut bodies {
-        // Only the MELEE `"attack"` move projects a swing. A body carrying its ranged
-        // shot (`"ranged"`) or a special as a moveset move is ALSO `MovesetMelee`, and
-        // those moves are NOT swings — projecting one would publish a phantom
-        // `BodyMelee.swing` that the movement pipeline reads as "mid-attack" and would
-        // freeze a firing/special-ing body in place. Match the move id to the swing.
+        // Only a MELEE swing move projects a swing — the base `"attack"` AND its
+        // directional variants (`attack_up` / `attack_air_down` / …). A body's
+        // ranged shot (`"ranged"`) or a special as a moveset move is ALSO
+        // `MovesetMelee`, and those are NOT swings — projecting one would publish a
+        // phantom `BodyMelee.swing` the movement pipeline reads as "mid-attack",
+        // freezing a firing/special-ing body. Match the melee verb family.
         match playback {
-            Some(pb) if pb.spec.id == ATTACK_VERB => melee.swing = Some(synth_swing_from_move(pb)),
+            Some(pb) if is_melee_swing_move(&pb.spec.id) => {
+                melee.swing = Some(synth_swing_from_move(pb))
+            }
             _ => melee.swing = None,
         }
     }
+}
+
+/// Whether a move id is a melee swing (the `"attack"` verb family) versus a
+/// ranged shot or a content special. The directional derive names every swing
+/// `attack` / `attack_<dir>`, so the melee family is exactly that prefix.
+fn is_melee_swing_move(id: &str) -> bool {
+    id == ATTACK_VERB || id.starts_with("attack_")
 }
 
 /// Build the read-model `MeleeSwing` for a live move: startup = first Active
@@ -691,7 +805,6 @@ fn synth_swing_from_move(pb: &MovePlayback) -> MeleeSwing {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use ambition_entity_catalog::EffectRef;
     use ambition_sfx::SfxMessage;
     use crate::combat::events::HitEvent;
     use crate::combat::hitbox::apply_hitbox_damage;

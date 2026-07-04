@@ -174,6 +174,12 @@ impl Plugin for CombatSchedulePlugin {
                 ambition_gameplay_core::combat::on_hit::dispatch_hitbox_on_hit
                     .run_if(gameplay_allowed),
                 ambition_gameplay_core::combat::on_hit::apply_pogo_bounce.run_if(gameplay_allowed),
+                // The BLOCK half of the unified pogo: a moveset down-air's pogo
+                // hitbox bounces off world `PogoOrb` blocks (the collision-world
+                // orbs the flat player pogo used), now that the melee fold routes
+                // the down-air through the moveset (fable review R2.5).
+                ambition_gameplay_core::combat::attack::pogo_moveset_off_world_orbs
+                    .run_if(gameplay_allowed),
                 ambition_gameplay_core::features::tick_and_despawn_hitboxes,
                 // Suppress combat damage during dialog / cutscene / pause: the
                 // victim-side `apply_player_hit_events` is already gated this way, so

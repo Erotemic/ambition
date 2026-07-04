@@ -71,6 +71,17 @@ pub struct PlayerSimulationBundle {
     /// reads them yet.
     pub brain: Brain,
     pub action_set: ActionSet,
+    /// The player's melee as DATA (fable review R2.5 / I7): the controlled
+    /// character's own swing, DERIVED into directional variants by
+    /// `build_actor_moveset`, run through the SAME moveset runtime every actor
+    /// uses. `MovesetMelee` makes the flat swing (`start_body_melee`) skip this
+    /// body. Built from `action_set.melee`, so whatever character the player
+    /// wears defines the melee — the non-player-centric / relativity principle:
+    /// human, brain, or RL all attach to the same character behavior. Ranged
+    /// stays on the player's charge system (`None` here), specials on the
+    /// `Special` channel — `MovesetMelee` folds only the melee.
+    pub moveset: crate::combat::moveset::ActorMoveset,
+    pub moveset_melee: crate::combat::moveset::MovesetMelee,
     pub actor_control: ActorControl,
     /// Capability marker: this body uses the chargeable-projectile (Fireball)
     /// ability. Gates `emit_player_projectile_tick_messages` by CAPABILITY rather
@@ -119,6 +130,10 @@ impl PlayerSimulationBundle {
         health: ambition_characters::actor::Health,
     ) -> Self {
         let action_set = default_player_action_set(scratch.abilities.abilities);
+        let moveset = crate::combat::moveset::ActorMoveset(
+            crate::combat::moveset::build_actor_moveset(None, action_set.melee.as_ref(), None)
+                .unwrap_or_default(),
+        );
         let initial_safe_pos = scratch.kinematics.pos;
         // `BodyKinematics` is the shared kinematic truth (its own component);
         // copy it out before the rest folds into the shared movement bundle.
@@ -149,6 +164,8 @@ impl PlayerSimulationBundle {
             // non-player body keeps that body's ActionSet — this
             // default fires only for actual player entities.
             action_set,
+            moveset,
+            moveset_melee: crate::combat::moveset::MovesetMelee,
             actor_control: ActorControl::default(),
             charges_projectiles: ambition_characters::brain::ChargesProjectiles,
             actor_pose: ActorPose::from_parts(
@@ -191,6 +208,17 @@ impl PlayerSimulationBundle {
         {
             let player_kit = bundle.action_set.clone();
             bundle.action_set = crate::player::overlay_character_moveset(player_kit, character_set);
+            // Re-derive the melee moveset from the WORN character's swing, so a
+            // starting character keeps its own melee (respecting the override) —
+            // the character defines behavior, the controller just attaches.
+            bundle.moveset = crate::combat::moveset::ActorMoveset(
+                crate::combat::moveset::build_actor_moveset(
+                    None,
+                    bundle.action_set.melee.as_ref(),
+                    None,
+                )
+                .unwrap_or_default(),
+            );
         }
         bundle
     }

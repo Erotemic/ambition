@@ -735,6 +735,89 @@ mod tests {
         }
     }
 
+    /// The full R2 ability vocabulary, authored entirely as RON: directional
+    /// verbs, a move-start `start_impulse` lunge, and an `on_hit` pogo volume.
+    /// The I7 acceptance — a fighter's whole kit is DATA, not code.
+    const R2_FIGHTER: &str = r#"
+    (
+        schema_version: 1,
+        entities: [(
+            id: "data_fighter",
+            contracts: (
+                moveset: Some((
+                    verbs: {
+                        "attack": "jab",
+                        "attack_air_down": "dair",
+                    },
+                    moves: [
+                        (
+                            id: "jab",
+                            clip: (clip: "jab", fallbacks: ["idle"]),
+                            duration_s: 0.30,
+                            windows: [
+                                (start_s: 0.04, end_s: 0.14, tag: Active, volumes: [
+                                    (shape: Rect(offset: (28.0, 0.0), half_extents: (20.0, 14.0)),
+                                     damage: 2, knockback: 120.0),
+                                ]),
+                            ],
+                            start_impulse: Some((30.0, 0.0)),
+                        ),
+                        (
+                            id: "dair",
+                            clip: (clip: "dair", fallbacks: ["idle"]),
+                            duration_s: 0.28,
+                            gates: (grounded: Some(false)),
+                            windows: [
+                                (start_s: 0.03, end_s: 0.14, tag: Active, volumes: [
+                                    (shape: Rect(offset: (0.0, 26.0), half_extents: (18.0, 18.0)),
+                                     damage: 3, knockback: 0.0,
+                                     on_hit: Some((key: "pogo_bounce"))),
+                                ]),
+                            ],
+                        ),
+                    ],
+                )),
+            ),
+        )],
+    )
+    "#;
+
+    #[test]
+    fn the_full_r2_vocabulary_is_authorable_as_ron() {
+        let doc = EntityCatalogDoc::parse(R2_FIGHTER).unwrap();
+        assert!(doc.validate().is_empty(), "{:?}", doc.validate());
+        let ms = doc
+            .entity("data_fighter")
+            .unwrap()
+            .contracts
+            .moveset
+            .as_ref()
+            .unwrap();
+        // Directional resolution off authored verbs: aerial + down → the dair,
+        // grounded neutral → the jab (the aerial-only dair is gate-skipped).
+        let dair = ms
+            .move_for_directional_verb("attack", AttackDir::Down, false)
+            .unwrap();
+        assert_eq!(dair.id, "dair");
+        let jab = ms
+            .move_for_directional_verb("attack", AttackDir::Down, true)
+            .unwrap();
+        assert_eq!(jab.id, "jab", "grounded skips the aerial-only dair");
+        // The jab carries its authored move-start lunge.
+        assert_eq!(jab.start_impulse, Some((30.0, 0.0)));
+        // The dair's Active volume carries the pogo on-hit technique.
+        let vol = dair
+            .windows
+            .iter()
+            .flat_map(|w| &w.volumes)
+            .next()
+            .expect("dair has an active volume");
+        assert_eq!(
+            vol.on_hit.as_ref().expect("dair volume authors on_hit").key,
+            "pogo_bounce",
+        );
+    }
+
     #[test]
     fn directional_verb_chain_orders_most_specific_first() {
         assert_eq!(

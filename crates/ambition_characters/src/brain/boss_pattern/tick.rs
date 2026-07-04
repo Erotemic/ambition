@@ -506,13 +506,13 @@ fn emit_desired_vel(
         BossMacroState::Engage => movement.target(cfg.spawn, state.movement_timer, ctx.target_pos),
     };
 
-    // While a DebrisRain strike is live, layer a horizontal dodge
-    // on top of the baseline sway so the giant reads as stepping
-    // aside to avoid its own experiment.
-    let apple_rain_active = matches!(cfg.movement, BossMovementProfile::StationaryGiant { .. })
-        && cfg.apple_rain_dodge_amp > 0.0
+    // While a strike is live, a self-dodging boss layers a horizontal dodge
+    // on top of the baseline sway so it reads as stepping aside to avoid its
+    // own experiment (GNU-ton weaving out of its apple rain).
+    let self_dodge_active = matches!(cfg.movement, BossMovementProfile::StationaryGiant { .. })
+        && cfg.self_dodge_amp > 0.0
         && ctx.encounter_phase.is_attacking();
-    if apple_rain_active {
+    if self_dodge_active {
         // Cheap proxy for "is DebrisRain active right now?": we
         // can't tell from inside this fn without reading the
         // BossAttackState mirror; rely on the boss tick system to

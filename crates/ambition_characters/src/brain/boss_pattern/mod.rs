@@ -412,15 +412,15 @@ pub struct BossPatternCfg {
     /// (during Active phase) or `BossAttackState.telegraph_profile`
     /// (during Windup phase). Empty for `Scripted` bosses.
     pub cycle_attacks: Vec<BossAttackProfile>,
-    /// Apple-rain horizontal dodge amplitude (px). The GNU-ton brain
-    /// adds a horizontal sway during an active DebrisRain strike
-    /// so the giant reads as "stepping aside to avoid its own
-    /// experiment". Set to 0 for bosses that don't dodge their own
-    /// special.
-    pub apple_rain_dodge_amp: f32,
-    /// Apple-rain horizontal dodge frequency (Hz-ish, fed into a
+    /// Self-dodge horizontal amplitude (px). A boss that dodges its OWN
+    /// strike adds a horizontal sway during the active window so it reads as
+    /// "stepping aside to avoid its own experiment" (GNU-ton weaves out of its
+    /// apple rain). Set to 0 for bosses that hold their ground. Authored as
+    /// boss DATA (`BossBehaviorProfile::self_dodge`); the engine names no boss.
+    pub self_dodge_amp: f32,
+    /// Self-dodge horizontal frequency (Hz-ish, fed into a
     /// `sin(movement_timer * freq)` oscillator).
-    pub apple_rain_dodge_freq: f32,
+    pub self_dodge_freq: f32,
     /// Chase/engage/retreat macro tuning. Use
     /// [`BossMacroTuning::disabled`] for legacy behavior (boss
     /// stays in `Engage` permanently and movement = movement
@@ -452,8 +452,8 @@ impl BossPatternCfg {
             cycle_attack_active: 0.2,
             cycle_attack_cooldown: 0.5,
             cycle_attacks: Vec::new(),
-            apple_rain_dodge_amp: 0.0,
-            apple_rain_dodge_freq: 0.0,
+            self_dodge_amp: 0.0,
+            self_dodge_freq: 0.0,
             macro_tuning: BossMacroTuning::disabled(),
         }
     }

@@ -1,9 +1,8 @@
 //! Boss runtime glue for the actor simulation: the [`boss_special_for_profile`]
 //! resolver that maps a `BossAttackProfile::Special(key)` to a
 //! `SpecialActionSpec` (the open seam `tick_boss_brains_system` uses to emit
-//! `ActorActionMessage::Special`), plus stable boss encounter-id consts
-//! ([`GNU_TON_ENCOUNTER_ID`], [`GRADIENT_SENTINEL_ENCOUNTER_ID`],
-//! [`GNU_TON_APPLE_OWNER_PREFIX`]). The boss PROFILE/pattern vocabulary and
+//! `ActorActionMessage::Special`), plus the apple-projectile owner prefix
+//! ([`GNU_TON_APPLE_OWNER_PREFIX`]). The boss PROFILE/pattern vocabulary and
 //! sprite metrics now live in `ambition_characters::brain::boss_pattern` and
 //! `crate::boss_encounter::behavior` and are re-exported here for legacy paths.
 
@@ -31,25 +30,11 @@ pub use ambition_characters::brain::boss_pattern::{BossAttackProfile, BossMoveme
 // `SpecialActionSpec` variant — instead of accumulating side-channel
 // `Vec`s the caller flushes.
 
-/// Encounter id of the gnu_ton boss — derived from
-/// `encounter_id_from_name("GNU-ton")`. Centralized so the boss
-/// ActionSet wiring (which binds the boss's special slot to
-/// `SpecialActionSpec::Special("apple_rain")`) can string-match without
-/// re-deriving the slug.
-pub const GNU_TON_ENCOUNTER_ID: &str = "gnu_ton";
-
 /// Stable id prefix used by the visuals layer to switch the
 /// flat-red-rectangle bullet shape to the apple sprite (red body +
 /// green leaf + brown stem). Keep in sync with
 /// `enemy_projectile::visuals::is_apple_owner`.
 pub const GNU_TON_APPLE_OWNER_PREFIX: &str = "gnu_ton_apple";
-
-// Gradient Sentinel encounter id (per `BossEncounterSpec::gradient_sentinel`).
-// Audit-engine name `clockwork_warden` resolves to the same boss via
-// `BossBehaviorProfile::for_authored_boss`; both ids surface through the
-// `BossEncounterRegistry`, but the canonical id used by the brain config
-// and EFFECTS consumers is the public name.
-pub const GRADIENT_SENTINEL_ENCOUNTER_ID: &str = "gradient_sentinel";
 
 // All boss-special tuning numbers (apple-rain cadence, overfit-volley sampling,
 // minima-trap / saddle-point / gradient-cascade params, the eye-beam tuning)

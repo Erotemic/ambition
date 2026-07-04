@@ -289,6 +289,8 @@
         movement_phase2: None,
         movement_enrage: None,
         strike_speed_scale: 1.0,
+        // GNU-ton weaves out of its own apple rain: (amplitude_px, frequency).
+        self_dodge: Some((70.0, 1.6)),
         macro_tuning: (
             too_close_distance: 0.0,
             too_far_distance: 0.0,

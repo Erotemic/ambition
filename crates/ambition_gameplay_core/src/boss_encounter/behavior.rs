@@ -45,6 +45,14 @@ pub struct BossBehaviorProfile {
     /// don't slide out from under the visual telegraph. `1.0` keeps
     /// pre-Gradient-Sentinel behavior.
     pub strike_speed_scale: f32,
+    /// Optional self-dodge: while a strike is committed, the boss side-steps
+    /// with the authored `(amplitude_px, frequency_hz)` so it can weave out of
+    /// its OWN attack — GNU-ton dodges its apple rain. `None` (the default when
+    /// the RON row omits it) = the boss holds its ground during strikes.
+    /// Data-driven by design: the engine spawn path reads this instead of
+    /// naming a specific boss, so the dependency points content -> core.
+    #[serde(default)]
+    pub self_dodge: Option<(f32, f32)>,
     /// Macro state machine tuning — when enabled, the boss runs an
     /// Engage / Approach / Retreat dance on top of the scripted
     /// attack schedule. See [`ambition_characters::brain::BossMacroTuning`].

@@ -669,14 +669,10 @@ pub(super) fn spawn_boss_with_overrides(
         .attack_active
         .max(combat_tuning.boss_attack_active)
         .max(0.01);
-    // GNU-ton dodges its own apple rain by side-stepping during the
-    // strike window. Other bosses don't have a self-dodge.
-    let (apple_rain_dodge_amp, apple_rain_dodge_freq) =
-        if encounter_id == crate::features::bosses::GNU_TON_ENCOUNTER_ID {
-            (70.0, 1.6)
-        } else {
-            (0.0, 0.0)
-        };
+    // A self-dodging boss side-steps during its strike window (GNU-ton weaves
+    // out of its own apple rain); the amplitude/frequency are authored boss
+    // DATA (`self_dodge` in `boss_profiles.ron`), so the engine names no boss.
+    let (self_dodge_amp, self_dodge_freq) = boss.config.behavior.self_dodge.unwrap_or((0.0, 0.0));
     let brain_cfg = ambition_characters::brain::BossPatternCfg {
         aggressiveness: 1.0,
         encounter_id: encounter_id.clone(),
@@ -691,8 +687,8 @@ pub(super) fn spawn_boss_with_overrides(
         cycle_attack_active,
         cycle_attack_cooldown: boss.config.behavior.attack_cooldown.max(0.05),
         cycle_attacks: boss.config.behavior.attacks.clone(),
-        apple_rain_dodge_amp,
-        apple_rain_dodge_freq,
+        self_dodge_amp,
+        self_dodge_freq,
         macro_tuning: boss.config.behavior.macro_tuning,
     };
     // Authored special repertoire as body CAPABILITY (persists across a brain

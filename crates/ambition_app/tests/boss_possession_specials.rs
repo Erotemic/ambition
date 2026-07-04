@@ -5,18 +5,22 @@
 //! Possession is brain transfer: `Brain::Player(PRIMARY)` moves onto the boss,
 //! which then reads slot input through the SAME universal-brain path every
 //! controlled body uses. The boss tick (`tick_boss_brains_system`) maps attack /
-//! special input onto the boss's persisted `BossCapability` (its authored
-//! strike repertoire, body data that survives the brain swap) and drives the
-//! SAME `BossAttackState` the autonomous pattern sets — so every downstream
-//! consumer (telegraph/active volumes, damage, `Special` techniques, anim) is
-//! unchanged. Capability is body data; the human is the policy choosing from it.
+//! special input onto the boss's persisted `BossCapability` (its authored strike
+//! repertoire, body data that survives the brain swap) and publishes a per-frame
+//! `BossAttackIntent` the shared moveset trigger reads (§A1 intent/projection split).
+//! A SPECIAL runs through the moveset like the autonomous pattern's — its move fires
+//! the content technique (with the possessor's effective Player faction) and projects
+//! the read-model. Capability is body data; the human is the policy choosing from it.
 //!
 //! This pins, driving REAL inputs through `SandboxSim::step`:
 //! 1. A ~2s Down+Interact hold next to a boss possesses it (its brain becomes
 //!    `Brain::Player`), without mutating its authored `Boss` faction.
-//! 2. Pressing Attack starts the boss's PRIMARY authored strike on its own
-//!    `BossAttackState` (`active_profile`), owned by the boss.
-//! 3. Pressing Special (blink button) fires the boss's SIGNATURE content special.
+//! 2. Pressing Attack (the boss's geometry-primary) is SUPPRESSED while possessed —
+//!    §A1 slice 1b made `BossAttackState` a pure projection, and a possessed geometry
+//!    strike starts no move, so it projects no read-model (a BLIND pose loss pending
+//!    the effective-faction follow-up; its damage was already suppressed).
+//! 3. Pressing Special (blink button) fires the boss's SIGNATURE content special —
+//!    it runs through the moveset, so its `active_profile` read-model is projected.
 //! 4. Releasing restores the boss's autonomous `BossPattern` brain.
 
 #![cfg(feature = "rl_sim")]
@@ -146,19 +150,26 @@ fn possessed_boss_commands_its_authored_specials_and_release_restores_the_patter
     // No strike in flight before we press.
     assert_eq!(active_profile(sim.world_mut(), boss), None);
 
-    // Attack → the boss's PRIMARY authored strike starts on ITS OWN attack state,
-    // same-frame (PlayerInput publishes SlotControls before the boss tick).
+    // The boss's PRIMARY strike (slot 0) is a GEOMETRY profile (HandSlam). §A1 slice 1b
+    // made `BossAttackState` a pure PROJECTION of the live `MovePlayback`, and a
+    // possessed boss's geometry strike is suppressed by `trigger_boss_attack_moves`
+    // (parity with the retired `sync_boss_strike_hitboxes`, which never struck for a
+    // player-controlled boss) — so it starts NO move and therefore projects NO strike
+    // read-model. Its damage was already suppressed; it now shows no strike POSE either
+    // (a BLIND presentation change, Jon feel-checks). Restoring it as a REAL strike —
+    // routed through the moveset with the possessor's EFFECTIVE faction so it hits the
+    // boss's former allies, not its possessor — is the effective-faction follow-up.
+    assert!(!primary.is_special(), "the primary (HandSlam) is a geometry strike");
     sim.step(AgentAction {
         attack: true,
         ..AgentAction::default()
     });
     assert_eq!(
         active_profile(sim.world_mut(), boss),
-        Some(primary),
-        "Attack starts the boss's primary authored strike (input → boss body action)"
+        None,
+        "a possessed geometry strike is suppressed (no move → no projected pose) \
+         pending the effective-faction follow-up"
     );
-
-    wait_out_strike(&mut sim, boss);
 
     // Special (the blink button maps to `special_pressed` in the player brain) →
     // the boss's SIGNATURE content special fires (emitting an

@@ -9,12 +9,13 @@ use ambition_characters::brain::{
 use ambition_engine_core::AabbExt;
 use bevy::prelude::{Commands, Entity};
 
-/// Copy the profile fields the trigger reads from a boss's finalized
-/// [`BossAttackState`] onto its [`BossAttackIntent`] (fable review §A1
-/// intent/projection split). The intent mirrors exactly what
-/// `trigger_boss_attack_moves` used to read directly off `BossAttackState`, so
-/// repointing the trigger at the intent is behavior-identical — and it frees
-/// `BossAttackState` to become a pure projection of the live `MovePlayback`.
+/// Copy the profile fields the trigger reads from the boss pattern brain's
+/// freshly-computed attack projection (`BossPatternState.attack_state`) onto its
+/// [`BossAttackIntent`] (fable review §A1 intent/projection split). This is what
+/// `trigger_boss_attack_moves` reads to start a move. Since §A1 slice 1b the ECS
+/// [`BossAttackState`] component is NO LONGER the intent source and is no longer
+/// written here — it is written SOLELY by `project_boss_attack_state_from_move` as a
+/// pure projection of the live `MovePlayback`.
 fn mirror_intent(attack_state: &BossAttackState, intent: &mut BossAttackIntent) {
     intent.telegraph_profile = attack_state.telegraph_profile.clone();
     intent.active_profile = attack_state.active_profile.clone();
@@ -171,28 +172,42 @@ pub fn trigger_boss_attack_moves(
     }
 }
 
-/// PROJECT [`BossAttackState`] from the live boss [`MovePlayback`] (E53). While a
-/// boss move plays, the telegraph/strike read-model — `telegraph_profile` /
-/// `active_profile` + their remaining/elapsed — is DERIVED from the move (the shared
-/// move runtime is the authority) instead of trusted from the pattern cursor's
-/// mirror, mirroring `project_moveset_melee_to_body_melee`. The move IS the whole
-/// telegraph→strike timeline: its clock `t` in `[0, tel)` is the windup, `[tel,
-/// tel+strike)` the strike, so `telegraph_elapsed == t` and `active_elapsed == t`
-/// (the latter folds in the telegraph offset the same way the brain's did).
+/// PROJECT [`BossAttackState`] from the live boss [`MovePlayback`] (E53, §A1 slice 1b).
+/// `BossAttackState` is the boss telegraph/strike READ-MODEL — `telegraph_profile` /
+/// `active_profile` + their remaining/elapsed — and this projection is now its SOLE
+/// writer: while a boss move plays, the read-model is DERIVED from the move (the shared
+/// move runtime is the authority, mirroring `project_moveset_melee_to_body_melee`); with
+/// NO move playing it is CLEARED. The boss brain no longer writes the component — it
+/// publishes a `BossAttackIntent` the trigger consumes, and the move the trigger starts
+/// is what this projects.
 ///
-/// ADDITIVE + non-destructive: it only writes while a move is present — a boss with
-/// no `ActorMoveset` (test fixtures) and a resting boss (no `MovePlayback`) keep the
-/// brain's mirror untouched. Runs AFTER `advance_move_playback` so `t` is current.
-/// (The brain still COMPUTES its attack_state internally for its movement edges;
-/// retiring the now-redundant brain COMPONENT write is a later cleanup.)
+/// The move IS the whole telegraph→strike timeline: its clock `t` in `[0, tel)` is the
+/// windup, `[tel, tel+strike)` the strike, so `telegraph_elapsed == t` and
+/// `active_elapsed == t` (the latter folds in the telegraph offset the same way the
+/// brain's mirror did). A resting boss (no `MovePlayback`), a boss with no `ActorMoveset`
+/// (test fixtures / no authored strikes), and a possessed boss whose GEOMETRY strike the
+/// trigger suppressed all have no move → cleared (the possessed-geometry pose loss is the
+/// §A1 slice 1b BLIND change). Runs AFTER `advance_move_playback` so `t` is current, and
+/// BEFORE the hurtbox/damage consumers (`apply_feature_hit_events`) so they read this
+/// frame's value.
 pub fn project_boss_attack_state_from_move(
     mut bosses: Query<
-        (&crate::combat::moveset::MovePlayback, &mut BossAttackState),
+        (
+            Option<&crate::combat::moveset::MovePlayback>,
+            &mut BossAttackState,
+        ),
         With<FeatureSimEntity>,
     >,
 ) {
     use ambition_characters::brain::BossAttackProfile;
     for (playback, mut attack_state) in &mut bosses {
+        // No live move → no telegraph, no strike. As the SOLE writer (§A1 slice 1b) the
+        // projection clears a resting boss here rather than leaving a stale strike the
+        // brain used to clear.
+        let Some(playback) = playback else {
+            attack_state.clear();
+            continue;
+        };
         let t = playback.t;
         let Some(active) = playback
             .spec
@@ -200,6 +215,8 @@ pub fn project_boss_attack_state_from_move(
             .iter()
             .find(|w| matches!(w.tag, ambition_entity_catalog::WindowTag::Active))
         else {
+            // A move with no Active window projects no strike state.
+            attack_state.clear();
             continue;
         };
         let profile = BossAttackProfile::from_move_id(&playback.spec.id);
@@ -219,17 +236,20 @@ pub fn project_boss_attack_state_from_move(
             attack_state.active_profile = Some(profile);
             attack_state.active_remaining = (active.end_s - t).max(0.0);
             attack_state.active_elapsed = t;
+        } else {
+            // Spent tail (t >= end; the move is about to be removed): no live strike.
+            attack_state.clear();
         }
-        // else: finished tail (t >= end) — leave the brain's mirror; the move is
-        // about to be removed by `advance_move_playback`.
     }
 }
 
 /// Tick every boss's `BossPattern` brain: advance the cursor, emit
-/// `ActorControlFrame` intent (movement + melee/special edges), and
-/// update the `BossAttackState` component. `BossAttackState` is the
-/// single source of truth for boss attack state — the volume / damage /
-/// debug-overlay paths all query it.
+/// `ActorControlFrame` intent (movement + melee/special edges), and publish the
+/// per-frame attack INTENT (`BossAttackIntent`) the moveset trigger reads. Since §A1
+/// slice 1b this tick NO LONGER writes the `BossAttackState` component — that
+/// telegraph/strike read-model is projected SOLELY from the live `MovePlayback` by
+/// `project_boss_attack_state_from_move`, and the volume / damage / debug-overlay
+/// paths read that projected value.
 pub fn tick_boss_brains_system(
     world_time: Res<WorldTime>,
     world: Res<ambition_engine_core::RoomGeometry>,
@@ -249,10 +269,11 @@ pub fn tick_boss_brains_system(
             &ambition_characters::actor::BodyHealth,
             &mut Brain,
             &mut ActorControl,
-            &mut BossAttackState,
             // The per-frame attack INTENT the trigger reads (§A1 intent/projection
             // split): the driver (autonomous pattern OR possession) writes which
             // profile it wants to fire here; `trigger_boss_attack_moves` reads it.
+            // The `BossAttackState` read-model is NOT written here (§A1 slice 1b) — the
+            // projection owns it — so this tick no longer borrows it.
             &mut ambition_characters::brain::BossAttackIntent,
             &super::super::super::components::ActorTarget,
             // The boss's authored special repertoire (body CAPABILITY, persisted
@@ -266,24 +287,14 @@ pub fn tick_boss_brains_system(
 ) {
     let dt = world_time.sim_dt();
     let feature_world = world_with_sandbox_solids(&world.0, &platform_set.0, &overlay);
-    for (
-        _entity,
-        feature,
-        health,
-        mut brain,
-        mut control,
-        mut attack_state,
-        mut intent,
-        target,
-        capability,
-    ) in &mut bosses
+    for (_entity, feature, health, mut brain, mut control, mut intent, target, capability) in
+        &mut bosses
     {
         let boss = feature.as_boss_ref();
         if !health.alive() {
-            // Dead boss: zero out frame + attack state so any
-            // downstream consumer sees a coherent "no intent".
+            // Dead boss: zero out the control frame + fire intent so the trigger starts
+            // nothing this frame; the projection clears its `BossAttackState` read-model.
             control.0 = ambition_characters::actor::control::ActorControlFrame::neutral();
-            attack_state.clear();
             intent.clear();
             continue;
         }
@@ -309,64 +320,50 @@ pub fn tick_boss_brains_system(
             brain.tick(&snapshot, &mut frame);
             control.0 = frame;
 
-            // Drive the boss's authored specials from controller input through the
-            // SAME `BossAttackState` the autonomous pattern sets — so every
-            // downstream consumer (telegraph/active volumes, `boss_attack_damage`,
-            // the `Special` EFFECTS techniques, sprite anim) is unchanged. The
-            // active window is the body's own fire-rate enforcement (invariant I3):
-            // while a strike is live it ticks down and a fresh press is ignored; a
-            // press when idle starts the mapped special. A boss with no authored
-            // special is a no-op — the body simply has no move to command.
-            if attack_state.active_remaining > 0.0 {
-                attack_state.active_remaining = (attack_state.active_remaining - dt).max(0.0);
-                attack_state.active_elapsed += dt;
-                if attack_state.active_remaining <= 0.0 {
-                    attack_state.clear();
-                }
+            // Map controller input onto the boss's authored repertoire and publish it as
+            // this frame's fire INTENT (§A1 slice 1b). `trigger_boss_attack_moves` reads
+            // it and starts the matching move; the move's OWN duration is the fire-rate
+            // gate (a live `MovePlayback` blocks re-trigger, invariant I3), so the
+            // possession path needs no separate `active_remaining` bookkeeping. The
+            // `BossAttackState` read-model is written SOLELY by the projection from that
+            // live move — no direct write here.
+            //
+            // Deterministic mapping (tuning/design is a follow-up): attack → the boss's
+            // primary authored strike; special (blink button) / projectile → its
+            // SIGNATURE content special (falling back to the next strike if the boss
+            // authors only geometry moves). A boss with no authored special is a no-op.
+            //
+            // BLIND (Jon feel-checks): a possessed GEOMETRY strike is suppressed by the
+            // trigger (parity with the retired `sync_boss_strike_hitboxes`, which never
+            // struck for a player-controlled boss). With `BossAttackState` now
+            // projection-only, a suppressed geometry strike starts no move and so shows
+            // no strike POSE either (its damage was already suppressed). A SPECIAL still
+            // fires — its move projects the pose and sustains the content technique with
+            // the firer's effective Player faction. Restoring the geometry strike as a
+            // REAL strike (routed through the moveset with effective faction) is the
+            // effective-faction follow-up.
+            intent.clear();
+            let choice = if frame.melee_pressed {
+                capability.and_then(|c| c.slot(0).cloned())
+            } else if frame.special_pressed || frame.projectile_pressed {
+                capability.and_then(|c| c.signature_special().or_else(|| c.slot(1)).cloned())
             } else {
-                attack_state.clear();
-                // Deterministic mapping (tuning/design is a follow-up): attack →
-                // the boss's primary authored strike; special (blink button) /
-                // projectile → its SIGNATURE content special (falling back to the
-                // next strike if the boss authors only geometry moves).
-                let choice = if frame.melee_pressed {
-                    capability.and_then(|c| c.slot(0).cloned())
-                } else if frame.special_pressed || frame.projectile_pressed {
-                    capability.and_then(|c| c.signature_special().or_else(|| c.slot(1)).cloned())
-                } else {
-                    None
-                };
-                if let Some((profile, strike_seconds)) = choice {
-                    attack_state.telegraph_profile = None;
-                    attack_state.telegraph_remaining = 0.0;
-                    attack_state.telegraph_elapsed = 0.0;
-                    attack_state.active_profile = Some(profile.clone());
-                    attack_state.active_remaining = strike_seconds;
-                    attack_state.active_elapsed = 0.0;
-                    // Content-technique specials fire through the SHARED moveset:
-                    // setting `active_profile` above is enough — `trigger_boss_attack_moves`
-                    // reads it and starts the sustain-move, whose per-frame `Effect{key}`
-                    // fires the technique. The spawned effects inherit the firer's
-                    // EFFECTIVE faction (Player while possessed), so they strike the
-                    // boss's former allies. Geometry profiles have no move → their
-                    // damage flows through the frame-driven hitbox path.
-                }
+                None
+            };
+            if let Some((profile, _strike_seconds)) = choice {
+                intent.active_profile = Some(profile);
             }
-            // Publish this frame's fire INTENT for the trigger (§A1 split): mirror
-            // the profile the possession mapping just chose onto BossAttackState.
-            mirror_intent(&attack_state, &mut intent);
             continue;
         }
 
-        // Non-BossPattern brains on a boss (test fixtures) emit no intent and clear
-        // the attack mirror — the same guard the bespoke `pattern_brain_mut` match
-        // used before the universal-tick fold.
+        // Non-BossPattern brains on a boss (test fixtures) emit no fire intent — the
+        // same guard the bespoke `pattern_brain_mut` match used before the
+        // universal-tick fold. The projection clears their `BossAttackState`.
         if !matches!(
             &*brain,
             Brain::StateMachine(StateMachineCfg::BossPattern { .. })
         ) {
             control.0 = ambition_characters::actor::control::ActorControlFrame::neutral();
-            attack_state.clear();
             intent.clear();
             continue;
         }
@@ -396,12 +393,16 @@ pub fn tick_boss_brains_system(
         snapshot.front_wall_clearance = front_wall_clearance;
         let mut frame = ambition_characters::actor::control::ActorControlFrame::neutral();
         brain.tick(&snapshot, &mut frame);
+        // Publish the brain's fire INTENT for the trigger (§A1 split): the profile the
+        // pattern wants this frame (telegraph edge → windup; strike → strike), read
+        // STRAIGHT from the brain's freshly-ticked `BossPatternState.attack_state`. The
+        // ECS `BossAttackState` component is no longer written here (§A1 slice 1b) — the
+        // projection derives it from the move this intent starts.
         if let Some(bps) = brain.boss_pattern_state() {
-            *attack_state = bps.attack_state.clone();
+            mirror_intent(&bps.attack_state, &mut intent);
+        } else {
+            intent.clear();
         }
-        // Publish the brain's fire INTENT for the trigger (§A1 split): the profile
-        // the pattern wants this frame (telegraph edge → windup; strike → strike).
-        mirror_intent(&attack_state, &mut intent);
 
         // Boss specials run through the SHARED moveset now (fable review §A1): a
         // multi-special boss (the Gradient Sentinel authors four; GNU-ton its apple

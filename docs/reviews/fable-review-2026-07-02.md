@@ -3054,6 +3054,52 @@ JD3's named nuance: retiring the `BossAttackState` brain-WRITE is NOT a dead-wri
   `animate_bosses` render→sim write-back). This is the multi-session tail the handoff flagged; the 171-ref
   `BossAttackState` surface + 4 boss suites make each a its-own-verified-slice job.
 
+### E66. A1 slice 1b — `BossAttackState` is now a PURE PROJECTION (the brain-write RETIRED) ✅
+The convergence E65 unblocked. `project_boss_attack_state_from_move` is now the SOLE writer of the boss
+telegraph/strike read-model; `tick_boss_brains_system` no longer borrows or writes `BossAttackState` at all —
+it publishes ONLY the `BossAttackIntent`, and the projection derives the read-model from whatever move that
+intent starts (and CLEARS it when no move plays). One path, less code.
+- **Projection is sole writer:** its query became `Option<&MovePlayback>`; no move → `attack_state.clear()`
+  (a resting boss, a no-moveset fixture, or a suppressed possessed-geometry strike); the windup/strike
+  branches are unchanged; the spent-tail (t ≥ end) now also clears. `tick_boss_brains_system` drops
+  `&mut BossAttackState` from its query; the BossPattern arm mirrors intent straight from the brain's internal
+  `BossPatternState.attack_state`, the possession arm writes intent directly from the input mapping.
+- **Why the DAMAGE path is behavior-identical** (verified against the schedule, not the doc): the boss HURTBOX
+  publisher `refresh_boss_damageable_volumes` reads `BossAttackState` at features/mod.rs:222 — BEFORE both the
+  brain tick and the projection — so it consumes the END-OF-PREVIOUS-FRAME value in BOTH old and new code
+  (projection was already the frame's last writer during any attack). `apply_feature_hit_events` reads it live
+  AFTER the projection (combat_schedule.rs:172 > :158). For an IDLE boss the brain wrote a CLEARED state and
+  the old projection LEFT it → the new projection CLEARS it → identical. Every attacking boss carries an
+  `ActorMoveset` (geometry AND special profiles both build an Active-window move, bosses.rs:209), so the
+  projection always has a move to derive an active strike from.
+- **BLIND (Jon feel-checks)** — carve-out (a) from E65: a possessed boss's GEOMETRY strike is suppressed by
+  `trigger_boss_attack_moves` (no move → the retired `sync_boss_strike_hitboxes` never struck for a
+  player-controlled boss), so with the projection sole-writing it no longer shows a strike POSE (its damage was
+  already suppressed). `boss_possession_specials` updated: the possessed geometry-primary Attack now asserts
+  `active_profile == None` (was `Some(HandSlam)`); the SPECIAL path (apple_rain — runs through the moveset)
+  still projects its pose AND fires the technique. Restoring the geometry strike as a REAL strike, routed
+  through the moveset with the possessor's EFFECTIVE faction (so it hits the boss's former allies, not its
+  possessor), is the effective-faction follow-up.
+- Green: gameplay_core boss module 33; app suites `boss_lifecycle` 8, `boss_contact_iframes` 4,
+  `boss_possession_specials` 1, `boss_motion_parity` 2 (rl_sim), `possession_end_to_end` 3 (rl_sim).
+- **A1 REMAINING after this — the multi-session tail, each piece with a NAMED blocker (surveyed this run):**
+  1. **integrate fold** (`integrate_boss_bodies` → `integrate_sim_bodies`): NOT a mechanical fold — it hides a
+     design nuance. `integrate_actor_body` publishes `CenteredAabb` from `em.kin.size` (the COLLISION box);
+     `integrate_boss_bodies` publishes it from `render_size` (the boss's GROSS RENDER/composite envelope —
+     GNU-ton's coarse AABB that `refresh_boss_damageable_volumes` treats as the whole-creature bound). Boss
+     also passes a deliberate `(0,0)` stagger gate and self-heals `kin.size` each frame. Folding the boss
+     THROUGH the shared integrator needs either an adapter flag (a special-case branch the codebase avoids per
+     [[feedback_reorganize_not_adapt]]) OR splitting the render-envelope from the collision footprint into its
+     own component (the elegant answer, but it touches the renderer + `damageable_volumes`). A DECISION, tee it
+     up — don't bulldoze. (A cheap intermediate: add a third sibling boss-arm query to `integrate_sim_bodies`
+     so all body movement is ONE scheduled phase, boss arm unchanged — low value, mild.)
+  2. **brain fold** (`tick_boss_brains` → `tick_actor_brains`): `tick_actor_brains` is at Bevy's 16-param
+     ceiling and explicitly `Without<BossConfig>` to avoid a double brain-tick; the boss snapshot carries
+     boss-only fields (encounter phase, front-wall clearance, possession→`BossCapability` mapping). Needs the
+     snapshot to absorb those first.
+  3. **`BossAnim`→`CharacterAnim`** render rows (BLIND, retires the `animate_bosses` render→sim write-back).
+  The 171-ref `BossAttackState` surface + 4 boss suites keep each an its-own-verified-slice job.
+
 ## Next (in order) — **the MOVESET UNIFICATION is COMPLETE (E47–E55): melee, specials, ranged, AND boss strikes all run through the ONE moveset runtime.** The audit's TASK sections are stale; trust E-entries + a code re-check before working an item.
 
 ---
@@ -3075,11 +3121,11 @@ Outcome per item (details in E59–E65):
 - **C7 (rider-name half)** ⏸ NOTED-AND-SKIPPED (E64) — hides a design FORK for **fable**: composition is
   already brain-driven (the "name-parsing drives composition" premise is stale); the `mount:` field means
   restructuring the fused `*_on_shark` archetypes → a mount-authoring-model decision. Concrete plan in E64.
-- **A1 (boss driver fold, JD3)** ▸ ADVANCED, slice 1a LANDED (E65) — the **intent/projection split** (the
-  named prerequisite): new `BossAttackIntent` the trigger reads, behavior-identical. **REMAINING (the
-  multi-session tail):** the projection-sole-authority slice (retire the brain-write; BLIND possession-pose
-  part), the driver fold (`update_ecs_bosses`+`tick_boss_brains` → the actor systems), `BossAnim`→
-  `CharacterAnim` (BLIND). See E65 for the precise next slices.
+- **A1 (boss driver fold, JD3)** ▸ ADVANCED, slices 1a+1b LANDED (E65, E66) — the **intent/projection split**
+  then **projection-sole-authority**: `BossAttackState` is now a PURE PROJECTION of the live `MovePlayback`;
+  the brain-write is retired (one path). One BLIND part shipped: a possessed geometry strike loses its pose
+  (E66). **REMAINING (the multi-session tail):** the driver fold (`update_ecs_bosses`+`tick_boss_brains` → the
+  actor systems), `BossAnim`→`CharacterAnim` (BLIND). See E66 for the precise next slices.
 
 **Verification (this run):** engine_core 212, gameplay_core 1134, characters 253, content 53, render 24;
 app suites `boss_lifecycle` 8, `boss_contact_iframes` 4, `boss_possession_specials` 1, `boss_motion_parity`

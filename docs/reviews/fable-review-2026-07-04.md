@@ -506,6 +506,40 @@ to draw. The drawn pose and the strike geometry share ONE sim-owned frame.
   `BossAnim`→`CharacterAnim` convergence — both follow-ups; this slice retired the
   load-bearing smell (the write-back).
 
+### R1.2 — the boss perceives its foe through the world-out `WorldView` port ✅ (byte-identical)
+The A7 boss remainder: the boss brain read its target STRAIGHT from the omniscient
+`ActorTarget` (`select_actor_targets`' global nearest-foe), the last actor still
+carved out of the perception seam every other body uses. Now `tick_boss_brains_system`
+(the autonomous BossPattern arm) builds the boss's own headless `WorldView` via the
+SAME `build_world_view` `tick_actor_brains` uses, and targets `nearest_hostile()` —
+the boss OBSERVES its foe, it is no longer told where it is.
+- **Arena-wide awareness, sourced from the arena.** A boss fight fills the room, so
+  the boss's viewport half-extent is the **whole world size** (`world.0.size`): the
+  viewport then spans 2× the arena centered on the boss and (inclusive `contains`)
+  ALWAYS holds the entire room, wherever the boss floats. So `nearest_hostile` sees
+  exactly the foe `select_actor_targets` would pick (both resolve hostility through
+  the shared `FactionRelations`) — **byte-identical** target in any real fight, while
+  the omniscient read is gone. No magic number: "arena-wide" is derived from the
+  arena. This is why the boss needs no `PerceptionMemory` (it never loses sight of the
+  foe) — that `Without<BossConfig>` in `ensure_perception_memory` is now documented
+  POLICY, not a parallel-system carve-out.
+- **Honest fallbacks.** With the perception collectors present (the real run + the
+  full-plugin boss suites) the boss uses the view; when the arena holds no live foe it
+  holds at self (as `select_actor_targets` points a foe-less actor at itself). The
+  omniscient `target.pos` survives ONLY as the fallback for perception-less boss UNIT
+  fixtures (no `PerceptionPeers` resource) — those stay byte-identical. The possession
+  arm is untouched (a possessed boss steers from controller input, never targets).
+  `BrainSnapshot.target_pos` is still WRITTEN (now from perception) — it can DIE once
+  the boss brain consumes the `WorldView` directly (a later slice).
+- **Files:** `features/ecs/bosses/tick.rs` (`tick_boss_brains_system`: +3 perception
+  resources, +`ActorFaction`/`ActorAggression` query columns, the `WorldView` build,
+  `front_wall_clearance` + `snapshot.target_pos` now read the perceived target),
+  `features/ecs/perception.rs` (`ensure_perception_memory` doc: the boss exclusion is
+  now arena-wide-awareness POLICY, not omniscience).
+- **Verified:** gameplay_core --lib 1134; app suites (rl_sim) boss_lifecycle 8,
+  boss_contact_iframes 4, boss_motion_parity 2, boss_possession_specials 1,
+  duel_arena 4 — all green.
+
 ### R1 HANDOFF — remaining slices (R1.2, R1.5), with the analysis done
 Executor note (opus): R1.1 + R1.4 landed + verified + committed
 (`a8b5f3fb`, `ec4168ae`). The three remaining slices are each a substantial

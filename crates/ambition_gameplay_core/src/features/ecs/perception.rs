@@ -205,8 +205,15 @@ pub struct PerceptionMemory(pub ambition_characters::perception::WorldMemory);
 /// Attach a default [`PerceptionMemory`] to every non-boss brained actor that lacks
 /// one, so the perceived-target derivation always has a belief store to pursue from.
 /// Runs before the brain tick. Matches `tick_actor_brains`' own body set (brained,
-/// non-player, non-boss); the player brain doesn't perceive-target and the boss brain
-/// is the separate omniscient path (§A1), so neither needs memory.
+/// non-player, non-boss).
+///
+/// The `Without<BossConfig>` here is documented POLICY, not a parallel-system
+/// carve-out (§A7): the player brain doesn't perceive-target (it steers from
+/// controller input), and a boss now perceives its foe through the SAME world-out
+/// port (`tick_boss_brains_system`), but with an ARENA-WIDE viewport (half-extent =
+/// the whole world) — so it never loses sight of the player and needs no off-screen
+/// belief store to pursue from. A boss that wanted a bounded viewport (and thus
+/// off-screen pursuit) would drop this exclusion and gain memory here; today none do.
 pub fn ensure_perception_memory(
     mut commands: bevy::prelude::Commands,
     bodies: bevy::prelude::Query<

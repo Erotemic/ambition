@@ -324,6 +324,15 @@ pub fn tick_boss_brains_system(
     // gating of WHICH boss is possessable lives above, in the possession target
     // filter — not as a "bosses can never be controlled" barrier in this tick.
     slot_controls: Res<ambition_characters::brain::SlotControls>,
+    // §A7 BOSS PERCEPTION MIGRATION: the boss OBSERVES its foe through the SAME
+    // world-out `WorldView` port every actor uses, instead of the omniscient
+    // `ActorTarget`. These three feed `build_world_view` exactly as they do for
+    // `tick_actor_brains`; all `Option`/`Res` so the boss UNIT fixtures (which skip
+    // the perception collectors) fall back to the omniscient target unchanged.
+    sim_clock: Res<crate::features::GameplayElapsed>,
+    faction_relations: Option<Res<crate::combat::targeting::FactionRelations>>,
+    perception_peers: Option<Res<crate::features::ecs::perception::PerceptionPeers>>,
+    perception_projectiles: Option<Res<crate::features::ecs::perception::PerceptionProjectiles>>,
     mut bosses: Query<
         (
             bevy::ecs::entity::Entity,
@@ -344,14 +353,40 @@ pub fn tick_boss_brains_system(
             // onto the boss's own moves; `Option` for test fixtures that spawn a
             // boss without it.
             Option<&ambition_characters::brain::BossCapability>,
+            // §A7: the boss's own faction + grudge, so the `WorldView` it builds
+            // resolves the player as hostile through the SAME relational rule
+            // `select_actor_targets` uses (Boss-vs-Player faction hostility). Every
+            // boss spawns with `ActorFaction::Boss`; `ActorAggression` is `Option`
+            // (a boss holds no personal grudge, so this is `None` in practice).
+            &super::super::super::components::ActorFaction,
+            Option<&super::super::super::components::ActorAggression>,
         ),
         With<FeatureSimEntity>,
     >,
 ) {
     let dt = world_time.sim_dt();
+    // Accumulating sim-time stamped onto the boss's world-out view (unused by the
+    // pure `nearest_hostile` target read, but kept honest for a future belief store).
+    let sim_now = sim_clock.0;
     let feature_world = world_with_sandbox_solids(&world.0, &platform_set.0, &overlay);
-    for (_entity, feature, health, mut brain, mut control, mut intent, target, capability) in
-        &mut bosses
+    // The LIVE hostility table for the boss's world-out view (default all-peaceful for
+    // fixtures) — the SAME table `select_actor_targets` reads, so both resolve the
+    // player as the boss's foe identically.
+    let relations_fallback = crate::combat::targeting::FactionRelations::default();
+    let relations: &crate::combat::targeting::FactionRelations =
+        faction_relations.as_deref().unwrap_or(&relations_fallback);
+    for (
+        this_boss_entity,
+        feature,
+        health,
+        mut brain,
+        mut control,
+        mut intent,
+        target,
+        capability,
+        faction,
+        aggression,
+    ) in &mut bosses
     {
         let boss = feature.as_boss_ref();
         if !health.alive() {
@@ -431,6 +466,73 @@ pub fn tick_boss_brains_system(
             continue;
         }
 
+        // §A7 BOSS PERCEPTION MIGRATION: derive the boss's target through the SAME
+        // world-out `WorldView` every actor builds — no longer the omniscient
+        // `ActorTarget`. A boss wants ARENA-WIDE awareness (a boss fight fills the
+        // room), so the viewport half-extent is the whole world size (`world.0.size`):
+        // the viewport then spans 2× the arena centered on the boss and therefore
+        // always contains the entire room, wherever the boss floats — "arena-wide"
+        // sourced from the arena itself, not a magic number. The boss brain reads ONLY
+        // `snapshot.target_pos` (its `brain.tick` gets no view), so the view is purely
+        // the target-derivation seam here: the nearest hostile IN the arena-wide view
+        // is exactly the nearest foe `select_actor_targets` would pick (both resolve
+        // hostility through the shared `FactionRelations`), so this is behavior-
+        // identical while dissolving the boss's perception carve-out. Falls back to the
+        // omniscient `target.pos` ONLY when the perception collectors didn't run (boss
+        // unit fixtures with no `PerceptionPeers` resource), keeping those unchanged.
+        let perceived_target = if let Some(peers) = perception_peers.as_ref() {
+            let view_peers: Vec<super::super::perception::PerceptionPeer> = peers
+                .0
+                .iter()
+                .filter(|peer| peer.entity != this_boss_entity)
+                .cloned()
+                .collect();
+            let world_view = super::super::perception::build_world_view(
+                &super::super::perception::PerceptionBody {
+                    pos: boss.kin.pos,
+                    vel: boss.kin.vel,
+                    facing: boss.kin.facing,
+                    half_extent: boss.kin.size,
+                    faction: *faction,
+                    // A boss is a gravity-free free-mover; these SelfView fields ride
+                    // into the view but the target read (`nearest_hostile`, positions
+                    // only) consults none of them, so honest-but-unread defaults.
+                    gravity_down: ae::Vec2::new(0.0, 1.0),
+                    on_ground: false,
+                    aerial: true,
+                    alive: true,
+                    can_fire: false,
+                    can_blink: false,
+                    can_dash: false,
+                    can_shield: false,
+                    grudge: aggression.and_then(|a| a.grudge),
+                },
+                &view_peers,
+                perception_projectiles
+                    .as_ref()
+                    .map(|p| p.0.as_slice())
+                    .unwrap_or(&[]),
+                &[],
+                &feature_world,
+                relations,
+                // Arena-wide: half-extent = full world size ⇒ the viewport spans 2× the
+                // arena, so the whole room is always in view (a boss perceives its
+                // entire arena, wherever it floats).
+                world.0.size,
+                sim_now,
+            );
+            // Nearest hostile in the arena-wide view — the perceived foe. When the arena
+            // holds no live foe (player dead / gone), hold at self, exactly as
+            // `select_actor_targets` points a foe-less actor at itself.
+            world_view
+                .nearest_hostile()
+                .map(|a| a.pos)
+                .unwrap_or(boss.kin.pos)
+        } else {
+            // No perception collectors (unit fixtures): the omniscient target, unchanged.
+            target.pos
+        };
+
         // The front-wall standoff the pattern probes with — read before the brain
         // borrow that `brain.tick` needs.
         let front_wall_standoff = match &*brain {
@@ -439,8 +541,10 @@ pub fn tick_boss_brains_system(
             }
             _ => 0.0,
         };
+        // Probe toward the PERCEIVED foe (identical to `target.pos` in an arena-wide
+        // view; the omniscient value only in perception-less fixtures).
         let front_wall_clearance =
-            boss_front_wall_clearance(&feature_world, &boss, target.pos, front_wall_standoff);
+            boss_front_wall_clearance(&feature_world, &boss, perceived_target, front_wall_standoff);
 
         // §A1 slice 3c: the boss brain ticks through the UNIVERSAL `Brain::tick`
         // path like every other body — no bespoke `tick_boss_pattern` call site.
@@ -449,7 +553,10 @@ pub fn tick_boss_brains_system(
         // `BossPatternState.attack_state`. Mirror that into the ECS component below.
         let mut snapshot = ambition_characters::brain::BrainSnapshot::idle();
         snapshot.actor_pos = boss.kin.pos;
-        snapshot.target_pos = target.pos;
+        // §A7: the perceived foe (from the boss's world-out `WorldView`), not the
+        // omniscient `ActorTarget`. Arena-wide viewport ⇒ this equals the old value in
+        // any real fight, so behavior is preserved while the carve-out dissolves.
+        snapshot.target_pos = perceived_target;
         snapshot.dt = dt;
         snapshot.boss_encounter_phase = Some(boss.status.encounter_phase);
         snapshot.world_size = world.0.size;

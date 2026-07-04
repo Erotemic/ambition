@@ -3058,6 +3058,37 @@ JD3's named nuance: retiring the `BossAttackState` brain-WRITE is NOT a dead-wri
 
 ---
 
+### ⇢ AUTONOMOUS-EXECUTION RUN RESULT (2026-07-04, HANDOFF list items 1–7) — read this first
+
+The 7-item autonomous handoff (`HANDOFF-2026-07-04-autonomous-execution.md`) ran to completion.
+Outcome per item (details in E59–E65):
+- **C4 (app-thinness)** ✅ LANDED (E59) — 5 of 7 `sim_systems.rs` systems folded into owning gameplay_core
+  plugins; the 2 host/reset-bound stay (render dep); boundary test pins it.
+- **§B (gravity frame-bugs)** ✅ VERIFIED COMPLETE + canary (E60) — the doc lagged: B1/B3/B4/B5/B6/B9 all
+  already landed; added the missing B1 moveset-hitbox gravity-symmetry test.
+- **A3/A4 (victim damage)** ✅ VERIFIED COMPLETE + canary (E61) — A3/A4/A5/A6 + **B2** all already landed
+  (one relational victim loop; NPC-in-lava; live `surface_normal`); added the B2 live-frame gravity test.
+- **C6 (boss sheet-specs → RON)** ✅ LANDED (E62) — serde-owned `BossSheetSpec` + `BossSheetRegistry` +
+  content `boss_sheets.ron`, byte-identical; the 11-variant `BossAttackProfile` collapse noted separate.
+- **C1 (item catalog)** ✅ LANDED (E63) — serde-owned `ItemMeta` + `ItemCatalog` override + content
+  `items.ron`, byte-identical; the `Item` ENUM stays structural KIT.
+- **C7 (rider-name half)** ⏸ NOTED-AND-SKIPPED (E64) — hides a design FORK for **fable**: composition is
+  already brain-driven (the "name-parsing drives composition" premise is stale); the `mount:` field means
+  restructuring the fused `*_on_shark` archetypes → a mount-authoring-model decision. Concrete plan in E64.
+- **A1 (boss driver fold, JD3)** ▸ ADVANCED, slice 1a LANDED (E65) — the **intent/projection split** (the
+  named prerequisite): new `BossAttackIntent` the trigger reads, behavior-identical. **REMAINING (the
+  multi-session tail):** the projection-sole-authority slice (retire the brain-write; BLIND possession-pose
+  part), the driver fold (`update_ecs_bosses`+`tick_boss_brains` → the actor systems), `BossAnim`→
+  `CharacterAnim` (BLIND). See E65 for the precise next slices.
+
+**Verification (this run):** engine_core 212, gameplay_core 1134, characters 253, content 53, render 24;
+app suites `boss_lifecycle` 8, `boss_contact_iframes` 4, `boss_possession_specials` 1, `boss_motion_parity`
+2 (rl_sim), `possession_end_to_end` 3, `gravity_symmetry_room` 5, `duel_arena` 4, `enemy_attacks_player` 1,
+`player_robot_fights_player` 1, `plugin_minimal_app` 8, `architecture_boundaries` 32 — all GREEN. Only the
+**known pre-existing** `unified_melee::a_hostile_actor_enters_the_same_body_melee_lifecycle` (rl_sim) is red
+(confirmed unchanged, NOT from this run). **No BLIND commits this run** — every landed slice is
+behavior-identical or verified; the BLIND parts (A1 1b + BossAnim) are the documented remainder.
+
 ### ⇢ STATE FOR THE NEXT AGENT (2026-07-04) — read this first
 
 **Is the doc ready for a next agent?** YES for the autonomous work below. **Is everything

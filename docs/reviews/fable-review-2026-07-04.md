@@ -445,4 +445,34 @@ preserves the boss's presentation ordering exactly.
   separate from this integrator-sharing one. The `BodyEnvelope` column would then
   move onto the actor query (`Option<&BodyEnvelope>`).
 
-*(next: R1.2 brain fold, R1.3 BossAnim→CharacterAnim (BLIND), R1.4 possessed-strike faction, R1.5 sweep.)*
+### R1.4 — a possessed boss's geometry strike fires through the moveset with the possessor's EFFECTIVE faction ✅ (BLIND feel)
+Retires the §A1-slice-1b suppression that kept a possessed boss's GEOMETRY strike
+inert (parity with the deleted `sync_boss_strike_hitboxes`). A possessed boss now
+strikes like any other move — possession grants the full kit (invariant I2).
+- **The load-bearing fix is one line + its enforcement:** `advance_move_playback`
+  stamped the strike `Hitbox.source` from the owner's RAW `ActorFaction` — an
+  outlier violating `effective_faction`'s OWN documented contract ("every hitbox
+  stamp resolves through it, so a possessed body attacks its former allies, not
+  its possessor"). Now it stamps `effective_faction(*faction, brain)`: identity
+  for every ordinary actor + the player's own body (no `Brain::Player` ⇒ authored
+  faction), `Player` for a controlled body. So the un-suppressed geometry strike
+  hits the boss's former allies, not the controlling player.
+- **Suppression removed:** `trigger_boss_attack_moves` dropped its
+  `!is_special() && brain.is_player()` skip (and the now-unused `Brain` query
+  column). A possessed geometry strike starts its moveset move like any other.
+- **Files:** `combat/moveset.rs` (effective-faction stamp + `Option<&Brain>`
+  query column), `features/ecs/bosses/tick.rs` (drop the suppression),
+  `tests/boss_possession_specials.rs` (flip the assertion: the geometry strike
+  now FIRES and its hitbox carries `Player`; wait it out — a committed move — before
+  the special press).
+- **BLIND** on feel (a possessing player can now deal geometry-strike damage); the
+  MECHANICS are pinned: the possession test asserts the strike's hitbox `source ==
+  ActorFaction::Player`. Every non-possessed body is byte-identical (the identity
+  case), confirmed by gameplay_core --lib 1134 + duel_arena 4 all green.
+- **Verified:** gameplay_core --lib 1134; boss_possession_specials 1 (with the
+  effective-faction assertion), boss_lifecycle 8, boss_contact_iframes 4,
+  duel_arena 4 — green. `unified_melee`'s `a_hostile_actor…` stays the DOCUMENTED
+  pre-existing red (non-possessed melee-cadence gap, untouched by this identity-
+  preserving change).
+
+*(next: R1.2 brain fold, R1.3 BossAnim→CharacterAnim (BLIND), R1.5 sweep.)*

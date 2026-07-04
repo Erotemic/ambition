@@ -150,15 +150,12 @@ fn possessed_boss_commands_its_authored_specials_and_release_restores_the_patter
     // No strike in flight before we press.
     assert_eq!(active_profile(sim.world_mut(), boss), None);
 
-    // The boss's PRIMARY strike (slot 0) is a GEOMETRY profile (HandSlam). §A1 slice 1b
-    // made `BossAttackState` a pure PROJECTION of the live `MovePlayback`, and a
-    // possessed boss's geometry strike is suppressed by `trigger_boss_attack_moves`
-    // (parity with the retired `sync_boss_strike_hitboxes`, which never struck for a
-    // player-controlled boss) — so it starts NO move and therefore projects NO strike
-    // read-model. Its damage was already suppressed; it now shows no strike POSE either
-    // (a BLIND presentation change, Jon feel-checks). Restoring it as a REAL strike —
-    // routed through the moveset with the possessor's EFFECTIVE faction so it hits the
-    // boss's former allies, not its possessor — is the effective-faction follow-up.
+    // The boss's PRIMARY strike (slot 0) is a GEOMETRY profile (HandSlam). Since R1.4
+    // a possessed boss's geometry strike FIRES like any other move (possession grants
+    // the full kit, invariant I2): pressing Attack starts its moveset move, so the
+    // projected `active_profile` read-model shows the strike. The strike hitbox carries
+    // the possessor's EFFECTIVE faction (`Player`, stamped in `advance_move_playback`),
+    // so it hits the boss's former allies rather than the controlling player.
     assert!(!primary.is_special(), "the primary (HandSlam) is a geometry strike");
     sim.step(AgentAction {
         attack: true,
@@ -166,10 +163,39 @@ fn possessed_boss_commands_its_authored_specials_and_release_restores_the_patter
     });
     assert_eq!(
         active_profile(sim.world_mut(), boss),
-        None,
-        "a possessed geometry strike is suppressed (no move → no projected pose) \
-         pending the effective-faction follow-up"
+        Some(primary.clone()),
+        "a possessed boss's geometry strike fires through the moveset (R1.4)"
     );
+    // The spawned strike hitbox carries the possessor's EFFECTIVE faction (Player),
+    // not the boss's authored `Boss` — so a possessing player's geometry strike hurts
+    // the boss's former allies, not the player. This is the load-bearing correctness
+    // of routing the strike through the shared moveset instead of suppressing it.
+    {
+        // `ActorFaction` is already imported at the top of this file.
+        let mut q = sim.world_mut().query::<&ambition_vfx::Hitbox>();
+        let strike_factions: Vec<ActorFaction> = q
+            .iter(sim.world_mut())
+            .filter(|h| h.owner == boss)
+            .map(|h| h.source)
+            .collect();
+        assert!(
+            !strike_factions.is_empty(),
+            "the possessed geometry strike spawned a hitbox"
+        );
+        assert!(
+            strike_factions
+                .iter()
+                .all(|f| matches!(f, ActorFaction::Player)),
+            "the possessed boss's strike hitbox carries the possessor's effective faction \
+             (Player), not the authored Boss: {strike_factions:?}"
+        );
+    }
+
+    // The geometry strike is a committed move (the Smash convention: it runs to
+    // completion, uncancelable into a special mid-strike). Wait it out before the
+    // next input so the boss is free to start a new move — exactly as real play
+    // requires now that a possessed geometry strike actually occupies the body (R1.4).
+    wait_out_strike(&mut sim, boss);
 
     // Special (the blink button maps to `special_pressed` in the player brain) →
     // the boss's SIGNATURE content special fires (emitting an

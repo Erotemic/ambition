@@ -105,7 +105,6 @@ pub fn trigger_boss_attack_moves(
             &BossAttackIntent,
             &crate::combat::moveset::ActorMoveset,
             &crate::actor::BodyKinematics,
-            Option<&Brain>,
             Option<&crate::combat::moveset::MovePlayback>,
         ),
         With<FeatureSimEntity>,
@@ -120,7 +119,7 @@ pub fn trigger_boss_attack_moves(
             .map(|w| w.start_s)
             .unwrap_or(0.0)
     };
-    for (entity, attack_intent, moveset, kin, brain, playback) in &bosses {
+    for (entity, attack_intent, moveset, kin, playback) in &bosses {
         // The driver's per-tick INTENT this frame (§A1 split — written by the boss
         // pattern OR possession before the combat phase): a Telegraph step wants the
         // move played from its windup (`t0 = 0`), a Strike/possession step with no
@@ -154,11 +153,12 @@ pub fn trigger_boss_attack_moves(
         let Some((profile, from_telegraph)) = intent else {
             continue;
         };
-        // Possessed-boss GEOMETRY strikes stay suppressed (parity with the retired
-        // sync); its specials still fire (they carry the firer's effective faction).
-        if !profile.is_special() && brain.is_some_and(|b| b.is_player()) {
-            continue;
-        }
+        // A possessed boss's GEOMETRY strike fires like any other (R1.4): possession
+        // grants the full kit (invariant I2), and its strike hitbox carries the
+        // possessor's EFFECTIVE faction (stamped in `advance_move_playback`), so it
+        // hits the boss's former allies, not the controlling player. (This retires
+        // the §A1-slice-1b suppression that kept parity with the deleted
+        // `sync_boss_strike_hitboxes`, which never struck for a controlled boss.)
         if let Some(spec) = moveset.0.move_by_id(&profile.move_id()) {
             // Telegraph edge → `t0 = 0` plays the windup THROUGH the move (so the
             // projected telegraph read-model + a future bound anim clip slave to the

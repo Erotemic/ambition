@@ -305,11 +305,18 @@ pub fn advance_move_playback(
         Entity,
         &mut MovePlayback,
         &ActorFaction,
+        // The owner's brain, so a POSSESSED body's strike carries its EFFECTIVE
+        // faction (a controlled body fights as `Player`): `effective_faction`'s
+        // contract is that every hitbox stamp resolves through it, and this move
+        // strike is one of them. `None`/non-player-brain ⇒ the authored faction
+        // (identity for every ordinary actor + the player's own body).
+        Option<&ambition_characters::brain::Brain>,
         &ae::BodyKinematics,
         Option<&ProperTimeScale>,
     )>,
 ) {
-    for (owner, mut playback, faction, kin, scale) in &mut players {
+    for (owner, mut playback, faction, brain, kin, scale) in &mut players {
+        let strike_faction = crate::combat::targeting::effective_faction(*faction, brain);
         // ADR 0011: entity dt collapses to sim dt when the actor carries no
         // ProperTimeScale — undilated actors are the identity case.
         let dt = world_time.entity_dt(scale.copied().unwrap_or_default());
@@ -397,7 +404,7 @@ pub fn advance_move_playback(
                             .spawn((
                                 Hitbox {
                                     owner,
-                                    source: *faction,
+                                    source: strike_faction,
                                     anchor: HitboxAnchor::FollowOwner { local_offset },
                                     half_extent,
                                     shape,

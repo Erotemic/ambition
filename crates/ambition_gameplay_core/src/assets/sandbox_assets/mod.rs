@@ -78,8 +78,11 @@ impl SandboxAssetCatalog {
             asset_profile: AssetProfile::DesktopDevLoose,
             ..Default::default()
         };
-        let music = crate::session::data::load_embedded_music_registry();
-        build_sandbox_catalog(&config, &music)
+        // Installed by the game's content at startup; empty (no music
+        // entries) in a content-less binary. Core tests read the game's
+        // real registry through the cross-crate fixture.
+        let music = crate::session::data::authored_music_registry();
+        build_sandbox_catalog(&config, music)
     }
 
     pub fn catalog(&self) -> &AmbitionAssetCatalog {

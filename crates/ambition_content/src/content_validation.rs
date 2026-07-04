@@ -56,7 +56,7 @@ impl ContentValidationReport {
 /// Validate the checked-in sandbox content graph.
 #[cfg_attr(not(test), allow(dead_code))]
 pub fn validate_embedded_content_graph() -> ContentValidationReport {
-    let music = crate::data::load_embedded_music_registry();
+    let music = crate::audio_registries::load_music_registry();
     let project = match LdtkProject::load_default_for_dev() {
         Ok(project) => project,
         Err(error) => {
@@ -569,7 +569,7 @@ mod tests {
     #[test]
     fn validates_ldtk_loading_zone_targets() {
         crate::bosses::install_boss_roster();
-        let music = crate::data::load_embedded_music_registry();
+        let music = crate::audio_registries::load_music_registry();
         let project = LdtkProject::load_default_for_dev().expect("embedded LDtk loads");
         let report = validate_content_graph(&music, &project);
         assert!(

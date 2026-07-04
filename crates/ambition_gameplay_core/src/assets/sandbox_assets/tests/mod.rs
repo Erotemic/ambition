@@ -10,7 +10,7 @@
 //!   `AmbitionAssetSourcePlugin` registration tests.
 
 use super::*;
-use crate::session::data::load_embedded_music_registry;
+use crate::session::data::authored_music_registry;
 use std::sync::Mutex;
 
 mod embedded_core;
@@ -28,6 +28,6 @@ static SFX_BANK_ENV_LOCK: Mutex<()> = Mutex::new(());
 
 fn fixture_catalog() -> SandboxAssetCatalog {
     let config = GameAssetConfig::default();
-    let music = load_embedded_music_registry();
+    let music = authored_music_registry().clone();
     build_sandbox_catalog(&config, &music)
 }

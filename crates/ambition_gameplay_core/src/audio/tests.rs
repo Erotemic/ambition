@@ -6,10 +6,10 @@
 
 use super::*;
 // `SfxMessage` no longer re-exported by the parent module (§D1).
-use ambition_sfx::SfxMessage;
 use crate::session::data::{
-    load_embedded_music_registry, load_embedded_sfx_registry, MusicRegistry, MusicTrack,
+    authored_music_registry, authored_sfx_registry, MusicRegistry, MusicTrack,
 };
+use ambition_sfx::SfxMessage;
 use ambition_sfx::SfxProvider;
 
 #[test]
@@ -104,8 +104,8 @@ fn audio_library_loads_every_cue_from_real_bank() {
         );
     }
 
-    let sfx = load_embedded_sfx_registry();
-    let music = load_embedded_music_registry();
+    let sfx = authored_sfx_registry().clone();
+    let music = authored_music_registry().clone();
     let mut assets = Assets::<KiraAudioSource>::default();
     let library = AudioLibrary::new(&mut assets, &sfx, &music, None, Some(&provider), None);
 
@@ -125,7 +125,7 @@ fn audio_library_loads_every_cue_from_real_bank() {
 /// silent radio entry.
 #[test]
 fn embedded_music_tracks_resolve_to_ogg_assets() {
-    let music = load_embedded_music_registry();
+    let music = authored_music_registry().clone();
     for track in &music.tracks {
         let path = track.resolved_asset_path();
         assert!(
@@ -142,7 +142,7 @@ fn embedded_music_tracks_resolve_to_ogg_assets() {
 /// skip/None path anymore.
 #[test]
 fn audio_library_resolves_default_and_override_paths() {
-    let sfx = load_embedded_sfx_registry();
+    let sfx = authored_sfx_registry().clone();
     let music = MusicRegistry {
         default_track: "convention".into(),
         tracks: vec![
@@ -174,7 +174,7 @@ fn audio_library_resolves_default_and_override_paths() {
 
 #[test]
 fn embedded_audio_catalog_includes_tech_bro_banger_tracks() {
-    let music = load_embedded_music_registry();
+    let music = authored_music_registry().clone();
     for id in [
         "pivot_protocol",
         "minimum_viable_apocalypse",
@@ -192,8 +192,8 @@ fn embedded_audio_catalog_includes_tech_bro_banger_tracks() {
 
 #[test]
 fn music_track_order_cycles() {
-    let sfx = load_embedded_sfx_registry();
-    let music = load_embedded_music_registry();
+    let sfx = authored_sfx_registry().clone();
+    let music = authored_music_registry().clone();
     let mut assets = Assets::<KiraAudioSource>::default();
     let library = AudioLibrary::new(&mut assets, &sfx, &music, None, None, None);
     let ids: Vec<&str> = music.tracks.iter().map(|track| track.id.as_str()).collect();
@@ -409,7 +409,7 @@ fn every_live_music_track_resolves_under_web_served_assets() {
     use crate::assets::game_assets::GameAssetConfig;
     use ambition_asset_manager::AssetProfile;
 
-    let music = load_embedded_music_registry();
+    let music = authored_music_registry().clone();
     let mut config = GameAssetConfig::default();
     config.asset_profile = AssetProfile::WebServedAssets;
     let catalog = crate::assets::sandbox_assets::build_sandbox_catalog(&config, &music);

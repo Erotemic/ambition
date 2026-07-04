@@ -253,7 +253,7 @@ fn music_track_warnings_flag_unknown_ids() {
 #[test]
 fn embedded_ldtk_music_tracks_match_audio_catalog() {
     let project = LdtkProject::load_default_for_dev().expect("sandbox LDtk should load");
-    let music = crate::session::data::load_embedded_music_registry();
+    let music = crate::session::data::authored_music_registry().clone();
     let valid = music.tracks.iter().map(|t| t.id.as_str());
     let warnings = project.music_track_warnings(valid);
     assert!(

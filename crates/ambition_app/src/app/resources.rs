@@ -2,6 +2,7 @@ use bevy::prelude::*;
 use bevy_ecs_ldtk::prelude::{IntGridRendering, LdtkSettings, LevelBackground};
 
 use ambition_content::content_validation;
+use ambition_engine_core::RoomGeometry;
 use ambition_gameplay_core::dev::dev_tools::{
     DeveloperTools, EditableAbilitySet, EditableMovementTuning, EditablePlayerStats,
 };
@@ -10,7 +11,6 @@ use ambition_gameplay_core::rooms;
 use ambition_gameplay_core::session::data;
 use ambition_gameplay_core::time::feel::SandboxFeelTuning;
 use ambition_gameplay_core::world::physics;
-use ambition_engine_core::RoomGeometry;
 use ambition_input::ControlFrame;
 
 use super::cli::cli_start_room_arg;
@@ -41,12 +41,16 @@ pub fn init_sandbox_resources(app: &mut App) {
     // entry path flows through (the plugin and the test harnesses), so the
     // content data is always present. First-install-wins.
     ambition_content::bosses::install_boss_roster();
+    // Install the authored audio registries into the engine's audio-data
+    // seam (R3.2 — the engine ships no tracks/cues). Same choke-point
+    // rationale as the boss roster; first-install-wins.
+    ambition_content::audio_registries::install();
 
     let sandbox_data = data::SandboxDataSpec::load_embedded();
     // Audio lives in its own registries, separate from sandbox tuning and
     // from each other (SFX synthesis vs. generated music pointers).
-    let music_registry = data::load_embedded_music_registry();
-    let sfx_registry = data::load_embedded_sfx_registry();
+    let music_registry = data::authored_music_registry().clone();
+    let sfx_registry = data::authored_sfx_registry().clone();
 
     // Build the singleton SandboxAssetCatalog before anything else asks
     // it for a path. Every asset path/source policy in the visible

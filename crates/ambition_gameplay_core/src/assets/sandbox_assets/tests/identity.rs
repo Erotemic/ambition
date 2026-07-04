@@ -2,7 +2,7 @@
 //! uniqueness across the manifest.
 
 use super::super::*;
-use crate::session::data::load_embedded_music_registry;
+use crate::session::data::authored_music_registry;
 use std::collections::HashSet;
 
 use super::fixture_catalog;
@@ -115,7 +115,7 @@ fn sandbox_data_is_required_and_bootstrap() {
 #[test]
 fn music_track_ids_match_audio_spec() {
     let catalog = fixture_catalog();
-    let music = load_embedded_music_registry();
+    let music = authored_music_registry().clone();
     for track in &music.tracks {
         let id = ids::music_track(&track.id);
         if track.asset_path.is_some() {
@@ -145,7 +145,7 @@ fn all_catalog_ids_are_unique() {
 fn secondary_ldtk_worlds_are_in_the_catalog_under_world_namespace() {
     let mut config = GameAssetConfig::default();
     config.asset_profile = AssetProfile::DesktopDevLoose;
-    let music = load_embedded_music_registry();
+    let music = authored_music_registry().clone();
     let catalog = build_sandbox_catalog(&config, &music);
 
     for (id, embedded_path) in [

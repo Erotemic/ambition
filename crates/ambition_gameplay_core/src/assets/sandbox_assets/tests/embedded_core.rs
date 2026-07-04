@@ -6,7 +6,7 @@
 //! `static_core_assets` feature.
 
 use super::super::*;
-use crate::session::data::load_embedded_music_registry;
+use crate::session::data::authored_music_registry;
 use std::collections::HashSet;
 
 /// Every URL in `embedded_core::ALL_URLS` is unique. Catches a
@@ -63,7 +63,7 @@ fn ambition_asset_source_plugin_installs_under_static_core_assets() {
 fn embedded_core_urls_have_authored_catalog_candidates() {
     let mut config = GameAssetConfig::default();
     config.asset_profile = AssetProfile::WebStatic;
-    let music = load_embedded_music_registry();
+    let music = authored_music_registry().clone();
     let catalog = build_sandbox_catalog(&config, &music);
     let mut authored_urls = HashSet::<String>::new();
     for (_, entry) in catalog.catalog().manifest().iter() {
@@ -109,7 +109,7 @@ fn embedded_core_urls_have_authored_catalog_candidates() {
 fn web_static_loads_core_fonts_and_sprites_under_static_core_assets() {
     let mut config = GameAssetConfig::default();
     config.asset_profile = AssetProfile::WebStatic;
-    let music = load_embedded_music_registry();
+    let music = authored_music_registry().clone();
     let catalog = build_sandbox_catalog(&config, &music);
 
     // Fonts.
@@ -169,7 +169,7 @@ fn web_static_loads_core_fonts_and_sprites_under_static_core_assets() {
 fn web_static_skips_out_of_set_visuals_even_with_static_core_assets() {
     let mut config = GameAssetConfig::default();
     config.asset_profile = AssetProfile::WebStatic;
-    let music = load_embedded_music_registry();
+    let music = authored_music_registry().clone();
     let catalog = build_sandbox_catalog(&config, &music);
 
     // Breakable variants are not in the embedded core set.

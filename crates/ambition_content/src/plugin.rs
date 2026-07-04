@@ -28,6 +28,11 @@ impl Plugin for AmbitionContentPlugin {
         // standalone fallback.
         super::enemy_roster::install();
 
+        // Install the authored music/SFX registries into the engine's
+        // audio-data seam (R3.2 — the engine ships no tracks/cues). The app
+        // startup choke point also installs; first install wins.
+        super::audio_registries::install();
+
         // Install the authored item catalog (C1 — content out of core) into the
         // machinery lib before any item flavor/wiring is read. Byte-identical to
         // the engine's built-in 24-item default table (pinned by

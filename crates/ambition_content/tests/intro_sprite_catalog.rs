@@ -2,8 +2,8 @@
 //! entries resolve through the prebuilt sandbox catalog.
 
 use ambition_asset_manager::{AssetKind, AssetProfile};
+use ambition_content::audio_registries::load_music_registry;
 use ambition_gameplay_core::assets::game_assets::GameAssetConfig;
-use ambition_gameplay_core::session::data::load_embedded_music_registry;
 
 #[test]
 fn intro_npc_and_prop_sprite_ids_resolve_through_the_catalog() {
@@ -13,7 +13,7 @@ fn intro_npc_and_prop_sprite_ids_resolve_through_the_catalog() {
 
     let mut config = GameAssetConfig::default();
     config.asset_profile = AssetProfile::DesktopDevLoose;
-    let music = load_embedded_music_registry();
+    let music = load_music_registry();
     // The intro entries are a CONTENT extension (the app assembly wires
     // them through `build_sandbox_catalog_with`); mirror that wiring here.
     let catalog = ambition_gameplay_core::assets::sandbox_assets::build_sandbox_catalog_with(

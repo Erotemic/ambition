@@ -17,6 +17,9 @@
 //! their machinery half (e.g. [`data`], [`features`]) so historical
 //! `crate::…` paths keep resolving.
 
+/// The authored audio registries (music/sfx RON) — content DATA installed
+/// into the engine's `session::data` seam at startup.
+pub mod audio_registries;
 pub mod banter;
 pub mod bosses;
 pub mod content_validation;

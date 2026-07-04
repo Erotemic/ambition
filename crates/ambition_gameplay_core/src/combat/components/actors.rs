@@ -605,7 +605,7 @@ impl EncounterMob {
 
 /// Marker for hostile actors spawned imperatively at room load OUTSIDE the
 /// authored `RoomSpec` lists (today: the spectator-duel fighters staged by
-/// `features::stage_room_duel`). The authored render pass only spawns visuals for
+/// the content duel stager). The authored render pass only spawns visuals for
 /// `spec.enemy_spawns`, and the dynamic pass only for [`EncounterMob`] / reward
 /// chests, so a directly-staged actor would render invisibly. This marker lets
 /// the renderer's runtime-visual discovery give it the same sprite pipeline every

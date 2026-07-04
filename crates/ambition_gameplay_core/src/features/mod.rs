@@ -41,10 +41,6 @@ pub(crate) const MAX_ENEMY_AIR_JUMPS: u8 = 1;
 pub(crate) const ENEMY_ATTACK_COOLDOWN: f32 = 1.05;
 // Boss/profile and combat-kit data own their own cooldown/timing constants.
 
-pub mod arena;
-pub use arena::{
-    duel_spawn_requests, stage_room_duel, DUEL_ARENA_ROOM_ID, DUEL_PCA_ID, DUEL_ROBOT_ID,
-};
 pub mod banter;
 // Stable facade for boss attack geometry.
 pub use crate::boss_encounter::attack_geometry as boss_attack_geometry;
@@ -63,10 +59,10 @@ pub use crate::combat::world_overlay;
 pub use crate::combat::{bus, util};
 
 pub use boss_attack_geometry::{
-    active_attack_volumes, body_damage_aabb, bounding_aabb, collision_aabb,
-    damageable_volumes, volumes_for_profile, world_space_body_aabbs_from_metrics,
-    world_space_body_aabbs_from_parts, AnimationSelection, BossAnimationFrameSample,
-    BossVolumeContext, CombatGeometry, SimpleActorGeometry,
+    active_attack_volumes, body_damage_aabb, bounding_aabb, collision_aabb, damageable_volumes,
+    volumes_for_profile, world_space_body_aabbs_from_metrics, world_space_body_aabbs_from_parts,
+    AnimationSelection, BossAnimationFrameSample, BossVolumeContext, CombatGeometry,
+    SimpleActorGeometry,
 };
 pub use bosses::{
     boss_attack_moveset, boss_special_for_profile, ActorSpriteMetrics, BossAttackProfile,
@@ -84,34 +80,30 @@ pub(crate) use ecs::spawn_runtime_minion;
 pub use components::{
     ActorAggression, ActorCooldowns, ActorDisposition, ActorFaction, ActorIdentity, ActorIntent,
     ActorInteraction, ActorPose, ActorRenderSize, ActorTarget, AggressionMode, AggressionTarget,
-    BodyMelee, BossDeathAnimation, BossPatternTimer, BossPhase,
-    BossRewardChest, BreakableFeature, CenteredAabb, ChestBundle, ChestFeature, Collected,
-    CombatKit, DamageableVolumes, EncounterMob, EncounterRewardChest, EnemyActorBundle,
-    FallingChest, FeatureBaseBundle, FeatureId, FeatureLifecycleBundle, FeatureName,
-    FeatureRenderedBundle, MeleeSwing, Opened, PersistKey, PickupBundle, PickupFeature, PogoPolicy,
-    PogoTargetContributor, PogoTargetVolumes, PostBossNpc, RespawnTimer, RuntimeStagedActor,
-    SandboxSolidContributor, StandTimer, SwitchFeature, SwitchOn,
+    BodyMelee, BossDeathAnimation, BossPatternTimer, BossPhase, BossRewardChest, BreakableFeature,
+    CenteredAabb, ChestBundle, ChestFeature, Collected, CombatKit, DamageableVolumes, EncounterMob,
+    EncounterRewardChest, EnemyActorBundle, FallingChest, FeatureBaseBundle, FeatureId,
+    FeatureLifecycleBundle, FeatureName, FeatureRenderedBundle, MeleeSwing, Opened, PersistKey,
+    PickupBundle, PickupFeature, PogoPolicy, PogoTargetContributor, PogoTargetVolumes, PostBossNpc,
+    RespawnTimer, RuntimeStagedActor, SandboxSolidContributor, StandTimer, SwitchFeature, SwitchOn,
 };
 pub use ecs::actor_clusters::{
     ActorClusterSeed, ActorConfig, ActorMotionPath, ActorMut, ActorStatus, BodyKinematics,
 };
 pub use ecs::{
-    apply_actor_contact_damage, apply_actor_stimuli, apply_feature_hit_events,
-    apply_gameplay_banner_requests, apply_hitbox_damage, apply_spawn_actor_requests,
-    apply_summon_effects, boss_is_cleared, boss_spawn_hurtboxes, can_damage,
-    clear_encounter_reward_ecs, collect_ecs_pickups, damage_lands, derive_boss_sprite_metrics,
-    derive_pogo_target_volumes, despawn_encounter_mobs, dissolve_settled_grudges,
-    ecs_boss_anim_state,
-    ecs_boss_anim_state_and_entity, ecs_boss_animation_frame_sample,
-    ecs_breakable_state, ecs_chest_opened,
-    ecs_hit_event_hits_actor, ecs_hit_event_hits_boss, ecs_hit_event_hits_breakable,
-    advance_actor_anim_overlays, drive_boss_animators, enforce_mount_rider_link,
-    integrate_boss_bodies, integrate_sim_bodies, interact_ecs_actors_and_switches,
-    project_boss_attack_state_from_move, trigger_boss_attack_moves,
-    magnetize_pickups, open_ecs_chests, pirate_on_shark_rider_offset,
-    rebuild_actor_anim_index, rebuild_actor_render_index, rebuild_boss_render_index,
-    rebuild_feature_ecs_world_overlay, rebuild_feature_view_index,
-    refresh_actor_damageable_volumes, refresh_boss_damageable_volumes,
+    advance_actor_anim_overlays, apply_actor_contact_damage, apply_actor_stimuli,
+    apply_feature_hit_events, apply_gameplay_banner_requests, apply_hitbox_damage,
+    apply_spawn_actor_requests, apply_summon_effects, boss_is_cleared, boss_spawn_hurtboxes,
+    can_damage, clear_encounter_reward_ecs, collect_ecs_pickups, damage_lands,
+    derive_boss_sprite_metrics, derive_pogo_target_volumes, despawn_encounter_mobs,
+    dissolve_settled_grudges, drive_boss_animators, ecs_boss_anim_state,
+    ecs_boss_anim_state_and_entity, ecs_boss_animation_frame_sample, ecs_breakable_state,
+    ecs_chest_opened, ecs_hit_event_hits_actor, ecs_hit_event_hits_boss,
+    ecs_hit_event_hits_breakable, enforce_mount_rider_link, integrate_boss_bodies,
+    integrate_sim_bodies, interact_ecs_actors_and_switches, magnetize_pickups, open_ecs_chests,
+    pirate_on_shark_rider_offset, project_boss_attack_state_from_move, rebuild_actor_anim_index,
+    rebuild_actor_render_index, rebuild_boss_render_index, rebuild_feature_ecs_world_overlay,
+    rebuild_feature_view_index, refresh_actor_damageable_volumes, refresh_boss_damageable_volumes,
     refresh_breakable_damageable_volumes, reset_ecs_room_features, select_actor_targets,
     spawn_encounter_mob, spawn_enemy_projectiles_from_brain_actions, spawn_melee_hitbox,
     spawn_room_feature_entities, sync_actor_poses_from_feature_aabbs, sync_actor_read_model,
@@ -119,15 +111,14 @@ pub use ecs::{
     sync_ecs_actors_with_save, sync_ecs_bosses_with_save, sync_ecs_switches_from_save,
     sync_encounter_reward_chests_ecs, sync_riders_to_mounts, tick_actor_brains,
     tick_and_despawn_hitboxes, tick_boss_brains_system, tick_gameplay_banner, tick_npc_idle_barks,
-    tick_pending_challenges, update_ecs_bosses, update_ecs_breakables, update_ecs_falling_chests,
-    update_ecs_hazards, ActorSteering, BossClusterQueryData, BossClusterRef, BossClusterScratch,
-    ActorAnimIndex, ActorRenderIndex, ActorRenderView, BossConfig, BossMut, BossOverrides, BossRef,
-    BossRenderIndex, BossRenderView, BossEncounter,
-    FactionRelations,
-    FeatureEcsWorldOverlay, FeatureSimEntity, FeatureViewIndex, FriendlyFire, HazardFeature,
-    HeldItem, Hitbox, HitboxAnchor, HitboxHits, HitboxLifetime, MountSlot, Mountable, Mounted,
-    MountedBrainCache, MountedSize, PendingChallenge, RidingOn, SpawnActorKind, SpawnActorRequest,
-    CHALLENGE_GRACE_S,
+    tick_pending_challenges, trigger_boss_attack_moves, update_ecs_bosses, update_ecs_breakables,
+    update_ecs_falling_chests, update_ecs_hazards, ActorAnimIndex, ActorRenderIndex,
+    ActorRenderView, ActorSteering, BossClusterQueryData, BossClusterRef, BossClusterScratch,
+    BossConfig, BossEncounter, BossMut, BossOverrides, BossRef, BossRenderIndex, BossRenderView,
+    FactionRelations, FeatureEcsWorldOverlay, FeatureSimEntity, FeatureViewIndex, FriendlyFire,
+    HazardFeature, HeldItem, Hitbox, HitboxAnchor, HitboxHits, HitboxLifetime, MountSlot,
+    Mountable, Mounted, MountedBrainCache, MountedSize, PendingChallenge, RidingOn, SpawnActorKind,
+    SpawnActorRequest, CHALLENGE_GRACE_S,
 };
 pub use ecs::{ActorAnimFrame, ActorSpriteData};
 pub use enemies::{

@@ -27,6 +27,8 @@ pub mod bosses;
 pub mod character_catalog;
 pub mod content_validation;
 pub mod dialogue;
+/// The spectator-duel exhibition fight (RoomLoaded consumer + `<<duel>>`).
+pub mod duel_arena;
 // `features` (the feature-ECS actor/boss world) was promoted to
 // `ambition_gameplay_core::features` (lib root): machinery presentation/dev still read
 // its named bits (doc 20 B3/B4), so it stays in the sandbox lib when

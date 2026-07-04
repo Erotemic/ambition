@@ -72,6 +72,22 @@ impl Plugin for AmbitionContentPlugin {
             .expect("goblin_encounter.ron should parse as an encounter wave book"),
         );
 
+        // The spectator duel stages itself when its room finishes loading
+        // (the engine's RoomLoaded fact — JD4 room-mechanics-by-kind seam).
+        app.add_systems(
+            bevy::prelude::Update,
+            super::duel_arena::stage_duel_on_room_loaded,
+        );
+        #[cfg(feature = "ui")]
+        {
+            app.init_resource::<ambition_gameplay_core::dialog::yarn_bindings::YarnContentBindings>();
+            app.world_mut()
+                .resource_mut::<ambition_gameplay_core::dialog::yarn_bindings::YarnContentBindings>(
+                )
+                .installers
+                .push(super::duel_arena::install_duel_yarn_binding);
+        }
+
         app.add_plugins(super::quests::AmbitionQuestContentPlugin);
         app.add_plugins(super::bosses::AmbitionBossContentPlugin);
         app.add_plugins(super::dialogue::AmbitionDialogueContentPlugin);

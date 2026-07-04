@@ -255,31 +255,6 @@ pub fn cmd_challenge(
         });
 }
 
-/// `<<duel>>` — stage a SPECTATOR duel: spawn a second-instance PCA and a robot copy
-/// of the player near the observer, as two plain `Npc`s holding a mutual grudge, so
-/// the two AI fighters duel while the player watches. The reusable way to show off /
-/// iterate the advanced fighter brain in-game; it does NOT touch the dialog-challenged
-/// PCA (separate ids). The grudge — not a hostile faction — makes them fight (and only
-/// each other), so they never target the observer; the player can still take a stray
-/// (damage is physical). See [`crate::features::arena`].
-pub fn cmd_duel(
-    player: Query<&crate::actor::BodyKinematics, crate::actor::PrimaryPlayerOnly>,
-    mut spawns: MessageWriter<crate::features::SpawnActorRequest>,
-) {
-    let Some(kin) = player.iter().next() else {
-        warn!("<<duel>>: no player to center the duel on; ignoring");
-        return;
-    };
-    // Stage the duel off to the side the player faces; the mutual grudge (carried on
-    // the requests, cross-wired at spawn) makes the pair target each other regardless
-    // of where the observer stands. A player who walks in can still get caught by a
-    // stray.
-    let center = kin.pos + ae::Vec2::new(kin.facing.signum() * 220.0, 0.0);
-    for req in crate::features::duel_spawn_requests(center) {
-        spawns.write(req);
-    }
-}
-
 /// `<<give_item "kind" count>>` — grant the player an item by adding
 /// to the live `OwnedItems` catalog resource. The kind string is
 /// resolved through [`crate::items::Item::from_dialog_id`]
@@ -309,7 +284,10 @@ pub fn cmd_give_item(
 pub fn cmd_buy_item(
     In((id, price)): In<(String, f32)>,
     mut owned: ResMut<crate::items::OwnedItems>,
-    mut wallets: Query<&mut ambition_characters::actor::BodyWallet, With<crate::actor::PrimaryPlayer>>,
+    mut wallets: Query<
+        &mut ambition_characters::actor::BodyWallet,
+        With<crate::actor::PrimaryPlayer>,
+    >,
 ) {
     let Some(item) = crate::items::Item::from_dialog_id(&id) else {
         warn!(target: "ambition_gameplay_core::dialog::yarn", "buy_item: unknown item {id:?}");
@@ -330,7 +308,10 @@ pub fn cmd_buy_item(
 pub fn cmd_sell_item(
     In((id, price)): In<(String, f32)>,
     mut owned: ResMut<crate::items::OwnedItems>,
-    mut wallets: Query<&mut ambition_characters::actor::BodyWallet, With<crate::actor::PrimaryPlayer>>,
+    mut wallets: Query<
+        &mut ambition_characters::actor::BodyWallet,
+        With<crate::actor::PrimaryPlayer>,
+    >,
 ) {
     let Some(item) = crate::items::Item::from_dialog_id(&id) else {
         warn!(target: "ambition_gameplay_core::dialog::yarn", "sell_item: unknown item {id:?}");
@@ -514,7 +495,6 @@ pub fn register_commands(commands: &mut Commands, runner: &mut DialogueRunner) {
     let set_flag_id = commands.register_system(cmd_set_flag);
     let clear_flag_id = commands.register_system(cmd_clear_flag);
     let challenge_id = commands.register_system(cmd_challenge);
-    let duel_id = commands.register_system(cmd_duel);
     let give_item_id = commands.register_system(cmd_give_item);
     let buy_item_id = commands.register_system(cmd_buy_item);
     let sell_item_id = commands.register_system(cmd_sell_item);
@@ -526,7 +506,6 @@ pub fn register_commands(commands: &mut Commands, runner: &mut DialogueRunner) {
     cmds.add_command("set_flag", set_flag_id);
     cmds.add_command("clear_flag", clear_flag_id);
     cmds.add_command("challenge", challenge_id);
-    cmds.add_command("duel", duel_id);
     cmds.add_command("give_item", give_item_id);
     cmds.add_command("buy_item", buy_item_id);
     cmds.add_command("sell_item", sell_item_id);

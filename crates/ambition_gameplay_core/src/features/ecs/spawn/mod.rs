@@ -57,47 +57,10 @@ pub fn spawn_room_feature_entities(commands: &mut Commands, room: &crate::rooms:
     // them off `RoomSpec` directly.
 
     // Room-scoped faction targeting: reset to the combat baseline every room load
-    // so one room's relations overrides never linger into the next. The spectator
-    // duel arena needs NO relations mutation — its two fighters are plain `Npc`s
-    // whose mutual grudge (cross-wired below) drives the fight — but other rooms may
-    // still augment relations, so the per-load reset stays.
+    // so one room's relations overrides never linger into the next. (Per-room
+    // content staging — e.g. the spectator duel — happens in CONTENT systems
+    // consuming the `RoomLoaded` fact below, not here.)
     commands.insert_resource(crate::features::FactionRelations::default());
-
-    // The spectator duel arena auto-spawns its two fighters (already fighting the
-    // instant the player walks in, no trigger). They feud with EACH OTHER via a
-    // mutual grudge, never the observing player: once a fighter's grudge foe dies it
-    // goes target-less and stands down like any NPC. The player can still be caught
-    // by a stray (physical damage, different faction) or PROVOKE a stood-down fighter
-    // by striking it past the retaliation threshold.
-    if let Some(requests) = crate::features::stage_room_duel(room) {
-        let mut staged = Vec::new();
-        for req in requests {
-            if let crate::features::SpawnActorKind::Enemy { brain } = &req.kind {
-                let authored = crate::rooms::Authored::new(
-                    req.id.clone(),
-                    req.name.clone(),
-                    ambition_engine_core::Aabb::new(req.pos, req.half_size),
-                    brain.clone(),
-                );
-                // Mark the staged fighter so the renderer's runtime-visual
-                // discovery gives it a sprite — it isn't in the authored
-                // `spec.enemy_spawns` the static render pass iterates.
-                if let Some(entity) = super::spawn_actors::spawn_enemy_with_faction(
-                    commands,
-                    &authored,
-                    &[],
-                    req.faction,
-                ) {
-                    commands
-                        .entity(entity)
-                        .insert(crate::features::RuntimeStagedActor);
-                    staged.push((req.id.clone(), entity, req.grudge_against.clone()));
-                }
-            }
-        }
-        // Cross-wire the mutual grudge now that both fighters exist.
-        super::spawn_actors::wire_staged_grudges(commands, &staged);
-    }
 
     // The staging fact (JD4): every path that stages a room's contents flows
     // through this function, so this is the ONE emission site for

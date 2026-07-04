@@ -5,7 +5,7 @@
 //! This is the "start a room and see how the sim plays out" test for the advanced
 //! fighter brain. It builds the full `SandboxSim` app with `start_room =
 //! "duel_arena"`, so the room's normal load path (`spawn_room_feature_entities` →
-//! `features::stage_room_duel`) auto-stages the fight — a Perfect Cell-ular
+//! the content `RoomLoaded` stager) auto-stages the fight — a Perfect Cell-ular
 //! Automaton vs a robot copy of the player, both plain `Npc`s holding a mutual
 //! GRUDGE against each other (not a hostile faction). The grudge drives relational
 //! targeting AND authorizes same-faction damage, so they fight each other — and only
@@ -22,12 +22,13 @@
 #![cfg(feature = "rl_sim")]
 
 use ambition_app::{AgentAction, SandboxSim, SandboxSimOptions, TimestepMode};
-use ambition_characters::brain::ActorControl;
 use ambition_characters::actor::BodyHealth;
+use ambition_characters::brain::ActorControl;
+use ambition_content::duel_arena::{DUEL_PCA_ID, DUEL_ROBOT_ID};
 use ambition_gameplay_core::actor::{
     BodyAbilities, BodyBlinkState, BodyDashState, BodyFlightState, BodyKinematics, BodyShieldState,
 };
-use ambition_gameplay_core::features::{FeatureId, DUEL_PCA_ID, DUEL_ROBOT_ID};
+use ambition_gameplay_core::features::FeatureId;
 use bevy::prelude::World;
 
 /// Per-fighter behavior tally accumulated over the bout, plus spatial extent and

@@ -477,11 +477,35 @@ dissolves (pogo becomes such a Technique). **The gaps Jon's direction adds:**
    at plugin build — so adding an ability recompiles content, not core. Fable's
    spec must keep the effect-registration seam content-side (it already is) and
    ensure params flow as data, not as core-known types.
-**Open for fable:** dispatch shape (keep string-key `Special` MESSAGE, or move to
-a marker-COMPONENT + observer trigger per active window — more ECS-native, typed);
-the params value type (open RON value vs a typed-but-extensible enum); and the
-exact published-character-data schema for moves + input map + per-move effect refs
-with params. Jon: "we can keep discussing" — this is a direction, not a final spec.
+**Open for fable — the params VALUE TYPE (Jon wants fable's read; "don't code
+ourselves into a corner"):** all authored as RON, so bakeable at compile time via
+`include_str!`+parse EITHER way — bakeability isn't the deciding factor. The corner
+to AVOID is a closed typed enum core knows (the only non-decomposable option). Three
+decomposable candidates:
+- **(A) Opaque serde value + per-effect `Deserialize` struct** `[opus-4.8[1m]] lean`:
+  the move carries params as a `ron::Value`/blob; each effect owns
+  `#[derive(Deserialize)] SwordSlashParams{knockback,…}` and hydrates it at trigger.
+  Typed AT the effect, core stays ignorant (decomposable), no registry ceremony,
+  RON-bakeable. Mirrors how boss techniques already "read their own params."
+- **(B) Bevy `Reflect`** (Jon: "the more professional option?"): each effect
+  `#[derive(Reflect)]`s its params + registers the type; the move-data RON hydrates
+  via the type registry. Buys the whole reflection ecosystem — INSPECTOR + scene
+  integration + a future visual move/param EDITOR — at the cost of type-registration
+  ceremony. Earns it IF a visual character/move editor is on the roadmap.
+- **(C) `HashMap<String, f32>`** (Jon: "not opposed"): simplest, fully data-driven,
+  but stringly-typed + no per-effect validation. Fine for numeric-only params;
+  weakest for structured ones.
+  `[opus-4.8[1m]]` recommend **(A) as the pragmatic default, (B) if a visual editor
+  is planned** — but flagged for fable's wider-view call.
+- **Item ↔ params (open, Jon "it depends"):** items either MERGE modifiers into the
+  params blob at trigger-resolve (data-level: +knockback) or are COMPONENTS the effect
+  reads (behavioral override). Likely both — numeric via merge, behavioral via
+  component. fable to pin.
+**Also open for fable:** dispatch shape (keep string-key `Special` MESSAGE, or move to
+a marker-COMPONENT + observer per active window — more ECS-native); and the exact
+published-character-data schema (moves + input map + per-move effect refs + params).
+Jon: "we can keep discussing" + "I think fable should weigh in too" — direction, not
+a final spec.
 
 ### JD2. C1 item catalog — BUILD IT as architecture prep (Jon overrules the defer).
 
@@ -550,7 +574,25 @@ mirrors actors|props one level up:**
   module (a content plugin gated on its room's presence); hall-of-characters is mostly
   authored NPCs + dialogue (could be pure `Authored<T>` data + content dialogue). Is one
   uniform "room-load content hook" seam right, or do these split by kind (data vs plugin
-  vs hook)? That's the call to make together.
+  vs hook)?
+
+**[ADJUDICATED by Jon 2026-07-04]:**
+- **LDtk is THE level-authoring path, permanent** ("that is always the case, I don't
+  see that changing"). Legacy RON levels: VERIFIED GONE (`[opus-4.8[1m]]` — no `.ron`
+  level files, no RON room loader in core; the only hits are unrelated comments).
+- **BUILD the content world-registration seam** — "I do want ldtk in content. So the
+  seam that lets content own the ldtk world is right." So: move the `.ldtk` payloads +
+  the hardcoded world list OUT to `ambition_content`, and add the world-registration
+  path (the `AmbitionContentPlugin` analogue for worlds) that feeds `from_parts`. Core
+  keeps the `RoomSpec`/`RoomSet` KIT + the LDtk→runtime projection.
+- **Per-room mechanics: SPLIT BY KIND** — Jon: "split by kind seems to make sense, less
+  indirection." So each mechanic goes to the LIGHTEST seam: authored `Authored<T>` data
+  where it's really just entities (hall NPCs); a self-gating content plugin for a heavy
+  sim (falling-sand); an id-keyed load hook ONLY for the genuinely-imperative spawn-time
+  ones (duel-arena staging). No single uniform hook.
+- **fable to refine** the exact seam shape (Jon: "maybe fable can help here too"):
+  what the world-registration API looks like, and the precise boundary of the room-id
+  load-hook registry vs. `Authored<T>`. **Autonomous to EXECUTE once fable sizes it.**
 
 ---
 
@@ -2865,8 +2907,10 @@ see JD2), A1 boss driver fold (JD3), A2–A5 damage unification, B frame-bug res
    that data too. The pogo-pollution worry dissolves (pogo = a Technique). **fable to spec** the
    params value type, the dispatch shape (message vs component/observer), and the published-
    character-data schema. Discussion ongoing — not a final spec.
-2. **D-front `rooms`/`RoomSpec` (JD4)** — Jon adjudicates WITH discussion; an `[opus-4.8[1m]]`
-   dependency map of the coupling is being produced first. Held.
+2. **D-front `rooms`/`RoomSpec` (JD4) — ADJUDICATED.** Types stay core KIT; move the `.ldtk`
+   payloads + world list to content + build a world-registration seam (LDtk is the permanent
+   level path, legacy RON verified gone); per-room mechanics SPLIT BY KIND (data / self-gating
+   plugin / id-hook). fable to size the seam, then autonomous to execute.
 3. **C1 item catalog — RESOLVED: BUILD IT (JD2).** Jon overrules the defer — it's architecture
    prep (proven roster pattern, low risk); incremental is fine. Autonomous.
 4. **A1 boss driver fold — RESOLVED: FINISH IT (JD3).** Shape settled (Path B); nuanced finish

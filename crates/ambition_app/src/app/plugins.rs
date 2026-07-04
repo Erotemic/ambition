@@ -599,7 +599,7 @@ fn install_presentation_resources_and_subplugins(app: &mut App) {
     add_audio_plugins(app);
     add_mobile_touch_plugin(app);
     #[cfg(feature = "falling_sand")]
-    app.add_plugins(ambition_gameplay_core::falling_sand::FallingSandRoomPlugin);
+    app.add_plugins(ambition_content::falling_sand::FallingSandRoomPlugin);
     // Frame pacing / battery saver. Enabled by the normal visible personas so
     // desktop and Android exercise the same pacing behavior by default.
     #[cfg(feature = "frame_pacing")]

@@ -29,6 +29,9 @@ pub mod content_validation;
 pub mod dialogue;
 /// The spectator-duel exhibition fight (RoomLoaded consumer + `<<duel>>`).
 pub mod duel_arena;
+/// The falling-sand prototype room (self-gating content plugin).
+#[cfg(feature = "falling_sand")]
+pub mod falling_sand;
 // `features` (the feature-ECS actor/boss world) was promoted to
 // `ambition_gameplay_core::features` (lib root): machinery presentation/dev still read
 // its named bits (doc 20 B3/B4), so it stays in the sandbox lib when

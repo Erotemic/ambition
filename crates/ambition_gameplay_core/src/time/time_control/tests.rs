@@ -349,14 +349,6 @@ fn gameplay_systems_must_not_read_res_time_directly() {
             "dev/trace/systems.rs",
             "trace timestamps are wall-clock by design",
         ),
-        // Falling-sand simulation manages its own step cadence
-        // (chunk loader + particle stepping). Slowing it with
-        // sim_dt would make sand pile up unphysically during
-        // bullet-time; it stays wall-clock.
-        (
-            "falling_sand.rs",
-            "falling-sand sim manages its own cadence",
-        ),
     ];
 
     fn walk(dir: &Path, out: &mut Vec<PathBuf>) {

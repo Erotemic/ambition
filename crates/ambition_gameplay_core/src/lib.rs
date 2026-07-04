@@ -69,8 +69,6 @@ pub mod dev;
 pub mod dialog;
 pub mod encounter;
 pub mod enemy_projectile;
-#[cfg(feature = "falling_sand")]
-pub mod falling_sand;
 pub mod inventory_ui;
 pub mod items;
 // Stable facade for dialogue shop bindings.

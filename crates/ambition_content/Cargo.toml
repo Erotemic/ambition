@@ -20,6 +20,10 @@ audio = ["ambition_gameplay_core/audio", "dep:ambition_audio"]
 # + the desktop disk-failure fallback). Forwards to the machinery feature so
 # the loader's embedded paths light up together.
 static_map = ["ambition_gameplay_core/static_map"]
+# The falling-sand prototype room (bridges bevy_falling_sand into the
+# movement world). Off by default; the room plugin self-gates on its
+# authored room at runtime.
+falling_sand = ["dep:bevy_falling_sand"]
 
 [dependencies]
 # Baseline machinery features: the sandbox lib was never built fully bare
@@ -44,6 +48,7 @@ ambition_characters = { path = "../ambition_characters" }
 ambition_interaction = { path = "../ambition_interaction" }
 bevy = { version = "0.18.1", default-features = false, features = ["ui_api"] }
 bevy_yarnspinner = { version = "0.8", optional = true }
+bevy_falling_sand = { version = "0.7.0", optional = true }
 serde = { version = "1", features = ["derive"] }
 ron = "0.11"
 serde_json = "1"

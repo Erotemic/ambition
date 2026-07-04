@@ -1,4 +1,6 @@
-//! Falling-sand prototype room integration (feature-gated, in-progress).
+//! Falling-sand prototype room integration — CONTENT (a self-gating room
+//! plugin: feature-gated, active only while its authored room is; R3.3
+//! room-mechanics-by-kind).
 //!
 //! Bridges the external `bevy_falling_sand` particle crate into Ambition's
 //! movement world. The whole module is behind the `falling_sand` cargo feature
@@ -107,7 +109,7 @@ struct FallingSandSpoutState {
 }
 
 impl FallingSandSpoutState {
-    fn from_save(save: &crate::persistence::save_data::SandboxSaveData) -> Self {
+    fn from_save(save: &ambition_gameplay_core::persistence::save_data::SandboxSaveData) -> Self {
         Self {
             sand: save.switch(SAND_SWITCH),
             water: save.switch(WATER_SWITCH),
@@ -184,8 +186,8 @@ impl Plugin for FallingSandRoomPlugin {
                     // The projection now contributes settled sand / liquid to the
                     // collision overlay, which the rebuild clears each frame —
                     // so run after it (the same WorldPrep contract the gates use).
-                    .after(crate::features::rebuild_feature_ecs_world_overlay)
-                    .in_set(crate::schedule::SandboxSet::WorldPrep),
+                    .after(ambition_gameplay_core::features::rebuild_feature_ecs_world_overlay)
+                    .in_set(ambition_gameplay_core::schedule::SandboxSet::WorldPrep),
             )
             .add_systems(
                 Update,
@@ -199,7 +201,7 @@ impl Plugin for FallingSandRoomPlugin {
                     sync_falling_sand_switch_visuals,
                 )
                     .chain()
-                    .in_set(crate::schedule::SandboxSet::GameplayEffects),
+                    .in_set(ambition_gameplay_core::schedule::SandboxSet::GameplayEffects),
             )
             // Diagnostic: once per second while in the falling-sand room,
             // dump per-type particle counts and Y-distribution. Lets us
@@ -305,8 +307,8 @@ fn setup_particle_types(mut commands: Commands) {
 
 fn sync_falling_sand_room_state(
     mut commands: Commands,
-    room_set: Res<crate::rooms::RoomSet>,
-    save: Res<crate::persistence::save::SandboxSave>,
+    room_set: Res<ambition_gameplay_core::rooms::RoomSet>,
+    save: Res<ambition_gameplay_core::persistence::save::SandboxSave>,
     mut state: ResMut<FallingSandRoomState>,
     particles: Query<Entity, With<Particle>>,
 ) {
@@ -337,7 +339,7 @@ fn sync_falling_sand_room_state(
 }
 
 fn seed_falling_sand_room_boundaries(
-    room_set: Res<crate::rooms::RoomSet>,
+    room_set: Res<ambition_gameplay_core::rooms::RoomSet>,
     mut state: ResMut<FallingSandRoomState>,
     mut writer: MessageWriter<SpawnParticleSignal>,
 ) {
@@ -469,17 +471,17 @@ fn emit_particle_rect(
 }
 
 fn capture_falling_sand_switch_interactions(
-    room_set: Res<crate::rooms::RoomSet>,
+    room_set: Res<ambition_gameplay_core::rooms::RoomSet>,
     mut state: ResMut<FallingSandRoomState>,
-    mut save: ResMut<crate::persistence::save::SandboxSave>,
-    mut effects: MessageReader<crate::features::SwitchActivated>,
+    mut save: ResMut<ambition_gameplay_core::persistence::save::SandboxSave>,
+    mut effects: MessageReader<ambition_gameplay_core::features::SwitchActivated>,
 ) {
     if room_set.active_spec().id != ROOM_ID {
         return;
     }
 
     for effect in effects.read() {
-        let crate::features::SwitchActivated { activation, .. } = effect;
+        let ambition_gameplay_core::features::SwitchActivated { activation, .. } = effect;
         if state.spouts.toggle(activation.id.as_str()) {
             // Mirror the in-memory toggle into the save so the spout
             // state survives a reset / room re-entry. Without this
@@ -517,10 +519,10 @@ fn capture_falling_sand_switch_interactions(
 /// sprite stays "on" (green) while the spout is actually off.
 fn sync_falling_sand_switch_visuals(
     state: Res<FallingSandRoomState>,
-    room_set: Res<crate::rooms::RoomSet>,
+    room_set: Res<ambition_gameplay_core::rooms::RoomSet>,
     mut switches: Query<(
-        &crate::features::SwitchFeature,
-        &mut crate::features::SwitchOn,
+        &ambition_gameplay_core::features::SwitchFeature,
+        &mut ambition_gameplay_core::features::SwitchOn,
     )>,
 ) {
     if !state.active_room || room_set.active_spec().id != ROOM_ID {
@@ -542,7 +544,7 @@ fn sync_falling_sand_switch_visuals(
 
 fn sync_falling_sand_spout_nozzles(
     mut commands: Commands,
-    room_set: Res<crate::rooms::RoomSet>,
+    room_set: Res<ambition_gameplay_core::rooms::RoomSet>,
     state: Res<FallingSandRoomState>,
     existing: Query<(Entity, &FallingSandSpoutNozzle)>,
 ) {
@@ -589,7 +591,7 @@ fn sync_falling_sand_spout_nozzles(
                 792.0,
                 90.0,
                 86.0,
-                crate::config::rgba(0.92, 0.80, 0.38, 0.90),
+                ambition_gameplay_core::config::rgba(0.92, 0.80, 0.38, 0.90),
             ),
             _ => continue,
         };
@@ -602,14 +604,14 @@ fn sync_falling_sand_spout_nozzles(
                 ambition_engine_core::config::WORLD_Z_FX + 1.0,
             )),
             FallingSandSpoutNozzle { id },
-            crate::platformer_runtime::lifecycle::RoomVisual,
+            ambition_gameplay_core::platformer_runtime::lifecycle::RoomVisual,
         ));
     }
 }
 
 fn emit_falling_sand_spouts(
     mut commands: Commands,
-    room_set: Res<crate::rooms::RoomSet>,
+    room_set: Res<ambition_gameplay_core::rooms::RoomSet>,
     mut state: ResMut<FallingSandRoomState>,
     mut writer: MessageWriter<SpawnParticleSignal>,
     mut last_logged: Local<Option<FallingSandSpoutState>>,
@@ -790,14 +792,14 @@ fn spawn_stream_particles(
                 age: 0.0,
                 lifetime: 2.4,
             },
-            crate::platformer_runtime::lifecycle::RoomVisual,
+            ambition_gameplay_core::platformer_runtime::lifecycle::RoomVisual,
         ));
     }
 }
 
 fn animate_falling_sand_stream_particles(
     mut commands: Commands,
-    room_set: Res<crate::rooms::RoomSet>,
+    room_set: Res<ambition_gameplay_core::rooms::RoomSet>,
     time: Res<Time>,
     mut particles: Query<(Entity, &mut FallingSandStreamParticle, &mut Transform)>,
 ) {
@@ -857,10 +859,10 @@ impl ProjectionScratch {
 
 fn project_particles_to_movement_world(
     mut commands: Commands,
-    room_set: Res<crate::rooms::RoomSet>,
+    room_set: Res<ambition_gameplay_core::rooms::RoomSet>,
     state: Res<FallingSandRoomState>,
     world: Res<ambition_engine_core::RoomGeometry>,
-    mut overlay: ResMut<crate::features::FeatureEcsWorldOverlay>,
+    mut overlay: ResMut<ambition_gameplay_core::features::FeatureEcsWorldOverlay>,
     particles: Query<(&GridPosition, &Particle)>,
     visuals: Query<(Entity, &FallingSandMaterialVisual)>,
     mut scratch: Local<ProjectionScratch>,
@@ -1004,9 +1006,9 @@ fn project_liquid(
 }
 
 fn grant_room_swim_controls(
-    room_set: Res<crate::rooms::RoomSet>,
+    room_set: Res<ambition_gameplay_core::rooms::RoomSet>,
     mut state: ResMut<FallingSandRoomState>,
-    mut players: Query<(Entity, &mut crate::actor::BodyAbilities)>,
+    mut players: Query<(Entity, &mut ambition_gameplay_core::actor::BodyAbilities)>,
 ) {
     if room_set.active_spec().id == ROOM_ID {
         for (entity, mut abilities) in &mut players {
@@ -1048,7 +1050,7 @@ fn grant_room_swim_controls(
 fn log_falling_sand_diagnostics(
     time: Res<Time>,
     state: Res<FallingSandRoomState>,
-    room_set: Res<crate::rooms::RoomSet>,
+    room_set: Res<ambition_gameplay_core::rooms::RoomSet>,
     particles: Query<(&Particle, &GridPosition)>,
     // Component-presence query: every particle that has Particle should
     // ALSO get Density/Speed/Movement/AirResistance/MovementRng inherited
@@ -1181,17 +1183,17 @@ impl MaterialKind {
 
     fn visual_color(self) -> Color {
         match self {
-            Self::Sand => crate::config::rgba(0.95, 0.74, 0.28, 0.72),
-            Self::Water => crate::config::rgba(0.18, 0.55, 1.0, 0.48),
-            Self::Oil => crate::config::rgba(0.20, 0.13, 0.06, 0.66),
+            Self::Sand => ambition_gameplay_core::config::rgba(0.95, 0.74, 0.28, 0.72),
+            Self::Water => ambition_gameplay_core::config::rgba(0.18, 0.55, 1.0, 0.48),
+            Self::Oil => ambition_gameplay_core::config::rgba(0.20, 0.13, 0.06, 0.66),
         }
     }
 
     fn stream_color(self) -> Color {
         match self {
-            Self::Sand => crate::config::rgba(1.0, 0.82, 0.33, 0.95),
-            Self::Water => crate::config::rgba(0.28, 0.66, 1.0, 0.82),
-            Self::Oil => crate::config::rgba(0.19, 0.12, 0.06, 0.92),
+            Self::Sand => ambition_gameplay_core::config::rgba(1.0, 0.82, 0.33, 0.95),
+            Self::Water => ambition_gameplay_core::config::rgba(0.28, 0.66, 1.0, 0.82),
+            Self::Oil => ambition_gameplay_core::config::rgba(0.19, 0.12, 0.06, 0.92),
         }
     }
 }
@@ -1239,7 +1241,7 @@ fn sync_material_visuals(
                 ambition_engine_core::config::WORLD_Z_PLAYER + 4.0,
             )),
             FallingSandMaterialVisual { tile, kind },
-            crate::platformer_runtime::lifecycle::RoomVisual,
+            ambition_gameplay_core::platformer_runtime::lifecycle::RoomVisual,
         ));
     }
 }

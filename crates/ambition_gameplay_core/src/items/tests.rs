@@ -172,3 +172,50 @@ fn held_item_id_round_trips_through_reverse_lookup() {
     assert_eq!(Item::from_held_item_id("gun_sword"), Some(Item::GunSword));
     assert_eq!(Item::from_held_item_id("nonexistent"), None);
 }
+
+/// C1 fixture-vs-const: the content-authored `items.ron` deserializes to item
+/// rows BYTE-IDENTICAL to the engine's built-in default table. This is what makes
+/// the install safe — content owns the item flavor/wiring data, but the shipped
+/// items read unchanged until someone deliberately edits a row.
+#[test]
+fn items_ron_matches_builtin_defaults() {
+    let catalog = ItemCatalog::from_ron(include_str!(
+        "../../../ambition_content/assets/data/items.ron"
+    ));
+    for (index, builtin) in ITEM_META.iter().enumerate() {
+        let authored = catalog
+            .row(index)
+            .unwrap_or_else(|| panic!("items.ron is missing grid slot {index}"));
+        assert_eq!(
+            authored, builtin,
+            "authored item row {index} ({}) drifted from the built-in default",
+            builtin.dialog_id
+        );
+    }
+    assert_eq!(catalog.rows.len(), ITEM_COUNT, "items.ron authors all 24 slots");
+}
+
+/// C1: a content-authored row REPLACES the built-in for that slot — the point of
+/// the override seam. Uses the catalog directly (not the process-global install)
+/// so the test carries no global state.
+#[test]
+fn an_authored_item_row_overrides_the_built_in_slot() {
+    let ron = r#"[
+        (
+            display_name: "Warp Cannon",
+            description: "A second game's item, authored purely as data.",
+            category: Weapon,
+            held_item_id: Some("warp_cannon"),
+            dialog_id: "warpcannon",
+        ),
+    ]"#;
+    let catalog = ItemCatalog::from_ron(ron);
+    let over = catalog.row(0).expect("authored slot 0 override");
+    assert_eq!(over.display_name, "Warp Cannon", "override display takes effect");
+    assert_ne!(
+        over.display_name,
+        ITEM_META[0].display_name,
+        "the override differs from the built-in default"
+    );
+    assert_eq!(over.held_item_id.as_deref(), Some("warp_cannon"));
+}

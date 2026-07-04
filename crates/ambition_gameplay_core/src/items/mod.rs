@@ -36,7 +36,7 @@ pub const ITEM_COUNT: usize = ITEM_GRID_COLS * ITEM_GRID_ROWS; // 24
 
 /// Broad behavior class for an item. Drives how the menu's confirm action treats
 /// the slot and how the slot reads ("Equip" vs "Use" vs key item).
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize)]
 pub enum ItemCategory {
     /// An equippable weapon/tool that grants an `ActionSet` via a `HeldItem`
     /// (portal gun, axe, gun-sword, …). Confirm = equip/unequip.
@@ -101,199 +101,253 @@ pub enum Item {
 /// parallel 24-arm `match self` functions (`category` / `display_name` /
 /// `description` / `held_item_id` / `dialog_id`), so
 /// adding or renaming an item is **one row** here, not edits scattered across
-/// several functions with nothing stopping a forgotten arm. The `[_; ITEM_COUNT]`
-/// length is compiler-enforced, so the table can't be partial; row order must
+/// several functions with nothing stopping a forgotten arm. Row order must
 /// match the [`Item`] discriminants (pinned by `item_meta_table_is_index_aligned`).
-struct ItemMeta {
-    display_name: &'static str,
-    description: &'static str,
-    category: ItemCategory,
+///
+/// **Owned + serde-authorable (C1):** the fields are owned + `serde`-round-trippable,
+/// so a content game authors its item flavor/wiring as DATA in `items.ron`
+/// (installed via [`install_item_catalog`], the [`ItemCatalog`] override) — the same
+/// "content out of core" pattern as `boss_profiles.ron` / boss sheets (C6). The
+/// engine's built-in 24 stay in [`ITEM_META`] as the byte-identical default.
+#[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
+pub struct ItemMeta {
+    pub display_name: String,
+    pub description: String,
+    pub category: ItemCategory,
     /// `HeldItem` id granted on equip (`None` for non-equippables / unwired weapons).
-    held_item_id: Option<&'static str>,
+    pub held_item_id: Option<String>,
     /// Stable lowercase authoring id (`inventory_has("portalgun")`).
-    dialog_id: &'static str,
+    pub dialog_id: String,
 }
 
-/// One row per [`Item`], in discriminant order. See [`ItemMeta`].
-const ITEM_META: [ItemMeta; ITEM_COUNT] = {
+/// Content-installed item CATALOG override (C1), mirroring
+/// [`crate::boss_encounter::sprites::BossSheetRegistry`] / `BossProfileRegistry`.
+/// A content game authors its item table in `items.ron` (a `Vec<ItemMeta>` in grid
+/// order) and installs it via [`install_item_catalog`]; an installed row REPLACES
+/// the built-in default for that grid slot. Absent rows (and no install) fall back
+/// to the built-in [`ITEM_META`] — the E58/C6 "empty default = built-in" pattern,
+/// so no core edit is needed to re-author item flavor.
+#[derive(Clone, Debug, Default)]
+pub struct ItemCatalog {
+    rows: Vec<ItemMeta>,
+}
+
+impl ItemCatalog {
+    /// Parse an item-catalog RON document (`[ItemMeta]` in grid order) — the
+    /// content layer's install entry point.
+    pub fn from_ron(ron: &str) -> Self {
+        let rows = ron::from_str(ron).unwrap_or_else(|err| {
+            panic!("items.ron failed to deserialize as Vec<ItemMeta>: {err}")
+        });
+        Self { rows }
+    }
+
+    fn row(&self, index: usize) -> Option<&ItemMeta> {
+        self.rows.get(index)
+    }
+}
+
+/// Content-installed item-catalog override. Set once at plugin-build time;
+/// ADDITIVE per grid slot (the engine ships its own 24-item default table).
+static ITEM_CATALOG_OVERRIDE: std::sync::OnceLock<ItemCatalog> = std::sync::OnceLock::new();
+
+/// Install the authored item catalog — `ambition_content` calls this at
+/// plugin-build time alongside the other roster installs.
+pub fn install_item_catalog(catalog: ItemCatalog) {
+    let _ = ITEM_CATALOG_OVERRIDE.set(catalog);
+}
+
+/// Resolve an item's metadata: the content-authored override row for `index` if one
+/// was installed, else the built-in default. Both live behind a process-global, so
+/// the borrow is effectively `'static`.
+fn item_meta(index: usize) -> &'static ItemMeta {
+    ITEM_CATALOG_OVERRIDE
+        .get()
+        .and_then(|c| c.row(index))
+        .unwrap_or_else(|| &ITEM_META[index])
+}
+
+/// One row per [`Item`], in discriminant order — the engine's built-in default
+/// item table. See [`ItemMeta`].
+static ITEM_META: std::sync::LazyLock<[ItemMeta; ITEM_COUNT]> = std::sync::LazyLock::new(|| {
     use ItemCategory::*;
     [
         ItemMeta {
-            display_name: "Portal Gun",
-            description: "Fire a linked blue/orange portal pair. Carries momentum.",
+            display_name: "Portal Gun".into(),
+            description: "Fire a linked blue/orange portal pair. Carries momentum.".into(),
             category: Weapon,
             held_item_id: None,
-            dialog_id: "portalgun",
+            dialog_id: "portalgun".into(),
         },
         ItemMeta {
-            display_name: "Axe",
-            description: "A heavy pirate axe. Replaces your attack with a cleaving swing.",
+            display_name: "Axe".into(),
+            description: "A heavy pirate axe. Replaces your attack with a cleaving swing.".into(),
             category: Weapon,
-            held_item_id: Some("axe"),
-            dialog_id: "axe",
+            held_item_id: Some("axe".into()),
+            dialog_id: "axe".into(),
         },
         ItemMeta {
-            display_name: "Javelin",
-            description: "A throwing spear. Using it throws it.",
+            display_name: "Javelin".into(),
+            description: "A throwing spear. Using it throws it.".into(),
             category: Weapon,
-            held_item_id: Some("javelin"),
-            dialog_id: "javelin",
+            held_item_id: Some("javelin".into()),
+            dialog_id: "javelin".into(),
         },
         ItemMeta {
-            display_name: "Gun-Sword",
-            description: "A laser sword with a gun on it that shoots swords. Fires aimed bolts.",
+            display_name: "Gun-Sword".into(),
+            description: "A laser sword with a gun on it that shoots swords. Fires aimed bolts.".into(),
             category: Weapon,
-            held_item_id: Some("gun_sword"),
-            dialog_id: "gunsword",
+            held_item_id: Some("gun_sword".into()),
+            dialog_id: "gunsword".into(),
         },
         ItemMeta {
-            display_name: "Puppy-Slug Gun",
-            description: "Fires friendly puppy slugs that harry your enemies. (planned)",
+            display_name: "Puppy-Slug Gun".into(),
+            description: "Fires friendly puppy slugs that harry your enemies. (planned)".into(),
             category: Weapon,
-            held_item_id: Some("puppy_slug_gun"),
-            dialog_id: "puppysluggun",
+            held_item_id: Some("puppy_slug_gun".into()),
+            dialog_id: "puppysluggun".into(),
         },
         ItemMeta {
-            display_name: "Fireball",
-            description: "A thrown bolt of fire. Spends mana.",
+            display_name: "Fireball".into(),
+            description: "A thrown bolt of fire. Spends mana.".into(),
             category: Ability,
-            held_item_id: Some("fireball"),
-            dialog_id: "fireball",
+            held_item_id: Some("fireball".into()),
+            dialog_id: "fireball".into(),
         },
         ItemMeta {
-            display_name: "Blink",
-            description: "Short-range teleport. Your favorite, and high-skill.",
+            display_name: "Blink".into(),
+            description: "Short-range teleport. Your favorite, and high-skill.".into(),
             category: Ability,
-            held_item_id: Some("blink"),
-            dialog_id: "blink",
+            held_item_id: Some("blink".into()),
+            dialog_id: "blink".into(),
         },
         ItemMeta {
-            display_name: "Flight",
-            description: "Sustained flight while you have charge.",
+            display_name: "Flight".into(),
+            description: "Sustained flight while you have charge.".into(),
             category: Ability,
             held_item_id: None,
-            dialog_id: "fly",
+            dialog_id: "fly".into(),
         },
         ItemMeta {
-            display_name: "Grapple Hook",
-            description: "Pull yourself toward anchor points. (planned)",
+            display_name: "Grapple Hook".into(),
+            description: "Pull yourself toward anchor points. (planned)".into(),
             category: Ability,
-            held_item_id: Some("grapple"),
-            dialog_id: "grapple",
+            held_item_id: Some("grapple".into()),
+            dialog_id: "grapple".into(),
         },
         ItemMeta {
-            display_name: "Morph Ball",
-            description: "Compress into a ball to fit through gaps only an AI can take.",
-            category: Ability,
-            held_item_id: None,
-            dialog_id: "morphball",
-        },
-        ItemMeta {
-            display_name: "Mark / Recall",
-            description: "Drop marks and recall to them — travel and combat tool. (planned)",
-            category: Ability,
-            held_item_id: Some("mark_recall"),
-            dialog_id: "markrecall",
-        },
-        ItemMeta {
-            display_name: "Bubble Shield",
-            description: "Raise a shield bubble; time it to parry.",
+            display_name: "Morph Ball".into(),
+            description: "Compress into a ball to fit through gaps only an AI can take.".into(),
             category: Ability,
             held_item_id: None,
-            dialog_id: "bubbleshield",
+            dialog_id: "morphball".into(),
         },
         ItemMeta {
-            display_name: "Health Cell",
-            description: "Restores health.",
+            display_name: "Mark / Recall".into(),
+            description: "Drop marks and recall to them — travel and combat tool. (planned)".into(),
+            category: Ability,
+            held_item_id: Some("mark_recall".into()),
+            dialog_id: "markrecall".into(),
+        },
+        ItemMeta {
+            display_name: "Bubble Shield".into(),
+            description: "Raise a shield bubble; time it to parry.".into(),
+            category: Ability,
+            held_item_id: None,
+            dialog_id: "bubbleshield".into(),
+        },
+        ItemMeta {
+            display_name: "Health Cell".into(),
+            description: "Restores health.".into(),
             category: Consumable,
             held_item_id: None,
-            dialog_id: "healthcell",
+            dialog_id: "healthcell".into(),
         },
         ItemMeta {
-            display_name: "Mana Cell",
-            description: "Restores mana.",
+            display_name: "Mana Cell".into(),
+            description: "Restores mana.".into(),
             category: Consumable,
             held_item_id: None,
-            dialog_id: "manacell",
+            dialog_id: "manacell".into(),
         },
         ItemMeta {
-            display_name: "Spare Battery",
-            description: "Reserved ability charge. Does nothing yet.",
+            display_name: "Spare Battery".into(),
+            description: "Reserved ability charge. Does nothing yet.".into(),
             category: Consumable,
             held_item_id: None,
-            dialog_id: "sparebattery",
+            dialog_id: "sparebattery".into(),
         },
         ItemMeta {
-            display_name: "Data Chip",
-            description: "A lore fragment. Does nothing yet.",
+            display_name: "Data Chip".into(),
+            description: "A lore fragment. Does nothing yet.".into(),
             category: Consumable,
             held_item_id: None,
-            dialog_id: "datachip",
+            dialog_id: "datachip".into(),
         },
         ItemMeta {
-            display_name: "Bomb",
-            description:
-                "A thrown explosive — it detonates on a short fuse, blasting nearby enemies.",
+            display_name: "Bomb".into(),
+            description: "A thrown explosive — it detonates on a short fuse, blasting nearby enemies.".into(),
             category: Weapon,
-            held_item_id: Some("bomb"),
-            dialog_id: "bomb",
+            held_item_id: Some("bomb".into()),
+            dialog_id: "bomb".into(),
         },
         ItemMeta {
-            display_name: "Gold Pouch",
-            description: "Loose currency. Spends as money.",
+            display_name: "Gold Pouch".into(),
+            description: "Loose currency. Spends as money.".into(),
             category: Consumable,
             held_item_id: None,
-            dialog_id: "goldpouch",
+            dialog_id: "goldpouch".into(),
         },
         ItemMeta {
-            display_name: "Map Fragment",
-            description: "A piece of the world map, from Alice and Bob.",
+            display_name: "Map Fragment".into(),
+            description: "A piece of the world map, from Alice and Bob.".into(),
             category: KeyItem,
             held_item_id: None,
-            dialog_id: "mapfragment",
+            dialog_id: "mapfragment".into(),
         },
         ItemMeta {
-            display_name: "Sealed Note",
-            description: "Alice's sealed note — carry it to Bob.",
+            display_name: "Sealed Note".into(),
+            description: "Alice's sealed note — carry it to Bob.".into(),
             category: KeyItem,
             held_item_id: None,
-            dialog_id: "sealednote",
+            dialog_id: "sealednote".into(),
         },
         ItemMeta {
-            display_name: "Field Survey",
-            description: "Bob's field survey of a nearby zone.",
+            display_name: "Field Survey".into(),
+            description: "Bob's field survey of a nearby zone.".into(),
             category: KeyItem,
             held_item_id: None,
-            dialog_id: "fieldsurvey",
+            dialog_id: "fieldsurvey".into(),
         },
         ItemMeta {
-            display_name: "Gate Key",
-            description: "Opens a sealed dimension-gate door.",
+            display_name: "Gate Key".into(),
+            description: "Opens a sealed dimension-gate door.".into(),
             category: KeyItem,
             held_item_id: None,
-            dialog_id: "gatekey",
+            dialog_id: "gatekey".into(),
         },
         ItemMeta {
-            display_name: "Debug Lens",
-            description: "See the seams of the world. For an AI, debug is a sense organ.",
+            display_name: "Debug Lens".into(),
+            description: "See the seams of the world. For an AI, debug is a sense organ.".into(),
             category: KeyItem,
             held_item_id: None,
-            dialog_id: "debuglens",
+            dialog_id: "debuglens".into(),
         },
         ItemMeta {
-            display_name: "—",
-            description: "An empty slot, waiting for an item that does not exist yet.",
+            display_name: "—".into(),
+            description: "An empty slot, waiting for an item that does not exist yet.".into(),
             category: Reserved,
             held_item_id: None,
-            dialog_id: "reservedslot",
+            dialog_id: "reservedslot".into(),
         },
     ]
-};
+});
 
 impl Item {
-    /// This item's row in [`ITEM_META`].
+    /// This item's row — the content-installed override if present, else the
+    /// built-in default (both `'static` behind a process-global).
     fn meta(self) -> &'static ItemMeta {
-        &ITEM_META[self.index()]
+        item_meta(self.index())
     }
 
     /// All 24 items in grid order. The compile-time length check below pins the
@@ -354,11 +408,11 @@ impl Item {
     }
 
     pub fn display_name(self) -> &'static str {
-        self.meta().display_name
+        self.meta().display_name.as_str()
     }
 
     pub fn description(self) -> &'static str {
-        self.meta().description
+        self.meta().description.as_str()
     }
 
     /// For [`ItemCategory::Weapon`] items, the `HeldItem` id whose `ActionSet` the
@@ -368,7 +422,7 @@ impl Item {
     pub fn held_item_id(self) -> Option<&'static str> {
         // PortalGun equips via its own `PortalGun` component (handled specially
         // by the menu), not a HeldItemSpec — so its row's `held_item_id` is None.
-        self.meta().held_item_id
+        self.meta().held_item_id.as_deref()
     }
 
     /// Asset path (relative to Bevy's asset root) of this item's icon sprite, if
@@ -416,7 +470,7 @@ impl Item {
     /// non-alphanumerics), so `"PortalGun"`, `"portal_gun"`, `"portal gun"` all
     /// resolve here.
     pub fn dialog_id(self) -> &'static str {
-        self.meta().dialog_id
+        self.meta().dialog_id.as_str()
     }
 
     /// Normalize a raw authoring string the same way the Yarn bindings do, then
@@ -568,3 +622,4 @@ impl OwnedItems {
 
 #[cfg(test)]
 mod tests;
+

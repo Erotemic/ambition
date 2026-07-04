@@ -28,6 +28,19 @@ impl Plugin for AmbitionContentPlugin {
         // standalone fallback.
         super::enemy_roster::install();
 
+        // Install the authored item catalog (C1 — content out of core) into the
+        // machinery lib before any item flavor/wiring is read. Byte-identical to
+        // the engine's built-in 24-item default table (pinned by
+        // `items_ron_matches_builtin_defaults`), so shipped items read unchanged;
+        // a content game re-authors an item by editing its row in `items.ron`.
+        // Additive: absent rows / a content-less build fall back to the built-in
+        // default, so this never gates a spawn on the install.
+        ambition_gameplay_core::items::install_item_catalog(
+            ambition_gameplay_core::items::ItemCatalog::from_ron(include_str!(
+                "../assets/data/items.ron"
+            )),
+        );
+
         // Insert Ambition's authored music-cue catalog (the goblin adaptive tune
         // + its encounter binding) so the reusable ambition_audio director plays
         // it. The director takes Option<Res<MusicCueCatalog>>, so a content-less

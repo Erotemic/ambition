@@ -1,0 +1,185 @@
+// Item CATALOG — content-authored item flavor + wiring (C1).
+//
+// Top-level shape: `[ItemMeta]` in OoT grid order (row-major, slot index =
+// row*6 + col; index 0 = PortalGun ... index 23 = ReservedSlot). Parsed into an
+// `ItemCatalog` and installed via `install_item_catalog` at plugin-build time
+// (mirrors `boss_profiles.ron` / boss `boss_sheets.ron`). An installed row
+// REPLACES the engine's built-in default for that grid slot; rows absent here (or
+// no install) fall back to the built-in `ITEM_META` default in
+// `gameplay_core::items`.
+//
+// These 24 rows are byte-identical to the built-in defaults (pinned by
+// `items_ron_matches_builtin_defaults`). Re-author an item's flavor/wiring by
+// editing its row here — no Rust change. `dialog_id` is the stable lowercase
+// authoring id (`inventory_has("portalgun")`); `held_item_id` is the HeldItem the
+// slot grants on equip.
+[
+    (
+        display_name: "Portal Gun",
+        description: "Fire a linked blue/orange portal pair. Carries momentum.",
+        category: Weapon,
+        held_item_id: None,
+        dialog_id: "portalgun",
+    ),
+    (
+        display_name: "Axe",
+        description: "A heavy pirate axe. Replaces your attack with a cleaving swing.",
+        category: Weapon,
+        held_item_id: Some("axe"),
+        dialog_id: "axe",
+    ),
+    (
+        display_name: "Javelin",
+        description: "A throwing spear. Using it throws it.",
+        category: Weapon,
+        held_item_id: Some("javelin"),
+        dialog_id: "javelin",
+    ),
+    (
+        display_name: "Gun-Sword",
+        description: "A laser sword with a gun on it that shoots swords. Fires aimed bolts.",
+        category: Weapon,
+        held_item_id: Some("gun_sword"),
+        dialog_id: "gunsword",
+    ),
+    (
+        display_name: "Puppy-Slug Gun",
+        description: "Fires friendly puppy slugs that harry your enemies. (planned)",
+        category: Weapon,
+        held_item_id: Some("puppy_slug_gun"),
+        dialog_id: "puppysluggun",
+    ),
+    (
+        display_name: "Fireball",
+        description: "A thrown bolt of fire. Spends mana.",
+        category: Ability,
+        held_item_id: Some("fireball"),
+        dialog_id: "fireball",
+    ),
+    (
+        display_name: "Blink",
+        description: "Short-range teleport. Your favorite, and high-skill.",
+        category: Ability,
+        held_item_id: Some("blink"),
+        dialog_id: "blink",
+    ),
+    (
+        display_name: "Flight",
+        description: "Sustained flight while you have charge.",
+        category: Ability,
+        held_item_id: None,
+        dialog_id: "fly",
+    ),
+    (
+        display_name: "Grapple Hook",
+        description: "Pull yourself toward anchor points. (planned)",
+        category: Ability,
+        held_item_id: Some("grapple"),
+        dialog_id: "grapple",
+    ),
+    (
+        display_name: "Morph Ball",
+        description: "Compress into a ball to fit through gaps only an AI can take.",
+        category: Ability,
+        held_item_id: None,
+        dialog_id: "morphball",
+    ),
+    (
+        display_name: "Mark / Recall",
+        description: "Drop marks and recall to them — travel and combat tool. (planned)",
+        category: Ability,
+        held_item_id: Some("mark_recall"),
+        dialog_id: "markrecall",
+    ),
+    (
+        display_name: "Bubble Shield",
+        description: "Raise a shield bubble; time it to parry.",
+        category: Ability,
+        held_item_id: None,
+        dialog_id: "bubbleshield",
+    ),
+    (
+        display_name: "Health Cell",
+        description: "Restores health.",
+        category: Consumable,
+        held_item_id: None,
+        dialog_id: "healthcell",
+    ),
+    (
+        display_name: "Mana Cell",
+        description: "Restores mana.",
+        category: Consumable,
+        held_item_id: None,
+        dialog_id: "manacell",
+    ),
+    (
+        display_name: "Spare Battery",
+        description: "Reserved ability charge. Does nothing yet.",
+        category: Consumable,
+        held_item_id: None,
+        dialog_id: "sparebattery",
+    ),
+    (
+        display_name: "Data Chip",
+        description: "A lore fragment. Does nothing yet.",
+        category: Consumable,
+        held_item_id: None,
+        dialog_id: "datachip",
+    ),
+    (
+        display_name: "Bomb",
+        description: "A thrown explosive — it detonates on a short fuse, blasting nearby enemies.",
+        category: Weapon,
+        held_item_id: Some("bomb"),
+        dialog_id: "bomb",
+    ),
+    (
+        display_name: "Gold Pouch",
+        description: "Loose currency. Spends as money.",
+        category: Consumable,
+        held_item_id: None,
+        dialog_id: "goldpouch",
+    ),
+    (
+        display_name: "Map Fragment",
+        description: "A piece of the world map, from Alice and Bob.",
+        category: KeyItem,
+        held_item_id: None,
+        dialog_id: "mapfragment",
+    ),
+    (
+        display_name: "Sealed Note",
+        description: "Alice\'s sealed note — carry it to Bob.",
+        category: KeyItem,
+        held_item_id: None,
+        dialog_id: "sealednote",
+    ),
+    (
+        display_name: "Field Survey",
+        description: "Bob\'s field survey of a nearby zone.",
+        category: KeyItem,
+        held_item_id: None,
+        dialog_id: "fieldsurvey",
+    ),
+    (
+        display_name: "Gate Key",
+        description: "Opens a sealed dimension-gate door.",
+        category: KeyItem,
+        held_item_id: None,
+        dialog_id: "gatekey",
+    ),
+    (
+        display_name: "Debug Lens",
+        description: "See the seams of the world. For an AI, debug is a sense organ.",
+        category: KeyItem,
+        held_item_id: None,
+        dialog_id: "debuglens",
+    ),
+    (
+        display_name: "—",
+        description: "An empty slot, waiting for an item that does not exist yet.",
+        category: Reserved,
+        held_item_id: None,
+        dialog_id: "reservedslot",
+    ),
+]

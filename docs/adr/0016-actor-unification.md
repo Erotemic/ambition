@@ -28,6 +28,14 @@ Earlier patch notes separated interactions, hazards, enemies, bosses, labels, an
 
 ## Faction vocabulary (2026-05-20 update)
 
+> **⚠ Partially superseded (annotated 2026-07-04):** hostility is now
+> RELATIONAL — `FactionRelations` (`hostile[from][to]`) + per-actor grudges is
+> the read-everywhere authority, and the `ProjectileFaction` enum described
+> below was RETIRED (projectile faction derives from its owner). The
+> actors|props taxonomy (fable-review AD1 / unified-actors I11) also
+> supersedes any reading of `ActorFaction` variants as an actor-TYPE axis.
+> `ActorFaction` itself survives as the side tag the relations table keys off.
+
 The shared actor-faction tag landed as the `ActorFaction` component
 in `crates/ambition_characters/src/actor/pose.rs`:
 

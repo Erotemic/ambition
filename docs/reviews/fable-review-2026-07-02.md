@@ -1,5 +1,12 @@
 # Fable review — 2026-07-02
 
+> **⇒ FROZEN RECORD (2026-07-04).** This doc's E-log (E1–E66) is the execution
+> history; its task/audit sections were stale before freezing. **Do not work
+> from this doc.** The live plan, adjudications, and work queue are
+> [`fable-review-2026-07-04.md`](fable-review-2026-07-04.md); the target crate
+> stack is [`../planning/engine/architecture.md`](../planning/engine/architecture.md).
+> The BULK REVIEW QUEUE below (deferred feel-tuning for Jon) remains valid.
+
 ## BULK REVIEW QUEUE (Jon: adjudicate these in one pass — the autonomous run did NOT stop for them)
 
 The autonomous mandate: **do everything unblocked; never stop to ask; a decision that

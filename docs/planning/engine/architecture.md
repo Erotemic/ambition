@@ -1,217 +1,196 @@
-# Engine architecture
+# Engine architecture — the target crate stack
 
-How the engine is structured so it compiles fast, navigates well, pluginizes
-idiomatically, and is reusable by another game (the four goals). The actor model
-itself is [`unified-actors.md`](unified-actors.md); this is the crate/plugin shell
-around it, and the **keystone refactor** that unblocks the whole thing.
+**Rewritten 2026-07-04 by fable** (supersedes the pre-keystone version; the
+`Player*`/`Actor*` keystone it centered on is DONE — see
+[`unified-actors.md`](unified-actors.md) step 4 and the fable-review E-log).
+This is the canonical answer to *"what crates should exist, what does each own,
+and which way do imports flow?"* The actor model is
+[`unified-actors.md`](unified-actors.md); the migration plan and work queue live
+in `docs/reviews/fable-review-2026-07-04.md`; the phase roadmap is
+[`../roadmap.md`](../roadmap.md).
 
-> Agent-navigability is the real goal. ~150k LOC is too hard to navigate; the point
-> is the right abstractions + getting NAMED content (bosses, abilities, rooms) out of
-> the foundation crates into content, generalised where possible.
+> Agent-navigability is the real goal. The point is the right abstractions +
+> getting NAMED content (bosses, abilities, rooms) out of engine crates into
+> content, generalized where possible.
+>
+> **The design oracle:** *could another platformer be built by ADDING a content
+> crate without editing core?* If a change makes the answer "no", it's the
+> wrong change.
 
 ---
 
+## Sizing philosophy (Jon's constraints, binding)
+
+- **Medium, well-scoped crates.** A crate earns existence by owning a coherent
+  domain with real meat — not by being small. A ~100-line vanity crate is a
+  smell; so is a 100k monolith. The healthy band is roughly 1–15k LOC.
+- **Grow existing crates before minting new ones.** When a module reaches its
+  leaf home, prefer folding it into the sibling that already owns the domain
+  (`character_sprites` → `ambition_sprite_sheet`, `time/` → `ambition_time`)
+  over a new crate with one tenant.
+- **Don't force splits that fight the grain.** `features/ecs ↔ combat` are
+  mutually-importing *by construction* (the actor sim and its combat kit).
+  The mechanics core extracts as ONE crate when its support ring is gone —
+  never as two crates with a synthetic boundary between them.
+- **Compile time is a first-class constraint** (ADR 0013). The decomposition
+  exists to shrink the hot-edit rebuild set: hot mechanics in one crate,
+  cold support (world/persistence/menu/audio/assets) in leaves, presentation
+  cut loose via the read-model.
+
 ## The target stack
 
-Three tiers, imports flowing one way:
+Imports flow strictly downward. Names are the CANONICAL targets — short names,
+no `_runtime` suffix scheme (this supersedes the old
+`ambition_actor_runtime`/`ambition_combat_runtime`/… lineup, which predated the
+keystone and never matched the tree).
 
-- **Foundation** — `ambition_engine_core`, `ambition_platformer_primitives`. Pure
-  spatial / kinematic / collision primitives. No gameplay, no content, no Bevy app
-  concerns. Anything here must be usable by *any* platformer.
-- **Runtime domains** — one crate per subsystem. Each **owns its vocabulary** (its
-  components / resources / messages), **owns its authoritative state** (what it
-  mutates), and exposes **local schedule sets**. A domain imports the foundation and
-  talks to peer domains **via messages**, never by reaching up into the app or content.
-  The target crate lineup (canonical names — use these):
-  - `ambition_actor_control` — the control seam (`ActorControlFrame`, brains' output).
-  - `ambition_actor_runtime` — the body: kinematics, movement, capabilities, the spine.
-  - `ambition_combat_runtime` — hitboxes, damage, factions, the relational model.
-  - `ambition_projectiles` — projectile bodies + lifecycle (generic; named kit is content).
-  - `ambition_world_runtime` — `RoomGeometry`, the collision view, overlays, gates.
-  - `ambition_encounter_runtime` — encounter entities, wave books, the scripted-beat VM.
-  - `ambition_carryable_items` — held/carryable items + pickup.
-  - `ambition_cutscene_runtime` — the cutscene library + schedule (render leak already closed).
-  - `ambition_game_runtime` — collects the domains and maps their sets into the schedule.
-- **Composition root** — `ambition_app` hosts platform / assets / windowing / the
-  binaries, and is the *only* crate allowed to name both machinery and content.
-  `ambition_game` (the composition-collector half of `ambition_game_runtime`) is a
-  *direction* — introduce it when the app file clearly splits host-vs-composition
-  jobs, not before.
+### Tier 0 — data & format leaves (no Bevy app, minimal deps)
 
-**Boundary rule (enforced by the `architecture_boundaries` test):** machinery must
-not import named content. If a rule needs content data to run, it lives in a content
-install-seam, not in a foundation/runtime crate.
+| Crate | Owns | Delta from today |
+|---|---|---|
+| `ambition_entity_catalog` | Entity contracts + the `MoveSpec` timeline schema — the authoring spine | grows the JD1 ability schema: `EffectRef { key, params }`, prefab refs, verb-selection map, `on_hit` effects |
+| `ambition_sprite_sheet` | THE sprite-metadata pipeline: sheet/pack data, frame boxes, anim registry, metadata→hitbox derivation | absorbs `gameplay_core::character_sprites` + `boss_encounter::{sprites, attack_geometry}` (one pipeline for collision/hurtbox/attack — M7) |
+| `ambition_sfx_bank` | `.sfxbank` format reader | as-is |
+| `ambition_gameplay_trace` | flight-recorder format | as-is |
 
-## The keystone: collapse the `Player*` / `Actor*` dual hierarchy
+### Tier 1 — foundations
 
-This is the prerequisite that unblocks crate-splitting (goals 1 + 2) and **subsumes**
-the `ControlFrame`→intent and projectile source/faction work. It is the same cut as
-[`unified-actors.md`](unified-actors.md) step 4; this section is the *execution
-blueprint*.
+| Crate | Owns | Delta |
+|---|---|---|
+| `ambition_engine_core` | movement/collision/blink/ledge kernel, body clusters, `AccelerationFrame`, `World`/`RoomGeometry`, config | as-is (healthy; 13.7k of substance) |
+| `ambition_platformer_primitives` | kinematic stepping, gravity field, lifecycle, projectile primitive, markers | as-is |
+| `ambition_time` | clock vocabulary + time domains (ADR 0010/0011) | absorbs `gameplay_core::time` (time-control authority, proper-time policy); `camera_ease` moves with the camera read-model instead |
 
-### Why it's THE blocker (the dependency analysis, not taste)
+### Tier 2 — engine service kits (one plugin crate per domain)
 
-A crate-extraction spike tried to pull `world` out as a clean leaf and **failed**:
-`world` depends on a ~6.4k-LOC LDtk fan-out which depends on every gameplay domain. But
-the real blocker is singular — **`crate::player` is a universal dependency sink: 20 of
-28 non-player top-level modules import it.** That is why no clean leaf exists. Move the
-shared sim-state off `Player*` onto the `Actor*` vocabulary and those **20 back-edges
-dissolve**; modules like `time`, `body_mode` become extractable leaf crates and compile
-time drops. *That* is why this is ranked above every other cleanup.
+| Crate | Owns | Delta |
+|---|---|---|
+| `ambition_input` / `ambition_touch_input` | device → `ControlFrame` | as-is; touch_input's upward deps (gameplay_core/render menu-bridge) invert later |
+| `ambition_characters` | actor BEHAVIOR vocabulary: brains, perception, action sets, boss patterns, body components | absorbs `boss_encounter::{behavior, registry}` (bosses are actors) |
+| `ambition_combat` | **the finished extraction**: hitbox lifecycle, `resolve_body_hit`, targeting, hazards, **the moveset runtime**, chests/breakables/pickups kit | absorbs `gameplay_core::combat` (~10k) once the `features` back-edge is cut |
+| `ambition_projectiles` | the projectile faction pair (player + enemy pools, unified stepping) | new home for `projectile/` + `enemy_projectile/` |
+| `ambition_world` | rooms graph, LDtk runtime + **content-registered converter registry** (ADR 0009), moving platforms, physics adapter, gravity zones, `WorldManifest` install seam | new crate (D4); the JD4 seam is its keystone |
+| `ambition_encounter` | wave/arena-lockdown kit + scripted encounter beats | absorbs `boss_encounter::{encounter_script, rewards}` |
+| `ambition_items` | item/inventory/equipment machinery, shop, inventory-UI state | `items/` + `inventory_ui/`; the catalog DATA is content (C1, done) |
+| `ambition_dialog` | Yarn runtime + lint machinery | `dialog/runtime` out of gameplay_core; game bindings stay sim-side |
+| `ambition_persistence` | save I/O + settings schema + host/display vocabulary (+ quest progression rules) | `persistence/` + `host/` + `quest/` |
+| `ambition_menu` | menu model + renderers + **settings IR + the menu host stack** | absorbs `gameplay_core::menu` (3.2k) AND `ambition_app::menu` (10k — the misplaced elephant); deps `ambition_persistence` |
+| `ambition_audio` | authored-audio runtime (Kira), music intents | absorbs `gameplay_core::{audio, music}` |
+| `ambition_asset_manager` | asset catalog/profiles/loading + publish/hygiene tooling | absorbs `gameplay_core::{assets, asset_publish}` |
+| `ambition_sfx`, `ambition_vfx`, `ambition_ui_nav`, `ambition_interaction`, `ambition_cutscene` | as-is (thin but load-bearing vocabulary/kit leaves) | — |
+| `ambition_portal` / `ambition_portal_presentation` | **the exemplar pair** — copy this shape for every extraction | as-is |
+| `ambition_dev_tools` | debug overlays, gizmos, editable tuning, profiling | `gameplay_core::dev` + `ambition_app::dev` |
 
-### The component families (the work breakdown, by bucket)
+### Tier 3 — the actor simulation core (the heart, ONE crate)
 
-By approximate reference count: `BodyKinematics` (~35), `PlayerEntity` (~34),
-`PrimaryPlayer` (~17), `PlayerCombatState` (~14), `PlayerSafetyState` (~12),
-`PlayerInteractionState`, `PlayerEnvironmentContact`, `PlayerWallet`, `PlayerShieldState`,
-`PlayerGroundState`, `PlayerFlightState`, `PlayerDodgeState`, `PlayerLedgeState`,
-`PlayerOffense`, `PlayerBaseSize`, … Assign each to one bucket:
+**`ambition_actors`** (the renamed residue of `ambition_gameplay_core` — rename
+LAST, it's mechanical): actor spawn/tick/perception/damage-routing, the player
+systems, the ability kit (blink/dive/grapple/possession/ranged), body modes,
+session lifecycle, schedule vocabulary, view-index builders, dialog bindings.
+Estimated ~30–35k after the tier-2 evictions — a large-medium crate that is
+genuinely ONE concern: the unified actor simulation. Per roadmap U1, re-measure
+before any further split; do not pre-commit to one.
 
-- **Bucket 1 — namespace-only moves** (cheap, zero behavior, byte-stable):
-  already-shared types to neutral homes — `BodyKinematics`, `PlayerEntity` /
-  `PrimaryPlayer`, the primary-player scratch.
-- **Bucket 2 — sim-state collapses** (the real convergence): `PlayerCombatState` →
-  `ActorCombatState`; the movement/ability states (`PlayerShieldState`/`Dash`/`Flight`/…)
-  fold onto the shared body; `PlayerWallet`/economy onto `Actor*`. This is where less
-  code actually happens.
-- **Bucket 3 — keep player-only** (genuinely not shared): `PlayerHudRoot`,
-  `PlayerBlinkCameraState`, `PlayerDemoCfg`, camera / aim / device-input / HUD.
+### Tier 4 — read-model & presentation
 
-### The slice plan (order matters)
+| Crate | Owns |
+|---|---|
+| `ambition_sim_view` | the MATERIALIZED read-model: `FeatureView`(+index), actor render/anim indices, boss render index, `CameraSnapshot2d` + camera-ease, sim→presentation messages. Created only when materialization is complete enough to cut the render edge (the E24 condition). |
+| `ambition_render` | sprites/camera/HUD/dialog-UI — deps `ambition_sim_view` + foundations, **NOT `ambition_actors`** (the D3.7 lever) |
+| `ambition_portal_presentation` | as-is |
 
-- **Slice 0** — a namespace move only (Bucket 1). Zero behavior; the differential
-  headless trace must be **byte-stable**. Proves the harness + the move mechanic.
-  ✅ *done:* `crate::actor` is the neutral home; `BodyKinematics` + the
-  `PlayerEntity`/`PrimaryPlayer` markers + `PrimaryPlayerOnly` are re-homed there
-  and the ~90 non-player import references migrated off `crate::player`
-  (byte-stable, gameplay_core 1028 + app green). Remaining on the sink: the
-  sim-STATE types (`PlayerCombatState`, `PlayerMana`, `PlayerHealth`,
-  `PlayerWallet`, `PlayerInputFrame`, …) — those are the Bucket-2 slices below.
-- **Slices 1..k** — one sim-state family per slice (Bucket 2). ✅ *health done:*
-  `PlayerHealth` + `ActorHealth` (identical `Health` wrappers) collapsed into one
-  `crate::actor::BodyHealth` on every body (~28 sites, gameplay_core + render + app).
-  *Next:* the combat/status state (`PlayerCombatState` ↔ `ActorCombatState` /
-  `ActorStatus`) into one vocabulary — a reconciliation (the field sets differ:
-  player control-lock timers vs actor attack-timeline + ai_mode), not a rename;
-  then the alive/faction status; then the actor's `ActorStatus.health`/`on_ground`/
-  `air_jumps` duplication retired now that `BodyHealth` + the pipeline clusters own
-  them. (Per Jon: the game is an untuned demo — drive to the pristine shape; the
-  gate is *compiles + tests*, measured on architecture, not feel.)
-- **Slice final** — bank the compile-time win: extract the now-unblocked leaf crates.
+### Tier 5 — assembly
 
-Each slice gated on *it compiles* + the differential trace; behavior may change (often
-*better*) — re-baseline canary traces, don't preserve unpolished feel. Commit each
-slice as a checkpoint.
+**`ambition_runtime`** (the C4/M12 deliverable): `PlatformerEnginePlugins` — a
+Bevy plugin group owning subsystem ordering, with sim/presentation/headless
+sub-groups and feature flags. The `App::new().add_plugins(...)` moment; the
+single most Unity/Godot-shaped artifact. A second game's `main.rs` is ~100
+lines against this crate.
+
+### Tier 6 — game
+
+- `ambition_content` — Ambition's named world: rosters, worlds (`.ldtk`
+  payloads via the `WorldManifest` seam), items/boss data RON, quests,
+  dialogue `.yarn`, music/sfx registries + baked sprite data (the whole
+  asset payload that lives in gameplay_core today), techniques,
+  **falling-sand as a self-gating content plugin**, duel-arena staging.
+- `ambition_app` — the thin shell: binaries, host glue, RL sim (~6–8k after
+  the menu/dev evictions).
+- `demos/…` — P3 proof clones (SMB1 / MoneySeize first), each ONE content
+  crate + a ~100-line app; every needed core edit files an oracle-violation.
+
+## Bevy-plugin shape
+
+Each domain crate is a plugin exposing four things:
+
+1. **Owned vocabulary** — components / resources / messages native to the domain.
+2. **Authoritative state** — exactly what it mutates (no other domain writes it).
+3. **Local schedule sets** — a consistent rhythm: `BuildIntent → Simulate →
+   Resolve → EmitFacts → ProjectPresentation`. A domain creates a *local* set
+   when its ordering is internal; it maps into a global set only in
+   `ambition_runtime`.
+4. **Public extension points** — content attaches systems to named slots
+   (`CombatSet::ContentSpecials`, `PortalSet`, …) without reaching into privates.
+
+**`ambition_portal` is the exemplar** — runtime core crate + optional
+presentation crate + a *visible* content adapter + the runtime maps the
+schedule. Its shape is why it extracted clean; copy it.
+
+## The content seams (how a game plugs in)
+
+All content enters through **install-time registries** (RON + `OnceLock`
+pure-function resolvers — install once at startup, immutable after, readable
+from non-system code). Proven instances: enemy/boss rosters, boss
+profiles/sheets/strike-geometry, item catalog, techniques
+(`register_required_components` off `Effect{key}`). The remaining seams to
+build, spec'd in the 2026-07-04 review:
+
+- **`WorldManifest`** — content declares its LDtk worlds + entry room;
+  `ambition_world` loads them through content-registered entity converters
+  (ADR 0009). Core ships zero worlds.
+- **The JD1 ability model** — three tiers: authored `MoveSpec` DATA →
+  parameterized PREFABS (`Prefab { key, params }` → registered constructor) →
+  arbitrary-code TECHNIQUES (`Effect { key, params }` → content Bevy system).
+  Params are an opaque serde value each effect hydrates into its own type;
+  input→move mapping lives in the published character data (`verbs` map with
+  directional resolution). Core never matches a content key.
+- **Room mechanics split by kind** (JD4, adjudicated): authored `Authored<T>`
+  data where it's entities; a self-gating content plugin for a heavy sim; a
+  `RoomLoaded` message for imperative staging.
+
+Classify each `OnceLock` as either a **content registry** (install seam — a
+second game installs its own) or an **immutable asset cache** (derived from
+baked tables, no seam needed).
 
 ## World geometry
 
 `RoomGeometry` is **authored** and swapped at room boundaries — never mutated
-mid-room. All mid-room dynamics (moving platforms, gates, portal carves, ECS solids)
-compose through a **derived `CollisionWorld` view** layered on top.
+mid-room. All mid-room dynamics (moving platforms, gates, portal carves, ECS
+solids) compose through the **derived `CollisionWorld` view**.
 
-> An authored `RoomGeometry` + a derived collision view is replay/RL-friendly — a
-> frame's collision truth is a pure function of room id + overlay state — and naturally
-> supports per-player world variants later, without a mutable monolith that tempts
-> content to reach in and mutate the base.
+**Write-map (who may mutate `RoomGeometry`):** boundary swaps only
+(session/reset, world_flow, dev_runtime). Mid-room mutators must move to the
+overlay — remaining: `content/bosses/gnu_ton` subtractive carve (needs the
+overlay extended with carve + climbable-region), `falling_sand` (rides its
+content-plugin move).
 
-**Write-map (who may mutate `RoomGeometry`):**
-
-- *Boundary swaps (legitimate):* `session/reset`, `app/world_flow/room_flow`,
-  `app/dev_runtime`.
-- *Mid-room mutators (must move to the overlay):* `encounter/systems` (`gate_solids`,
-  done), `content/intro/route_state` (`gate_solids`, done), **`content/bosses/gnu_ton`
-  (subtractive carve — REMAINS; needs the overlay model extended with carve +
-  climbable-region overlay)**, `falling_sand` (feature-gated, open).
-
-**Collision-view guard (a silent-feel-regression trap):** route only the **collision**
-readers through the composited view. Do NOT route render / layout / metadata readers
-(`water_regions`, `spawn_point`) or projectiles (projectiles pass through platforms →
-`carves_only`). A reader that suddenly sees moving-platform / carve geometry is a silent
-feel regression.
-
-## Bevy-plugin shape
-
-Each domain is a plugin exposing four things:
-
-1. **Owned vocabulary** — components / resources / messages native to the domain.
-2. **Authoritative state** — exactly what it mutates (no other domain writes it).
-3. **Local schedule sets** — a consistent rhythm: `BuildIntent → Simulate → Resolve →
-   EmitFacts → ProjectPresentation`. A domain creates a *local* set when its ordering
-   is internal; it maps into a global set only at the composition root.
-4. **Public extension points** — content attaches systems to named slots
-   (`CombatSet::ContentSpecials`, `PortalSet`, …) **without reaching into privates**.
-
-**`ambition_portal` is the exemplar** — copy its shape to extract a domain (runtime
-core crate + optional presentation crate + optional `content/adapter` package + the app
-maps the schedule). Why it's the exemplar: (1) the reusable mechanic is not buried in
-`gameplay_core`; (2) presentation is separate from runtime (the sim runs headless —
-[`headless-verification.md`](headless-verification.md)); (3) the Ambition-specific glue
-is a *visible adapter*, not pretending to be generic; (4) it exposes a local set
-(`PortalSet`) rather than forcing callers to know the whole schedule; (5) its remaining
-impurities (still uses `ControlFrame`, a few gameplay-core shims) are concrete adapter
-migration work, **not reasons to recollapse it**.
-
-## The reusable-engine principle
-
-The engine is a stack of domain plugins that accept **content-installable data** —
-named archetype rows, boss specs, encounter waves, audio cues, item/ability registries
-— through `OnceLock`-backed **pure-function resolvers**: install once at startup,
-immutable after, read from non-system code with no `World` access. **The `install_*`
-fn + the `cfg(test)` fixture together already ARE the test-override seam** — no Bevy
-`Resource` coupling needed.
-
-Classify each `OnceLock` so a new one lands in the right pattern:
-
-- **Content registries (install seams):** `BOSS_PROFILE_OVERRIDE`,
-  `BOSS_SPECIAL_ANIM_KEYS`, `BOSS_ENCOUNTER_SPEC_OVERRIDE`, `ENCOUNTER_WAVE_BOOK`,
-  `ENEMY_ROSTER_OVERRIDE` — install-once, immutable, read from pure helpers
-  (`BossBehaviorProfile::from_data`, etc.). Content installs them; a second game
-  installs its own.
-- **Immutable asset caches (no install seam):** `file_root_registry`, the
-  `player_render_size` SPEC, `record_index` — derived once from compile-time-baked
-  tables, pure.
-
-> **The design oracle:** *could another platformer be built by ADDING a content crate
-> without editing core?* If a change makes the answer "no", it's the wrong change.
->
-> **The reusability test:** extract one domain crate clean — zero `gameplay_core`
-> imports — and use its collision semantics / projectile lifecycle / actor intent
-> untethered to Ambition's narrative.
-
-## Live structural debts (ranked)
-
-1. **KEYSTONE — collapse `Player*` / `Actor*`** (above). Unblocks everything.
-2. **Portal shot-placement adapter** — a **design fork, not a sweep**: decide whether a
-   portal may be placed on a moving platform / ECS solid, *and* whether carving the
-   aperture into the world the shot raycasts against creates feedback into the shot
-   trace. Decide that first; add a test; then route the reader onto the collision view.
-3. **gnu_ton's subtractive arena gate** — the last mid-room base-mutator; needs the
-   overlay model extended (carve + climbable-region overlay) beyond additive `gate_solids`.
-4. **`ControlFrame` → entity-local `ActorIntent`** — ~46 systems read global input; the
-   sim should read the *body's* intent. Rendering / input-sources stay presentation
-   consumers. (Subsumed by the keystone collapse.)
-5. **`falling_sand` → overlay** (feature-gated, open question).
+**Collision-view guard:** route only the **collision** readers through the
+composited view — never render/layout/metadata readers or projectiles
+(`carves_only`). A reader that suddenly sees platform/carve geometry is a
+silent feel regression.
 
 ## Validation strategy
 
-Structural refactors may land **ahead of** feel/visual verification; a feel regression
-is fixed afterward and is not a blocker. The gate is the **differential headless
-harness** ([`headless-verification.md`](headless-verification.md)) — much is
-headless-testable (e.g. collision: a ladder/floor-gate is present-or-not), and what
-isn't (subjective feel) is Jon's in-game check, done on a marked commit.
-
-## Done (drop from any old plan — pure history)
-
-The compat shims are gone (`architecture_boundaries` enforces canonical paths);
-`GameWorld` → `RoomGeometry` + the `CollisionWorld` view; the app drain (room
-transitions, attack phases, damage, movement SFX/VFX, boss specials, death attribution
-now in runtime domains); the generic/named projectile split; world gates → overlay;
-cutscenes extracted to `ambition_cutscene` with the render leak closed; the OnceLock
-registries classified.
+Structural refactors land **ahead of** feel/visual verification; the gate is
+the **differential headless harness**
+([`headless-verification.md`](headless-verification.md)) + the C4 gravity
+symmetry rigs + the boundary tests. Feel-touching changes ship BLIND in marked
+commits for Jon's in-game pass. CI runs `cargo test --workspace` (leaf-crate
+tests rot under `-p` runs — proven twice).
 
 ## The discipline
 
-> **Delete, don't bridge. Rename in place, don't alias. Add seams when the second use
-> case lands.** Pre-release, single-commit replacement beats a two-step bridge. Overlap
-> old and new consumers only briefly when changing authority, then delete the old path
-> in the same branch.
+> **Delete, don't bridge. Rename in place, don't alias. Add seams when the
+> second use case lands.** Pre-release, single-commit replacement beats a
+> two-step bridge. Move a type family to its real leaf home once, then
+> redirect every consumer — never chase a middle facade (the D2 template).

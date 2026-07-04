@@ -1,6 +1,11 @@
 # Current next moves
 
 **Review date:** 2026-06-13.
+**⚠ STALE (flagged 2026-07-04):** the live work queue is
+[`../reviews/fable-review-2026-07-04.md`](../reviews/fable-review-2026-07-04.md)
+(R1–R6); the crate-decomposition target is
+[`../planning/engine/architecture.md`](../planning/engine/architecture.md). The
+"hard-won rule" below (measure OUTWARD deps) remains binding wisdom.
 
 0. **Monolith breakup (active direction).** The Stage-20 bisection landed
    (foundations ← machinery `ambition_gameplay_core` ← content `ambition_content` ←

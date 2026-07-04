@@ -4,8 +4,16 @@
 unification arc; this version carries the full vision so any executing agent can see
 the mountain, not just the next boulder). Companion docs:
 [`engine/unified-actors.md`](engine/unified-actors.md) (the actor thesis + invariants),
-[`../reviews/fable-review-2026-07-02.md`](../reviews/fable-review-2026-07-02.md)
-(the live execution log + FABLE ADJUDICATIONS), ADRs 0009/0019.
+[`engine/architecture.md`](engine/architecture.md) (the target crate stack —
+rewritten 2026-07-04), ADRs 0009/0019.
+
+> **⇒ EXECUTION FRONT-END (2026-07-04):**
+> [`../reviews/fable-review-2026-07-04.md`](../reviews/fable-review-2026-07-04.md)
+> holds the current work queue (R1–R6) and the binding adjudications (ability
+> model, world seam, mount authoring, profile-key collapse, boss integrate-fold).
+> The 2026-07-02 review is the frozen E-log record. P1/P2 of this roadmap execute
+> as that doc's R-phases. (Facts drifted since 07-03: 25 crates now —
+> `touch_input` extracted; `gameplay_core` measured ~99.5k.)
 
 ---
 

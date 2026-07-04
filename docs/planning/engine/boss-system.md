@@ -5,6 +5,13 @@ Bosses are not a special simulation path — they are actors (see
 **optional encounter wrapper**. The whole system is engine machinery; specific
 bosses are content.
 
+> **⚠ Partially stale (flagged 2026-07-04):** boss HP/liveness/hit-flash now
+> live on the shared `BodyHealth`/`BodyCombat` (`BossStatus` → `BossEncounter`,
+> encounter-state only); the boss body moves through the shared flight limb;
+> `BossAttackState` is a pure projection of the live `MovePlayback`. See the
+> fable-review E-log (E14, E33, E66) and `fable-review-2026-07-04.md` AJ5 for
+> the remaining fold.
+
 ---
 
 ## The thesis

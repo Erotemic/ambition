@@ -2,7 +2,15 @@
 
 This is the compact active-state document for Ambition. Update it when the current architecture or active direction changes. Keep old migration plans in `docs/archive/`, not here.
 
-**Review date:** 2026-06-13. The monolith was bisected into a layered crate
+**Review date:** 2026-06-13.
+**⚠ STALE (flagged 2026-07-04):** this predates the unification arc's completion
+(relational damage, moveset subsumption, boss-as-actor, actors|props taxonomy)
+and 5 of the current 25 crates. For current truth read
+[`../planning/roadmap.md`](../planning/roadmap.md),
+[`../planning/engine/architecture.md`](../planning/engine/architecture.md), and
+[`../reviews/fable-review-2026-07-04.md`](../reviews/fable-review-2026-07-04.md).
+
+The monolith was bisected into a layered crate
 graph (Stage 20); `ambition_gameplay_core` is now the **machinery library**, not the
 playable shell. The remaining monolith-breakup backlog lives in
 [`next.md`](next.md).

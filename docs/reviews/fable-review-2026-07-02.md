@@ -137,6 +137,11 @@ defensible default and moved on):
   **Chosen default: (C) for now** (player stays flat; no feature lost), because (A)/(B)
   change the `MoveSpec` schema shape and want Jon's call. NOT implemented (reversible: it's
   the current state). Route: pick A or B and it's a bounded slice mirroring E49.
+  **[REFRAMED 2026-07-04 — see JON'S DESIGN DIRECTION JD1]:** Jon does NOT want an A/B/C pick.
+  The answer is the parameterized-effect ability model — directional variants become move
+  SELECTION from input-mappings in the PUBLISHED character data, and POGO becomes a content
+  Technique fired by an `Effect{key}` (so it never enters the content-free runtime — the
+  pollution worry dissolves). fable to spec the params + dispatch + character-data schema.
 - **Ranged subsumption — RESOLVED via option A, IMPLEMENTED (E54).** Was: fold actor ranged
   (Rock/Arrow/Pistol/Bolt) onto the moveset as a `"fire"` move whose event spawns a
   projectile, vs. the facing-lock problem (a `MovePlayback` locks facing at trigger, but the
@@ -422,6 +427,130 @@ A2 knockback (`b4912001`) + stagger (E13: enemies flinch, duels read
 launch→recover→re-engage), boss no-i-frame (E15, numerically a no-op today),
 and the upcoming AS4b size flip, AS4c fold, and AD2 conversion when they
 land.
+
+---
+
+## JON'S DESIGN DIRECTION (2026-07-04) — FOR FABLE TO ADJUDICATE
+
+Triggered by the player-melee-fold fork (BULK REVIEW QUEUE) + a briefing on the
+open decisions. Jon's direction, to be turned into a spec by fable:
+
+### JD1. Abilities = parameterized effects (data) + arbitrary code (content plugin). Resolve the player-melee fork into this, don't pick A/B/C.
+
+Jon's framing (verbatim intent): a FIXED verb vocabulary can't express
+smash-like variety unless it's "one verb per possibility, which isn't
+efficient." Attacks must be able to "run some code that responds to some tag —
+the Bevy way," with a **static/prefab default**, escalating to **arbitrary
+code** when needed. The arbitrary code "should be able to be passed PARAMETERS
+via the character publishing," and the prefabs (`simple_melee`, `simple_u_tilt`,
+`simple_ranged`, …) are **given those parameters** — so a later `sword_slash` is
+"the `simple_melee` prefab with sword params (knockback, …) authored per
+character, perhaps modified by items," no new code.
+
+`[opus-4.8[1m]]` **the seam already substantially exists** (surfaced during the
+briefing, for fable to build the spec on, not re-discover): a move's
+`MoveEventKind::Effect{key}` (`ambition_entity_catalog/src/lib.rs:105`) bridges
+to a `Special(key)` signal (`combat/moveset.rs:480`) that a **content-owned Bevy
+system** keyed to the string runs — see the live ability library
+`ambition_content/src/bosses/specials/*.rs` (`seismic_stomp`, `eye_beam`,
+`overflow_flood`, `gradient_nova`, …), installed via `register_required_components`.
+Core never matches the key; content adds an ability by dropping in a module. So
+"abilities as arbitrary content code responding to a tag" is the ESTABLISHED
+architecture; the pogo-"pollutes-the-runtime" worry in the player-melee fork
+dissolves (pogo becomes such a Technique). **The gaps Jon's direction adds:**
+1. **Params on the effect.** `Effect{key}` is a bare tag today (the technique
+   reads its own params from content state). Jon wants params PASSED from the
+   published character data → `Effect{key, params}`, so a parameterized prefab
+   ("simple_melee" + {knockback, damage, reach}) needs no bespoke code, and items
+   can modify the params at resolve time. Params likely an OPEN serialized value
+   the effect deserializes into its own type (so a custom game's effect defines
+   its own param shape — keeps core ignorant, preserves decomposability).
+2. **A prefab (middle) tier.** Between static hit-volume DATA and arbitrary-code
+   technique, a set of parameterized KIT prefabs (`simple_melee`/`u_tilt`/
+   `simple_ranged`) authored purely by params. Answers the fork's real question.
+3. **Input→move mapping in the PUBLISHED character data.** The sprite generator's
+   emitted character data should declare which inputs its moves map to BY DEFAULT
+   (directional intent → verb/move), perhaps overridable. This is where the
+   directional-melee variants (up/down/air-*) live — as data, not a schema fork.
+4. **Decomposability / compile-time is a first-class constraint.** A custom game's
+   ability code lives in ITS content/plugin crate (downstream of core), registered
+   at plugin build — so adding an ability recompiles content, not core. Fable's
+   spec must keep the effect-registration seam content-side (it already is) and
+   ensure params flow as data, not as core-known types.
+**Open for fable:** dispatch shape (keep string-key `Special` MESSAGE, or move to
+a marker-COMPONENT + observer trigger per active window — more ECS-native, typed);
+the params value type (open RON value vs a typed-but-extensible enum); and the
+exact published-character-data schema for moves + input map + per-move effect refs
+with params. Jon: "we can keep discussing" — this is a direction, not a final spec.
+
+### JD2. C1 item catalog — BUILD IT as architecture prep (Jon overrules the defer).
+
+Jon: preparing the install seam BEFORE a second game is the point ("I don't want
+to build a second game against a moving target, but I want to prepare so when I do
+it's easy"). "No consumer yet" is circular and not a real objection. The
+roster-install pattern is proven (enemies/bosses/characters/specials), so an
+`ItemCatalog` following it is low-risk prep; the `Item` enum's baked flavor text →
+content is genuine "content out of core." Incremental is fine (C1 first, then the
+held-registry C2 / projectile-spec C5 chain) — the "partial seam" objection raised
+in the briefing was NOT real (Jon: "I still don't get the problem"). **Autonomous.**
+
+### JD3. A1 boss driver fold — FINISH IT. Shape settled (Path B); the finish is nuanced, not a rubber-stamp.
+
+Jon confirmed: "we have to finish that." The boss = actor archetype shape is
+locked; remaining is execution: retire `BossStatus`/`BossAttackState` as
+authorities, fold `update_ecs_bosses`/`tick_boss_brains` into the actor systems,
+`BossAnim`→`CharacterAnim`. Real nuance (E53): retiring the `BossAttackState`
+brain-write is NOT a dead-write removal — the trigger reads it as its intent
+signal, so it needs an intent-component split. **Autonomous** (BLIND for the
+render animator half). See A1/slice-3 below.
+
+### JD4. D-front rooms/RoomSpec — Jon adjudicates WITH discussion. Map DONE (`[opus-4.8[1m]]`).
+
+Jon: "I'll try to adjudicate, but we do need to discuss." Dependency map produced.
+**Headline: the `RoomSpec`/`RoomSet` TYPES are already clean generic KIT — the leak
+is NOT in the types.** `RoomSpec` (`world/rooms/room_graph.rs:10-48`) names no
+specific room/boss; it's a pure LDtk-authored schema (world geometry, loading zones,
+portals, gravity zones, the `Authored<T>` per-family entity lists). The sole
+constructor is LDtk → `RoomSet::from_parts` (`world/rooms/graph.rs:27`) — no
+hardcoded `RoomSpec {…}` literals, no static room table, no named-room fns. That half
+is already the north-star shape.
+
+**The actual leak is three-fold (all content EMBEDDED in core):**
+1. **Core physically OWNS the world FILES + a hardcoded list.** The `.ldtk` files
+   live in `gameplay_core/assets/ambition/worlds/{intro,cut_rope,hall,sandbox}.ldtk`;
+   `world/ldtk_world/loading.rs:55-57` hardcodes `secondary_world_ids()` and
+   `:222-250` `include_str!`-embeds those exact files. Content authors ZERO worlds.
+2. **Core modules branch on specific room-id LITERALS to run bespoke content
+   mechanics:** the whole `falling_sand.rs` module (gated `room.id == "falling_sand_room"`,
+   ~11 systems early-return otherwise); `features/arena.rs` duel-arena staging
+   (`"duel_arena"` → auto-spawns two named fighters, hooked into the GENERIC room-load
+   path at `spawn/mod.rs:72` so every load calls a duel hook); `hall_of_characters`
+   roster/dialogue/sfx tables; the cut-rope boss `placement_id`.
+3. **`"central_hub_complex"`** is the hardcoded default start room (`conversion/mod.rs:51`).
+
+**No content→core WORLD-registration seam exists** — content installs rosters/music/
+quests/bosses via `AmbitionContentPlugin`, but there is NO `WorldRegistry`/`add_world()`;
+core still owns world assembly end-to-end. `RoomSet::from_parts` is already
+content-agnostic — it just needs an open feeder.
+
+**`[opus-4.8[1m]]` proposed adjudication (for Jon to confirm/modify + fable to spec) —
+mirrors actors|props one level up:**
+- **KEEP in core:** `RoomSpec`/`RoomSet`/`RoomMetadata`/`LoadingZone`/`Authored<T>`
+  types + the LDtk→runtime projection + validators. That's the world KIT.
+- **MOVE content-side:** the `.ldtk` payloads, the hardcoded world list, and the
+  room-id-keyed mechanic branches (falling-sand, duel-arena, hall, cut-rope).
+- **BUILD:** an open world-registration seam (the `AmbitionContentPlugin` analogue for
+  worlds) so content declares its own LDtk world ids + `.ldtk` payloads and hands
+  assembled `RoomSpec`s to `from_parts`; per-room mechanics attach via a **room-id-keyed
+  content hook registry** ("on load of room X, run my systems") instead of
+  `if room.id == "…"` branches in core, OR via the generic `Authored<T>` lists where the
+  mechanic is really just authored entities.
+- **THE DISCUSSION POINT for Jon:** the per-room-mechanic shape. Duel-arena staging is a
+  spawn-hook (fits a room-id hook registry cleanly); falling-sand is a whole simulation
+  module (a content plugin gated on its room's presence); hall-of-characters is mostly
+  authored NPCs + dialogue (could be pure `Authored<T>` data + content dialogue). Is one
+  uniform "room-load content hook" seam right, or do these split by kind (data vs plugin
+  vs hook)? That's the call to make together.
 
 ---
 
@@ -2725,29 +2854,32 @@ behavior-neutral where a foe is in view (verified `perceived == omni`). See E56 
 account, including a **pre-existing** `rl_sim` red (`unified_melee::a_hostile_actor`) surfaced +
 diagnosed but left for Jon's feel pass (moveset-fold cadence gap, NOT A7).
 
-**Remaining autonomous items:** C4 (app thinness — sprawling but mechanical), C6 (boss geometry →
-data — bounded, lower leverage post-E51). C1 (item catalog) is autonomous-CAPABLE but smells
-speculative — see JON DECISIONS #3.
+**Remaining autonomous items:** C4 (app thinness — sim_systems fold in progress), C6 remainder
+(boss sheet-specs → RON; the 11-variant enum collapse), C1 (item catalog — now GREEN-LIT as prep,
+see JD2), A1 boss driver fold (JD3), A2–A5 damage unification, B frame-bug residue.
 
-**⚠ JON DECISIONS NEEDED (these are the only things blocked on you):**
-1. **Player-melee fold** (GENUINE FORK) — how the moveset schema should express the player's
-   DIRECTIONAL melee variants (up/down/air-up/…) + the POGO bounce. Options A/B/C in the BULK
-   REVIEW QUEUE. This changes `MoveSpec`'s SHAPE, and pogo would pollute the content-free move
-   runtime with player physics — your call. The player stays on the flat path until you pick.
-2. **D-front — `rooms` / `RoomSpec` content-coupling** — the crux decomposition direction
-   (adjudicate as you did the actors|props taxonomy). See the D section + "Superseded" note.
-3. **Is C1 (item catalog) actually wanted?** The 24-item `Item` enum → installable
-   `ItemCatalog` is autonomous-doable but is a large install-seam refactor with no second-game
-   consumer yet — same "speculative scaffolding" smell that deferred C2. If you don't want it
-   yet, delete it from the list so an agent doesn't spend a run on premature generality.
-4. **DEFERRED-TUNING sweep** (not blocking, but yours) — the whole BULK REVIEW QUEUE at the top
+**⚠ JON DECISIONS — UPDATED 2026-07-04 (see the JON'S DESIGN DIRECTION section, JD1–JD4):**
+1. **Player-melee fold — REFRAMED (JD1).** NOT an A/B/C schema pick. Jon's direction: abilities =
+   parameterized-prefab effects (DATA) + arbitrary content code (a Bevy Technique system keyed by
+   `Effect{key}`), with params passed from the published character data and input→move mappings in
+   that data too. The pogo-pollution worry dissolves (pogo = a Technique). **fable to spec** the
+   params value type, the dispatch shape (message vs component/observer), and the published-
+   character-data schema. Discussion ongoing — not a final spec.
+2. **D-front `rooms`/`RoomSpec` (JD4)** — Jon adjudicates WITH discussion; an `[opus-4.8[1m]]`
+   dependency map of the coupling is being produced first. Held.
+3. **C1 item catalog — RESOLVED: BUILD IT (JD2).** Jon overrules the defer — it's architecture
+   prep (proven roster pattern, low risk); incremental is fine. Autonomous.
+4. **A1 boss driver fold — RESOLVED: FINISH IT (JD3).** Shape settled (Path B); nuanced finish
+   (the `BossAttackState` brain-write needs an intent-component split, not a dead-write removal).
+   Autonomous (render animator half is BLIND).
+5. **DEFERRED-TUNING sweep** (not blocking, but yours) — the whole BULK REVIEW QUEUE at the top
    is feel/value tuning you asked to defer: boss/ranged/melee cadence, the duel-fighter
    hop/lunge/blink re-weighting, fire-move windups, the E53 sub-frame read-model wart. All
    headless-landed with sensible defaults; sweep when you do the feel pass.
 
 ---
 
-**DONE 2026-07-03/04 (this + the prior run):** **E49/E50** actor melee → moveset `"attack"` move (every non-boss actor); **C9** `Shark` → `ChargeCrash`; **E51** BOSS GEOMETRY FOLD (`7ecae45a`); **E52** C7-render (`323c2107`); **E53** BOSS `BossAttackState` → PROJECTION (`a3c69655`/`2dadea94`/`ba924163`); **E54** RANGED SUBSUMPTION (`536d5ac1`/`9075e8b7` — the last flat combat path); **E55/E55b** A7 peers + projectiles perception channels wired (`0a9293b5` + follow-up); **E56** A7 BRAIN MIGRATION — every non-boss brain targets through the world-out port (grudge-aware perception + `PerceptionMemory`), off the omniscient `ActorTarget`.
+**DONE 2026-07-03/04 (this + the prior run):** **E49/E50** actor melee → moveset `"attack"` move (every non-boss actor); **C9** `Shark` → `ChargeCrash`; **E51** BOSS GEOMETRY FOLD (`7ecae45a`); **E52** C7-render (`323c2107`); **E53** BOSS `BossAttackState` → PROJECTION (`a3c69655`/`2dadea94`/`ba924163`); **E54** RANGED SUBSUMPTION (`536d5ac1`/`9075e8b7` — the last flat combat path); **E55/E55b** A7 peers + projectiles perception channels wired (`0a9293b5` + follow-up); **E56** A7 BRAIN MIGRATION — every non-boss brain targets through the world-out port (grudge-aware perception + `PerceptionMemory`), off the omniscient `ActorTarget`; **E57** C4 mobile/touch input EXTRACTED to the `ambition_touch_input` sibling crate (`414a1e58`); **E58** C6 boss strike geometry data-fied into a `StrikeRect` table + RON-authorable override (`fe41aee9`/`7d646188`).
 
 **RECORDED GENUINE FORKS:** ranged subsumption — RESOLVED + IMPLEMENTED (E54, option A: a
 content-free `MoveEventKind::Ranged` that samples live aim; enemy/NPC/boss ranged is now a

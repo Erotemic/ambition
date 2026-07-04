@@ -16,6 +16,10 @@ portal = ["ambition_gameplay_core/portal"]
 portal_render = ["portal", "ambition_gameplay_core/portal_render"]
 ui = ["ambition_gameplay_core/ui", "dep:bevy_yarnspinner"]
 audio = ["ambition_gameplay_core/audio", "dep:ambition_audio"]
+# Embed the LDtk world JSON into the binary (web / Android / bundled builds
+# + the desktop disk-failure fallback). Forwards to the machinery feature so
+# the loader's embedded paths light up together.
+static_map = ["ambition_gameplay_core/static_map"]
 
 [dependencies]
 # Baseline machinery features: the sandbox lib was never built fully bare

@@ -1,29 +1,21 @@
 //! The `WorldManifest` install seam (JD4 / AJ2): a GAME declares its LDtk
 //! worlds and entry room; the engine keeps the room kit (`RoomSpec`/`RoomSet`,
-//! projection, validators) and knows no world by name.
+//! projection, validators) and ships ZERO worlds — the R3.2 asset move
+//! relocated the payload to `ambition_content::worlds`, which installs here.
 //!
-//! Content installs the manifest at plugin-build time via
+//! Content installs the manifest at every sim-entry choke point via
 //! [`install_world_manifest`] (first install wins — the `install_enemy_roster`
 //! seam contract). Every world-loading site derives from the installed rows:
 //! the asset-catalog entries, the serde loader's disk/embedded fallback
 //! chain, the Bevy `EmbeddedAssetRegistry` registration, the hot-reload
-//! watcher, and `to_room_set`'s entry room.
-//!
-//! Until the R3.2 asset-payload move lands, the BUILT-IN default manifest
-//! still names the sandbox worlds shipped in this crate's `assets/` dir —
-//! the seam exists first, the payload moves through it second.
+//! watcher, the bevy_ecs_ldtk tile-render spine, and `to_room_set`'s entry
+//! room. Production PANICS loudly without an install; core tests read the
+//! game's real worlds via the cross-crate `cfg(test)` fixture.
 
 use std::path::PathBuf;
 use std::sync::OnceLock;
 
 use ambition_asset_manager::AssetId;
-
-use crate::assets::sandbox_assets::{
-    ids, EMBEDDED_CUT_ROPE_LDTK_ASSET_PATH, EMBEDDED_HALL_LDTK_ASSET_PATH,
-    EMBEDDED_INTRO_LDTK_ASSET_PATH, EMBEDDED_SANDBOX_LDTK_ASSET_PATH,
-};
-
-use super::hot_reload::SANDBOX_LDTK_ASSET;
 
 /// One LDtk world a game ships. The FIRST row of a manifest is the primary
 /// (boot-critical, hot-reload-watched) world; later rows are secondaries the
@@ -33,8 +25,9 @@ pub struct WorldSource {
     /// Catalog id (`world.*` by convention) — the row's identity for asset
     /// resolution and hot reload.
     pub id: AssetId,
-    /// Catalog-relative asset path (e.g. `ambition/worlds/sandbox.ldtk`) —
-    /// also the bevy_ecs_ldtk `AssetPath` for the primary world.
+    /// Bevy `AssetPath` for the file (the bevy_ecs_ldtk tile-render spine
+    /// loads it; a game typically roots it in its own registered asset
+    /// source, e.g. `game://worlds/sandbox.ldtk`).
     pub asset_path: String,
     /// Absolute desktop-dev file path (hot reload + loose-filesystem
     /// profiles). The AUTHORING crate computes it against its own
@@ -84,92 +77,112 @@ impl WorldManifest {
 static WORLD_MANIFEST: OnceLock<WorldManifest> = OnceLock::new();
 
 /// Install the game's [`WorldManifest`] — the content layer calls this at
-/// plugin-build time (before any catalog build or world load). First install
-/// wins; later calls are ignored.
+/// every sim-entry choke point (before any catalog build or world load).
+/// First install wins; later calls are ignored.
 pub fn install_world_manifest(manifest: WorldManifest) {
     let _ = WORLD_MANIFEST.set(manifest);
 }
 
-/// The active manifest: the installed one, else the built-in sandbox
-/// default (which lives here only until the R3.2 asset move relocates the
-/// world payload into content).
-pub(crate) fn world_manifest() -> &'static WorldManifest {
-    WORLD_MANIFEST.get_or_init(builtin_sandbox_manifest)
+/// The active manifest: the installed one; core tests fall back to the
+/// game's real worlds (cross-crate fixture); production without an install
+/// is a loud startup bug. Public READ view — the app assembly iterates the
+/// rows to spawn one tile-render world root per world.
+pub fn world_manifest() -> &'static WorldManifest {
+    #[cfg(test)]
+    {
+        WORLD_MANIFEST.get_or_init(test_fixture_manifest)
+    }
+    #[cfg(not(test))]
+    {
+        WORLD_MANIFEST.get().unwrap_or_else(|| {
+            panic!(
+                "world manifest not installed — the game's content must call \
+                 install_world_manifest() before any world load \
+                 (AmbitionContentPlugin / the app's sim-entry choke points do)"
+            )
+        })
+    }
 }
 
-macro_rules! static_world_text {
-    ($name:ident, $path:literal) => {
-        #[cfg(feature = "static_map")]
-        const $name: Option<&'static str> = Some(include_str!($path));
-        #[cfg(not(feature = "static_map"))]
-        const $name: Option<&'static str> = None;
-    };
-}
-
-static_world_text!(
-    SANDBOX_LDTK_STATIC,
-    "../../../assets/ambition/worlds/sandbox.ldtk"
-);
-static_world_text!(
-    INTRO_LDTK_STATIC,
-    "../../../assets/ambition/worlds/intro.ldtk"
-);
-static_world_text!(
-    CUT_ROPE_LDTK_STATIC,
-    "../../../assets/ambition/worlds/you_have_to_cut_the_rope.ldtk"
-);
-static_world_text!(
-    HALL_LDTK_STATIC,
-    "../../../assets/ambition/worlds/hall_of_characters.ldtk"
-);
-
-/// The sandbox's own manifest — Ambition's authored worlds, verbatim from
-/// the pre-seam hardcoded sites (`secondary_world_ids`,
-/// `merge_static_secondary_worlds`, `extend_with_world_entries`, the
-/// `to_room_set` start room).
-pub(crate) fn builtin_sandbox_manifest() -> WorldManifest {
-    let assets_root = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("assets");
-    let secondary = |id: AssetId,
-                     asset_path: &str,
-                     embedded_text: Option<&'static str>,
-                     embedded_bevy_path: &'static str| WorldSource {
-        loose_path: Some(assets_root.join(asset_path)),
-        id,
-        asset_path: asset_path.to_string(),
+/// Test fixture = the game's REAL worlds, read cross-crate from
+/// `ambition_content` (the `install_enemy_roster` fixture pattern), so
+/// core's loader/catalog/room tests exercise real data without core
+/// shipping it. Mirrors `ambition_content::worlds::world_manifest()` —
+/// core cannot depend on the content crate, so the rows are restated here.
+#[cfg(test)]
+fn test_fixture_manifest() -> WorldManifest {
+    macro_rules! static_world_text {
+        ($path:literal) => {{
+            #[cfg(feature = "static_map")]
+            {
+                Some(include_str!(concat!(
+                    "../../../../ambition_content/assets/worlds/",
+                    $path
+                )))
+            }
+            #[cfg(not(feature = "static_map"))]
+            {
+                None
+            }
+        }};
+    }
+    let worlds_dir =
+        std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../ambition_content/assets/worlds");
+    let source = |id: &str,
+                  file: &str,
+                  embedded_text: Option<&'static str>,
+                  embedded_bevy_path: &'static str,
+                  required: bool| WorldSource {
+        id: AssetId::new(id),
+        asset_path: format!("game://worlds/{file}"),
+        loose_path: Some(worlds_dir.join(file)),
         embedded_text,
         embedded_bevy_path: Some(embedded_bevy_path),
-        required: false,
+        required,
     };
     WorldManifest {
         entry_room: "central_hub_complex".to_string(),
         worlds: vec![
-            WorldSource {
-                id: ids::sandbox_ldtk(),
-                asset_path: SANDBOX_LDTK_ASSET.to_string(),
-                loose_path: Some(assets_root.join(SANDBOX_LDTK_ASSET)),
-                embedded_text: SANDBOX_LDTK_STATIC,
-                embedded_bevy_path: Some(EMBEDDED_SANDBOX_LDTK_ASSET_PATH),
-                required: true,
-            },
-            secondary(
-                ids::intro_ldtk(),
-                "ambition/worlds/intro.ldtk",
-                INTRO_LDTK_STATIC,
-                EMBEDDED_INTRO_LDTK_ASSET_PATH,
+            source(
+                "world.sandbox_ldtk",
+                "sandbox.ldtk",
+                static_world_text!("sandbox.ldtk"),
+                "ambition_content/worlds/sandbox.ldtk",
+                true,
             ),
-            secondary(
-                ids::cut_rope_ldtk(),
-                "ambition/worlds/you_have_to_cut_the_rope.ldtk",
-                CUT_ROPE_LDTK_STATIC,
-                EMBEDDED_CUT_ROPE_LDTK_ASSET_PATH,
+            source(
+                "world.intro_ldtk",
+                "intro.ldtk",
+                static_world_text!("intro.ldtk"),
+                "ambition_content/worlds/intro.ldtk",
+                false,
             ),
-            secondary(
-                ids::hall_ldtk(),
-                "ambition/worlds/hall_of_characters.ldtk",
-                HALL_LDTK_STATIC,
-                EMBEDDED_HALL_LDTK_ASSET_PATH,
+            source(
+                "world.cut_rope_ldtk",
+                "you_have_to_cut_the_rope.ldtk",
+                static_world_text!("you_have_to_cut_the_rope.ldtk"),
+                "ambition_content/worlds/you_have_to_cut_the_rope.ldtk",
+                false,
+            ),
+            source(
+                "world.hall_ldtk",
+                "hall_of_characters.ldtk",
+                static_world_text!("hall_of_characters.ldtk"),
+                "ambition_content/worlds/hall_of_characters.ldtk",
+                false,
             ),
         ],
+    }
+}
+
+/// The Bevy `AssetPath` string the tile-render spine loads for a manifest
+/// row: the embedded copy when this build carries one, else the row's
+/// authored `asset_path` (typically a game-registered asset source on
+/// desktop, e.g. `game://worlds/sandbox.ldtk`).
+pub fn world_bevy_asset_path(source: &WorldSource) -> String {
+    match (source.embedded_text, source.embedded_bevy_path) {
+        (Some(_), Some(path)) => format!("embedded://{path}"),
+        _ => source.asset_path.clone(),
     }
 }
 
@@ -178,43 +191,40 @@ mod tests {
     use super::*;
 
     // NOTE: no test here calls `install_world_manifest` — the OnceLock is
-    // process-global and an install would clobber the built-in default the
-    // rest of this test binary (embedded_project, catalog identity) relies
-    // on. Install semantics are exercised by the content crate, which
-    // installs for real.
+    // process-global and an install would clobber the fixture the rest of
+    // this test binary (embedded_project, catalog identity) relies on.
+    // Install semantics are exercised by the content crate + app, which
+    // install for real.
 
     #[test]
-    fn builtin_manifest_declares_the_sandbox_worlds() {
-        let manifest = builtin_sandbox_manifest();
+    fn fixture_manifest_declares_the_sandbox_worlds() {
+        let manifest = test_fixture_manifest();
         assert_eq!(manifest.entry_room, "central_hub_complex");
         assert_eq!(manifest.worlds.len(), 4);
         assert!(
             manifest.primary().required,
             "primary world is boot-critical"
         );
-        assert_eq!(manifest.primary().id, ids::sandbox_ldtk());
+        assert_eq!(manifest.primary().id.as_str(), "world.sandbox_ldtk");
         assert!(
             manifest.secondaries().all(|source| !source.required),
             "secondaries are tolerated missing"
         );
         for source in &manifest.worlds {
             assert!(
-                source.embedded_bevy_path.is_some(),
-                "every sandbox world authors an EmbeddedBinary candidate"
-            );
-            assert!(
                 source
                     .loose_path
                     .as_ref()
-                    .is_some_and(|path| path.is_absolute()),
-                "loose paths are absolute (authoring-crate CARGO_MANIFEST_DIR)"
+                    .is_some_and(|path| path.is_file()),
+                "fixture world file missing on disk: {:?}",
+                source.loose_path
             );
         }
     }
 
     #[test]
     fn primary_is_the_first_row_and_secondaries_keep_order() {
-        let manifest = builtin_sandbox_manifest();
+        let manifest = test_fixture_manifest();
         let secondary_ids: Vec<_> = manifest
             .secondaries()
             .map(|source| source.id.as_str().to_string())

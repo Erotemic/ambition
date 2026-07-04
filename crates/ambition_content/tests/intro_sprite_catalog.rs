@@ -14,6 +14,7 @@ fn intro_npc_and_prop_sprite_ids_resolve_through_the_catalog() {
     // Catalog building resolves character sprite rows through the installed
     // character catalog (integration tests install like the app does).
     ambition_content::character_catalog::install();
+    ambition_content::worlds::install();
     let mut config = GameAssetConfig::default();
     config.asset_profile = AssetProfile::DesktopDevLoose;
     let music = load_music_registry();

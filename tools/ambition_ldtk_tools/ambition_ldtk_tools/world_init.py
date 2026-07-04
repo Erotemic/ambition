@@ -23,7 +23,7 @@ open it). Run `area create --ldtk <new>.ldtk <spec.yaml>` to add levels.
 Usage:
 
     python -m ambition_ldtk_tools world init \\
-        crates/ambition_gameplay_core/assets/ambition/worlds/intro.ldtk \\
+        crates/ambition_content/assets/worlds/intro.ldtk \\
         --identifier ambition-intro-world
 
 The optional `--source` flag points at a different defs donor (defaults
@@ -39,7 +39,7 @@ import json
 import sys
 from pathlib import Path
 
-DEFAULT_SOURCE = Path("crates/ambition_gameplay_core/assets/ambition/worlds/sandbox.ldtk")
+DEFAULT_SOURCE = Path("crates/ambition_content/assets/worlds/sandbox.ldtk")
 DEFAULT_UID_OFFSET = 100_000
 
 

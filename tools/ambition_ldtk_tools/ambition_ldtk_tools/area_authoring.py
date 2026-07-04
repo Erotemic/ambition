@@ -1533,7 +1533,7 @@ def main(argv=None) -> int:
     parser.add_argument(
         "--ldtk",
         type=Path,
-        default=Path("crates/ambition_gameplay_core/assets/ambition/worlds/sandbox.ldtk"),
+        default=Path("crates/ambition_content/assets/worlds/sandbox.ldtk"),
         help="Target LDtk file to extend (default: sandbox.ldtk)",
     )
     parser.add_argument(

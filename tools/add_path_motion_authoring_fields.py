@@ -18,9 +18,9 @@ Usage:
 
 After `--in-place`, inspect and validate:
 
-    git diff -- crates/ambition_gameplay_core/assets/ambition/worlds/sandbox.ldtk
+    git diff -- crates/ambition_content/assets/worlds/sandbox.ldtk
     PYTHONPATH=tools/ambition_ldtk_tools python -m ambition_ldtk_tools doctor \
-      crates/ambition_gameplay_core/assets/ambition/worlds/sandbox.ldtk
+      crates/ambition_content/assets/worlds/sandbox.ldtk
 """
 
 from __future__ import annotations
@@ -35,7 +35,7 @@ from ambition_ldtk_tools.repair import write_project
 from ambition_ldtk_tools.validate import normalize_project_for_editor, validate
 
 ROOT = Path(__file__).resolve().parents[1]
-DEFAULT_LDTK = ROOT / "crates/ambition_gameplay_core/assets/ambition/worlds/sandbox.ldtk"
+DEFAULT_LDTK = ROOT / "crates/ambition_content/assets/worlds/sandbox.ldtk"
 DEFAULT_SCHEMA = ROOT / "tools/ambition_ldtk_tools/schemas/ldtk/JSON_SCHEMA.json"
 
 

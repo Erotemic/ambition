@@ -14,57 +14,31 @@ use bevy_ecs_ldtk::prelude::LevelSet;
 
 use ambition_engine_core::config::WORLD_Z_BLOCK;
 
-use super::super::{sandbox_ldtk_asset_path, LdtkLevel, LdtkProject};
+use super::super::{world_bevy_asset_path, world_manifest, LdtkLevel, LdtkProject};
 
-#[derive(Resource, Clone, Debug)]
-pub struct SandboxLdtkAsset(pub Handle<bevy_ecs_ldtk::assets::LdtkProject>);
-
-/// Bevy asset handle for the secondary intro LDtk file. Loaded
-/// alongside the main sandbox project so `bevy_ecs_ldtk` can render
-/// the intro's painted tile layers — its asset loader is independent
-/// of Ambition's merged JSON loader (`LdtkProject::load_default`),
-/// so each file needs its own bundle.
-#[derive(Resource, Clone, Debug)]
-pub struct IntroLdtkAsset(pub Handle<bevy_ecs_ldtk::assets::LdtkProject>);
-
-/// Bevy asset handle for the cut-rope boss LDtk side world.
-#[derive(Resource, Clone, Debug)]
-pub struct CutRopeLdtkAsset(pub Handle<bevy_ecs_ldtk::assets::LdtkProject>);
+/// Loaded bevy_ecs_ldtk project handles, one per installed
+/// [`super::super::WorldManifest`] row (index-aligned; 0 = primary).
+/// `bevy_ecs_ldtk`'s asset loader is per-file and independent of
+/// Ambition's merged JSON loader, so every world file gets its own
+/// handle + `LdtkWorldBundle` to render its painted tile layers.
+#[derive(Resource, Clone, Debug, Default)]
+pub struct LdtkWorldAssets(pub Vec<Handle<bevy_ecs_ldtk::assets::LdtkProject>>);
 
 pub fn load_ldtk_asset_handle(mut commands: Commands, asset_server: Res<AssetServer>) {
-    // `bevy_ecs_ldtk`'s asset loader is always rooted at the default
-    // Bevy asset source — modded LDtk paths still feed Ambition's JSON
-    // loader (via the SandboxAssetCatalog), but the `LdtkWorldBundle`
-    // handle here is fixed to the canonical asset-path constant.
-    let asset_path = sandbox_ldtk_asset_path();
-    commands.insert_resource(SandboxLdtkAsset(asset_server.load(asset_path)));
-    // Secondary intro LDtk asset. Co-located in the same Bevy asset
-    // directory; bevy_ecs_ldtk loads it independently so each file's
-    // LdtkWorldBundle can render its own levels.
-    commands.insert_resource(IntroLdtkAsset(
-        asset_server.load("ambition/worlds/intro.ldtk"),
-    ));
-    commands.insert_resource(CutRopeLdtkAsset(
-        asset_server.load("ambition/worlds/you_have_to_cut_the_rope.ldtk"),
-    ));
+    let handles = world_manifest()
+        .worlds
+        .iter()
+        .map(|source| asset_server.load(world_bevy_asset_path(source)))
+        .collect();
+    commands.insert_resource(LdtkWorldAssets(handles));
 }
 
-/// Marker for the main sandbox LDtk world root entity. The sandbox
-/// bundle's `LevelSet` carries the iids of the active area IFF the
-/// area belongs to `sandbox.ldtk`; otherwise the set is empty and
-/// nothing renders.
+/// Marker for every LDtk world-root entity (one per manifest row). Each
+/// bundle's `LevelSet` carries the active area's iids; only the bundle
+/// whose loaded asset contains those iids spawns levels (iids are unique
+/// per file), so the shared sync below can write the SAME set to all.
 #[derive(Component)]
-pub struct SandboxLdtkWorldRoot;
-
-/// Marker for the secondary intro LDtk world root entity. Same
-/// LevelSet logic as [`SandboxLdtkWorldRoot`] — the intro bundle's
-/// set is non-empty only while the active area is in `intro.ldtk`.
-#[derive(Component)]
-pub struct IntroLdtkWorldRoot;
-
-/// Marker for the cut-rope boss LDtk world root entity.
-#[derive(Component)]
-pub struct CutRopeLdtkWorldRoot;
+pub struct LdtkWorldRoot;
 
 #[derive(Clone, Copy, Debug)]
 pub struct LdtkAreaBounds {
@@ -172,14 +146,7 @@ impl LdtkRuntimeIndex {
 pub fn sync_ldtk_level_set(
     room_set: Res<crate::rooms::RoomSet>,
     mut index: ResMut<LdtkRuntimeIndex>,
-    mut ldtk_worlds: Query<
-        &mut LevelSet,
-        bevy::prelude::Or<(
-            With<SandboxLdtkWorldRoot>,
-            With<IntroLdtkWorldRoot>,
-            With<CutRopeLdtkWorldRoot>,
-        )>,
-    >,
+    mut ldtk_worlds: Query<&mut LevelSet, With<LdtkWorldRoot>>,
 ) {
     let active_area = room_set.active_spec().id.clone();
     if !index.needs_level_set_sync(&active_area) {
@@ -226,14 +193,7 @@ pub fn sync_ldtk_level_set(
 /// LdtkSettings::level_spawn_behavior).
 pub fn sync_ldtk_world_transform(
     room_set: Res<crate::rooms::RoomSet>,
-    mut ldtk_worlds: Query<
-        &mut Transform,
-        bevy::prelude::Or<(
-            With<SandboxLdtkWorldRoot>,
-            With<IntroLdtkWorldRoot>,
-            With<CutRopeLdtkWorldRoot>,
-        )>,
-    >,
+    mut ldtk_worlds: Query<&mut Transform, With<LdtkWorldRoot>>,
 ) {
     let active_world = room_set.active_world();
     let target = Vec3::new(

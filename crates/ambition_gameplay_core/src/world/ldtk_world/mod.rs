@@ -51,13 +51,12 @@ pub use bevy_runtime::*;
 pub use conversion::{
     install_ldtk_entity_converters, LdtkEntityConverter, LdtkEntityCtx, RuntimeEntityEmission,
 };
-pub use hot_reload::{
-    poll_ldtk_file_changes, sandbox_ldtk_asset_path, LdtkHotReloadState, SANDBOX_LDTK_ASSET,
-};
+pub use hot_reload::{poll_ldtk_file_changes, LdtkHotReloadState};
 // The WorldManifest install seam (JD4): a game declares its LDtk worlds +
 // entry room; the engine ships zero worlds and hardcodes no start room.
-pub(crate) use manifest::world_manifest;
-pub use manifest::{install_world_manifest, WorldManifest, WorldSource};
+pub use manifest::{
+    install_world_manifest, world_bevy_asset_path, world_manifest, WorldManifest, WorldSource,
+};
 pub use project::{
     LdtkEntityInstance, LdtkFieldInstance, LdtkLayerInstance, LdtkLevel, LdtkProject,
     SandboxLdtkProject,

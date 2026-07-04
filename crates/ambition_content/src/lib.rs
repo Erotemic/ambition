@@ -43,6 +43,9 @@ pub mod music;
 pub mod plugin;
 pub mod quest;
 pub mod quests;
+/// The LDtk world payload + Ambition's `WorldManifest` (install seam:
+/// `ambition_gameplay_core::ldtk_world`).
+pub mod worlds;
 
 #[cfg(feature = "portal")]
 pub mod portal;

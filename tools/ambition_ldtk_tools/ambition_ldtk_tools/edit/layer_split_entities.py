@@ -18,7 +18,7 @@ entities onto a sibling layer doesn't break runtime spawning.
 ```bash
 PYTHONPATH=tools/ambition_ldtk_tools \\
 python -m ambition_ldtk_tools layer split-entities \\
-    crates/ambition_gameplay_core/assets/ambition/worlds/intro.ldtk \\
+    crates/ambition_content/assets/worlds/intro.ldtk \\
     --type CameraZone \\
     --to-layer AmbitionCameras \\
     --in-place

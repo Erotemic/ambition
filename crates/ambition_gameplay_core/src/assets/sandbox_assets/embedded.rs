@@ -1,9 +1,8 @@
 //! Bevy `EmbeddedAssetRegistry` integration for the sandbox catalog.
 //!
 //! Centralizes the embedded URL constants ([`embedded_core`] for fonts /
-//! sheets / core entity sprites, and [`EMBEDDED_SANDBOX_LDTK_ASSET_PATH`]
-//! / [`EMBEDDED_INTRO_LDTK_ASSET_PATH`] / [`EMBEDDED_CUT_ROPE_LDTK_ASSET_PATH`]
-//! for the world JSON), the
+//! sheets / core entity sprites; world JSON URLs come from the installed
+//! `WorldManifest` rows), the
 //! `include_bytes!` registrations that back them, and the
 //! [`AmbitionAssetSourcePlugin`] that installs everything into Bevy at
 //! startup.
@@ -18,30 +17,6 @@
 use bevy::prelude::{App, Plugin};
 
 use ambition_asset_manager::AssetProfile;
-
-/// Path component the [`AmbitionAssetSourcePlugin`] registers the
-/// sandbox LDtk world under, in Bevy's [`bevy::asset::io::embedded::EmbeddedAssetRegistry`].
-/// Concatenated with `embedded://` to form the AssetPath string.
-/// Catalog entries for `world.sandbox_ldtk` carry an explicit
-/// `EmbeddedBinary` `LocationCandidate` pointing at this same path so
-/// the resolved URL matches what the registry will serve.
-pub(crate) const EMBEDDED_SANDBOX_LDTK_ASSET_PATH: &str =
-    "ambition_gameplay_core/ambition/worlds/sandbox.ldtk";
-
-/// Same shape as [`EMBEDDED_SANDBOX_LDTK_ASSET_PATH`] for the intro
-/// LDtk world.
-pub(crate) const EMBEDDED_INTRO_LDTK_ASSET_PATH: &str =
-    "ambition_gameplay_core/ambition/worlds/intro.ldtk";
-
-/// Same shape as [`EMBEDDED_SANDBOX_LDTK_ASSET_PATH`] for the cut-rope
-/// boss LDtk world.
-pub(crate) const EMBEDDED_CUT_ROPE_LDTK_ASSET_PATH: &str =
-    "ambition_gameplay_core/ambition/worlds/you_have_to_cut_the_rope.ldtk";
-
-/// Same shape as [`EMBEDDED_SANDBOX_LDTK_ASSET_PATH`] for the generated
-/// Hall of Characters LDtk world.
-pub(crate) const EMBEDDED_HALL_LDTK_ASSET_PATH: &str =
-    "ambition_gameplay_core/ambition/worlds/hall_of_characters.ldtk";
 
 /// Declarative table of embedded core assets.
 ///
@@ -172,14 +147,12 @@ embed_core_assets! {
 /// Bevy plugin that backs every URL the
 /// [`super::SandboxAssetCatalog`] hands out with a real `AssetSource`.
 ///
-/// Today this is the embedded source only: behind the `static_map`
-/// feature, the plugin inserts the sandbox + intro LDtk JSON bytes into
-/// Bevy's [`bevy::asset::io::embedded::EmbeddedAssetRegistry`] under
-/// [`EMBEDDED_SANDBOX_LDTK_ASSET_PATH`] / [`EMBEDDED_INTRO_LDTK_ASSET_PATH`] /
-/// [`EMBEDDED_CUT_ROPE_LDTK_ASSET_PATH`],
-/// matching the explicit `EmbeddedBinary` `LocationCandidate`s authored
-/// on the corresponding catalog entries. The catalog's resolution +
-/// the plugin's registration are paired: change one, change the other.
+/// Today this is the embedded source only: the plugin inserts every
+/// installed `WorldManifest` row's LDtk JSON bytes (when the game built
+/// them in) into Bevy's
+/// [`bevy::asset::io::embedded::EmbeddedAssetRegistry`] under the row's
+/// `embedded_bevy_path`, matching the `EmbeddedBinary` candidate the
+/// catalog authors from the same row — the pairing cannot drift.
 ///
 /// Adding more embedded assets (sprites, fonts, audio) is a recipe:
 /// 1. Add a `with_location(EmbeddedBinary, AssetLocation::embedded("ambition_gameplay_core/..."))`

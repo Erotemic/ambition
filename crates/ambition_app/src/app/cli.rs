@@ -37,6 +37,22 @@ pub(super) fn desktop_asset_root() -> String {
     }
 }
 
+/// The `game://` asset source root: the content crate's `assets/` tree in
+/// a dev checkout (worlds live there post-R3.2), the exe-relative
+/// `assets` dir in shipped builds.
+#[cfg(not(target_arch = "wasm32"))]
+pub(super) fn game_asset_root() -> String {
+    if std::env::var_os("BEVY_ASSET_ROOT").is_some() {
+        return "assets".to_string();
+    }
+    let dev_assets =
+        std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../ambition_content/assets");
+    match dev_assets.canonicalize() {
+        Ok(path) if path.is_dir() => path.to_string_lossy().into_owned(),
+        _ => "assets".to_string(),
+    }
+}
+
 /// True when no display server is reachable for `bevy_winit` to attach to.
 /// Linux only — other platforms always return `false` and rely on Bevy's
 /// own diagnostics. The check is conservative: any of `DISPLAY`,
@@ -183,6 +199,16 @@ pub fn run_visible() {
     let asset_root = desktop_asset_root();
     eprintln!("ambition_app: asset root = {asset_root}");
     let mut app = App::new();
+    // The game's OWN asset source (`game://`): the content crate's assets
+    // dir in a dev checkout, the shipped `assets/` dir otherwise. The
+    // WorldManifest rows address their .ldtk files through it, so the
+    // tile-render spine loads content-owned files without the engine's
+    // asset root ever containing a world. Must register before
+    // DefaultPlugins builds AssetPlugin.
+    app.register_asset_source(
+        "game",
+        bevy::asset::io::AssetSourceBuilder::platform_default(&game_asset_root(), None),
+    );
     app.add_plugins(
         DefaultPlugins
             .set(bevy::asset::AssetPlugin {

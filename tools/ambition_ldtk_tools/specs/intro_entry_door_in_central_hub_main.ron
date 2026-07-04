@@ -21,7 +21,7 @@
 // Run:
 //   python -m ambition_ldtk_tools entity add \
 //     tools/ambition_ldtk_tools/specs/intro_entry_door_in_central_hub_main.yaml \
-//     --ldtk crates/ambition_gameplay_core/assets/ambition/worlds/sandbox.ldtk \
+//     --ldtk crates/ambition_content/assets/worlds/sandbox.ldtk \
 //     --in-place
 
 (

@@ -72,6 +72,7 @@ impl SandboxSim {
         // reads them. First-install-wins, same as install_boss_roster.
         ambition_content::character_catalog::install();
         ambition_content::audio_registries::install();
+        ambition_content::worlds::install();
         let project = ldtk_world::LdtkProject::load_default_for_dev()?;
         let report = project.validate();
         if !report.is_ok() {

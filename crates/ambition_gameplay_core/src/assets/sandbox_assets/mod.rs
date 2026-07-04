@@ -39,11 +39,8 @@ use builders::{
     extend_with_font_entries, extend_with_music_entries, extend_with_sfx_bank_entry,
     extend_with_sprite_pack_entries, extend_with_world_entries,
 };
+pub(crate) use embedded::embedded_core;
 pub use embedded::AmbitionAssetSourcePlugin;
-pub(crate) use embedded::{
-    embedded_core, EMBEDDED_CUT_ROPE_LDTK_ASSET_PATH, EMBEDDED_HALL_LDTK_ASSET_PATH,
-    EMBEDDED_INTRO_LDTK_ASSET_PATH, EMBEDDED_SANDBOX_LDTK_ASSET_PATH,
-};
 
 /// Wrapped [`AmbitionAssetCatalog`] + active [`AssetProfile`].
 ///

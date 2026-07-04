@@ -13,9 +13,9 @@ use bevy::sprite::Anchor;
 
 use ambition_characters::brain::ActorControl;
 use ambition_characters::brain::BossAttackState;
+use ambition_engine_core::config::world_to_bevy;
 use ambition_engine_core::{self as ae, AabbExt};
 use ambition_gameplay_core::assets::game_assets::GameAssets;
-use ambition_sfx::SfxMessage;
 use ambition_gameplay_core::boss_encounter::{
     BossEncounterRegistry, EncounterBeat, EncounterDef, EncounterEffect, EncounterScript,
     EncounterTrigger, ReleaseOnDeath,
@@ -23,7 +23,6 @@ use ambition_gameplay_core::boss_encounter::{
 use ambition_gameplay_core::character_sprites::{
     build_character_sprite, feet_anchor_for, CharacterAnimator,
 };
-use ambition_engine_core::config::world_to_bevy;
 use ambition_gameplay_core::features::BossConfig;
 use ambition_gameplay_core::features::{
     ActorPose, BossClusterQueryData, BossClusterRef, BossRef, CenteredAabb, DamageableVolumes,
@@ -36,6 +35,7 @@ use ambition_render::fx::{
     ExplosionKind, ExplosionRequest, FireworksRequest, ParticleKind, VfxMessage,
 };
 use ambition_render::rendering::PropVisual;
+use ambition_sfx::SfxMessage;
 
 pub const CUT_ROPE_BOSS_ID: &str = "smirking_behemoth_boss";
 pub const CUT_ROPE_VICTORY_NPC_ID: &str = "smirking_behemoth_victory_npc";

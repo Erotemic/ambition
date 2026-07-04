@@ -79,12 +79,11 @@ fn embedded_core_urls_have_authored_catalog_candidates() {
     // The LDtk URLs are intentionally outside the embedded_core
     // set — they're embedded under `static_map` not
     // `static_core_assets`. Skip them here.
-    let ldtk_urls = [
-        EMBEDDED_SANDBOX_LDTK_ASSET_PATH.to_string(),
-        EMBEDDED_INTRO_LDTK_ASSET_PATH.to_string(),
-        EMBEDDED_CUT_ROPE_LDTK_ASSET_PATH.to_string(),
-        EMBEDDED_HALL_LDTK_ASSET_PATH.to_string(),
-    ];
+    let ldtk_urls: Vec<String> = crate::ldtk_world::world_manifest()
+        .worlds
+        .iter()
+        .filter_map(|world| world.embedded_bevy_path.map(str::to_string))
+        .collect();
     let core_urls_authored: HashSet<String> = authored_urls
         .into_iter()
         .filter(|u| !ldtk_urls.contains(u))

@@ -135,7 +135,11 @@ const IDLE_BARK_INTERVAL_JITTER: f32 = 3.0;
 pub fn tick_boss_idle_barks(
     world_time: Res<ambition_time::WorldTime>,
     registry: Option<Res<CombatBanterRegistry>>,
-    ecs_bosses: Query<(BossClusterRef, &ambition_characters::actor::BodyHealth, &ambition_characters::actor::BodyCombat)>,
+    ecs_bosses: Query<(
+        BossClusterRef,
+        &ambition_characters::actor::BodyHealth,
+        &ambition_characters::actor::BodyCombat,
+    )>,
     mut vfx: MessageWriter<VfxMessage>,
     mut state: Local<BossIdleBarkState>,
 ) {

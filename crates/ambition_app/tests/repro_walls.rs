@@ -187,8 +187,7 @@ fn square_arena_wall_cling_with_subpixel_penetration_does_not_teleport() {
 /// running a downward sweep against each subset of square_arena blocks.
 #[test]
 fn locate_teleport_target_block() {
-    let project =
-        sb::ldtk_world::LdtkProject::load_default_for_dev().expect("sandbox LDtk should load");
+    let project = load_project_for_test().expect("sandbox LDtk should load");
     let report = project.validate();
     if !report.is_ok() {
         panic!("validation failed");
@@ -248,8 +247,7 @@ fn locate_teleport_target_block() {
 /// precise live `real_dt` from the trace.
 #[test]
 fn square_arena_wall_cling_full_world_does_not_teleport() {
-    let project =
-        sb::ldtk_world::LdtkProject::load_default_for_dev().expect("sandbox LDtk should load");
+    let project = load_project_for_test().expect("sandbox LDtk should load");
     let report = project.validate();
     if !report.is_ok() {
         panic!("validation failed");
@@ -316,8 +314,7 @@ fn square_arena_wall_cling_full_world_does_not_teleport() {
 /// wall-cling before the teleport — maybe the bug needs accumulation.
 #[test]
 fn square_arena_wall_cling_full_world_steps_many_times() {
-    let project =
-        sb::ldtk_world::LdtkProject::load_default_for_dev().expect("sandbox LDtk should load");
+    let project = load_project_for_test().expect("sandbox LDtk should load");
     let report = project.validate();
     if !report.is_ok() {
         panic!("validation failed");
@@ -584,8 +581,7 @@ fn mob_lab_lock_wall_cling_does_not_teleport() {
 /// the budget assertion fires if a future change reintroduces the snap.
 #[test]
 fn goblin_encounter_full_world_lock_wall_cling_repro() {
-    let project =
-        sb::ldtk_world::LdtkProject::load_default_for_dev().expect("sandbox LDtk should load");
+    let project = load_project_for_test().expect("sandbox LDtk should load");
     let room_set = project.to_room_set().expect("room_set");
     let Some(room) = room_set.rooms.iter().find(|s| s.id == "goblin_encounter") else {
         eprintln!("no goblin_encounter room; known rooms:");
@@ -687,8 +683,7 @@ fn goblin_encounter_full_world_lock_wall_cling_repro() {
 /// Budget-asserts every frame so a >budget snap (the teleport) fails.
 #[test]
 fn goblin_encounter_real_walljump_repro() {
-    let project =
-        sb::ldtk_world::LdtkProject::load_default_for_dev().expect("sandbox LDtk should load");
+    let project = load_project_for_test().expect("sandbox LDtk should load");
     let room_set = project.to_room_set().expect("room_set");
     let Some(room) = room_set.rooms.iter().find(|s| s.id == "goblin_encounter") else {
         return;
@@ -758,4 +753,13 @@ fn goblin_encounter_real_walljump_repro() {
             dt,
         );
     }
+}
+
+/// Load the game's merged LDtk project the way a sim entry point does:
+/// install the content data (world manifest, character catalog) first —
+/// post-R3.2 the engine ships no worlds and panics without an install.
+fn load_project_for_test() -> Result<ambition_gameplay_core::ldtk_world::LdtkProject, String> {
+    ambition_content::worlds::install();
+    ambition_content::character_catalog::install();
+    ambition_gameplay_core::ldtk_world::LdtkProject::load_default_for_dev()
 }

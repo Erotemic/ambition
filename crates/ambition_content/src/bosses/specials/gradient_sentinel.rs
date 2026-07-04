@@ -535,17 +535,15 @@ pub fn spawn_minima_trap_from_special_messages(
 
         effects.write(ambition_vfx::EffectRequest {
             owner: entity,
-            effect: ambition_vfx::Effect::DamageBox(
-                ambition_vfx::DamageBoxEffect {
-                    center: pit_center,
-                    faction: ActorFaction::Boss,
-                    half_extent: ae::Vec2::new(hx, hy),
-                    damage,
-                    knockback: MINIMA_TRAP_KNOCKBACK,
-                    lifetime_s: hazard_duration_s.max(0.05),
-                    name: None,
-                },
-            ),
+            effect: ambition_vfx::Effect::DamageBox(ambition_vfx::DamageBoxEffect {
+                center: pit_center,
+                faction: ActorFaction::Boss,
+                half_extent: ae::Vec2::new(hx, hy),
+                damage,
+                knockback: MINIMA_TRAP_KNOCKBACK,
+                lifetime_s: hazard_duration_s.max(0.05),
+                name: None,
+            }),
         });
 
         if spawn_minion {
@@ -584,17 +582,15 @@ pub fn spawn_minima_trap_from_special_messages(
             );
             effects.write(ambition_vfx::EffectRequest {
                 owner: entity,
-                effect: ambition_vfx::Effect::Summon(
-                    ambition_vfx::SummonSpec {
-                        id: minion_id,
-                        name: "Puppy Slug".to_string(),
-                        pos: minion_pos,
-                        half_size: MINIMA_TRAP_MINION_HALF_SIZE,
-                        archetype_id: MINIMA_TRAP_MINION_ARCHETYPE.to_string(),
-                        encounter_id,
-                        faction: ambition_gameplay_core::features::ActorFaction::Enemy,
-                    },
-                ),
+                effect: ambition_vfx::Effect::Summon(ambition_vfx::SummonSpec {
+                    id: minion_id,
+                    name: "Puppy Slug".to_string(),
+                    pos: minion_pos,
+                    half_size: MINIMA_TRAP_MINION_HALF_SIZE,
+                    archetype_id: MINIMA_TRAP_MINION_ARCHETYPE.to_string(),
+                    encounter_id,
+                    faction: ambition_gameplay_core::features::ActorFaction::Enemy,
+                }),
             });
         }
 
@@ -624,7 +620,15 @@ pub fn spawn_saddle_point_from_special_messages(
     mut commands: Commands,
     world_time: Res<WorldTime>,
     mut messages: MessageReader<ActorActionMessage>,
-    mut bosses: Query<(Entity, BossClusterRef, &ambition_characters::actor::BodyHealth, &mut SaddlePointState), With<FeatureSimEntity>>,
+    mut bosses: Query<
+        (
+            Entity,
+            BossClusterRef,
+            &ambition_characters::actor::BodyHealth,
+            &mut SaddlePointState,
+        ),
+        With<FeatureSimEntity>,
+    >,
 ) {
     let dt = world_time.sim_dt();
 
@@ -781,7 +785,15 @@ fn gradient_cascade_minion_x_offset(i: i32, count: i32) -> f32 {
 pub fn spawn_gradient_cascade_minions_from_special_messages(
     mut effects: MessageWriter<ambition_vfx::EffectRequest>,
     mut messages: MessageReader<ActorActionMessage>,
-    mut bosses: Query<(Entity, BossClusterRef, &ambition_characters::actor::BodyHealth, &mut GradientCascadeState), With<FeatureSimEntity>>,
+    mut bosses: Query<
+        (
+            Entity,
+            BossClusterRef,
+            &ambition_characters::actor::BodyHealth,
+            &mut GradientCascadeState,
+        ),
+        With<FeatureSimEntity>,
+    >,
 ) {
     let minion_count = GRADIENT_CASCADE_MINION_COUNT;
     let mut firing: std::collections::HashSet<Entity> = std::collections::HashSet::new();
@@ -824,17 +836,15 @@ pub fn spawn_gradient_cascade_minions_from_special_messages(
             );
             effects.write(ambition_vfx::EffectRequest {
                 owner: entity,
-                effect: ambition_vfx::Effect::Summon(
-                    ambition_vfx::SummonSpec {
-                        id: minion_id,
-                        name: "Slop Lurker".to_string(),
-                        pos: spawn_pos,
-                        half_size: GRADIENT_CASCADE_MINION_HALF_SIZE,
-                        archetype_id: GRADIENT_CASCADE_MINION_ARCHETYPE.to_string(),
-                        encounter_id: encounter_id.clone(),
-                        faction: ambition_gameplay_core::features::ActorFaction::Enemy,
-                    },
-                ),
+                effect: ambition_vfx::Effect::Summon(ambition_vfx::SummonSpec {
+                    id: minion_id,
+                    name: "Slop Lurker".to_string(),
+                    pos: spawn_pos,
+                    half_size: GRADIENT_CASCADE_MINION_HALF_SIZE,
+                    archetype_id: GRADIENT_CASCADE_MINION_ARCHETYPE.to_string(),
+                    encounter_id: encounter_id.clone(),
+                    faction: ambition_gameplay_core::features::ActorFaction::Enemy,
+                }),
             });
         }
         state.fired_this_strike = true;

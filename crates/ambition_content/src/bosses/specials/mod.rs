@@ -21,12 +21,12 @@ use ambition_characters::brain::{
 };
 use ambition_engine_core::{self as ae, AabbExt};
 use ambition_gameplay_core::actor::{BodyKinematics, PlayerEntity};
-use ambition_vfx::{Effect, EffectRequest};
 use ambition_gameplay_core::enemy_projectile::EnemyProjectileSpawn;
 use ambition_gameplay_core::features::{
     ActorFaction, ActorTarget, BossClusterRef, FeatureSimEntity,
 };
 use ambition_time::WorldTime;
+use ambition_vfx::{Effect, EffectRequest};
 
 mod echo_fan;
 mod eye_beam;

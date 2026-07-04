@@ -46,6 +46,7 @@ pub fn init_sandbox_resources(app: &mut App) {
     // rationale as the boss roster; first-install-wins.
     ambition_content::audio_registries::install();
     ambition_content::character_catalog::install();
+    ambition_content::worlds::install();
 
     let sandbox_data = data::SandboxDataSpec::load_embedded();
     // Audio lives in its own registries, separate from sandbox tuning and

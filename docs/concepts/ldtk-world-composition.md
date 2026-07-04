@@ -34,7 +34,7 @@ LDtk is the current world/level authoring source. Old RON room manifests are his
 ## Validation
 
 ```bash
-python -m ambition_ldtk_tools validate crates/ambition_gameplay_core/assets/ambition/worlds/sandbox.ldtk
-python -m ambition_ldtk_tools repair crates/ambition_gameplay_core/assets/ambition/worlds/sandbox.ldtk --in-place
+python -m ambition_ldtk_tools validate crates/ambition_content/assets/worlds/sandbox.ldtk
+python -m ambition_ldtk_tools repair crates/ambition_content/assets/worlds/sandbox.ldtk --in-place
 cargo test -p ambition_gameplay_core ldtk
 ```

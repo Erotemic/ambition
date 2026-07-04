@@ -2,9 +2,8 @@
 //!
 //! `LdtkHotReloadState` tracks the watched `.ldtk` path and a pending/applied/
 //! failed reload status; `poll_ldtk_file_changes` (Bevy system) debounces mtime
-//! checks and marks pending reloads. `sandbox_ldtk_asset_path` /
-//! `SANDBOX_LDTK_ASSET` give the bevy_ecs_ldtk asset path. Pure file/policy
-//! state — actual parse + convert happens in `loading`/`conversion`.
+//! checks and marks pending reloads. Pure file/policy state — actual
+//! parse + convert happens in `loading`/`conversion`.
 
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -13,19 +12,6 @@ use std::time::SystemTime;
 use bevy::prelude::{Res, ResMut, Resource, Time};
 
 use crate::assets::sandbox_assets::SandboxAssetCatalog;
-
-pub const SANDBOX_LDTK_ASSET: &str = "ambition/worlds/sandbox.ldtk";
-
-/// `[ambition_asset_manager_transition]` Bevy `AssetPath` string for the
-/// PRIMARY LDtk world (the installed manifest's first row). Used by the
-/// `bevy_ecs_ldtk` runtime spine to spawn `LdtkWorldBundle`s via the
-/// default asset source.
-pub fn sandbox_ldtk_asset_path() -> String {
-    super::manifest::world_manifest()
-        .primary()
-        .asset_path
-        .clone()
-}
 
 #[derive(Resource, Clone, Debug)]
 pub struct LdtkHotReloadState {

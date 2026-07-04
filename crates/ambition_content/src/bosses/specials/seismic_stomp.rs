@@ -58,7 +58,15 @@ fn seismic_world_floor_centers(
 pub fn spawn_seismic_stomp_from_special_messages(
     mut effects: MessageWriter<EffectRequest>,
     mut messages: MessageReader<ActorActionMessage>,
-    mut bosses: Query<(Entity, BossClusterRef, &ambition_characters::actor::BodyHealth, &mut SeismicStompState), With<FeatureSimEntity>>,
+    mut bosses: Query<
+        (
+            Entity,
+            BossClusterRef,
+            &ambition_characters::actor::BodyHealth,
+            &mut SeismicStompState,
+        ),
+        With<FeatureSimEntity>,
+    >,
 ) {
     let mut firing: std::collections::HashSet<Entity> = std::collections::HashSet::new();
     for msg in messages.read() {

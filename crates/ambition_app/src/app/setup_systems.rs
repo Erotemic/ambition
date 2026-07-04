@@ -3,6 +3,7 @@ use bevy::prelude::*;
 #[cfg(feature = "audio")]
 use bevy_kira_audio::prelude::AudioSource as KiraAudioSource;
 
+use ambition_engine_core::RoomGeometry;
 use ambition_gameplay_core::assets::game_assets::{self, GameAssetConfig};
 use ambition_gameplay_core::assets::loading;
 use ambition_gameplay_core::dev::dev_tools::{EditableAbilitySet, EditableMovementTuning};
@@ -11,7 +12,6 @@ use ambition_gameplay_core::persistence::settings::TextureResolutionScale;
 use ambition_gameplay_core::rooms;
 use ambition_gameplay_core::session::{data, setup};
 use ambition_gameplay_core::world::physics;
-use ambition_engine_core::RoomGeometry;
 use ambition_render::rendering::SceneEntities;
 use ambition_render::ui_fonts;
 
@@ -26,7 +26,6 @@ pub(super) fn setup_simulation_system(
     world: Res<RoomGeometry>,
     room_set: Res<rooms::RoomSet>,
     sandbox_data_asset: Option<Res<data::SandboxDataAsset>>,
-    ldtk_asset: Option<Res<ldtk_world::SandboxLdtkAsset>>,
     sandbox_asset_collection: Option<Res<loading::SandboxAssetCollection>>,
     asset_server: Res<AssetServer>,
     ldtk_index: Res<ldtk_world::LdtkRuntimeIndex>,
@@ -45,7 +44,6 @@ pub(super) fn setup_simulation_system(
             editable_tuning: &editable_tuning,
             starting_character: &starting_character,
             sandbox_data_asset: sandbox_data_asset.as_deref(),
-            ldtk_asset: ldtk_asset.as_deref(),
             sandbox_asset_collection: sandbox_asset_collection.as_deref(),
             asset_server: &asset_server,
         },

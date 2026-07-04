@@ -37,6 +37,10 @@ impl Plugin for AmbitionContentPlugin {
         // any lookup (LDtk NpcSpawn conversion, spawn paths, sprite joins).
         super::character_catalog::install();
 
+        // Install the world manifest (which .ldtk files exist + the entry
+        // room) before any catalog build or world load reads it.
+        super::worlds::install();
+
         // Install the authored item catalog (C1 — content out of core) into the
         // machinery lib before any item flavor/wiring is read. Byte-identical to
         // the engine's built-in 24-item default table (pinned by

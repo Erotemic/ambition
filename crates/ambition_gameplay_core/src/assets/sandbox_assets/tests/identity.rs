@@ -148,11 +148,14 @@ fn secondary_ldtk_worlds_are_in_the_catalog_under_world_namespace() {
     let music = authored_music_registry().clone();
     let catalog = build_sandbox_catalog(&config, &music);
 
-    for (id, embedded_path) in [
-        (ids::intro_ldtk(), EMBEDDED_INTRO_LDTK_ASSET_PATH),
-        (ids::cut_rope_ldtk(), EMBEDDED_CUT_ROPE_LDTK_ASSET_PATH),
-        (ids::hall_ldtk(), EMBEDDED_HALL_LDTK_ASSET_PATH),
-    ] {
+    let manifest_worlds = crate::ldtk_world::world_manifest();
+    for source in manifest_worlds.secondaries() {
+        let (id, embedded_path) = (
+            source.id.clone(),
+            source
+                .embedded_bevy_path
+                .expect("sandbox worlds author embedded candidates"),
+        );
         let entry = catalog
             .catalog()
             .manifest()

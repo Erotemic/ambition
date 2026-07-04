@@ -18,12 +18,12 @@ use ambition_engine_core as ae;
 use bevy::prelude::*;
 
 use crate::assets::loading::SandboxAssetCollection;
-use ambition_engine_core::config::{world_to_bevy, WORLD_Z_PLAYER};
 use crate::dev::dev_tools::{EditableAbilitySet, EditableMovementTuning};
-use crate::ldtk_world::{LdtkRuntimeIndex, SandboxLdtkAsset};
+use crate::ldtk_world::LdtkRuntimeIndex;
 use crate::platformer_runtime::lifecycle::{PlayerVisual, SceneEntities};
 use crate::rooms::RoomSet;
 use crate::session::data::SandboxDataAsset;
+use ambition_engine_core::config::{world_to_bevy, WORLD_Z_PLAYER};
 use ambition_engine_core::RoomGeometry;
 
 /// Borrowed inputs for `simulation_world`.
@@ -42,7 +42,6 @@ pub struct SimulationSetup<'a> {
     /// `player` protagonist) takes the untouched `from_scratch` path.
     pub starting_character: &'a crate::player::StartingCharacter,
     pub sandbox_data_asset: Option<&'a SandboxDataAsset>,
-    pub ldtk_asset: Option<&'a SandboxLdtkAsset>,
     pub sandbox_asset_collection: Option<&'a SandboxAssetCollection>,
     pub asset_server: &'a AssetServer,
 }
@@ -74,7 +73,6 @@ pub fn simulation_world(commands: &mut Commands, params: SimulationSetup<'_>) ->
         editable_tuning,
         starting_character,
         sandbox_data_asset,
-        ldtk_asset,
         sandbox_asset_collection,
         asset_server,
     } = params;
@@ -95,8 +93,8 @@ pub fn simulation_world(commands: &mut Commands, params: SimulationSetup<'_>) ->
     // Headless builds skip LdtkPlugin (its tile pipeline needs RenderApp),
     // so this function must not assume the LDtk asset type is available.
     // Suppress the unused-binding warnings until follow-up patches retire
-    // the `ldtk_asset` / `ldtk_index` / `asset_server` params or move them.
-    let _ = (ldtk_asset, asset_server);
+    // the `ldtk_index` / `asset_server` params or move them.
+    let _ = asset_server;
     let _ = ldtk_index;
 
     crate::features::spawn_room_feature_entities(commands, room_set.active_spec());

@@ -1,6 +1,6 @@
 # LDtk authoring workflow
 
-Ambition treats `crates/ambition_gameplay_core/assets/ambition/worlds/sandbox.ldtk` as the sandbox world source. LDtk owns authored spatial data; Ambition owns runtime gameplay semantics, validation, persistence, and hot-reload policy.
+Ambition treats `crates/ambition_content/assets/worlds/sandbox.ldtk` as the sandbox world source. LDtk owns authored spatial data; Ambition owns runtime gameplay semantics, validation, persistence, and hot-reload policy.
 
 Agents should not hand-edit LDtk JSON. Use the `ambition_ldtk_tools` package so edits are repaired, normalized, and validated before write.
 
@@ -10,17 +10,17 @@ Run from the repo root:
 
 ```bash
 PYTHONPATH=tools/ambition_ldtk_tools python -m ambition_ldtk_tools doctor \
-  crates/ambition_gameplay_core/assets/ambition/worlds/sandbox.ldtk
+  crates/ambition_content/assets/worlds/sandbox.ldtk
 
 PYTHONPATH=tools/ambition_ldtk_tools python -m ambition_ldtk_tools repair \
-  crates/ambition_gameplay_core/assets/ambition/worlds/sandbox.ldtk \
+  crates/ambition_content/assets/worlds/sandbox.ldtk \
   --in-place
 
 PYTHONPATH=tools/ambition_ldtk_tools python -m ambition_ldtk_tools roundtrip \
-  crates/ambition_gameplay_core/assets/ambition/worlds/sandbox.ldtk
+  crates/ambition_content/assets/worlds/sandbox.ldtk
 
 PYTHONPATH=tools/ambition_ldtk_tools python -m ambition_ldtk_tools validate \
-  crates/ambition_gameplay_core/assets/ambition/worlds/sandbox.ldtk
+  crates/ambition_content/assets/worlds/sandbox.ldtk
 ```
 
 ### Multi-file worlds: validate with `--secondary-world`
@@ -37,8 +37,8 @@ cross-file links:
 
 ```bash
 PYTHONPATH=tools/ambition_ldtk_tools python3 -m ambition_ldtk_tools validate \
-  crates/ambition_gameplay_core/assets/ambition/worlds/intro.ldtk \
-  --secondary-world crates/ambition_gameplay_core/assets/ambition/worlds/sandbox.ldtk
+  crates/ambition_content/assets/worlds/intro.ldtk \
+  --secondary-world crates/ambition_content/assets/worlds/sandbox.ldtk
 ```
 
 (Use `python3` if `python` is unavailable. `--secondary-world` may be
@@ -66,8 +66,8 @@ cross-targets the hub. Validate the pair with:
 
 ```bash
 PYTHONPATH=tools/ambition_ldtk_tools python3 -m ambition_ldtk_tools validate \
-  crates/ambition_gameplay_core/assets/ambition/worlds/hall_of_characters.ldtk \
-  --secondary-world crates/ambition_gameplay_core/assets/ambition/worlds/sandbox.ldtk
+  crates/ambition_content/assets/worlds/hall_of_characters.ldtk \
+  --secondary-world crates/ambition_content/assets/worlds/sandbox.ldtk
 ```
 
 ## Visual verification (collision + entity geometry)
@@ -188,7 +188,7 @@ uv pip install jsonschema
 PYTHONPATH=tools/ambition_ldtk_tools python -m ambition_ldtk_tools validate \
   --schema tools/ambition_ldtk_tools/schemas/ldtk/JSON_SCHEMA.json \
   --require-schema \
-  crates/ambition_gameplay_core/assets/ambition/worlds/sandbox.ldtk
+  crates/ambition_content/assets/worlds/sandbox.ldtk
 ```
 
 The official schema catches editor-format problems. Ambition validation catches game-specific problems such as invalid loading-zone graph links, unsafe transition arrivals, missing active areas, stale definition IDs, and unknown music tracks.

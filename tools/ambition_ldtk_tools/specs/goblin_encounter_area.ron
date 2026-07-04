@@ -33,7 +33,7 @@
 // Authoring rectangles by entity type stays ergonomic, but the
 // canonical representation in the project is IntGrid cells (which
 // the LDtk GUI can paint per cell). Live goblin_encounter in
-// `crates/ambition_gameplay_core/assets/ambition/worlds/sandbox.ldtk`
+// `crates/ambition_content/assets/worlds/sandbox.ldtk`
 // already lives on IntGrid; re-running this spec preserves that.
 
 (

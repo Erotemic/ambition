@@ -25,8 +25,7 @@ fn entity_aabbs(room: &sb::rooms::RoomSpec) -> Vec<(&'static str, ae::Aabb)> {
 
 #[test]
 fn no_room_has_out_of_bounds_entities_or_spawn_in_solid() {
-    let project =
-        sb::ldtk_world::LdtkProject::load_default_for_dev().expect("sandbox LDtk should load");
+    let project = load_project_for_test().expect("sandbox LDtk should load");
     let room_set = project.to_room_set().expect("room_set should build");
     assert!(
         !room_set.rooms.is_empty(),
@@ -90,4 +89,13 @@ fn no_room_has_out_of_bounds_entities_or_spawn_in_solid() {
         anomalies.len(),
         anomalies.join("\n")
     );
+}
+
+/// Load the game's merged LDtk project the way a sim entry point does:
+/// install the content data (world manifest, character catalog) first —
+/// post-R3.2 the engine ships no worlds and panics without an install.
+fn load_project_for_test() -> Result<ambition_gameplay_core::ldtk_world::LdtkProject, String> {
+    ambition_content::worlds::install();
+    ambition_content::character_catalog::install();
+    ambition_gameplay_core::ldtk_world::LdtkProject::load_default_for_dev()
 }

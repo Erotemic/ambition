@@ -48,7 +48,12 @@ pub fn spawn_gradient_nova_from_special_messages(
     mut effects: MessageWriter<EffectRequest>,
     mut messages: MessageReader<ActorActionMessage>,
     mut bosses: Query<
-        (Entity, BossClusterRef, &ambition_characters::actor::BodyHealth, &mut ExplodingGradientState),
+        (
+            Entity,
+            BossClusterRef,
+            &ambition_characters::actor::BodyHealth,
+            &mut ExplodingGradientState,
+        ),
         With<FeatureSimEntity>,
     >,
 ) {

@@ -21,7 +21,7 @@ PYTHONPATH=tools/ambition_ldtk_tools python -m ambition_ldtk_tools area create \
   --apply
 
 PYTHONPATH=tools/ambition_ldtk_tools python -m ambition_ldtk_tools doctor \
-  crates/ambition_gameplay_core/assets/ambition/worlds/sandbox.ldtk
+  crates/ambition_content/assets/worlds/sandbox.ldtk
 ```
 
 ## Review checklist

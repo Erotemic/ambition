@@ -10,7 +10,7 @@ cd "$REPO"
 # Optional but useful: fail before deploying a bad map.
 PYTHONPATH="$REPO/tools/ambition_ldtk_tools" \
     python -m ambition_ldtk_tools validate \
-    crates/ambition_gameplay_core/assets/ambition/worlds/sandbox.ldtk
+    crates/ambition_content/assets/worlds/sandbox.ldtk
 
 # Verify the distributable bundled fonts have been materialized locally.
 # Do not package assets/fonts/local; those are local-machine fallback fonts.
@@ -36,6 +36,14 @@ rsync -av --delete \
 rsync -av --delete \
     --exclude '/fonts/local/' \
     crates/ambition_gameplay_core/assets/ \
+    "$DECK:$APPDIR/assets/"
+
+# The game's CONTENT assets (worlds, dialogue, data, audio registries —
+# post-R3.2 they live in ambition_content) merge into the same deck-side
+# assets/ dir; the app's `game://` asset source roots there under
+# BEVY_ASSET_ROOT.
+rsync -av \
+    crates/ambition_content/assets/ \
     "$DECK:$APPDIR/assets/"
 
 # Ensure old local-only fonts from previous deploys do not linger on the Deck.
@@ -71,10 +79,6 @@ cd "$APPDIR"
 # Important: this is the app/root directory, not the assets directory.
 # Bevy's default asset folder is "$BEVY_ASSET_ROOT/assets".
 export BEVY_ASSET_ROOT="$APPDIR"
-
-# Ambition's direct LDtk loader should use the Deck-side loose map,
-# not the source path compiled on the build machine.
-export AMBITION_LDTK="$APPDIR/assets/ambition/worlds/sandbox.ldtk"
 
 export RUST_BACKTRACE=1
 export RUST_LOG="${RUST_LOG:-warn}"

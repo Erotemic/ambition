@@ -14,7 +14,7 @@ LDtk GUI, or after hand-patching JSON:
 
     PYTHONPATH=tools/ambition_ldtk_tools \
     python -m ambition_ldtk_tools repair \
-      crates/ambition_gameplay_core/assets/ambition/worlds/sandbox.ldtk \
+      crates/ambition_content/assets/worlds/sandbox.ldtk \
       --in-place
 """
 

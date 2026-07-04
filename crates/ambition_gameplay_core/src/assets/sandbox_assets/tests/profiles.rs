@@ -59,7 +59,13 @@ fn ldtk_falls_back_to_embedded_under_web_static() {
     // must agree.
     assert_eq!(
         path,
-        format!("embedded://{EMBEDDED_SANDBOX_LDTK_ASSET_PATH}"),
+        format!(
+            "embedded://{}",
+            crate::ldtk_world::world_manifest()
+                .primary()
+                .embedded_bevy_path
+                .expect("sandbox primary authors an embedded candidate")
+        ),
     );
     // Web static does NOT support hot reload.
     assert!(!catalog

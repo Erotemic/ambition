@@ -120,7 +120,7 @@ fn solid_blocks(sim: &SandboxSim) -> Vec<ae::Aabb> {
 fn load_loading_zones() -> std::collections::HashMap<String, Vec<ae::Aabb>> {
     use ambition_gameplay_core as sb;
     let mut map = std::collections::HashMap::new();
-    let Ok(project) = sb::ldtk_world::LdtkProject::load_default_for_dev() else {
+    let Ok(project) = load_project_for_test() else {
         return map;
     };
     let Ok(room_set) = project.to_room_set() else {
@@ -523,4 +523,13 @@ fn collision_oracle_full_sweep() {
         rooms.len(),
         seeds.len()
     );
+}
+
+/// Load the game's merged LDtk project the way a sim entry point does:
+/// install the content data (world manifest, character catalog) first —
+/// post-R3.2 the engine ships no worlds and panics without an install.
+fn load_project_for_test() -> Result<ambition_gameplay_core::ldtk_world::LdtkProject, String> {
+    ambition_content::worlds::install();
+    ambition_content::character_catalog::install();
+    ambition_gameplay_core::ldtk_world::LdtkProject::load_default_for_dev()
 }

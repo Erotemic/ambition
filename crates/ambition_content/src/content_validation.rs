@@ -562,6 +562,8 @@ mod tests {
     #[test]
     fn embedded_content_graph_validates() {
         crate::bosses::install_boss_roster();
+        crate::worlds::install();
+        crate::character_catalog::install();
         let report = validate_embedded_content_graph();
         report.panic_if_errors();
     }
@@ -569,6 +571,8 @@ mod tests {
     #[test]
     fn validates_ldtk_loading_zone_targets() {
         crate::bosses::install_boss_roster();
+        crate::worlds::install();
+        crate::character_catalog::install();
         let music = crate::audio_registries::load_music_registry();
         let project = LdtkProject::load_default_for_dev().expect("embedded LDtk loads");
         let report = validate_content_graph(&music, &project);
@@ -584,6 +588,8 @@ mod tests {
 
     #[test]
     fn quest_boss_conditions_point_at_authored_bosses() {
+        crate::worlds::install();
+        crate::character_catalog::install();
         let project = LdtkProject::load_default_for_dev().expect("embedded LDtk loads");
         let boss_ids = authored_boss_encounter_ids(&project);
         assert!(boss_ids.contains("clockwork_warden"));

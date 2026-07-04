@@ -2659,9 +2659,47 @@ distinguishes cleanly: `telegraph_profile` set → `t0=0`; only `active_profile`
   not a one-liner. Left as-is: the two-writer form is behavior-correct (projection wins while
   a move plays; the brain write covers rest/fixtures/possession-geometry).
 
-## Next (in order) — **the MELEE SUBSUMPTION is COMPLETE for EVERY actor incl. bosses (E49–E52).** The audit's TASK sections are stale; trust E-entries + a code re-check before working an item.
+## Next (in order) — **the MOVESET UNIFICATION is COMPLETE (E47–E55): melee, specials, ranged, AND boss strikes all run through the ONE moveset runtime.** The audit's TASK sections are stale; trust E-entries + a code re-check before working an item.
 
-**DONE 2026-07-03 (this + the prior run):** **E49/E50** actor melee → moveset `"attack"` move (every non-boss actor); **C9** `Shark` → `ChargeCrash`; **E51** BOSS GEOMETRY FOLD (`7ecae45a` — every boss strike, geometry + special, runs through the moveset; `sync_boss_strike_hitboxes` + `FrameDrivenBossStrike` DELETED); **E52** C7-render (`323c2107` — `is_gnu_ton` bespoke split-layer path → generic `{key}_body`/`{key}_hands` asset convention).
+---
+
+### ⇢ STATE FOR THE NEXT AGENT (2026-07-04) — read this first
+
+**Is the doc ready for a next agent?** YES for the autonomous work below. **Is everything
+down to Jon's decisions?** NO — there is still a clear autonomous lever (the A7 brain
+migration) plus C1/C4/C6. But the genuinely shape-defining forks ARE Jon's, and they're
+called out here so nothing silently stalls.
+
+**THE ONE CLEAR NEXT AUTONOMOUS LEVER — A7 brain migration.** All additive prerequisites are
+DONE + green (E55/E55b: peers + projectiles channels are live). What remains is behavior-
+shifting: migrate brains off the side-loaded `BrainSnapshot.target_pos` onto
+`WorldView.nearest_hostile` (+ `WorldMemory` for out-of-view pursuit), one brain at a time.
+It WILL move AI-cadence canaries (duel_arena / actor_phase_split / E39) — loosen them to the
+SPIRIT, exactly as E54 did. Doable without Jon. See the A7 entry below for the plan.
+
+**Other autonomous items:** C4 (app thinness — sprawling but mechanical), C6 (boss geometry →
+data — bounded, lower leverage post-E51). C1 (item catalog) is autonomous-CAPABLE but smells
+speculative — see JON DECISIONS #3.
+
+**⚠ JON DECISIONS NEEDED (these are the only things blocked on you):**
+1. **Player-melee fold** (GENUINE FORK) — how the moveset schema should express the player's
+   DIRECTIONAL melee variants (up/down/air-up/…) + the POGO bounce. Options A/B/C in the BULK
+   REVIEW QUEUE. This changes `MoveSpec`'s SHAPE, and pogo would pollute the content-free move
+   runtime with player physics — your call. The player stays on the flat path until you pick.
+2. **D-front — `rooms` / `RoomSpec` content-coupling** — the crux decomposition direction
+   (adjudicate as you did the actors|props taxonomy). See the D section + "Superseded" note.
+3. **Is C1 (item catalog) actually wanted?** The 24-item `Item` enum → installable
+   `ItemCatalog` is autonomous-doable but is a large install-seam refactor with no second-game
+   consumer yet — same "speculative scaffolding" smell that deferred C2. If you don't want it
+   yet, delete it from the list so an agent doesn't spend a run on premature generality.
+4. **DEFERRED-TUNING sweep** (not blocking, but yours) — the whole BULK REVIEW QUEUE at the top
+   is feel/value tuning you asked to defer: boss/ranged/melee cadence, the duel-fighter
+   hop/lunge/blink re-weighting, fire-move windups, the E53 sub-frame read-model wart. All
+   headless-landed with sensible defaults; sweep when you do the feel pass.
+
+---
+
+**DONE 2026-07-03/04 (this + the prior run):** **E49/E50** actor melee → moveset `"attack"` move (every non-boss actor); **C9** `Shark` → `ChargeCrash`; **E51** BOSS GEOMETRY FOLD (`7ecae45a`); **E52** C7-render (`323c2107`); **E53** BOSS `BossAttackState` → PROJECTION (`a3c69655`/`2dadea94`/`ba924163`); **E54** RANGED SUBSUMPTION (`536d5ac1`/`9075e8b7` — the last flat combat path); **E55/E55b** A7 peers + projectiles perception channels wired (`0a9293b5` + follow-up).
 
 **RECORDED GENUINE FORKS:** ranged subsumption — RESOLVED + IMPLEMENTED (E54, option A: a
 content-free `MoveEventKind::Ranged` that samples live aim; enemy/NPC/boss ranged is now a
@@ -2672,38 +2710,29 @@ pogo schema — Jon's call).
 **Verified stale/already-done or intentionally deferred:** C8 (`SpecialPreset` already carries the open `Special(String)` hatch); C6-mockingbird reward-table (deferred in-code — "one example isn't a pattern"); C2 (`HELD_ITEMS` — a bare install seam is speculative scaffolding; defer until a second game / per-character loadout).
 
 **Genuinely-open, autonomous-friendly remaining (biggest-lever first):**
-- **Boss `BossAttackState` → projection — LANDED (E53 A–D, `a3c69655`/`2dadea94`/…).** The
-  pattern's Telegraph/Strike windows are folded onto ONE move per profile spanning
+- **Boss `BossAttackState` → projection — LANDED ✅ (E53 A–D, `a3c69655`/`2dadea94`/`ba924163`).**
+  The pattern's Telegraph/Strike windows are folded onto ONE move per profile spanning
   `[tel, tel+strike]`; `BossAttackState` is now DERIVED from the live `MovePlayback`
   (`project_boss_attack_state_from_move`, both halves), triggered at the telegraph edge with
-  a windup-abort for interruptions, possession preserved via a `t0=tel` skip. Only remainder:
-  retire the brain's now-redundant `BossAttackState` component write (dead-write cleanup,
-  gate on `With<ActorMoveset>`) — see E53 in the E-log. The one deferred nuance is a
-  sub-frame read-model wart inherent to cursor→move time (BULK REVIEW QUEUE; damage identical).
-- **A7 perception** (L) — PEERS CHANNEL WIRED (E55): `collect_perception_peers` snapshots
-  every body into a `PerceptionPeers` resource that `build_world_view` now reads (was passed
-  `&[]`), so `WorldView`'s `nearest_hostile`/`hostiles`/`incoming_threats` are LIVE in the sim.
-  Additive/behavior-neutral (no brain reads the peers channel yet — only the terrain-driven
-  `line_of_fire` is consumed). REMAINING, in order:
-  1. **Projectiles channel** (additive, mirrors peers): a `collect_perception_projectiles`
-     that snapshots both pools — `enemy_projectile` (`EnemyProjectile` marker) AND
-     `projectile` (`LiveProjectile`), both carry the shared `BodyKinematics` for pos/vel and
-     `ProjectileGameplay` for `damage`) into a `PerceptionProjectiles` resource, fed to
-     `build_world_view`'s 2nd arg (currently `&[]`). Activates `incoming_threats`. WRINKLE:
-     `ProjectileGameplay` has NO `faction` field (the "faction-routed" doc comment on
-     `entity.rs` is drift). The two pools resolve faction DIFFERENTLY (confirmed): an
-     `enemy_projectile` entity DOES carry an `ActorFaction` component (set at spawn to the
-     firer's Enemy/Boss/Player faction), but a `projectile` `LiveProjectile` carries NONE —
-     the unified `step_projectiles` attributes via `Option<&ProjectileOwner>` /
-     `ProjectileOwnerId` instead. So collect the two pools with SEPARATE queries: enemy pool
-     reads its `ActorFaction`; live pool reads the owner's faction (or defaults, since the
-     channel is unconsumed until a dodging brain reads `incoming_threats`).
-  2. **Brain migration** (behavior-shifting): swap `snapshot.target_pos` reads for
-     `perception.nearest_hostile().map(\|a\| a.pos)` (with `WorldMemory` for pursuit of a
-     vanished target), one brain at a time — Smash first (biggest). EXPECT cadence canaries
-     to move (duel_arena / actor_phase_split / the E39 unified_body_movement), loosen to the
-     SPIRIT as E54 did. Once every brain is off it, delete `BrainSnapshot.target_pos`.
-- **C1** (L) — 24-item `Item` enum → installable `ItemCatalog` (consumed across menu IR / yarn / persistence).
+  a windup-abort for interruptions, possession preserved via a `t0=tel` skip. **No autonomous
+  remainder** — the earlier "retire the brain component write" idea is a FALSE lead (the
+  trigger READS that component for its intent signal, so retiring it needs a full intent-
+  component split, not a dead-write removal; the two-writer form is behavior-correct — see the
+  E53 E-log entry). The one deferred nuance is a sub-frame read-model wart inherent to
+  cursor→move time (BULK REVIEW QUEUE; damage is byte-identical).
+- **A7 perception** (L) — CHANNELS WIRED ✅ (E55 peers `0a9293b5`, E55b projectiles): both
+  `collect_perception_peers` + `collect_perception_projectiles` snapshot the surrounding world
+  into resources `build_world_view` now reads (were passed `&[]`), so `WorldView`'s
+  `nearest_hostile`/`hostiles`/`incoming_threats` are LIVE in the sim. Additive/behavior-neutral
+  (no brain reads these channels yet — only the terrain-driven `line_of_fire` is consumed).
+  **REMAINING = the brain migration** (the one behavior-shifting slice): swap `snapshot.target_pos`
+  reads for `perception.nearest_hostile().map(|a| a.pos)` (with `WorldMemory` for pursuit of a
+  vanished target — `nearest_hostile` is viewport-limited, so a naive swap drops distant
+  targets), one brain at a time — Smash first (biggest). EXPECT cadence canaries to move
+  (duel_arena / actor_phase_split / the E39 unified_body_movement); loosen to the SPIRIT as E54
+  did. Once every brain is off it, delete `BrainSnapshot.target_pos`. (Portals channel is still
+  `&[]` — wire like peers when an S5 routing brain needs it.)
+- **C1** (L) — 24-item `Item` enum → installable `ItemCatalog` (consumed across menu IR / yarn / persistence). **⚠ see JON DECISIONS #3 above — may be premature (C2-class scaffolding).**
 - **C4** (L) — machinery-owned `PlatformerEnginePlugin` group + fold `sim_systems.rs` into owning plugins + extract `host/mobile_input/` beside `ambition_input` + an app-thinness boundary test.
 - **C6** (M) — named-boss residue: the 11 geometry `BossAttackProfile` variants (post-E51, consumed by `volumes_for_profile` + hurtbox pose + anim rows) could collapse toward authored rect DATA; named constructors + `MOCKINGBIRD_*` consts; per-boss sheet specs → boss roster RON.
 - **C7 rider-name half** — BLOCKED on `ambition_ldtk_tools` (mount composition still parses `" on Shark"` from the spawn NAME; the fix authors a `mount:` spawn field).

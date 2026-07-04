@@ -703,8 +703,34 @@ covers every hitbox source uniformly) + `OnHitEffectMessage` + `apply_pogo_bounc
 `ParamValue::hydrate` (empty params → default rise). 2 headless tests. No-op
 until a move authors `on_hit`.
 
+### R2 self-motion + acceptance ✅ (byte-identical) — `92cb3f64`, `4e784a43`
+`MoveSpec.start_impulse: Option<(f32,f32)>` — the flat `AttackSpec.self_impulse`
+as move DATA, applied in `trigger_moveset_moves` (now mut `BodyKinematics` +
+`GravityCtx`), facing-mirrored + gravity-rotated. Closes the biggest fold
+expressivity gap; general (any move can lunge). Plus the I7 acceptance canary:
+one RON `EntityCatalogDoc` authors a fighter's whole kit (directional verbs +
+`start_impulse` + `on_hit` pogo) and parses/validates/resolves — a fighter is
+DATA, not code.
+
 ### R2.5 — the player-melee fold (REMAINING — the R2 capstone)
-The machinery is ready; the fold is the consumer. **Scope discovered** (from the
+The R2 ENGINE is complete (EffectRef/params, directional verbs, on-hit+pogo,
+self-motion) and proven authorable-as-RON. The fold is the consumer, and it
+carries ONE open design decision + several BLIND feel-deltas:
+
+**Open design decision (needs Jon):** world-orb pogo reconciliation. Breakable
+pogo-orbs (`spawn_breakable`) carry `CenteredAabb` + `PogoTargetVolumes` but NO
+`ActorFaction`, so the on-hit dispatcher (gates on `damage_lands` over factioned
+victims) can't see them. Victim-pogo (off enemies via `PogoTarget`) and
+world-orb-pogo (off environmental breakables) are genuinely different mechanics.
+Options: (a) widen the dispatcher's eligibility to factionless capability
+targets; (b) keep a small world-orb-pogo check that fires for a `MovesetMelee`
+down-air (relocated from `attack.rs:450`). This is a modelling call, not a
+mechanical one — hence deferred to a fresh session with Jon's steer.
+
+**Reassuring (NOT blockers):** offense scaling survives — the settings
+`player_damage_multiplier` scales at `resolve_body_hit` downstream of authored
+damage, and `BodyOffense.damage_multiplier` has no in-game upgrade wired, so
+authored `damage` matches the flat base. The affordance HUD stays (labels only). **Scope discovered** (from the
 flat `attack_spec_from_view` parity table in `ambition_combat`): the moveset must
 grow to match the flat directional swing, OR author approximate moves and let Jon
 tune feel (pre-release license). Gaps between `HitVolume`/`MoveSpec` and the flat

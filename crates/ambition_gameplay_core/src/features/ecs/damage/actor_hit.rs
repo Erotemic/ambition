@@ -89,12 +89,8 @@ pub(crate) fn apply_actor_hit(
                     });
                     writers.vfx.write(VfxMessage::SpeechBubble {
                         pos: bark_anchor,
-                        text: super::super::super::npcs::npc_hostile_bark_line(
-                            interactable,
-                            &em.config.name,
-                            &em.config.id,
-                        )
-                        .to_string(),
+                        text: super::super::super::npcs::npc_hostile_bark_line(interactable)
+                            .to_string(),
                     });
                     writers.vfx.write(VfxMessage::Burst {
                         pos,
@@ -109,8 +105,6 @@ pub(crate) fn apply_actor_hit(
                         pos: bark_anchor,
                         text: super::super::super::npcs::npc_hit_bark_line(
                             interactable,
-                            &em.config.name,
-                            &em.config.id,
                             aggression.strikes,
                         )
                         .to_string(),

@@ -14,7 +14,7 @@ pub use ambition_gameplay_core::features::banter::CombatBanterRegistry;
 /// peaceful crew use these lines when they go hostile via
 /// `enemy_runtime_for_npc_combat`; the heavies (already `EnemyRuntime`) use
 /// them when the player strikes them. Keep flavor consistent with
-/// the matching arms in `npc_hit_barks` / `npc_hostile_bark` — the
+/// each character's catalog `barks` pool (the peaceful-actor voice) — the
 /// two paths fire on different actor types but should sound like
 /// the same character.
 pub fn install_pirate_banter(registry: &mut CombatBanterRegistry) {

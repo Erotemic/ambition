@@ -1305,7 +1305,7 @@ fn npc_idle_bark_jitter(id: &str, counter: u32, base_s: f32, span_ms: u32) -> f3
 }
 
 /// Ambient NPC chatter: a peaceful NPC carrying an idle-bark pool
-/// ([`crate::features::npcs::npc_idle_bark_line`]) mutters a line every
+/// ([`crate::features::npcs::npc_ambient_bark_line`]) mutters a line every
 /// ~6–10s, so it feels alive between conversations. Skips hostile NPCs and any
 /// still showing a hit-flash bubble (so it never talks over a hit bark). The
 /// stochastic parrot is the first user; any NPC gains barks by adding a pool.
@@ -1352,7 +1352,6 @@ pub fn tick_npc_idle_barks(
         let rotation = *state.rotations.get(&config.id).unwrap_or(&0);
         let Some(line) = super::super::npcs::npc_ambient_bark_line(
             &interaction.interactable,
-            &config.id,
             situation,
             rotation,
         ) else {

@@ -279,10 +279,13 @@ impl bevy::prelude::Plugin for WorldPrepSchedulePlugin {
         app.add_systems(
             Update,
             (
-                // §A7: snapshot every body's peer data + every live projectile BEFORE
-                // the brain tick reads them, so a body perceives the surrounding world
-                // without a second borrow of the actor query. Populates the peers +
-                // projectiles channels `build_world_view` got empty.
+                // §A7: ensure every brained actor carries a `PerceptionMemory` before
+                // the brain tick reads it (so a foe that leaves the viewport is still
+                // pursued from belief), then snapshot every body's peer data + every
+                // live projectile BEFORE the brain tick reads them, so a body perceives
+                // the surrounding world without a second borrow of the actor query.
+                // Populates the peers + projectiles channels `build_world_view` got empty.
+                crate::features::ecs::perception::ensure_perception_memory,
                 crate::features::ecs::perception::collect_perception_peers,
                 crate::features::ecs::perception::collect_perception_projectiles,
                 tick_actor_brains,

@@ -2659,6 +2659,55 @@ distinguishes cleanly: `telegraph_profile` set → `t0=0`; only `active_profile`
   not a one-liner. Left as-is: the two-writer form is behavior-correct (projection wins while
   a move plays; the brain write covers rest/fixtures/possession-geometry).
 
+### E56. A7 BRAIN MIGRATION — every non-boss brain now TARGETS through the world-out port ✅
+The behavior-shifting slice fable teed up: brains no longer read the omniscient
+`BrainSnapshot.target_pos` (injected from `ActorTarget` by `select_actor_targets`) — a non-boss
+actor's foe is now the nearest hostile IN its viewport (`WorldView.nearest_hostile`), or, when
+none is visible, the most-confident foe it REMEMBERS (`WorldMemory.last_known_hostile`, pursuit
+of one that left view). Migrated at the ONE seam every backend funnels through
+(`tick_actor_brains` fills `snapshot.target_pos`/`target_alive` from perception), so Smash + all
+state-machine arms (Patrol/MeleeBrute/Skirmisher/Sniper/ChargeCrash/Aerial) move together — the
+Explore of the brain code confirmed they all read `target_pos` (directly or via
+`to_character_ai_snapshot`/`target_delta_local`). Bosses keep the omniscient path (separate
+`brain.tick`, §A1); the player brain ignores the target.
+- **Two real gaps closed to make it faithful:**
+  - **Grudge-aware perception.** `nearest_hostile` resolved hostility by `FactionRelations`
+    ALONE — it would have MISSED a same-faction grudge-duel opponent (the two-NPC duel mechanism),
+    the exact set `select_actor_targets` also honors. Added `PerceptionPeer.entity` +
+    `PerceptionBody.grudge`; `build_world_view` now flags `hostile_to_self = relations.is_hostile
+    || grudge == peer`. Pinned by `a_grudge_makes_a_same_faction_peer_hostile`. (Also collapsed
+    `PerceptionPeers(Vec<(Entity, Peer)>)` → `Vec<Peer>` since the peer now carries its entity.)
+  - **WorldMemory storage.** It was built + unit-tested but wired into NO sim body. Added a
+    `PerceptionMemory(WorldMemory)` component (`ensure_perception_memory` attaches it to every
+    non-boss brained actor — a component, so it dies with the body, no manual prune), updated each
+    tick from the fresh view before the target is read.
+- **Behavior-neutral where it matters:** with a foe IN view (the common case — all aggro radii
+  80–320 < the 480px viewport, duel fighters spawn 150px apart), the perceived target EQUALS the
+  omniscient one (verified frame-by-frame: `perceived == omni` every tick in the melee scenario).
+  The migration only changes behavior at the viewport/memory edges (a foe >480px away and never
+  seen is no longer omnisciently known → the actor idles until it comes into view; a foe that
+  just left view is pursued from belief). The `perception_peers.is_some()` gate keeps the
+  omniscient fallback for perception-less brain unit fixtures, so all 1121 gameplay_core tests
+  are unchanged.
+- **Canaries:** `duel_arena` (4), `actor_phase_split`, `possession_end_to_end`,
+  `enemy_attacks_player`, `player_robot_fights_player`, all boss tests — GREEN. `unified_body_movement::
+  home_body_and_actor_body_move_through_the_same_integration_phase` was loosened to its SPIRIT
+  (the actor body integrates its intent through the shared phase — a MATERIAL horizontal
+  displacement, gravity being vertical), dropping the leftward-SIGN over-specification: it was
+  **already red at HEAD** (noted at the E53 entry as "pre-existing E39 red"; the duelist's neutral
+  game nets a small reposition either way when the player charges INTO it). Now green.
+- **⚠ PRE-EXISTING failure surfaced, NOT fixed (out of A7 scope, feel-reserved):**
+  `unified_melee::a_hostile_actor_enters_the_same_body_melee_lifecycle` (`#![cfg(feature =
+  "rl_sim")]`) fails at HEAD, independent of A7 (confirmed by stashing the A7 diff — identical
+  failure). Root cause diagnosed: its `owns_a_strike` asserts a legacy `Hitbox` owned by the
+  actor, but the PCA's melee is a moveset `"attack"` move (E49/E50) — and against a lone PASSIVE
+  target the move ARMS the melee cooldown (so `engaged` via `cooldown>0`) but never enters its
+  Active window, so NO `Hitbox` ever spawns (`any_hitbox==0` across 240 frames). This is a
+  moveset-fold cadence/behavior gap in the feel-reserved duel-tuning territory (the BULK REVIEW
+  QUEUE's "duel-fighter hop/lunge/blink re-weighting"), left for Jon's feel pass. The test also
+  caches the enemy `Entity` once (a staging→live handle can go stale — the sibling
+  `enemy_attacks_player`, identical scenario, re-queries by id and PASSES its swing assertion).
+
 ## Next (in order) — **the MOVESET UNIFICATION is COMPLETE (E47–E55): melee, specials, ranged, AND boss strikes all run through the ONE moveset runtime.** The audit's TASK sections are stale; trust E-entries + a code re-check before working an item.
 
 ---
@@ -2666,18 +2715,17 @@ distinguishes cleanly: `telegraph_profile` set → `t0=0`; only `active_profile`
 ### ⇢ STATE FOR THE NEXT AGENT (2026-07-04) — read this first
 
 **Is the doc ready for a next agent?** YES for the autonomous work below. **Is everything
-down to Jon's decisions?** NO — there is still a clear autonomous lever (the A7 brain
-migration) plus C1/C4/C6. But the genuinely shape-defining forks ARE Jon's, and they're
-called out here so nothing silently stalls.
+down to Jon's decisions?** NO — autonomous levers remain (C4/C6/C1). But the genuinely
+shape-defining forks ARE Jon's, and they're called out here so nothing silently stalls.
 
-**THE ONE CLEAR NEXT AUTONOMOUS LEVER — A7 brain migration.** All additive prerequisites are
-DONE + green (E55/E55b: peers + projectiles channels are live). What remains is behavior-
-shifting: migrate brains off the side-loaded `BrainSnapshot.target_pos` onto
-`WorldView.nearest_hostile` (+ `WorldMemory` for out-of-view pursuit), one brain at a time.
-It WILL move AI-cadence canaries (duel_arena / actor_phase_split / E39) — loosen them to the
-SPIRIT, exactly as E54 did. Doable without Jon. See the A7 entry below for the plan.
+**A7 BRAIN MIGRATION — DONE ✅ (E56).** Every non-boss brain now targets through the world-out
+port (`WorldView.nearest_hostile` + `WorldMemory` pursuit), off the omniscient `ActorTarget`.
+Grudge-aware perception + `PerceptionMemory` component landed to make it faithful;
+behavior-neutral where a foe is in view (verified `perceived == omni`). See E56 for the full
+account, including a **pre-existing** `rl_sim` red (`unified_melee::a_hostile_actor`) surfaced +
+diagnosed but left for Jon's feel pass (moveset-fold cadence gap, NOT A7).
 
-**Other autonomous items:** C4 (app thinness — sprawling but mechanical), C6 (boss geometry →
+**Remaining autonomous items:** C4 (app thinness — sprawling but mechanical), C6 (boss geometry →
 data — bounded, lower leverage post-E51). C1 (item catalog) is autonomous-CAPABLE but smells
 speculative — see JON DECISIONS #3.
 
@@ -2699,7 +2747,7 @@ speculative — see JON DECISIONS #3.
 
 ---
 
-**DONE 2026-07-03/04 (this + the prior run):** **E49/E50** actor melee → moveset `"attack"` move (every non-boss actor); **C9** `Shark` → `ChargeCrash`; **E51** BOSS GEOMETRY FOLD (`7ecae45a`); **E52** C7-render (`323c2107`); **E53** BOSS `BossAttackState` → PROJECTION (`a3c69655`/`2dadea94`/`ba924163`); **E54** RANGED SUBSUMPTION (`536d5ac1`/`9075e8b7` — the last flat combat path); **E55/E55b** A7 peers + projectiles perception channels wired (`0a9293b5` + follow-up).
+**DONE 2026-07-03/04 (this + the prior run):** **E49/E50** actor melee → moveset `"attack"` move (every non-boss actor); **C9** `Shark` → `ChargeCrash`; **E51** BOSS GEOMETRY FOLD (`7ecae45a`); **E52** C7-render (`323c2107`); **E53** BOSS `BossAttackState` → PROJECTION (`a3c69655`/`2dadea94`/`ba924163`); **E54** RANGED SUBSUMPTION (`536d5ac1`/`9075e8b7` — the last flat combat path); **E55/E55b** A7 peers + projectiles perception channels wired (`0a9293b5` + follow-up); **E56** A7 BRAIN MIGRATION — every non-boss brain targets through the world-out port (grudge-aware perception + `PerceptionMemory`), off the omniscient `ActorTarget`.
 
 **RECORDED GENUINE FORKS:** ranged subsumption — RESOLVED + IMPLEMENTED (E54, option A: a
 content-free `MoveEventKind::Ranged` that samples live aim; enemy/NPC/boss ranged is now a
@@ -2720,18 +2768,18 @@ pogo schema — Jon's call).
   component split, not a dead-write removal; the two-writer form is behavior-correct — see the
   E53 E-log entry). The one deferred nuance is a sub-frame read-model wart inherent to
   cursor→move time (BULK REVIEW QUEUE; damage is byte-identical).
-- **A7 perception** (L) — CHANNELS WIRED ✅ (E55 peers `0a9293b5`, E55b projectiles): both
-  `collect_perception_peers` + `collect_perception_projectiles` snapshot the surrounding world
-  into resources `build_world_view` now reads (were passed `&[]`), so `WorldView`'s
-  `nearest_hostile`/`hostiles`/`incoming_threats` are LIVE in the sim. Additive/behavior-neutral
-  (no brain reads these channels yet — only the terrain-driven `line_of_fire` is consumed).
-  **REMAINING = the brain migration** (the one behavior-shifting slice): swap `snapshot.target_pos`
-  reads for `perception.nearest_hostile().map(|a| a.pos)` (with `WorldMemory` for pursuit of a
-  vanished target — `nearest_hostile` is viewport-limited, so a naive swap drops distant
-  targets), one brain at a time — Smash first (biggest). EXPECT cadence canaries to move
-  (duel_arena / actor_phase_split / the E39 unified_body_movement); loosen to the SPIRIT as E54
-  did. Once every brain is off it, delete `BrainSnapshot.target_pos`. (Portals channel is still
-  `&[]` — wire like peers when an S5 routing brain needs it.)
+- **A7 perception** (L) — **MIGRATION DONE ✅ (E56).** Channels wired (E55/E55b) AND every
+  non-boss brain now TARGETS through `WorldView.nearest_hostile` (+ `WorldMemory` pursuit), off
+  the omniscient `ActorTarget`. Grudge-aware perception + a `PerceptionMemory` component landed
+  to make it faithful. See the E56 E-log entry. **REMAINING (small, autonomous):** (1) the boss
+  (`§A1`) + player brains still read the omniscient target — fold when A1 lands / if a player-AI
+  needs it; only THEN can `BrainSnapshot.target_pos` be deleted (bosses/fixtures still fill it).
+  (2) Per-body viewport override — a duelist authored with arena-wide aggro (1100 > the 480px
+  default viewport) is now perception-limited to 480px + 3s memory; add a `viewport_half` knob if
+  a character wants keener senses (documented future in `DEFAULT_VIEWPORT_HALF`). (3) Portals
+  channel is still `&[]` — wire like peers when an S5 routing brain needs it. (4) The
+  disposition/aggro vocabulary that seeds hostility is still frame-tainted
+  (`disposition.is_hostile()`) — AD1's follow-up smell, reshape onto the fighting-state model.
 - **C1** (L) — 24-item `Item` enum → installable `ItemCatalog` (consumed across menu IR / yarn / persistence). **⚠ see JON DECISIONS #3 above — may be premature (C2-class scaffolding).**
 - **C4** (L) — machinery-owned `PlatformerEnginePlugin` group + fold `sim_systems.rs` into owning plugins + extract `host/mobile_input/` beside `ambition_input` + an app-thinness boundary test.
 - **C6** (M) — named-boss residue: the 11 geometry `BossAttackProfile` variants (post-E51, consumed by `volumes_for_profile` + hurtbox pose + anim rows) could collapse toward authored rect DATA; named constructors + `MOCKINGBIRD_*` consts; per-boss sheet specs → boss roster RON.

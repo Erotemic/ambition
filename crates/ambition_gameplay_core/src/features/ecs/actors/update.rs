@@ -148,6 +148,16 @@ pub fn tick_actor_brains(
                 // crowding neighbors and the anti-clump back-actor rule freezes
                 // both. `Option` to match the other cluster-nested reads.
                 Option<&super::super::super::components::ActorFaction>,
+                // §A7: this body's per-entity grudge, so its world-out `WorldView`
+                // resolves a same-faction grudge-duel opponent as hostile (matching
+                // `select_actor_targets`), not by faction alone. `Option` — a body
+                // with no personal feud has no grudge component read here.
+                Option<&super::super::super::components::ActorAggression>,
+                // §A7: this body's persistent world-belief, updated each tick from its
+                // fresh `WorldView` so its brain can pursue a foe that has left the
+                // viewport. Attached by `ensure_perception_memory`; `Option` for the
+                // one-frame gap before it lands (and for perception-less fixtures).
+                Option<&mut crate::features::ecs::perception::PerceptionMemory>,
             ),
         ),
         // The player carries the unified `BodyKinematics` too, and
@@ -228,7 +238,9 @@ pub fn tick_actor_brains(
     for (entity, _, health) in &player_query {
         alive_by_entity.insert(entity, health.current() > 0);
     }
-    for (entity, _, _, disposition, _, _, _, target, _, _, _, _, (clusters, faction)) in &actors {
+    for (entity, _, _, disposition, _, _, _, target, _, _, _, _, (clusters, faction, _, _)) in
+        &actors
+    {
         if let Some(c) = &clusters {
             alive_by_entity.insert(entity, c.health.alive());
             entity_to_id.insert(entity, c.config.id.clone());
@@ -293,7 +305,7 @@ pub fn tick_actor_brains(
         mut control,
         action_set,
         _mounted,
-        (clusters, faction),
+        (clusters, faction, aggression, mut perception_memory),
     ) in &mut actors
     {
         // Body-generic reaction timers on the body's authoritative `BodyCombat`
@@ -390,14 +402,11 @@ pub fn tick_actor_brains(
                     // §A7: the body's SELF-view is HONEST — its faction is its real
                     // (effective, possession-aware) faction, `can_fire` reflects whether
                     // it actually owns a ranged slot, and hostility resolves against the
-                    // LIVE `FactionRelations`, not the all-false default. PEERS are now
-                    // wired too (the pre-collected snapshot below, minus self), so the
-                    // view's `nearest_hostile`/`hostiles`/`incoming_threats` are live.
-                    // PROJECTILES are wired too (below); only portals remain empty.
-                    // Migrating brains off the side-loaded `BrainSnapshot.target_pos`
-                    // onto `WorldView.nearest_hostile` is the next A7 slice (no brain
-                    // reads the peer/projectile channels yet, so wiring them changed no
-                    // behavior).
+                    // LIVE `FactionRelations` (+ this body's grudge). PEERS + PROJECTILES
+                    // are wired (the pre-collected snapshots, self excluded), so the view's
+                    // `nearest_hostile`/`hostiles`/`incoming_threats` are live; only portals
+                    // remain empty. The brain now TARGETS through this view (below) — its
+                    // foe is what it can perceive, not the omniscient `ActorTarget`.
                     let self_faction = crate::combat::targeting::effective_faction(
                         faction
                             .copied()
@@ -412,8 +421,8 @@ pub fn tick_actor_brains(
                             .as_ref()
                             .map(|p| {
                                 p.0.iter()
-                                    .filter(|(e, _)| *e != this_actor_entity)
-                                    .map(|(_, peer)| peer.clone())
+                                    .filter(|peer| peer.entity != this_actor_entity)
+                                    .cloned()
                                     .collect()
                             })
                             .unwrap_or_default();
@@ -432,6 +441,10 @@ pub fn tick_actor_brains(
                             can_blink: em.caps.can_blink,
                             can_dash: em.caps.can_dash,
                             can_shield: em.caps.can_shield,
+                            // A grudge makes ONE same-faction body a foe (the duel
+                            // mechanism); carry it so this body's `nearest_hostile`
+                            // matches the foe `select_actor_targets` would pick.
+                            grudge: aggression.and_then(|a| a.grudge),
                         },
                         &view_peers,
                         perception_projectiles
@@ -444,6 +457,37 @@ pub fn tick_actor_brains(
                         super::super::perception::DEFAULT_VIEWPORT_HALF,
                         sim_now,
                     );
+                    // §A7 MIGRATION: the brain observes its foe through the world-out
+                    // port, not the omniscient `ActorTarget`. Fold this tick's view into
+                    // the body's persistent belief, then redirect the snapshot's target
+                    // onto the nearest foe IN VIEW — or, when none is visible, the
+                    // most-confident foe the body REMEMBERS (pursuit of one that left the
+                    // viewport, invariant I6). Perceiving nobody ⇒ no target (idle). The
+                    // omniscient `target_pos`/`target_alive` (from `select_actor_targets`)
+                    // survives ONLY as the fallback for perception-less brain fixtures
+                    // (no `PerceptionPeers` resource) so those unit tests are unchanged.
+                    // Bosses keep the omniscient path (separate `brain.tick`, §A1); the
+                    // player brain ignores the target entirely.
+                    if let Some(mem) = perception_memory.as_deref_mut() {
+                        mem.0.update(&world_view, dt);
+                    }
+                    if perception_peers.is_some() {
+                        let perceived = world_view.nearest_hostile().map(|a| a.pos).or_else(|| {
+                            perception_memory
+                                .as_deref()
+                                .and_then(|m| m.0.last_known_hostile().map(|r| r.pos))
+                        });
+                        match perceived {
+                            Some(pos) => {
+                                snapshot.target_pos = pos;
+                                snapshot.target_alive = true;
+                            }
+                            None => {
+                                snapshot.target_pos = em.kin.pos;
+                                snapshot.target_alive = false;
+                            }
+                        }
+                    }
                     let mut bf = ambition_characters::actor::control::ActorControlFrame::neutral();
                     let peaceful = ambition_characters::brain::ActionSet::peaceful();
                     let actions = action_set.unwrap_or(&peaceful);

@@ -54,12 +54,22 @@ pub struct PerceptionBody {
     pub can_blink: bool,
     pub can_dash: bool,
     pub can_shield: bool,
+    /// This viewer's per-entity GRUDGE, if any (`ActorAggression.grudge`). A grudge
+    /// makes ONE exact body a foe even when it shares the viewer's faction — the
+    /// mechanism behind two same-faction NPCs dueling. Carried here so
+    /// `hostile_to_self` matches `select_actor_targets`' foe set (faction-hostile OR
+    /// grudge), not faction alone; without it a grudge-duelist would perceive no
+    /// target. `None` for a body with no personal feud.
+    pub grudge: Option<bevy::prelude::Entity>,
 }
 
 /// A candidate other-body the viewer may perceive. Pre-collected (id +
 /// kinematics + faction + body-state) before the per-body loop.
 #[derive(Clone)]
 pub struct PerceptionPeer {
+    /// The source body's `Entity` — so the viewer can excludes itself AND resolve a
+    /// per-entity grudge against this exact body (grudge is keyed by `Entity`, not id).
+    pub entity: bevy::prelude::Entity,
     pub id: String,
     pub pos: ae::Vec2,
     pub vel: ae::Vec2,
@@ -92,20 +102,20 @@ pub struct PerceptionPortal {
 
 /// Per-frame snapshot of EVERY live body's peer data, refreshed by
 /// [`collect_perception_peers`] BEFORE the per-body view build so a body perceives
-/// the others without a second (mutable-aliasing) borrow of the actor query. Carries
-/// the source `Entity` so a viewer excludes ITSELF when building its own view.
+/// the others without a second (mutable-aliasing) borrow of the actor query. Each
+/// [`PerceptionPeer`] carries its source `Entity` so a viewer excludes ITSELF (and
+/// resolves grudges) when building its own view.
 #[derive(bevy::prelude::Resource, Default)]
-pub struct PerceptionPeers(pub Vec<(bevy::prelude::Entity, PerceptionPeer)>);
+pub struct PerceptionPeers(pub Vec<PerceptionPeer>);
 
 /// Collect the peer snapshot from every live body — player, actor, AND boss all
 /// carry [`BodyKinematics`], so ONE query spans them (guardrail #1: no per-type
-/// path). §A7 slice: this POPULATES the peers channel that `build_world_view`
-/// currently receives EMPTY, activating `WorldView`'s `nearest_hostile` /
-/// `hostiles` / `incoming_threats` for the (separate) migration of brains off the
-/// side-loaded `BrainSnapshot.target_pos`. No brain reads the peers channel yet
-/// (only the terrain-driven `line_of_fire` is consumed), so this changes NO
-/// behavior — it is the additive prerequisite. `on_ground` / `shield_raised` are
-/// left `false` for now (no consumer reads them; wire them when a brain needs them).
+/// path). §A7: this POPULATES the peers channel `build_world_view` reads, so
+/// `WorldView`'s `nearest_hostile` / `hostiles` / `incoming_threats` are live — and
+/// non-boss brains now TARGET through it (they perceive their foe, not the omniscient
+/// `ActorTarget`). Each peer carries its source `Entity` so a viewer excludes ITSELF
+/// and resolves a per-entity grudge. `on_ground` / `shield_raised` are left `false`
+/// for now (no consumer reads them; wire them when a brain needs them).
 pub fn collect_perception_peers(
     mut peers: bevy::prelude::ResMut<PerceptionPeers>,
     bodies: bevy::prelude::Query<(
@@ -118,22 +128,20 @@ pub fn collect_perception_peers(
 ) {
     peers.0.clear();
     for (entity, id, kin, health, faction) in &bodies {
-        peers.0.push((
+        peers.0.push(PerceptionPeer {
             entity,
-            PerceptionPeer {
-                id: id
-                    .map(|f| f.as_str().to_string())
-                    .unwrap_or_else(|| format!("e{}", entity.index())),
-                pos: kin.pos,
-                vel: kin.vel,
-                facing: kin.facing,
-                half_extent: kin.size,
-                faction: *faction,
-                alive: health.alive(),
-                on_ground: false,
-                shield_raised: false,
-            },
-        ));
+            id: id
+                .map(|f| f.as_str().to_string())
+                .unwrap_or_else(|| format!("e{}", entity.index())),
+            pos: kin.pos,
+            vel: kin.vel,
+            facing: kin.facing,
+            half_extent: kin.size,
+            faction: *faction,
+            alive: health.alive(),
+            on_ground: false,
+            shield_raised: false,
+        });
     }
 }
 
@@ -178,6 +186,42 @@ pub fn collect_perception_projectiles(
             damage: game.damage,
             faction: ActorFaction::Player,
         });
+    }
+}
+
+/// Per-body persistent world-belief (invariant I6): a brained body's [`WorldMemory`]
+/// — the last-known positions of foes that have left its viewport, with a decaying
+/// confidence — so a brain can PURSUE a target that went off-screen instead of
+/// forgetting it the instant it leaves the frame. Updated each tick by
+/// [`crate::features::ecs::actors::tick_actor_brains`] from the body's fresh
+/// [`WorldView`], then read for the perceived target when nothing hostile is in view.
+///
+/// A component (not a resource) so it lives + dies with the body — no manual pruning
+/// of despawned entities. Attached to every non-boss brained actor by
+/// [`ensure_perception_memory`].
+#[derive(bevy::prelude::Component, Default)]
+pub struct PerceptionMemory(pub ambition_characters::perception::WorldMemory);
+
+/// Attach a default [`PerceptionMemory`] to every non-boss brained actor that lacks
+/// one, so the perceived-target derivation always has a belief store to pursue from.
+/// Runs before the brain tick. Matches `tick_actor_brains`' own body set (brained,
+/// non-player, non-boss); the player brain doesn't perceive-target and the boss brain
+/// is the separate omniscient path (§A1), so neither needs memory.
+pub fn ensure_perception_memory(
+    mut commands: bevy::prelude::Commands,
+    bodies: bevy::prelude::Query<
+        bevy::prelude::Entity,
+        (
+            bevy::prelude::With<ambition_characters::brain::Brain>,
+            bevy::prelude::With<crate::features::FeatureSimEntity>,
+            bevy::prelude::Without<crate::actor::PlayerEntity>,
+            bevy::prelude::Without<crate::combat::boss_clusters::BossConfig>,
+            bevy::prelude::Without<PerceptionMemory>,
+        ),
+    >,
+) {
+    for entity in &bodies {
+        commands.entity(entity).insert(PerceptionMemory::default());
     }
 }
 
@@ -228,7 +272,12 @@ pub fn build_world_view(
             facing: p.facing,
             half_extent: p.half_extent,
             faction: p.faction,
-            hostile_to_self: relations.is_hostile(body.faction, p.faction),
+            // A foe by faction (`FactionRelations`) OR by a personal grudge against
+            // this exact body — the SAME two-part rule `select_actor_targets` uses, so
+            // `nearest_hostile` sees a same-faction grudge-duel opponent (which faction
+            // hostility alone would miss).
+            hostile_to_self: relations.is_hostile(body.faction, p.faction)
+                || body.grudge == Some(p.entity),
             alive: p.alive,
             on_ground: p.on_ground,
             shield_raised: p.shield_raised,
@@ -310,11 +359,13 @@ mod tests {
             can_blink: false,
             can_dash: false,
             can_shield: false,
+            grudge: None,
         }
     }
 
     fn peer(id: &str, pos: ae::Vec2, faction: ActorFaction) -> PerceptionPeer {
         PerceptionPeer {
+            entity: bevy::prelude::Entity::PLACEHOLDER,
             id: id.to_string(),
             pos,
             vel: ae::Vec2::ZERO,
@@ -404,6 +455,70 @@ mod tests {
         assert_eq!(player_view.actors.len(), 1);
         assert!(!player_view.actors[0].hostile_to_self);
         assert_eq!(player_view.nearest_hostile().count_or_none(), 0);
+    }
+
+    /// §A7 grudge: a SAME-faction peer the viewer holds a grudge against is
+    /// perceived as hostile (so `nearest_hostile` finds a grudge-duel opponent that
+    /// faction hostility alone would miss) — matching `select_actor_targets`' foe set.
+    #[test]
+    fn a_grudge_makes_a_same_faction_peer_hostile() {
+        let relations = FactionRelations::default(); // no Npc↔Npc hostility
+        let world = arena_world();
+        // Two distinct real entity handles from a throwaway ECS world.
+        let mut ecs = bevy::prelude::World::new();
+        let foe_entity = ecs.spawn_empty().id();
+        let other_entity = ecs.spawn_empty().id();
+        // Two same-faction NPCs; without a grudge neither is a foe.
+        let mut viewer = body(ae::Vec2::new(100.0, 180.0), ActorFaction::Npc);
+        let mut foe = peer("duel_foe", ae::Vec2::new(180.0, 180.0), ActorFaction::Npc);
+        foe.entity = foe_entity;
+
+        // No grudge → the same-faction peer is NOT a target.
+        let view = build_world_view(
+            &viewer,
+            std::slice::from_ref(&foe),
+            &[],
+            &[],
+            &world,
+            &relations,
+            DEFAULT_VIEWPORT_HALF,
+            0.0,
+        );
+        assert_eq!(view.actors.len(), 1);
+        assert!(!view.actors[0].hostile_to_self, "same faction, no grudge → not a foe");
+        assert!(view.nearest_hostile().is_none());
+
+        // Grudge against that exact entity → it becomes the perceived hostile.
+        viewer.grudge = Some(foe_entity);
+        let view = build_world_view(
+            &viewer,
+            std::slice::from_ref(&foe),
+            &[],
+            &[],
+            &world,
+            &relations,
+            DEFAULT_VIEWPORT_HALF,
+            0.0,
+        );
+        assert!(view.actors[0].hostile_to_self, "the grudge entity is a foe");
+        assert_eq!(
+            view.nearest_hostile().map(|a| a.id.as_str()),
+            Some("duel_foe"),
+            "nearest_hostile resolves the grudge opponent (the duel mechanism)"
+        );
+        // A grudge against a DIFFERENT entity does not implicate this peer.
+        viewer.grudge = Some(other_entity);
+        let view = build_world_view(
+            &viewer,
+            std::slice::from_ref(&foe),
+            &[],
+            &[],
+            &world,
+            &relations,
+            DEFAULT_VIEWPORT_HALF,
+            0.0,
+        );
+        assert!(!view.actors[0].hostile_to_self, "a grudge against someone else spares this peer");
     }
 
     /// Line-of-fire over the REAL clipped geometry: a wall between two bodies
@@ -589,12 +704,12 @@ mod tests {
 
         let peers = app.world().resource::<PerceptionPeers>();
         assert_eq!(peers.0.len(), 2, "every body is snapshotted");
-        let a = peers.0.iter().find(|(e, _)| *e == alice).map(|(_, p)| p).unwrap();
+        let a = peers.0.iter().find(|p| p.entity == alice).unwrap();
         assert_eq!(a.id, "alice");
         assert_eq!(a.pos, ae::Vec2::new(10.0, 20.0));
         assert_eq!(a.faction, ActorFaction::Enemy);
         assert!(a.alive);
-        let b = peers.0.iter().find(|(e, _)| *e == bob).map(|(_, p)| p).unwrap();
+        let b = peers.0.iter().find(|p| p.entity == bob).unwrap();
         assert!(!b.id.is_empty(), "a FeatureId-less body still gets a stable id");
     }
 

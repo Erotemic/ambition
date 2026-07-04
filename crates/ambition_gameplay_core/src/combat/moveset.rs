@@ -29,8 +29,8 @@ use bevy::prelude::{
 
 use ambition_engine_core as ae;
 use ambition_entity_catalog::{
-    ClipBinding, HitVolume, MoveEvent, MoveEventKind, MoveSpec, MoveWindow, MovesetContract,
-    VolumeShape, WindowTag,
+    ClipBinding, EffectRef, HitVolume, MoveEvent, MoveEventKind, MoveSpec, MoveWindow,
+    MovesetContract, VolumeShape, WindowTag,
 };
 use ambition_time::ProperTimeScale;
 
@@ -82,6 +82,9 @@ pub fn attack_move_from_melee(spec: &MeleeActionSpec) -> MoveSpec {
         // Aggressor-push default; the damage resolver derives direction from
         // facing/contact. Tunable — noted in the bulk-review queue.
         knockback: 120.0,
+        // A plain swing lands no on-hit technique; directional variants (a
+        // down-air pogo) author `on_hit` per-move (R2.5 player-melee fold).
+        on_hit: None,
     };
     MoveSpec {
         id: ATTACK_VERB.to_string(),
@@ -346,12 +349,12 @@ pub fn advance_move_playback(
         // rain), the shape the boss `apple_rain`-style specials need. Dilation
         // stretches the sustain the same way (fewer proper-time frames of it).
         for window in &pb.spec.windows {
-            if let Some(key) = &window.sustain_effect {
+            if let Some(effect) = &window.sustain_effect {
                 if window.start_s <= t && t < window.end_s {
                     events.write(MoveEventMessage {
                         owner,
                         move_id: pb.spec.id.clone(),
-                        kind: MoveEventKind::Effect { key: key.clone() },
+                        kind: MoveEventKind::Effect(effect.clone()),
                     });
                 }
             }
@@ -516,11 +519,17 @@ pub fn dispatch_move_events(
                     pos,
                 });
             }
-            MoveEventKind::Effect { key } => {
+            MoveEventKind::Effect(effect) => {
+                // Bridge to the content-technique seam by the effect KEY. The
+                // opaque `effect.params` ride in the schema but are not yet
+                // threaded through `SpecialActionSpec` — R2.2 extends the
+                // `Special` channel to carry the `EffectRef` so a technique can
+                // hydrate its own params (today every technique uses content
+                // consts, so this bridge is byte-identical).
                 actions.write(ActorActionMessage {
                     actor: ev.owner,
                     request: ActionRequest::Special {
-                        spec: SpecialActionSpec::Special(key.clone()),
+                        spec: SpecialActionSpec::Special(effect.key.clone()),
                     },
                 });
             }
@@ -1051,7 +1060,7 @@ mod tests {
                             duration_s: 0.40,
                             windows: [
                                 (start_s: 0.0, end_s: 0.30, tag: Active, volumes: [],
-                                 sustain_effect: Some("beam_tick")),
+                                 sustain_effect: Some((key: "beam_tick"))),
                                 (start_s: 0.30, end_s: 0.40, tag: Recovery, volumes: []),
                             ],
                         )],
@@ -1092,7 +1101,7 @@ mod tests {
         let beam_ticks = cap
             .events
             .iter()
-            .filter(|e| matches!(&e.kind, MoveEventKind::Effect { key } if key == "beam_tick"))
+            .filter(|e| matches!(&e.kind, MoveEventKind::Effect(effect) if effect.key == "beam_tick"))
             .count();
         // ~0.30s / 0.016 ≈ 18 active frames; robustly many, and it stopped (the
         // move is 0.40s but the sustain window ended at 0.30s → not every frame).
@@ -1241,9 +1250,7 @@ mod tests {
             .write(MoveEventMessage {
                 owner,
                 move_id: "sig".into(),
-                kind: MoveEventKind::Effect {
-                    key: "pca_glider".into(),
-                },
+                kind: MoveEventKind::Effect(EffectRef::new("pca_glider")),
             });
         app.update();
 

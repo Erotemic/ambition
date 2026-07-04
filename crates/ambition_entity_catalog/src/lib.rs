@@ -33,6 +33,70 @@ use std::collections::{BTreeMap, HashSet};
 use serde::{Deserialize, Serialize};
 
 // ---------------------------------------------------------------------------
+// Ability vocabulary: the ONE effect reference + its opaque params.
+// ---------------------------------------------------------------------------
+
+/// Opaque, structured parameters for a technique or prefab. Wraps a parsed
+/// `ron::Value`; the consuming effect hydrates its OWN typed struct via
+/// [`ParamValue::hydrate`], so this crate stays ignorant of every
+/// content-owned param shape (fable review AJ1, option A). The authored RON is
+/// byte-identical to a `Reflect`-typed form, so if a visual move editor ever
+/// lands, swapping hydration to the type registry is a mechanical migration —
+/// the data survives.
+///
+/// `Default` is the empty table `{}` (not `Unit`): a paramless `EffectRef`
+/// hydrates cleanly into a technique's all-defaults `#[derive(Deserialize)]`
+/// param struct.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct ParamValue(pub ron::Value);
+
+impl Default for ParamValue {
+    fn default() -> Self {
+        ParamValue(ron::Value::Map(ron::Map::new()))
+    }
+}
+
+impl ParamValue {
+    /// Parse authored RON param text (`"(rise: 320.0)"`) into a value.
+    pub fn parse(ron_text: &str) -> Result<Self, ron::error::SpannedError> {
+        Ok(ParamValue(ron::from_str(ron_text)?))
+    }
+
+    /// Hydrate these params into a technique/prefab's own `Deserialize` type.
+    /// The concrete type is declared AT the consumer — this crate never names
+    /// it. A missing required field or a type mismatch fails here (the basis of
+    /// the install-time param-schema check, R2.2). Enum-valued params are
+    /// unsupported by `ron::Value`'s deserializer — model those as string tags.
+    pub fn hydrate<T: serde::de::DeserializeOwned>(&self) -> Result<T, ron::Error> {
+        self.0.clone().into_rust()
+    }
+}
+
+/// A reference to a content-defined technique/effect by string key, carrying
+/// its opaque [`ParamValue`] payload. This is the ONE ability-vocabulary
+/// reference: timed events ([`MoveEventKind::Effect`]), sustained windows
+/// ([`MoveWindow::sustain_effect`]), and on-hit volume payloads
+/// ([`HitVolume::on_hit`]) all name an `EffectRef`. The engine never matches a
+/// key; a content-owned technique recognizes it and hydrates its own params
+/// (fable review AJ1).
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct EffectRef {
+    pub key: String,
+    #[serde(default)]
+    pub params: ParamValue,
+}
+
+impl EffectRef {
+    /// A keyed effect with empty params — the common paramless case.
+    pub fn new(key: impl Into<String>) -> Self {
+        Self {
+            key: key.into(),
+            params: ParamValue::default(),
+        }
+    }
+}
+
+// ---------------------------------------------------------------------------
 // Moves: the Smash-model timeline.
 // ---------------------------------------------------------------------------
 
@@ -78,6 +142,13 @@ pub struct HitVolume {
     /// facing + contact by the combat runtime).
     #[serde(default)]
     pub knockback: f32,
+    /// A conditional technique that fires WHEN this volume lands a hit, with
+    /// the hit context (owner, victim, contact). The missing conditional
+    /// primitive: pogo, lifesteal, on-hit status, launch modifiers. `None` for
+    /// an ordinary damage volume (fable review AJ1). Down-air pogo authors
+    /// `on_hit: Some(EffectRef { key: "pogo_bounce", .. })`.
+    #[serde(default)]
+    pub on_hit: Option<EffectRef>,
 }
 
 /// One span of a move's timeline. Times are seconds of the owner's proper
@@ -97,7 +168,7 @@ pub struct MoveWindow {
     /// per-frame "active this tick" signal (the shape the boss `apple_rain`-style
     /// specials need; the boss fold rides this). `None` for ordinary windows.
     #[serde(default)]
-    pub sustain_effect: Option<String>,
+    pub sustain_effect: Option<EffectRef>,
 }
 
 /// A timed one-shot on the move timeline.
@@ -105,9 +176,9 @@ pub struct MoveWindow {
 pub enum MoveEventKind {
     /// Play a sound cue by key.
     Sfx { cue: String },
-    /// Emit a content-defined effect by key (the `Effect` vocabulary /
-    /// technique seam resolves it).
-    Effect { key: String },
+    /// Emit a content-defined effect (the `Effect` vocabulary / technique seam
+    /// resolves it), carrying its opaque params.
+    Effect(EffectRef),
     /// FIRE the owner's ranged weapon now, sampling its LIVE aim at this frame.
     /// Content-free on purpose (mirrors [`Effect`](Self::Effect)): the move names
     /// "shoot", and the dispatcher reads the owner's `ActionSet.ranged` slot + its
@@ -615,7 +686,7 @@ mod tests {
                                         ]),
                                         (start_s: 0.2, end_s: 0.4, tag: Cancelable(into: ["nowhere"]), volumes: []),
                                     ],
-                                    events: [ (at_s: 0.9, kind: Effect(key: "boom")) ],
+                                    events: [ (at_s: 0.9, kind: Effect((key: "boom"))) ],
                                 ),
                             ],
                         )),

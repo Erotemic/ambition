@@ -140,7 +140,8 @@ pub fn boss_attack_moveset(
 ) -> Option<crate::combat::moveset::ActorMoveset> {
     use ambition_engine_core::AabbExt;
     use ambition_entity_catalog::{
-        ClipBinding, HitVolume, MoveSpec, MoveWindow, MovesetContract, VolumeShape, WindowTag,
+        ClipBinding, EffectRef, HitVolume, MoveSpec, MoveWindow, MovesetContract, VolumeShape,
+        WindowTag,
     };
     let telegraph_for = |profile: &ambition_characters::brain::BossAttackProfile| -> f32 {
         telegraph_windows
@@ -164,7 +165,7 @@ pub fn boss_attack_moveset(
             let active_start = tel;
             let active_end = tel + strike_s;
             let (volumes, sustain_effect) = if let Some(key) = profile.special_key() {
-                (Vec::new(), Some(key.to_string()))
+                (Vec::new(), Some(EffectRef::new(key)))
             } else {
                 // Geometry strike: `volumes_for_profile` at a ZERO body origin yields
                 // AABBs centered on the profile's body-local offset (the boss position
@@ -189,6 +190,7 @@ pub fn boss_attack_moveset(
                         },
                         damage: behavior.attack_damage.max(1),
                         knockback: BOSS_STRIKE_KNOCKBACK,
+                        on_hit: None,
                     }
                 })
                 .collect();

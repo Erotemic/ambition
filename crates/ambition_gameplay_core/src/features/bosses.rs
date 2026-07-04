@@ -384,10 +384,10 @@ mod boss_special_resolver_tests {
     fn ordinary_profiles_resolve_to_none() {
         use ambition_characters::brain::BossAttackProfile;
         for profile in [
-            BossAttackProfile::FloorSlam,
-            BossAttackProfile::SideSweep,
-            BossAttackProfile::FullBodyPulse,
-            BossAttackProfile::HazardColumn,
+            BossAttackProfile::Strike("floor_slam".to_string()),
+            BossAttackProfile::Strike("side_sweep".to_string()),
+            BossAttackProfile::Strike("full_body_pulse".to_string()),
+            BossAttackProfile::Strike("hazard_column".to_string()),
         ] {
             assert!(
                 boss_special_for_profile(&profile).is_none(),
@@ -582,7 +582,7 @@ mod scripted_pattern_tests {
         // assertions still hold without needing a sprite_metrics
         // snapshot in the runtime fixture.
         let slam = crate::features::volumes_for_profile(
-            &BossAttackProfile::HandSlam,
+            &BossAttackProfile::Strike("hand_slam".to_string()),
             boss.kin.pos,
             boss.as_ref().combat_size(),
             &boss.config.behavior,
@@ -675,7 +675,7 @@ mod scripted_pattern_tests {
             boss.kin.pos.y
         );
 
-        attack_state.active_profile = Some(BossAttackProfile::HeadDescent);
+        attack_state.active_profile = Some(BossAttackProfile::Strike("head_descent".to_string()));
         let descent_head = crate::features::damageable_volumes(
             &crate::features::BossVolumeContext::from_ref(boss.as_ref(), &attack_state),
         );
@@ -770,7 +770,7 @@ mod scripted_pattern_tests {
             })
             .collect();
         assert!(
-            profiles.contains(&BossAttackProfile::HazardColumn),
+            profiles.contains(&BossAttackProfile::Strike("hazard_column".to_string())),
             "phase1 must include HazardColumn — got {profiles:?}"
         );
         assert!(

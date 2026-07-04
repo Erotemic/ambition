@@ -513,27 +513,28 @@ pub fn boss_animation_keys_for_profile(
     profile: &ambition_characters::brain::BossAttackProfile,
 ) -> &'static [&'static str] {
     use ambition_characters::brain::BossAttackProfile;
-    match profile {
-        BossAttackProfile::FloorSlam => &["floor_slam", "mouth_open"],
-        BossAttackProfile::SideSweep => &["side_sweep"],
-        BossAttackProfile::FullBodyPulse => &["spike_halo", "eye_beam"],
-        BossAttackProfile::HazardColumn => &["dash_echo", "eye_beam"],
-        // Content specials carry their telegraph rows as installed data
-        // (see `install_boss_special_anim_keys`), so the engine names no
-        // specific special here. Unregistered → no special row.
-        BossAttackProfile::Special(key) => special_anim_keys(key),
+    // Content specials carry their telegraph rows as installed data
+    // (see `install_boss_special_anim_keys`), so the engine names no
+    // specific special here. Unregistered → no special row.
+    if let BossAttackProfile::Special(key) = profile {
+        return special_anim_keys(key);
+    }
+    match profile.move_id().as_str() {
+        "floor_slam" => &["floor_slam", "mouth_open"],
+        "side_sweep" => &["side_sweep"],
+        "full_body_pulse" => &["spike_halo", "eye_beam"],
+        "hazard_column" => &["dash_echo", "eye_beam"],
         // GNU-ton profiles use gameplay-specific canonical keys in
         // the runtime RON so one visual row can expose multiple
         // boxes (e.g. hand_slam vs shockwave). Accept the visual row
         // names too, so regenerated manifests and review images can
         // stay row-oriented without disconnecting the in-game boxes.
-        BossAttackProfile::HandSlam => &["gnu_hand_slam", "hand_slam"],
-        BossAttackProfile::ConvergingShockwave => &["gnu_shockwave", "hand_slam"],
-        BossAttackProfile::HandSweep => &["gnu_hand_sweep", "hand_sweep"],
-        BossAttackProfile::HeadDescent => &["gnu_head_descent", "head_down"],
-        // Remaining profiles (WingSweep / DiveLane / Broadside) belong to
-        // the legacy aerial bosses that still rely on
-        // `volumes_for_profile`'s fallback math.
+        "hand_slam" => &["gnu_hand_slam", "hand_slam"],
+        "converging_shockwave" => &["gnu_shockwave", "hand_slam"],
+        "hand_sweep" => &["gnu_hand_sweep", "hand_sweep"],
+        "head_descent" => &["gnu_head_descent", "head_down"],
+        // Remaining strikes (wing_sweep / dive_lane / broadside) belong to
+        // the legacy aerial bosses that still rely on `volumes_for_profile`.
         _ => &[],
     }
 }

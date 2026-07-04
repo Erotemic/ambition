@@ -43,7 +43,9 @@ fn cfg_with(pattern: BossAttackPattern) -> BossPatternCfg {
 
 #[test]
 fn boss_pattern_brain_emits_neutral_in_non_attacking_phase() {
-    let mut cfg = cfg_with(scripted_two_step_phase1(BossAttackProfile::FloorSlam));
+    let mut cfg = cfg_with(scripted_two_step_phase1(BossAttackProfile::Strike(
+        "floor_slam".to_string(),
+    )));
     cfg.spawn = ae::Vec2::ZERO;
     let mut state = BossPatternState::default();
     let mut attack_state = BossAttackState::default();
@@ -67,7 +69,9 @@ fn boss_pattern_brain_emits_neutral_in_non_attacking_phase() {
 
 #[test]
 fn boss_pattern_resets_cursor_on_phase_change() {
-    let mut cfg = cfg_with(scripted_two_step_phase1(BossAttackProfile::FloorSlam));
+    let mut cfg = cfg_with(scripted_two_step_phase1(BossAttackProfile::Strike(
+        "floor_slam".to_string(),
+    )));
     cfg.spawn = ae::Vec2::ZERO;
     let mut state = BossPatternState::default();
     let mut attack_state = BossAttackState::default();
@@ -106,7 +110,9 @@ fn boss_pattern_resets_cursor_on_phase_change() {
 
 #[test]
 fn boss_pattern_telegraph_step_updates_telegraph_profile_state() {
-    let mut cfg = cfg_with(scripted_two_step_phase1(BossAttackProfile::FloorSlam));
+    let mut cfg = cfg_with(scripted_two_step_phase1(BossAttackProfile::Strike(
+        "floor_slam".to_string(),
+    )));
     cfg.spawn = ae::Vec2::ZERO;
     let mut state = BossPatternState::default();
     let mut attack_state = BossAttackState::default();
@@ -123,7 +129,7 @@ fn boss_pattern_telegraph_step_updates_telegraph_profile_state() {
 
     assert_eq!(
         attack_state.telegraph_profile,
-        Some(BossAttackProfile::FloorSlam)
+        Some(BossAttackProfile::Strike("floor_slam".to_string()))
     );
     assert!(attack_state.active_profile.is_none());
     assert!(!out.melee_pressed, "telegraph must not emit melee");
@@ -132,7 +138,9 @@ fn boss_pattern_telegraph_step_updates_telegraph_profile_state() {
 
 #[test]
 fn boss_pattern_strike_step_emits_melee_intent() {
-    let mut cfg = cfg_with(scripted_two_step_phase1(BossAttackProfile::FloorSlam));
+    let mut cfg = cfg_with(scripted_two_step_phase1(BossAttackProfile::Strike(
+        "floor_slam".to_string(),
+    )));
     cfg.spawn = ae::Vec2::ZERO;
     let mut state = BossPatternState::default();
     let mut attack_state = BossAttackState::default();
@@ -151,7 +159,7 @@ fn boss_pattern_strike_step_emits_melee_intent() {
 
     assert_eq!(
         attack_state.active_profile,
-        Some(BossAttackProfile::FloorSlam),
+        Some(BossAttackProfile::Strike("floor_slam".to_string())),
         "should be in Strike step after walking past 0.5s telegraph",
     );
     assert!(
@@ -461,7 +469,7 @@ fn strike_speed_scale_reduces_velocity_during_active_melee_too() {
     // (FloorSlam — `is_special()` returns false). Without the
     // fix, vel_in_strike would equal vel_no_strike because
     // strike_speed_scale only triggered for specials.
-    cfg.cycle_attacks = vec![BossAttackProfile::FloorSlam];
+    cfg.cycle_attacks = vec![BossAttackProfile::Strike("floor_slam".to_string())];
     cfg.cycle_attack_cooldown = 0.05;
     cfg.cycle_attack_windup = 0.01;
     cfg.cycle_attack_active = 5.0;
@@ -497,7 +505,7 @@ fn strike_speed_scale_reduces_velocity_during_active_melee_too() {
     tick_boss_pattern(&cfg, &mut state2, &ctx2, &mut out2, &mut attack_state2);
     assert_eq!(
         attack_state2.active_profile,
-        Some(BossAttackProfile::FloorSlam),
+        Some(BossAttackProfile::Strike("floor_slam".to_string())),
         "should be in active FloorSlam strike for the test",
     );
     assert!(
@@ -868,7 +876,9 @@ fn macro_state_stays_engage_when_tuning_disabled() {
 fn peaceful_brain_does_not_emit_attack_intent() {
     // aggressiveness == 0 means the cursor still advances but the
     // attack-intent emit gate stays closed.
-    let mut cfg = cfg_with(scripted_two_step_phase1(BossAttackProfile::FloorSlam));
+    let mut cfg = cfg_with(scripted_two_step_phase1(BossAttackProfile::Strike(
+        "floor_slam".to_string(),
+    )));
     cfg.aggressiveness = 0.0;
     cfg.spawn = ae::Vec2::ZERO;
     let mut state = BossPatternState::default();
@@ -897,11 +907,11 @@ fn scripted_repertoire_dedups_strike_profiles_in_first_seen_order() {
     let phase1 = BossPattern {
         steps: vec![
             BossPatternStep::Telegraph {
-                profile: BossAttackProfile::FloorSlam,
+                profile: BossAttackProfile::Strike("floor_slam".to_string()),
                 duration: 0.5,
             },
             BossPatternStep::Strike {
-                profile: BossAttackProfile::FloorSlam,
+                profile: BossAttackProfile::Strike("floor_slam".to_string()),
                 duration: 0.4,
             },
         ],
@@ -913,7 +923,7 @@ fn scripted_repertoire_dedups_strike_profiles_in_first_seen_order() {
                 duration: 0.3,
             },
             BossPatternStep::Strike {
-                profile: BossAttackProfile::FloorSlam,
+                profile: BossAttackProfile::Strike("floor_slam".to_string()),
                 duration: 0.4,
             },
         ],
@@ -934,14 +944,17 @@ fn scripted_repertoire_dedups_strike_profiles_in_first_seen_order() {
             .map(|(p, _)| p.clone())
             .collect::<Vec<_>>(),
         vec![
-            BossAttackProfile::FloorSlam,
+            BossAttackProfile::Strike("floor_slam".to_string()),
             BossAttackProfile::Special("echo_fan".into()),
         ],
         "distinct Strike profiles, first-seen; FloorSlam appears once"
     );
     // slot(0) is the primary strike; the signature special is the first content
     // Special regardless of its index.
-    assert_eq!(cap.slot(0).unwrap().0, BossAttackProfile::FloorSlam);
+    assert_eq!(
+        cap.slot(0).unwrap().0,
+        BossAttackProfile::Strike("floor_slam".to_string())
+    );
     assert_eq!(
         cap.signature_special().unwrap().0,
         BossAttackProfile::Special("echo_fan".into())
@@ -955,12 +968,15 @@ fn cycle_repertoire_is_the_attack_list_with_the_active_window() {
     let mut cfg = cfg_with(BossAttackPattern::Cycle);
     cfg.cycle_attack_active = 0.28;
     cfg.cycle_attacks = vec![
-        BossAttackProfile::WingSweep,
-        BossAttackProfile::DiveLane,
+        BossAttackProfile::Strike("wing_sweep".to_string()),
+        BossAttackProfile::Strike("dive_lane".to_string()),
         BossAttackProfile::Special("echo_fan".into()),
     ];
     let cap = BossCapability::from_cfg(&cfg);
-    assert_eq!(cap.slot(0).unwrap().0, BossAttackProfile::WingSweep);
+    assert_eq!(
+        cap.slot(0).unwrap().0,
+        BossAttackProfile::Strike("wing_sweep".to_string())
+    );
     assert_eq!(
         cap.slot(0).unwrap().1,
         0.28,
@@ -992,17 +1008,17 @@ fn move_id_round_trips() {
     // BossAttackState projection can recover which profile a live MovePlayback
     // represents (E53: pattern-as-sequencer + projected read-model).
     let profiles = [
-        BossAttackProfile::FloorSlam,
-        BossAttackProfile::SideSweep,
-        BossAttackProfile::FullBodyPulse,
-        BossAttackProfile::WingSweep,
-        BossAttackProfile::DiveLane,
-        BossAttackProfile::Broadside,
-        BossAttackProfile::HandSlam,
-        BossAttackProfile::HandSweep,
-        BossAttackProfile::HeadDescent,
-        BossAttackProfile::ConvergingShockwave,
-        BossAttackProfile::HazardColumn,
+        BossAttackProfile::Strike("floor_slam".to_string()),
+        BossAttackProfile::Strike("side_sweep".to_string()),
+        BossAttackProfile::Strike("full_body_pulse".to_string()),
+        BossAttackProfile::Strike("wing_sweep".to_string()),
+        BossAttackProfile::Strike("dive_lane".to_string()),
+        BossAttackProfile::Strike("broadside".to_string()),
+        BossAttackProfile::Strike("hand_slam".to_string()),
+        BossAttackProfile::Strike("hand_sweep".to_string()),
+        BossAttackProfile::Strike("head_descent".to_string()),
+        BossAttackProfile::Strike("converging_shockwave".to_string()),
+        BossAttackProfile::Strike("hazard_column".to_string()),
         BossAttackProfile::Special("apple_rain".into()),
         BossAttackProfile::Special("overfit_volley".into()),
     ];

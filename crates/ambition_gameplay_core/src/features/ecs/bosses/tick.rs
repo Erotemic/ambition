@@ -748,7 +748,7 @@ mod attack_moveset_tests {
     fn a_boss_geometry_profile_triggers_its_hit_volume_move() {
         let cap = BossCapability {
             specials: vec![
-                (BossAttackProfile::FloorSlam, 0.3), // geometry → hit-volume move
+                (BossAttackProfile::Strike("floor_slam".to_string()), 0.3), // geometry → hit-volume move
                 (BossAttackProfile::Special("apple_rain".to_string()), 2.0),
             ],
         };
@@ -787,7 +787,7 @@ mod attack_moveset_tests {
         let mut app = App::new();
         app.add_systems(Update, trigger_boss_attack_moves);
         let intent = BossAttackIntent {
-            active_profile: Some(BossAttackProfile::FloorSlam),
+            active_profile: Some(BossAttackProfile::Strike("floor_slam".to_string())),
             ..Default::default()
         };
         let boss = app
@@ -820,14 +820,14 @@ mod attack_moveset_tests {
     /// whose FloorSlam move spans a 0.2s telegraph + 0.3s strike.
     fn telegraph_boss_app() -> (App, Entity) {
         let cap = BossCapability {
-            specials: vec![(BossAttackProfile::FloorSlam, 0.3)],
+            specials: vec![(BossAttackProfile::Strike("floor_slam".to_string()), 0.3)],
         };
         let combat_size = ambition_engine_core::Vec2::new(80.0, 80.0);
         let moveset = crate::features::boss_attack_moveset(
             &cap,
             &warden_behavior(),
             combat_size,
-            &[(BossAttackProfile::FloorSlam, 0.2)],
+            &[(BossAttackProfile::Strike("floor_slam".to_string()), 0.2)],
         )
         .expect("a boss with a telegraphed strike → a moveset");
 
@@ -851,7 +851,7 @@ mod attack_moveset_tests {
         // §A1 split: the trigger reads the INTENT (telegraph edge → play the windup);
         // the projection WRITES the read-model `BossAttackState` from the live move.
         let intent = BossAttackIntent {
-            telegraph_profile: Some(BossAttackProfile::FloorSlam),
+            telegraph_profile: Some(BossAttackProfile::Strike("floor_slam".to_string())),
             ..Default::default()
         };
         let boss = app
@@ -885,7 +885,10 @@ mod attack_moveset_tests {
         // ~0.05s into the 0.2s windup — the projection reports a TELEGRAPH, no strike.
         app.update();
         let st = app.world().get::<BossAttackState>(boss).unwrap();
-        assert_eq!(st.telegraph_profile, Some(BossAttackProfile::FloorSlam));
+        assert_eq!(
+            st.telegraph_profile,
+            Some(BossAttackProfile::Strike("floor_slam".to_string()))
+        );
         assert_eq!(st.active_profile, None, "windup has no live strike yet");
 
         // Advance past the 0.2s telegraph into the strike window: the projection now
@@ -895,7 +898,10 @@ mod attack_moveset_tests {
             app.update();
         }
         let st = app.world().get::<BossAttackState>(boss).unwrap();
-        assert_eq!(st.active_profile, Some(BossAttackProfile::FloorSlam));
+        assert_eq!(
+            st.active_profile,
+            Some(BossAttackProfile::Strike("floor_slam".to_string()))
+        );
         assert_eq!(st.telegraph_profile, None, "strike clears the telegraph");
         assert!(
             st.active_elapsed > 0.2,

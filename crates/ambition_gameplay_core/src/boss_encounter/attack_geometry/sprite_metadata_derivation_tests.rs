@@ -246,7 +246,7 @@ fn damageable_volumes_uses_per_animation_hurtbox_during_attack() {
     let mut behavior = BossBehaviorProfile::clockwork_warden();
     behavior.combat_size = Some(ae::Vec2::new(54.0, 56.0));
     let mut attack_state = BossAttackState::default();
-    attack_state.active_profile = Some(BossAttackProfile::SideSweep);
+    attack_state.active_profile = Some(BossAttackProfile::Strike("side_sweep".to_string()));
 
     let ctx = BossVolumeContext {
         pos: ae::Vec2::new(640.0, 656.0),
@@ -343,7 +343,7 @@ fn damageable_volumes_samples_per_frame_hurtbox_from_animation_elapsed() {
     };
     let behavior = BossBehaviorProfile::gnu_ton();
     let mut attack_state = BossAttackState::default();
-    attack_state.active_profile = Some(BossAttackProfile::HeadDescent);
+    attack_state.active_profile = Some(BossAttackProfile::Strike("head_descent".to_string()));
     attack_state.active_elapsed = 0.15; // frame index 1 at 0.1s/frame.
 
     let ctx = BossVolumeContext {
@@ -421,10 +421,10 @@ fn animation_frame_sample_overrides_elapsed_frame_for_authored_boxes() {
     };
     let behavior = BossBehaviorProfile::gnu_ton();
     let mut attack_state = BossAttackState::default();
-    attack_state.active_profile = Some(BossAttackProfile::HeadDescent);
+    attack_state.active_profile = Some(BossAttackProfile::Strike("head_descent".to_string()));
     attack_state.active_elapsed = 0.15; // elapsed alone would pick frame 1.
     let visual_frame = BossAnimationFrameSample {
-        profile: Some(BossAttackProfile::HeadDescent),
+        profile: Some(BossAttackProfile::Strike("head_descent".to_string())),
         frame_index: 0,
         animation_key: Some("gnu_head_descent"),
     };
@@ -632,7 +632,7 @@ fn gnu_head_descent_accepts_visual_row_alias_for_runtime_boxes() {
     };
     let behavior = BossBehaviorProfile::gnu_ton();
     let mut attack_state = BossAttackState::default();
-    attack_state.active_profile = Some(BossAttackProfile::HeadDescent);
+    attack_state.active_profile = Some(BossAttackProfile::Strike("head_descent".to_string()));
     attack_state.active_elapsed = 0.15;
     let ctx = BossVolumeContext {
         pos: ae::Vec2::ZERO,

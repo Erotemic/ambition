@@ -292,9 +292,9 @@ fn advance_cycle(
     // historic `BossRuntime::cycle_pattern_volumes` math
     // `(pattern_timer / attack_cooldown).floor() % attacks.len()`
     // — preserved for parity. Cfg with an empty `cycle_attacks`
-    // (defensively) falls back to `FullBodyPulse`.
+    // (defensively) falls back to the `full_body_pulse` strike.
     let profile = if cfg.cycle_attacks.is_empty() {
-        BossAttackProfile::FullBodyPulse
+        BossAttackProfile::Strike("full_body_pulse".to_string())
     } else {
         let cooldown = cfg.cycle_attack_cooldown.max(0.05);
         let idx = ((state.pattern_timer / cooldown) as usize) % cfg.cycle_attacks.len();

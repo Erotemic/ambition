@@ -1042,3 +1042,59 @@ RED `unified_melee::a_hostile_actor` (unified_melee.rs:117, unchanged).
 (c) the boss-sheet statics — no longer the bark tables, boss constructors, or
 the encounter-id consts. R3.4's independent surface is landed; its remainder is
 correctly folded into R3.6 / R4e / the hall-data item.
+
+---
+
+## R3.6 — `BossAttackProfile` collapses to a keyed carrier (executor: opus, 2026-07-04)
+
+**AJ4 landed (the profile-half; the sheet-half #5/#8 remains — see below).** The
+enum's 11 hardcoded geometry variants (`FloorSlam`, `SideSweep`, …,
+`HazardColumn`) + the open `Special(String)` carrier collapse into a **2-variant
+keyed enum**: `Strike(String) | Special(String)`. A `Strike`'s key selects its
+body-local hitbox rects from the strike-geometry table (built-in default OR the
+boss's RON `strike_geometry` override); a `Special`'s key names a content
+Technique. So a new geometry strike is a new key + authored rects, and a new
+special is a new key + a content system — NEITHER edits this enum.
+
+**Why 2 variants, not a bare `BossAttackProfile(String)` newtype:** the crux the
+mapping surfaced — the geometry-vs-special distinction is read by the brain
+(`boss_pattern/tick.rs`: `is_special()` routes `special_pressed` vs
+`melee_pressed`), which lives in `ambition_characters`, BELOW the geometry table
+in `ambition_gameplay_core`. A pure newtype would force "special ⇔ no geometry
+entry" — a table lookup the brain can't do without a layering violation. Keeping
+`Strike`/`Special` as variants makes the distinction structural + brain-visible
+(no table needed), while still collapsing the 11 named geometry variants into
+ONE keyed carrier. This is AJ4's "Special stops being special: every profile is
+a key," honestly bounded by the layering.
+
+- **The three exhaustive variant matches became key-driven** (match on the
+  `move_id` string): `strike_geometry` (the E58 rect table),
+  `boss_anim_for_attack_profile` + `boss_animation_key_for_sample`
+  (anim_helpers), `boss_animation_keys_for_profile` (behavior). The built-in
+  strike vocabulary now lives in ONE place — `BossAttackProfile::BUILTIN_STRIKE_KEYS`
+  (ambition_characters) — which `from_move_id` uses to reconstruct a profile
+  from a content-free move id (a key in the set ⇒ `Strike`, else `Special`). The
+  one render match (`overlays.rs` HazardColumn) resolves via `move_id`.
+- **`boss_profiles.ron` reauthored** (scripted, comments preserved): 102 tokens
+  `FloorSlam` → `Strike("floor_slam")`, etc.; `Special("…")` unchanged; the
+  syntax-doc header rewritten to the keyed form.
+- **BYTE-IDENTICAL, pinned:** `strike_geometry_is_byte_identical_to_the_old_hardcoded_match`
+  (its golden `reference()` rewritten key-driven, same rects) +
+  `move_id_round_trips` + the 4 boss suites + `boss_motion_parity`. Verified:
+  characters --lib 253, gameplay_core --lib 1133, content --lib 61 (RON parse),
+  boss_lifecycle 4 / boss_contact_iframes 8 / boss_motion_parity 2 /
+  boss_possession_specials 1 / duel_arena 4 (rl_sim) — all green [+ full gate].
+- **Layering note (documented edge):** a wholly-new CONTENT geometry key (not in
+  `BUILTIN_STRIKE_KEYS`, authored only via RON `strike_geometry`) projects as
+  `Special` in the READ-MODEL only; its damage still flows through the authored
+  `Strike` move, so the edge is cosmetic (the projected telegraph label). Refine
+  the projection to consult the RON override map if a game needs custom geometry
+  keys visible in the telegraph — not needed by any current boss.
+
+**REMAINING for "a new boss is 100% RON" (the sheet-half of R3.6, = R3.4 #5/#8):**
+the 6 `BossSheetSpec` statics (mirror `boss_sheets.ron`, pinned by
+`boss_sheets_ron_matches_builtin_defaults`) + `sync.rs::sprite_target_for_boss` /
+`sprite_render_size_for` id→target→static matches. Evict = installed RON is the
+sole source + a `sprite_target` DATA field (same shape as the self-dodge fix).
+After the profile-key collapse above, the PROFILE + strike RECTS are 100% RON;
+only the SHEET rows + sprite-target still route through built-in statics.

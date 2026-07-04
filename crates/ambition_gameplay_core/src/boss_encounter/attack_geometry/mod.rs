@@ -512,20 +512,24 @@ const CONVERGING_SHOCKWAVE: &[StrikeRect] = &[StrikeRect::scaled(
 /// so it returns an empty slice. This is the single per-profile geometry table both the
 /// gameplay path (`boss_attack_moveset` → `HitVolume`s) and the debug/pose fallback
 /// (`volumes_for_profile`) read.
-pub fn strike_geometry(attack: &BossAttackProfile) -> &'static [StrikeRect] {
-    match attack {
-        BossAttackProfile::FloorSlam => FLOOR_SLAM,
-        BossAttackProfile::SideSweep => SIDE_SWEEP,
-        BossAttackProfile::FullBodyPulse => FULL_BODY_PULSE,
-        BossAttackProfile::HazardColumn => HAZARD_COLUMN,
-        BossAttackProfile::WingSweep => WING_SWEEP,
-        BossAttackProfile::DiveLane => DIVE_LANE,
-        BossAttackProfile::Broadside => BROADSIDE,
-        BossAttackProfile::HandSlam => HAND_SLAM,
-        BossAttackProfile::HandSweep => HAND_SWEEP,
-        BossAttackProfile::HeadDescent => HEAD_DESCENT,
-        BossAttackProfile::ConvergingShockwave => CONVERGING_SHOCKWAVE,
-        BossAttackProfile::Special(_) => &[],
+pub fn strike_geometry(move_id: &str) -> &'static [StrikeRect] {
+    // Keyed by the profile's `move_id` (the strike key). The built-in geometry
+    // vocabulary is `BossAttackProfile::BUILTIN_STRIKE_KEYS`; any other key
+    // (a content-technique `Special`, or a geometry strike a boss authors ONLY
+    // via its RON `strike_geometry` override) has no built-in rects here.
+    match move_id {
+        "floor_slam" => FLOOR_SLAM,
+        "side_sweep" => SIDE_SWEEP,
+        "full_body_pulse" => FULL_BODY_PULSE,
+        "hazard_column" => HAZARD_COLUMN,
+        "wing_sweep" => WING_SWEEP,
+        "dive_lane" => DIVE_LANE,
+        "broadside" => BROADSIDE,
+        "hand_slam" => HAND_SLAM,
+        "hand_sweep" => HAND_SWEEP,
+        "head_descent" => HEAD_DESCENT,
+        "converging_shockwave" => CONVERGING_SHOCKWAVE,
+        _ => &[],
     }
 }
 
@@ -552,11 +556,12 @@ pub fn volumes_for_profile(
     // table — so a content boss supplies its strike shapes with no core edit. Empty =
     // the built-in per-profile geometry. This one resolve feeds BOTH the debug/pose
     // path AND `boss_attack_moveset`'s gameplay `HitVolume`s (its single source).
+    let move_id = attack.move_id();
     let rects: &[StrikeRect] = behavior
         .strike_geometry
-        .get(&attack.move_id())
+        .get(&move_id)
         .map(Vec::as_slice)
-        .unwrap_or_else(|| strike_geometry(attack));
+        .unwrap_or_else(|| strike_geometry(&move_id));
     rects
         .iter()
         .map(|rect| rect.to_aabb(origin, combat_size))
@@ -617,12 +622,12 @@ mod strike_geometry_data_tests {
     /// The ORIGINAL hardcoded `volumes_for_profile` arms, verbatim — the reference the
     /// `StrikeRect` DATA table (fable §C6) must reproduce byte-for-byte.
     fn reference(attack: &BossAttackProfile, origin: ae::Vec2, size: ae::Vec2) -> Vec<ae::Aabb> {
-        match attack {
-            BossAttackProfile::FloorSlam => vec![ae::Aabb::new(
+        match attack.move_id().as_str() {
+            "floor_slam" => vec![ae::Aabb::new(
                 origin + ae::Vec2::new(0.0, size.y * 0.5 + 22.0),
                 ae::Vec2::new(size.x * 0.75, 18.0),
             )],
-            BossAttackProfile::SideSweep => vec![
+            "side_sweep" => vec![
                 ae::Aabb::new(
                     origin + ae::Vec2::new(-size.x * 0.50, 0.0),
                     ae::Vec2::new(size.x * 0.25, size.y * 0.72),
@@ -632,21 +637,20 @@ mod strike_geometry_data_tests {
                     ae::Vec2::new(size.x * 0.25, size.y * 0.72),
                 ),
             ],
-            BossAttackProfile::FullBodyPulse => vec![ae::Aabb::new(origin, size * 0.70)],
-            BossAttackProfile::HazardColumn => vec![ae::Aabb::new(
+            "full_body_pulse" => vec![ae::Aabb::new(origin, size * 0.70)],
+            "hazard_column" => vec![ae::Aabb::new(
                 origin + ae::Vec2::new(0.0, 0.0),
                 ae::Vec2::new(size.x * 0.30, size.y * 1.80),
             )],
-            BossAttackProfile::Special(_) => Vec::new(),
-            BossAttackProfile::WingSweep => vec![ae::Aabb::new(
+            "wing_sweep" => vec![ae::Aabb::new(
                 origin + ae::Vec2::new(0.0, size.y * 0.08),
                 ae::Vec2::new(size.x * 0.56, size.y * 0.42),
             )],
-            BossAttackProfile::DiveLane => vec![ae::Aabb::new(
+            "dive_lane" => vec![ae::Aabb::new(
                 origin + ae::Vec2::new(0.0, size.y * 0.42),
                 ae::Vec2::new(size.x * 0.22, size.y * 0.72),
             )],
-            BossAttackProfile::Broadside => vec![
+            "broadside" => vec![
                 ae::Aabb::new(
                     origin + ae::Vec2::new(-size.x * 0.34, 0.0),
                     ae::Vec2::new(size.x * 0.18, size.y * 0.84),
@@ -656,7 +660,7 @@ mod strike_geometry_data_tests {
                     ae::Vec2::new(size.x * 0.18, size.y * 0.84),
                 ),
             ],
-            BossAttackProfile::HandSlam => vec![
+            "hand_slam" => vec![
                 ae::Aabb::new(
                     origin + ae::Vec2::new(-size.x * 0.40, size.y * 0.25),
                     ae::Vec2::new(size.x * 0.14, size.y * 0.60),
@@ -666,35 +670,37 @@ mod strike_geometry_data_tests {
                     ae::Vec2::new(size.x * 0.14, size.y * 0.60),
                 ),
             ],
-            BossAttackProfile::HandSweep => vec![ae::Aabb::new(
+            "hand_sweep" => vec![ae::Aabb::new(
                 origin + ae::Vec2::new(0.0, size.y * 0.15),
                 ae::Vec2::new(size.x * 0.85, size.y * 0.28),
             )],
-            BossAttackProfile::HeadDescent => vec![ae::Aabb::new(
+            "head_descent" => vec![ae::Aabb::new(
                 origin + ae::Vec2::new(0.0, size.y * 0.05),
                 ae::Vec2::new(size.x * 0.32, size.y * 0.38),
             )],
-            BossAttackProfile::ConvergingShockwave => vec![ae::Aabb::new(
+            "converging_shockwave" => vec![ae::Aabb::new(
                 origin + ae::Vec2::new(0.0, size.y * 0.48),
                 ae::Vec2::new(size.x * 0.90, size.y * 0.08),
             )],
+            // Special (or any non-geometry key) carries no body-mounted volume.
+            _ => Vec::new(),
         }
     }
 
     #[test]
     fn strike_geometry_is_byte_identical_to_the_old_hardcoded_match() {
         let profiles = [
-            BossAttackProfile::FloorSlam,
-            BossAttackProfile::SideSweep,
-            BossAttackProfile::FullBodyPulse,
-            BossAttackProfile::WingSweep,
-            BossAttackProfile::DiveLane,
-            BossAttackProfile::Broadside,
-            BossAttackProfile::HandSlam,
-            BossAttackProfile::HandSweep,
-            BossAttackProfile::HeadDescent,
-            BossAttackProfile::ConvergingShockwave,
-            BossAttackProfile::HazardColumn,
+            BossAttackProfile::Strike("floor_slam".to_string()),
+            BossAttackProfile::Strike("side_sweep".to_string()),
+            BossAttackProfile::Strike("full_body_pulse".to_string()),
+            BossAttackProfile::Strike("wing_sweep".to_string()),
+            BossAttackProfile::Strike("dive_lane".to_string()),
+            BossAttackProfile::Strike("broadside".to_string()),
+            BossAttackProfile::Strike("hand_slam".to_string()),
+            BossAttackProfile::Strike("hand_sweep".to_string()),
+            BossAttackProfile::Strike("head_descent".to_string()),
+            BossAttackProfile::Strike("converging_shockwave".to_string()),
+            BossAttackProfile::Strike("hazard_column".to_string()),
             BossAttackProfile::Special("overfit_volley".to_string()),
         ];
         // Sweep a couple of origins + body sizes so the affine `factor*size + const`
@@ -703,7 +709,7 @@ mod strike_geometry_data_tests {
         for origin in [ae::Vec2::ZERO, ae::Vec2::new(120.0, -40.0)] {
             for size in [ae::Vec2::new(30.0, 48.0), ae::Vec2::new(64.0, 96.0)] {
                 for p in &profiles {
-                    let got: Vec<ae::Aabb> = strike_geometry(p)
+                    let got: Vec<ae::Aabb> = strike_geometry(&p.move_id())
                         .iter()
                         .map(|r| r.to_aabb(origin, size))
                         .collect();
@@ -740,7 +746,12 @@ mod strike_geometry_data_tests {
             .insert("floor_slam".to_string(), vec![authored]);
 
         // FloorSlam now resolves to the AUTHORED rect, not the built-in slab.
-        let slam = volumes_for_profile(&BossAttackProfile::FloorSlam, pos, size, &behavior);
+        let slam = volumes_for_profile(
+            &BossAttackProfile::Strike("floor_slam".to_string()),
+            pos,
+            size,
+            &behavior,
+        );
         assert_eq!(slam.len(), 1);
         assert_eq!(slam[0].center(), authored.to_aabb(origin, size).center());
         assert_eq!(
@@ -754,7 +765,12 @@ mod strike_geometry_data_tests {
         );
 
         // A profile with NO authored override still uses the built-in table.
-        let sweep = volumes_for_profile(&BossAttackProfile::SideSweep, pos, size, &behavior);
+        let sweep = volumes_for_profile(
+            &BossAttackProfile::Strike("side_sweep".to_string()),
+            pos,
+            size,
+            &behavior,
+        );
         assert_eq!(
             sweep.len(),
             2,

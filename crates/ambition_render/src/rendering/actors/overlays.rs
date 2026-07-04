@@ -101,12 +101,12 @@ pub fn manage_gradient_lane_visual(
             continue;
         }
         let in_telegraph = matches!(
-            attack_state.telegraph_profile,
-            Some(BossAttackProfile::HazardColumn)
+            &attack_state.telegraph_profile,
+            Some(p) if p.move_id() == "hazard_column"
         );
         let in_strike = matches!(
-            attack_state.active_profile,
-            Some(BossAttackProfile::HazardColumn)
+            &attack_state.active_profile,
+            Some(p) if p.move_id() == "hazard_column"
         );
         if !in_telegraph && !in_strike {
             continue;
@@ -114,7 +114,7 @@ pub fn manage_gradient_lane_visual(
         // Use the same volume math as damage so the visual and the
         // hitbox are exactly coincident.
         let mut volumes = ambition_gameplay_core::features::volumes_for_profile(
-            &BossAttackProfile::HazardColumn,
+            &BossAttackProfile::Strike("hazard_column".to_string()),
             boss.kin.pos,
             boss.combat_size(),
             &boss.config.behavior,

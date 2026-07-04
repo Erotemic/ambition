@@ -29,7 +29,7 @@ fn boss_strike_spawns_a_boss_hitbox_through_the_moveset() {
     let behavior = crate::features::bosses::BossBehaviorProfile::clockwork_warden();
     // The boss's attack moveset: a FloorSlam geometry strike → an Active-window move.
     let cap = BossCapability {
-        specials: vec![(BossAttackProfile::FloorSlam, 0.5)],
+        specials: vec![(BossAttackProfile::Strike("floor_slam".to_string()), 0.5)],
     };
     let moveset = crate::features::boss_attack_moveset(&cap, &behavior, combat_size, &[])
         .expect("a boss with a strike → a moveset");
@@ -53,7 +53,7 @@ fn boss_strike_spawns_a_boss_hitbox_through_the_moveset() {
     );
     // §A1 split: the driver's fire INTENT names FloorSlam → the trigger starts the move.
     let intent = BossAttackIntent {
-        active_profile: Some(BossAttackProfile::FloorSlam),
+        active_profile: Some(BossAttackProfile::Strike("floor_slam".to_string())),
         ..Default::default()
     };
     app.world_mut().spawn((

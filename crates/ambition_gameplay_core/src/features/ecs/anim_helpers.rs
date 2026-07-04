@@ -230,23 +230,16 @@ fn boss_anim_for_attack_profile(
     profile: &ambition_characters::brain::BossAttackProfile,
 ) -> Option<crate::boss_encounter::sprites::BossAnim> {
     use crate::boss_encounter::sprites::BossAnim;
-    use ambition_characters::brain::BossAttackProfile;
-    match profile {
-        BossAttackProfile::FloorSlam
-        | BossAttackProfile::HandSlam
-        | BossAttackProfile::ConvergingShockwave => Some(BossAnim::FloorSlam),
-        BossAttackProfile::SideSweep
-        | BossAttackProfile::HandSweep
-        | BossAttackProfile::Broadside => Some(BossAnim::SideSweep),
-        // Every content special falls back to the spike-halo telegraph anim
-        // (a ring of damage around the boss) — the closest generic visual cue.
-        // Covers the former DebrisRain / MemorizedVolley / LockOnBeam / PitTrap
-        // / RotatingCross / MinionCascade.
-        BossAttackProfile::FullBodyPulse
-        | BossAttackProfile::HeadDescent
-        | BossAttackProfile::Special(_) => Some(BossAnim::SpikeHalo),
-        BossAttackProfile::HazardColumn | BossAttackProfile::DiveLane => Some(BossAnim::DashEcho),
-        BossAttackProfile::WingSweep => None,
+    match profile.move_id().as_str() {
+        "floor_slam" | "hand_slam" | "converging_shockwave" => Some(BossAnim::FloorSlam),
+        "side_sweep" | "hand_sweep" | "broadside" => Some(BossAnim::SideSweep),
+        "hazard_column" | "dive_lane" => Some(BossAnim::DashEcho),
+        "wing_sweep" => None,
+        // `full_body_pulse`, `head_descent`, and every content special fall back
+        // to the spike-halo telegraph anim (a ring of damage around the boss) —
+        // the closest generic visual cue. Covers the former DebrisRain /
+        // MemorizedVolley / LockOnBeam / PitTrap / RotatingCross / MinionCascade.
+        _ => Some(BossAnim::SpikeHalo),
     }
 }
 
@@ -255,22 +248,16 @@ fn boss_animation_key_for_sample(
     anim: crate::boss_encounter::sprites::BossAnim,
 ) -> Option<&'static str> {
     use crate::boss_encounter::sprites::BossAnim;
-    use ambition_characters::brain::BossAttackProfile;
-    match (profile, anim) {
+    match (profile.move_id().as_str(), anim) {
         // GNU-ton has profile-specific dangerous boxes (for example
         // `gnu_shockwave`) but the damageable head/body box should follow
         // the rendered row. Keep the sample keyed to the visual row so
         // authored row frames are the source of truth for hurtboxes.
-        (
-            BossAttackProfile::HandSlam | BossAttackProfile::ConvergingShockwave,
-            BossAnim::FloorSlam,
-        ) => Some("hand_slam"),
-        (BossAttackProfile::HandSweep, BossAnim::SideSweep) => Some("hand_sweep"),
-        (BossAttackProfile::HeadDescent, BossAnim::SpikeHalo) => Some("head_down"),
+        ("hand_slam" | "converging_shockwave", BossAnim::FloorSlam) => Some("hand_slam"),
+        ("hand_sweep", BossAnim::SideSweep) => Some("hand_sweep"),
+        ("head_descent", BossAnim::SpikeHalo) => Some("head_down"),
         // GNU-ton's apple rain reads the head row for its damageable hurtbox.
-        (BossAttackProfile::Special(key), BossAnim::SpikeHalo) if key == "apple_rain" => {
-            Some("head_down")
-        }
+        ("apple_rain", BossAnim::SpikeHalo) => Some("head_down"),
         _ => super::super::bosses::boss_animation_keys_for_profile(profile)
             .first()
             .copied(),

@@ -241,42 +241,54 @@ impl BossAttackPattern {
 /// runtime.
 #[derive(Clone, Debug, PartialEq, serde::Deserialize)]
 pub enum BossAttackProfile {
-    FloorSlam,
-    SideSweep,
-    FullBodyPulse,
-    WingSweep,
-    DiveLane,
-    Broadside,
-    // GNU-ton specific: giant hands slam from above
-    HandSlam,
-    // GNU-ton specific: hands sweep in from the far sides
-    HandSweep,
-    // GNU-ton specific: the head descends into player space (vulnerability + hazard)
-    HeadDescent,
-    // GNU-ton specific: shockwave from both hands meeting in the center
-    ConvergingShockwave,
-    // Gradient Sentinel: tall vertical hazard column at the boss x.
-    // Ordinary melee profile (volume from `volumes_for_profile`); the
-    // player jumps over or laterals away.
-    HazardColumn,
-    /// An open, content-defined special. The `String` is the special
-    /// **key** (snake_case, e.g. `"overfit_volley"`); a content-owned
-    /// *Technique* recognizes it, reads its own params, and emits the
-    /// effects. Damage routes through whatever that technique spawns
-    /// (projectiles / World-anchored hitboxes / minions), so
-    /// `volumes_for_profile` returns empty for every `Special`. This is
-    /// the engine seam: a new game adds a boss special by registering a
-    /// content technique under a new key — no edit to this enum. The
-    /// old per-boss variants (`DebrisRain`, `MemorizedVolley`,
-    /// `LockOnBeam`, `PitTrap`, `RotatingCross`, `MinionCascade`)
-    /// collapsed into this carrier.
+    /// A body-mounted GEOMETRY strike. The `String` is the strike **key**
+    /// (snake_case, e.g. `"floor_slam"`): it selects the move's body-local
+    /// hitbox rects from the strike-geometry table — a built-in engine default
+    /// (`floor_slam`, `side_sweep`, `full_body_pulse`, `wing_sweep`,
+    /// `dive_lane`, `broadside`, `hand_slam`, `hand_sweep`, `head_descent`,
+    /// `converging_shockwave`, `hazard_column`) OR the boss's RON
+    /// `strike_geometry` override. Damage flows through the moveset's
+    /// `HitVolume`s. A new geometry strike is a new key + authored rects, with
+    /// NO edit to this enum: the old per-variant `FloorSlam`/`SideSweep`/… all
+    /// collapsed into this carrier, their geometry moved to the keyed table.
+    Strike(String),
+    /// A content-defined SPECIAL. The `String` is the technique **key**
+    /// (snake_case, e.g. `"overfit_volley"`); a content-owned *Technique*
+    /// recognizes it, reads its own params, and emits the effects. Damage
+    /// routes through whatever that technique spawns (projectiles /
+    /// World-anchored hitboxes / minions), so a `Special` carries no
+    /// body-mounted geometry. A new game adds a boss special by registering a
+    /// content technique under a new key — no edit to this enum. (The old
+    /// per-boss `DebrisRain`/`MemorizedVolley`/… collapsed here earlier.)
     Special(String),
 }
 
+/// The engine's built-in geometry strike keys — the default strike-geometry
+/// vocabulary a `BossAttackProfile::Strike` selects from. A move id in this set
+/// is a geometry `Strike`; any other id is a content-technique `Special` (used
+/// by [`BossAttackProfile::from_move_id`] to reconstruct a profile from a
+/// content-free move id). The strike RECTS for these keys live in the
+/// gameplay-core strike-geometry table; this crate holds only the key
+/// vocabulary the brain authors against.
+pub const BUILTIN_STRIKE_KEYS: &[&str] = &[
+    "floor_slam",
+    "side_sweep",
+    "full_body_pulse",
+    "wing_sweep",
+    "dive_lane",
+    "broadside",
+    "hand_slam",
+    "hand_sweep",
+    "head_descent",
+    "converging_shockwave",
+    "hazard_column",
+];
+
 impl BossAttackProfile {
-    /// True iff this profile is implemented through a `Special`
-    /// message + EFFECTS consumer (a content Technique). False for
-    /// profiles whose damage flows through melee/contact hitbox volumes.
+    /// True iff this profile is a content-Technique `Special` (damage flows
+    /// through a `SpecialActionSpec` message + EFFECTS consumer). False for a
+    /// `Strike`, whose damage flows through body-mounted hitbox volumes. The
+    /// brain reads this to route `special_pressed` vs `melee_pressed`.
     pub fn is_special(&self) -> bool {
         matches!(self, BossAttackProfile::Special(_))
     }
@@ -285,58 +297,43 @@ impl BossAttackProfile {
     pub fn special_key(&self) -> Option<&str> {
         match self {
             BossAttackProfile::Special(key) => Some(key.as_str()),
-            _ => None,
+            BossAttackProfile::Strike(_) => None,
         }
     }
 
-    /// The moveset move id this profile binds to — the content key for a
-    /// `Special`, else a stable snake_case label for a geometry strike. The boss
-    /// attack trigger (`trigger_boss_attack_moves`) looks the active profile's
-    /// move up by this id, so EVERY boss strike (geometry AND special) runs
-    /// through the SAME moveset runtime as an actor's swing (fable review §A1: the
-    /// moveset is the boss's melee system too).
+    /// The moveset move id this profile binds to — its key (for BOTH a `Strike`
+    /// and a `Special`, the id IS the key). The boss attack trigger
+    /// (`trigger_boss_attack_moves`) looks the active profile's move up by this
+    /// id, so EVERY boss strike (geometry AND special) runs through the SAME
+    /// moveset runtime as an actor's swing (fable review §A1: the moveset is the
+    /// boss's melee system too).
     pub fn move_id(&self) -> String {
         match self {
-            BossAttackProfile::Special(key) => key.clone(),
-            BossAttackProfile::FloorSlam => "floor_slam".to_string(),
-            BossAttackProfile::SideSweep => "side_sweep".to_string(),
-            BossAttackProfile::FullBodyPulse => "full_body_pulse".to_string(),
-            BossAttackProfile::WingSweep => "wing_sweep".to_string(),
-            BossAttackProfile::DiveLane => "dive_lane".to_string(),
-            BossAttackProfile::Broadside => "broadside".to_string(),
-            BossAttackProfile::HandSlam => "hand_slam".to_string(),
-            BossAttackProfile::HandSweep => "hand_sweep".to_string(),
-            BossAttackProfile::HeadDescent => "head_descent".to_string(),
-            BossAttackProfile::ConvergingShockwave => "converging_shockwave".to_string(),
-            BossAttackProfile::HazardColumn => "hazard_column".to_string(),
+            BossAttackProfile::Strike(key) | BossAttackProfile::Special(key) => key.clone(),
         }
     }
 
     /// The inverse of [`move_id`](Self::move_id): recover the profile a live
-    /// boss move belongs to from its move id. Every geometry label round-trips to
-    /// its variant; any other id is a content-technique `Special(key)` (its move id
-    /// IS the key). This lets a `BossAttackState` PROJECTION derive which profile a
-    /// `MovePlayback` represents without threading the profile through the
-    /// content-free move runtime.
+    /// boss move belongs to from its move id. A key in [`BUILTIN_STRIKE_KEYS`]
+    /// (the engine's default geometry vocabulary) is a `Strike`; any other id is
+    /// a content-technique `Special(key)` (its move id IS the key). This lets a
+    /// `BossAttackState` PROJECTION derive which profile a `MovePlayback`
+    /// represents without threading the profile through the content-free move
+    /// runtime.
     ///
-    /// `from_move_id(p.move_id()) == p` for every profile (pinned by
-    /// `move_id_round_trips`), EXCEPT the degenerate case of a `Special` whose key
-    /// happens to equal a geometry label (e.g. `Special("floor_slam")`), which
-    /// resolves to the geometry variant — a naming collision no content authors.
+    /// `from_move_id(p.move_id()) == p` for every profile whose key is a built-in
+    /// strike or a non-colliding special (pinned by `move_id_round_trips`). A
+    /// `Special` whose key happens to equal a built-in strike key resolves to the
+    /// `Strike` — the same documented collision the old variant table had, which
+    /// no content authors. (A wholly new content geometry key not in the built-in
+    /// set projects as `Special` in the READ-MODEL only; its damage still flows
+    /// through the authored `Strike` move, so this is cosmetic — refine if a game
+    /// needs custom geometry keys visible in the projected telegraph.)
     pub fn from_move_id(id: &str) -> BossAttackProfile {
-        match id {
-            "floor_slam" => BossAttackProfile::FloorSlam,
-            "side_sweep" => BossAttackProfile::SideSweep,
-            "full_body_pulse" => BossAttackProfile::FullBodyPulse,
-            "wing_sweep" => BossAttackProfile::WingSweep,
-            "dive_lane" => BossAttackProfile::DiveLane,
-            "broadside" => BossAttackProfile::Broadside,
-            "hand_slam" => BossAttackProfile::HandSlam,
-            "hand_sweep" => BossAttackProfile::HandSweep,
-            "head_descent" => BossAttackProfile::HeadDescent,
-            "converging_shockwave" => BossAttackProfile::ConvergingShockwave,
-            "hazard_column" => BossAttackProfile::HazardColumn,
-            key => BossAttackProfile::Special(key.to_string()),
+        if BUILTIN_STRIKE_KEYS.contains(&id) {
+            BossAttackProfile::Strike(id.to_string())
+        } else {
+            BossAttackProfile::Special(id.to_string())
         }
     }
 }

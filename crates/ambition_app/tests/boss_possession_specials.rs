@@ -141,7 +141,7 @@ fn possessed_boss_commands_its_authored_specials_and_release_restores_the_patter
                 .clone(),
         )
     };
-    assert_eq!(primary, BossAttackProfile::HandSlam);
+    assert_eq!(primary, BossAttackProfile::Strike("hand_slam".to_string()));
     assert_eq!(
         signature,
         BossAttackProfile::Special("apple_rain".to_string())

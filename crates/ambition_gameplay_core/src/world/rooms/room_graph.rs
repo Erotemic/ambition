@@ -95,6 +95,21 @@ impl RoomTransitionRequested {
     }
 }
 
+/// Bevy message emitted when a room's contents finish STAGING — written by
+/// `spawn_room_feature_entities`, the one choke point every staging path
+/// flows through (initial session build, room transitions, sandbox reset,
+/// LDtk hot-reload restage). The JD4 seam for imperative per-room content
+/// staging: a content system reads this instead of change-detecting the
+/// active room id or hooking the engine's spawn internals.
+///
+/// Written via `Commands`, so readers observe it once the staging commands
+/// have applied — the room's feature entities are already live.
+#[derive(Message, Clone, Debug)]
+pub struct RoomLoaded {
+    /// The staged room's id (`RoomSpec::id` — the LDtk active-area id).
+    pub room_id: String,
+}
+
 /// Small room graph for early loading-zone tests.
 #[derive(Resource, Clone, Debug)]
 pub struct RoomSet {

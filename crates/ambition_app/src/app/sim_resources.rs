@@ -24,12 +24,12 @@ use bevy::prelude::*;
 use bevy_common_assets::ron::RonAssetPlugin;
 
 use super::setup_systems::setup_simulation_system;
-use ambition_sfx::SfxMessage;
 use ambition_gameplay_core::game_mode::GameMode;
 use ambition_gameplay_core::session::data;
 use ambition_gameplay_core::world::physics::DebrisBurstMessage;
 use ambition_gameplay_core::ActorDiedMessage;
 use ambition_render::fx::{ExplosionRequest, FireworksRequest, VfxMessage};
+use ambition_sfx::SfxMessage;
 
 pub struct SandboxSimulationResourcesPlugin;
 
@@ -53,6 +53,10 @@ impl Plugin for SandboxSimulationResourcesPlugin {
             .add_message::<ambition_gameplay_core::features::GameplayBannerRequested>()
             .add_message::<ambition_gameplay_core::player::PlayerHealRequested>()
             .add_message::<ambition_gameplay_core::rooms::RoomTransitionRequested>()
+            // Staging fact: a room's contents finished spawning (JD4).
+            // Written by `spawn_room_feature_entities`; consumed by content
+            // systems that stage per-room extras imperatively.
+            .add_message::<ambition_gameplay_core::rooms::RoomLoaded>()
             // ADR 0010 — time-control vocabulary. Gameplay code writes
             // ClockScaleRequest instead of mutating SandboxSimState::
             // time_scale directly; apply_clock_scale_requests consults

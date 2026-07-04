@@ -494,6 +494,7 @@ fn damage_volume_path_id_resolves_through_room_spec_kinematic_paths() {
         .expect("room should exist");
     let room = room.clone();
     let mut app = bevy::prelude::App::new();
+    app.add_message::<crate::rooms::RoomLoaded>();
     app.add_systems(
         bevy::prelude::Update,
         move |mut commands: bevy::prelude::Commands| {
@@ -509,4 +510,12 @@ fn damage_volume_path_id_resolves_through_room_spec_kinematic_paths() {
     assert_eq!(hazards[0].hazard.pos, ae::Vec2::new(96.0, 128.0));
     hazards[0].hazard.update(0.5);
     assert_eq!(hazards[0].hazard.pos, ae::Vec2::new(144.0, 128.0));
+
+    // Staging emits the JD4 fact exactly once, carrying the staged room id.
+    let staged: Vec<String> = world
+        .resource_mut::<bevy::prelude::Messages<crate::rooms::RoomLoaded>>()
+        .drain()
+        .map(|message| message.room_id)
+        .collect();
+    assert_eq!(staged, vec!["hazard_path_lab".to_string()]);
 }

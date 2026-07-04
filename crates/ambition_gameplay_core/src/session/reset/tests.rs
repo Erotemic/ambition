@@ -197,8 +197,10 @@ fn min_app() -> App {
     app.insert_resource(EditableMovementTuning::default());
     // The processor now emits `RespawnRoomVisualsRequested` instead of spawning
     // visuals inline (the render layer consumes it); register the message so the
-    // headless test app can run the system.
+    // headless test app can run the system. Restaging the start room also
+    // emits the `RoomLoaded` staging fact (JD4).
     app.add_message::<crate::session::RespawnRoomVisualsRequested>();
+    app.add_message::<crate::rooms::RoomLoaded>();
     app.add_systems(Update, process_sandbox_reset_request);
     app
 }

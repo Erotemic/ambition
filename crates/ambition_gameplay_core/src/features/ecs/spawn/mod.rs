@@ -98,6 +98,15 @@ pub fn spawn_room_feature_entities(commands: &mut Commands, room: &crate::rooms:
         // Cross-wire the mutual grudge now that both fighters exist.
         super::spawn_actors::wire_staged_grudges(commands, &staged);
     }
+
+    // The staging fact (JD4): every path that stages a room's contents flows
+    // through this function, so this is the ONE emission site for
+    // `RoomLoaded`. Content systems consume it for imperative per-room
+    // staging. Requires `Messages<RoomLoaded>` to be registered (the sim
+    // resources plugin does; minimal test worlds add_message it).
+    commands.write_message(crate::rooms::RoomLoaded {
+        room_id: room.id.clone(),
+    });
 }
 
 /// Spawn one hostile actor for an encounter wave.

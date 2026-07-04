@@ -730,7 +730,26 @@ mechanical one — hence deferred to a fresh session with Jon's steer.
 **Reassuring (NOT blockers):** offense scaling survives — the settings
 `player_damage_multiplier` scales at `resolve_body_hit` downstream of authored
 damage, and `BodyOffense.damage_multiplier` has no in-game upgrade wired, so
-authored `damage` matches the flat base. The affordance HUD stays (labels only). **Scope discovered** (from the
+authored `damage` matches the flat base. The affordance HUD stays (labels only).
+
+**Prototyped-then-reverted (the authoring is trivial once the design lands):**
+a `player_moveset()` builder from the parity table (jab / u-&d-tilt / 4 aerials
++ pogo down-air) resolved every direction correctly in a unit test, and stamping
+`knock_x = facing * volume.knockback` for a FollowOwner strike gives a folded
+player knockback. Both were REVERTED — they are speculative until the two design
+decisions below land (the code is a ~30-min re-author, not the hard part).
+
+**SECOND open conflict, found by wiring the live switch (needs design):** the
+`from_scratch_as_character` path (the landed "player wears any catalog character"
+feature) overrides the player's melee via `overlay_character_moveset` on the
+`ActionSet`. Attaching a FIXED `player_moveset()` + `MovesetMelee` unconditionally
+REGRESSES that feature (a starting character loses its custom melee) — a
+functional regression, not feel. The fold must build the player's `ActorMoveset`
+so it RESPECTS the character override (derive directional variants from the
+character kit, or merge). So the live switch is deferred with TWO design
+decisions — world-orb pogo eligibility + character-moveset reconciliation — plus
+the BLIND feel deltas. The R2 ENGINE + the parity table are in hand; the fold is
+a focused next session that starts from these two decisions. **Scope discovered** (from the
 flat `attack_spec_from_view` parity table in `ambition_combat`): the moveset must
 grow to match the flat directional swing, OR author approximate moves and let Jon
 tune feel (pre-release license). Gaps between `HitVolume`/`MoveSpec` and the flat

@@ -242,33 +242,21 @@ impl Plugin for AmbitionAssetSourcePlugin {
 /// loudly if any one of those three pieces is missing.
 #[allow(unused_variables)]
 fn register_embedded_assets(app: &mut App) {
-    #[cfg(feature = "static_map")]
+    // World JSON: every installed WorldManifest row that carries embedded
+    // text registers its bytes under the row's EmbeddedBinary URL — the
+    // same text the serde loader parses, so the two embedded
+    // representations can never diverge.
     {
         use bevy::asset::io::embedded::EmbeddedAssetRegistry;
         use std::path::{Path, PathBuf};
 
-        let embedded = app.world_mut().resource_mut::<EmbeddedAssetRegistry>();
-        embedded.insert_asset(
-            PathBuf::new(),
-            Path::new(EMBEDDED_SANDBOX_LDTK_ASSET_PATH),
-            include_bytes!("../../../assets/ambition/worlds/sandbox.ldtk") as &[u8],
-        );
-        embedded.insert_asset(
-            PathBuf::new(),
-            Path::new(EMBEDDED_INTRO_LDTK_ASSET_PATH),
-            include_bytes!("../../../assets/ambition/worlds/intro.ldtk") as &[u8],
-        );
-        embedded.insert_asset(
-            PathBuf::new(),
-            Path::new(EMBEDDED_CUT_ROPE_LDTK_ASSET_PATH),
-            include_bytes!("../../../assets/ambition/worlds/you_have_to_cut_the_rope.ldtk")
-                as &[u8],
-        );
-        embedded.insert_asset(
-            PathBuf::new(),
-            Path::new(EMBEDDED_HALL_LDTK_ASSET_PATH),
-            include_bytes!("../../../assets/ambition/worlds/hall_of_characters.ldtk") as &[u8],
-        );
+        let mut embedded = app.world_mut().resource_mut::<EmbeddedAssetRegistry>();
+        for source in &crate::ldtk_world::world_manifest().worlds {
+            if let (Some(bevy_path), Some(text)) = (source.embedded_bevy_path, source.embedded_text)
+            {
+                embedded.insert_asset(PathBuf::new(), Path::new(bevy_path), text.as_bytes());
+            }
+        }
     }
     #[cfg(feature = "static_core_assets")]
     register_embedded_core_assets(app);

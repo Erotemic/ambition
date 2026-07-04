@@ -12,17 +12,19 @@ use std::time::SystemTime;
 
 use bevy::prelude::{Res, ResMut, Resource, Time};
 
-use crate::assets::sandbox_assets::{ids, SandboxAssetCatalog};
+use crate::assets::sandbox_assets::SandboxAssetCatalog;
 
 pub const SANDBOX_LDTK_ASSET: &str = "ambition/worlds/sandbox.ldtk";
 
 /// `[ambition_asset_manager_transition]` Bevy `AssetPath` string for the
-/// sandbox LDtk world. Used by the `bevy_ecs_ldtk` runtime spine to
-/// spawn `LdtkWorldBundle`s. The catalog will eventually own this — for
-/// now the path is the SANDBOX_LDTK_ASSET constant since
-/// `bevy_ecs_ldtk` always loads via the default asset source.
+/// PRIMARY LDtk world (the installed manifest's first row). Used by the
+/// `bevy_ecs_ldtk` runtime spine to spawn `LdtkWorldBundle`s via the
+/// default asset source.
 pub fn sandbox_ldtk_asset_path() -> String {
-    SANDBOX_LDTK_ASSET.to_string()
+    super::manifest::world_manifest()
+        .primary()
+        .asset_path
+        .clone()
 }
 
 #[derive(Resource, Clone, Debug)]
@@ -66,7 +68,8 @@ impl LdtkHotReloadState {
     /// idle and `poll_ldtk_file_changes` short-circuits.
     pub fn from_catalog(catalog: &SandboxAssetCatalog) -> Self {
         let mut state = Self::default();
-        let watch_path = catalog.hot_reload_local_path(&ids::sandbox_ldtk());
+        let primary = &super::manifest::world_manifest().primary().id;
+        let watch_path = catalog.hot_reload_local_path(primary);
         let Some(path) = watch_path else {
             state.last_status = format!(
                 "LDtk hot reload inactive: profile {} does not support filesystem watching",

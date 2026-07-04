@@ -1,5 +1,7 @@
-//! World / level data builders: LDtk projects (`sandbox.ldtk`,
-//! `intro.ldtk`, `you_have_to_cut_the_rope.ldtk`) and the sandbox tuning RON.
+//! World / level data builders: LDtk project entries derived from the
+//! installed [`crate::ldtk_world::WorldManifest`], plus the sandbox tuning
+//! RON. No world is named here — the manifest rows carry identity, paths,
+//! and embedded candidates.
 
 use ambition_asset_manager::{
     AssetEntry, AssetKind, AssetLocation, AssetManifest, AssetSourceProfile, MissingAssetPolicy,
@@ -7,113 +9,44 @@ use ambition_asset_manager::{
 };
 
 use super::super::ids;
-use super::super::{
-    EMBEDDED_CUT_ROPE_LDTK_ASSET_PATH, EMBEDDED_HALL_LDTK_ASSET_PATH,
-    EMBEDDED_INTRO_LDTK_ASSET_PATH, EMBEDDED_SANDBOX_LDTK_ASSET_PATH,
-};
 
-/// LDtk world entries. The primary `world.sandbox_ldtk` is required —
-/// the game cannot run without it. Secondary worlds (`world.intro_ldtk`
-/// and `world.cut_rope_ldtk` today) are optional: the merge loader skips them silently if the
-/// catalog reports them disabled, matching the prior "tolerate missing
-/// secondary file" behavior.
+/// LDtk world entries, one per installed [`crate::ldtk_world::WorldSource`]
+/// row. A `required` row (the primary) gets `MissingAssetPolicy::Error` —
+/// the game cannot run without it; optional secondaries get
+/// `WarnAndPlaceholder` so the merge loader skips them silently when a
+/// partial checkout lacks the file.
 ///
-/// Explicit `LooseFilesystem` candidates carry the absolute
-/// `CARGO_MANIFEST_DIR/assets/...` path so the desktop hot-reload
-/// watcher (primary world only) can find a `LocalPath` to inotify.
+/// A row's `loose_path` becomes the explicit `LooseFilesystem` candidate so
+/// the desktop hot-reload watcher (primary world only) has a `LocalPath` to
+/// inotify; its `embedded_bevy_path` becomes the `EmbeddedBinary` candidate
+/// the static profiles resolve to.
 pub(in super::super) fn extend_with_world_entries(manifest: &mut AssetManifest) {
-    let loose_sandbox = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
-        .join("assets")
-        .join(crate::ldtk_world::SANDBOX_LDTK_ASSET);
-    manifest.insert(
-        AssetEntry::new(
-            ids::sandbox_ldtk(),
+    for source in &crate::ldtk_world::world_manifest().worlds {
+        let mut entry = AssetEntry::new(
+            source.id.clone(),
             AssetKind::LdtkProject,
-            crate::ldtk_world::SANDBOX_LDTK_ASSET,
+            source.asset_path.as_str(),
         )
-        .with_missing_policy(MissingAssetPolicy::Error)
-        .with_preload_group(PreloadGroup::Bootstrap)
-        .with_location(
-            AssetSourceProfile::LooseFilesystem,
-            AssetLocation::LocalPath(loose_sandbox),
-        )
-        .with_location(
-            AssetSourceProfile::EmbeddedBinary,
-            AssetLocation::embedded(EMBEDDED_SANDBOX_LDTK_ASSET_PATH),
-        ),
-    );
-
-    // intro.ldtk lives next to sandbox.ldtk and is loaded by the
-    // secondary-worlds merge step. Optional today because a fresh
-    // checkout without the intro file should still boot the sandbox.
-    let loose_intro = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
-        .join("assets")
-        .join("ambition/worlds/intro.ldtk");
-    manifest.insert(
-        AssetEntry::new(
-            ids::intro_ldtk(),
-            AssetKind::LdtkProject,
-            "ambition/worlds/intro.ldtk",
-        )
-        .with_missing_policy(MissingAssetPolicy::WarnAndPlaceholder)
-        .with_preload_group(PreloadGroup::Bootstrap)
-        .with_location(
-            AssetSourceProfile::LooseFilesystem,
-            AssetLocation::LocalPath(loose_intro),
-        )
-        .with_location(
-            AssetSourceProfile::EmbeddedBinary,
-            AssetLocation::embedded(EMBEDDED_INTRO_LDTK_ASSET_PATH),
-        ),
-    );
-
-    // Cut-rope boss arena lives in its own LDtk file while the Hall of Bosses
-    // remains in sandbox.ldtk. Optional for the same reason as intro.ldtk:
-    // a partial checkout can still boot the sandbox without the side world.
-    let loose_cut_rope = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
-        .join("assets")
-        .join("ambition/worlds/you_have_to_cut_the_rope.ldtk");
-    manifest.insert(
-        AssetEntry::new(
-            ids::cut_rope_ldtk(),
-            AssetKind::LdtkProject,
-            "ambition/worlds/you_have_to_cut_the_rope.ldtk",
-        )
-        .with_missing_policy(MissingAssetPolicy::WarnAndPlaceholder)
-        .with_preload_group(PreloadGroup::Bootstrap)
-        .with_location(
-            AssetSourceProfile::LooseFilesystem,
-            AssetLocation::LocalPath(loose_cut_rope),
-        )
-        .with_location(
-            AssetSourceProfile::EmbeddedBinary,
-            AssetLocation::embedded(EMBEDDED_CUT_ROPE_LDTK_ASSET_PATH),
-        ),
-    );
-
-    // The generated Hall of Characters lives in its own file (regenerated
-    // wholesale from character_catalog.ron), merged like the other secondary
-    // worlds. Optional for the same reason: a partial checkout still boots.
-    let loose_hall = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
-        .join("assets")
-        .join("ambition/worlds/hall_of_characters.ldtk");
-    manifest.insert(
-        AssetEntry::new(
-            ids::hall_ldtk(),
-            AssetKind::LdtkProject,
-            "ambition/worlds/hall_of_characters.ldtk",
-        )
-        .with_missing_policy(MissingAssetPolicy::WarnAndPlaceholder)
-        .with_preload_group(PreloadGroup::Bootstrap)
-        .with_location(
-            AssetSourceProfile::LooseFilesystem,
-            AssetLocation::LocalPath(loose_hall),
-        )
-        .with_location(
-            AssetSourceProfile::EmbeddedBinary,
-            AssetLocation::embedded(EMBEDDED_HALL_LDTK_ASSET_PATH),
-        ),
-    );
+        .with_missing_policy(if source.required {
+            MissingAssetPolicy::Error
+        } else {
+            MissingAssetPolicy::WarnAndPlaceholder
+        })
+        .with_preload_group(PreloadGroup::Bootstrap);
+        if let Some(loose) = &source.loose_path {
+            entry = entry.with_location(
+                AssetSourceProfile::LooseFilesystem,
+                AssetLocation::LocalPath(loose.clone()),
+            );
+        }
+        if let Some(bevy_path) = source.embedded_bevy_path {
+            entry = entry.with_location(
+                AssetSourceProfile::EmbeddedBinary,
+                AssetLocation::embedded(bevy_path),
+            );
+        }
+        manifest.insert(entry);
+    }
 }
 
 /// Sandbox tuning RON entry. Required — the game refuses to run

@@ -1,147 +1,118 @@
 //! LDtk file-loading policy.
 //!
-//! Decides whether the live build reads the checked-in external
-//! `assets/ambition/worlds/sandbox.ldtk`, an env-override path, or
-//! the statically packed copy embedded into the binary on Android /
-//! Web. Pure I/O policy — no validation or runtime conversion lives
-//! here.
+//! Decides whether the live build reads a world's checked-in file from
+//! disk, an env-override path, or the statically embedded copy — for
+//! every world the installed [`super::manifest::WorldManifest`] declares.
+//! Pure I/O policy — no validation or runtime conversion lives here, and
+//! no world is named here (the manifest rows carry identity, paths, and
+//! embedded fallbacks).
 //!
-//! The path itself is selected by
+//! Per row, the path is selected by
 //! [`crate::assets::sandbox_assets::SandboxAssetCatalog`] under the active
 //! [`ambition_asset_manager::AssetProfile`]:
 //! - `DesktopDevLoose` / `DesktopInstalled` / `SteamDeckInstalled` →
 //!   `LocalPath` resolved against the canonical assets root.
 //! - `AndroidBundle` / `IosBundle` / `WebStatic` / `BundledStatic` →
-//!   embedded fallback (the `static_map` feature provides the bytes
-//!   via `include_str!`).
+//!   the row's `embedded_text` (present when the authoring crate built
+//!   with its static-embed feature).
 //! - `WebHttp` → HTTP candidate if authored; currently falls back to
 //!   embedded.
 //! - `NoAssets` / `Headless` → `Disabled` → loader returns the
-//!   required-asset error.
+//!   required-asset error for the primary world.
 //!
 //! ## Multi-file world composition
 //!
-//! Story-content zones (intro, future real-game-map zones) live in
-//! separate `.ldtk` source files next to sandbox.ldtk. They are
-//! authored against the same project defs (cloned via
-//! `python -m ambition_ldtk_tools world init`) so their entity/layer
-//! uids match the sandbox's — that means the runtime can simply
-//! append their `levels` arrays into the merged in-memory
-//! `LdtkProject` without remapping anything. Every level keeps its
-//! own iid, its own activeArea, and its own LoadingZone targets, so
-//! cross-file room transitions work via the standard target_room
-//! mechanism.
+//! Secondary worlds are authored against the same project defs as the
+//! primary (cloned via `python -m ambition_ldtk_tools world init`) so their
+//! entity/layer uids match — the runtime simply appends their `levels`
+//! arrays into the merged in-memory `LdtkProject` without remapping.
+//! Every level keeps its own iid, activeArea, and LoadingZone targets, so
+//! cross-file room transitions work via the standard target_room mechanism.
 
 use std::fs;
 use std::path::Path;
 
-use ambition_asset_manager::AssetId;
+use crate::assets::sandbox_assets::SandboxAssetCatalog;
 
-use crate::assets::sandbox_assets::{ids, SandboxAssetCatalog};
-
+use super::manifest::{world_manifest, WorldSource};
 use super::project::LdtkProject;
 
-/// Story-content world ids appended into the runtime project on top of
-/// `world.sandbox_ldtk`. Each id is looked up through
-/// [`SandboxAssetCatalog`]; the resolved location decides whether to
-/// read from disk (DesktopDevLoose) or fall back to the embedded
-/// static copy (Web / Android / Bundled).
-///
-/// Adding a new secondary world entails (1) a catalog id constructor
-/// under [`crate::assets::sandbox_assets::ids`], (2) a manifest entry in
-/// `crate::assets::sandbox_assets::extend_with_world_entries`, and (3) one
-/// row here. Missing entries are tolerated so a partial checkout
-/// still boots `sandbox.ldtk` alone.
-fn secondary_world_ids() -> Vec<AssetId> {
-    vec![ids::intro_ldtk(), ids::cut_rope_ldtk(), ids::hall_ldtk()]
-}
-
 impl LdtkProject {
-    /// Load the sandbox LDtk project through the asset catalog.
+    /// Load the manifest's primary LDtk world through the asset catalog and
+    /// merge every secondary world onto it.
     ///
-    /// Resolves the `sandbox_ldtk` asset id (defined in the private
-    /// `crate::assets::sandbox_assets::ids` module) under the active
-    /// [`ambition_asset_manager::AssetProfile`]:
-    ///
-    /// - Desktop loose/installed: reads the file at the catalog's
-    ///   `LocalPath` candidate and falls back to the embedded static
-    ///   map (when the `static_map` feature is enabled) if disk IO
-    ///   fails. Hot reload remains armed via
+    /// - Filesystem-resident location: reads the file at the catalog's
+    ///   `LocalPath` candidate, falling back to the row's embedded text if
+    ///   disk IO fails. Hot reload remains armed via
     ///   [`crate::ldtk_world::LdtkHotReloadState`].
-    /// - Android / iOS / Web / Bundled static: uses the embedded
-    ///   `include_str!` byte stream from `load_static_map` (only
-    ///   compiled with the `static_map` feature).
+    /// - Embedded / Bevy-path-only locations (Android, iOS, web, bundled):
+    ///   parses the row's `embedded_text`.
     /// - `NoAssets` / `Headless`: returns the required-asset error
     ///   (matches [`ambition_asset_manager::MissingAssetPolicy::Error`]).
     pub fn load_default(catalog: &SandboxAssetCatalog) -> Result<Self, String> {
+        let manifest = world_manifest();
+        let primary = manifest.primary();
         let resolved = catalog
-            .resolve(&ids::sandbox_ldtk())
+            .resolve(&primary.id)
             .map_err(|err| format!("LDtk resolve failed: {err}"))?;
 
-        // Disabled under NoAssets / Headless — the asset is required
+        // Disabled under NoAssets / Headless — the primary world is required
         // (MissingAssetPolicy::Error) so the catalog tolerance check
         // controls whether this is fatal.
         if resolved.location.is_disabled() {
-            return Err(
-                "sandbox LDtk world is disabled under the active asset profile; \
+            return Err(format!(
+                "primary LDtk world '{}' is disabled under the active asset profile; \
                  this is fatal (MissingAssetPolicy::Error). Pick a profile that \
-                 ships the LDtk world or rebuild with `--features static_map`."
-                    .to_string(),
-            );
+                 ships the LDtk world or build the world-owning crate with its \
+                 static-embed feature.",
+                primary.id
+            ));
         }
 
         // Filesystem-resident location: read from disk; on IO failure,
-        // fall back to the embedded copy when `static_map` is enabled.
+        // fall back to the row's embedded copy when one is compiled in.
         if let Some(local) = resolved.location.as_local_path() {
             match Self::load_from_path(local) {
                 Ok(mut project) => {
-                    merge_secondary_worlds_via_catalog(&mut project, catalog);
+                    merge_secondary_worlds(&mut project, catalog);
                     return Ok(project);
                 }
                 Err(error) => {
-                    #[cfg(feature = "static_map")]
-                    {
-                        eprintln!(
-                            "LDtk warning: {error}; falling back to statically packed sandbox.ldtk"
-                        );
-                        let mut project = Self::load_static_map().map_err(|fallback_error| {
-                            format!(
-                                "{error}; statically packed sandbox.ldtk also failed: \
-                                     {fallback_error}"
-                            )
-                        })?;
-                        merge_static_secondary_worlds(&mut project);
-                        return Ok(project);
-                    }
-                    #[cfg(not(feature = "static_map"))]
-                    {
+                    let Some(text) = primary.embedded_text else {
                         return Err(format!(
-                            "{error}. No statically packed fallback is available in this build; \
-                             restore the LDtk asset or rebuild with `--features static_map`."
+                            "{error}. No statically embedded fallback is available in this \
+                             build; restore the LDtk asset or build the world-owning crate \
+                             with its static-embed feature."
                         ));
-                    }
+                    };
+                    eprintln!(
+                        "LDtk warning: {error}; falling back to the statically embedded '{}'",
+                        primary.id
+                    );
+                    let mut project =
+                        parse_world_text(text, primary).map_err(|fallback_error| {
+                            format!("{error}; the embedded copy also failed: {fallback_error}")
+                        })?;
+                    merge_secondary_worlds(&mut project, catalog);
+                    return Ok(project);
                 }
             }
         }
 
         // Embedded / Bevy-path-only locations (Android, web, bundled).
-        // The `static_map` feature provides the bytes via include_str!.
-        #[cfg(feature = "static_map")]
-        {
-            let mut project = Self::load_static_map()?;
-            merge_static_secondary_worlds(&mut project);
-            Ok(project)
-        }
-        #[cfg(not(feature = "static_map"))]
-        {
-            Err(format!(
-                "sandbox LDtk world resolved to {:?} under {} profile, but the build \
-                 has no `static_map` feature to read the embedded bytes. Either build with \
-                 `--features static_map` or pick a profile that resolves to a LocalPath.",
+        let Some(text) = primary.embedded_text else {
+            return Err(format!(
+                "primary LDtk world '{}' resolved to {:?} under {} profile, but the \
+                 build embeds no world text. Either build the world-owning crate with \
+                 its static-embed feature or pick a profile that resolves to a LocalPath.",
+                primary.id,
                 resolved.location,
                 resolved.profile.label(),
-            ))
-        }
+            ));
+        };
+        let mut project = parse_world_text(text, primary)?;
+        merge_secondary_worlds(&mut project, catalog);
+        Ok(project)
     }
 
     /// Test / headless / RL shortcut: build a desktop-dev catalog and
@@ -154,10 +125,17 @@ impl LdtkProject {
         Self::load_default(&catalog)
     }
 
-    #[cfg(feature = "static_map")]
+    /// Parse the manifest primary's statically embedded copy (embedded-only
+    /// build profiles; also the disk-failure fallback).
     pub fn load_static_map() -> Result<Self, String> {
-        serde_json::from_str(include_str!("../../../assets/ambition/worlds/sandbox.ldtk"))
-            .map_err(|error| format!("could not parse statically packed sandbox.ldtk: {error}"))
+        let primary = world_manifest().primary();
+        let Some(text) = primary.embedded_text else {
+            return Err(format!(
+                "primary LDtk world '{}' has no statically embedded copy in this build",
+                primary.id
+            ));
+        };
+        parse_world_text(text, primary)
     }
 
     /// Hot-reload re-parse helper: read the LDtk file the watcher
@@ -166,7 +144,7 @@ impl LdtkProject {
     /// hot-reload system has both resources in hand.
     pub fn load_from_disk_at(path: &Path, catalog: &SandboxAssetCatalog) -> Result<Self, String> {
         let mut project = Self::load_from_path(path)?;
-        merge_secondary_worlds_via_catalog(&mut project, catalog);
+        merge_secondary_worlds(&mut project, catalog);
         Ok(project)
     }
 
@@ -179,80 +157,53 @@ impl LdtkProject {
     }
 }
 
-/// Walk the catalog-driven [`secondary_world_ids`] list and append
-/// each present file's levels into `project`. Missing or disabled
-/// entries are skipped silently; malformed files log a warning and
-/// the sandbox keeps booting. Only `LocalPath` resolutions (desktop
-/// profiles) are read here — embedded/static secondary worlds flow
-/// through [`merge_static_secondary_worlds`].
-fn merge_secondary_worlds_via_catalog(project: &mut LdtkProject, catalog: &SandboxAssetCatalog) {
-    for id in secondary_world_ids() {
-        let Ok(resolved) = catalog.resolve(&id) else {
-            continue;
-        };
-        let Some(local) = resolved.location.as_local_path() else {
-            // Embedded / disabled / bevy-only locations don't read
-            // through disk IO. Skip — `merge_static_secondary_worlds`
-            // handles the embedded path on static profiles.
-            continue;
-        };
-        if !local.exists() {
-            continue;
-        }
-        match LdtkProject::load_from_path(local) {
-            Ok(secondary) => append_levels(project, secondary, id.as_str()),
-            Err(error) => {
-                eprintln!(
-                    "LDtk warning: could not load secondary world '{id}' from {}: {error}; \
-                     continuing without it",
-                    local.display()
-                );
+fn parse_world_text(text: &str, source: &WorldSource) -> Result<LdtkProject, String> {
+    serde_json::from_str(text).map_err(|error| {
+        format!(
+            "could not parse statically embedded LDtk world '{}': {error}",
+            source.id
+        )
+    })
+}
+
+/// Walk the manifest's secondary worlds and append each resolvable one's
+/// levels into `project`. Per row: prefer the catalog's on-disk copy;
+/// fall back to the row's embedded text; skip (secondaries are optional)
+/// when neither is available. Malformed files log a warning and the
+/// primary keeps booting.
+fn merge_secondary_worlds(project: &mut LdtkProject, catalog: &SandboxAssetCatalog) {
+    for source in world_manifest().secondaries() {
+        if let Ok(resolved) = catalog.resolve(&source.id) {
+            if let Some(local) = resolved.location.as_local_path() {
+                if local.exists() {
+                    match LdtkProject::load_from_path(local) {
+                        Ok(secondary) => {
+                            append_levels(project, secondary, source.id.as_str());
+                        }
+                        Err(error) => {
+                            eprintln!(
+                                "LDtk warning: could not load secondary world '{}' from {}: \
+                                 {error}; continuing without it",
+                                source.id,
+                                local.display()
+                            );
+                        }
+                    }
+                    continue;
+                }
             }
         }
+        // No usable on-disk copy — embedded fallback (static profiles),
+        // else skip: secondaries are optional so a partial checkout boots.
+        let Some(text) = source.embedded_text else {
+            continue;
+        };
+        match parse_world_text(text, source) {
+            Ok(secondary) => append_levels(project, secondary, source.id.as_str()),
+            Err(error) => eprintln!("LDtk warning: {error}; continuing without it"),
+        }
     }
 }
-
-#[cfg(feature = "static_map")]
-fn merge_static_secondary_worlds(project: &mut LdtkProject) {
-    // Android `static_map` builds embed the sandbox map at compile
-    // time. Secondary worlds need the same treatment — `include_str!`
-    // each known file when it exists in the workspace. We currently
-    // hard-code the intro because there's exactly one secondary
-    // file; a build-time codegen pass can replace this when the list
-    // grows.
-    const INTRO_LDTK_STATIC: &str = include_str!("../../../assets/ambition/worlds/intro.ldtk");
-    match serde_json::from_str::<LdtkProject>(INTRO_LDTK_STATIC) {
-        Ok(secondary) => append_levels(project, secondary, "intro.ldtk"),
-        Err(error) => eprintln!(
-            "LDtk warning: could not parse statically packed intro.ldtk: {error}; \
-             continuing without it"
-        ),
-    }
-
-    const CUT_ROPE_LDTK_STATIC: &str =
-        include_str!("../../../assets/ambition/worlds/you_have_to_cut_the_rope.ldtk");
-    match serde_json::from_str::<LdtkProject>(CUT_ROPE_LDTK_STATIC) {
-        Ok(secondary) => append_levels(project, secondary, "you_have_to_cut_the_rope.ldtk"),
-        Err(error) => eprintln!(
-            "LDtk warning: could not parse statically packed you_have_to_cut_the_rope.ldtk: {error}; \
-             continuing without it"
-        ),
-    }
-
-    const HALL_LDTK_STATIC: &str =
-        include_str!("../../../assets/ambition/worlds/hall_of_characters.ldtk");
-    match serde_json::from_str::<LdtkProject>(HALL_LDTK_STATIC) {
-        Ok(secondary) => append_levels(project, secondary, "hall_of_characters.ldtk"),
-        Err(error) => eprintln!(
-            "LDtk warning: could not parse statically packed hall_of_characters.ldtk: {error}; \
-             continuing without it"
-        ),
-    }
-}
-
-#[cfg(not(feature = "static_map"))]
-#[allow(dead_code)]
-fn merge_static_secondary_worlds(_project: &mut LdtkProject) {}
 
 fn append_levels(project: &mut LdtkProject, secondary: LdtkProject, source_label: &str) {
     let added = secondary.levels.len();

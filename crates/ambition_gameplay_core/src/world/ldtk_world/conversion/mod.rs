@@ -54,14 +54,18 @@ impl LdtkProject {
                 .push(level);
         }
 
-        let start_room = if area_levels.contains_key("central_hub_complex") {
-            "central_hub_complex".to_string()
+        // The game's installed WorldManifest names where play starts; a
+        // project without that area (synthetic fixtures, partial checkouts)
+        // starts in its first composed area.
+        let entry_room = super::manifest::world_manifest().entry_room.as_str();
+        let start_room = if area_levels.contains_key(entry_room) {
+            entry_room.to_string()
         } else {
             area_levels
                 .keys()
                 .next()
                 .cloned()
-                .unwrap_or_else(|| "central_hub_complex".to_string())
+                .unwrap_or_else(|| entry_room.to_string())
         };
 
         let links = self.collect_room_links();

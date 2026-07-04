@@ -38,6 +38,7 @@ mod fields;
 mod hot_reload;
 mod intgrid;
 mod loading;
+mod manifest;
 mod project;
 mod surfaces;
 #[cfg(test)]
@@ -53,6 +54,10 @@ pub use conversion::{
 pub use hot_reload::{
     poll_ldtk_file_changes, sandbox_ldtk_asset_path, LdtkHotReloadState, SANDBOX_LDTK_ASSET,
 };
+// The WorldManifest install seam (JD4): a game declares its LDtk worlds +
+// entry room; the engine ships zero worlds and hardcodes no start room.
+pub(crate) use manifest::world_manifest;
+pub use manifest::{install_world_manifest, WorldManifest, WorldSource};
 pub use project::{
     LdtkEntityInstance, LdtkFieldInstance, LdtkLayerInstance, LdtkLevel, LdtkProject,
     SandboxLdtkProject,

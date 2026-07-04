@@ -970,3 +970,75 @@ already proven five times over.
 - **Deferred-by-design:** the build.rs sprite-RON bake + backgrounds/boss
   art + the OGG tree (the asset-ROOT flip) — they ride the R4e sprite-sheet
   seam; the Bevy asset root still points at core's assets/ until then.
+
+---
+
+## R3.4 — named-residue sweep (executor: opus, 2026-07-04)
+
+**Prelude fix (`b28406e9`):** the R3.2b landing left `ambition_content/src/worlds.rs`
+UNSTAGED — `lib.rs` had `pub mod worlds;` + `plugin.rs`/`content_validation.rs`
+called `worlds::install()`, so `main` did not compile on a fresh clone (built
+locally only because the untracked file sat in the tree). Staged it; also
+removed a stale duplicate `gameplay_core/assets/data/character_catalog.ron`.
+
+Landed the NON-blocked residue (each gated + committed):
+- **#4 bark tables (`248eb9cc`)** — the per-character hit/hostile/idle bark
+  pools (~200 lines of `key`/`name` substring tables) DELETED from
+  `features/npcs.rs`; the catalog `barks` field (populated by R3.2a-iii) is the
+  sole voice source, with a single engine-GENERIC default for anonymous actors.
+  The placed parrot carries `character_id: "stochastic_parrot"` so its idle
+  voice resolves from the catalog. −260 net lines. gameplay_core --lib 1133.
+- **#9 boss constructors (`2edaef0f`)** — the nine `pub fn <boss>()` on
+  `BossBehaviorProfile` were named content in the production API. Six had zero
+  callers (deleted); the two production fallbacks (`generic`/`for_authored_boss`)
+  repoint to `from_data("clockwork_warden")`; the three test-used ones move to a
+  `#[cfg(test)]` impl. The engine's production API now names no boss.
+- **bosses.rs slugs / self-dodge (`8e8f0d3d`)** — `spawn_actors` string-matched
+  `GNU_TON_ENCOUNTER_ID` to grant GNU-ton an apple-rain self-dodge; now a
+  generic `BossBehaviorProfile.self_dodge: Option<(amp,freq)>` DATA field
+  (authored `Some((70.0, 1.6))` for gnu_ton; brain fields renamed
+  `apple_rain_dodge_*`→`self_dodge_*`). `GNU_TON_ENCOUNTER_ID` +
+  already-dead `GRADIENT_SENTINEL_ENCOUNTER_ID` deleted. Byte-identical.
+- **MOCKINGBIRD_ENCOUNTER_ID (`051a32a3`)** — its "generalization plan" pointed
+  at `sync_mockingbird_treasure_chest`, which no longer exists (the chest folded
+  onto the generic `BossRewardProfile::DropChest`). Deleted from production
+  `ids.rs`; the literal is now a test-local fixture. `ids` ships only the
+  content-free slugging helper.
+
+Gate after the four content slices: full `cargo test --workspace --all-targets
+--features rl_sim --no-fail-fast` — only failure is the documented pre-existing
+RED `unified_melee::a_hostile_actor` (unified_melee.rs:117, unchanged).
+
+**REMAINING R3.4 — the residue that's BLOCKED, with the blocker named:**
+- **Asset-ROOT-blocked (ride R4e, NOT independently landable):** `ParallaxTheme`
+  (#6) — a closed biome enum; string-keying it needs the theme SET + alias table
+  to become an installable registry AND the parallax background PNGs to move to
+  content (manifest generation iterates `ParallaxTheme::ALL`). A half-version
+  that keeps 9 built-in themes in-engine is NOT a clean eviction. `pirate_weapon.rs`
+  (#7) + projectile visual kinds (apple/glider/lasersword) similarly reference
+  core-side sheet PNGs. **Fold these INTO R4e** (the sprite-sheet + asset-root
+  flip), not R3.4.
+- **LDtk-authoring-blocked (R3.3-residual / R3.5-adjacent):**
+  `HALL_OF_CHARACTERS_AREA = "hall_of_characters"` (update.rs:1281) switches NPC
+  barks to the `Hall` pool by matching the room id — the clean fix is a room
+  metadata `gallery: bool` flag authored in hall.ldtk (LDtk field + loader
+  wiring). Do it WITH the hall→authored-data item (AJ2) via ambition_ldtk_tools.
+- **Boss sheet statics (#5) + sync id→sheet arms (#8):** the 6 `BossSheetSpec`
+  LazyLock statics mirror `boss_sheets.ron` (pinned byte-identical by
+  `boss_sheets_ron_matches_builtin_defaults`); `sync.rs::sprite_target_for_boss`
+  + `sprite_render_size_for` are id→target→static matches. Evicting the statics
+  = making the installed RON the sole source + a `sprite_target` DATA field
+  (same shape as the self-dodge fix). This is entangled with R3.6 (profile
+  keys) and R4e (sprite metadata carve) — **best landed as the front half of
+  R3.6**, so a new boss is 100% RON.
+- **Borderline (documented, low-priority):** `StartingCharacter::DEFAULT_ID =
+  "player"` + `PLAYER_CHARACTER_ID`/`PLAYER_FILE_ROOT` — a default-character SEAM
+  (engine machinery) hardcoding a content id. Cleaner: content injects the
+  default (it knows `PLAYABLE_ROSTER[0]`). Touches several app setup files for
+  marginal gain; deferred.
+
+**Exit-grep status:** the named-content grep in engine crates now hits
+(a) the asset-blocked references above, (b) test fixtures (allowed), and
+(c) the boss-sheet statics — no longer the bark tables, boss constructors, or
+the encounter-id consts. R3.4's independent surface is landed; its remainder is
+correctly folded into R3.6 / R4e / the hall-data item.

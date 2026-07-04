@@ -93,7 +93,7 @@ audio = ["ambition_gameplay_core/audio", "ambition_content/audio", "dep:bevy_kir
 ui = ["ambition_gameplay_core/ui", "ambition_content/ui", "dep:bevy_material_ui", "dep:bevy_yarnspinner"]
 physics_debris = ["ambition_gameplay_core/physics_debris"]
 input = ["ambition_gameplay_core/input", "ambition_render/input", "dep:leafwing-input-manager"]
-mobile_touch = ["input", "ambition_gameplay_core/mobile_touch", "dep:virtual_joystick"]
+mobile_touch = ["input", "ambition_gameplay_core/mobile_touch", "ambition_touch_input/mobile_touch"]
 falling_sand = ["ambition_gameplay_core/falling_sand"]
 bevy_ui_menu = ["ambition_gameplay_core/bevy_ui_menu"]
 kaleidoscope_menu = ["ambition_gameplay_core/kaleidoscope_menu"]
@@ -108,6 +108,9 @@ ambition_cutscene = { path = "../ambition_cutscene" }
 ambition_engine_core = { path = "../ambition_engine_core" }
 ambition_characters = { path = "../ambition_characters" }
 ambition_input = { path = "../ambition_input" }
+# Touch/mobile input adapter — carved out of `src/host/mobile_input/` (app-thinness).
+# Its `mobile_touch` feature (forwarded below) gates the virtual-joystick plugin.
+ambition_touch_input = { path = "../ambition_touch_input" }
 ambition_ui_nav = { path = "../ambition_ui_nav" }
 ambition_platformer_primitives = { path = "../ambition_platformer_primitives" }
 ambition_asset_manager = { path = "../ambition_asset_manager", features = ["bevy", "sfx"] }
@@ -125,7 +128,6 @@ bevy-inspector-egui = { version = "0.36", optional = true }
 bevy_kira_audio = { version = "0.25", default-features = false, features = ["wav", "ogg"], optional = true }
 bevy_framepace = { version = "0.21", default-features = false, optional = true }
 leafwing-input-manager = { version = "0.20", optional = true }
-virtual_joystick = { version = "2.7.2", default-features = false, optional = true }
 console_error_panic_hook = { version = "0.1", optional = true }
 wasm-bindgen = { version = "0.2", optional = true }
 serde = { version = "1", features = ["derive"] }

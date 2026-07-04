@@ -151,6 +151,7 @@ dependencies = [
  "ambition_render",
  "ambition_sfx",
  "ambition_time",
+ "ambition_touch_input",
  "ambition_ui_nav",
  "ambition_vfx",
  "bevy",
@@ -173,7 +174,6 @@ dependencies = [
  "ron 0.11.0",
  "serde",
  "serde_json",
- "virtual_joystick",
  "wasm-bindgen",
 ]
 
@@ -442,6 +442,21 @@ name = "ambition_time"
 version = "0.1.0"
 dependencies = [
  "bevy",
+]
+
+[[package]]
+name = "ambition_touch_input"
+version = "0.1.0"
+dependencies = [
+ "ambition_cutscene",
+ "ambition_engine_core",
+ "ambition_gameplay_core",
+ "ambition_input",
+ "ambition_render",
+ "ambition_ui_nav",
+ "bevy",
+ "leafwing-input-manager",
+ "virtual_joystick",
 ]
 
 [[package]]

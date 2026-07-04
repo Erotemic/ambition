@@ -2781,7 +2781,18 @@ pogo schema — Jon's call).
   disposition/aggro vocabulary that seeds hostility is still frame-tainted
   (`disposition.is_hostile()`) — AD1's follow-up smell, reshape onto the fighting-state model.
 - **C1** (L) — 24-item `Item` enum → installable `ItemCatalog` (consumed across menu IR / yarn / persistence). **⚠ see JON DECISIONS #3 above — may be premature (C2-class scaffolding).**
-- **C4** (L) — machinery-owned `PlatformerEnginePlugin` group + fold `sim_systems.rs` into owning plugins + extract `host/mobile_input/` beside `ambition_input` + an app-thinness boundary test.
+- **C4** (L) — app-thinness. **PROGRESS (E57): `host/mobile_input/` (2.9k LOC) EXTRACTED ✅** to
+  the sibling `ambition_touch_input` crate (the touch adapter is reusable engine input, not host
+  glue — the "second game" oracle). Clean move (the module had ZERO app-only `use crate::` refs);
+  the app now WIRES `ambition_touch_input::TouchControlsPlugin` and forwards its `mobile_touch`
+  feature. Guarded by `architecture_boundaries_touch_input_crate_is_extracted`. **REMAINING
+  (each its own slice, ranked by tractability):** (1) fold `app/sim_systems.rs` (579 LOC, 7
+  systems) into owning library plugins — ENTANGLED (interleaved into the app-owned
+  `SandboxSet::PlayerInput` `.chain()` with `run_if` gates; two systems call the app-only
+  `world_flow::reset_sandbox`, which must move down first; one is NAMED content = cut-rope boss →
+  `ambition_content`). (2) A `PlatformerEnginePlugin` group collecting the ~30 engine plugins
+  hand-added in `plugins.rs` — sprawling design task. Neither is a clean one-pass; the review's
+  "boundary test" piece is subsumed by the guard test just added.
 - **C6** (M) — named-boss residue: the 11 geometry `BossAttackProfile` variants (post-E51, consumed by `volumes_for_profile` + hurtbox pose + anim rows) could collapse toward authored rect DATA; named constructors + `MOCKINGBIRD_*` consts; per-boss sheet specs → boss roster RON.
 - **C7 rider-name half** — BLOCKED on `ambition_ldtk_tools` (mount composition still parses `" on Shark"` from the spawn NAME; the fix authors a `mount:` spawn field).
 

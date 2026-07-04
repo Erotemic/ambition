@@ -3,9 +3,16 @@
 //! Goal: a sideloadable Pixel-class APK where the sandbox is playable
 //! with on-screen joysticks + controller-like touch buttons. The
 //! Leafwing keyboard/gamepad pipeline is the canonical desktop input
-//! surface; this module translates touch joystick + virtual buttons
+//! surface; this crate translates touch joystick + virtual buttons
 //! into the same `ControlFrame` resource the simulator already
 //! consumes.
+//!
+//! Extracted from `ambition_app::host::mobile_input` (app-thinness, ADR 0019):
+//! reusable touch-input infrastructure any platformer host would want, so it
+//! lives beside `ambition_input` as a sibling engine layer rather than inside the
+//! app binary. The module has no app-only coupling — it reads/writes only the
+//! `ambition_input` / `ambition_gameplay_core` / `ambition_render` / `ambition_ui_nav`
+//! / `ambition_cutscene` library seams.
 //!
 //! Two layers:
 //!
@@ -34,8 +41,7 @@
 //! - [`bevy_plugin`] — system registration, spawning, visuals,
 //!   resource/component definitions; `mobile_touch`-gated.
 //!
-//! Tests live in `mobile_input/tests.rs`. See `TODO.md` →
-//! "Android demo touch controls" for the full plan.
+//! Tests live in `tests.rs`.
 
 mod state;
 
@@ -64,3 +70,9 @@ pub use state::TouchButton;
 /// register the touch systems.
 #[cfg(feature = "mobile_touch")]
 pub mod bevy_plugin;
+
+/// The touch-controls Bevy plugin — the single entry point the host adds. Re-exported
+/// at the crate root so the host wires `ambition_touch_input::TouchControlsPlugin`
+/// without reaching into the submodule.
+#[cfg(feature = "mobile_touch")]
+pub use bevy_plugin::TouchControlsPlugin;

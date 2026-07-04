@@ -1019,13 +1019,15 @@ pub(super) fn add_input_plugins(app: &mut App) {
 #[cfg(not(feature = "input"))]
 pub(super) fn add_input_plugins(_app: &mut App) {}
 
-/// Register the [`TouchControlsPlugin`](crate::host::mobile_input::bevy_plugin::TouchControlsPlugin)
+/// Register the [`TouchControlsPlugin`](ambition_touch_input::TouchControlsPlugin)
 /// (`virtual_joystick` sticks + on-screen action buttons that fold into
-/// ControlFrame). Added UNCONDITIONALLY whenever the `mobile_touch`
-/// feature is compiled (which pulls the optional `virtual_joystick`
-/// dep) — there is no runtime boolean gating its existence. To rip the
-/// touch controls out, remove the single `add_plugins(TouchControlsPlugin)`
-/// line below. On builds compiled without `mobile_touch` this is a no-op.
+/// ControlFrame). The touch adapter lives in the sibling `ambition_touch_input`
+/// crate now (app-thinness); the app's `mobile_touch` feature forwards to
+/// `ambition_touch_input/mobile_touch`, which pulls the optional
+/// `virtual_joystick` dep. Added UNCONDITIONALLY whenever `mobile_touch` is
+/// compiled — no runtime boolean gates it. To rip the touch controls out, remove
+/// the single `add_plugins(TouchControlsPlugin)` line below. On builds compiled
+/// without `mobile_touch` this is a no-op.
 ///
 /// The touch plugin runs ALONGSIDE the desktop input pipeline --
 /// both write into the same `ControlFrame` resource, with the
@@ -1038,7 +1040,7 @@ pub(super) fn add_input_plugins(_app: &mut App) {}
 /// inactive folder.
 #[cfg(feature = "mobile_touch")]
 pub(super) fn add_mobile_touch_plugin(app: &mut App) {
-    app.add_plugins(crate::host::mobile_input::bevy_plugin::TouchControlsPlugin);
+    app.add_plugins(ambition_touch_input::TouchControlsPlugin);
 }
 
 #[cfg(not(feature = "mobile_touch"))]

@@ -585,6 +585,47 @@ fn architecture_boundaries_input_crate_is_extracted() {
     );
 }
 
+/// App-thinness (ADR 0019): the mobile / touch input adapter is a sibling ENGINE
+/// crate (`ambition_touch_input`), not host code inside the app binary. It carries
+/// no app-only coupling (only the `ambition_input`/`gameplay_core`/`render`/`ui_nav`/
+/// `cutscene` library seams), so a second platformer host can reuse touch controls by
+/// adding the crate — the "second game" oracle. This guards the extraction: the app
+/// must WIRE the plugin from the crate, never re-own the adapter under `src/host/`.
+#[test]
+fn architecture_boundaries_touch_input_crate_is_extracted() {
+    let crate_root = repo_root().join("crates/ambition_touch_input");
+    assert_paths_exist(
+        &crate_root,
+        &[
+            "Cargo.toml",
+            "src/lib.rs",
+            "src/state.rs",
+            "src/bevy_plugin.rs",
+            "src/menu_bridge.rs",
+            "src/layout.rs",
+            "src/exclusion.rs",
+        ],
+        "ambition_touch_input extracted crate",
+    );
+    // The old in-app location is gone — the app no longer OWNS the touch adapter.
+    let app_src = repo_root().join("crates/ambition_app/src");
+    assert_paths_absent(
+        &app_src,
+        &["host/mobile_input", "host/mobile_input/mod.rs"],
+        "in-app touch adapter (moved to ambition_touch_input)",
+    );
+    // The app WIRES the plugin from the crate, not from a local module path.
+    let plugins = fs::read_to_string(app_src.join("app/plugins.rs")).expect("read plugins.rs");
+    assert!(
+        plugins.contains("ambition_touch_input::TouchControlsPlugin"),
+        "the app adds the touch plugin from the ambition_touch_input crate"
+    );
+    assert!(
+        !plugins.contains("crate::host::mobile_input"),
+        "the app must not reference the removed in-app mobile_input module path"
+    );
+}
+
 #[test]
 fn architecture_boundaries_room_feature_spawns_do_not_add_raw_spawns() {
     let src_root = crate_src();

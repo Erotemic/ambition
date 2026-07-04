@@ -158,7 +158,7 @@ mod tests {
     }
 
     fn spawn_gnu_ton_runtime() -> BossClusterScratch {
-        let behavior = BossBehaviorProfile::gnu_ton();
+        let behavior = BossBehaviorProfile::from_data("gnu_ton");
         let combat_size = behavior.combat_size.unwrap_or(ae::Vec2::new(220.0, 220.0));
         let pos = ae::Vec2::new(500.0, 400.0);
         let aabb = ae::Aabb::new(pos, combat_size * 0.5);

@@ -313,65 +313,13 @@ impl BossBehaviorProfile {
             .unwrap_or_else(|| panic!("boss profile '{id}' not in boss_profiles.ron"))
     }
 
-    /// Clockwork Warden / Gradient Sentinel — polished multi-phase
-    /// Scripted boss. Authored in `boss_profiles.ron`; design notes
-    /// live at `dev/journals/gradient-sentinel-boss-design-2026-05-25.md`.
-    pub fn clockwork_warden() -> Self {
-        Self::from_data("clockwork_warden")
-    }
-
-    /// Mockingbird — airborne ship/bird-like Cycle boss.
-    /// Authored in `boss_profiles.ron`.
-    pub fn mockingbird() -> Self {
-        Self::from_data("mockingbird")
-    }
-
-    /// GNU-ton — stationary giant with wide-ranging hand attacks.
-    /// Authored in `boss_profiles.ron`.
-    pub fn gnu_ton() -> Self {
-        Self::from_data("gnu_ton")
-    }
-
-    /// Smirking Behemoth — cut-rope environmental boss.
-    /// Authored in `boss_profiles.ron`.
-    pub fn smirking_behemoth_boss() -> Self {
-        Self::from_data("smirking_behemoth_boss")
-    }
-
-    /// Flying Spaghetti Monster — false-god boss (canon: Jon).
-    /// Authored in `boss_profiles.ron`.
-    pub fn flying_spaghetti_monster_boss() -> Self {
-        Self::from_data("flying_spaghetti_monster_boss")
-    }
-
-    /// T-rex — grounded, melee-centric bipedal boss (canon: Jon).
-    /// Authored in `boss_profiles.ron`.
-    pub fn trex_boss() -> Self {
-        Self::from_data("trex_boss")
-    }
-
-    /// Mode Collapse — a floating summoner boss. Authored in `boss_profiles.ron`.
-    pub fn mode_collapse_boss() -> Self {
-        Self::from_data("mode_collapse_boss")
-    }
-
-    /// Exploding Gradient — a floating ranged-pressure boss. Authored in
-    /// `boss_profiles.ron`.
-    pub fn exploding_gradient_boss() -> Self {
-        Self::from_data("exploding_gradient_boss")
-    }
-
-    /// Overflow — an aerial melee dive-bomber. Authored in `boss_profiles.ron`.
-    pub fn overflow_boss() -> Self {
-        Self::from_data("overflow_boss")
-    }
-
     /// Fallback profile for authored bosses whose canonical id isn't
-    /// in `boss_profiles.ron`. Clones the Clockwork Warden's tuning
-    /// and overrides the id so the encounter pipeline doesn't fault
-    /// when an unknown boss spawns.
+    /// in `boss_profiles.ron`. Clones the shipped default boss's tuning
+    /// (`clockwork_warden`, the polished multi-phase reference) and
+    /// overrides the id so the encounter pipeline doesn't fault when an
+    /// unknown boss spawns.
     pub fn generic(id: impl Into<String>) -> Self {
-        let mut profile = Self::clockwork_warden();
+        let mut profile = Self::from_data("clockwork_warden");
         profile.id = id.into();
         profile
     }
@@ -383,12 +331,37 @@ impl BossBehaviorProfile {
     pub fn for_authored_boss(id_or_name: &str) -> Self {
         let key = crate::boss_encounter::encounter_id_from_name(id_or_name);
         if key == "gradient_sentinel" {
-            return Self::clockwork_warden();
+            return Self::from_data("clockwork_warden");
         }
         boss_profiles()
             .get(&key)
             .cloned()
             .unwrap_or_else(|| Self::generic(key))
+    }
+}
+
+/// Named-boss test conveniences: thin `from_data` aliases so a test can read
+/// `BossBehaviorProfile::gnu_ton()` instead of the stringly id. The engine
+/// ships NO named bosses — production resolves every boss by id through
+/// `from_data` / `for_authored_boss`, and the DATA lives in
+/// `boss_profiles.ron`. These aliases exist only for the boss test suites.
+#[cfg(test)]
+impl BossBehaviorProfile {
+    /// Clockwork Warden / Gradient Sentinel — the polished multi-phase
+    /// Scripted reference boss (design notes:
+    /// `dev/journals/gradient-sentinel-boss-design-2026-05-25.md`).
+    pub fn clockwork_warden() -> Self {
+        Self::from_data("clockwork_warden")
+    }
+
+    /// Mockingbird — airborne ship/bird-like Cycle boss.
+    pub fn mockingbird() -> Self {
+        Self::from_data("mockingbird")
+    }
+
+    /// GNU-ton — stationary giant with wide-ranging hand attacks.
+    pub fn gnu_ton() -> Self {
+        Self::from_data("gnu_ton")
     }
 }
 

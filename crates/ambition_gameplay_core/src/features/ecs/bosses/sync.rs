@@ -161,15 +161,15 @@ pub fn sprite_target_for_boss(behavior_id: &str) -> &str {
 /// by test fixtures and bosses without a registered sheet.
 pub fn sprite_render_size_for(target: &str, boss_size: ae::Vec2) -> ae::Vec2 {
     use crate::boss_encounter::sprites;
-    let spec = match target {
-        "boss" => Some(sprites::BOSS_SHEET),
-        "mockingbird" | "mockingbird_boss" => Some(sprites::MOCKINGBIRD_SHEET),
-        "smirking_behemoth_boss" => Some(sprites::SMIRKING_BEHEMOTH_SHEET),
+    let spec: Option<&sprites::BossSheetSpec> = match target {
+        "boss" => Some(&*sprites::BOSS_SHEET),
+        "mockingbird" | "mockingbird_boss" => Some(&*sprites::MOCKINGBIRD_SHEET),
+        "smirking_behemoth_boss" => Some(&*sprites::SMIRKING_BEHEMOTH_SHEET),
         // `gnu_ton_boss` is the actual sheet target ID emitted by the
         // gnu_ton spritesheet RON. `gnu_ton_body` / `gnu_ton_hands` /
         // `gnu_ton` (legacy aliases) stay mapped for compatibility.
         "gnu_ton_boss" | "gnu_ton" | "gnu_ton_body" | "gnu_ton_hands" => {
-            Some(sprites::GNU_TON_SHEET)
+            Some(&*sprites::GNU_TON_SHEET)
         }
         _ => None,
     };

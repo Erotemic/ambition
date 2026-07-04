@@ -431,3 +431,53 @@ fn gnu_ton_side_sweep_resolves_to_itself() {
         BossAnim::SideSweep
     );
 }
+
+/// C6 fixture-vs-const: the content-authored `boss_sheets.ron` deserializes to
+/// sheet specs BYTE-IDENTICAL to the engine's built-in demo-boss defaults. This
+/// is what makes the install safe — content owns the data, but the shipped
+/// bosses render unchanged until someone deliberately edits a row.
+#[test]
+fn boss_sheets_ron_matches_builtin_defaults() {
+    let registry = BossSheetRegistry::from_ron(include_str!(
+        "../../../../ambition_content/assets/data/boss_sheets.ron"
+    ));
+    for (key, builtin) in super::builtin_boss_sheets() {
+        let authored = registry
+            .get(&key)
+            .unwrap_or_else(|| panic!("boss_sheets.ron is missing the built-in key {key:?}"));
+        assert_eq!(
+            *authored, builtin,
+            "authored sheet for {key:?} drifted from the built-in default"
+        );
+    }
+}
+
+/// C6: a content-authored sheet REPLACES the built-in for that key — the whole
+/// point of the override seam. Uses the registry directly (not the process-global
+/// install) so the test carries no global state.
+#[test]
+fn an_authored_sheet_overrides_the_built_in_layout() {
+    let ron = r#"{
+        "mockingbird": (
+            label_width: 0,
+            frame_width: 999,
+            frame_height: 111,
+            rows: [(Rest, (frame_count: 3, duration_secs: 0.1))],
+            collision_scale: 2.0,
+            feet_anchor_y: 0.0,
+            frame_sample_inset: 1,
+            body_centered: false,
+            authored_faces_left: false,
+        ),
+    }"#;
+    let registry = BossSheetRegistry::from_ron(ron);
+    let over = registry
+        .get("mockingbird")
+        .expect("authored mockingbird override");
+    assert_eq!(over.frame_width, 999, "override frame_width takes effect");
+    assert_ne!(
+        over.frame_width, MOCKINGBIRD_SHEET.frame_width,
+        "the override differs from the built-in default"
+    );
+    assert_eq!(over.rows.len(), 1, "override authors its own row set");
+}

@@ -16,7 +16,7 @@ use crate::character_sprites::{RenderBasis, SheetRecord};
 use crate::persistence::settings::VisualQualityBudget;
 
 /// Boss animation rows in the order the generator emits them.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub enum BossAnim {
     Rest = 0,
     FloorSlam = 1,
@@ -27,7 +27,7 @@ pub enum BossAnim {
     Death = 6,
 }
 
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct AnimRow {
     pub frame_count: usize,
     pub duration_secs: f32,
@@ -39,7 +39,14 @@ pub struct AnimRow {
 /// ships 6 with no `FloorSlam`/`SideSweep`). Per-target anchor/scale
 /// tuning keeps bosses rendered at the right scale relative to playable
 /// characters.
-#[derive(Clone, Copy, Debug)]
+///
+/// **Owned + serde-authorable (C6):** `rows` is an owned `Vec` and the whole
+/// spec is `serde`-round-trippable, so a content boss authors its sheet layout as
+/// DATA in `boss_sheets.ron` (installed via [`install_boss_sheets`], mirroring
+/// `boss_profiles.ron` / [`crate::boss_encounter::behavior::BossProfileRegistry`]).
+/// The engine's built-in demo bosses stay in [`builtin_boss_sheets`] as the
+/// byte-identical default; an installed override REPLACES a key's sheet.
+#[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct BossSheetSpec {
     pub label_width: u32,
     /// Per-frame size in source-image pixels after the gen2d union-bbox
@@ -49,7 +56,7 @@ pub struct BossSheetSpec {
     pub frame_height: u32,
     /// Animation rows in the order the generator emits them in the PNG.
     /// Sparse: a sheet may omit any row except `Rest` (the fallback).
-    pub rows: &'static [(BossAnim, AnimRow)],
+    pub rows: Vec<(BossAnim, AnimRow)>,
     /// Multiplier applied to an entity's collision-box max dimension to
     /// derive the rendered sprite's height. Width is derived from the
     /// cropped frame's aspect ratio so the boss isn't squashed.
@@ -82,14 +89,60 @@ pub struct BossSheetSpec {
     pub authored_faces_left: bool,
 }
 
+/// Content-installed boss SHEET registry (C6), mirroring
+/// [`crate::boss_encounter::behavior::BossProfileRegistry`]. A content boss
+/// authors its sheet layout in `boss_sheets.ron`
+/// (`HashMap<boss_key, BossSheetSpec>`) and installs it via [`install_boss_sheets`]
+/// at plugin-build time; an installed key REPLACES the built-in sheet for that
+/// key. Absent = the built-in `LazyLock` default — the E58 "empty default =
+/// built-in" pattern, so no content edit to core is needed to author a sheet.
+#[derive(Clone, Debug, Default)]
+pub struct BossSheetRegistry {
+    by_key: std::collections::HashMap<String, BossSheetSpec>,
+}
+
+impl BossSheetRegistry {
+    /// Parse a boss-sheet RON document (`HashMap<boss_key, BossSheetSpec>`) — the
+    /// content layer's install entry point.
+    pub fn from_ron(ron: &str) -> Self {
+        let by_key = ron::from_str(ron).unwrap_or_else(|err| {
+            panic!("boss_sheets.ron failed to deserialize as HashMap<String, BossSheetSpec>: {err}")
+        });
+        Self { by_key }
+    }
+
+    fn get(&self, key: &str) -> Option<&BossSheetSpec> {
+        self.by_key.get(key)
+    }
+}
+
+/// Content-installed boss-sheet override. Set once at plugin-build time; ADDITIVE
+/// — only the keys present here override the built-ins (unlike the mandatory
+/// `BossProfileRegistry`, since the engine ships its own demo-boss sheets).
+static BOSS_SHEET_OVERRIDE: std::sync::OnceLock<BossSheetRegistry> = std::sync::OnceLock::new();
+
+/// Install the authored boss-sheet registry — `ambition_content` calls this at
+/// plugin-build time alongside `install_boss_profiles`.
+pub fn install_boss_sheets(registry: BossSheetRegistry) {
+    let _ = BOSS_SHEET_OVERRIDE.set(registry);
+}
+
+/// The content-authored sheet override for `boss_key`, if one was installed.
+/// Returns `None` (→ built-in default) when no registry is installed or the key
+/// is absent from it.
+pub fn boss_sheet_override(key: &str) -> Option<BossSheetSpec> {
+    BOSS_SHEET_OVERRIDE.get().and_then(|r| r.get(key).cloned())
+}
+
 // `feet_anchor_y` matches the body-metrics measurement for the current
 // generator output. Resync after regenerating the boss sheet by checking
 // the manifest's `body_metrics.feet_anchor_norm.y`.
-pub const BOSS_SHEET: BossSheetSpec = BossSheetSpec {
+pub static BOSS_SHEET: std::sync::LazyLock<BossSheetSpec> =
+    std::sync::LazyLock::new(|| BossSheetSpec {
     label_width: 100,
     frame_width: 128,
     frame_height: 128,
-    rows: &[
+    rows: vec![
         (
             BossAnim::Rest,
             AnimRow {
@@ -147,7 +200,7 @@ pub const BOSS_SHEET: BossSheetSpec = BossSheetSpec {
     frame_sample_inset: 1,
     body_centered: false,
     authored_faces_left: false,
-};
+});
 
 /// The Mockingbird boss sheet from the standalone Python generator
 /// (`tools/ambition_sprite2d_renderer/mockingbird_boss_sprite_generator.py`,
@@ -165,7 +218,8 @@ pub const BOSS_SHEET: BossSheetSpec = BossSheetSpec {
 ///
 /// `SideSweep` is unmapped; `BossAnimator::request` falls back to
 /// `Rest` if the schedule asks for a row this sheet doesn't ship.
-pub const MOCKINGBIRD_SHEET: BossSheetSpec = BossSheetSpec {
+pub static MOCKINGBIRD_SHEET: std::sync::LazyLock<BossSheetSpec> =
+    std::sync::LazyLock::new(|| BossSheetSpec {
     // The mockingbird sheet has no per-row label strip — frame 0
     // sits at x=0 — so label_width is zero.
     label_width: 0,
@@ -175,7 +229,7 @@ pub const MOCKINGBIRD_SHEET: BossSheetSpec = BossSheetSpec {
     // packing a short/wide silhouette into a mostly-empty square canvas.
     frame_width: 576,
     frame_height: 216,
-    rows: &[
+    rows: vec![
         (
             BossAnim::Rest,
             AnimRow {
@@ -237,7 +291,7 @@ pub const MOCKINGBIRD_SHEET: BossSheetSpec = BossSheetSpec {
     // The mockingbird sheet is drawn in a left-facing profile, so it must
     // invert the renderer's faces-right assumption or it always faces away.
     authored_faces_left: true,
-};
+});
 
 /// Smirking Behemoth / "You Have To Cut The Rope" boss sheet.
 ///
@@ -252,11 +306,12 @@ pub const MOCKINGBIRD_SHEET: BossSheetSpec = BossSheetSpec {
 ///
 /// Rows that the sheet does not ship (`SideSweep`, `DashEcho`, `Hit`)
 /// fall back to `Rest` through `BossSheetSpec::resolve_anim`.
-pub const SMIRKING_BEHEMOTH_SHEET: BossSheetSpec = BossSheetSpec {
+pub static SMIRKING_BEHEMOTH_SHEET: std::sync::LazyLock<BossSheetSpec> =
+    std::sync::LazyLock::new(|| BossSheetSpec {
     label_width: 100,
     frame_width: 208,
     frame_height: 288,
-    rows: &[
+    rows: vec![
         (
             BossAnim::Rest,
             AnimRow {
@@ -295,7 +350,7 @@ pub const SMIRKING_BEHEMOTH_SHEET: BossSheetSpec = BossSheetSpec {
     frame_sample_inset: 1,
     body_centered: false,
     authored_faces_left: false,
-};
+});
 
 impl BossSheetSpec {
     fn row_index(&self, anim: BossAnim) -> Option<usize> {
@@ -486,11 +541,12 @@ pub(crate) const TREX_BOSS_FILENAME: &str = "trex_enemy_spritesheet.png";
 /// `collision_scale: 4.5` makes the 768×576 sprite render much larger
 /// than the authored boss box, so the giant body dominates the arena
 /// while runtime hitboxes stay tied to named parts.
-pub const GNU_TON_SHEET: BossSheetSpec = BossSheetSpec {
+pub static GNU_TON_SHEET: std::sync::LazyLock<BossSheetSpec> =
+    std::sync::LazyLock::new(|| BossSheetSpec {
     label_width: 0,
     frame_width: 768,
     frame_height: 576,
-    rows: &[
+    rows: vec![
         (
             BossAnim::Rest,
             AnimRow {
@@ -543,7 +599,7 @@ pub const GNU_TON_SHEET: BossSheetSpec = BossSheetSpec {
     frame_sample_inset: 1,
     body_centered: true,
     authored_faces_left: false,
-};
+});
 
 /// Flying Spaghetti Monster boss sheet (7 rows). The sheet ships its own attack
 /// rows, so unlike the old generic fallback this renders the noodly appendages
@@ -557,11 +613,12 @@ pub const GNU_TON_SHEET: BossSheetSpec = BossSheetSpec {
 /// `load_named_boss_sprite_via_catalog`), so a generator resolution change no
 /// longer desyncs the in-game indexing. The values mirror the current generated
 /// crop so headless/no-asset renders still get the right aspect.
-pub const FLYING_SPAGHETTI_MONSTER_SHEET: BossSheetSpec = BossSheetSpec {
+pub static FLYING_SPAGHETTI_MONSTER_SHEET: std::sync::LazyLock<BossSheetSpec> =
+    std::sync::LazyLock::new(|| BossSheetSpec {
     label_width: 100,
     frame_width: 393,
     frame_height: 344,
-    rows: &[
+    rows: vec![
         (
             BossAnim::Rest,
             AnimRow {
@@ -617,7 +674,7 @@ pub const FLYING_SPAGHETTI_MONSTER_SHEET: BossSheetSpec = BossSheetSpec {
     frame_sample_inset: 1,
     body_centered: true,
     authored_faces_left: false,
-};
+});
 
 /// T-Rex boss sheet (398×320 frames, 9 rows; reuses the trex *enemy* PNG). The
 /// sheet has more rows than the 7-variant `BossAnim`, so `tail_swipe` and
@@ -627,11 +684,12 @@ pub const FLYING_SPAGHETTI_MONSTER_SHEET: BossSheetSpec = BossSheetSpec {
 /// charge→FloorSlam, bite→SideSweep, roar→SpikeHalo, tail_swipe→(SideSweep,
 /// atlas-only), stomp→(FloorSlam, atlas-only), hurt→Hit, death→Death. Grounded
 /// bipedal, so NOT `body_centered`. _Render scale / anchor are first-pass._
-pub const TREX_BOSS_SHEET: BossSheetSpec = BossSheetSpec {
+pub static TREX_BOSS_SHEET: std::sync::LazyLock<BossSheetSpec> =
+    std::sync::LazyLock::new(|| BossSheetSpec {
     label_width: 100,
     frame_width: 398,
     frame_height: 320,
-    rows: &[
+    rows: vec![
         (
             BossAnim::Rest,
             AnimRow {
@@ -703,7 +761,7 @@ pub const TREX_BOSS_SHEET: BossSheetSpec = BossSheetSpec {
     frame_sample_inset: 1,
     body_centered: false,
     authored_faces_left: false,
-};
+});
 
 /// Sandbox-side `(label, filename)` rows for every boss spritesheet
 /// the sandbox knows about. The aggregator in
@@ -735,18 +793,49 @@ pub fn all_boss_sprite_filenames() -> Vec<(&'static str, &'static str)> {
 /// in `all_boss_sprite_filenames`), not a new loader fn or struct field. The
 /// generic `gradient_sentinel` sheet is excluded: it loads into `GameAssets::boss`
 /// as the fallback via `load_boss_sprite_in`.
+/// The engine's built-in demo-boss sheets, keyed by the boss key the override
+/// system resolves by. This is the byte-identical REFERENCE the content
+/// `boss_sheets.ron` is authored from (and pinned against by
+/// `boss_sheets_ron_matches_builtin_defaults`). Content that ships its own
+/// bosses adds keys here in RON and installs via [`install_boss_sheets`].
+pub fn builtin_boss_sheets() -> std::collections::HashMap<String, BossSheetSpec> {
+    let mut m = std::collections::HashMap::new();
+    m.insert("gradient_sentinel".to_string(), BOSS_SHEET.clone());
+    m.insert("mockingbird".to_string(), MOCKINGBIRD_SHEET.clone());
+    m.insert("gnu_ton".to_string(), GNU_TON_SHEET.clone());
+    m.insert("gnu_ton_body".to_string(), GNU_TON_SHEET.clone());
+    m.insert("gnu_ton_hands".to_string(), GNU_TON_SHEET.clone());
+    m.insert(
+        "smirking_behemoth_boss".to_string(),
+        SMIRKING_BEHEMOTH_SHEET.clone(),
+    );
+    m.insert(
+        "flying_spaghetti_monster_boss".to_string(),
+        FLYING_SPAGHETTI_MONSTER_SHEET.clone(),
+    );
+    m.insert("trex_boss".to_string(), TREX_BOSS_SHEET.clone());
+    m
+}
+
 pub fn dedicated_boss_sheets() -> [(&'static str, BossSheetSpec); 7] {
+    // Each key resolves to the content-authored override (`boss_sheets.ron`) if
+    // one is installed, else the built-in default — the E58 "empty default =
+    // built-in" pattern, now for sheet layouts.
+    let resolve =
+        |key: &'static str, builtin: &std::sync::LazyLock<BossSheetSpec>| -> (&'static str, BossSheetSpec) {
+            (key, boss_sheet_override(key).unwrap_or_else(|| (*builtin).clone()))
+        };
     [
-        ("mockingbird", MOCKINGBIRD_SHEET),
-        ("gnu_ton", GNU_TON_SHEET),
-        ("smirking_behemoth_boss", SMIRKING_BEHEMOTH_SHEET),
-        ("gnu_ton_body", GNU_TON_SHEET),
-        ("gnu_ton_hands", GNU_TON_SHEET),
-        (
+        resolve("mockingbird", &MOCKINGBIRD_SHEET),
+        resolve("gnu_ton", &GNU_TON_SHEET),
+        resolve("smirking_behemoth_boss", &SMIRKING_BEHEMOTH_SHEET),
+        resolve("gnu_ton_body", &GNU_TON_SHEET),
+        resolve("gnu_ton_hands", &GNU_TON_SHEET),
+        resolve(
             "flying_spaghetti_monster_boss",
-            FLYING_SPAGHETTI_MONSTER_SHEET,
+            &FLYING_SPAGHETTI_MONSTER_SHEET,
         ),
-        ("trex_boss", TREX_BOSS_SHEET),
+        resolve("trex_boss", &TREX_BOSS_SHEET),
     ]
 }
 
@@ -766,7 +855,7 @@ pub fn load_boss_sprite_in(
         asset_server,
         layouts,
         "gradient_sentinel",
-        BOSS_SHEET,
+        boss_sheet_override("gradient_sentinel").unwrap_or_else(|| BOSS_SHEET.clone()),
         quality,
     )
 }
@@ -956,7 +1045,7 @@ pub struct BossAnimator {
 impl BossAnimator {
     pub fn new(asset: &BossSpriteAsset) -> Self {
         Self {
-            spec: asset.spec,
+            spec: asset.spec.clone(),
             record: asset.record.clone(),
             pages: asset.pages.clone(),
             current: BossAnim::Rest,

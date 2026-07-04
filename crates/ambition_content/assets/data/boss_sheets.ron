@@ -1,0 +1,316 @@
+// Boss SPRITESHEET layouts — content-authored sheet specs (C6).
+//
+// Top-level shape: `{ "<boss_key>": BossSheetSpec }`, parsed into a
+// `BossSheetRegistry` and installed via `install_boss_sheets` at plugin-build
+// time (mirrors `boss_profiles.ron` / `BossProfileRegistry`). An installed key
+// REPLACES the engine's built-in default sheet for that key; keys absent here
+// fall back to the built-in `LazyLock` default in
+// `gameplay_core::boss_encounter::sprites`.
+//
+// These rows are byte-identical to the built-in demo-boss defaults (pinned by
+// `boss_sheets_ron_matches_builtin_defaults`). To re-author a boss's sheet
+// layout, edit its row here — no Rust change. `boss_key` is the lowercased boss
+// behavior id the renderer dispatches on; GNU-ton's split render reads the
+// `gnu_ton_body` / `gnu_ton_hands` keys.
+{
+    "flying_spaghetti_monster_boss": (
+        label_width: 100,
+        frame_width: 393,
+        frame_height: 344,
+        rows: [
+            (Rest, (
+                frame_count: 6,
+                duration_secs: 0.132,
+            )),
+            (DashEcho, (
+                frame_count: 8,
+                duration_secs: 0.098,
+            )),
+            (SideSweep, (
+                frame_count: 7,
+                duration_secs: 0.09,
+            )),
+            (FloorSlam, (
+                frame_count: 7,
+                duration_secs: 0.09,
+            )),
+            (SpikeHalo, (
+                frame_count: 7,
+                duration_secs: 0.09,
+            )),
+            (Hit, (
+                frame_count: 4,
+                duration_secs: 0.09,
+            )),
+            (Death, (
+                frame_count: 8,
+                duration_secs: 0.108,
+            )),
+        ],
+        collision_scale: 1.8,
+        feet_anchor_y: 0.0,
+        frame_sample_inset: 1,
+        body_centered: true,
+        authored_faces_left: false,
+    ),
+    "gnu_ton": (
+        label_width: 0,
+        frame_width: 768,
+        frame_height: 576,
+        rows: [
+            (Rest, (
+                frame_count: 10,
+                duration_secs: 0.11,
+            )),
+            (FloorSlam, (
+                frame_count: 10,
+                duration_secs: 0.072,
+            )),
+            (SideSweep, (
+                frame_count: 10,
+                duration_secs: 0.065,
+            )),
+            (SpikeHalo, (
+                frame_count: 9,
+                duration_secs: 0.09,
+            )),
+            (Hit, (
+                frame_count: 6,
+                duration_secs: 0.08,
+            )),
+            (Death, (
+                frame_count: 10,
+                duration_secs: 0.105,
+            )),
+        ],
+        collision_scale: 4.5,
+        feet_anchor_y: 0.0034722222,
+        frame_sample_inset: 1,
+        body_centered: true,
+        authored_faces_left: false,
+    ),
+    "gnu_ton_body": (
+        label_width: 0,
+        frame_width: 768,
+        frame_height: 576,
+        rows: [
+            (Rest, (
+                frame_count: 10,
+                duration_secs: 0.11,
+            )),
+            (FloorSlam, (
+                frame_count: 10,
+                duration_secs: 0.072,
+            )),
+            (SideSweep, (
+                frame_count: 10,
+                duration_secs: 0.065,
+            )),
+            (SpikeHalo, (
+                frame_count: 9,
+                duration_secs: 0.09,
+            )),
+            (Hit, (
+                frame_count: 6,
+                duration_secs: 0.08,
+            )),
+            (Death, (
+                frame_count: 10,
+                duration_secs: 0.105,
+            )),
+        ],
+        collision_scale: 4.5,
+        feet_anchor_y: 0.0034722222,
+        frame_sample_inset: 1,
+        body_centered: true,
+        authored_faces_left: false,
+    ),
+    "gnu_ton_hands": (
+        label_width: 0,
+        frame_width: 768,
+        frame_height: 576,
+        rows: [
+            (Rest, (
+                frame_count: 10,
+                duration_secs: 0.11,
+            )),
+            (FloorSlam, (
+                frame_count: 10,
+                duration_secs: 0.072,
+            )),
+            (SideSweep, (
+                frame_count: 10,
+                duration_secs: 0.065,
+            )),
+            (SpikeHalo, (
+                frame_count: 9,
+                duration_secs: 0.09,
+            )),
+            (Hit, (
+                frame_count: 6,
+                duration_secs: 0.08,
+            )),
+            (Death, (
+                frame_count: 10,
+                duration_secs: 0.105,
+            )),
+        ],
+        collision_scale: 4.5,
+        feet_anchor_y: 0.0034722222,
+        frame_sample_inset: 1,
+        body_centered: true,
+        authored_faces_left: false,
+    ),
+    "gradient_sentinel": (
+        label_width: 100,
+        frame_width: 128,
+        frame_height: 128,
+        rows: [
+            (Rest, (
+                frame_count: 8,
+                duration_secs: 0.12,
+            )),
+            (FloorSlam, (
+                frame_count: 7,
+                duration_secs: 0.082,
+            )),
+            (SideSweep, (
+                frame_count: 7,
+                duration_secs: 0.072,
+            )),
+            (SpikeHalo, (
+                frame_count: 8,
+                duration_secs: 0.092,
+            )),
+            (DashEcho, (
+                frame_count: 7,
+                duration_secs: 0.062,
+            )),
+            (Hit, (
+                frame_count: 5,
+                duration_secs: 0.09,
+            )),
+            (Death, (
+                frame_count: 8,
+                duration_secs: 0.11,
+            )),
+        ],
+        collision_scale: 1.6,
+        feet_anchor_y: -0.336,
+        frame_sample_inset: 1,
+        body_centered: false,
+        authored_faces_left: false,
+    ),
+    "mockingbird": (
+        label_width: 0,
+        frame_width: 576,
+        frame_height: 216,
+        rows: [
+            (Rest, (
+                frame_count: 6,
+                duration_secs: 0.11,
+            )),
+            (DashEcho, (
+                frame_count: 6,
+                duration_secs: 0.09,
+            )),
+            (FloorSlam, (
+                frame_count: 6,
+                duration_secs: 0.09,
+            )),
+            (SpikeHalo, (
+                frame_count: 6,
+                duration_secs: 0.088,
+            )),
+            (Hit, (
+                frame_count: 4,
+                duration_secs: 0.08,
+            )),
+            (Death, (
+                frame_count: 8,
+                duration_secs: 0.105,
+            )),
+        ],
+        collision_scale: 1.25,
+        feet_anchor_y: -0.055,
+        frame_sample_inset: 1,
+        body_centered: true,
+        authored_faces_left: true,
+    ),
+    "smirking_behemoth_boss": (
+        label_width: 100,
+        frame_width: 208,
+        frame_height: 288,
+        rows: [
+            (Rest, (
+                frame_count: 6,
+                duration_secs: 0.125,
+            )),
+            (FloorSlam, (
+                frame_count: 6,
+                duration_secs: 0.092,
+            )),
+            (SpikeHalo, (
+                frame_count: 6,
+                duration_secs: 0.082,
+            )),
+            (Death, (
+                frame_count: 8,
+                duration_secs: 0.108,
+            )),
+        ],
+        collision_scale: 1.0,
+        feet_anchor_y: -0.5,
+        frame_sample_inset: 1,
+        body_centered: false,
+        authored_faces_left: false,
+    ),
+    "trex_boss": (
+        label_width: 100,
+        frame_width: 398,
+        frame_height: 320,
+        rows: [
+            (Rest, (
+                frame_count: 6,
+                duration_secs: 0.14,
+            )),
+            (DashEcho, (
+                frame_count: 8,
+                duration_secs: 0.09,
+            )),
+            (FloorSlam, (
+                frame_count: 8,
+                duration_secs: 0.08,
+            )),
+            (SideSweep, (
+                frame_count: 7,
+                duration_secs: 0.08,
+            )),
+            (SpikeHalo, (
+                frame_count: 6,
+                duration_secs: 0.1,
+            )),
+            (SideSweep, (
+                frame_count: 7,
+                duration_secs: 0.08,
+            )),
+            (FloorSlam, (
+                frame_count: 6,
+                duration_secs: 0.09,
+            )),
+            (Hit, (
+                frame_count: 4,
+                duration_secs: 0.09,
+            )),
+            (Death, (
+                frame_count: 8,
+                duration_secs: 0.11,
+            )),
+        ],
+        collision_scale: 1.6,
+        feet_anchor_y: -0.5,
+        frame_sample_inset: 1,
+        body_centered: false,
+        authored_faces_left: false,
+    ),
+}

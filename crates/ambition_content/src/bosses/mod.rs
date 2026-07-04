@@ -44,6 +44,17 @@ pub fn install_boss_roster() {
         )),
     );
 
+    // Per-boss SPRITESHEET layouts (C6 — content out of core). Byte-identical to
+    // the engine's built-in demo-boss defaults (pinned by
+    // `boss_sheets_ron_matches_builtin_defaults`), so shipped bosses render
+    // unchanged; content re-authors a boss's sheet by editing its row in
+    // `boss_sheets.ron` with no Rust change.
+    ambition_gameplay_core::boss_encounter::sprites::install_boss_sheets(
+        ambition_gameplay_core::boss_encounter::sprites::BossSheetRegistry::from_ron(include_str!(
+            "../../assets/data/boss_sheets.ron"
+        )),
+    );
+
     // Per-boss encounter specs (HP / phase thresholds / timings / music), one
     // embedded RON per boss. Embedded (not fs-read) so shipped binaries carry
     // the data; the lib holds only the generic `BossEncounterSpec` schema.

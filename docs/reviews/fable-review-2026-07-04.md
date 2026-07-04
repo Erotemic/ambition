@@ -669,3 +669,73 @@ groundwork:
   R1.2 (both touch the boss chain-1 tuple + the schedule).
 
 *(R1.1 + R1.3 + R1.4 done. Remaining: R1.2 — reclassify/WorldView (see above); R1.5 sweep.)*
+
+---
+
+## R2 — the ability model (executor: opus, 2026-07-04)
+
+The R2 ability-model ENGINE is landed as data + primitives; the player-melee
+fold (R2.5) is the remaining consumer.
+
+### R2.1 — `EffectRef` schema: the ONE ability-vocabulary reference ✅ (byte-identical) — `68d1f328`
+`ambition_entity_catalog` gains `ParamValue(ron::Value)` (opaque params, hydrate
+via `Value::into_rust`; `Default` = empty `{}` table) + `EffectRef { key, params }`.
+Schema changes (AJ1): `MoveEventKind::Effect(EffectRef)`, `MoveWindow.sustain_effect:
+Option<EffectRef>`, NEW `HitVolume.on_hit: Option<EffectRef>`. RON authoring uses the
+anonymous-struct form `Effect((key: "x"))`. Dispatch bridge still drops params
+(no consumer until R2.2 threads `Special`). All construction migrated.
+
+### R2.4 — directional verb selection ✅ (byte-identical) — `d238f4cc`
+`AttackDir { Neutral, Up, Down, Back }` + `directional_verb_chain(base, dir,
+grounded)` (`attack_air_down → attack_down → attack_air → attack`) +
+`MoveGates::permits` + `MovesetContract::move_for_directional_verb` (pure,
+7 unit tests). `trigger_moveset_moves` reduces `ControlFrame.attack_axis`
+(body/gravity-local) → `AttackDir`, reads `BodyGroundState.on_ground`, resolves
+the melee verb directionally. Byte-identical: every current body authors only
+`"attack"`, which every direction resolves to.
+
+### R2 on-hit primitive + engine pogo ✅ (byte-identical) — `eff54cd2`
+New `combat/on_hit.rs`: `HitboxOnHit` sidecar + `dispatch_hitbox_on_hit`
+(decoupled from the damage resolvers — re-tests overlap, reuses `damage_lands`;
+covers every hitbox source uniformly) + `OnHitEffectMessage` + `apply_pogo_bounce`
++ `PogoTarget` capability. A down-air authoring `on_hit: Effect("pogo_bounce",
+(rise:…))` rebounds the OWNER off a `PogoTarget` victim. First live exercise of
+`ParamValue::hydrate` (empty params → default rise). 2 headless tests. No-op
+until a move authors `on_hit`.
+
+### R2.5 — the player-melee fold (REMAINING — the R2 capstone)
+The machinery is ready; the fold is the consumer. **Scope discovered** (from the
+flat `attack_spec_from_view` parity table in `ambition_combat`): the moveset must
+grow to match the flat directional swing, OR author approximate moves and let Jon
+tune feel (pre-release license). Gaps between `HitVolume`/`MoveSpec` and the flat
+`AttackSpec`:
+1. **self_impulse** — per-intent body-local lunge at swing start. The moveset has
+   no move-start self-motion. Add `MoveSpec.start_impulse: Option<(f32,f32)>`
+   applied at trigger (mut `BodyKinematics` + gravity rotation), OR drop and tune.
+2. **knockback VECTOR** — flat `AttackSpec.knockback` is a per-intent Vec2 (up-air
+   knocks up, back-air knocks back). `HitVolume.knockback` is a SCALAR with
+   resolver-derived direction → approximate for up/down. Widen or accept.
+3. **vertical commit** — Up-attacks floor a min ascend; AirDown a min descend.
+   No moveset equivalent; drop and tune, or a commit primitive.
+4. **damage_kind** — flat carries `DamageKind::Slash`/`Pogo`; `HitVolume` has
+   only `damage: i32`. Accept Slash default, or add.
+
+**Tractable plan** (affordance HUD STAYS — it only labels input→`AttackVariant`;
+`MovesetMelee` bypasses only the flat swing EXECUTION, not the HUD):
+(a) author `player_moveset()` from the parity table (jab→`attack`, u/d-tilt→
+`attack_up`/`attack_down`, airs→`attack_air`/`attack_air_up`/`attack_air_back`,
+d-air→`attack_air_down` + `on_hit: pogo_bounce`); (b) attach `ActorMoveset` +
+`MovesetMelee` to the player bundle; (c) reconcile pogo — enemies gain
+`PogoTarget` (victim pogo); the WORLD-ORB pogo (`BlockKind::PogoOrb` via
+`PogoTargetVolumes`) is a SEPARATE traversal mechanic tied to the flat down-air's
+active window (`attack.rs:450`) — relocate it to fire on a `MovesetMelee` body's
+down-air, or keep as a small general check; (d) headless-verify the player attack
+lands + BLIND feel; (e) later: retire the player-only flat directional execution
+(the shared `start_attack` stays for enemies).
+
+### DEFERRED until the fold (no consumer yet — avoid speculative generality)
+R2.2 (thread `EffectRef` params through the `Effect→Special` dispatch + install-time
+param validation) — real once a move-start/technique authors params. R2.3 (prefab
+registry — generalize `attack_move_from_melee`/`fire_move_from_ranged` into keyed
+`simple_melee`/`simple_ranged`) — DRY once the player moves give concrete shape.
+R2.6 (equipment→params merge) — once params thread through.

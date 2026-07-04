@@ -811,6 +811,106 @@ mod tests {
         assert_eq!(cap.hits.len(), 1, "no double hit across the whole move");
     }
 
+    /// B1 (fable review §B1): a moveset volume's authored offset is BODY-LOCAL
+    /// (side, down); the spawned `FollowOwner` hitbox must rotate it into the
+    /// owner's gravity frame at spawn, so the SAME move lands its box in the same
+    /// BODY-relative place under every gravity. Regression guard for the old
+    /// screen-frame spawn: an unrotated offset put an above-the-head strike into
+    /// the effective ceiling under sideways/inverted gravity, forking against the
+    /// gravity-aware player melee path.
+    #[test]
+    fn moveset_hitboxes_spawn_in_the_owner_gravity_frame() {
+        // Authored body-local rect: forward (side +28) AND above the head
+        // (down −20), non-square half so a 90° rotation is observable.
+        fn overhead_swat() -> MoveSpec {
+            let doc = ambition_entity_catalog::EntityCatalogDoc::parse(
+                r#"(
+                    schema_version: 1,
+                    entities: [(
+                        id: "seed",
+                        contracts: (moveset: Some((
+                            verbs: {"attack": "overhead"},
+                            moves: [(
+                                id: "overhead",
+                                clip: (clip: "slash", fallbacks: ["idle"]),
+                                duration_s: 0.68,
+                                windows: [
+                                    (start_s: 0.0, end_s: 0.28, tag: Startup, volumes: []),
+                                    (start_s: 0.28, end_s: 0.36, tag: Active, volumes: [
+                                        (shape: Rect(offset: (28.0, -20.0), half_extents: (16.0, 12.0)),
+                                         damage: 2, knockback: 40.0),
+                                    ]),
+                                    (start_s: 0.36, end_s: 0.68, tag: Recovery, volumes: []),
+                                ],
+                                events: [],
+                            )],
+                        ))),
+                    )],
+                )"#,
+            )
+            .unwrap();
+            doc.entity("seed")
+                .unwrap()
+                .contracts
+                .moveset
+                .as_ref()
+                .unwrap()
+                .move_for_verb("attack")
+                .unwrap()
+                .clone()
+        }
+
+        // Spawn under `gravity` (facing +1), run into the 0.28–0.36 active window,
+        // and read the live `FollowOwner` hitbox's world-frame offset + half.
+        fn spawn_and_read(gravity: ae::Vec2) -> (ae::Vec2, ae::Vec2) {
+            let (mut app, _victim) = app_with_victim();
+            app.insert_resource(crate::physics::GravityField { dir: gravity });
+            spawn_attacker(
+                &mut app,
+                ae::Vec2::new(100.0, 100.0),
+                ae::Vec2::new(15.0, 24.0),
+                overhead_swat(),
+            );
+            run_seconds(&mut app, 0.31); // t ≈ 0.32, inside the active window
+            let mut state = app.world_mut().query::<&Hitbox>();
+            let hb = state
+                .iter(app.world())
+                .next()
+                .expect("active window spawns the volume");
+            match hb.anchor {
+                HitboxAnchor::FollowOwner { local_offset } => (local_offset, hb.half_extent),
+                _ => panic!("a moveset volume must anchor FollowOwner"),
+            }
+        }
+
+        let authored_local = ae::Vec2::new(28.0, -20.0); // facing +1
+        let authored_half = ae::Vec2::new(16.0, 12.0);
+        for dir in [
+            ae::Vec2::new(0.0, 1.0),  // down (baseline)
+            ae::Vec2::new(1.0, 0.0),  // right
+            ae::Vec2::new(0.0, -1.0), // up
+            ae::Vec2::new(-1.0, 0.0), // left
+        ] {
+            let (world_offset, world_half) = spawn_and_read(dir);
+            let frame = ae::AccelerationFrame::new(dir);
+            // The stored WORLD offset, read back into the BODY frame, is invariant
+            // across gravities — the symmetry property an unrotated spawn breaks.
+            let recovered = frame.to_local(world_offset);
+            assert!(
+                (recovered - authored_local).length() < 1e-3,
+                "dir {dir:?}: the body-local strike offset must be gravity-invariant; \
+                 got {recovered:?}, want {authored_local:?}"
+            );
+            // The half-extent rotates too: (16,12) → (12,16) at 90°.
+            let expected_half = frame.to_world_half(authored_half);
+            assert!(
+                (world_half - expected_half).length() < 1e-3,
+                "dir {dir:?}: half-extent must rotate with gravity; got {world_half:?}, \
+                 want {expected_half:?}"
+            );
+        }
+    }
+
     /// W9 decomposability proof: the SAME MoveSpec value bound to a second,
     /// differently-shaped actor lands the same hit — re-binding is data.
     #[test]

@@ -2908,6 +2908,30 @@ LOGIC down to its owning `ambition_gameplay_core` module; the host schedule
   `PlatformerEnginePlugin` group (collect the ~30 engine plugins) — sprawly, deferred as noted in the
   handoff (do only if mechanical).
 
+### E60. §B frame-bug residue — VERIFIED complete in code; the one missing symmetry canary (B1) added ✅
+The handoff re-listed B1/B3/B4/B5/B6 as work, but a fresh code read confirms **every one already
+landed** (E2/E3/E5) with a §B comment marking the fix:
+- **B1** ✅ `combat/moveset.rs:364-392` rotates the authored volume offset through
+  `body_frame.to_world` (and `to_world_half` for the half-extent) at spawn — the unification with the
+  player-melee path.
+- **B3** ✅ `movement/blink.rs:35-49` (`complete_blink_clusters`) does `to_local` → damp `.x` / clamp
+  `.y` → `to_world`.
+- **B4** ✅ `movement/control.rs:139-140` — `vel -= frame.side * (facing * slash_recoil)`.
+- **B5** ✅ `movement/collision.rs` — `body_is_side_contact` delegates to `body_is_nested_along(_, _, Axis::Y)`
+  and `resolve_side_penetration(axis)` runs in axis-ROLE terms.
+- **B6** ✅ `movement/integration.rs:142-195` — ONE branch parameterized by `(side_axis, gravity_axis)`
+  from `gravity_on_x`: side-sweep → `apply_wall_abilities` → clear `on_ground` → gravity-sweep; no
+  per-orientation ordering divergence.
+- **B9** ✅ `movement/control.rs:31,72` fallback aim = `frame.side * ...`.
+The engine-core `c4_reaction_seams` harness pins B3/B4/B9 + the full jump/land + wall-slide traces under
+all four gravities. **The single gap:** B1 lives in gameplay_core (not the engine-core harness) and had
+NO dedicated gravity-symmetry test. **Added `moveset_hitboxes_spawn_in_the_owner_gravity_frame`** — spawns
+the same move under all four cardinal gravities and asserts the spawned `FollowOwner` hitbox's body-local
+offset is gravity-INVARIANT (and the half-extent rotates), a real canary (an unrotated spawn trips it under
+sideways/inverted gravity). **B2** (`surface_normal` stale-frame for non-surface-walkers) is the only §B
+item still open; it overlaps the A3/A4 shield/knockback/muzzle consumers and lands with that work (item 3).
+Green: moveset 11, c4 harness 6. No production change — §B was already done; this closes its test coverage.
+
 ## Next (in order) — **the MOVESET UNIFICATION is COMPLETE (E47–E55): melee, specials, ranged, AND boss strikes all run through the ONE moveset runtime.** The audit's TASK sections are stale; trust E-entries + a code re-check before working an item.
 
 ---
